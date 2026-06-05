@@ -16,6 +16,10 @@ export const DEFAULT_SETTINGS = {
     lang: 'es', voice: '', readName: true,
     rate: 1.2, pitch: 1, volume: 1,
     minLen: 1, maxLen: 150,
+    // Voces TikTok (Disney / personajes). Si tiktokVoice tiene valor, se usa esa voz
+    // (síntesis en el servidor) en vez de la voz del sistema. tiktokTranslateEs traduce
+    // el texto al inglés para las voces Disney (que solo existen en inglés).
+    tiktokVoice: '', tiktokTranslateEs: true,
     // Usuarios permitidos
     allowAll: true, allowFollowers: false, allowSubs: false, allowMods: false, allowTeam: false,
     // Tipos de comentarios (activador): all | dot | slash | command

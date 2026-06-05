@@ -2236,6 +2236,8 @@ function applyTtsUI(t) {
   const val = (id, v) => { const el = $(id); if (el) el.value = v; };
   set('tts-enabled', t.enabled);
   set('tts-readname', t.readName);
+  val('tts-tiktok-voice', t.tiktokVoice || '');
+  set('tts-tiktok-translate', t.tiktokTranslateEs !== false);
   val('tts-rate', t.rate ?? 1.2); const rv = $('tts-rate-val'); if (rv) rv.textContent = (+(t.rate ?? 1.2)).toFixed(1);
   val('tts-pitch', t.pitch ?? 1); const pv = $('tts-pitch-val'); if (pv) pv.textContent = (+(t.pitch ?? 1)).toFixed(1);
   val('tts-vol', t.volume ?? 1); const vv = $('tts-vol-val'); if (vv) vv.textContent = Math.round((t.volume ?? 1) * 100);
@@ -2373,10 +2375,17 @@ function ttsTriggerMatch(text) {
 }
 
 function ttsSpeakText(text) {
-  if (!TTS_HAS) return;
   const t = settings?.tts || {};
   const phrase = String(text || '').trim();
   if (!phrase) return;
+  // Si hay una voz TikTok elegida, la síntesis va por el servidor (voces Disney, etc.).
+  if (t.tiktokVoice) { ttsSpeakTikTok(phrase, t); return; }
+  ttsSpeakSystem(phrase, t);
+}
+
+// Voz del sistema (navegador), como siempre.
+function ttsSpeakSystem(phrase, t) {
+  if (!TTS_HAS) return;
   const u = new SpeechSynthesisUtterance(phrase);
   u.rate = t.rate || 1;
   u.pitch = t.pitch ?? 1;
@@ -2385,6 +2394,61 @@ function ttsSpeakText(text) {
   if (voice) u.voice = voice;
   else if (t.lang) { const byLang = ttsVoices.find((v) => (v.lang || '').toLowerCase().startsWith(t.lang.toLowerCase())); if (byLang) u.voice = byLang; }
   speechSynthesis.speak(u);
+}
+
+/* ---- Cola de audio para voces TikTok (no se solapan; van una tras otra) ---- */
+let ttsTkQueue = [];
+let ttsTkBusy = false;
+let ttsTkAudio = null;
+
+function ttsSpeakTikTok(phrase, t) {
+  ttsTkQueue.push({ text: phrase, voice: t.tiktokVoice, translate: t.tiktokTranslateEs !== false, volume: t.volume ?? 1 });
+  if (ttsTkQueue.length > 25) ttsTkQueue.shift(); // evita acumular si llega mucho chat
+  ttsTkPump();
+}
+
+function ttsStopTikTok() {
+  ttsTkQueue = [];
+  if (ttsTkAudio) { try { ttsTkAudio.pause(); } catch {} ttsTkAudio = null; }
+  ttsTkBusy = false;
+}
+
+async function ttsTkPump() {
+  if (ttsTkBusy) return;
+  ttsTkBusy = true;
+  while (ttsTkQueue.length) {
+    const item = ttsTkQueue.shift();
+    try {
+      const r = await fetch('/api/tts/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ text: item.text, voice: item.voice, translate: item.translate }),
+      });
+      const j = r.ok ? await r.json() : null;
+      if (j && j.ok && j.audio) {
+        await ttsPlayBase64(j.audio, j.mime || 'audio/mpeg', item.volume);
+        continue;
+      }
+    } catch { /* cae al respaldo */ }
+    // Si la síntesis TikTok falla, no nos quedamos mudos: usamos la voz del sistema.
+    ttsSpeakSystem(item.text, settings?.tts || {});
+  }
+  ttsTkBusy = false;
+}
+
+function ttsPlayBase64(b64, mime, volume) {
+  return new Promise((resolve) => {
+    try {
+      const audio = new Audio('data:' + mime + ';base64,' + b64);
+      audio.volume = Math.max(0, Math.min(1, Number(volume) ?? 1));
+      ttsTkAudio = audio;
+      const done = () => { if (ttsTkAudio === audio) ttsTkAudio = null; resolve(); };
+      audio.onended = done;
+      audio.onerror = done;
+      audio.play().catch(done);
+    } catch { resolve(); }
+  });
 }
 
 /* Comentario del chat */
@@ -2459,6 +2523,10 @@ function ttsOnGift(p) {
   if (lang) lang.addEventListener('change', () => { settings.tts.lang = lang.value; settings.tts.voice = ''; fillVoiceOptions(); save(); });
   const voice = $('tts-voice');
   if (voice) voice.addEventListener('change', () => { settings.tts.voice = voice.value; save(); });
+  const tkVoice = $('tts-tiktok-voice');
+  if (tkVoice) tkVoice.addEventListener('change', () => { settings.tts.tiktokVoice = tkVoice.value; save(); });
+  const tkTrans = $('tts-tiktok-translate');
+  if (tkTrans) tkTrans.addEventListener('change', () => { settings.tts.tiktokTranslateEs = tkTrans.checked; save(); });
   const rate = $('tts-rate');
   if (rate) rate.addEventListener('input', () => { $('tts-rate-val').textContent = (+rate.value).toFixed(1); settings.tts.rate = +rate.value; save(); });
   const pitch = $('tts-pitch');
@@ -2520,7 +2588,7 @@ function ttsOnGift(p) {
   const test = $('tts-test');
   if (test) test.onclick = () => ttsSpeakText('Hola, así se escucha el chat por voz');
   const stop = $('tts-stop');
-  if (stop) stop.onclick = () => { if (TTS_HAS) speechSynthesis.cancel(); };
+  if (stop) stop.onclick = () => { if (TTS_HAS) speechSynthesis.cancel(); ttsStopTikTok(); };
 })();
 
 // Las miniaturas de video ya no se autoreproducen (eso descargaba cada video completo

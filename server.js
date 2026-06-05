@@ -274,6 +274,130 @@ app.post('/api/upload', express.raw({ type: '*/*', limit: '30mb' }), (req, res) 
   });
 });
 
+/* ----------------------------- TTS: voces TikTok ----------------------------- */
+// Las voces "Disney/personaje" de TikTok no existen en el navegador: se sintetizan
+// llamando a un servicio de TikTok TTS desde el servidor (evita CORS) y se devuelve
+// el audio en base64. Además, opcionalmente traducimos ES→EN porque esas voces
+// solo hablan inglés. Si todo falla, el cliente vuelve a la voz del sistema.
+
+// Caché simple en memoria para traducciones (evita repetir llamadas para frases iguales).
+const ttsTranslateCache = new Map();
+function ttsTranslateCacheGet(key) { return ttsTranslateCache.get(key) || ''; }
+function ttsTranslateCacheSet(key, val) {
+  if (!val) return;
+  ttsTranslateCache.set(key, val);
+  if (ttsTranslateCache.size > 1000) {
+    // Borra la entrada más antigua para no crecer sin límite.
+    const first = ttsTranslateCache.keys().next().value;
+    if (first !== undefined) ttsTranslateCache.delete(first);
+  }
+}
+
+// Traducción gratuita con MyMemory (sin API key).
+async function ttsTranslateMyMemory(text, source, target) {
+  const url = 'https://api.mymemory.translated.net/get?q=' +
+    encodeURIComponent(text) + '&langpair=' + encodeURIComponent(source + '|' + target);
+  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) return '';
+  const j = await r.json();
+  const out = j && j.responseData && j.responseData.translatedText ? String(j.responseData.translatedText).trim() : '';
+  // MyMemory a veces devuelve avisos en mayúsculas cuando falla; los descartamos.
+  if (!out || /^MYMEMORY WARNING/i.test(out) || /QUERY LENGTH LIMIT/i.test(out)) return '';
+  return out;
+}
+
+app.post('/api/tts/translate', express.json(), async (req, res) => {
+  const text = String((req.body && req.body.text) || '').trim();
+  const sourceLang = String((req.body && req.body.source) || 'es').trim().toLowerCase().slice(0, 5) || 'es';
+  const targetLang = String((req.body && req.body.target) || 'en').trim().toLowerCase().slice(0, 5) || 'en';
+  if (!text) return res.status(400).json({ ok: false, error: 'missing_text' });
+  if (text.length > 300) return res.status(400).json({ ok: false, error: 'text_too_long' });
+  if (sourceLang === targetLang) return res.json({ ok: true, text, cached: false, same_lang: true });
+  const cacheKey = sourceLang + '|' + targetLang + '|' + text.toLowerCase();
+  const cached = ttsTranslateCacheGet(cacheKey);
+  if (cached) return res.json({ ok: true, text: cached, cached: true });
+  try {
+    const out = await ttsTranslateMyMemory(text, sourceLang, targetLang);
+    if (!out) return res.status(502).json({ ok: false, error: 'translate_failed' });
+    ttsTranslateCacheSet(cacheKey, out);
+    res.json({ ok: true, text: out, cached: false });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+}); 
+
+// Voces TikTok permitidas (lista blanca). Evita que se pidan voces inexistentes.
+const TIKTOK_VOICES = new Set([
+  // Disney / personajes
+  'en_us_ghostface', 'en_us_chewbacca', 'en_us_c3po', 'en_us_stitch', 'en_us_stormtrooper', 'en_us_rocket',
+  // Narrador / estilos (inglés)
+  'en_male_narration', 'en_male_funny', 'en_female_emotional', 'en_male_cody', 'en_female_samc',
+  // Inglés estándar
+  'en_us_001', 'en_us_002', 'en_us_006', 'en_us_007', 'en_us_009', 'en_us_010', 'en_uk_001', 'en_uk_003', 'en_au_001', 'en_au_002',
+  // Español
+  'es_002', 'es_mx_002', 'es_male_m3', 'es_female_f6',
+  // Otros idiomas
+  'fr_001', 'de_001', 'pt_br_005', 'it_male_m18', 'jp_001', 'kr_002',
+  // Canto
+  'en_female_f08_salut_damour', 'en_male_m03_lobby', 'en_female_f08_warmy_breeze',
+  'en_male_m03_sunshine_soon', 'en_female_ht_f08_glorious', 'en_male_sing_funny_it_goes_up',
+  'en_male_m2_xhxs_m03_silly', 'en_female_ht_f08_wonderful_world',
+]);
+
+// Sintetiza voz TikTok probando varios proxys públicos. Devuelve base64 (mp3) o ''.
+async function ttsSynthTikTok(text, voice) {
+  const body = JSON.stringify({ text, voice });
+  const headers = { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' };
+  // 1) Worker de Weilbyte (el más usado/estable).
+  try {
+    const r = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', { method: 'POST', headers, body });
+    if (r.ok) {
+      const j = await r.json();
+      if (j && j.data && !j.error) return String(j.data);
+    }
+  } catch { /* probamos el siguiente */ }
+  // 2) Gesserit (fallback).
+  try {
+    const r = await fetch('https://gesserit.co/api/tts', { method: 'POST', headers, body });
+    if (r.ok) {
+      const j = await r.json();
+      if (j && (j.base64 || j.data)) return String(j.base64 || j.data);
+    }
+  } catch { /* sin más fallbacks */ }
+  return '';
+}
+
+app.post('/api/tts/speak', express.json(), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
+  let text = String((req.body && req.body.text) || '').trim();
+  const voice = String((req.body && req.body.voice) || '').trim();
+  const translate = (req.body && req.body.translate) !== false;
+  if (!text) return res.status(400).json({ ok: false, error: 'missing_text' });
+  if (!TIKTOK_VOICES.has(voice)) return res.status(400).json({ ok: false, error: 'bad_voice' });
+  if (text.length > 280) text = text.slice(0, 280);
+
+  let translated = false;
+  let original = text;
+  // Traduce ES→EN solo para voces en inglés y si el texto parece español.
+  if (translate && voice.startsWith('en_') && /[áéíóúñ¿¡üA-Za-z]/.test(text)) {
+    try {
+      const key = 'es|en|' + text.toLowerCase();
+      let en = ttsTranslateCacheGet(key);
+      if (!en) { en = await ttsTranslateMyMemory(text, 'es', 'en'); if (en) ttsTranslateCacheSet(key, en); }
+      if (en) { text = en; translated = true; }
+    } catch { /* si falla, hablamos el original */ }
+  }
+
+  try {
+    const audio = await ttsSynthTikTok(text, voice);
+    if (!audio) return res.status(502).json({ ok: false, error: 'synth_failed' });
+    res.json({ ok: true, audio, mime: 'audio/mpeg', text, original, translated });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
 const server = http.createServer(app);
 
 /* ----------------------------------------------------------------------------
