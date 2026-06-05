@@ -7,7 +7,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, 'data');
+// Mismo criterio que server.js: en hosting usamos el disco persistente (DATA_DIR),
+// en local la carpeta "data" del proyecto. Así las cuentas no se pierden online.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 

@@ -19,7 +19,10 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
+// En hosting (Render) usamos un DISCO PERSISTENTE montado en la ruta de DATA_DIR
+// (ej. /var/data) para que usuarios y configuraciones NO se borren al redesplegar.
+// En local, si no existe la variable, se usa la carpeta "data" del proyecto.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 /* ----------------------------------------------------------------------------
