@@ -175,7 +175,16 @@ function handle(type, p) {
     case 'panic': stopPanelSounds(); break;
     case 'timer': renderTimerState(p); break;
     case 'timerBeep': break;
-    case 'emoteCatalog': emoteCatalog = p.results || []; if (!$('emoteModal').classList.contains('hidden')) renderEmoteGrid(); break;
+    case 'emoteCatalog':
+      emoteCatalog = p.results || [];
+      if (!$('emoteModal').classList.contains('hidden')) renderEmoteGrid();
+      // Refresca los iconos solo si hay alertas/videos con sticker (para que ahora
+      // muestren la imagen del sticker en vez del emoji), sin re-render innecesario.
+      if (settings) {
+        if ((settings.soundAlerts || []).some((a) => a.trigger === 'emote' && !a.emoteImage)) renderSoundAlerts();
+        if ((settings.videos || []).some((v) => v.trigger === 'emote' && !v.emoteImage)) renderVideos();
+      }
+      break;
   }
 }
 
@@ -820,6 +829,7 @@ $('vid-save').onclick = () => {
     likeMin: ev === 'like' ? Math.max(1, +$('vid-likemin').value || 1) : 0,
     likeGoal: ev === 'likeGlobal' ? Math.max(1, +$('vid-likegoal').value || 100) : 0,
     emoteId: ev === 'emote' ? $('vid-emoteid').value.trim() : '',
+    emoteImage: ev === 'emote' ? emoteImgById($('vid-emoteid').value.trim()) : '',
     command: ev === 'chatCommand' ? $('vid-command').value.trim() : '',
     url: vidPending.url,
     fileName: vidPending.name || 'video',
@@ -1187,7 +1197,14 @@ const EVENT_EMOJI = {
   chatCommand: '💬', firstMessage: '🙋',
 };
 
-// Devuelve el HTML del icono de la alerta (regalo real, imagen propia o emoji)
+// Busca la imagen de un sticker/emote por su id en el catálogo cargado.
+function emoteImgById(id) {
+  if (!id) return '';
+  const e = emoteCatalog.find((x) => String(x.id) === String(id));
+  return e?.image || '';
+}
+
+// Devuelve el HTML del icono de la alerta (regalo real, sticker, imagen propia o emoji)
 function alertIconHTML(a) {
   if (a.image) return `<img class="sa-ic-img" src="${esc(a.image)}" loading="lazy" decoding="async">`;
   const trig = a.trigger || 'gift';
@@ -1199,6 +1216,10 @@ function alertIconHTML(a) {
     const g = giftCatalog.find((x) => x.name.toLowerCase() === a.giftName.toLowerCase());
     if (g?.image) return `<img class="sa-ic-img" src="${esc(g.image)}" loading="lazy" decoding="async">`;
   }
+  if (trig === 'emote') {
+    const img = a.emoteImage || emoteImgById(a.emoteId);
+    if (img) return `<img class="sa-ic-img" src="${esc(img)}" loading="lazy" decoding="async">`;
+  }
   return `<span class="sa-ic-emoji">${EVENT_EMOJI[trig] || '🔔'}</span>`;
 }
 
@@ -1209,6 +1230,7 @@ function alertIconSmall(a) {
   if (a.image) img = a.image;
   else if (trig === 'gift' && a.giftId) img = giftCatalogById.get(String(a.giftId))?.image || '';
   else if (trig === 'gift' && a.giftName) img = giftCatalog.find((x) => x.name.toLowerCase() === a.giftName.toLowerCase())?.image || '';
+  else if (trig === 'emote') img = a.emoteImage || emoteImgById(a.emoteId);
   if (img) return `<img class="sa-ic-mini" src="${esc(img)}" loading="lazy" decoding="async">`;
   return `<span class="sa-ic-mini-emoji">${EVENT_EMOJI[trig] || '🔔'}</span>`;
 }
@@ -1443,6 +1465,7 @@ $('sa-save').onclick = () => {
     likeMin: ev === 'like' ? Math.max(1, +$('sa-likemin').value || 1) : 0,
     likeGoal: ev === 'likeGlobal' ? Math.max(1, +$('sa-likegoal').value || 100) : 0,
     emoteId: ev === 'emote' ? $('sa-emoteid').value.trim() : '',
+    emoteImage: ev === 'emote' ? emoteImgById($('sa-emoteid').value.trim()) : '',
     sound: pendingSound.url,
     soundName: pendingSound.name || 'audio',
     image: '',
