@@ -611,7 +611,7 @@ function renderVideos() {
   el.innerHTML = list.map((v) => {
     const isImg = /\.(gif|png|jpe?g|webp)(\?|$)/i.test(v.url || '');
     const thumb = v.url
-      ? (isImg ? `<img class="vthumb" src="${esc(v.url)}">` : `<video class="vthumb" src="${esc(v.url)}" muted loop autoplay playsinline preload="auto"></video>`)
+      ? (isImg ? `<img class="vthumb" src="${esc(v.url)}" loading="lazy" decoding="async">` : `<video class="vthumb hover-play" src="${esc(v.url)}#t=0.1" muted loop playsinline preload="metadata"></video>`)
       : '🎬';
     return `
     <div class="sa-card ${v.enabled !== false ? 'on' : ''}" data-id="${v.id}">
@@ -864,7 +864,7 @@ function renderBattleAlerts() {
   el.innerHTML = list.map((b) => {
     const isImg = /\.(gif|png|jpe?g|webp)(\?|$)/i.test(b.url || '');
     const thumb = b.url
-      ? (isImg ? `<img class="vthumb" src="${esc(b.url)}">` : `<video class="vthumb" src="${esc(b.url)}" muted loop autoplay playsinline preload="auto"></video>`)
+      ? (isImg ? `<img class="vthumb" src="${esc(b.url)}" loading="lazy" decoding="async">` : `<video class="vthumb hover-play" src="${esc(b.url)}#t=0.1" muted loop playsinline preload="metadata"></video>`)
       : '🥊';
     const trig = esc(baTriggerLabel(b));
     const showCombo = (b.trigger === 'battleGift' || b.trigger === 'battleGiftAny' || (!b.trigger && (b.giftName || b.giftId)));
@@ -1189,15 +1189,15 @@ const EVENT_EMOJI = {
 
 // Devuelve el HTML del icono de la alerta (regalo real, imagen propia o emoji)
 function alertIconHTML(a) {
-  if (a.image) return `<img class="sa-ic-img" src="${esc(a.image)}">`;
+  if (a.image) return `<img class="sa-ic-img" src="${esc(a.image)}" loading="lazy" decoding="async">`;
   const trig = a.trigger || 'gift';
   if (trig === 'gift' && a.giftId) {
     const g = giftCatalogById.get(String(a.giftId));
-    if (g?.image) return `<img class="sa-ic-img" src="${esc(g.image)}">`;
+    if (g?.image) return `<img class="sa-ic-img" src="${esc(g.image)}" loading="lazy" decoding="async">`;
   }
   if (trig === 'gift' && a.giftName) {
     const g = giftCatalog.find((x) => x.name.toLowerCase() === a.giftName.toLowerCase());
-    if (g?.image) return `<img class="sa-ic-img" src="${esc(g.image)}">`;
+    if (g?.image) return `<img class="sa-ic-img" src="${esc(g.image)}" loading="lazy" decoding="async">`;
   }
   return `<span class="sa-ic-emoji">${EVENT_EMOJI[trig] || '🔔'}</span>`;
 }
@@ -1209,7 +1209,7 @@ function alertIconSmall(a) {
   if (a.image) img = a.image;
   else if (trig === 'gift' && a.giftId) img = giftCatalogById.get(String(a.giftId))?.image || '';
   else if (trig === 'gift' && a.giftName) img = giftCatalog.find((x) => x.name.toLowerCase() === a.giftName.toLowerCase())?.image || '';
-  if (img) return `<img class="sa-ic-mini" src="${esc(img)}">`;
+  if (img) return `<img class="sa-ic-mini" src="${esc(img)}" loading="lazy" decoding="async">`;
   return `<span class="sa-ic-mini-emoji">${EVENT_EMOJI[trig] || '🔔'}</span>`;
 }
 
@@ -2500,10 +2500,28 @@ function ttsOnGift(p) {
   if (stop) stop.onclick = () => { if (TTS_HAS) speechSynthesis.cancel(); };
 })();
 
+// Las miniaturas de video ya no se autoreproducen (eso descargaba cada video completo
+// al actualizar). Muestran el primer fotograma y se animan solo al pasar el cursor,
+// así el panel carga al instante aunque tengas muchos videos.
+document.addEventListener('mouseover', (e) => {
+  const v = e.target.closest?.('video.hover-play');
+  if (v) { try { v.play(); } catch {} }
+}, true);
+document.addEventListener('mouseout', (e) => {
+  const v = e.target.closest?.('video.hover-play');
+  if (v) { try { v.pause(); } catch {} }
+}, true);
+
 (async () => {
-  await loadMe();
-  mountUserChip();
-  refreshOverlayUrls();
+  // Arranque en paralelo: abrimos el WebSocket y pedimos el catálogo de regalos
+  // de inmediato (no esperamos al /api/me). El WS es el que entrega ajustes, alertas
+  // y videos, así que cuanto antes se abra, antes se pinta TODO el panel.
   connectWS();
   preloadGiftCatalog();
+  // Datos de sesión (usuario / roomKey) en paralelo; solo afectan al chip y a las URLs
+  // de overlays, que no bloquean el render principal.
+  loadMe().then(() => {
+    mountUserChip();
+    refreshOverlayUrls();
+  });
 })();

@@ -193,7 +193,15 @@ app.get(['/', '/index.html'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Estáticos: login, overlays, css, js, uploads… (index.html ya lo sirve la ruta de arriba)
+// Archivos pesados (videos subidos y audios): caché larga en el navegador. Sus nombres
+// son únicos, así que se pueden cachear sin problema y al ACTUALIZAR la página el
+// navegador los reutiliza al instante en vez de descargarlos otra vez.
+const heavyCache = { maxAge: '30d', immutable: true };
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'), heavyCache));
+app.use('/audios', express.static(path.join(__dirname, 'public', 'audios'), heavyCache));
+
+// Resto de estáticos: login, overlays, css, js… Con validación (ETag) para recargas
+// rápidas: si el archivo no cambió, el navegador recibe "304 Not Modified" al instante.
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 /* ------------------------------- APIs compartidas ------------------------------- */
