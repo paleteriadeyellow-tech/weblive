@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Marranito (regalos)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
+
+    .stage {
+      width: 540px; height: 720px; position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%) scale(var(--tf-fit, 1)); transform-origin: center center;
+    }
+    .jar { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; height: 100%; pointer-events: none; }
+
+    /* Silueta detrás de los regalos (profundidad) */
+    .jar-glass-back, .jar-glass-rim img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: contain; object-position: center bottom; pointer-events: none;
+    }
+    .jar-glass-back { z-index: 1; }
+
+    /* Regalos solo dentro del interior (máscara) — capa media */
+    .jar-interior {
+      position: absolute; inset: 0; z-index: 2; isolation: isolate;
+      -webkit-mask-image: url('/jarron/Marranito%20Mascara.png'); mask-image: url('/jarron/Marranito%20Mascara.png');
+      -webkit-mask-size: contain; mask-size: contain;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+      -webkit-mask-position: center bottom; mask-position: center bottom;
+      -webkit-mask-origin: border-box; mask-origin: border-box; mask-mode: alpha;
+    }
+    .gifts-layer { position: absolute; inset: 0; overflow: visible; }
+    .gift-body {
+      position: absolute; top: 0; left: 0; object-fit: contain; pointer-events: none; will-change: transform;
+      transform: translate3d(-999px, -999px, 0); filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); transition: opacity .2s linear;
+    }
+
+    /* Borde, patas, orejas y brillos delanteros encima de los regalos */
+    .jar-glass-rim {
+      position: absolute; inset: 0; z-index: 5; pointer-events: none; isolation: isolate;
+      -webkit-mask-image: url('/jarron/Marranito.png'), url('/jarron/Marranito%20Mascara.png');
+      mask-image: url('/jarron/Marranito.png'), url('/jarron/Marranito%20Mascara.png');
+      -webkit-mask-size: contain, contain; mask-size: contain, contain;
+      -webkit-mask-position: center bottom, center bottom; mask-position: center bottom, center bottom;
+      -webkit-mask-repeat: no-repeat, no-repeat; mask-repeat: no-repeat, no-repeat;
+      -webkit-mask-composite: source-out; mask-composite: subtract;
+    }
+
+    /* Tinte opcional: colorea el marranito con el color elegido */
+    .jar-tint {
+      position: absolute; inset: 0; z-index: 6; pointer-events: none;
+      background: var(--jar-tint, transparent); mix-blend-mode: color;
+      opacity: var(--jar-tint-opacity, 0);
+      -webkit-mask-image: url('/jarron/Marranito.png'); mask-image: url('/jarron/Marranito.png');
+      -webkit-mask-size: contain; mask-size: contain;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+      -webkit-mask-position: center bottom; mask-position: center bottom;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="jar">
+      <div class="jar-interior" id="bowl">
+        <div class="gifts-layer" id="gifts-layer"></div>
+      </div>
+      <img class="jar-glass-back" src="/jarron/Marranito.png" alt="" draggable="false" />
+      <div class="jar-glass-rim" aria-hidden="true">
+        <img src="/jarron/Marranito.png" alt="" draggable="false" />
+      </div>
+      <div class="jar-tint" id="jar-tint" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <script src="/js/matter.min.js"></script>
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isPreview = params.get('preview') === '1';
+    const isEmbed = params.get('embed') === '1'; // vista previa dentro del panel (fija)
+
+    // ---- Tinte (color del marranito) ----
+    function applyJarTint(color) {
+      const root = document.documentElement;
+      const c = String(color || '').trim();
+      if (!c || /^#?fff(fff)?$/i.test(c) || c === 'none' || c === 'transparent') {
+        root.style.removeProperty('--jar-tint');
+        root.style.removeProperty('--jar-tint-opacity');
+        return;
+      }
+      root.style.setProperty('--jar-tint', c.charAt(0) === '#' ? c : '#' + c);
+      root.style.setProperty('--jar-tint-opacity', '1');
+    }
+    applyJarTint(params.get('jc'));
+
+    // Escala para que el marranito se vea completo (sin recortes).
+    (function fit() {
+      function apply() {
+        const k = Math.min((innerWidth || 540) / 540, (innerHeight || 720) / 720) || 1;
+        document.documentElement.style.setProperty('--tf-fit', k);
+      }
+      apply(); addEventListener('resize', apply);
+    })();
+
+    let FALLBACK_IMG = '/jarron/Marranito.png';
+
+    // ---- Geometría del interior (stage 540×720; PNG cuadrado en los 540 inferiores) ----
+    const STAGE_W = 540, STAGE_H = 720, IMG_SIZE = 540, IMG_TOP = 180;
+    const artX = (p) => (p / 100) * IMG_SIZE;
+    const artY = (p) => IMG_TOP + (p / 100) * IMG_SIZE;
+    const INTERIOR = { left: 22.1, right: 86.2, top: 15, floor: 75.75 };
+    const LEFT = artX(INTERIOR.left), RIGHT = artX(INTERIOR.right);
+    const FLOOR = artY(INTERIOR.floor), TOPY = artY(INTERIOR.top);
+    const SLOT_CX = artX(50), SLOT_HW = 48, SPAWN_Y = 120;
+    const JAR_CAPACITY = 140, HARD_CAP = 420;
+
+    const M = window.Matter;
+    if (!M) { console.warn('[marranito] Matter.js no disponible.'); return; }
+    const { Engine, World, Bodies, Body, Runner, Events } = M;
+
+    const engine = Engine.create();
+    engine.gravity.y = 0.8; engine.enableSleeping = true;
+    const world = engine.world;
+
+    const WT = 60;
+    const wallOpts = { isStatic: true, friction: 0.42, restitution: 0.06 };
+    World.add(world, [
+      Bodies.rectangle((LEFT + RIGHT) / 2, FLOOR + WT / 2, (RIGHT - LEFT) + WT * 2, WT, wallOpts),
+      Bodies.rectangle(LEFT - WT / 2, FLOOR - 460, WT, 1040, wallOpts),
+      Bodies.rectangle(RIGHT + WT / 2, FLOOR - 460, WT, 1040, wallOpts),
+    ]);
+
+    const giftsLayer = document.getElementById('gifts-layer');
+    const gifts = [];
+    let spawnSeq = 0;
+
+    Runner.run(Runner.create(), engine);
+    Events.on(engine, 'afterUpdate', function () {
+      for (let i = 0; i < gifts.length; i++) {
+        const g = gifts[i];
+        if (!g.body.isSleeping) {
+          const v = g.body.velocity, sp = Math.hypot(v.x, v.y);
+          if (sp > 10) { const s = 10 / sp; Body.setVelocity(g.body, { x: v.x * s, y: v.y * s }); }
+        }
+        if (g.body.isSleeping && g.awakeSynced) continue;
+        const p = g.body.position, half = g.sizePx / 2;
+        g.img.style.transform = 'translate3d(' + (p.x - half).toFixed(1) + 'px,' + (p.y - half).toFixed(1) + 'px,0) rotate(' + g.body.angle.toFixed(3) + 'rad)';
+        g.awakeSynced = g.body.isSleeping;
+      }
+    });
+
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    function zIndexFromDiamonds(d, seq) {
+      const bump = seq % 18;
+      if (d >= 5000) return 900 + bump; if (d >= 1000) return 600 + bump;
+      if (d >= 100) return 250 + bump; if (d >= 30) return 90 + bump; return 30 + bump;
+    }
+
+    // Tabla de tamaños configurable: [{ t, sz }] de mayor a menor umbral.
+    let sizeTable = null;
+    function setSizeTable(raw) {
+      if (!Array.isArray(raw)) { sizeTable = null; return; }
+      const out = raw
+        .map((r) => ({ t: Number(r && r.t), sz: Number(r && r.sz) }))
+        .filter((r) => Number.isFinite(r.t) && Number.isFinite(r.sz) && r.sz > 0)
+        .sort((a, b) => b.t - a.t);
+      sizeTable = out.length ? out : null;
+    }
+    function sizeFromTable(d) {
+      if (!sizeTable) return null;
+      for (const row of sizeTable) {
+        if (d >= row.t) { const j = row.sz * 0.06; return Math.max(8, Math.min(200, row.sz + rnd(-j, j))); }
+      }
+      return sizeTable[sizeTable.length - 1].sz;
+    }
+    function giftSizeForFill(d) {
+      let base, maxPx = 40, shrink = 1;
+      const tbl = sizeFromTable(d);
+      if (tbl != null) { base = tbl; maxPx = Math.max(40, tbl + 8); }
+      else if (d >= 5000) { base = rnd(76, 92); maxPx = 92; shrink = 0.97; }
+      else if (d >= 1000) { base = rnd(50, 62); maxPx = 64; shrink = 0.95; }
+      else if (d >= 100) { base = rnd(38, 46); maxPx = 48; }
+      else if (d >= 30) { base = rnd(32, 40); maxPx = 42; }
+      else base = rnd(28, 36);
+      const fill = Math.min(1, gifts.length / JAR_CAPACITY);
+      if (fill > 0.6) base *= 0.95 * shrink;
+      if (fill > 0.85) base *= 0.92;
+      return Math.round(Math.max(14, Math.min(maxPx, base)));
+    }
+
+    function removeGiftAt(i) {
+      const g = gifts[i]; if (!g) return;
+      try { World.remove(world, g.body); } catch {}
+      if (g.img && g.img.parentNode) g.img.parentNode.removeChild(g.img);
+      gifts.splice(i, 1);
+    }
+    function pruneJar() {
+      for (let i = gifts.length - 1; i >= 0; i--) {
+        const g = gifts[i], p = g.body.position, r = g.sizePx / 2;
+        if ((p.y - r) > (STAGE_H + 80) || (p.x + r) < -180 || (p.x - r) > (STAGE_W + 180)) { removeGiftAt(i); continue; }
+        if (g.body.isSleeping && (p.y + r) < (TOPY - 4)) removeGiftAt(i);
+      }
+      if (gifts.length > HARD_CAP) {
+        const sorted = gifts.slice().sort((a, b) => a.body.position.y - b.body.position.y);
+        let toRemove = gifts.length - HARD_CAP;
+        for (let k = 0; k < sorted.length && toRemove > 0; k++) {
+          const idx = gifts.indexOf(sorted[k]);
+          if (idx !== -1) { removeGiftAt(idx); toRemove--; }
+        }
+      }
+    }
+    setInterval(pruneJar, 1300);
+
+    function addGiftBody(src, sizePx, diamonds, opts) {
+      if (!src) src = FALLBACK_IMG;
+      opts = opts || {};
+      const r = Math.max(7, sizePx / 2);
+      let x, y, vx;
+      if (opts.x != null) { x = opts.x; y = opts.y != null ? opts.y : SPAWN_Y; vx = 0; }
+      else { x = rnd(SLOT_CX - SLOT_HW, SLOT_CX + SLOT_HW); y = SPAWN_Y + rnd(-8, 8); vx = rnd(-1.3, 1.3); }
+      const body = Bodies.circle(x, y, r, { restitution: 0.14, friction: 0.38, frictionStatic: 0.6, frictionAir: 0.014, sleepThreshold: 22 });
+      if (opts.angle != null) Body.setAngle(body, opts.angle);
+      if (!opts.settled) { Body.setVelocity(body, { x: vx, y: rnd(0.3, 1.2) }); Body.setAngularVelocity(body, rnd(-0.12, 0.12)); }
+      const img = document.createElement('img');
+      img.className = 'gift-body'; img.src = src; img.alt = ''; img.referrerPolicy = 'no-referrer';
+      img.style.width = sizePx + 'px'; img.style.height = sizePx + 'px';
+      img.style.zIndex = String(zIndexFromDiamonds(diamonds || 0, ++spawnSeq));
+      img.onerror = function () { this.onerror = null; this.src = FALLBACK_IMG; };
+      img.style.transform = 'translate3d(' + (x - r).toFixed(1) + 'px,' + (y - r).toFixed(1) + 'px,0) rotate(' + (opts.angle || 0).toFixed(3) + 'rad)';
+      giftsLayer.appendChild(img);
+      World.add(world, body);
+      gifts.push({ body, img, sizePx, awakeSynced: false });
+    }
+    function spawnMany(src, count, gap, diamonds) {
+      const n = Math.max(0, parseInt(count, 10) || 0);
+      if (n < 1 || !src) return;
+      gap = Math.max(70, gap || 150);
+      for (let i = 0; i < n; i++) (function (idx) {
+        setTimeout(() => addGiftBody(src, giftSizeForFill(diamonds || 0), diamonds || 0, {}), idx * gap);
+      })(i);
+    }
+    function clearJar() { for (let i = gifts.length - 1; i >= 0; i--) removeGiftAt(i); }
+
+    // ---- Catálogo de regalos (id -> imagen) ----
+    const giftImgById = new Map();
+    fetch('/api/gifts').then((r) => r.json()).then((d) => {
+      (d.results || []).forEach((g) => { if (g.image) giftImgById.set(String(g.id), g.image); });
+      const first = [...giftImgById.values()][0];
+      if (first) FALLBACK_IMG = first;
+    }).catch(() => {});
+
+    function resolveGiftImg(p) { return p.image || giftImgById.get(String(p.giftId)) || FALLBACK_IMG; }
+    function sampleImg() {
+      const arr = [...giftImgById.values()];
+      return arr.length ? arr[Math.floor(Math.random() * arr.length)] : FALLBACK_IMG;
+    }
+
+    // ---- WebSocket nativo del panel ----
+    let ws, reconnectTimer, fillTimer = null;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        const { type, payload } = msg;
+        if (type === 'gift') { if (!isEmbed) onGift(payload); }
+        else if (type === 'panic') clearJar();
+        else if (type === 'marranitoTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
+        else if (type === 'marranitoReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); } }
+        else if (type === 'settings') {
+          if (payload && payload.marranito) {
+            if (!params.get('jc')) applyJarTint(payload.marranito.tint);
+            if (payload.marranito.sizes) setSizeTable(payload.marranito.sizes);
+          }
+        }
+      };
+    }
+    function onGift(p) {
+      if (!p || p.streak) return;
+      const n = Math.min(99, Math.max(1, p.repeatCount || 1));
+      spawnMany(resolveGiftImg(p), n, 165, p.diamonds || 0);
+    }
+    connectWS();
+
+    function runFill(total) {
+      if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
+      clearJar();
+      let i = 0; const max = total || 200;
+      (function tick() {
+        if (i >= max) return;
+        const roll = Math.random();
+        const d = roll > 0.975 ? 8000 : roll > 0.9 ? 2200 : roll > 0.68 ? 180 : 1;
+        addGiftBody(sampleImg(), giftSizeForFill(d), d, {});
+        i++; fillTimer = setTimeout(tick, 55);
+      })();
+    }
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'marranito') return;
+      if (d.type === 'test') runFill(d.count || 200);
+      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); }
+      else if (d.type === 'config') {
+        if (d.tint !== undefined) applyJarTint(d.tint);
+        if (d.sizes !== undefined) setSizeTable(d.sizes);
+      }
+    });
+
+    // ---- Vista previa standalone (?preview=1): llena en bucle ----
+    if (isPreview) {
+      const demo = () => {
+        let i = 0; const total = 200;
+        (function tick() {
+          if (i >= total) { setTimeout(() => { clearJar(); demo(); }, 6000); return; }
+          const roll = Math.random();
+          const d = roll > 0.975 ? 8000 : roll > 0.9 ? 2200 : roll > 0.68 ? 180 : 1;
+          addGiftBody(sampleImg(), giftSizeForFill(d), d, {});
+          i++; setTimeout(tick, 55);
+        })();
+      };
+      setTimeout(demo, 1200);
+    }
+  })();
+  </script>
+</body>
+</html>

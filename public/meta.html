@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Barra de meta (Hype)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --ov-scale: 1;
+      --hb-text: #f8fafc;
+      --hb-muted: #94a3b8;
+      --hb-accent: #38bdf8;
+      --hb-rainbow: linear-gradient(90deg, #ff0f8f 0%, #ff6b35 16%, #ffd93d 33%, #5eead4 50%, #38bdf8 66%, #818cf8 83%, #c084fc 92%, #ff0f8f 100%);
+      --hb-track-idle: linear-gradient(90deg, rgba(55,65,81,.9) 0%, rgba(82,91,107,.95) 35%, rgba(71,80,94,.92) 70%, rgba(55,65,81,.9) 100%);
+    }
+    html { width: 100%; height: 100%; }
+    body { margin: 0; width: 100%; min-height: 100%; overflow: hidden; background: transparent; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    .wrap { --ov-s: max(0.001, var(--ov-scale, 1)); box-sizing: border-box; width: calc(100% / var(--ov-s)); max-width: calc(900px / var(--ov-s)); padding: 2px 4px; transform: scale(var(--ov-scale, 1)); transform-origin: top left; }
+    .box { position: relative; padding: 5px 10px 6px; overflow: visible; border-radius: 10px; background: linear-gradient(165deg, rgba(42,48,58,.92) 0%, rgba(26,31,40,.94) 55%, rgba(20,24,32,.96) 100%); border: 1px solid rgba(255,255,255,.08); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 14px rgba(0,0,0,.35); backdrop-filter: blur(8px); }
+    .box-inner { position: relative; z-index: 1; }
+    .row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; gap: 6px; min-height: 28px; }
+    .title-wrap { display: flex; align-items: center; gap: 5px; min-width: 0; }
+    .title-icon { font-size: 15px; line-height: 1; flex-shrink: 0; opacity: .95; }
+    #title { font-size: 13px; font-weight: 700; letter-spacing: .01em; color: var(--hb-text); line-height: 1.2; text-shadow: 0 1px 2px rgba(0,0,0,.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .meta-wrap { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .meta-icon { font-size: 14px; line-height: 1; opacity: .9; }
+    .meta-line { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1.2; text-shadow: 0 1px 2px rgba(0,0,0,.85); }
+    .meta-gold { color: #f1f5f9; }
+    .meta-cyan { color: #e0f2fe; }
+    .bar-bg { position: relative; height: 7px; border-radius: 999px; background: transparent; overflow: visible; }
+    .bar-track { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 0; border-radius: inherit; background: var(--hb-track-idle); background-size: 100% 100%; opacity: .72; filter: saturate(.2) brightness(.92); box-shadow: inset 0 1px 2px rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.25); }
+    @keyframes rainbow-drift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    @keyframes meta2-fill-drift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    #bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; min-width: 0; z-index: 2; border-radius: 999px; overflow: hidden; transition: width .28s ease; box-shadow: 0 0 6px rgba(255,255,255,.18); }
+    .bar-plasma { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+    .bar-plasma::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--hb-rainbow); background-size: 220% 100%; filter: saturate(1.25) brightness(1.08); animation: rainbow-drift 10s linear infinite; }
+    .bar-plasma::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,.35) 0%, transparent 42%, rgba(0,0,0,.15) 100%); pointer-events: none; }
+    .bar-shine { position: absolute; inset: 0; background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,.18) 48%, rgba(255,255,255,.35) 50%, rgba(255,255,255,.14) 52%, transparent 100%); background-size: 200% 100%; animation: shine-soft 2.8s ease-in-out infinite; pointer-events: none; mix-blend-mode: overlay; }
+    @keyframes shine-soft { 0% { transform: translateX(-40%); opacity: .55; } 50% { opacity: .85; } 100% { transform: translateX(40%); opacity: .6; } }
+    .bar-spark { position: absolute; top: 50%; right: 0; transform: translate(50%, -50%); width: 6px; height: 6px; border-radius: 50%; pointer-events: none; z-index: 4; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.85), 0 0 4px 1px rgba(255,255,255,.4); }
+    #bar.is-empty .bar-spark { opacity: 0; }
+    .bar-test-light { position: absolute; top: 50%; left: 0; z-index: 6; width: 7px; height: 7px; border-radius: 50%; pointer-events: none; opacity: 0; transform: translate(0, -50%); background: radial-gradient(circle at 30% 30%, #fff 0%, #fef3c7 45%, #f472b6 100%); box-shadow: 0 0 0 1px rgba(255,255,255,.85), 0 0 8px 2px rgba(255,255,255,.35); }
+    .bar-bg:not(.bar-bg--test-sweep) .bar-test-light { opacity: 0 !important; visibility: hidden; animation: none !important; }
+    .bar-bg.bar-bg--test-sweep .bar-test-light { visibility: visible; opacity: 1; animation: test-light-sweep 2.2s cubic-bezier(.4,0,.2,1) forwards; }
+    @keyframes test-light-sweep { 0% { left: 0%; transform: translate(0, -50%); } 100% { left: 100%; transform: translate(-100%, -50%); } }
+    #bar.bar--no-transition { transition: none; }
+
+    /* —— meta2 —— */
+    body.skin-meta2 .wrap { max-width: calc(900px / var(--ov-s, 1)); }
+    body.skin-meta2 .meta2-box { width: 100%; padding: 2px 0; display: flex; justify-content: center; }
+    body.skin-meta2 .meta2-card.goal-card-slim { position: relative; box-sizing: border-box; width: 100%; max-width: 550px; background: rgba(10,15,20,.95); backdrop-filter: blur(10px); padding: 6px 20px; clip-path: polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%); border-left: 3px solid #25f4ee; border-right: 3px solid #fe2c55; display: flex; align-items: center; gap: 15px; box-shadow: 0 5px 20px rgba(0,0,0,.5); }
+    body.skin-meta2 .meta2-card.goal-card-slim::before { content: ''; position: absolute; bottom: 0; left: 0; z-index: 2; width: 0; height: 0; border-style: solid; border-width: 0 0 7px 7px; border-color: transparent transparent #25f4ee transparent; pointer-events: none; }
+    body.skin-meta2 .meta2-card.goal-card-slim::after { content: ''; position: absolute; top: 0; right: 0; z-index: 2; width: 0; height: 0; border-style: solid; border-width: 7px 7px 0 0; border-color: #fe2c55 transparent transparent transparent; pointer-events: none; }
+    body.skin-meta2 .info-group { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; min-width: 0; }
+    body.skin-meta2 .gift-icon { font-size: 18px; line-height: 1; filter: drop-shadow(0 0 5px #25f4ee); }
+    body.skin-meta2 .goal-title#title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: none; line-height: 1.2; }
+    body.skin-meta2 .progress-wrapper { flex: 1; min-width: 0; position: relative; height: 18px; background: rgba(255,255,255,.1); transform: skewX(-15deg); overflow: hidden; border: 1px solid rgba(255,255,255,.05); }
+    body.skin-meta2 .progress-wrapper .bar-bg { position: relative; margin-top: 0; height: 100%; border-radius: 0; overflow: hidden; background: transparent; }
+    body.skin-meta2 .progress-wrapper .bar-track { border-radius: 0; opacity: .35; filter: saturate(.15) brightness(.85); }
+    body.skin-meta2 .progress-wrapper #bar { border-radius: 0; height: 100%; box-shadow: none; transition: width .38s cubic-bezier(.33,1,.68,1); transform: translateZ(0); }
+    body.skin-meta2 .progress-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; pointer-events: none; transform: skewX(15deg); font-weight: 900; font-size: 11px; color: #000; font-variant-numeric: tabular-nums; letter-spacing: .02em; line-height: 1; }
+    body.skin-meta2 .meta2-sep { font-weight: 900; }
+    body.skin-meta2 .meta2-pts { font-weight: 800; margin-left: 1px; }
+    body.skin-meta2 .progress-wrapper .bar-plasma { transform: translateZ(0); backface-visibility: hidden; }
+    body.skin-meta2 .bar-plasma::before { background: linear-gradient(90deg, #25f4ee 0%, #5ee7eb 28%, #ff6b9d 62%, #fe2c55 100%); background-size: 220% 100%; filter: saturate(1.12) brightness(1.06); animation: meta2-fill-drift 11s linear infinite; will-change: background-position; }
+    body.skin-meta2 .bar-shine { animation: shine-soft 3.6s ease-in-out infinite; opacity: .22; }
+    body.skin-meta2 .progress-wrapper .bar-spark { display: none; }
+
+    /* —— meta3 —— */
+    body.skin-meta3 .wrap { max-width: calc(900px / var(--ov-s, 1)); padding: 2px 4px; }
+    body.skin-meta3 .meta3-goal-container { position: relative; width: 100%; max-width: 560px; height: 52px; margin: 0 auto; background-color: #120e2e; border: 2px solid #00f3ff; border-radius: 8px; box-shadow: 0 0 20px rgba(0,243,255,.5), inset 0 0 15px rgba(0,243,255,.2); overflow: hidden; display: flex; justify-content: center; align-items: center; font-family: 'Share Tech Mono', monospace; box-sizing: border-box; }
+    body.skin-meta3 .meta3-goal-container::before, body.skin-meta3 .meta3-goal-container::after { content: ''; position: absolute; top: 0; width: 80px; height: 6px; background: #00f3ff; filter: blur(4px); box-shadow: 0 0 15px #00f3ff; z-index: 3; pointer-events: none; }
+    body.skin-meta3 .meta3-goal-container::before { left: 28px; }
+    body.skin-meta3 .meta3-goal-container::after { right: 28px; }
+    body.skin-meta3 .meta3-goal-container .progress-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; margin: 0; border-radius: 0; background: linear-gradient(90deg, rgba(0,243,255,.1) 0%, rgba(0,243,255,.4) 100%); transition: width .4s ease-out; z-index: 1; box-shadow: none; }
+    body.skin-meta3 .meta3-goal-container .progress-bar.is-empty { width: 0% !important; }
+    body.skin-meta3 .meta3-goal-container .progress-bar .bar-plasma, body.skin-meta3 .meta3-goal-container .progress-bar .bar-shine, body.skin-meta3 .meta3-goal-container .progress-bar .bar-spark { display: none !important; }
+    body.skin-meta3 .meta3-goal-text { position: relative; z-index: 2; color: #f7f4cc; font-size: 13px; letter-spacing: 1px; text-shadow: 0 0 6px rgba(247,244,204,.55); text-transform: uppercase; white-space: nowrap; max-width: 94%; overflow: hidden; text-overflow: ellipsis; text-align: center; padding: 0 10px; line-height: 1.1; }
+    body.skin-meta3 .meta3-goal-container .bar-test-light { display: none; }
+
+    /* —— meta4 —— */
+    body.skin-meta4 .wrap { max-width: calc(520px / var(--ov-s, 1)); padding: 2px 4px; }
+    body.skin-meta4 .hyper-glass-frame { position: relative; width: 100%; max-width: 460px; height: 62px; margin: 0 auto; background: rgba(10,12,18,.3); border-radius: 14px; padding: 5px; box-sizing: border-box; box-shadow: 0 0 12px rgba(138,43,226,.35), 0 0 0 2px rgba(138,43,226,.2); display: flex; align-items: center; justify-content: center; }
+    body.skin-meta4 .hyper-glass-frame::before { content: ''; position: absolute; top: -1px; left: 15%; width: 35%; height: 3px; background: #00f3ff; box-shadow: 0 0 10px #00f3ff; border-radius: 0 0 3px 3px; z-index: 4; pointer-events: none; }
+    body.skin-meta4 .hyper-glass-container { position: relative; width: 100%; height: 100%; background: rgba(255,255,255,.03); border: 2px solid #00f3ff; border-radius: 10px; backdrop-filter: blur(8px) saturate(140%); -webkit-backdrop-filter: blur(8px) saturate(140%); box-shadow: 0 0 22px rgba(0,243,255,.55), inset 0 0 14px rgba(0,243,255,.28); overflow: hidden; display: flex; justify-content: center; align-items: center; font-family: 'Share Tech Mono', monospace; box-sizing: border-box; }
+    body.skin-meta4 .hyper-glass-container::after { content: ''; position: absolute; top: 0; left: 40px; width: 72px; height: 5px; background: #00f3ff; filter: blur(4px); box-shadow: 0 0 14px #00f3ff; opacity: .9; z-index: 2; pointer-events: none; }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; margin: 0; border-radius: 0; background: linear-gradient(90deg, rgba(0,243,255,.1) 0%, rgba(0,243,255,.45) 85%, #00f3ff 100%); border-right: 2px solid #fff; box-shadow: 0 0 18px rgba(0,243,255,.65), inset -6px 0 10px rgba(255,255,255,.35); transition: width .4s cubic-bezier(.25,1,.5,1); z-index: 1; }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar.is-empty { width: 0% !important; border-right: none; }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-plasma, body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-shine, body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-spark { display: none !important; }
+    body.skin-meta4 .hyper-glass-text { position: relative; z-index: 3; color: #f7f4cc; font-size: 12px; font-weight: bold; letter-spacing: 1.5px; text-shadow: 0 0 10px rgba(247,244,204,.65), 1px 1px 3px rgba(0,0,0,.9), -1px -1px 3px rgba(0,0,0,.9); text-transform: uppercase; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; text-align: center; padding: 0 10px; line-height: 1.1; }
+
+    html.embed body { display: flex; align-items: center; justify-content: flex-start; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="box">
+      <div class="box-inner">
+        <div class="row-top">
+          <div class="title-wrap">
+            <span class="title-icon" id="title-icon" aria-hidden="true">✨</span>
+            <span id="title"></span>
+          </div>
+          <div class="meta-wrap">
+            <span class="meta-icon" id="meta-icon" aria-hidden="true">✨</span>
+            <span class="meta-line">
+              <span id="meta-current" class="meta-gold">0</span><span class="meta-cyan"> / </span><span id="meta-goal" class="meta-cyan">100</span>
+            </span>
+          </div>
+        </div>
+        <div class="bar-bg" id="bar-bg">
+          <div class="bar-track" aria-hidden="true"></div>
+          <div id="bar" class="is-empty">
+            <div class="bar-plasma"><div class="bar-shine"></div></div>
+            <div class="bar-spark"></div>
+          </div>
+          <div class="bar-test-light" id="bar-test-light" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    let activeSkin = String(params.get('skin') || 'default').toLowerCase();
+    if (activeSkin === '') activeSkin = 'default';
+    if (isEmbed) document.documentElement.classList.add('embed');
+
+    function skinFromConfig(c) {
+      const s = String((c && c.skin) || 'default').toLowerCase();
+      return s === '' ? 'default' : s;
+    }
+    function maybeReloadSkin(newSkin) {
+      const next = newSkin || 'default';
+      if (next === activeSkin) return false;
+      const url = new URL(location.href);
+      if (next === 'default') url.searchParams.delete('skin');
+      else url.searchParams.set('skin', next);
+      if (isEmbed) url.searchParams.set('embed', '1');
+      location.replace(url.toString());
+      return true;
+    }
+
+    const titulosMap = { hype: 'HYPE EN VIVO', regalos: 'META DE REGALOS', likes: 'META DE LIKES', seguidores: 'META DE SEGUIDORES', compartidos: 'META DE COMPARTIDOS', suscriptores: 'META DE SUSCRIPTORES', viewers: 'META DE ESPECTADORES' };
+    const iconosMap = { hype: '✨', regalos: '🎁', likes: '❤️', follow: '👤', seguidores: '👤', compartidos: '↪️', share: '↪️', suscriptores: '⭐', viewers: '👁', gift: '🪙', member: '🌟' };
+
+    /* ---- Skins (reconstruyen el .wrap) ---- */
+    (function buildSkin() {
+      const w = document.querySelector('.wrap');
+      if (!w) return;
+      if (activeSkin === 'meta4') {
+        document.body.classList.add('skin-meta4'); window.__hbSkinMeta4 = true;
+        w.innerHTML = '<div class="hyper-glass-frame"><div class="hyper-glass-container"><div id="bar" class="hyper-progress-bar is-empty" aria-hidden="true"><div class="bar-plasma"><div class="bar-shine"></div></div><div class="bar-spark"></div></div><div class="hyper-glass-text" id="meta4-goal-text"></div></div></div>';
+      } else if (activeSkin === 'meta3') {
+        document.body.classList.add('skin-meta3'); window.__hbSkinMeta3 = true;
+        w.innerHTML = '<div class="meta3-goal-container goal-container"><div id="bar" class="progress-bar is-empty" aria-hidden="true"><div class="bar-plasma"><div class="bar-shine"></div></div><div class="bar-spark"></div></div><div class="meta3-goal-text" id="meta3-goal-text"></div></div>';
+      } else if (activeSkin === 'meta2') {
+        document.body.classList.add('skin-meta2'); window.__hbSkinMeta2 = true;
+        w.innerHTML = '<div class="meta2-box"><div class="meta2-card goal-card-slim"><div class="info-group"><span class="title-icon gift-icon" id="title-icon" aria-hidden="true">🎁</span><span class="goal-title" id="title"></span></div><div class="progress-wrapper"><div class="bar-bg" id="bar-bg"><div class="bar-track" aria-hidden="true"></div><div id="bar" class="is-empty"><div class="bar-plasma"><div class="bar-shine"></div></div><div class="bar-spark"></div></div><div class="bar-test-light" id="bar-test-light" aria-hidden="true"></div><div class="progress-text" id="meta2-progress-label"><span class="meta2-abs-line" id="meta2-abs-line"><span id="meta-current">0</span><span class="meta2-sep"> / </span><span id="meta-goal">0</span><span class="meta2-pts"> pts</span></span></div></div></div></div></div>';
+      }
+    })();
+
+    let score = 0;
+    let target = 100;
+    let coinTotal = 0;
+    let goalKind = 'hype';
+    let customTitle = '';
+    let tituloKey = 'hype';
+    let onReach = 'increase';
+    let modeAbsolute = false;
+    let allow = { like: true, follow: true, gift: true, share: true, member: false };
+    let points = { like: 1, follow: 10, share: 8, member: 1 };
+    let giftMultiplier = 1;
+    let baseTitleDisplay = titulosMap.hype;
+
+    const titleIconEl = document.getElementById('title-icon');
+    const metaIconEl = document.getElementById('meta-icon');
+    const metaCurrent = document.getElementById('meta-current');
+    const metaGoal = document.getElementById('meta-goal');
+    const bar = document.getElementById('bar');
+    const title = document.getElementById('title');
+    const isM2 = !!window.__hbSkinMeta2, isM3 = !!window.__hbSkinMeta3, isM4 = !!window.__hbSkinMeta4;
+
+    function fmtNum(n) { return Math.round(Number(n) || 0).toLocaleString('es-ES'); }
+
+    function updateOverlayIcon() {
+      const key = (goalKind && iconosMap[goalKind] != null) ? goalKind : tituloKey;
+      const emo = iconosMap[key] || iconosMap[tituloKey] || iconosMap.hype;
+      [titleIconEl, metaIconEl].forEach((el) => { if (el) el.textContent = emo; });
+    }
+
+    function setupKind() {
+      modeAbsolute = goalKind === 'viewers';
+      if (goalKind === 'hype') {
+        allow = { like: true, follow: true, gift: true, share: true, member: false };
+        tituloKey = 'hype';
+      } else {
+        allow = { like: goalKind === 'likes', follow: goalKind === 'follow', gift: goalKind === 'gift', share: goalKind === 'share', member: goalKind === 'member' };
+        tituloKey = goalKind === 'likes' ? 'likes' : goalKind === 'follow' ? 'seguidores' : goalKind === 'share' ? 'compartidos' : goalKind === 'gift' ? 'regalos' : goalKind === 'member' ? 'suscriptores' : goalKind === 'viewers' ? 'viewers' : 'hype';
+      }
+    }
+
+    function update() {
+      if (!modeAbsolute) {
+        if (onReach === 'increase') { while (score >= target) target += 50; }
+        else if (onReach === 'reset' && score >= target) score = 0;
+        else if (onReach === 'keep') { score = Math.min(score, target); if (goalKind === 'gift' || tituloKey === 'regalos') coinTotal = score; }
+      }
+      const pct = target > 0 ? Math.min(100, (score / target) * 100) : 0;
+      const barEl = document.getElementById('bar');
+      if (isM4 || isM3) {
+        if (barEl) { barEl.style.width = pct + '%'; barEl.classList.toggle('is-empty', pct <= 0); }
+        const gt = document.getElementById(isM4 ? 'meta4-goal-text' : 'meta3-goal-text');
+        if (gt) {
+          const act = Math.round(score).toLocaleString('en-US'), meta = Math.round(target).toLocaleString('en-US');
+          gt.textContent = String(baseTitleDisplay || 'OBJETIVO').toUpperCase() + ': ' + act + '/' + meta + ' (' + Math.floor(pct) + '%)';
+        }
+        return;
+      }
+      if (metaCurrent) metaCurrent.textContent = isM2 ? fmtNum(score) : Math.round(score);
+      if (metaGoal) metaGoal.textContent = isM2 ? fmtNum(target) : Math.round(target);
+      if (barEl) { barEl.style.width = pct + '%'; barEl.classList.toggle('is-empty', pct <= 0); }
+      if (title && !isM2) title.textContent = baseTitleDisplay;
+    }
+
+    function add(n, label) {
+      if (modeAbsolute) return;
+      score += n;
+      if (title && !isM2 && !isM3 && !isM4) title.textContent = baseTitleDisplay + ' • ' + label;
+      update();
+    }
+
+    /* ---- Animación de barrido al completar (skins default y meta2) ---- */
+    let testSweepCleanupTimer = null;
+    function finishTestLightSweep() {
+      const bg = document.getElementById('bar-bg'); if (bg) bg.classList.remove('bar-bg--test-sweep');
+      const b = document.getElementById('bar'); if (b) b.classList.remove('bar--no-transition');
+      if (testSweepCleanupTimer) { clearTimeout(testSweepCleanupTimer); testSweepCleanupTimer = null; }
+    }
+    function runTestLightSweep() {
+      const bg = document.getElementById('bar-bg'); const light = document.getElementById('bar-test-light');
+      if (!bg || !light) return;
+      finishTestLightSweep(); bg.classList.remove('bar-bg--test-sweep'); void light.offsetWidth;
+      bg.classList.add('bar-bg--test-sweep');
+      testSweepCleanupTimer = setTimeout(finishTestLightSweep, 2600);
+    }
+
+    /* ---- Likes en lote, aplicados de a poco ---- */
+    let likeAnimQueue = 0, likeAnimTimer = null;
+    const LIKE_TICK_MS = 20;
+    function pumpLikeSteps() {
+      if (likeAnimQueue <= 0) { if (likeAnimTimer) { clearInterval(likeAnimTimer); likeAnimTimer = null; } return; }
+      const perTick = likeAnimQueue > 100 ? Math.min(6, Math.ceil(likeAnimQueue / 45)) : 1;
+      for (let i = 0; i < perTick && likeAnimQueue > 0; i++) { likeAnimQueue--; add(points.like, '+Like'); }
+      if (likeAnimQueue <= 0 && likeAnimTimer) { clearInterval(likeAnimTimer); likeAnimTimer = null; }
+    }
+
+    function resetOverlay() {
+      finishTestLightSweep();
+      likeAnimQueue = 0;
+      if (likeAnimTimer) { clearInterval(likeAnimTimer); likeAnimTimer = null; }
+      if (testBarTimer) { clearInterval(testBarTimer); testBarTimer = null; }
+      lastTotalLike = {};
+      score = 0; coinTotal = 0;
+      if (title && !isM2 && !isM3 && !isM4) title.textContent = baseTitleDisplay;
+      update();
+    }
+
+    /* ---- Eventos ---- */
+    let lastTotalLike = {};
+    function onLike(p) {
+      if (!allow.like) return;
+      const b = Math.max(0, Math.floor(Number(p && p.count)) || 0);
+      if (b <= 0) return;
+      likeAnimQueue += b;
+      if (!likeAnimTimer) likeAnimTimer = setInterval(pumpLikeSteps, LIKE_TICK_MS);
+    }
+    function onGift(p) {
+      if (!allow.gift) return;
+      if (p && p.streak) return;
+      const coins = Math.max(1, (Number(p && p.diamonds) || 1) * (Number(p && p.repeatCount) || 1));
+      if (goalKind === 'gift' || tituloKey === 'regalos') { coinTotal += coins; score = coinTotal; if (title && !isM2 && !isM3 && !isM4) title.textContent = baseTitleDisplay + ' • +Monedas'; update(); }
+      else add(coins * giftMultiplier, '+Gift');
+    }
+
+    /* ---- Test / vista previa ---- */
+    let testBarTimer = null, embedLoopTimer = null;
+    function runTest() {
+      resetOverlay();
+      if (embedLoopTimer) { clearTimeout(embedLoopTimer); embedLoopTimer = null; }
+      const savedReach = onReach; if (!modeAbsolute) onReach = 'keep';
+      const budget = Math.max(1, Math.round(target));
+      let added = 0;
+      if (testBarTimer) { clearInterval(testBarTimer); testBarTimer = null; }
+      testBarTimer = setInterval(() => {
+        if (added >= budget) {
+          clearInterval(testBarTimer); testBarTimer = null;
+          runTestLightSweep();
+          onReach = savedReach;
+          if (isEmbed) embedLoopTimer = setTimeout(runTest, 2800);
+          return;
+        }
+        const step = Math.max(1, Math.ceil(budget / 40));
+        if (modeAbsolute) { score = Math.min(target, score + step); update(); }
+        else add(step, goalKind === 'gift' ? '+Monedas' : '+Meta');
+        added += step;
+      }, 45);
+    }
+
+    /* ---- Configuración ---- */
+    function applyConfig(c) {
+      if (!c || typeof c !== 'object') return;
+      // En vista previa (embed) el panel controla el diseño recargando el iframe;
+      // el overlay en vivo sí debe recargarse al recibir el diseño guardado.
+      if (!isEmbed && maybeReloadSkin(skinFromConfig(c))) return;
+      if (c.goalKind) goalKind = String(c.goalKind).toLowerCase();
+      if (c.title != null) customTitle = String(c.title).trim();
+      const nm = parseInt(c.meta, 10); if (Number.isFinite(nm) && nm > 0) target = Math.max(1, nm);
+      if (['increase', 'reset', 'keep'].includes(String(c.whenReach))) onReach = String(c.whenReach);
+      if (c.pointsLike != null) points.like = Math.max(1, parseInt(c.pointsLike, 10) || 1);
+      if (c.pointsFollow != null) points.follow = Math.max(1, parseInt(c.pointsFollow, 10) || 1);
+      if (c.pointsShare != null) points.share = Math.max(1, parseInt(c.pointsShare, 10) || 1);
+      if (c.pointsMember != null) points.member = Math.max(1, parseInt(c.pointsMember, 10) || 1);
+      if (c.pointsGift != null) giftMultiplier = Math.max(1, parseInt(c.pointsGift, 10) || 1);
+      if (!isEmbed && c.scale != null) {
+        const s = Math.min(2.85, Math.max(0.35, (parseInt(c.scale, 10) || 100) / 100));
+        document.documentElement.style.setProperty('--ov-scale', String(s));
+      }
+      setupKind();
+      baseTitleDisplay = customTitle || titulosMap[tituloKey] || titulosMap.hype;
+      updateOverlayIcon();
+      if (title && !isM2 && !isM3 && !isM4) title.textContent = baseTitleDisplay;
+      update();
+    }
+
+    function fitEmbed() {
+      if (!isEmbed) return;
+      const NAT = { default: 640, meta2: 600, meta3: 620, meta4: 520 }[activeSkin] || 640;
+      const s = Math.min(1, window.innerWidth / NAT);
+      document.documentElement.style.setProperty('--ov-scale', String(s));
+    }
+
+    /* ---- WebSocket ---- */
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings') { if (m.payload && m.payload.hypeBar) applyConfig(m.payload.hypeBar); return; }
+        if (m.type === 'state') { if (goalKind === 'viewers' && m.payload && m.payload.stats) { const v = Number(m.payload.stats.viewers); if (Number.isFinite(v) && v >= 0) { score = v; update(); } } return; }
+        if (isEmbed) return;
+        if (m.type === 'like') onLike(m.payload);
+        else if (m.type === 'follow') { if (allow.follow) add(points.follow, '+Follow'); }
+        else if (m.type === 'share') { if (allow.share) add(points.share, '+Share'); }
+        else if (m.type === 'member') { if (allow.member) add(points.member, '+Miembro'); }
+        else if (m.type === 'gift') onGift(m.payload);
+        else if (m.type === 'hypeTest') runTest();
+        else if (m.type === 'hypeReset') resetOverlay();
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'hype') return;
+      if (d.type === 'config') applyConfig(d.config);
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') { isEmbed ? runTest() : resetOverlay(); }
+    });
+
+    window.addEventListener('resize', fitEmbed);
+
+    setupKind();
+    updateOverlayIcon();
+    if (title && !isM2 && !isM3 && !isM4) title.textContent = baseTitleDisplay;
+    fitEmbed();
+    update();
+    if (isEmbed) runTest();
+    connect();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Top likes</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap');
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; color: #fff; }
+    .widget { width: 920px; max-width: 96vw; transform: scale(var(--ol-scale, 1)); transform-origin: top center; }
+    .list { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.35); }
+    .row { display: grid; grid-template-columns: 92px 92px minmax(0,1fr); align-items: center; gap: 0 16px; padding: 14px 18px 14px 12px; background: var(--row-bg, rgba(12,28,38,.82)); border-bottom: 1px solid rgba(255,255,255,.07); }
+    .row:last-child { border-bottom: none; }
+    .rank { display: flex; align-items: center; justify-content: center; min-height: 86px; border-right: 1px solid rgba(255,255,255,.12); padding-right: 6px; }
+    .rank-num { font-size: 40px; font-weight: 800; color: rgba(255,255,255,.92); }
+    .medal { font-size: 56px; line-height: 1; filter: drop-shadow(0 3px 8px rgba(0,0,0,.5)); }
+    .av-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+    .crown { display: none; }
+    .av { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid rgba(255,255,255,.25); background: #111; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+    .row[data-rank="1"] .av { border-color: #ffd54f; box-shadow: 0 0 20px rgba(255,215,0,.35); }
+    .row[data-rank="2"] .av { border-color: #cfd8dc; }
+    .row[data-rank="3"] .av { border-color: #ffab73; }
+    .meta { display: flex; align-items: center; gap: 16px; min-width: 0; }
+    .name { flex: 1 1 auto; min-width: 0; font-weight: 800; font-size: 32px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 0; background: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5, #ffbe0b, #fb5607, #ff006e); background-size: 220% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 4px rgba(0,0,0,.8)); animation: rainbow-flow 5s linear infinite; }
+    @keyframes rainbow-flow { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+    .valwrap { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+    .ico { font-size: 30px; line-height: 0; filter: drop-shadow(0 0 6px rgba(255,75,75,.6)); }
+    .num { font-size: 34px; font-weight: 900; color: var(--ol-accent, #fff); letter-spacing: -0.02em; white-space: nowrap; text-shadow: 0 2px 8px rgba(0,0,0,.5); font-variant-numeric: tabular-nums; }
+    html[data-bg="1"] .row { background: transparent !important; }
+    html[data-bg="1"] .list { box-shadow: none; }
+    html[data-shadows="0"] .list { box-shadow: none !important; }
+    html[data-shadows="0"] .num { text-shadow: none; }
+    html[data-shadows="0"] .medal { filter: none; }
+    html[data-shadows="0"] .ico { filter: none; }
+    html[data-shadows="0"] .name { filter: none; }
+    html[data-lines="0"] .row { border-bottom-color: transparent; }
+    html[data-namefx="0"] .name { animation: none; background: none; -webkit-text-fill-color: var(--ol-accent, #fff); color: var(--ol-accent, #fff); filter: none; }
+    .list--seq .row { opacity: 0; transform: translateY(12px); transition: opacity .4s ease, transform .4s ease; }
+    .list--seq .row.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="widget"><div class="list" id="list"></div></div>
+  <script src="/js/ranking-overlay.js"></script>
+  <script>
+    RankingOverlay.init({
+      kind: 'toplikes', settingsKey: 'toplikesRank', rank: 'toplikes',
+      metric: 'likes', icon: '❤️', style: 'banded',
+      defaults: { rows: 5, accent: '#ffffff', rowBg: '#0c1c26', scale: 100, transparent: false, nameRainbow: true, lines: true, shadows: true },
+      baseW: 920,
+    });
+  </script>
+</body>
+</html>

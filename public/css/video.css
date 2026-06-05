@@ -1,0 +1,14 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: transparent !important; overflow: hidden; height: 100%; font-family: system-ui, "Segoe UI", Roboto, sans-serif; }
+
+#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#stage .media { max-width: 90vw; max-height: 90vh; animation: pop .35s cubic-bezier(.2,1.4,.4,1); }
+@keyframes pop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+
+.screen-test {
+  padding: 20px 34px; border-radius: 16px; color: #fff; font-size: 30px; font-weight: 800;
+  background: linear-gradient(135deg, #25f4ee, #fe2c55);
+  box-shadow: 0 10px 40px rgba(0,0,0,.5);
+  animation: pop .35s cubic-bezier(.2,1.4,.4,1);
+}
+.screen-test small { display: block; font-size: 15px; font-weight: 600; opacity: .9; margin-top: 4px; }

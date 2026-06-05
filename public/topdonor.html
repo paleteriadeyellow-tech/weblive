@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Top donador semanal</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@600;700&display=swap');
+
+    :root { --c1: #00e5ff; --c2: #ff2bd6; --name-color: #ffffff; --ol-scale: 1; }
+    html, body { margin: 0; background: transparent; overflow: hidden; }
+    body { font-family: 'Rajdhani', system-ui, sans-serif; color: #fff; }
+
+    .scene { width: 100%; min-height: 100vh; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 18px; }
+    .card {
+      position: relative; width: min(640px, 94vw); padding: 22px 26px 20px; border-radius: 22px;
+      background:
+        radial-gradient(120% 140% at 0% 0%, rgba(0,229,255,.12), transparent 55%),
+        radial-gradient(120% 140% at 100% 0%, rgba(255,43,214,.12), transparent 55%),
+        linear-gradient(160deg, rgba(13,16,33,.5), rgba(8,10,22,.52));
+      box-shadow: 0 24px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+      transform: scale(var(--ol-scale)); transform-origin: center center; overflow: hidden; isolation: isolate;
+    }
+    .card::before {
+      content: ''; position: absolute; inset: 0; padding: 2px; border-radius: 22px;
+      background: linear-gradient(115deg, var(--c1), var(--c2), var(--c1)); background-size: 220% 220%;
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude; animation: borderFlow 4.5s linear infinite; pointer-events: none; z-index: 3;
+    }
+    .card::after {
+      content: ''; position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 4px);
+      opacity: .5; pointer-events: none; z-index: 1;
+    }
+    @keyframes borderFlow { 0% { background-position: 0% 50%; } 100% { background-position: 220% 50%; } }
+    .card > * { position: relative; z-index: 2; }
+
+    .hdr {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 16px;
+      background: linear-gradient(90deg, var(--c1), var(--c2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 10px rgba(0,229,255,.35));
+    }
+    .hdr .spark { font-size: 18px; -webkit-text-fill-color: initial; color: var(--c1); animation: pulse 1.6s ease-in-out infinite; }
+    .hdr .spark:last-child { color: var(--c2); animation-delay: .8s; }
+    @keyframes pulse { 0%,100% { opacity: .45; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.15); } }
+
+    .hero { display: flex; align-items: center; gap: 22px; }
+    .avatar-wrap { position: relative; flex: 0 0 auto; width: 132px; height: 132px; }
+    .avatar-ring { position: absolute; inset: -6px; border-radius: 50%; background: conic-gradient(from 0deg, var(--c1), var(--c2), var(--c1)); animation: spin 6s linear infinite; filter: drop-shadow(0 0 16px rgba(255,43,214,.45)); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .avatar-hole { position: absolute; inset: 0; border-radius: 50%; background: #0a0d1c; display: grid; place-items: center; overflow: hidden; box-shadow: inset 0 0 0 3px rgba(10,13,28,1); }
+    .avatar { width: 116px; height: 116px; border-radius: 50%; object-fit: cover; display: block; }
+    .crown { position: absolute; top: -30px; left: 50%; transform: translateX(-50%) rotate(-8deg); font-size: 44px; z-index: 4; filter: drop-shadow(0 4px 8px rgba(0,0,0,.55)); animation: crownBob 2.8s ease-in-out infinite; }
+    @keyframes crownBob { 0%,100% { transform: translateX(-50%) rotate(-8deg) translateY(0); } 50% { transform: translateX(-50%) rotate(-8deg) translateY(-5px); } }
+    .rank-badge { position: absolute; right: -6px; bottom: -6px; z-index: 4; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 18px; color: #0a0d1c; background: linear-gradient(135deg, #ffe25a, #ffb300); padding: 4px 10px; border-radius: 10px; box-shadow: 0 4px 12px rgba(255,179,0,.5); border: 2px solid rgba(255,255,255,.65); }
+
+    .info { flex: 1 1 auto; min-width: 0; }
+    .info .name { font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 34px; line-height: 1.05; color: var(--name-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 0 rgba(0,0,0,.45), 0 0 18px rgba(0,229,255,.3); }
+    .info .sub { font-size: 15px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: rgba(180,200,230,.7); margin-top: 2px; }
+    .score { display: inline-flex; align-items: center; gap: 10px; margin-top: 12px; padding: 8px 16px 8px 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(0,229,255,.16), rgba(255,43,214,.16)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+    .diamond { width: 30px; height: 30px; filter: drop-shadow(0 0 8px rgba(0,229,255,.6)); flex: 0 0 auto; animation: gemFloat 2.4s ease-in-out infinite; }
+    @keyframes gemFloat { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(8deg); } }
+    .amount { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 30px; font-variant-numeric: tabular-nums; background: linear-gradient(90deg, #fff, #cdecff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .amount-lbl { font-size: 15px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(205,236,255,.85); }
+
+    .runners { display: flex; gap: 10px; margin-top: 16px; }
+    .runners:empty { display: none; }
+    .runner { flex: 1 1 0; display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 12px; background: rgba(255,255,255,.045); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); min-width: 0; }
+    .runner .r-rank { font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 15px; color: var(--c1); flex: 0 0 auto; }
+    .runner:nth-child(2) .r-rank { color: var(--c2); }
+    .runner .r-av { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; border: 1.5px solid rgba(255,255,255,.25); }
+    .runner .r-meta { min-width: 0; display: flex; flex-direction: column; }
+    .runner .r-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .runner .r-coins { font-size: 12px; font-weight: 700; color: rgba(180,200,230,.8); font-variant-numeric: tabular-nums; }
+
+    .countdown { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08); }
+    .countdown[data-hidden="1"] { display: none; }
+    .cd-label { font-size: 13px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: rgba(180,200,230,.65); }
+    .cd-time { font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: .05em; font-variant-numeric: tabular-nums; background: linear-gradient(90deg, var(--c1), var(--c2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+    .card[data-empty="1"] .hero, .card[data-empty="1"] .runners { display: none; }
+    .empty { display: none; text-align: center; padding: 18px 6px 6px; }
+    .card[data-empty="1"] .empty { display: block; }
+    .empty .e-ico { font-size: 40px; filter: drop-shadow(0 0 12px rgba(0,229,255,.5)); }
+    .empty .e-txt { margin-top: 8px; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 17px; color: rgba(205,236,255,.9); }
+    .empty .e-sub { margin-top: 4px; font-size: 14px; color: rgba(180,200,230,.65); }
+
+    .pop { animation: pop .5s cubic-bezier(.2,.9,.3,1.4); }
+    @keyframes pop { 0% { transform: scale(.86); opacity: .3; } 100% { transform: scale(1); opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div class="scene">
+    <div class="card" id="card" data-empty="1">
+      <div class="hdr">
+        <span class="spark">◆</span>
+        <span id="hdr-title">TOP DONADOR SEMANAL</span>
+        <span class="spark">◆</span>
+      </div>
+
+      <div class="hero" id="hero">
+        <div class="avatar-wrap">
+          <div class="crown">👑</div>
+          <div class="avatar-ring"></div>
+          <div class="avatar-hole">
+            <img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer">
+          </div>
+          <div class="rank-badge">#1</div>
+        </div>
+        <div class="info">
+          <div class="name" id="name">—</div>
+          <div class="sub">Top de la semana</div>
+          <div class="score">
+            <svg class="diamond" viewBox="0 0 24 24" aria-hidden="true">
+              <defs>
+                <linearGradient id="gemg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#7df9ff"/>
+                  <stop offset="1" stop-color="#2bc6ff"/>
+                </linearGradient>
+              </defs>
+              <path d="M6 3h12l4 6-10 12L2 9z" fill="url(#gemg)" stroke="#bff3ff" stroke-width="0.8" stroke-linejoin="round"/>
+              <path d="M2 9h20M9 3 7 9l5 12M15 3l2 6-5 12" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="0.7"/>
+            </svg>
+            <span class="amount" id="amount">0</span>
+            <span class="amount-lbl" id="amount-lbl">diamantes</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="runners" id="runners"></div>
+
+      <div class="empty">
+        <div class="e-ico">👑</div>
+        <div class="e-txt">Esperando al primer donador</div>
+        <div class="e-sub">El que más diamantes envíe esta semana aparecerá aquí.</div>
+      </div>
+
+      <div class="countdown" id="countdown">
+        <span class="cd-label">Reinicia en</span>
+        <span class="cd-time" id="cd-time">—</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const FALLBACK_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const PREVIEW_AVATAR = '/jarron/lv.png';
+
+    const root = document.documentElement;
+    const elCard = document.getElementById('card');
+    const elName = document.getElementById('name');
+    const elAvatar = document.getElementById('avatar');
+    const elAmount = document.getElementById('amount');
+    const elRunners = document.getElementById('runners');
+    const elCountdown = document.getElementById('countdown');
+    const elCdTime = document.getElementById('cd-time');
+    const elHero = document.getElementById('hero');
+
+    let coinLabel = 'diamantes';
+    let showCountdown = true;
+    let showRunners = true;
+
+    function hexColor(v, def) {
+      if (v == null) return def;
+      let s = String(v).trim().replace(/^#/, '');
+      if (/^[0-9a-fA-F]{3}$/.test(s)) s = s.split('').map((c) => c + c).join('');
+      if (/^[0-9a-fA-F]{6}$/.test(s)) return '#' + s.toLowerCase();
+      return def;
+    }
+
+    function applyConfig(cfg) {
+      cfg = cfg || {};
+      root.style.setProperty('--c1', hexColor(cfg.c1, '#00e5ff'));
+      root.style.setProperty('--c2', hexColor(cfg.c2, '#ff2bd6'));
+      root.style.setProperty('--name-color', hexColor(cfg.nameColor, '#ffffff'));
+      let scale = parseInt(cfg.scale != null ? cfg.scale : 100, 10);
+      if (!Number.isFinite(scale)) scale = 100;
+      root.style.setProperty('--ol-scale', String(Math.min(150, Math.max(60, scale)) / 100));
+      coinLabel = (cfg.coinLabel || 'diamantes').trim() || 'diamantes';
+      showCountdown = cfg.showCountdown !== false;
+      showRunners = cfg.showRunners !== false;
+      document.getElementById('hdr-title').textContent = (cfg.title || 'TOP DONADOR SEMANAL').trim();
+      document.getElementById('amount-lbl').textContent = coinLabel;
+      elCountdown.dataset.hidden = showCountdown ? '0' : '1';
+      if (lastState) render(lastState);
+    }
+
+    function cleanName(raw) {
+      if (raw == null || raw === '') return 'Usuario';
+      return String(raw).trim().replace(/^@+/, '') || 'Usuario';
+    }
+    const fmt = (n) => (Number(n) || 0).toLocaleString('es-ES');
+    function setAvatar(img, url) {
+      img.referrerPolicy = 'no-referrer';
+      img.onerror = function () { this.onerror = null; this.src = FALLBACK_AVATAR; };
+      img.src = (url || '').trim() || FALLBACK_AVATAR;
+    }
+
+    let weekEndTarget = 0;
+    let lastTopId = null;
+    let lastState = null;
+
+    function render(state) {
+      lastState = state = state && typeof state === 'object' ? state : {};
+      const top = state.top || null;
+      const entries = Array.isArray(state.entries) ? state.entries : [];
+
+      if (!top) {
+        elCard.dataset.empty = '1';
+      } else {
+        elCard.dataset.empty = '0';
+        const name = cleanName(top.nickname || top.uniqueId);
+        elName.textContent = name; elName.title = name;
+        elAmount.textContent = fmt(top.coins);
+        setAvatar(elAvatar, top.profilePictureUrl);
+        const idNow = String(top.uniqueId || name);
+        if (idNow !== lastTopId) {
+          lastTopId = idNow;
+          elHero.classList.remove('pop'); void elHero.offsetWidth; elHero.classList.add('pop');
+        }
+      }
+
+      elRunners.innerHTML = '';
+      if (showRunners && entries.length > 1) {
+        for (let i = 1; i < Math.min(3, entries.length); i++) {
+          const u = entries[i];
+          const div = document.createElement('div');
+          div.className = 'runner';
+          div.innerHTML =
+            '<span class="r-rank">#' + (i + 1) + '</span>' +
+            '<img class="r-av" alt="" src="">' +
+            '<div class="r-meta"><span class="r-name"></span><span class="r-coins"></span></div>';
+          setAvatar(div.querySelector('.r-av'), u.profilePictureUrl);
+          const nm = cleanName(u.nickname || u.uniqueId);
+          div.querySelector('.r-name').textContent = nm;
+          div.querySelector('.r-name').title = nm;
+          div.querySelector('.r-coins').textContent = fmt(u.coins) + ' ' + coinLabel;
+          elRunners.appendChild(div);
+        }
+      }
+
+      weekEndTarget = Number(state.weekEnd) || 0;
+      tickCountdown();
+    }
+
+    function tickCountdown() {
+      if (!showCountdown) return;
+      if (!weekEndTarget) { elCdTime.textContent = '—'; return; }
+      let ms = weekEndTarget - Date.now();
+      if (ms < 0) ms = 0;
+      const d = Math.floor(ms / 86400000);
+      const h = Math.floor((ms % 86400000) / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      elCdTime.textContent = d > 0
+        ? (d + 'd ' + h + 'h ' + m + 'm')
+        : (String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'));
+    }
+    setInterval(tickCountdown, 1000);
+
+    // ---- Demo / prueba ----
+    const SIM_USERS = [
+      { uniqueId: 'sim1', nickname: 'ProGamerX', profilePictureUrl: 'https://randomuser.me/api/portraits/men/32.jpg' },
+      { uniqueId: 'sim2', nickname: 'NeonQueen', profilePictureUrl: 'https://randomuser.me/api/portraits/women/44.jpg' },
+      { uniqueId: 'sim3', nickname: 'ShadowKing', profilePictureUrl: 'https://randomuser.me/api/portraits/men/12.jpg' },
+      { uniqueId: 'sim4', nickname: 'LunaFox', profilePictureUrl: 'https://randomuser.me/api/portraits/women/68.jpg' },
+      { uniqueId: 'sim5', nickname: 'TitanZ', profilePictureUrl: 'https://randomuser.me/api/portraits/men/76.jpg' },
+      { uniqueId: 'sim6', nickname: 'PixelDiva', profilePictureUrl: 'https://randomuser.me/api/portraits/women/22.jpg' },
+    ];
+    const GIFT_VALUES = [1, 5, 10, 99, 199, 500, 1000];
+    let simTimer = null, simStopTimer = null, simWeekEnd = 0, simCoins = {};
+
+    function buildSimState() {
+      const arr = SIM_USERS
+        .map((u) => ({ uniqueId: u.uniqueId, nickname: u.nickname, profilePictureUrl: isEmbed ? PREVIEW_AVATAR : u.profilePictureUrl, coins: simCoins[u.uniqueId] || 0 }))
+        .filter((u) => u.coins > 0).sort((a, b) => b.coins - a.coins);
+      return { top: arr[0] || null, entries: arr.slice(0, 3), weekStart: Date.now() - 86400000, weekEnd: simWeekEnd, now: Date.now() };
+    }
+    function stopSim() {
+      if (simTimer) { clearInterval(simTimer); simTimer = null; }
+      if (simStopTimer) { clearTimeout(simStopTimer); simStopTimer = null; }
+    }
+    function startSim(durationMs) {
+      stopSim();
+      lastTopId = null;
+      simWeekEnd = Date.now() + 6 * 86400000 + 3600000 * 5;
+      simCoins = {};
+      SIM_USERS.forEach((u) => { simCoins[u.uniqueId] = 0; });
+      simCoins[SIM_USERS[0].uniqueId] = GIFT_VALUES[3];
+      render(buildSimState());
+      simTimer = setInterval(() => {
+        const u = SIM_USERS[Math.floor(Math.random() * SIM_USERS.length)];
+        const base = GIFT_VALUES[Math.floor(Math.random() * GIFT_VALUES.length)];
+        const repeat = 1 + Math.floor(Math.random() * 8);
+        simCoins[u.uniqueId] = (simCoins[u.uniqueId] || 0) + base * repeat;
+        render(buildSimState());
+      }, 650);
+      if (durationMs && durationMs > 0) simStopTimer = setTimeout(() => { stopSim(); restoreAfterTest(); }, durationMs);
+    }
+    function restoreAfterTest() {
+      if (isEmbed) render(buildSimState());
+      else if (realState) render(realState);
+      else render({ top: null });
+    }
+
+    // ---- WebSocket nativo ----
+    let ws, reconnectTimer, realState = null;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        const { type, payload } = msg;
+        if (type === 'weeklyTop') { realState = payload; if (!isEmbed && !simTimer) render(payload); }
+        else if (type === 'settings') { if (payload && payload.topDonor) applyConfig(payload.topDonor); }
+        else if (type === 'topDonorTest') { if (!isEmbed) startSim(8000); }
+        else if (type === 'topDonorTestEnd') { if (!isEmbed) { stopSim(); restoreAfterTest(); } }
+      };
+    }
+    connectWS();
+
+    // ---- Control desde el panel (vista previa embebida) ----
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'topdonor') return;
+      if (d.type === 'test') startSim(isEmbed ? 0 : 8000);
+      else if (d.type === 'reset') { stopSim(); restoreAfterTest(); }
+      else if (d.type === 'config') applyConfig(d.config);
+    });
+
+    // Config inicial por URL (opcional)
+    if (params.get('c1') || params.get('ttl')) {
+      applyConfig({
+        c1: params.get('c1'), c2: params.get('c2'), nameColor: params.get('nc'),
+        title: (params.get('ttl') || '').replace(/\+/g, ' '),
+        coinLabel: (params.get('cl') || '').replace(/\+/g, ' '),
+        scale: params.get('ol_scale'),
+      });
+    }
+
+    if (isEmbed) setTimeout(() => startSim(0), 400);
+    else render({ top: null });
+  })();
+  </script>
+</body>
+</html>

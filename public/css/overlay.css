@@ -1,0 +1,70 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: transparent !important;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+  height: 100%;
+}
+
+#alerts {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-radius: 16px;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0,0,0,.4);
+  box-shadow: 0 10px 40px rgba(0,0,0,.45);
+  background: linear-gradient(135deg, rgba(254,44,85,.95), rgba(120,30,120,.95));
+  backdrop-filter: blur(4px);
+  border: 2px solid rgba(255,255,255,.25);
+  animation: pop .4s cubic-bezier(.2,1.4,.4,1) forwards, fade .5s ease forwards 4.5s;
+}
+.alert.gift { background: linear-gradient(135deg, rgba(255,77,166,.95), rgba(120,30,180,.95)); }
+.alert.follow { background: linear-gradient(135deg, rgba(37,244,238,.92), rgba(30,90,160,.95)); }
+.alert.share { background: linear-gradient(135deg, rgba(46,204,113,.95), rgba(20,120,90,.95)); }
+
+.alert img.av, .alert .ph {
+  width: 52px; height: 52px; border-radius: 50%;
+  object-fit: cover; border: 2px solid rgba(255,255,255,.7);
+}
+.alert .ph { background: rgba(0,0,0,.3); display:flex;align-items:center;justify-content:center;font-size:24px; }
+.alert .body { display: flex; flex-direction: column; gap: 2px; line-height: 1.15; }
+.alert .who { font-size: 22px; }
+.alert .what { font-size: 16px; font-weight: 600; opacity: .92; }
+.alert .giftimg { width: 46px; height: 46px; object-fit: contain; }
+.alert .dia { font-size: 26px; }
+
+@keyframes pop { from { opacity: 0; transform: translateY(-30px) scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes fade { to { opacity: 0; transform: translateY(-20px) scale(.95); } }
+
+/* Capa de videos / GIFs disparados por eventos */
+#videoLayer {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+#videoLayer .media {
+  max-width: 70vw;
+  max-height: 70vh;
+  border-radius: 12px;
+  animation: pop .4s cubic-bezier(.2,1.4,.4,1);
+}

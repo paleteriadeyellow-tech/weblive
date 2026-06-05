@@ -1,0 +1,20 @@
+{
+  "name": "hokey-live",
+  "version": "1.0.0",
+  "description": "Panel ligero estilo TikFinity para eventos de TikTok LIVE (chat, regalos, likes, follows, shares) con overlay para OBS.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "tiktok-live-connector": "^2.1.1-beta1",
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}

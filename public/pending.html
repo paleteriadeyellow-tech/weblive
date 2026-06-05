@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Livecoins — Cuenta pendiente</title>
+  <style>
+    :root { --cy: #00e5ff; --mg: #ff2bd6; --bg: #0a0e16; --card: #121826; --line: #243049; --txt: #e8ecf5; --mut: #8b97b3; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #16213a 0%, var(--bg) 55%) no-repeat, var(--bg);
+      color: var(--txt); display: grid; place-items: center; padding: 20px;
+    }
+    .card {
+      width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--line);
+      border-radius: 18px; padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.5); text-align: center;
+    }
+    .ico { width: 56px; height: 56px; margin: 0 auto 10px; color: #ffcf5c; }
+    h1 { font-size: 20px; margin: 8px 0 6px;
+      background: linear-gradient(90deg, var(--cy), var(--mg)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    p { color: var(--mut); font-size: 14px; line-height: 1.5; margin: 6px 0; }
+    .user { color: var(--txt); font-weight: 700; }
+    .row { margin-top: 22px; display: flex; gap: 10px; }
+    button {
+      flex: 1; padding: 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+      font-size: 14px; font-weight: 700; background: #0c1322; color: var(--txt); transition: filter .15s;
+    }
+    button:hover { filter: brightness(1.15); }
+    button.primary { border: 0; color: #04121a; background: linear-gradient(90deg, var(--cy), var(--mg)); }
+    .hint { margin-top: 16px; font-size: 12px; color: var(--mut); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+      </svg>
+    </div>
+    <h1>Cuenta pendiente de activación</h1>
+    <p>Hola <span class="user" id="uname">…</span>, tu cuenta se creó correctamente.</p>
+    <p>Un administrador debe <strong>activar tu cuenta</strong> antes de que puedas usar el panel. Te avisaremos en cuanto esté lista.</p>
+    <div class="row">
+      <button onclick="location.reload()">Comprobar de nuevo</button>
+      <button class="primary" id="logout">Cerrar sesión</button>
+    </div>
+    <p class="hint">Esta página se actualiza sola cada 20 segundos.</p>
+  </div>
+
+  <script>
+    (async () => {
+      try {
+        const r = await fetch('/api/me');
+        if (r.ok) {
+          const me = await r.json();
+          document.getElementById('uname').textContent = me.username || '';
+          // Si ya fue activada, entra directo al panel.
+          if (me.active) location.href = '/';
+        } else {
+          location.href = '/login.html';
+        }
+      } catch {}
+    })();
+    document.getElementById('logout').onclick = async () => {
+      try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+      location.href = '/login.html';
+    };
+    setTimeout(() => location.reload(), 20000);
+  </script>
+</body>
+</html>

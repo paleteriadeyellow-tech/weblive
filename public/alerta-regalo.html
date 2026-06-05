@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Alerta — Regalo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,800;0,900;1,800;1,900&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+    :root { --ag-g1: #ff4d8d; --ag-g2: #c084fc; --ag-g3: #38bdf8; --ag-name: #ffffff; --ag-sub: #f8fafc; }
+    body { margin: 0; overflow: hidden; background: transparent; font-family: 'Montserrat', system-ui, sans-serif; }
+    #hearts-root { position: fixed; inset: 0; pointer-events: none; z-index: 100; overflow: visible; }
+    .ag-heart { position: fixed; font-size: clamp(24px, 4.5vw, 42px); line-height: 1; pointer-events: none; z-index: 101; transform: translate(-50%, -50%) scale(0); animation: ag-heart-burst 2.1s cubic-bezier(.22,.82,.28,1) forwards; will-change: transform, opacity; }
+    @keyframes ag-heart-burst { 0% { transform: translate(-50%, -50%) scale(.05) rotate(0deg); opacity: 0; } 6% { opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(var(--hr, 0deg)); } 100% { transform: translate(calc(-50% + var(--hx)), calc(-50% + var(--hy))) scale(.55) rotate(var(--hr2, 0deg)); opacity: 0; } }
+    #alert { position: absolute; left: 50%; width: min(92vw, 720px); padding: 28px 32px 32px; pointer-events: none; --al-scale: 1; transform-origin: center bottom; box-sizing: border-box; z-index: 10; overflow: visible; }
+    #alert.al-ent-lift { bottom: -420px; opacity: 0; transform: translateX(-50%) scale(var(--al-scale)); transition: bottom .78s cubic-bezier(.22,1,.36,1), opacity .45s ease, transform .78s cubic-bezier(.22,1,.36,1); }
+    #alert.al-ent-lift.active { bottom: 6vh; opacity: 1; transform: translateX(-50%) scale(var(--al-scale)); }
+    #alert.al-clear, #alert.al-clear.active { opacity: 0 !important; visibility: hidden !important; transition: none !important; }
+    .alert-inner { position: relative; z-index: 2; }
+    .row-main { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+    .avatar-orbit-root { --ag-orbit-dur: 6.5s; --orbit-r: 76px; position: relative; width: 188px; height: 188px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .orbit-ring { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; transform-origin: 50% 50%; will-change: transform; animation: ag-orbit-spin var(--ag-orbit-dur) linear infinite; }
+    @keyframes ag-orbit-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .orbit-heart { position: absolute; left: 50%; top: 50%; width: 1.35em; height: 1.35em; display: flex; align-items: center; justify-content: center; font-size: clamp(15px, 3vw, 21px); line-height: 1; transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(-1 * var(--orbit-r))); }
+    .orbit-heart-inner { display: block; transform-origin: 50% 55%; animation: ag-orbit-upright var(--ag-orbit-dur) linear infinite; }
+    @keyframes ag-orbit-upright { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+    .avatar-wrap { flex-shrink: 0; width: 112px; height: 112px; padding: 4px; border-radius: 50%; background: linear-gradient(165deg, var(--ag-g1) 0%, var(--ag-g2) 50%, var(--ag-g3) 100%); transform-origin: center center; position: relative; z-index: 2; }
+    #alert.ag-explode-phase .avatar-wrap { animation: ag-avatar-explode .55s cubic-bezier(.34,1.45,.64,1) both; }
+    @keyframes ag-avatar-explode { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
+    .avatar-inner { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1a0a2e; border: 3px solid rgba(43,0,84,.85); }
+    .avatar-inner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .headline-block { text-align: center; min-width: 0; max-width: 100%; }
+    .headline { margin: 0; font-size: clamp(22px, 4.8vw, 40px); font-weight: 900; font-style: italic; line-height: 1.05; letter-spacing: -.02em; background: linear-gradient(180deg, var(--ag-g1) 0%, var(--ag-g2) 48%, var(--ag-g3) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 1px 0 rgba(0,0,0,.65)); }
+    .giver-name { margin: 10px auto 0; font-size: clamp(18px, 3.2vw, 26px); font-weight: 800; font-style: italic; color: var(--ag-name); text-shadow: 0 1px 2px rgba(0,0,0,.85); word-break: break-word; max-width: 380px; }
+    .subtext { margin-top: 18px; text-align: center; }
+    .subtext p { margin: 4px 0; font-size: 14px; font-weight: 600; color: var(--ag-sub); text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+  </style>
+</head>
+<body>
+  <div id="hearts-root" aria-hidden="true"></div>
+  <div id="alert" class="al-ent-lift">
+    <div class="alert-inner">
+      <div class="row-main">
+        <div class="avatar-orbit-root">
+          <div class="orbit-ring" aria-hidden="true">
+            <span class="orbit-heart" style="--a: 0deg"><span class="orbit-heart-inner">❤️</span></span>
+            <span class="orbit-heart" style="--a: 45deg"><span class="orbit-heart-inner">💖</span></span>
+            <span class="orbit-heart" style="--a: 90deg"><span class="orbit-heart-inner">💕</span></span>
+            <span class="orbit-heart" style="--a: 135deg"><span class="orbit-heart-inner">💗</span></span>
+            <span class="orbit-heart" style="--a: 180deg"><span class="orbit-heart-inner">💝</span></span>
+            <span class="orbit-heart" style="--a: 225deg"><span class="orbit-heart-inner">❤️</span></span>
+            <span class="orbit-heart" style="--a: 270deg"><span class="orbit-heart-inner">💖</span></span>
+            <span class="orbit-heart" style="--a: 315deg"><span class="orbit-heart-inner">💕</span></span>
+          </div>
+          <div class="avatar-wrap" id="avatar-wrap-main"><div class="avatar-inner"><img id="u-img" src="" alt=""></div></div>
+        </div>
+        <div class="headline-block">
+          <p class="headline" id="headline-main">Gracias por tu regalo</p>
+          <p id="u-name" class="giver-name"></p>
+        </div>
+      </div>
+      <div class="subtext"><p id="gift-detail"></p></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const DEFAULT_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : DEFAULT_AVATAR;
+    const HEART_ICONS = ['❤️', '💖', '💕', '💗', '💝'];
+
+    let cfg = { headline: 'Gracias por tu regalo', durationSec: 6, scale: 100, g1: '#ff4d8d', g2: '#c084fc', g3: '#38bdf8', nameColor: '#ffffff', subColor: '#f8fafc' };
+    const q = []; let busy = false; let hideT = null, hide2T = null, explodeT = null, idleT = null;
+
+    const $ = (id) => document.getElementById(id);
+    function applyConfig(c) {
+      if (!c || typeof c !== 'object') return;
+      cfg = Object.assign(cfg, c);
+      const r = document.documentElement.style;
+      r.setProperty('--ag-g1', cfg.g1); r.setProperty('--ag-g2', cfg.g2); r.setProperty('--ag-g3', cfg.g3);
+      r.setProperty('--ag-name', cfg.nameColor); r.setProperty('--ag-sub', cfg.subColor);
+      $('headline-main').textContent = cfg.headline || 'Gracias por tu regalo';
+      $('alert').style.setProperty('--al-scale', String(Math.min(150, Math.max(50, Number(cfg.scale) || 100)) / 100));
+    }
+    function clearTimers() { [hideT, hide2T, explodeT].forEach((t) => t && clearTimeout(t)); hideT = hide2T = explodeT = null; }
+    function clearHearts() { const r = $('hearts-root'); if (r) r.innerHTML = ''; }
+    function name(d) { return (d.nickname || '').trim() || (d.uniqueId ? '@' + d.uniqueId : 'Usuario'); }
+    function giftLabel(n, count) { const b = String(n || 'Regalo').replace(/_/g, ' '); const cap = b.charAt(0).toUpperCase() + b.slice(1); const c = Math.max(1, parseInt(count, 10) || 1); return c > 1 ? cap + ' × ' + c : cap; }
+
+    function spawnHearts(total) {
+      const root = $('hearts-root'); if (!root) return; root.innerHTML = '';
+      const av = $('avatar-wrap-main'); let cx = innerWidth / 2, cy = innerHeight / 2;
+      if (av) { const r = av.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+      const n = Math.min(48, Math.max(20, total || 34));
+      for (let i = 0; i < n; i++) {
+        const el = document.createElement('span'); el.className = 'ag-heart'; el.textContent = HEART_ICONS[i % HEART_ICONS.length];
+        const ang = (Math.PI * 2 * i) / n + (Math.random() - .5) * .85, dist = 72 + Math.random() * 168;
+        el.style.setProperty('--hx', Math.cos(ang) * dist + 'px'); el.style.setProperty('--hy', Math.sin(ang) * dist + 'px');
+        el.style.setProperty('--hr', (Math.random() * 24 - 12) + 'deg'); el.style.setProperty('--hr2', (Math.random() * 40 - 20) + 'deg');
+        el.style.left = cx + 'px'; el.style.top = cy + 'px'; el.style.animationDelay = (i * .012 + Math.random() * .04) + 's';
+        root.appendChild(el);
+      }
+    }
+    function scheduleExplosion() {
+      const b = $('alert'); if (!b) return; b.classList.remove('ag-explode-phase'); void b.offsetWidth;
+      explodeT = setTimeout(() => { explodeT = null; b.classList.add('ag-explode-phase'); requestAnimationFrame(() => requestAnimationFrame(() => spawnHearts(36))); }, 780);
+    }
+    function applyData(d) {
+      const img = $('u-img'); img.onerror = function () { this.onerror = null; this.src = DEFAULT_AVATAR; };
+      img.src = (d.photo || d.profilePictureUrl || '').trim() || DEFAULT_AVATAR; img.alt = name(d);
+      $('u-name').textContent = name(d);
+      $('gift-detail').textContent = giftLabel(d.giftName, d.repeatCount);
+    }
+    function show() {
+      if (!q.length) return; if (!isEmbed && busy) return;
+      const d = q.shift(); applyData(d);
+      const b = $('alert'); clearHearts(); b.classList.remove('ag-explode-phase'); b.classList.add('active'); clearTimers(); scheduleExplosion();
+      if (isEmbed) { busy = false; return; }
+      busy = true; const ms = Math.min(120000, Math.max(3000, (Number(cfg.durationSec) || 6) * 1000));
+      hideT = setTimeout(() => { b.classList.remove('active', 'ag-explode-phase'); clearHearts(); hideT = null; hide2T = setTimeout(() => { hide2T = null; busy = false; show(); }, 1150); }, ms);
+    }
+    const DEMO = { uniqueId: 'preview_fan', nickname: 'PreviewFan', photo: PREVIEW_AVATAR, giftName: 'rosa', repeatCount: 1 };
+    function idleDemo() {
+      applyData(DEMO); const b = $('alert'); if (!b) return; clearTimers(); clearHearts(); busy = false; q.length = 0;
+      b.classList.remove('ag-explode-phase', 'al-clear'); b.classList.add('active'); scheduleExplosion();
+      if (idleT) clearInterval(idleT);
+      idleT = setInterval(() => { if (!b.classList.contains('active') || document.hidden) return; b.classList.remove('ag-explode-phase'); void b.offsetWidth; b.classList.add('ag-explode-phase'); requestAnimationFrame(() => requestAnimationFrame(() => spawnHearts(30))); }, 8200);
+    }
+    function runTest() {
+      const b = $('alert'); clearTimers(); clearHearts(); busy = false; q.length = 0;
+      b.classList.remove('active', 'ag-explode-phase'); b.classList.add('al-clear'); void b.offsetWidth;
+      requestAnimationFrame(() => requestAnimationFrame(() => { b.classList.remove('al-clear'); q.push({ ...DEMO }); show(); }));
+    }
+    function resetAll() {
+      clearTimers(); clearHearts(); q.length = 0; busy = false;
+      const b = $('alert'); if (b) b.classList.remove('active', 'ag-explode-phase');
+      if (isEmbed) idleDemo();
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings') { if (m.payload && m.payload.alertaGift) applyConfig(m.payload.alertaGift); return; }
+        if (isEmbed) return;
+        if (m.type === 'gift') { if (m.payload && m.payload.streak) return; q.push(m.payload); show(); }
+        else if (m.type === 'alertaGiftTest') runTest();
+        else if (m.type === 'alertaGiftReset') resetAll();
+      };
+    }
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'alertagift') return;
+      if (d.type === 'config') applyConfig(d.config);
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') resetAll();
+    });
+
+    applyConfig({});
+    if (isEmbed) requestAnimationFrame(() => requestAnimationFrame(idleDemo));
+    connect();
+  })();
+  </script>
+</body>
+</html>

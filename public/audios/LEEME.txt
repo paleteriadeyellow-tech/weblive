@@ -1,0 +1,6 @@
+Copia aquí tus archivos de audio (.mp3, .wav, .ogg, .m4a, .aac...).
+
+Aparecerán en el panel: Alertas -> Crear alerta sonora -> "Lista de Sonidos".
+Desde ahí puedes reproducirlos (▶️) y elegirlos (Usar) para una alerta.
+
+Después de copiar archivos nuevos, pulsa el botón ↻ del panel para recargar.

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Ranking diamantes (lista)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; color: #fff; }
+    .widget { width: 360px; max-width: 96vw; transform: scale(var(--ol-scale, 1)); transform-origin: top center; }
+    .list { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; }
+    .row { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; min-height: 56px; }
+    .rank { flex: 0 0 auto; width: 40px; display: flex; align-items: center; justify-content: center; }
+    .rank-num { font-size: 16px; font-weight: 800; color: rgba(255,255,255,.92); }
+    .medal { font-size: 26px; line-height: 1; filter: drop-shadow(0 2px 5px rgba(0,0,0,.45)); }
+    .av-wrap { position: relative; flex: 0 0 auto; width: 46px; height: 46px; }
+    .row[data-rank="1"] .av-wrap { width: 52px; height: 52px; }
+    .av { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; display: block; border: 2px solid rgba(255,255,255,.22); background: #111; }
+    .row[data-rank="1"] .av { width: 52px; height: 52px; border-color: #ffd700; box-shadow: 0 0 0 1px rgba(255,215,0,.35), 0 3px 10px rgba(0,0,0,.35); }
+    .row[data-rank="2"] .av { border-color: #c8d0d8; }
+    .row[data-rank="3"] .av { border-color: #d4a574; }
+    .crown { display: none; position: absolute; left: 50%; top: 0; transform: translate(-50%, -55%); font-size: 24px; z-index: 2; filter: drop-shadow(0 1px 3px rgba(0,0,0,.6)); pointer-events: none; }
+    .row[data-rank="1"] .crown { display: block; }
+    .meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; justify-content: center; }
+    .name { font-weight: 700; font-size: 15px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc; -webkit-text-fill-color: #f8fafc; }
+    html[data-namefx="1"] .name { color: transparent; -webkit-text-fill-color: transparent; background: linear-gradient(90deg, #ff2d95 0%, #c026d3 35%, #22d3ee 70%, #38bdf8 100%); -webkit-background-clip: text; background-clip: text; }
+    .valwrap { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+    .ico { font-size: 16px; line-height: 0; filter: drop-shadow(0 0 4px rgba(255,193,7,.45)); }
+    .num { font-size: 14px; font-weight: 700; color: var(--ol-accent, #f4f4f5); white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.45); font-variant-numeric: tabular-nums; }
+    html[data-bg="0"] .list { background: rgba(10,18,29,.78); box-shadow: 0 8px 28px rgba(0,0,0,.4); }
+    html[data-bg="0"] .row { border-bottom: 1px solid rgba(255,255,255,.06); }
+    html[data-bg="0"] .row:last-child { border-bottom: none; }
+    html[data-lines="1"] .row { border-bottom: 1px solid rgba(255,255,255,.08); }
+    html[data-lines="1"] .row:last-child { border-bottom: none; }
+    html[data-shadows="0"] .num { text-shadow: none; }
+    html[data-shadows="0"] .medal, html[data-shadows="0"] .crown, html[data-shadows="0"] .ico { filter: none; }
+    .list--seq .row { opacity: 0; transform: translateY(10px); transition: opacity .38s ease, transform .38s ease; }
+    .list--seq .row.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="widget"><div class="list" id="list"></div></div>
+  <script src="/js/ranking-overlay.js"></script>
+  <script>
+    RankingOverlay.init({
+      kind: 'topdiamlist', settingsKey: 'topdiamList', rank: 'topdiamlist',
+      metric: 'diamonds', icon: '🪙', style: 'lista',
+      defaults: { rows: 9, accent: '#ffe08a', scale: 100, transparent: true, nameRainbow: true, lines: false, shadows: false },
+      baseW: 360,
+    });
+  </script>
+</body>
+</html>

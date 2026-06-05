@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <title>Coin Match</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap');
+    * { box-sizing: border-box; }
+    :root { --cm-bg: rgba(24,18,40,.92); --cm-bd: rgba(167,139,250,.35); --cm-accent: #f43f5e; --cm-timer-bg: rgba(15,12,28,.95); --cm-text: #f1f5f9; --cm-muted: #94a3b8; --cm-gold: #fbbf24; }
+    body { margin: 0; padding: 10px; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; overflow: hidden; }
+    html.embed, html.embed body { width: 100%; height: 100%; }
+    html.embed body { display: flex; align-items: center; justify-content: center; padding: 0; }
+    html.embed .cm-wrap { transform: scale(var(--fit, 1)); transform-origin: center center; }
+    .cm-wrap { width: 320px; border-radius: 16px; background: linear-gradient(165deg, rgba(88,28,135,.35) 0%, var(--cm-bg) 45%); border: 1px solid var(--cm-bd); box-shadow: 0 12px 40px rgba(0,0,0,.55); overflow: hidden; }
+    .cm-wrap.cm-wrap--podium { width: 360px; }
+    .cm-head { padding: 10px 14px; font-weight: 900; font-size: 15px; letter-spacing: -.02em; color: var(--cm-text); border-bottom: 1px solid rgba(148,163,184,.15); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .cm-head.is-hidden { display: none; }
+    .cm-head-count { font-size: 11px; font-weight: 800; color: var(--cm-muted); letter-spacing: .04em; }
+    .cm-timer { margin: 10px 12px; padding: 14px 12px; border-radius: 12px; background: var(--cm-timer-bg); border: 1px solid rgba(148,163,184,.2); text-align: center; font-variant-numeric: tabular-nums; font-size: 36px; font-weight: 900; letter-spacing: .06em; color: var(--cm-muted); line-height: 1; }
+    .cm-timer.is-live { color: #e2e8f0; text-shadow: 0 0 24px rgba(244,63,94,.35); }
+    .cm-timer.is-delay { color: #a78bfa; }
+    .cm-list { padding: 4px 10px 10px; min-height: 120px; }
+    .cm-list.cm-list--scroll { max-height: 280px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+    .cm-row { display: grid; grid-template-columns: 28px 44px 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; border-radius: 12px; background: rgba(15,23,42,.55); border: 1px solid rgba(148,163,184,.12); animation: cmPop .35s ease; }
+    .cm-row.rank-0 { border-color: rgba(251,191,36,.45); background: rgba(120,53,15,.25); }
+    .cm-row.rank-1 { border-color: rgba(203,213,225,.35); }
+    .cm-row.rank-2 { border-color: rgba(217,119,6,.35); }
+    @keyframes cmPop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .cm-medal { font-size: 18px; text-align: center; }
+    .cm-av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.15); background: #111; }
+    .cm-name { font-weight: 800; font-size: 13px; color: var(--cm-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cm-coins { display: inline-flex; align-items: center; gap: 4px; font-weight: 900; font-size: 14px; color: var(--cm-gold); }
+    .cm-coins svg.cm-coin-svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .cm-placeholder { text-align: center; padding: 20px 12px; color: var(--cm-muted); font-size: 13px; font-weight: 700; }
+    .cm-podium { display: flex; flex-direction: row; align-items: flex-end; justify-content: center; gap: 6px; padding: 8px 10px 14px; min-height: 220px; }
+    .cm-podium-col { display: flex; flex-direction: column; align-items: center; width: 108px; flex-shrink: 0; }
+    .cm-podium-col--1 { width: 118px; z-index: 2; }
+    .cm-podium-user { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px; min-height: 88px; justify-content: flex-end; }
+    .cm-podium-col--1 .cm-podium-user { min-height: 96px; }
+    .cm-podium-av { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 3px solid rgba(251,191,36,.65); box-shadow: 0 4px 14px rgba(0,0,0,.45); background: #111; }
+    .cm-podium-col--1 .cm-podium-av { width: 56px; height: 56px; border-color: #fbbf24; box-shadow: 0 0 20px rgba(251,191,36,.35); }
+    .cm-podium-col--2 .cm-podium-av { border-color: rgba(203,213,225,.7); }
+    .cm-podium-col--3 .cm-podium-av { border-color: rgba(217,119,6,.75); }
+    .cm-podium-name { font-weight: 800; font-size: 11px; color: var(--cm-text); text-align: center; max-width: 104px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cm-podium-col--1 .cm-podium-name { font-size: 12px; }
+    .cm-podium-score { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: rgba(15,23,42,.92); border: 1px solid rgba(148,163,184,.25); font-weight: 900; font-size: 12px; color: var(--cm-gold); }
+    .cm-podium-score svg.cm-coin-svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .cm-coin-svg.moneda { filter: drop-shadow(0 1px 2px rgba(0,0,0,.45)); vertical-align: middle; }
+    .cm-podium-user.is-empty .cm-podium-name { color: var(--cm-muted); font-weight: 700; }
+    .cm-podium-user.is-empty .cm-podium-av { opacity: .35; border-style: dashed; }
+    .cm-podium-block { width: 100%; max-width: 102px; border-radius: 10px 10px 6px 6px; position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 0 rgba(0,0,0,.28), 0 12px 24px rgba(0,0,0,.4); }
+    .cm-podium-col--1 .cm-podium-block { max-width: 112px; }
+    .cm-podium-block--gold { height: 124px; background: linear-gradient(180deg, #fde68a 0%, #f59e0b 6%, #52525b 6%, #3f3f46 45%, #27272a 100%); }
+    .cm-podium-block--silver { height: 92px; background: linear-gradient(180deg, #e2e8f0 0%, #94a3b8 6%, #475569 6%, #334155 45%, #1e293b 100%); }
+    .cm-podium-block--bronze { height: 76px; background: linear-gradient(180deg, #fdba74 0%, #ea580c 6%, #7c2d12 6%, #57534e 45%, #292524 100%); }
+    .cm-podium-block--dim { opacity: .42; filter: saturate(.85); }
+    .cm-podium-ribbon { width: 48px; height: 56px; display: flex; align-items: center; justify-content: center; font-size: 34px; }
+    .cm-podium-ribbon--1 { width: 52px; height: 62px; font-size: 40px; }
+    .cm-podium-title { text-align: center; font-weight: 900; font-size: 12px; letter-spacing: .06em; color: var(--cm-gold); padding: 6px 8px 0; text-shadow: 0 0 14px rgba(251,191,36,.35); }
+  </style>
+</head>
+<body>
+  <div class="cm-wrap" id="cm-root" aria-live="polite">
+    <div class="cm-head" id="cm-head"><span id="cm-head-title">Coin Match</span><span class="cm-head-count" id="cm-head-count" hidden></span></div>
+    <div class="cm-timer" id="cm-timer">--:--</div>
+    <div class="cm-list" id="cm-list"><div class="cm-placeholder">Esperando inicio del partido…</div></div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const FONTS = { rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+
+    let cfg = { title: 'Coin Match', durationSec: 180, topN: 3, accent: '#f43f5e', startDelaySec: 3, revealSec: 3, minBid: 1, maxParticipants: 100, winMode: 'keep', showTitle: true, showCount: true, scroll: true, sniper: false, slowReveal: false, font: 'inter' };
+
+    let phase = 'idle';
+    let ranking = {};
+    let remainingSec = cfg.durationSec;
+    let revealCountdown = 0;
+    let timerId = null, revealTimerId = null, delayTimerId = null;
+    let testTimers = [];
+    let fitFn = null;
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, parseInt(v, 10) || lo));
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function fmt(sec) { const s = Math.max(0, Math.floor(sec)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+    function coinSvg() { return '<svg class="cm-coin-svg moneda" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#fbbf24"/><circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/></svg>'; }
+    const medals = ['🥇', '🥈', '🥉'];
+
+    function applyVisual() {
+      const root = $('cm-root');
+      root.style.fontFamily = FONTS[cfg.font] || FONTS.inter;
+      document.documentElement.style.setProperty('--cm-accent', cfg.accent || '#f43f5e');
+      $('cm-list').classList.toggle('cm-list--scroll', cfg.scroll && phase === 'running');
+      syncHead();
+    }
+    function syncHead() {
+      const head = $('cm-head'), t = $('cm-head-title');
+      head.classList.toggle('is-hidden', !cfg.showTitle);
+      if (cfg.showTitle) {
+        if (phase === 'delay') t.textContent = cfg.title + ' — Inicio en ' + remainingSec + '…';
+        else if (phase === 'countdown') t.textContent = cfg.title + ' — Podio en ' + revealCountdown + '…';
+        else if (phase === 'winners') t.textContent = cfg.title + ' — Ganadores';
+        else t.textContent = cfg.title;
+      }
+      const cnt = $('cm-head-count');
+      if (cfg.showCount && (phase === 'running' || phase === 'idle' || phase === 'delay')) { cnt.hidden = false; cnt.textContent = Object.keys(ranking).length + ' / ' + cfg.maxParticipants; }
+      else { cnt.hidden = true; cnt.textContent = ''; }
+    }
+    function renderTimer() {
+      const el = $('cm-timer'); el.classList.remove('is-live', 'is-delay');
+      if (phase === 'idle') el.textContent = fmt(cfg.durationSec);
+      else if (phase === 'delay') { el.textContent = remainingSec < 10 ? '00:0' + remainingSec : fmt(remainingSec); el.classList.add('is-delay'); }
+      else if (phase === 'running') { el.textContent = fmt(remainingSec); el.classList.add('is-live'); }
+      else if (phase === 'countdown') el.textContent = revealCountdown < 10 ? '00:0' + revealCountdown : String(revealCountdown);
+      else el.textContent = fmt(remainingSec);
+    }
+    function podSlot(u, colMod, blockMod, rib) {
+      const medal = rib === 1 ? '🥇' : rib === 2 ? '🥈' : '🥉';
+      if (!u) return '<div class="cm-podium-col cm-podium-col--' + colMod + '"><div class="cm-podium-user is-empty"><span class="cm-podium-name">—</span></div><div class="cm-podium-block cm-podium-block--' + blockMod + ' cm-podium-block--dim"><div class="cm-podium-ribbon cm-podium-ribbon--' + rib + '">' + medal + '</div></div></div>';
+      return '<div class="cm-podium-col cm-podium-col--' + colMod + '"><div class="cm-podium-user">' +
+        '<img class="cm-podium-av" src="' + esc(u.d.pic) + '" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' +
+        '<span class="cm-podium-name">' + esc(u.d.name) + '</span>' +
+        '<span class="cm-podium-score">' + coinSvg() + u.d.monedas.toLocaleString('es-ES') + '</span></div>' +
+        '<div class="cm-podium-block cm-podium-block--' + blockMod + '"><div class="cm-podium-ribbon cm-podium-ribbon--' + rib + '">' + medal + '</div></div></div>';
+    }
+    function renderPodium(arr) {
+      const t3 = arr.slice(0, 3);
+      const title = phase === 'winners' ? '<div class="cm-podium-title">🏆 Ganadores del partido</div>' : '<div class="cm-podium-title">⏱ Partido finalizado</div>';
+      return title + '<div class="cm-podium">' + podSlot(t3[1] || null, '2', 'silver', 2) + podSlot(t3[0] || null, '1', 'gold', 1) + podSlot(t3[2] || null, '3', 'bronze', 3) + '</div>';
+    }
+    function renderList() {
+      const list = $('cm-list'), root = $('cm-root');
+      const arr = Object.entries(ranking).map((x) => ({ id: x[0], d: x[1] })).sort((a, b) => b.d.monedas - a.d.monedas).slice(0, cfg.topN);
+      const showPodium = phase === 'ended' || phase === 'winners';
+      root.classList.toggle('cm-wrap--podium', showPodium && (arr.length > 0 || phase === 'winners'));
+      if (showPodium) { list.innerHTML = renderPodium(arr); return; }
+      if (!arr.length) { list.innerHTML = '<div class="cm-placeholder">' + (phase === 'running' ? '¡Envía regalos para aparecer en el ranking!' : phase === 'countdown' ? 'Calculando podio…' : 'Esperando inicio del partido…') + '</div>'; return; }
+      let html = '';
+      arr.forEach((u, i) => { html += '<div class="cm-row rank-' + Math.min(i, 2) + '"><div class="cm-medal">' + (medals[i] || (i + 1)) + '</div>' +
+        '<img class="cm-av" src="' + esc(u.d.pic) + '" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'">' +
+        '<div class="cm-name">' + esc(u.d.name) + '</div><div class="cm-coins">' + coinSvg() + ' ' + u.d.monedas.toLocaleString('es-ES') + '</div></div>'; });
+      list.innerHTML = html;
+    }
+    function renderAll() { renderTimer(); renderList(); applyVisual(); if (fitFn) fitFn(); }
+
+    function clearTimers() { [timerId, revealTimerId, delayTimerId].forEach((t) => t && clearInterval(t)); timerId = revealTimerId = delayTimerId = null; }
+    function clearTestTimers() { testTimers.forEach((t) => clearTimeout(t)); testTimers = []; }
+
+    function tick() { if (phase !== 'running') return; remainingSec--; if (remainingSec <= 0) { remainingSec = 0; beginReveal(); return; } renderTimer(); }
+    function beginReveal() {
+      clearInterval(timerId); timerId = null;
+      if (phase !== 'running') return;
+      phase = 'countdown'; revealCountdown = cfg.revealSec; renderAll();
+      revealTimerId = setInterval(() => {
+        revealCountdown--;
+        if (revealCountdown <= 0) { clearInterval(revealTimerId); revealTimerId = null; if (cfg.winMode === 'winners') showWinners(); else { phase = 'ended'; renderAll(); } return; }
+        renderAll();
+      }, cfg.slowReveal ? 2000 : 1000);
+    }
+    function beginRunning(dur) {
+      clearTimers(); phase = 'running'; ranking = {}; cfg.durationSec = clamp(dur != null ? dur : cfg.durationSec, 1, 604800); remainingSec = cfg.durationSec;
+      timerId = setInterval(tick, 1000); renderAll();
+    }
+    function startMatch(dur) {
+      const d = clamp(dur != null ? dur : cfg.durationSec, 1, 604800);
+      if (phase === 'idle' && cfg.startDelaySec > 0) {
+        clearTimers(); phase = 'delay'; remainingSec = cfg.startDelaySec; renderAll();
+        delayTimerId = setInterval(() => { remainingSec--; if (remainingSec <= 0) { clearInterval(delayTimerId); delayTimerId = null; beginRunning(d); return; } renderTimer(); syncHead(); }, 1000);
+        return;
+      }
+      beginRunning(d);
+    }
+    function forceEnd() { clearTimers(); if (phase !== 'ended' && phase !== 'winners') phase = 'ended'; renderAll(); }
+    function showWinners() { clearTimers(); phase = 'winners'; renderAll(); }
+    function resetAll() { clearTimers(); clearTestTimers(); phase = 'idle'; ranking = {}; remainingSec = cfg.durationSec; revealCountdown = 0; renderAll(); }
+
+    function onGift(d) {
+      if (phase !== 'running') return;
+      if (d && d.streak) return;
+      if (cfg.sniper && remainingSec > 10) return;
+      const coins = (Number(d.diamonds) || 0) * (Number(d.repeatCount) || 1);
+      if (coins <= 0 || coins < cfg.minBid) return;
+      const uid = d.uniqueId; if (!uid) return;
+      if (!ranking[uid] && Object.keys(ranking).length >= cfg.maxParticipants) return;
+      if (!ranking[uid]) ranking[uid] = { name: d.nickname || uid, monedas: 0, pic: d.photo || '' };
+      ranking[uid].monedas += coins;
+      if (d.photo) ranking[uid].pic = d.photo;
+      syncHead(); renderList();
+    }
+    function demo() {
+      ranking = { u1: { name: 'Test User 3', monedas: 150, pic: '/jarron/lv.png' }, u2: { name: 'Test User', monedas: 100, pic: '/jarron/lv.png' }, u3: { name: 'Test User 2', monedas: 50, pic: '/jarron/lv.png' } };
+      phase = 'ended'; remainingSec = 0; clearTimers(); renderAll();
+    }
+    function runTest() {
+      clearTestTimers(); resetAll();
+      const sd = cfg.startDelaySec; cfg.startDelaySec = 0; startMatch(12); cfg.startDelaySec = sd;
+      const p1 = 'https://randomuser.me/api/portraits/men/32.jpg', p2 = 'https://randomuser.me/api/portraits/men/45.jpg', p3 = 'https://randomuser.me/api/portraits/women/44.jpg';
+      const ev = [
+        { t: 500, id: 's_a', name: 'Test User', coins: 40, pic: p2 }, { t: 1600, id: 's_b', name: 'Test User 2', coins: 35, pic: p3 },
+        { t: 2800, id: 's_c', name: 'Test User 3', coins: 50, pic: p1 }, { t: 4200, id: 's_a', name: 'Test User', coins: 60, pic: p2 },
+        { t: 5400, id: 's_b', name: 'Test User 2', coins: 20, pic: p3 }, { t: 6800, id: 's_c', name: 'Test User 3', coins: 55, pic: p1 },
+        { t: 8200, id: 's_a', name: 'Test User', coins: 25, pic: p2 },
+      ];
+      ev.forEach((e) => testTimers.push(setTimeout(() => { if (phase !== 'running') return; onGift({ uniqueId: e.id, nickname: e.name, diamonds: e.coins, repeatCount: 1, photo: e.pic }); }, e.t)));
+    }
+    function handleAction(action, durationSec) {
+      const dur = durationSec != null ? clamp(durationSec, 1, 604800) : cfg.durationSec;
+      switch (String(action || '')) { case 'start': startMatch(dur); break; case 'end': forceEnd(); break; case 'reset': resetAll(); break; case 'winners': showWinners(); break; }
+    }
+
+    let ws, rt;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'gift') { if (!isEmbed) onGift(m.payload); }
+        else if (m.type === 'settings') { if (m.payload && m.payload.coinMatch) { cfg = Object.assign(cfg, m.payload.coinMatch); if (phase === 'idle') remainingSec = cfg.durationSec; renderAll(); } }
+        else if (m.type === 'coinMatchControl') { if (!isEmbed) handleAction(m.payload.action, m.payload.durationSec); }
+        else if (m.type === 'coinMatchTest') { if (!isEmbed) runTest(); }
+      };
+    }
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'coinmatch') return;
+      if (d.type === 'config') { cfg = Object.assign(cfg, d.config); if (phase === 'idle') remainingSec = cfg.durationSec; renderAll(); }
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') { resetAll(); if (isEmbed) demo(); }
+      else if (d.type === 'action') handleAction(d.action, d.durationSec);
+    });
+
+    if (isEmbed) {
+      document.documentElement.classList.add('embed');
+      const wrap = $('cm-root');
+      fitFn = () => { wrap.style.transform = 'none'; const s = Math.min(window.innerWidth / (wrap.offsetWidth + 8), window.innerHeight / (wrap.offsetHeight + 8), 1); wrap.style.transform = 'scale(' + s + ')'; };
+      window.addEventListener('resize', fitFn);
+    }
+    remainingSec = cfg.durationSec;
+    renderAll();
+    if (isEmbed) demo();
+    connectWS();
+  })();
+  </script>
+</body>
+</html>

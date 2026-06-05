@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Temporizador · Livecoins</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap');
+    :root { --cy: #00e5ff; --mg: #ff2bd6; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%; overflow: hidden; background: transparent;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+    body { display: flex; align-items: center; justify-content: center; }
+
+    .timer {
+      position: relative;
+      display: inline-flex; align-items: center; gap: 18px;
+      padding: 16px 40px;
+      border-radius: 18px;
+      background: linear-gradient(160deg, rgba(18,24,38,.94), rgba(10,14,22,.94));
+      box-shadow: 0 14px 40px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.05);
+    }
+    /* Borde con degradado de la marca */
+    .timer::before {
+      content: ''; position: absolute; inset: 0; border-radius: 18px; padding: 2px;
+      background: linear-gradient(120deg, var(--cy), var(--mg));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      pointer-events: none;
+      transition: filter .2s, opacity .2s;
+      opacity: .85;
+    }
+    body.running .timer::before {
+      animation: glow 1.6s ease-in-out infinite;
+    }
+    @keyframes glow {
+      0%, 100% { filter: drop-shadow(0 0 4px rgba(0,229,255,.5)); opacity: .9; }
+      50%      { filter: drop-shadow(0 0 14px rgba(255,43,214,.7)); opacity: 1; }
+    }
+
+    .clock {
+      width: 42px; height: 42px; flex: 0 0 auto;
+      color: var(--cy);
+      filter: drop-shadow(0 0 6px rgba(0,229,255,.5));
+    }
+    body.running .clock { color: var(--mg); filter: drop-shadow(0 0 8px rgba(255,43,214,.6)); }
+
+    .time {
+      font-size: 68px; font-weight: 900; letter-spacing: 4px; line-height: 1;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(180deg, #ffffff, #cfe9ff);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      text-shadow: 0 2px 18px rgba(0,229,255,.18);
+    }
+    .time.zero { background: linear-gradient(180deg, #ffd0e6, #ff7ac3); -webkit-background-clip: text; background-clip: text; }
+  </style>
+</head>
+<body>
+  <div class="timer">
+    <svg class="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l2.5 2" />
+      <path d="M9 2h6" />
+      <path d="M18.5 5.5l1.5 -1.5" />
+    </svg>
+    <div class="time" id="t">00:00</div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let ws, reconnectTimer;
+    let remaining = 0, running = false, localTick = null;
+
+    function fmt(sec) {
+      const t = Math.max(0, Math.floor(sec));
+      const h = Math.floor(t / 3600);
+      const m = Math.floor((t % 3600) / 60);
+      const s = t % 60;
+      let str = '';
+      if (h > 0) str += (h < 10 ? '0' : '') + h + ':';
+      str += (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+      return str;
+    }
+    function render() {
+      const el = $('t');
+      el.textContent = fmt(remaining);
+      el.classList.toggle('zero', remaining <= 0);
+      document.body.classList.toggle('running', running);
+    }
+    function stopLocal() { if (localTick) { clearInterval(localTick); localTick = null; } }
+    // Tick local solo para suavizar entre mensajes del servidor (el servidor es la verdad).
+    function startLocal() {
+      stopLocal();
+      if (!running) return;
+      localTick = setInterval(() => { if (remaining > 0) { remaining -= 1; render(); } }, 1000);
+    }
+    function applyTimer(p) {
+      if (typeof p.remaining === 'number') remaining = p.remaining;
+      running = !!p.running;
+      render();
+      startLocal();
+    }
+    function beep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 880; g.gain.value = 0.08; o.start();
+        setTimeout(() => { o.stop(); ctx.close(); }, 200);
+      } catch (e) {}
+    }
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'timer') applyTimer(m.payload || {});
+        else if (m.type === 'timerBeep') beep();
+      };
+    }
+    connect();
+    render();
+  </script>
+</body>
+</html>

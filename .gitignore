@@ -1,0 +1,8 @@
+node_modules/
+npm-debug.log*
+.DS_Store
+.env
+settings.json
+weekly.json
+data/
+public/uploads/

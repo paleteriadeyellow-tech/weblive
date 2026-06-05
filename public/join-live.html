@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join al live — Gamer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-neon: #00ff66;
+      --dark-bg: rgba(6, 6, 10, 0.9);
+      --laser-speed: 2s;
+      --join-dur-ms: 4500;
+      --join-scale: 1;
+      --join-top: 30px;
+      --join-left: 30px;
+      --tag-size: 1.3rem;
+      --status-size: 0.8rem;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 560px; height: 140px; background: transparent; overflow: hidden; font-family: 'Space Grotesk', sans-serif; }
+    html.tf-embed body { background: #060d16 !important; }
+    #stage-root { width: 560px; height: 140px; position: relative; transform: scale(var(--join-scale)); transform-origin: top left; }
+    .gamer-alert {
+      display: flex; align-items: center; position: absolute; top: var(--join-top); left: var(--join-left);
+      background: var(--dark-bg); padding: 12px 30px 12px 20px; transform: skewX(-15deg) translateX(-150%); opacity: 0;
+      border-left: 5px solid var(--primary-neon);
+      box-shadow: -10px 0 25px color-mix(in srgb, var(--primary-neon) 15%, transparent), 0 10px 30px rgba(0,0,0,.7);
+      transition: all .4s cubic-bezier(.19,1,.22,1); overflow: hidden; pointer-events: none;
+    }
+    .gamer-alert::before { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary-neon) 40%, transparent), transparent); transform: skewX(15deg); }
+    .gamer-alert.active { transform: skewX(-15deg) translateX(0); opacity: 1; }
+    .gamer-alert.active::before { animation: laserScan var(--laser-speed) ease-in-out infinite; }
+    .avatar-wrapper { transform: skewX(15deg); position: relative; width: 48px; height: 48px; margin-right: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .avatar-hud { position: absolute; width: 100%; height: 100%; border: 2px solid rgba(255,255,255,.1); box-sizing: border-box; }
+    .avatar-hud::after { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; border: 2px solid var(--primary-neon); clip-path: polygon(0 0, 30% 0, 0 30%, 0 0, 100% 100%, 70% 100%, 100% 70%); animation: hudPulse 1.5s infinite alternate; }
+    .avatar { width: 85%; height: 85%; object-fit: cover; background: #111; display: block; }
+    .text-wrapper { transform: skewX(15deg); display: flex; flex-direction: column; min-width: 0; }
+    .gamer-tag { font-family: 'Orbitron', sans-serif; font-size: var(--tag-size); font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; line-height: 1.2; text-shadow: 0 0 10px rgba(255,255,255,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+    .status-text { font-size: var(--status-size); font-weight: 700; color: var(--primary-neon); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+    .status-text::before { content: ''; display: inline-block; width: 6px; height: 6px; background-color: var(--primary-neon); border-radius: 50%; box-shadow: 0 0 8px var(--primary-neon); flex-shrink: 0; }
+    @keyframes laserScan { 0% { left: -100%; } 50%, 100% { left: 150%; } }
+    @keyframes hudPulse { 0% { opacity: .5; } 100% { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div id="stage-root">
+    <div class="gamer-alert" id="gamerAlert" aria-live="polite">
+      <div class="avatar-wrapper">
+        <div class="avatar-hud"></div>
+        <img class="avatar" src="" alt="" id="userAvatar" referrerpolicy="no-referrer" width="48" height="48">
+      </div>
+      <div class="text-wrapper">
+        <span class="gamer-tag" id="gamerTag">—</span>
+        <span class="status-text" id="statusText">se unió al live</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    var params = new URLSearchParams(location.search);
+    var isEmbed = params.get('embed') === '1';
+    var DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/bottts/svg?seed=Gamer';
+    var PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : DEFAULT_AVATAR;
+    var DEFAULT_PHRASES = ['se unió a la partida', 'entró a la squad', 'ready to rumble', 'spawneó en el chat', 'se unió al live'];
+
+    var alertEl = document.getElementById('gamerAlert');
+    var tagEl = document.getElementById('gamerTag');
+    var statusEl = document.getElementById('statusText');
+    var avatarEl = document.getElementById('userAvatar');
+
+    var joinQueue = [];
+    var showing = false;
+    var hideTimer = null;
+    var pinned = false;
+    var durMs = 4500;
+    var phraseMode = 'random';
+    var fixedPhrase = '';
+    var customPhrases = DEFAULT_PHRASES.slice();
+
+    function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
+    function root() { return document.documentElement.style; }
+
+    function applyConfig(cfg) {
+      cfg = cfg || {};
+      var ne = String(cfg.neon || '').trim().replace(/^#/, '');
+      if (/^[0-9a-fA-F]{6}$/.test(ne)) root().setProperty('--primary-neon', '#' + ne);
+      var dur = parseFloat(cfg.durationSec);
+      if (!isNaN(dur) && dur >= 2 && dur <= 15) { durMs = Math.round(dur * 1000); root().setProperty('--join-dur-ms', String(durMs)); }
+      var osz = parseInt(cfg.scale, 10);
+      if (!isNaN(osz) && osz >= 50 && osz <= 200) root().setProperty('--join-scale', String(osz / 100));
+      var px = parseInt(cfg.posTop, 10);
+      if (!isNaN(px) && px >= 0 && px <= 400) root().setProperty('--join-top', px + 'px');
+      var pl = parseInt(cfg.posLeft, 10);
+      if (!isNaN(pl) && pl >= 0 && pl <= 400) root().setProperty('--join-left', pl + 'px');
+      var ls = parseFloat(cfg.laserSpeed);
+      if (!isNaN(ls) && ls >= 0.5 && ls <= 6) root().setProperty('--laser-speed', ls + 's');
+      var bgop = parseInt(cfg.bgOpacity, 10);
+      if (!isNaN(bgop)) { bgop = clamp(bgop, 40, 100); root().setProperty('--dark-bg', 'rgba(6, 6, 10, ' + (bgop / 100).toFixed(2) + ')'); }
+      var tagsz = parseFloat(cfg.tagSize);
+      if (!isNaN(tagsz) && tagsz >= 0.8 && tagsz <= 2.2) root().setProperty('--tag-size', tagsz + 'rem');
+      var sts = parseFloat(cfg.statusSize);
+      if (!isNaN(sts) && sts >= 0.55 && sts <= 1.4) root().setProperty('--status-size', sts + 'rem');
+      var pm = String(cfg.phraseMode || '').trim().toLowerCase();
+      if (pm === 'fixed' || pm === 'random') phraseMode = pm;
+      var ph = String(cfg.phrase || '').trim();
+      fixedPhrase = ph;
+      var phl = String(cfg.phrases || '').trim();
+      customPhrases = phl ? phl.split('|').map(function (s) { return s.trim(); }).filter(Boolean) : DEFAULT_PHRASES.slice();
+      if (!customPhrases.length) customPhrases = DEFAULT_PHRASES.slice();
+    }
+
+    function pickAvatar(d) { return (d && (d.photo || d.profilePictureUrl) || '').toString().trim() || PREVIEW_AVATAR; }
+    function pickName(d) { return String((d && (d.nickname || d.uniqueId)) || 'viewer').trim() || 'viewer'; }
+    function pickPhrase() { return phraseMode === 'fixed' && fixedPhrase ? fixedPhrase : (customPhrases[Math.floor(Math.random() * customPhrases.length)] || 'se unió al live'); }
+
+    function setContent(d, phrase) {
+      if (tagEl) tagEl.textContent = pickName(d).toUpperCase();
+      if (statusEl) statusEl.textContent = phrase || pickPhrase();
+      if (avatarEl) { avatarEl.onerror = function () { avatarEl.onerror = null; avatarEl.src = PREVIEW_AVATAR; }; avatarEl.src = pickAvatar(d); avatarEl.alt = pickName(d); }
+    }
+    function sample() { return { uniqueId: 'Gamer_Preview', nickname: 'Gamer Preview', photo: PREVIEW_AVATAR }; }
+
+    function showPinned() {
+      pinned = true;
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      showing = false;
+      setContent(sample());
+      if (alertEl) alertEl.classList.add('active');
+    }
+    function hidePinned() { pinned = false; }
+    function hideJoin() { if (pinned) return; if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } if (alertEl) alertEl.classList.remove('active'); }
+
+    function showJoin(d, opts) {
+      opts = opts || {};
+      if (!alertEl) return;
+      if (pinned && !opts.force) return;
+      setContent(d, opts.phrase);
+      if (alertEl) alertEl.classList.remove('active');
+      requestAnimationFrame(function () { alertEl.classList.add('active'); });
+      hideTimer = setTimeout(function () {
+        hideJoin(); showing = false;
+        if (isEmbed) showPinned();
+        setTimeout(pumpQueue, 180);
+      }, durMs);
+    }
+    function pumpQueue() { if (showing || pinned || !joinQueue.length) return; showing = true; showJoin(joinQueue.shift(), { force: true }); }
+    function enqueue(d) { if (!d) return; joinQueue.push(d); pumpQueue(); }
+
+    function runTest() {
+      hidePinned();
+      joinQueue = [];
+      showing = true;
+      showJoin(sample(), { force: true });
+    }
+    function resetAll() {
+      joinQueue = []; showing = false;
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      hidePinned(); if (alertEl) alertEl.classList.remove('active');
+      if (isEmbed) showPinned();
+    }
+
+    var ws, rt;
+    function connect() {
+      var proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = function () { clearTimeout(rt); };
+      ws.onclose = function () { rt = setTimeout(connect, 1500); };
+      ws.onmessage = function (ev) {
+        var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (m.type === 'settings') { if (m.payload && m.payload.streamJoin) applyConfig(m.payload.streamJoin); return; }
+        if (isEmbed) return;
+        if (m.type === 'member') enqueue(m.payload);
+        else if (m.type === 'streamJoinTest') runTest();
+        else if (m.type === 'streamJoinReset') resetAll();
+      };
+    }
+    window.addEventListener('message', function (e) {
+      var d = e.data; if (!d || d.kind !== 'streamjoin') return;
+      if (d.type === 'config') { applyConfig(d.config); if (isEmbed) { setContent(sample()); if (alertEl) alertEl.classList.add('active'); } }
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') resetAll();
+    });
+
+    if (isEmbed) document.documentElement.classList.add('tf-embed');
+    applyConfig({});
+    if (isEmbed) requestAnimationFrame(showPinned);
+    connect();
+  })();
+  </script>
+</body>
+</html>

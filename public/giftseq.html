@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Gift Sequence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800&family=Oswald:wght@600;700&family=Plus+Jakarta+Sans:wght@700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --overlay-text: #f4f7ff;
+      --overlay-accent: #8df7d8;
+      --overlay-size: 18px;
+      --overlay-font: 'Arial Black', sans-serif;
+      --overlay-bg: transparent;
+      --overlay-anim-name: overlayGiftPopIn;
+      --overlay-anim-duration: 0.58s;
+      --overlay-row-speed: 7.6s;
+    }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--overlay-bg) !important; }
+    body { font-family: var(--overlay-font); color: var(--overlay-text); pointer-events: none; }
+    .stage { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+    .sequence-empty { padding: 12px 16px; border-radius: 18px; background: rgba(7,10,18,.74); border: 1px solid rgba(141,247,216,.16); color: rgba(244,247,255,.82); font-size: 14px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+    .sequence-card { position: absolute; inset: 0; width: 100vw; height: 100vh; opacity: 0; transform: translateY(10px) scale(.985); transition: opacity .28s ease, transform .34s cubic-bezier(.21,.9,.24,1.05); overflow: visible; }
+    .sequence-card.is-visible { opacity: 1; transform: translateY(0) scale(1); }
+    .sequence-card.is-leaving { opacity: 0; transform: translateY(-8px) scale(.992); }
+    .sequence-canvas { position: relative; width: 100vw; height: 100vh; min-height: 100vh; overflow: visible; background: transparent; border: none; }
+    .sequence-image { display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 18px 38px rgba(0,0,0,.42)); animation: overlayGiftFloat 2.8s ease-in-out infinite; }
+    .sequence-image.sequence-image--cover { object-fit: cover; }
+    .sequence-image-anchor { position: absolute; inset: 0; display: grid; place-items: center; }
+    .sequence-image-wrap { width: min(64%, 280px); height: min(74%, 280px); display: grid; place-items: center; transform-origin: center; animation: var(--overlay-anim-name) var(--overlay-anim-duration) cubic-bezier(.22,.86,.28,1.12) both; }
+    .sequence-row-anchor { position: absolute; inset: 0; display: grid; align-items: center; overflow: hidden; pointer-events: none; }
+    .sequence-row-track { display: flex; align-items: center; width: max-content; animation: overlayGiftRowLeft var(--overlay-row-speed, 7.6s) linear infinite; }
+    .sequence-row-copy { display: flex; align-items: center; gap: 18px; padding-right: 18px; flex: 0 0 auto; }
+    .sequence-row-item { display: grid; place-items: center; gap: 8px; width: 118px; flex: 0 0 auto; opacity: .88; filter: saturate(.92); text-align: center; }
+    .sequence-row-media { width: 92px; height: 92px; display: grid; place-items: center; }
+    .sequence-row-text { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--overlay-text); font-family: var(--overlay-font); font-size: clamp(12px, 1.2vw, 16px); font-weight: 800; line-height: 1.1; -webkit-text-stroke: 1.25px rgba(0,0,0,.96); paint-order: stroke fill; text-shadow: 1px 0 0 rgba(0,0,0,.86), -1px 0 0 rgba(0,0,0,.86), 0 1px 0 rgba(0,0,0,.86), 0 -1px 0 rgba(0,0,0,.86), 0 0 8px rgba(0,0,0,.34); }
+    .sequence-canvas.is-row-left .sequence-image { animation: none; }
+    .sequence-canvas.is-row-left .sequence-text { display: none; }
+    .sequence-text { position: absolute; left: var(--item-x, 50%); top: var(--item-y, 74%); transform: translate(-50%,-50%); max-width: min(82%, 360px); color: var(--overlay-text); font-family: var(--overlay-font); font-size: var(--overlay-size); font-weight: 900; line-height: 1.2; text-align: center; white-space: pre-line; -webkit-text-stroke: 2.4px rgba(0,0,0,.98); paint-order: stroke fill; text-shadow: 1px 0 0 rgba(0,0,0,.96), -1px 0 0 rgba(0,0,0,.96), 0 1px 0 rgba(0,0,0,.96), 0 -1px 0 rgba(0,0,0,.96), 1px 1px 0 rgba(0,0,0,.88), -1px 1px 0 rgba(0,0,0,.88), 1px -1px 0 rgba(0,0,0,.88), -1px -1px 0 rgba(0,0,0,.88), 0 0 14px rgba(0,0,0,.34), 0 0 22px color-mix(in srgb, var(--overlay-accent) 12%, transparent); z-index: 2; }
+    @keyframes overlayGiftFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    @keyframes overlayGiftFadeIn { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: scale(1); } }
+    @keyframes overlayGiftPopIn { 0% { opacity: 0; transform: scale(.72); } 72% { opacity: 1; transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
+    @keyframes overlayGiftZoomIn { from { opacity: 0; transform: scale(1.18); } to { opacity: 1; transform: scale(1); } }
+    @keyframes overlayGiftDropIn { 0% { opacity: 0; transform: translateY(-16px) scale(.94); } 72% { opacity: 1; transform: translateY(4px) scale(1.01); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes overlayGiftRowLeft { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    body.seq-text-rainbow .sequence-text, body.seq-text-rainbow .sequence-row-text {
+      color: transparent !important; -webkit-text-fill-color: transparent;
+      background-image: linear-gradient(90deg, #ff006e, #ffbe0b, #06d6a0, #118ab2, #8338ec, #ff006e);
+      background-size: 280% 100%; -webkit-background-clip: text; background-clip: text;
+      -webkit-text-stroke: 0.05em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: none;
+      animation: seqTextRainbow 3.2s linear infinite;
+    }
+    @keyframes seqTextRainbow { to { background-position: 100% center; } }
+  </style>
+</head>
+<body>
+  <div id="stage" class="stage"></div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const stage = document.getElementById('stage');
+    const state = { index: 0, timer: null, sequence: [], testActive: false };
+    let cfg = {};
+
+    function escapeHtml(v) {
+      return String(v ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+    }
+    function clamp(v, min, max, fallback) {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.min(max, Math.max(min, n));
+    }
+    const STEP_MS = 2000;
+
+    function getStepMs() {
+      const raw = cfg && cfg.stepSec != null ? cfg.stepSec : params.get('stepsec');
+      if (raw != null && raw !== '') return Math.round(clamp(Number(raw), 1, 15, 2) * 1000);
+      return STEP_MS;
+    }
+
+    function textPositionFromSide(side) {
+      const s = String(side || '').toLowerCase();
+      const map = { top: { x: 50, y: 16 }, bottom: { x: 50, y: 74 }, left: { x: 18, y: 48 }, right: { x: 82, y: 48 } };
+      return map[s] || null;
+    }
+    function normalizeTextSide(raw) {
+      const s = String(raw || '').toLowerCase();
+      return s === 'top' || s === 'bottom' || s === 'left' || s === 'right' ? s : '';
+    }
+    function inferTextSideFromPosition(pos) {
+      if (!pos || typeof pos !== 'object') return 'bottom';
+      const x = Number(pos.x), y = Number(pos.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return 'bottom';
+      if (y <= 22) return 'top';
+      if (y >= 62) return 'bottom';
+      if (x >= 62) return 'right';
+      if (x <= 38) return 'left';
+      return 'bottom';
+    }
+    function normalizeItem(source) {
+      const item = source && typeof source === 'object' ? source : {};
+      const giftName = String(item.giftName || 'Regalo').trim() || 'Regalo';
+      const textSide = normalizeTextSide(item.textSide) || inferTextSideFromPosition(item.textPosition);
+      const fromSide = textPositionFromSide(textSide);
+      const textPosition = fromSide || {
+        x: Math.round(clamp(item.textPosition && item.textPosition.x, 0, 100, 50)),
+        y: Math.round(clamp(item.textPosition && item.textPosition.y, 0, 100, 74)),
+      };
+      return {
+        giftName,
+        giftImage: String(item.giftImage || '').trim(),
+        customText: String(item.customText || giftName).trim() || giftName,
+        durationMs: Math.round(clamp(item.durationMs, 900, 15000, STEP_MS)),
+        autoImage: item.autoImage !== false,
+        textSide,
+        textPosition,
+      };
+    }
+    function getDefaultSequence() {
+      return [
+        normalizeItem({ giftName: 'Rose', customText: 'Bailo', textSide: 'bottom' }),
+        normalizeItem({ giftName: 'GG', customText: 'Modo épico', textSide: 'top' }),
+        normalizeItem({ giftName: 'TikTok', customText: 'Entrando con estilo', textSide: 'right' }),
+      ];
+    }
+
+    function normalizeAnim(value) {
+      if (value === 'gift-slide-left' || value === 'gift-slide-right') return 'gift-row-left';
+      return value || 'gift-pop';
+    }
+    function getConfiguredAnimation() { return normalizeAnim((cfg && cfg.anim) || params.get('anim') || 'gift-pop'); }
+    function normalizeRowSpeed(v) { return Math.round(clamp(v, 3.2, 16, 7.6) * 10) / 10; }
+    function normColorHex(v, fallback) {
+      const fb = fallback || '#f4f7ff';
+      let s = String(v == null ? '' : v).trim();
+      if (!s) return fb;
+      if (s[0] !== '#') {
+        if (/^[0-9a-fA-F]{6}$/i.test(s) || /^[0-9a-fA-F]{3}$/i.test(s)) s = '#' + s;
+        else if (!/^#[0-9a-fA-F]{3,8}$/i.test(s)) return fb;
+      }
+      return s;
+    }
+    function parseFlag(v) {
+      if (v === true || v === 1 || v === '1') return true;
+      const s = String(v == null ? '' : v).trim().toLowerCase();
+      return s === '1' || s === 'true' || s === 'yes';
+    }
+    function parseStyle() {
+      return {
+        text: normColorHex((cfg && cfg.text) || params.get('text'), '#f4f7ff'),
+        accent: normColorHex((cfg && cfg.accent) || params.get('accent'), '#8df7d8'),
+        size: clamp(cfg && cfg.size != null ? cfg.size : params.get('size'), 10, 80, 18),
+        font: (cfg && cfg.font) || "'Arial Black', sans-serif",
+        bg: (cfg && cfg.background) || params.get('background') || 'transparent',
+        anim: getConfiguredAnimation(),
+        rowSpeed: normalizeRowSpeed(cfg && cfg.rowSpeed != null ? cfg.rowSpeed : params.get('rowspeed')),
+        textRainbow: parseFlag(cfg && cfg.textRainbow != null ? cfg.textRainbow : params.get('textrainbow')),
+      };
+    }
+    function readSequence() {
+      if (cfg && Array.isArray(cfg.sequence) && cfg.sequence.length) return cfg.sequence.map(normalizeItem);
+      return getDefaultSequence();
+    }
+
+    function getRowItems(currentIndex, limit) {
+      if (!state.sequence.length) return [];
+      const target = Math.max(1, limit || 5);
+      const rotated = Array.from({ length: state.sequence.length }, (_, offset) => normalizeItem(state.sequence[(currentIndex + offset) % state.sequence.length]));
+      if (rotated.length >= target) return rotated;
+      const items = [];
+      const copies = Math.max(2, Math.ceil(target / Math.max(rotated.length, 1)));
+      for (let i = 0; i < copies; i += 1) items.push.apply(items, rotated);
+      return items;
+    }
+    function buildRowCopiesMarkup(rowItems) {
+      const items = Array.isArray(rowItems) ? rowItems : [];
+      function buildCopy(isGhost) {
+        return '<div class="sequence-row-copy"' + (isGhost ? ' aria-hidden="true"' : '') + '>' +
+          items.map((it) =>
+            '<div class="sequence-row-item">' +
+            '<div class="sequence-row-media"><img class="sequence-image" src="' + escapeHtml(it.giftImage) + '" alt="' + (isGhost ? '' : escapeHtml(it.giftName)) + '" onerror="this.style.visibility=\'hidden\'"></div>' +
+            '<span class="sequence-row-text">' + escapeHtml(it.customText || it.giftName) + '</span>' +
+            '</div>'
+          ).join('') + '</div>';
+      }
+      return buildCopy(false) + buildCopy(true);
+    }
+    function getGiftChangeAnimation(animKey) {
+      const map = {
+        none: { name: 'none', duration: '0s' },
+        'gift-fade': { name: 'overlayGiftFadeIn', duration: '0.52s' },
+        'gift-pop': { name: 'overlayGiftPopIn', duration: '0.58s' },
+        'gift-zoom': { name: 'overlayGiftZoomIn', duration: '0.56s' },
+        'gift-row-left': { name: 'overlayGiftRowLeft', duration: '0.9s' },
+        'gift-drop': { name: 'overlayGiftDropIn', duration: '0.66s' },
+      };
+      return map[animKey] || map['gift-pop'];
+    }
+    function applyStyle() {
+      const style = parseStyle();
+      const animation = getGiftChangeAnimation(style.anim);
+      const r = document.documentElement.style;
+      r.setProperty('--overlay-text', style.text);
+      r.setProperty('--overlay-accent', style.accent);
+      r.setProperty('--overlay-size', String(style.size) + 'px');
+      r.setProperty('--overlay-font', style.font);
+      r.setProperty('--overlay-bg', style.bg);
+      r.setProperty('--overlay-anim-name', animation.name);
+      r.setProperty('--overlay-anim-duration', animation.duration);
+      r.setProperty('--overlay-row-speed', String(style.rowSpeed) + 's');
+      document.body.classList.toggle('seq-text-rainbow', !!style.textRainbow);
+    }
+    function buildCardMarkup(item, index) {
+      const safe = normalizeItem(item);
+      const anim = getConfiguredAnimation();
+      const isRowLeft = anim === 'gift-row-left';
+      const rowItems = isRowLeft ? getRowItems(index, 8) : [];
+      const imgFitClass = safe.autoImage === false ? ' sequence-image--cover' : '';
+      const visualMarkup = isRowLeft
+        ? '<div class="sequence-row-anchor"><div class="sequence-row-track">' + buildRowCopiesMarkup(rowItems) + '</div></div>'
+        : '<div class="sequence-image-anchor"><div class="sequence-image-wrap"><img class="sequence-image' + imgFitClass + '" src="' + escapeHtml(safe.giftImage) + '" alt="' + escapeHtml(safe.giftName) + '" onerror="this.style.visibility=\'hidden\'"></div></div>';
+      return '<div class="sequence-canvas' + (isRowLeft ? ' is-row-left' : '') + '" style="--item-x:' + safe.textPosition.x + '%; --item-y:' + safe.textPosition.y + '%;">' +
+        visualMarkup +
+        (isRowLeft ? '' : '<div class="sequence-text">' + escapeHtml(safe.customText) + '</div>') +
+        '</div>';
+    }
+    function showEmptyState() { stage.innerHTML = '<div class="sequence-empty">Sin gifts configurados</div>'; }
+    function showItem(index) {
+      const item = state.sequence[index];
+      if (!item) return showEmptyState();
+      const isRowLeft = getConfiguredAnimation() === 'gift-row-left';
+      if (isRowLeft) {
+        let card = stage.querySelector('.sequence-card[data-row-left="1"]');
+        if (!card) {
+          card = document.createElement('article');
+          card.className = 'sequence-card is-visible';
+          card.dataset.rowLeft = '1';
+          card.innerHTML = buildCardMarkup(item, index);
+          stage.innerHTML = '';
+          stage.appendChild(card);
+        } else {
+          const track = card.querySelector('.sequence-row-track');
+          if (track) track.innerHTML = buildRowCopiesMarkup(getRowItems(index, 8));
+        }
+        return;
+      }
+      if (isEmbed) {
+        let card = stage.querySelector('.sequence-card');
+        if (!card) {
+          card = document.createElement('article');
+          card.className = 'sequence-card is-visible';
+          card.innerHTML = buildCardMarkup(item, index);
+          stage.appendChild(card);
+        } else {
+          card.classList.remove('is-leaving');
+          card.classList.add('is-visible');
+          card.removeAttribute('data-row-left');
+          card.innerHTML = buildCardMarkup(item, index);
+        }
+        return;
+      }
+      const previous = stage.querySelector('.sequence-card');
+      if (previous) {
+        previous.classList.remove('is-visible');
+        previous.classList.add('is-leaving');
+        setTimeout(() => previous.remove(), 420);
+      }
+      const card = document.createElement('article');
+      card.className = 'sequence-card';
+      card.innerHTML = buildCardMarkup(item, index);
+      stage.appendChild(card);
+      requestAnimationFrame(() => card.classList.add('is-visible'));
+    }
+    function playSequence() {
+      if (!state.sequence.length) return showEmptyState();
+      const safeIndex = state.index % state.sequence.length;
+      showItem(safeIndex);
+      state.index = (safeIndex + 1) % state.sequence.length;
+      clearTimeout(state.timer);
+      state.timer = setTimeout(playSequence, getStepMs());
+    }
+    function bootstrap() {
+      applyStyle();
+      state.sequence = readSequence();
+      state.index = 0;
+      state.testActive = false;
+      if (!state.sequence.length) return showEmptyState();
+      stage.innerHTML = '';
+      playSequence();
+    }
+
+    // ---- WebSocket nativo ----
+    let ws, reconnectTimer;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        const { type, payload } = msg;
+        if (type === 'settings') { if (payload && payload.giftSeq) { cfg = payload.giftSeq; bootstrap(); } }
+        else if (type === 'giftSeqTest') { bootstrap(); }
+        else if (type === 'giftSeqReset') { bootstrap(); }
+      };
+    }
+
+    // ---- Control desde el panel (vista previa) ----
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'giftseq') return;
+      if (d.type === 'config') { cfg = d.config || {}; bootstrap(); }
+      else if (d.type === 'test' || d.type === 'reset') { bootstrap(); }
+    });
+
+    // Arranque
+    cfg = {};
+    bootstrap();
+    connectWS();
+  })();
+  </script>
+</body>
+</html>

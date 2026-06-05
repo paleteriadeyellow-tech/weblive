@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Alerta — Nuevo seguidor</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,800;0,900;1,800;1,900&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+    :root { --al-g1: #00ffff; --al-g2: #7c3aed; --al-g3: #ff00ff; --al-name: #ffffff; --al-sub: #f8fafc; }
+    body { margin: 0; overflow: hidden; background: transparent; font-family: 'Montserrat', system-ui, sans-serif; }
+    #alert { position: absolute; left: 50%; width: min(92vw, 720px); padding: 28px 32px 32px; pointer-events: none; --al-scale: 1; transform-origin: center bottom; box-sizing: border-box; }
+    #alert.al-ent-lift { bottom: -420px; opacity: 0; transform: translateX(-50%) scale(var(--al-scale)); transition: bottom .75s cubic-bezier(.22,1,.36,1), opacity .45s ease, transform .75s cubic-bezier(.22,1,.36,1); }
+    #alert.al-ent-lift.active { bottom: 6vh; opacity: 1; transform: translateX(-50%) scale(var(--al-scale)); }
+    #alert.al-ent-bottom { bottom: 6vh; opacity: 0; transform: translateX(-50%) scale(var(--al-scale)) translateY(calc(100vh + 40px)); transition: transform .88s cubic-bezier(.19,1,.22,1), opacity .5s ease; }
+    #alert.al-ent-bottom.active { opacity: 1; transform: translateX(-50%) scale(var(--al-scale)) translateY(0); }
+    #alert.al-ent-pop { bottom: 6vh; opacity: 0; transform: translateX(-50%) scale(calc(var(--al-scale) * .18)); filter: blur(10px); transition: transform .58s cubic-bezier(.34,1.56,.64,1), opacity .42s ease, filter .5s ease; }
+    #alert.al-ent-pop.active { opacity: 1; transform: translateX(-50%) scale(var(--al-scale)); filter: blur(0); }
+    #alert.al-ent-slide { bottom: 6vh; opacity: 0; transform: translateX(calc(-50% - 72vw)) scale(var(--al-scale)); transition: transform .78s cubic-bezier(.22,1,.36,1), opacity .48s ease .04s; }
+    #alert.al-ent-slide.active { opacity: 1; transform: translateX(-50%) scale(var(--al-scale)); }
+    #alert.al-ent-fade { bottom: 6vh; opacity: 0; transform: translateX(-50%) scale(calc(var(--al-scale) * .82)); transition: transform .65s ease, opacity .6s ease; }
+    #alert.al-ent-fade.active { opacity: 1; transform: translateX(-50%) scale(var(--al-scale)); }
+    #alert.al-ent-bounce { bottom: -420px; opacity: 0; transform: translateX(-50%) scale(var(--al-scale)); transition: bottom 1.05s cubic-bezier(.34,1.55,.64,1), opacity .42s ease, transform 1.05s cubic-bezier(.34,1.55,.64,1); }
+    #alert.al-ent-bounce.active { bottom: 6vh; opacity: 1; transform: translateX(-50%) scale(var(--al-scale)); }
+    #alert.al-clear, #alert.al-clear.active { opacity: 0 !important; visibility: hidden !important; transition: none !important; filter: none !important; }
+    .alert-inner { position: relative; z-index: 2; }
+    .god-rays { position: absolute; inset: -80px -120px -60px; z-index: 0; pointer-events: none; opacity: .85; background: repeating-conic-gradient(from 0deg at 50% 55%, transparent 0deg 6deg, rgba(0,255,255,.06) 6deg 8deg, transparent 8deg 14deg); -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 15%, transparent 72%); mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 15%, transparent 72%); animation: rays-spin 12s linear infinite; }
+    @keyframes rays-spin { to { transform: rotate(360deg); } }
+    .dust { position: absolute; inset: -40px; z-index: 1; pointer-events: none; overflow: visible; }
+    .dust span { position: absolute; width: 4px; height: 4px; border-radius: 50%; animation: dust-float 2.2s ease-in-out infinite; }
+    .dust span:nth-child(odd) { background: rgba(255,0,255,.85); box-shadow: 0 0 8px #ff00ff; }
+    .dust span:nth-child(even) { background: rgba(0,255,255,.9); box-shadow: 0 0 8px #00ffff; }
+    .dust span:nth-child(1) { left: 8%; top: 30%; animation-delay: 0s; } .dust span:nth-child(2) { left: 18%; top: 55%; animation-delay: .2s; } .dust span:nth-child(3) { left: 28%; top: 22%; animation-delay: .4s; } .dust span:nth-child(4) { left: 72%; top: 38%; animation-delay: .1s; } .dust span:nth-child(5) { left: 82%; top: 62%; animation-delay: .35s; } .dust span:nth-child(6) { left: 88%; top: 28%; animation-delay: .5s; } .dust span:nth-child(7) { left: 45%; top: 12%; animation-delay: .15s; } .dust span:nth-child(8) { left: 55%; top: 78%; animation-delay: .25s; } .dust span:nth-child(9) { left: 12%; top: 70%; animation-delay: .45s; } .dust span:nth-child(10) { left: 92%; top: 48%; animation-delay: .05s; }
+    @keyframes dust-float { 0%, 100% { transform: translate(0,0) scale(1); opacity: .75; } 50% { transform: translate(6px,-10px) scale(1.15); opacity: 1; } }
+    .shard { position: absolute; z-index: 1; pointer-events: none; opacity: .55; animation: shard-drift 3s ease-in-out infinite; }
+    .shard.s1 { width: 48px; height: 56px; top: 8%; left: 4%; background: linear-gradient(135deg, rgba(0,255,255,.5), rgba(0,255,255,.05)); clip-path: polygon(50% 0%, 100% 100%, 0% 85%); }
+    .shard.s2 { width: 40px; height: 50px; top: 18%; right: 6%; background: linear-gradient(225deg, rgba(255,0,255,.45), rgba(255,0,255,.05)); clip-path: polygon(0% 0%, 100% 30%, 40% 100%); animation-delay: -.8s; }
+    .shard.s3 { width: 36px; height: 44px; bottom: 22%; left: 10%; background: linear-gradient(180deg, rgba(0,255,255,.35), transparent); clip-path: polygon(20% 0%, 100% 40%, 0% 100%); animation-delay: -1.2s; }
+    .shard.s4 { width: 44px; height: 48px; bottom: 18%; right: 12%; background: linear-gradient(0deg, rgba(255,0,255,.4), transparent); clip-path: polygon(80% 0%, 100% 100%, 0% 60%); animation-delay: -.4s; }
+    @keyframes shard-drift { 0%, 100% { transform: translate(0,0) rotate(0deg); } 50% { transform: translate(4px,-6px) rotate(4deg); } }
+    .glint { position: absolute; z-index: 3; width: 14px; height: 14px; background: #fff; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 12px rgba(0,255,255,.8)); opacity: .95; animation: glint-pulse 1.4s ease-in-out infinite; pointer-events: none; }
+    .glint.g1 { top: 12%; left: 22%; animation-delay: 0s; } .glint.g2 { top: 28%; right: 18%; animation-delay: .3s; animation-name: glint-pulse-2; } .glint.g3 { bottom: 30%; left: 30%; animation-delay: .6s; animation-name: glint-pulse-3; }
+    @keyframes glint-pulse { 0%, 100% { opacity: .6; transform: scale(.85); } 50% { opacity: 1; transform: scale(1); } }
+    @keyframes glint-pulse-2 { 0%, 100% { opacity: .5; transform: scale(.65); } 50% { opacity: 1; transform: scale(.9); } }
+    @keyframes glint-pulse-3 { 0%, 100% { opacity: .45; transform: scale(.55); } 50% { opacity: .95; transform: scale(.75); } }
+    .row-main { display: flex; align-items: center; justify-content: center; gap: 22px 28px; flex-wrap: wrap; }
+    .avatar-wrap { flex-shrink: 0; width: 112px; height: 112px; padding: 4px; border-radius: 50%; background: linear-gradient(165deg, var(--al-g1) 0%, var(--al-g2) 50%, var(--al-g3) 100%); box-shadow: 0 0 16px rgba(0,255,255,.55), 0 0 32px rgba(255,0,255,.4), inset 0 0 12px rgba(255,255,255,.15); }
+    .avatar-wrap.is-hidden { display: none !important; }
+    .avatar-inner { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1a0a2e; border: 3px solid #2b0054; }
+    .avatar-inner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .headline-block { text-align: left; min-width: 0; }
+    .headline { margin: 0; font-size: clamp(28px, 5.5vw, 46px); font-weight: 900; font-style: italic; line-height: .95; letter-spacing: -.02em; text-transform: uppercase; background: linear-gradient(180deg, var(--al-g1) 0%, var(--al-g2) 45%, var(--al-g3) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 1px rgba(255,255,255,.95)) drop-shadow(0 2px 0 #2b0054) drop-shadow(0 0 18px rgba(255,0,255,.75)) drop-shadow(0 0 28px rgba(0,255,255,.35)); }
+    .headline-line2.is-hidden { display: none; }
+    .follower-name { margin: 10px 0 0; font-size: clamp(18px, 3.2vw, 26px); font-weight: 800; font-style: italic; color: var(--al-name); text-shadow: 0 0 12px rgba(0,255,255,.5), 0 2px 8px rgba(43,0,84,.95), 0 0 24px rgba(255,0,255,.35); word-break: break-word; max-width: 380px; }
+    .subtext { margin-top: 18px; text-align: center; }
+    .subtext p { margin: 4px 0; font-size: 15px; font-weight: 600; color: var(--al-sub); text-shadow: 0 2px 6px rgba(0,0,0,.85), 0 0 12px rgba(43,0,84,.6); }
+    .subtext p.is-hidden { display: none; }
+    .fx-hidden { display: none !important; }
+    .fw { position: absolute; width: 6px; height: 6px; border-radius: 50%; opacity: 0; z-index: 5; }
+    #alert.active .fw.f1 { animation: up1 1s ease-out .08s forwards; top: 0; left: 35%; background: #00ffff; box-shadow: 0 0 10px #00ffff; }
+    #alert.active .fw.f2 { animation: up2 1s ease-out .08s forwards; top: 0; left: 48%; background: #ff00ff; box-shadow: 0 0 10px #ff00ff; }
+    #alert.active .fw.f3 { animation: up3 1s ease-out .08s forwards; top: 0; left: 58%; background: #00ffff; box-shadow: 0 0 10px #00ffff; }
+    #alert.active .fw.f4 { animation: up4 1s ease-out .08s forwards; top: 0; left: 68%; background: #ff00ff; box-shadow: 0 0 10px #ff00ff; }
+    @keyframes up1 { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translate(-35px,-130px) scale(0); opacity: 0; } }
+    @keyframes up2 { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translate(-8px,-160px) scale(0); opacity: 0; } }
+    @keyframes up3 { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translate(12px,-170px) scale(0); opacity: 0; } }
+    @keyframes up4 { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translate(42px,-140px) scale(0); opacity: 0; } }
+  </style>
+</head>
+<body>
+  <div id="alert" class="al-ent-lift">
+    <div class="god-rays" id="fx-rays" aria-hidden="true"></div>
+    <div class="dust" id="fx-dust" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="shard s1" aria-hidden="true"></div><div class="shard s2" aria-hidden="true"></div><div class="shard s3" aria-hidden="true"></div><div class="shard s4" aria-hidden="true"></div>
+    <div class="glint g1" aria-hidden="true"></div><div class="glint g2" aria-hidden="true"></div><div class="glint g3" aria-hidden="true"></div>
+    <div class="fw f1"></div><div class="fw f2"></div><div class="fw f3"></div><div class="fw f4"></div>
+    <div class="alert-inner">
+      <div class="row-main">
+        <div class="avatar-wrap"><div class="avatar-inner"><img id="u-img" src="" alt=""></div></div>
+        <div class="headline-block">
+          <p class="headline" id="headline-l1">¡NUEVO</p>
+          <p class="headline headline-line2" id="headline-l2">SEGUIDOR!</p>
+          <p id="u-name" class="follower-name"></p>
+        </div>
+      </div>
+      <div class="subtext"><p id="sub-l1">¡Bienvenido/a a la comunidad!</p><p id="sub-l2">Sigue interactuando</p></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const DEFAULT_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : DEFAULT_AVATAR;
+    const ANIMS = ['lift', 'bottom', 'pop', 'slide', 'fade', 'bounce'];
+    const $ = (id) => document.getElementById(id);
+
+    let cfg = {
+      headline1: '¡NUEVO', headline2: 'SEGUIDOR!', sub1: '¡Bienvenido/a a la comunidad!', sub2: 'Sigue interactuando',
+      durationSec: 5, scale: 100, g1: '#00ffff', g2: '#7c3aed', g3: '#ff00ff', nameColor: '#ffffff', subColor: '#f8fafc',
+      showAvatar: true, showShards: true, showRays: true, showDust: true, enterAnim: 'lift',
+    };
+    const q = []; let busy = false; let hideT = null, hide2T = null;
+
+    function normAnim(v) { const s = String(v == null ? 'lift' : v).toLowerCase().trim(); return ANIMS.indexOf(s) !== -1 ? s : 'lift'; }
+    function applyConfig(c) {
+      if (!c || typeof c !== 'object') return;
+      cfg = Object.assign(cfg, c);
+      const r = document.documentElement.style;
+      r.setProperty('--al-g1', cfg.g1); r.setProperty('--al-g2', cfg.g2); r.setProperty('--al-g3', cfg.g3);
+      r.setProperty('--al-name', cfg.nameColor); r.setProperty('--al-sub', cfg.subColor);
+      $('headline-l1').textContent = cfg.headline1 || ' ';
+      const t2 = (cfg.headline2 || '').trim(); $('headline-l2').textContent = t2 || ' '; $('headline-l2').classList.toggle('is-hidden', !t2);
+      $('sub-l1').textContent = cfg.sub1 || ' '; $('sub-l1').classList.toggle('is-hidden', !(cfg.sub1 || '').trim());
+      $('sub-l2').textContent = cfg.sub2 || ' '; $('sub-l2').classList.toggle('is-hidden', !(cfg.sub2 || '').trim());
+      const av = document.querySelector('.avatar-wrap'); if (av) av.classList.toggle('is-hidden', !cfg.showAvatar);
+      $('fx-rays').classList.toggle('fx-hidden', !cfg.showRays);
+      $('fx-dust').classList.toggle('fx-hidden', !cfg.showDust);
+      document.querySelectorAll('.shard, .glint').forEach((el) => el.classList.toggle('fx-hidden', !cfg.showShards));
+      const a = $('alert'); const anim = normAnim(cfg.enterAnim);
+      ANIMS.forEach((n) => a.classList.remove('al-ent-' + n)); a.classList.add('al-ent-' + anim);
+      a.style.setProperty('--al-scale', String(Math.min(150, Math.max(50, Number(cfg.scale) || 100)) / 100));
+    }
+    function clearTimers() { [hideT, hide2T].forEach((t) => t && clearTimeout(t)); hideT = hide2T = null; }
+    function name(d) { return (d.nickname || d.nickName || '').trim() || (d.uniqueId ? '@' + d.uniqueId : 'Seguidor'); }
+    function applyData(u) {
+      const img = $('u-img'); img.onerror = function () { this.onerror = null; this.src = DEFAULT_AVATAR; };
+      img.src = (u.photo || u.profilePictureUrl || '').trim() || DEFAULT_AVATAR; img.alt = name(u);
+      $('u-name').textContent = name(u);
+    }
+    const DEMO = { uniqueId: 'preview_fan', nickname: 'PreviewFan', photo: PREVIEW_AVATAR };
+    function replayEntrance() {
+      const b = $('alert'); if (!b) return; clearTimers(); busy = false; q.length = 0; applyData(DEMO);
+      b.classList.remove('active'); void b.offsetWidth;
+      requestAnimationFrame(() => requestAnimationFrame(() => b.classList.add('active')));
+    }
+    function show() {
+      if (busy || !q.length) return; busy = true; const u = q.shift(); applyData(u);
+      const b = $('alert'); b.classList.add('active');
+      const ms = Math.min(120000, Math.max(2000, (Number(cfg.durationSec) || 5) * 1000));
+      clearTimers();
+      hideT = setTimeout(() => { b.classList.remove('active'); hideT = null; hide2T = setTimeout(() => { hide2T = null; busy = false; show(); }, 1150); }, ms);
+    }
+    function runTest() { if (isEmbed) { replayEntrance(); return; } q.push({ ...DEMO }); show(); }
+    function resetAll() {
+      clearTimers(); q.length = 0; busy = false; const b = $('alert'); if (b) b.classList.remove('active');
+      if (isEmbed) requestAnimationFrame(() => requestAnimationFrame(replayEntrance));
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings') { if (m.payload && m.payload.alertaFollow) applyConfig(m.payload.alertaFollow); return; }
+        if (isEmbed) return;
+        if (m.type === 'follow') { q.push(m.payload); show(); }
+        else if (m.type === 'alertaFollowTest') runTest();
+        else if (m.type === 'alertaFollowReset') resetAll();
+      };
+    }
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'alertafollow') return;
+      if (d.type === 'config') applyConfig(d.config);
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') resetAll();
+    });
+
+    applyConfig({});
+    if (isEmbed) requestAnimationFrame(() => requestAnimationFrame(replayEntrance));
+    connect();
+  })();
+  </script>
+</body>
+</html>

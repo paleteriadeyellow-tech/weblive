@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Alerta — Likes</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,800;0,900;1,800;1,900&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+    :root { --ag-g1: #ff4d8d; --ag-g2: #c084fc; --ag-g3: #38bdf8; }
+    body { margin: 0; overflow: hidden; background: transparent; font-family: 'Montserrat', system-ui, sans-serif; }
+    #hearts-root { position: fixed; inset: 0; pointer-events: none; z-index: 100; overflow: visible; }
+    .ag-heart { position: fixed; font-size: clamp(24px, 4.5vw, 42px); line-height: 1; pointer-events: none; z-index: 101; transform: translate(-50%, -50%) scale(0); animation: ag-heart-burst 2.1s cubic-bezier(.22,.82,.28,1) forwards; will-change: transform, opacity; }
+    .ag-heart.ag-amb { font-size: clamp(14px, 3.2vw, 24px); animation: ag-amb-fly 1.22s cubic-bezier(.2,.78,.32,1) forwards; }
+    @keyframes ag-amb-fly { 0% { transform: translate(-50%, -50%) scale(.12); opacity: 0; } 10% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(var(--hr, 0deg)); } 100% { transform: translate(calc(-50% + var(--hx)), calc(-50% + var(--hy))) scale(.45) rotate(var(--hr2, 0deg)); opacity: 0; } }
+    @keyframes ag-heart-burst { 0% { transform: translate(-50%, -50%) scale(.05) rotate(0deg); opacity: 0; } 6% { opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(var(--hr, 0deg)); } 100% { transform: translate(calc(-50% + var(--hx)), calc(-50% + var(--hy))) scale(.55) rotate(var(--hr2, 0deg)); opacity: 0; } }
+    #alert { position: absolute; left: 50%; width: min(92vw, 720px); padding: 28px 32px 32px; pointer-events: none; --al-scale: 1; transform-origin: center bottom; box-sizing: border-box; z-index: 10; overflow: visible; }
+    #alert.al-ent-lift { bottom: -420px; opacity: 0; transform: translateX(-50%) scale(var(--al-scale)); transition: bottom .78s cubic-bezier(.22,1,.36,1), opacity .45s ease, transform .78s cubic-bezier(.22,1,.36,1); }
+    #alert.al-ent-lift.active { bottom: 6vh; opacity: 1; transform: translateX(-50%) scale(var(--al-scale)); }
+    #alert.al-clear, #alert.al-clear.active { opacity: 0 !important; visibility: hidden !important; transition: none !important; }
+    .alert-inner { position: relative; z-index: 2; }
+    .row-main { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+    .avatar-burst-root { position: relative; width: 188px; height: 188px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .avatar-wrap { flex-shrink: 0; width: 112px; height: 112px; padding: 4px; border-radius: 50%; background: linear-gradient(165deg, var(--ag-g1) 0%, var(--ag-g2) 50%, var(--ag-g3) 100%); transform-origin: center center; position: relative; z-index: 2; }
+    #alert.ag-explode-phase .avatar-wrap { animation: ag-avatar-explode .55s cubic-bezier(.34,1.45,.64,1) both; }
+    @keyframes ag-avatar-explode { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
+    .avatar-inner { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1a0a2e; border: 3px solid rgba(43,0,84,.85); }
+    .avatar-inner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .headline-block { text-align: center; min-width: 0; max-width: 100%; }
+    .headline { margin: 0; font-size: clamp(20px, 4.2vw, 36px); font-weight: 900; font-style: italic; line-height: 1.08; letter-spacing: -.02em; background: linear-gradient(180deg, var(--ag-g1) 0%, var(--ag-g2) 48%, var(--ag-g3) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 1px 0 rgba(0,0,0,.65)); }
+  </style>
+</head>
+<body>
+  <div id="hearts-root" aria-hidden="true"></div>
+  <div id="alert" class="al-ent-lift">
+    <div class="alert-inner">
+      <div class="row-main">
+        <div class="avatar-burst-root">
+          <div class="avatar-wrap" id="avatar-wrap-main"><div class="avatar-inner"><img id="u-img" src="" alt=""></div></div>
+        </div>
+        <div class="headline-block"><p class="headline" id="headline-main"></p></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const DEFAULT_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : DEFAULT_AVATAR;
+    const HEART_ICONS = ['❤️', '💖', '💕', '💗', '💝'];
+    const DEBOUNCE = 720;
+
+    let cfg = { durationSec: 6, scale: 100, g1: '#ff4d8d', g2: '#c084fc', g3: '#38bdf8' };
+    const q = []; let busy = false; let hideT = null, hide2T = null, explodeT = null, ambT = null;
+    const pending = Object.create(null);
+
+    const $ = (id) => document.getElementById(id);
+    function applyConfig(c) {
+      if (!c || typeof c !== 'object') return;
+      cfg = Object.assign(cfg, c);
+      const r = document.documentElement.style;
+      r.setProperty('--ag-g1', cfg.g1); r.setProperty('--ag-g2', cfg.g2); r.setProperty('--ag-g3', cfg.g3);
+      $('alert').style.setProperty('--al-scale', String(Math.min(150, Math.max(50, Number(cfg.scale) || 100)) / 100));
+    }
+    function clearTimers() { [hideT, hide2T, explodeT].forEach((t) => t && clearTimeout(t)); hideT = hide2T = explodeT = null; }
+    function clearHearts() { const r = $('hearts-root'); if (r) r.innerHTML = ''; }
+    function name(d) { return (d.nickname || '').trim() || (d.uniqueId ? '@' + String(d.uniqueId).replace(/^@+/, '') : 'Usuario'); }
+    function likesWord(n) { return (Math.floor(Number(n)) || 0) === 1 ? 'like' : 'likes'; }
+
+    function spawnHearts(total) {
+      const root = $('hearts-root'); if (!root) return; root.innerHTML = '';
+      const av = $('avatar-wrap-main'); let cx = innerWidth / 2, cy = innerHeight / 2;
+      if (av) { const r = av.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+      const n = Math.min(48, Math.max(20, total || 34));
+      for (let i = 0; i < n; i++) {
+        const el = document.createElement('span'); el.className = 'ag-heart'; el.textContent = HEART_ICONS[i % HEART_ICONS.length];
+        const ang = (Math.PI * 2 * i) / n + (Math.random() - .5) * .85, dist = 72 + Math.random() * 168;
+        el.style.setProperty('--hx', Math.cos(ang) * dist + 'px'); el.style.setProperty('--hy', Math.sin(ang) * dist + 'px');
+        el.style.setProperty('--hr', (Math.random() * 24 - 12) + 'deg'); el.style.setProperty('--hr2', (Math.random() * 40 - 20) + 'deg');
+        el.style.left = cx + 'px'; el.style.top = cy + 'px'; el.style.animationDelay = (i * .012 + Math.random() * .04) + 's';
+        root.appendChild(el);
+      }
+    }
+    function stopAmbient() { if (ambT) { clearInterval(ambT); ambT = null; } }
+    function spawnAmbient(total) {
+      const root = $('hearts-root'); if (!root) return;
+      const av = $('avatar-wrap-main'); let cx = innerWidth / 2, cy = innerHeight / 2;
+      if (av) { const r = av.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
+      const n = Math.min(14, Math.max(4, total || 7));
+      for (let i = 0; i < n; i++) {
+        const el = document.createElement('span'); el.className = 'ag-heart ag-amb'; el.textContent = HEART_ICONS[i % HEART_ICONS.length];
+        const ang = Math.random() * Math.PI * 2, dist = 38 + Math.random() * 132;
+        el.style.setProperty('--hx', Math.cos(ang) * dist + 'px'); el.style.setProperty('--hy', Math.sin(ang) * dist + 'px');
+        el.style.setProperty('--hr', (Math.random() * 28 - 14) + 'deg'); el.style.setProperty('--hr2', (Math.random() * 36 - 18) + 'deg');
+        el.style.left = cx + 'px'; el.style.top = cy + 'px'; el.style.animationDelay = (Math.random() * .08) + 's';
+        el.addEventListener('animationend', () => { try { el.remove(); } catch (e) {} });
+        root.appendChild(el);
+      }
+    }
+    function startAmbient() { stopAmbient(); const tick = () => { const b = $('alert'); if (!b || !b.classList.contains('active') || document.hidden) return; spawnAmbient(5 + Math.floor(Math.random() * 5)); }; tick(); ambT = setInterval(tick, 500); }
+    function scheduleExplosion() {
+      const b = $('alert'); if (!b) return; b.classList.remove('ag-explode-phase'); void b.offsetWidth;
+      explodeT = setTimeout(() => { explodeT = null; b.classList.add('ag-explode-phase'); requestAnimationFrame(() => requestAnimationFrame(() => spawnHearts(36))); }, 780);
+    }
+    function applyData(d) {
+      const img = $('u-img'); img.onerror = function () { this.onerror = null; this.src = DEFAULT_AVATAR; };
+      img.src = (d.photo || d.profilePictureUrl || '').trim() || DEFAULT_AVATAR; img.alt = name(d);
+      const n = Math.max(1, Math.floor(Number(d.likeCount)) || 1);
+      $('headline-main').textContent = name(d) + ' dio ' + n.toLocaleString('es-ES') + ' ' + likesWord(n);
+    }
+    function show() {
+      if (!q.length) return; if (!isEmbed && busy) return;
+      const d = q.shift(); applyData(d);
+      const b = $('alert'); clearHearts(); b.classList.remove('ag-explode-phase'); b.classList.add('active'); clearTimers(); scheduleExplosion(); startAmbient();
+      if (isEmbed) { busy = false; return; }
+      busy = true; const ms = Math.min(120000, Math.max(3000, (Number(cfg.durationSec) || 6) * 1000));
+      hideT = setTimeout(() => { stopAmbient(); b.classList.remove('active', 'ag-explode-phase'); clearHearts(); hideT = null; hide2T = setTimeout(() => { hide2T = null; busy = false; show(); }, 1150); }, ms);
+    }
+
+    // Likes llegan en lotes por usuario: acumular y soltar tras una pausa
+    function onLike(p) {
+      const uid = (p.uniqueId || p.nickname || 'anon').toLowerCase();
+      const delta = Math.max(0, Math.floor(Number(p.count)) || 0);
+      if (delta <= 0) return;
+      let pe = pending[uid];
+      if (!pe) { pe = { timer: null, count: 0, nick: p.nickname || uid, pic: p.photo || '', uid: p.uniqueId || uid }; pending[uid] = pe; }
+      pe.count += delta; if (p.nickname) pe.nick = p.nickname; if (p.photo) pe.pic = p.photo;
+      if (pe.timer) clearTimeout(pe.timer);
+      pe.timer = setTimeout(() => { const total = pe.count; delete pending[uid]; if (total <= 0) return; q.push({ uniqueId: pe.uid, nickname: pe.nick, photo: pe.pic, likeCount: total }); show(); }, DEBOUNCE);
+    }
+
+    const DEMO = { uniqueId: 'preview_fan', nickname: 'PreviewFan', photo: PREVIEW_AVATAR, likeCount: 60 };
+    function idleDemo() {
+      applyData(DEMO); const b = $('alert'); if (!b) return; clearTimers(); clearHearts(); busy = false; q.length = 0;
+      b.classList.remove('ag-explode-phase', 'al-clear'); b.classList.add('active'); scheduleExplosion(); startAmbient();
+    }
+    function runTest() {
+      const b = $('alert'); stopAmbient(); clearTimers(); clearHearts(); busy = false; q.length = 0;
+      b.classList.remove('active', 'ag-explode-phase'); b.classList.add('al-clear'); void b.offsetWidth;
+      requestAnimationFrame(() => requestAnimationFrame(() => { b.classList.remove('al-clear'); q.push({ ...DEMO }); show(); }));
+    }
+    function resetAll() {
+      stopAmbient(); clearTimers(); clearHearts(); q.length = 0; busy = false;
+      const b = $('alert'); if (b) b.classList.remove('active', 'ag-explode-phase');
+      if (isEmbed) idleDemo();
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings') { if (m.payload && m.payload.alertaLikes) applyConfig(m.payload.alertaLikes); return; }
+        if (isEmbed) return;
+        if (m.type === 'like') onLike(m.payload);
+        else if (m.type === 'alertaLikesTest') runTest();
+        else if (m.type === 'alertaLikesReset') resetAll();
+      };
+    }
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'alertalikes') return;
+      if (d.type === 'config') applyConfig(d.config);
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') resetAll();
+    });
+
+    applyConfig({});
+    if (isEmbed) requestAnimationFrame(() => requestAnimationFrame(idleDemo));
+    connect();
+  })();
+  </script>
+</body>
+</html>
