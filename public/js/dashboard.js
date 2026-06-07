@@ -820,6 +820,13 @@ if (plansSaveBtn) plansSaveBtn.onclick = async () => {
     if (r.ok) {
       const d = await r.json();
       if (d.config) plansConfig = d.config;
+      // Refleja los cambios al instante en la pestaña "Planes" (tarjetas + comparación),
+      // sin esperar al mensaje del WebSocket.
+      if (d.config) {
+        if (planCompareData) planCompareData.config = d.config;
+        else planCompareData = { catalog: plansCatalog, config: d.config };
+        renderPlanView();
+      }
       if (status) status.textContent = 'Guardado ✓';
       toast('Planes guardados.');
     } else {
