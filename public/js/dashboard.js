@@ -393,7 +393,7 @@ function renderPlanPricing() {
       <span class="pp-tag gold">⭐ RECOMENDADO</span>
       <div class="pp-head">
         <div class="pp-name">⭐ Plan Premium</div>
-        <div class="pp-price">Premium<small>todo desbloqueado</small></div>
+        <div class="pp-price">$20 USD<small>/ mes · todo desbloqueado</small></div>
       </div>
       <p class="pp-tagline">Sin límites y con todos los overlays y funciones.</p>
       <ul class="pp-list">${buildList('premium')}</ul>
@@ -402,7 +402,11 @@ function renderPlanPricing() {
   `;
 
   const buyBtn = document.getElementById('pp-buy');
-  if (buyBtn) buyBtn.onclick = () => toast('Para comprar Premium contacta con el administrador ⭐');
+  if (buyBtn) buyBtn.onclick = () => {
+    const msg = `Hola, quiero comprar el Plan Premium ($20 USD/mes) de Livecoins. Mi usuario es: ${window.MY_USER || ''}`;
+    const url = 'https://wa.me/522202079474?text=' + encodeURIComponent(msg);
+    window.open(url, '_blank', 'noopener');
+  };
 }
 
 // Pone (o quita) una capa de bloqueo "Solo Premium" sobre la vista previa del overlay.
