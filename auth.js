@@ -31,9 +31,12 @@ let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
       if (!u.isAdmin) { u.isAdmin = true; changed = true; }
       if (u.active !== true) { u.active = true; changed = true; }
     }
-    if (u.active === undefined) { u.active = false; changed = true; }
+    if (u.active === undefined) { u.active = true; changed = true; }
     if (u.lastLogin === undefined) { u.lastLogin = 0; changed = true; }
     if (u.plan === undefined) { u.plan = u.isAdmin ? 'premium' : 'free'; changed = true; }
+    // Migración: ya no se requiere activación. Activamos UNA sola vez a las cuentas
+    // antiguas que quedaron pendientes; después el admin puede desactivar y persiste.
+    if (!u.activatedByDefault) { u.active = true; u.activatedByDefault = true; changed = true; }
   }
   if (changed) saveUsers();
 })();
@@ -140,7 +143,8 @@ export function registerUser(username, password) {
     createdAt: Date.now(),
     lastLogin: Date.now(),
     isAdmin,
-    active: isAdmin, // el admin queda activo; el resto espera activación
+    active: true, // ya no hace falta activación: pueden entrar al crear la cuenta
+    activatedByDefault: true,
     plan: isAdmin ? 'premium' : 'free', // las cuentas nuevas empiezan en gratis
   };
   users.push(user);
