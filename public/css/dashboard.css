@@ -814,7 +814,8 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .ov-lock-box { padding: 14px 18px; text-shadow: 0 1px 6px rgba(0,0,0,.85); }
 .ov-lock-ico { font-size: 26px; margin-bottom: 6px; filter: drop-shadow(0 0 10px rgba(255,207,92,.5)); }
 .ov-lock-title { font-weight: 900; font-size: 15px; color: #ffcf5c; letter-spacing: .4px; }
-.ov-lock-sub { margin-top: 4px; font-size: 12px; color: #c3ccde; max-width: 220px; }
+.ov-lock-sub { margin-top: 4px; font-size: 12px; color: #c3ccde; max-width: 260px; line-height: 1.35; }
+.ov-lock-sub strong { color: #ffcf5c; }
 
 /* Comparación de planes */
 .plan-compare-card { margin-top: 16px; }

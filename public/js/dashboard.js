@@ -329,10 +329,13 @@ function renderPlanCompare() {
   body.innerHTML = html;
 }
 
-// Pone (o quita) una capa de bloqueo "Solo Premium" sobre una tarjeta de overlay.
+// Pone (o quita) una capa de bloqueo "Solo Premium" sobre la vista previa del overlay.
+// Los botones de arriba (Testear, Reset, etc.) siguen funcionando para que puedan ver la demo.
 function setOverlayLock(card, locked) {
-  card.classList.toggle('ov-locked', locked);
-  let ov = card.querySelector('.ov-lock-overlay');
+  const target = card.querySelector('.ovpro-preview') || card;
+  target.classList.toggle('ov-locked', locked);
+  card.classList.toggle('ov-locked-card', locked);
+  let ov = target.querySelector('.ov-lock-overlay');
   if (locked) {
     if (!ov) {
       ov = document.createElement('div');
@@ -340,13 +343,13 @@ function setOverlayLock(card, locked) {
       ov.innerHTML = `<div class="ov-lock-box">
         <div class="ov-lock-ico">🔒</div>
         <div class="ov-lock-title">⭐ Solo Premium</div>
-        <div class="ov-lock-sub">Mejora tu plan para usar este overlay</div>
+        <div class="ov-lock-sub">Pulsa <strong>Testear</strong> para ver la demo · Mejora tu plan para usarlo en OBS</div>
       </div>`;
       ov.addEventListener('click', (e) => {
         e.stopPropagation();
-        toast('Este overlay es Solo Premium. Contacta con el administrador ⭐', 'warn');
+        toast('Este overlay es Solo Premium. Pulsa Testear para ver la demo ⭐', 'warn');
       });
-      card.appendChild(ov);
+      target.appendChild(ov);
     }
   } else if (ov) {
     ov.remove();
