@@ -163,6 +163,14 @@ app.get('/api/me', (req, res) => {
   });
 });
 
+// Catálogo + configuración de planes para CUALQUIER usuario autenticado (solo lectura).
+// Lo usa la pestaña "Planes" para mostrar la comparación Gratis vs Premium.
+app.get('/api/plans', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  res.json({ catalog: CAPABILITIES, config: getPlanConfig() });
+});
+
 /* ------------------------------- Administración ------------------------------- */
 function requireAdmin(req, res, next) {
   const user = userFromRequest(req);

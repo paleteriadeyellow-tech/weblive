@@ -20,6 +20,9 @@
         <button class="nav-item active" data-view="panel">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Panel
         </button>
+        <button class="nav-item" data-view="planes">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l3.5 2.5L12 4l5.5 5.5L21 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg></span> Planes
+        </button>
         <button class="nav-item" data-view="alertas">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span> Alertas
         </button>
@@ -92,6 +95,53 @@
               <header class="panel-head">⚙️ Eventos y sistema</header>
               <div id="events" class="feed small"></div>
             </section>
+          </div>
+        </section>
+
+        <!-- ===== VISTA: PLANES ===== -->
+        <section class="view" id="view-planes">
+          <h1 class="view-title">💎 Tu plan</h1>
+          <p class="view-sub">Esto es lo que incluye tu cuenta ahora mismo.</p>
+
+          <div class="plan-hero" id="plan-hero">
+            <div class="plan-hero-glow"></div>
+            <div class="plan-hero-top">
+              <span class="plan-badge" id="plan-badge">—</span>
+              <span class="plan-hero-user" id="plan-hero-user">@usuario</span>
+            </div>
+            <div class="plan-hero-name" id="plan-hero-name">Cargando…</div>
+            <p class="plan-hero-desc" id="plan-hero-desc">Estamos comprobando tu plan…</p>
+            <button class="btn primary plan-upgrade" id="plan-upgrade" style="display:none">Quiero ser Premium ⭐</button>
+          </div>
+
+          <div class="plan-cols">
+            <div class="settings-card plan-card">
+              <div class="tts-head"><h3>📊 Tus límites</h3><span class="tts-sub">Cuánto puedes crear</span></div>
+              <div class="plan-meters" id="plan-meters"></div>
+            </div>
+            <div class="settings-card plan-card">
+              <div class="tts-head"><h3>🎁 Incluido en tu plan</h3><span class="tts-sub">Lo que tienes desbloqueado</span></div>
+              <div class="plan-feature-list" id="plan-feature-list"></div>
+            </div>
+          </div>
+
+          <!-- Comparación de planes (qué incluye Gratis vs Premium) -->
+          <div class="settings-card plan-card plan-compare-card">
+            <div class="tts-head"><h3>📋 Compara los planes</h3><span class="tts-sub">Todo lo que ofrece cada plan</span></div>
+            <div class="plan-compare-wrap">
+              <table class="plan-compare" id="plan-compare">
+                <thead>
+                  <tr>
+                    <th>Función</th>
+                    <th class="col-free">🆓 Gratis</th>
+                    <th class="col-premium">⭐ Premium</th>
+                  </tr>
+                </thead>
+                <tbody id="plan-compare-body">
+                  <tr><td colspan="3" class="admin-empty">Cargando…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 

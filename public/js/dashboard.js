@@ -154,13 +154,14 @@ function applyCaps() {
     const cap = TAB_CAP[btn.dataset.view];
     if (cap) btn.style.display = capFeature(cap) ? '' : 'none';
   });
-  // Overlays individuales
+  // Overlays individuales: si no están en el plan, NO se ocultan; se muestran con
+  // un bloqueo "Solo Premium" por encima (la tarjeta sigue visible pero no usable).
   document.querySelectorAll('.ov-url[data-path]').forEach((code) => {
     const base = String(code.dataset.path).split('?')[0];
     const cap = OVERLAY_CAP[base];
     if (!cap) return;
     const card = code.closest('.ovpro-card') || code.closest('.overlay-item') || code.closest('.ov-card');
-    if (card) card.style.display = capFeature(cap) ? '' : 'none';
+    if (card) setOverlayLock(card, !capFeature(cap));
   });
   // Voces TikTok/Disney en el TTS
   const tkRow = document.getElementById('tts-tiktok-voices-wrap');
@@ -171,6 +172,185 @@ function applyCaps() {
   }
   // Avisos de límite + botones de crear
   applyLimitUI();
+  renderPlanView();
+}
+
+/* ---- Vista "Planes" (lo que ve el usuario sobre su plan) ---- */
+const CAP_LABELS = {
+  // pestañas
+  tab_alertas: 'Alertas sonoras', tab_videos: 'Videos', tab_batallas: 'Batallas PK',
+  tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
+  // overlays
+  ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_jarron: 'Jarrón',
+  ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_topdonor: 'Top donador semanal',
+  ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
+  ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
+  ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_toplikes: 'Top likes',
+  ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
+  ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_alertaregalo: 'Alerta de regalo',
+  ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
+  // extras
+  tts_tiktok: 'Voces TikTok / Disney',
+};
+const PLAN_FEATURE_ORDER = [
+  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer',
+  'tts_tiktok',
+  'ov_joinlive', 'ov_alertvideo', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_topdonor',
+  'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
+  'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer',
+];
+
+function renderPlanView() {
+  const hero = document.getElementById('plan-hero');
+  if (!hero) return;
+  const isPremium = window.IS_ADMIN || window.CAPS.plan === 'premium';
+
+  hero.classList.toggle('is-premium', isPremium);
+  const badge = document.getElementById('plan-badge');
+  if (badge) {
+    badge.textContent = window.IS_ADMIN ? '★ Admin' : (isPremium ? '⭐ Premium' : 'Gratis');
+    badge.className = 'plan-badge ' + (isPremium ? 'premium' : 'free');
+  }
+  const u = document.getElementById('plan-hero-user');
+  if (u) u.textContent = '@' + (window.MY_USER || 'usuario');
+  const name = document.getElementById('plan-hero-name');
+  if (name) name.textContent = window.IS_ADMIN ? 'Administrador' : (isPremium ? 'Plan Premium' : 'Plan Gratis');
+  const desc = document.getElementById('plan-hero-desc');
+  if (desc) {
+    desc.textContent = window.IS_ADMIN
+      ? 'Tienes acceso total a todas las funciones y sin límites.'
+      : (isPremium
+          ? '¡Tienes todo desbloqueado! Disfruta de límites ampliados y todas las funciones.'
+          : 'Estás en el plan gratuito. Mejora a Premium para desbloquear más alertas, overlays y funciones.');
+  }
+  const up = document.getElementById('plan-upgrade');
+  if (up) up.style.display = (!isPremium && !window.IS_ADMIN) ? '' : 'none';
+
+  // Medidores de límites
+  const meters = document.getElementById('plan-meters');
+  if (meters) {
+    const rows = [
+      { kind: 'soundAlerts', key: 'soundAlerts', noun: 'Alertas sonoras' },
+      { kind: 'videos', key: 'videos', noun: 'Videos' },
+      { kind: 'battleAlerts', key: 'battleAlerts', noun: 'Animaciones de batalla' },
+    ];
+    meters.innerHTML = rows.map((r) => {
+      let lim = capLimit(r.key);
+      const unlimited = window.IS_ADMIN || !Number.isFinite(lim) || lim >= 9999;
+      const count = planCountOf(r.kind);
+      const pct = unlimited ? Math.min(100, count ? 18 : 6) : Math.min(100, lim ? (count / lim) * 100 : 100);
+      const full = !unlimited && count >= lim;
+      const valTxt = unlimited ? `${count} · ilimitado` : `${count} / ${lim}`;
+      const valCls = unlimited ? 'unlim' : (full ? 'full' : '');
+      return `<div class="plan-meter">
+        <div class="plan-meter-top">
+          <span class="plan-meter-name">${r.noun}</span>
+          <span class="plan-meter-val ${valCls}">${valTxt}</span>
+        </div>
+        <div class="plan-bar ${full ? 'full' : ''}"><i style="width:${pct}%"></i></div>
+      </div>`;
+    }).join('');
+  }
+
+  // Lista de características incluidas / no incluidas
+  const list = document.getElementById('plan-feature-list');
+  if (list) {
+    list.innerHTML = PLAN_FEATURE_ORDER.map((key) => {
+      const label = CAP_LABELS[key] || key;
+      const on = window.IS_ADMIN || capFeature(key);
+      return `<div class="plan-feat-item ${on ? 'on' : 'off'}">
+        <span class="pf-ico">${on ? '✓' : '✕'}</span><span>${label}</span>
+      </div>`;
+    }).join('');
+  }
+
+  renderPlanCompare();
+}
+
+/* ---- Comparación Gratis vs Premium (qué incluye cada plan) ---- */
+let planCompareData = null;
+let planCompareLoading = false;
+
+async function loadPlanComparison(force) {
+  if (planCompareLoading) return;
+  if (planCompareData && !force) { renderPlanCompare(); return; }
+  planCompareLoading = true;
+  try {
+    const r = await fetch('/api/plans');
+    if (r.ok) planCompareData = await r.json();
+  } catch {}
+  planCompareLoading = false;
+  renderPlanCompare();
+}
+
+function renderPlanCompare() {
+  const body = document.getElementById('plan-compare-body');
+  if (!body) return;
+  if (!planCompareData) { loadPlanComparison(); return; }
+  const { catalog, config } = planCompareData;
+  const free = config.free || { limits: {}, features: {} };
+  const prem = config.premium || { limits: {}, features: {} };
+  const mine = (window.IS_ADMIN || window.CAPS.plan === 'premium') ? 'premium' : 'free';
+
+  // Marca la columna del plan del usuario
+  const th = document.querySelectorAll('#plan-compare thead th');
+  if (th[1]) th[1].classList.toggle('mine', mine === 'free');
+  if (th[2]) th[2].classList.toggle('mine', mine === 'premium');
+
+  const numCell = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n >= 9999) return '<span class="pc-yes">Ilimitado</span>';
+    if (n <= 0) return '<span class="pc-no">—</span>';
+    return `<span class="pc-num">${n}</span>`;
+  };
+  const boolCell = (v) => (v !== false ? '<span class="pc-yes">✓</span>' : '<span class="pc-no">✕</span>');
+
+  let html = '';
+  // Límites
+  html += `<tr class="pc-group"><td colspan="3">Límites (cantidad)</td></tr>`;
+  for (const c of catalog.limits) {
+    html += `<tr><td>${c.label}</td>
+      <td class="col-free">${numCell(free.limits?.[c.key])}</td>
+      <td class="col-premium">${numCell(prem.limits?.[c.key])}</td></tr>`;
+  }
+  const group = (title, items) => {
+    let h = `<tr class="pc-group"><td colspan="3">${title}</td></tr>`;
+    for (const c of items) {
+      h += `<tr><td>${c.label}</td>
+        <td class="col-free">${boolCell(free.features?.[c.key])}</td>
+        <td class="col-premium">${boolCell(prem.features?.[c.key])}</td></tr>`;
+    }
+    return h;
+  };
+  html += group('Pestañas del panel', catalog.tabs);
+  html += group('Extras', catalog.extras);
+  html += group('Overlays', catalog.overlays);
+  body.innerHTML = html;
+}
+
+// Pone (o quita) una capa de bloqueo "Solo Premium" sobre una tarjeta de overlay.
+function setOverlayLock(card, locked) {
+  card.classList.toggle('ov-locked', locked);
+  let ov = card.querySelector('.ov-lock-overlay');
+  if (locked) {
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.className = 'ov-lock-overlay';
+      ov.innerHTML = `<div class="ov-lock-box">
+        <div class="ov-lock-ico">🔒</div>
+        <div class="ov-lock-title">⭐ Solo Premium</div>
+        <div class="ov-lock-sub">Mejora tu plan para usar este overlay</div>
+      </div>`;
+      ov.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toast('Este overlay es Solo Premium. Contacta con el administrador ⭐', 'warn');
+      });
+      card.appendChild(ov);
+    }
+  } else if (ov) {
+    ov.remove();
+  }
 }
 
 function applyLimitUI() {
@@ -306,7 +486,7 @@ function handle(type, p) {
     case 'panic': stopPanelSounds(); break;
     case 'timer': renderTimerState(p); break;
     case 'timerBeep': break;
-    case 'caps': setCaps(p); break;
+    case 'caps': setCaps(p); loadPlanComparison(true); break;
     case 'emoteCatalog':
       emoteCatalog = p.results || [];
       if (!$('emoteModal').classList.contains('hidden')) renderEmoteGrid();
@@ -370,6 +550,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     btn.classList.add('active');
     $(`view-${btn.dataset.view}`).classList.add('active');
     if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); }
+    if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
   };
 });
 
@@ -459,6 +640,11 @@ async function loadAdminUsers() {
 
 const adminRefreshBtn = document.getElementById('admin-refresh');
 if (adminRefreshBtn) adminRefreshBtn.onclick = loadAdminUsers;
+
+const planUpgradeBtn = document.getElementById('plan-upgrade');
+if (planUpgradeBtn) planUpgradeBtn.onclick = () => {
+  toast('Contacta con el administrador para activar tu plan Premium ⭐');
+};
 
 /* -------- Editor de planes (límites y características por plan) -------- */
 let plansCatalog = null;
@@ -794,6 +980,7 @@ function onSettings(s) {
   applySettingsToUI();
   applyingSettings = false;
   applyLimitUI();
+  renderPlanView();
 }
 
 function applySettingsToUI() {
