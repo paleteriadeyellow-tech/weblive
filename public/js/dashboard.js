@@ -327,6 +327,82 @@ function renderPlanCompare() {
   html += group('Extras', catalog.extras);
   html += group('Overlays', catalog.overlays);
   body.innerHTML = html;
+
+  renderPlanPricing();
+}
+
+/* ---- Tarjetas de precios: Gratis y Premium (con botón comprar) ---- */
+function renderPlanPricing() {
+  const wrap = document.getElementById('plan-pricing');
+  if (!wrap || !planCompareData) return;
+  const { catalog, config } = planCompareData;
+  const mine = (window.IS_ADMIN || window.CAPS.plan === 'premium') ? 'premium' : 'free';
+
+  const li = (on, text) =>
+    `<li class="${on ? 'pp-on' : 'pp-off'}"><span class="pp-ck">${on ? '✓' : '✕'}</span><span>${text}</span></li>`;
+
+  const buildList = (planKey) => {
+    const p = config[planKey] || { limits: {}, features: {} };
+    const items = [];
+    // Límites (cantidades)
+    for (const c of catalog.limits) {
+      const n = Number(p.limits?.[c.key]);
+      const unlimited = !Number.isFinite(n) || n >= 9999;
+      const label = c.label.replace(/\s*\(.*?\)\s*/g, '');
+      if (unlimited) items.push(li(true, `${label}: <b>ilimitadas</b>`));
+      else if (n <= 0) items.push(li(false, `${label}: no incluido`));
+      else items.push(li(true, `Hasta <b>${n}</b> · ${label.toLowerCase()}`));
+    }
+    // Pestañas
+    const tabsOn = catalog.tabs.filter((c) => p.features?.[c.key] !== false).length;
+    const tabsTotal = catalog.tabs.length;
+    items.push(li(tabsOn > 0, tabsOn >= tabsTotal ? 'Todas las secciones del panel' : `${tabsOn} de ${tabsTotal} secciones del panel`));
+    // Overlays
+    const ovOn = catalog.overlays.filter((c) => p.features?.[c.key] !== false).length;
+    const ovTotal = catalog.overlays.length;
+    items.push(li(ovOn > 0, ovOn >= ovTotal ? `Los <b>${ovTotal}</b> overlays para OBS` : `<b>${ovOn}</b> de ${ovTotal} overlays para OBS`));
+    // Extras
+    for (const c of catalog.extras) {
+      items.push(li(p.features?.[c.key] !== false, c.label));
+    }
+    return items.join('');
+  };
+
+  const freeCurrent = mine === 'free';
+  const premCurrent = mine === 'premium';
+
+  const freeBtn = freeCurrent
+    ? '<button class="pp-btn current" disabled>Tu plan actual</button>'
+    : '<button class="pp-btn ghost" disabled>Incluido</button>';
+  const premBtn = premCurrent
+    ? '<button class="pp-btn current" disabled>Tu plan actual</button>'
+    : '<button class="pp-btn buy" id="pp-buy">Comprar Premium ⭐</button>';
+
+  wrap.innerHTML = `
+    <div class="pp-card free ${freeCurrent ? 'is-mine' : ''}">
+      ${freeCurrent ? '<span class="pp-tag">TU PLAN</span>' : ''}
+      <div class="pp-head">
+        <div class="pp-name">🆓 Plan Gratis</div>
+        <div class="pp-price">$0<small>/ siempre</small></div>
+      </div>
+      <p class="pp-tagline">Para empezar a transmitir con lo esencial.</p>
+      <ul class="pp-list">${buildList('free')}</ul>
+      ${freeBtn}
+    </div>
+    <div class="pp-card premium ${premCurrent ? 'is-mine' : ''}">
+      <span class="pp-tag gold">⭐ RECOMENDADO</span>
+      <div class="pp-head">
+        <div class="pp-name">⭐ Plan Premium</div>
+        <div class="pp-price">Premium<small>todo desbloqueado</small></div>
+      </div>
+      <p class="pp-tagline">Sin límites y con todos los overlays y funciones.</p>
+      <ul class="pp-list">${buildList('premium')}</ul>
+      ${premBtn}
+    </div>
+  `;
+
+  const buyBtn = document.getElementById('pp-buy');
+  if (buyBtn) buyBtn.onclick = () => toast('Para comprar Premium contacta con el administrador ⭐');
 }
 
 // Pone (o quita) una capa de bloqueo "Solo Premium" sobre la vista previa del overlay.
