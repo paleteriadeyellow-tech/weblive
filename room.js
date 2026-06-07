@@ -136,7 +136,7 @@ function readJsonSafe(file) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
@@ -199,6 +199,25 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById 
   }
   function broadcastScreens() {
     broadcast('screens', { connected: [...new Set(videoScreens.values())] });
+  }
+  // Capacidades del plan (límites + features). El panel las usa para ocultar
+  // pestañas/overlays y bloquear el añadir más alertas de las permitidas.
+  function currentCaps() {
+    try { return getCaps ? getCaps() : null; } catch { return null; }
+  }
+  function broadcastCaps(caps) {
+    broadcast('caps', caps || currentCaps() || {});
+  }
+  // Recorta los arrays guardados para no exceder los límites del plan. Solo actúa
+  // si el límite es un número válido y el array lo supera (caso de degradar plan).
+  function enforceLimits() {
+    const caps = currentCaps();
+    const lim = caps && caps.limits;
+    if (!lim) return;
+    const cap = (arr, n) => (Array.isArray(arr) && Number.isFinite(n) && arr.length > n ? arr.slice(0, n) : arr);
+    settings.soundAlerts = cap(settings.soundAlerts, lim.soundAlerts);
+    settings.videos = cap(settings.videos, lim.videos);
+    settings.battleAlerts = cap(settings.battleAlerts, lim.battleAlerts);
   }
   function screenSize(n) {
     return settings.screens?.[(Number(n) || 1) - 1]?.size ?? 100;
@@ -904,6 +923,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById 
       case 'saveSettings':
         if (data.settings) {
           settings = deepMerge(settings, data.settings);
+          enforceLimits();
           saveSettings();
           broadcast('settings', settings);
           clampTimer();
@@ -1076,6 +1096,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById 
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
+    const caps = currentCaps();
+    if (caps) ws.send(JSON.stringify({ type: 'caps', payload: caps }));
   }
   function removeClient(ws) {
     clients.delete(ws);
@@ -1128,7 +1150,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById 
   return {
     id, account, roomKey,
     addClient, removeClient, handleMessage,
-    getEmotes, shutdown, getStatus, kickAll,
+    getEmotes, shutdown, getStatus, kickAll, broadcastCaps,
     get clientCount() { return clients.size; },
   };
 }

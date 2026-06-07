@@ -1881,7 +1881,7 @@
         <!-- ===================== ADMIN (solo administrador) ===================== -->
         <section class="view" id="view-admin">
           <h1 class="view-title">🛡️ Administración</h1>
-          <p class="view-sub">Todas las cuentas registradas. Activa una cuenta para que pueda usar el panel.</p>
+          <p class="view-sub">Todas las cuentas registradas. Activa una cuenta y elige su plan para que pueda usar el panel.</p>
 
           <div class="settings-card">
             <div class="admin-toolbar">
@@ -1897,13 +1897,33 @@
                     <th>Clave (room)</th>
                     <th>En live</th>
                     <th>Estado</th>
+                    <th>Plan</th>
                     <th>Acción</th>
                   </tr>
                 </thead>
                 <tbody id="admin-tbody">
-                  <tr><td colspan="6" class="admin-empty">Cargando…</td></tr>
+                  <tr><td colspan="7" class="admin-empty">Cargando…</td></tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Editor de planes: define límites y qué se desbloquea en cada plan -->
+          <div class="settings-card plans-card">
+            <div class="tts-head">
+              <h3>Planes y límites</h3>
+              <span class="tts-sub">Decide qué incluye el plan Gratis y el Premium</span>
+            </div>
+            <div class="plans-tabs">
+              <button class="plan-tab active" data-plan="free">🆓 Gratis</button>
+              <button class="plan-tab" data-plan="premium">⭐ Premium</button>
+            </div>
+            <div id="plans-editor" class="plans-editor">
+              <p class="tts-sub">Cargando…</p>
+            </div>
+            <div class="plans-actions">
+              <span id="plans-status" class="tts-sub"></span>
+              <button class="btn primary" id="plans-save">Guardar planes</button>
             </div>
           </div>
         </section>

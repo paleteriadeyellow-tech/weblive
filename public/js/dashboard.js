@@ -82,6 +82,8 @@ async function loadMe() {
     window.ROOM_KEY = d.roomKey || '';
     window.MY_USER = d.username || '';
     window.IS_ADMIN = !!d.isAdmin;
+    window.MY_PLAN = d.plan || 'free';
+    if (d.caps) setCaps(d.caps);
     // Si la cuenta dejó de estar activa, vuelve a la pantalla de espera.
     if (!d.active) { location.href = '/'; return; }
     if (window.IS_ADMIN) {
@@ -89,6 +91,135 @@ async function loadMe() {
       if (nav) nav.style.display = '';
     }
   } catch {}
+}
+
+/* ====================== Planes / capacidades ====================== */
+// Mapa overlay path -> clave de capacidad (debe coincidir con plans.js).
+const OVERLAY_CAP = {
+  '/join-live.html': 'ov_joinlive', '/overlay.html': 'ov_alertvideo',
+  '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
+  '/topdonor.html': 'ov_topdonor', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq',
+  '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
+  '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
+  '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
+  '/toplikes.html': 'ov_toplikes', '/topdiamantes.html': 'ov_topdiamantes',
+  '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
+  '/alerta-regalo.html': 'ov_alertaregalo', '/alerta-likes.html': 'ov_alertalikes',
+  '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
+};
+// Mapa pestaña (data-view) -> clave de capacidad.
+const TAB_CAP = {
+  alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas',
+  overlays: 'tab_overlays', tts: 'tab_tts', timer: 'tab_timer',
+};
+
+window.CAPS = { plan: 'free', limits: {}, features: {} };
+function setCaps(c) {
+  if (!c) return;
+  window.CAPS = {
+    plan: c.plan || window.MY_PLAN || 'free',
+    limits: c.limits || {},
+    features: c.features || {},
+  };
+  applyCaps();
+}
+function capLimit(key) {
+  const n = window.CAPS?.limits?.[key];
+  return Number.isFinite(n) ? n : Infinity;
+}
+function capFeature(key) {
+  const f = window.CAPS?.features;
+  if (!f) return true;            // sin info -> permitir (admin / aún cargando)
+  return f[key] !== false;
+}
+function planCountOf(kind) {
+  return (settings?.[kind] || []).length;
+}
+// Devuelve true si todavía se puede añadir; si no, avisa y devuelve false.
+function ensureCanAdd(kind, limitKey, nounPlural) {
+  const lim = capLimit(limitKey);
+  if (planCountOf(kind) >= lim) {
+    toast(`Tu plan ${window.CAPS.plan === 'premium' ? 'Premium' : 'Gratis'} permite hasta ${lim} ${nounPlural}.`, 'warn');
+    return false;
+  }
+  return true;
+}
+
+// Aplica las capacidades a la interfaz: oculta pestañas/overlays bloqueados,
+// muestra avisos de límite y desactiva botones de "crear" si se llegó al tope.
+function applyCaps() {
+  if (window.IS_ADMIN) return; // el admin lo ve todo
+  // Pestañas del menú lateral
+  document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
+    const cap = TAB_CAP[btn.dataset.view];
+    if (cap) btn.style.display = capFeature(cap) ? '' : 'none';
+  });
+  // Overlays individuales
+  document.querySelectorAll('.ov-url[data-path]').forEach((code) => {
+    const base = String(code.dataset.path).split('?')[0];
+    const cap = OVERLAY_CAP[base];
+    if (!cap) return;
+    const card = code.closest('.ovpro-card') || code.closest('.overlay-item') || code.closest('.ov-card');
+    if (card) card.style.display = capFeature(cap) ? '' : 'none';
+  });
+  // Voces TikTok/Disney en el TTS
+  const tkRow = document.getElementById('tts-tiktok-voices-wrap');
+  if (tkRow) tkRow.style.display = capFeature('tts_tiktok') ? '' : 'none';
+  if (!capFeature('tts_tiktok')) {
+    const sel = document.getElementById('tts-tiktok-voice');
+    if (sel && sel.value) { sel.value = ''; }
+  }
+  // Avisos de límite + botones de crear
+  applyLimitUI();
+}
+
+function applyLimitUI() {
+  const defs = [
+    { kind: 'soundAlerts', key: 'soundAlerts', btn: 'sa-create', view: 'view-alertas', noun: 'alertas sonoras' },
+    { kind: 'videos', key: 'videos', btn: 'vid-create', view: 'view-videos', noun: 'videos' },
+    { kind: 'battleAlerts', key: 'battleAlerts', btn: 'ba-create', view: 'view-batallas', noun: 'animaciones de batalla' },
+  ];
+  for (const d of defs) {
+    let lim = capLimit(d.key);
+    if (window.IS_ADMIN || lim >= 9999) lim = Infinity; // ilimitado: sin aviso ni bloqueo
+    const count = planCountOf(d.kind);
+    const reached = count >= lim;
+    const btn = document.getElementById(d.btn);
+    if (btn) {
+      btn.disabled = reached;
+      btn.style.opacity = reached ? '.5' : '';
+      btn.style.cursor = reached ? 'not-allowed' : '';
+    }
+    const view = document.getElementById(d.view);
+    if (view) {
+      let note = view.querySelector('.limit-note');
+      if (Number.isFinite(lim)) {
+        if (!note) {
+          note = document.createElement('div');
+          note.className = 'limit-note';
+          const host = view.querySelector('.view-sub') || view.firstElementChild;
+          if (host && host.nextSibling) host.parentNode.insertBefore(note, host.nextSibling);
+          else view.insertBefore(note, view.children[1] || null);
+        }
+        note.textContent = `Plan ${window.CAPS.plan === 'premium' ? 'Premium' : 'Gratis'}: ${count}/${lim} ${d.noun}.` +
+          (reached ? ' Has llegado al límite.' : '');
+        note.style.display = '';
+      } else if (note) {
+        note.style.display = 'none';
+      }
+    }
+  }
+}
+
+/* ====================== Toast ====================== */
+function toast(msg, kind) {
+  let wrap = document.querySelector('.toast-wrap');
+  if (!wrap) { wrap = document.createElement('div'); wrap.className = 'toast-wrap'; document.body.appendChild(wrap); }
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind === 'warn' ? ' warn' : '');
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, 3200);
 }
 
 // Construye la URL de un overlay con la roomKey del usuario añadida.
@@ -175,6 +306,7 @@ function handle(type, p) {
     case 'panic': stopPanelSounds(); break;
     case 'timer': renderTimerState(p); break;
     case 'timerBeep': break;
+    case 'caps': setCaps(p); break;
     case 'emoteCatalog':
       emoteCatalog = p.results || [];
       if (!$('emoteModal').classList.contains('hidden')) renderEmoteGrid();
@@ -237,7 +369,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
     $(`view-${btn.dataset.view}`).classList.add('active');
-    if (btn.dataset.view === 'admin') loadAdminUsers();
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); }
   };
 });
 
@@ -258,10 +390,10 @@ async function loadAdminUsers() {
   if (!tbody) return;
   try {
     const r = await fetch('/api/admin/users');
-    if (!r.ok) { tbody.innerHTML = '<tr><td colspan="6" class="admin-empty">Sin acceso.</td></tr>'; return; }
+    if (!r.ok) { tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">Sin acceso.</td></tr>'; return; }
     const { users } = await r.json();
     if (count) count.textContent = `${users.length} cuenta${users.length === 1 ? '' : 's'} registrada${users.length === 1 ? '' : 's'}`;
-    if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="admin-empty">No hay cuentas.</td></tr>'; return; }
+    if (!users.length) { tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">No hay cuentas.</td></tr>'; return; }
     tbody.innerHTML = users.map((u) => {
       const conn = u.live ? fmtDateTime(u.liveSince) : fmtDateTime(u.lastLogin);
       const live = u.live
@@ -271,6 +403,12 @@ async function loadAdminUsers() {
         ? '<span class="badge on">Activa</span>'
         : '<span class="badge off">Pendiente</span>';
       const adminTag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
+      const plan = u.isAdmin
+        ? '<span class="badge on">Premium</span>'
+        : `<select class="plan-pick ${u.plan === 'premium' ? 'premium' : ''}" data-plan-id="${u.id}">
+             <option value="free" ${u.plan !== 'premium' ? 'selected' : ''}>🆓 Gratis</option>
+             <option value="premium" ${u.plan === 'premium' ? 'selected' : ''}>⭐ Premium</option>
+           </select>`;
       const action = u.isAdmin
         ? '<span class="tts-sub">—</span>'
         : (u.active
@@ -282,6 +420,7 @@ async function loadAdminUsers() {
         <td><span class="admin-key">${u.roomKey || '—'}</span></td>
         <td>${live}</td>
         <td>${estado}</td>
+        <td>${plan}</td>
         <td>${action}</td>
       </tr>`;
     }).join('');
@@ -298,13 +437,135 @@ async function loadAdminUsers() {
         loadAdminUsers();
       };
     });
+    tbody.querySelectorAll('select[data-plan-id]').forEach((sel) => {
+      sel.onchange = async () => {
+        sel.disabled = true;
+        try {
+          await fetch('/api/admin/userplan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: sel.dataset.planId, plan: sel.value }),
+          });
+        } catch {}
+        sel.disabled = false;
+        sel.classList.toggle('premium', sel.value === 'premium');
+        toast('Plan actualizado.');
+      };
+    });
   } catch {
-    tbody.innerHTML = '<tr><td colspan="6" class="admin-empty">Error al cargar.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">Error al cargar.</td></tr>';
   }
 }
 
 const adminRefreshBtn = document.getElementById('admin-refresh');
 if (adminRefreshBtn) adminRefreshBtn.onclick = loadAdminUsers;
+
+/* -------- Editor de planes (límites y características por plan) -------- */
+let plansCatalog = null;
+let plansConfig = null;
+let plansActiveTab = 'free';
+
+async function loadPlans() {
+  const editor = document.getElementById('plans-editor');
+  if (!editor) return;
+  try {
+    const r = await fetch('/api/admin/plans');
+    if (!r.ok) { editor.innerHTML = '<p class="tts-sub">Sin acceso.</p>'; return; }
+    const d = await r.json();
+    plansCatalog = d.catalog;
+    plansConfig = d.config;
+    renderPlansEditor();
+  } catch {
+    editor.innerHTML = '<p class="tts-sub">Error al cargar planes.</p>';
+  }
+}
+
+function renderPlansEditor() {
+  const editor = document.getElementById('plans-editor');
+  if (!editor || !plansCatalog || !plansConfig) return;
+  const plan = plansConfig[plansActiveTab] || { limits: {}, features: {} };
+  const esc = (s) => String(s).replace(/"/g, '&quot;');
+
+  const limitsHtml = plansCatalog.limits.map((c) => `
+    <div class="plan-limit">
+      <label>${c.label}</label>
+      <input type="number" min="0" max="9999" data-limit="${c.key}" value="${Number(plan.limits[c.key] ?? 0)}">
+    </div>`).join('');
+
+  const groupHtml = (title, items) => `
+    <div class="plan-group">
+      <h4>${title}</h4>
+      <div class="plan-feats">
+        ${items.map((c) => `
+          <label class="plan-feat">
+            <input type="checkbox" data-feat="${c.key}" ${plan.features[c.key] !== false ? 'checked' : ''}>
+            <span>${esc(c.label)}</span>
+          </label>`).join('')}
+      </div>
+    </div>`;
+
+  editor.innerHTML = `
+    <div class="plan-group">
+      <h4>Límites (cantidad máxima)</h4>
+      <div class="plan-limits">${limitsHtml}</div>
+    </div>
+    ${groupHtml('Pestañas del panel', plansCatalog.tabs)}
+    ${groupHtml('Overlays', plansCatalog.overlays)}
+    ${groupHtml('Extras', plansCatalog.extras)}
+  `;
+}
+
+// Recoge los valores del editor hacia plansConfig[plansActiveTab].
+function collectPlansEditor() {
+  const editor = document.getElementById('plans-editor');
+  if (!editor || !plansConfig) return;
+  const plan = plansConfig[plansActiveTab] || (plansConfig[plansActiveTab] = { limits: {}, features: {} });
+  editor.querySelectorAll('input[data-limit]').forEach((inp) => {
+    let v = Number(inp.value);
+    if (!Number.isFinite(v) || v < 0) v = 0;
+    plan.limits[inp.dataset.limit] = v;
+  });
+  editor.querySelectorAll('input[data-feat]').forEach((inp) => {
+    plan.features[inp.dataset.feat] = inp.checked;
+  });
+}
+
+document.querySelectorAll('.plan-tab').forEach((tab) => {
+  tab.onclick = () => {
+    collectPlansEditor(); // guarda lo editado de la pestaña actual antes de cambiar
+    document.querySelectorAll('.plan-tab').forEach((t) => t.classList.remove('active'));
+    tab.classList.add('active');
+    plansActiveTab = tab.dataset.plan;
+    renderPlansEditor();
+  };
+});
+
+const plansSaveBtn = document.getElementById('plans-save');
+if (plansSaveBtn) plansSaveBtn.onclick = async () => {
+  collectPlansEditor();
+  const status = document.getElementById('plans-status');
+  plansSaveBtn.disabled = true;
+  if (status) status.textContent = 'Guardando…';
+  try {
+    const r = await fetch('/api/admin/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(plansConfig),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.config) plansConfig = d.config;
+      if (status) status.textContent = 'Guardado ✓';
+      toast('Planes guardados.');
+    } else {
+      if (status) status.textContent = 'Error al guardar';
+    }
+  } catch {
+    if (status) status.textContent = 'Error al guardar';
+  }
+  plansSaveBtn.disabled = false;
+  setTimeout(() => { if (status) status.textContent = ''; }, 2500);
+};
 
 /* ====================== Panel ====================== */
 function fmt(n) {
@@ -532,6 +793,7 @@ function onSettings(s) {
   applyingSettings = true;
   applySettingsToUI();
   applyingSettings = false;
+  applyLimitUI();
 }
 
 function applySettingsToUI() {
@@ -721,7 +983,7 @@ function openVidModal(v = null) {
 }
 function closeVidModal() { $('vidModal').classList.add('hidden'); }
 
-$('vid-create').onclick = () => openVidModal(null);
+$('vid-create').onclick = () => { if (ensureCanAdd('videos', 'videos', 'videos')) openVidModal(null); };
 $('vid-cancel').onclick = closeVidModal;
 $('vidModal').addEventListener('click', (e) => { if (e.target.id === 'vidModal') closeVidModal(); });
 $('vid-event').addEventListener('change', () => setVidEventUI($('vid-event').value));
@@ -959,7 +1221,7 @@ function openBaModal(b = null) {
 function closeBaModal() { $('baModal').classList.add('hidden'); }
 $('ba-trigger').addEventListener('change', () => setBaTriggerUI($('ba-trigger').value));
 
-$('ba-create').onclick = () => openBaModal(null);
+$('ba-create').onclick = () => { if (ensureCanAdd('battleAlerts', 'battleAlerts', 'animaciones de batalla')) openBaModal(null); };
 $('ba-cancel').onclick = closeBaModal;
 $('baModal').addEventListener('click', (e) => { if (e.target.id === 'baModal') closeBaModal(); });
 $('ba-giftpick').onclick = () => openGiftModal('sa', (g) => {
@@ -1165,7 +1427,7 @@ function openSaModal(alert = null) {
 }
 function closeSaModal() { $('saModal').classList.add('hidden'); }
 
-$('sa-create').onclick = () => openSaModal(null);
+$('sa-create').onclick = () => { if (ensureCanAdd('soundAlerts', 'soundAlerts', 'alertas sonoras')) openSaModal(null); };
 $('sa-cancel').onclick = closeSaModal;
 $('sa-cancel2').onclick = closeSaModal;
 $('saModal').addEventListener('click', (e) => { if (e.target.id === 'saModal') closeSaModal(); });

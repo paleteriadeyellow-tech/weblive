@@ -736,3 +736,32 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .btn.tiny { padding: 6px 12px; font-size: 12px; }
 .btn.activate { background: linear-gradient(90deg, #00e5ff, #ff2bd6); color: #04121a; border: 0; }
 .btn.deactivate { background: transparent; border: 1px solid rgba(255,122,144,.5); color: #ff7a90; }
+
+/* Selector de plan en la tabla de admin */
+.plan-pick { background: #10182b; color: #cfe3ff; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 5px 8px; font-size: 12px; font-weight: 700; }
+.plan-pick.premium { color: #ffd66e; border-color: rgba(255,207,92,.45); }
+
+/* Editor de planes */
+.plans-card { margin-top: 16px; }
+.plans-tabs { display: flex; gap: 8px; margin: 4px 0 14px; }
+.plan-tab { background: #10182b; color: #9aa3b8; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 8px 16px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.plan-tab.active { color: #04121a; background: linear-gradient(90deg, #00e5ff, #ff2bd6); border-color: transparent; }
+.plans-editor { display: flex; flex-direction: column; gap: 18px; }
+.plan-group h4 { margin: 0 0 8px; font-size: 13px; color: #cfe3ff; letter-spacing: .3px; }
+.plan-limits { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.plan-limit { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px 12px; }
+.plan-limit label { font-size: 12.5px; color: #c3ccde; }
+.plan-limit input { width: 80px; background: #0c1322; color: #fff; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 6px 8px; text-align: center; font-weight: 700; }
+.plan-feats { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.plan-feat { display: flex; align-items: center; gap: 9px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px 12px; cursor: pointer; font-size: 12.5px; color: #c3ccde; }
+.plan-feat input { width: 16px; height: 16px; accent-color: #00e5ff; cursor: pointer; }
+.plans-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+
+/* Aviso de límite alcanzado en las pestañas */
+.limit-note { margin: 0 0 10px; font-size: 12.5px; color: #ffcf5c; background: rgba(255,207,92,.1); border: 1px solid rgba(255,207,92,.3); border-radius: 10px; padding: 8px 12px; }
+
+/* Toast simple */
+.toast-wrap { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast { background: #141d33; color: #e8eefc; border: 1px solid rgba(255,255,255,.16); border-left: 3px solid #00e5ff; border-radius: 10px; padding: 11px 16px; font-size: 13px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.4); max-width: 360px; animation: toastIn .2s ease; }
+.toast.warn { border-left-color: #ffcf5c; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

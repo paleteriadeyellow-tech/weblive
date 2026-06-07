@@ -12,10 +12,14 @@ import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import {
   registerUser, verifyLogin, createSession, destroySession,
-  userFromRequest, getUserByRoomKey, listUsers, listUsersDetailed,
+  userFromRequest, getUserByRoomKey, getUserById, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
+  getUserPlan, setUserPlan,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
 } from './auth.js';
+import {
+  CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
+} from './plans.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -65,6 +69,14 @@ loadGiftCatalog().then((r) => {
  * --------------------------------------------------------------------------*/
 const rooms = new Map(); // userId -> room
 
+// Capacidades efectivas de un usuario (límites + features según su plan). El admin
+// tiene todo abierto. Se recalcula siempre desde el plan actual del usuario.
+function capsForUser(user) {
+  if (!user) return effectiveCaps('free');
+  if (user.isAdmin) return adminCaps();
+  return effectiveCaps(getUserPlan(user));
+}
+
 function getRoomForUser(user) {
   let room = rooms.get(user.id);
   if (!room) {
@@ -74,6 +86,8 @@ function getRoomForUser(user) {
       roomKey: user.roomKey,
       dataDir: path.join(DATA_DIR, user.id),
       giftsById,
+      // El room consulta esto al guardar para no exceder los límites del plan.
+      getCaps: () => capsForUser(getUserById(user.id) || user),
     });
     rooms.set(user.id, room);
   }
@@ -138,11 +152,14 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/me', (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  const caps = capsForUser(user);
   res.json({
     username: user.username,
     roomKey: user.roomKey,
     isAdmin: !!user.isAdmin,
     active: isUserActive(user),
+    plan: caps.plan,
+    caps: { limits: caps.limits, features: caps.features },
   });
 });
 
@@ -182,6 +199,32 @@ app.post('/api/admin/activate', express.json(), requireAdmin, (req, res) => {
     if (room) room.kickAll?.();
   }
   res.json({ ok: true });
+});
+
+// Cambiar el plan de una cuenta (gratis / premium).
+app.post('/api/admin/userplan', express.json(), requireAdmin, (req, res) => {
+  const { id, plan } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const ok = setUserPlan(id, plan);
+  if (!ok) return res.status(404).json({ error: 'cuenta no encontrada' });
+  // Avisamos al panel del usuario (si está conectado) para que aplique sus nuevos límites.
+  const room = rooms.get(id);
+  if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
+  res.json({ ok: true });
+});
+
+// Configuración de planes: catálogo de capacidades + límites/features por plan.
+app.get('/api/admin/plans', requireAdmin, (_req, res) => {
+  res.json({ catalog: CAPABILITIES, config: getPlanConfig() });
+});
+app.post('/api/admin/plans', express.json(), requireAdmin, (req, res) => {
+  const config = savePlanConfig(req.body || {});
+  // Reenviamos a todos los rooms conectados sus nuevas capacidades.
+  for (const [id, room] of rooms) {
+    const u = getUserById(id);
+    if (u) room.broadcastCaps?.(capsForUser(u));
+  }
+  res.json({ ok: true, config });
 });
 
 /* ----------------------------- Panel protegido ----------------------------- */
@@ -370,6 +413,10 @@ async function ttsSynthTikTok(text, voice) {
 app.post('/api/tts/speak', express.json(), async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
+  // Las voces TikTok/Disney pueden estar reservadas a ciertos planes.
+  if (!capsForUser(user).features.tts_tiktok) {
+    return res.status(403).json({ ok: false, error: 'plan_locked' });
+  }
   let text = String((req.body && req.body.text) || '').trim();
   const voice = String((req.body && req.body.voice) || '').trim();
   const translate = (req.body && req.body.translate) !== false;

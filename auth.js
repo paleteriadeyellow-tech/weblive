@@ -33,6 +33,7 @@ let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
     }
     if (u.active === undefined) { u.active = false; changed = true; }
     if (u.lastLogin === undefined) { u.lastLogin = 0; changed = true; }
+    if (u.plan === undefined) { u.plan = u.isAdmin ? 'premium' : 'free'; changed = true; }
   }
   if (changed) saveUsers();
 })();
@@ -73,6 +74,7 @@ export function listUsersDetailed() {
     roomKey: u.roomKey,
     active: !!u.active,
     isAdmin: !!u.isAdmin,
+    plan: u.plan || 'free',
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
   }));
@@ -85,6 +87,19 @@ export function setUserActive(id, active) {
   if (!u) return false;
   if (u.isAdmin) { u.active = true; return true; } // el admin no se puede desactivar
   u.active = !!active;
+  saveUsers();
+  return true;
+}
+// Plan efectivo del usuario ('premium' para el admin).
+export function getUserPlan(user) {
+  if (!user) return 'free';
+  if (user.isAdmin) return 'premium';
+  return user.plan === 'premium' ? 'premium' : 'free';
+}
+export function setUserPlan(id, plan) {
+  const u = users.find((x) => x.id === id);
+  if (!u) return false;
+  u.plan = plan === 'premium' ? 'premium' : 'free';
   saveUsers();
   return true;
 }
@@ -126,6 +141,7 @@ export function registerUser(username, password) {
     lastLogin: Date.now(),
     isAdmin,
     active: isAdmin, // el admin queda activo; el resto espera activación
+    plan: isAdmin ? 'premium' : 'free', // las cuentas nuevas empiezan en gratis
   };
   users.push(user);
   saveUsers();
