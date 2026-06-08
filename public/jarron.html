@@ -14,6 +14,20 @@
       transform: translate(-50%, -50%) scale(var(--tf-fit, 1)); transform-origin: center center;
     }
     .jar { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; height: 100%; pointer-events: none; }
+    /* Piso y aro trasero del frasco: van DETRÁS de los regalos para dar profundidad */
+    .jar-back { position: absolute; inset: 0; z-index: 1; pointer-events: none; isolation: isolate; }
+    .jar-back img { position: absolute; left: 50%; transform: translate(-50%, -50%); height: auto; pointer-events: none; }
+    .jar-back .jb-rim { top: 256px; width: 280px; }
+    .jar-back .jb-floor { top: 616px; width: 300px; }
+    /* Tinte del aro y el piso: cambian de color junto con el frasco */
+    .jar-back .tint {
+      position: absolute; left: 50%; transform: translate(-50%, -50%); pointer-events: none;
+      background: var(--jar-tint, transparent); mix-blend-mode: color; opacity: var(--jar-tint-opacity, 0);
+      -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    }
+    .jar-back .tint-rim { top: 256px; width: 280px; height: 37px; -webkit-mask-image: url('/jarron/jar-top-bg-2.png'); mask-image: url('/jarron/jar-top-bg-2.png'); }
+    .jar-back .tint-floor { top: 616px; width: 300px; height: 80px; -webkit-mask-image: url('/jarron/jar-bottom.png'); mask-image: url('/jarron/jar-bottom.png'); }
     .jar-glass-rim img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; pointer-events: none; }
     .jar-interior { position: absolute; inset: 0; z-index: 3; isolation: isolate; }
     .gifts-layer { position: absolute; inset: 0; overflow: visible; }
@@ -59,6 +73,12 @@
 <body>
   <div class="stage" id="stage">
     <div class="jar">
+      <div class="jar-back" aria-hidden="true">
+        <img class="jb-floor" src="/jarron/jar-bottom.png" alt="" draggable="false" />
+        <img class="jb-rim" src="/jarron/jar-top-bg-2.png" alt="" draggable="false" />
+        <div class="tint tint-floor"></div>
+        <div class="tint tint-rim"></div>
+      </div>
       <div class="jar-interior" id="bowl">
         <div class="gifts-layer" id="gifts-layer"></div>
       </div>
