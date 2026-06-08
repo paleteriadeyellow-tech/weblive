@@ -3353,7 +3353,7 @@ function applyPointsSettingsUI() {
 function fmtPointsDate(ts) {
   if (!ts) return '—';
   try {
-    return new Date(ts).toLocaleString('es', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(ts).toLocaleString('es', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
   } catch { return '—'; }
 }
 function fmtPts(n) {
