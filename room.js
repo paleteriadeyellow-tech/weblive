@@ -170,6 +170,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
   const emoteCatalog = new Map();
+  // Pelotas de fans: acumulado por usuario (con sobrante) para soltar pelotas.
+  const fanCoinAcc = new Map();      // uniqueId -> monedas pendientes
+  const fanLikeAcc = new Map();      // uniqueId -> likes pendientes
 
   let connection = null;
   let saveTimer = null;
@@ -494,6 +497,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return false;
   }
 
+  // Pelotas de fans: acumula la cantidad (monedas o likes) por usuario y, cada
+  // vez que se completa el umbral configurado, manda caer una pelota con su foto.
+  // El sobrante se guarda para el siguiente evento del mismo usuario.
+  function processFanBalls(kind, user, amount) {
+    const cfg = settings.pelotas;
+    if (!cfg) return;
+    const uid = user && user.uniqueId;
+    if (!uid || !(amount > 0)) return;
+    const enabled = kind === 'coins' ? cfg.coinsEnabled : cfg.likesEnabled;
+    if (!enabled) return;
+    const every = Math.max(1, Number(kind === 'coins' ? cfg.coinsEvery : cfg.likesEvery) || 1);
+    const acc = kind === 'coins' ? fanCoinAcc : fanLikeAcc;
+    const carry = (acc.get(uid) || 0) + amount;
+    const drops = Math.floor(carry / every);
+    acc.set(uid, carry - drops * every);
+    if (acc.size > 5000) acc.clear();
+    if (drops > 0) {
+      broadcast('fanBallDrop', { photo: user.photo || '', nickname: user.nickname || '', count: Math.min(50, drops) });
+    }
+  }
+
   function triggerSoundAlerts(eventType, info = {}) {
     for (const a of settings.soundAlerts) {
       if (!a.enabled || !a.sound) continue;
@@ -673,6 +697,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     state.gifters.clear();
     chatSeenUsers.clear();
     emoteCatalog.clear();
+    fanCoinAcc.clear();
+    fanLikeAcc.clear();
   }
   let statsThrottle = false;
   function pushStatsThrottled() {
@@ -937,6 +963,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           triggerSoundAlerts('gift', giftInfo);
         }
         countGiftForGoal(giftId, giftName, repeatCount);
+        processFanBalls('coins', user, total);
       }
 
       broadcast('gift', { ...user, giftName, giftId, repeatCount, diamonds: diamondsEach, image, streak: isStreak });
@@ -945,6 +972,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.LIKE, (data) => {
       state.stats.likes = data.totalLikeCount ?? state.stats.likes + (data.likeCount || 0);
       addTimerSeconds(((data.likeCount || 0) / 100) * (settings.timer?.like || 0));
+      processFanBalls('likes', baseUser(data.user), data.likeCount || 0);
       broadcast('like', { ...baseUser(data.user), count: data.likeCount || 0, total: state.stats.likes });
       if (Date.now() - lastLikeSound > 3000) {
         lastLikeSound = Date.now();
@@ -1179,6 +1207,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetMarranito':
         broadcast('marranitoReset', {});
+        break;
+      case 'testPelotas':
+        broadcast('pelotasTest', { count: Number(data.count) || 16 });
+        break;
+      case 'resetPelotas':
+        broadcast('pelotasReset', {});
         break;
       case 'testTopDonor':
         broadcast('topDonorTest', {});

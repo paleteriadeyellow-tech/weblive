@@ -122,6 +122,16 @@ export const DEFAULT_SETTINGS = {
       { t: 0, sz: 32 },
     ],
   },
+  // Overlay de pelotas de fans: cae una pelota con la foto del donador al
+  // alcanzar cierta cantidad de monedas y/o likes (acumulado por usuario).
+  pelotas: {
+    tint: '',
+    ballSize: 64,
+    coinsEnabled: true,
+    coinsEvery: 100,
+    likesEnabled: false,
+    likesEvery: 100,
+  },
   // Overlay del top donador semanal
   topDonor: {
     c1: '#00e5ff',

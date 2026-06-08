@@ -2290,6 +2290,48 @@ function applyJarronUI() {
   if (t && data?.tint && /^#/.test(data.tint)) t.value = data.tint;
 }
 
+/* ---- Pelotas de fans: tarjeta + modal de configuración ---- */
+(function setupPelotas() {
+  if (!$('pel-test')) return;
+  const toPreview = (msg) => $('pel-preview')?.contentWindow?.postMessage({ kind: 'pelotas', ...msg }, '*');
+
+  function currentCfg() {
+    return {
+      tint: $('pelcfg-tint').dataset.cleared === '1' ? '' : $('pelcfg-tint').value,
+      ballSize: Math.max(20, Math.min(160, parseInt($('pelcfg-size').value, 10) || 64)),
+      coinsEnabled: $('pelcfg-coins-on').checked,
+      coinsEvery: Math.max(1, parseInt($('pelcfg-coins-every').value, 10) || 100),
+      likesEnabled: $('pelcfg-likes-on').checked,
+      likesEvery: Math.max(1, parseInt($('pelcfg-likes-every').value, 10) || 100),
+    };
+  }
+  function pushPreview() { const c = currentCfg(); toPreview({ type: 'config', tint: c.tint, ballSize: c.ballSize }); }
+  function openPelConfig() {
+    if (!settings.pelotas) settings.pelotas = {};
+    const c = settings.pelotas;
+    const tint = c.tint || '';
+    $('pelcfg-tint').value = /^#/.test(tint) ? tint : '#7cc8ff';
+    $('pelcfg-tint').dataset.cleared = tint ? '' : '1';
+    $('pelcfg-size').value = c.ballSize || 64;
+    $('pelcfg-coins-on').checked = c.coinsEnabled !== false;
+    $('pelcfg-coins-every').value = c.coinsEvery || 100;
+    $('pelcfg-likes-on').checked = !!c.likesEnabled;
+    $('pelcfg-likes-every').value = c.likesEvery || 100;
+    $('pelConfigModal').classList.remove('hidden');
+  }
+  function closePelConfig() { $('pelConfigModal').classList.add('hidden'); }
+
+  $('pel-test').onclick = () => { toPreview({ type: 'test', count: 16 }); send({ action: 'testPelotas', count: 16 }); };
+  $('pel-reset').onclick = () => { toPreview({ type: 'reset' }); send({ action: 'resetPelotas' }); };
+  $('pel-config').onclick = openPelConfig;
+  $('pelcfg-close').onclick = closePelConfig;
+  $('pelConfigModal').addEventListener('click', (e) => { if (e.target.id === 'pelConfigModal') closePelConfig(); });
+  $('pelcfg-tintclear').onclick = () => { $('pelcfg-tint').value = '#7cc8ff'; $('pelcfg-tint').dataset.cleared = '1'; toPreview({ type: 'config', tint: '' }); };
+  $('pelcfg-tint').oninput = () => { $('pelcfg-tint').dataset.cleared = ''; pushPreview(); };
+  $('pelcfg-size').oninput = pushPreview;
+  $('pelcfg-save').onclick = () => { settings.pelotas = currentCfg(); saveSettings(); closePelConfig(); };
+})();
+
 /* ---- Modal: Configurar Top donador ---- */
 function topPreviewWin() { return $('top-preview')?.contentWindow; }
 function topToPreview(msg) { topPreviewWin()?.postMessage({ kind: 'topdonor', ...msg }, '*'); }
