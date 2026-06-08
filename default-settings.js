@@ -20,6 +20,10 @@ export const DEFAULT_SETTINGS = {
     // (síntesis en el servidor) en vez de la voz del sistema. tiktokTranslateEs traduce
     // el texto al inglés para las voces Disney (que solo existen en inglés).
     tiktokVoice: '', tiktokTranslateEs: true,
+    // Voces OpenAI (alta calidad). Si openaiVoice tiene valor, se usa esa voz
+    // (síntesis en el servidor con OPENAI_API_KEY) en vez de TikTok o la del sistema.
+    // La clave NUNCA se guarda aquí: vive en la variable de entorno del servidor.
+    openaiVoice: '', openaiModel: 'gpt-4o-mini-tts', openaiInstructions: '',
     // Usuarios permitidos
     allowAll: true, allowFollowers: false, allowSubs: false, allowMods: false, allowTeam: false,
     // Tipos de comentarios (activador): all | dot | slash | command

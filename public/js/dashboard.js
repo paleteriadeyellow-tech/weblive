@@ -2920,6 +2920,9 @@ function applyTtsUI(t) {
   set('tts-readname', t.readName);
   val('tts-tiktok-voice', t.tiktokVoice || '');
   set('tts-tiktok-translate', t.tiktokTranslateEs !== false);
+  val('tts-openai-voice', t.openaiVoice || '');
+  val('tts-openai-model', t.openaiModel || 'gpt-4o-mini-tts');
+  val('tts-openai-instructions', t.openaiInstructions || '');
   val('tts-rate', t.rate ?? 1.2); const rv = $('tts-rate-val'); if (rv) rv.textContent = (+(t.rate ?? 1.2)).toFixed(1);
   val('tts-pitch', t.pitch ?? 1); const pv = $('tts-pitch-val'); if (pv) pv.textContent = (+(t.pitch ?? 1)).toFixed(1);
   val('tts-vol', t.volume ?? 1); const vv = $('tts-vol-val'); if (vv) vv.textContent = Math.round((t.volume ?? 1) * 100);
@@ -3114,8 +3117,10 @@ function ttsSpeakText(text) {
   const t = settings?.tts || {};
   const phrase = String(text || '').trim();
   if (!phrase) return;
-  // Si hay una voz TikTok elegida, la síntesis va por el servidor (voces Disney, etc.).
-  if (t.tiktokVoice) { ttsSpeakTikTok(phrase, t); return; }
+  // Prioridad: OpenAI (IA) → TikTok (Disney) → voz del sistema. La síntesis de
+  // OpenAI y TikTok va por el servidor y devuelve audio; la del sistema es del navegador.
+  if (t.openaiVoice) { ttsSpeakServer(phrase, t, 'openai'); return; }
+  if (t.tiktokVoice) { ttsSpeakServer(phrase, t, 'tiktok'); return; }
   ttsSpeakSystem(phrase, t);
 }
 
@@ -3132,34 +3137,48 @@ function ttsSpeakSystem(phrase, t) {
   speechSynthesis.speak(u);
 }
 
-/* ---- Cola de audio para voces TikTok (no se solapan; van una tras otra) ---- */
-let ttsTkQueue = [];
-let ttsTkBusy = false;
-let ttsTkAudio = null;
+/* ---- Cola de audio para voces de servidor (TikTok + OpenAI). No se solapan; van una tras otra ---- */
+let ttsSrvQueue = [];
+let ttsSrvBusy = false;
+let ttsSrvAudio = null;
 
-function ttsSpeakTikTok(phrase, t) {
-  ttsTkQueue.push({ text: phrase, voice: t.tiktokVoice, translate: t.tiktokTranslateEs !== false, volume: t.volume ?? 1 });
-  if (ttsTkQueue.length > 25) ttsTkQueue.shift(); // evita acumular si llega mucho chat
-  ttsTkPump();
+function ttsSpeakServer(phrase, t, provider) {
+  const item = { provider, text: phrase, volume: t.volume ?? 1 };
+  if (provider === 'openai') {
+    item.voice = t.openaiVoice;
+    item.model = t.openaiModel || 'gpt-4o-mini-tts';
+    item.instructions = t.openaiInstructions || '';
+    item.speed = t.rate || 1;
+  } else {
+    item.voice = t.tiktokVoice;
+    item.translate = t.tiktokTranslateEs !== false;
+  }
+  ttsSrvQueue.push(item);
+  if (ttsSrvQueue.length > 25) ttsSrvQueue.shift(); // evita acumular si llega mucho chat
+  ttsSrvPump();
 }
 
-function ttsStopTikTok() {
-  ttsTkQueue = [];
-  if (ttsTkAudio) { try { ttsTkAudio.pause(); } catch {} ttsTkAudio = null; }
-  ttsTkBusy = false;
+function ttsStopServer() {
+  ttsSrvQueue = [];
+  if (ttsSrvAudio) { try { ttsSrvAudio.pause(); } catch {} ttsSrvAudio = null; }
+  ttsSrvBusy = false;
 }
 
-async function ttsTkPump() {
-  if (ttsTkBusy) return;
-  ttsTkBusy = true;
-  while (ttsTkQueue.length) {
-    const item = ttsTkQueue.shift();
+async function ttsSrvPump() {
+  if (ttsSrvBusy) return;
+  ttsSrvBusy = true;
+  while (ttsSrvQueue.length) {
+    const item = ttsSrvQueue.shift();
     try {
-      const r = await fetch('/api/tts/speak', {
+      const url = item.provider === 'openai' ? '/api/tts/openai' : '/api/tts/speak';
+      const body = item.provider === 'openai'
+        ? { text: item.text, voice: item.voice, model: item.model, instructions: item.instructions, speed: item.speed }
+        : { text: item.text, voice: item.voice, translate: item.translate };
+      const r = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ text: item.text, voice: item.voice, translate: item.translate }),
+        body: JSON.stringify(body),
       });
       const j = r.ok ? await r.json() : null;
       if (j && j.ok && j.audio) {
@@ -3167,10 +3186,10 @@ async function ttsTkPump() {
         continue;
       }
     } catch { /* cae al respaldo */ }
-    // Si la síntesis TikTok falla, no nos quedamos mudos: usamos la voz del sistema.
+    // Si la síntesis del servidor falla, no nos quedamos mudos: usamos la voz del sistema.
     ttsSpeakSystem(item.text, settings?.tts || {});
   }
-  ttsTkBusy = false;
+  ttsSrvBusy = false;
 }
 
 function ttsPlayBase64(b64, mime, volume) {
@@ -3178,8 +3197,8 @@ function ttsPlayBase64(b64, mime, volume) {
     try {
       const audio = new Audio('data:' + mime + ';base64,' + b64);
       audio.volume = Math.max(0, Math.min(1, Number(volume) ?? 1));
-      ttsTkAudio = audio;
-      const done = () => { if (ttsTkAudio === audio) ttsTkAudio = null; resolve(); };
+      ttsSrvAudio = audio;
+      const done = () => { if (ttsSrvAudio === audio) ttsSrvAudio = null; resolve(); };
       audio.onended = done;
       audio.onerror = done;
       audio.play().catch(done);
@@ -3263,6 +3282,12 @@ function ttsOnGift(p) {
   if (tkVoice) tkVoice.addEventListener('change', () => { settings.tts.tiktokVoice = tkVoice.value; save(); });
   const tkTrans = $('tts-tiktok-translate');
   if (tkTrans) tkTrans.addEventListener('change', () => { settings.tts.tiktokTranslateEs = tkTrans.checked; save(); });
+  const oaVoice = $('tts-openai-voice');
+  if (oaVoice) oaVoice.addEventListener('change', () => { settings.tts.openaiVoice = oaVoice.value; save(); });
+  const oaModel = $('tts-openai-model');
+  if (oaModel) oaModel.addEventListener('change', () => { settings.tts.openaiModel = oaModel.value; save(); });
+  const oaInstr = $('tts-openai-instructions');
+  if (oaInstr) oaInstr.addEventListener('input', () => { settings.tts.openaiInstructions = oaInstr.value; save(); });
   const rate = $('tts-rate');
   if (rate) rate.addEventListener('input', () => { $('tts-rate-val').textContent = (+rate.value).toFixed(1); settings.tts.rate = +rate.value; save(); });
   const pitch = $('tts-pitch');
@@ -3332,7 +3357,7 @@ function ttsOnGift(p) {
   const test = $('tts-test');
   if (test) test.onclick = () => ttsSpeakText('Hola, así se escucha el chat por voz');
   const stop = $('tts-stop');
-  if (stop) stop.onclick = () => { if (TTS_HAS) speechSynthesis.cancel(); ttsStopTikTok(); };
+  if (stop) stop.onclick = () => { if (TTS_HAS) speechSynthesis.cancel(); ttsStopServer(); };
 })();
 
 // Las miniaturas de video ya no se autoreproducen (eso descargaba cada video completo
