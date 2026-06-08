@@ -478,59 +478,6 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
   }
 });
 
-/* ----------------------------- TTS: OpenAI ----------------------------- */
-// Voces de alta calidad de OpenAI. El audio se sintetiza en el servidor (la clave
-// nunca llega al navegador) y se devuelve en base64. La clave se configura con la
-// variable de entorno OPENAI_API_KEY (en Render: Settings → Environment).
-const OPENAI_TTS_VOICES = new Set([
-  'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer', 'verse',
-]);
-const OPENAI_TTS_MODELS = new Set(['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd']);
-
-async function ttsSynthOpenAI({ text, voice, model, instructions, speed }) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return { error: 'no_api_key' };
-  const payload = { model, voice, input: text, response_format: 'mp3' };
-  // "instructions" (tono/estilo) solo lo admite el modelo gpt-4o-mini-tts.
-  if (instructions && model === 'gpt-4o-mini-tts') payload.instructions = instructions;
-  // "speed" solo lo admiten los modelos tts-1 / tts-1-hd.
-  if (speed && model !== 'gpt-4o-mini-tts') payload.speed = Math.max(0.25, Math.min(4, speed));
-  const r = await fetch('https://api.openai.com/v1/audio/speech', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-    body: JSON.stringify(payload),
-  });
-  if (!r.ok) {
-    let detail = '';
-    try { detail = (await r.json())?.error?.message || ''; } catch { /* sin detalle */ }
-    return { error: 'openai_' + r.status, detail };
-  }
-  const buf = Buffer.from(await r.arrayBuffer());
-  return { audio: buf.toString('base64') };
-}
-
-app.post('/api/tts/openai', express.json(), async (req, res) => {
-  const user = userFromRequest(req);
-  if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
-  if (!process.env.OPENAI_API_KEY) return res.status(503).json({ ok: false, error: 'no_api_key' });
-  let text = String((req.body && req.body.text) || '').trim();
-  const voice = String((req.body && req.body.voice) || 'alloy').trim().toLowerCase();
-  let model = String((req.body && req.body.model) || 'gpt-4o-mini-tts').trim();
-  const instructions = String((req.body && req.body.instructions) || '').slice(0, 400);
-  const speed = Math.max(0.5, Math.min(2, Number(req.body && req.body.speed) || 1));
-  if (!text) return res.status(400).json({ ok: false, error: 'missing_text' });
-  if (!OPENAI_TTS_VOICES.has(voice)) return res.status(400).json({ ok: false, error: 'bad_voice' });
-  if (!OPENAI_TTS_MODELS.has(model)) model = 'gpt-4o-mini-tts';
-  if (text.length > 600) text = text.slice(0, 600);
-  try {
-    const out = await ttsSynthOpenAI({ text, voice, model, instructions, speed });
-    if (out.error) return res.status(502).json({ ok: false, error: out.error, detail: out.detail || '' });
-    res.json({ ok: true, audio: out.audio, mime: 'audio/mpeg' });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e.message || e) });
-  }
-});
-
 const server = http.createServer(app);
 
 /* ----------------------------------------------------------------------------

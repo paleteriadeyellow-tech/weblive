@@ -743,6 +743,32 @@ details.settings-card[open] summary::before { content: '▾ '; }
 #view-admin .admin-table-wrap { overflow-x: auto; }
 #view-admin .admin-table { min-width: 1080px; }
 
+/* ===== Usuario y Puntos ===== */
+.ptabs { display: flex; gap: 8px; margin: 4px 0 14px; flex-wrap: wrap; }
+.ptab { background: #10182b; color: #9aa3b8; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 8px 16px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.ptab.active { background: linear-gradient(90deg, #6d5efc, #b06bff); color: #fff; border-color: transparent; }
+.pview { display: none; }
+.pview.active { display: block; }
+.pts-toolbar { flex-wrap: wrap; gap: 10px; }
+.pts-search { flex: 1 1 240px; min-width: 200px; background: #0c1322; color: #fff; border: 1px solid rgba(255,255,255,.16); border-radius: 9px; padding: 9px 12px; font-size: 13px; }
+.pts-percoin { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.pts-percoin .ml { margin: 0; font-size: 11px; }
+.pts-percoin input { width: 72px; background: #0c1322; color: #fff; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 7px 8px; font-size: 13px; text-align: center; }
+.btn.ghost.danger { border-color: rgba(255,122,144,.5); color: #ff7a90; }
+#view-points .admin-table { min-width: 760px; }
+.pts-table .pu { display: flex; align-items: center; gap: 9px; }
+.pts-table .pu img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: #1a2236; flex: 0 0 auto; }
+.pts-table .pu .pu-name { font-weight: 700; }
+.pts-table .pu .pu-id { color: var(--mut, #8b97b3); font-size: 11px; }
+.pts-lvl { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; padding: 2px 8px; border-radius: 999px; background: rgba(141,247,216,.14); color: #8df7d8; font-weight: 800; font-size: 12px; }
+.pts-total { font-weight: 800; }
+.pts-pos { color: #8df7d8; }
+.pts-neg { color: #ff7a90; }
+.pts-txform { display: grid; grid-template-columns: 1fr 120px 1fr; gap: 12px 14px; align-items: end; }
+.pts-txform .switch-row { grid-column: 1 / -1; }
+.pts-txbtns { grid-column: 1 / -1; }
+@media (max-width: 720px) { .pts-txform { grid-template-columns: 1fr; } }
+
 /* Insignia y controles de plan en la tabla de admin */
 .badge.prem { background: rgba(255,207,92,.16); color: #ffcf5c; }
 .admin-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; white-space: nowrap; }

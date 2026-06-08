@@ -570,6 +570,9 @@ function handle(type, p) {
     case 'panic': stopPanelSounds(); break;
     case 'timer': renderTimerState(p); break;
     case 'timerBeep': break;
+    case 'pointsList': onPointsList(p); break;
+    case 'pointsUpdate': onPointsUpdate(p); break;
+    case 'pointsTx': onPointsTx(p); break;
     case 'caps': setCaps(p); loadPlanComparison(true); break;
     case 'emoteCatalog':
       emoteCatalog = p.results || [];
@@ -635,6 +638,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     $(`view-${btn.dataset.view}`).classList.add('active');
     if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
+    if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
   };
 });
 
@@ -1162,6 +1166,7 @@ function applySettingsToUI() {
   renderScreens();
   renderVideos();
   renderSoundAlerts();
+  if (typeof applyPointsSettingsUI === 'function') applyPointsSettingsUI();
 }
 
 /* ====================== Videos (pantallas múltiples) ====================== */
@@ -2920,9 +2925,6 @@ function applyTtsUI(t) {
   set('tts-readname', t.readName);
   val('tts-tiktok-voice', t.tiktokVoice || '');
   set('tts-tiktok-translate', t.tiktokTranslateEs !== false);
-  val('tts-openai-voice', t.openaiVoice || '');
-  val('tts-openai-model', t.openaiModel || 'gpt-4o-mini-tts');
-  val('tts-openai-instructions', t.openaiInstructions || '');
   val('tts-rate', t.rate ?? 1.2); const rv = $('tts-rate-val'); if (rv) rv.textContent = (+(t.rate ?? 1.2)).toFixed(1);
   val('tts-pitch', t.pitch ?? 1); const pv = $('tts-pitch-val'); if (pv) pv.textContent = (+(t.pitch ?? 1)).toFixed(1);
   val('tts-vol', t.volume ?? 1); const vv = $('tts-vol-val'); if (vv) vv.textContent = Math.round((t.volume ?? 1) * 100);
@@ -3117,10 +3119,8 @@ function ttsSpeakText(text) {
   const t = settings?.tts || {};
   const phrase = String(text || '').trim();
   if (!phrase) return;
-  // Prioridad: OpenAI (IA) → TikTok (Disney) → voz del sistema. La síntesis de
-  // OpenAI y TikTok va por el servidor y devuelve audio; la del sistema es del navegador.
-  if (t.openaiVoice) { ttsSpeakServer(phrase, t, 'openai'); return; }
-  if (t.tiktokVoice) { ttsSpeakServer(phrase, t, 'tiktok'); return; }
+  // Si hay una voz TikTok elegida, la síntesis va por el servidor (voces Disney, etc.).
+  if (t.tiktokVoice) { ttsSpeakTikTok(phrase, t); return; }
   ttsSpeakSystem(phrase, t);
 }
 
@@ -3137,48 +3137,34 @@ function ttsSpeakSystem(phrase, t) {
   speechSynthesis.speak(u);
 }
 
-/* ---- Cola de audio para voces de servidor (TikTok + OpenAI). No se solapan; van una tras otra ---- */
-let ttsSrvQueue = [];
-let ttsSrvBusy = false;
-let ttsSrvAudio = null;
+/* ---- Cola de audio para voces TikTok (no se solapan; van una tras otra) ---- */
+let ttsTkQueue = [];
+let ttsTkBusy = false;
+let ttsTkAudio = null;
 
-function ttsSpeakServer(phrase, t, provider) {
-  const item = { provider, text: phrase, volume: t.volume ?? 1 };
-  if (provider === 'openai') {
-    item.voice = t.openaiVoice;
-    item.model = t.openaiModel || 'gpt-4o-mini-tts';
-    item.instructions = t.openaiInstructions || '';
-    item.speed = t.rate || 1;
-  } else {
-    item.voice = t.tiktokVoice;
-    item.translate = t.tiktokTranslateEs !== false;
-  }
-  ttsSrvQueue.push(item);
-  if (ttsSrvQueue.length > 25) ttsSrvQueue.shift(); // evita acumular si llega mucho chat
-  ttsSrvPump();
+function ttsSpeakTikTok(phrase, t) {
+  ttsTkQueue.push({ text: phrase, voice: t.tiktokVoice, translate: t.tiktokTranslateEs !== false, volume: t.volume ?? 1 });
+  if (ttsTkQueue.length > 25) ttsTkQueue.shift(); // evita acumular si llega mucho chat
+  ttsTkPump();
 }
 
-function ttsStopServer() {
-  ttsSrvQueue = [];
-  if (ttsSrvAudio) { try { ttsSrvAudio.pause(); } catch {} ttsSrvAudio = null; }
-  ttsSrvBusy = false;
+function ttsStopTikTok() {
+  ttsTkQueue = [];
+  if (ttsTkAudio) { try { ttsTkAudio.pause(); } catch {} ttsTkAudio = null; }
+  ttsTkBusy = false;
 }
 
-async function ttsSrvPump() {
-  if (ttsSrvBusy) return;
-  ttsSrvBusy = true;
-  while (ttsSrvQueue.length) {
-    const item = ttsSrvQueue.shift();
+async function ttsTkPump() {
+  if (ttsTkBusy) return;
+  ttsTkBusy = true;
+  while (ttsTkQueue.length) {
+    const item = ttsTkQueue.shift();
     try {
-      const url = item.provider === 'openai' ? '/api/tts/openai' : '/api/tts/speak';
-      const body = item.provider === 'openai'
-        ? { text: item.text, voice: item.voice, model: item.model, instructions: item.instructions, speed: item.speed }
-        : { text: item.text, voice: item.voice, translate: item.translate };
-      const r = await fetch(url, {
+      const r = await fetch('/api/tts/speak', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify(body),
+        body: JSON.stringify({ text: item.text, voice: item.voice, translate: item.translate }),
       });
       const j = r.ok ? await r.json() : null;
       if (j && j.ok && j.audio) {
@@ -3186,10 +3172,10 @@ async function ttsSrvPump() {
         continue;
       }
     } catch { /* cae al respaldo */ }
-    // Si la síntesis del servidor falla, no nos quedamos mudos: usamos la voz del sistema.
+    // Si la síntesis TikTok falla, no nos quedamos mudos: usamos la voz del sistema.
     ttsSpeakSystem(item.text, settings?.tts || {});
   }
-  ttsSrvBusy = false;
+  ttsTkBusy = false;
 }
 
 function ttsPlayBase64(b64, mime, volume) {
@@ -3197,8 +3183,8 @@ function ttsPlayBase64(b64, mime, volume) {
     try {
       const audio = new Audio('data:' + mime + ';base64,' + b64);
       audio.volume = Math.max(0, Math.min(1, Number(volume) ?? 1));
-      ttsSrvAudio = audio;
-      const done = () => { if (ttsSrvAudio === audio) ttsSrvAudio = null; resolve(); };
+      ttsTkAudio = audio;
+      const done = () => { if (ttsTkAudio === audio) ttsTkAudio = null; resolve(); };
       audio.onended = done;
       audio.onerror = done;
       audio.play().catch(done);
@@ -3282,12 +3268,6 @@ function ttsOnGift(p) {
   if (tkVoice) tkVoice.addEventListener('change', () => { settings.tts.tiktokVoice = tkVoice.value; save(); });
   const tkTrans = $('tts-tiktok-translate');
   if (tkTrans) tkTrans.addEventListener('change', () => { settings.tts.tiktokTranslateEs = tkTrans.checked; save(); });
-  const oaVoice = $('tts-openai-voice');
-  if (oaVoice) oaVoice.addEventListener('change', () => { settings.tts.openaiVoice = oaVoice.value; save(); });
-  const oaModel = $('tts-openai-model');
-  if (oaModel) oaModel.addEventListener('change', () => { settings.tts.openaiModel = oaModel.value; save(); });
-  const oaInstr = $('tts-openai-instructions');
-  if (oaInstr) oaInstr.addEventListener('input', () => { settings.tts.openaiInstructions = oaInstr.value; save(); });
   const rate = $('tts-rate');
   if (rate) rate.addEventListener('input', () => { $('tts-rate-val').textContent = (+rate.value).toFixed(1); settings.tts.rate = +rate.value; save(); });
   const pitch = $('tts-pitch');
@@ -3357,7 +3337,161 @@ function ttsOnGift(p) {
   const test = $('tts-test');
   if (test) test.onclick = () => ttsSpeakText('Hola, así se escucha el chat por voz');
   const stop = $('tts-stop');
-  if (stop) stop.onclick = () => { if (TTS_HAS) speechSynthesis.cancel(); ttsStopServer(); };
+  if (stop) stop.onclick = () => { if (TTS_HAS) speechSynthesis.cancel(); ttsStopTikTok(); };
+})();
+
+/* ====================== Usuario y Puntos ====================== */
+const ptsState = { users: new Map(), tx: [], count: 0, max: 2500 };
+let ptsRenderTimer = null;
+
+function applyPointsSettingsUI() {
+  const el = $('pts-percoin');
+  if (el && !applyingSettings) return; // no pisar lo que el usuario escribe
+  if (el) el.value = settings?.points?.perCoin ?? 1;
+}
+
+function fmtPointsDate(ts) {
+  if (!ts) return '—';
+  try {
+    return new Date(ts).toLocaleString('es', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch { return '—'; }
+}
+function fmtPts(n) {
+  const v = Number(n) || 0;
+  return v.toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function onPointsList(p) {
+  ptsState.users = new Map((p.users || []).map((u) => [u.uniqueId, u]));
+  ptsState.tx = p.tx || [];
+  ptsState.count = p.count || ptsState.users.size;
+  ptsState.max = p.max || 2500;
+  renderPointsTable();
+  renderPointsTx();
+}
+function onPointsUpdate(p) {
+  if (!p || !p.user) return;
+  ptsState.users.set(p.user.uniqueId, p.user);
+  ptsState.count = p.count || ptsState.users.size;
+  schedulePointsRender();
+}
+function onPointsTx(p) {
+  if (!p || !p.tx) return;
+  ptsState.tx.unshift(p.tx);
+  if (ptsState.tx.length > 500) ptsState.tx.length = 500;
+  // Solo re-render de transacciones si la sub-vista está visible (es barato igual).
+  renderPointsTx();
+}
+function schedulePointsRender() {
+  if (ptsRenderTimer) return;
+  ptsRenderTimer = setTimeout(() => { ptsRenderTimer = null; renderPointsTable(); }, 400);
+}
+
+function renderPointsTable() {
+  const tbody = $('pts-tbody');
+  if (!tbody) return;
+  const countEl = $('pts-count');
+  if (countEl) countEl.textContent = `Tienes ${fmtPts(ptsState.count)} de un máximo de ${fmtPts(ptsState.max)} usuarios en tu base de datos.`;
+
+  const q = ($('pts-search')?.value || '').trim().toLowerCase().replace(/^@/, '');
+  let list = [...ptsState.users.values()].sort((a, b) => b.total - a.total);
+  if (q) list = list.filter((u) => (u.uniqueId || '').toLowerCase().includes(q) || (u.nickname || '').toLowerCase().includes(q));
+  list = list.slice(0, 300); // no pintamos más de 300 filas por rendimiento
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="admin-empty">${q ? 'Ningún usuario coincide con la búsqueda.' : 'Aún no hay usuarios con puntos. Cuando alguien done en tu live, aparecerá aquí.'}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = list.map((u) => {
+    const img = u.photo ? `<img src="${esc(u.photo)}" onerror="this.style.visibility='hidden'">` : '<img>';
+    return `<tr>
+      <td><div class="pu">${img}<div><div class="pu-name">${esc(u.nickname || u.uniqueId)}</div><div class="pu-id">@${esc(u.uniqueId)}</div></div></div></td>
+      <td><span class="pts-lvl">${u.level}</span></td>
+      <td class="pts-total">${fmtPts(u.total)}</td>
+      <td>${fmtPts(u.levelPoints)}</td>
+      <td>${fmtPointsDate(u.firstAt)}</td>
+      <td>${fmtPointsDate(u.lastAt)}</td>
+      <td><button class="btn tiny prem-remove pts-del" data-id="${esc(u.uniqueId)}" title="Quitar de la lista">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.pts-del').forEach((b) => {
+    b.onclick = async () => {
+      const id = b.dataset.id;
+      if (await confirmDialog(`¿Borrar los puntos de @${id}?`, 'Borrar', 'Cancelar')) {
+        send({ action: 'resetUserPoints', user: id });
+      }
+    };
+  });
+}
+
+function renderPointsTx() {
+  const tbody = $('pts-tx-tbody');
+  if (!tbody) return;
+  if (!ptsState.tx.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="admin-empty">Sin transacciones todavía.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = ptsState.tx.slice(0, 200).map((t) => {
+    const cls = t.points >= 0 ? 'pts-pos' : 'pts-neg';
+    const sign = t.points >= 0 ? '+' : '';
+    return `<tr>
+      <td><div class="pu"><div><div class="pu-name">${esc(t.nickname || t.uniqueId)}</div><div class="pu-id">@${esc(t.uniqueId)}</div></div></div></td>
+      <td class="${cls}">${sign}${fmtPts(t.points)}</td>
+      <td>${esc(t.description || '—')}</td>
+      <td>${t.counted ? 'Sí' : 'No'}</td>
+      <td>${t.manual ? 'Manual' : 'Regalo'}</td>
+      <td>${fmtPointsDate(t.at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+(function setupPointsControls() {
+  // Sub-pestañas (Usuario y Puntos / Transacciones), acotadas a esta vista.
+  document.querySelectorAll('#view-points .ptab').forEach((btn) => {
+    btn.onclick = () => {
+      document.querySelectorAll('#view-points .ptab').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('#view-points .pview').forEach((v) => v.classList.remove('active'));
+      btn.classList.add('active');
+      const v = $(`pview-${btn.dataset.ptab}`);
+      if (v) v.classList.add('active');
+    };
+  });
+
+  const search = $('pts-search');
+  if (search) search.addEventListener('input', () => renderPointsTable());
+
+  const perCoin = $('pts-percoin');
+  if (perCoin) perCoin.addEventListener('change', () => {
+    if (!settings.points) settings.points = {};
+    settings.points.perCoin = Math.max(0, Number(perCoin.value) || 0);
+    saveSettings();
+  });
+
+  const reset = $('pts-reset');
+  if (reset) reset.onclick = async () => {
+    if (await confirmDialog('¿Restablecer los puntos de TODOS los usuarios? Esta acción no se puede deshacer.', 'Restablecer', 'Cancelar')) {
+      send({ action: 'resetPoints' });
+    }
+  };
+
+  const txSend = $('pts-tx-send');
+  if (txSend) txSend.onclick = () => {
+    const user = ($('pts-tx-user')?.value || '').trim().replace(/^@/, '');
+    const pointsVal = Math.round(Number($('pts-tx-points')?.value) || 0);
+    if (!user) { $('pts-tx-user')?.focus(); return; }
+    if (!pointsVal) { $('pts-tx-points')?.focus(); return; }
+    send({
+      action: 'addPointsTx',
+      user,
+      nickname: user,
+      points: pointsVal,
+      description: ($('pts-tx-desc')?.value || '').trim(),
+      counted: $('pts-tx-counted')?.checked !== false,
+    });
+    $('pts-tx-points').value = 0;
+    $('pts-tx-desc').value = '';
+  };
 })();
 
 // Las miniaturas de video ya no se autoreproducen (eso descargaba cada video completo

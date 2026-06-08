@@ -140,6 +140,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
+  const POINTS_FILE = path.join(dataDir, 'points.json');
 
   const state = {
     username: null,
@@ -160,6 +161,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const timer = { remaining: 0, running: false };
   let timerInterval = null;
   const weekly = { start: 0, end: 0, donors: new Map() };
+  // Usuario y Puntos: balance acumulado (de por vida) por usuario + historial de transacciones.
+  const points = new Map();          // uniqueId -> { uniqueId, nickname, photo, total, levelPoints, firstAt, lastAt }
+  let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
+  const POINTS_MAX_USERS = 2500;
+  const POINTS_MAX_TX = 500;
   const clients = new Set();         // todos los WS de esta room (panel + overlays)
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
@@ -175,6 +181,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   let settings = loadSettings();
   loadWeekly();
+  loadPoints();
   timer.remaining = Math.max(0, Math.floor(settings.timer?.defaultInitialSec || 0));
 
   /* ----------------------------- Persistencia ----------------------------- */
@@ -724,6 +731,119 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('weeklyTop', serializeWeeklyTop());
   }
 
+  /* ------------------------- Usuario y Puntos ------------------------- */
+  // El nivel se alcanza con una curva triangular: el nivel L se logra al acumular
+  // STEP * L*(L-1)/2 puntos (cada nivel cuesta un poco más que el anterior).
+  const POINTS_LEVEL_STEP = 7;
+  function levelForPoints(p) {
+    if (!(p > 0)) return 1;
+    return Math.floor((Math.sqrt((8 * p) / POINTS_LEVEL_STEP + 1) - 1) / 2) + 1;
+  }
+  function pointsToReachLevel(level) {
+    const L = Math.max(1, level);
+    return Math.round((POINTS_LEVEL_STEP * L * (L - 1)) / 2);
+  }
+
+  let pointsSaveTimer = null;
+  function loadPoints() {
+    const r = readJsonSafe(POINTS_FILE);
+    const raw = r.data;
+    if (raw && Array.isArray(raw.users)) {
+      for (const u of raw.users) {
+        if (!u || !u.uniqueId) continue;
+        points.set(u.uniqueId, {
+          uniqueId: u.uniqueId,
+          nickname: u.nickname || u.uniqueId,
+          photo: u.photo || '',
+          total: Math.max(0, Number(u.total) || 0),
+          levelPoints: Math.max(0, Number(u.levelPoints != null ? u.levelPoints : u.total) || 0),
+          firstAt: Number(u.firstAt) || Date.now(),
+          lastAt: Number(u.lastAt) || Date.now(),
+        });
+      }
+    }
+    if (raw && Array.isArray(raw.tx)) pointsTx = raw.tx.slice(0, POINTS_MAX_TX);
+  }
+  function savePoints() {
+    clearTimeout(pointsSaveTimer);
+    pointsSaveTimer = setTimeout(() => {
+      const data = { users: [...points.values()], tx: pointsTx.slice(0, POINTS_MAX_TX) };
+      writeJsonAtomic(POINTS_FILE, data);
+    }, 500);
+  }
+
+  function serializePointUser(u) {
+    const level = levelForPoints(u.levelPoints);
+    return {
+      uniqueId: u.uniqueId, nickname: u.nickname, photo: u.photo,
+      total: u.total, levelPoints: u.levelPoints, level,
+      levelBase: pointsToReachLevel(level), nextLevel: pointsToReachLevel(level + 1),
+      firstAt: u.firstAt, lastAt: u.lastAt,
+    };
+  }
+  function serializePoints() {
+    const users = [...points.values()]
+      .sort((a, b) => b.total - a.total)
+      .map(serializePointUser);
+    return { users, count: users.length, max: POINTS_MAX_USERS, tx: pointsTx.slice(0, POINTS_MAX_TX) };
+  }
+  function pushPointUser(u) {
+    broadcast('pointsUpdate', { user: serializePointUser(u), count: points.size });
+  }
+
+  // Si superamos el tope de usuarios, quitamos al de actividad más antigua.
+  function enforcePointsCap() {
+    while (points.size > POINTS_MAX_USERS) {
+      let oldestKey = null; let oldestAt = Infinity;
+      for (const [k, v] of points) { if (v.lastAt < oldestAt) { oldestAt = v.lastAt; oldestKey = k; } }
+      if (oldestKey == null) break;
+      points.delete(oldestKey);
+    }
+  }
+
+  function logPointsTx(entry) {
+    const tx = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      uniqueId: entry.uniqueId, nickname: entry.nickname,
+      points: entry.points, description: entry.description || '',
+      counted: entry.counted !== false, manual: !!entry.manual, at: Date.now(),
+    };
+    pointsTx.unshift(tx);
+    if (pointsTx.length > POINTS_MAX_TX) pointsTx.length = POINTS_MAX_TX;
+    broadcast('pointsTx', { tx });
+    return tx;
+  }
+
+  // Añade (o resta) puntos a un usuario. counted=true => también cuentan para el nivel.
+  function addUserPoints({ uniqueId, nickname, photo, amount, counted = true, description = '', manual = false }) {
+    const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
+    if (!key || !Number.isFinite(amount) || amount === 0) return null;
+    const now = Date.now();
+    const u = points.get(key) || { uniqueId: key, nickname: nickname || key, photo: photo || '', total: 0, levelPoints: 0, firstAt: now, lastAt: now };
+    u.total = Math.max(0, u.total + amount);
+    if (counted) u.levelPoints = Math.max(0, u.levelPoints + amount);
+    if (nickname) u.nickname = nickname;
+    if (photo) u.photo = photo;
+    u.lastAt = now;
+    points.set(key, u);
+    enforcePointsCap();
+    logPointsTx({ uniqueId: key, nickname: u.nickname, points: amount, description, counted, manual });
+    savePoints();
+    pushPointUser(u);
+    return u;
+  }
+
+  function resetAllPoints() {
+    points.clear();
+    pointsTx = [];
+    savePoints();
+    broadcast('pointsList', serializePoints());
+  }
+  function resetOnePoints(uniqueId) {
+    const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
+    if (points.delete(key)) { savePoints(); broadcast('pointsList', serializePoints()); }
+  }
+
   /* ------------------------------- Emotes ------------------------------- */
   function rememberEmote(emoteId, image) {
     const eid = String(emoteId || '').trim();
@@ -792,6 +912,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           state.gifters.set(user.uniqueId, g);
         }
         addWeeklyDonation(user, total);
+        // Usuario y Puntos: acumula los puntos donados de por vida (configurable: puntos por moneda).
+        if (user.uniqueId && total > 0) {
+          const perCoin = Number(settings.points?.perCoin);
+          const award = Math.round(total * (Number.isFinite(perCoin) && perCoin > 0 ? perCoin : 1));
+          if (award > 0) addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: award, counted: true, description: `Regalo: ${giftName}`, manual: false });
+        }
         pushState();
 
         if (settings.battle.enabled && total > 0) {
@@ -987,6 +1113,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           giftName: 'Rosa', repeatCount: 1, diamonds: 5, image: null, streak: false, test: true,
         });
         break;
+      case 'getPoints':
+        try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() })); } catch {}
+        break;
+      case 'addPointsTx': {
+        // Transacción manual: suma o resta puntos a un usuario. amount negativo = retirar.
+        const amount = Math.round(Number(data.points) || 0);
+        if (data.user && amount !== 0) {
+          addUserPoints({
+            uniqueId: data.user, nickname: data.nickname || data.user,
+            amount, counted: data.counted !== false,
+            description: String(data.description || '').slice(0, 120), manual: true,
+          });
+        }
+        break;
+      }
+      case 'resetPoints':
+        resetAllPoints();
+        break;
+      case 'resetUserPoints':
+        if (data.user) resetOnePoints(data.user);
+        break;
       case 'hello':
         if (data.role === 'videoScreen') {
           videoScreens.set(ws, Number(data.screen) || 1);
@@ -1155,6 +1302,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
+    ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() }));
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
     ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
@@ -1186,6 +1334,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const data = { start: weekly.start, end: weekly.end, donors: [...weekly.donors.values()] };
       writeJsonAtomic(WEEKLY_FILE, data);
     } catch {}
+    clearTimeout(pointsSaveTimer);
+    try { writeJsonAtomic(POINTS_FILE, { users: [...points.values()], tx: pointsTx.slice(0, POINTS_MAX_TX) }); } catch {}
   }
 
   // Chequeo de cambio de semana por room.

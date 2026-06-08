@@ -71,16 +71,6 @@ La barra de batalla solo aparece cuando activas el **modo batalla** en su pesta�
   ```
 - **Filtrar alertas pequeñas en el overlay**: edita `MIN_DIAMONDS` en
   `public/js/overlay.js`.
-- **Voces OpenAI (Chat TTS)**: para usar las voces de IA de OpenAI, configura la
-  variable de entorno `OPENAI_API_KEY` con tu clave de OpenAI (en Render:
-  *Settings → Environment*). La clave vive solo en el servidor (nunca se envía al
-  navegador ni a los overlays). Sin esa clave, las voces OpenAI no funcionan y el
-  Chat TTS usa la voz del sistema o las voces TikTok. El uso consume créditos de
-  tu cuenta de OpenAI.
-  ```bash
-  set OPENAI_API_KEY=sk-...   && npm start   # Windows
-  OPENAI_API_KEY=sk-... npm start             # Linux/Mac
-  ```
 
 ## 📂 Estructura
 

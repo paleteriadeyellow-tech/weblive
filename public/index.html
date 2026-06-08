@@ -41,6 +41,9 @@
         <button class="nav-item" data-view="timer">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5"/><path d="M9 2h6"/></svg></span> Temporizador
         </button>
+        <button class="nav-item" data-view="points">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span> Usuario y Puntos
+        </button>
         <button class="nav-item" data-view="admin" id="navAdmin" style="display:none">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg></span> Admin
         </button>
@@ -1819,38 +1822,6 @@
                 <label class="switch-row plain" style="margin-top:8px;"><input type="checkbox" id="tts-tiktok-translate" checked> <span>Leer en <strong>español</strong> (traduce al inglés para las voces Disney)</span></label>
                 <p class="hint">Las voces Disney solo existen en inglés en TikTok. Con esta opción tu mensaje en español se traduce y la voz lo dice en inglés con su timbre. Si eliges una voz aquí, sustituye a la voz del sistema.</p>
               </div>
-              <div class="field" id="tts-openai-wrap">
-                <label>Voces OpenAI <span style="font-weight:700;color:#34d399;">· Alta calidad (IA)</span></label>
-                <select id="tts-openai-voice">
-                  <option value="">— No usar OpenAI —</option>
-                  <optgroup label="OpenAI (hablan español y muchos idiomas)">
-                    <option value="alloy">Alloy — neutra</option>
-                    <option value="ash">Ash — masculina</option>
-                    <option value="ballad">Ballad — suave</option>
-                    <option value="coral">Coral — cálida</option>
-                    <option value="echo">Echo — masculina</option>
-                    <option value="fable">Fable — narrador</option>
-                    <option value="onyx">Onyx — grave</option>
-                    <option value="nova">Nova — femenina</option>
-                    <option value="sage">Sage — tranquila</option>
-                    <option value="shimmer">Shimmer — brillante</option>
-                    <option value="verse">Verse — expresiva</option>
-                  </optgroup>
-                </select>
-                <div class="field" style="margin-top:8px;">
-                  <label>Modelo</label>
-                  <select id="tts-openai-model">
-                    <option value="gpt-4o-mini-tts">gpt-4o-mini-tts (recomendado · admite estilo)</option>
-                    <option value="tts-1">tts-1 (rápido y económico)</option>
-                    <option value="tts-1-hd">tts-1-hd (alta definición)</option>
-                  </select>
-                </div>
-                <div class="field" style="margin-top:8px;">
-                  <label>Estilo / instrucciones de voz <span class="tts-sub">(solo gpt-4o-mini-tts)</span></label>
-                  <input type="text" id="tts-openai-instructions" maxlength="400" placeholder="Ej.: habla animado y alegre, en español de México">
-                </div>
-                <p class="hint">Voces de IA muy naturales que hablan español directamente (sin traducir). Si eliges una aquí, sustituye a TikTok y a la voz del sistema. Requiere que el servidor tenga configurada la clave <code>OPENAI_API_KEY</code>; consume créditos de tu cuenta de OpenAI.</p>
-              </div>
               <div class="field">
                 <label>Velocidad <b><span id="tts-rate-val">1.2</span>x</b></label>
                 <input type="range" id="tts-rate" min="0.5" max="2" step="0.1">
@@ -2056,6 +2027,97 @@
                   <option value="reset">Reiniciar al tiempo inicial</option>
                   <option value="beep">Sonar un pitido</option>
                 </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================== USUARIO Y PUNTOS ===================== -->
+        <section class="view" id="view-points">
+          <h1 class="view-title">👥 Usuario y Puntos</h1>
+          <p class="view-sub">Puntos acumulados por cada usuario según lo que han donado en tus lives. Busca un usuario (ej. <code>@pepito</code>) para ver sus puntos. Se actualiza en vivo y se guarda aunque cierres el panel.</p>
+
+          <div class="ptabs">
+            <button class="ptab active" data-ptab="users">Usuario y Puntos</button>
+            <button class="ptab" data-ptab="tx">Transacciones</button>
+          </div>
+
+          <!-- Sub-vista: tabla de usuarios -->
+          <div class="pview active" id="pview-users">
+            <div class="settings-card">
+              <div class="admin-toolbar pts-toolbar">
+                <span id="pts-count" class="tts-sub">—</span>
+                <input type="search" id="pts-search" class="pts-search" placeholder="Buscar usuario… (ej. @pepito)">
+                <div class="pts-percoin">
+                  <label class="ml">Puntos por moneda</label>
+                  <input type="number" id="pts-percoin" min="0" step="0.1" value="1">
+                </div>
+                <button class="btn ghost danger" id="pts-reset">Restablecer puntos</button>
+              </div>
+              <div class="admin-table-wrap">
+                <table class="admin-table pts-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Nivel</th>
+                      <th>Total Points</th>
+                      <th>Puntos hacia el nivel</th>
+                      <th>Primera actividad</th>
+                      <th>Última actividad</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="pts-tbody">
+                    <tr><td colspan="7" class="admin-empty">Aún no hay usuarios con puntos. Cuando alguien done en tu live, aparecerá aquí.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-vista: transacciones -->
+          <div class="pview" id="pview-tx">
+            <div class="settings-card">
+              <div class="tts-head"><h3>Agregar transacción</h3><span class="tts-sub">Suma o resta puntos manualmente</span></div>
+              <p class="hint">Consejo: usa un valor negativo en <b>Puntos</b> para retirar puntos a un usuario.</p>
+              <div class="pts-txform">
+                <div class="field">
+                  <label>Usuario</label>
+                  <input type="text" id="pts-tx-user" placeholder="@usuario">
+                </div>
+                <div class="field">
+                  <label>Puntos</label>
+                  <input type="number" id="pts-tx-points" step="1" value="0">
+                </div>
+                <div class="field">
+                  <label>Descripción (opcional)</label>
+                  <input type="text" id="pts-tx-desc" maxlength="120" placeholder="por ejemplo, por invitar…">
+                </div>
+                <label class="switch-row plain"><input type="checkbox" id="pts-tx-counted" checked> <span>Contar para el nivel</span></label>
+                <div class="pts-txbtns">
+                  <button class="btn primary" id="pts-tx-send">Enviar</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="tts-head"><h3>Transacciones recientes</h3><span class="tts-sub">Cada vez que un usuario gana o pierde puntos</span></div>
+              <div class="admin-table-wrap">
+                <table class="admin-table pts-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Puntos</th>
+                      <th>Descripción</th>
+                      <th>Cuenta nivel</th>
+                      <th>Origen</th>
+                      <th>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pts-tx-tbody">
+                    <tr><td colspan="6" class="admin-empty">Sin transacciones todavía.</td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
