@@ -737,9 +737,14 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .btn.activate { background: linear-gradient(90deg, #00e5ff, #ff2bd6); color: #04121a; border: 0; }
 .btn.deactivate { background: transparent; border: 1px solid rgba(255,122,144,.5); color: #ff7a90; }
 
-/* Selector de plan en la tabla de admin */
-.plan-pick { background: #10182b; color: #cfe3ff; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 5px 8px; font-size: 12px; font-weight: 700; }
-.plan-pick.premium { color: #ffd66e; border-color: rgba(255,207,92,.45); }
+/* Insignia y controles de plan en la tabla de admin */
+.badge.prem { background: rgba(255,207,92,.16); color: #ffcf5c; }
+.admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.prem-ctl { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.prem-days { width: 62px; background: #0c1322; color: #fff; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; padding: 5px 7px; font-size: 12px; text-align: center; }
+.btn.tiny.prem-give { background: linear-gradient(90deg, #ffcf5c, #ff9d2b); color: #2a1c00; border: 0; }
+.btn.tiny.prem-fixed { background: transparent; border: 1px solid rgba(255,207,92,.5); color: #ffcf5c; }
+.btn.tiny.prem-remove { background: transparent; border: 1px solid rgba(255,122,144,.5); color: #ff7a90; }
 
 /* Editor de planes */
 .plans-card { margin-top: 16px; }

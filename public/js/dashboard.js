@@ -667,17 +667,20 @@ async function loadAdminUsers() {
         ? '<span class="badge on">Activa</span>'
         : '<span class="badge off">Pendiente</span>';
       const adminTag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
-      const plan = u.isAdmin
-        ? '<span class="badge on">Premium</span>'
-        : `<select class="plan-pick ${u.plan === 'premium' ? 'premium' : ''}" data-plan-id="${u.id}">
-             <option value="free" ${u.plan !== 'premium' ? 'selected' : ''}>🆓 Gratis</option>
-             <option value="premium" ${u.plan === 'premium' ? 'selected' : ''}>⭐ Premium</option>
-           </select>`;
+      const plan = u.isAdmin ? '<span class="badge prem">⭐ Premium</span>' : planBadge(u);
       const action = u.isAdmin
         ? '<span class="tts-sub">—</span>'
-        : (u.active
-            ? `<button class="btn tiny deactivate" data-id="${u.id}" data-active="0">Desactivar</button>`
-            : `<button class="btn tiny activate" data-id="${u.id}" data-active="1">Activar</button>`);
+        : `<div class="admin-actions">
+            ${u.active
+              ? `<button class="btn tiny deactivate" data-id="${u.id}" data-active="0">Desactivar</button>`
+              : `<button class="btn tiny activate" data-id="${u.id}" data-active="1">Activar</button>`}
+            <div class="prem-ctl">
+              <input type="number" class="prem-days" min="1" max="3650" placeholder="días" data-id="${u.id}">
+              <button class="btn tiny prem-give" data-id="${u.id}">Dar Premium</button>
+              <button class="btn tiny prem-fixed" data-id="${u.id}">Fijo</button>
+              ${u.plan === 'premium' ? `<button class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
+            </div>
+          </div>`;
       return `<tr>
         <td><span class="u-name">${u.username}</span>${adminTag}</td>
         <td>${conn}</td>
@@ -701,24 +704,50 @@ async function loadAdminUsers() {
         loadAdminUsers();
       };
     });
-    tbody.querySelectorAll('select[data-plan-id]').forEach((sel) => {
-      sel.onchange = async () => {
-        sel.disabled = true;
-        try {
-          await fetch('/api/admin/userplan', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: sel.dataset.planId, plan: sel.value }),
-          });
-        } catch {}
-        sel.disabled = false;
-        sel.classList.toggle('premium', sel.value === 'premium');
-        toast('Plan actualizado.');
+    // Dar Premium por N días
+    tbody.querySelectorAll('.prem-give').forEach((b) => {
+      b.onclick = () => {
+        const inp = tbody.querySelector(`.prem-days[data-id="${b.dataset.id}"]`);
+        const days = Number(inp && inp.value);
+        if (!Number.isFinite(days) || days < 1) { toast('Escribe cuántos días de Premium.', 'warn'); inp?.focus(); return; }
+        setUserPlanReq(b.dataset.id, 'premium', days, `Premium activado por ${days} día${days === 1 ? '' : 's'}.`);
       };
+    });
+    // Premium fijo (sin caducidad)
+    tbody.querySelectorAll('.prem-fixed').forEach((b) => {
+      b.onclick = () => setUserPlanReq(b.dataset.id, 'premium', 0, 'Premium fijo activado.');
+    });
+    // Quitar Premium (volver a Gratis)
+    tbody.querySelectorAll('.prem-remove').forEach((b) => {
+      b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Premium retirado. Ahora es Gratis.');
     });
   } catch {
     tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">Error al cargar.</td></tr>';
   }
+}
+
+// Insignia de plan para la tabla de admin (con días restantes o "fijo").
+function planBadge(u) {
+  if (u.plan !== 'premium') return '<span class="badge off">Gratis</span>';
+  if (u.premiumUntil && u.premiumUntil > 0) {
+    const days = Math.max(0, Math.ceil((u.premiumUntil - Date.now()) / 86400000));
+    return `<span class="badge prem">⭐ Premium · ${days}d</span>`;
+  }
+  return '<span class="badge prem">⭐ Premium · fijo</span>';
+}
+
+// Llama al endpoint de cambio de plan y refresca la tabla.
+async function setUserPlanReq(id, plan, days, okMsg) {
+  try {
+    const r = await fetch('/api/admin/userplan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, plan, days }),
+    });
+    if (r.ok) toast(okMsg || 'Plan actualizado.');
+    else toast('No se pudo cambiar el plan.', 'warn');
+  } catch { toast('Error de conexión.', 'warn'); }
+  loadAdminUsers();
 }
 
 const adminRefreshBtn = document.getElementById('admin-refresh');

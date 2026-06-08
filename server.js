@@ -182,10 +182,14 @@ function requireAdmin(req, res, next) {
 // Lista de todas las cuentas con su estado (live, activación, clave, conexión).
 app.get('/api/admin/users', requireAdmin, (_req, res) => {
   const out = listUsersDetailed().map((u) => {
+    const full = getUserById(u.id);
+    const plan = getUserPlan(full); // recalcula y baja a 'free' si el Premium caducó
     const room = rooms.get(u.id);
     const st = room ? room.getStatus() : null;
     return {
       ...u,
+      plan,
+      premiumUntil: full?.premiumUntil || 0,
       live: !!(st && st.live),
       connecting: !!(st && st.connecting),
       liveSince: st ? st.liveSince : null,
@@ -209,17 +213,33 @@ app.post('/api/admin/activate', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// Cambiar el plan de una cuenta (gratis / premium).
+// Cambiar el plan de una cuenta (gratis / premium). days>0 => Premium por N días;
+// days=0/ausente => si es premium queda FIJO (sin caducidad).
 app.post('/api/admin/userplan', express.json(), requireAdmin, (req, res) => {
-  const { id, plan } = req.body || {};
+  const { id, plan, days } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
-  const ok = setUserPlan(id, plan);
+  const ok = setUserPlan(id, plan, days);
   if (!ok) return res.status(404).json({ error: 'cuenta no encontrada' });
   // Avisamos al panel del usuario (si está conectado) para que aplique sus nuevos límites.
   const room = rooms.get(id);
   if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
   res.json({ ok: true });
 });
+
+// Revisión periódica: baja a 'free' a los Premium temporales que ya caducaron y
+// avisa en vivo al panel del usuario afectado (si está conectado).
+setInterval(() => {
+  for (const u of listUsersDetailed()) {
+    const full = getUserById(u.id);
+    if (!full || full.plan !== 'premium') continue;
+    const before = full.plan;
+    const eff = getUserPlan(full); // muta a 'free' si caducó
+    if (before === 'premium' && eff === 'free') {
+      const room = rooms.get(u.id);
+      if (room) room.broadcastCaps?.(capsForUser(full));
+    }
+  }
+}, 60 * 1000).unref?.();
 
 // Configuración de planes: catálogo de capacidades + límites/features por plan.
 app.get('/api/admin/plans', requireAdmin, (_req, res) => {

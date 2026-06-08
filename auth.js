@@ -34,6 +34,7 @@ let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
     if (u.active === undefined) { u.active = true; changed = true; }
     if (u.lastLogin === undefined) { u.lastLogin = 0; changed = true; }
     if (u.plan === undefined) { u.plan = u.isAdmin ? 'premium' : 'free'; changed = true; }
+    if (u.premiumUntil === undefined) { u.premiumUntil = 0; changed = true; } // 0 = sin caducidad (fijo)
     // Migración: ya no se requiere activación. Activamos UNA sola vez a las cuentas
     // antiguas que quedaron pendientes; después el admin puede desactivar y persiste.
     if (!u.activatedByDefault) { u.active = true; u.activatedByDefault = true; changed = true; }
@@ -78,6 +79,7 @@ export function listUsersDetailed() {
     active: !!u.active,
     isAdmin: !!u.isAdmin,
     plan: u.plan || 'free',
+    premiumUntil: u.premiumUntil || 0,
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
   }));
@@ -93,16 +95,35 @@ export function setUserActive(id, active) {
   saveUsers();
   return true;
 }
-// Plan efectivo del usuario ('premium' para el admin).
+// Plan efectivo del usuario ('premium' para el admin). Si el Premium tenía fecha de
+// caducidad y ya pasó, lo baja a 'free' de forma persistente (y devuelve 'free').
 export function getUserPlan(user) {
   if (!user) return 'free';
   if (user.isAdmin) return 'premium';
-  return user.plan === 'premium' ? 'premium' : 'free';
+  if (user.plan === 'premium') {
+    if (user.premiumUntil && user.premiumUntil > 0 && Date.now() > user.premiumUntil) {
+      user.plan = 'free';
+      user.premiumUntil = 0;
+      saveUsers();
+      return 'free';
+    }
+    return 'premium';
+  }
+  return 'free';
 }
-export function setUserPlan(id, plan) {
+// Cambia el plan. days > 0 => Premium temporal que caduca en N días.
+// days = 0/null => si es premium, queda FIJO (sin caducidad).
+export function setUserPlan(id, plan, days) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
-  u.plan = plan === 'premium' ? 'premium' : 'free';
+  if (plan === 'premium') {
+    u.plan = 'premium';
+    const n = Number(days);
+    u.premiumUntil = (Number.isFinite(n) && n > 0) ? Date.now() + n * 24 * 60 * 60 * 1000 : 0;
+  } else {
+    u.plan = 'free';
+    u.premiumUntil = 0;
+  }
   saveUsers();
   return true;
 }
@@ -146,6 +167,7 @@ export function registerUser(username, password) {
     active: true, // ya no hace falta activación: pueden entrar al crear la cuenta
     activatedByDefault: true,
     plan: isAdmin ? 'premium' : 'free', // las cuentas nuevas empiezan en gratis
+    premiumUntil: 0,
   };
   users.push(user);
   saveUsers();
