@@ -98,7 +98,7 @@ async function loadMe() {
 const OVERLAY_CAP = {
   '/join-live.html': 'ov_joinlive', '/overlay.html': 'ov_alertvideo',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
-  '/topdonor.html': 'ov_topdonor', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq',
+  '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq',
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
   '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
@@ -183,7 +183,7 @@ const CAP_LABELS = {
   // overlays
   ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_topdonor: 'Top donador semanal',
-  ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
+  ov_gcounter: 'Contador de meta', ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_toplikes: 'Top likes',
   ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
@@ -196,7 +196,7 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer',
   'tts_tiktok',
   'ov_joinlive', 'ov_alertvideo', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_topdonor',
-  'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_gcounter', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer',
 ];
@@ -404,7 +404,7 @@ function renderPlanPricing() {
   const buyBtn = document.getElementById('pp-buy');
   if (buyBtn) buyBtn.onclick = () => {
     const msg = `Hola, quiero comprar el Plan Premium ($20 USD/mes) de Livecoins. Mi usuario es: ${window.MY_USER || ''}`;
-    const url = 'https://wa.me/522202079474?text=' + encodeURIComponent(msg);
+    const url = 'https://wa.me/522202079074?text=' + encodeURIComponent(msg);
     window.open(url, '_blank', 'noopener');
   };
 }
@@ -559,6 +559,7 @@ function handle(type, p) {
     case 'settings': onSettings(p); break;
     case 'screens': onScreens(p); break;
     case 'chat': addChat(p); ttsSpeak(p); break;
+    case 'botReply': handleBotReply(p); break;
     case 'gift': addGift(p); ttsOnGift(p); break;
     case 'like': ttsOnLike(p); break;
     case 'member': addEvent(`🙋 ${p.nickname} entró`, ''); break;
@@ -955,6 +956,15 @@ function pushRow(feedId, html, cls = '') {
   feed.scrollTop = feed.scrollHeight;
 }
 function addChat(p) { pushRow('chat', `${avatar(p)}<div><span class="name">${esc(p.nickname)}</span><span class="text">${esc(p.comment)}</span></div>`); }
+
+// Respuesta automática de un comando personalizado: se muestra en el chat del panel
+// y se lee en voz alta (respetando la voz/idioma configurados en Chat TTS).
+function handleBotReply(p) {
+  const text = String(p?.text || '').trim();
+  if (!text) return;
+  pushRow('chat', `<div class="ph bot-ava">🤖</div><div><span class="name bot-name">Bot · ${esc(p.command || '')}</span><span class="text">${esc(text)}</span></div>`, 'bot');
+  ttsSpeakText(text); // la respuesta del comando siempre se lee en voz alta
+}
 function giftImageOf(p) {
   if (p.image) return p.image;
   if (p.giftId) return giftCatalogById.get(String(p.giftId))?.image || '';
@@ -1144,6 +1154,7 @@ function applySettingsToUI() {
   }
   renderBattleAlerts();
   applyJarronUI();
+  if (typeof refreshGiftCounterCardUI === 'function') refreshGiftCounterCardUI();
   if (typeof pushGiftVsPreview === 'function') setTimeout(() => pushGiftVsPreview(), 300);
   if (typeof pushGiftSeqPreview === 'function') setTimeout(() => pushGiftSeqPreview(), 300);
   if (typeof pushStyleOverlayPreviews === 'function') setTimeout(() => pushStyleOverlayPreviews(), 300);
@@ -1349,6 +1360,11 @@ function openVideoLib() {
 }
 function closeVideoLib() {
   $('videoLibModal').classList.add('hidden');
+  // Libera los videos de la biblioteca para no seguir consumiendo CPU/memoria.
+  if (window._vidLibIO) { try { window._vidLibIO.disconnect(); } catch {} window._vidLibIO = null; }
+  document.querySelectorAll('#vid-libgrid video').forEach((v) => {
+    try { v.pause(); v.removeAttribute('src'); v.load(); } catch {}
+  });
 }
 
 const isImageFile = (u) => /\.(gif|png|jpe?g|webp)(\?|$)/i.test(u || '');
@@ -1377,10 +1393,13 @@ function renderLocalVideos(filter) {
     return;
   }
   const niceName = (n) => n.replace(/\.[^.]+$/, '');
+  // Importante: NO ponemos autoplay ni preload="auto" en todos. Si la carpeta tiene
+  // muchos videos, descargar y decodificar todos a la vez traba el navegador. En su
+  // lugar, cargamos solo metadata y reproducimos únicamente los que están a la vista.
   box.innerHTML = list.map((v) => {
     const media = isImageFile(v.url)
-      ? `<img src="${esc(v.url)}" loading="lazy">`
-      : `<video src="${esc(v.url)}" muted loop autoplay preload="auto" playsinline></video>`;
+      ? `<img src="${esc(v.url)}" loading="lazy" decoding="async">`
+      : `<video data-src="${esc(v.url)}" muted loop playsinline preload="none"></video>`;
     return `
     <div class="vid-cell" data-url="${esc(v.url)}" data-name="${esc(v.name)}" title="${esc(v.name)}">
       <div class="vid-prev">${media}</div>
@@ -1388,9 +1407,24 @@ function renderLocalVideos(filter) {
     </div>`;
   }).join('');
 
+  // Reproductor perezoso: solo se cargan/reproducen los videos visibles dentro del
+  // modal; al salir de la vista se pausan para liberar memoria y CPU.
+  if (window._vidLibIO) { try { window._vidLibIO.disconnect(); } catch {} }
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      const vid = en.target;
+      if (en.isIntersecting) {
+        if (!vid.src && vid.dataset.src) vid.src = vid.dataset.src;
+        vid.play().catch(() => {});
+      } else {
+        try { vid.pause(); } catch {}
+      }
+    }
+  }, { root: box, rootMargin: '120px', threshold: 0.1 });
+  window._vidLibIO = io;
+  box.querySelectorAll('video').forEach((vid) => io.observe(vid));
+
   box.querySelectorAll('.vid-cell').forEach((cell) => {
-    const vid = cell.querySelector('video');
-    if (vid) vid.play().catch(() => {});
     cell.onclick = () => {
       const chosen = { url: cell.dataset.url, name: cell.dataset.name };
       if (libTarget === 'ba') {
@@ -2542,6 +2576,8 @@ function randomGiftSample() {
 }
 
 const CFG_FONTS = [
+  ['luckiest', 'Luckiest Guy ⭐'], ['bangers', 'Bangers ⭐'], ['lilita', 'Lilita One ⭐'],
+  ['titan', 'Titan One ⭐'], ['fredoka', 'Fredoka ⭐'], ['bungee', 'Bungee ⭐'],
   ['rubik', 'Rubik'], ['oswald', 'Oswald'], ['bebas', 'Bebas Neue'], ['montserrat', 'Montserrat'],
   ['poppins', 'Poppins'], ['orbitron', 'Orbitron'], ['inter', 'Inter'], ['system', 'Sistema'],
 ];
@@ -2593,7 +2629,7 @@ function setupStyleOverlay(o) {
     const el = $(id);
     if (el) { el.oninput = () => pushPreview(buildCfg()); el.onchange = () => pushPreview(buildCfg()); }
   });
-  if ($(o.saveId)) $(o.saveId).onclick = () => { settings[o.settingsKey] = buildCfg(); saveSettings(); pushPreview(settings[o.settingsKey]); close(); };
+  if ($(o.saveId)) $(o.saveId).onclick = () => { settings[o.settingsKey] = { ...(settings[o.settingsKey] || {}), ...buildCfg() }; saveSettings(); pushPreview(settings[o.settingsKey]); close(); };
   o._push = () => pushPreview();
   return o;
 }
@@ -2606,6 +2642,16 @@ const STYLE_OVERLAYS = [
     testAction: 'testTopGift', resetAction: 'resetTopGift', randomGift: true,
     map: { 'tgfcfg-title': 'title', 'tgfcfg-coinlabel': 'coinLabel', 'tgfcfg-font': 'font', 'tgfcfg-rainbow': 'titleRainbow',
       'tgfcfg-tc1': 'tc1', 'tgfcfg-tc2': 'tc2', 'tgfcfg-tc3': 'tc3', 'tgfcfg-namecolor': 'nameColor', 'tgfcfg-valuecolor': 'valueColor', 'tgfcfg-namestroke': 'nameStroke', 'tgfcfg-valuestroke': 'valueStroke' },
+  }),
+  setupStyleOverlay({
+    kind: 'gcounter', settingsKey: 'giftCounter', previewId: 'gct-preview',
+    btnTest: 'gct-test', btnReset: 'gct-reset', btnConfig: 'gct-config',
+    modalId: 'gctConfigModal', closeId: 'gctcfg-close', saveId: 'gctcfg-save',
+    testAction: 'testGiftCounter', resetAction: 'resetGiftCounter',
+    map: { 'gctcfg-title': 'title', 'gctcfg-font': 'font', 'gctcfg-rainbow': 'titleRainbow',
+      'gctcfg-tc1': 'tc1', 'gctcfg-tc2': 'tc2', 'gctcfg-tc3': 'tc3',
+      'gctcfg-titlecolor': 'titleColor', 'gctcfg-countercolor': 'counterColor',
+      'gctcfg-titlestroke': 'titleStroke', 'gctcfg-counterstroke': 'counterStroke' },
   }),
   setupStyleOverlay({
     kind: 'topstreak', settingsKey: 'topStreak', previewId: 'tst-preview',
@@ -2717,6 +2763,49 @@ const STYLE_OVERLAYS = [
     types: { scale: 'int', posTop: 'int', posLeft: 'int', bgOpacity: 'int' },
   }),
 ];
+
+// Contador de meta: controles propios de la tarjeta (regalo, meta, título, valor).
+(function setupGiftCounterCard() {
+  const prev = () => $('gct-preview')?.contentWindow;
+  const toPrev = () => prev()?.postMessage({ kind: 'gcounter', type: 'config', config: settings?.giftCounter || {} }, '*');
+  const ensure = () => { if (!settings.giftCounter) settings.giftCounter = {}; return settings.giftCounter; };
+
+  if ($('gct-giftpick')) $('gct-giftpick').onclick = () => openGiftModal('sa', (g) => {
+    const c = ensure();
+    c.giftId = String(g.id || '');
+    c.giftName = g.name || '';
+    c.image = g.image || '';
+    refreshGiftCounterCardUI();
+    saveSettings(); toPrev();
+  });
+  if ($('gct-giftany')) $('gct-giftany').onclick = () => {
+    const c = ensure();
+    c.giftId = ''; c.giftName = ''; c.image = '';
+    refreshGiftCounterCardUI();
+    saveSettings(); toPrev();
+  };
+  if ($('gct-goal')) $('gct-goal').addEventListener('input', () => {
+    const c = ensure(); c.goal = Math.max(1, parseInt($('gct-goal').value, 10) || 1);
+    saveSettings(); toPrev();
+  });
+  if ($('gct-title2')) $('gct-title2').addEventListener('input', () => {
+    const c = ensure(); c.title = $('gct-title2').value;
+    saveSettings(); toPrev();
+  });
+  if ($('gct-set')) $('gct-set').onclick = () => {
+    const v = Math.max(0, parseInt($('gct-value').value, 10) || 0);
+    send({ action: 'setGiftCounter', value: v });
+    toast('Contador puesto en ' + v + '.');
+  };
+})();
+
+function refreshGiftCounterCardUI() {
+  const c = settings?.giftCounter || {};
+  const nameEl = $('gct-giftname');
+  if (nameEl) nameEl.textContent = c.giftName ? c.giftName : 'Cualquier regalo';
+  if ($('gct-goal')) $('gct-goal').value = c.goal ?? 50;
+  if ($('gct-title2')) $('gct-title2').value = c.title ?? 'MY CHALLENGE';
+}
 
 // Coin Match: controles de partido (iniciar/terminar/ganadores) + reset propio
 (function setupCoinMatchControls() {
@@ -2863,7 +2952,61 @@ function applyTtsUI(t) {
   set('tts-read-taptap', t.readTaptap);
   val('tts-taptap-min', t.taptapMin ?? 100);
   set('tts-read-gifts', t.readGifts);
+  renderTtsCommands();
   updateTtsSummary();
+}
+
+/* ---- Comandos personalizados (respuestas automáticas por voz) ---- */
+function renderTtsCommands() {
+  const box = $('tts-cmd-list');
+  if (!box) return;
+  const cmds = (settings?.tts?.commands) || [];
+  if (!cmds.length) {
+    box.innerHTML = '<div class="cmd-empty">Aún no hay comandos. Añade uno abajo.</div>';
+    return;
+  }
+  box.innerHTML = cmds.map((c) => `
+    <div class="cmd-item ${c.enabled === false ? 'off' : ''}" data-id="${esc(c.id)}">
+      <label class="cmd-toggle"><input type="checkbox" ${c.enabled === false ? '' : 'checked'} data-act="toggle"> </label>
+      <span class="cmd-trigger">${esc(c.command)}</span>
+      <span class="cmd-arrow">→</span>
+      <span class="cmd-response" title="${esc(c.response)}">${esc(c.response)}</span>
+      <button class="cmd-del" data-act="del" title="Eliminar">✕</button>
+    </div>`).join('');
+  box.querySelectorAll('.cmd-item').forEach((row) => {
+    const id = row.dataset.id;
+    row.querySelector('[data-act="toggle"]').onchange = (e) => {
+      const c = (settings.tts.commands || []).find((x) => String(x.id) === String(id));
+      if (c) { c.enabled = e.target.checked; saveTtsCommands(); }
+    };
+    row.querySelector('[data-act="del"]').onclick = async () => {
+      const ok = await askConfirm({ title: 'Eliminar comando', message: '¿Seguro que quieres borrar este comando?', confirmText: 'Eliminar' });
+      if (!ok) return;
+      settings.tts.commands = (settings.tts.commands || []).filter((x) => String(x.id) !== String(id));
+      saveTtsCommands();
+      renderTtsCommands();
+    };
+  });
+}
+
+function saveTtsCommands() {
+  if (!settings.tts) settings.tts = {};
+  saveSettings(); // envía settings completo (incluye tts.commands)
+}
+
+function addTtsCommand() {
+  const tEl = $('tts-cmd-trigger'); const rEl = $('tts-cmd-response');
+  let cmd = (tEl?.value || '').trim();
+  const resp = (rEl?.value || '').trim();
+  if (!cmd || !resp) { toast('Escribe el comando y la respuesta.', 'warn'); return; }
+  if (!cmd.startsWith('!') && !cmd.startsWith('/') && !cmd.startsWith('.')) cmd = '!' + cmd;
+  if (!settings.tts) settings.tts = {};
+  if (!Array.isArray(settings.tts.commands)) settings.tts.commands = [];
+  settings.tts.commands.push({ id: Date.now().toString(36), command: cmd, response: resp, enabled: true });
+  saveTtsCommands();
+  renderTtsCommands();
+  if (tEl) tEl.value = ''; if (rEl) rEl.value = '';
+  toast('Comando añadido.');
 }
 
 function updateTtsSummary() {
@@ -3176,6 +3319,14 @@ function ttsOnGift(p) {
   bindChk('tts-read-taptap', 'readTaptap');
   bindNum('tts-taptap-min', 'taptapMin');
   bindChk('tts-read-gifts', 'readGifts');
+
+  // comandos personalizados
+  const cmdAdd = $('tts-cmd-add');
+  if (cmdAdd) cmdAdd.onclick = addTtsCommand;
+  ['tts-cmd-trigger', 'tts-cmd-response'].forEach((id) => {
+    const el = $(id);
+    if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTtsCommand(); } });
+  });
 
   const test = $('tts-test');
   if (test) test.onclick = () => ttsSpeakText('Hola, así se escucha el chat por voz');

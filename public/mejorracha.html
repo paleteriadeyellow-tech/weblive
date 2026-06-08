@@ -6,7 +6,7 @@
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Mejor racha</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@700;800;900&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
     * { box-sizing: border-box; }
     html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: var(--tf-font-stack, 'Rubik', system-ui, sans-serif); }
     html.embed, html.embed body { width: 100%; height: 100%; }
@@ -45,7 +45,7 @@
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
-    const FONTS = { rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+    const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
 
     let cfg = { title: 'MEJOR RACHA', titleRainbow: true, tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00', nameColor: '#e4e4ee', valueColor: '#e8c4a0', nameStroke: '#3d3d4a', valueStroke: '#4a3d2e', font: 'rubik' };
     let best = { streak: 0, nickname: '', giftName: '', image: '' };

@@ -33,6 +33,9 @@ export const DEFAULT_SETTINGS = {
     readFollow: false, followMsg: 'Hola {user}, gracias por seguirme',
     // Leer eventos
     readShare: false, readTaptap: false, taptapMin: 100, readGifts: false,
+    // Comandos personalizados: cuando alguien escribe el comando (ej. !idwarzone) el
+    // bot responde por voz (TTS) y muestra la respuesta. [{ id, command, response, enabled }]
+    commands: [],
   },
   // videos: [{ id, name, url, fileName, trigger, giftName, minDiamonds, volume, enabled, screen }]
   videos: [],
@@ -160,6 +163,18 @@ export const DEFAULT_SETTINGS = {
     nameColor: '#e4e4ee', valueColor: '#e8c4a0',
     nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
     coinLabel: 'monedas', font: 'rubik',
+  },
+  // Overlay Contador de meta (cuenta un regalo concreto hasta una meta)
+  // giftId/giftName vacíos => cuenta CUALQUIER regalo. count se lleva en el servidor.
+  giftCounter: {
+    title: 'MY CHALLENGE',
+    giftId: '', giftName: '', image: '',
+    goal: 50,
+    titleRainbow: true,
+    tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
+    titleColor: '#ffffff', counterColor: '#ebc94d',
+    titleStroke: '#242424', counterStroke: '#3a3320',
+    font: 'luckiest',
   },
   // Overlay Mejor racha (mayor combo)
   topStreak: {

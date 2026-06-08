@@ -542,6 +542,33 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Contador de meta -->
+        <div id="gctConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🎯 Configurar — Contador de meta</h2>
+              <button class="modal-close" id="gctcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="gctcfg-title" placeholder="MY CHALLENGE">
+              <label class="ml">FUENTE</label>
+              <select id="gctcfg-font" class="cfg-font"></select>
+              <label class="switch-row plain"><input type="checkbox" id="gctcfg-rainbow" checked> <span>Título arcoíris</span></label>
+              <div class="cfg-colors">
+                <div><label class="ml">TÍTULO 1</label><input type="color" id="gctcfg-tc1" value="#ff00aa"></div>
+                <div><label class="ml">TÍTULO 2</label><input type="color" id="gctcfg-tc2" value="#00ddff"></div>
+                <div><label class="ml">TÍTULO 3</label><input type="color" id="gctcfg-tc3" value="#ffcc00"></div>
+                <div><label class="ml">COLOR TÍTULO</label><input type="color" id="gctcfg-titlecolor" value="#ffffff"></div>
+                <div><label class="ml">COLOR CONTADOR</label><input type="color" id="gctcfg-countercolor" value="#ebc94d"></div>
+                <div><label class="ml">BORDE TÍTULO</label><input type="color" id="gctcfg-titlestroke" value="#242424"></div>
+                <div><label class="ml">BORDE CONTADOR</label><input type="color" id="gctcfg-counterstroke" value="#3a3320"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="gctcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Mejor racha -->
         <div id="tstConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -1216,6 +1243,57 @@
 
           <!-- Gifts overlays -->
           <div class="subview" id="sub-gifts">
+            <!-- Tarjeta PRO: Contador de meta -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="gct-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="gct-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="gct-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="gct-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+
+              <h3 class="ovpro-title">🎯 Contador de meta</h3>
+              <p class="ovpro-desc">Cuenta cuántas veces llega un regalo hasta una meta, ideal para retos: «junten 50 pasteles». Elige el regalo (o cualquiera), pon la meta y se muestra <code>0 / 50</code> con la imagen del regalo. Se reinicia al conectar al live.</p>
+
+              <div class="gct-controls">
+                <div class="gct-field">
+                  <label>Regalo a contar</label>
+                  <div class="gct-giftrow">
+                    <button class="btn ghost" id="gct-giftpick">Elegir regalo</button>
+                    <span class="gct-giftname" id="gct-giftname">Cualquier regalo</span>
+                    <button class="btn ghost gct-any" id="gct-giftany">Cualquiera</button>
+                  </div>
+                </div>
+                <div class="gct-field gct-narrow">
+                  <label>Meta</label>
+                  <input type="number" id="gct-goal" min="1" value="50">
+                </div>
+                <div class="gct-field">
+                  <label>Título</label>
+                  <input type="text" id="gct-title2" placeholder="MY CHALLENGE">
+                </div>
+                <div class="gct-field gct-narrow">
+                  <label>Valor actual</label>
+                  <div class="gct-giftrow">
+                    <input type="number" id="gct-value" min="0" value="0">
+                    <button class="btn ghost" id="gct-set">Set</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/gcounter.html">/gcounter.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="gct-preview" src="/gcounter.html?embed=1" title="Vista previa contador de meta"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Jarrón -->
             <div class="ovpro-card">
               <div class="ovpro-top">
@@ -1823,6 +1901,18 @@
               </div>
               <label class="switch-row plain"><input type="checkbox" id="tts-read-gifts"> <span>Leer regalos enviados</span></label>
               <p class="hint">Los regalos iguales del mismo usuario se agrupan por stack para leerlos como una sola frase, por ejemplo: Rose x10.</p>
+            </div>
+
+            <!-- Comandos personalizados -->
+            <div class="settings-card tts-card cmd-card">
+              <div class="tts-head"><h3>Comandos personalizados</h3><span class="tts-sub">Respuestas automáticas por voz</span></div>
+              <p class="hint">Cuando alguien escriba el comando en el chat, el bot responde por voz con tu mensaje. Ejemplo: comando <code>!IDWarzone</code> → respuesta «Mi ID de Warzone es 12345». Usa <code>{user}</code> para nombrar a quien lo pidió.</p>
+              <div id="tts-cmd-list" class="cmd-list"></div>
+              <div class="cmd-add">
+                <input type="text" id="tts-cmd-trigger" class="cmd-in" placeholder="Comando (ej. !IDWarzone)">
+                <input type="text" id="tts-cmd-response" class="cmd-in cmd-resp" placeholder="Respuesta (ej. Mi ID es 12345)">
+                <button class="btn primary" id="tts-cmd-add">Añadir</button>
+              </div>
             </div>
           </div>
 

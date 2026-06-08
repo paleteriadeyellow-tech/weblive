@@ -156,6 +156,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   };
 
   const battle = { scoreA: 0, scoreB: 0 };
+  const giftCounter = { count: 0 }; // contador de meta (cuenta de la sesión)
   const timer = { remaining: 0, running: false };
   let timerInterval = null;
   const weekly = { start: 0, end: 0, donors: new Map() };
@@ -200,6 +201,28 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function broadcastScreens() {
     broadcast('screens', { connected: [...new Set(videoScreens.values())] });
+  }
+  /* --------------------- Contador de meta (gift counter) -------------------- */
+  function serializeGiftCounter() {
+    const goal = Math.max(1, Number(settings.giftCounter?.goal) || 50);
+    return { count: giftCounter.count, goal };
+  }
+  function broadcastGiftCounter() { broadcast('giftCounter', serializeGiftCounter()); }
+  function setGiftCounter(n) {
+    giftCounter.count = Math.max(0, Math.floor(Number(n) || 0));
+    broadcastGiftCounter();
+  }
+  function resetGiftCounter() { giftCounter.count = 0; broadcastGiftCounter(); }
+  // Suma al contador si el regalo coincide con el configurado (o cualquiera si no hay filtro).
+  function countGiftForGoal(giftId, giftName, repeatCount) {
+    const c = settings.giftCounter || {};
+    const wantId = String(c.giftId || '').trim();
+    const wantName = String(c.giftName || '').trim().toLowerCase();
+    if (wantId) { if (String(giftId) !== wantId) return; }
+    else if (wantName) { if ((giftName || '').toLowerCase() !== wantName) return; }
+    // sin filtro => cuenta cualquier regalo
+    giftCounter.count += Math.max(1, Number(repeatCount) || 1);
+    broadcastGiftCounter();
   }
   // Capacidades del plan (límites + features). El panel las usa para ocultar
   // pestañas/overlays y bloquear el añadir más alertas de las permitidas.
@@ -316,6 +339,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // Mejor regalo / mejor racha de la sesión
     broadcast('topGiftReset', {});
     broadcast('topStreakReset', {});
+    // Contador de meta (gift counter) vuelve a 0
+    resetGiftCounter();
     // Batallas de ranking (regalos / likes)
     broadcast('batallaGiftsReset', {});
     broadcast('batallaLikesReset', {});
@@ -577,6 +602,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  // Comandos personalizados del chat: si el comentario coincide con un comando
+  // configurado (ej. !idwarzone), el bot responde por voz (TTS) y muestra la respuesta.
+  // Cooldown por comando para que una racha de mensajes no spamee la respuesta.
+  const commandCooldown = new Map(); // comando -> timestamp último disparo
+  function handleChatCommands(comment, user) {
+    const cmds = settings.tts?.commands;
+    if (!Array.isArray(cmds) || !cmds.length) return;
+    for (const c of cmds) {
+      if (!c || c.enabled === false) continue;
+      if (!c.command || !c.response) continue;
+      if (!matchesCommand(c.command, comment)) continue;
+      const key = String(c.command).toLowerCase();
+      const now = Date.now();
+      if (now - (commandCooldown.get(key) || 0) < 4000) return; // 4s anti-spam
+      commandCooldown.set(key, now);
+      const text = String(c.response).replace(/\{user\}/gi, user?.nickname || user?.uniqueId || '');
+      // Mensaje de bot: el panel lo muestra en el chat y lo lee en voz alta.
+      broadcast('botReply', { command: c.command, text });
+      broadcast('log', { level: 'ok', text: `🤖 Comando ${c.command} → ${text}` });
+      return; // solo un comando por mensaje
+    }
+  }
+
   function noteCritical(value = 0, src = '') {
     if (settings.battleAlertsEnabled === false) return;
     const v = Math.round(Number(value) || 0);
@@ -710,6 +758,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       triggerVideos('chatCommand', { comment });
       triggerSoundAlerts('chatCommand', { comment });
+      handleChatCommands(comment, baseUser(data.user || data));
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
       const uid = data.user?.uniqueId || data.user?.userId;
       if (uid && !chatSeenUsers.has(uid)) {
@@ -761,6 +810,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           triggerVideos('gift', { ...giftInfo, giftName: giftName.toLowerCase() });
           triggerSoundAlerts('gift', giftInfo);
         }
+        countGiftForGoal(giftId, giftName, repeatCount);
       }
 
       broadcast('gift', { ...user, giftName, giftId, repeatCount, diamonds: diamondsEach, image, streak: isStreak });
@@ -1012,6 +1062,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetTopGift':
         broadcast('topGiftReset', {});
         break;
+      case 'testGiftCounter':
+        broadcast('giftCounterTest', {});
+        break;
+      case 'resetGiftCounter':
+        resetGiftCounter();
+        break;
+      case 'setGiftCounter':
+        setGiftCounter(data.value);
+        break;
       case 'testTopStreak':
         broadcast('topStreakTest', { gift: data.gift || null });
         break;
@@ -1097,6 +1156,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
+    ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
     const caps = currentCaps();
     if (caps) ws.send(JSON.stringify({ type: 'caps', payload: caps }));

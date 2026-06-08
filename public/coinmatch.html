@@ -5,7 +5,7 @@
   <meta name="referrer" content="no-referrer">
   <title>Coin Match</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
     * { box-sizing: border-box; }
     :root { --cm-bg: rgba(24,18,40,.92); --cm-bd: rgba(167,139,250,.35); --cm-accent: #f43f5e; --cm-timer-bg: rgba(15,12,28,.95); --cm-text: #f1f5f9; --cm-muted: #94a3b8; --cm-gold: #fbbf24; }
     body { margin: 0; padding: 10px; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; overflow: hidden; }
@@ -71,7 +71,7 @@
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
-    const FONTS = { rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+    const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
 
     let cfg = { title: 'Coin Match', durationSec: 180, topN: 3, accent: '#f43f5e', startDelaySec: 3, revealSec: 3, minBid: 1, maxParticipants: 100, winMode: 'keep', showTitle: true, showCount: true, scroll: true, sniper: false, slowReveal: false, font: 'inter' };
 
