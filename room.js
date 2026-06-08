@@ -170,6 +170,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let statsTimer = null;
   let lastTotalLikes = 0;
   let lastLikeSound = 0;
+  let lastSeen = 0; // última vez que hubo una conexión (panel u overlay) activa
 
   let settings = loadSettings();
   loadWeekly();
@@ -1089,6 +1090,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   /* ------------------------ Gestión de clientes WS ------------------------ */
   function addClient(ws) {
     clients.add(ws);
+    lastSeen = Date.now();
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
     ws.send(JSON.stringify({ type: 'settings', payload: settings }));
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
@@ -1101,6 +1103,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function removeClient(ws) {
     clients.delete(ws);
+    lastSeen = Date.now();
     if (videoScreens.has(ws)) {
       videoScreens.delete(ws);
       broadcastScreens();
@@ -1136,6 +1139,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       liveSince: state.startedAt || null,
       account: state.username || null,
       clients: clients.size,
+      online: clients.size > 0,
+      lastSeen: lastSeen || 0,
     };
   }
 

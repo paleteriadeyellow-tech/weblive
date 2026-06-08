@@ -654,15 +654,24 @@ async function loadAdminUsers() {
   if (!tbody) return;
   try {
     const r = await fetch('/api/admin/users');
-    if (!r.ok) { tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">Sin acceso.</td></tr>'; return; }
+    if (!r.ok) { tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Sin acceso.</td></tr>'; return; }
     const { users } = await r.json();
     if (count) count.textContent = `${users.length} cuenta${users.length === 1 ? '' : 's'} registrada${users.length === 1 ? '' : 's'}`;
-    if (!users.length) { tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">No hay cuentas.</td></tr>'; return; }
+    if (!users.length) { tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">No hay cuentas.</td></tr>'; return; }
     tbody.innerHTML = users.map((u) => {
       const conn = u.live ? fmtDateTime(u.liveSince) : fmtDateTime(u.lastLogin);
+      // EN LIVE: solo muestra "LIVE" cuando está en directo (o "Conectando…"); si no, nada.
       const live = u.live
-        ? `<span class="badge live dot">LIVE${u.account ? ' · @' + u.account : ''}</span>`
-        : (u.connecting ? '<span class="badge off dot">Conectando…</span>' : '<span class="badge off dot">Offline</span>');
+        ? '<span class="badge live dot">LIVE</span>'
+        : (u.connecting ? '<span class="badge off dot">Conectando…</span>' : '<span class="tts-sub">—</span>');
+      // CUENTA EN LIVE: el @usuario de TikTok al que se conectaron.
+      const liveAccount = u.account
+        ? `<span class="admin-acc">@${u.account}</span>`
+        : '<span class="tts-sub">—</span>';
+      // EN LÍNEA: verde si tiene el panel/overlay abierto ahora; si no, hace cuánto.
+      const onlineCell = u.online
+        ? '<span class="badge on dot">En línea</span>'
+        : `<span class="tts-sub">${u.lastSeen ? 'hace ' + timeAgo(u.lastSeen) : '—'}</span>`;
       const estado = u.active
         ? '<span class="badge on">Activa</span>'
         : '<span class="badge off">Pendiente</span>';
@@ -685,7 +694,9 @@ async function loadAdminUsers() {
         <td><span class="u-name">${u.username}</span>${adminTag}</td>
         <td>${conn}</td>
         <td><span class="admin-key">${u.roomKey || '—'}</span></td>
+        <td>${liveAccount}</td>
         <td>${live}</td>
+        <td>${onlineCell}</td>
         <td>${estado}</td>
         <td>${plan}</td>
         <td>${action}</td>
@@ -722,8 +733,21 @@ async function loadAdminUsers() {
       b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Premium retirado. Ahora es Gratis.');
     });
   } catch {
-    tbody.innerHTML = '<tr><td colspan="7" class="admin-empty">Error al cargar.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Error al cargar.</td></tr>';
   }
+}
+
+// "hace X" en español a partir de un timestamp.
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return s <= 5 ? 'unos segundos' : `${s} s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} h`;
+  const d = Math.floor(h / 24);
+  return `${d} día${d === 1 ? '' : 's'}`;
 }
 
 // Insignia de plan para la tabla de admin (con días restantes o "fijo").

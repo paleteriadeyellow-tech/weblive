@@ -194,6 +194,8 @@ app.get('/api/admin/users', requireAdmin, (_req, res) => {
       connecting: !!(st && st.connecting),
       liveSince: st ? st.liveSince : null,
       account: st ? st.account : null,
+      online: !!(st && st.online),
+      lastSeen: st ? st.lastSeen : 0,
     };
   });
   res.json({ users: out });

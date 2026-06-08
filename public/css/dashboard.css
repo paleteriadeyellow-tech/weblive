@@ -728,6 +728,7 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .admin-table .u-name { font-weight: 700; }
 .admin-table .u-admin { color: #ffcf5c; font-size: 10px; font-weight: 700; margin-left: 6px; }
 .admin-key { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: #9fd7ff; }
+.admin-acc { font-weight: 700; color: #ff7ae0; }
 .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .badge.on { background: rgba(91,225,160,.15); color: #5be1a0; }
 .badge.off { background: rgba(255,122,144,.13); color: #ff7a90; }
