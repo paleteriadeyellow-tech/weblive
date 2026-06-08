@@ -58,6 +58,29 @@
       -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
       -webkit-mask-position: center bottom; mask-position: center bottom;
     }
+
+    /* Contador de diamantes debajo de la vaquita */
+    .coin-total {
+      position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 9px; z-index: 7; pointer-events: none;
+      padding: 7px 18px 7px 9px; border-radius: 999px;
+      background: rgba(16,18,26,.72); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+      box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+      font-family: 'Rubik', system-ui, sans-serif;
+    }
+    .coin-ico {
+      width: 28px; height: 28px; border-radius: 50%; flex: 0 0 auto;
+      background: radial-gradient(circle at 35% 30%, #ffe9a0 0%, #f7c948 45%, #e0a92e 72%, #b07d1a 100%);
+      box-shadow: inset 0 0 0 2px rgba(255,236,170,.45), inset 0 -3px 6px rgba(140,85,10,.5), 0 1px 3px rgba(0,0,0,.45);
+    }
+    .coin-num {
+      font-weight: 900; font-size: 26px; color: #ffd54a; letter-spacing: .02em;
+      -webkit-text-stroke: 1.5px rgba(60,45,15,.55); paint-order: stroke fill;
+      text-shadow: 0 2px 4px rgba(0,0,0,.4); font-variant-numeric: tabular-nums;
+      display: inline-block; transition: transform .12s ease;
+    }
+    .coin-num.bump { animation: coinbump .25s ease; }
+    @keyframes coinbump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
   </style>
 </head>
 <body>
@@ -71,6 +94,10 @@
         <img src="/jarron/Vaquita.png" alt="" draggable="false" />
       </div>
       <div class="jar-tint" id="jar-tint" aria-hidden="true"></div>
+    </div>
+    <div class="coin-total" id="coin-total" aria-hidden="true">
+      <span class="coin-ico"></span>
+      <span class="coin-num" id="coin-num">0</span>
     </div>
   </div>
 
@@ -105,6 +132,16 @@
     })();
 
     let FALLBACK_IMG = '/jarron/Vaquita.png';
+
+    // ---- Contador de diamantes (debajo de la vaquita) ----
+    const coinNumEl = document.getElementById('coin-num');
+    let totalDiamonds = 0;
+    function setDiamonds(n, bump) {
+      totalDiamonds = Math.max(0, Math.round(Number(n) || 0));
+      if (!coinNumEl) return;
+      coinNumEl.textContent = totalDiamonds.toLocaleString('es-ES');
+      if (bump) { coinNumEl.classList.remove('bump'); void coinNumEl.offsetWidth; coinNumEl.classList.add('bump'); }
+    }
 
     // ---- Geometría del interior (stage 540×720; PNG cuadrado en los 540 inferiores) ----
     const STAGE_W = 540, STAGE_H = 720, IMG_SIZE = 540, IMG_TOP = 180;
@@ -237,6 +274,8 @@
       giftsLayer.appendChild(img);
       World.add(world, body);
       gifts.push({ body, img, sizePx, awakeSynced: false });
+      // Cuenta las monedas conforme caen los regalos (no antes).
+      setDiamonds(totalDiamonds + (diamonds || 0), true);
     }
     function spawnMany(src, count, gap, diamonds) {
       const n = Math.max(0, parseInt(count, 10) || 0);
@@ -275,7 +314,7 @@
         if (type === 'gift') { if (!isEmbed) onGift(payload); }
         else if (type === 'panic') clearJar();
         else if (type === 'vaquitaTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
-        else if (type === 'vaquitaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); } }
+        else if (type === 'vaquitaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); } }
         else if (type === 'settings') {
           if (payload && payload.vaquita) {
             if (!params.get('jc')) applyJarTint(payload.vaquita.tint);
@@ -293,7 +332,7 @@
 
     function runFill(total) {
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
-      clearJar();
+      clearJar(); setDiamonds(0);
       let i = 0; const max = total || 200;
       (function tick() {
         if (i >= max) return;
@@ -307,7 +346,7 @@
       const d = e.data;
       if (!d || d.kind !== 'vaquita') return;
       if (d.type === 'test') runFill(d.count || 200);
-      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); }
+      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); }
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
         if (d.sizes !== undefined) setSizeTable(d.sizes);
@@ -317,7 +356,7 @@
     // ---- Vista previa standalone (?preview=1): llena en bucle ----
     if (isPreview) {
       const demo = () => {
-        let i = 0; const total = 200;
+        let i = 0; const total = 200; setDiamonds(0);
         (function tick() {
           if (i >= total) { setTimeout(() => { clearJar(); demo(); }, 6000); return; }
           const roll = Math.random();
