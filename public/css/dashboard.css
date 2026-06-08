@@ -738,11 +738,17 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .btn.activate { background: linear-gradient(90deg, #00e5ff, #ff2bd6); color: #04121a; border: 0; }
 .btn.deactivate { background: transparent; border: 1px solid rgba(255,122,144,.5); color: #ff7a90; }
 
+/* La vista Admin usa todo el ancho disponible (no la limita .settings-card) */
+#view-admin .settings-card { max-width: none; overflow: visible; }
+#view-admin .admin-table-wrap { overflow-x: auto; }
+#view-admin .admin-table { min-width: 1080px; }
+
 /* Insignia y controles de plan en la tabla de admin */
 .badge.prem { background: rgba(255,207,92,.16); color: #ffcf5c; }
-.admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.prem-ctl { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.prem-days { width: 62px; background: #0c1322; color: #fff; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; padding: 5px 7px; font-size: 12px; text-align: center; }
+.admin-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; white-space: nowrap; }
+.prem-ctl { display: inline-flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
+.prem-days { width: 56px; background: #0c1322; color: #fff; border: 1px solid rgba(255,255,255,.16); border-radius: 7px; padding: 5px 7px; font-size: 12px; text-align: center; }
+.admin-table .btn.tiny { padding: 5px 9px; font-size: 11.5px; }
 .btn.tiny.prem-give { background: linear-gradient(90deg, #ffcf5c, #ff9d2b); color: #2a1c00; border: 0; }
 .btn.tiny.prem-fixed { background: transparent; border: 1px solid rgba(255,207,92,.5); color: #ffcf5c; }
 .btn.tiny.prem-remove { background: transparent; border: 1px solid rgba(255,122,144,.5); color: #ff7a90; }
