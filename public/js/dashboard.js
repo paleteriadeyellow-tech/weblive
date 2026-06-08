@@ -3346,6 +3346,15 @@ document.addEventListener('mouseout', (e) => {
   if (v) { try { v.pause(); } catch {} }
 }, true);
 
+// Service Worker: cachea videos de AI, audios e imágenes para que las recargas
+// del panel (y de los overlays) sean instantáneas. Solo cachea medios y estáticos;
+// la API y el WebSocket siempre van por red.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+  });
+}
+
 (async () => {
   // Arranque en paralelo: abrimos el WebSocket y pedimos el catálogo de regalos
   // de inmediato (no esperamos al /api/me). El WS es el que entrega ajustes, alertas

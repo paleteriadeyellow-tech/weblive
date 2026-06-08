@@ -272,6 +272,9 @@ app.get(['/', '/index.html'], (req, res) => {
 const heavyCache = { maxAge: '30d', immutable: true };
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'), heavyCache));
 app.use('/audios', express.static(path.join(__dirname, 'public', 'audios'), heavyCache));
+// Videos de AI: caché larga en el navegador para que al recargar el panel no se
+// vuelvan a descargar (antes esto era lo que hacía lenta la carga).
+app.use('/video', express.static(VIDEOS_DIR, heavyCache));
 
 // Resto de estáticos: login, overlays, css, js… Con validación (ETag) para recargas
 // rápidas: si el archivo no cambió, el navegador recibe "304 Not Modified" al instante.
