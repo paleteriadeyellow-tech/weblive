@@ -514,7 +514,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     acc.set(uid, carry - drops * every);
     if (acc.size > 5000) acc.clear();
     if (drops > 0) {
-      broadcast('fanBallDrop', { photo: user.photo || '', nickname: user.nickname || '', count: Math.min(200, drops) });
+      const count = Math.min(200, drops);
+      broadcast('fanBallDrop', { photo: user.photo || '', nickname: user.nickname || '', count });
+      broadcast('log', { level: 'ok', text: `🏀 Pelotas: ${count} de ${user.nickname || uid} (${kind === 'coins' ? 'monedas' : 'likes'} +${amount}, cada ${every})` });
     }
   }
 
@@ -1135,12 +1137,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           broadcastTimer();
         }
         break;
-      case 'testAlert':
+      case 'testAlert': {
+        const demoUser = { uniqueId: 'demo', nickname: 'Usuario de prueba', photo: null };
         broadcast(data.kind || 'gift', {
-          uniqueId: 'demo', nickname: 'Usuario de prueba', photo: null,
-          giftName: 'Rosa', repeatCount: 1, diamonds: 5, image: null, streak: false, test: true,
+          ...demoUser, giftName: 'Rosa', repeatCount: 1, diamonds: 5, image: null, streak: false, test: true,
         });
+        // El regalo simulado también alimenta las pelotas de fans (modo prueba).
+        if (!data.kind || data.kind === 'gift') processFanBalls('coins', demoUser, 5);
         break;
+      }
       case 'getPoints':
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() })); } catch {}
         break;
