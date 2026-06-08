@@ -245,7 +245,10 @@
     function dropBalls(photo, count, gap) {
       const n = Math.max(0, parseInt(count, 10) || 0);
       if (n < 1) return;
-      gap = Math.max(60, gap || 150);
+      // Espaciado adaptativo: con muchas pelotas se acelera para que caigan todas
+      // sin tardar demasiado, pero sin solaparse al spawnear.
+      gap = gap || (n > 30 ? 45 : n > 10 ? 80 : 130);
+      gap = Math.max(35, gap);
       for (let i = 0; i < n; i++) (function (idx) {
         setTimeout(() => addBall(photo, ballSizeForFill()), idx * gap);
       })(i);
@@ -262,7 +265,7 @@
       ws.onmessage = (ev) => {
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         const { type, payload } = msg;
-        if (type === 'fanBallDrop') { if (!isEmbed && payload) dropBalls(payload.photo, payload.count || 1, 150); }
+        if (type === 'fanBallDrop') { if (!isEmbed && payload) dropBalls(payload.photo, payload.count || 1); }
         else if (type === 'panic') clearJar();
         else if (type === 'pelotasTest') { if (!isEmbed) runDemo((payload && payload.count) || 16); }
         else if (type === 'pelotasReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); } }

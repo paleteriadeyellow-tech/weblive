@@ -514,7 +514,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     acc.set(uid, carry - drops * every);
     if (acc.size > 5000) acc.clear();
     if (drops > 0) {
-      broadcast('fanBallDrop', { photo: user.photo || '', nickname: user.nickname || '', count: Math.min(50, drops) });
+      broadcast('fanBallDrop', { photo: user.photo || '', nickname: user.nickname || '', count: Math.min(200, drops) });
     }
   }
 
