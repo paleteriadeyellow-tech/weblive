@@ -185,8 +185,9 @@
       else if (d >= 30) { base = rnd(32, 40); maxPx = 42; }
       else base = rnd(28, 36);
       const fill = Math.min(1, gifts.length / JAR_CAPACITY);
-      if (fill > 0.6) base *= 0.95 * shrink;
-      if (fill > 0.85) base *= 0.92;
+      if (fill > 0.5) base *= 0.94 * shrink;
+      if (fill > 0.75) base *= 0.9;
+      if (fill > 0.9) base *= 0.88;
       return Math.round(Math.max(14, Math.min(maxPx, base)));
     }
 
@@ -216,11 +217,15 @@
     function addGiftBody(src, sizePx, diamonds, opts) {
       if (!src) src = FALLBACK_IMG;
       opts = opts || {};
-      const r = Math.max(7, sizePx / 2);
+      // Radio de colisión un poco menor que el tamaño visual: las imágenes se
+      // solapan y rellenan los huecos para que no quede espacio vacío.
+      const r = Math.max(6, (sizePx / 2) * 0.86);
       let x, y, vx;
       if (opts.x != null) { x = opts.x; y = opts.y != null ? opts.y : SPAWN_Y; vx = 0; }
       else { x = rnd(SLOT_CX - SLOT_HW, SLOT_CX + SLOT_HW); y = SPAWN_Y + rnd(-8, 8); vx = rnd(-1.3, 1.3); }
-      const body = Bodies.circle(x, y, r, { restitution: 0.14, friction: 0.38, frictionStatic: 0.6, frictionAir: 0.014, sleepThreshold: 22 });
+      // Los regalos más grandes (más diamantes) pesan más: se hunden y compactan el montón.
+      const density = 0.0012 * (1 + Math.min(2.5, (diamonds || 0) / 1500));
+      const body = Bodies.circle(x, y, r, { density, restitution: 0.02, friction: 0.16, frictionStatic: 0.18, frictionAir: 0.012, sleepThreshold: 22 });
       if (opts.angle != null) Body.setAngle(body, opts.angle);
       if (!opts.settled) { Body.setVelocity(body, { x: vx, y: rnd(0.3, 1.2) }); Body.setAngularVelocity(body, rnd(-0.12, 0.12)); }
       const img = document.createElement('img');

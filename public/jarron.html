@@ -208,8 +208,17 @@
     setInterval(pruneJar, 1200);
 
     function pickSpawnSpot(r) {
-      const lo = Math.min(SPAWN_X_MIN + r, artX(50) - 1), hi = Math.max(SPAWN_X_MAX - r, artX(50) + 1);
-      return { x: rnd(lo, hi), y: SPAWN_Y + rnd(-8, 8), vx: rnd(-0.5, 0.5) };
+      // Caen desde 3 puntos (izquierda, centro y derecha) dentro de la boca del
+      // frasco. Se mantienen dentro del cuello y reciben un leve empuje hacia el
+      // centro para que TODOS los regalos terminen dentro del jarrón.
+      const margin = r + 6;
+      const minX = NECK_L + margin, maxX = NECK_R - margin;
+      const mid = (NECK_L + NECK_R) / 2, span = NECK_R - NECK_L;
+      const lanes = [NECK_L + span * 0.2, mid, NECK_R - span * 0.2];
+      let cx = lanes[Math.floor(Math.random() * lanes.length)] + rnd(-8, 8);
+      cx = Math.max(minX, Math.min(maxX, cx));
+      const vx = (mid - cx) / 70 + rnd(-0.25, 0.25); // empuje suave hacia adentro
+      return { x: cx, y: SPAWN_Y + rnd(-8, 8), vx };
     }
     function addGiftBody(src, sizePx, diamonds, opts) {
       if (!src) src = FALLBACK_IMG;
