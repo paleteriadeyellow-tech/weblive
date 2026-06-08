@@ -2045,8 +2045,8 @@
           <!-- Sub-vista: tabla de usuarios -->
           <div class="pview active" id="pview-users">
             <div class="settings-card">
-              <div class="admin-toolbar pts-toolbar">
-                <span id="pts-count" class="tts-sub">—</span>
+              <div class="pts-head"><span id="pts-count" class="tts-sub">—</span></div>
+              <div class="pts-controls">
                 <input type="search" id="pts-search" class="pts-search" placeholder="Buscar usuario… (ej. @pepito)">
                 <div class="pts-percoin">
                   <label class="ml">Puntos por moneda</label>
@@ -2096,6 +2096,7 @@
                 <label class="switch-row plain"><input type="checkbox" id="pts-tx-counted" checked> <span>Contar para el nivel</span></label>
                 <div class="pts-txbtns">
                   <button class="btn primary" id="pts-tx-send">Enviar</button>
+                  <button class="btn ghost" id="pts-tx-cancel">Cancelar</button>
                 </div>
               </div>
             </div>

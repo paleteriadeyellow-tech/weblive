@@ -3418,7 +3418,7 @@ function renderPointsTable() {
   tbody.querySelectorAll('.pts-del').forEach((b) => {
     b.onclick = async () => {
       const id = b.dataset.id;
-      if (await confirmDialog(`¿Borrar los puntos de @${id}?`, 'Borrar', 'Cancelar')) {
+      if (await askConfirm({ title: 'Borrar puntos', message: `Se borrarán todos los puntos de @${id}.`, confirmText: 'Borrar' })) {
         send({ action: 'resetUserPoints', user: id });
       }
     };
@@ -3470,7 +3470,7 @@ function renderPointsTx() {
 
   const reset = $('pts-reset');
   if (reset) reset.onclick = async () => {
-    if (await confirmDialog('¿Restablecer los puntos de TODOS los usuarios? Esta acción no se puede deshacer.', 'Restablecer', 'Cancelar')) {
+    if (await askConfirm({ title: 'Restablecer puntos', message: 'Se pondrán a CERO los puntos de TODOS los usuarios. Esta acción no se puede deshacer.', confirmText: 'Restablecer' })) {
       send({ action: 'resetPoints' });
     }
   };
@@ -3491,6 +3491,14 @@ function renderPointsTx() {
     });
     $('pts-tx-points').value = 0;
     $('pts-tx-desc').value = '';
+  };
+
+  const txCancel = $('pts-tx-cancel');
+  if (txCancel) txCancel.onclick = () => {
+    $('pts-tx-user').value = '';
+    $('pts-tx-points').value = 0;
+    $('pts-tx-desc').value = '';
+    if ($('pts-tx-counted')) $('pts-tx-counted').checked = true;
   };
 })();
 
