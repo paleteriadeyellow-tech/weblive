@@ -146,7 +146,7 @@ export const DEFAULT_SETTINGS = {
     text: '#f4f7ff',
     accent: '#8df7d8',
     size: 28,
-    font: "'Arial Black', sans-serif",
+    font: 'system',
     anim: 'gift-pop', // none|gift-fade|gift-pop|gift-zoom|gift-drop|gift-row-left
     rowSpeed: 7.6,
     textRainbow: false,

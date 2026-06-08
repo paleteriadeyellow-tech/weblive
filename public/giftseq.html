@@ -7,7 +7,7 @@
   <title>Overlay — Gift Sequence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800&family=Oswald:wght@600;700&family=Plus+Jakarta+Sans:wght@700;800&family=Rubik:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@600;700;800;900&family=Titan+One&display=swap" rel="stylesheet">
   <style>
     :root {
       --overlay-text: #f4f7ff;
@@ -76,6 +76,8 @@
       return Math.min(max, Math.max(min, n));
     }
     const STEP_MS = 2000;
+    const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+    function resolveFont(v) { return FONTS[v] || (v && /[a-z]/i.test(String(v)) && String(v).includes(',') ? v : "'Arial Black', sans-serif"); }
 
     function getStepMs() {
       const raw = cfg && cfg.stepSec != null ? cfg.stepSec : params.get('stepsec');
@@ -155,7 +157,7 @@
         text: normColorHex((cfg && cfg.text) || params.get('text'), '#f4f7ff'),
         accent: normColorHex((cfg && cfg.accent) || params.get('accent'), '#8df7d8'),
         size: clamp(cfg && cfg.size != null ? cfg.size : params.get('size'), 10, 80, 18),
-        font: (cfg && cfg.font) || "'Arial Black', sans-serif",
+        font: resolveFont((cfg && cfg.font) || params.get('font')),
         bg: (cfg && cfg.background) || params.get('background') || 'transparent',
         anim: getConfiguredAnimation(),
         rowSpeed: normalizeRowSpeed(cfg && cfg.rowSpeed != null ? cfg.rowSpeed : params.get('rowspeed')),

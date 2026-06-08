@@ -2457,7 +2457,7 @@ function gsqToPreview(msg) { gsqPreviewWin()?.postMessage({ kind: 'giftseq', ...
 let gsqSeqDraft = [];
 
 function defaultGiftSeqCfg() {
-  return { text: '#f4f7ff', accent: '#8df7d8', size: 28, font: "'Arial Black', sans-serif", anim: 'gift-pop', rowSpeed: 7.6, textRainbow: false, stepSec: 2, sequence: [] };
+  return { text: '#f4f7ff', accent: '#8df7d8', size: 28, font: 'system', anim: 'gift-pop', rowSpeed: 7.6, textRainbow: false, stepSec: 2, sequence: [] };
 }
 
 function currentGsqCfg() {
@@ -2465,7 +2465,7 @@ function currentGsqCfg() {
     text: $('gsqcfg-text').value || '#f4f7ff',
     accent: '#8df7d8',
     size: Math.max(10, Math.min(80, parseInt($('gsqcfg-size').value, 10) || 28)),
-    font: "'Arial Black', sans-serif",
+    font: $('gsqcfg-font').value || 'system',
     anim: $('gsqcfg-anim').value || 'gift-pop',
     rowSpeed: Math.max(3.2, Math.min(16, parseFloat($('gsqcfg-rowspeed').value) || 7.6)),
     textRainbow: $('gsqcfg-rainbow').checked,
@@ -2494,6 +2494,7 @@ function openGsqConfig() {
   $('gsqcfg-size').value = c.size || 28;
   $('gsqcfg-rowspeed').value = c.rowSpeed || 7.6;
   $('gsqcfg-text').value = /^#/.test(c.text || '') ? c.text : '#f4f7ff';
+  $('gsqcfg-font').value = CFG_FONTS.some(([v]) => v === c.font) ? c.font : 'system';
   $('gsqcfg-rainbow').checked = !!c.textRainbow;
   gsqSeqDraft = (c.sequence || []).map((r) => ({
     giftName: r.giftName || '', giftImage: r.giftImage || '', customText: r.customText || '', textSide: r.textSide || 'bottom',
@@ -2550,7 +2551,7 @@ function renderGsqRows() {
   pushGiftSeqPreview(currentGsqCfg());
 }
 
-['gsqcfg-step', 'gsqcfg-anim', 'gsqcfg-size', 'gsqcfg-rowspeed', 'gsqcfg-text', 'gsqcfg-rainbow'].forEach((id) => {
+['gsqcfg-step', 'gsqcfg-anim', 'gsqcfg-size', 'gsqcfg-rowspeed', 'gsqcfg-text', 'gsqcfg-font', 'gsqcfg-rainbow'].forEach((id) => {
   const el = $(id);
   if (el) { el.oninput = () => pushGiftSeqPreview(currentGsqCfg()); el.onchange = () => pushGiftSeqPreview(currentGsqCfg()); }
 });
