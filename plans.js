@@ -38,6 +38,7 @@ export const CAPABILITIES = {
     { key: 'ov_jarron', label: 'Jarrón', path: '/jarron.html' },
     { key: 'ov_vaquita', label: 'Vaquita', path: '/vaquita.html' },
     { key: 'ov_marranito', label: 'Marranito', path: '/marranito.html' },
+    { key: 'ov_pelotas', label: 'Pelotas de fans', path: '/pelotas.html' },
     { key: 'ov_topdonor', label: 'Top donador semanal', path: '/topdonor.html' },
     { key: 'ov_gcounter', label: 'Contador de meta', path: '/gcounter.html' },
     { key: 'ov_giftvs', label: 'Gift VS', path: '/giftvs.html' },

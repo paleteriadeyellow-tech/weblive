@@ -279,14 +279,18 @@
     }
     connectWS();
 
-    // ---- Demo / prueba: deja caer pelotas con avatares de muestra ----
+    // ---- Demo / prueba: deja caer pelotas con FOTOS de personas de muestra ----
+    // (si no hay internet, cada imagen cae al avatar local por su onerror).
+    function demoPhoto() {
+      return 'https://i.pravatar.cc/150?img=' + Math.floor(rnd(1, 71));
+    }
     function runDemo(total) {
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
       clearJar();
       let i = 0; const max = total || 16;
       (function tick() {
         if (i >= max) return;
-        addBall(avatarDataUri(Math.floor(rnd(0, 360))), ballSizeForFill());
+        addBall(demoPhoto(), ballSizeForFill());
         i++; fillTimer = setTimeout(tick, 180);
       })();
     }

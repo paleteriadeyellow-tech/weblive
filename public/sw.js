@@ -11,7 +11,7 @@
  *    así siempre cargas rápido y al siguiente refresh ya tienes lo último.
  *  - API y WebSocket: NUNCA se cachean (siempre red).
  */
-const VERSION = 'lc-v5';
+const VERSION = 'lc-v6';
 const MEDIA_CACHE = `media-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 
