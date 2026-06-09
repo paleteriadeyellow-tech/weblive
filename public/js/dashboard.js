@@ -57,7 +57,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'top-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -99,6 +99,7 @@ const OVERLAY_CAP = {
   '/join-live.html': 'ov_joinlive', '/overlay.html': 'ov_alertvideo',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
+  '/ruleta.html': 'ov_ruleta',
   '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq',
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
@@ -183,7 +184,7 @@ const CAP_LABELS = {
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
   // overlays
   ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_jarron: 'Jarrón',
-  ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
+  ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_ruleta: 'Ruleta / sorteo', ov_topdonor: 'Top donador semanal',
   ov_gcounter: 'Contador de meta', ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_toplikes: 'Top likes',
@@ -196,7 +197,7 @@ const CAP_LABELS = {
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer',
   'tts_tiktok',
-  'ov_joinlive', 'ov_alertvideo', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
+  'ov_joinlive', 'ov_alertvideo', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
   'ov_gcounter', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer',
@@ -574,6 +575,7 @@ function handle(type, p) {
     case 'pointsList': onPointsList(p); break;
     case 'pointsUpdate': onPointsUpdate(p); break;
     case 'pointsTx': onPointsTx(p); break;
+    case 'roulette': onRoulette(p); break;
     case 'caps': setCaps(p); loadPlanComparison(true); break;
     case 'emoteCatalog':
       emoteCatalog = p.results || [];
@@ -2333,6 +2335,77 @@ function applyJarronUI() {
   $('pelcfg-save').onclick = () => { settings.pelotas = currentCfg(); saveSettings(); closePelConfig(); };
 })();
 
+/* ---- Ruleta / sorteo: tarjeta + modal de configuración ---- */
+let rulCollecting = false;
+function onRoulette(p) {
+  const el = $('rul-count');
+  const btn = $('rul-collect');
+  if (!el) return;
+  rulCollecting = !!(p && p.collecting);
+  el.textContent = (p && p.count ? p.count : 0) + ' participantes';
+  if (btn) {
+    btn.textContent = rulCollecting ? '⏹ Detener' : '▶ Recolectar';
+    btn.classList.toggle('primary', rulCollecting);
+  }
+}
+(function setupRuleta() {
+  if (!$('rul-test')) return;
+  const toPreview = (msg) => $('rul-preview')?.contentWindow?.postMessage({ kind: 'ruleta', ...msg }, '*');
+
+  function syncModeUI() {
+    const mode = $('rulcfg-mode').value;
+    $('rulcfg-keyword-wrap').hidden = mode !== 'keyword';
+    $('rulcfg-donors-wrap').hidden = mode !== 'donors';
+  }
+  function currentCfg() {
+    return {
+      mode: $('rulcfg-mode').value === 'donors' ? 'donors' : 'keyword',
+      keyword: ($('rulcfg-keyword').value || 'yo').trim(),
+      minCoins: Math.max(0, parseInt($('rulcfg-mincoins').value, 10) || 0),
+      title: $('rulcfg-title').value || 'SORTEO EN VIVO',
+      c1: $('rulcfg-c1').value,
+      c2: $('rulcfg-c2').value,
+    };
+  }
+  function pushPreview() { toPreview({ type: 'config', config: currentCfg() }); }
+  function openRulConfig() {
+    if (!settings.roulette) settings.roulette = {};
+    const c = settings.roulette;
+    $('rulcfg-mode').value = c.mode === 'donors' ? 'donors' : 'keyword';
+    $('rulcfg-keyword').value = c.keyword || 'yo';
+    $('rulcfg-mincoins').value = c.minCoins != null ? c.minCoins : 0;
+    $('rulcfg-title').value = c.title || 'SORTEO EN VIVO';
+    $('rulcfg-c1').value = /^#/.test(c.c1 || '') ? c.c1 : '#7c4dff';
+    $('rulcfg-c2').value = /^#/.test(c.c2 || '') ? c.c2 : '#00e5ff';
+    syncModeUI();
+    $('rulConfigModal').classList.remove('hidden');
+    pushPreview();
+  }
+  function closeRulConfig() { $('rulConfigModal').classList.add('hidden'); }
+
+  $('rul-test').onclick = () => { toPreview({ type: 'test' }); send({ action: 'testRoulette' }); };
+  $('rul-reset').onclick = () => {
+    rulCollecting = false;
+    toPreview({ type: 'reset' });
+    send({ action: 'rouletteClear' });
+  };
+  $('rul-collect').onclick = () => {
+    rulCollecting = !rulCollecting;
+    send({ action: 'rouletteCollect', on: rulCollecting });
+  };
+  $('rul-spin').onclick = () => send({ action: 'rouletteSpin' });
+  $('rul-config').onclick = openRulConfig;
+  $('rulcfg-close').onclick = closeRulConfig;
+  $('rulConfigModal').addEventListener('click', (e) => { if (e.target.id === 'rulConfigModal') closeRulConfig(); });
+  $('rulcfg-mode').onchange = () => { syncModeUI(); pushPreview(); };
+  ['rulcfg-keyword', 'rulcfg-mincoins', 'rulcfg-title', 'rulcfg-c1', 'rulcfg-c2'].forEach((id) => {
+    const el = $(id);
+    if (el) { el.oninput = pushPreview; el.onchange = pushPreview; }
+  });
+  $('rulcfg-save').onclick = () => { settings.roulette = currentCfg(); saveSettings(); closeRulConfig(); };
+  send({ action: 'getRoulette' });
+})();
+
 /* ---- Modal: Configurar Top donador ---- */
 function topPreviewWin() { return $('top-preview')?.contentWindow; }
 function topToPreview(msg) { topPreviewWin()?.postMessage({ kind: 'topdonor', ...msg }, '*'); }
@@ -3391,6 +3464,8 @@ function applyPointsSettingsUI() {
   const el = $('pts-percoin');
   if (el && !applyingSettings) return; // no pisar lo que el usuario escribe
   if (el) el.value = settings?.points?.perCoin ?? 1;
+  const sf = $('pts-superfan'); if (sf) sf.value = settings?.points?.superFanBonus ?? 500;
+  const sb = $('pts-subbonus'); if (sb) sb.value = settings?.points?.subBonus ?? 100;
 }
 
 function fmtPointsDate(ts) {
@@ -3508,6 +3583,20 @@ function renderPointsTx() {
   if (perCoin) perCoin.addEventListener('change', () => {
     if (!settings.points) settings.points = {};
     settings.points.perCoin = Math.max(0, Number(perCoin.value) || 0);
+    saveSettings();
+  });
+
+  const superFan = $('pts-superfan');
+  if (superFan) superFan.addEventListener('change', () => {
+    if (!settings.points) settings.points = {};
+    settings.points.superFanBonus = Math.max(0, Math.round(Number(superFan.value) || 0));
+    saveSettings();
+  });
+
+  const subBonus = $('pts-subbonus');
+  if (subBonus) subBonus.addEventListener('change', () => {
+    if (!settings.points) settings.points = {};
+    settings.points.subBonus = Math.max(0, Math.round(Number(subBonus.value) || 0));
     saveSettings();
   });
 

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Ruleta / sorteo</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; font-family: 'Rubik', system-ui, sans-serif; }
+    .stage {
+      position: absolute; left: 50%; top: 50%; width: 560px; height: 640px;
+      transform: translate(-50%, -50%) scale(var(--tf-fit, 1)); transform-origin: center center;
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    .title {
+      font-weight: 900; font-size: 30px; letter-spacing: .04em; text-align: center;
+      color: #fff; -webkit-text-stroke: 1px rgba(0,0,0,.35); paint-order: stroke fill;
+      text-shadow: 0 3px 10px rgba(0,0,0,.5); padding: 6px 22px; border-radius: 999px;
+      background: linear-gradient(90deg, var(--c1, #7c4dff), var(--c2, #00e5ff));
+      box-shadow: 0 8px 24px rgba(0,0,0,.4), inset 0 0 0 2px rgba(255,255,255,.18);
+    }
+    .wheel-wrap { position: relative; width: 480px; height: 480px; }
+    .pointer {
+      position: absolute; top: -6px; left: 50%; transform: translateX(-50%); z-index: 5;
+      width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent;
+      border-top: 34px solid #ffd34a; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5));
+    }
+    canvas { display: block; border-radius: 50%; box-shadow: 0 12px 40px rgba(0,0,0,.5), inset 0 0 0 6px rgba(255,255,255,.12); }
+    .hub {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 4;
+      width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 35% 30%, #fff 0%, #d7dbe6 55%, #aab0c0 100%);
+      box-shadow: 0 4px 12px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.6);
+      font-size: 38px;
+    }
+    .count {
+      font-weight: 800; font-size: 18px; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.6);
+      background: rgba(16,18,26,.6); padding: 5px 16px; border-radius: 999px;
+      -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+    }
+    .winner {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.6);
+      z-index: 20; opacity: 0; pointer-events: none; transition: opacity .35s ease, transform .35s cubic-bezier(.2,1.5,.4,1);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 26px 40px; border-radius: 22px; text-align: center;
+      background: linear-gradient(135deg, rgba(26,18,46,.96), rgba(10,26,44,.96));
+      box-shadow: 0 20px 60px rgba(0,0,0,.6), inset 0 0 0 2px rgba(255,211,74,.6);
+    }
+    .winner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .winner .crown { font-size: 46px; }
+    .winner .lbl { font-size: 16px; font-weight: 800; letter-spacing: .22em; color: #ffd34a; }
+    .winner .who { font-size: 34px; font-weight: 900; color: #fff; max-width: 420px; word-break: break-word; }
+    .winner img { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 3px solid #ffd34a; box-shadow: 0 0 18px rgba(255,200,60,.7); }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="title" id="title">SORTEO EN VIVO</div>
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="480" height="480"></canvas>
+      <div class="hub">🎁</div>
+      <div class="winner" id="winner">
+        <span class="crown">👑</span>
+        <span class="lbl">GANADOR</span>
+        <img id="winner-img" alt="" hidden>
+        <span class="who" id="winner-name">—</span>
+      </div>
+    </div>
+    <div class="count" id="count">Esperando participantes…</div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+
+    (function fit() {
+      function apply() {
+        const k = Math.min((innerWidth || 560) / 560, (innerHeight || 640) / 640) || 1;
+        document.documentElement.style.setProperty('--tf-fit', k);
+      }
+      apply(); addEventListener('resize', apply);
+    })();
+
+    const canvas = document.getElementById('wheel');
+    const ctx = canvas.getContext('2d');
+    const SIZE = 480, R = SIZE / 2;
+    const titleEl = document.getElementById('title');
+    const countEl = document.getElementById('count');
+    const winnerEl = document.getElementById('winner');
+    const winnerName = document.getElementById('winner-name');
+    const winnerImg = document.getElementById('winner-img');
+
+    let cfg = { title: 'SORTEO EN VIVO', c1: '#7c4dff', c2: '#00e5ff' };
+    let entries = [];          // [{ nickname, photo }]
+    let rotation = 0;          // radianes
+    let spinning = false;
+
+    function applyCfg(c) {
+      if (!c) return;
+      if (c.title != null) cfg.title = c.title || 'SORTEO EN VIVO';
+      if (c.c1) cfg.c1 = c.c1;
+      if (c.c2) cfg.c2 = c.c2;
+      titleEl.textContent = cfg.title;
+      document.documentElement.style.setProperty('--c1', cfg.c1);
+      document.documentElement.style.setProperty('--c2', cfg.c2);
+    }
+    applyCfg(cfg);
+
+    function hexToRgb(h) {
+      h = String(h || '').replace('#', '');
+      if (h.length === 3) h = h.split('').map((x) => x + x).join('');
+      const n = parseInt(h, 16);
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+    function mix(a, b, t) {
+      const A = hexToRgb(a), B = hexToRgb(b);
+      const r = Math.round(A.r + (B.r - A.r) * t);
+      const g = Math.round(A.g + (B.g - A.g) * t);
+      const bl = Math.round(A.b + (B.b - A.b) * t);
+      return `rgb(${r},${g},${bl})`;
+    }
+
+    function shortName(s) {
+      s = String(s || '');
+      return s.length > 16 ? s.slice(0, 15) + '…' : s;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      const n = entries.length;
+      ctx.save();
+      ctx.translate(R, R);
+      if (n === 0) {
+        ctx.beginPath(); ctx.arc(0, 0, R - 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#1c2030'; ctx.fill();
+        ctx.restore();
+        return;
+      }
+      const showNames = n <= 40;
+      const bounds = segBounds();
+      for (let i = 0; i < n; i++) {
+        const a0 = rotation + bounds[i].a0, a1 = rotation + bounds[i].a1;
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.arc(0, 0, R - 4, a0, a1); ctx.closePath();
+        ctx.fillStyle = mix(cfg.c1, cfg.c2, (i % 8) / 7) ;
+        if (i % 2) ctx.fillStyle = mix(cfg.c2, '#0b0d16', 0.15);
+        ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.stroke();
+        if (showNames && (bounds[i].a1 - bounds[i].a0) > 0.05) {
+          ctx.save();
+          ctx.rotate(rotation + bounds[i].mid);
+          ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#fff';
+          ctx.font = (n > 24 ? 11 : n > 14 ? 13 : 15) + 'px Rubik, system-ui, sans-serif';
+          ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 3;
+          ctx.fillText(shortName(entries[i].nickname), R - 22, 0);
+          ctx.restore();
+        }
+      }
+      ctx.restore();
+    }
+
+    // Calcula los límites angulares de cada segmento según su peso (diamantes):
+    // quien tiene más peso ocupa un trozo más grande de la ruleta.
+    function segBounds() {
+      const n = entries.length;
+      const weights = entries.map((e) => Math.max(0.0001, Number(e.weight) || 1));
+      const total = weights.reduce((s, w) => s + w, 0) || 1;
+      const out = []; let acc = 0;
+      for (let i = 0; i < n; i++) {
+        const a0 = (acc / total) * Math.PI * 2;
+        acc += weights[i];
+        const a1 = (acc / total) * Math.PI * 2;
+        out.push({ a0, a1, mid: (a0 + a1) / 2 });
+      }
+      return out;
+    }
+
+    function setEntries(list) {
+      entries = Array.isArray(list) ? list.slice(0, 300) : [];
+      if (!spinning) {
+        countEl.textContent = entries.length ? (entries.length + ' participantes') : 'Esperando participantes…';
+        draw();
+      }
+    }
+
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    function spinTo(winnerIndex, list) {
+      entries = list && list.length ? list.slice(0, 300) : entries;
+      const n = entries.length;
+      if (!n) return;
+      winnerEl.classList.remove('show');
+      spinning = true;
+      const bounds = segBounds();
+      const mid = bounds[winnerIndex] ? bounds[winnerIndex].mid : 0;
+      // Queremos que el centro del segmento ganador quede arriba (puntero a -90°).
+      const target = (-Math.PI / 2) - mid;
+      const turns = 6 + Math.floor(Math.random() * 3);
+      const start = rotation % (Math.PI * 2);
+      const end = target - turns * Math.PI * 2;
+      const dur = 5200; const t0 = performance.now();
+      countEl.textContent = '¡Girando!';
+      (function frame(now) {
+        const p = Math.min(1, (now - t0) / dur);
+        rotation = start + (end - start) * easeOut(p);
+        draw();
+        if (p < 1) { requestAnimationFrame(frame); return; }
+        spinning = false;
+        showWinner(entries[winnerIndex]);
+      })(t0);
+    }
+
+    function showWinner(w) {
+      if (!w) return;
+      winnerName.textContent = w.nickname || '—';
+      if (w.photo) { winnerImg.src = w.photo; winnerImg.hidden = false; } else { winnerImg.hidden = true; }
+      winnerEl.classList.add('show');
+      countEl.textContent = '🎉 ¡Ganador!';
+    }
+
+    function reset() {
+      winnerEl.classList.remove('show');
+      spinning = false;
+      setEntries([]);
+    }
+
+    // ---- WebSocket ----
+    let ws, reconnectTimer;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => { clearTimeout(reconnectTimer); try { ws.send(JSON.stringify({ action: 'getRoulette' })); } catch {} };
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        const { type, payload } = msg;
+        if (type === 'roulette') { if (!spinning) setEntries(payload && payload.entries); }
+        else if (type === 'rouletteSpin') {
+          if (isEmbed) return;
+          const list = (payload && payload.entries) || [];
+          const idx = list.findIndex((e) => e.uniqueId === (payload.winner && payload.winner.uniqueId));
+          spinTo(idx < 0 ? Math.floor(Math.random() * list.length) : idx, list);
+        }
+        else if (type === 'rouletteTest') {
+          if (isEmbed) return;
+          const list = (payload && payload.entries) || [];
+          setEntries(list); spinTo(Math.floor(Math.random() * list.length), list);
+        }
+        else if (type === 'rouletteReset') { reset(); }
+        else if (type === 'settings') { if (payload && payload.roulette) applyCfg(payload.roulette); }
+      };
+    }
+    connectWS();
+
+    // ---- Vista previa embebida (panel) ----
+    const demoNames = ['@ana', '@luis', '@pepito', '@maria', '@chuy', '@sofia', '@dani', '@kevin'];
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'ruleta') return;
+      if (d.type === 'config') applyCfg(d.config || d);
+      else if (d.type === 'reset') reset();
+      else if (d.type === 'test') {
+        const list = demoNames.map((n) => ({ uniqueId: n, nickname: n, photo: '', weight: 1 + Math.floor(Math.random() * 20) }));
+        setEntries(list); spinTo(Math.floor(Math.random() * list.length), list);
+      }
+    });
+
+    // Vista previa standalone / embed: muestra participantes de ejemplo.
+    if (params.get('preview') === '1' || isEmbed) {
+      setEntries(demoNames.map((n) => ({ uniqueId: n, nickname: n, photo: '', weight: 1 + Math.floor(Math.random() * 20) })));
+    }
+  })();
+  </script>
+</body>
+</html>

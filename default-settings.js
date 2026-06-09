@@ -40,6 +40,8 @@ export const DEFAULT_SETTINGS = {
   // Usuario y Puntos: cuántos puntos otorga cada moneda (diamante) donada.
   points: {
     perCoin: 1,
+    superFanBonus: 500, // puntos extra al volverse super fan
+    subBonus: 100,      // puntos extra por suscripción
   },
   // videos: [{ id, name, url, fileName, trigger, giftName, minDiamonds, volume, enabled, screen }]
   videos: [],
@@ -131,6 +133,16 @@ export const DEFAULT_SETTINGS = {
     coinsEvery: 100,
     likesEnabled: false,
     likesEvery: 100,
+  },
+  // Ruleta / sorteo en vivo. Recoge participantes por donación o por palabra en
+  // el chat y luego gira para elegir un ganador.
+  roulette: {
+    mode: 'keyword',   // 'keyword' | 'donors'
+    keyword: 'yo',     // palabra que da entrada (modo keyword)
+    minCoins: 0,       // mínimo de monedas para entrar (modo donors)
+    title: 'SORTEO EN VIVO',
+    c1: '#7c4dff',
+    c2: '#00e5ff',
   },
   // Overlay del top donador semanal
   topDonor: {

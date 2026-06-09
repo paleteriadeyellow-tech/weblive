@@ -173,6 +173,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Pelotas de fans: acumulado por usuario (con sobrante) para soltar pelotas.
   const fanCoinAcc = new Map();      // uniqueId -> monedas pendientes
   const fanLikeAcc = new Map();      // uniqueId -> likes pendientes
+  const recentSubs = new Map();      // dedupe suscripciones (subscribe/subNotify)
+  const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
+  // Ruleta / sorteo: participantes recogidos durante la recolección.
+  const roulette = { collecting: false, entries: new Map() }; // uid -> { uniqueId, nickname, photo }
+  const ROULETTE_MAX = 300;
 
   let connection = null;
   let saveTimer = null;
@@ -520,6 +525,70 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  // ---- Ruleta / sorteo en vivo ----
+  // Cada participante tiene un "peso": en modo donación es la suma de diamantes
+  // (quien dona más tiene un trozo más grande = más probabilidad). En modo
+  // palabra todos pesan igual (1).
+  function serializeRoulette() {
+    const entries = [...roulette.entries.values()]
+      .slice(0, ROULETTE_MAX)
+      .map((u) => ({ uniqueId: u.uniqueId, nickname: u.nickname, photo: u.photo, weight: u.weight || 1 }));
+    return { collecting: roulette.collecting, count: roulette.entries.size, entries };
+  }
+  function broadcastRoulette() { broadcast('roulette', serializeRoulette()); }
+  function addRouletteEntry(user, weight) {
+    if (!roulette.collecting) return;
+    const uid = user && user.uniqueId;
+    if (!uid) return;
+    const add = Math.max(0, Number(weight) || 0);
+    const existing = roulette.entries.get(uid);
+    if (existing) {
+      // Mismo usuario que vuelve a participar: acumula su peso (más diamantes).
+      existing.weight += add || 1;
+      if (user.nickname) existing.nickname = user.nickname;
+      if (user.photo) existing.photo = user.photo;
+    } else {
+      if (roulette.entries.size >= ROULETTE_MAX) return;
+      roulette.entries.set(uid, { uniqueId: uid, nickname: user.nickname || uid, photo: user.photo || '', weight: add || 1 });
+    }
+    broadcastRoulette();
+  }
+  function rouletteFromGift(user, totalCoins) {
+    if (!roulette.collecting || settings.roulette?.mode !== 'donors') return;
+    const min = Math.max(0, Number(settings.roulette?.minCoins) || 0);
+    if (!(totalCoins > 0) || totalCoins < min) return;
+    // El peso es la cantidad de diamantes: 5 diamantes pesa 5 veces más que 1.
+    addRouletteEntry(user, totalCoins);
+  }
+  function rouletteFromChat(user, comment) {
+    if (!roulette.collecting || settings.roulette?.mode !== 'keyword') return;
+    const kw = String(settings.roulette?.keyword || '').trim().toLowerCase();
+    if (!kw) return;
+    const text = String(comment || '').trim().toLowerCase();
+    // Coincide si el comentario es la palabra o la contiene como palabra suelta.
+    if (text === kw || new RegExp('(^|\\s)' + kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|\\s)').test(text)) {
+      addRouletteEntry(user, 1); // en modo palabra todos pesan igual
+    }
+  }
+  function rouletteSpin() {
+    const list = [...roulette.entries.values()];
+    if (!list.length) {
+      broadcast('log', { level: 'warn', text: '🎡 Ruleta: no hay participantes.' });
+      return;
+    }
+    // Selección ponderada por peso (diamantes). A más peso, más probabilidad.
+    const total = list.reduce((s, u) => s + (u.weight || 1), 0);
+    let r = Math.random() * total;
+    let winner = list[list.length - 1];
+    for (const u of list) { r -= (u.weight || 1); if (r <= 0) { winner = u; break; } }
+    roulette.collecting = false;
+    broadcast('log', { level: 'ok', text: `🎡 Ruleta: ganador → ${winner.nickname}` });
+    broadcast('rouletteSpin', {
+      winner: { uniqueId: winner.uniqueId, nickname: winner.nickname, photo: winner.photo },
+      entries: list.map((u) => ({ uniqueId: u.uniqueId, nickname: u.nickname, photo: u.photo, weight: u.weight || 1 })),
+    });
+  }
+
   function triggerSoundAlerts(eventType, info = {}) {
     for (const a of settings.soundAlerts) {
       if (!a.enabled || !a.sound) continue;
@@ -701,6 +770,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     emoteCatalog.clear();
     fanCoinAcc.clear();
     fanLikeAcc.clear();
+    recentSubs.clear();
+    recentSuperFans.clear();
+    roulette.entries.clear();
+    roulette.collecting = false;
   }
   let statsThrottle = false;
   function pushStatsThrottled() {
@@ -907,6 +980,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerVideos('chatCommand', { comment });
       triggerSoundAlerts('chatCommand', { comment });
       handleChatCommands(comment, baseUser(data.user || data));
+      rouletteFromChat(baseUser(data.user || data), comment);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
       const uid = data.user?.uniqueId || data.user?.userId;
       if (uid && !chatSeenUsers.has(uid)) {
@@ -966,6 +1040,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         countGiftForGoal(giftId, giftName, repeatCount);
         processFanBalls('coins', user, total);
+        rouletteFromGift(user, total);
       }
 
       broadcast('gift', { ...user, giftName, giftId, repeatCount, diamonds: diamondsEach, image, streak: isStreak });
@@ -1044,11 +1119,54 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerVideos('emote', { emoteId });
     });
 
-    conn.on('subscribe', () => {
-      triggerSoundAlerts('subscribe');
-      triggerVideos('subscribe');
+    // ===== Suscripciones (con nivel / meses) =====
+    function handleSubscribe(data) {
+      const user = baseUser(data?.user || data);
+      const months = Number(data?.subMonth ?? data?.totalSubMonth ?? data?.months ?? data?.cumulativeMonths ?? 0) || 0;
+      const level = Number(data?.subscribeLevel ?? data?.level ?? 0) || 0;
+      const uid = user.uniqueId || 'anon';
+      const now = Date.now();
+      if (now - (recentSubs.get(uid) || 0) < 4000) return; // evita doble disparo (subscribe + subNotify)
+      recentSubs.set(uid, now);
+      if (recentSubs.size > 500) recentSubs.clear();
+      const monthsTxt = months > 0 ? ` · ${months} ${months === 1 ? 'mes' : 'meses'}` : '';
+      broadcast('log', { level: 'ok', text: `⭐ Suscriptor: ${user.nickname}${monthsTxt}${level ? ` · nivel ${level}` : ''}` });
+      const info = { ...user, months, level };
+      broadcast('subscribe', info);
+      triggerSoundAlerts('subscribe', info);
+      triggerVideos('subscribe', info);
       addTimerSeconds(settings.timer?.subscribe || 0);
-    });
+      const subBonus = Math.round(Number(settings.points?.subBonus) || 0);
+      if (user.uniqueId && subBonus > 0) {
+        addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: subBonus, counted: true, description: months > 0 ? `Suscripción (${months} m)` : 'Suscripción', manual: false });
+      }
+    }
+    conn.on('subscribe', handleSubscribe);
+    conn.on(WebcastEvent.SUB_NOTIFY, handleSubscribe);
+
+    // ===== Super fans =====
+    function handleSuperFan(data) {
+      const user = baseUser(data?.user || data);
+      const level = Number(data?.superFanLevel ?? data?.fanLevel ?? data?.level ?? 0) || 0;
+      const uid = user.uniqueId || 'anon';
+      const now = Date.now();
+      if (now - (recentSuperFans.get(uid) || 0) < 5000) return; // dedupe superFan + superFanJoin
+      recentSuperFans.set(uid, now);
+      if (recentSuperFans.size > 500) recentSuperFans.clear();
+      broadcast('log', { level: 'ok', text: `🌟 Super fan: ${user.nickname}${level ? ` · nivel ${level}` : ''}` });
+      const info = { ...user, level };
+      broadcast('superfan', info);
+      triggerSoundAlerts('superFan', info);
+      triggerVideos('superFan', info);
+      // Pelota dorada con la foto del super fan (overlay de pelotas).
+      broadcast('goldenBall', { photo: user.photo || '', nickname: user.nickname || '', count: 1 });
+      const bonus = Math.round(Number(settings.points?.superFanBonus) || 0);
+      if (user.uniqueId && bonus > 0) {
+        addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: bonus, counted: true, description: 'Super fan', manual: false });
+      }
+    }
+    conn.on(WebcastEvent.SUPER_FAN, handleSuperFan);
+    conn.on(WebcastEvent.SUPER_FAN_JOIN, handleSuperFan);
 
     // ===== Batallas PK de TikTok =====
     // Catch-all: escanea todos los mensajes en busca del golpe crítico (x2/x3).
@@ -1219,6 +1337,30 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetPelotas':
         broadcast('pelotasReset', {});
         break;
+      case 'getRoulette':
+        try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'roulette', payload: serializeRoulette() })); } catch {}
+        break;
+      case 'rouletteCollect':
+        roulette.collecting = !!data.on;
+        broadcast('log', { level: 'info', text: roulette.collecting ? '🎡 Ruleta: recolectando participantes…' : '🎡 Ruleta: recolección detenida.' });
+        broadcastRoulette();
+        break;
+      case 'rouletteClear':
+        roulette.entries.clear();
+        roulette.collecting = false;
+        broadcastRoulette();
+        broadcast('rouletteReset', {});
+        break;
+      case 'rouletteSpin':
+        rouletteSpin();
+        break;
+      case 'testRoulette': {
+        const names = ['@ana', '@luis', '@pepito', '@maria', '@chuy', '@sofia', '@dani', '@kevin'];
+        broadcast('rouletteTest', {
+          entries: names.map((n) => ({ uniqueId: n, nickname: n, photo: '', weight: 1 + Math.floor(Math.random() * 20) })),
+        });
+        break;
+      }
       case 'testTopDonor':
         broadcast('topDonorTest', {});
         break;

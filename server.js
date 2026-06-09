@@ -257,13 +257,31 @@ app.post('/api/admin/plans', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true, config });
 });
 
+/* ------------------- Protección básica (disuasión copia) ------------------- */
+// Inyecta protect.js en todo HTML servido (panel + overlays). NO es seguridad
+// real: solo dificulta la copia casual (clic derecho, F12, ver fuente…).
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const GUARD_TAG = '<script src="/js/protect.js" defer></script>';
+function injectGuard(html) {
+  if (html.includes('/js/protect.js')) return html;
+  if (html.includes('</head>')) return html.replace('</head>', GUARD_TAG + '</head>');
+  if (html.includes('</body>')) return html.replace('</body>', GUARD_TAG + '</body>');
+  return html + GUARD_TAG;
+}
+function sendHtmlFile(res, filePath, status = 200) {
+  fs.readFile(filePath, 'utf8', (err, html) => {
+    if (err) { res.status(404).end(); return; }
+    res.status(status).type('html').send(injectGuard(html));
+  });
+}
+
 /* ----------------------------- Panel protegido ----------------------------- */
 // El panel (index.html) requiere sesión iniciada y cuenta ACTIVADA por el admin.
 app.get(['/', '/index.html'], (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.redirect('/login.html');
-  if (!isUserActive(user)) return res.sendFile(path.join(__dirname, 'public', 'pending.html'));
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  if (!isUserActive(user)) return sendHtmlFile(res, path.join(PUBLIC_DIR, 'pending.html'));
+  sendHtmlFile(res, path.join(PUBLIC_DIR, 'index.html'));
 });
 
 // Archivos pesados (videos subidos y audios): caché larga en el navegador. Sus nombres
@@ -275,6 +293,20 @@ app.use('/audios', express.static(path.join(__dirname, 'public', 'audios'), heav
 // Videos de AI: caché larga en el navegador para que al recargar el panel no se
 // vuelvan a descargar (antes esto era lo que hacía lenta la carga).
 app.use('/video', express.static(VIDEOS_DIR, heavyCache));
+
+// Cualquier otra página HTML (login, overlays, pending…) se sirve con el script
+// de protección inyectado. Debe ir ANTES del estático general.
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  if (!req.path.endsWith('.html')) return next();
+  const rel = decodeURIComponent(req.path).replace(/^\/+/, '');
+  const filePath = path.normalize(path.join(PUBLIC_DIR, rel));
+  if (!filePath.startsWith(PUBLIC_DIR)) return next(); // evita salir de /public
+  fs.readFile(filePath, 'utf8', (err, html) => {
+    if (err) return next();
+    res.type('html').send(injectGuard(html));
+  });
+});
 
 // Resto de estáticos: login, overlays, css, js… Con validación (ETag) para recargas
 // rápidas: si el archivo no cambió, el navegador recibe "304 Not Modified" al instante.
