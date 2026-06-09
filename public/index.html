@@ -99,6 +99,18 @@
               <div id="events" class="feed small"></div>
             </section>
           </div>
+
+          <section class="panel panel-transfer" id="panel-transfer">
+            <header class="panel-head">📦 Importar / Exportar configuración</header>
+            <p class="transfer-desc">Guarda o restaura alertas sonoras, videos, acciones (.exe), TTS, temporizador y overlays. Compatible con exports de Livecoins y con backups del panel TikFinity legacy.</p>
+            <div class="transfer-actions">
+              <button type="button" class="btn primary" id="transfer-export">⬇ Exportar</button>
+              <button type="button" class="btn ghost" id="transfer-import">⬆ Importar archivo…</button>
+              <label class="transfer-opt"><input type="checkbox" id="transfer-replace"> Reemplazar listas importadas (alertas, videos, acciones…)</label>
+            </div>
+            <p class="transfer-status" id="transfer-status"></p>
+            <input type="file" id="transfer-file" accept=".json,application/json" hidden>
+          </section>
         </section>
 
         <!-- ===== VISTA: PLANES ===== -->
@@ -2329,6 +2341,7 @@
     </div>
   </div>
 
+  <script src="/js/settings-transfer.js"></script>
   <script src="/js/dashboard.js"></script>
 </body>
 </html>

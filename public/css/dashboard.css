@@ -315,6 +315,15 @@ main { padding: 20px 22px; max-width: 1500px; width: 100%; margin: 0 auto; }
 .chat-panel { grid-row: span 2; }
 .panel-head { padding: 12px 14px; font-weight: 700; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, rgba(254,44,85,.06), transparent); }
 
+.panel-transfer { margin-top: 14px; min-height: auto; max-height: none; }
+.transfer-desc { padding: 0 14px 12px; color: var(--mut); font-size: 13px; line-height: 1.45; border-bottom: 1px solid var(--line); }
+.transfer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px; }
+.transfer-opt { display: flex; align-items: center; gap: 8px; color: var(--mut); font-size: 13px; cursor: pointer; user-select: none; }
+.transfer-opt input { accent-color: var(--cyan); }
+.transfer-status { padding: 0 14px 14px; font-size: 13px; color: var(--mut); min-height: 1.2em; }
+.transfer-status.ok { color: var(--ok); }
+.transfer-status.err { color: var(--err); }
+
 .mini { background: transparent; border: 1px solid var(--line); color: var(--mut); border-radius: 6px; padding: 4px 9px; font-size: 12px; cursor: pointer; }
 .mini:hover { color: var(--txt); border-color: var(--mut); }
 

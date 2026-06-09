@@ -3657,12 +3657,79 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+/* ====================== Importar / Exportar (pestaña Panel) ====================== */
+function setupSettingsTransfer() {
+  const expBtn = $('transfer-export');
+  const impBtn = $('transfer-import');
+  const fileIn = $('transfer-file');
+  const statusEl = $('transfer-status');
+  if (!expBtn || !impBtn || !fileIn || !window.SettingsTransfer) return;
+  const isDesktop = !!(window.desktopAPI && window.desktopAPI.isDesktop);
+
+  function setStatus(msg, kind) {
+    if (!statusEl) return;
+    statusEl.textContent = msg || '';
+    statusEl.className = 'transfer-status' + (kind ? ' ' + kind : '');
+  }
+
+  expBtn.onclick = () => {
+    if (!settings) { setStatus('Aún no hay ajustes cargados.', 'err'); return; }
+    try {
+      const blob = new Blob(
+        [JSON.stringify(window.SettingsTransfer.exportSettings(settings, { skipActions: !isDesktop }), null, 2)],
+        { type: 'application/json' },
+      );
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `livecoins-backup-${window.MY_USER || 'panel'}-${Date.now()}.json`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 500);
+      setStatus('Exportación descargada.', 'ok');
+      toast('Configuración exportada.', 'ok');
+    } catch (e) {
+      setStatus('Error al exportar: ' + (e.message || e), 'err');
+    }
+  };
+
+  impBtn.onclick = () => fileIn.click();
+
+  fileIn.addEventListener('change', async () => {
+    const file = fileIn.files?.[0];
+    fileIn.value = '';
+    if (!file) return;
+    setStatus('Importando…');
+    try {
+      const text = await file.text();
+      const { patch, counts, format } = window.SettingsTransfer.parseFile(text);
+      const replace = !!$('transfer-replace')?.checked;
+      const mode = replace ? 'replace' : 'merge';
+
+      if (replace && !isDesktop && patch.actions) delete patch.actions;
+
+      const merged = window.SettingsTransfer.applyPatch(settings || {}, patch, mode);
+      settings = merged;
+      saveSettings();
+      applySettingsToUI();
+      applyLimitUI();
+
+      const summary = window.SettingsTransfer.summarize(counts);
+      const fmtLabel = format === 'legacy-v1' ? 'TikFinity legacy' : 'Livecoins';
+      setStatus(`Importado (${fmtLabel}, ${mode === 'replace' ? 'reemplazo' : 'añadir'}): ${summary}.`, 'ok');
+      toast(`Importado: ${summary}`, 'ok');
+    } catch (e) {
+      setStatus('Error: ' + (e.message || e), 'err');
+      toast(String(e.message || e), 'warn');
+    }
+  });
+}
+
 (async () => {
   // Arranque en paralelo: abrimos el WebSocket y pedimos el catálogo de regalos
   // de inmediato (no esperamos al /api/me). El WS es el que entrega ajustes, alertas
   // y videos, así que cuanto antes se abra, antes se pinta TODO el panel.
   connectWS();
   preloadGiftCatalog();
+  try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }
   // Datos de sesión (usuario / roomKey) en paralelo; solo afectan al chip y a las URLs
   // de overlays, que no bloquean el render principal.
   loadMe().then(() => {
