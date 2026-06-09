@@ -297,6 +297,7 @@
         else if (type === 'rouletteTest') {
           if (isEmbed) return;
           const list = (payload && payload.entries) || [];
+          playGiftAnim((payload && payload.giftImage) || SAMPLE_GIFT);
           setEntries(list); spinTo(Math.floor(Math.random() * list.length), list);
         }
         else if (type === 'rouletteReset') { reset(); }
@@ -314,11 +315,14 @@
       if (d.type === 'config') applyCfg(d.config || d);
       else if (d.type === 'reset') reset();
       else if (d.type === 'gift') { playGiftAnim(d.image || d.giftImage || SAMPLE_GIFT); }
+      else if (d.type === 'spin') {
+        if (!entries.length) setEntries(demoNames.map((n) => ({ uniqueId: n, nickname: n, photo: '', weight: 1 + Math.floor(Math.random() * 20) })));
+        if (entries.length && !spinning) spinTo(Math.floor(Math.random() * entries.length), entries);
+      }
       else if (d.type === 'test') {
-        const img = d.giftImage || SAMPLE_GIFT;
-        [0, 350, 700].forEach((ms) => setTimeout(() => playGiftAnim(img), ms));
+        playGiftAnim(d.giftImage || SAMPLE_GIFT);
         const list = demoNames.map((n) => ({ uniqueId: n, nickname: n, photo: '', weight: 1 + Math.floor(Math.random() * 20) }));
-        setEntries(list); setTimeout(() => spinTo(Math.floor(Math.random() * list.length), list), 1100);
+        setEntries(list); spinTo(Math.floor(Math.random() * list.length), list);
       }
     });
 

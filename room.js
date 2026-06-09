@@ -1364,6 +1364,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const names = ['@ana', '@luis', '@pepito', '@maria', '@chuy', '@sofia', '@dani', '@kevin'];
         broadcast('rouletteTest', {
           entries: names.map((n) => ({ uniqueId: n, nickname: n, photo: '', weight: 1 + Math.floor(Math.random() * 20) })),
+          giftImage: roulette.giftImage || '',
         });
         break;
       }

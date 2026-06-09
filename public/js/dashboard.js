@@ -2395,7 +2395,7 @@ function onRoulette(p) {
     rulCollecting = !rulCollecting;
     send({ action: 'rouletteCollect', on: rulCollecting });
   };
-  $('rul-spin').onclick = () => send({ action: 'rouletteSpin' });
+  $('rul-spin').onclick = () => { send({ action: 'rouletteSpin' }); toPreview({ type: 'spin' }); };
   $('rul-config').onclick = openRulConfig;
   $('rulcfg-close').onclick = closeRulConfig;
   $('rulConfigModal').addEventListener('click', (e) => { if (e.target.id === 'rulConfigModal') closeRulConfig(); });
