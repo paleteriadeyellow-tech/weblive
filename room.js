@@ -176,7 +176,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const recentSubs = new Map();      // dedupe suscripciones (subscribe/subNotify)
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
   // Ruleta / sorteo: participantes recogidos durante la recolección.
-  const roulette = { collecting: false, entries: new Map() }; // uid -> { uniqueId, nickname, photo }
+  const roulette = { collecting: false, entries: new Map(), giftImage: '' }; // uid -> { uniqueId, nickname, photo }
   const ROULETTE_MAX = 300;
 
   let connection = null;
@@ -533,7 +533,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const entries = [...roulette.entries.values()]
       .slice(0, ROULETTE_MAX)
       .map((u) => ({ uniqueId: u.uniqueId, nickname: u.nickname, photo: u.photo, weight: u.weight || 1 }));
-    return { collecting: roulette.collecting, count: roulette.entries.size, entries };
+    return { collecting: roulette.collecting, count: roulette.entries.size, entries, giftImage: roulette.giftImage || '' };
   }
   function broadcastRoulette() { broadcast('roulette', serializeRoulette()); }
   function addRouletteEntry(user, weight) {
@@ -553,12 +553,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     broadcastRoulette();
   }
-  function rouletteFromGift(user, totalCoins) {
+  function rouletteFromGift(user, totalCoins, giftImage) {
     if (!roulette.collecting || settings.roulette?.mode !== 'donors') return;
     const min = Math.max(0, Number(settings.roulette?.minCoins) || 0);
     if (!(totalCoins > 0) || totalCoins < min) return;
+    // Guardamos el icono del último regalo recibido para mostrarlo en el centro de la ruleta.
+    if (giftImage) roulette.giftImage = giftImage;
     // El peso es la cantidad de diamantes: 5 diamantes pesa 5 veces más que 1.
     addRouletteEntry(user, totalCoins);
+    // Anima el regalo entrando al centro de la ruleta.
+    if (giftImage) broadcast('rouletteGift', { image: giftImage });
   }
   function rouletteFromChat(user, comment) {
     if (!roulette.collecting || settings.roulette?.mode !== 'keyword') return;
@@ -774,6 +778,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     recentSuperFans.clear();
     roulette.entries.clear();
     roulette.collecting = false;
+    roulette.giftImage = '';
   }
   let statsThrottle = false;
   function pushStatsThrottled() {
@@ -1040,7 +1045,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         countGiftForGoal(giftId, giftName, repeatCount);
         processFanBalls('coins', user, total);
-        rouletteFromGift(user, total);
+        rouletteFromGift(user, total, image);
       }
 
       broadcast('gift', { ...user, giftName, giftId, repeatCount, diamonds: diamondsEach, image, streak: isStreak });
@@ -1348,6 +1353,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'rouletteClear':
         roulette.entries.clear();
         roulette.collecting = false;
+        roulette.giftImage = '';
         broadcastRoulette();
         broadcast('rouletteReset', {});
         break;

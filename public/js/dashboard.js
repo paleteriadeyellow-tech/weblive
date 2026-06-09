@@ -2351,6 +2351,8 @@ function onRoulette(p) {
 (function setupRuleta() {
   if (!$('rul-test')) return;
   const toPreview = (msg) => $('rul-preview')?.contentWindow?.postMessage({ kind: 'ruleta', ...msg }, '*');
+  // Icono de regalo de muestra para la vista previa (no hay donadores reales).
+  const rulSampleGift = () => (giftCatalog.find((x) => /ros/i.test(x.name)) || giftCatalog[0])?.image || '';
 
   function syncModeUI() {
     const mode = $('rulcfg-mode').value;
@@ -2367,7 +2369,7 @@ function onRoulette(p) {
       c2: $('rulcfg-c2').value,
     };
   }
-  function pushPreview() { toPreview({ type: 'config', config: currentCfg() }); }
+  function pushPreview() { toPreview({ type: 'config', config: currentCfg(), giftImage: rulSampleGift() }); }
   function openRulConfig() {
     if (!settings.roulette) settings.roulette = {};
     const c = settings.roulette;
@@ -2383,7 +2385,7 @@ function onRoulette(p) {
   }
   function closeRulConfig() { $('rulConfigModal').classList.add('hidden'); }
 
-  $('rul-test').onclick = () => { toPreview({ type: 'test' }); send({ action: 'testRoulette' }); };
+  $('rul-test').onclick = () => { toPreview({ type: 'test', giftImage: rulSampleGift() }); send({ action: 'testRoulette' }); };
   $('rul-reset').onclick = () => {
     rulCollecting = false;
     toPreview({ type: 'reset' });

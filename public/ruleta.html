@@ -34,6 +34,21 @@
       box-shadow: 0 4px 12px rgba(0,0,0,.4), inset 0 0 0 3px rgba(255,255,255,.6);
       font-size: 38px;
     }
+    .hub img { width: 60px; height: 60px; object-fit: contain; display: block; filter: drop-shadow(0 2px 4px rgba(0,0,0,.3)); }
+    /* Animación del regalo entrando: aparece grande y se encoge hacia el centro. */
+    .gift-fly {
+      position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; z-index: 6;
+      transform: translate(-50%, -50%); pointer-events: none;
+      filter: drop-shadow(0 8px 20px rgba(0,0,0,.55));
+      animation: giftFly 1s cubic-bezier(.18,.7,.3,1) forwards;
+    }
+    .gift-fly img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    @keyframes giftFly {
+      0%   { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+      18%  { opacity: 1; }
+      72%  { opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(.5); opacity: 0; }
+    }
     .count {
       font-weight: 800; font-size: 18px; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.6);
       background: rgba(16,18,26,.6); padding: 5px 16px; border-radius: 999px;
@@ -60,7 +75,7 @@
     <div class="wheel-wrap">
       <div class="pointer"></div>
       <canvas id="wheel" width="480" height="480"></canvas>
-      <div class="hub">🎁</div>
+      <div class="hub" id="hub">🎁</div>
       <div class="winner" id="winner">
         <span class="crown">👑</span>
         <span class="lbl">GANADOR</span>
@@ -92,6 +107,38 @@
     const winnerEl = document.getElementById('winner');
     const winnerName = document.getElementById('winner-name');
     const winnerImg = document.getElementById('winner-img');
+    const hubEl = document.getElementById('hub');
+
+    // Icono de regalo de respaldo (SVG) para la vista previa cuando no hay uno real.
+    const SAMPLE_GIFT = 'data:image/svg+xml,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+      '<rect x="9" y="27" width="46" height="30" rx="4" fill="#ff4d6d"/>' +
+      '<rect x="6" y="18" width="52" height="12" rx="3" fill="#ff758f"/>' +
+      '<rect x="28" y="18" width="8" height="39" fill="#ffd34a"/>' +
+      '<path d="M32 18C26 8 14 12 20 18zM32 18C38 8 50 12 44 18z" fill="#ffd34a"/></svg>');
+
+    // Reproduce la animación: el regalo aparece grande y se encoge hacia el centro.
+    const wheelWrap = document.querySelector('.wheel-wrap');
+    function playGiftAnim(url) {
+      if (!url) return;
+      const safe = String(url).replace(/"/g, '&quot;');
+      const el = document.createElement('div');
+      el.className = 'gift-fly';
+      el.innerHTML = '<img src="' + safe + '" alt="">';
+      wheelWrap.appendChild(el);
+      el.addEventListener('animationend', () => { el.remove(); setHubGift(url); });
+      setTimeout(() => el.remove(), 1500); // por si el navegador no dispara animationend
+    }
+
+    // Muestra en el centro el icono del regalo que envían los donadores; si no hay, el emoji.
+    function setHubGift(url) {
+      if (url) {
+        const safe = String(url).replace(/"/g, '&quot;');
+        hubEl.innerHTML = '<img src="' + safe + '" alt="" onerror="this.parentElement.textContent=\'🎁\'">';
+      } else if (!hubEl.querySelector('img')) {
+        hubEl.textContent = '🎁';
+      }
+    }
 
     let cfg = { title: 'SORTEO EN VIVO', c1: '#7c4dff', c2: '#00e5ff' };
     let entries = [];          // [{ nickname, photo }]
@@ -225,6 +272,7 @@
     function reset() {
       winnerEl.classList.remove('show');
       spinning = false;
+      hubEl.textContent = '🎁';
       setEntries([]);
     }
 
@@ -238,7 +286,8 @@
       ws.onmessage = (ev) => {
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         const { type, payload } = msg;
-        if (type === 'roulette') { if (!spinning) setEntries(payload && payload.entries); }
+        if (type === 'roulette') { if (payload && payload.giftImage) setHubGift(payload.giftImage); if (!spinning) setEntries(payload && payload.entries); }
+        else if (type === 'rouletteGift') { if (payload && payload.image) playGiftAnim(payload.image); }
         else if (type === 'rouletteSpin') {
           if (isEmbed) return;
           const list = (payload && payload.entries) || [];
@@ -261,16 +310,21 @@
     window.addEventListener('message', (e) => {
       const d = e.data;
       if (!d || d.kind !== 'ruleta') return;
+      if (d.giftImage) setHubGift(d.giftImage);
       if (d.type === 'config') applyCfg(d.config || d);
       else if (d.type === 'reset') reset();
+      else if (d.type === 'gift') { playGiftAnim(d.image || d.giftImage || SAMPLE_GIFT); }
       else if (d.type === 'test') {
+        const img = d.giftImage || SAMPLE_GIFT;
+        [0, 350, 700].forEach((ms) => setTimeout(() => playGiftAnim(img), ms));
         const list = demoNames.map((n) => ({ uniqueId: n, nickname: n, photo: '', weight: 1 + Math.floor(Math.random() * 20) }));
-        setEntries(list); spinTo(Math.floor(Math.random() * list.length), list);
+        setEntries(list); setTimeout(() => spinTo(Math.floor(Math.random() * list.length), list), 1100);
       }
     });
 
     // Vista previa standalone / embed: muestra participantes de ejemplo.
     if (params.get('preview') === '1' || isEmbed) {
+      setHubGift(SAMPLE_GIFT);
       setEntries(demoNames.map((n) => ({ uniqueId: n, nickname: n, photo: '', weight: 1 + Math.floor(Math.random() * 20) })));
     }
   })();
