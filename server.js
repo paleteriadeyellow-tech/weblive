@@ -163,6 +163,20 @@ app.get('/api/me', (req, res) => {
   });
 });
 
+// Ajustes completos del usuario autenticado (para sincronizar entre la web y el .exe).
+app.get('/api/my-settings', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  res.json({ settings: room.getSettings(), exists: room.hasSavedSettings() });
+});
+app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  getRoomForUser(user).applySettings(req.body?.settings || {});
+  res.json({ ok: true });
+});
+
 // Catálogo + configuración de planes para CUALQUIER usuario autenticado (solo lectura).
 // Lo usa la pestaña "Planes" para mostrar la comparación Gratis vs Premium.
 app.get('/api/plans', (req, res) => {

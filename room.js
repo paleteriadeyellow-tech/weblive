@@ -136,7 +136,7 @@ function readJsonSafe(file) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
@@ -205,6 +205,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function saveSettings() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => writeJsonAtomic(SETTINGS_FILE, settings), 300);
+  }
+  // Aplica un bloque de ajustes (fusión profunda), persiste y difunde. Si el cambio
+  // viene del panel del usuario (fromUser), avisa para sincronizarlo con el remoto.
+  function applyIncomingSettings(obj, fromUser) {
+    if (!obj) return;
+    settings = deepMerge(settings, obj);
+    enforceLimits();
+    saveSettings();
+    broadcast('settings', settings);
+    clampTimer();
+    broadcastTimer();
+    if (fromUser && typeof onUserSave === 'function') {
+      try { onUserSave(settings); } catch {}
+    }
   }
 
   /* ------------------------------- Broadcast ------------------------------ */
@@ -1251,14 +1265,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         disconnect();
         break;
       case 'saveSettings':
-        if (data.settings) {
-          settings = deepMerge(settings, data.settings);
-          enforceLimits();
-          saveSettings();
-          broadcast('settings', settings);
-          clampTimer();
-          broadcastTimer();
-        }
+        if (data.settings) applyIncomingSettings(data.settings, true);
         break;
       case 'testAlert': {
         const demoUser = { uniqueId: 'demo', nickname: 'Usuario de prueba', photo: null };
@@ -1554,6 +1561,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     id, account, roomKey,
     addClient, removeClient, handleMessage,
     getEmotes, shutdown, getStatus, kickAll, broadcastCaps,
+    getSettings: () => settings,
+    applySettings: (obj) => applyIncomingSettings(obj, false),
+    hasSavedSettings: () => fs.existsSync(SETTINGS_FILE),
     get clientCount() { return clients.size; },
   };
 }
