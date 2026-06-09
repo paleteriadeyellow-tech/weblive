@@ -13,6 +13,142 @@
   --err: #fe2c55;
 }
 
+/* ===== Tema azul marino + iconos animados (web y .exe) ===== */
+.is-desktop {
+  --bg: #070c18;
+  --bg2: #0b1322;
+  --card: #0e1a2e;
+  --line: #1d2c48;
+  --mut: #8a96ad;
+}
+.is-desktop .sidebar {
+  background: linear-gradient(180deg, #0c1832, #060b16);
+}
+.is-desktop .topbar,
+.is-desktop .panel-head { background: rgba(11,19,34,.6); }
+
+/* Aurora de fondo que se desplaza lentamente */
+.is-desktop body {
+  background:
+    radial-gradient(820px 480px at 12% -8%, rgba(37,244,238,.16), transparent 60%),
+    radial-gradient(820px 480px at 100% 0%, rgba(254,44,85,.14), transparent 55%),
+    radial-gradient(760px 520px at 60% 120%, rgba(124,77,255,.13), transparent 60%),
+    linear-gradient(180deg, #0b1730 0%, #081021 55%, #05080f 100%);
+  background-size: 200% 200%, 200% 200%, 220% 220%, 100% 100%;
+  animation: deskAurora 22s ease-in-out infinite;
+}
+@keyframes deskAurora {
+  0%   { background-position: 0% 0%, 100% 0%, 50% 100%, 0 0; }
+  50%  { background-position: 16% 14%, 86% 8%, 62% 86%, 0 0; }
+  100% { background-position: 0% 0%, 100% 0%, 50% 100%, 0 0; }
+}
+
+/* Menú lateral: entrada escalonada al abrir el panel */
+@keyframes deskNavIn { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+.is-desktop .nav .nav-item { animation: deskNavIn .5s cubic-bezier(.22,1,.36,1) both; }
+.is-desktop .nav .nav-item:nth-child(1) { animation-delay: .04s; }
+.is-desktop .nav .nav-item:nth-child(2) { animation-delay: .09s; }
+.is-desktop .nav .nav-item:nth-child(3) { animation-delay: .14s; }
+.is-desktop .nav .nav-item:nth-child(4) { animation-delay: .19s; }
+.is-desktop .nav .nav-item:nth-child(5) { animation-delay: .24s; }
+.is-desktop .nav .nav-item:nth-child(6) { animation-delay: .29s; }
+.is-desktop .nav .nav-item:nth-child(7) { animation-delay: .34s; }
+.is-desktop .nav .nav-item:nth-child(8) { animation-delay: .39s; }
+.is-desktop .nav .nav-item:nth-child(9) { animation-delay: .44s; }
+.is-desktop .nav .nav-item:nth-child(10) { animation-delay: .49s; }
+.is-desktop .nav .nav-item:nth-child(11) { animation-delay: .54s; }
+.is-desktop .nav .nav-item:nth-child(12) { animation-delay: .59s; }
+
+/* Ítems del menú: deslizamiento y barra activa que crece */
+.is-desktop .nav-item { transition: color .2s, transform .22s cubic-bezier(.22,1,.36,1), background .25s; }
+.is-desktop .nav-item::after {
+  content: ''; position: absolute; left: -3px; top: 50%;
+  width: 3px; height: 56%; border-radius: 3px; background: var(--tiktok);
+  transform: translateY(-50%) scaleY(0); transform-origin: center;
+  box-shadow: 0 0 10px rgba(37,244,238,.6); transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+}
+.is-desktop .nav-item:hover { transform: translateX(4px); background: rgba(255,255,255,.035); }
+.is-desktop .nav-item:hover .ico { transform: translateY(-1px) scale(1.07); }
+.is-desktop .nav-item.active { background: linear-gradient(90deg, rgba(37,244,238,.1), transparent 70%); }
+.is-desktop .nav-item.active::after { transform: translateY(-50%) scaleY(1); }
+
+/* Icono activo: glow que late suavemente */
+@keyframes deskPulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255,255,255,.06), 0 6px 18px rgba(254,44,85,.28), 0 6px 20px rgba(37,244,238,.18); }
+  50%      { box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 10px 28px rgba(254,44,85,.45), 0 10px 30px rgba(37,244,238,.32); }
+}
+.is-desktop .nav-item.active .ico { animation: deskPulse 2.8s ease-in-out infinite; }
+
+/* Iconos estilo "cápsula neón" con borde de degradado GIRANDO en círculo.
+   Técnica de capas: ::before es un gradiente cónico a pantalla completa que rota
+   con transform (movimiento garantizado); ::after tapa el centro y deja solo el
+   anillo (borde); el icono va por encima. */
+.is-desktop .nav-item .ico {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: linear-gradient(160deg, #11203a 0%, #0a1426 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 4px 12px rgba(0,0,0,.35);
+  overflow: hidden; isolation: isolate;
+}
+.is-desktop .nav-item .ico::before {
+  content: ''; position: absolute; inset: auto; left: 50%; top: 50%;
+  width: 170%; height: 170%; padding: 0; border-radius: 0;
+  -webkit-mask: none; mask: none; opacity: 1;
+  /* Punto brillante que recorre el borde (más una base de color), para que el
+     movimiento del giro se note con claridad. */
+  background: conic-gradient(from 0deg,
+    #fe2c55 0deg, #ff6ec7 30deg, #25f4ee 90deg, #0a1426 160deg,
+    #0a1426 210deg, #4aa8ff 280deg, #25f4ee 320deg, #fe2c55 360deg);
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: bdSpin 3s linear infinite;
+  will-change: transform;
+  z-index: 0;
+}
+.is-desktop .nav-item .ico::after {
+  content: ''; position: absolute; inset: 2.4px; border-radius: 11px;
+  background: linear-gradient(160deg, #11203a 0%, #0a1426 100%);
+  z-index: 1;
+}
+@keyframes bdSpin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.is-desktop .nav-item .ico svg { position: relative; z-index: 2; color: #cfe9ff; filter: drop-shadow(0 0 4px rgba(37,244,238,.35)); }
+.is-desktop .nav-item:hover .ico {
+  transform: translateY(-1px) scale(1.07);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 14px rgba(37,244,238,.35), 0 0 18px rgba(254,44,85,.22);
+}
+.is-desktop .nav-item:hover .ico svg { color: #fff; }
+/* Activo: el anillo gira más rápido, centro tintado y glow latente. */
+.is-desktop .nav-item.active .ico::before { animation-duration: 2s; }
+.is-desktop .nav-item.active .ico::after {
+  background: linear-gradient(160deg, rgba(37,244,238,.22), rgba(254,44,85,.20)), #0c1730;
+}
+.is-desktop .nav-item.active .ico svg { color: #fff; filter: drop-shadow(0 0 6px rgba(37,244,238,.7)); }
+
+/* Cambio de sección: aparece con un sutil deslizamiento hacia arriba */
+@keyframes deskViewIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.is-desktop .view.active { animation: deskViewIn .4s cubic-bezier(.22,1,.36,1) both; }
+
+/* Tarjetas y botones: realce al pasar el cursor */
+.is-desktop .card,
+.is-desktop .ovpro-card,
+.is-desktop .sa-card,
+.is-desktop .acc-card { transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .25s, border-color .25s; }
+.is-desktop .card:hover,
+.is-desktop .ovpro-card:hover,
+.is-desktop .acc-card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(0,0,0,.45), 0 0 0 1px rgba(37,244,238,.18); }
+.is-desktop .btn { transition: transform .15s ease, box-shadow .2s ease, filter .2s ease; }
+.is-desktop .btn:hover { transform: translateY(-1px); }
+.is-desktop .btn:active { transform: translateY(0) scale(.98); }
+.is-desktop .btn.primary:hover { box-shadow: 0 8px 22px rgba(254,44,85,.35), 0 8px 22px rgba(37,244,238,.25); filter: brightness(1.05); }
+
+/* Respeta a quien prefiere menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .is-desktop body,
+  .is-desktop .nav .nav-item,
+  .is-desktop .nav-item.active .ico,
+  .is-desktop .view.active { animation: none; }
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
