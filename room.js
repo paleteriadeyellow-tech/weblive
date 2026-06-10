@@ -474,6 +474,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         state.connecting = false;
         state.roomId = connState?.roomId ?? null;
         state.startedAt = Date.now();
+        seedStatsFromRoomInfo();
         pushState();
         broadcast('log', { level: 'ok', text: `Conectado a la sala ${state.roomId ?? ''}` });
       })
@@ -792,6 +793,28 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function pushState() {
     broadcast('state', serializeState());
+  }
+
+  // Al conectar, TikTok entrega la info de la sala con totales ACUMULADOS desde que
+  // empezó el live: likes totales, espectadores actuales y total de entradas. Los
+  // sembramos para no empezar en 0 aunque te conectes al panel a mitad del live.
+  // NOTA: TikTok NO expone el histórico de diamantes/regalos/comentarios/follows/
+  // shares; esos solo llegan como eventos en vivo, así que solo se cuentan desde
+  // que el panel está conectado (no hay forma de recuperarlos hacia atrás).
+  function seedStatsFromRoomInfo() {
+    try {
+      const ri = connection && connection.roomInfo;
+      if (!ri) return;
+      const d = ri.data || ri;
+      const st = d.stats || {};
+      const likes = Number(d.like_count ?? st.like_count ?? 0) || 0;
+      const viewers = Number(d.user_count ?? st.user_count ?? d.viewerCount ?? 0) || 0;
+      const entradas = Number(st.total_user ?? d.total_user ?? 0) || 0;
+      if (likes > state.stats.likes) { state.stats.likes = likes; lastTotalLikes = Math.max(lastTotalLikes, likes); }
+      if (viewers > 0) state.stats.viewers = viewers;
+      if (entradas > state.stats.joins) state.stats.joins = entradas;
+      pushState();
+    } catch { /* roomInfo opcional: si falla, seguimos contando desde 0 */ }
   }
   function resetStats() {
     state.stats = { viewers: 0, likes: 0, diamonds: 0, comments: 0, gifts: 0, follows: 0, shares: 0, joins: 0 };
