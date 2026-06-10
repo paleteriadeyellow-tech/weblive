@@ -31,6 +31,7 @@ export const CAPABILITIES = {
     { key: 'tab_overlays', label: 'Pestaña Overlays' },
     { key: 'tab_tts', label: 'Pestaña Chat TTS' },
     { key: 'tab_timer', label: 'Pestaña Temporizador' },
+    { key: 'tab_webhook', label: 'Pestaña Webhook y Configuración (.exe)' },
   ],
   // Overlays individuales (se ocultan en la lista si no están permitidos).
   // El "path" enlaza con el data-path del overlay en el panel.
