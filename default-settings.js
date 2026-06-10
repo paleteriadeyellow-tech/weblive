@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS = {
     tiktokVoice: '', tiktokTranslateEs: true,
     // Usuarios permitidos
     allowAll: true, allowFollowers: false, allowSubs: false, allowMods: false, allowTeam: false,
+    // Nivel mínimo de miembro (club de fans) para que se lea el mensaje. 0 = sin requisito.
+    minMemberLevel: 0,
     // Tipos de comentarios (activador): all | dot | slash | command
     trigger: 'all', command: '!tts',
     // Puntos de carga (monetización)

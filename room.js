@@ -55,7 +55,17 @@ function chatUserRoles(data) {
   const teamBadge = badges.find((b) => scene(b) === 10);
   const isTeam = !!(Number(teamBadge?.level || 0) > 0);
 
-  return { isMod, isSub, isFollower, isTeam };
+  // Nivel de miembro (club de fans / equipo). Es el número que aparece en la
+  // insignia junto al nombre. Tomamos el mayor de las fuentes disponibles.
+  const fansLevel = Number(u?.fansClub?.data?.level || u?.fansClubInfo?.badge?.level || 0);
+  const teamLevel = Number(teamBadge?.level || 0);
+  const badgeLevels = badges
+    .filter((b) => [4, 7, 10].includes(scene(b)))
+    .map((b) => Number(b?.level || 0))
+    .filter((n) => n > 0 && n < 1000);
+  const memberLevel = Math.max(0, fansLevel, teamLevel, ...badgeLevels);
+
+  return { isMod, isSub, isFollower, isTeam, memberLevel };
 }
 function matchesCommand(command, comment) {
   const cmd = String(command || '').trim().toLowerCase();
@@ -1017,7 +1027,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const diamondsEach = data.giftDetails?.diamondCount || cat?.diamonds || 0;
       const giftName = data.giftDetails?.giftName || cat?.name || 'Regalo';
       const repeatCount = data.repeatCount || 1;
-      const image = getGiftImage(data);
+      const image = getGiftImage(data) || cat?.image || null;
 
       const isStreak = giftType === 1 && !data.repeatEnd;
       if (!isStreak) {

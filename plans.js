@@ -21,6 +21,7 @@ export const CAPABILITIES = {
     { key: 'videos', label: 'Videos (máx.)' },
     { key: 'battleAlerts', label: 'Animaciones de batalla (máx.)' },
     { key: 'actions', label: 'Acciones (máx.)' },
+    { key: 'profiles', label: 'Perfiles del panel (máx.)' },
   ],
   // Pestañas del panel (se ocultan si no están permitidas).
   tabs: [
@@ -91,7 +92,7 @@ function defaultConfig() {
 
   return {
     free: {
-      limits: { soundAlerts: 5, videos: 3, battleAlerts: 2, actions: 3 },
+      limits: { soundAlerts: 5, videos: 3, battleAlerts: 2, actions: 3, profiles: 1 },
       features: freeFeatures,
     },
     premium: {

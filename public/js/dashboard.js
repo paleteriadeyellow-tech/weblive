@@ -3053,6 +3053,7 @@ function applyTtsUI(t) {
   set('tts-allow-subs', t.allowSubs);
   set('tts-allow-mods', t.allowMods);
   set('tts-allow-team', t.allowTeam);
+  val('tts-min-level', t.minMemberLevel ?? 0);
   syncTtsAllowUI();
   // trigger
   const trig = t.trigger || 'all';
@@ -3149,7 +3150,8 @@ function updateTtsSummary() {
   }
   const trig = { all: 'cualquier comentario', dot: 'comentarios que empiezan con punto', slash: 'comentarios que empiezan con /', command: `comentarios con "${t.command || '!tts'}"` }[t.trigger || 'all'];
   const money = t.charge ? `Cobra ${t.cost} monedas por mensaje.` : 'El uso es gratuito.';
-  el.textContent = `Se leerá ${trig} ${who}. ${money}`;
+  const lvl = Number(t.minMemberLevel || 0) > 0 ? ` Solo miembros de nivel ${t.minMemberLevel}+.` : '';
+  el.textContent = `Se leerá ${trig} ${who}.${lvl} ${money}`;
 }
 
 /* ---- Filtros de moderación ---- */
@@ -3182,14 +3184,21 @@ function ttsModerate(text) {
   }
   if (t.blockAlpha) {
     const latin = (s.match(/[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]/g) || []).length;
-    const otherScript = (s.match(/[\u0400-\u04FF\u0600-\u06FF\u0590-\u05FF\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/g) || []).length;
-    if (otherScript > latin && otherScript > 2) return null;
+    // Alfabetos no latinos: árabe (+ presentación), cirílico, hebreo, griego,
+    // japonés, chino, coreano, tailandés, devanagari (hindi), etc.
+    const otherScript = (s.match(/[\u0370-\u03FF\u0400-\u04FF\u0530-\u058F\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u0900-\u097F\u0E00-\u0E7F\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
+    // Si hay cualquier cantidad apreciable de otro alfabeto y predomina (o no hay
+    // letras latinas que lo respalden), no se lee el mensaje.
+    if (otherScript >= 2 && otherScript >= latin) return null;
   }
   return s;
 }
 
 function ttsAllowedUser(p) {
   const t = settings?.tts || {};
+  // Nivel mínimo de miembro: requisito independiente que se aplica siempre.
+  const minLvl = Number(t.minMemberLevel || 0);
+  if (minLvl > 0 && Number(p.memberLevel || 0) < minLvl) return false;
   if (t.allowAll !== false) return true;
   const anyRole = t.allowFollowers || t.allowSubs || t.allowMods || t.allowTeam;
   if (!anyRole) return false;
@@ -3417,6 +3426,8 @@ function ttsOnGift(p) {
       save();
     });
   });
+  const minLvl = $('tts-min-level');
+  if (minLvl) minLvl.addEventListener('change', () => { settings.tts.minMemberLevel = Math.max(0, parseInt(minLvl.value, 10) || 0); save(); });
 
   // trigger
   document.querySelectorAll('input[name="tts-trigger"]').forEach((r) => r.addEventListener('change', () => { if (r.checked) { settings.tts.trigger = r.value; save(); } }));
