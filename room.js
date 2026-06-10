@@ -378,6 +378,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // Mejor regalo / mejor racha de la sesión
     broadcast('topGiftReset', {});
     broadcast('topStreakReset', {});
+    // Top 1 donador (MVP de la sesión)
+    broadcast('top1Reset', {});
     // Contador de meta (gift counter) vuelve a 0
     resetGiftCounter();
     // Batallas de ranking (regalos / likes)
@@ -1413,6 +1415,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetTopGift':
         broadcast('topGiftReset', {});
+        break;
+      case 'testTop1':
+        broadcast('top1Test', {});
+        break;
+      case 'resetTop1':
+        broadcast('top1Reset', {});
         break;
       case 'testGiftCounter':
         broadcast('giftCounterTest', {});

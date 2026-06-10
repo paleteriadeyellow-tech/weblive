@@ -650,6 +650,40 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Top 1 Donador (MVP) -->
+        <div id="top1ConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>👑 Configurar — Top 1 Donador</h2>
+              <button class="modal-close" id="top1cfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="top1cfg-title" placeholder="MVP: Top 1 Donador">
+              <label class="ml">ETIQUETA DE MONEDA</label>
+              <input type="text" id="top1cfg-coinlabel" placeholder="(vacío)">
+              <label class="ml">FUENTE</label>
+              <select id="top1cfg-font" class="cfg-font"></select>
+              <label class="switch-row plain"><input type="checkbox" id="top1cfg-rainbow"> <span>Título arcoíris</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="top1cfg-showheader" checked> <span>Mostrar título</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="top1cfg-showcrown" checked> <span>Mostrar corona</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="top1cfg-showfx" checked> <span>Efectos (aura, monedas, brillos)</span></label>
+              <div class="cfg-colors">
+                <div><label class="ml">TÍTULO 1</label><input type="color" id="top1cfg-hc1" value="#22d3ee"></div>
+                <div><label class="ml">TÍTULO 2</label><input type="color" id="top1cfg-hc2" value="#06b6d4"></div>
+                <div><label class="ml">TÍTULO 3</label><input type="color" id="top1cfg-hc3" value="#2dd4bf"></div>
+                <div><label class="ml">NOMBRE 1</label><input type="color" id="top1cfg-ng1" value="#fffef5"></div>
+                <div><label class="ml">NOMBRE 2</label><input type="color" id="top1cfg-ng2" value="#ffe066"></div>
+                <div><label class="ml">NOMBRE 3</label><input type="color" id="top1cfg-ng3" value="#daa520"></div>
+                <div><label class="ml">VALOR</label><input type="color" id="top1cfg-valuecolor" value="#e8e8ff"></div>
+                <div><label class="ml">BORDE VALOR</label><input type="color" id="top1cfg-valuestroke" value="#000000"></div>
+                <div><label class="ml">MONEDA</label><input type="color" id="top1cfg-coincolor" value="#ffd700"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="top1cfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Contador de meta -->
         <div id="gctConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -801,6 +835,8 @@
                 <div><label class="ml">COLOR NÚMERO</label><input type="color" id="tlkcfg-accent" value="#ffffff"></div>
                 <div><label class="ml">FONDO FILA</label><input type="color" id="tlkcfg-rowbg" value="#0c1c26"></div>
               </div>
+              <label class="ml">FUENTE</label>
+              <select id="tlkcfg-font" class="cfg-font"></select>
               <div class="cfg-checks">
                 <label class="switch-row plain"><input type="checkbox" id="tlkcfg-transparent"> <span>Fondo transparente</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tlkcfg-rainbow" checked> <span>Nombres arcoíris</span></label>
@@ -826,6 +862,8 @@
                 <div><label class="ml">COLOR NÚMERO</label><input type="color" id="tdmcfg-accent" value="#ffe08a"></div>
                 <div><label class="ml">FONDO FILA</label><input type="color" id="tdmcfg-rowbg" value="#0c1c26"></div>
               </div>
+              <label class="ml">FUENTE</label>
+              <select id="tdmcfg-font" class="cfg-font"></select>
               <div class="cfg-checks">
                 <label class="switch-row plain"><input type="checkbox" id="tdmcfg-transparent"> <span>Fondo transparente</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tdmcfg-rainbow" checked> <span>Nombres arcoíris</span></label>
@@ -850,6 +888,8 @@
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tllcfg-scale" min="60" max="140" value="100"></div>
                 <div><label class="ml">COLOR NÚMERO</label><input type="color" id="tllcfg-accent" value="#f4f4f5"></div>
               </div>
+              <label class="ml">FUENTE</label>
+              <select id="tllcfg-font" class="cfg-font"></select>
               <div class="cfg-checks">
                 <label class="switch-row plain"><input type="checkbox" id="tllcfg-transparent" checked> <span>Fondo transparente</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tllcfg-rainbow" checked> <span>Nombres arcoíris</span></label>
@@ -874,6 +914,8 @@
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tdlcfg-scale" min="60" max="140" value="100"></div>
                 <div><label class="ml">COLOR NÚMERO</label><input type="color" id="tdlcfg-accent" value="#ffe08a"></div>
               </div>
+              <label class="ml">FUENTE</label>
+              <select id="tdlcfg-font" class="cfg-font"></select>
               <div class="cfg-checks">
                 <label class="switch-row plain"><input type="checkbox" id="tdlcfg-transparent" checked> <span>Fondo transparente</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tdlcfg-rainbow" checked> <span>Nombres arcoíris</span></label>
@@ -1718,6 +1760,28 @@
               </div>
             </div>
 
+            <!-- Tarjeta PRO: Top 1 Donador (MVP) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="top1-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="top1-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="top1-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="top1-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">👑 Top 1 Donador (MVP)</h3>
+              <p class="ovpro-desc">Muestra al que más monedas ha regalado en la sesión con un retrato estilo MVP: corona, aura dorada y monedas flotantes. Se reinicia al conectar al live.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/top1.html">/top1.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="top1-preview" src="/top1.html?embed=1" title="Vista previa top 1 donador"></iframe>
+              </div>
+            </div>
+
           </div>
 
           <!-- Metas overlays -->
@@ -1912,6 +1976,7 @@
 
             </div>
           </div>
+
         </section>
 
         <!-- ===== VISTA: CHAT TTS ===== -->
@@ -2354,7 +2419,7 @@
             </div>
             <div class="field">
               <label>Enlace de descarga del instalador (.exe)</label>
-              <input type="text" id="appver-url" placeholder="https://.../Hokey Live Setup 1.0.7.exe">
+              <input type="text" id="appver-url" placeholder="https://.../Livecoins Setup 1.0.7.exe">
             </div>
             <div class="field">
               <label>Notas (qué hay de nuevo)</label>

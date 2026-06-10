@@ -57,7 +57,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -2813,6 +2813,17 @@ const STYLE_OVERLAYS = [
       'tgfcfg-tc1': 'tc1', 'tgfcfg-tc2': 'tc2', 'tgfcfg-tc3': 'tc3', 'tgfcfg-namecolor': 'nameColor', 'tgfcfg-valuecolor': 'valueColor', 'tgfcfg-namestroke': 'nameStroke', 'tgfcfg-valuestroke': 'valueStroke' },
   }),
   setupStyleOverlay({
+    kind: 'top1', settingsKey: 'top1', previewId: 'top1-preview',
+    btnTest: 'top1-test', btnReset: 'top1-reset', btnConfig: 'top1-config',
+    modalId: 'top1ConfigModal', closeId: 'top1cfg-close', saveId: 'top1cfg-save',
+    testAction: 'testTop1', resetAction: 'resetTop1',
+    map: { 'top1cfg-title': 'headerTitle', 'top1cfg-coinlabel': 'coinLabel', 'top1cfg-font': 'font', 'top1cfg-rainbow': 'headerRainbow',
+      'top1cfg-showheader': 'showHeader', 'top1cfg-showcrown': 'showCrown', 'top1cfg-showfx': 'showFx',
+      'top1cfg-hc1': 'hc1', 'top1cfg-hc2': 'hc2', 'top1cfg-hc3': 'hc3',
+      'top1cfg-ng1': 'ng1', 'top1cfg-ng2': 'ng2', 'top1cfg-ng3': 'ng3',
+      'top1cfg-valuecolor': 'valueColor', 'top1cfg-valuestroke': 'valueStroke', 'top1cfg-coincolor': 'coinColor' },
+  }),
+  setupStyleOverlay({
     kind: 'gcounter', settingsKey: 'giftCounter', previewId: 'gct-preview',
     btnTest: 'gct-test', btnReset: 'gct-reset', btnConfig: 'gct-config',
     modalId: 'gctConfigModal', closeId: 'gctcfg-close', saveId: 'gctcfg-save',
@@ -2862,7 +2873,7 @@ const STYLE_OVERLAYS = [
     btnTest: 'tlk-test', btnReset: 'tlk-reset', btnConfig: 'tlk-config',
     modalId: 'tlkConfigModal', closeId: 'tlkcfg-close', saveId: 'tlkcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
-    map: { 'tlkcfg-rows': 'rows', 'tlkcfg-scale': 'scale', 'tlkcfg-accent': 'accent', 'tlkcfg-rowbg': 'rowBg',
+    map: { 'tlkcfg-rows': 'rows', 'tlkcfg-scale': 'scale', 'tlkcfg-accent': 'accent', 'tlkcfg-rowbg': 'rowBg', 'tlkcfg-font': 'font',
       'tlkcfg-transparent': 'transparent', 'tlkcfg-rainbow': 'nameRainbow', 'tlkcfg-lines': 'lines', 'tlkcfg-shadows': 'shadows' },
     types: { rows: 'int', scale: 'int' },
   }),
@@ -2871,7 +2882,7 @@ const STYLE_OVERLAYS = [
     btnTest: 'tdm-test', btnReset: 'tdm-reset', btnConfig: 'tdm-config',
     modalId: 'tdmConfigModal', closeId: 'tdmcfg-close', saveId: 'tdmcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
-    map: { 'tdmcfg-rows': 'rows', 'tdmcfg-scale': 'scale', 'tdmcfg-accent': 'accent', 'tdmcfg-rowbg': 'rowBg',
+    map: { 'tdmcfg-rows': 'rows', 'tdmcfg-scale': 'scale', 'tdmcfg-accent': 'accent', 'tdmcfg-rowbg': 'rowBg', 'tdmcfg-font': 'font',
       'tdmcfg-transparent': 'transparent', 'tdmcfg-rainbow': 'nameRainbow', 'tdmcfg-lines': 'lines', 'tdmcfg-shadows': 'shadows' },
     types: { rows: 'int', scale: 'int' },
   }),
@@ -2880,7 +2891,7 @@ const STYLE_OVERLAYS = [
     btnTest: 'tll-test', btnReset: 'tll-reset', btnConfig: 'tll-config',
     modalId: 'tllConfigModal', closeId: 'tllcfg-close', saveId: 'tllcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
-    map: { 'tllcfg-rows': 'rows', 'tllcfg-scale': 'scale', 'tllcfg-accent': 'accent',
+    map: { 'tllcfg-rows': 'rows', 'tllcfg-scale': 'scale', 'tllcfg-accent': 'accent', 'tllcfg-font': 'font',
       'tllcfg-transparent': 'transparent', 'tllcfg-rainbow': 'nameRainbow', 'tllcfg-lines': 'lines', 'tllcfg-shadows': 'shadows' },
     types: { rows: 'int', scale: 'int' },
   }),
@@ -2889,7 +2900,7 @@ const STYLE_OVERLAYS = [
     btnTest: 'tdl-test', btnReset: 'tdl-reset', btnConfig: 'tdl-config',
     modalId: 'tdlConfigModal', closeId: 'tdlcfg-close', saveId: 'tdlcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
-    map: { 'tdlcfg-rows': 'rows', 'tdlcfg-scale': 'scale', 'tdlcfg-accent': 'accent',
+    map: { 'tdlcfg-rows': 'rows', 'tdlcfg-scale': 'scale', 'tdlcfg-accent': 'accent', 'tdlcfg-font': 'font',
       'tdlcfg-transparent': 'transparent', 'tdlcfg-rainbow': 'nameRainbow', 'tdlcfg-lines': 'lines', 'tdlcfg-shadows': 'shadows' },
     types: { rows: 'int', scale: 'int' },
   }),

@@ -1,5 +1,5 @@
 {
-  "name": "hokey-live",
+  "name": "livecoins",
   "version": "1.0.0",
   "description": "Panel ligero estilo TikFinity para eventos de TikTok LIVE (chat, regalos, likes, follows, shares) con overlay para OBS.",
   "type": "module",

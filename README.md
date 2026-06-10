@@ -1,4 +1,4 @@
-# 📡 Hokey Live — Panel ligero estilo TikFinity
+# 📡 Livecoins — Panel ligero estilo TikFinity
 
 Panel web para ver en tiempo real los eventos de un **TikTok LIVE**: chat, regalos 🎁,
 likes ❤️, diamantes 💎, follows, shares y entradas. Incluye un **overlay para OBS**

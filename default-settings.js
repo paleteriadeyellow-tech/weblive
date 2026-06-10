@@ -183,6 +183,16 @@ export const DEFAULT_SETTINGS = {
       // { giftName, giftImage, customText, textSide }
     ],
   },
+  // Overlay Top 1 Donador (MVP de la sesión: quien más monedas regala)
+  top1: {
+    headerTitle: 'MVP: Top 1 Donador',
+    headerRainbow: false,
+    hc1: '#22d3ee', hc2: '#06b6d4', hc3: '#2dd4bf',
+    ng1: '#fffef5', ng2: '#ffe066', ng3: '#daa520',
+    valueColor: '#e8e8ff', valueStroke: '#000000', coinColor: '#ffd700',
+    coinLabel: '', font: 'inter',
+    showHeader: true, showCrown: true, showFx: true,
+  },
   // Overlay Mejor regalo (top único por monedas)
   topGift: {
     title: 'MEJOR REGALO',
@@ -231,10 +241,10 @@ export const DEFAULT_SETTINGS = {
     sniper: false, slowReveal: false, font: 'inter',
   },
   // Rankings Likes / Diamantes (bandas y lista)
-  toplikesRank: { rows: 5, accent: '#ffffff', rowBg: '#0c1c26', scale: 100, transparent: false, nameRainbow: true, lines: true, shadows: true },
-  topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, transparent: false, nameRainbow: true, lines: true, shadows: true },
-  toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, transparent: true, nameRainbow: true, lines: false, shadows: false },
-  topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, transparent: true, nameRainbow: true, lines: false, shadows: false },
+  toplikesRank: { rows: 5, accent: '#ffffff', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true },
+  topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true },
+  toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false },
+  topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false },
   // Overlay Barra de meta (Hype) — skins: default | meta2 | meta3 | meta4
   hypeBar: {
     skin: 'default', goalKind: 'hype', title: '', meta: 100, whenReach: 'increase', scale: 100,

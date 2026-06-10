@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Overlay — Ranking likes (lista)</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Cinzel:wght@700;900&family=Fredoka:wght@600;700&family=Inter:wght@500;600;700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
     * { box-sizing: border-box; }
-    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; color: #fff; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif); color: #fff; }
     .widget { width: 360px; max-width: 96vw; transform: scale(var(--ol-scale, 1)); transform-origin: top center; }
     .list { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; }
     .row { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; min-height: 56px; }
@@ -47,7 +47,7 @@
     RankingOverlay.init({
       kind: 'toplikeslist', settingsKey: 'toplikesList', rank: 'toplikeslist',
       metric: 'likes', icon: '❤️', style: 'lista',
-      defaults: { rows: 9, accent: '#f4f4f5', scale: 100, transparent: true, nameRainbow: true, lines: false, shadows: false },
+      defaults: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false },
       baseW: 360,
     });
   </script>
