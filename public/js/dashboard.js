@@ -1408,6 +1408,14 @@ $('vid-librefresh').onclick = () => loadLocalVideos();
 $('vid-libq').addEventListener('input', () => renderLocalVideos($('vid-libq').value.trim()));
 
 function openVideoLib() {
+  // Ajusta los textos del modal según la carpeta (Videos vs Batallas).
+  const folder = libTarget === 'ba' ? 'public/video/batalla' : 'public/video';
+  const sub = document.querySelector('#videoLibModal .vidlib-sub');
+  if (sub) sub.textContent = libTarget === 'ba'
+    ? 'Selecciona un video de la carpeta de batallas (vista previa vertical)'
+    : 'Selecciona un video de la carpeta (vista previa vertical)';
+  const credit = document.querySelector('#videoLibModal .modal-foot .credit');
+  if (credit) credit.innerHTML = `Videos de la carpeta <code>${folder}</code>.`;
   $('videoLibModal').classList.remove('hidden');
   loadLocalVideos();
 }
@@ -1425,13 +1433,15 @@ const isImageFile = (u) => /\.(gif|png|jpe?g|webp)(\?|$)/i.test(u || '');
 async function loadLocalVideos() {
   const box = $('vid-libgrid');
   box.innerHTML = '<div class="empty">Cargando…</div>';
+  // En la pestaña Batallas mostramos la carpeta «video/batalla»; en Videos, «video».
+  const endpoint = libTarget === 'ba' ? '/api/local-videos-batalla' : '/api/local-videos';
   try {
-    const res = await fetch('/api/local-videos');
+    const res = await fetch(endpoint);
     const data = await res.json();
     localVideos = data.results || [];
     renderLocalVideos($('vid-libq').value.trim());
   } catch {
-    box.innerHTML = '<div class="empty">No se pudo leer la carpeta «video»</div>';
+    box.innerHTML = '<div class="empty">No se pudo leer la carpeta de videos</div>';
   }
 }
 
@@ -1440,9 +1450,10 @@ function renderLocalVideos(filter) {
   const f = (filter || '').toLowerCase();
   const list = f ? localVideos.filter((v) => v.name.toLowerCase().includes(f)) : localVideos;
   if (!list.length) {
+    const folder = libTarget === 'ba' ? 'video/batalla' : 'video';
     box.innerHTML = localVideos.length
       ? '<div class="empty">Ningún video coincide</div>'
-      : '<div class="empty">No hay videos en la carpeta «video».<br>Copia tus .mp4 ahí y pulsa ↻</div>';
+      : `<div class="empty">No hay videos en la carpeta «${folder}».<br>Copia tus .mp4 ahí y pulsa ↻</div>`;
     return;
   }
   const niceName = (n) => n.replace(/\.[^.]+$/, '');

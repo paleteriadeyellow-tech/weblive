@@ -1,0 +1,3 @@
+Coloca aquí los videos AI para la pestaña BATALLAS (.mp4, .webm, .mov, .gif, etc.).
+Estos videos aparecerán al pulsar "Videos AI" dentro de la pestaña Batallas.
+La pestaña Videos normal sigue usando la carpeta superior (public/video).

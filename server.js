@@ -118,6 +118,9 @@ const AUDIOS_DIR = path.join(__dirname, 'public', 'audios');
 fs.mkdirSync(AUDIOS_DIR, { recursive: true });
 const VIDEOS_DIR = path.join(__dirname, 'public', 'video');
 fs.mkdirSync(VIDEOS_DIR, { recursive: true });
+// Carpeta dedicada para los videos de la pestaña Batallas (videos AI de batalla).
+const BATALLA_VIDEOS_DIR = path.join(VIDEOS_DIR, 'batalla');
+fs.mkdirSync(BATALLA_VIDEOS_DIR, { recursive: true });
 
 const app = express();
 
@@ -372,13 +375,27 @@ app.get('/api/local-sounds', (_req, res) => {
 });
 
 app.get('/api/local-videos', (_req, res) => {
-  fs.readdir(VIDEOS_DIR, (err, files) => {
+  fs.readdir(VIDEOS_DIR, { withFileTypes: true }, (err, entries) => {
+    if (err) return res.json({ results: [] });
+    const exts = ['.mp4', '.webm', '.mov', '.mkv', '.gif', '.png', '.jpg', '.jpeg'];
+    const results = entries
+      .filter((e) => e.isFile() && exts.includes(path.extname(e.name).toLowerCase()))
+      .map((e) => e.name)
+      .sort((a, b) => a.localeCompare(b))
+      .map((f) => ({ name: f, url: '/video/' + encodeURIComponent(f) }));
+    res.json({ results });
+  });
+});
+
+// Videos de la carpeta «video/batalla» (para la pestaña Batallas).
+app.get('/api/local-videos-batalla', (_req, res) => {
+  fs.readdir(BATALLA_VIDEOS_DIR, (err, files) => {
     if (err) return res.json({ results: [] });
     const exts = ['.mp4', '.webm', '.mov', '.mkv', '.gif', '.png', '.jpg', '.jpeg'];
     const results = files
       .filter((f) => exts.includes(path.extname(f).toLowerCase()))
       .sort((a, b) => a.localeCompare(b))
-      .map((f) => ({ name: f, url: '/video/' + encodeURIComponent(f) }));
+      .map((f) => ({ name: f, url: '/video/batalla/' + encodeURIComponent(f) }));
     res.json({ results });
   });
 });
