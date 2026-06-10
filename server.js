@@ -159,6 +159,7 @@ app.get('/api/me', (req, res) => {
     isAdmin: !!user.isAdmin,
     active: isUserActive(user),
     plan: caps.plan,
+    premiumUntil: user.premiumUntil || 0,
     caps: { limits: caps.limits, features: caps.features },
   });
 });
