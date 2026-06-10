@@ -2341,6 +2341,31 @@
               <button class="btn primary" id="plans-save">Guardar planes</button>
             </div>
           </div>
+
+          <!-- Publicar actualización de la app de escritorio (.exe) -->
+          <div class="settings-card plans-card">
+            <div class="tts-head">
+              <h3>Actualización de la app (.exe)</h3>
+              <span class="tts-sub">Avisa a los usuarios de escritorio para que actualicen</span>
+            </div>
+            <div class="field">
+              <label>Versión nueva (ej. 1.0.7)</label>
+              <input type="text" id="appver-version" placeholder="1.0.7">
+            </div>
+            <div class="field">
+              <label>Enlace de descarga del instalador (.exe)</label>
+              <input type="text" id="appver-url" placeholder="https://.../Hokey Live Setup 1.0.7.exe">
+            </div>
+            <div class="field">
+              <label>Notas (qué hay de nuevo)</label>
+              <textarea id="appver-notes" rows="2" placeholder="Mejoras y correcciones"></textarea>
+            </div>
+            <label class="switch-row plain"><input type="checkbox" id="appver-mandatory"> <span>Actualización obligatoria (no se puede posponer)</span></label>
+            <div class="plans-actions">
+              <span id="appver-status" class="tts-sub"></span>
+              <button class="btn primary" id="appver-save">Publicar actualización</button>
+            </div>
+          </div>
         </section>
       </main>
     </div>

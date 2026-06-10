@@ -271,6 +271,37 @@ app.post('/api/admin/plans', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true, config });
 });
 
+/* ----------- Versión publicada de la app de escritorio (.exe) ----------- */
+// El admin publica aquí la versión más reciente + enlace de descarga. La app .exe
+// consulta GET /api/app-version al arrancar; si hay una versión mayor, avisa al
+// usuario y (al aceptar) descarga e instala el nuevo instalador.
+const APP_VERSION_FILE = path.join(DATA_DIR, 'appversion.json');
+function readAppVersion() {
+  try { return JSON.parse(fs.readFileSync(APP_VERSION_FILE, 'utf8')); }
+  catch { return { version: '', url: '', notes: '', mandatory: false, updatedAt: 0 }; }
+}
+app.get('/api/app-version', (_req, res) => {
+  res.json(readAppVersion());
+});
+app.post('/api/admin/app-version', express.json(), requireAdmin, (req, res) => {
+  const b = req.body || {};
+  const data = {
+    version: String(b.version || '').trim(),
+    url: String(b.url || '').trim(),
+    notes: String(b.notes || '').trim(),
+    mandatory: !!b.mandatory,
+    updatedAt: Date.now(),
+  };
+  try {
+    const tmp = APP_VERSION_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+    fs.renameSync(tmp, APP_VERSION_FILE);
+  } catch (e) {
+    return res.status(500).json({ error: 'No se pudo guardar.' });
+  }
+  res.json({ ok: true, ...data });
+});
+
 /* ------------------- Protección básica (disuasión copia) ------------------- */
 // Inyecta protect.js en todo HTML servido (panel + overlays). NO es seguridad
 // real: solo dificulta la copia casual (clic derecho, F12, ver fuente…).

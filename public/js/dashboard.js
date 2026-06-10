@@ -639,7 +639,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
     $(`view-${btn.dataset.view}`).classList.add('active');
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
   };
@@ -809,6 +809,51 @@ async function loadPlans() {
     editor.innerHTML = '<p class="tts-sub">Error al cargar planes.</p>';
   }
 }
+
+/* ---- Publicar versión de la app de escritorio (.exe) ---- */
+async function loadAppVersion() {
+  const verEl = document.getElementById('appver-version');
+  if (!verEl) return;
+  try {
+    const r = await fetch('/api/app-version');
+    if (!r.ok) return;
+    const d = await r.json();
+    verEl.value = d.version || '';
+    const u = document.getElementById('appver-url'); if (u) u.value = d.url || '';
+    const n = document.getElementById('appver-notes'); if (n) n.value = d.notes || '';
+    const m = document.getElementById('appver-mandatory'); if (m) m.checked = !!d.mandatory;
+  } catch {}
+}
+
+(function setupAppVersionPublish() {
+  const btn = document.getElementById('appver-save');
+  if (!btn) return;
+  btn.onclick = async () => {
+    const status = document.getElementById('appver-status');
+    const body = {
+      version: (document.getElementById('appver-version')?.value || '').trim(),
+      url: (document.getElementById('appver-url')?.value || '').trim(),
+      notes: (document.getElementById('appver-notes')?.value || '').trim(),
+      mandatory: !!document.getElementById('appver-mandatory')?.checked,
+    };
+    if (!body.version) { if (status) status.textContent = 'Escribe la versión.'; return; }
+    if (!body.url) { if (status) status.textContent = 'Escribe el enlace de descarga.'; return; }
+    btn.disabled = true;
+    if (status) status.textContent = 'Publicando…';
+    try {
+      const r = await fetch('/api/admin/app-version', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (status) status.textContent = r.ok ? `Publicada la versión ${d.version}.` : (d.error || 'No se pudo publicar.');
+    } catch {
+      if (status) status.textContent = 'Error de conexión.';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+})();
 
 function renderPlansEditor() {
   const editor = document.getElementById('plans-editor');
