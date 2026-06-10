@@ -44,6 +44,8 @@ export const CAPABILITIES = {
     { key: 'ov_pelotas', label: 'Pelotas de fans', path: '/pelotas.html' },
     { key: 'ov_topdonor', label: 'Top donador semanal', path: '/topdonor.html' },
     { key: 'ov_gcounter', label: 'Contador de meta', path: '/gcounter.html' },
+    { key: 'ov_winscounter', label: 'Contador de victorias', path: '/contador-wins.html' },
+    { key: 'ov_winscountergamer', label: 'Contador de victorias (Gamer HUD)', path: '/contador-wins-gamer.html' },
     { key: 'ov_giftvs', label: 'Gift VS', path: '/giftvs.html' },
     { key: 'ov_giftseq', label: 'Gift Sequence', path: '/giftseq.html' },
     { key: 'ov_mejorregalo', label: 'Mejor regalo', path: '/mejorregalo.html' },
