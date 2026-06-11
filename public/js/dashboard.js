@@ -97,6 +97,7 @@ async function loadMe() {
 // Mapa overlay path -> clave de capacidad (debe coincidir con plans.js).
 const OVERLAY_CAP = {
   '/join-live.html': 'ov_joinlive', '/overlay.html': 'ov_alertvideo',
+  '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
   '/ruleta.html': 'ov_ruleta',
@@ -183,7 +184,7 @@ const CAP_LABELS = {
   tab_alertas: 'Alertas sonoras', tab_videos: 'Videos', tab_batallas: 'Batallas PK',
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
   // overlays
-  ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_jarron: 'Jarrón',
+  ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_ruleta: 'Ruleta / sorteo', ov_topdonor: 'Top donador semanal',
   ov_gcounter: 'Contador de meta', ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
@@ -197,7 +198,7 @@ const CAP_LABELS = {
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer',
   'tts_tiktok',
-  'ov_joinlive', 'ov_alertvideo', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
+  'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
   'ov_gcounter', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer',
@@ -1363,6 +1364,7 @@ function setVidEventUI(value) {
   $('vid-likeextra').hidden = value !== 'likeGlobal';
   $('vid-emoteextra').hidden = value !== 'emote';
   $('vid-cmdextra').hidden = value !== 'chatCommand';
+  $('vid-userextra').hidden = value !== 'chatCommand' && value !== 'firstMessage';
 }
 
 function openVidModal(v = null) {
@@ -1385,6 +1387,7 @@ function openVidModal(v = null) {
   $('vid-emoteid').value = v?.emoteId || '';
   updateEmotePickBtn('vid');
   $('vid-command').value = v?.command || '';
+  $('vid-user').value = v?.user || '';
   $('vid-vol').value = v?.volume ?? 100;
   $('vid-screen').value = v?.screen || 1;
   $('vid-fname').textContent = v?.fileName || 'Ningún archivo';
@@ -1538,6 +1541,7 @@ $('vid-save').onclick = () => {
     emoteId: ev === 'emote' ? $('vid-emoteid').value.trim() : '',
     emoteImage: ev === 'emote' ? emoteImgById($('vid-emoteid').value.trim()) : '',
     command: ev === 'chatCommand' ? $('vid-command').value.trim() : '',
+    user: (ev === 'chatCommand' || ev === 'firstMessage') ? $('vid-user').value.trim().replace(/^@/, '') : '',
     url: vidPending.url,
     fileName: vidPending.name || 'video',
     volume: +$('vid-vol').value,
@@ -2235,6 +2239,8 @@ const DEFAULT_JAR_SIZES = [
 
 // Configuración de cada overlay tipo "bote" (mismo comportamiento, distinta tarjeta)
 const POT_OVERLAYS = {
+  perrito: { previewId: 'perr-preview', testAction: 'testPerrito', resetAction: 'resetPerrito',
+             btnTest: 'perr-test', btnReset: 'perr-reset', btnConfig: 'perr-config', copyBtnIdx: 0 },
   jarron: { previewId: 'jar-preview', testAction: 'testJarron', resetAction: 'resetJarron',
             btnTest: 'jar-test', btnReset: 'jar-reset', btnConfig: 'jar-config', copyBtnIdx: 0 },
   vaquita: { previewId: 'vaq-preview', testAction: 'testVaquita', resetAction: 'resetVaquita',
@@ -2294,6 +2300,7 @@ function openPotConfig(target) {
   const titles = {
     vaquita: '🐮 Configurar — Vaquita (bote regalos)',
     marranito: '🐷 Configurar — Marranito (bote regalos)',
+    perrito: '🐶 Configurar — Perrito (bote regalos)',
     jarron: '⚙️ Configurar — Jarrón (bote regalos)',
   };
   $('jarcfg-title').textContent = titles[target] || titles.jarron;

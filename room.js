@@ -706,6 +706,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (eventType === 'chatCommand') {
         if (!matchesCommand(v.command, info.comment)) continue;
       }
+      // Filtro por usuario (opcional) para comandos de chat y primer mensaje.
+      if (eventType === 'chatCommand' || eventType === 'firstMessage') {
+        const want = String(v.user || '').replace(/^@/, '').trim().toLowerCase();
+        if (want) {
+          const u = String(info.username || '').toLowerCase();
+          const n = String(info.nickname || '').toLowerCase();
+          if (want !== u && want !== n) continue;
+        }
+      }
       const scr = Number(v.screen) || 1;
       broadcast('media', { id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
     }
@@ -1031,16 +1040,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (Array.isArray(data.emotes)) {
         for (const se of data.emotes) rememberEmote(se?.emote?.emoteId, se?.emote?.image);
       }
-      triggerVideos('chatCommand', { comment });
-      triggerSoundAlerts('chatCommand', { comment });
-      handleChatCommands(comment, baseUser(data.user || data));
-      rouletteFromChat(baseUser(data.user || data), comment);
+      const chatUser = baseUser(data.user || data);
+      const chatInfo = { comment, username: chatUser.uniqueId, nickname: chatUser.nickname };
+      triggerVideos('chatCommand', chatInfo);
+      triggerSoundAlerts('chatCommand', chatInfo);
+      handleChatCommands(comment, chatUser);
+      rouletteFromChat(chatUser, comment);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
       const uid = data.user?.uniqueId || data.user?.userId;
       if (uid && !chatSeenUsers.has(uid)) {
         chatSeenUsers.add(uid);
-        triggerVideos('firstMessage', {});
-        triggerSoundAlerts('firstMessage', {});
+        triggerVideos('firstMessage', chatInfo);
+        triggerSoundAlerts('firstMessage', chatInfo);
       }
     });
 
@@ -1359,6 +1370,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'panic':
         broadcast('panic', {});
+        break;
+      case 'testPerrito':
+        broadcast('perritoTest', { count: Number(data.count) || 200 });
+        break;
+      case 'resetPerrito':
+        broadcast('perritoReset', {});
         break;
       case 'testJarron':
         broadcast('jarronTest', { count: Number(data.count) || 200 });

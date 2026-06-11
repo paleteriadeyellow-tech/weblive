@@ -1155,6 +1155,9 @@
                 <div id="vid-cmdextra" class="gift-extra one" hidden>
                   <input type="text" id="vid-command" placeholder="Comando exacto (ej. !video)">
                 </div>
+                <div id="vid-userextra" class="gift-extra one" hidden>
+                  <input type="text" id="vid-user" placeholder="Solo este usuario (sin @) — opcional">
+                </div>
                 <div id="vid-giftanyextra" class="gift-extra" hidden>
                   <input type="number" id="vid-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
                   <input type="number" id="vid-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
@@ -1421,6 +1424,31 @@
 
           <!-- Gifts overlays -->
           <div class="subview" id="sub-gifts">
+            <!-- Tarjeta PRO: Perrito -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="perr-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="perr-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="perr-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="perr-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+
+              <h3 class="ovpro-title">🐶 Perrito (bote regalos)</h3>
+              <p class="ovpro-desc">Igual que el jarrón pero con forma de perrito: cada regalo cae dentro con física real, se acumula y <b>se desborda cuando se llena</b>. Usa <code>/jarron/perrito.png</code>.</p>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/perrito.html">/perrito.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="perr-preview" src="/perrito.html?embed=1" title="Vista previa perrito"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Contador de meta -->
             <div class="ovpro-card">
               <div class="ovpro-top">
@@ -2009,25 +2037,73 @@
                     <option value="en_us_stitch">Stitch</option>
                     <option value="en_us_stormtrooper">Stormtrooper</option>
                     <option value="en_us_rocket">Rocket</option>
+                    <option value="en_female_madam_leota">Madame Leota</option>
+                    <option value="en_male_ghosthost">Ghost Host</option>
+                    <option value="en_male_pirate">Pirata</option>
                   </optgroup>
-                  <optgroup label="Narrador / Estilos (inglés)">
-                    <option value="en_male_narration">Story Teller</option>
-                    <option value="en_male_funny">Wacky</option>
-                    <option value="en_female_emotional">Peaceful</option>
-                    <option value="en_male_cody">Serious</option>
-                    <option value="en_female_samc">Empathetic</option>
+                  <optgroup label="Personajes / Estilos (inglés)">
+                    <option value="en_male_narration">Story Teller (narrador)</option>
+                    <option value="en_male_funny">Wacky (gracioso)</option>
+                    <option value="en_female_emotional">Peaceful (tranquilo)</option>
+                    <option value="en_male_cody">Serious (serio)</option>
+                    <option value="en_female_samc">Empathetic (empático)</option>
+                    <option value="en_male_jomboy">Jomboy</option>
+                    <option value="en_female_betty">Bestie (Betty)</option>
+                    <option value="en_male_cupid">Cupido</option>
+                    <option value="en_female_grandma">Abuela</option>
+                    <option value="en_male_wizard">Mago</option>
+                    <option value="en_female_pansino">Varsity</option>
+                    <option value="en_male_trevor">Marty</option>
+                    <option value="en_male_ukbutler">Mayordomo (Mr. Meticulous)</option>
+                    <option value="en_male_ukneighbor">Lord Cringe</option>
+                    <option value="en_male_olantekkers">Olantekkers</option>
+                    <option value="en_male_grinch">Trickster (Grinch)</option>
+                    <option value="en_male_deadpool">Deadpool</option>
+                    <option value="en_male_jarvis">Alfred (Jarvis)</option>
+                    <option value="en_male_petercullen">Optimus (voz profunda)</option>
+                    <option value="en_female_makeup">Beauty Guru</option>
+                    <option value="en_female_richgirl">Bae</option>
+                    <option value="en_male_santa">Santa</option>
+                    <option value="en_male_santa_narration">Santa (narrador)</option>
+                    <option value="en_male_santa_effect">Santa (con efecto)</option>
                   </optgroup>
                   <optgroup label="Inglés">
                     <option value="en_us_001">Inglés US — Mujer 1</option>
+                    <option value="en_us_002">Inglés US — Mujer 2 (Jessie)</option>
                     <option value="en_us_006">Inglés US — Hombre 1</option>
                     <option value="en_us_007">Inglés US — Hombre 2</option>
                     <option value="en_us_009">Inglés US — Hombre 3</option>
-                    <option value="en_uk_001">Inglés UK — Hombre</option>
+                    <option value="en_us_010">Inglés US — Hombre 4</option>
+                    <option value="en_uk_001">Inglés UK — Hombre 1</option>
+                    <option value="en_uk_003">Inglés UK — Hombre 2</option>
                     <option value="en_au_001">Inglés AU — Mujer</option>
+                    <option value="en_au_002">Inglés AU — Hombre</option>
                   </optgroup>
                   <optgroup label="Español (sin traducción)">
                     <option value="es_002">Español — Hombre</option>
                     <option value="es_mx_002">Español MX — Hombre</option>
+                    <option value="es_male_m3">Español — Hombre 2</option>
+                    <option value="es_female_f6">Español — Mujer</option>
+                  </optgroup>
+                  <optgroup label="Otros idiomas">
+                    <option value="fr_001">Francés — Hombre 1</option>
+                    <option value="fr_002">Francés — Hombre 2</option>
+                    <option value="de_001">Alemán — Mujer</option>
+                    <option value="de_002">Alemán — Hombre</option>
+                    <option value="it_male_m18">Italiano — Hombre</option>
+                    <option value="id_001">Indonesio — Mujer</option>
+                    <option value="pt_br_005">Portugués BR — Hombre</option>
+                    <option value="br_001">Portugués BR — Mujer 1</option>
+                    <option value="br_003">Portugués BR — Mujer 2</option>
+                    <option value="br_004">Portugués BR — Mujer 3</option>
+                    <option value="br_005">Portugués BR — Hombre 2</option>
+                    <option value="jp_001">Japonés — Mujer 1</option>
+                    <option value="jp_003">Japonés — Mujer 2</option>
+                    <option value="jp_005">Japonés — Mujer 3</option>
+                    <option value="jp_006">Japonés — Hombre</option>
+                    <option value="kr_002">Coreano — Hombre 1</option>
+                    <option value="kr_003">Coreano — Mujer</option>
+                    <option value="kr_004">Coreano — Hombre 2</option>
                   </optgroup>
                   <optgroup label="Canto 🎵">
                     <option value="en_female_f08_salut_damour">Canto — Alto</option>
@@ -2036,6 +2112,11 @@
                     <option value="en_male_m03_sunshine_soon">Canto — Sunshine</option>
                     <option value="en_male_sing_funny_it_goes_up">Canto — Ardilla</option>
                     <option value="en_female_ht_f08_glorious">Canto — Glorioso</option>
+                    <option value="en_male_m2_xhxs_m03_silly">Canto — Divertido</option>
+                    <option value="en_female_ht_f08_wonderful_world">Canto — Dramático</option>
+                    <option value="en_male_sing_deep_jingle">Canto — Villancico</option>
+                    <option value="en_male_m03_classical">Canto — Clásico</option>
+                    <option value="en_female_f08_twinkle">Canto — Nana pop</option>
                   </optgroup>
                 </select>
                 <label class="switch-row plain" style="margin-top:8px;"><input type="checkbox" id="tts-tiktok-translate" checked> <span>Leer en <strong>español</strong> (traduce al inglés para las voces Disney)</span></label>

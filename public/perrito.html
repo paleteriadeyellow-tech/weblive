@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Perrito (regalos)</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
+
+    .stage {
+      width: 540px; height: 720px; position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%) scale(var(--tf-fit, 1)); transform-origin: center center;
+    }
+    .jar { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; height: 100%; pointer-events: none; }
+
+    /* Silueta del perrito detrás de los regalos (profundidad) */
+    .jar-glass-back {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: contain; object-position: center bottom; pointer-events: none; z-index: 1;
+    }
+
+    /* Regalos recortados a la silueta del perrito (máscara con su propia imagen) */
+    .jar-interior {
+      position: absolute; inset: 0; z-index: 3; isolation: isolate;
+      -webkit-mask-image: url('/jarron/perrito.png'); mask-image: url('/jarron/perrito.png');
+      -webkit-mask-size: contain; mask-size: contain;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+      -webkit-mask-position: center bottom; mask-position: center bottom;
+      -webkit-mask-origin: border-box; mask-origin: border-box; mask-mode: alpha;
+    }
+    .gifts-layer { position: absolute; inset: 0; overflow: visible; }
+    .gift-body {
+      position: absolute; top: 0; left: 0; object-fit: contain; pointer-events: none; will-change: transform;
+      transform: translate3d(-999px, -999px, 0); filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); transition: opacity .2s linear;
+    }
+
+    /* Tinte opcional: colorea el perrito con el color elegido */
+    .jar-tint {
+      position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: var(--jar-tint, transparent); mix-blend-mode: color;
+      opacity: var(--jar-tint-opacity, 0);
+      -webkit-mask-image: url('/jarron/perrito.png'); mask-image: url('/jarron/perrito.png');
+      -webkit-mask-size: contain; mask-size: contain;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+      -webkit-mask-position: center bottom; mask-position: center bottom;
+    }
+
+    /* Contador de diamantes debajo del perrito */
+    .coin-total {
+      position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 9px; z-index: 7; pointer-events: none;
+      padding: 7px 18px 7px 9px; border-radius: 999px;
+      background: rgba(16,18,26,.72); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+      box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+      font-family: 'Rubik', system-ui, sans-serif;
+    }
+    .coin-ico {
+      width: 28px; height: 28px; border-radius: 50%; flex: 0 0 auto;
+      background: radial-gradient(circle at 35% 30%, #ffe9a0 0%, #f7c948 45%, #e0a92e 72%, #b07d1a 100%);
+      box-shadow: inset 0 0 0 2px rgba(255,236,170,.45), inset 0 -3px 6px rgba(140,85,10,.5), 0 1px 3px rgba(0,0,0,.45);
+    }
+    .coin-num {
+      font-weight: 900; font-size: 26px; color: #ffd54a; letter-spacing: .02em;
+      -webkit-text-stroke: 1.5px rgba(60,45,15,.55); paint-order: stroke fill;
+      text-shadow: 0 2px 4px rgba(0,0,0,.4); font-variant-numeric: tabular-nums;
+      display: inline-block; transition: transform .12s ease;
+    }
+    .coin-num.bump { animation: coinbump .25s ease; }
+    @keyframes coinbump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="jar">
+      <img class="jar-glass-back" src="/jarron/perrito.png" alt="" draggable="false" />
+      <div class="jar-tint" id="jar-tint" aria-hidden="true"></div>
+      <div class="jar-interior" id="bowl">
+        <div class="gifts-layer" id="gifts-layer"></div>
+      </div>
+    </div>
+    <div class="coin-total" id="coin-total" aria-hidden="true">
+      <span class="coin-ico"></span>
+      <span class="coin-num" id="coin-num">0</span>
+    </div>
+  </div>
+
+  <script src="/js/matter.min.js"></script>
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isPreview = params.get('preview') === '1';
+    const isEmbed = params.get('embed') === '1'; // vista previa dentro del panel (fija)
+
+    // ---- Tinte (color del perrito) ----
+    function applyJarTint(color) {
+      const root = document.documentElement;
+      const c = String(color || '').trim();
+      if (!c || /^#?fff(fff)?$/i.test(c) || c === 'none' || c === 'transparent') {
+        root.style.removeProperty('--jar-tint');
+        root.style.removeProperty('--jar-tint-opacity');
+        return;
+      }
+      root.style.setProperty('--jar-tint', c.charAt(0) === '#' ? c : '#' + c);
+      root.style.setProperty('--jar-tint-opacity', '1');
+    }
+    applyJarTint(params.get('jc'));
+
+    // Escala para que el perrito se vea completo (sin recortes).
+    (function fit() {
+      function apply() {
+        const k = Math.min((innerWidth || 540) / 540, (innerHeight || 720) / 720) || 1;
+        document.documentElement.style.setProperty('--tf-fit', k);
+      }
+      apply(); addEventListener('resize', apply);
+    })();
+
+    // El PNG del perrito es de cristal: su interior es TRANSPARENTE y solo el
+    // contorno es opaco. Generamos una "silueta rellena" (flood-fill desde los
+    // bordes) que usamos para DOS cosas:
+    //   1) Como máscara, para que los regalos se vean dentro de todo el cuerpo.
+    //   2) Para crear paredes de colisión que siguen el contorno real del perro,
+    //      así los regalos chocan con el borde y NO se van a los huecos (vacío).
+    function buildPerritoShape() {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          const w = img.naturalWidth, h = img.naturalHeight;
+          if (!w || !h) return;
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          const ctx = cv.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const data = ctx.getImageData(0, 0, w, h).data;
+          const N = w * h, A = 24; // umbral de opacidad para detectar el contorno
+          const outside = new Uint8Array(N); // 1 = fondo exterior
+          const stack = [];
+          function push(x, y) {
+            if (x < 0 || y < 0 || x >= w || y >= h) return;
+            const i = y * w + x;
+            if (outside[i]) return;
+            if (data[i * 4 + 3] >= A) return; // el contorno opaco corta el relleno
+            outside[i] = 1; stack.push(i);
+          }
+          for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+          for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+          while (stack.length) {
+            const i = stack.pop(), x = i % w, y = (i / w) | 0;
+            push(x - 1, y); push(x + 1, y); push(x, y - 1); push(x, y + 1);
+          }
+          // --- Máscara rellena ---
+          const out = ctx.createImageData(w, h), od = out.data;
+          for (let i = 0; i < N; i++) {
+            const a = outside[i] ? 0 : 255; // opaco en todo lo que NO es fondo
+            od[i * 4] = 255; od[i * 4 + 1] = 255; od[i * 4 + 2] = 255; od[i * 4 + 3] = a;
+          }
+          ctx.putImageData(out, 0, 0);
+          const url = cv.toDataURL('image/png');
+          ['bowl', 'jar-tint'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.webkitMaskImage = 'url(' + url + ')';
+            el.style.maskImage = 'url(' + url + ')';
+          });
+
+          // --- Colisiones que siguen la silueta ---
+          // Mapeo de píxeles de la imagen (cuadrada) al stage: la imagen ocupa los
+          // 540px inferiores (IMG_TOP..720). Reducimos a una rejilla para no crear
+          // demasiados cuerpos.
+          const inAt = (px, py) => (px < 0 || py < 0 || px >= w || py >= h) ? 0 : (outside[py * w + px] ? 0 : 1);
+          const CELL = 9;
+          const gw = Math.ceil(w / CELL), gh = Math.ceil(h / CELL);
+          const ins = new Uint8Array(gw * gh);
+          for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+            const cx = Math.min(w - 1, gx * CELL + (CELL >> 1));
+            const cy = Math.min(h - 1, gy * CELL + (CELL >> 1));
+            ins[gy * gw + gx] = inAt(cx, cy);
+          }
+          const sX = (px) => (px / w) * IMG_SIZE;
+          const sY = (py) => IMG_TOP + (py / h) * IMG_SIZE;
+          const cw = sX(CELL), ch = sY(CELL) - IMG_TOP; // tamaño de celda en stage
+          const wallOptsS = { isStatic: true, friction: 0.5, restitution: 0.04 };
+          const bodies = [];
+          // Una celda EXTERIOR contigua a una INTERIOR se convierte en pared: forma
+          // un muro que abraza la silueta por fuera y contiene los regalos dentro.
+          for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+            if (ins[gy * gw + gx]) continue;
+            const i = gy * gw + gx;
+            const nb = (ins[i - 1] && gx > 0) || (ins[i + 1] && gx < gw - 1) ||
+                       (ins[i - gw] && gy > 0) || (ins[i + gw] && gy < gh - 1);
+            if (!nb) continue;
+            const px = gx * CELL + (CELL / 2), py = gy * CELL + (CELL / 2);
+            bodies.push(Bodies.rectangle(sX(px), sY(py), cw + 1, ch + 1, wallOptsS));
+          }
+          if (bodies.length) World.add(world, bodies);
+
+          // --- Punto de aparición: dentro del cuerpo, en la parte más ancha (torso) ---
+          // 1) Buscamos la fila con el tramo continuo más ancho => el torso.
+          let bestRow = -1, bestW = 0, bestL = 0, bestR = 0;
+          for (let gy = 0; gy < gh; gy++) {
+            let runStart = -1, bL = 0, bR = -1;
+            for (let gx = 0; gx <= gw; gx++) {
+              const on = gx < gw && ins[gy * gw + gx];
+              if (on) { if (runStart < 0) runStart = gx; }
+              else { if (runStart >= 0 && (gx - runStart) > (bR - bL)) { bL = runStart; bR = gx - 1; } runStart = -1; }
+            }
+            if (bR - bL > bestW) { bestW = bR - bL; bestRow = gy; bestL = bL; bestR = bR; }
+          }
+          if (bestRow >= 0) {
+            const midGx = Math.round((bestL + bestR) / 2);
+            // 2) Subimos por la columna central hasta el lomo para soltar desde arriba.
+            let topRow = bestRow;
+            while (topRow > 0 && ins[(topRow - 1) * gw + midGx]) topRow--;
+            SLOT_CX = sX(midGx * CELL + CELL / 2);
+            SLOT_HW = Math.max(20, sX((bestR - bestL) * CELL) * 0.30);
+            SPAWN_Y = sY((topRow + 2) * CELL);
+          }
+        } catch (e) { console.warn('[perrito] no se pudo generar la silueta/colisiones', e); }
+      };
+      img.src = '/jarron/perrito.png';
+    }
+
+    let FALLBACK_IMG = '/jarron/perrito.png';
+
+    // ---- Contador de diamantes (debajo del perrito) ----
+    const coinNumEl = document.getElementById('coin-num');
+    let totalDiamonds = 0;
+    function setDiamonds(n, bump) {
+      totalDiamonds = Math.max(0, Math.round(Number(n) || 0));
+      if (!coinNumEl) return;
+      coinNumEl.textContent = totalDiamonds.toLocaleString('es-ES');
+      if (bump) { coinNumEl.classList.remove('bump'); void coinNumEl.offsetWidth; coinNumEl.classList.add('bump'); }
+    }
+
+    // ---- Geometría del interior (stage 540×720; PNG cuadrado en los 540 inferiores) ----
+    const STAGE_W = 540, STAGE_H = 720, IMG_SIZE = 540, IMG_TOP = 180;
+    const artX = (p) => (p / 100) * IMG_SIZE;
+    const artY = (p) => IMG_TOP + (p / 100) * IMG_SIZE;
+    // Valores por defecto; la silueta real ajusta el spawn al cargar la imagen.
+    let SLOT_CX = artX(53), SLOT_HW = 46, SPAWN_Y = artY(38);
+    const JAR_CAPACITY = 140, HARD_CAP = 460;
+
+    const M = window.Matter;
+    if (!M) { console.warn('[perrito] Matter.js no disponible.'); return; }
+    const { Engine, World, Bodies, Body, Runner, Events } = M;
+
+    const engine = Engine.create();
+    engine.gravity.y = 0.8; engine.enableSleeping = true;
+    const world = engine.world;
+
+    // Límites de seguridad muy lejanos (por si algún regalo se escapa); la
+    // contención real la dan las colisiones generadas a partir de la silueta.
+    const WT = 60;
+    const wallOpts = { isStatic: true, friction: 0.42, restitution: 0.06 };
+    World.add(world, [
+      Bodies.rectangle(STAGE_W / 2, STAGE_H + 200, STAGE_W * 3, WT, wallOpts),
+      Bodies.rectangle(-260, STAGE_H / 2, WT, STAGE_H * 3, wallOpts),
+      Bodies.rectangle(STAGE_W + 260, STAGE_H / 2, WT, STAGE_H * 3, wallOpts),
+    ]);
+
+    // Genera la máscara rellena y las colisiones que siguen la silueta del perro.
+    buildPerritoShape();
+
+    const giftsLayer = document.getElementById('gifts-layer');
+    const gifts = [];
+    let spawnSeq = 0;
+
+    Runner.run(Runner.create(), engine);
+    Events.on(engine, 'afterUpdate', function () {
+      for (let i = 0; i < gifts.length; i++) {
+        const g = gifts[i];
+        if (!g.body.isSleeping) {
+          const v = g.body.velocity, sp = Math.hypot(v.x, v.y);
+          if (sp > 10) { const s = 10 / sp; Body.setVelocity(g.body, { x: v.x * s, y: v.y * s }); }
+        }
+        if (g.body.isSleeping && g.awakeSynced) continue;
+        const p = g.body.position, half = g.sizePx / 2;
+        g.img.style.transform = 'translate3d(' + (p.x - half).toFixed(1) + 'px,' + (p.y - half).toFixed(1) + 'px,0) rotate(' + g.body.angle.toFixed(3) + 'rad)';
+        g.awakeSynced = g.body.isSleeping;
+      }
+    });
+
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    function zIndexFromDiamonds(d, seq) {
+      const bump = seq % 18;
+      if (d >= 5000) return 900 + bump; if (d >= 1000) return 600 + bump;
+      if (d >= 100) return 250 + bump; if (d >= 30) return 90 + bump; return 30 + bump;
+    }
+
+    // Tabla de tamaños configurable: [{ t, sz }] de mayor a menor umbral.
+    let sizeTable = null;
+    function setSizeTable(raw) {
+      if (!Array.isArray(raw)) { sizeTable = null; return; }
+      const out = raw
+        .map((r) => ({ t: Number(r && r.t), sz: Number(r && r.sz) }))
+        .filter((r) => Number.isFinite(r.t) && Number.isFinite(r.sz) && r.sz > 0)
+        .sort((a, b) => b.t - a.t);
+      sizeTable = out.length ? out : null;
+    }
+    function sizeFromTable(d) {
+      if (!sizeTable) return null;
+      for (const row of sizeTable) {
+        if (d >= row.t) { const j = row.sz * 0.06; return Math.max(8, Math.min(200, row.sz + rnd(-j, j))); }
+      }
+      return sizeTable[sizeTable.length - 1].sz;
+    }
+    function giftSizeForFill(d) {
+      let base, maxPx = 40, shrink = 1;
+      const tbl = sizeFromTable(d);
+      if (tbl != null) { base = tbl; maxPx = Math.max(40, tbl + 8); }
+      else if (d >= 5000) { base = rnd(76, 92); maxPx = 92; shrink = 0.97; }
+      else if (d >= 1000) { base = rnd(50, 62); maxPx = 64; shrink = 0.95; }
+      else if (d >= 100) { base = rnd(38, 46); maxPx = 48; }
+      else if (d >= 30) { base = rnd(32, 40); maxPx = 42; }
+      else base = rnd(28, 36);
+      const fill = Math.min(1, gifts.length / JAR_CAPACITY);
+      if (fill > 0.5) base *= 0.94 * shrink;
+      if (fill > 0.75) base *= 0.9;
+      if (fill > 0.9) base *= 0.88;
+      return Math.round(Math.max(14, Math.min(maxPx, base)));
+    }
+
+    function removeGiftAt(i) {
+      const g = gifts[i]; if (!g) return;
+      try { World.remove(world, g.body); } catch {}
+      if (g.img && g.img.parentNode) g.img.parentNode.removeChild(g.img);
+      gifts.splice(i, 1);
+    }
+    function pruneJar() {
+      // Solo quitamos los que ya salieron de la pantalla (tras desbordarse).
+      for (let i = gifts.length - 1; i >= 0; i--) {
+        const g = gifts[i], p = g.body.position, r = g.sizePx / 2;
+        if ((p.y - r) > (STAGE_H + 120) || (p.x + r) < -220 || (p.x - r) > (STAGE_W + 220)) removeGiftAt(i);
+      }
+      if (gifts.length > HARD_CAP) {
+        const sorted = gifts.slice().sort((a, b) => a.body.position.y - b.body.position.y);
+        let toRemove = gifts.length - HARD_CAP;
+        for (let k = 0; k < sorted.length && toRemove > 0; k++) {
+          const idx = gifts.indexOf(sorted[k]);
+          if (idx !== -1) { removeGiftAt(idx); toRemove--; }
+        }
+      }
+    }
+    setInterval(pruneJar, 1300);
+
+    function addGiftBody(src, sizePx, diamonds, opts) {
+      if (!src) src = FALLBACK_IMG;
+      opts = opts || {};
+      // Radio de colisión un poco menor que el tamaño visual: las imágenes se
+      // solapan y rellenan los huecos para que no quede espacio vacío.
+      const r = Math.max(6, (sizePx / 2) * 0.86);
+      let x, y, vx;
+      if (opts.x != null) { x = opts.x; y = opts.y != null ? opts.y : SPAWN_Y; vx = 0; }
+      else { x = rnd(SLOT_CX - SLOT_HW, SLOT_CX + SLOT_HW); y = SPAWN_Y + rnd(-8, 8); vx = rnd(-1.3, 1.3); }
+      // Los regalos más grandes (más diamantes) pesan más: se hunden y compactan el montón.
+      const density = 0.0012 * (1 + Math.min(2.5, (diamonds || 0) / 1500));
+      const body = Bodies.circle(x, y, r, { density, restitution: 0.02, friction: 0.16, frictionStatic: 0.18, frictionAir: 0.012, sleepThreshold: 22 });
+      if (opts.angle != null) Body.setAngle(body, opts.angle);
+      if (!opts.settled) { Body.setVelocity(body, { x: vx, y: rnd(0.3, 1.2) }); Body.setAngularVelocity(body, rnd(-0.12, 0.12)); }
+      const img = document.createElement('img');
+      img.className = 'gift-body'; img.src = src; img.alt = ''; img.referrerPolicy = 'no-referrer';
+      img.style.width = sizePx + 'px'; img.style.height = sizePx + 'px';
+      img.style.zIndex = String(zIndexFromDiamonds(diamonds || 0, ++spawnSeq));
+      img.onerror = function () { this.onerror = null; this.src = FALLBACK_IMG; };
+      img.style.transform = 'translate3d(' + (x - r).toFixed(1) + 'px,' + (y - r).toFixed(1) + 'px,0) rotate(' + (opts.angle || 0).toFixed(3) + 'rad)';
+      giftsLayer.appendChild(img);
+      World.add(world, body);
+      gifts.push({ body, img, sizePx, awakeSynced: false });
+      // Cuenta las monedas conforme caen los regalos (no antes).
+      setDiamonds(totalDiamonds + (diamonds || 0), true);
+    }
+    function spawnMany(src, count, gap, diamonds) {
+      const n = Math.max(0, parseInt(count, 10) || 0);
+      if (n < 1 || !src) return;
+      gap = Math.max(70, gap || 150);
+      for (let i = 0; i < n; i++) (function (idx) {
+        setTimeout(() => addGiftBody(src, giftSizeForFill(diamonds || 0), diamonds || 0, {}), idx * gap);
+      })(i);
+    }
+    function clearJar() { for (let i = gifts.length - 1; i >= 0; i--) removeGiftAt(i); }
+
+    // ---- Catálogo de regalos (id -> imagen) ----
+    const giftImgById = new Map();
+    fetch('/api/gifts').then((r) => r.json()).then((d) => {
+      (d.results || []).forEach((g) => { if (g.image) giftImgById.set(String(g.id), g.image); });
+      const first = [...giftImgById.values()][0];
+      if (first) FALLBACK_IMG = first;
+    }).catch(() => {});
+
+    function resolveGiftImg(p) { return p.image || giftImgById.get(String(p.giftId)) || FALLBACK_IMG; }
+    function sampleImg() {
+      const arr = [...giftImgById.values()];
+      return arr.length ? arr[Math.floor(Math.random() * arr.length)] : FALLBACK_IMG;
+    }
+
+    // ---- WebSocket nativo del panel ----
+    let ws, reconnectTimer, fillTimer = null;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        const { type, payload } = msg;
+        if (type === 'gift') { if (!isEmbed) onGift(payload); }
+        else if (type === 'panic') clearJar();
+        else if (type === 'perritoTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
+        else if (type === 'perritoReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); } }
+        else if (type === 'settings') {
+          if (payload && payload.perrito) {
+            if (!params.get('jc')) applyJarTint(payload.perrito.tint);
+            if (payload.perrito.sizes) setSizeTable(payload.perrito.sizes);
+          }
+        }
+      };
+    }
+    function onGift(p) {
+      if (!p || p.streak) return;
+      const n = Math.min(99, Math.max(1, p.repeatCount || 1));
+      spawnMany(resolveGiftImg(p), n, 165, p.diamonds || 0);
+    }
+    connectWS();
+
+    function runFill(total) {
+      if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
+      clearJar(); setDiamonds(0);
+      let i = 0; const max = total || 200;
+      (function tick() {
+        if (i >= max) return;
+        const roll = Math.random();
+        const d = roll > 0.975 ? 8000 : roll > 0.9 ? 2200 : roll > 0.68 ? 180 : 1;
+        addGiftBody(sampleImg(), giftSizeForFill(d), d, {});
+        i++; fillTimer = setTimeout(tick, 55);
+      })();
+    }
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'perrito') return;
+      if (d.type === 'test') runFill(d.count || 200);
+      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); }
+      else if (d.type === 'config') {
+        if (d.tint !== undefined) applyJarTint(d.tint);
+        if (d.sizes !== undefined) setSizeTable(d.sizes);
+      }
+    });
+
+    // ---- Vista previa standalone (?preview=1): llena en bucle ----
+    if (isPreview) {
+      const demo = () => {
+        let i = 0; const total = 200; setDiamonds(0);
+        (function tick() {
+          if (i >= total) { setTimeout(() => { clearJar(); demo(); }, 6000); return; }
+          const roll = Math.random();
+          const d = roll > 0.975 ? 8000 : roll > 0.9 ? 2200 : roll > 0.68 ? 180 : 1;
+          addGiftBody(sampleImg(), giftSizeForFill(d), d, {});
+          i++; setTimeout(tick, 55);
+        })();
+      };
+      setTimeout(demo, 1200);
+    }
+  })();
+  </script>
+</body>
+</html>

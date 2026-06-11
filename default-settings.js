@@ -92,6 +92,17 @@ export const DEFAULT_SETTINGS = {
   // [{ id, name, giftName, giftId, minCount, url, fileName, volume, screen, enabled }]
   battleAlerts: [],
   battleAlertsEnabled: true,
+  // Overlay del perrito (mismos controles que el jarrón; se desborda al llenarse)
+  perrito: {
+    tint: '',
+    sizes: [
+      { t: 5000, sz: 88 },
+      { t: 1000, sz: 70 },
+      { t: 100, sz: 56 },
+      { t: 30, sz: 40 },
+      { t: 0, sz: 32 },
+    ],
+  },
   // Overlay del jarrón de regalos
   jarron: {
     tint: '', // color del cristal (vacío = transparente/normal)

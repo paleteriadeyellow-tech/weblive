@@ -39,6 +39,7 @@ export const CAPABILITIES = {
     { key: 'ov_joinlive', label: 'Join al live', path: '/join-live.html' },
     { key: 'ov_ruleta', label: 'Ruleta / sorteo', path: '/ruleta.html' },
     { key: 'ov_alertvideo', label: 'Alertas + Videos', path: '/overlay.html' },
+    { key: 'ov_perrito', label: 'Perrito', path: '/perrito.html' },
     { key: 'ov_jarron', label: 'Jarrón', path: '/jarron.html' },
     { key: 'ov_vaquita', label: 'Vaquita', path: '/vaquita.html' },
     { key: 'ov_marranito', label: 'Marranito', path: '/marranito.html' },
@@ -64,15 +65,20 @@ export const CAPABILITIES = {
     { key: 'ov_alertaseguidor', label: 'Alerta de nuevo seguidor', path: '/alerta-seguidor.html' },
     { key: 'ov_timer', label: 'Temporizador (overlay)', path: '/timer.html' },
   ],
+  // Minijuegos (pestaña "Juegos" del .exe). Se pueden bloquear como los overlays.
+  games: [
+    { key: 'game_minecraft', label: 'Juego: Minecraft' },
+    { key: 'game_roblox', label: 'Juego: Roblox' },
+  ],
   // Características sueltas.
   extras: [
     { key: 'tts_tiktok', label: 'Voces TikTok / Disney (TTS)' },
   ],
 };
 
-// Lista de todas las claves booleanas (tabs + overlays + extras).
+// Lista de todas las claves booleanas (tabs + overlays + games + extras).
 function allFeatureKeys() {
-  return [...CAPABILITIES.tabs, ...CAPABILITIES.overlays, ...CAPABILITIES.extras].map((c) => c.key);
+  return [...CAPABILITIES.tabs, ...CAPABILITIES.overlays, ...CAPABILITIES.games, ...CAPABILITIES.extras].map((c) => c.key);
 }
 function allLimitKeys() {
   return CAPABILITIES.limits.map((c) => c.key);
