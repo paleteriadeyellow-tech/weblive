@@ -411,12 +411,28 @@ function renderPlanPricing() {
   };
 }
 
-// Pone (o quita) una capa de bloqueo "Solo Premium" sobre la vista previa del overlay.
-// Los botones de arriba (Testear, Reset, etc.) siguen funcionando para que puedan ver la demo.
+// Texto que se muestra en lugar de la URL cuando el overlay no está en el plan.
+const OV_URL_MASK = '🔒 Disponible solo en Premium';
+
+// ¿La URL de este overlay está bloqueada para el plan actual? El admin nunca se bloquea.
+function isOverlayUrlLocked(code) {
+  if (window.IS_ADMIN) return false;
+  const base = String(code?.dataset?.path || '').split('?')[0];
+  const cap = OVERLAY_CAP[base];
+  return cap ? !capFeature(cap) : false;
+}
+
+// Pone (o quita) el bloqueo "Solo Premium" en una tarjeta de overlay. Cuando está
+// bloqueado: todo se ve en gris y NO se puede usar (ni copiar, ni configurar, ni ver
+// la URL); SOLO el botón "Testear" sigue activo para ver la demo.
 function setOverlayLock(card, locked) {
   const target = card.querySelector('.ovpro-preview') || card;
   target.classList.toggle('ov-locked', locked);
   card.classList.toggle('ov-locked-card', locked);
+  const code = card.querySelector('.ov-url');
+  if (code && code.dataset.path) {
+    code.textContent = locked ? OV_URL_MASK : roomUrl(code.dataset.path);
+  }
   let ov = target.querySelector('.ov-lock-overlay');
   if (locked) {
     if (!ov) {
@@ -498,12 +514,13 @@ function roomUrl(path) {
 // Refresca el texto y enlaces de todas las URLs de overlay ya pintadas.
 function refreshOverlayUrls() {
   document.querySelectorAll('.ov-url').forEach((code) => {
-    if (code.dataset.path) code.textContent = roomUrl(code.dataset.path);
+    if (!code.dataset.path) return;
+    code.textContent = isOverlayUrlLocked(code) ? OV_URL_MASK : roomUrl(code.dataset.path);
   });
   document.querySelectorAll('.overlay-item').forEach((item) => {
     const code = item.querySelector('.ov-url');
     const a = item.querySelector('a');
-    if (code && a && code.dataset.path) a.href = roomUrl(code.dataset.path);
+    if (code && a && code.dataset.path) a.href = isOverlayUrlLocked(code) ? '#' : roomUrl(code.dataset.path);
   });
 }
 
@@ -2204,6 +2221,7 @@ document.querySelectorAll('.overlay-item').forEach((item) => {
   const link = item.querySelector('a');
   if (link && !link.href) link.href = roomUrl(code.dataset.path);
   item.querySelector('.ov-copy').onclick = (e) => {
+    if (isOverlayUrlLocked(code)) { toast('Disponible solo en Premium ⭐', 'warn'); return; }
     navigator.clipboard?.writeText(roomUrl(code.dataset.path));
     e.target.textContent = '¡copiado!';
     setTimeout(() => (e.target.textContent = 'copiar'), 1200);
@@ -2230,6 +2248,7 @@ const POT_OVERLAYS = {
     const code = card.querySelector('.ov-url');
     code.textContent = roomUrl(code.dataset.path);
     card.querySelector('.ovpro-copy').onclick = (e) => {
+      if (isOverlayUrlLocked(code)) { toast('Disponible solo en Premium ⭐', 'warn'); return; }
       navigator.clipboard?.writeText(roomUrl(code.dataset.path));
       const t = e.target; t.textContent = '¡Copiado!';
       setTimeout(() => (t.textContent = 'Copiar enlace'), 1200);

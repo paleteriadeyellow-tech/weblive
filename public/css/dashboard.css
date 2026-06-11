@@ -1021,6 +1021,20 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .ov-lock-sub { margin-top: 4px; font-size: 12px; color: #c3ccde; max-width: 260px; line-height: 1.35; }
 .ov-lock-sub strong { color: #ffcf5c; }
 
+/* Overlay fuera del plan: TODO en gris e inutilizable (URL, copiar, configurar, controles)
+   excepto el botón "Testear" (.ovpro-btn.primary) y la vista previa para ver la demo. */
+.ovpro-card.ov-locked-card > *:not(.ovpro-top):not(.ovpro-preview) {
+  filter: grayscale(1); opacity: .42; pointer-events: none; user-select: none;
+}
+.ovpro-card.ov-locked-card .ovpro-actions .ovpro-btn:not(.primary) {
+  filter: grayscale(1); opacity: .4; pointer-events: none; cursor: not-allowed;
+}
+.ovpro-card.ov-locked-card .ov-url { font-style: italic; color: #ffcf5c; }
+.overlay-item.ov-locked-card { filter: grayscale(1); }
+.overlay-item.ov-locked-card .ov-url { font-style: italic; color: #ffcf5c; opacity: .9; }
+.overlay-item.ov-locked-card .ov-copy,
+.overlay-item.ov-locked-card a { pointer-events: none; opacity: .45; cursor: not-allowed; }
+
 /* Tarjetas de precios: Gratis y Premium */
 .plan-pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; align-items: stretch; }
 @media (max-width: 820px) { .plan-pricing { grid-template-columns: 1fr; } }
