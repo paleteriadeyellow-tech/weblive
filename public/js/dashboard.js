@@ -3270,6 +3270,8 @@ function applyTtsUI(t) {
   const val = (id, v) => { const el = $(id); if (el) el.value = v; };
   set('tts-enabled', t.enabled);
   set('tts-readname', t.readName);
+  set('tts-name-emojis', t.nameEmojis !== false);
+  syncTtsNameEmojisUI();
   val('tts-tiktok-voice', t.tiktokVoice || '');
   set('tts-tiktok-translate', t.tiktokTranslateEs !== false);
   val('tts-rate', t.rate ?? 1.2); const rv = $('tts-rate-val'); if (rv) rv.textContent = (+(t.rate ?? 1.2)).toFixed(1);
@@ -3507,6 +3509,13 @@ function syncTtsAllowUI() {
   });
 }
 
+// La opción "leer los emojis del nombre" solo tiene sentido si se lee el nombre.
+function syncTtsNameEmojisUI() {
+  const readEl = $('tts-readname');
+  const wrap = $('tts-name-emojis-wrap');
+  if (wrap) wrap.style.display = (readEl && readEl.checked) ? '' : 'none';
+}
+
 function ttsTriggerMatch(text) {
   const t = settings?.tts || {};
   const s = String(text || '').trim();
@@ -3623,7 +3632,16 @@ function ttsSpeak(p, force = false) {
     if ((ttsPoints[uid] || 0) < cost) return;
     ttsPoints[uid] -= cost;
   }
-  ttsSpeakText((t.readName ? `${speakEmojis(p.nickname)} dice: ` : '') + body);
+  let prefix = '';
+  if (t.readName) {
+    // Con emojis: los convierte a palabras (Ej.: "🔥" → "fuego"). Sin emojis: los quita.
+    let name = t.nameEmojis === false
+      ? String(p.nickname || '').replace(EMOJI_RE, '').replace(/\s+/g, ' ').trim()
+      : speakEmojis(p.nickname);
+    if (!name) name = 'Alguien';
+    prefix = `${name} dice: `;
+  }
+  ttsSpeakText(prefix + body);
 }
 
 /* Eventos */
@@ -3666,7 +3684,9 @@ function ttsOnGift(p) {
 
   const en = $('tts-enabled');
   if (en) en.addEventListener('change', () => { settings.tts.enabled = en.checked; if (!settings.tts.enabled) speechSynthesis.cancel(); save(); });
-  bindChk('tts-readname', 'readName');
+  const readName = $('tts-readname');
+  if (readName) readName.addEventListener('change', () => { settings.tts.readName = readName.checked; syncTtsNameEmojisUI(); save(); });
+  bindChk('tts-name-emojis', 'nameEmojis');
   const lang = $('tts-lang');
   if (lang) lang.addEventListener('change', () => { settings.tts.lang = lang.value; settings.tts.voice = ''; fillVoiceOptions(); save(); });
   const voice = $('tts-voice');

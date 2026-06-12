@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS = {
   tts: {
     enabled: false,
     // Configuración general
-    lang: 'es', voice: '', readName: true,
+    lang: 'es', voice: '', readName: true, nameEmojis: true,
     rate: 1.2, pitch: 1, volume: 1,
     minLen: 1, maxLen: 150,
     // Voces TikTok (Disney / personajes). Si tiktokVoice tiene valor, se usa esa voz

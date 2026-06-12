@@ -322,6 +322,9 @@ function readAppVersion() {
   catch { return { version: '', url: '', notes: '', mandatory: false, updatedAt: 0 }; }
 }
 app.get('/api/app-version', (_req, res) => {
+  // Nunca cachear: la app .exe debe ver SIEMPRE la última versión publicada, no una
+  // respuesta vieja guardada por un proxy/CDN.
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.json(readAppVersion());
 });
 app.post('/api/admin/app-version', express.json(), requireAdmin, (req, res) => {

@@ -72,11 +72,87 @@ function play(m, done) {
     el = document.createElement('video');
     el.src = m.url;
     el.autoplay = true;
+    el.playsInline = true;
+    el.preload = 'auto';
     el.volume = (m.volume ?? 100) / 100;
-    const finish = () => { try { if (el.parentNode) el.remove(); } catch {} done?.(); };
+
+    let finished = false;
+    let errorRetries = 0;
+    let lastTime = -1;
+    let stalledSecs = 0;
+    const STALL_LIMIT = 25; // segundos sin avanzar antes de rendirse
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+      try { if (el.parentNode) el.remove(); } catch {}
+      done?.();
+    };
+
+    // Lanza la reproducción y, si el navegador bloquea el autoplay con sonido (caso de
+    // vistas previas fuera de OBS), reintenta en silencio para que igual se vea.
+    const safePlay = () => {
+      try {
+        const p = el.play && el.play();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => { el.muted = true; try { el.play && el.play().catch(() => {}); } catch {} });
+        }
+      } catch {}
+    };
+
     el.onended = finish;
-    el.onerror = finish;
-    safetyTimer = setTimeout(finish, 60000);
+
+    // El chat de voz (TTS) NO debe detener el video por nada. Cuando la voz toca el
+    // dispositivo de audio, el navegador a veces pausa el video; aquí lo reanudamos
+    // EN EL ACTO (mismo instante del 'pause'), así el corte es imperceptible. No se
+    // reanuda si la parada fue intencional (stopMedia/panic), si ya terminó, o si está
+    // justo al final.
+    el.onpause = () => {
+      if (finished || el.dataset.stopped || !el.isConnected || el.ended) return;
+      const nearEnd = el.duration && el.currentTime >= el.duration - 0.4;
+      if (!nearEnd) safePlay();
+    };
+
+    // CLAVE: ante un error transitorio (CPU saturada durante el live, hipo de red en
+    // weblive…) NO cortamos el video de inmediato. Antes, cualquier 'error' lo eliminaba
+    // a media reproducción —esa era la causa de que se cortaran solo en vivo—. Ahora
+    // reintentamos reanudar desde donde iba; solo nos rendimos tras varios fallos.
+    el.onerror = () => {
+      if (finished) return;
+      if (errorRetries >= 3) { finish(); return; }
+      errorRetries += 1;
+      const resumeAt = el.currentTime || 0;
+      try {
+        el.load();
+        el.addEventListener('loadedmetadata', () => {
+          try { if (resumeAt > 0 && resumeAt < (el.duration || Infinity)) el.currentTime = resumeAt; } catch {}
+          safePlay();
+        }, { once: true });
+      } catch { finish(); }
+    };
+
+    // Vigilante de reproducción: en lugar de cortar a los 60s (lo que truncaba los
+    // videos largos), solo terminamos si el tiempo deja de AVANZAR durante mucho rato
+    // (cuelgue real). Así un video se reproduce COMPLETO sin importar su duración, y
+    // seguimos teniendo un respaldo por si nunca dispara 'ended'.
+    const watch = () => {
+      if (finished || !el.isConnected) return;
+      const t = el.currentTime || 0;
+      if (t > lastTime + 0.05) { lastTime = t; stalledSecs = 0; }
+      else {
+        stalledSecs += 1;
+        // Si quedó en PAUSA sin haber terminado (p. ej. el chat de voz/TTS tocó el
+        // dispositivo de audio y el navegador pausó el video), intentamos reanudarlo
+        // en vez de esperar a rendirnos. Así la voz ya no corta el video.
+        const nearEnd = el.duration && el.currentTime >= el.duration - 0.4;
+        if (el.paused && !el.ended && !nearEnd) safePlay();
+      }
+      if (stalledSecs >= STALL_LIMIT) { finish(); return; }
+      safetyTimer = setTimeout(watch, 1000);
+    };
+    safetyTimer = setTimeout(watch, 1000);
+    safePlay();
   }
   el.className = 'media';
   el.style.maxWidth = size + 'vw';
@@ -85,9 +161,10 @@ function play(m, done) {
 }
 
 function stopStage() {
-  // Pausamos y vaciamos cualquier video para cortar imagen y audio al instante
+  // Pausamos y vaciamos cualquier video para cortar imagen y audio al instante.
+  // Marcamos 'stopped' para que el auto-reanudar (onpause) NO lo vuelva a reproducir.
   stage.querySelectorAll('video').forEach((vid) => {
-    try { vid.pause(); vid.muted = true; vid.removeAttribute('src'); vid.load(); } catch {}
+    try { vid.dataset.stopped = '1'; vid.pause(); vid.muted = true; vid.removeAttribute('src'); vid.load(); } catch {}
   });
   stage.innerHTML = '';
 }
