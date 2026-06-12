@@ -1473,7 +1473,13 @@ function setVidEventUI(value) {
   $('vid-likeextra').hidden = value !== 'likeGlobal';
   $('vid-emoteextra').hidden = value !== 'emote';
   $('vid-cmdextra').hidden = value !== 'chatCommand';
-  $('vid-userextra').hidden = value !== 'chatCommand' && value !== 'firstMessage';
+  $('vid-userextra').hidden = value !== 'chatCommand' && value !== 'firstMessage' && value !== 'userJoin';
+  $('vid-joindelayextra').hidden = value !== 'userJoin';
+  $('vid-levelextra').hidden = value !== 'levelUp';
+  const userInput = $('vid-user');
+  if (userInput) userInput.placeholder = value === 'userJoin'
+    ? 'Usuario que al entrar reproduce el video (sin @)'
+    : 'Solo este usuario (sin @) — opcional';
 }
 
 function openVidModal(v = null) {
@@ -1497,6 +1503,8 @@ function openVidModal(v = null) {
   updateEmotePickBtn('vid');
   $('vid-command').value = v?.command || '';
   $('vid-user').value = v?.user || '';
+  $('vid-joindelay').value = v?.joinDelay ?? 30;
+  $('vid-level').value = v?.level ?? 0;
   $('vid-vol').value = v?.volume ?? 100;
   $('vid-screen').value = v?.screen || 1;
   $('vid-fname').textContent = v?.fileName || 'Ningún archivo';
@@ -1536,13 +1544,22 @@ $('videoLibModal').addEventListener('click', (e) => { if (e.target.id === 'video
 $('vid-librefresh').onclick = () => loadLocalVideos();
 $('vid-libq').addEventListener('input', () => renderLocalVideos($('vid-libq').value.trim()));
 
+// ¿La biblioteca debe mostrar la carpeta «niveles»? Solo en Videos y cuando el
+// evento elegido es "Subió de nivel de miembro".
+function libIsNiveles() {
+  return libTarget === 'vid' && $('vid-event') && $('vid-event').value === 'levelUp';
+}
+
 function openVideoLib() {
-  // Ajusta los textos del modal según la carpeta (Videos vs Batallas).
-  const folder = libTarget === 'ba' ? 'public/video/batalla' : 'public/video';
+  // Ajusta los textos del modal según la carpeta (Videos / Batallas / Niveles).
+  const niveles = libIsNiveles();
+  const folder = libTarget === 'ba' ? 'public/video/batalla' : (niveles ? 'public/video/niveles' : 'public/video');
   const sub = document.querySelector('#videoLibModal .vidlib-sub');
   if (sub) sub.textContent = libTarget === 'ba'
     ? 'Selecciona un video de la carpeta de batallas (vista previa vertical)'
-    : 'Selecciona un video de la carpeta (vista previa vertical)';
+    : niveles
+      ? 'Selecciona el video del nivel (carpeta niveles)'
+      : 'Selecciona un video de la carpeta (vista previa vertical)';
   const credit = document.querySelector('#videoLibModal .modal-foot .credit');
   if (credit) credit.innerHTML = `Videos de la carpeta <code>${folder}</code>.`;
   $('videoLibModal').classList.remove('hidden');
@@ -1562,8 +1579,10 @@ const isImageFile = (u) => /\.(gif|png|jpe?g|webp)(\?|$)/i.test(u || '');
 async function loadLocalVideos() {
   const box = $('vid-libgrid');
   box.innerHTML = '<div class="empty">Cargando…</div>';
-  // En la pestaña Batallas mostramos la carpeta «video/batalla»; en Videos, «video».
-  const endpoint = libTarget === 'ba' ? '/api/local-videos-batalla' : '/api/local-videos';
+  // Batallas → «video/batalla»; Videos con evento "subió de nivel" → «niveles»; resto → «video».
+  const endpoint = libTarget === 'ba'
+    ? '/api/local-videos-batalla'
+    : (libIsNiveles() ? '/api/local-videos-niveles' : '/api/local-videos');
   try {
     const res = await fetch(endpoint);
     const data = await res.json();
@@ -1579,7 +1598,7 @@ function renderLocalVideos(filter) {
   const f = (filter || '').toLowerCase();
   const list = f ? localVideos.filter((v) => v.name.toLowerCase().includes(f)) : localVideos;
   if (!list.length) {
-    const folder = libTarget === 'ba' ? 'video/batalla' : 'video';
+    const folder = libTarget === 'ba' ? 'video/batalla' : (libIsNiveles() ? 'video/niveles' : 'video');
     box.innerHTML = localVideos.length
       ? '<div class="empty">Ningún video coincide</div>'
       : `<div class="empty">No hay videos en la carpeta «${folder}».<br>Copia tus .mp4 ahí y pulsa ↻</div>`;
@@ -1650,13 +1669,16 @@ $('vid-save').onclick = () => {
     emoteId: ev === 'emote' ? $('vid-emoteid').value.trim() : '',
     emoteImage: ev === 'emote' ? emoteImgById($('vid-emoteid').value.trim()) : '',
     command: ev === 'chatCommand' ? $('vid-command').value.trim() : '',
-    user: (ev === 'chatCommand' || ev === 'firstMessage') ? $('vid-user').value.trim().replace(/^@/, '') : '',
+    user: (ev === 'chatCommand' || ev === 'firstMessage' || ev === 'userJoin') ? $('vid-user').value.trim().replace(/^@/, '') : '',
+    joinDelay: ev === 'userJoin' ? Math.max(0, parseInt($('vid-joindelay').value, 10) || 0) : 0,
+    level: ev === 'levelUp' ? Math.max(0, parseInt($('vid-level').value, 10) || 0) : 0,
     url: vidPending.url,
     fileName: vidPending.name || 'video',
     volume: +$('vid-vol').value,
     screen: +$('vid-screen').value || 1,
   };
   if (ev === 'chatCommand' && !data.command) { $('vid-status').textContent = '⚠️ Escribe el comando (ej. !video).'; return; }
+  if (ev === 'userJoin' && !data.user) { $('vid-status').textContent = '⚠️ Escribe el usuario que al entrar reproduce el video.'; return; }
   if (vidEditingId) {
     const v = settings.videos.find((x) => x.id === vidEditingId);
     if (v) Object.assign(v, data);
@@ -1918,6 +1940,7 @@ const EVENT_LABELS = {
   superFan: '🌟 Super fan',
   follow: '➕ Nuevo seguidor',
   levelUp: '⬆️ Subió de nivel de miembro',
+  userJoin: '🚪 Entró un usuario',
   emote: '😀 Sticker / emote',
   chatCommand: '💬 Comando de chat',
   firstMessage: '🙋 Primer mensaje',
@@ -1933,6 +1956,8 @@ function triggerLabel(a) {
   if (trig === 'like' && a.likeMin > 1) return `❤️ Desde ${a.likeMin} likes`;
   if (trig === 'likeGlobal' && a.likeGoal) return `❤️ Cada ${a.likeGoal} likes`;
   if (trig === 'emote' && a.emoteId) return `😀 Emote ${esc(a.emoteId)}`;
+  if (trig === 'userJoin') return `🚪 Entra ${esc(a.user || 'usuario')}`;
+  if (trig === 'levelUp' && a.level) return `⬆️ Nivel ${esc(a.level)}`;
   return EVENT_LABELS[trig] || trig;
 }
 
@@ -3362,6 +3387,57 @@ function updateTtsSummary() {
 const PROFANITY = ['puta', 'puto', 'mierda', 'pendejo', 'cabron', 'cabrón', 'verga', 'coño', 'joto', 'culero', 'chinga', 'perra', 'zorra', 'maricon', 'maricón', 'pinche', 'fuck', 'shit', 'bitch', 'asshole'];
 const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}]/gu;
 
+// Diccionario de emojis comunes → palabra hablada en español. Sirve para que el
+// TTS "lea" los emojis del nombre del usuario (que normalmente la voz omite).
+const EMOJI_SPEAK = {
+  '😀':'cara feliz','😃':'cara feliz','😄':'cara feliz','😁':'cara sonriente','😆':'risa','😅':'risa nerviosa',
+  '🤣':'muerto de risa','😂':'llorando de risa','🙂':'cara feliz','🙃':'cara al revés','😉':'guiño',
+  '😊':'cara tierna','😇':'angelito','🥰':'enamorado','😍':'ojos de corazón','🤩':'estrellas en los ojos',
+  '😘':'beso','😗':'beso','😚':'beso','😙':'beso','😋':'rico','😛':'lengua','😝':'lengua','😜':'guiño con lengua',
+  '🤪':'cara loca','🤨':'ceja alzada','🧐':'monóculo','🤓':'nerd','😎':'cara con lentes','🥸':'disfraz',
+  '🥳':'fiesta','😏':'cara pícara','😒':'fastidio','😞':'decepción','😔':'triste','😟':'preocupado','😕':'confundido',
+  '🙁':'triste','☹':'triste','😣':'aguantando','😖':'frustrado','😫':'cansado','😩':'agotado','🥺':'ojitos',
+  '😢':'llorando','😭':'llanto','😤':'enojado','😠':'molesto','😡':'furioso','🤬':'groserías','🤯':'mente explotada',
+  '😳':'sonrojado','🥵':'acalorado','🥶':'congelado','😱':'grito','😨':'asustado','😰':'angustia',
+  '😓':'sudando','🤗':'abrazo','🤔':'pensando','🤭':'risita','🤫':'silencio','🥱':'bostezo','😴':'dormido','😪':'sueño',
+  '😬':'incómodo','🙄':'ojos en blanco','😶':'sin palabras','😐':'cara neutral','😑':'inexpresivo',
+  '🤤':'baba','🤑':'dinero','🤠':'vaquero','😈':'diablito','👿':'demonio','💀':'calavera','☠':'calavera',
+  '👻':'fantasma','👽':'extraterrestre','🤖':'robot','💩':'popó','🤡':'payaso','👹':'ogro','👺':'duende',
+  '❤':'corazón rojo','🧡':'corazón naranja','💛':'corazón amarillo','💚':'corazón verde','💙':'corazón azul',
+  '💜':'corazón morado','🖤':'corazón negro','🤍':'corazón blanco','🤎':'corazón café','💔':'corazón roto',
+  '❣':'corazón','💕':'dos corazones','💞':'corazones girando','💓':'corazón latiendo','💗':'corazón creciendo',
+  '💖':'corazón brillante','💘':'corazón con flecha','💝':'corazón con moño','💟':'corazón',
+  '⭐':'estrella','🌟':'estrella brillante','✨':'destellos','💫':'estrella fugaz','⚡':'rayo','🔥':'fuego',
+  '💥':'explosión','💯':'cien','✅':'palomita','❌':'tache','⛔':'prohibido','🚫':'prohibido',
+  '🎉':'fiesta','🎊':'confeti','🎈':'globo','🎁':'regalo','🏆':'trofeo','🥇':'medalla de oro','👑':'corona',
+  '💎':'diamante','🌈':'arcoíris','☀':'sol','🌙':'luna','⛅':'nublado','🌧':'lluvia','❄':'copo de nieve',
+  '👍':'pulgar arriba','👎':'pulgar abajo','👌':'okay','✌':'paz','🤞':'dedos cruzados','🤙':'llámame',
+  '🙏':'manos juntas','👏':'aplausos','🙌':'manos arriba','👋':'saludo','💪':'músculo','🤝':'apretón de manos',
+  '🤟':'te quiero','🤘':'rock','✊':'puño','👊':'puño','🫶':'corazón con manos',
+  '🌸':'flor de cerezo','🌹':'rosa','🌺':'flor','🌻':'girasol','🌷':'tulipán','🌼':'margarita','🌿':'hierba',
+  '🍀':'trébol','🌴':'palmera','🌵':'cactus','🍓':'fresa','🍎':'manzana','🍌':'plátano','🍉':'sandía','🍇':'uvas',
+  '🍕':'pizza','🍔':'hamburguesa','🍟':'papas fritas','🍦':'helado','🍩':'dona','🍪':'galleta','🎂':'pastel',
+  '🍰':'pastel','☕':'café','🍺':'cerveza','🍷':'vino','🥂':'brindis',
+  '🐶':'perrito','🐱':'gatito','🦁':'león','🐯':'tigre','🐰':'conejo','🐻':'oso','🐼':'panda','🐨':'koala',
+  '🦊':'zorro','🐷':'cerdito','🐸':'rana','🐵':'mono','🦄':'unicornio','🐢':'tortuga','🦋':'mariposa','🐝':'abeja',
+  '🐉':'dragón','🦅':'águila','🦈':'tiburón','🐬':'delfín',
+  '⚽':'fútbol','🏀':'baloncesto','🎮':'videojuego','🎵':'nota musical','🎶':'música','🎤':'micrófono','🎧':'audífonos',
+  '💰':'dinero','💸':'dinero volando','💵':'billete','🚀':'cohete','🌎':'mundo','🕊':'paloma',
+};
+const EMOJI_SPEAK_ENTRIES = Object.entries(EMOJI_SPEAK);
+
+// Convierte los emojis de un texto (p. ej. el nombre del usuario) a palabras para
+// que el TTS los lea en voz alta; los emojis que no estén en el diccionario se quitan.
+function speakEmojis(text) {
+  let s = String(text || '');
+  if (!s) return s;
+  for (const [emo, word] of EMOJI_SPEAK_ENTRIES) {
+    if (s.includes(emo)) s = s.split(emo).join(` ${word} `);
+  }
+  s = s.replace(EMOJI_RE, ' ');           // limpia emojis desconocidos restantes
+  return s.replace(/\s+/g, ' ').trim();
+}
+
 function ttsModerate(text) {
   const t = settings?.tts || {};
   let s = String(text || '');
@@ -3528,7 +3604,7 @@ function ttsSpeak(p, force = false) {
   if (!TTS_HAS) return;
   const t = settings?.tts;
   if (!t) return;
-  if (force) { ttsSpeakText(`${p.nickname} dice: ${p.comment || ''}`); return; }
+  if (force) { ttsSpeakText(`${speakEmojis(p.nickname)} dice: ${p.comment || ''}`); return; }
   if (!t.enabled) return;
   if (!ttsAllowedUser(p)) return;
 
@@ -3547,7 +3623,7 @@ function ttsSpeak(p, force = false) {
     if ((ttsPoints[uid] || 0) < cost) return;
     ttsPoints[uid] -= cost;
   }
-  ttsSpeakText((t.readName ? `${p.nickname} dice: ` : '') + body);
+  ttsSpeakText((t.readName ? `${speakEmojis(p.nickname)} dice: ` : '') + body);
 }
 
 /* Eventos */

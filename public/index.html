@@ -1123,19 +1123,6 @@
             <p class="hint">Usa cada link como <b>Browser Source</b> separado en OBS o TikTok Studio y asigna cada video a la pantalla que quieras.</p>
           </div>
 
-          <!-- Videos automáticos por nivel de miembro -->
-          <div class="settings-card" id="levelvid-card">
-            <div class="box-title">⬆️ Videos automáticos por nivel de miembro</div>
-            <p class="hint">Guarda en la carpeta <b>niveles</b> un video por nivel con el nombre <b>nivel1</b>, <b>nivel2</b>, <b>nivel3</b>… (ej. <code>nivel5.mp4</code>). Cuando alguien <b>suba a ese nivel</b> en tu live, se reproducirá automáticamente el video correspondiente. Formatos recomendados: MP4, WebM o GIF.</p>
-            <div class="levelvid-row">
-              <label class="switch-row plain"><input type="checkbox" id="levelvid-enabled"> <span>Activar videos por nivel</span></label>
-              <label class="levelvid-screen">Pantalla
-                <select id="levelvid-screen"></select>
-              </label>
-              <button type="button" class="btn ghost" id="levelvid-openfolder" hidden>📁 Abrir carpeta de niveles</button>
-            </div>
-          </div>
-
           <div id="videoCards" class="sa-grid"></div>
         </section>
 
@@ -1163,6 +1150,7 @@
                   <option value="superFan">Super fan</option>
                   <option value="follow">Nuevo seguidor</option>
                   <option value="levelUp">Subió de nivel de miembro</option>
+                  <option value="userJoin">Entró un usuario específico</option>
                   <option value="emote">Sticker / emote (ID)</option>
                   <option value="chatCommand">Comando de chat (!video)</option>
                   <option value="firstMessage">Primer mensaje en el chat (usuario)</option>
@@ -1172,6 +1160,14 @@
                 </div>
                 <div id="vid-userextra" class="gift-extra one" hidden>
                   <input type="text" id="vid-user" placeholder="Solo este usuario (sin @) — opcional">
+                </div>
+                <div id="vid-joindelayextra" class="gift-extra one" hidden>
+                  <label class="ml" for="vid-joindelay">SEGUNDOS DE DELAY (espera antes de repetir, anti-spam)</label>
+                  <input type="number" id="vid-joindelay" min="0" value="30" placeholder="Segundos de espera antes de repetir (anti-spam)">
+                </div>
+                <div id="vid-levelextra" class="gift-extra one" hidden>
+                  <label class="ml" for="vid-level">NIVEL DE MIEMBRO (ej. 5 = se reproduce al subir al nivel 5 · 0 = cualquier nivel)</label>
+                  <input type="number" id="vid-level" min="0" value="0" placeholder="Nivel de miembro (0 = cualquiera)">
                 </div>
                 <div id="vid-giftanyextra" class="gift-extra" hidden>
                   <input type="number" id="vid-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">

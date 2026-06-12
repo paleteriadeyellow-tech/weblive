@@ -186,6 +186,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const recentSubs = new Map();      // dedupe suscripciones (subscribe/subNotify)
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
   const memberLevels = new Map();    // uniqueId -> último nivel de miembro visto (para detectar subidas)
+  const joinVideoCooldown = new Map(); // uniqueId -> última vez que se lanzó su video de entrada
   // Ruleta / sorteo: participantes recogidos durante la recolección.
   const roulette = { collecting: false, entries: new Map(), giftImage: '' }; // uid -> { uniqueId, nickname, photo }
   const ROULETTE_MAX = 300;
@@ -704,16 +705,36 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (eventType === 'like') {
         if ((v.likeMin || 1) > (info.likeCount || 0)) continue;
       }
+      // Subió de nivel de miembro: si se indica un nivel, solo se reproduce al
+      // alcanzar EXACTAMENTE ese nivel (ej. nivel 5 → video de nivel 5). 0 = cualquiera.
+      if (eventType === 'levelUp') {
+        const wantLevel = Math.max(0, Number(v.level) || 0);
+        if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
+      }
       if (eventType === 'chatCommand') {
         if (!matchesCommand(v.command, info.comment)) continue;
       }
-      // Filtro por usuario (opcional) para comandos de chat y primer mensaje.
-      if (eventType === 'chatCommand' || eventType === 'firstMessage') {
+      // Filtro por usuario para comandos de chat, primer mensaje y entrada de usuario.
+      // En "userJoin" el usuario es OBLIGATORIO (si no, se reproduciría con cada
+      // espectador que entra); en los demás casos es opcional.
+      if (eventType === 'chatCommand' || eventType === 'firstMessage' || eventType === 'userJoin') {
         const want = String(v.user || '').replace(/^@/, '').trim().toLowerCase();
+        if (eventType === 'userJoin' && !want) continue;
         if (want) {
           const u = String(info.username || '').toLowerCase();
           const n = String(info.nickname || '').toLowerCase();
           if (want !== u && want !== n) continue;
+        }
+      }
+      // Anti-spam para "entró un usuario": espera N segundos antes de repetir el
+      // mismo video (evita que entrando y saliendo lo disparen sin parar).
+      if (eventType === 'userJoin') {
+        const delaySec = (v.joinDelay == null) ? 30 : Math.max(0, Number(v.joinDelay) || 0);
+        if (delaySec > 0) {
+          const now = Date.now();
+          const last = joinVideoCooldown.get(v.id) || 0;
+          if (now - last < delaySec * 1000) continue;
+          joinVideoCooldown.set(v.id, now);
         }
       }
       const scr = Number(v.screen) || 1;
@@ -739,7 +760,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('log', { level: 'ok', text: `⬆️ ${user.nickname} subió a nivel de miembro ${level} (antes ${prev})` });
     triggerVideos('levelUp', info);
     triggerSoundAlerts('levelUp', info);
-    playLevelVideo(level);
   }
 
   // Reproduce automáticamente el video de la carpeta «niveles» que coincida con el
@@ -1198,7 +1218,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.MEMBER, (data) => {
       state.stats.joins++;
       if (data.memberCount) state.stats.viewers = data.memberCount;
-      broadcast('member', baseUser(data.user));
+      const member = baseUser(data.user);
+      broadcast('member', member);
+      // Video al entrar un usuario específico (el anti-spam por tiempo se aplica en
+      // triggerVideos, con el delay configurado en cada video).
+      if (member.uniqueId) {
+        triggerVideos('userJoin', { username: member.uniqueId, nickname: member.nickname });
+      }
       pushStatsThrottled();
     });
 

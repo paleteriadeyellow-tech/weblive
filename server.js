@@ -127,22 +127,36 @@ fs.mkdirSync(BATALLA_VIDEOS_DIR, { recursive: true });
 // nivel se reproduce automáticamente el que coincida.
 const NIVELES_VIDEOS_DIR = process.env.NIVELES_DIR || path.join(VIDEOS_DIR, 'niveles');
 fs.mkdirSync(NIVELES_VIDEOS_DIR, { recursive: true });
+const PROJECT_NIVELES_DIR = path.join(VIDEOS_DIR, 'niveles');
+
+// Carpetas donde buscar videos de nivel, con su URL base servible.
+function nivelesSources() {
+  const out = [{ dir: NIVELES_VIDEOS_DIR, urlBase: '/niveles/' }];
+  if (path.resolve(PROJECT_NIVELES_DIR) !== path.resolve(NIVELES_VIDEOS_DIR)) {
+    out.push({ dir: PROJECT_NIVELES_DIR, urlBase: '/video/niveles/' });
+  }
+  return out;
+}
+
 const NIVEL_EXTS = ['.mp4', '.webm', '.gif', '.webp', '.png', '.jpg', '.jpeg', '.mov', '.mkv'];
 function findLevelVideoUrl(level) {
   const n = Number(level) || 0;
   if (n <= 0) return '';
-  let files = [];
-  try { files = fs.readdirSync(NIVELES_VIDEOS_DIR); } catch { return ''; }
-  const matches = files.filter((f) => {
-    const ext = path.extname(f).toLowerCase();
-    if (!NIVEL_EXTS.includes(ext)) return false;
-    const base = path.basename(f, path.extname(f)).toLowerCase().replace(/\s+/g, '');
-    const m = base.match(/^nivel0*(\d+)$/);
-    return m && Number(m[1]) === n;
-  });
-  if (!matches.length) return '';
-  matches.sort((a, b) => NIVEL_EXTS.indexOf(path.extname(a).toLowerCase()) - NIVEL_EXTS.indexOf(path.extname(b).toLowerCase()));
-  return '/niveles/' + encodeURIComponent(matches[0]);
+  for (const src of nivelesSources()) {
+    let files = [];
+    try { files = fs.readdirSync(src.dir); } catch { continue; }
+    const matches = files.filter((f) => {
+      const ext = path.extname(f).toLowerCase();
+      if (!NIVEL_EXTS.includes(ext)) return false;
+      const base = path.basename(f, path.extname(f)).toLowerCase().replace(/\s+/g, '');
+      const m = base.match(/^nivel0*(\d+)$/);
+      return m && Number(m[1]) === n;
+    });
+    if (!matches.length) continue;
+    matches.sort((a, b) => NIVEL_EXTS.indexOf(path.extname(a).toLowerCase()) - NIVEL_EXTS.indexOf(path.extname(b).toLowerCase()));
+    return src.urlBase + encodeURIComponent(matches[0]);
+  }
+  return '';
 }
 
 const app = express();
@@ -449,14 +463,21 @@ app.get('/api/local-videos-batalla', (_req, res) => {
 });
 
 app.get('/api/local-videos-niveles', (_req, res) => {
-  fs.readdir(NIVELES_VIDEOS_DIR, (err, files) => {
-    if (err) return res.json({ results: [] });
-    const results = files
-      .filter((f) => NIVEL_EXTS.includes(path.extname(f).toLowerCase()))
-      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      .map((f) => ({ name: f, url: '/niveles/' + encodeURIComponent(f) }));
-    res.json({ results });
-  });
+  const seen = new Set();
+  const results = [];
+  for (const src of nivelesSources()) {
+    let files = [];
+    try { files = fs.readdirSync(src.dir); } catch { continue; }
+    for (const f of files) {
+      if (!NIVEL_EXTS.includes(path.extname(f).toLowerCase())) continue;
+      const key = f.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push({ name: f, url: src.urlBase + encodeURIComponent(f) });
+    }
+  }
+  results.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  res.json({ results });
 });
 
 app.get('/api/sounds', async (req, res) => {
