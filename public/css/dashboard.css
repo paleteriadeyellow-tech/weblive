@@ -387,6 +387,10 @@ input:focus, select:focus { border-color: var(--cyan); }
 .row-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
 .hint { color: var(--mut); font-size: 12.5px; margin-top: 12px; }
 .hint code, code { background: var(--bg2); padding: 2px 6px; border-radius: 5px; color: var(--cyan); }
+/* Videos automáticos por nivel: fila de controles */
+.levelvid-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; margin-top: 10px; }
+.levelvid-screen { display: inline-flex; align-items: center; gap: 8px; color: var(--mut); font-size: 13px; }
+.levelvid-screen select { padding: 6px 10px; border-radius: 9px; }
 
 /* Videos */
 .video-form { display: grid; grid-template-columns: 1fr 1.6fr 1fr; gap: 10px; }

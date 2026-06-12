@@ -216,6 +216,7 @@
                   <option value="subscribe">Nuevo suscriptor</option>
                   <option value="superFan">Super fan</option>
                   <option value="follow">Nuevo seguidor</option>
+                  <option value="levelUp">Subió de nivel de miembro</option>
                   <option value="emote">Sticker / emote (ID)</option>
                 </select>
                 <div id="sa-giftanyextra" class="gift-extra" hidden>
@@ -1122,6 +1123,19 @@
             <p class="hint">Usa cada link como <b>Browser Source</b> separado en OBS o TikTok Studio y asigna cada video a la pantalla que quieras.</p>
           </div>
 
+          <!-- Videos automáticos por nivel de miembro -->
+          <div class="settings-card" id="levelvid-card">
+            <div class="box-title">⬆️ Videos automáticos por nivel de miembro</div>
+            <p class="hint">Guarda en la carpeta <b>niveles</b> un video por nivel con el nombre <b>nivel1</b>, <b>nivel2</b>, <b>nivel3</b>… (ej. <code>nivel5.mp4</code>). Cuando alguien <b>suba a ese nivel</b> en tu live, se reproducirá automáticamente el video correspondiente. Formatos recomendados: MP4, WebM o GIF.</p>
+            <div class="levelvid-row">
+              <label class="switch-row plain"><input type="checkbox" id="levelvid-enabled"> <span>Activar videos por nivel</span></label>
+              <label class="levelvid-screen">Pantalla
+                <select id="levelvid-screen"></select>
+              </label>
+              <button type="button" class="btn ghost" id="levelvid-openfolder" hidden>📁 Abrir carpeta de niveles</button>
+            </div>
+          </div>
+
           <div id="videoCards" class="sa-grid"></div>
         </section>
 
@@ -1148,6 +1162,7 @@
                   <option value="subscribe">Nuevo suscriptor</option>
                   <option value="superFan">Super fan</option>
                   <option value="follow">Nuevo seguidor</option>
+                  <option value="levelUp">Subió de nivel de miembro</option>
                   <option value="emote">Sticker / emote (ID)</option>
                   <option value="chatCommand">Comando de chat (!video)</option>
                   <option value="firstMessage">Primer mensaje en el chat (usuario)</option>
@@ -2510,6 +2525,23 @@
             <div class="plans-actions">
               <span id="appver-status" class="tts-sub"></span>
               <button class="btn primary" id="appver-save">Publicar actualización</button>
+            </div>
+          </div>
+
+          <!-- Enlace del botón "Instalar versión web" del panel -->
+          <div class="settings-card plans-card">
+            <div class="tts-head">
+              <h3>Instalar versión web</h3>
+              <span class="tts-sub">Enlace del botón que ven los usuarios arriba en el panel</span>
+            </div>
+            <div class="field">
+              <label>Enlace de instalación de la versión web</label>
+              <input type="text" id="webinstall-url" placeholder="https://...">
+            </div>
+            <p class="tts-sub">Si lo dejas vacío, el botón no se muestra.</p>
+            <div class="plans-actions">
+              <span id="webinstall-status" class="tts-sub"></span>
+              <button class="btn primary" id="webinstall-save">Guardar enlace</button>
             </div>
           </div>
         </section>

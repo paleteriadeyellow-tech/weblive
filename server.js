@@ -86,6 +86,8 @@ function getRoomForUser(user) {
       roomKey: user.roomKey,
       dataDir: path.join(DATA_DIR, user.id),
       giftsById,
+      // Resolver del video por nivel (carpeta «niveles»): el room lo usa para auto-reproducir.
+      getLevelVideo: (lvl) => findLevelVideoUrl(lvl),
       // El room consulta esto al guardar para no exceder los límites del plan.
       getCaps: () => capsForUser(getUserById(user.id) || user),
     });
@@ -121,6 +123,27 @@ fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 // Carpeta dedicada para los videos de la pestaña Batallas (videos AI de batalla).
 const BATALLA_VIDEOS_DIR = path.join(VIDEOS_DIR, 'batalla');
 fs.mkdirSync(BATALLA_VIDEOS_DIR, { recursive: true });
+// Carpeta de videos por NIVEL de miembro: nivel1.mp4, nivel2.mp4… Al subir alguien de
+// nivel se reproduce automáticamente el que coincida.
+const NIVELES_VIDEOS_DIR = process.env.NIVELES_DIR || path.join(VIDEOS_DIR, 'niveles');
+fs.mkdirSync(NIVELES_VIDEOS_DIR, { recursive: true });
+const NIVEL_EXTS = ['.mp4', '.webm', '.gif', '.webp', '.png', '.jpg', '.jpeg', '.mov', '.mkv'];
+function findLevelVideoUrl(level) {
+  const n = Number(level) || 0;
+  if (n <= 0) return '';
+  let files = [];
+  try { files = fs.readdirSync(NIVELES_VIDEOS_DIR); } catch { return ''; }
+  const matches = files.filter((f) => {
+    const ext = path.extname(f).toLowerCase();
+    if (!NIVEL_EXTS.includes(ext)) return false;
+    const base = path.basename(f, path.extname(f)).toLowerCase().replace(/\s+/g, '');
+    const m = base.match(/^nivel0*(\d+)$/);
+    return m && Number(m[1]) === n;
+  });
+  if (!matches.length) return '';
+  matches.sort((a, b) => NIVEL_EXTS.indexOf(path.extname(a).toLowerCase()) - NIVEL_EXTS.indexOf(path.extname(b).toLowerCase()));
+  return '/niveles/' + encodeURIComponent(matches[0]);
+}
 
 const app = express();
 
@@ -306,6 +329,30 @@ app.post('/api/admin/app-version', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true, ...data });
 });
 
+/* ----------- Enlace para "Instalar versión web" (lo fija el admin) ----------- */
+// El admin guarda aquí la URL de instalación de la versión web. El panel muestra
+// un botón "Instalar versión web" que apunta a esta URL; al cambiarla aquí, el
+// botón se actualiza para todos.
+const WEB_INSTALL_FILE = path.join(DATA_DIR, 'webinstall.json');
+function readWebInstall() {
+  try { return JSON.parse(fs.readFileSync(WEB_INSTALL_FILE, 'utf8')); }
+  catch { return { url: '', updatedAt: 0 }; }
+}
+app.get('/api/web-install', (_req, res) => {
+  res.json(readWebInstall());
+});
+app.post('/api/admin/web-install', express.json(), requireAdmin, (req, res) => {
+  const data = { url: String((req.body || {}).url || '').trim(), updatedAt: Date.now() };
+  try {
+    const tmp = WEB_INSTALL_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+    fs.renameSync(tmp, WEB_INSTALL_FILE);
+  } catch (e) {
+    return res.status(500).json({ error: 'No se pudo guardar.' });
+  }
+  res.json({ ok: true, ...data });
+});
+
 /* ------------------- Protección básica (disuasión copia) ------------------- */
 // Inyecta protect.js en todo HTML servido (panel + overlays). NO es seguridad
 // real: solo dificulta la copia casual (clic derecho, F12, ver fuente…).
@@ -342,6 +389,7 @@ app.use('/audios', express.static(path.join(__dirname, 'public', 'audios'), heav
 // Videos de AI: caché larga en el navegador para que al recargar el panel no se
 // vuelvan a descargar (antes esto era lo que hacía lenta la carga).
 app.use('/video', express.static(VIDEOS_DIR, heavyCache));
+app.use('/niveles', express.static(NIVELES_VIDEOS_DIR, heavyCache));
 
 // Cualquier otra página HTML (login, overlays, pending…) se sirve con el script
 // de protección inyectado. Debe ir ANTES del estático general.
@@ -396,6 +444,17 @@ app.get('/api/local-videos-batalla', (_req, res) => {
       .filter((f) => exts.includes(path.extname(f).toLowerCase()))
       .sort((a, b) => a.localeCompare(b))
       .map((f) => ({ name: f, url: '/video/batalla/' + encodeURIComponent(f) }));
+    res.json({ results });
+  });
+});
+
+app.get('/api/local-videos-niveles', (_req, res) => {
+  fs.readdir(NIVELES_VIDEOS_DIR, (err, files) => {
+    if (err) return res.json({ results: [] });
+    const results = files
+      .filter((f) => NIVEL_EXTS.includes(path.extname(f).toLowerCase()))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .map((f) => ({ name: f, url: '/niveles/' + encodeURIComponent(f) }));
     res.json({ results });
   });
 });

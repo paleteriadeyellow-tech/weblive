@@ -533,17 +533,55 @@ function mountUserChip() {
   chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 14px;font:600 11px system-ui,sans-serif;color:#9aa3b8';
   chip.innerHTML = `<span style="opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤 ${window.MY_USER || 'usuario'}</span>
     <button id="logout-btn" style="margin-left:auto;border:0;border-radius:6px;cursor:pointer;padding:3px 9px;font-weight:700;font-size:10.5px;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6)">Salir</button>`;
+  // Botón "Instalar versión web" (arriba del nombre de usuario y Salir). El enlace
+  // lo fija el admin en la pestaña Administración; si está vacío, queda oculto.
+  const install = document.createElement('a');
+  install.id = 'webinstall-btn';
+  install.target = '_blank';
+  install.rel = 'noopener';
+  install.hidden = true;
+  install.style.cssText = 'display:none;align-items:center;justify-content:center;gap:6px;margin:8px 14px 0;padding:8px 12px;border-radius:8px;font:700 11.5px system-ui,sans-serif;text-decoration:none;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6);text-align:center';
+  install.textContent = '⬇️ Instalar versión web';
+
   // Colócalo dentro de la barra lateral, justo encima de la franja de estado ("Desconectado").
   const sideStatus = document.querySelector('.side-status');
   if (sideStatus && sideStatus.parentElement) {
+    sideStatus.parentElement.insertBefore(install, sideStatus);
     sideStatus.parentElement.insertBefore(chip, sideStatus);
   } else {
+    document.body.appendChild(install);
     document.body.appendChild(chip);
   }
   document.getElementById('logout-btn').onclick = async () => {
     try { await fetch('/api/logout', { method: 'POST' }); } catch {}
     location.href = '/login.html';
   };
+  loadWebInstallButton();
+}
+
+// Aplica la URL al botón "Instalar versión web" (lo muestra solo si hay enlace).
+function applyWebInstallButton(url) {
+  const btn = document.getElementById('webinstall-btn');
+  if (!btn) return;
+  const u = (url || '').trim();
+  if (u) {
+    btn.href = u;
+    btn.hidden = false;
+    btn.style.display = 'flex';
+  } else {
+    btn.hidden = true;
+    btn.style.display = 'none';
+  }
+}
+
+// Trae el enlace guardado por el admin y lo aplica al botón del panel.
+async function loadWebInstallButton() {
+  try {
+    const r = await fetch('/api/web-install');
+    if (!r.ok) return;
+    const d = await r.json();
+    applyWebInstallButton(d.url || '');
+  } catch {}
 }
 
 /* ====================== Confirmación de borrado ====================== */
@@ -657,7 +695,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
     $(`view-${btn.dataset.view}`).classList.add('active');
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); loadWebInstall(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
   };
@@ -865,6 +903,42 @@ async function loadAppVersion() {
       });
       const d = await r.json().catch(() => ({}));
       if (status) status.textContent = r.ok ? `Publicada la versión ${d.version}.` : (d.error || 'No se pudo publicar.');
+    } catch {
+      if (status) status.textContent = 'Error de conexión.';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+})();
+
+/* ---- Enlace del botón "Instalar versión web" ---- */
+async function loadWebInstall() {
+  const el = document.getElementById('webinstall-url');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/web-install');
+    if (!r.ok) return;
+    const d = await r.json();
+    el.value = d.url || '';
+  } catch {}
+}
+
+(function setupWebInstallSave() {
+  const btn = document.getElementById('webinstall-save');
+  if (!btn) return;
+  btn.onclick = async () => {
+    const status = document.getElementById('webinstall-status');
+    const url = (document.getElementById('webinstall-url')?.value || '').trim();
+    btn.disabled = true;
+    if (status) status.textContent = 'Guardando…';
+    try {
+      const r = await fetch('/api/admin/web-install', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (status) status.textContent = r.ok ? 'Enlace guardado.' : (d.error || 'No se pudo guardar.');
+      applyWebInstallButton(url);
     } catch {
       if (status) status.textContent = 'Error de conexión.';
     } finally {
@@ -1231,6 +1305,7 @@ function applySettingsToUI() {
   if (typeof window.pushHypePreview === 'function') setTimeout(() => window.pushHypePreview(), 300);
   renderScreens();
   renderVideos();
+  applyLevelVideosUI();
   renderSoundAlerts();
   if (typeof applyPointsSettingsUI === 'function') applyPointsSettingsUI();
 }
@@ -1354,6 +1429,40 @@ $('vid-master').addEventListener('change', () => {
   $('vid-master').parentElement.querySelector('.state').textContent = settings.videosEnabled ? 'ON' : 'OFF';
   saveSettings();
 });
+
+/* ----- Videos automáticos por nivel de miembro (carpeta «niveles») ----- */
+function applyLevelVideosUI() {
+  const cfg = settings.levelVideos || (settings.levelVideos = { enabled: true, screen: 1, volume: 100 });
+  const en = $('levelvid-enabled');
+  const scr = $('levelvid-screen');
+  if (!en || !scr) return;
+  const screens = (settings.screens && settings.screens.length) ? settings.screens : [{ id: 1 }];
+  scr.innerHTML = screens.map((s) => `<option value="${s.id}">Pantalla ${s.id}</option>`).join('');
+  scr.value = String(cfg.screen || 1);
+  en.checked = cfg.enabled !== false;
+  // En la web no hay acceso a la carpeta local; el botón solo aplica en la app .exe.
+  const openBtn = $('levelvid-openfolder');
+  if (openBtn) openBtn.hidden = !(window.desktopAPI && window.desktopAPI.openNivelesFolder);
+}
+if ($('levelvid-enabled')) {
+  $('levelvid-enabled').addEventListener('change', () => {
+    if (!settings.levelVideos) settings.levelVideos = {};
+    settings.levelVideos.enabled = $('levelvid-enabled').checked;
+    saveSettings();
+  });
+}
+if ($('levelvid-screen')) {
+  $('levelvid-screen').addEventListener('change', () => {
+    if (!settings.levelVideos) settings.levelVideos = {};
+    settings.levelVideos.screen = Number($('levelvid-screen').value) || 1;
+    saveSettings();
+  });
+}
+if ($('levelvid-openfolder')) {
+  $('levelvid-openfolder').addEventListener('click', async () => {
+    try { await window.desktopAPI?.openNivelesFolder?.(); } catch {}
+  });
+}
 
 /* ----- Modal video ----- */
 function setVidEventUI(value) {
@@ -1806,7 +1915,9 @@ const EVENT_LABELS = {
   likeGlobal: '❤️ Likes globales',
   share: '🔁 Compartida',
   subscribe: '⭐ Nuevo suscriptor',
+  superFan: '🌟 Super fan',
   follow: '➕ Nuevo seguidor',
+  levelUp: '⬆️ Subió de nivel de miembro',
   emote: '😀 Sticker / emote',
   chatCommand: '💬 Comando de chat',
   firstMessage: '🙋 Primer mensaje',
@@ -1904,7 +2015,7 @@ async function preloadGiftCatalog() {
 
 const EVENT_EMOJI = {
   like: '❤️', likeGlobal: '❤️', follow: '➕', share: '🔁',
-  subscribe: '⭐', emote: '😀', gift: '🎁',
+  subscribe: '⭐', superFan: '🌟', levelUp: '⬆️', emote: '😀', gift: '🎁',
   chatCommand: '💬', firstMessage: '🙋',
 };
 

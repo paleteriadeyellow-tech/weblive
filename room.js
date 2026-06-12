@@ -146,7 +146,7 @@ function readJsonSafe(file) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
@@ -185,6 +185,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const fanLikeAcc = new Map();      // uniqueId -> likes pendientes
   const recentSubs = new Map();      // dedupe suscripciones (subscribe/subNotify)
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
+  const memberLevels = new Map();    // uniqueId -> último nivel de miembro visto (para detectar subidas)
   // Ruleta / sorteo: participantes recogidos durante la recolección.
   const roulette = { collecting: false, entries: new Map(), giftImage: '' }; // uid -> { uniqueId, nickname, photo }
   const ROULETTE_MAX = 300;
@@ -720,6 +721,40 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  // Detecta cuándo un usuario SUBE su nivel de miembro (insignia junto al nombre).
+  // TikTok no envía un evento propio, así que recordamos el último nivel visto de
+  // cada usuario (al chatear o regalar) y, si en una interacción posterior su nivel
+  // es mayor, disparamos el evento 'levelUp'. Solo se detecta dentro de la sesión:
+  // necesitamos haber visto su nivel anterior al menos una vez.
+  function checkMemberLevelUp(data) {
+    const user = baseUser(data?.user || data);
+    const uid = user.uniqueId;
+    if (!uid) return;
+    const level = Number(chatUserRoles(data).memberLevel || 0);
+    if (!level) return; // sin insignia de nivel: nada que comparar
+    const prev = memberLevels.get(uid);
+    memberLevels.set(uid, level);
+    if (prev == null || level <= prev) return; // primera vez o no subió
+    const info = { username: uid, nickname: user.nickname, level, fromLevel: prev, toLevel: level };
+    broadcast('log', { level: 'ok', text: `⬆️ ${user.nickname} subió a nivel de miembro ${level} (antes ${prev})` });
+    triggerVideos('levelUp', info);
+    triggerSoundAlerts('levelUp', info);
+    playLevelVideo(level);
+  }
+
+  // Reproduce automáticamente el video de la carpeta «niveles» que coincida con el
+  // nivel alcanzado (nivel5.mp4 → al subir al 5). Independiente de las alertas manuales.
+  function playLevelVideo(level) {
+    const cfg = settings.levelVideos || {};
+    if (cfg.enabled === false) return;
+    if (typeof getLevelVideo !== 'function') return;
+    const url = getLevelVideo(level);
+    if (!url) return;
+    const scr = Number(cfg.screen) || 1;
+    broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${level} reproducido.` });
+    broadcast('media', { id: 'level_' + level, name: `Nivel ${level}`, url, screen: scr, volume: cfg.volume ?? 100, size: screenSize(scr) });
+  }
+
   // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3), 'battleGift',
   // 'battleGiftAny', 'battleStart', 'battleEnd'.
   function fireBattleAlerts(actionType, info = {}) {
@@ -1037,6 +1072,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const comment = data.comment || '';
       broadcast('chat', { ...baseUser(data.user || data), comment, ...chatUserRoles(data) });
       pushStatsThrottled();
+      checkMemberLevelUp(data);
       if (Array.isArray(data.emotes)) {
         for (const se of data.emotes) rememberEmote(se?.emote?.emoteId, se?.emote?.image);
       }
@@ -1109,6 +1145,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
 
       broadcast('gift', { ...user, giftName, giftId, repeatCount, diamonds: diamondsEach, image, streak: isStreak });
+      checkMemberLevelUp(data);
     });
 
     conn.on(WebcastEvent.LIKE, (data) => {
