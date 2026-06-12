@@ -1055,6 +1055,41 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  // TikTok envía stickers en varios formatos según el conector / tipo de mensaje:
+  // emoteList (EMOTE), emotes[].emote (CHAT protobuf) o emotes[].emoteId (legacy).
+  function extractEmotes(data) {
+    const out = [];
+    const seen = new Set();
+    const add = (emoteId, image) => {
+      const eid = String(emoteId || '').trim();
+      if (!eid || seen.has(eid)) return;
+      seen.add(eid);
+      out.push({ emoteId: eid, image: image || null });
+    };
+    if (Array.isArray(data?.emoteList)) {
+      for (const e of data.emoteList) add(e?.emoteId, e?.image);
+    }
+    if (Array.isArray(data?.emotes)) {
+      for (const se of data.emotes) {
+        if (se?.emoteId) add(se.emoteId, se.emoteImageUrl || se.image);
+        else if (se?.emote) add(se.emote.emoteId, se.emote.image);
+      }
+    }
+    if (!out.length) add(data?.emoteId, data?.image);
+    return out;
+  }
+
+  function fireEmoteTriggers(data) {
+    const list = extractEmotes(data);
+    if (!list.length) return;
+    for (const e of list) rememberEmote(e.emoteId, e.image);
+    for (const e of list) {
+      const info = { emoteId: e.emoteId };
+      triggerSoundAlerts('emote', info);
+      triggerVideos('emote', info);
+    }
+  }
+
   /* --------------------------- Eventos del live --------------------------- */
   function bindEvents(conn) {
     conn.on(ControlEvent.DISCONNECTED, () => {
@@ -1073,10 +1108,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('chat', { ...baseUser(data.user || data), comment, ...chatUserRoles(data) });
       pushStatsThrottled();
       checkMemberLevelUp(data);
-      if (Array.isArray(data.emotes)) {
-        for (const se of data.emotes) rememberEmote(se?.emote?.emoteId, se?.emote?.image);
-      }
       const chatUser = baseUser(data.user || data);
+      fireEmoteTriggers(data);
       const chatInfo = { comment, username: chatUser.uniqueId, nickname: chatUser.nickname };
       triggerVideos('chatCommand', chatInfo);
       triggerSoundAlerts('chatCommand', chatInfo);
@@ -1214,11 +1247,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.EMOTE, (data) => {
-      const list = data?.emoteList || (data?.emoteId ? [{ emoteId: data.emoteId, image: data.image }] : []);
-      for (const e of list) rememberEmote(e?.emoteId, e?.image);
-      const emoteId = list[0]?.emoteId || data?.emoteId || '';
-      triggerSoundAlerts('emote', { emoteId });
-      triggerVideos('emote', { emoteId });
+      fireEmoteTriggers(data);
     });
 
     // ===== Suscripciones (con nivel / meses) =====
