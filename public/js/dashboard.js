@@ -1067,11 +1067,19 @@ function renderState(s) {
     dot.className = 'dot wait'; st.textContent = `Conectando...`;
     badge.className = 'live-badge wait'; badge.textContent = '● Conectando...';
   } else {
-    dot.className = 'dot off'; st.textContent = 'Desconectado';
-    badge.className = 'live-badge off'; badge.textContent = '● Desconectado';
+    dot.className = 'dot off';
+    if (s.autoConnect && s.username) {
+      // Auto-conexión activa: aún no estás en vivo, el servidor reintenta solo.
+      st.textContent = `Esperando tu live · @${s.username}`;
+      badge.className = 'live-badge off'; badge.textContent = '● Esperando tu live';
+    } else {
+      st.textContent = 'Desconectado';
+      badge.className = 'live-badge off'; badge.textContent = '● Desconectado';
+    }
     $('btnConnect').hidden = false; $('btnDisconnect').hidden = true;
   }
   if (s.username && !$('username').value) $('username').value = s.username;
+  if (s.username) { try { localStorage.setItem('lastTikTokUser', s.username); } catch {} }
   renderLeaderboard(s.topGifters || []);
 }
 
@@ -1131,11 +1139,18 @@ function esc(s) {
 function doConnect() {
   const u = $('username').value.trim().replace(/^@/, '');
   if (!u) { $('username').focus(); return; }
+  try { localStorage.setItem('lastTikTokUser', u); } catch {}
   send({ action: 'connect', username: u });
 }
 $('btnConnect').onclick = doConnect;
 $('btnDisconnect').onclick = () => send({ action: 'disconnect' });
 $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') doConnect(); });
+// Prerellena el último usuario guardado al abrir el panel (antes incluso de que llegue
+// el estado del servidor), para que el campo nunca aparezca vacío.
+try {
+  const lastU = localStorage.getItem('lastTikTokUser');
+  if (lastU && !$('username').value) $('username').value = lastU;
+} catch {}
 $('clearChat').onclick = () => { $('chat').innerHTML = ''; };
 
 /* ====================== Opciones de reproducción ====================== */
@@ -2027,15 +2042,35 @@ function indexGiftCatalog() {
   for (const g of giftCatalog) giftCatalogById.set(String(g.id), g);
 }
 
-async function preloadGiftCatalog() {
+let giftCatalogLoading = false;
+async function preloadGiftCatalog(attempt = 0) {
   if (giftCatalog.length) return;
+  if (giftCatalogLoading) return;
+  giftCatalogLoading = true;
   try {
     const res = await fetch('/api/gifts');
     const data = await res.json();
     giftCatalog = data.results || [];
     indexGiftCatalog();
-    if (settings) { renderSoundAlerts(); renderVideos(); }
-  } catch {}
+    giftCatalogLoading = false;
+    // Una vez cargado el catálogo, volvemos a dibujar TODAS las secciones que muestran
+    // iconos de regalo, por si sus fichas se dibujaron antes (entonces salía el emoji).
+    if (giftCatalog.length) refreshGiftCards();
+  } catch {
+    giftCatalogLoading = false;
+    // Reintenta: la primera carga puede fallar si el servidor está "despertando" o la
+    // red parpadea. Así las fichas SIEMPRE terminan mostrando el regalo configurado.
+    if (attempt < 6) setTimeout(() => preloadGiftCatalog(attempt + 1), 2000);
+  }
+}
+
+// Re-dibuja las secciones con iconos de regalo (cuando ya hay catálogo y ajustes).
+function refreshGiftCards() {
+  if (!settings) return;
+  if (typeof renderSoundAlerts === 'function') { try { renderSoundAlerts(); } catch {} }
+  if (typeof renderVideos === 'function') { try { renderVideos(); } catch {} }
+  if (typeof renderBattleAlerts === 'function') { try { renderBattleAlerts(); } catch {} }
+  if (typeof renderAcciones === 'function') { try { renderAcciones(); } catch {} }
 }
 
 const EVENT_EMOJI = {
@@ -3392,7 +3427,11 @@ function updateTtsSummary() {
 
 /* ---- Filtros de moderación ---- */
 const PROFANITY = ['puta', 'puto', 'mierda', 'pendejo', 'cabron', 'cabrón', 'verga', 'coño', 'joto', 'culero', 'chinga', 'perra', 'zorra', 'maricon', 'maricón', 'pinche', 'fuck', 'shit', 'bitch', 'asshole'];
-const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}\u{FE0F}\u{200D}]/gu;
+// Detecta CUALQUIER emoji/pictograma para poder quitarlos del nombre y leer solo el texto.
+// Usa \p{Extended_Pictographic} (cubre ⭐ ⌚ ➡️ ❤ ☀ y casi todos los símbolos), más los
+// modificadores de tono de piel, banderas (regional indicators), el combinador de teclas
+// (1️⃣), el selector de variación (FE0F) y el "zero width joiner" (200D) de emojis combinados.
+const EMOJI_RE = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\u{1F1E6}-\u{1F1FF}\u{20E3}\u{FE0F}\u{200D}]/gu;
 
 // Diccionario de emojis comunes → palabra hablada en español. Sirve para que el
 // TTS "lea" los emojis del nombre del usuario (que normalmente la voz omite).

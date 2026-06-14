@@ -203,6 +203,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   loadWeekly();
   loadPoints();
   timer.remaining = Math.max(0, Math.floor(settings.timer?.defaultInitialSec || 0));
+  // Recuerda el último @usuario de TikTok conectado (queda guardado en los ajustes, así
+  // sobrevive a reinicios) para prerellenar el campo y poder auto-conectar al iniciar el live.
+  state.username = settings.tiktokUser || null;
 
   /* ----------------------------- Persistencia ----------------------------- */
   function loadSettings() {
@@ -443,11 +446,51 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   /* ------------------------- Conexión a TikTok LIVE ------------------------- */
-  function connectTo(username) {
+  /* --------------------------- Auto-conexión ---------------------------- */
+  // Recuerda el último @usuario y se reconecta solo (reintentando cada cierto tiempo)
+  // hasta que el creador inicie su live. Se enciende al conectar manualmente y se apaga
+  // al pulsar "Desconectar". Así no hace falta darle a "Conectar" cada vez.
+  const AUTO_CONNECT_POLL_MS = 45000;
+  let autoConnectTimer = null;
+  let lastAutoWaitLog = 0;
+
+  function autoConnectOn() {
+    return settings.autoConnect !== false && !!settings.tiktokUser;
+  }
+  function startAutoConnectLoop() {
+    if (autoConnectTimer) return;
+    autoConnectTimer = setInterval(() => {
+      if (autoConnectOn() && !state.connected && !state.connecting) {
+        connectTo(settings.tiktokUser, { auto: true });
+      }
+    }, AUTO_CONNECT_POLL_MS);
+    if (autoConnectTimer.unref) autoConnectTimer.unref();
+    // Primer intento rápido al arrancar (por si ya estás en vivo).
+    setTimeout(() => {
+      if (autoConnectOn() && !state.connected && !state.connecting) {
+        connectTo(settings.tiktokUser, { auto: true });
+      }
+    }, 3000);
+  }
+
+  // Guarda el último usuario (y reactiva el auto si fue una conexión manual).
+  function rememberTikTokUser(username, manual) {
+    let changed = false;
+    if (settings.tiktokUser !== username) { settings.tiktokUser = username; changed = true; }
+    if (manual && settings.autoConnect === false) { settings.autoConnect = true; changed = true; }
+    if (changed) {
+      saveSettings();
+      if (manual && typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
+    }
+  }
+
+  function connectTo(username, opts = {}) {
     if (!username) return;
     if (state.connecting || (state.connected && state.username === username)) return;
 
     disconnect();
+
+    rememberTikTokUser(username, !opts.auto);
 
     state.username = username;
     state.connecting = true;
@@ -455,7 +498,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     resetStats();
     resetSessionOverlays(); // arranca la sesión con los overlays limpios (menos los semanales)
     pushState();
-    broadcast('log', { level: 'info', text: `Conectando a @${username}...` });
+    if (!opts.auto) broadcast('log', { level: 'info', text: `Conectando a @${username}...` });
 
     connection = new TikTokLiveConnection(username, {
       processInitialData: false,
@@ -464,10 +507,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     bindEvents(connection);
-    tryConnect(connection, username, 1);
+    tryConnect(connection, username, 1, !!opts.auto);
   }
 
-  function tryConnect(conn, username, attempt) {
+  function tryConnect(conn, username, attempt, auto) {
     if (conn !== connection) return;
     conn
       .connect()
@@ -483,22 +526,33 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       .catch((err) => {
         if (conn !== connection) return;
         const msg = err?.message || String(err);
-        if (attempt < MAX_CONNECT_ATTEMPTS) {
+        // En modo manual reintentamos varias veces seguidas (por saturación del servicio).
+        if (!auto && attempt < MAX_CONNECT_ATTEMPTS) {
           const delay = attempt * 2500;
           broadcast('log', {
             level: 'info',
             text: `Intento ${attempt} fallido. Reintentando en ${delay / 1000}s... (el servicio gratuito de TikTok a veces está saturado)`,
           });
-          setTimeout(() => tryConnect(conn, username, attempt + 1), delay);
+          setTimeout(() => tryConnect(conn, username, attempt + 1, auto), delay);
           return;
         }
         state.connecting = false;
         state.connected = false;
         pushState();
-        broadcast('log', {
-          level: 'error',
-          text: `No se pudo conectar tras ${MAX_CONNECT_ATTEMPTS} intentos: ${msg}. Verifica que @${username} esté EN VIVO y vuelve a intentar en un minuto.`,
-        });
+        if (auto) {
+          // Auto-conexión: seguramente aún no estás en vivo. Esperamos en silencio; el bucle
+          // lo volverá a intentar y avisamos como mucho cada pocos minutos para no llenar el log.
+          const now = Date.now();
+          if (now - lastAutoWaitLog > 180000) {
+            lastAutoWaitLog = now;
+            broadcast('log', { level: 'info', text: `Esperando a que @${username} inicie el live para conectar automáticamente…` });
+          }
+        } else {
+          broadcast('log', {
+            level: 'error',
+            text: `No se pudo conectar tras ${MAX_CONNECT_ATTEMPTS} intentos: ${msg}. Verifica que @${username} esté EN VIVO y vuelve a intentar en un minuto.`,
+          });
+        }
       });
   }
 
@@ -511,6 +565,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     state.connecting = false;
     state.roomId = null;
   }
+
+  // Desconexión MANUAL (botón "Desconectar"): además de cortar, apaga la auto-conexión
+  // para que NO se vuelva a conectar solo hasta que el usuario lo pida de nuevo.
+  function disconnectManual() {
+    if (settings.autoConnect !== false) {
+      settings.autoConnect = false;
+      saveSettings();
+      if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
+    }
+    disconnect();
+    pushState();
+  }
+
+  startAutoConnectLoop();
 
   /* ----------------------------- Disparadores ----------------------------- */
   // "Racha = 1": coalesce de disparos del mismo usuario+regalo en una ventana corta.
@@ -846,9 +914,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function serializeState() {
     return {
-      username: state.username,
+      username: state.username || settings.tiktokUser || null,
       connected: state.connected,
       connecting: state.connecting,
+      autoConnect: settings.autoConnect !== false,
       roomId: state.roomId,
       startedAt: state.startedAt,
       stats: state.stats,
@@ -1400,7 +1469,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (data.username) connectTo(String(data.username).trim().replace(/^@/, ''));
         break;
       case 'disconnect':
-        disconnect();
+        disconnectManual();
         break;
       case 'saveSettings':
         if (data.settings) applyIncomingSettings(data.settings, true);
@@ -1668,6 +1737,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function shutdown() {
     disconnect();
+    if (autoConnectTimer) { clearInterval(autoConnectTimer); autoConnectTimer = null; }
     stopTimerInterval();
     clearTimeout(saveTimer);
     clearTimeout(weeklySaveTimer);
