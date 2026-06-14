@@ -2,6 +2,7 @@
 // Cada usuario registrado tiene su propia "room": conexión a TikTok, ajustes, estado,
 // batalla y overlays totalmente aislados (ver room.js). Aquí solo va lo compartido:
 // catálogo de regalos, archivos estáticos, autenticación y el enrutado de WebSockets.
+import { eulerStartupLine } from './euler-config.js';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -783,6 +784,7 @@ server.listen(PORT, () => {
   console.log('\n  ┌───────────────────────────────────────────┐');
   console.log('  │   Livecoins  —  panel estilo TikFinity       │');
   console.log('  ├───────────────────────────────────────────┤');
+  console.log(`  │   ${eulerStartupLine().padEnd(42)}│`);
   console.log(`  │   Panel:   http://localhost:${PORT}/`.padEnd(46) + '│');
   console.log(`  │   Login:   http://localhost:${PORT}/login.html`.padEnd(46) + '│');
   console.log('  └───────────────────────────────────────────┘\n');

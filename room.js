@@ -2,6 +2,7 @@
 // puntajes de batalla, ranking semanal y sus clientes WebSocket (panel + overlays).
 // Los broadcasts solo llegan a los clientes de ESTA room, por lo que las alertas y
 // datos de distintos usuarios nunca se mezclan.
+import './euler-config.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
