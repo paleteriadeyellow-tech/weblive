@@ -552,8 +552,8 @@ app.get('/api/emotes', (req, res) => {
   res.json({ results: getRoomForUser(user).getEmotes() });
 });
 
-// Subida de archivos (compartida).
-app.post('/api/upload', express.raw({ type: '*/*', limit: '30mb' }), (req, res) => {
+// Subida de archivos (compartida). Límite 100 MB para videos cortos de alertas/overlays.
+app.post('/api/upload', express.raw({ type: '*/*', limit: '100mb' }), (req, res) => {
   if (!req.body || !req.body.length) return res.status(400).json({ error: 'archivo vacío' });
   const safe = String(req.query.name || 'file').replace(/[^\w.\-]+/g, '_').slice(-60);
   const fname = `${Date.now()}_${safe}`;
