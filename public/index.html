@@ -18,7 +18,7 @@
 
       <nav class="nav">
         <button class="nav-item active" data-view="panel">
-          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Panel
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Inicio
         </button>
         <button class="nav-item" data-view="planes">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l3.5 2.5L12 4l5.5 5.5L21 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg></span> Planes
@@ -70,6 +70,19 @@
       <main>
         <!-- ===== VISTA: PANEL ===== -->
         <section class="view active" id="view-panel">
+          <!-- Bienvenida con el último usuario -->
+          <div class="home-welcome" id="home-welcome">
+            <div class="home-welcome-glow"></div>
+            <div class="home-welcome-main">
+              <span class="home-welcome-emoji" id="home-welcome-emoji">👋</span>
+              <div class="home-welcome-texts">
+                <div class="home-welcome-greet" id="home-welcome-greet">¡Hola!</div>
+                <div class="home-welcome-sub" id="home-welcome-sub">Conecta tu cuenta de TikTok para empezar.</div>
+              </div>
+            </div>
+            <button type="button" class="btn primary home-welcome-btn" id="home-welcome-btn">Conectar ahora</button>
+          </div>
+
           <div class="stats">
             <div class="card"><div class="ico">👀</div><div class="meta"><span class="num" id="s-viewers">0</span><span class="lbl">Viewers</span></div></div>
             <div class="card"><div class="ico">❤️</div><div class="meta"><span class="num" id="s-likes">0</span><span class="lbl">Likes</span></div></div>
@@ -99,6 +112,57 @@
               <div id="events" class="feed small"></div>
             </section>
           </div>
+
+          <!-- Cómo usar la app + consejos -->
+          <section class="home-guide" id="home-guide">
+            <div class="home-guide-head">
+              <h2>🚀 Cómo usar la app</h2>
+              <p>Sigue estos pasos para sacarle el máximo provecho a tu live.</p>
+            </div>
+            <div class="home-steps">
+              <div class="home-step" style="--i:0">
+                <span class="home-step-num">1</span>
+                <span class="home-step-ic">🔗</span>
+                <div class="home-step-tt">Conecta tu cuenta</div>
+                <div class="home-step-dx">Escribe tu <b>@usuario</b> de TikTok y pulsa <b>Conectar</b>. La app recuerda tu usuario y se conecta sola cuando inicies tu live.</div>
+              </div>
+              <div class="home-step" style="--i:1">
+                <span class="home-step-num">2</span>
+                <span class="home-step-ic">🔔</span>
+                <div class="home-step-tt">Configura tus alertas</div>
+                <div class="home-step-dx">En <b>Alertas de sonido</b> elige qué regalo dispara cada sonido, imagen o video en tu overlay.</div>
+              </div>
+              <div class="home-step" style="--i:2">
+                <span class="home-step-num">3</span>
+                <span class="home-step-ic">⌨️</span>
+                <div class="home-step-tt">Crea acciones</div>
+                <div class="home-step-dx">Haz que un regalo o evento presione teclas para controlar tus juegos, OBS o lo que quieras.</div>
+              </div>
+              <div class="home-step" style="--i:3">
+                <span class="home-step-num">4</span>
+                <span class="home-step-ic">🎬</span>
+                <div class="home-step-tt">Abre tu overlay</div>
+                <div class="home-step-dx">Copia el enlace del overlay y pégalo en <b>OBS</b> o <b>TikTok Studio</b> (proporción 3:4).</div>
+              </div>
+              <div class="home-step" style="--i:4">
+                <span class="home-step-num">5</span>
+                <span class="home-step-ic">🗣️</span>
+                <div class="home-step-tt">Activa el Chat TTS</div>
+                <div class="home-step-dx">Haz que la app lea en voz alta los comentarios de tu audiencia durante el directo.</div>
+              </div>
+            </div>
+
+            <div class="home-tips-head"><h2>💡 Consejos</h2></div>
+            <div class="home-tips" id="home-tips">
+              <div class="home-tip is-active">💎 Tus diamantes, regalos y top fans se ven en tiempo real aquí mismo en el Panel.</div>
+              <div class="home-tip">🔁 No te preocupes por reconectar: la app entra sola a tu próximo live.</div>
+              <div class="home-tip">🎯 Usa la <b>Meta de regalos</b> para incentivar a tu audiencia a regalar.</div>
+              <div class="home-tip">🏆 Premia a tus fans leales con beneficios por <b>nivel de miembro</b> en el Chat TTS.</div>
+              <div class="home-tip">🎮 ¿Juegas Minecraft, Roblox o Plants vs Zombies? Actívalos en la pestaña <b>Juegos</b>.</div>
+              <div class="home-tip">🖼️ Personaliza tu overlay con tus propias imágenes para que se vea único.</div>
+            </div>
+            <div class="home-tips-dots" id="home-tips-dots"></div>
+          </section>
 
           <section class="panel panel-transfer" id="panel-transfer">
             <header class="panel-head">📦 Importar / Exportar configuración</header>

@@ -1081,6 +1081,7 @@ function renderState(s) {
   if (s.username && !$('username').value) $('username').value = s.username;
   if (s.username) { try { localStorage.setItem('lastTikTokUser', s.username); } catch {} }
   renderLeaderboard(s.topGifters || []);
+  try { updateHomeWelcome(s); } catch {}
 }
 
 function renderLeaderboard(list) {
@@ -4101,12 +4102,68 @@ function setupSettingsTransfer() {
   });
 }
 
+/* ===== Pantalla de inicio: bienvenida + consejos ===== */
+function homeGreetingText() {
+  const h = new Date().getHours();
+  if (h < 6) return '🌙 Buenas noches';
+  if (h < 12) return '☀️ Buenos días';
+  if (h < 19) return '🌤️ Buenas tardes';
+  return '🌙 Buenas noches';
+}
+function homeLastUser() {
+  let u = '';
+  try { u = ($('username') && $('username').value || '').trim(); } catch {}
+  if (!u) { try { u = (localStorage.getItem('lastTikTokUser') || '').trim(); } catch {} }
+  return u.replace(/^@/, '');
+}
+function updateHomeWelcome(s) {
+  const greet = document.getElementById('home-welcome-greet');
+  const sub = document.getElementById('home-welcome-sub');
+  const btn = document.getElementById('home-welcome-btn');
+  if (!greet) return;
+  const user = (s && s.username) ? String(s.username).replace(/^@/, '') : homeLastUser();
+  greet.textContent = user ? `${homeGreetingText()}, @${user}` : `${homeGreetingText()} 👋`;
+  if (sub) {
+    if (s && s.connected) sub.textContent = `🔴 En vivo · @${user}`;
+    else if (s && s.autoConnect && user) sub.textContent = `⏳ Esperando que @${user} inicie el live…`;
+    else if (user) sub.textContent = '¡Listo para volver al directo! Pulsa Conectar.';
+    else sub.textContent = 'Conecta tu cuenta de TikTok para empezar.';
+  }
+  if (btn) btn.style.display = (s && s.connected) ? 'none' : '';
+}
+function initHomeWelcome() {
+  updateHomeWelcome(null);
+  const btn = document.getElementById('home-welcome-btn');
+  if (btn) {
+    btn.onclick = () => {
+      const inp = $('username');
+      if (inp && !inp.value.trim()) { const u = homeLastUser(); if (u) inp.value = u; }
+      if (typeof doConnect === 'function') doConnect();
+    };
+  }
+  const tips = Array.from(document.querySelectorAll('#home-tips .home-tip'));
+  const dotsWrap = document.getElementById('home-tips-dots');
+  if (!tips.length) return;
+  let idx = Math.max(0, tips.findIndex((t) => t.classList.contains('is-active')));
+  if (dotsWrap) dotsWrap.innerHTML = tips.map((_, i) => `<span data-i="${i}"></span>`).join('');
+  const dots = dotsWrap ? Array.from(dotsWrap.children) : [];
+  const show = (n) => {
+    idx = (n + tips.length) % tips.length;
+    tips.forEach((t, i) => t.classList.toggle('is-active', i === idx));
+    dots.forEach((d, i) => d.classList.toggle('on', i === idx));
+  };
+  dots.forEach((d) => { d.onclick = () => show(+d.dataset.i); });
+  show(idx);
+  setInterval(() => show(idx + 1), 6000);
+}
+
 (async () => {
   // Arranque en paralelo: abrimos el WebSocket y pedimos el catálogo de regalos
   // de inmediato (no esperamos al /api/me). El WS es el que entrega ajustes, alertas
   // y videos, así que cuanto antes se abra, antes se pinta TODO el panel.
   connectWS();
   preloadGiftCatalog();
+  try { initHomeWelcome(); } catch (e) { console.error('Home welcome:', e); }
   try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }
   // Datos de sesión (usuario / roomKey) en paralelo; solo afectan al chip y a las URLs
   // de overlays, que no bloquean el render principal.
