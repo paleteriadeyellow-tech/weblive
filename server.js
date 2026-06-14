@@ -732,7 +732,8 @@ wss.on('connection', (ws, req) => {
     }
 
     const room = getRoomForUser(user);
-    room.addClient(ws);
+    const role = String(url.searchParams.get('role') || 'panel').toLowerCase();
+    room.addClient(ws, role === 'local' ? 'local' : 'panel');
 
     // Heartbeat a nivel de protocolo: el navegador responde a los ping automáticamente,
     // incluso con la pestaña minimizada o en segundo plano (no depende de JS ni de timers

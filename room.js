@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
 import { DEFAULT_SETTINGS, deepMerge } from './default-settings.js';
+import { createActionBridge } from './cloud-actions.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -177,7 +178,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
   const POINTS_MAX_USERS = 2500;
   const POINTS_MAX_TX = 500;
-  const clients = new Set();         // todos los WS de esta room (panel + overlays)
+  const clients = new Set();         // panel + overlays (no incluye el cliente local)
+  const localClients = new Set();    // ejecutor local (.exe ligero) en la PC del streamer
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
   const emoteCatalog = new Map();
@@ -244,6 +246,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (client.readyState === 1) client.send(msg);
     }
   }
+  function broadcastToLocal(type, payload) {
+    const msg = JSON.stringify({ type, payload });
+    for (const client of localClients) {
+      if (client.readyState === 1) client.send(msg);
+    }
+  }
+  function broadcastLocalStatus() {
+    broadcast('localClient', { online: localClients.size > 0, count: localClients.size });
+  }
+  const actions = createActionBridge({
+    getSettings: () => settings,
+    broadcast,
+    broadcastToLocal,
+    isCloud: process.env.DESKTOP !== '1',
+  });
   function broadcastScreens() {
     broadcast('screens', { connected: [...new Set(videoScreens.values())] });
   }
@@ -287,6 +304,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     settings.soundAlerts = cap(settings.soundAlerts, lim.soundAlerts);
     settings.videos = cap(settings.videos, lim.videos);
     settings.battleAlerts = cap(settings.battleAlerts, lim.battleAlerts);
+    settings.actions = cap(settings.actions, lim.actions);
   }
   function screenSize(n) {
     return settings.screens?.[(Number(n) || 1) - 1]?.size ?? 100;
@@ -745,6 +763,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
       }
     }
+    actions.triggerLikeGlobalExtras(total, lastTotalLikes);
     lastTotalLikes = total;
   }
 
@@ -829,6 +848,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('log', { level: 'ok', text: `⬆️ ${user.nickname} subió a nivel de miembro ${level} (antes ${prev})` });
     triggerVideos('levelUp', info);
     triggerSoundAlerts('levelUp', info);
+    actions.triggerActions('levelUp', info);
+    actions.triggerMinecraftActions('levelUp', info, user);
   }
 
   // Reproduce automáticamente el video de la carpeta «niveles» que coincida con el
@@ -1177,6 +1198,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const info = { emoteId: e.emoteId };
       triggerSoundAlerts('emote', info);
       triggerVideos('emote', info);
+      actions.triggerActions('emote', info);
     }
   }
 
@@ -1205,12 +1227,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerSoundAlerts('chatCommand', chatInfo);
       handleChatCommands(comment, chatUser);
       rouletteFromChat(chatUser, comment);
+      actions.triggerMinecraftActions('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
       const uid = data.user?.uniqueId || data.user?.userId;
       if (uid && !chatSeenUsers.has(uid)) {
         chatSeenUsers.add(uid);
         triggerVideos('firstMessage', chatInfo);
         triggerSoundAlerts('firstMessage', chatInfo);
+        actions.triggerMinecraftActions('firstMessage', chatInfo, chatUser);
       }
     });
 
@@ -1265,6 +1289,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         countGiftForGoal(giftId, giftName, repeatCount);
         processFanBalls('coins', user, total);
         rouletteFromGift(user, total, image);
+        actions.triggerActions('gift', giftInfo);
+        actions.triggerMinecraftActions('gift', giftInfo, user);
       }
 
       broadcast('gift', { ...user, giftName, giftId, repeatCount, diamonds: diamondsEach, image, streak: isStreak });
@@ -1276,6 +1302,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       addTimerSeconds(((data.likeCount || 0) / 100) * (settings.timer?.like || 0));
       processFanBalls('likes', baseUser(data.user), data.likeCount || 0);
       broadcast('like', { ...baseUser(data.user), count: data.likeCount || 0, total: state.stats.likes });
+      actions.triggerActions('like', { likeCount: data.likeCount || 0 });
+      actions.triggerMinecraftActions('like', { likeCount: data.likeCount || 0 }, baseUser(data.user));
       if (Date.now() - lastLikeSound > 3000) {
         lastLikeSound = Date.now();
         triggerSoundAlerts('like', { likeCount: data.likeCount || 0 });
@@ -1313,12 +1341,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('follow', user);
         triggerVideos('follow');
         triggerSoundAlerts('follow');
+        actions.triggerActions('follow');
+        actions.triggerMinecraftActions('follow', {}, user);
         if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
       } else if (action.includes('share')) {
         state.stats.shares++;
         broadcast('share', user);
         triggerVideos('share');
         triggerSoundAlerts('share');
+        actions.triggerActions('share');
+        actions.triggerMinecraftActions('share', {}, user);
         if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
       }
       pushStatsThrottled();
@@ -1329,6 +1361,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.follows++;
       broadcast('follow', user);
       triggerSoundAlerts('follow');
+      actions.triggerActions('follow');
+      actions.triggerMinecraftActions('follow', {}, user);
       if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
       pushStatsThrottled();
     });
@@ -1338,6 +1372,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.shares++;
       broadcast('share', user);
       triggerSoundAlerts('share');
+      actions.triggerActions('share');
+      actions.triggerMinecraftActions('share', {}, user);
       if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
       pushStatsThrottled();
     });
@@ -1362,6 +1398,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('subscribe', info);
       triggerSoundAlerts('subscribe', info);
       triggerVideos('subscribe', info);
+      actions.triggerActions('subscribe', info);
+      actions.triggerMinecraftActions('subscribe', info, user);
       addTimerSeconds(settings.timer?.subscribe || 0);
       const subBonus = Math.round(Number(settings.points?.subBonus) || 0);
       if (user.uniqueId && subBonus > 0) {
@@ -1385,6 +1423,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('superfan', info);
       triggerSoundAlerts('superFan', info);
       triggerVideos('superFan', info);
+      actions.triggerActions('superFan', info);
+      actions.triggerMinecraftActions('superFan', info, user);
       // Pelota dorada con la foto del super fan (overlay de pelotas).
       broadcast('goldenBall', { photo: user.photo || '', nickname: user.nickname || '', count: 1 });
       const bonus = Math.round(Number(settings.points?.superFanBonus) || 0);
@@ -1484,6 +1524,24 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (!data.kind || data.kind === 'gift') processFanBalls('coins', demoUser, 5);
         break;
       }
+      case 'testAction': {
+        const a = (settings.actions || []).find((x) => x.id === data.id);
+        if (a && actions.actionDoesSomething(a)) actions.fireAction(a);
+        break;
+      }
+      case 'testMcAction': {
+        const a = (settings.mcActions || []).find((x) => x.uid === data.uid);
+        if (a && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length))) {
+          actions.runMcAction(a, actions.buildMcVars(
+            { giftName: 'Rose', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' },
+            { nickname: 'Prueba', uniqueId: 'prueba' },
+          ));
+        }
+        break;
+      }
+      case 'runActionOutputs':
+        actions.runActionOutputs({ webhookCmd: data.webhookCmd, obsCmd: data.obsCmd, sbCmd: data.sbCmd });
+        break;
       case 'getPoints':
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() })); } catch {}
         break;
@@ -1709,7 +1767,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   /* ------------------------ Gestión de clientes WS ------------------------ */
-  function addClient(ws) {
+  function addClient(ws, role = 'panel') {
+    ws.clientRole = role;
+    if (role === 'local') {
+      localClients.add(ws);
+      lastSeen = Date.now();
+      try { ws.send(JSON.stringify({ type: 'localReady', payload: { ok: true } })); } catch {}
+      broadcastLocalStatus();
+      return;
+    }
     clients.add(ws);
     lastSeen = Date.now();
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
@@ -1726,6 +1792,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function removeClient(ws) {
     clients.delete(ws);
+    if (localClients.delete(ws)) broadcastLocalStatus();
     lastSeen = Date.now();
     if (videoScreens.has(ws)) {
       videoScreens.delete(ws);
@@ -1765,17 +1832,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       liveSince: state.startedAt || null,
       account: state.username || null,
       clients: clients.size,
-      online: clients.size > 0,
+      localClients: localClients.size,
+      online: clients.size > 0 || localClients.size > 0,
       lastSeen: lastSeen || 0,
     };
   }
 
   function kickAll() {
-    for (const ws of [...clients]) {
+    for (const ws of [...clients, ...localClients]) {
       try { ws.send(JSON.stringify({ type: 'accountPending' })); } catch {}
       try { ws.close(4003, 'pending'); } catch {}
     }
     clients.clear();
+    localClients.clear();
   }
 
   return {

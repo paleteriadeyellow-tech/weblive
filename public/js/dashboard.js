@@ -611,6 +611,17 @@ function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'B
   });
 }
 
+function onLocalClient(p) {
+  const online = !!(p && p.online);
+  window._localClientOnline = online;
+  const el = $('local-client-status');
+  if (el) {
+    el.textContent = online ? 'Cliente local: conectado' : 'Cliente local: desconectado';
+    el.classList.toggle('ok', online);
+    el.classList.toggle('err', !online);
+  }
+}
+
 function handle(type, p) {
   switch (type) {
     case 'state': renderState(p); break;
@@ -633,6 +644,7 @@ function handle(type, p) {
     case 'pointsTx': onPointsTx(p); break;
     case 'roulette': onRoulette(p); break;
     case 'caps': setCaps(p); loadPlanComparison(true); break;
+    case 'localClient': onLocalClient(p); break;
     case 'emoteCatalog':
       emoteCatalog = p.results || [];
       if (!$('emoteModal').classList.contains('hidden')) renderEmoteGrid();
