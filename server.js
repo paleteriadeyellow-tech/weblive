@@ -253,6 +253,22 @@ app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
   res.json({ ok: true });
 });
 
+// Conectar/desconectar TikTok vía HTTP (usado por el .exe en modo relay como respaldo).
+app.post('/api/room/connect', express.json(), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const username = String(req.body?.username || '').trim().replace(/^@/, '');
+  if (!username) return res.status(400).json({ error: 'falta usuario' });
+  getRoomForUser(user).handleMessage(null, { action: 'connect', username });
+  res.json({ ok: true });
+});
+app.post('/api/room/disconnect', express.json(), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  getRoomForUser(user).handleMessage(null, { action: 'disconnect' });
+  res.json({ ok: true });
+});
+
 // Catálogo + configuración de planes para CUALQUIER usuario autenticado (solo lectura).
 // Lo usa la pestaña "Planes" para mostrar la comparación Gratis vs Premium.
 app.get('/api/plans', (req, res) => {
