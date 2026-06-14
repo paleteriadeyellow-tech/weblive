@@ -3285,6 +3285,10 @@ function applyTtsUI(t) {
   set('tts-allow-mods', t.allowMods);
   set('tts-allow-team', t.allowTeam);
   val('tts-min-level', t.minMemberLevel ?? 0);
+  // Compatibilidad: si no existe el flag, se considera activo cuando ya había un nivel > 0.
+  const requireLvl = (t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
+  set('tts-require-level', requireLvl);
+  syncTtsMinLevelUI();
   syncTtsAllowUI();
   // trigger
   const trig = t.trigger || 'all';
@@ -3381,7 +3385,8 @@ function updateTtsSummary() {
   }
   const trig = { all: 'cualquier comentario', dot: 'comentarios que empiezan con punto', slash: 'comentarios que empiezan con /', command: `comentarios con "${t.command || '!tts'}"` }[t.trigger || 'all'];
   const money = t.charge ? `Cobra ${t.cost} monedas por mensaje.` : 'El uso es gratuito.';
-  const lvl = Number(t.minMemberLevel || 0) > 0 ? ` Solo miembros de nivel ${t.minMemberLevel}+.` : '';
+  const requireLvl = (t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
+  const lvl = (requireLvl && Number(t.minMemberLevel || 0) > 0) ? ` Solo miembros de nivel ${t.minMemberLevel}+.` : '';
   el.textContent = `Se leerá ${trig} ${who}.${lvl} ${money}`;
 }
 
@@ -3478,9 +3483,10 @@ function ttsModerate(text) {
 
 function ttsAllowedUser(p) {
   const t = settings?.tts || {};
-  // Nivel mínimo de miembro: requisito independiente que se aplica siempre.
+  // Nivel mínimo de miembro: requisito independiente que solo se aplica si está activado.
+  const requireLvl = (t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
   const minLvl = Number(t.minMemberLevel || 0);
-  if (minLvl > 0 && Number(p.memberLevel || 0) < minLvl) return false;
+  if (requireLvl && minLvl > 0 && Number(p.memberLevel || 0) < minLvl) return false;
   if (t.allowAll !== false) return true;
   const anyRole = t.allowFollowers || t.allowSubs || t.allowMods || t.allowTeam;
   if (!anyRole) return false;
@@ -3507,6 +3513,16 @@ function syncTtsAllowUI() {
     el.disabled = allOn;
     el.closest('.switch-row')?.classList.toggle('is-disabled', allOn);
   });
+}
+
+// El campo de nivel solo está habilitado cuando el interruptor está activado.
+function syncTtsMinLevelUI() {
+  const reqEl = $('tts-require-level');
+  const on = !!(reqEl && reqEl.checked);
+  const num = $('tts-min-level');
+  if (!num) return;
+  num.disabled = !on;
+  num.closest('.field')?.classList.toggle('is-disabled', !on);
 }
 
 // La opción "leer los emojis del nombre" solo tiene sentido si se lee el nombre.
@@ -3726,8 +3742,20 @@ function ttsOnGift(p) {
       save();
     });
   });
+  const reqLvl = $('tts-require-level');
+  if (reqLvl) reqLvl.addEventListener('change', () => {
+    settings.tts.requireMinLevel = reqLvl.checked;
+    // Al activar, si el nivel está en 0 lo subimos a 1 para que el filtro tenga efecto.
+    if (reqLvl.checked && Number(settings.tts.minMemberLevel || 0) < 1) {
+      settings.tts.minMemberLevel = 1;
+      const num = $('tts-min-level'); if (num) num.value = 1;
+    }
+    syncTtsMinLevelUI();
+    save();
+    updateTtsSummary();
+  });
   const minLvl = $('tts-min-level');
-  if (minLvl) minLvl.addEventListener('change', () => { settings.tts.minMemberLevel = Math.max(0, parseInt(minLvl.value, 10) || 0); save(); });
+  if (minLvl) minLvl.addEventListener('change', () => { settings.tts.minMemberLevel = Math.max(0, parseInt(minLvl.value, 10) || 0); save(); updateTtsSummary(); });
 
   // trigger
   document.querySelectorAll('input[name="tts-trigger"]').forEach((r) => r.addEventListener('change', () => { if (r.checked) { settings.tts.trigger = r.value; save(); } }));

@@ -14,9 +14,10 @@ import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan,
+  getUserPlan, setUserPlan, findOrCreateGoogleUser,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
 } from './auth.js';
+import * as google from './google.js';
 import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
 } from './plans.js';
@@ -187,6 +188,39 @@ app.post('/api/logout', (req, res) => {
   destroySession(cookies[SESSION_COOKIE]);
   res.setHeader('Set-Cookie', clearCookie());
   res.json({ ok: true });
+});
+
+/* ----------------------------------------------------------------------------
+ * Inicio de sesión con Google (OAuth 2.0). Queda inactivo si Google no está
+ * configurado (no rompe el login normal de usuario/contraseña).
+ * --------------------------------------------------------------------------*/
+app.get('/api/auth/config', (req, res) => {
+  res.json({ google: google.isConfigured() });
+});
+
+app.get('/api/auth/google', (req, res) => {
+  if (!google.isConfigured()) return res.redirect('/login.html?err=google_off');
+  const url = google.buildAuthUrl(google.redirectUriFor(req), '');
+  res.redirect(url);
+});
+
+app.get('/api/auth/google/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  if (error) return res.redirect('/login.html?err=google_cancel');
+  const p = code && state ? google.consumeState(String(state)) : null;
+  if (!p) return res.redirect('/login.html?err=google_state');
+  try {
+    const { email, name } = await google.exchangeCode(String(code), p.redirectUri);
+    const { user, error: uErr } = findOrCreateGoogleUser({ email, name });
+    if (uErr || !user) return res.redirect('/login.html?err=google_user');
+    touchLogin(user.id);
+    const token = createSession(user.id);
+    res.setHeader('Set-Cookie', sessionCookie(token));
+    res.redirect('/');
+  } catch (e) {
+    console.error('  [google] callback:', e.message);
+    res.redirect('/login.html?err=google_fail');
+  }
 });
 
 app.get('/api/me', (req, res) => {

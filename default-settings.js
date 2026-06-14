@@ -23,7 +23,8 @@ export const DEFAULT_SETTINGS = {
     // Usuarios permitidos
     allowAll: true, allowFollowers: false, allowSubs: false, allowMods: false, allowTeam: false,
     // Nivel mínimo de miembro (club de fans) para que se lea el mensaje. 0 = sin requisito.
-    minMemberLevel: 0,
+    // requireMinLevel activa/desactiva este filtro desde el interruptor del panel.
+    requireMinLevel: false, minMemberLevel: 0,
     // Tipos de comentarios (activador): all | dot | slash | command
     trigger: 'all', command: '!tts',
     // Puntos de carga (monetización)

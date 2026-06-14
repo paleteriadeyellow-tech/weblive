@@ -174,6 +174,58 @@ export function registerUser(username, password) {
   return { user };
 }
 
+// Genera un nombre de usuario único a partir del correo (parte antes del @).
+function uniqueUsernameFromEmail(email) {
+  const raw = String(email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9_.]/g, '');
+  let base = raw.slice(0, 18) || 'user';
+  if (base.length < 3) base = (base + 'user').slice(0, 18);
+  let uname = base;
+  let n = 1;
+  while (users.some((u) => u.username === uname)) {
+    n += 1;
+    uname = (base.slice(0, 17) + n).slice(0, 20);
+  }
+  return uname;
+}
+
+// Inicio de sesión con Google. Las cuentas de Google se identifican SIEMPRE por el
+// correo (campo googleEmail), nunca por el nombre de usuario, para que nadie pueda
+// "robar" una cuenta de contraseña existente que tenga un nombre parecido al correo.
+// Si el correo ya entró antes => devuelve esa misma cuenta. Si no => crea una nueva.
+export function findOrCreateGoogleUser({ email, name } = {}) {
+  const mail = normalizeUsername(email);
+  if (!mail || !mail.includes('@')) return { error: 'Google no devolvió un correo válido.' };
+  let user = users.find((u) => u.googleEmail === mail);
+  if (user) {
+    user.lastLogin = Date.now();
+    saveUsers();
+    return { user };
+  }
+  const uname = uniqueUsernameFromEmail(mail);
+  const isAdmin = uname === ADMIN_USERNAME;
+  // Contraseña aleatoria e inservible: estas cuentas solo entran con Google.
+  const { salt, hash } = hashPassword(crypto.randomBytes(24).toString('hex'));
+  user = {
+    id: crypto.randomUUID(),
+    username: uname,
+    salt,
+    hash,
+    googleEmail: mail,
+    displayName: name || '',
+    roomKey: crypto.randomBytes(9).toString('base64url'),
+    createdAt: Date.now(),
+    lastLogin: Date.now(),
+    isAdmin,
+    active: true,
+    activatedByDefault: true,
+    plan: isAdmin ? 'premium' : 'free',
+    premiumUntil: 0,
+  };
+  users.push(user);
+  saveUsers();
+  return { user };
+}
+
 // Verifica credenciales. Devuelve { user } o { error }.
 export function verifyLogin(username, password) {
   const uname = normalizeUsername(username);

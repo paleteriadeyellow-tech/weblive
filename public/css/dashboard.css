@@ -363,6 +363,7 @@ main { padding: 20px 22px; max-width: 1500px; width: 100%; margin: 0 auto; }
 .switch-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 15px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.04); }
 .switch-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--pink); cursor: pointer; }
 .switch-row.is-disabled { opacity: .45; pointer-events: none; }
+.field.is-disabled { opacity: .45; pointer-events: none; }
 
 /* Opciones de reproducción: barra delgada y larga (horizontal), no estorba las tarjetas */
 #playbackOpts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 16px; margin-bottom: 16px; }
