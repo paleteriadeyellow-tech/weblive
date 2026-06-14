@@ -1596,6 +1596,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('media', { test: true, screenTest: true, name: 'Pantalla ' + scr, screen: scr, size: screenSize(scr) });
         break;
       }
+      // Pruebas manuales de juegos: la nube delega la ejecución al .exe (relay) vía localExec.
+      case 'marioSpawn':
+        actions.spawnMarioThing(String(data.thing || ''), data.name, data.times);
+        break;
+      case 'marioEffect':
+        actions.applyMarioEffect(String(data.type || ''), data.seconds, data.factor);
+        break;
+      case 'pvzSpawn':
+        actions.spawnPvzThing(String(data.thing || ''), data.name, data.times);
+        break;
+      case 'pvzSun':
+        actions.givePvzSun(data.amount);
+        break;
+      case 'pvzCmd':
+        actions.pvzCommand(String(data.path || ''));
+        break;
       case 'testSound':
         if (data.alert) broadcast('sound', { ...data.alert, test: true });
         break;

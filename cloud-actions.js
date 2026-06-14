@@ -361,6 +361,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
   return {
     fireAction, triggerActions, triggerMinecraftActions, triggerLikeGlobalExtras,
     runActionOutputs, runMcAction, buildMcVars, listActions, executeWebhookAction, actionDoesSomething,
+    spawnMarioThing, applyMarioEffect, spawnPvzThing, givePvzSun, pvzCommand,
   };
 }
 
