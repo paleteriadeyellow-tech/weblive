@@ -8,10 +8,14 @@
 // así no afecta al login normal de usuario/contraseña.
 import crypto from 'node:crypto';
 
-export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+// Credenciales de Google (se pueden sobrescribir por variables de entorno).
+export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
+  || '197493231955-e6tqhfe1llknkmhoguc1vjadlsum01s2.apps.googleusercontent.com';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
+  || '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';
 // Si se define, debe coincidir EXACTAMENTE con el "URI de redirección autorizado"
-// configurado en Google Cloud Console. Si no, se deriva de la petición entrante.
+// configurado en Google Cloud Console. Si se deja vacío, se deriva de la petición
+// entrante (útil si weblive corre en otro dominio: añade ese dominio en Google Cloud).
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || '';
 
 const AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
