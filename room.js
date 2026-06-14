@@ -180,6 +180,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const POINTS_MAX_TX = 500;
   const clients = new Set();         // panel + overlays (no incluye el cliente local)
   const localClients = new Set();    // ejecutor local (.exe ligero) en la PC del streamer
+  const relayClients = new Set();    // app de escritorio completa (.exe) en modo relay:
+                                     // recibe datos para mostrar Y órdenes para ejecutar
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
   const emoteCatalog = new Map();
@@ -245,15 +247,24 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     for (const client of clients) {
       if (client.readyState === 1) client.send(msg);
     }
+    // El relay (.exe completo) también necesita los datos para mostrarlos en su ventana.
+    for (const client of relayClients) {
+      if (client.readyState === 1) client.send(msg);
+    }
   }
   function broadcastToLocal(type, payload) {
     const msg = JSON.stringify({ type, payload });
     for (const client of localClients) {
       if (client.readyState === 1) client.send(msg);
     }
+    // El relay también ejecuta teclas/RCON/juegos en la PC del streamer.
+    for (const client of relayClients) {
+      if (client.readyState === 1) client.send(msg);
+    }
   }
   function broadcastLocalStatus() {
-    broadcast('localClient', { online: localClients.size > 0, count: localClients.size });
+    const online = localClients.size > 0 || relayClients.size > 0;
+    broadcast('localClient', { online, count: localClients.size + relayClients.size });
   }
   const actions = createActionBridge({
     getSettings: () => settings,
@@ -1767,17 +1778,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   /* ------------------------ Gestión de clientes WS ------------------------ */
-  function addClient(ws, role = 'panel') {
-    ws.clientRole = role;
-    if (role === 'local') {
-      localClients.add(ws);
-      lastSeen = Date.now();
-      try { ws.send(JSON.stringify({ type: 'localReady', payload: { ok: true } })); } catch {}
-      broadcastLocalStatus();
-      return;
-    }
-    clients.add(ws);
-    lastSeen = Date.now();
+  function sendInitialBurst(ws) {
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
     ws.send(JSON.stringify({ type: 'settings', payload: settings }));
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
@@ -1790,9 +1791,34 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const caps = currentCaps();
     if (caps) ws.send(JSON.stringify({ type: 'caps', payload: caps }));
   }
+  function addClient(ws, role = 'panel') {
+    ws.clientRole = role;
+    if (role === 'local') {
+      localClients.add(ws);
+      lastSeen = Date.now();
+      try { ws.send(JSON.stringify({ type: 'localReady', payload: { ok: true } })); } catch {}
+      broadcastLocalStatus();
+      return;
+    }
+    if (role === 'relay') {
+      // App de escritorio completa: recibe la ráfaga inicial (para pintar la ventana)
+      // y queda suscrita a datos + órdenes de ejecución.
+      relayClients.add(ws);
+      lastSeen = Date.now();
+      try { ws.send(JSON.stringify({ type: 'localReady', payload: { ok: true, relay: true } })); } catch {}
+      try { sendInitialBurst(ws); } catch {}
+      broadcastLocalStatus();
+      return;
+    }
+    clients.add(ws);
+    lastSeen = Date.now();
+    sendInitialBurst(ws);
+  }
   function removeClient(ws) {
     clients.delete(ws);
-    if (localClients.delete(ws)) broadcastLocalStatus();
+    let wasLocal = localClients.delete(ws);
+    if (relayClients.delete(ws)) wasLocal = true;
+    if (wasLocal) broadcastLocalStatus();
     lastSeen = Date.now();
     if (videoScreens.has(ws)) {
       videoScreens.delete(ws);
@@ -1832,19 +1858,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       liveSince: state.startedAt || null,
       account: state.username || null,
       clients: clients.size,
-      localClients: localClients.size,
-      online: clients.size > 0 || localClients.size > 0,
+      localClients: localClients.size + relayClients.size,
+      online: clients.size > 0 || localClients.size > 0 || relayClients.size > 0,
       lastSeen: lastSeen || 0,
     };
   }
 
   function kickAll() {
-    for (const ws of [...clients, ...localClients]) {
+    for (const ws of [...clients, ...localClients, ...relayClients]) {
       try { ws.send(JSON.stringify({ type: 'accountPending' })); } catch {}
       try { ws.close(4003, 'pending'); } catch {}
     }
     clients.clear();
     localClients.clear();
+    relayClients.clear();
   }
 
   return {
