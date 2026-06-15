@@ -293,6 +293,7 @@ export const DEFAULT_SETTINGS = {
   },
   mcActions: [],
   bedrockActions: [],
+  sandboxActions: [],
   robloxActions: [],
   roblox3Actions: [],
   marioActions: [],

@@ -1705,7 +1705,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       case 'testMcAction': {
         const a = (settings.mcActions || []).find((x) => x.uid === data.uid)
-          || (settings.bedrockActions || []).find((x) => x.uid === data.uid);
+          || (settings.bedrockActions || []).find((x) => x.uid === data.uid)
+          || (settings.sandboxActions || []).find((x) => x.uid === data.uid);
         if (a && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length))) {
           actions.runMcAction(a, actions.buildMcVars(
             { giftName: 'Rose', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' },
