@@ -292,6 +292,7 @@ export const DEFAULT_SETTINGS = {
     servertap: { ip: 'localhost', port: 4567, key: 'change_me', playername: '', enabled: false },
   },
   mcActions: [],
+  bedrockActions: [],
   robloxActions: [],
   roblox3Actions: [],
   marioActions: [],

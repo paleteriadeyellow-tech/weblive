@@ -1704,13 +1704,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       }
       case 'testMcAction': {
-        const a = (settings.mcActions || []).find((x) => x.uid === data.uid);
+        const a = (settings.mcActions || []).find((x) => x.uid === data.uid)
+          || (settings.bedrockActions || []).find((x) => x.uid === data.uid);
         if (a && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length))) {
           actions.runMcAction(a, actions.buildMcVars(
             { giftName: 'Rose', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' },
             { nickname: 'Prueba', uniqueId: 'prueba' },
           ));
         }
+        break;
+      }
+      case 'runMcRaw': {
+        // Comando "crudo" para configuraciones de Bedrock (solo "Probar").
+        const cmd = String(data.command || '').trim();
+        if (cmd) actions.runMcAction({ cmd, name: String(data.name || 'Comando') }, actions.buildMcVars(
+          { nickname: 'Streamer', uniqueId: 'streamer' },
+          { nickname: 'Streamer', uniqueId: 'streamer' },
+        ));
         break;
       }
       case 'runActionOutputs':

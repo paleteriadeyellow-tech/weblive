@@ -328,7 +328,9 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     triggerMarioActions(eventType, info, user);
     triggerPvzActions(eventType, info, user);
     const vars = buildMcVars(info, user);
-    for (const a of (settings().mcActions || [])) {
+    // Minecraft y Bedrock comparten ejecución (mismo servidor por RCON/ServerTap).
+    const both = [].concat(settings().mcActions || [], settings().bedrockActions || []);
+    for (const a of both) {
       if (!a || a.enabled === false) continue;
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
       const times = matchGameTrigger(a, eventType, info, user);
@@ -340,7 +342,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
   function triggerLikeGlobalExtras(total, lastTotalLikes) {
     triggerActionsLikeGlobal(total, lastTotalLikes);
     const vars = buildMcVars({ likeCount: total }, null);
-    for (const a of (settings().mcActions || [])) {
+    for (const a of [].concat(settings().mcActions || [], settings().bedrockActions || [])) {
       if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
       const goal = Math.max(1, a.likeN || 100);
