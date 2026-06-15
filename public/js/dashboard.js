@@ -3608,17 +3608,71 @@ function ttsSpeakText(text) {
   ttsSpeakSystem(phrase, t);
 }
 
-// Voz del sistema (navegador), como siempre.
+/* ---- Voz del sistema (navegador) con cola propia anti-cuelgues ----
+   Chromium/Electron tiene 2 bugs conocidos en speechSynthesis:
+   1) se "congela" tras ~15 s hablando y deja de leer;
+   2) si llega mucho chat, la cola nativa se atora y `speaking` queda pegado en
+      true, por lo que los mensajes siguientes NUNCA se leen.
+   Para evitarlo gestionamos nosotros la cola: 1 frase a la vez, con onend/onerror
+   para avanzar y un watchdog que destraba si el motor se cuelga. */
+let ttsSysQueue = [];
+let ttsSysBusy = false;
+let ttsSysWatchdog = null;
+
+function ttsStopSystem() {
+  ttsSysQueue = [];
+  ttsSysBusy = false;
+  if (ttsSysWatchdog) { clearTimeout(ttsSysWatchdog); ttsSysWatchdog = null; }
+  if (TTS_HAS) { try { speechSynthesis.cancel(); } catch {} }
+}
+
 function ttsSpeakSystem(phrase, t) {
   if (!TTS_HAS) return;
-  const u = new SpeechSynthesisUtterance(phrase);
+  ttsSysQueue.push({ phrase: String(phrase || ''), t: { ...(t || {}) } });
+  if (ttsSysQueue.length > 25) ttsSysQueue.shift(); // no acumular si llega mucho chat
+  ttsSysPump();
+}
+
+function ttsSysPump() {
+  if (!TTS_HAS || ttsSysBusy) return;
+  const item = ttsSysQueue.shift();
+  if (!item) return;
+  ttsSysBusy = true;
+  const t = item.t || {};
+  const u = new SpeechSynthesisUtterance(item.phrase);
   u.rate = t.rate || 1;
   u.pitch = t.pitch ?? 1;
   u.volume = t.volume ?? 1;
   const voice = ttsVoices.find((v) => v.name === t.voice);
   if (voice) u.voice = voice;
   else if (t.lang) { const byLang = ttsVoices.find((v) => (v.lang || '').toLowerCase().startsWith(t.lang.toLowerCase())); if (byLang) u.voice = byLang; }
-  speechSynthesis.speak(u);
+  let advanced = false;
+  const advance = () => {
+    if (advanced) return;
+    advanced = true;
+    if (ttsSysWatchdog) { clearTimeout(ttsSysWatchdog); ttsSysWatchdog = null; }
+    ttsSysBusy = false;
+    ttsSysPump();
+  };
+  u.onend = advance;
+  u.onerror = advance;
+  // Watchdog: si onend nunca llega (motor congelado), cancelamos y seguimos con el
+  // siguiente mensaje en lugar de quedarnos mudos para siempre.
+  const estMs = Math.min(20000, 2000 + item.phrase.length * 90);
+  ttsSysWatchdog = setTimeout(() => {
+    try { speechSynthesis.cancel(); } catch {}
+    advance();
+  }, estMs);
+  try { speechSynthesis.speak(u); }
+  catch { advance(); }
+}
+
+// Keep-alive: cada pocos segundos reactiva el motor para evitar el congelamiento
+// de Chromium tras ~15 s de lectura continua.
+if (TTS_HAS) {
+  setInterval(() => {
+    try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.resume(); } catch {}
+  }, 8000);
 }
 
 /* ---- Cola de audio para voces TikTok (no se solapan; van una tras otra) ---- */
@@ -3751,7 +3805,7 @@ function ttsOnGift(p) {
   const bindNum = (id, key) => { const el = $(id); if (el) el.addEventListener('change', () => { settings.tts[key] = +el.value || 0; save(); }); };
 
   const en = $('tts-enabled');
-  if (en) en.addEventListener('change', () => { settings.tts.enabled = en.checked; if (!settings.tts.enabled) speechSynthesis.cancel(); save(); });
+  if (en) en.addEventListener('change', () => { settings.tts.enabled = en.checked; if (!settings.tts.enabled) { ttsStopSystem(); ttsStopTikTok(); } save(); });
   const readName = $('tts-readname');
   if (readName) readName.addEventListener('change', () => { settings.tts.readName = readName.checked; syncTtsNameEmojisUI(); save(); });
   bindChk('tts-name-emojis', 'nameEmojis');
@@ -3846,7 +3900,7 @@ function ttsOnGift(p) {
   const test = $('tts-test');
   if (test) test.onclick = () => ttsSpeakText('Hola, así se escucha el chat por voz');
   const stop = $('tts-stop');
-  if (stop) stop.onclick = () => { if (TTS_HAS) speechSynthesis.cancel(); ttsStopTikTok(); };
+  if (stop) stop.onclick = () => { ttsStopSystem(); ttsStopTikTok(); };
 })();
 
 /* ====================== Usuario y Puntos ====================== */
