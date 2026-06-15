@@ -293,6 +293,23 @@ app.post('/api/room/disconnect', express.json(), (req, res) => {
   res.json({ ok: true });
 });
 
+// Cobro de puntos para Spotify (modo relay del .exe): Spotify corre en la PC del
+// streamer, pero los puntos son la fuente de verdad en la nube. El .exe llama aquí
+// para comprobar saldo y descontar antes de añadir/saltar canciones.
+app.post('/api/room/spotify-charge', express.json({ limit: '16kb' }), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const b = req.body || {};
+  const result = getRoomForUser(user).spotifyCharge({
+    uniqueId: String(b.uniqueId || ''),
+    nickname: String(b.nickname || ''),
+    photo: String(b.photo || ''),
+    cost: b.cost,
+    desc: String(b.desc || 'Spotify'),
+  });
+  res.json(result || { ok: false });
+});
+
 // Catálogo + configuración de planes para CUALQUIER usuario autenticado (solo lectura).
 // Lo usa la pestaña "Planes" para mostrar la comparación Gratis vs Premium.
 app.get('/api/plans', (req, res) => {

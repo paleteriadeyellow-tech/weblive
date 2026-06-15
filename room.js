@@ -1289,6 +1289,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return u;
   }
 
+  // Cobro de puntos para Spotify en modo relay (.exe): el .exe procesa el comando
+  // localmente (tiene los tokens), pero los puntos viven aquí (fuente de verdad).
+  // Comprobamos saldo y, si alcanza, descontamos. Devuelve { ok, balance }.
+  function spotifyCharge({ uniqueId, nickname, photo, cost, desc } = {}) {
+    const c = Math.max(0, parseInt(cost, 10) || 0);
+    if (c <= 0) return { ok: true, balance: null };
+    const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
+    const bal = points.get(key)?.total || 0;
+    if (bal < c) return { ok: false, balance: bal };
+    addUserPoints({ uniqueId, nickname, photo, amount: -c, counted: false, description: desc || 'Spotify' });
+    return { ok: true, balance: bal - c };
+  }
+
   function resetAllPoints() {
     points.clear();
     pointsTx = [];
@@ -2065,6 +2078,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     switchProfile,
     renameProfile,
     importProfiles,
+    spotifyCharge,
     get clientCount() { return clients.size; },
   };
 }
