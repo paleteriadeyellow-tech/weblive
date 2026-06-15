@@ -151,8 +151,12 @@ function readJsonSafe(file) {
 export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
+  const PROFILES_FILE = path.join(dataDir, 'profiles.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
   const POINTS_FILE = path.join(dataDir, 'points.json');
+  // Perfiles: 10 ranuras, cada una guarda una configuración COMPLETA. El perfil activo
+  // es el que se edita/guarda. Nunca se borran: una ranura vacía arranca con defaults.
+  const PROFILE_COUNT = 10;
 
   const state = {
     username: null,
@@ -204,6 +208,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let lastLikeSound = 0;
   let lastSeen = 0; // última vez que hubo una conexión (panel u overlay) activa
 
+  let profiles = loadProfiles();
   let settings = loadSettings();
   loadWeekly();
   loadPoints();
@@ -213,18 +218,148 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   state.username = settings.tiktokUser || null;
 
   /* ----------------------------- Persistencia ----------------------------- */
+  // Intenta recuperar profiles.json desde copias de seguridad (.bak / .corrupt).
+  function recoverProfilesFromBackups() {
+    try {
+      const dir = path.dirname(PROFILES_FILE);
+      const base = path.basename(PROFILES_FILE);
+      const candidates = fs.readdirSync(dir)
+        .filter((f) => f.startsWith(base + '.bak') || f.startsWith(base + '.corrupt'))
+        .map((f) => path.join(dir, f))
+        .sort((a, b) => (fs.statSync(b).mtimeMs || 0) - (fs.statSync(a).mtimeMs || 0));
+      for (const file of candidates) {
+        const r = readJsonSafe(file);
+        if (r.data && Array.isArray(r.data.slots) && r.data.slots.some((s) => s != null)) return r.data;
+      }
+    } catch {}
+    return null;
+  }
+  // Carga (o crea/migra) el archivo de perfiles. Migración: si ya había un settings.json
+  // suelto, se convierte en el "Perfil 1". NUNCA se borran ranuras con datos.
+  function loadProfiles() {
+    const r = readJsonSafe(PROFILES_FILE);
+    let p = r.data;
+    let created = false;
+    if (r.corrupt) p = recoverProfilesFromBackups();
+    if (!p || !Array.isArray(p.slots)) {
+      const legacy = readJsonSafe(SETTINGS_FILE).data || null;
+      p = { active: 0, names: [], slots: [] };
+      p.slots[0] = legacy; // Perfil 1 hereda lo que ya había (o null = defaults)
+      created = true;
+    }
+    p.slots = Array.isArray(p.slots) ? p.slots.slice(0, PROFILE_COUNT) : [];
+    while (p.slots.length < PROFILE_COUNT) p.slots.push(null);
+    p.names = Array.isArray(p.names) ? p.names.slice(0, PROFILE_COUNT) : [];
+    for (let i = 0; i < PROFILE_COUNT; i++) {
+      if (!p.names[i]) p.names[i] = `Perfil ${i + 1}`;
+    }
+    p.active = Number.isInteger(p.active) && p.active >= 0 && p.active < PROFILE_COUNT ? p.active : 0;
+    if (created || r.corrupt || !fs.existsSync(PROFILES_FILE)) {
+      try { writeJsonAtomic(PROFILES_FILE, p); } catch {}
+    }
+    return p;
+  }
+  function saveProfilesNow() {
+    try {
+      if (fs.existsSync(PROFILES_FILE)) {
+        try { fs.copyFileSync(PROFILES_FILE, PROFILES_FILE + '.bak'); } catch {}
+      }
+      writeJsonAtomic(PROFILES_FILE, profiles);
+    } catch {}
+  }
   function loadSettings() {
-    const r = readJsonSafe(SETTINGS_FILE);
-    // Si el archivo existe y es válido, fusionamos con los valores por defecto
-    // (así se conservan TODAS las alertas/sonidos/videos guardados).
-    if (r.data) return deepMerge(structuredClone(DEFAULT_SETTINGS), r.data);
-    // Archivo dañado: ya se respaldó como .corrupt. Arrancamos con defaults para
-    // poder seguir trabajando, pero el respaldo permite recuperar lo anterior.
+    const slot = profiles.slots[profiles.active];
+    if (slot) return deepMerge(structuredClone(DEFAULT_SETTINGS), slot);
     return structuredClone(DEFAULT_SETTINGS);
   }
   function saveSettings() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => writeJsonAtomic(SETTINGS_FILE, settings), 300);
+    saveTimer = setTimeout(() => {
+      // El perfil activo SIEMPRE guarda la configuración actual (auto-guardado).
+      profiles.slots[profiles.active] = settings;
+      saveProfilesNow();
+      // Mantenemos settings.json como espejo del perfil activo (compatibilidad).
+      writeJsonAtomic(SETTINGS_FILE, settings);
+    }, 300);
+  }
+
+  /* ------------------------------- Perfiles ------------------------------- */
+  // Cuántos perfiles permite el plan actual (acotado al total de ranuras).
+  function profileLimit() {
+    const caps = currentCaps();
+    const n = Number(caps && caps.limits && caps.limits.profiles);
+    if (!Number.isFinite(n) || n <= 0) return 1;
+    return Math.min(PROFILE_COUNT, Math.max(1, Math.floor(n)));
+  }
+  function profilesInfo() {
+    return {
+      active: profiles.active,
+      count: PROFILE_COUNT,
+      max: profileLimit(),
+      names: profiles.names.slice(),
+      used: profiles.slots.map((s) => !!s),
+    };
+  }
+  function broadcastProfiles() { broadcast('profiles', profilesInfo()); }
+  // Cambia de perfil: primero asegura que lo actual quede guardado, luego carga el
+  // perfil destino y difunde sus ajustes a panel/overlays.
+  function switchProfile(i) {
+    const idx = Number(i);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= PROFILE_COUNT || idx === profiles.active) return;
+    if (idx >= profileLimit()) return; // perfil bloqueado por el plan
+    clearTimeout(saveTimer);
+    profiles.slots[profiles.active] = settings; // guarda el actual sin debounce
+    profiles.active = idx;
+    saveProfilesNow();
+    settings = loadSettings();
+    writeJsonAtomic(SETTINGS_FILE, settings);
+    enforceLimits();
+    broadcast('settings', settings);
+    broadcastProfiles();
+    clampTimer();
+    broadcastTimer();
+    if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
+  }
+  function renameProfile(i, name) {
+    const idx = Number(i);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= PROFILE_COUNT) return;
+    const clean = String(name || '').trim().slice(0, 40);
+    profiles.names[idx] = clean || `Perfil ${idx + 1}`;
+    saveProfilesNow();
+    broadcastProfiles();
+  }
+  // Devuelve TODOS los perfiles (con sus ajustes completos) para exportar. El perfil
+  // activo usa los ajustes en memoria (por si hay cambios sin guardar todavía).
+  function getProfilesFull() {
+    const slots = profiles.slots.map((s, i) => (i === profiles.active ? settings : s));
+    return { active: profiles.active, names: profiles.names.slice(), slots };
+  }
+  // Importa una lista de perfiles { name, settings } en las ranuras 0..N-1. En modo
+  // 'replace' cada perfil sustituye al de su ranura; en 'merge' se fusiona encima.
+  function importProfiles(list, mode) {
+    if (!Array.isArray(list) || !list.length) return;
+    clearTimeout(saveTimer);
+    profiles.slots[profiles.active] = settings; // guarda el activo antes de tocar nada
+    const n = Math.min(list.length, PROFILE_COUNT);
+    for (let i = 0; i < n; i++) {
+      const entry = list[i] || {};
+      const incoming = entry.settings || entry.data;
+      if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+        const base = (mode === 'merge' && profiles.slots[i]) ? profiles.slots[i] : structuredClone(DEFAULT_SETTINGS);
+        profiles.slots[i] = deepMerge(base, incoming);
+      }
+      const nm = String(entry.name || '').trim().slice(0, 40);
+      if (nm) profiles.names[i] = nm;
+    }
+    saveProfilesNow();
+    settings = loadSettings(); // recarga el perfil activo desde su ranura ya actualizada
+    enforceLimits();
+    writeJsonAtomic(SETTINGS_FILE, settings);
+    broadcast('settings', settings);
+    broadcastProfiles();
+    clampTimer();
+    broadcastTimer();
+    if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
   }
   // Aplica un bloque de ajustes (fusión profunda), persiste y difunde. Si el cambio
   // viene del panel del usuario (fromUser), avisa para sincronizarlo con el remoto.
@@ -1526,6 +1661,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'saveSettings':
         if (data.settings) applyIncomingSettings(data.settings, true);
         break;
+      case 'getProfiles':
+        try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() })); } catch {}
+        break;
+      case 'switchProfile':
+        switchProfile(data.index);
+        break;
+      case 'renameProfile':
+        renameProfile(data.index, data.name);
+        break;
+      case 'getProfilesFull':
+        try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'profilesFull', payload: getProfilesFull() })); } catch {}
+        break;
+      case 'importProfiles':
+        importProfiles(data.profiles, data.mode);
+        break;
       case 'testAlert': {
         const demoUser = { uniqueId: 'demo', nickname: 'Usuario de prueba', photo: null };
         broadcast(data.kind || 'gift', {
@@ -1797,6 +1947,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function sendInitialBurst(ws) {
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
     ws.send(JSON.stringify({ type: 'settings', payload: settings }));
+    ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() }));
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
@@ -1897,6 +2048,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     getSettings: () => settings,
     applySettings: (obj) => applyIncomingSettings(obj, false),
     hasSavedSettings: () => fs.existsSync(SETTINGS_FILE),
+    getProfilesInfo: profilesInfo,
+    getProfilesFull,
+    switchProfile,
+    renameProfile,
+    importProfiles,
     get clientCount() { return clients.size; },
   };
 }

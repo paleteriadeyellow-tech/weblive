@@ -38,21 +38,45 @@ let giftsCache = null;
 let giftsCacheAt = 0;
 const giftsById = new Map(); // id -> { id, name, diamonds, image }
 
+// Catálogo FIJO de respaldo (gifts.json), generado desde una PC con catálogo completo.
+// TikTok devuelve regalos distintos según la región/IP del servidor: en Render (datacenter)
+// suelen faltar varios. Por eso usamos este archivo como BASE y lo fusionamos con lo que
+// devuelva el fetch en vivo, para no perder ningún regalo.
+function loadGiftBaseFile() {
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, 'gifts.json'), 'utf8');
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
 async function loadGiftCatalog(force = false) {
   if (!force && giftsCache && Date.now() - giftsCacheAt < 6 * 60 * 60 * 1000) {
     return giftsCache;
   }
-  const tmp = new TikTokLiveConnection('tv_asahi_news');
-  const gifts = await tmp.fetchAvailableGifts();
-  const results = (Array.isArray(gifts) ? gifts : [])
-    .map((g) => ({
-      id: g.id,
-      name: g.name,
-      diamonds: g.diamond_count ?? g.diamondCount ?? 0,
-      image: g.image?.url_list?.[0] || g.icon?.url_list?.[0] || (typeof g.image === 'string' ? g.image : ''),
-    }))
-    .filter((g) => g.name)
-    .sort((a, b) => a.diamonds - b.diamonds);
+  // Base: catálogo fijo del archivo (el mismo que ve el .exe).
+  const merged = new Map();
+  for (const g of loadGiftBaseFile()) {
+    if (g && g.name) merged.set(String(g.id), g);
+  }
+  // Fusiona con el catálogo en vivo (añade/actualiza los que TikTok devuelva ahora).
+  try {
+    const tmp = new TikTokLiveConnection('tv_asahi_news');
+    const gifts = await tmp.fetchAvailableGifts();
+    for (const g of (Array.isArray(gifts) ? gifts : [])) {
+      if (!g || !g.name) continue;
+      merged.set(String(g.id), {
+        id: g.id,
+        name: g.name,
+        diamonds: g.diamond_count ?? g.diamondCount ?? 0,
+        image: g.image?.url_list?.[0] || g.icon?.url_list?.[0] || (typeof g.image === 'string' ? g.image : ''),
+      });
+    }
+  } catch (e) {
+    // Si el fetch falla, nos quedamos solo con el catálogo fijo del archivo.
+    if (!merged.size) throw e;
+  }
+  const results = [...merged.values()].sort((a, b) => a.diamonds - b.diamonds);
   giftsCache = results;
   giftsCacheAt = Date.now();
   giftsById.clear();
