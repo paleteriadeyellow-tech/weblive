@@ -1859,6 +1859,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetTop1':
         broadcast('top1Reset', {});
         break;
+      case 'testWins':
+        broadcast('winsTest', {});
+        break;
+      case 'resetWins':
+        broadcast('winsReset', {});
+        break;
+      case 'testWinsGamer':
+        broadcast('winsGamerTest', {});
+        break;
+      case 'resetWinsGamer':
+        broadcast('winsGamerReset', {});
+        break;
       case 'testGiftCounter':
         broadcast('giftCounterTest', {});
         break;

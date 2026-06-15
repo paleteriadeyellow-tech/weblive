@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overlay — Contador de victorias (Gamer HUD)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Cinzel:wght@700;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
+        html, body {
+            margin: 0;
+            padding: 0;
+            background-color: transparent;
+            font-family: var(--tf-font-stack, 'Rajdhani', sans-serif);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+        .hud-container {
+            position: relative;
+            background: linear-gradient(135deg, rgba(15, 12, 30, 0.95) 0%, rgba(25, 20, 50, 0.9) 100%);
+            border-left: 5px solid #00ffaa;
+            border-right: 5px solid #9d4edd;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            clip-path: polygon(7% 0%, 100% 0%, 93% 100%, 0% 100%);
+            padding: 12px 40px 12px 35px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 25px rgba(157, 78, 221, 0.2), 0 0 50px rgba(0, 255, 170, 0.2);
+            backdrop-filter: blur(4px);
+            user-select: none;
+            transform-origin: center center;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .glow-effect {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(90deg, rgba(0,255,170,0.06) 0%, rgba(157,78,221,0.06) 100%);
+            z-index: 0;
+            pointer-events: none;
+        }
+        .label-section { z-index: 1; position: relative; }
+        .label-text {
+            font-family: var(--tf-font-stack, 'Orbitron', sans-serif);
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7), 3px 3px 0px #9d4edd;
+        }
+        .score-section { z-index: 1; display: flex; align-items: baseline; gap: 4px; }
+        .score-number {
+            font-family: var(--tf-font-stack, 'Orbitron', sans-serif);
+            font-weight: 900;
+            color: #00ffaa;
+            text-shadow: 0 0 20px rgba(0, 255, 170, 0.9), 0 0 40px rgba(0, 255, 170, 0.5);
+            font-variant-numeric: tabular-nums;
+        }
+        .score-max { font-weight: 700; color: #6247aa; letter-spacing: 1px; }
+        /* Texto arcoíris (casilla del panel): degradado animado sobre etiqueta y números. */
+        @keyframes wins-rainbow { to { background-position: 200% center; } }
+        .hud-container.rainbow .label-text,
+        .hud-container.rainbow .score-number,
+        .hud-container.rainbow .score-max {
+            background-image: linear-gradient(90deg, #ff004c, #ff8a00, #ffe600, #2bff00, #00e5ff, #2a6bff, #c400ff, #ff004c);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            animation: wins-rainbow 2.8s linear infinite;
+        }
+        .win-animation { animation: levelUp 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+        @keyframes levelUp {
+            0% { transform: scale(var(--fit,1)); box-shadow: 0 0 60px rgba(0, 255, 170, 1); }
+            30% { transform: scale(calc(var(--fit,1) * 1.15)) rotate(-3deg); }
+            100% { transform: scale(var(--fit,1)) rotate(0deg); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7), 0 0 25px rgba(157, 78, 221, 0.2), 0 0 50px rgba(0, 255, 170, 0.2); }
+        }
+    </style>
+</head>
+<body>
+    <div class="hud-container" id="counterBox" aria-live="polite">
+        <div class="glow-effect" id="glowEffect"></div>
+        <div class="label-section"><span class="label-text" id="elLabel">WINS</span></div>
+        <div class="score-section">
+            <span class="score-number" id="elScore">00</span>
+            <span class="score-max" id="elMax">/10</span>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        const params = new URLSearchParams(location.search);
+        const isEmbed = params.get('embed') === '1';
+
+        const elLabel = document.getElementById('elLabel');
+        const elScore = document.getElementById('elScore');
+        const elMax = document.getElementById('elMax');
+        const elBox = document.getElementById('counterBox');
+        const elGlow = document.getElementById('glowEffect');
+
+        const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+
+        const state = {
+            label: 'WINS', wins: 0, winsMax: 10, font: 'orbitron', rainbow: false,
+            textColor: '#ffffff', accentColor: '#00ffaa',
+            bgColor: '#0f0c1e', borderColor: '#9d4edd', fontSize: 28,
+        };
+
+        function clampWins(w, max) {
+            // wins libre: puede superar el máximo y bajar de 0 (negativos).
+            const n = parseInt(w, 10);
+            const x = Number.isFinite(n) ? n : 0;
+            return Math.max(-999999, Math.min(999999, x));
+        }
+        function mergeConfig(c) {
+            if (!c || typeof c !== 'object') return;
+            if (c.label != null) state.label = String(c.label).trim().slice(0, 48) || 'WINS';
+            if (c.font != null && FONTS[c.font]) state.font = c.font;
+            if (c.rainbow != null) state.rainbow = !!c.rainbow;
+            const maxRaw = c.winsMax != null ? c.winsMax : c.max;
+            if (maxRaw != null) { const m = parseInt(maxRaw, 10); if (Number.isFinite(m)) state.winsMax = Math.max(1, Math.min(999999, m)); }
+            if (c.wins != null) state.wins = clampWins(c.wins, state.winsMax);
+            else state.wins = clampWins(state.wins, state.winsMax);
+            if (c.textColor) state.textColor = String(c.textColor);
+            if (c.accentColor) state.accentColor = String(c.accentColor);
+            if (c.bgColor) state.bgColor = String(c.bgColor);
+            if (c.borderColor) state.borderColor = String(c.borderColor);
+            const fs = parseInt(c.fontSize, 10);
+            if (Number.isFinite(fs) && fs > 8 && fs < 200) state.fontSize = fs;
+        }
+        function formatTwoDigits(n) {
+            const v = Number.isFinite(n) ? n : 0;
+            if (v < 0) return String(v);
+            if (v < 10) return '0' + v;
+            return String(v);
+        }
+        function hexToRgb(hex) {
+            if (typeof hex !== 'string') return null;
+            let h = hex.trim().replace(/^#/, '');
+            if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+            if (h.length !== 6 || /[^0-9a-f]/i.test(h)) return null;
+            return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+        }
+        function rgbaFromColor(color, alpha) {
+            const rgb = hexToRgb(color);
+            const a = typeof alpha === 'number' ? alpha : 1;
+            if (rgb) return 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + a + ')';
+            if (typeof color === 'string' && /^rgba?\(/i.test(color)) return color;
+            return 'rgba(0,255,170,' + a + ')';
+        }
+        function render() {
+            const num = winsTestAnimDisplay != null ? winsTestAnimDisplay : state.wins;
+            document.documentElement.style.setProperty('--tf-font-stack', FONTS[state.font] || FONTS.orbitron);
+            elLabel.textContent = String(state.label || 'WINS').toUpperCase();
+            elScore.textContent = formatTwoDigits(num);
+            elMax.textContent = '/' + state.winsMax;
+
+            const base = Math.max(14, Math.min(120, state.fontSize || 28));
+            elLabel.style.fontSize = Math.round(base * 0.95) + 'px';
+            elScore.style.fontSize = Math.round(base * 1.65) + 'px';
+            elMax.style.fontSize = Math.round(base * 1.65) + 'px';
+
+            if (state.rainbow) {
+                elBox.classList.add('rainbow');
+                elLabel.style.color = ''; elScore.style.color = ''; elMax.style.color = '';
+                elLabel.style.webkitTextFillColor = ''; elScore.style.webkitTextFillColor = ''; elMax.style.webkitTextFillColor = '';
+                elScore.style.textShadow = '0 0 18px rgba(255,255,255,0.5)';
+                elLabel.style.textShadow = '0 0 10px rgba(255,255,255,0.55)';
+            } else {
+                elBox.classList.remove('rainbow');
+                elLabel.style.color = state.textColor;
+                elScore.style.color = state.accentColor;
+                elScore.style.textShadow = '0 0 20px ' + rgbaFromColor(state.accentColor, 0.9) + ', 0 0 40px ' + rgbaFromColor(state.accentColor, 0.5);
+                elLabel.style.textShadow = '0 0 10px rgba(255,255,255,0.7), 3px 3px 0px ' + state.borderColor;
+                elMax.style.color = state.borderColor;
+            }
+
+            elBox.style.background = 'linear-gradient(135deg, ' + rgbaFromColor(state.bgColor, 0.95) + ' 0%, ' + rgbaFromColor(state.bgColor, 0.88) + ' 100%)';
+            elBox.style.borderLeftColor = state.accentColor;
+            elBox.style.borderRightColor = state.borderColor;
+            elBox.style.boxShadow = '0 10px 40px rgba(0,0,0,0.7), 0 0 25px ' + rgbaFromColor(state.borderColor, 0.25) + ', 0 0 50px ' + rgbaFromColor(state.accentColor, 0.25);
+            elGlow.style.background = 'linear-gradient(90deg, ' + rgbaFromColor(state.accentColor, 0.06) + ' 0%, ' + rgbaFromColor(state.borderColor, 0.06) + ' 100%)';
+            fitEmbed();
+        }
+
+        function testPulse() {
+            elBox.classList.remove('win-animation');
+            void elBox.offsetWidth;
+            elBox.classList.add('win-animation');
+            setTimeout(() => elBox.classList.remove('win-animation'), 700);
+        }
+
+        let winsTestAnimRaf = null;
+        let winsTestAnimDisplay = null;
+        function cancelWinsTestAnim() { if (winsTestAnimRaf != null) { cancelAnimationFrame(winsTestAnimRaf); winsTestAnimRaf = null; } winsTestAnimDisplay = null; }
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+        function runWinsTestCountUp() {
+            cancelWinsTestAnim();
+            testPulse();
+            const end = clampWins(state.wins, state.winsMax);
+            const max = state.winsMax;
+            let start, target, snapToZeroAfter = false;
+            if (end === 0) { start = 0; target = Math.min(6, Math.max(1, max)); snapToZeroAfter = true; }
+            else { start = Math.max(0, end - 8); if (start >= end) start = Math.max(0, end - 1); target = end; }
+            const durationMs = 2200;
+            const t0 = performance.now();
+            function tick(now) {
+                const u = Math.min(1, (now - t0) / durationMs);
+                winsTestAnimDisplay = Math.round(start + (target - start) * easeOutCubic(u));
+                render();
+                if (u < 1) { winsTestAnimRaf = requestAnimationFrame(tick); }
+                else {
+                    winsTestAnimRaf = null;
+                    if (snapToZeroAfter) { winsTestAnimDisplay = 0; render(); setTimeout(() => { winsTestAnimDisplay = null; render(); }, 320); }
+                    else { winsTestAnimDisplay = null; render(); }
+                }
+            }
+            winsTestAnimDisplay = start; render();
+            winsTestAnimRaf = requestAnimationFrame(tick);
+        }
+
+        function fitEmbed() {
+            if (!isEmbed) return;
+            document.documentElement.style.setProperty('--fit', '1');
+            const r = elBox.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            const s = Math.min(1, (window.innerWidth - 16) / r.width, (window.innerHeight - 16) / r.height);
+            document.documentElement.style.setProperty('--fit', String(s));
+            if (!elBox.classList.contains('win-animation')) elBox.style.transform = 'scale(' + s + ')';
+        }
+
+        // ---- WebSocket nativo (misma room que el resto de overlays) ----
+        let ws, rt;
+        function connectWS() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+            ws.onopen = () => clearTimeout(rt);
+            ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+            ws.onmessage = (ev) => {
+                let m; try { m = JSON.parse(ev.data); } catch { return; }
+                if (m.type === 'settings') { if (m.payload && m.payload.winsCounterGamer) { mergeConfig(m.payload.winsCounterGamer); render(); } }
+                else if (m.type === 'winsGamerTest') { if (!isEmbed) runWinsTestCountUp(); }
+                else if (m.type === 'winsGamerReset') { if (!isEmbed) { cancelWinsTestAnim(); render(); } }
+            };
+        }
+
+        // ---- Control desde el panel (vista previa embebida) ----
+        window.addEventListener('message', (e) => {
+            const d = e.data;
+            if (!d || d.kind !== 'wins_counter_gamer') return;
+            if (d.type === 'config') { cancelWinsTestAnim(); mergeConfig(d.config); render(); }
+            else if (d.type === 'test') runWinsTestCountUp();
+            else if (d.type === 'reset') { cancelWinsTestAnim(); render(); }
+        });
+
+        window.addEventListener('resize', fitEmbed);
+        render();
+        connectWS();
+    })();
+    </script>
+</body>
+</html>
