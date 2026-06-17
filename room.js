@@ -44,11 +44,19 @@ function badgeScene(b) {
 }
 function levelFromBadge(b) {
   if (!b) return 0;
-  return numMemberLevel(
-    b.level ??
-    b.privilegeLogExtra?.level ??
+  const candidates = [
+    b.level,
+    b.privilegeLogExtra?.level,
+    b.logExtra?.level,
     b.combine?.profileCardPanel?.profileContent?.numberConfig?.number,
-  );
+    b.combine?.str,
+    b.str?.str,
+  ];
+  for (const v of candidates) {
+    const n = numMemberLevel(v);
+    if (n) return n;
+  }
+  return 0;
 }
 function flattenBadges(raw) {
   const out = [];
@@ -78,13 +86,15 @@ function flattenBadges(raw) {
         }
       }
     }
-    if (b.privilegeLogExtra?.level && b.privilegeLogExtra.level !== '0') {
+    const privLevel = b.privilegeLogExtra?.level || b.logExtra?.level;
+    if (privLevel && privLevel !== '0') {
       out.push({
         type: 'privilege',
-        level: parseInt(b.privilegeLogExtra.level, 10),
+        level: parseInt(String(privLevel), 10),
         badgeSceneType: scene,
         badgeScene: scene,
         privilegeLogExtra: b.privilegeLogExtra,
+        logExtra: b.logExtra,
       });
     }
   }
@@ -108,10 +118,7 @@ function memberLevelFromUser(u) {
     ...(u.badgeImageList || []),
   ]);
   for (const b of badges) {
-    const scene = badgeScene(b);
-    if ([4, 7, 10].includes(scene) || b.type === 'privilege' || b.privilegeLogExtra?.level) {
-      levels.push(levelFromBadge(b));
-    }
+    if (badgeScene(b) === 10) levels.push(levelFromBadge(b));
   }
   return Math.max(0, ...levels);
 }

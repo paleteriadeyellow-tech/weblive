@@ -1120,7 +1120,11 @@ function pushRow(feedId, html, cls = '') {
   while (feed.children.length > MAX_ROWS) feed.removeChild(feed.firstChild);
   feed.scrollTop = feed.scrollHeight;
 }
-function addChat(p) { pushRow('chat', `${avatar(p)}<div><span class="name">${esc(p.nickname)}</span><span class="text">${esc(p.comment)}</span></div>`); }
+function addChat(p) {
+  const lvl = Number(p.memberLevel) || 0;
+  const lvlTag = lvl > 0 ? `<span class="chat-lvl" title="Nivel miembro club de fans">Nv.${lvl}</span>` : '';
+  pushRow('chat', `${avatar(p)}<div><span class="name">${esc(p.nickname)}</span>${lvlTag}<span class="text">${esc(p.comment)}</span></div>`);
+}
 
 // Respuesta automática de un comando personalizado: se muestra en el chat del panel
 // y se lee en voz alta (respetando la voz/idioma configurados en Chat TTS).
