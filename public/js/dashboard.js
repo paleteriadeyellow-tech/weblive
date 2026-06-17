@@ -1929,38 +1929,6 @@ if (vidTestLevelUp) {
   });
 }
 
-/* ----- Abrir al iniciar Windows (solo .exe) ----- */
-async function applyAutoStartUI() {
-  const card = $('autostart-card');
-  const chk = $('autostart-enabled');
-  if (!card || !chk) return;
-  if (!IS_DESKTOP || !window.desktopAPI?.getAutoStart) { card.hidden = true; return; }
-  card.hidden = false;
-  try {
-    const r = await window.desktopAPI.getAutoStart();
-    chk.checked = !!(r && r.enabled);
-  } catch {}
-}
-if ($('autostart-enabled')) {
-  $('autostart-enabled').addEventListener('change', async () => {
-    const chk = $('autostart-enabled');
-    try {
-      const r = await window.desktopAPI?.setAutoStart?.(chk.checked);
-      if (r && r.ok) {
-        chk.checked = !!r.enabled;
-        toast && toast(chk.checked ? 'La app se abrirá sola al encender la PC.' : 'Desactivado: la app ya no se abrirá sola.', 'ok');
-      } else {
-        chk.checked = !chk.checked;
-        toast && toast('No se pudo cambiar el inicio automático.', 'err');
-      }
-    } catch {
-      chk.checked = !chk.checked;
-      toast && toast('No se pudo cambiar el inicio automático.', 'err');
-    }
-  });
-}
-applyAutoStartUI();
-
 /* ----- Modal video ----- */
 function setVidEventUI(value) {
   $('vid-event').value = value;
@@ -6268,9 +6236,18 @@ function setupMcActionsUI() {
     mAdd._wired = true;
     mAdd.onclick = () => {
       const cur = collectMccEntries();
+      if (cur.length >= MCC_MAX_CMDS) { toast && toast(`Máximo ${MCC_MAX_CMDS} comandos.`, 'warn'); return; }
       if (isMccExtraMode()) cur.push(mccDefaultEntry());
       else cur.push('');
       renderMccLines(cur);
+    };
+  }
+  const mVarsBtn = document.getElementById('mcc-vars-btn');
+  if (mVarsBtn && !mVarsBtn._wired) {
+    mVarsBtn._wired = true;
+    mVarsBtn.onclick = () => {
+      const panel = document.getElementById('mcc-vars-panel');
+      if (panel) panel.open = !panel.open;
     };
   }
   const mExtra = document.getElementById('mcc-extra');
@@ -6338,6 +6315,12 @@ const MC_GAME_MAP = {
 
 let mccEditingUid = null;
 let mccGame = 'minecraft'; // a qué pestaña pertenece el comando que se edita/crea
+const MCC_MAX_CMDS = 15;
+
+function updateMccCmdCount(n) {
+  const el = document.getElementById('mcc-cmd-count');
+  if (el) el.textContent = `${Math.min(MCC_MAX_CMDS, n || 0)}/${MCC_MAX_CMDS}`;
+}
 function openMcCmdModal(a, game) {
   mccGame = game || (a && a.game) || 'minecraft';
   mccEditingUid = a && a.uid ? a.uid : null;
@@ -6349,9 +6332,12 @@ function openMcCmdModal(a, game) {
   document.getElementById('mcc-delayeach').value = a?.delayEach || 0;
   document.getElementById('mcc-delaygroup').value = a?.delayGroup || 0;
   document.getElementById('mcc-radius').value = a?.radius != null ? a.radius : 3;
-  document.getElementById('mcc-giftmult').checked = a ? a.giftMult === false : true;
+  const multEl = document.getElementById('mcc-mult');
+  if (multEl) multEl.checked = a ? a.giftMult !== false : true;
   document.getElementById('mcc-random').checked = !!a?.random;
-  const extraOn = !!(a?.cmdsExtra || (Array.isArray(a?.cmds) && a.cmds.some((x) => x && typeof x === 'object')));
+  const extraOn = a
+    ? !!(a.cmdsExtra || (Array.isArray(a.cmds) && a.cmds.some((x) => x && typeof x === 'object')))
+    : true;
   document.getElementById('mcc-extra').checked = extraOn;
   document.getElementById('mcc-status').textContent = '';
   setMccImage(a?.image || '');
@@ -6365,8 +6351,8 @@ function isMccExtraMode() { return !!document.getElementById('mcc-extra')?.check
 function mccDefaultEntry() {
   return {
     cmd: '',
-    repeat: Math.max(1, parseInt(document.getElementById('mcc-repeat')?.value, 10) || 1),
-    delayEach: 0,
+    repeat: 1,
+    delayEach: 100,
     delayBefore: 0,
     radius: Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3),
   };
@@ -6384,7 +6370,7 @@ function normalizeMccEntries(raw, action) {
     return {
       cmd: o.cmd || o.text || '',
       repeat: o.repeat != null ? o.repeat : defs.repeat,
-      delayEach: o.delayEach != null ? o.delayEach : 0,
+      delayEach: o.delayEach != null ? o.delayEach : 100,
       delayBefore: o.delayBefore != null ? o.delayBefore : (o.delayGroup != null ? o.delayGroup : 0),
       radius: o.radius != null ? o.radius : defs.radius,
     };
@@ -6392,8 +6378,8 @@ function normalizeMccEntries(raw, action) {
 }
 function syncMccExtraUI() {
   const on = isMccExtraMode();
-  const fields = document.querySelector('#mcCmdModal .mcc-fields');
-  if (fields) fields.classList.toggle('mcc-fields-dimmed', on);
+  const radiusRow = document.getElementById('mcc-radius-row');
+  if (radiusRow) radiusRow.style.display = on ? '' : 'none';
 }
 function renderMccLines(lines) {
   const box = document.getElementById('mcc-cmds');
@@ -6402,34 +6388,26 @@ function renderMccLines(lines) {
   const list = extra
     ? (lines.length ? lines : [mccDefaultEntry()])
     : (lines.length ? lines.map((l) => (typeof l === 'string' ? l : (l?.cmd || ''))) : ['']);
+  updateMccCmdCount(list.length);
   box.innerHTML = list.map((l, i) => {
     const cmd = extra ? (l.cmd || '') : l;
     const extraFields = extra ? `
-      <div class="mcc-line-extra-fields">
-        <div class="mcc-field">
-          <label class="mcc-flabel">Veces que se repite</label>
-          <input type="number" class="mcc-x-repeat" min="1" value="${Math.max(1, parseInt(l.repeat, 10) || 1)}">
-        </div>
-        <div class="mcc-field">
-          <label class="mcc-flabel">Espera entre líneas (ms)</label>
-          <input type="number" class="mcc-x-delayeach" min="0" value="${Math.max(0, parseInt(l.delayEach, 10) || 0)}">
-          <small class="mcc-fhint">Entre repeticiones del mismo comando.</small>
-        </div>
-        <div class="mcc-field">
-          <label class="mcc-flabel">Espera antes (ms)</label>
-          <input type="number" class="mcc-x-delaybefore" min="0" value="${Math.max(0, parseInt(l.delayBefore, 10) || 0)}">
-          <small class="mcc-fhint">Tras terminar el comando anterior. Ej. 3000 = 3 s después.</small>
-        </div>
-        <div class="mcc-field">
-          <label class="mcc-flabel">Radio <code>{radius}</code></label>
-          <input type="number" class="mcc-x-radius" min="0" value="${Math.max(0, parseInt(l.radius, 10) || 0)}">
-        </div>
+      <div class="mcc-line-times">
+        <label class="mcc-time-field"><span class="mcc-time-lbl">Repetición</span><input type="number" class="mcc-x-repeat" min="1" value="${Math.max(1, parseInt(l.repeat, 10) || 1)}"></label>
+        <label class="mcc-time-field"><span class="mcc-time-lbl">Retraso (ms)</span><input type="number" class="mcc-x-delaybefore" min="0" value="${Math.max(0, parseInt(l.delayBefore, 10) || 0)}" title="Espera antes de este comando"></label>
+        <label class="mcc-time-field"><span class="mcc-time-lbl">Intervalo (ms)</span><input type="number" class="mcc-x-delayeach" min="0" value="${Math.max(0, parseInt(l.delayEach, 10) || 100)}" title="Pausa entre repeticiones del mismo comando"></label>
       </div>` : '';
     return `
     <div class="mcc-line">
-      <div class="mcc-line-head"><span>#${i + 1} comando</span><button type="button" class="mcc-line-del" data-i="${i}" title="Quitar">✕</button></div>
-      <textarea class="mcc-line-ta" rows="2" placeholder="Comando sin / inicial (ej. execute at @p run summon zombie ~ ~ ~)">${esc(cmd)}</textarea>
+      <div class="mcc-line-head">
+        <span class="mcc-line-num">#${i + 1} Comando</span>
+        <div class="mcc-line-btns">
+          <button type="button" class="mcc-play" data-i="${i}" title="Probar en el juego">▶</button>
+          <button type="button" class="mcc-line-del" data-i="${i}" title="Quitar">✕</button>
+        </div>
+      </div>
       ${extraFields}
+      <textarea class="mcc-line-ta" rows="2" placeholder="Comando sin / inicial (ej. survival villager {nickname})">${esc(cmd)}</textarea>
     </div>`;
   }).join('');
   box.querySelectorAll('.mcc-line-del').forEach((b) => b.onclick = () => {
@@ -6437,6 +6415,29 @@ function renderMccLines(lines) {
     cur.splice(+b.dataset.i, 1);
     renderMccLines(cur.length ? cur : (extra ? [mccDefaultEntry()] : ['']));
   });
+  box.querySelectorAll('.mcc-play').forEach((b) => b.onclick = () => testMccLine(+b.dataset.i));
+}
+function testMccLine(i) {
+  const extra = isMccExtraMode();
+  const entries = collectMccEntries();
+  const raw = entries[i];
+  const cmd = extra ? (raw?.cmd || '').trim() : String(raw || '').trim();
+  if (!cmd) { toast && toast('Escribe un comando antes de probar.', 'warn'); return; }
+  const entry = extra ? {
+    cmd,
+    repeat: Math.max(1, parseInt(raw.repeat, 10) || 1),
+    delayEach: Math.max(0, parseInt(raw.delayEach, 10) || 0),
+    delayBefore: Math.max(0, parseInt(raw.delayBefore, 10) || 0),
+    radius: Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3),
+  } : { cmd };
+  send({
+    action: 'testMcDraft',
+    entry,
+    radius: Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3),
+    cmdsExtra: extra,
+    giftMult: document.getElementById('mcc-mult')?.checked !== false,
+  });
+  toast && toast('Enviando comando de prueba al juego…', 'ok');
 }
 function collectMccEntries() {
   const extra = isMccExtraMode();
@@ -6447,7 +6448,7 @@ function collectMccEntries() {
     repeat: Math.max(1, parseInt(row.querySelector('.mcc-x-repeat')?.value, 10) || 1),
     delayEach: Math.max(0, parseInt(row.querySelector('.mcc-x-delayeach')?.value, 10) || 0),
     delayBefore: Math.max(0, parseInt(row.querySelector('.mcc-x-delaybefore')?.value, 10) || 0),
-    radius: Math.max(0, parseInt(row.querySelector('.mcc-x-radius')?.value, 10) || 0),
+    radius: Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3),
   }));
 }
 function saveMcCmd() {
@@ -6482,9 +6483,8 @@ function saveMcCmd() {
     random: document.getElementById('mcc-random').checked,
     image: mccImage || '',
     custom: true,
-    giftMult: false,
   };
-  if (!document.getElementById('mcc-giftmult').checked) delete payload.giftMult;
+  if (document.getElementById('mcc-mult')?.checked === false) payload.giftMult = false;
   const g = MC_GAME_MAP[mccGame] || MC_GAME_MAP.minecraft;
   const key = g.key;
   if (!Array.isArray(settings[key])) settings[key] = [];
@@ -6492,8 +6492,8 @@ function saveMcCmd() {
     const a = settings[key].find((x) => x.uid === mccEditingUid);
     if (a) {
       Object.assign(a, payload);
-      if (!document.getElementById('mcc-giftmult').checked) delete a.giftMult;
-      else a.giftMult = false;
+      if (document.getElementById('mcc-mult')?.checked === false) a.giftMult = false;
+      else delete a.giftMult;
     }
   } else {
     settings[key].push({

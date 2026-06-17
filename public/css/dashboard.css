@@ -1068,7 +1068,26 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .mc-combo-instant { margin-top: 8px; }
 .mc-combo-instant-lbl { color: #ff6bcb; font-weight: 700; }
 .mc-combo-instant-sub { color: #8b97b3; font-weight: 400; }
-.mcc-addbtn { margin-top: 10px; width: 100%; }
+.mcc-cmds-box { margin-top: 4px; }
+.mcc-cmds-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.mcc-cmds-head .box-head { margin: 0; }
+.mcc-mode-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.mcc-global-radius { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.mcc-global-radius input { width: 72px; }
+.mcc-cmd-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
+.mcc-pro-hint { color: #ffd34d; font-weight: 700; }
+.mcc-line-btns { display: flex; align-items: center; gap: 6px; }
+.mcc-play {
+  background: rgba(37,244,238,.15); border: 1px solid rgba(37,244,238,.45); color: var(--cyan);
+  border-radius: 8px; width: 32px; height: 28px; cursor: pointer; font-size: 12px; font-weight: 800;
+}
+.mcc-play:hover { background: rgba(37,244,238,.28); }
+.mcc-line-num { font-size: 12px; font-weight: 800; color: #ffd34d; text-transform: uppercase; letter-spacing: .04em; }
+.mcc-line-times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 8px 0; }
+.mcc-time-field { display: flex; flex-direction: column; gap: 4px; }
+.mcc-time-lbl { font-size: 11px; font-weight: 800; color: #ffd34d; letter-spacing: .03em; }
+.mcc-time-field input { width: 100%; box-sizing: border-box; }
+.mcc-addbtn { margin-top: 0; width: auto; flex: 1 1 180px; }
 .mcc-line { background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.10); border-radius: 10px; padding: 9px; margin-bottom: 9px; }
 .mcc-line-head { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; font-weight: 800;
   color: #9aa; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .3px; }

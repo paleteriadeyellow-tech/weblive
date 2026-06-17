@@ -1621,46 +1621,36 @@
                 </div>
               </div>
 
-              <div class="box">
-                <div class="box-head">» <b>Repetir y delay</b> <span class="opt">(por disparo)</span></div>
-                <div class="mcc-fields">
-                  <div class="mcc-field">
-                    <label class="mcc-flabel">Veces que se repite</label>
-                    <input type="number" id="mcc-repeat" min="1" value="1">
-                    <small class="mcc-fhint">Cuántas veces se ejecuta el grupo de comandos cada vez que ocurre el evento.</small>
-                  </div>
-                  <div class="mcc-field">
-                    <label class="mcc-flabel">Espera entre líneas (ms)</label>
-                    <input type="number" id="mcc-delayeach" min="0" value="0">
-                    <small class="mcc-fhint">Pausa entre un comando y el siguiente. 0 = todos a la vez. Ej. 500 = medio segundo.</small>
-                  </div>
-                  <div class="mcc-field">
-                    <label class="mcc-flabel">Espera antes de empezar (ms)</label>
-                    <input type="number" id="mcc-delaygroup" min="0" value="0">
-                    <small class="mcc-fhint">Retraso antes de lanzar todo el grupo. Útil para sincronizar con una alerta.</small>
-                  </div>
-                  <div class="mcc-field">
-                    <label class="mcc-flabel">Radio <code>{radius}</code></label>
-                    <input type="number" id="mcc-radius" min="0" value="3">
-                    <small class="mcc-fhint">Número que reemplaza la variable {radius} (ej. dispersión alrededor de ti).</small>
-                  </div>
+              <div class="box mcc-cmds-box">
+                <div class="mcc-cmds-head">
+                  <div class="box-head mcc-cmds-title">» <b>Comandos</b> <span class="opt" id="mcc-cmd-count">0/15</span></div>
+                  <button type="button" class="btn ghost sm" id="mcc-vars-btn">❓ Variables</button>
                 </div>
-                <label class="mcc-check"><input type="checkbox" id="mcc-giftmult"> <span><b>No multiplicar por cantidad del regalo</b> — desmarca el comportamiento normal (ej. 30 × 2 rosas = 60). Si lo marcas, siempre usa la cantidad fija aunque envíen varios.</span></label>
-                <label class="mcc-check"><input type="checkbox" id="mcc-random"> <span><b>Comando aleatorio</b> — en vez de enviar todas las líneas, elige una sola al azar en cada disparo.</span></label>
-                <label class="mcc-check"><input type="checkbox" id="mcc-extra"> <span><b>Extra</b> — cada comando tiene su propio repeat, delay, espera antes y radio. La espera de cada línea cuenta <b>después</b> de que termine la anterior.</span></label>
-              </div>
-
-              <div class="box">
-                <div class="box-head">» <b>Comandos</b> <span class="opt">(sin la barra «/» inicial)</span></div>
+                <div class="mcc-mode-row">
+                  <label class="mcc-check"><input type="checkbox" id="mcc-mult" checked> <span><b>Multiplicador de repeticiones</b> — multiplica por la cantidad del regalo (ej. 5 rosas = ×5).</span></label>
+                  <label class="mcc-check"><input type="checkbox" id="mcc-random"> <span><b>Comando aleatorio</b> — elige una línea al azar en vez de ejecutar todas.</span></label>
+                  <label class="mcc-check"><input type="checkbox" id="mcc-extra" checked> <span><b>Extra</b> — cada comando tiene su Repetición, Retraso e Intervalo.</span></label>
+                </div>
+                <div class="mcc-global-radius" id="mcc-radius-row">
+                  <label class="mcc-flabel">Radio <code>{radius}</code></label>
+                  <input type="number" id="mcc-radius" min="0" value="3">
+                  <small class="mcc-fhint">Dispersión para <code>{radius}</code> y <code>{random:-N N}</code>.</small>
+                </div>
+                <input type="hidden" id="mcc-repeat" value="1">
+                <input type="hidden" id="mcc-delayeach" value="0">
+                <input type="hidden" id="mcc-delaygroup" value="0">
                 <div id="mcc-cmds"></div>
-                <button type="button" class="btn ghost mcc-addbtn" id="mcc-add">+ Añadir comando</button>
+                <div class="mcc-cmd-foot">
+                  <button type="button" class="btn ghost mcc-addbtn" id="mcc-add">+ Añadir comando</button>
+                  <small class="mcc-fhint mcc-pro-hint">Hasta 15 comandos en cadena por acción.</small>
+                </div>
               </div>
 
-              <details class="mcc-ref">
+              <details class="mcc-ref" id="mcc-vars-panel">
                 <summary>📋 Variables disponibles (clic para ver)</summary>
                 <div class="mcc-vars">
                   <div><code>{streamer}</code> o <code>@p</code> Tu personaje en el juego (usar en «execute at …»)</div>
-                  <div><code>{playername}</code> Nombre de quien activó (para nombres de mobs, NO para «execute at»)</div>
+                  <div><code>{playername}</code> Tu nombre en el juego (para <code>give</code>, etc.)</div>
                   <div><code>{nickname}</code> Nombre visible del usuario</div>
                   <div><code>{username}</code> @usuario de TikTok</div>
                   <div><code>{giftname}</code> Nombre del regalo</div>
@@ -3246,12 +3236,6 @@
         <section class="view" id="view-acciones">
           <h1 class="view-title">⚡ Acciones</h1>
           <p class="view-sub">Cuando ocurre un evento en tu live (un regalo, like, seguidor…), la app presiona una tecla en tu PC. Ideal para controlar tu juego u OBS. <b>Funciona solo en la app de escritorio.</b></p>
-
-          <div class="settings-card" id="autostart-card">
-            <div class="box-title">🚀 Abrir al iniciar Windows</div>
-            <p class="hint">Si lo activas, la app se abrirá <b>sola</b> cada vez que enciendas la PC, para que tus overlays sigan conectados sin que tengas que abrirla a mano.</p>
-            <label class="switch-row plain"><input type="checkbox" id="autostart-enabled"> <span>Iniciar automáticamente al encender la PC</span></label>
-          </div>
 
           <div class="acc-toolbar">
             <button class="btn primary" id="acc-new">✨ Crear nueva acción</button>

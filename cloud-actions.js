@@ -502,7 +502,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
 
   return {
     fireAction, triggerActions, triggerMinecraftActions, triggerLikeGlobalExtras,
-    runActionOutputs, runMcAction, playMcActionSound, buildMcVars, listActions, executeWebhookAction, actionDoesSomething,
+    runActionOutputs, runMcAction, playMcActionSound, buildMcVars, mcCmdText, listActions, executeWebhookAction, actionDoesSomething,
     spawnMarioThing, applyMarioEffect, spawnPvzThing, givePvzSun, pvzCommand,
   };
 }

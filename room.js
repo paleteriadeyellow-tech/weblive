@@ -1918,6 +1918,25 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         break;
       }
+      case 'testMcDraft': {
+        const entry = data.entry;
+        if (!entry || !actions.mcCmdText(entry)) break;
+        const draft = {
+          name: 'Prueba modal',
+          custom: true,
+          cmdsExtra: !!data.cmdsExtra,
+          cmds: [entry],
+          repeat: 1,
+          random: false,
+          radius: data.radius != null ? data.radius : 3,
+        };
+        if (data.giftMult === false) draft.giftMult = false;
+        actions.runMcAction(draft, actions.buildMcVars(
+          { giftName: 'Prueba', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' },
+          { nickname: 'Prueba', uniqueId: 'prueba' },
+        ));
+        break;
+      }
       case 'runMcRaw': {
         // Comando "crudo" para configuraciones de Bedrock (solo "Probar").
         const cmd = String(data.command || '').trim();
