@@ -15,10 +15,9 @@ import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, findOrCreateGoogleUser,
+  getUserPlan, setUserPlan,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
 } from './auth.js';
-import * as google from './google.js';
 import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
 } from './plans.js';
@@ -216,73 +215,22 @@ app.post('/api/logout', (req, res) => {
 });
 
 /* ----------------------------------------------------------------------------
- * Inicio de sesión con Google (OAuth 2.0). Queda inactivo si Google no está
- * configurado (no rompe el login normal de usuario/contraseña).
- * El .exe delega aquí y pasa desktop_cb para volver al equipo local tras OAuth.
+ * Inicio de sesión con Google — desactivado (solo usuario/contraseña).
  * --------------------------------------------------------------------------*/
-function isLocalCallback(url) {
-  return /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//i.test(String(url || ''));
-}
-
-app.get('/api/auth/config', (req, res) => {
-  res.json({ google: google.isConfigured() });
+app.get('/api/auth/config', (_req, res) => {
+  res.json({ google: false });
 });
 
-app.get('/api/auth/google', (req, res) => {
-  if (!google.isConfigured()) return res.redirect('/login.html?err=google_off');
-  const desktopCb = req.query.desktop_cb && isLocalCallback(req.query.desktop_cb)
-    ? String(req.query.desktop_cb) : '';
-  const url = google.buildAuthUrl(google.redirectUriFor(req), desktopCb);
-  res.redirect(url);
+app.get('/api/auth/google', (_req, res) => {
+  res.redirect('/login.html');
 });
 
-app.get('/api/auth/google/callback', async (req, res) => {
-  const { code, state, error } = req.query;
-  if (error) return res.redirect('/login.html?err=google_cancel');
-  const p = code && state ? google.consumeState(String(state)) : null;
-  if (!p) return res.redirect('/login.html?err=google_state');
-  try {
-    const { email, name } = await google.exchangeCode(String(code), p.redirectUri);
-    const { user, error: uErr } = findOrCreateGoogleUser({ email, name });
-    if (uErr || !user) return res.redirect('/login.html?err=google_user');
-    // Login del .exe: devolvemos un código de un solo uso al equipo local.
-    if (p.desktopCb && isLocalCallback(p.desktopCb)) {
-      const sid = createSession(user.id);
-      const dcode = google.makeDesktopCode({
-        username: user.username,
-        email,
-        plan: getUserPlan(user),
-        isAdmin: !!user.isAdmin,
-        active: isUserActive(user),
-        sid,
-      });
-      const sep = p.desktopCb.includes('?') ? '&' : '?';
-      const dest = `${p.desktopCb}${sep}code=${encodeURIComponent(dcode)}`;
-      return res.type('html').send(google.desktopReturnHtml(dest));
-    }
-    touchLogin(user.id);
-    const token = createSession(user.id);
-    res.setHeader('Set-Cookie', sessionCookie(token));
-    res.redirect('/');
-  } catch (e) {
-    console.error('  [google] callback:', e.message);
-    res.redirect('/login.html?err=google_fail');
-  }
+app.get('/api/auth/google/callback', (_req, res) => {
+  res.redirect('/login.html');
 });
 
-// Intercambio servidor-a-servidor: el .exe canjea el código por los datos de la cuenta.
-app.post('/api/auth/google/desktop-exchange', express.json(), (req, res) => {
-  const payload = google.consumeDesktopCode(String(req.body?.code || ''));
-  if (!payload) return res.status(400).json({ error: 'Código inválido o expirado.' });
-  res.json({
-    ok: true,
-    username: payload.username,
-    email: payload.email,
-    plan: payload.plan,
-    isAdmin: payload.isAdmin,
-    active: payload.active,
-    cookie: `${SESSION_COOKIE}=${payload.sid}`,
-  });
+app.post('/api/auth/google/desktop-exchange', express.json(), (_req, res) => {
+  res.status(404).json({ error: 'No disponible.' });
 });
 
 app.get('/api/me', (req, res) => {
