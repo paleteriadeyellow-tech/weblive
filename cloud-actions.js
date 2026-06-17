@@ -319,7 +319,6 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       commands: queue,
       name: a.name || '',
     })) return;
-    const sendCmds = (cmds) => useStap ? sendServertap(stap, cmds) : sendRcon(rcon, cmds);
     try {
       const r = await sendCmds(queue);
       if (r.ok) log('ok', `🟩 Minecraft: ${a.name} OK (${queue.length})`);
@@ -370,12 +369,15 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     for (const a of list) {
       if (!a || a.enabled === false || !a.keys) continue;
       const times = matchGameTrigger(a, eventType, info, user);
-      if (times != null) fireRobloxKeys(a, times, prefix);
+      if (times == null) continue;
+      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      fireRobloxKeys(a, times, prefix);
     }
   }
 
   function spawnMarioThing(thing, name, times) {
-    const t = Math.min(20, Math.max(1, Number(times) || 1));
+    const t = Math.max(1, Number(times) || 1);
     if (emitLocalExec({ tipo: 'MARIO_SPAWN', thing, name: String(name || ''), times: t })) return;
   }
 
@@ -407,6 +409,8 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (!a || a.enabled === false || !a.thing) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
+      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
       if ((a.kind || 'spawn') === 'effect') {
         log('ok', `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)`);
         applyMarioEffect(a.thing, a.seconds, a.factor);
@@ -423,6 +427,8 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (!a || a.enabled === false || !a.thing) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
+      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
       if ((a.kind || 'spawn') === 'sun') {
         log('ok', `🧟 PvZ: dar ${a.amount || 50} soles`);
         givePvzSun(a.amount);
