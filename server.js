@@ -257,7 +257,8 @@ app.get('/api/auth/google/callback', async (req, res) => {
         sid,
       });
       const sep = p.desktopCb.includes('?') ? '&' : '?';
-      return res.redirect(`${p.desktopCb}${sep}code=${encodeURIComponent(dcode)}`);
+      const dest = `${p.desktopCb}${sep}code=${encodeURIComponent(dcode)}`;
+      return res.type('html').send(google.desktopReturnHtml(dest));
     }
     touchLogin(user.id);
     const token = createSession(user.id);

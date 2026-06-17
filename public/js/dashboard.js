@@ -5,6 +5,7 @@ function detectDesktopPanel() {
   if (window.desktopAPI?.isDesktop) return true;
   if (window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) return true;
   if (document.querySelector('meta[name="livecoins-app"][content="desktop"]')) return true;
+  if (/^127\.|^localhost$/i.test(location.hostname || '')) return true;
   return false;
 }
 let IS_DESKTOP = detectDesktopPanel();
@@ -770,7 +771,7 @@ let pcInstallUrl = '';
 async function applyPcInstallButton() {
   const btn = document.getElementById('pc-install-btn');
   if (!btn) return;
-  if (IS_DESKTOP) { btn.hidden = true; return; }
+  if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; return; }
   try {
     const r = await fetch('/api/web-install');
     if (!r.ok) { btn.hidden = true; return; }

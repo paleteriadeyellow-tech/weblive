@@ -124,3 +124,11 @@ export function consumeDesktopCode(code) {
   if (Date.now() - c.createdAt > 120000) return null;
   return c.payload;
 }
+
+export function desktopReturnHtml(destUrl) {
+  const dest = String(destUrl || '');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Livecoins</title>
+<script>location.replace(${JSON.stringify(dest)});</script>
+</head><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui;background:#0b1020;color:#9fb0d8">
+<p>Volviendo a la app de escritorio…</p></body></html>`;
+}
