@@ -1581,7 +1581,7 @@ pre.wh-url { margin: 9px 0 0; }
 .acc-keyrow.capturing input { border-color: var(--pink); box-shadow: 0 0 0 2px rgba(254,44,85,.25); }
 
 /* ---- Teclado en pantalla (modal kbModal) ---- */
-.kb-box { max-width: 920px; width: min(96vw, 920px); }
+.kb-box { max-width: 1060px; width: min(98vw, 1060px); }
 #kbModal .modal-body { overflow-x: hidden; }
 .kb-keyboard { display: flex; flex-direction: column; gap: 6px; overflow-x: hidden; }
 .kb-keyboard .kb-main { width: 100%; min-width: 0; }

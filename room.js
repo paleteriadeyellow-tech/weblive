@@ -934,6 +934,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!streakGift) {
       giftStreakGameProgress.delete(key);
       actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: rep }, user);
+      actions.triggerActions('gift', { ...giftInfo, repeatCount: rep });
       return;
     }
 
@@ -943,10 +944,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     if (delta > 0) {
       actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: delta, comboStreak: 'delta' }, user);
+      actions.triggerActions('gift', { ...giftInfo, repeatCount: delta, comboStreak: 'delta' });
     }
     if (repeatEnd) {
       giftStreakGameProgress.delete(key);
       actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: rep, comboStreak: 'end' }, user);
+      actions.triggerActions('gift', { ...giftInfo, repeatCount: rep, comboStreak: 'end' });
     }
   }
 
@@ -1646,7 +1649,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         countGiftForGoal(giftId, giftName, repeatCount);
         processFanBalls('coins', user, total);
         rouletteFromGift(user, total, image);
-        actions.triggerActions('gift', giftInfo);
       }
 
       triggerGiftGameActions(user, giftId, repeatCount, !!data.repeatEnd, giftType, giftInfo);

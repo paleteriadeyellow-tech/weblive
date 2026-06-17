@@ -82,12 +82,16 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
           const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
           if (!idMatch && !nameMatch) continue;
           if ((a.minDiamonds || 0) > (info.diamonds || 0)) continue;
+          if (info.comboStreak === 'delta' && !a.comboInstant) continue;
+          if (info.comboStreak === 'end' && a.comboInstant) continue;
           fireAction(a, Math.max(1, Number(info.repeatCount) || 1));
           continue;
         } else if (ev === 'gift-any') {
           const total = info.totalDiamonds || 0;
           if ((a.rangeMin || 0) > total) continue;
           if ((a.rangeMax || 0) > 0 && total > a.rangeMax) continue;
+          if (info.comboStreak === 'delta' && !a.comboInstant) continue;
+          if (info.comboStreak === 'end' && a.comboInstant) continue;
         } else continue;
       } else if (eventType === 'like') {
         if (ev !== 'like') continue;

@@ -5073,6 +5073,7 @@ function applyAccEventExtras() {
   $('acc-likeextra').hidden = ev !== 'like';
   $('acc-likeglobalextra').hidden = ev !== 'likeGlobal';
   $('acc-emoteextra').hidden = ev !== 'emote';
+  if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift';
 }
 
 // Muestra los campos de escena/fuente según el tipo de comando de OBS elegido.
@@ -5120,6 +5121,7 @@ function openAccModal(a) {
   $('acc-likemin').value = a ? (a.likeMin || 1) : 1;
   $('acc-likegoal').value = a ? (a.likeGoal || 100) : 100;
   $('acc-emoteid').value = a ? (a.emoteId || '') : '';
+  if ($('acc-comboinstant')) $('acc-comboinstant').checked = !!(a && a.comboInstant);
   $('acc-keys').value = a ? (a.keys || '') : '';
   $('acc-keys-on').checked = !!(a && a.keys);
   $('acc-keys-box').hidden = !(a && a.keys);
@@ -5184,6 +5186,7 @@ function saveAccModal() {
     likeMin: +$('acc-likemin').value || 1,
     likeGoal: +$('acc-likegoal').value || 100,
     emoteId: $('acc-emoteid').value || '',
+    comboInstant: $('acc-event').value === 'gift' && $('acc-comboinstant')?.checked,
     keys,
     gameCompat: !!accPendingGameCompat,
     image: accPendingImage ? accPendingImage.url : '',
@@ -5223,6 +5226,14 @@ const KB_NAV = [
   ['Delete:Delete', 'End:End', 'Pg Dn:PageDown'],
   ['↑:Up'],
   ['←:Left', '↓:Down', '→:Right'],
+];
+// Teclado numérico (numpad) a la derecha del bloque de navegación.
+const KB_NUMPAD = [
+  ['Num:NumLock@dim', '/:Divide', '*:Multiply', '-:Subtract'],
+  ['7:NumPad7', '8:NumPad8', '9:NumPad9', '+:Add'],
+  ['4:NumPad4', '5:NumPad5', '6:NumPad6'],
+  ['1:NumPad1', '2:NumPad2', '3:NumPad3', 'Enter:NumEnter'],
+  ['0:NumPad0@w2', '.:Decimal'],
 ];
 
 // Estado de selección del teclado.
@@ -5290,6 +5301,15 @@ function renderKbCharpad() {
 }
 
 function keyEventToKbCode(e) {
+  const c = e.code || '';
+  if (/^Numpad[0-9]$/.test(c)) return 'NumPad' + c.slice(6);
+  if (c === 'NumpadAdd') return 'Add';
+  if (c === 'NumpadSubtract') return 'Subtract';
+  if (c === 'NumpadMultiply') return 'Multiply';
+  if (c === 'NumpadDivide') return 'Divide';
+  if (c === 'NumpadDecimal') return 'Decimal';
+  if (c === 'NumpadEnter') return 'NumEnter';
+  if (c === 'NumLock') return 'NumLock';
   if (KEY_EVENT_TO_KB[e.key]) return KEY_EVENT_TO_KB[e.key];
   if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) return e.key.toUpperCase();
   if (e.key.length === 1 && /[0-9]/.test(e.key)) return e.key;
@@ -5297,7 +5317,15 @@ function keyEventToKbCode(e) {
 }
 function keyEventToKbLabel(e, code) {
   if (code === 'Return') return 'Enter';
+  if (code === 'NumEnter') return 'Enter';
   if (code === 'CapsLock') return 'Mayus';
+  if (/^NumPad[0-9]$/.test(code)) return code.slice(6);
+  if (code === 'Decimal') return '.';
+  if (code === 'Divide') return '/';
+  if (code === 'Multiply') return '*';
+  if (code === 'Subtract') return '-';
+  if (code === 'Add') return '+';
+  if (code === 'NumLock') return 'Num';
   if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) return e.key.toUpperCase();
   return code;
 }
@@ -5428,8 +5456,16 @@ function renderKeyboard() {
   left.style.cssText = 'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:5px';
   left.append(...KB_LAYOUT.map(buildKbRow));
   const right = document.createElement('div');
-  right.style.cssText = 'flex:0 0 150px;width:150px;display:flex;flex-direction:column;gap:5px';
-  right.append(...KB_NAV.map(buildKbRow));
+  right.style.cssText = 'flex:0 0 auto;display:flex;gap:8px;align-items:flex-start';
+  const nav = document.createElement('div');
+  nav.className = 'kb-nav';
+  nav.style.cssText = 'flex:0 0 118px;display:flex;flex-direction:column;gap:5px';
+  nav.append(...KB_NAV.map(buildKbRow));
+  const numpad = document.createElement('div');
+  numpad.className = 'kb-numpad';
+  numpad.style.cssText = 'flex:0 0 132px;display:flex;flex-direction:column;gap:5px';
+  numpad.append(...KB_NUMPAD.map(buildKbRow));
+  right.append(nav, numpad);
   main.append(left, right);
   root.appendChild(main);
   root.dataset.built = '1';
@@ -5445,6 +5481,7 @@ function buildKbRow(keys) {
     b.type = 'button';
     b.className = 'kb-key';
     if (flag === 'mod') b.classList.add('mod');
+    else if (flag === 'dim') b.classList.add('dim');
     else if (flag === 'space') b.classList.add('kb-space');
     else if (flag === 'w2') b.classList.add('kb-w2');
     else if (flag === 'w15') b.classList.add('kb-w15');
