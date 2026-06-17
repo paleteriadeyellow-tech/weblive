@@ -7946,15 +7946,17 @@ async function loadMarioBridgePresets() {
     return true;
   };
   try {
+    const r = await fetch(`/mario-presets.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (r.ok) {
+      const presets = await r.json();
+      if (applyPresets(presets)) return;
+    }
+  } catch { /* sin archivo estático */ }
+  try {
     const r = await fetch('http://127.0.0.1:7755/presets');
     const d = await r.json();
     if (d.ok && applyPresets(d.presets)) return;
   } catch { /* bridge apagado */ }
-  try {
-    const r = await fetch('/mario-presets.json');
-    const presets = await r.json();
-    applyPresets(presets);
-  } catch { /* catálogo embebido */ }
 }
 
 // Catálogo de Mario: tarjetas con "+ Agregar" (igual que Minecraft).
