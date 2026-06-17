@@ -35,11 +35,92 @@ function baseUser(user) {
     photo: getPhoto(user),
   };
 }
+function numMemberLevel(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 && n <= 50 ? n : 0;
+}
+function badgeScene(b) {
+  return Number(b?.badgeSceneType ?? b?.badgeScene ?? b?.sceneType ?? 0);
+}
+function levelFromBadge(b) {
+  if (!b) return 0;
+  return numMemberLevel(
+    b.level ??
+    b.privilegeLogExtra?.level ??
+    b.combine?.profileCardPanel?.profileContent?.numberConfig?.number,
+  );
+}
+function flattenBadges(raw) {
+  const out = [];
+  for (const b of [].concat(raw || [])) {
+    if (!b || typeof b !== 'object') continue;
+    out.push(b);
+    const scene = badgeScene(b);
+    if (Array.isArray(b.badges)) {
+      for (const inner of b.badges) {
+        out.push({
+          ...inner,
+          badgeSceneType: inner?.badgeSceneType ?? scene,
+          badgeScene: inner?.badgeScene ?? scene,
+        });
+      }
+    }
+    if (Array.isArray(b.imageBadges)) {
+      for (const ib of b.imageBadges) {
+        if (ib) {
+          out.push({
+            ...ib,
+            badgeSceneType: scene,
+            badgeScene: scene,
+            type: 'image',
+            url: ib.image?.url,
+          });
+        }
+      }
+    }
+    if (b.privilegeLogExtra?.level && b.privilegeLogExtra.level !== '0') {
+      out.push({
+        type: 'privilege',
+        level: parseInt(b.privilegeLogExtra.level, 10),
+        badgeSceneType: scene,
+        badgeScene: scene,
+        privilegeLogExtra: b.privilegeLogExtra,
+      });
+    }
+  }
+  return out;
+}
+function memberLevelFromUser(u) {
+  const levels = [
+    numMemberLevel(u?.fansClub?.data?.level),
+    numMemberLevel(u?.fansClubInfo?.fansLevel),
+    numMemberLevel(u?.teamMemberLevel),
+  ];
+  if (u?.fansClub?.preferData && typeof u.fansClub.preferData === 'object') {
+    for (const entry of Object.values(u.fansClub.preferData)) {
+      levels.push(numMemberLevel(entry?.level));
+    }
+  }
+  const badges = flattenBadges([
+    ...(u.badges || []),
+    ...(u.userBadges || []),
+    ...(u.newUserBadges || []),
+    ...(u.badgeImageList || []),
+  ]);
+  for (const b of badges) {
+    const scene = badgeScene(b);
+    if ([4, 7, 10].includes(scene) || b.type === 'privilege' || b.privilegeLogExtra?.level) {
+      levels.push(levelFromBadge(b));
+    }
+  }
+  return Math.max(0, ...levels);
+}
 function chatUserRoles(data) {
-  const u = data?.user || {};
+  // Formato moderno: data.user. Legacy (connector antiguo): campos aplanados en data.
+  const u = data?.user || data || {};
   const ui = data?.userIdentity || {};
-  const badges = [].concat(u.badges || [], u.userBadges || [], u.newUserBadges || [], u.badgeImageList || []);
-  const scene = (b) => Number(b?.badgeSceneType ?? b?.badgeScene ?? b?.sceneType ?? 0);
+  const badges = flattenBadges([].concat(u.badges || [], u.userBadges || [], u.newUserBadges || [], u.badgeImageList || []));
+  const scene = badgeScene;
   const badgeUrl = (b) => String(b?.url || b?.image?.url?.[0] || b?.image?.uri || '').toLowerCase();
   const badgeType = (b) => String(b?.type || b?.displayType || '').toLowerCase();
 
@@ -49,23 +130,15 @@ function chatUserRoles(data) {
   );
   const isSub = !!(
     ui.isSubscriberOfAnchor ||
-    Number(u?.fansClub?.data?.level || u?.fansClubInfo?.badge?.level || 0) > 0 ||
+    numMemberLevel(u?.fansClub?.data?.level) > 0 ||
+    numMemberLevel(u?.fansClubInfo?.fansLevel) > 0 ||
     badges.some((b) => scene(b) === 4 || scene(b) === 7 || badgeUrl(b).includes('/sub_'))
   );
   const followStatus = Number(u?.followInfo?.followStatus ?? u?.followStatus ?? 0);
   const isFollower = !!(ui.isFollowerOfAnchor || ui.isMutualFollowingWithAnchor || followStatus >= 1);
   const teamBadge = badges.find((b) => scene(b) === 10);
-  const isTeam = !!(Number(teamBadge?.level || 0) > 0);
-
-  // Nivel de miembro (club de fans / equipo). Es el número que aparece en la
-  // insignia junto al nombre. Tomamos el mayor de las fuentes disponibles.
-  const fansLevel = Number(u?.fansClub?.data?.level || u?.fansClubInfo?.badge?.level || 0);
-  const teamLevel = Number(teamBadge?.level || 0);
-  const badgeLevels = badges
-    .filter((b) => [4, 7, 10].includes(scene(b)))
-    .map((b) => Number(b?.level || 0))
-    .filter((n) => n > 0 && n < 1000);
-  const memberLevel = Math.max(0, fansLevel, teamLevel, ...badgeLevels);
+  const memberLevel = memberLevelFromUser(u);
+  const isTeam = !!(levelFromBadge(teamBadge) > 0 || memberLevel > 0);
 
   return { isMod, isSub, isFollower, isTeam, memberLevel };
 }
@@ -154,6 +227,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
   const POINTS_FILE = path.join(dataDir, 'points.json');
+  const SESSION_FILE = path.join(dataDir, 'session.json');
   // Perfiles: 10 ranuras, cada una guarda una configuración COMPLETA. El perfil activo
   // es el que se edita/guarda. Nunca se borran: una ranura vacía arranca con defaults.
   const PROFILE_COUNT = 10;
@@ -207,6 +281,60 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let lastTotalLikes = 0;
   let lastLikeSound = 0;
   let lastSeen = 0; // última vez que hubo una conexión (panel u overlay) activa
+
+  // Sesión de live en curso (persiste en disco para sobrevivir reinicios de Render).
+  // La auto-conexión la usa para NO vaciar overlays al reconectar el mismo live.
+  let liveSession = { roomId: null, username: null, active: false, startedAt: null };
+  (function loadLiveSession() {
+    const r = readJsonSafe(SESSION_FILE);
+    if (r.data && typeof r.data === 'object') {
+      liveSession = {
+        roomId: r.data.roomId ?? null,
+        username: r.data.username ?? null,
+        active: !!r.data.active,
+        startedAt: r.data.startedAt ?? null,
+      };
+    }
+  })();
+  function saveLiveSession() {
+    writeJsonAtomic(SESSION_FILE, liveSession);
+  }
+  function liveUserMatch(a, b) {
+    return !!(a && b && String(a).toLowerCase() === String(b).toLowerCase());
+  }
+  function isSameLiveSession(roomId, username) {
+    return !!(liveSession.roomId && roomId &&
+      String(liveSession.roomId) === String(roomId) &&
+      liveUserMatch(liveSession.username, username));
+  }
+  function markLiveSessionEnded() {
+    liveSession.active = false;
+    liveSession.roomId = null;
+    saveLiveSession();
+  }
+  function resetSessionState() {
+    lastTotalLikes = 0;
+    resetStats();
+    resetSessionOverlays();
+  }
+  // Auto-conexión / reinicio Render: resetea solo si es un live distinto (otro roomId).
+  function applyAutoLiveConnected(newRoomId, username) {
+    if (isSameLiveSession(newRoomId, username)) {
+      liveSession.username = username;
+      liveSession.active = true;
+      saveLiveSession();
+      state.startedAt = liveSession.startedAt || Date.now();
+      return 'reconnect';
+    }
+    const prevRoomId = liveSession.roomId;
+    const isNewLive = !!(newRoomId && prevRoomId && String(newRoomId) !== String(prevRoomId));
+    const isFirstLive = !prevRoomId;
+    if (isNewLive || isFirstLive) resetSessionState();
+    liveSession = { roomId: newRoomId, username, active: true, startedAt: Date.now() };
+    saveLiveSession();
+    state.startedAt = liveSession.startedAt;
+    return isNewLive || isFirstLive ? 'new' : 'auto';
+  }
 
   let profiles = loadProfiles();
   let settings = loadSettings();
@@ -534,14 +662,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   // Reinicia TODOS los overlays de la sesión EXCEPTO los acumulados semanales/mensuales
-  // (top donador semanal). Se usa SOLO al conectar a un live y al finalizar (stream end).
-  // No se llama en ninguna otra circunstancia (ni al reconectar overlays, ni al guardar
-  // ajustes), para no borrar datos sin querer.
+  // (top donador semanal). Se usa al pulsar Conectar (manual), al detectar un live
+  // NUEVO vía auto-conexión, y al finalizar el live (stream end).
+  // NO se reinicia en auto-reconexión al mismo live ni al reconectar overlays WS.
   function resetSessionOverlays() {
     // Botes / contadores acumulados de la sesión
     broadcast('jarronReset', {});
     broadcast('vaquitaReset', {});
     broadcast('marranitoReset', {});
+    broadcast('perritoReset', {});
+    broadcast('pelotasReset', {});
+    broadcast('rouletteReset', {});
     // Versus y secuencias
     broadcast('giftVsReset', {});
     broadcast('giftSeqReset', {});
@@ -555,6 +686,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // Batallas de ranking (regalos / likes)
     broadcast('batallaGiftsReset', {});
     broadcast('batallaLikesReset', {});
+    broadcast('winsReset', {});
+    broadcast('winsGamerReset', {});
     // Barra de meta (hype)
     broadcast('hypeReset', {});
     // Coin match (partido cronometrado)
@@ -659,9 +792,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     state.username = username;
     state.connecting = true;
-    lastTotalLikes = 0;
-    resetStats();
-    resetSessionOverlays(); // arranca la sesión con los overlays limpios (menos los semanales)
+    if (!opts.auto) {
+      // Conectar manual: el usuario pide empezar limpio.
+      resetSessionState();
+      liveSession = { roomId: null, username: null, active: false, startedAt: null };
+      saveLiveSession();
+    }
+    // Auto-conexión: no resetear aquí; se evalúa al conectar según roomId guardado.
     pushState();
     if (!opts.auto) broadcast('log', { level: 'info', text: `Conectando a @${username}...` });
 
@@ -682,11 +819,25 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       .then((connState) => {
         state.connected = true;
         state.connecting = false;
-        state.roomId = connState?.roomId ?? null;
-        state.startedAt = Date.now();
-        seedStatsFromRoomInfo();
-        pushState();
-        broadcast('log', { level: 'ok', text: `Conectado a la sala ${state.roomId ?? ''}` });
+        const newRoomId = connState?.roomId ?? null;
+        state.roomId = newRoomId;
+        if (auto) {
+          const mode = applyAutoLiveConnected(newRoomId, username);
+          seedStatsFromRoomInfo();
+          pushState();
+          if (mode === 'reconnect') {
+            broadcast('log', { level: 'ok', text: `Reconectado al live (sala ${newRoomId ?? ''}) — overlays conservados` });
+          } else {
+            broadcast('log', { level: 'ok', text: `Conectado automáticamente a la sala ${newRoomId ?? ''}` });
+          }
+        } else {
+          liveSession = { roomId: newRoomId, username, active: true, startedAt: Date.now() };
+          saveLiveSession();
+          state.startedAt = liveSession.startedAt;
+          seedStatsFromRoomInfo();
+          pushState();
+          broadcast('log', { level: 'ok', text: `Conectado a la sala ${newRoomId ?? ''}` });
+        }
       })
       .catch((err) => {
         if (conn !== connection) return;
@@ -1652,6 +1803,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.STREAM_END, () => {
       state.inBattle = false;
       state.connected = false;
+      markLiveSessionEnded();
       pushState();
       broadcast('log', { level: 'info', text: 'El live terminó.' });
       resetSessionOverlays(); // al finalizar el live, limpia overlays (menos los semanales)
@@ -2048,6 +2200,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     } catch {}
     clearTimeout(pointsSaveTimer);
     try { writeJsonAtomic(POINTS_FILE, { users: [...points.values()], tx: pointsTx.slice(0, POINTS_MAX_TX) }); } catch {}
+    try { saveLiveSession(); } catch {}
   }
 
   // Chequeo de cambio de semana por room.

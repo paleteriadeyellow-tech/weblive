@@ -107,7 +107,7 @@
         const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
 
         const state = {
-            label: 'WINS', wins: 0, winsMax: 10, font: 'orbitron', rainbow: false,
+            label: 'WINS', wins: 0, winsMax: 10, font: 'orbitron', rainbow: false, scoreGlow: true,
             textColor: '#ffffff', accentColor: '#00ffaa',
             bgColor: '#0f0c1e', borderColor: '#9d4edd', fontSize: 28,
         };
@@ -123,6 +123,7 @@
             if (c.label != null) state.label = String(c.label).trim().slice(0, 48) || 'WINS';
             if (c.font != null && FONTS[c.font]) state.font = c.font;
             if (c.rainbow != null) state.rainbow = !!c.rainbow;
+            if (c.scoreGlow != null) state.scoreGlow = !!c.scoreGlow;
             const maxRaw = c.winsMax != null ? c.winsMax : c.max;
             if (maxRaw != null) { const m = parseInt(maxRaw, 10); if (Number.isFinite(m)) state.winsMax = Math.max(1, Math.min(999999, m)); }
             if (c.wins != null) state.wins = clampWins(c.wins, state.winsMax);
@@ -170,13 +171,15 @@
                 elBox.classList.add('rainbow');
                 elLabel.style.color = ''; elScore.style.color = ''; elMax.style.color = '';
                 elLabel.style.webkitTextFillColor = ''; elScore.style.webkitTextFillColor = ''; elMax.style.webkitTextFillColor = '';
-                elScore.style.textShadow = '0 0 18px rgba(255,255,255,0.5)';
+                elScore.style.textShadow = state.scoreGlow ? '0 0 18px rgba(255,255,255,0.5)' : 'none';
                 elLabel.style.textShadow = '0 0 10px rgba(255,255,255,0.55)';
             } else {
                 elBox.classList.remove('rainbow');
                 elLabel.style.color = state.textColor;
                 elScore.style.color = state.accentColor;
-                elScore.style.textShadow = '0 0 20px ' + rgbaFromColor(state.accentColor, 0.9) + ', 0 0 40px ' + rgbaFromColor(state.accentColor, 0.5);
+                elScore.style.textShadow = state.scoreGlow
+                    ? ('0 0 20px ' + rgbaFromColor(state.accentColor, 0.9) + ', 0 0 40px ' + rgbaFromColor(state.accentColor, 0.5))
+                    : 'none';
                 elLabel.style.textShadow = '0 0 10px rgba(255,255,255,0.7), 3px 3px 0px ' + state.borderColor;
                 elMax.style.color = state.borderColor;
             }
