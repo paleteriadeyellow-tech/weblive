@@ -55,6 +55,11 @@
     .gbtn:active { transform: translateY(1px); }
     .gbtn svg { width: 18px; height: 18px; }
     .gbtn.show, .or.show { display: flex; }
+    .pc-note {
+      margin-top: 18px; padding: 12px 14px; border-radius: 12px; font-size: 12.5px; line-height: 1.45;
+      color: #cfe9ff; background: rgba(0,229,255,.08); border: 1px solid rgba(0,229,255,.28);
+    }
+    .pc-note b { color: #fff; }
   </style>
 </head>
 <body>
@@ -86,6 +91,10 @@
     </button>
 
     <p class="hint">Cada cuenta tiene su propio panel y overlays, totalmente separados.</p>
+    <div class="pc-note" id="pc-note">
+      <b>Minecraft, Roblox, Mario Bros, Acciones…</b> solo funcionan en la <b>app de escritorio (.exe)</b>.
+      Esta página es la <b>versión web</b> (alertas, videos, overlays). Si instalaste el .exe, ábrelo desde el menú Inicio de Windows, no desde el navegador.
+    </div>
   </div>
 
   <script>

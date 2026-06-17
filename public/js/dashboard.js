@@ -3,6 +3,45 @@ const MAX_ROWS = 120;
 // App de escritorio (.exe): expone window.desktopAPI vía preload de Electron.
 const IS_DESKTOP = !!(window.desktopAPI && window.desktopAPI.isDesktop);
 
+function isPcBuildMarkup() {
+  return !!(window.__LIVECOINS_PC_BUILD__ || document.querySelector('meta[name="livecoins-app"][content="desktop"]'));
+}
+function isCloudPanelHost() {
+  const h = location.hostname || '';
+  return h && !/^127\.|^localhost$/i.test(h);
+}
+function setupPanelModeWarning() {
+  if (document.getElementById('panel-mode-banner')) return;
+  if (IS_DESKTOP) {
+    const side = document.querySelector('.sidebar');
+    if (side && !document.getElementById('panel-mode-badge')) {
+      const b = document.createElement('div');
+      b.id = 'panel-mode-badge';
+      b.textContent = 'App PC';
+      b.title = 'Versión de escritorio — Juegos, Acciones y Webhook disponibles';
+      b.style.cssText = 'margin:0 14px 8px;padding:5px 10px;border-radius:8px;font:800 10px system-ui;letter-spacing:.04em;text-transform:uppercase;color:#04121a;background:linear-gradient(90deg,#25f4ee,#7af0ff);text-align:center';
+      const nav = side.querySelector('.nav');
+      if (nav) side.insertBefore(b, nav);
+    }
+    return;
+  }
+  const banner = document.createElement('div');
+  banner.id = 'panel-mode-banner';
+  const brokenLocal = isPcBuildMarkup();
+  const onWeb = isCloudPanelHost() || brokenLocal;
+  if (!onWeb) return;
+  banner.style.cssText = 'margin:0 14px 10px;padding:10px 12px;border-radius:10px;font:600 11.5px/1.45 system-ui;color:#ffe8f0;background:linear-gradient(135deg,rgba(255,43,214,.22),rgba(255,80,120,.12));border:1px solid rgba(255,43,214,.45)';
+  if (brokenLocal) {
+    banner.innerHTML = '<b>Estás en el navegador, no en la app PC.</b><br>Para ver <b>Juegos</b> (Minecraft, Roblox…), <b>Acciones</b> y <b>Webhook</b>, abre <b>Livecoins</b> desde el menú Inicio de Windows (icono del .exe). No uses esta pestaña del navegador.';
+  } else {
+    banner.innerHTML = '<b>Versión web</b> — sin Juegos ni Acciones.<br>Descarga la <b>app de escritorio (.exe)</b> con el botón de abajo para Minecraft, Roblox, Mario Bros, etc.';
+  }
+  const side = document.querySelector('.sidebar');
+  const nav = side?.querySelector('.nav');
+  if (nav) side.insertBefore(banner, nav);
+  else document.body.prepend(banner);
+}
+
 let ws;
 let reconnectTimer;
 let settings = null;       // copia local de los ajustes del servidor
@@ -8542,6 +8581,7 @@ function initHomeWelcome() {
   // y videos, así que cuanto antes se abra, antes se pinta TODO el panel.
   connectWS();
   preloadGiftCatalog();
+  setupPanelModeWarning();
   try { initHomeWelcome(); } catch (e) { console.error('Home welcome:', e); }
   try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }
   // Pestaña Acciones (solo .exe): al final del arranque, aislada para no romper el panel.
