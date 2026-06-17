@@ -472,6 +472,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (times == null) continue;
       if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
       if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      playMcActionSound(a);
       runMcAction(a, vars);
     }
   }

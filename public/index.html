@@ -1624,7 +1624,7 @@
               <div class="box mcc-cmds-box">
                 <div class="mcc-cmds-head">
                   <div class="box-head mcc-cmds-title">» <b>Comandos</b> <span class="opt" id="mcc-cmd-count">0/15</span></div>
-                  <button type="button" class="btn ghost sm" id="mcc-vars-btn">❓ Variables</button>
+                  <button type="button" class="mcc-vars-btn" id="mcc-vars-btn"><span class="mcc-vars-q" aria-hidden="true">?</span> Variables</button>
                 </div>
                 <div class="mcc-mode-row">
                   <label class="mcc-check"><input type="checkbox" id="mcc-mult" checked> <span><b>Multiplicador de repeticiones</b> — multiplica por la cantidad del regalo (ej. 5 rosas = ×5).</span></label>
@@ -1646,8 +1646,14 @@
                 </div>
               </div>
 
-              <details class="mcc-ref" id="mcc-vars-panel">
-                <summary>📋 Variables disponibles (clic para ver)</summary>
+              <p class="hint" id="mcc-status"></p>
+            </div>
+            <div id="mcc-vars-overlay" class="mcc-vars-overlay hidden" aria-hidden="true">
+              <div class="mcc-vars-pop" role="dialog" aria-labelledby="mcc-vars-pop-title">
+                <div class="mcc-vars-pop-head">
+                  <h3 id="mcc-vars-pop-title">Variables disponibles</h3>
+                  <button type="button" class="mcc-vars-close" id="mcc-vars-close" aria-label="Cerrar">✕</button>
+                </div>
                 <div class="mcc-vars">
                   <div><code>{streamer}</code> o <code>@p</code> Tu personaje en el juego (usar en «execute at …»)</div>
                   <div><code>{playername}</code> Tu nombre en el juego (para <code>give</code>, etc.)</div>
@@ -1663,9 +1669,7 @@
                   <div><code>{random:-5 5}</code> Número al azar entre dos valores (acepta {radius} dentro)</div>
                 </div>
                 <p class="mcc-hint">Usa <code>execute at @p</code> (o <code>{streamer}</code>) para posicionarte en el juego. Pon <code>{nickname}</code> solo en el nombre del mob.<br>Ejemplo: <code>execute at @p run summon chicken ~{random:-{radius} {radius}} ~ ~{random:-{radius} {radius}} {CustomName:'"{nickname}"'}</code></p>
-              </details>
-
-              <p class="hint" id="mcc-status"></p>
+              </div>
             </div>
             <div class="modal-foot">
               <button class="btn primary" id="mcc-save">Guardar</button>

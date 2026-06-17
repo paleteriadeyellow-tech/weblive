@@ -6245,10 +6245,18 @@ function setupMcActionsUI() {
   const mVarsBtn = document.getElementById('mcc-vars-btn');
   if (mVarsBtn && !mVarsBtn._wired) {
     mVarsBtn._wired = true;
-    mVarsBtn.onclick = () => {
-      const panel = document.getElementById('mcc-vars-panel');
-      if (panel) panel.open = !panel.open;
-    };
+    mVarsBtn.onclick = (e) => { e.stopPropagation(); openMccVarsPop(); };
+  }
+  const mVarsClose = document.getElementById('mcc-vars-close');
+  if (mVarsClose && !mVarsClose._wired) {
+    mVarsClose._wired = true;
+    mVarsClose.onclick = (e) => { e.stopPropagation(); closeMccVarsPop(); };
+  }
+  const mVarsOverlay = document.getElementById('mcc-vars-overlay');
+  if (mVarsOverlay && !mVarsOverlay._wired) {
+    mVarsOverlay._wired = true;
+    mVarsOverlay.addEventListener('click', (e) => { if (e.target === mVarsOverlay) closeMccVarsPop(); });
+    mVarsOverlay.querySelector('.mcc-vars-pop')?.addEventListener('click', (e) => e.stopPropagation());
   }
   const mExtra = document.getElementById('mcc-extra');
   if (mExtra && !mExtra._wired) {
@@ -6321,7 +6329,16 @@ function updateMccCmdCount(n) {
   const el = document.getElementById('mcc-cmd-count');
   if (el) el.textContent = `${Math.min(MCC_MAX_CMDS, n || 0)}/${MCC_MAX_CMDS}`;
 }
+function openMccVarsPop() {
+  const o = document.getElementById('mcc-vars-overlay');
+  if (o) { o.classList.remove('hidden'); o.setAttribute('aria-hidden', 'false'); }
+}
+function closeMccVarsPop() {
+  const o = document.getElementById('mcc-vars-overlay');
+  if (o) { o.classList.add('hidden'); o.setAttribute('aria-hidden', 'true'); }
+}
 function openMcCmdModal(a, game) {
+  closeMccVarsPop();
   mccGame = game || (a && a.game) || 'minecraft';
   mccEditingUid = a && a.uid ? a.uid : null;
   const gameLabel = (MC_GAME_MAP[mccGame] || MC_GAME_MAP.minecraft).label;
@@ -6345,7 +6362,10 @@ function openMcCmdModal(a, game) {
   renderMccLines(normalizeMccEntries(a?.cmds, a));
   document.getElementById('mcCmdModal').classList.remove('hidden');
 }
-function closeMcCmdModal() { document.getElementById('mcCmdModal').classList.add('hidden'); }
+function closeMcCmdModal() {
+  closeMccVarsPop();
+  document.getElementById('mcCmdModal').classList.add('hidden');
+}
 
 function isMccExtraMode() { return !!document.getElementById('mcc-extra')?.checked; }
 function mccDefaultEntry() {
