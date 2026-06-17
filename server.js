@@ -432,6 +432,13 @@ app.post('/api/admin/app-version', express.json(), requireAdmin, (req, res) => {
     const tmp = APP_VERSION_FILE + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
     fs.renameSync(tmp, APP_VERSION_FILE);
+    // Mismo .exe para nuevos usuarios (web-install) y para auto-actualización.
+    if (data.url) {
+      const wi = { url: data.url, updatedAt: Date.now() };
+      const wtmp = WEB_INSTALL_FILE + '.tmp';
+      fs.writeFileSync(wtmp, JSON.stringify(wi, null, 2));
+      fs.renameSync(wtmp, WEB_INSTALL_FILE);
+    }
   } catch (e) {
     return res.status(500).json({ error: 'No se pudo guardar.' });
   }

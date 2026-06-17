@@ -1,8 +1,49 @@
 const $ = (id) => document.getElementById(id);
 const MAX_ROWS = 120;
-// App de escritorio (.exe): expone window.desktopAPI vía preload de Electron.
-const IS_DESKTOP = !!(window.desktopAPI && window.desktopAPI.isDesktop);
+// App de escritorio (.exe): preload de Electron + sello que inyecta el servidor local (DESKTOP=1).
+function detectDesktopPanel() {
+  if (window.desktopAPI?.isDesktop) return true;
+  if (window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) return true;
+  if (document.querySelector('meta[name="livecoins-app"][content="desktop"]')) return true;
+  return false;
+}
+let IS_DESKTOP = detectDesktopPanel();
+const IS_LOCALHOST = /^127\.|^localhost$/i.test(location.hostname || '');
 
+function syncDesktopPanelMode() {
+  IS_DESKTOP = detectDesktopPanel();
+  if (IS_DESKTOP) {
+    document.documentElement.classList.add('is-desktop');
+    const btn = document.getElementById('pc-install-btn');
+    if (btn) btn.hidden = true;
+    const navAcc = document.getElementById('navAcciones');
+    if (navAcc) navAcc.style.display = '';
+    try { revealJuegosTab(); } catch {}
+    try { revealWebhookTab(); } catch {}
+  }
+}
+
+async function confirmDesktopPanelFromServer() {
+  if (!IS_LOCALHOST) return;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const r = await fetch('/api/desktop-build');
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.pc) {
+          window.__LIVECOINS_DESKTOP__ = true;
+          syncDesktopPanelMode();
+          try { setupAccionesUI(); } catch {}
+          try { setupProfiles(); } catch {}
+          try { setupJuegosUI(); } catch {}
+          try { setupWebhookUI(); } catch {}
+          return;
+        }
+      }
+    } catch {}
+    await new Promise((r) => setTimeout(r, 400));
+  }
+}
 function isPcBuildMarkup() {
   return !!(window.__LIVECOINS_PC_BUILD__ || document.querySelector('meta[name="livecoins-app"][content="desktop"]'));
 }
@@ -12,28 +53,16 @@ function isCloudPanelHost() {
 }
 function setupPanelModeWarning() {
   if (document.getElementById('panel-mode-banner')) return;
-  if (IS_DESKTOP) {
-    const side = document.querySelector('.sidebar');
-    if (side && !document.getElementById('panel-mode-badge')) {
-      const b = document.createElement('div');
-      b.id = 'panel-mode-badge';
-      b.textContent = 'App PC';
-      b.title = 'Versión de escritorio — Juegos, Acciones y Webhook disponibles';
-      b.style.cssText = 'margin:0 14px 8px;padding:5px 10px;border-radius:8px;font:800 10px system-ui;letter-spacing:.04em;text-transform:uppercase;color:#04121a;background:linear-gradient(90deg,#25f4ee,#7af0ff);text-align:center';
-      const nav = side.querySelector('.nav');
-      if (nav) side.insertBefore(b, nav);
-    }
-    return;
-  }
+  if (IS_DESKTOP) return;
   const banner = document.createElement('div');
   banner.id = 'panel-mode-banner';
-  const brokenLocal = isPcBuildMarkup();
-  const onWeb = isCloudPanelHost() || brokenLocal;
-  if (!onWeb) return;
+  const brokenLocal = isPcBuildMarkup() || IS_LOCALHOST;
+  const onWeb = isCloudPanelHost() && !IS_LOCALHOST;
+  if (!onWeb && !brokenLocal) return;
   banner.style.cssText = 'margin:0 14px 10px;padding:10px 12px;border-radius:10px;font:600 11.5px/1.45 system-ui;color:#ffe8f0;background:linear-gradient(135deg,rgba(255,43,214,.22),rgba(255,80,120,.12));border:1px solid rgba(255,43,214,.45)';
-  if (brokenLocal) {
-    banner.innerHTML = '<b>Estás en el navegador, no en la app PC.</b><br>Para ver <b>Juegos</b> (Minecraft, Roblox…), <b>Acciones</b> y <b>Webhook</b>, abre <b>Livecoins</b> desde el menú Inicio de Windows (icono del .exe). No uses esta pestaña del navegador.';
-  } else {
+  if (brokenLocal && !IS_DESKTOP) {
+    banner.innerHTML = '<b>App PC sin módulo de escritorio.</b><br>Cierra Livecoins por completo y ábrelo otra vez desde el menú Inicio. Si sigue igual, reinstala el .exe más reciente.';
+  } else if (onWeb) {
     banner.innerHTML = '<b>Versión web</b> — sin Juegos ni Acciones.<br>Descarga la <b>app de escritorio (.exe)</b> con el botón de abajo para Minecraft, Roblox, Mario Bros, etc.';
   }
   const side = document.querySelector('.sidebar');
@@ -1099,7 +1128,17 @@ async function loadAppVersion() {
         body: JSON.stringify(body),
       });
       const d = await r.json().catch(() => ({}));
-      if (status) status.textContent = r.ok ? `Publicada la versión ${d.version}.` : (d.error || 'No se pudo publicar.');
+      if (r.ok && body.url) {
+        try {
+          await fetch('/api/admin/web-install', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: body.url }),
+          });
+          const wi = document.getElementById('webinstall-url');
+          if (wi) wi.value = body.url;
+        } catch {}
+      }
+      if (status) status.textContent = r.ok ? `Publicada la versión ${d.version} (enlace de instalación sincronizado).` : (d.error || 'No se pudo publicar.');
     } catch {
       if (status) status.textContent = 'Error de conexión.';
     } finally {
@@ -4813,12 +4852,14 @@ document.addEventListener('mouseout', (e) => {
   if (v) { try { v.pause(); } catch {} }
 }, true);
 
-// Service Worker: útil en la web; en la app .exe lo omitimos para no servir JS/HTML
-// cacheado viejo mientras desarrollamos o actualizamos.
-if (!IS_DESKTOP && 'serviceWorker' in navigator) {
+// Service Worker: útil en la web; en localhost (.exe) NUNCA — cachea dashboard.js como versión web.
+if (!IS_DESKTOP && !IS_LOCALHOST && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
   });
+}
+if (IS_LOCALHOST && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
 }
 
 /* ====================== Acciones (solo en la app .exe) ====================== */
@@ -8581,6 +8622,7 @@ function initHomeWelcome() {
   // y videos, así que cuanto antes se abra, antes se pinta TODO el panel.
   connectWS();
   preloadGiftCatalog();
+  await confirmDesktopPanelFromServer();
   setupPanelModeWarning();
   try { initHomeWelcome(); } catch (e) { console.error('Home welcome:', e); }
   try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }
