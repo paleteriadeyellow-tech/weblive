@@ -7812,9 +7812,16 @@ function renderRoblox3Actions() {
 const MARIO_ITEMS = [
   { id: 'SuperMushroom', nombre: 'Hongo (crecer)' },
   { id: 'FireFlower', nombre: 'Flor de Fuego' },
+  { id: 'SuperLeaf', nombre: 'Hoja (cola)' },
+  { id: 'RaccoonLeaf', nombre: 'Cola de mapache' },
+  { id: 'WingItem', nombre: 'Alas / P-Wing' },
   { id: 'SuperStar', nombre: 'Estrella (invencible)' },
   { id: 'OneUp', nombre: 'Vida 1UP' },
-  { id: 'WingItem', nombre: 'Alas (volar)' },
+  { id: 'YoshiEgg', nombre: 'Huevo Yoshi' },
+  { id: 'CapeFeather', nombre: 'Pluma (capa)' },
+  { id: 'TanookiSuit', nombre: 'Traje Tanooki' },
+  { id: 'BlueShell', nombre: 'Caparazón azul' },
+  { id: 'MegaMushroom', nombre: 'Mega hongo' },
   { id: 'PoisonMushroom', nombre: 'Hongo Venenoso' },
 ];
 const MARIO_ENEMIES = [
@@ -7838,6 +7845,7 @@ const MARIO_ENEMIES = [
   { id: 'BooBuddies', nombre: 'Boos en grupo' },
   { id: 'HammerBro', nombre: 'Hermano Martillo' },
   { id: 'BowsersBro', nombre: 'Hermano de Bowser' },
+  { id: 'ChainChomp', nombre: 'Cadena Chomp' },
   { id: 'Blooper', nombre: 'Blooper (calamar)' },
   { id: 'GreenCheepCheep', nombre: 'Cheep Cheep Verde' },
   { id: 'RedCheepCheep', nombre: 'Cheep Cheep Rojo' },
@@ -7895,38 +7903,40 @@ function migrateGameActions(arr, prefix) {
   return out;
 }
 
-// Botón "Ejecutar" del juego de Mario Bros: abre el juego que viene empaquetado
-// dentro de la app (.exe). Solo se muestra en la app de escritorio.
+// Botón «Iniciar bridge» Mario (SMBX2): solo en .exe; el bridge no corre hasta que se usa Mario.
 function setupMarioLaunchBtn() {
   const room = document.getElementById('mario-room');
   if (room && !room._wired) {
     room._wired = true;
     room.onclick = () => {
-      if (!room.dataset.url) { toast && toast('Aún no hay enlace de descarga configurado.', 'warn'); return; }
-      downloadMinecraftServer(room.dataset.url);
-      toast && toast('Descargando el Room de Mario…', 'ok');
+      const url = (room.dataset.url || '').trim();
+      if (!url) { toast && toast('Enlace de descarga del mod pendiente. Pide el ZIP a soporte.', 'warn'); return; }
+      downloadMinecraftServer(url);
+      toast && toast('Descargando mod Livecoins para SMBX2…', 'ok');
+    };
+  }
+  const smbx2 = document.getElementById('mario-smbx2');
+  if (smbx2 && !smbx2._wired) {
+    smbx2._wired = true;
+    smbx2.onclick = () => {
+      const url = (smbx2.dataset.url || 'https://smbx2.org/').trim();
+      if (window.desktopAPI?.openExternal) window.desktopAPI.openExternal(url);
+      else window.open(url, '_blank', 'noopener');
     };
   }
   const btn = document.getElementById('mario-play');
   if (!btn) return;
-  if (!IS_DESKTOP || !window.desktopAPI?.launchMarioGame) { btn.style.display = 'none'; return; }
+  if (!IS_DESKTOP) { btn.style.display = 'none'; return; }
   if (btn._wired) return;
   btn._wired = true;
+  btn.textContent = '▶ Iniciar bridge';
   btn.onclick = async () => {
     btn.disabled = true;
     const prev = btn.textContent;
-    btn.textContent = '⏳ Abriendo…';
+    btn.textContent = '⏳ Bridge…';
     try {
-      const r = await window.desktopAPI.launchMarioGame();
-      if (r && r.ok) {
-        toast && toast('Abriendo el juego de Mario Bros…', 'ok');
-      } else if (r && (r.error === 'no_instalado' || r.error === 'sin_exe')) {
-        toast && toast('No se encontró el juego dentro de la app. Reinstala/actualiza Livecoins.', 'warn');
-      } else {
-        toast && toast('No se pudo abrir el juego.', 'warn');
-      }
-    } catch {
-      toast && toast('No se pudo abrir el juego.', 'warn');
+      send({ action: 'ensureMarioBridge' });
+      toast && toast('Iniciando bridge Mario (SMBX2)…', 'ok');
     } finally {
       btn.disabled = false;
       btn.textContent = prev;

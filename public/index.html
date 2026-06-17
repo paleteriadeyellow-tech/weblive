@@ -3285,24 +3285,26 @@
         <section class="view" id="view-juego-mariobros">
           <button type="button" class="juego-back">← Volver a Juegos</button>
           <h1 class="view-title">🍄 Mario Bros</h1>
-          <p class="view-sub">Configura aquí el juego de Mario Bros.</p>
+          <p class="view-sub">SMBX2 + mod Livecoins. El bridge solo se inicia al usar Mario (regalo, Probar o botón de abajo).</p>
 
           <div class="juego-banner">
             <img src="/img/mariobros2.png" alt="Mario Bros" class="juego-banner-img">
             <div class="juego-banner-btns">
-              <button type="button" class="juego-play-btn" id="mario-play">▶ Ejecutar</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="mario-room" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Super.Mario.Bros.World.nes">⬇ Room</button>
+              <button type="button" class="juego-play-btn" id="mario-play">▶ Iniciar bridge</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="mario-room" data-url="">⬇ Descargar mod Livecoins</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="mario-smbx2" data-url="https://smbx2.org/">⬇ Página SMBX2</button>
             </div>
           </div>
 
           <div class="juego-aviso">
             <div class="juego-aviso-ico">📋</div>
             <div class="juego-aviso-txt">
-              <b>Para que el juego funcione, sigue estos pasos:</b>
+              <b>Para que funcione con Livecoins:</b>
               <ol>
-                <li><b>Paso 1:</b> dentro del juego pulsa la tecla <b>ESC</b> para abrir el menú y modificar los controles. Actualmente la tecla <b>Z</b> sirve para confirmar todo.</li>
-                <li><b>Paso 2:</b> muévete hacia el lado hasta encontrar la <b>configuración de teclado</b> y configura las teclas que quieras.</li>
-                <li><b>Paso 3:</b> modifica el <b>regalo</b> de cada acción en las tarjetas de abajo.</li>
+                <li><b>Descarga</b> <a href="https://smbx2.org/" target="_blank" rel="noopener">SMBX2</a> y el <b>mod Livecoins</b> (botón de arriba). Copia los archivos Lua del mod a tu episodio SMBX2.</li>
+                <li><b>Abre SMBX2</b> y entra al nivel <b>marios_pad</b> (con el mod cargado).</li>
+                <li>El <b>bridge</b> arranca solo al probar una acción o al recibir un regalo; también puedes pulsar <b>Iniciar bridge</b>.</li>
+                <li>Asigna el <b>regalo</b> de cada acción en las tarjetas de abajo y enciéndelas (botón verde).</li>
               </ol>
             </div>
           </div>
