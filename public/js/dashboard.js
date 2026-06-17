@@ -3437,9 +3437,13 @@ function updateTtsSummary() {
   }
   const trig = { all: 'cualquier comentario', dot: 'comentarios que empiezan con punto', slash: 'comentarios que empiezan con /', command: `comentarios con "${t.command || '!tts'}"` }[t.trigger || 'all'];
   const money = t.charge ? `Cobra ${t.cost} monedas por mensaje.` : 'El uso es gratuito.';
-  const requireLvl = (t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
-  const lvl = (requireLvl && Number(t.minMemberLevel || 0) > 0) ? ` Solo miembros de nivel ${t.minMemberLevel}+.` : '';
-  el.textContent = `Se leerá ${trig} ${who}.${lvl} ${money}`;
+  const requireLvl = !!(t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
+  const minLvl = Number(t.minMemberLevel || 0);
+  if (requireLvl && minLvl > 0) {
+    el.textContent = `Se leerá ${trig} solo de miembros del club de fans nivel ${minLvl} o más (Nv.${minLvl}+). ${money}`;
+    return;
+  }
+  el.textContent = `Se leerá ${trig} ${who}. ${money}`;
 }
 
 /* ---- Filtros de moderación ---- */
@@ -3539,10 +3543,12 @@ function ttsModerate(text) {
 
 function ttsAllowedUser(p) {
   const t = settings?.tts || {};
-  // Nivel mínimo de miembro: requisito independiente que solo se aplica si está activado.
-  const requireLvl = (t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
+  const requireLvl = !!(t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
   const minLvl = Number(t.minMemberLevel || 0);
-  if (requireLvl && minLvl > 0 && Number(p.memberLevel || 0) < minLvl) return false;
+  const memberLevel = Number(p.memberLevel || 0);
+
+  if (requireLvl && minLvl > 0) return memberLevel >= minLvl;
+
   if (t.allowAll !== false) return true;
   const anyRole = t.allowFollowers || t.allowSubs || t.allowMods || t.allowTeam;
   if (!anyRole) return false;
