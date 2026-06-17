@@ -922,6 +922,30 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return false;
   }
 
+  const giftStreakGameProgress = new Map();
+  function giftStreakGameKey(uniqueId, giftId) {
+    return `${uniqueId || ''}:${String(giftId || '')}`;
+  }
+  function triggerGiftGameActions(user, giftId, repeatCount, repeatEnd, giftType, giftInfo) {
+    const key = giftStreakGameKey(user.uniqueId, giftId);
+    const rep = Math.max(1, Number(repeatCount) || 1);
+    const streakGift = giftType === 1;
+
+    if (!streakGift) {
+      giftStreakGameProgress.delete(key);
+      actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: rep }, user);
+      return;
+    }
+
+    const prev = giftStreakGameProgress.get(key) || 0;
+    const delta = Math.max(0, rep - prev);
+    if (delta > 0) {
+      giftStreakGameProgress.set(key, rep);
+      actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: delta }, user);
+    }
+    if (repeatEnd) giftStreakGameProgress.delete(key);
+  }
+
   // Pelotas de fans: acumula la cantidad (monedas o likes) por usuario y, cada
   // vez que se completa el umbral configurado, manda caer una pelota con su foto.
   // El sobrante se guarda para el siguiente evento del mismo usuario.
@@ -1578,6 +1602,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const giftName = data.giftDetails?.giftName || cat?.name || 'Regalo';
       const repeatCount = data.repeatCount || 1;
       const image = getGiftImage(data) || cat?.image || null;
+      const giftInfo = { giftName, giftId, diamonds: diamondsEach, totalDiamonds: diamondsEach * repeatCount, repeatCount };
 
       const isStreak = giftType === 1 && !data.repeatEnd;
       if (!isStreak) {
@@ -1609,10 +1634,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
         addTimerSeconds(total * (settings.timer?.giftMult || 0));
 
-        const giftInfo = { giftName, giftId, diamonds: diamondsEach, totalDiamonds: diamondsEach * repeatCount };
         broadcast('log', { level: 'info', text: `🎁 Regalo: ${giftName} (id ${giftId}) ×${repeatCount} · 💎${diamondsEach}` });
-        // "Racha = 1": si está activo, una racha/ráfaga del mismo regalo y usuario dispara
-        // la alerta/sonido/video una sola vez (los diamantes y contadores sí suman todo).
         if (!comboShouldSkip(user.uniqueId, giftId)) {
           triggerVideos('gift', { ...giftInfo, giftName: giftName.toLowerCase() });
           triggerSoundAlerts('gift', giftInfo);
@@ -1621,8 +1643,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         processFanBalls('coins', user, total);
         rouletteFromGift(user, total, image);
         actions.triggerActions('gift', giftInfo);
-        actions.triggerMinecraftActions('gift', giftInfo, user);
       }
+
+      triggerGiftGameActions(user, giftId, repeatCount, !!data.repeatEnd, giftType, giftInfo);
 
       broadcast('gift', { ...user, giftName, giftId, repeatCount, diamonds: diamondsEach, image, streak: isStreak });
       checkMemberLevelUp(data);
