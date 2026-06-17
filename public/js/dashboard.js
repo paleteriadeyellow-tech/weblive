@@ -8009,7 +8009,6 @@ async function testMarioAction(a) {
 
   const times = Math.max(1, parseInt(a.count, 10) || 1);
   const spawnThing = a.thing || String(a.npcId);
-  send({ action: 'marioSpawn', thing: spawnThing, npcId: a.npcId, name: 'Prueba', times });
   const ok = await execGameLocal({ tipo: 'MARIO_SPAWN', thing: spawnThing, npcId: a.npcId, name: 'Prueba', times });
   if (ok) addEvent(`🍄 Prueba Mario: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
   else toast && toast(`Spawn falló («${label}»). Inicia bridge y entra a marios_pad en SMBX2.`, 'warn');
