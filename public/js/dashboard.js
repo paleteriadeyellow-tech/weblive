@@ -750,13 +750,15 @@ function handle(type, p) {
     case 'state': renderState(p); break;
     case 'settings': onSettings(p); break;
     case 'screens': onScreens(p); break;
-    case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); break;
+    case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); triggerMcPanelSounds('chat', p); break;
     case 'botReply': handleBotReply(p); break;
-    case 'gift': addGift(p); ttsOnGift(p); break;
-    case 'like': ttsOnLike(p); break;
+    case 'gift': addGift(p); ttsOnGift(p); triggerMcPanelSounds('gift', p); break;
+    case 'like': ttsOnLike(p); triggerMcPanelSounds('like', { likeCount: p.count || 0, ...p }); break;
     case 'member': addEvent(`🙋 ${p.nickname} entró`, ''); break;
-    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); break;
-    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); break;
+    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); triggerMcPanelSounds('follow', p); break;
+    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); triggerMcPanelSounds('share', p); break;
+    case 'subscribe': triggerMcPanelSounds('subscribe', p); break;
+    case 'superfan': triggerMcPanelSounds('superFan', p); break;
     case 'log': addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : ''); break;
     case 'sound': playPanelSound(p); break;
     case 'panic':
@@ -1537,6 +1539,57 @@ function playMcCardSound(a) {
     volume: a.soundVolume != null ? a.soundVolume : 100,
     image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
   });
+}
+
+function mcCmdReady(a) {
+  return !!(a && a.enabled !== false && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)));
+}
+
+function matchMcActionTrigger(a, eventType, info) {
+  if (!mcCmdReady(a)) return false;
+  const trig = a.trigger || 'gift';
+  if (eventType === 'gift') {
+    if (trig === 'gift') {
+      const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+      const nameMatch = (a.giftName || '').trim().toLowerCase()
+        && (a.giftName || '').trim().toLowerCase() === String(info.giftName || '').toLowerCase();
+      return idMatch || nameMatch;
+    }
+    return trig === 'gift-any';
+  }
+  if (eventType === 'like') {
+    if (trig !== 'like') return false;
+    return (a.likeN || 1) <= (info.likeCount || 0);
+  }
+  if (eventType === 'chat') {
+    if (trig === 'chatCommand') {
+      const cmd = String(a.text || '').trim().toLowerCase();
+      const text = String(info.comment || '').trim().toLowerCase();
+      return cmd && text && (text === cmd || text.startsWith(cmd + ' '));
+    }
+    if (trig === 'chatUser') {
+      const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+      if (!want) return false;
+      const uname = String(info.username || info.uniqueId || '').toLowerCase();
+      const nname = String(info.nickname || '').toLowerCase();
+      return want === uname || want === nname;
+    }
+    return false;
+  }
+  return trig === eventType;
+}
+
+function triggerMcPanelSounds(eventType, info) {
+  if (!settings) return;
+  const lists = [].concat(
+    settings.mcActions || [],
+    settings.bedrockActions || [],
+    settings.sandboxActions || [],
+  );
+  for (const a of lists) {
+    if (!matchMcActionTrigger(a, eventType, info)) continue;
+    playMcCardSound(a);
+  }
 }
 
 function onSettings(s) {
@@ -6176,7 +6229,7 @@ function openMcCmdModal(a, game) {
   document.getElementById('mcc-delayeach').value = a?.delayEach || 0;
   document.getElementById('mcc-delaygroup').value = a?.delayGroup || 0;
   document.getElementById('mcc-radius').value = a?.radius != null ? a.radius : 3;
-  document.getElementById('mcc-giftmult').checked = !!a?.giftMult;
+  document.getElementById('mcc-giftmult').checked = a?.giftMult === false;
   document.getElementById('mcc-random').checked = !!a?.random;
   const extraOn = !!(a?.cmdsExtra || (Array.isArray(a?.cmds) && a.cmds.some((x) => x && typeof x === 'object')));
   document.getElementById('mcc-extra').checked = extraOn;
@@ -6306,17 +6359,20 @@ function saveMcCmd() {
     delayEach: Math.max(0, parseInt(document.getElementById('mcc-delayeach').value, 10) || 0),
     delayGroup: Math.max(0, parseInt(document.getElementById('mcc-delaygroup').value, 10) || 0),
     radius: Math.max(0, parseInt(document.getElementById('mcc-radius').value, 10) || 0),
-    giftMult: document.getElementById('mcc-giftmult').checked,
     random: document.getElementById('mcc-random').checked,
     image: mccImage || '',
     custom: true,
   };
+  if (document.getElementById('mcc-giftmult').checked) payload.giftMult = false;
   const g = MC_GAME_MAP[mccGame] || MC_GAME_MAP.minecraft;
   const key = g.key;
   if (!Array.isArray(settings[key])) settings[key] = [];
   if (mccEditingUid) {
     const a = settings[key].find((x) => x.uid === mccEditingUid);
-    if (a) Object.assign(a, payload);
+    if (a) {
+      Object.assign(a, payload);
+      if (!document.getElementById('mcc-giftmult').checked) delete a.giftMult;
+    }
   } else {
     settings[key].push({
       uid: 'mca_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
@@ -6436,7 +6492,7 @@ function renderMyMcActions() {
         <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
         ${giftBtn}
         ${likeRow}
-        <label class="mc-qty-row" title="Cuántas veces se ejecuta la acción cada vez que se activa (ej. 5 zombies por 1 regalo)">Cantidad a enviar
+        <label class="mc-qty-row" title="Cuántos spawns/comandos por cada unidad del regalo. Si envían 2 rosas y pones 30, salen 60.">Cantidad a enviar
           <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
         ${audioBlock}
       </div>
@@ -6902,7 +6958,7 @@ function renderMyBedrockActions() {
         <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
         ${giftBtn}
         ${likeRow}
-        <label class="mc-qty-row" title="Cuántas veces se ejecuta la acción cada vez que se activa">Cantidad a enviar
+        <label class="mc-qty-row" title="Cuántos spawns/comandos por cada unidad del regalo. Si envían 2 rosas y pones 30, salen 60.">Cantidad a enviar
           <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
       </div>
       <div class="mc-act-actions">
@@ -7229,7 +7285,7 @@ function renderMySandboxActions() {
         <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
         ${giftBtn}
         ${likeRow}
-        <label class="mc-qty-row" title="Cuántas veces se ejecuta la acción cada vez que se activa">Cantidad a enviar
+        <label class="mc-qty-row" title="Cuántos spawns/comandos por cada unidad del regalo. Si envían 2 rosas y pones 30, salen 60.">Cantidad a enviar
           <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
       </div>
       <div class="mc-act-actions">

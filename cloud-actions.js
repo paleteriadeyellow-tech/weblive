@@ -215,6 +215,15 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     };
   }
 
+  function mcActionRunTimes(a, vars) {
+    const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
+    const qty = Math.max(1, parseInt(a.count, 10) || 1);
+    const base = baseRepeat * qty;
+    const rep = Math.max(1, Number(vars?.repeatcount) || 1);
+    const times = a.giftMult === false ? base : base * rep;
+    return Math.min(times, 200);
+  }
+
   async function runMcActionExtra(a, vars, sendCmds, wait) {
     const defaults = { repeat: a.repeat, delayEach: a.delayEach, delayGroup: a.delayGroup, radius: a.radius };
     let entries = (Array.isArray(a.cmds) ? a.cmds : [])
@@ -222,10 +231,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       .filter(Boolean);
     if (!entries.length) return;
 
-    const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
-    const qty = Math.max(1, parseInt(a.count, 10) || 1);
-    let times = a.giftMult ? baseRepeat * qty * Math.max(1, Number(vars.repeatcount) || 1) : baseRepeat * qty;
-    times = Math.min(times, 200);
+    let times = mcActionRunTimes(a, vars);
     const delayGroup = Math.max(0, parseInt(a.delayGroup, 10) || 0);
 
     if (a.random) entries = [entries[Math.floor(Math.random() * entries.length)]];
@@ -275,10 +281,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
           delayBefore: e.delayBefore,
         }));
       if (!steps.length) return;
-      const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
-      const qty = Math.max(1, parseInt(a.count, 10) || 1);
-      let times = a.giftMult ? baseRepeat * qty * Math.max(1, Number(vars.repeatcount) || 1) : baseRepeat * qty;
-      times = Math.min(times, 200);
+      let times = mcActionRunTimes(a, vars);
       if (emitLocalExec({
         tipo: 'MINECRAFT_RCON_SEQ',
         conn: useStap ? stap : rcon,
@@ -299,8 +302,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     if (!clean.length) return;
     const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
     const qty = Math.max(1, parseInt(a.count, 10) || 1);
-    let times = a.giftMult ? baseRepeat * qty * Math.max(1, Number(vars.repeatcount) || 1) : baseRepeat * qty;
-    times = Math.min(times, 200);
+    let times = mcActionRunTimes(a, vars);
     const queue = [];
     for (let i = 0; i < times; i++) {
       if (a.random) queue.push(substituteMcCmd(clean[Math.floor(Math.random() * clean.length)], vars, a.radius));
@@ -454,7 +456,6 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
-      playMcActionSound(a);
       runMcAction(a, vars);
     }
   }
