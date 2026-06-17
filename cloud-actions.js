@@ -430,6 +430,17 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     }
   }
 
+  function playMcActionSound(a) {
+    if (!a || !a.audioOn || !a.sound) return;
+    broadcast('sound', {
+      id: a.uid || a.catId || '',
+      name: a.name || a.soundName || 'Minecraft',
+      sound: a.sound,
+      image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
+      volume: a.soundVolume != null ? a.soundVolume : 100,
+    });
+  }
+
   function triggerMinecraftActions(eventType, info = {}, user = null) {
     triggerRobloxList(settings().robloxActions || [], eventType, info, user, 'rbx_');
     triggerRobloxList(settings().roblox3Actions || [], eventType, info, user, 'rbx3_');
@@ -443,6 +454,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
+      playMcActionSound(a);
       runMcAction(a, vars);
     }
   }
@@ -454,7 +466,10 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
       const goal = Math.max(1, a.likeN || 100);
-      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) runMcAction(a, vars);
+      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+        playMcActionSound(a);
+        runMcAction(a, vars);
+      }
     }
     for (const a of (settings().robloxActions || [])) {
       if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.keys) continue;
@@ -470,7 +485,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
 
   return {
     fireAction, triggerActions, triggerMinecraftActions, triggerLikeGlobalExtras,
-    runActionOutputs, runMcAction, buildMcVars, listActions, executeWebhookAction, actionDoesSomething,
+    runActionOutputs, runMcAction, playMcActionSound, buildMcVars, listActions, executeWebhookAction, actionDoesSomething,
     spawnMarioThing, applyMarioEffect, spawnPvzThing, givePvzSun, pvzCommand,
   };
 }

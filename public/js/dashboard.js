@@ -57,6 +57,7 @@ function normalizeRelayMedia(s) {
   for (const v of (s.videos || [])) if (v.url) v.url = fix(v.url);
   for (const b of (s.battleAlerts || [])) if (b.url) b.url = fix(b.url);
   for (const a of (s.actions || [])) if (a.sound) a.sound = fix(a.sound);
+  for (const a of (s.mcActions || [])) if (a.sound) a.sound = fix(a.sound);
 }
 
 function connectWS() {
@@ -1452,6 +1453,22 @@ function saveSettings() {
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => send({ action: 'saveSettings', settings }), 200);
 }
+function flushSaveSettings() {
+  if (applyingSettings || !settings) return;
+  clearTimeout(saveDebounce);
+  saveDebounce = null;
+  send({ action: 'saveSettings', settings });
+}
+
+function playMcCardSound(a) {
+  if (!a?.audioOn || !a?.sound) return;
+  playPanelSound({
+    sound: mediaUrl(a.sound),
+    name: a.name || a.soundName || 'Minecraft',
+    volume: a.soundVolume != null ? a.soundVolume : 100,
+    image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
+  });
+}
 
 function onSettings(s) {
   settings = s;
@@ -2589,8 +2606,10 @@ async function uploadFile(file, kind) {
 /* Biblioteca de sonidos: lee la carpeta local /audios */
 let libAudio = null;
 let localSounds = [];
-// A dónde va el sonido elegido: 'alert' (alertas sonoras) o 'action' (Acciones .exe).
+// A dónde va el sonido elegido: 'alert', 'action' o 'mc' (tarjeta Minecraft).
 let soundPickTarget = 'alert';
+let mcSoundPickUid = null;
+let mcAudioUploadUid = null;
 
 function openSoundLib() {
   $('soundLibModal').classList.remove('hidden');
@@ -2644,6 +2663,15 @@ function renderLocalSounds(filter) {
       accPendingSound = { url: b.dataset.url, name: b.dataset.name };
       const el = $('acc-soundname'); if (el) el.textContent = b.dataset.name;
       const vr = $('acc-volrow'); if (vr) vr.hidden = false;
+    } else if (soundPickTarget === 'mc' && mcSoundPickUid) {
+      const a = (settings.mcActions || []).find((x) => x.uid === mcSoundPickUid);
+      if (a) {
+        a.sound = b.dataset.url;
+        a.soundName = b.dataset.name;
+        if (!a.audioOn) a.audioOn = true;
+        flushSaveSettings();
+        renderMyMcActions();
+      }
     } else {
       pendingSound = { url: b.dataset.url, name: b.dataset.name };
       $('sa-soundname').textContent = b.dataset.name;
@@ -6304,6 +6332,30 @@ function renderMyMcActions() {
       likeRow = `<label class="mc-like-row">${txt}
         <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
     }
+    const audioOn = !!a.audioOn;
+    const vol = a.soundVolume != null ? Math.max(0, Math.min(100, parseInt(a.soundVolume, 10) || 0)) : 100;
+    const hasSound = !!(a.sound);
+    const audioBlock = `
+      <div class="mc-audio-wrap">
+        <label class="mc-audio-on"><input type="checkbox" class="mc-audio-en" data-uid="${esc(a.uid)}" ${audioOn ? 'checked' : ''}> Audio</label>
+        <div class="mc-audio-box"${audioOn ? '' : ' hidden'}>
+          <div class="mc-audio-picks">
+            <button type="button" class="btn ghost sm mc-audio-lib" data-uid="${esc(a.uid)}">Biblioteca</button>
+            <button type="button" class="btn ghost sm mc-audio-up" data-uid="${esc(a.uid)}">Subir</button>
+          </div>
+          <div class="mc-audio-chosen">
+            <span class="mc-audio-name">${hasSound ? esc(a.soundName || 'Audio') : 'Sin audio…'}</span>
+            ${hasSound ? `<button type="button" class="mc-audio-clear" data-uid="${esc(a.uid)}" title="Quitar">✕</button>` : ''}
+          </div>
+          <div class="mc-audio-volrow"${hasSound ? '' : ' hidden'}>
+            <label class="mc-audio-vol-lbl">Volumen</label>
+            <div class="mc-audio-volctl">
+              <input type="range" class="mc-audio-vol" data-uid="${esc(a.uid)}" min="0" max="100" value="${vol}">
+              <span class="mc-audio-vol-val">${vol}%</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
     return `
     <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
       <div class="mc-act-top">
@@ -6317,6 +6369,7 @@ function renderMyMcActions() {
         ${likeRow}
         <label class="mc-qty-row" title="Cuántas veces se ejecuta la acción cada vez que se activa (ej. 5 zombies por 1 regalo)">Cantidad a enviar
           <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
+        ${audioBlock}
       </div>
       <div class="mc-act-actions">
         <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en" data-uid="${esc(a.uid)}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
@@ -6370,9 +6423,77 @@ function renderMyMcActions() {
     const a = find(b.dataset.uid); if (a) openMcCmdModal(a);
   });
   wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid);
+    flushSaveSettings();
+    playMcCardSound(a);
     send({ action: 'testMcAction', uid: b.dataset.uid });
     toast && toast('Enviando comando al servidor de Minecraft…', 'ok');
   });
+  wrap.querySelectorAll('.mc-audio-en').forEach((c) => c.onchange = () => {
+    const a = find(c.dataset.uid); if (!a) return;
+    a.audioOn = c.checked;
+    flushSaveSettings();
+    renderMyMcActions();
+  });
+  wrap.querySelectorAll('.mc-audio-lib').forEach((b) => b.onclick = () => {
+    mcSoundPickUid = b.dataset.uid;
+    soundPickTarget = 'mc';
+    openSoundLib();
+  });
+  wrap.querySelectorAll('.mc-audio-up').forEach((b) => b.onclick = () => {
+    mcAudioUploadUid = b.dataset.uid;
+    ensureMcAudioUpload().click();
+  });
+  wrap.querySelectorAll('.mc-audio-clear').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (!a) return;
+    a.sound = '';
+    a.soundName = '';
+    flushSaveSettings();
+    renderMyMcActions();
+  });
+  wrap.querySelectorAll('.mc-audio-vol').forEach((inp) => inp.oninput = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.soundVolume = Math.max(0, Math.min(100, parseInt(inp.value, 10) || 0));
+    const card = inp.closest('.mc-act-card');
+    const val = card?.querySelector('.mc-audio-vol-val');
+    if (val) val.textContent = a.soundVolume + '%';
+    flushSaveSettings();
+  });
+}
+
+function ensureMcAudioUpload() {
+  let inp = document.getElementById('mc-audio-upload-file');
+  if (!inp) {
+    inp = document.createElement('input');
+    inp.type = 'file';
+    inp.id = 'mc-audio-upload-file';
+    inp.accept = 'audio/*';
+    inp.hidden = true;
+    inp.addEventListener('change', async (e) => {
+      const uid = mcAudioUploadUid;
+      mcAudioUploadUid = null;
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file || !uid || !settings?.mcActions) return;
+      const a = settings.mcActions.find((x) => x.uid === uid);
+      if (!a) return;
+      try {
+        const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
+        const data = await res.json();
+        if (!data.url) throw new Error(data.error || 'error');
+        a.sound = data.url;
+        a.soundName = file.name;
+        if (!a.audioOn) a.audioOn = true;
+        flushSaveSettings();
+        renderMyMcActions();
+        toast && toast('Audio subido.', 'ok');
+      } catch {
+        toast && toast('No se pudo subir el audio.', 'error');
+      }
+    });
+    document.body.appendChild(inp);
+  }
+  return inp;
 }
 
 // Genera una imagen tipo "menú de regalos" con las acciones agregadas:
