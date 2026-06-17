@@ -1,10 +1,10 @@
 :root {
-  --bg: #000000;
-  --bg2: #0d0d0f;
-  --card: #121214;
-  --line: #2a2a30;
+  --bg: #070c18;
+  --bg2: #0b1322;
+  --card: #0e1a2e;
+  --line: #1d2c48;
   --txt: #ffffff;
-  --mut: #8a8b94;
+  --mut: #8a96ad;
   --pink: #fe2c55;
   --cyan: #25f4ee;
   --tiktok: linear-gradient(135deg, #25f4ee 0%, #fe2c55 100%);
@@ -21,16 +21,9 @@
   background: rgba(37,244,238,.14); color: var(--cyan, #25f4ee); border: 1px solid rgba(37,244,238,.4);
 }
 
-/* ===== Tema azul marino — SOLO en la app .exe (la web sigue en negro) ===== */
+/* ===== Tema azul marino — .exe añade animaciones y menú de perfiles ===== */
 .is-desktop {
-  --bg: #070c18;
-  --bg2: #0b1322;
-  --card: #0e1a2e;
-  --line: #1d2c48;
-  --mut: #8a96ad;
-}
-.is-desktop .sidebar {
-  background: linear-gradient(180deg, #0c1832, #060b16);
+  /* vars ya en :root; clase reservada para extras de escritorio */
 }
 .is-desktop .topbar,
 .is-desktop .panel-head { background: rgba(11,19,34,.6); }
@@ -176,13 +169,14 @@ body {
 .sidebar {
   width: 230px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, #0d0d0f, #000);
+  background: linear-gradient(180deg, #0c1832, #060b16);
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow: visible;
 }
 .brand-wrap { position: relative; }
 .brand {
@@ -307,7 +301,7 @@ body {
 .topbar {
   display: flex; align-items: center; gap: 16px;
   padding: 12px 22px; border-bottom: 1px solid var(--line);
-  background: rgba(20,22,30,.6); position: sticky; top: 0; z-index: 10;
+  background: rgba(11,19,34,.6); position: sticky; top: 0; z-index: 10;
   backdrop-filter: blur(8px); flex-wrap: wrap;
 }
 .connect { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 280px; }

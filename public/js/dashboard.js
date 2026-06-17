@@ -5789,6 +5789,8 @@ function setupProfiles() {
   const btn = $('brandBtn');
   const pop = $('profilesPop');
   if (!btn || !pop) return;
+  if (btn.dataset.profilesWired === '1') return;
+  btn.dataset.profilesWired = '1';
   btn.addEventListener('click', (ev) => {
     ev.stopPropagation();
     if (pop.hidden) openProfilesPop(); else closeProfilesPop();
