@@ -1707,16 +1707,7 @@ function onSettings(s) {
     }
     renderRoblox3Actions();
   }
-  // Igual que Roblox: las acciones de Mario Bros arrancan apagadas al abrir el panel.
   if (typeof renderMarioActions === 'function') {
-    if (!window._marioResetDone) {
-      window._marioResetDone = true;
-      const ml = ensureMarioActions();
-      if (ml.length && ml.some((a) => a.enabled !== false)) {
-        ml.forEach((a) => { a.enabled = false; });
-        saveSettings();
-      }
-    }
     renderMarioActions();
   }
   // Igual que Mario: las acciones de Plants vs Zombies arrancan apagadas al abrir el panel.
@@ -7991,20 +7982,37 @@ async function execGameLocal(exec) {
 }
 
 async function testMarioAction(a) {
-  if (!a || !a.thing) return;
-  if (!IS_DESKTOP) { toast && toast('Mario Bros solo funciona en la app de escritorio (.exe).', 'warn'); return; }
-  if (a.kind === 'effect') {
-    const seconds = Math.max(1, parseInt(a.seconds, 10) || 5);
-    const factor = Math.max(0, parseInt(a.factor, 10) || 0);
-    const ok = await execGameLocal({ tipo: 'MARIO_EFFECT', type: a.thing, seconds, factor });
-    if (ok) addEvent(`🍄 Prueba Mario: efecto ${esc(a.label || a.thing)}`, 'ok');
-    else toast && toast('No se pudo ejecutar. Abre el juego y entra a un nivel.', 'warn');
+  if (!a) return;
+  const label = a.label || a.thing || 'acción';
+  if (!IS_DESKTOP) {
+    toast && toast('Mario Bros solo funciona en la app de escritorio (.exe).', 'warn');
     return;
   }
+  if (a.kind !== 'effect' && !a.thing && a.npcId == null) {
+    toast && toast('Acción sin enemigo/objeto. Quítala y agrégala de nuevo del catálogo.', 'warn');
+    return;
+  }
+
+  toast && toast(`🍄 «${label}» en 2 s… (SMBX2 → marios_pad)`, 'ok');
+  await new Promise((r) => setTimeout(r, 2000));
+
+  send({ action: 'ensureMarioBridge' });
+  await new Promise((r) => setTimeout(r, 400));
+
+  if (a.kind === 'effect') {
+    send({ action: 'marioEffect', type: a.thing, seconds: a.seconds, factor: a.factor });
+    const ok = await execGameLocal({ tipo: 'MARIO_EFFECT', type: a.thing, seconds: a.seconds, factor: a.factor });
+    if (ok) addEvent(`🍄 Prueba Mario: efecto ${esc(label)}`, 'ok');
+    else toast && toast('Efecto no enviado. Pulsa «Iniciar bridge».', 'warn');
+    return;
+  }
+
   const times = Math.max(1, parseInt(a.count, 10) || 1);
-  const ok = await execGameLocal({ tipo: 'MARIO_SPAWN', thing: a.thing, name: 'Prueba', times });
-  if (ok) addEvent(`🍄 Prueba Mario: generar ${esc(a.label || a.thing)}`, 'ok');
-  else toast && toast('No se pudo ejecutar. Abre el juego y entra a un nivel.', 'warn');
+  const spawnThing = a.thing || String(a.npcId);
+  send({ action: 'marioSpawn', thing: spawnThing, npcId: a.npcId, name: 'Prueba', times });
+  const ok = await execGameLocal({ tipo: 'MARIO_SPAWN', thing: spawnThing, npcId: a.npcId, name: 'Prueba', times });
+  if (ok) addEvent(`🍄 Prueba Mario: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+  else toast && toast(`Spawn falló («${label}»). Inicia bridge y entra a marios_pad en SMBX2.`, 'warn');
 }
 
 function marioCardHtml(a) {
