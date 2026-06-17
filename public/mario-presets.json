@@ -3,7 +3,7 @@
   { "id": "FireFlower", "npcId": 14, "nombre": "Flor de Fuego", "tipo": "item", "category": "Powerups" },
   { "id": "SuperStar", "npcId": 293, "nombre": "Starman", "tipo": "item", "category": "Powerups" },
   { "id": "OneUp", "npcId": 90, "nombre": "1-Up Mushroom", "tipo": "item", "category": "Powerups" },
-  { "id": "SuperLeaf", "npcId": 190, "nombre": "Super Leaf", "tipo": "item", "category": "Powerups" },
+  { "id": "SuperLeaf", "npcId": 34, "nombre": "Super Leaf", "tipo": "item", "category": "Powerups" },
   { "id": "Goomba", "npcId": 1, "nombre": "Goomba", "tipo": "enemy", "category": "Enemy" },
   { "id": "GreenKoopaTroopa", "npcId": 4, "nombre": "Koopa verde", "tipo": "enemy", "category": "Enemy" },
   { "id": "RedKoopaTroopa", "npcId": 6, "nombre": "Koopa roja", "tipo": "enemy", "category": "Enemy" },

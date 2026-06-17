@@ -7802,7 +7802,7 @@ const MARIO_ITEMS = [
   { id: 'FireFlower', npcId: 14, nombre: 'Flor de Fuego' },
   { id: 'SuperStar', npcId: 293, nombre: 'Starman' },
   { id: 'OneUp', npcId: 90, nombre: '1-Up Mushroom' },
-  { id: 'SuperLeaf', npcId: 190, nombre: 'Super Leaf' },
+  { id: 'SuperLeaf', npcId: 34, nombre: 'Super Leaf' },
 ];
 const MARIO_ENEMIES = [
   { id: 'Goomba', npcId: 1, nombre: 'Goomba' },
