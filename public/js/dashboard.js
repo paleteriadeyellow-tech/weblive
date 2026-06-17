@@ -7920,8 +7920,41 @@ function setupMarioActionsUI() {
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
-  renderMarioCatalog(search ? search.value : '');
-  renderMarioActions();
+  loadMarioBridgePresets().finally(() => {
+    renderMarioCatalog(search ? search.value : '');
+    renderMarioActions();
+  });
+}
+
+async function loadMarioBridgePresets() {
+  const applyPresets = (presets) => {
+    if (!Array.isArray(presets) || !presets.length) return false;
+    const bridgeSpawns = presets.map((p) => ({
+      id: p.id || String(p.npcId),
+      npcId: p.npcId,
+      thing: p.id || String(p.npcId),
+      nombre: p.nombre || p.label || p.name,
+      tipo: p.tipo || (/powerup|bonus|item|container|transport/i.test(String(p.category || '')) ? 'item' : 'enemy'),
+      kind: 'spawn',
+      category: p.category || '',
+    }));
+    MARIO_CATALOG.length = 0;
+    MARIO_CATALOG.push(
+      ...bridgeSpawns,
+      ...MARIO_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
+    );
+    return true;
+  };
+  try {
+    const r = await fetch('http://127.0.0.1:7755/presets');
+    const d = await r.json();
+    if (d.ok && applyPresets(d.presets)) return;
+  } catch { /* bridge apagado */ }
+  try {
+    const r = await fetch('/mario-presets.json');
+    const presets = await r.json();
+    applyPresets(presets);
+  } catch { /* catálogo embebido */ }
 }
 
 // Catálogo de Mario: tarjetas con "+ Agregar" (igual que Minecraft).
@@ -7937,7 +7970,7 @@ function renderMarioCatalog(filter) {
         <span class="mc-cat-emoji">${MARIO_CAT_ICON[c.tipo] || '🎮'}</span>
         <div class="mc-cat-texts">
           <div class="mc-cat-name">${esc(c.nombre)}</div>
-          <div class="mc-cat-desc">${esc(MARIO_TIPO_LABEL[c.tipo] || '')}</div>
+          <div class="mc-cat-desc">${esc(c.category || MARIO_TIPO_LABEL[c.tipo] || '')}</div>
         </div>
       </div>
       <button type="button" class="mc-cat-add">+ Agregar</button>
