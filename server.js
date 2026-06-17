@@ -438,9 +438,9 @@ app.post('/api/admin/app-version', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true, ...data });
 });
 
-/* ----------- Enlace para "Instalar versión web" (lo fija el admin) ----------- */
-// El admin guarda aquí la URL de instalación de la versión web. El panel muestra
-// un botón "Instalar versión web" que apunta a esta URL; al cambiarla aquí, el
+/* ----------- Enlace para "Instalar versión PC" (.exe — lo fija el admin) ----------- */
+// El admin guarda aquí la URL del instalador de escritorio. El panel web muestra
+// un botón "Instalar versión PC" que apunta a esta URL; al cambiarla aquí, el
 // botón se actualiza para todos.
 const WEB_INSTALL_FILE = path.join(DATA_DIR, 'webinstall.json');
 function readWebInstall() {

@@ -669,22 +669,53 @@ function refreshOverlayUrls() {
 // Chip de usuario con botón de cerrar sesión (se inyecta en la barra lateral).
 function mountUserChip() {
   if (document.getElementById('user-chip')) return;
+  const foot = document.createElement('div');
+  foot.id = 'user-sidebar-foot';
+  foot.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:0 14px 6px';
+  const installBtn = document.createElement('button');
+  installBtn.id = 'pc-install-btn';
+  installBtn.type = 'button';
+  installBtn.hidden = true;
+  installBtn.textContent = '⬇️ Instalar versión PC';
+  installBtn.style.cssText = 'width:100%;border:0;border-radius:8px;cursor:pointer;padding:7px 10px;font-weight:800;font-size:11px;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6)';
   const chip = document.createElement('div');
   chip.id = 'user-chip';
-  chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 14px;font:600 11px system-ui,sans-serif;color:#9aa3b8';
+  chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 0;font:600 11px system-ui,sans-serif;color:#9aa3b8';
   chip.innerHTML = `<span style="opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤 ${window.MY_USER || 'usuario'}</span>
     <button id="logout-btn" style="margin-left:auto;border:0;border-radius:6px;cursor:pointer;padding:3px 9px;font-weight:700;font-size:10.5px;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6)">Salir</button>`;
-  // Colócalo dentro de la barra lateral, justo encima de la franja de estado ("Desconectado").
+  foot.appendChild(installBtn);
+  foot.appendChild(chip);
   const sideStatus = document.querySelector('.side-status');
   if (sideStatus && sideStatus.parentElement) {
-    sideStatus.parentElement.insertBefore(chip, sideStatus);
+    sideStatus.parentElement.insertBefore(foot, sideStatus);
   } else {
-    document.body.appendChild(chip);
+    document.body.appendChild(foot);
   }
   document.getElementById('logout-btn').onclick = async () => {
     try { await fetch('/api/logout', { method: 'POST' }); } catch {}
     location.href = '/login.html';
   };
+  applyPcInstallButton();
+}
+
+let pcInstallUrl = '';
+async function applyPcInstallButton() {
+  const btn = document.getElementById('pc-install-btn');
+  if (!btn) return;
+  if (IS_DESKTOP) { btn.hidden = true; return; }
+  try {
+    const r = await fetch('/api/web-install');
+    if (!r.ok) { btn.hidden = true; return; }
+    const d = await r.json();
+    pcInstallUrl = String(d.url || '').trim();
+    btn.hidden = !pcInstallUrl;
+    btn.onclick = () => {
+      if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(pcInstallUrl);
+      else window.open(pcInstallUrl, '_blank', 'noopener');
+    };
+  } catch {
+    btn.hidden = true;
+  }
 }
 
 /* ====================== Confirmación de borrado ====================== */
@@ -818,7 +849,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
     $(`view-${btn.dataset.view}`).classList.add('active');
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); loadPcInstallLink(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
@@ -1030,6 +1061,44 @@ async function loadAppVersion() {
       if (status) status.textContent = r.ok ? `Publicada la versión ${d.version}.` : (d.error || 'No se pudo publicar.');
     } catch {
       if (status) status.textContent = 'Error de conexión.';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+})();
+
+/* ---- Enlace del botón "Instalar versión PC" (.exe) ---- */
+async function loadPcInstallLink() {
+  const el = document.getElementById('webinstall-url');
+  if (!el) return;
+  try {
+    const r = await fetch('/api/web-install');
+    if (!r.ok) return;
+    const d = await r.json();
+    el.value = d.url || '';
+  } catch {}
+}
+
+(function setupPcInstallSave() {
+  const btn = document.getElementById('webinstall-save');
+  if (!btn) return;
+  btn.onclick = async () => {
+    const status = document.getElementById('webinstall-status');
+    const url = (document.getElementById('webinstall-url')?.value || '').trim();
+    btn.disabled = true;
+    if (status) status.textContent = 'Guardando…';
+    try {
+      const r = await fetch('/api/admin/web-install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Error');
+      if (status) status.textContent = '✓ Enlace guardado.';
+      applyPcInstallButton();
+    } catch (e) {
+      if (status) status.textContent = '⚠️ ' + (e.message || 'No se pudo guardar.');
     } finally {
       btn.disabled = false;
     }
