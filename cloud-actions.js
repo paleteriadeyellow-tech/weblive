@@ -180,14 +180,122 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     return out;
   }
 
+  function mcCmdText(entry) {
+    if (entry == null) return '';
+    if (typeof entry === 'string') return entry.trim();
+    return String(entry.cmd || entry.text || '').trim();
+  }
+
+  function mcActionUsesExtra(a) {
+    if (!a) return false;
+    if (a.cmdsExtra) return true;
+    if (!Array.isArray(a.cmds)) return false;
+    return a.cmds.some((x) => x && typeof x === 'object');
+  }
+
+  function parseMcCmdEntry(entry, defaults) {
+    const d = defaults || {};
+    const cmd = mcCmdText(entry);
+    if (!cmd) return null;
+    if (typeof entry === 'string') {
+      return {
+        cmd,
+        repeat: Math.max(1, parseInt(d.repeat, 10) || 1),
+        delayEach: Math.max(0, parseInt(d.delayEach, 10) || 0),
+        delayBefore: Math.max(0, parseInt(d.delayBefore ?? d.delayGroup, 10) || 0),
+        radius: d.radius != null ? d.radius : 3,
+      };
+    }
+    return {
+      cmd,
+      repeat: Math.max(1, parseInt(entry.repeat, 10) || 1),
+      delayEach: Math.max(0, parseInt(entry.delayEach, 10) || 0),
+      delayBefore: Math.max(0, parseInt(entry.delayBefore ?? entry.delayGroup, 10) || 0),
+      radius: entry.radius != null ? Number(entry.radius) : (d.radius != null ? d.radius : 3),
+    };
+  }
+
+  async function runMcActionExtra(a, vars, sendCmds, wait) {
+    const defaults = { repeat: a.repeat, delayEach: a.delayEach, delayGroup: a.delayGroup, radius: a.radius };
+    let entries = (Array.isArray(a.cmds) ? a.cmds : [])
+      .map((e) => parseMcCmdEntry(e, defaults))
+      .filter(Boolean);
+    if (!entries.length) return;
+
+    const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
+    const qty = Math.max(1, parseInt(a.count, 10) || 1);
+    let times = a.giftMult ? baseRepeat * qty * Math.max(1, Number(vars.repeatcount) || 1) : baseRepeat * qty;
+    times = Math.min(times, 200);
+    const delayGroup = Math.max(0, parseInt(a.delayGroup, 10) || 0);
+
+    if (a.random) entries = [entries[Math.floor(Math.random() * entries.length)]];
+
+    let totalSent = 0;
+    try {
+      if (delayGroup) await wait(delayGroup);
+      for (let t = 0; t < times; t++) {
+        for (let i = 0; i < entries.length; i++) {
+          const e = entries[i];
+          if (e.delayBefore) await wait(e.delayBefore);
+          const rep = Math.max(1, e.repeat || 1);
+          for (let r = 0; r < rep; r++) {
+            if (r > 0 && e.delayEach) await wait(e.delayEach);
+            const cmd = substituteMcCmd(e.cmd, vars, e.radius);
+            const res = await sendCmds([cmd]);
+            totalSent++;
+            if (!res.ok) {
+              log('err', `🟩 Minecraft "${a.name}" falló: ${res.error || 'Error'}`);
+              return;
+            }
+          }
+        }
+      }
+      log('ok', `🟩 Minecraft: ${a.name} OK (${totalSent})`);
+    } catch (e) {
+      log('err', `🟩 Minecraft "${a.name}" falló: ${e.message}`);
+    }
+  }
+
   async function runMcAction(a, vars) {
     const rcon = (settings().webhook && settings().webhook.rcon) || {};
     const stap = (settings().webhook && settings().webhook.servertap) || {};
     const useStap = !!stap.enabled;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const sendCmds = (cmds) => useStap ? sendServertap(stap, cmds) : sendRcon(rcon, cmds);
+
+    if (mcActionUsesExtra(a)) {
+      const defaults = { repeat: a.repeat, delayEach: a.delayEach, delayGroup: a.delayGroup, radius: a.radius };
+      const steps = (Array.isArray(a.cmds) ? a.cmds : [])
+        .map((e) => parseMcCmdEntry(e, defaults))
+        .filter(Boolean)
+        .map((e) => ({
+          cmd: substituteMcCmd(e.cmd, vars, e.radius),
+          repeat: e.repeat,
+          delayEach: e.delayEach,
+          delayBefore: e.delayBefore,
+        }));
+      if (!steps.length) return;
+      const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
+      const qty = Math.max(1, parseInt(a.count, 10) || 1);
+      let times = a.giftMult ? baseRepeat * qty * Math.max(1, Number(vars.repeatcount) || 1) : baseRepeat * qty;
+      times = Math.min(times, 200);
+      if (emitLocalExec({
+        tipo: 'MINECRAFT_RCON_SEQ',
+        conn: useStap ? stap : rcon,
+        useStap,
+        delayGroup: Math.max(0, parseInt(a.delayGroup, 10) || 0),
+        times,
+        random: !!a.random,
+        steps,
+        name: a.name || '',
+      })) return;
+      return runMcActionExtra(a, vars, sendCmds, wait);
+    }
+
     const lines = (a.custom && Array.isArray(a.cmds) && a.cmds.length)
       ? a.cmds
       : String(a.cmd || '').split(';;');
-    const clean = lines.map((x) => String(x).trim()).filter(Boolean);
+    const clean = lines.map((x) => mcCmdText(x)).filter(Boolean);
     if (!clean.length) return;
     const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
     const qty = Math.max(1, parseInt(a.count, 10) || 1);

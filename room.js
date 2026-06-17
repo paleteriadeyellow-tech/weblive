@@ -1038,6 +1038,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (eventType === 'like') {
         if ((a.likeMin || 1) > (info.likeCount || 0)) continue;
       }
+      if (eventType === 'levelUp') {
+        const wantLevel = Math.max(0, Number(a.level) || 0);
+        if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
+      }
       if (eventType === 'chatCommand') {
         if (!matchesCommand(a.command, info.comment)) continue;
       }
@@ -1134,11 +1138,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  function emitMemberLevelUp(data, fromLevel, toLevel) {
+    const user = baseUser(data?.user || data);
+    const uid = user.uniqueId;
+    if (!uid || toLevel <= fromLevel) return;
+    broadcast('log', { level: 'ok', text: `⬆️ ${user.nickname} subió a nivel de miembro ${toLevel} (antes ${fromLevel})` });
+    for (let lvl = fromLevel + 1; lvl <= toLevel; lvl++) {
+      const info = { username: uid, nickname: user.nickname, level: lvl, fromLevel: lvl - 1, toLevel: lvl };
+      triggerVideos('levelUp', info);
+      triggerSoundAlerts('levelUp', info);
+      actions.triggerActions('levelUp', info);
+      actions.triggerMinecraftActions('levelUp', info, user);
+      playLevelVideo(lvl);
+    }
+  }
+
   // Detecta cuándo un usuario SUBE su nivel de miembro (insignia junto al nombre).
   // TikTok no envía un evento propio, así que recordamos el último nivel visto de
-  // cada usuario (al chatear o regalar) y, si en una interacción posterior su nivel
-  // es mayor, disparamos el evento 'levelUp'. Solo se detecta dentro de la sesión:
-  // necesitamos haber visto su nivel anterior al menos una vez.
+  // cada usuario (al chatear, regalar o entrar) y, si en una interacción posterior
+  // su nivel es mayor, disparamos el evento 'levelUp'. Solo se detecta dentro de la
+  // sesión: necesitamos haber visto su nivel anterior al menos una vez.
   function checkMemberLevelUp(data) {
     const user = baseUser(data?.user || data);
     const uid = user.uniqueId;
@@ -1148,12 +1167,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prev = memberLevels.get(uid);
     memberLevels.set(uid, level);
     if (prev == null || level <= prev) return; // primera vez o no subió
-    const info = { username: uid, nickname: user.nickname, level, fromLevel: prev, toLevel: level };
-    broadcast('log', { level: 'ok', text: `⬆️ ${user.nickname} subió a nivel de miembro ${level} (antes ${prev})` });
-    triggerVideos('levelUp', info);
-    triggerSoundAlerts('levelUp', info);
-    actions.triggerActions('levelUp', info);
-    actions.triggerMinecraftActions('levelUp', info, user);
+    emitMemberLevelUp(data, prev, level);
   }
 
   // Reproduce automáticamente el video de la carpeta «niveles» que coincida con el
@@ -1635,6 +1649,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (data.memberCount) state.stats.viewers = data.memberCount;
       const member = baseUser(data.user);
       broadcast('member', member);
+      checkMemberLevelUp(data);
       // Video al entrar un usuario específico (el anti-spam por tiempo se aplica en
       // triggerVideos, con el delay configurado en cada video).
       if (member.uniqueId) {
@@ -1919,6 +1934,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           broadcast('media', { ...data.video, screen: scr, size: screenSize(scr), test: true });
         }
         break;
+      case 'testLevelUp': {
+        const level = Math.max(1, Number(data.level) || 1);
+        const fromLevel = Math.max(0, Number(data.fromLevel) ?? (level - 1));
+        emitMemberLevelUp(
+          { user: { uniqueId: 'test_user', nickname: data.nickname || 'Prueba' } },
+          fromLevel,
+          level,
+        );
+        break;
+      }
       case 'stopVideo': {
         const scr = Number(data.screen) || 1;
         broadcast('stopMedia', { screen: scr });
@@ -1950,6 +1975,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'panic':
         broadcast('panic', {});
+        for (let scr = 1; scr <= 5; scr++) broadcast('stopMedia', { screen: scr });
         break;
       case 'testPerrito':
         broadcast('perritoTest', { count: Number(data.count) || 200 });

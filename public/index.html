@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="es" class="is-desktop">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins · Panel TikTok</title>
+  <script>try { if (window.desktopAPI && window.desktopAPI.isDesktop) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
   <link rel="stylesheet" href="/css/dashboard.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
 </head>
@@ -11,9 +12,17 @@
   <div class="app">
     <!-- ============ MENÚ LATERAL ============ -->
     <aside class="sidebar">
-      <div class="brand">
-        <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg></span>
-        <span>Live<strong>coins</strong></span>
+      <div class="brand-wrap">
+        <button type="button" class="brand" id="brandBtn">
+          <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/></svg></span>
+          <span>Live<strong>coins</strong></span>
+          <span class="brand-caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="profiles-pop" id="profilesPop" hidden>
+          <div class="profiles-pop-head">Perfiles del panel (10)</div>
+          <div class="profiles-list" id="profilesList"></div>
+          <div class="profiles-pop-foot">El perfil activo guarda todo automáticamente.</div>
+        </div>
       </div>
 
       <nav class="nav">
@@ -22,6 +31,9 @@
         </button>
         <button class="nav-item" data-view="planes">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l3.5 2.5L12 4l5.5 5.5L21 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg></span> Planes
+        </button>
+        <button class="nav-item" data-view="acciones" id="navAcciones" style="display:none">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" fill="currentColor" stroke="none"/></svg></span> Acciones
         </button>
         <button class="nav-item" data-view="alertas">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span> Alertas
@@ -43,6 +55,15 @@
         </button>
         <button class="nav-item" data-view="points">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span> Usuario y Puntos
+        </button>
+        <button class="nav-item" data-view="spotify" id="navSpotify" style="display:none">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M7.5 14.5c2.5-1 6-1 9 .5"/><path d="M7 11c3-1 7.5-.8 10.5 1"/><path d="M7.5 8c3.5-1 8 0 9.5 1"/></svg></span> Spotify
+        </button>
+        <button class="nav-item" data-view="webhook" id="navWebhook" style="display:none">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16.98h-5.99c-1.66 0-3.01-1.34-3.01-3s1.34-3 3.01-3H18"/><path d="M10.5 8.5L7 12l3.5 3.5"/><circle cx="18" cy="16.98" r="3"/><circle cx="6" cy="6" r="3"/></svg></span> Webhook y Config.
+        </button>
+        <button class="nav-item" data-view="juegos" id="navJuegos" style="display:none">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M7 12h4M9 10v4"/><circle cx="16" cy="11" r="1"/><circle cx="18.5" cy="13.5" r="1"/></svg></span> Juegos
         </button>
         <button class="nav-item" data-view="admin" id="navAdmin" style="display:none">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg></span> Admin
@@ -167,6 +188,7 @@
           <section class="panel panel-transfer" id="panel-transfer">
             <header class="panel-head">📦 Importar / Exportar configuración</header>
             <p class="transfer-desc">Si vas a importar los datos del otro Livecoins, marca la casilla de reemplazar y dale importar.</p>
+            <p class="transfer-desc">Si vas a importar más de 1 perfil, exporta e importa perfil por perfil.</p>
             <div class="transfer-actions">
               <button type="button" class="btn primary" id="transfer-export">⬇ Exportar</button>
               <button type="button" class="btn ghost" id="transfer-import">⬆ Importar archivo…</button>
@@ -377,6 +399,7 @@
             </div>
             <div class="modal-foot">
               <span class="credit">Videos de la carpeta <code>public/video</code>.</span>
+              <button class="btn" id="vidlib-openniveles" style="display:none">📁 Abrir carpeta</button>
               <button class="btn ghost" id="vidlib-cancel">Cancelar</button>
             </div>
           </div>
@@ -408,6 +431,201 @@
             </div>
             <div class="modal-body">
               <div id="emote-grid" class="gift-grid"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Nueva / Editar acción (solo .exe) -->
+        <div id="accModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2 id="acc-modal-title">Nueva acción</h2>
+              <button class="modal-close" id="acc-cancel">✕</button>
+            </div>
+
+            <div class="modal-body">
+              <label class="ml">¿CÓMO SE LLAMA LA ACCIÓN?</label>
+              <input type="text" id="acc-name" placeholder="Ej. Saltar, Disparar, Cambiar escena…">
+
+              <div class="box">
+                <div class="box-head">🎮 <b>Evento del directo</b> <span class="opt">(qué dispara la tecla)</span></div>
+                <select id="acc-event">
+                  <option value="gift-any">Cantidad diamantes (99 - 200)</option>
+                  <option value="gift">Regalo específico (lista)</option>
+                  <option value="like">Likes (por usuario)</option>
+                  <option value="likeGlobal">Likes globales</option>
+                  <option value="share">Compartida</option>
+                  <option value="subscribe">Nuevo suscriptor</option>
+                  <option value="superFan">Super fan</option>
+                  <option value="follow">Nuevo seguidor</option>
+                  <option value="levelUp">Subió de nivel de miembro</option>
+                  <option value="emote">Sticker / emote (ID)</option>
+                </select>
+                <div id="acc-giftanyextra" class="gift-extra" hidden>
+                  <input type="number" id="acc-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
+                  <input type="number" id="acc-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
+                </div>
+                <div id="acc-giftextra" class="gift-extra one" hidden>
+                  <button type="button" class="btn ghost gift-pick-btn" id="acc-giftpick">🎁 Elegir regalo…</button>
+                  <input type="hidden" id="acc-giftid">
+                  <input type="hidden" id="acc-giftname">
+                  <input type="hidden" id="acc-mindia" value="0">
+                </div>
+                <div id="acc-likeextra" class="gift-extra one" hidden>
+                  <input type="number" id="acc-likemin" min="1" value="1" placeholder="A partir de cuántos likes del usuario">
+                </div>
+                <div id="acc-likeglobalextra" class="gift-extra one" hidden>
+                  <input type="number" id="acc-likegoal" min="1" value="100" placeholder="Cada cuántos likes totales">
+                </div>
+                <div id="acc-emoteextra" class="gift-extra one" hidden>
+                  <button type="button" class="btn ghost gift-pick-btn" id="acc-emotepick">🙂 Elegir sticker…</button>
+                  <input type="hidden" id="acc-emoteid">
+                </div>
+              </div>
+
+              <label class="switch-row plain"><input type="checkbox" id="acc-keys-on"> <span>Simulación de teclas <span class="opt">(se pulsa en tu PC)</span></span></label>
+              <div class="box" id="acc-keys-box" hidden>
+                <div class="acc-keyrow">
+                  <input type="text" id="acc-keys" placeholder="Sin tecla asignada" readonly>
+                  <button type="button" class="btn ghost" id="acc-keypick">⌨️ Elegir teclas…</button>
+                  <button type="button" class="btn ghost" id="acc-keyclear">Limpiar</button>
+                </div>
+                <p class="hint">Pulsa <b>Elegir teclas</b> para abrir el teclado en pantalla y elegir la tecla, combinación o clic. La acción se mantiene pulsada un instante y se suelta.</p>
+              </div>
+
+              <label class="switch-row plain"><input type="checkbox" id="acc-wh-on"> <span>Comandos WebHook</span></label>
+              <div class="box" id="acc-wh-box" hidden>
+                <div class="box-sub">Cuando se dispare la acción, se enviará una petición HTTP a la URL indicada. Útil para Stream Deck, OBS u otros servicios.</div>
+                <div class="acc-keyrow">
+                  <select id="acc-wh-method" class="acc-mini-sel">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                  </select>
+                  <input type="text" id="acc-wh-url" placeholder="https://… o http://localhost:3199/execute_action?id=1">
+                </div>
+                <textarea id="acc-wh-body" class="acc-area" rows="2" placeholder="Cuerpo opcional (JSON) para POST"></textarea>
+              </div>
+
+              <label class="switch-row plain"><input type="checkbox" id="acc-obs-on"> <span>Conexión OBS</span></label>
+              <div class="box" id="acc-obs-box" hidden>
+                <div class="box-sub">Envía un comando a OBS usando los datos de conexión de <b>Webhook y Config. → Configuración</b>.</div>
+                <select id="acc-obs-type">
+                  <option value="scene">Cambiar de escena</option>
+                  <option value="toggleSource">Mostrar / ocultar fuente</option>
+                  <option value="showSource">Mostrar fuente</option>
+                  <option value="hideSource">Ocultar fuente</option>
+                  <option value="startRecord">Iniciar grabación</option>
+                  <option value="stopRecord">Detener grabación</option>
+                  <option value="startStream">Iniciar transmisión</option>
+                  <option value="stopStream">Detener transmisión</option>
+                </select>
+                <div id="acc-obs-scenewrap" class="gift-extra one">
+                  <input type="text" id="acc-obs-scene" placeholder="Nombre exacto de la escena">
+                </div>
+                <div id="acc-obs-sourcewrap" class="gift-extra one" hidden>
+                  <input type="text" id="acc-obs-source" placeholder="Nombre exacto de la fuente">
+                </div>
+              </div>
+
+              <label class="switch-row plain"><input type="checkbox" id="acc-sb-on"> <span>Streamer.bot</span></label>
+              <div class="box" id="acc-sb-box" hidden>
+                <div class="box-sub">Ejecuta una acción de Streamer.bot usando los datos de conexión de <b>Webhook y Config. → Configuración</b>.</div>
+                <input type="text" id="acc-sb-action" placeholder="Nombre o ID de la acción de Streamer.bot">
+              </div>
+
+              <div class="box">
+                <div class="box-title">Imagen (opcional)</div>
+                <div class="box-sub">Una imagen o GIF para identificar la acción en la lista.</div>
+                <button type="button" class="audio-opt" id="acc-imgbtn">
+                  <span class="ao-ico blue">🖼</span>
+                  <span class="ao-text"><b>Subir imagen</b><small>PNG, JPG, GIF, WEBP…</small></span>
+                  <span class="ao-arrow">→</span>
+                </button>
+                <input type="file" id="acc-imgfile" accept="image/*" hidden>
+                <div class="chosen">
+                  <span id="acc-imgname" class="fname">Ninguna imagen…</span>
+                </div>
+              </div>
+
+              <label class="switch-row plain"><input type="checkbox" id="acc-soundon"> <span>Reproducir un sonido al activarse</span></label>
+              <div class="box" id="acc-soundbox" hidden>
+                <div class="box-title">Sonido</div>
+                <div class="box-sub">Elige un audio de tu biblioteca para que suene cuando se dispare la acción.</div>
+                <button type="button" class="audio-opt" id="acc-soundpick">
+                  <span class="ao-ico blue">🔊</span>
+                  <span class="ao-text"><b>Elegir sonido</b><small>De la carpeta «audios»</small></span>
+                  <span class="ao-arrow">→</span>
+                </button>
+                <div class="chosen">
+                  <span id="acc-soundname" class="fname">Ningún audio…</span>
+                  <button type="button" class="btn ghost sm" id="acc-soundclear">Quitar</button>
+                </div>
+                <div class="acc-volrow" id="acc-volrow" hidden>
+                  <label class="ml">VOLUMEN</label>
+                  <div class="acc-volctl">
+                    <input type="range" id="acc-soundvol" min="0" max="100" value="100">
+                    <span id="acc-soundvolval">100%</span>
+                  </div>
+                </div>
+              </div>
+
+              <label class="switch-row plain"><input type="checkbox" id="acc-active" checked> <span>Acción activa</span></label>
+              <p class="hint" id="acc-status"></p>
+            </div>
+
+            <div class="modal-foot">
+              <button class="btn ghost" id="acc-cancel2">Cancelar</button>
+              <button class="btn ghost" id="acc-test">▶ Probar</button>
+              <button class="btn primary" id="acc-save">Guardar acción</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: Teclado en pantalla (elegir tecla / combinación / clic) -->
+        <div id="kbModal" class="modal hidden">
+          <div class="modal-box kb-box">
+            <div class="modal-head">
+              <h2>🔗 Elegir tecla o clic</h2>
+              <button class="modal-close" id="kb-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div id="kb-keyboard" class="kb-keyboard"></div>
+
+              <div class="kb-mouse">
+                <button type="button" class="kb-key kb-action" data-kind="mouse" data-code="LeftClick">Left Click</button>
+                <button type="button" class="kb-key kb-action" data-kind="mouse" data-code="MiddleClick">Middle Click</button>
+                <button type="button" class="kb-key kb-action" data-kind="mouse" data-code="RightClick">Right Click</button>
+                <button type="button" class="kb-key kb-action" data-kind="text" data-code="Texto">Texto</button>
+              </div>
+
+              <div id="kb-textrow" class="kb-textrow" hidden>
+                <label class="ml">TEXTO QUE SE ESCRIBIRÁ</label>
+                <input type="text" id="kb-textinput" placeholder="Escribe aquí el texto…" maxlength="500">
+              </div>
+
+              <div id="kb-charsrow" class="kb-charsrow" hidden>
+                <label class="ml">CARACTERES — pulsa para añadir al texto</label>
+                <div id="kb-charpad" class="kb-charpad"></div>
+                <div class="kb-chars-tools">
+                  <button type="button" class="btn ghost kb-char-tool" id="kb-char-space">Espacio</button>
+                  <button type="button" class="btn ghost kb-char-tool" id="kb-char-back">← Borrar</button>
+                  <button type="button" class="btn ghost kb-char-tool" id="kb-char-clear">Vaciar</button>
+                </div>
+              </div>
+
+              <label class="switch-row plain kb-gamerow"><input type="checkbox" id="kb-gamecompat"> <span>Habilitar compatibilidad con juegos <small>( GTA 5, Roblox, etc )</small></span></label>
+
+              <div class="kb-manual-row">
+                <button type="button" class="btn ghost" id="kb-manual">⌨️ Elegir tecla manual</button>
+                <button type="button" class="btn ghost" id="kb-chars">🔤 Seleccionar caracteres</button>
+              </div>
+
+              <div class="kb-preview" id="kb-preview"><span class="kb-empty">Toca una tecla, combinación o clic…</span></div>
+            </div>
+            <div class="modal-foot">
+              <button class="btn primary" id="kb-apply">✓ Aplicar</button>
+              <button class="btn ghost" id="kb-discard">✕ Descartar</button>
+              <button class="btn ghost" id="kb-test">▶ Testear</button>
             </div>
           </div>
         </div>
@@ -746,6 +964,70 @@
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="top1cfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Contador de victorias (simple) -->
+        <div id="wcConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🏆 Configurar — Contador de victorias</h2>
+              <button class="modal-close" id="wccfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">ETIQUETA</label>
+              <input type="text" id="wccfg-label" placeholder="Wins">
+              <label class="ml">FUENTE</label>
+              <select id="wccfg-font" class="cfg-font"></select>
+              <div class="wc-two">
+                <div><label class="ml">WINS ACTUALES</label><input type="number" id="wccfg-wins" min="0" value="0"></div>
+                <div><label class="ml">META (MÁX.)</label><input type="number" id="wccfg-max" min="1" value="10"></div>
+              </div>
+              <label class="ml">TAMAÑO TEXTO (PX) — <span class="opt" id="wccfg-fontsize-val">28</span></label>
+              <input type="range" id="wccfg-fontsize" class="wc-range" min="14" max="80" value="28" oninput="document.getElementById('wccfg-fontsize-val').textContent=this.value">
+              <div class="cfg-colors">
+                <div><label class="ml">TEXTO</label><input type="color" id="wccfg-textcolor" value="#ffffff"></div>
+                <div><label class="ml">NÚMERO</label><input type="color" id="wccfg-accentcolor" value="#22c55e"></div>
+                <div><label class="ml">MARCO</label><input type="color" id="wccfg-bordercolor" value="#ffffff"></div>
+              </div>
+              <label class="wc-check"><input type="checkbox" id="wccfg-rainbow"><span>🌈 Texto color arcoíris</span></label>
+              <label class="ml">ATAJOS DE TECLADO <span class="opt">— marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinación que quieras (ej. F5, Ctrl+1). Además puedes asignar un regalo a cada acción: cuando lo envíen en el live, se sumará o restará automáticamente.</span></label>
+              <div id="wccfg-hotkeys" class="wc-hotkeys"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="wccfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Contador de victorias (Gamer HUD) -->
+        <div id="wcgConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🎮 Configurar — Contador de victorias (Gamer HUD)</h2>
+              <button class="modal-close" id="wcgcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">ETIQUETA</label>
+              <input type="text" id="wcgcfg-label" placeholder="WINS">
+              <label class="ml">FUENTE</label>
+              <select id="wcgcfg-font" class="cfg-font"></select>
+              <div class="wc-two">
+                <div><label class="ml">WINS ACTUALES</label><input type="number" id="wcgcfg-wins" min="0" value="0"></div>
+                <div><label class="ml">META (MÁX.)</label><input type="number" id="wcgcfg-max" min="1" value="10"></div>
+              </div>
+              <label class="ml">TAMAÑO TEXTO (PX) — <span class="opt" id="wcgcfg-fontsize-val">28</span></label>
+              <input type="range" id="wcgcfg-fontsize" class="wc-range" min="14" max="80" value="28" oninput="document.getElementById('wcgcfg-fontsize-val').textContent=this.value">
+              <div class="cfg-colors">
+                <div><label class="ml">TEXTO</label><input type="color" id="wcgcfg-textcolor" value="#ffffff"></div>
+                <div><label class="ml">NÚMERO</label><input type="color" id="wcgcfg-accentcolor" value="#00ffaa"></div>
+                <div><label class="ml">FONDO</label><input type="color" id="wcgcfg-bgcolor" value="#0f0c1e"></div>
+                <div><label class="ml">BORDE</label><input type="color" id="wcgcfg-bordercolor" value="#9d4edd"></div>
+              </div>
+              <label class="wc-check"><input type="checkbox" id="wcgcfg-rainbow"><span>🌈 Texto color arcoíris</span></label>
+              <label class="wc-check"><input type="checkbox" id="wcgcfg-scoreglow" checked><span>✨ Brillo en el número (00)</span></label>
+              <label class="ml">ATAJOS DE TECLADO <span class="opt">— marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinación que quieras (ej. F5, Ctrl+1). Además puedes asignar un regalo a cada acción: cuando lo envíen en el live, se sumará o restará automáticamente.</span></label>
+              <div id="wcgcfg-hotkeys" class="wc-hotkeys"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="wcgcfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
         </div>
 
@@ -1187,6 +1469,17 @@
             <p class="hint">Usa cada link como <b>Browser Source</b> separado en OBS o TikTok Studio y asigna cada video a la pantalla que quieras.</p>
           </div>
 
+          <div class="settings-card" id="levelvid-card">
+            <div class="box-title">Videos automáticos por nivel (carpeta «niveles»)</div>
+            <p class="hint">Coloca archivos como <b>nivel1.mp4</b>, <b>nivel2.mp4</b>… Se reproducen solos cuando alguien sube a ese nivel de miembro del club de fans.</p>
+            <label class="switch-row plain"><input type="checkbox" id="levelvid-enabled" checked> <span>Activar videos automáticos de nivel</span></label>
+            <div class="field" style="margin-top:10px">
+              <label class="ml">PANTALLA OBS</label>
+              <select id="levelvid-screen"></select>
+            </div>
+            <button type="button" class="btn ghost" id="levelvid-openfolder" hidden style="margin-top:8px">📁 Abrir carpeta niveles</button>
+          </div>
+
           <div id="videoCards" class="sa-grid"></div>
         </section>
 
@@ -1266,10 +1559,10 @@
                 </button>
                 <button type="button" class="audio-opt" id="vid-upbtn">
                   <span class="ao-ico blue">⬆️</span>
-                  <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, GIF…</small></span>
+                  <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, MOV, WebP, GIF…</small></span>
                   <span class="ao-arrow">→</span>
                 </button>
-                <input type="file" id="vid-file" accept="video/*,image/gif" hidden>
+                <input type="file" id="vid-file" accept="video/*,image/*" hidden>
 
                 <div class="chosen"><span id="vid-fname" class="fname">Ningún archivo</span></div>
 
@@ -1292,7 +1585,96 @@
             </div>
 
             <div class="modal-foot">
+              <button type="button" class="btn ghost" id="vid-test-levelup" hidden>🧪 Probar subida de nivel</button>
               <button class="btn primary" id="vid-save">Listo</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal: comando personalizado de Minecraft -->
+        <div id="mcCmdModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2 id="mcc-title">Comando personalizado de Minecraft</h2>
+              <button class="modal-close" id="mcc-cancel">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">NOMBRE</label>
+              <input type="text" id="mcc-name" placeholder="ej. Lluvia de pollos zombie">
+              <input type="text" id="mcc-desc" placeholder="Descripción corta (opcional)">
+
+              <div class="box">
+                <div class="box-head">» <b>Imagen</b> <span class="opt">(opcional)</span></div>
+                <div class="mcc-img-row">
+                  <img id="mcc-img-prev" class="mcc-img-prev" alt="" style="display:none">
+                  <div class="mcc-img-ph" id="mcc-img-ph">🟩</div>
+                  <div class="mcc-img-actions">
+                    <button type="button" class="btn ghost" id="mcc-img-btn">⬆️ Subir imagen…</button>
+                    <button type="button" class="btn ghost mcc-img-clear" id="mcc-img-clear" style="display:none">Quitar</button>
+                    <input type="file" id="mcc-img-file" accept="image/*" hidden>
+                    <small class="mcc-fhint">PNG, JPG o GIF. Si no subes ninguna, se usa un icono por defecto.</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="box">
+                <div class="box-head">» <b>Repetir y delay</b> <span class="opt">(por disparo)</span></div>
+                <div class="mcc-fields">
+                  <div class="mcc-field">
+                    <label class="mcc-flabel">Veces que se repite</label>
+                    <input type="number" id="mcc-repeat" min="1" value="1">
+                    <small class="mcc-fhint">Cuántas veces se ejecuta el grupo de comandos cada vez que ocurre el evento.</small>
+                  </div>
+                  <div class="mcc-field">
+                    <label class="mcc-flabel">Espera entre líneas (ms)</label>
+                    <input type="number" id="mcc-delayeach" min="0" value="0">
+                    <small class="mcc-fhint">Pausa entre un comando y el siguiente. 0 = todos a la vez. Ej. 500 = medio segundo.</small>
+                  </div>
+                  <div class="mcc-field">
+                    <label class="mcc-flabel">Espera antes de empezar (ms)</label>
+                    <input type="number" id="mcc-delaygroup" min="0" value="0">
+                    <small class="mcc-fhint">Retraso antes de lanzar todo el grupo. Útil para sincronizar con una alerta.</small>
+                  </div>
+                  <div class="mcc-field">
+                    <label class="mcc-flabel">Radio <code>{radius}</code></label>
+                    <input type="number" id="mcc-radius" min="0" value="3">
+                    <small class="mcc-fhint">Número que reemplaza la variable {radius} (ej. dispersión alrededor de ti).</small>
+                  </div>
+                </div>
+                <label class="mcc-check"><input type="checkbox" id="mcc-giftmult"> <span><b>Multiplicar por la cantidad del evento</b> — si llegan 5 rosas de golpe, el comando se ejecuta 5×.</span></label>
+                <label class="mcc-check"><input type="checkbox" id="mcc-random"> <span><b>Comando aleatorio</b> — en vez de enviar todas las líneas, elige una sola al azar en cada disparo.</span></label>
+                <label class="mcc-check"><input type="checkbox" id="mcc-extra"> <span><b>Extra</b> — cada comando tiene su propio repeat, delay, espera antes y radio. La espera de cada línea cuenta <b>después</b> de que termine la anterior.</span></label>
+              </div>
+
+              <div class="box">
+                <div class="box-head">» <b>Comandos</b> <span class="opt">(sin la barra «/» inicial)</span></div>
+                <div id="mcc-cmds"></div>
+                <button type="button" class="btn ghost mcc-addbtn" id="mcc-add">+ Añadir comando</button>
+              </div>
+
+              <details class="mcc-ref">
+                <summary>📋 Variables disponibles (clic para ver)</summary>
+                <div class="mcc-vars">
+                  <div><code>{streamer}</code> o <code>@p</code> Tu personaje en el juego (usar en «execute at …»)</div>
+                  <div><code>{playername}</code> Nombre de quien activó (para nombres de mobs, NO para «execute at»)</div>
+                  <div><code>{nickname}</code> Nombre visible del usuario</div>
+                  <div><code>{username}</code> @usuario de TikTok</div>
+                  <div><code>{giftname}</code> Nombre del regalo</div>
+                  <div><code>{giftid}</code> ID del regalo</div>
+                  <div><code>{coins}</code> Monedas/diamantes del evento</div>
+                  <div><code>{comment}</code> Texto del comentario (si aplica)</div>
+                  <div><code>{repeatcount}</code> Veces que se repitió en el paquete</div>
+                  <div><code>{likecount}</code> Cantidad de likes</div>
+                  <div><code>{radius}</code> El número del campo «Radio» de arriba</div>
+                  <div><code>{random:-5 5}</code> Número al azar entre dos valores (acepta {radius} dentro)</div>
+                </div>
+                <p class="mcc-hint">Usa <code>execute at @p</code> (o <code>{streamer}</code>) para posicionarte en el juego. Pon <code>{nickname}</code> solo en el nombre del mob.<br>Ejemplo: <code>execute at @p run summon chicken ~{random:-{radius} {radius}} ~ ~{random:-{radius} {radius}} {CustomName:'"{nickname}"'}</code></p>
+              </details>
+
+              <p class="hint" id="mcc-status"></p>
+            </div>
+            <div class="modal-foot">
+              <button class="btn primary" id="mcc-save">Guardar</button>
             </div>
           </div>
         </div>
@@ -1341,10 +1723,10 @@
                 </button>
                 <button type="button" class="audio-opt" id="ba-upbtn">
                   <span class="ao-ico blue">⬆️</span>
-                  <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, GIF…</small></span>
+                  <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, MOV, WebP, GIF…</small></span>
                   <span class="ao-arrow">→</span>
                 </button>
-                <input type="file" id="ba-file" accept="video/*,image/gif" hidden>
+                <input type="file" id="ba-file" accept="video/*,image/*" hidden>
 
                 <div class="chosen"><span id="ba-fname" class="fname">Ningún archivo</span></div>
 
@@ -1408,6 +1790,7 @@
             <button class="subtab" data-sub="metas">🎯 Metas Overlays</button>
             <button class="subtab" data-sub="rankings">🏆 Rankings Likes / Diamantes</button>
             <button class="subtab" data-sub="diseno">🎨 Diseño Overlay</button>
+            <button class="subtab" data-sub="contador">🔢 Contador</button>
           </div>
 
           <!-- Streams overlays -->
@@ -2080,6 +2463,76 @@
             </div>
           </div>
 
+          <!-- Contador overlays -->
+          <div class="subview" id="sub-contador">
+            <!-- Tarjeta PRO: Contador de victorias (simple) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="wc-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="wc-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="wc-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="wc-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">🏆 Contador de victorias</h3>
+              <p class="ovpro-desc">Contador manual estilo «Wins - 3/10». Súbelo o bájalo desde aquí mientras juegas; se actualiza al instante en OBS. Personaliza etiqueta, meta y colores.</p>
+
+              <div class="gct-controls">
+                <div class="gct-field gct-narrow">
+                  <label>Victorias</label>
+                  <div class="gct-giftrow">
+                    <button class="btn ghost" id="wc-minus">−</button>
+                    <input type="number" id="wc-wins" min="0" value="0">
+                    <button class="btn ghost" id="wc-plus">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/contador-wins.html">/contador-wins.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="wc-preview" src="/contador-wins.html?embed=1" title="Vista previa contador de victorias"></iframe>
+              </div>
+            </div>
+
+            <!-- Tarjeta PRO: Contador de victorias (Gamer HUD) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="wcg-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="wcg-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="wcg-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="wcg-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">🎮 Contador de victorias (Gamer HUD)</h3>
+              <p class="ovpro-desc">Mismo contador pero con un HUD futurista (bordes neón, brillos y animación al sumar). Ideal para partidas. Súbelo o bájalo desde aquí y se refleja en OBS.</p>
+
+              <div class="gct-controls">
+                <div class="gct-field gct-narrow">
+                  <label>Victorias</label>
+                  <div class="gct-giftrow">
+                    <button class="btn ghost" id="wcg-minus">−</button>
+                    <input type="number" id="wcg-wins" min="0" value="0">
+                    <button class="btn ghost" id="wcg-plus">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/contador-wins-gamer.html">/contador-wins-gamer.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="wcg-preview" src="/contador-wins-gamer.html?embed=1" title="Vista previa contador de victorias gamer"></iframe>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- ===== VISTA: CHAT TTS ===== -->
@@ -2092,6 +2545,7 @@
             <div class="settings-card tts-card">
               <div class="tts-head"><h3>Configuración general</h3><span class="tts-sub">El cuerpo de la voz</span></div>
               <label class="switch-row plain big-check"><input type="checkbox" id="tts-enabled"> <span>Activado</span></label>
+              <p class="tts-sub desktop-only" style="margin:-4px 0 8px">Atajo: pulsa <kbd>F9</kbd> para activar/desactivar y cortar la lectura al instante.</p>
               <label class="switch-row plain"><input type="checkbox" id="tts-readname"> <span>Leer nombre del usuario antes del comentario</span></label>
               <div id="tts-name-emojis-wrap" style="margin:-2px 0 8px 28px">
                 <label class="switch-row plain"><input type="checkbox" id="tts-name-emojis"> <span>Leer también los emojis del nombre</span></label>
@@ -2516,6 +2970,738 @@
           </div>
         </section>
 
+        <!-- ===================== SPOTIFY (solo .exe · admin / albertoyt) ===================== -->
+        <section class="view" id="view-spotify">
+          <h1 class="view-title">🎵 Solicitudes de Canciones de Spotify</h1>
+          <p class="view-sub">Tus espectadores pueden solicitar y saltar canciones en Spotify con comandos del chat. Reproduce tu playlist favorita y las canciones solicitadas se añadirán a tu cola. <b>Funciona solo en la app de escritorio.</b></p>
+
+          <!-- Conexión con Spotify -->
+          <div class="settings-card">
+            <div class="tts-head"><h3>Conexión con la Cuenta de Spotify</h3><span class="tts-sub">Necesario para reproducir y gestionar la cola</span></div>
+            <div id="sp-disconnected">
+              <p class="hint">Primero, necesitas conectar tu cuenta de Spotify.</p>
+              <button class="btn primary" id="sp-login"><span style="margin-right:6px">🟢</span> Iniciar sesión con Spotify</button>
+            </div>
+            <div id="sp-connected" hidden>
+              <p class="hint">Conectado como <b id="sp-account">—</b>.</p>
+              <button class="btn ghost danger" id="sp-logout">Desconectar Spotify</button>
+            </div>
+          </div>
+
+          <!-- Comandos -->
+          <div class="settings-card">
+            <div class="tts-head"><h3>Comandos</h3><span class="tts-sub">Escríbelos en el chat del live</span></div>
+            <ul class="sp-cmds">
+              <li><code>!play [Canción - Artista]</code> <span>Agregar canción a la cola</span></li>
+              <li><code>!revoke</code> <span>Revocar tu última canción solicitada</span></li>
+              <li><code>!skip</code> <span>Saltar la pista actual</span></li>
+            </ul>
+          </div>
+
+          <!-- Configuraciones -->
+          <div class="settings-card">
+            <div class="tts-head"><h3>Configuraciones</h3></div>
+            <div class="sp-form">
+              <div class="sp-row"><label>Estado</label><span id="sp-estado" class="sp-estado warn">Inicia Spotify y reproduce una playlist</span></div>
+              <label class="switch-row plain"><input type="checkbox" id="sp-play-on" checked> <span><code>!play</code> habilitado</span></label>
+              <div class="sp-row"><label>Costo de <code>!play</code></label><input type="number" id="sp-play-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
+              <label class="switch-row plain"><input type="checkbox" id="sp-skip-on" checked> <span><code>!skip</code> habilitado</span></label>
+              <div class="sp-row"><label>Costo de <code>!skip</code></label><input type="number" id="sp-skip-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
+              <label class="switch-row plain"><input type="checkbox" id="sp-skip-requested" checked> <span>Permitir <code>!skip</code> en pistas solicitadas</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="sp-explicit" checked> <span>Permitir contenido explícito</span></label>
+              <div class="sp-row"><label>Longitud máxima de la cola (total)</label><input type="number" id="sp-queue-total" min="1" value="2"><span class="sp-unit">Tracks</span></div>
+              <div class="sp-row"><label>Longitud máxima de la cola (por usuario)</label><input type="number" id="sp-queue-user" min="1" value="2"><span class="sp-unit">Tracks</span></div>
+              <label class="switch-row plain"><input type="checkbox" id="sp-overlay-perm" checked> <span>Mostrar superposición permanente</span></label>
+              <div class="sp-row"><label>Comandos disponibles para</label>
+                <div class="sp-perms">
+                  <label><input type="checkbox" id="sp-perm-all"> <span>Todos los usuarios</span></label>
+                  <label><input type="checkbox" id="sp-perm-subs" checked> <span>Super Fans / Subs</span></label>
+                  <label><input type="checkbox" id="sp-perm-mods" checked> <span>Mods</span></label>
+                </div>
+              </div>
+              <div class="sp-save-row"><span id="sp-save-msg" class="sp-save-msg"></span></div>
+            </div>
+          </div>
+
+          <!-- Superposiciones (OBS) -->
+          <div class="settings-card">
+            <div class="tts-head"><h3>Superposiciones (OBS)</h3><span class="tts-sub">Añádelas como fuente de navegador</span></div>
+            <div class="ovpro-urlrow">
+              <code class="ov-url" data-path="/spotify-requests.html">/spotify-requests.html</code>
+              <button class="ovpro-copy ov-copy">Copiar enlace</button>
+            </div>
+            <p class="hint">Superposición de Solicitudes de Canciones (lista de la cola actual).</p>
+            <div class="ovpro-urlrow">
+              <code class="ov-url" data-path="/spotify-command.html">/spotify-command.html</code>
+              <button class="ovpro-copy ov-copy">Copiar enlace</button>
+            </div>
+            <p class="hint">Superposición de Información de Comandos (resultados de los comandos).</p>
+          </div>
+
+          <!-- Historial -->
+          <div class="settings-card">
+            <div class="tts-head"><h3>Historial</h3><span class="tts-sub">Últimas canciones solicitadas</span></div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Fecha</th><th>Usuario</th><th>Pista</th><th>Estado</th></tr>
+                </thead>
+                <tbody id="sp-history">
+                  <tr><td colspan="4" class="sp-nodata">Sin datos todavía</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================== WEBHOOK Y CONFIGURACIÓN (solo .exe) ===================== -->
+        <section class="view" id="view-webhook">
+          <h1 class="view-title">🪝 Webhook y Configuración</h1>
+          <p class="view-sub">Ejecuta tus acciones desde herramientas externas (OBS, Stream Deck, scripts) y conecta el panel con RCON, OBS y Streamer.bot. <b>Funciona solo en la app de escritorio.</b></p>
+
+          <div class="wh-premium" id="wh-premium" hidden>
+            <div class="wh-premium-ico">⭐</div>
+            <div class="wh-premium-txt">
+              <div class="wh-premium-title">Esta función es Solo Premium</div>
+              <div class="wh-premium-sub">El Webhook y la conexión con OBS / RCON / Streamer.bot están disponibles en el plan <strong>Premium</strong>. Mejora tu plan para activarlos.</div>
+            </div>
+          </div>
+
+          <div class="wh-locktarget" id="wh-locktarget">
+          <div class="wh-tabs">
+            <button class="wh-tab active" data-wtab="webhook">Webhook</button>
+            <button class="wh-tab" data-wtab="config">Configuración</button>
+          </div>
+
+          <!-- ---------- SUB-PESTAÑA: WEBHOOK ---------- -->
+          <div class="wh-panel active" id="wtab-webhook">
+            <div class="wh-notes">
+              <ul>
+                <li>Puedes usar esto en OBS Browser Source, Stream Deck (Petición Web), o scripts de Python/NodeJS.</li>
+                <li>Si tienes el mismo nombre en dos acciones, se ejecutará la primera que encuentre.</li>
+                <li>Para agregar varios datos en una URL, usa <b>&amp;</b> después del primer parámetro. Ejemplo: <code>?name=ACTION_TEST&amp;username=interactive</code></li>
+                <li>Si un valor tiene espacios o caracteres especiales, debe ir codificado. Ejemplo: Hola mundo → <code>Hola%20mundo</code></li>
+              </ul>
+            </div>
+
+            <div class="settings-card">
+              <div class="wh-block">
+                <h3>1. Obtener lista de acciones</h3>
+                <p class="hint">Devuelve un JSON con el id y nombre de todas las acciones disponibles en el perfil actual.</p>
+                <div class="wh-endpoint">
+                  <span class="wh-method get">GET</span><span class="wh-eplabel">Listar Acciones</span>
+                  <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                  <code class="wh-url">http://localhost:3199/get_actions</code>
+                </div>
+              </div>
+
+              <div class="wh-block">
+                <h3>2. Ejecutar acción por ID</h3>
+                <p class="hint">La forma más segura de ejecutar una acción. El ID no cambia aunque cambies el nombre.</p>
+                <div class="wh-endpoint">
+                  <span class="wh-method getpost">GET/POST</span><span class="wh-eplabel">Ejemplo ID 1</span>
+                  <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                  <code class="wh-url">http://localhost:3199/execute_action?id=1</code>
+                </div>
+              </div>
+
+              <div class="wh-block">
+                <h3>3. Ejecutar acción por Nombre</h3>
+                <p class="hint">Útil si prefieres usar el nombre exacto de la acción. No distingue mayúsculas/minúsculas.</p>
+                <div class="wh-endpoint">
+                  <span class="wh-method getpost">GET/POST</span><span class="wh-eplabel">Ejemplo por Nombre</span>
+                  <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                  <code class="wh-url">http://localhost:3199/execute_action?name=ACTION_TEST</code>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="tts-head"><h3>Enviar datos personalizados a la acción</h3></div>
+              <p class="hint">Puedes agregar datos extra en la URL para que la acción los use como variables. Estos datos pueden reemplazar valores como <code>{username}</code>, <code>{nickname}</code>, <code>{giftname}</code>, <code>{coins}</code>, <code>{repeatcount}</code>, <code>{comment}</code>, entre otros.</p>
+              <div class="wh-endpoint">
+                <span class="wh-method getpost">GET/POST</span><span class="wh-eplabel">Ejecutar acción por nombre con datos personalizados</span>
+                <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <code class="wh-url">http://localhost:3199/execute_action?name=ACTION_TEST&amp;username=interactive&amp;nickname=Interactive&amp;giftname=Rose&amp;coins=1&amp;repeatcount=5</code>
+              </div>
+              <div class="wh-endpoint">
+                <span class="wh-method getpost">GET/POST</span><span class="wh-eplabel">Ejecutar acción por ID con comentario</span>
+                <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <code class="wh-url">http://localhost:3199/execute_action?id=1&amp;username=interactive&amp;comment=Hola%20desde%20webhook</code>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="tts-head"><h3>Parámetros disponibles</h3></div>
+              <div class="table-wrap">
+                <table class="data-table wh-params">
+                  <thead><tr><th>Parámetro</th><th>Descripción</th><th>Ejemplo</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>id</code></td><td>ID de la acción que quieres ejecutar.</td><td><code>id=1</code></td></tr>
+                    <tr><td><code>name</code> / <code>nombre</code></td><td>Nombre exacto de la acción que quieres ejecutar.</td><td><code>name=ACTION_TEST</code></td></tr>
+                    <tr><td><code>username</code> / <code>uniqueId</code></td><td>Usuario que llegará a la variable <code>{username}</code>.</td><td><code>username=interactive</code></td></tr>
+                    <tr><td><code>nickname</code></td><td>Nombre visible que llegará a la variable <code>{nickname}</code>.</td><td><code>nickname=Interactive</code></td></tr>
+                    <tr><td><code>imgprofile</code> / <code>avatar</code></td><td>URL de imagen de perfil. Se usa para <code>{imgprofile}</code> y overlays.</td><td><code>imgprofile=https://...</code></td></tr>
+                    <tr><td><code>comment</code> / <code>message</code></td><td>Texto que llegará a la variable <code>{comment}</code>.</td><td><code>comment=Hola</code></td></tr>
+                    <tr><td><code>giftname</code> / <code>giftName</code></td><td>Nombre del regalo que llegará a la variable <code>{giftname}</code>.</td><td><code>giftname=Rose</code></td></tr>
+                    <tr><td><code>giftid</code> / <code>giftId</code></td><td>ID del regalo que llegará a la variable <code>{giftid}</code>.</td><td><code>giftid=5655</code></td></tr>
+                    <tr><td><code>coins</code> / <code>diamondCount</code></td><td>Cantidad de monedas que llegará a la variable <code>{coins}</code>.</td><td><code>coins=1</code></td></tr>
+                    <tr><td><code>repeatcount</code> / <code>repeatCount</code></td><td>Cantidad de repeticiones que llegará a la variable <code>{repeatcount}</code>.</td><td><code>repeatcount=5</code></td></tr>
+                    <tr><td><code>likecount</code></td><td>Cantidad de likes para la variable <code>{likecount}</code>.</td><td><code>likecount=10</code></td></tr>
+                    <tr><td><code>totaluserlikes</code></td><td>Total de likes del usuario para la variable <code>{totaluserlikes}</code>.</td><td><code>totaluserlikes=250</code></td></tr>
+                    <tr><td><code>totallikecount</code></td><td>Total general de likes para la variable <code>{totallikecount}</code>.</td><td><code>totallikecount=5000</code></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="tts-head"><h3>Ejemplo usando POST JSON</h3></div>
+              <p class="hint">También puedes enviar los mismos datos usando POST con JSON. Esto es útil si el webhook viene desde otra app o servicio externo.</p>
+              <div class="wh-endpoint">
+                <span class="wh-method post">POST</span><span class="wh-eplabel">URL para POST</span>
+                <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <code class="wh-url">http://localhost:3199/execute_action</code>
+              </div>
+              <div class="wh-endpoint wh-json">
+                <span class="wh-method json">JSON</span><span class="wh-eplabel">Body JSON</span>
+                <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                <pre class="wh-url">{
+  "name": "ACTION_TEST",
+  "username": "interactive",
+  "nickname": "Interactive",
+  "giftname": "Rose",
+  "coins": 1,
+  "repeatcount": 5,
+  "comment": "Hola desde webhook"
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- ---------- SUB-PESTAÑA: CONFIGURACIÓN ---------- -->
+          <div class="wh-panel" id="wtab-config">
+            <div class="settings-card">
+              <div class="tts-head"><h3>Configuración</h3><span class="tts-sub">Conexión RCON al servidor Minecraft. Los mismos datos se usan en la pestaña Minecraft para enviar comandos.</span></div>
+              <div class="wh-cfg-grid">
+
+                <div class="wh-cfg-card">
+                  <h4 class="wh-cfg-title">RCON</h4>
+                  <p class="hint">Asegúrate de habilitar el acceso a RCON en tu servidor, establecer una contraseña y ajustar la configuración correctamente. Cada perfil del panel puede tener su propia configuración guardada al exportar/importar o al usar perfiles guardados.</p>
+                  <label class="wh-field"><span>Host</span><input type="text" id="wh-rcon-host" value="127.0.0.1"></label>
+                  <label class="wh-field"><span>Puerto</span><input type="number" id="wh-rcon-port" value="25575"></label>
+                  <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-rcon-pass" placeholder="Tu contraseña RCON"></label>
+                  <button class="btn ghost wh-test" data-test="rcon">Probar Conexión</button>
+                  <span class="wh-test-msg" id="wh-rcon-msg"></span>
+                </div>
+
+                <div class="wh-cfg-card">
+                  <h4 class="wh-cfg-title">OBS</h4>
+                  <p class="hint">Puedes controlar OBS para cambiar escenas y fuentes automáticamente en ciertos eventos. Requiere OBS 28 o posterior. En OBS: <b>Herramientas → Configuración del servidor WebSocket</b> → habilita el servidor e indica el puerto (por defecto 4455) y la contraseña si la activas.</p>
+                  <p class="hint"><b>Importante:</b> la conexión WebSocket la abre el <b>servidor Node</b> (donde corre este panel), no tu navegador. <code>127.0.0.1</code> solo sirve si OBS y el servidor están en el mismo PC.</p>
+                  <label class="wh-field"><span>IP</span><input type="text" id="wh-obs-ip" value="127.0.0.1"></label>
+                  <label class="wh-field"><span>Puerto</span><input type="number" id="wh-obs-port" value="4455"></label>
+                  <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-obs-pass" placeholder="Vacía si no usas contraseña"></label>
+                  <button class="btn ghost wh-test" data-test="obs">Probar Conexión</button>
+                  <span class="wh-test-msg" id="wh-obs-msg"></span>
+                </div>
+
+                <div class="wh-cfg-card">
+                  <h4 class="wh-cfg-title">STREAMER.BOT</h4>
+                  <p class="hint">Streamer.bot es una de las herramientas más populares para los streamers. Podrás recibir eventos de Twitch y YouTube, además de ejecutar tus acciones desde Acciones y alertas. En Streamer.bot activa el servidor WebSocket en la pestaña Servers/Clients.</p>
+                  <label class="wh-field"><span>Address</span><input type="text" id="wh-sb-address" value="127.0.0.1"></label>
+                  <label class="wh-field"><span>Port</span><input type="number" id="wh-sb-port" value="8080"></label>
+                  <label class="wh-field"><span>Endpoint</span><input type="text" id="wh-sb-endpoint" value="/"></label>
+                  <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-sb-pass" placeholder="Opcional (si activaste autenticación)"></label>
+                  <button class="btn ghost wh-test" data-test="streamerbot">Probar Conexión</button>
+                  <span class="wh-test-msg" id="wh-sb-msg"></span>
+                </div>
+
+                <div class="wh-cfg-card">
+                  <h4 class="wh-cfg-title" style="color:#5bd64f">Minecraft ServerTap</h4>
+                  <p class="hint">Si utilizas el plugin <b>ServerTap</b> (o el mod de TikFinity), ingresa aquí tu nombre de jugador para usar el placeholder de <b>{playername}</b>. Si dejas el campo en blanco, los comandos se ejecutarán para todos los jugadores en el servidor (<b>@p</b>). Elige entre el mod de TikFinity (para un jugador) o el plugin ServerTap (para servidores). <b>¡No los uses juntos!</b></p>
+                  <p class="hint"><a href="https://modrinth.com/mod/tikfinity/version/1.1" target="_blank" rel="noopener">⬇ Descarga TikFinity Minecraft Mod para Minecraft Fabric (solo para un jugador)</a></p>
+                  <p class="hint"><a href="https://github.com/phybros/servertap/releases" target="_blank" rel="noopener">⬇ Descarga ServerTap Plugin para Minecraft (Java) (solo servidores)</a></p>
+                  <label class="switch-row plain"><input type="checkbox" id="wh-stap-enabled"> <span>Usar ServerTap para enviar comandos de Minecraft (en vez de RCON)</span></label>
+                  <label class="wh-field"><span>Nombre del Jugador</span><input type="text" id="wh-stap-player" placeholder="Vacío = todos (@p)"></label>
+                  <label class="wh-field"><span>IP</span><input type="text" id="wh-stap-ip" value="localhost"></label>
+                  <label class="wh-field"><span>Puerto</span><input type="number" id="wh-stap-port" value="4567"></label>
+                  <label class="wh-field"><span>Key</span><input type="text" id="wh-stap-key" value="change_me"></label>
+                  <button class="btn ghost wh-test" data-test="servertap">Probar Conexión</button>
+                  <span class="wh-test-msg" id="wh-stap-msg"></span>
+                </div>
+
+              </div>
+              <div class="sp-save-row"><span id="wh-save-msg" class="sp-save-msg"></span></div>
+            </div>
+          </div>
+          </div>
+        </section>
+
+        <!-- ===================== ACCIONES (solo en la app .exe) ===================== -->
+        <section class="view" id="view-acciones">
+          <h1 class="view-title">⚡ Acciones</h1>
+          <p class="view-sub">Cuando ocurre un evento en tu live (un regalo, like, seguidor…), la app presiona una tecla en tu PC. Ideal para controlar tu juego u OBS. <b>Funciona solo en la app de escritorio.</b></p>
+
+          <div class="settings-card" id="autostart-card">
+            <div class="box-title">🚀 Abrir al iniciar Windows</div>
+            <p class="hint">Si lo activas, la app se abrirá <b>sola</b> cada vez que enciendas la PC, para que tus overlays sigan conectados sin que tengas que abrirla a mano.</p>
+            <label class="switch-row plain"><input type="checkbox" id="autostart-enabled"> <span>Iniciar automáticamente al encender la PC</span></label>
+          </div>
+
+          <div class="acc-toolbar">
+            <button class="btn primary" id="acc-new">✨ Crear nueva acción</button>
+            <button class="btn ghost danger" id="acc-del" disabled>🗑 Eliminar seleccionadas (<span id="acc-selcount">0</span>)</button>
+          </div>
+
+          <div class="acc-grid" id="acc-grid">
+            <div class="acc-empty" id="acc-empty">Aún no tienes acciones. Pulsa <b>Crear nueva acción</b> para empezar.</div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGOS (solo .exe) ===================== -->
+        <section class="view" id="view-juegos">
+          <h1 class="view-title">🎮 Juegos</h1>
+          <p class="view-sub">Minijuegos y dinámicas para tu live. <b>Funciona solo en la app de escritorio.</b></p>
+
+          <div class="juegos-grid">
+            <button type="button" class="juego-card" data-game="minecraft" aria-label="Minecraft">
+              <img src="/img/minecraft.png" alt="Minecraft" class="juego-card-img">
+            </button>
+            <button type="button" class="juego-card" data-game="bedrock" aria-label="Bedrock · Cubo TNT">
+              <img src="/img/bedrock.png" alt="Bedrock" class="juego-card-img">
+            </button>
+            <button type="button" class="juego-card" data-game="sandbox" aria-label="Sandbox">
+              <img src="/img/sandbox.png" alt="Sandbox" class="juego-card-img">
+            </button>
+            <button type="button" class="juego-card" data-game="roblox" aria-label="Roblox">
+              <img src="/img/roblox.png" alt="Roblox" class="juego-card-img">
+            </button>
+            <button type="button" class="juego-card" data-game="roblox3" aria-label="Roblox 3">
+              <img src="/img/roblox3.png" alt="Roblox 3" class="juego-card-img">
+            </button>
+            <button type="button" class="juego-card" data-game="mariobros" aria-label="Mario Bros">
+              <img src="/img/mariobros.png" alt="Mario Bros" class="juego-card-img">
+            </button>
+            <button type="button" class="juego-card" data-game="plantasvszombies" aria-label="Plants vs Zombies">
+              <img src="/img/plantasvszombies.jpg" alt="Plants vs Zombies" class="juego-card-img">
+            </button>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: MARIO BROS (solo .exe) ===================== -->
+        <section class="view" id="view-juego-mariobros">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🍄 Mario Bros</h1>
+          <p class="view-sub">Configura aquí el juego de Mario Bros.</p>
+
+          <div class="juego-banner">
+            <img src="/img/mariobros2.png" alt="Mario Bros" class="juego-banner-img">
+            <div class="juego-banner-btns">
+              <button type="button" class="juego-play-btn" id="mario-play">▶ Ejecutar</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="mario-room" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Super.Mario.Bros.World.nes">⬇ Room</button>
+            </div>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Para que el juego funcione, sigue estos pasos:</b>
+              <ol>
+                <li><b>Paso 1:</b> dentro del juego pulsa la tecla <b>ESC</b> para abrir el menú y modificar los controles. Actualmente la tecla <b>Z</b> sirve para confirmar todo.</li>
+                <li><b>Paso 2:</b> muévete hacia el lado hasta encontrar la <b>configuración de teclado</b> y configura las teclas que quieras.</li>
+                <li><b>Paso 3:</b> modifica el <b>regalo</b> de cada acción en las tarjetas de abajo.</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- ===== Acciones de Mario Bros (generar objetos/enemigos en el juego) ===== -->
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🍄 Acciones de Mario Bros</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b> El juego debe estar abierto y dentro de un nivel.</p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mario-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="mario-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de acciones</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="mario-cat-search" class="mc-cat-search" placeholder="Buscar acción (hongo, goomba, estrella…)">
+            </div>
+            <div id="mario-catalog" class="mc-catalog"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: PLANTS VS ZOMBIES (solo .exe) ===================== -->
+        <section class="view" id="view-juego-plantasvszombies">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🧟 Plants vs Zombies</h1>
+          <p class="view-sub">Configura aquí el juego de Plants vs Zombies.</p>
+
+          <div class="juego-banner">
+            <img src="/img/planta1.jpg" alt="Plants vs Zombies" class="juego-banner-img">
+            <button type="button" class="juego-play-btn" id="pvz-play" data-url="https://github.com/riusaki1995/mariobros/releases/download/plantas/PlantsVsZombies-Windows.zip">⬇ Descargar</button>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Para que el juego funcione, sigue estos pasos:</b>
+              <ol>
+                <li><b>Paso 1:</b> <b>Descarga</b> el juego con el botón y <b>descomprime</b> el archivo.</li>
+                <li><b>Paso 2:</b> <b>ejecútalo</b>, crea las acciones y configura los <b>regalos</b>.</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- ===== Acciones de Plants vs Zombies (generar zombies / dar soles) ===== -->
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🧟 Acciones de Plants vs Zombies</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b> El juego debe estar abierto y dentro de una partida.</p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="pvz-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="pvz-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de acciones</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="pvz-cat-search" class="mc-cat-search" placeholder="Buscar acción (zombie, soles, god mode…)">
+            </div>
+            <div id="pvz-catalog" class="mc-catalog"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: ROBLOX 3 (solo .exe) ===================== -->
+        <section class="view" id="view-juego-roblox3">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🟥 Roblox 3</h1>
+          <p class="view-sub">Configura aquí el juego de Roblox 3.</p>
+
+          <div class="juego-banner">
+            <img src="/img/roblox4.png" alt="Roblox 3" class="juego-banner-img">
+            <button type="button" class="juego-play-btn" id="roblox3-play" data-url="https://www.roblox.com/share?code=628a2acb07e9094a95c98530c2965c5b&type=ExperienceDetails&stamp=1781216682697">▶ Ejecutar</button>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Una vez que entres al juego, sigue estos pasos:</b>
+              <ol class="roblox-steps roblox3-steps">
+                <li>
+                  <span>Abre el <b>botón</b> que aparece en la imagen.</span>
+                  <img src="/img/roblox3-step1.png" alt="Abrir el botón" class="roblox-step-img">
+                </li>
+                <li>
+                  <span>Configura las <b>teclas para las wins</b> como se muestra en la imagen.</span>
+                  <img src="/img/roblox3-step2.png" alt="Configurar teclas para las wins" class="roblox-step-img">
+                </li>
+                <li>
+                  <span>Configura las <b>teclas</b>: añade las que sean necesarias y selecciona la <b>tecla</b> y las <b>casillas</b> que están en las tarjetas de abajo.</span>
+                  <img src="/img/roblox3-step3.png" alt="Configurar teclas y casillas" class="roblox-step-img roblox-step-wide">
+                </li>
+                <li>
+                  <span>Asegúrate de que <b>coincidan con las casillas</b> y configura tus <b>regalos</b>.</span>
+                  <img src="/img/roblox3-step4.png" alt="Coincidir casillas y configurar regalos" class="roblox-step-img roblox-step-wide">
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- ===== Acciones de Roblox 3 (simulación de teclas) ===== -->
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🎮 Acciones de Roblox 3 (teclas)</h2>
+              <p class="mc-actions-sub">Asigna a cada acción el <b>regalo</b> o <b>evento</b> que la activará y la <b>tecla</b> que se simulará dentro de Roblox. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones (12)</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="rbx3-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="rbx3-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: ROBLOX (solo .exe) ===================== -->
+        <section class="view" id="view-juego-roblox">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🟥 Roblox</h1>
+          <p class="view-sub">Configura aquí el juego de Roblox.</p>
+
+          <div class="juego-banner">
+            <img src="/img/roblox2.png" alt="Roblox" class="juego-banner-img">
+            <button type="button" class="juego-play-btn" id="roblox-play" data-url="https://www.roblox.com/share?code=442985e239b84f42854d36a4723fbcad&type=ExperienceDetails&stamp=1781155420985">▶ Ejecutar</button>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Una vez que entres al juego, sigue estos pasos:</b>
+              <ol class="roblox-steps">
+                <li>
+                  <span>Dentro del juego, pulsa la <b>primera imagen</b> (botón <b>TIKFINITY</b>).</span>
+                  <img src="/img/roblox-step1.png" alt="Botón TIKFINITY" class="roblox-step-img">
+                </li>
+                <li>
+                  <span>Luego pulsa la <b>segunda imagen</b>. <b>Asegúrate de que esté conectado, si no, no funcionará.</b></span>
+                  <img src="/img/roblox-step2.png" alt="Alternar acción de TIKFINITY" class="roblox-step-img">
+                </li>
+                <li>
+                  <span>Por último, <b>asegúrate de que las teclas estén configuradas igual que en la imagen y en la app</b> (cada acción con su tecla: J, L, H, Y, U, M, N, F, R, X).</span>
+                  <img src="/img/roblox-step3.png" alt="Configurar teclas" class="roblox-step-img roblox-step-wide">
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- ===== Acciones de Roblox (simulación de teclas) ===== -->
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🎮 Acciones de Roblox (teclas)</h2>
+              <p class="mc-actions-sub">Asigna a cada acción el <b>regalo</b> o <b>evento</b> que la activará y las <b>teclas</b> que se simularán dentro de Roblox. Configura primero las teclas en el juego (paso 3). <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones (10)</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-img-btn" id="rbx-gen-img-v" title="Genera una imagen vertical (en columna)">🖼️ Imagen vertical</button>
+                <button type="button" class="mc-img-btn" id="rbx-gen-img-h" title="Genera una imagen horizontal (en fila)">🖼️ Imagen horizontal</button>
+                <button type="button" class="mc-create-btn" id="rbx-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="rbx-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: MINECRAFT (solo .exe) ===================== -->
+        <section class="view" id="view-juego-minecraft">
+          <button type="button" class="juego-back" id="juego-minecraft-back">← Volver a Juegos</button>
+          <h1 class="view-title">🟩 Minecraft</h1>
+          <p class="view-sub">Configura aquí el juego de Minecraft.</p>
+
+          <div class="juego-banner">
+            <img src="/img/minecraft2.png" alt="Minecraft" class="juego-banner-img">
+            <span class="juego-version">Versión: 1.21.11</span>
+            <div class="juego-dl-group">
+              <button type="button" class="juego-dl-btn" id="mc-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/servidor.minecraft.-.original.rar">
+                <span class="juego-dl-ico">⬇</span> CLICK AQUÍ · Versión Minecraft Original
+              </button>
+              <button type="button" class="juego-dl-btn" id="mc-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/servidor.minecraft.-.copia.2.rar">
+                <span class="juego-dl-ico">⬇</span> CLICK AQUÍ · Versión Minecraft Pirata
+              </button>
+            </div>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">⚠️</div>
+            <div class="juego-aviso-txt">
+              <b>Antes de ejecutar el servidor sigue estos pasos:</b>
+              <ol>
+                <li>Pulsa <b>CLICK AQUÍ</b> (sobre la imagen) para <b>descargar</b> el archivo.</li>
+                <li>Guárdalo y descomprímelo en tu carpeta <b>Documentos</b>.</li>
+                <li>Instala el complemento <b>Java</b> que viene dentro de la carpeta.</li>
+                <li>Vuelve a este panel y pulsa <b>Ejecutar servidor</b>.</li>
+                <li>La <b>primera vez</b> te pedirá seleccionar el archivo <b>iniciar.bat</b> que está dentro de la carpeta que descargaste. Después ya no lo volverá a pedir.</li>
+                <li class="juego-aviso-importante">⛔ <b>INDISPENSABLE:</b> <b>NO cierres la ventana negra</b> (la consola del servidor) que aparece al ejecutar: si la cierras, el servidor se apaga y nada funcionará. <b>Si no tienes permisos de administrador</b> (no puedes usar comandos), escribe hasta <b>abajo de la ventana negra</b>: <code>op tu_usuario</code> (pon tu nombre exacto de Minecraft) y pulsa Enter.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="juego-tools">
+            <div class="juego-tools-row">
+              <button type="button" class="juego-run-btn" id="mc-run">▶ Ejecutar servidor</button>
+              <button type="button" class="btn danger juego-panic-btn" id="mc-panic" title="Detiene videos, sonidos y TTS en cola">⛔ Pánico</button>
+            </div>
+            <a href="#" id="mc-change-bat" class="juego-link">📁 Elegir / cambiar archivo del servidor (.bat)</a>
+          </div>
+
+          <!-- ===== Acciones de Minecraft (RCON) ===== -->
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🎮 Acciones de Minecraft</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará abajo. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará durante tu live. Necesitas tener el servidor encendido y <b>RCON</b> configurado en <b>Webhook y Config.</b></p>
+            </div>
+
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-img-btn" id="mc-export-preset" title="Descarga tus acciones de Minecraft como un archivo de presets">⬆️ Exportar presets</button>
+                <button type="button" class="mc-img-btn" id="mc-import-preset" title="Carga acciones de Minecraft desde un archivo de presets">⬇️ Importar presets</button>
+                <button type="button" class="mc-img-btn" id="mc-gen-img" title="Crea una imagen con tus regalos y sus acciones para mostrarla en el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="mc-create-cmd">+ Crear comando propio</button>
+              </div>
+              <input type="file" id="mc-import-file" accept="application/json,.json" hidden>
+            </div>
+            <div id="mc-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de acciones</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="mc-cat-search" class="mc-cat-search" placeholder="Buscar acción (zombie, tnt, kit…)">
+            </div>
+            <div id="mc-catalog" class="mc-catalog"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: BEDROCK · CUBO TNT (solo .exe) ===================== -->
+        <section class="view" id="view-juego-bedrock">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🧨 Bedrock · Cubo TNT</h1>
+          <p class="view-sub">Minijuego del cubo de TNT con comandos <b>/bedrock</b>.</p>
+
+          <div class="juego-banner">
+            <img src="/img/bedrock.png" alt="Bedrock" class="juego-banner-img">
+            <span class="juego-version">Versión: 1.21.1</span>
+            <div class="juego-dl-group">
+              <button type="button" class="juego-dl-btn" id="bedrock-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Cubo.Bedrockonline.rar">
+                <span class="juego-dl-ico">⬇</span> Descargar servidor Original
+              </button>
+              <button type="button" class="juego-dl-btn" id="bedrock-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Cubo.Bedrockoffline.rar">
+                <span class="juego-dl-ico">⬇</span> Descargar servidor Pirata
+              </button>
+            </div>
+          </div>
+
+          <div class="juego-tools">
+            <div class="juego-tools-row">
+              <button type="button" class="juego-run-btn" id="bedrock-run">▶ Ejecutar servidor</button>
+              <button type="button" class="btn danger juego-panic-btn" id="bedrock-panic" title="Detiene videos, sonidos y TTS en cola">⛔ Pánico</button>
+            </div>
+            <a href="#" id="bedrock-change-bat" class="juego-link">📁 Elegir / cambiar archivo del servidor (.bat)</a>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">⚠️</div>
+            <div class="juego-aviso-txt">
+              <b>Sigue estos pasos para usar el Cubo TNT:</b>
+              <ol>
+                <li>Primero <b>descarga</b> una versión: <b>Original</b> o <b>Pirata</b> (botones de arriba).</li>
+                <li><b>Descomprime</b> la carpeta y pulsa <b>Ejecutar servidor</b>: selecciona el archivo <b>iniciar.bat</b> (solo la <b>primera vez</b>).</li>
+                <li>Ve a <b>Webhook y Config.</b> y marca la casilla <b>Usar ServerTap</b>. Pon: Nombre del Jugador <b>@p</b>, IP <b>localhost</b>, Puerto <b>4567</b>, Key <b>tiktok123</b>, y pulsa <b>Probar conexión</b>: debe salir una <b>palomita verde ✅</b> (eso significa que ya está funcionando).</li>
+                <li>Entra a tu <b>Minecraft</b>, instala la versión <b>1.21.1</b>, pulsa <b>Multijugador</b>, escribe <b>localhost</b> y entra al mundo.</li>
+                <li>Ejecuta el comando para <b>crear el cubo de bedrock</b> (sección Configuraciones, abajo).</li>
+                <li class="juego-aviso-importante">⛔ <b>INDISPENSABLE:</b> <b>NO cierres la ventana negra</b> (la consola del servidor) que aparece al ejecutar: si la cierras, el servidor se apaga y nada funcionará. <b>Si no tienes permisos de administrador</b> (no puedes usar comandos), escribe hasta <b>abajo de la ventana negra</b>: <code>op tu_usuario</code> (pon tu nombre exacto de Minecraft) y pulsa Enter.</li>
+                <li>Listo: ya puedes <b>personalizar tus alertas</b> en <b>Acciones</b> para que funcionen.</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- ===== Acciones de Bedrock (se agregan a tarjetas) ===== -->
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🧨 Acciones de Bedrock</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará durante tu live. Se ejecutan por el <b>mismo RCON</b> de tu servidor de Minecraft.</p>
+            </div>
+
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-img-btn" id="bedrock-export-preset" title="Descarga tus acciones de Bedrock como un archivo de presets">⬆️ Exportar presets</button>
+                <button type="button" class="mc-img-btn" id="bedrock-import-preset" title="Carga acciones de Bedrock desde un archivo de presets">⬇️ Importar presets</button>
+                <button type="button" class="mc-img-btn" id="bedrock-gen-img" title="Crea una imagen con tus regalos y sus acciones para mostrarla en el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="bedrock-create-cmd">+ Crear comando propio</button>
+              </div>
+              <input type="file" id="bedrock-import-file" accept="application/json,.json" hidden>
+            </div>
+            <div id="bedrock-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de acciones</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="bedrock-cat-search" class="mc-cat-search" placeholder="Buscar acción (tnt, reset, enderman…)">
+            </div>
+            <div id="bedrock-catalog" class="mc-catalog"></div>
+
+            <!-- ===== Configuraciones (se ejecutan DENTRO del juego, solo Copiar) ===== -->
+            <h3 class="mc-sub-title" style="margin-top:22px">⚙️ Configuraciones</h3>
+            <p class="mc-actions-sub">⚠️ Estos comandos se usan <b>directamente desde el juego</b> (dependen de tu personaje), <b>no</b> se ejecutan por RCON/ServerTap ni se vinculan a regalos. Edita el comando si quieres, pulsa <b>Copiar</b> y <b>pégalo en el chat de Minecraft</b> para ejecutarlo.</p>
+            <div id="bedrock-configs" class="bd-cfg-grid"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: SANDBOX (solo .exe) ===================== -->
+        <section class="view" id="view-juego-sandbox">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🏖️ Sandbox</h1>
+          <p class="view-sub">Minijuego de la plataforma de arena con comandos <b>/sandbox</b>.</p>
+
+          <div class="juego-banner">
+            <img src="/img/sandbox.png" alt="Sandbox" class="juego-banner-img">
+            <span class="juego-version">Versión: 1.21.1</span>
+            <div class="juego-dl-group">
+              <button type="button" class="juego-dl-btn" id="sandbox-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Sandbox.Online.rar">
+                <span class="juego-dl-ico">⬇</span> Descargar servidor Original
+              </button>
+              <button type="button" class="juego-dl-btn" id="sandbox-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Sandbox.Offline.rar">
+                <span class="juego-dl-ico">⬇</span> Descargar servidor Pirata
+              </button>
+            </div>
+          </div>
+
+          <div class="juego-tools">
+            <div class="juego-tools-row">
+              <button type="button" class="juego-run-btn" id="sandbox-run">▶ Ejecutar servidor</button>
+              <button type="button" class="btn danger juego-panic-btn" id="sandbox-panic" title="Detiene videos, sonidos y TTS en cola">⛔ Pánico</button>
+            </div>
+            <a href="#" id="sandbox-change-bat" class="juego-link">📁 Elegir / cambiar archivo del servidor (.bat)</a>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">⚠️</div>
+            <div class="juego-aviso-txt">
+              <b>Sigue estos pasos para usar Sandbox:</b>
+              <ol>
+                <li>Primero <b>descarga</b> una versión: <b>Original</b> o <b>Pirata</b> (botones de arriba).</li>
+                <li><b>Descomprime</b> la carpeta y pulsa <b>Ejecutar servidor</b>: selecciona el archivo <b>iniciar.bat</b> (solo la <b>primera vez</b>).</li>
+                <li>Ve a <b>Webhook y Config.</b> y marca la casilla <b>Usar ServerTap</b>. Pon: Nombre del Jugador <b>@p</b>, IP <b>localhost</b>, Puerto <b>4567</b>, Key <b>tiktok123</b>, y pulsa <b>Probar conexión</b>: debe salir una <b>palomita verde ✅</b>.</li>
+                <li>Entra a tu <b>Minecraft</b>, instala la versión <b>1.21.1</b>, pulsa <b>Multijugador</b>, escribe <b>localhost</b> y entra al mundo.</li>
+                <li>Ejecuta el comando para <b>crear la plataforma</b> (sección Configuraciones, abajo).</li>
+                <li class="juego-aviso-importante">⛔ <b>INDISPENSABLE:</b> <b>NO cierres la ventana negra</b> (la consola del servidor) que aparece al ejecutar: si la cierras, el servidor se apaga y nada funcionará. <b>Si no tienes permisos de administrador</b> (no puedes usar comandos), escribe hasta <b>abajo de la ventana negra</b>: <code>op tu_usuario</code> (pon tu nombre exacto de Minecraft) y pulsa Enter.</li>
+                <li>Listo: ya puedes <b>personalizar tus alertas</b> en <b>Acciones</b> para que funcionen.</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- ===== Acciones de Sandbox (se agregan a tarjetas) ===== -->
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🏖️ Acciones de Sandbox</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará durante tu live. Se ejecutan por el <b>mismo RCON</b> de tu servidor de Minecraft.</p>
+            </div>
+
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-img-btn" id="sandbox-export-preset" title="Descarga tus acciones de Sandbox como un archivo de presets">⬆️ Exportar presets</button>
+                <button type="button" class="mc-img-btn" id="sandbox-import-preset" title="Carga acciones de Sandbox desde un archivo de presets">⬇️ Importar presets</button>
+                <button type="button" class="mc-img-btn" id="sandbox-gen-img" title="Crea una imagen con tus regalos y sus acciones para mostrarla en el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="sandbox-create-cmd">+ Crear comando propio</button>
+              </div>
+              <input type="file" id="sandbox-import-file" accept="application/json,.json" hidden>
+            </div>
+            <div id="sandbox-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de acciones</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="sandbox-cat-search" class="mc-cat-search" placeholder="Buscar acción (tnt, arena, cárcel…)">
+            </div>
+            <div id="sandbox-catalog" class="mc-catalog"></div>
+
+            <!-- ===== Configuraciones (se ejecutan DENTRO del juego, solo Copiar) ===== -->
+            <h3 class="mc-sub-title" style="margin-top:22px">⚙️ Configuraciones</h3>
+            <p class="mc-actions-sub">⚠️ Estos comandos se usan <b>directamente desde el juego</b> (dependen de tu personaje), <b>no</b> se ejecutan por RCON/ServerTap ni se vinculan a regalos. Edita el comando si quieres, pulsa <b>Copiar</b> y <b>pégalo en el chat de Minecraft</b> para ejecutarlo.</p>
+            <div id="sandbox-configs" class="bd-cfg-grid"></div>
+          </div>
+        </section>
+
         <!-- ===================== ADMIN (solo administrador) ===================== -->
         <section class="view" id="view-admin">
           <h1 class="view-title">🛡️ Administración</h1>
@@ -2589,23 +3775,6 @@
             <div class="plans-actions">
               <span id="appver-status" class="tts-sub"></span>
               <button class="btn primary" id="appver-save">Publicar actualización</button>
-            </div>
-          </div>
-
-          <!-- Enlace del botón "Instalar versión web" del panel -->
-          <div class="settings-card plans-card">
-            <div class="tts-head">
-              <h3>Instalar versión web</h3>
-              <span class="tts-sub">Enlace del botón que ven los usuarios arriba en el panel</span>
-            </div>
-            <div class="field">
-              <label>Enlace de instalación de la versión web</label>
-              <input type="text" id="webinstall-url" placeholder="https://...">
-            </div>
-            <p class="tts-sub">Si lo dejas vacío, el botón no se muestra.</p>
-            <div class="plans-actions">
-              <span id="webinstall-status" class="tts-sub"></span>
-              <button class="btn primary" id="webinstall-save">Guardar enlace</button>
             </div>
           </div>
         </section>

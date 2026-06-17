@@ -1,5 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const MAX_ROWS = 120;
+// App de escritorio (.exe): expone window.desktopAPI vía preload de Electron.
+const IS_DESKTOP = !!(window.desktopAPI && window.desktopAPI.isDesktop);
 
 let ws;
 let reconnectTimer;
@@ -31,10 +33,50 @@ function buildKeepAliveWorker() {
   return keepWorker;
 }
 
+// ¿El .exe debe conectar el panel directo a la nube (modo relay)? Solo en escritorio,
+// con cloudBase definido y la opción activada por el proceso principal.
+function relayActive() {
+  return IS_DESKTOP && !!(window.desktopAPI && window.desktopAPI.relayMode && window.desktopAPI.cloudBase);
+}
+
+// En modo relay, los archivos subidos viven en Render. Convierte /uploads/... a URL completa
+// para que el panel local pueda reproducir sonidos y videos en los overlays de la nube.
+function mediaUrl(u) {
+  if (!u || typeof u !== 'string') return u || '';
+  if (/^https?:\/\//i.test(u)) return u;
+  if (relayActive() && u.startsWith('/')) {
+    return String(window.desktopAPI.cloudBase).replace(/\/+$/, '') + u;
+  }
+  return u;
+}
+
+function normalizeRelayMedia(s) {
+  if (!s || !relayActive()) return;
+  const fix = (u) => mediaUrl(u);
+  for (const a of (s.soundAlerts || [])) if (a.sound) a.sound = fix(a.sound);
+  for (const v of (s.videos || [])) if (v.url) v.url = fix(v.url);
+  for (const b of (s.battleAlerts || [])) if (b.url) b.url = fix(b.url);
+  for (const a of (s.actions || [])) if (a.sound) a.sound = fix(a.sound);
+}
+
 function connectWS() {
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  let url;
+  if (relayActive()) {
+    if (!window.CLOUD_ROOM_KEY) { clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectWS, 600); return; }
+    const base = String(window.desktopAPI.cloudBase).replace(/\/+$/, '').replace(/^http/i, 'ws');
+    url = `${base}/ws?room=${encodeURIComponent(window.CLOUD_ROOM_KEY)}&role=relay`;
+    if (ws) {
+      if (ws.readyState === WebSocket.OPEN && ws.url === url) return;
+      if (ws.readyState === WebSocket.CONNECTING) return;
+      try { ws.close(); } catch {}
+      ws = null;
+    }
+  } else {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    url = `${proto}://${location.host}/ws`;
+  }
+  ws = new WebSocket(url);
   ws.onopen = () => { clearTimeout(reconnectTimer); setConnBadge(true); buildKeepAliveWorker(); };
   ws.onclose = () => { setConnBadge(false); clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectWS, 1500); };
   ws.onerror = () => { try { ws.close(); } catch {} };
@@ -57,7 +99,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -80,6 +122,9 @@ async function loadMe() {
     if (!r.ok) { location.href = '/login.html'; return; }
     const d = await r.json();
     window.ROOM_KEY = d.roomKey || '';
+    // roomKey de la nube (Render): en el .exe en modo relay, el panel y los overlays
+    // se conectan a la room remota con esta clave (el trabajo pesado corre allí).
+    window.CLOUD_ROOM_KEY = d.cloudRoomKey || '';
     window.MY_USER = d.username || '';
     window.IS_ADMIN = !!d.isAdmin;
     window.MY_PLAN = d.plan || 'free';
@@ -90,6 +135,19 @@ async function loadMe() {
       const nav = document.getElementById('navAdmin');
       if (nav) nav.style.display = '';
     }
+    // En el .exe, si el WS a la nube tarda, cargamos ajustes del servidor LOCAL para
+    // que el panel no quede bloqueado ("Espera a que cargue el panel").
+    if (IS_DESKTOP && !settings) {
+      try {
+        const sr = await fetch('/api/my-settings');
+        if (sr.ok) {
+          const sd = await sr.json();
+          if (sd && sd.settings) onSettings(sd.settings);
+        }
+      } catch {}
+    }
+    // Tras tener cloudRoomKey, conectar el WebSocket a la nube (modo relay).
+    connectWS();
   } catch {}
 }
 
@@ -102,6 +160,7 @@ const OVERLAY_CAP = {
   '/pelotas.html': 'ov_pelotas',
   '/ruleta.html': 'ov_ruleta',
   '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq',
+  '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
   '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
@@ -115,6 +174,8 @@ const TAB_CAP = {
   alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas',
   overlays: 'tab_overlays', tts: 'tab_tts', timer: 'tab_timer',
 };
+// Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
+const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', plantasvszombies: 'game_plantasvszombies' };
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
@@ -125,6 +186,8 @@ function setCaps(c) {
     features: c.features || {},
   };
   applyCaps();
+  try { revealWebhookTab(); } catch {}
+  try { revealJuegosTab(); } catch {}
 }
 function capLimit(key) {
   const n = window.CAPS?.limits?.[key];
@@ -166,6 +229,11 @@ function applyCaps() {
     const card = code.closest('.ovpro-card') || code.closest('.overlay-item') || code.closest('.ov-card');
     if (card) setOverlayLock(card, !capFeature(cap));
   });
+  // Minijuegos (pestaña Juegos): si no están en el plan, se bloquean con "Solo Premium".
+  document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
+    const cap = GAME_CAP[card.dataset.game];
+    if (cap) setGameLock(card, !capFeature(cap));
+  });
   // Voces TikTok/Disney en el TTS
   const tkRow = document.getElementById('tts-tiktok-voices-wrap');
   if (tkRow) tkRow.style.display = capFeature('tts_tiktok') ? '' : 'none';
@@ -183,23 +251,28 @@ const CAP_LABELS = {
   // pestañas
   tab_alertas: 'Alertas sonoras', tab_videos: 'Videos', tab_batallas: 'Batallas PK',
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
+  tab_webhook: 'Webhook y Configuración',
   // overlays
   ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_ruleta: 'Ruleta / sorteo', ov_topdonor: 'Top donador semanal',
-  ov_gcounter: 'Contador de meta', ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
+  ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)',
+  ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_toplikes: 'Top likes',
   ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
   ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
+  // juegos
+  game_minecraft: 'Juego: Minecraft', game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
+  game_mariobros: 'Juego: Mario Bros', game_plantasvszombies: 'Juego: Plants vs Zombies',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
-  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer',
-  'tts_tiktok',
+  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
+  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
-  'ov_gcounter', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer',
 ];
@@ -238,6 +311,9 @@ function renderPlanView() {
       { kind: 'videos', key: 'videos', noun: 'Videos' },
       { kind: 'battleAlerts', key: 'battleAlerts', noun: 'Animaciones de batalla' },
     ];
+    if (IS_DESKTOP || (settings?.actions || []).length) {
+      rows.push({ kind: 'actions', key: 'actions', noun: 'Acciones' });
+    }
     meters.innerHTML = rows.map((r) => {
       let lim = capLimit(r.key);
       const unlimited = window.IS_ADMIN || !Number.isFinite(lim) || lim >= 9999;
@@ -328,6 +404,7 @@ function renderPlanCompare() {
   };
   html += group('Pestañas del panel', catalog.tabs);
   html += group('Extras', catalog.extras);
+  if (catalog.games && catalog.games.length) html += group('Juegos', catalog.games);
   html += group('Overlays', catalog.overlays);
   body.innerHTML = html;
 
@@ -401,6 +478,7 @@ function renderPlanPricing() {
       <p class="pp-tagline">Sin límites y con todos los overlays y funciones.</p>
       <ul class="pp-list">${buildList('premium')}</ul>
       ${premBtn}
+      ${IS_DESKTOP ? '<p class="pp-note">Una vez que te activen el plan, cierra sesión e inicia de nuevo.</p>' : ''}
     </div>
   `;
 
@@ -430,6 +508,7 @@ function setOverlayLock(card, locked) {
   const target = card.querySelector('.ovpro-preview') || card;
   target.classList.toggle('ov-locked', locked);
   card.classList.toggle('ov-locked-card', locked);
+  // Enmascara / restaura la URL de la tarjeta.
   const code = card.querySelector('.ov-url');
   if (code && code.dataset.path) {
     code.textContent = locked ? OV_URL_MASK : roomUrl(code.dataset.path);
@@ -455,11 +534,43 @@ function setOverlayLock(card, locked) {
   }
 }
 
+// ¿La tarjeta de este minijuego está bloqueada para el plan actual? El admin nunca se bloquea.
+function isGameLocked(gameId) {
+  if (window.IS_ADMIN) return false;
+  const cap = GAME_CAP[gameId];
+  return cap ? !capFeature(cap) : false;
+}
+
+// Pone (o quita) el bloqueo "Solo Premium" en una tarjeta de minijuego.
+function setGameLock(card, locked) {
+  card.classList.toggle('game-locked-card', locked);
+  let ov = card.querySelector('.game-lock-overlay');
+  if (locked) {
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.className = 'game-lock-overlay';
+      ov.innerHTML = `<div class="ov-lock-box">
+        <div class="ov-lock-ico">🔒</div>
+        <div class="ov-lock-title">⭐ Solo Premium</div>
+        <div class="ov-lock-sub">Mejora tu plan para desbloquear este juego</div>
+      </div>`;
+      ov.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+      });
+      card.appendChild(ov);
+    }
+  } else if (ov) {
+    ov.remove();
+  }
+}
+
 function applyLimitUI() {
   const defs = [
     { kind: 'soundAlerts', key: 'soundAlerts', btn: 'sa-create', view: 'view-alertas', noun: 'alertas sonoras' },
     { kind: 'videos', key: 'videos', btn: 'vid-create', view: 'view-videos', noun: 'videos' },
     { kind: 'battleAlerts', key: 'battleAlerts', btn: 'ba-create', view: 'view-batallas', noun: 'animaciones de batalla' },
+    { kind: 'actions', key: 'actions', btn: 'acc-new', view: 'view-acciones', noun: 'acciones' },
   ];
   for (const d of defs) {
     let lim = capLimit(d.key);
@@ -504,12 +615,41 @@ function toast(msg, kind) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, 3200);
 }
 
+// Modo relay (.exe): el chat de TikTok llega desde la nube. Spotify, en cambio, corre
+// LOCAL (tokens + cola en esta PC). Por eso reenviamos los comandos de Spotify del chat
+// al servidor local para que los procese y actualice la cola/overlay locales.
+function maybeForwardSpotifyChat(p) {
+  try {
+    if (!relayActive()) return;
+    const comment = String(p?.comment || '').trim();
+    if (!/^!(play|skip|revoke)\b/i.test(comment)) return;
+    if (!p?.uniqueId) return;
+    fetch('/api/desktop/spotify-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        comment,
+        user: { uniqueId: p.uniqueId, nickname: p.nickname || p.uniqueId, photo: p.photo || '' },
+        roles: { isMod: !!p.isMod, isSub: !!p.isSub, memberLevel: Number(p.memberLevel) || 0 },
+      }),
+    }).catch(() => {});
+  } catch {}
+}
+
 // Construye la URL de un overlay con la roomKey del usuario añadida.
+// En modo relay (.exe), los overlays deben apuntar a la NUBE (donde corre la conexión
+// a TikTok), con la roomKey de la nube. Así OBS recibe los datos en vivo desde Render.
+// EXCEPCIÓN: Spotify corre SIEMPRE en el servidor local del .exe (callback 127.0.0.1:8888
+// y la cola de canciones viven en esta PC), así que su overlay apunta al servidor LOCAL
+// aunque estemos en modo relay.
 function roomUrl(path) {
-  const k = window.ROOM_KEY;
   const p = String(path || '');
-  if (!k) return location.origin + p;
-  return location.origin + p + (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
+  const isLocalOnly = /^\/spotify-/.test(p);
+  const useCloud = relayActive() && !isLocalOnly;
+  const base = useCloud ? String(window.desktopAPI.cloudBase).replace(/\/+$/, '') : location.origin;
+  const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
+  if (!k) return base + p;
+  return base + p + (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
 }
 
 // Refresca el texto y enlaces de todas las URLs de overlay ya pintadas.
@@ -533,55 +673,17 @@ function mountUserChip() {
   chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 14px;font:600 11px system-ui,sans-serif;color:#9aa3b8';
   chip.innerHTML = `<span style="opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤 ${window.MY_USER || 'usuario'}</span>
     <button id="logout-btn" style="margin-left:auto;border:0;border-radius:6px;cursor:pointer;padding:3px 9px;font-weight:700;font-size:10.5px;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6)">Salir</button>`;
-  // Botón "Instalar versión web" (arriba del nombre de usuario y Salir). El enlace
-  // lo fija el admin en la pestaña Administración; si está vacío, queda oculto.
-  const install = document.createElement('a');
-  install.id = 'webinstall-btn';
-  install.target = '_blank';
-  install.rel = 'noopener';
-  install.hidden = true;
-  install.style.cssText = 'display:none;align-items:center;justify-content:center;gap:6px;margin:8px 14px 0;padding:8px 12px;border-radius:8px;font:700 11.5px system-ui,sans-serif;text-decoration:none;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6);text-align:center';
-  install.textContent = '⬇️ Instalar versión web';
-
   // Colócalo dentro de la barra lateral, justo encima de la franja de estado ("Desconectado").
   const sideStatus = document.querySelector('.side-status');
   if (sideStatus && sideStatus.parentElement) {
-    sideStatus.parentElement.insertBefore(install, sideStatus);
     sideStatus.parentElement.insertBefore(chip, sideStatus);
   } else {
-    document.body.appendChild(install);
     document.body.appendChild(chip);
   }
   document.getElementById('logout-btn').onclick = async () => {
     try { await fetch('/api/logout', { method: 'POST' }); } catch {}
     location.href = '/login.html';
   };
-  loadWebInstallButton();
-}
-
-// Aplica la URL al botón "Instalar versión web" (lo muestra solo si hay enlace).
-function applyWebInstallButton(url) {
-  const btn = document.getElementById('webinstall-btn');
-  if (!btn) return;
-  const u = (url || '').trim();
-  if (u) {
-    btn.href = u;
-    btn.hidden = false;
-    btn.style.display = 'flex';
-  } else {
-    btn.hidden = true;
-    btn.style.display = 'none';
-  }
-}
-
-// Trae el enlace guardado por el admin y lo aplica al botón del panel.
-async function loadWebInstallButton() {
-  try {
-    const r = await fetch('/api/web-install');
-    if (!r.ok) return;
-    const d = await r.json();
-    applyWebInstallButton(d.url || '');
-  } catch {}
 }
 
 /* ====================== Confirmación de borrado ====================== */
@@ -611,23 +713,12 @@ function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'B
   });
 }
 
-function onLocalClient(p) {
-  const online = !!(p && p.online);
-  window._localClientOnline = online;
-  const el = $('local-client-status');
-  if (el) {
-    el.textContent = online ? 'Cliente local: conectado' : 'Cliente local: desconectado';
-    el.classList.toggle('ok', online);
-    el.classList.toggle('err', !online);
-  }
-}
-
 function handle(type, p) {
   switch (type) {
     case 'state': renderState(p); break;
     case 'settings': onSettings(p); break;
     case 'screens': onScreens(p); break;
-    case 'chat': addChat(p); ttsSpeak(p); break;
+    case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); break;
     case 'botReply': handleBotReply(p); break;
     case 'gift': addGift(p); ttsOnGift(p); break;
     case 'like': ttsOnLike(p); break;
@@ -636,15 +727,25 @@ function handle(type, p) {
     case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); break;
     case 'log': addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : ''); break;
     case 'sound': playPanelSound(p); break;
-    case 'panic': stopPanelSounds(); break;
+    case 'panic':
+      stopPanelSounds();
+      if (typeof ttsHardStop === 'function') ttsHardStop();
+      break;
     case 'timer': renderTimerState(p); break;
     case 'timerBeep': break;
     case 'pointsList': onPointsList(p); break;
     case 'pointsUpdate': onPointsUpdate(p); break;
     case 'pointsTx': onPointsTx(p); break;
     case 'roulette': onRoulette(p); break;
+    case 'spotifyHistory': if (typeof renderSpotifyHistory === 'function') renderSpotifyHistory(p.history || []); break;
+    case 'spotifyQueue': break;
+    case 'spotifyCommand': break;
     case 'caps': setCaps(p); loadPlanComparison(true); break;
-    case 'localClient': onLocalClient(p); break;
+    case 'keyAction': onKeyAction(p); break;
+    case 'localExec': onLocalExec(p); break;
+    case 'localReady': break; // canal relay listo (no requiere acción en la UI)
+    case 'profiles': onProfiles(p); break;
+    case 'profilesFull': onProfilesFull(p); break;
     case 'emoteCatalog':
       emoteCatalog = p.results || [];
       if (!$('emoteModal').classList.contains('hidden')) renderEmoteGrid();
@@ -679,7 +780,7 @@ function pumpPanelSound() {
   startPanelSound(s, () => { panelSoundBusy = false; pumpPanelSound(); });
 }
 function startPanelSound(s, done) {
-  const audio = new Audio(s.sound);
+  const audio = new Audio(mediaUrl(s.sound));
   audio.volume = (s.volume ?? 100) / 100;
   panelSounds.add(audio);
   let finished = false;
@@ -700,6 +801,15 @@ function stopPanelSounds() {
   panelSounds.clear();
 }
 
+/** Detiene videos en cola (OBS), sonidos del panel y TTS de inmediato. */
+function triggerAlertPanic() {
+  try { previewAudio?.pause(); } catch {}
+  stopPanelSounds();
+  if (typeof ttsHardStop === 'function') ttsHardStop();
+  send({ action: 'panic' });
+  toast('⛔ Pánico: alertas detenidas (videos, sonidos y TTS en cola)', 'warn');
+}
+
 /* ====================== Navegación lateral ====================== */
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
@@ -707,9 +817,11 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
     $(`view-${btn.dataset.view}`).classList.add('active');
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); loadWebInstall(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
+    if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
+    if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
   };
 });
 
@@ -923,42 +1035,6 @@ async function loadAppVersion() {
   };
 })();
 
-/* ---- Enlace del botón "Instalar versión web" ---- */
-async function loadWebInstall() {
-  const el = document.getElementById('webinstall-url');
-  if (!el) return;
-  try {
-    const r = await fetch('/api/web-install');
-    if (!r.ok) return;
-    const d = await r.json();
-    el.value = d.url || '';
-  } catch {}
-}
-
-(function setupWebInstallSave() {
-  const btn = document.getElementById('webinstall-save');
-  if (!btn) return;
-  btn.onclick = async () => {
-    const status = document.getElementById('webinstall-status');
-    const url = (document.getElementById('webinstall-url')?.value || '').trim();
-    btn.disabled = true;
-    if (status) status.textContent = 'Guardando…';
-    try {
-      const r = await fetch('/api/admin/web-install', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (status) status.textContent = r.ok ? 'Enlace guardado.' : (d.error || 'No se pudo guardar.');
-      applyWebInstallButton(url);
-    } catch {
-      if (status) status.textContent = 'Error de conexión.';
-    } finally {
-      btn.disabled = false;
-    }
-  };
-})();
-
 function renderPlansEditor() {
   const editor = document.getElementById('plans-editor');
   if (!editor || !plansCatalog || !plansConfig) return;
@@ -989,6 +1065,7 @@ function renderPlansEditor() {
       <div class="plan-limits">${limitsHtml}</div>
     </div>
     ${groupHtml('Pestañas del panel', plansCatalog.tabs)}
+    ${plansCatalog.games && plansCatalog.games.length ? groupHtml('Juegos', plansCatalog.games) : ''}
     ${groupHtml('Overlays', plansCatalog.overlays)}
     ${groupHtml('Extras', plansCatalog.extras)}
   `;
@@ -1153,14 +1230,87 @@ function esc(s) {
 }
 
 /* ====================== Conexión TikTok ====================== */
-function doConnect() {
+function desktopRelayOn() {
+  return IS_DESKTOP && !!(window.desktopAPI && window.desktopAPI.relayMode);
+}
+
+async function relayConnectHttp(username) {
+  const r = await fetch('/api/desktop/connect-live', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'No se pudo conectar');
+  return d;
+}
+
+async function relayDisconnectHttp() {
+  const r = await fetch('/api/desktop/disconnect-live', { method: 'POST' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'No se pudo desconectar');
+  return d;
+}
+
+async function doConnect() {
   const u = $('username').value.trim().replace(/^@/, '');
   if (!u) { $('username').focus(); return; }
   try { localStorage.setItem('lastTikTokUser', u); } catch {}
-  send({ action: 'connect', username: u });
+
+  const relay = relayActive() || desktopRelayOn();
+
+  if (relay && !window.CLOUD_ROOM_KEY) {
+    try {
+      await relayConnectHttp(u);
+      toast('Conectando a @' + u + '…', 'ok');
+    } catch (e) {
+      toast(e.message || 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.', 'warn');
+    }
+    return;
+  }
+
+  if (ws?.readyState === 1) {
+    send({ action: 'connect', username: u });
+    return;
+  }
+
+  connectWS();
+  if (relay) {
+    await new Promise((r) => setTimeout(r, 900));
+    if (ws?.readyState === 1) {
+      send({ action: 'connect', username: u });
+      return;
+    }
+    try {
+      await relayConnectHttp(u);
+      toast('Conectando a @' + u + '…', 'ok');
+      return;
+    } catch (e) {
+      toast(e.message || 'Sin conexión con el servidor', 'warn');
+      return;
+    }
+  }
+
+  toast('Espera a que el panel se conecte al servidor…', 'warn');
+}
+async function doDisconnect() {
+  if (ws?.readyState === 1) {
+    send({ action: 'disconnect' });
+    return;
+  }
+  if (desktopRelayOn()) {
+    try {
+      await relayDisconnectHttp();
+      toast('Desconectado', 'ok');
+    } catch (e) {
+      toast(e.message || 'No se pudo desconectar', 'warn');
+    }
+    return;
+  }
+  send({ action: 'disconnect' });
 }
 $('btnConnect').onclick = doConnect;
-$('btnDisconnect').onclick = () => send({ action: 'disconnect' });
+$('btnDisconnect').onclick = doDisconnect;
 $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') doConnect(); });
 // Prerellena el último usuario guardado al abrir el panel (antes incluso de que llegue
 // el estado del servidor), para que el campo nunca aparezca vacío.
@@ -1305,11 +1455,64 @@ function saveSettings() {
 
 function onSettings(s) {
   settings = s;
+  normalizeRelayMedia(settings);
   applyingSettings = true;
   applySettingsToUI();
   applyingSettings = false;
   applyLimitUI();
   renderPlanView();
+  if (typeof renderMyMcActions === 'function') renderMyMcActions();
+  if (typeof renderMyBedrockActions === 'function') renderMyBedrockActions();
+  if (typeof renderMySandboxActions === 'function') renderMySandboxActions();
+  // Al abrir el panel, las acciones de Roblox SIEMPRE arrancan apagadas (una sola vez
+  // por sesión). Solo funcionan cuando el usuario las enciende con el botón verde.
+  if (typeof renderRobloxActions === 'function') {
+    if (!window._rbxResetDone) {
+      window._rbxResetDone = true;
+      const rl = ensureRobloxSlots();
+      if (rl.length && rl.some((a) => a.enabled !== false)) {
+        rl.forEach((a) => { a.enabled = false; });
+        saveSettings();
+      }
+    }
+    renderRobloxActions();
+  }
+  // Igual que Roblox: las acciones de Roblox 3 arrancan apagadas al abrir el panel.
+  if (typeof renderRoblox3Actions === 'function') {
+    if (!window._rbx3ResetDone) {
+      window._rbx3ResetDone = true;
+      const rl = ensureRoblox3Slots();
+      if (rl.length && rl.some((a) => a.enabled !== false)) {
+        rl.forEach((a) => { a.enabled = false; });
+        saveSettings();
+      }
+    }
+    renderRoblox3Actions();
+  }
+  // Igual que Roblox: las acciones de Mario Bros arrancan apagadas al abrir el panel.
+  if (typeof renderMarioActions === 'function') {
+    if (!window._marioResetDone) {
+      window._marioResetDone = true;
+      const ml = ensureMarioActions();
+      if (ml.length && ml.some((a) => a.enabled !== false)) {
+        ml.forEach((a) => { a.enabled = false; });
+        saveSettings();
+      }
+    }
+    renderMarioActions();
+  }
+  // Igual que Mario: las acciones de Plants vs Zombies arrancan apagadas al abrir el panel.
+  if (typeof renderPvzActions === 'function') {
+    if (!window._pvzResetDone) {
+      window._pvzResetDone = true;
+      const pl = ensurePvzActions();
+      if (pl.length && pl.some((a) => a.enabled !== false)) {
+        pl.forEach((a) => { a.enabled = false; });
+        saveSettings();
+      }
+    }
+    renderPvzActions();
+  }
 }
 
 function applySettingsToUI() {
@@ -1334,12 +1537,16 @@ function applySettingsToUI() {
   if (typeof pushGiftVsPreview === 'function') setTimeout(() => pushGiftVsPreview(), 300);
   if (typeof pushGiftSeqPreview === 'function') setTimeout(() => pushGiftSeqPreview(), 300);
   if (typeof pushStyleOverlayPreviews === 'function') setTimeout(() => pushStyleOverlayPreviews(), 300);
+  if (typeof refreshWinsCounters === 'function') setTimeout(() => refreshWinsCounters(), 300);
   if (typeof window.pushHypePreview === 'function') setTimeout(() => window.pushHypePreview(), 300);
   renderScreens();
   renderVideos();
   applyLevelVideosUI();
   renderSoundAlerts();
   if (typeof applyPointsSettingsUI === 'function') applyPointsSettingsUI();
+  if (typeof applySpotifyUI === 'function') applySpotifyUI();
+  if (typeof applyWebhookUI === 'function') applyWebhookUI();
+  if (typeof renderAcciones === 'function') renderAcciones();
 }
 
 /* ====================== Videos (pantallas múltiples) ====================== */
@@ -1472,9 +1679,8 @@ function applyLevelVideosUI() {
   scr.innerHTML = screens.map((s) => `<option value="${s.id}">Pantalla ${s.id}</option>`).join('');
   scr.value = String(cfg.screen || 1);
   en.checked = cfg.enabled !== false;
-  // En la web no hay acceso a la carpeta local; el botón solo aplica en la app .exe.
   const openBtn = $('levelvid-openfolder');
-  if (openBtn) openBtn.hidden = !(window.desktopAPI && window.desktopAPI.openNivelesFolder);
+  if (openBtn) openBtn.hidden = !IS_DESKTOP;
 }
 if ($('levelvid-enabled')) {
   $('levelvid-enabled').addEventListener('change', () => {
@@ -1492,9 +1698,50 @@ if ($('levelvid-screen')) {
 }
 if ($('levelvid-openfolder')) {
   $('levelvid-openfolder').addEventListener('click', async () => {
-    try { await window.desktopAPI?.openNivelesFolder?.(); } catch {}
+    try { await window.desktopAPI?.openNivelesFolder?.(); }
+    catch { toast && toast('No se pudo abrir la carpeta.', 'err'); }
   });
 }
+const vidTestLevelUp = $('vid-test-levelup');
+if (vidTestLevelUp) {
+  vidTestLevelUp.addEventListener('click', () => {
+    const level = Math.max(1, parseInt($('vid-level')?.value, 10) || 1);
+    send({ action: 'testLevelUp', level, fromLevel: Math.max(0, level - 1), nickname: 'Prueba' });
+    toast(`Probando subida al nivel ${level}…`, 'ok');
+  });
+}
+
+/* ----- Abrir al iniciar Windows (solo .exe) ----- */
+async function applyAutoStartUI() {
+  const card = $('autostart-card');
+  const chk = $('autostart-enabled');
+  if (!card || !chk) return;
+  if (!IS_DESKTOP || !window.desktopAPI?.getAutoStart) { card.hidden = true; return; }
+  card.hidden = false;
+  try {
+    const r = await window.desktopAPI.getAutoStart();
+    chk.checked = !!(r && r.enabled);
+  } catch {}
+}
+if ($('autostart-enabled')) {
+  $('autostart-enabled').addEventListener('change', async () => {
+    const chk = $('autostart-enabled');
+    try {
+      const r = await window.desktopAPI?.setAutoStart?.(chk.checked);
+      if (r && r.ok) {
+        chk.checked = !!r.enabled;
+        toast && toast(chk.checked ? 'La app se abrirá sola al encender la PC.' : 'Desactivado: la app ya no se abrirá sola.', 'ok');
+      } else {
+        chk.checked = !chk.checked;
+        toast && toast('No se pudo cambiar el inicio automático.', 'err');
+      }
+    } catch {
+      chk.checked = !chk.checked;
+      toast && toast('No se pudo cambiar el inicio automático.', 'err');
+    }
+  });
+}
+applyAutoStartUI();
 
 /* ----- Modal video ----- */
 function setVidEventUI(value) {
@@ -1508,6 +1755,8 @@ function setVidEventUI(value) {
   $('vid-userextra').hidden = value !== 'chatCommand' && value !== 'firstMessage' && value !== 'userJoin';
   $('vid-joindelayextra').hidden = value !== 'userJoin';
   $('vid-levelextra').hidden = value !== 'levelUp';
+  const testLvlBtn = $('vid-test-levelup');
+  if (testLvlBtn) testLvlBtn.hidden = value !== 'levelUp';
   const userInput = $('vid-user');
   if (userInput) userInput.placeholder = value === 'userJoin'
     ? 'Usuario que al entrar reproduce el video (sin @)'
@@ -1551,18 +1800,51 @@ $('vid-cancel').onclick = closeVidModal;
 $('vidModal').addEventListener('click', (e) => { if (e.target.id === 'vidModal') closeVidModal(); });
 $('vid-event').addEventListener('change', () => setVidEventUI($('vid-event').value));
 
+// Formatos que el navegador reproduce tal cual; el resto de video se convierte en el servidor.
+const UPLOAD_WEB_FRIENDLY = /\.(mp4|webm|ogg|ogv|m4v|gif|png|jpe?g|webp|apng|bmp|svg|mp3|wav|aac|m4a|oga)(\?|$)/i;
+function uploadNeedsVideoConvert(file) {
+  if (!file) return false;
+  const name = file.name || '';
+  if (UPLOAD_WEB_FRIENDLY.test(name)) return false;
+  if (/^image\//i.test(file.type) || /^audio\//i.test(file.type)) return false;
+  return /^video\//i.test(file.type) || /\.(mov|avi|mkv|wmv|flv|hevc|ts|mts|3gp|mpeg|mpg)$/i.test(name);
+}
+// Sube un archivo mostrando progreso; si hace falta conversión, avisa al terminar la subida.
+function uploadMediaWithProgress(file, setStatus) {
+  return new Promise((resolve, reject) => {
+    const needsConvert = uploadNeedsVideoConvert(file);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/upload?name=' + encodeURIComponent(file.name));
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) { setStatus('Subiendo video…'); return; }
+      setStatus(`Subiendo video… ${Math.round((e.loaded / e.total) * 100)}%`);
+    };
+    xhr.upload.onload = () => {
+      if (needsConvert) setStatus('Convirtiendo video… puede tardar un poco');
+    };
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText || '{}');
+        if (xhr.status >= 400 || !data.url) throw new Error(data.error || 'error');
+        resolve(data);
+      } catch (err) { reject(err); }
+    };
+    xhr.onerror = () => reject(new Error('error de red'));
+    xhr.send(file);
+  });
+}
+
 $('vid-upbtn').onclick = () => $('vid-file').click();
 $('vid-file').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  $('vid-fname').textContent = 'Subiendo…';
+  const label = $('vid-fname');
   try {
-    const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
-    const data = await res.json();
-    if (!data.url) throw new Error();
+    const data = await uploadMediaWithProgress(file, (msg) => { label.textContent = msg; });
     vidPending = { url: data.url, name: file.name };
-    $('vid-fname').textContent = file.name;
-  } catch { $('vid-fname').textContent = 'Error al subir'; }
+    label.textContent = file.name;
+  } catch { label.textContent = 'Error al subir'; }
+  e.target.value = '';
 });
 
 /* "Videos AI" = elegir un video de la carpeta public/video (ventana aparte) */
@@ -1574,6 +1856,11 @@ $('vidlib-close').onclick = closeVideoLib;
 $('vidlib-cancel').onclick = closeVideoLib;
 $('videoLibModal').addEventListener('click', (e) => { if (e.target.id === 'videoLibModal') closeVideoLib(); });
 $('vid-librefresh').onclick = () => loadLocalVideos();
+if ($('vidlib-openniveles')) {
+  $('vidlib-openniveles').onclick = async () => {
+    try { if (window.desktopAPI && window.desktopAPI.openNivelesFolder) await window.desktopAPI.openNivelesFolder(); } catch {}
+  };
+}
 $('vid-libq').addEventListener('input', () => renderLocalVideos($('vid-libq').value.trim()));
 
 // ¿La biblioteca debe mostrar la carpeta «niveles»? Solo en Videos y cuando el
@@ -1594,6 +1881,10 @@ function openVideoLib() {
       : 'Selecciona un video de la carpeta (vista previa vertical)';
   const credit = document.querySelector('#videoLibModal .modal-foot .credit');
   if (credit) credit.innerHTML = `Videos de la carpeta <code>${folder}</code>.`;
+  // El botón "Abrir carpeta" solo aplica a la carpeta de niveles y solo en la app .exe
+  // (donde la carpeta vive en los datos del usuario, no en el proyecto).
+  const openBtn = $('vidlib-openniveles');
+  if (openBtn) openBtn.style.display = (niveles && window.desktopAPI && window.desktopAPI.openNivelesFolder) ? '' : 'none';
   $('videoLibModal').classList.remove('hidden');
   loadLocalVideos();
 }
@@ -1846,14 +2137,13 @@ $('ba-upbtn').onclick = () => $('ba-file').click();
 $('ba-file').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  $('ba-fname').textContent = 'Subiendo…';
+  const label = $('ba-fname');
   try {
-    const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
-    const data = await res.json();
-    if (!data.url) throw new Error();
+    const data = await uploadMediaWithProgress(file, (msg) => { label.textContent = msg; });
     baPending = { url: data.url, name: file.name };
-    $('ba-fname').textContent = file.name;
-  } catch { $('ba-fname').textContent = 'Error al subir'; }
+    label.textContent = file.name;
+  } catch { label.textContent = 'Error al subir'; }
+  e.target.value = '';
 });
 
 $('ba-save').onclick = () => {
@@ -2185,16 +2475,23 @@ function renderEmoteGrid() {
   });
 }
 
+// Contenido del botón "Elegir regalo": muestra el icono real del regalo (no el emoji)
+// cuando hay uno seleccionado. Se usa en alertas, videos y acciones.
+function giftBtnHTML(name, id, fallback = '🎁 Elegir regalo…') {
+  if (!name && !id) return fallback;
+  const g = id ? giftCatalogById.get(String(id))
+    : giftCatalog.find((x) => x.name.toLowerCase() === String(name).toLowerCase());
+  const label = name || g?.name || '';
+  const icon = g?.image ? `<img class="gift-pick-ic" src="${esc(g.image)}" onerror="this.outerHTML='🎁'">` : '🎁';
+  return `${icon} ${esc(label)}`;
+}
+
 function updateGiftPickBtn() {
-  const name = $('sa-gift').value;
-  const id = $('sa-giftid').value;
-  $('sa-giftpick').textContent = name ? `🎁 ${name}${id ? ' (#' + id + ')' : ''}` : '🎁 Elegir regalo…';
+  $('sa-giftpick').innerHTML = giftBtnHTML($('sa-gift').value, $('sa-giftid').value);
 }
 
 function updateGiftPickBtnV() {
-  const name = $('vid-gift').value;
-  const id = $('vid-giftid').value;
-  $('vid-giftpick').textContent = name ? `🎁 ${name}${id ? ' (#' + id + ')' : ''}` : '🎁 Elegir regalo…';
+  $('vid-giftpick').innerHTML = giftBtnHTML($('vid-gift').value, $('vid-giftid').value);
 }
 
 let giftTarget = 'sa'; // 'sa' (sonido) o 'vid' (video)
@@ -2292,6 +2589,8 @@ async function uploadFile(file, kind) {
 /* Biblioteca de sonidos: lee la carpeta local /audios */
 let libAudio = null;
 let localSounds = [];
+// A dónde va el sonido elegido: 'alert' (alertas sonoras) o 'action' (Acciones .exe).
+let soundPickTarget = 'alert';
 
 function openSoundLib() {
   $('soundLibModal').classList.remove('hidden');
@@ -2301,7 +2600,7 @@ function closeSoundLib() {
   $('soundLibModal').classList.add('hidden');
   try { libAudio?.pause(); } catch {}
 }
-$('sa-libbtn').onclick = openSoundLib;
+$('sa-libbtn').onclick = () => { soundPickTarget = 'alert'; openSoundLib(); };
 $('lib-close').onclick = closeSoundLib;
 $('soundLibModal').addEventListener('click', (e) => { if (e.target.id === 'soundLibModal') closeSoundLib(); });
 $('sa-librefresh').onclick = () => loadLocalSounds();
@@ -2341,8 +2640,14 @@ function renderLocalSounds(filter) {
     libAudio = new Audio(b.dataset.url); libAudio.play().catch(() => {});
   });
   box.querySelectorAll('.lr-pick').forEach((b) => b.onclick = () => {
-    pendingSound = { url: b.dataset.url, name: b.dataset.name };
-    $('sa-soundname').textContent = b.dataset.name;
+    if (soundPickTarget === 'action') {
+      accPendingSound = { url: b.dataset.url, name: b.dataset.name };
+      const el = $('acc-soundname'); if (el) el.textContent = b.dataset.name;
+      const vr = $('acc-volrow'); if (vr) vr.hidden = false;
+    } else {
+      pendingSound = { url: b.dataset.url, name: b.dataset.name };
+      $('sa-soundname').textContent = b.dataset.name;
+    }
     closeSoundLib();
   });
 }
@@ -2392,10 +2697,7 @@ $('sa-delsel').onclick = async () => {
   renderSoundAlerts();
 };
 
-$('sa-panic').onclick = () => {
-  try { previewAudio?.pause(); } catch {}
-  send({ action: 'panic' });
-};
+$('sa-panic').onclick = () => triggerAlertPanic();
 
 /* ====================== Overlays ====================== */
 document.querySelectorAll('.subtab').forEach((btn) => {
@@ -2486,9 +2788,9 @@ function openPotConfig(target) {
     ? data.sizes.map((r) => ({ t: Number(r.t) || 0, sz: Number(r.sz) || 32 }))
     : DEFAULT_JAR_SIZES.map((r) => ({ ...r }));
   const titles = {
+    perrito: '🐶 Configurar — Perrito (bote regalos)',
     vaquita: '🐮 Configurar — Vaquita (bote regalos)',
     marranito: '🐷 Configurar — Marranito (bote regalos)',
-    perrito: '🐶 Configurar — Perrito (bote regalos)',
     jarron: '⚙️ Configurar — Jarrón (bote regalos)',
   };
   $('jarcfg-title').textContent = titles[target] || titles.jarron;
@@ -3226,6 +3528,200 @@ function pushStyleOverlayPreviews() {
   STYLE_OVERLAYS.forEach((o) => { if (o._push) o._push(); });
 }
 
+/* ---- Contadores de victorias (manual): controles +/- y configuración ---- */
+const HK_ACTIONS = [
+  { id: 'inc1', label: '+1 WIN', amount: false, sign: 1 },
+  { id: 'dec1', label: '-1 WIN', amount: false, sign: -1 },
+  { id: 'incN', label: 'SUMAR VARIAS', amount: true, sign: 1 },
+  { id: 'decN', label: 'RESTAR VARIAS', amount: true, sign: -1 },
+];
+
+function ensureHotkeys(key) {
+  // Durante la carga del módulo, settings todavía es null (llega luego por WS).
+  // Devolvemos atajos por defecto sin persistir para no romper el render inicial;
+  // refreshWinsCounters() vuelve a pintar con los datos reales cuando llegan.
+  if (!settings) {
+    const def = {};
+    HK_ACTIONS.forEach((a) => { def[a.id] = { on: false, key: '', amount: 5, giftId: '', giftName: '', image: '' }; });
+    return def;
+  }
+  if (!settings[key]) settings[key] = {};
+  if (!settings[key].hotkeys || typeof settings[key].hotkeys !== 'object') settings[key].hotkeys = {};
+  const hk = settings[key].hotkeys;
+  HK_ACTIONS.forEach((a) => { if (!hk[a.id] || typeof hk[a.id] !== 'object') hk[a.id] = { on: false, key: '', amount: 5, giftId: '', giftName: '', image: '' }; });
+  return hk;
+}
+
+function formatCombo(e) {
+  const parts = [];
+  if (e.ctrlKey) parts.push('Ctrl');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  let k = e.key;
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(k)) return parts.join('+');
+  if (k === ' ') k = 'Space';
+  if (k.length === 1) k = k.toUpperCase();
+  parts.push(k);
+  return parts.join('+');
+}
+
+function captureHotkey(btn, onSet) {
+  if (btn.classList.contains('capturing')) return;
+  const prevText = btn.textContent;
+  btn.classList.add('capturing');
+  btn.textContent = 'Pulsa…';
+  const handler = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape') { btn.textContent = prevText; cleanup(); return; }
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+    const combo = formatCombo(e);
+    cleanup();
+    if (combo) onSet(combo);
+  };
+  const cleanup = () => { document.removeEventListener('keydown', handler, true); btn.classList.remove('capturing'); };
+  document.addEventListener('keydown', handler, true);
+}
+
+function buildWinsHotkeys(o) {
+  const cont = $(o.hotkeysId); if (!cont) return;
+  cont.innerHTML = '';
+  o._hkRenderers = [];
+  HK_ACTIONS.forEach((a) => {
+    const row = document.createElement('div');
+    row.className = 'wc-hk';
+    const amountInput = a.amount ? '<input type="number" class="wc-hk-amount" min="1" max="999" value="5" title="Cantidad">' : '';
+    row.innerHTML = `
+      <div class="wc-hk-main">
+        <label class="wc-hk-check"><input type="checkbox" class="wc-hk-on"><span>${a.label}</span></label>
+        <div class="wc-hk-keys">${amountInput}<button type="button" class="btn ghost wc-hk-key">—</button></div>
+      </div>
+      <div class="wc-hk-gift"><button type="button" class="btn ghost wc-hk-giftbtn">🎁 Asignar regalo</button></div>`;
+    cont.appendChild(row);
+    const onEl = row.querySelector('.wc-hk-on');
+    const keyBtn = row.querySelector('.wc-hk-key');
+    const amountEl = row.querySelector('.wc-hk-amount');
+    const giftBtn = row.querySelector('.wc-hk-giftbtn');
+    const read = () => ensureHotkeys(o.key)[a.id];
+    const renderGift = () => {
+      const d = read();
+      if (d.giftId) {
+        giftBtn.innerHTML = `<img src="${esc(d.image || '')}" class="wc-hk-giftimg" onerror="this.style.display='none'"> ${esc(d.giftName || 'Regalo')} <span class="wc-hk-x">×</span>`;
+        giftBtn.classList.add('has-gift');
+      } else { giftBtn.textContent = '🎁 Asignar regalo'; giftBtn.classList.remove('has-gift'); }
+    };
+    const renderKey = () => { keyBtn.textContent = read().key || '—'; };
+    const renderAll = () => { const d = read(); onEl.checked = !!d.on; if (amountEl) amountEl.value = d.amount || 5; renderKey(); renderGift(); };
+    o._hkRenderers.push(renderAll);
+    onEl.onchange = () => { read().on = onEl.checked; saveSettings(); };
+    if (amountEl) amountEl.onchange = () => { read().amount = Math.max(1, parseInt(amountEl.value, 10) || 1); saveSettings(); };
+    keyBtn.onclick = () => captureHotkey(keyBtn, (combo) => { read().key = combo; renderKey(); saveSettings(); });
+    giftBtn.onclick = (e) => {
+      const d = read();
+      if (d.giftId && e.target.classList.contains('wc-hk-x')) { d.giftId = ''; d.giftName = ''; d.image = ''; renderGift(); saveSettings(); return; }
+      openGiftModal('wins', (g) => { d.giftId = String(g.id); d.giftName = g.name; d.image = g.image || ''; renderGift(); saveSettings(); });
+    };
+    renderAll();
+  });
+}
+
+function setupWinsCounter(o) {
+  const prev = () => $(o.previewId)?.contentWindow;
+  const toPrev = (msg) => prev()?.postMessage({ kind: o.kind, ...msg }, '*');
+  const ensure = () => { if (!settings[o.key]) settings[o.key] = {}; return settings[o.key]; };
+  const pushPrev = () => toPrev({ type: 'config', config: settings?.[o.key] || {} });
+  // El número de wins es libre: puede pasar del máximo (sumar +100 sube a 100, no
+  // se topa en 10) y bajar de 0 (restar deja negativos). winsMax es solo el
+  // denominador que se muestra (wins/max), no un límite.
+  const clampW = (v) => { const x = parseInt(v, 10); return Number.isFinite(x) ? Math.max(-999999, Math.min(999999, x)) : 0; };
+  const syncWinsInputs = (val) => { if ($(o.inputWins)) $(o.inputWins).value = val; if ($(o.inputWinsModal)) $(o.inputWinsModal).value = val; };
+  function setWins(v) { const c = ensure(); c.wins = clampW(v); syncWinsInputs(c.wins); saveSettings(); pushPrev(); }
+  if ($(o.btnMinus)) $(o.btnMinus).onclick = () => setWins((settings?.[o.key]?.wins || 0) - 1);
+  if ($(o.btnPlus)) $(o.btnPlus).onclick = () => setWins((settings?.[o.key]?.wins || 0) + 1);
+  if ($(o.inputWins)) $(o.inputWins).addEventListener('change', () => setWins($(o.inputWins).value));
+  if ($(o.btnReset)) $(o.btnReset).onclick = () => { setWins(0); toPrev({ type: 'reset' }); };
+  if ($(o.btnTest)) $(o.btnTest).onclick = () => { toPrev({ type: 'test' }); send({ action: o.testAction }); };
+  const syncFontSizeVal = () => { if ($(o.fontSizeValId)) $(o.fontSizeValId).textContent = (settings?.[o.key]?.fontSize) ?? 28; };
+  if ($(o.btnConfig)) $(o.btnConfig).onclick = () => {
+    fillForm(o.map, settings?.[o.key] || {});
+    syncFontSizeVal();
+    if (o._hkRenderers) o._hkRenderers.forEach((fn) => fn());
+    pushPrev();
+    $(o.modalId).classList.remove('hidden');
+  };
+  const close = () => $(o.modalId).classList.add('hidden');
+  if ($(o.closeId)) $(o.closeId).onclick = close;
+  if ($(o.modalId)) $(o.modalId).addEventListener('click', (e) => { if (e.target.id === o.modalId) close(); });
+  const apply = () => { settings[o.key] = { ...ensure(), ...readForm(o.map, o.types) }; pushPrev(); };
+  Object.keys(o.map).forEach((id) => { const el = $(id); if (el) { el.oninput = apply; el.onchange = apply; } });
+  if ($(o.saveId)) $(o.saveId).onclick = () => {
+    settings[o.key] = { ...ensure(), ...readForm(o.map, o.types) };
+    const c = ensure(); c.wins = clampW(c.wins);
+    syncWinsInputs(c.wins); syncFontSizeVal();
+    saveSettings(); pushPrev(); close();
+  };
+  buildWinsHotkeys(o);
+  o._adjust = (delta) => setWins((settings?.[o.key]?.wins || 0) + delta);
+  o._refresh = () => {
+    const c = settings?.[o.key] || {};
+    syncWinsInputs(c.wins ?? 0);
+    if ($(o.fontSizeValId)) $(o.fontSizeValId).textContent = c.fontSize ?? 28;
+    if (o._hkRenderers) o._hkRenderers.forEach((fn) => fn());
+  };
+  o._push = pushPrev;
+  return o;
+}
+
+const WINS_COUNTERS = [
+  {
+    kind: 'wins_counter', key: 'winsCounter', previewId: 'wc-preview',
+    btnReset: 'wc-reset', btnTest: 'wc-test', btnConfig: 'wc-config',
+    btnMinus: 'wc-minus', btnPlus: 'wc-plus', inputWins: 'wc-wins',
+    modalId: 'wcConfigModal', closeId: 'wccfg-close', saveId: 'wccfg-save',
+    testAction: 'testWins',
+    hotkeysId: 'wccfg-hotkeys', fontSizeValId: 'wccfg-fontsize-val', inputWinsModal: 'wccfg-wins',
+    map: { 'wccfg-label': 'label', 'wccfg-font': 'font', 'wccfg-wins': 'wins', 'wccfg-max': 'winsMax', 'wccfg-fontsize': 'fontSize',
+      'wccfg-textcolor': 'textColor', 'wccfg-accentcolor': 'accentColor', 'wccfg-bgcolor': 'bgColor', 'wccfg-bordercolor': 'borderColor', 'wccfg-rainbow': 'rainbow' },
+    types: { wins: 'int', winsMax: 'int', fontSize: 'int' },
+  },
+  {
+    kind: 'wins_counter_gamer', key: 'winsCounterGamer', previewId: 'wcg-preview',
+    btnReset: 'wcg-reset', btnTest: 'wcg-test', btnConfig: 'wcg-config',
+    btnMinus: 'wcg-minus', btnPlus: 'wcg-plus', inputWins: 'wcg-wins',
+    modalId: 'wcgConfigModal', closeId: 'wcgcfg-close', saveId: 'wcgcfg-save',
+    testAction: 'testWinsGamer',
+    hotkeysId: 'wcgcfg-hotkeys', fontSizeValId: 'wcgcfg-fontsize-val', inputWinsModal: 'wcgcfg-wins',
+    map: { 'wcgcfg-label': 'label', 'wcgcfg-font': 'font', 'wcgcfg-wins': 'wins', 'wcgcfg-max': 'winsMax', 'wcgcfg-fontsize': 'fontSize',
+      'wcgcfg-textcolor': 'textColor', 'wcgcfg-accentcolor': 'accentColor', 'wcgcfg-bgcolor': 'bgColor', 'wcgcfg-bordercolor': 'borderColor', 'wcgcfg-rainbow': 'rainbow', 'wcgcfg-scoreglow': 'scoreGlow' },
+    types: { wins: 'int', winsMax: 'int', fontSize: 'int' },
+  },
+].map(setupWinsCounter);
+
+function refreshWinsCounters() {
+  WINS_COUNTERS.forEach((o) => { if (o._refresh) o._refresh(); if (o._push) o._push(); });
+}
+
+// Atajos de teclado de los contadores (funciona con el panel enfocado).
+document.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+  if (document.querySelector('.wc-hk-key.capturing')) return;
+  const combo = formatCombo(e);
+  if (!combo) return;
+  let acted = false;
+  WINS_COUNTERS.forEach((o) => {
+    const hk = settings?.[o.key]?.hotkeys; if (!hk) return;
+    HK_ACTIONS.forEach((a) => {
+      const d = hk[a.id];
+      if (!d || !d.on || !d.key) return;
+      if (d.key.toLowerCase() !== combo.toLowerCase()) return;
+      const amt = a.amount ? Math.max(1, parseInt(d.amount, 10) || 1) : 1;
+      o._adjust(a.sign * amt);
+      acted = true;
+    });
+  });
+  if (acted) e.preventDefault();
+});
+
 /* ---- Barra de meta (Hype) — config con selector de diseño (skin) ---- */
 (function setupHypeOverlay() {
   const frame = () => $('hyp-preview');
@@ -3547,6 +4043,7 @@ function ttsAllowedUser(p) {
   const minLvl = Number(t.minMemberLevel || 0);
   const memberLevel = Number(p.memberLevel || 0);
 
+  // Modo "nivel mínimo de miembro": si está activo, solo importa el Nv. del chat.
   if (requireLvl && minLvl > 0) return memberLevel >= minLvl;
 
   if (t.allowAll !== false) return true;
@@ -3702,6 +4199,30 @@ function ttsStopTikTok() {
   ttsTkBusy = false;
 }
 
+// Corta TODO lo que se está leyendo ahora mismo (voz del sistema y cola TikTok).
+function ttsHardStop() {
+  ttsStopSystem();
+  ttsStopTikTok();
+}
+
+// Activa/desactiva el chat de voz y corta lo que se estaba leyendo. Lo usa la
+// tecla rápida F9 del .exe (ver desktop/main.js → evento 'toggle-tts').
+function toggleTtsHotkey() {
+  if (!settings.tts) settings.tts = {};
+  const next = !settings.tts.enabled;
+  settings.tts.enabled = next;
+  ttsHardStop(); // siempre corta la lectura en curso al pulsar F9
+  const en = $('tts-enabled'); if (en) en.checked = next;
+  try { saveSettings(); } catch {}
+  try { updateTtsSummary(); } catch {}
+  if (typeof toast === 'function') toast(next ? '🔊 Chat de voz activado (F9)' : '🔇 Chat de voz desactivado (F9)');
+}
+
+// La tecla F9 (global) viene del proceso principal de Electron solo en el .exe.
+if (window.desktopAPI && typeof window.desktopAPI.onToggleTts === 'function') {
+  window.desktopAPI.onToggleTts(() => toggleTtsHotkey());
+}
+
 async function ttsTkPump() {
   if (ttsTkBusy) return;
   ttsTkBusy = true;
@@ -3815,7 +4336,7 @@ function ttsOnGift(p) {
   const bindNum = (id, key) => { const el = $(id); if (el) el.addEventListener('change', () => { settings.tts[key] = +el.value || 0; save(); }); };
 
   const en = $('tts-enabled');
-  if (en) en.addEventListener('change', () => { settings.tts.enabled = en.checked; if (!settings.tts.enabled) { ttsStopSystem(); ttsStopTikTok(); } save(); });
+  if (en) en.addEventListener('change', () => { settings.tts.enabled = en.checked; if (!settings.tts.enabled) ttsHardStop(); save(); });
   const readName = $('tts-readname');
   if (readName) readName.addEventListener('change', () => { settings.tts.readName = readName.checked; syncTtsNameEmojisUI(); save(); });
   bindChk('tts-name-emojis', 'nameEmojis');
@@ -3910,7 +4431,7 @@ function ttsOnGift(p) {
   const test = $('tts-test');
   if (test) test.onclick = () => ttsSpeakText('Hola, así se escucha el chat por voz');
   const stop = $('tts-stop');
-  if (stop) stop.onclick = () => { ttsStopSystem(); ttsStopTikTok(); };
+  if (stop) stop.onclick = () => { ttsHardStop(); };
 })();
 
 /* ====================== Usuario y Puntos ====================== */
@@ -4103,13 +4624,713 @@ document.addEventListener('mouseout', (e) => {
   if (v) { try { v.pause(); } catch {} }
 }, true);
 
-// Service Worker: cachea videos de AI, audios e imágenes para que las recargas
-// del panel (y de los overlays) sean instantáneas. Solo cachea medios y estáticos;
-// la API y el WebSocket siempre van por red.
-if ('serviceWorker' in navigator) {
+// Service Worker: útil en la web; en la app .exe lo omitimos para no servir JS/HTML
+// cacheado viejo mientras desarrollamos o actualizamos.
+if (!IS_DESKTOP && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
   });
+}
+
+/* ====================== Acciones (solo en la app .exe) ====================== */
+const accSelected = new Set();
+let accEditingId = null;
+let accPendingImage = null;   // { url, name }
+let accPendingGameCompat = false;
+
+// La pestaña Acciones y su UI se inicializan al final del arranque (ver IIFE),
+// para que un fallo puntual no rompa el resto del panel (login, WS, logout…).
+
+// Retraso (segundos) antes de ejecutar una prueba, para que dé tiempo a cambiar a la
+// ventana del juego/programa donde quieres que se pulse la tecla.
+const ACC_TEST_DELAY = 2;
+function scheduleActionTest(a) {
+  const hasOutput = (a && a.webhookCmd && a.webhookCmd.on && a.webhookCmd.url)
+    || (a && a.obsCmd && a.obsCmd.on)
+    || (a && a.sbCmd && a.sbCmd.on && a.sbCmd.action);
+  if (!a || (!a.keys && !hasOutput)) { toast('Elige una tecla o activa una salida primero.', 'warn'); return; }
+  toast(`La acción se ejecutará en ${ACC_TEST_DELAY} segundos…`);
+  setTimeout(() => {
+    if (a.keys && IS_DESKTOP && window.desktopAPI?.pressKeys) window.desktopAPI.pressKeys(a.keys, { gameCompat: !!a.gameCompat });
+    if (a.sound) { try { const au = new Audio(a.sound); au.volume = a.soundVolume != null ? a.soundVolume : 1; au.play().catch(() => {}); } catch {} }
+    // Las salidas (OBS / WebHook / Streamer.bot) las ejecuta el servidor.
+    if (hasOutput) send({ action: 'runActionOutputs', webhookCmd: a.webhookCmd, obsCmd: a.obsCmd, sbCmd: a.sbCmd });
+    addEvent(`⚡ Prueba: ${esc(a.name || a.keys || 'acción')}${a.keys ? ' → ' + esc(a.keys) : ''}`, 'ok');
+  }, ACC_TEST_DELAY * 1000);
+}
+
+const ACC_EVENT_LABELS = {
+  'gift-any': '💎 Cantidad diamantes',
+  gift: '🎁 Regalo específico',
+  like: '❤️ Likes (por usuario)',
+  likeGlobal: '❤️ Likes globales',
+  share: '🔁 Compartida',
+  subscribe: '⭐ Nuevo suscriptor',
+  superFan: '🌟 Super fan',
+  follow: '➕ Nuevo seguidor',
+  levelUp: '⬆️ Subió de nivel de miembro',
+  emote: '😀 Sticker / emote',
+};
+// Miniatura de la tarjeta: imagen subida si la hay; si no, el icono del regalo (para
+// eventos de regalo) o un emoji acorde al evento (likes, seguidor, super fan…).
+const ACC_THUMB_EMOJI = {
+  'gift-any': '🎁', gift: '🎁', like: '❤️', likeGlobal: '❤️',
+  share: '🔁', subscribe: '⭐', superFan: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀',
+};
+function accThumbHTML(a) {
+  if (a.image) return `<div class="acc-thumb" style="background-image:url('${esc(a.image)}')"></div>`;
+  const ev = a.event || 'gift-any';
+  if (ev === 'gift' && (a.giftId || a.giftName)) {
+    const g = a.giftId ? giftCatalogById.get(String(a.giftId))
+      : giftCatalog.find((x) => x.name.toLowerCase() === String(a.giftName).toLowerCase());
+    const img = g?.image || a.giftImage || '';
+    if (img) return `<div class="acc-thumb"><img class="acc-thumb-img" src="${esc(img)}" onerror="this.parentElement.textContent='🎁'"></div>`;
+  }
+  return `<div class="acc-thumb">${ACC_THUMB_EMOJI[ev] || '⚡'}</div>`;
+}
+
+function accEventLabel(a) {
+  const ev = a.event || 'gift-any';
+  if (ev === 'gift' && (a.giftName || a.giftId)) {
+    const g = a.giftId ? giftCatalogById.get(String(a.giftId))
+      : giftCatalog.find((x) => x.name.toLowerCase() === String(a.giftName).toLowerCase());
+    const img = g?.image || a.giftImage || '';
+    const icon = img ? `<img class="gift-pick-ic" src="${esc(img)}" onerror="this.outerHTML='🎁'">` : '🎁';
+    return `${icon} ${esc(a.giftName || g?.name || '')}`;
+  }
+  if (ev === 'gift-any' && (a.rangeMin || a.rangeMax)) return `💎 ${a.rangeMin || 0}${a.rangeMax ? ' – ' + a.rangeMax : '+'}`;
+  if (ev === 'like' && a.likeMin > 1) return `❤️ Desde ${a.likeMin} likes`;
+  if (ev === 'likeGlobal' && a.likeGoal) return `❤️ Cada ${a.likeGoal} likes`;
+  if (ev === 'emote' && a.emoteId) return `😀 Sticker ${esc(a.emoteId)}`;
+  return ACC_EVENT_LABELS[ev] || ev;
+}
+
+function renderAcciones() {
+  const grid = $('acc-grid');
+  if (!grid) return;
+  const list = (settings && settings.actions) || [];
+  for (const id of [...accSelected]) if (!list.find((a) => a.id === id)) accSelected.delete(id);
+  updateAccSelCount();
+
+  if (!list.length) {
+    grid.innerHTML = '<div class="acc-empty" id="acc-empty">Aún no tienes acciones. Pulsa <b>Crear nueva acción</b> para empezar.</div>';
+    return;
+  }
+  grid.innerHTML = list.map((a) => `
+    <div class="acc-card ${a.enabled !== false ? 'on' : ''}" data-id="${a.id}">
+      <div class="acc-top">
+        <label class="toggle">
+          <input type="checkbox" class="acc-toggle" ${a.enabled !== false ? 'checked' : ''}>
+          <span class="track"></span>
+          <span class="state">${a.enabled !== false ? 'ON' : 'OFF'}</span>
+        </label>
+        <input type="checkbox" class="sa-sel" ${accSelected.has(a.id) ? 'checked' : ''} title="Seleccionar">
+      </div>
+      ${accThumbHTML(a)}
+      <div class="acc-name">${esc(a.name || 'Acción')}</div>
+      <div class="acc-meta">
+        <span class="acc-chip">${accEventLabel(a)}</span>
+        <span class="acc-chip key">⌨️ ${esc(a.keys || '—')}</span>
+      </div>
+      <div class="acc-card-btns">
+        <button class="btn ghost acc-edit">✏️ Editar</button>
+        <button class="btn ghost acc-try">▶ Probar</button>
+      </div>
+    </div>`).join('');
+
+  grid.querySelectorAll('.acc-card').forEach((card) => {
+    const id = card.dataset.id;
+    const a = list.find((x) => x.id === id);
+    if (!a) return;
+    card.querySelector('.acc-toggle').onchange = (e) => { a.enabled = e.target.checked; saveSettings(); renderAcciones(); };
+    card.querySelector('.sa-sel').onchange = (e) => { e.target.checked ? accSelected.add(id) : accSelected.delete(id); updateAccSelCount(); };
+    card.querySelector('.acc-edit').onclick = () => openAccModal(a);
+    card.querySelector('.acc-try').onclick = () => scheduleActionTest(a);
+  });
+}
+
+function updateAccSelCount() {
+  const c = $('acc-selcount');
+  if (c) c.textContent = accSelected.size;
+  const del = $('acc-del');
+  if (del) del.disabled = accSelected.size === 0;
+}
+
+function accBind(id, fn, ev = 'onclick') {
+  const el = $(id);
+  if (!el) return false;
+  if (ev === 'onchange') el.onchange = fn;
+  else el.onclick = fn;
+  return true;
+}
+
+function setupAccionesUI() {
+  if (!accBind('acc-new', () => {
+    if (!ensureCanAdd('actions', 'actions', 'acciones')) return;
+    openAccModal(null);
+  })) return;
+  accBind('acc-del', async () => {
+    if (!accSelected.size) return;
+    const ok = await askConfirm({ title: 'Eliminar acciones', message: `Se eliminarán ${accSelected.size} acción(es).` });
+    if (!ok) return;
+    settings.actions = (settings.actions || []).filter((a) => !accSelected.has(a.id));
+    accSelected.clear();
+    saveSettings(); renderAcciones();
+  });
+  accBind('acc-cancel', closeAccModal);
+  accBind('acc-cancel2', closeAccModal);
+  const accModal = $('accModal');
+  if (accModal) accModal.addEventListener('click', (e) => { if (e.target.id === 'accModal') closeAccModal(); });
+  accBind('acc-event', applyAccEventExtras, 'onchange');
+  accBind('acc-giftpick', () => openGiftModalCb((g) => {
+    $('acc-giftid').value = g.id || '';
+    $('acc-giftname').value = g.name || '';
+    accPendingGiftImage = g.image || '';
+    $('acc-giftpick').innerHTML = giftBtnHTML(g.name, g.id);
+  }));
+  accBind('acc-emotepick', () => openEmoteModal('acc'));
+  accBind('acc-keys-on', () => {
+    const on = $('acc-keys-on').checked;
+    $('acc-keys-box').hidden = !on;
+    if (on && !$('acc-keys').value.trim()) openKeyboardModal();
+  });
+  accBind('acc-keypick', openKeyboardModal);
+  accBind('acc-keyclear', () => { $('acc-keys').value = ''; accPendingGameCompat = false; });
+  accBind('acc-imgbtn', () => $('acc-imgfile')?.click());
+  const imgFile = $('acc-imgfile');
+  if (imgFile) imgFile.addEventListener('change', (e) => uploadAccImage(e.target.files[0]));
+  accBind('acc-soundon', () => {
+    const on = $('acc-soundon').checked;
+    $('acc-soundbox').hidden = !on;
+    $('acc-volrow').hidden = !(on && accPendingSound);
+    if (on && !accPendingSound) { soundPickTarget = 'action'; openSoundLib(); }
+  });
+  accBind('acc-soundpick', () => { soundPickTarget = 'action'; openSoundLib(); });
+  accBind('acc-soundclear', () => {
+    accPendingSound = null;
+    $('acc-soundname').textContent = 'Ningún audio…';
+    $('acc-volrow').hidden = true;
+  });
+  const volEl = $('acc-soundvol');
+  if (volEl) volEl.addEventListener('input', () => { $('acc-soundvolval').textContent = volEl.value + '%'; });
+  // Salidas extra: WebHook / OBS / Streamer.bot.
+  accBind('acc-wh-on', () => { $('acc-wh-box').hidden = !$('acc-wh-on').checked; });
+  accBind('acc-obs-on', () => { $('acc-obs-box').hidden = !$('acc-obs-on').checked; });
+  accBind('acc-sb-on', () => { $('acc-sb-box').hidden = !$('acc-sb-on').checked; });
+  accBind('acc-obs-type', applyObsCmdExtras, 'onchange');
+  accBind('acc-test', () => scheduleActionTest({
+    name: $('acc-name').value.trim() || 'Prueba',
+    keys: $('acc-keys-on').checked ? $('acc-keys').value.trim() : '',
+    gameCompat: accPendingGameCompat,
+    sound: $('acc-soundon').checked && accPendingSound ? accPendingSound.url : '',
+    soundVolume: Math.max(0, Math.min(1, (+$('acc-soundvol').value || 100) / 100)),
+    webhookCmd: readAccWebhookCmd(),
+    obsCmd: readAccObsCmd(),
+    sbCmd: readAccSbCmd(),
+  }));
+  accBind('acc-save', saveAccModal);
+  setupKeyboardModal();
+}
+
+let accPendingGiftImage = '';
+let accPendingSound = null;   // { url, name }
+
+function applyAccEventExtras() {
+  const ev = $('acc-event').value;
+  $('acc-giftanyextra').hidden = ev !== 'gift-any';
+  $('acc-giftextra').hidden = ev !== 'gift';
+  $('acc-likeextra').hidden = ev !== 'like';
+  $('acc-likeglobalextra').hidden = ev !== 'likeGlobal';
+  $('acc-emoteextra').hidden = ev !== 'emote';
+}
+
+// Muestra los campos de escena/fuente según el tipo de comando de OBS elegido.
+function applyObsCmdExtras() {
+  const t = $('acc-obs-type') ? $('acc-obs-type').value : 'scene';
+  const needsScene = t === 'scene';
+  const needsSource = t === 'toggleSource' || t === 'showSource' || t === 'hideSource';
+  if ($('acc-obs-scenewrap')) $('acc-obs-scenewrap').hidden = !needsScene;
+  if ($('acc-obs-sourcewrap')) $('acc-obs-sourcewrap').hidden = !needsSource;
+}
+
+function readAccWebhookCmd() {
+  return {
+    on: $('acc-wh-on').checked,
+    method: $('acc-wh-method').value || 'GET',
+    url: $('acc-wh-url').value.trim(),
+    body: $('acc-wh-body').value,
+  };
+}
+function readAccObsCmd() {
+  return {
+    on: $('acc-obs-on').checked,
+    type: $('acc-obs-type').value || 'scene',
+    scene: $('acc-obs-scene').value.trim(),
+    source: $('acc-obs-source').value.trim(),
+  };
+}
+function readAccSbCmd() {
+  return { on: $('acc-sb-on').checked, action: $('acc-sb-action').value.trim() };
+}
+
+function openAccModal(a) {
+  accEditingId = a ? a.id : null;
+  accPendingImage = a && a.image ? { url: a.image, name: 'imagen' } : null;
+  accPendingGiftImage = a ? (a.giftImage || '') : '';
+  accPendingGameCompat = a ? !!a.gameCompat : false;
+  $('acc-modal-title').textContent = a ? 'Editar acción' : 'Nueva acción';
+  $('acc-name').value = a ? (a.name || '') : '';
+  $('acc-event').value = a ? (a.event || 'gift-any') : 'gift-any';
+  $('acc-rangemin').value = a ? (a.rangeMin || 0) : 0;
+  $('acc-rangemax').value = a ? (a.rangeMax || 0) : 0;
+  $('acc-giftid').value = a ? (a.giftId || '') : '';
+  $('acc-giftname').value = a ? (a.giftName || '') : '';
+  $('acc-mindia').value = a ? (a.minDiamonds || 0) : 0;
+  $('acc-likemin').value = a ? (a.likeMin || 1) : 1;
+  $('acc-likegoal').value = a ? (a.likeGoal || 100) : 100;
+  $('acc-emoteid').value = a ? (a.emoteId || '') : '';
+  $('acc-keys').value = a ? (a.keys || '') : '';
+  $('acc-keys-on').checked = !!(a && a.keys);
+  $('acc-keys-box').hidden = !(a && a.keys);
+  $('acc-active').checked = a ? a.enabled !== false : true;
+  $('acc-giftpick').innerHTML = giftBtnHTML(a ? a.giftName : '', a ? a.giftId : '');
+  if (typeof updateEmotePickBtn === 'function') updateEmotePickBtn('acc');
+  $('acc-imgname').textContent = a && a.image ? 'Imagen actual' : 'Ninguna imagen…';
+  accPendingSound = a && a.sound ? { url: a.sound, name: a.soundName || 'audio' } : null;
+  $('acc-soundon').checked = !!(a && a.sound);
+  $('acc-soundbox').hidden = !(a && a.sound);
+  $('acc-soundname').textContent = a && a.sound ? (a.soundName || 'Audio actual') : 'Ningún audio…';
+  const vol = a && a.soundVolume != null ? Math.round(a.soundVolume * 100) : 100;
+  $('acc-soundvol').value = vol;
+  $('acc-soundvolval').textContent = vol + '%';
+  $('acc-volrow').hidden = !(a && a.sound);
+  // Salidas extra: WebHook / OBS / Streamer.bot.
+  const wh = (a && a.webhookCmd) || {};
+  $('acc-wh-on').checked = !!wh.on;
+  $('acc-wh-method').value = wh.method || 'GET';
+  $('acc-wh-url').value = wh.url || '';
+  $('acc-wh-body').value = wh.body || '';
+  $('acc-wh-box').hidden = !wh.on;
+  const ob = (a && a.obsCmd) || {};
+  $('acc-obs-on').checked = !!ob.on;
+  $('acc-obs-type').value = ob.type || 'scene';
+  $('acc-obs-scene').value = ob.scene || '';
+  $('acc-obs-source').value = ob.source || '';
+  $('acc-obs-box').hidden = !ob.on;
+  const sb = (a && a.sbCmd) || {};
+  $('acc-sb-on').checked = !!sb.on;
+  $('acc-sb-action').value = sb.action || '';
+  $('acc-sb-box').hidden = !sb.on;
+  applyObsCmdExtras();
+  $('acc-status').textContent = '';
+  applyAccEventExtras();
+  $('accModal').classList.remove('hidden');
+}
+
+function closeAccModal() {
+  $('accModal').classList.add('hidden');
+}
+
+function saveAccModal() {
+  const keys = $('acc-keys-on').checked ? $('acc-keys').value.trim() : '';
+  const webhookCmd = readAccWebhookCmd();
+  const obsCmd = readAccObsCmd();
+  const sbCmd = readAccSbCmd();
+  const hasOutput = (webhookCmd.on && webhookCmd.url) || obsCmd.on || (sbCmd.on && sbCmd.action);
+  if (!keys && !hasOutput) {
+    $('acc-status').textContent = 'Elige una tecla/clic o activa una salida (WebHook, OBS o Streamer.bot).';
+    return;
+  }
+  const data = {
+    name: $('acc-name').value.trim() || 'Acción',
+    event: $('acc-event').value,
+    rangeMin: +$('acc-rangemin').value || 0,
+    rangeMax: +$('acc-rangemax').value || 0,
+    giftId: $('acc-giftid').value || '',
+    giftName: $('acc-giftname').value || '',
+    giftImage: accPendingGiftImage || '',
+    minDiamonds: +$('acc-mindia').value || 0,
+    likeMin: +$('acc-likemin').value || 1,
+    likeGoal: +$('acc-likegoal').value || 100,
+    emoteId: $('acc-emoteid').value || '',
+    keys,
+    gameCompat: !!accPendingGameCompat,
+    image: accPendingImage ? accPendingImage.url : '',
+    sound: $('acc-soundon').checked && accPendingSound ? accPendingSound.url : '',
+    soundName: $('acc-soundon').checked && accPendingSound ? accPendingSound.name : '',
+    soundVolume: Math.max(0, Math.min(1, (+$('acc-soundvol').value || 100) / 100)),
+    enabled: $('acc-active').checked,
+    webhookCmd, obsCmd, sbCmd,
+  };
+  if (!settings.actions) settings.actions = [];
+  if (accEditingId) {
+    const a = settings.actions.find((x) => x.id === accEditingId);
+    if (a) Object.assign(a, data);
+  } else {
+    settings.actions.push({ id: 'act' + Date.now(), ...data });
+  }
+  saveSettings();
+  renderAcciones();
+  closeAccModal();
+}
+
+/* ============ Teclado en pantalla (modal kbModal) ============ */
+// Distribución del teclado. Cada tecla: [etiqueta, código, tipo?]
+// tipo: 'mod' (modificador) | undefined (tecla normal). El código es el token que
+// entiende la app .exe (ver toNutKey en desktop/main.js).
+const KB_LAYOUT = [
+  ['Esc:Escape', 'F1:F1', 'F2:F2', 'F3:F3', 'F4:F4', 'F5:F5', 'F6:F6', 'F7:F7', 'F8:F8', 'F9:F9', 'F10:F10', 'F11:F11', 'F12:F12'],
+  ['|:Backslash', '1:1', '2:2', '3:3', '4:4', '5:5', '6:6', '7:7', '8:8', '9:9', '0:0', '-:Minus', '+:Equal', 'Backspace:Backspace@w2'],
+  ['Tab:Tab@w15', 'Q:Q', 'W:W', 'E:E', 'R:R', 'T:T', 'Y:Y', 'U:U', 'I:I', 'O:O', 'P:P', '{:LeftBracket', '}:RightBracket'],
+  ['Mayus:CapsLock@mod', 'A:A', 'S:S', 'D:D', 'F:F', 'G:G', 'H:H', 'J:J', 'K:K', 'L:L', ':;:Semicolon', "':Quote", 'Enter:Return@w15'],
+  ['Shift:Shift@mod', 'Z:Z', 'X:X', 'C:C', 'V:V', 'B:B', 'N:N', 'M:M', ',:Comma', '.:Period', '/:Slash'],
+  ['Ctrl:Ctrl@mod', 'Win:Win@mod', 'Alt:Alt@mod', 'SPACE:Space@space', 'Ctrl:Ctrl@mod'],
+];
+// Bloque de navegación + flechas (se muestra a la derecha).
+const KB_NAV = [
+  ['Insert:Insert', 'Home:Home', 'Pg Up:PageUp'],
+  ['Delete:Delete', 'End:End', 'Pg Dn:PageDown'],
+  ['↑:Up'],
+  ['←:Left', '↓:Down', '→:Right'],
+];
+
+// Estado de selección del teclado.
+let kbMods = [];      // modificadores activos en orden
+let kbMain = '';      // tecla principal o clic/texto (código)
+let kbMainLabel = ''; // etiqueta legible
+let kbText = '';      // texto literal (si tipo texto)
+let kbManualCapturing = false;
+let kbManualHandler = null;
+
+const KEY_EVENT_TO_KB = {
+  ' ': 'Space', Enter: 'Return', Escape: 'Escape', Tab: 'Tab', Backspace: 'Backspace',
+  Delete: 'Delete', Insert: 'Insert', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown',
+  ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', CapsLock: 'CapsLock',
+  ';': 'Semicolon', "'": 'Quote', ',': 'Comma', '.': 'Period', '/': 'Slash', '\\': 'Backslash',
+  '[': 'LeftBracket', ']': 'RightBracket', '-': 'Minus', '=': 'Equal', '`': 'Grave',
+};
+for (let i = 1; i <= 12; i++) KEY_EVENT_TO_KB['F' + i] = 'F' + i;
+
+const KB_CHAR_PALETTE = [
+  '!', '@', '#', '$', '%', '&', '*', '(', ')', '-', '_', '=', '+',
+  '[', ']', '{', '}', '|', ';', ':', "'", '"', ',', '.', '<', '>', '/', '?', '\\', '`', '~',
+  'ñ', 'á', 'é', 'í', 'ó', 'ú', 'ü', '¿', '¡', 'Ñ', 'Á', 'É', 'Í', 'Ó', 'Ú', 'Ü',
+];
+
+function syncKbTextInput() {
+  const ti = $('kb-textinput');
+  if (ti) ti.value = kbText || '';
+  kbMainLabel = `Texto: ${kbText}`;
+}
+function appendKbChar(ch) {
+  stopKbManualCapture();
+  if (kbMain !== 'TEXT') {
+    kbMods = [];
+    kbMain = 'TEXT';
+    toggleKbTextMode(true);
+  }
+  kbText = (kbText || '') + ch;
+  syncKbTextInput();
+  refreshKeyboardUI();
+}
+function startKbCharsMode() {
+  stopKbManualCapture();
+  kbMods = [];
+  kbMain = 'TEXT';
+  kbMainLabel = `Texto: ${kbText}`;
+  toggleKbTextMode(true);
+  refreshKeyboardUI();
+  $('kb-chars')?.classList.add('active');
+  setTimeout(() => $('kb-textinput')?.focus(), 0);
+}
+function renderKbCharpad() {
+  const pad = $('kb-charpad');
+  if (!pad || pad.dataset.built) return;
+  KB_CHAR_PALETTE.forEach((ch) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'kb-char';
+    b.textContent = ch;
+    b.title = `Añadir "${ch}"`;
+    b.onclick = () => appendKbChar(ch);
+    pad.appendChild(b);
+  });
+  pad.dataset.built = '1';
+}
+
+function keyEventToKbCode(e) {
+  if (KEY_EVENT_TO_KB[e.key]) return KEY_EVENT_TO_KB[e.key];
+  if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) return e.key.toUpperCase();
+  if (e.key.length === 1 && /[0-9]/.test(e.key)) return e.key;
+  return e.key;
+}
+function keyEventToKbLabel(e, code) {
+  if (code === 'Return') return 'Enter';
+  if (code === 'CapsLock') return 'Mayus';
+  if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) return e.key.toUpperCase();
+  return code;
+}
+function stopKbManualCapture() {
+  kbManualCapturing = false;
+  if (kbManualHandler) {
+    document.removeEventListener('keydown', kbManualHandler, true);
+    kbManualHandler = null;
+  }
+  $('kb-manual')?.classList.remove('capturing');
+  $('kbModal')?.classList.remove('kb-listening');
+  $('kb-keyboard')?.classList.remove('kb-listening');
+}
+function startKbManualCapture() {
+  if (kbManualCapturing) return;
+  kbManualCapturing = true;
+  $('kb-manual')?.classList.add('capturing');
+  $('kbModal')?.classList.add('kb-listening');
+  $('kb-keyboard')?.classList.add('kb-listening');
+  const prev = $('kb-preview');
+  if (prev) prev.innerHTML = '<span class="kb-listening-msg">⌨️ Pulsa una tecla… (Esc para cancelar)</span>';
+  kbManualHandler = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape') { stopKbManualCapture(); refreshKeyboardUI(); return; }
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+    kbMods = [];
+    if (e.ctrlKey) kbMods.push('Ctrl');
+    if (e.shiftKey) kbMods.push('Shift');
+    if (e.altKey) kbMods.push('Alt');
+    if (e.metaKey) kbMods.push('Win');
+    const code = keyEventToKbCode(e);
+    kbMain = code;
+    kbMainLabel = keyEventToKbLabel(e, code);
+    kbText = '';
+    toggleKbTextMode(false);
+    stopKbManualCapture();
+    refreshKeyboardUI();
+  };
+  document.addEventListener('keydown', kbManualHandler, true);
+}
+
+function setupKeyboardModal() {
+  if (!$('kbModal') || !$('kb-keyboard')) return;
+  renderKeyboard();
+  renderKbCharpad();
+  accBind('kb-close', () => { stopKbManualCapture(); $('kbModal').classList.add('hidden'); });
+  accBind('kb-discard', () => { stopKbManualCapture(); $('kbModal').classList.add('hidden'); });
+  accBind('kb-manual', startKbManualCapture);
+  accBind('kb-chars', startKbCharsMode);
+  accBind('kb-char-space', () => appendKbChar(' '));
+  accBind('kb-char-back', () => {
+    if (kbMain !== 'TEXT') return;
+    kbText = (kbText || '').slice(0, -1);
+    syncKbTextInput();
+    refreshKeyboardUI();
+  });
+  accBind('kb-char-clear', () => {
+    if (kbMain !== 'TEXT') return;
+    kbText = '';
+    syncKbTextInput();
+    refreshKeyboardUI();
+  });
+  const kbModal = $('kbModal');
+  if (kbModal) kbModal.addEventListener('click', (e) => { if (e.target.id === 'kbModal') $('kbModal').classList.add('hidden'); });
+  accBind('kb-apply', () => {
+    stopKbManualCapture();
+    const combo = kbCombo();
+    if (!combo) { toast('Elige una tecla o clic.', 'warn'); return; }
+    $('acc-keys').value = combo;
+    if ($('acc-keys-on')) { $('acc-keys-on').checked = true; if ($('acc-keys-box')) $('acc-keys-box').hidden = false; }
+    accPendingGameCompat = $('kb-gamecompat').checked;
+    $('kbModal').classList.add('hidden');
+  });
+  accBind('kb-test', () => scheduleActionTest({ name: 'Prueba', keys: kbCombo(), gameCompat: $('kb-gamecompat').checked }));
+
+  // Botones de mouse y texto.
+  document.querySelectorAll('#kbModal .kb-action').forEach((btn) => {
+    btn.onclick = () => {
+      const kind = btn.dataset.kind;
+      if (kind === 'text') {
+        if (kbMain === 'TEXT') {
+          kbMain = ''; kbMainLabel = ''; kbText = '';
+          toggleKbTextMode(false);
+        } else {
+          startKbCharsMode();
+        }
+      } else if (kbMain === btn.dataset.code) {
+        // Clic de nuevo sobre el mismo: lo deselecciona.
+        kbMain = ''; kbMainLabel = '';
+        toggleKbTextMode(false);
+      } else {
+        kbMods = []; kbMain = btn.dataset.code; kbMainLabel = btn.textContent;
+        toggleKbTextMode(false);
+      }
+      refreshKeyboardUI();
+    };
+  });
+
+  // Campo de texto: al escribir, actualiza la combinación y la vista previa.
+  const ti = $('kb-textinput');
+  if (ti) ti.addEventListener('input', () => {
+    kbText = ti.value;
+    if (kbMain === 'TEXT') kbMainLabel = `Texto: ${kbText}`;
+    refreshKeyboardUI();
+  });
+}
+
+function toggleKbTextMode(show) {
+  const row = $('kb-textrow');
+  const crows = $('kb-charsrow');
+  if (row) row.hidden = !show;
+  if (crows) crows.hidden = !show;
+  if (show) {
+    const ti = $('kb-textinput');
+    if (ti) { ti.value = kbText || ''; setTimeout(() => ti.focus(), 0); }
+  } else {
+    $('kb-chars')?.classList.remove('active');
+  }
+}
+
+function renderKeyboard() {
+  const root = $('kb-keyboard');
+  if (!root || root.dataset.built) return;
+  const main = document.createElement('div');
+  main.className = 'kb-main';
+  main.style.cssText = 'display:flex;gap:10px;align-items:flex-start;min-width:0';
+  const left = document.createElement('div');
+  left.style.cssText = 'flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:5px';
+  left.append(...KB_LAYOUT.map(buildKbRow));
+  const right = document.createElement('div');
+  right.style.cssText = 'flex:0 0 150px;width:150px;display:flex;flex-direction:column;gap:5px';
+  right.append(...KB_NAV.map(buildKbRow));
+  main.append(left, right);
+  root.appendChild(main);
+  root.dataset.built = '1';
+}
+
+function buildKbRow(keys) {
+  const row = document.createElement('div');
+  row.className = 'kb-row';
+  for (const spec of keys) {
+    const [label, rest] = spec.split(':');
+    const [code, flag] = (rest || '').split('@');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'kb-key';
+    if (flag === 'mod') b.classList.add('mod');
+    else if (flag === 'space') b.classList.add('kb-space');
+    else if (flag === 'w2') b.classList.add('kb-w2');
+    else if (flag === 'w15') b.classList.add('kb-w15');
+    b.textContent = label;
+    b.dataset.code = code;
+    b.dataset.mod = flag === 'mod' ? '1' : '';
+    b.onclick = () => onKbKey(code, label, flag === 'mod');
+    row.appendChild(b);
+  }
+  return row;
+}
+
+function onKbKey(code, label, isMod) {
+  if (isMod) {
+    // Normaliza Ctrl/Shift/Alt/Win (puede haber dos Ctrl).
+    const i = kbMods.indexOf(code);
+    if (i >= 0) kbMods.splice(i, 1); else kbMods.push(code);
+  } else if (kbMain === code) {
+    // Clic de nuevo sobre la tecla ya elegida: la deselecciona.
+    kbMain = ''; kbMainLabel = ''; kbText = '';
+  } else {
+    kbMain = code; kbMainLabel = label; kbText = '';
+  }
+  toggleKbTextMode(false);
+  $('kb-chars')?.classList.remove('active');
+  refreshKeyboardUI();
+}
+
+// Construye la cadena final: "Ctrl + Shift + A", "LeftClick" o "Texto: hola".
+function kbCombo() {
+  if (kbMain === 'TEXT') return `Texto: ${kbText}`;
+  if (!kbMain) return kbMods.join(' + '); // solo modificadores (raro, pero válido)
+  if (['LeftClick', 'MiddleClick', 'RightClick'].includes(kbMain)) return kbMain;
+  return [...kbMods, kbMain].filter(Boolean).join(' + ');
+}
+
+function refreshKeyboardUI() {
+  document.querySelectorAll('#kb-keyboard .kb-key').forEach((b) => {
+    const code = b.dataset.code;
+    b.classList.toggle('active', b.dataset.mod === '1' && kbMods.includes(code));
+    b.classList.toggle('sel', b.dataset.mod !== '1' && code === kbMain);
+  });
+  document.querySelectorAll('#kbModal .kb-action').forEach((b) => {
+    b.classList.toggle('sel', b.dataset.code === kbMain || (b.dataset.kind === 'text' && kbMain === 'TEXT'));
+  });
+  const prev = $('kb-preview');
+  if (!prev) return;
+  const combo = kbCombo();
+  if (!combo) { prev.innerHTML = '<span class="kb-empty">Toca una tecla, combinación o clic…</span>'; return; }
+  const parts = kbMain === 'TEXT' ? [kbMainLabel] : combo.split(' + ');
+  prev.innerHTML = parts.map((p, i) => `${i ? '<span class="kb-plus">+</span>' : ''}<span class="kb-chip">${esc(p)}</span>`).join('');
+}
+
+function openKeyboardModal() {
+  stopKbManualCapture();
+  // Prefill desde la combinación actual del campo acc-keys.
+  kbMods = []; kbMain = ''; kbMainLabel = ''; kbText = '';
+  const cur = ($('acc-keys').value || '').trim();
+  if (cur) {
+    const tm = cur.match(/^Texto:\s*([\s\S]*)$/i);
+    if (tm) { kbMain = 'TEXT'; kbText = tm[1]; kbMainLabel = `Texto: ${tm[1]}`; }
+    else if (['LeftClick', 'MiddleClick', 'RightClick'].includes(cur)) { kbMain = cur; kbMainLabel = cur; }
+    else {
+      const toks = cur.split('+').map((t) => t.trim()).filter(Boolean);
+      const MODS = ['Ctrl', 'Shift', 'Alt', 'Win', 'Meta'];
+      kbMods = toks.filter((t) => MODS.includes(t));
+      const m = toks.find((t) => !MODS.includes(t));
+      if (m) { kbMain = m; kbMainLabel = m; }
+    }
+  }
+  $('kb-gamecompat').checked = !!accPendingGameCompat;
+  toggleKbTextMode(kbMain === 'TEXT');
+  if (kbMain === 'TEXT') $('kb-chars')?.classList.add('active');
+  else $('kb-chars')?.classList.remove('active');
+  refreshKeyboardUI();
+  $('kbModal').classList.remove('hidden');
+}
+
+async function uploadAccImage(file) {
+  if (!file) return;
+  const label = $('acc-imgname');
+  label.textContent = 'Subiendo…';
+  try {
+    const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
+    const data = await res.json();
+    if (!data.url) throw new Error(data.error || 'error');
+    accPendingImage = { url: data.url, name: file.name };
+    label.textContent = file.name;
+  } catch {
+    label.textContent = 'Error al subir';
+  }
+}
+
+// Llega del servidor cuando un evento del live dispara una acción (o al pulsar "Probar").
+function onKeyAction(p) {
+  if (!p || !p.keys) return;
+  const times = Math.max(1, Number(p.times) || 1);
+  if (IS_DESKTOP && window.desktopAPI?.pressKeys) {
+    // Si mandan varios regalos, pulsamos la tecla una vez por cada uno (el proceso
+    // nativo las ejecuta en serie para que no se solapen).
+    window.desktopAPI.pressKeys(p.keys, { gameCompat: !!p.gameCompat, times });
+  }
+  if (p.sound) { try { const au = new Audio(p.sound); au.volume = p.soundVolume != null ? p.soundVolume : 1; au.play().catch(() => {}); } catch {} }
+  addEvent(`⚡ Acción: ${esc(p.name || p.keys)} → ${esc(p.keys)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+}
+
+// En modo relay, la nube manda órdenes locales. Mario/PvZ van al módulo de juegos;
+// el resto (RCON, OBS, teclas…) al proceso principal de Electron.
+function onLocalExec(exec) {
+  if (!exec || !exec.tipo) return;
+  if (/^(MARIO_|PVZ_)/.test(exec.tipo)) {
+    execGameLocal(exec);
+    return;
+  }
+  if (IS_DESKTOP && window.desktopAPI?.localExec) {
+    window.desktopAPI.localExec(exec);
+  }
 }
 
 /* ====================== Importar / Exportar (pestaña Panel) ====================== */
@@ -4127,18 +5348,32 @@ function setupSettingsTransfer() {
     statusEl.className = 'transfer-status' + (kind ? ' ' + kind : '');
   }
 
-  expBtn.onclick = () => {
+  function downloadBackup(out) {
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `livecoins-backup-${window.MY_USER || 'panel'}-${Date.now()}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 500);
+  }
+
+  expBtn.onclick = async () => {
     if (!settings) { setStatus('Aún no hay ajustes cargados.', 'err'); return; }
     try {
-      const blob = new Blob(
-        [JSON.stringify(window.SettingsTransfer.exportSettings(settings, { skipActions: !isDesktop }), null, 2)],
-        { type: 'application/json' },
-      );
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `livecoins-backup-${window.MY_USER || 'panel'}-${Date.now()}.json`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 500);
+      const out = window.SettingsTransfer.exportSettings(settings, { skipActions: !isDesktop });
+      // En el .exe incluimos TODOS los perfiles para poder restaurarlos completos.
+      if (isDesktop) {
+        try {
+          const full = await requestProfilesFull(2500);
+          if (full && Array.isArray(full.slots)) {
+            out.profiles = full.slots.map((s, i) => ({
+              name: (full.names && full.names[i]) || `Perfil ${i + 1}`,
+              data: s ? window.SettingsTransfer.exportSettings(s, { skipActions: false }).data : null,
+            }));
+          }
+        } catch {}
+      }
+      downloadBackup(out);
       setStatus('Exportación descargada.', 'ok');
       toast('Configuración exportada.', 'ok');
     } catch (e) {
@@ -4155,10 +5390,29 @@ function setupSettingsTransfer() {
     setStatus('Importando…');
     try {
       const text = await file.text();
-      const { patch, counts, format } = window.SettingsTransfer.parseFile(text);
+      const result = window.SettingsTransfer.parseFile(text);
+      const { counts, format } = result;
       const replace = !!$('transfer-replace')?.checked;
       const mode = replace ? 'replace' : 'merge';
 
+      // Archivo con varios perfiles (solo .exe): se restauran TODOS en sus ranuras.
+      if (result.multi && Array.isArray(result.profiles)) {
+        if (!isDesktop) {
+          setStatus('Este archivo tiene varios perfiles; impórtalo desde la app de escritorio.', 'err');
+          return;
+        }
+        const profiles = result.profiles.map((p) => ({
+          name: p.name || '',
+          settings: p.settings || null,
+        }));
+        importProfilesReq(profiles, mode);
+        const summary = window.SettingsTransfer.summarize(counts);
+        setStatus(`Importado (${mode === 'replace' ? 'reemplazo' : 'añadir'}): ${summary}.`, 'ok');
+        toast(`Importado: ${summary}`, 'ok');
+        return;
+      }
+
+      const patch = result.patch;
       if (replace && !isDesktop && patch.actions) delete patch.actions;
 
       const merged = window.SettingsTransfer.applyPatch(settings || {}, patch, mode);
@@ -4176,6 +5430,2809 @@ function setupSettingsTransfer() {
       toast(String(e.message || e), 'warn');
     }
   });
+}
+
+/* ====================== Perfiles del panel (solo .exe) ====================== */
+let profilesState = null;
+let profilesFullWaiters = [];
+
+function onProfiles(p) {
+  profilesState = p || null;
+  renderProfilesList();
+}
+
+function onProfilesFull(p) {
+  const waiters = profilesFullWaiters;
+  profilesFullWaiters = [];
+  waiters.forEach((w) => { clearTimeout(w.timer); w.resolve(p); });
+}
+
+// Los perfiles los gestiona el servidor (local en modo clásico, o la nube en modo
+// relay). Siempre se piden/actualizan por WebSocket; el servidor responde con la lista.
+function requestProfiles() { send({ action: 'getProfiles' }); }
+
+// Pide al servidor TODOS los perfiles con sus ajustes (para exportarlos completos).
+function requestProfilesFull(timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      profilesFullWaiters = profilesFullWaiters.filter((w) => w.timer !== timer);
+      reject(new Error('timeout'));
+    }, timeoutMs || 2500);
+    profilesFullWaiters.push({ resolve, timer });
+    send({ action: 'getProfilesFull' });
+  });
+}
+
+function switchProfileReq(index) { send({ action: 'switchProfile', index }); }
+function renameProfileReq(index, name) { send({ action: 'renameProfile', index, name }); }
+function importProfilesReq(profiles, mode) { send({ action: 'importProfiles', profiles, mode }); }
+
+function renderProfilesList() {
+  const list = $('profilesList');
+  if (!list || !profilesState) return;
+  const escAttr = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const { active, count, names, used } = profilesState;
+  const max = Number(profilesState.max) > 0 ? Number(profilesState.max) : count;
+  list.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const isActive = i === active;
+    const hasData = !!(used && used[i]);
+    const locked = i >= max;
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'profile-row' + (isActive ? ' active' : '') + (locked ? ' locked' : '');
+    row.dataset.index = String(i);
+    const name = (names && names[i]) || `Perfil ${i + 1}`;
+    const empty = !hasData && !isActive ? ' <span class="pr-empty">(vacío)</span>' : '';
+    if (locked) {
+      row.innerHTML = `<span class="pr-check">🔒</span>`
+        + `<span class="pr-name">${escAttr(name)} <span class="pr-empty">(premium)</span></span>`;
+    } else {
+      row.innerHTML = `<span class="pr-check">${isActive ? '✓' : ''}</span>`
+        + `<span class="pr-name">${escAttr(name)}${empty}</span>`
+        + `<span class="pr-edit" title="Renombrar">✎</span>`;
+    }
+    row.addEventListener('click', (ev) => {
+      if (locked) { toast && toast('Mejora a Premium para usar más perfiles'); return; }
+      if (ev.target.closest('.pr-edit')) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        startRenameProfile(i, name, row);
+        return;
+      }
+      if (ev.target.closest('.pr-rename-input')) return; // editando: no cambiar de perfil
+      if (i !== active) switchProfileReq(i);
+      closeProfilesPop();
+    });
+    list.appendChild(row);
+  }
+}
+
+// Edición del nombre EN LÍNEA (window.prompt no funciona en Electron). Convierte el
+// nombre del perfil en un campo de texto; guarda con Enter o al perder el foco.
+function startRenameProfile(i, current, row) {
+  const nameEl = row.querySelector('.pr-name');
+  if (!nameEl) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'pr-rename-input';
+  input.value = current || `Perfil ${i + 1}`;
+  input.maxLength = 40;
+  let committed = false;
+  const commit = (save) => {
+    if (committed) return;
+    committed = true;
+    if (save) renameProfileReq(i, input.value.trim());
+    renderProfilesList();
+  };
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+  });
+  input.addEventListener('blur', () => commit(true));
+  nameEl.replaceWith(input);
+  const edit = row.querySelector('.pr-edit');
+  if (edit) edit.style.visibility = 'hidden';
+  setTimeout(() => { input.focus(); input.select(); }, 0);
+}
+
+function openProfilesPop() {
+  const pop = $('profilesPop');
+  const wrap = pop && pop.closest('.brand-wrap');
+  if (!pop || !wrap) return;
+  pop.hidden = false;
+  wrap.classList.add('open');
+  requestProfiles();
+}
+function closeProfilesPop() {
+  const pop = $('profilesPop');
+  const wrap = pop && pop.closest('.brand-wrap');
+  if (!pop || !wrap) return;
+  pop.hidden = true;
+  wrap.classList.remove('open');
+}
+
+function setupProfiles() {
+  const btn = $('brandBtn');
+  const pop = $('profilesPop');
+  if (!btn || !pop) return;
+  btn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (pop.hidden) openProfilesPop(); else closeProfilesPop();
+  });
+  document.addEventListener('click', (ev) => {
+    if (pop.hidden) return;
+    if (!ev.target.closest('.brand-wrap')) closeProfilesPop();
+  });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeProfilesPop(); });
+  requestProfiles();
+}
+
+/* ====================== Spotify (solo .exe · admin / albertoyt) ====================== */
+const SPOTIFY_DEFAULTS = {
+  playOn: true, playCost: 0, skipOn: true, skipCost: 0,
+  skipRequested: true, explicit: true, queueTotal: 2, queueUser: 2,
+  overlayPermanent: true, permAll: false, permSubs: true, permMods: true,
+};
+const SPOTIFY_MAP = {
+  'sp-play-on': 'playOn', 'sp-play-cost': 'playCost', 'sp-skip-on': 'skipOn',
+  'sp-skip-cost': 'skipCost', 'sp-skip-requested': 'skipRequested', 'sp-explicit': 'explicit',
+  'sp-queue-total': 'queueTotal', 'sp-queue-user': 'queueUser', 'sp-overlay-perm': 'overlayPermanent',
+  'sp-perm-all': 'permAll', 'sp-perm-subs': 'permSubs', 'sp-perm-mods': 'permMods',
+};
+const SPOTIFY_INT_KEYS = ['playCost', 'skipCost', 'queueTotal', 'queueUser'];
+
+function spotifyAllowed() {
+  return IS_DESKTOP && (window.IS_ADMIN || (window.MY_USER || '').toLowerCase() === 'albertoyt');
+}
+function revealSpotifyTab() {
+  const nav = document.getElementById('navSpotify');
+  if (nav) nav.style.display = spotifyAllowed() ? '' : 'none';
+}
+
+// Vuelca settings.spotify -> formulario.
+function applySpotifyUI() {
+  if (!settings) return;
+  const cfg = { ...SPOTIFY_DEFAULTS, ...(settings.spotify || {}) };
+  for (const [id, key] of Object.entries(SPOTIFY_MAP)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = !!cfg[key];
+    else el.value = cfg[key];
+  }
+}
+// Lee el formulario -> settings.spotify y guarda.
+function saveSpotifySettings() {
+  if (!settings) return;
+  const cfg = { ...SPOTIFY_DEFAULTS, ...(settings.spotify || {}) };
+  for (const [id, key] of Object.entries(SPOTIFY_MAP)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.type === 'checkbox') cfg[key] = el.checked;
+    else if (SPOTIFY_INT_KEYS.includes(key)) cfg[key] = Math.max(0, parseInt(el.value, 10) || 0);
+    else cfg[key] = el.value;
+  }
+  settings.spotify = cfg;
+  saveSettings();
+}
+
+async function refreshSpotifyStatus() {
+  const disc = document.getElementById('sp-disconnected');
+  const conn = document.getElementById('sp-connected');
+  const estado = document.getElementById('sp-estado');
+  try {
+    const r = await fetch('/api/spotify/status');
+    if (!r.ok) throw new Error('no-status');
+    const d = await r.json();
+    if (d.connected) {
+      if (disc) disc.hidden = true;
+      if (conn) conn.hidden = false;
+      const acc = document.getElementById('sp-account');
+      if (acc) acc.textContent = d.account || 'Spotify';
+      if (estado) {
+        estado.textContent = d.playing ? ('Reproduciendo: ' + (d.track || '—')) : 'Inicia Spotify y reproduce una playlist';
+        estado.className = 'sp-estado ' + (d.playing ? 'ok' : 'warn');
+      }
+    } else {
+      if (disc) disc.hidden = false;
+      if (conn) conn.hidden = true;
+      if (estado) { estado.textContent = 'Conecta tu cuenta de Spotify'; estado.className = 'sp-estado warn'; }
+    }
+  } catch {
+    // Backend de Spotify aún no disponible: deja el estado por defecto.
+    if (disc) disc.hidden = false;
+    if (conn) conn.hidden = true;
+    if (estado) { estado.textContent = 'Conecta tu cuenta de Spotify'; estado.className = 'sp-estado warn'; }
+  }
+}
+
+function renderSpotifyHistory(history) {
+  const body = document.getElementById('sp-history');
+  if (!body) return;
+  if (!Array.isArray(history) || !history.length) {
+    body.innerHTML = '<tr><td colspan="4" class="sp-nodata">Sin datos todavía</td></tr>';
+    return;
+  }
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  body.innerHTML = history.map((h) => {
+    const d = new Date(h.at || Date.now());
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `<tr><td>${time}</td><td>${esc(h.user)}</td><td>${esc(h.track)}</td><td>${esc(h.status)}</td></tr>`;
+  }).join('');
+}
+
+// Sondeo de respaldo tras pulsar "Iniciar sesión": comprueba el estado cada 1.2s
+// hasta que se conecte (o se agote). El aviso por postMessage suele llegar antes.
+let spotifyPollTimer = null;
+function stopSpotifyPolling() { if (spotifyPollTimer) { clearInterval(spotifyPollTimer); spotifyPollTimer = null; } }
+function startSpotifyPolling() {
+  stopSpotifyPolling();
+  let tries = 0;
+  spotifyPollTimer = setInterval(async () => {
+    tries++;
+    await refreshSpotifyStatus();
+    const conn = document.getElementById('sp-connected');
+    if ((conn && !conn.hidden) || tries > 40) stopSpotifyPolling();
+  }, 1200);
+}
+
+let spotifyWired = false;
+function setupSpotifyUI() {
+  if (spotifyWired) return;
+  spotifyWired = true;
+  const flashSaved = () => {
+    const msg = document.getElementById('sp-save-msg');
+    if (msg) { msg.textContent = '✓ Guardado'; clearTimeout(flashSaved._t); flashSaved._t = setTimeout(() => { msg.textContent = ''; }, 1500); }
+  };
+  // Guardado automático: cada campo guarda al modificarse.
+  let spSaveTimer = null;
+  const autoSave = () => { clearTimeout(spSaveTimer); spSaveTimer = setTimeout(() => { saveSpotifySettings(); flashSaved(); }, 300); };
+  for (const id of Object.keys(SPOTIFY_MAP)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', autoSave);
+  }
+  const login = document.getElementById('sp-login');
+  if (login) login.onclick = () => {
+    // Abre el flujo OAuth de Spotify (lo sirve el backend del .exe).
+    window.open('/api/spotify/login', 'spotify_login', 'width=520,height=720');
+    startSpotifyPolling();
+  };
+  // La ventana del callback (puerto 8888) avisa aquí en cuanto termina el login,
+  // así la conexión se detecta al instante sin esperar al sondeo.
+  window.addEventListener('message', (e) => {
+    if (e.data === 'spotify-connected') { stopSpotifyPolling(); refreshSpotifyStatus(); }
+  });
+  const logout = document.getElementById('sp-logout');
+  if (logout) logout.onclick = async () => {
+    try { await fetch('/api/spotify/logout', { method: 'POST' }); } catch {}
+    refreshSpotifyStatus();
+  };
+  // Botones "Copiar enlace" de las superposiciones (no están en .ovpro-card, así que
+  // no los cablea setupPotCards: los conectamos aquí).
+  document.querySelectorAll('#view-spotify .ovpro-urlrow').forEach((row) => {
+    const code = row.querySelector('.ov-url');
+    const btn = row.querySelector('.ovpro-copy, .ov-copy');
+    if (code && code.dataset.path) code.textContent = roomUrl(code.dataset.path);
+    if (btn && code) btn.onclick = () => {
+      const url = roomUrl(code.dataset.path);
+      const done = () => { btn.textContent = '¡Copiado!'; setTimeout(() => { btn.textContent = 'Copiar enlace'; }, 1200); };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
+      else fallbackCopy(url, done);
+    };
+  });
+  applySpotifyUI();
+  refreshSpotifyStatus();
+}
+
+// Copia de respaldo si el portapapeles del navegador no está disponible (foco, http, etc.).
+function fallbackCopy(text, done) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    if (done) done();
+  } catch {}
+}
+
+/* ====================== Webhook y Configuración (solo .exe) ====================== */
+// Mapa de campos de Configuración -> ruta en settings.webhook.
+const WEBHOOK_MAP = {
+  'wh-rcon-host': ['rcon', 'host'], 'wh-rcon-port': ['rcon', 'port'], 'wh-rcon-pass': ['rcon', 'password'],
+  'wh-obs-ip': ['obs', 'ip'], 'wh-obs-port': ['obs', 'port'], 'wh-obs-pass': ['obs', 'password'],
+  'wh-sb-address': ['streamerbot', 'address'], 'wh-sb-port': ['streamerbot', 'port'],
+  'wh-sb-endpoint': ['streamerbot', 'endpoint'], 'wh-sb-pass': ['streamerbot', 'password'],
+  'wh-stap-enabled': ['servertap', 'enabled'], 'wh-stap-player': ['servertap', 'playername'],
+  'wh-stap-ip': ['servertap', 'ip'], 'wh-stap-port': ['servertap', 'port'], 'wh-stap-key': ['servertap', 'key'],
+};
+const WEBHOOK_DEFAULTS = {
+  rcon: { host: '127.0.0.1', port: 25575, password: '' },
+  obs: { ip: '127.0.0.1', port: 4455, password: '' },
+  streamerbot: { address: '127.0.0.1', port: 8080, endpoint: '/', password: '' },
+  servertap: { ip: 'localhost', port: 4567, key: 'change_me', playername: '', enabled: false },
+};
+
+// La pestaña se MUESTRA en la app .exe a todos; el contenido se bloquea con un aviso
+// "Solo Premium" si el plan no la incluye (el admin siempre la tiene desbloqueada).
+function webhookAllowed() { return IS_DESKTOP; }
+function webhookUnlocked() { return window.IS_ADMIN || capFeature('tab_webhook'); }
+function revealWebhookTab() {
+  const nav = document.getElementById('navWebhook');
+  if (nav) nav.style.display = IS_DESKTOP ? '' : 'none';
+  applyWebhookLock();
+}
+// Pestaña Juegos: visible para todos en la app .exe (sin bloqueo por plan).
+function revealJuegosTab() {
+  const nav = document.getElementById('navJuegos');
+  if (nav) nav.style.display = IS_DESKTOP ? '' : 'none';
+}
+// Cambia a una vista por su id completo (sin pasar por los botones del menú).
+function showViewById(viewId) {
+  document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+  const view = document.getElementById(viewId);
+  if (view) view.classList.add('active');
+}
+// Conecta las tarjetas de juego: al pulsar abren su pestaña; el botón "Volver" regresa.
+function setupJuegosUI() {
+  document.querySelectorAll('#view-juegos .juego-card').forEach((card) => {
+    card.onclick = () => {
+      if (isGameLocked(card.dataset.game)) {
+        toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+        return;
+      }
+      showViewById('view-juego-' + card.dataset.game);
+    };
+  });
+  document.querySelectorAll('.juego-back').forEach((back) => {
+    back.onclick = () => showViewById('view-juegos');
+  });
+  document.querySelectorAll('#view-juego-minecraft .juego-dl-btn').forEach((btn) => {
+    btn.onclick = () => downloadMinecraftServer(btn.dataset.url);
+  });
+  const run = document.getElementById('mc-run');
+  if (run) run.onclick = () => runMinecraftServer();
+  const robloxPlay = document.getElementById('roblox-play');
+  if (robloxPlay) robloxPlay.onclick = () => openGameLink(robloxPlay.dataset.url);
+  const roblox3Play = document.getElementById('roblox3-play');
+  if (roblox3Play) roblox3Play.onclick = () => openGameLink(roblox3Play.dataset.url);
+  // Aplica el bloqueo "Solo Premium" a las tarjetas de juego según el plan.
+  if (!window.IS_ADMIN) {
+    document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
+      const cap = GAME_CAP[card.dataset.game];
+      if (cap) setGameLock(card, !capFeature(cap));
+    });
+  }
+  setupRobloxActionsUI();
+  setupRoblox3ActionsUI();
+  setupMarioActionsUI();
+  setupMarioLaunchBtn();
+  setupPvzActionsUI();
+  setupPvzLaunchBtn();
+  const change = document.getElementById('mc-change-bat');
+  if (change) change.onclick = async (e) => { e.preventDefault(); await chooseMinecraftBat(true); };
+  setupMcActionsUI();
+  setupBedrockActionsUI();
+  setupSandboxActionsUI();
+  ['mc-panic', 'bedrock-panic', 'sandbox-panic'].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.onclick = () => triggerAlertPanic();
+  });
+}
+
+/* ================= Acciones de Minecraft (RCON) ================= */
+// Catálogo de acciones predeterminadas. {playername} se sustituye por el nombre
+// del usuario que activa la acción (regalo/evento); @p apunta a tu personaje.
+const MC_CATALOG = [
+  { id: 'mc_yunque_caida', name: 'Yunque Aplastador', desc: 'Cae para romper techos', cmd: 'execute at @p run setblock ~ ~10 ~ minecraft:anvil' },
+  { id: 'mc_spawn_zombie', name: 'Invocación Zombie', desc: 'A tu lado derecho', cmd: "execute at @p run summon zombie ^1 ^ ^ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_spawn_skeleton', name: 'Esqueleto Arquero', desc: 'Frente a ti', cmd: "execute at @p run summon skeleton ~ ~ ~1 {CustomName:'\"El Tirador de {playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_spider', name: 'Araña', desc: 'Rápida y trepadora', cmd: "execute at @p run summon spider ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_cave_spider', name: 'Araña de Cueva', desc: 'Pequeña y venenosa', cmd: "execute at @p run summon cave_spider ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_enderman', name: 'Enderman', desc: 'Se teletransporta', cmd: "execute at @p run summon enderman ~2 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_witch', name: 'Bruja', desc: 'Te lanza pociones', cmd: "execute at @p run summon witch ~2 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_slime', name: 'Slime Gigante', desc: 'Se divide al morir', cmd: "execute at @p run summon slime ~1 ~ ~ {Size:3, CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_phantom', name: 'Phantom', desc: 'Ataque desde el cielo', cmd: "execute at @p run summon phantom ~ ~5 ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_spawn_creeper_charged', name: 'Creeper Cargado', desc: 'Detrás de ti', cmd: "execute at @p run summon creeper ~ ~ ~-1 {powered:1b,CustomName:'\"Regalito de {playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_pillager', name: 'Saqueador', desc: 'Con ballesta', cmd: "execute at @p run summon pillager ~2 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_vindicator', name: 'Vindicador', desc: 'Hachazos letales', cmd: "execute at @p run summon vindicator ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_evoker', name: 'Invocador', desc: 'Magia oscura', cmd: "execute at @p run summon evoker ~3 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_ravager', name: 'Devastador', desc: 'Toro gigante letal', cmd: "execute at @p run summon ravager ~2 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_warden', name: 'El Warden', desc: 'MUERTE INSTANTÁNEA', cmd: "execute at @p run summon warden ~3 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_wither', name: 'Jefe: Wither', desc: 'Destruirá tu mundo', cmd: "execute at @p run summon wither ~ ~2 ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_blaze', name: 'Blaze', desc: 'Dispara fuego', cmd: "execute at @p run summon blaze ~2 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_ghast', name: 'Ghast', desc: 'Bolas de fuego gigantes', cmd: "execute at @p run summon ghast ~ ~5 ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_wither_skeleton', name: 'Esqueleto Wither', desc: 'Te da efecto Wither', cmd: "execute at @p run summon wither_skeleton ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_piglin_brute', name: 'Piglin Bruto', desc: 'Daño masivo con hacha', cmd: "execute at @p run summon piglin_brute ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_hoglin', name: 'Hoglin', desc: 'Jabalí agresivo', cmd: "execute at @p run summon hoglin ~2 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_magma_cube', name: 'Cubo de Magma', desc: 'Slime de fuego', cmd: "execute at @p run summon magma_cube ~1 ~ ~ {Size:3, CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_pig', name: 'Cerdito', desc: 'Oink oink', cmd: "execute at @p run summon pig ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_cow', name: 'Vaca', desc: 'Muuu', cmd: "execute at @p run summon cow ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_chicken', name: 'Pollo', desc: 'Pone huevos', cmd: "execute at @p run summon chicken ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_wolf', name: 'Lobo Enojado', desc: 'Te atacará al instante', cmd: "execute at @p run summon wolf ~1 ~ ~ {AngryAt:[I;0,0,0,0], CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_iron_golem', name: 'Golem de Hierro', desc: 'El guardaespaldas', cmd: "execute at @p run summon iron_golem ~2 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_axolotl', name: 'Ajolote', desc: 'Lindo y amigable', cmd: "execute at @p run summon axolotl ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_villager', name: 'Aldeano', desc: 'Hmm...', cmd: "execute at @p run summon villager ~1 ~ ~ {CustomName:'\"{playername}\"',CustomNameVisible:1b}" },
+  { id: 'mc_spawn_tnt', name: 'TNT Encendida', desc: 'A tu lado', cmd: 'execute at @p run summon tnt ~1 ~ ~ {Fuse:60}' },
+  { id: 'mc_lava_drop', name: 'Cubo de Lava', desc: 'Bloque en el suelo', cmd: 'execute at @p run setblock ~ ~ ~ minecraft:lava' },
+  { id: 'mc_lightning', name: 'Rayo Mortal', desc: 'En tu posición', cmd: 'execute at @p run summon lightning_bolt ~ ~ ~' },
+  { id: 'mc_prison', name: 'Cárcel de Cristal', desc: 'Te encierra', cmd: 'execute at @p run fill ~-1 ~ ~-1 ~1 ~2 ~1 minecraft:glass outline' },
+  { id: 'mc_golden_apple', name: 'Manzana Dorada Encantada', desc: 'Se añade a tu inventario', cmd: 'give @p minecraft:enchanted_golden_apple 1' },
+  { id: 'mc_totem', name: 'Tótem de Inmortalidad', desc: 'Te da una segunda oportunidad', cmd: 'give @p minecraft:totem_of_undying 1' },
+  { id: 'mc_apple', name: 'Manzanas', desc: 'Van a tu inventario', cmd: 'give @p minecraft:apple 5' },
+  { id: 'mc_diamond_kit', name: 'Kit Diamante', desc: 'Full Armadura + Espada', cmd: 'item replace entity @p armor.head with minecraft:diamond_helmet ;; item replace entity @p armor.chest with minecraft:diamond_chestplate ;; item replace entity @p armor.legs with minecraft:diamond_leggings ;; item replace entity @p armor.feet with minecraft:diamond_boots ;; give @p minecraft:diamond_sword 1' },
+  { id: 'mc_diamond_helmet', name: 'Armadura Diamante', desc: 'Se equipa automáticamente', cmd: 'item replace entity @p armor.head with minecraft:diamond_helmet' },
+];
+
+// Etiquetas de los disparadores (eventos del live).
+const MC_TRIGGERS = [
+  { v: 'gift', label: 'Regalo específico' },
+  { v: 'gift-any', label: 'Cualquier regalo' },
+  { v: 'like', label: 'Likes (por usuario)' },
+  { v: 'likeGlobal', label: 'Likes globales' },
+  { v: 'follow', label: 'Nuevo seguidor' },
+  { v: 'share', label: 'Compartida' },
+  { v: 'subscribe', label: 'Nuevo suscriptor' },
+  { v: 'superFan', label: 'Super fan' },
+  { v: 'levelUp', label: 'Subió de nivel de miembro' },
+  { v: 'chatUser', label: 'Mensaje de un usuario' },
+  { v: 'chatCommand', label: 'Comando de chat' },
+  { v: 'firstMessage', label: 'Primer mensaje en el chat' },
+];
+// Icono por tipo de evento (para mostrarlo en la tarjeta agregada).
+const MC_TRIG_ICON = {
+  'gift-any': { ic: '🎁', label: 'Cualquier regalo' },
+  like: { ic: '❤️', label: 'Likes' },
+  likeGlobal: { ic: '💗', label: 'Likes globales' },
+  follow: { ic: '➕', label: 'Seguidor' },
+  share: { ic: '🔁', label: 'Compartida' },
+  subscribe: { ic: '⭐', label: 'Suscriptor' },
+  superFan: { ic: '🌟', label: 'Super fan' },
+  levelUp: { ic: '⬆️', label: 'Subió de nivel' },
+  chatUser: { ic: '🙋', label: 'Mensaje de usuario' },
+  chatCommand: { ic: '💬', label: 'Comando de chat' },
+  firstMessage: { ic: '🆕', label: 'Primer mensaje' },
+};
+
+// Exporta las tarjetas de acciones de Minecraft (mcActions) a un archivo de presets.
+function exportMcPresets() {
+  const list = (settings && Array.isArray(settings.mcActions)) ? settings.mcActions : [];
+  if (!list.length) { toast && toast('No hay acciones de Minecraft para exportar.', 'warn'); return; }
+  const out = { type: 'livecoins-mc-presets', version: 1, exportedAt: Date.now(), mcActions: list };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `minecraft-presets-${window.MY_USER || 'panel'}-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch {} }, 1000);
+  toast && toast(`Exportadas ${list.length} acciones de Minecraft.`, 'ok');
+}
+
+// Diálogo: ¿añadir a las actuales o reemplazar todas? Devuelve 'merge' | 'replace' | null.
+function askMcImportMode(count) {
+  return new Promise((resolve) => {
+    const back = document.createElement('div');
+    back.className = 'modal confirm-modal';
+    back.innerHTML = `
+      <div class="confirm-box">
+        <div class="confirm-ico">📦</div>
+        <h3>Importar ${count} ${count === 1 ? 'acción' : 'acciones'}</h3>
+        <p>¿Cómo quieres importar los presets de Minecraft?</p>
+        <div class="confirm-btns">
+          <button class="btn ghost c-cancel">Cancelar</button>
+          <button class="btn c-merge">Añadir a las actuales</button>
+          <button class="btn danger c-replace">Borrar y reemplazar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(back);
+    const close = (val) => { back.remove(); resolve(val); };
+    back.querySelector('.c-cancel').onclick = () => close(null);
+    back.querySelector('.c-merge').onclick = () => close('merge');
+    back.querySelector('.c-replace').onclick = () => close('replace');
+    back.addEventListener('click', (e) => { if (e.target === back) close(null); });
+    document.addEventListener('keydown', function esc(e) {
+      if (e.key === 'Escape') { document.removeEventListener('keydown', esc); close(null); }
+    });
+  });
+}
+
+// Importa acciones de Minecraft desde un archivo de presets, fusionando o reemplazando.
+async function importMcPresets(file) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  let parsed;
+  try { parsed = JSON.parse(await file.text()); }
+  catch { toast && toast('El archivo no es un preset válido.', 'warn'); return; }
+  const incoming = Array.isArray(parsed)
+    ? parsed
+    : (parsed && Array.isArray(parsed.mcActions) ? parsed.mcActions : null);
+  if (!incoming || !incoming.length) { toast && toast('El archivo no contiene acciones de Minecraft.', 'warn'); return; }
+  const mode = await askMcImportMode(incoming.length);
+  if (!mode) return;
+  // Regeneramos el uid de cada tarjeta para que no choque con las existentes.
+  const clean = incoming
+    .filter((a) => a && typeof a === 'object')
+    .map((a, i) => ({ ...a, uid: 'mca_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 7) }));
+  if (!Array.isArray(settings.mcActions)) settings.mcActions = [];
+  settings.mcActions = (mode === 'replace') ? clean : settings.mcActions.concat(clean);
+  saveSettings();
+  renderMyMcActions();
+  toast && toast(`Importadas ${clean.length} acciones (${mode === 'replace' ? 'reemplazo' : 'añadidas'}).`, 'ok');
+}
+
+function setupMcActionsUI() {
+  const search = document.getElementById('mc-cat-search');
+  if (search && !search._wired) {
+    search._wired = true;
+    search.oninput = () => renderMcCatalog(search.value);
+  }
+  const createBtn = document.getElementById('mc-create-cmd');
+  if (createBtn && !createBtn._wired) {
+    createBtn._wired = true;
+    createBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } openMcCmdModal(null); };
+  }
+  const genImgBtn = document.getElementById('mc-gen-img');
+  if (genImgBtn && !genImgBtn._wired) {
+    genImgBtn._wired = true;
+    genImgBtn.onclick = () => generateMcMenuImage();
+  }
+  const expBtn = document.getElementById('mc-export-preset');
+  if (expBtn && !expBtn._wired) { expBtn._wired = true; expBtn.onclick = exportMcPresets; }
+  const impBtn = document.getElementById('mc-import-preset');
+  const impFile = document.getElementById('mc-import-file');
+  if (impBtn && impFile && !impBtn._wired) {
+    impBtn._wired = true;
+    impBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } impFile.click(); };
+    impFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (file) await importMcPresets(file);
+    });
+  }
+  const mAdd = document.getElementById('mcc-add');
+  if (mAdd && !mAdd._wired) {
+    mAdd._wired = true;
+    mAdd.onclick = () => {
+      const cur = collectMccEntries();
+      if (isMccExtraMode()) cur.push(mccDefaultEntry());
+      else cur.push('');
+      renderMccLines(cur);
+    };
+  }
+  const mExtra = document.getElementById('mcc-extra');
+  if (mExtra && !mExtra._wired) {
+    mExtra._wired = true;
+    mExtra.onchange = () => {
+      syncMccExtraUI();
+      renderMccLines(collectMccEntries());
+    };
+  }
+  const mSave = document.getElementById('mcc-save');
+  if (mSave && !mSave._wired) { mSave._wired = true; mSave.onclick = saveMcCmd; }
+  const mCancel = document.getElementById('mcc-cancel');
+  if (mCancel && !mCancel._wired) { mCancel._wired = true; mCancel.onclick = closeMcCmdModal; }
+  const mModal = document.getElementById('mcCmdModal');
+  if (mModal && !mModal._wired) { mModal._wired = true; mModal.addEventListener('click', (e) => { if (e.target.id === 'mcCmdModal') closeMcCmdModal(); }); }
+  const imgBtn = document.getElementById('mcc-img-btn');
+  if (imgBtn && !imgBtn._wired) { imgBtn._wired = true; imgBtn.onclick = () => document.getElementById('mcc-img-file').click(); }
+  const imgClear = document.getElementById('mcc-img-clear');
+  if (imgClear && !imgClear._wired) { imgClear._wired = true; imgClear.onclick = () => setMccImage(''); }
+  const imgFile = document.getElementById('mcc-img-file');
+  if (imgFile && !imgFile._wired) {
+    imgFile._wired = true;
+    imgFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      document.getElementById('mcc-status').textContent = 'Subiendo imagen…';
+      try {
+        const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
+        const data = await res.json();
+        if (!data.url) throw new Error();
+        setMccImage(data.url);
+        document.getElementById('mcc-status').textContent = '';
+      } catch { document.getElementById('mcc-status').textContent = '⚠️ No se pudo subir la imagen.'; }
+    });
+  }
+  renderMcCatalog(search ? search.value : '');
+  renderMyMcActions();
+}
+
+let mccImage = '';
+function setMccImage(url) {
+  mccImage = url || '';
+  const prev = document.getElementById('mcc-img-prev');
+  const ph = document.getElementById('mcc-img-ph');
+  const clear = document.getElementById('mcc-img-clear');
+  if (mccImage) {
+    prev.src = mccImage; prev.style.display = '';
+    ph.style.display = 'none';
+    clear.style.display = '';
+  } else {
+    prev.removeAttribute('src'); prev.style.display = 'none';
+    ph.style.display = '';
+    clear.style.display = 'none';
+  }
+}
+
+// Mapa de juegos que usan el sistema de tarjetas tipo Minecraft (comando + disparador).
+const MC_GAME_MAP = {
+  minecraft: { key: 'mcActions', label: 'Minecraft', render: () => renderMyMcActions() },
+  bedrock: { key: 'bedrockActions', label: 'Bedrock', render: () => renderMyBedrockActions() },
+  sandbox: { key: 'sandboxActions', label: 'Sandbox', render: () => renderMySandboxActions() },
+};
+
+let mccEditingUid = null;
+let mccGame = 'minecraft'; // a qué pestaña pertenece el comando que se edita/crea
+function openMcCmdModal(a, game) {
+  mccGame = game || (a && a.game) || 'minecraft';
+  mccEditingUid = a && a.uid ? a.uid : null;
+  const gameLabel = (MC_GAME_MAP[mccGame] || MC_GAME_MAP.minecraft).label;
+  document.getElementById('mcc-title').textContent = a ? 'Editar comando personalizado' : ('Comando personalizado de ' + gameLabel);
+  document.getElementById('mcc-name').value = a?.name || '';
+  document.getElementById('mcc-desc').value = a?.desc || '';
+  document.getElementById('mcc-repeat').value = a?.repeat || 1;
+  document.getElementById('mcc-delayeach').value = a?.delayEach || 0;
+  document.getElementById('mcc-delaygroup').value = a?.delayGroup || 0;
+  document.getElementById('mcc-radius').value = a?.radius != null ? a.radius : 3;
+  document.getElementById('mcc-giftmult').checked = !!a?.giftMult;
+  document.getElementById('mcc-random').checked = !!a?.random;
+  const extraOn = !!(a?.cmdsExtra || (Array.isArray(a?.cmds) && a.cmds.some((x) => x && typeof x === 'object')));
+  document.getElementById('mcc-extra').checked = extraOn;
+  document.getElementById('mcc-status').textContent = '';
+  setMccImage(a?.image || '');
+  syncMccExtraUI();
+  renderMccLines(normalizeMccEntries(a?.cmds, a));
+  document.getElementById('mcCmdModal').classList.remove('hidden');
+}
+function closeMcCmdModal() { document.getElementById('mcCmdModal').classList.add('hidden'); }
+
+function isMccExtraMode() { return !!document.getElementById('mcc-extra')?.checked; }
+function mccDefaultEntry() {
+  return {
+    cmd: '',
+    repeat: Math.max(1, parseInt(document.getElementById('mcc-repeat')?.value, 10) || 1),
+    delayEach: 0,
+    delayBefore: 0,
+    radius: Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3),
+  };
+}
+function normalizeMccEntries(raw, action) {
+  const extra = action?.cmdsExtra || isMccExtraMode();
+  const defs = {
+    repeat: action?.repeat ?? (Math.max(1, parseInt(document.getElementById('mcc-repeat')?.value, 10) || 1)),
+    radius: action?.radius ?? (Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3)),
+  };
+  if (!Array.isArray(raw) || !raw.length) return extra ? [mccDefaultEntry()] : [''];
+  if (!extra) return raw.map((e) => (typeof e === 'string' ? e : (e?.cmd || e?.text || '')));
+  return raw.map((e) => {
+    const o = (e && typeof e === 'object') ? e : { cmd: String(e || '') };
+    return {
+      cmd: o.cmd || o.text || '',
+      repeat: o.repeat != null ? o.repeat : defs.repeat,
+      delayEach: o.delayEach != null ? o.delayEach : 0,
+      delayBefore: o.delayBefore != null ? o.delayBefore : (o.delayGroup != null ? o.delayGroup : 0),
+      radius: o.radius != null ? o.radius : defs.radius,
+    };
+  });
+}
+function syncMccExtraUI() {
+  const on = isMccExtraMode();
+  const fields = document.querySelector('#mcCmdModal .mcc-fields');
+  if (fields) fields.classList.toggle('mcc-fields-dimmed', on);
+}
+function renderMccLines(lines) {
+  const box = document.getElementById('mcc-cmds');
+  if (!box) return;
+  const extra = isMccExtraMode();
+  const list = extra
+    ? (lines.length ? lines : [mccDefaultEntry()])
+    : (lines.length ? lines.map((l) => (typeof l === 'string' ? l : (l?.cmd || ''))) : ['']);
+  box.innerHTML = list.map((l, i) => {
+    const cmd = extra ? (l.cmd || '') : l;
+    const extraFields = extra ? `
+      <div class="mcc-line-extra-fields">
+        <div class="mcc-field">
+          <label class="mcc-flabel">Veces que se repite</label>
+          <input type="number" class="mcc-x-repeat" min="1" value="${Math.max(1, parseInt(l.repeat, 10) || 1)}">
+        </div>
+        <div class="mcc-field">
+          <label class="mcc-flabel">Espera entre líneas (ms)</label>
+          <input type="number" class="mcc-x-delayeach" min="0" value="${Math.max(0, parseInt(l.delayEach, 10) || 0)}">
+          <small class="mcc-fhint">Entre repeticiones del mismo comando.</small>
+        </div>
+        <div class="mcc-field">
+          <label class="mcc-flabel">Espera antes (ms)</label>
+          <input type="number" class="mcc-x-delaybefore" min="0" value="${Math.max(0, parseInt(l.delayBefore, 10) || 0)}">
+          <small class="mcc-fhint">Tras terminar el comando anterior. Ej. 3000 = 3 s después.</small>
+        </div>
+        <div class="mcc-field">
+          <label class="mcc-flabel">Radio <code>{radius}</code></label>
+          <input type="number" class="mcc-x-radius" min="0" value="${Math.max(0, parseInt(l.radius, 10) || 0)}">
+        </div>
+      </div>` : '';
+    return `
+    <div class="mcc-line">
+      <div class="mcc-line-head"><span>#${i + 1} comando</span><button type="button" class="mcc-line-del" data-i="${i}" title="Quitar">✕</button></div>
+      <textarea class="mcc-line-ta" rows="2" placeholder="Comando sin / inicial (ej. execute at @p run summon zombie ~ ~ ~)">${esc(cmd)}</textarea>
+      ${extraFields}
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.mcc-line-del').forEach((b) => b.onclick = () => {
+    const cur = collectMccEntries();
+    cur.splice(+b.dataset.i, 1);
+    renderMccLines(cur.length ? cur : (extra ? [mccDefaultEntry()] : ['']));
+  });
+}
+function collectMccEntries() {
+  const extra = isMccExtraMode();
+  const lines = [...document.querySelectorAll('#mcc-cmds .mcc-line')];
+  if (!extra) return lines.map((row) => row.querySelector('.mcc-line-ta')?.value || '');
+  return lines.map((row) => ({
+    cmd: row.querySelector('.mcc-line-ta')?.value || '',
+    repeat: Math.max(1, parseInt(row.querySelector('.mcc-x-repeat')?.value, 10) || 1),
+    delayEach: Math.max(0, parseInt(row.querySelector('.mcc-x-delayeach')?.value, 10) || 0),
+    delayBefore: Math.max(0, parseInt(row.querySelector('.mcc-x-delaybefore')?.value, 10) || 0),
+    radius: Math.max(0, parseInt(row.querySelector('.mcc-x-radius')?.value, 10) || 0),
+  }));
+}
+function saveMcCmd() {
+  if (!settings) return;
+  const name = document.getElementById('mcc-name').value.trim();
+  if (!name) { document.getElementById('mcc-status').textContent = '⚠️ Escribe un nombre.'; return; }
+  const extra = isMccExtraMode();
+  const entries = collectMccEntries();
+  let cmds;
+  if (extra) {
+    cmds = entries
+      .filter((e) => (e.cmd || '').trim())
+      .map((e) => ({
+        cmd: e.cmd.trim(),
+        repeat: e.repeat,
+        delayEach: e.delayEach,
+        delayBefore: e.delayBefore,
+        radius: e.radius,
+      }));
+  } else {
+    cmds = entries.map((s) => String(s).trim()).filter(Boolean);
+  }
+  if (!cmds.length) { document.getElementById('mcc-status').textContent = '⚠️ Escribe al menos un comando.'; return; }
+  const payload = {
+    name, desc: document.getElementById('mcc-desc').value.trim(),
+    cmds,
+    cmdsExtra: extra,
+    repeat: Math.max(1, parseInt(document.getElementById('mcc-repeat').value, 10) || 1),
+    delayEach: Math.max(0, parseInt(document.getElementById('mcc-delayeach').value, 10) || 0),
+    delayGroup: Math.max(0, parseInt(document.getElementById('mcc-delaygroup').value, 10) || 0),
+    radius: Math.max(0, parseInt(document.getElementById('mcc-radius').value, 10) || 0),
+    giftMult: document.getElementById('mcc-giftmult').checked,
+    random: document.getElementById('mcc-random').checked,
+    image: mccImage || '',
+    custom: true,
+  };
+  const g = MC_GAME_MAP[mccGame] || MC_GAME_MAP.minecraft;
+  const key = g.key;
+  if (!Array.isArray(settings[key])) settings[key] = [];
+  if (mccEditingUid) {
+    const a = settings[key].find((x) => x.uid === mccEditingUid);
+    if (a) Object.assign(a, payload);
+  } else {
+    settings[key].push({
+      uid: 'mca_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      catId: '', game: mccGame,
+      trigger: 'gift', giftId: '', giftName: '', giftImage: '', enabled: true, ...payload,
+    });
+  }
+  saveSettings();
+  g.render();
+  closeMcCmdModal();
+  toast && toast('Comando personalizado guardado.', 'ok');
+}
+
+function renderMcCatalog(filter) {
+  const grid = document.getElementById('mc-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f ? MC_CATALOG.filter((c) => c.name.toLowerCase().includes(f) || c.desc.toLowerCase().includes(f)) : MC_CATALOG;
+  if (!list.length) { grid.innerHTML = '<div class="empty">Sin resultados</div>'; return; }
+  grid.innerHTML = list.map((c) => `
+    <div class="mc-cat-card" data-id="${esc(c.id)}" title="${esc(c.cmd)}">
+      <div class="mc-cat-head-row">
+        <img class="mc-cat-ic" src="/img/minecraft/${esc(c.id)}.png" alt="" onerror="this.style.display='none'">
+        <div class="mc-cat-texts">
+          <div class="mc-cat-name">${esc(c.name)}</div>
+          <div class="mc-cat-desc">${esc(c.desc)}</div>
+        </div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`).join('');
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addMcAction(card.dataset.id);
+  });
+}
+
+function addMcAction(catId) {
+  const c = MC_CATALOG.find((x) => x.id === catId);
+  if (!c) return;
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  if (!Array.isArray(settings.mcActions)) settings.mcActions = [];
+  settings.mcActions.push({
+    uid: 'mca_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    catId: c.id, name: c.name, desc: c.desc, cmd: c.cmd,
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '', enabled: true, count: 1,
+  });
+  saveSettings();
+  renderMyMcActions();
+  toast && toast(`Acción "${c.name}" agregada. Elige el regalo o evento.`, 'ok');
+}
+
+function renderMyMcActions() {
+  const wrap = document.getElementById('mc-my-actions');
+  if (!wrap) return;
+  const list = (settings && Array.isArray(settings.mcActions)) ? settings.mcActions : [];
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((a) => {
+    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+    let giftBtn = '';
+    if (a.trigger === 'gift') {
+      const ic = a.giftImage
+        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">`
+        : '🎁';
+      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+    } else {
+      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+    }
+    let likeRow = '';
+    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+      const val = a.likeN != null ? a.likeN : defN;
+      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+      likeRow = `<label class="mc-like-row">${txt}
+        <input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
+    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !zombie)';
+      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!zombie';
+      likeRow = `<label class="mc-like-row">${txt}
+        <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+    }
+    return `
+    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
+      <div class="mc-act-top">
+        <span class="mc-act-name"><img class="mc-act-ic" src="${a.image ? esc(a.image) : '/img/minecraft/' + esc(a.catId) + '.png'}" alt="" onerror="this.style.display='none'">${esc(a.name)}</span>
+        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
+      </div>
+      <div class="mc-act-desc">${esc(a.desc || '')}</div>
+      <div class="mc-act-row">
+        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
+        ${giftBtn}
+        ${likeRow}
+        <label class="mc-qty-row" title="Cuántas veces se ejecuta la acción cada vez que se activa (ej. 5 zombies por 1 regalo)">Cantidad a enviar
+          <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
+      </div>
+      <div class="mc-act-actions">
+        <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en" data-uid="${esc(a.uid)}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+        <div class="mc-act-btns">
+          ${a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : ''}
+          <button type="button" class="mc-act-test" data-uid="${esc(a.uid)}">Probar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const find = (uid) => (settings.mcActions || []).find((x) => x.uid === uid);
+  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
+    settings.mcActions = (settings.mcActions || []).filter((x) => x.uid !== b.dataset.uid);
+    saveSettings(); renderMyMcActions();
+  });
+  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
+    const a = find(s.dataset.uid); if (!a) return;
+    a.trigger = s.value;
+    saveSettings(); renderMyMcActions();
+  });
+  wrap.querySelectorAll('.mc-act-en').forEach((c) => c.onchange = () => {
+    const a = find(c.dataset.uid); if (!a) return;
+    a.enabled = c.checked;
+    saveSettings(); renderMyMcActions();
+  });
+  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.text = inp.value.trim();
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-qty-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.count = Math.max(1, Math.min(100, parseInt(inp.value, 10) || 1));
+    inp.value = String(a.count);
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (!a) return;
+    openGiftModalCb((g) => {
+      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
+      saveSettings(); renderMyMcActions();
+    });
+  });
+  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (a) openMcCmdModal(a);
+  });
+  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => {
+    send({ action: 'testMcAction', uid: b.dataset.uid });
+    toast && toast('Enviando comando al servidor de Minecraft…', 'ok');
+  });
+}
+
+// Genera una imagen tipo "menú de regalos" con las acciones agregadas:
+// para cada acción muestra el regalo/evento que la activa, la cantidad a enviar
+// y la acción de Minecraft (zombie, tnt, etc.). Se descarga como PNG.
+async function generateMcMenuImage(srcList, iconDir, fileName) {
+  const all = Array.isArray(srcList) ? srcList : ((settings && Array.isArray(settings.mcActions)) ? settings.mcActions : []);
+  const ICON_DIR = iconDir || '/img/minecraft/';
+  const OUT_NAME = fileName || 'menu-regalos-minecraft.png';
+  const list = all.filter((a) => a && a.enabled !== false);
+  if (!list.length) { toast && toast('Agrega acciones primero (con su regalo o evento).', 'warn'); return; }
+  toast && toast('Generando imagen…', 'ok');
+
+  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
+  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : ('/api/img-proxy?url=' + encodeURIComponent(u))));
+  const loadImg = (src) => new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+
+  const rows = [];
+  for (const a of list) {
+    const trig = a.trigger || 'gift';
+    let leftImg = null, leftEmoji = '', leftLabel = '';
+    if (trig === 'gift') {
+      leftImg = await loadImg(proxied(a.giftImage));
+      leftLabel = a.giftName || 'Regalo';
+    } else {
+      const ev = MC_TRIG_ICON[trig] || { ic: '⚡', label: trig };
+      leftEmoji = ev.ic; leftLabel = ev.label;
+      if (trig === 'like' || trig === 'likeGlobal') leftLabel = (a.likeN || (trig === 'likeGlobal' ? 100 : 1)) + ' likes';
+      else if (trig === 'chatCommand' || trig === 'chatUser') leftLabel = a.text || ev.label;
+    }
+    const actIcon = await loadImg(ICON_DIR + (a.catId || '') + '.png');
+    rows.push({ a, leftImg, leftEmoji, leftLabel, actIcon, qty: Math.max(1, parseInt(a.count, 10) || 1) });
+  }
+
+  // Cuadrícula con fondo TRANSPARENTE: cada celda muestra solo el icono de la
+  // acción, el icono del regalo (insignia) y el número de repeticiones arriba.
+  const cols = Math.max(1, Math.min(5, rows.length));
+  const gridRows = Math.ceil(rows.length / cols);
+  const margin = 10, gap = 14, cellW = 200, numH = 44, iconS = 156, giftS = 52;
+  const cellH = numH + iconS + 30;
+  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
+  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
+  const dpr = 2;
+  const cv = document.createElement('canvas');
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const rr = (x, y, w, h, r) => {
+    const rad = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  };
+
+  ctx.textBaseline = 'middle';
+  rows.forEach((row, i) => {
+    const c = i % cols, r = Math.floor(i / cols);
+    const cellX = margin + c * (cellW + gap);
+    const cellY = margin + r * (cellH + gap);
+    const iconX = cellX + (cellW - iconS) / 2;
+    const iconY = cellY + numH;
+
+    // Icono de la acción de Minecraft
+    if (row.actIcon) {
+      ctx.save(); rr(iconX, iconY, iconS, iconS, 16); ctx.clip();
+      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
+      ctx.restore();
+    } else {
+      rr(iconX, iconY, iconS, iconS, 16);
+      ctx.fillStyle = 'rgba(124,58,237,.25)'; ctx.fill();
+      ctx.font = '70px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+      ctx.fillText('🎮', iconX + iconS / 2, iconY + iconS / 2);
+    }
+
+    // Número de repeticiones (arriba del icono) SOLO si es 2 o más.
+    if (row.qty >= 2) {
+      const label = 'x' + row.qty;
+      ctx.font = '800 26px Rubik, system-ui, sans-serif';
+      const tw = ctx.measureText(label).width;
+      const pw = tw + 30, ph = 34;
+      const px = cellX + (cellW - pw) / 2, py = cellY + (numH - ph) / 2;
+      const gb = ctx.createLinearGradient(px, py, px + pw, py);
+      gb.addColorStop(0, '#f43f5e'); gb.addColorStop(1, '#ec4899');
+      rr(px, py, pw, ph, 17); ctx.fillStyle = gb; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+      ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+      ctx.fillText(label, px + pw / 2, py + ph / 2 + 1);
+    }
+
+    // Icono del regalo/evento en pequeño, casi en los pies del icono de la acción
+    // (superpuesto a la parte baja).
+    const gx = cellX + (cellW - giftS) / 2, gy = iconY + iconS - Math.round(giftS * 0.5);
+    ctx.save(); rr(gx, gy, giftS, giftS, 12); ctx.clip();
+    if (row.leftImg) ctx.drawImage(row.leftImg, gx, gy, giftS, giftS);
+    else { ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(row.leftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1); }
+    ctx.restore();
+  });
+
+  try {
+    const data = cv.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = data; link.download = OUT_NAME;
+    document.body.appendChild(link); link.click(); link.remove();
+    toast && toast('Imagen generada y descargada.', 'ok');
+  } catch {
+    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
+  }
+}
+
+/* ================= Acciones de Bedrock (Cubo TNT · comandos /bedrock) =================
+   Misma mecánica que Minecraft (tarjetas con disparador + Probar), pero con los
+   comandos del minijuego "Bedrock". Se guardan en settings.bedrockActions y se
+   ejecutan por el MISMO RCON/ServerTap del servidor de Minecraft. Los comandos se
+   guardan SIN la barra inicial. */
+
+// Acciones que SÍ se pueden agregar a tarjetas (imágenes 7, 8 y 9).
+const BEDROCK_CATALOG = [
+  { id: 'bd_fill', name: 'Rellenar caja', desc: 'Llena la caja con los bloques requeridos', cmd: 'bedrock fill' },
+  { id: 'bd_longhands', name: 'Manos largas', desc: 'Colocar/romper a distancia (segundos)', cmd: 'bedrock longhands 15' },
+  { id: 'bd_reset1', name: 'Reset con rayo', desc: 'Limpia la caja con un rayo', cmd: 'bedrock reset 1' },
+  { id: 'bd_reset2', name: 'Reset con dragón', desc: 'Limpia la caja con un dragón', cmd: 'bedrock reset 2' },
+  { id: 'bd_tntrocket', name: 'Cohete TNT', desc: 'Lanza al jugador hacia arriba con fuegos', cmd: 'bedrock tntrocket 10' },
+  { id: 'bd_tntstep', name: 'TNT perseguidora', desc: 'Genera dinamita que sigue al jugador', cmd: 'bedrock tntstep 10' },
+  { id: 'bd_win1', name: 'Ganar (teletransporte)', desc: 'Llena la caja y teletransporta al jugador', cmd: 'bedrock win 1' },
+  { id: 'bd_win2', name: 'Ganar (aldeano)', desc: 'Llena la caja con un aldeano constructor', cmd: 'bedrock win 2' },
+  { id: 'bd_fillrows', name: 'Rellenar por filas', desc: 'Llena la caja por filas (número)', cmd: 'bedrock fill 6' },
+  { id: 'bd_clear', name: 'Vaciar caja', desc: 'Libera la caja de todos los bloques', cmd: 'bedrock clear' },
+  { id: 'bd_tnt', name: 'TNT', desc: 'Invoca una TNT con nombre sobre la caja', cmd: 'bedrock tnt 1 {nickname}' },
+  { id: 'bd_randomtnt', name: 'TNT aleatoria', desc: 'TNT con fuerza aleatoria', cmd: 'bedrock randomtnt 1 {nickname}' },
+  { id: 'bd_supertnt', name: 'Super TNT', desc: 'TNT de poder personalizado (cantidad poder)', cmd: 'bedrock supertnt 1 1 {nickname}' },
+  { id: 'bd_glassprison', name: 'Cárcel de cristal', desc: 'Encierra al jugador sobre la caja (segundos)', cmd: 'bedrock glass_prison 10' },
+  { id: 'bd_faketnt', name: 'TNT falsa', desc: 'Genera TNT falsa', cmd: 'bedrock faketnt 1 {nickname}' },
+  { id: 'bd_weaktnt', name: 'TNT débil', desc: 'TNT que destruye solo 1 bloque', cmd: 'bedrock weaktnt 1 {nickname}' },
+  { id: 'bd_fillblock', name: 'Añadir bloque', desc: 'Añade 1 (o más) bloque a la caja', cmd: 'bedrock fillblock 1' },
+  { id: 'bd_enderman', name: 'Enderman ladrón', desc: 'Genera un Enderman que roba un bloque', cmd: 'bedrock enderman 5 {nickname}' },
+];
+
+// Configuraciones: SOLO "Probar" (no se agregan a tarjetas) — imágenes 3, 4, 5 y 6.
+const BEDROCK_CONFIGS = [
+  { name: 'Crear caja', desc: 'Crea una caja Bedrock. Inicia un timer cuando se llena.', cmd: 'bedrock create' },
+  { name: 'Eliminar caja', desc: 'Elimina la caja y detiene el timer.', cmd: 'bedrock delete' },
+  { name: 'Crear caja (tamaño y altura)', desc: 'Tamaño mín 3 (3=3×3, 5=5×5…). Altura mín 9, máx 21.', cmd: 'bedrock create 11 9' },
+  { name: 'Detener timer', desc: 'Detiene el timer.', cmd: 'bedrock stop' },
+  { name: 'Cambiar capa', desc: 'Cambia una capa de la caja (capa, material).', cmd: 'bedrock layer 1 amethyst_block' },
+  { name: 'Bloquear arriba', desc: 'Bloquea el espacio sobre la caja para no colocar bloques.', cmd: 'bedrock toplock' },
+  { name: 'Color del texto', desc: 'Cambia el color del texto (cancel/win + color).', cmd: 'bedrock color cancel red' },
+  { name: 'Paredes de cristal', desc: 'Reemplaza paredes y suelo por cristal.', cmd: 'bedrock glass' },
+  { name: 'Paredes de madera', desc: 'Reemplaza paredes y suelo por madera.', cmd: 'bedrock wood' },
+  { name: 'Tiempo del timer', desc: 'Define el tiempo del timer para ganar.', cmd: 'bedrock timer 10' },
+  { name: 'Bloquear edición a mano', desc: 'Bloquea romper la caja a mano (ejecútalo otra vez para desbloquear).', cmd: 'bedrock edit' },
+  { name: 'Auto-reemplazo', desc: 'Activa/desactiva rellenar la caja con cualquier bloque.', cmd: 'bedrock autoreplace' },
+  { name: 'Fuegos artificiales', desc: 'Activa/desactiva fuegos al explotar la TNT.', cmd: 'bedrock fireworks' },
+  { name: 'Teletransportarte', desc: 'Te teletransporta encima de la caja.', cmd: 'bedrock tp' },
+  { name: 'Paredes de bedrock', desc: 'Pone bloques de bedrock en paredes y suelo.', cmd: 'bedrock rock' },
+  { name: 'Rango de interacción', desc: 'Distancia que el jugador alcanza con la mano.', cmd: 'bedrock set_block_interaction_range 10' },
+  { name: 'Desactivar knockback', desc: 'Activa/desactiva el empuje de la TNT al jugador.', cmd: 'bedrock disableknockback' },
+  { name: 'Rayo', desc: 'Destruye una capa de bloques con un rayo.', cmd: 'bedrock lightning' },
+  { name: 'Subir altura', desc: 'Aumenta la altura de la caja.', cmd: 'bedrock heightup 1' },
+  { name: 'Bajar altura', desc: 'Disminuye la altura de la caja.', cmd: 'bedrock heightdown 1' },
+  { name: 'Subir radio', desc: 'Aumenta el radio de la caja.', cmd: 'bedrock radiusup 1' },
+  { name: 'Bajar radio', desc: 'Disminuye el radio de la caja.', cmd: 'bedrock radiusdown 1' },
+  { name: 'Restablecer tamaño', desc: 'Devuelve la caja a su tamaño original.', cmd: 'bedrock size_reset' },
+  { name: 'Mostrar tamaño', desc: 'Activa/desactiva mostrar radio y altura de la caja.', cmd: 'bedrock show_size' },
+  { name: 'Asignar usuario principal', desc: 'Asigna al jugador para quien se ejecutan los comandos (servidor público).', cmd: 'bedrock set_main_user {username}' },
+  { name: 'Quitar usuario principal', desc: 'Quita al jugador de la lista (servidor público).', cmd: 'bedrock remove_main_user' },
+];
+
+function exportBedrockPresets() {
+  const list = (settings && Array.isArray(settings.bedrockActions)) ? settings.bedrockActions : [];
+  if (!list.length) { toast && toast('No hay acciones de Bedrock para exportar.', 'warn'); return; }
+  const out = { type: 'livecoins-bedrock-presets', version: 1, exportedAt: Date.now(), bedrockActions: list };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bedrock-presets-${window.MY_USER || 'panel'}-${Date.now()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch {} }, 1000);
+  toast && toast(`Exportadas ${list.length} acciones de Bedrock.`, 'ok');
+}
+
+async function importBedrockPresets(file) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  let parsed;
+  try { parsed = JSON.parse(await file.text()); }
+  catch { toast && toast('El archivo no es un preset válido.', 'warn'); return; }
+  const incoming = Array.isArray(parsed)
+    ? parsed
+    : (parsed && Array.isArray(parsed.bedrockActions) ? parsed.bedrockActions : (parsed && Array.isArray(parsed.mcActions) ? parsed.mcActions : null));
+  if (!incoming || !incoming.length) { toast && toast('El archivo no contiene acciones de Bedrock.', 'warn'); return; }
+  const mode = await askMcImportMode(incoming.length);
+  if (!mode) return;
+  const clean = incoming
+    .filter((a) => a && typeof a === 'object')
+    .map((a, i) => ({ ...a, game: 'bedrock', uid: 'mca_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 7) }));
+  if (!Array.isArray(settings.bedrockActions)) settings.bedrockActions = [];
+  settings.bedrockActions = (mode === 'replace') ? clean : settings.bedrockActions.concat(clean);
+  saveSettings();
+  renderMyBedrockActions();
+  toast && toast(`Importadas ${clean.length} acciones (${mode === 'replace' ? 'reemplazo' : 'añadidas'}).`, 'ok');
+}
+
+function setupBedrockActionsUI() {
+  document.querySelectorAll('#view-juego-bedrock .juego-dl-btn').forEach((btn) => {
+    if (btn._wired) return;
+    btn._wired = true;
+    btn.onclick = () => {
+      const url = btn.dataset.url;
+      if (!url) { toast && toast('Aún no hay enlace de descarga configurado.', 'warn'); return; }
+      downloadMinecraftServer(url);
+    };
+  });
+  const bdRun = document.getElementById('bedrock-run');
+  if (bdRun && !bdRun._wired) { bdRun._wired = true; bdRun.onclick = () => runBedrockServer(); }
+  const bdChange = document.getElementById('bedrock-change-bat');
+  if (bdChange && !bdChange._wired) { bdChange._wired = true; bdChange.onclick = async (e) => { e.preventDefault(); await chooseBedrockBat(true); }; }
+  const search = document.getElementById('bedrock-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderBedrockCatalog(search.value); }
+  const createBtn = document.getElementById('bedrock-create-cmd');
+  if (createBtn && !createBtn._wired) {
+    createBtn._wired = true;
+    createBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } openMcCmdModal(null, 'bedrock'); };
+  }
+  const genImgBtn = document.getElementById('bedrock-gen-img');
+  if (genImgBtn && !genImgBtn._wired) {
+    genImgBtn._wired = true;
+    genImgBtn.onclick = () => generateMcMenuImage(settings && settings.bedrockActions, '/img/bedrock/', 'menu-regalos-bedrock.png');
+  }
+  const expBtn = document.getElementById('bedrock-export-preset');
+  if (expBtn && !expBtn._wired) { expBtn._wired = true; expBtn.onclick = exportBedrockPresets; }
+  const impBtn = document.getElementById('bedrock-import-preset');
+  const impFile = document.getElementById('bedrock-import-file');
+  if (impBtn && impFile && !impBtn._wired) {
+    impBtn._wired = true;
+    impBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } impFile.click(); };
+    impFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (file) await importBedrockPresets(file);
+    });
+  }
+  renderBedrockCatalog(search ? search.value : '');
+  renderMyBedrockActions();
+  renderBedrockConfigs();
+}
+
+function renderBedrockCatalog(filter) {
+  const grid = document.getElementById('bedrock-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f ? BEDROCK_CATALOG.filter((c) => c.name.toLowerCase().includes(f) || c.desc.toLowerCase().includes(f) || c.cmd.toLowerCase().includes(f)) : BEDROCK_CATALOG;
+  if (!list.length) { grid.innerHTML = '<div class="empty">Sin resultados</div>'; return; }
+  grid.innerHTML = list.map((c) => `
+    <div class="mc-cat-card" data-id="${esc(c.id)}" title="/${esc(c.cmd)}">
+      <div class="mc-cat-head-row">
+        <img class="mc-cat-ic" src="/img/bedrock/${esc(c.id)}.png" alt="" onerror="this.style.display='none'">
+        <div class="mc-cat-texts">
+          <div class="mc-cat-name">${esc(c.name)}</div>
+          <div class="mc-cat-desc">${esc(c.desc)}</div>
+        </div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`).join('');
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addBedrockAction(card.dataset.id);
+  });
+}
+
+function addBedrockAction(catId) {
+  const c = BEDROCK_CATALOG.find((x) => x.id === catId);
+  if (!c) return;
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  if (!Array.isArray(settings.bedrockActions)) settings.bedrockActions = [];
+  settings.bedrockActions.push({
+    uid: 'mca_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    catId: c.id, game: 'bedrock', name: c.name, desc: c.desc, cmd: c.cmd,
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '', enabled: true, count: 1,
+  });
+  saveSettings();
+  renderMyBedrockActions();
+  toast && toast(`Acción "${c.name}" agregada. Elige el regalo o evento.`, 'ok');
+}
+
+function renderMyBedrockActions() {
+  const wrap = document.getElementById('bedrock-my-actions');
+  if (!wrap) return;
+  const list = (settings && Array.isArray(settings.bedrockActions)) ? settings.bedrockActions : [];
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((a) => {
+    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+    let giftBtn = '';
+    if (a.trigger === 'gift') {
+      const ic = a.giftImage
+        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">`
+        : '🎁';
+      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+    } else {
+      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+    }
+    let likeRow = '';
+    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+      const val = a.likeN != null ? a.likeN : defN;
+      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+      likeRow = `<label class="mc-like-row">${txt}
+        <input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
+    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !tnt)';
+      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!tnt';
+      likeRow = `<label class="mc-like-row">${txt}
+        <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+    }
+    return `
+    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
+      <div class="mc-act-top">
+        <span class="mc-act-name"><img class="mc-act-ic" src="${a.image ? esc(a.image) : '/img/bedrock/' + esc(a.catId) + '.png'}" alt="" onerror="this.style.display='none'">${esc(a.name)}</span>
+        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
+      </div>
+      <div class="mc-act-desc">${esc(a.desc || '')}</div>
+      <div class="mc-act-row">
+        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
+        ${giftBtn}
+        ${likeRow}
+        <label class="mc-qty-row" title="Cuántas veces se ejecuta la acción cada vez que se activa">Cantidad a enviar
+          <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
+      </div>
+      <div class="mc-act-actions">
+        <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en" data-uid="${esc(a.uid)}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+        <div class="mc-act-btns">
+          ${a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : ''}
+          <button type="button" class="mc-act-test" data-uid="${esc(a.uid)}">Probar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const find = (uid) => (settings.bedrockActions || []).find((x) => x.uid === uid);
+  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
+    settings.bedrockActions = (settings.bedrockActions || []).filter((x) => x.uid !== b.dataset.uid);
+    saveSettings(); renderMyBedrockActions();
+  });
+  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
+    const a = find(s.dataset.uid); if (!a) return;
+    a.trigger = s.value;
+    saveSettings(); renderMyBedrockActions();
+  });
+  wrap.querySelectorAll('.mc-act-en').forEach((c) => c.onchange = () => {
+    const a = find(c.dataset.uid); if (!a) return;
+    a.enabled = c.checked;
+    saveSettings(); renderMyBedrockActions();
+  });
+  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.text = inp.value.trim();
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-qty-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.count = Math.max(1, Math.min(100, parseInt(inp.value, 10) || 1));
+    inp.value = String(a.count);
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (!a) return;
+    openGiftModalCb((g) => {
+      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
+      saveSettings(); renderMyBedrockActions();
+    });
+  });
+  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'bedrock');
+  });
+  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => {
+    send({ action: 'testMcAction', uid: b.dataset.uid });
+    toast && toast('Enviando comando al servidor…', 'ok');
+  });
+}
+
+// Configuraciones de Bedrock: estos comandos se ejecutan DENTRO del juego (no por
+// RCON/ServerTap, porque dependen de tu personaje). El botón "Copiar" copia el comando
+// para que lo pegues en el chat del juego.
+function renderBedrockConfigs() {
+  const grid = document.getElementById('bedrock-configs');
+  if (!grid) return;
+  grid.innerHTML = BEDROCK_CONFIGS.map((c, i) => `
+    <div class="bd-cfg-card">
+      <div class="bd-cfg-texts">
+        <div class="mc-cat-name">${esc(c.name)}</div>
+        <div class="mc-cat-desc">${esc(c.desc)}</div>
+      </div>
+      <div class="bd-cfg-run">
+        <span class="bd-cfg-slash">/</span>
+        <input type="text" class="bd-cfg-input" data-i="${i}" value="${esc(c.cmd)}">
+        <button type="button" class="bd-cfg-copy" data-i="${i}">Copiar</button>
+      </div>
+    </div>`).join('');
+  grid.querySelectorAll('.bd-cfg-copy').forEach((b) => b.onclick = async () => {
+    const input = grid.querySelector('.bd-cfg-input[data-i="' + b.dataset.i + '"]');
+    let command = (input && input.value || '').trim();
+    if (!command) { toast && toast('Escribe un comando.', 'warn'); return; }
+    if (!command.startsWith('/')) command = '/' + command; // se pega tal cual en el chat del juego
+    let ok = false;
+    try { await navigator.clipboard.writeText(command); ok = true; }
+    catch {
+      try { input.focus(); input.select(); ok = document.execCommand('copy'); input.setSelectionRange(input.value.length, input.value.length); } catch {}
+    }
+    toast && toast(ok ? `Copiado: ${command}` : 'No se pudo copiar.', ok ? 'ok' : 'warn');
+  });
+}
+
+/* ================= Acciones de Sandbox (comandos /sandbox) =================
+   Misma mecánica que Bedrock (tarjetas con disparador + Probar), pero con los
+   comandos /sandbox. Se guardan en settings.sandboxActions y se ejecutan por el
+   MISMO RCON/ServerTap del servidor de Minecraft. */
+
+// Acciones que SÍ se pueden agregar a tarjetas (con icono).
+const SANDBOX_CATALOG = [
+  { id: 'sb_tntnear', name: 'TNT cercana', desc: 'Genera TNT cerca del jugador (cantidad)', cmd: 'sandbox tntnear 3' },
+  { id: 'sb_sand', name: 'Arena de color', desc: 'Crea bloques de arena de un color (color cantidad)', cmd: 'sandbox sand red 1' },
+  { id: 'sb_sandrow', name: 'Fila de arena', desc: 'Crea arena cubriendo toda la plataforma (color filas)', cmd: 'sandbox sandrow blue 2' },
+  { id: 'sb_tnt', name: 'TNT', desc: 'Invoca una TNT con nombre que cae y explota', cmd: 'sandbox tnt 10 {nickname}' },
+  { id: 'sb_randomrow', name: 'Filas aleatorias', desc: 'Filas de bloques de colores distintos (número)', cmd: 'sandbox randomrow 1' },
+  { id: 'sb_fillrow', name: 'Rellenar filas de color', desc: 'Vacía la plataforma y añade filas de arena de un color', cmd: 'sandbox fillrow magenta 5' },
+  { id: 'sb_prison', name: 'Cárcel', desc: 'Encierra al jugador sobre la plataforma (segundos)', cmd: 'sandbox prison 10' },
+];
+
+// Configuraciones: SOLO "Copiar" (se ejecutan dentro del juego).
+const SANDBOX_CONFIGS = [
+  { name: 'Crear plataforma', desc: 'Crea una plataforma. Inicia un timer cuando queda limpia.', cmd: 'sandbox create' },
+  { name: 'Crear plataforma (tamaño y altura)', desc: 'Tamaño mín 3 (3=3×3, 5=5×5…). Altura mín 1 (arena de victoria/inicio).', cmd: 'sandbox create 5 5' },
+  { name: 'Eliminar plataforma', desc: 'Elimina la plataforma y detiene el timer.', cmd: 'sandbox delete' },
+  { name: 'Tablas de clasificación', desc: 'Activa/desactiva la visibilidad del leaderboard.', cmd: 'sandbox leaderboards' },
+  { name: 'Rayo', desc: 'Un rayo en un lugar aleatorio crea una explosión como TNT.', cmd: 'sandbox lightning 1' },
+  { name: 'Suelo de cristal', desc: 'Reemplaza el suelo por bloques de cristal.', cmd: 'sandbox glass' },
+  { name: 'Suelo de madera', desc: 'Reemplaza el suelo por bloques de madera.', cmd: 'sandbox wood' },
+  { name: 'Detener timer', desc: 'Detiene el timer.', cmd: 'sandbox stop' },
+  { name: 'Teletransportarte', desc: 'Teletransporta al jugador al sandbox.', cmd: 'sandbox tp' },
+  { name: 'Pala', desc: 'Te da una pala de obsidiana encantada (útil en survival).', cmd: 'sandbox shovel' },
+  { name: 'Editar', desc: '1ª vez: cambiar bloques de la plataforma. 2ª vez: vuelve a protegerla.', cmd: 'sandbox edit' },
+  { name: 'Rellenar', desc: 'Llena la plataforma con arena.', cmd: 'sandbox fill' },
+  { name: 'Vaciar', desc: 'Libera la plataforma de toda la arena.', cmd: 'sandbox clear' },
+  { name: 'Tiempo del timer', desc: 'Define el tiempo del timer para ganar.', cmd: 'sandbox timer 15' },
+  { name: 'Eliminar filas', desc: 'Quita el número de filas de arena empezando por abajo.', cmd: 'sandbox deleterow 10' },
+  { name: 'Bedrock central', desc: 'Cambia el centro de la plataforma a bedrock.', cmd: 'sandbox rock' },
+  { name: 'Color de arena por defecto', desc: 'Color inicial de toda la arena tras la victoria.', cmd: 'sandbox setdefaultsand lime' },
+  { name: 'Velocidad de minado', desc: 'Define la velocidad de minado de la arena.', cmd: 'sandbox speed 30' },
+  { name: 'Rango de interacción', desc: 'Cambia permanentemente el rango de minado de arena.', cmd: 'sandbox set block_interaction_range 10' },
+  { name: 'Velocidad de ruptura', desc: 'Cambia permanentemente la velocidad de minado de arena.', cmd: 'sandbox set block_break_speed 10' },
+  { name: 'Protección de daño', desc: 'Desactiva la protección de mobs (pueden dañarte). Otra vez para reactivarla.', cmd: 'sandbox damage_protection' },
+  { name: 'Scoreboard', desc: 'Activa/desactiva el scoreboard.', cmd: 'sandbox scoreboard' },
+];
+
+function exportSandboxPresets() {
+  const list = (settings && Array.isArray(settings.sandboxActions)) ? settings.sandboxActions : [];
+  if (!list.length) { toast && toast('No hay acciones de Sandbox para exportar.', 'warn'); return; }
+  const out = { type: 'livecoins-sandbox-presets', version: 1, exportedAt: Date.now(), sandboxActions: list };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sandbox-presets-${window.MY_USER || 'panel'}-${Date.now()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch {} }, 1000);
+  toast && toast(`Exportadas ${list.length} acciones de Sandbox.`, 'ok');
+}
+
+async function importSandboxPresets(file) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  let parsed;
+  try { parsed = JSON.parse(await file.text()); }
+  catch { toast && toast('El archivo no es un preset válido.', 'warn'); return; }
+  const incoming = Array.isArray(parsed)
+    ? parsed
+    : (parsed && Array.isArray(parsed.sandboxActions) ? parsed.sandboxActions : null);
+  if (!incoming || !incoming.length) { toast && toast('El archivo no contiene acciones de Sandbox.', 'warn'); return; }
+  const mode = await askMcImportMode(incoming.length);
+  if (!mode) return;
+  const clean = incoming
+    .filter((a) => a && typeof a === 'object')
+    .map((a, i) => ({ ...a, game: 'sandbox', uid: 'mca_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 7) }));
+  if (!Array.isArray(settings.sandboxActions)) settings.sandboxActions = [];
+  settings.sandboxActions = (mode === 'replace') ? clean : settings.sandboxActions.concat(clean);
+  saveSettings();
+  renderMySandboxActions();
+  toast && toast(`Importadas ${clean.length} acciones (${mode === 'replace' ? 'reemplazo' : 'añadidas'}).`, 'ok');
+}
+
+function setupSandboxActionsUI() {
+  document.querySelectorAll('#view-juego-sandbox .juego-dl-btn').forEach((btn) => {
+    if (btn._wired) return;
+    btn._wired = true;
+    btn.onclick = () => {
+      const url = btn.dataset.url;
+      if (!url) { toast && toast('Aún no hay enlace de descarga configurado.', 'warn'); return; }
+      downloadMinecraftServer(url);
+    };
+  });
+  const sbRun = document.getElementById('sandbox-run');
+  if (sbRun && !sbRun._wired) { sbRun._wired = true; sbRun.onclick = () => runSandboxServer(); }
+  const sbChange = document.getElementById('sandbox-change-bat');
+  if (sbChange && !sbChange._wired) { sbChange._wired = true; sbChange.onclick = async (e) => { e.preventDefault(); await chooseSandboxBat(true); }; }
+  const search = document.getElementById('sandbox-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderSandboxCatalog(search.value); }
+  const createBtn = document.getElementById('sandbox-create-cmd');
+  if (createBtn && !createBtn._wired) {
+    createBtn._wired = true;
+    createBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } openMcCmdModal(null, 'sandbox'); };
+  }
+  const genImgBtn = document.getElementById('sandbox-gen-img');
+  if (genImgBtn && !genImgBtn._wired) {
+    genImgBtn._wired = true;
+    genImgBtn.onclick = () => generateMcMenuImage(settings && settings.sandboxActions, '/img/sandbox/', 'menu-regalos-sandbox.png');
+  }
+  const expBtn = document.getElementById('sandbox-export-preset');
+  if (expBtn && !expBtn._wired) { expBtn._wired = true; expBtn.onclick = exportSandboxPresets; }
+  const impBtn = document.getElementById('sandbox-import-preset');
+  const impFile = document.getElementById('sandbox-import-file');
+  if (impBtn && impFile && !impBtn._wired) {
+    impBtn._wired = true;
+    impBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } impFile.click(); };
+    impFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (file) await importSandboxPresets(file);
+    });
+  }
+  renderSandboxCatalog(search ? search.value : '');
+  renderMySandboxActions();
+  renderSandboxConfigs();
+}
+
+const SANDBOX_BAT_KEY = 'sandboxServerBatPath';
+async function chooseSandboxBat(announce) {
+  if (!IS_DESKTOP || !window.desktopAPI?.pickServerBat) {
+    toast && toast('Esto solo funciona en la app de escritorio (.exe).', 'warn');
+    return '';
+  }
+  const picked = await window.desktopAPI.pickServerBat();
+  if (!picked) return '';
+  try { localStorage.setItem(SANDBOX_BAT_KEY, picked); } catch {}
+  if (announce) toast && toast('Servidor seleccionado. Pulsa Ejecutar servidor para iniciarlo.', 'ok');
+  return picked;
+}
+async function runSandboxServer() {
+  if (!IS_DESKTOP || !window.desktopAPI?.runServerBat) {
+    toast && toast('Para iniciar el servidor abre la app de escritorio (.exe).', 'warn');
+    return;
+  }
+  let path = '';
+  try { path = localStorage.getItem(SANDBOX_BAT_KEY) || ''; } catch {}
+  if (!path) { path = await chooseSandboxBat(false); if (!path) return; }
+  const r = await window.desktopAPI.runServerBat(path);
+  if (r && r.ok) {
+    toast && toast('Iniciando el servidor de Sandbox…', 'ok');
+  } else if (r && r.error === 'no_existe') {
+    try { localStorage.removeItem(SANDBOX_BAT_KEY); } catch {}
+    toast && toast('No se encontró el archivo. Elígelo de nuevo.', 'warn');
+    const np = await chooseSandboxBat(false);
+    if (np) { const r2 = await window.desktopAPI.runServerBat(np); if (r2 && r2.ok) toast && toast('Iniciando el servidor de Sandbox…', 'ok'); }
+  } else {
+    toast && toast('No se pudo iniciar el servidor.', 'err');
+  }
+}
+
+function renderSandboxCatalog(filter) {
+  const grid = document.getElementById('sandbox-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f ? SANDBOX_CATALOG.filter((c) => c.name.toLowerCase().includes(f) || c.desc.toLowerCase().includes(f) || c.cmd.toLowerCase().includes(f)) : SANDBOX_CATALOG;
+  if (!list.length) { grid.innerHTML = '<div class="empty">Sin resultados</div>'; return; }
+  grid.innerHTML = list.map((c) => `
+    <div class="mc-cat-card" data-id="${esc(c.id)}" title="/${esc(c.cmd)}">
+      <div class="mc-cat-head-row">
+        <img class="mc-cat-ic" src="/img/sandbox/${esc(c.id)}.png" alt="" onerror="this.style.display='none'">
+        <div class="mc-cat-texts">
+          <div class="mc-cat-name">${esc(c.name)}</div>
+          <div class="mc-cat-desc">${esc(c.desc)}</div>
+        </div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`).join('');
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addSandboxAction(card.dataset.id);
+  });
+}
+
+function addSandboxAction(catId) {
+  const c = SANDBOX_CATALOG.find((x) => x.id === catId);
+  if (!c) return;
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  if (!Array.isArray(settings.sandboxActions)) settings.sandboxActions = [];
+  settings.sandboxActions.push({
+    uid: 'mca_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    catId: c.id, game: 'sandbox', name: c.name, desc: c.desc, cmd: c.cmd,
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '', enabled: true, count: 1,
+  });
+  saveSettings();
+  renderMySandboxActions();
+  toast && toast(`Acción "${c.name}" agregada. Elige el regalo o evento.`, 'ok');
+}
+
+function renderMySandboxActions() {
+  const wrap = document.getElementById('sandbox-my-actions');
+  if (!wrap) return;
+  const list = (settings && Array.isArray(settings.sandboxActions)) ? settings.sandboxActions : [];
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((a) => {
+    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+    let giftBtn = '';
+    if (a.trigger === 'gift') {
+      const ic = a.giftImage
+        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">`
+        : '🎁';
+      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+    } else {
+      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+    }
+    let likeRow = '';
+    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+      const val = a.likeN != null ? a.likeN : defN;
+      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+      likeRow = `<label class="mc-like-row">${txt}
+        <input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
+    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !tnt)';
+      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!tnt';
+      likeRow = `<label class="mc-like-row">${txt}
+        <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+    }
+    return `
+    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
+      <div class="mc-act-top">
+        <span class="mc-act-name"><img class="mc-act-ic" src="${a.image ? esc(a.image) : '/img/sandbox/' + esc(a.catId) + '.png'}" alt="" onerror="this.style.display='none'">${esc(a.name)}</span>
+        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
+      </div>
+      <div class="mc-act-desc">${esc(a.desc || '')}</div>
+      <div class="mc-act-row">
+        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
+        ${giftBtn}
+        ${likeRow}
+        <label class="mc-qty-row" title="Cuántas veces se ejecuta la acción cada vez que se activa">Cantidad a enviar
+          <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
+      </div>
+      <div class="mc-act-actions">
+        <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en" data-uid="${esc(a.uid)}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+        <div class="mc-act-btns">
+          ${a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : ''}
+          <button type="button" class="mc-act-test" data-uid="${esc(a.uid)}">Probar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const find = (uid) => (settings.sandboxActions || []).find((x) => x.uid === uid);
+  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
+    settings.sandboxActions = (settings.sandboxActions || []).filter((x) => x.uid !== b.dataset.uid);
+    saveSettings(); renderMySandboxActions();
+  });
+  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
+    const a = find(s.dataset.uid); if (!a) return;
+    a.trigger = s.value;
+    saveSettings(); renderMySandboxActions();
+  });
+  wrap.querySelectorAll('.mc-act-en').forEach((c) => c.onchange = () => {
+    const a = find(c.dataset.uid); if (!a) return;
+    a.enabled = c.checked;
+    saveSettings(); renderMySandboxActions();
+  });
+  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.text = inp.value.trim();
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-qty-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.count = Math.max(1, Math.min(100, parseInt(inp.value, 10) || 1));
+    inp.value = String(a.count);
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (!a) return;
+    openGiftModalCb((g) => {
+      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
+      saveSettings(); renderMySandboxActions();
+    });
+  });
+  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'sandbox');
+  });
+  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => {
+    send({ action: 'testMcAction', uid: b.dataset.uid });
+    toast && toast('Enviando comando al servidor…', 'ok');
+  });
+}
+
+// Configuraciones de Sandbox: se ejecutan DENTRO del juego. El botón "Copiar" copia el comando.
+function renderSandboxConfigs() {
+  const grid = document.getElementById('sandbox-configs');
+  if (!grid) return;
+  grid.innerHTML = SANDBOX_CONFIGS.map((c, i) => `
+    <div class="bd-cfg-card">
+      <div class="bd-cfg-texts">
+        <div class="mc-cat-name">${esc(c.name)}</div>
+        <div class="mc-cat-desc">${esc(c.desc)}</div>
+      </div>
+      <div class="bd-cfg-run">
+        <span class="bd-cfg-slash">/</span>
+        <input type="text" class="bd-cfg-input" data-i="${i}" value="${esc(c.cmd)}">
+        <button type="button" class="bd-cfg-copy" data-i="${i}">Copiar</button>
+      </div>
+    </div>`).join('');
+  grid.querySelectorAll('.bd-cfg-copy').forEach((b) => b.onclick = async () => {
+    const input = grid.querySelector('.bd-cfg-input[data-i="' + b.dataset.i + '"]');
+    let command = (input && input.value || '').trim();
+    if (!command) { toast && toast('Escribe un comando.', 'warn'); return; }
+    if (!command.startsWith('/')) command = '/' + command;
+    let ok = false;
+    try { await navigator.clipboard.writeText(command); ok = true; }
+    catch {
+      try { input.focus(); input.select(); ok = document.execCommand('copy'); input.setSelectionRange(input.value.length, input.value.length); } catch {}
+    }
+    toast && toast(ok ? `Copiado: ${command}` : 'No se pudo copiar.', ok ? 'ok' : 'warn');
+  });
+}
+
+// Abre un enlace de juego en el navegador del sistema (para que el protocolo del
+// juego, p. ej. roblox://, lance la app instalada). En .exe usa shell.openExternal.
+function openGameLink(url) {
+  if (!url) return;
+  if (IS_DESKTOP && window.desktopAPI?.openExternal) {
+    window.desktopAPI.openExternal(url);
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+  toast && toast('Abriendo el juego en tu navegador…', 'ok');
+}
+
+/* ================= Acciones de Roblox (simulación de teclas) ================= */
+// Acciones FIJAS del juego: nombre, emoji y tecla por defecto (no se pueden cambiar).
+const RBX_PRESETS = [
+  { id: 'pollo', name: 'Transfórmate en un pollo', emoji: '🐔', keys: 'J' },
+  { id: 'lento', name: 'Súper lento', emoji: '🐢', keys: 'L' },
+  { id: 'platano', name: 'Resbalón de plátano', emoji: '🍌', keys: 'H' },
+  { id: 'prision', name: 'Prisión', emoji: '⛓️', keys: 'Y' },
+  { id: 'explosion', name: 'Explosión', emoji: '💥', keys: 'U' },
+  { id: 'pequeno', name: 'Pequeño', emoji: '👶', keys: 'M' },
+  { id: 'invisible', name: 'Invisible', emoji: '👻', keys: 'N' },
+  { id: 'discoteca', name: 'Discoteca', emoji: '💃', keys: 'F' },
+  { id: 'desenfoque', name: 'Desenfoque', emoji: '🌥️', keys: 'R' },
+  { id: 'terremoto', name: 'Terremoto', emoji: '⚡', keys: 'X' },
+];
+const RBX_SLOTS = RBX_PRESETS.length;
+
+// Asegura que existan las ranuras de acción de Roblox en settings, con nombre y tecla
+// FIJOS según el preset (el usuario solo configura el regalo/evento, la cantidad y si está activa).
+function ensureRobloxSlots() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.robloxActions)) settings.robloxActions = [];
+  for (let i = 0; i < RBX_SLOTS; i++) {
+    const p = RBX_PRESETS[i];
+    if (!settings.robloxActions[i]) {
+      settings.robloxActions[i] = { slot: i, trigger: 'gift', giftId: '', giftName: '', giftImage: '', count: 1, enabled: false };
+    }
+    const a = settings.robloxActions[i];
+    a.slot = i;
+    a.id = p.id; a.name = p.name; a.emoji = p.emoji; a.keys = p.keys; // siempre forzados (no editables)
+  }
+  settings.robloxActions.length = RBX_SLOTS;
+  return settings.robloxActions;
+}
+
+function setupRobloxActionsUI() {
+  const toggleAll = document.getElementById('rbx-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureRobloxSlots();
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; }); // si alguna está apagada → encender todas; si no → apagar todas
+      saveSettings(); renderRobloxActions();
+      toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
+    };
+  }
+  const genImgV = document.getElementById('rbx-gen-img-v');
+  if (genImgV && !genImgV._wired) { genImgV._wired = true; genImgV.onclick = () => generateRobloxMenuImage('vertical'); }
+  const genImgH = document.getElementById('rbx-gen-img-h');
+  if (genImgH && !genImgH._wired) { genImgH._wired = true; genImgH.onclick = () => generateRobloxMenuImage('horizontal'); }
+  renderRobloxActions();
+}
+
+function testRobloxAction(a) {
+  if (!a || !a.keys) { toast && toast('Elige primero las teclas a simular.', 'warn'); return; }
+  if (!IS_DESKTOP || !window.desktopAPI?.pressKeys) { toast && toast('La simulación de teclas solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+  const times = Math.max(1, parseInt(a.count, 10) || 1);
+  toast && toast(`Se simularán las teclas en ${ACC_TEST_DELAY} s… cambia a Roblox.`, 'ok');
+  setTimeout(() => {
+    window.desktopAPI.pressKeys(a.keys, { gameCompat: true, times });
+    addEvent(`⚡ Prueba Roblox: ${esc(a.keys)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+  }, ACC_TEST_DELAY * 1000);
+}
+
+function renderRobloxActions() {
+  const wrap = document.getElementById('rbx-actions');
+  if (!wrap || !settings) return;
+  const list = ensureRobloxSlots();
+  wrap.innerHTML = list.map((a, i) => {
+    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+    let giftBtn = '';
+    if ((a.trigger || 'gift') === 'gift') {
+      const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+      giftBtn = `<button type="button" class="mc-gift-btn rbx-gift" data-slot="${i}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+    } else {
+      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+    }
+    let likeRow = '';
+    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+      const val = a.likeN != null ? a.likeN : defN;
+      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+      likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="rbx-like-n" data-slot="${i}" value="${esc(String(val))}"></label>`;
+    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !salta)';
+      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!salta';
+      likeRow = `<label class="mc-like-row">${txt}<input type="text" class="rbx-text-n" data-slot="${i}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+    }
+    return `
+    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-slot="${i}">
+      <div class="mc-act-top">
+        <span class="mc-act-name"><img class="mc-act-ic" src="/img/roblox/${esc(a.id)}.png" alt="" onerror="this.outerHTML='${a.emoji || '⌨️'} '">${esc(a.name || ('Acción ' + (i + 1)))}</span>
+        <span class="rbx-keycap" title="Tecla fija de esta acción">${esc(a.keys)}</span>
+      </div>
+      <div class="mc-act-row">
+        <select class="rbx-trig-sel" data-slot="${i}">${opts}</select>
+        ${giftBtn}
+        ${likeRow}
+      </div>
+      <div class="mc-act-actions">
+        <label class="mc-act-toggle"><input type="checkbox" class="rbx-en" data-slot="${i}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+        <div class="mc-act-btns">
+          <button type="button" class="mc-act-test rbx-test" data-slot="${i}">Probar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const at = (el) => list[parseInt(el.dataset.slot, 10)];
+  wrap.querySelectorAll('.rbx-trig-sel').forEach((s) => s.onchange = () => { const a = at(s); if (!a) return; a.trigger = s.value; saveSettings(); renderRobloxActions(); });
+  wrap.querySelectorAll('.rbx-en').forEach((c) => c.onchange = () => { const a = at(c); if (!a) return; a.enabled = c.checked; saveSettings(); renderRobloxActions(); });
+  wrap.querySelectorAll('.rbx-like-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.rbx-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.rbx-gift').forEach((b) => b.onclick = () => {
+    const a = at(b); if (!a) return;
+    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderRobloxActions(); });
+  });
+  wrap.querySelectorAll('.rbx-test').forEach((b) => b.onclick = () => { const a = at(b); if (a) testRobloxAction(a); });
+}
+
+/* ================= Acciones de Roblox 3 (simulación de teclas) ================= */
+// Acciones FIJAS del juego: nombre, emoji y tecla por defecto. Las teclas se ajustan
+// editando este arreglo (pendiente de asignar por el usuario).
+const RBX3_PRESETS = [
+  { id: 'rbx3_mas5', name: 'Mover +5 casillas', emoji: '⬆️', keys: '1' },
+  { id: 'rbx3_menos5', name: 'Mover -5 casillas', emoji: '⬇️', keys: '2' },
+  { id: 'rbx3_mas50', name: 'Mover +50 casillas', emoji: '⬆️', keys: '3' },
+  { id: 'rbx3_menos50', name: 'Mover -50 casillas', emoji: '⬇️', keys: '4' },
+  { id: 'rbx3_mas100', name: 'Mover +100 casillas', emoji: '⬆️', keys: '5' },
+  { id: 'rbx3_menos100', name: 'Mover -100 casillas', emoji: '⬇️', keys: '6' },
+  { id: 'rbx3_mas500', name: 'Mover +500 casillas', emoji: '⬆️', keys: '7' },
+  { id: 'rbx3_menos500', name: 'Mover -500 casillas', emoji: '⬇️', keys: '8' },
+  { id: 'rbx3_win_mas', name: 'Sumar 1 win (+1)', emoji: '🏆', keys: 'P' },
+  { id: 'rbx3_win_menos', name: 'Restar 1 win (-1)', emoji: '🏆', keys: 'L' },
+  { id: 'rbx3_11', name: 'Acción 11', emoji: '🎮', keys: '', editable: true },
+  { id: 'rbx3_12', name: 'Acción 12', emoji: '🎮', keys: '', editable: true },
+];
+const RBX3_SLOTS = RBX3_PRESETS.length;
+
+// Asegura que existan las ranuras de acción de Roblox 3 en settings, con nombre y tecla
+// FIJOS según el preset (el usuario solo configura el regalo/evento, la cantidad y si está activa).
+function ensureRoblox3Slots() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.roblox3Actions)) settings.roblox3Actions = [];
+  for (let i = 0; i < RBX3_SLOTS; i++) {
+    const p = RBX3_PRESETS[i];
+    if (!settings.roblox3Actions[i]) {
+      settings.roblox3Actions[i] = { slot: i, trigger: 'gift', giftId: '', giftName: '', giftImage: '', count: 1, enabled: false };
+    }
+    const a = settings.roblox3Actions[i];
+    a.slot = i;
+    a.id = p.id; a.name = p.name; a.emoji = p.emoji;
+    if (p.editable) { if (typeof a.keys !== 'string') a.keys = ''; } // el usuario elige la tecla
+    else a.keys = p.keys; // tecla fija (no editable)
+  }
+  settings.roblox3Actions.length = RBX3_SLOTS;
+  return settings.roblox3Actions;
+}
+
+function setupRoblox3ActionsUI() {
+  const toggleAll = document.getElementById('rbx3-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureRoblox3Slots();
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettings(); renderRoblox3Actions();
+      toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
+    };
+  }
+  renderRoblox3Actions();
+}
+
+function testRoblox3Action(a) {
+  if (!a || !a.keys) { toast && toast('Esta acción aún no tiene tecla asignada.', 'warn'); return; }
+  if (!IS_DESKTOP || !window.desktopAPI?.pressKeys) { toast && toast('La simulación de teclas solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+  const times = Math.max(1, parseInt(a.count, 10) || 1);
+  toast && toast(`Se simularán las teclas en ${ACC_TEST_DELAY} s… cambia a Roblox.`, 'ok');
+  setTimeout(() => {
+    window.desktopAPI.pressKeys(a.keys, { gameCompat: true, times });
+    addEvent(`⚡ Prueba Roblox 3: ${esc(a.keys)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+  }, ACC_TEST_DELAY * 1000);
+}
+
+function renderRoblox3Actions() {
+  const wrap = document.getElementById('rbx3-actions');
+  if (!wrap || !settings) return;
+  const list = ensureRoblox3Slots();
+  wrap.innerHTML = list.map((a, i) => {
+    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+    let giftBtn = '';
+    if ((a.trigger || 'gift') === 'gift') {
+      const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+      giftBtn = `<button type="button" class="mc-gift-btn rbx3-gift" data-slot="${i}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+    } else {
+      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+    }
+    let likeRow = '';
+    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+      const val = a.likeN != null ? a.likeN : defN;
+      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+      likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="rbx3-like-n" data-slot="${i}" value="${esc(String(val))}"></label>`;
+    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !salta)';
+      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!salta';
+      likeRow = `<label class="mc-like-row">${txt}<input type="text" class="rbx3-text-n" data-slot="${i}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+    }
+    const editable = !!(RBX3_PRESETS[i] && RBX3_PRESETS[i].editable);
+    const keyEl = editable
+      ? `<button type="button" class="rbx-keycap rbx3-keyset" data-slot="${i}" title="Pulsa para elegir la tecla">${a.keys ? esc(a.keys) : '⌨️ Elegir tecla'}</button>`
+      : `<span class="rbx-keycap" title="Tecla fija de esta acción">${a.keys ? esc(a.keys) : '—'}</span>`;
+    return `
+    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-slot="${i}">
+      <div class="mc-act-top">
+        <span class="mc-act-name"><img class="mc-act-ic" src="/img/roblox3/${esc(a.id)}.png" alt="" onerror="this.outerHTML='${a.emoji || '⌨️'} '">${esc(a.name || ('Acción ' + (i + 1)))}</span>
+        ${keyEl}
+      </div>
+      <div class="mc-act-row">
+        <select class="rbx3-trig-sel" data-slot="${i}">${opts}</select>
+        ${giftBtn}
+        ${likeRow}
+      </div>
+      <div class="mc-act-actions">
+        <label class="mc-act-toggle"><input type="checkbox" class="rbx3-en" data-slot="${i}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+        <div class="mc-act-btns">
+          <button type="button" class="mc-act-test rbx3-test" data-slot="${i}">Probar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const at = (el) => list[parseInt(el.dataset.slot, 10)];
+  wrap.querySelectorAll('.rbx3-trig-sel').forEach((s) => s.onchange = () => { const a = at(s); if (!a) return; a.trigger = s.value; saveSettings(); renderRoblox3Actions(); });
+  wrap.querySelectorAll('.rbx3-en').forEach((c) => c.onchange = () => { const a = at(c); if (!a) return; a.enabled = c.checked; saveSettings(); renderRoblox3Actions(); });
+  wrap.querySelectorAll('.rbx3-like-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.rbx3-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.rbx3-gift').forEach((b) => b.onclick = () => {
+    const a = at(b); if (!a) return;
+    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderRoblox3Actions(); });
+  });
+  wrap.querySelectorAll('.rbx3-test').forEach((b) => b.onclick = () => { const a = at(b); if (a) testRoblox3Action(a); });
+  wrap.querySelectorAll('.rbx3-keyset').forEach((b) => b.onclick = () => {
+    const a = at(b); if (!a) return;
+    captureHotkey(b, (combo) => { a.keys = combo; saveSettings(); renderRoblox3Actions(); });
+  });
+}
+
+/* ================= Acciones de Mario Bros (generar en el juego) ================= */
+// Catálogo de cosas que se pueden generar. El "id" es el identificador que entiende
+// el juego (se envía a http://localhost:7755/spawn). El usuario solo elige el regalo
+// o evento que dispara cada una.
+const MARIO_ITEMS = [
+  { id: 'SuperMushroom', nombre: 'Hongo (crecer)' },
+  { id: 'FireFlower', nombre: 'Flor de Fuego' },
+  { id: 'SuperStar', nombre: 'Estrella (invencible)' },
+  { id: 'OneUp', nombre: 'Vida 1UP' },
+  { id: 'WingItem', nombre: 'Alas (volar)' },
+  { id: 'PoisonMushroom', nombre: 'Hongo Venenoso' },
+];
+const MARIO_ENEMIES = [
+  { id: 'Goomba', nombre: 'Goomba' },
+  { id: 'Goombrat', nombre: 'Goombrat' },
+  { id: 'GreenKoopaTroopa', nombre: 'Koopa Verde' },
+  { id: 'RedKoopaTroopa', nombre: 'Koopa Roja' },
+  { id: 'GreenKoopaParaTroopa', nombre: 'Koopa Voladora Verde' },
+  { id: 'GreenParaKoopaHori', nombre: 'Koopa Voladora (horizontal)' },
+  { id: 'Spiny', nombre: 'Spiny' },
+  { id: 'Lakitu', nombre: 'Lakitu' },
+  { id: 'PiranhaPlant', nombre: 'Planta Piraña' },
+  { id: 'RedPiranhaPlant', nombre: 'Planta Piraña Roja' },
+  { id: 'Muncher', nombre: 'Muncher (planta negra)' },
+  { id: 'BulletBill', nombre: 'Bill Bala' },
+  { id: 'BobOmb', nombre: 'Bob-omb' },
+  { id: 'LitBobOmb', nombre: 'Bob-omb encendido' },
+  { id: 'BuzzyBeetle', nombre: 'Buzzy Beetle' },
+  { id: 'DryBones', nombre: 'Dry Bones (huesitos)' },
+  { id: 'Boo', nombre: 'Boo (fantasma)' },
+  { id: 'BooBuddies', nombre: 'Boos en grupo' },
+  { id: 'HammerBro', nombre: 'Hermano Martillo' },
+  { id: 'BowsersBro', nombre: 'Hermano de Bowser' },
+  { id: 'Blooper', nombre: 'Blooper (calamar)' },
+  { id: 'GreenCheepCheep', nombre: 'Cheep Cheep Verde' },
+  { id: 'RedCheepCheep', nombre: 'Cheep Cheep Rojo' },
+  { id: 'LeapingCheepCheep', nombre: 'Cheep Cheep Saltarín' },
+  { id: 'Pokey', nombre: 'Pokey (cactus)' },
+  { id: 'MontyMole', nombre: 'Topo Monty' },
+  { id: 'RockyWrench', nombre: 'Rocky Wrench' },
+  { id: 'FighterFly', nombre: 'Mosca' },
+  { id: 'Sigebou', nombre: 'Sigebou' },
+  { id: 'Spike', nombre: 'Spike' },
+  { id: 'Thwomp', nombre: 'Thwomp' },
+  { id: 'Bowser', nombre: 'Bowser' },
+];
+// Efectos temporales sobre Mario (endpoint /effect). seconds = duración, factor =
+// tamaño exacto (0 = automático).
+const MARIO_EFFECTS = [
+  { id: 'giant', nombre: 'Mario Enorme', seconds: 5, factor: 0 },
+  { id: 'tiny', nombre: 'Mario Mini', seconds: 5, factor: 0 },
+];
+const MARIO_CATALOG = [
+  ...MARIO_ITEMS.map((x) => ({ ...x, tipo: 'item', kind: 'spawn' })),
+  ...MARIO_ENEMIES.map((x) => ({ ...x, tipo: 'enemy', kind: 'spawn' })),
+  ...MARIO_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
+];
+
+// Iconos y etiquetas del catálogo de Mario (para las tarjetas "+ Agregar").
+const MARIO_CAT_ICON = { item: '🍄', enemy: '👾', effect: '✨' };
+const MARIO_TIPO_LABEL = { item: 'Objeto / Power-up', enemy: 'Enemigo', effect: 'Efecto sobre Mario' };
+
+// settings.marioActions es la lista de acciones AGREGADAS por el usuario (como en
+// Minecraft): cada una tiene un uid propio. Empieza vacía.
+function ensureMarioActions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.marioActions)) settings.marioActions = [];
+  settings.marioActions = migrateGameActions(settings.marioActions, 'mar');
+  return settings.marioActions;
+}
+
+// Migra del formato viejo (todas las casillas del catálogo por 'slot', sin uid) al
+// nuevo (solo las que el usuario agregó, con uid). Conserva las que tenían regalo o
+// evento configurado y les pone un uid; descarta las casillas vacías del catálogo.
+function migrateGameActions(arr, prefix) {
+  if (!Array.isArray(arr) || !arr.length) return arr || [];
+  if (arr.every((a) => a && a.uid)) return arr;
+  const out = [];
+  for (const a of arr) {
+    if (!a) continue;
+    if (a.uid) { out.push(a); continue; }
+    const configured = a.giftId || a.giftName || (a.trigger && a.trigger !== 'gift') || a.text;
+    if (!configured) continue; // casilla vacía del catálogo viejo: se descarta
+    a.uid = prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    delete a.slot;
+    out.push(a);
+  }
+  return out;
+}
+
+// Botón "Ejecutar" del juego de Mario Bros: abre el juego que viene empaquetado
+// dentro de la app (.exe). Solo se muestra en la app de escritorio.
+function setupMarioLaunchBtn() {
+  const room = document.getElementById('mario-room');
+  if (room && !room._wired) {
+    room._wired = true;
+    room.onclick = () => {
+      if (!room.dataset.url) { toast && toast('Aún no hay enlace de descarga configurado.', 'warn'); return; }
+      downloadMinecraftServer(room.dataset.url);
+      toast && toast('Descargando el Room de Mario…', 'ok');
+    };
+  }
+  const btn = document.getElementById('mario-play');
+  if (!btn) return;
+  if (!IS_DESKTOP || !window.desktopAPI?.launchMarioGame) { btn.style.display = 'none'; return; }
+  if (btn._wired) return;
+  btn._wired = true;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = '⏳ Abriendo…';
+    try {
+      const r = await window.desktopAPI.launchMarioGame();
+      if (r && r.ok) {
+        toast && toast('Abriendo el juego de Mario Bros…', 'ok');
+      } else if (r && (r.error === 'no_instalado' || r.error === 'sin_exe')) {
+        toast && toast('No se encontró el juego dentro de la app. Reinstala/actualiza Livecoins.', 'warn');
+      } else {
+        toast && toast('No se pudo abrir el juego.', 'warn');
+      }
+    } catch {
+      toast && toast('No se pudo abrir el juego.', 'warn');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  };
+}
+
+function setupMarioActionsUI() {
+  const search = document.getElementById('mario-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderMarioCatalog(search.value); }
+  const toggleAll = document.getElementById('mario-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureMarioActions();
+      if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettings(); renderMarioActions();
+      toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
+    };
+  }
+  renderMarioCatalog(search ? search.value : '');
+  renderMarioActions();
+}
+
+// Catálogo de Mario: tarjetas con "+ Agregar" (igual que Minecraft).
+function renderMarioCatalog(filter) {
+  const grid = document.getElementById('mario-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f ? MARIO_CATALOG.filter((c) => c.nombre.toLowerCase().includes(f)) : MARIO_CATALOG;
+  if (!list.length) { grid.innerHTML = '<div class="empty">Sin resultados</div>'; return; }
+  grid.innerHTML = list.map((c) => `
+    <div class="mc-cat-card" data-id="${esc(c.id)}">
+      <div class="mc-cat-head-row">
+        <span class="mc-cat-emoji">${MARIO_CAT_ICON[c.tipo] || '🎮'}</span>
+        <div class="mc-cat-texts">
+          <div class="mc-cat-name">${esc(c.nombre)}</div>
+          <div class="mc-cat-desc">${esc(MARIO_TIPO_LABEL[c.tipo] || '')}</div>
+        </div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`).join('');
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addMarioAction(card.dataset.id);
+  });
+}
+
+// Agrega una acción del catálogo a "Mis acciones agregadas".
+function addMarioAction(thing) {
+  const c = MARIO_CATALOG.find((x) => x.id === thing);
+  if (!c) return;
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const list = ensureMarioActions();
+  list.push({
+    uid: 'mar_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id, label: c.nombre, tipo: c.tipo, kind: c.kind || 'spawn',
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '',
+    count: 1, seconds: c.seconds != null ? c.seconds : 5, factor: c.factor != null ? c.factor : 0,
+    text: '', enabled: true,
+  });
+  saveSettings(); renderMarioActions();
+  toast && toast(`Acción "${c.nombre}" agregada. Elige el regalo o evento.`, 'ok');
+}
+
+// Mario / PvZ: SIEMPRE en esta PC. Primero IPC de Electron; si no, servidor local del .exe.
+async function execGameLocal(exec) {
+  if (!IS_DESKTOP || !exec) return false;
+  if (window.desktopAPI?.localExec) {
+    try { await window.desktopAPI.localExec(exec); return true; } catch {}
+  }
+  try {
+    const r = await fetch('/api/desktop/game-exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(exec),
+    });
+    const d = await r.json().catch(() => ({}));
+    return r.ok && d.ok !== false;
+  } catch { return false; }
+}
+
+async function testMarioAction(a) {
+  if (!a || !a.thing) return;
+  if (!IS_DESKTOP) { toast && toast('Mario Bros solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+  if (a.kind === 'effect') {
+    const seconds = Math.max(1, parseInt(a.seconds, 10) || 5);
+    const factor = Math.max(0, parseInt(a.factor, 10) || 0);
+    const ok = await execGameLocal({ tipo: 'MARIO_EFFECT', type: a.thing, seconds, factor });
+    if (ok) addEvent(`🍄 Prueba Mario: efecto ${esc(a.label || a.thing)}`, 'ok');
+    else toast && toast('No se pudo ejecutar. Abre el juego y entra a un nivel.', 'warn');
+    return;
+  }
+  const times = Math.max(1, parseInt(a.count, 10) || 1);
+  const ok = await execGameLocal({ tipo: 'MARIO_SPAWN', thing: a.thing, name: 'Prueba', times });
+  if (ok) addEvent(`🍄 Prueba Mario: generar ${esc(a.label || a.thing)}`, 'ok');
+  else toast && toast('No se pudo ejecutar. Abre el juego y entra a un nivel.', 'warn');
+}
+
+function marioCardHtml(a) {
+  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+  const uid = esc(a.uid);
+  let giftBtn = '';
+  if ((a.trigger || 'gift') === 'gift') {
+    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+    giftBtn = `<button type="button" class="mc-gift-btn mario-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+  } else {
+    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+  }
+  let likeRow = '';
+  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+    const val = a.likeN != null ? a.likeN : defN;
+    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="mario-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
+  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !goomba)';
+    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
+    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="mario-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+  }
+  const emoji = a.kind === 'effect' ? '✨' : (a.tipo === 'enemy' ? '👾' : '🍄');
+  let qtyRow;
+  if (a.kind === 'effect') {
+    qtyRow = `
+      <label class="mc-like-row" style="max-width:120px">Segundos<input type="number" min="1" max="60" class="mario-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>
+      <label class="mc-like-row" style="max-width:160px">Tamaño (x, 0=auto)<input type="number" min="0" max="10" class="mario-factor" data-uid="${uid}" value="${esc(String(a.factor || 0))}"></label>`;
+  } else {
+    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="20" class="mario-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+  }
+  return `
+  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
+    <div class="mc-act-top">
+      <span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>
+      <button type="button" class="mc-act-del mario-del" data-uid="${uid}" title="Quitar">✕</button>
+    </div>
+    <div class="mc-act-row">
+      <select class="mario-trig-sel" data-uid="${uid}">${opts}</select>
+      ${giftBtn}
+      ${likeRow}
+    </div>
+    <div class="mc-act-row">
+      ${qtyRow}
+    </div>
+    <div class="mc-act-actions">
+      <label class="mc-act-toggle"><input type="checkbox" class="mario-en" data-uid="${uid}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+      <div class="mc-act-btns">
+        <button type="button" class="mc-act-test mario-test" data-uid="${uid}">Probar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderMarioActions() {
+  const wrap = document.getElementById('mario-my-actions');
+  if (!wrap || !settings) return;
+  const list = ensureMarioActions();
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((a) => marioCardHtml(a)).join('');
+
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.mario-del').forEach((b) => b.onclick = () => { settings.marioActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMarioActions(); });
+  wrap.querySelectorAll('.mario-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderMarioActions(); });
+  wrap.querySelectorAll('.mario-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderMarioActions(); });
+  wrap.querySelectorAll('.mario-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.mario-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.mario-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
+  wrap.querySelectorAll('.mario-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
+  wrap.querySelectorAll('.mario-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
+  wrap.querySelectorAll('.mario-gift').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (!a) return;
+    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderMarioActions(); });
+  });
+  wrap.querySelectorAll('.mario-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMarioAction(a); });
+}
+
+/* ============ Acciones de Plants vs Zombies (generar zombies / dar soles) ============ */
+// Catálogo. Los zombies se generan vía http://localhost:7755/spawn (kind 'spawn').
+// El recurso "Dar soles" llama a http://localhost:7755/sun?amount=N (kind 'sun').
+const PVZ_ZOMBIES = [
+  { id: 'norm', nombre: 'Zombie básico' },
+  { id: 'cone', nombre: 'Zombie con cono' },
+  { id: 'bucket', nombre: 'Zombie con cubeta' },
+  { id: 'pole', nombre: 'Saltador con pértiga' },
+  { id: 'newspaper', nombre: 'Zombie del periódico' },
+  { id: 'screendoor', nombre: 'Zombie con puerta' },
+  { id: 'football', nombre: 'Zombie americano' },
+  { id: 'dancer', nombre: 'Zombie bailarín (rey)' },
+  { id: 'balloon', nombre: 'Zombie con globo' },
+  { id: 'digger', nombre: 'Zombie minero' },
+  { id: 'pogo', nombre: 'Zombie saltarín' },
+  { id: 'yeti', nombre: 'Yeti' },
+  { id: 'jack', nombre: 'Zombie payaso' },
+  { id: 'ladder', nombre: 'Zombie con escalera' },
+  { id: 'catapult', nombre: 'Zombie catapulta' },
+  { id: 'gargantuar', nombre: 'Gigante (Gargantuar)' },
+  { id: 'imp', nombre: 'Diablillo (Imp)' },
+  { id: 'random', nombre: 'Zombie al azar' },
+];
+const PVZ_RESOURCES = [
+  { id: 'sun', nombre: 'Dar Soles', amount: 50 },
+];
+// Efectos sobre las plantas. Son comandos GET sin parámetros (kind 'cmd'): cada uno
+// llama a http://localhost:7755{path}.
+const PVZ_PLANTS = [
+  { id: 'nocooldown', nombre: 'Plantas sin recarga', path: '/nocooldown' },
+  { id: 'cooldown', nombre: 'Recarga normal', path: '/cooldown' },
+  { id: 'freeplants', nombre: 'Plantas gratis', path: '/freeplants' },
+  { id: 'paidplants', nombre: 'Plantas con costo normal', path: '/paidplants' },
+  { id: 'godmode', nombre: 'God mode (sin recarga + gratis)', path: '/godmode' },
+  { id: 'godmodeoff', nombre: 'Quitar god mode', path: '/godmodeoff' },
+];
+// Comandos de partida (también GET, kind 'cmd').
+const PVZ_COMMANDS = [
+  { id: 'killzombies', nombre: 'Matar todos los zombis', path: '/killzombies' },
+  { id: 'clearplants', nombre: 'Quitar todas las plantas del campo', path: '/clearplants' },
+  { id: 'unlockplants', nombre: 'Desbloquear plantas y niveles', path: '/unlockplants' },
+];
+const PVZ_CATALOG = [
+  ...PVZ_ZOMBIES.map((x) => ({ ...x, tipo: 'zombie', kind: 'spawn' })),
+  ...PVZ_RESOURCES.map((x) => ({ ...x, tipo: 'resource', kind: 'sun' })),
+  ...PVZ_PLANTS.map((x) => ({ ...x, tipo: 'plant', kind: 'cmd' })),
+  ...PVZ_COMMANDS.map((x) => ({ ...x, tipo: 'command', kind: 'cmd' })),
+];
+
+// Iconos y etiquetas del catálogo de PvZ (para las tarjetas "+ Agregar").
+const PVZ_CAT_ICON = { zombie: '🧟', resource: '☀️', plant: '🌱', command: '⚙️' };
+const PVZ_TIPO_LABEL = { zombie: 'Zombie', resource: 'Recurso / Soles', plant: 'Planta (efecto)', command: 'Comando' };
+
+// settings.pvzActions es la lista de acciones AGREGADAS por el usuario (como en
+// Minecraft): cada una tiene un uid propio. Empieza vacía.
+function ensurePvzActions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.pvzActions)) settings.pvzActions = [];
+  settings.pvzActions = migrateGameActions(settings.pvzActions, 'pvz');
+  return settings.pvzActions;
+}
+
+// Botón "Descargar" del juego de Plants vs Zombies: abre el enlace de descarga en el
+// navegador (el juego se descarga aparte, no viene empaquetado en la app).
+function setupPvzLaunchBtn() {
+  const btn = document.getElementById('pvz-play');
+  if (!btn || btn._wired) return;
+  btn._wired = true;
+  btn.onclick = () => {
+    const url = btn.dataset.url;
+    if (!url) { toast && toast('No hay enlace de descarga configurado.', 'warn'); return; }
+    if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(url);
+    else window.open(url, '_blank', 'noopener');
+    toast && toast('Abriendo la descarga en tu navegador…', 'ok');
+  };
+}
+
+function setupPvzActionsUI() {
+  const search = document.getElementById('pvz-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderPvzCatalog(search.value); }
+  const toggleAll = document.getElementById('pvz-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensurePvzActions();
+      if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettings(); renderPvzActions();
+      toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
+    };
+  }
+  renderPvzCatalog(search ? search.value : '');
+  renderPvzActions();
+}
+
+// Catálogo de PvZ: tarjetas con "+ Agregar" (igual que Minecraft).
+function renderPvzCatalog(filter) {
+  const grid = document.getElementById('pvz-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f ? PVZ_CATALOG.filter((c) => c.nombre.toLowerCase().includes(f)) : PVZ_CATALOG;
+  if (!list.length) { grid.innerHTML = '<div class="empty">Sin resultados</div>'; return; }
+  grid.innerHTML = list.map((c) => `
+    <div class="mc-cat-card" data-id="${esc(c.id)}">
+      <div class="mc-cat-head-row">
+        <img class="mc-cat-ic" src="/img/pvz/${esc(c.id)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-cat-emoji\\'>${PVZ_CAT_ICON[c.tipo] || '🎮'}</span>'">
+        <div class="mc-cat-texts">
+          <div class="mc-cat-name">${esc(c.nombre)}</div>
+          <div class="mc-cat-desc">${esc(PVZ_TIPO_LABEL[c.tipo] || '')}</div>
+        </div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`).join('');
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addPvzAction(card.dataset.id);
+  });
+}
+
+// Agrega una acción del catálogo a "Mis acciones agregadas".
+function addPvzAction(thing) {
+  const c = PVZ_CATALOG.find((x) => x.id === thing);
+  if (!c) return;
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const list = ensurePvzActions();
+  list.push({
+    uid: 'pvz_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id, label: c.nombre, tipo: c.tipo, kind: c.kind || 'spawn', path: c.path || '',
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '',
+    count: 1, amount: c.amount != null ? c.amount : 50,
+    text: '', enabled: true,
+  });
+  saveSettings(); renderPvzActions();
+  toast && toast(`Acción "${c.nombre}" agregada. Elige el regalo o evento.`, 'ok');
+}
+
+// Prueba: siempre en esta PC (sin pasar por la nube).
+async function testPvzAction(a) {
+  if (!a || !a.thing) return;
+  if (!IS_DESKTOP) { toast && toast('Plants vs Zombies solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+  let ok = false;
+  if (a.kind === 'sun') {
+    const amount = Math.max(1, parseInt(a.amount, 10) || 50);
+    ok = await execGameLocal({ tipo: 'PVZ_SUN', amount });
+    if (ok) addEvent(`🧟 Prueba PvZ: dar ${esc(String(amount))} soles`, 'ok');
+  } else if (a.kind === 'cmd') {
+    ok = await execGameLocal({ tipo: 'PVZ_CMD', path: a.path });
+    if (ok) addEvent(`🧟 Prueba PvZ: ${esc(a.label || a.thing)}`, 'ok');
+  } else {
+    const times = Math.max(1, parseInt(a.count, 10) || 1);
+    ok = await execGameLocal({ tipo: 'PVZ_SPAWN', thing: a.thing, name: 'Prueba', times });
+    if (ok) addEvent(`🧟 Prueba PvZ: generar ${esc(a.label || a.thing)}`, 'ok');
+  }
+  if (!ok) toast && toast('No se pudo ejecutar. ¿El juego está abierto en una partida?', 'warn');
+}
+
+function pvzCardHtml(a) {
+  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+  const uid = esc(a.uid);
+  let giftBtn = '';
+  if ((a.trigger || 'gift') === 'gift') {
+    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+    giftBtn = `<button type="button" class="mc-gift-btn pvz-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+  } else {
+    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+  }
+  let likeRow = '';
+  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+    const val = a.likeN != null ? a.likeN : defN;
+    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="pvz-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
+  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !zombie)';
+    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!zombie';
+    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="pvz-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+  }
+  const emoji = a.kind === 'sun' ? '☀️' : (a.tipo === 'plant' ? '🌱' : (a.tipo === 'command' ? '⚙️' : '🧟'));
+  let qtyRow = '';
+  if (a.kind === 'sun') {
+    qtyRow = `<label class="mc-like-row" style="max-width:150px">Cantidad de soles<input type="number" min="1" max="9990" step="25" class="pvz-amount" data-uid="${uid}" value="${esc(String(a.amount || 50))}"></label>`;
+  } else if (a.kind !== 'cmd') {
+    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="20" class="pvz-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+  }
+  const qtyBlock = qtyRow ? `<div class="mc-act-row">${qtyRow}</div>` : '';
+  return `
+  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
+    <div class="mc-act-top">
+      <span class="mc-act-name"><img class="mc-act-ic" src="/img/pvz/${esc(a.thing)}.png" alt="" onerror="this.outerHTML='${emoji} '">${esc(a.label || a.thing)}</span>
+      <button type="button" class="mc-act-del pvz-del" data-uid="${uid}" title="Quitar">✕</button>
+    </div>
+    <div class="mc-act-row">
+      <select class="pvz-trig-sel" data-uid="${uid}">${opts}</select>
+      ${giftBtn}
+      ${likeRow}
+    </div>
+    ${qtyBlock}
+    <div class="mc-act-actions">
+      <label class="mc-act-toggle"><input type="checkbox" class="pvz-en" data-uid="${uid}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+      <div class="mc-act-btns">
+        <button type="button" class="mc-act-test pvz-test" data-uid="${uid}">Probar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderPvzActions() {
+  const wrap = document.getElementById('pvz-my-actions');
+  if (!wrap || !settings) return;
+  const list = ensurePvzActions();
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((a) => pvzCardHtml(a)).join('');
+
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.pvz-del').forEach((b) => b.onclick = () => { settings.pvzActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderPvzActions(); });
+  wrap.querySelectorAll('.pvz-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderPvzActions(); });
+  wrap.querySelectorAll('.pvz-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderPvzActions(); });
+  wrap.querySelectorAll('.pvz-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.pvz-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.pvz-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
+  wrap.querySelectorAll('.pvz-amount').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.amount = Math.max(1, Math.min(9990, parseInt(inp.value, 10) || 50)); saveSettings(); });
+  wrap.querySelectorAll('.pvz-gift').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (!a) return;
+    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderPvzActions(); });
+  });
+  wrap.querySelectorAll('.pvz-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzAction(a); });
+}
+
+// Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
+// regalo/evento que la activa, la acción (imagen/emoji) y la tecla. Se descarga como PNG.
+async function generateRobloxMenuImage(orientation) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const all = ensureRobloxSlots();
+  let list = all.filter((a) => a && a.enabled !== false);
+  if (!list.length) list = all.slice(); // si no hay ninguna encendida, muestra todas
+  toast && toast('Generando imagen…', 'ok');
+
+  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
+  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : ('/api/img-proxy?url=' + encodeURIComponent(u))));
+  const loadImg = (src) => new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+
+  const rows = [];
+  for (const a of list) {
+    const trig = a.trigger || 'gift';
+    let leftImg = null, leftEmoji = '';
+    if (trig === 'gift') leftImg = await loadImg(proxied(a.giftImage));
+    else { const ev = MC_TRIG_ICON[trig] || { ic: '⚡' }; leftEmoji = ev.ic; }
+    const actIcon = await loadImg('/img/roblox/' + (a.id || '') + '.png');
+    rows.push({ a, leftImg, leftEmoji, actIcon, actEmoji: a.emoji || '🎮' });
+  }
+
+  // Orientación: vertical = 1 columna; horizontal = 1 fila; por defecto cuadrícula.
+  let cols;
+  if (orientation === 'vertical') cols = 1;
+  else if (orientation === 'horizontal') cols = rows.length;
+  else cols = Math.max(1, Math.min(5, rows.length));
+  cols = Math.max(1, cols);
+  const gridRows = Math.ceil(rows.length / cols);
+  const margin = 10, gap = 14, cellW = 200, numH = 14, iconS = 156, giftS = 52;
+  const cellH = numH + iconS + 30;
+  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
+  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
+  const dpr = 2;
+  const cv = document.createElement('canvas');
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const rr = (x, y, w, h, r) => {
+    const rad = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  };
+
+  ctx.textBaseline = 'middle';
+  rows.forEach((row, i) => {
+    const c = i % cols, r = Math.floor(i / cols);
+    const cellX = margin + c * (cellW + gap);
+    const cellY = margin + r * (cellH + gap);
+    const iconX = cellX + (cellW - iconS) / 2;
+    const iconY = cellY + numH;
+
+    // Icono de la acción (imagen o emoji)
+    if (row.actIcon) {
+      ctx.save(); rr(iconX, iconY, iconS, iconS, 16); ctx.clip();
+      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
+      ctx.restore();
+    } else {
+      ctx.font = '96px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+      ctx.fillText(row.actEmoji, iconX + iconS / 2, iconY + iconS / 2);
+    }
+
+    // Regalo/evento pequeño, casi en los pies del icono.
+    const gx = cellX + (cellW - giftS) / 2, gy = iconY + iconS - Math.round(giftS * 0.5);
+    ctx.save(); rr(gx, gy, giftS, giftS, 12); ctx.clip();
+    if (row.leftImg) ctx.drawImage(row.leftImg, gx, gy, giftS, giftS);
+    else { ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(row.leftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1); }
+    ctx.restore();
+  });
+
+  try {
+    const data = cv.toDataURL('image/png');
+    const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
+    const link = document.createElement('a');
+    link.href = data; link.download = 'menu-regalos-roblox' + suffix + '.png';
+    document.body.appendChild(link); link.click(); link.remove();
+    toast && toast('Imagen generada y descargada.', 'ok');
+  } catch {
+    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
+  }
+}
+
+// Descarga el archivo del servidor (botón sobre la imagen).
+function downloadMinecraftServer(url) {
+  if (!url) return;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast && toast('Descargando servidor de Minecraft…', 'ok');
+}
+
+const MC_BAT_KEY = 'mcServerBatPath';
+// El servidor del Cubo TNT (Bedrock) guarda su .bat por separado del de Minecraft.
+const BEDROCK_BAT_KEY = 'bedrockServerBatPath';
+
+// Pide el .bat del servidor del Cubo TNT y guarda la ruta. Devuelve la ruta o ''.
+async function chooseBedrockBat(announce) {
+  if (!IS_DESKTOP || !window.desktopAPI?.pickServerBat) {
+    toast && toast('Esto solo funciona en la app de escritorio (.exe).', 'warn');
+    return '';
+  }
+  const picked = await window.desktopAPI.pickServerBat();
+  if (!picked) return '';
+  try { localStorage.setItem(BEDROCK_BAT_KEY, picked); } catch {}
+  if (announce) toast && toast('Servidor seleccionado. Pulsa Ejecutar servidor para iniciarlo.', 'ok');
+  return picked;
+}
+
+// Ejecuta el servidor del Cubo TNT: si no hay .bat guardado, primero lo pide.
+async function runBedrockServer() {
+  if (!IS_DESKTOP || !window.desktopAPI?.runServerBat) {
+    toast && toast('Para iniciar el servidor abre la app de escritorio (.exe).', 'warn');
+    return;
+  }
+  let path = '';
+  try { path = localStorage.getItem(BEDROCK_BAT_KEY) || ''; } catch {}
+  if (!path) { path = await chooseBedrockBat(false); if (!path) return; }
+  const r = await window.desktopAPI.runServerBat(path);
+  if (r && r.ok) {
+    toast && toast('Iniciando el servidor del Cubo TNT…', 'ok');
+  } else if (r && r.error === 'no_existe') {
+    try { localStorage.removeItem(BEDROCK_BAT_KEY); } catch {}
+    toast && toast('No se encontró el archivo. Elígelo de nuevo.', 'warn');
+    const np = await chooseBedrockBat(false);
+    if (np) { const r2 = await window.desktopAPI.runServerBat(np); if (r2 && r2.ok) toast && toast('Iniciando el servidor del Cubo TNT…', 'ok'); }
+  } else {
+    toast && toast('No se pudo iniciar el servidor.', 'err');
+  }
+}
+
+// Pide al usuario el archivo .bat del servidor y guarda la ruta. Devuelve la ruta o ''.
+async function chooseMinecraftBat(announce) {
+  if (!IS_DESKTOP || !window.desktopAPI?.pickServerBat) {
+    toast && toast('Esto solo funciona en la app de escritorio (.exe).', 'warn');
+    return '';
+  }
+  const picked = await window.desktopAPI.pickServerBat();
+  if (!picked) return '';
+  try { localStorage.setItem(MC_BAT_KEY, picked); } catch {}
+  if (announce) toast && toast('Servidor seleccionado. Pulsa CLICK AQUÍ para iniciarlo.', 'ok');
+  return picked;
+}
+
+// Ejecuta el servidor: si no hay .bat guardado, primero lo pide.
+async function runMinecraftServer() {
+  if (!IS_DESKTOP || !window.desktopAPI?.runServerBat) {
+    toast && toast('Para iniciar el servidor abre la app de escritorio (.exe).', 'warn');
+    return;
+  }
+  let path = '';
+  try { path = localStorage.getItem(MC_BAT_KEY) || ''; } catch {}
+  if (!path) { path = await chooseMinecraftBat(false); if (!path) return; }
+  const r = await window.desktopAPI.runServerBat(path);
+  if (r && r.ok) {
+    toast && toast('Iniciando el servidor de Minecraft…', 'ok');
+  } else if (r && r.error === 'no_existe') {
+    try { localStorage.removeItem(MC_BAT_KEY); } catch {}
+    toast && toast('No se encontró el archivo. Elígelo de nuevo.', 'warn');
+    const np = await chooseMinecraftBat(false);
+    if (np) { const r2 = await window.desktopAPI.runServerBat(np); if (r2 && r2.ok) toast && toast('Iniciando el servidor de Minecraft…', 'ok'); }
+  } else {
+    toast && toast('No se pudo iniciar el servidor.', 'err');
+  }
+}
+// Bloquea SOLO la sub-pestaña "Webhook" con un aviso Premium; "Configuración" queda
+// disponible para todos los planes.
+function applyWebhookLock() {
+  const banner = document.getElementById('wh-premium');
+  const webhookPanel = document.getElementById('wtab-webhook');
+  const locked = IS_DESKTOP && !webhookUnlocked();
+  if (webhookPanel) webhookPanel.classList.toggle('wh-locked', locked);
+  const activeTab = document.querySelector('#view-webhook .wh-tab.active');
+  const onWebhookTab = !activeTab || activeTab.dataset.wtab === 'webhook';
+  if (banner) banner.hidden = !(locked && onWebhookTab);
+}
+
+function webhookCfg() {
+  const c = settings && settings.webhook ? settings.webhook : {};
+  return {
+    rcon: { ...WEBHOOK_DEFAULTS.rcon, ...(c.rcon || {}) },
+    obs: { ...WEBHOOK_DEFAULTS.obs, ...(c.obs || {}) },
+    streamerbot: { ...WEBHOOK_DEFAULTS.streamerbot, ...(c.streamerbot || {}) },
+    servertap: { ...WEBHOOK_DEFAULTS.servertap, ...(c.servertap || {}) },
+  };
+}
+
+// settings.webhook -> formulario.
+function applyWebhookUI() {
+  if (!settings) return;
+  const cfg = webhookCfg();
+  for (const [id, [grp, key]] of Object.entries(WEBHOOK_MAP)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = !!cfg[grp][key];
+    else el.value = cfg[grp][key];
+  }
+}
+// Formulario -> settings.webhook y guarda.
+function saveWebhookSettings() {
+  if (!settings) return;
+  const cfg = webhookCfg();
+  for (const [id, [grp, key]] of Object.entries(WEBHOOK_MAP)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.type === 'checkbox') cfg[grp][key] = el.checked;
+    else if (el.type === 'number') cfg[grp][key] = parseInt(el.value, 10) || 0;
+    else cfg[grp][key] = el.value;
+  }
+  settings.webhook = cfg;
+  saveSettings();
+}
+
+let webhookWired = false;
+function setupWebhookUI() {
+  if (webhookWired) return;
+  webhookWired = true;
+
+  // Sub-pestañas Webhook / Configuración.
+  document.querySelectorAll('#view-webhook .wh-tab').forEach((tab) => {
+    tab.onclick = () => {
+      document.querySelectorAll('#view-webhook .wh-tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('#view-webhook .wh-panel').forEach((p) => p.classList.remove('active'));
+      tab.classList.add('active');
+      const panel = document.getElementById('wtab-' + tab.dataset.wtab);
+      if (panel) panel.classList.add('active');
+      applyWebhookLock();
+    };
+  });
+
+  // Botones de copiar de los bloques de endpoints.
+  document.querySelectorAll('#view-webhook .wh-endpoint .wh-copy').forEach((btn) => {
+    btn.onclick = () => {
+      const code = btn.parentElement.querySelector('.wh-url');
+      if (!code) return;
+      const text = code.textContent;
+      const done = () => { btn.classList.add('ok'); setTimeout(() => btn.classList.remove('ok'), 1200); };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+      else fallbackCopy(text, done);
+    };
+  });
+
+  // Guardado automático de la configuración.
+  const flashSaved = () => {
+    const msg = document.getElementById('wh-save-msg');
+    if (msg) { msg.textContent = '✓ Guardado'; clearTimeout(flashSaved._t); flashSaved._t = setTimeout(() => { msg.textContent = ''; }, 1500); }
+  };
+  let whTimer = null;
+  const autoSave = () => { clearTimeout(whTimer); whTimer = setTimeout(() => { saveWebhookSettings(); flashSaved(); }, 350); };
+  for (const id of Object.keys(WEBHOOK_MAP)) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', autoSave);
+  }
+
+  // Botones "Probar Conexión".
+  document.querySelectorAll('#view-webhook .wh-test').forEach((btn) => {
+    btn.onclick = () => testWebhookConnection(btn.dataset.test, btn);
+  });
+
+  applyWebhookUI();
+  applyWebhookLock();
+}
+
+async function testWebhookConnection(kind, btn) {
+  saveWebhookSettings();
+  const cfg = webhookCfg();
+  const msgId = kind === 'rcon' ? 'wh-rcon-msg' : kind === 'obs' ? 'wh-obs-msg' : kind === 'servertap' ? 'wh-stap-msg' : 'wh-sb-msg';
+  const msg = document.getElementById(msgId);
+  const setMsg = (t, cls) => { if (msg) { msg.textContent = t; msg.className = 'wh-test-msg ' + cls; } };
+  let body, url;
+  if (kind === 'rcon') { url = '/api/webhook/test-rcon'; body = cfg.rcon; }
+  else if (kind === 'obs') { url = '/api/webhook/test-obs'; body = cfg.obs; }
+  else if (kind === 'servertap') { url = '/api/webhook/test-servertap'; body = cfg.servertap; }
+  else { url = '/api/webhook/test-streamerbot'; body = cfg.streamerbot; }
+  setMsg('Probando…', 'run');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const d = await r.json();
+    if (d.ok) setMsg('✓ Conexión correcta', 'ok');
+    else setMsg('✗ ' + (d.error || 'No se pudo conectar'), 'err');
+  } catch {
+    setMsg('✗ Error de red', 'err');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 /* ===== Pantalla de inicio: bienvenida + consejos ===== */
@@ -4241,10 +8298,30 @@ function initHomeWelcome() {
   preloadGiftCatalog();
   try { initHomeWelcome(); } catch (e) { console.error('Home welcome:', e); }
   try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }
+  // Pestaña Acciones (solo .exe): al final del arranque, aislada para no romper el panel.
+  if (IS_DESKTOP) {
+    // Tema azul marino exclusivo del .exe (la web mantiene el negro).
+    document.documentElement.classList.add('is-desktop');
+    // Quita SW cacheado de versiones anteriores (evita JS/HTML viejos en el .exe).
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+    }
+    const navAcc = document.getElementById('navAcciones');
+    if (navAcc) navAcc.style.display = '';
+    try { setupAccionesUI(); }
+    catch (e) { console.error('Acciones UI:', e); }
+    try { setupProfiles(); }
+    catch (e) { console.error('Perfiles UI:', e); }
+  }
   // Datos de sesión (usuario / roomKey) en paralelo; solo afectan al chip y a las URLs
   // de overlays, que no bloquean el render principal.
   loadMe().then(() => {
     mountUserChip();
     refreshOverlayUrls();
+    try { revealSpotifyTab(); } catch (e) { console.error('Spotify tab:', e); }
+    if (spotifyAllowed()) { try { setupSpotifyUI(); } catch (e) { console.error('Spotify UI:', e); } }
+    try { revealWebhookTab(); } catch (e) { console.error('Webhook tab:', e); }
+    if (IS_DESKTOP) { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
+    try { revealJuegosTab(); setupJuegosUI(); } catch (e) { console.error('Juegos tab:', e); }
   });
 })();
