@@ -351,7 +351,9 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
         const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
         if (!idMatch && !nameMatch) return null;
         times *= Math.max(1, Number(info.repeatCount) || 1);
-      } else if (trig !== 'gift-any') return null;
+      } else if (trig === 'gift-any') {
+        times *= Math.max(1, Number(info.repeatCount) || 1);
+      } else return null;
     } else if (eventType === 'like') {
       if (trig !== 'like') return null;
       if ((a.likeN || 1) > (info.likeCount || 0)) return null;
@@ -413,8 +415,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (!a || a.enabled === false || !a.thing) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
-      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
       if ((a.kind || 'spawn') === 'effect') {
         log('ok', `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)`);
         applyMarioEffect(a.thing, a.seconds, a.factor);
@@ -431,8 +432,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (!a || a.enabled === false || !a.thing) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
-      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
       if ((a.kind || 'spawn') === 'sun') {
         log('ok', `🧟 PvZ: dar ${a.amount || 50} soles`);
         givePvzSun(a.amount);

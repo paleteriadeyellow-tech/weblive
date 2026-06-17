@@ -7820,16 +7820,9 @@ const MARIO_ENEMIES = [
   { id: 'PiranhaPlant', npcId: 512, nombre: 'Piranha Plant' },
   { id: 'RedPiranhaPlant', npcId: 523, nombre: 'Red Piranha Plant' },
 ];
-// Efectos temporales sobre Mario (endpoint /effect). seconds = duración, factor =
-// tamaño exacto (0 = automático).
-const MARIO_EFFECTS = [
-  { id: 'giant', nombre: 'Mario Enorme', seconds: 5, factor: 0 },
-  { id: 'tiny', nombre: 'Mario Mini', seconds: 5, factor: 0 },
-];
 const MARIO_CATALOG = [
   ...MARIO_ITEMS.map((x) => ({ ...x, tipo: 'item', kind: 'spawn' })),
   ...MARIO_ENEMIES.map((x) => ({ ...x, tipo: 'enemy', kind: 'spawn' })),
-  ...MARIO_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
 ];
 
 // Iconos y etiquetas del catálogo de Mario (para las tarjetas "+ Agregar").
@@ -7842,6 +7835,10 @@ function ensureMarioActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.marioActions)) settings.marioActions = [];
   settings.marioActions = migrateGameActions(settings.marioActions, 'mar');
+  settings.marioActions = settings.marioActions.filter((a) => a && (a.kind || 'spawn') !== 'effect');
+  for (const a of settings.marioActions) {
+    if (a && a.comboInstant == null) a.comboInstant = true;
+  }
   return settings.marioActions;
 }
 
@@ -7871,18 +7868,9 @@ function setupMarioLaunchBtn() {
     room._wired = true;
     room.onclick = () => {
       const url = (room.dataset.url || '').trim();
-      if (!url) { toast && toast('Enlace de descarga del mod pendiente. Pide el ZIP a soporte.', 'warn'); return; }
+      if (!url) { toast && toast('Enlace de descarga no disponible.', 'warn'); return; }
       downloadMinecraftServer(url);
-      toast && toast('Descargando mod Livecoins para SMBX2…', 'ok');
-    };
-  }
-  const smbx2 = document.getElementById('mario-smbx2');
-  if (smbx2 && !smbx2._wired) {
-    smbx2._wired = true;
-    smbx2.onclick = () => {
-      const url = (smbx2.dataset.url || 'https://smbx2.org/').trim();
-      if (window.desktopAPI?.openExternal) window.desktopAPI.openExternal(url);
-      else window.open(url, '_blank', 'noopener');
+      toast && toast('Descargando SMBX2…', 'ok');
     };
   }
   const btn = document.getElementById('mario-play');
@@ -7939,10 +7927,7 @@ async function loadMarioBridgePresets() {
       category: p.category || '',
     }));
     MARIO_CATALOG.length = 0;
-    MARIO_CATALOG.push(
-      ...bridgeSpawns,
-      ...MARIO_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
-    );
+    MARIO_CATALOG.push(...bridgeSpawns);
     return true;
   };
   try {
@@ -7993,7 +7978,7 @@ function addMarioAction(thing) {
     thing: c.id, label: c.nombre, tipo: c.tipo, kind: c.kind || 'spawn',
     trigger: 'gift', giftId: '', giftName: '', giftImage: '',
     count: 1, seconds: c.seconds != null ? c.seconds : 5, factor: c.factor != null ? c.factor : 0,
-    text: '', enabled: true,
+    text: '', enabled: true, comboInstant: true,
   });
   saveSettings(); renderMarioActions();
   toast && toast(`Acción "${c.nombre}" agregada. Elige el regalo o evento.`, 'ok');
