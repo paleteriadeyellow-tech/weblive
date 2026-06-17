@@ -939,11 +939,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     const prev = giftStreakGameProgress.get(key) || 0;
     const delta = Math.max(0, rep - prev);
+    if (delta > 0) giftStreakGameProgress.set(key, rep);
+
     if (delta > 0) {
-      giftStreakGameProgress.set(key, rep);
-      actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: delta }, user);
+      actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: delta, comboStreak: 'delta' }, user);
     }
-    if (repeatEnd) giftStreakGameProgress.delete(key);
+    if (repeatEnd) {
+      giftStreakGameProgress.delete(key);
+      actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: rep, comboStreak: 'end' }, user);
+    }
   }
 
   // Pelotas de fans: acumula la cantidad (monedas o likes) por usuario y, cada

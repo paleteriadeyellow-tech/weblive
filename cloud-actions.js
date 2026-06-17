@@ -217,9 +217,13 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
 
   function mcActionRunTimes(a, vars) {
     const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
+    const rep = Math.max(1, Number(vars?.repeatcount) || 1);
+    if (a.custom) {
+      const times = a.giftMult === false ? baseRepeat : baseRepeat * rep;
+      return Math.min(times, 600);
+    }
     const qty = Math.max(1, parseInt(a.count, 10) || 1);
     const base = baseRepeat * qty;
-    const rep = Math.max(1, Number(vars?.repeatcount) || 1);
     const times = a.giftMult === false ? base : base * rep;
     return Math.min(times, 200);
   }
@@ -456,6 +460,8 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
+      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
       runMcAction(a, vars);
     }
   }

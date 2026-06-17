@@ -6310,7 +6310,7 @@ function openMcCmdModal(a, game) {
   document.getElementById('mcc-delayeach').value = a?.delayEach || 0;
   document.getElementById('mcc-delaygroup').value = a?.delayGroup || 0;
   document.getElementById('mcc-radius').value = a?.radius != null ? a.radius : 3;
-  document.getElementById('mcc-giftmult').checked = a?.giftMult === false;
+  document.getElementById('mcc-giftmult').checked = a ? a.giftMult === false : true;
   document.getElementById('mcc-random').checked = !!a?.random;
   const extraOn = !!(a?.cmdsExtra || (Array.isArray(a?.cmds) && a.cmds.some((x) => x && typeof x === 'object')));
   document.getElementById('mcc-extra').checked = extraOn;
@@ -6443,8 +6443,9 @@ function saveMcCmd() {
     random: document.getElementById('mcc-random').checked,
     image: mccImage || '',
     custom: true,
+    giftMult: false,
   };
-  if (document.getElementById('mcc-giftmult').checked) payload.giftMult = false;
+  if (!document.getElementById('mcc-giftmult').checked) delete payload.giftMult;
   const g = MC_GAME_MAP[mccGame] || MC_GAME_MAP.minecraft;
   const key = g.key;
   if (!Array.isArray(settings[key])) settings[key] = [];
@@ -6453,6 +6454,7 @@ function saveMcCmd() {
     if (a) {
       Object.assign(a, payload);
       if (!document.getElementById('mcc-giftmult').checked) delete a.giftMult;
+      else a.giftMult = false;
     }
   } else {
     settings[key].push({
@@ -6502,6 +6504,26 @@ function addMcAction(catId) {
   saveSettings();
   renderMyMcActions();
   toast && toast(`Acción "${c.name}" agregada. Elige el regalo o evento.`, 'ok');
+}
+
+function mcCardQtyHtml(a) {
+  if (a.custom) return '';
+  return `<label class="mc-qty-row" title="Cuántos spawns/comandos por cada unidad del regalo. Si envían 2 rosas y pones 30, salen 60.">Cantidad a enviar
+          <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>`;
+}
+function mcCardComboInstantHtml(a) {
+  if (a.trigger !== 'gift' && a.trigger !== 'gift-any') return '';
+  return `<label class="mc-combo-instant mcc-check">
+        <input type="checkbox" class="mc-combo-instant-en" data-uid="${esc(a.uid)}" ${a.comboInstant ? 'checked' : ''}>
+        <span><b class="mc-combo-instant-lbl">Llamada instantánea</b> <span class="mc-combo-instant-sub">(solo en rachas de regalo)</span></span>
+      </label>`;
+}
+function bindMcActionCardCommon(wrap, find, render) {
+  wrap.querySelectorAll('.mc-combo-instant-en').forEach((c) => c.onchange = () => {
+    const a = find(c.dataset.uid); if (!a) return;
+    a.comboInstant = c.checked;
+    saveSettings();
+  });
 }
 
 function renderMyMcActions() {
@@ -6573,8 +6595,8 @@ function renderMyMcActions() {
         <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
         ${giftBtn}
         ${likeRow}
-        <label class="mc-qty-row" title="Cuántos spawns/comandos por cada unidad del regalo. Si envían 2 rosas y pones 30, salen 60.">Cantidad a enviar
-          <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
+        ${mcCardQtyHtml(a)}
+        ${mcCardComboInstantHtml(a)}
         ${audioBlock}
       </div>
       <div class="mc-act-actions">
@@ -6665,6 +6687,7 @@ function renderMyMcActions() {
     if (val) val.textContent = a.soundVolume + '%';
     flushSaveSettings();
   });
+  bindMcActionCardCommon(wrap, find, renderMyMcActions);
 }
 
 function ensureMcAudioUpload() {
@@ -7039,8 +7062,8 @@ function renderMyBedrockActions() {
         <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
         ${giftBtn}
         ${likeRow}
-        <label class="mc-qty-row" title="Cuántos spawns/comandos por cada unidad del regalo. Si envían 2 rosas y pones 30, salen 60.">Cantidad a enviar
-          <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
+        ${mcCardQtyHtml(a)}
+        ${mcCardComboInstantHtml(a)}
       </div>
       <div class="mc-act-actions">
         <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en" data-uid="${esc(a.uid)}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
@@ -7097,6 +7120,7 @@ function renderMyBedrockActions() {
     send({ action: 'testMcAction', uid: b.dataset.uid });
     toast && toast('Enviando comando al servidor…', 'ok');
   });
+  bindMcActionCardCommon(wrap, find, renderMyBedrockActions);
 }
 
 // Configuraciones de Bedrock: estos comandos se ejecutan DENTRO del juego (no por
@@ -7366,8 +7390,8 @@ function renderMySandboxActions() {
         <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
         ${giftBtn}
         ${likeRow}
-        <label class="mc-qty-row" title="Cuántos spawns/comandos por cada unidad del regalo. Si envían 2 rosas y pones 30, salen 60.">Cantidad a enviar
-          <input type="number" min="1" max="100" class="mc-qty-n" data-uid="${esc(a.uid)}" value="${esc(String(Math.max(1, parseInt(a.count, 10) || 1)))}"></label>
+        ${mcCardQtyHtml(a)}
+        ${mcCardComboInstantHtml(a)}
       </div>
       <div class="mc-act-actions">
         <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en" data-uid="${esc(a.uid)}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
@@ -7424,6 +7448,7 @@ function renderMySandboxActions() {
     send({ action: 'testMcAction', uid: b.dataset.uid });
     toast && toast('Enviando comando al servidor…', 'ok');
   });
+  bindMcActionCardCommon(wrap, find, renderMySandboxActions);
 }
 
 // Configuraciones de Sandbox: se ejecutan DENTRO del juego. El botón "Copiar" copia el comando.
