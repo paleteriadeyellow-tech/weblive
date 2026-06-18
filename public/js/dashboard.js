@@ -6104,6 +6104,7 @@ function setupJuegosUI() {
   setupMarioLaunchBtn();
   setupMari0ActionsUI();
   setupMari0LaunchBtn();
+  setupMari0StatusPoll();
   setupPvzActionsUI();
   setupPvzLaunchBtn();
   const change = document.getElementById('mc-change-bat');
@@ -8132,10 +8133,63 @@ function warnMari0NotConnected(h) {
   if (h?.mari0?.connected) return;
   const pending = Number(h?.mari0?.pending) || 0;
   if (pending > 0) {
-    toast && toast(`Comando en cola (${pending}). Entra a un nivel en Mari0 para que aparezca.`, 'ok');
+    toast && toast(
+      `Comando en cola (${pending}). El mod aún no enlaza con el bridge — usa el Mari0 de Livecoins y «Iniciar bridge» antes de «Jugar».`,
+      'warn',
+    );
   } else {
-    toast && toast('Mari0 aún no conecta al bridge. Pulsa «Jugar» y entra a un nivel.', 'warn');
+    toast && toast(
+      'Mod Crowd Control sin enlazar (puerto 28379). ¿Es el Mari0 de Livecoins? Bridge primero, luego Jugar.',
+      'warn',
+    );
   }
+}
+
+let mari0StatusTimer = null;
+
+function renderMari0Status(h) {
+  const el = document.getElementById('mari0-status');
+  if (!el) return;
+  if (!IS_DESKTOP) { el.innerHTML = ''; return; }
+  if (!h?.ok || h.api !== 'livecoins' || !h.mari0?.enabled) {
+    el.innerHTML = '<span class="mari0-st off">Bridge :7755 — apagado</span>';
+    return;
+  }
+  const bridgeOk = !!(h.mari0.only || (h.targets || []).includes('mari0'));
+  const gameOk = !!h.mari0.connected;
+  const pending = Number(h.mari0.pending) || 0;
+  const parts = [
+    `<span class="mari0-st ${bridgeOk ? 'on' : 'off'}">Bridge :7755</span>`,
+    `<span class="mari0-st ${gameOk ? 'on' : 'warn'}">Juego CC: ${gameOk ? 'conectado' : 'sin enlazar'}</span>`,
+  ];
+  if (pending > 0) parts.push(`<span class="mari0-st warn">${pending} en cola</span>`);
+  el.innerHTML = parts.join('');
+}
+
+async function refreshMari0Status() {
+  if (!IS_DESKTOP) return null;
+  const h = await gameBridgeHealth();
+  renderMari0Status(h);
+  return h;
+}
+
+async function waitMari0GameLink(maxMs = 5000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < maxMs) {
+    const h = await refreshMari0Status();
+    if (h?.mari0?.connected) return h;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return refreshMari0Status();
+}
+
+function setupMari0StatusPoll() {
+  if (!IS_DESKTOP || mari0StatusTimer) return;
+  refreshMari0Status();
+  mari0StatusTimer = setInterval(() => {
+    const view = document.getElementById('view-juego-mari0');
+    if (view?.classList.contains('active')) refreshMari0Status();
+  }, 2000);
 }
 
 function warnMarioQueuePending(h) {
@@ -8356,6 +8410,7 @@ function setupMari0LaunchBtn() {
           const r = await ensureGameBridgeApi('mari0');
           if (r.ok && bridgeHealthMatchesMode(r.health, 'mari0')) {
             toast && toast('Bridge Mari0 activo en :7755', 'ok');
+            refreshMari0Status();
           } else if (!r.status?.script) {
             toast && toast('No se encontró livecoins-bridge-server.js. Reinstala Livecoins.', 'warn');
           } else {
@@ -8381,6 +8436,7 @@ function setupMari0LaunchBtn() {
       const r = await window.desktopAPI.launchMari0Game();
       if (r && r.ok) {
         toast && toast('Bridge Mari0 activo. Abriendo el juego…', 'ok');
+        setTimeout(() => refreshMari0Status(), 1500);
       } else if (r && (r.error === 'no_instalado' || r.error === 'sin_exe')) {
         toast && toast('No se encontró mari0.exe. Instala Mari0 en %LOCALAPPDATA%\\LivecoinsMari0\\', 'warn');
       } else if (r && r.error === 'bridge_no_disponible') {

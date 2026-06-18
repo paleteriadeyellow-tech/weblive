@@ -3363,17 +3363,18 @@
             </div>
           </div>
 
+          <div id="mari0-status" class="mari0-status-bar" aria-live="polite"></div>
+
           <div class="juego-aviso">
             <div class="juego-aviso-ico">📋</div>
             <div class="juego-aviso-txt">
               <b>Para que funcione con Livecoins:</b>
               <ol>
-                <li><b>Instala Mari0</b> en <code>%LOCALAPPDATA%\LivecoinsMari0\</code> (el instalador crea <code>mari0_exe.txt</code> con la ruta al .exe). El mod Crowd Control ya viene dentro del juego.</li>
-                <li><b>Pulsa «▶ Iniciar bridge»</b> en Livecoins (app .exe). Sin bridge activo no llegan los spawns al juego.</li>
-                <li><b>Pulsa «▶ Jugar»</b> para abrir <code>mari0.exe</code> (o ábrelo manualmente si ya instalaste).</li>
-                <li><b>Entra a un nivel</b> con Mario en pantalla. Sin nivel cargado no llegan los spawns.</li>
-                <li>Asigna el <b>regalo</b> de cada acción en las tarjetas de abajo y enciéndelas (botón verde).</li>
-                <li>Si no aparece nada: comprueba que el juego esté abierto y dentro de un nivel.</li>
+                <li><b>Instala Mari0</b> de Livecoins en <code>%LOCALAPPDATA%\LivecoinsMari0\</code> (<code>mari0_exe.txt</code>). Tiene que ser ese .exe — el Mari0 normal de internet <b>no</b> trae el mod.</li>
+                <li><b>Pulsa «▶ Iniciar bridge»</b> y después <b>«▶ Jugar»</b> (en ese orden).</li>
+                <li><b>Entra a un nivel</b> (p. ej. 1-1). Arriba debe poner <b>Juego CC: conectado</b> en verde.</li>
+                <li class="juego-aviso-importante"><b>¿Estás en 1-1 pero dice «sin enlazar»?</b> No es el menú: el mod Crowd Control debe conectar al bridge en <code>127.0.0.1:28379</code>. Si sigue en rojo, no es el Mari0 de Livecoins o abriste el juego antes del bridge.</li>
+                <li>Asigna el <b>regalo</b> de cada acción y enciéndelas (botón verde).</li>
               </ol>
             </div>
           </div>
@@ -3381,7 +3382,7 @@
           <div class="mc-actions-wrap">
             <div class="mc-actions-head">
               <h2 class="mc-actions-title">🌀 Acciones de Mari0</h2>
-              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b> El juego debe estar abierto y dentro de un nivel.</p>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b> Mira el indicador de arriba: debe decir <b>Juego CC: conectado</b>.</p>
             </div>
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
