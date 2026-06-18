@@ -8096,7 +8096,12 @@ function bridgeHealthMatchesMode(h, mode) {
   if (mode === 'mari0') {
     return !!(h.mari0?.enabled && (h.mari0?.only || (h.targets || []).includes('mari0')));
   }
-  return !h.mari0?.only;
+  if (h.mari0?.only) return false;
+  const targets = h.targets || [];
+  if (targets.includes('smbx2') || targets.includes('smb3-poll')) return true;
+  const sq = String(h.spawnQueue || '').toLowerCase();
+  if (sq.includes('_livecoins')) return true;
+  return true;
 }
 
 async function gameBridgeHealth() {
@@ -8125,7 +8130,12 @@ async function waitGameBridge(mode, maxMs = 12000) {
 
 function warnMari0NotConnected(h) {
   if (h?.mari0?.connected) return;
-  toast && toast('Mari0 no conectado al bridge. Abre el juego y entra a un nivel (mod Crowd Control).', 'warn');
+  const pending = Number(h?.mari0?.pending) || 0;
+  if (pending > 0) {
+    toast && toast(`Comando en cola (${pending}). Entra a un nivel en Mari0 para que aparezca.`, 'ok');
+  } else {
+    toast && toast('Mari0 aún no conecta al bridge. Pulsa «Jugar» y entra a un nivel.', 'warn');
+  }
 }
 
 function warnMarioQueuePending(h) {
