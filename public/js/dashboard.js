@@ -920,7 +920,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
     $(`view-${btn.dataset.view}`).classList.add('active');
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); loadPcInstallLink(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
@@ -1092,6 +1092,50 @@ async function loadPlans() {
     editor.innerHTML = '<p class="tts-sub">Error al cargar planes.</p>';
   }
 }
+
+/* ---- Modo mantenimiento (panel web) ---- */
+async function loadMaintenanceAdmin() {
+  const en = document.getElementById('maint-enabled');
+  if (!en) return;
+  try {
+    const r = await fetch('/api/maintenance');
+    if (!r.ok) return;
+    const d = await r.json();
+    en.checked = !!d.enabled;
+    const msg = document.getElementById('maint-message');
+    if (msg) msg.value = d.message || '';
+  } catch {}
+}
+
+(function setupMaintenanceAdmin() {
+  const btn = document.getElementById('maint-save');
+  if (!btn) return;
+  btn.onclick = async () => {
+    const status = document.getElementById('maint-status');
+    const body = {
+      enabled: !!document.getElementById('maint-enabled')?.checked,
+      message: (document.getElementById('maint-message')?.value || '').trim(),
+    };
+    btn.disabled = true;
+    if (status) status.textContent = 'Guardando…';
+    try {
+      const r = await fetch('/api/admin/maintenance', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (status) {
+        status.textContent = r.ok
+          ? (body.enabled ? 'Mantenimiento activado.' : 'Mantenimiento desactivado.')
+          : (d.error || 'No se pudo guardar.');
+      }
+    } catch {
+      if (status) status.textContent = 'Error de conexión.';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+})();
 
 /* ---- Publicar versión de la app de escritorio (.exe) ---- */
 async function loadAppVersion() {

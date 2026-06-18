@@ -197,7 +197,10 @@ function writeMaintenance(data) {
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
   fs.renameSync(tmp, MAINTENANCE_FILE);
 }
-function isMaintenanceOn() { return !!readMaintenance().enabled; }
+function isMaintenanceOn() {
+  if (process.env.MAINTENANCE === '1' || process.env.MAINTENANCE === 'true') return true;
+  return !!readMaintenance().enabled;
+}
 
 /* ------------------------------- Autenticación ------------------------------- */
 app.get('/api/maintenance', (_req, res) => {
