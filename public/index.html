@@ -3352,17 +3352,48 @@
         <section class="view" id="view-juego-mari0">
           <button type="button" class="juego-back">← Volver a Juegos</button>
           <h1 class="view-title">🌀 Mari0</h1>
-          <p class="view-sub">Mario + portales. Esta pestaña está lista para que configures el contenido.</p>
+          <p class="view-sub">Mari0 + portales con mod Crowd Control. El bridge HTTP solo habla con el juego; Livecoins no toca Mari0 directamente.</p>
 
           <div class="juego-banner">
             <img src="/img/mari0.png" alt="Mari0" class="juego-banner-img">
+            <div class="juego-banner-btns">
+              <button type="button" class="juego-play-btn" id="mari0-play">▶ Jugar</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="mari0-room" style="display:none">⬇ Descargar juego</button>
+            </div>
           </div>
 
           <div class="juego-aviso">
-            <div class="juego-aviso-ico">🚧</div>
+            <div class="juego-aviso-ico">📋</div>
             <div class="juego-aviso-txt">
-              <p><b>Próximamente.</b> Aquí irán las acciones, descargas y opciones de Mari0 cuando me indiques qué quieres en esta pestaña.</p>
+              <b>Para que funcione con Livecoins:</b>
+              <ol>
+                <li><b>Instala Mari0</b> en <code>%LOCALAPPDATA%\LivecoinsMari0\</code> (el instalador crea <code>mari0_exe.txt</code> con la ruta al .exe). El mod Crowd Control ya viene dentro del juego.</li>
+                <li><b>Pulsa «▶ Jugar»</b> en Livecoins (app .exe): arranca el bridge en <code>:7755</code> y abre <code>mari0.exe</code>.</li>
+                <li><b>Entra a un nivel</b> con Mario en pantalla. Sin nivel cargado no llegan los spawns.</li>
+                <li>Asigna el <b>regalo</b> de cada acción en las tarjetas de abajo y enciéndelas (botón verde).</li>
+                <li>Si no aparece nada: comprueba que el juego esté abierto y dentro de un nivel.</li>
+              </ol>
             </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🌀 Acciones de Mari0</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b> El juego debe estar abierto y dentro de un nivel.</p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mari0-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="mari0-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de acciones</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="mari0-cat-search" class="mc-cat-search" placeholder="Buscar acción (goomba, estrella, thwomp…)">
+            </div>
+            <div id="mari0-catalog" class="mc-catalog"></div>
           </div>
         </section>
 

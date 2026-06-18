@@ -5561,7 +5561,7 @@ function onKeyAction(p) {
 // el resto (RCON, OBS, teclas…) al proceso principal de Electron.
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (/^(MARIO_|PVZ_)/.test(exec.tipo)) {
+  if (/^(MARIO_|MARI0_|PVZ_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
   }
@@ -6102,6 +6102,8 @@ function setupJuegosUI() {
   setupRoblox3ActionsUI();
   setupMarioActionsUI();
   setupMarioLaunchBtn();
+  setupMari0ActionsUI();
+  setupMari0LaunchBtn();
   setupPvzActionsUI();
   setupPvzLaunchBtn();
   const change = document.getElementById('mc-change-bat');
@@ -8176,6 +8178,267 @@ function renderMarioActions() {
     openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderMarioActions(); });
   });
   wrap.querySelectorAll('.mario-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMarioAction(a); });
+}
+
+/* ================= Acciones de Mari0 (bridge :7755 MARI0_ONLY) ================= */
+const MARI0_POWERUPS = [
+  { id: 'SuperMushroom', nombre: 'Hongo (power-up aleatorio)' },
+  { id: 'FireFlower', nombre: 'Flor de fuego (power-up aleatorio)' },
+  { id: 'SuperStar', nombre: 'Estrella invencible' },
+  { id: 'OneUp', nombre: '+1 vida' },
+  { id: 'SuperLeaf', nombre: 'Hoja (power-up aleatorio)' },
+  { id: 'Coin', nombre: 'Monedas' },
+  { id: 'PoisonMushroom', nombre: 'Hongo malo' },
+  { id: 'KillPlayer', nombre: 'Mata a Mario' },
+  { id: 'TakeLife', nombre: 'Quita vida' },
+];
+const MARI0_ENEMIES = [
+  { id: 'Goomba', nombre: 'Goomba' },
+  { id: 'GreenKoopaTroopa', nombre: 'Koopa verde' },
+  { id: 'RedKoopaTroopa', nombre: 'Koopa roja' },
+  { id: 'Thwomp', nombre: 'Thwomp' },
+  { id: 'Lakitu', nombre: 'Lakitu' },
+  { id: 'HammerBro', nombre: 'Hammer Bro' },
+  { id: 'BulletBill', nombre: 'Bullet Bill' },
+  { id: 'Boo', nombre: 'Boo' },
+  { id: 'DryBones', nombre: 'Dry Bones' },
+  { id: 'PiranhaPlant', nombre: 'Planta Piraña' },
+  { id: 'Muncher', nombre: 'Muncher' },
+  { id: 'ChainChomp', nombre: 'Chain Chomp' },
+  { id: 'BobOmb', nombre: 'Bob-omb' },
+  { id: 'Magikoopa', nombre: 'Magikoopa' },
+  { id: 'Pokey', nombre: 'Pokey' },
+  { id: 'Spike', nombre: 'Spike' },
+  { id: 'Bowser', nombre: 'Fuego de Bowser' },
+];
+const MARI0_CHAOS = [
+  { id: 'GoombaAttack', nombre: 'Goombas al caminar' },
+  { id: 'MeteorShower', nombre: 'Meteoros' },
+  { id: 'BulletBillStorm', nombre: 'Bullet Bills' },
+  { id: 'FlyingFish', nombre: 'Peces voladores' },
+  { id: 'Wind', nombre: 'Viento' },
+];
+const MARI0_EFFECTS = [
+  { id: 'giant', nombre: 'Enemigos gigantes', seconds: 5, factor: 0 },
+  { id: 'tiny', nombre: 'Juego más lento', seconds: 5, factor: 0 },
+];
+const MARI0_CATALOG = [
+  ...MARI0_POWERUPS.map((x) => ({ ...x, tipo: 'item', kind: 'spawn' })),
+  ...MARI0_ENEMIES.map((x) => ({ ...x, tipo: 'enemy', kind: 'spawn' })),
+  ...MARI0_CHAOS.map((x) => ({ ...x, tipo: 'chaos', kind: 'spawn' })),
+  ...MARI0_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
+];
+const MARI0_CAT_ICON = { item: '🍄', enemy: '👾', chaos: '🌪️', effect: '✨' };
+const MARI0_TIPO_LABEL = { item: 'Power-up', enemy: 'Enemigo', chaos: 'Caos de nivel', effect: 'Efecto visual' };
+
+function ensureMari0Actions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.mari0Actions)) settings.mari0Actions = [];
+  settings.mari0Actions = migrateGameActions(settings.mari0Actions, 'm0');
+  return settings.mari0Actions;
+}
+
+function setupMari0LaunchBtn() {
+  const room = document.getElementById('mari0-room');
+  if (room && !room._wired) {
+    room._wired = true;
+    if (room.dataset.url) room.style.display = '';
+    room.onclick = () => {
+      if (!room.dataset.url) { toast && toast('Aún no hay enlace de descarga configurado.', 'warn'); return; }
+      downloadMinecraftServer(room.dataset.url);
+      toast && toast('Descargando Mari0…', 'ok');
+    };
+  }
+  const btn = document.getElementById('mari0-play');
+  if (!btn) return;
+  if (!IS_DESKTOP || !window.desktopAPI?.launchMari0Game) { btn.style.display = 'none'; return; }
+  if (btn._wired) return;
+  btn._wired = true;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = '⏳ Abriendo…';
+    try {
+      const r = await window.desktopAPI.launchMari0Game();
+      if (r && r.ok) {
+        toast && toast('Bridge Mari0 activo. Abriendo el juego…', 'ok');
+      } else if (r && (r.error === 'no_instalado' || r.error === 'sin_exe')) {
+        toast && toast('No se encontró mari0.exe. Instala Mari0 en %LOCALAPPDATA%\\LivecoinsMari0\\', 'warn');
+      } else if (r && r.error === 'bridge_no_disponible') {
+        toast && toast('No se pudo iniciar el bridge Mari0. Comprueba Node en el sistema.', 'warn');
+      } else {
+        toast && toast('No se pudo abrir Mari0.', 'warn');
+      }
+    } catch {
+      toast && toast('No se pudo abrir Mari0.', 'warn');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  };
+}
+
+function setupMari0ActionsUI() {
+  const search = document.getElementById('mari0-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderMari0Catalog(search.value); }
+  const toggleAll = document.getElementById('mari0-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureMari0Actions();
+      if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettings(); renderMari0Actions();
+      toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
+    };
+  }
+  renderMari0Catalog(search ? search.value : '');
+  renderMari0Actions();
+}
+
+function renderMari0Catalog(filter) {
+  const grid = document.getElementById('mari0-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f ? MARI0_CATALOG.filter((c) => c.nombre.toLowerCase().includes(f) || c.id.toLowerCase().includes(f)) : MARI0_CATALOG;
+  if (!list.length) { grid.innerHTML = '<div class="empty">Sin resultados</div>'; return; }
+  grid.innerHTML = list.map((c) => `
+    <div class="mc-cat-card" data-id="${esc(c.id)}">
+      <div class="mc-cat-head-row">
+        <span class="mc-cat-emoji">${MARI0_CAT_ICON[c.tipo] || '🎮'}</span>
+        <div class="mc-cat-texts">
+          <div class="mc-cat-name">${esc(c.nombre)}</div>
+          <div class="mc-cat-desc">${esc(MARI0_TIPO_LABEL[c.tipo] || '')}</div>
+        </div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`).join('');
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addMari0Action(card.dataset.id);
+  });
+}
+
+function addMari0Action(thing) {
+  const c = MARI0_CATALOG.find((x) => x.id === thing);
+  if (!c) return;
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const list = ensureMari0Actions();
+  list.push({
+    uid: 'm0_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id,
+    label: c.nombre, tipo: c.tipo, kind: c.kind || 'spawn',
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '',
+    count: 1, seconds: c.seconds != null ? c.seconds : 5, factor: c.factor != null ? c.factor : 0,
+    text: '', enabled: true,
+  });
+  saveSettings(); renderMari0Actions();
+  toast && toast(`Acción "${c.nombre}" agregada. Elige el regalo o evento.`, 'ok');
+}
+
+async function testMari0Action(a) {
+  if (!a || !a.thing) return;
+  if (!IS_DESKTOP) { toast && toast('Mari0 solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+  if (a.kind === 'effect') {
+    const seconds = Math.max(1, parseInt(a.seconds, 10) || 5);
+    const factor = Math.max(0, parseInt(a.factor, 10) || 0);
+    const ok = await execGameLocal({ tipo: 'MARI0_EFFECT', type: a.thing, seconds, factor });
+    if (ok) addEvent(`🌀 Prueba Mari0: efecto ${esc(a.label || a.thing)}`, 'ok');
+    else toast && toast('No se pudo ejecutar. Pulsa Jugar y entra a un nivel.', 'warn');
+    return;
+  }
+  const times = Math.max(1, parseInt(a.count, 10) || 1);
+  const ok = await execGameLocal({
+    tipo: 'MARI0_SPAWN',
+    thing: a.thing,
+    name: 'Prueba',
+    times,
+  });
+  if (ok) addEvent(`🌀 Prueba Mari0: generar ${esc(a.label || a.thing)}`, 'ok');
+  else toast && toast('No se pudo ejecutar. Pulsa Jugar y entra a un nivel.', 'warn');
+}
+
+function mari0CardHtml(a) {
+  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+  const uid = esc(a.uid);
+  let giftBtn = '';
+  if ((a.trigger || 'gift') === 'gift') {
+    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+    giftBtn = `<button type="button" class="mc-gift-btn mari0-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+  } else {
+    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+  }
+  let likeRow = '';
+  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+    const val = a.likeN != null ? a.likeN : defN;
+    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="mari0-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
+  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !goomba)';
+    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
+    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="mari0-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+  }
+  const emoji = a.kind === 'effect' ? '✨' : (a.tipo === 'chaos' ? '🌪️' : (a.tipo === 'enemy' ? '👾' : '🍄'));
+  let qtyRow;
+  if (a.kind === 'effect') {
+    qtyRow = `
+      <label class="mc-like-row" style="max-width:120px">Segundos<input type="number" min="1" max="60" class="mari0-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>
+      <label class="mc-like-row" style="max-width:160px">Tamaño (x, 0=auto)<input type="number" min="0" max="10" class="mari0-factor" data-uid="${uid}" value="${esc(String(a.factor || 0))}"></label>`;
+  } else {
+    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="20" class="mari0-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+  }
+  return `
+  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
+    <div class="mc-act-top">
+      <span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>
+      <button type="button" class="mc-act-del mari0-del" data-uid="${uid}" title="Quitar">✕</button>
+    </div>
+    <div class="mc-act-row">
+      <select class="mari0-trig-sel" data-uid="${uid}">${opts}</select>
+      ${giftBtn}
+      ${likeRow}
+    </div>
+    <div class="mc-act-row">
+      ${qtyRow}
+    </div>
+    ${((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any') ? `<div class="mc-act-row">${mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'mari0-combo-instant-en')}</div>` : ''}
+    <div class="mc-act-actions">
+      <label class="mc-act-toggle"><input type="checkbox" class="mari0-en" data-uid="${uid}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+      <div class="mc-act-btns">
+        <button type="button" class="mc-act-test mari0-test" data-uid="${uid}">Probar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderMari0Actions() {
+  const wrap = document.getElementById('mari0-my-actions');
+  if (!wrap || !settings) return;
+  const list = ensureMari0Actions();
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((a) => mari0CardHtml(a)).join('');
+
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.mari0-del').forEach((b) => b.onclick = () => { settings.mari0Actions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMari0Actions(); });
+  wrap.querySelectorAll('.mari0-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderMari0Actions(); });
+  wrap.querySelectorAll('.mari0-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderMari0Actions(); });
+  wrap.querySelectorAll('.mari0-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.mari0-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.mari0-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
+  wrap.querySelectorAll('.mari0-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
+  wrap.querySelectorAll('.mari0-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
+  wrap.querySelectorAll('.mari0-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
+  wrap.querySelectorAll('.mari0-gift').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (!a) return;
+    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderMari0Actions(); });
+  });
+  wrap.querySelectorAll('.mari0-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMari0Action(a); });
 }
 
 /* ============ Acciones de Plants vs Zombies (generar zombies / dar soles) ============ */

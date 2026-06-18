@@ -553,6 +553,31 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       const goal = Math.max(1, a.likeN || 100);
       if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireRobloxKeys(a, Math.max(1, parseInt(a.count, 10) || 1), 'rbx3_');
     }
+    for (const a of (settings().marioActions || [])) {
+      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+      const goal = Math.max(1, a.likeN || 100);
+      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+        if ((a.kind || 'spawn') === 'effect') applyMarioEffect(a.thing, a.seconds, a.factor);
+        else spawnMarioThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+      }
+    }
+    for (const a of (settings().mari0Actions || [])) {
+      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+      const goal = Math.max(1, a.likeN || 100);
+      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+        if ((a.kind || 'spawn') === 'effect') applyMari0Effect(a.thing, a.seconds, a.factor);
+        else spawnMari0Thing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+      }
+    }
+    for (const a of (settings().pvzActions || [])) {
+      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+      const goal = Math.max(1, a.likeN || 100);
+      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+        if ((a.kind || 'spawn') === 'sun') givePvzSun(a.amount);
+        else if ((a.kind || 'spawn') === 'cmd') pvzCommand(a.path);
+        else spawnPvzThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+      }
+    }
   }
 
   return {
