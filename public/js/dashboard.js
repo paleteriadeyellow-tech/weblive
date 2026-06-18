@@ -7949,8 +7949,14 @@ function setupMarioLaunchBtn() {
     const prev = btn.textContent;
     btn.textContent = '⏳ Bridge…';
     try {
-      send({ action: 'ensureMarioBridge' });
-      toast && toast('Iniciando bridge Mario (SMBX2)…', 'ok');
+      const r = await ensureGameBridgeApi('smbx');
+      if (r.ok && bridgeHealthMatchesMode(r.health, 'smbx')) {
+        toast && toast('Bridge Mario activo (SMBX2).', 'ok');
+      } else if (!r.status?.script) {
+        toast && toast('No se encontró livecoins-bridge-server.js. Reinstala Livecoins.', 'warn');
+      } else {
+        toast && toast('No se pudo iniciar el bridge Mario.', 'warn');
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = prev;
@@ -8071,23 +8077,48 @@ async function execGameLocal(exec) {
   return { ok: false };
 }
 
+async function ensureGameBridgeApi(mode) {
+  try {
+    const r = await fetch('/api/desktop/ensure-bridge', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    });
+    return await r.json().catch(() => ({ ok: false }));
+  } catch {
+    return { ok: false };
+  }
+}
+
+function bridgeHealthMatchesMode(h, mode) {
+  if (!h?.ok || h.api !== 'livecoins') return false;
+  if (mode === 'mari0') {
+    return !!(h.mari0?.enabled && (h.mari0?.only || (h.targets || []).includes('mari0')));
+  }
+  return !h.mari0?.only;
+}
+
 async function gameBridgeHealth() {
+  try {
+    const r = await fetch('/api/desktop/bridge-health', { credentials: 'same-origin' });
+    const d = await r.json().catch(() => ({}));
+    if (d.health) return d.health;
+  } catch { /* fallback directo */ }
   try {
     const r = await fetch('http://127.0.0.1:7755/health');
     return await r.json();
   } catch { return null; }
 }
 
-async function waitGameBridge(mode, maxMs = 8000) {
-  send({ action: mode === 'mari0' ? 'ensureMari0Bridge' : 'ensureMarioBridge' });
+async function waitGameBridge(mode, maxMs = 12000) {
   const t0 = Date.now();
+  let boot = await ensureGameBridgeApi(mode);
+  if (boot.ok && bridgeHealthMatchesMode(boot.health, mode)) return boot.health;
   while (Date.now() - t0 < maxMs) {
+    await new Promise((r) => setTimeout(r, 300));
     const h = await gameBridgeHealth();
-    if (h?.ok && h.api === 'livecoins') {
-      if (mode === 'mari0' && h.mari0?.enabled && (h.mari0?.only || (h.targets || []).includes('mari0'))) return h;
-      if (mode === 'smbx' && !h.mari0?.only) return h;
-    }
-    await new Promise((r) => setTimeout(r, 250));
+    if (bridgeHealthMatchesMode(h, mode)) return h;
   }
   return null;
 }
@@ -8306,8 +8337,14 @@ function setupMari0LaunchBtn() {
         const prev = bridgeBtn.textContent;
         bridgeBtn.textContent = '⏳ Bridge…';
         try {
-          send({ action: 'ensureMari0Bridge' });
-          toast && toast('Iniciando bridge Mari0 (:7755)…', 'ok');
+          const r = await ensureGameBridgeApi('mari0');
+          if (r.ok && bridgeHealthMatchesMode(r.health, 'mari0')) {
+            toast && toast('Bridge Mari0 activo en :7755', 'ok');
+          } else if (!r.status?.script) {
+            toast && toast('No se encontró livecoins-bridge-server.js. Reinstala Livecoins.', 'warn');
+          } else {
+            toast && toast('No se pudo iniciar el bridge Mari0.', 'warn');
+          }
         } finally {
           bridgeBtn.disabled = false;
           bridgeBtn.textContent = prev;
