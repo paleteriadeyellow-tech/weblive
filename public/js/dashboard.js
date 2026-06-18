@@ -8143,8 +8143,14 @@ function warnMarioQueuePending(h) {
     toast && toast('Bridge Mario no responde. Pulsa «Iniciar bridge».', 'warn');
     return;
   }
-  if ((h.queuePending || 0) > 8) {
-    toast && toast('Muchos spawns en cola. Entra a un nivel en SMBX2 (marios_pad).', 'warn');
+  const pending = Number(h.queuePending) || 0;
+  if (pending > 0) {
+    toast && toast(
+      pending === 1
+        ? 'Spawn en cola. Entra a SMBX2 → cliche → nivel marios_pad con Mario en pantalla.'
+        : `Hay ${pending} spawns en cola. Entra a un nivel en SMBX2 (marios_pad).`,
+      'warn',
+    );
   }
 }
 
@@ -8181,7 +8187,7 @@ async function testMarioAction(a) {
   const r = await execGameLocal({ tipo: 'MARIO_SPAWN', thing: spawnThing, npcId: a.npcId, name: 'Prueba', times });
   if (r && r.ok !== false) {
     addEvent(`🍄 Prueba Mario: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
-    setTimeout(() => warnMarioQueuePending(bridgeH), 400);
+    setTimeout(async () => warnMarioQueuePending((await gameBridgeHealth()) || bridgeH), 400);
   } else {
     toast && toast(`Spawn falló («${label}»). Inicia bridge y entra a marios_pad en SMBX2.`, 'warn');
   }
