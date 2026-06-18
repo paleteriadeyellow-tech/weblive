@@ -6020,6 +6020,8 @@ function setupJuegosUI() {
     back.onclick = () => showViewById('view-juegos');
   });
   document.querySelectorAll('#view-juego-minecraft .juego-dl-btn').forEach((btn) => {
+    if (btn._wired) return;
+    btn._wired = true;
     btn.onclick = () => downloadMinecraftServer(btn.dataset.url);
   });
   const run = document.getElementById('mc-run');
@@ -8186,9 +8188,7 @@ function setupPvzLaunchBtn() {
   btn.onclick = () => {
     const url = btn.dataset.url;
     if (!url) { toast && toast('No hay enlace de descarga configurado.', 'warn'); return; }
-    if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(url);
-    else window.open(url, '_blank', 'noopener');
-    toast && toast('Abriendo la descarga en tu navegador…', 'ok');
+    downloadMinecraftServer(url);
   };
 }
 
@@ -8445,16 +8445,28 @@ async function generateRobloxMenuImage(orientation) {
 }
 
 // Descarga el archivo del servidor (botón sobre la imagen).
-function downloadMinecraftServer(url) {
+async function downloadMinecraftServer(url) {
   if (!url) return;
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  toast && toast('Descargando servidor de Minecraft…', 'ok');
+  if (IS_DESKTOP && window.desktopAPI?.downloadGameAsset) {
+    toast && toast('Descargando… puede tardar varios minutos (archivo grande).', 'ok');
+    try {
+      const r = await window.desktopAPI.downloadGameAsset(url);
+      if (r?.ok) {
+        toast && toast(`Listo: ${r.filename || 'archivo'} en Descargas/Livecoins`, 'ok');
+        return;
+      }
+      if (r?.error) toast && toast('Descarga falló: ' + r.error, 'err');
+    } catch (e) {
+      toast && toast('Descarga falló: ' + (e?.message || e), 'err');
+    }
+  }
+  if (IS_DESKTOP && window.desktopAPI?.openExternal) {
+    window.desktopAPI.openExternal(url);
+    toast && toast('Abriendo la descarga en tu navegador…', 'ok');
+    return;
+  }
+  window.open(url, '_blank', 'noopener');
+  toast && toast('Abriendo la descarga en tu navegador…', 'ok');
 }
 
 const MC_BAT_KEY = 'mcServerBatPath';
