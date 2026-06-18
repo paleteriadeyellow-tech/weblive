@@ -5892,9 +5892,9 @@ async function startSpotifyLogin() {
     }
     const d = await r.json();
     if (!d.url) throw new Error('sin url');
-    if (IS_DESKTOP && window.desktopAPI?.openExternal) {
-      window.desktopAPI.openExternal(d.url);
-      toast && toast('Se abrió Spotify en tu navegador. Autoriza y vuelve al panel.', 'ok');
+    if (IS_DESKTOP && window.desktopAPI?.openSpotifyLogin) {
+      await window.desktopAPI.openSpotifyLogin(d.url);
+      toast && toast('Completa el login en la ventana de Spotify.', 'ok');
     } else {
       window.open(d.url, 'spotify_login', 'width=520,height=720');
     }
@@ -5928,6 +5928,14 @@ function setupSpotifyUI() {
   window.addEventListener('message', (e) => {
     if (e.data === 'spotify-connected') { stopSpotifyPolling(); refreshSpotifyStatus(); }
   });
+  if (IS_DESKTOP && window.desktopAPI?.onSpotifyConnected) {
+    window.desktopAPI.onSpotifyConnected((data) => {
+      if (data && data.ok === false) return;
+      stopSpotifyPolling();
+      refreshSpotifyStatus();
+      toast && toast('Spotify conectado.', 'ok');
+    });
+  }
   if (!window._spotifyVisWired) {
     window._spotifyVisWired = true;
     document.addEventListener('visibilitychange', () => {
