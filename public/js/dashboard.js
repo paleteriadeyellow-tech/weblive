@@ -5870,6 +5870,27 @@ function startSpotifyPolling() {
   }, 1200);
 }
 
+async function startSpotifyLogin() {
+  try {
+    const r = await fetch('/api/spotify/auth-url');
+    if (!r.ok) {
+      toast && toast('No autorizado para conectar Spotify.', 'err');
+      return;
+    }
+    const d = await r.json();
+    if (!d.url) throw new Error('sin url');
+    if (IS_DESKTOP && window.desktopAPI?.openExternal) {
+      window.desktopAPI.openExternal(d.url);
+    } else {
+      window.open(d.url, 'spotify_login', 'width=520,height=720');
+    }
+    startSpotifyPolling();
+  } catch (e) {
+    toast && toast('No se pudo abrir Spotify. Inténtalo de nuevo.', 'err');
+    console.error('Spotify login:', e);
+  }
+}
+
 let spotifyWired = false;
 function setupSpotifyUI() {
   if (spotifyWired) return;
@@ -5887,11 +5908,7 @@ function setupSpotifyUI() {
     el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', autoSave);
   }
   const login = document.getElementById('sp-login');
-  if (login) login.onclick = () => {
-    // Abre el flujo OAuth de Spotify (lo sirve el backend del .exe).
-    window.open('/api/spotify/login', 'spotify_login', 'width=520,height=720');
-    startSpotifyPolling();
-  };
+  if (login) login.onclick = () => startSpotifyLogin();
   // La ventana del callback (puerto 8888) avisa aquí en cuanto termina el login,
   // así la conexión se detecta al instante sin esperar al sondeo.
   window.addEventListener('message', (e) => {
