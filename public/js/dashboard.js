@@ -5815,7 +5815,7 @@ async function refreshSpotifyStatus() {
   const conn = document.getElementById('sp-connected');
   const estado = document.getElementById('sp-estado');
   try {
-    const r = await fetch('/api/spotify/status');
+    const r = await fetch('/api/spotify/status', { credentials: 'same-origin' });
     if (!r.ok) throw new Error('no-status');
     const d = await r.json();
     if (d.connected) {
@@ -5827,16 +5827,17 @@ async function refreshSpotifyStatus() {
         estado.textContent = d.playing ? ('Reproduciendo: ' + (d.track || '—')) : 'Inicia Spotify y reproduce una playlist';
         estado.className = 'sp-estado ' + (d.playing ? 'ok' : 'warn');
       }
-    } else {
-      if (disc) disc.hidden = false;
-      if (conn) conn.hidden = true;
-      if (estado) { estado.textContent = 'Conecta tu cuenta de Spotify'; estado.className = 'sp-estado warn'; }
+      return true;
     }
-  } catch {
-    // Backend de Spotify aún no disponible: deja el estado por defecto.
     if (disc) disc.hidden = false;
     if (conn) conn.hidden = true;
     if (estado) { estado.textContent = 'Conecta tu cuenta de Spotify'; estado.className = 'sp-estado warn'; }
+    return false;
+  } catch {
+    if (disc) disc.hidden = false;
+    if (conn) conn.hidden = true;
+    if (estado) { estado.textContent = 'Conecta tu cuenta de Spotify'; estado.className = 'sp-estado warn'; }
+    return false;
   }
 }
 
@@ -5864,10 +5865,22 @@ function startSpotifyPolling() {
   let tries = 0;
   spotifyPollTimer = setInterval(async () => {
     tries++;
-    await refreshSpotifyStatus();
-    const conn = document.getElementById('sp-connected');
-    if ((conn && !conn.hidden) || tries > 40) stopSpotifyPolling();
+    const ok = await refreshSpotifyStatus();
+    if (ok || tries > 150) stopSpotifyPolling();
   }, 1200);
+}
+
+function openSpotifyViewAfterConnect() {
+  const nav = document.querySelector('.nav-item[data-view="spotify"]');
+  if (nav) nav.click();
+  refreshSpotifyStatus();
+  try {
+    const u = new URL(location.href);
+    if (u.searchParams.has('spotify')) {
+      u.searchParams.delete('spotify');
+      history.replaceState(null, '', u.pathname + (u.search || '') + u.hash);
+    }
+  } catch {}
 }
 
 async function startSpotifyLogin() {
@@ -5915,6 +5928,13 @@ function setupSpotifyUI() {
   window.addEventListener('message', (e) => {
     if (e.data === 'spotify-connected') { stopSpotifyPolling(); refreshSpotifyStatus(); }
   });
+  if (!window._spotifyVisWired) {
+    window._spotifyVisWired = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshSpotifyStatus();
+    });
+    window.addEventListener('focus', () => refreshSpotifyStatus());
+  }
   const logout = document.getElementById('sp-logout');
   if (logout) logout.onclick = async () => {
     try { await fetch('/api/spotify/logout', { method: 'POST' }); } catch {}
