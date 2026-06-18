@@ -245,7 +245,7 @@ const TAB_CAP = {
   overlays: 'tab_overlays', tts: 'tab_tts', timer: 'tab_timer',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', plantasvszombies: 'game_plantasvszombies' };
+const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies' };
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
@@ -334,13 +334,13 @@ const CAP_LABELS = {
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_plantasvszombies: 'Juego: Plants vs Zombies',
+  game_mariobros: 'Juego: Mario Bros', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_plantasvszombies',
+  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_mari0', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -4900,7 +4900,7 @@ function renderAcciones() {
       <div class="acc-name">${esc(a.name || 'Acción')}</div>
       <div class="acc-meta">
         <span class="acc-chip">${accEventLabel(a)}</span>
-        <span class="acc-chip key">⌨️ ${esc(a.keys || '—')}</span>
+        <span class="acc-chip key">⌨️ ${esc(a.keys || '—')}${a.keyRepeatOn && a.keys && (parseInt(a.keyRepeat, 10) || 1) > 1 ? ` ×${parseInt(a.keyRepeat, 10) || 1}` : ''}</span>
       </div>
       <div class="acc-card-btns">
         <button class="btn ghost acc-edit">✏️ Editar</button>
@@ -5364,6 +5364,7 @@ function setupKeyboardModal() {
     if (!combo) { toast('Elige una tecla o clic.', 'warn'); return; }
     $('acc-keys').value = combo;
     if ($('acc-keys-on')) { $('acc-keys-on').checked = true; if ($('acc-keys-box')) $('acc-keys-box').hidden = false; }
+    syncAccKeyRepeatUI();
     accPendingGameCompat = $('kb-gamecompat').checked;
     $('kbModal').classList.add('hidden');
   });

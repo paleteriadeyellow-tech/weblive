@@ -446,6 +446,35 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     }
   }
 
+  function spawnMari0Thing(thing, name, times) {
+    const t = Math.max(1, Number(times) || 1);
+    if (emitLocalExec({ tipo: 'MARI0_SPAWN', thing, name: String(name || ''), times: t })) return;
+  }
+
+  function applyMari0Effect(type, seconds, factor) {
+    if (emitLocalExec({
+      tipo: 'MARI0_EFFECT', type, seconds: Math.min(60, Math.max(1, Number(seconds) || 5)),
+      factor: Math.min(10, Math.max(0, Number(factor) || 0)),
+    })) return;
+  }
+
+  function triggerMari0Actions(eventType, info = {}, user = null) {
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of (settings().mari0Actions || [])) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const times = matchGameTrigger(a, eventType, info, user);
+      if (times == null) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      if ((a.kind || 'spawn') === 'effect') {
+        log('ok', `🌀 Mari0: efecto "${a.thing}" (${a.seconds || 5}s)`);
+        applyMari0Effect(a.thing, a.seconds, a.factor);
+      } else {
+        log('ok', `🌀 Mari0: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}`);
+        spawnMari0Thing(a.thing, name, times);
+      }
+    }
+  }
+
   function triggerPvzActions(eventType, info = {}, user = null) {
     const name = (user && user.nickname) || info.nickname || '';
     for (const a of (settings().pvzActions || [])) {
@@ -484,6 +513,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     triggerRobloxList(settings().robloxActions || [], eventType, info, user, 'rbx_');
     triggerRobloxList(settings().roblox3Actions || [], eventType, info, user, 'rbx3_');
     triggerMarioActions(eventType, info, user);
+    triggerMari0Actions(eventType, info, user);
     triggerPvzActions(eventType, info, user);
     const vars = buildMcVars(info, user);
     // Minecraft, Bedrock y Sandbox comparten ejecución (mismo servidor por RCON/ServerTap).
