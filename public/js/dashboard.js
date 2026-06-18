@@ -8249,15 +8249,34 @@ function setupMari0LaunchBtn() {
       toast && toast('Descargando Mari0…', 'ok');
     };
   }
-  const btn = document.getElementById('mari0-play');
-  if (!btn) return;
-  if (!IS_DESKTOP || !window.desktopAPI?.launchMari0Game) { btn.style.display = 'none'; return; }
-  if (btn._wired) return;
-  btn._wired = true;
-  btn.onclick = async () => {
-    btn.disabled = true;
-    const prev = btn.textContent;
-    btn.textContent = '⏳ Abriendo…';
+  const bridgeBtn = document.getElementById('mari0-bridge');
+  if (bridgeBtn && !bridgeBtn._wired) {
+    bridgeBtn._wired = true;
+    if (!IS_DESKTOP) bridgeBtn.style.display = 'none';
+    else {
+      bridgeBtn.onclick = async () => {
+        bridgeBtn.disabled = true;
+        const prev = bridgeBtn.textContent;
+        bridgeBtn.textContent = '⏳ Bridge…';
+        try {
+          send({ action: 'ensureMari0Bridge' });
+          toast && toast('Iniciando bridge Mari0 (:7755)…', 'ok');
+        } finally {
+          bridgeBtn.disabled = false;
+          bridgeBtn.textContent = prev;
+        }
+      };
+    }
+  }
+  const launchBtn = document.getElementById('mari0-launch');
+  if (!launchBtn) return;
+  if (!IS_DESKTOP || !window.desktopAPI?.launchMari0Game) { launchBtn.style.display = 'none'; return; }
+  if (launchBtn._wired) return;
+  launchBtn._wired = true;
+  launchBtn.onclick = async () => {
+    launchBtn.disabled = true;
+    const prev = launchBtn.textContent;
+    launchBtn.textContent = '⏳ Abriendo…';
     try {
       const r = await window.desktopAPI.launchMari0Game();
       if (r && r.ok) {
@@ -8272,8 +8291,8 @@ function setupMari0LaunchBtn() {
     } catch {
       toast && toast('No se pudo abrir Mari0.', 'warn');
     } finally {
-      btn.disabled = false;
-      btn.textContent = prev;
+      launchBtn.disabled = false;
+      launchBtn.textContent = prev;
     }
   };
 }
@@ -8338,13 +8357,21 @@ function addMari0Action(thing) {
 
 async function testMari0Action(a) {
   if (!a || !a.thing) return;
+  const label = a.label || a.thing;
   if (!IS_DESKTOP) { toast && toast('Mari0 solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+
+  toast && toast(`🌀 «${label}» en 2 s… (entra a un nivel en Mari0)`, 'ok');
+  await new Promise((r) => setTimeout(r, 2000));
+
+  send({ action: 'ensureMari0Bridge' });
+  await new Promise((r) => setTimeout(r, 400));
+
   if (a.kind === 'effect') {
     const seconds = Math.max(1, parseInt(a.seconds, 10) || 5);
     const factor = Math.max(0, parseInt(a.factor, 10) || 0);
     const ok = await execGameLocal({ tipo: 'MARI0_EFFECT', type: a.thing, seconds, factor });
-    if (ok) addEvent(`🌀 Prueba Mari0: efecto ${esc(a.label || a.thing)}`, 'ok');
-    else toast && toast('No se pudo ejecutar. Pulsa Jugar y entra a un nivel.', 'warn');
+    if (ok) addEvent(`🌀 Prueba Mari0: efecto ${esc(label)}`, 'ok');
+    else toast && toast('Efecto no enviado. Pulsa «Iniciar bridge».', 'warn');
     return;
   }
   const times = Math.max(1, parseInt(a.count, 10) || 1);
@@ -8354,8 +8381,8 @@ async function testMari0Action(a) {
     name: 'Prueba',
     times,
   });
-  if (ok) addEvent(`🌀 Prueba Mari0: generar ${esc(a.label || a.thing)}`, 'ok');
-  else toast && toast('No se pudo ejecutar. Pulsa Jugar y entra a un nivel.', 'warn');
+  if (ok) addEvent(`🌀 Prueba Mari0: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+  else toast && toast(`Spawn falló («${label}»). Inicia bridge y entra a un nivel.`, 'warn');
 }
 
 function mari0CardHtml(a) {
