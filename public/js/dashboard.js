@@ -5872,7 +5872,7 @@ function startSpotifyPolling() {
 
 async function startSpotifyLogin() {
   try {
-    const r = await fetch('/api/spotify/auth-url');
+    const r = await fetch('/api/spotify/auth-url', { credentials: 'same-origin' });
     if (!r.ok) {
       toast && toast('No autorizado para conectar Spotify.', 'err');
       return;
