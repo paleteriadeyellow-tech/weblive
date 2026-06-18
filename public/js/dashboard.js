@@ -8170,6 +8170,10 @@ function setupPvzActionsUI() {
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
+  const genImgV = document.getElementById('pvz-gen-img-v');
+  const genImgH = document.getElementById('pvz-gen-img-h');
+  if (genImgV && !genImgV._wired) { genImgV._wired = true; genImgV.onclick = () => generatePvzMenuImage('vertical'); }
+  if (genImgH && !genImgH._wired) { genImgH._wired = true; genImgH.onclick = () => generatePvzMenuImage('horizontal'); }
   renderPvzCatalog(search ? search.value : '');
   renderPvzActions();
 }
@@ -8309,6 +8313,116 @@ function renderPvzActions() {
     openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderPvzActions(); });
   });
   wrap.querySelectorAll('.pvz-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzAction(a); });
+}
+
+// Genera una imagen tipo "menú de regalos" para PvZ: acción (zombie/planta) + regalo/evento.
+async function generatePvzMenuImage(orientation) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const all = ensurePvzActions();
+  let list = all.filter((a) => a && a.enabled !== false);
+  if (!list.length) list = all.slice();
+  if (!list.length) { toast && toast('Agrega acciones primero (con su regalo o evento).', 'warn'); return; }
+  toast && toast('Generando imagen…', 'ok');
+
+  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
+  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : ('/api/img-proxy?url=' + encodeURIComponent(u))));
+  const loadImg = (src) => new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+
+  const rows = [];
+  for (const a of list) {
+    const trig = a.trigger || 'gift';
+    let leftImg = null, leftEmoji = '';
+    if (trig === 'gift') leftImg = await loadImg(proxied(a.giftImage));
+    else { const ev = MC_TRIG_ICON[trig] || { ic: '⚡' }; leftEmoji = ev.ic; }
+    const actIcon = await loadImg('/img/pvz/' + (a.thing || '') + '.png');
+    const qty = a.tipo === 'resource'
+      ? Math.max(1, parseInt(a.amount, 10) || 50)
+      : Math.max(1, parseInt(a.count, 10) || 1);
+    rows.push({ a, leftImg, leftEmoji, actIcon, actEmoji: PVZ_CAT_ICON[a.tipo] || '🎮', qty });
+  }
+
+  let cols;
+  if (orientation === 'vertical') cols = 1;
+  else if (orientation === 'horizontal') cols = rows.length;
+  else cols = Math.max(1, Math.min(5, rows.length));
+  cols = Math.max(1, cols);
+  const gridRows = Math.ceil(rows.length / cols);
+  const margin = 10, gap = 14, cellW = 200, numH = 44, iconS = 156, giftS = 52;
+  const cellH = numH + iconS + 30;
+  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
+  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
+  const dpr = 2;
+  const cv = document.createElement('canvas');
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const rr = (x, y, w, h, r) => {
+    const rad = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  };
+
+  ctx.textBaseline = 'middle';
+  rows.forEach((row, i) => {
+    const c = i % cols, r = Math.floor(i / cols);
+    const cellX = margin + c * (cellW + gap);
+    const cellY = margin + r * (cellH + gap);
+    const iconX = cellX + (cellW - iconS) / 2;
+    const iconY = cellY + numH;
+
+    if (row.actIcon) {
+      ctx.save(); rr(iconX, iconY, iconS, iconS, 16); ctx.clip();
+      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
+      ctx.restore();
+    } else {
+      ctx.font = '96px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+      ctx.fillText(row.actEmoji, iconX + iconS / 2, iconY + iconS / 2);
+    }
+
+    if (row.qty >= 2) {
+      const label = 'x' + row.qty;
+      ctx.font = '800 26px Rubik, system-ui, sans-serif';
+      const tw = ctx.measureText(label).width;
+      const pw = tw + 30, ph = 34;
+      const px = cellX + (cellW - pw) / 2, py = cellY + (numH - ph) / 2;
+      const gb = ctx.createLinearGradient(px, py, px + pw, py);
+      gb.addColorStop(0, '#f43f5e'); gb.addColorStop(1, '#ec4899');
+      rr(px, py, pw, ph, 17); ctx.fillStyle = gb; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
+      ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+      ctx.fillText(label, px + pw / 2, py + ph / 2 + 1);
+    }
+
+    const gx = cellX + (cellW - giftS) / 2, gy = iconY + iconS - Math.round(giftS * 0.5);
+    ctx.save(); rr(gx, gy, giftS, giftS, 12); ctx.clip();
+    if (row.leftImg) ctx.drawImage(row.leftImg, gx, gy, giftS, giftS);
+    else { ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(row.leftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1); }
+    ctx.restore();
+  });
+
+  try {
+    const data = cv.toDataURL('image/png');
+    const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
+    const link = document.createElement('a');
+    link.href = data; link.download = 'menu-regalos-pvz' + suffix + '.png';
+    document.body.appendChild(link); link.click(); link.remove();
+    toast && toast('Imagen generada y descargada.', 'ok');
+  } catch {
+    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
+  }
 }
 
 // Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
