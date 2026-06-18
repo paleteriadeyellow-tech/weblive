@@ -8049,21 +8049,62 @@ function addMarioAction(thing) {
   toast && toast(`Acción "${c.nombre}" agregada. Elige el regalo o evento.`, 'ok');
 }
 
-// Mario / PvZ: SIEMPRE en esta PC. Primero IPC de Electron; si no, servidor local del .exe.
+// Mario / PvZ: SIEMPRE en esta PC. Preferimos el servidor local (.exe) donde vive el bridge.
 async function execGameLocal(exec) {
   if (!IS_DESKTOP || !exec) return false;
-  if (window.desktopAPI?.localExec) {
-    try { await window.desktopAPI.localExec(exec); return true; } catch {}
-  }
   try {
     const r = await fetch('/api/desktop/game-exec', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(exec),
     });
     const d = await r.json().catch(() => ({}));
-    return r.ok && d.ok !== false;
-  } catch { return false; }
+    if (r.ok && d.ok !== false) return d;
+  } catch { /* fallback IPC */ }
+  if (window.desktopAPI?.localExec) {
+    try {
+      const r = await window.desktopAPI.localExec(exec);
+      if (r && r.ok !== false) return r;
+    } catch {}
+  }
+  return { ok: false };
+}
+
+async function gameBridgeHealth() {
+  try {
+    const r = await fetch('http://127.0.0.1:7755/health');
+    return await r.json();
+  } catch { return null; }
+}
+
+async function waitGameBridge(mode, maxMs = 8000) {
+  send({ action: mode === 'mari0' ? 'ensureMari0Bridge' : 'ensureMarioBridge' });
+  const t0 = Date.now();
+  while (Date.now() - t0 < maxMs) {
+    const h = await gameBridgeHealth();
+    if (h?.ok && h.api === 'livecoins') {
+      if (mode === 'mari0' && h.mari0?.enabled && (h.mari0?.only || (h.targets || []).includes('mari0'))) return h;
+      if (mode === 'smbx' && !h.mari0?.only) return h;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return null;
+}
+
+function warnMari0NotConnected(h) {
+  if (h?.mari0?.connected) return;
+  toast && toast('Mari0 no conectado al bridge. Abre el juego y entra a un nivel (mod Crowd Control).', 'warn');
+}
+
+function warnMarioQueuePending(h) {
+  if (!h || !h.ok) {
+    toast && toast('Bridge Mario no responde. Pulsa «Iniciar bridge».', 'warn');
+    return;
+  }
+  if ((h.queuePending || 0) > 8) {
+    toast && toast('Muchos spawns en cola. Entra a un nivel en SMBX2 (marios_pad).', 'warn');
+  }
 }
 
 async function testMarioAction(a) {
@@ -8081,22 +8122,28 @@ async function testMarioAction(a) {
   toast && toast(`🍄 «${label}» en 2 s… (SMBX2 → marios_pad)`, 'ok');
   await new Promise((r) => setTimeout(r, 2000));
 
-  send({ action: 'ensureMarioBridge' });
-  await new Promise((r) => setTimeout(r, 400));
+  const bridgeH = await waitGameBridge('smbx');
+  if (!bridgeH) {
+    toast && toast('Bridge Mario no arrancó. Pulsa «Iniciar bridge».', 'warn');
+    return;
+  }
 
   if (a.kind === 'effect') {
-    send({ action: 'marioEffect', type: a.thing, seconds: a.seconds, factor: a.factor });
-    const ok = await execGameLocal({ tipo: 'MARIO_EFFECT', type: a.thing, seconds: a.seconds, factor: a.factor });
-    if (ok) addEvent(`🍄 Prueba Mario: efecto ${esc(label)}`, 'ok');
+    const r = await execGameLocal({ tipo: 'MARIO_EFFECT', type: a.thing, seconds: a.seconds, factor: a.factor });
+    if (r && r.ok !== false) addEvent(`🍄 Prueba Mario: efecto ${esc(label)}`, 'ok');
     else toast && toast('Efecto no enviado. Pulsa «Iniciar bridge».', 'warn');
     return;
   }
 
   const times = Math.max(1, parseInt(a.count, 10) || 1);
   const spawnThing = a.thing || String(a.npcId);
-  const ok = await execGameLocal({ tipo: 'MARIO_SPAWN', thing: spawnThing, npcId: a.npcId, name: 'Prueba', times });
-  if (ok) addEvent(`🍄 Prueba Mario: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
-  else toast && toast(`Spawn falló («${label}»). Inicia bridge y entra a marios_pad en SMBX2.`, 'warn');
+  const r = await execGameLocal({ tipo: 'MARIO_SPAWN', thing: spawnThing, npcId: a.npcId, name: 'Prueba', times });
+  if (r && r.ok !== false) {
+    addEvent(`🍄 Prueba Mario: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+    setTimeout(() => warnMarioQueuePending(bridgeH), 400);
+  } else {
+    toast && toast(`Spawn falló («${label}»). Inicia bridge y entra a marios_pad en SMBX2.`, 'warn');
+  }
 }
 
 function marioCardHtml(a) {
@@ -8363,26 +8410,36 @@ async function testMari0Action(a) {
   toast && toast(`🌀 «${label}» en 2 s… (entra a un nivel en Mari0)`, 'ok');
   await new Promise((r) => setTimeout(r, 2000));
 
-  send({ action: 'ensureMari0Bridge' });
-  await new Promise((r) => setTimeout(r, 400));
+  const bridgeH = await waitGameBridge('mari0');
+  if (!bridgeH) {
+    toast && toast('Bridge Mari0 no arrancó. Pulsa «Iniciar bridge».', 'warn');
+    return;
+  }
 
   if (a.kind === 'effect') {
     const seconds = Math.max(1, parseInt(a.seconds, 10) || 5);
     const factor = Math.max(0, parseInt(a.factor, 10) || 0);
-    const ok = await execGameLocal({ tipo: 'MARI0_EFFECT', type: a.thing, seconds, factor });
-    if (ok) addEvent(`🌀 Prueba Mari0: efecto ${esc(label)}`, 'ok');
-    else toast && toast('Efecto no enviado. Pulsa «Iniciar bridge».', 'warn');
+    const r = await execGameLocal({ tipo: 'MARI0_EFFECT', type: a.thing, seconds, factor });
+    if (r && r.ok !== false) {
+      addEvent(`🌀 Prueba Mari0: efecto ${esc(label)}`, 'ok');
+      warnMari0NotConnected(bridgeH);
+    } else toast && toast('Efecto no enviado. Pulsa «Iniciar bridge».', 'warn');
     return;
   }
   const times = Math.max(1, parseInt(a.count, 10) || 1);
-  const ok = await execGameLocal({
+  const r = await execGameLocal({
     tipo: 'MARI0_SPAWN',
     thing: a.thing,
     name: 'Prueba',
     times,
   });
-  if (ok) addEvent(`🌀 Prueba Mari0: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
-  else toast && toast(`Spawn falló («${label}»). Inicia bridge y entra a un nivel.`, 'warn');
+  if (r && r.ok !== false) {
+    addEvent(`🌀 Prueba Mari0: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+    const h2 = await gameBridgeHealth();
+    warnMari0NotConnected(h2 || bridgeH);
+  } else {
+    toast && toast(`Spawn falló («${label}»). Inicia bridge, abre Mari0 y entra a un nivel.`, 'warn');
+  }
 }
 
 function mari0CardHtml(a) {
@@ -8613,14 +8670,17 @@ async function testPvzAction(a) {
   let ok = false;
   if (a.kind === 'sun') {
     const amount = Math.max(1, parseInt(a.amount, 10) || 50);
-    ok = await execGameLocal({ tipo: 'PVZ_SUN', amount });
+    const r = await execGameLocal({ tipo: 'PVZ_SUN', amount });
+    ok = r && r.ok !== false;
     if (ok) addEvent(`🧟 Prueba PvZ: dar ${esc(String(amount))} soles`, 'ok');
   } else if (a.kind === 'cmd') {
-    ok = await execGameLocal({ tipo: 'PVZ_CMD', path: a.path });
+    const r = await execGameLocal({ tipo: 'PVZ_CMD', path: a.path });
+    ok = r && r.ok !== false;
     if (ok) addEvent(`🧟 Prueba PvZ: ${esc(a.label || a.thing)}`, 'ok');
   } else {
     const times = Math.max(1, parseInt(a.count, 10) || 1);
-    ok = await execGameLocal({ tipo: 'PVZ_SPAWN', thing: a.thing, name: 'Prueba', times });
+    const r = await execGameLocal({ tipo: 'PVZ_SPAWN', thing: a.thing, name: 'Prueba', times });
+    ok = r && r.ok !== false;
     if (ok) addEvent(`🧟 Prueba PvZ: generar ${esc(a.label || a.thing)}`, 'ok');
   }
   if (!ok) toast && toast('No se pudo ejecutar. ¿El juego está abierto en una partida?', 'warn');
