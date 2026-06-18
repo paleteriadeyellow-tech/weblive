@@ -4247,6 +4247,10 @@ function ttsSpeakText(text) {
   const t = settings?.tts || {};
   const phrase = String(text || '').trim();
   if (!phrase) return;
+  const now = Date.now();
+  if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
+  ttsLastPhrase = phrase;
+  ttsLastPhraseAt = now;
   // Si hay una voz TikTok elegida, la síntesis va por el servidor (voces Disney, etc.).
   if (t.tiktokVoice) { ttsSpeakTikTok(phrase, t); return; }
   ttsSpeakSystem(phrase, t);
@@ -4262,6 +4266,25 @@ function ttsSpeakText(text) {
 let ttsSysQueue = [];
 let ttsSysBusy = false;
 let ttsSysWatchdog = null;
+const ttsSpokenKeys = new Map();
+const TTS_DEDUP_MS = 90000;
+const TTS_DEDUP_MAX = 400;
+let ttsLastPhrase = '';
+let ttsLastPhraseAt = 0;
+
+function ttsAlreadySpoken(key) {
+  if (!key) return false;
+  const now = Date.now();
+  const prev = ttsSpokenKeys.get(key);
+  if (prev != null && now - prev < TTS_DEDUP_MS) return true;
+  ttsSpokenKeys.set(key, now);
+  if (ttsSpokenKeys.size > TTS_DEDUP_MAX) {
+    for (const [k, t] of ttsSpokenKeys) {
+      if (now - t >= TTS_DEDUP_MS) ttsSpokenKeys.delete(k);
+    }
+  }
+  return false;
+}
 
 function ttsStopSystem() {
   ttsSysQueue = [];
@@ -4414,6 +4437,9 @@ function ttsSpeak(p, force = false) {
   if (body.length < (t.minLen || 0)) return;
   if (t.maxLen && body.length > t.maxLen) body = body.slice(0, t.maxLen);
   if (!body) return;
+
+  const dedupKey = p.msgId ? ('m:' + p.msgId) : ('c:' + (p.uniqueId || p.nickname || '') + '|' + (p.comment || ''));
+  if (ttsAlreadySpoken(dedupKey)) return;
 
   // Monetización: cobra monedas acumuladas por regalos
   if (t.charge) {

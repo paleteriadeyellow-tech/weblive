@@ -269,6 +269,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
                                      // recibe datos para mostrar Y órdenes para ejecutar
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
+  const recentChatKeys = new Set();
+  const recentChatOrder = [];
+  function chatEventKey(data, comment) {
+    const msgId = data?.common?.msgId || data?.msgId;
+    if (msgId && String(msgId) !== '0') return 'id:' + msgId;
+    const uid = data?.user?.uniqueId || data?.user?.userId || '';
+    const ct = data?.common?.createTime || '';
+    return `f:${uid}|${comment}|${ct}`;
+  }
+  function consumeChatOnce(key) {
+    if (recentChatKeys.has(key)) return false;
+    recentChatKeys.add(key);
+    recentChatOrder.push(key);
+    if (recentChatOrder.length > 500) recentChatKeys.delete(recentChatOrder.shift());
+    return true;
+  }
   const emoteCatalog = new Map();
   // Pelotas de fans: acumulado por usuario (con sobrante) para soltar pelotas.
   const fanCoinAcc = new Map();      // uniqueId -> monedas pendientes
@@ -1324,6 +1340,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     state.stats = { viewers: 0, likes: 0, diamonds: 0, comments: 0, gifts: 0, follows: 0, shares: 0, joins: 0 };
     state.gifters.clear();
     chatSeenUsers.clear();
+    recentChatKeys.clear();
+    recentChatOrder.length = 0;
     emoteCatalog.clear();
     fanCoinAcc.clear();
     fanLikeAcc.clear();
@@ -1577,9 +1595,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.CHAT, (data) => {
-      state.stats.comments++;
       const comment = data.comment || '';
-      broadcast('chat', { ...baseUser(data.user || data), comment, ...chatUserRoles(data) });
+      const chatKey = chatEventKey(data, comment);
+      if (!consumeChatOnce(chatKey)) return;
+      state.stats.comments++;
+      const msgId = data?.common?.msgId || '';
+      broadcast('chat', { ...baseUser(data.user || data), comment, msgId: msgId && String(msgId) !== '0' ? String(msgId) : chatKey, ...chatUserRoles(data) });
       pushStatsThrottled();
       checkMemberLevelUp(data);
       const chatUser = baseUser(data.user || data);
