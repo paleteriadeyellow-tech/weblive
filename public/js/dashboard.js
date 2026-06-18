@@ -4814,13 +4814,16 @@ function scheduleActionTest(a) {
     || (a && a.obsCmd && a.obsCmd.on)
     || (a && a.sbCmd && a.sbCmd.on && a.sbCmd.action);
   if (!a || (!a.keys && !hasOutput)) { toast('Elige una tecla o activa una salida primero.', 'warn'); return; }
+  const times = (a.keyRepeatOn && a.keys) ? Math.max(1, parseInt(a.keyRepeat, 10) || 1) : 1;
   toast(`La acción se ejecutará en ${ACC_TEST_DELAY} segundos…`);
   setTimeout(() => {
-    if (a.keys && IS_DESKTOP && window.desktopAPI?.pressKeys) window.desktopAPI.pressKeys(a.keys, { gameCompat: !!a.gameCompat });
+    if (a.keys && IS_DESKTOP && window.desktopAPI?.pressKeys) {
+      window.desktopAPI.pressKeys(a.keys, { gameCompat: !!a.gameCompat, times });
+    }
     if (a.sound) { try { const au = new Audio(a.sound); au.volume = a.soundVolume != null ? a.soundVolume : 1; au.play().catch(() => {}); } catch {} }
     // Las salidas (OBS / WebHook / Streamer.bot) las ejecuta el servidor.
     if (hasOutput) send({ action: 'runActionOutputs', webhookCmd: a.webhookCmd, obsCmd: a.obsCmd, sbCmd: a.sbCmd });
-    addEvent(`⚡ Prueba: ${esc(a.name || a.keys || 'acción')}${a.keys ? ' → ' + esc(a.keys) : ''}`, 'ok');
+    addEvent(`⚡ Prueba: ${esc(a.name || a.keys || 'acción')}${a.keys ? ' → ' + esc(a.keys) + (times > 1 ? ` ×${times}` : '') : ''}`, 'ok');
   }, ACC_TEST_DELAY * 1000);
 }
 
@@ -4931,6 +4934,13 @@ function accBind(id, fn, ev = 'onclick') {
   return true;
 }
 
+function syncAccKeyRepeatUI() {
+  const keysOn = $('acc-keys-on') && $('acc-keys-on').checked;
+  if ($('acc-keyrepeat-on-row')) $('acc-keyrepeat-on-row').hidden = !keysOn;
+  const repeatOn = keysOn && $('acc-keyrepeat-on') && $('acc-keyrepeat-on').checked;
+  if ($('acc-keyrepeat-wrap')) $('acc-keyrepeat-wrap').hidden = !repeatOn;
+}
+
 function setupAccionesUI() {
   if (!accBind('acc-new', () => {
     if (!ensureCanAdd('actions', 'actions', 'acciones')) return;
@@ -4959,8 +4969,11 @@ function setupAccionesUI() {
   accBind('acc-keys-on', () => {
     const on = $('acc-keys-on').checked;
     $('acc-keys-box').hidden = !on;
+    if (!on && $('acc-keyrepeat-on')) $('acc-keyrepeat-on').checked = false;
+    syncAccKeyRepeatUI();
     if (on && !$('acc-keys').value.trim()) openKeyboardModal();
   });
+  accBind('acc-keyrepeat-on', syncAccKeyRepeatUI);
   accBind('acc-keypick', openKeyboardModal);
   accBind('acc-keyclear', () => { $('acc-keys').value = ''; accPendingGameCompat = false; });
   accBind('acc-imgbtn', () => $('acc-imgfile')?.click());
@@ -4989,6 +5002,8 @@ function setupAccionesUI() {
     name: $('acc-name').value.trim() || 'Prueba',
     keys: $('acc-keys-on').checked ? $('acc-keys').value.trim() : '',
     gameCompat: accPendingGameCompat,
+    keyRepeatOn: $('acc-keyrepeat-on')?.checked,
+    keyRepeat: Math.max(1, parseInt($('acc-keyrepeat')?.value, 10) || 1),
     sound: $('acc-soundon').checked && accPendingSound ? accPendingSound.url : '',
     soundVolume: Math.max(0, Math.min(1, (+$('acc-soundvol').value || 100) / 100)),
     webhookCmd: readAccWebhookCmd(),
@@ -5065,6 +5080,9 @@ function openAccModal(a) {
   $('acc-keys').value = a ? (a.keys || '') : '';
   $('acc-keys-on').checked = !!(a && a.keys);
   $('acc-keys-box').hidden = !(a && a.keys);
+  if ($('acc-keyrepeat-on')) $('acc-keyrepeat-on').checked = !!(a && a.keyRepeatOn);
+  if ($('acc-keyrepeat')) $('acc-keyrepeat').value = a && a.keyRepeat ? Math.max(1, parseInt(a.keyRepeat, 10) || 1) : 1;
+  syncAccKeyRepeatUI();
   $('acc-active').checked = a ? a.enabled !== false : true;
   $('acc-giftpick').innerHTML = giftBtnHTML(a ? a.giftName : '', a ? a.giftId : '');
   if (typeof updateEmotePickBtn === 'function') updateEmotePickBtn('acc');
@@ -5136,6 +5154,8 @@ function saveAccModal() {
     user: $('acc-user').value.trim().replace(/^@/, ''),
     comboInstant: event === 'gift' && $('acc-comboinstant')?.checked,
     keys,
+    keyRepeatOn: $('acc-keys-on').checked && $('acc-keyrepeat-on')?.checked,
+    keyRepeat: Math.max(1, Math.min(50, parseInt($('acc-keyrepeat')?.value, 10) || 1)),
     gameCompat: !!accPendingGameCompat,
     image: accPendingImage ? accPendingImage.url : '',
     sound: $('acc-soundon').checked && accPendingSound ? accPendingSound.url : '',

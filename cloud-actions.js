@@ -53,8 +53,15 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     }
   }
 
+  function resolveKeyTimes(a, eventTimes = 1) {
+    if (a && a.keyRepeatOn && a.keys) {
+      return Math.max(1, Math.min(50, parseInt(a.keyRepeat, 10) || 1));
+    }
+    return Math.max(1, Number(eventTimes) || 1);
+  }
+
   function fireAction(a, times = 1) {
-    const t = Math.max(1, Number(times) || 1);
+    const t = resolveKeyTimes(a, times);
     if (a.keys) {
       log('ok', `⚡ Acción: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}`);
       emitKeyAction({

@@ -502,6 +502,13 @@
                   <button type="button" class="btn ghost" id="acc-keyclear">Limpiar</button>
                 </div>
                 <p class="hint">Pulsa <b>Elegir teclas</b> para abrir el teclado en pantalla y elegir la tecla, combinación o clic. La acción se mantiene pulsada un instante y se suelta.</p>
+                <label class="switch-row plain" id="acc-keyrepeat-on-row" hidden>
+                  <input type="checkbox" id="acc-keyrepeat-on">
+                  <span>Repetir la misma tecla varias veces <span class="opt">(por cada activación)</span></span>
+                </label>
+                <div id="acc-keyrepeat-wrap" class="gift-extra one" hidden>
+                  <input type="number" id="acc-keyrepeat" min="1" max="50" value="1" placeholder="Veces a pulsar (ej. 3)">
+                </div>
               </div>
 
               <label class="switch-row plain"><input type="checkbox" id="acc-wh-on"> <span>Comandos WebHook</span></label>
