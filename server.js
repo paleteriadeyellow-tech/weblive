@@ -186,8 +186,30 @@ function findLevelVideoUrl(level) {
 
 const app = express();
 
+/* --------------------------- Modo mantenimiento (web) --------------------------- */
+const MAINTENANCE_FILE = path.join(DATA_DIR, 'maintenance.json');
+function readMaintenance() {
+  try { return JSON.parse(fs.readFileSync(MAINTENANCE_FILE, 'utf8')); }
+  catch { return { enabled: false, message: '', updatedAt: 0 }; }
+}
+function writeMaintenance(data) {
+  const tmp = MAINTENANCE_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, MAINTENANCE_FILE);
+}
+function isMaintenanceOn() { return !!readMaintenance().enabled; }
+
 /* ------------------------------- Autenticación ------------------------------- */
+app.get('/api/maintenance', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  const m = readMaintenance();
+  res.json({ enabled: !!m.enabled, message: String(m.message || '') });
+});
+
 app.post('/api/register', express.json(), (req, res) => {
+  if (isMaintenanceOn()) {
+    return res.status(503).json({ error: 'Sitio en mantenimiento. Solo el administrador puede acceder.' });
+  }
   const { username, password } = req.body || {};
   const { user, error } = registerUser(username, password);
   if (error) return res.status(400).json({ error });
@@ -201,6 +223,9 @@ app.post('/api/login', express.json(), (req, res) => {
   const { username, password } = req.body || {};
   const { user, error } = verifyLogin(username, password);
   if (error) return res.status(400).json({ error });
+  if (isMaintenanceOn() && !user.isAdmin) {
+    return res.status(503).json({ error: 'Sitio en mantenimiento. Solo el administrador puede acceder.' });
+  }
   touchLogin(user.id);
   const token = createSession(user.id);
   res.setHeader('Set-Cookie', sessionCookie(token));
@@ -454,6 +479,18 @@ app.post('/api/admin/web-install', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true, ...data });
 });
 
+app.post('/api/admin/maintenance', express.json(), requireAdmin, (req, res) => {
+  const b = req.body || {};
+  const data = {
+    enabled: !!b.enabled,
+    message: String(b.message || '').trim(),
+    updatedAt: Date.now(),
+  };
+  try { writeMaintenance(data); }
+  catch { return res.status(500).json({ error: 'No se pudo guardar.' }); }
+  res.json({ ok: true, ...data });
+});
+
 /* ------------------- Protección básica (disuasión copia) ------------------- */
 // Inyecta protect.js en todo HTML servido (panel + overlays). NO es seguridad
 // real: solo dificulta la copia casual (clic derecho, F12, ver fuente…).
@@ -477,6 +514,9 @@ function sendHtmlFile(res, filePath, status = 200) {
 app.get(['/', '/index.html'], (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.redirect('/login.html');
+  if (isMaintenanceOn() && !user.isAdmin) {
+    return sendHtmlFile(res, path.join(PUBLIC_DIR, 'maintenance.html'));
+  }
   if (!isUserActive(user)) return sendHtmlFile(res, path.join(PUBLIC_DIR, 'pending.html'));
   sendHtmlFile(res, path.join(PUBLIC_DIR, 'index.html'));
 });

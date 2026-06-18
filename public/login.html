@@ -48,6 +48,19 @@
       color: #cfe9ff; background: rgba(0,229,255,.08); border: 1px solid rgba(0,229,255,.28);
     }
     .pc-note b { color: #fff; }
+    .maint-banner {
+      margin-bottom: 18px; padding: 14px 16px; border-radius: 14px; text-align: center;
+      background: linear-gradient(135deg, rgba(245,158,11,.2), rgba(239,68,68,.18));
+      border: 2px solid rgba(245,158,11,.55);
+    }
+    .maint-banner .sign-sm {
+      display: inline-block; padding: 6px 14px; margin-bottom: 8px;
+      font-size: 13px; font-weight: 900; letter-spacing: 3px; color: #fff;
+      background: linear-gradient(135deg, #f59e0b, #ef4444); border-radius: 8px;
+      text-transform: uppercase;
+    }
+    .maint-banner p { margin: 0; font-size: 13px; color: #fde68a; line-height: 1.45; }
+    .maint-banner.hide { display: none; }
   </style>
 </head>
 <body>
@@ -58,7 +71,12 @@
     </div>
     <p class="sub">Tu panel privado para TikTok LIVE</p>
 
-    <div class="tabs">
+    <div class="maint-banner hide" id="maint-banner">
+      <div class="sign-sm">Mantenimiento</div>
+      <p id="maint-banner-msg">El panel web está en mantenimiento. Solo el administrador puede entrar.</p>
+    </div>
+
+    <div class="tabs" id="auth-tabs">
       <div class="tab active" data-tab="login">Iniciar sesión</div>
       <div class="tab" data-tab="register">Crear cuenta</div>
     </div>
@@ -94,6 +112,22 @@
       msg.className = 'msg';
     }
     tabs.forEach((t) => t.onclick = () => setMode(t.dataset.tab));
+
+    (async function loadMaintenanceBanner() {
+      try {
+        const r = await fetch('/api/maintenance');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!d.enabled) return;
+        const box = document.getElementById('maint-banner');
+        const msg = document.getElementById('maint-banner-msg');
+        if (msg && d.message) msg.textContent = d.message;
+        if (box) box.classList.remove('hide');
+        const regTab = document.querySelector('.tab[data-tab="register"]');
+        if (regTab) regTab.style.display = 'none';
+        setMode('login');
+      } catch {}
+    })();
 
     $('form').addEventListener('submit', async (e) => {
       e.preventDefault();

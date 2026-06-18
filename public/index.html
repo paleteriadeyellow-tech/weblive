@@ -3818,6 +3818,23 @@
             </div>
           </div>
 
+          <!-- Modo mantenimiento (panel web) -->
+          <div class="settings-card plans-card">
+            <div class="tts-head">
+              <h3>Modo mantenimiento</h3>
+              <span class="tts-sub">Cierra el panel web a todos excepto al administrador</span>
+            </div>
+            <label class="switch-row plain"><input type="checkbox" id="maint-enabled"> <span>Activar letrero de mantenimiento</span></label>
+            <div class="field">
+              <label>Mensaje para los usuarios</label>
+              <textarea id="maint-message" rows="2" placeholder="Estamos mejorando Livecoins. Vuelve pronto."></textarea>
+            </div>
+            <div class="plans-actions">
+              <span id="maint-status" class="tts-sub"></span>
+              <button class="btn primary" id="maint-save">Guardar mantenimiento</button>
+            </div>
+          </div>
+
           <!-- Publicar actualización de la app de escritorio (.exe) -->
           <div class="settings-card plans-card">
             <div class="tts-head">
