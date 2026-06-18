@@ -5881,6 +5881,7 @@ async function startSpotifyLogin() {
     if (!d.url) throw new Error('sin url');
     if (IS_DESKTOP && window.desktopAPI?.openExternal) {
       window.desktopAPI.openExternal(d.url);
+      toast && toast('Se abrió Spotify en tu navegador. Autoriza y vuelve al panel.', 'ok');
     } else {
       window.open(d.url, 'spotify_login', 'width=520,height=720');
     }
