@@ -5945,7 +5945,12 @@ function setupSpotifyUI() {
   }
   const logout = document.getElementById('sp-logout');
   if (logout) logout.onclick = async () => {
-    try { await fetch('/api/spotify/logout', { method: 'POST' }); } catch {}
+    try {
+      const r = await fetch('/api/spotify/logout', { method: 'POST', credentials: 'same-origin' });
+      if (!r.ok) throw new Error('logout');
+    } catch {
+      if (typeof toast === 'function') toast('No se pudo desconectar Spotify', 'warn');
+    }
     refreshSpotifyStatus();
   };
   // Botones "Copiar enlace" de las superposiciones (no están en .ovpro-card, así que
