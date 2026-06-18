@@ -460,6 +460,7 @@
                   <option value="follow">Nuevo seguidor</option>
                   <option value="levelUp">Subió de nivel de miembro</option>
                   <option value="emote">Sticker / emote (ID)</option>
+                  <option value="chatCommand">Comando de chat (!video)</option>
                 </select>
                 <div id="acc-giftanyextra" class="gift-extra" hidden>
                   <input type="number" id="acc-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
@@ -484,6 +485,12 @@
                 <div id="acc-emoteextra" class="gift-extra one" hidden>
                   <button type="button" class="btn ghost gift-pick-btn" id="acc-emotepick">🙂 Elegir sticker…</button>
                   <input type="hidden" id="acc-emoteid">
+                </div>
+                <div id="acc-cmdextra" class="gift-extra one" hidden>
+                  <input type="text" id="acc-command" placeholder="Comando exacto (ej. !video)">
+                </div>
+                <div id="acc-userextra" class="gift-extra one" hidden>
+                  <input type="text" id="acc-user" placeholder="Solo este usuario (sin @) — opcional">
                 </div>
               </div>
 

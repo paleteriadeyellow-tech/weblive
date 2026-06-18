@@ -99,6 +99,19 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       } else if (eventType === 'emote') {
         if (ev !== 'emote') continue;
         if ((a.emoteId || '').trim() && (a.emoteId || '').trim() !== String(info.emoteId || '')) continue;
+      } else if (eventType === 'chatCommand') {
+        if (ev !== 'chatCommand') continue;
+        if (!matchesCommand(a.command, info.comment)) continue;
+        const want = String(a.user || '').replace(/^@/, '').trim().toLowerCase();
+        if (want) {
+          const u = String(info.username || '').toLowerCase();
+          const n = String(info.nickname || '').toLowerCase();
+          if (want !== u && want !== n) continue;
+        }
+      } else if (eventType === 'levelUp') {
+        if (ev !== 'levelUp') continue;
+        const wantLevel = Math.max(0, Number(a.level) || 0);
+        if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
       } else if (ev !== eventType) continue;
       fireAction(a);
     }
@@ -446,15 +459,18 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     }
   }
 
-  function playMcActionSound(a) {
+  function playMcActionSound(a, times = 1) {
     if (!a || !a.audioOn || !a.sound) return;
-    broadcast('sound', {
-      id: a.uid || a.catId || '',
-      name: a.name || a.soundName || 'Minecraft',
-      sound: a.sound,
-      image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
-      volume: a.soundVolume != null ? a.soundVolume : 100,
-    });
+    const n = Math.max(1, Math.min(Number(times) || 1, 50));
+    for (let i = 0; i < n; i++) {
+      broadcast('sound', {
+        id: a.uid || a.catId || '',
+        name: a.name || a.soundName || 'Minecraft',
+        sound: a.sound,
+        image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
+        volume: a.soundVolume != null ? a.soundVolume : 100,
+      });
+    }
   }
 
   function triggerMinecraftActions(eventType, info = {}, user = null) {
@@ -472,7 +488,8 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (times == null) continue;
       if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
       if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
-      playMcActionSound(a);
+      const soundTimes = eventType === 'gift' ? Math.max(1, Number(info.repeatCount) || 1) : 1;
+      playMcActionSound(a, soundTimes);
       runMcAction(a, vars);
     }
   }

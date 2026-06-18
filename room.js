@@ -1587,6 +1587,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const chatInfo = { comment, username: chatUser.uniqueId, nickname: chatUser.nickname };
       triggerVideos('chatCommand', chatInfo);
       triggerSoundAlerts('chatCommand', chatInfo);
+      actions.triggerActions('chatCommand', chatInfo);
       handleChatCommands(comment, chatUser);
       rouletteFromChat(chatUser, comment);
       actions.triggerMinecraftActions('chat', chatInfo, chatUser);

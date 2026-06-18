@@ -819,15 +819,15 @@ function handle(type, p) {
     case 'state': renderState(p); break;
     case 'settings': onSettings(p); break;
     case 'screens': onScreens(p); break;
-    case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); triggerMcPanelSounds('chat', p); break;
+    case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); break;
     case 'botReply': handleBotReply(p); break;
-    case 'gift': addGift(p); ttsOnGift(p); triggerMcPanelSounds('gift', p); break;
-    case 'like': ttsOnLike(p); triggerMcPanelSounds('like', { likeCount: p.count || 0, ...p }); break;
+    case 'gift': addGift(p); ttsOnGift(p); break;
+    case 'like': ttsOnLike(p); break;
     case 'member': addEvent(`🙋 ${p.nickname} entró`, ''); break;
-    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); triggerMcPanelSounds('follow', p); break;
-    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); triggerMcPanelSounds('share', p); break;
-    case 'subscribe': triggerMcPanelSounds('subscribe', p); break;
-    case 'superfan': triggerMcPanelSounds('superFan', p); break;
+    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); break;
+    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); break;
+    case 'subscribe': break;
+    case 'superfan': break;
     case 'log': addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : ''); break;
     case 'sound': playPanelSound(p); break;
     case 'panic':
@@ -1618,57 +1618,6 @@ function playMcCardSound(a) {
     volume: a.soundVolume != null ? a.soundVolume : 100,
     image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
   });
-}
-
-function mcCmdReady(a) {
-  return !!(a && a.enabled !== false && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)));
-}
-
-function matchMcActionTrigger(a, eventType, info) {
-  if (!mcCmdReady(a)) return false;
-  const trig = a.trigger || 'gift';
-  if (eventType === 'gift') {
-    if (trig === 'gift') {
-      const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-      const nameMatch = (a.giftName || '').trim().toLowerCase()
-        && (a.giftName || '').trim().toLowerCase() === String(info.giftName || '').toLowerCase();
-      return idMatch || nameMatch;
-    }
-    return trig === 'gift-any';
-  }
-  if (eventType === 'like') {
-    if (trig !== 'like') return false;
-    return (a.likeN || 1) <= (info.likeCount || 0);
-  }
-  if (eventType === 'chat') {
-    if (trig === 'chatCommand') {
-      const cmd = String(a.text || '').trim().toLowerCase();
-      const text = String(info.comment || '').trim().toLowerCase();
-      return cmd && text && (text === cmd || text.startsWith(cmd + ' '));
-    }
-    if (trig === 'chatUser') {
-      const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
-      if (!want) return false;
-      const uname = String(info.username || info.uniqueId || '').toLowerCase();
-      const nname = String(info.nickname || '').toLowerCase();
-      return want === uname || want === nname;
-    }
-    return false;
-  }
-  return trig === eventType;
-}
-
-function triggerMcPanelSounds(eventType, info) {
-  if (!settings) return;
-  const lists = [].concat(
-    settings.mcActions || [],
-    settings.bedrockActions || [],
-    settings.sandboxActions || [],
-  );
-  for (const a of lists) {
-    if (!matchMcActionTrigger(a, eventType, info)) continue;
-    playMcCardSound(a);
-  }
 }
 
 function onSettings(s) {
@@ -4860,12 +4809,13 @@ const ACC_EVENT_LABELS = {
   follow: '➕ Nuevo seguidor',
   levelUp: '⬆️ Subió de nivel de miembro',
   emote: '😀 Sticker / emote',
+  chatCommand: '💬 Comando de chat',
 };
 // Miniatura de la tarjeta: imagen subida si la hay; si no, el icono del regalo (para
 // eventos de regalo) o un emoji acorde al evento (likes, seguidor, super fan…).
 const ACC_THUMB_EMOJI = {
   'gift-any': '🎁', gift: '🎁', like: '❤️', likeGlobal: '❤️',
-  share: '🔁', subscribe: '⭐', superFan: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀',
+  share: '🔁', subscribe: '⭐', superFan: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀', chatCommand: '💬',
 };
 function accThumbHTML(a) {
   if (a.image) return `<div class="acc-thumb" style="background-image:url('${esc(a.image)}')"></div>`;
@@ -4892,6 +4842,7 @@ function accEventLabel(a) {
   if (ev === 'like' && a.likeMin > 1) return `❤️ Desde ${a.likeMin} likes`;
   if (ev === 'likeGlobal' && a.likeGoal) return `❤️ Cada ${a.likeGoal} likes`;
   if (ev === 'emote' && a.emoteId) return `😀 Sticker ${esc(a.emoteId)}`;
+  if (ev === 'chatCommand') return `💬 ${esc(a.command || '!comando')}`;
   return ACC_EVENT_LABELS[ev] || ev;
 }
 
@@ -5032,6 +4983,8 @@ function applyAccEventExtras() {
   $('acc-likeextra').hidden = ev !== 'like';
   $('acc-likeglobalextra').hidden = ev !== 'likeGlobal';
   $('acc-emoteextra').hidden = ev !== 'emote';
+  $('acc-cmdextra').hidden = ev !== 'chatCommand';
+  $('acc-userextra').hidden = ev !== 'chatCommand';
   if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift';
 }
 
@@ -5080,6 +5033,8 @@ function openAccModal(a) {
   $('acc-likemin').value = a ? (a.likeMin || 1) : 1;
   $('acc-likegoal').value = a ? (a.likeGoal || 100) : 100;
   $('acc-emoteid').value = a ? (a.emoteId || '') : '';
+  $('acc-command').value = a ? (a.command || '') : '';
+  $('acc-user').value = a ? (a.user || '') : '';
   if ($('acc-comboinstant')) $('acc-comboinstant').checked = !!(a && a.comboInstant);
   $('acc-keys').value = a ? (a.keys || '') : '';
   $('acc-keys-on').checked = !!(a && a.keys);
@@ -5133,9 +5088,15 @@ function saveAccModal() {
     $('acc-status').textContent = 'Elige una tecla/clic o activa una salida (WebHook, OBS o Streamer.bot).';
     return;
   }
+  const event = $('acc-event').value;
+  const command = $('acc-command').value.trim();
+  if (event === 'chatCommand' && !command) {
+    $('acc-status').textContent = 'Escribe el comando (ej. !video).';
+    return;
+  }
   const data = {
     name: $('acc-name').value.trim() || 'Acción',
-    event: $('acc-event').value,
+    event,
     rangeMin: +$('acc-rangemin').value || 0,
     rangeMax: +$('acc-rangemax').value || 0,
     giftId: $('acc-giftid').value || '',
@@ -5145,7 +5106,9 @@ function saveAccModal() {
     likeMin: +$('acc-likemin').value || 1,
     likeGoal: +$('acc-likegoal').value || 100,
     emoteId: $('acc-emoteid').value || '',
-    comboInstant: $('acc-event').value === 'gift' && $('acc-comboinstant')?.checked,
+    command,
+    user: $('acc-user').value.trim().replace(/^@/, ''),
+    comboInstant: event === 'gift' && $('acc-comboinstant')?.checked,
     keys,
     gameCompat: !!accPendingGameCompat,
     image: accPendingImage ? accPendingImage.url : '',
@@ -8445,20 +8408,119 @@ async function generateRobloxMenuImage(orientation) {
 }
 
 // Descarga el archivo del servidor (botón sobre la imagen).
+let gameDlProgressOff = null;
+
+function fmtDlBytes(b) {
+  if (!b) return '0 B';
+  const mb = b / (1024 * 1024);
+  return mb >= 1 ? mb.toFixed(1) + ' MB' : (b / 1024).toFixed(0) + ' KB';
+}
+
+function ensureGameDownloadModal() {
+  let el = document.getElementById('game-dl-modal');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'game-dl-modal';
+  el.className = 'modal game-dl-modal hidden';
+  el.innerHTML = `
+    <div class="game-dl-box" role="dialog" aria-live="polite" aria-label="Descargando juego">
+      <h3 class="game-dl-title"><span class="game-dl-dot"></span> Descargando juego…</h3>
+      <p class="game-dl-name" id="game-dl-name"></p>
+      <p class="game-dl-status" id="game-dl-status">Preparando descarga…</p>
+      <div class="game-dl-barwrap"><div class="game-dl-bar" id="game-dl-bar"></div></div>
+      <div class="game-dl-stats">
+        <span id="game-dl-size">—</span>
+        <span class="game-dl-pct" id="game-dl-pct">0%</span>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  return el;
+}
+
+function updateGameDownloadProgress(d) {
+  const modal = document.getElementById('game-dl-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  const bar = modal.querySelector('#game-dl-bar');
+  const pctEl = modal.querySelector('#game-dl-pct');
+  const sizeEl = modal.querySelector('#game-dl-size');
+  const statusEl = modal.querySelector('#game-dl-status');
+  if (!bar || !pctEl || !sizeEl || !statusEl) return;
+  if (d.error) {
+    statusEl.textContent = 'Error: ' + d.error;
+    statusEl.classList.add('err');
+    bar.classList.remove('indeterminate');
+    return;
+  }
+  statusEl.classList.remove('err');
+  if (d.filename) {
+    const nameEl = modal.querySelector('#game-dl-name');
+    if (nameEl) nameEl.textContent = d.filename;
+  }
+  const total = Number(d.total) || 0;
+  const done = Number(d.done) || 0;
+  if (total > 0) {
+    bar.classList.remove('indeterminate');
+    const p = Math.max(0, Math.min(100, d.pct != null ? d.pct : Math.round((done / total) * 100)));
+    bar.style.width = p + '%';
+    pctEl.textContent = p + '%';
+    sizeEl.textContent = fmtDlBytes(done) + ' / ' + fmtDlBytes(total);
+  } else if (done > 0) {
+    bar.classList.add('indeterminate');
+    pctEl.textContent = '…';
+    sizeEl.textContent = fmtDlBytes(done) + ' descargados';
+  }
+  if (d.complete) {
+    bar.classList.remove('indeterminate');
+    bar.style.width = '100%';
+    pctEl.textContent = '100%';
+    statusEl.textContent = 'Descarga completa. Abriendo carpeta…';
+  } else if (d.started) {
+    statusEl.textContent = 'Descargando… no cierres Livecoins (puede tardar varios minutos).';
+  }
+}
+
+function showGameDownloadProgress(filename) {
+  const modal = ensureGameDownloadModal();
+  modal.classList.remove('hidden');
+  updateGameDownloadProgress({ filename, done: 0, total: 0, pct: 0, started: true });
+  if (gameDlProgressOff) gameDlProgressOff();
+  if (window.desktopAPI?.onGameDownloadProgress) {
+    gameDlProgressOff = window.desktopAPI.onGameDownloadProgress((d) => updateGameDownloadProgress(d));
+  }
+}
+
+function hideGameDownloadProgress(delayMs) {
+  const close = () => {
+    const modal = document.getElementById('game-dl-modal');
+    if (modal) modal.classList.add('hidden');
+    if (gameDlProgressOff) { gameDlProgressOff(); gameDlProgressOff = null; }
+  };
+  if (delayMs > 0) setTimeout(close, delayMs);
+  else close();
+}
+
 async function downloadMinecraftServer(url) {
   if (!url) return;
+  const filename = decodeURIComponent(String(url).split('/').pop()?.split('?')[0] || 'archivo');
   if (IS_DESKTOP && window.desktopAPI?.downloadGameAsset) {
-    toast && toast('Descargando… puede tardar varios minutos (archivo grande).', 'ok');
+    showGameDownloadProgress(filename);
     try {
       const r = await window.desktopAPI.downloadGameAsset(url);
       if (r?.ok) {
-        toast && toast(`Listo: ${r.filename || 'archivo'} en Descargas/Livecoins`, 'ok');
+        updateGameDownloadProgress({ filename: r.filename || filename, complete: true, pct: 100 });
+        hideGameDownloadProgress(1200);
+        toast && toast(`Listo: ${r.filename || filename} en Descargas/Livecoins`, 'ok');
         return;
       }
+      updateGameDownloadProgress({ error: r?.error || 'No se pudo descargar' });
+      hideGameDownloadProgress(2500);
       if (r?.error) toast && toast('Descarga falló: ' + r.error, 'err');
     } catch (e) {
+      updateGameDownloadProgress({ error: String(e?.message || e) });
+      hideGameDownloadProgress(2500);
       toast && toast('Descarga falló: ' + (e?.message || e), 'err');
     }
+    return;
   }
   if (IS_DESKTOP && window.desktopAPI?.openExternal) {
     window.desktopAPI.openExternal(url);
