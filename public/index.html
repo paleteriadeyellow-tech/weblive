@@ -97,6 +97,14 @@
       <main>
         <!-- ===== VISTA: PANEL ===== -->
         <section class="view active" id="view-panel">
+          <section class="panel-lives" id="panel-lives" hidden>
+            <div class="panel-lives-head">
+              <h2 class="panel-lives-title">🔴 En live con Livecoins</h2>
+              <span class="panel-lives-hint">Toca para abrir su live en TikTok</span>
+            </div>
+            <div class="panel-lives-track" id="panel-lives-track"></div>
+          </section>
+
           <!-- Bienvenida con el último usuario -->
           <div class="home-welcome" id="home-welcome">
             <div class="home-welcome-glow"></div>
@@ -1792,18 +1800,18 @@
                 <span class="state">ON</span>
               </label>
             </div>
-            <p class="levelvid-hint">En Live Studio usa el <b>link local</b> de abajo (no el de Render). Al subir de nivel lo detecta automático. Falta agregar nivel 11-19 y 41-50.</p>
-            <div class="levelvid-url-row">
-              <code id="levelvid-screen-url" class="levelvid-url"></code>
-              <button type="button" class="btn ghost" id="levelvid-copy-url">Copiar link</button>
-              <span id="levelvid-screen-status" class="levelvid-url-status off"></span>
-            </div>
-            <div class="levelvid-row">
-              <label class="levelvid-test-lvl">
-                <span>Nivel prueba</span>
-                <input type="number" id="levelvid-test-level" min="1" max="50" value="1">
-              </label>
-              <button type="button" class="btn ghost" id="levelvid-test">▶ Probar</button>
+            <div class="levelvid-body">
+              <p class="levelvid-hint">En Live Studio usa el <b>link local</b> de abajo. Al subir de nivel lo detecta automático. Falta agregar nivel 11-19 y 41-50.</p>
+              <div class="levelvid-controls">
+                <code id="levelvid-screen-url" class="levelvid-url"></code>
+                <button type="button" class="btn ghost mini" id="levelvid-copy-url">Copiar link</button>
+                <span id="levelvid-screen-status" class="levelvid-url-status off"></span>
+                <label class="levelvid-test-lvl">
+                  <span>Nivel prueba</span>
+                  <input type="number" id="levelvid-test-level" min="1" max="50" value="1">
+                </label>
+                <button type="button" class="btn ghost mini" id="levelvid-test">▶ Probar</button>
+              </div>
             </div>
           </div>
 
@@ -3609,7 +3617,7 @@
             <img src="/img/mariobros2.jpg" alt="Mario Bros" class="juego-banner-img">
             <div class="juego-banner-btns">
               <button type="button" class="juego-play-btn" id="mario-play">▶ Iniciar bridge</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="mario-room" data-url="https://github.com/riusaki1995/mariobros/releases/download/plantas/MarioLivecoins-Setup.exe">⬇ Descargar juego</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="mario-room" data-url="https://github.com/riusaki1995/mariobros/releases/download/fff/MarioLivecoins-Setup.exe">⬇ Descargar juego</button>
             </div>
           </div>
 
@@ -3659,8 +3667,7 @@
             <img src="/img/mari0.png" alt="Mari0" class="juego-banner-img">
             <div class="juego-banner-btns">
               <button type="button" class="juego-play-btn" id="mari0-bridge">▶ Iniciar bridge</button>
-              <button type="button" class="juego-play-btn" id="mari0-launch">▶ Jugar</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="mari0-room" style="display:none">⬇ Descargar juego</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="mari0-room" data-url="https://github.com/riusaki1995/mariobros/releases/download/fff/Mari0Livecoins-Setup.exe">⬇ Descargar juego</button>
             </div>
           </div>
 

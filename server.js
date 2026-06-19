@@ -149,6 +149,29 @@ function getRoomForUser(user) {
   return room;
 }
 
+// Usuarios conectados al panel y EN VIVO en TikTok (directorio público para el panel).
+function listPanelLives() {
+  const out = [];
+  for (const [userId, room] of rooms) {
+    const st = room.getStatus();
+    if (!st?.live || !st?.account) continue;
+    const u = getUserById(userId);
+    const tiktok = String(st.account).replace(/^@+/, '');
+    if (!tiktok) continue;
+    out.push({
+      panelUser: u?.username || room.account || '',
+      tiktok,
+      nickname: st.nickname || tiktok,
+      photo: st.photo || '',
+      viewers: Number(st.viewers) || 0,
+      liveSince: st.liveSince || null,
+      url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
+    });
+  }
+  out.sort((a, b) => b.viewers - a.viewers || a.tiktok.localeCompare(b.tiktok));
+  return out;
+}
+
 // El primer usuario que se registra hereda la configuración antigua (settings.json /
 // weekly.json en la raíz), para no perder lo que ya tenías ajustado.
 function maybeMigrateLegacy(user) {
@@ -295,6 +318,12 @@ app.get('/api/me', (req, res) => {
     premiumUntil: user.premiumUntil || 0,
     caps: { limits: caps.limits, features: caps.features },
   });
+});
+
+app.get('/api/panel-lives', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  res.json({ lives: listPanelLives() });
 });
 
 // Ajustes completos del usuario autenticado (para sincronizar entre la web y el .exe).

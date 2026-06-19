@@ -1875,15 +1875,18 @@ function renderScreens() {
   });
 }
 
+function videoCardThumbLabel(item, icon = '🎬') {
+  if (!item?.url) return icon;
+  const name = esc(item.fileName || item.name || 'video');
+  return `<div class="vthumb-label" title="${name}"><span class="vthumb-ico">${icon}</span><span class="vthumb-name">${name}</span></div>`;
+}
+
 function renderVideos() {
   const el = $('videoCards');
   const list = settings.videos || [];
   if (!list.length) { el.innerHTML = '<div class="empty">No hay videos. Pulsa “Añadir video”.</div>'; return; }
   el.innerHTML = list.map((v) => {
-    const isImg = /\.(gif|png|jpe?g|webp)(\?|$)/i.test(v.url || '');
-    const thumb = v.url
-      ? (isImg ? `<img class="vthumb" src="${esc(v.url)}" loading="lazy" decoding="async">` : `<video class="vthumb hover-play" src="${esc(v.url)}#t=0.1" muted loop playsinline preload="metadata"></video>`)
-      : '🎬';
+    const thumb = videoCardThumbLabel(v);
     return `
     <div class="sa-card ${v.enabled !== false ? 'on' : ''}" data-id="${v.id}">
       <div class="sa-top">
@@ -1916,7 +1919,6 @@ function renderVideos() {
   el.querySelectorAll('.sa-card').forEach((card) => {
     const id = card.dataset.id;
     const v = list.find((x) => x.id === id);
-    card.querySelector('video.vthumb')?.play?.().catch(() => {});
     card.querySelector('.v-toggle').onchange = (e) => { v.enabled = e.target.checked; saveSettings(); renderVideos(); };
     const vr = card.querySelector('.v-volrange');
     vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; v.volume = +vr.value; saveSettings(); };
@@ -2303,10 +2305,7 @@ function renderBattleAlerts() {
   const list = settings.battleAlerts || [];
   if (!list.length) { el.innerHTML = '<div class="empty">No hay animaciones. Pulsa “Añadir animación”.</div>'; return; }
   el.innerHTML = list.map((b) => {
-    const isImg = /\.(gif|png|jpe?g|webp)(\?|$)/i.test(b.url || '');
-    const thumb = b.url
-      ? (isImg ? `<img class="vthumb" src="${esc(b.url)}" loading="lazy" decoding="async">` : `<video class="vthumb hover-play" src="${esc(b.url)}#t=0.1" muted loop playsinline preload="metadata"></video>`)
-      : '🥊';
+    const thumb = videoCardThumbLabel(b, '🥊');
     const trig = esc(baTriggerLabel(b));
     const showCombo = (b.trigger === 'battleGift' || b.trigger === 'battleGiftAny' || (!b.trigger && (b.giftName || b.giftId)));
     const combo = showCombo && (b.minCount || 1) > 1 ? ` ×${b.minCount}+` : '';
@@ -2342,7 +2341,6 @@ function renderBattleAlerts() {
   el.querySelectorAll('.sa-card').forEach((card) => {
     const id = card.dataset.id;
     const b = list.find((x) => x.id === id);
-    card.querySelector('video.vthumb')?.play?.().catch(() => {});
     card.querySelector('.b-toggle').onchange = (e) => { b.enabled = e.target.checked; saveSettings(); renderBattleAlerts(); };
     const vr = card.querySelector('.b-volrange');
     vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; b.volume = +vr.value; saveSettings(); };
@@ -4377,6 +4375,15 @@ const PROFANITY = ['puta', 'puto', 'mierda', 'pendejo', 'cabron', 'cabrón', 've
 // (1️⃣), el selector de variación (FE0F) y el "zero width joiner" (200D) de emojis combinados.
 const EMOJI_RE = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\u{1F1E6}-\u{1F1FF}\u{20E3}\u{FE0F}\u{200D}]/gu;
 
+// Emojis que el TTS nunca lee (ni como palabra ni en voz): se quitan siempre.
+const TTS_SILENT_EMOJIS = ['👹'];
+
+function stripSilentEmojis(text) {
+  let s = String(text || '');
+  for (const emo of TTS_SILENT_EMOJIS) s = s.split(emo).join('');
+  return s;
+}
+
 // Diccionario de emojis comunes → palabra hablada en español. Sirve para que el
 // TTS "lea" los emojis del nombre del usuario (que normalmente la voz omite).
 const EMOJI_SPEAK = {
@@ -4392,7 +4399,7 @@ const EMOJI_SPEAK = {
   '😓':'sudando','🤗':'abrazo','🤔':'pensando','🤭':'risita','🤫':'silencio','🥱':'bostezo','😴':'dormido','😪':'sueño',
   '😬':'incómodo','🙄':'ojos en blanco','😶':'sin palabras','😐':'cara neutral','😑':'inexpresivo',
   '🤤':'baba','🤑':'dinero','🤠':'vaquero','😈':'diablito','👿':'demonio','💀':'calavera','☠':'calavera',
-  '👻':'fantasma','👽':'extraterrestre','🤖':'robot','💩':'popó','🤡':'payaso','👹':'ogro','👺':'duende',
+  '👻':'fantasma','👽':'extraterrestre','🤖':'robot','💩':'popó','🤡':'payaso','👺':'duende',
   '❤':'corazón rojo','🧡':'corazón naranja','💛':'corazón amarillo','💚':'corazón verde','💙':'corazón azul',
   '💜':'corazón morado','🖤':'corazón negro','🤍':'corazón blanco','🤎':'corazón café','💔':'corazón roto',
   '❣':'corazón','💕':'dos corazones','💞':'corazones girando','💓':'corazón latiendo','💗':'corazón creciendo',
@@ -4419,7 +4426,7 @@ const EMOJI_SPEAK_ENTRIES = Object.entries(EMOJI_SPEAK);
 // Convierte los emojis de un texto (p. ej. el nombre del usuario) a palabras para
 // que el TTS los lea en voz alta; los emojis que no estén en el diccionario se quitan.
 function speakEmojis(text) {
-  let s = String(text || '');
+  let s = stripSilentEmojis(text);
   if (!s) return s;
   for (const [emo, word] of EMOJI_SPEAK_ENTRIES) {
     if (s.includes(emo)) s = s.split(emo).join(` ${word} `);
@@ -4430,7 +4437,7 @@ function speakEmojis(text) {
 
 function ttsModerate(text) {
   const t = settings?.tts || {};
-  let s = String(text || '');
+  let s = stripSilentEmojis(text);
   if (t.stripEmojis) s = s.replace(EMOJI_RE, '');
   s = s.replace(/\s+/g, ' ').trim();
   if (!s) return null;
@@ -5064,18 +5071,6 @@ function renderPointsTx() {
     if ($('pts-tx-counted')) $('pts-tx-counted').checked = true;
   };
 })();
-
-// Las miniaturas de video ya no se autoreproducen (eso descargaba cada video completo
-// al actualizar). Muestran el primer fotograma y se animan solo al pasar el cursor,
-// así el panel carga al instante aunque tengas muchos videos.
-document.addEventListener('mouseover', (e) => {
-  const v = e.target.closest?.('video.hover-play');
-  if (v) { try { v.play(); } catch {} }
-}, true);
-document.addEventListener('mouseout', (e) => {
-  const v = e.target.closest?.('video.hover-play');
-  if (v) { try { v.pause(); } catch {} }
-}, true);
 
 // Service Worker: útil en la web; en localhost (.exe) NUNCA — cachea dashboard.js como versión web.
 if (!IS_DESKTOP && !IS_LOCALHOST && 'serviceWorker' in navigator) {
@@ -8758,10 +8753,10 @@ function setupMari0LaunchBtn() {
   const room = document.getElementById('mari0-room');
   if (room && !room._wired) {
     room._wired = true;
-    if (room.dataset.url) room.style.display = '';
     room.onclick = () => {
-      if (!room.dataset.url) { toast && toast('Aún no hay enlace de descarga configurado.', 'warn'); return; }
-      downloadMinecraftServer(room.dataset.url);
+      const url = (room.dataset.url || '').trim();
+      if (!url) { toast && toast('Enlace de descarga no disponible.', 'warn'); return; }
+      downloadMinecraftServer(url);
       toast && toast('Descargando Mari0…', 'ok');
     };
   }
@@ -8791,34 +8786,6 @@ function setupMari0LaunchBtn() {
       };
     }
   }
-  const launchBtn = document.getElementById('mari0-launch');
-  if (!launchBtn) return;
-  if (!IS_DESKTOP || !window.desktopAPI?.launchMari0Game) { launchBtn.style.display = 'none'; return; }
-  if (launchBtn._wired) return;
-  launchBtn._wired = true;
-  launchBtn.onclick = async () => {
-    launchBtn.disabled = true;
-    const prev = launchBtn.textContent;
-    launchBtn.textContent = '⏳ Abriendo…';
-    try {
-      const r = await window.desktopAPI.launchMari0Game();
-      if (r && r.ok) {
-        toast && toast('Bridge Mari0 activo. Abriendo el juego…', 'ok');
-        setTimeout(() => refreshMari0Status(), 1500);
-      } else if (r && (r.error === 'no_instalado' || r.error === 'sin_exe')) {
-        toast && toast('No se encontró mari0.exe. Instala Mari0 en %LOCALAPPDATA%\\LivecoinsMari0\\', 'warn');
-      } else if (r && r.error === 'bridge_no_disponible') {
-        toast && toast('No se pudo iniciar el bridge Mari0. Comprueba Node en el sistema.', 'warn');
-      } else {
-        toast && toast('No se pudo abrir Mari0.', 'warn');
-      }
-    } catch {
-      toast && toast('No se pudo abrir Mari0.', 'warn');
-    } finally {
-      launchBtn.disabled = false;
-      launchBtn.textContent = prev;
-    }
-  };
 }
 
 function setupMari0ActionsUI() {
@@ -9765,6 +9732,53 @@ function homeLastUser() {
   if (!u) { try { u = (localStorage.getItem('lastTikTokUser') || '').trim(); } catch {} }
   return u.replace(/^@/, '');
 }
+
+let panelLivesTimer = null;
+function panelLiveImgUrl(u) {
+  if (!u) return '';
+  if (/^https?:\/\//i.test(u) && !u.startsWith(location.origin)) {
+    return '/api/img-proxy?url=' + encodeURIComponent(u);
+  }
+  return u;
+}
+function renderPanelLives(lives) {
+  const sec = $('panel-lives');
+  const track = $('panel-lives-track');
+  if (!sec || !track) return;
+  if (!lives.length) { sec.hidden = true; track.innerHTML = ''; return; }
+  sec.hidden = false;
+  track.innerHTML = lives.map((l) => {
+    const tiktok = String(l.tiktok || l.account || '').replace(/^@+/, '');
+    const name = esc(l.nickname || tiktok || l.panelUser || 'Live');
+    const viewers = fmt(Number(l.viewers) || 0);
+    const url = esc(l.url || (`https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`));
+    const photo = panelLiveImgUrl(l.photo || '');
+    const av = photo
+      ? `<img class="panel-live-av" src="${esc(photo)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+      : `<span class="panel-live-av panel-live-av-ph">${esc((name[0] || '?').toUpperCase())}</span>`;
+    return `<a class="panel-live-card" href="${url}" target="_blank" rel="noopener noreferrer" title="@${esc(tiktok)}">
+      ${av}
+      <span class="panel-live-badge">EN LIVE</span>
+      <span class="panel-live-name">${name}</span>
+      <span class="panel-live-user">@${esc(tiktok)}</span>
+      <span class="panel-live-viewers">👀 ${viewers}</span>
+    </a>`;
+  }).join('');
+}
+async function refreshPanelLives() {
+  try {
+    const r = await fetch('/api/panel-lives');
+    if (!r.ok) return;
+    const d = await r.json();
+    renderPanelLives(d.lives || []);
+  } catch { /* sin red */ }
+}
+function setupPanelLives() {
+  refreshPanelLives();
+  if (panelLivesTimer) clearInterval(panelLivesTimer);
+  panelLivesTimer = setInterval(refreshPanelLives, 25000);
+}
+
 function updateHomeWelcome(s) {
   const greet = document.getElementById('home-welcome-greet');
   const sub = document.getElementById('home-welcome-sub');
@@ -9815,6 +9829,7 @@ function initHomeWelcome() {
   await confirmDesktopPanelFromServer();
   setupPanelModeWarning();
   try { initHomeWelcome(); } catch (e) { console.error('Home welcome:', e); }
+  try { setupPanelLives(); } catch (e) { console.error('Panel lives:', e); }
   try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }
   // Pestaña Acciones (solo .exe): al final del arranque, aislada para no romper el panel.
   if (IS_DESKTOP) {
