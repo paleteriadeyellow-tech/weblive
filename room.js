@@ -244,6 +244,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
   const TOP1FIRE_FILE = path.join(dataDir, 'top1fire.json');
+  const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
+  const RANK_IDS = ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist'];
+  const RANK_SETTINGS_KEY = { toplikes: 'toplikesRank', topdiam: 'topdiamRank', toplikeslist: 'toplikesList', topdiamlist: 'topdiamList' };
   const POINTS_FILE = path.join(dataDir, 'points.json');
   const SESSION_FILE = path.join(dataDir, 'session.json');
   // Perfiles: 10 ranuras, cada una guarda una configuración COMPLETA. El perfil activo
@@ -273,6 +276,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const top1fireSession = new Map();
   let top1fireSaveTimer = null;
   let lastTop1FirePeriod = null;
+  const rankSession = Object.fromEntries(RANK_IDS.map((id) => [id, new Map()]));
+  const rankPersist = Object.fromEntries(RANK_IDS.map((id) => [id, { period: 'live', start: 0, end: 0, users: new Map() }]));
+  let rankSaveTimer = null;
+  const lastRankPeriods = {};
   // Usuario y Puntos: balance acumulado (de por vida) por usuario + historial de transacciones.
   const points = new Map();          // uniqueId -> { uniqueId, nickname, photo, total, levelPoints, firstAt, lastAt }
   let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
@@ -378,6 +385,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let settings = loadSettings();
   loadWeekly();
   loadTop1Fire();
+  loadRankOverlays();
   loadPoints();
   timer.remaining = Math.max(0, Math.floor(settings.timer?.defaultInitialSec || 0));
   // Recuerda el último @usuario de TikTok conectado (queda guardado en los ajustes, así
@@ -483,6 +491,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     enforceLimits();
     loadTop1Fire();
     broadcastTop1Fire();
+    loadRankOverlays();
+    broadcastAllRankStates();
     broadcast('settings', settings);
     broadcastProfiles();
     clampTimer();
@@ -534,9 +544,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // viene del panel del usuario (fromUser), avisa para sincronizarlo con el remoto.
   function applyIncomingSettings(obj, fromUser) {
     if (!obj) return;
-    const prevPeriod = settings.top1fire?.resetPeriod;
+    const prevTop1FirePeriod = settings.top1fire?.resetPeriod;
+    const prevRankPeriods = {};
+    for (const rankId of RANK_IDS) prevRankPeriods[rankId] = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
     settings = deepMerge(settings, obj);
-    if (obj.top1fire && obj.top1fire.resetPeriod !== prevPeriod) onTop1FireSettingsChange();
+    if (obj.top1fire && obj.top1fire.resetPeriod !== prevTop1FirePeriod) onTop1FireSettingsChange();
+    for (const rankId of RANK_IDS) {
+      const key = RANK_SETTINGS_KEY[rankId];
+      if (obj[key] && obj[key].resetPeriod !== prevRankPeriods[rankId]) onRankPeriodChange(rankId);
+    }
     enforceLimits();
     saveSettings();
     broadcast('settings', settings);
@@ -737,9 +753,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // Coin match (partido cronometrado)
     broadcast('coinMatchControl', { action: 'reset' });
     // Rankings de likes / diamantes (bandas y listas) de la sesión
-    for (const rank of ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist']) {
-      broadcast('rankReset', { rank });
-    }
+    for (const rank of RANK_IDS) resetRankSession(rank);
     // Animaciones momentáneas (corta cualquier alerta en curso)
     broadcast('alertaGiftReset', {});
     broadcast('alertaLikesReset', {});
@@ -1547,6 +1561,138 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastTop1Fire();
   }
 
+  /* -------------------- Rankings likes / diamantes (overlays) -------------------- */
+  function getRankPeriod(rankId) {
+    const p = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
+    return p === 'week' || p === 'month' ? p : 'live';
+  }
+  function loadRankOverlays() {
+    const r = readJsonSafe(RANKS_FILE);
+    const raw = r.data || {};
+    for (const rankId of RANK_IDS) {
+      const period = getRankPeriod(rankId);
+      lastRankPeriods[rankId] = period;
+      rankSession[rankId].clear();
+      if (period === 'live') continue;
+      const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+      const saved = raw[rankId];
+      if (saved && saved.period === period && saved.start === start) {
+        rankPersist[rankId].period = period;
+        rankPersist[rankId].start = start;
+        rankPersist[rankId].end = end;
+        rankPersist[rankId].users = new Map((saved.users || []).map((u) => [u.uniqueId, u]));
+      } else {
+        rankPersist[rankId].period = period;
+        rankPersist[rankId].start = start;
+        rankPersist[rankId].end = end;
+        rankPersist[rankId].users = new Map();
+      }
+    }
+  }
+  function saveRankOverlays() {
+    clearTimeout(rankSaveTimer);
+    rankSaveTimer = setTimeout(() => {
+      const data = {};
+      for (const rankId of RANK_IDS) {
+        if (getRankPeriod(rankId) === 'live') continue;
+        const p = rankPersist[rankId];
+        data[rankId] = { period: p.period, start: p.start, end: p.end, users: [...p.users.values()] };
+      }
+      writeJsonAtomic(RANKS_FILE, data);
+    }, 400);
+  }
+  function ensureRankPeriod(rankId) {
+    const period = getRankPeriod(rankId);
+    if (period === 'live') return;
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    const p = rankPersist[rankId];
+    if (p.period !== period || p.start !== start) {
+      p.period = period;
+      p.start = start;
+      p.end = end;
+      p.users.clear();
+      saveRankOverlays();
+      broadcastRankState(rankId);
+    }
+  }
+  function onRankPeriodChange(rankId) {
+    rankSession[rankId].clear();
+    const period = getRankPeriod(rankId);
+    lastRankPeriods[rankId] = period;
+    if (period === 'live') {
+      rankPersist[rankId].users.clear();
+    } else {
+      const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+      rankPersist[rankId].period = period;
+      rankPersist[rankId].start = start;
+      rankPersist[rankId].end = end;
+      rankPersist[rankId].users.clear();
+      saveRankOverlays();
+    }
+    broadcastRankState(rankId);
+  }
+  function getRankUsers(rankId) {
+    if (getRankPeriod(rankId) === 'live') return rankSession[rankId];
+    ensureRankPeriod(rankId);
+    return rankPersist[rankId].users;
+  }
+  function addRankValue(rankId, user, delta) {
+    if (!user?.uniqueId || !(delta > 0)) return;
+    const users = getRankUsers(rankId);
+    const u = users.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, val: 0 };
+    u.val += delta;
+    u.nickname = user.nickname || u.nickname;
+    if (user.photo) u.photo = user.photo;
+    users.set(user.uniqueId, u);
+    if (getRankPeriod(rankId) !== 'live') saveRankOverlays();
+    broadcastRankState(rankId);
+  }
+  function addRankLikes(user, count) {
+    if (!user?.uniqueId || !(count > 0)) return;
+    addRankValue('toplikes', user, count);
+    addRankValue('toplikeslist', user, count);
+  }
+  function addRankDiamonds(user, coins) {
+    if (!user?.uniqueId || !(coins > 0)) return;
+    addRankValue('topdiam', user, coins);
+    addRankValue('topdiamlist', user, coins);
+  }
+  function serializeRankState(rankId) {
+    const period = getRankPeriod(rankId);
+    const users = getRankUsers(rankId);
+    const p = rankPersist[rankId];
+    return {
+      rank: rankId,
+      users: [...users.values()].map((u) => ({ uniqueId: u.uniqueId, nickname: u.nickname, photo: u.photo, val: u.val })),
+      period,
+      periodStart: period === 'live' ? 0 : p.start,
+      periodEnd: period === 'live' ? 0 : p.end,
+      now: Date.now(),
+    };
+  }
+  function broadcastRankState(rankId) {
+    broadcast('rankState', serializeRankState(rankId));
+  }
+  function broadcastAllRankStates() {
+    for (const rankId of RANK_IDS) broadcastRankState(rankId);
+  }
+  function resetRankSession(rankId) {
+    if (!RANK_IDS.includes(rankId) || getRankPeriod(rankId) !== 'live') return;
+    rankSession[rankId].clear();
+    broadcast('rankReset', { rank: rankId });
+    broadcastRankState(rankId);
+  }
+  function resetRankAll(rankId) {
+    if (!RANK_IDS.includes(rankId)) return;
+    rankSession[rankId].clear();
+    if (getRankPeriod(rankId) !== 'live') {
+      rankPersist[rankId].users.clear();
+      saveRankOverlays();
+    }
+    broadcast('rankReset', { rank: rankId });
+    broadcastRankState(rankId);
+  }
+
   /* ------------------------- Usuario y Puntos ------------------------- */
   // El nivel se alcanza con una curva triangular: el nivel L se logra al acumular
   // STEP * L*(L-1)/2 puntos (cada nivel cuesta un poco más que el anterior).
@@ -1789,6 +1935,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         addWeeklyDonation(user, total);
         addTop1FireDonation(user, total);
+        addRankDiamonds(user, total);
         // Usuario y Puntos: acumula los puntos donados de por vida (configurable: puntos por moneda).
         if (user.uniqueId && total > 0) {
           const perCoin = Number(settings.points?.perCoin);
@@ -1825,6 +1972,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.likes = data.totalLikeCount ?? state.stats.likes + (data.likeCount || 0);
       addTimerSeconds(((data.likeCount || 0) / 100) * (settings.timer?.like || 0));
       processFanBalls('likes', baseUser(data.user), data.likeCount || 0);
+      addRankLikes(baseUser(data.user), data.likeCount || 0);
       broadcast('like', { ...baseUser(data.user), count: data.likeCount || 0, total: state.stats.likes });
       actions.triggerActions('like', { likeCount: data.likeCount || 0 });
       actions.triggerMinecraftActions('like', { likeCount: data.likeCount || 0 }, baseUser(data.user));
@@ -2332,7 +2480,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('rankTest', { rank: data.rank });
         break;
       case 'resetRank':
-        broadcast('rankReset', { rank: data.rank });
+        resetRankAll(data.rank);
         break;
       case 'testHype':
         broadcast('hypeTest', {});
@@ -2391,6 +2539,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
     ws.send(JSON.stringify({ type: 'top1fire', payload: serializeTop1Fire() }));
+    for (const rankId of RANK_IDS) {
+      ws.send(JSON.stringify({ type: 'rankState', payload: serializeRankState(rankId) }));
+    }
     ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() }));
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
     ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));

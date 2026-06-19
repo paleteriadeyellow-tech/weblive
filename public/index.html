@@ -1239,6 +1239,12 @@
               <button class="modal-close" id="tlkcfg-close">✕</button>
             </div>
             <div class="modal-body">
+              <label class="ml">PERIODO DE RANKING</label>
+              <select id="tlkcfg-period">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
               <div class="gvscfg-grid2">
                 <div><label class="ml">FILAS (3-15)</label><input type="number" id="tlkcfg-rows" min="3" max="15" value="5"></div>
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tlkcfg-scale" min="60" max="140" value="100"></div>
@@ -1266,6 +1272,12 @@
               <button class="modal-close" id="tdmcfg-close">✕</button>
             </div>
             <div class="modal-body">
+              <label class="ml">PERIODO DE RANKING</label>
+              <select id="tdmcfg-period">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
               <div class="gvscfg-grid2">
                 <div><label class="ml">FILAS (3-15)</label><input type="number" id="tdmcfg-rows" min="3" max="15" value="5"></div>
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tdmcfg-scale" min="60" max="140" value="100"></div>
@@ -1293,6 +1305,12 @@
               <button class="modal-close" id="tllcfg-close">✕</button>
             </div>
             <div class="modal-body">
+              <label class="ml">PERIODO DE RANKING</label>
+              <select id="tllcfg-period">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
               <div class="gvscfg-grid2">
                 <div><label class="ml">FILAS (3-15)</label><input type="number" id="tllcfg-rows" min="3" max="15" value="9"></div>
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tllcfg-scale" min="60" max="140" value="100"></div>
@@ -1319,6 +1337,12 @@
               <button class="modal-close" id="tdlcfg-close">✕</button>
             </div>
             <div class="modal-body">
+              <label class="ml">PERIODO DE RANKING</label>
+              <select id="tdlcfg-period">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
               <div class="gvscfg-grid2">
                 <div><label class="ml">FILAS (3-15)</label><input type="number" id="tdlcfg-rows" min="3" max="15" value="9"></div>
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tdlcfg-scale" min="60" max="140" value="100"></div>
@@ -1939,6 +1963,28 @@
 
           <!-- Gifts overlays -->
           <div class="subview" id="sub-gifts">
+            <!-- Tarjeta PRO: Top 1 Donador Fuego -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="top1fire-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="top1fire-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="top1fire-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="top1f-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">🔥 Top 1 Donador Fuego</h3>
+              <p class="ovpro-desc">MVP con aura de fuego alrededor del retrato. Elige si el ranking se reinicia por live, dura 1 semana o 1 mes. Personaliza fuentes, colores y efectos en Configurar.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/top1fire.html">/top1fire.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="top1fire-preview" src="/top1fire.html?embed=1" title="Vista previa top 1 donador fuego"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Perrito -->
             <div class="ovpro-card">
               <div class="ovpro-top">
@@ -2322,28 +2368,6 @@
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
                 <iframe id="top1-preview" src="/top1.html?embed=1" title="Vista previa top 1 donador"></iframe>
-              </div>
-            </div>
-
-            <!-- Tarjeta PRO: Top 1 Donador Fuego -->
-            <div class="ovpro-card">
-              <div class="ovpro-top">
-                <div class="ovpro-actions">
-                  <button class="ovpro-btn" id="top1fire-reset">↺ Reset</button>
-                  <button class="ovpro-btn primary" id="top1fire-test">▶ Testear</button>
-                  <button class="ovpro-btn" id="top1fire-config">⚙ Configurar</button>
-                </div>
-                <div class="ovpro-conn" id="top1f-conn"><span class="cdot"></span> CONECTADO</div>
-              </div>
-              <h3 class="ovpro-title">🔥 Top 1 Donador Fuego</h3>
-              <p class="ovpro-desc">MVP con aura de fuego alrededor del retrato. Elige si el ranking se reinicia por live, dura 1 semana o 1 mes. Personaliza fuentes, colores y efectos en Configurar.</p>
-              <div class="ovpro-urlrow">
-                <code class="ov-url" data-path="/top1fire.html">/top1fire.html</code>
-                <button class="ovpro-copy ov-copy">Copiar enlace</button>
-              </div>
-              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-              <div class="ovpro-preview">
-                <iframe id="top1fire-preview" src="/top1fire.html?embed=1" title="Vista previa top 1 donador fuego"></iframe>
               </div>
             </div>
 

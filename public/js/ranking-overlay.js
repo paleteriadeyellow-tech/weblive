@@ -196,6 +196,29 @@
       data = {}; render();
     }
 
+    function applyRankState(payload) {
+      const incoming = payload.users || [];
+      const next = {};
+      for (const u of incoming) {
+        const id = u.uniqueId || u.id;
+        if (!id) continue;
+        const val = Math.max(0, Number(u.val) || 0);
+        const prev = data[id];
+        next[id] = {
+          id,
+          name: u.nickname || u.name || (prev && prev.name) || id,
+          pic: u.photo || u.pic || (prev && prev.pic) || PLACEHOLDER,
+          val,
+          disp: prev ? Math.min(prev.disp, val) : val,
+        };
+      }
+      data = next;
+      const arr = topArr();
+      const needsAnim = arr.some((u) => u.disp < u.val);
+      if (rowKey(arr) !== orderKey || !patchCounts(arr)) render();
+      if (needsAnim) scheduleTick();
+    }
+
     let ws, rt;
     function connect() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -204,9 +227,8 @@
       ws.onclose = () => { rt = setTimeout(connect, 1500); };
       ws.onmessage = (ev) => {
         let m; try { m = JSON.parse(ev.data); } catch { return; }
-        if (m.type === 'gift') { if (!isEmbed && metric === 'diamonds') onGift(m.payload); }
-        else if (m.type === 'like') { if (!isEmbed && metric === 'likes') onLike(m.payload); }
-        else if (m.type === 'settings') { if (m.payload && m.payload[opt.settingsKey]) { cfg = Object.assign(cfg, m.payload[opt.settingsKey]); applyStyle(); render(); } }
+        if (m.type === 'settings') { if (m.payload && m.payload[opt.settingsKey]) { cfg = Object.assign(cfg, m.payload[opt.settingsKey]); applyStyle(); render(); } }
+        else if (m.type === 'rankState') { if (!isEmbed && m.payload && m.payload.rank === opt.rank) applyRankState(m.payload); }
         else if (m.type === 'rankTest') { if (!isEmbed && m.payload && m.payload.rank === opt.rank) runTest(); }
         else if (m.type === 'rankReset') { if (!isEmbed && m.payload && m.payload.rank === opt.rank) resetAll(); }
       };

@@ -269,10 +269,10 @@ export const DEFAULT_SETTINGS = {
     sniper: false, slowReveal: false, font: 'inter',
   },
   // Rankings Likes / Diamantes (bandas y lista)
-  toplikesRank: { rows: 5, accent: '#ffffff', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true },
-  topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true },
-  toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false },
-  topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false },
+  toplikesRank: { rows: 5, accent: '#ffffff', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, resetPeriod: 'live' },
+  topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, resetPeriod: 'live' },
+  toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, resetPeriod: 'live' },
+  topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, resetPeriod: 'live' },
   // Overlay Barra de meta (Hype) — skins: default | meta2 | meta3 | meta4
   hypeBar: {
     skin: 'default', goalKind: 'hype', title: '', meta: 100, whenReach: 'increase', scale: 100,
