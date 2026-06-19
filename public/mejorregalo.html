@@ -78,16 +78,16 @@
     }
     function considerGift(d) {
       if (d && d.streak) return;
-      const total = Math.max(0, Number(d.diamonds) || 0) * Math.max(1, Number(d.repeatCount) || 1);
-      if (total <= 0 || total <= best.coins) return;
-      best = { coins: total, nickname: d.nickname || d.uniqueId || 'Usuario', image: d.image || '' };
+      // Valor por unidad del regalo (no total del combo: 10×1 gana a 11 rosas de 1).
+      const unit = Math.max(0, Number(d.diamonds) || 0);
+      if (unit <= 0 || unit <= best.coins) return;
+      best = { coins: unit, nickname: d.nickname || d.uniqueId || 'Usuario', image: d.image || '' };
       applyUI();
     }
     function runTest(gift) {
       const g = gift || {};
-      const base = Math.max(1, parseInt(g.diamonds, 10) || (1 + Math.floor(Math.random() * 50)));
-      const coins = base * (1 + Math.floor(Math.random() * 30));
-      best = { coins, nickname: 'PreviewFan', image: g.image || '' };
+      const unit = Math.max(1, parseInt(g.diamonds, 10) || (1 + Math.floor(Math.random() * 50)));
+      best = { coins: unit, nickname: 'PreviewFan', image: g.image || '' };
       applyUI();
     }
     function resetBest() { best = { coins: 0, nickname: '', image: '' }; applyUI(); }

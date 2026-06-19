@@ -97,14 +97,6 @@
       <main>
         <!-- ===== VISTA: PANEL ===== -->
         <section class="view active" id="view-panel">
-          <section class="panel-lives" id="panel-lives" hidden>
-            <div class="panel-lives-head">
-              <h2 class="panel-lives-title">🔴 En live con Livecoins</h2>
-              <span class="panel-lives-hint">Toca para abrir su live en TikTok</span>
-            </div>
-            <div class="panel-lives-track" id="panel-lives-track"></div>
-          </section>
-
           <!-- Bienvenida con el último usuario -->
           <div class="home-welcome" id="home-welcome">
             <div class="home-welcome-glow"></div>
@@ -117,6 +109,14 @@
             </div>
             <button type="button" class="btn primary home-welcome-btn" id="home-welcome-btn">Conectar ahora</button>
           </div>
+
+          <section class="panel-lives" id="panel-lives" hidden>
+            <div class="panel-lives-head">
+              <h2 class="panel-lives-title">🔴 En live con Livecoins</h2>
+              <span class="panel-lives-hint">Toca para abrir su live en TikTok</span>
+            </div>
+            <div class="panel-lives-track" id="panel-lives-track"></div>
+          </section>
 
           <div class="stats">
             <div class="card"><div class="ico">👀</div><div class="meta"><span class="num" id="s-viewers">0</span><span class="lbl">Viewers</span></div></div>
@@ -2484,7 +2484,7 @@
                 <div class="ovpro-conn" id="tgf-conn"><span class="cdot"></span> CONECTADO</div>
               </div>
               <h3 class="ovpro-title">🏆 Mejor regalo</h3>
-              <p class="ovpro-desc">Muestra el regalo más caro recibido en la sesión, con el nombre del usuario y su valor en monedas.</p>
+              <p class="ovpro-desc">Muestra el regalo de mayor valor por unidad en la sesión (no la suma de combos). Incluye el nombre del usuario y cuántas monedas vale cada regalo.</p>
               <div class="ovpro-urlrow">
                 <code class="ov-url" data-path="/mejorregalo.html">/mejorregalo.html</code>
                 <button class="ovpro-copy ov-copy">Copiar enlace</button>

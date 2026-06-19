@@ -1040,6 +1040,7 @@ async function loadAdminUsers() {
               <button class="btn tiny prem-fixed" data-id="${u.id}">Fijo</button>
               ${u.plan === 'premium' ? `<button class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
             </div>
+            <button class="btn tiny admin-delete" data-id="${u.id}" data-username="${u.username.replace(/"/g, '&quot;')}">Eliminar</button>
           </div>`;
       return `<tr>
         <td><span class="u-name">${u.username}</span>${adminTag}</td>
@@ -1083,6 +1084,9 @@ async function loadAdminUsers() {
     tbody.querySelectorAll('.prem-remove').forEach((b) => {
       b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Premium retirado. Ahora es Gratis.');
     });
+    tbody.querySelectorAll('.admin-delete').forEach((b) => {
+      b.onclick = () => deleteUserReq(b.dataset.id, b.dataset.username || '');
+    });
   } catch {
     tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Error al cargar.</td></tr>';
   }
@@ -1121,6 +1125,26 @@ async function setUserPlanReq(id, plan, days, okMsg) {
     });
     if (r.ok) toast(okMsg || 'Plan actualizado.');
     else toast('No se pudo cambiar el plan.', 'warn');
+  } catch { toast('Error de conexión.', 'warn'); }
+  loadAdminUsers();
+}
+
+async function deleteUserReq(id, username) {
+  const ok = await askConfirm({
+    title: 'Eliminar cuenta',
+    message: `Se borrará la cuenta «${username || 'usuario'}» y todos sus datos. Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar',
+  });
+  if (!ok) return;
+  try {
+    const r = await fetch('/api/admin/delete-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.ok) toast(`Cuenta «${data.username || username}» eliminada.`);
+    else toast(data.error || 'No se pudo eliminar la cuenta.', 'warn');
   } catch { toast('Error de conexión.', 'warn'); }
   loadAdminUsers();
 }

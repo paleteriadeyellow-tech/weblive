@@ -1582,6 +1582,7 @@ pre.wh-url { margin: 9px 0 0; }
 .btn.tiny.prem-give { background: linear-gradient(90deg, #ffcf5c, #ff9d2b); color: #2a1c00; border: 0; }
 .btn.tiny.prem-fixed { background: transparent; border: 1px solid rgba(255,207,92,.5); color: #ffcf5c; }
 .btn.tiny.prem-remove { background: transparent; border: 1px solid rgba(255,122,144,.5); color: #ff7a90; }
+.btn.tiny.admin-delete { background: transparent; border: 1px solid rgba(255,80,80,.55); color: #ff5050; }
 
 /* Editor de planes */
 .plans-card { margin-top: 16px; }
@@ -1882,7 +1883,7 @@ pre.wh-url { margin: 9px 0 0; }
 .panel-lives {
   margin-bottom: 14px; padding: 12px 14px 14px;
   border-radius: 14px; border: 1px solid var(--line); background: var(--card);
-  animation: homeFadeUp .55s ease both;
+  animation: homeFadeUp .55s ease both; overflow: hidden;
 }
 .panel-lives-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
@@ -1891,12 +1892,20 @@ pre.wh-url { margin: 9px 0 0; }
 .panel-lives-title { margin: 0; font-size: 15px; font-weight: 800; }
 .panel-lives-hint { font-size: 11px; color: var(--mut); }
 .panel-lives-track {
-  display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px;
-  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  display: flex; flex-wrap: nowrap; align-items: stretch; gap: 12px;
+  width: 100%; max-width: 100%; min-width: 0;
+  overflow-x: auto; overflow-y: hidden; padding-bottom: 6px;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; scrollbar-color: rgba(37,244,238,.45) transparent;
 }
-.panel-lives-track::-webkit-scrollbar { height: 6px; }
+.panel-lives-track::-webkit-scrollbar { height: 7px; }
+.panel-lives-track::-webkit-scrollbar-thumb {
+  background: rgba(37,244,238,.35); border-radius: 999px;
+}
+.panel-lives-track::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 999px; }
 .panel-live-card {
-  flex: 0 0 108px; scroll-snap-align: start;
+  flex: 0 0 108px; width: 108px; min-width: 108px; flex-shrink: 0;
+  scroll-snap-align: start;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 10px 8px 8px; border-radius: 12px;
   border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03);

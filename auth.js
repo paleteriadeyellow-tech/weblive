@@ -127,6 +127,19 @@ export function setUserPlan(id, plan, days) {
   saveUsers();
   return true;
 }
+// Elimina una cuenta (no admin). Cierra sus sesiones en sessions.json.
+export function deleteUser(id) {
+  const idx = users.findIndex((x) => x.id === id);
+  if (idx < 0) return false;
+  if (users[idx].isAdmin) return false;
+  users.splice(idx, 1);
+  for (const [token, s] of sessions.entries()) {
+    if (s.userId === id) sessions.delete(token);
+  }
+  saveUsers();
+  saveSessions();
+  return true;
+}
 export function touchLogin(id) {
   const u = users.find((x) => x.id === id);
   if (u) { u.lastLogin = Date.now(); saveUsers(); }

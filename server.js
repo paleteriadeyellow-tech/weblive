@@ -15,7 +15,7 @@ import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan,
+  getUserPlan, setUserPlan, deleteUser,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
 } from './auth.js';
 import {
@@ -470,6 +470,23 @@ app.post('/api/admin/userplan', express.json(), requireAdmin, (req, res) => {
   const room = rooms.get(id);
   if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
   res.json({ ok: true });
+});
+
+// Eliminar una cuenta (excepto admin). Cierra su room, sesiones y datos locales.
+app.post('/api/admin/delete-user', express.json(), requireAdmin, (req, res) => {
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const user = getUserById(id);
+  if (!user) return res.status(404).json({ error: 'cuenta no encontrada' });
+  if (user.isAdmin) return res.status(403).json({ error: 'no se puede eliminar al administrador' });
+  const room = rooms.get(id);
+  if (room) {
+    try { room.shutdown?.(); } catch {}
+    rooms.delete(id);
+  }
+  if (!deleteUser(id)) return res.status(404).json({ error: 'cuenta no encontrada' });
+  try { fs.rmSync(path.join(DATA_DIR, id), { recursive: true, force: true }); } catch {}
+  res.json({ ok: true, username: user.username });
 });
 
 // Revisión periódica: baja a 'free' a los Premium temporales que ya caducaron y
