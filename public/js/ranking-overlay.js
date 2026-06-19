@@ -230,7 +230,13 @@
         if (m.type === 'settings') { if (m.payload && m.payload[opt.settingsKey]) { cfg = Object.assign(cfg, m.payload[opt.settingsKey]); applyStyle(); render(); } }
         else if (m.type === 'rankState') { if (!isEmbed && m.payload && m.payload.rank === opt.rank) applyRankState(m.payload); }
         else if (m.type === 'rankTest') { if (!isEmbed && m.payload && m.payload.rank === opt.rank) runTest(); }
-        else if (m.type === 'rankReset') { if (!isEmbed && m.payload && m.payload.rank === opt.rank) resetAll(); }
+        else if (m.type === 'rankReset') {
+          if (!isEmbed && m.payload && m.payload.rank === opt.rank) {
+            const p = cfg.resetPeriod;
+            if (p === 'week' || p === 'month') return;
+            resetAll();
+          }
+        }
       };
     }
 

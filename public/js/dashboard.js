@@ -1661,6 +1661,9 @@ function playMcCardSound(a) {
 function onSettings(s) {
   settings = s;
   normalizeRelayMedia(settings);
+  ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire'].forEach((k) => {
+    if (settings[k] && settings[k].resetPeriod == null) settings[k].resetPeriod = 'live';
+  });
   applyingSettings = true;
   applySettingsToUI();
   applyingSettings = false;

@@ -548,10 +548,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prevRankPeriods = {};
     for (const rankId of RANK_IDS) prevRankPeriods[rankId] = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
     settings = deepMerge(settings, obj);
-    if (obj.top1fire && obj.top1fire.resetPeriod !== prevTop1FirePeriod) onTop1FireSettingsChange();
+    if (obj.top1fire && obj.top1fire.resetPeriod != null && obj.top1fire.resetPeriod !== prevTop1FirePeriod) onTop1FireSettingsChange();
     for (const rankId of RANK_IDS) {
       const key = RANK_SETTINGS_KEY[rankId];
-      if (obj[key] && obj[key].resetPeriod !== prevRankPeriods[rankId]) onRankPeriodChange(rankId);
+      if (obj[key] && obj[key].resetPeriod != null && obj[key].resetPeriod !== prevRankPeriods[rankId]) onRankPeriodChange(rankId);
     }
     enforceLimits();
     saveSettings();
@@ -754,6 +754,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('coinMatchControl', { action: 'reset' });
     // Rankings de likes / diamantes (bandas y listas) de la sesión
     for (const rank of RANK_IDS) resetRankSession(rank);
+    for (const rankId of RANK_IDS) {
+      if (getRankPeriod(rankId) !== 'live') broadcastRankState(rankId);
+    }
+    if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
     // Animaciones momentáneas (corta cualquier alerta en curso)
     broadcast('alertaGiftReset', {});
     broadcast('alertaLikesReset', {});
@@ -894,6 +898,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           state.startedAt = liveSession.startedAt;
           seedStatsFromRoomInfo();
           pushState();
+          broadcastAllRankStates();
+          if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
           broadcast('log', { level: 'ok', text: `Conectado a la sala ${newRoomId ?? ''}` });
         }
       })

@@ -526,7 +526,7 @@ body.no-fx .spark { display: none; }
       } else if (m.type === 'top1fireTest') {
         if (!isEmbed) runTest();
       } else if (m.type === 'top1fireReset') {
-        if (!isEmbed) resetTop();
+        if (!isEmbed && cfg.resetPeriod !== 'week' && cfg.resetPeriod !== 'month') resetTop();
       }
     };
   }
