@@ -362,6 +362,22 @@ app.post('/api/room/spotify-charge', express.json({ limit: '16kb' }), (req, res)
   res.json(result || { ok: false });
 });
 
+// Prueba de videos por nivel (web en Render: reproduce en la nube; el overlay usa video.html de Render).
+app.post('/api/test-level-video', express.json(), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const level = Math.max(1, Number(req.body?.level) || 1);
+  const url = findLevelVideoUrl(level);
+  if (!url) {
+    return res.json({ ok: false, error: 'no_file', level, expected: `nivel${level}.webm` });
+  }
+  const room = getRoomForUser(user);
+  const cfg = room.getSettings().levelVideos || {};
+  if (cfg.enabled === false) return res.json({ ok: false, error: 'disabled', level });
+  room.handleMessage(null, { action: 'testLevelVideo', level });
+  res.json({ ok: true, level, url, screen: Number(cfg.screen) || 1 });
+});
+
 // Catálogo + configuración de planes para CUALQUIER usuario autenticado (solo lectura).
 // Lo usa la pestaña "Planes" para mostrar la comparación Gratis vs Premium.
 app.get('/api/plans', (req, res) => {

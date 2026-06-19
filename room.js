@@ -1251,13 +1251,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   // Reproduce automáticamente el video de public/video/niveles (nivelN.webm).
-  function playLevelVideo(level) {
+  function playLevelVideo(level, opts = {}) {
     const cfg = settings.levelVideos || {};
     if (cfg.enabled === false) return;
     const n = Math.max(1, Number(level) || 1);
-    // En Render la carpeta vive en la PC del streamer (.exe): delegamos al relay local.
-    if (process.env.DESKTOP !== '1') {
-      broadcastToLocal('playLevelVideo', { level: n, screen: Number(cfg.screen) || 1, volume: cfg.volume ?? 100 });
+    const scr = Number(cfg.screen) || 1;
+    const vol = cfg.volume ?? 100;
+    const isCloud = process.env.DESKTOP !== '1';
+    const hasLocal = localClients.size > 0 || relayClients.size > 0;
+    // Subida real con relay: archivos en la PC del streamer → delegar al .exe local.
+    if (isCloud && hasLocal && !opts.test) {
+      broadcastToLocal('playLevelVideo', { level: n, screen: scr, volume: vol });
       return;
     }
     if (typeof getLevelVideo !== 'function') return;
@@ -1266,9 +1270,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('log', { level: 'warn', text: `⚠️ No hay video para nivel ${n} (nivel${n}.webm en public/video/niveles).` });
       return;
     }
-    const scr = Number(cfg.screen) || 1;
     broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${n} reproducido.` });
-    broadcast('media', { id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: cfg.volume ?? 100, size: screenSize(scr) });
+    broadcast('media', { id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: vol, size: screenSize(scr) });
   }
 
   // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3), 'battleGift',
@@ -2375,7 +2378,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       }
       case 'testLevelVideo':
-        playLevelVideo(Math.max(1, Number(data.level) || 1));
+        playLevelVideo(Math.max(1, Number(data.level) || 1), { test: true });
         break;
       case 'stopVideo': {
         const scr = Number(data.screen) || 1;

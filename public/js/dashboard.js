@@ -755,7 +755,7 @@ function roomUrl(path) {
   return base + p + (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
 }
 
-// Browser Source para videos de nivel: SIEMPRE local (127.0.0.1), con roomKey local.
+// Browser Source para videos de nivel (en web = Render; en .exe = 127.0.0.1).
 function levelVideoScreenUrl(screenId) {
   const id = Math.max(1, Number(screenId) || 1);
   let u = `${location.origin}/video.html?screen=${id}`;
@@ -1966,23 +1966,20 @@ async function testLevelVideoLocal(level, { quiet = false } = {}) {
     if (!quiet) {
       const scr = Number(d.screen) || Number(settings?.levelVideos?.screen) || 1;
       if (connectedScreens.has(scr)) toast && toast(`Reproduciendo nivel ${n}…`, 'ok');
-      else toast && toast(`Video enviado. Abre el link local en Live Studio (Pantalla ${scr}).`, 'warn');
+      else toast && toast(`Video enviado. Pega el link de arriba en Live Studio (pantalla ${scr}).`, 'warn');
     }
     refreshLevelVideoScreenLink();
     return true;
   } catch {
-    toast && toast('No se pudo contactar al servidor local.', 'err');
+    toast && toast('No se pudo contactar al servidor.', 'err');
     return false;
   }
 }
 function applyLevelVideosUI() {
   const cfg = settings.levelVideos || (settings.levelVideos = { enabled: true, screen: 1, volume: 100 });
   const en = $('levelvid-enabled');
-  const scr = $('levelvid-screen');
-  if (!en || !scr) return;
-  const screens = (settings.screens && settings.screens.length) ? settings.screens : [{ id: 1 }];
-  scr.innerHTML = screens.map((s) => `<option value="${s.id}">Pantalla ${s.id}</option>`).join('');
-  scr.value = String(cfg.screen || 1);
+  if (!en) return;
+  if (!cfg.screen) cfg.screen = 1;
   en.checked = cfg.enabled !== false;
   const st = en.closest('.levelvid-toggle')?.querySelector('.state');
   if (st) st.textContent = en.checked ? 'ON' : 'OFF';
@@ -2004,15 +2001,6 @@ if ($('levelvid-enabled')) {
     if (st) st.textContent = $('levelvid-enabled').checked ? 'ON' : 'OFF';
     saveSettings();
     renderScreens();
-  });
-}
-if ($('levelvid-screen')) {
-  $('levelvid-screen').addEventListener('change', () => {
-    if (!settings.levelVideos) settings.levelVideos = {};
-    settings.levelVideos.screen = Number($('levelvid-screen').value) || 1;
-    saveSettings();
-    renderScreens();
-    refreshLevelVideoScreenLink();
   });
 }
 if ($('levelvid-test')) {
