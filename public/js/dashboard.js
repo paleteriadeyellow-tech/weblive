@@ -1031,6 +1031,7 @@ async function loadAdminUsers() {
       const action = u.isAdmin
         ? '<span class="tts-sub">—</span>'
         : `<div class="admin-actions">
+            <div class="admin-actions-row">
             ${u.active
               ? `<button class="btn tiny deactivate" data-id="${u.id}" data-active="0">Desactivar</button>`
               : `<button class="btn tiny activate" data-id="${u.id}" data-active="1">Activar</button>`}
@@ -1040,7 +1041,8 @@ async function loadAdminUsers() {
               <button class="btn tiny prem-fixed" data-id="${u.id}">Fijo</button>
               ${u.plan === 'premium' ? `<button class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
             </div>
-            <button class="btn tiny admin-delete" data-id="${u.id}" data-username="${u.username.replace(/"/g, '&quot;')}">Eliminar</button>
+            </div>
+            <button class="btn tiny admin-delete" data-id="${u.id}" data-username="${u.username.replace(/"/g, '&quot;')}">Eliminar cuenta</button>
           </div>`;
       return `<tr>
         <td><span class="u-name">${u.username}</span>${adminTag}</td>
