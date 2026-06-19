@@ -755,6 +755,28 @@ function roomUrl(path) {
   return base + p + (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
 }
 
+// Browser Source para videos de nivel: SIEMPRE local (127.0.0.1), con roomKey local.
+function levelVideoScreenUrl(screenId) {
+  const id = Math.max(1, Number(screenId) || 1);
+  let u = `${location.origin}/video.html?screen=${id}`;
+  const k = window.ROOM_KEY || '';
+  if (k) u += `&room=${encodeURIComponent(k)}`;
+  return u;
+}
+
+function refreshLevelVideoScreenLink() {
+  const cfg = settings?.levelVideos || {};
+  const scr = Number(cfg.screen) || 1;
+  const urlEl = $('levelvid-screen-url');
+  if (urlEl) urlEl.textContent = levelVideoScreenUrl(scr);
+  const st = $('levelvid-screen-status');
+  if (st) {
+    const on = connectedScreens.has(scr);
+    st.textContent = on ? '● Fuente conectada' : '○ Pega el link en Live Studio y recarga la fuente';
+    st.className = 'levelvid-url-status ' + (on ? 'on' : 'off');
+  }
+}
+
 // Refresca el texto y enlaces de todas las URLs de overlay ya pintadas.
 function refreshOverlayUrls() {
   document.querySelectorAll('.ov-url').forEach((code) => {
@@ -852,7 +874,7 @@ function handle(type, p) {
   switch (type) {
     case 'state': renderState(p); break;
     case 'settings': onSettings(p); break;
-    case 'screens': onScreens(p); break;
+    case 'screens': onScreens(p); refreshLevelVideoScreenLink(); break;
     case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); break;
     case 'botReply': handleBotReply(p); break;
     case 'gift': addGift(p); ttsOnGift(p); break;
@@ -1941,7 +1963,12 @@ async function testLevelVideoLocal(level, { quiet = false } = {}) {
       }
       return false;
     }
-    if (!quiet) toast && toast(`Reproduciendo nivel ${n}…`, 'ok');
+    if (!quiet) {
+      const scr = Number(d.screen) || Number(settings?.levelVideos?.screen) || 1;
+      if (connectedScreens.has(scr)) toast && toast(`Reproduciendo nivel ${n}…`, 'ok');
+      else toast && toast(`Video enviado. Abre el link local en Live Studio (Pantalla ${scr}).`, 'warn');
+    }
+    refreshLevelVideoScreenLink();
     return true;
   } catch {
     toast && toast('No se pudo contactar al servidor local.', 'err');
@@ -1959,6 +1986,15 @@ function applyLevelVideosUI() {
   en.checked = cfg.enabled !== false;
   const st = en.closest('.levelvid-toggle')?.querySelector('.state');
   if (st) st.textContent = en.checked ? 'ON' : 'OFF';
+  refreshLevelVideoScreenLink();
+}
+if ($('levelvid-copy-url')) {
+  $('levelvid-copy-url').addEventListener('click', () => {
+    const cfg = settings.levelVideos || {};
+    const url = levelVideoScreenUrl(Number(cfg.screen) || 1);
+    navigator.clipboard?.writeText(url);
+    toast && toast('Link copiado — pégalo en Live Studio', 'ok');
+  });
 }
 if ($('levelvid-enabled')) {
   $('levelvid-enabled').addEventListener('change', () => {
@@ -1976,6 +2012,7 @@ if ($('levelvid-screen')) {
     settings.levelVideos.screen = Number($('levelvid-screen').value) || 1;
     saveSettings();
     renderScreens();
+    refreshLevelVideoScreenLink();
   });
 }
 if ($('levelvid-test')) {
@@ -9811,6 +9848,7 @@ function initHomeWelcome() {
   loadMe().then(() => {
     mountUserChip();
     refreshOverlayUrls();
+    refreshLevelVideoScreenLink();
     try { revealSpotifyTab(); } catch (e) { console.error('Spotify tab:', e); }
     if (spotifyAllowed()) { try { setupSpotifyUI(); } catch (e) { console.error('Spotify UI:', e); } }
     try { revealWebhookTab(); } catch (e) { console.error('Webhook tab:', e); }

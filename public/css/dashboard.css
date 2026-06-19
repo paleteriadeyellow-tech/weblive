@@ -1058,6 +1058,17 @@ details.settings-card[open] summary::before { content: '▾ '; }
 }
 .levelvid-event-label { font-size: 14px; font-weight: 600; color: #fff; letter-spacing: .01em; }
 .levelvid-hint { padding: 10px 14px 0; margin: 0; font-size: 12px; color: var(--mut); line-height: 1.45; }
+.levelvid-url-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  padding: 0 14px 8px; margin-top: 2px;
+}
+.levelvid-url {
+  flex: 1; min-width: 180px; font-size: 11px; word-break: break-all;
+  background: rgba(255,255,255,.06); padding: 6px 8px; border-radius: 8px; color: var(--cyan);
+}
+.levelvid-url-status { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.levelvid-url-status.on { color: var(--ok); }
+.levelvid-url-status.off { color: var(--warn); }
 .levelvid-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 14px 14px; }
 .levelvid-screen { display: inline-flex; align-items: center; gap: 8px; color: var(--mut); font-size: 12px; }
 .levelvid-screen select { padding: 6px 10px; border-radius: 8px; min-width: 110px; }
