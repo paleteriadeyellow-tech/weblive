@@ -5874,6 +5874,17 @@ let profilesFullWaiters = [];
 function onProfiles(p) {
   profilesState = p || null;
   renderProfilesList();
+  updateProfileEditBadge();
+}
+
+function updateProfileEditBadge() {
+  const btn = $('brandBtn');
+  if (!btn) return;
+  const editing = !!(profilesState && profilesState.editingGeneral);
+  btn.classList.toggle('editing-general', editing);
+  btn.title = editing
+    ? 'Editando Perfil General (siempre activo). Cambia a otro perfil para volver al panel normal.'
+    : '';
 }
 
 function onProfilesFull(p) {
@@ -5898,7 +5909,40 @@ function requestProfilesFull(timeoutMs) {
   });
 }
 
-function switchProfileReq(index) { send({ action: 'switchProfile', index }); }
+async function applyProfileSwitchResponse(data) {
+  if (!data) return false;
+  if (data.settings) onSettings(data.settings);
+  if (data.profiles) onProfiles(data.profiles);
+  return true;
+}
+
+async function switchProfileReq(index) {
+  try {
+    const r = await fetch('/api/profiles/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index }),
+    });
+    if (r.ok) {
+      await applyProfileSwitchResponse(await r.json());
+      return;
+    }
+  } catch {}
+  send({ action: 'switchProfile', index });
+}
+
+async function switchGeneralProfileReq() {
+  try {
+    const r = await fetch('/api/profiles/switch-general', { method: 'POST' });
+    if (r.ok) {
+      await applyProfileSwitchResponse(await r.json());
+      toast && toast('Editando Perfil General (siempre activo en segundo plano)', 'ok');
+      return;
+    }
+  } catch {}
+  send({ action: 'switchGeneralProfile' });
+}
+
 function renameProfileReq(index, name) { send({ action: 'renameProfile', index, name }); }
 function importProfilesReq(profiles, mode) { send({ action: 'importProfiles', profiles, mode }); }
 
@@ -5906,11 +5950,40 @@ function renderProfilesList() {
   const list = $('profilesList');
   if (!list || !profilesState) return;
   const escAttr = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const { active, count, names, used } = profilesState;
+  const { active, count, names, used, editingGeneral, generalUsed } = profilesState;
   const max = Number(profilesState.max) > 0 ? Number(profilesState.max) : count;
   list.innerHTML = '';
+
+  const generalRow = document.createElement('button');
+  generalRow.type = 'button';
+  generalRow.className = 'profile-row general' + (editingGeneral ? ' active' : '');
+  generalRow.dataset.general = '1';
+  const genEmpty = !generalUsed && !editingGeneral ? ' <span class="pr-empty">(vacío)</span>' : '';
+  generalRow.innerHTML = `<span class="pr-check">${editingGeneral ? '✓' : '∞'}</span>`
+    + `<span class="pr-name">Perfil General${genEmpty}</span>`
+    + `<span class="pr-always" aria-hidden="true">siempre activo</span>`
+    + `<span class="pr-info" tabindex="0" aria-label="Información del Perfil General">?</span>`
+    + `<span class="pr-tip" role="tooltip">`
+    + `<strong>Perfil General — siempre activo</strong>`
+    + `Configura aquí alertas, acciones, videos y juegos que deben ejecutarse `
+    + `<em>en segundo plano</em> aunque uses otro perfil (Perfil 1, 2, etc.). `
+    + `Haz clic para editarlo. Al volver a tu perfil normal, lo del General sigue sonando.`
+    + `</span>`;
+  generalRow.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (ev.target.closest('.pr-info') || ev.target.closest('.pr-tip')) return;
+    if (!editingGeneral) switchGeneralProfileReq();
+    closeProfilesPop();
+  });
+  list.appendChild(generalRow);
+
+  const sep = document.createElement('div');
+  sep.className = 'profiles-sep';
+  sep.textContent = 'Perfiles del panel';
+  list.appendChild(sep);
+
   for (let i = 0; i < count; i++) {
-    const isActive = i === active;
+    const isActive = !editingGeneral && i === active;
     const hasData = !!(used && used[i]);
     const locked = i >= max;
     const row = document.createElement('button');
@@ -5928,6 +6001,7 @@ function renderProfilesList() {
         + `<span class="pr-edit" title="Renombrar">✎</span>`;
     }
     row.addEventListener('click', (ev) => {
+      ev.stopPropagation();
       if (locked) { toast && toast('Mejora a Premium para usar más perfiles'); return; }
       if (ev.target.closest('.pr-edit')) {
         ev.stopPropagation();
@@ -5935,8 +6009,8 @@ function renderProfilesList() {
         startRenameProfile(i, name, row);
         return;
       }
-      if (ev.target.closest('.pr-rename-input')) return; // editando: no cambiar de perfil
-      if (i !== active) switchProfileReq(i);
+      if (ev.target.closest('.pr-rename-input')) return;
+      if (editingGeneral || i !== active) switchProfileReq(i);
       closeProfilesPop();
     });
     list.appendChild(row);

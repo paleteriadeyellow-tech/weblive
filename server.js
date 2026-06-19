@@ -290,6 +290,24 @@ app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
   res.json({ ok: true });
 });
 
+// Perfiles: cambio por HTTP (más fiable que solo WebSocket, p. ej. .exe en modo relay).
+app.post('/api/profiles/switch-general', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  room.handleMessage(null, { action: 'switchGeneralProfile' });
+  res.json({ ok: true, settings: room.getSettings(), profiles: room.getProfilesInfo() });
+});
+app.post('/api/profiles/switch', express.json(), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const idx = Number(req.body?.index);
+  if (!Number.isInteger(idx)) return res.status(400).json({ error: 'index inválido' });
+  const room = getRoomForUser(user);
+  room.handleMessage(null, { action: 'switchProfile', index: idx });
+  res.json({ ok: true, settings: room.getSettings(), profiles: room.getProfilesInfo() });
+});
+
 // Conectar/desconectar TikTok vía HTTP (usado por el .exe en modo relay como respaldo).
 app.post('/api/room/connect', express.json(), (req, res) => {
   const user = userFromRequest(req);

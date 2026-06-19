@@ -380,7 +380,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   let profiles = loadProfiles();
-  let settings = loadSettings();
+  function resolveProfileSettings(slot) {
+    if (slot && typeof slot === 'object' && !Array.isArray(slot)) return deepMerge(structuredClone(DEFAULT_SETTINGS), slot);
+    return structuredClone(DEFAULT_SETTINGS);
+  }
+  function loadSettings() {
+    return resolveProfileSettings(profiles.slots[profiles.active]);
+  }
+  function loadGeneralSettings() {
+    return resolveProfileSettings(profiles.general);
+  }
+  let settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
   loadWeekly();
   loadTop1Fire();
   loadRankOverlays();
@@ -427,6 +437,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (!p.names[i]) p.names[i] = `Perfil ${i + 1}`;
     }
     p.active = Number.isInteger(p.active) && p.active >= 0 && p.active < PROFILE_COUNT ? p.active : 0;
+    if (p.general != null && (typeof p.general !== 'object' || Array.isArray(p.general))) p.general = null;
+    if (p.editMode !== 'general') p.editMode = 'profile';
     if (created || r.corrupt || !fs.existsSync(PROFILES_FILE)) {
       try { writeJsonAtomic(PROFILES_FILE, p); } catch {}
     }
@@ -440,16 +452,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       writeJsonAtomic(PROFILES_FILE, profiles);
     } catch {}
   }
-  function loadSettings() {
-    const slot = profiles.slots[profiles.active];
-    if (slot) return deepMerge(structuredClone(DEFAULT_SETTINGS), slot);
-    return structuredClone(DEFAULT_SETTINGS);
+  function persistCurrentEdit() {
+    clearTimeout(saveTimer);
+    if (profiles.editMode === 'general') profiles.general = settings;
+    else profiles.slots[profiles.active] = settings;
+  }
+  function getActiveProfileSettings() {
+    if (profiles.editMode === 'general') return loadSettings();
+    return settings;
+  }
+  function getGeneralProfileSettings() {
+    if (!profiles.general) return null;
+    return resolveProfileSettings(profiles.general);
+  }
+  function forEachTriggerProfile(run) {
+    run(getActiveProfileSettings(), false);
+    const g = getGeneralProfileSettings();
+    if (g) run(g, true);
   }
   function saveSettings() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      // El perfil activo SIEMPRE guarda la configuración actual (auto-guardado).
-      profiles.slots[profiles.active] = settings;
+      if (profiles.editMode === 'general') profiles.general = settings;
+      else profiles.slots[profiles.active] = settings;
       saveProfilesNow();
       // Mantenemos settings.json como espejo del perfil activo (compatibilidad).
       writeJsonAtomic(SETTINGS_FILE, settings);
@@ -471,17 +496,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       max: profileLimit(),
       names: profiles.names.slice(),
       used: profiles.slots.map((s) => !!s),
+      editingGeneral: profiles.editMode === 'general',
+      generalUsed: !!profiles.general,
     };
   }
   function broadcastProfiles() { broadcast('profiles', profilesInfo()); }
-  // Cambia de perfil: primero asegura que lo actual quede guardado, luego carga el
-  // perfil destino y difunde sus ajustes a panel/overlays.
   function switchProfile(i) {
     const idx = Number(i);
-    if (!Number.isInteger(idx) || idx < 0 || idx >= PROFILE_COUNT || idx === profiles.active) return;
-    if (idx >= profileLimit()) return; // perfil bloqueado por el plan
-    clearTimeout(saveTimer);
-    profiles.slots[profiles.active] = settings; // guarda el actual sin debounce
+    if (!Number.isInteger(idx) || idx < 0 || idx >= PROFILE_COUNT) return;
+    if (idx >= profileLimit()) return;
+    if (profiles.editMode === 'profile' && idx === profiles.active) return;
+    persistCurrentEdit();
+    profiles.editMode = 'profile';
     profiles.active = idx;
     saveProfilesNow();
     settings = loadSettings();
@@ -497,6 +523,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastTimer();
     if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
   }
+  function switchToGeneralEdit() {
+    if (profiles.editMode === 'general') return;
+    persistCurrentEdit();
+    profiles.editMode = 'general';
+    saveProfilesNow();
+    settings = loadGeneralSettings();
+    writeJsonAtomic(SETTINGS_FILE, settings);
+    enforceLimits();
+    broadcast('settings', settings);
+    broadcastProfiles();
+    if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
+  }
   function renameProfile(i, name) {
     const idx = Number(i);
     if (!Number.isInteger(idx) || idx < 0 || idx >= PROFILE_COUNT) return;
@@ -508,15 +546,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Devuelve TODOS los perfiles (con sus ajustes completos) para exportar. El perfil
   // activo usa los ajustes en memoria (por si hay cambios sin guardar todavía).
   function getProfilesFull() {
-    const slots = profiles.slots.map((s, i) => (i === profiles.active ? settings : s));
-    return { active: profiles.active, names: profiles.names.slice(), slots };
+    const slots = profiles.slots.map((s, i) => {
+      if (profiles.editMode === 'general') return s;
+      return i === profiles.active ? settings : s;
+    });
+    return {
+      active: profiles.active,
+      names: profiles.names.slice(),
+      slots,
+      general: profiles.editMode === 'general' ? settings : profiles.general,
+      editingGeneral: profiles.editMode === 'general',
+    };
   }
-  // Importa una lista de perfiles { name, settings } en las ranuras 0..N-1. En modo
-  // 'replace' cada perfil sustituye al de su ranura; en 'merge' se fusiona encima.
   function importProfiles(list, mode) {
     if (!Array.isArray(list) || !list.length) return;
-    clearTimeout(saveTimer);
-    profiles.slots[profiles.active] = settings; // guarda el activo antes de tocar nada
+    persistCurrentEdit();
+    profiles.editMode = 'profile';
     const n = Math.min(list.length, PROFILE_COUNT);
     for (let i = 0; i < n; i++) {
       const entry = list[i] || {};
@@ -605,6 +650,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   const actions = createActionBridge({
     getSettings: () => settings,
+    forEachTriggerSettings: (fn) => forEachTriggerProfile((cfg) => fn(cfg)),
     broadcast,
     broadcastToLocal,
     isCloud: process.env.DESKTOP !== '1',
@@ -1048,128 +1094,128 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function triggerSoundAlerts(eventType, info = {}) {
-    for (const a of settings.soundAlerts) {
-      if (!a.enabled || !a.sound) continue;
-      const trig = a.trigger || 'gift';
-      if (trig !== eventType) continue;
-      if (eventType === 'gift') {
-        const wantName = (a.giftName || '').trim().toLowerCase();
-        if (wantName || a.giftId) {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          if ((a.minDiamonds || 0) > (info.diamonds || 0)) continue;
-        } else {
-          const total = info.totalDiamonds || 0;
-          if ((a.rangeMin || 0) > total) continue;
-          if ((a.rangeMax || 0) > 0 && total > a.rangeMax) continue;
+    forEachTriggerProfile((cfg) => {
+      for (const a of cfg.soundAlerts) {
+        if (!a.enabled || !a.sound) continue;
+        const trig = a.trigger || 'gift';
+        if (trig !== eventType) continue;
+        if (eventType === 'gift') {
+          const wantName = (a.giftName || '').trim().toLowerCase();
+          if (wantName || a.giftId) {
+            const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+            if (!idMatch && !nameMatch) continue;
+            if ((a.minDiamonds || 0) > (info.diamonds || 0)) continue;
+          } else {
+            const total = info.totalDiamonds || 0;
+            if ((a.rangeMin || 0) > total) continue;
+            if ((a.rangeMax || 0) > 0 && total > a.rangeMax) continue;
+          }
         }
+        if (eventType === 'emote') {
+          const wantId = (a.emoteId || '').trim();
+          if (wantId && wantId !== String(info.emoteId || '')) continue;
+        }
+        if (eventType === 'like') {
+          if ((a.likeMin || 1) > (info.likeCount || 0)) continue;
+        }
+        if (eventType === 'levelUp') {
+          const wantLevel = Math.max(0, Number(a.level) || 0);
+          if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
+        }
+        if (eventType === 'chatCommand') {
+          if (!matchesCommand(a.command, info.comment)) continue;
+        }
+        broadcast('log', { level: 'ok', text: `🔊 Alerta sonora: "${a.name}"` });
+        broadcast('sound', { id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
       }
-      if (eventType === 'emote') {
-        const wantId = (a.emoteId || '').trim();
-        if (wantId && wantId !== String(info.emoteId || '')) continue;
-      }
-      if (eventType === 'like') {
-        if ((a.likeMin || 1) > (info.likeCount || 0)) continue;
-      }
-      if (eventType === 'levelUp') {
-        const wantLevel = Math.max(0, Number(a.level) || 0);
-        if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
-      }
-      if (eventType === 'chatCommand') {
-        if (!matchesCommand(a.command, info.comment)) continue;
-      }
-      broadcast('log', { level: 'ok', text: `🔊 Alerta sonora: "${a.name}"` });
-      broadcast('sound', { id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
-    }
+    });
   }
 
   function triggerLikeGlobal(total) {
     if (!total || total <= lastTotalLikes) { lastTotalLikes = total || lastTotalLikes; return; }
-    for (const a of settings.soundAlerts) {
-      if (!a.enabled || !a.sound || (a.trigger || '') !== 'likeGlobal') continue;
-      const goal = Math.max(1, a.likeGoal || 100);
-      const before = Math.floor(lastTotalLikes / goal);
-      const now = Math.floor(total / goal);
-      if (now > before) {
-        broadcast('sound', { id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
-      }
-    }
-    if (settings.videosEnabled !== false) {
-      for (const v of settings.videos) {
-        if (!v.url || v.enabled === false || (v.trigger || '') !== 'likeGlobal') continue;
-        const goal = Math.max(1, v.likeGoal || 100);
-        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-          const scr = Number(v.screen) || 1;
-          broadcast('media', { id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
+    forEachTriggerProfile((cfg) => {
+      for (const a of cfg.soundAlerts) {
+        if (!a.enabled || !a.sound || (a.trigger || '') !== 'likeGlobal') continue;
+        const goal = Math.max(1, a.likeGoal || 100);
+        const before = Math.floor(lastTotalLikes / goal);
+        const now = Math.floor(total / goal);
+        if (now > before) {
+          broadcast('sound', { id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
         }
       }
-    }
+      if (cfg.videosEnabled !== false) {
+        for (const v of cfg.videos) {
+          if (!v.url || v.enabled === false || (v.trigger || '') !== 'likeGlobal') continue;
+          const goal = Math.max(1, v.likeGoal || 100);
+          if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+            const scr = Number(v.screen) || 1;
+            broadcast('media', { id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
+          }
+        }
+      }
+    });
     actions.triggerLikeGlobalExtras(total, lastTotalLikes);
     lastTotalLikes = total;
   }
 
   function triggerVideos(eventType, info = {}) {
-    if (settings.videosEnabled === false) return;
-    for (const v of settings.videos) {
-      if (!v.url || v.enabled === false) continue;
-      const trig = v.trigger || 'gift';
-      if (trig !== eventType) continue;
-      if (eventType === 'gift') {
-        const wantName = (v.giftName || '').trim().toLowerCase();
-        if (wantName || v.giftId) {
-          const idMatch = v.giftId && String(v.giftId) === String(info.giftId || '');
-          const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          if ((v.minDiamonds || 0) > (info.diamonds || 0)) continue;
-        } else {
-          const total = info.totalDiamonds || 0;
-          if ((v.rangeMin || 0) > total) continue;
-          if ((v.rangeMax || 0) > 0 && total > v.rangeMax) continue;
+    forEachTriggerProfile((cfg, isGeneral) => {
+      if (cfg.videosEnabled === false) return;
+      for (const v of cfg.videos) {
+        if (!v.url || v.enabled === false) continue;
+        const trig = v.trigger || 'gift';
+        if (trig !== eventType) continue;
+        if (eventType === 'gift') {
+          const wantName = (v.giftName || '').trim().toLowerCase();
+          if (wantName || v.giftId) {
+            const idMatch = v.giftId && String(v.giftId) === String(info.giftId || '');
+            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+            if (!idMatch && !nameMatch) continue;
+            if ((v.minDiamonds || 0) > (info.diamonds || 0)) continue;
+          } else {
+            const total = info.totalDiamonds || 0;
+            if ((v.rangeMin || 0) > total) continue;
+            if ((v.rangeMax || 0) > 0 && total > v.rangeMax) continue;
+          }
         }
-      }
-      if (eventType === 'emote') {
-        const wantId = (v.emoteId || '').trim();
-        if (wantId && wantId !== String(info.emoteId || '')) continue;
-      }
-      if (eventType === 'like') {
-        if ((v.likeMin || 1) > (info.likeCount || 0)) continue;
-      }
-      // Subió de nivel de miembro: si se indica un nivel, solo se reproduce al
-      // alcanzar EXACTAMENTE ese nivel (ej. nivel 5 → video de nivel 5). 0 = cualquiera.
-      if (eventType === 'levelUp') {
-        const wantLevel = Math.max(0, Number(v.level) || 0);
-        if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
-      }
-      if (eventType === 'chatCommand') {
-        if (!matchesCommand(v.command, info.comment)) continue;
-      }
-      // Filtro por usuario para comandos de chat, primer mensaje y entrada de usuario.
-      // En "userJoin" el usuario es OBLIGATORIO (si no, se reproduciría con cada
-      // espectador que entra); en los demás casos es opcional.
-      if (eventType === 'chatCommand' || eventType === 'firstMessage' || eventType === 'userJoin') {
-        const want = String(v.user || '').replace(/^@/, '').trim().toLowerCase();
-        if (eventType === 'userJoin' && !want) continue;
-        if (want) {
-          const u = String(info.username || '').toLowerCase();
-          const n = String(info.nickname || '').toLowerCase();
-          if (want !== u && want !== n) continue;
+        if (eventType === 'emote') {
+          const wantId = (v.emoteId || '').trim();
+          if (wantId && wantId !== String(info.emoteId || '')) continue;
         }
-      }
-      // Anti-spam para "entró un usuario": espera N segundos antes de repetir el
-      // mismo video (evita que entrando y saliendo lo disparen sin parar).
-      if (eventType === 'userJoin') {
-        const delaySec = (v.joinDelay == null) ? 30 : Math.max(0, Number(v.joinDelay) || 0);
-        if (delaySec > 0) {
-          const now = Date.now();
-          const last = joinVideoCooldown.get(v.id) || 0;
-          if (now - last < delaySec * 1000) continue;
-          joinVideoCooldown.set(v.id, now);
+        if (eventType === 'like') {
+          if ((v.likeMin || 1) > (info.likeCount || 0)) continue;
         }
+        if (eventType === 'levelUp') {
+          const wantLevel = Math.max(0, Number(v.level) || 0);
+          if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
+        }
+        if (eventType === 'chatCommand') {
+          if (!matchesCommand(v.command, info.comment)) continue;
+        }
+        if (eventType === 'chatCommand' || eventType === 'firstMessage' || eventType === 'userJoin') {
+          const want = String(v.user || '').replace(/^@/, '').trim().toLowerCase();
+          if (eventType === 'userJoin' && !want) continue;
+          if (want) {
+            const u = String(info.username || '').toLowerCase();
+            const n = String(info.nickname || '').toLowerCase();
+            if (want !== u && want !== n) continue;
+          }
+        }
+        if (eventType === 'userJoin') {
+          const delaySec = (v.joinDelay == null) ? 30 : Math.max(0, Number(v.joinDelay) || 0);
+          if (delaySec > 0) {
+            const now = Date.now();
+            const cdKey = `${v.id}|${isGeneral ? 'g' : 'a'}`;
+            const last = joinVideoCooldown.get(cdKey) || 0;
+            if (now - last < delaySec * 1000) continue;
+            joinVideoCooldown.set(cdKey, now);
+          }
+        }
+        const scr = Number(v.screen) || 1;
+        broadcast('media', { id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
       }
-      const scr = Number(v.screen) || 1;
-      broadcast('media', { id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
-    }
+    });
   }
 
   function emitMemberLevelUp(data, fromLevel, toLevel) {
@@ -2208,6 +2254,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'switchProfile':
         switchProfile(data.index);
         break;
+      case 'switchGeneralProfile':
+        switchToGeneralEdit();
+        break;
       case 'renameProfile':
         renameProfile(data.index, data.name);
         break;
@@ -2644,6 +2693,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     getProfilesInfo: profilesInfo,
     getProfilesFull,
     switchProfile,
+    switchToGeneralEdit,
     renameProfile,
     importProfiles,
     spotifyCharge,

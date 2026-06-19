@@ -2,10 +2,14 @@
 // ejecución local (teclas, RCON, OBS…) al cliente PC vía WebSocket.
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 
-export function createActionBridge({ getSettings, broadcast, broadcastToLocal, isCloud }) {
+export function createActionBridge({ getSettings, forEachTriggerSettings, broadcast, broadcastToLocal, isCloud }) {
   const cloud = isCloud !== false;
 
   function settings() { return getSettings() || {}; }
+  function eachTrigger(fn) {
+    if (typeof forEachTriggerSettings === 'function') forEachTriggerSettings(fn);
+    else fn(settings());
+  }
   function log(level, text) { broadcast('log', { level, text }); }
 
   function emitKeyAction(payload) {
@@ -25,8 +29,8 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       || (a.sbCmd && a.sbCmd.on && a.sbCmd.action)));
   }
 
-  function runActionOutputs({ webhookCmd, obsCmd, sbCmd } = {}) {
-    const wh = settings().webhook || {};
+  function runActionOutputs({ webhookCmd, obsCmd, sbCmd } = {}, cfg) {
+    const wh = (cfg || settings()).webhook || {};
     if (webhookCmd && webhookCmd.on && webhookCmd.url) {
       const method = (webhookCmd.method || 'GET').toUpperCase();
       if (emitLocalExec({ tipo: 'WEBHOOK', method, url: webhookCmd.url, body: webhookCmd.body || '' })) return;
@@ -60,7 +64,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     return Math.max(1, Number(eventTimes) || 1);
   }
 
-  function fireAction(a, times = 1) {
+  function fireAction(a, times = 1, cfg) {
     const t = resolveKeyTimes(a, times);
     if (a.keys) {
       log('ok', `⚡ Acción: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}`);
@@ -75,11 +79,11 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
         sound: a.sound, soundName: a.soundName || '', soundVolume: a.soundVolume != null ? a.soundVolume : 1,
       });
     }
-    runActionOutputs(a);
+    runActionOutputs(a, cfg);
   }
 
-  function triggerActions(eventType, info = {}) {
-    for (const a of (settings().actions || [])) {
+  function triggerActionsForCfg(cfg, eventType, info = {}) {
+    for (const a of (cfg.actions || [])) {
       if (!a || a.enabled === false || !actionDoesSomething(a)) continue;
       const ev = a.event || 'gift-any';
       if (eventType === 'gift') {
@@ -91,7 +95,7 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
           if ((a.minDiamonds || 0) > (info.diamonds || 0)) continue;
           if (info.comboStreak === 'delta' && !a.comboInstant) continue;
           if (info.comboStreak === 'end' && a.comboInstant) continue;
-          fireAction(a, Math.max(1, Number(info.repeatCount) || 1));
+          fireAction(a, Math.max(1, Number(info.repeatCount) || 1), cfg);
           continue;
         } else if (ev === 'gift-any') {
           const total = info.totalDiamonds || 0;
@@ -120,17 +124,23 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
         const wantLevel = Math.max(0, Number(a.level) || 0);
         if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
       } else if (ev !== eventType) continue;
-      fireAction(a);
+      fireAction(a, 1, cfg);
     }
+  }
+
+  function triggerActions(eventType, info = {}) {
+    eachTrigger((cfg) => triggerActionsForCfg(cfg, eventType, info));
   }
 
   function triggerActionsLikeGlobal(total, lastTotalLikes) {
     if (!total) return;
-    for (const a of (settings().actions || [])) {
-      if (!a || a.enabled === false || !actionDoesSomething(a) || (a.event || '') !== 'likeGlobal') continue;
-      const goal = Math.max(1, a.likeGoal || 100);
-      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireAction(a);
-    }
+    eachTrigger((cfg) => {
+      for (const a of (cfg.actions || [])) {
+        if (!a || a.enabled === false || !actionDoesSomething(a) || (a.event || '') !== 'likeGlobal') continue;
+        const goal = Math.max(1, a.likeGoal || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireAction(a, 1, cfg);
+      }
+    });
   }
 
   function listActions() {
@@ -290,9 +300,10 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     }
   }
 
-  async function runMcAction(a, vars) {
-    const rcon = (settings().webhook && settings().webhook.rcon) || {};
-    const stap = (settings().webhook && settings().webhook.servertap) || {};
+  async function runMcAction(a, vars, cfg) {
+    const s = cfg || settings();
+    const rcon = (s.webhook && s.webhook.rcon) || {};
+    const stap = (s.webhook && s.webhook.servertap) || {};
     const useStap = !!stap.enabled;
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const sendCmds = (cmds) => useStap ? sendServertap(stap, cmds) : sendRcon(rcon, cmds);
@@ -429,9 +440,9 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     if (emitLocalExec({ tipo: 'PVZ_CMD', path })) return;
   }
 
-  function triggerMarioActions(eventType, info = {}, user = null) {
+  function triggerMarioActions(eventType, info = {}, user = null, cfg = settings()) {
     const name = (user && user.nickname) || info.nickname || '';
-    for (const a of (settings().marioActions || [])) {
+    for (const a of (cfg.marioActions || [])) {
       if (!a || a.enabled === false || !a.thing) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
@@ -458,9 +469,9 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     })) return;
   }
 
-  function triggerMari0Actions(eventType, info = {}, user = null) {
+  function triggerMari0Actions(eventType, info = {}, user = null, cfg = settings()) {
     const name = (user && user.nickname) || info.nickname || '';
-    for (const a of (settings().mari0Actions || [])) {
+    for (const a of (cfg.mari0Actions || [])) {
       if (!a || a.enabled === false || !a.thing) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
@@ -475,9 +486,9 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     }
   }
 
-  function triggerPvzActions(eventType, info = {}, user = null) {
+  function triggerPvzActions(eventType, info = {}, user = null, cfg = settings()) {
     const name = (user && user.nickname) || info.nickname || '';
-    for (const a of (settings().pvzActions || [])) {
+    for (const a of (cfg.pvzActions || [])) {
       if (!a || a.enabled === false || !a.thing) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
@@ -509,15 +520,14 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
     }
   }
 
-  function triggerMinecraftActions(eventType, info = {}, user = null) {
-    triggerRobloxList(settings().robloxActions || [], eventType, info, user, 'rbx_');
-    triggerRobloxList(settings().roblox3Actions || [], eventType, info, user, 'rbx3_');
-    triggerMarioActions(eventType, info, user);
-    triggerMari0Actions(eventType, info, user);
-    triggerPvzActions(eventType, info, user);
+  function triggerMinecraftActionsForCfg(eventType, info = {}, user = null, cfg) {
+    triggerRobloxList(cfg.robloxActions || [], eventType, info, user, 'rbx_');
+    triggerRobloxList(cfg.roblox3Actions || [], eventType, info, user, 'rbx3_');
+    triggerMarioActions(eventType, info, user, cfg);
+    triggerMari0Actions(eventType, info, user, cfg);
+    triggerPvzActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
-    // Minecraft, Bedrock y Sandbox comparten ejecución (mismo servidor por RCON/ServerTap).
-    const both = [].concat(settings().mcActions || [], settings().bedrockActions || [], settings().sandboxActions || []);
+    const both = [].concat(cfg.mcActions || [], cfg.bedrockActions || [], cfg.sandboxActions || []);
     for (const a of both) {
       if (!a || a.enabled === false) continue;
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
@@ -527,57 +537,63 @@ export function createActionBridge({ getSettings, broadcast, broadcastToLocal, i
       if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
       const soundTimes = eventType === 'gift' ? Math.max(1, Number(info.repeatCount) || 1) : 1;
       playMcActionSound(a, soundTimes);
-      runMcAction(a, vars);
+      runMcAction(a, vars, cfg);
     }
+  }
+
+  function triggerMinecraftActions(eventType, info = {}, user = null) {
+    eachTrigger((cfg) => triggerMinecraftActionsForCfg(eventType, info, user, cfg));
   }
 
   function triggerLikeGlobalExtras(total, lastTotalLikes) {
     triggerActionsLikeGlobal(total, lastTotalLikes);
-    const vars = buildMcVars({ likeCount: total }, null);
-    for (const a of [].concat(settings().mcActions || [], settings().bedrockActions || [], settings().sandboxActions || [])) {
-      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
-      if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
-      const goal = Math.max(1, a.likeN || 100);
-      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-        playMcActionSound(a);
-        runMcAction(a, vars);
+    eachTrigger((cfg) => {
+      const vars = buildMcVars({ likeCount: total }, null);
+      for (const a of [].concat(cfg.mcActions || [], cfg.bedrockActions || [], cfg.sandboxActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
+        if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          playMcActionSound(a);
+          runMcAction(a, vars, cfg);
+        }
       }
-    }
-    for (const a of (settings().robloxActions || [])) {
-      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.keys) continue;
-      const goal = Math.max(1, a.likeN || 100);
-      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireRobloxKeys(a, Math.max(1, parseInt(a.count, 10) || 1), 'rbx_');
-    }
-    for (const a of (settings().roblox3Actions || [])) {
-      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.keys) continue;
-      const goal = Math.max(1, a.likeN || 100);
-      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireRobloxKeys(a, Math.max(1, parseInt(a.count, 10) || 1), 'rbx3_');
-    }
-    for (const a of (settings().marioActions || [])) {
-      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-      const goal = Math.max(1, a.likeN || 100);
-      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-        if ((a.kind || 'spawn') === 'effect') applyMarioEffect(a.thing, a.seconds, a.factor);
-        else spawnMarioThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+      for (const a of (cfg.robloxActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.keys) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireRobloxKeys(a, Math.max(1, parseInt(a.count, 10) || 1), 'rbx_');
       }
-    }
-    for (const a of (settings().mari0Actions || [])) {
-      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-      const goal = Math.max(1, a.likeN || 100);
-      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-        if ((a.kind || 'spawn') === 'effect') applyMari0Effect(a.thing, a.seconds, a.factor);
-        else spawnMari0Thing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+      for (const a of (cfg.roblox3Actions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.keys) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireRobloxKeys(a, Math.max(1, parseInt(a.count, 10) || 1), 'rbx3_');
       }
-    }
-    for (const a of (settings().pvzActions || [])) {
-      if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-      const goal = Math.max(1, a.likeN || 100);
-      if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-        if ((a.kind || 'spawn') === 'sun') givePvzSun(a.amount);
-        else if ((a.kind || 'spawn') === 'cmd') pvzCommand(a.path);
-        else spawnPvzThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+      for (const a of (cfg.marioActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          if ((a.kind || 'spawn') === 'effect') applyMarioEffect(a.thing, a.seconds, a.factor);
+          else spawnMarioThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+        }
       }
-    }
+      for (const a of (cfg.mari0Actions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          if ((a.kind || 'spawn') === 'effect') applyMari0Effect(a.thing, a.seconds, a.factor);
+          else spawnMari0Thing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+        }
+      }
+      for (const a of (cfg.pvzActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          if ((a.kind || 'spawn') === 'sun') givePvzSun(a.amount);
+          else if ((a.kind || 'spawn') === 'cmd') pvzCommand(a.path);
+          else spawnPvzThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+        }
+      }
+    });
   }
 
   return {
