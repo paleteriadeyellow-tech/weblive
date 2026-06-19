@@ -21,7 +21,17 @@
     .cm-timer.is-live { color: #e2e8f0; text-shadow: 0 0 24px rgba(244,63,94,.35); }
     .cm-timer.is-delay { color: #a78bfa; }
     .cm-list { padding: 4px 10px 10px; min-height: 120px; }
-    .cm-list.cm-list--scroll { max-height: 280px; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+    .cm-list.cm-list--scroll {
+      max-height: 280px; overflow-y: auto; overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(29, 44, 72, .95) rgba(12, 24, 50, .35);
+    }
+    .cm-list.cm-list--scroll::-webkit-scrollbar { width: 8px; }
+    .cm-list.cm-list--scroll::-webkit-scrollbar-track { background: rgba(12, 24, 50, .35); border-radius: 8px; }
+    .cm-list.cm-list--scroll::-webkit-scrollbar-thumb {
+      background: rgba(29, 44, 72, .95); border-radius: 8px; border: 1px solid rgba(12, 24, 50, .5);
+    }
+    .cm-list.cm-list--scroll::-webkit-scrollbar-thumb:hover { background: rgba(37, 52, 80, 1); }
     .cm-row { display: grid; grid-template-columns: 28px 44px 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; border-radius: 12px; background: rgba(15,23,42,.55); border: 1px solid rgba(148,163,184,.12); animation: cmPop .35s ease; }
     .cm-row.rank-0 { border-color: rgba(251,191,36,.45); background: rgba(120,53,15,.25); }
     .cm-row.rank-1 { border-color: rgba(203,213,225,.35); }

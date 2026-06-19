@@ -49,8 +49,8 @@ export const DEFAULT_SETTINGS = {
   // videos: [{ id, name, url, fileName, trigger, giftName, minDiamonds, volume, enabled, screen }]
   videos: [],
   videosEnabled: true, // interruptor maestro "TODAS"
-  // Videos automáticos por nivel de miembro (carpeta «niveles»): al subir alguien de
-  // nivel se reproduce el video nivelN. screen = en qué Browser Source aparece.
+  // Videos automáticos por nivel de miembro (public/video/niveles): al subir alguien de
+  // nivel se reproduce nivelN.webm. screen = en qué Browser Source aparece.
   levelVideos: { enabled: true, screen: 1, volume: 100 },
   // pantallas (Browser Sources separados): tamaño por pantalla
   screens: [

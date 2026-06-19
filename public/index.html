@@ -1783,15 +1783,27 @@
             <p class="hint">Usa cada link como <b>Browser Source</b> separado en OBS o TikTok Studio y asigna cada video a la pantalla que quieras.</p>
           </div>
 
-          <div class="settings-card" id="levelvid-card">
-            <div class="box-title">Videos automáticos por nivel (carpeta «niveles»)</div>
-            <p class="hint">Coloca archivos como <b>nivel1.mp4</b>, <b>nivel2.mp4</b>… Se reproducen solos cuando alguien sube a ese nivel de miembro del club de fans.</p>
-            <label class="switch-row plain"><input type="checkbox" id="levelvid-enabled" checked> <span>Activar videos automáticos de nivel</span></label>
-            <div class="field" style="margin-top:10px">
-              <label class="ml">PANTALLA OBS</label>
-              <select id="levelvid-screen"></select>
+          <div class="settings-card levelvid-card" id="levelvid-card">
+            <div class="levelvid-event-bar">
+              <span class="levelvid-event-label">Subió de nivel de miembro</span>
+              <label class="toggle levelvid-toggle" title="Activar o desactivar videos automáticos por nivel">
+                <input type="checkbox" id="levelvid-enabled" checked>
+                <span class="track"></span>
+                <span class="state">ON</span>
+              </label>
             </div>
-            <button type="button" class="btn ghost" id="levelvid-openfolder" hidden style="margin-top:8px">📁 Abrir carpeta niveles</button>
+            <p class="levelvid-hint">Usa <b>un solo link OBS</b> (la pantalla de abajo). En <code>public/video/niveles</code> guarda <code>nivel1.webm</code>, <code>nivel2.webm</code>… y al subir de nivel se reproduce el archivo que coincida automáticamente.</p>
+            <div class="levelvid-row">
+              <label class="levelvid-screen">
+                <span>Pantalla OBS</span>
+                <select id="levelvid-screen"></select>
+              </label>
+              <label class="levelvid-test-lvl">
+                <span>Nivel prueba</span>
+                <input type="number" id="levelvid-test-level" min="1" max="50" value="1">
+              </label>
+              <button type="button" class="btn ghost" id="levelvid-test">▶ Probar</button>
+            </div>
           </div>
 
           <div id="videoCards" class="sa-grid"></div>
@@ -1820,7 +1832,6 @@
                   <option value="subscribe">Nuevo suscriptor</option>
                   <option value="superFan">Super fan</option>
                   <option value="follow">Nuevo seguidor</option>
-                  <option value="levelUp">Subió de nivel de miembro</option>
                   <option value="userJoin">Entró un usuario específico</option>
                   <option value="emote">Sticker / emote (ID)</option>
                   <option value="chatCommand">Comando de chat (!video)</option>
@@ -1835,10 +1846,6 @@
                 <div id="vid-joindelayextra" class="gift-extra one" hidden>
                   <label class="ml" for="vid-joindelay">SEGUNDOS DE DELAY (espera antes de repetir, anti-spam)</label>
                   <input type="number" id="vid-joindelay" min="0" value="30" placeholder="Segundos de espera antes de repetir (anti-spam)">
-                </div>
-                <div id="vid-levelextra" class="gift-extra one" hidden>
-                  <label class="ml" for="vid-level">NIVEL DE MIEMBRO (ej. 5 = se reproduce al subir al nivel 5 · 0 = cualquier nivel)</label>
-                  <input type="number" id="vid-level" min="0" value="0" placeholder="Nivel de miembro (0 = cualquiera)">
                 </div>
                 <div id="vid-giftanyextra" class="gift-extra" hidden>
                   <input type="number" id="vid-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
@@ -1899,7 +1906,6 @@
             </div>
 
             <div class="modal-foot">
-              <button type="button" class="btn ghost" id="vid-test-levelup" hidden>🧪 Probar subida de nivel</button>
               <button class="btn primary" id="vid-save">Listo</button>
             </div>
           </div>

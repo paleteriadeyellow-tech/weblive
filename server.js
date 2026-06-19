@@ -176,22 +176,15 @@ fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 // Carpeta dedicada para los videos de la pestaña Batallas (videos AI de batalla).
 const BATALLA_VIDEOS_DIR = path.join(VIDEOS_DIR, 'batalla');
 fs.mkdirSync(BATALLA_VIDEOS_DIR, { recursive: true });
-// Carpeta de videos por NIVEL de miembro: nivel1.mp4, nivel2.mp4… Al subir alguien de
-// nivel se reproduce automáticamente el que coincida.
-const NIVELES_VIDEOS_DIR = process.env.NIVELES_DIR || path.join(VIDEOS_DIR, 'niveles');
+// Carpeta fija: public/video/niveles (nivel1.webm, nivel2.webm…).
+const NIVELES_VIDEOS_DIR = path.join(VIDEOS_DIR, 'niveles');
 fs.mkdirSync(NIVELES_VIDEOS_DIR, { recursive: true });
-const PROJECT_NIVELES_DIR = path.join(VIDEOS_DIR, 'niveles');
 
-// Carpetas donde buscar videos de nivel, con su URL base servible.
 function nivelesSources() {
-  const out = [{ dir: NIVELES_VIDEOS_DIR, urlBase: '/niveles/' }];
-  if (path.resolve(PROJECT_NIVELES_DIR) !== path.resolve(NIVELES_VIDEOS_DIR)) {
-    out.push({ dir: PROJECT_NIVELES_DIR, urlBase: '/video/niveles/' });
-  }
-  return out;
+  return [{ dir: NIVELES_VIDEOS_DIR, urlBase: '/video/niveles/' }];
 }
 
-const NIVEL_EXTS = ['.mp4', '.webm', '.gif', '.webp', '.png', '.jpg', '.jpeg', '.mov', '.mkv'];
+const NIVEL_EXTS = ['.webm', '.mp4', '.gif', '.webp', '.png', '.jpg', '.jpeg', '.mov', '.mkv'];
 function findLevelVideoUrl(level) {
   const n = Number(level) || 0;
   if (n <= 0) return '';

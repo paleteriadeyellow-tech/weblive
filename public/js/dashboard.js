@@ -34,6 +34,7 @@ async function confirmDesktopPanelFromServer() {
         const d = await r.json();
         if (d && d.pc) {
           window.__LIVECOINS_DESKTOP__ = true;
+          if (d.version) window.INSTALLED_APP_VERSION = String(d.version).trim();
           syncDesktopPanelMode();
           try { setupAccionesUI(); } catch {}
           try { setupProfiles(); } catch {}
@@ -177,6 +178,39 @@ function send(obj) { if (ws?.readyState === 1) ws.send(JSON.stringify(obj)); }
 window.ROOM_KEY = '';
 window.MY_USER = '';
 window.IS_ADMIN = false;
+window.INSTALLED_APP_VERSION = '';
+
+async function resolveInstalledAppVersion() {
+  if (window.INSTALLED_APP_VERSION) return window.INSTALLED_APP_VERSION;
+  if (IS_DESKTOP && window.desktopAPI?.getVersion) {
+    try {
+      const v = await window.desktopAPI.getVersion();
+      if (v) {
+        window.INSTALLED_APP_VERSION = String(v).trim();
+        return window.INSTALLED_APP_VERSION;
+      }
+    } catch {}
+  }
+  try {
+    const r = await fetch('/api/desktop-build');
+    if (r.ok) {
+      const d = await r.json();
+      if (d?.version) {
+        window.INSTALLED_APP_VERSION = String(d.version).trim();
+        return window.INSTALLED_APP_VERSION;
+      }
+    }
+  } catch {}
+  return '';
+}
+
+async function applyInstalledAppVersionBadge() {
+  const verEl = document.getElementById('user-chip-ver');
+  if (!verEl) return;
+  const v = await resolveInstalledAppVersion();
+  if (v) verEl.textContent = `v${v.replace(/^v/i, '')}`;
+  else verEl.hidden = true;
+}
 
 async function loadMe() {
   try {
@@ -749,7 +783,7 @@ function mountUserChip() {
   const chip = document.createElement('div');
   chip.id = 'user-chip';
   chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 0;font:600 11px system-ui,sans-serif;color:#9aa3b8';
-  chip.innerHTML = `<span style="opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">👤 ${window.MY_USER || 'usuario'}</span>
+  chip.innerHTML = `<span id="user-chip-name">👤 ${window.MY_USER || 'usuario'}</span>${IS_DESKTOP ? '<span id="user-chip-ver" class="user-chip-ver"></span>' : ''}
     <button id="logout-btn" style="margin-left:auto;border:0;border-radius:6px;cursor:pointer;padding:3px 9px;font-weight:700;font-size:10.5px;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6)">Salir</button>`;
   foot.appendChild(installBtn);
   foot.appendChild(chip);
@@ -764,6 +798,7 @@ function mountUserChip() {
     location.href = '/login.html';
   };
   applyPcInstallButton();
+  if (IS_DESKTOP) applyInstalledAppVersionBadge();
 }
 
 let pcInstallUrl = '';
@@ -1779,8 +1814,12 @@ function onScreens(p) {
 function renderScreens() {
   const el = $('screenList');
   const screens = settings.screens || [];
+  const lv = settings.levelVideos || {};
+  const lvOn = lv.enabled !== false;
+  const lvScr = Number(lv.screen) || 1;
   el.innerHTML = screens.map((s) => {
-    const count = (settings.videos || []).filter((v) => (Number(v.screen) || 1) === s.id).length;
+    const count = (settings.videos || []).filter((v) => (Number(v.screen) || 1) === s.id).length
+      + (lvOn && lvScr === s.id ? 1 : 0);
     const on = connectedScreens.has(s.id);
     return `
     <div class="screen" data-id="${s.id}">
@@ -1889,14 +1928,17 @@ function applyLevelVideosUI() {
   scr.innerHTML = screens.map((s) => `<option value="${s.id}">Pantalla ${s.id}</option>`).join('');
   scr.value = String(cfg.screen || 1);
   en.checked = cfg.enabled !== false;
-  const openBtn = $('levelvid-openfolder');
-  if (openBtn) openBtn.hidden = !IS_DESKTOP;
+  const st = en.closest('.levelvid-toggle')?.querySelector('.state');
+  if (st) st.textContent = en.checked ? 'ON' : 'OFF';
 }
 if ($('levelvid-enabled')) {
   $('levelvid-enabled').addEventListener('change', () => {
     if (!settings.levelVideos) settings.levelVideos = {};
     settings.levelVideos.enabled = $('levelvid-enabled').checked;
+    const st = $('levelvid-enabled').closest('.levelvid-toggle')?.querySelector('.state');
+    if (st) st.textContent = $('levelvid-enabled').checked ? 'ON' : 'OFF';
     saveSettings();
+    renderScreens();
   });
 }
 if ($('levelvid-screen')) {
@@ -1904,18 +1946,12 @@ if ($('levelvid-screen')) {
     if (!settings.levelVideos) settings.levelVideos = {};
     settings.levelVideos.screen = Number($('levelvid-screen').value) || 1;
     saveSettings();
+    renderScreens();
   });
 }
-if ($('levelvid-openfolder')) {
-  $('levelvid-openfolder').addEventListener('click', async () => {
-    try { await window.desktopAPI?.openNivelesFolder?.(); }
-    catch { toast && toast('No se pudo abrir la carpeta.', 'err'); }
-  });
-}
-const vidTestLevelUp = $('vid-test-levelup');
-if (vidTestLevelUp) {
-  vidTestLevelUp.addEventListener('click', () => {
-    const level = Math.max(1, parseInt($('vid-level')?.value, 10) || 1);
+if ($('levelvid-test')) {
+  $('levelvid-test').addEventListener('click', () => {
+    const level = Math.max(1, parseInt($('levelvid-test-level')?.value, 10) || 1);
     send({ action: 'testLevelUp', level, fromLevel: Math.max(0, level - 1), nickname: 'Prueba' });
     toast(`Probando subida al nivel ${level}…`, 'ok');
   });
@@ -1932,9 +1968,6 @@ function setVidEventUI(value) {
   $('vid-cmdextra').hidden = value !== 'chatCommand';
   $('vid-userextra').hidden = value !== 'chatCommand' && value !== 'firstMessage' && value !== 'userJoin';
   $('vid-joindelayextra').hidden = value !== 'userJoin';
-  $('vid-levelextra').hidden = value !== 'levelUp';
-  const testLvlBtn = $('vid-test-levelup');
-  if (testLvlBtn) testLvlBtn.hidden = value !== 'levelUp';
   const userInput = $('vid-user');
   if (userInput) userInput.placeholder = value === 'userJoin'
     ? 'Usuario que al entrar reproduce el video (sin @)'
@@ -1949,7 +1982,10 @@ function openVidModal(v = null) {
   let ev = 'gift-any';
   const trig = v?.trigger || 'gift';
   if (trig === 'gift') ev = v?.giftName ? 'gift-name' : 'gift-any';
-  else ev = trig;
+  else if (trig === 'levelUp') {
+    ev = 'gift-any';
+    $('vid-status').textContent = 'Los videos de «Subió de nivel» ahora usan la barra azul de arriba y la carpeta niveles.';
+  } else ev = trig;
   setVidEventUI(ev);
   $('vid-gift').value = v?.giftName || '';
   $('vid-giftid').value = v?.giftId || '';
@@ -1963,7 +1999,6 @@ function openVidModal(v = null) {
   $('vid-command').value = v?.command || '';
   $('vid-user').value = v?.user || '';
   $('vid-joindelay').value = v?.joinDelay ?? 30;
-  $('vid-level').value = v?.level ?? 0;
   $('vid-vol').value = v?.volume ?? 100;
   $('vid-screen').value = v?.screen || 1;
   $('vid-fname').textContent = v?.fileName || 'Ningún archivo';
@@ -2044,7 +2079,7 @@ $('vid-libq').addEventListener('input', () => renderLocalVideos($('vid-libq').va
 // ¿La biblioteca debe mostrar la carpeta «niveles»? Solo en Videos y cuando el
 // evento elegido es "Subió de nivel de miembro".
 function libIsNiveles() {
-  return libTarget === 'vid' && $('vid-event') && $('vid-event').value === 'levelUp';
+  return false;
 }
 
 function openVideoLib() {
@@ -2172,7 +2207,7 @@ $('vid-save').onclick = () => {
     command: ev === 'chatCommand' ? $('vid-command').value.trim() : '',
     user: (ev === 'chatCommand' || ev === 'firstMessage' || ev === 'userJoin') ? $('vid-user').value.trim().replace(/^@/, '') : '',
     joinDelay: ev === 'userJoin' ? Math.max(0, parseInt($('vid-joindelay').value, 10) || 0) : 0,
-    level: ev === 'levelUp' ? Math.max(0, parseInt($('vid-level').value, 10) || 0) : 0,
+    level: 0,
     url: vidPending.url,
     fileName: vidPending.name || 'video',
     volume: +$('vid-vol').value,
