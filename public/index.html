@@ -922,6 +922,84 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Banda de regalos -->
+        <div id="gshConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>🎁 Configurar — Banda de regalos</h2>
+              <button class="modal-close" id="gshcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="box-sub">Añade los iconos de regalo que quieras con un texto debajo. Elige cuántos se ven a la vez y si rotan cada pocos segundos o se mueven en banda continua.</p>
+              <div class="gvscfg-grid2">
+                <div>
+                  <label class="ml">MODO DE VISUALIZACIÓN</label>
+                  <select id="gshcfg-mode">
+                    <option value="rotate">Rotar (cambia cada X segundos)</option>
+                    <option value="marquee">Banda en movimiento (bucle horizontal)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="ml">REGALOS VISIBLES A LA VEZ</label>
+                  <input type="number" id="gshcfg-visible" min="1" max="8" value="3">
+                </div>
+                <div>
+                  <label class="ml">SEGUNDOS ENTRE CAMBIO (rotar)</label>
+                  <input type="number" id="gshcfg-interval" min="1" max="15" value="2">
+                </div>
+                <div>
+                  <label class="ml">VELOCIDAD BANDA (seg. por vuelta)</label>
+                  <input type="number" id="gshcfg-marquee" min="6" max="120" value="18">
+                </div>
+                <div>
+                  <label class="ml">TAMAÑO ICONO (px)</label>
+                  <input type="number" id="gshcfg-iconsize" min="48" max="160" value="88">
+                </div>
+                <div>
+                  <label class="ml">ESPACIO ENTRE REGALOS (px)</label>
+                  <input type="number" id="gshcfg-gap" min="8" max="64" value="24">
+                </div>
+                <div>
+                  <label class="ml">TAMAÑO TEXTO (px)</label>
+                  <input type="number" id="gshcfg-fontsize" min="10" max="48" value="22">
+                </div>
+                <div>
+                  <label class="ml">GROSOR CONTORNO</label>
+                  <input type="number" id="gshcfg-stroke" min="0" max="6" value="2">
+                </div>
+                <div>
+                  <label class="ml">COLOR TEXTO</label>
+                  <input type="color" id="gshcfg-color" value="#ffffff">
+                </div>
+                <div>
+                  <label class="ml">ESTILO DE COLOR</label>
+                  <select id="gshcfg-colormode">
+                    <option value="solid">Color sólido</option>
+                    <option value="rainbow">Arcoíris</option>
+                    <option value="flow">Arcoíris animado</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="ml">TIPO DE LETRA</label>
+                  <select id="gshcfg-font" class="cfg-font"></select>
+                </div>
+                <div>
+                  <label class="ml">ESCALA (60-140%)</label>
+                  <input type="number" id="gshcfg-scale" min="60" max="140" value="100">
+                </div>
+              </div>
+              <div class="jarcfg-rowshead">
+                <label class="ml">REGALOS EN LA BANDA</label>
+                <button type="button" class="btn ghost" id="gshcfg-add">＋ Agregar regalo</button>
+              </div>
+              <div id="gshcfg-rows" class="gvscfg-rows"></div>
+            </div>
+            <div class="modal-foot">
+              <button class="btn primary" id="gshcfg-save">Guardar para OBS / Live Studio</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Mejor regalo -->
         <div id="tgfConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -2048,6 +2126,28 @@
 
           <!-- Gifts overlays -->
           <div class="subview" id="sub-gifts">
+            <!-- Tarjeta PRO: Banda de regalos -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="gsh-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="gsh-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="gsh-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="gsh-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">🎁 Banda de regalos</h3>
+              <p class="ovpro-desc">Fila horizontal de iconos de regalo con texto personalizado debajo. Rota cada pocos segundos o desplázate en banda continua cuando hay más regalos de los que caben.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/gift-banda.html">/gift-banda.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · BANDA EN MOVIMIENTO</div>
+              <div class="ovpro-preview">
+                <iframe id="gsh-preview" src="/gift-banda.html?embed=1" title="Vista previa banda de regalos"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Top 1 Donador Fuego -->
             <div class="ovpro-card">
               <div class="ovpro-top">

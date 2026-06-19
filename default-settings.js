@@ -194,9 +194,12 @@ export const DEFAULT_SETTINGS = {
     rowSpeed: 7.6,
     textRainbow: false,
     stepSec: 2,
-    sequence: [
-      // { giftName, giftImage, customText, textSide }
-    ],
+    sequence: [],
+  },
+  giftShowcase: {
+    displayMode: 'rotate', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
+    iconSize: 88, gap: 24, font: 'bangers', fontSize: 22, textColor: '#ffffff', textStroke: 2,
+    colorMode: 'solid', scale: 100, items: [],
   },
   // Overlay Top 1 Donador (MVP de la sesión: quien más monedas regala)
   top1: {

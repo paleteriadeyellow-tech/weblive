@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Banda de regalos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800&family=Titan+One&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: var(--gsh-font, 'Bangers', system-ui, sans-serif); pointer-events: none; }
+    html.is-embed body { align-items: center; justify-content: center; padding: 0; }
+    .wrap { transform: scale(var(--gsh-scale, 1)); transform-origin: center center; width: 100%; max-width: 960px; padding: 8px; }
+    html.is-embed .wrap { max-width: none; padding: 0 8px; transform-origin: center center; }
+    .empty { text-align: center; color: rgba(255,255,255,.7); font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+
+    /* Modo rotación: fila fija centrada */
+    .view-rotate { display: flex; justify-content: center; align-items: flex-end; min-height: 140px; }
+    .rotate-row { display: flex; align-items: flex-end; justify-content: center; gap: var(--gsh-gap, 24px); transition: opacity .35s ease; }
+    .rotate-row.is-fade { opacity: 0; }
+
+    /* Modo banda / marquee */
+    .view-marquee { overflow: hidden; width: 100%; min-height: calc(var(--gsh-icon, 88px) + var(--gsh-fsize, 22px) + 28px); mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+    .marquee-track { display: flex; width: max-content; animation: gsh-marquee var(--gsh-marquee, 18s) linear infinite; will-change: transform; }
+    .marquee-track.is-static { animation: none; transform: none; justify-content: center; width: 100%; }
+    .view-marquee.is-static { mask-image: none; display: flex; justify-content: center; }
+    .marquee-copy { display: flex; align-items: flex-end; gap: var(--gsh-gap, 24px); padding-right: var(--gsh-gap, 24px); flex: 0 0 auto; }
+
+    @keyframes gsh-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+    .gitem { display: flex; flex-direction: column; align-items: center; gap: 8px; width: calc(var(--gsh-icon, 88px) + 20px); flex-shrink: 0; text-align: center; }
+    .gitem img { width: var(--gsh-icon, 88px); height: var(--gsh-icon, 88px); object-fit: contain; display: block; filter: drop-shadow(0 8px 18px rgba(0,0,0,.45)); }
+    .gitem .gph {
+      width: var(--gsh-icon, 88px); height: var(--gsh-icon, 88px); display: flex; align-items: center; justify-content: center;
+      font-size: calc(var(--gsh-icon, 88px) * .46); line-height: 1; filter: drop-shadow(0 8px 18px rgba(0,0,0,.45));
+    }
+    .gitem .lbl {
+      max-width: 100%; font-family: var(--gsh-font); font-size: var(--gsh-fsize, 22px); font-weight: 900; line-height: 1.1;
+      white-space: pre-line; word-break: break-word;
+      color: var(--gsh-text, #fff);
+      -webkit-text-stroke: var(--gsh-stroke, 2px) rgba(0,0,0,.95);
+      paint-order: stroke fill;
+      text-shadow: 1px 0 0 rgba(0,0,0,.9), -1px 0 0 rgba(0,0,0,.9), 0 1px 0 rgba(0,0,0,.9), 0 -1px 0 rgba(0,0,0,.9);
+    }
+    html[data-colormode="rainbow"] .gitem .lbl,
+    html[data-colormode="flow"] .gitem .lbl {
+      color: transparent !important;
+      -webkit-text-fill-color: transparent;
+      background: linear-gradient(92deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #e040fb, #ff1744);
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-stroke: 0 transparent;
+      paint-order: normal;
+      text-shadow: none;
+      filter: var(--gsh-rainbow-shadow, drop-shadow(0 2px 0 rgba(0,0,0,.9)) drop-shadow(0 0 1px rgba(0,0,0,.85)));
+    }
+    html[data-colormode="flow"] .gitem .lbl { animation: gsh-rainbow 4.5s linear infinite; }
+    @keyframes gsh-rainbow { 0% { background-position: 0% center; } 100% { background-position: 300% center; } }
+
+    .view { display: none; }
+    .view.active { display: block; }
+    .is-hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="wrap">
+    <div class="view view-rotate" id="view-rotate"><div class="rotate-row" id="rotate-row"></div></div>
+    <div class="view view-marquee" id="view-marquee"><div class="marquee-track" id="marquee-track"></div></div>
+    <div class="empty is-hidden" id="empty">Sin regalos configurados</div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    if (isEmbed) document.documentElement.classList.add('is-embed');
+    const FONTS = {
+      luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif",
+      lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif",
+      fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif",
+      bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: 'system-ui, sans-serif',
+    };
+
+    let cfg = {
+      displayMode: 'rotate', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
+      iconSize: 88, gap: 24, font: 'bangers', fontSize: 22, textColor: '#ffffff', textStroke: 2,
+      colorMode: 'solid', scale: 100, items: [],
+    };
+
+    let rotatePage = 0;
+    let rotateTimer = null;
+
+    function clamp(n, lo, hi, d) { const x = parseInt(n, 10); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; }
+    function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+
+    function normItems(list) {
+      return (Array.isArray(list) ? list : []).filter((it) => it && (it.giftImage || it.giftName)).map((it) => ({
+        giftName: String(it.giftName || 'Regalo').trim() || 'Regalo',
+        giftImage: String(it.giftImage || '').trim(),
+        customText: String(it.customText || it.giftName || 'Regalo').trim() || 'Regalo',
+      }));
+    }
+
+    function applyStyle() {
+      const root = document.documentElement;
+      const mode = cfg.colorMode === 'rainbow' || cfg.colorMode === 'flow' ? cfg.colorMode : 'solid';
+      root.dataset.colormode = mode;
+      root.style.setProperty('--gsh-font', FONTS[cfg.font] || FONTS.bangers);
+      root.style.setProperty('--gsh-fsize', clamp(cfg.fontSize, 10, 48, 22) + 'px');
+      root.style.setProperty('--gsh-text', cfg.textColor || '#ffffff');
+      root.style.setProperty('--gsh-stroke', Math.max(0, clamp(cfg.textStroke, 0, 6, 2)) + 'px');
+      const iconPx = clamp(cfg.iconSize, 48, 160, 88);
+      root.style.setProperty('--gsh-icon', String(isEmbed ? Math.min(iconPx, 72) : iconPx) + 'px');
+      root.style.setProperty('--gsh-gap', clamp(cfg.gap, 8, 64, 24) + 'px');
+      root.style.setProperty('--gsh-marquee', Math.max(6, clamp(cfg.marqueeSec, 6, 120, 18)) + 's');
+      const stroke = Math.max(0, clamp(cfg.textStroke, 0, 6, 2));
+      const sh = stroke > 0
+        ? `drop-shadow(0 ${Math.max(1, stroke)}px 0 rgba(0,0,0,.92)) drop-shadow(0 0 ${Math.max(1, stroke)}px rgba(0,0,0,.75))`
+        : 'drop-shadow(0 1px 2px rgba(0,0,0,.55))';
+      root.style.setProperty('--gsh-rainbow-shadow', sh);
+      const sc = clamp(cfg.scale, 50, 150, 100) / 100;
+      document.getElementById('wrap').style.setProperty('--gsh-scale', isEmbed ? '1' : String(sc));
+    }
+
+    function giftImgHtml(url) {
+      if (!url) return `<div class="gph" aria-hidden="true">🎁</div>`;
+      return `<img src="${esc(url)}" alt="" referrerpolicy="no-referrer" loading="eager" decoding="async" onerror="gshImgFail(this)">`;
+    }
+    window.gshImgFail = function (el) {
+      const ph = document.createElement('div');
+      ph.className = 'gph';
+      ph.textContent = '🎁';
+      ph.setAttribute('aria-hidden', 'true');
+      el.replaceWith(ph);
+    };
+
+    function itemHtml(it) {
+      return `<div class="gitem">${giftImgHtml(it.giftImage)}<div class="lbl">${esc(it.customText)}</div></div>`;
+    }
+
+    function buildRowHtml(items) { return items.map(itemHtml).join(''); }
+
+    function pagesOf(items) {
+      const vis = Math.max(1, clamp(cfg.visibleCount, 1, 8, 3));
+      if (items.length <= vis) return [items];
+      const out = [];
+      for (let i = 0; i < items.length; i += vis) out.push(items.slice(i, i + vis));
+      return out;
+    }
+
+    function stopRotate() { if (rotateTimer) { clearInterval(rotateTimer); rotateTimer = null; } }
+
+    function renderRotate(items) {
+      stopRotate();
+      const vRot = document.getElementById('view-rotate');
+      const vMar = document.getElementById('view-marquee');
+      vRot?.classList.add('active');
+      vMar?.classList.remove('active', 'is-static');
+      const pages = pagesOf(items);
+      rotatePage = 0;
+      const row = document.getElementById('rotate-row');
+      function paint(fade) {
+        if (!row) return;
+        if (fade) row.classList.add('is-fade');
+        setTimeout(() => {
+          row.innerHTML = buildRowHtml(pages[rotatePage] || []);
+          row.classList.remove('is-fade');
+        }, fade ? 180 : 0);
+      }
+      paint(false);
+      if (pages.length > 1) {
+        const ms = Math.max(1000, clamp(cfg.intervalSec, 1, 15, 2) * 1000);
+        rotateTimer = setInterval(() => {
+          rotatePage = (rotatePage + 1) % pages.length;
+          paint(true);
+        }, ms);
+      }
+    }
+
+    function visibleLimit() { return Math.max(1, clamp(cfg.visibleCount, 1, 8, 3)); }
+    function needsMotion(items) { return items.length > visibleLimit(); }
+
+    function renderStatic(items) {
+      stopRotate();
+      const row = document.getElementById('rotate-row');
+      const vRot = document.getElementById('view-rotate');
+      const vMar = document.getElementById('view-marquee');
+      if (row) row.innerHTML = buildRowHtml(items);
+      vMar?.classList.remove('active', 'is-static');
+      vRot?.classList.add('active');
+    }
+
+    function renderMarquee(items, scrolling) {
+      stopRotate();
+      const track = document.getElementById('marquee-track');
+      const vRot = document.getElementById('view-rotate');
+      const vMar = document.getElementById('view-marquee');
+      if (!track || !vMar) return;
+      vRot?.classList.remove('active');
+      vMar.classList.add('active');
+      const copy = buildRowHtml(items);
+      if (scrolling) {
+        vMar.classList.remove('is-static');
+        track.classList.remove('is-static');
+        track.innerHTML = `<div class="marquee-copy">${copy}</div><div class="marquee-copy">${copy}</div>`;
+      } else {
+        vMar.classList.add('is-static');
+        track.classList.add('is-static');
+        track.innerHTML = `<div class="marquee-copy">${copy}</div>`;
+      }
+      track.querySelectorAll('img').forEach((img) => {
+        img.addEventListener('load', fitEmbed, { once: true });
+        img.addEventListener('error', fitEmbed, { once: true });
+      });
+    }
+
+    function render() {
+      applyStyle();
+      let items = normItems(cfg.items);
+      const previewEmbed = isEmbed && cfg._preview !== false;
+      if (!items.length && previewEmbed) items = normItems(DEMO);
+      const empty = document.getElementById('empty');
+      const vRot = document.getElementById('view-rotate');
+      const vMar = document.getElementById('view-marquee');
+      if (!items.length) {
+        stopRotate();
+        vRot.classList.remove('active');
+        vMar.classList.remove('active');
+        empty.classList.remove('is-hidden');
+        empty.textContent = 'Sin regalos configurados';
+        return;
+      }
+      empty.classList.add('is-hidden');
+      const motion = needsMotion(items);
+      const useMarquee = cfg.displayMode === 'marquee';
+      if (!motion) {
+        renderStatic(items);
+      } else if (useMarquee) {
+        renderMarquee(items, true);
+      } else {
+        renderRotate(items);
+      }
+      fitEmbed();
+    }
+
+    function fitEmbed() {
+      if (!isEmbed) return;
+      const w = document.getElementById('wrap');
+      w.style.setProperty('--gsh-scale', '1');
+      requestAnimationFrame(() => {
+        const bw = w.offsetWidth, bh = w.offsetHeight;
+        if (!bw || !bh) return;
+        const s = Math.min(window.innerWidth / bw, window.innerHeight / bh, 1);
+        w.style.setProperty('--gsh-scale', String(Math.max(s, 0.85)));
+      });
+    }
+
+    function mergeCfg(c) {
+      if (!c || typeof c !== 'object') return;
+      const { _preview, ...rest } = c;
+      cfg = Object.assign(cfg, rest);
+      if (_preview != null) cfg._preview = _preview;
+    }
+
+    const DEMO = [
+      { giftName: 'Corazón', giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba933a2e02c618dada0862f8df68db~tplv-obj.image', customText: 'LOVE YOU' },
+      { giftName: 'Rosa', giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/5c0469665814f4713e36e0a0a8f5c0b~tplv-obj.image', customText: 'TEST' },
+      { giftName: 'GG', giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/702ed7641549e9470b53b7a7a1e1fc2d~tplv-obj.image', customText: 'TEST2' },
+      { giftName: 'Perfume', giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/9ea2eea0c0c8a2a407aef8d9a2c8d2d8~tplv-obj.image', customText: 'TEST3' },
+      { giftName: 'Finger Heart', giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba933a2e02c618dada0862f8df68db~tplv-obj.image', customText: 'TEST4' },
+      { giftName: 'Cap', giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/702ed7641549e9470b53b7a7a1e1fc2d~tplv-obj.image', customText: 'TEST5' },
+      { giftName: 'Galaxy', giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/5c0469665814f4713e36e0a0a8f5c0b~tplv-obj.image', customText: 'GO POPULAR' },
+    ];
+
+    function runTest() {
+      if (!normItems(cfg.items).length) mergeCfg({ items: DEMO });
+      render();
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings' && m.payload?.giftShowcase) {
+          if (isEmbed) return;
+          mergeCfg(m.payload.giftShowcase);
+          render();
+        }
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'giftshowcase') return;
+      if (d.type === 'config') { mergeCfg(d.config); render(); }
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') { stopRotate(); rotatePage = 0; render(); }
+    });
+
+    window.addEventListener('resize', fitEmbed);
+    if (isEmbed) mergeCfg({ _preview: true });
+    render();
+    connect();
+  })();
+  </script>
+</body>
+</html>

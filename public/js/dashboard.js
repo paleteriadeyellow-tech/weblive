@@ -160,7 +160,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -220,7 +220,7 @@ const OVERLAY_CAP = {
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
   '/ruleta.html': 'ov_ruleta',
-  '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq',
+  '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
@@ -320,7 +320,7 @@ const CAP_LABELS = {
   ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_ruleta: 'Ruleta / sorteo', ov_topdonor: 'Top donador semanal',
   ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)',
-  ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
+  ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_toplikes: 'Top likes',
@@ -340,7 +340,7 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
   'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_mari0', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
-  'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire',
 ];
@@ -1743,6 +1743,7 @@ function applySettingsToUI() {
   if (typeof refreshGiftCounterCardUI === 'function') refreshGiftCounterCardUI();
   if (typeof pushGiftVsPreview === 'function') setTimeout(() => pushGiftVsPreview(), 300);
   if (typeof pushGiftSeqPreview === 'function') setTimeout(() => pushGiftSeqPreview(), 300);
+  if (typeof pushGiftShowcasePreview === 'function') setTimeout(() => pushGiftShowcasePreview(), 300);
   if (typeof pushStyleOverlayPreviews === 'function') setTimeout(() => pushStyleOverlayPreviews(), 300);
   if (typeof refreshWinsCounters === 'function') setTimeout(() => refreshWinsCounters(), 300);
   if (typeof window.pushHypePreview === 'function') setTimeout(() => window.pushHypePreview(), 300);
@@ -2553,6 +2554,7 @@ function refreshGiftCards() {
   if (typeof renderVideos === 'function') { try { renderVideos(); } catch {} }
   if (typeof renderBattleAlerts === 'function') { try { renderBattleAlerts(); } catch {} }
   if (typeof renderAcciones === 'function') { try { renderAcciones(); } catch {} }
+  if (typeof pushGiftShowcasePreview === 'function') { try { pushGiftShowcasePreview(settings?.giftShowcase); } catch {} }
 }
 
 const EVENT_EMOJI = {
@@ -3451,6 +3453,156 @@ if ($('gsqcfg-save')) $('gsqcfg-save').onclick = () => {
   pushGiftSeqPreview(settings.giftSeq);
   closeGsqConfig();
 };
+
+/* ---- Banda de regalos (fila horizontal) ---- */
+function gshPreviewWin() { return $('gsh-preview')?.contentWindow; }
+function gshToPreview(msg) { gshPreviewWin()?.postMessage({ kind: 'giftshowcase', ...msg }, '*'); }
+
+let gshItemsDraft = [];
+
+function defaultGiftShowcaseCfg() {
+  return {
+    displayMode: 'rotate', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
+    iconSize: 88, gap: 24, font: 'bangers', fontSize: 22, textColor: '#ffffff', textStroke: 2,
+    colorMode: 'solid', scale: 100, items: [],
+  };
+}
+
+function currentGshCfg() {
+  return {
+    displayMode: $('gshcfg-mode')?.value || 'rotate',
+    visibleCount: Math.max(1, Math.min(8, parseInt($('gshcfg-visible')?.value, 10) || 3)),
+    intervalSec: Math.max(1, Math.min(15, parseInt($('gshcfg-interval')?.value, 10) || 2)),
+    marqueeSec: Math.max(6, Math.min(120, parseInt($('gshcfg-marquee')?.value, 10) || 18)),
+    iconSize: Math.max(48, Math.min(160, parseInt($('gshcfg-iconsize')?.value, 10) || 88)),
+    gap: Math.max(8, Math.min(64, parseInt($('gshcfg-gap')?.value, 10) || 24)),
+    fontSize: Math.max(10, Math.min(48, parseInt($('gshcfg-fontsize')?.value, 10) || 22)),
+    textStroke: Math.max(0, Math.min(6, parseInt($('gshcfg-stroke')?.value, 10) || 2)),
+    textColor: $('gshcfg-color')?.value || '#ffffff',
+    colorMode: $('gshcfg-colormode')?.value || 'solid',
+    font: $('gshcfg-font')?.value || 'bangers',
+    scale: Math.max(60, Math.min(140, parseInt($('gshcfg-scale')?.value, 10) || 100)),
+    items: gshItemsDraft.map((r) => ({ ...r })),
+  };
+}
+
+function enrichGshItems(items) {
+  return (items || []).map((r) => {
+    const img = (r.giftImage && String(r.giftImage).trim())
+      || giftImageOf({ giftId: r.giftId, giftName: r.giftName, image: r.giftImage });
+    return { ...r, giftImage: img || '' };
+  });
+}
+
+function pushGiftShowcasePreview(cfg) {
+  const base = cfg || settings?.giftShowcase || defaultGiftShowcaseCfg();
+  const send = () => {
+    gshToPreview({
+      type: 'config',
+      config: {
+        ...base,
+        _preview: true,
+        items: enrichGshItems(base.items),
+      },
+    });
+  };
+  send();
+  preloadGiftCatalog().then(send);
+}
+
+function emptyGshItem() { return { giftId: '', giftName: '', giftImage: '', customText: '' }; }
+
+function openGshConfig() {
+  const c = settings?.giftShowcase || defaultGiftShowcaseCfg();
+  if ($('gshcfg-mode')) $('gshcfg-mode').value = c.displayMode || 'rotate';
+  if ($('gshcfg-visible')) $('gshcfg-visible').value = c.visibleCount || 3;
+  if ($('gshcfg-interval')) $('gshcfg-interval').value = c.intervalSec || 2;
+  if ($('gshcfg-marquee')) $('gshcfg-marquee').value = c.marqueeSec || 18;
+  if ($('gshcfg-iconsize')) $('gshcfg-iconsize').value = c.iconSize || 88;
+  if ($('gshcfg-gap')) $('gshcfg-gap').value = c.gap || 24;
+  if ($('gshcfg-fontsize')) $('gshcfg-fontsize').value = c.fontSize || 22;
+  if ($('gshcfg-stroke')) $('gshcfg-stroke').value = c.textStroke != null ? c.textStroke : 2;
+  if ($('gshcfg-color')) $('gshcfg-color').value = /^#/.test(c.textColor || '') ? c.textColor : '#ffffff';
+  if ($('gshcfg-colormode')) $('gshcfg-colormode').value = c.colorMode || 'solid';
+  if ($('gshcfg-font')) $('gshcfg-font').value = CFG_FONTS.some(([v]) => v === c.font) ? c.font : 'bangers';
+  if ($('gshcfg-scale')) $('gshcfg-scale').value = c.scale || 100;
+  gshItemsDraft = enrichGshItems(c.items || []).map((r) => ({
+    giftId: r.giftId || '', giftName: r.giftName || '', giftImage: r.giftImage || '', customText: r.customText || '',
+  }));
+  if (!gshItemsDraft.length) gshItemsDraft.push(emptyGshItem());
+  renderGshRows();
+  $('gshConfigModal')?.classList.remove('hidden');
+}
+function closeGshConfig() { $('gshConfigModal')?.classList.add('hidden'); }
+
+function renderGshRows() {
+  const wrap = $('gshcfg-rows');
+  if (!wrap) return;
+  wrap.innerHTML = gshItemsDraft.map((r, i) => {
+    const giftBtn = r.giftName
+      ? `<button type="button" class="gvs-giftbtn picked gsh-giftpick" data-i="${i}">${r.giftImage ? `<img src="${esc(r.giftImage)}">` : ''}<span>${esc(r.giftName)}</span></button>`
+      : `<button type="button" class="gvs-giftbtn gsh-giftpick" data-i="${i}">＋ Elegir regalo</button>`;
+    return `<div class="jarcfg-row gsh-row" data-i="${i}">
+      <button type="button" class="jarcfg-del gsh-del" title="Quitar">✕</button>
+      <div class="jarcfg-row-head">REGALO ${i + 1}</div>
+      <div class="gsq-row-grid">
+        <div>${giftBtn}</div>
+        <div><label class="ml">TEXTO DEBAJO</label><input type="text" class="gsh-text" maxlength="80" placeholder="Ej.: PINCHE PELON" value="${esc(r.customText)}"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.gsh-row').forEach((row) => {
+    const i = Number(row.dataset.i);
+    row.querySelector('.gsh-del')?.addEventListener('click', () => {
+      gshItemsDraft.splice(i, 1);
+      if (!gshItemsDraft.length) gshItemsDraft.push(emptyGshItem());
+      renderGshRows();
+    });
+    row.querySelector('.gsh-text')?.addEventListener('input', (e) => {
+      gshItemsDraft[i].customText = e.target.value;
+      pushGiftShowcasePreview(currentGshCfg());
+    });
+    row.querySelectorAll('.gsh-giftpick').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        openGiftModalCb((g) => {
+          gshItemsDraft[i].giftId = String(g.id || '');
+          gshItemsDraft[i].giftName = g.name || '';
+          gshItemsDraft[i].giftImage = g.image || '';
+          if (!gshItemsDraft[i].customText) gshItemsDraft[i].customText = g.name || '';
+          renderGshRows();
+          pushGiftShowcasePreview(currentGshCfg());
+        });
+      });
+    });
+  });
+  pushGiftShowcasePreview(currentGshCfg());
+}
+
+['gshcfg-mode', 'gshcfg-visible', 'gshcfg-interval', 'gshcfg-marquee', 'gshcfg-iconsize', 'gshcfg-gap',
+  'gshcfg-fontsize', 'gshcfg-stroke', 'gshcfg-color', 'gshcfg-colormode', 'gshcfg-font', 'gshcfg-scale'].forEach((id) => {
+  const el = $(id);
+  if (el) { el.oninput = () => pushGiftShowcasePreview(currentGshCfg()); el.onchange = () => pushGiftShowcasePreview(currentGshCfg()); }
+});
+if ($('gshcfg-add')) $('gshcfg-add').onclick = () => { gshItemsDraft.push(emptyGshItem()); renderGshRows(); };
+if ($('gshcfg-close')) $('gshcfg-close').onclick = closeGshConfig;
+if ($('gshConfigModal')) $('gshConfigModal').addEventListener('click', (e) => { if (e.target.id === 'gshConfigModal') closeGshConfig(); });
+if ($('gshcfg-save')) $('gshcfg-save').onclick = () => {
+  const cfg = currentGshCfg();
+  cfg.items = enrichGshItems(cfg.items);
+  settings.giftShowcase = cfg;
+  saveSettings();
+  pushGiftShowcasePreview(settings.giftShowcase);
+  closeGshConfig();
+};
+if ($('gsh-test')) {
+  $('gsh-test').onclick = () => { gshToPreview({ type: 'test' }); };
+  $('gsh-reset').onclick = () => { gshToPreview({ type: 'reset' }); pushGiftShowcasePreview(settings?.giftShowcase); };
+  $('gsh-config').onclick = openGshConfig;
+}
+if ($('gsh-preview')) {
+  $('gsh-preview').addEventListener('load', () => pushGiftShowcasePreview(settings?.giftShowcase));
+}
 
 /* ---- Overlays simples (mejor regalo, racha, batallas, coin match) ---- */
 function randomGiftSample() {

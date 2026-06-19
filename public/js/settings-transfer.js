@@ -5,7 +5,7 @@
     'tts', 'timer', 'playback', 'points', 'screens',
     'videosEnabled', 'battleAlertsEnabled',
     'jarron', 'vaquita', 'marranito', 'pelotas', 'roulette', 'topDonor',
-    'giftVs', 'giftSeq', 'topGift', 'giftCounter', 'topStreak',
+    'giftVs', 'giftSeq', 'giftShowcase', 'topGift', 'giftCounter', 'topStreak',
     'batallaGifts', 'batallaLikes', 'coinMatch',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topAltRank',
     'hypeBar', 'followerCounter', 'alertaGift', 'alertaLikes', 'alertaFollow', 'streamJoin', 'battle',
