@@ -59,8 +59,8 @@
 
   function diamondRangeLabel(r) {
     if (r.id === 'all') return 'Todos';
-    if (r.id === '1000+') return `1000+ ${DIA_ICON}`;
-    return `${r.min} ${DIA_ICON} – ${r.max}`;
+    if (r.id === '1000+') return `${DIA_ICON} 1000+`;
+    return `${DIA_ICON} ${r.min} – ${r.max}`;
   }
 
   function sameOrigin(u) {
