@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Contador de seguidores</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@600;700;800&family=Inter:wght@600;700;800;900&family=Montserrat:wght@600;700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800&family=Rubik:wght@700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; color: var(--fc-color, #dedede); font-family: var(--fc-font, 'Inter', system-ui, sans-serif); width: 100%; height: 100%; }
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .wrap { transform: scale(var(--fc-scale, 1)); transform-origin: center center; padding: 8px; }
+    .profile { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .profile.is-hidden { display: none !important; }
+    .av { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,.35); background: #222; flex-shrink: 0; }
+    .pinfo { min-width: 0; }
+    .pname { font-size: calc(var(--fc-size, 50px) * .46); font-weight: 800; line-height: var(--fc-lh, 1.1); letter-spacing: var(--fc-ls, 0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .phandle { font-size: calc(var(--fc-size, 50px) * .28); opacity: .72; line-height: var(--fc-lh, 1.1); letter-spacing: var(--fc-ls, 0); margin-top: 2px; }
+
+    /* Diseño 1: dígitos tipo flip */
+    .v-flip { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .v-flip .profile { justify-content: center; width: 100%; }
+    .v-flip .flip-stack { display: inline-flex; flex-direction: column; align-items: stretch; width: fit-content; max-width: 100%; }
+    .v-flip .digits { display: flex; gap: 6px; justify-content: flex-start; flex-wrap: nowrap; }
+    .v-flip .digit-box { min-width: calc(var(--fc-size, 50px) * .82); height: calc(var(--fc-size, 50px) * 1.02); border-radius: 7px; border: 2px solid rgba(190,190,200,.55); background: linear-gradient(180deg, #3a3a42 0%, #151518 55%, #0a0a0c 100%); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 4px 12px rgba(0,0,0,.45); }
+    .v-flip .digit { font-size: calc(var(--fc-size, 50px) * .68); font-weight: 800; letter-spacing: var(--fc-ls, 0); line-height: 1; font-variant-numeric: tabular-nums; transition: transform .35s ease, opacity .25s ease; }
+    .v-flip .digit.flip { transform: translateY(-8px); opacity: .2; }
+    .v-flip .label-bar { margin-top: 6px; padding: 5px 8px; border-radius: 7px; border: 2px solid rgba(190,190,200,.55); background: linear-gradient(180deg, #3a3a42 0%, #151518 55%, #0a0a0c 100%); text-align: center; font-size: calc(var(--fc-size, 50px) * .22); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; width: 100%; box-sizing: border-box; line-height: 1.15; }
+    .v-flip .label-bar.is-hidden { display: none !important; }
+
+    /* Colores: sólido / arcoíris / arcoíris animado */
+    .fc-txt { color: var(--fc-color, #dedede); }
+    html[data-colormode="rainbow"] .fc-txt,
+    html[data-colormode="flow"] .fc-txt {
+      background: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5, #ffbe0b, #fb5607, #ff006e);
+      background-size: 220% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+    html[data-colormode="flow"] .fc-txt { animation: fc-rainbow-flow 5s linear infinite; }
+    @keyframes fc-rainbow-flow { 0% { background-position: 0% center; } 100% { background-position: 220% center; } }
+    html[data-colormode="rainbow"] .v-arc .arc-fg,
+    html[data-colormode="flow"] .v-arc .arc-fg { stroke: url(#fc-rainbow-grad); filter: drop-shadow(0 0 8px rgba(255,255,255,.35)); }
+
+    /* Diseño 2: número grande */
+    .v-classic { text-align: center; display: flex; flex-direction: column; align-items: center; }
+    .v-classic .profile { justify-content: center; width: 100%; }
+    .v-classic .big-num { font-size: calc(var(--fc-size, 50px) * 1.35); font-weight: 800; line-height: var(--fc-lh, 1.05); letter-spacing: var(--fc-ls, 0); font-variant-numeric: tabular-nums; transition: transform .25s ease; }
+    .v-classic .big-num.bump { transform: scale(1.06); }
+    .v-classic .sub-label { margin-top: 6px; font-size: calc(var(--fc-size, 50px) * .34); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; opacity: .95; }
+    .v-classic .sub-label.is-hidden { display: none !important; }
+
+    /* Diseño 3: arco de progreso */
+    .v-arc { text-align: center; min-width: 280px; }
+    .v-arc .arc-wrap { position: relative; width: 220px; height: 120px; margin: 0 auto 6px; }
+    .v-arc svg { width: 100%; height: 100%; overflow: visible; }
+    .v-arc .arc-bg { fill: none; stroke: rgba(255,255,255,.18); stroke-width: 14; stroke-linecap: round; }
+    .v-arc .arc-fg { fill: none; stroke: var(--fc-color, #dedede); stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset .6s ease; filter: drop-shadow(0 0 6px rgba(255,255,255,.25)); }
+    .v-arc .arc-pct { position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%); font-size: calc(var(--fc-size, 50px) * .42); font-weight: 700; }
+    .v-arc .arc-pct.is-hidden { display: none !important; }
+    .v-arc .arc-row { display: flex; align-items: baseline; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .v-arc .arc-num { font-size: calc(var(--fc-size, 50px) * .95); font-weight: 800; font-variant-numeric: tabular-nums; }
+    .v-arc .arc-lbl { font-size: calc(var(--fc-size, 50px) * .34); font-weight: 600; opacity: .9; }
+    .v-arc .arc-lbl.is-hidden { display: none !important; }
+
+    /* Diseño 4: minimal centrado */
+    .v-minimal { text-align: center; min-width: 260px; }
+    .v-minimal .m-name { font-size: calc(var(--fc-size, 50px) * .46); font-weight: 800; line-height: var(--fc-lh, 1.1); letter-spacing: var(--fc-ls, 0); }
+    .v-minimal .m-handle { font-size: calc(var(--fc-size, 50px) * .28); opacity: .55; margin: 4px 0 10px; letter-spacing: var(--fc-ls, 0); }
+    .v-minimal .m-count { font-size: calc(var(--fc-size, 50px) * .52); font-weight: 800; letter-spacing: var(--fc-ls, 0); font-variant-numeric: tabular-nums; }
+    .v-minimal .profile { justify-content: center; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .is-hidden { display: none !important; }
+
+    #confetti { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 99; }
+    .conf { position: absolute; width: 8px; height: 8px; border-radius: 2px; opacity: 0; animation: conf-fall 1.8s ease-out forwards; }
+    @keyframes conf-fall { 0% { opacity: 1; transform: translateY(0) rotate(0deg); } 100% { opacity: 0; transform: translateY(120px) rotate(540deg); } }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="wrap">
+    <div id="panel-flip" class="panel v-flip">
+      <div class="profile" id="prof-flip">
+        <img class="av" id="av-flip" alt="" referrerpolicy="no-referrer">
+        <div class="pinfo"><div class="pname fc-txt" id="name-flip"></div><div class="phandle" id="handle-flip"></div></div>
+      </div>
+      <div class="flip-stack">
+        <div class="digits" id="digits"></div>
+        <div class="label-bar fc-txt" id="lbl-flip">FOLLOWERS</div>
+      </div>
+    </div>
+    <div id="panel-classic" class="panel v-classic">
+      <div class="profile" id="prof-classic">
+        <img class="av" id="av-classic" alt="" referrerpolicy="no-referrer">
+        <div class="pinfo"><div class="pname fc-txt" id="name-classic"></div><div class="phandle" id="handle-classic"></div></div>
+      </div>
+      <div class="big-num fc-txt" id="num-classic">0</div>
+      <div class="sub-label fc-txt" id="lbl-classic">FOLLOWERS</div>
+    </div>
+    <div id="panel-arc" class="panel v-arc">
+      <div class="arc-wrap" id="arc-wrap">
+        <svg viewBox="0 0 220 120" aria-hidden="true">
+          <defs>
+            <linearGradient id="fc-rainbow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ff006e"><animate attributeName="stop-color" values="#ff006e;#8338ec;#3a86ff;#06ffa5;#ffbe0b;#ff006e" dur="5s" repeatCount="indefinite"/></stop>
+              <stop offset="50%" stop-color="#3a86ff"><animate attributeName="stop-color" values="#3a86ff;#06ffa5;#ffbe0b;#fb5607;#ff006e;#3a86ff" dur="5s" repeatCount="indefinite"/></stop>
+              <stop offset="100%" stop-color="#ffbe0b"><animate attributeName="stop-color" values="#ffbe0b;#fb5607;#ff006e;#8338ec;#3a86ff;#ffbe0b" dur="5s" repeatCount="indefinite"/></stop>
+            </linearGradient>
+          </defs>
+          <path class="arc-bg" d="M 24 100 A 86 86 0 0 1 196 100" pathLength="100"></path>
+          <path class="arc-fg" id="arc-fg" d="M 24 100 A 86 86 0 0 1 196 100" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"></path>
+        </svg>
+        <div class="arc-pct fc-txt" id="arc-pct">0%</div>
+      </div>
+      <div class="arc-row"><span class="arc-num fc-txt" id="num-arc">0</span><span class="arc-lbl fc-txt" id="lbl-arc">Followers</span></div>
+    </div>
+    <div id="panel-minimal" class="panel v-minimal">
+      <div class="profile" id="prof-minimal">
+        <img class="av" id="av-minimal" alt="" referrerpolicy="no-referrer">
+        <div class="pinfo"><div class="m-name fc-txt" id="name-minimal"></div><div class="m-handle" id="handle-minimal"></div></div>
+      </div>
+      <div class="m-count fc-txt" id="num-minimal">0 Followers</div>
+    </div>
+  </div>
+  <div id="confetti" aria-hidden="true"></div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const PLACEHOLDER = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : PLACEHOLDER;
+
+    const FONTS = {
+      exo2: "'Exo 2', system-ui, sans-serif",
+      inter: "'Inter', system-ui, sans-serif",
+      montserrat: "'Montserrat', system-ui, sans-serif",
+      oswald: "'Oswald', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif",
+      system: 'system-ui, sans-serif',
+    };
+
+    let cfg = {
+      variation: 'flip', font: 'exo2', fontSize: 50, lineSpacing: 50, letterSpacing: 50,
+      fontColor: '#dedede', colorMode: 'solid',
+      showFollowersText: true, showProfile: true, showProgressBar: true,
+      showConfetti: false, goalFollowers: 10000, scale: 100,
+    };
+    let data = { count: 0, nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: false };
+    let displayCount = 0;
+
+    const panels = {
+      flip: document.getElementById('panel-flip'),
+      classic: document.getElementById('panel-classic'),
+      arc: document.getElementById('panel-arc'),
+      minimal: document.getElementById('panel-minimal'),
+    };
+
+    function clamp(n, lo, hi, d) { const x = parseInt(n, 10); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; }
+    function fmt(n) { return Math.max(0, Math.floor(n)).toLocaleString('es-ES'); }
+    function handleOf(u) { return '@' + String(u || 'usuario').replace(/^@/, ''); }
+
+    function applyStyle() {
+      const root = document.documentElement;
+      const sc = clamp(cfg.scale, 50, 150, 100) / 100;
+      const mode = cfg.colorMode === 'rainbow' || cfg.colorMode === 'flow' ? cfg.colorMode : 'solid';
+      root.style.setProperty('--fc-font', FONTS[cfg.font] || FONTS.exo2);
+      root.style.setProperty('--fc-size', String(clamp(cfg.fontSize, 16, 120, 50)) + 'px');
+      root.style.setProperty('--fc-color', cfg.fontColor || '#dedede');
+      root.style.setProperty('--fc-lh', String((clamp(cfg.lineSpacing, 10, 100, 50) / 50) * 1.05));
+      root.style.setProperty('--fc-ls', ((clamp(cfg.letterSpacing, 0, 100, 50) - 50) / 100) + 'em');
+      root.dataset.colormode = mode;
+      document.getElementById('wrap').style.setProperty('--fc-scale', isEmbed ? '1' : String(sc));
+      const fg = document.getElementById('arc-fg');
+      if (fg) {
+        if (mode === 'solid') fg.style.stroke = 'var(--fc-color, #dedede)';
+        else fg.removeAttribute('style'); /* usa CSS url(#fc-rainbow-grad) */
+      }
+    }
+
+    function fitEmbed() {
+      if (!isEmbed) return;
+      const w = document.getElementById('wrap');
+      w.style.setProperty('--fc-scale', '1');
+      const bw = w.offsetWidth, bh = w.offsetHeight;
+      if (!bw || !bh) return;
+      const s = Math.min(window.innerWidth / bw, window.innerHeight / bh, 1);
+      w.style.setProperty('--fc-scale', String(s));
+    }
+
+    function setProfile() {
+      const show = cfg.showProfile !== false;
+      ['flip', 'classic', 'minimal'].forEach((v) => {
+        const prof = document.getElementById('prof-' + v);
+        if (prof) prof.classList.toggle('is-hidden', !show);
+        const av = document.getElementById('av-' + v);
+        const nm = document.getElementById('name-' + v);
+        const hd = document.getElementById('handle-' + v);
+        const pic = data.photo || PREVIEW_AVATAR;
+        const name = data.nickname || data.uniqueId || 'Usuario';
+        if (av) { av.src = pic; av.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; }; }
+        if (nm) nm.textContent = name;
+        if (hd) hd.textContent = handleOf(data.uniqueId || name);
+      });
+    }
+
+    function setLabels() {
+      const show = cfg.showFollowersText !== false;
+      document.getElementById('lbl-flip')?.classList.toggle('is-hidden', !show);
+      document.getElementById('lbl-classic')?.classList.toggle('is-hidden', !show);
+      document.getElementById('lbl-arc')?.classList.toggle('is-hidden', !show);
+    }
+
+    function renderDigits(n, animate) {
+      const el = document.getElementById('digits');
+      if (!el) return;
+      const s = fmt(n);
+      const prev = el.dataset.val || '';
+      if (prev === s && el.childElementCount === s.length) return;
+      el.innerHTML = '';
+      for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (ch === '.' || ch === ',') {
+          const sep = document.createElement('div');
+          sep.className = 'digit-box';
+          sep.style.minWidth = 'calc(var(--fc-size, 50px) * .35)';
+          sep.style.border = 'none';
+          sep.style.background = 'transparent';
+          sep.style.boxShadow = 'none';
+          sep.innerHTML = '<span class="digit fc-txt">' + ch + '</span>';
+          el.appendChild(sep);
+          continue;
+        }
+        const box = document.createElement('div');
+        box.className = 'digit-box';
+        const d = document.createElement('span');
+        d.className = 'digit fc-txt' + (animate && prev && prev[i] !== ch ? ' flip' : '');
+        d.textContent = ch;
+        box.appendChild(d);
+        el.appendChild(box);
+        if (d.classList.contains('flip')) setTimeout(() => d.classList.remove('flip'), 320);
+      }
+      el.dataset.val = s;
+    }
+
+    function renderArc(n) {
+      const goal = Math.max(1, clamp(cfg.goalFollowers, 100, 99999999, 10000));
+      const pct = Math.min(100, Math.round((n / goal) * 100));
+      const showBar = cfg.showProgressBar !== false;
+      document.getElementById('arc-wrap')?.classList.toggle('is-hidden', !showBar);
+      document.getElementById('arc-pct')?.classList.toggle('is-hidden', !showBar);
+      const fg = document.getElementById('arc-fg');
+      if (fg) fg.style.strokeDashoffset = String(100 - pct);
+      const pctEl = document.getElementById('arc-pct');
+      if (pctEl) pctEl.textContent = pct + '%';
+      const num = document.getElementById('num-arc');
+      if (num) num.textContent = fmt(n);
+    }
+
+    function renderAll(animate) {
+      applyStyle();
+      setProfile();
+      setLabels();
+      Object.values(panels).forEach((p) => p.classList.remove('active'));
+      const v = cfg.variation || 'flip';
+      (panels[v] || panels.flip).classList.add('active');
+
+      displayCount = Math.max(0, data.count || 0);
+      if (v === 'flip') renderDigits(displayCount, animate);
+      if (v === 'classic') {
+        const el = document.getElementById('num-classic');
+        if (el) {
+          el.textContent = fmt(displayCount);
+          if (animate) { el.classList.add('bump'); setTimeout(() => el.classList.remove('bump'), 280); }
+        }
+      }
+      if (v === 'arc') renderArc(displayCount);
+      if (v === 'minimal') {
+        const el = document.getElementById('num-minimal');
+        const lbl = cfg.showFollowersText !== false ? ' Followers' : '';
+        if (el) el.textContent = fmt(displayCount) + lbl;
+      }
+      fitEmbed();
+    }
+
+    function burstConfetti() {
+      if (!cfg.showConfetti) return;
+      const root = document.getElementById('confetti');
+      if (!root) return;
+      root.innerHTML = '';
+      const cols = ['#ff4d8d', '#ffe08a', '#38bdf8', '#22c55e', '#c084fc', '#fff'];
+      for (let i = 0; i < 28; i++) {
+        const p = document.createElement('span');
+        p.className = 'conf';
+        p.style.left = (20 + Math.random() * 60) + '%';
+        p.style.top = (10 + Math.random() * 30) + '%';
+        p.style.background = cols[i % cols.length];
+        p.style.animationDelay = (Math.random() * 0.4) + 's';
+        root.appendChild(p);
+      }
+      setTimeout(() => { root.innerHTML = ''; }, 2200);
+    }
+
+    function applyData(payload, animate) {
+      if (!payload) return;
+      const prev = data.count;
+      data = Object.assign(data, payload);
+      if (payload.count != null) data.count = Math.max(0, Math.floor(Number(payload.count) || 0));
+      renderAll(animate && data.count !== prev);
+      if (animate && data.count > prev) burstConfetti();
+    }
+
+    function mergeCfg(c) {
+      if (!c || typeof c !== 'object') return;
+      cfg = Object.assign(cfg, c);
+    }
+
+    function runTest() {
+      cancelTestAnim();
+      const base = 1230;
+      const deltas = [1, 1, 1, -1, 2];
+      let cur = base;
+      let i = 0;
+      applyData({ count: cur, nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: true }, false);
+      function step() {
+        if (i >= deltas.length) { testAnimTimer = null; return; }
+        cur = Math.max(0, cur + deltas[i]);
+        i += 1;
+        applyData({ count: cur }, true);
+        testAnimTimer = setTimeout(step, 720);
+      }
+      testAnimTimer = setTimeout(step, 480);
+    }
+
+    let testAnimTimer = null;
+    function cancelTestAnim() {
+      if (testAnimTimer) { clearTimeout(testAnimTimer); testAnimTimer = null; }
+    }
+
+    function showPreviewIdle() {
+      applyData({ count: 1230, nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: true }, false);
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings' && m.payload?.followerCounter) mergeCfg(m.payload.followerCounter);
+        if (m.type === 'followerCounter' && !isEmbed) applyData(m.payload, true);
+        if (m.type === 'settings' || m.type === 'followerCounter') renderAll(false);
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'followercounter') return;
+      if (d.type === 'config') { mergeCfg(d.config); renderAll(false); }
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') { cancelTestAnim(); applyData({ count: isEmbed ? 1230 : 0, ready: false }, false); }
+      else if (d.type === 'data') applyData(d.payload, true);
+    });
+
+    window.addEventListener('resize', fitEmbed);
+    if (isEmbed) showPreviewIdle(); else renderAll(false);
+    connect();
+  })();
+  </script>
+</body>
+</html>

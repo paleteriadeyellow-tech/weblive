@@ -280,6 +280,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const rankPersist = Object.fromEntries(RANK_IDS.map((id) => [id, { period: 'live', start: 0, end: 0, users: new Map() }]));
   let rankSaveTimer = null;
   const lastRankPeriods = {};
+  const followerCounter = { count: 0, nickname: '', uniqueId: '', photo: '', ready: false };
   // Usuario y Puntos: balance acumulado (de por vida) por usuario + historial de transacciones.
   const points = new Map();          // uniqueId -> { uniqueId, nickname, photo, total, levelPoints, firstAt, lastAt }
   let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
@@ -1379,6 +1380,68 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // NOTA: TikTok NO expone el histórico de diamantes/regalos/comentarios/follows/
   // shares; esos solo llegan como eventos en vivo, así que solo se cuentan desde
   // que el panel está conectado (no hay forma de recuperarlos hacia atrás).
+  function pickAvatarUrl(u) {
+    if (!u || typeof u !== 'object') return '';
+    return u.profilePictureUrl || u.profile_picture_url
+      || (Array.isArray(u.avatarThumb?.urlList) && u.avatarThumb.urlList[0])
+      || (Array.isArray(u.avatar_thumb?.url_list) && u.avatar_thumb.url_list[0])
+      || '';
+  }
+  function extractFollowerFromRoomInfo(ri, username) {
+    const out = { count: null, nickname: '', uniqueId: username || '', photo: '' };
+    if (!ri) return out;
+    const d = ri.data || ri;
+    const users = [d?.owner, d?.user, d?.anchor, d?.liveRoom?.owner, ri?.user, ri?.liveRoomUserInfo?.user].filter(Boolean);
+    for (const u of users) {
+      if (!out.nickname && u.nickname) out.nickname = u.nickname;
+      if (!out.uniqueId && (u.uniqueId || u.display_id || u.displayId)) out.uniqueId = u.uniqueId || u.display_id || u.displayId;
+      if (!out.photo) out.photo = pickAvatarUrl(u);
+      const fc = Number(
+        u?.follow_info?.follower_count ?? u?.followInfo?.followerCount
+        ?? u?.stats?.followerCount ?? u?.follower_count ?? u?.followerCount,
+      );
+      if (Number.isFinite(fc) && fc >= 0) { out.count = Math.floor(fc); break; }
+    }
+    if (out.count == null) {
+      const fc = Number(d?.stats?.followerCount ?? d?.follower_count ?? d?.followerCount);
+      if (Number.isFinite(fc) && fc >= 0) out.count = Math.floor(fc);
+    }
+    return out;
+  }
+  function serializeFollowerCounter() {
+    return { count: followerCounter.count, nickname: followerCounter.nickname, uniqueId: followerCounter.uniqueId, photo: followerCounter.photo, ready: followerCounter.ready };
+  }
+  function broadcastFollowerCounter() {
+    broadcast('followerCounter', serializeFollowerCounter());
+  }
+  function bumpFollowerCounter(delta, raw) {
+    const abs = Number(raw?.followCount);
+    if (Number.isFinite(abs) && abs > 0) followerCounter.count = Math.floor(abs);
+    else followerCounter.count = Math.max(0, (followerCounter.count || 0) + (delta || 0));
+    followerCounter.ready = true;
+    broadcastFollowerCounter();
+  }
+  function seedFollowerCounterFromRoomInfo() {
+    const parsed = extractFollowerFromRoomInfo(connection?.roomInfo, state.username);
+    if (parsed.count != null) followerCounter.count = parsed.count;
+    if (parsed.nickname) followerCounter.nickname = parsed.nickname;
+    if (parsed.uniqueId) followerCounter.uniqueId = parsed.uniqueId;
+    if (parsed.photo) followerCounter.photo = parsed.photo;
+    followerCounter.ready = parsed.count != null;
+    if (!followerCounter.uniqueId && state.username) followerCounter.uniqueId = state.username;
+    broadcastFollowerCounter();
+  }
+  function resetFollowerCounterFromRoom() {
+    if (connection?.roomInfo) seedFollowerCounterFromRoomInfo();
+    else {
+      followerCounter.count = 0;
+      followerCounter.ready = false;
+      broadcastFollowerCounter();
+    }
+  }
+  function socialDisplayType(data) {
+    return String(data?.common?.displayText?.displayType || data?.displayType || '').toLowerCase();
+  }
   function seedStatsFromRoomInfo() {
     try {
       const ri = connection && connection.roomInfo;
@@ -1391,6 +1454,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (likes > state.stats.likes) { state.stats.likes = likes; lastTotalLikes = Math.max(lastTotalLikes, likes); }
       if (viewers > 0) state.stats.viewers = viewers;
       if (entradas > state.stats.joins) state.stats.joins = entradas;
+      seedFollowerCounterFromRoomInfo();
       pushState();
     } catch { /* roomInfo opcional: si falla, seguimos contando desde 0 */ }
   }
@@ -2032,6 +2096,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.SOCIAL, (data) => {
       const user = baseUser(data.user);
       const action = (data.action || '').toLowerCase();
+      const dt = socialDisplayType(data);
+      if (dt.includes('unfollow') || action.includes('unfollow')) bumpFollowerCounter(-1, data);
       if (action.includes('follow')) {
         state.stats.follows++;
         broadcast('follow', user);
@@ -2054,6 +2120,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     conn.on(WebcastEvent.FOLLOW, (data) => {
       const user = baseUser(data.user);
+      bumpFollowerCounter(1, data);
       state.stats.follows++;
       broadcast('follow', user);
       triggerSoundAlerts('follow');
@@ -2536,6 +2603,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetAlertaFollow':
         broadcast('alertaFollowReset', {});
         break;
+      case 'testFollowerCounter':
+        broadcast('followerCounter', { count: 1234, nickname: 'PreviewFan', uniqueId: 'previewfan', photo: '', ready: true });
+        break;
+      case 'resetFollowerCounter':
+        resetFollowerCounterFromRoom();
+        break;
       case 'testStreamJoin':
         broadcast('streamJoinTest', {});
         break;
@@ -2575,6 +2648,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() }));
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
     ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));
+    ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
     const caps = currentCaps();
     if (caps) ws.send(JSON.stringify({ type: 'caps', payload: caps }));

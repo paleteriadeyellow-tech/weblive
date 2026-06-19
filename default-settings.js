@@ -298,6 +298,12 @@ export const DEFAULT_SETTINGS = {
     durationSec: 5, scale: 100, g1: '#00ffff', g2: '#7c3aed', g3: '#ff00ff', nameColor: '#ffffff', subColor: '#f8fafc',
     showAvatar: true, showShards: true, showRays: true, showDust: true, enterAnim: 'lift',
   },
+  followerCounter: {
+    variation: 'flip', font: 'exo2', fontSize: 50, lineSpacing: 50, letterSpacing: 50,
+    fontColor: '#dedede', colorMode: 'solid',
+    showFollowersText: true, showProfile: true, showProgressBar: true,
+    showConfetti: false, goalFollowers: 10000, scale: 100,
+  },
   // Streams overlay — Join al live (estilo gamer)
   streamJoin: {
     neon: '#00ff66', durationSec: 4.5, scale: 100, posTop: 30, posLeft: 30, laserSpeed: 2, bgOpacity: 90,

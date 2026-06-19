@@ -160,7 +160,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -228,6 +228,7 @@ const OVERLAY_CAP = {
   '/topalt-rank.html': 'ov_topaltrank',
   '/toplikes.html': 'ov_toplikes', '/topdiamantes.html': 'ov_topdiamantes',
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
+  '/contador-seguidores.html': 'ov_contadorseguidores',
   '/alerta-regalo.html': 'ov_alertaregalo', '/alerta-likes.html': 'ov_alertalikes',
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
   '/top1fire.html': 'ov_top1fire',
@@ -324,7 +325,8 @@ const CAP_LABELS = {
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_toplikes: 'Top likes',
   ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
-  ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_alertaregalo: 'Alerta de regalo',
+  ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_contadorseguidores: 'Contador de seguidores',
+  ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   ov_top1fire: 'Top 1 Donador Fuego',
   // juegos
@@ -340,7 +342,7 @@ const PLAN_FEATURE_ORDER = [
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire',
+  'ov_contadorseguidores', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire',
 ];
 
 function renderPlanView() {
@@ -3462,7 +3464,7 @@ function randomGiftSample() {
 }
 
 const CFG_FONTS = [
-  ['luckiest', 'Luckiest Guy ⭐'], ['bangers', 'Bangers ⭐'], ['lilita', 'Lilita One ⭐'],
+  ['exo2', 'Exo 2'], ['luckiest', 'Luckiest Guy ⭐'], ['bangers', 'Bangers ⭐'], ['lilita', 'Lilita One ⭐'],
   ['titan', 'Titan One ⭐'], ['fredoka', 'Fredoka ⭐'], ['bungee', 'Bungee ⭐'],
   ['rubik', 'Rubik'], ['oswald', 'Oswald'], ['bebas', 'Bebas Neue'], ['montserrat', 'Montserrat'],
   ['poppins', 'Poppins'], ['orbitron', 'Orbitron'], ['inter', 'Inter'], ['system', 'Sistema'],
@@ -3656,6 +3658,17 @@ const STYLE_OVERLAYS = [
     map: { 'tdlcfg-period': 'resetPeriod', 'tdlcfg-rows': 'rows', 'tdlcfg-scale': 'scale', 'tdlcfg-accent': 'accent', 'tdlcfg-font': 'font',
       'tdlcfg-transparent': 'transparent', 'tdlcfg-rainbow': 'nameRainbow', 'tdlcfg-lines': 'lines', 'tdlcfg-shadows': 'shadows' },
     types: { rows: 'int', scale: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'followercounter', settingsKey: 'followerCounter', previewId: 'foc-preview',
+    btnTest: 'foc-test', btnReset: 'foc-reset', btnConfig: 'foc-config',
+    modalId: 'focConfigModal', closeId: 'foccfg-close', saveId: 'foccfg-save',
+    testAction: 'testFollowerCounter', resetAction: 'resetFollowerCounter',
+    map: { 'foccfg-variation': 'variation', 'foccfg-font': 'font', 'foccfg-fontsize': 'fontSize',
+      'foccfg-linespace': 'lineSpacing', 'foccfg-letterspace': 'letterSpacing', 'foccfg-color': 'fontColor',
+      'foccfg-colormode': 'colorMode', 'foccfg-scale': 'scale', 'foccfg-goal': 'goalFollowers', 'foccfg-showtext': 'showFollowersText',
+      'foccfg-showprofile': 'showProfile', 'foccfg-showbar': 'showProgressBar', 'foccfg-confetti': 'showConfetti' },
+    types: { fontSize: 'int', lineSpacing: 'int', letterSpacing: 'int', scale: 'int', goalFollowers: 'int' },
   }),
   setupStyleOverlay({
     kind: 'alertagift', settingsKey: 'alertaGift', previewId: 'agf-preview',

@@ -8,7 +8,7 @@
     'giftVs', 'giftSeq', 'topGift', 'giftCounter', 'topStreak',
     'batallaGifts', 'batallaLikes', 'coinMatch',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topAltRank',
-    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'streamJoin', 'battle',
+    'hypeBar', 'followerCounter', 'alertaGift', 'alertaLikes', 'alertaFollow', 'streamJoin', 'battle',
   ];
 
   function uid(prefix) {

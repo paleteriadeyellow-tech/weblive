@@ -1501,6 +1501,49 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Contador de seguidores -->
+        <div id="focConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>👥 Configurar — Contador de seguidores</h2>
+              <button class="modal-close" id="foccfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">VARIACIÓN (DISEÑO)</label>
+              <select id="foccfg-variation">
+                <option value="flip">Dígitos flip (tarjetas)</option>
+                <option value="classic">Número grande + perfil</option>
+                <option value="arc">Arco de progreso</option>
+                <option value="minimal">Minimal (nombre + total)</option>
+              </select>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">FUENTE</label><select id="foccfg-font" class="cfg-font"></select></div>
+                <div><label class="ml">TAMAÑO DE FUENTE</label><input type="number" id="foccfg-fontsize" min="16" max="120" value="50"></div>
+                <div><label class="ml">ESPACIADO LÍNEAS</label><input type="number" id="foccfg-linespace" min="10" max="100" value="50"></div>
+                <div><label class="ml">ESPACIADO LETRAS</label><input type="number" id="foccfg-letterspace" min="0" max="100" value="50"></div>
+                <div><label class="ml">COLOR DE FUENTE</label><input type="color" id="foccfg-color" value="#dedede"></div>
+                <div>
+                  <label class="ml">ESTILO DE COLOR</label>
+                  <select id="foccfg-colormode">
+                    <option value="solid">Color sólido</option>
+                    <option value="rainbow">Arcoíris</option>
+                    <option value="flow">Arcoíris animado (colores en movimiento)</option>
+                  </select>
+                </div>
+                <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="foccfg-scale" min="60" max="140" value="100"></div>
+                <div><label class="ml">META PROGRESO (arco)</label><input type="number" id="foccfg-goal" min="100" max="99999999" value="10000"></div>
+              </div>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="foccfg-showtext" checked> <span>Texto «Followers»</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="foccfg-showprofile" checked> <span>Mostrar nombre / foto de perfil</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="foccfg-showbar" checked> <span>Barra de progreso (arco)</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="foccfg-confetti"> <span>Confeti al subir</span></label>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="foccfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Alerta de nuevo seguidor -->
         <div id="aflConfigModal" class="modal hidden">
           <div class="modal-box wide">
@@ -2560,6 +2603,28 @@
           <!-- Diseño overlay -->
           <div class="subview" id="sub-diseno">
             <div class="ovpro-grid">
+
+              <!-- Tarjeta PRO: Contador de seguidores -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="foc-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="foc-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="foc-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="foc-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">👥 Contador de seguidores</h3>
+                <p class="ovpro-desc">Contador en tiempo real de seguidores TikTok. Al conectar muestra el total real; sube o baja con cada follow/unfollow. Cuatro diseños en uno.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/contador-seguidores.html">/contador-seguidores.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="foc-preview" src="/contador-seguidores.html?embed=1" title="Vista previa contador de seguidores"></iframe>
+                </div>
+              </div>
 
               <!-- Tarjeta PRO: Alerta de regalo -->
               <div class="ovpro-card">
