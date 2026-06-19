@@ -1231,6 +1231,48 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Top Likes / Diamantes alternado -->
+        <div id="talConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🔄 Configurar — Top Likes / Diamantes</h2>
+              <button class="modal-close" id="talfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">SEGUNDOS ENTRE CAMBIO</label>
+              <input type="number" id="talfg-interval" min="2" max="60" value="3">
+              <label class="ml">PERIODO — LIKES</label>
+              <select id="talfg-period-likes">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <label class="ml">PERIODO — DIAMANTES</label>
+              <select id="talfg-period-diam">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">FILAS (3-15)</label><input type="number" id="talfg-rows" min="3" max="15" value="5"></div>
+                <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="talfg-scale" min="60" max="140" value="100"></div>
+                <div><label class="ml">COLOR NÚM. LIKES</label><input type="color" id="talfg-likes-accent" value="#ffffff"></div>
+                <div><label class="ml">COLOR NÚM. DIAM.</label><input type="color" id="talfg-diam-accent" value="#ffe08a"></div>
+                <div><label class="ml">FONDO FILA</label><input type="color" id="talfg-rowbg" value="#0c1c26"></div>
+              </div>
+              <label class="ml">FUENTE</label>
+              <select id="talfg-font" class="cfg-font"></select>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="talfg-transparent"> <span>Fondo transparente</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="talfg-rainbow" checked> <span>Nombres arcoíris</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="talfg-lines" checked> <span>Líneas separadoras</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="talfg-shadows" checked> <span>Sombras</span></label>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="talfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Top likes (bandas) -->
         <div id="tlkConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -2401,6 +2443,28 @@
           <!-- Rankings overlays -->
           <div class="subview" id="sub-rankings">
             <div class="ovpro-grid">
+
+              <!-- Tarjeta PRO: Top Likes / Diamantes alternado -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="tal-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="tal-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="tal-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="tal-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">🔄 Top Likes / Diamantes</h3>
+                <p class="ovpro-desc">Alterna cada pocos segundos entre el ranking de diamantes (monedas) y el de likes. Mismas tarjetas banda, un solo enlace para OBS.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/topalt-rank.html">/topalt-rank.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="tal-preview" src="/topalt-rank.html?embed=1" title="Vista previa top likes diamantes alternado"></iframe>
+                </div>
+              </div>
 
               <!-- Tarjeta PRO: Top likes (bandas) -->
               <div class="ovpro-card">

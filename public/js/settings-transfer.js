@@ -7,7 +7,7 @@
     'jarron', 'vaquita', 'marranito', 'pelotas', 'roulette', 'topDonor',
     'giftVs', 'giftSeq', 'topGift', 'giftCounter', 'topStreak',
     'batallaGifts', 'batallaLikes', 'coinMatch',
-    'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList',
+    'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topAltRank',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'streamJoin', 'battle',
   ];
 

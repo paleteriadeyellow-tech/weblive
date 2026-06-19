@@ -553,6 +553,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const key = RANK_SETTINGS_KEY[rankId];
       if (obj[key] && obj[key].resetPeriod != null && obj[key].resetPeriod !== prevRankPeriods[rankId]) onRankPeriodChange(rankId);
     }
+    if (obj.topAltRank) {
+      const alt = settings.topAltRank;
+      if (alt.resetPeriodLikes != null) {
+        if (!settings.toplikesRank) settings.toplikesRank = {};
+        if (alt.resetPeriodLikes !== prevRankPeriods.toplikes) {
+          settings.toplikesRank.resetPeriod = alt.resetPeriodLikes;
+          onRankPeriodChange('toplikes');
+        }
+      }
+      if (alt.resetPeriodDiam != null) {
+        if (!settings.topdiamRank) settings.topdiamRank = {};
+        if (alt.resetPeriodDiam !== prevRankPeriods.topdiam) {
+          settings.topdiamRank.resetPeriod = alt.resetPeriodDiam;
+          onRankPeriodChange('topdiam');
+        }
+      }
+    }
     enforceLimits();
     saveSettings();
     broadcast('settings', settings);
@@ -2487,6 +2504,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetRank':
         resetRankAll(data.rank);
+        break;
+      case 'testRankAlt':
+        broadcast('rankAltTest', {});
+        break;
+      case 'resetRankAlt':
+        resetRankAll('toplikes');
+        resetRankAll('topdiam');
         break;
       case 'testHype':
         broadcast('hypeTest', {});

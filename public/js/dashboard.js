@@ -160,7 +160,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -225,6 +225,7 @@ const OVERLAY_CAP = {
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
   '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
+  '/topalt-rank.html': 'ov_topaltrank',
   '/toplikes.html': 'ov_toplikes', '/topdiamantes.html': 'ov_topdiamantes',
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
   '/alerta-regalo.html': 'ov_alertaregalo', '/alerta-likes.html': 'ov_alertalikes',
@@ -320,7 +321,8 @@ const CAP_LABELS = {
   ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)',
   ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
-  ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_toplikes: 'Top likes',
+  ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
+  ov_toplikes: 'Top likes',
   ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
   ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
@@ -337,7 +339,7 @@ const PLAN_FEATURE_ORDER = [
   'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_mari0', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
-  'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
+  'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire',
 ];
 
@@ -1664,6 +1666,10 @@ function onSettings(s) {
   ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire'].forEach((k) => {
     if (settings[k] && settings[k].resetPeriod == null) settings[k].resetPeriod = 'live';
   });
+  if (settings.topAltRank) {
+    if (settings.topAltRank.resetPeriodLikes == null) settings.topAltRank.resetPeriodLikes = 'live';
+    if (settings.topAltRank.resetPeriodDiam == null) settings.topAltRank.resetPeriodDiam = 'live';
+  }
   applyingSettings = true;
   applySettingsToUI();
   applyingSettings = false;
@@ -3509,7 +3515,14 @@ function setupStyleOverlay(o) {
     const el = $(id);
     if (el) { el.oninput = () => pushPreview(buildCfg()); el.onchange = () => pushPreview(buildCfg()); }
   });
-  if ($(o.saveId)) $(o.saveId).onclick = () => { settings[o.settingsKey] = { ...(settings[o.settingsKey] || {}), ...buildCfg() }; saveSettings(); pushPreview(settings[o.settingsKey]); close(); };
+  if ($(o.saveId)) $(o.saveId).onclick = () => {
+    const cfg = { ...(settings[o.settingsKey] || {}), ...buildCfg() };
+    settings[o.settingsKey] = cfg;
+    if (o.onSave) o.onSave(cfg);
+    saveSettings();
+    pushPreview(settings[o.settingsKey]);
+    close();
+  };
   o._push = () => pushPreview();
   return o;
 }
@@ -3590,6 +3603,23 @@ const STYLE_OVERLAYS = [
       'cmcfg-accent': 'accent', 'cmcfg-font': 'font', 'cmcfg-showtitle': 'showTitle', 'cmcfg-showcount': 'showCount',
       'cmcfg-scroll': 'scroll', 'cmcfg-sniper': 'sniper', 'cmcfg-slowcd': 'slowReveal' },
     types: { durationSec: 'int', topN: 'int', startDelaySec: 'int', revealSec: 'int', minBid: 'int', maxParticipants: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'topalt', settingsKey: 'topAltRank', previewId: 'tal-preview',
+    btnTest: 'tal-test', btnReset: 'tal-reset', btnConfig: 'tal-config',
+    modalId: 'talConfigModal', closeId: 'talfg-close', saveId: 'talfg-save',
+    testAction: 'testRankAlt', resetAction: 'resetRankAlt',
+    map: { 'talfg-interval': 'intervalSec', 'talfg-period-likes': 'resetPeriodLikes', 'talfg-period-diam': 'resetPeriodDiam',
+      'talfg-rows': 'rows', 'talfg-scale': 'scale', 'talfg-likes-accent': 'likesAccent', 'talfg-diam-accent': 'diamAccent',
+      'talfg-rowbg': 'rowBg', 'talfg-font': 'font', 'talfg-transparent': 'transparent', 'talfg-rainbow': 'nameRainbow',
+      'talfg-lines': 'lines', 'talfg-shadows': 'shadows' },
+    types: { rows: 'int', scale: 'int', intervalSec: 'int' },
+    onSave: (cfg) => {
+      if (!settings.toplikesRank) settings.toplikesRank = {};
+      if (!settings.topdiamRank) settings.topdiamRank = {};
+      if (cfg.resetPeriodLikes != null) settings.toplikesRank.resetPeriod = cfg.resetPeriodLikes;
+      if (cfg.resetPeriodDiam != null) settings.topdiamRank.resetPeriod = cfg.resetPeriodDiam;
+    },
   }),
   setupStyleOverlay({
     kind: 'toplikes', settingsKey: 'toplikesRank', previewId: 'tlk-preview', rank: 'toplikes',

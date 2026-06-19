@@ -57,6 +57,7 @@ export const CAPABILITIES = {
     { key: 'ov_coinmatch', label: 'Coin Match', path: '/coinmatch.html' },
     { key: 'ov_top1fire', label: 'Top 1 Donador Fuego', path: '/top1fire.html' },
     { key: 'ov_meta', label: 'Barra de meta (Hype)', path: '/meta.html' },
+    { key: 'ov_topaltrank', label: 'Top Likes / Diamantes (alternado)', path: '/topalt-rank.html' },
     { key: 'ov_toplikes', label: 'Top likes', path: '/toplikes.html' },
     { key: 'ov_topdiamantes', label: 'Top diamantes', path: '/topdiamantes.html' },
     { key: 'ov_toplikeslista', label: 'Ranking likes (lista)', path: '/toplikes-lista.html' },

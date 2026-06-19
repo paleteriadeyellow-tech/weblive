@@ -273,6 +273,13 @@ export const DEFAULT_SETTINGS = {
   topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, resetPeriod: 'live' },
   toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, resetPeriod: 'live' },
   topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, resetPeriod: 'live' },
+  // Overlay alternado: Top diamantes ↔ Top likes cada N segundos
+  topAltRank: {
+    rows: 5, scale: 100, font: 'inter', rowBg: '#0c1c26',
+    likesAccent: '#ffffff', diamAccent: '#ffe08a',
+    transparent: false, nameRainbow: true, lines: true, shadows: true,
+    intervalSec: 3, resetPeriodLikes: 'live', resetPeriodDiam: 'live',
+  },
   // Overlay Barra de meta (Hype) — skins: default | meta2 | meta3 | meta4
   hypeBar: {
     skin: 'default', goalKind: 'hype', title: '', meta: 100, whenReach: 'increase', scale: 100,
