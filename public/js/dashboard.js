@@ -2614,11 +2614,17 @@ async function openEmoteModal(target = 'vid') {
   $('emoteModal').classList.remove('hidden');
   const grid = $('emote-grid');
   grid.innerHTML = '<div class="empty">Cargando…</div>';
+  const cached = emoteCatalog.slice();
   try {
-    const res = await fetch('/api/emotes');
+    // En modo relay la conexión TikTok vive en Render: pedir catálogo a la nube.
+    const apiUrl = (relayActive() || desktopRelayOn()) ? '/api/desktop/emotes' : '/api/emotes';
+    const res = await fetch(apiUrl);
     const data = await res.json();
-    emoteCatalog = data.results || [];
-  } catch {}
+    const fresh = data.results || [];
+    emoteCatalog = fresh.length ? fresh : cached;
+  } catch {
+    emoteCatalog = cached;
+  }
   renderEmoteGrid();
 }
 function closeEmoteModal() { $('emoteModal').classList.add('hidden'); }

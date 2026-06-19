@@ -156,10 +156,14 @@ function matchesCommand(command, comment) {
   if (!text) return false;
   return text === cmd || text.split(/\s+/)[0] === cmd;
 }
+function emoteIdFrom(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  return String(obj.emoteId ?? obj.emote_id ?? obj.uuid ?? obj.packageId ?? obj.id ?? '').trim();
+}
 function emoteImageUrl(img) {
   if (!img) return '';
   if (typeof img === 'string') return img;
-  return img.url_list?.[0] || img.urlList?.[0] || img.imageUrl || img.url?.[0] || '';
+  return img.url_list?.[0] || img.urlList?.[0] || img.imageUrl || img.url?.[0] || img.uri || '';
 }
 function currentWeekRange(now = Date.now()) {
   const d = new Date(now);
@@ -1543,30 +1547,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!prev || (!prev.image && url)) {
       emoteCatalog.set(eid, { id: eid, image: url });
       broadcast('emoteCatalog', { results: [...emoteCatalog.values()] });
+      if (!prev) broadcast('log', { level: 'info', text: `🙂 Sticker guardado (#${eid.slice(-6)})` });
     }
   }
 
   // TikTok envía stickers en varios formatos según el conector / tipo de mensaje:
-  // emoteList (EMOTE), emotes[].emote (CHAT protobuf) o emotes[].emoteId (legacy).
+  // emoteList (EMOTE), emotes[].emote (CHAT protobuf), emotes[].emoteId (legacy/simplificado).
   function extractEmotes(data) {
     const out = [];
     const seen = new Set();
-    const add = (emoteId, image) => {
-      const eid = String(emoteId || '').trim();
+    const addRaw = (item) => {
+      if (!item || typeof item !== 'object') return;
+      const eid = emoteIdFrom(item);
       if (!eid || seen.has(eid)) return;
       seen.add(eid);
-      out.push({ emoteId: eid, image: image || null });
+      out.push({ emoteId: eid, image: item.emoteImageUrl || item.image || null });
     };
     if (Array.isArray(data?.emoteList)) {
-      for (const e of data.emoteList) add(e?.emoteId, e?.image);
+      for (const e of data.emoteList) addRaw(e);
     }
     if (Array.isArray(data?.emotes)) {
       for (const se of data.emotes) {
-        if (se?.emoteId) add(se.emoteId, se.emoteImageUrl || se.image);
-        else if (se?.emote) add(se.emote.emoteId, se.emote.image);
+        if (se?.emote) addRaw(se.emote);
+        else addRaw(se);
       }
     }
-    if (!out.length) add(data?.emoteId, data?.image);
+    if (!out.length) addRaw(data);
     return out;
   }
 
