@@ -60,6 +60,11 @@
 .is-desktop .nav .nav-item:nth-child(10) { animation-delay: .49s; }
 .is-desktop .nav .nav-item:nth-child(11) { animation-delay: .54s; }
 .is-desktop .nav .nav-item:nth-child(12) { animation-delay: .59s; }
+.is-desktop .nav .nav-item:nth-child(13) { animation-delay: .64s; }
+.is-desktop .nav .nav-item:nth-child(14) { animation-delay: .69s; }
+.is-desktop .nav .nav-item:nth-child(15) { animation-delay: .74s; }
+.is-desktop .nav .nav-item:nth-child(16) { animation-delay: .79s; }
+.is-desktop .nav .nav-item:nth-child(17) { animation-delay: .84s; }
 
 /* Ítems del menú: deslizamiento y barra activa que crece */
 .is-desktop .nav-item { transition: color .2s, transform .22s cubic-bezier(.22,1,.36,1), background .25s; }
@@ -176,9 +181,9 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
-  overflow: visible;
+  overflow: hidden;
 }
-.brand-wrap { position: relative; }
+.brand-wrap { position: relative; flex-shrink: 0; }
 .brand {
   display: flex; align-items: center; gap: 8px;
   font-size: 19px; font-weight: 700;
@@ -297,7 +302,27 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-.nav { display: flex; flex-direction: column; gap: 9px; padding: 12px 12px; flex: 1; }
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 44, 72, .95) rgba(12, 24, 50, .35);
+}
+.nav::-webkit-scrollbar { width: 7px; }
+.nav::-webkit-scrollbar-track { background: rgba(12, 24, 50, .35); border-radius: 8px; }
+.nav::-webkit-scrollbar-thumb {
+  background: rgba(29, 44, 72, .95);
+  border-radius: 8px;
+  border: 1px solid rgba(12, 24, 50, .5);
+}
+.nav::-webkit-scrollbar-thumb:hover { background: rgba(37, 52, 80, 1); }
 .nav-item {
   position: relative;
   display: flex; align-items: center; gap: 13px;
@@ -340,6 +365,7 @@ body {
   display: flex; align-items: center; gap: 8px;
   padding: 14px 18px; border-top: 1px solid var(--line); color: var(--mut);
   font-size: 13px;
+  flex-shrink: 0;
 }
 
 /* ===================== CONTENT ===================== */
