@@ -3512,6 +3512,12 @@ function pushGiftShowcasePreview(cfg) {
 
 function emptyGshItem() { return { giftId: '', giftName: '', giftImage: '', customText: '' }; }
 
+function refreshGshNotice() {
+  const vis = Math.max(1, Math.min(8, parseInt($('gshcfg-visible')?.value, 10) || 3));
+  if ($('gshcfg-notice-vis')) $('gshcfg-notice-vis').textContent = String(vis);
+  if ($('gshcfg-notice-min')) $('gshcfg-notice-min').textContent = String(vis + 1);
+}
+
 function openGshConfig() {
   const c = settings?.giftShowcase || defaultGiftShowcaseCfg();
   if ($('gshcfg-mode')) $('gshcfg-mode').value = c.displayMode || 'rotate';
@@ -3531,6 +3537,7 @@ function openGshConfig() {
   }));
   if (!gshItemsDraft.length) gshItemsDraft.push(emptyGshItem());
   renderGshRows();
+  refreshGshNotice();
   $('gshConfigModal')?.classList.remove('hidden');
 }
 function closeGshConfig() { $('gshConfigModal')?.classList.add('hidden'); }
@@ -3582,7 +3589,16 @@ function renderGshRows() {
 ['gshcfg-mode', 'gshcfg-visible', 'gshcfg-interval', 'gshcfg-marquee', 'gshcfg-iconsize', 'gshcfg-gap',
   'gshcfg-fontsize', 'gshcfg-stroke', 'gshcfg-color', 'gshcfg-colormode', 'gshcfg-font', 'gshcfg-scale'].forEach((id) => {
   const el = $(id);
-  if (el) { el.oninput = () => pushGiftShowcasePreview(currentGshCfg()); el.onchange = () => pushGiftShowcasePreview(currentGshCfg()); }
+  if (el) {
+    el.oninput = () => {
+      if (id === 'gshcfg-visible') refreshGshNotice();
+      pushGiftShowcasePreview(currentGshCfg());
+    };
+    el.onchange = () => {
+      if (id === 'gshcfg-visible') refreshGshNotice();
+      pushGiftShowcasePreview(currentGshCfg());
+    };
+  }
 });
 if ($('gshcfg-add')) $('gshcfg-add').onclick = () => { gshItemsDraft.push(emptyGshItem()); renderGshRows(); };
 if ($('gshcfg-close')) $('gshcfg-close').onclick = closeGshConfig;
@@ -3596,7 +3612,10 @@ if ($('gshcfg-save')) $('gshcfg-save').onclick = () => {
   closeGshConfig();
 };
 if ($('gsh-test')) {
-  $('gsh-test').onclick = () => { gshToPreview({ type: 'test' }); };
+  $('gsh-test').onclick = () => {
+    pushGiftShowcasePreview(settings?.giftShowcase);
+    requestAnimationFrame(() => gshToPreview({ type: 'test' }));
+  };
   $('gsh-reset').onclick = () => { gshToPreview({ type: 'reset' }); pushGiftShowcasePreview(settings?.giftShowcase); };
   $('gsh-config').onclick = openGshConfig;
 }

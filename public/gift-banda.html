@@ -25,9 +25,11 @@
     .marquee-track { display: flex; width: max-content; animation: gsh-marquee var(--gsh-marquee, 18s) linear infinite; will-change: transform; }
     .marquee-track.is-static { animation: none; transform: none; justify-content: center; width: 100%; }
     .view-marquee.is-static { mask-image: none; display: flex; justify-content: center; }
+    .marquee-track.is-single-scroll { animation: gsh-marquee-single var(--gsh-marquee, 18s) linear infinite; }
     .marquee-copy { display: flex; align-items: flex-end; gap: var(--gsh-gap, 24px); padding-right: var(--gsh-gap, 24px); flex: 0 0 auto; }
 
     @keyframes gsh-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    @keyframes gsh-marquee-single { 0% { transform: translateX(105%); } 100% { transform: translateX(-105%); } }
 
     .gitem { display: flex; flex-direction: column; align-items: center; gap: 8px; width: calc(var(--gsh-icon, 88px) + 20px); flex-shrink: 0; text-align: center; }
     .gitem img { width: var(--gsh-icon, 88px); height: var(--gsh-icon, 88px); object-fit: contain; display: block; filter: drop-shadow(0 8px 18px rgba(0,0,0,.45)); }
@@ -93,6 +95,9 @@
 
     let rotatePage = 0;
     let rotateTimer = null;
+    let motionActive = false;
+
+    function isPreviewEmbed() { return isEmbed && cfg._preview !== false; }
 
     function clamp(n, lo, hi, d) { const x = parseInt(n, 10); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; }
     function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
@@ -194,7 +199,7 @@
       vRot?.classList.add('active');
     }
 
-    function renderMarquee(items, scrolling) {
+    function renderMarquee(items, scrolling, duplicate = true) {
       stopRotate();
       const track = document.getElementById('marquee-track');
       const vRot = document.getElementById('view-rotate');
@@ -203,10 +208,16 @@
       vRot?.classList.remove('active');
       vMar.classList.add('active');
       const copy = buildRowHtml(items);
+      track.classList.remove('is-single-scroll');
       if (scrolling) {
         vMar.classList.remove('is-static');
         track.classList.remove('is-static');
-        track.innerHTML = `<div class="marquee-copy">${copy}</div><div class="marquee-copy">${copy}</div>`;
+        if (duplicate) {
+          track.innerHTML = `<div class="marquee-copy">${copy}</div><div class="marquee-copy">${copy}</div>`;
+        } else {
+          track.classList.add('is-single-scroll');
+          track.innerHTML = `<div class="marquee-copy">${copy}</div>`;
+        }
       } else {
         vMar.classList.add('is-static');
         track.classList.add('is-static');
@@ -221,8 +232,8 @@
     function render() {
       applyStyle();
       let items = normItems(cfg.items);
-      const previewEmbed = isEmbed && cfg._preview !== false;
-      if (!items.length && previewEmbed) items = normItems(DEMO);
+      const previewEmbed = isPreviewEmbed();
+      if (!items.length && motionActive) items = normItems(DEMO);
       const empty = document.getElementById('empty');
       const vRot = document.getElementById('view-rotate');
       const vMar = document.getElementById('view-marquee');
@@ -231,16 +242,18 @@
         vRot.classList.remove('active');
         vMar.classList.remove('active');
         empty.classList.remove('is-hidden');
-        empty.textContent = 'Sin regalos configurados';
+        empty.textContent = previewEmbed && !motionActive ? 'Pulsa Testear para ver la banda' : 'Sin regalos configurados';
         return;
       }
       empty.classList.add('is-hidden');
       const motion = needsMotion(items);
       const useMarquee = cfg.displayMode === 'marquee';
-      if (!motion) {
+      if (previewEmbed && !motionActive) {
+        renderMarquee(items, false);
+      } else if (!motion) {
         renderStatic(items);
       } else if (useMarquee) {
-        renderMarquee(items, true);
+        renderMarquee(items, true, !previewEmbed);
       } else {
         renderRotate(items);
       }
@@ -277,7 +290,12 @@
     ];
 
     function runTest() {
+      motionActive = true;
+      stopRotate();
+      rotatePage = 0;
       if (!normItems(cfg.items).length) mergeCfg({ items: DEMO });
+      const track = document.getElementById('marquee-track');
+      if (track) { track.style.animation = 'none'; void track.offsetWidth; track.style.animation = ''; }
       render();
     }
 
@@ -299,9 +317,9 @@
 
     window.addEventListener('message', (e) => {
       const d = e.data; if (!d || d.kind !== 'giftshowcase') return;
-      if (d.type === 'config') { mergeCfg(d.config); render(); }
+      if (d.type === 'config') { motionActive = false; mergeCfg(d.config); render(); }
       else if (d.type === 'test') runTest();
-      else if (d.type === 'reset') { stopRotate(); rotatePage = 0; render(); }
+      else if (d.type === 'reset') { motionActive = false; stopRotate(); rotatePage = 0; render(); }
     });
 
     window.addEventListener('resize', fitEmbed);

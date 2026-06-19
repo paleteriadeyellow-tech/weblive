@@ -859,6 +859,15 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .gvscfg-grid2 input, .gvscfg-grid2 select { width: 100%; }
 .gvscfg-chkcell { display: flex; align-items: flex-end; }
 .gvscfg-rows { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.gshcfg-notice {
+  display: flex; gap: 12px; align-items: flex-start; margin: 0 0 14px; padding: 12px 14px;
+  border-radius: 12px; border: 1px solid rgba(255, 193, 7, .55);
+  background: linear-gradient(135deg, rgba(255, 193, 7, .18), rgba(255, 107, 0, .1));
+  box-shadow: 0 0 0 1px rgba(255, 193, 7, .15) inset, 0 4px 18px rgba(255, 152, 0, .12);
+}
+.gshcfg-notice-ico { font-size: 22px; line-height: 1.2; flex-shrink: 0; }
+.gshcfg-notice-txt { font-size: 13px; line-height: 1.55; color: #ffe9b8; }
+.gshcfg-notice-txt b { color: #ffc107; }
 .gvs-row { position: relative; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px; background: rgba(255,255,255,.03); }
 .gvs-row-head { font-size: 12px; font-weight: 800; letter-spacing: .04em; margin-bottom: 12px; color: var(--cyan); }
 .gvs-row-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
