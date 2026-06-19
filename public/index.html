@@ -718,54 +718,6 @@
           </div>
         </div>
 
-        <!-- Modal: Configurar Ruleta / sorteo -->
-        <div id="rulConfigModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2>🎡 Configurar — Ruleta / sorteo</h2>
-              <button class="modal-close" id="rulcfg-close">✕</button>
-            </div>
-            <div class="modal-body">
-              <p class="box-sub">Elige cómo entran los participantes. Pulsa <b>Recolectar</b> en la tarjeta para empezar a registrar entradas. Cada usuario cuenta una sola vez.</p>
-
-              <label class="ml">MODO DE ENTRADA</label>
-              <select id="rulcfg-mode">
-                <option value="keyword">Por palabra en el chat</option>
-                <option value="donors">Por donación (regalo)</option>
-              </select>
-
-              <div id="rulcfg-keyword-wrap">
-                <label class="ml">PALABRA CLAVE</label>
-                <input type="text" id="rulcfg-keyword" placeholder="yo" value="yo">
-                <p class="credit">Quien escriba esta palabra en el chat entra al sorteo (ej. «yo», «sorteo», «!participo»).</p>
-              </div>
-
-              <div id="rulcfg-donors-wrap" hidden>
-                <label class="ml">MÍNIMO DE MONEDAS</label>
-                <input type="number" id="rulcfg-mincoins" min="0" value="0">
-                <p class="credit">Quien envíe un regalo de al menos esta cantidad entra al sorteo. Pon 0 para cualquier regalo. <b>A más diamantes donados, más grande es su trozo de la ruleta y más probabilidad de ganar</b> (ej.: 5 diamantes pesa 5× más que 1). Si donan varias veces, se suma.</p>
-              </div>
-
-              <label class="ml">TÍTULO DEL SORTEO</label>
-              <input type="text" id="rulcfg-title" value="SORTEO EN VIVO">
-
-              <div class="jarcfg-colorrow">
-                <div>
-                  <label class="ml">COLOR 1</label>
-                  <input type="color" id="rulcfg-c1" value="#7c4dff">
-                </div>
-                <div>
-                  <label class="ml">COLOR 2</label>
-                  <input type="color" id="rulcfg-c2" value="#00e5ff">
-                </div>
-              </div>
-            </div>
-            <div class="modal-foot">
-              <button class="btn primary" id="rulcfg-save">Guardar para OBS / Live Studio</button>
-            </div>
-          </div>
-        </div>
-
         <!-- Modal: Configurar Top donador -->
         <div id="topConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -2046,33 +1998,6 @@
 
           <!-- Streams overlays -->
           <div class="subview active" id="sub-streams">
-            <!-- Tarjeta PRO: Ruleta / sorteo -->
-            <div class="ovpro-card">
-              <div class="ovpro-top">
-                <div class="ovpro-actions">
-                  <button class="ovpro-btn" id="rul-reset">↺ Reset</button>
-                  <button class="ovpro-btn primary" id="rul-test">▶ Testear</button>
-                  <button class="ovpro-btn" id="rul-config">⚙ Configurar</button>
-                </div>
-                <div class="ovpro-conn" id="rul-conn"><span class="cdot"></span> CONECTADO</div>
-              </div>
-              <h3 class="ovpro-title">🎡 Ruleta / sorteo en vivo</h3>
-              <p class="ovpro-desc">Sorteo con ruleta animada. Recolecta participantes por <b>palabra en el chat</b> (ej. «yo») o por <b>donación</b>. Pulsa <b>Girar</b> para elegir un ganador al azar (1 entrada por persona).</p>
-              <div class="ovpro-urlrow">
-                <code class="ov-url" data-path="/ruleta.html">/ruleta.html</code>
-                <button class="ovpro-copy ov-copy">Copiar enlace</button>
-              </div>
-              <div class="ovpro-actions" style="margin:10px 0 4px;gap:8px;flex-wrap:wrap">
-                <button class="ovpro-btn primary" id="rul-collect">▶ Recolectar</button>
-                <button class="ovpro-btn" id="rul-spin">🎡 Girar ruleta</button>
-                <span class="ovpro-conn" id="rul-count" style="margin-left:auto">0 participantes</span>
-              </div>
-              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-              <div class="ovpro-preview">
-                <iframe id="rul-preview" src="/ruleta.html?embed=1" title="Vista previa ruleta"></iframe>
-              </div>
-            </div>
-
             <!-- Tarjeta PRO: Join al live (gamer) -->
             <div class="ovpro-card">
               <div class="ovpro-top">

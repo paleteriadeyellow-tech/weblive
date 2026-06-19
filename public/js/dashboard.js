@@ -160,7 +160,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -219,7 +219,6 @@ const OVERLAY_CAP = {
   '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
-  '/ruleta.html': 'ov_ruleta',
   '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
@@ -318,7 +317,7 @@ const CAP_LABELS = {
   tab_webhook: 'Webhook y Configuración',
   // overlays
   ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
-  ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_ruleta: 'Ruleta / sorteo', ov_topdonor: 'Top donador semanal',
+  ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
   ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)',
   ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
@@ -339,7 +338,7 @@ const CAP_LABELS = {
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
   'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_mari0', 'game_plantasvszombies',
-  'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
+  'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire',
@@ -837,7 +836,6 @@ function handle(type, p) {
     case 'pointsList': onPointsList(p); break;
     case 'pointsUpdate': onPointsUpdate(p); break;
     case 'pointsTx': onPointsTx(p); break;
-    case 'roulette': onRoulette(p); break;
     case 'spotifyHistory': if (typeof renderSpotifyHistory === 'function') renderSpotifyHistory(p.history || []); break;
     case 'spotifyQueue': break;
     case 'spotifyCommand': break;
@@ -3099,79 +3097,6 @@ function applyJarronUI() {
   $('pelcfg-tint').oninput = () => { $('pelcfg-tint').dataset.cleared = ''; pushPreview(); };
   $('pelcfg-size').oninput = pushPreview;
   $('pelcfg-save').onclick = () => { settings.pelotas = currentCfg(); saveSettings(); closePelConfig(); };
-})();
-
-/* ---- Ruleta / sorteo: tarjeta + modal de configuración ---- */
-let rulCollecting = false;
-function onRoulette(p) {
-  const el = $('rul-count');
-  const btn = $('rul-collect');
-  if (!el) return;
-  rulCollecting = !!(p && p.collecting);
-  el.textContent = (p && p.count ? p.count : 0) + ' participantes';
-  if (btn) {
-    btn.textContent = rulCollecting ? '⏹ Detener' : '▶ Recolectar';
-    btn.classList.toggle('primary', rulCollecting);
-  }
-}
-(function setupRuleta() {
-  if (!$('rul-test')) return;
-  const toPreview = (msg) => $('rul-preview')?.contentWindow?.postMessage({ kind: 'ruleta', ...msg }, '*');
-  // Icono de regalo de muestra para la vista previa (no hay donadores reales).
-  const rulSampleGift = () => (giftCatalog.find((x) => /ros/i.test(x.name)) || giftCatalog[0])?.image || '';
-
-  function syncModeUI() {
-    const mode = $('rulcfg-mode').value;
-    $('rulcfg-keyword-wrap').hidden = mode !== 'keyword';
-    $('rulcfg-donors-wrap').hidden = mode !== 'donors';
-  }
-  function currentCfg() {
-    return {
-      mode: $('rulcfg-mode').value === 'donors' ? 'donors' : 'keyword',
-      keyword: ($('rulcfg-keyword').value || 'yo').trim(),
-      minCoins: Math.max(0, parseInt($('rulcfg-mincoins').value, 10) || 0),
-      title: $('rulcfg-title').value || 'SORTEO EN VIVO',
-      c1: $('rulcfg-c1').value,
-      c2: $('rulcfg-c2').value,
-    };
-  }
-  function pushPreview() { toPreview({ type: 'config', config: currentCfg(), giftImage: rulSampleGift() }); }
-  function openRulConfig() {
-    if (!settings.roulette) settings.roulette = {};
-    const c = settings.roulette;
-    $('rulcfg-mode').value = c.mode === 'donors' ? 'donors' : 'keyword';
-    $('rulcfg-keyword').value = c.keyword || 'yo';
-    $('rulcfg-mincoins').value = c.minCoins != null ? c.minCoins : 0;
-    $('rulcfg-title').value = c.title || 'SORTEO EN VIVO';
-    $('rulcfg-c1').value = /^#/.test(c.c1 || '') ? c.c1 : '#7c4dff';
-    $('rulcfg-c2').value = /^#/.test(c.c2 || '') ? c.c2 : '#00e5ff';
-    syncModeUI();
-    $('rulConfigModal').classList.remove('hidden');
-    pushPreview();
-  }
-  function closeRulConfig() { $('rulConfigModal').classList.add('hidden'); }
-
-  $('rul-test').onclick = () => { toPreview({ type: 'test', giftImage: rulSampleGift() }); send({ action: 'testRoulette' }); };
-  $('rul-reset').onclick = () => {
-    rulCollecting = false;
-    toPreview({ type: 'reset' });
-    send({ action: 'rouletteClear' });
-  };
-  $('rul-collect').onclick = () => {
-    rulCollecting = !rulCollecting;
-    send({ action: 'rouletteCollect', on: rulCollecting });
-  };
-  $('rul-spin').onclick = () => { send({ action: 'rouletteSpin' }); toPreview({ type: 'spin' }); };
-  $('rul-config').onclick = openRulConfig;
-  $('rulcfg-close').onclick = closeRulConfig;
-  $('rulConfigModal').addEventListener('click', (e) => { if (e.target.id === 'rulConfigModal') closeRulConfig(); });
-  $('rulcfg-mode').onchange = () => { syncModeUI(); pushPreview(); };
-  ['rulcfg-keyword', 'rulcfg-mincoins', 'rulcfg-title', 'rulcfg-c1', 'rulcfg-c2'].forEach((id) => {
-    const el = $(id);
-    if (el) { el.oninput = pushPreview; el.onchange = pushPreview; }
-  });
-  $('rulcfg-save').onclick = () => { settings.roulette = currentCfg(); saveSettings(); closeRulConfig(); };
-  send({ action: 'getRoulette' });
 })();
 
 /* ---- Modal: Configurar Top donador ---- */

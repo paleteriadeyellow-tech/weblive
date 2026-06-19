@@ -4,7 +4,7 @@
     'soundAlerts', 'videos', 'battleAlerts', 'actions',
     'tts', 'timer', 'playback', 'points', 'screens',
     'videosEnabled', 'battleAlertsEnabled',
-    'jarron', 'vaquita', 'marranito', 'pelotas', 'roulette', 'topDonor',
+    'jarron', 'vaquita', 'marranito', 'pelotas', 'topDonor',
     'giftVs', 'giftSeq', 'giftShowcase', 'topGift', 'giftCounter', 'topStreak',
     'batallaGifts', 'batallaLikes', 'coinMatch',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topAltRank',

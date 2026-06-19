@@ -37,7 +37,6 @@ export const CAPABILITIES = {
   // El "path" enlaza con el data-path del overlay en el panel.
   overlays: [
     { key: 'ov_joinlive', label: 'Join al live', path: '/join-live.html' },
-    { key: 'ov_ruleta', label: 'Ruleta / sorteo', path: '/ruleta.html' },
     { key: 'ov_alertvideo', label: 'Alertas + Videos', path: '/overlay.html' },
     { key: 'ov_perrito', label: 'Perrito', path: '/perrito.html' },
     { key: 'ov_jarron', label: 'Jarrón', path: '/jarron.html' },

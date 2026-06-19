@@ -151,16 +151,6 @@ export const DEFAULT_SETTINGS = {
     likesEnabled: false,
     likesEvery: 100,
   },
-  // Ruleta / sorteo en vivo. Recoge participantes por donación o por palabra en
-  // el chat y luego gira para elegir un ganador.
-  roulette: {
-    mode: 'keyword',   // 'keyword' | 'donors'
-    keyword: 'yo',     // palabra que da entrada (modo keyword)
-    minCoins: 0,       // mínimo de monedas para entrar (modo donors)
-    title: 'SORTEO EN VIVO',
-    c1: '#7c4dff',
-    c2: '#00e5ff',
-  },
   // Overlay del top donador semanal
   topDonor: {
     c1: '#00e5ff',
