@@ -1250,17 +1250,25 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     emitMemberLevelUp(data, prev, level);
   }
 
-  // Reproduce automáticamente el video de la carpeta «niveles» que coincida con el
-  // nivel alcanzado (nivel5.mp4 → al subir al 5). Independiente de las alertas manuales.
+  // Reproduce automáticamente el video de public/video/niveles (nivelN.webm).
   function playLevelVideo(level) {
     const cfg = settings.levelVideos || {};
     if (cfg.enabled === false) return;
+    const n = Math.max(1, Number(level) || 1);
+    // En Render la carpeta vive en la PC del streamer (.exe): delegamos al relay local.
+    if (process.env.DESKTOP !== '1') {
+      broadcastToLocal('playLevelVideo', { level: n, screen: Number(cfg.screen) || 1, volume: cfg.volume ?? 100 });
+      return;
+    }
     if (typeof getLevelVideo !== 'function') return;
-    const url = getLevelVideo(level);
-    if (!url) return;
+    const url = getLevelVideo(n);
+    if (!url) {
+      broadcast('log', { level: 'warn', text: `⚠️ No hay video para nivel ${n} (nivel${n}.webm en public/video/niveles).` });
+      return;
+    }
     const scr = Number(cfg.screen) || 1;
-    broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${level} reproducido.` });
-    broadcast('media', { id: 'level_' + level, name: `Nivel ${level}`, url, screen: scr, volume: cfg.volume ?? 100, size: screenSize(scr) });
+    broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${n} reproducido.` });
+    broadcast('media', { id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: cfg.volume ?? 100, size: screenSize(scr) });
   }
 
   // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3), 'battleGift',
@@ -2366,6 +2374,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         );
         break;
       }
+      case 'testLevelVideo':
+        playLevelVideo(Math.max(1, Number(data.level) || 1));
+        break;
       case 'stopVideo': {
         const scr = Number(data.screen) || 1;
         broadcast('stopMedia', { screen: scr });

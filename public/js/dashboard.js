@@ -879,6 +879,9 @@ function handle(type, p) {
     case 'caps': setCaps(p); loadPlanComparison(true); break;
     case 'keyAction': onKeyAction(p); break;
     case 'localExec': onLocalExec(p); break;
+    case 'playLevelVideo':
+      if (IS_DESKTOP) testLevelVideoLocal(Number(p?.level) || 1, { quiet: true });
+      break;
     case 'localReady': break; // canal relay listo (no requiere acción en la UI)
     case 'profiles': onProfiles(p); break;
     case 'profilesFull': onProfilesFull(p); break;
@@ -1919,6 +1922,32 @@ $('vid-master').addEventListener('change', () => {
 });
 
 /* ----- Videos automáticos por nivel de miembro (carpeta «niveles») ----- */
+async function testLevelVideoLocal(level, { quiet = false } = {}) {
+  const n = Math.max(1, parseInt(level, 10) || 1);
+  try {
+    const r = await fetch('/api/test-level-video', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level: n }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || !d.ok) {
+      if (d.error === 'no_file') {
+        toast && toast(`No hay nivel${n}.webm en public/video/niveles`, 'warn');
+      } else if (d.error === 'disabled') {
+        toast && toast('Activa «Subió de nivel de miembro» (ON) para probar.', 'warn');
+      } else {
+        toast && toast(d.error || 'No se pudo reproducir el video de prueba.', 'err');
+      }
+      return false;
+    }
+    if (!quiet) toast && toast(`Reproduciendo nivel ${n}…`, 'ok');
+    return true;
+  } catch {
+    toast && toast('No se pudo contactar al servidor local.', 'err');
+    return false;
+  }
+}
 function applyLevelVideosUI() {
   const cfg = settings.levelVideos || (settings.levelVideos = { enabled: true, screen: 1, volume: 100 });
   const en = $('levelvid-enabled');
@@ -1952,8 +1981,7 @@ if ($('levelvid-screen')) {
 if ($('levelvid-test')) {
   $('levelvid-test').addEventListener('click', () => {
     const level = Math.max(1, parseInt($('levelvid-test-level')?.value, 10) || 1);
-    send({ action: 'testLevelUp', level, fromLevel: Math.max(0, level - 1), nickname: 'Prueba' });
-    toast(`Probando subida al nivel ${level}…`, 'ok');
+    testLevelVideoLocal(level);
   });
 }
 
