@@ -1900,8 +1900,16 @@ pre.wh-url { margin: 9px 0 0; }
 .gc-pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .gc-pager-info { font-size: 12px; color: var(--mut); min-width: 120px; text-align: center; }
 .gc-preview-head { font-size: 13px; font-weight: 800; margin: 0 0 12px; color: var(--mut); }
-.gc-preview-img { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; align-items: center; justify-content: center; min-height: 180px; margin-bottom: 12px; }
-.gc-preview-img img { max-width: 100%; max-height: 160px; object-fit: contain; }
+.gc-preview-img { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; align-items: center; justify-content: center; min-height: 180px; margin-bottom: 12px; overflow: hidden; }
+.gc-preview-float { display: flex; align-items: center; justify-content: center; animation: gcFloat 3.2s ease-in-out infinite; will-change: transform; }
+.gc-preview-float img { max-width: 100%; max-height: 160px; object-fit: contain; filter: drop-shadow(0 18px 28px rgba(0,0,0,.55)); }
+@keyframes gcFloat {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg) scale(1); }
+  50% { transform: translateY(-14px) rotate(1.5deg) scale(1.03); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gc-preview-float { animation: none; }
+}
 .gc-preview-name { font-size: 16px; font-weight: 800; margin-bottom: 12px; text-align: center; }
 .gc-preview-meta { margin: 0 0 16px; }
 .gc-preview-meta div { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 13px; }

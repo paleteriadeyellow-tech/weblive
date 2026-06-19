@@ -36,6 +36,23 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 let giftsCache = null;
 let giftsCacheAt = 0;
 const giftsById = new Map(); // id -> { id, name, diamonds, image }
+const giftsCacheByRegion = new Map(); // region -> { results, at }
+
+const GIFT_REGION_PARAMS = {
+  auto: {},
+  MX: { region: 'MX', priority_region: 'MX', app_language: 'es', browser_language: 'es-MX', webcast_language: 'es', tz_name: 'America/Mexico_City' },
+  US: { region: 'US', priority_region: 'US', app_language: 'en', browser_language: 'en-US', webcast_language: 'en', tz_name: 'America/New_York' },
+  ES: { region: 'ES', priority_region: 'ES', app_language: 'es', browser_language: 'es-ES', webcast_language: 'es', tz_name: 'Europe/Madrid' },
+  AR: { region: 'AR', priority_region: 'AR', app_language: 'es', browser_language: 'es-AR', webcast_language: 'es', tz_name: 'America/Buenos_Aires' },
+  CO: { region: 'CO', priority_region: 'CO', app_language: 'es', browser_language: 'es-CO', webcast_language: 'es', tz_name: 'America/Bogota' },
+};
+
+function normalizeGiftRegion(raw) {
+  const r = String(raw || 'auto').trim();
+  if (!r || r.toLowerCase() === 'auto') return 'auto';
+  const up = r.toUpperCase();
+  return GIFT_REGION_PARAMS[up] ? up : 'auto';
+}
 
 // Catálogo FIJO de respaldo (gifts.json), generado desde una PC con catálogo completo.
 // TikTok devuelve regalos distintos según la región/IP del servidor: en Render (datacenter)
@@ -49,9 +66,15 @@ function loadGiftBaseFile() {
   } catch { return []; }
 }
 
-async function loadGiftCatalog(force = false) {
-  if (!force && giftsCache && Date.now() - giftsCacheAt < 6 * 60 * 60 * 1000) {
-    return giftsCache;
+async function loadGiftCatalog(force = false, region = 'auto') {
+  const regionKey = normalizeGiftRegion(region);
+  const cached = giftsCacheByRegion.get(regionKey);
+  if (!force && cached && Date.now() - cached.at < 6 * 60 * 60 * 1000) {
+    if (regionKey === 'auto') {
+      giftsCache = cached.results;
+      giftsCacheAt = cached.at;
+    }
+    return cached.results;
   }
   // Base: catálogo fijo del archivo (el mismo que ve el .exe).
   const merged = new Map();
@@ -60,7 +83,8 @@ async function loadGiftCatalog(force = false) {
   }
   // Fusiona con el catálogo en vivo (añade/actualiza los que TikTok devuelva ahora).
   try {
-    const tmp = new TikTokLiveConnection('tv_asahi_news');
+    const webParams = GIFT_REGION_PARAMS[regionKey] || {};
+    const tmp = new TikTokLiveConnection('tv_asahi_news', { webClientParams: webParams });
     const gifts = await tmp.fetchAvailableGifts();
     for (const g of (Array.isArray(gifts) ? gifts : [])) {
       if (!g || !g.name) continue;
@@ -76,14 +100,18 @@ async function loadGiftCatalog(force = false) {
     if (!merged.size) throw e;
   }
   const results = [...merged.values()].sort((a, b) => a.diamonds - b.diamonds);
-  giftsCache = results;
-  giftsCacheAt = Date.now();
-  giftsById.clear();
-  for (const g of results) giftsById.set(String(g.id), g);
+  const at = Date.now();
+  giftsCacheByRegion.set(regionKey, { results, at });
+  if (regionKey === 'auto') {
+    giftsCache = results;
+    giftsCacheAt = at;
+    giftsById.clear();
+    for (const g of results) giftsById.set(String(g.id), g);
+  }
   return results;
 }
 
-loadGiftCatalog().then((r) => {
+loadGiftCatalog(false, 'auto').then((r) => {
   console.log(`Catálogo de regalos cargado: ${r.length} regalos.`);
 }).catch(() => {
   console.log('Aviso: no se pudo precargar el catálogo de regalos (se reintenta al usarlo).');
@@ -649,10 +677,13 @@ app.get('/api/sounds', async (req, res) => {
 app.get('/api/gifts', async (req, res) => {
   try {
     const force = req.query.force === '1' || req.query.force === 'true';
-    const results = await loadGiftCatalog(force);
-    res.json({ results });
+    const region = normalizeGiftRegion(req.query.region);
+    const results = await loadGiftCatalog(force, region);
+    res.json({ results, region });
   } catch (e) {
-    res.status(502).json({ results: giftsCache || [], error: 'No se pudo cargar el catálogo de regalos.' });
+    const region = normalizeGiftRegion(req.query.region);
+    const fallback = giftsCacheByRegion.get(region)?.results || giftsCache || [];
+    res.status(502).json({ results: fallback, region, error: 'No se pudo cargar el catálogo de regalos.' });
   }
 });
 

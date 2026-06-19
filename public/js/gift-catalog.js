@@ -3,6 +3,7 @@
   'use strict';
 
   const PAGE_SIZE = 56;
+  const DIA_ICON = '💎';
   const REGIONS = [
     { code: 'auto', label: 'Auto (servidor)' },
     { code: 'MX', label: 'MX · México' },
@@ -23,11 +24,11 @@
 
   const DIAMOND_RANGES = [
     { id: 'all', label: 'Todos' },
-    { id: '1-10', label: '1 – 10', min: 1, max: 10 },
-    { id: '11-99', label: '11 – 99', min: 11, max: 99 },
-    { id: '100-499', label: '100 – 499', min: 100, max: 499 },
-    { id: '500-999', label: '500 – 999', min: 500, max: 999 },
-    { id: '1000+', label: '1000+', min: 1000, max: Infinity },
+    { id: '1-10', min: 1, max: 10 },
+    { id: '11-99', min: 11, max: 99 },
+    { id: '100-499', min: 100, max: 499 },
+    { id: '500-999', min: 500, max: 999 },
+    { id: '1000+', min: 1000, max: Infinity },
   ];
 
   let inited = false;
@@ -47,6 +48,21 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
+  function normGift(g) {
+    return {
+      id: g.id,
+      name: g.name,
+      diamonds: Number(g.diamonds) || 0,
+      image: g.image || '',
+    };
+  }
+
+  function diamondRangeLabel(r) {
+    if (r.id === 'all') return 'Todos';
+    if (r.id === '1000+') return `1000+ ${DIA_ICON}`;
+    return `${r.min} ${DIA_ICON} – ${r.max}`;
+  }
+
   function sameOrigin(u) {
     try { return new URL(u, location.href).origin === location.origin; } catch { return false; }
   }
@@ -65,7 +81,8 @@
   function inDiamondRange(g, rangeId) {
     const r = DIAMOND_RANGES.find((x) => x.id === rangeId);
     if (!r || r.id === 'all') return true;
-    return g.diamonds >= r.min && g.diamonds <= r.max;
+    const d = Number(g.diamonds) || 0;
+    return d >= r.min && d <= r.max;
   }
 
   function computeCounts(list) {
@@ -80,14 +97,21 @@
   function applyFilters() {
     const cat = CATEGORIES.find((c) => c.id === state.category) || CATEGORIES[0];
     const q = state.query.trim().toLowerCase();
+    const diamondActive = state.diamonds !== 'all';
+    const categoryActive = !diamondActive && state.category !== 'all';
+
     filtered = allGifts.filter((g) => {
-      if (!cat.test(g)) return false;
-      if (!inDiamondRange(g, state.diamonds)) return false;
+      if (diamondActive) {
+        if (!inDiamondRange(g, state.diamonds)) return false;
+      } else if (categoryActive && !cat.test(g)) {
+        return false;
+      }
       if (!q) return true;
       return g.name.toLowerCase().includes(q)
         || String(g.id).includes(q)
         || String(g.diamonds).includes(q);
     });
+
     const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     if (state.page > pages) state.page = pages;
     if (state.page < 1) state.page = 1;
@@ -104,7 +128,7 @@
     const catBox = $('gc-cats');
     if (!catBox) return;
     catBox.innerHTML = CATEGORIES.map((c) => `
-      <button type="button" class="gc-filter ${state.category === c.id ? 'active' : ''}" data-cat="${c.id}">
+      <button type="button" class="gc-filter ${state.category === c.id && state.diamonds === 'all' ? 'active' : ''}" data-cat="${c.id}">
         <span class="gc-filter-ico">${c.icon}</span>
         <span class="gc-filter-label">${esc(c.label)}</span>
         <span class="gc-filter-count">${catCounts[c.id] ?? 0}</span>
@@ -112,6 +136,7 @@
     catBox.querySelectorAll('[data-cat]').forEach((btn) => {
       btn.onclick = () => {
         state.category = btn.dataset.cat;
+        state.diamonds = 'all';
         state.page = 1;
         renderAll();
       };
@@ -121,11 +146,12 @@
     if (!diaBox) return;
     diaBox.innerHTML = DIAMOND_RANGES.map((r) => `
       <button type="button" class="gc-filter gc-filter-sm ${state.diamonds === r.id ? 'active' : ''}" data-dia="${r.id}">
-        ${esc(r.label)}
+        ${esc(diamondRangeLabel(r))}
       </button>`).join('');
     diaBox.querySelectorAll('[data-dia]').forEach((btn) => {
       btn.onclick = () => {
         state.diamonds = btn.dataset.dia;
+        if (state.diamonds !== 'all') state.category = 'all';
         state.page = 1;
         renderAll();
       };
@@ -167,7 +193,7 @@
         data-id="${g.id}" title="${esc(g.name)} · #${g.id}">
         <img src="${esc(g.image)}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
         <div class="gc-cell-name">${esc(g.name)}</div>
-        <div class="gc-cell-coin">🪙 ${g.diamonds}</div>
+        <div class="gc-cell-coin">${DIA_ICON} ${g.diamonds}</div>
       </button>`).join('');
 
     grid.querySelectorAll('.gc-cell').forEach((cell) => {
@@ -189,17 +215,19 @@
       return;
     }
     const cat = giftCategory(g);
-    const regionLabel = REGIONS.find((r) => r.code === state.region)?.code || 'Auto';
+    const regionLabel = REGIONS.find((r) => r.code === state.region)?.label || 'Auto';
     box.innerHTML = `
       <div class="gc-preview-img">
-        <img id="gc-preview-img" src="${esc(g.image)}" alt="${esc(g.name)}" loading="eager" decoding="async">
+        <div class="gc-preview-float">
+          <img id="gc-preview-img" src="${esc(g.image)}" alt="${esc(g.name)}" loading="eager" decoding="async">
+        </div>
       </div>
       <div class="gc-preview-name">${esc(g.name)}</div>
       <dl class="gc-preview-meta">
         <div><dt>ID</dt><dd>${g.id}</dd></div>
-        <div><dt>Diamantes</dt><dd>🪙 ${g.diamonds}</dd></div>
+        <div><dt>Diamantes</dt><dd>${DIA_ICON} ${g.diamonds}</dd></div>
         <div><dt>Categoría</dt><dd><span class="gc-badge">${esc(cat.label)}</span></dd></div>
-        <div><dt>Región</dt><dd>${esc(regionLabel === 'auto' ? 'Auto' : regionLabel)}</dd></div>
+        <div><dt>Región</dt><dd>${esc(regionLabel)}</dd></div>
       </dl>
       <button type="button" class="btn primary gc-dl" id="gc-dl-btn">⬇ Descargar PNG</button>`;
     $('gc-dl-btn').onclick = () => downloadGiftPng(g);
@@ -294,7 +322,9 @@
       region.onchange = () => {
         state.region = region.value;
         localStorage.setItem('gc-region', state.region);
-        renderPreview(selectedGift());
+        state.page = 1;
+        state.selectedId = null;
+        loadCatalog(false);
       };
     }
 
@@ -305,21 +335,27 @@
     }
   }
 
+  function giftsApiUrl(force) {
+    const q = new URLSearchParams({ region: state.region || 'auto' });
+    if (force) q.set('force', '1');
+    return `/api/gifts?${q.toString()}`;
+  }
+
   async function loadCatalog(force = false) {
     if (loading) return;
     loading = true;
     const status = $('gc-status');
-    if (status) status.textContent = force ? 'Actualizando catálogo…' : 'Cargando regalos…';
+    const regionLabel = REGIONS.find((r) => r.code === state.region)?.label || 'Auto';
+    if (status) status.textContent = force ? `Actualizando (${regionLabel})…` : `Cargando (${regionLabel})…`;
     try {
       let list = [];
-      if (!force && typeof giftCatalog !== 'undefined' && giftCatalog.length) {
+      if (!force && state.region === 'auto' && typeof giftCatalog !== 'undefined' && giftCatalog.length) {
         list = giftCatalog.slice();
       } else {
-        const url = force ? '/api/gifts?force=1' : '/api/gifts';
-        const res = await fetch(url);
+        const res = await fetch(giftsApiUrl(force));
         const data = await res.json();
         list = data.results || [];
-        if (typeof giftCatalog !== 'undefined' && list.length) {
+        if (state.region === 'auto' && typeof giftCatalog !== 'undefined' && list.length) {
           giftCatalog.length = 0;
           giftCatalog.push(...list);
           if (typeof indexGiftCatalog === 'function') indexGiftCatalog();
@@ -327,11 +363,11 @@
       }
       const map = new Map();
       for (const g of list) {
-        if (g && g.name) map.set(String(g.id), { id: g.id, name: g.name, diamonds: g.diamonds || 0, image: g.image || '' });
+        if (g && g.name) map.set(String(g.id), normGift(g));
       }
       allGifts = [...map.values()].sort((a, b) => a.diamonds - b.diamonds || a.name.localeCompare(b.name));
       catCounts = computeCounts(allGifts);
-      if (status) status.textContent = `${allGifts.length} regalos`;
+      if (status) status.textContent = `${allGifts.length} regalos · ${regionLabel}`;
       state.page = 1;
       renderAll();
     } catch {
