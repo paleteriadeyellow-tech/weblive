@@ -646,12 +646,32 @@ app.get('/api/sounds', async (req, res) => {
   }
 });
 
-app.get('/api/gifts', async (_req, res) => {
+app.get('/api/gifts', async (req, res) => {
   try {
-    const results = await loadGiftCatalog();
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const results = await loadGiftCatalog(force);
     res.json({ results });
   } catch (e) {
     res.status(502).json({ results: giftsCache || [], error: 'No se pudo cargar el catálogo de regalos.' });
+  }
+});
+
+// Proxy de imágenes externas (CDN de regalos TikTok) para descargar PNG sin CORS.
+app.get('/api/img-proxy', async (req, res) => {
+  try {
+    const url = String(req.query.url || '');
+    if (!/^https?:\/\//i.test(url)) return res.status(400).end('bad url');
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.tiktok.com/' } });
+    if (!r.ok) return res.status(502).end('upstream error');
+    const ct = r.headers.get('content-type') || 'image/png';
+    if (!/^image\//i.test(ct)) return res.status(415).end('not an image');
+    const buf = Buffer.from(await r.arrayBuffer());
+    res.set('Content-Type', ct);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.end(buf);
+  } catch {
+    res.status(502).end('proxy error');
   }
 });
 

@@ -918,6 +918,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     $(`view-${btn.dataset.view}`).classList.add('active');
     if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
+    if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
