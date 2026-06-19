@@ -172,6 +172,12 @@ function currentWeekRange(now = Date.now()) {
   const end = start + 7 * 86400000;
   return [start, end];
 }
+function currentMonthRange(now = Date.now()) {
+  const d = new Date(now);
+  const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 1, 0, 0, 0, 0).getTime();
+  return [start, end];
+}
 // Busca el multiplicador del golpe crítico (x2/x3) en cualquier parte de un mensaje PK.
 function scanMultiplier(obj, depth, acc) {
   if (!obj || typeof obj !== 'object' || depth > 6) return;
@@ -237,6 +243,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
+  const TOP1FIRE_FILE = path.join(dataDir, 'top1fire.json');
   const POINTS_FILE = path.join(dataDir, 'points.json');
   const SESSION_FILE = path.join(dataDir, 'session.json');
   // Perfiles: 10 ranuras, cada una guarda una configuración COMPLETA. El perfil activo
@@ -262,6 +269,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const timer = { remaining: 0, running: false };
   let timerInterval = null;
   const weekly = { start: 0, end: 0, donors: new Map() };
+  const top1fire = { start: 0, end: 0, period: 'live', donors: new Map() };
+  const top1fireSession = new Map();
+  let top1fireSaveTimer = null;
+  let lastTop1FirePeriod = null;
   // Usuario y Puntos: balance acumulado (de por vida) por usuario + historial de transacciones.
   const points = new Map();          // uniqueId -> { uniqueId, nickname, photo, total, levelPoints, firstAt, lastAt }
   let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
@@ -366,6 +377,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let profiles = loadProfiles();
   let settings = loadSettings();
   loadWeekly();
+  loadTop1Fire();
   loadPoints();
   timer.remaining = Math.max(0, Math.floor(settings.timer?.defaultInitialSec || 0));
   // Recuerda el último @usuario de TikTok conectado (queda guardado en los ajustes, así
@@ -469,6 +481,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     settings = loadSettings();
     writeJsonAtomic(SETTINGS_FILE, settings);
     enforceLimits();
+    loadTop1Fire();
+    broadcastTop1Fire();
     broadcast('settings', settings);
     broadcastProfiles();
     clampTimer();
@@ -520,7 +534,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // viene del panel del usuario (fromUser), avisa para sincronizarlo con el remoto.
   function applyIncomingSettings(obj, fromUser) {
     if (!obj) return;
+    const prevPeriod = settings.top1fire?.resetPeriod;
     settings = deepMerge(settings, obj);
+    if (obj.top1fire && obj.top1fire.resetPeriod !== prevPeriod) onTop1FireSettingsChange();
     enforceLimits();
     saveSettings();
     broadcast('settings', settings);
@@ -708,6 +724,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('topStreakReset', {});
     // Top 1 donador (MVP de la sesión)
     broadcast('top1Reset', {});
+    resetTop1FireSession();
     // Contador de meta (gift counter) vuelve a 0
     resetGiftCounter();
     // Batallas de ranking (regalos / likes)
@@ -1412,6 +1429,124 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('weeklyTop', serializeWeeklyTop());
   }
 
+  /* ------------------------- Top 1 Donador Fuego ------------------------- */
+  function getTop1FirePeriod() {
+    const p = settings.top1fire?.resetPeriod;
+    return p === 'week' || p === 'month' ? p : 'live';
+  }
+  function loadTop1Fire() {
+    const period = getTop1FirePeriod();
+    lastTop1FirePeriod = period;
+    if (period === 'live') {
+      top1fireSession.clear();
+      return;
+    }
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    const r = readJsonSafe(TOP1FIRE_FILE);
+    const raw = r.data;
+    if (raw && raw.period === period && raw.start === start) {
+      top1fire.period = period;
+      top1fire.start = start;
+      top1fire.end = end;
+      top1fire.donors = new Map((raw.donors || []).map((u) => [u.uniqueId, u]));
+      return;
+    }
+    top1fire.period = period;
+    top1fire.start = start;
+    top1fire.end = end;
+    top1fire.donors = new Map();
+  }
+  function saveTop1Fire() {
+    if (getTop1FirePeriod() === 'live') return;
+    clearTimeout(top1fireSaveTimer);
+    top1fireSaveTimer = setTimeout(() => {
+      const data = {
+        period: top1fire.period,
+        start: top1fire.start,
+        end: top1fire.end,
+        donors: [...top1fire.donors.values()],
+      };
+      writeJsonAtomic(TOP1FIRE_FILE, data);
+    }, 400);
+  }
+  function ensureTop1FirePeriod() {
+    const period = getTop1FirePeriod();
+    if (period === 'live') return;
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    if (period !== top1fire.period || start !== top1fire.start) {
+      top1fire.period = period;
+      top1fire.start = start;
+      top1fire.end = end;
+      top1fire.donors.clear();
+      saveTop1Fire();
+      broadcastTop1Fire();
+    }
+  }
+  function onTop1FireSettingsChange() {
+    const period = getTop1FirePeriod();
+    if (period === lastTop1FirePeriod) return;
+    lastTop1FirePeriod = period;
+    top1fireSession.clear();
+    loadTop1Fire();
+    broadcastTop1Fire();
+  }
+  function addTop1FireDonation(user, coins) {
+    if (!user?.uniqueId || !(coins > 0)) return;
+    const period = getTop1FirePeriod();
+    if (period === 'live') {
+      const u = top1fireSession.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, coins: 0 };
+      u.coins += coins;
+      u.nickname = user.nickname || u.nickname;
+      if (user.photo) u.photo = user.photo;
+      top1fireSession.set(user.uniqueId, u);
+      broadcastTop1Fire();
+      return;
+    }
+    ensureTop1FirePeriod();
+    const u = top1fire.donors.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, coins: 0 };
+    u.coins += coins;
+    u.nickname = user.nickname || u.nickname;
+    if (user.photo) u.photo = user.photo;
+    top1fire.donors.set(user.uniqueId, u);
+    saveTop1Fire();
+    broadcastTop1Fire();
+  }
+  function serializeTop1Fire() {
+    const period = getTop1FirePeriod();
+    let donors;
+    if (period === 'live') {
+      donors = [...top1fireSession.values()];
+    } else {
+      ensureTop1FirePeriod();
+      donors = [...top1fire.donors.values()];
+    }
+    const sorted = donors.sort((a, b) => b.coins - a.coins);
+    const top = sorted[0] || null;
+    return {
+      top: top ? { uniqueId: top.uniqueId, nickname: top.nickname, profilePictureUrl: top.photo, coins: top.coins } : null,
+      period,
+      periodStart: period === 'live' ? 0 : top1fire.start,
+      periodEnd: period === 'live' ? 0 : top1fire.end,
+      now: Date.now(),
+    };
+  }
+  function broadcastTop1Fire() {
+    broadcast('top1fire', serializeTop1Fire());
+  }
+  function resetTop1FireSession() {
+    if (getTop1FirePeriod() !== 'live') return;
+    top1fireSession.clear();
+    broadcast('top1fireReset', {});
+    broadcastTop1Fire();
+  }
+  function resetTop1FireAll() {
+    top1fireSession.clear();
+    top1fire.donors.clear();
+    if (getTop1FirePeriod() !== 'live') saveTop1Fire();
+    broadcast('top1fireReset', {});
+    broadcastTop1Fire();
+  }
+
   /* ------------------------- Usuario y Puntos ------------------------- */
   // El nivel se alcanza con una curva triangular: el nivel L se logra al acumular
   // STEP * L*(L-1)/2 puntos (cada nivel cuesta un poco más que el anterior).
@@ -1653,6 +1788,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           state.gifters.set(user.uniqueId, g);
         }
         addWeeklyDonation(user, total);
+        addTop1FireDonation(user, total);
         // Usuario y Puntos: acumula los puntos donados de por vida (configurable: puntos por moneda).
         if (user.uniqueId && total > 0) {
           const perCoin = Number(settings.points?.perCoin);
@@ -2144,6 +2280,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetTop1':
         broadcast('top1Reset', {});
         break;
+      case 'testTop1Fire':
+        broadcast('top1fireTest', {});
+        break;
+      case 'resetTop1Fire':
+        resetTop1FireAll();
+        break;
       case 'testWins':
         broadcast('winsTest', {});
         break;
@@ -2248,6 +2390,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
+    ws.send(JSON.stringify({ type: 'top1fire', payload: serializeTop1Fire() }));
     ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() }));
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
     ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));

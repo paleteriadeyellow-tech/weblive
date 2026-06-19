@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overlay — Top 1 Donador Fuego</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Cinzel:wght@700;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
+
+* { box-sizing: border-box; }
+html, body {
+    background: transparent;
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    width: 850px;
+    height: 520px;
+}
+html.embed, html.embed body { width: 100%; height: 100%; }
+html.embed body { display: flex; align-items: center; justify-content: center; }
+html.embed .stage { transform: scale(var(--fit, 1)); transform-origin: center center; }
+
+:root {
+    --hc1: #ff6b35;
+    --hc2: #ff4500;
+    --hc3: #ffd700;
+    --ng1: #fff8f0;
+    --ng2: #ffb347;
+    --ng3: #ff4500;
+    --vc: #ffe8d6;
+    --vs: rgba(42, 10, 0, 0.9);
+    --cc: #ffd700;
+    --fc1: #fff4a3;
+    --fc2: #ff8c00;
+    --fc3: #ff2200;
+    --rc1: #3d1500;
+    --rc2: #1a0800;
+    --tf-font-stack: 'Inter', system-ui, sans-serif;
+    --tf-name-font-stack: 'Cinzel', 'Inter', serif;
+}
+
+.stage {
+    width: 850px;
+    height: 520px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 20px 24px;
+}
+
+.mvp-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    max-width: 92%;
+}
+
+.mvp-header .crown-inline {
+    font-size: 30px;
+    flex-shrink: 0;
+    line-height: 1;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.55));
+}
+
+.mvp-header-title {
+    margin: 0;
+    font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif);
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    text-align: center;
+}
+
+.mvp-header-title--rainbow {
+    background: linear-gradient(92deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #e040fb, #ff1744);
+    background-size: 300% 100%;
+    animation: title-rainbow 4.5s linear infinite;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.5));
+}
+
+.mvp-header-title--gradient {
+    background: linear-gradient(100deg, var(--hc1), var(--hc2), var(--hc3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45));
+}
+
+@keyframes title-rainbow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+
+body.no-header .mvp-header { display: none; }
+
+.top-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 260px;
+}
+
+.orbit-stage {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.crown-wrap {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 15;
+    font-size: 44px;
+    line-height: 1;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)) drop-shadow(0 0 12px rgba(255, 140, 0, 0.85));
+    animation: crown-float 3s ease-in-out infinite;
+}
+
+body.no-crown .crown-wrap { display: none; }
+
+@keyframes crown-float {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-3px); }
+}
+
+.portrait-stack {
+    position: relative;
+    z-index: 5;
+    width: 128px;
+    height: 128px;
+    margin-top: 18px;
+}
+
+/* --- Efecto fuego alrededor del círculo --- */
+.fire-wrap {
+    position: absolute;
+    inset: -32px;
+    border-radius: 50%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+body.no-fx .fire-wrap { opacity: 0.25; filter: grayscale(0.4); }
+
+.fire-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, transparent 42%, var(--fc2) 55%, var(--fc3) 68%, transparent 78%);
+    filter: blur(14px);
+    opacity: 0.85;
+    animation: fire-glow-pulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes fire-glow-pulse {
+    0% { opacity: 0.65; transform: scale(0.96); }
+    100% { opacity: 1; transform: scale(1.04); }
+}
+
+.fire-ring {
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 0deg,
+        var(--fc3),
+        var(--fc2),
+        var(--fc1),
+        var(--fc2),
+        var(--fc3),
+        var(--fc1),
+        var(--fc2),
+        var(--fc3)
+    );
+    filter: blur(6px);
+    animation: fire-spin 3s linear infinite;
+    opacity: 0.9;
+}
+
+body.no-fx .fire-ring { animation: none; }
+
+@keyframes fire-spin {
+    to { transform: rotate(360deg); }
+}
+
+.flame {
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    width: 22px;
+    height: 46px;
+    margin-left: -11px;
+    transform-origin: 50% 100%;
+    background: linear-gradient(to top, var(--fc3) 0%, var(--fc2) 45%, var(--fc1) 85%, rgba(255,255,255,0.7) 100%);
+    border-radius: 50% 50% 35% 35%;
+    filter: blur(0.5px) drop-shadow(0 0 8px var(--fc2));
+    animation: flame-dance 0.9s ease-in-out infinite alternate;
+    opacity: 0.92;
+}
+
+body.no-fx .flame { display: none; }
+
+.flame.f1  { transform: rotate(0deg)   translateY(-72px); animation-delay: 0s; }
+.flame.f2  { transform: rotate(45deg)  translateY(-72px); animation-delay: -0.15s; height: 40px; width: 18px; margin-left: -9px; }
+.flame.f3  { transform: rotate(90deg)  translateY(-72px); animation-delay: -0.3s; }
+.flame.f4  { transform: rotate(135deg) translateY(-72px); animation-delay: -0.45s; height: 38px; }
+.flame.f5  { transform: rotate(180deg) translateY(-72px); animation-delay: -0.6s; }
+.flame.f6  { transform: rotate(225deg) translateY(-72px); animation-delay: -0.75s; height: 42px; width: 20px; margin-left: -10px; }
+.flame.f7  { transform: rotate(270deg) translateY(-72px); animation-delay: -0.2s; }
+.flame.f8  { transform: rotate(315deg) translateY(-72px); animation-delay: -0.55s; height: 36px; }
+
+@keyframes flame-dance {
+    0% { opacity: 0.75; filter: blur(0.5px) drop-shadow(0 0 6px var(--fc2)); }
+    100% { opacity: 1; filter: blur(1px) drop-shadow(0 0 14px var(--fc1)); }
+}
+
+.ember {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--fc1);
+    box-shadow: 0 0 8px var(--fc2), 0 0 14px var(--fc3);
+    animation: ember-rise 2.2s ease-out infinite;
+    pointer-events: none;
+    z-index: 7;
+}
+
+body.no-fx .ember { display: none; }
+
+.ember.e1 { top: 20%; left: 18%; animation-delay: 0s; }
+.ember.e2 { top: 12%; right: 20%; animation-delay: 0.7s; width: 5px; height: 5px; }
+.ember.e3 { bottom: 22%; left: 10%; animation-delay: 1.1s; }
+.ember.e4 { bottom: 16%; right: 12%; animation-delay: 0.4s; width: 4px; height: 4px; }
+.ember.e5 { top: 44%; left: 4%; animation-delay: 1.6s; }
+.ember.e6 { top: 40%; right: 6%; animation-delay: 0.9s; }
+
+@keyframes ember-rise {
+    0% { opacity: 0; transform: translateY(0) scale(0.5); }
+    20% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-28px) scale(0.2); }
+}
+
+.fire-ring-inner {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    padding: 5px;
+    z-index: 3;
+    background: linear-gradient(145deg, var(--rc1) 0%, var(--rc2) 50%, var(--rc1) 100%);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.7),
+        0 4px 16px rgba(0, 0, 0, 0.5),
+        inset 0 2px 6px rgba(255, 120, 40, 0.25),
+        0 0 28px rgba(255, 100, 0, 0.45),
+        0 0 48px rgba(255, 50, 0, 0.25);
+    animation: fire-ring-flicker 1.1s ease-in-out infinite alternate;
+}
+
+body.no-fx .fire-ring-inner { animation: none; }
+
+@keyframes fire-ring-flicker {
+    0% { box-shadow: 0 0 0 1px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.5), inset 0 2px 6px rgba(255,120,40,0.2), 0 0 24px rgba(255,100,0,0.4); }
+    100% { box-shadow: 0 0 0 1px rgba(0,0,0,0.7), 0 4px 20px rgba(0,0,0,0.55), inset 0 2px 8px rgba(255,160,60,0.35), 0 0 40px rgba(255,140,0,0.65), 0 0 60px rgba(255,60,0,0.35); }
+}
+
+.avatar-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #1a0800;
+    border: 2px solid rgba(60, 20, 0, 0.95);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.7);
+}
+
+.avatar-inner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.spark {
+    position: absolute;
+    z-index: 8;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px var(--fc2));
+    animation: spark-twinkle 1.6s ease-in-out infinite;
+    pointer-events: none;
+}
+
+body.no-fx .spark { display: none; }
+
+.spark.sa { top: 8%; left: 12%; animation-delay: 0s; }
+.spark.sb { top: 22%; right: 6%; animation-delay: 0.3s; }
+.spark.sc { bottom: 18%; left: 8%; animation-delay: 0.6s; }
+.spark.sd { bottom: 12%; right: 14%; animation-delay: 0.15s; }
+
+@keyframes spark-twinkle {
+    0%, 100% { opacity: 0.35; transform: scale(0.45); }
+    50% { opacity: 1; transform: scale(0.95); }
+}
+
+.nombre {
+    margin-top: 14px;
+    font-family: var(--tf-name-font-stack, 'Cinzel', 'Inter', serif);
+    font-weight: 900;
+    font-size: 17px;
+    letter-spacing: 0.04em;
+    text-align: center;
+    max-width: 240px;
+    line-height: 1.2;
+    background: linear-gradient(180deg, var(--ng1) 0%, var(--ng2) 45%, var(--ng3) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.95)) drop-shadow(0 0 12px rgba(255, 100, 0, 0.45));
+    word-break: break-word;
+}
+
+.monedas {
+    margin-top: 8px;
+    color: var(--vc);
+    font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif);
+    font-weight: 800;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    text-shadow: 0 2px 0 var(--vs), 0 2px 6px rgba(0,0,0,0.9), 0 0 14px rgba(255, 120, 40, 0.35);
+}
+
+.moneda {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="stage">
+    <header class="mvp-header" id="mvp-header">
+        <div class="crown-inline" aria-hidden="true">👑</div>
+        <h1 class="mvp-header-title mvp-header-title--gradient" id="mvp-header-title">MVP: Top 1 Donador</h1>
+    </header>
+
+    <div class="top-wrap">
+        <div class="orbit-stage" aria-hidden="true">
+            <div class="ember e1"></div>
+            <div class="ember e2"></div>
+            <div class="ember e3"></div>
+            <div class="ember e4"></div>
+            <div class="ember e5"></div>
+            <div class="ember e6"></div>
+            <div class="spark sa"></div>
+            <div class="spark sb"></div>
+            <div class="spark sc"></div>
+            <div class="spark sd"></div>
+
+            <div class="portrait-stack">
+                <div class="fire-wrap">
+                    <div class="fire-glow"></div>
+                    <div class="fire-ring"></div>
+                    <div class="flame f1"></div>
+                    <div class="flame f2"></div>
+                    <div class="flame f3"></div>
+                    <div class="flame f4"></div>
+                    <div class="flame f5"></div>
+                    <div class="flame f6"></div>
+                    <div class="flame f7"></div>
+                    <div class="flame f8"></div>
+                </div>
+                <div class="fire-ring-inner">
+                    <div class="avatar-inner">
+                        <img id="avatar" alt="">
+                    </div>
+                </div>
+                <div class="crown-wrap" aria-hidden="true">👑</div>
+            </div>
+        </div>
+
+        <div class="nombre" id="nombre">Esperando...</div>
+        <div class="monedas" id="monedas"><span id="monedas-inner"></span></div>
+    </div>
+</div>
+
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  const DEFAULT_PIC = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+  const PREVIEW_PIC = 'https://randomuser.me/api/portraits/men/32.jpg';
+  const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+
+  let cfg = {
+    headerTitle: 'MVP: Top 1 Donador',
+    headerRainbow: false,
+    hc1: '#ff6b35', hc2: '#ff4500', hc3: '#ffd700',
+    ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
+    valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
+    fc1: '#fff4a3', fc2: '#ff8c00', fc3: '#ff2200',
+    rc1: '#3d1500', rc2: '#1a0800',
+    coinLabel: '', font: 'inter', showHeader: true, showCrown: true, showFx: true,
+    resetPeriod: 'live',
+  };
+  let topData = null;
+  let previewMode = false;
+
+  const $ = (id) => document.getElementById(id);
+
+  function applyStyle() {
+    const root = document.documentElement;
+    const stack = FONTS[cfg.font] || FONTS.inter;
+    root.style.setProperty('--tf-font-stack', stack);
+    root.style.setProperty('--tf-name-font-stack', stack);
+    root.style.setProperty('--hc1', cfg.hc1);
+    root.style.setProperty('--hc2', cfg.hc2);
+    root.style.setProperty('--hc3', cfg.hc3);
+    root.style.setProperty('--ng1', cfg.ng1);
+    root.style.setProperty('--ng2', cfg.ng2);
+    root.style.setProperty('--ng3', cfg.ng3);
+    root.style.setProperty('--vc', cfg.valueColor);
+    root.style.setProperty('--vs', cfg.valueStroke);
+    root.style.setProperty('--cc', cfg.coinColor);
+    root.style.setProperty('--fc1', cfg.fc1);
+    root.style.setProperty('--fc2', cfg.fc2);
+    root.style.setProperty('--fc3', cfg.fc3);
+    root.style.setProperty('--rc1', cfg.rc1);
+    root.style.setProperty('--rc2', cfg.rc2);
+
+    const ht = $('mvp-header-title');
+    ht.textContent = cfg.headerTitle || 'MVP: Top 1 Donador';
+    ht.classList.toggle('mvp-header-title--rainbow', !!cfg.headerRainbow);
+    ht.classList.toggle('mvp-header-title--gradient', !cfg.headerRainbow);
+
+    document.body.classList.toggle('no-header', cfg.showHeader === false);
+    document.body.classList.toggle('no-crown', cfg.showCrown === false);
+    document.body.classList.toggle('no-fx', cfg.showFx === false);
+  }
+
+  function coinSvg() {
+    const c = /^#[0-9a-fA-F]{6}$/.test(cfg.coinColor || '') ? cfg.coinColor : '#ffd700';
+    return '<svg class="moneda" viewBox="0 0 24 24" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="11" fill="' + c + '"/>' +
+      '<circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/>' +
+      '</svg>';
+  }
+
+  function render() {
+    const label = (cfg.coinLabel || '').trim();
+    const suffix = label ? ' ' + label : '';
+    const inner = $('monedas-inner');
+    const img = $('avatar');
+    const top = previewMode
+      ? { nickname: 'Top Preview', profilePictureUrl: PREVIEW_PIC, coins: 9999 }
+      : topData;
+
+    if (!top) {
+      $('nombre').textContent = 'Esperando...';
+      inner.innerHTML = coinSvg() + ' <span>0' + suffix + '</span>';
+      img.onerror = null;
+      img.src = DEFAULT_PIC;
+      return;
+    }
+    $('nombre').textContent = (top.nickname || 'Usuario').replace(/^@+/, '');
+    img.onerror = function () { this.onerror = null; this.src = DEFAULT_PIC; };
+    img.src = top.profilePictureUrl || top.photo || DEFAULT_PIC;
+    inner.innerHTML = coinSvg() + ' <span>' + (top.coins || 0).toLocaleString('es-ES') + suffix + '</span>';
+  }
+
+  function applyTop1Fire(payload) {
+    if (previewMode) return;
+    topData = payload && payload.top ? payload.top : null;
+    render();
+  }
+
+  function runTest() {
+    previewMode = true;
+    render();
+  }
+  function resetTop() {
+    previewMode = false;
+    topData = null;
+    render();
+  }
+
+  let ws, rt;
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings') {
+        if (m.payload && m.payload.top1fire) {
+          cfg = Object.assign(cfg, m.payload.top1fire);
+          applyStyle();
+          render();
+        }
+      } else if (m.type === 'top1fire') {
+        applyTop1Fire(m.payload);
+      } else if (m.type === 'top1fireTest') {
+        if (!isEmbed) runTest();
+      } else if (m.type === 'top1fireReset') {
+        if (!isEmbed) resetTop();
+      }
+    };
+  }
+
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.kind !== 'top1fire') return;
+    if (d.type === 'config') { cfg = Object.assign(cfg, d.config); applyStyle(); render(); }
+    else if (d.type === 'test') runTest();
+    else if (d.type === 'reset') { previewMode = false; isEmbed ? runTest() : resetTop(); }
+  });
+
+  if (isEmbed) {
+    document.documentElement.classList.add('embed');
+    const fit = () => document.documentElement.style.setProperty('--fit', Math.min(window.innerWidth / 850, window.innerHeight / 520));
+    fit();
+    window.addEventListener('resize', fit);
+  }
+
+  applyStyle();
+  if (isEmbed) runTest(); else render();
+  connectWS();
+})();
+</script>
+</body>
+</html>

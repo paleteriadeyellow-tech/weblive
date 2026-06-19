@@ -160,7 +160,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'rul-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -229,6 +229,7 @@ const OVERLAY_CAP = {
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
   '/alerta-regalo.html': 'ov_alertaregalo', '/alerta-likes.html': 'ov_alertalikes',
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
+  '/top1fire.html': 'ov_top1fire',
 };
 // Mapa pestaña (data-view) -> clave de capacidad.
 const TAB_CAP = {
@@ -323,6 +324,7 @@ const CAP_LABELS = {
   ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
   ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
+  ov_top1fire: 'Top 1 Donador Fuego',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
@@ -336,7 +338,7 @@ const PLAN_FEATURE_ORDER = [
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer',
+  'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire',
 ];
 
 function renderPlanView() {
@@ -3528,6 +3530,18 @@ const STYLE_OVERLAYS = [
       'top1cfg-hc1': 'hc1', 'top1cfg-hc2': 'hc2', 'top1cfg-hc3': 'hc3',
       'top1cfg-ng1': 'ng1', 'top1cfg-ng2': 'ng2', 'top1cfg-ng3': 'ng3',
       'top1cfg-valuecolor': 'valueColor', 'top1cfg-valuestroke': 'valueStroke', 'top1cfg-coincolor': 'coinColor' },
+  }),
+  setupStyleOverlay({
+    kind: 'top1fire', settingsKey: 'top1fire', previewId: 'top1fire-preview',
+    btnTest: 'top1fire-test', btnReset: 'top1fire-reset', btnConfig: 'top1fire-config',
+    modalId: 'top1fireConfigModal', closeId: 'top1fcfg-close', saveId: 'top1fcfg-save',
+    testAction: 'testTop1Fire', resetAction: 'resetTop1Fire',
+    map: { 'top1fcfg-period': 'resetPeriod', 'top1fcfg-title': 'headerTitle', 'top1fcfg-coinlabel': 'coinLabel', 'top1fcfg-font': 'font', 'top1fcfg-rainbow': 'headerRainbow',
+      'top1fcfg-showheader': 'showHeader', 'top1fcfg-showcrown': 'showCrown', 'top1fcfg-showfx': 'showFx',
+      'top1fcfg-hc1': 'hc1', 'top1fcfg-hc2': 'hc2', 'top1fcfg-hc3': 'hc3',
+      'top1fcfg-ng1': 'ng1', 'top1fcfg-ng2': 'ng2', 'top1fcfg-ng3': 'ng3',
+      'top1fcfg-valuecolor': 'valueColor', 'top1fcfg-valuestroke': 'valueStroke', 'top1fcfg-coincolor': 'coinColor',
+      'top1fcfg-fc1': 'fc1', 'top1fcfg-fc2': 'fc2', 'top1fcfg-fc3': 'fc3', 'top1fcfg-rc1': 'rc1', 'top1fcfg-rc2': 'rc2' },
   }),
   setupStyleOverlay({
     kind: 'gcounter', settingsKey: 'giftCounter', previewId: 'gct-preview',
