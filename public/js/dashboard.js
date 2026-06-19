@@ -48,24 +48,15 @@ async function confirmDesktopPanelFromServer() {
 function isPcBuildMarkup() {
   return !!(window.__LIVECOINS_PC_BUILD__ || document.querySelector('meta[name="livecoins-app"][content="desktop"]'));
 }
-function isCloudPanelHost() {
-  const h = location.hostname || '';
-  return h && !/^127\.|^localhost$/i.test(h);
-}
 function setupPanelModeWarning() {
   if (document.getElementById('panel-mode-banner')) return;
   if (IS_DESKTOP) return;
+  const brokenLocal = isPcBuildMarkup() || IS_LOCALHOST;
+  if (!brokenLocal) return;
   const banner = document.createElement('div');
   banner.id = 'panel-mode-banner';
-  const brokenLocal = isPcBuildMarkup() || IS_LOCALHOST;
-  const onWeb = isCloudPanelHost() && !IS_LOCALHOST;
-  if (!onWeb && !brokenLocal) return;
   banner.style.cssText = 'margin:0 14px 10px;padding:10px 12px;border-radius:10px;font:600 11.5px/1.45 system-ui;color:#ffe8f0;background:linear-gradient(135deg,rgba(255,43,214,.22),rgba(255,80,120,.12));border:1px solid rgba(255,43,214,.45)';
-  if (brokenLocal && !IS_DESKTOP) {
-    banner.innerHTML = '<b>App PC sin módulo de escritorio.</b><br>Cierra Livecoins por completo y ábrelo otra vez desde el menú Inicio. Si sigue igual, reinstala el .exe más reciente.';
-  } else if (onWeb) {
-    banner.innerHTML = '<b>Versión web</b> — sin Juegos ni Acciones.<br>Descarga la <b>app de escritorio (.exe)</b> con el botón de abajo para Minecraft, Roblox, Mario Bros, etc.';
-  }
+  banner.innerHTML = '<b>App PC sin módulo de escritorio.</b><br>Cierra Livecoins por completo y ábrelo otra vez desde el menú Inicio. Si sigue igual, reinstala el .exe más reciente.';
   const side = document.querySelector('.sidebar');
   const nav = side?.querySelector('.nav');
   if (nav) side.insertBefore(banner, nav);
@@ -333,14 +324,15 @@ const CAP_LABELS = {
   ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   // juegos
-  game_minecraft: 'Juego: Minecraft', game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
+  game_minecraft: 'Juego: Minecraft', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
+  game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
   game_mariobros: 'Juego: Mario Bros', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_mari0', 'game_plantasvszombies',
+  'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_mari0', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_ruleta', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
