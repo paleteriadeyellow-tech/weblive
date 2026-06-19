@@ -29,6 +29,9 @@
         <button class="nav-item active" data-view="panel">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Inicio
         </button>
+        <button class="nav-item" data-view="configuracion" id="navConfiguracion" style="display:none">
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span> Configuración
+        </button>
         <button class="nav-item" data-view="planes">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l3.5 2.5L12 4l5.5 5.5L21 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg></span> Planes
         </button>
@@ -63,7 +66,7 @@
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M7.5 14.5c2.5-1 6-1 9 .5"/><path d="M7 11c3-1 7.5-.8 10.5 1"/><path d="M7.5 8c3.5-1 8 0 9.5 1"/></svg></span> Spotify
         </button>
         <button class="nav-item" data-view="webhook" id="navWebhook" style="display:none">
-          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16.98h-5.99c-1.66 0-3.01-1.34-3.01-3s1.34-3 3.01-3H18"/><path d="M10.5 8.5L7 12l3.5 3.5"/><circle cx="18" cy="16.98" r="3"/><circle cx="6" cy="6" r="3"/></svg></span> Webhook y Config.
+          <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 16.98h-5.99c-1.66 0-3.01-1.34-3.01-3s1.34-3 3.01-3H18"/><path d="M10.5 8.5L7 12l3.5 3.5"/><circle cx="18" cy="16.98" r="3"/><circle cx="6" cy="6" r="3"/></svg></span> Webhook
         </button>
         <button class="nav-item" data-view="juegos" id="navJuegos" style="display:none">
           <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M7 12h4M9 10v4"/><circle cx="16" cy="11" r="1"/><circle cx="18.5" cy="13.5" r="1"/></svg></span> Juegos
@@ -200,6 +203,64 @@
             <p class="transfer-status" id="transfer-status"></p>
             <input type="file" id="transfer-file" accept=".json,application/json" hidden>
           </section>
+        </section>
+
+        <!-- ===== VISTA: CONFIGURACIÓN (solo .exe) ===== -->
+        <section class="view" id="view-configuracion">
+          <h1 class="view-title">⚙️ Configuración</h1>
+          <p class="view-sub">Conexión RCON al servidor Minecraft, OBS, Streamer.bot y ServerTap. Los mismos datos se usan en Acciones y en la pestaña Minecraft.</p>
+          <div class="settings-card">
+            <div class="wh-cfg-grid">
+
+              <div class="wh-cfg-card">
+                <h4 class="wh-cfg-title">RCON</h4>
+                <p class="hint">Asegúrate de habilitar el acceso a RCON en tu servidor, establecer una contraseña y ajustar la configuración correctamente. Cada perfil del panel puede tener su propia configuración guardada al exportar/importar o al usar perfiles guardados.</p>
+                <label class="wh-field"><span>Host</span><input type="text" id="wh-rcon-host" value="127.0.0.1"></label>
+                <label class="wh-field"><span>Puerto</span><input type="number" id="wh-rcon-port" value="25575"></label>
+                <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-rcon-pass" placeholder="Tu contraseña RCON"></label>
+                <button class="btn ghost wh-test" data-test="rcon">Probar Conexión</button>
+                <span class="wh-test-msg" id="wh-rcon-msg"></span>
+              </div>
+
+              <div class="wh-cfg-card">
+                <h4 class="wh-cfg-title">OBS</h4>
+                <p class="hint">Puedes controlar OBS para cambiar escenas y fuentes automáticamente en ciertos eventos. Requiere OBS 28 o posterior. En OBS: <b>Herramientas → Configuración del servidor WebSocket</b> → habilita el servidor e indica el puerto (por defecto 4455) y la contraseña si la activas.</p>
+                <p class="hint"><b>Importante:</b> la conexión WebSocket la abre el <b>servidor Node</b> (donde corre este panel), no tu navegador. <code>127.0.0.1</code> solo sirve si OBS y el servidor están en el mismo PC.</p>
+                <label class="wh-field"><span>IP</span><input type="text" id="wh-obs-ip" value="127.0.0.1"></label>
+                <label class="wh-field"><span>Puerto</span><input type="number" id="wh-obs-port" value="4455"></label>
+                <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-obs-pass" placeholder="Vacía si no usas contraseña"></label>
+                <button class="btn ghost wh-test" data-test="obs">Probar Conexión</button>
+                <span class="wh-test-msg" id="wh-obs-msg"></span>
+              </div>
+
+              <div class="wh-cfg-card">
+                <h4 class="wh-cfg-title">STREAMER.BOT</h4>
+                <p class="hint">Streamer.bot es una de las herramientas más populares para los streamers. Podrás recibir eventos de Twitch y YouTube, además de ejecutar tus acciones desde Acciones y alertas. En Streamer.bot activa el servidor WebSocket en la pestaña Servers/Clients.</p>
+                <label class="wh-field"><span>Address</span><input type="text" id="wh-sb-address" value="127.0.0.1"></label>
+                <label class="wh-field"><span>Port</span><input type="number" id="wh-sb-port" value="8080"></label>
+                <label class="wh-field"><span>Endpoint</span><input type="text" id="wh-sb-endpoint" value="/"></label>
+                <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-sb-pass" placeholder="Opcional (si activaste autenticación)"></label>
+                <button class="btn ghost wh-test" data-test="streamerbot">Probar Conexión</button>
+                <span class="wh-test-msg" id="wh-sb-msg"></span>
+              </div>
+
+              <div class="wh-cfg-card">
+                <h4 class="wh-cfg-title" style="color:#5bd64f">Minecraft ServerTap</h4>
+                <p class="hint">Si utilizas el plugin <b>ServerTap</b> (o el mod de TikFinity), ingresa aquí tu nombre de jugador para usar el placeholder de <b>{playername}</b>. Si dejas el campo en blanco, los comandos se ejecutarán para todos los jugadores en el servidor (<b>@p</b>). Elige entre el mod de TikFinity (para un jugador) o el plugin ServerTap (para servidores). <b>¡No los uses juntos!</b></p>
+                <p class="hint"><a href="https://modrinth.com/mod/tikfinity/version/1.1" target="_blank" rel="noopener">⬇ Descarga TikFinity Minecraft Mod para Minecraft Fabric (solo para un jugador)</a></p>
+                <p class="hint"><a href="https://github.com/phybros/servertap/releases" target="_blank" rel="noopener">⬇ Descarga ServerTap Plugin para Minecraft (Java) (solo servidores)</a></p>
+                <label class="switch-row plain"><input type="checkbox" id="wh-stap-enabled"> <span>Usar ServerTap para enviar comandos de Minecraft (en vez de RCON)</span></label>
+                <label class="wh-field"><span>Nombre del Jugador</span><input type="text" id="wh-stap-player" placeholder="Vacío = todos (@p)"></label>
+                <label class="wh-field"><span>IP</span><input type="text" id="wh-stap-ip" value="localhost"></label>
+                <label class="wh-field"><span>Puerto</span><input type="number" id="wh-stap-port" value="4567"></label>
+                <label class="wh-field"><span>Key</span><input type="text" id="wh-stap-key" value="change_me"></label>
+                <button class="btn ghost wh-test" data-test="servertap">Probar Conexión</button>
+                <span class="wh-test-msg" id="wh-stap-msg"></span>
+              </div>
+
+            </div>
+            <div class="sp-save-row"><span id="wh-save-msg" class="sp-save-msg"></span></div>
+          </div>
         </section>
 
         <!-- ===== VISTA: PLANES ===== -->
@@ -570,7 +631,7 @@
 
               <label class="switch-row plain"><input type="checkbox" id="acc-obs-on"> <span>Conexión OBS</span></label>
               <div class="box" id="acc-obs-box" hidden>
-                <div class="box-sub">Envía un comando a OBS usando los datos de conexión de <b>Webhook y Config. → Configuración</b>.</div>
+                <div class="box-sub">Envía un comando a OBS usando los datos de conexión de la pestaña <b>Configuración</b>.</div>
                 <select id="acc-obs-type">
                   <option value="scene">Cambiar de escena</option>
                   <option value="toggleSource">Mostrar / ocultar fuente</option>
@@ -591,7 +652,7 @@
 
               <label class="switch-row plain"><input type="checkbox" id="acc-sb-on"> <span>Streamer.bot</span></label>
               <div class="box" id="acc-sb-box" hidden>
-                <div class="box-sub">Ejecuta una acción de Streamer.bot usando los datos de conexión de <b>Webhook y Config. → Configuración</b>.</div>
+                <div class="box-sub">Ejecuta una acción de Streamer.bot usando los datos de conexión de la pestaña <b>Configuración</b>.</div>
                 <input type="text" id="acc-sb-action" placeholder="Nombre o ID de la acción de Streamer.bot">
               </div>
 
@@ -3364,8 +3425,8 @@
 
         <!-- ===================== WEBHOOK Y CONFIGURACIÓN (solo .exe) ===================== -->
         <section class="view" id="view-webhook">
-          <h1 class="view-title">🪝 Webhook y Configuración</h1>
-          <p class="view-sub">Ejecuta tus acciones desde herramientas externas (OBS, Stream Deck, scripts) y conecta el panel con RCON, OBS y Streamer.bot. <b>Funciona solo en la app de escritorio.</b></p>
+          <h1 class="view-title">🪝 Webhook</h1>
+          <p class="view-sub">Ejecuta tus acciones desde herramientas externas (OBS, Stream Deck, scripts). <b>Funciona solo en la app de escritorio.</b></p>
 
           <div class="wh-premium" id="wh-premium" hidden>
             <div class="wh-premium-ico">⭐</div>
@@ -3376,12 +3437,6 @@
           </div>
 
           <div class="wh-locktarget" id="wh-locktarget">
-          <div class="wh-tabs">
-            <button class="wh-tab active" data-wtab="webhook">Webhook</button>
-            <button class="wh-tab" data-wtab="config">Configuración</button>
-          </div>
-
-          <!-- ---------- SUB-PESTAÑA: WEBHOOK ---------- -->
           <div class="wh-panel active" id="wtab-webhook">
             <div class="wh-notes">
               <ul>
@@ -3484,63 +3539,6 @@
   "comment": "Hola desde webhook"
 }</pre>
               </div>
-            </div>
-          </div>
-
-          <!-- ---------- SUB-PESTAÑA: CONFIGURACIÓN ---------- -->
-          <div class="wh-panel" id="wtab-config">
-            <div class="settings-card">
-              <div class="tts-head"><h3>Configuración</h3><span class="tts-sub">Conexión RCON al servidor Minecraft. Los mismos datos se usan en la pestaña Minecraft para enviar comandos.</span></div>
-              <div class="wh-cfg-grid">
-
-                <div class="wh-cfg-card">
-                  <h4 class="wh-cfg-title">RCON</h4>
-                  <p class="hint">Asegúrate de habilitar el acceso a RCON en tu servidor, establecer una contraseña y ajustar la configuración correctamente. Cada perfil del panel puede tener su propia configuración guardada al exportar/importar o al usar perfiles guardados.</p>
-                  <label class="wh-field"><span>Host</span><input type="text" id="wh-rcon-host" value="127.0.0.1"></label>
-                  <label class="wh-field"><span>Puerto</span><input type="number" id="wh-rcon-port" value="25575"></label>
-                  <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-rcon-pass" placeholder="Tu contraseña RCON"></label>
-                  <button class="btn ghost wh-test" data-test="rcon">Probar Conexión</button>
-                  <span class="wh-test-msg" id="wh-rcon-msg"></span>
-                </div>
-
-                <div class="wh-cfg-card">
-                  <h4 class="wh-cfg-title">OBS</h4>
-                  <p class="hint">Puedes controlar OBS para cambiar escenas y fuentes automáticamente en ciertos eventos. Requiere OBS 28 o posterior. En OBS: <b>Herramientas → Configuración del servidor WebSocket</b> → habilita el servidor e indica el puerto (por defecto 4455) y la contraseña si la activas.</p>
-                  <p class="hint"><b>Importante:</b> la conexión WebSocket la abre el <b>servidor Node</b> (donde corre este panel), no tu navegador. <code>127.0.0.1</code> solo sirve si OBS y el servidor están en el mismo PC.</p>
-                  <label class="wh-field"><span>IP</span><input type="text" id="wh-obs-ip" value="127.0.0.1"></label>
-                  <label class="wh-field"><span>Puerto</span><input type="number" id="wh-obs-port" value="4455"></label>
-                  <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-obs-pass" placeholder="Vacía si no usas contraseña"></label>
-                  <button class="btn ghost wh-test" data-test="obs">Probar Conexión</button>
-                  <span class="wh-test-msg" id="wh-obs-msg"></span>
-                </div>
-
-                <div class="wh-cfg-card">
-                  <h4 class="wh-cfg-title">STREAMER.BOT</h4>
-                  <p class="hint">Streamer.bot es una de las herramientas más populares para los streamers. Podrás recibir eventos de Twitch y YouTube, además de ejecutar tus acciones desde Acciones y alertas. En Streamer.bot activa el servidor WebSocket en la pestaña Servers/Clients.</p>
-                  <label class="wh-field"><span>Address</span><input type="text" id="wh-sb-address" value="127.0.0.1"></label>
-                  <label class="wh-field"><span>Port</span><input type="number" id="wh-sb-port" value="8080"></label>
-                  <label class="wh-field"><span>Endpoint</span><input type="text" id="wh-sb-endpoint" value="/"></label>
-                  <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-sb-pass" placeholder="Opcional (si activaste autenticación)"></label>
-                  <button class="btn ghost wh-test" data-test="streamerbot">Probar Conexión</button>
-                  <span class="wh-test-msg" id="wh-sb-msg"></span>
-                </div>
-
-                <div class="wh-cfg-card">
-                  <h4 class="wh-cfg-title" style="color:#5bd64f">Minecraft ServerTap</h4>
-                  <p class="hint">Si utilizas el plugin <b>ServerTap</b> (o el mod de TikFinity), ingresa aquí tu nombre de jugador para usar el placeholder de <b>{playername}</b>. Si dejas el campo en blanco, los comandos se ejecutarán para todos los jugadores en el servidor (<b>@p</b>). Elige entre el mod de TikFinity (para un jugador) o el plugin ServerTap (para servidores). <b>¡No los uses juntos!</b></p>
-                  <p class="hint"><a href="https://modrinth.com/mod/tikfinity/version/1.1" target="_blank" rel="noopener">⬇ Descarga TikFinity Minecraft Mod para Minecraft Fabric (solo para un jugador)</a></p>
-                  <p class="hint"><a href="https://github.com/phybros/servertap/releases" target="_blank" rel="noopener">⬇ Descarga ServerTap Plugin para Minecraft (Java) (solo servidores)</a></p>
-                  <label class="switch-row plain"><input type="checkbox" id="wh-stap-enabled"> <span>Usar ServerTap para enviar comandos de Minecraft (en vez de RCON)</span></label>
-                  <label class="wh-field"><span>Nombre del Jugador</span><input type="text" id="wh-stap-player" placeholder="Vacío = todos (@p)"></label>
-                  <label class="wh-field"><span>IP</span><input type="text" id="wh-stap-ip" value="localhost"></label>
-                  <label class="wh-field"><span>Puerto</span><input type="number" id="wh-stap-port" value="4567"></label>
-                  <label class="wh-field"><span>Key</span><input type="text" id="wh-stap-key" value="change_me"></label>
-                  <button class="btn ghost wh-test" data-test="servertap">Probar Conexión</button>
-                  <span class="wh-test-msg" id="wh-stap-msg"></span>
-                </div>
-
-              </div>
-              <div class="sp-save-row"><span id="wh-save-msg" class="sp-save-msg"></span></div>
             </div>
           </div>
           </div>
@@ -3890,7 +3888,7 @@
           <div class="mc-actions-wrap">
             <div class="mc-actions-head">
               <h2 class="mc-actions-title">🎮 Acciones de Minecraft</h2>
-              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará abajo. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará durante tu live. Necesitas tener el servidor encendido y <b>RCON</b> configurado en <b>Webhook y Config.</b></p>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará abajo. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará durante tu live. Necesitas tener el servidor encendido y <b>RCON</b> configurado en la pestaña <b>Configuración</b>.</p>
             </div>
 
             <div class="mc-sub-head">
@@ -3947,7 +3945,7 @@
               <ol>
                 <li>Primero <b>descarga</b> una versión: <b>Original</b> o <b>Pirata</b> (botones de arriba).</li>
                 <li><b>Descomprime</b> la carpeta y pulsa <b>Ejecutar servidor</b>: selecciona el archivo <b>iniciar.bat</b> (solo la <b>primera vez</b>).</li>
-                <li>Ve a <b>Webhook y Config.</b> y marca la casilla <b>Usar ServerTap</b>. Pon: Nombre del Jugador <b>@p</b>, IP <b>localhost</b>, Puerto <b>4567</b>, Key <b>tiktok123</b>, y pulsa <b>Probar conexión</b>: debe salir una <b>palomita verde ✅</b> (eso significa que ya está funcionando).</li>
+                <li>Ve a la pestaña <b>Configuración</b> y marca la casilla <b>Usar ServerTap</b>. Pon: Nombre del Jugador <b>@p</b>, IP <b>localhost</b>, Puerto <b>4567</b>, Key <b>tiktok123</b>, y pulsa <b>Probar conexión</b>: debe salir una <b>palomita verde ✅</b> (eso significa que ya está funcionando).</li>
                 <li>Entra a tu <b>Minecraft</b>, instala la versión <b>1.21.1</b>, pulsa <b>Multijugador</b>, escribe <b>localhost</b> y entra al mundo.</li>
                 <li>Ejecuta el comando para <b>crear el cubo de bedrock</b> (sección Configuraciones, abajo).</li>
                 <li class="juego-aviso-importante">⛔ <b>INDISPENSABLE:</b> <b>NO cierres la ventana negra</b> (la consola del servidor) que aparece al ejecutar: si la cierras, el servidor se apaga y nada funcionará. <b>Si no tienes permisos de administrador</b> (no puedes usar comandos), escribe hasta <b>abajo de la ventana negra</b>: <code>op tu_usuario</code> (pon tu nombre exacto de Minecraft) y pulsa Enter.</li>
@@ -4022,7 +4020,7 @@
               <ol>
                 <li>Primero <b>descarga</b> una versión: <b>Original</b> o <b>Pirata</b> (botones de arriba).</li>
                 <li><b>Descomprime</b> la carpeta y pulsa <b>Ejecutar servidor</b>: selecciona el archivo <b>iniciar.bat</b> (solo la <b>primera vez</b>).</li>
-                <li>Ve a <b>Webhook y Config.</b> y marca la casilla <b>Usar ServerTap</b>. Pon: Nombre del Jugador <b>@p</b>, IP <b>localhost</b>, Puerto <b>4567</b>, Key <b>tiktok123</b>, y pulsa <b>Probar conexión</b>: debe salir una <b>palomita verde ✅</b>.</li>
+                <li>Ve a la pestaña <b>Configuración</b> y marca la casilla <b>Usar ServerTap</b>. Pon: Nombre del Jugador <b>@p</b>, IP <b>localhost</b>, Puerto <b>4567</b>, Key <b>tiktok123</b>, y pulsa <b>Probar conexión</b>: debe salir una <b>palomita verde ✅</b>.</li>
                 <li>Entra a tu <b>Minecraft</b>, instala la versión <b>1.21.1</b>, pulsa <b>Multijugador</b>, escribe <b>localhost</b> y entra al mundo.</li>
                 <li>Ejecuta el comando para <b>crear la plataforma</b> (sección Configuraciones, abajo).</li>
                 <li class="juego-aviso-importante">⛔ <b>INDISPENSABLE:</b> <b>NO cierres la ventana negra</b> (la consola del servidor) que aparece al ejecutar: si la cierras, el servidor se apaga y nada funcionará. <b>Si no tienes permisos de administrador</b> (no puedes usar comandos), escribe hasta <b>abajo de la ventana negra</b>: <code>op tu_usuario</code> (pon tu nombre exacto de Minecraft) y pulsa Enter.</li>

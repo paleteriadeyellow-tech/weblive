@@ -21,6 +21,7 @@ function syncDesktopPanelMode() {
     if (navAcc) navAcc.style.display = '';
     try { revealJuegosTab(); } catch {}
     try { revealWebhookTab(); } catch {}
+    try { revealConfigTab(); } catch {}
   }
 }
 
@@ -250,6 +251,7 @@ function setCaps(c) {
   };
   applyCaps();
   try { revealWebhookTab(); } catch {}
+  try { revealConfigTab(); } catch {}
   try { revealJuegosTab(); } catch {}
 }
 function capLimit(key) {
@@ -922,6 +924,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
+    if (btn.dataset.view === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
   };
 });
 
@@ -6327,6 +6330,10 @@ function revealWebhookTab() {
   if (nav) nav.style.display = IS_DESKTOP ? '' : 'none';
   applyWebhookLock();
 }
+function revealConfigTab() {
+  const nav = document.getElementById('navConfiguracion');
+  if (nav) nav.style.display = IS_DESKTOP ? '' : 'none';
+}
 // Pestaña Juegos: visible para todos en la app .exe (sin bloqueo por plan).
 function revealJuegosTab() {
   const nav = document.getElementById('navJuegos');
@@ -9548,16 +9555,13 @@ async function runMinecraftServer() {
     toast && toast('No se pudo iniciar el servidor.', 'err');
   }
 }
-// Bloquea SOLO la sub-pestaña "Webhook" con un aviso Premium; "Configuración" queda
-// disponible para todos los planes.
+// Bloquea la pestaña Webhook con aviso Premium; Configuración queda en su propia pestaña.
 function applyWebhookLock() {
   const banner = document.getElementById('wh-premium');
   const webhookPanel = document.getElementById('wtab-webhook');
   const locked = IS_DESKTOP && !webhookUnlocked();
   if (webhookPanel) webhookPanel.classList.toggle('wh-locked', locked);
-  const activeTab = document.querySelector('#view-webhook .wh-tab.active');
-  const onWebhookTab = !activeTab || activeTab.dataset.wtab === 'webhook';
-  if (banner) banner.hidden = !(locked && onWebhookTab);
+  if (banner) banner.hidden = !locked;
 }
 
 function webhookCfg() {
@@ -9601,18 +9605,6 @@ function setupWebhookUI() {
   if (webhookWired) return;
   webhookWired = true;
 
-  // Sub-pestañas Webhook / Configuración.
-  document.querySelectorAll('#view-webhook .wh-tab').forEach((tab) => {
-    tab.onclick = () => {
-      document.querySelectorAll('#view-webhook .wh-tab').forEach((t) => t.classList.remove('active'));
-      document.querySelectorAll('#view-webhook .wh-panel').forEach((p) => p.classList.remove('active'));
-      tab.classList.add('active');
-      const panel = document.getElementById('wtab-' + tab.dataset.wtab);
-      if (panel) panel.classList.add('active');
-      applyWebhookLock();
-    };
-  });
-
   // Botones de copiar de los bloques de endpoints.
   document.querySelectorAll('#view-webhook .wh-endpoint .wh-copy').forEach((btn) => {
     btn.onclick = () => {
@@ -9637,8 +9629,8 @@ function setupWebhookUI() {
     if (el) el.addEventListener('input', autoSave);
   }
 
-  // Botones "Probar Conexión".
-  document.querySelectorAll('#view-webhook .wh-test').forEach((btn) => {
+  // Botones "Probar Conexión" (pestaña Configuración).
+  document.querySelectorAll('#view-configuracion .wh-test').forEach((btn) => {
     btn.onclick = () => testWebhookConnection(btn.dataset.test, btn);
   });
 
@@ -9759,6 +9751,7 @@ function initHomeWelcome() {
     try { revealSpotifyTab(); } catch (e) { console.error('Spotify tab:', e); }
     if (spotifyAllowed()) { try { setupSpotifyUI(); } catch (e) { console.error('Spotify UI:', e); } }
     try { revealWebhookTab(); } catch (e) { console.error('Webhook tab:', e); }
+    try { revealConfigTab(); } catch (e) { console.error('Config tab:', e); }
     if (IS_DESKTOP) { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     try { revealJuegosTab(); setupJuegosUI(); } catch (e) { console.error('Juegos tab:', e); }
   });
