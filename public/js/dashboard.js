@@ -273,7 +273,7 @@ const TAB_CAP = {
   overlays: 'tab_overlays', tts: 'tab_tts', timer: 'tab_timer',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies' };
+const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies' };
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
@@ -367,13 +367,13 @@ const CAP_LABELS = {
   // juegos
   game_minecraft: 'Juego: Minecraft', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_mari0', 'game_plantasvszombies',
+  'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -5872,7 +5872,7 @@ function onKeyAction(p) {
 // el resto (RCON, OBS, teclas…) al proceso principal de Electron.
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (/^(MARIO_|MARI0_|PVZ_)/.test(exec.tipo)) {
+  if (/^(MARIO_|MARI0_|SMB3_|PVZ_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
   }
@@ -6491,6 +6491,9 @@ function setupJuegosUI() {
   setupRoblox3ActionsUI();
   setupMarioActionsUI();
   setupMarioLaunchBtn();
+  setupSmb3ActionsUI();
+  setupSmb3LaunchBtn();
+  setupSmb3StatusPoll();
   setupMari0ActionsUI();
   setupMari0LaunchBtn();
   setupMari0StatusPoll();
@@ -8773,6 +8776,415 @@ function ensureMari0Actions() {
   if (!Array.isArray(settings.mari0Actions)) settings.mari0Actions = [];
   settings.mari0Actions = migrateGameActions(settings.mari0Actions, 'm0');
   return settings.mari0Actions;
+}
+
+function setupSmb3LaunchBtn() {
+  const room = document.getElementById('smb3-room');
+  if (room && !room._wired) {
+    room._wired = true;
+    room.onclick = () => {
+      const url = (room.dataset.url || '').trim();
+      if (!url) { toast && toast('Enlace de descarga no disponible.', 'warn'); return; }
+      downloadMinecraftServer(url);
+      toast && toast('Descargando SMB3 Livecoins…', 'ok');
+    };
+  }
+  const testBtn = document.getElementById('smb3-test');
+  if (testBtn && !testBtn._wired) {
+    testBtn._wired = true;
+    if (!IS_DESKTOP) testBtn.style.display = 'none';
+    else {
+      testBtn.onclick = async () => {
+        testBtn.disabled = true;
+        const prev = testBtn.textContent;
+        testBtn.textContent = '⏳ Probando…';
+        try {
+          const h = await refreshSmb3Status();
+          if (smb3HealthOk(h)) toast && toast('SMB3 Livecoins conectado (bridge :7755).', 'ok');
+          else toast && toast('Sin bridge SMB3. Abre SMB3 Livecoins desde el escritorio y entra a un nivel.', 'warn');
+        } finally {
+          testBtn.disabled = false;
+          testBtn.textContent = prev;
+        }
+      };
+    }
+  }
+}
+
+/* ================= Acciones de Super Mario Bros. 3 (FCEUX + smb3-bridge :7755) ================= */
+const SMB3_SPAWN_ID_TO_THING = {
+  11: 'OneUp', 12: 'SuperStar', 13: 'SuperMushroom', 25: 'FireFlower', 30: 'Leaf',
+  47: 'Boo', 63: 'DryBones', 108: 'GreenKoopaTroopa', 109: 'RedKoopaTroopa', 112: 'BuzzyBeetle',
+  113: 'Spiny', 114: 'Goomba', 115: 'ParaGoomba', 119: 'CheepCheep', 124: 'GiantGoomba',
+  129: 'HammerBro', 130: 'BoomerangBro', 131: 'Lakitu', 134: 'SledgeBro', 135: 'FireBro',
+  137: 'ChainChomp', 138: 'Thwomp', 152: 'TanookiSuit', 153: 'FrogSuit', 154: 'HammerSuit',
+  160: 'PiranhaPlant', 188: 'BulletBill',
+};
+const SMB3_NPC_MAP = {
+  1: 'Goomba', 4: 'GreenKoopaTroopa', 6: 'RedKoopaTroopa', 9: 'SuperMushroom', 14: 'FireFlower',
+  17: 'BulletBill', 29: 'HammerBro', 37: 'Thwomp', 43: 'Boo', 90: 'OneUp', 189: 'DryBones', 293: 'SuperStar', 512: 'PiranhaPlant',
+};
+const SMB3_CAT_ORDER = ['enemy', 'powerup', 'boss', 'projectile', 'item'];
+const SMB3_CAT_ICON = {
+  enemy: '👾', powerup: '🍄', boss: '👑', projectile: '💥', item: '🎁',
+};
+const SMB3_CAT_LABEL = {
+  enemy: 'Enemigos', powerup: 'Power-ups', boss: 'Bosses', projectile: 'Proyectiles', item: 'Objetos',
+};
+const SMB3_SKIP_CATEGORIES = new Set(['nothing', 'unsafe', 'platform', 'special', 'meta', 'effect']);
+/** Power-ups con `thing` exacto del bridge (POST /spawn). Aparecen primero en la sección Power-ups. */
+const SMB3_POWERUP_PRESETS = [
+  { id: 'powerup_SuperMushroom', thing: 'SuperMushroom', spawnId: 13, hex: '0x0D', npcId: 9, nombre: 'Super Mushroom', category: 'powerup', tipo: 'powerup', kind: 'spawn', preset: true },
+  { id: 'powerup_FireFlower', thing: 'FireFlower', spawnId: 25, hex: '0x19', npcId: 14, nombre: 'Flor de fuego', category: 'powerup', tipo: 'powerup', kind: 'spawn', preset: true },
+  { id: 'powerup_Leaf', thing: 'Leaf', spawnId: 30, hex: '0x1E', npcId: 34, nombre: 'Super Leaf', category: 'powerup', tipo: 'powerup', kind: 'spawn', preset: true },
+  { id: 'powerup_FrogSuit', thing: 'FrogSuit', spawnId: 153, hex: '0x99', nombre: 'Traje rana', category: 'powerup', tipo: 'powerup', kind: 'spawn', preset: true },
+  { id: 'powerup_TanookiSuit', thing: 'TanookiSuit', spawnId: 152, hex: '0x98', nombre: 'Traje tanuki', category: 'powerup', tipo: 'powerup', kind: 'spawn', preset: true },
+  { id: 'powerup_HammerSuit', thing: 'HammerSuit', spawnId: 154, hex: '0x9A', nombre: 'Traje martillo', category: 'powerup', tipo: 'powerup', kind: 'spawn', preset: true },
+  { id: 'powerup_SuperStar', thing: 'SuperStar', spawnId: 12, hex: '0x0C', npcId: 293, nombre: 'Super Star', category: 'powerup', tipo: 'powerup', kind: 'spawn', preset: true },
+  { id: 'powerup_OneUp', thing: 'OneUp', spawnId: 11, hex: '0x0B', npcId: 90, nombre: '1-Up', category: 'powerup', tipo: 'powerup', kind: 'spawn', preset: true },
+];
+const SMB3_CATALOG = [];
+
+function extractSmb3Entities(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.entities && Array.isArray(raw.entities)) return raw.entities;
+  return raw?.items || raw?.catalog || [];
+}
+
+function smb3HealthOk(h) {
+  return !!(h && h.ok && h.bridge === 'smb3-livecoins');
+}
+
+function ensureSmb3Actions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.smb3Actions)) settings.smb3Actions = [];
+  settings.smb3Actions = migrateGameActions(settings.smb3Actions, 's3');
+  return settings.smb3Actions;
+}
+
+function catalogEntryToSmb3(c) {
+  const spawnId = Number(c.id);
+  const cat = String(c.category || 'enemy').toLowerCase();
+  const thing = c.thing || SMB3_SPAWN_ID_TO_THING[spawnId] || undefined;
+  const npcEntry = thing ? Object.entries(SMB3_NPC_MAP).find(([, v]) => v === thing) : null;
+  return {
+    id: `spawn_${spawnId}`,
+    thing,
+    spawnId,
+    hex: c.hex,
+    npcId: npcEntry ? Number(npcEntry[0]) : undefined,
+    nombre: c.name || thing || `ID ${spawnId}`,
+    category: cat,
+    tipo: cat,
+    kind: 'spawn',
+  };
+}
+
+function applySmb3PowerupPresets() {
+  const presetSpawnIds = new Set(SMB3_POWERUP_PRESETS.map((p) => p.spawnId));
+  const rest = SMB3_CATALOG.filter((c) => !(c.tipo === 'powerup' && presetSpawnIds.has(c.spawnId)));
+  const firstPu = rest.findIndex((c) => c.tipo === 'powerup');
+  if (firstPu < 0) rest.push(...SMB3_POWERUP_PRESETS);
+  else rest.splice(firstPu, 0, ...SMB3_POWERUP_PRESETS);
+  SMB3_CATALOG.length = 0;
+  SMB3_CATALOG.push(...rest);
+}
+
+async function loadSmb3Catalog() {
+  const applyList = (list) => {
+    if (!Array.isArray(list) || !list.length) return false;
+    SMB3_CATALOG.length = 0;
+    for (const c of list) {
+      if (c.safe === false) continue;
+      const spawnId = Number(c.id);
+      if (!Number.isFinite(spawnId) || spawnId > 214) continue;
+      const cat = String(c.category || '').toLowerCase();
+      if (SMB3_SKIP_CATEGORIES.has(cat)) continue;
+      SMB3_CATALOG.push(catalogEntryToSmb3(c));
+    }
+    applySmb3PowerupPresets();
+    return SMB3_CATALOG.length > 0;
+  };
+  const applyRaw = (raw) => applyList(extractSmb3Entities(raw));
+  try {
+    const r = await fetch('/api/desktop/smb3-catalog', { credentials: 'same-origin' });
+    const d = await r.json().catch(() => ({}));
+    if (d.ok && applyList(d.catalog)) return;
+  } catch { /* ignore */ }
+  try {
+    const r = await fetch(`/smb3-catalog.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (r.ok && applyRaw(await r.json())) return;
+  } catch { /* ignore */ }
+}
+
+let smb3StatusTimer = null;
+
+function renderSmb3Status(h) {
+  const el = document.getElementById('smb3-status');
+  if (!el) return;
+  if (!IS_DESKTOP) { el.innerHTML = ''; return; }
+  if (!smb3HealthOk(h)) {
+    el.innerHTML = '<span class="mari0-st off">SMB3 bridge :7755 — sin conexión</span>';
+    return;
+  }
+  el.innerHTML = '<span class="mari0-st on">SMB3 Livecoins conectado</span><span class="mari0-st on">127.0.0.1:7755</span>';
+}
+
+async function refreshSmb3Status() {
+  if (!IS_DESKTOP) return null;
+  try {
+    const r = await fetch('/api/desktop/smb3-health', { credentials: 'same-origin' });
+    const d = await r.json().catch(() => ({}));
+    if (d.health) {
+      renderSmb3Status(d.health);
+      return d.health;
+    }
+  } catch { /* fallback */ }
+  try {
+    const r = await fetch('http://127.0.0.1:7755/health');
+    const h = await r.json();
+    renderSmb3Status(h);
+    return h;
+  } catch {
+    renderSmb3Status(null);
+    return null;
+  }
+}
+
+function setupSmb3StatusPoll() {
+  if (!IS_DESKTOP || smb3StatusTimer) return;
+  refreshSmb3Status();
+  smb3StatusTimer = setInterval(() => {
+    const view = document.getElementById('view-juego-smb3');
+    if (view?.classList.contains('active')) refreshSmb3Status();
+  }, 2500);
+}
+
+function setupSmb3ActionsUI() {
+  const search = document.getElementById('smb3-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderSmb3Catalog(search.value); }
+  const toggleAll = document.getElementById('smb3-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureSmb3Actions();
+      if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettings(); renderSmb3Actions();
+      toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
+    };
+  }
+  loadSmb3Catalog().finally(() => {
+    renderSmb3Catalog(search ? search.value : '');
+    renderSmb3Actions();
+  });
+}
+
+function smb3CatCardHtml(c) {
+  return `
+    <div class="mc-cat-card" data-id="${esc(c.id)}">
+      <div class="mc-cat-head-row">
+        <span class="mc-cat-emoji">${SMB3_CAT_ICON[c.tipo] || '🎮'}</span>
+        <div class="mc-cat-texts">
+          <div class="mc-cat-name">${esc(c.nombre)}</div>
+          <div class="mc-cat-desc">${c.spawnId != null ? `ID ${c.spawnId}${c.hex ? ` · ${esc(c.hex)}` : ''}` : esc(SMB3_CAT_LABEL[c.tipo] || '')}</div>
+        </div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`;
+}
+
+function renderSmb3Catalog(filter) {
+  const grid = document.getElementById('smb3-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f
+    ? SMB3_CATALOG.filter((c) =>
+      c.nombre.toLowerCase().includes(f)
+      || String(c.id).toLowerCase().includes(f)
+      || String(c.spawnId || '').includes(f)
+      || String(c.hex || '').toLowerCase().includes(f)
+      || (c.thing || '').toLowerCase().includes(f))
+    : SMB3_CATALOG;
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty">Sin resultados. Comprueba que exista smb3-catalog.json.</div>';
+    return;
+  }
+
+  const byCat = new Map();
+  for (const c of list) {
+    const cat = c.tipo || c.category || 'other';
+    if (!byCat.has(cat)) byCat.set(cat, []);
+    byCat.get(cat).push(c);
+  }
+
+  const order = f
+    ? [...byCat.keys()].sort((a, b) => SMB3_CAT_ORDER.indexOf(a) - SMB3_CAT_ORDER.indexOf(b))
+    : SMB3_CAT_ORDER.filter((cat) => byCat.has(cat));
+
+  grid.innerHTML = order.map((cat) => {
+    const items = byCat.get(cat) || [];
+    const presetOrder = cat === 'powerup' ? SMB3_POWERUP_PRESETS.map((p) => p.id) : [];
+    items.sort((a, b) => {
+      if (presetOrder.length) {
+        const ai = presetOrder.indexOf(a.id);
+        const bi = presetOrder.indexOf(b.id);
+        if (ai >= 0 && bi >= 0) return ai - bi;
+        if (ai >= 0) return -1;
+        if (bi >= 0) return 1;
+      }
+      return (Number(a.spawnId) || 0) - (Number(b.spawnId) || 0);
+    });
+    return `
+      <div class="smb3-cat-section">
+        <h4 class="mc-sub-title smb3-cat-title">${SMB3_CAT_ICON[cat] || '🎮'} ${esc(SMB3_CAT_LABEL[cat] || cat)} <span class="smb3-cat-count">(${items.length})</span></h4>
+        <div class="mc-catalog smb3-cat-grid">${items.map((c) => smb3CatCardHtml(c)).join('')}</div>
+      </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addSmb3Action(card.dataset.id);
+  });
+}
+
+function addSmb3Action(id) {
+  const c = SMB3_CATALOG.find((x) => x.id === id);
+  if (!c) return;
+  const list = ensureSmb3Actions();
+  list.push({
+    uid: 's3_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.thing || c.id,
+    spawnId: c.spawnId,
+    hex: c.hex,
+    npcId: c.npcId,
+    label: c.nombre,
+    tipo: c.tipo,
+    category: c.category,
+    kind: c.kind || 'spawn',
+    seconds: c.seconds,
+    trigger: 'gift',
+    enabled: true,
+    count: 1,
+  });
+  saveSettings();
+  renderSmb3Actions();
+  toast && toast(`Acción «${c.nombre}» agregada.`, 'ok');
+}
+
+async function testSmb3Action(a) {
+  if (!a) return;
+  const label = a.label || a.thing || 'acción';
+  if (!IS_DESKTOP) { toast && toast('SMB3 solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+
+  toast && toast(`🎮 «${label}» en 2 s… (entra a un nivel en FCEUX)`, 'ok');
+  await new Promise((r) => setTimeout(r, 2000));
+
+  const h = await refreshSmb3Status();
+  if (!smb3HealthOk(h)) {
+    toast && toast('Bridge SMB3 no detectado. Abre SMB3 Livecoins desde el escritorio.', 'warn');
+    return;
+  }
+
+  if (a.kind === 'effect') {
+    const seconds = Math.max(1, parseInt(a.seconds, 10) || 5);
+    const r = await execGameLocal({ tipo: 'SMB3_EFFECT', effect: a.thing, name: 'Prueba', seconds });
+    if (r && r.ok !== false) addEvent(`🎮 Prueba SMB3: efecto ${esc(label)}`, 'ok');
+    else toast && toast(r?.error === 'no_handled' ? 'El juego no procesó el efecto (¿estás en un nivel?).' : 'Efecto no enviado.', 'warn');
+    return;
+  }
+
+  const times = Math.max(1, Math.min(200, parseInt(a.count, 10) || 1));
+  const r = await execGameLocal({
+    tipo: 'SMB3_SPAWN',
+    thing: a.thing,
+    spawnId: a.spawnId,
+    npcId: a.npcId,
+    name: 'Prueba',
+    times,
+  });
+  if (r && r.ok !== false) {
+    addEvent(`🎮 Prueba SMB3: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+  } else {
+    toast && toast(r?.error === 'no_handled' ? 'Spawn no procesado (¿FCEUX dentro de un nivel?).' : `Spawn falló («${label}»).`, 'warn');
+  }
+}
+
+function smb3CardHtml(a) {
+  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+  const uid = esc(a.uid);
+  let giftBtn = '';
+  if ((a.trigger || 'gift') === 'gift') {
+    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+    giftBtn = `<button type="button" class="mc-gift-btn smb3-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+  } else {
+    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+  }
+  let likeRow = '';
+  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+    const val = a.likeN != null ? a.likeN : defN;
+    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="smb3-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
+  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !goomba)';
+    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
+    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="smb3-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+  }
+  const emoji = a.kind === 'effect' ? '✨' : (SMB3_CAT_ICON[a.tipo] || '👾');
+  let qtyRow;
+  if (a.kind === 'effect') {
+    qtyRow = `<label class="mc-like-row" style="max-width:120px">Segundos<input type="number" min="1" max="60" class="smb3-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>`;
+  } else {
+    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="200" class="smb3-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+  }
+  return `
+  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
+    <div class="mc-act-top">
+      <span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>
+      <button type="button" class="mc-act-del smb3-del" data-uid="${uid}" title="Quitar">✕</button>
+    </div>
+    <div class="mc-act-row">
+      <select class="smb3-trig-sel" data-uid="${uid}">${opts}</select>
+      ${giftBtn}
+      ${likeRow}
+    </div>
+    <div class="mc-act-row">${qtyRow}</div>
+    ${((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any') ? `<div class="mc-act-row">${mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'smb3-combo-instant-en')}</div>` : ''}
+    <div class="mc-act-actions">
+      <label class="mc-act-toggle"><input type="checkbox" class="smb3-en" data-uid="${uid}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+      <div class="mc-act-btns">
+        <button type="button" class="mc-act-test smb3-test" data-uid="${uid}">Probar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderSmb3Actions() {
+  const wrap = document.getElementById('smb3-my-actions');
+  if (!wrap || !settings) return;
+  const list = ensureSmb3Actions();
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((a) => smb3CardHtml(a)).join('');
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.smb3-del').forEach((b) => b.onclick = () => { settings.smb3Actions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderSmb3Actions(); });
+  wrap.querySelectorAll('.smb3-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderSmb3Actions(); });
+  wrap.querySelectorAll('.smb3-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderSmb3Actions(); });
+  wrap.querySelectorAll('.smb3-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.smb3-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.smb3-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(200, parseInt(inp.value, 10) || 1)); saveSettings(); });
+  wrap.querySelectorAll('.smb3-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
+  wrap.querySelectorAll('.smb3-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
+  wrap.querySelectorAll('.smb3-test').forEach((b) => b.onclick = () => testSmb3Action(find(b.dataset.uid)));
+  wrap.querySelectorAll('.smb3-gift').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (!a) return;
+    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderSmb3Actions(); });
+  });
 }
 
 function setupMari0LaunchBtn() {

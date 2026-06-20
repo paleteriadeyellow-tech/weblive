@@ -76,6 +76,7 @@ export const CAPABILITIES = {
     { key: 'game_roblox', label: 'Juego: Roblox' },
     { key: 'game_roblox3', label: 'Juego: Roblox parkour' },
     { key: 'game_mariobros', label: 'Juego: Mario Bros' },
+    { key: 'game_smb3', label: 'Juego: Super Mario Bros. 3' },
     { key: 'game_mari0', label: 'Juego: Mari0' },
     { key: 'game_plantasvszombies', label: 'Juego: Plants vs Zombies' },
   ],

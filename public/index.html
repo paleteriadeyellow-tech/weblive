@@ -3598,6 +3598,9 @@
             <button type="button" class="juego-card" data-game="mariobros" aria-label="Mario Bros">
               <img src="/img/mariobros.png" alt="Mario Bros" class="juego-card-img">
             </button>
+            <button type="button" class="juego-card" data-game="smb3" aria-label="Super Mario Bros. 3">
+              <img src="/img/smb3.png" alt="Super Mario Bros. 3" class="juego-card-img">
+            </button>
             <button type="button" class="juego-card" data-game="mari0" aria-label="Mari0">
               <img src="/img/mari0.png" alt="Mari0" class="juego-card-img">
             </button>
@@ -3654,6 +3657,57 @@
               <input type="text" id="mario-cat-search" class="mc-cat-search" placeholder="Buscar acción (hongo, goomba, estrella…)">
             </div>
             <div id="mario-catalog" class="mc-catalog"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: SUPER MARIO BROS. 3 (solo .exe) ===================== -->
+        <section class="view" id="view-juego-smb3">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🎮 Super Mario Bros. 3</h1>
+          <p class="view-sub">FCEUX + SMB3 Livecoins. El bridge (<code>smb3-bridge.exe</code>) debe estar corriendo en esta PC en <code>127.0.0.1:7755</code>.</p>
+
+          <div class="juego-banner">
+            <img src="/img/smb3.png" alt="Super Mario Bros. 3" class="juego-banner-img">
+            <div class="juego-banner-btns">
+              <button type="button" class="juego-play-btn" id="smb3-test">🔌 Probar conexión</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="smb3-room" data-url="">⬇ Descargar SMB3 Livecoins</button>
+            </div>
+          </div>
+
+          <div id="smb3-status" class="mari0-status-bar" aria-live="polite"></div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Para que funcione con Livecoins:</b>
+              <ol>
+                <li><b>Instala SMB3 Livecoins</b> y abre el acceso directo del escritorio (arranca <code>smb3-bridge.exe</code> + FCEUX).</li>
+                <li><b>ROM requerida:</b> Super Mario Bros. 3 (USA) Rev 1 — MD5 <code>86D1982FEA7342C0AF9679DDF3869D8D</code>.</li>
+                <li><b>Entra a un nivel</b> (no al mapa del mundo). Los spawns solo funcionan con Mario dentro de una partida.</li>
+                <li>Pulsa <b>🔌 Probar conexión</b>: debe responder <code>bridge: smb3-livecoins</code> en verde.</li>
+                <li>Asigna el <b>regalo</b> de cada acción abajo y enciéndelas (botón verde).</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🎮 Acciones de Super Mario Bros. 3</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b> Solo se usan entidades <b>safe</b> del catálogo (IDs 0–214).</p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="smb3-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="smb3-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de acciones</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="smb3-cat-search" class="mc-cat-search" placeholder="Buscar acción (goomba, estrella, thwomp…)">
+            </div>
+            <div id="smb3-catalog" class="smb3-catalog-wrap"></div>
           </div>
         </section>
 

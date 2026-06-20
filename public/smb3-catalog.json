@@ -1,0 +1,1817 @@
+{
+  "version": 1,
+  "game": "Super Mario Bros. 3 (USA Rev 1)",
+  "romMd5": "86D1982FEA7342C0AF9679DDF3869D8D",
+  "spawnAddress": "0x671",
+  "notes": [
+    "Solo funciona dentro de un nivel (no en el mapa del mundo).",
+    "IDs 0xD7-0xFE pueden crashear el juego.",
+    "Tu app elige el spawnId y el bridge lo ejecuta."
+  ],
+  "categories": [
+    "enemy",
+    "powerup",
+    "boss",
+    "platform",
+    "projectile",
+    "item",
+    "special",
+    "meta",
+    "nothing",
+    "unsafe"
+  ],
+  "entities": [
+    {
+      "id": 0,
+      "hex": "0x00",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 1,
+      "hex": "0x01",
+      "name": "Weird enemy",
+      "category": "special",
+      "safe": false
+    },
+    {
+      "id": 2,
+      "hex": "0x02",
+      "name": "Bounce at level start",
+      "category": "special",
+      "safe": false
+    },
+    {
+      "id": 3,
+      "hex": "0x03",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 4,
+      "hex": "0x04",
+      "name": "Weird enemy",
+      "category": "special",
+      "safe": false
+    },
+    {
+      "id": 5,
+      "hex": "0x05",
+      "name": "Weird enemy",
+      "category": "special",
+      "safe": false
+    },
+    {
+      "id": 6,
+      "hex": "0x06",
+      "name": "Green note block",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 7,
+      "hex": "0x07",
+      "name": "Warp Whistle mushroom house door",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 8,
+      "hex": "0x08",
+      "name": "Invisible door (with P-switch)",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 9,
+      "hex": "0x09",
+      "name": "Ship anchor",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 10,
+      "hex": "0x0A",
+      "name": "Weird enemy",
+      "category": "special",
+      "safe": false
+    },
+    {
+      "id": 11,
+      "hex": "0x0B",
+      "name": "1-Up",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 12,
+      "hex": "0x0C",
+      "name": "Star",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 13,
+      "hex": "0x0D",
+      "name": "Mushroom",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 14,
+      "hex": "0x0E",
+      "name": "World boss (world number)",
+      "category": "boss",
+      "safe": true
+    },
+    {
+      "id": 15,
+      "hex": "0x0F",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 16,
+      "hex": "0x10",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 17,
+      "hex": "0x11",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 18,
+      "hex": "0x12",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 19,
+      "hex": "0x13",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 20,
+      "hex": "0x14",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 21,
+      "hex": "0x15",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 22,
+      "hex": "0x16",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 23,
+      "hex": "0x17",
+      "name": "Spiny Cheep-Cheep",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 24,
+      "hex": "0x18",
+      "name": "Bowser",
+      "category": "boss",
+      "safe": true
+    },
+    {
+      "id": 25,
+      "hex": "0x19",
+      "name": "Fire Flower",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 26,
+      "hex": "0x1A",
+      "name": "Weird points",
+      "category": "special",
+      "safe": false
+    },
+    {
+      "id": 27,
+      "hex": "0x1B",
+      "name": "Green note block",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 28,
+      "hex": "0x1C",
+      "name": "Mushroom",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 29,
+      "hex": "0x1D",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 30,
+      "hex": "0x1E",
+      "name": "Super Leaf",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 31,
+      "hex": "0x1F",
+      "name": "Vine",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 32,
+      "hex": "0x20",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 33,
+      "hex": "0x21",
+      "name": "Flashing Mushroom",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 34,
+      "hex": "0x22",
+      "name": "Flashing Flower",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 35,
+      "hex": "0x23",
+      "name": "Flashing Star",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 36,
+      "hex": "0x24",
+      "name": "Left cloud platform (World 6 style)",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 37,
+      "hex": "0x25",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 38,
+      "hex": "0x26",
+      "name": "Still wooden platform (moves right)",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 39,
+      "hex": "0x27",
+      "name": "Wooden platform (moves right)",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 40,
+      "hex": "0x28",
+      "name": "Wooden platform (moves up/down)",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 41,
+      "hex": "0x29",
+      "name": "Spike",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 42,
+      "hex": "0x2A",
+      "name": "Ptooie",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 43,
+      "hex": "0x2B",
+      "name": "Kuribo's Goomba",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 44,
+      "hex": "0x2C",
+      "name": "Slow left cloud platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 45,
+      "hex": "0x2D",
+      "name": "Boss Bass",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 46,
+      "hex": "0x2E",
+      "name": "Upward circle block platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 47,
+      "hex": "0x2F",
+      "name": "Boo Buddy",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 48,
+      "hex": "0x30",
+      "name": "Hot Foot",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 49,
+      "hex": "0x31",
+      "name": "Top Stretch",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 50,
+      "hex": "0x32",
+      "name": "Bottom Stretch",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 51,
+      "hex": "0x33",
+      "name": "Nipper Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 52,
+      "hex": "0x34",
+      "name": "Toad and message",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 53,
+      "hex": "0x35",
+      "name": "Auto clear stage",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 54,
+      "hex": "0x36",
+      "name": "Left wooden platform (falls)",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 55,
+      "hex": "0x37",
+      "name": "Short wooden platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 56,
+      "hex": "0x38",
+      "name": "Short up/down platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 57,
+      "hex": "0x39",
+      "name": "Walking Nipper Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 58,
+      "hex": "0x3A",
+      "name": "Falling circle platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 59,
+      "hex": "0x3B",
+      "name": "Surface Cheep-Cheep",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 60,
+      "hex": "0x3C",
+      "name": "Wired platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 61,
+      "hex": "0x3D",
+      "name": "Walking Ptooie",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 62,
+      "hex": "0x3E",
+      "name": "Floating platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 63,
+      "hex": "0x3F",
+      "name": "Dry Bones",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 64,
+      "hex": "0x40",
+      "name": "Buster Beetle",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 65,
+      "hex": "0x41",
+      "name": "Goal Card",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 66,
+      "hex": "0x42",
+      "name": "Jumping Cheep-Cheep (3 jumps)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 67,
+      "hex": "0x43",
+      "name": "Jumping Cheep-Cheep (2 jumps)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 68,
+      "hex": "0x44",
+      "name": "Falling platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 69,
+      "hex": "0x45",
+      "name": "Smart Hot Foot",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 70,
+      "hex": "0x46",
+      "name": "Pipe Ptooie",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 71,
+      "hex": "0x47",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 72,
+      "hex": "0x48",
+      "name": "Baby Cheep-Cheep",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 73,
+      "hex": "0x49",
+      "name": "Background cloud",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 74,
+      "hex": "0x4A",
+      "name": "Magic ball (Boom-Boom)",
+      "category": "item",
+      "safe": true
+    },
+    {
+      "id": 75,
+      "hex": "0x4B",
+      "name": "Boom-Boom",
+      "category": "boss",
+      "safe": true
+    },
+    {
+      "id": 76,
+      "hex": "0x4C",
+      "name": "Flying Boom-Boom",
+      "category": "boss",
+      "safe": true
+    },
+    {
+      "id": 77,
+      "hex": "0x4D",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 78,
+      "hex": "0x4E",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 79,
+      "hex": "0x4F",
+      "name": "Jumping Chomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 80,
+      "hex": "0x50",
+      "name": "Bob-omb (about to explode)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 81,
+      "hex": "0x51",
+      "name": "Double Rotodisc (counter-clockwise)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 82,
+      "hex": "0x52",
+      "name": "Treasure chest item",
+      "category": "item",
+      "safe": true
+    },
+    {
+      "id": 83,
+      "hex": "0x53",
+      "name": "Podoboo",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 84,
+      "hex": "0x54",
+      "name": "Weird block",
+      "category": "special",
+      "safe": false
+    },
+    {
+      "id": 85,
+      "hex": "0x55",
+      "name": "Bob-omb",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 86,
+      "hex": "0x56",
+      "name": "Left Piranha Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 87,
+      "hex": "0x57",
+      "name": "Right Piranha Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 88,
+      "hex": "0x58",
+      "name": "Fire Chomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 89,
+      "hex": "0x59",
+      "name": "Fire Snake",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 90,
+      "hex": "0x5A",
+      "name": "Single Rotodisc (clockwise)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 91,
+      "hex": "0x5B",
+      "name": "Single Rotodisc (counter-clockwise)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 92,
+      "hex": "0x5C",
+      "name": "Instant broken brick",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 93,
+      "hex": "0x5D",
+      "name": "Tornado",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 94,
+      "hex": "0x5E",
+      "name": "Double Rotodisc (both ways CCW)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 95,
+      "hex": "0x5F",
+      "name": "Double Rotodisc (both ways CW)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 96,
+      "hex": "0x60",
+      "name": "Double Rotodisc (clockwise)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 97,
+      "hex": "0x61",
+      "name": "Bloober with babies",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 98,
+      "hex": "0x62",
+      "name": "Bloober",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 99,
+      "hex": "0x63",
+      "name": "Big Bertha",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 100,
+      "hex": "0x64",
+      "name": "High surface Cheep-Cheep",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 101,
+      "hex": "0x65",
+      "name": "Upward current",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 102,
+      "hex": "0x66",
+      "name": "Downward current",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 103,
+      "hex": "0x67",
+      "name": "Lava Lotus",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 104,
+      "hex": "0x68",
+      "name": "Upside-down Buzzy shell",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 105,
+      "hex": "0x69",
+      "name": "Upside-down Spiny shell",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 106,
+      "hex": "0x6A",
+      "name": "Bloober Nanny",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 107,
+      "hex": "0x6B",
+      "name": "Pile Driver Micro-Goomba",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 108,
+      "hex": "0x6C",
+      "name": "Green Koopa Troopa",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 109,
+      "hex": "0x6D",
+      "name": "Red Koopa Troopa",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 110,
+      "hex": "0x6E",
+      "name": "Green Paratroopa (bounces)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 111,
+      "hex": "0x6F",
+      "name": "Red Paratroopa",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 112,
+      "hex": "0x70",
+      "name": "Buzzy Beetle",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 113,
+      "hex": "0x71",
+      "name": "Spiny",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 114,
+      "hex": "0x72",
+      "name": "Goomba",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 115,
+      "hex": "0x73",
+      "name": "Para-Goomba",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 116,
+      "hex": "0x74",
+      "name": "Para-Goomba with Micro-Goombas",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 117,
+      "hex": "0x75",
+      "name": "Bowser Fireball",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 118,
+      "hex": "0x76",
+      "name": "Falling Cheep-Cheep",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 119,
+      "hex": "0x77",
+      "name": "Cheep-Cheep",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 120,
+      "hex": "0x78",
+      "name": "Still Bullet Bill",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 121,
+      "hex": "0x79",
+      "name": "Missile Bill",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 122,
+      "hex": "0x7A",
+      "name": "Giant Green Koopa",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 123,
+      "hex": "0x7B",
+      "name": "Giant Red Koopa",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 124,
+      "hex": "0x7C",
+      "name": "Giant Goomba",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 125,
+      "hex": "0x7D",
+      "name": "Giant Green Piranha Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 126,
+      "hex": "0x7E",
+      "name": "Giant Green Paratroopa",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 127,
+      "hex": "0x7F",
+      "name": "Giant Red Piranha Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 128,
+      "hex": "0x80",
+      "name": "Green Paratroopa (no bounce)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 129,
+      "hex": "0x81",
+      "name": "Hammer Brother",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 130,
+      "hex": "0x82",
+      "name": "Boomerang Brother",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 131,
+      "hex": "0x83",
+      "name": "Lakitu",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 132,
+      "hex": "0x84",
+      "name": "Red Spiny Egg",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 133,
+      "hex": "0x85",
+      "name": "Green Spiny Egg",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 134,
+      "hex": "0x86",
+      "name": "Sledge Brother",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 135,
+      "hex": "0x87",
+      "name": "Fire Brother",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 136,
+      "hex": "0x88",
+      "name": "Yellow Cheep-Cheep",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 137,
+      "hex": "0x89",
+      "name": "Chain Chomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 138,
+      "hex": "0x8A",
+      "name": "Regular Thwomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 139,
+      "hex": "0x8B",
+      "name": "Left Thwomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 140,
+      "hex": "0x8C",
+      "name": "Right Thwomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 141,
+      "hex": "0x8D",
+      "name": "Up Thwomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 142,
+      "hex": "0x8E",
+      "name": "Up-Left Thwomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 143,
+      "hex": "0x8F",
+      "name": "Down-Left Thwomp",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 144,
+      "hex": "0x90",
+      "name": "Step Spinning Platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 145,
+      "hex": "0x91",
+      "name": "Constant Spinning Platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 146,
+      "hex": "0x92",
+      "name": "Periodic Spinning Platform A",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 147,
+      "hex": "0x93",
+      "name": "Periodic Spinning Platform B",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 148,
+      "hex": "0x94",
+      "name": "Giant ? Block (3x 1-Up)",
+      "category": "item",
+      "safe": true
+    },
+    {
+      "id": 149,
+      "hex": "0x95",
+      "name": "Giant ? Block (Mushroom)",
+      "category": "item",
+      "safe": true
+    },
+    {
+      "id": 150,
+      "hex": "0x96",
+      "name": "Giant ? Block (Flower)",
+      "category": "item",
+      "safe": true
+    },
+    {
+      "id": 151,
+      "hex": "0x97",
+      "name": "Giant ? Block (Leaf)",
+      "category": "item",
+      "safe": true
+    },
+    {
+      "id": 152,
+      "hex": "0x98",
+      "name": "Giant ? Block (Tanooki Suit)",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 153,
+      "hex": "0x99",
+      "name": "Giant ? Block (Frog Suit)",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 154,
+      "hex": "0x9A",
+      "name": "Giant ? Block (Hammer Suit)",
+      "category": "powerup",
+      "safe": true
+    },
+    {
+      "id": 155,
+      "hex": "0x9B",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 156,
+      "hex": "0x9C",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 157,
+      "hex": "0x9D",
+      "name": "Upward rocket engine",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 158,
+      "hex": "0x9E",
+      "name": "Lava Podoboo",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 159,
+      "hex": "0x9F",
+      "name": "Para-Beetle",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 160,
+      "hex": "0xA0",
+      "name": "Up Green Piranha Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 161,
+      "hex": "0xA1",
+      "name": "Down Green Piranha Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 162,
+      "hex": "0xA2",
+      "name": "Up Red Piranha Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 163,
+      "hex": "0xA3",
+      "name": "Down Red Piranha Plant",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 164,
+      "hex": "0xA4",
+      "name": "Up Green Venus Fire Trap",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 165,
+      "hex": "0xA5",
+      "name": "Down Green Venus Fire Trap",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 166,
+      "hex": "0xA6",
+      "name": "Up Red Venus Fire Trap",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 167,
+      "hex": "0xA7",
+      "name": "Down Red Venus Fire Trap",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 168,
+      "hex": "0xA8",
+      "name": "Auto up directional platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 169,
+      "hex": "0xA9",
+      "name": "Auto multi-directional platform",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 170,
+      "hex": "0xAA",
+      "name": "Propeller",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 171,
+      "hex": "0xAB",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 172,
+      "hex": "0xAC",
+      "name": "Left rocket engine",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 173,
+      "hex": "0xAD",
+      "name": "Brown Rocky Wrench",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 174,
+      "hex": "0xAE",
+      "name": "Nut (corkscrew)",
+      "category": "item",
+      "safe": true
+    },
+    {
+      "id": 175,
+      "hex": "0xAF",
+      "name": "Angry Sun",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 176,
+      "hex": "0xB0",
+      "name": "Still big bullet",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 177,
+      "hex": "0xB1",
+      "name": "Right rocket engine",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 178,
+      "hex": "0xB2",
+      "name": "Down rocket engine",
+      "category": "special",
+      "safe": true
+    },
+    {
+      "id": 179,
+      "hex": "0xB3",
+      "name": "Flashing enemy",
+      "category": "special",
+      "safe": false
+    },
+    {
+      "id": 180,
+      "hex": "0xB4",
+      "name": "Unlimited flying Cheep-Cheeps",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 181,
+      "hex": "0xB5",
+      "name": "Unlimited Spiny Cheep-Cheeps",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 182,
+      "hex": "0xB6",
+      "name": "Nothing",
+      "category": "nothing",
+      "safe": true
+    },
+    {
+      "id": 183,
+      "hex": "0xB7",
+      "name": "Unlimited Para-Beetles",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 184,
+      "hex": "0xB8",
+      "name": "Moving background clouds",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 185,
+      "hex": "0xB9",
+      "name": "Unlimited falling platforms",
+      "category": "platform",
+      "safe": true
+    },
+    {
+      "id": 186,
+      "hex": "0xBA",
+      "name": "Exit on treasure chest",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 187,
+      "hex": "0xBB",
+      "name": "Stop flying/spiny Cheep-Cheeps",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 188,
+      "hex": "0xBC",
+      "name": "Bullet Bills",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 189,
+      "hex": "0xBD",
+      "name": "Missile Bills",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 190,
+      "hex": "0xBE",
+      "name": "Rocky Wrench",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 191,
+      "hex": "0xBF",
+      "name": "Cross-shaped bullets",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 192,
+      "hex": "0xC0",
+      "name": "Goomba factory (left)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 193,
+      "hex": "0xC1",
+      "name": "Goomba factory (right)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 194,
+      "hex": "0xC2",
+      "name": "Bullet balls (left)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 195,
+      "hex": "0xC3",
+      "name": "Giant bullet balls (left)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 196,
+      "hex": "0xC4",
+      "name": "Bullet balls (up-left)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 197,
+      "hex": "0xC5",
+      "name": "Bullet balls (up-right)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 198,
+      "hex": "0xC6",
+      "name": "Bullet balls (down-left)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 199,
+      "hex": "0xC7",
+      "name": "Bullet balls (down-right)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 200,
+      "hex": "0xC8",
+      "name": "Bullet balls (up-left alt)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 201,
+      "hex": "0xC9",
+      "name": "Bullet balls (up-right alt)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 202,
+      "hex": "0xCA",
+      "name": "Bullet balls (down-left alt)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 203,
+      "hex": "0xCB",
+      "name": "Bullet balls (down-right alt)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 204,
+      "hex": "0xCC",
+      "name": "Bullet balls (right)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 205,
+      "hex": "0xCD",
+      "name": "Giant bullet balls (right)",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 206,
+      "hex": "0xCE",
+      "name": "Bob-omb factory (left)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 207,
+      "hex": "0xCF",
+      "name": "Bob-omb factory (right)",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 208,
+      "hex": "0xD0",
+      "name": "Bowser Statue lasers",
+      "category": "projectile",
+      "safe": true
+    },
+    {
+      "id": 209,
+      "hex": "0xD1",
+      "name": "3 Green Paratroopas",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 210,
+      "hex": "0xD2",
+      "name": "3 Yellow Cheep-Cheeps",
+      "category": "enemy",
+      "safe": true
+    },
+    {
+      "id": 211,
+      "hex": "0xD3",
+      "name": "Scroll object A",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 212,
+      "hex": "0xD4",
+      "name": "Scroll object B",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 213,
+      "hex": "0xD5",
+      "name": "King transformed message",
+      "category": "meta",
+      "safe": true
+    },
+    {
+      "id": 214,
+      "hex": "0xD6",
+      "name": "Treasure chest item (buggy)",
+      "category": "item",
+      "safe": false
+    },
+    {
+      "id": 215,
+      "hex": "0xD7",
+      "name": "Crash object D7",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 216,
+      "hex": "0xD8",
+      "name": "Crash object D8",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 217,
+      "hex": "0xD9",
+      "name": "Crash object D9",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 218,
+      "hex": "0xDA",
+      "name": "Crash object DA",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 219,
+      "hex": "0xDB",
+      "name": "Crash object DB",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 220,
+      "hex": "0xDC",
+      "name": "Crash object DC",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 221,
+      "hex": "0xDD",
+      "name": "Crash object DD",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 222,
+      "hex": "0xDE",
+      "name": "Crash object DE",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 223,
+      "hex": "0xDF",
+      "name": "Crash object DF",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 224,
+      "hex": "0xE0",
+      "name": "Crash object E0",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 225,
+      "hex": "0xE1",
+      "name": "Crash object E1",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 226,
+      "hex": "0xE2",
+      "name": "Crash object E2",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 227,
+      "hex": "0xE3",
+      "name": "Crash object E3",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 228,
+      "hex": "0xE4",
+      "name": "Crash object E4",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 229,
+      "hex": "0xE5",
+      "name": "Crash object E5",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 230,
+      "hex": "0xE6",
+      "name": "Crash object E6",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 231,
+      "hex": "0xE7",
+      "name": "Crash object E7",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 232,
+      "hex": "0xE8",
+      "name": "Crash object E8",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 233,
+      "hex": "0xE9",
+      "name": "Crash object E9",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 234,
+      "hex": "0xEA",
+      "name": "Crash object EA",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 235,
+      "hex": "0xEB",
+      "name": "Crash object EB",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 236,
+      "hex": "0xEC",
+      "name": "Crash object EC",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 237,
+      "hex": "0xED",
+      "name": "Crash object ED",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 238,
+      "hex": "0xEE",
+      "name": "Crash object EE",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 239,
+      "hex": "0xEF",
+      "name": "Crash object EF",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 240,
+      "hex": "0xF0",
+      "name": "Crash object F0",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 241,
+      "hex": "0xF1",
+      "name": "Crash object F1",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 242,
+      "hex": "0xF2",
+      "name": "Crash object F2",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 243,
+      "hex": "0xF3",
+      "name": "Crash object F3",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 244,
+      "hex": "0xF4",
+      "name": "Crash object F4",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 245,
+      "hex": "0xF5",
+      "name": "Crash object F5",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 246,
+      "hex": "0xF6",
+      "name": "Crash object F6",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 247,
+      "hex": "0xF7",
+      "name": "Crash object F7",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 248,
+      "hex": "0xF8",
+      "name": "Crash object F8",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 249,
+      "hex": "0xF9",
+      "name": "Crash object F9",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 250,
+      "hex": "0xFA",
+      "name": "Crash object FA",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 251,
+      "hex": "0xFB",
+      "name": "Crash object FB",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 252,
+      "hex": "0xFC",
+      "name": "Crash object FC",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 253,
+      "hex": "0xFD",
+      "name": "Crash object FD",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 254,
+      "hex": "0xFE",
+      "name": "Crash object FE",
+      "category": "unsafe",
+      "safe": false
+    },
+    {
+      "id": 255,
+      "hex": "0xFF",
+      "name": "End sprite data marker",
+      "category": "meta",
+      "safe": true
+    }
+  ]
+}

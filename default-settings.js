@@ -317,6 +317,7 @@ export const DEFAULT_SETTINGS = {
   roblox3Actions: [],
   marioActions: [],
   mari0Actions: [],
+  smb3Actions: [],
   pvzActions: [],
 };
 

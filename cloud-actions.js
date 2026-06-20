@@ -425,6 +425,27 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     })) return;
   }
 
+  function spawnSmb3Thing(thing, spawnId, npcId, name, times) {
+    const t = Math.min(200, Math.max(1, Number(times) || 1));
+    if (emitLocalExec({
+      tipo: 'SMB3_SPAWN',
+      thing,
+      spawnId,
+      npcId,
+      name: String(name || ''),
+      times: t,
+    })) return;
+  }
+
+  function applySmb3Effect(effect, name, seconds) {
+    if (emitLocalExec({
+      tipo: 'SMB3_EFFECT',
+      effect,
+      name: String(name || ''),
+      seconds: Math.min(60, Math.max(1, Number(seconds) || 5)),
+    })) return;
+  }
+
   function spawnPvzThing(thing, name, times) {
     const t = Math.min(20, Math.max(1, Number(times) || 1));
     if (emitLocalExec({ tipo: 'PVZ_SPAWN', thing, name: String(name || ''), times: t })) return;
@@ -486,6 +507,24 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     }
   }
 
+  function triggerSmb3Actions(eventType, info = {}, user = null, cfg = settings()) {
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of (cfg.smb3Actions || [])) {
+      if (!a || a.enabled === false) continue;
+      if ((a.kind || 'spawn') !== 'effect' && !a.thing && a.spawnId == null && a.npcId == null) continue;
+      const times = matchGameTrigger(a, eventType, info, user);
+      if (times == null) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      if ((a.kind || 'spawn') === 'effect') {
+        log('ok', `🎮 SMB3: efecto "${a.thing}" (${a.seconds || 5}s)`);
+        applySmb3Effect(a.thing, name, a.seconds);
+      } else {
+        log('ok', `🎮 SMB3: generar "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''}`);
+        spawnSmb3Thing(a.thing, a.spawnId, a.npcId, name, times);
+      }
+    }
+  }
+
   function triggerPvzActions(eventType, info = {}, user = null, cfg = settings()) {
     const name = (user && user.nickname) || info.nickname || '';
     for (const a of (cfg.pvzActions || [])) {
@@ -525,6 +564,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     triggerRobloxList(cfg.roblox3Actions || [], eventType, info, user, 'rbx3_');
     triggerMarioActions(eventType, info, user, cfg);
     triggerMari0Actions(eventType, info, user, cfg);
+    triggerSmb3Actions(eventType, info, user, cfg);
     triggerPvzActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
     const both = [].concat(cfg.mcActions || [], cfg.bedrockActions || [], cfg.sandboxActions || []);
@@ -584,6 +624,15 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
           else spawnMari0Thing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
         }
       }
+      for (const a of (cfg.smb3Actions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
+        if ((a.kind || 'spawn') !== 'effect' && !a.thing && a.spawnId == null && a.npcId == null) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          if ((a.kind || 'spawn') === 'effect') applySmb3Effect(a.thing, '', a.seconds);
+          else spawnSmb3Thing(a.thing, a.spawnId, a.npcId, '', Math.max(1, parseInt(a.count, 10) || 1));
+        }
+      }
       for (const a of (cfg.pvzActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
         const goal = Math.max(1, a.likeN || 100);
@@ -599,7 +648,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
   return {
     fireAction, triggerActions, triggerMinecraftActions, triggerLikeGlobalExtras,
     runActionOutputs, runMcAction, playMcActionSound, buildMcVars, mcCmdText, listActions, executeWebhookAction, actionDoesSomething,
-    spawnMarioThing, applyMarioEffect, spawnPvzThing, givePvzSun, pvzCommand,
+    spawnMarioThing, applyMarioEffect, spawnSmb3Thing, applySmb3Effect, spawnPvzThing, givePvzSun, pvzCommand,
   };
 }
 
