@@ -8779,14 +8779,20 @@ function ensureMari0Actions() {
 }
 
 function setupSmb3LaunchBtn() {
-  const room = document.getElementById('smb3-room');
-  if (room && !room._wired) {
-    room._wired = true;
-    room.onclick = () => {
-      const url = (room.dataset.url || '').trim();
-      if (!url) { toast && toast('Enlace de descarga no disponible.', 'warn'); return; }
+  const dlBtns = [
+    { id: 'smb3-dl-mod', label: 'mod' },
+    { id: 'smb3-dl-rom', label: 'ROM' },
+    { id: 'smb3-dl-emulator', label: 'emulador' },
+  ];
+  for (const { id, label } of dlBtns) {
+    const btn = document.getElementById(id);
+    if (!btn || btn._wired) continue;
+    btn._wired = true;
+    btn.onclick = () => {
+      const url = (btn.dataset.url || '').trim();
+      if (!url) { toast && toast(`Enlace de descarga no disponible (${label}).`, 'warn'); return; }
       downloadMinecraftServer(url);
-      toast && toast('Descargando SMB3 Livecoins…', 'ok');
+      toast && toast(`Descargando ${label}…`, 'ok');
     };
   }
   const testBtn = document.getElementById('smb3-test');

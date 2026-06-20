@@ -3599,7 +3599,7 @@
               <img src="/img/mariobros.png" alt="Mario Bros" class="juego-card-img">
             </button>
             <button type="button" class="juego-card" data-game="smb3" aria-label="Super Mario Bros. 3">
-              <img src="/img/smb3.png" alt="Super Mario Bros. 3" class="juego-card-img">
+              <img src="/img/smb3-card.png" alt="Super Mario Bros. 3" class="juego-card-img">
             </button>
             <button type="button" class="juego-card" data-game="mari0" aria-label="Mari0">
               <img src="/img/mari0.png" alt="Mari0" class="juego-card-img">
@@ -3668,9 +3668,11 @@
 
           <div class="juego-banner">
             <img src="/img/smb3.png" alt="Super Mario Bros. 3" class="juego-banner-img">
-            <div class="juego-banner-btns">
+            <div class="juego-banner-btns smb3-banner-btns">
               <button type="button" class="juego-play-btn" id="smb3-test">🔌 Probar conexión</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="smb3-room" data-url="">⬇ Descargar SMB3 Livecoins</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="smb3-dl-mod" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/SMB3-Livecoins-Setup.exe">⬇ Descargar mod</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="smb3-dl-rom" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/Super.Mario.Bros.3.USA.Rev.1.nes">⬇ Descargar ROM</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="smb3-dl-emulator" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/fceux-win64.zip">⬇ Descargar emulador</button>
             </div>
           </div>
 
@@ -3681,11 +3683,12 @@
             <div class="juego-aviso-txt">
               <b>Para que funcione con Livecoins:</b>
               <ol>
-                <li><b>Instala SMB3 Livecoins</b> y abre el acceso directo del escritorio (arranca <code>smb3-bridge.exe</code> + FCEUX).</li>
-                <li><b>ROM requerida:</b> Super Mario Bros. 3 (USA) Rev 1 — MD5 <code>86D1982FEA7342C0AF9679DDF3869D8D</code>.</li>
-                <li><b>Entra a un nivel</b> (no al mapa del mundo). Los spawns solo funcionan con Mario dentro de una partida.</li>
-                <li>Pulsa <b>🔌 Probar conexión</b>: debe responder <code>bridge: smb3-livecoins</code> en verde.</li>
-                <li>Asigna el <b>regalo</b> de cada acción abajo y enciéndelas (botón verde).</li>
+                <li><b>Descarga</b> el Mod, la <b>ROM</b> y el emulador <b>FCEUX</b>.</li>
+                <li><b>Instala el Mod</b> (SMB3 Livecoins).</li>
+                <li>Primero te pedirá la <b>ROM</b>; después selecciona el <b>emulador</b> y espera a que abra.</li>
+                <li><b>No cierres</b> ninguna ventana que abra el juego.</li>
+                <li>Pulsa <b>🔌 Probar conexión</b>: debe responder en verde.</li>
+                <li><b>Configura las acciones</b> abajo (regalo/evento y enciéndelas).</li>
               </ol>
             </div>
           </div>
