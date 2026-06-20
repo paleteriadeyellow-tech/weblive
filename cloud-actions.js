@@ -262,7 +262,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     return Math.min(times, 200);
   }
 
-  async function runMcActionExtra(a, vars, sendCmds, wait) {
+  async function runMcActionExtra(a, vars, sendCmds, wait, extra = {}) {
     const defaults = { repeat: a.repeat, delayEach: a.delayEach, delayGroup: a.delayGroup, radius: a.radius };
     let entries = (Array.isArray(a.cmds) ? a.cmds : [])
       .map((e) => parseMcCmdEntry(e, defaults))
@@ -270,7 +270,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     if (!entries.length) return;
 
     let times = mcActionRunTimes(a, vars);
-    const delayGroup = Math.max(0, parseInt(a.delayGroup, 10) || 0);
+    const delayGroup = extra.skipDelayGroup ? 0 : Math.max(0, parseInt(a.delayGroup, 10) || 0);
 
     if (a.random) entries = [entries[Math.floor(Math.random() * entries.length)]];
 
@@ -300,13 +300,18 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     }
   }
 
-  async function runMcAction(a, vars, cfg) {
+  async function runMcAction(a, vars, cfg, opts = {}) {
+    const soundTimes = Math.max(1, Number(opts.soundTimes) || 1);
     const s = cfg || settings();
     const rcon = (s.webhook && s.webhook.rcon) || {};
     const stap = (s.webhook && s.webhook.servertap) || {};
     const useStap = !!stap.enabled;
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const sendCmds = (cmds) => useStap ? sendServertap(stap, cmds) : sendRcon(rcon, cmds);
+
+    const delayGroup = Math.max(0, parseInt(a.delayGroup, 10) || 0);
+    if (delayGroup) await wait(delayGroup);
+    playMcActionSound(a, soundTimes);
 
     if (mcActionUsesExtra(a)) {
       const defaults = { repeat: a.repeat, delayEach: a.delayEach, delayGroup: a.delayGroup, radius: a.radius };
@@ -325,13 +330,13 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
         tipo: 'MINECRAFT_RCON_SEQ',
         conn: useStap ? stap : rcon,
         useStap,
-        delayGroup: Math.max(0, parseInt(a.delayGroup, 10) || 0),
+        delayGroup: 0,
         times,
         random: !!a.random,
         steps,
         name: a.name || '',
       })) return;
-      return runMcActionExtra(a, vars, sendCmds, wait);
+      return runMcActionExtra(a, vars, sendCmds, wait, { skipDelayGroup: true });
     }
 
     const lines = (a.custom && Array.isArray(a.cmds) && a.cmds.length)
@@ -479,7 +484,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
   }
 
   function spawnMari0Thing(thing, name, times) {
-    const t = Math.max(1, Number(times) || 1);
+    const t = Math.min(200, Math.max(1, Number(times) || 1));
     if (emitLocalExec({ tipo: 'MARI0_SPAWN', thing, name: String(name || ''), times: t })) return;
   }
 
@@ -576,8 +581,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
       if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
       if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
       const soundTimes = eventType === 'gift' ? Math.max(1, Number(info.repeatCount) || 1) : 1;
-      playMcActionSound(a, soundTimes);
-      runMcAction(a, vars, cfg);
+      runMcAction(a, vars, cfg, { soundTimes });
     }
   }
 
@@ -594,8 +598,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
         if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
         const goal = Math.max(1, a.likeN || 100);
         if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-          playMcActionSound(a);
-          runMcAction(a, vars, cfg);
+          runMcAction(a, vars, cfg, { soundTimes: 1 });
         }
       }
       for (const a of (cfg.robloxActions || [])) {

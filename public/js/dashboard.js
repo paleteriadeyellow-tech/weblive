@@ -1740,16 +1740,6 @@ function flushSaveSettings() {
   send({ action: 'saveSettings', settings });
 }
 
-function playMcCardSound(a) {
-  if (!a?.audioOn || !a?.sound) return;
-  playPanelSound({
-    sound: mediaUrl(a.sound),
-    name: a.name || a.soundName || 'Minecraft',
-    volume: a.soundVolume != null ? a.soundVolume : 100,
-    image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
-  });
-}
-
 function onSettings(s) {
   settings = s;
   normalizeRelayMedia(settings);
@@ -7161,7 +7151,6 @@ function renderMyMcActions() {
   wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => {
     const a = find(b.dataset.uid);
     flushSaveSettings();
-    playMcCardSound(a);
     send({ action: 'testMcAction', uid: b.dataset.uid });
     toast && toast('Enviando comando al servidor de Minecraft…', 'ok');
   });
@@ -9314,7 +9303,7 @@ async function testMari0Action(a) {
     } else toast && toast('Efecto no enviado. Pulsa «Iniciar bridge».', 'warn');
     return;
   }
-  const times = Math.max(1, parseInt(a.count, 10) || 1);
+  const times = Math.max(1, Math.min(200, parseInt(a.count, 10) || 1));
   const r = await execGameLocal({
     tipo: 'MARI0_SPAWN',
     thing: a.thing,
@@ -9360,7 +9349,7 @@ function mari0CardHtml(a) {
       <label class="mc-like-row" style="max-width:120px">Segundos<input type="number" min="1" max="60" class="mari0-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>
       <label class="mc-like-row" style="max-width:160px">Tamaño (x, 0=auto)<input type="number" min="0" max="10" class="mari0-factor" data-uid="${uid}" value="${esc(String(a.factor || 0))}"></label>`;
   } else {
-    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="20" class="mari0-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="200" class="mari0-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
   }
   return `
   <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
@@ -9402,7 +9391,7 @@ function renderMari0Actions() {
   wrap.querySelectorAll('.mari0-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderMari0Actions(); });
   wrap.querySelectorAll('.mari0-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
   wrap.querySelectorAll('.mari0-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
-  wrap.querySelectorAll('.mari0-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
+  wrap.querySelectorAll('.mari0-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(200, parseInt(inp.value, 10) || 1)); saveSettings(); });
   wrap.querySelectorAll('.mari0-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
   wrap.querySelectorAll('.mari0-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
   wrap.querySelectorAll('.mari0-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
