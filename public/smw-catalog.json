@@ -22,7 +22,7 @@
     { "name": "Piranha Plant", "thing": "PiranhaPlant", "category": "enemy", "safe": true },
     { "name": "Dry Bones", "thing": "DryBones", "category": "enemy", "safe": true },
     { "name": "Koopa gigante", "thing": "GiantGoomba", "category": "enemy", "safe": true },
-    { "name": "Super Mushroom", "thing": "SuperMushroom", "category": "powerup", "smwSprite": "0xDC", "safe": true },
+    { "name": "Super Mushroom", "thing": "SuperMushroom", "category": "powerup", "safe": true },
     { "name": "Fire Flower", "thing": "FireFlower", "category": "powerup", "safe": true },
     { "name": "Super Star", "thing": "SuperStar", "category": "powerup", "safe": true },
     { "name": "1-Up", "thing": "OneUp", "category": "powerup", "safe": true },

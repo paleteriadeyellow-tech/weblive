@@ -8850,7 +8850,20 @@ function extractSmb3Entities(raw) {
 }
 
 function smb3HealthOk(h) {
-  return !!(h && h.ok && h.bridge === 'smb3-livecoins');
+  if (!h || !h.ok) return false;
+  return h.bridge === 'smb3-livecoins' || h.game === 'smb3';
+}
+
+function smwHealthOk(h) {
+  if (!h || !h.ok) return false;
+  return h.bridge === 'smw-livecoins' || h.game === 'smw';
+}
+
+function bridgeGameLabel(h) {
+  if (!h) return '';
+  if (h.bridge === 'smw-livecoins' || h.game === 'smw') return 'SMW';
+  if (h.bridge === 'smb3-livecoins' || h.game === 'smb3') return 'SMB3';
+  return h.bridge || h.game || '';
 }
 
 function ensureSmb3Actions() {
@@ -8921,8 +8934,16 @@ function renderSmb3Status(h) {
   const el = document.getElementById('smb3-status');
   if (!el) return;
   if (!IS_DESKTOP) { el.innerHTML = ''; return; }
-  if (!smb3HealthOk(h)) {
+  if (!h || !h.ok) {
     el.innerHTML = '<span class="mari0-st off">SMB3 bridge :7755 — sin conexión</span>';
+    return;
+  }
+  if (!smb3HealthOk(h)) {
+    const other = bridgeGameLabel(h);
+    const msg = other === 'SMW'
+      ? 'Hay SMW en :7755 — abre SMB3 Livecoins (INICIAR-SMB3.bat)'
+      : (other ? `Bridge «${esc(other)}» en :7755 — abre SMB3` : 'SMB3 bridge :7755 — sin conexión');
+    el.innerHTML = `<span class="mari0-st off">${msg}</span>`;
     return;
   }
   el.innerHTML = '<span class="mari0-st on">SMB3 Livecoins conectado</span><span class="mari0-st on">127.0.0.1:7755</span>';
@@ -9192,10 +9213,6 @@ const SMW_CAT_LABEL = { enemy: 'Enemigos', powerup: 'Power-ups' };
 const SMW_POWERUP_ORDER = ['SuperMushroom', 'FireFlower', 'SuperStar', 'OneUp', 'Leaf'];
 const SMW_CATALOG = [];
 
-function smwHealthOk(h) {
-  return !!(h && h.ok && h.bridge === 'smw-livecoins');
-}
-
 function ensureSmwActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.smwActions)) settings.smwActions = [];
@@ -9253,8 +9270,16 @@ function renderSmwStatus(h) {
   const el = document.getElementById('smw-status');
   if (!el) return;
   if (!IS_DESKTOP) { el.innerHTML = ''; return; }
-  if (!smwHealthOk(h)) {
+  if (!h || !h.ok) {
     el.innerHTML = '<span class="mari0-st off">SMW bridge :7755 — sin conexión</span>';
+    return;
+  }
+  if (!smwHealthOk(h)) {
+    const other = bridgeGameLabel(h);
+    const msg = other === 'SMB3'
+      ? 'Hay SMB3 en :7755 — abre SMW Livecoins (INICIAR-SMW.bat)'
+      : (other ? `Bridge «${esc(other)}» en :7755 — abre SMW` : 'SMW bridge :7755 — sin conexión');
+    el.innerHTML = `<span class="mari0-st off">${msg}</span>`;
     return;
   }
   el.innerHTML = '<span class="mari0-st on">SMW Livecoins conectado</span><span class="mari0-st on">127.0.0.1:7755</span>';
