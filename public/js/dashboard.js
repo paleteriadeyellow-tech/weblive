@@ -921,6 +921,9 @@ function handle(type, p) {
     case 'panic':
       stopPanelSounds();
       if (typeof ttsHardStop === 'function') ttsHardStop();
+      if (IS_DESKTOP && window.desktopAPI?.bumpMcPanic) {
+        window.desktopAPI.bumpMcPanic().catch(() => {});
+      }
       break;
     case 'timer': renderTimerState(p); break;
     case 'timerBeep': break;
@@ -999,8 +1002,11 @@ function triggerAlertPanic() {
   try { previewAudio?.pause(); } catch {}
   stopPanelSounds();
   if (typeof ttsHardStop === 'function') ttsHardStop();
+  if (IS_DESKTOP && window.desktopAPI?.bumpMcPanic) {
+    window.desktopAPI.bumpMcPanic().catch(() => {});
+  }
   send({ action: 'panic' });
-  toast('⛔ Pánico: alertas detenidas (videos, sonidos y TTS en cola)', 'warn');
+  toast('⛔ Pánico: Minecraft, videos, sonidos y TTS detenidos', 'warn');
 }
 
 /* ====================== Navegación lateral ====================== */
