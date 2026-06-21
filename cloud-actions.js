@@ -442,6 +442,16 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     })) return;
   }
 
+  function spawnSmwThing(thing, name, times) {
+    const t = Math.min(200, Math.max(1, Number(times) || 1));
+    if (emitLocalExec({
+      tipo: 'SMW_SPAWN',
+      thing,
+      name: String(name || ''),
+      times: t,
+    })) return;
+  }
+
   function applySmb3Effect(effect, name, seconds) {
     if (emitLocalExec({
       tipo: 'SMB3_EFFECT',
@@ -530,6 +540,20 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     }
   }
 
+  function triggerSmwActions(eventType, info = {}, user = null, cfg = settings()) {
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of (cfg.smwActions || [])) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const times = matchGameTrigger(a, eventType, info, user);
+      if (times == null) continue;
+      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      log('ok', `🦖 SMW: generar "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''}`);
+      spawnSmwThing(a.thing, name, Math.min(200, times));
+    }
+  }
+
   function triggerPvzActions(eventType, info = {}, user = null, cfg = settings()) {
     const name = (user && user.nickname) || info.nickname || '';
     for (const a of (cfg.pvzActions || [])) {
@@ -570,6 +594,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     triggerMarioActions(eventType, info, user, cfg);
     triggerMari0Actions(eventType, info, user, cfg);
     triggerSmb3Actions(eventType, info, user, cfg);
+    triggerSmwActions(eventType, info, user, cfg);
     triggerPvzActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
     const both = [].concat(cfg.mcActions || [], cfg.bedrockActions || [], cfg.sandboxActions || []);
@@ -634,6 +659,13 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
         if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
           if ((a.kind || 'spawn') === 'effect') applySmb3Effect(a.thing, '', a.seconds);
           else spawnSmb3Thing(a.thing, a.spawnId, a.npcId, '', Math.max(1, parseInt(a.count, 10) || 1));
+        }
+      }
+      for (const a of (cfg.smwActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          spawnSmwThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
         }
       }
       for (const a of (cfg.pvzActions || [])) {

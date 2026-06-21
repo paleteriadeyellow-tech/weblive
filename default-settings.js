@@ -318,6 +318,7 @@ export const DEFAULT_SETTINGS = {
   marioActions: [],
   mari0Actions: [],
   smb3Actions: [],
+  smwActions: [],
   pvzActions: [],
 };
 

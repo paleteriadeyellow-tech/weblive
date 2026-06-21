@@ -3604,6 +3604,9 @@
             <button type="button" class="juego-card" data-game="mari0" aria-label="Mari0">
               <img src="/img/mari0.png" alt="Mari0" class="juego-card-img">
             </button>
+            <button type="button" class="juego-card" data-game="smw" aria-label="Super Mario World">
+              <img src="/img/smw-card.png" alt="Super Mario World" class="juego-card-img">
+            </button>
             <button type="button" class="juego-card" data-game="plantasvszombies" aria-label="Plants vs Zombies">
               <img src="/img/plantasvszombies.jpg" alt="Plants vs Zombies" class="juego-card-img">
             </button>
@@ -3724,7 +3727,7 @@
             <img src="/img/mari0.png" alt="Mari0" class="juego-banner-img">
             <div class="juego-banner-btns">
               <button type="button" class="juego-play-btn" id="mari0-bridge">▶ Iniciar bridge</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="mari0-room" data-url="https://github.com/riusaki1995/mariobros/releases/download/fff/Mari0Livecoins-Setup.exe">⬇ Descargar juego</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="mari0-room" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/Mari0Livecoins-Setup.exe">⬇ Descargar juego</button>
             </div>
           </div>
 
@@ -3762,6 +3765,59 @@
               <input type="text" id="mari0-cat-search" class="mc-cat-search" placeholder="Buscar acción (goomba, estrella, thwomp…)">
             </div>
             <div id="mari0-catalog" class="mc-catalog"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: SUPER MARIO WORLD (solo .exe) ===================== -->
+        <section class="view" id="view-juego-smw">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🦖 Super Mario World</h1>
+          <p class="view-sub">SNES + SMW Livecoins. El bridge debe estar corriendo en esta PC en <code>127.0.0.1:7755</code>.</p>
+
+          <div class="juego-banner">
+            <img src="/img/smw.png" alt="Super Mario World" class="juego-banner-img">
+            <div class="juego-banner-btns smw-banner-btns">
+              <button type="button" class="juego-play-btn" id="smw-test">🔌 Probar conexión</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="smw-dl-mod" data-url="">⬇ Descargar mod</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="smw-dl-rom" data-url="">⬇ Descargar ROM</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="smw-dl-emulator" data-url="">⬇ Descargar emulador</button>
+            </div>
+          </div>
+
+          <div id="smw-status" class="mari0-status-bar" aria-live="polite"></div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Para que funcione con Livecoins:</b>
+              <ol>
+                <li><b>Descarga</b> el Mod, la <b>ROM</b> y el emulador SNES (cuando estén disponibles los enlaces).</li>
+                <li><b>Instala el Mod</b> (SMW Livecoins) y abre el juego con el emulador.</li>
+                <li><b>Entra a un nivel</b> con Mario en pantalla.</li>
+                <li>Pulsa <b>🔌 Probar conexión</b>: debe responder en verde (<code>smw-livecoins</code>).</li>
+                <li><b>Configura las acciones</b> abajo (regalo/evento y enciéndelas).</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🦖 Acciones de Super Mario World</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b> Cantidad máxima por acción: <b>200</b>.</p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="smw-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="smw-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de acciones</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="smw-cat-search" class="mc-cat-search" placeholder="Buscar acción (goomba, capa, estrella…)">
+            </div>
+            <div id="smw-catalog" class="smw-catalog-wrap"></div>
           </div>
         </section>
 

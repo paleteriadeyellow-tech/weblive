@@ -1055,6 +1055,23 @@ details.settings-card[open] summary::before { content: '▾ '; }
 #view-juego-smb3 .smb3-banner-btns .juego-play-btn {
   font-size: 13px; padding: 9px 14px;
 }
+/* SMW: poster completo sobre fondo azul */
+#view-juego-smw .juego-banner {
+  display: block;
+  background: #0098ff;
+}
+#view-juego-smw .juego-banner-img {
+  width: 100%; height: auto; max-height: none;
+  aspect-ratio: unset; object-fit: contain; object-position: center;
+  display: block;
+}
+#view-juego-smw .smw-banner-btns { max-width: min(100%, 680px); }
+#view-juego-smw .smw-banner-btns .juego-play-btn {
+  font-size: 13px; padding: 9px 14px;
+}
+.smw-catalog-wrap { display: flex; flex-direction: column; gap: 18px; }
+.smw-cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.smw-cat-count { font-weight: 400; opacity: .65; font-size: .92em; }
 .juego-play-btn { position: absolute; left: 16px; bottom: 14px; z-index: 3; cursor: pointer;
   display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 13px;
   border: 2px solid #1e6b16; font-weight: 800; font-size: 15px; color: #fff;

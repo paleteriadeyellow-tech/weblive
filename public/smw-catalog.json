@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "game": "smw",
+  "notes": "POST http://127.0.0.1:7755/spawn — { thing, name, times }",
+  "entities": [
+    { "name": "Goomba", "thing": "Goomba", "category": "enemy", "safe": true },
+    { "name": "Koopa verde", "thing": "GreenKoopaTroopa", "category": "enemy", "safe": true },
+    { "name": "Koopa rojo", "thing": "RedKoopaTroopa", "category": "enemy", "safe": true },
+    { "name": "Spiny", "thing": "Spiny", "category": "enemy", "safe": true },
+    { "name": "Buzzy Beetle", "thing": "BuzzyBeetle", "category": "enemy", "safe": true },
+    { "name": "Para-Goomba", "thing": "ParaGoomba", "category": "enemy", "safe": true },
+    { "name": "Hammer Bro", "thing": "HammerBro", "category": "enemy", "safe": true },
+    { "name": "Boomerang Bro", "thing": "BoomerangBro", "category": "enemy", "safe": true },
+    { "name": "Fire Bro", "thing": "FireBro", "category": "enemy", "safe": true },
+    { "name": "Sledge Bro", "thing": "SledgeBro", "category": "enemy", "safe": true },
+    { "name": "Thwomp", "thing": "Thwomp", "category": "enemy", "safe": true },
+    { "name": "Boo", "thing": "Boo", "category": "enemy", "safe": true },
+    { "name": "Lakitu", "thing": "Lakitu", "category": "enemy", "safe": true },
+    { "name": "Chain Chomp", "thing": "ChainChomp", "category": "enemy", "safe": true },
+    { "name": "Cheep Cheep", "thing": "CheepCheep", "category": "enemy", "safe": true },
+    { "name": "Bullet Bill", "thing": "BulletBill", "category": "enemy", "safe": true },
+    { "name": "Piranha Plant", "thing": "PiranhaPlant", "category": "enemy", "safe": true },
+    { "name": "Dry Bones", "thing": "DryBones", "category": "enemy", "safe": true },
+    { "name": "Koopa gigante", "thing": "GiantGoomba", "category": "enemy", "safe": true },
+    { "name": "Super Mushroom", "thing": "SuperMushroom", "category": "powerup", "smwSprite": "0xDC", "safe": true },
+    { "name": "Fire Flower", "thing": "FireFlower", "category": "powerup", "safe": true },
+    { "name": "Super Star", "thing": "SuperStar", "category": "powerup", "safe": true },
+    { "name": "1-Up", "thing": "OneUp", "category": "powerup", "safe": true },
+    { "name": "Cape Feather (capa)", "thing": "Leaf", "category": "powerup", "safe": true }
+  ]
+}
