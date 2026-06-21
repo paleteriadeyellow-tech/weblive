@@ -274,7 +274,7 @@ const TAB_CAP = {
 };
 const AV_SUBTAB_CAP = { alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas' };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', smw: 'game_smw', plantasvszombies: 'game_plantasvszombies' };
+const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies' };
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
@@ -399,13 +399,13 @@ const CAP_LABELS = {
   // juegos
   game_minecraft: 'Juego: Minecraft', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_smw: 'Juego: Super Mario World', game_plantasvszombies: 'Juego: Plants vs Zombies',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_smw', 'game_plantasvszombies',
+  'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -5918,7 +5918,7 @@ function onKeyAction(p) {
 // el resto (RCON, OBS, teclas…) al proceso principal de Electron.
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (/^(MARIO_|MARI0_|SMB3_|SMW_|PVZ_)/.test(exec.tipo)) {
+  if (/^(MARIO_|MARI0_|SMB3_|PVZ_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
   }
@@ -6545,9 +6545,6 @@ function setupJuegosUI() {
   setupMari0ActionsUI();
   setupMari0LaunchBtn();
   setupMari0StatusPoll();
-  setupSmwActionsUI();
-  setupSmwLaunchBtn();
-  setupSmwStatusPoll();
   setupPvzActionsUI();
   setupPvzLaunchBtn();
   const change = document.getElementById('mc-change-bat');
@@ -8912,14 +8909,9 @@ function smb3HealthOk(h) {
   return h.bridge === 'smb3-livecoins' || h.game === 'smb3';
 }
 
-function smwHealthOk(h) {
-  if (!h || !h.ok) return false;
-  return h.bridge === 'smw-livecoins' || h.game === 'smw';
-}
 
 function bridgeGameLabel(h) {
   if (!h) return '';
-  if (h.bridge === 'smw-livecoins' || h.game === 'smw') return 'SMW';
   if (h.bridge === 'smb3-livecoins' || h.game === 'smb3') return 'SMB3';
   return h.bridge || h.game || '';
 }
@@ -8998,9 +8990,7 @@ function renderSmb3Status(h) {
   }
   if (!smb3HealthOk(h)) {
     const other = bridgeGameLabel(h);
-    const msg = other === 'SMW'
-      ? 'Hay SMW en :7755 — abre SMB3 Livecoins (INICIAR-SMB3.bat)'
-      : (other ? `Bridge «${esc(other)}» en :7755 — abre SMB3` : 'SMB3 bridge :7755 — sin conexión');
+    const msg = other ? `Bridge «${esc(other)}» en :7755 — abre SMB3` : 'SMB3 bridge :7755 — sin conexión';
     el.innerHTML = `<span class="mari0-st off">${msg}</span>`;
     return;
   }
@@ -9261,359 +9251,6 @@ function renderSmb3Actions() {
   wrap.querySelectorAll('.smb3-gift').forEach((b) => b.onclick = () => {
     const a = find(b.dataset.uid); if (!a) return;
     openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderSmb3Actions(); });
-  });
-}
-
-/* ================= Acciones de Super Mario World (SNES + smw-bridge :7755) ================= */
-const SMW_CAT_ORDER = ['enemy', 'powerup'];
-const SMW_CAT_ICON = { enemy: '👾', powerup: '🍄' };
-const SMW_CAT_LABEL = { enemy: 'Enemigos', powerup: 'Power-ups' };
-const SMW_POWERUP_ORDER = ['SuperMushroom', 'FireFlower', 'SuperStar', 'OneUp', 'Leaf'];
-const SMW_CATALOG = [];
-
-function ensureSmwActions() {
-  if (!settings) return [];
-  if (!Array.isArray(settings.smwActions)) settings.smwActions = [];
-  settings.smwActions = migrateGameActions(settings.smwActions, 'smw');
-  return settings.smwActions;
-}
-
-function catalogEntryToSmw(c) {
-  const thing = String(c.thing || c.id || '').trim();
-  const cat = String(c.category || 'enemy').toLowerCase();
-  return {
-    id: `thing_${thing}`,
-    thing,
-    nombre: c.name || thing,
-    category: cat,
-    tipo: cat,
-    kind: 'spawn',
-    smwSprite: c.smwSprite,
-  };
-}
-
-function extractSmwEntities(raw) {
-  if (Array.isArray(raw)) return raw;
-  if (raw?.entities && Array.isArray(raw.entities)) return raw.entities;
-  return raw?.items || raw?.catalog || [];
-}
-
-async function loadSmwCatalog() {
-  const applyList = (list) => {
-    if (!Array.isArray(list) || !list.length) return false;
-    SMW_CATALOG.length = 0;
-    for (const c of list) {
-      if (c.safe === false) continue;
-      const entry = catalogEntryToSmw(c);
-      if (!entry.thing) continue;
-      SMW_CATALOG.push(entry);
-    }
-    return SMW_CATALOG.length > 0;
-  };
-  const applyRaw = (raw) => applyList(extractSmwEntities(raw));
-  try {
-    const r = await fetch('/api/desktop/smw-catalog', { credentials: 'same-origin' });
-    const d = await r.json().catch(() => ({}));
-    if (d.ok && applyList(d.catalog)) return;
-  } catch { /* ignore */ }
-  try {
-    const r = await fetch(`/smw-catalog.json?t=${Date.now()}`, { cache: 'no-store' });
-    if (r.ok && applyRaw(await r.json())) return;
-  } catch { /* ignore */ }
-}
-
-let smwStatusTimer = null;
-
-function renderSmwStatus(h) {
-  const el = document.getElementById('smw-status');
-  if (!el) return;
-  if (!IS_DESKTOP) { el.innerHTML = ''; return; }
-  if (!h || !h.ok) {
-    el.innerHTML = '<span class="mari0-st off">SMW bridge :7755 — sin conexión</span>';
-    return;
-  }
-  if (!smwHealthOk(h)) {
-    const other = bridgeGameLabel(h);
-    const msg = other === 'SMB3'
-      ? 'Hay SMB3 en :7755 — abre SMW Livecoins (INICIAR-SMW.bat)'
-      : (other ? `Bridge «${esc(other)}» en :7755 — abre SMW` : 'SMW bridge :7755 — sin conexión');
-    el.innerHTML = `<span class="mari0-st off">${msg}</span>`;
-    return;
-  }
-  el.innerHTML = '<span class="mari0-st on">SMW Livecoins conectado</span><span class="mari0-st on">127.0.0.1:7755</span>';
-}
-
-async function refreshSmwStatus() {
-  if (!IS_DESKTOP) return null;
-  try {
-    const r = await fetch('/api/desktop/smw-health', { credentials: 'same-origin' });
-    const d = await r.json().catch(() => ({}));
-    if (d.health) {
-      renderSmwStatus(d.health);
-      return d.health;
-    }
-  } catch { /* fallback */ }
-  try {
-    const r = await fetch('http://127.0.0.1:7755/health');
-    const h = await r.json();
-    renderSmwStatus(h);
-    return h;
-  } catch {
-    renderSmwStatus(null);
-    return null;
-  }
-}
-
-function setupSmwStatusPoll() {
-  if (!IS_DESKTOP || smwStatusTimer) return;
-  refreshSmwStatus();
-  smwStatusTimer = setInterval(() => {
-    const view = document.getElementById('view-juego-smw');
-    if (view?.classList.contains('active')) refreshSmwStatus();
-  }, 2500);
-}
-
-function setupSmwLaunchBtn() {
-  const dlBtns = [
-    { id: 'smw-dl-mod', label: 'mod' },
-    { id: 'smw-dl-rom', label: 'ROM' },
-    { id: 'smw-dl-emulator', label: 'emulador' },
-  ];
-  for (const { id, label } of dlBtns) {
-    const btn = document.getElementById(id);
-    if (!btn || btn._wired) continue;
-    btn._wired = true;
-    btn.onclick = () => {
-      const url = (btn.dataset.url || '').trim();
-      if (!url) { toast && toast(`Enlace de descarga no disponible (${label}).`, 'warn'); return; }
-      downloadMinecraftServer(url);
-      toast && toast(`Descargando ${label}…`, 'ok');
-    };
-  }
-  const testBtn = document.getElementById('smw-test');
-  if (testBtn && !testBtn._wired) {
-    testBtn._wired = true;
-    if (!IS_DESKTOP) testBtn.style.display = 'none';
-    else {
-      testBtn.onclick = async () => {
-        testBtn.disabled = true;
-        const prev = testBtn.textContent;
-        testBtn.textContent = '⏳ Probando…';
-        try {
-          const h = await refreshSmwStatus();
-          if (smwHealthOk(h)) toast && toast('SMW Livecoins conectado (bridge :7755).', 'ok');
-          else toast && toast('Sin bridge SMW. Abre SMW Livecoins y entra a un nivel.', 'warn');
-        } finally {
-          testBtn.disabled = false;
-          testBtn.textContent = prev;
-        }
-      };
-    }
-  }
-}
-
-function setupSmwActionsUI() {
-  const search = document.getElementById('smw-cat-search');
-  if (search && !search._wired) { search._wired = true; search.oninput = () => renderSmwCatalog(search.value); }
-  const toggleAll = document.getElementById('smw-toggle-all');
-  if (toggleAll && !toggleAll._wired) {
-    toggleAll._wired = true;
-    toggleAll.onclick = () => {
-      const list = ensureSmwActions();
-      if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
-      const anyOff = list.some((a) => a.enabled === false);
-      list.forEach((a) => { a.enabled = anyOff; });
-      saveSettings(); renderSmwActions();
-      toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
-    };
-  }
-  loadSmwCatalog().finally(() => {
-    renderSmwCatalog(search ? search.value : '');
-    renderSmwActions();
-  });
-}
-
-function smwCatCardHtml(c) {
-  const extra = c.smwSprite ? ` · ${esc(c.smwSprite)}` : '';
-  return `
-    <div class="mc-cat-card" data-id="${esc(c.id)}">
-      <div class="mc-cat-head-row">
-        <span class="mc-cat-emoji">${SMW_CAT_ICON[c.tipo] || '🎮'}</span>
-        <div class="mc-cat-texts">
-          <div class="mc-cat-name">${esc(c.nombre)}</div>
-          <div class="mc-cat-desc">${esc(c.thing || '')}${extra}</div>
-        </div>
-      </div>
-      <button type="button" class="mc-cat-add">+ Agregar</button>
-    </div>`;
-}
-
-function renderSmwCatalog(filter) {
-  const grid = document.getElementById('smw-catalog');
-  if (!grid) return;
-  const f = (filter || '').trim().toLowerCase();
-  const list = f
-    ? SMW_CATALOG.filter((c) =>
-      c.nombre.toLowerCase().includes(f)
-      || String(c.id).toLowerCase().includes(f)
-      || (c.thing || '').toLowerCase().includes(f))
-    : SMW_CATALOG;
-  if (!list.length) {
-    grid.innerHTML = '<div class="empty">Sin resultados. Comprueba que exista smw-catalog.json.</div>';
-    return;
-  }
-
-  const byCat = new Map();
-  for (const c of list) {
-    const cat = c.tipo || c.category || 'other';
-    if (!byCat.has(cat)) byCat.set(cat, []);
-    byCat.get(cat).push(c);
-  }
-
-  const order = f
-    ? [...byCat.keys()].sort((a, b) => SMW_CAT_ORDER.indexOf(a) - SMW_CAT_ORDER.indexOf(b))
-    : SMW_CAT_ORDER.filter((cat) => byCat.has(cat));
-
-  grid.innerHTML = order.map((cat) => {
-    const items = byCat.get(cat) || [];
-    items.sort((a, b) => {
-      if (cat === 'powerup') {
-        const ai = SMW_POWERUP_ORDER.indexOf(a.thing);
-        const bi = SMW_POWERUP_ORDER.indexOf(b.thing);
-        if (ai >= 0 && bi >= 0) return ai - bi;
-        if (ai >= 0) return -1;
-        if (bi >= 0) return 1;
-      }
-      return a.nombre.localeCompare(b.nombre, 'es');
-    });
-    return `
-      <div class="smw-cat-section">
-        <h4 class="mc-sub-title smw-cat-title">${SMW_CAT_ICON[cat] || '🎮'} ${esc(SMW_CAT_LABEL[cat] || cat)} <span class="smw-cat-count">(${items.length})</span></h4>
-        <div class="mc-catalog smw-cat-grid">${items.map((c) => smwCatCardHtml(c)).join('')}</div>
-      </div>`;
-  }).join('');
-
-  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
-    card.querySelector('.mc-cat-add').onclick = () => addSmwAction(card.dataset.id);
-  });
-}
-
-function addSmwAction(id) {
-  const c = SMW_CATALOG.find((x) => x.id === id);
-  if (!c) return;
-  const list = ensureSmwActions();
-  list.push({
-    uid: 'smw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-    thing: c.thing,
-    label: c.nombre,
-    tipo: c.tipo,
-    category: c.category,
-    kind: 'spawn',
-    trigger: 'gift',
-    enabled: true,
-    count: 1,
-  });
-  saveSettings();
-  renderSmwActions();
-  toast && toast(`Acción «${c.nombre}» agregada.`, 'ok');
-}
-
-async function testSmwAction(a) {
-  if (!a) return;
-  const label = a.label || a.thing || 'acción';
-  if (!IS_DESKTOP) { toast && toast('SMW solo funciona en la app de escritorio (.exe).', 'warn'); return; }
-
-  toast && toast(`🦖 «${label}» en 2 s… (entra a un nivel en SMW)`, 'ok');
-  await new Promise((r) => setTimeout(r, 2000));
-
-  const h = await refreshSmwStatus();
-  if (!smwHealthOk(h)) {
-    toast && toast('Bridge SMW no detectado. Abre SMW Livecoins desde el escritorio.', 'warn');
-    return;
-  }
-
-  const times = Math.max(1, Math.min(200, parseInt(a.count, 10) || 1));
-  const r = await execGameLocal({
-    tipo: 'SMW_SPAWN',
-    thing: a.thing,
-    name: 'Prueba',
-    times,
-  });
-  if (r && r.ok !== false) {
-    addEvent(`🦖 Prueba SMW: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
-  } else {
-    toast && toast(r?.error === 'no_handled' ? 'Spawn no procesado (¿estás en un nivel?).' : `Spawn falló («${label}»).`, 'warn');
-  }
-}
-
-function smwCardHtml(a) {
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-  const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn smw-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="smw-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !goomba)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="smw-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
-  const emoji = SMW_CAT_ICON[a.tipo] || '👾';
-  const qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="200" class="smw-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>
-      <button type="button" class="mc-act-del smw-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="smw-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    <div class="mc-act-row">${qtyRow}</div>
-    ${((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any') ? `<div class="mc-act-row">${mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'smw-combo-instant-en')}</div>` : ''}
-    <div class="mc-act-actions">
-      <label class="mc-act-toggle"><input type="checkbox" class="smw-en" data-uid="${uid}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
-      <div class="mc-act-btns">
-        <button type="button" class="mc-act-test smw-test-act" data-uid="${uid}">Probar</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-function renderSmwActions() {
-  const wrap = document.getElementById('smw-my-actions');
-  if (!wrap || !settings) return;
-  const list = ensureSmwActions();
-  if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map((a) => smwCardHtml(a)).join('');
-  const find = (uid) => list.find((x) => x.uid === uid);
-  wrap.querySelectorAll('.smw-del').forEach((b) => b.onclick = () => { settings.smwActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderSmwActions(); });
-  wrap.querySelectorAll('.smw-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderSmwActions(); });
-  wrap.querySelectorAll('.smw-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderSmwActions(); });
-  wrap.querySelectorAll('.smw-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
-  wrap.querySelectorAll('.smw-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
-  wrap.querySelectorAll('.smw-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(200, parseInt(inp.value, 10) || 1)); saveSettings(); });
-  wrap.querySelectorAll('.smw-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
-  wrap.querySelectorAll('.smw-test-act').forEach((b) => b.onclick = () => testSmwAction(find(b.dataset.uid)));
-  wrap.querySelectorAll('.smw-gift').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderSmwActions(); });
   });
 }
 

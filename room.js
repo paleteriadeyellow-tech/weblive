@@ -2429,9 +2429,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'smb3Effect':
         actions.applySmb3Effect(String(data.effect || data.type || ''), data.name ?? data.viewer, data.seconds);
         break;
-      case 'smwSpawn':
-        actions.spawnSmwThing(data.thing, data.name ?? data.viewer ?? data.nickname, data.times ?? data.count);
-        break;
       case 'pvzSpawn':
         actions.spawnPvzThing(String(data.thing || ''), data.name, data.times);
         break;
