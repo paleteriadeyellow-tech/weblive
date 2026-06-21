@@ -276,7 +276,7 @@ export const DEFAULT_SETTINGS = {
   topPointsRank: {
     rows: 3, title: 'Top Puntos', accent: '#ffd54f', rowBg: '#0c1c26', scale: 100,
     font: 'inter', transparent: false, nameRainbow: true, titleRainbow: true,
-    lines: true, shadows: true, glitter: true, showLevel: true, showTitle: true,
+    lines: true, shadows: true, glitter: true, showLevel: false, showTitle: true,
   },
   // Overlay Barra de meta (Hype) — skins: default | meta2 | meta3 | meta4
   hypeBar: {

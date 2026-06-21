@@ -138,6 +138,9 @@
         else if (m.type === 'settings') { if (m.payload && m.payload.batallaLikes) { cfg = Object.assign(cfg, m.payload.batallaLikes); applyStyle(); render(); } }
         else if (m.type === 'batallaLikesTest') { if (!isEmbed) { ranking = {}; demo(); render({ seq: true }); } }
         else if (m.type === 'batallaLikesReset') { if (!isEmbed) { ranking = {}; render(); } }
+        else if (m.type === 'sessionOverlays') {
+          if (!isEmbed && m.payload && m.payload.batallaLikes) { ranking = m.payload.batallaLikes; render(); }
+        }
       };
     }
     window.addEventListener('message', (e) => {

@@ -365,6 +365,14 @@
         else if (m.type === 'gift') onGift(m.payload);
         else if (m.type === 'hypeTest') runTest();
         else if (m.type === 'hypeReset') resetOverlay();
+        else if (m.type === 'sessionOverlays') {
+          if (!isEmbed && m.payload && m.payload.hype) {
+            score = Number(m.payload.hype.score) || 0;
+            target = Math.max(1, Number(m.payload.hype.target) || target);
+            coinTotal = Number(m.payload.hype.coinTotal) || 0;
+            update();
+          }
+        }
       };
     }
 

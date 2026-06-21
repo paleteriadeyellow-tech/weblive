@@ -578,6 +578,9 @@ body.no-fx .gem-float { display: none; }
       else if (m.type === 'settings') { if (m.payload && m.payload.top1) { cfg = Object.assign(cfg, m.payload.top1); applyStyle(); render(); } }
       else if (m.type === 'top1Test') { if (!isEmbed) runTest(); }
       else if (m.type === 'top1Reset') { if (!isEmbed) resetTop(); }
+      else if (m.type === 'sessionOverlays') {
+        if (!isEmbed && m.payload && m.payload.top1) { ranking = m.payload.top1; render(); }
+      }
     };
   }
 

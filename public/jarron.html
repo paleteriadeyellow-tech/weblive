@@ -128,11 +128,20 @@
     // ---- Contador de diamantes (debajo del jarrón) ----
     const coinNumEl = document.getElementById('coin-num');
     let totalDiamonds = 0;
+    const lsKey = 'lc_jarron_' + (params.get('room') || 'default');
+    function persistDiamonds() { try { localStorage.setItem(lsKey, String(totalDiamonds)); } catch {} }
+    function loadPersistedDiamonds() {
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (raw != null) setDiamonds(parseInt(raw, 10) || 0);
+      } catch {}
+    }
     function setDiamonds(n, bump) {
       totalDiamonds = Math.max(0, Math.round(Number(n) || 0));
       if (!coinNumEl) return;
       coinNumEl.textContent = totalDiamonds.toLocaleString('es-ES');
       if (bump) { coinNumEl.classList.remove('bump'); void coinNumEl.offsetWidth; coinNumEl.classList.add('bump'); }
+      persistDiamonds();
     }
 
     // ---- Geometría del frasco (px del stage 540×720) ----
@@ -336,7 +345,7 @@
         if (type === 'gift') { if (!isEmbed) onGift(payload); }
         else if (type === 'panic') clearJar();
         else if (type === 'jarronTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
-        else if (type === 'jarronReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); } }
+        else if (type === 'jarronReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); try { localStorage.removeItem(lsKey); } catch {} } }
         else if (type === 'settings') {
           if (payload && payload.jarron) {
             if (!params.get('jc')) applyJarTint(payload.jarron.tint);
@@ -351,6 +360,7 @@
       spawnMany(resolveGiftImg(p), n, 150, p.diamonds || 0);
     }
     connectWS();
+    if (!isEmbed) loadPersistedDiamonds();
 
     // ---- Control desde el panel (vista previa embebida) ----
     function sampleImg() {

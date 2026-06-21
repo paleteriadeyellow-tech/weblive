@@ -252,6 +252,30 @@ function readJsonSafe(file) {
   }
 }
 
+function relativizeMediaUrl(u) {
+  if (!u || typeof u !== 'string') return u;
+  if (u.startsWith('/')) return u;
+  try {
+    const p = new URL(u);
+    if (/^\/(uploads|audios|video)\//.test(p.pathname)) return p.pathname + (p.search || '');
+  } catch {}
+  return u;
+}
+function normalizeSettingsMediaUrls(s) {
+  if (!s || typeof s !== 'object') return;
+  const rel = relativizeMediaUrl;
+  for (const a of (s.soundAlerts || [])) if (a.sound) a.sound = rel(a.sound);
+  for (const v of (s.videos || [])) if (v.url) v.url = rel(v.url);
+  for (const b of (s.battleAlerts || [])) if (b.url) b.url = rel(b.url);
+  for (const a of (s.actions || [])) if (a.sound) a.sound = rel(a.sound);
+  for (const a of (s.mcActions || [])) if (a.sound) a.sound = rel(a.sound);
+}
+function normalizeProfilesMediaUrls(p) {
+  if (!p) return;
+  for (const slot of (p.slots || [])) normalizeSettingsMediaUrls(slot);
+  normalizeSettingsMediaUrls(p.general);
+}
+
 /* --------------------------------- La room --------------------------------- */
 export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo }) {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -264,6 +288,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const RANK_SETTINGS_KEY = { toplikes: 'toplikesRank', topdiam: 'topdiamRank', toplikeslist: 'toplikesList', topdiamlist: 'topdiamList' };
   const POINTS_FILE = path.join(dataDir, 'points.json');
   const SESSION_FILE = path.join(dataDir, 'session.json');
+  const SESSION_OVERLAYS_FILE = path.join(dataDir, 'session-overlays.json');
   // Perfiles: 10 ranuras, cada una guarda una configuración COMPLETA. El perfil activo
   // es el que se edita/guarda. Nunca se borran: una ranura vacía arranca con defaults.
   const PROFILE_COUNT = 10;
@@ -327,6 +352,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Pelotas de fans: acumulado por usuario (con sobrante) para soltar pelotas.
   const fanCoinAcc = new Map();      // uniqueId -> monedas pendientes
   const fanLikeAcc = new Map();      // uniqueId -> likes pendientes
+  // Overlays de sesión (top1, mejor regalo/racha, batallas, hype…) persistidos en disco.
+  const sessionOv = {
+    top1: {},
+    topGift: null,
+    topStreak: null,
+    batallaGifts: {},
+    batallaLikes: {},
+    hype: { score: 0, target: 100, coinTotal: 0 },
+  };
+  let sessionOverlaysSaveTimer = null;
   const recentSubs = new Map();      // dedupe suscripciones (subscribe/subNotify)
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
   const memberLevels = new Map();    // uniqueId -> último nivel de miembro visto (para detectar subidas)
@@ -395,6 +430,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   let profiles = loadProfiles();
+  const profilesMediaBefore = JSON.stringify(profiles);
+  normalizeProfilesMediaUrls(profiles);
+  if (JSON.stringify(profiles) !== profilesMediaBefore) {
+    try { writeJsonAtomic(PROFILES_FILE, profiles); } catch {}
+  }
   function resolveProfileSettings(slot) {
     if (slot && typeof slot === 'object' && !Array.isArray(slot)) return deepMerge(structuredClone(DEFAULT_SETTINGS), slot);
     return structuredClone(DEFAULT_SETTINGS);
@@ -409,6 +449,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   loadWeekly();
   loadTop1Fire();
   loadRankOverlays();
+  loadSessionOverlays();
   loadPoints();
   timer.remaining = Math.max(0, Math.floor(settings.timer?.defaultInitialSec || 0));
   // Recuerda el último @usuario de TikTok conectado (queda guardado en los ajustes, así
@@ -488,6 +529,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function saveSettings() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
+      normalizeSettingsMediaUrls(settings);
       if (profiles.editMode === 'general') profiles.general = settings;
       else profiles.slots[profiles.active] = settings;
       saveProfilesNow();
@@ -682,8 +724,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function setGiftCounter(n) {
     giftCounter.count = Math.max(0, Math.floor(Number(n) || 0));
     broadcastGiftCounter();
+    saveSessionOverlays();
   }
-  function resetGiftCounter() { giftCounter.count = 0; broadcastGiftCounter(); }
+  function resetGiftCounter() { giftCounter.count = 0; broadcastGiftCounter(); saveSessionOverlays(); }
   // Suma al contador si el regalo coincide con el configurado (o cualquiera si no hay filtro).
   function countGiftForGoal(giftId, giftName, repeatCount) {
     const c = settings.giftCounter || {};
@@ -694,6 +737,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // sin filtro => cuenta cualquier regalo
     giftCounter.count += Math.max(1, Number(repeatCount) || 1);
     broadcastGiftCounter();
+    saveSessionOverlays();
   }
   // Capacidades del plan (límites + features). El panel las usa para ocultar
   // pestañas/overlays y bloquear el añadir más alertas de las permitidas.
@@ -800,7 +844,181 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // (top donador semanal). Se usa al pulsar Conectar (manual), al detectar un live
   // NUEVO vía auto-conexión, y al finalizar el live (stream end).
   // NO se reinicia en auto-reconexión al mismo live ni al reconectar overlays WS.
+  function canRestoreSessionOverlays(saved) {
+    if (!saved) return false;
+    if (saved.roomId && liveSession.roomId) {
+      return String(saved.roomId) === String(liveSession.roomId);
+    }
+    if (saved.username && liveSession.username && liveSession.active) {
+      return liveUserMatch(saved.username, liveSession.username);
+    }
+    return false;
+  }
+  function clearSessionOverlayState() {
+    giftCounter.count = 0;
+    top1fireSession.clear();
+    fanCoinAcc.clear();
+    fanLikeAcc.clear();
+    sessionOv.top1 = {};
+    sessionOv.topGift = null;
+    sessionOv.topStreak = null;
+    sessionOv.batallaGifts = {};
+    sessionOv.batallaLikes = {};
+    sessionOv.hype = { score: 0, target: 100, coinTotal: 0 };
+  }
+  function loadSessionOverlays() {
+    const raw = readJsonSafe(SESSION_OVERLAYS_FILE).data;
+    if (!canRestoreSessionOverlays(raw)) return;
+    giftCounter.count = Math.max(0, Number(raw.giftCounter?.count) || 0);
+    if (getTop1FirePeriod() === 'live' && Array.isArray(raw.top1fireLive)) {
+      top1fireSession.clear();
+      for (const u of raw.top1fireLive) {
+        if (u?.uniqueId) top1fireSession.set(u.uniqueId, u);
+      }
+    }
+    fanCoinAcc.clear();
+    fanLikeAcc.clear();
+    for (const row of raw.fanCoinAcc || []) {
+      if (Array.isArray(row) && row[0]) fanCoinAcc.set(row[0], Number(row[1]) || 0);
+    }
+    for (const row of raw.fanLikeAcc || []) {
+      if (Array.isArray(row) && row[0]) fanLikeAcc.set(row[0], Number(row[1]) || 0);
+    }
+    sessionOv.top1 = (raw.top1 && typeof raw.top1 === 'object') ? raw.top1 : {};
+    sessionOv.topGift = raw.topGift || null;
+    sessionOv.topStreak = raw.topStreak || null;
+    sessionOv.batallaGifts = (raw.batallaGifts && typeof raw.batallaGifts === 'object') ? raw.batallaGifts : {};
+    sessionOv.batallaLikes = (raw.batallaLikes && typeof raw.batallaLikes === 'object') ? raw.batallaLikes : {};
+    sessionOv.hype = raw.hype || { score: 0, target: 100, coinTotal: 0 };
+  }
+  function serializeSessionOverlaysPayload() {
+    return {
+      top1: sessionOv.top1,
+      topGift: sessionOv.topGift,
+      topStreak: sessionOv.topStreak,
+      batallaGifts: sessionOv.batallaGifts,
+      batallaLikes: sessionOv.batallaLikes,
+      hype: sessionOv.hype,
+    };
+  }
+  function saveSessionOverlaysNow() {
+    clearTimeout(sessionOverlaysSaveTimer);
+    sessionOverlaysSaveTimer = null;
+    const data = {
+      roomId: liveSession.roomId || null,
+      username: liveSession.username || null,
+      giftCounter: { count: giftCounter.count },
+      top1fireLive: getTop1FirePeriod() === 'live' ? [...top1fireSession.values()] : [],
+      fanCoinAcc: [...fanCoinAcc.entries()],
+      fanLikeAcc: [...fanLikeAcc.entries()],
+      top1: sessionOv.top1,
+      topGift: sessionOv.topGift,
+      topStreak: sessionOv.topStreak,
+      batallaGifts: sessionOv.batallaGifts,
+      batallaLikes: sessionOv.batallaLikes,
+      hype: sessionOv.hype,
+    };
+    writeJsonAtomic(SESSION_OVERLAYS_FILE, data);
+  }
+  function saveSessionOverlays() {
+    clearTimeout(sessionOverlaysSaveTimer);
+    sessionOverlaysSaveTimer = setTimeout(saveSessionOverlaysNow, 400);
+  }
+  function trackSessionHypeEvent(kind, amount) {
+    const c = settings.hypeBar || {};
+    const goalKind = String(c.goalKind || 'hype').toLowerCase();
+    if (goalKind === 'viewers') return;
+    const onReach = String(c.whenReach || 'increase');
+    const allow = goalKind === 'hype'
+      ? { like: true, follow: true, gift: true, share: true, member: false }
+      : {
+        like: goalKind === 'likes',
+        follow: goalKind === 'follow',
+        gift: goalKind === 'gift',
+        share: goalKind === 'share',
+        member: goalKind === 'member',
+      };
+    if (kind === 'like' && !allow.like) return;
+    if (kind === 'follow' && !allow.follow) return;
+    if (kind === 'share' && !allow.share) return;
+    if (kind === 'member' && !allow.member) return;
+    if (kind === 'gift' && !allow.gift && goalKind !== 'hype') return;
+    const delta = Math.max(0, Number(amount) || 0);
+    if (delta <= 0) return;
+    let target = Math.max(1, parseInt(c.meta, 10) || 100);
+    let { score, coinTotal } = sessionOv.hype;
+    const giftMult = Math.max(1, parseInt(c.pointsGift, 10) || 1);
+    if (kind === 'gift' && (goalKind === 'gift' || goalKind === 'regalos')) {
+      coinTotal += delta;
+      score = coinTotal;
+    } else {
+      score += kind === 'gift' ? delta * giftMult : delta;
+    }
+    if (onReach === 'increase') { while (score >= target) target += 50; }
+    else if (onReach === 'reset' && score >= target) score = 0;
+    else if (onReach === 'keep') {
+      score = Math.min(score, target);
+      if (goalKind === 'gift' || goalKind === 'regalos') coinTotal = score;
+    }
+    sessionOv.hype = { score, target, coinTotal };
+    saveSessionOverlays();
+  }
+  function trackSessionGift(user, giftName, repeatCount, diamondsEach, image) {
+    const total = diamondsEach * repeatCount;
+    if (total <= 0) return;
+    const uid = user?.uniqueId || user?.nickname;
+    if (uid) {
+      if (!sessionOv.top1[uid]) {
+        sessionOv.top1[uid] = { name: user.nickname || uid, coins: 0, pic: user.photo || '' };
+      }
+      sessionOv.top1[uid].coins += total;
+      if (user.photo) sessionOv.top1[uid].pic = user.photo;
+      if (!sessionOv.batallaGifts[uid]) {
+        sessionOv.batallaGifts[uid] = { name: user.nickname || uid, monedas: 0, pic: user.photo || '' };
+      }
+      sessionOv.batallaGifts[uid].monedas += total;
+      if (user.photo) sessionOv.batallaGifts[uid].pic = user.photo;
+    }
+    if (diamondsEach > 0 && (!sessionOv.topGift || diamondsEach > sessionOv.topGift.coins)) {
+      sessionOv.topGift = {
+        coins: diamondsEach,
+        nickname: user.nickname || uid || 'Usuario',
+        image: image || '',
+        uniqueId: uid || '',
+      };
+    }
+    const rc = Math.max(0, Number(repeatCount) || 0);
+    if (rc > 0 && (!sessionOv.topStreak || rc > sessionOv.topStreak.streak)) {
+      sessionOv.topStreak = {
+        streak: rc,
+        nickname: user.nickname || uid || 'Usuario',
+        giftName: giftName || '',
+        image: image || '',
+        uniqueId: uid || '',
+      };
+    }
+    trackSessionHypeEvent('gift', total);
+    saveSessionOverlays();
+  }
+  function trackSessionLike(user, count) {
+    const n = Math.max(0, Number(count) || 0);
+    if (n <= 0) return;
+    const uid = user?.uniqueId || user?.nickname;
+    if (uid) {
+      if (!sessionOv.batallaLikes[uid]) {
+        sessionOv.batallaLikes[uid] = { name: user.nickname || uid, likes: 0, pic: user.photo || '' };
+      }
+      sessionOv.batallaLikes[uid].likes += n;
+      if (user.photo) sessionOv.batallaLikes[uid].pic = user.photo;
+    }
+    const c = settings.hypeBar || {};
+    const pts = Math.max(1, parseInt(c.pointsLike, 10) || 1);
+    trackSessionHypeEvent('like', n * pts);
+    saveSessionOverlays();
+  }
   function resetSessionOverlays() {
+    clearSessionOverlayState();
+    try { fs.unlinkSync(SESSION_OVERLAYS_FILE); } catch {}
     // Botes / contadores acumulados de la sesión
     broadcast('jarronReset', {});
     broadcast('vaquitaReset', {});
@@ -1101,6 +1319,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const drops = Math.floor(carry / every);
     acc.set(uid, carry - drops * every);
     if (acc.size > 5000) acc.clear();
+    saveSessionOverlays();
     if (drops > 0) {
       const count = Math.min(200, drops);
       broadcast('fanBallDrop', { photo: user.photo || '', nickname: user.nickname || '', count });
@@ -1598,6 +1817,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (user.photo) u.photo = user.photo;
       top1fireSession.set(user.uniqueId, u);
       broadcastTop1Fire();
+      saveSessionOverlays();
       return;
     }
     ensureTop1FirePeriod();
@@ -1650,6 +1870,24 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const p = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
     return p === 'week' || p === 'month' ? p : 'live';
   }
+  // Restaura rankings de sesión (periodo «live») tras reinicio de Render si es el mismo live.
+  function canRestoreLiveRank(saved) {
+    if (!saved || saved.period !== 'live' || !Array.isArray(saved.users) || !saved.users.length) return false;
+    if (saved.roomId && liveSession.roomId) {
+      return String(saved.roomId) === String(liveSession.roomId);
+    }
+    if (saved.username && liveSession.username && liveSession.active) {
+      return liveUserMatch(saved.username, liveSession.username);
+    }
+    return false;
+  }
+  function restoreLiveRankSession(rankId, saved) {
+    rankSession[rankId].clear();
+    if (!canRestoreLiveRank(saved)) return;
+    for (const u of saved.users) {
+      if (u?.uniqueId) rankSession[rankId].set(u.uniqueId, u);
+    }
+  }
   function loadRankOverlays() {
     const r = readJsonSafe(RANKS_FILE);
     const raw = r.data || {};
@@ -1657,9 +1895,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const period = getRankPeriod(rankId);
       lastRankPeriods[rankId] = period;
       rankSession[rankId].clear();
-      if (period === 'live') continue;
-      const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
       const saved = raw[rankId];
+      if (period === 'live') {
+        restoreLiveRankSession(rankId, saved);
+        continue;
+      }
+      const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
       if (saved && saved.period === period && saved.start === start) {
         rankPersist[rankId].period = period;
         rankPersist[rankId].start = start;
@@ -1678,7 +1919,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     rankSaveTimer = setTimeout(() => {
       const data = {};
       for (const rankId of RANK_IDS) {
-        if (getRankPeriod(rankId) === 'live') continue;
+        const period = getRankPeriod(rankId);
+        if (period === 'live') {
+          data[rankId] = {
+            period: 'live',
+            roomId: liveSession.roomId || null,
+            username: liveSession.username || null,
+            users: [...rankSession[rankId].values()],
+          };
+          continue;
+        }
         const p = rankPersist[rankId];
         data[rankId] = { period: p.period, start: p.start, end: p.end, users: [...p.users.values()] };
       }
@@ -1705,6 +1955,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     lastRankPeriods[rankId] = period;
     if (period === 'live') {
       rankPersist[rankId].users.clear();
+      const saved = (readJsonSafe(RANKS_FILE).data || {})[rankId];
+      restoreLiveRankSession(rankId, saved);
     } else {
       const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
       rankPersist[rankId].period = period;
@@ -1728,7 +1980,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     u.nickname = user.nickname || u.nickname;
     if (user.photo) u.photo = user.photo;
     users.set(user.uniqueId, u);
-    if (getRankPeriod(rankId) !== 'live') saveRankOverlays();
+    saveRankOverlays();
     broadcastRankState(rankId);
   }
   function addRankLikes(user, count) {
@@ -1763,6 +2015,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function resetRankSession(rankId) {
     if (!RANK_IDS.includes(rankId) || getRankPeriod(rankId) !== 'live') return;
     rankSession[rankId].clear();
+    saveRankOverlays();
     broadcast('rankReset', { rank: rankId });
     broadcastRankState(rankId);
   }
@@ -1771,8 +2024,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     rankSession[rankId].clear();
     if (getRankPeriod(rankId) !== 'live') {
       rankPersist[rankId].users.clear();
-      saveRankOverlays();
     }
+    saveRankOverlays();
     broadcast('rankReset', { rank: rankId });
     broadcastRankState(rankId);
   }
@@ -2053,6 +2306,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         countGiftForGoal(giftId, giftName, repeatCount);
         processFanBalls('coins', user, total);
+        trackSessionGift(user, giftName, repeatCount, diamondsEach, image);
       }
 
       triggerGiftGameActions(user, giftId, repeatCount, !!data.repeatEnd, giftType, giftInfo);
@@ -2066,6 +2320,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       addTimerSeconds(((data.likeCount || 0) / 100) * (settings.timer?.like || 0));
       processFanBalls('likes', baseUser(data.user), data.likeCount || 0);
       addRankLikes(baseUser(data.user), data.likeCount || 0);
+      trackSessionLike(baseUser(data.user), data.likeCount || 0);
       broadcast('like', { ...baseUser(data.user), count: data.likeCount || 0, total: state.stats.likes });
       actions.triggerActions('like', { likeCount: data.likeCount || 0 });
       actions.triggerMinecraftActions('like', { likeCount: data.likeCount || 0 }, baseUser(data.user));
@@ -2112,6 +2367,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         actions.triggerActions('follow');
         actions.triggerMinecraftActions('follow', {}, user);
         if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
+        const c = settings.hypeBar || {};
+        trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
       } else if (action.includes('share')) {
         state.stats.shares++;
         broadcast('share', user);
@@ -2120,6 +2377,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         actions.triggerActions('share');
         actions.triggerMinecraftActions('share', {}, user);
         if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
+        const c = settings.hypeBar || {};
+        trackSessionHypeEvent('share', Math.max(1, parseInt(c.pointsShare, 10) || 1));
       }
       pushStatsThrottled();
     });
@@ -2133,6 +2392,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       actions.triggerActions('follow');
       actions.triggerMinecraftActions('follow', {}, user);
       if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
+      const c = settings.hypeBar || {};
+      trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
       pushStatsThrottled();
     });
 
@@ -2640,6 +2901,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() }));
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
     ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));
+    ws.send(JSON.stringify({ type: 'sessionOverlays', payload: serializeSessionOverlaysPayload() }));
     ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
     const caps = currentCaps();
@@ -2700,6 +2962,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clearTimeout(pointsSaveTimer);
     try { writeJsonAtomic(POINTS_FILE, { users: [...points.values()], tx: pointsTx.slice(0, POINTS_MAX_TX) }); } catch {}
     try { saveLiveSession(); } catch {}
+    try { saveSessionOverlaysNow(); } catch {}
   }
 
   // Chequeo de cambio de semana por room.

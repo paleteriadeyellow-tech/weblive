@@ -107,6 +107,12 @@
         else if (m.type === 'settings') { if (m.payload && m.payload.topStreak) { cfg = Object.assign(cfg, m.payload.topStreak); applyStyle(); applyUI(); } }
         else if (m.type === 'topStreakTest') { if (!isEmbed) runTest(m.payload && m.payload.gift); }
         else if (m.type === 'topStreakReset') { if (!isEmbed) resetBest(); }
+        else if (m.type === 'sessionOverlays') {
+          if (!isEmbed && m.payload && m.payload.topStreak && m.payload.topStreak.streak > 0) {
+            best = { streak: m.payload.topStreak.streak, nickname: m.payload.topStreak.nickname, giftName: m.payload.topStreak.giftName || '', image: m.payload.topStreak.image || '' };
+            applyUI();
+          }
+        }
       };
     }
     window.addEventListener('message', (e) => {

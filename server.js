@@ -190,8 +190,27 @@ function maybeMigrateLegacy(user) {
 /* ----------------------------------------------------------------------------
  * Servidor HTTP + estáticos
  * --------------------------------------------------------------------------*/
-const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
+// Subidas del usuario en disco persistente (DATA_DIR), no en public/ (se borra al redesplegar).
+const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(DATA_DIR, 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+(function migrateUploadsToPersistentDir() {
+  const dest = path.resolve(UPLOADS_DIR);
+  const legacy = path.resolve(path.join(__dirname, 'public', 'uploads'));
+  if (legacy === dest || !fs.existsSync(legacy)) return;
+  let copied = 0;
+  try {
+    for (const f of fs.readdirSync(legacy)) {
+      const from = path.join(legacy, f);
+      const to = path.join(dest, f);
+      if (fs.statSync(from).isFile() && !fs.existsSync(to)) {
+        fs.copyFileSync(from, to);
+        copied++;
+      }
+    }
+  } catch {}
+  if (copied) console.log(`  [migrate] ${copied} archivo(s) de uploads → ${dest}`);
+})();
 const AUDIOS_DIR = path.join(__dirname, 'public', 'audios');
 fs.mkdirSync(AUDIOS_DIR, { recursive: true });
 const VIDEOS_DIR = path.join(__dirname, 'public', 'video');
@@ -629,7 +648,7 @@ app.get(['/', '/index.html'], (req, res) => {
 // son únicos, así que se pueden cachear sin problema y al ACTUALIZAR la página el
 // navegador los reutiliza al instante en vez de descargarlos otra vez.
 const heavyCache = { maxAge: '30d', immutable: true };
-app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'), heavyCache));
+app.use('/uploads', express.static(UPLOADS_DIR, heavyCache));
 app.use('/audios', express.static(path.join(__dirname, 'public', 'audios'), heavyCache));
 // Videos de AI: caché larga en el navegador para que al recargar el panel no se
 // vuelvan a descargar (antes esto era lo que hacía lenta la carga).

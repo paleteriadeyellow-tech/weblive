@@ -136,11 +136,20 @@
     // ---- Contador de diamantes (debajo del marranito) ----
     const coinNumEl = document.getElementById('coin-num');
     let totalDiamonds = 0;
+    const lsKey = 'lc_marranito_' + (params.get('room') || 'default');
+    function persistDiamonds() { try { localStorage.setItem(lsKey, String(totalDiamonds)); } catch {} }
+    function loadPersistedDiamonds() {
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (raw != null) setDiamonds(parseInt(raw, 10) || 0);
+      } catch {}
+    }
     function setDiamonds(n, bump) {
       totalDiamonds = Math.max(0, Math.round(Number(n) || 0));
       if (!coinNumEl) return;
       coinNumEl.textContent = totalDiamonds.toLocaleString('es-ES');
       if (bump) { coinNumEl.classList.remove('bump'); void coinNumEl.offsetWidth; coinNumEl.classList.add('bump'); }
+      persistDiamonds();
     }
 
     // ---- Geometría del interior (stage 540×720; PNG cuadrado en los 540 inferiores) ----
@@ -314,7 +323,7 @@
         if (type === 'gift') { if (!isEmbed) onGift(payload); }
         else if (type === 'panic') clearJar();
         else if (type === 'marranitoTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
-        else if (type === 'marranitoReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); } }
+        else if (type === 'marranitoReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); try { localStorage.removeItem(lsKey); } catch {} } }
         else if (type === 'settings') {
           if (payload && payload.marranito) {
             if (!params.get('jc')) applyJarTint(payload.marranito.tint);
@@ -329,6 +338,7 @@
       spawnMany(resolveGiftImg(p), n, 165, p.diamonds || 0);
     }
     connectWS();
+    if (!isEmbed) loadPersistedDiamonds();
 
     function runFill(total) {
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }

@@ -122,6 +122,25 @@ function normalizeRelayMedia(s) {
   for (const a of (s.mcActions || [])) if (a.sound) a.sound = fix(a.sound);
 }
 
+function relativizeMediaUrlForSave(u) {
+  if (!u || typeof u !== 'string') return u;
+  if (u.startsWith('/')) return u;
+  try {
+    const p = new URL(u);
+    if (/^\/(uploads|audios|video)\//.test(p.pathname)) return p.pathname + (p.search || '');
+  } catch {}
+  return u;
+}
+function stripSettingsMediaForSave(s) {
+  if (!s) return;
+  const rel = relativizeMediaUrlForSave;
+  for (const a of (s.soundAlerts || [])) if (a.sound) a.sound = rel(a.sound);
+  for (const v of (s.videos || [])) if (v.url) v.url = rel(v.url);
+  for (const b of (s.battleAlerts || [])) if (b.url) b.url = rel(b.url);
+  for (const a of (s.actions || [])) if (a.sound) a.sound = rel(a.sound);
+  for (const a of (s.mcActions || [])) if (a.sound) a.sound = rel(a.sound);
+}
+
 function connectWS() {
   let url;
   if (relayActive()) {
@@ -1776,17 +1795,21 @@ let saveDebounce = null;
 function saveSettings() {
   if (applyingSettings) return;
   clearTimeout(saveDebounce);
-  saveDebounce = setTimeout(() => send({ action: 'saveSettings', settings }), 200);
+  saveDebounce = setTimeout(() => {
+    stripSettingsMediaForSave(settings);
+    send({ action: 'saveSettings', settings });
+  }, 200);
 }
 function flushSaveSettings() {
   if (applyingSettings || !settings) return;
   clearTimeout(saveDebounce);
   saveDebounce = null;
+  stripSettingsMediaForSave(settings);
   send({ action: 'saveSettings', settings });
 }
 
 function onSettings(s) {
-  settings = s;
+  settings = preserveLocalGameActionsOnSettingsEcho(s);
   normalizeRelayMedia(settings);
   ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire'].forEach((k) => {
     if (settings[k] && settings[k].resetPeriod == null) settings[k].resetPeriod = 'live';
@@ -3916,7 +3939,7 @@ const STYLE_OVERLAYS = [
     modalId: 'tp3ConfigModal', closeId: 'tp3cfg-close', saveId: 'tp3cfg-save',
     testAction: 'getPoints',
     map: { 'tp3cfg-title': 'title', 'tp3cfg-scale': 'scale', 'tp3cfg-accent': 'accent', 'tp3cfg-rowbg': 'rowBg', 'tp3cfg-font': 'font',
-      'tp3cfg-showtitle': 'showTitle', 'tp3cfg-showlevel': 'showLevel', 'tp3cfg-transparent': 'transparent',
+      'tp3cfg-showtitle': 'showTitle', 'tp3cfg-transparent': 'transparent',
       'tp3cfg-rainbow': 'nameRainbow', 'tp3cfg-titlerainbow': 'titleRainbow', 'tp3cfg-glitter': 'glitter',
       'tp3cfg-lines': 'lines', 'tp3cfg-shadows': 'shadows' },
     types: { scale: 'int' },
@@ -6638,6 +6661,71 @@ const MC_TRIG_ICON = {
   firstMessage: { ic: '🆕', label: 'Primer mensaje' },
 };
 
+const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'mari0Actions', 'pvzActions'];
+let lastGameActionEditAt = 0;
+
+function gameActionGiftUi(a, giftClass) {
+  const t = a.trigger || 'gift';
+  const uid = esc(a.uid);
+  if (t === 'gift') {
+    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+    return `<button type="button" class="mc-gift-btn ${giftClass}" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+  }
+  const ev = MC_TRIG_ICON[t] || { ic: '⚡', label: t };
+  const lbl = (MC_TRIGGERS.find((x) => x.v === t) || {}).label || ev.label;
+  return `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+}
+function gameActionExtraRow(a, likeClass, textClass) {
+  const uid = esc(a.uid);
+  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+    const val = a.likeN != null ? a.likeN : defN;
+    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+    return `<label class="mc-like-row">${txt}<input type="number" min="1" class="${likeClass}" data-uid="${uid}" value="${esc(String(val))}"></label>`;
+  }
+  if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !goomba)';
+    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
+    return `<label class="mc-like-row">${txt}<input type="text" class="${textClass}" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+  }
+  return '';
+}
+function setGameActionTrigger(settingsKey, uid, value, renderFn) {
+  if (!settings || !uid || !settingsKey) return;
+  const a = (settings[settingsKey] || []).find((x) => x && x.uid === uid);
+  if (!a) return;
+  a.trigger = value;
+  if (value !== 'gift') {
+    a.giftId = '';
+    a.giftName = '';
+    a.giftImage = '';
+    a.comboInstant = false;
+  }
+  if (value === 'like') a.likeN = Math.max(1, parseInt(a.likeN, 10) || 1);
+  else if (value === 'likeGlobal') a.likeN = Math.max(1, parseInt(a.likeN, 10) || 100);
+  else if (value !== 'chatUser' && value !== 'chatCommand') a.text = '';
+  lastGameActionEditAt = Date.now();
+  flushSaveSettings();
+  if (renderFn) renderFn();
+}
+function bindGameTriggerSelects(wrap, selClass, settingsKey, renderFn) {
+  wrap.querySelectorAll('.' + selClass).forEach((s) => {
+    const handler = () => {
+      const uid = (s.closest('.mc-act-card') && s.closest('.mc-act-card').dataset.uid) || s.dataset.uid;
+      setGameActionTrigger(settingsKey, uid, s.value, renderFn);
+    };
+    s.onchange = handler;
+  });
+}
+function preserveLocalGameActionsOnSettingsEcho(incoming) {
+  if (!incoming || Date.now() - lastGameActionEditAt > 1200 || !settings) return incoming;
+  const out = { ...incoming };
+  for (const k of GAME_ACTION_SETTINGS_KEYS) {
+    if (Array.isArray(settings[k]) && settings[k].length) out[k] = settings[k];
+  }
+  return out;
+}
+
 // Exporta las tarjetas de acciones de Minecraft (mcActions) a un archivo de presets.
 function exportMcPresets() {
   const list = (settings && Array.isArray(settings.mcActions)) ? settings.mcActions : [];
@@ -8695,26 +8783,8 @@ async function testMarioAction(a) {
 function marioCardHtml(a) {
   const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn mario-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="mario-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !goomba)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="mario-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
+  const giftBtn = gameActionGiftUi(a, 'mario-gift');
+  const likeRow = gameActionExtraRow(a, 'mario-like-n', 'mario-text-n');
   const emoji = a.kind === 'effect' ? '✨' : (a.tipo === 'enemy' ? '👾' : '🍄');
   let qtyRow;
   if (a.kind === 'effect') {
@@ -8759,7 +8829,7 @@ function renderMarioActions() {
 
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.mario-del').forEach((b) => b.onclick = () => { settings.marioActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMarioActions(); });
-  wrap.querySelectorAll('.mario-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderMarioActions(); });
+  bindGameTriggerSelects(wrap, 'mario-trig-sel', 'marioActions', renderMarioActions);
   wrap.querySelectorAll('.mario-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderMarioActions(); });
   wrap.querySelectorAll('.mario-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
   wrap.querySelectorAll('.mario-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
@@ -9186,26 +9256,8 @@ async function testSmb3Action(a) {
 function smb3CardHtml(a) {
   const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn smb3-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="smb3-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !goomba)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="smb3-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
+  const giftBtn = gameActionGiftUi(a, 'smb3-gift');
+  const likeRow = gameActionExtraRow(a, 'smb3-like-n', 'smb3-text-n');
   const emoji = a.kind === 'effect' ? '✨' : (SMB3_CAT_ICON[a.tipo] || '👾');
   let qtyRow;
   if (a.kind === 'effect') {
@@ -9246,7 +9298,7 @@ function renderSmb3Actions() {
   wrap.innerHTML = list.map((a) => smb3CardHtml(a)).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.smb3-del').forEach((b) => b.onclick = () => { settings.smb3Actions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderSmb3Actions(); });
-  wrap.querySelectorAll('.smb3-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderSmb3Actions(); });
+  bindGameTriggerSelects(wrap, 'smb3-trig-sel', 'smb3Actions', renderSmb3Actions);
   wrap.querySelectorAll('.smb3-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderSmb3Actions(); });
   wrap.querySelectorAll('.smb3-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
   wrap.querySelectorAll('.smb3-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
@@ -9465,7 +9517,7 @@ function renderMari0Actions() {
 
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.mari0-del').forEach((b) => b.onclick = () => { settings.mari0Actions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMari0Actions(); });
-  wrap.querySelectorAll('.mari0-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderMari0Actions(); });
+  bindGameTriggerSelects(wrap, 'mari0-trig-sel', 'mari0Actions', renderMari0Actions);
   wrap.querySelectorAll('.mari0-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderMari0Actions(); });
   wrap.querySelectorAll('.mari0-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
   wrap.querySelectorAll('.mari0-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
@@ -9705,7 +9757,7 @@ function renderPvzActions() {
 
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.pvz-del').forEach((b) => b.onclick = () => { settings.pvzActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderPvzActions(); });
-  wrap.querySelectorAll('.pvz-trig-sel').forEach((s) => s.onchange = () => { const a = find(s.dataset.uid); if (!a) return; a.trigger = s.value; saveSettings(); renderPvzActions(); });
+  bindGameTriggerSelects(wrap, 'pvz-trig-sel', 'pvzActions', renderPvzActions);
   wrap.querySelectorAll('.pvz-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderPvzActions(); });
   wrap.querySelectorAll('.pvz-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
   wrap.querySelectorAll('.pvz-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });

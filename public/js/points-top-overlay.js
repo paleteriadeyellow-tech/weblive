@@ -59,7 +59,6 @@
       root.dataset.namefx = cfg.nameRainbow ? '1' : '0';
       root.dataset.titlefx = cfg.titleRainbow ? '1' : '0';
       root.dataset.glitter = cfg.glitter ? '1' : '0';
-      root.dataset.level = cfg.showLevel !== false ? '1' : '0';
       root.dataset.title = cfg.showTitle !== false ? '1' : '0';
       if (titleEl) titleEl.textContent = cfg.title || 'Top Puntos';
       if (sparkEl) sparkEl.innerHTML = cfg.glitter ? buildSparkles() : '';
@@ -116,12 +115,11 @@
       div.dataset.rank = String(rank);
       div.dataset.uid = String(u.id);
       const medal = rank <= 3 ? MEDALS[rank - 1] : '';
-      const lvl = cfg.showLevel !== false ? `<span class="lvl">Nv. ${u.level || 1}</span>` : '';
       div.innerHTML =
         '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
         '<div class="av-wrap"><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
-        '<div class="meta"><div class="name-row"><span class="name"></span>' + lvl + '</div>' +
-        '<div class="valwrap"><span class="ico">⭐</span><span class="num">' + (u.disp != null ? u.disp : u.val).toLocaleString('es-ES') + '</span></div></div>';
+        '<div class="meta"><div class="name-row"><span class="name"></span>' +
+        '<div class="valwrap"><span class="ico">⭐</span><span class="num">' + (u.disp != null ? u.disp : u.val).toLocaleString('es-ES') + '</span></div></div></div>';
       const img = div.querySelector('.av');
       img.src = u.pic || PLACEHOLDER;
       img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };

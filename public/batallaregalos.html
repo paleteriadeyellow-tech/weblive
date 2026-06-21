@@ -141,6 +141,9 @@
         else if (m.type === 'settings') { if (m.payload && m.payload.batallaGifts) { cfg = Object.assign(cfg, m.payload.batallaGifts); applyStyle(); render(); } }
         else if (m.type === 'batallaGiftsTest') { if (!isEmbed) { ranking = {}; demo(); render({ seq: true }); } }
         else if (m.type === 'batallaGiftsReset') { if (!isEmbed) { ranking = {}; render(); } }
+        else if (m.type === 'sessionOverlays') {
+          if (!isEmbed && m.payload && m.payload.batallaGifts) { ranking = m.payload.batallaGifts; render(); }
+        }
       };
     }
     window.addEventListener('message', (e) => {

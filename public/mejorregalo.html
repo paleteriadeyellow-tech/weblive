@@ -104,6 +104,12 @@
         else if (m.type === 'settings') { if (m.payload && m.payload.topGift) { cfg = Object.assign(cfg, m.payload.topGift); applyStyle(); applyUI(); } }
         else if (m.type === 'topGiftTest') { if (!isEmbed) runTest(m.payload && m.payload.gift); }
         else if (m.type === 'topGiftReset') { if (!isEmbed) resetBest(); }
+        else if (m.type === 'sessionOverlays') {
+          if (!isEmbed && m.payload && m.payload.topGift && m.payload.topGift.coins > 0) {
+            best = { coins: m.payload.topGift.coins, nickname: m.payload.topGift.nickname, image: m.payload.topGift.image || '' };
+            applyUI();
+          }
+        }
       };
     }
     window.addEventListener('message', (e) => {
