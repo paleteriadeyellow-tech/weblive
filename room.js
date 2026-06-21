@@ -1774,6 +1774,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const L = Math.max(1, level);
     return Math.round((POINTS_LEVEL_STEP * L * (L - 1)) / 2);
   }
+  function donorLevelForUid(uid) {
+    const key = String(uid || '').trim().replace(/^@/, '').toLowerCase();
+    if (!key) return 0;
+    const u = points.get(key);
+    if (!u) return 0;
+    return levelForPoints(u.levelPoints);
+  }
 
   let pointsSaveTimer = null;
   function loadPoints() {
@@ -1956,10 +1963,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (!consumeChatOnce(chatKey)) return;
       state.stats.comments++;
       const msgId = data?.common?.msgId || '';
-      broadcast('chat', { ...baseUser(data.user || data), comment, msgId: msgId && String(msgId) !== '0' ? String(msgId) : chatKey, ...chatUserRoles(data) });
+      const chatUser = baseUser(data.user || data);
+      broadcast('chat', { ...chatUser, comment, msgId: msgId && String(msgId) !== '0' ? String(msgId) : chatKey, ...chatUserRoles(data), donorLevel: donorLevelForUid(chatUser.uniqueId) });
       pushStatsThrottled();
       checkMemberLevelUp(data);
-      const chatUser = baseUser(data.user || data);
       fireEmoteTriggers(data);
       const chatInfo = { comment, username: chatUser.uniqueId, nickname: chatUser.nickname };
       triggerVideos('chatCommand', chatInfo);

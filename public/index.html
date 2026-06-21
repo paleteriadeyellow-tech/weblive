@@ -3322,44 +3322,48 @@
                 <button class="btn ghost danger" id="pts-reset">Restablecer puntos</button>
               </div>
 
-              <!-- Overlay Top 3 puntos (OBS) -->
-              <div class="ovpro-card pts-overlay-card" id="tp3-card">
-                <div class="ovpro-top">
-                  <div class="ovpro-actions">
-                    <button class="ovpro-btn primary" id="tp3-test">▶ Testear</button>
-                    <button class="ovpro-btn" id="tp3-config">⚙ Configurar</button>
+              <div class="pts-body">
+                <div class="pts-main">
+                  <div class="admin-table-wrap">
+                    <table class="admin-table pts-table">
+                      <thead>
+                        <tr>
+                          <th>Usuario</th>
+                          <th>Nivel</th>
+                          <th>Total Points</th>
+                          <th>Puntos hacia el nivel</th>
+                          <th>Primera actividad</th>
+                          <th>Última actividad</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="pts-tbody">
+                        <tr><td colspan="7" class="admin-empty">Aún no hay usuarios con puntos. Cuando alguien done en tu live, aparecerá aquí.</td></tr>
+                      </tbody>
+                    </table>
                   </div>
-                  <div class="ovpro-conn" id="tp3-conn"><span class="cdot"></span> CONECTADO</div>
                 </div>
-                <h3 class="ovpro-title">⭐ Top 3 puntos</h3>
-                <p class="ovpro-desc">Muestra en OBS los 3 usuarios con más puntos de tu base de datos. Se actualiza en vivo con arcoíris, brillos y medallas.</p>
-                <div class="ovpro-urlrow">
-                  <code class="ov-url" data-path="/toppoints.html">/toppoints.html</code>
-                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
-                </div>
-                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-                <div class="ovpro-preview pts-overlay-preview">
-                  <iframe id="tp3-preview" src="/toppoints.html?embed=1" title="Vista previa top 3 puntos"></iframe>
-                </div>
-              </div>
 
-              <div class="admin-table-wrap">
-                <table class="admin-table pts-table">
-                  <thead>
-                    <tr>
-                      <th>Usuario</th>
-                      <th>Nivel</th>
-                      <th>Total Points</th>
-                      <th>Puntos hacia el nivel</th>
-                      <th>Primera actividad</th>
-                      <th>Última actividad</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="pts-tbody">
-                    <tr><td colspan="7" class="admin-empty">Aún no hay usuarios con puntos. Cuando alguien done en tu live, aparecerá aquí.</td></tr>
-                  </tbody>
-                </table>
+                <!-- Overlay Top 3 puntos (OBS) — lateral -->
+                <div class="ovpro-card pts-overlay-card" id="tp3-card">
+                  <div class="ovpro-top">
+                    <div class="ovpro-actions">
+                      <button class="ovpro-btn primary" id="tp3-test">▶ Testear</button>
+                      <button class="ovpro-btn" id="tp3-config">⚙ Configurar</button>
+                    </div>
+                    <div class="ovpro-conn" id="tp3-conn"><span class="cdot"></span> CONECTADO</div>
+                  </div>
+                  <h3 class="ovpro-title">⭐ Top 3 puntos</h3>
+                  <p class="ovpro-desc">Muestra en OBS los 3 usuarios con más puntos. Se actualiza en vivo con arcoíris, brillos y medallas.</p>
+                  <div class="ovpro-urlrow">
+                    <code class="ov-url" data-path="/toppoints.html">/toppoints.html</code>
+                    <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                  </div>
+                  <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                  <div class="ovpro-preview pts-overlay-preview">
+                    <iframe id="tp3-preview" src="/toppoints.html?embed=1" title="Vista previa top 3 puntos"></iframe>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

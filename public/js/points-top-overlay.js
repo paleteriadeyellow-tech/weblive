@@ -41,6 +41,10 @@
     const titleEl = document.getElementById('title');
     const sparkEl = document.getElementById('sparkles');
     const widget = document.querySelector('.widget');
+    const stage = document.getElementById('stage');
+    const BASE_W = 920;
+
+    if (isEmbed) document.documentElement.dataset.embed = '1';
 
     function clamp(v, lo, hi, def) { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; }
     function maxRows() { return clamp(cfg.rows, 1, 5, 3); }
@@ -78,12 +82,17 @@
     }
 
     function fit() {
-      if (!isEmbed) return;
+      if (!isEmbed || !widget) return;
       widget.style.setProperty('--ol-scale', '1');
-      const w = widget.offsetWidth, h = widget.offsetHeight;
-      if (!w || !h) return;
-      const s = Math.min(window.innerWidth / w, window.innerHeight / h, 1);
+      widget.style.width = BASE_W + 'px';
+      const h = widget.offsetHeight;
+      if (!h) return;
+      const s = Math.min(window.innerWidth / BASE_W, window.innerHeight / h, 1);
       widget.style.setProperty('--ol-scale', String(s));
+      if (stage) {
+        stage.style.width = Math.ceil(BASE_W * s) + 'px';
+        stage.style.height = Math.ceil(h * s) + 'px';
+      }
     }
 
     function clearSeq() { seqTimers.forEach((t) => clearTimeout(t)); seqTimers = []; }
@@ -257,6 +266,10 @@
     applyStyle();
     if (isEmbed) runTest(); else render();
     connect();
+    if (isEmbed) {
+      requestAnimationFrame(() => { fit(); requestAnimationFrame(fit); });
+      try { new ResizeObserver(() => fit()).observe(document.documentElement); } catch {}
+    }
   }
 
   window.PointsTopOverlay = { init };

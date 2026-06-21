@@ -9,6 +9,9 @@
     @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
     * { box-sizing: border-box; }
     html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif); color: #fff; }
+    html[data-embed="1"] body { display: flex; justify-content: center; align-items: flex-start; width: 100%; min-height: 100%; }
+    html[data-embed="1"] .stage { overflow: hidden; margin: 0 auto; }
+    html[data-embed="1"] .widget { width: 920px; max-width: none; transform: scale(var(--ol-scale, 1)); transform-origin: top left; }
     .widget { position: relative; width: 920px; max-width: 96vw; transform: scale(var(--ol-scale, 1)); transform-origin: top center; }
     .sparkles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 2; }
     .spark { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: radial-gradient(circle, #fff 0%, rgba(255,255,255,.2) 50%, transparent 70%); animation: sparkle 2.5s ease-in-out infinite; opacity: 0; }
@@ -71,10 +74,12 @@
   </style>
 </head>
 <body>
-  <div class="widget">
-    <div class="sparkles" id="sparkles"></div>
-    <h1 class="title" id="title">Top Puntos</h1>
-    <div class="list" id="list"></div>
+  <div class="stage" id="stage">
+    <div class="widget">
+      <div class="sparkles" id="sparkles"></div>
+      <h1 class="title" id="title">Top Puntos</h1>
+      <div class="list" id="list"></div>
+    </div>
   </div>
   <script src="/js/points-top-overlay.js"></script>
   <script>
