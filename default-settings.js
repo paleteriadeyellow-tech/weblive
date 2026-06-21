@@ -273,6 +273,11 @@ export const DEFAULT_SETTINGS = {
     transparent: false, nameRainbow: true, lines: true, shadows: true,
     intervalSec: 3, resetPeriodLikes: 'live', resetPeriodDiam: 'live',
   },
+  topPointsRank: {
+    rows: 3, title: 'Top Puntos', accent: '#ffd54f', rowBg: '#0c1c26', scale: 100,
+    font: 'inter', transparent: false, nameRainbow: true, titleRainbow: true,
+    lines: true, shadows: true, glitter: true, showLevel: true, showTitle: true,
+  },
   // Overlay Barra de meta (Hype) — skins: default | meta2 | meta3 | meta4
   hypeBar: {
     skin: 'default', goalKind: 'hype', title: '', meta: 100, whenReach: 'increase', scale: 100,

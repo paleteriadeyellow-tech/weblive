@@ -1570,6 +1570,9 @@ pre.wh-url { margin: 9px 0 0; }
 .pview.active { display: block; }
 .pts-head { margin-bottom: 10px; }
 .pts-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.pts-overlay-card { margin-bottom: 16px; }
+.pts-overlay-preview { min-height: 220px; }
+.pts-overlay-preview iframe { min-height: 200px; }
 .pts-search { flex: 1 1 240px; min-width: 200px; background: #0c1322; color: #fff; border: 1px solid rgba(255,255,255,.16); border-radius: 9px; padding: 9px 12px; font-size: 13px; }
 .pts-percoin { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex: 0 0 auto; }
 .pts-percoin .ml { margin: 0; font-size: 11px; }

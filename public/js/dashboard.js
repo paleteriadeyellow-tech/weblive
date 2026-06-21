@@ -162,7 +162,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -266,12 +266,13 @@ const OVERLAY_CAP = {
   '/alerta-regalo.html': 'ov_alertaregalo', '/alerta-likes.html': 'ov_alertalikes',
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
   '/top1fire.html': 'ov_top1fire',
+  '/toppoints.html': 'ov_toppoints',
 };
 // Mapa pestaña (data-view) -> clave de capacidad.
 const TAB_CAP = {
-  alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas',
   overlays: 'tab_overlays', tts: 'tab_tts', timer: 'tab_timer',
 };
+const AV_SUBTAB_CAP = { alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas' };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
 const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', smw: 'game_smw', plantasvszombies: 'game_plantasvszombies' };
 
@@ -310,15 +311,46 @@ function ensureCanAdd(kind, limitKey, nounPlural) {
   return true;
 }
 
+function applyAvSubtabCaps() {
+  const host = document.getElementById('view-alertas-videos');
+  if (!host) return;
+  let firstVisible = null;
+  host.querySelectorAll('.av-subtab').forEach((btn) => {
+    const cap = AV_SUBTAB_CAP[btn.dataset.sub];
+    const ok = window.IS_ADMIN || !cap || capFeature(cap);
+    btn.style.display = ok ? '' : 'none';
+    if (ok && !firstVisible) firstVisible = btn;
+  });
+  if (window.IS_ADMIN) return;
+  const active = host.querySelector('.av-subtab.active');
+  if (active && active.style.display === 'none' && firstVisible) firstVisible.click();
+}
+
+function ensureAvSubtabVisible() {
+  const host = document.getElementById('view-alertas-videos');
+  if (!host || !host.classList.contains('active')) return;
+  const activeSub = host.querySelector('.av-subtab.active');
+  if (activeSub && activeSub.style.display !== 'none') return;
+  const first = host.querySelector('.av-subtab:not([style*="display: none"])');
+  if (first) first.click();
+}
+
 // Aplica las capacidades a la interfaz: oculta pestañas/overlays bloqueados,
 // muestra avisos de límite y desactiva botones de "crear" si se llegó al tope.
 function applyCaps() {
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
+    if (btn.dataset.view === 'alertas-videos') {
+      const any = window.IS_ADMIN
+        || capFeature('tab_alertas') || capFeature('tab_videos') || capFeature('tab_batallas');
+      btn.style.display = any ? '' : 'none';
+      return;
+    }
     const cap = TAB_CAP[btn.dataset.view];
     if (cap) btn.style.display = capFeature(cap) ? '' : 'none';
   });
+  applyAvSubtabCaps();
   // Overlays individuales: si no están en el plan, NO se ocultan; se muestran con
   // un bloqueo "Solo Premium" por encima (la tarjeta sigue visible pero no usable).
   document.querySelectorAll('.ov-url[data-path]').forEach((code) => {
@@ -363,7 +395,7 @@ const CAP_LABELS = {
   ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_contadorseguidores: 'Contador de seguidores',
   ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
-  ov_top1fire: 'Top 1 Donador Fuego',
+  ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
@@ -377,7 +409,7 @@ const PLAN_FEATURE_ORDER = [
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_contadorseguidores', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire',
+  'ov_contadorseguidores', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
 function renderPlanView() {
@@ -985,6 +1017,10 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     if (btn.dataset.view === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
+    if (btn.dataset.view === 'alertas-videos') ensureAvSubtabVisible();
+    if (btn.dataset.view === 'acciones') {
+      try { setupAccionesUI(); if (typeof renderAcciones === 'function') renderAcciones(); } catch (e) { console.error('Acciones UI:', e); }
+    }
   };
 });
 
@@ -3000,10 +3036,14 @@ $('sa-panic').onclick = () => triggerAlertPanic();
 /* ====================== Overlays ====================== */
 document.querySelectorAll('.subtab').forEach((btn) => {
   btn.onclick = () => {
-    document.querySelectorAll('.subtab').forEach((b) => b.classList.remove('active'));
-    document.querySelectorAll('.subview').forEach((v) => v.classList.remove('active'));
+    const host = btn.closest('.view');
+    if (!host) return;
+    host.querySelectorAll('.subtab').forEach((b) => b.classList.remove('active'));
+    host.querySelectorAll('.subview').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
-    $(`sub-${btn.dataset.sub}`).classList.add('active');
+    const targetId = btn.dataset.subView || ('sub-' + btn.dataset.sub);
+    const target = host.querySelector('#' + targetId);
+    if (target) target.classList.add('active');
   };
 });
 
@@ -3860,6 +3900,17 @@ const STYLE_OVERLAYS = [
     map: { 'tdlcfg-period': 'resetPeriod', 'tdlcfg-rows': 'rows', 'tdlcfg-scale': 'scale', 'tdlcfg-accent': 'accent', 'tdlcfg-font': 'font',
       'tdlcfg-transparent': 'transparent', 'tdlcfg-rainbow': 'nameRainbow', 'tdlcfg-lines': 'lines', 'tdlcfg-shadows': 'shadows' },
     types: { rows: 'int', scale: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'toppoints', settingsKey: 'topPointsRank', previewId: 'tp3-preview',
+    btnTest: 'tp3-test', btnReset: '', btnConfig: 'tp3-config',
+    modalId: 'tp3ConfigModal', closeId: 'tp3cfg-close', saveId: 'tp3cfg-save',
+    testAction: 'getPoints',
+    map: { 'tp3cfg-title': 'title', 'tp3cfg-scale': 'scale', 'tp3cfg-accent': 'accent', 'tp3cfg-rowbg': 'rowBg', 'tp3cfg-font': 'font',
+      'tp3cfg-showtitle': 'showTitle', 'tp3cfg-showlevel': 'showLevel', 'tp3cfg-transparent': 'transparent',
+      'tp3cfg-rainbow': 'nameRainbow', 'tp3cfg-titlerainbow': 'titleRainbow', 'tp3cfg-glitter': 'glitter',
+      'tp3cfg-lines': 'lines', 'tp3cfg-shadows': 'shadows' },
+    types: { scale: 'int' },
   }),
   setupStyleOverlay({
     kind: 'followercounter', settingsKey: 'followerCounter', previewId: 'foc-preview',
@@ -5243,10 +5294,12 @@ function syncAccKeyRepeatUI() {
 }
 
 function setupAccionesUI() {
+  if (window._accionesWired) return;
   if (!accBind('acc-new', () => {
     if (!ensureCanAdd('actions', 'actions', 'acciones')) return;
     openAccModal(null);
   })) return;
+  window._accionesWired = true;
   accBind('acc-del', async () => {
     if (!accSelected.size) return;
     const ok = await askConfirm({ title: 'Eliminar acciones', message: `Se eliminarán ${accSelected.size} acción(es).` });
@@ -6184,7 +6237,8 @@ function setupProfiles() {
   requestProfiles();
 }
 
-/* ====================== Spotify (solo .exe · admin / albertoyt) ====================== */
+/* ====================== Spotify (solo .exe · admin / albertoyt / alee367) ====================== */
+const SPOTIFY_ALLOWED_USERS = ['albertoyt', 'alee367'];
 const SPOTIFY_DEFAULTS = {
   playOn: true, playCost: 0, skipOn: true, skipCost: 0,
   skipRequested: true, explicit: true, queueTotal: 2, queueUser: 2,
@@ -6199,7 +6253,8 @@ const SPOTIFY_MAP = {
 const SPOTIFY_INT_KEYS = ['playCost', 'skipCost', 'queueTotal', 'queueUser'];
 
 function spotifyAllowed() {
-  return IS_DESKTOP && (window.IS_ADMIN || (window.MY_USER || '').toLowerCase() === 'albertoyt');
+  const u = (window.MY_USER || '').toLowerCase();
+  return IS_DESKTOP && (window.IS_ADMIN || SPOTIFY_ALLOWED_USERS.includes(u));
 }
 function revealSpotifyTab() {
   const nav = document.getElementById('navSpotify');
