@@ -1518,7 +1518,8 @@ function addChat(p) {
   const lvl = Number(p.memberLevel) || 0;
   const lvlTag = lvl > 0 ? `<span class="chat-lvl" title="Nivel miembro club de fans">Nv.${lvl}</span>` : '';
   const dLvl = Number(p.donorLevel) || 0;
-  const donorTag = dLvl > 0 ? `<span class="chat-donlvl" title="Nivel donador (puntos acumulados)">⭐${dLvl}</span>` : '';
+  const donorTitle = p.donorSource === 'tiktok' ? 'Nivel donador TikTok (regalos globales)' : 'Nivel donador (puntos en tu canal)';
+  const donorTag = dLvl > 0 ? `<span class="chat-donlvl" title="${donorTitle}">⭐${dLvl}</span>` : '';
   pushRow('chat', `${avatar(p)}<div><span class="name">${esc(p.nickname)}</span>${lvlTag}${donorTag}<span class="text">${esc(p.comment)}</span></div>`);
 }
 

@@ -122,6 +122,20 @@ function memberLevelFromUser(u) {
   }
   return Math.max(0, ...levels);
 }
+function gifterLevelFromUser(u) {
+  if (!u) return 0;
+  const levels = [
+    numMemberLevel(u?.userHonor?.level),
+    numMemberLevel(u?.payGrade?.level),
+    numMemberLevel(u?.gifterLevel),
+  ];
+  const badges = flattenBadges([].concat(u.badges || [], u.userBadges || [], u.newUserBadges || [], u.badgeImageList || []));
+  for (const b of badges) {
+    if (badgeScene(b) === 8) levels.push(levelFromBadge(b));
+    if (String(b?.type || '').toLowerCase() === 'privilege') levels.push(levelFromBadge(b));
+  }
+  return Math.max(0, ...levels);
+}
 function chatUserRoles(data) {
   // Formato moderno: data.user. Legacy (connector antiguo): campos aplanados en data.
   const u = data?.user || data || {};
@@ -146,8 +160,9 @@ function chatUserRoles(data) {
   const teamBadge = badges.find((b) => scene(b) === 10);
   const memberLevel = memberLevelFromUser(u);
   const isTeam = !!(levelFromBadge(teamBadge) > 0 || memberLevel > 0);
+  const gifterLevel = gifterLevelFromUser(u);
 
-  return { isMod, isSub, isFollower, isTeam, memberLevel };
+  return { isMod, isSub, isFollower, isTeam, memberLevel, gifterLevel };
 }
 function matchesCommand(command, comment) {
   const cmd = String(command || '').trim().toLowerCase();
@@ -1964,7 +1979,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.comments++;
       const msgId = data?.common?.msgId || '';
       const chatUser = baseUser(data.user || data);
-      broadcast('chat', { ...chatUser, comment, msgId: msgId && String(msgId) !== '0' ? String(msgId) : chatKey, ...chatUserRoles(data), donorLevel: donorLevelForUid(chatUser.uniqueId) });
+      const roles = chatUserRoles(data);
+      const ptsDonor = donorLevelForUid(chatUser.uniqueId);
+      const donorLevel = roles.gifterLevel > 0 ? roles.gifterLevel : ptsDonor;
+      const donorSource = roles.gifterLevel > 0 ? 'tiktok' : (ptsDonor > 0 ? 'points' : '');
+      broadcast('chat', { ...chatUser, comment, msgId: msgId && String(msgId) !== '0' ? String(msgId) : chatKey, ...roles, donorLevel, donorSource });
       pushStatsThrottled();
       checkMemberLevelUp(data);
       fireEmoteTriggers(data);
