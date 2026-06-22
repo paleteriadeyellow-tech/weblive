@@ -10186,9 +10186,13 @@ function addGdAction(code) {
   toast && toast(`Efecto "${c.nombre}" agregado. Elige el regalo o evento.`, 'ok');
 }
 
-async function testGdAction(a) {
+async function testGdAction(a, btn) {
   if (!a || !a.thing) return;
   if (!IS_DESKTOP) { toast && toast('Geometry Dash solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+  if (btn && btn.disabled) return;
+  if (btn) btn.disabled = true;
+  toast && toast('Efecto en 5 segundos…', 'ok');
+  await new Promise((r) => setTimeout(r, 5000));
   const r = await execGameLocal({
     tipo: 'GD_EFFECT',
     code: a.thing,
@@ -10196,6 +10200,7 @@ async function testGdAction(a) {
     duration: Math.max(0, Number(a.duration) || 0),
     type: 1,
   });
+  if (btn) btn.disabled = false;
   const ok = r && r.ok !== false;
   if (ok) addEvent(`🔷 Prueba GD: ${esc(a.label || a.thing)}`, 'ok');
   else toast && toast('No se pudo ejecutar. ¿Geometry Dash está abierto en un nivel?', 'warn');
@@ -10264,7 +10269,7 @@ function renderGdActions() {
   wrap.querySelectorAll('.gd-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
   wrap.querySelectorAll('.gd-duration').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.duration = Math.max(0, Math.min(600, parseInt(inp.value, 10) || 0)) * 1000; saveSettings(); });
   bindGameActionGiftButtons(wrap, 'gd-gift', 'gdActions', renderGdActions);
-  wrap.querySelectorAll('.gd-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testGdAction(a); });
+  wrap.querySelectorAll('.gd-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testGdAction(a, b); });
 }
 
 // Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
