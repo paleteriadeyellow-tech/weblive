@@ -715,6 +715,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function broadcastScreens() {
     broadcast('screens', { connected: [...new Set(videoScreens.values())] });
   }
+  const isCloudHost = process.env.DESKTOP !== '1';
+  function hasLocalRelay() { return localClients.size > 0 || relayClients.size > 0; }
+  // En relay (.exe): los archivos de video viven en la PC del streamer; delegamos
+  // reproducción/parada a la app local (Browser Source en 127.0.0.1), no en Render.
+  function emitMedia(payload) {
+    if (isCloudHost && hasLocalRelay()) broadcastToLocal('playMedia', payload);
+    else broadcast('media', payload);
+  }
+  function emitStopMedia(payload) {
+    if (isCloudHost && hasLocalRelay()) broadcastToLocal('stopMediaLocal', payload);
+    else broadcast('stopMedia', payload);
+  }
+  function emitPanicMedia() {
+    if (isCloudHost && hasLocalRelay()) broadcastToLocal('panicLocal', {});
+    else broadcast('panic', {});
+    for (let scr = 1; scr <= 5; scr++) emitStopMedia({ screen: scr });
+  }
   /* --------------------- Contador de meta (gift counter) -------------------- */
   function serializeGiftCounter() {
     const goal = Math.max(1, Number(settings.giftCounter?.goal) || 50);
@@ -1384,7 +1401,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           const goal = Math.max(1, v.likeGoal || 100);
           if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
             const scr = Number(v.screen) || 1;
-            broadcast('media', { id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
+            emitMedia({ id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
           }
         }
       }
@@ -1447,7 +1464,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           }
         }
         const scr = Number(v.screen) || 1;
-        broadcast('media', { id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
+        emitMedia({ id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
       }
     });
   }
@@ -1505,7 +1522,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       return;
     }
     broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${n} reproducido.` });
-    broadcast('media', { id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: vol, size: screenSize(scr) });
+    emitMedia({ id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: vol, size: screenSize(scr) });
   }
 
   // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3), 'battleGift',
@@ -1528,7 +1545,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       const scr = Number(b.screen) || 1;
       broadcast('log', { level: 'ok', text: `⚔️ Animación de batalla [${actionType}]: "${b.name}"` });
-      broadcast('media', { id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSize(scr) });
+      emitMedia({ id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSize(scr) });
     }
   }
 
@@ -2651,7 +2668,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'testVideo':
         if (data.video) {
           const scr = Number(data.video.screen) || 1;
-          broadcast('media', { ...data.video, screen: scr, size: screenSize(scr), test: true });
+          emitMedia({ ...data.video, screen: scr, size: screenSize(scr), test: true });
         }
         break;
       case 'testLevelUp': {
@@ -2669,12 +2686,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'stopVideo': {
         const scr = Number(data.screen) || 1;
-        broadcast('stopMedia', { screen: scr });
+        emitStopMedia({ screen: scr });
         break;
       }
       case 'testScreen': {
         const scr = Number(data.screen) || 1;
-        broadcast('media', { test: true, screenTest: true, name: 'Pantalla ' + scr, screen: scr, size: screenSize(scr) });
+        emitMedia({ test: true, screenTest: true, name: 'Pantalla ' + scr, screen: scr, size: screenSize(scr) });
         break;
       }
       // Pruebas manuales de juegos: la nube delega la ejecución al .exe (relay) vía localExec.
@@ -2703,8 +2720,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (data.alert) broadcast('sound', { ...data.alert, test: true });
         break;
       case 'panic':
-        broadcast('panic', {});
-        for (let scr = 1; scr <= 5; scr++) broadcast('stopMedia', { screen: scr });
+        emitPanicMedia();
         break;
       case 'testPerrito':
         broadcast('perritoTest', { count: Number(data.count) || 200 });
