@@ -466,18 +466,6 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     if (emitLocalExec({ tipo: 'PVZ_CMD', path })) return;
   }
 
-  function applyGdEffect(code, viewer, duration, type = 1) {
-    const c = String(code || '').trim();
-    if (!c) return;
-    if (emitLocalExec({
-      tipo: 'GD_EFFECT',
-      code: c,
-      viewer: String(viewer || ''),
-      duration: Math.max(0, Number(duration) || 0),
-      type: Number(type) || 1,
-    })) return;
-  }
-
   function triggerMarioActions(eventType, info = {}, user = null, cfg = settings()) {
     const name = (user && user.nickname) || info.nickname || '';
     for (const a of (cfg.marioActions || [])) {
@@ -562,21 +550,6 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     }
   }
 
-  function triggerGdActions(eventType, info = {}, user = null, cfg = settings()) {
-    const name = (user && user.nickname) || info.nickname || '';
-    for (const a of (cfg.gdActions || [])) {
-      if (!a || a.enabled === false || !a.thing) continue;
-      const times = matchGameTrigger(a, eventType, info, user);
-      if (times == null) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end') continue;
-      const dur = Math.max(0, Number(a.duration) || 0);
-      for (let i = 0; i < times; i++) {
-        log('ok', `🔷 GD: ${a.label || a.thing}${dur ? ` (${Math.round(dur / 1000)}s)` : ''}`);
-        applyGdEffect(a.thing, name, dur, 1);
-      }
-    }
-  }
-
   function playMcActionSound(a, times = 1) {
     if (!a || !a.audioOn || !a.sound) return;
     const n = Math.max(1, Math.min(Number(times) || 1, 50));
@@ -598,7 +571,6 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     triggerMari0Actions(eventType, info, user, cfg);
     triggerSmb3Actions(eventType, info, user, cfg);
     triggerPvzActions(eventType, info, user, cfg);
-    triggerGdActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
     const both = [].concat(cfg.mcActions || [], cfg.bedrockActions || [], cfg.sandboxActions || []);
     for (const a of both) {
@@ -673,20 +645,13 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
           else spawnPvzThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
         }
       }
-      for (const a of (cfg.gdActions || [])) {
-        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        const goal = Math.max(1, a.likeN || 100);
-        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-          applyGdEffect(a.thing, '', Math.max(0, Number(a.duration) || 0), 1);
-        }
-      }
     });
   }
 
   return {
     fireAction, triggerActions, triggerMinecraftActions, triggerLikeGlobalExtras,
     runActionOutputs, runMcAction, playMcActionSound, buildMcVars, mcCmdText, listActions, executeWebhookAction, actionDoesSomething,
-    spawnMarioThing, applyMarioEffect, spawnSmb3Thing, applySmb3Effect, spawnPvzThing, givePvzSun, pvzCommand, applyGdEffect,
+    spawnMarioThing, applyMarioEffect, spawnSmb3Thing, applySmb3Effect, spawnPvzThing, givePvzSun, pvzCommand,
   };
 }
 

@@ -324,7 +324,6 @@ export const DEFAULT_SETTINGS = {
   mari0Actions: [],
   smb3Actions: [],
   pvzActions: [],
-  gdActions: [],
 };
 
 export function deepMerge(target, src) {

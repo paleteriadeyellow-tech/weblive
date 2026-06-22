@@ -2716,9 +2716,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'pvzCmd':
         actions.pvzCommand(String(data.path || ''));
         break;
-      case 'gdEffect':
-        actions.applyGdEffect(String(data.code || data.thing || ''), data.viewer ?? data.name, data.duration, data.type);
-        break;
       case 'testSound':
         if (data.alert) broadcast('sound', { ...data.alert, test: true });
         break;
