@@ -10091,13 +10091,10 @@ function setupGdLaunchBtn() {
     test.onclick = async () => {
       if (!IS_DESKTOP) { toast && toast('Geometry Dash solo funciona en la app de escritorio (.exe).', 'warn'); return; }
       const r = await execGameLocal({ tipo: 'GD_HEALTH' });
-      if (r && r.ok !== false) {
-        toast && toast('Geometry Dash conectado (TCP :33940).', 'ok');
-        paintGdStatus(true);
-      } else {
-        toast && toast('Sin conexión. ¿El juego está abierto en un nivel con el mod activo?', 'warn');
-        paintGdStatus(false);
-      }
+      paintGdStatus(r);
+      if (r && r.connected) toast && toast('Geometry Dash conectado (TCP :33940).', 'ok');
+      else if (r && r.ok) toast && toast('Bridge listo. Abre Geometry Dash con el mod y entra a un nivel.', 'warn');
+      else toast && toast(r?.hint || 'No se pudo iniciar el bridge en :33940.', 'warn');
     };
   }
   const dl = document.getElementById('gd-dl');
@@ -10107,12 +10104,18 @@ function setupGdLaunchBtn() {
   }
 }
 
-function paintGdStatus(ok) {
+function paintGdStatus(detail) {
   const el = document.getElementById('gd-status');
   if (!el) return;
-  el.innerHTML = ok
-    ? '<span class="mari0-st on">Geometry Dash conectado</span><span class="mari0-st on">127.0.0.1:33940</span>'
-    : '<span class="mari0-st off">Geometry Dash — sin conexión (TCP :33940)</span>';
+  const connected = !!(detail && detail.connected);
+  const listening = !!(detail && (detail.serverListening || (detail.ok && detail.bridge === 'livecoins' && !connected)));
+  if (connected) {
+    el.innerHTML = '<span class="mari0-st on">Geometry Dash conectado</span><span class="mari0-st on">127.0.0.1:33940</span>';
+  } else if (listening) {
+    el.innerHTML = '<span class="mari0-st wait">Bridge activo — abre el juego y entra a un nivel</span><span class="mari0-st off">Esperando conexión…</span>';
+  } else {
+    el.innerHTML = '<span class="mari0-st off">Geometry Dash — sin bridge (TCP :33940)</span>';
+  }
 }
 
 function setupGdStatusPoll() {
@@ -10124,8 +10127,8 @@ function setupGdStatusPoll() {
     if (!IS_DESKTOP) { paintGdStatus(false); return; }
     try {
       const r = await execGameLocal({ tipo: 'GD_HEALTH' });
-      paintGdStatus(r && r.ok !== false);
-    } catch { paintGdStatus(false); }
+      paintGdStatus(r);
+    } catch { paintGdStatus(null); }
   };
   tick();
   setInterval(tick, 4000);
@@ -10201,9 +10204,9 @@ async function testGdAction(a, btn) {
     type: 1,
   });
   if (btn) btn.disabled = false;
-  const ok = r && r.ok !== false;
+  const ok = r && r.ok !== false && r.error !== 'juego_no_conectado';
   if (ok) addEvent(`🔷 Prueba GD: ${esc(a.label || a.thing)}`, 'ok');
-  else toast && toast('No se pudo ejecutar. ¿Geometry Dash está abierto en un nivel?', 'warn');
+  else toast && toast(r?.hint || (r?.error === 'juego_no_conectado' ? 'El juego no está conectado. Ábrelo con el mod y entra a un nivel.' : (r?.error || 'No se pudo ejecutar. ¿Geometry Dash está abierto en un nivel?')));
 }
 
 function gdCardHtml(a) {
