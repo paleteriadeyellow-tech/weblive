@@ -820,6 +820,36 @@ function transcodeToMp4(srcPath) {
   });
 }
 
+const BROWSER_VIDEO_CODEC = new Set(['h264', 'avc', 'avc1']);
+const PROBE_VIDEO_EXT = new Set(['.mp4', '.m4v', '.mov', '.webm']);
+
+function probeVideoCodec(srcPath) {
+  return new Promise((resolve) => {
+    if (!ffmpegPath) return resolve('');
+    let proc;
+    try { proc = spawn(ffmpegPath, ['-hide_banner', '-i', srcPath], { windowsHide: true }); }
+    catch { return resolve(''); }
+    let err = '';
+    proc.stderr?.on('data', (d) => { err += d.toString(); });
+    proc.on('close', () => {
+      const m = err.match(/Stream #\d+:\d+(?:\([^)]*\))?: Video: (\w+)/i);
+      resolve(m ? m[1].toLowerCase() : '');
+    });
+    proc.on('error', () => resolve(''));
+  });
+}
+
+async function uploadNeedsTranscode(dest, ext, looksVideo) {
+  if (!looksVideo) return false;
+  if (!WEB_FRIENDLY_EXT.has(ext)) return true;
+  if (!PROBE_VIDEO_EXT.has(ext)) return false;
+  const codec = await probeVideoCodec(dest);
+  if (!codec) return false;
+  if (BROWSER_VIDEO_CODEC.has(codec)) return false;
+  if (ext === '.webm' && (codec === 'vp8' || codec === 'vp9')) return false;
+  return true;
+}
+
 const UPLOAD_INCOMPATIBLE_MSG =
   'Formato no compatible con Live Studio. Exporta el video como MP4 (H.264 + AAC) e inténtalo de nuevo.';
 
@@ -850,7 +880,7 @@ app.post('/api/upload', (req, res) => {
     const looksVideo = /^video\//i.test(req.headers['content-type'] || '') || !WEB_FRIENDLY_EXT.has(ext);
     let finalPath = dest;
     let finalName = path.basename(fname);
-    if (!WEB_FRIENDLY_EXT.has(ext) && looksVideo) {
+    if (await uploadNeedsTranscode(dest, ext, looksVideo)) {
       const mp4 = await transcodeToMp4(dest);
       if (mp4) {
         fs.unlink(dest, () => {});

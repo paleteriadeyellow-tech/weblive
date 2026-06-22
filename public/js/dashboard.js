@@ -2152,14 +2152,13 @@ $('vid-cancel').onclick = closeVidModal;
 $('vidModal').addEventListener('click', (e) => { if (e.target.id === 'vidModal') closeVidModal(); });
 $('vid-event').addEventListener('change', () => setVidEventUI($('vid-event').value));
 
-// Formatos que el navegador reproduce tal cual; el resto de video se convierte en el servidor.
-const UPLOAD_WEB_FRIENDLY = /\.(mp4|webm|ogg|ogv|m4v|gif|png|jpe?g|webp|apng|bmp|svg|mp3|wav|aac|m4a|oga)(\?|$)/i;
+// Tras subir, el servidor puede convertir (MOV, MP4 HEVC/H.265, etc.).
 function uploadNeedsVideoConvert(file) {
   if (!file) return false;
-  const name = file.name || '';
-  if (UPLOAD_WEB_FRIENDLY.test(name)) return false;
   if (/^image\//i.test(file.type) || /^audio\//i.test(file.type)) return false;
-  return /^video\//i.test(file.type) || /\.(mov|avi|mkv|wmv|flv|hevc|ts|mts|3gp|mpeg|mpg)$/i.test(name);
+  const name = file.name || '';
+  if (/\.(gif|png|jpe?g|webp|apng|bmp|svg|mp3|wav|aac|m4a|oga)(\?|$)/i.test(name)) return false;
+  return /^video\//i.test(file.type) || /\.(mp4|webm|m4v|mov|avi|mkv|wmv|flv|hevc|ts|mts|3gp|mpeg|mpg|ogv|ogg)(\?|$)/i.test(name);
 }
 // Sube un archivo mostrando progreso; si hace falta conversión, avisa al terminar la subida.
 function uploadMediaWithProgress(file, setStatus) {
