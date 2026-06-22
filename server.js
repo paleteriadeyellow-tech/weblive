@@ -6,8 +6,10 @@ import { eulerStartupLine } from './euler-config.js';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import ffmpegPath from 'ffmpeg-static';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
@@ -787,15 +789,81 @@ app.get('/api/emotes', (req, res) => {
   res.json({ results: getRoomForUser(user).getEmotes() });
 });
 
-// Subida de archivos (compartida). Límite 100 MB para videos cortos de alertas/overlays.
-app.post('/api/upload', express.raw({ type: '*/*', limit: '100mb' }), (req, res) => {
-  if (!req.body || !req.body.length) return res.status(400).json({ error: 'archivo vacío' });
+// Formatos que el navegador reproduce tal cual; el resto se transcodifica a MP4 H.264.
+const WEB_FRIENDLY_EXT = new Set([
+  '.mp4', '.webm', '.ogg', '.ogv', '.m4v',
+  '.gif', '.png', '.jpg', '.jpeg', '.webp', '.apng', '.bmp', '.svg',
+  '.mp3', '.wav', '.aac', '.m4a', '.oga',
+]);
+
+function transcodeToMp4(srcPath) {
+  return new Promise((resolve) => {
+    if (!ffmpegPath) return resolve(null);
+    const outPath = srcPath.replace(/\.[^.]+$/, '') + '_web.mp4';
+    const args = [
+      '-y', '-i', srcPath,
+      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '160k',
+      '-movflags', '+faststart',
+      outPath,
+    ];
+    let done = false;
+    const finish = (ok) => { if (done) return; done = true; resolve(ok ? outPath : null); };
+    let proc;
+    try { proc = spawn(ffmpegPath, args, { windowsHide: true }); }
+    catch { return finish(false); }
+    proc.on('error', () => finish(false));
+    proc.on('close', (code) => {
+      if (code === 0 && fs.existsSync(outPath)) finish(true);
+      else { fs.unlink(outPath, () => {}); finish(false); }
+    });
+  });
+}
+
+const UPLOAD_INCOMPATIBLE_MSG =
+  'Formato no compatible con Live Studio. Exporta el video como MP4 (H.264 + AAC) e inténtalo de nuevo.';
+
+// Subida por streaming (sin límite de memoria). MP4/WebM/GIF se guardan tal cual;
+// MOV/AVI/MKV… se convierten automáticamente a MP4 compatible con el navegador.
+app.post('/api/upload', (req, res) => {
   const safe = String(req.query.name || 'file').replace(/[^\w.\-]+/g, '_').slice(-60);
   const fname = `${Date.now()}_${safe}`;
-  fs.writeFile(path.join(UPLOADS_DIR, fname), req.body, (err) => {
-    if (err) return res.status(500).json({ error: 'no se pudo guardar' });
-    res.json({ url: '/uploads/' + fname });
+  const dest = path.join(UPLOADS_DIR, fname);
+  const out = fs.createWriteStream(dest);
+  let bytes = 0;
+  let failed = false;
+  const fail = (msg, code = 500) => {
+    if (failed) return;
+    failed = true;
+    out.destroy();
+    fs.unlink(dest, () => {});
+    if (!res.headersSent) res.status(code).json({ error: msg || 'no se pudo guardar' });
+  };
+  req.on('data', (chunk) => { bytes += chunk.length; });
+  req.on('aborted', () => fail('subida cancelada'));
+  req.on('error', () => fail());
+  out.on('error', () => fail());
+  out.on('finish', async () => {
+    if (failed) return;
+    if (!bytes) { fs.unlink(dest, () => {}); return res.status(400).json({ error: 'archivo vacío' }); }
+    const ext = (path.extname(fname) || '').toLowerCase();
+    const looksVideo = /^video\//i.test(req.headers['content-type'] || '') || !WEB_FRIENDLY_EXT.has(ext);
+    let finalPath = dest;
+    let finalName = path.basename(fname);
+    if (!WEB_FRIENDLY_EXT.has(ext) && looksVideo) {
+      const mp4 = await transcodeToMp4(dest);
+      if (mp4) {
+        fs.unlink(dest, () => {});
+        finalPath = mp4;
+        finalName = path.basename(mp4);
+      } else {
+        fs.unlink(dest, () => {});
+        return res.status(415).json({ error: UPLOAD_INCOMPATIBLE_MSG });
+      }
+    }
+    res.json({ url: '/uploads/' + finalName, converted: finalPath !== dest });
   });
+  req.pipe(out);
 });
 
 /* ----------------------------- TTS: voces TikTok ----------------------------- */

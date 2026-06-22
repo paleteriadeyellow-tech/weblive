@@ -2175,15 +2175,23 @@ function uploadMediaWithProgress(file, setStatus) {
       if (needsConvert) setStatus('Convirtiendo video… puede tardar un poco');
     };
     xhr.onload = () => {
-      try {
-        const data = JSON.parse(xhr.responseText || '{}');
-        if (xhr.status >= 400 || !data.url) throw new Error(data.error || 'error');
-        resolve(data);
-      } catch (err) { reject(err); }
+      let data = {};
+      try { data = JSON.parse(xhr.responseText || '{}'); } catch {}
+      if (xhr.status >= 400 || !data.url) {
+        reject(new Error(data.error || `Error al subir (${xhr.status || 'red'})`));
+        return;
+      }
+      resolve(data);
     };
-    xhr.onerror = () => reject(new Error('error de red'));
+    xhr.onerror = () => reject(new Error('Error de red al subir el archivo'));
     xhr.send(file);
   });
+}
+
+function uploadErrLabel(err) {
+  const msg = String(err?.message || err || '').trim();
+  if (!msg || msg === 'error') return 'Error al subir';
+  return msg.length > 120 ? msg.slice(0, 117) + '…' : msg;
 }
 
 $('vid-upbtn').onclick = () => $('vid-file').click();
@@ -2195,7 +2203,7 @@ $('vid-file').addEventListener('change', async (e) => {
     const data = await uploadMediaWithProgress(file, (msg) => { label.textContent = msg; });
     vidPending = { url: data.url, name: file.name };
     label.textContent = file.name;
-  } catch { label.textContent = 'Error al subir'; }
+  } catch (err) { label.textContent = uploadErrLabel(err); }
   e.target.value = '';
 });
 
@@ -2490,7 +2498,7 @@ $('ba-file').addEventListener('change', async (e) => {
     const data = await uploadMediaWithProgress(file, (msg) => { label.textContent = msg; });
     baPending = { url: data.url, name: file.name };
     label.textContent = file.name;
-  } catch { label.textContent = 'Error al subir'; }
+  } catch (err) { label.textContent = uploadErrLabel(err); }
   e.target.value = '';
 });
 
@@ -2937,7 +2945,7 @@ async function uploadFile(file, kind) {
     if (!data.url) throw new Error(data.error || 'error');
     pendingSound = { url: data.url, name: file.name }; label.textContent = file.name;
   } catch (err) {
-    label.textContent = 'Error al subir';
+    label.textContent = uploadErrLabel(err);
   }
 }
 
@@ -5925,8 +5933,8 @@ async function uploadAccImage(file) {
     if (!data.url) throw new Error(data.error || 'error');
     accPendingImage = { url: data.url, name: file.name };
     label.textContent = file.name;
-  } catch {
-    label.textContent = 'Error al subir';
+  } catch (err) {
+    label.textContent = uploadErrLabel(err);
   }
 }
 
