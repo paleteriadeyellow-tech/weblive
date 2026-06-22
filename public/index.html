@@ -3684,6 +3684,9 @@
             <button type="button" class="juego-card" data-game="plantasvszombies" aria-label="Plants vs Zombies">
               <img src="/img/plantasvszombies.jpg" alt="Plants vs Zombies" class="juego-card-img">
             </button>
+            <button type="button" class="juego-card" data-game="geometrydash" aria-label="Geometry Dash">
+              <img src="/img/geometrydash.png" alt="Geometry Dash" class="juego-card-img">
+            </button>
           </div>
         </section>
 
@@ -3885,6 +3888,56 @@
               <input type="text" id="pvz-cat-search" class="mc-cat-search" placeholder="Buscar acción (zombie, soles, god mode…)">
             </div>
             <div id="pvz-catalog" class="mc-catalog"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: GEOMETRY DASH (solo .exe) ===================== -->
+        <section class="view" id="view-juego-geometrydash">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🔷 Geometry Dash</h1>
+          <p class="view-sub">Mod Crowd Control (CCPack). Livecoins envía efectos por TCP a <code>127.0.0.1:33940</code>.</p>
+
+          <div class="juego-banner">
+            <img src="/img/geometrydash.png" alt="Geometry Dash" class="juego-banner-img">
+            <div class="juego-banner-btns">
+              <button type="button" class="juego-play-btn" id="gd-test">🔌 Probar conexión</button>
+              <button type="button" class="juego-play-btn juego-room-btn" id="gd-dl" data-url="https://github.com/WarpWorld/CCPack-PC-GeometryDash/releases/latest">⬇ Descargar mod</button>
+            </div>
+          </div>
+
+          <div id="gd-status" class="mari0-status-bar" aria-live="polite"></div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Para que funcione con Livecoins:</b>
+              <ol>
+                <li><b>Instala el mod</b> CCPack de Geometry Dash (enlace de arriba).</li>
+                <li><b>Abre Geometry Dash</b> y entra a un nivel (el mod debe estar activo).</li>
+                <li>Pulsa <b>🔌 Probar conexión</b>: debe ponerse en verde.</li>
+                <li>Crea acciones abajo, asígnales <b>regalos</b> y enciéndelas (botón verde).</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🔷 Acciones de Geometry Dash</h2>
+              <p class="mc-actions-sub">Elige un efecto del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que lo activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="gd-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="gd-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title">Catálogo de efectos</h3>
+            <div class="mc-cat-head">
+              <input type="text" id="gd-cat-search" class="mc-cat-search" placeholder="Buscar efecto (invert, zoom, rojo…)">
+            </div>
+            <div id="gd-catalog" class="mc-catalog"></div>
           </div>
         </section>
 

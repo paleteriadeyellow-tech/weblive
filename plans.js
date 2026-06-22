@@ -80,6 +80,7 @@ export const CAPABILITIES = {
     { key: 'game_smb3', label: 'Juego: Super Mario Bros. 3' },
     { key: 'game_mari0', label: 'Juego: Mari0' },
     { key: 'game_plantasvszombies', label: 'Juego: Plants vs Zombies' },
+    { key: 'game_geometrydash', label: 'Juego: Geometry Dash' },
   ],
   // Características sueltas.
   extras: [

@@ -344,7 +344,7 @@ const TAB_CAP = {
 };
 const AV_SUBTAB_CAP = { alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas' };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies' };
+const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', geometrydash: 'game_geometrydash' };
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
@@ -468,13 +468,13 @@ const CAP_LABELS = {
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_geometrydash: 'Juego: Geometry Dash',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
+  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_geometrydash',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -2091,6 +2091,17 @@ function onSettings(s) {
       }
     }
     renderPvzActions();
+  }
+  if (typeof renderGdActions === 'function') {
+    if (!window._gdResetDone) {
+      window._gdResetDone = true;
+      const gl = ensureGdActions();
+      if (gl.length && gl.some((a) => a.enabled !== false)) {
+        gl.forEach((a) => { a.enabled = false; });
+        saveSettings();
+      }
+    }
+    renderGdActions();
   }
   if (typeof renderSmb3Actions === 'function') renderSmb3Actions();
   if (typeof renderMari0Actions === 'function') renderMari0Actions();
@@ -6168,7 +6179,7 @@ function onKeyAction(p) {
 // el resto (RCON, OBS, teclas…) al proceso principal de Electron.
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (/^(MARIO_|MARI0_|SMB3_|PVZ_)/.test(exec.tipo)) {
+  if (/^(MARIO_|MARI0_|SMB3_|PVZ_|GD_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
   }
@@ -6795,6 +6806,9 @@ function setupJuegosUI() {
   setupMari0StatusPoll();
   setupPvzActionsUI();
   setupPvzLaunchBtn();
+  setupGdActionsUI();
+  setupGdLaunchBtn();
+  setupGdStatusPoll();
   const change = document.getElementById('mc-change-bat');
   if (change) change.onclick = async (e) => { e.preventDefault(); await chooseMinecraftBat(true); };
   setupMcActionsUI();
@@ -6880,7 +6894,7 @@ const MC_TRIG_ICON = {
   firstMessage: { ic: '🆕', label: 'Primer mensaje' },
 };
 
-const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'mari0Actions', 'pvzActions'];
+const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'mari0Actions', 'pvzActions', 'gdActions'];
 let lastGameActionEditAt = 0;
 
 function gameActionGiftUi(a, giftClass) {
@@ -10024,6 +10038,233 @@ function renderPvzActions() {
   wrap.querySelectorAll('.pvz-amount').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.amount = Math.max(1, Math.min(9990, parseInt(inp.value, 10) || 50)); saveSettings(); });
   bindGameActionGiftButtons(wrap, 'pvz-gift', 'pvzActions', renderPvzActions);
   wrap.querySelectorAll('.pvz-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzAction(a); });
+}
+
+/* ============ Acciones de Geometry Dash (Crowd Control TCP :33940) ============ */
+const GD_CAMERA = [
+  { id: 'zoomin', nombre: 'Cámara cerca', duration: 10000 },
+  { id: 'zoomout', nombre: 'Cámara lejos', duration: 10000 },
+  { id: 'zoomout2', nombre: 'Cámara ultra lejos', duration: 10000 },
+  { id: 'rotate', nombre: 'Inclinar cámara', duration: 10000 },
+  { id: 'rotate2', nombre: 'Inclinar fuerte', duration: 10000 },
+  { id: 'rotate3', nombre: 'Tilt cámara', duration: 10000 },
+  { id: 'rotate4', nombre: 'Tilt fuerte', duration: 10000 },
+  { id: 'rotate5', nombre: 'Rotar cámara', duration: 10000 },
+  { id: 'rotate6', nombre: 'Voltear cámara', duration: 10000 },
+  { id: 'spin', nombre: 'Cámara girando', duration: 10000 },
+];
+const GD_PLAYER = [
+  { id: 'jump', nombre: 'Salto automático', duration: 0 },
+  { id: 'invis', nombre: 'Invisible', duration: 10000 },
+  { id: 'reverse', nombre: 'Movimiento invertido', duration: 3000 },
+  { id: 'invert', nombre: 'Controles invertidos', duration: 10000 },
+  { id: 'giant', nombre: 'Gigante', duration: 10000 },
+  { id: 'tiny', nombre: 'Mini', duration: 10000 },
+];
+const GD_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'white', 'black'].map((id) => ({
+  id, nombre: `Jugador ${id}`, duration: 0,
+}));
+const GD_DEBUG = [
+  { id: 'clearState', nombre: 'Resetear efectos', duration: 0 },
+  { id: 'stopall', nombre: 'Parar todo', duration: 0 },
+];
+const GD_CATALOG = [
+  ...GD_CAMERA.map((x) => ({ ...x, categoria: 'camera' })),
+  ...GD_PLAYER.map((x) => ({ ...x, categoria: 'player' })),
+  ...GD_COLORS.map((x) => ({ ...x, categoria: 'color' })),
+  ...GD_DEBUG.map((x) => ({ ...x, categoria: 'debug' })),
+];
+const GD_CAT_ICON = { camera: '📷', player: '🏃', color: '🎨', debug: '🔧' };
+const GD_CAT_LABEL = { camera: 'Cámara', player: 'Jugador', color: 'Color', debug: 'Debug' };
+
+function ensureGdActions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.gdActions)) settings.gdActions = [];
+  settings.gdActions = migrateGameActions(settings.gdActions, 'gd');
+  return settings.gdActions;
+}
+
+function setupGdLaunchBtn() {
+  const test = document.getElementById('gd-test');
+  if (test && !test._wired) {
+    test._wired = true;
+    test.onclick = async () => {
+      if (!IS_DESKTOP) { toast && toast('Geometry Dash solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+      const r = await execGameLocal({ tipo: 'GD_HEALTH' });
+      if (r && r.ok !== false) {
+        toast && toast('Geometry Dash conectado (TCP :33940).', 'ok');
+        paintGdStatus(true);
+      } else {
+        toast && toast('Sin conexión. ¿El juego está abierto en un nivel con el mod activo?', 'warn');
+        paintGdStatus(false);
+      }
+    };
+  }
+  const dl = document.getElementById('gd-dl');
+  if (dl && !dl._wired) {
+    dl._wired = true;
+    dl.onclick = () => openGameLink(dl.dataset.url);
+  }
+}
+
+function paintGdStatus(ok) {
+  const el = document.getElementById('gd-status');
+  if (!el) return;
+  el.innerHTML = ok
+    ? '<span class="mari0-st on">Geometry Dash conectado</span><span class="mari0-st on">127.0.0.1:33940</span>'
+    : '<span class="mari0-st off">Geometry Dash — sin conexión (TCP :33940)</span>';
+}
+
+function setupGdStatusPoll() {
+  const el = document.getElementById('gd-status');
+  if (!el || el._poll) return;
+  el._poll = true;
+  const tick = async () => {
+    if (!document.getElementById('view-juego-geometrydash')?.classList.contains('active')) return;
+    if (!IS_DESKTOP) { paintGdStatus(false); return; }
+    try {
+      const r = await execGameLocal({ tipo: 'GD_HEALTH' });
+      paintGdStatus(r && r.ok !== false);
+    } catch { paintGdStatus(false); }
+  };
+  tick();
+  setInterval(tick, 4000);
+}
+
+function setupGdActionsUI() {
+  const search = document.getElementById('gd-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderGdCatalog(search.value); }
+  const toggleAll = document.getElementById('gd-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureGdActions();
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettings(); renderGdActions();
+    };
+  }
+  renderGdCatalog(search ? search.value : '');
+  renderGdActions();
+}
+
+function renderGdCatalog(filter) {
+  const grid = document.getElementById('gd-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f ? GD_CATALOG.filter((c) => c.nombre.toLowerCase().includes(f) || c.id.toLowerCase().includes(f)) : GD_CATALOG;
+  grid.innerHTML = list.map((c) => `
+    <div class="mc-cat-card" data-id="${esc(c.id)}">
+      <span class="mc-cat-emoji">${GD_CAT_ICON[c.categoria] || '🔷'}</span>
+      <div class="mc-cat-meta">
+        <div class="mc-cat-name">${esc(c.nombre)}</div>
+        <div class="mc-cat-desc">${esc(GD_CAT_LABEL[c.categoria] || '')}${c.duration ? ` · ${Math.round(c.duration / 1000)}s` : ''}</div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addGdAction(card.dataset.id);
+  });
+}
+
+function addGdAction(code) {
+  const c = GD_CATALOG.find((x) => x.id === code);
+  if (!c) return;
+  if (!ensureCanAdd('gdActions', 'actions', 'acciones de juego')) return;
+  const list = ensureGdActions();
+  list.push({
+    uid: 'gd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id,
+    label: c.nombre,
+    categoria: c.categoria,
+    duration: c.duration != null ? c.duration : 10000,
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '',
+    count: 1, text: '', enabled: true,
+  });
+  saveSettings(); renderGdActions();
+  toast && toast(`Efecto "${c.nombre}" agregado. Elige el regalo o evento.`, 'ok');
+}
+
+async function testGdAction(a) {
+  if (!a || !a.thing) return;
+  if (!IS_DESKTOP) { toast && toast('Geometry Dash solo funciona en la app de escritorio (.exe).', 'warn'); return; }
+  const r = await execGameLocal({
+    tipo: 'GD_EFFECT',
+    code: a.thing,
+    viewer: 'Prueba',
+    duration: Math.max(0, Number(a.duration) || 0),
+    type: 1,
+  });
+  const ok = r && r.ok !== false;
+  if (ok) addEvent(`🔷 Prueba GD: ${esc(a.label || a.thing)}`, 'ok');
+  else toast && toast('No se pudo ejecutar. ¿Geometry Dash está abierto en un nivel?', 'warn');
+}
+
+function gdCardHtml(a) {
+  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
+  const uid = esc(a.uid);
+  let giftBtn = '';
+  if ((a.trigger || 'gift') === 'gift') {
+    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+    giftBtn = `<button type="button" class="mc-gift-btn gd-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
+  } else {
+    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
+    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
+    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+  }
+  let likeRow = '';
+  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
+    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
+    const val = a.likeN != null ? a.likeN : defN;
+    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="gd-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
+  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
+    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !invert)';
+    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!invert';
+    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="gd-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
+  }
+  const emoji = GD_CAT_ICON[a.categoria] || '🔷';
+  const durSec = Math.max(0, Math.round((Number(a.duration) || 0) / 1000));
+  const durRow = `<label class="mc-like-row" style="max-width:150px">Duración (seg)<input type="number" min="0" max="600" class="gd-duration" data-uid="${uid}" value="${esc(String(durSec))}"></label>`;
+  const qtyRow = `<label class="mc-like-row" style="max-width:130px">Repeticiones<input type="number" min="1" max="20" class="gd-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+  return `
+  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
+    <div class="mc-act-top">
+      <span class="mc-act-name"><span class="mc-cat-emoji">${emoji}</span> ${esc(a.label || a.thing)} <small style="opacity:.6">(${esc(a.thing)})</small></span>
+      <button type="button" class="mc-act-del gd-del" data-uid="${uid}" title="Quitar">✕</button>
+    </div>
+    <div class="mc-act-row">
+      <select class="gd-trig-sel" data-uid="${uid}">${opts}</select>
+      ${giftBtn}
+      ${likeRow}
+    </div>
+    <div class="mc-act-row">${durRow}${qtyRow}</div>
+    <div class="mc-act-actions">
+      <label class="mc-act-toggle"><input type="checkbox" class="gd-en" data-uid="${uid}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+      <div class="mc-act-btns">
+        <button type="button" class="mc-act-test gd-test" data-uid="${uid}">Probar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderGdActions() {
+  const wrap = document.getElementById('gd-my-actions');
+  if (!wrap) return;
+  const list = ensureGdActions();
+  if (!list.length) { wrap.innerHTML = '<p class="mc-empty">Aún no hay efectos. Agrégalos desde el catálogo de abajo.</p>'; return; }
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.innerHTML = list.map((a) => gdCardHtml(a)).join('');
+  wrap.querySelectorAll('.gd-del').forEach((b) => b.onclick = () => { settings.gdActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderGdActions(); });
+  bindGameTriggerSelects(wrap, 'gd-trig-sel', 'gdActions', renderGdActions);
+  wrap.querySelectorAll('.gd-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderGdActions(); });
+  wrap.querySelectorAll('.gd-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.gd-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.gd-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
+  wrap.querySelectorAll('.gd-duration').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.duration = Math.max(0, Math.min(600, parseInt(inp.value, 10) || 0)) * 1000; saveSettings(); });
+  bindGameActionGiftButtons(wrap, 'gd-gift', 'gdActions', renderGdActions);
+  wrap.querySelectorAll('.gd-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testGdAction(a); });
 }
 
 // Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
