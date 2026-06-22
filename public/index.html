@@ -85,6 +85,21 @@
           <button id="btnConnect" class="btn primary">Conectar</button>
           <button id="btnDisconnect" class="btn ghost" hidden>Desconectar</button>
         </div>
+        <div class="ann-wrap" id="annWrap">
+          <button type="button" class="ann-bell-btn" id="annBellBtn" aria-label="Anuncios" title="Anuncios">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="ann-dot" id="annDot" hidden></span>
+          </button>
+          <div class="ann-pop" id="annPop" hidden>
+            <div class="ann-pop-head">
+              <span>Anuncios</span>
+              <button type="button" class="ann-pop-close" id="annPopClose" aria-label="Cerrar">×</button>
+            </div>
+            <div class="ann-pop-list" id="annPopList">
+              <p class="ann-empty">No hay anuncios.</p>
+            </div>
+          </div>
+        </div>
         <div id="liveBadge" class="live-badge off">● Desconectado</div>
       </header>
 
@@ -4243,6 +4258,27 @@
               <span id="plans-status" class="tts-sub"></span>
               <button class="btn primary" id="plans-save">Guardar planes</button>
             </div>
+          </div>
+
+          <!-- Anuncios a todos los usuarios -->
+          <div class="settings-card plans-card">
+            <div class="tts-head">
+              <h3>Anuncios</h3>
+              <span class="tts-sub">Publica un mensaje que verán todos los usuarios en la campana de arriba</span>
+            </div>
+            <div class="field">
+              <label>Título</label>
+              <input type="text" id="ann-admin-title" placeholder="Novedad importante">
+            </div>
+            <div class="field">
+              <label>Mensaje</label>
+              <textarea id="ann-admin-message" rows="3" placeholder="Detalles del anuncio…"></textarea>
+            </div>
+            <div class="plans-actions">
+              <span id="ann-admin-status" class="tts-sub"></span>
+              <button class="btn primary" id="ann-admin-send">Publicar anuncio</button>
+            </div>
+            <div id="ann-admin-list" class="ann-admin-list"></div>
           </div>
 
           <!-- Modo mantenimiento (panel web) -->

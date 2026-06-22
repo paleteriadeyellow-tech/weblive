@@ -213,6 +213,120 @@ fs.mkdirSync(UPLOADS_DIR, { recursive: true });
   } catch {}
   if (copied) console.log(`  [migrate] ${copied} archivo(s) de uploads → ${dest}`);
 })();
+
+// Límites de almacenamiento web (Render). Evita llenar el disco persistente.
+const UPLOAD_MAX_FILE_BYTES = Math.max(1, Number(process.env.UPLOAD_MAX_FILE_MB) || 80) * 1024 * 1024;
+const UPLOAD_MAX_USER_BYTES = Math.max(UPLOAD_MAX_FILE_BYTES, Number(process.env.UPLOAD_MAX_USER_MB) || 150) * 1024 * 1024;
+const UPLOAD_PRUNE_MAX_AGE_MS = Math.max(1, Number(process.env.UPLOAD_PRUNE_DAYS) || 30) * 86400000;
+
+function userUploadDir(userId) {
+  const dir = path.join(UPLOADS_DIR, String(userId));
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function dirSizeBytes(dir) {
+  try {
+    let n = 0;
+    for (const f of fs.readdirSync(dir)) {
+      const p = path.join(dir, f);
+      if (fs.statSync(p).isFile()) n += fs.statSync(p).size;
+    }
+    return n;
+  } catch { return 0; }
+}
+
+function normalizeUploadRef(u) {
+  if (!u || typeof u !== 'string') return '';
+  if (u.startsWith('/uploads/')) return u.split('?')[0];
+  try {
+    const p = new URL(u);
+    if (p.pathname.startsWith('/uploads/')) return p.pathname.split('?')[0];
+  } catch {}
+  return '';
+}
+
+function scanSettingsForUploadRefs(obj, refs) {
+  if (!obj || typeof obj !== 'object') return;
+  if (Array.isArray(obj)) { for (const x of obj) scanSettingsForUploadRefs(x, refs); return; }
+  for (const [k, v] of Object.entries(obj)) {
+    if ((k === 'url' || k === 'sound') && typeof v === 'string') {
+      const r = normalizeUploadRef(v);
+      if (r) refs.add(r);
+    } else if (typeof v === 'string' && v.includes('/uploads/')) {
+      const r = normalizeUploadRef(v);
+      if (r) refs.add(r);
+    } else if (v && typeof v === 'object') scanSettingsForUploadRefs(v, refs);
+  }
+}
+
+function collectReferencedUploads() {
+  const refs = new Set();
+  for (const u of listUsers()) {
+    const dir = path.join(DATA_DIR, u.id);
+    for (const file of ['profiles.json', 'settings.json']) {
+      try {
+        scanSettingsForUploadRefs(JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')), refs);
+      } catch {}
+    }
+    const room = rooms.get(u.id);
+    if (room) {
+      try { scanSettingsForUploadRefs(room.getSettings(), refs); } catch {}
+    }
+  }
+  return refs;
+}
+
+function pruneOrphanUploads() {
+  const refs = collectReferencedUploads();
+  const cutoff = Date.now() - UPLOAD_PRUNE_MAX_AGE_MS;
+  let removed = 0;
+  function walk(absDir, urlPrefix) {
+    let entries;
+    try { entries = fs.readdirSync(absDir, { withFileTypes: true }); } catch { return; }
+    for (const ent of entries) {
+      const abs = path.join(absDir, ent.name);
+      if (ent.isDirectory()) {
+        walk(abs, urlPrefix ? `${urlPrefix}${ent.name}/` : `${ent.name}/`);
+        continue;
+      }
+      if (!ent.isFile()) continue;
+      const rel = urlPrefix ? `${urlPrefix}${ent.name}` : ent.name;
+      const urlPath = (`/uploads/${rel}`).replace(/\/+/g, '/');
+      const legacyPath = `/uploads/${ent.name}`;
+      let st;
+      try { st = fs.statSync(abs); } catch { continue; }
+      const referenced = refs.has(urlPath) || (!urlPrefix && refs.has(legacyPath));
+      if (!referenced && st.mtimeMs < cutoff) {
+        try { fs.unlinkSync(abs); removed++; } catch {}
+      }
+    }
+  }
+  walk(UPLOADS_DIR, '');
+  if (removed) console.log(`  [uploads] Limpieza: ${removed} archivo(s) huérfanos (>${UPLOAD_PRUNE_MAX_AGE_MS / 86400000} días)`);
+}
+
+function trimUserUploadQuota(userId) {
+  const dir = path.join(UPLOADS_DIR, String(userId));
+  if (!fs.existsSync(dir)) return;
+  let used = dirSizeBytes(dir);
+  if (used <= UPLOAD_MAX_USER_BYTES) return;
+  const refs = collectReferencedUploads();
+  const files = fs.readdirSync(dir).map((f) => {
+    const p = path.join(dir, f);
+    const st = fs.statSync(p);
+    return { p, mtime: st.mtimeMs, size: st.size, url: `/uploads/${userId}/${f}` };
+  }).sort((a, b) => a.mtime - b.mtime);
+  for (const f of files) {
+    if (used <= UPLOAD_MAX_USER_BYTES) break;
+    if (refs.has(f.url)) continue;
+    try { fs.unlinkSync(f.p); used -= f.size; } catch {}
+  }
+}
+
+setTimeout(() => { try { pruneOrphanUploads(); } catch {} }, 15000);
+setInterval(() => { try { pruneOrphanUploads(); } catch {} }, 24 * 3600 * 1000);
+
 const AUDIOS_DIR = path.join(__dirname, 'public', 'audios');
 fs.mkdirSync(AUDIOS_DIR, { recursive: true });
 const VIDEOS_DIR = path.join(__dirname, 'public', 'video');
@@ -616,6 +730,57 @@ app.post('/api/admin/maintenance', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true, ...data });
 });
 
+/* --------------------------- Anuncios (panel) --------------------------- */
+const ANNOUNCEMENTS_FILE = path.join(DATA_DIR, 'announcements.json');
+const ANNOUNCEMENTS_MAX = 50;
+
+function readAnnouncements() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(ANNOUNCEMENTS_FILE, 'utf8'));
+    return Array.isArray(raw) ? raw : (raw.announcements || []);
+  } catch { return []; }
+}
+function writeAnnouncements(list) {
+  const tmp = ANNOUNCEMENTS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(list, null, 2));
+  fs.renameSync(tmp, ANNOUNCEMENTS_FILE);
+}
+
+app.get('/api/announcements', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  const list = readAnnouncements()
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  res.json({ announcements: list });
+});
+
+app.post('/api/admin/announcements', express.json(), requireAdmin, (req, res) => {
+  const title = String((req.body || {}).title || '').trim();
+  const message = String((req.body || {}).message || '').trim();
+  if (!title) return res.status(400).json({ error: 'Escribe un título.' });
+  if (!message) return res.status(400).json({ error: 'Escribe el mensaje.' });
+  const item = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    title,
+    message,
+    createdAt: Date.now(),
+  };
+  const list = [item, ...readAnnouncements()].slice(0, ANNOUNCEMENTS_MAX);
+  try { writeAnnouncements(list); }
+  catch { return res.status(500).json({ error: 'No se pudo guardar.' }); }
+  res.json({ ok: true, announcement: item });
+});
+
+app.post('/api/admin/announcements/delete', express.json(), requireAdmin, (req, res) => {
+  const id = String((req.body || {}).id || '').trim();
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const list = readAnnouncements().filter((a) => a.id !== id);
+  try { writeAnnouncements(list); }
+  catch { return res.status(500).json({ error: 'No se pudo eliminar.' }); }
+  res.json({ ok: true });
+});
+
 /* ------------------- Protección básica (disuasión copia) ------------------- */
 // Inyecta protect.js en todo HTML servido (panel + overlays). NO es seguridad
 // real: solo dificulta la copia casual (clic derecho, F12, ver fuente…).
@@ -853,12 +1018,23 @@ async function uploadNeedsTranscode(dest, ext, looksVideo) {
 const UPLOAD_INCOMPATIBLE_MSG =
   'Formato no compatible con Live Studio. Exporta el video como MP4 (H.264 + AAC) e inténtalo de nuevo.';
 
-// Subida por streaming (sin límite de memoria). MP4/WebM/GIF se guardan tal cual;
-// MOV/AVI/MKV… se convierten automáticamente a MP4 compatible con el navegador.
+// Subida por streaming. Requiere sesión; cada usuario tiene su carpeta y cuota en disco.
 app.post('/api/upload', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'Inicia sesión para subir archivos.' });
+
+  const userDir = userUploadDir(user.id);
+  trimUserUploadQuota(user.id);
+  const usedBefore = dirSizeBytes(userDir);
+  if (usedBefore >= UPLOAD_MAX_USER_BYTES) {
+    return res.status(507).json({
+      error: `Almacenamiento lleno (máx. ${Math.round(UPLOAD_MAX_USER_BYTES / 1024 / 1024)} MB por cuenta). Borra alertas con videos viejos o usa la app PC.`,
+    });
+  }
+
   const safe = String(req.query.name || 'file').replace(/[^\w.\-]+/g, '_').slice(-60);
   const fname = `${Date.now()}_${safe}`;
-  const dest = path.join(UPLOADS_DIR, fname);
+  const dest = path.join(userDir, fname);
   const out = fs.createWriteStream(dest);
   let bytes = 0;
   let failed = false;
@@ -869,7 +1045,15 @@ app.post('/api/upload', (req, res) => {
     fs.unlink(dest, () => {});
     if (!res.headersSent) res.status(code).json({ error: msg || 'no se pudo guardar' });
   };
-  req.on('data', (chunk) => { bytes += chunk.length; });
+  req.on('data', (chunk) => {
+    bytes += chunk.length;
+    if (bytes > UPLOAD_MAX_FILE_BYTES) {
+      fail(`Archivo muy grande (máx. ${Math.round(UPLOAD_MAX_FILE_BYTES / 1024 / 1024)} MB por video).`, 413);
+    }
+    if (usedBefore + bytes > UPLOAD_MAX_USER_BYTES) {
+      fail(`Superarías tu cuota de ${Math.round(UPLOAD_MAX_USER_BYTES / 1024 / 1024)} MB. Borra videos antiguos.`, 507);
+    }
+  });
   req.on('aborted', () => fail('subida cancelada'));
   req.on('error', () => fail());
   out.on('error', () => fail());
@@ -891,7 +1075,10 @@ app.post('/api/upload', (req, res) => {
         return res.status(415).json({ error: UPLOAD_INCOMPATIBLE_MSG });
       }
     }
-    res.json({ url: '/uploads/' + finalName, converted: finalPath !== dest });
+    res.json({
+      url: `/uploads/${user.id}/${finalName}`,
+      converted: finalPath !== dest,
+    });
   });
   req.pipe(out);
 });

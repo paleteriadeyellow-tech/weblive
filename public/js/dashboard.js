@@ -5,6 +5,7 @@ function detectDesktopPanel() {
   if (window.desktopAPI?.isDesktop) return true;
   if (window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) return true;
   if (document.querySelector('meta[name="livecoins-app"][content="desktop"]')) return true;
+  // El .exe siempre sirve el panel desde 127.0.0.1; la versión web usa el dominio remoto.
   if (/^127\.|^localhost$/i.test(location.hostname || '')) return true;
   return false;
 }
@@ -50,15 +51,24 @@ async function confirmDesktopPanelFromServer() {
 function isPcBuildMarkup() {
   return !!(window.__LIVECOINS_PC_BUILD__ || document.querySelector('meta[name="livecoins-app"][content="desktop"]'));
 }
+function isCloudPanelHost() {
+  const h = location.hostname || '';
+  return h && !/^127\.|^localhost$/i.test(h);
+}
 function setupPanelModeWarning() {
   if (document.getElementById('panel-mode-banner')) return;
   if (IS_DESKTOP) return;
-  const brokenLocal = isPcBuildMarkup() || IS_LOCALHOST;
-  if (!brokenLocal) return;
   const banner = document.createElement('div');
   banner.id = 'panel-mode-banner';
+  const brokenLocal = isPcBuildMarkup() || IS_LOCALHOST;
+  const onWeb = isCloudPanelHost() && !IS_LOCALHOST;
+  if (!onWeb && !brokenLocal) return;
   banner.style.cssText = 'margin:0 14px 10px;padding:10px 12px;border-radius:10px;font:600 11.5px/1.45 system-ui;color:#ffe8f0;background:linear-gradient(135deg,rgba(255,43,214,.22),rgba(255,80,120,.12));border:1px solid rgba(255,43,214,.45)';
-  banner.innerHTML = '<b>App PC sin módulo de escritorio.</b><br>Cierra Livecoins por completo y ábrelo otra vez desde el menú Inicio. Si sigue igual, reinstala el .exe más reciente.';
+  if (brokenLocal && !IS_DESKTOP) {
+    banner.innerHTML = '<b>App PC sin módulo de escritorio.</b><br>Cierra Livecoins por completo y ábrelo otra vez desde el menú Inicio. Si sigue igual, reinstala el .exe más reciente.';
+  } else if (onWeb) {
+    banner.innerHTML = '<b>Versión web</b> — sin Juegos ni Acciones.<br>Descarga la <b>app de escritorio (.exe)</b> con el botón de abajo para Minecraft, Roblox, Mario Bros, etc.';
+  }
   const side = document.querySelector('.sidebar');
   const nav = side?.querySelector('.nav');
   if (nav) side.insertBefore(banner, nav);
@@ -71,6 +81,44 @@ let settings = null;       // copia local de los ajustes del servidor
 let applyingSettings = false; // evita loops al rellenar los controles
 
 /* ====================== WebSocket ====================== */
+let localWs, localReconnectTimer;
+
+async function postLocalMedia(action, body = {}) {
+  try {
+    await fetch('/api/desktop/local-media', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...body }),
+    });
+  } catch {}
+}
+
+function connectLocalWS() {
+  if (!relayActive()) {
+    if (localWs) { try { localWs.close(); } catch {} localWs = null; }
+    return;
+  }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  let url = `${proto}://${location.host}/ws`;
+  const k = window.ROOM_KEY || '';
+  if (k) url += `?room=${encodeURIComponent(k)}`;
+  if (localWs) {
+    if (localWs.readyState === WebSocket.OPEN && localWs.url === url) return;
+    if (localWs.readyState === WebSocket.CONNECTING) return;
+    try { localWs.close(); } catch {}
+    localWs = null;
+  }
+  localWs = new WebSocket(url);
+  localWs.onclose = () => {
+    clearTimeout(localReconnectTimer);
+    localReconnectTimer = setTimeout(connectLocalWS, 1500);
+  };
+  localWs.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    if (msg.type === 'screens') onScreens(msg.payload);
+  };
+}
 // Mantiene la conexión SIEMPRE viva, incluso con la pestaña minimizada o en segundo
 // plano. Los navegadores ralentizan setTimeout/setInterval en pestañas ocultas, así que
 // usamos un Web Worker (no se ralentiza) como "latido" para reconectar al instante si la
@@ -101,13 +149,15 @@ function relayActive() {
   return IS_DESKTOP && !!(window.desktopAPI && window.desktopAPI.relayMode && window.desktopAPI.cloudBase);
 }
 
-// En modo relay, los archivos subidos viven en Render. Convierte /uploads/... a URL completa
-// para que el panel local pueda reproducir sonidos y videos en los overlays de la nube.
+// En modo relay, uploads/audios viven en esta PC (userData). Solo rutas /uploads locales.
 function mediaUrl(u) {
   if (!u || typeof u !== 'string') return u || '';
-  if (/^https?:\/\//i.test(u)) return u;
-  if (relayActive() && u.startsWith('/')) {
-    return String(window.desktopAPI.cloudBase).replace(/\/+$/, '') + u;
+  if (/^https?:\/\//i.test(u)) {
+    try {
+      const p = new URL(u);
+      if (/^\/(uploads|audios|video)\//.test(p.pathname)) return p.pathname + (p.search || '');
+    } catch {}
+    return u;
   }
   return u;
 }
@@ -159,7 +209,7 @@ function connectWS() {
     url = `${proto}://${location.host}/ws`;
   }
   ws = new WebSocket(url);
-  ws.onopen = () => { clearTimeout(reconnectTimer); setConnBadge(true); buildKeepAliveWorker(); };
+  ws.onopen = () => { clearTimeout(reconnectTimer); setConnBadge(true); buildKeepAliveWorker(); connectLocalWS(); };
   ws.onclose = () => { setConnBadge(false); clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectWS, 1500); };
   ws.onerror = () => { try { ws.close(); } catch {} };
   ws.onmessage = (ev) => {
@@ -263,6 +313,7 @@ async function loadMe() {
     }
     // Tras tener cloudRoomKey, conectar el WebSocket a la nube (modo relay).
     connectWS();
+    if (relayActive()) connectLocalWS();
   } catch {}
 }
 
@@ -416,15 +467,14 @@ const CAP_LABELS = {
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
   // juegos
-  game_minecraft: 'Juego: Minecraft', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
-  game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
+  game_minecraft: 'Juego: Minecraft', game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
   game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
+  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -790,15 +840,11 @@ function maybeForwardSpotifyChat(p) {
   } catch {}
 }
 
-// Construye la URL de un overlay con la roomKey del usuario añadida.
-// En modo relay (.exe), los overlays deben apuntar a la NUBE (donde corre la conexión
-// a TikTok), con la roomKey de la nube. Así OBS recibe los datos en vivo desde Render.
-// EXCEPCIÓN: Spotify corre SIEMPRE en el servidor local del .exe (callback 127.0.0.1:8888
-// y la cola de canciones viven en esta PC), así que su overlay apunta al servidor LOCAL
-// aunque estemos en modo relay.
+// En modo relay (.exe), TikTok va por la nube pero las 5 pantallas de video van
+// SIEMPRE al servidor local (127.0.0.1) — archivos en userData/uploads.
 function roomUrl(path) {
   const p = String(path || '');
-  const isLocalOnly = /^\/spotify-/.test(p);
+  const isLocalOnly = /^\/spotify-/.test(p) || (relayActive() && /^\/video\.html/.test(p));
   const useCloud = relayActive() && !isLocalOnly;
   const base = useCloud ? String(window.desktopAPI.cloudBase).replace(/\/+$/, '') : location.origin;
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
@@ -806,14 +852,17 @@ function roomUrl(path) {
   return base + p + (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
 }
 
-// Browser Source para videos de nivel (en web = Render; en .exe = 127.0.0.1).
-function levelVideoScreenUrl(screenId) {
+// Browser Source para pantallas 1–5 y videos de nivel: local en .exe relay.
+function videoScreenUrl(screenId) {
   const id = Math.max(1, Number(screenId) || 1);
   let u = `${location.origin}/video.html?screen=${id}`;
   const k = window.ROOM_KEY || '';
   if (k) u += `&room=${encodeURIComponent(k)}`;
   return u;
 }
+
+// Alias histórico (niveles de miembro)
+function levelVideoScreenUrl(screenId) { return videoScreenUrl(screenId); }
 
 function refreshLevelVideoScreenLink() {
   const cfg = settings?.levelVideos || {};
@@ -925,7 +974,10 @@ function handle(type, p) {
   switch (type) {
     case 'state': renderState(p); break;
     case 'settings': onSettings(p); break;
-    case 'screens': onScreens(p); refreshLevelVideoScreenLink(); break;
+    case 'screens':
+      if (!relayActive()) onScreens(p);
+      refreshLevelVideoScreenLink();
+      break;
     case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); break;
     case 'botReply': handleBotReply(p); break;
     case 'gift': addGift(p); ttsOnGift(p); break;
@@ -957,6 +1009,15 @@ function handle(type, p) {
     case 'localExec': onLocalExec(p); break;
     case 'playLevelVideo':
       if (IS_DESKTOP) testLevelVideoLocal(Number(p?.level) || 1, { quiet: true });
+      break;
+    case 'playMedia':
+      if (IS_DESKTOP) postLocalMedia('media', { media: p });
+      break;
+    case 'stopMediaLocal':
+      if (IS_DESKTOP) postLocalMedia('stop', { screen: Number(p?.screen) || 1 });
+      break;
+    case 'panicLocal':
+      if (IS_DESKTOP) postLocalMedia('panic');
       break;
     case 'localReady': break; // canal relay listo (no requiere acción en la UI)
     case 'profiles': onProfiles(p); break;
@@ -1035,7 +1096,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
     $(`view-${btn.dataset.view}`).classList.add('active');
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
@@ -1275,6 +1336,158 @@ async function loadMaintenanceAdmin() {
         status.textContent = r.ok
           ? (body.enabled ? 'Mantenimiento activado.' : 'Mantenimiento desactivado.')
           : (d.error || 'No se pudo guardar.');
+      }
+    } catch {
+      if (status) status.textContent = 'Error de conexión.';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+})();
+
+/* ---- Anuncios (campana + admin) ---- */
+let annCache = [];
+
+function annSeenKey() { return `livecoins_ann_seen_${window.MY_USER || 'default'}`; }
+function annSeenAt() { return Number(localStorage.getItem(annSeenKey()) || 0); }
+
+function annEsc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function formatAnnDate(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function updateAnnDot() {
+  const dot = document.getElementById('annDot');
+  if (!dot) return;
+  const seen = annSeenAt();
+  dot.hidden = !annCache.some((a) => (a.createdAt || 0) > seen);
+}
+
+function markAnnSeen() {
+  const latest = annCache.reduce((m, a) => Math.max(m, a.createdAt || 0), 0);
+  if (latest > 0) localStorage.setItem(annSeenKey(), String(latest));
+  updateAnnDot();
+  renderAnnList();
+}
+
+function renderAnnList() {
+  const list = document.getElementById('annPopList');
+  if (!list) return;
+  if (!annCache.length) {
+    list.innerHTML = '<p class="ann-empty">No hay anuncios por ahora.</p>';
+    return;
+  }
+  const seen = annSeenAt();
+  list.innerHTML = annCache.map((a) => `
+    <article class="ann-item${(a.createdAt || 0) > seen ? ' unread' : ''}">
+      <div class="ann-item-title">${annEsc(a.title || 'Anuncio')}</div>
+      <div class="ann-item-msg">${annEsc(a.message || '')}</div>
+      <div class="ann-item-date">${formatAnnDate(a.createdAt)}</div>
+    </article>
+  `).join('');
+}
+
+async function loadAnnouncements() {
+  try {
+    const r = await fetch('/api/announcements');
+    if (!r.ok) return;
+    const d = await r.json();
+    annCache = Array.isArray(d.announcements) ? d.announcements : [];
+    updateAnnDot();
+    if (document.getElementById('annPop') && !document.getElementById('annPop').hidden) renderAnnList();
+  } catch {}
+}
+
+function toggleAnnPop(open) {
+  const pop = document.getElementById('annPop');
+  if (!pop) return;
+  const show = open ?? pop.hidden;
+  pop.hidden = !show;
+  if (show) {
+    renderAnnList();
+    markAnnSeen();
+  }
+}
+
+(function setupAnnouncements() {
+  const btn = document.getElementById('annBellBtn');
+  const close = document.getElementById('annPopClose');
+  const wrap = document.getElementById('annWrap');
+  if (!btn) return;
+  btn.onclick = (e) => { e.stopPropagation(); toggleAnnPop(); };
+  if (close) close.onclick = () => toggleAnnPop(false);
+  document.addEventListener('click', (e) => {
+    if (wrap && !wrap.contains(e.target)) toggleAnnPop(false);
+  });
+  setInterval(loadAnnouncements, 120000);
+})();
+
+async function loadAnnouncementsAdmin() {
+  const list = document.getElementById('ann-admin-list');
+  if (!list) return;
+  try {
+    const r = await fetch('/api/announcements');
+    if (!r.ok) { list.innerHTML = '<p class="tts-sub">Sin acceso.</p>'; return; }
+    const d = await r.json();
+    const items = Array.isArray(d.announcements) ? d.announcements : [];
+    if (!items.length) { list.innerHTML = '<p class="tts-sub">Aún no hay anuncios publicados.</p>'; return; }
+    list.innerHTML = items.map((a) => `
+      <div class="ann-admin-item">
+        <div class="ann-admin-item-body">
+          <div class="ann-admin-item-title">${annEsc(a.title)}</div>
+          <div class="ann-admin-item-msg">${annEsc(a.message)}</div>
+          <div class="ann-admin-item-date">${formatAnnDate(a.createdAt)}</div>
+        </div>
+        <button type="button" class="btn tiny ghost ann-admin-del" data-id="${annEsc(a.id)}">Eliminar</button>
+      </div>
+    `).join('');
+    list.querySelectorAll('.ann-admin-del').forEach((b) => {
+      b.onclick = async () => {
+        if (!confirm('¿Eliminar este anuncio?')) return;
+        b.disabled = true;
+        try {
+          const dr = await fetch('/api/admin/announcements/delete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: b.dataset.id }),
+          });
+          if (dr.ok) { loadAnnouncementsAdmin(); loadAnnouncements(); }
+        } catch {} finally { b.disabled = false; }
+      };
+    });
+  } catch {
+    list.innerHTML = '<p class="tts-sub">Error al cargar.</p>';
+  }
+}
+
+(function setupAnnouncementsAdmin() {
+  const btn = document.getElementById('ann-admin-send');
+  if (!btn) return;
+  btn.onclick = async () => {
+    const status = document.getElementById('ann-admin-status');
+    const title = (document.getElementById('ann-admin-title')?.value || '').trim();
+    const message = (document.getElementById('ann-admin-message')?.value || '').trim();
+    if (!title) { if (status) status.textContent = 'Escribe un título.'; return; }
+    if (!message) { if (status) status.textContent = 'Escribe el mensaje.'; return; }
+    btn.disabled = true;
+    if (status) status.textContent = 'Publicando…';
+    try {
+      const r = await fetch('/api/admin/announcements', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, message }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) {
+        if (status) status.textContent = 'Anuncio publicado.';
+        const t = document.getElementById('ann-admin-title'); if (t) t.value = '';
+        const m = document.getElementById('ann-admin-message'); if (m) m.value = '';
+        loadAnnouncementsAdmin();
+        loadAnnouncements();
+      } else if (status) {
+        status.textContent = d.error || 'No se pudo publicar.';
       }
     } catch {
       if (status) status.textContent = 'Error de conexión.';
@@ -1808,6 +2021,10 @@ function flushSaveSettings() {
   send({ action: 'saveSettings', settings });
 }
 
+function mcCmdReady(a) {
+  return !!(a && a.enabled !== false && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)));
+}
+
 function onSettings(s) {
   settings = preserveLocalGameActionsOnSettingsEcho(s);
   normalizeRelayMedia(settings);
@@ -1851,7 +2068,16 @@ function onSettings(s) {
     }
     renderRoblox3Actions();
   }
+  // Igual que Roblox: las acciones de Mario Bros arrancan apagadas al abrir el panel.
   if (typeof renderMarioActions === 'function') {
+    if (!window._marioResetDone) {
+      window._marioResetDone = true;
+      const ml = ensureMarioActions();
+      if (ml.length && ml.some((a) => a.enabled !== false)) {
+        ml.forEach((a) => { a.enabled = false; });
+        saveSettings();
+      }
+    }
     renderMarioActions();
   }
   // Igual que Mario: las acciones de Plants vs Zombies arrancan apagadas al abrir el panel.
@@ -1866,6 +2092,8 @@ function onSettings(s) {
     }
     renderPvzActions();
   }
+  if (typeof renderSmb3Actions === 'function') renderSmb3Actions();
+  if (typeof renderMari0Actions === 'function') renderMari0Actions();
 }
 
 function applySettingsToUI() {
@@ -1949,7 +2177,7 @@ function renderScreens() {
     const id = +card.dataset.id;
     const s = screens.find((x) => x.id === id);
     card.querySelector('.copy').onclick = (e) => {
-      navigator.clipboard?.writeText(roomUrl(`/video.html?screen=${id}`));
+      navigator.clipboard?.writeText(relayActive() ? videoScreenUrl(id) : roomUrl(`/video.html?screen=${id}`));
       e.target.textContent = '¡copiado!';
       setTimeout(() => (e.target.textContent = 'Copiar link'), 1200);
     };
@@ -2052,12 +2280,12 @@ async function testLevelVideoLocal(level, { quiet = false } = {}) {
     if (!quiet) {
       const scr = Number(d.screen) || Number(settings?.levelVideos?.screen) || 1;
       if (connectedScreens.has(scr)) toast && toast(`Reproduciendo nivel ${n}…`, 'ok');
-      else toast && toast(`Video enviado. Pega el link de arriba en Live Studio (pantalla ${scr}).`, 'warn');
+      else toast && toast(`Video enviado. Abre el link local en Live Studio (Pantalla ${scr}).`, 'warn');
     }
     refreshLevelVideoScreenLink();
     return true;
   } catch {
-    toast && toast('No se pudo contactar al servidor.', 'err');
+    toast && toast('No se pudo contactar al servidor local.', 'err');
     return false;
   }
 }
@@ -2914,7 +3142,7 @@ function renderGiftGrid(filter) {
         const g = giftCatalogById.get(String(cell.dataset.id));
         giftPickCallback({
           id: cell.dataset.id,
-          name: cell.dataset.name,
+          name: g?.name || cell.dataset.name || '',
           image: g?.image || '',
           diamonds: g?.diamonds || 0,
         });
@@ -5229,13 +5457,12 @@ const ACC_EVENT_LABELS = {
   follow: '➕ Nuevo seguidor',
   levelUp: '⬆️ Subió de nivel de miembro',
   emote: '😀 Sticker / emote',
-  chatCommand: '💬 Comando de chat',
 };
 // Miniatura de la tarjeta: imagen subida si la hay; si no, el icono del regalo (para
 // eventos de regalo) o un emoji acorde al evento (likes, seguidor, super fan…).
 const ACC_THUMB_EMOJI = {
   'gift-any': '🎁', gift: '🎁', like: '❤️', likeGlobal: '❤️',
-  share: '🔁', subscribe: '⭐', superFan: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀', chatCommand: '💬',
+  share: '🔁', subscribe: '⭐', superFan: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀',
 };
 function accThumbHTML(a) {
   if (a.image) return `<div class="acc-thumb" style="background-image:url('${esc(a.image)}')"></div>`;
@@ -5262,7 +5489,6 @@ function accEventLabel(a) {
   if (ev === 'like' && a.likeMin > 1) return `❤️ Desde ${a.likeMin} likes`;
   if (ev === 'likeGlobal' && a.likeGoal) return `❤️ Cada ${a.likeGoal} likes`;
   if (ev === 'emote' && a.emoteId) return `😀 Sticker ${esc(a.emoteId)}`;
-  if (ev === 'chatCommand') return `💬 ${esc(a.command || '!comando')}`;
   return ACC_EVENT_LABELS[ev] || ev;
 }
 
@@ -5417,8 +5643,6 @@ function applyAccEventExtras() {
   $('acc-likeextra').hidden = ev !== 'like';
   $('acc-likeglobalextra').hidden = ev !== 'likeGlobal';
   $('acc-emoteextra').hidden = ev !== 'emote';
-  $('acc-cmdextra').hidden = ev !== 'chatCommand';
-  $('acc-userextra').hidden = ev !== 'chatCommand';
   if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift';
 }
 
@@ -5467,8 +5691,6 @@ function openAccModal(a) {
   $('acc-likemin').value = a ? (a.likeMin || 1) : 1;
   $('acc-likegoal').value = a ? (a.likeGoal || 100) : 100;
   $('acc-emoteid').value = a ? (a.emoteId || '') : '';
-  $('acc-command').value = a ? (a.command || '') : '';
-  $('acc-user').value = a ? (a.user || '') : '';
   if ($('acc-comboinstant')) $('acc-comboinstant').checked = !!(a && a.comboInstant);
   $('acc-keys').value = a ? (a.keys || '') : '';
   $('acc-keys-on').checked = !!(a && a.keys);
@@ -5525,15 +5747,9 @@ function saveAccModal() {
     $('acc-status').textContent = 'Elige una tecla/clic o activa una salida (WebHook, OBS o Streamer.bot).';
     return;
   }
-  const event = $('acc-event').value;
-  const command = $('acc-command').value.trim();
-  if (event === 'chatCommand' && !command) {
-    $('acc-status').textContent = 'Escribe el comando (ej. !video).';
-    return;
-  }
   const data = {
     name: $('acc-name').value.trim() || 'Acción',
-    event,
+    event: $('acc-event').value,
     rangeMin: +$('acc-rangemin').value || 0,
     rangeMax: +$('acc-rangemax').value || 0,
     giftId: $('acc-giftid').value || '',
@@ -5543,9 +5759,7 @@ function saveAccModal() {
     likeMin: +$('acc-likemin').value || 1,
     likeGoal: +$('acc-likegoal').value || 100,
     emoteId: $('acc-emoteid').value || '',
-    command,
-    user: $('acc-user').value.trim().replace(/^@/, ''),
-    comboInstant: event === 'gift' && $('acc-comboinstant')?.checked,
+    comboInstant: $('acc-event').value === 'gift' && $('acc-comboinstant')?.checked,
     keys,
     keyRepeatOn: $('acc-keys-on').checked && $('acc-keyrepeat-on')?.checked,
     keyRepeat: Math.max(1, Math.min(50, parseInt($('acc-keyrepeat')?.value, 10) || 1)),
@@ -6554,8 +6768,6 @@ function setupJuegosUI() {
     back.onclick = () => showViewById('view-juegos');
   });
   document.querySelectorAll('#view-juego-minecraft .juego-dl-btn').forEach((btn) => {
-    if (btn._wired) return;
-    btn._wired = true;
     btn.onclick = () => downloadMinecraftServer(btn.dataset.url);
   });
   const run = document.getElementById('mc-run');
@@ -6731,6 +6943,25 @@ function preserveLocalGameActionsOnSettingsEcho(incoming) {
     if (Array.isArray(settings[k]) && settings[k].length) out[k] = settings[k];
   }
   return out;
+}
+function applyGameActionGift(settingsKey, uid, g, renderFn) {
+  const act = (settings?.[settingsKey] || []).find((x) => x && x.uid === uid);
+  if (!act || !g) return;
+  act.giftId = String(g.id || '');
+  act.giftName = String(g.name || '').trim();
+  act.giftImage = g.image || '';
+  lastGameActionEditAt = Date.now();
+  flushSaveSettings();
+  if (renderFn) renderFn();
+}
+function bindGameActionGiftButtons(wrap, btnClass, settingsKey, renderFn) {
+  wrap.querySelectorAll('.' + btnClass).forEach((b) => {
+    b.onclick = () => {
+      const uid = b.dataset.uid;
+      if (!uid || !(settings?.[settingsKey] || []).some((x) => x && x.uid === uid)) return;
+      openGiftModalCb((g) => applyGameActionGift(settingsKey, uid, g, renderFn));
+    };
+  });
 }
 
 // Exporta las tarjetas de acciones de Minecraft (mcActions) a un archivo de presets.
@@ -8402,33 +8633,61 @@ function renderRoblox3Actions() {
   });
 }
 
-/* ================= Acciones de Mario Bros (SMBX2 b5) ================= */
+/* ================= Acciones de Mario Bros (SMBX2 + bridge :8765) ================= */
+// Catálogo de cosas que se pueden generar. "npcId" es el ID SMBX2; "id"/"thing" mantiene
+// compatibilidad con acciones guardadas (Goomba, SuperMushroom, etc.).
 const MARIO_ITEMS = [
-  { id: 'SuperMushroom', npcId: 9, nombre: 'Super Mushroom' },
-  { id: 'FireFlower', npcId: 14, nombre: 'Flor de Fuego' },
-  { id: 'SuperStar', npcId: 293, nombre: 'Starman' },
-  { id: 'OneUp', npcId: 90, nombre: '1-Up Mushroom' },
-  { id: 'SuperLeaf', npcId: 34, nombre: 'Super Leaf' },
+  { id: 'SuperMushroom', npcId: 90, nombre: 'Hongo (crecer)' },
+  { id: 'FireFlower', npcId: 91, nombre: 'Flor de Fuego' },
+  { id: 'SuperStar', npcId: 95, nombre: 'Estrella (invencible)' },
+  { id: 'OneUp', npcId: 96, nombre: 'Vida 1UP' },
+  { id: 'WingItem', npcId: 94, nombre: 'Alas (volar)' },
+  { id: 'PoisonMushroom', npcId: 90, nombre: 'Hongo Venenoso' },
 ];
 const MARIO_ENEMIES = [
   { id: 'Goomba', npcId: 1, nombre: 'Goomba' },
-  { id: 'GreenKoopaTroopa', npcId: 4, nombre: 'Koopa verde' },
-  { id: 'RedKoopaTroopa', npcId: 6, nombre: 'Koopa roja' },
-  { id: 'Spiny', npcId: 36, nombre: 'Spiny' },
-  { id: 'Thwomp', npcId: 37, nombre: 'Thwomp' },
-  { id: 'Lakitu', npcId: 47, nombre: 'Lakitu' },
-  { id: 'HammerBro', npcId: 29, nombre: 'Hammer Bro' },
-  { id: 'BulletBill', npcId: 17, nombre: 'Bullet Bill' },
-  { id: 'Boo', npcId: 43, nombre: 'Boo' },
-  { id: 'DryBones', npcId: 189, nombre: 'Dry Bones' },
-  { id: 'Bowser', npcId: 86, nombre: 'Bowser (SMB3)' },
-  { id: 'BowserSMB1', npcId: 200, nombre: 'Bowser (SMB1)' },
-  { id: 'PiranhaPlant', npcId: 512, nombre: 'Piranha Plant' },
-  { id: 'RedPiranhaPlant', npcId: 523, nombre: 'Red Piranha Plant' },
+  { id: 'Goombrat', npcId: 1, nombre: 'Goombrat' },
+  { id: 'GreenKoopaTroopa', npcId: 23, nombre: 'Koopa Verde' },
+  { id: 'RedKoopaTroopa', npcId: 22, nombre: 'Koopa Roja' },
+  { id: 'GreenKoopaParaTroopa', npcId: 23, nombre: 'Koopa Voladora Verde' },
+  { id: 'GreenParaKoopaHori', npcId: 23, nombre: 'Koopa Voladora (horizontal)' },
+  { id: 'Spiny', npcId: 24, nombre: 'Spiny' },
+  { id: 'Lakitu', npcId: 39, nombre: 'Lakitu' },
+  { id: 'PiranhaPlant', npcId: 31, nombre: 'Planta Piraña' },
+  { id: 'RedPiranhaPlant', npcId: 31, nombre: 'Planta Piraña Roja' },
+  { id: 'Muncher', npcId: 31, nombre: 'Muncher (planta negra)' },
+  { id: 'BulletBill', npcId: 153, nombre: 'Bill Bala' },
+  { id: 'BobOmb', npcId: 154, nombre: 'Bob-omb' },
+  { id: 'LitBobOmb', npcId: 154, nombre: 'Bob-omb encendido' },
+  { id: 'BuzzyBeetle', npcId: 35, nombre: 'Buzzy Beetle' },
+  { id: 'DryBones', npcId: 89, nombre: 'Dry Bones (huesitos)' },
+  { id: 'Boo', npcId: 84, nombre: 'Boo (fantasma)' },
+  { id: 'BooBuddies', npcId: 84, nombre: 'Boos en grupo' },
+  { id: 'HammerBro', npcId: 56, nombre: 'Hermano Martillo' },
+  { id: 'BowsersBro', npcId: 56, nombre: 'Hermano de Bowser' },
+  { id: 'Blooper', npcId: 231, nombre: 'Blooper (calamar)' },
+  { id: 'GreenCheepCheep', npcId: 229, nombre: 'Cheep Cheep Verde' },
+  { id: 'RedCheepCheep', npcId: 28, nombre: 'Cheep Cheep Rojo' },
+  { id: 'LeapingCheepCheep', npcId: 229, nombre: 'Cheep Cheep Saltarín' },
+  { id: 'Pokey', npcId: 247, nombre: 'Pokey (cactus)' },
+  { id: 'MontyMole', npcId: 309, nombre: 'Topo Monty' },
+  { id: 'RockyWrench', npcId: 395, nombre: 'Rocky Wrench' },
+  { id: 'FighterFly', npcId: 54, nombre: 'Mosca' },
+  { id: 'Sigebou', npcId: 1, nombre: 'Sigebou' },
+  { id: 'Spike', npcId: 365, nombre: 'Spike' },
+  { id: 'Thwomp', npcId: 119, nombre: 'Thwomp' },
+  { id: 'Bowser', npcId: 197, nombre: 'Bowser' },
+];
+// Efectos temporales sobre Mario (endpoint /effect). seconds = duración, factor =
+// tamaño exacto (0 = automático).
+const MARIO_EFFECTS = [
+  { id: 'giant', nombre: 'Mario Enorme', seconds: 5, factor: 0 },
+  { id: 'tiny', nombre: 'Mario Mini', seconds: 5, factor: 0 },
 ];
 const MARIO_CATALOG = [
   ...MARIO_ITEMS.map((x) => ({ ...x, tipo: 'item', kind: 'spawn' })),
   ...MARIO_ENEMIES.map((x) => ({ ...x, tipo: 'enemy', kind: 'spawn' })),
+  ...MARIO_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
 ];
 
 // Iconos y etiquetas del catálogo de Mario (para las tarjetas "+ Agregar").
@@ -8441,10 +8700,6 @@ function ensureMarioActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.marioActions)) settings.marioActions = [];
   settings.marioActions = migrateGameActions(settings.marioActions, 'mar');
-  settings.marioActions = settings.marioActions.filter((a) => a && (a.kind || 'spawn') !== 'effect');
-  for (const a of settings.marioActions) {
-    if (a && a.comboInstant == null) a.comboInstant = true;
-  }
   return settings.marioActions;
 }
 
@@ -8534,26 +8789,29 @@ async function loadMarioBridgePresets() {
       npcId: p.npcId,
       thing: p.id || String(p.npcId),
       nombre: p.nombre || p.label || p.name,
-      tipo: p.tipo || (/powerup|bonus|item|container|transport/i.test(String(p.category || '')) ? 'item' : 'enemy'),
+      tipo: p.tipo || (p.category === 'powerup' ? 'item' : 'enemy'),
       kind: 'spawn',
-      category: p.category || '',
     }));
     MARIO_CATALOG.length = 0;
-    MARIO_CATALOG.push(...bridgeSpawns);
+    MARIO_CATALOG.push(
+      ...bridgeSpawns,
+      ...MARIO_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
+    );
     return true;
   };
   try {
-    const r = await fetch(`/mario-presets.json?t=${Date.now()}`, { cache: 'no-store' });
-    if (r.ok) {
-      const presets = await r.json();
-      if (applyPresets(presets)) return;
-    }
-  } catch { /* sin archivo estático */ }
+    const r = await fetch('/api/desktop/bridge-health', { credentials: 'same-origin' });
+    if (r.ok) { /* bridge accesible */ }
+  } catch { /* ignore */ }
   try {
     const r = await fetch('http://127.0.0.1:7755/presets');
     const d = await r.json();
     if (d.ok && applyPresets(d.presets)) return;
   } catch { /* bridge apagado */ }
+  try {
+    const r = await fetch(`/mario-presets.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (r.ok && applyPresets(await r.json())) return;
+  } catch { /* sin archivo estático */ }
 }
 
 // Catálogo de Mario: tarjetas con "+ Agregar" (igual que Minecraft).
@@ -8569,7 +8827,7 @@ function renderMarioCatalog(filter) {
         <span class="mc-cat-emoji">${MARIO_CAT_ICON[c.tipo] || '🎮'}</span>
         <div class="mc-cat-texts">
           <div class="mc-cat-name">${esc(c.nombre)}</div>
-          <div class="mc-cat-desc">${esc(c.category || MARIO_TIPO_LABEL[c.tipo] || '')}</div>
+          <div class="mc-cat-desc">${esc(MARIO_TIPO_LABEL[c.tipo] || '')}</div>
         </div>
       </div>
       <button type="button" class="mc-cat-add">+ Agregar</button>
@@ -8587,16 +8845,19 @@ function addMarioAction(thing) {
   const list = ensureMarioActions();
   list.push({
     uid: 'mar_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-    thing: c.id, label: c.nombre, tipo: c.tipo, kind: c.kind || 'spawn',
+    thing: c.id,
+    npcId: c.npcId != null ? c.npcId : null,
+    label: c.nombre, tipo: c.tipo, kind: c.kind || 'spawn',
     trigger: 'gift', giftId: '', giftName: '', giftImage: '',
     count: 1, seconds: c.seconds != null ? c.seconds : 5, factor: c.factor != null ? c.factor : 0,
-    text: '', enabled: true, comboInstant: true,
+    text: '', enabled: true,
   });
   saveSettings(); renderMarioActions();
   toast && toast(`Acción "${c.nombre}" agregada. Elige el regalo o evento.`, 'ok');
 }
 
-// Mario / PvZ: SIEMPRE en esta PC. Preferimos el servidor local (.exe) donde vive el bridge.
+// Mario / PvZ: SIEMPRE en esta PC. Preferimos el servidor local (.exe) donde vive el bridge;
+// IPC de Electron es fallback (mismo game-local pero otro proceso).
 async function execGameLocal(exec) {
   if (!IS_DESKTOP || !exec) return false;
   try {
@@ -8770,7 +9031,9 @@ async function testMarioAction(a) {
   }
 
   if (a.kind === 'effect') {
-    const r = await execGameLocal({ tipo: 'MARIO_EFFECT', type: a.thing, seconds: a.seconds, factor: a.factor });
+    const seconds = Math.max(1, parseInt(a.seconds, 10) || 5);
+    const factor = Math.max(0, parseInt(a.factor, 10) || 0);
+    const r = await execGameLocal({ tipo: 'MARIO_EFFECT', type: a.thing, seconds, factor });
     if (r && r.ok !== false) addEvent(`🍄 Prueba Mario: efecto ${esc(label)}`, 'ok');
     else toast && toast('Efecto no enviado. Pulsa «Iniciar bridge».', 'warn');
     return;
@@ -8815,6 +9078,7 @@ function marioCardHtml(a) {
     <div class="mc-act-row">
       ${qtyRow}
     </div>
+    ${((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any') ? `<div class="mc-act-row">${mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'mario-combo-instant-en')}</div>` : ''}
     <div class="mc-act-actions">
       <label class="mc-act-toggle"><input type="checkbox" class="mario-en" data-uid="${uid}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
       <div class="mc-act-btns">
@@ -8843,10 +9107,8 @@ function renderMarioActions() {
   wrap.querySelectorAll('.mario-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
   wrap.querySelectorAll('.mario-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
   wrap.querySelectorAll('.mario-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
-  wrap.querySelectorAll('.mario-gift').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderMarioActions(); });
-  });
+  wrap.querySelectorAll('.mario-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
+  bindGameActionGiftButtons(wrap, 'mario-gift', 'marioActions', renderMarioActions);
   wrap.querySelectorAll('.mario-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMarioAction(a); });
 }
 
@@ -9313,10 +9575,7 @@ function renderSmb3Actions() {
   wrap.querySelectorAll('.smb3-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
   wrap.querySelectorAll('.smb3-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
   wrap.querySelectorAll('.smb3-test').forEach((b) => b.onclick = () => testSmb3Action(find(b.dataset.uid)));
-  wrap.querySelectorAll('.smb3-gift').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderSmb3Actions(); });
-  });
+  bindGameActionGiftButtons(wrap, 'smb3-gift', 'smb3Actions', renderSmb3Actions);
 }
 
 function setupMari0LaunchBtn() {
@@ -9436,7 +9695,8 @@ async function testMari0Action(a) {
     const r = await execGameLocal({ tipo: 'MARI0_EFFECT', type: a.thing, seconds, factor });
     if (r && r.ok !== false) {
       addEvent(`🌀 Prueba Mari0: efecto ${esc(label)}`, 'ok');
-      warnMari0NotConnected(bridgeH);
+      const h2 = await waitMari0GameLink(4000);
+      warnMari0NotConnected(h2 || bridgeH);
     } else toast && toast('Efecto no enviado. Pulsa «Iniciar bridge».', 'warn');
     return;
   }
@@ -9449,7 +9709,7 @@ async function testMari0Action(a) {
   });
   if (r && r.ok !== false) {
     addEvent(`🌀 Prueba Mari0: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
-    const h2 = await gameBridgeHealth();
+    const h2 = await waitMari0GameLink(4000);
     warnMari0NotConnected(h2 || bridgeH);
   } else {
     toast && toast(`Spawn falló («${label}»). Inicia bridge, abre Mari0 y entra a un nivel.`, 'warn');
@@ -9532,10 +9792,7 @@ function renderMari0Actions() {
   wrap.querySelectorAll('.mari0-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
   wrap.querySelectorAll('.mari0-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
   wrap.querySelectorAll('.mari0-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
-  wrap.querySelectorAll('.mari0-gift').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderMari0Actions(); });
-  });
+  bindGameActionGiftButtons(wrap, 'mari0-gift', 'mari0Actions', renderMari0Actions);
   wrap.querySelectorAll('.mari0-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMari0Action(a); });
 }
 
@@ -9601,8 +9858,7 @@ function ensurePvzActions() {
   return settings.pvzActions;
 }
 
-// Botón "Descargar" del juego de Plants vs Zombies: abre el enlace de descarga en el
-// navegador (el juego se descarga aparte, no viene empaquetado en la app).
+// Botón "Descargar" del juego de Plants vs Zombies: descarga con barra de progreso en .exe.
 function setupPvzLaunchBtn() {
   const btn = document.getElementById('pvz-play');
   if (!btn || btn._wired) return;
@@ -9629,10 +9885,6 @@ function setupPvzActionsUI() {
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
-  const genImgV = document.getElementById('pvz-gen-img-v');
-  const genImgH = document.getElementById('pvz-gen-img-h');
-  if (genImgV && !genImgV._wired) { genImgV._wired = true; genImgV.onclick = () => generatePvzMenuImage('vertical'); }
-  if (genImgH && !genImgH._wired) { genImgH._wired = true; genImgH.onclick = () => generatePvzMenuImage('horizontal'); }
   renderPvzCatalog(search ? search.value : '');
   renderPvzActions();
 }
@@ -9770,121 +10022,8 @@ function renderPvzActions() {
   wrap.querySelectorAll('.pvz-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
   wrap.querySelectorAll('.pvz-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
   wrap.querySelectorAll('.pvz-amount').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.amount = Math.max(1, Math.min(9990, parseInt(inp.value, 10) || 50)); saveSettings(); });
-  wrap.querySelectorAll('.pvz-gift').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderPvzActions(); });
-  });
+  bindGameActionGiftButtons(wrap, 'pvz-gift', 'pvzActions', renderPvzActions);
   wrap.querySelectorAll('.pvz-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzAction(a); });
-}
-
-// Genera una imagen tipo "menú de regalos" para PvZ: acción (zombie/planta) + regalo/evento.
-async function generatePvzMenuImage(orientation) {
-  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
-  const all = ensurePvzActions();
-  let list = all.filter((a) => a && a.enabled !== false);
-  if (!list.length) list = all.slice();
-  if (!list.length) { toast && toast('Agrega acciones primero (con su regalo o evento).', 'warn'); return; }
-  toast && toast('Generando imagen…', 'ok');
-
-  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : ('/api/img-proxy?url=' + encodeURIComponent(u))));
-  const loadImg = (src) => new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.onload = () => resolve(im);
-    im.onerror = () => resolve(null);
-    im.src = src;
-  });
-
-  const rows = [];
-  for (const a of list) {
-    const trig = a.trigger || 'gift';
-    let leftImg = null, leftEmoji = '';
-    if (trig === 'gift') leftImg = await loadImg(proxied(a.giftImage));
-    else { const ev = MC_TRIG_ICON[trig] || { ic: '⚡' }; leftEmoji = ev.ic; }
-    const actIcon = await loadImg('/img/pvz/' + (a.thing || '') + '.png');
-    const qty = a.tipo === 'resource'
-      ? Math.max(1, parseInt(a.amount, 10) || 50)
-      : Math.max(1, parseInt(a.count, 10) || 1);
-    rows.push({ a, leftImg, leftEmoji, actIcon, actEmoji: PVZ_CAT_ICON[a.tipo] || '🎮', qty });
-  }
-
-  let cols;
-  if (orientation === 'vertical') cols = 1;
-  else if (orientation === 'horizontal') cols = rows.length;
-  else cols = Math.max(1, Math.min(5, rows.length));
-  cols = Math.max(1, cols);
-  const gridRows = Math.ceil(rows.length / cols);
-  const margin = 10, gap = 14, cellW = 200, numH = 44, iconS = 156, giftS = 52;
-  const cellH = numH + iconS + 30;
-  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
-  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const dpr = 2;
-  const cv = document.createElement('canvas');
-  cv.width = W * dpr; cv.height = H * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  const rr = (x, y, w, h, r) => {
-    const rad = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rad, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rad);
-    ctx.arcTo(x + w, y + h, x, y + h, rad);
-    ctx.arcTo(x, y + h, x, y, rad);
-    ctx.arcTo(x, y, x + w, y, rad);
-    ctx.closePath();
-  };
-
-  ctx.textBaseline = 'middle';
-  rows.forEach((row, i) => {
-    const c = i % cols, r = Math.floor(i / cols);
-    const cellX = margin + c * (cellW + gap);
-    const cellY = margin + r * (cellH + gap);
-    const iconX = cellX + (cellW - iconS) / 2;
-    const iconY = cellY + numH;
-
-    if (row.actIcon) {
-      ctx.save(); rr(iconX, iconY, iconS, iconS, 16); ctx.clip();
-      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
-      ctx.restore();
-    } else {
-      ctx.font = '96px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-      ctx.fillText(row.actEmoji, iconX + iconS / 2, iconY + iconS / 2);
-    }
-
-    if (row.qty >= 2) {
-      const label = 'x' + row.qty;
-      ctx.font = '800 26px Rubik, system-ui, sans-serif';
-      const tw = ctx.measureText(label).width;
-      const pw = tw + 30, ph = 34;
-      const px = cellX + (cellW - pw) / 2, py = cellY + (numH - ph) / 2;
-      const gb = ctx.createLinearGradient(px, py, px + pw, py);
-      gb.addColorStop(0, '#f43f5e'); gb.addColorStop(1, '#ec4899');
-      rr(px, py, pw, ph, 17); ctx.fillStyle = gb; ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
-      ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-      ctx.fillText(label, px + pw / 2, py + ph / 2 + 1);
-    }
-
-    const gx = cellX + (cellW - giftS) / 2, gy = iconY + iconS - Math.round(giftS * 0.5);
-    ctx.save(); rr(gx, gy, giftS, giftS, 12); ctx.clip();
-    if (row.leftImg) ctx.drawImage(row.leftImg, gx, gy, giftS, giftS);
-    else { ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(row.leftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1); }
-    ctx.restore();
-  });
-
-  try {
-    const data = cv.toDataURL('image/png');
-    const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
-    const link = document.createElement('a');
-    link.href = data; link.download = 'menu-regalos-pvz' + suffix + '.png';
-    document.body.appendChild(link); link.click(); link.remove();
-    toast && toast('Imagen generada y descargada.', 'ok');
-  } catch {
-    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
-  }
 }
 
 // Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
@@ -10403,7 +10542,7 @@ function initHomeWelcome() {
   try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }
   // Pestaña Acciones (solo .exe): al final del arranque, aislada para no romper el panel.
   if (IS_DESKTOP) {
-    // Tema azul marino exclusivo del .exe (la web mantiene el negro).
+    // Tema azul marino (web + .exe); .exe añade animaciones y menú de perfiles.
     document.documentElement.classList.add('is-desktop');
     // Quita SW cacheado de versiones anteriores (evita JS/HTML viejos en el .exe).
     if ('serviceWorker' in navigator) {
@@ -10422,8 +10561,12 @@ function initHomeWelcome() {
     mountUserChip();
     refreshOverlayUrls();
     refreshLevelVideoScreenLink();
+    try { loadAnnouncements(); } catch (e) { console.error('Anuncios:', e); }
     try { revealSpotifyTab(); } catch (e) { console.error('Spotify tab:', e); }
-    if (spotifyAllowed()) { try { setupSpotifyUI(); } catch (e) { console.error('Spotify UI:', e); } }
+    if (spotifyAllowed()) {
+      try { setupSpotifyUI(); } catch (e) { console.error('Spotify UI:', e); }
+      if (new URLSearchParams(location.search).get('spotify') === 'connected') openSpotifyViewAfterConnect();
+    }
     try { revealWebhookTab(); } catch (e) { console.error('Webhook tab:', e); }
     try { revealConfigTab(); } catch (e) { console.error('Config tab:', e); }
     if (IS_DESKTOP) { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
