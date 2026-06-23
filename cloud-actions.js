@@ -18,8 +18,11 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
   }
 
   function emitLocalExec(exec) {
-    if (cloud) broadcastToLocal('localExec', exec);
-    return !cloud;
+    if (cloud) {
+      broadcastToLocal('localExec', exec);
+      return true;
+    }
+    return false;
   }
 
   function actionDoesSomething(a) {
@@ -489,19 +492,33 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     if (emitLocalExec({ tipo: 'PVZ_CMD', path })) return;
   }
 
+  function giftComboShouldSkip(a, info) {
+    if (!info?.comboStreak) return false;
+    const comboOn = a.comboInstant !== false;
+    if (info.comboStreak === 'delta' && !comboOn) return true;
+    if (info.comboStreak === 'end' && comboOn) return true;
+    return false;
+  }
+
   function triggerMarioActions(eventType, info = {}, user = null, cfg = settings()) {
     const name = (user && user.nickname) || info.nickname || '';
     for (const a of (cfg.marioActions || [])) {
-      if (!a || a.enabled === false || !a.thing) continue;
+      if (!a || a.enabled === false) continue;
+      const hasSpawn = a.thing || a.npcId != null || (a.webhookCmd?.on && a.webhookCmd?.url);
+      if (!hasSpawn) continue;
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      if (eventType === 'gift' && giftComboShouldSkip(a, info)) continue;
+      const capped = Math.min(999, times);
       if ((a.kind || 'spawn') === 'effect') {
         log('ok', `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)`);
         applyMarioEffect(a.thing, a.seconds, a.factor);
+      } else if (a.webhookCmd?.on && a.webhookCmd?.url) {
+        runActionOutputs({ webhookCmd: a.webhookCmd }, cfg);
+        log('ok', `🍄 Mario WebHook: ${a.label || a.thing || 'spawn'}${capped > 1 ? ` ×${capped}` : ''}`);
       } else {
-        log('ok', `🍄 Mario: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}`);
-        spawnMarioThing(a.thing, name, times);
+        log('ok', `🍄 Mario: generar "${a.thing}"${capped > 1 ? ` ×${capped}` : ''}`);
+        spawnMarioThing(a.thing ?? a.npcId, name, capped);
       }
     }
   }
