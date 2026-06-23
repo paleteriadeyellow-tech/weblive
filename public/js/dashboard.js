@@ -8814,24 +8814,33 @@ async function loadMarioBridgePresets() {
   } catch { /* sin archivo estático */ }
 }
 
-// Catálogo de Mario: tarjetas con "+ Agregar" (igual que Minecraft).
+// Catálogo de Mario: tarjetas con "+ Agregar" (puede repetirse: regalo, likes, etc.).
+function marioCatalogUseCount(c) {
+  return (settings?.marioActions || []).filter(
+    (a) => a && (a.catalogId === c.id || (!a.catalogId && a.thing === c.id)),
+  ).length;
+}
+
 function renderMarioCatalog(filter) {
   const grid = document.getElementById('mario-catalog');
   if (!grid) return;
   const f = (filter || '').trim().toLowerCase();
   const list = f ? MARIO_CATALOG.filter((c) => c.nombre.toLowerCase().includes(f)) : MARIO_CATALOG;
   if (!list.length) { grid.innerHTML = '<div class="empty">Sin resultados</div>'; return; }
-  grid.innerHTML = list.map((c) => `
-    <div class="mc-cat-card" data-id="${esc(c.id)}">
+  grid.innerHTML = list.map((c) => {
+    const n = marioCatalogUseCount(c);
+    return `
+    <div class="mc-cat-card ${n ? 'mc-cat-in-use' : ''}" data-id="${esc(c.id)}">
       <div class="mc-cat-head-row">
         <span class="mc-cat-emoji">${MARIO_CAT_ICON[c.tipo] || '🎮'}</span>
         <div class="mc-cat-texts">
-          <div class="mc-cat-name">${esc(c.nombre)}</div>
+          <div class="mc-cat-name">${esc(c.nombre)}${n ? ` <span class="mc-cat-use-n">×${n}</span>` : ''}</div>
           <div class="mc-cat-desc">${esc(MARIO_TIPO_LABEL[c.tipo] || '')}</div>
         </div>
       </div>
       <button type="button" class="mc-cat-add">+ Agregar</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   grid.querySelectorAll('.mc-cat-card').forEach((card) => {
     card.querySelector('.mc-cat-add').onclick = () => addMarioAction(card.dataset.id);
   });
@@ -8852,7 +8861,9 @@ function addMarioAction(thing) {
     count: 1, seconds: c.seconds != null ? c.seconds : 5, factor: c.factor != null ? c.factor : 0,
     text: '', enabled: true,
   });
-  saveSettings(); renderMarioActions();
+  saveSettings();
+  renderMarioActions();
+  renderMarioCatalog(document.getElementById('mario-cat-search')?.value || '');
   toast && toast(`Acción "${c.nombre}" agregada. Elige el regalo o evento.`, 'ok');
 }
 
