@@ -223,8 +223,9 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
   function mcActionUsesExtra(a) {
     if (!a) return false;
     if (a.cmdsExtra) return true;
-    if (!Array.isArray(a.cmds)) return false;
-    return a.cmds.some((x) => x && typeof x === 'object');
+    if (!Array.isArray(a.cmds) || !a.cmds.length) return false;
+    if (a.custom && a.cmds.length > 1) return true;
+    return a.cmds.some((x) => x && typeof x === 'object' && (x.cmd != null || x.text != null || x.repeat != null || x.delayEach != null || x.delayBefore != null));
   }
 
   function parseMcCmdEntry(entry, defaults) {
@@ -269,28 +270,42 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
       .filter(Boolean);
     if (!entries.length) return;
 
-    let times = mcActionRunTimes(a, vars);
+    const times = mcActionRunTimes(a, vars);
     const delayGroup = extra.skipDelayGroup ? 0 : Math.max(0, parseInt(a.delayGroup, 10) || 0);
 
     if (a.random) entries = [entries[Math.floor(Math.random() * entries.length)]];
+
+    const buildJobs = (list) => {
+      const jobs = [];
+      for (const e of list) {
+        const delayBefore = Math.max(0, Number(e.delayBefore) || 0);
+        const rep = Math.max(1, Number(e.repeat) || 1);
+        const delayEach = Math.max(0, Number(e.delayEach) || 0);
+        const cmd = substituteMcCmd(e.cmd, vars, e.radius);
+        for (let r = 0; r < rep; r++) {
+          jobs.push({ atMs: delayBefore + r * delayEach, cmd });
+        }
+      }
+      return jobs.length > 600 ? jobs.slice(0, 600) : jobs;
+    };
 
     let totalSent = 0;
     try {
       if (delayGroup) await wait(delayGroup);
       for (let t = 0; t < times; t++) {
-        for (let i = 0; i < entries.length; i++) {
-          const e = entries[i];
-          if (e.delayBefore) await wait(e.delayBefore);
-          const rep = Math.max(1, e.repeat || 1);
-          for (let r = 0; r < rep; r++) {
-            if (r > 0 && e.delayEach) await wait(e.delayEach);
-            const cmd = substituteMcCmd(e.cmd, vars, e.radius);
-            const res = await sendCmds([cmd]);
-            totalSent++;
-            if (!res.ok) {
-              log('err', `🟩 Minecraft "${a.name}" falló: ${res.error || 'Error'}`);
-              return;
-            }
+        const jobs = buildJobs(entries);
+        if (!jobs.length) continue;
+        const chainStart = Date.now();
+        const outcomes = await Promise.all(jobs.map(async (job) => {
+          const gap = job.atMs - (Date.now() - chainStart);
+          if (gap > 0) await wait(gap);
+          return sendCmds([job.cmd]);
+        }));
+        for (const res of outcomes) {
+          totalSent++;
+          if (!res.ok) {
+            log('err', `🟩 Minecraft "${a.name}" falló: ${res.error || 'Error'}`);
+            return;
           }
         }
       }
@@ -313,7 +328,8 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     if (delayGroup) await wait(delayGroup);
     playMcActionSound(a, soundTimes);
 
-    if (mcActionUsesExtra(a)) {
+    const useCmdPlan = mcActionUsesExtra(a) || (a.custom && Array.isArray(a.cmds) && a.cmds.length);
+    if (useCmdPlan) {
       const defaults = { repeat: a.repeat, delayEach: a.delayEach, delayGroup: a.delayGroup, radius: a.radius };
       const steps = (Array.isArray(a.cmds) ? a.cmds : [])
         .map((e) => parseMcCmdEntry(e, defaults))
@@ -353,16 +369,23 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
       else for (const l of clean) queue.push(substituteMcCmd(l, vars, a.radius));
     }
     if (queue.length > 600) queue.length = 600;
+    const delayEach = Math.max(0, parseInt(a.delayEach, 10) || 0);
     if (emitLocalExec({
       tipo: useStap ? 'SERVERTAP' : 'MINECRAFT_RCON',
       conn: useStap ? stap : rcon,
       commands: queue,
+      delayEach,
       name: a.name || '',
     })) return;
     try {
-      const r = await sendCmds(queue);
-      if (r.ok) log('ok', `🟩 Minecraft: ${a.name} OK (${queue.length})`);
-      else log('err', `🟩 Minecraft "${a.name}" falló: ${r.error || 'Error'}`);
+      let sent = 0;
+      for (const c of queue) {
+        const r = await sendCmds([c]);
+        sent++;
+        if (!r.ok) { log('err', `🟩 Minecraft "${a.name}" falló: ${r.error || 'Error'}`); return; }
+        if (delayEach > 0) await wait(delayEach);
+      }
+      log('ok', `🟩 Minecraft: ${a.name} OK (${sent})`);
     } catch (e) {
       log('err', `🟩 Minecraft "${a.name}" falló: ${e.message}`);
     }
