@@ -5,10 +5,11 @@
     'tts', 'timer', 'playback', 'points', 'screens',
     'videosEnabled', 'battleAlertsEnabled',
     'jarron', 'vaquita', 'marranito', 'pelotas', 'topDonor',
-    'giftVs', 'giftSeq', 'giftShowcase', 'topGift', 'giftCounter', 'topStreak',
+    'giftVs', 'giftSeq', 'giftShowcase', 'topGift', 'giftCounter', 'topStreak', 'habibiTop',
     'batallaGifts', 'batallaLikes', 'coinMatch',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topAltRank', 'topPointsRank',
-    'hypeBar', 'followerCounter', 'alertaGift', 'alertaLikes', 'alertaFollow', 'streamJoin', 'battle',
+    'hypeBar', 'followerCounter', 'alertaGift', 'alertaLikes', 'alertaFollow',
+    'streamJoin', 'battle',
   ];
 
   function uid(prefix) {

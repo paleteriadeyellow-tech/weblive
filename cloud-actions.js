@@ -4,6 +4,7 @@ import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './i
 
 export function createActionBridge({ getSettings, forEachTriggerSettings, broadcast, broadcastToLocal, isCloud }) {
   const cloud = isCloud !== false;
+  const marioLikeAcc = new Map();
 
   function settings() { return getSettings() || {}; }
   function eachTrigger(fn) {
@@ -500,26 +501,51 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     return false;
   }
 
+  function marioLikeTriggerTimes(a, info, user) {
+    const uid = String(user?.uniqueId || info?.username || '').trim();
+    const batch = Math.max(0, Number(info.likeCount) || 0);
+    if (!uid || batch <= 0) return 0;
+    const goal = Math.max(1, Number(a.likeN) || 1);
+    const actKey = String(a.uid || a.label || 'mario');
+    const key = `${uid}:${actKey}`;
+    const carry = (marioLikeAcc.get(key) || 0) + batch;
+    const fires = Math.floor(carry / goal);
+    marioLikeAcc.set(key, carry - fires * goal);
+    if (marioLikeAcc.size > 8000) marioLikeAcc.clear();
+    return fires;
+  }
+
+  function fireMarioActionOnce(a, capped, name, cfg) {
+    if ((a.kind || 'spawn') === 'effect') {
+      log('ok', `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)`);
+      applyMarioEffect(a.thing, a.seconds, a.factor);
+    } else if (a.webhookCmd?.on && a.webhookCmd?.url) {
+      runActionOutputs({ webhookCmd: a.webhookCmd }, cfg);
+      log('ok', `🍄 Mario WebHook: ${a.label || a.thing || 'spawn'}${capped > 1 ? ` ×${capped}` : ''}`);
+    } else {
+      log('ok', `🍄 Mario: generar "${a.thing}"${capped > 1 ? ` ×${capped}` : ''}`);
+      spawnMarioThing(a.thing ?? a.npcId, name, capped);
+    }
+  }
+
   function triggerMarioActions(eventType, info = {}, user = null, cfg = settings()) {
     const name = (user && user.nickname) || info.nickname || '';
     for (const a of (cfg.marioActions || [])) {
       if (!a || a.enabled === false) continue;
       const hasSpawn = a.thing || a.npcId != null || (a.webhookCmd?.on && a.webhookCmd?.url);
       if (!hasSpawn) continue;
+      if (eventType === 'like' && (a.trigger || 'gift') === 'like') {
+        const likeFires = marioLikeTriggerTimes(a, info, user);
+        if (likeFires <= 0) continue;
+        const capped = Math.min(999, Math.max(1, parseInt(a.count, 10) || 1));
+        for (let lf = 0; lf < likeFires; lf++) fireMarioActionOnce(a, capped, name, cfg);
+        continue;
+      }
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
       if (eventType === 'gift' && giftComboShouldSkip(a, info)) continue;
       const capped = Math.min(999, times);
-      if ((a.kind || 'spawn') === 'effect') {
-        log('ok', `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)`);
-        applyMarioEffect(a.thing, a.seconds, a.factor);
-      } else if (a.webhookCmd?.on && a.webhookCmd?.url) {
-        runActionOutputs({ webhookCmd: a.webhookCmd }, cfg);
-        log('ok', `🍄 Mario WebHook: ${a.label || a.thing || 'spawn'}${capped > 1 ? ` ×${capped}` : ''}`);
-      } else {
-        log('ok', `🍄 Mario: generar "${a.thing}"${capped > 1 ? ` ×${capped}` : ''}`);
-        spawnMarioThing(a.thing ?? a.npcId, name, capped);
-      }
+      fireMarioActionOnce(a, capped, name, cfg);
     }
   }
 

@@ -49,6 +49,7 @@ export const CAPABILITIES = {
     { key: 'ov_winscountergamer', label: 'Contador de victorias (Gamer HUD)', path: '/contador-wins-gamer.html' },
     { key: 'ov_giftvs', label: 'Gift VS', path: '/giftvs.html' },
     { key: 'ov_giftseq', label: 'Gift Sequence', path: '/giftseq.html' },
+    { key: 'ov_habibitop', label: 'Habibi Top Donador', path: '/habibi-top.html' },
     { key: 'ov_giftshowcase', label: 'Banda de regalos', path: '/gift-banda.html' },
     { key: 'ov_mejorregalo', label: 'Mejor regalo', path: '/mejorregalo.html' },
     { key: 'ov_mejorracha', label: 'Mejor racha', path: '/mejorracha.html' },

@@ -324,7 +324,7 @@ const OVERLAY_CAP = {
   '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
-  '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
+  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
@@ -456,7 +456,7 @@ const CAP_LABELS = {
   // overlays
   ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
-  ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)',
+  ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)',
   ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
@@ -476,7 +476,7 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
   'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
-  'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
@@ -2028,7 +2028,7 @@ function mcCmdReady(a) {
 function onSettings(s) {
   settings = preserveLocalGameActionsOnSettingsEcho(s);
   normalizeRelayMedia(settings);
-  ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire'].forEach((k) => {
+  ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop'].forEach((k) => {
     if (settings[k] && settings[k].resetPeriod == null) settings[k].resetPeriod = 'live';
   });
   if (settings.topAltRank) {
@@ -4039,6 +4039,18 @@ function setupStyleOverlay(o) {
 }
 
 const STYLE_OVERLAYS = [
+  setupStyleOverlay({
+    kind: 'habibitop', settingsKey: 'habibiTop', previewId: 'habi-preview',
+    btnTest: 'habi-test', btnReset: 'habi-reset', btnConfig: 'habi-config',
+    modalId: 'habiConfigModal', closeId: 'habicfg-close', saveId: 'habicfg-save',
+    testAction: 'testTopHabibi', resetAction: 'resetTopHabibi',
+    map: { 'habicfg-period': 'resetPeriod', 'habicfg-title': 'headerTitle', 'habicfg-coinlabel': 'coinLabel',
+      'habicfg-font': 'font', 'habicfg-rainbow': 'rainbowMode', 'habicfg-scale': 'scale',
+      'habicfg-tc1': 'tc1', 'habicfg-tc2': 'tc2', 'habicfg-tc3': 'tc3',
+      'habicfg-namecolor': 'nameColor', 'habicfg-namestroke': 'nameStroke',
+      'habicfg-valuecolor': 'valueColor', 'habicfg-valuestroke': 'valueStroke', 'habicfg-coincolor': 'coinColor' },
+    types: { scale: 'int' },
+  }),
   setupStyleOverlay({
     kind: 'topgift', settingsKey: 'topGift', previewId: 'tgf-preview',
     btnTest: 'tgf-test', btnReset: 'tgf-reset', btnConfig: 'tgf-config',

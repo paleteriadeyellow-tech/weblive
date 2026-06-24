@@ -7,6 +7,23 @@
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+  function ensureCoinStyles() {
+    if (document.getElementById('ranking-overlay-coin-css')) return;
+    const st = document.createElement('style');
+    st.id = 'ranking-overlay-coin-css';
+    st.textContent = '.ico .ico-coin { width: 1em; height: 1em; display: block; flex-shrink: 0; }';
+    document.head.appendChild(st);
+  }
+  function coinIconMarkup(color) {
+    const c = (color && /^#[0-9a-fA-F]{3,8}$/.test(color)) ? color : '#ffd700';
+    return '<svg class="ico-coin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="11" fill="' + c + '"/>' +
+      '<circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/></svg>';
+  }
+  function iconMarkup(icon, accent) {
+    if (icon === '🪙' || icon === 'coin') return coinIconMarkup(accent);
+    return esc(icon);
+  }
   function cleanName(raw) {
     if (raw == null || raw === '') return 'Usuario';
     const s = String(raw).trim().replace(/^@+/, '');
@@ -14,6 +31,7 @@
   }
 
   function init(opt) {
+    ensureCoinStyles();
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
     const style = opt.style; // 'banded' | 'lista'
@@ -78,7 +96,7 @@
         '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
         '<div class="av-wrap"><span class="crown">👑</span><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
         '<div class="meta"><span class="name"></span>' +
-        '<div class="valwrap"><span class="ico">' + icon + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div>';
+        '<div class="valwrap"><span class="ico">' + iconMarkup(icon, cfg.accent) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div>';
       const img = div.querySelector('.av');
       img.src = u.pic || PLACEHOLDER;
       img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
@@ -256,6 +274,7 @@
 
   /* Alterna entre ranking diamantes y likes (mismas tarjetas banda). */
   function initAlt(opt) {
+    ensureCoinStyles();
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
     const medalSet = ['👑', '🥈', '🥉'];
@@ -316,7 +335,7 @@
     function ensureDisp(u) { if (u.disp == null) u.disp = u.val || 0; }
     function rowKey(arr) { return arr.map((u) => u.id).join('\x1e'); }
 
-    function buildRow(u, rank, icon) {
+    function buildRow(u, rank, icon, accentColor) {
       const medal = rank <= 3 ? medalSet[rank - 1] : '';
       const div = document.createElement('div');
       div.className = 'row';
@@ -326,7 +345,7 @@
         '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
         '<div class="av-wrap"><span class="crown">👑</span><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
         '<div class="meta"><span class="name"></span>' +
-        '<div class="valwrap"><span class="ico">' + icon + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div>';
+        '<div class="valwrap"><span class="ico">' + iconMarkup(icon, accentColor) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div>';
       const img = div.querySelector('.av');
       img.src = u.pic || PLACEHOLDER;
       img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
@@ -361,7 +380,7 @@
       const arr = topArr(data);
       listEl.classList.toggle('list--seq', !!opts.seq);
       listEl.innerHTML = '';
-      arr.forEach((u, i) => { ensureDisp(u); listEl.appendChild(buildRow(u, i + 1, m.icon)); });
+      arr.forEach((u, i) => { ensureDisp(u); listEl.appendChild(buildRow(u, i + 1, m.icon, cfg[m.accentKey] || cfg.likesAccent)); });
       orderKey = rowKey(arr);
       if (opts.seq) runSeqReveal();
       if (isEmbed) fit();

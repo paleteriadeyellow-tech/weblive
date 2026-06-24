@@ -283,6 +283,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
   const TOP1FIRE_FILE = path.join(dataDir, 'top1fire.json');
+  const HABIBI_TOP_FILE = path.join(dataDir, 'habibi-top.json');
   const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
   const RANK_IDS = ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist'];
   const RANK_SETTINGS_KEY = { toplikes: 'toplikesRank', topdiam: 'topdiamRank', toplikeslist: 'toplikesList', topdiamlist: 'topdiamList' };
@@ -316,6 +317,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const top1fireSession = new Map();
   let top1fireSaveTimer = null;
   let lastTop1FirePeriod = null;
+  const habibiTop = { start: 0, end: 0, period: 'live', donors: new Map() };
+  const habibiTopSession = new Map();
+  let habibiTopSaveTimer = null;
+  let lastHabibiTopPeriod = null;
   const rankSession = Object.fromEntries(RANK_IDS.map((id) => [id, new Map()]));
   const rankPersist = Object.fromEntries(RANK_IDS.map((id) => [id, { period: 'live', start: 0, end: 0, users: new Map() }]));
   let rankSaveTimer = null;
@@ -448,6 +453,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
   loadWeekly();
   loadTop1Fire();
+  loadHabibiTop();
   loadRankOverlays();
   loadSessionOverlays();
   loadPoints();
@@ -572,6 +578,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     enforceLimits();
     loadTop1Fire();
     broadcastTop1Fire();
+    loadHabibiTop();
+    broadcastHabibiTop();
     loadRankOverlays();
     broadcastAllRankStates();
     broadcast('settings', settings);
@@ -645,10 +653,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function applyIncomingSettings(obj, fromUser) {
     if (!obj) return;
     const prevTop1FirePeriod = settings.top1fire?.resetPeriod;
+    const prevHabibiTopPeriod = settings.habibiTop?.resetPeriod;
     const prevRankPeriods = {};
     for (const rankId of RANK_IDS) prevRankPeriods[rankId] = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
     settings = deepMerge(settings, obj);
     if (obj.top1fire && obj.top1fire.resetPeriod != null && obj.top1fire.resetPeriod !== prevTop1FirePeriod) onTop1FireSettingsChange();
+    if (obj.habibiTop && obj.habibiTop.resetPeriod != null && obj.habibiTop.resetPeriod !== prevHabibiTopPeriod) onHabibiTopSettingsChange();
     for (const rankId of RANK_IDS) {
       const key = RANK_SETTINGS_KEY[rankId];
       if (obj[key] && obj[key].resetPeriod != null && obj[key].resetPeriod !== prevRankPeriods[rankId]) onRankPeriodChange(rankId);
@@ -874,6 +884,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function clearSessionOverlayState() {
     giftCounter.count = 0;
     top1fireSession.clear();
+    habibiTopSession.clear();
     fanCoinAcc.clear();
     fanLikeAcc.clear();
     sessionOv.top1 = {};
@@ -891,6 +902,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       top1fireSession.clear();
       for (const u of raw.top1fireLive) {
         if (u?.uniqueId) top1fireSession.set(u.uniqueId, u);
+      }
+    }
+    if (getHabibiTopPeriod() === 'live' && Array.isArray(raw.habibiTopLive)) {
+      habibiTopSession.clear();
+      for (const u of raw.habibiTopLive) {
+        if (u?.uniqueId) habibiTopSession.set(u.uniqueId, u);
       }
     }
     fanCoinAcc.clear();
@@ -926,6 +943,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       username: liveSession.username || null,
       giftCounter: { count: giftCounter.count },
       top1fireLive: getTop1FirePeriod() === 'live' ? [...top1fireSession.values()] : [],
+      habibiTopLive: getHabibiTopPeriod() === 'live' ? [...habibiTopSession.values()] : [],
       fanCoinAcc: [...fanCoinAcc.entries()],
       fanLikeAcc: [...fanLikeAcc.entries()],
       top1: sessionOv.top1,
@@ -1051,6 +1069,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // Top 1 donador (MVP de la sesión)
     broadcast('top1Reset', {});
     resetTop1FireSession();
+    resetHabibiTopSession();
     // Contador de meta (gift counter) vuelve a 0
     resetGiftCounter();
     // Batallas de ranking (regalos / likes)
@@ -1068,6 +1087,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (getRankPeriod(rankId) !== 'live') broadcastRankState(rankId);
     }
     if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
+    if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
     // Animaciones momentáneas (corta cualquier alerta en curso)
     broadcast('alertaGiftReset', {});
     broadcast('alertaLikesReset', {});
@@ -1210,6 +1230,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           pushState();
           broadcastAllRankStates();
           if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
+    if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
           broadcast('log', { level: 'ok', text: `Conectado a la sala ${newRoomId ?? ''}` });
         }
       })
@@ -1882,6 +1903,125 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastTop1Fire();
   }
 
+  /* ------------------------- Habibi Top Donador ------------------------- */
+  function getHabibiTopPeriod() {
+    const p = settings.habibiTop?.resetPeriod;
+    return p === 'week' || p === 'month' ? p : 'live';
+  }
+  function loadHabibiTop() {
+    const period = getHabibiTopPeriod();
+    lastHabibiTopPeriod = period;
+    if (period === 'live') {
+      habibiTopSession.clear();
+      return;
+    }
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    const r = readJsonSafe(HABIBI_TOP_FILE);
+    const raw = r.data;
+    if (raw && raw.period === period && raw.start === start) {
+      habibiTop.period = period;
+      habibiTop.start = start;
+      habibiTop.end = end;
+      habibiTop.donors = new Map((raw.donors || []).map((u) => [u.uniqueId, u]));
+      return;
+    }
+    habibiTop.period = period;
+    habibiTop.start = start;
+    habibiTop.end = end;
+    habibiTop.donors = new Map();
+  }
+  function saveHabibiTop() {
+    if (getHabibiTopPeriod() === 'live') return;
+    clearTimeout(habibiTopSaveTimer);
+    habibiTopSaveTimer = setTimeout(() => {
+      const data = {
+        period: habibiTop.period,
+        start: habibiTop.start,
+        end: habibiTop.end,
+        donors: [...habibiTop.donors.values()],
+      };
+      writeJsonAtomic(HABIBI_TOP_FILE, data);
+    }, 400);
+  }
+  function ensureHabibiTopPeriod() {
+    const period = getHabibiTopPeriod();
+    if (period === 'live') return;
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    if (period !== habibiTop.period || start !== habibiTop.start) {
+      habibiTop.period = period;
+      habibiTop.start = start;
+      habibiTop.end = end;
+      habibiTop.donors.clear();
+      saveHabibiTop();
+      broadcastHabibiTop();
+    }
+  }
+  function onHabibiTopSettingsChange() {
+    const period = getHabibiTopPeriod();
+    if (period === lastHabibiTopPeriod) return;
+    lastHabibiTopPeriod = period;
+    habibiTopSession.clear();
+    loadHabibiTop();
+    broadcastHabibiTop();
+  }
+  function addHabibiTopDonation(user, coins) {
+    if (!user?.uniqueId || !(coins > 0)) return;
+    const period = getHabibiTopPeriod();
+    if (period === 'live') {
+      const u = habibiTopSession.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, coins: 0 };
+      u.coins += coins;
+      u.nickname = user.nickname || u.nickname;
+      if (user.photo) u.photo = user.photo;
+      habibiTopSession.set(user.uniqueId, u);
+      broadcastHabibiTop();
+      saveSessionOverlays();
+      return;
+    }
+    ensureHabibiTopPeriod();
+    const u = habibiTop.donors.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, coins: 0 };
+    u.coins += coins;
+    u.nickname = user.nickname || u.nickname;
+    if (user.photo) u.photo = user.photo;
+    habibiTop.donors.set(user.uniqueId, u);
+    saveHabibiTop();
+    broadcastHabibiTop();
+  }
+  function serializeHabibiTop() {
+    const period = getHabibiTopPeriod();
+    let donors;
+    if (period === 'live') {
+      donors = [...habibiTopSession.values()];
+    } else {
+      ensureHabibiTopPeriod();
+      donors = [...habibiTop.donors.values()];
+    }
+    const sorted = donors.sort((a, b) => b.coins - a.coins);
+    const top = sorted[0] || null;
+    return {
+      top: top ? { uniqueId: top.uniqueId, nickname: top.nickname, profilePictureUrl: top.photo, coins: top.coins } : null,
+      period,
+      periodStart: period === 'live' ? 0 : habibiTop.start,
+      periodEnd: period === 'live' ? 0 : habibiTop.end,
+      now: Date.now(),
+    };
+  }
+  function broadcastHabibiTop() {
+    broadcast('habibiTop', serializeHabibiTop());
+  }
+  function resetHabibiTopSession() {
+    if (getHabibiTopPeriod() !== 'live') return;
+    habibiTopSession.clear();
+    broadcast('habibiTopReset', {});
+    broadcastHabibiTop();
+  }
+  function resetHabibiTopAll() {
+    habibiTopSession.clear();
+    habibiTop.donors.clear();
+    if (getHabibiTopPeriod() !== 'live') saveHabibiTop();
+    broadcast('habibiTopReset', {});
+    broadcastHabibiTop();
+  }
+
   /* -------------------- Rankings likes / diamantes (overlays) -------------------- */
   function getRankPeriod(rankId) {
     const p = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
@@ -2299,6 +2439,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         addWeeklyDonation(user, total);
         addTop1FireDonation(user, total);
+        addHabibiTopDonation(user, total);
         addRankDiamonds(user, total);
         // Usuario y Puntos: acumula los puntos donados de por vida (configurable: puntos por moneda).
         if (user.uniqueId && total > 0) {
@@ -2793,6 +2934,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetTop1Fire':
         resetTop1FireAll();
         break;
+      case 'testTopHabibi':
+        broadcast('habibiTopTest', {});
+        break;
+      case 'resetTopHabibi':
+        resetHabibiTopAll();
+        break;
       case 'testWins':
         broadcast('winsTest', {});
         break;
@@ -2911,6 +3058,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
     ws.send(JSON.stringify({ type: 'top1fire', payload: serializeTop1Fire() }));
+    ws.send(JSON.stringify({ type: 'habibiTop', payload: serializeHabibiTop() }));
     for (const rankId of RANK_IDS) {
       ws.send(JSON.stringify({ type: 'rankState', payload: serializeRankState(rankId) }));
     }

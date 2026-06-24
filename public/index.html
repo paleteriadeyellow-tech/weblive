@@ -1220,6 +1220,49 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Habibi Top Donador -->
+        <div id="habiConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>👑 Configurar — Habibi Top Donador</h2>
+              <button class="modal-close" id="habicfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">PERIODO DE RANKING</label>
+              <select id="habicfg-period">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="habicfg-title" placeholder="HABIBI DEL MES">
+              <label class="ml">ETIQUETA DE PUNTOS</label>
+              <input type="text" id="habicfg-coinlabel" placeholder="diamantes">
+              <label class="ml">FUENTE</label>
+              <select id="habicfg-font" class="cfg-font"></select>
+              <label class="ml">TEXTO ARCOÍRIS</label>
+              <select id="habicfg-rainbow">
+                <option value="off">Sin arcoíris (usa colores abajo)</option>
+                <option value="fixed">Arcoíris fijo</option>
+                <option value="move">Arcoíris en movimiento</option>
+              </select>
+              <label class="ml">TAMAÑO (%)</label>
+              <input type="range" id="habicfg-scale" min="60" max="150" step="1" value="100">
+              <div class="cfg-colors">
+                <div><label class="ml">TÍTULO 1</label><input type="color" id="habicfg-tc1" value="#ff6eb4"></div>
+                <div><label class="ml">TÍTULO 2</label><input type="color" id="habicfg-tc2" value="#ffd700"></div>
+                <div><label class="ml">TÍTULO 3</label><input type="color" id="habicfg-tc3" value="#6ee7ff"></div>
+                <div><label class="ml">NOMBRE</label><input type="color" id="habicfg-namecolor" value="#ffffff"></div>
+                <div><label class="ml">BORDE NOMBRE</label><input type="color" id="habicfg-namestroke" value="#4a0020"></div>
+                <div><label class="ml">PUNTOS</label><input type="color" id="habicfg-valuecolor" value="#ffe8f0"></div>
+                <div><label class="ml">BORDE PUNTOS</label><input type="color" id="habicfg-valuestroke" value="#2a0010"></div>
+                <div><label class="ml">MONEDA</label><input type="color" id="habicfg-coincolor" value="#ffd700"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="habicfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Top 1 Donador Fuego -->
         <div id="top1fireConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -2229,6 +2272,28 @@
 
           <!-- Gifts overlays -->
           <div class="subview" id="sub-gifts">
+            <!-- Tarjeta PRO: Habibi Top Donador -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="habi-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="habi-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="habi-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="habi-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">👑 Habibi Top Donador</h3>
+              <p class="ovpro-desc">Top donador con marco decorativo, avatar, puntos y título «Habibi del mes». Ranking por live, semana o mes. Fuente, colores y arcoíris fijo o animado.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/habibi-top.html">/habibi-top.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="habi-preview" src="/habibi-top.html?embed=1" title="Vista previa habibi top donador"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Banda de regalos -->
             <div class="ovpro-card">
               <div class="ovpro-top">

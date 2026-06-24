@@ -49,9 +49,6 @@ export const DEFAULT_SETTINGS = {
   // videos: [{ id, name, url, fileName, trigger, giftName, minDiamonds, volume, enabled, screen }]
   videos: [],
   videosEnabled: true, // interruptor maestro "TODAS"
-  // Videos automáticos por nivel de miembro (public/video/niveles): al subir alguien de
-  // nivel se reproduce nivelN.webm. screen = en qué Browser Source aparece.
-  levelVideos: { enabled: true, screen: 1, volume: 100 },
   // pantallas (Browser Sources separados): tamaño por pantalla
   screens: [
     { id: 1, size: 100 },
@@ -180,7 +177,7 @@ export const DEFAULT_SETTINGS = {
     accent: '#8df7d8',
     size: 28,
     font: 'system',
-    anim: 'gift-pop', // none|gift-fade|gift-pop|gift-zoom|gift-drop|gift-row-left
+    anim: 'gift-pop',
     rowSpeed: 7.6,
     textRainbow: false,
     stepSec: 2,
@@ -190,6 +187,37 @@ export const DEFAULT_SETTINGS = {
     displayMode: 'rotate', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
     iconSize: 88, gap: 24, font: 'bangers', fontSize: 22, textColor: '#ffffff', textStroke: 2,
     colorMode: 'solid', scale: 100, items: [],
+  },
+  // Overlay Contador de victorias (manual, simple)
+  winsCounter: {
+    label: 'Wins', winsMax: 10, wins: 0, font: 'inter', rainbow: false,
+    textColor: '#ffffff', accentColor: '#22c55e',
+    bgColor: '#1c1c1f', borderColor: '#ffffff', fontSize: 28,
+    hotkeys: {
+      inc1: { on: false, key: 'F5', amount: 1, giftId: '', giftName: '', image: '' },
+      dec1: { on: false, key: 'F6', amount: 1, giftId: '', giftName: '', image: '' },
+      incN: { on: false, key: 'F7', amount: 5, giftId: '', giftName: '', image: '' },
+      decN: { on: false, key: 'F8', amount: 5, giftId: '', giftName: '', image: '' },
+    },
+  },
+  // Overlay Contador de victorias (manual, estilo Gamer HUD)
+  winsCounterGamer: {
+    label: 'WINS', winsMax: 10, wins: 0, font: 'orbitron', rainbow: false,
+    scoreGlow: true,
+    textColor: '#ffffff', accentColor: '#00ffaa',
+    bgColor: '#0f0c1e', borderColor: '#9d4edd', fontSize: 28,
+    hotkeys: {
+      inc1: { on: false, key: 'F5', amount: 1, giftId: '', giftName: '', image: '' },
+      dec1: { on: false, key: 'F6', amount: 1, giftId: '', giftName: '', image: '' },
+      incN: { on: false, key: 'F7', amount: 5, giftId: '', giftName: '', image: '' },
+      decN: { on: false, key: 'F8', amount: 5, giftId: '', giftName: '', image: '' },
+    },
+  },
+  // Spotify Song Requests (solo .exe · admin / albertoyt). Comandos del chat: !play/!skip/!revoke.
+  spotify: {
+    playOn: true, playCost: 0, skipOn: true, skipCost: 0,
+    skipRequested: true, explicit: true, queueTotal: 2, queueUser: 2,
+    overlayPermanent: true, permAll: false, permSubs: true, permMods: true,
   },
   // Overlay Top 1 Donador (MVP de la sesión: quien más monedas regala)
   top1: {
@@ -201,7 +229,6 @@ export const DEFAULT_SETTINGS = {
     coinLabel: '', font: 'inter',
     showHeader: true, showCrown: true, showFx: true,
   },
-  // Overlay Top 1 Donador Fuego (MVP con aura de fuego; periodo configurable)
   top1fire: {
     headerTitle: 'MVP: Top 1 Donador',
     headerRainbow: false,
@@ -212,7 +239,18 @@ export const DEFAULT_SETTINGS = {
     rc1: '#3d1500', rc2: '#1a0800',
     coinLabel: '', font: 'inter',
     showHeader: true, showCrown: true, showFx: true,
-    resetPeriod: 'live', // live | week | month
+    resetPeriod: 'live',
+  },
+  habibiTop: {
+    headerTitle: 'HABIBI DEL MES',
+    resetPeriod: 'month',
+    coinLabel: 'diamantes',
+    font: 'luckiest',
+    rainbowMode: 'move',
+    tc1: '#ff6eb4', tc2: '#ffd700', tc3: '#6ee7ff',
+    nameColor: '#ffffff', nameStroke: '#4a0020',
+    valueColor: '#ffe8f0', valueStroke: '#2a0010', coinColor: '#ffd700',
+    scale: 100,
   },
   // Overlay Mejor regalo (top único por monedas)
   topGift: {
@@ -266,7 +304,6 @@ export const DEFAULT_SETTINGS = {
   topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, resetPeriod: 'live' },
   toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, resetPeriod: 'live' },
   topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, resetPeriod: 'live' },
-  // Overlay alternado: Top diamantes ↔ Top likes cada N segundos
   topAltRank: {
     rows: 5, scale: 100, font: 'inter', rowBg: '#0c1c26',
     likesAccent: '#ffffff', diamAccent: '#ffe08a',
@@ -308,22 +345,46 @@ export const DEFAULT_SETTINGS = {
     tagSize: 1.3, statusSize: 0.8, phraseMode: 'random', phrase: 'se unió al live',
     phrases: 'se unió a la partida|entró a la squad|ready to rumble|spawneó en el chat|se unió al live',
   },
+  // Acciones (solo en la app .exe): cada acción dispara una tecla del teclado cuando
+  // ocurre un evento del live. Lista de objetos:
+  // { id, name, enabled, event, giftId, giftName, giftImage, minDiamonds,
+  //   rangeMin, rangeMax, likeMin, likeGoal, emoteId, keys, gameCompat, image, sound, soundName, soundVolume }
+  // Si el evento es un regalo específico y mandan varios (ej. 5 rosas), la tecla se
+  // pulsa una vez por cada regalo. 'sound' (opcional) suena al activarse la acción.
+  // event: 'gift-any' | 'gift' | 'like' | 'follow' | 'share'
+  // keys: combinación ("Ctrl + A"), clic ("LeftClick") o texto ("Texto: hola")
   actions: [],
+  // Webhook y Configuración (solo en la app .exe). El webhook HTTP (puerto 3199)
+  // permite ejecutar acciones desde herramientas externas (OBS, Stream Deck, scripts).
+  // La sub-pestaña "Configuración" guarda los datos de conexión a RCON / OBS / Streamer.bot.
   webhook: {
     rcon: { host: '127.0.0.1', port: 25575, password: '' },
     obs: { ip: '127.0.0.1', port: 4455, password: '' },
     streamerbot: { address: '127.0.0.1', port: 8080, endpoint: '/', password: '' },
+    // ServerTap / mod de TikFinity: alternativa a RCON para enviar comandos a Minecraft.
     servertap: { ip: 'localhost', port: 4567, key: 'change_me', playername: '', enabled: false },
   },
+  // Acciones del juego Minecraft (solo .exe): cada una vincula un comando RCON a un
+  // regalo o evento del live. { uid, catId, name, desc, cmd, trigger, giftId, giftName, giftImage, enabled }
   mcActions: [],
+  // Acciones del juego Bedrock (Cubo TNT): mismas que Minecraft pero con comandos
+  // /bedrock; se ejecutan por el MISMO RCON/ServerTap del servidor de Minecraft.
   bedrockActions: [],
+  // Acciones del juego Sandbox: mismas que Bedrock pero con comandos /sandbox.
   sandboxActions: [],
   robloxActions: [],
   roblox3Actions: [],
+  // Acciones del juego Mario Bros (solo .exe): cada una genera un objeto/enemigo en el
+  // juego (vía http://localhost:7755/spawn) al recibir un regalo o evento del live.
   marioActions: [],
   mari0Actions: [],
   smb3Actions: [],
+  // Acciones del juego Plants vs Zombies (solo .exe): genera zombies (/spawn) o da
+  // soles al jugador (/sun) al recibir un regalo o evento del live.
   pvzActions: [],
+  // Videos automáticos por nivel de miembro (public/video/niveles): al subir alguien de
+  // nivel se reproduce nivelN.webm. screen = en qué Browser Source aparece.
+  levelVideos: { enabled: true, screen: 1, volume: 100 },
 };
 
 export function deepMerge(target, src) {
