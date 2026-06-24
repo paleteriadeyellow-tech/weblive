@@ -212,6 +212,34 @@
     return { patch, counts: countPatch(patch), format: 'livecoins-v2' };
   }
 
+  // Extrae una lista de perfiles { name, settings } si el archivo contiene varios.
+  function profilesFromFile(raw) {
+    let arr = null;
+    if (Array.isArray(raw.profiles)) arr = raw.profiles;
+    else if (raw.data && Array.isArray(raw.data.profiles)) arr = raw.data.profiles;
+    else if (Array.isArray(raw.slots)) arr = raw.slots;
+    if (!arr || !arr.length) return null;
+    const out = arr.map((p) => {
+      if (!p || typeof p !== 'object') return { name: '', settings: null };
+      const src = p.data || p.settings || p;
+      if (!src || typeof src !== 'object' || Array.isArray(src)) return { name: String(p.name || '').slice(0, 40), settings: null };
+      const settings = {};
+      for (const k of EXPORT_KEYS) if (src[k] !== undefined) settings[k] = cloneVal(src[k]);
+      const hasData = Object.keys(settings).length > 0;
+      return { name: String(p.name || '').slice(0, 40), settings: hasData ? settings : null };
+    });
+    return out.some((p, i) => i > 0 && p.settings) ? out : null;
+  }
+
+  function convertMultiProfile(raw) {
+    const profiles = profilesFromFile(raw);
+    if (!profiles) return null;
+    let total = 0;
+    for (const p of profiles) if (p.settings) total += Object.keys(p.settings).length;
+    const filled = profiles.filter((p) => p.settings).length;
+    return { profiles, multi: true, counts: { profiles: filled }, format: 'livecoins-v2' };
+  }
+
   function countPatch(patch) {
     const c = {};
     for (const [k, v] of Object.entries(patch)) {
@@ -269,6 +297,7 @@
 
   function summarize(counts) {
     const parts = [];
+    if (counts.profiles) parts.push(`${counts.profiles} perfil(es)`);
     if (counts.soundAlerts) parts.push(`${counts.soundAlerts} alerta(s) sonora(s)`);
     if (counts.videos) parts.push(`${counts.videos} video(s)`);
     if (counts.actions) parts.push(`${counts.actions} acción(es)`);
@@ -286,11 +315,16 @@
     convertNative,
     applyPatch,
     summarize,
+    profilesFromFile,
     parseFile(text) {
       const raw = JSON.parse(text);
       const fmt = detectFormat(raw);
       if (fmt === 'legacy-v1') return convertLegacy(raw, { includeActions: true });
-      if (fmt === 'livecoins-v2') return convertNative(raw);
+      if (fmt === 'livecoins-v2') {
+        const multi = convertMultiProfile(raw);
+        if (multi) return multi;
+        return convertNative(raw);
+      }
       throw new Error('Formato de archivo no reconocido. Usa un export de Livecoins o TikFinity legacy.');
     },
   };

@@ -409,11 +409,18 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   function applyPayload(payload) {
     if (previewMode) return;
     const cached = loadTopCache();
+    const periodStart = payload && payload.periodStart != null ? payload.periodStart : null;
+    const cacheStale = cached && periodStart != null && cached._periodStart != null
+      && cached._periodStart !== periodStart;
+    if (cacheStale) clearTopCache();
+
     const incoming = payload && payload.top ? payload.top : null;
     if (incoming) {
-      topData = mergeTopData(incoming, cached);
+      topData = mergeTopData(incoming, cacheStale ? null : cached);
+      if (periodStart != null) topData._periodStart = periodStart;
+      if (payload.period) topData._period = payload.period;
       saveTopCache(topData);
-    } else if (cached && (cached.coins > 0 || cached.nickname)) {
+    } else if (!cacheStale && cached && (cached.coins > 0 || cached.nickname)) {
       topData = cached;
     } else {
       topData = null;

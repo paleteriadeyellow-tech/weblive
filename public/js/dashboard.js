@@ -237,7 +237,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -296,6 +296,7 @@ async function loadMe() {
     // roomKey de la nube (Render): en el .exe en modo relay, el panel y los overlays
     // se conectan a la room remota con esta clave (el trabajo pesado corre allí).
     window.CLOUD_ROOM_KEY = d.cloudRoomKey || '';
+    window.CLOUD_SESSION_OK = d.cloudSessionOk !== false;
     window.MY_USER = d.username || '';
     window.IS_ADMIN = !!d.isAdmin;
     window.MY_PLAN = d.plan || 'free';
@@ -306,9 +307,8 @@ async function loadMe() {
       const nav = document.getElementById('navAdmin');
       if (nav) nav.style.display = '';
     }
-    // En el .exe, si el WS a la nube tarda, cargamos ajustes del servidor LOCAL para
-    // que el panel no quede bloqueado ("Espera a que cargue el panel").
-    if (IS_DESKTOP && !settings) {
+    // En el .exe sin relay, si el WS tarda, cargamos ajustes locales para no bloquear el panel.
+    if (IS_DESKTOP && !settings && !relayActive()) {
       try {
         const sr = await fetch('/api/my-settings');
         if (sr.ok) {
@@ -1823,46 +1823,80 @@ async function relayDisconnectHttp() {
   return d;
 }
 
+async function refreshCloudSession() {
+  try {
+    const r = await fetch('/api/me');
+    if (!r.ok) return false;
+    const d = await r.json();
+    window.CLOUD_ROOM_KEY = d.cloudRoomKey || '';
+    window.CLOUD_SESSION_OK = d.cloudSessionOk !== false;
+    if (window.CLOUD_ROOM_KEY) connectWS();
+    return !!window.CLOUD_ROOM_KEY;
+  } catch {
+    return false;
+  }
+}
+
+let connectBusy = false;
+
 async function doConnect() {
   const u = $('username').value.trim().replace(/^@/, '');
   if (!u) { $('username').focus(); return; }
-  try { localStorage.setItem('lastTikTokUser', u); } catch {}
+  if (connectBusy) return;
+  connectBusy = true;
+  try {
+    try { localStorage.setItem('lastTikTokUser', u); } catch {}
 
-  const relay = relayActive() || desktopRelayOn();
+    const relay = relayActive() || desktopRelayOn();
 
-  if (relay && !window.CLOUD_ROOM_KEY) {
-    try {
-      await relayConnectHttp(u);
-      toast('Conectando a @' + u + '…', 'ok');
-    } catch (e) {
-      toast(e.message || 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.', 'warn');
+    if (relay && !window.CLOUD_ROOM_KEY) {
+      await refreshCloudSession();
     }
-    return;
-  }
 
-  if (ws?.readyState === 1) {
-    send({ action: 'connect', username: u });
-    return;
-  }
+    if (relay && !window.CLOUD_ROOM_KEY) {
+      if (!window.CLOUD_SESSION_OK) {
+        toast('Sin sesión con la nube. Cierra sesión y vuelve a entrar con internet.', 'warn');
+        return;
+      }
+      try {
+        await relayConnectHttp(u);
+        toast('Conectando a @' + u + '…', 'ok');
+      } catch (e) {
+        toast(e.message || 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.', 'warn');
+      }
+      return;
+    }
 
-  connectWS();
-  if (relay) {
-    await new Promise((r) => setTimeout(r, 900));
     if (ws?.readyState === 1) {
       send({ action: 'connect', username: u });
       return;
     }
-    try {
-      await relayConnectHttp(u);
-      toast('Conectando a @' + u + '…', 'ok');
-      return;
-    } catch (e) {
-      toast(e.message || 'Sin conexión con el servidor', 'warn');
-      return;
-    }
-  }
 
-  toast('Espera a que el panel se conecte al servidor…', 'warn');
+    connectWS();
+    if (relay) {
+      await new Promise((r) => setTimeout(r, 900));
+      if (ws?.readyState === 1) {
+        send({ action: 'connect', username: u });
+        return;
+      }
+      if (!window.CLOUD_SESSION_OK) {
+        toast('Sin sesión con la nube. Cierra sesión y vuelve a entrar con internet.', 'warn');
+        return;
+      }
+      try {
+        await relayConnectHttp(u);
+        toast('Conectando a @' + u + '…', 'ok');
+        return;
+      } catch (e) {
+        toast(e.message || 'Sin conexión con el servidor', 'warn');
+        return;
+      }
+    }
+
+    toast('Espera a que el panel se conecte al servidor…', 'warn');
+  } finally {
+    connectBusy = false;
+  }
 }
 async function doDisconnect() {
   if (ws?.readyState === 1) {
