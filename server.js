@@ -15,7 +15,7 @@ import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import {
   registerUser, verifyLogin, createSession, destroySession,
-  userFromRequest, getUserByRoomKey, getUserById, listUsers, listUsersDetailed,
+  userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
   getUserPlan, setUserPlan, deleteUser,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
@@ -453,6 +453,15 @@ app.get('/api/me', (req, res) => {
     premiumUntil: user.premiumUntil || 0,
     caps: { limits: caps.limits, features: caps.features },
   });
+});
+
+// El .exe en modo relay puede pedir la roomKey de la nube por usuario (sin cookie de sesión).
+app.post('/api/relay/mirror-room-key', express.json(), (req, res) => {
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  if (!username) return res.status(400).json({ error: 'falta usuario' });
+  const user = getUserByUsername(username);
+  if (!user) return res.status(404).json({ error: 'no existe' });
+  res.json({ roomKey: user.roomKey });
 });
 
 app.get('/api/panel-lives', (req, res) => {

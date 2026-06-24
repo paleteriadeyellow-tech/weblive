@@ -6,14 +6,18 @@
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Jarrón (regalos)</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
     * { box-sizing: border-box; }
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
 
     .stage {
-      width: 540px; height: 720px; position: absolute; left: 50%; top: 50%;
+      width: 540px; height: 820px; position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%) scale(var(--tf-fit, 1)); transform-origin: center center;
     }
-    .jar { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; height: 100%; pointer-events: none; }
+    .jar {
+      position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+      width: 540px; height: 720px; pointer-events: none;
+    }
     /* Piso y aro trasero del frasco: van DETRÁS de los regalos para dar profundidad */
     .jar-back { position: absolute; inset: 0; z-index: 1; pointer-events: none; isolation: isolate; }
     .jar-back img { position: absolute; left: 50%; transform: translate(-50%, -50%); height: auto; pointer-events: none; }
@@ -46,10 +50,56 @@
       -webkit-mask-position: center bottom; mask-position: center bottom;
     }
 
+    /* HUD debajo del frasco (fuera del área del jarrón) */
+    .hud-stack {
+      position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      z-index: 7; pointer-events: none; width: min(100%, 420px);
+    }
+    .top-donor-bar {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      padding: 8px 10px 8px 12px; border-radius: 999px;
+      background: rgba(22, 24, 32, .88); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      box-shadow: 0 6px 20px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08);
+      font-family: 'Press Start 2P', 'Rubik', system-ui, sans-serif;
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    .top-donor-bar[hidden] { display: none !important; }
+    .top-donor-bar.is-switch { animation: tdSwitch .35s ease; }
+    @keyframes tdSwitch { 0% { opacity: .35; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
+    .td-medal { font-size: 22px; line-height: 1; flex: 0 0 auto; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+    .td-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto; object-fit: cover;
+      border: 2px solid rgba(255,255,255,.22); box-shadow: 0 2px 8px rgba(0,0,0,.4);
+      background: rgba(255,255,255,.08);
+    }
+    .td-info {
+      flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center;
+    }
+    .td-name {
+      font-family: 'Rubik', system-ui, sans-serif; font-size: 14px; font-weight: 800;
+      color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55);
+    }
+    .td-amount-wrap {
+      display: flex; align-items: center; gap: 7px; flex: 0 0 auto;
+      padding: 6px 12px 6px 8px; border-radius: 999px;
+      background: rgba(8, 10, 16, .72); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .td-coin {
+      width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto;
+      background: radial-gradient(circle at 35% 30%, #ffe9a0 0%, #f7c948 45%, #e0a92e 72%, #b07d1a 100%);
+      box-shadow: inset 0 0 0 2px rgba(255,236,170,.45), inset 0 -2px 5px rgba(140,85,10,.5), 0 1px 3px rgba(0,0,0,.45);
+    }
+    .td-amount {
+      font-size: 11px; font-weight: 400; color: #fff; letter-spacing: .02em;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55); font-variant-numeric: tabular-nums; min-width: 2ch;
+    }
+
     /* Contador de diamantes debajo del jarrón */
     .coin-total {
-      position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%);
-      display: flex; align-items: center; gap: 9px; z-index: 7; pointer-events: none;
+      position: relative; left: auto; bottom: auto; transform: none;
+      display: flex; align-items: center; gap: 9px; pointer-events: none;
       padding: 7px 18px 7px 9px; border-radius: 999px;
       background: rgba(16,18,26,.72); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
       box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
@@ -87,9 +137,22 @@
         <div class="jar-tint" id="jar-tint"></div>
       </div>
     </div>
-    <div class="coin-total" id="coin-total" aria-hidden="true">
-      <span class="coin-ico"></span>
-      <span class="coin-num" id="coin-num">0</span>
+    <div class="hud-stack" id="hud-stack">
+      <div class="top-donor-bar" id="top-donor-bar">
+        <span class="td-medal" id="td-medal" aria-hidden="true">🥇</span>
+        <img class="td-avatar" id="td-avatar" alt="" referrerpolicy="no-referrer" />
+        <div class="td-info">
+          <span class="td-name" id="td-name">—</span>
+        </div>
+        <div class="td-amount-wrap">
+          <span class="td-coin" aria-hidden="true"></span>
+          <span class="td-amount" id="td-amount">0</span>
+        </div>
+      </div>
+      <div class="coin-total" id="coin-total" aria-hidden="true">
+        <span class="coin-ico"></span>
+        <span class="coin-num" id="coin-num">0</span>
+      </div>
     </div>
   </div>
 
@@ -116,8 +179,9 @@
 
     // Ajusta el escenario para que el frasco se vea completo (sin recortes).
     (function fit() {
+      const OUT_H = 820;
       function apply() {
-        const k = Math.min((innerWidth || 540) / 540, (innerHeight || 720) / 720) || 1;
+        const k = Math.min((innerWidth || 540) / 540, (innerHeight || OUT_H) / OUT_H) || 1;
         document.documentElement.style.setProperty('--tf-fit', k);
       }
       apply(); addEventListener('resize', apply);
@@ -144,6 +208,95 @@
       persistDiamonds();
     }
 
+    // ---- Barra rotativa TOP DONATOR (encima del contador) ----
+    const topBarEl = document.getElementById('top-donor-bar');
+    const tdMedal = document.getElementById('td-medal');
+    const tdAvatar = document.getElementById('td-avatar');
+    const tdName = document.getElementById('td-name');
+    const tdAmount = document.getElementById('td-amount');
+    const TD_DEFAULT_PIC = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const TD_PREVIEW_PIC = '/jarron/lv.png';
+    const TOP_MEDALS = ['🥇', '🥈', '🥉', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅'];
+    let topGifters = [];
+    let topBarCfg = { enabled: true, limit: 3 };
+    let topCycleIdx = 0;
+    let topCycleTimer = null;
+
+    function applyTopBarSettings(jarron) {
+      if (!jarron) return;
+      topBarCfg.enabled = jarron.topBarEnabled !== false;
+      topBarCfg.limit = Math.max(1, Math.min(10, Number(jarron.topBarLimit) || 3));
+      updateTopBarVisibility();
+      renderTopBarSlot(false);
+      restartTopCycle();
+    }
+
+    function activeTopList() {
+      return topGifters.slice(0, topBarCfg.limit);
+    }
+
+    function updateTopBarVisibility() {
+      if (!topBarEl) return;
+      const show = topBarCfg.enabled && activeTopList().length > 0;
+      topBarEl.hidden = !show;
+    }
+
+    function renderTopBarSlot(animate) {
+      const list = activeTopList();
+      if (!list.length || !topBarCfg.enabled || !tdAmount) {
+        updateTopBarVisibility();
+        return;
+      }
+      if (topCycleIdx >= list.length) topCycleIdx = 0;
+      const g = list[topCycleIdx];
+      tdAmount.textContent = (g.diamonds || 0).toLocaleString('es-ES');
+      if (tdMedal) tdMedal.textContent = TOP_MEDALS[topCycleIdx] || '🏅';
+      if (tdName) tdName.textContent = g.nickname || g.uniqueId || '—';
+      if (tdAvatar) {
+        const pic = String(g.photo || g.profilePictureUrl || '').trim();
+        tdAvatar.src = pic || (isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC);
+        tdAvatar.onerror = function () {
+          this.onerror = null;
+          this.src = isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC;
+        };
+      }
+      updateTopBarVisibility();
+      if (animate && topBarEl) {
+        topBarEl.classList.remove('is-switch');
+        void topBarEl.offsetWidth;
+        topBarEl.classList.add('is-switch');
+      }
+    }
+
+    function restartTopCycle() {
+      if (topCycleTimer) clearInterval(topCycleTimer);
+      topCycleTimer = null;
+      if (!topBarCfg.enabled) return;
+      const list = activeTopList();
+      if (list.length < 2) return;
+      topCycleTimer = setInterval(() => {
+        const cur = activeTopList();
+        if (cur.length < 2) return;
+        topCycleIdx = (topCycleIdx + 1) % cur.length;
+        renderTopBarSlot(true);
+      }, 4200);
+    }
+
+    function onTopGiftersState(list) {
+      topGifters = Array.isArray(list) ? list.filter((g) => (g.diamonds || 0) > 0) : [];
+      topCycleIdx = 0;
+      renderTopBarSlot(false);
+      restartTopCycle();
+    }
+
+    function demoTopGifters() {
+      onTopGiftersState([
+        { nickname: 'Donador 1', diamonds: 12500, photo: TD_PREVIEW_PIC },
+        { nickname: 'Donador 2', diamonds: 8200, photo: TD_PREVIEW_PIC },
+        { nickname: 'Donador 3', diamonds: 4100, photo: TD_PREVIEW_PIC },
+      ]);
+    }
+
     // ---- Geometría del frasco (px del stage 540×720) ----
     const STAGE_W = 540, STAGE_H = 720;
     const IMG_SIZE = Math.min(STAGE_W, STAGE_H);
@@ -164,6 +317,8 @@
 
     const engine = Engine.create();
     engine.gravity.y = 0.8; engine.enableSleeping = true;
+    engine.positionIterations = 10;
+    engine.velocityIterations = 8;
     const world = engine.world;
 
     const WT_GLASS = 24, WT_SOLID = 60;
@@ -192,13 +347,45 @@
     let spawnSeq = 0;
 
     Runner.run(Runner.create(), engine);
+
+    // Evita que el montón "explote" y suba por el cuello: congela lo asentado abajo
+    // y devuelve al interior cualquier regalo que escape hacia arriba.
+    function constrainGiftInJar(g) {
+      const p = g.body.position;
+      const r = Math.max(6, (g.sizePx / 2) * 0.86);
+      const inNeckX = p.x >= NECK_L - r && p.x <= NECK_R + r;
+      const vy = g.body.velocity.y;
+
+      if (p.y > SHOULDER_Y1) g.wasInside = true;
+
+      if (!g.body.isStatic && g.wasInside && inNeckX && p.y < RIM_Y + r) {
+        if (vy < 0.15) {
+          const tuckY = Math.max(SHOULDER_Y2 + r, Math.min(FLOOR_Y - r, BODY_BOT_Y));
+          Body.setPosition(g.body, {
+            x: Math.max(BODY_L + r, Math.min(BODY_R - r, p.x)),
+            y: tuckY,
+          });
+          Body.setVelocity(g.body, { x: g.body.velocity.x * 0.15, y: 0.4 });
+          Body.setAngularVelocity(g.body, g.body.angularVelocity * 0.2);
+        } else if (vy < 0) {
+          Body.setVelocity(g.body, { x: g.body.velocity.x * 0.45, y: vy * 0.08 });
+        }
+      }
+
+      if (g.body.isSleeping && !g.body.isStatic && p.y > SHOULDER_Y2 + 8) {
+        Body.setStatic(g.body, true);
+        g.awakeSynced = false;
+      }
+    }
+
     Events.on(engine, 'afterUpdate', function () {
       for (let i = 0; i < gifts.length; i++) {
         const g = gifts[i];
         if (!g.body.isSleeping) {
           const v = g.body.velocity, sp = Math.hypot(v.x, v.y);
-          if (sp > 10) { const s = 10 / sp; Body.setVelocity(g.body, { x: v.x * s, y: v.y * s }); }
+          if (sp > 8) { const s = 8 / sp; Body.setVelocity(g.body, { x: v.x * s, y: v.y * s }); }
         }
+        constrainGiftInJar(g);
         if (g.body.isSleeping && g.awakeSynced) continue;
         const p = g.body.position, half = g.sizePx / 2;
         g.img.style.transform = 'translate3d(' + (p.x - half).toFixed(1) + 'px,' + (p.y - half).toFixed(1) + 'px,0) rotate(' + g.body.angle.toFixed(3) + 'rad)';
@@ -260,6 +447,18 @@
     function pruneJar() {
       for (let i = gifts.length - 1; i >= 0; i--) {
         const p = gifts[i].body.position, r = gifts[i].sizePx / 2;
+        const inNeckX = p.x >= NECK_L - r && p.x <= NECK_R + r;
+        if (inNeckX && (p.y + r) < RIM_Y - 6 && gifts[i].wasInside && !gifts[i].body.isStatic) {
+          const tuckY = Math.max(SHOULDER_Y2 + r, Math.min(FLOOR_Y - r, BODY_BOT_Y));
+          Body.setPosition(gifts[i].body, {
+            x: Math.max(BODY_L + r, Math.min(BODY_R - r, p.x)),
+            y: tuckY,
+          });
+          Body.setVelocity(gifts[i].body, { x: 0, y: 0 });
+          Body.setAngularVelocity(gifts[i].body, 0);
+          gifts[i].awakeSynced = false;
+          continue;
+        }
         if ((p.y - r) > (STAGE_H + 80) || (p.x + r) < -180 || (p.x - r) > (STAGE_W + 180)) removeGiftAt(i);
       }
       if (gifts.length > HARD_CAP) {
@@ -308,7 +507,7 @@
       img.style.transform = 'translate3d(' + (x - r).toFixed(1) + 'px,' + (y - r).toFixed(1) + 'px,0) rotate(' + (opts.angle || 0).toFixed(3) + 'rad)';
       giftsLayer.appendChild(img);
       World.add(world, body);
-      gifts.push({ body, img, sizePx, awakeSynced: false });
+      gifts.push({ body, img, sizePx, awakeSynced: false, wasInside: false });
       // Cuenta las monedas conforme caen los regalos (no antes).
       setDiamonds(totalDiamonds + (diamonds || 0), true);
     }
@@ -343,6 +542,7 @@
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         const { type, payload } = msg;
         if (type === 'gift') { if (!isEmbed) onGift(payload); }
+        else if (type === 'state') { if (!isEmbed && payload) onTopGiftersState(payload.topGifters); }
         else if (type === 'panic') clearJar();
         else if (type === 'jarronTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
         else if (type === 'jarronReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); try { localStorage.removeItem(lsKey); } catch {} } }
@@ -350,6 +550,7 @@
           if (payload && payload.jarron) {
             if (!params.get('jc')) applyJarTint(payload.jarron.tint);
             if (payload.jarron.sizes) setSizeTable(payload.jarron.sizes);
+            applyTopBarSettings(payload.jarron);
           }
         }
       };
@@ -361,6 +562,7 @@
     }
     connectWS();
     if (!isEmbed) loadPersistedDiamonds();
+    else demoTopGifters();
 
     // ---- Control desde el panel (vista previa embebida) ----
     function sampleImg() {
@@ -388,7 +590,13 @@
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
         if (d.sizes !== undefined) setSizeTable(d.sizes);
-      }
+        if (d.topBarEnabled !== undefined || d.topBarLimit !== undefined) {
+          applyTopBarSettings({
+            topBarEnabled: d.topBarEnabled !== undefined ? d.topBarEnabled : topBarCfg.enabled,
+            topBarLimit: d.topBarLimit !== undefined ? d.topBarLimit : topBarCfg.limit,
+          });
+        }
+      } else if (d.type === 'topDemo') demoTopGifters();
     });
 
     // ---- Vista previa standalone (?preview=1): llena el frasco en bucle ----

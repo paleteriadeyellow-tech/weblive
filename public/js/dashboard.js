@@ -320,6 +320,7 @@ async function loadMe() {
     // Tras tener cloudRoomKey, conectar el WebSocket a la nube (modo relay).
     connectWS();
     if (relayActive()) connectLocalWS();
+    startCloudSessionPoll();
   } catch {}
 }
 
@@ -1825,16 +1826,32 @@ async function relayDisconnectHttp() {
 
 async function refreshCloudSession() {
   try {
-    const r = await fetch('/api/me');
+    let r = await fetch('/api/desktop/refresh-cloud-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (r.status === 404) r = await fetch('/api/me');
     if (!r.ok) return false;
     const d = await r.json();
+    const prev = window.CLOUD_ROOM_KEY || '';
     window.CLOUD_ROOM_KEY = d.cloudRoomKey || '';
     window.CLOUD_SESSION_OK = d.cloudSessionOk !== false;
-    if (window.CLOUD_ROOM_KEY) connectWS();
+    if (window.CLOUD_ROOM_KEY && window.CLOUD_ROOM_KEY !== prev) {
+      connectWS();
+      if (typeof refreshOverlayUrls === 'function') refreshOverlayUrls();
+    } else if (window.CLOUD_ROOM_KEY) connectWS();
     return !!window.CLOUD_ROOM_KEY;
   } catch {
     return false;
   }
+}
+
+let cloudSessionPollTimer = null;
+function startCloudSessionPoll() {
+  if (!(relayActive() || desktopRelayOn())) return;
+  if (cloudSessionPollTimer) return;
+  cloudSessionPollTimer = setInterval(() => { refreshCloudSession().catch(() => {}); }, 45000);
 }
 
 let connectBusy = false;
@@ -3408,7 +3425,11 @@ const POT_OVERLAYS = {
     const test = $(cfg.btnTest), reset = $(cfg.btnReset), config = $(cfg.btnConfig);
     if (!test) continue;
     const toPreview = (msg) => $(cfg.previewId)?.contentWindow?.postMessage({ kind: key, ...msg }, '*');
-    test.onclick = () => { toPreview({ type: 'test', count: 200 }); send({ action: cfg.testAction, count: 200 }); };
+    test.onclick = () => {
+      toPreview({ type: 'test', count: 200 });
+      if (key === 'jarron') toPreview({ type: 'topDemo' });
+      send({ action: cfg.testAction, count: 200 });
+    };
     reset.onclick = () => { toPreview({ type: 'reset' }); send({ action: cfg.resetAction }); };
     config.onclick = () => openPotConfig(key);
   }
@@ -3447,6 +3468,12 @@ function openPotConfig(target) {
     jarron: '⚙️ Configurar — Jarrón (bote regalos)',
   };
   $('jarcfg-title').textContent = titles[target] || titles.jarron;
+  const topWrap = $('jarcfg-topbar-wrap');
+  if (topWrap) topWrap.style.display = target === 'jarron' ? '' : 'none';
+  if (target === 'jarron') {
+    $('jarcfg-topbar-on').checked = data.topBarEnabled !== false;
+    $('jarcfg-topbar-limit').value = Math.max(1, Math.min(10, Number(data.topBarLimit) || 3));
+  }
   renderJarRows();
   $('jarConfigModal').classList.remove('hidden');
 }
@@ -3507,9 +3534,26 @@ $('jarcfg-save').onclick = () => {
   if (!settings[cfgTarget]) settings[cfgTarget] = {};
   settings[cfgTarget].tint = $('jarcfg-tint').dataset.cleared === '1' ? '' : $('jarcfg-tint').value;
   settings[cfgTarget].sizes = [...cfgSizesDraft].sort((a, b) => b.t - a.t);
+  if (cfgTarget === 'jarron') {
+    settings.jarron.topBarEnabled = $('jarcfg-topbar-on').checked;
+    settings.jarron.topBarLimit = Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit').value, 10) || 3));
+  }
   saveSettings();
   closeJarConfig();
 };
+
+function pushJarTopBarPreview() {
+  if (cfgTarget !== 'jarron') return;
+  cfgToPreview({
+    type: 'config',
+    topBarEnabled: $('jarcfg-topbar-on').checked,
+    topBarLimit: Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit').value, 10) || 3)),
+  });
+}
+const jarcfgTopOn = $('jarcfg-topbar-on');
+const jarcfgTopLim = $('jarcfg-topbar-limit');
+if (jarcfgTopOn) jarcfgTopOn.onchange = pushJarTopBarPreview;
+if (jarcfgTopLim) jarcfgTopLim.oninput = pushJarTopBarPreview;
 
 // Refleja el color guardado en el selector del modal (si está abierto)
 function applyJarronUI() {

@@ -107,6 +107,8 @@ export const DEFAULT_SETTINGS = {
   // Overlay del jarrón de regalos
   jarron: {
     tint: '', // color del cristal (vacío = transparente/normal)
+    topBarEnabled: true, // barra rotativa TOP DONATOR encima del contador
+    topBarLimit: 3, // hasta qué top mostrar (1–10)
     // Tabla de tamaños por umbral de monedas/diamantes: [{ t, sz }] de mayor a menor
     sizes: [
       { t: 5000, sz: 88 },
