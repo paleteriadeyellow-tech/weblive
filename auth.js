@@ -49,10 +49,28 @@ function load(file, fallback) {
 function saveUsers() {
   try {
     if (fs.existsSync(USERS_FILE)) {
-      fs.copyFileSync(USERS_FILE, USERS_FILE + '.bak-' + Date.now());
+      fs.copyFileSync(USERS_FILE, USERS_FILE + '.bak');
     }
   } catch {}
-  fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), () => {});
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  } catch (e) {
+    console.error('  [!] No se pudo guardar users.json -', e.message);
+  }
+  pruneOldUserBackups();
+}
+
+const MAX_USER_BACKUPS = 3;
+function pruneOldUserBackups() {
+  try {
+    const baks = fs.readdirSync(DATA_DIR)
+      .filter((n) => n.startsWith('users.json.bak-'))
+      .map((n) => ({ n, t: fs.statSync(path.join(DATA_DIR, n)).mtimeMs }))
+      .sort((a, b) => b.t - a.t);
+    for (const b of baks.slice(MAX_USER_BACKUPS)) {
+      try { fs.unlinkSync(path.join(DATA_DIR, b.n)); } catch {}
+    }
+  } catch {}
 }
 function saveSessions() {
   fs.writeFile(SESSIONS_FILE, JSON.stringify(Object.fromEntries(sessions)), () => {});

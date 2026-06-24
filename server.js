@@ -71,9 +71,61 @@ function listUserBackupFiles() {
   return out;
 }
 
-/* ----------------------------------------------------------------------------
- * Catálogo de regalos de TikTok (compartido por todos los usuarios). Cacheado.
- * --------------------------------------------------------------------------*/
+function dirSizeBytesRecursive(dir) {
+  let total = 0;
+  try {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory()) total += dirSizeBytesRecursive(p);
+      else if (ent.isFile()) total += fs.statSync(p).size;
+    }
+  } catch {}
+  return total;
+}
+
+function pruneDiskJunk() {
+  let removed = 0;
+  let freed = 0;
+  function rm(p) {
+    try {
+      const st = fs.statSync(p);
+      freed += st.size;
+      fs.unlinkSync(p);
+      removed++;
+    } catch {}
+  }
+  try {
+    for (const name of fs.readdirSync(DATA_DIR)) {
+      const full = path.join(DATA_DIR, name);
+      if (name.endsWith('.tmp')) { rm(full); continue; }
+      if (name.startsWith('users.json.bak-')) continue; // auth.js gestiona las copias
+      if (name.startsWith('users.json.pre-restore-')) { rm(full); continue; }
+    }
+    // .corrupt-* y .tmp dentro de carpetas de usuario
+    for (const name of fs.readdirSync(DATA_DIR)) {
+      const full = path.join(DATA_DIR, name);
+      if (!fs.statSync(full).isDirectory()) continue;
+      for (const f of fs.readdirSync(full)) {
+        if (f.endsWith('.tmp') || f.includes('.corrupt-')) rm(path.join(full, f));
+      }
+    }
+    // Copias users.json.bak-* antiguas (mantener 3 más recientes)
+    const baks = fs.readdirSync(DATA_DIR)
+      .filter((n) => n.startsWith('users.json.bak-'))
+      .map((n) => ({ n, t: fs.statSync(path.join(DATA_DIR, n)).mtimeMs }))
+      .sort((a, b) => b.t - a.t);
+    for (const b of baks.slice(3)) rm(path.join(DATA_DIR, b.n));
+  } catch {}
+  if (removed) console.log(`  [data] Limpieza disco: ${removed} archivo(s), ~${Math.round(freed / 1024)} KB`);
+  return { removed, freed };
+}
+
+function getDiskUsageSummary() {
+  const totalBytes = dirSizeBytesRecursive(DATA_DIR);
+  const uploadsBytes = fs.existsSync(UPLOADS_DIR) ? dirSizeBytesRecursive(UPLOADS_DIR) : 0;
+  return { totalBytes, uploadsBytes, totalMb: Math.round(totalBytes / 1024 / 1024) };
+}
+
 let giftsCache = null;
 let giftsCacheAt = 0;
 const giftsById = new Map(); // id -> { id, name, diamonds, image }
@@ -345,6 +397,35 @@ function pruneOrphanUploads() {
   if (removed) console.log(`  [uploads] Limpieza: ${removed} archivo(s) huérfanos (>${UPLOAD_PRUNE_MAX_AGE_MS / 86400000} días)`);
 }
 
+const PERSISTENT_VIDEO_EXT = new Set([
+  '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v', '.mpeg', '.mpg', '.wmv', '.flv', '.3gp',
+]);
+
+// Borra todos los videos subidos al disco persistente (/var/data/uploads).
+function clearPersistentUploadVideos() {
+  let removed = 0;
+  let freed = 0;
+  function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const ent of entries) {
+      const abs = path.join(dir, ent.name);
+      if (ent.isDirectory()) { walk(abs); continue; }
+      if (!ent.isFile()) continue;
+      const ext = path.extname(ent.name).toLowerCase();
+      if (!PERSISTENT_VIDEO_EXT.has(ext)) continue;
+      try {
+        const st = fs.statSync(abs);
+        fs.unlinkSync(abs);
+        removed++;
+        freed += st.size;
+      } catch {}
+    }
+  }
+  if (fs.existsSync(UPLOADS_DIR)) walk(UPLOADS_DIR);
+  return { removed, freed };
+}
+
 function trimUserUploadQuota(userId) {
   const dir = path.join(UPLOADS_DIR, String(userId));
   if (!fs.existsSync(dir)) return;
@@ -363,7 +444,18 @@ function trimUserUploadQuota(userId) {
   }
 }
 
-setTimeout(() => { try { pruneOrphanUploads(); } catch {} }, 15000);
+setTimeout(() => {
+  if (ON_RENDER) {
+    try {
+      const v = clearPersistentUploadVideos();
+      if (v.removed) {
+        console.log(`  [uploads] Videos del disco persistente eliminados: ${v.removed} (~${Math.round(v.freed / 1024 / 1024)} MB)`);
+      }
+    } catch {}
+  }
+  try { pruneDiskJunk(); } catch {}
+  try { pruneOrphanUploads(); } catch {}
+}, 8000);
 setInterval(() => { try { pruneOrphanUploads(); } catch {} }, 24 * 3600 * 1000);
 
 const AUDIOS_DIR = path.join(__dirname, 'public', 'audios');
@@ -655,11 +747,37 @@ app.get('/api/admin/data-diag', requireAdmin, (_req, res) => {
     userDataFolders: folders.length,
     orphanFolders: orphans,
     backups,
+    disk: getDiskUsageSummary(),
     hint: USING_EPHEMERAL_DATA
       ? 'Falta DATA_DIR en Render. Añade DATA_DIR=/var/data (o la ruta de tu disco) y redespliega.'
       : (orphans.length && usersFileCount <= 1)
         ? 'Hay carpetas de usuarios huérfanas: restaura users.json desde una copia (.bak).'
         : null,
+  });
+});
+
+// Libera espacio: basura temporal + subidas huérfanas.
+app.post('/api/admin/prune-disk', requireAdmin, (_req, res) => {
+  const junk = pruneDiskJunk();
+  let uploadsRemoved = 0;
+  try {
+    const before = getDiskUsageSummary().uploadsBytes;
+    pruneOrphanUploads();
+    uploadsRemoved = Math.max(0, before - getDiskUsageSummary().uploadsBytes);
+  } catch {}
+  res.json({ ok: true, junk, uploadsFreedBytes: uploadsRemoved, disk: getDiskUsageSummary() });
+});
+
+// Borra todos los videos en DATA_DIR/uploads (libera espacio en Render).
+app.post('/api/admin/clear-upload-videos', requireAdmin, (_req, res) => {
+  const before = getDiskUsageSummary();
+  const result = clearPersistentUploadVideos();
+  res.json({
+    ok: true,
+    removed: result.removed,
+    freedMb: Math.round(result.freed / 1024 / 1024),
+    diskBeforeMb: before.totalMb,
+    diskAfterMb: getDiskUsageSummary().totalMb,
   });
 });
 
@@ -1410,6 +1528,8 @@ server.listen(PORT, () => {
   console.log('  └───────────────────────────────────────────┘');
   console.log(`  [data] DATA_DIR=${info.dataDir}`);
   console.log(`  [data] Cuentas cargadas: ${info.userCount}`);
+  const disk = getDiskUsageSummary();
+  console.log(`  [data] Uso disco: ~${disk.totalMb} MB (uploads ~${Math.round(disk.uploadsBytes / 1024 / 1024)} MB)`);
   if (USING_EPHEMERAL_DATA) {
     console.error('\n  [!] RENDER sin DATA_DIR: las cuentas NO usan el disco persistente.');
     console.error('      En Environment añade:  DATA_DIR=/var/data  (ruta de tu disco)\n');
