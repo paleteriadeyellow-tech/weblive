@@ -153,6 +153,10 @@ export function getUserById(id) {
 export function getUserByRoomKey(roomKey) {
   return users.find((u) => u.roomKey === roomKey) || null;
 }
+export function getUserByUsername(username) {
+  const uname = normalizeUsername(username);
+  return users.find((u) => u.username === uname) || null;
+}
 
 // Crea un usuario. Devuelve { user } o { error }.
 export function registerUser(username, password) {
