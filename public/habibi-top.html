@@ -4,10 +4,14 @@
 <meta charset="UTF-8">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Overlay — Habibi Top Donador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@700;800&family=Lilita+One&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
-
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
@@ -21,12 +25,12 @@ html.embed body { display: flex; align-items: center; justify-content: center; }
 html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); transform-origin: center center; }
 
 :root {
-  --tc1: #ff6eb4; --tc2: #ffd700; --tc3: #6ee7ff;
-  --name-color: #ffffff; --name-stroke: rgba(74, 0, 32, 0.85);
-  --value-color: #ffe8f0; --value-stroke: rgba(42, 0, 16, 0.9);
-  --coin-color: #ffd700;
+  --hc1: #ff6b35; --hc2: #ff4500; --hc3: #ffd700;
+  --ng1: #fff8f0; --ng2: #ffb347; --ng3: #ff4500;
+  --vc: #ffe8d6; --vs: #2a0a00;
   --ol-scale: 1;
-  --font-stack: 'Luckiest Guy', system-ui, sans-serif;
+  --tf-font-stack: 'Luckiest Guy', 'Arial Black', Impact, sans-serif;
+  --tf-name-font-stack: 'Luckiest Guy', 'Arial Black', Impact, sans-serif;
 }
 
 .stage {
@@ -36,48 +40,49 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   transform: scale(var(--ol-scale)); transform-origin: top center;
 }
 
-.title {
-  margin: 0 0 6px;
-  font-family: var(--font-stack);
+.mvp-header {
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 6px; max-width: 96%;
+}
+
+.mvp-header-title {
+  margin: 0;
+  font-family: var(--tf-font-stack);
   font-weight: 800;
   font-size: 26px;
-  line-height: 1.1;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
   text-align: center;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  max-width: 96%;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.title--gradient {
-  background: linear-gradient(95deg, var(--tc1), var(--tc2), var(--tc3));
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent; -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.95);
-  paint-order: stroke fill;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
-}
-
-.title--rainbow-fixed,
-.title--rainbow-move,
-.name.rainbow-text-fixed,
-.name.rainbow-text-move,
-.points-val.rainbow-text-fixed,
-.points-val.rainbow-text-move {
-  background: linear-gradient(92deg, #ff6b6b, #ffb74d, #fff176, #81c784, #4fc3f7, #ba68c8, #ff6b6b);
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent; -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.95);
-  paint-order: stroke fill;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55));
-}
-
-.title--rainbow-move,
-.rainbow-text-move {
+.mvp-header-title--rainbow {
+  background: linear-gradient(92deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #e040fb, #ff1744);
   background-size: 300% 100%;
-  animation: rainbow-shift 3.5s linear infinite;
+  animation: title-rainbow 4.5s linear infinite;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.5));
 }
 
-@keyframes rainbow-shift {
+.mvp-header-title--rainbow-fixed {
+  background: linear-gradient(92deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #e040fb, #ff1744);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.5));
+}
+
+.mvp-header-title--gradient {
+  background: linear-gradient(100deg, var(--hc1), var(--hc2), var(--hc3));
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45));
+}
+
+@keyframes title-rainbow {
   0% { background-position: 0% 50%; }
   100% { background-position: 100% 50%; }
 }
@@ -89,12 +94,9 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 }
 
 .avatar-hole {
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
+  position: absolute; z-index: 1;
+  top: 0; left: 0;
+  width: 0; height: 0;
   border-radius: 50%;
   overflow: hidden;
   background: radial-gradient(circle, #2a1838 0%, #120818 100%);
@@ -102,8 +104,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 }
 
 .avatar {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   border-radius: 50%;
   object-fit: contain;
   object-position: center center;
@@ -112,8 +113,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 }
 
 .frame-img {
-  position: relative;
-  z-index: 2;
+  position: relative; z-index: 2;
   width: 100%; height: 100%;
   object-fit: contain;
   display: block;
@@ -124,54 +124,51 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 
 .info { text-align: center; margin-top: 4px; max-width: 96%; }
 
-.name {
-  font-family: var(--font-stack);
-  font-weight: 800;
+.nombre {
+  font-family: var(--tf-name-font-stack);
+  font-weight: 900;
   font-size: 28px;
-  line-height: 1.05;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  letter-spacing: 0.04em;
+  text-align: center;
   max-width: 380px;
+  line-height: 1.2;
+  margin: 0 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: linear-gradient(180deg, var(--ng1) 0%, var(--ng2) 45%, var(--ng3) 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.95)) drop-shadow(0 0 12px rgba(255, 100, 0, 0.45));
 }
 
-.name.rainbow-text-fixed,
-.name.rainbow-text-move {
-  text-shadow: none;
+.monedas {
+  margin-top: 8px;
+  color: var(--vc);
+  font-family: var(--tf-font-stack);
+  font-weight: 800;
+  font-size: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  text-shadow: 0 2px 0 var(--vs), 0 2px 6px rgba(0,0,0,0.9), 0 0 14px rgba(255, 120, 40, 0.35);
 }
 
-.name.text--solid {
-  color: var(--name-color);
-  -webkit-text-stroke: 1px var(--name-stroke);
-  paint-order: stroke fill;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
-}
-
-.points {
-  display: inline-flex; align-items: center; justify-content: center;
-  gap: 8px; margin-top: 6px;
-  font-family: var(--font-stack);
-  font-weight: 800; font-size: 24px;
-}
-
-.points-val.text--solid {
-  color: var(--value-color);
-  -webkit-text-stroke: 0.8px var(--value-stroke);
-  paint-order: stroke fill;
-  text-shadow: 0 2px 5px rgba(0,0,0,0.45);
-}
-
-.coin {
-  width: 22px; height: 22px; flex-shrink: 0; display: block;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.45));
-  pointer-events: none;
+.moneda {
+  width: 22px; height: 22px;
+  flex-shrink: 0;
 }
 
 .stage[data-empty="1"] .avatar-hole { opacity: 0.4; }
-.stage[data-empty="1"] .name { opacity: 0.6; }
 </style>
 </head>
 <body>
 <div class="stage" id="stage" data-empty="1">
-  <h1 class="title title--gradient" id="title">HABIBI DEL MES</h1>
+  <header class="mvp-header">
+    <h1 class="mvp-header-title mvp-header-title--rainbow" id="title">HABIBI DEL MES</h1>
+  </header>
   <div class="frame-wrap">
     <div class="avatar-hole">
       <img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer">
@@ -179,41 +176,46 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     <img class="frame-img" id="frame" src="/habibis/top9.png" alt="">
   </div>
   <div class="info">
-    <div class="name text--solid" id="name">Esperando...</div>
-    <div class="points" id="points">
-      <svg class="coin" id="coin-ico" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="11" fill="var(--coin-color)"/>
-        <circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/>
-      </svg>
-      <span class="points-val text--solid" id="points-val">0 diamantes</span>
-    </div>
+    <div class="nombre" id="nombre">Esperando...</div>
+    <div class="monedas" id="monedas"><span id="monedas-inner"></span></div>
   </div>
 </div>
 
 <script>
 (function () {
+  const OV_BUILD = '4';
   const params = new URLSearchParams(location.search);
   const isEmbed = params.get('embed') === '1';
   const DEFAULT_PIC = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
   const PREVIEW_PIC = '/jarron/lv.png';
   const FONTS = {
-    luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif",
-    lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif",
-    fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif",
-    rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif",
-    bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif",
-    poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif",
-    inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif",
+    luckiest: "'Luckiest Guy', 'Arial Black', Impact, sans-serif",
+    bangers: "'Bangers', 'Arial Black', Impact, sans-serif",
+    lilita: "'Lilita One', system-ui, sans-serif",
+    titan: "'Titan One', system-ui, sans-serif",
+    fredoka: "'Fredoka', system-ui, sans-serif",
+    bungee: "'Bungee', system-ui, sans-serif",
+    rubik: "'Rubik', system-ui, sans-serif",
+    oswald: "'Oswald', system-ui, sans-serif",
+    bebas: "'Bebas Neue', Impact, sans-serif",
+    montserrat: "'Montserrat', system-ui, sans-serif",
+    poppins: "'Poppins', system-ui, sans-serif",
+    orbitron: "'Orbitron', system-ui, sans-serif",
+    inter: "'Inter', system-ui, sans-serif",
+    system: "system-ui, sans-serif",
   };
 
   const AVATAR_LAYOUT = { top: 0.415, left: 0.5, size: 0.56 };
 
   let cfg = {
-    headerTitle: 'HABIBI DEL MES', resetPeriod: 'month', coinLabel: 'diamantes',
-    font: 'luckiest', rainbowMode: 'move',
-    tc1: '#ff6eb4', tc2: '#ffd700', tc3: '#6ee7ff',
-    nameColor: '#ffffff', nameStroke: '#4a0020',
-    valueColor: '#ffe8f0', valueStroke: '#2a0010', coinColor: '#ffd700',
+    headerTitle: 'HABIBI DEL MES',
+    resetPeriod: 'month',
+    coinLabel: 'diamantes',
+    font: 'luckiest',
+    rainbowMode: 'move',
+    tc1: '#ff6b35', tc2: '#ff4500', tc3: '#ffd700',
+    ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
+    valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
     scale: 100,
   };
   let topData = null;
@@ -254,40 +256,37 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     hole.style.top = (cy - size / 2) + 'px';
   }
 
-  function applyRainbowText(el, rm) {
-    if (!el) return;
-    el.classList.remove('rainbow-text-fixed', 'rainbow-text-move', 'text--solid');
-    if (rm === 'move') el.classList.add('rainbow-text-move');
-    else if (rm === 'fixed') el.classList.add('rainbow-text-fixed');
-    else el.classList.add('text--solid');
+  function coinSvg() {
+    const c = hex(cfg.coinColor, '#ffd700');
+    return '<svg class="moneda" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="11" fill="' + c + '"/>' +
+      '<circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/></svg>';
   }
 
   function applyStyle() {
     const root = document.documentElement;
     const stack = FONTS[cfg.font] || FONTS.luckiest;
-    root.style.setProperty('--font-stack', stack);
-    root.style.setProperty('--tc1', hex(cfg.tc1, '#ff6eb4'));
-    root.style.setProperty('--tc2', hex(cfg.tc2, '#ffd700'));
-    root.style.setProperty('--tc3', hex(cfg.tc3, '#6ee7ff'));
-    root.style.setProperty('--name-color', hex(cfg.nameColor, '#ffffff'));
-    root.style.setProperty('--name-stroke', hex(cfg.nameStroke, '#4a0020'));
-    root.style.setProperty('--value-color', hex(cfg.valueColor, '#ffe8f0'));
-    root.style.setProperty('--value-stroke', hex(cfg.valueStroke, '#2a0010'));
-    root.style.setProperty('--coin-color', hex(cfg.coinColor, '#ffd700'));
+    root.style.setProperty('--tf-font-stack', stack);
+    root.style.setProperty('--tf-name-font-stack', stack);
+    root.style.setProperty('--hc1', hex(cfg.tc1, '#ff6b35'));
+    root.style.setProperty('--hc2', hex(cfg.tc2, '#ff4500'));
+    root.style.setProperty('--hc3', hex(cfg.tc3, '#ffd700'));
+    root.style.setProperty('--ng1', hex(cfg.ng1, '#fff8f0'));
+    root.style.setProperty('--ng2', hex(cfg.ng2, '#ffb347'));
+    root.style.setProperty('--ng3', hex(cfg.ng3, '#ff4500'));
+    root.style.setProperty('--vc', hex(cfg.valueColor, '#ffe8d6'));
+    root.style.setProperty('--vs', hex(cfg.valueStroke, '#2a0a00'));
     let sc = parseInt(cfg.scale, 10);
     if (!Number.isFinite(sc)) sc = 100;
     root.style.setProperty('--ol-scale', String(Math.min(150, Math.max(60, sc)) / 100));
 
     const t = $('title');
     t.textContent = (cfg.headerTitle || 'HABIBI DEL MES').trim();
-    const rm = String(cfg.rainbowMode || 'off').toLowerCase();
-    t.classList.remove('title--gradient', 'title--rainbow-fixed', 'title--rainbow-move');
-    if (rm === 'move') t.classList.add('title--rainbow-move');
-    else if (rm === 'fixed') t.classList.add('title--rainbow-fixed');
-    else t.classList.add('title--gradient');
-
-    applyRainbowText($('name'), rm);
-    applyRainbowText($('points-val'), rm);
+    const rm = String(cfg.rainbowMode || 'move').toLowerCase();
+    t.classList.remove('mvp-header-title--gradient', 'mvp-header-title--rainbow', 'mvp-header-title--rainbow-fixed');
+    if (rm === 'off') t.classList.add('mvp-header-title--gradient');
+    else if (rm === 'fixed') t.classList.add('mvp-header-title--rainbow-fixed');
+    else t.classList.add('mvp-header-title--rainbow');
 
     const fr = $('frame');
     if (fr) {
@@ -299,7 +298,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   function render() {
     const label = (cfg.coinLabel || 'diamantes').trim();
     const suffix = label ? (' ' + label) : '';
-    const valEl = $('points-val');
+    const inner = $('monedas-inner');
     const img = $('avatar');
     const top = previewMode
       ? { nickname: 'Habibi Preview', profilePictureUrl: PREVIEW_PIC, coins: 12500 }
@@ -307,17 +306,17 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 
     if (!top) {
       $('stage').dataset.empty = '1';
-      $('name').textContent = 'Esperando...';
-      valEl.textContent = '0' + suffix;
+      $('nombre').textContent = 'Esperando...';
+      inner.innerHTML = coinSvg() + ' <span>0' + suffix + '</span>';
       img.onerror = null;
       img.src = DEFAULT_PIC;
       return;
     }
     $('stage').dataset.empty = '0';
-    $('name').textContent = (top.nickname || 'Usuario').replace(/^@+/, '');
+    $('nombre').textContent = (top.nickname || 'Usuario').replace(/^@+/, '');
     img.onerror = function () { this.onerror = null; this.src = DEFAULT_PIC; };
     img.src = top.profilePictureUrl || top.photo || DEFAULT_PIC;
-    valEl.textContent = (top.coins || 0).toLocaleString('es-ES') + suffix;
+    inner.innerHTML = coinSvg() + ' <span>' + (top.coins || 0).toLocaleString('es-ES') + suffix + '</span>';
   }
 
   function applyPayload(payload) {
@@ -358,8 +357,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     if (d.type === 'config') {
       cfg = Object.assign(cfg, d.config);
       applyStyle(); render();
-    }
-    else if (d.type === 'test') runTest();
+    } else if (d.type === 'test') runTest();
     else if (d.type === 'reset') { previewMode = false; isEmbed ? runTest() : resetTop(); }
   });
 
@@ -375,7 +373,17 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 
   window.addEventListener('resize', () => applyFrameLayout());
 
+  if (params.get('v') !== OV_BUILD) {
+    const u = new URL(location.href);
+    u.searchParams.set('v', OV_BUILD);
+    location.replace(u.toString());
+    return;
+  }
+
   applyStyle();
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => { applyStyle(); render(); });
+  }
   if (isEmbed) runTest(); else render();
   connectWS();
 })();

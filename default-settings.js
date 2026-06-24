@@ -247,9 +247,9 @@ export const DEFAULT_SETTINGS = {
     coinLabel: 'diamantes',
     font: 'luckiest',
     rainbowMode: 'move',
-    tc1: '#ff6eb4', tc2: '#ffd700', tc3: '#6ee7ff',
-    nameColor: '#ffffff', nameStroke: '#4a0020',
-    valueColor: '#ffe8f0', valueStroke: '#2a0010', coinColor: '#ffd700',
+    tc1: '#ff6b35', tc2: '#ff4500', tc3: '#ffd700',
+    ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
+    valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
     scale: 100,
   },
   // Overlay Mejor regalo (top único por monedas)

@@ -795,6 +795,9 @@ function injectGuard(html) {
 function sendHtmlFile(res, filePath, status = 200) {
   fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) { res.status(404).end(); return; }
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.status(status).type('html').send(injectGuard(html));
   });
 }
@@ -832,6 +835,9 @@ app.use((req, res, next) => {
   if (!filePath.startsWith(PUBLIC_DIR)) return next(); // evita salir de /public
   fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) return next();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.type('html').send(injectGuard(html));
   });
 });

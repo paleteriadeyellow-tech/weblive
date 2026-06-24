@@ -848,8 +848,10 @@ function roomUrl(path) {
   const useCloud = relayActive() && !isLocalOnly;
   const base = useCloud ? String(window.desktopAPI.cloudBase).replace(/\/+$/, '') : location.origin;
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
-  if (!k) return base + p;
-  return base + p + (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
+  let url = base + p;
+  if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
+  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=4';
+  return url;
 }
 
 // Browser Source para pantallas 1–5 y videos de nivel: local en .exe relay.
@@ -4047,7 +4049,7 @@ const STYLE_OVERLAYS = [
     map: { 'habicfg-period': 'resetPeriod', 'habicfg-title': 'headerTitle', 'habicfg-coinlabel': 'coinLabel',
       'habicfg-font': 'font', 'habicfg-rainbow': 'rainbowMode', 'habicfg-scale': 'scale',
       'habicfg-tc1': 'tc1', 'habicfg-tc2': 'tc2', 'habicfg-tc3': 'tc3',
-      'habicfg-namecolor': 'nameColor', 'habicfg-namestroke': 'nameStroke',
+      'habicfg-ng1': 'ng1', 'habicfg-ng2': 'ng2', 'habicfg-ng3': 'ng3',
       'habicfg-valuecolor': 'valueColor', 'habicfg-valuestroke': 'valueStroke', 'habicfg-coincolor': 'coinColor' },
     types: { scale: 'int' },
   }),
