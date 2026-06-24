@@ -426,6 +426,90 @@ function clearPersistentUploadVideos() {
   return { removed, freed };
 }
 
+// Borra todo el contenido de uploads (videos, audios, imágenes subidas).
+function clearAllPersistentUploads() {
+  let removed = 0;
+  let freed = 0;
+  function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const ent of entries) {
+      const abs = path.join(dir, ent.name);
+      if (ent.isDirectory()) { walk(abs); continue; }
+      if (!ent.isFile()) continue;
+      try {
+        const st = fs.statSync(abs);
+        fs.unlinkSync(abs);
+        removed++;
+        freed += st.size;
+      } catch {}
+    }
+  }
+  if (fs.existsSync(UPLOADS_DIR)) walk(UPLOADS_DIR);
+  return { removed, freed };
+}
+
+const BLOATED_USER_FILES = [
+  'session-overlays.json', 'rank-overlays.json', 'points.json',
+  'weekly.json', 'top1fire.json', 'habibi-top.json',
+];
+const BLOATED_JSON_MAX_BYTES = 1.5 * 1024 * 1024;
+
+function pruneBloatedUserDataFiles() {
+  let removed = 0;
+  let freed = 0;
+  try {
+    for (const name of fs.readdirSync(DATA_DIR)) {
+      if (!/^[0-9a-f-]{36}$/i.test(name)) continue;
+      const userDir = path.join(DATA_DIR, name);
+      if (!fs.statSync(userDir).isDirectory()) continue;
+      for (const fname of BLOATED_USER_FILES) {
+        const f = path.join(userDir, fname);
+        if (!fs.existsSync(f)) continue;
+        let st;
+        try { st = fs.statSync(f); } catch { continue; }
+        if (st.size < BLOATED_JSON_MAX_BYTES) continue;
+        try {
+          fs.unlinkSync(f);
+          removed++;
+          freed += st.size;
+        } catch {}
+      }
+    }
+  } catch {}
+  return { removed, freed };
+}
+
+function getDiskFreeBytes(dir = DATA_DIR) {
+  try {
+    const s = fs.statfsSync(dir);
+    return Number(s.bfree) * Number(s.bsize);
+  } catch { return null; }
+}
+
+function emergencyFreeDiskSpace() {
+  if (!ON_RENDER) return null;
+  const freeBefore = getDiskFreeBytes();
+  const videos = clearPersistentUploadVideos();
+  const uploads = clearAllPersistentUploads();
+  const junk = pruneDiskJunk();
+  const bloated = pruneBloatedUserDataFiles();
+  const freeAfter = getDiskFreeBytes();
+  const totalFreed = videos.freed + uploads.freed + junk.freed + bloated.freed;
+  const mb = (n) => (n == null ? '?' : Math.round(n / 1024 / 1024));
+  console.log(`  [data] Disco libre: ${mb(freeBefore)} MB → ${mb(freeAfter)} MB (liberados ~${Math.round(totalFreed / 1024 / 1024)} MB)`);
+  if (videos.removed) console.log(`  [uploads] Videos eliminados: ${videos.removed}`);
+  if (uploads.removed) console.log(`  [uploads] Archivos en uploads eliminados: ${uploads.removed}`);
+  if (bloated.removed) console.log(`  [data] JSON pesados eliminados: ${bloated.removed}`);
+  if ((freeAfter ?? 0) < 50 * 1024 * 1024) {
+    console.error('  [!] DISCO CASI LLENO: amplía el disco en Render o borra datos manualmente en Shell.');
+  }
+  return { freeBefore, freeAfter, totalFreed, videos, uploads, junk, bloated };
+}
+
+// Antes de rutas/rooms: libera espacio para que profiles.json pueda guardarse.
+emergencyFreeDiskSpace();
+
 function trimUserUploadQuota(userId) {
   const dir = path.join(UPLOADS_DIR, String(userId));
   if (!fs.existsSync(dir)) return;
@@ -444,18 +528,6 @@ function trimUserUploadQuota(userId) {
   }
 }
 
-setTimeout(() => {
-  if (ON_RENDER) {
-    try {
-      const v = clearPersistentUploadVideos();
-      if (v.removed) {
-        console.log(`  [uploads] Videos del disco persistente eliminados: ${v.removed} (~${Math.round(v.freed / 1024 / 1024)} MB)`);
-      }
-    } catch {}
-  }
-  try { pruneDiskJunk(); } catch {}
-  try { pruneOrphanUploads(); } catch {}
-}, 8000);
 setInterval(() => { try { pruneOrphanUploads(); } catch {} }, 24 * 3600 * 1000);
 
 const AUDIOS_DIR = path.join(__dirname, 'public', 'audios');
@@ -748,6 +820,7 @@ app.get('/api/admin/data-diag', requireAdmin, (_req, res) => {
     orphanFolders: orphans,
     backups,
     disk: getDiskUsageSummary(),
+    diskFreeMb: Math.round((getDiskFreeBytes() ?? 0) / 1024 / 1024),
     hint: USING_EPHEMERAL_DATA
       ? 'Falta DATA_DIR en Render. Añade DATA_DIR=/var/data (o la ruta de tu disco) y redespliega.'
       : (orphans.length && usersFileCount <= 1)
@@ -778,7 +851,14 @@ app.post('/api/admin/clear-upload-videos', requireAdmin, (_req, res) => {
     freedMb: Math.round(result.freed / 1024 / 1024),
     diskBeforeMb: before.totalMb,
     diskAfterMb: getDiskUsageSummary().totalMb,
+    diskFreeMb: Math.round((getDiskFreeBytes() ?? 0) / 1024 / 1024),
   });
+});
+
+// Liberación agresiva (uploads + JSON pesados + basura).
+app.post('/api/admin/emergency-free-disk', requireAdmin, (_req, res) => {
+  const result = emergencyFreeDiskSpace();
+  res.json({ ok: true, ...result, diskFreeMb: Math.round((getDiskFreeBytes() ?? 0) / 1024 / 1024) });
 });
 
 // Restaura users.json desde una copia de seguridad en DATA_DIR.

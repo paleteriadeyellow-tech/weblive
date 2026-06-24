@@ -222,12 +222,14 @@ const MAX_CONNECT_ATTEMPTS = 4;
 // archivo original queda intacto (nunca a medio escribir). Así las alertas, sonidos
 // y videos guardados no se pueden corromper ni perder por un guardado interrumpido.
 function writeJsonAtomic(file, obj) {
+  const tmp = file + '.tmp';
   try {
-    const tmp = file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
     fs.renameSync(tmp, file);
   } catch (e) {
-    console.error('  [!] No se pudo guardar', file, '-', e.message);
+    try { fs.unlinkSync(tmp); } catch {}
+    if (e.code !== 'ENOSPC') console.error('  [!] No se pudo guardar', file, '-', e.message);
+    else console.error('  [!] Disco lleno, no se pudo guardar', path.basename(file));
   }
 }
 
