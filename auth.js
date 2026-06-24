@@ -202,6 +202,38 @@ export function restoreUsersFromBackup(backupName) {
   return { ok: true, userCount: users.length, usernames: users.map((u) => u.username) };
 }
 
+// Busca la mejor copia de users.json en DATA_DIR (más cuentas que la actual).
+export function findBestUsersBackup() {
+  const current = users.length;
+  let best = { name: null, userCount: 0, usernames: [] };
+  try {
+    for (const name of fs.readdirSync(DATA_DIR)) {
+      if (name === 'users.json') continue;
+      if (!name.startsWith('users.json')) continue;
+      const full = path.join(DATA_DIR, name);
+      let parsed;
+      try { parsed = JSON.parse(fs.readFileSync(full, 'utf8')); } catch { continue; }
+      if (!Array.isArray(parsed)) continue;
+      if (parsed.length > best.userCount) {
+        best = { name, userCount: parsed.length, usernames: parsed.map((u) => u.username) };
+      }
+    }
+  } catch {}
+  return { current, ...best, canRestore: best.userCount > current && !!best.name };
+}
+
+export function restoreUsersFromBestBackup() {
+  const best = findBestUsersBackup();
+  if (!best.canRestore) {
+    return { error: best.userCount > 0
+      ? `La mejor copia (${best.name}) tiene ${best.userCount} cuenta(s), no más que las ${best.current} actuales.`
+      : 'No hay copia de users.json en el disco.' };
+  }
+  const result = restoreUsersFromBackup(best.name);
+  if (result.error) return result;
+  return { ...result, restoredFrom: best.name };
+}
+
 // Crea un usuario. Devuelve { user } o { error }.
 export function registerUser(username, password) {
   const uname = normalizeUsername(username);

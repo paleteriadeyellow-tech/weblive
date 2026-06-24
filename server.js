@@ -18,7 +18,7 @@ import {
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
   getUserPlan, setUserPlan, deleteUser,
-  getAuthDataInfo, restoreUsersFromBackup,
+  getAuthDataInfo, restoreUsersFromBackup, findBestUsersBackup, restoreUsersFromBestBackup,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
 } from './auth.js';
 import {
@@ -450,8 +450,7 @@ function clearAllPersistentUploads() {
 }
 
 const BLOATED_USER_FILES = [
-  'session-overlays.json', 'rank-overlays.json', 'points.json',
-  'weekly.json', 'top1fire.json', 'habibi-top.json',
+  'session-overlays.json', 'weekly.json', 'top1fire.json', 'habibi-top.json',
 ];
 const BLOATED_JSON_MAX_BYTES = 1.5 * 1024 * 1024;
 
@@ -803,6 +802,7 @@ app.get('/api/admin/data-diag', requireAdmin, (_req, res) => {
   const info = getAuthDataInfo();
   const { folders, orphans } = scanDataDirUserFolders();
   const backups = listUserBackupFiles();
+  const bestBackup = findBestUsersBackup();
   let usersFileCount = 0;
   try {
     const parsed = JSON.parse(fs.readFileSync(info.usersFile, 'utf8'));
@@ -819,14 +819,23 @@ app.get('/api/admin/data-diag', requireAdmin, (_req, res) => {
     userDataFolders: folders.length,
     orphanFolders: orphans,
     backups,
+    bestBackup,
     disk: getDiskUsageSummary(),
     diskFreeMb: Math.round((getDiskFreeBytes() ?? 0) / 1024 / 1024),
     hint: USING_EPHEMERAL_DATA
       ? 'Falta DATA_DIR en Render. Añade DATA_DIR=/var/data (o la ruta de tu disco) y redespliega.'
       : (orphans.length && usersFileCount <= 1)
-        ? 'Hay carpetas de usuarios huérfanas: restaura users.json desde una copia (.bak).'
-        : null,
+        ? 'Hay carpetas de usuarios huérfanas: pulsa «Restaurar cuentas desde copia» o restaura users.json.bak en Shell.'
+        : (bestBackup.canRestore)
+          ? `Copia ${bestBackup.name} tiene ${bestBackup.userCount} cuentas (${bestBackup.usernames.join(', ')}). Restáurala.`
+          : null,
   });
+});
+
+app.post('/api/admin/restore-users-best-backup', requireAdmin, (_req, res) => {
+  const result = restoreUsersFromBestBackup();
+  if (result.error) return res.status(400).json(result);
+  res.json(result);
 });
 
 // Libera espacio: basura temporal + subidas huérfanas.

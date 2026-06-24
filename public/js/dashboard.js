@@ -1134,8 +1134,25 @@ function fmtDateTime(ts) {
 async function loadAdminUsers() {
   const tbody = document.getElementById('admin-tbody');
   const count = document.getElementById('admin-count');
+  const recoverHint = document.getElementById('admin-recover-hint');
   if (!tbody) return;
   try {
+    if (recoverHint) {
+      try {
+        const dr = await fetch('/api/admin/data-diag');
+        if (dr.ok) {
+          const diag = await dr.json();
+          const b = diag.bestBackup;
+          if (b?.canRestore) {
+            recoverHint.style.display = 'block';
+            recoverHint.textContent = `Hay una copia en disco (${b.name}) con ${b.userCount} cuentas: ${b.usernames.join(', ')}. Pulsa «Restaurar cuentas desde copia».`;
+          } else if (diag.orphanFolders?.length && (diag.usersInFile || 0) <= 1) {
+            recoverHint.style.display = 'block';
+            recoverHint.textContent = `Hay ${diag.orphanFolders.length} carpeta(s) de datos huérfanas en el disco. Si existe users.json.bak, restáurala.`;
+          } else recoverHint.style.display = 'none';
+        }
+      } catch { if (recoverHint) recoverHint.style.display = 'none'; }
+    }
     const r = await fetch('/api/admin/users');
     if (!r.ok) { tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Sin acceso.</td></tr>'; return; }
     const { users } = await r.json();
@@ -1285,6 +1302,20 @@ async function deleteUserReq(id, username) {
 
 const adminRefreshBtn = document.getElementById('admin-refresh');
 if (adminRefreshBtn) adminRefreshBtn.onclick = loadAdminUsers;
+
+const adminRestoreUsersBtn = document.getElementById('admin-restore-users');
+if (adminRestoreUsersBtn) {
+  adminRestoreUsersBtn.onclick = async () => {
+    if (!confirm('¿Restaurar users.json desde la mejor copia en el disco?\n\nRecupera las cuentas registradas. Cierra sesión y vuelve a entrar después.')) return;
+    try {
+      const r = await fetch('/api/admin/restore-users-best-backup', { method: 'POST' });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { toast(d.error || 'No se pudo restaurar.'); return; }
+      toast(`Restauradas ${d.userCount} cuentas: ${(d.usernames || []).join(', ')}`);
+      loadAdminUsers();
+    } catch { toast('Error de red al restaurar.'); }
+  };
+}
 
 const planUpgradeBtn = document.getElementById('plan-upgrade');
 if (planUpgradeBtn) planUpgradeBtn.onclick = () => {
