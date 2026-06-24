@@ -18,6 +18,7 @@ import {
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
   getUserPlan, setUserPlan, deleteUser,
+  getAuthDataInfo, restoreUsersFromBackup,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
 } from './auth.js';
 import {
@@ -31,6 +32,44 @@ const PORT = process.env.PORT || 3000;
 // En local, si no existe la variable, se usa la carpeta "data" del proyecto.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
+const DEFAULT_DATA_DIR = path.join(__dirname, 'data');
+const ON_RENDER = !!process.env.RENDER;
+const USING_EPHEMERAL_DATA = ON_RENDER && path.resolve(DATA_DIR) === path.resolve(DEFAULT_DATA_DIR);
+
+function scanDataDirUserFolders() {
+  const known = new Set(listUsers().map((u) => u.id));
+  const folders = [];
+  const orphans = [];
+  try {
+    for (const name of fs.readdirSync(DATA_DIR)) {
+      if (!/^[0-9a-f-]{36}$/i.test(name)) continue;
+      const full = path.join(DATA_DIR, name);
+      if (!fs.statSync(full).isDirectory()) continue;
+      folders.push(name);
+      if (!known.has(name)) orphans.push(name);
+    }
+  } catch {}
+  return { folders, orphans };
+}
+
+function listUserBackupFiles() {
+  const out = [];
+  try {
+    for (const name of fs.readdirSync(DATA_DIR)) {
+      if (!name.startsWith('users.json')) continue;
+      if (name === 'users.json') continue;
+      const full = path.join(DATA_DIR, name);
+      let count = 0;
+      try {
+        const parsed = JSON.parse(fs.readFileSync(full, 'utf8'));
+        if (Array.isArray(parsed)) count = parsed.length;
+      } catch {}
+      out.push({ name, bytes: fs.statSync(full).size, userCount: count });
+    }
+  } catch {}
+  out.sort((a, b) => b.userCount - a.userCount || b.bytes - a.bytes);
+  return out;
+}
 
 /* ----------------------------------------------------------------------------
  * Catálogo de regalos de TikTok (compartido por todos los usuarios). Cacheado.
@@ -593,6 +632,43 @@ app.get('/api/admin/users', requireAdmin, (_req, res) => {
     };
   });
   res.json({ users: out });
+});
+
+// Diagnóstico del disco: comprueba si Render lee el volumen persistente correcto.
+app.get('/api/admin/data-diag', requireAdmin, (_req, res) => {
+  const info = getAuthDataInfo();
+  const { folders, orphans } = scanDataDirUserFolders();
+  const backups = listUserBackupFiles();
+  let usersFileCount = 0;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(info.usersFile, 'utf8'));
+    if (Array.isArray(parsed)) usersFileCount = parsed.length;
+  } catch {}
+  res.json({
+    dataDir: info.dataDir,
+    usersFile: info.usersFile,
+    onRender: ON_RENDER,
+    usingEphemeralData: USING_EPHEMERAL_DATA,
+    dataDirEnv: process.env.DATA_DIR || null,
+    usersInMemory: info.userCount,
+    usersInFile: usersFileCount,
+    userDataFolders: folders.length,
+    orphanFolders: orphans,
+    backups,
+    hint: USING_EPHEMERAL_DATA
+      ? 'Falta DATA_DIR en Render. Añade DATA_DIR=/var/data (o la ruta de tu disco) y redespliega.'
+      : (orphans.length && usersFileCount <= 1)
+        ? 'Hay carpetas de usuarios huérfanas: restaura users.json desde una copia (.bak).'
+        : null,
+  });
+});
+
+// Restaura users.json desde una copia de seguridad en DATA_DIR.
+app.post('/api/admin/restore-users-backup', express.json(), requireAdmin, (req, res) => {
+  const { backupName } = req.body || {};
+  const result = restoreUsersFromBackup(backupName);
+  if (result.error) return res.status(400).json(result);
+  res.json(result);
 });
 
 // Activar / desactivar una cuenta.
@@ -1324,13 +1400,21 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, () => {
+  const info = getAuthDataInfo();
   console.log('\n  ┌───────────────────────────────────────────┐');
   console.log('  │   Livecoins  —  panel estilo TikFinity       │');
   console.log('  ├───────────────────────────────────────────┤');
   console.log(`  │   ${eulerStartupLine().padEnd(42)}│`);
   console.log(`  │   Panel:   http://localhost:${PORT}/`.padEnd(46) + '│');
   console.log(`  │   Login:   http://localhost:${PORT}/login.html`.padEnd(46) + '│');
-  console.log('  └───────────────────────────────────────────┘\n');
+  console.log('  └───────────────────────────────────────────┘');
+  console.log(`  [data] DATA_DIR=${info.dataDir}`);
+  console.log(`  [data] Cuentas cargadas: ${info.userCount}`);
+  if (USING_EPHEMERAL_DATA) {
+    console.error('\n  [!] RENDER sin DATA_DIR: las cuentas NO usan el disco persistente.');
+    console.error('      En Environment añade:  DATA_DIR=/var/data  (ruta de tu disco)\n');
+  }
+  console.log('');
 });
 
 process.on('SIGINT', () => {

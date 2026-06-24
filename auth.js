@@ -22,11 +22,9 @@ const ADMIN_USERNAME = 'jesus'; // este usuario es el administrador
 let users = load(USERS_FILE, []);
 let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
 
-// Normaliza usuarios existentes: marca al admin y asegura el campo `active`.
-// Las cuentas nuevas quedan inactivas hasta que el admin las active.
-(function normalizeUsers() {
+function normalizeUsersList(list) {
   let changed = false;
-  for (const u of users) {
+  for (const u of list) {
     if (u.username === ADMIN_USERNAME) {
       if (!u.isAdmin) { u.isAdmin = true; changed = true; }
       if (u.active !== true) { u.active = true; changed = true; }
@@ -34,18 +32,26 @@ let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
     if (u.active === undefined) { u.active = true; changed = true; }
     if (u.lastLogin === undefined) { u.lastLogin = 0; changed = true; }
     if (u.plan === undefined) { u.plan = u.isAdmin ? 'premium' : 'free'; changed = true; }
-    if (u.premiumUntil === undefined) { u.premiumUntil = 0; changed = true; } // 0 = sin caducidad (fijo)
-    // Migración: ya no se requiere activación. Activamos UNA sola vez a las cuentas
-    // antiguas que quedaron pendientes; después el admin puede desactivar y persiste.
+    if (u.premiumUntil === undefined) { u.premiumUntil = 0; changed = true; }
     if (!u.activatedByDefault) { u.active = true; u.activatedByDefault = true; changed = true; }
   }
-  if (changed) saveUsers();
+  return changed;
+}
+
+// Normaliza usuarios existentes al arrancar.
+(function normalizeUsers() {
+  if (normalizeUsersList(users)) saveUsers();
 })();
 
 function load(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
 }
 function saveUsers() {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      fs.copyFileSync(USERS_FILE, USERS_FILE + '.bak-' + Date.now());
+    }
+  } catch {}
   fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), () => {});
 }
 function saveSessions() {
@@ -156,6 +162,26 @@ export function getUserByRoomKey(roomKey) {
 export function getUserByUsername(username) {
   const uname = normalizeUsername(username);
   return users.find((u) => u.username === uname) || null;
+}
+
+export function getAuthDataInfo() {
+  return { dataDir: DATA_DIR, usersFile: USERS_FILE, userCount: users.length };
+}
+
+// Restaura users.json desde una copia en el mismo DATA_DIR (solo admin).
+export function restoreUsersFromBackup(backupName) {
+  const name = path.basename(String(backupName || ''));
+  if (!name.startsWith('users.json')) return { error: 'nombre de copia inválido' };
+  const src = path.join(DATA_DIR, name);
+  if (!fs.existsSync(src)) return { error: 'copia no encontrada' };
+  let parsed;
+  try { parsed = JSON.parse(fs.readFileSync(src, 'utf8')); } catch { return { error: 'JSON inválido' }; }
+  if (!Array.isArray(parsed) || !parsed.length) return { error: 'la copia no tiene cuentas' };
+  try { fs.copyFileSync(USERS_FILE, USERS_FILE + '.pre-restore-' + Date.now()); } catch {}
+  users = parsed;
+  normalizeUsersList(users);
+  saveUsers();
+  return { ok: true, userCount: users.length, usernames: users.map((u) => u.username) };
 }
 
 // Crea un usuario. Devuelve { user } o { error }.
