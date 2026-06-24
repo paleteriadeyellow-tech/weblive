@@ -234,6 +234,7 @@ body {
 }
 .profiles-pop-foot { padding: 8px 14px 11px; font-size: 11px; color: var(--mut); border-top: 1px solid rgba(255,255,255,.07); }
 .profiles-list { max-height: 320px; overflow-y: auto; padding: 2px 0; }
+.profiles-loading { padding: 14px 16px; font-size: 12px; color: var(--mut); text-align: center; }
 .profile-row {
   display: flex; align-items: center; gap: 8px;
   padding: 9px 14px; cursor: pointer;
@@ -1105,6 +1106,11 @@ details.settings-card[open] summary::before { content: '▾ '; }
   aspect-ratio: unset; object-fit: contain; object-position: center;
   display: block;
 }
+#view-juego-mariobros .juego-banner-img {
+  width: 100%; height: auto; max-height: none;
+  aspect-ratio: unset; object-fit: cover; object-position: center;
+  display: block;
+}
 #view-juego-smb3 .smb3-banner-btns { max-width: min(100%, 680px); }
 #view-juego-smb3 .smb3-banner-btns .juego-play-btn {
   font-size: 13px; padding: 9px 14px;
@@ -1118,8 +1124,10 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .juego-play-btn:active { transform: translateY(1px); }
 /* Cuando hay varios botones sobre el banner, se agrupan en una fila abajo-izquierda. */
 .juego-banner-btns { position: absolute; left: 16px; bottom: 14px; z-index: 3; display: flex; gap: 10px; flex-wrap: wrap; }
+.juego-banner-btns-right { left: auto; right: 16px; }
 .juego-banner-btns .juego-play-btn { position: static; }
 .juego-room-btn { border-color: #1f4f8b; background: linear-gradient(180deg, #4aa3ff, #2367c4); }
+.juego-worlds-btn { border-color: #7c3aed; background: linear-gradient(180deg, #c084fc, #7c3aed); }
 .roblox-steps { margin: 8px 0 0; padding-left: 20px; }
 .roblox-steps li { margin-bottom: 14px; }
 .roblox-steps li span { display: block; margin-bottom: 8px; }
@@ -1396,6 +1404,31 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .mc-act-card.mc-off { opacity: .55; }
 .mc-act-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .mc-act-name { font-weight: 800; color: #fff; font-size: 14px; }
+.mc-act-title-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mc-act-sub { font-size: 12px; color: rgba(255,255,255,.55); font-weight: 600; }
+.mc-act-trigger-row { flex-direction: column; gap: 5px; }
+.mc-wh-chip { margin-left: auto; font-size: 10.5px; }
+.mc-gift-readonly { cursor: default; pointer-events: none; }
+.mc-wh-card { border-color: rgba(34,211,238,.22); }
+#mario-my-actions .mc-act-card { padding: 10px; gap: 6px; }
+#mario-my-actions .mc-act-name { font-size: 13px; }
+#mario-my-actions .mc-act-trigger-row .mc-trig-sel,
+#mario-my-actions .mc-act-trigger-row .mario-trig-sel {
+  width: 100%; padding: 5px 8px; font-size: 11.5px; border-radius: 8px;
+}
+#mario-my-actions .mc-act-trigger-row .mc-gift-btn,
+#mario-my-actions .mc-act-trigger-row .mc-ev-badge {
+  width: 100%; padding: 5px 8px; font-size: 11.5px; border-radius: 8px; gap: 5px;
+}
+#mario-my-actions .mc-gift-ic { width: 18px; height: 18px; }
+#mario-my-actions .mc-wh-chip { margin-left: 0; align-self: flex-start; padding: 2px 7px; }
+#mario-my-actions .mc-like-row { font-size: 10.5px; gap: 3px; }
+#mario-my-actions .mc-like-row input { padding: 4px 7px; font-size: 11px; border-radius: 7px; }
+#mario-my-actions .mc-act-actions { margin-top: 0; }
+#mario-my-actions .mc-act-toggle { font-size: 11px; }
+#mario-my-actions .mc-act-test { padding: 5px 10px; font-size: 11.5px; }
+.mc-cat-card.mc-cat-in-use { box-shadow: inset 0 0 0 1px rgba(255,211,77,.28); }
+.mc-cat-use-n { font-size: 11px; font-weight: 700; color: #ffd34d; opacity: .9; }
 .mc-act-del { background: transparent; border: 0; color: #ff7a98; font-size: 16px; cursor: pointer; line-height: 1;
   padding: 2px 4px; border-radius: 6px; }
 .mc-act-del:hover { background: rgba(255,45,107,.15); }
@@ -1446,13 +1479,17 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .mc-cat-card { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 12px;
   padding: 11px; display: flex; flex-direction: column; gap: 4px; transition: border-color .15s ease, transform .1s ease; }
 .mc-cat-card:hover { border-color: rgba(124,58,237,.55); transform: translateY(-2px); }
-.mc-cat-card.mc-cat-in-use { box-shadow: inset 0 0 0 1px rgba(255,211,77,.28); }
-.mc-cat-use-n { font-size: 11px; font-weight: 700; color: #ffd34d; opacity: .9; }
 .mc-cat-head-row { display: flex; align-items: center; gap: 9px; flex: 1; }
 .mc-cat-ic { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex-shrink: 0;
   background: rgba(0,0,0,.25); image-rendering: pixelated; }
 .mc-cat-emoji { width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0; background: rgba(0,0,0,.25);
   display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.mc-cat-emoji[hidden] { display: none !important; }
+#mario-catalog .mc-cat-head-row { flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+#mario-catalog .mc-cat-name { display: none; }
+#mario-catalog .mc-cat-texts { text-align: center; width: 100%; }
+#mario-catalog .mc-cat-ic { object-fit: contain; background: transparent; width: 56px; height: 56px; }
+#mario-catalog .mc-cat-emoji { width: 56px; height: 56px; font-size: 32px; }
 .mc-cat-texts { min-width: 0; }
 .mc-cat-name { font-weight: 800; color: #fff; font-size: 13.5px; }
 .mc-cat-desc { font-size: 11.5px; color: #9aa; line-height: 1.4; min-height: 16px; }

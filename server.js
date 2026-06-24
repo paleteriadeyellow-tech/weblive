@@ -475,7 +475,13 @@ app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
   res.json({ ok: true });
 });
 
-// Perfiles: cambio por HTTP (más fiable que solo WebSocket, p. ej. .exe en modo relay).
+// Perfiles: lectura y cambio por HTTP (más fiable que solo WebSocket).
+app.get('/api/profiles', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  res.json({ ok: true, profiles: room.getProfilesInfo() });
+});
 app.post('/api/profiles/switch-general', (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });

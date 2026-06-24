@@ -209,7 +209,13 @@ function connectWS() {
     url = `${proto}://${location.host}/ws`;
   }
   ws = new WebSocket(url);
-  ws.onopen = () => { clearTimeout(reconnectTimer); setConnBadge(true); buildKeepAliveWorker(); connectLocalWS(); };
+  ws.onopen = () => {
+    clearTimeout(reconnectTimer);
+    setConnBadge(true);
+    buildKeepAliveWorker();
+    connectLocalWS();
+    try { requestProfiles(); } catch {}
+  };
   ws.onclose = () => { setConnBadge(false); clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectWS, 1500); };
   ws.onerror = () => { try { ws.close(); } catch {} };
   ws.onmessage = (ev) => {
@@ -1005,6 +1011,7 @@ function handle(type, p) {
     case 'pointsTx': onPointsTx(p); break;
     case 'spotifyHistory': if (typeof renderSpotifyHistory === 'function') renderSpotifyHistory(p.history || []); break;
     case 'spotifyQueue': break;
+    case 'spotifyNowPlaying': break;
     case 'spotifyCommand': break;
     case 'caps': setCaps(p); loadPlanComparison(true); break;
     case 'keyAction': onKeyAction(p); break;
@@ -1395,7 +1402,7 @@ function renderAnnList() {
 
 async function loadAnnouncements() {
   try {
-    const r = await fetch('/api/announcements');
+    const r = await fetch('/api/announcements', { credentials: 'same-origin', cache: 'no-store' });
     if (!r.ok) return;
     const d = await r.json();
     annCache = Array.isArray(d.announcements) ? d.announcements : [];
@@ -1425,14 +1432,18 @@ function toggleAnnPop(open) {
   document.addEventListener('click', (e) => {
     if (wrap && !wrap.contains(e.target)) toggleAnnPop(false);
   });
-  setInterval(loadAnnouncements, 120000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadAnnouncements();
+  });
+  loadAnnouncements();
+  setInterval(loadAnnouncements, 60000);
 })();
 
 async function loadAnnouncementsAdmin() {
   const list = document.getElementById('ann-admin-list');
   if (!list) return;
   try {
-    const r = await fetch('/api/announcements');
+    const r = await fetch('/api/announcements', { credentials: 'same-origin', cache: 'no-store' });
     if (!r.ok) { list.innerHTML = '<p class="tts-sub">Sin acceso.</p>'; return; }
     const d = await r.json();
     const items = Array.isArray(d.announcements) ? d.announcements : [];
@@ -2029,6 +2040,7 @@ function mcCmdReady(a) {
 
 function onSettings(s) {
   settings = preserveLocalGameActionsOnSettingsEcho(s);
+  if (migrateAccionesSpawnWebhooks(settings.actions)) saveSettings();
   normalizeRelayMedia(settings);
   ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop'].forEach((k) => {
     if (settings[k] && settings[k].resetPeriod == null) settings[k].resetPeriod = 'live';
@@ -5531,7 +5543,9 @@ function renderAcciones() {
       <div class="acc-name">${esc(a.name || 'Acción')}</div>
       <div class="acc-meta">
         <span class="acc-chip">${accEventLabel(a)}</span>
-        <span class="acc-chip key">⌨️ ${esc(a.keys || '—')}${a.keyRepeatOn && a.keys && (parseInt(a.keyRepeat, 10) || 1) > 1 ? ` ×${parseInt(a.keyRepeat, 10) || 1}` : ''}</span>
+        <span class="acc-chip key">${a.keys
+    ? `⌨️ ${esc(a.keys)}${a.keyRepeatOn && (parseInt(a.keyRepeat, 10) || 1) > 1 ? ` ×${parseInt(a.keyRepeat, 10) || 1}` : ''}`
+    : (a.marioSpawn?.npcId != null ? `🍄 Mario #${a.marioSpawn.npcId}` : (a.webhookCmd?.on && a.webhookCmd?.url ? '🪝 WebHook' : '⌨️ —'))}</span>
       </div>
       <div class="acc-card-btns">
         <button class="btn ghost acc-edit">✏️ Editar</button>
@@ -5570,6 +5584,52 @@ function syncAccKeyRepeatUI() {
   if ($('acc-keyrepeat-on-row')) $('acc-keyrepeat-on-row').hidden = !keysOn;
   const repeatOn = keysOn && $('acc-keyrepeat-on') && $('acc-keyrepeat-on').checked;
   if ($('acc-keyrepeat-wrap')) $('acc-keyrepeat-wrap').hidden = !repeatOn;
+}
+
+function parseTikfinitySpawnUrlMeta(url) {
+  const u = String(url || '');
+  if (!/\/spawn\b/i.test(u)) return null;
+  const idM = u.match(/[?&](?:id|npcId)=(\d+)/i);
+  if (!idM) return null;
+  const qM = u.match(/[?&](?:quantity|count)=(\d+)/i);
+  return { npcId: Number(idM[1]), quantity: qM ? Math.max(1, parseInt(qM[1], 10) || 1) : 1 };
+}
+
+function migrateAccionesSpawnWebhooks(actions) {
+  if (!Array.isArray(actions)) return false;
+  let changed = false;
+  for (const a of actions) {
+    if (a._spawnWebhookMigrated) continue;
+    const meta = parseTikfinitySpawnUrlMeta(a?.webhookCmd?.url);
+    if (a.marioSpawn?.npcId == null && meta && !a.webhookCmd?.on) {
+      a.marioSpawn = meta;
+      changed = true;
+    }
+    a._spawnWebhookMigrated = true;
+  }
+  return changed;
+}
+
+function tikfinityTypeToEvent(type) {
+  if (type === 'gift') return 'gift';
+  if (type === 'likes-person') return 'like';
+  if (type === 'likes-total' || type === 'likes-global') return 'likeGlobal';
+  if (type === 'follow') return 'follow';
+  if (type === 'share') return 'share';
+  if (type === 'subscribe') return 'subscribe';
+  return null;
+}
+
+function tikfinityWebhookActionName(trig) {
+  const gift = String(trig?.giftName || '').trim().toLowerCase();
+  const clean = (s) => String(s || '').trim().replace(/^Gift\s+/i, '').trim();
+  const candidates = [trig?.functionName, trig?.name, trig?.webhook?.name]
+    .map(clean)
+    .filter(Boolean);
+  for (const c of candidates) {
+    if (!gift || c.toLowerCase() !== gift) return c;
+  }
+  return candidates[0] || 'Acción TikFinity';
 }
 
 function setupAccionesUI() {
@@ -5761,6 +5821,17 @@ function saveAccModal() {
     $('acc-status').textContent = 'Elige una tecla/clic o activa una salida (WebHook, OBS o Streamer.bot).';
     return;
   }
+  let marioSpawn = null;
+  if (webhookCmd.on) {
+    marioSpawn = null;
+  } else {
+    const spawnMeta = parseTikfinitySpawnUrlMeta(webhookCmd.url);
+    if (spawnMeta) marioSpawn = spawnMeta;
+    else if (accEditingId) {
+      const prev = settings.actions.find((x) => x.id === accEditingId);
+      if (prev?.marioSpawn?.npcId != null) marioSpawn = prev.marioSpawn;
+    }
+  }
   const data = {
     name: $('acc-name').value.trim() || 'Acción',
     event: $('acc-event').value,
@@ -5783,6 +5854,7 @@ function saveAccModal() {
     soundName: $('acc-soundon').checked && accPendingSound ? accPendingSound.name : '',
     soundVolume: Math.max(0, Math.min(1, (+$('acc-soundvol').value || 100) / 100)),
     enabled: $('acc-active').checked,
+    marioSpawn,
     webhookCmd, obsCmd, sbCmd,
   };
   if (!settings.actions) settings.actions = [];
@@ -6300,6 +6372,24 @@ function onProfiles(p) {
   updateProfileEditBadge();
 }
 
+async function fetchProfilesHttp() {
+  try {
+    const r = await fetch('/api/profiles', { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return data.profiles || null;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureProfilesLoaded() {
+  if (profilesState) return profilesState;
+  const p = await fetchProfilesHttp();
+  if (p) onProfiles(p);
+  return profilesState;
+}
+
 function updateProfileEditBadge() {
   const btn = $('brandBtn');
   if (!btn) return;
@@ -6317,8 +6407,11 @@ function onProfilesFull(p) {
 }
 
 // Los perfiles los gestiona el servidor (local en modo clásico, o la nube en modo
-// relay). Siempre se piden/actualizan por WebSocket; el servidor responde con la lista.
-function requestProfiles() { send({ action: 'getProfiles' }); }
+// relay). Se piden por WebSocket y, si hace falta, por HTTP como respaldo.
+function requestProfiles() {
+  send({ action: 'getProfiles' });
+  fetchProfilesHttp().then((p) => { if (p) onProfiles(p); });
+}
 
 // Pide al servidor TODOS los perfiles con sus ajustes (para exportarlos completos).
 function requestProfilesFull(timeoutMs) {
@@ -6371,7 +6464,11 @@ function importProfilesReq(profiles, mode) { send({ action: 'importProfiles', pr
 
 function renderProfilesList() {
   const list = $('profilesList');
-  if (!list || !profilesState) return;
+  if (!list) return;
+  if (!profilesState) {
+    list.innerHTML = '<div class="profiles-loading">Cargando perfiles…</div>';
+    return;
+  }
   const escAttr = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const { active, count, names, used, editingGeneral, generalUsed } = profilesState;
   const max = Number(profilesState.max) > 0 ? Number(profilesState.max) : count;
@@ -6473,10 +6570,19 @@ function startRenameProfile(i, current, row) {
 function openProfilesPop() {
   const pop = $('profilesPop');
   const wrap = pop && pop.closest('.brand-wrap');
+  const list = $('profilesList');
   if (!pop || !wrap) return;
   pop.hidden = false;
   wrap.classList.add('open');
   requestProfiles();
+  if (!profilesState && list) {
+    list.innerHTML = '<div class="profiles-loading">Cargando perfiles…</div>';
+    ensureProfilesLoaded().then(() => {
+      if (!profilesState && list) {
+        list.innerHTML = '<div class="profiles-loading">No se pudieron cargar. Cierra y vuelve a abrir.</div>';
+      }
+    });
+  }
 }
 function closeProfilesPop() {
   const pop = $('profilesPop');
@@ -6487,6 +6593,7 @@ function closeProfilesPop() {
 }
 
 function setupProfiles() {
+  if (!document.documentElement.classList.contains('is-desktop')) return;
   const btn = $('brandBtn');
   const pop = $('profilesPop');
   if (!btn || !pop) return;
@@ -6995,7 +7102,8 @@ function exportMcPresets() {
 }
 
 // Diálogo: ¿añadir a las actuales o reemplazar todas? Devuelve 'merge' | 'replace' | null.
-function askMcImportMode(count) {
+function askGameImportMode(count, subjectLabel) {
+  const subject = subjectLabel || 'las acciones';
   return new Promise((resolve) => {
     const back = document.createElement('div');
     back.className = 'modal confirm-modal';
@@ -7003,7 +7111,7 @@ function askMcImportMode(count) {
       <div class="confirm-box">
         <div class="confirm-ico">📦</div>
         <h3>Importar ${count} ${count === 1 ? 'acción' : 'acciones'}</h3>
-        <p>¿Cómo quieres importar los presets de Minecraft?</p>
+        <p>¿Cómo quieres importar ${subject}?</p>
         <div class="confirm-btns">
           <button class="btn ghost c-cancel">Cancelar</button>
           <button class="btn c-merge">Añadir a las actuales</button>
@@ -7020,6 +7128,9 @@ function askMcImportMode(count) {
       if (e.key === 'Escape') { document.removeEventListener('keydown', esc); close(null); }
     });
   });
+}
+function askMcImportMode(count) {
+  return askGameImportMode(count, 'los presets de Minecraft');
 }
 
 // Importa acciones de Minecraft desde un archivo de presets, fusionando o reemplazando.
@@ -7257,8 +7368,8 @@ function renderMccLines(lines) {
     const extraFields = extra ? `
       <div class="mcc-line-times">
         <label class="mcc-time-field"><span class="mcc-time-lbl">Repetición</span><input type="number" class="mcc-x-repeat" min="1" value="${Math.max(1, parseInt(l.repeat, 10) || 1)}"></label>
-        <label class="mcc-time-field"><span class="mcc-time-lbl">Retraso (ms)</span><input type="number" class="mcc-x-delaybefore" min="0" value="${Math.max(0, parseInt(l.delayBefore, 10) || 0)}" title="Espera antes de este comando"></label>
-        <label class="mcc-time-field"><span class="mcc-time-lbl">Intervalo (ms)</span><input type="number" class="mcc-x-delayeach" min="0" value="${Math.max(0, parseInt(l.delayEach, 10) || 100)}" title="Pausa entre repeticiones del mismo comando"></label>
+        <label class="mcc-time-field"><span class="mcc-time-lbl">Retraso (ms)</span><input type="number" class="mcc-x-delaybefore" min="0" value="${Math.max(0, parseInt(l.delayBefore, 10) || 0)}" title="Milisegundos desde el inicio de la acción hasta el primer spawn de este comando"></label>
+        <label class="mcc-time-field"><span class="mcc-time-lbl">Intervalo (ms)</span><input type="number" class="mcc-x-delayeach" min="0" value="${Math.max(0, parseInt(l.delayEach, 10) || 100)}" title="Pausa entre cada repetición del mismo comando (sumada al retraso)"></label>
       </div>` : '';
     return `
     <div class="mcc-line">
@@ -7415,9 +7526,10 @@ function mcCardQtyHtml(a) {
 }
 function mcCardComboInstantHtml(a) {
   if (a.trigger !== 'gift' && a.trigger !== 'gift-any') return '';
+  const on = a.comboInstant !== false;
   return `<label class="mc-combo-instant mcc-check">
-        <input type="checkbox" class="mc-combo-instant-en" data-uid="${esc(a.uid)}" ${a.comboInstant ? 'checked' : ''}>
-        <span><b class="mc-combo-instant-lbl">Llamada instantánea</b> <span class="mc-combo-instant-sub">(solo en rachas de regalo)</span></span>
+        <input type="checkbox" class="mc-combo-instant-en" data-uid="${esc(a.uid)}" ${on ? 'checked' : ''}>
+        <span><b class="mc-combo-instant-lbl">Llamada instantánea</b> <span class="mc-combo-instant-sub">(cada rosa en racha; si desmarcas, al final de la racha)</span></span>
       </label>`;
 }
 function bindMcActionCardCommon(wrap, find, render) {
@@ -8707,6 +8819,34 @@ const MARIO_CATALOG = [
 // Iconos y etiquetas del catálogo de Mario (para las tarjetas "+ Agregar").
 const MARIO_CAT_ICON = { item: '🍄', enemy: '👾', effect: '✨' };
 const MARIO_TIPO_LABEL = { item: 'Objeto / Power-up', enemy: 'Enemigo', effect: 'Efecto sobre Mario' };
+const MARIO_ICON_DIR = '/img/mario-interactivo/';
+
+/** Slug para iconos: mismo nombre del catálogo → minúsculas, espacios=_ , sin acentos (homgo → homgo.png, flor de fuego → flor_de_fuego.png). */
+function marioIconSlug(name) {
+  return String(name || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/ñ/g, 'n')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+}
+
+function marioCatalogIconUrl(entry) {
+  let nombre = entry?.nombre || entry?.label;
+  if (!nombre && entry?.catalogId) {
+    const c = MARIO_CATALOG.find((x) => x.id === entry.catalogId);
+    nombre = c?.nombre;
+  }
+  const slug = marioIconSlug(nombre);
+  if (!slug) return '';
+  return `${MARIO_ICON_DIR}${slug}.png`;
+}
+
+function marioCatalogIconHtml(entry) {
+  const emoji = MARIO_CAT_ICON[entry?.tipo] || '🎮';
+  const src = marioCatalogIconUrl(entry);
+  if (!src) return `<span class="mc-cat-emoji">${emoji}</span>`;
+  return `<img class="mc-cat-ic" src="${esc(src)}" alt="" onerror="this.outerHTML='<span class=\\'mc-cat-emoji\\'>${emoji}</span>'">`;
+}
 
 // settings.marioActions es la lista de acciones AGREGADAS por el usuario (como en
 // Minecraft): cada una tiene un uid propio. Empieza vacía.
@@ -8714,6 +8854,12 @@ function ensureMarioActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.marioActions)) settings.marioActions = [];
   settings.marioActions = migrateGameActions(settings.marioActions, 'mar');
+  for (const a of settings.marioActions) {
+    if (!a?.webhookCmd?.url) continue;
+    if (a.count == null || a.count < 1) a.count = 1;
+    if (a.comboInstant == null && (a.trigger === 'gift' || a.trigger === 'gift-any')) a.comboInstant = true;
+    a.webhookCmd.url = applyMarioWebhookQuantity(a.webhookCmd.url, a.count);
+  }
   return settings.marioActions;
 }
 
@@ -8736,42 +8882,159 @@ function migrateGameActions(arr, prefix) {
   return out;
 }
 
-// Botón «Iniciar bridge» Mario (SMBX2): solo en .exe; el bridge no corre hasta que se usa Mario.
+// Botones de descarga Mario (juego + activador webhook).
 function setupMarioLaunchBtn() {
-  const room = document.getElementById('mario-room');
-  if (room && !room._wired) {
-    room._wired = true;
-    room.onclick = () => {
-      const url = (room.dataset.url || '').trim();
+  function wireMarioDownload(id, label) {
+    const btn = document.getElementById(id);
+    if (!btn || btn._wired) return;
+    btn._wired = true;
+    btn.onclick = () => {
+      const url = (btn.dataset.url || '').trim();
       if (!url) { toast && toast('Enlace de descarga no disponible.', 'warn'); return; }
       downloadMinecraftServer(url);
-      toast && toast('Descargando SMBX2…', 'ok');
+      toast && toast(`Descargando ${label}…`, 'ok');
     };
   }
-  const btn = document.getElementById('mario-play');
-  if (!btn) return;
-  if (!IS_DESKTOP) { btn.style.display = 'none'; return; }
-  if (btn._wired) return;
-  btn._wired = true;
-  btn.textContent = '▶ Iniciar bridge';
-  btn.onclick = async () => {
-    btn.disabled = true;
-    const prev = btn.textContent;
-    btn.textContent = '⏳ Bridge…';
-    try {
-      const r = await ensureGameBridgeApi('smbx');
-      if (r.ok && bridgeHealthMatchesMode(r.health, 'smbx')) {
-        toast && toast('Bridge Mario activo (SMBX2).', 'ok');
-      } else if (!r.status?.script) {
-        toast && toast('No se encontró livecoins-bridge-server.js. Reinstala Livecoins.', 'warn');
-      } else {
-        toast && toast('No se pudo iniciar el bridge Mario.', 'warn');
-      }
-    } finally {
-      btn.disabled = false;
-      btn.textContent = prev;
+  wireMarioDownload('mario-play', 'juego');
+  wireMarioDownload('mario-room', 'activador');
+  wireMarioDownload('mario-worlds', 'Worlds');
+}
+
+// Convierte URL de webhook TikFinity (puerto 5720 u otro) → npcId + cantidad.
+function parseTikfinitySpawnWebhook(trig) {
+  const wh = trig?.webhook;
+  if (!wh || trig.actionType !== 'webhook') return null;
+  const url = String(wh.url || '');
+  if (!url) return null;
+  let npcId = null;
+  let count = 1;
+  try {
+    const u = new URL(url.replace(/\{[^}]+\}/g, 'x'));
+    const id = u.searchParams.get('id') ?? u.searchParams.get('npcId');
+    if (id != null && id !== '') {
+      const n = Number(id);
+      npcId = Number.isFinite(n) ? n : id;
     }
+    const qty = u.searchParams.get('quantity') ?? u.searchParams.get('count') ?? u.searchParams.get('times');
+    if (qty) count = Math.max(1, parseInt(qty, 10) || 1);
+  } catch {
+    const idM = url.match(/[?&](?:id|npcId)=([^&]+)/i);
+    const qtyM = url.match(/[?&](?:quantity|count|times)=([^&]+)/i);
+    if (idM) {
+      const id = decodeURIComponent(idM[1]);
+      const n = Number(id);
+      npcId = Number.isFinite(n) ? n : id;
+    }
+    if (qtyM) count = Math.max(1, parseInt(qtyM[1], 10) || 1);
+  }
+  if (npcId == null || npcId === '') return null;
+  return { npcId, count };
+}
+
+function tikfinityTypeToMarioTrigger(type) {
+  return tikfinityTypeToEvent(type);
+}
+
+function tikfinityTriggerToMarioAction(trig, i) {
+  const wh = trig?.webhook;
+  const spawn = parseTikfinitySpawnWebhook(trig);
+  if (!spawn || !wh || !String(wh.url || '').trim()) return null;
+  const trigger = tikfinityTypeToMarioTrigger(trig.type);
+  if (!trigger) return null;
+  const { npcId, count } = spawn;
+  const whUrl = String(wh.url || '').trim();
+  const catalogEntry = MARIO_CATALOG.find((x) => x.webhookCmd?.url === whUrl)
+    || MARIO_CATALOG.find((x) => x.npcId != null && String(x.npcId) === String(npcId));
+  const thing = catalogEntry?.id || String(npcId);
+  const label = catalogEntry?.nombre || `NPC ${npcId}`;
+  const actionName = tikfinityWebhookActionName(trig);
+  const a = {
+    uid: 'mar_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 7),
+    thing,
+    npcId: typeof npcId === 'number' ? npcId : null,
+    label,
+    actionName: actionName && actionName.toLowerCase() !== label.toLowerCase() ? actionName : '',
+    tipo: catalogEntry?.tipo || 'enemy',
+    kind: catalogEntry?.kind || 'spawn',
+    trigger,
+    giftId: '',
+    giftName: '',
+    giftImage: '',
+    count: 1,
+    seconds: catalogEntry?.seconds != null ? catalogEntry.seconds : 5,
+    factor: catalogEntry?.factor != null ? catalogEntry.factor : 0,
+    text: '',
+    enabled: true,
+    webhookCmd: {
+      on: true,
+      method: String(wh.method || 'GET').toUpperCase(),
+      url: applyMarioWebhookQuantity(String(wh.url || '').trim(), 1),
+      body: wh.body || '',
+    },
+    comboInstant: !!wh.giftMultiplier,
   };
+  if (trigger === 'gift') {
+    a.giftId = trig.giftId ? String(trig.giftId) : '';
+    a.giftName = trig.giftName || '';
+    a.giftImage = trig.giftImageUrl || '';
+  } else if (trigger === 'like' || trigger === 'likeGlobal') {
+    a.likeN = Math.max(1, parseInt(trig.likeThreshold, 10) || (trigger === 'likeGlobal' ? 100 : 1));
+  }
+  return a;
+}
+
+async function importMarioInteractivoProfile(triggers, modeLabel) {
+  const incoming = [];
+  let skipped = 0;
+  triggers.forEach((trig, i) => {
+    const a = tikfinityTriggerToMarioAction(trig, i);
+    if (a) incoming.push(a);
+    else skipped += 1;
+  });
+  if (!incoming.length) {
+    toast && toast('Ningún trigger se pudo convertir. ¿Tienen URL /spawn?id=…?', 'warn');
+    return false;
+  }
+  const mode = await askGameImportMode(incoming.length, modeLabel || 'Mario Interactivo (WebHook)');
+  if (!mode) return false;
+  if (!Array.isArray(settings.marioActions)) settings.marioActions = [];
+  settings.marioActions = mode === 'replace' ? incoming : settings.marioActions.concat(incoming);
+  saveSettings();
+  renderMarioActions();
+  const base = `Importadas ${incoming.length} acciones Mario con WebHook activo`;
+  toast && toast(skipped ? `${base} (${skipped} omitidas).` : `${base}.`, 'ok');
+  return true;
+}
+
+async function ensureMarioInteractivoWebhooks() {
+  /* El usuario agrega acciones manualmente desde el catálogo Mario Interactivo. */
+}
+
+async function importTikfinityMarioProfile(file) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  let parsed;
+  try { parsed = JSON.parse(await file.text()); }
+  catch { toast && toast('El archivo no es JSON válido.', 'warn'); return; }
+  const triggers = Array.isArray(parsed?.triggers) ? parsed.triggers : null;
+  if (!triggers?.length) {
+    toast && toast('No se encontraron triggers (perfil TikFinity / TikTok Webhook).', 'warn');
+    return;
+  }
+  await importMarioInteractivoProfile(triggers, 'Mario desde perfil TikFinity');
+}
+
+async function reloadMarioInteractivoProfile() {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  try {
+    const r = await fetch('/mario-interactivo-profile.json', { cache: 'no-store' });
+    if (!r.ok) { toast && toast('No se encontró el perfil Mario Interactivo.', 'warn'); return; }
+    const parsed = await r.json();
+    const triggers = Array.isArray(parsed?.triggers) ? parsed.triggers : [];
+    if (!triggers.length) { toast && toast('El perfil no tiene triggers.', 'warn'); return; }
+    await importMarioInteractivoProfile(triggers, 'perfil Mario Interactivo');
+  } catch {
+    toast && toast('No se pudo cargar el perfil Mario Interactivo.', 'warn');
+  }
 }
 
 function setupMarioActionsUI() {
@@ -8789,14 +9052,20 @@ function setupMarioActionsUI() {
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
-  loadMarioBridgePresets().finally(() => {
+  const genOverlayBtn = document.getElementById('mario-gen-overlay');
+  if (genOverlayBtn && !genOverlayBtn._wired) {
+    genOverlayBtn._wired = true;
+    genOverlayBtn.onclick = () => generateMarioOverlayImage();
+  }
+  loadMarioBridgePresets().finally(async () => {
+    await ensureMarioInteractivoWebhooks();
     renderMarioCatalog(search ? search.value : '');
     renderMarioActions();
   });
 }
 
 async function loadMarioBridgePresets() {
-  const applyPresets = (presets) => {
+  const applyPresets = (presets, { includeEffects = true } = {}) => {
     if (!Array.isArray(presets) || !presets.length) return false;
     const bridgeSpawns = presets.map((p) => ({
       id: p.id || String(p.npcId),
@@ -8804,15 +9073,27 @@ async function loadMarioBridgePresets() {
       thing: p.id || String(p.npcId),
       nombre: p.nombre || p.label || p.name,
       tipo: p.tipo || (p.category === 'powerup' ? 'item' : 'enemy'),
-      kind: 'spawn',
+      kind: p.kind || (p.tipo === 'effect' ? 'effect' : 'spawn'),
+      count: p.count != null ? p.count : 1,
+      trigger: p.trigger,
+      giftId: p.giftId,
+      giftName: p.giftName,
+      giftImage: p.giftImage,
+      likeN: p.likeN,
+      comboInstant: p.comboInstant,
+      webhookCmd: p.webhookCmd,
     }));
     MARIO_CATALOG.length = 0;
-    MARIO_CATALOG.push(
-      ...bridgeSpawns,
-      ...MARIO_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
-    );
+    MARIO_CATALOG.push(...bridgeSpawns);
+    if (includeEffects) {
+      MARIO_CATALOG.push(...MARIO_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })));
+    }
     return true;
   };
+  try {
+    const r = await fetch('/mario-interactivo-catalog.json', { cache: 'no-store' });
+    if (r.ok && applyPresets(await r.json(), { includeEffects: false })) return;
+  } catch { /* sin catálogo interactivo */ }
   try {
     const r = await fetch('/api/desktop/bridge-health', { credentials: 'same-origin' });
     if (r.ok) { /* bridge accesible */ }
@@ -8844,9 +9125,9 @@ function renderMarioCatalog(filter) {
   grid.innerHTML = list.map((c) => {
     const n = marioCatalogUseCount(c);
     return `
-    <div class="mc-cat-card ${n ? 'mc-cat-in-use' : ''}" data-id="${esc(c.id)}">
+    <div class="mc-cat-card ${n ? 'mc-cat-in-use' : ''}" data-id="${esc(c.id)}" title="${esc(c.nombre)}">
       <div class="mc-cat-head-row">
-        <span class="mc-cat-emoji">${MARIO_CAT_ICON[c.tipo] || '🎮'}</span>
+        ${marioCatalogIconHtml(c)}
         <div class="mc-cat-texts">
           <div class="mc-cat-name">${esc(c.nombre)}${n ? ` <span class="mc-cat-use-n">×${n}</span>` : ''}</div>
           <div class="mc-cat-desc">${esc(MARIO_TIPO_LABEL[c.tipo] || '')}</div>
@@ -8860,25 +9141,57 @@ function renderMarioCatalog(filter) {
   });
 }
 
+function applyMarioWebhookQuantity(url, quantity) {
+  const q = Math.max(1, Math.min(999, parseInt(quantity, 10) || 1));
+  const s = String(url || '');
+  if (!/\/spawn\b/i.test(s)) return s;
+  if (/[?&]quantity=\d+/i.test(s)) return s.replace(/([?&]quantity=)\d+/i, `$1${q}`);
+  if (/[?&]count=\d+/i.test(s)) return s.replace(/([?&]count=)\d+/i, `$1${q}`);
+  return `${s}${s.includes('?') ? '&' : '?'}quantity=${q}`;
+}
+
 // Agrega una acción del catálogo a "Mis acciones agregadas".
 function addMarioAction(thing) {
   const c = MARIO_CATALOG.find((x) => x.id === thing);
   if (!c) return;
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
   const list = ensureMarioActions();
-  list.push({
+  const a = {
     uid: 'mar_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    catalogId: c.id,
     thing: c.id,
     npcId: c.npcId != null ? c.npcId : null,
-    label: c.nombre, tipo: c.tipo, kind: c.kind || 'spawn',
-    trigger: 'gift', giftId: '', giftName: '', giftImage: '',
-    count: 1, seconds: c.seconds != null ? c.seconds : 5, factor: c.factor != null ? c.factor : 0,
-    text: '', enabled: true,
-  });
+    label: c.nombre,
+    tipo: c.tipo,
+    kind: c.kind || 'spawn',
+    trigger: c.trigger || 'gift',
+    giftId: c.giftId || '',
+    giftName: c.giftName || '',
+    giftImage: c.giftImage || '',
+    count: 1,
+    seconds: c.seconds != null ? c.seconds : 5,
+    factor: c.factor != null ? c.factor : 0,
+    text: '',
+    enabled: true,
+  };
+  if (c.likeN != null) a.likeN = c.likeN;
+  if (c.webhookCmd?.on && c.webhookCmd?.url) {
+    a.webhookCmd = {
+      on: true,
+      method: c.webhookCmd.method || 'GET',
+      url: applyMarioWebhookQuantity(c.webhookCmd.url, 1),
+      body: c.webhookCmd.body || '',
+    };
+    a.comboInstant = c.comboInstant !== false;
+  }
+  list.push(a);
   saveSettings();
   renderMarioActions();
   renderMarioCatalog(document.getElementById('mario-cat-search')?.value || '');
-  toast && toast(`Acción "${c.nombre}" agregada. Elige el regalo o evento.`, 'ok');
+  toast && toast(
+    a.webhookCmd ? `"${c.nombre}" agregada con WebHook activo.` : `"${c.nombre}" agregada. Elige el regalo o evento.`,
+    'ok',
+  );
 }
 
 // Mario / PvZ: SIEMPRE en esta PC. Preferimos el servidor local (.exe) donde vive el bridge;
@@ -9041,6 +9354,19 @@ async function testMarioAction(a) {
     toast && toast('Mario Bros solo funciona en la app de escritorio (.exe).', 'warn');
     return;
   }
+
+  if (a.webhookCmd?.on && a.webhookCmd?.url) {
+    const times = Math.max(1, parseInt(a.count, 10) || 1);
+    toast && toast(`🪝 WebHook «${label}» ×${times}…`, 'ok');
+    send({
+      action: 'runActionOutputs',
+      webhookCmd: a.webhookCmd,
+      times,
+    });
+    addEvent(`🪝 Prueba Mario WebHook: ${esc(label)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+    return;
+  }
+
   if (a.kind !== 'effect' && !a.thing && a.npcId == null) {
     toast && toast('Acción sin enemigo/objeto. Quítala y agrégala de nuevo del catálogo.', 'warn');
     return;
@@ -9076,29 +9402,44 @@ async function testMarioAction(a) {
 }
 
 function marioCardHtml(a) {
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
+  const webhookOn = !!(a.webhookCmd && a.webhookCmd.on && a.webhookCmd.url);
+  const emoji = a.kind === 'effect' ? '✨' : (a.tipo === 'enemy' ? '👾' : '🍄');
+  const iconSrc = marioCatalogIconUrl(a);
+  const nameHtml = iconSrc
+    ? `<span class="mc-act-name"><img class="mc-act-ic" src="${esc(iconSrc)}" alt="" onerror="this.outerHTML='${emoji} '">${esc(a.label || a.thing)}</span>`
+    : `<span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>`;
+  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const giftBtn = gameActionGiftUi(a, 'mario-gift');
   const likeRow = gameActionExtraRow(a, 'mario-like-n', 'mario-text-n');
-  const emoji = a.kind === 'effect' ? '✨' : (a.tipo === 'enemy' ? '👾' : '🍄');
+  const whChip = webhookOn ? '<span class="acc-chip key mc-wh-chip">🪝 WebHook</span>' : '';
   let qtyRow;
   if (a.kind === 'effect') {
     qtyRow = `
       <label class="mc-like-row" style="max-width:120px">Segundos<input type="number" min="1" max="60" class="mario-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>
       <label class="mc-like-row" style="max-width:160px">Tamaño (x, 0=auto)<input type="number" min="0" max="10" class="mario-factor" data-uid="${uid}" value="${esc(String(a.factor || 0))}"></label>`;
   } else {
-    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="20" class="mario-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="999" class="mario-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
   }
+
+  const actionSub = a.actionName
+    ? `<div class="mc-act-sub">${esc(a.actionName)}</div>`
+    : '';
+
   return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
+  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''} ${webhookOn ? 'mc-wh-card' : ''}" data-uid="${uid}">
     <div class="mc-act-top">
-      <span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>
+      <div class="mc-act-title-wrap">
+        ${nameHtml}
+        ${actionSub}
+      </div>
       <button type="button" class="mc-act-del mario-del" data-uid="${uid}" title="Quitar">✕</button>
     </div>
-    <div class="mc-act-row">
-      <select class="mario-trig-sel" data-uid="${uid}">${opts}</select>
+    <div class="mc-act-row mc-act-trigger-row">
+      <select class="mario-trig-sel mc-trig-sel" data-uid="${uid}">${opts}</select>
       ${giftBtn}
       ${likeRow}
+      ${whChip}
     </div>
     <div class="mc-act-row">
       ${qtyRow}
@@ -9118,23 +9459,173 @@ function renderMarioActions() {
   if (!wrap || !settings) return;
   const list = ensureMarioActions();
   if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Pulsa <b>+ Agregar</b> en el catálogo de abajo.</div>';
     return;
   }
   wrap.innerHTML = list.map((a) => marioCardHtml(a)).join('');
 
   const find = (uid) => list.find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mario-del').forEach((b) => b.onclick = () => { settings.marioActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMarioActions(); });
+  wrap.querySelectorAll('.mario-del').forEach((b) => b.onclick = () => {
+    settings.marioActions = list.filter((x) => x.uid !== b.dataset.uid);
+    saveSettings();
+    renderMarioActions();
+    renderMarioCatalog(document.getElementById('mario-cat-search')?.value || '');
+  });
   bindGameTriggerSelects(wrap, 'mario-trig-sel', 'marioActions', renderMarioActions);
   wrap.querySelectorAll('.mario-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderMarioActions(); });
   wrap.querySelectorAll('.mario-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
   wrap.querySelectorAll('.mario-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
-  wrap.querySelectorAll('.mario-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(20, parseInt(inp.value, 10) || 1)); saveSettings(); });
+  wrap.querySelectorAll('.mario-count').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid);
+    if (!a) return;
+    a.count = Math.max(1, Math.min(999, parseInt(inp.value, 10) || 1));
+    if (a.webhookCmd?.url) a.webhookCmd.url = applyMarioWebhookQuantity(a.webhookCmd.url, a.count);
+    saveSettings();
+  });
   wrap.querySelectorAll('.mario-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
   wrap.querySelectorAll('.mario-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
   wrap.querySelectorAll('.mario-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
   bindGameActionGiftButtons(wrap, 'mario-gift', 'marioActions', renderMarioActions);
   wrap.querySelectorAll('.mario-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMarioAction(a); });
+}
+
+// PNG tipo carta Mario Interactivo: icono + regalo + x{cantidad} (fondo transparente).
+async function generateMarioOverlayImage() {
+  const all = ensureMarioActions();
+  let list = all.filter((a) => a && a.enabled !== false);
+  if (!list.length) list = all.slice();
+  if (!list.length) { toast && toast('Agrega acciones del catálogo con su regalo primero.', 'warn'); return; }
+  toast && toast('Generando overlay…', 'ok');
+
+  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
+  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : (`/api/img-proxy?url=${encodeURIComponent(u)}`)));
+  const loadImg = (src) => new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+
+  const rows = [];
+  for (const a of list) {
+    const marioImg = await loadImg(proxied(marioCatalogIconUrl(a)));
+    const trig = a.trigger || 'gift';
+    let giftImg = null;
+    let giftEmoji = '';
+    if (trig === 'gift' || trig === 'gift-any') {
+      const gUrl = (a.giftImage && String(a.giftImage).trim()) || giftImageOf(a);
+      giftImg = await loadImg(proxied(gUrl));
+    } else {
+      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+    }
+    rows.push({ marioImg, giftImg, giftEmoji, qty: Math.max(1, parseInt(a.count, 10) || 1) });
+  }
+
+  const cols = Math.min(7, Math.max(1, rows.length));
+  const gridRows = Math.ceil(rows.length / cols);
+  const margin = 12;
+  const gap = 8;
+  const cellW = 118;
+  const iconS = 108;
+  const giftS = 44;
+  const cellH = iconS + 6;
+  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
+  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
+  const dpr = 2;
+  const cv = document.createElement('canvas');
+  cv.width = W * dpr;
+  cv.height = H * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const rr = (x, y, w, h, r) => {
+    const rad = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  };
+
+  const drawCloud = (x, y, w, h) => {
+    ctx.save();
+    ctx.fillStyle = '#c5e4f8';
+    const blobs = [
+      [0.28, 0.48, 0.34, 0.3], [0.52, 0.4, 0.38, 0.34], [0.74, 0.5, 0.3, 0.28],
+      [0.38, 0.62, 0.28, 0.24], [0.62, 0.64, 0.26, 0.22],
+    ];
+    blobs.forEach(([bx, by, rw, rh]) => {
+      ctx.beginPath();
+      ctx.ellipse(x + w * bx, y + h * by, w * rw, h * rh, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  };
+
+  const drawMultBadge = (label, x, y) => {
+    ctx.font = '800 22px Rubik, Montserrat, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.strokeText(label, x, y);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, x, y);
+  };
+
+  const drawContain = (img, x, y, size) => {
+    const scale = Math.min(size / img.width, size / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    ctx.drawImage(img, x + (size - dw) / 2, y + (size - dh) / 2, dw, dh);
+  };
+
+  rows.forEach((row, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    const cellX = margin + c * (cellW + gap);
+    const cellY = margin + r * (cellH + gap);
+    const iconX = cellX + (cellW - iconS) / 2;
+    const iconY = cellY;
+
+    if (row.marioImg) drawContain(row.marioImg, iconX, iconY, iconS);
+    else drawCloud(iconX, iconY, iconS, iconS);
+
+    const gx = iconX + iconS - giftS + 2;
+    const gy = iconY + iconS - giftS + 2;
+    if (row.giftImg) {
+      ctx.save();
+      rr(gx, gy, giftS, giftS, 10);
+      ctx.clip();
+      ctx.drawImage(row.giftImg, gx, gy, giftS, giftS);
+      ctx.restore();
+    } else if (row.giftEmoji) {
+      ctx.font = '30px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(row.giftEmoji, gx + giftS / 2, gy + giftS / 2);
+    }
+
+    if (row.qty >= 2) drawMultBadge(`x${row.qty}`, iconX + iconS - 2, iconY + 1);
+  });
+
+  try {
+    const data = cv.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = data;
+    link.download = 'mario-bros-overlay.png';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast && toast('Overlay generado y descargado.', 'ok');
+  } catch {
+    toast && toast('No se pudo exportar. Revisa tu conexión e inténtalo de nuevo.', 'err');
+  }
 }
 
 /* ================= Acciones de Mari0 (bridge :7755 MARI0_ONLY) ================= */
@@ -10253,7 +10744,8 @@ async function downloadMinecraftServer(url) {
       }
       updateGameDownloadProgress({ error: r?.error || 'No se pudo descargar' });
       hideGameDownloadProgress(2500);
-      if (r?.error) toast && toast('Descarga falló: ' + r.error, 'err');
+      if (r?.openedBrowser) toast && toast('No se pudo descargar dentro de la app. Se abrió en tu navegador.', 'warn');
+      else if (r?.error) toast && toast('Descarga falló: ' + r.error, 'err');
     } catch (e) {
       updateGameDownloadProgress({ error: String(e?.message || e) });
       hideGameDownloadProgress(2500);
@@ -10561,6 +11053,7 @@ function initHomeWelcome() {
   preloadGiftCatalog();
   await confirmDesktopPanelFromServer();
   setupPanelModeWarning();
+  try { setupProfiles(); } catch (e) { console.error('Perfiles UI:', e); }
   try { initHomeWelcome(); } catch (e) { console.error('Home welcome:', e); }
   try { setupPanelLives(); } catch (e) { console.error('Panel lives:', e); }
   try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }

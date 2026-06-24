@@ -3107,7 +3107,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function sendInitialBurst(ws) {
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
     ws.send(JSON.stringify({ type: 'settings', payload: settings }));
-    ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() }));
+    try { ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() })); } catch (e) { console.error('[profiles]', e); }
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
