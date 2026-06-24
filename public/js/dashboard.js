@@ -850,7 +850,7 @@ function roomUrl(path) {
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
-  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=4';
+  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=7';
   return url;
 }
 

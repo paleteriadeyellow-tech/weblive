@@ -91,6 +91,32 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   position: relative;
   width: 340px; height: 340px;
   flex-shrink: 0;
+  overflow: visible;
+}
+
+.fw-canvas {
+  position: absolute;
+  left: -70px; top: -70px;
+  width: calc(100% + 140px);
+  height: calc(100% + 140px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.frame-float {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform-origin: center center;
+  animation: frame-float 4.8s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes frame-float {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  25% { transform: translateY(-10px) rotate(-0.8deg) scale(1.01); }
+  50% { transform: translateY(-14px) rotate(0deg) scale(1.015); }
+  75% { transform: translateY(-7px) rotate(0.8deg) scale(1.008); }
 }
 
 .avatar-hole {
@@ -170,10 +196,13 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     <h1 class="mvp-header-title mvp-header-title--rainbow" id="title">HABIBI DEL MES</h1>
   </header>
   <div class="frame-wrap">
-    <div class="avatar-hole">
-      <img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer">
+    <canvas class="fw-canvas" id="fw-canvas" aria-hidden="true"></canvas>
+    <div class="frame-float">
+      <div class="avatar-hole">
+        <img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer">
+      </div>
+      <img class="frame-img" id="frame" src="/habibis/top9.png" alt="">
     </div>
-    <img class="frame-img" id="frame" src="/habibis/top9.png" alt="">
   </div>
   <div class="info">
     <div class="nombre" id="nombre">Esperando...</div>
@@ -183,8 +212,10 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 
 <script>
 (function () {
-  const OV_BUILD = '4';
+  const OV_BUILD = '7';
+  const FW_PAD = 70;
   const params = new URLSearchParams(location.search);
+  const TOP_CACHE_KEY = 'habibitop_v1_' + (params.get('room') || 'local');
   const isEmbed = params.get('embed') === '1';
   const DEFAULT_PIC = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
   const PREVIEW_PIC = '/jarron/lv.png';
@@ -222,6 +253,52 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   let previewMode = false;
 
   const $ = (id) => document.getElementById(id);
+
+  function pickPhoto() {
+    for (let i = 0; i < arguments.length; i++) {
+      const p = String(arguments[i] || '').trim();
+      if (p) return p;
+    }
+    return '';
+  }
+
+  function loadTopCache() {
+    try {
+      const raw = localStorage.getItem(TOP_CACHE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return null;
+  }
+
+  function saveTopCache(top) {
+    try {
+      if (top && (top.nickname || top.uniqueId)) {
+        localStorage.setItem(TOP_CACHE_KEY, JSON.stringify(top));
+      }
+    } catch {}
+  }
+
+  function clearTopCache() {
+    try { localStorage.removeItem(TOP_CACHE_KEY); } catch {}
+  }
+
+  function mergeTopData(incoming, cached) {
+    if (!incoming) return cached || null;
+    if (!cached || String(cached.uniqueId || '') !== String(incoming.uniqueId || '')) {
+      const photo = pickPhoto(incoming.profilePictureUrl, incoming.photo);
+      return { ...incoming, profilePictureUrl: photo, photo };
+    }
+    const photo = pickPhoto(incoming.profilePictureUrl, incoming.photo, cached.profilePictureUrl, cached.photo);
+    return {
+      ...cached,
+      ...incoming,
+      uniqueId: incoming.uniqueId || cached.uniqueId,
+      nickname: incoming.nickname || cached.nickname,
+      coins: incoming.coins != null ? incoming.coins : cached.coins,
+      profilePictureUrl: photo,
+      photo,
+    };
+  }
 
   function hex(v, def) {
     if (v == null) return def;
@@ -314,19 +391,215 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     }
     $('stage').dataset.empty = '0';
     $('nombre').textContent = (top.nickname || 'Usuario').replace(/^@+/, '');
-    img.onerror = function () { this.onerror = null; this.src = DEFAULT_PIC; };
-    img.src = top.profilePictureUrl || top.photo || DEFAULT_PIC;
+    img.onerror = function () {
+      const cached = pickPhoto(top.profilePictureUrl, top.photo);
+      if (this.src !== DEFAULT_PIC && cached && this.src === cached) {
+        this.onerror = null;
+        this.src = DEFAULT_PIC;
+        return;
+      }
+      this.onerror = null;
+      this.src = DEFAULT_PIC;
+    };
+    const photo = pickPhoto(top.profilePictureUrl, top.photo, loadTopCache()?.profilePictureUrl, loadTopCache()?.photo);
+    img.src = photo || DEFAULT_PIC;
     inner.innerHTML = coinSvg() + ' <span>' + (top.coins || 0).toLocaleString('es-ES') + suffix + '</span>';
   }
 
   function applyPayload(payload) {
     if (previewMode) return;
-    topData = payload && payload.top ? payload.top : null;
+    const cached = loadTopCache();
+    const incoming = payload && payload.top ? payload.top : null;
+    if (incoming) {
+      topData = mergeTopData(incoming, cached);
+      saveTopCache(topData);
+    } else if (cached && (cached.coins > 0 || cached.nickname)) {
+      topData = cached;
+    } else {
+      topData = null;
+      clearTopCache();
+    }
     render();
   }
 
-  function runTest() { previewMode = true; render(); }
-  function resetTop() { previewMode = false; topData = null; render(); }
+  function runTest() { previewMode = true; render(); launchFireworksShow('big'); }
+  function resetTop() { previewMode = false; topData = null; clearTopCache(); render(); }
+
+  /* --- Fuegos artificiales (detrás del marco) --- */
+  const FW_COLORS = ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#00b0ff', '#e040fb', '#ffd700', '#ff6b35', '#f50057', '#76ff03'];
+  let fwCanvas, fwCtx, fwParticles = [], fwRockets = [], fwAnim = 0, fwAutoTimer = null;
+
+  function fwPick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+
+  function fwResize() {
+    const wrap = document.querySelector('.frame-wrap');
+    if (!wrap || !fwCanvas) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const pad2 = FW_PAD * 2;
+    const w = wrap.clientWidth + pad2;
+    const h = wrap.clientHeight + pad2;
+    fwCanvas.width = Math.round(w * dpr);
+    fwCanvas.height = Math.round(h * dpr);
+    fwCanvas.style.width = w + 'px';
+    fwCanvas.style.height = h + 'px';
+    fwCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function fwRand(min, max) { return min + Math.random() * (max - min); }
+
+  function fwBurst(cx, cy, count, power) {
+    const n = count || 48;
+    const pwr = power || 5.8;
+    const base = fwPick(FW_COLORS);
+    for (let i = 0; i < n; i++) {
+      const ang = (Math.PI * 2 * i) / n + fwRand(-0.2, 0.2);
+      const spd = pwr * fwRand(0.65, 1.25);
+      fwParticles.push({
+        x: cx, y: cy,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd,
+        life: 1,
+        decay: fwRand(0.008, 0.016),
+        size: fwRand(3.2, 6.2),
+        color: Math.random() < 0.4 ? fwPick(FW_COLORS) : base,
+        glow: fwRand(14, 28),
+      });
+    }
+    for (let j = 0; j < 16; j++) {
+      fwParticles.push({
+        x: cx, y: cy,
+        vx: fwRand(-2.4, 2.4),
+        vy: fwRand(-2.4, 2.4),
+        life: 1,
+        decay: fwRand(0.014, 0.024),
+        size: fwRand(4, 7.5),
+        color: '#fff8e1',
+        glow: 18,
+      });
+    }
+  }
+
+  function fwLaunchRocket(targetX, targetY, delay) {
+    const { w, h } = fwCenter();
+    const startX = targetX != null ? targetX : fwRand(w * 0.08, w * 0.92);
+    const endX = targetX != null ? targetX : startX + fwRand(-55, 55);
+    const endY = targetY != null ? targetY : fwRand(h * 0.12, h * 0.55);
+    fwRockets.push({
+      x: startX,
+      y: h + 12,
+      tx: endX,
+      ty: endY,
+      t: 0,
+      delay: delay || 0,
+      color: fwPick(FW_COLORS),
+      trail: [],
+    });
+  }
+
+  function fwCenter() {
+    const wrap = document.querySelector('.frame-wrap');
+    const pad2 = FW_PAD * 2;
+    if (!wrap) return { w: 400 + pad2, h: 400 + pad2, cx: 200 + FW_PAD, cy: 150 + FW_PAD };
+    const w = wrap.clientWidth + pad2;
+    const h = wrap.clientHeight + pad2;
+    return { w, h, cx: w * 0.5, cy: h * 0.4 };
+  }
+
+  function launchFireworksShow(mode) {
+    const { w, h } = fwCenter();
+    if (mode === 'big') {
+      const spots = [
+        [w * 0.22, h * 0.42], [w * 0.78, h * 0.35], [w * 0.5, h * 0.22],
+        [w * 0.15, h * 0.52], [w * 0.85, h * 0.48], [w * 0.38, h * 0.18], [w * 0.62, h * 0.58],
+      ];
+      spots.forEach(([x, y], i) => fwLaunchRocket(x, y, i * 160));
+    } else {
+      fwLaunchRocket(fwRand(w * 0.1, w * 0.9), fwRand(h * 0.2, h * 0.55), 0);
+      fwLaunchRocket(fwRand(w * 0.1, w * 0.9), fwRand(h * 0.2, h * 0.55), fwRand(350, 800));
+    }
+    if (!fwAnim) fwTick();
+  }
+
+  function fwTick() {
+    if (!fwCtx || !fwCanvas) return;
+    const { w, h } = fwCenter();
+    fwCtx.clearRect(0, 0, w, h);
+
+    fwRockets = fwRockets.filter((r) => {
+      if (r.delay > 0) { r.delay -= 16; return true; }
+      r.t += 0.028;
+      const ease = 1 - Math.pow(1 - Math.min(r.t, 1), 2.2);
+      const px = r.x + (r.tx - r.x) * ease;
+      const py = r.y + (r.ty - r.y) * ease;
+      r.trail.push({ x: px, y: py, life: 1 });
+      if (r.trail.length > 16) r.trail.shift();
+      for (const tr of r.trail) {
+        tr.life -= 0.1;
+        if (tr.life <= 0) continue;
+        fwCtx.globalAlpha = tr.life * 0.75;
+        fwCtx.fillStyle = r.color;
+        fwCtx.beginPath();
+        fwCtx.arc(tr.x, tr.y, 3.2 * tr.life + 1, 0, Math.PI * 2);
+        fwCtx.fill();
+      }
+      fwCtx.globalAlpha = 1;
+      fwCtx.fillStyle = '#fff';
+      fwCtx.shadowColor = r.color;
+      fwCtx.shadowBlur = 16;
+      fwCtx.beginPath();
+      fwCtx.arc(px, py, 4.5, 0, Math.PI * 2);
+      fwCtx.fill();
+      fwCtx.shadowBlur = 0;
+      if (r.t >= 1) {
+        fwBurst(px, py, 56, 6.8);
+        return false;
+      }
+      return true;
+    });
+
+    fwParticles = fwParticles.filter((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.042;
+      p.vx *= 0.988;
+      p.life -= p.decay;
+      if (p.life <= 0) return false;
+      fwCtx.globalAlpha = Math.max(0, p.life);
+      fwCtx.fillStyle = p.color;
+      fwCtx.shadowColor = p.color;
+      fwCtx.shadowBlur = p.glow * p.life;
+      fwCtx.beginPath();
+      fwCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      fwCtx.fill();
+      fwCtx.shadowBlur = 0;
+      return true;
+    });
+    fwCtx.globalAlpha = 1;
+
+    if (fwParticles.length || fwRockets.length) {
+      fwAnim = requestAnimationFrame(fwTick);
+    } else {
+      fwAnim = 0;
+    }
+  }
+
+  function startAutoFireworks() {
+    if (fwAutoTimer) clearInterval(fwAutoTimer);
+    const tick = () => {
+      if (document.hidden) return;
+      launchFireworksShow('normal');
+    };
+    fwAutoTimer = setInterval(tick, 9000);
+    setTimeout(tick, 2200);
+  }
+
+  function initFireworks() {
+    fwCanvas = $('fw-canvas');
+    if (!fwCanvas) return;
+    fwCtx = fwCanvas.getContext('2d');
+    fwResize();
+    startAutoFireworks();
+  }
 
   let ws, rt;
   function connectWS() {
@@ -345,8 +618,9 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
         applyPayload(m.payload);
       } else if (m.type === 'habibiTopTest') {
         if (!isEmbed) runTest();
+        else launchFireworksShow('big');
       } else if (m.type === 'habibiTopReset') {
-        if (!isEmbed && cfg.resetPeriod === 'live') resetTop();
+        if (!isEmbed) resetTop();
       }
     };
   }
@@ -358,6 +632,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
       cfg = Object.assign(cfg, d.config);
       applyStyle(); render();
     } else if (d.type === 'test') runTest();
+    else if (d.type === 'fireworks') launchFireworksShow('big');
     else if (d.type === 'reset') { previewMode = false; isEmbed ? runTest() : resetTop(); }
   });
 
@@ -371,7 +646,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     window.addEventListener('resize', fit);
   }
 
-  window.addEventListener('resize', () => applyFrameLayout());
+  window.addEventListener('resize', () => { applyFrameLayout(); fwResize(); });
 
   if (params.get('v') !== OV_BUILD) {
     const u = new URL(location.href);
@@ -381,10 +656,15 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   }
 
   applyStyle();
+  initFireworks();
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => { applyStyle(); render(); });
   }
-  if (isEmbed) runTest(); else render();
+  if (!isEmbed) {
+    const cached = loadTopCache();
+    if (cached) { topData = cached; render(); }
+  }
+  if (isEmbed) runTest(); else if (!topData) render();
   connectWS();
 })();
 </script>

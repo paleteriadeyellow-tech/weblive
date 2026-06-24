@@ -321,6 +321,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const habibiTopSession = new Map();
   let habibiTopSaveTimer = null;
   let lastHabibiTopPeriod = null;
+  let habibiTopSnapshot = null;
   const rankSession = Object.fromEntries(RANK_IDS.map((id) => [id, new Map()]));
   const rankPersist = Object.fromEntries(RANK_IDS.map((id) => [id, { period: 'live', start: 0, end: 0, users: new Map() }]));
   let rankSaveTimer = null;
@@ -885,6 +886,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     giftCounter.count = 0;
     top1fireSession.clear();
     habibiTopSession.clear();
+    if (getHabibiTopPeriod() === 'live') habibiTopSnapshot = null;
     fanCoinAcc.clear();
     fanLikeAcc.clear();
     sessionOv.top1 = {};
@@ -906,8 +908,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     if (getHabibiTopPeriod() === 'live' && Array.isArray(raw.habibiTopLive)) {
       habibiTopSession.clear();
+      if (raw.habibiTopSnapshot && typeof raw.habibiTopSnapshot === 'object') {
+        habibiTopSnapshot = raw.habibiTopSnapshot;
+      }
       for (const u of raw.habibiTopLive) {
-        if (u?.uniqueId) habibiTopSession.set(u.uniqueId, u);
+        if (u?.uniqueId) habibiTopSession.set(u.uniqueId, restoreHabibiDonor(u));
       }
     }
     fanCoinAcc.clear();
@@ -944,6 +949,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       giftCounter: { count: giftCounter.count },
       top1fireLive: getTop1FirePeriod() === 'live' ? [...top1fireSession.values()] : [],
       habibiTopLive: getHabibiTopPeriod() === 'live' ? [...habibiTopSession.values()] : [],
+      habibiTopSnapshot: habibiTopSnapshot || null,
       fanCoinAcc: [...fanCoinAcc.entries()],
       fanLikeAcc: [...fanLikeAcc.entries()],
       top1: sessionOv.top1,
@@ -1908,6 +1914,43 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const p = settings.habibiTop?.resetPeriod;
     return p === 'week' || p === 'month' ? p : 'live';
   }
+  function habibiDonorPhoto(u) {
+    if (!u) return '';
+    return String(u.photo || u.profilePictureUrl || '').trim();
+  }
+  function restoreHabibiDonor(u) {
+    const entry = { ...u };
+    const snapPhoto = habibiTopSnapshot && entry.uniqueId === habibiTopSnapshot.uniqueId
+      ? habibiDonorPhoto(habibiTopSnapshot) : '';
+    const photo = habibiDonorPhoto(entry) || snapPhoto;
+    if (photo) entry.photo = photo;
+    return entry;
+  }
+  function updateHabibiTopSnapshot(top) {
+    if (!top?.uniqueId) return;
+    const photo = habibiDonorPhoto(top) || habibiDonorPhoto(habibiTopSnapshot);
+    habibiTopSnapshot = {
+      uniqueId: top.uniqueId,
+      nickname: top.nickname || top.uniqueId,
+      photo,
+      profilePictureUrl: photo,
+      coins: Number(top.coins) || 0,
+    };
+  }
+  function buildHabibiTopPayload(top) {
+    if (!top) return null;
+    let photo = habibiDonorPhoto(top);
+    if (!photo && habibiTopSnapshot && top.uniqueId === habibiTopSnapshot.uniqueId) {
+      photo = habibiDonorPhoto(habibiTopSnapshot);
+    }
+    return {
+      uniqueId: top.uniqueId,
+      nickname: top.nickname || top.uniqueId,
+      profilePictureUrl: photo,
+      photo,
+      coins: top.coins || 0,
+    };
+  }
   function loadHabibiTop() {
     const period = getHabibiTopPeriod();
     lastHabibiTopPeriod = period;
@@ -1918,17 +1961,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
     const r = readJsonSafe(HABIBI_TOP_FILE);
     const raw = r.data;
+    habibiTopSnapshot = raw?.topSnapshot && typeof raw.topSnapshot === 'object' ? raw.topSnapshot : null;
     if (raw && raw.period === period && raw.start === start) {
       habibiTop.period = period;
       habibiTop.start = start;
       habibiTop.end = end;
-      habibiTop.donors = new Map((raw.donors || []).map((u) => [u.uniqueId, u]));
+      habibiTop.donors = new Map((raw.donors || []).map((u) => [u.uniqueId, restoreHabibiDonor(u)]));
       return;
     }
     habibiTop.period = period;
     habibiTop.start = start;
     habibiTop.end = end;
     habibiTop.donors = new Map();
+    habibiTopSnapshot = null;
   }
   function saveHabibiTop() {
     if (getHabibiTopPeriod() === 'live') return;
@@ -1939,6 +1984,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         start: habibiTop.start,
         end: habibiTop.end,
         donors: [...habibiTop.donors.values()],
+        topSnapshot: habibiTopSnapshot,
       };
       writeJsonAtomic(HABIBI_TOP_FILE, data);
     }, 400);
@@ -1952,6 +1998,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       habibiTop.start = start;
       habibiTop.end = end;
       habibiTop.donors.clear();
+      habibiTopSnapshot = null;
       saveHabibiTop();
       broadcastHabibiTop();
     }
@@ -1961,30 +2008,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (period === lastHabibiTopPeriod) return;
     lastHabibiTopPeriod = period;
     habibiTopSession.clear();
+    habibiTopSnapshot = null;
     loadHabibiTop();
     broadcastHabibiTop();
   }
   function addHabibiTopDonation(user, coins) {
     if (!user?.uniqueId || !(coins > 0)) return;
     const period = getHabibiTopPeriod();
+    const incomingPhoto = habibiDonorPhoto(user);
     if (period === 'live') {
-      const u = habibiTopSession.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, coins: 0 };
+      const u = habibiTopSession.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: '', coins: 0 };
       u.coins += coins;
       u.nickname = user.nickname || u.nickname;
-      if (user.photo) u.photo = user.photo;
+      if (incomingPhoto) u.photo = incomingPhoto;
       habibiTopSession.set(user.uniqueId, u);
       broadcastHabibiTop();
       saveSessionOverlays();
       return;
     }
     ensureHabibiTopPeriod();
-    const u = habibiTop.donors.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, coins: 0 };
+    const u = habibiTop.donors.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: '', coins: 0 };
     u.coins += coins;
     u.nickname = user.nickname || u.nickname;
-    if (user.photo) u.photo = user.photo;
+    if (incomingPhoto) u.photo = incomingPhoto;
     habibiTop.donors.set(user.uniqueId, u);
-    saveHabibiTop();
     broadcastHabibiTop();
+    saveHabibiTop();
   }
   function serializeHabibiTop() {
     const period = getHabibiTopPeriod();
@@ -1996,9 +2045,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       donors = [...habibiTop.donors.values()];
     }
     const sorted = donors.sort((a, b) => b.coins - a.coins);
-    const top = sorted[0] || null;
+    const rawTop = sorted[0] || null;
+    const top = buildHabibiTopPayload(rawTop);
+    if (top) updateHabibiTopSnapshot(top);
     return {
-      top: top ? { uniqueId: top.uniqueId, nickname: top.nickname, profilePictureUrl: top.photo, coins: top.coins } : null,
+      top,
       period,
       periodStart: period === 'live' ? 0 : habibiTop.start,
       periodEnd: period === 'live' ? 0 : habibiTop.end,
@@ -2011,13 +2062,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function resetHabibiTopSession() {
     if (getHabibiTopPeriod() !== 'live') return;
     habibiTopSession.clear();
+    habibiTopSnapshot = null;
     broadcast('habibiTopReset', {});
     broadcastHabibiTop();
   }
   function resetHabibiTopAll() {
     habibiTopSession.clear();
     habibiTop.donors.clear();
+    habibiTopSnapshot = null;
     if (getHabibiTopPeriod() !== 'live') saveHabibiTop();
+    else saveSessionOverlays();
     broadcast('habibiTopReset', {});
     broadcastHabibiTop();
   }
