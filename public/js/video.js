@@ -1,4 +1,5 @@
 const stage = document.getElementById('stage');
+const stageGeneral = document.getElementById('stageGeneral');
 const screen = Number(new URLSearchParams(location.search).get('screen')) || 1;
 
 let ws, reconnectTimer;
@@ -19,45 +20,63 @@ function connectWS() {
       if (payload.screenTest) { showScreenTest(); return; }
       enqueue(payload);
     }
-    if (type === 'stopMedia' && (Number(payload.screen) || 1) === screen) { clearQueue(); stopStage(); }
-    if (type === 'panic') { clearQueue(); stopStage(); }
+    if (type === 'stopMedia' && (Number(payload.screen) || 1) === screen) { clearAllQueues(); stopAllStages(); }
+    if (type === 'panic') { clearAllQueues(); stopAllStages(); }
   };
 }
 
-/* Cola de reproducción: con la cola activada cada video espera a que termine el anterior. */
-let queue = [];
-let busy = false;
-let safetyTimer = null;
+/* Cola de reproducción: con la cola activada cada video espera a que termine el anterior.
+   El Perfil General usa su propia capa/cola para no bloquearse con el perfil activo. */
+const lanes = {
+  active: { stage, queue: [], busy: false, safetyTimer: null },
+  general: { stage: stageGeneral, queue: [], busy: false, safetyTimer: null },
+};
 
-function queueOn() { return settings?.playback?.playQueue !== false; }
+function laneFor(m) {
+  return (m && (m.general || m.profileGeneral)) ? lanes.general : lanes.active;
+}
+
+function queueOn(m) {
+  if (m && typeof m.playQueue === 'boolean') return m.playQueue;
+  return settings?.playback?.playQueue !== false;
+}
 
 function enqueue(m) {
-  if (!queueOn()) { play(m, null); return; }
-  queue.push(m);
-  pump();
+  const lane = laneFor(m);
+  if (!queueOn(m)) { playOnStage(lane, m, null); return; }
+  lane.queue.push(m);
+  pump(lane);
 }
-function pump() {
-  if (busy) return;
-  const m = queue.shift();
+
+function pump(lane) {
+  if (lane.busy) return;
+  const m = lane.queue.shift();
   if (!m) return;
-  busy = true;
-  play(m, () => {
-    if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
-    if (!busy) return;
-    busy = false;
-    pump();
+  lane.busy = true;
+  playOnStage(lane, m, () => {
+    if (lane.safetyTimer) { clearTimeout(lane.safetyTimer); lane.safetyTimer = null; }
+    if (!lane.busy) return;
+    lane.busy = false;
+    pump(lane);
   });
 }
-function clearQueue() {
-  queue = [];
-  busy = false;
-  if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+
+function clearLane(lane) {
+  lane.queue = [];
+  lane.busy = false;
+  if (lane.safetyTimer) { clearTimeout(lane.safetyTimer); lane.safetyTimer = null; }
 }
 
-function play(m, done) {
-  if (!m.url) { done?.(); return; }
+function clearAllQueues() {
+  clearLane(lanes.active);
+  clearLane(lanes.general);
+}
 
-  stage.innerHTML = '';
+function playOnStage(lane, m, done) {
+  const host = lane.stage;
+  if (!host || !m?.url) { done?.(); return; }
+
+  host.innerHTML = '';
   const size = Math.max(10, Math.min(100, m.size ?? 100));
   const isImg = /\.(gif|png|jpe?g|webp)(\?|$)/i.test(m.url);
 
@@ -67,7 +86,7 @@ function play(m, done) {
     el.src = m.url;
     const finish = () => { if (el.parentNode) el.remove(); done?.(); };
     el.onerror = finish;
-    safetyTimer = setTimeout(finish, 8000);
+    lane.safetyTimer = setTimeout(finish, 8000);
   } else {
     el = document.createElement('video');
     el.src = m.url;
@@ -80,18 +99,16 @@ function play(m, done) {
     let errorRetries = 0;
     let lastTime = -1;
     let stalledSecs = 0;
-    const STALL_LIMIT = 25; // segundos sin avanzar antes de rendirse
+    const STALL_LIMIT = 25;
 
     const finish = () => {
       if (finished) return;
       finished = true;
-      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
+      if (lane.safetyTimer) { clearTimeout(lane.safetyTimer); lane.safetyTimer = null; }
       try { if (el.parentNode) el.remove(); } catch {}
       done?.();
     };
 
-    // Lanza la reproducción y, si el navegador bloquea el autoplay con sonido (caso de
-    // vistas previas fuera de OBS), reintenta en silencio para que igual se vea.
     const safePlay = () => {
       try {
         const p = el.play && el.play();
@@ -103,21 +120,12 @@ function play(m, done) {
 
     el.onended = finish;
 
-    // El chat de voz (TTS) NO debe detener el video por nada. Cuando la voz toca el
-    // dispositivo de audio, el navegador a veces pausa el video; aquí lo reanudamos
-    // EN EL ACTO (mismo instante del 'pause'), así el corte es imperceptible. No se
-    // reanuda si la parada fue intencional (stopMedia/panic), si ya terminó, o si está
-    // justo al final.
     el.onpause = () => {
       if (finished || el.dataset.stopped || !el.isConnected || el.ended) return;
       const nearEnd = el.duration && el.currentTime >= el.duration - 0.4;
       if (!nearEnd) safePlay();
     };
 
-    // CLAVE: ante un error transitorio (CPU saturada durante el live, hipo de red en
-    // weblive…) NO cortamos el video de inmediato. Antes, cualquier 'error' lo eliminaba
-    // a media reproducción —esa era la causa de que se cortaran solo en vivo—. Ahora
-    // reintentamos reanudar desde donde iba; solo nos rendimos tras varios fallos.
     el.onerror = () => {
       if (finished) return;
       if (errorRetries >= 3) { finish(); return; }
@@ -132,41 +140,38 @@ function play(m, done) {
       } catch { finish(); }
     };
 
-    // Vigilante de reproducción: en lugar de cortar a los 60s (lo que truncaba los
-    // videos largos), solo terminamos si el tiempo deja de AVANZAR durante mucho rato
-    // (cuelgue real). Así un video se reproduce COMPLETO sin importar su duración, y
-    // seguimos teniendo un respaldo por si nunca dispara 'ended'.
     const watch = () => {
       if (finished || !el.isConnected) return;
       const t = el.currentTime || 0;
       if (t > lastTime + 0.05) { lastTime = t; stalledSecs = 0; }
       else {
         stalledSecs += 1;
-        // Si quedó en PAUSA sin haber terminado (p. ej. el chat de voz/TTS tocó el
-        // dispositivo de audio y el navegador pausó el video), intentamos reanudarlo
-        // en vez de esperar a rendirnos. Así la voz ya no corta el video.
         const nearEnd = el.duration && el.currentTime >= el.duration - 0.4;
         if (el.paused && !el.ended && !nearEnd) safePlay();
       }
       if (stalledSecs >= STALL_LIMIT) { finish(); return; }
-      safetyTimer = setTimeout(watch, 1000);
+      lane.safetyTimer = setTimeout(watch, 1000);
     };
-    safetyTimer = setTimeout(watch, 1000);
+    lane.safetyTimer = setTimeout(watch, 1000);
     safePlay();
   }
   el.className = 'media';
   el.style.maxWidth = size + 'vw';
   el.style.maxHeight = size + 'vh';
-  stage.appendChild(el);
+  host.appendChild(el);
 }
 
-function stopStage() {
-  // Pausamos y vaciamos cualquier video para cortar imagen y audio al instante.
-  // Marcamos 'stopped' para que el auto-reanudar (onpause) NO lo vuelva a reproducir.
-  stage.querySelectorAll('video').forEach((vid) => {
+function stopStageEl(host) {
+  if (!host) return;
+  host.querySelectorAll('video').forEach((vid) => {
     try { vid.dataset.stopped = '1'; vid.pause(); vid.muted = true; vid.removeAttribute('src'); vid.load(); } catch {}
   });
-  stage.innerHTML = '';
+  host.innerHTML = '';
+}
+
+function stopAllStages() {
+  stopStageEl(stage);
+  stopStageEl(stageGeneral);
 }
 
 function showScreenTest() {

@@ -357,6 +357,47 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return true;
   }
   const emoteCatalog = new Map();
+  const EMOTES_FILE = path.join(dataDir, 'emotes.json');
+  let emotesSaveTimer = null;
+
+  function loadEmotesCatalog() {
+    const r = readJsonSafe(EMOTES_FILE);
+    const list = Array.isArray(r.data) ? r.data : (Array.isArray(r.data?.results) ? r.data.results : []);
+    for (const e of list) {
+      const eid = String(e?.id || '').trim();
+      if (!eid) continue;
+      const img = emoteImageUrl(e.image) || String(e.image || '').trim();
+      emoteCatalog.set(eid, { id: eid, image: img });
+    }
+  }
+  loadEmotesCatalog();
+
+  function saveEmotesCatalogNow() {
+    writeJsonAtomic(EMOTES_FILE, [...emoteCatalog.values()]);
+  }
+  function scheduleSaveEmotesCatalog() {
+    clearTimeout(emotesSaveTimer);
+    emotesSaveTimer = setTimeout(saveEmotesCatalogNow, 400);
+  }
+  function mergeEmotes(list) {
+    if (!Array.isArray(list) || !list.length) return false;
+    let changed = false;
+    for (const e of list) {
+      const eid = String(e?.id || '').trim();
+      if (!eid) continue;
+      const url = emoteImageUrl(e.image);
+      const prev = emoteCatalog.get(eid);
+      if (!prev || (!prev.image && url)) {
+        emoteCatalog.set(eid, { id: eid, image: url || prev?.image || '' });
+        changed = true;
+      }
+    }
+    if (changed) {
+      scheduleSaveEmotesCatalog();
+      broadcast('emoteCatalog', { results: [...emoteCatalog.values()] });
+    }
+    return changed;
+  }
   // Pelotas de fans: acumulado por usuario (con sobrante) para soltar pelotas.
   const fanCoinAcc = new Map();      // uniqueId -> monedas pendientes
   const fanLikeAcc = new Map();      // uniqueId -> likes pendientes
@@ -447,6 +488,28 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (slot && typeof slot === 'object' && !Array.isArray(slot)) return deepMerge(structuredClone(DEFAULT_SETTINGS), slot);
     return structuredClone(DEFAULT_SETTINGS);
   }
+  function cloneSettings(obj) {
+    if (!obj || typeof obj !== 'object') return structuredClone(DEFAULT_SETTINGS);
+    try { return structuredClone(obj); } catch { return JSON.parse(JSON.stringify(obj)); }
+  }
+  (function dedupeProfileSlotReferences() {
+    let changed = false;
+    const seen = new Map();
+    for (let i = 0; i < (profiles.slots || []).length; i++) {
+      const s = profiles.slots[i];
+      if (!s || typeof s !== 'object') continue;
+      if (seen.has(s)) { profiles.slots[i] = cloneSettings(s); changed = true; }
+      else seen.set(s, i);
+    }
+    if (profiles.general && typeof profiles.general === 'object' && seen.has(profiles.general)) {
+      profiles.general = cloneSettings(profiles.general);
+      changed = true;
+    }
+    if (changed) {
+      try { writeJsonAtomic(PROFILES_FILE, profiles); } catch {}
+      console.log('  [profiles] Ranuras duplicadas separadas (acciones/videos por perfil).');
+    }
+  })();
   function loadSettings() {
     return resolveProfileSettings(profiles.slots[profiles.active]);
   }
@@ -519,14 +582,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function persistCurrentEdit() {
     clearTimeout(saveTimer);
-    if (profiles.editMode === 'general') profiles.general = settings;
-    else profiles.slots[profiles.active] = settings;
+    const snap = cloneSettings(settings);
+    if (profiles.editMode === 'general') profiles.general = snap;
+    else profiles.slots[profiles.active] = snap;
   }
   function getActiveProfileSettings() {
-    if (profiles.editMode === 'general') return loadSettings();
-    return settings;
+    if (profiles.editMode === 'profile') return resolveProfileSettings(settings);
+    return loadSettings();
   }
   function getGeneralProfileSettings() {
+    if (profiles.editMode === 'general') return resolveProfileSettings(settings);
     if (!profiles.general) return null;
     return resolveProfileSettings(profiles.general);
   }
@@ -539,8 +604,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       normalizeSettingsMediaUrls(settings);
-      if (profiles.editMode === 'general') profiles.general = settings;
-      else profiles.slots[profiles.active] = settings;
+      const snap = cloneSettings(settings);
+      if (profiles.editMode === 'general') profiles.general = snap;
+      else profiles.slots[profiles.active] = snap;
       saveProfilesNow();
       // Mantenemos settings.json como espejo del perfil activo (compatibilidad).
       writeJsonAtomic(SETTINGS_FILE, settings);
@@ -791,6 +857,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function screenSize(n) {
     return settings.screens?.[(Number(n) || 1) - 1]?.size ?? 100;
+  }
+  function screenSizeForCfg(cfg, n) {
+    return cfg?.screens?.[(Number(n) || 1) - 1]?.size ?? 100;
+  }
+  function emitProfileMedia(cfg, v, scr, isGeneral) {
+    emitMedia({
+      id: v.id,
+      name: v.name,
+      url: v.url,
+      screen: scr,
+      volume: v.volume ?? 100,
+      size: screenSizeForCfg(cfg, scr),
+      general: !!isGeneral,
+      playQueue: cfg.playback?.playQueue !== false,
+    });
   }
 
   /* ----------------------------- Temporizador ----------------------------- */
@@ -1414,7 +1495,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function triggerLikeGlobal(total) {
     if (!total || total <= lastTotalLikes) { lastTotalLikes = total || lastTotalLikes; return; }
-    forEachTriggerProfile((cfg) => {
+    forEachTriggerProfile((cfg, isGeneral) => {
       for (const a of cfg.soundAlerts) {
         if (!a.enabled || !a.sound || (a.trigger || '') !== 'likeGlobal') continue;
         const goal = Math.max(1, a.likeGoal || 100);
@@ -1429,8 +1510,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!v.url || v.enabled === false || (v.trigger || '') !== 'likeGlobal') continue;
           const goal = Math.max(1, v.likeGoal || 100);
           if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-            const scr = Number(v.screen) || 1;
-            emitMedia({ id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
+            emitProfileMedia(cfg, v, Number(v.screen) || 1, isGeneral);
           }
         }
       }
@@ -1493,7 +1573,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           }
         }
         const scr = Number(v.screen) || 1;
-        emitMedia({ id: v.id, name: v.name, url: v.url, screen: scr, volume: v.volume ?? 100, size: screenSize(scr) });
+        emitProfileMedia(cfg, v, scr, isGeneral);
       }
     });
   }
@@ -1729,7 +1809,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     chatSeenUsers.clear();
     recentChatKeys.clear();
     recentChatOrder.length = 0;
-    emoteCatalog.clear();
     fanCoinAcc.clear();
     fanLikeAcc.clear();
     recentSubs.clear();
@@ -2384,6 +2463,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prev = emoteCatalog.get(eid);
     if (!prev || (!prev.image && url)) {
       emoteCatalog.set(eid, { id: eid, image: url });
+      scheduleSaveEmotesCatalog();
       broadcast('emoteCatalog', { results: [...emoteCatalog.values()] });
       if (!prev) broadcast('log', { level: 'info', text: `🙂 Sticker guardado (#${eid.slice(-6)})` });
     }
@@ -3183,6 +3263,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     try { writeJsonAtomic(POINTS_FILE, { users: [...points.values()], tx: pointsTx.slice(0, POINTS_MAX_TX) }); } catch {}
     try { saveLiveSession(); } catch {}
     try { saveSessionOverlaysNow(); } catch {}
+    clearTimeout(emotesSaveTimer);
+    try { saveEmotesCatalogNow(); } catch {}
   }
 
   // Chequeo de cambio de semana por room.
@@ -3218,7 +3300,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   return {
     id, account, roomKey,
     addClient, removeClient, handleMessage,
-    getEmotes, shutdown, getStatus, kickAll, broadcastCaps,
+    getEmotes, mergeEmotes, shutdown, getStatus, kickAll, broadcastCaps,
     getSettings: () => settings,
     applySettings: (obj) => applyIncomingSettings(obj, false),
     hasSavedSettings: () => fs.existsSync(SETTINGS_FILE),
