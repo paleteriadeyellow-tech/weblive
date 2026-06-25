@@ -757,6 +757,54 @@ app.post('/api/room/music-sync', express.json({ limit: '512kb' }), (req, res) =>
   }
 });
 
+app.post('/api/room/music-exec', express.json({ limit: '512kb' }), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const eng = getRoomForUser(user).getMusicEngine?.();
+  if (!eng) return res.json({ ok: false, error: 'no engine' });
+  const body = req.body || {};
+  const op = String(body.op || '').trim();
+  try {
+    let result = { ok: true };
+    if (op === 'sync') {
+      eng.applySnapshot(body.snapshot || body);
+    } else if (op === 'add') {
+      result = await eng.addSongRequest({
+        query: body.query || body.url || '',
+        user: { uniqueId: user.username, nickname: user.username },
+        skipCredits: true,
+        skipCooldown: true,
+        priority: body.priority || 0,
+      });
+      if (result.ok && !eng.getCurrent()) eng.play();
+    } else if (op === 'play') {
+      eng.play();
+    } else if (op === 'skip') {
+      eng.skip();
+    } else if (op === 'pause') {
+      eng.pause();
+    } else if (op === 'resume') {
+      eng.resume();
+    } else if (op === 'stop') {
+      eng.stop();
+    } else if (op === 'clear') {
+      eng.clearQueue();
+    } else {
+      return res.status(400).json({ ok: false, error: 'op desconocida' });
+    }
+    const snap = eng.snapshot();
+    res.json({
+      ...(result || {}),
+      ok: result?.ok !== false,
+      queue: snap.queue,
+      current: snap.current,
+      playerState: snap.playerState,
+    });
+  } catch (e) {
+    res.json({ ok: false, error: String(e && e.message || e) });
+  }
+});
+
 // Prueba de videos por nivel (web en Render: reproduce en la nube; el overlay usa video.html de Render).
 app.post('/api/test-level-video', express.json(), (req, res) => {
   const user = userFromRequest(req);
