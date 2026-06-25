@@ -350,6 +350,9 @@ export function createMusicEngine({ db, getSettings, broadcast, log }) {
       ...(snap.playerState || {}),
     };
     emit('musicState', snapshot());
+    if (current && playerState.playing && !playerState.paused) {
+      emit('songStarted', { song: { ...current }, playerState: { ...playerState, volume: cfg().volume } });
+    }
   }
 
   return {

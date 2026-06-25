@@ -15,49 +15,102 @@
       font: 12px monospace; background: rgba(0,0,0,.85); padding: 6px 10px;
       border-radius: 6px; max-width: 96vw; line-height: 1.4;
     }
+    #unmute {
+      position: fixed; inset: 0; display: none; place-items: center;
+      background: rgba(0,0,0,.78); color: #fff; z-index: 99; padding: 24px;
+      text-align: center; cursor: pointer; user-select: none;
+    }
+    #unmute.show { display: grid; }
+    #unmute b { font-size: 22px; display: block; margin-bottom: 8px; }
     #warn {
       position: fixed; inset: 0; display: none; place-items: center;
-      background: rgba(0,0,0,.92); color: #fff; z-index: 99; padding: 24px; text-align: center;
+      background: rgba(0,0,0,.92); color: #fff; z-index: 100; padding: 24px; text-align: center;
     }
     #warn.show { display: grid; }
     #warn code { color: #f97316; }
   </style>
 </head>
 <body>
-  <iframe id="embed" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
+  <div id="embed"></div>
   <div id="status">Iniciando…</div>
+  <div id="unmute" title="Activar audio">
+    <div>
+      <b>🔊 Toca aquí para activar el audio</b>
+      <p>Live Studio / OBS a veces bloquean el sonido hasta que confirmas.</p>
+    </div>
+  </div>
   <div id="warn">
     <div>
       <h2>⚠️ Falta la clave de room</h2>
-      <p>Copia el enlace desde el panel (Music Requests → Overlays OBS → <code>/player/music</code>).</p>
+      <p>Copia el enlace desde el panel (Music Requests → <code>/player/music</code>).</p>
       <p>Debe incluir <code>?room=TU_CLAVE</code> al final.</p>
     </div>
   </div>
+  <script src="https://www.youtube.com/iframe_api"></script>
   <script>
   (function () {
-    const embed = document.getElementById('embed');
+    const host = document.getElementById('embed');
     const status = document.getElementById('status');
+    const unmute = document.getElementById('unmute');
     const warn = document.getElementById('warn');
     let ws, rt, volume = 80, currentId = '', lastSong = null;
-    let progressTimer, endTimer, startedAt = 0, paused = false;
+    let endTimer, startedAt = 0, paused = false;
+    let ytPlayer = null, ytReady = false, audioOn = false, pendingId = '';
+    let finishedSent = false;
 
     const params = new URLSearchParams(location.search);
-    if (!params.get('room')) {
+    const roomKey = params.get('room') || '';
+    if (!roomKey) {
       warn.classList.add('show');
       status.textContent = 'Error: falta ?room= en la URL';
     }
 
     function setStatus(t) { status.textContent = t; }
 
+    function showUnmute() {
+      if (!audioOn && currentId) unmute.classList.add('show');
+    }
+
+    function hideUnmute() {
+      unmute.classList.remove('show');
+    }
+
+    function tryUnmute() {
+      if (!ytPlayer || typeof ytPlayer.unMute !== 'function') return false;
+      try {
+        ytPlayer.unMute();
+        ytPlayer.setVolume(Math.max(0, Math.min(100, volume)));
+        if (ytPlayer.getPlayerState && ytPlayer.getPlayerState() !== 1) ytPlayer.playVideo();
+        audioOn = true;
+        hideUnmute();
+        setStatus('▶ ' + (lastSong?.title || currentId) + ' (audio ON)');
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    unmute.addEventListener('click', () => tryUnmute());
+
     function send(action, extra) {
       if (!ws || ws.readyState !== 1) return;
       ws.send(JSON.stringify({ action, ...(extra || {}) }));
     }
 
+    function postFinished() {
+      if (finishedSent) return;
+      finishedSent = true;
+      if (ws && ws.readyState === 1) send('musicFinished');
+      else fetch('/api/music/player/finished' + location.search, { method: 'POST' }).catch(() => {});
+    }
+
     function connect() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
-      ws.onopen = () => { setStatus('✓ Conectado — esperando canción…'); send('hello', { role: 'musicPlayer' }); };
+      ws.onopen = () => {
+        setStatus('✓ Conectado — esperando canción…');
+        send('hello', { role: 'musicPlayer' });
+      };
       ws.onclose = (ev) => {
         if (ev.code === 4001) {
           warn.classList.add('show');
@@ -73,46 +126,131 @@
         if (m.type === 'musicState') applySong(p.current, p.playerState);
         else if (m.type === 'currentSongUpdated') applySong(p.song, p.playerState);
         else if (m.type === 'songStarted') applySong(p.song, { playing: true, paused: false, volume: p.playerState?.volume ?? volume });
-        else if (m.type === 'playerPaused') { paused = true; setStatus('⏸ Pausado'); }
+        else if (m.type === 'playerPaused') { paused = true; setStatus('⏸ Pausado'); if (ytPlayer?.pauseVideo) ytPlayer.pauseVideo(); }
         else if (m.type === 'playerResumed') { paused = false; playEmbed(currentId); setStatus('▶ Reanudando…'); }
         else if (m.type === 'playerStopped') stopAll();
       };
     }
 
-    function stopAll() {
-      currentId = '';
-      paused = false;
-      embed.src = 'about:blank';
+    function destroyPlayer() {
       clearTimeout(endTimer);
-      setStatus('Detenido');
+      if (ytPlayer && typeof ytPlayer.destroy === 'function') {
+        try { ytPlayer.destroy(); } catch {}
+      }
+      ytPlayer = null;
+      ytReady = false;
+      host.innerHTML = '';
     }
 
-    function playEmbed(videoId) {
-      if (!videoId || paused) return;
-      currentId = videoId;
-      const origin = encodeURIComponent(location.origin);
-      // mute=1 primero (OBS permite autoplay), el iframe desmutea al interactuar
-      embed.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&enablejsapi=1&origin=${origin}&playsinline=1`;
-      startedAt = Date.now();
-      setStatus('▶ Cargando ' + (lastSong?.title || videoId) + '…');
-      scheduleEnd(lastSong?.duration || 0);
+    function stopAll() {
+      currentId = '';
+      pendingId = '';
+      paused = false;
+      audioOn = false;
+      destroyPlayer();
+      hideUnmute();
+      setStatus('Detenido');
     }
 
     function scheduleEnd(durationSec) {
       clearTimeout(endTimer);
       if (durationSec > 0) {
         endTimer = setTimeout(() => {
-          send('musicFinished');
+          postFinished();
           setStatus('Canción terminada');
-        }, durationSec * 1000 + 1500);
+        }, durationSec * 1000 + 2000);
       }
     }
+
+    function onPlayerReady() {
+      ytReady = true;
+      if (!pendingId || paused) return;
+      try {
+        ytPlayer.mute();
+        ytPlayer.playVideo();
+      } catch {}
+    }
+
+    function onPlayerStateChange(e) {
+      const st = e.data;
+      if (st === YT.PlayerState.PLAYING) {
+        startedAt = Date.now();
+        if (!audioOn) {
+          tryUnmute();
+          if (!audioOn) showUnmute();
+        }
+        scheduleEnd(lastSong?.duration || 0);
+      }
+      if (st === YT.PlayerState.ENDED) {
+        postFinished();
+        setStatus('Canción terminada');
+      }
+    }
+
+    function createPlayer(videoId) {
+      destroyPlayer();
+      host.innerHTML = '';
+      pendingId = videoId;
+      ytPlayer = new YT.Player(host, {
+        width: '100%',
+        height: '100%',
+        videoId,
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 0,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          enablejsapi: 1,
+          origin: location.origin,
+        },
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: () => {
+            setStatus('Error YouTube — prueba otra canción');
+            showUnmute();
+          },
+        },
+      });
+    }
+
+    function playEmbed(videoId) {
+      if (!videoId || paused) return;
+      if (videoId === currentId && ytPlayer && ytReady) {
+        try {
+          ytPlayer.mute();
+          ytPlayer.playVideo();
+          showUnmute();
+        } catch {}
+        scheduleEnd(lastSong?.duration || 0);
+        return;
+      }
+      currentId = videoId;
+      audioOn = false;
+      finishedSent = false;
+      startedAt = Date.now();
+      setStatus('▶ Cargando ' + (lastSong?.title || videoId) + '…');
+      if (typeof YT !== 'undefined' && YT.Player) createPlayer(videoId);
+      else pendingId = videoId;
+      showUnmute();
+    }
+
+    window.onYouTubeIframeAPIReady = function () {
+      if (pendingId && !paused) createPlayer(pendingId);
+    };
 
     function applySong(song, ps) {
       if (ps?.volume != null) volume = ps.volume;
       if (!song?.videoId) { stopAll(); return; }
       lastSong = song;
-      if (ps?.paused) { paused = true; embed.src = 'about:blank'; setStatus('⏸ ' + (song.title || '')); return; }
+      if (ps?.paused) {
+        paused = true;
+        if (ytPlayer?.pauseVideo) ytPlayer.pauseVideo();
+        setStatus('⏸ ' + (song.title || ''));
+        return;
+      }
       paused = false;
       if (song.videoId !== currentId) playEmbed(song.videoId);
       else scheduleEnd(song.duration || 0);
@@ -133,6 +271,7 @@
     }
 
     setInterval(reportProgress, 1000);
+    setInterval(() => { if (currentId && !audioOn && !paused) showUnmute(); }, 3000);
     connect();
   })();
   </script>
