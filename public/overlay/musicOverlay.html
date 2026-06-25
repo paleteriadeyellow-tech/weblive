@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Music Requests</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Rajdhani:wght@500;600;700&display=swap');
+    html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: 'Rajdhani', system-ui, sans-serif; }
+    .wrap { width: 480px; padding: 16px; }
+    .card {
+      display: flex; gap: 14px; align-items: center;
+      padding: 16px 18px; border-radius: 16px;
+      background: linear-gradient(135deg, rgba(12,8,28,.95), rgba(20,10,40,.92));
+      border: 2px solid rgba(168,85,247,.55);
+      box-shadow: 0 0 24px rgba(168,85,247,.25), 0 12px 40px rgba(0,0,0,.6);
+      animation: in .5s cubic-bezier(.2,1.1,.3,1);
+    }
+    .card.idle { border-color: rgba(255,255,255,.12); opacity: .85; }
+    .thumb {
+      width: 96px; height: 54px; border-radius: 10px; flex: none;
+      object-fit: cover; background: #1a1030;
+      box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    }
+    .thumb.ph { display: grid; place-items: center; color: #a855f7; font-size: 28px; }
+    .body { min-width: 0; flex: 1; }
+    .badge {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: #c084fc; margin-bottom: 4px;
+    }
+    .title {
+      color: #fff; font-weight: 700; font-size: 18px; line-height: 1.15;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .channel { color: #94a3b8; font-size: 13px; font-weight: 600; margin-top: 2px; }
+    .by { color: #e879f9; font-size: 12px; font-weight: 700; margin-top: 4px; }
+    .bar-wrap { margin-top: 10px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .bar {
+      height: 100%; width: 0%; border-radius: 99px;
+      background: linear-gradient(90deg, #a855f7, #ec4899, #f97316);
+      transition: width .3s linear;
+      box-shadow: 0 0 12px rgba(168,85,247,.6);
+    }
+    .times { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #64748b; font-weight: 600; }
+    .idle-text { color: #94a3b8; font-size: 15px; font-weight: 600; }
+    @keyframes in { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card idle" id="card">
+      <div class="thumb ph" id="thumb-ph">🎵</div>
+      <img class="thumb" id="thumb" alt="" hidden>
+      <div class="body">
+        <div class="badge" id="badge" hidden>♪ Now Playing</div>
+        <div class="idle-text" id="idle">Esperando canción…</div>
+        <div id="track" hidden>
+          <div class="title" id="title"></div>
+          <div class="channel" id="channel"></div>
+          <div class="by" id="by"></div>
+          <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+          <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const card = document.getElementById('card');
+    const thumb = document.getElementById('thumb');
+    const thumbPh = document.getElementById('thumb-ph');
+    const badge = document.getElementById('badge');
+    const idle = document.getElementById('idle');
+    const trackEl = document.getElementById('track');
+    const title = document.getElementById('title');
+    const channel = document.getElementById('channel');
+    const by = document.getElementById('by');
+    const bar = document.getElementById('bar');
+    const cur = document.getElementById('cur');
+    const dur = document.getElementById('dur');
+
+    let song = null;
+    let progressMs = 0;
+    let playing = false;
+    let anim = null;
+    let lastTick = 0;
+
+    const fmt = (sec) => {
+      const s = Math.max(0, Math.floor(Number(sec) || 0));
+      return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    };
+
+    function stopAnim() { if (anim) cancelAnimationFrame(anim); anim = null; }
+
+    function tick(now) {
+      if (!song) return;
+      const durSec = Number(song.duration) || 0;
+      if (durSec <= 0) {
+        cur.textContent = fmt(progressMs / 1000);
+        dur.textContent = '--:--';
+        bar.style.width = '0%';
+        if (playing) anim = requestAnimationFrame(tick);
+        return;
+      }
+      if (playing && lastTick) {
+        progressMs = Math.min(durSec * 1000, progressMs + (now - lastTick));
+      }
+      lastTick = now;
+      bar.style.width = `${Math.min(100, (progressMs / 1000 / durSec) * 100)}%`;
+      cur.textContent = fmt(progressMs / 1000);
+      dur.textContent = fmt(durSec);
+      if (playing) anim = requestAnimationFrame(tick);
+    }
+
+    function applyProgress(ps, s) {
+      if (s) {
+        song = { ...song, ...s };
+        if (s.title && s.title !== 'YouTube') title.textContent = s.title;
+        if (s.channel) channel.textContent = s.channel;
+      }
+      if (ps) {
+        if (ps.progressMs != null) progressMs = ps.progressMs;
+        playing = !!(ps.playing && !ps.paused);
+      }
+      if (song?.duration) dur.textContent = fmt(song.duration);
+      if (!anim) { lastTick = performance.now(); anim = requestAnimationFrame(tick); }
+    }
+
+    function render(s, ps) {
+      stopAnim();
+      lastTick = 0;
+      song = s?.videoId ? { ...s } : null;
+      progressMs = ps?.progressMs || 0;
+      playing = !!(ps?.playing && !ps?.paused);
+      if (!song) {
+        card.classList.add('idle');
+        badge.hidden = true; trackEl.hidden = true; idle.hidden = false;
+        thumb.hidden = true; thumbPh.hidden = false;
+        return;
+      }
+      card.classList.remove('idle');
+      idle.hidden = true; badge.hidden = false; trackEl.hidden = false;
+      title.textContent = (song.title && song.title !== 'YouTube') ? song.title : 'Cargando…';
+      channel.textContent = song.channel || '';
+      by.textContent = song.requestedByNick ? `🎧 ${song.requestedByNick}` : (song.requestedBy === 'autodj' ? '🤖 AutoDJ' : '');
+      if (song.thumbnail) {
+        thumb.src = song.thumbnail; thumb.hidden = false; thumbPh.hidden = true;
+        thumb.onerror = () => { thumb.hidden = true; thumbPh.hidden = false; };
+      } else { thumb.hidden = true; thumbPh.hidden = false; }
+      dur.textContent = fmt(song.duration || 0);
+      cur.textContent = fmt(progressMs / 1000);
+      lastTick = performance.now();
+      anim = requestAnimationFrame(tick);
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        const p = m.payload || m.data || {};
+        if (m.type === 'musicState') render(p.current, p.playerState);
+        else if (m.type === 'currentSongUpdated') render(p.song, p.playerState);
+        else if (m.type === 'songStarted') render(p.song, { playing: true, progressMs: 0 });
+        else if (m.type === 'musicProgress') applyProgress(p.playerState, p.song);
+        else if (m.type === 'playerPaused') { playing = false; if (song) stopAnim(); lastTick = 0; tick(performance.now()); }
+        else if (m.type === 'playerResumed') { playing = true; lastTick = performance.now(); if (!anim) anim = requestAnimationFrame(tick); }
+        else if (m.type === 'playerStopped') render(null, {});
+        else if (m.type === 'songFinished' || m.type === 'songSkipped') render(null, {});
+      };
+    }
+    connect();
+  })();
+  </script>
+</body>
+</html>

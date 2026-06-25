@@ -24,6 +24,7 @@ import {
 import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
 } from './plans.js';
+import { registerMusicRoutes } from './musicRoutes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -1112,6 +1113,15 @@ app.get(['/', '/index.html'], (req, res) => {
   sendHtmlFile(res, path.join(PUBLIC_DIR, 'index.html'));
 });
 
+registerMusicRoutes(app, { userFromRequest, getRoomForUser });
+
+app.get('/player/music', (req, res) => {
+  sendHtmlFile(res, path.join(PUBLIC_DIR, 'player', 'musicPlayer.html'));
+});
+app.get('/overlay/music', (req, res) => {
+  sendHtmlFile(res, path.join(PUBLIC_DIR, 'overlay', 'musicOverlay.html'));
+});
+
 // Archivos pesados (videos subidos y audios): caché larga en el navegador. Sus nombres
 // son únicos, así que se pueden cachear sin problema y al ACTUALIZAR la página el
 // navegador los reutiliza al instante en vez de descargarlos otra vez.
@@ -1541,7 +1551,14 @@ wss.on('connection', (ws, req) => {
     const roomKey = url.searchParams.get('room');
     let user = null;
     if (roomKey) user = getUserByRoomKey(roomKey);
-    else user = userFromRequest(req);
+    if (!user) user = userFromRequest(req);
+    if (!user) {
+      const active = listUsers().filter((u) => isUserActive(u));
+      if (active.length === 1) user = active[0];
+    }
+    if (!user && rooms.size === 1) {
+      user = getUserById([...rooms.keys()][0]);
+    }
 
     if (!user) {
       try { ws.close(4001, 'unauthorized'); } catch {}

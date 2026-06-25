@@ -8,6 +8,8 @@ import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
 import { DEFAULT_SETTINGS, deepMerge } from './default-settings.js';
 import { createActionBridge } from './cloud-actions.js';
+import { createMusicDb } from './music/db.js';
+import { createMusicEngine } from './music/engine.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -770,6 +772,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (client.readyState === 1) client.send(msg);
     }
   }
+  const musicDb = createMusicDb(path.join(dataDir, 'music'));
+  const music = createMusicEngine({
+    db: musicDb,
+    getSettings: () => settings,
+    broadcast: (type, payload) => broadcast(type, payload),
+    log: (level, text) => broadcast('log', { level, text }),
+  });
+  if (music.queue.list().length && !music.getCurrent()) music.startNext();
   function broadcastToLocal(type, payload) {
     const msg = JSON.stringify({ type, payload });
     for (const client of localClients) {
@@ -1681,6 +1691,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  async function handleMusicCommands(comment, user, roles) {
+    try {
+      const r = await music.handleChat(comment, user, roles);
+      if (r?.message) broadcast('log', { level: 'info', text: r.message });
+      else if (r && !r.ok && r.error) broadcast('log', { level: 'warn', text: `🎵 ${r.error}` });
+    } catch (e) { console.error('[music]', e); }
+  }
+
   function noteCritical(value = 0, src = '') {
     if (settings.battleAlertsEnabled === false) return;
     const v = Math.round(Number(value) || 0);
@@ -2538,6 +2556,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerSoundAlerts('chatCommand', chatInfo);
       actions.triggerActions('chatCommand', chatInfo);
       handleChatCommands(comment, chatUser);
+      handleMusicCommands(comment, chatUser, roles);
       actions.triggerMinecraftActions('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
       const uid = data.user?.uniqueId || data.user?.userId;
@@ -2601,6 +2620,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         countGiftForGoal(giftId, giftName, repeatCount);
         processFanBalls('coins', user, total);
         trackSessionGift(user, giftName, repeatCount, diamondsEach, image);
+        music.handleGift({ giftId, giftName, uniqueId: user.uniqueId, nickname: user.nickname });
       }
 
       triggerGiftGameActions(user, giftId, repeatCount, !!data.repeatEnd, giftType, giftInfo);
@@ -2918,6 +2938,35 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'getPoints':
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() })); } catch {}
         break;
+      case 'musicPlay':
+        music.play();
+        break;
+      case 'musicFinished':
+        music.onSongFinished();
+        break;
+      case 'musicProgress':
+        music.updateProgress(data.progressMs, {
+          durationSec: data.durationSec,
+          title: data.title,
+          channel: data.channel,
+          playing: data.playing,
+        });
+        break;
+      case 'musicSkip':
+        music.skip();
+        break;
+      case 'musicPause':
+        music.pause();
+        break;
+      case 'musicResume':
+        music.resume();
+        break;
+      case 'musicStop':
+        music.stop();
+        break;
+      case 'musicClearQueue':
+        music.clearQueue();
+        break;
       case 'addPointsTx': {
         // Transacción manual: suma o resta puntos a un usuario. amount negativo = retirar.
         const amount = Math.round(Number(data.points) || 0);
@@ -3204,6 +3253,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'sessionOverlays', payload: serializeSessionOverlaysPayload() }));
     ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
+    ws.send(JSON.stringify({ type: 'musicState', payload: music.snapshot() }));
     const caps = currentCaps();
     if (caps) ws.send(JSON.stringify({ type: 'caps', payload: caps }));
   }
@@ -3311,6 +3361,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     renameProfile,
     importProfiles,
     spotifyCharge,
+    handleMusicChat: (comment, user, roles) => handleMusicCommands(comment, user, roles),
+    getMusicEngine: () => music,
     get clientCount() { return clients.size; },
   };
 }

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Player — LiveCoins</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #111; overflow: hidden; font-family: system-ui, sans-serif; }
+    #embed {
+      position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
+      border: 0; background: #000;
+    }
+    #status {
+      position: fixed; left: 8px; bottom: 8px; color: #0f8; z-index: 9;
+      font: 12px monospace; background: rgba(0,0,0,.85); padding: 6px 10px;
+      border-radius: 6px; max-width: 96vw; line-height: 1.4;
+    }
+    #warn {
+      position: fixed; inset: 0; display: none; place-items: center;
+      background: rgba(0,0,0,.92); color: #fff; z-index: 99; padding: 24px; text-align: center;
+    }
+    #warn.show { display: grid; }
+    #warn code { color: #f97316; }
+  </style>
+</head>
+<body>
+  <iframe id="embed" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
+  <div id="status">Iniciando…</div>
+  <div id="warn">
+    <div>
+      <h2>⚠️ Falta la clave de room</h2>
+      <p>Copia el enlace desde el panel (Music Requests → Overlays OBS → <code>/player/music</code>).</p>
+      <p>Debe incluir <code>?room=TU_CLAVE</code> al final.</p>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const embed = document.getElementById('embed');
+    const status = document.getElementById('status');
+    const warn = document.getElementById('warn');
+    let ws, rt, volume = 80, currentId = '', lastSong = null;
+    let progressTimer, endTimer, startedAt = 0, paused = false;
+
+    const params = new URLSearchParams(location.search);
+    if (!params.get('room')) {
+      warn.classList.add('show');
+      status.textContent = 'Error: falta ?room= en la URL';
+    }
+
+    function setStatus(t) { status.textContent = t; }
+
+    function send(action, extra) {
+      if (!ws || ws.readyState !== 1) return;
+      ws.send(JSON.stringify({ action, ...(extra || {}) }));
+    }
+
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => { setStatus('✓ Conectado — esperando canción…'); send('hello', { role: 'musicPlayer' }); };
+      ws.onclose = (ev) => {
+        if (ev.code === 4001) {
+          warn.classList.add('show');
+          setStatus('WS rechazado: copia el enlace con ?room= desde el panel');
+        } else {
+          setStatus('Reconectando…');
+          rt = setTimeout(connect, 2000);
+        }
+      };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        const p = m.payload || m.data || {};
+        if (m.type === 'musicState') applySong(p.current, p.playerState);
+        else if (m.type === 'currentSongUpdated') applySong(p.song, p.playerState);
+        else if (m.type === 'songStarted') applySong(p.song, { playing: true, paused: false, volume: p.playerState?.volume ?? volume });
+        else if (m.type === 'playerPaused') { paused = true; setStatus('⏸ Pausado'); }
+        else if (m.type === 'playerResumed') { paused = false; playEmbed(currentId); setStatus('▶ Reanudando…'); }
+        else if (m.type === 'playerStopped') stopAll();
+      };
+    }
+
+    function stopAll() {
+      currentId = '';
+      paused = false;
+      embed.src = 'about:blank';
+      clearTimeout(endTimer);
+      setStatus('Detenido');
+    }
+
+    function playEmbed(videoId) {
+      if (!videoId || paused) return;
+      currentId = videoId;
+      const origin = encodeURIComponent(location.origin);
+      // mute=1 primero (OBS permite autoplay), el iframe desmutea al interactuar
+      embed.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&enablejsapi=1&origin=${origin}&playsinline=1`;
+      startedAt = Date.now();
+      setStatus('▶ Cargando ' + (lastSong?.title || videoId) + '…');
+      scheduleEnd(lastSong?.duration || 0);
+    }
+
+    function scheduleEnd(durationSec) {
+      clearTimeout(endTimer);
+      if (durationSec > 0) {
+        endTimer = setTimeout(() => {
+          send('musicFinished');
+          setStatus('Canción terminada');
+        }, durationSec * 1000 + 1500);
+      }
+    }
+
+    function applySong(song, ps) {
+      if (ps?.volume != null) volume = ps.volume;
+      if (!song?.videoId) { stopAll(); return; }
+      lastSong = song;
+      if (ps?.paused) { paused = true; embed.src = 'about:blank'; setStatus('⏸ ' + (song.title || '')); return; }
+      paused = false;
+      if (song.videoId !== currentId) playEmbed(song.videoId);
+      else scheduleEnd(song.duration || 0);
+      setStatus('▶ ' + (song.title || song.videoId));
+    }
+
+    function reportProgress() {
+      if (!currentId || paused) return;
+      const elapsed = Math.max(0, Date.now() - startedAt);
+      const durSec = lastSong?.duration || 0;
+      send('musicProgress', {
+        progressMs: elapsed,
+        durationSec: durSec,
+        title: lastSong?.title || '',
+        channel: lastSong?.channel || '',
+        playing: !paused,
+      });
+    }
+
+    setInterval(reportProgress, 1000);
+    connect();
+  })();
+  </script>
+</body>
+</html>
