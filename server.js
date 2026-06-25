@@ -744,6 +744,19 @@ app.post('/api/room/spotify-charge', express.json({ limit: '16kb' }), (req, res)
   res.json(result || { ok: false });
 });
 
+// Espejo de Music Requests desde el .exe (relay): la cola vive en la PC local
+// pero Live Studio necesita URLs públicas en Render.
+app.post('/api/room/music-sync', express.json({ limit: '512kb' }), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    getRoomForUser(user).applyMusicSnapshot(req.body || {});
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false, error: String(e && e.message || e) });
+  }
+});
+
 // Prueba de videos por nivel (web en Render: reproduce en la nube; el overlay usa video.html de Render).
 app.post('/api/test-level-video', express.json(), (req, res) => {
   const user = userFromRequest(req);

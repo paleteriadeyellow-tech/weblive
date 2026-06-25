@@ -48,5 +48,9 @@ export function createCreditsManager(db) {
     saveAll([]);
   }
 
-  return { list, find, balance, add, remove, resetAll, upsert };
+  function replaceAll(rows) {
+    saveAll(Array.isArray(rows) ? rows : []);
+  }
+
+  return { list, find, balance, add, remove, resetAll, replaceAll, upsert };
 }

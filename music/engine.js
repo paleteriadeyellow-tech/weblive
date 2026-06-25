@@ -337,8 +337,23 @@ export function createMusicEngine({ db, getSettings, broadcast, log }) {
     }
   }
 
+  function applySnapshot(snap) {
+    if (!snap || typeof snap !== 'object') return;
+    if (Array.isArray(snap.queue)) queue.replaceAll(snap.queue);
+    if (Array.isArray(snap.credits)) credits.replaceAll(snap.credits);
+    current = snap.current || null;
+    playerState = {
+      playing: false,
+      paused: false,
+      progressMs: 0,
+      autodj: false,
+      ...(snap.playerState || {}),
+    };
+    emit('musicState', snapshot());
+  }
+
   return {
-    cfg, snapshot, credits, queue, history,
+    cfg, snapshot, applySnapshot, credits, queue, history,
     addSongRequest, handleChat, handleGift,
     onSongFinished, skip, pause, resume, stop, clearQueue, play,
     startNext, updateProgress, emit, getCurrent: () => current,

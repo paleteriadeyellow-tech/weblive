@@ -3362,6 +3362,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     importProfiles,
     spotifyCharge,
     handleMusicChat: (comment, user, roles) => handleMusicCommands(comment, user, roles),
+    applyMusicSnapshot: (snap) => music.applySnapshot(snap),
     getMusicEngine: () => music,
     get clientCount() { return clients.size; },
   };

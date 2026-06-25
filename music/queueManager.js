@@ -76,9 +76,14 @@ export function createQueueManager(db) {
     return [];
   }
 
+  function replaceAll(items) {
+    save(Array.isArray(items) ? items : []);
+    return list();
+  }
+
   function hasDuplicate(videoId) {
     return list().some((s) => s.videoId === videoId);
   }
 
-  return { list, add, removeAt, removeById, move, playNow, shift, clear, hasDuplicate, sortQueue };
+  return { list, add, removeAt, removeById, move, playNow, shift, clear, replaceAll, hasDuplicate, sortQueue };
 }
