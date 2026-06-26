@@ -291,7 +291,7 @@ function normalizeProfilesMediaUrls(p) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onStreamerRank }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
@@ -341,6 +341,50 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let rankSaveTimer = null;
   const lastRankPeriods = {};
   const followerCounter = { count: 0, nickname: '', uniqueId: '', photo: '', ready: false };
+
+  let rankSnap = { likes: 0, diamonds: 0 };
+  let rankLastTick = 0;
+  let rankStreamerTimer = null;
+  function resetRankSnap() {
+    rankSnap = { likes: state.stats.likes || 0, diamonds: state.stats.diamonds || 0 };
+    rankLastTick = Date.now();
+  }
+  function flushStreamerRank(extraStreamMs = 0) {
+    if (!onStreamerRank || !state.connected) return;
+    const now = Date.now();
+    let streamMsDelta = extraStreamMs;
+    if (!streamMsDelta && rankLastTick && state.startedAt) {
+      streamMsDelta = Math.min(now - rankLastTick, 120000);
+    }
+    const likesDelta = Math.max(0, (state.stats.likes || 0) - rankSnap.likes);
+    const diamondsDelta = Math.max(0, (state.stats.diamonds || 0) - rankSnap.diamonds);
+    if (likesDelta) rankSnap.likes = state.stats.likes;
+    if (diamondsDelta) rankSnap.diamonds = state.stats.diamonds;
+    rankLastTick = now;
+    if (!(likesDelta || diamondsDelta || streamMsDelta)) return;
+    try {
+      onStreamerRank({
+        userId: id,
+        username: account,
+        tiktok: state.username || '',
+        nickname: followerCounter.nickname || state.username || account,
+        photo: followerCounter.photo || '',
+        likesDelta,
+        diamondsDelta,
+        streamMsDelta,
+      });
+    } catch { /* ignore */ }
+  }
+  function startRankStreamerTimer() {
+    if (!onStreamerRank) return;
+    clearInterval(rankStreamerTimer);
+    rankStreamerTimer = setInterval(() => flushStreamerRank(), 60000);
+    rankStreamerTimer.unref?.();
+  }
+  function stopRankStreamerTimer() {
+    clearInterval(rankStreamerTimer);
+    rankStreamerTimer = null;
+  }
   // Usuario y Puntos: balance acumulado (de por vida) por usuario + historial de transacciones.
   const points = new Map();          // uniqueId -> { uniqueId, nickname, photo, total, levelPoints, firstAt, lastAt }
   let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
@@ -1317,6 +1361,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (auto) {
           const mode = applyAutoLiveConnected(newRoomId, username);
           seedStatsFromRoomInfo();
+          resetRankSnap();
+          startRankStreamerTimer();
           pushState();
           if (mode === 'reconnect') {
             broadcast('log', { level: 'ok', text: `Reconectado al live (sala ${newRoomId ?? ''}) — overlays conservados` });
@@ -1328,6 +1374,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           saveLiveSession();
           state.startedAt = liveSession.startedAt;
           seedStatsFromRoomInfo();
+          resetRankSnap();
+          startRankStreamerTimer();
           pushState();
           broadcastAllRankStates();
           if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
@@ -1369,6 +1417,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function disconnect() {
+    if (state.connected) flushStreamerRank();
+    stopRankStreamerTimer();
     if (connection) {
       try { connection.disconnect(); } catch { /* ignore */ }
       connection = null;
@@ -2606,6 +2656,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (award > 0) addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: award, counted: true, description: `Regalo: ${giftName}`, manual: false });
         }
         pushState();
+        flushStreamerRank();
 
         if (settings.battle.enabled && total > 0) {
           if (settings.battle.receiving === 'A') battle.scoreA += total;
@@ -2647,6 +2698,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       if (typeof data.totalLikeCount === 'number') triggerLikeGlobal(data.totalLikeCount);
       pushStatsThrottled();
+      flushStreamerRank();
     });
 
     conn.on(WebcastEvent.MEMBER, (data) => {
@@ -3268,6 +3320,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return [...emoteCatalog.values()];
   }
   function shutdown() {
+    flushStreamerRank();
+    stopRankStreamerTimer();
     disconnect();
     if (autoConnectTimer) { clearInterval(autoConnectTimer); autoConnectTimer = null; }
     stopTimerInterval();

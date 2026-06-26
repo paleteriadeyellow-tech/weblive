@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins · Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=nav-foot1" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=srk1" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
 </head>
 <body>
@@ -28,6 +28,7 @@
       <nav class="nav">
         <div class="nav-section">
           <button class="nav-item active" data-view="panel">Inicio</button>
+          <button class="nav-item" data-view="ranking">Ranking</button>
           <button class="nav-item" data-view="configuracion" id="navConfiguracion" style="display:none">Configuración</button>
           <button class="nav-item" data-view="planes">Planes</button>
           <button class="nav-item" data-view="regalos">Regalos</button>
@@ -232,6 +233,27 @@
             <p class="transfer-status" id="transfer-status"></p>
             <input type="file" id="transfer-file" accept=".json,application/json" hidden>
           </section>
+        </section>
+
+        <!-- ===== VISTA: RANKING SEMANAL ===== -->
+        <section class="view" id="view-ranking">
+          <h1 class="view-title">🏆 Ranking semanal</h1>
+          <p class="view-sub">Top streamers de la semana (se reinicia cada <b>domingo a las 00:00</b>). Likes y diamantes acumulados en vivo + horas transmitidas.</p>
+
+          <div class="srk-toolbar">
+            <div class="srk-tabs">
+              <button type="button" class="srk-tab active" data-srk="likes">❤️ Likes</button>
+              <button type="button" class="srk-tab" data-srk="diamonds">💎 Diamantes</button>
+            </div>
+            <label class="srk-limit-wrap">Mostrar top
+              <input type="number" id="srk-limit" min="3" max="100" value="10" class="srk-limit-input">
+            </label>
+          </div>
+
+          <p class="srk-reset" id="srk-reset">Cargando periodo…</p>
+          <div class="srk-list" id="srk-list">
+            <p class="srk-empty">Cargando ranking…</p>
+          </div>
         </section>
 
         <!-- ===== VISTA: CONFIGURACIÓN (solo .exe) ===== -->

@@ -13,6 +13,7 @@ import ffmpegPath from 'ffmpeg-static';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
+import { createStreamerRankings } from './streamer-rankings.js';
 import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
@@ -32,6 +33,7 @@ const PORT = process.env.PORT || 3000;
 // En local, si no existe la variable, se usa la carpeta "data" del proyecto.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
+const streamerRankings = createStreamerRankings(DATA_DIR);
 const DEFAULT_DATA_DIR = path.join(__dirname, 'data');
 const ON_RENDER = !!process.env.RENDER;
 const USING_EPHEMERAL_DATA = ON_RENDER && path.resolve(DATA_DIR) === path.resolve(DEFAULT_DATA_DIR);
@@ -236,6 +238,7 @@ function getRoomForUser(user) {
       getLevelVideo: (lvl) => findLevelVideoUrl(lvl),
       // El room consulta esto al guardar para no exceder los límites del plan.
       getCaps: () => capsForUser(getUserById(user.id) || user),
+      onStreamerRank: (p) => streamerRankings.record(p),
     });
     rooms.set(user.id, room);
   }
@@ -670,6 +673,14 @@ app.get('/api/panel-lives', (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
   res.json({ lives: listPanelLives() });
+});
+
+app.get('/api/streamer-rankings', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const type = req.query.type === 'diamonds' ? 'diamonds' : 'likes';
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
+  res.json(streamerRankings.getRankings({ type, limit }));
 });
 
 // Ajustes completos del usuario autenticado (para sincronizar entre la web y el .exe).

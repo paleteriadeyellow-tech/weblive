@@ -1176,6 +1176,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.view === 'acciones') {
       try { setupAccionesUI(); if (typeof renderAcciones === 'function') renderAcciones(); } catch (e) { console.error('Acciones UI:', e); }
     }
+    if (btn.dataset.view === 'ranking') { try { setupStreamerRanking(); refreshStreamerRanking(); } catch (e) { console.error('Ranking UI:', e); } }
   };
 });
 
@@ -11764,6 +11765,130 @@ function homeLastUser() {
 }
 
 let panelLivesTimer = null;
+
+/* ====================== Ranking semanal streamers ====================== */
+let srkType = 'likes';
+let srkTimer = null;
+let srkWired = false;
+
+function srkLimit() {
+  const el = document.getElementById('srk-limit');
+  const n = el ? Number(el.value) : 10;
+  return Math.min(100, Math.max(3, Number.isFinite(n) ? n : 10));
+}
+
+function fmtSrkReset(resetAt) {
+  const ms = Math.max(0, (resetAt || 0) - Date.now());
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function fmtSrkWeekRange(start, end) {
+  try {
+    const a = new Date(start).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+    const b = new Date(end - 1).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+    return `${a} – ${b}`;
+  } catch { return ''; }
+}
+
+function fmtSrkDayLabel(key) {
+  try {
+    const [y, mo, d] = key.split('-').map(Number);
+    const dt = new Date(y, mo - 1, d);
+    return dt.toLocaleDateString('es', { weekday: 'short', day: 'numeric' });
+  } catch { return key; }
+}
+
+function renderStreamerRanking(data) {
+  const list = document.getElementById('srk-list');
+  const resetEl = document.getElementById('srk-reset');
+  if (!list) return;
+  if (!data) {
+    list.innerHTML = '<p class="srk-empty">No se pudo cargar el ranking.</p>';
+    return;
+  }
+  const isLikes = data.type === 'likes';
+  const valKey = isLikes ? 'likesWeek' : 'diamondsWeek';
+  const valLabel = isLikes ? 'likes' : 'diamantes';
+  if (resetEl) {
+    resetEl.textContent = `Semana ${fmtSrkWeekRange(data.weekStart, data.weekEnd)} · Reinicio en ${fmtSrkReset(data.resetAt)} (domingo 00:00)`;
+  }
+  const entries = data.entries || [];
+  if (!entries.length) {
+    list.innerHTML = '<p class="srk-empty">Aún no hay datos esta semana. Conecta tu live para sumar al ranking.</p>';
+    return;
+  }
+  list.innerHTML = entries.map((e) => {
+    const name = esc(e.nickname || e.tiktok || e.username || 'Streamer');
+    const handle = e.tiktok ? `@${esc(e.tiktok)}` : (e.username ? `@${esc(e.username)}` : '');
+    const photoUrl = e.photo ? panelLiveImgUrl(e.photo) : '';
+    const av = photoUrl
+      ? `<img class="srk-av" src="${esc(photoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'srk-ph',textContent:'${initial(e.nickname || e.tiktok || '?')}' }))">`
+      : `<div class="srk-ph">${initial(e.nickname || e.tiktok || '?')}</div>`;
+    const days = Object.entries(e.days || {})
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dk, dv]) => {
+        const v = isLikes ? (dv.likes || 0) : (dv.diamonds || 0);
+        const h = Math.round((dv.streamMs || 0) / 36000) / 100;
+        if (!v && !h) return '';
+        return `<span class="srk-day">${fmtSrkDayLabel(dk)}: <b>${fmt(v)}</b> ${valLabel}${h ? ` · ${h}h` : ''}</span>`;
+      }).filter(Boolean).join('');
+    return `<article class="srk-row${e.rank === 1 ? ' top1' : ''}">
+      <div class="srk-rank">#${e.rank}</div>
+      ${av}
+      <div><div class="srk-name">${name}</div>${handle ? `<div class="srk-handle">${handle}</div>` : ''}</div>
+      <div class="srk-meta">
+        <div class="srk-val">${fmt(e[valKey] || 0)}</div>
+        <div class="srk-hours">${e.streamHours || 0}h en vivo</div>
+      </div>
+      ${days ? `<div class="srk-days">${days}</div>` : ''}
+    </article>`;
+  }).join('');
+}
+
+async function refreshStreamerRanking() {
+  const view = document.getElementById('view-ranking');
+  if (!view || !view.classList.contains('active')) return;
+  try {
+    const r = await fetch(`/api/streamer-rankings?type=${encodeURIComponent(srkType)}&limit=${srkLimit()}`);
+    if (!r.ok) throw new Error('http');
+    renderStreamerRanking(await r.json());
+  } catch {
+    renderStreamerRanking(null);
+  }
+}
+
+function setupStreamerRanking() {
+  if (srkWired) return;
+  srkWired = true;
+  try {
+    const saved = localStorage.getItem('livecoins-srk-limit');
+    const lim = document.getElementById('srk-limit');
+    if (lim && saved) lim.value = saved;
+  } catch {}
+  document.querySelectorAll('.srk-tab').forEach((btn) => {
+    btn.onclick = () => {
+      document.querySelectorAll('.srk-tab').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      srkType = btn.dataset.srk === 'diamonds' ? 'diamonds' : 'likes';
+      refreshStreamerRanking();
+    };
+  });
+  const lim = document.getElementById('srk-limit');
+  if (lim) {
+    lim.onchange = () => {
+      try { localStorage.setItem('livecoins-srk-limit', String(srkLimit())); } catch {}
+      refreshStreamerRanking();
+    };
+  }
+  if (srkTimer) clearInterval(srkTimer);
+  srkTimer = setInterval(refreshStreamerRanking, 25000);
+}
+
 function panelLiveImgUrl(u) {
   if (!u) return '';
   if (/^https?:\/\//i.test(u) && !u.startsWith(location.origin)) {
