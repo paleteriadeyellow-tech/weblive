@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins · Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=srk1" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=connav1" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
 </head>
 <body>
@@ -93,7 +93,10 @@
     <div class="content">
       <header class="topbar">
         <div class="connect">
-          <span class="at">@</span>
+          <div class="connect-av" id="connectAv" aria-hidden="true">
+            <img id="connectAvImg" class="connect-av-img" hidden alt="">
+            <div id="connectAvPh" class="connect-av-ph">?</div>
+          </div>
           <input id="username" type="text" placeholder="usuario_de_tiktok" autocomplete="off" spellcheck="false" />
           <button id="btnConnect" class="btn primary">Conectar</button>
           <button id="btnDisconnect" class="btn ghost" hidden>Desconectar</button>
@@ -238,7 +241,7 @@
         <!-- ===== VISTA: RANKING SEMANAL ===== -->
         <section class="view" id="view-ranking">
           <h1 class="view-title">🏆 Ranking semanal</h1>
-          <p class="view-sub">Top streamers de la semana (se reinicia cada <b>domingo a las 00:00</b>). Likes y diamantes acumulados en vivo + horas transmitidas.</p>
+          <p class="view-sub">Top streamers de la semana (se reinicia cada <b>domingo a las 00:00</b>). Likes y diamantes acumulados en vivo + horas transmitidas. Debajo de cada uno verás la línea de tiempo <b>lun → dom</b> con lo hecho cada día.</p>
 
           <div class="srk-toolbar">
             <div class="srk-tabs">
@@ -4550,6 +4553,6 @@
 
   <script src="/js/settings-transfer.js"></script>
   <script src="/js/gift-catalog.js"></script>
-  <script src="/js/dashboard.js"></script>
+  <script src="/js/dashboard.js?v=connav1"></script>
 </body>
 </html>

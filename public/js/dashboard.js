@@ -52,24 +52,15 @@ async function confirmDesktopPanelFromServer() {
 function isPcBuildMarkup() {
   return !!(window.__LIVECOINS_PC_BUILD__ || document.querySelector('meta[name="livecoins-app"][content="desktop"]'));
 }
-function isCloudPanelHost() {
-  const h = location.hostname || '';
-  return h && !/^127\.|^localhost$/i.test(h);
-}
 function setupPanelModeWarning() {
   if (document.getElementById('panel-mode-banner')) return;
   if (IS_DESKTOP) return;
+  const brokenLocal = isPcBuildMarkup() || IS_LOCALHOST;
+  if (!brokenLocal) return;
   const banner = document.createElement('div');
   banner.id = 'panel-mode-banner';
-  const brokenLocal = isPcBuildMarkup() || IS_LOCALHOST;
-  const onWeb = isCloudPanelHost() && !IS_LOCALHOST;
-  if (!onWeb && !brokenLocal) return;
   banner.style.cssText = 'margin:0 14px 10px;padding:10px 12px;border-radius:10px;font:600 11.5px/1.45 system-ui;color:#ffe8f0;background:linear-gradient(135deg,rgba(255,43,214,.22),rgba(255,80,120,.12));border:1px solid rgba(255,43,214,.45)';
-  if (brokenLocal && !IS_DESKTOP) {
-    banner.innerHTML = '<b>App PC sin módulo de escritorio.</b><br>Cierra Livecoins por completo y ábrelo otra vez desde el menú Inicio. Si sigue igual, reinstala el .exe más reciente.';
-  } else if (onWeb) {
-    banner.innerHTML = '<b>Versión web</b> — sin Juegos ni Acciones.<br>Descarga la <b>app de escritorio (.exe)</b> con el botón de abajo para Minecraft, Roblox, Mario Bros, etc.';
-  }
+  banner.innerHTML = '<b>App PC sin módulo de escritorio.</b><br>Cierra Livecoins por completo y ábrelo otra vez desde el menú Inicio. Si sigue igual, reinstala el .exe más reciente.';
   const side = document.querySelector('.sidebar');
   const nav = side?.querySelector('.nav');
   if (nav) side.insertBefore(banner, nav);
@@ -1030,6 +1021,9 @@ function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'B
 function handle(type, p) {
   switch (type) {
     case 'state': renderState(p); break;
+    case 'followerCounter':
+      updateConnectAvatar({ photo: p.photo, nickname: p.nickname, username: p.uniqueId });
+      break;
     case 'settings': onSettings(p); break;
     case 'screens':
       if (!relayActive()) onScreens(p);
@@ -1766,6 +1760,42 @@ function fmt(n) {
   return String(n ?? 0);
 }
 
+let connectStreamerPhoto = '';
+
+function connectAvatarUrl(photo) {
+  if (!photo) return '';
+  if (/^https?:\/\//i.test(photo) && !photo.startsWith(location.origin)) {
+    return '/api/img-proxy?url=' + encodeURIComponent(photo);
+  }
+  return photo;
+}
+
+function updateConnectAvatar({ photo, nickname, username, live } = {}) {
+  const wrap = document.getElementById('connectAv');
+  const img = document.getElementById('connectAvImg');
+  const ph = document.getElementById('connectAvPh');
+  if (!wrap || !img || !ph) return;
+  if (photo) connectStreamerPhoto = photo;
+  const name = nickname || username || $('username')?.value || '';
+  const url = connectAvatarUrl(photo || connectStreamerPhoto);
+  wrap.classList.toggle('live', !!live);
+  if (url) {
+    img.referrerPolicy = 'no-referrer';
+    img.src = url;
+    img.hidden = false;
+    ph.hidden = true;
+    img.onerror = () => {
+      img.hidden = true;
+      ph.hidden = false;
+      ph.textContent = initial(name);
+    };
+  } else {
+    img.hidden = true;
+    ph.hidden = false;
+    ph.textContent = initial(name || '?');
+  }
+}
+
 function renderState(s) {
   $('s-viewers').textContent = fmt(s.stats.viewers);
   $('s-likes').textContent = fmt(s.stats.likes);
@@ -1798,6 +1828,12 @@ function renderState(s) {
   }
   if (s.username && !$('username').value) $('username').value = s.username;
   if (s.username) { try { localStorage.setItem('lastTikTokUser', s.username); } catch {} }
+  updateConnectAvatar({
+    photo: s.photo,
+    nickname: s.nickname,
+    username: s.username,
+    live: !!s.connected,
+  });
   renderLeaderboard(s.topGifters || []);
   try { updateHomeWelcome(s); } catch {}
 }
@@ -1994,11 +2030,13 @@ async function doDisconnect() {
 $('btnConnect').onclick = doConnect;
 $('btnDisconnect').onclick = doDisconnect;
 $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') doConnect(); });
+$('username').addEventListener('input', () => updateConnectAvatar({ username: $('username').value.trim() }));
 // Prerellena el último usuario guardado al abrir el panel (antes incluso de que llegue
 // el estado del servidor), para que el campo nunca aparezca vacío.
 try {
   const lastU = localStorage.getItem('lastTikTokUser');
   if (lastU && !$('username').value) $('username').value = lastU;
+  if (lastU) updateConnectAvatar({ username: lastU });
 } catch {}
 $('clearChat').onclick = () => { $('chat').innerHTML = ''; };
 
@@ -11803,6 +11841,52 @@ function fmtSrkDayLabel(key) {
   } catch { return key; }
 }
 
+const SRK_DOW_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+function srkDayKeyFromDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function srkWeekTimeline(weekStart) {
+  const todayKey = srkDayKeyFromDate(new Date());
+  const start = new Date(weekStart);
+  const cells = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const key = srkDayKeyFromDate(d);
+    const dow = d.getDay();
+    cells.push({
+      key,
+      dow,
+      sort: dow === 0 ? 7 : dow,
+      label: SRK_DOW_SHORT[dow],
+      num: d.getDate(),
+      isToday: key === todayKey,
+      isFuture: key > todayKey,
+    });
+  }
+  return cells.sort((a, b) => a.sort - b.sort);
+}
+
+function renderSrkTimeline(daysMap, weekStart, isLikes, valLabel) {
+  const timeline = srkWeekTimeline(weekStart);
+  const cells = timeline.map((day) => {
+    const dv = daysMap[day.key] || {};
+    const v = isLikes ? (dv.likes || 0) : (dv.diamonds || 0);
+    const h = Math.round((dv.streamMs || 0) / 36000) / 100;
+    const has = v > 0 || h > 0;
+    const cls = ['srk-tl-cell', day.isToday && 'today', has && 'has-data', day.isFuture && !has && 'future'].filter(Boolean).join(' ');
+    const tip = `${day.label} ${day.num}: ${has ? `${fmt(v)} ${valLabel}` : 'sin actividad'}${h > 0 ? ` · ${h}h` : ''}`;
+    return `<div class="${cls}" title="${esc(tip)}">
+      <span class="srk-tl-dow">${day.label}</span>
+      <span class="srk-tl-num">${day.num}</span>
+      <span class="srk-tl-val">${has ? fmt(v) : '—'}</span>
+      <span class="srk-tl-h">${h > 0 ? `${h}h` : '·'}</span>
+    </div>`;
+  }).join('');
+  return `<div class="srk-timeline"><div class="srk-tl-grid">${cells}</div></div>`;
+}
+
 function renderStreamerRanking(data) {
   const list = document.getElementById('srk-list');
   const resetEl = document.getElementById('srk-reset');
@@ -11829,14 +11913,7 @@ function renderStreamerRanking(data) {
     const av = photoUrl
       ? `<img class="srk-av" src="${esc(photoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'srk-ph',textContent:'${initial(e.nickname || e.tiktok || '?')}' }))">`
       : `<div class="srk-ph">${initial(e.nickname || e.tiktok || '?')}</div>`;
-    const days = Object.entries(e.days || {})
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([dk, dv]) => {
-        const v = isLikes ? (dv.likes || 0) : (dv.diamonds || 0);
-        const h = Math.round((dv.streamMs || 0) / 36000) / 100;
-        if (!v && !h) return '';
-        return `<span class="srk-day">${fmtSrkDayLabel(dk)}: <b>${fmt(v)}</b> ${valLabel}${h ? ` · ${h}h` : ''}</span>`;
-      }).filter(Boolean).join('');
+    const timeline = renderSrkTimeline(e.days || {}, data.weekStart, isLikes, valLabel);
     return `<article class="srk-row${e.rank === 1 ? ' top1' : ''}">
       <div class="srk-rank">#${e.rank}</div>
       ${av}
@@ -11845,7 +11922,7 @@ function renderStreamerRanking(data) {
         <div class="srk-val">${fmt(e[valKey] || 0)}</div>
         <div class="srk-hours">${e.streamHours || 0}h en vivo</div>
       </div>
-      ${days ? `<div class="srk-days">${days}</div>` : ''}
+      ${timeline}
     </article>`;
   }).join('');
 }

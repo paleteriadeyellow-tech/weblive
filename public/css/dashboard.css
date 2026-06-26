@@ -472,15 +472,65 @@ body {
 .srk-meta { text-align: right; min-width: 88px; }
 .srk-val { font-size: 16px; font-weight: 800; color: #fff; }
 .srk-hours { font-size: 11px; color: var(--mut); margin-top: 2px; }
-.srk-days {
-  grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px;
-  margin-top: 4px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,.08);
+.srk-timeline {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255,255,255,.08);
+  overflow-x: auto;
 }
-.srk-day {
-  font-size: 10px; padding: 3px 8px; border-radius: 8px;
-  background: rgba(0,0,0,.2); color: var(--mut); border: 1px solid rgba(255,255,255,.06);
+.srk-tl-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  min-width: 0;
 }
-.srk-day b { color: var(--cyan); font-weight: 700; }
+.srk-tl-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 3px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.06);
+  min-width: 0;
+  text-align: center;
+}
+.srk-tl-cell.today {
+  border-color: rgba(37,244,238,.4);
+  background: rgba(37,244,238,.1);
+  box-shadow: 0 0 0 1px rgba(37,244,238,.12);
+}
+.srk-tl-cell.has-data {
+  border-color: rgba(37,244,238,.22);
+  background: rgba(37,244,238,.06);
+}
+.srk-tl-cell.future { opacity: 0.4; }
+.srk-tl-dow {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--mut);
+}
+.srk-tl-cell.today .srk-tl-dow { color: var(--cyan); }
+.srk-tl-num { font-size: 10px; color: rgba(255,255,255,.45); line-height: 1; }
+.srk-tl-val {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,255,255,.35);
+  line-height: 1.2;
+  margin-top: 2px;
+  word-break: break-all;
+}
+.srk-tl-cell.has-data .srk-tl-val { color: var(--cyan); font-size: 11px; }
+.srk-tl-h {
+  font-size: 9px;
+  color: var(--mut);
+  line-height: 1;
+}
+.srk-tl-h--empty { opacity: 0.25; }
 
 /* ===================== CONTENT ===================== */
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -491,8 +541,23 @@ body {
   background: rgba(11,19,34,.6); position: sticky; top: 0; z-index: 10;
   backdrop-filter: blur(8px); flex-wrap: wrap;
 }
-.connect { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 280px; }
-.connect .at { color: var(--mut); font-size: 16px; }
+.connect { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 280px; }
+.connect-av {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%; overflow: hidden;
+  border: 2px solid var(--line); background: var(--bg2);
+  transition: border-color .2s, box-shadow .2s;
+}
+.connect-av.live {
+  border-color: rgba(46,204,113,.55);
+  box-shadow: 0 0 0 2px rgba(46,204,113,.15);
+}
+.connect-av-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.connect-av-ph {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; color: var(--mut); font-size: 14px;
+}
 #username {
   flex: 1; max-width: 320px; background: var(--bg2);
   border: 1px solid var(--line); color: var(--txt);
