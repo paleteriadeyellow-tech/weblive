@@ -297,7 +297,7 @@ export const DEFAULT_SETTINGS = {
   // Overlay Coin Match (partido cronometrado con podio)
   coinMatch: {
     title: 'Coin Match', durationSec: 180, topN: 3, accent: '#f43f5e',
-    startDelaySec: 3, revealSec: 3, minBid: 1, maxParticipants: 100,
+    startDelaySec: 3, revealSec: 3, slowRevealFromSec: 3, slowRevealSec: 2, minBid: 1, maxParticipants: 100,
     winMode: 'keep', showTitle: true, showCount: true, scroll: true,
     sniper: false, slowReveal: false, font: 'inter',
   },

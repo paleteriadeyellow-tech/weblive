@@ -95,8 +95,8 @@
       div.innerHTML =
         '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
         '<div class="av-wrap"><span class="crown">👑</span><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
-        '<div class="meta"><span class="name"></span>' +
-        '<div class="valwrap"><span class="ico">' + iconMarkup(icon, cfg.accent) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div>';
+        '<div class="meta"><div class="name-row"><span class="name"></span>' +
+        '<div class="valwrap"><span class="ico">' + iconMarkup(icon, cfg.accent) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div></div>';
       const img = div.querySelector('.av');
       img.src = u.pic || PLACEHOLDER;
       img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
@@ -344,8 +344,8 @@
       div.innerHTML =
         '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
         '<div class="av-wrap"><span class="crown">👑</span><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
-        '<div class="meta"><span class="name"></span>' +
-        '<div class="valwrap"><span class="ico">' + iconMarkup(icon, accentColor) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div>';
+        '<div class="meta"><div class="name-row"><span class="name"></span>' +
+        '<div class="valwrap"><span class="ico">' + iconMarkup(icon, accentColor) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div></div>';
       const img = div.querySelector('.av');
       img.src = u.pic || PLACEHOLDER;
       img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };

@@ -1,79 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overlay — Solicitudes de Spotify</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap');
-        html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: 'Montserrat', system-ui, sans-serif; }
-        .sp-wrap { width: 360px; padding: 14px; }
-        .sp-card {
-            background: linear-gradient(135deg, rgba(20,24,33,.95), rgba(12,15,22,.95));
-            border: 1px solid rgba(34,197,94,.4); border-radius: 16px; overflow: hidden;
-            box-shadow: 0 10px 40px rgba(0,0,0,.5);
-        }
-        .sp-head {
-            display: flex; align-items: center; gap: 10px; padding: 12px 14px;
-            background: linear-gradient(90deg, #1db954, #128a3e); color: #fff; font-weight: 800; letter-spacing: .3px;
-        }
-        .sp-head svg { width: 22px; height: 22px; flex: none; }
-        .sp-list { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-        .sp-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; background: rgba(255,255,255,.04); animation: sp-in .35s ease; }
-        .sp-item img { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; background: #222; flex: none; }
-        .sp-info { min-width: 0; flex: 1; }
-        .sp-name { color: #fff; font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sp-artist { color: #9fb3c8; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sp-by { color: #1db954; font-size: 11px; font-weight: 700; margin-top: 2px; }
-        .sp-empty { color: #8aa; text-align: center; padding: 18px; font-size: 13px; }
-        @keyframes sp-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
-    </style>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0;url=spotify-overlay.html">
+  <script>location.replace('spotify-overlay.html' + location.search);</script>
+  <title>Redirigiendo…</title>
 </head>
-<body>
-    <div class="sp-wrap">
-        <div class="sp-card">
-            <div class="sp-head">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M7.5 14.5c2.5-1 6-1 9 .5"/><path d="M7 11c3-1 7.5-.8 10.5 1"/><path d="M7.5 8c3.5-1 8 0 9.5 1"/></svg>
-                <span>Solicitudes de Canciones</span>
-            </div>
-            <ul class="sp-list" id="sp-list">
-                <li class="sp-empty">La cola está vacía</li>
-            </ul>
-        </div>
-    </div>
-
-    <script>
-    (function () {
-        const list = document.getElementById('sp-list');
-        function render(queue) {
-            if (!Array.isArray(queue) || !queue.length) {
-                list.innerHTML = '<li class="sp-empty">La cola está vacía</li>';
-                return;
-            }
-            const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-            list.innerHTML = queue.map((q) => `
-                <li class="sp-item">
-                    <img src="${esc(q.image)}" onerror="this.style.visibility='hidden'">
-                    <div class="sp-info">
-                        <div class="sp-name">${esc(q.name)}</div>
-                        <div class="sp-artist">${esc(q.artists)}</div>
-                        <div class="sp-by">🎧 ${esc(q.nickname)}</div>
-                    </div>
-                </li>`).join('');
-        }
-        let ws, rt;
-        function connect() {
-            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-            ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
-            ws.onopen = () => clearTimeout(rt);
-            ws.onclose = () => { rt = setTimeout(connect, 1500); };
-            ws.onmessage = (ev) => {
-                let m; try { m = JSON.parse(ev.data); } catch { return; }
-                if (m.type === 'spotifyQueue') render(m.payload?.queue || []);
-            };
-        }
-        connect();
-    })();
-    </script>
-</body>
+<body></body>
 </html>

@@ -20,11 +20,23 @@ function getPhoto(user) {
     null
   );
 }
+function pickImageUrl(img) {
+  if (!img) return null;
+  if (typeof img === 'string') return img;
+  if (img.giftPictureUrl) return img.giftPictureUrl;
+  if (Array.isArray(img.url) && img.url[0]) return img.url[0];
+  if (Array.isArray(img.urlList) && img.urlList[0]) return img.urlList[0];
+  if (Array.isArray(img.url_list) && img.url_list[0]) return img.url_list[0];
+  return null;
+}
 function getGiftImage(data) {
+  if (!data) return null;
   return (
-    data?.giftDetails?.giftImage?.giftPictureUrl ||
-    data?.giftDetails?.image?.url?.[0] ||
-    data?.giftPictureUrl ||
+    pickImageUrl(data.giftDetails?.giftImage) ||
+    pickImageUrl(data.giftImage) ||
+    pickImageUrl(data.giftDetails?.image) ||
+    pickImageUrl(data.image) ||
+    data.giftPictureUrl ||
     null
   );
 }
@@ -2558,6 +2570,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const giftName = data.giftDetails?.giftName || cat?.name || 'Regalo';
       const repeatCount = data.repeatCount || 1;
       const image = getGiftImage(data) || cat?.image || null;
+      if (image && giftId) {
+        const sid = String(giftId);
+        const prev = giftsById.get(sid);
+        giftsById.set(sid, {
+          id: sid,
+          name: giftName || prev?.name || 'Regalo',
+          diamonds: diamondsEach || prev?.diamonds || 0,
+          image,
+        });
+      }
       const giftInfo = { giftName, giftId, diamonds: diamondsEach, totalDiamonds: diamondsEach * repeatCount, repeatCount };
 
       const isStreak = giftType === 1 && !data.repeatEnd;

@@ -1,57 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overlay — Información de Comandos Spotify</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap');
-        html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: 'Montserrat', system-ui, sans-serif; }
-        .sp-toast-wrap { padding: 14px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-        .sp-toast {
-            display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px;
-            background: linear-gradient(135deg, rgba(20,24,33,.96), rgba(12,15,22,.96));
-            border: 1px solid rgba(34,197,94,.45); color: #fff; font-weight: 700; font-size: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,.5); max-width: 460px; animation: sp-pop .4s cubic-bezier(.2,1.2,.3,1);
-        }
-        .sp-toast.err { border-color: rgba(239,68,68,.55); }
-        .sp-toast .ico { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 50%; background: #1db954; }
-        .sp-toast.err .ico { background: #ef4444; }
-        .sp-toast .ico svg { width: 16px; height: 16px; }
-        @keyframes sp-pop { from { opacity: 0; transform: translateY(-12px) scale(.96); } to { opacity: 1; transform: none; } }
-        .sp-toast.out { animation: sp-out .4s ease forwards; }
-        @keyframes sp-out { to { opacity: 0; transform: translateX(-20px); } }
-    </style>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0;url=spotify-overlay.html">
+  <script>location.replace('spotify-overlay.html' + location.search);</script>
+  <title>Redirigiendo…</title>
 </head>
-<body>
-    <div class="sp-toast-wrap" id="wrap"></div>
-
-    <script>
-    (function () {
-        const wrap = document.getElementById('wrap');
-        const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,.25)"/><path d="M7.5 14.5c2.5-1 6-1 9 .5M7 11c3-1 7.5-.8 10.5 1M7.5 8c3.5-1 8 0 9.5 1"/></svg>';
-        function toast(text, ok) {
-            const el = document.createElement('div');
-            el.className = 'sp-toast' + (ok ? '' : ' err');
-            const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-            el.innerHTML = `<span class="ico">${ICON}</span><span>${esc(text)}</span>`;
-            wrap.appendChild(el);
-            setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, 5000);
-            while (wrap.children.length > 4) wrap.removeChild(wrap.firstChild);
-        }
-        let ws, rt;
-        function connect() {
-            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-            ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
-            ws.onopen = () => clearTimeout(rt);
-            ws.onclose = () => { rt = setTimeout(connect, 1500); };
-            ws.onmessage = (ev) => {
-                let m; try { m = JSON.parse(ev.data); } catch { return; }
-                if (m.type === 'spotifyCommand') toast(m.payload?.text || '', m.payload?.ok !== false);
-            };
-        }
-        connect();
-    })();
-    </script>
-</body>
+<body></body>
 </html>

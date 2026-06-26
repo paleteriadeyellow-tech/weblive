@@ -83,7 +83,7 @@
     const isEmbed = params.get('embed') === '1';
     const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
 
-    let cfg = { title: 'Coin Match', durationSec: 180, topN: 3, accent: '#f43f5e', startDelaySec: 3, revealSec: 3, minBid: 1, maxParticipants: 100, winMode: 'keep', showTitle: true, showCount: true, scroll: true, sniper: false, slowReveal: false, font: 'inter' };
+    let cfg = { title: 'Coin Match', durationSec: 180, topN: 3, accent: '#f43f5e', startDelaySec: 3, revealSec: 3, slowRevealFromSec: 3, slowRevealSec: 2, minBid: 1, maxParticipants: 100, winMode: 'keep', showTitle: true, showCount: true, scroll: true, sniper: false, slowReveal: false, font: 'inter' };
 
     let phase = 'idle';
     let ranking = {};
@@ -157,19 +157,37 @@
     }
     function renderAll() { renderTimer(); renderList(); applyVisual(); if (fitFn) fitFn(); }
 
-    function clearTimers() { [timerId, revealTimerId, delayTimerId].forEach((t) => t && clearInterval(t)); timerId = revealTimerId = delayTimerId = null; }
+    function clearTimers() { [timerId, revealTimerId, delayTimerId].forEach((t) => { if (t) { clearInterval(t); clearTimeout(t); } }); timerId = revealTimerId = delayTimerId = null; }
     function clearTestTimers() { testTimers.forEach((t) => clearTimeout(t)); testTimers = []; }
+
+    function revealStepMs() {
+      if (!cfg.slowReveal) return 1000;
+      const maxReveal = clamp(cfg.revealSec, 1, 15);
+      const from = clamp(cfg.slowRevealFromSec != null ? cfg.slowRevealFromSec : 3, 1, maxReveal);
+      if (revealCountdown <= from) return clamp(cfg.slowRevealSec != null ? cfg.slowRevealSec : 2, 2, 5) * 1000;
+      return 1000;
+    }
+    function scheduleRevealStep() {
+      if (revealTimerId) { clearTimeout(revealTimerId); clearInterval(revealTimerId); }
+      revealTimerId = setTimeout(() => {
+        revealCountdown--;
+        if (revealCountdown <= 0) {
+          revealTimerId = null;
+          if (cfg.winMode === 'winners') showWinners();
+          else { phase = 'ended'; renderAll(); }
+          return;
+        }
+        renderAll();
+        scheduleRevealStep();
+      }, revealStepMs());
+    }
 
     function tick() { if (phase !== 'running') return; remainingSec--; if (remainingSec <= 0) { remainingSec = 0; beginReveal(); return; } renderTimer(); }
     function beginReveal() {
-      clearInterval(timerId); timerId = null;
+      clearTimers();
       if (phase !== 'running') return;
-      phase = 'countdown'; revealCountdown = cfg.revealSec; renderAll();
-      revealTimerId = setInterval(() => {
-        revealCountdown--;
-        if (revealCountdown <= 0) { clearInterval(revealTimerId); revealTimerId = null; if (cfg.winMode === 'winners') showWinners(); else { phase = 'ended'; renderAll(); } return; }
-        renderAll();
-      }, cfg.slowReveal ? 2000 : 1000);
+      phase = 'countdown'; revealCountdown = clamp(cfg.revealSec, 1, 15); renderAll();
+      scheduleRevealStep();
     }
     function beginRunning(dur) {
       clearTimers(); phase = 'running'; ranking = {}; cfg.durationSec = clamp(dur != null ? dur : cfg.durationSec, 1, 604800); remainingSec = cfg.durationSec;

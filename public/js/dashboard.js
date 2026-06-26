@@ -4245,10 +4245,11 @@ const STYLE_OVERLAYS = [
     modalId: 'cmConfigModal', closeId: 'cmcfg-close', saveId: 'cmcfg-save',
     testAction: 'testCoinMatch', resetAction: '',
     map: { 'cmcfg-title': 'title', 'cmcfg-dur': 'durationSec', 'cmcfg-top': 'topN', 'cmcfg-delay': 'startDelaySec',
-      'cmcfg-reveal': 'revealSec', 'cmcfg-minbid': 'minBid', 'cmcfg-maxp': 'maxParticipants', 'cmcfg-winmode': 'winMode',
+      'cmcfg-reveal': 'revealSec', 'cmcfg-slowfrom': 'slowRevealFromSec', 'cmcfg-slowsec': 'slowRevealSec',
+      'cmcfg-minbid': 'minBid', 'cmcfg-maxp': 'maxParticipants', 'cmcfg-winmode': 'winMode',
       'cmcfg-accent': 'accent', 'cmcfg-font': 'font', 'cmcfg-showtitle': 'showTitle', 'cmcfg-showcount': 'showCount',
       'cmcfg-scroll': 'scroll', 'cmcfg-sniper': 'sniper', 'cmcfg-slowcd': 'slowReveal' },
-    types: { durationSec: 'int', topN: 'int', startDelaySec: 'int', revealSec: 'int', minBid: 'int', maxParticipants: 'int' },
+    types: { durationSec: 'int', topN: 'int', startDelaySec: 'int', revealSec: 'int', slowRevealFromSec: 'int', slowRevealSec: 'int', minBid: 'int', maxParticipants: 'int' },
   }),
   setupStyleOverlay({
     kind: 'topalt', settingsKey: 'topAltRank', previewId: 'tal-preview',

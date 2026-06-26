@@ -398,7 +398,18 @@
       if (first) FALLBACK_IMG = first;
     }).catch(() => {});
 
-    function resolveGiftImg(p) { return p.image || giftImgById.get(String(p.giftId)) || FALLBACK_IMG; }
+    function giftImgUrl(u) {
+      if (!u) return '';
+      try {
+        if (new URL(u, location.href).origin === location.origin) return u;
+      } catch {}
+      return '/api/img-proxy?url=' + encodeURIComponent(u);
+    }
+    function resolveGiftImg(p) {
+      if (p.image && p.giftId) giftImgById.set(String(p.giftId), p.image);
+      const raw = p.image || giftImgById.get(String(p.giftId)) || '';
+      return giftImgUrl(raw) || FALLBACK_IMG;
+    }
     function sampleImg() {
       const arr = [...giftImgById.values()];
       return arr.length ? arr[Math.floor(Math.random() * arr.length)] : FALLBACK_IMG;

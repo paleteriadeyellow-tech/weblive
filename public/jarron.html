@@ -527,8 +527,17 @@
       (d.results || []).forEach((g) => { if (g.image) giftImgById.set(String(g.id), g.image); });
     }).catch(() => {});
 
+    function giftImgUrl(u) {
+      if (!u) return '';
+      try {
+        if (new URL(u, location.href).origin === location.origin) return u;
+      } catch {}
+      return '/api/img-proxy?url=' + encodeURIComponent(u);
+    }
     function resolveGiftImg(p) {
-      return p.image || giftImgById.get(String(p.giftId)) || FALLBACK_IMG;
+      if (p.image && p.giftId) giftImgById.set(String(p.giftId), p.image);
+      const raw = p.image || giftImgById.get(String(p.giftId)) || '';
+      return giftImgUrl(raw) || FALLBACK_IMG;
     }
 
     // ---- WebSocket nativo del panel ----

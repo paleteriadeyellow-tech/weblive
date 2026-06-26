@@ -1496,7 +1496,9 @@
                 <div><label class="ml">DURACIÓN (seg)</label><input type="number" id="cmcfg-dur" min="1" max="604800" value="180"></div>
                 <div><label class="ml">PUESTOS EN LISTA</label><input type="number" id="cmcfg-top" min="2" max="10" value="3"></div>
                 <div><label class="ml">RETRASO INICIO (seg)</label><input type="number" id="cmcfg-delay" min="0" max="30" value="3"></div>
-                <div><label class="ml">CUENTA ATRÁS PODIO (seg)</label><input type="number" id="cmcfg-reveal" min="1" max="15" value="3"></div>
+                <div><label class="ml">DELAY TIME (seg)</label><input type="number" id="cmcfg-reveal" min="1" max="15" value="3"></div>
+                <div><label class="ml">INICIO TIEMPO LENTO (seg)</label><input type="number" id="cmcfg-slowfrom" min="1" max="15" value="3" title="A partir de este segundo en la cuenta atrás"></div>
+                <div><label class="ml">DURACIÓN SEG. LENTO (2–5)</label><input type="number" id="cmcfg-slowsec" min="2" max="5" value="2" title="Cuánto dura cada segundo en modo lento"></div>
                 <div><label class="ml">MÍNIMO POR REGALO</label><input type="number" id="cmcfg-minbid" min="1" max="99999" value="1"></div>
                 <div><label class="ml">MÁX. PARTICIPANTES</label><input type="number" id="cmcfg-maxp" min="3" max="200" value="100"></div>
                 <div>
@@ -1511,7 +1513,7 @@
                 <label class="switch-row plain"><input type="checkbox" id="cmcfg-showcount" checked> <span>Mostrar contador participantes</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="cmcfg-scroll" checked> <span>Lista con scroll</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="cmcfg-sniper"> <span>Modo francotirador (solo últimos 10s)</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="cmcfg-slowcd"> <span>Cuenta atrás lenta (x2)</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="cmcfg-slowcd"> <span>Tiempo lento en delay (activar abajo)</span></label>
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="cmcfg-save">Guardar para OBS / Live Studio</button></div>
@@ -3562,15 +3564,10 @@
           <div class="settings-card">
             <div class="tts-head"><h3>Superposiciones (OBS)</h3><span class="tts-sub">Añádelas como fuente de navegador</span></div>
             <div class="ovpro-urlrow">
-              <code class="ov-url" data-path="/spotify-requests.html">/spotify-requests.html</code>
+              <code class="ov-url" data-path="/spotify-overlay.html">/spotify-overlay.html</code>
               <button class="ovpro-copy ov-copy">Copiar enlace</button>
             </div>
-            <p class="hint">Superposición de Solicitudes de Canciones (lista de la cola actual).</p>
-            <div class="ovpro-urlrow">
-              <code class="ov-url" data-path="/spotify-command.html">/spotify-command.html</code>
-              <button class="ovpro-copy ov-copy">Copiar enlace</button>
-            </div>
-            <p class="hint">Superposición de Información de Comandos (resultados de los comandos).</p>
+            <p class="hint">Un solo overlay: <b>ahora suena</b> arriba (título, artista, minutos/segundos y barra de progreso) y <b>cola</b> abajo con las próximas canciones del chat (!play).</p>
           </div>
 
           <!-- Historial -->

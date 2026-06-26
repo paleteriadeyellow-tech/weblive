@@ -22,12 +22,13 @@
     .row[data-rank="1"] .av { border-color: #ffd54f; box-shadow: 0 0 20px rgba(255,215,0,.35); }
     .row[data-rank="2"] .av { border-color: #cfd8dc; }
     .row[data-rank="3"] .av { border-color: #ffab73; }
-    .meta { display: flex; align-items: center; gap: 16px; min-width: 0; }
-    .name { flex: 1 1 auto; min-width: 0; font-weight: 800; font-size: 32px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 4px 0; background: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5, #ffbe0b, #fb5607, #ff006e); background-size: 220% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 4px rgba(0,0,0,.8)); animation: rainbow-flow 5s linear infinite; }
+    .meta { display: flex; align-items: center; min-width: 0; }
+    .name-row { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+    .name { font-weight: 800; font-size: 28px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 2px 0; background: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5, #ffbe0b, #fb5607, #ff006e); background-size: 220% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 4px rgba(0,0,0,.8)); animation: rainbow-flow 5s linear infinite; }
     @keyframes rainbow-flow { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
-    .valwrap { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
-    .ico { font-size: 30px; line-height: 0; filter: drop-shadow(0 0 8px rgba(255,193,7,.55)); }
-    .num { font-size: 34px; font-weight: 900; color: var(--ol-accent, #fff); letter-spacing: -0.02em; white-space: nowrap; text-shadow: 0 2px 8px rgba(0,0,0,.5); font-variant-numeric: tabular-nums; }
+    .valwrap { display: flex; align-items: center; gap: 8px; }
+    .ico { font-size: 22px; line-height: 0; filter: drop-shadow(0 0 8px rgba(255,193,7,.55)); }
+    .num { font-size: 24px; font-weight: 900; color: var(--ol-accent, #fff); letter-spacing: -0.02em; white-space: nowrap; text-shadow: 0 2px 8px rgba(0,0,0,.5); font-variant-numeric: tabular-nums; }
     html[data-bg="1"] .row { background: transparent !important; }
     html[data-bg="1"] .list { box-shadow: none; }
     html[data-shadows="0"] .list { box-shadow: none !important; }
