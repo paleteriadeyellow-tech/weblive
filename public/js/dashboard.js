@@ -479,10 +479,6 @@ const CAP_LABELS = {
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
-const PLAN_GAME_PACKS = [
-  { key: 'game_pvzhybrid', title: 'Plants vs Zombies Pack', img: '/img/pvzhybrid.jpg' },
-  { key: 'game_metalslug', title: 'Metal Slug by Livecoins', img: '/img/metalslug.png' },
-];
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
   'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_metalslug',
@@ -559,26 +555,7 @@ function renderPlanView() {
     }).join('');
   }
 
-  renderPlanPacks();
-
   renderPlanCompare();
-}
-
-function renderPlanPacks() {
-  const wrap = document.getElementById('plan-packs');
-  if (!wrap) return;
-  wrap.innerHTML = PLAN_GAME_PACKS.map((pack) => {
-    const soon = pack.key === 'game_metalslug' && !window.IS_ADMIN;
-    const on = !soon && (window.IS_ADMIN || capFeature(pack.key));
-    const badge = soon ? 'Próximamente' : (on ? '✓ Incluido' : '⭐ Premium');
-    return `<div class="plan-pack ${on ? 'on' : 'off'}${soon ? ' soon' : ''}">
-      <img src="${pack.img}" alt="${pack.title}" class="plan-pack-img">
-      <div class="plan-pack-foot">
-        <span class="plan-pack-title">${pack.title}</span>
-        <span class="plan-pack-badge">${badge}</span>
-      </div>
-    </div>`;
-  }).join('');
 }
 
 /* ---- Comparación Gratis vs Premium (qué incluye cada plan) ---- */
@@ -678,10 +655,6 @@ function renderPlanPricing() {
     // Extras
     for (const c of catalog.extras) {
       items.push(li(p.features?.[c.key] !== false, c.label));
-    }
-    // Packs destacados (.exe)
-    for (const pack of PLAN_GAME_PACKS) {
-      items.push(li(p.features?.[pack.key] !== false, pack.title));
     }
     return items.join('');
   };
