@@ -81,6 +81,8 @@ export const CAPABILITIES = {
     { key: 'game_smb3', label: 'Juego: Super Mario Bros. 3' },
     { key: 'game_mari0', label: 'Juego: Mari0' },
     { key: 'game_plantasvszombies', label: 'Juego: Plants vs Zombies' },
+    { key: 'game_pvzhybrid', label: 'Juego: Plants vs Zombies Pack' },
+    { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
   ],
   // Características sueltas.
   extras: [
@@ -110,6 +112,8 @@ function defaultConfig() {
   for (const k of allFeatureKeys()) freeFeatures[k] = true;
   // Por defecto, en gratis bloqueamos las voces TikTok (suelen ser premium).
   freeFeatures.tts_tiktok = false;
+  freeFeatures.game_pvzhybrid = false;
+  freeFeatures.game_metalslug = false;
 
   return {
     free: {

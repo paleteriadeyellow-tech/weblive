@@ -1819,6 +1819,20 @@ pre.wh-url { margin: 9px 0 0; }
 /* Tarjetas de precios: Gratis y Premium */
 .plan-pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; align-items: stretch; }
 @media (max-width: 820px) { .plan-pricing { grid-template-columns: 1fr; } }
+.plan-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+@media (max-width: 720px) { .plan-packs { grid-template-columns: 1fr; } }
+.plan-pack { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.1);
+  background: #0e1525; }
+.plan-pack.off { opacity: .72; }
+.plan-pack.off .plan-pack-img { filter: grayscale(.85) brightness(.65); }
+.plan-pack-img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: center top; }
+.plan-pack-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px 12px; }
+.plan-pack-title { font-size: 13px; font-weight: 800; color: #eaf1ff; }
+.plan-pack-badge { font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 999px; white-space: nowrap;
+  background: rgba(0,229,255,.14); color: #00e5ff; }
+.plan-pack.off .plan-pack-badge { background: rgba(255,207,92,.16); color: #ffcf5c; }
+.plan-pack.soon .plan-pack-img { filter: grayscale(1) brightness(.5); }
+.plan-pack.soon .plan-pack-badge { background: rgba(160,170,190,.18); color: #c3ccde; }
 .pp-card { position: relative; display: flex; flex-direction: column; border-radius: 18px; padding: 24px 22px 22px;
   background: linear-gradient(160deg, #131c30 0%, #0e1525 100%); border: 1px solid rgba(255,255,255,.09); }
 .pp-card.premium { background: linear-gradient(160deg, #221a0c 0%, #161018 55%, #0e1525 100%); border-color: rgba(255,207,92,.4);

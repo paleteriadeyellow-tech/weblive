@@ -351,7 +351,7 @@ const TAB_CAP = {
 };
 const AV_SUBTAB_CAP = { alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas' };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies' };
+const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', metalslug: 'game_metalslug' };
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
@@ -475,13 +475,17 @@ const CAP_LABELS = {
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_metalslug: 'Metal Slug by Livecoins',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
+const PLAN_GAME_PACKS = [
+  { key: 'game_pvzhybrid', title: 'Plants vs Zombies Pack', img: '/img/pvzhybrid.jpg' },
+  { key: 'game_metalslug', title: 'Metal Slug by Livecoins', img: '/img/metalslug.png' },
+];
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
+  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_metalslug',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -555,7 +559,26 @@ function renderPlanView() {
     }).join('');
   }
 
+  renderPlanPacks();
+
   renderPlanCompare();
+}
+
+function renderPlanPacks() {
+  const wrap = document.getElementById('plan-packs');
+  if (!wrap) return;
+  wrap.innerHTML = PLAN_GAME_PACKS.map((pack) => {
+    const soon = pack.key === 'game_metalslug' && !window.IS_ADMIN;
+    const on = !soon && (window.IS_ADMIN || capFeature(pack.key));
+    const badge = soon ? 'Próximamente' : (on ? '✓ Incluido' : '⭐ Premium');
+    return `<div class="plan-pack ${on ? 'on' : 'off'}${soon ? ' soon' : ''}">
+      <img src="${pack.img}" alt="${pack.title}" class="plan-pack-img">
+      <div class="plan-pack-foot">
+        <span class="plan-pack-title">${pack.title}</span>
+        <span class="plan-pack-badge">${badge}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ---- Comparación Gratis vs Premium (qué incluye cada plan) ---- */
@@ -655,6 +678,10 @@ function renderPlanPricing() {
     // Extras
     for (const c of catalog.extras) {
       items.push(li(p.features?.[c.key] !== false, c.label));
+    }
+    // Packs destacados (.exe)
+    for (const pack of PLAN_GAME_PACKS) {
+      items.push(li(p.features?.[pack.key] !== false, pack.title));
     }
     return items.join('');
   };
