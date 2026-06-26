@@ -23,6 +23,7 @@ function syncDesktopPanelMode() {
     try { revealJuegosTab(); } catch {}
     try { revealWebhookTab(); } catch {}
     try { revealConfigTab(); } catch {}
+    try { syncNavSections(); } catch {}
   }
 }
 
@@ -306,6 +307,7 @@ async function loadMe() {
     if (window.IS_ADMIN) {
       const nav = document.getElementById('navAdmin');
       if (nav) nav.style.display = '';
+      try { syncNavSections(); } catch {}
     }
     // En el .exe sin relay, si el WS tarda, cargamos ajustes locales para no bloquear el panel.
     if (IS_DESKTOP && !settings && !relayActive()) {
@@ -347,11 +349,15 @@ const OVERLAY_CAP = {
 };
 // Mapa pestaña (data-view) -> clave de capacidad.
 const TAB_CAP = {
-  overlays: 'tab_overlays', tts: 'tab_tts', timer: 'tab_timer',
+  alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas',
+  'ov-streams': 'tab_overlays', 'ov-gifts': 'tab_overlays', 'ov-metas': 'tab_overlays',
+  'ov-rankings': 'tab_overlays', 'ov-diseno': 'tab_overlays', 'ov-contador': 'tab_overlays',
+  tts: 'tab_tts', timer: 'tab_timer',
 };
-const AV_SUBTAB_CAP = { alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas' };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
 const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', metalslug: 'game_metalslug' };
+// Minijuegos visibles pero aún no disponibles (solo el admin puede entrar).
+const GAME_COMING_SOON = { metalslug: true };
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
@@ -388,28 +394,25 @@ function ensureCanAdd(kind, limitKey, nounPlural) {
   return true;
 }
 
-function applyAvSubtabCaps() {
-  const host = document.getElementById('view-alertas-videos');
-  if (!host) return;
-  let firstVisible = null;
-  host.querySelectorAll('.av-subtab').forEach((btn) => {
-    const cap = AV_SUBTAB_CAP[btn.dataset.sub];
-    const ok = window.IS_ADMIN || !cap || capFeature(cap);
-    btn.style.display = ok ? '' : 'none';
-    if (ok && !firstVisible) firstVisible = btn;
+function syncNavSections() {
+  const nav = document.querySelector('.nav');
+  if (!nav) return;
+  nav.querySelectorAll('.nav-section').forEach((sec) => {
+    const visible = [...sec.querySelectorAll('.nav-item')].some(navItemVisible);
+    sec.hidden = !visible;
   });
-  if (window.IS_ADMIN) return;
-  const active = host.querySelector('.av-subtab.active');
-  if (active && active.style.display === 'none' && firstVisible) firstVisible.click();
+  nav.querySelectorAll('.nav-divider').forEach((div) => {
+    const prev = div.previousElementSibling;
+    const next = div.nextElementSibling;
+    const prevOk = prev?.classList.contains('nav-section') && !prev.hidden;
+    const nextOk = next?.classList.contains('nav-section') && !next.hidden;
+    div.hidden = !(prevOk && nextOk);
+  });
 }
 
-function ensureAvSubtabVisible() {
-  const host = document.getElementById('view-alertas-videos');
-  if (!host || !host.classList.contains('active')) return;
-  const activeSub = host.querySelector('.av-subtab.active');
-  if (activeSub && activeSub.style.display !== 'none') return;
-  const first = host.querySelector('.av-subtab:not([style*="display: none"])');
-  if (first) first.click();
+function navItemVisible(btn) {
+  if (!btn) return false;
+  return getComputedStyle(btn).display !== 'none';
 }
 
 // Aplica las capacidades a la interfaz: oculta pestañas/overlays bloqueados,
@@ -418,16 +421,10 @@ function applyCaps() {
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
-    if (btn.dataset.view === 'alertas-videos') {
-      const any = window.IS_ADMIN
-        || capFeature('tab_alertas') || capFeature('tab_videos') || capFeature('tab_batallas');
-      btn.style.display = any ? '' : 'none';
-      return;
-    }
     const cap = TAB_CAP[btn.dataset.view];
     if (cap) btn.style.display = capFeature(cap) ? '' : 'none';
   });
-  applyAvSubtabCaps();
+  try { syncNavSections(); } catch {}
   // Overlays individuales: si no están en el plan, NO se ocultan; se muestran con
   // un bloqueo "Solo Premium" por encima (la tarjeta sigue visible pero no usable).
   document.querySelectorAll('.ov-url[data-path]').forEach((code) => {
@@ -437,10 +434,9 @@ function applyCaps() {
     const card = code.closest('.ovpro-card') || code.closest('.overlay-item') || code.closest('.ov-card');
     if (card) setOverlayLock(card, !capFeature(cap));
   });
-  // Minijuegos (pestaña Juegos): si no están en el plan, se bloquean con "Solo Premium".
+  // Minijuegos (pestaña Juegos): bloqueo por plan o "Próximamente".
   document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
-    const cap = GAME_CAP[card.dataset.game];
-    if (cap) setGameLock(card, !capFeature(cap));
+    updateGameCardLock(card);
   });
   // Voces TikTok/Disney en el TTS
   const tkRow = document.getElementById('tts-tiktok-voices-wrap');
@@ -746,34 +742,76 @@ function setOverlayLock(card, locked) {
 }
 
 // ¿La tarjeta de este minijuego está bloqueada para el plan actual? El admin nunca se bloquea.
+function isGameComingSoon(gameId) {
+  return !!GAME_COMING_SOON[gameId] && !window.IS_ADMIN;
+}
+
 function isGameLocked(gameId) {
   if (window.IS_ADMIN) return false;
+  if (isGameComingSoon(gameId)) return true;
   const cap = GAME_CAP[gameId];
   return cap ? !capFeature(cap) : false;
 }
 
+function clearGameCardLocks(card) {
+  card.classList.remove('game-locked-card', 'game-soon-card');
+  card.querySelectorAll('.game-lock-overlay, .game-soon-overlay').forEach((el) => el.remove());
+}
+
+function updateGameCardLock(card) {
+  const gameId = card.dataset.game;
+  if (!gameId) return;
+  clearGameCardLocks(card);
+  if (window.IS_ADMIN) return;
+  if (GAME_COMING_SOON[gameId]) {
+    setGameComingSoon(card);
+    return;
+  }
+  const cap = GAME_CAP[gameId];
+  if (cap) setGameLock(card, !capFeature(cap));
+}
+
+// Pone el aviso "Próximamente" en gris (nadie entra salvo admin).
+function setGameComingSoon(card) {
+  card.classList.add('game-soon-card');
+  let ov = card.querySelector('.game-soon-overlay');
+  if (ov) return;
+  ov = document.createElement('div');
+  ov.className = 'game-soon-overlay';
+  ov.innerHTML = `<div class="ov-lock-box">
+    <div class="ov-lock-ico">⏳</div>
+    <div class="ov-lock-title">Próximamente</div>
+    <div class="ov-lock-sub">Estamos preparando este juego</div>
+  </div>`;
+  ov.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toast('Metal Slug estará disponible próximamente.', 'warn');
+  });
+  card.appendChild(ov);
+}
+
 // Pone (o quita) el bloqueo "Solo Premium" en una tarjeta de minijuego.
 function setGameLock(card, locked) {
-  card.classList.toggle('game-locked-card', locked);
-  let ov = card.querySelector('.game-lock-overlay');
-  if (locked) {
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.className = 'game-lock-overlay';
-      ov.innerHTML = `<div class="ov-lock-box">
-        <div class="ov-lock-ico">🔒</div>
-        <div class="ov-lock-title">⭐ Solo Premium</div>
-        <div class="ov-lock-sub">Mejora tu plan para desbloquear este juego</div>
-      </div>`;
-      ov.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
-      });
-      card.appendChild(ov);
-    }
-  } else if (ov) {
-    ov.remove();
+  if (!locked) {
+    card.classList.remove('game-locked-card');
+    card.querySelector('.game-lock-overlay')?.remove();
+    return;
   }
+  card.classList.add('game-locked-card');
+  let ov = card.querySelector('.game-lock-overlay');
+  if (ov) return;
+  ov = document.createElement('div');
+  ov.className = 'game-lock-overlay';
+  ov.innerHTML = `<div class="ov-lock-box">
+    <div class="ov-lock-ico">🔒</div>
+    <div class="ov-lock-title">⭐ Solo Premium</div>
+    <div class="ov-lock-sub">Mejora tu plan para desbloquear este juego</div>
+  </div>`;
+  ov.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+  });
+  card.appendChild(ov);
 }
 
 function applyLimitUI() {
@@ -847,6 +885,29 @@ function maybeForwardSpotifyChat(p) {
   } catch {}
 }
 
+function maybeForwardMusicChat(p) {
+  try {
+    if (!relayActive()) return;
+    const comment = String(p?.comment || '').trim();
+    const cmd = String(settings?.musicRequests?.command || '!sr').trim().toLowerCase();
+    const re = new RegExp(`^(${cmd}|!queue|!current|!credits|!skip|!clearqueue|!remove)\\b`, 'i');
+    if (!re.test(comment)) return;
+    if (!p?.uniqueId) return;
+    fetch('/api/desktop/music-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        comment,
+        user: { uniqueId: p.uniqueId, nickname: p.nickname || p.uniqueId, photo: p.photo || '' },
+        roles: {
+          isMod: !!p.isMod, isSub: !!p.isSub, isFollower: !!p.isFollower,
+          memberLevel: Number(p.memberLevel) || 0,
+        },
+      }),
+    }).catch(() => {});
+  } catch {}
+}
+
 // En modo relay (.exe), TikTok va por la nube pero las 5 pantallas de video van
 // SIEMPRE al servidor local (127.0.0.1) — archivos en userData/uploads.
 function roomUrl(path) {
@@ -899,35 +960,22 @@ function refreshOverlayUrls() {
   });
 }
 
-// Chip de usuario con botón de cerrar sesión (se inyecta en la barra lateral).
+// Chip de usuario con botón de cerrar sesión (barra lateral).
 function mountUserChip() {
-  if (document.getElementById('user-chip')) return;
-  const foot = document.createElement('div');
-  foot.id = 'user-sidebar-foot';
-  foot.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:0 14px 6px';
-  const installBtn = document.createElement('button');
-  installBtn.id = 'pc-install-btn';
-  installBtn.type = 'button';
-  installBtn.hidden = true;
-  installBtn.textContent = '⬇️ Instalar versión PC';
-  installBtn.style.cssText = 'width:100%;border:0;border-radius:8px;cursor:pointer;padding:7px 10px;font-weight:800;font-size:11px;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6)';
-  const chip = document.createElement('div');
-  chip.id = 'user-chip';
-  chip.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 0;font:600 11px system-ui,sans-serif;color:#9aa3b8';
-  chip.innerHTML = `<span id="user-chip-name">👤 ${window.MY_USER || 'usuario'}</span>${IS_DESKTOP ? '<span id="user-chip-ver" class="user-chip-ver"></span>' : ''}
-    <button id="logout-btn" style="margin-left:auto;border:0;border-radius:6px;cursor:pointer;padding:3px 9px;font-weight:700;font-size:10.5px;color:#04121a;background:linear-gradient(90deg,#00e5ff,#ff2bd6)">Salir</button>`;
-  foot.appendChild(installBtn);
-  foot.appendChild(chip);
-  const sideStatus = document.querySelector('.side-status');
-  if (sideStatus && sideStatus.parentElement) {
-    sideStatus.parentElement.insertBefore(foot, sideStatus);
-  } else {
-    document.body.appendChild(foot);
+  const chip = document.getElementById('user-chip');
+  const nameEl = document.getElementById('user-chip-name');
+  if (!chip || !nameEl) return;
+  nameEl.textContent = `👤 ${window.MY_USER || 'usuario'}`;
+  const verEl = document.getElementById('user-chip-ver');
+  if (verEl) verEl.hidden = !IS_DESKTOP;
+  const logout = document.getElementById('logout-btn');
+  if (logout && !logout.dataset.wired) {
+    logout.dataset.wired = '1';
+    logout.onclick = async () => {
+      try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+      location.href = '/login.html';
+    };
   }
-  document.getElementById('logout-btn').onclick = async () => {
-    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
-    location.href = '/login.html';
-  };
   applyPcInstallButton();
   if (IS_DESKTOP) applyInstalledAppVersionBadge();
 }
@@ -987,7 +1035,7 @@ function handle(type, p) {
       if (!relayActive()) onScreens(p);
       refreshLevelVideoScreenLink();
       break;
-    case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); break;
+    case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
     case 'botReply': handleBotReply(p); break;
     case 'gift': addGift(p); ttsOnGift(p); break;
     case 'like': ttsOnLike(p); break;
@@ -1014,6 +1062,15 @@ function handle(type, p) {
     case 'spotifyQueue': break;
     case 'spotifyNowPlaying': break;
     case 'spotifyCommand': break;
+    case 'musicState': if (typeof handleMusicWs === 'function') handleMusicWs('musicState', p); break;
+    case 'queueUpdated': if (typeof handleMusicWs === 'function') handleMusicWs('queueUpdated', p); break;
+    case 'currentSongUpdated': if (typeof handleMusicWs === 'function') handleMusicWs('currentSongUpdated', p); break;
+    case 'creditsUpdated': if (typeof handleMusicWs === 'function') handleMusicWs('creditsUpdated', p); break;
+    case 'songAdded': case 'songStarted': case 'songFinished': case 'songSkipped':
+    case 'queueCleared': case 'playerPaused': case 'playerResumed': case 'playerStopped':
+    case 'musicAlert':
+      if (typeof handleMusicWs === 'function') handleMusicWs(m.type, p);
+      break;
     case 'caps': setCaps(p); loadPlanComparison(true); break;
     case 'keyAction': onKeyAction(p); break;
     case 'localExec': onLocalExec(p); break;
@@ -1105,15 +1162,17 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
-    $(`view-${btn.dataset.view}`).classList.add('active');
+    const view = document.getElementById(`view-${btn.dataset.view}`);
+    if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
+    view.classList.add('active');
     if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
+    if (btn.dataset.view === 'music-requests') { try { setupMusicRequestsUI(); } catch (e) { console.error('Music UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     if (btn.dataset.view === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
-    if (btn.dataset.view === 'alertas-videos') ensureAvSubtabVisible();
     if (btn.dataset.view === 'acciones') {
       try { setupAccionesUI(); if (typeof renderAcciones === 'function') renderAcciones(); } catch (e) { console.error('Acciones UI:', e); }
     }
@@ -1134,25 +1193,8 @@ function fmtDateTime(ts) {
 async function loadAdminUsers() {
   const tbody = document.getElementById('admin-tbody');
   const count = document.getElementById('admin-count');
-  const recoverHint = document.getElementById('admin-recover-hint');
   if (!tbody) return;
   try {
-    if (recoverHint) {
-      try {
-        const dr = await fetch('/api/admin/data-diag');
-        if (dr.ok) {
-          const diag = await dr.json();
-          const b = diag.bestBackup;
-          if (b?.canRestore) {
-            recoverHint.style.display = 'block';
-            recoverHint.textContent = `Hay una copia en disco (${b.name}) con ${b.userCount} cuentas: ${b.usernames.join(', ')}. Pulsa «Restaurar cuentas desde copia».`;
-          } else if (diag.orphanFolders?.length && (diag.usersInFile || 0) <= 1) {
-            recoverHint.style.display = 'block';
-            recoverHint.textContent = `Hay ${diag.orphanFolders.length} carpeta(s) de datos huérfanas en el disco. Si existe users.json.bak, restáurala.`;
-          } else recoverHint.style.display = 'none';
-        }
-      } catch { if (recoverHint) recoverHint.style.display = 'none'; }
-    }
     const r = await fetch('/api/admin/users');
     if (!r.ok) { tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Sin acceso.</td></tr>'; return; }
     const { users } = await r.json();
@@ -1302,20 +1344,6 @@ async function deleteUserReq(id, username) {
 
 const adminRefreshBtn = document.getElementById('admin-refresh');
 if (adminRefreshBtn) adminRefreshBtn.onclick = loadAdminUsers;
-
-const adminRestoreUsersBtn = document.getElementById('admin-restore-users');
-if (adminRestoreUsersBtn) {
-  adminRestoreUsersBtn.onclick = async () => {
-    if (!confirm('¿Restaurar users.json desde la mejor copia en el disco?\n\nRecupera las cuentas registradas. Cierra sesión y vuelve a entrar después.')) return;
-    try {
-      const r = await fetch('/api/admin/restore-users-best-backup', { method: 'POST' });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) { toast(d.error || 'No se pudo restaurar.'); return; }
-      toast(`Restauradas ${d.userCount} cuentas: ${(d.usernames || []).join(', ')}`);
-      loadAdminUsers();
-    } catch { toast('Error de red al restaurar.'); }
-  };
-}
 
 const planUpgradeBtn = document.getElementById('plan-upgrade');
 if (planUpgradeBtn) planUpgradeBtn.onclick = () => {
@@ -2134,6 +2162,7 @@ function onSettings(s) {
   applyingSettings = true;
   applySettingsToUI();
   applyingSettings = false;
+  if (typeof onMusicSettingsLoaded === 'function') onMusicSettingsLoaded();
   applyLimitUI();
   renderPlanView();
   if (typeof renderMyMcActions === 'function') renderMyMcActions();
@@ -2190,6 +2219,8 @@ function onSettings(s) {
   }
   if (typeof renderSmb3Actions === 'function') renderSmb3Actions();
   if (typeof renderMari0Actions === 'function') renderMari0Actions();
+  if (typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
+  if (typeof renderMslugActions === 'function') renderMslugActions();
 }
 
 function applySettingsToUI() {
@@ -6364,7 +6395,7 @@ function onKeyAction(p) {
 // el resto (RCON, OBS, teclas…) al proceso principal de Electron.
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (/^(MARIO_|MARI0_|SMB3_|PVZ_)/.test(exec.tipo)) {
+  if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
   }
@@ -6743,6 +6774,7 @@ function spotifyAllowed() {
 function revealSpotifyTab() {
   const nav = document.getElementById('navSpotify');
   if (nav) nav.style.display = spotifyAllowed() ? '' : 'none';
+  try { syncNavSections(); } catch {}
 }
 
 // Vuelca settings.spotify -> formulario.
@@ -6967,27 +6999,44 @@ function revealWebhookTab() {
   const nav = document.getElementById('navWebhook');
   if (nav) nav.style.display = IS_DESKTOP ? '' : 'none';
   applyWebhookLock();
+  try { syncNavSections(); } catch {}
 }
 function revealConfigTab() {
   const nav = document.getElementById('navConfiguracion');
   if (nav) nav.style.display = IS_DESKTOP ? '' : 'none';
+  try { syncNavSections(); } catch {}
 }
 // Pestaña Juegos: visible para todos en la app .exe (sin bloqueo por plan).
 function revealJuegosTab() {
   const nav = document.getElementById('navJuegos');
   if (nav) nav.style.display = IS_DESKTOP ? '' : 'none';
+  try { syncNavSections(); } catch {}
 }
 // Cambia a una vista por su id completo (sin pasar por los botones del menú).
 function showViewById(viewId) {
+  const gameMatch = viewId.match(/^view-juego-(.+)$/);
+  if (gameMatch && isGameComingSoon(gameMatch[1])) {
+    toast('Metal Slug estará disponible próximamente.', 'warn');
+    return;
+  }
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
   document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
   const view = document.getElementById(viewId);
   if (view) view.classList.add('active');
+  const navSlug = viewId.replace(/^view-/, '');
+  const navBtn = document.querySelector(`.nav-item[data-view="${navSlug}"]`);
+  if (navBtn && getComputedStyle(navBtn).display !== 'none') navBtn.classList.add('active');
+  if (viewId === 'view-juego-pvzhybrid' && typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
+  if (viewId === 'view-juego-metalslug' && typeof renderMslugActions === 'function') renderMslugActions();
 }
 // Conecta las tarjetas de juego: al pulsar abren su pestaña; el botón "Volver" regresa.
 function setupJuegosUI() {
   document.querySelectorAll('#view-juegos .juego-card').forEach((card) => {
     card.onclick = () => {
+      if (isGameComingSoon(card.dataset.game)) {
+        toast('Metal Slug estará disponible próximamente.', 'warn');
+        return;
+      }
       if (isGameLocked(card.dataset.game)) {
         toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
         return;
@@ -7007,13 +7056,9 @@ function setupJuegosUI() {
   if (robloxPlay) robloxPlay.onclick = () => openGameLink(robloxPlay.dataset.url);
   const roblox3Play = document.getElementById('roblox3-play');
   if (roblox3Play) roblox3Play.onclick = () => openGameLink(roblox3Play.dataset.url);
-  // Aplica el bloqueo "Solo Premium" a las tarjetas de juego según el plan.
-  if (!window.IS_ADMIN) {
-    document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
-      const cap = GAME_CAP[card.dataset.game];
-      if (cap) setGameLock(card, !capFeature(cap));
-    });
-  }
+  document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
+    updateGameCardLock(card);
+  });
   setupRobloxActionsUI();
   setupRoblox3ActionsUI();
   setupMarioActionsUI();
@@ -7026,6 +7071,13 @@ function setupJuegosUI() {
   setupMari0StatusPoll();
   setupPvzActionsUI();
   setupPvzLaunchBtn();
+  setupPvzHybridActionsUI();
+  setupPvzHybridLaunchBtn();
+  setupPvzHybridStatusPoll();
+  setupPvzHybridDownloads();
+  setupMslugActionsUI();
+  setupMslugLaunchBtn();
+  setupMslugStatusPoll();
   const change = document.getElementById('mc-change-bat');
   if (change) change.onclick = async (e) => { e.preventDefault(); await chooseMinecraftBat(true); };
   setupMcActionsUI();
@@ -7111,7 +7163,7 @@ const MC_TRIG_ICON = {
   firstMessage: { ic: '🆕', label: 'Primer mensaje' },
 };
 
-const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'mari0Actions', 'pvzActions'];
+const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'mari0Actions', 'pvzActions', 'pvzHybridActions', 'mslugActions'];
 let lastGameActionEditAt = 0;
 
 function gameActionGiftUi(a, giftClass) {
@@ -10484,7 +10536,7 @@ function ensurePvzActions() {
   return settings.pvzActions;
 }
 
-// Botón "Descargar" del juego de Plants vs Zombies: descarga con barra de progreso en .exe.
+// Botón "Descargar" del juego de Plants vs Zombies.
 function setupPvzLaunchBtn() {
   const btn = document.getElementById('pvz-play');
   if (!btn || btn._wired) return;
@@ -10578,7 +10630,8 @@ async function testPvzAction(a) {
   if (!ok) toast && toast('No se pudo ejecutar. ¿El juego está abierto en una partida?', 'warn');
 }
 
-function pvzCardHtml(a) {
+function pvzCardHtml(a, cardOpts = {}) {
+  const maxSpawn = cardOpts.maxSpawn != null ? cardOpts.maxSpawn : 20;
   const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
   let giftBtn = '';
@@ -10606,7 +10659,7 @@ function pvzCardHtml(a) {
   if (a.kind === 'sun') {
     qtyRow = `<label class="mc-like-row" style="max-width:150px">Cantidad de soles<input type="number" min="1" max="9990" step="25" class="pvz-amount" data-uid="${uid}" value="${esc(String(a.amount || 50))}"></label>`;
   } else if (a.kind !== 'cmd') {
-    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="20" class="pvz-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="${maxSpawn}" class="pvz-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
   }
   const qtyBlock = qtyRow ? `<div class="mc-act-row">${qtyRow}</div>` : '';
   return `
@@ -10651,6 +10704,648 @@ function renderPvzActions() {
   bindGameActionGiftButtons(wrap, 'pvz-gift', 'pvzActions', renderPvzActions);
   wrap.querySelectorAll('.pvz-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzAction(a); });
 }
+
+/* ============ PvZ Hybrid (PvZ Tools + bridge :7757 / WS :3132) ============ */
+// Enemigos exclusivos de PvZ Hybrid v3.6 (wiki pvzhe.wiki — sin clásicos del PvZ original).
+const PVZHYBRID_ZOMBIES = [
+  { id: 'periodico_hielo', nombre: 'Zombie periódico ice car' },
+  { id: 'puerta_rejas', nombre: 'Zombie con puerta metálica' },
+  { id: 'futbol_oscuro', nombre: 'Zombie fútbol americano oscuro' },
+  { id: 'bailarin_armado', nombre: 'Bailarín armado (rey)' },
+  { id: 'gigante_hielo', nombre: 'Gigante ice car' },
+  { id: 'delfin_guisante', nombre: 'Caballero delfín guisante' },
+  { id: 'caja_loteria', nombre: 'Zombie caja lotería' },
+  { id: 'globo_rey', nombre: 'Rey bailarín globo' },
+  { id: 'imp_globo', nombre: 'Diablillo globo' },
+  { id: 'dirigible', nombre: 'Dirigible gigante' },
+  { id: 'minero_oscuro', nombre: 'Minero oliva negra' },
+  { id: 'yeti_hielo', nombre: 'Yeti ice car' },
+  { id: 'catapulta_armada', nombre: 'Catapulta armada' },
+  { id: 'garg_armado', nombre: 'Gargantuar armado' },
+  { id: 'garg_regalo', nombre: 'Gargantuar regalo' },
+  { id: 'imp_regalo', nombre: 'Diablillo regalo' },
+  { id: 'guisante_z', nombre: 'Zombie guisante' },
+  { id: 'nuez_z', nombre: 'Zombie nuez' },
+  { id: 'cereza_z', nombre: 'Zombie cereza picante' },
+  { id: 'ametralladora_z', nombre: 'Zombie ametralladora' },
+  { id: 'calabaza_hielo_z', nombre: 'Zombie calabaza helada' },
+  { id: 'hielonuez_z', nombre: 'Zombie alta nuez hielo' },
+  { id: 'hielonuez_imp', nombre: 'Diablillo alta nuez hielo' },
+  { id: 'garg_rojo', nombre: 'Gargantuar ojo rojo armado' },
+  { id: 'disco_z', nombre: 'Zombie disco' },
+  { id: 'bailarin_z', nombre: 'Bailarín' },
+  { id: 'esqueleto_z', nombre: 'Esqueleto' },
+  { id: 'esqueleto_imp', nombre: 'Diablillo esqueleto' },
+  { id: 'esqueleto_garg', nombre: 'Gargantuar esqueleto' },
+  { id: 'nigromante', nombre: 'Nigromante' },
+  { id: 'disco_fuego', nombre: 'Disco flamígero' },
+  { id: 'bailarin_fuego', nombre: 'Bailarín flamígero' },
+  { id: 'patito', nombre: 'Patito amarillo' },
+  { id: 'cama_carro', nombre: 'Zombie cama-carro' },
+  { id: 'luchador', nombre: 'Pequeño luchador' },
+  { id: 'garg_oliva_carga', nombre: 'Gargantuar oliva cargador' },
+  { id: 'imp_oliva_carga', nombre: 'Diablillo oliva cargador' },
+  { id: 'yeti_minero', nombre: 'Yeti minero' },
+  { id: 'ametralladora_salvaje', nombre: 'Ametralladora salvaje' },
+  { id: 'garg_salvaje', nombre: 'Gargantuar salvaje' },
+  { id: 'gigante_hielo_salvaje', nombre: 'Gigante ice car salvaje' },
+  { id: 'nuez_antorcha_z', nombre: 'Zombie nuez antorcha' },
+  { id: 'pole_ametralladora', nombre: 'Saltador ametralladora' },
+  { id: 'delfin_ametralladora', nombre: 'Delfín ametralladora' },
+  { id: 'garg_nuez_z', nombre: 'Gargantuar nuez-zombie' },
+  { id: 'imp_guisante_z', nombre: 'Diablillo guisante-zombie' },
+  { id: 'tiburon_z', nombre: 'Tiburón zombie' },
+  { id: 'tirador_hielo_z', nombre: 'Zombie tirador hielo' },
+  { id: 'kraken_z', nombre: 'Kraken zombie' },
+  { id: 'buceador_enredadera', nombre: 'Buceador enredadera' },
+  { id: 'diamante_z', nombre: 'Diamante zombie' },
+  { id: 'puerta_antibombas', nombre: 'Puerta antibombas' },
+  { id: 'jinete_pato', nombre: 'Jinete pato' },
+  { id: 'imp_carrito', nombre: 'Diablillo carrito' },
+  { id: 'jarron_z', nombre: 'Zombie jarrón' },
+  { id: 'hipnotizador', nombre: 'Hipnotizador' },
+  { id: 'jardinero_z', nombre: 'Jardinero zombie' },
+  { id: 'carro_jardinero', nombre: 'Carro jardinero' },
+  { id: 'garg_bailarin_furioso', nombre: 'Gargantuar bailarín furioso' },
+  { id: 'garg_secuaz', nombre: 'Gargantuar bailarín secuaz' },
+  { id: 'sombra_z', nombre: 'Zombie sombra' },
+  { id: 'imp_minero_puas', nombre: 'Diablillo minero púas' },
+  { id: 'garg_ojorojo_oliva', nombre: 'Gargantuar ojo rojo oliva negro' },
+  { id: 'imp_ojorojo_oliva', nombre: 'Diablillo ojo rojo oliva negro' },
+  { id: 'gigante_ojorojo_hielo', nombre: 'Gigante ojo rojo ice car' },
+  { id: 'cactus_doble', nombre: 'Cactus doble disparo' },
+  { id: 'nuez_caja', nombre: 'Nuez caja regalo' },
+  { id: 'nuez_vip', nombre: 'Nuez VIP suprema' },
+  { id: 'lanzamaiz_triple', nombre: 'Lanzamaíz triple' },
+  { id: 'gigante_escarcha', nombre: 'Gigante escarcha' },
+  { id: 'edgar_ii', nombre: 'Edgar II' },
+  { id: 'hielo_ametralladora', nombre: 'Ice car ametralladora' },
+  { id: 'carro_interferencia', nombre: 'Carro interferencia' },
+  { id: 'girasol_z', nombre: 'Girasol zombie' },
+  { id: 'granjero_z', nombre: 'Granjero zombie' },
+  { id: 'magnate_z', nombre: 'Magnate rico' },
+  { id: 'rey_saltarin_disco', nombre: 'Rey saltarín disco' },
+  { id: 'secuaz_saltarin', nombre: 'Secuaz saltarín' },
+  { id: 'hielo_lanzador', nombre: 'Ice car lanzador' },
+  { id: 'fantasma_z', nombre: 'Fantasma zombie' },
+  { id: 'imitador_z', nombre: 'Imitador zombie' },
+  { id: 'arbol_z', nombre: 'Zombie árbol' },
+  { id: 'insecto_z', nombre: 'Insecto zombie' },
+  { id: 'pole_oliva', nombre: 'Saltador oliva' },
+  { id: 'gigante_minero', nombre: 'Gigante minero' },
+  { id: 'imp_minero', nombre: 'Diablillo minero' },
+  { id: 'capitan_pirata', nombre: 'Capitán pirata' },
+  { id: 'marinero_pirata', nombre: 'Marinero pirata' },
+  { id: 'magnetico_z', nombre: 'Zombie magnético' },
+  { id: 'imp_caracol', nombre: 'Diablillo caracol' },
+  { id: 'guerrero_gato', nombre: 'Guerrero gato' },
+  { id: 'carro_globo', nombre: 'Carro globo' },
+  { id: 'yeti_futbol', nombre: 'Yeti fútbol americano' },
+  { id: 'mago_renacido', nombre: 'Mago renacido' },
+  { id: 'trineo_yeti', nombre: 'Escuadrón trineo yeti' },
+  { id: 'trineo_armado', nombre: 'Trineo armado' },
+  { id: 'vampiro_z', nombre: 'Vampiro' },
+  { id: 'damas_z', nombre: 'Damas zombie' },
+  { id: 'mono_z', nombre: 'Mono zombie' },
+  { id: 'mercado_z', nombre: 'Mercado zombie' },
+  { id: 'angel_z', nombre: 'Ángel zombie' },
+  { id: 'disco_periodico', nombre: 'Disco periódico' },
+  { id: 'bailarin_furioso', nombre: 'Bailarín furioso' },
+  { id: 'delfin_buzo', nombre: 'Delfín buzo' },
+  { id: 'rey_delfin', nombre: 'Rey delfín bailarín' },
+  { id: 'secuaz_delfin', nombre: 'Secuaz delfín' },
+  { id: 'pole_jack', nombre: 'Saltador caja sorpresa' },
+  { id: 'humo_z', nombre: 'Máquina humo' },
+  { id: 'imp_catapulta', nombre: 'Diablillo catapulta' },
+  { id: 'regalo_navidad', nombre: 'Regalo navideño' },
+  { id: 'escalera_globo', nombre: 'Escalera globo' },
+  { id: 'arbol_navidad', nombre: 'Árbol navideño' },
+  { id: 'garg_diamante', nombre: 'Gargantuar diamante' },
+  { id: 'imp_diamante', nombre: 'Diablillo diamante' },
+  { id: 'cisne_z', nombre: 'Cisne blanco' },
+  { id: 'maquina_regalo', nombre: 'Máquina regalo' },
+  { id: 'super_ametralladora', nombre: 'Super ametralladora' },
+  { id: 'random', nombre: 'Zombie al azar (Hybrid)' },
+];
+// Zombies 0–32 del desplegable oficial de PvZ Tools (clásicos).
+const PVZ_TOOLS_CLASSIC_ZOMBIES = [
+  { id: '0', nombre: '[0] Zombie' },
+  { id: '1', nombre: '[1] Bandera' },
+  { id: '2', nombre: '[2] Cono' },
+  { id: '3', nombre: '[3] Pertiga' },
+  { id: '4', nombre: '[4] Cubeta' },
+  { id: '5', nombre: '[5] Periódico' },
+  { id: '6', nombre: '[6] Puerta' },
+  { id: '7', nombre: '[7] Fútbol americano' },
+  { id: '8', nombre: '[8] Bailarín' },
+  { id: '14', nombre: '[14] Delfín' },
+  { id: '15', nombre: '[15] Caja sorpresa' },
+  { id: '16', nombre: '[16] Globo' },
+  { id: '17', nombre: '[17] Minero' },
+  { id: '18', nombre: '[18] Saltarín' },
+  { id: '23', nombre: '[23] Gargantuar' },
+  { id: '24', nombre: '[24] Diablillo' },
+  { id: '32', nombre: '[32] Giga-Gargantuar' },
+];
+// PvZ Tools v2.6 Interactive tiene toggles (Stay in Place, etc.) que CRASHEAN PvZ Hybrid
+// porque parchean memoria de la versión 1.0.0.1051 y Hybrid usa otra build (1.1.0.1056 zh).
+// Solo exponer lo que el usuario confirmó estable: soles y spawn.
+const PVZHYBRID_TIPO_LABEL = { zombie: 'Enemigo Hybrid', classic: 'Zombie PvZ Tools (0–32)', resource: 'Recurso / Soles' };
+const PVZHYBRID_CATALOG = [
+  ...PVZ_RESOURCES.map((x) => ({ ...x, tipo: 'resource', kind: 'sun' })),
+  ...PVZ_TOOLS_CLASSIC_ZOMBIES.map((x) => ({ ...x, tipo: 'classic', kind: 'spawn' })),
+  ...PVZHYBRID_ZOMBIES.map((x) => ({ ...x, tipo: 'zombie', kind: 'spawn' })),
+];
+
+function ensurePvzHybridActions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.pvzHybridActions)) settings.pvzHybridActions = [];
+  settings.pvzHybridActions = migrateGameActions(settings.pvzHybridActions, 'pvzhybrid');
+  return settings.pvzHybridActions;
+}
+
+async function ensurePvzHybridBridgeApi() {
+  try {
+    const r = await fetch('/api/desktop/ensure-pvz-hybrid-bridge', { method: 'POST', credentials: 'same-origin' });
+    return await r.json().catch(() => ({ ok: false }));
+  } catch { return { ok: false }; }
+}
+
+async function pvzHybridBridgeHealth() {
+  try {
+    const r = await fetch('/api/desktop/pvz-hybrid-health', { credentials: 'same-origin' });
+    return await r.json().catch(() => ({}));
+  } catch { return {}; }
+}
+
+function renderPvzHybridStatus(payload) {
+  const el = document.getElementById('pvzhybrid-status');
+  if (!el) return;
+  if (!IS_DESKTOP) { el.innerHTML = ''; return; }
+  const h = payload?.health;
+  if (!h?.ok || h.api !== 'livecoins-pvz-hybrid') {
+    el.innerHTML = '<span class="mari0-st off">Bridge PvZ Hybrid — apagado</span>';
+    return;
+  }
+  const toolsOk = !!h.toolkitConnected;
+  const pending = Number(h.pending) || 0;
+  const parts = [
+    '<span class="mari0-st on">HTTP :7757</span>',
+    '<span class="mari0-st on">WS :3132</span>',
+    `<span class="mari0-st ${toolsOk ? 'on' : 'warn'}">PvZ Tools: ${toolsOk ? 'conectado' : 'sin conectar'}</span>`,
+  ];
+  if (pending > 0) parts.push(`<span class="mari0-st warn">${pending} en cola</span>`);
+  el.innerHTML = parts.join('');
+}
+
+async function refreshPvzHybridStatus() {
+  if (!IS_DESKTOP) return null;
+  const d = await pvzHybridBridgeHealth();
+  renderPvzHybridStatus(d);
+  return d;
+}
+
+let pvzHybridStatusTimer = null;
+function setupPvzHybridStatusPoll() {
+  if (!IS_DESKTOP || pvzHybridStatusTimer) return;
+  refreshPvzHybridStatus();
+  pvzHybridStatusTimer = setInterval(() => {
+    const view = document.getElementById('view-juego-pvzhybrid');
+    if (view?.classList.contains('active')) refreshPvzHybridStatus();
+  }, 2000);
+}
+
+const PVZ_DL_BASE = 'https://github.com/riusaki1995/.exe/releases/download/pvz/';
+const PVZ_HYBRID_DOWNLOADS = [
+  { head: 'Descargar PvZ Tools', name: 'PvZ Tools', file: 'PvZ.Tools.v2.6.1.exe', size: '1.3 MB', icon: '⚙️' },
+  { head: 'Descargar activador Livecoins (PvZ Hybrid Server)', name: 'PvZ Hybrid Server', file: 'PvZ-Hybrid-Server.exe', size: '90.02 MB', icon: '🔌' },
+  { head: 'Descargar Plantas vs Zombies 1', name: 'PvZ 1', file: 'PVZ.1.ESP-ENG.zip', size: '132.78 MB', img: '/img/PvZ_1.png' },
+  { head: 'Descargar Plantas vs Zombies Hybrid v3.6', name: 'PvZ Hybrid v3.6', file: 'PVZ.HYBRID.v3.6.zip', size: '269.61 MB', img: '/img/pvzhybrid.jpg' },
+  { head: 'Descargar Plantas vs Zombies Naruto v1.20', name: 'PvZ Naruto v1.20', file: 'PVZ.Naruto.zip', size: '83.47 MB', img: '/img/PvZ_Naruto.png' },
+  { head: 'Descargar Plantas vs Zombies Parasyte v1.0', name: 'PvZ Parasyte v1.0', file: 'PVZ_Parasyte_en.zip', size: '50.8 MB', img: '/img/PvZ_Parasyte.png' },
+  { head: 'Descargar Plantas vs Zombies Cute', name: 'PvZ Cute', file: 'PVZ.CUTE.zip', size: '271.97 MB', img: '/img/PvZ_Cute.png' },
+  { head: 'Descargar Plantas vs Zombies AmongUs', name: 'PvZ AmongUs', file: 'PVZ.AmongUs.zip', size: '230.79 MB', img: '/img/PvZ_AmongUs.png' },
+  { head: 'Descargar Plantas vs Zombies Fusion v3.7', name: 'PvZ Fusion v3.7', file: 'PvZ.Fusion.-.Interactive.v3.7.-.MelonLoader.zip', size: '695 MB', img: '/img/PvZ_Fusion.png' },
+  { head: 'Descargar Plantas vs Zombies Future', name: 'PvZ Future', file: 'PVZ.Future.zip', size: '630.94 MB', img: '/img/PvZ_Future.png' },
+  { head: 'Descargar Plantas vs Zombies Avengers', name: 'PvZ Avengers', file: 'PVZ.Avengers.zip', size: '266.66 MB', img: '/img/PvZ_Avengers.png' },
+];
+
+function renderPvzHybridDownloads() {
+  const wrap = document.getElementById('pvzhybrid-downloads');
+  if (!wrap) return;
+  wrap.innerHTML = PVZ_HYBRID_DOWNLOADS.map((d) => {
+    const url = PVZ_DL_BASE + d.file;
+    const thumb = d.img ? `<img src="${esc(d.img)}" alt="">` : esc(d.icon || '🎮');
+    return `<div class="pvz-dl-group">
+      <div class="pvz-dl-group-head"><span class="pvz-dl-plus">+</span> ${esc(d.head)}</div>
+      <div class="pvz-dl-card">
+        <div class="pvz-dl-thumb">${thumb}</div>
+        <div class="pvz-dl-info">
+          <div class="pvz-dl-name">${esc(d.name)}</div>
+          <div class="pvz-dl-size">${esc(d.size)}</div>
+        </div>
+        <button type="button" class="pvz-dl-btn" data-url="${esc(url)}">⬇ Descargar</button>
+      </div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.pvz-dl-btn').forEach((btn) => {
+    btn.onclick = () => downloadMinecraftServer(btn.dataset.url);
+  });
+}
+
+function setupPvzHybridDownloads() {
+  renderPvzHybridDownloads();
+}
+
+function setupPvzHybridLaunchBtn() {
+  if (!IS_DESKTOP) return;
+  const wire = (id, fn) => {
+    const btn = document.getElementById(id);
+    if (!btn || btn._wired) return;
+    btn._wired = true;
+    btn.onclick = fn;
+  };
+  wire('pvzhybrid-bridge', async () => {
+    const r = await ensurePvzHybridBridgeApi();
+    if (r.ok) {
+      window.desktopAPI?.showPvzHybridOverlay?.();
+      toast && toast('Bridge PvZ Hybrid activo.', 'ok');
+      refreshPvzHybridStatus();
+    } else toast && toast('No se pudo iniciar el bridge.', 'warn');
+  });
+  wire('pvzhybrid-tools', async () => {
+    await ensurePvzHybridBridgeApi();
+    const r = window.desktopAPI?.launchPvzTools ? await window.desktopAPI.launchPvzTools() : { ok: false };
+    if (r?.ok) { toast && toast('PvZ Tools abierto.', 'ok'); refreshPvzHybridStatus(); }
+    else toast && toast('No se encontró PvZ.Tools.exe', 'warn');
+  });
+  wire('pvzhybrid-stack', async () => {
+    const r = window.desktopAPI?.launchPvzHybridStack ? await window.desktopAPI.launchPvzHybridStack() : { ok: false };
+    if (r?.ok) { toast && toast('Bridge + Tools + Hybrid iniciados.', 'ok'); refreshPvzHybridStatus(); }
+    else toast && toast(r?.error === 'no_instalado' ? 'Coloca PvZ Hybrid en desktop/pvz-hybrid-game/' : 'Falló el arranque.', 'warn');
+  });
+}
+
+function setupPvzHybridActionsUI() {
+  const search = document.getElementById('pvzhybrid-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderPvzHybridCatalog(search.value); }
+  const toggleAll = document.getElementById('pvzhybrid-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensurePvzHybridActions();
+      if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettings(); renderPvzHybridActions();
+    };
+  }
+  renderPvzHybridCatalog(search ? search.value : '');
+  renderPvzHybridActions();
+}
+
+function renderPvzHybridCatalog(filter) {
+  const grid = document.getElementById('pvzhybrid-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f ? PVZHYBRID_CATALOG.filter((c) => c.nombre.toLowerCase().includes(f)) : PVZHYBRID_CATALOG;
+  grid.innerHTML = list.map((c) => `
+    <div class="mc-cat-card" data-id="${esc(c.id)}">
+      <div class="mc-cat-head-row">
+        <span class="mc-cat-emoji">${c.tipo === 'zombie' ? '🧬' : c.tipo === 'classic' ? '🧟' : (PVZ_CAT_ICON[c.tipo] || '⚙️')}</span>
+        <div class="mc-cat-texts"><div class="mc-cat-name">${esc(c.nombre)}</div><div class="mc-cat-desc">${esc(PVZHYBRID_TIPO_LABEL[c.tipo] || PVZ_TIPO_LABEL[c.tipo] || '')}</div></div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`).join('');
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addPvzHybridAction(card.dataset.id);
+  });
+}
+
+function addPvzHybridAction(thing) {
+  const c = PVZHYBRID_CATALOG.find((x) => x.id === thing);
+  if (!c || !settings) return;
+  ensurePvzHybridActions().push({
+    uid: 'pvzh_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id, label: c.nombre, tipo: c.tipo, kind: c.kind || 'spawn', path: c.path || '',
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '',
+    count: 1, amount: c.amount != null ? c.amount : 50, text: '', enabled: true,
+  });
+  saveSettings(); renderPvzHybridActions();
+}
+
+const PVZ_HYBRID_SPAWN_MAX = 999;
+
+async function testPvzHybridAction(a) {
+  if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
+  const bridge = await ensurePvzHybridBridgeApi();
+  if (!bridge?.ok) {
+    toast && toast('Bridge PvZ Hybrid apagado. Pulsa Bridge en PvZ Hybrid o Iniciar bridge.', 'warn');
+    return;
+  }
+  let ok = false;
+  let detail = '';
+  if (a.kind === 'sun') {
+    const r = await execGameLocal({ tipo: 'PVZ_HYBRID_SUN', amount: a.amount, name: 'Prueba', label: a.label });
+    ok = r && r.ok !== false;
+    detail = r?.error || '';
+  } else if (a.kind === 'cmd') {
+    const r = await execGameLocal({ tipo: 'PVZ_HYBRID_CMD', path: a.path, name: 'Prueba', label: a.label });
+    ok = r && r.ok !== false;
+    detail = r?.error || '';
+  } else {
+    const times = Math.max(1, Math.min(PVZ_HYBRID_SPAWN_MAX, parseInt(a.count, 10) || 1));
+    const r = await execGameLocal({ tipo: 'PVZ_HYBRID_SPAWN', thing: a.thing, name: 'Prueba', times, label: a.label });
+    ok = r && r.ok !== false;
+    detail = r?.error || '';
+  }
+  if (ok) addEvent(`🧬 Prueba Hybrid: ${esc(a.label || a.thing)}`, 'ok');
+  else toast && toast(detail === 'cmd_desconocido' ? 'Comando no soportado por el bridge' : '¿Bridge, PvZ Tools admin e Hybrid en partida?', 'warn');
+}
+
+function renderPvzHybridActions() {
+  const wrap = document.getElementById('pvzhybrid-my-actions');
+  if (!wrap || !settings) return;
+  const list = ensurePvzHybridActions();
+  if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
+  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: PVZ_HYBRID_SPAWN_MAX }).replace(/pvz-/g, 'pvzhybrid-')).join('');
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.pvzhybrid-del').forEach((b) => b.onclick = () => { settings.pvzHybridActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderPvzHybridActions(); });
+  bindGameTriggerSelects(wrap, 'pvzhybrid-trig-sel', 'pvzHybridActions', renderPvzHybridActions);
+  wrap.querySelectorAll('.pvzhybrid-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (a) { a.enabled = c.checked; saveSettings(); renderPvzHybridActions(); } });
+  wrap.querySelectorAll('.pvzhybrid-like-n, .pvzhybrid-text-n, .pvzhybrid-count, .pvzhybrid-amount').forEach((inp) => {
+    inp.onchange = () => {
+      const a = find(inp.dataset.uid); if (!a) return;
+      if (inp.classList.contains('pvzhybrid-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
+      else if (inp.classList.contains('pvzhybrid-text-n')) a.text = inp.value.trim();
+      else if (inp.classList.contains('pvzhybrid-count')) a.count = Math.max(1, Math.min(PVZ_HYBRID_SPAWN_MAX, parseInt(inp.value, 10) || 1));
+      else if (inp.classList.contains('pvzhybrid-amount')) a.amount = Math.max(1, Math.min(9990, parseInt(inp.value, 10) || 50));
+      saveSettings();
+    };
+  });
+  bindGameActionGiftButtons(wrap, 'pvzhybrid-gift', 'pvzHybridActions', renderPvzHybridActions);
+  wrap.querySelectorAll('.pvzhybrid-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzHybridAction(a); });
+}
+
+// ===================== Metal Slug SB Fanthology =====================
+const MSLUG_SECTION_ORDER = ['weapons', 'soldiers', 'creatures', 'bosses'];
+const MSLUG_SECTION_LABEL = {
+  weapons: 'Armas e ítems',
+  soldiers: 'Soldados y vehículos',
+  creatures: 'Criaturas y mutantes',
+  bosses: 'Jefes y oleadas',
+};
+const MSLUG_SECTION_ICON = {
+  weapons: '🔫',
+  soldiers: '🪖',
+  creatures: '🦀',
+  bosses: '👾',
+};
+const MSLUG_COMBOS = {
+  combo_armas: ['H', 'L', 'R', 'F', 'S', 'C', 'D', 'G', 'B', '2H', 'granada', 'firebomb'],
+  miniufo_oleada: ['miniufo', 'miniufo_baja'],
+  marcianos: ['ufo', 'mutante', 'miniufo'],
+};
+const MSLUG_CATALOG = [
+  // —— Armas e ítems ——
+  { id: 'H', nombre: 'Arma H', desc: 'Genera el ítem Heavy Machine Gun (H).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🟨' },
+  { id: 'L', nombre: 'Arma L', desc: 'Genera el ítem del arma Láser (L).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🟦' },
+  { id: 'R', nombre: 'Arma R', desc: 'Genera el ítem Rocket Launcher (R).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🚀' },
+  { id: 'F', nombre: 'Arma F', desc: 'Genera el ítem Flame Shot (F).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🔥' },
+  { id: 'S', nombre: 'Arma S', desc: 'Genera el ítem Shotgun (S).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🟩' },
+  { id: '2H', nombre: 'Doble H', desc: 'Genera el ítem Two Machine Guns (2H).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '⚔️' },
+  { id: 'C', nombre: 'Arma C', desc: 'Genera el ítem Enemy Chaser (C).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '💠' },
+  { id: 'D', nombre: 'Drop shots', desc: 'Genera el ítem Drop Shots (D).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '💧' },
+  { id: 'G', nombre: 'Super granada', desc: 'Genera el ítem Super Granada (G).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '💣' },
+  { id: 'B', nombre: 'Bomb launcher', desc: 'Genera el ítem Bomb Launcher (B).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🧨' },
+  { id: 'granada', nombre: 'Granada', desc: 'Genera granadas extra para el jugador.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🎇' },
+  { id: 'firebomb', nombre: 'Fire Bomb', desc: 'Genera cócteles molotov de fuego.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🔥' },
+  { id: 'combo_armas', nombre: 'Combo de armas', desc: 'Suelta una lluvia masiva de armas y explosivos.', section: 'weapons', tipo: 'weapon', kind: 'combo', emoji: '📦' },
+  // —— Soldados y vehículos ——
+  { id: 'puntitas', nombre: 'Soldado lanzagranadas', desc: 'Invoca soldados que lanzan granadas.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '💣' },
+  { id: 'knife', nombre: 'Cuchillo', desc: 'Activa un ataque cuerpo a cuerpo con cuchillo.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🔪' },
+  { id: 'mortero', nombre: 'Mortero', desc: 'Aparece un soldado rebelde con mortero.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🎯' },
+  { id: 'minigun', nombre: 'Minigun', desc: 'Invoca un ataque con torreta Minigun.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🔫' },
+  { id: 'rifle_parado', nombre: 'Soldado con escudo', desc: 'Aparecen soldados enemigos con escudo.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🛡️' },
+  { id: 'protoshiee', nombre: 'Nave Protoshiee', desc: 'Invoca a la nave de ataque Protoshiee.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚢' },
+  { id: 'bazooka', nombre: 'Antitanque', desc: 'Aparecen proyectiles antitanque.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚀' },
+  { id: 'riesolo', nombre: 'Soldado en moto', desc: 'Aparece un soldado rebelde en motocicleta.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🏍️' },
+  { id: 'paracaida', nombre: 'Paracaidistas', desc: 'Una oleada de soldados baja en paracaídas.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🪂' },
+  // —— Criaturas y mutantes ——
+  { id: 'escarabajo', nombre: 'Cangrejo', desc: 'Invoca cangrejos mutantes gigantes.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🦀' },
+  { id: 'yeti', nombre: 'Yeti', desc: 'Aparece el monstruo de las nieves Yeti.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '❄️' },
+  { id: 'murcielago', nombre: 'Murciélagos', desc: 'Suelta murciélagos que transforman al jugador en momia.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🦇' },
+  { id: 'momia_verde', nombre: 'Momia', desc: 'Aparecen momias que lanzan gas o insectos.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🧟' },
+  { id: 'camel', nombre: 'Camello', desc: 'Aparece el Camel Slug con ametralladoras.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🐫' },
+  { id: 'camel_rebel', nombre: 'Camello rebelde', desc: 'Invoca camellos de combate enemigos que lanzan bombas.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '💥' },
+  // —— Jefes y oleadas ——
+  { id: 'hudomi', nombre: "Allen O'Neil", desc: "Invoca al sargento Allen O'Neil.", section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '💪' },
+  { id: 'dragon', nombre: 'Nave dragón', desc: 'Despliega la nave gigante de ataque.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🐉' },
+  { id: 'kessi', nombre: 'Kessi', desc: 'Aparece el bombardero pesado rebelde.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '✈️' },
+  { id: 'miniufo_oleada', nombre: 'Mini UFO', desc: 'Invoca platillos voladores marcianos en dos alturas.', section: 'bosses', tipo: 'enemy', kind: 'combo', emoji: '🛸' },
+  { id: 'piramide', nombre: 'Jefe pirámide', desc: 'Despierta al jefe de la pirámide.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🔺' },
+  { id: 'marcianos', nombre: 'Marcianos', desc: 'Desata una horda de Mars People.', section: 'bosses', tipo: 'enemy', kind: 'combo', emoji: '👽' },
+  { id: 'random', nombre: 'Enemigo al azar', desc: 'Genera un enemigo aleatorio del juego.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🎲' },
+];
+const MSLUG_SPAWN_MAX = 50;
+
+function ensureMslugActions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.mslugActions)) settings.mslugActions = [];
+  settings.mslugActions = migrateGameActions(settings.mslugActions, 'mslug');
+  return settings.mslugActions;
+}
+
+async function ensureMslugBridgeApi() {
+  try {
+    const r = await fetch('/api/desktop/ensure-mslug-bridge', { method: 'POST', credentials: 'same-origin' });
+    return await r.json().catch(() => ({ ok: false }));
+  } catch { return { ok: false }; }
+}
+
+async function mslugBridgeHealth() {
+  try {
+    const r = await fetch('/api/desktop/mslug-health', { credentials: 'same-origin' });
+    return await r.json().catch(() => ({}));
+  } catch { return {}; }
+}
+
+function renderMslugStatus(payload) {
+  const el = document.getElementById('mslug-status');
+  if (!el) return;
+  if (!IS_DESKTOP) { el.innerHTML = ''; return; }
+  const h = payload?.health;
+  if (!h?.ok) {
+    el.innerHTML = '<span class="mari0-st off">Bridge Metal Slug — apagado</span>';
+    return;
+  }
+  el.innerHTML = [
+    '<span class="mari0-st on">HTTP :8787</span>',
+    '<span class="mari0-st on">WS :8788</span>',
+    `<span class="mari0-st on">${esc(h.game_dir || h.bridge || 'bridge ok')}</span>`,
+  ].join('');
+}
+
+async function refreshMslugStatus() {
+  if (!IS_DESKTOP) return null;
+  const d = await mslugBridgeHealth();
+  renderMslugStatus(d);
+  return d;
+}
+
+let mslugStatusTimer = null;
+function setupMslugStatusPoll() {
+  if (!IS_DESKTOP || mslugStatusTimer) return;
+  refreshMslugStatus();
+  mslugStatusTimer = setInterval(() => {
+    const view = document.getElementById('view-juego-metalslug');
+    if (view?.classList.contains('active')) refreshMslugStatus();
+  }, 2000);
+}
+
+function setupMslugLaunchBtn() {
+  if (!IS_DESKTOP) return;
+  const wire = (id, fn) => {
+    const btn = document.getElementById(id);
+    if (!btn || btn._wired) return;
+    btn._wired = true;
+    btn.onclick = fn;
+  };
+  wire('mslug-bridge', async () => {
+    const r = await ensureMslugBridgeApi();
+    if (r.ok) { toast && toast('Bridge Metal Slug activo.', 'ok'); refreshMslugStatus(); }
+    else toast && toast('No se pudo iniciar el bridge (¿Python instalado?).', 'warn');
+  });
+  wire('mslug-stack', async () => {
+    const r = window.desktopAPI?.launchMslugStack ? await window.desktopAPI.launchMslugStack() : { ok: false };
+    if (r?.ok) { toast && toast('Bridge + Metal Slug iniciados.', 'ok'); refreshMslugStatus(); }
+    else toast && toast(r?.error === 'no_instalado' ? 'Coloca el juego en desktop/mslug-game/' : 'Falló el arranque.', 'warn');
+  });
+}
+
+function setupMslugActionsUI() {
+  const search = document.getElementById('mslug-cat-search');
+  if (search && !search._wired) { search._wired = true; search.oninput = () => renderMslugCatalog(search.value); }
+  const toggleAll = document.getElementById('mslug-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureMslugActions();
+      if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettings(); renderMslugActions();
+    };
+  }
+  renderMslugCatalog(search ? search.value : '');
+  renderMslugActions();
+}
+
+function mslugCatCardHtml(c) {
+  const ic = c.emoji ? `<span class="mc-cat-emoji">${c.emoji}</span>` : `<span class="mc-cat-emoji">${c.tipo === 'weapon' ? '🔫' : '🎖️'}</span>`;
+  return `
+    <div class="mc-cat-card" data-id="${esc(c.id)}" title="${esc(c.desc || c.nombre)}">
+      <div class="mc-cat-head-row">
+        ${ic}
+        <div class="mc-cat-texts">
+          <div class="mc-cat-name">${esc(c.nombre)}</div>
+          <div class="mc-cat-desc">${esc(c.desc || '')}</div>
+        </div>
+      </div>
+      <button type="button" class="mc-cat-add">+ Agregar</button>
+    </div>`;
+}
+
+function renderMslugCatalog(filter) {
+  const grid = document.getElementById('mslug-catalog');
+  if (!grid) return;
+  const f = (filter || '').trim().toLowerCase();
+  const list = f
+    ? MSLUG_CATALOG.filter((c) =>
+      c.nombre.toLowerCase().includes(f)
+      || c.id.toLowerCase().includes(f)
+      || (c.desc || '').toLowerCase().includes(f))
+    : MSLUG_CATALOG;
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty">Sin resultados.</div>';
+    return;
+  }
+
+  const bySection = new Map();
+  for (const c of list) {
+    const sec = c.section || 'bosses';
+    if (!bySection.has(sec)) bySection.set(sec, []);
+    bySection.get(sec).push(c);
+  }
+
+  const order = f
+    ? [...bySection.keys()].sort((a, b) => MSLUG_SECTION_ORDER.indexOf(a) - MSLUG_SECTION_ORDER.indexOf(b))
+    : MSLUG_SECTION_ORDER.filter((sec) => bySection.has(sec));
+
+  grid.innerHTML = order.map((sec) => {
+    const items = bySection.get(sec) || [];
+    const icon = MSLUG_SECTION_ICON[sec] || '🎮';
+    const label = MSLUG_SECTION_LABEL[sec] || sec;
+    return `
+      <div class="smb3-cat-section">
+        <h4 class="mc-sub-title smb3-cat-title">${icon} ${esc(label)} <span class="smb3-cat-count">(${items.length})</span></h4>
+        <div class="mc-catalog smb3-cat-grid">${items.map((c) => mslugCatCardHtml(c)).join('')}</div>
+      </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
+    card.querySelector('.mc-cat-add').onclick = () => addMslugAction(card.dataset.id);
+  });
+}
+
+function addMslugAction(thing) {
+  const c = MSLUG_CATALOG.find((x) => x.id === thing);
+  if (!c || !settings) return;
+  ensureMslugActions().push({
+    uid: 'mslug_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id, label: c.nombre, desc: c.desc, section: c.section,
+    tipo: c.tipo, kind: c.kind || 'spawn',
+    trigger: 'gift', giftId: '', giftName: '', giftImage: '',
+    count: 1, text: '', enabled: true,
+  });
+  saveSettings(); renderMslugActions();
+}
+
+async function testMslugAction(a) {
+  if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
+  const times = Math.max(1, Math.min(MSLUG_SPAWN_MAX, parseInt(a.count, 10) || 1));
+  const r = await execGameLocal({ tipo: 'MSLUG_SPAWN', thing: a.thing, name: 'Prueba', times });
+  if (r && r.ok !== false) {
+    addEvent(`🎖️ Prueba Metal Slug: ${esc(a.label || a.thing)} (comando enviado)`, 'ok');
+    toast && toast('Comando enviado. Debe estar en misión de historia/arcade (no VS MODE).', 'ok');
+  } else {
+    toast && toast(r?.error === 'bridge_mslug_no_disponible' ? 'Bridge apagado. Pulsa Bridge o Iniciar todo.' : '¿Parche aplicado y en misión (no VS MODE)?', 'warn');
+  }
+}
+
+function renderMslugActions() {
+  const wrap = document.getElementById('mslug-my-actions');
+  if (!wrap || !settings) return;
+  const list = ensureMslugActions();
+  if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
+  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: MSLUG_SPAWN_MAX }).replace(/pvz-/g, 'mslug-').replace(/\/img\/pvz\//g, '/img/mslug/')).join('');
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.mslug-del').forEach((b) => b.onclick = () => { settings.mslugActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMslugActions(); });
+  bindGameTriggerSelects(wrap, 'mslug-trig-sel', 'mslugActions', renderMslugActions);
+  wrap.querySelectorAll('.mslug-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (a) { a.enabled = c.checked; saveSettings(); renderMslugActions(); } });
+  wrap.querySelectorAll('.mslug-like-n, .mslug-text-n, .mslug-count').forEach((inp) => {
+    inp.onchange = () => {
+      const a = find(inp.dataset.uid); if (!a) return;
+      if (inp.classList.contains('mslug-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
+      else if (inp.classList.contains('mslug-text-n')) a.text = inp.value.trim();
+      else if (inp.classList.contains('mslug-count')) a.count = Math.max(1, Math.min(MSLUG_SPAWN_MAX, parseInt(inp.value, 10) || 1));
+      saveSettings();
+    };
+  });
+  bindGameActionGiftButtons(wrap, 'mslug-gift', 'mslugActions', renderMslugActions);
+  wrap.querySelectorAll('.mslug-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMslugAction(a); });
+}
+
 // Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
 // regalo/evento que la activa, la acción (imagen/emoji) y la tecla. Se descarga como PNG.
 async function generateRobloxMenuImage(orientation) {
@@ -11163,6 +11858,8 @@ function initHomeWelcome() {
   preloadGiftCatalog();
   await confirmDesktopPanelFromServer();
   setupPanelModeWarning();
+  try { syncNavSections(); } catch {}
+  try { mountUserChip(); } catch {}
   try { setupProfiles(); } catch (e) { console.error('Perfiles UI:', e); }
   try { initHomeWelcome(); } catch (e) { console.error('Home welcome:', e); }
   try { setupPanelLives(); } catch (e) { console.error('Panel lives:', e); }
@@ -11177,6 +11874,7 @@ function initHomeWelcome() {
     }
     const navAcc = document.getElementById('navAcciones');
     if (navAcc) navAcc.style.display = '';
+    try { syncNavSections(); } catch {}
     try { setupAccionesUI(); }
     catch (e) { console.error('Acciones UI:', e); }
     try { setupProfiles(); }
