@@ -1,16 +1,118 @@
 /* Importar / exportar configuración del panel (formato Livecoins v2 y legacy TikFinity v1). */
 (function () {
-  const EXPORT_KEYS = [
-    'soundAlerts', 'videos', 'battleAlerts', 'actions',
-    'tts', 'timer', 'playback', 'points', 'screens',
-    'videosEnabled', 'battleAlertsEnabled',
-    'jarron', 'vaquita', 'marranito', 'pelotas', 'topDonor',
-    'giftVs', 'giftSeq', 'giftShowcase', 'topGift', 'giftCounter', 'topStreak', 'habibiTop',
-    'batallaGifts', 'batallaLikes', 'coinMatch',
-    'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topAltRank', 'topPointsRank',
-    'hypeBar', 'followerCounter', 'alertaGift', 'alertaLikes', 'alertaFollow',
-    'streamJoin', 'battle',
+  const EXPORT_CATALOG = [
+    {
+      id: 'alertas',
+      label: 'Alertas y videos',
+      items: [
+        { key: 'soundAlerts', label: 'Alertas sonoras (lista)' },
+        { key: 'videos', label: 'Videos (lista)' },
+        { key: 'battleAlerts', label: 'Animaciones de batalla (lista)' },
+        { key: 'actions', label: 'Acciones / teclas', desktopOnly: true },
+        { key: 'videosEnabled', label: 'Interruptor global de videos' },
+        { key: 'battleAlertsEnabled', label: 'Interruptor global de batallas' },
+        { key: 'playback', label: 'Opciones de reproducción (cola, combo)' },
+      ],
+    },
+    {
+      id: 'panel',
+      label: 'Panel y herramientas',
+      items: [
+        { key: 'tts', label: 'Chat TTS' },
+        { key: 'timer', label: 'Temporizador' },
+        { key: 'points', label: 'Usuario y puntos' },
+        { key: 'screens', label: 'Pantallas (Browser Sources)' },
+        { key: 'alerts', label: 'Alertas del panel (regalo, follow…)' },
+        { key: 'battle', label: 'Batalla (equipos y meta)' },
+        { key: 'spotify', label: 'Spotify song requests', desktopOnly: true },
+        { key: 'webhook', label: 'Webhook / RCON / OBS / ServerTap', desktopOnly: true },
+        { key: 'levelVideos', label: 'Videos automáticos por nivel', desktopOnly: true },
+      ],
+    },
+    {
+      id: 'gifts',
+      label: 'Overlays de regalos y metas',
+      items: [
+        { key: 'jarron', label: 'Jarrón de regalos' },
+        { key: 'perrito', label: 'Perrito' },
+        { key: 'vaquita', label: 'Vaquita' },
+        { key: 'marranito', label: 'Marranito' },
+        { key: 'pelotas', label: 'Pelotas de fans' },
+        { key: 'topDonor', label: 'Top donador semanal' },
+        { key: 'giftVs', label: 'Gift VS' },
+        { key: 'giftSeq', label: 'Secuencia de regalos' },
+        { key: 'giftShowcase', label: 'Showcase de regalos' },
+        { key: 'topGift', label: 'Mejor regalo' },
+        { key: 'giftCounter', label: 'Contador de meta' },
+        { key: 'topStreak', label: 'Mejor racha' },
+        { key: 'top1', label: 'Top 1 donador (MVP)' },
+        { key: 'top1fire', label: 'Top 1 fuego' },
+        { key: 'habibiTop', label: 'Habibi del mes' },
+        { key: 'winsCounter', label: 'Contador de victorias' },
+        { key: 'winsCounterGamer', label: 'Contador de victorias (Gamer HUD)' },
+      ],
+    },
+    {
+      id: 'rankings',
+      label: 'Rankings y batallas overlay',
+      items: [
+        { key: 'batallaGifts', label: 'Batalla de regalos' },
+        { key: 'batallaLikes', label: 'Batalla de likes' },
+        { key: 'coinMatch', label: 'Coin Match' },
+        { key: 'toplikesRank', label: 'Ranking likes (bandas)' },
+        { key: 'topdiamRank', label: 'Ranking diamantes (bandas)' },
+        { key: 'toplikesList', label: 'Lista ranking likes' },
+        { key: 'topdiamList', label: 'Lista ranking diamantes' },
+        { key: 'topAltRank', label: 'Ranking alternado likes/diamantes' },
+        { key: 'topPointsRank', label: 'Ranking de puntos' },
+      ],
+    },
+    {
+      id: 'streams',
+      label: 'Streams y diseño overlay',
+      items: [
+        { key: 'hypeBar', label: 'Barra de meta (Hype)' },
+        { key: 'followerCounter', label: 'Contador de seguidores' },
+        { key: 'alertaGift', label: 'Diseño alerta regalo' },
+        { key: 'alertaLikes', label: 'Diseño alerta likes' },
+        { key: 'alertaFollow', label: 'Diseño alerta seguidor' },
+        { key: 'streamJoin', label: 'Join al live' },
+      ],
+    },
+    {
+      id: 'juegos',
+      label: 'Juegos (acciones)',
+      desktopOnly: true,
+      items: [
+        { key: 'mcActions', label: 'Minecraft' },
+        { key: 'bedrockActions', label: 'Bedrock (Cubo TNT)' },
+        { key: 'sandboxActions', label: 'Sandbox' },
+        { key: 'robloxActions', label: 'Roblox' },
+        { key: 'roblox3Actions', label: 'Roblox 3' },
+        { key: 'marioActions', label: 'Mario Bros' },
+        { key: 'mari0Actions', label: 'Mari0' },
+        { key: 'smb3Actions', label: 'Super Mario Bros 3' },
+        { key: 'pvzActions', label: 'Plants vs Zombies' },
+        { key: 'mslugActions', label: 'Metal Slug' },
+      ],
+    },
   ];
+
+  const ALL_EXPORT_KEYS = [...new Set(EXPORT_CATALOG.flatMap((g) => g.items.map((i) => i.key)))];
+  const EXPORT_KEYS = ALL_EXPORT_KEYS;
+
+  function getExportCatalog(isDesktop) {
+    return EXPORT_CATALOG.map((g) => {
+      if (g.desktopOnly && !isDesktop) return null;
+      const items = g.items.filter((i) => !i.desktopOnly || isDesktop);
+      if (!items.length) return null;
+      return { ...g, items };
+    }).filter(Boolean);
+  }
+
+  function defaultExportKeys(isDesktop) {
+    return getExportCatalog(isDesktop).flatMap((g) => g.items.map((i) => i.key));
+  }
 
   function uid(prefix) {
     return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -213,6 +315,8 @@
   }
 
   // Extrae una lista de perfiles { name, settings } si el archivo contiene varios.
+  // Acepta distintas formas: raw.profiles, raw.data.profiles o raw.slots. Cada
+  // entrada puede traer los ajustes en .data, .settings o directamente en la raíz.
   function profilesFromFile(raw) {
     let arr = null;
     if (Array.isArray(raw.profiles)) arr = raw.profiles;
@@ -228,6 +332,7 @@
       const hasData = Object.keys(settings).length > 0;
       return { name: String(p.name || '').slice(0, 40), settings: hasData ? settings : null };
     });
+    // Solo es multi-perfil si al menos una entrada (más allá de la primera) tiene datos.
     return out.some((p, i) => i > 0 && p.settings) ? out : null;
   }
 
@@ -260,15 +365,22 @@
 
   function exportSettings(settings, opts) {
     const data = {};
-    const skipActions = opts && opts.skipActions;
-    for (const k of EXPORT_KEYS) {
-      if (skipActions && k === 'actions') continue;
+    let keyList;
+    if (opts?.keys && opts.keys.length) {
+      keyList = opts.keys;
+    } else if (opts?.skipActions) {
+      keyList = ALL_EXPORT_KEYS.filter((k) => k !== 'actions');
+    } else {
+      keyList = ALL_EXPORT_KEYS;
+    }
+    for (const k of keyList) {
       if (settings[k] !== undefined) data[k] = cloneVal(settings[k]);
     }
     return {
       version: 2,
       format: 'livecoins',
       savedAt: Date.now(),
+      exportedKeys: [...keyList],
       data,
     };
   }
@@ -309,6 +421,10 @@
 
   window.SettingsTransfer = {
     EXPORT_KEYS,
+    ALL_EXPORT_KEYS,
+    EXPORT_CATALOG,
+    getExportCatalog,
+    defaultExportKeys,
     exportSettings,
     detectFormat,
     convertLegacy,
@@ -321,6 +437,7 @@
       const fmt = detectFormat(raw);
       if (fmt === 'legacy-v1') return convertLegacy(raw, { includeActions: true });
       if (fmt === 'livecoins-v2') {
+        // Si el archivo trae varios perfiles, los devolvemos todos para restaurarlos.
         const multi = convertMultiProfile(raw);
         if (multi) return multi;
         return convertNative(raw);

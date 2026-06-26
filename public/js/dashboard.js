@@ -6449,6 +6449,11 @@ function setupSettingsTransfer() {
   const impBtn = $('transfer-import');
   const fileIn = $('transfer-file');
   const statusEl = $('transfer-status');
+  const exportModal = $('transfer-export-modal');
+  const exportGroups = $('transfer-export-groups');
+  const exportAllCb = $('transfer-export-all');
+  const exportProfilesWrap = $('transfer-export-profiles-wrap');
+  const exportProfilesCb = $('transfer-export-profiles');
   if (!expBtn || !impBtn || !fileIn || !window.SettingsTransfer) return;
   const isDesktop = !!(window.desktopAPI && window.desktopAPI.isDesktop);
 
@@ -6467,29 +6472,135 @@ function setupSettingsTransfer() {
     setTimeout(() => URL.revokeObjectURL(a.href), 500);
   }
 
-  expBtn.onclick = async () => {
-    if (!settings) { setStatus('Aún no hay ajustes cargados.', 'err'); return; }
+  function exportItemCheckboxes() {
+    return exportGroups ? [...exportGroups.querySelectorAll('.transfer-export-item input[type="checkbox"]')] : [];
+  }
+
+  function syncExportAllCheckbox() {
+    if (!exportAllCb) return;
+    const boxes = exportItemCheckboxes();
+    const checked = boxes.filter((b) => b.checked).length;
+    exportAllCb.checked = boxes.length > 0 && checked === boxes.length;
+    exportAllCb.indeterminate = checked > 0 && checked < boxes.length;
+  }
+
+  function loadSavedExportKeys() {
     try {
-      const out = window.SettingsTransfer.exportSettings(settings, { skipActions: !isDesktop });
-      // En el .exe incluimos TODOS los perfiles para poder restaurarlos completos.
-      if (isDesktop) {
+      const raw = localStorage.getItem('livecoins-export-keys');
+      if (!raw) return null;
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : null;
+    } catch { return null; }
+  }
+
+  function saveExportKeys(keys) {
+    try { localStorage.setItem('livecoins-export-keys', JSON.stringify(keys)); } catch {}
+  }
+
+  function buildExportPicker() {
+    if (!exportGroups) return;
+    const catalog = window.SettingsTransfer.getExportCatalog(isDesktop);
+    const defaults = new Set(window.SettingsTransfer.defaultExportKeys(isDesktop));
+    const saved = loadSavedExportKeys();
+    const selected = saved ? new Set(saved.filter((k) => defaults.has(k))) : defaults;
+    exportGroups.innerHTML = catalog.map((g) => {
+      const items = g.items.map((item) => {
+        const on = selected.has(item.key);
+        return `<label class="transfer-export-item"><input type="checkbox" data-export-key="${item.key}"${on ? ' checked' : ''}> ${item.label}</label>`;
+      }).join('');
+      return `<section class="transfer-export-group" data-group="${g.id}">
+        <div class="transfer-export-group-head">
+          <span>${g.label}</span>
+          <button type="button" class="transfer-export-group-toggle" data-group-toggle="${g.id}">Todo</button>
+        </div>
+        <div class="transfer-export-items">${items}</div>
+      </section>`;
+    }).join('');
+    exportGroups.querySelectorAll('.transfer-export-item input').forEach((cb) => {
+      cb.addEventListener('change', syncExportAllCheckbox);
+    });
+    exportGroups.querySelectorAll('[data-group-toggle]').forEach((btn) => {
+      const syncBtn = () => {
+        const gid = btn.dataset.groupToggle;
+        const group = exportGroups.querySelector(`[data-group="${gid}"]`);
+        const boxes = group ? [...group.querySelectorAll('input[type="checkbox"]')] : [];
+        btn.textContent = boxes.length && boxes.every((b) => b.checked) ? 'Ninguno' : 'Todo';
+      };
+      syncBtn();
+      btn.onclick = () => {
+        const gid = btn.dataset.groupToggle;
+        const group = exportGroups.querySelector(`[data-group="${gid}"]`);
+        const boxes = group ? [...group.querySelectorAll('input[type="checkbox"]')] : [];
+        const allOn = boxes.every((b) => b.checked);
+        boxes.forEach((b) => { b.checked = !allOn; });
+        syncExportAllCheckbox();
+        syncBtn();
+      };
+    });
+    syncExportAllCheckbox();
+  }
+
+  function openExportModal() {
+    if (!exportModal) return;
+    buildExportPicker();
+    if (exportProfilesWrap) exportProfilesWrap.hidden = !isDesktop;
+    exportModal.classList.remove('hidden');
+    exportModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeExportModal() {
+    if (!exportModal) return;
+    exportModal.classList.add('hidden');
+    exportModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function getSelectedExportKeys() {
+    return exportItemCheckboxes().filter((b) => b.checked).map((b) => b.dataset.exportKey);
+  }
+
+  async function runExport() {
+    if (!settings) { setStatus('Aún no hay ajustes cargados.', 'err'); return; }
+    const keys = getSelectedExportKeys();
+    if (!keys.length) {
+      setStatus('Marca al menos un elemento para exportar.', 'err');
+      toast('Marca al menos un elemento para exportar.', 'warn');
+      return;
+    }
+    try {
+      saveExportKeys(keys);
+      const out = window.SettingsTransfer.exportSettings(settings, { keys });
+      if (isDesktop && exportProfilesCb?.checked) {
         try {
           const full = await requestProfilesFull(2500);
           if (full && Array.isArray(full.slots)) {
             out.profiles = full.slots.map((s, i) => ({
               name: (full.names && full.names[i]) || `Perfil ${i + 1}`,
-              data: s ? window.SettingsTransfer.exportSettings(s, { skipActions: false }).data : null,
+              data: s ? window.SettingsTransfer.exportSettings(s, { keys }).data : null,
             }));
           }
         } catch {}
       }
       downloadBackup(out);
-      setStatus('Exportación descargada.', 'ok');
+      closeExportModal();
+      setStatus(`Exportación descargada (${keys.length} sección${keys.length === 1 ? '' : 'es'}).`, 'ok');
       toast('Configuración exportada.', 'ok');
     } catch (e) {
       setStatus('Error al exportar: ' + (e.message || e), 'err');
     }
-  };
+  }
+
+  expBtn.onclick = openExportModal;
+  $('transfer-export-close')?.addEventListener('click', closeExportModal);
+  $('transfer-export-cancel')?.addEventListener('click', closeExportModal);
+  $('transfer-export-confirm')?.addEventListener('click', runExport);
+  exportModal?.addEventListener('click', (e) => { if (e.target === exportModal) closeExportModal(); });
+  if (exportAllCb) {
+    exportAllCb.onchange = () => {
+      const on = exportAllCb.checked;
+      exportItemCheckboxes().forEach((b) => { b.checked = on; });
+      exportAllCb.indeterminate = false;
+    };
+  }
 
   impBtn.onclick = () => fileIn.click();
 
