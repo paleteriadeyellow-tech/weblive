@@ -1768,6 +1768,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function serializeState() {
     return {
       username: state.username || settings.tiktokUser || null,
+      nickname: followerCounter.nickname || state.username || null,
+      photo: followerCounter.photo || '',
       connected: state.connected,
       connecting: state.connecting,
       autoConnect: settings.autoConnect !== false,
