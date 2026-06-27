@@ -373,6 +373,21 @@ export const DEFAULT_SETTINGS = {
     tagSize: 1.3, statusSize: 0.8, phraseMode: 'random', phrase: 'se unió al live',
     phrases: 'se unió a la partida|entró a la squad|ready to rumble|spawneó en el chat|se unió al live',
   },
+  streamJoinMc: {
+    neon: '#55ff55', accent: '#ffe14d', durationSec: 4.5, scale: 100, posTop: 24, posLeft: 30, laserSpeed: 2.2, bgOpacity: 92,
+    tagSize: 0.72, statusSize: 0.52, phraseMode: 'random', phrase: 'entró al mundo',
+    phrases: 'entró al mundo|spawn en el server|se unió al realm|minó el chat|player joined',
+  },
+  streamJoinDbz: {
+    neon: '#ff9100', accent: '#2196f3', durationSec: 4.5, scale: 100, posTop: 30, posLeft: 30, laserSpeed: 1.6, bgOpacity: 88,
+    tagSize: 1.55, statusSize: 0.72, phraseMode: 'random', phrase: 'entra en combate',
+    phrases: 'entra en combate|power level rising|se unió a la batalla|ki detectado|fighter joined',
+  },
+  streamJoinMario: {
+    neon: '#ffe14d', accent: '#e52521', durationSec: 4.5, scale: 100, posTop: 28, posLeft: 30, laserSpeed: 2, bgOpacity: 94,
+    tagSize: 0.78, statusSize: 0.55, phraseMode: 'random', phrase: '¡player 1 join!',
+    phrases: '¡player 1 join!|entró al nivel|1up en el chat|warp zone|se unió al castillo',
+  },
   // Acciones (solo en la app .exe): cada acción dispara una tecla del teclado cuando
   // ocurre un evento del live. Lista de objetos:
   // { id, name, enabled, event, giftId, giftName, giftImage, minDiamonds,

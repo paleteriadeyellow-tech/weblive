@@ -37,6 +37,9 @@ export const CAPABILITIES = {
   // El "path" enlaza con el data-path del overlay en el panel.
   overlays: [
     { key: 'ov_joinlive', label: 'Join al live', path: '/join-live.html' },
+    { key: 'ov_joinlivemc', label: 'Join al live (Minecraft)', path: '/join-live-minecraft.html' },
+    { key: 'ov_joinlivedbz', label: 'Join al live (Dragon Ball Z)', path: '/join-live-dragonball.html' },
+    { key: 'ov_joinlivemario', label: 'Join al live (Mario Bros)', path: '/join-live-mario.html' },
     { key: 'ov_alertvideo', label: 'Alertas + Videos', path: '/overlay.html' },
     { key: 'ov_perrito', label: 'Perrito', path: '/perrito.html' },
     { key: 'ov_jarron', label: 'Jarrón', path: '/jarron.html' },

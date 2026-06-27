@@ -2136,6 +2136,108 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Join al live (Minecraft) -->
+        <div id="sjnmcConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>⛏️ Configurar — Join al live (Minecraft)</h2>
+              <button class="modal-close" id="sjnmcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div><label class="ml">COLOR NEÓN (XP)</label><input type="color" id="sjnmcfg-neon" value="#55ff55"></div>
+                <div><label class="ml">COLOR ACENTO (bloques)</label><input type="color" id="sjnmcfg-accent" value="#ffe14d"></div>
+                <div><label class="ml">DURACIÓN (2-15s)</label><input type="number" id="sjnmcfg-dur" min="2" max="15" step="0.5" value="4.5"></div>
+                <div><label class="ml">ESCALA (50-200%)</label><input type="number" id="sjnmcfg-scale" min="50" max="200" value="100"></div>
+                <div><label class="ml">VELOCIDAD ESCANER (0.5-6s)</label><input type="number" id="sjnmcfg-laser" min="0.5" max="6" step="0.1" value="2.2"></div>
+                <div><label class="ml">POSICIÓN ARRIBA (px)</label><input type="number" id="sjnmcfg-top" min="0" max="400" value="24"></div>
+                <div><label class="ml">POSICIÓN IZQUIERDA (px)</label><input type="number" id="sjnmcfg-left" min="0" max="400" value="30"></div>
+                <div><label class="ml">OPACIDAD FONDO (40-100%)</label><input type="number" id="sjnmcfg-bgop" min="40" max="100" value="92"></div>
+                <div><label class="ml">TAMAÑO NOMBRE (0.8-2.2rem)</label><input type="number" id="sjnmcfg-tagsz" min="0.8" max="2.2" step="0.1" value="0.72"></div>
+                <div><label class="ml">TAMAÑO ESTADO (0.55-1.4rem)</label><input type="number" id="sjnmcfg-stsz" min="0.55" max="1.4" step="0.05" value="0.52"></div>
+                <div>
+                  <label class="ml">FRASE</label>
+                  <select id="sjnmcfg-pmode">
+                    <option value="random">Aleatoria (de la lista)</option>
+                    <option value="fixed">Fija (siempre la misma)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-top:10px"><label class="ml">FRASE FIJA</label><input type="text" id="sjnmcfg-phrase" placeholder="entró al mundo"></div>
+              <div style="margin-top:10px"><label class="ml">FRASES ALEATORIAS (separadas por |)</label><input type="text" id="sjnmcfg-phrases" placeholder="entró al mundo|spawn en el server|player joined"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="sjnmcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Join al live (Dragon Ball Z) -->
+        <div id="sjndbzConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>🐉 Configurar — Join al live (Dragon Ball Z)</h2>
+              <button class="modal-close" id="sjndbzcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div><label class="ml">COLOR KI (naranja)</label><input type="color" id="sjndbzcfg-neon" value="#ff9100"></div>
+                <div><label class="ml">COLOR AURA (azul)</label><input type="color" id="sjndbzcfg-accent" value="#2196f3"></div>
+                <div><label class="ml">DURACIÓN (2-15s)</label><input type="number" id="sjndbzcfg-dur" min="2" max="15" step="0.5" value="4.5"></div>
+                <div><label class="ml">ESCALA (50-200%)</label><input type="number" id="sjndbzcfg-scale" min="50" max="200" value="100"></div>
+                <div><label class="ml">VELOCIDAD ENERGÍA (0.5-6s)</label><input type="number" id="sjndbzcfg-laser" min="0.5" max="6" step="0.1" value="1.6"></div>
+                <div><label class="ml">POSICIÓN ARRIBA (px)</label><input type="number" id="sjndbzcfg-top" min="0" max="400" value="30"></div>
+                <div><label class="ml">POSICIÓN IZQUIERDA (px)</label><input type="number" id="sjndbzcfg-left" min="0" max="400" value="30"></div>
+                <div><label class="ml">OPACIDAD FONDO (40-100%)</label><input type="number" id="sjndbzcfg-bgop" min="40" max="100" value="88"></div>
+                <div><label class="ml">TAMAÑO NOMBRE (0.8-2.2rem)</label><input type="number" id="sjndbzcfg-tagsz" min="0.8" max="2.2" step="0.1" value="1.55"></div>
+                <div><label class="ml">TAMAÑO ESTADO (0.55-1.4rem)</label><input type="number" id="sjndbzcfg-stsz" min="0.55" max="1.4" step="0.05" value="0.72"></div>
+                <div>
+                  <label class="ml">FRASE</label>
+                  <select id="sjndbzcfg-pmode">
+                    <option value="random">Aleatoria (de la lista)</option>
+                    <option value="fixed">Fija (siempre la misma)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-top:10px"><label class="ml">FRASE FIJA</label><input type="text" id="sjndbzcfg-phrase" placeholder="entra en combate"></div>
+              <div style="margin-top:10px"><label class="ml">FRASES ALEATORIAS (separadas por |)</label><input type="text" id="sjndbzcfg-phrases" placeholder="entra en combate|power level rising|ki detectado"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="sjndbzcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Join al live (Mario Bros) -->
+        <div id="sjnmrConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>🍄 Configurar — Join al live (Mario Bros)</h2>
+              <button class="modal-close" id="sjnmrcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div><label class="ml">COLOR MONEDA</label><input type="color" id="sjnmrcfg-neon" value="#ffe14d"></div>
+                <div><label class="ml">COLOR PANEL (rojo)</label><input type="color" id="sjnmrcfg-accent" value="#e52521"></div>
+                <div><label class="ml">DURACIÓN (2-15s)</label><input type="number" id="sjnmrcfg-dur" min="2" max="15" step="0.5" value="4.5"></div>
+                <div><label class="ml">ESCALA (50-200%)</label><input type="number" id="sjnmrcfg-scale" min="50" max="200" value="100"></div>
+                <div><label class="ml">VELOCIDAD BRILLO (0.5-6s)</label><input type="number" id="sjnmrcfg-laser" min="0.5" max="6" step="0.1" value="2"></div>
+                <div><label class="ml">POSICIÓN ARRIBA (px)</label><input type="number" id="sjnmrcfg-top" min="0" max="400" value="28"></div>
+                <div><label class="ml">POSICIÓN IZQUIERDA (px)</label><input type="number" id="sjnmrcfg-left" min="0" max="400" value="30"></div>
+                <div><label class="ml">OPACIDAD FONDO (40-100%)</label><input type="number" id="sjnmrcfg-bgop" min="40" max="100" value="94"></div>
+                <div><label class="ml">TAMAÑO NOMBRE (0.8-2.2rem)</label><input type="number" id="sjnmrcfg-tagsz" min="0.8" max="2.2" step="0.1" value="0.78"></div>
+                <div><label class="ml">TAMAÑO ESTADO (0.55-1.4rem)</label><input type="number" id="sjnmrcfg-stsz" min="0.55" max="1.4" step="0.05" value="0.55"></div>
+                <div>
+                  <label class="ml">FRASE</label>
+                  <select id="sjnmrcfg-pmode">
+                    <option value="random">Aleatoria (de la lista)</option>
+                    <option value="fixed">Fija (siempre la misma)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-top:10px"><label class="ml">FRASE FIJA</label><input type="text" id="sjnmrcfg-phrase" placeholder="¡player 1 join!"></div>
+              <div style="margin-top:10px"><label class="ml">FRASES ALEATORIAS (separadas por |)</label><input type="text" id="sjnmrcfg-phrases" placeholder="¡player 1 join!|entró al nivel|1up en el chat"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="sjnmrcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- ===== SUB: VIDEOS ===== -->
         
 
@@ -2425,6 +2527,72 @@
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
                 <iframe id="sjn-preview" src="/join-live.html?embed=1" title="Vista previa join al live"></iframe>
+              </div>
+            </div>
+
+            <!-- Tarjeta PRO: Join al live (Minecraft) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="sjnmc-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="sjnmc-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="sjnmc-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="sjnmc-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">⛏️ Join al live (Minecraft)</h3>
+              <p class="ovpro-desc">HUD gamer pixel: franja de césped, panel de piedra, avatar cuadrado, corazón pixel y escáner estilo inventario. Tamaño 560×148.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/join-live-minecraft.html">/join-live-minecraft.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="sjnmc-preview" src="/join-live-minecraft.html?embed=1" title="Vista previa join al live minecraft"></iframe>
+              </div>
+            </div>
+
+            <!-- Tarjeta PRO: Join al live (Dragon Ball Z) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="sjndbz-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="sjndbz-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="sjndbz-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="sjndbz-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">🐉 Join al live (Dragon Ball Z)</h3>
+              <p class="ovpro-desc">HUD gamer anime: aura giratoria en el avatar, panel angular con brillo ki naranja/azul y nombre estilo fighter. Tamaño 560×140.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/join-live-dragonball.html">/join-live-dragonball.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="sjndbz-preview" src="/join-live-dragonball.html?embed=1" title="Vista previa join al live dragon ball"></iframe>
+              </div>
+            </div>
+
+            <!-- Tarjeta PRO: Join al live (Mario Bros) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="sjnmr-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="sjnmr-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="sjnmr-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="sjnmr-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">🍄 Join al live (Mario Bros)</h3>
+              <p class="ovpro-desc">HUD gamer retro: panel rojo estilo bloque, moneda giratoria, badge 1UP y entrada con rebote arcade. Tamaño 560×140.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/join-live-mario.html">/join-live-mario.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="sjnmr-preview" src="/join-live-mario.html?embed=1" title="Vista previa join al live mario"></iframe>
               </div>
             </div>
 

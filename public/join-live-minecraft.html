@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join al live — Minecraft Gamer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-neon: #55ff55;
+      --join-accent: #ffe14d;
+      --join-bg-alpha: 0.92;
+      --laser-speed: 2.2s;
+      --join-scale: 1;
+      --join-top: 30px;
+      --join-left: 30px;
+      --tag-size: 0.72rem;
+      --status-size: 0.52rem;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 560px; height: 148px; background: transparent; overflow: hidden; font-family: 'Press Start 2P', monospace; image-rendering: pixelated; }
+    #stage-root { width: 560px; height: 148px; position: relative; transform: scale(var(--join-scale)); transform-origin: top left; }
+    .join-alert {
+      display: flex; align-items: center; gap: 14px; position: absolute; top: var(--join-top); left: var(--join-left);
+      min-width: 420px; padding: 12px 18px 14px; transform: translateX(-120%); opacity: 0;
+      background: rgba(86, 86, 86, var(--join-bg-alpha)); border: 4px solid #1a1a1a;
+      box-shadow: inset 3px 3px 0 rgba(255,255,255,0.22), inset -3px -3px 0 rgba(0,0,0,0.35), 0 8px 0 rgba(0,0,0,0.45);
+      transition: transform 0.35s steps(6), opacity 0.25s steps(4); overflow: hidden; pointer-events: none;
+    }
+    .join-alert::before {
+      content: ''; position: absolute; top: -4px; left: -4px; right: -4px; height: 12px;
+      background: repeating-linear-gradient(90deg, #5d9b38 0 8px, #4a7f2c 8px 16px), linear-gradient(180deg, #6dbb45, #4a7f2c);
+      border: 4px solid #1a1a1a; border-bottom: none; box-shadow: inset 0 2px 0 rgba(255,255,255,0.25);
+    }
+    .join-alert::after {
+      content: ''; position: absolute; top: 0; left: -100%; width: 45%; height: 100%;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary-neon) 35%, transparent), transparent);
+      animation: none; pointer-events: none;
+    }
+    .join-alert.active { transform: translateX(0); opacity: 1; }
+    .join-alert.active::after { animation: mcScan var(--laser-speed) ease-in-out infinite; }
+    .join-accent {
+      position: absolute; left: 0; top: 8px; bottom: 0; width: 5px;
+      background: var(--primary-neon); border-right: 3px solid #1a1a1a;
+      box-shadow: 0 0 12px color-mix(in srgb, var(--primary-neon) 60%, transparent);
+    }
+    .avatar-wrapper { position: relative; width: 52px; height: 52px; margin-left: 8px; flex-shrink: 0; z-index: 1; }
+    .avatar-frame {
+      position: absolute; inset: 0; border: 3px solid #1a1a1a; background: #2a2a2a;
+      box-shadow: inset 2px 2px 0 rgba(255,255,255,0.15), 0 0 0 2px var(--join-accent);
+    }
+    .avatar { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; background: #111; }
+    .text-wrapper { display: flex; flex-direction: column; gap: 6px; min-width: 0; z-index: 1; padding-top: 4px; }
+    .join-tag {
+      font-size: var(--tag-size); font-weight: 700; color: #fff; line-height: 1.5;
+      text-shadow: 2px 2px 0 #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;
+    }
+    .status-text {
+      font-size: var(--status-size); color: var(--primary-neon); text-transform: uppercase; letter-spacing: 0.04em;
+      text-shadow: 2px 2px 0 #1a1a1a; display: flex; align-items: center; gap: 8px;
+    }
+    .status-text::before {
+      content: ''; width: 10px; height: 10px; background: #e52521; border: 2px solid #1a1a1a;
+      transform: rotate(45deg); box-shadow: 2px 2px 0 #1a1a1a; flex-shrink: 0;
+    }
+    @keyframes mcScan { 0% { left: -100%; } 50%, 100% { left: 150%; } }
+  </style>
+</head>
+<body>
+  <div id="stage-root">
+    <div class="join-alert" id="joinAlert" aria-live="polite">
+      <div class="join-accent"></div>
+      <div class="avatar-wrapper">
+        <div class="avatar-frame"></div>
+        <img class="avatar" src="" alt="" id="userAvatar" referrerpolicy="no-referrer" width="52" height="52">
+      </div>
+      <div class="text-wrapper">
+        <span class="join-tag" id="joinTag">—</span>
+        <span class="status-text" id="statusText">entró al mundo</span>
+      </div>
+    </div>
+  </div>
+  <script src="/js/join-live-overlay.js"></script>
+  <script>
+    JoinLiveOverlay.init({
+      kind: 'streamjoinmc', settingsKey: 'streamJoinMc', previewName: 'Steve Preview',
+      defaultPhrases: ['entró al mundo', 'spawn en el server', 'se unió al realm', 'minó el chat', 'player joined'],
+      defaults: { neon: '#55ff55', accent: '#ffe14d', durationSec: 4.5, scale: 100, posTop: 24, posLeft: 30, laserSpeed: 2.2, bgOpacity: 92, tagSize: 0.72, statusSize: 0.52, phraseMode: 'random', phrases: 'entró al mundo|spawn en el server|se unió al realm|minó el chat|player joined' },
+    });
+  </script>
+</body>
+</html>

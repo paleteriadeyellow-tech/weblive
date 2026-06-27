@@ -81,6 +81,9 @@
         { key: 'alertaLikes', label: 'Diseño alerta likes' },
         { key: 'alertaFollow', label: 'Diseño alerta seguidor' },
         { key: 'streamJoin', label: 'Join al live' },
+        { key: 'streamJoinMc', label: 'Join al live (Minecraft)' },
+        { key: 'streamJoinDbz', label: 'Join al live (Dragon Ball Z)' },
+        { key: 'streamJoinMario', label: 'Join al live (Mario Bros)' },
       ],
     },
     {

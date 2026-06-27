@@ -229,7 +229,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tllmc-conn', 'tdl-conn', 'tdlmc-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tllmc-conn', 'tdl-conn', 'tdlmc-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -320,7 +320,9 @@ async function loadMe() {
 /* ====================== Planes / capacidades ====================== */
 // Mapa overlay path -> clave de capacidad (debe coincidir con plans.js).
 const OVERLAY_CAP = {
-  '/join-live.html': 'ov_joinlive', '/overlay.html': 'ov_alertvideo',
+  '/join-live.html': 'ov_joinlive', '/join-live-minecraft.html': 'ov_joinlivemc',
+  '/join-live-dragonball.html': 'ov_joinlivedbz', '/join-live-mario.html': 'ov_joinlivemario',
+  '/overlay.html': 'ov_alertvideo',
   '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
@@ -452,7 +454,8 @@ const CAP_LABELS = {
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
   tab_webhook: 'Webhook y Configuración',
   // overlays
-  ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
+  ov_joinlive: 'Join al live', ov_joinlivemc: 'Join al live (Minecraft)', ov_joinlivedbz: 'Join al live (Dragon Ball Z)', ov_joinlivemario: 'Join al live (Mario Bros)',
+  ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
   ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
@@ -474,7 +477,7 @@ const CAP_LABELS = {
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
   'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_metalslug',
-  'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
+  'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_toplikeslistamc', 'ov_topdiamanteslista', 'ov_topdiamanteslistamc',
   'ov_contadorseguidores', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
@@ -4471,6 +4474,36 @@ const STYLE_OVERLAYS = [
     map: { 'sjncfg-neon': 'neon', 'sjncfg-dur': 'durationSec', 'sjncfg-scale': 'scale', 'sjncfg-laser': 'laserSpeed',
       'sjncfg-top': 'posTop', 'sjncfg-left': 'posLeft', 'sjncfg-bgop': 'bgOpacity', 'sjncfg-tagsz': 'tagSize',
       'sjncfg-stsz': 'statusSize', 'sjncfg-pmode': 'phraseMode', 'sjncfg-phrase': 'phrase', 'sjncfg-phrases': 'phrases' },
+    types: { scale: 'int', posTop: 'int', posLeft: 'int', bgOpacity: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'streamjoinmc', settingsKey: 'streamJoinMc', previewId: 'sjnmc-preview',
+    btnTest: 'sjnmc-test', btnReset: 'sjnmc-reset', btnConfig: 'sjnmc-config',
+    modalId: 'sjnmcConfigModal', closeId: 'sjnmcfg-close', saveId: 'sjnmcfg-save',
+    testAction: 'testStreamJoin', resetAction: 'resetStreamJoin',
+    map: { 'sjnmcfg-neon': 'neon', 'sjnmcfg-accent': 'accent', 'sjnmcfg-dur': 'durationSec', 'sjnmcfg-scale': 'scale', 'sjnmcfg-laser': 'laserSpeed',
+      'sjnmcfg-top': 'posTop', 'sjnmcfg-left': 'posLeft', 'sjnmcfg-bgop': 'bgOpacity', 'sjnmcfg-tagsz': 'tagSize',
+      'sjnmcfg-stsz': 'statusSize', 'sjnmcfg-pmode': 'phraseMode', 'sjnmcfg-phrase': 'phrase', 'sjnmcfg-phrases': 'phrases' },
+    types: { scale: 'int', posTop: 'int', posLeft: 'int', bgOpacity: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'streamjoindbz', settingsKey: 'streamJoinDbz', previewId: 'sjndbz-preview',
+    btnTest: 'sjndbz-test', btnReset: 'sjndbz-reset', btnConfig: 'sjndbz-config',
+    modalId: 'sjndbzConfigModal', closeId: 'sjndbzcfg-close', saveId: 'sjndbzcfg-save',
+    testAction: 'testStreamJoin', resetAction: 'resetStreamJoin',
+    map: { 'sjndbzcfg-neon': 'neon', 'sjndbzcfg-accent': 'accent', 'sjndbzcfg-dur': 'durationSec', 'sjndbzcfg-scale': 'scale', 'sjndbzcfg-laser': 'laserSpeed',
+      'sjndbzcfg-top': 'posTop', 'sjndbzcfg-left': 'posLeft', 'sjndbzcfg-bgop': 'bgOpacity', 'sjndbzcfg-tagsz': 'tagSize',
+      'sjndbzcfg-stsz': 'statusSize', 'sjndbzcfg-pmode': 'phraseMode', 'sjndbzcfg-phrase': 'phrase', 'sjndbzcfg-phrases': 'phrases' },
+    types: { scale: 'int', posTop: 'int', posLeft: 'int', bgOpacity: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'streamjoinmario', settingsKey: 'streamJoinMario', previewId: 'sjnmr-preview',
+    btnTest: 'sjnmr-test', btnReset: 'sjnmr-reset', btnConfig: 'sjnmr-config',
+    modalId: 'sjnmrConfigModal', closeId: 'sjnmrcfg-close', saveId: 'sjnmrcfg-save',
+    testAction: 'testStreamJoin', resetAction: 'resetStreamJoin',
+    map: { 'sjnmrcfg-neon': 'neon', 'sjnmrcfg-accent': 'accent', 'sjnmrcfg-dur': 'durationSec', 'sjnmrcfg-scale': 'scale', 'sjnmrcfg-laser': 'laserSpeed',
+      'sjnmrcfg-top': 'posTop', 'sjnmrcfg-left': 'posLeft', 'sjnmrcfg-bgop': 'bgOpacity', 'sjnmrcfg-tagsz': 'tagSize',
+      'sjnmrcfg-stsz': 'statusSize', 'sjnmrcfg-pmode': 'phraseMode', 'sjnmrcfg-phrase': 'phrase', 'sjnmrcfg-phrases': 'phrases' },
     types: { scale: 'int', posTop: 'int', posLeft: 'int', bgOpacity: 'int' },
   }),
 ];

@@ -22,8 +22,7 @@
       document.head.appendChild(st);
     }
     st.textContent =
-      'html[data-mirror="1"] body{display:flex;justify-content:flex-end;width:100vw}' +
-      'html[data-mirror="1"] .widget{transform:scale(var(--ol-scale,1)) scaleX(-1);transform-origin:top right}' +
+      'html[data-mirror="1"] .widget{margin-left:auto;margin-right:0;transform:scale(var(--ol-scale,1)) scaleX(-1);transform-origin:top left}' +
       'html[data-mirror="1"] .list .row>*{transform:scaleX(-1)}' +
       'html[data-mirror="1"] .meta{text-align:right}' +
       'html[data-mirror="1"] .name-row{align-items:flex-end;text-align:right}' +
@@ -84,6 +83,8 @@
       if (!isEmbed) {
         const sc = clamp(cfg.scale, 60, 140, 100) / 100;
         widget.style.setProperty('--ol-scale', String(sc));
+      } else {
+        requestAnimationFrame(fit);
       }
     }
 
@@ -346,6 +347,8 @@
       if (!isEmbed) {
         const sc = clamp(cfg.scale, 60, 140, 100) / 100;
         widget.style.setProperty('--ol-scale', String(sc));
+      } else {
+        requestAnimationFrame(fit);
       }
     }
 

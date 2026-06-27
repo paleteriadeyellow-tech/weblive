@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join al live — Mario Bros Gamer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bangers&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-neon: #ffe14d;
+      --join-accent: #e52521;
+      --join-bg-alpha: 0.94;
+      --laser-speed: 2s;
+      --join-scale: 1;
+      --join-top: 30px;
+      --join-left: 30px;
+      --tag-size: 0.78rem;
+      --status-size: 0.55rem;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 560px; height: 140px; background: transparent; overflow: hidden; font-family: 'Press Start 2P', monospace; image-rendering: pixelated; }
+    #stage-root { width: 560px; height: 140px; position: relative; transform: scale(var(--join-scale)); transform-origin: top left; }
+    .join-alert {
+      display: flex; align-items: center; gap: 14px; position: absolute; top: var(--join-top); left: var(--join-left);
+      min-width: 420px; padding: 12px 20px 12px 14px; transform: translateX(-120%) translateY(8px); opacity: 0;
+      background: linear-gradient(180deg, rgba(229,37,37,var(--join-bg-alpha)) 0%, rgba(176,24,24,var(--join-bg-alpha)) 100%);
+      border: 4px solid #1a1a1a; border-radius: 6px;
+      box-shadow: inset 0 4px 0 rgba(255,255,255,0.25), inset 0 -4px 0 rgba(0,0,0,0.25), 0 6px 0 #1a1a1a, 0 10px 24px rgba(0,0,0,0.45);
+      transition: transform 0.42s cubic-bezier(0.34, 1.45, 0.52, 1), opacity 0.25s ease; overflow: hidden; pointer-events: none;
+    }
+    .join-alert::before {
+      content: ''; position: absolute; inset: 6px; border: 2px dashed rgba(255,255,255,0.18); border-radius: 3px; pointer-events: none;
+    }
+    .join-alert::after {
+      content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+      animation: none;
+    }
+    .join-alert.active { transform: translateX(0) translateY(0); opacity: 1; animation: marioBounce 0.5s ease-out; }
+    .join-alert.active::after { animation: coinScan var(--laser-speed) ease-in-out infinite; }
+    .join-accent {
+      position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+      width: 28px; height: 28px; border-radius: 50%; border: 3px solid #1a1a1a;
+      background: radial-gradient(circle at 35% 30%, #fff7a8, var(--primary-neon) 45%, #c97800 100%);
+      box-shadow: inset -2px -3px 0 rgba(0,0,0,0.25), 0 0 10px rgba(255,225,77,0.6);
+      animation: coinSpin 1.2s steps(8) infinite;
+    }
+    .avatar-wrapper { position: relative; width: 50px; height: 50px; margin-left: 28px; flex-shrink: 0; z-index: 1; }
+    .avatar-frame {
+      position: absolute; inset: 0; border: 3px solid #1a1a1a; border-radius: 4px;
+      box-shadow: 0 0 0 2px var(--primary-neon), inset 2px 2px 0 rgba(255,255,255,0.2);
+      background: #5c94fc;
+    }
+    .avatar { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 2px; background: #111; image-rendering: pixelated; }
+    .text-wrapper { display: flex; flex-direction: column; gap: 8px; min-width: 0; z-index: 1; }
+    .join-tag {
+      font-family: 'Bangers', 'Press Start 2P', Impact, sans-serif; font-size: var(--tag-size); font-weight: 400;
+      color: #fff; line-height: 1.3; letter-spacing: 0.04em;
+      text-shadow: 2px 2px 0 #1a1a1a, 0 0 8px rgba(255,225,77,0.4);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px;
+    }
+    .status-text {
+      font-size: var(--status-size); color: var(--primary-neon); text-transform: uppercase; letter-spacing: 0.06em;
+      text-shadow: 2px 2px 0 #1a1a1a; display: flex; align-items: center; gap: 8px;
+    }
+    .status-text::before {
+      content: '1UP'; font-size: 0.85em; padding: 2px 4px; background: var(--primary-neon); color: #1a1a1a;
+      border: 2px solid #1a1a1a; line-height: 1; flex-shrink: 0;
+    }
+    @keyframes coinScan { 0% { left: -100%; } 50%, 100% { left: 150%; } }
+    @keyframes coinSpin { to { transform: translateY(-50%) rotate(360deg); } }
+    @keyframes marioBounce { 0% { transform: translateX(0) translateY(0); } 40% { transform: translateX(0) translateY(-6px); } 100% { transform: translateX(0) translateY(0); } }
+  </style>
+</head>
+<body>
+  <div id="stage-root">
+    <div class="join-alert" id="joinAlert" aria-live="polite">
+      <div class="join-accent"></div>
+      <div class="avatar-wrapper">
+        <div class="avatar-frame"></div>
+        <img class="avatar" src="" alt="" id="userAvatar" referrerpolicy="no-referrer" width="50" height="50">
+      </div>
+      <div class="text-wrapper">
+        <span class="join-tag" id="joinTag">—</span>
+        <span class="status-text" id="statusText">player joined</span>
+      </div>
+    </div>
+  </div>
+  <script src="/js/join-live-overlay.js"></script>
+  <script>
+    JoinLiveOverlay.init({
+      kind: 'streamjoinmario', settingsKey: 'streamJoinMario', previewName: 'Mario Preview',
+      defaultPhrases: ['¡player 1 join!', 'entró al nivel', '1up en el chat', 'warp zone', 'se unió al castillo'],
+      defaults: { neon: '#ffe14d', accent: '#e52521', durationSec: 4.5, scale: 100, posTop: 28, posLeft: 30, laserSpeed: 2, bgOpacity: 94, tagSize: 0.78, statusSize: 0.55, phraseMode: 'random', phrases: '¡player 1 join!|entró al nivel|1up en el chat|warp zone|se unió al castillo' },
+    });
+  </script>
+</body>
+</html>

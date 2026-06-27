@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join al live — Dragon Ball Z Gamer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-neon: #ff9100;
+      --join-accent: #2196f3;
+      --join-bg-alpha: 0.88;
+      --laser-speed: 1.6s;
+      --join-scale: 1;
+      --join-top: 30px;
+      --join-left: 30px;
+      --tag-size: 1.55rem;
+      --status-size: 0.72rem;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 560px; height: 140px; background: transparent; overflow: hidden; }
+    #stage-root { width: 560px; height: 140px; position: relative; transform: scale(var(--join-scale)); transform-origin: top left; }
+    .join-alert {
+      display: flex; align-items: center; gap: 16px; position: absolute; top: var(--join-top); left: var(--join-left);
+      min-width: 430px; padding: 10px 22px 10px 16px; transform: translateX(-130%) scale(0.92); opacity: 0;
+      background: linear-gradient(105deg, rgba(12,8,24,var(--join-bg-alpha)) 0%, rgba(20,12,8,var(--join-bg-alpha)) 100%);
+      border: 2px solid color-mix(in srgb, var(--primary-neon) 70%, #fff);
+      clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+      box-shadow: 0 0 28px color-mix(in srgb, var(--primary-neon) 35%, transparent), 0 0 40px color-mix(in srgb, var(--join-accent) 20%, transparent), inset 0 0 30px rgba(255,145,0,0.08);
+      transition: transform 0.45s cubic-bezier(0.18, 0.9, 0.22, 1), opacity 0.35s ease; overflow: hidden; pointer-events: none;
+    }
+    .join-alert::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--join-accent) 25%, transparent) 45%, transparent 100%);
+      opacity: 0.5; animation: none;
+    }
+    .join-alert.active { transform: translateX(0) scale(1); opacity: 1; }
+    .join-alert.active::before { animation: kiPulse 1.2s ease-in-out infinite; }
+    .join-alert::after {
+      content: ''; position: absolute; top: 0; left: -80%; width: 40%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+      transform: skewX(-18deg); animation: none;
+    }
+    .join-alert.active::after { animation: kiScan var(--laser-speed) ease-in-out infinite; }
+    .join-accent {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      background: linear-gradient(180deg, var(--join-accent), var(--primary-neon));
+      box-shadow: 0 0 16px var(--primary-neon);
+    }
+    .avatar-wrapper { position: relative; width: 54px; height: 54px; flex-shrink: 0; z-index: 1; }
+    .avatar-frame {
+      position: absolute; inset: -4px; border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--primary-neon), var(--join-accent), #fff, var(--primary-neon));
+      animation: auraSpin 2.5s linear infinite;
+    }
+    .avatar-frame::after {
+      content: ''; position: absolute; inset: 3px; border-radius: 50%; background: #0a0812;
+    }
+    .avatar {
+      position: relative; z-index: 2; width: 46px; height: 46px; margin: 4px; border-radius: 50%;
+      object-fit: cover; display: block; background: #111; border: 2px solid rgba(255,255,255,0.2);
+    }
+    .text-wrapper { display: flex; flex-direction: column; gap: 2px; min-width: 0; z-index: 1; }
+    .join-tag {
+      font-family: 'Bangers', Impact, sans-serif; font-size: var(--tag-size); font-weight: 400; line-height: 1;
+      color: #fff; letter-spacing: 0.06em; text-transform: uppercase;
+      text-shadow: 0 0 12px var(--primary-neon), 2px 2px 0 #c62800, -1px -1px 0 var(--join-accent);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+    }
+    .status-text {
+      font-family: 'Orbitron', sans-serif; font-size: var(--status-size); font-weight: 700;
+      color: var(--primary-neon); text-transform: uppercase; letter-spacing: 0.14em;
+      display: flex; align-items: center; gap: 8px;
+      text-shadow: 0 0 8px color-mix(in srgb, var(--primary-neon) 70%, transparent);
+    }
+    .status-text::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: var(--join-accent); box-shadow: 0 0 10px var(--join-accent), 0 0 18px var(--primary-neon);
+      animation: kiDot 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes kiScan { 0% { left: -80%; opacity: 0; } 20% { opacity: 1; } 100% { left: 140%; opacity: 0; } }
+    @keyframes kiPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.75; } }
+    @keyframes auraSpin { to { transform: rotate(360deg); } }
+    @keyframes kiDot { from { transform: scale(0.85); opacity: 0.7; } to { transform: scale(1.15); opacity: 1; } }
+  </style>
+</head>
+<body>
+  <div id="stage-root">
+    <div class="join-alert" id="joinAlert" aria-live="polite">
+      <div class="join-accent"></div>
+      <div class="avatar-wrapper">
+        <div class="avatar-frame"></div>
+        <img class="avatar" src="" alt="" id="userAvatar" referrerpolicy="no-referrer" width="46" height="46">
+      </div>
+      <div class="text-wrapper">
+        <span class="join-tag" id="joinTag">—</span>
+        <span class="status-text" id="statusText">entra en combate</span>
+      </div>
+    </div>
+  </div>
+  <script src="/js/join-live-overlay.js"></script>
+  <script>
+    JoinLiveOverlay.init({
+      kind: 'streamjoindbz', settingsKey: 'streamJoinDbz', previewName: 'Saiyan Preview',
+      defaultPhrases: ['entra en combate', 'power level rising', 'se unió a la batalla', 'ki detectado', 'fighter joined'],
+      defaults: { neon: '#ff9100', accent: '#2196f3', durationSec: 4.5, scale: 100, posTop: 30, posLeft: 30, laserSpeed: 1.6, bgOpacity: 88, tagSize: 1.55, statusSize: 0.72, phraseMode: 'random', phrases: 'entra en combate|power level rising|se unió a la batalla|ki detectado|fighter joined' },
+    });
+  </script>
+</body>
+</html>
