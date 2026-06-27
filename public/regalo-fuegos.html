@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Regalo — Fuegos artificiales</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --rgf-name: #ff52a8;
+      --rgf-glow: #ffc400;
+      --rgf-scale: 1;
+    }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    #stage {
+      position: fixed; inset: 0; pointer-events: none;
+      opacity: 0; transition: opacity .35s ease;
+      transform: scale(var(--rgf-scale)); transform-origin: center center;
+    }
+    #stage.active { opacity: 1; }
+    #spark-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+    #scene { position: absolute; inset: 0; z-index: 2; }
+
+    #launch {
+      position: absolute; left: 50%; bottom: 8%;
+      transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center;
+      opacity: 0; z-index: 4;
+    }
+    #launch.fly { animation: rgf-launch 1.05s cubic-bezier(.22,.85,.28,1) forwards; }
+    @keyframes rgf-launch {
+      0% { opacity: 0; transform: translateX(-50%) translateY(0); }
+      6% { opacity: 1; }
+      100% { opacity: 1; transform: translateX(-50%) translateY(calc(-50vh + 20px)); }
+    }
+    .launch-gift {
+      width: 52px; height: 52px; object-fit: contain; display: block;
+      filter: drop-shadow(0 0 10px rgba(255,200,80,.65));
+      position: relative; z-index: 2;
+    }
+    .launch-trail {
+      width: 5px; height: 0; margin-top: 2px; border-radius: 3px;
+      background: linear-gradient(180deg, #fff6a8 0%, var(--rgf-glow) 35%, rgba(255,140,0,.25) 75%, transparent 100%);
+      box-shadow: 0 0 14px rgba(255,170,40,.75), 0 0 28px rgba(255,120,0,.35);
+      transform-origin: top center;
+    }
+    #launch.fly .launch-trail { animation: rgf-trail 1.05s ease-out forwards; }
+    @keyframes rgf-trail {
+      0% { height: 0; opacity: 0; }
+      12% { opacity: 1; }
+      100% { height: 110px; opacity: .9; }
+    }
+    #launch.no-trail .launch-trail { display: none; }
+
+    #compose {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 0; height: 0;
+      opacity: 0;
+    }
+    #compose.show {
+      animation: rgf-compose-in .45s ease-out forwards;
+    }
+    #compose.rewind {
+      animation: rgf-compose-rewind .95s cubic-bezier(.45,.05,.75,.2) forwards;
+    }
+    @keyframes rgf-compose-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes rgf-compose-rewind {
+      0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(.06); }
+    }
+    .rgf-burst-glow {
+      position: absolute; left: 50%; top: 50%; width: 260px; height: 260px; margin: -130px 0 0 -130px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,220,100,.55) 0%, rgba(255,160,40,.22) 45%, transparent 72%);
+      opacity: 0; transform: scale(.2);
+      pointer-events: none;
+    }
+    .rgf-burst-glow.on { animation: rgf-glow-pop .7s ease-out forwards; }
+    .rgf-burst-glow.rewind { animation: rgf-glow-rewind .9s ease-in forwards; }
+    @keyframes rgf-glow-pop {
+      0% { opacity: 0; transform: scale(.15); }
+      25% { opacity: 1; transform: scale(1.05); }
+      100% { opacity: .85; transform: scale(1); }
+    }
+    @keyframes rgf-glow-rewind {
+      0% { opacity: .85; transform: scale(1); }
+      100% { opacity: 0; transform: scale(.08); }
+    }
+    .rgf-flash {
+      position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff 0%, rgba(255,230,120,.8) 40%, transparent 70%);
+      opacity: 0; pointer-events: none;
+    }
+    .rgf-flash.on { animation: rgf-flash .4s ease-out forwards; }
+    @keyframes rgf-flash {
+      0% { opacity: 0; transform: scale(.2); }
+      20% { opacity: 1; transform: scale(2.5); }
+      100% { opacity: 0; transform: scale(4); }
+    }
+    .rgf-core {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      display: flex; flex-direction: column; align-items: center;
+      z-index: 3;
+    }
+    .rgf-name {
+      margin: 0; padding: 0 8px;
+      font-family: 'Pacifico', cursive; font-size: clamp(34px, 6.5vw, 62px); font-weight: 400;
+      line-height: 1.05; white-space: nowrap; max-width: min(90vw, 560px);
+      overflow: hidden; text-overflow: ellipsis;
+      color: var(--rgf-name);
+      opacity: 0; transform: rotate(-2.5deg) scale(.4);
+      text-shadow:
+        0 0 2px #fff,
+        0 0 10px var(--rgf-glow),
+        0 0 22px var(--rgf-glow),
+        0 0 38px rgba(255,190,0,.75),
+        0 0 58px rgba(255,150,0,.45);
+      filter: drop-shadow(0 0 6px rgba(255,255,255,.35));
+    }
+    .rgf-name.on {
+      animation: rgf-name-in .55s cubic-bezier(.22,1,.36,1) .12s forwards;
+    }
+    .rgf-name.rewind {
+      animation: rgf-name-rewind .85s cubic-bezier(.45,.05,.75,.2) forwards;
+    }
+    @keyframes rgf-name-in {
+      0% { opacity: 0; transform: rotate(-2.5deg) scale(.35); }
+      100% { opacity: 1; transform: rotate(-2.5deg) scale(1); }
+    }
+    @keyframes rgf-name-rewind {
+      0% { opacity: 1; transform: rotate(-2.5deg) scale(1); }
+      100% { opacity: 0; transform: rotate(-2.5deg) scale(.2); }
+    }
+    .rgf-av {
+      width: 44px; height: 44px; margin-top: 6px; border-radius: 50%; overflow: hidden;
+      border: 2px solid rgba(255,230,150,.95);
+      box-shadow: 0 0 14px rgba(255,170,50,.65), 0 0 28px rgba(255,120,0,.3);
+      background: #120818;
+      opacity: 0; transform: scale(0);
+    }
+    .rgf-av.on { animation: rgf-av-in .45s cubic-bezier(.34,1.56,.64,1) .28s forwards; }
+    .rgf-av.rewind { animation: rgf-av-rewind .85s cubic-bezier(.45,.05,.75,.2) .04s forwards; }
+    .rgf-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    @keyframes rgf-av-in {
+      0% { opacity: 0; transform: scale(0); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes rgf-av-rewind {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0); }
+    }
+    #ring {
+      position: absolute; inset: 0; pointer-events: none;
+      transform: rotate(0deg);
+    }
+    #ring.spin-open { animation: rgf-ring-open 1s cubic-bezier(.15,.85,.25,1) forwards; }
+    #ring.spin-rewind { animation: rgf-ring-rewind .95s cubic-bezier(.45,.05,.75,.2) forwards; }
+    @keyframes rgf-ring-open {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(200deg); }
+    }
+    @keyframes rgf-ring-rewind {
+      from { transform: rotate(200deg); }
+      to { transform: rotate(0deg); }
+    }
+    .rgf-spoke {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%) translate(0, 0) scale(0);
+      opacity: 0;
+    }
+    .rgf-spoke.on {
+      animation: rgf-spoke-out var(--dur, .95s) cubic-bezier(.1,.9,.2,1) var(--delay, 0s) forwards;
+    }
+    .rgf-spoke.rewind {
+      animation: rgf-spoke-in var(--rdur, .9s) cubic-bezier(.45,.05,.75,.2) var(--rdelay, 0s) forwards;
+    }
+    @keyframes rgf-spoke-out {
+      0% { transform: translate(-50%, -50%) translate(0, 0) scale(0); opacity: 0; }
+      10% { opacity: 1; }
+      100% { transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(1); opacity: 1; }
+    }
+    @keyframes rgf-spoke-in {
+      0% { transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(1); opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translate(-50%, -50%) translate(0, 0) scale(0); opacity: 0; }
+    }
+    .rgf-pair {
+      display: flex; align-items: center; gap: 5px;
+      transform: rotate(var(--rot, 0deg));
+    }
+    .rgf-pair-av {
+      width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      border: 2px solid rgba(255,220,140,.9);
+      box-shadow: 0 0 8px rgba(255,160,40,.5);
+      background: #120818;
+    }
+    .rgf-pair-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .rgf-pair-gift { width: 40px; height: 40px; flex-shrink: 0; }
+    .rgf-pair-gift img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 2px 5px rgba(0,0,0,.3)); }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="spark-canvas" aria-hidden="true"></canvas>
+    <div id="scene">
+      <div id="launch" class="no-trail">
+        <img class="launch-gift" id="launch-gift" src="" alt="">
+        <div class="launch-trail"></div>
+      </div>
+      <div id="compose">
+        <div class="rgf-flash" id="flash"></div>
+        <div class="rgf-burst-glow" id="glow"></div>
+        <div id="ring"></div>
+        <div class="rgf-core">
+          <h1 class="rgf-name" id="rgf-name"></h1>
+          <div class="rgf-av" id="rgf-av"><img id="rgf-av-img" src="" alt=""></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const OV_BUILD = '3';
+    const params = new URLSearchParams(location.search);
+    if (params.get('v') !== OV_BUILD) {
+      const u = new URL(location.href);
+      u.searchParams.set('v', OV_BUILD);
+      location.replace(u.toString());
+      return;
+    }
+    const isEmbed = params.get('embed') === '1';
+    const DEFAULT_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : DEFAULT_AVATAR;
+    const PREVIEW_GIFT = isEmbed ? '/jarron/lv.png' : 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3ee9c1c148e0b2f48.png~tplv-obj.image';
+
+    let cfg = { durationSec: 7, scale: 100, nameColor: '#ff52a8', glowColor: '#ffc400', ringCount: 10, showStem: true };
+    const q = []; let busy = false;
+    let hideT = null, hide2T = null, idleT = null, seqT = null, closeT = null;
+    let sparks = [], sparkAnim = 0, emberTimer = null;
+    const LAUNCH_MS = 1050;
+    const OPEN_MS = 1000;
+    const CLOSE_MS = 950;
+    const MAX_TOTAL_MS = 90000; /* máx. 1 min 30 s hasta terminar de cerrar */
+
+    const $ = (id) => document.getElementById(id);
+    const sparkCanvas = $('spark-canvas');
+    const sparkCtx = sparkCanvas.getContext('2d');
+
+    function applyConfig(c) {
+      if (!c || typeof c !== 'object') return;
+      cfg = Object.assign(cfg, c);
+      if (cfg.durationSec != null) {
+        cfg.durationSec = Math.min(90, Math.max(3, Number(cfg.durationSec) || 7));
+      }
+      document.documentElement.style.setProperty('--rgf-name', cfg.nameColor || '#ff52a8');
+      document.documentElement.style.setProperty('--rgf-glow', cfg.glowColor || '#ffc400');
+      document.documentElement.style.setProperty('--rgf-scale', String(Math.min(150, Math.max(50, Number(cfg.scale) || 100)) / 100));
+      $('launch').classList.toggle('no-trail', cfg.showStem === false);
+    }
+
+    function clearTimers() {
+      [hideT, hide2T, seqT, closeT].forEach((t) => t && clearTimeout(t));
+      hideT = hide2T = seqT = closeT = null;
+      if (idleT) { clearInterval(idleT); idleT = null; }
+      if (emberTimer) { clearInterval(emberTimer); emberTimer = null; }
+      if (sparkAnim) { cancelAnimationFrame(sparkAnim); sparkAnim = 0; }
+    }
+
+    function donorName(d) { return (d.nickname || '').trim() || (d.uniqueId ? '@' + d.uniqueId : 'Username'); }
+    function giftImg(d) { return (d.image || d.giftImage || '').trim() || PREVIEW_GIFT; }
+    function avatarUrl(d) { return (d.photo || d.profilePictureUrl || '').trim() || DEFAULT_AVATAR; }
+
+    function resizeCanvas() {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      sparkCanvas.width = Math.floor(window.innerWidth * dpr);
+      sparkCanvas.height = Math.floor(window.innerHeight * dpr);
+      sparkCanvas.style.width = window.innerWidth + 'px';
+      sparkCanvas.style.height = window.innerHeight + 'px';
+      sparkCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function centerXY() {
+      return { cx: window.innerWidth * 0.5, cy: window.innerHeight * 0.5 };
+    }
+
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
+
+    function burstSparks(cx, cy, count, power) {
+      const glow = cfg.glowColor || '#ffc400';
+      const palette = [glow, '#fff8e1', '#ffd54f', '#ff9100', '#fff', '#80deea'];
+      for (let i = 0; i < count; i++) {
+        const ang = (Math.PI * 2 * i) / count + rand(-0.1, 0.1);
+        const spd = rand(power * 0.5, power);
+        sparks.push({
+          x: cx, y: cy,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 1, decay: rand(0.014, 0.026),
+          size: rand(2, 5), color: pick(palette), glow: rand(8, 20),
+        });
+      }
+      if (!sparkAnim) sparkTick();
+    }
+
+    function spawnEmber() {
+      const { cx, cy } = centerXY();
+      sparks.push({
+        x: cx + rand(-180, 180), y: cy + rand(-80, 40),
+        vx: rand(-0.4, 0.4), vy: rand(0.6, 1.8),
+        life: 1, decay: rand(0.006, 0.012),
+        size: rand(1.2, 2.8), color: 'rgba(255,255,255,.9)', glow: 5,
+      });
+      if (!sparkAnim) sparkTick();
+    }
+
+    function sparkTick() {
+      sparkCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      sparks = sparks.filter((p) => {
+        p.x += p.vx; p.y += p.vy;
+        p.vy += 0.028; p.vx *= 0.987; p.life -= p.decay;
+        if (p.life <= 0) return false;
+        sparkCtx.globalAlpha = Math.max(0, p.life);
+        sparkCtx.fillStyle = p.color;
+        sparkCtx.shadowColor = p.color;
+        sparkCtx.shadowBlur = p.glow * p.life;
+        sparkCtx.beginPath();
+        sparkCtx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+        sparkCtx.fill();
+        sparkCtx.shadowBlur = 0;
+        return true;
+      });
+      sparkCtx.globalAlpha = 1;
+      if (sparks.length) sparkAnim = requestAnimationFrame(sparkTick);
+      else sparkAnim = 0;
+    }
+
+    function imgOnErr(img, fallback) {
+      img.onerror = function () { this.onerror = null; this.src = fallback; };
+    }
+
+    function buildRing(gift, avatar, n) {
+      const ring = $('ring');
+      ring.innerHTML = '';
+      const count = Math.max(6, Math.min(16, n || 10));
+      const radius = Math.min(175, 105 + count * 6);
+      for (let i = 0; i < count; i++) {
+        const ang = (360 / count) * i - 90;
+        const rad = (ang * Math.PI) / 180;
+        const tx = Math.cos(rad) * radius;
+        const ty = Math.sin(rad) * radius;
+        const spoke = document.createElement('div');
+        spoke.className = 'rgf-spoke';
+        spoke.style.setProperty('--tx', tx + 'px');
+        spoke.style.setProperty('--ty', ty + 'px');
+        spoke.style.setProperty('--delay', (0.04 + i * 0.028) + 's');
+        spoke.style.setProperty('--dur', '0.92s');
+        const pair = document.createElement('div');
+        pair.className = 'rgf-pair';
+        pair.style.setProperty('--rot', (ang + 90) + 'deg');
+        const avWrap = document.createElement('div');
+        avWrap.className = 'rgf-pair-av';
+        const avIm = document.createElement('img');
+        avIm.src = avatar;
+        imgOnErr(avIm, DEFAULT_AVATAR);
+        avWrap.appendChild(avIm);
+        const gWrap = document.createElement('div');
+        gWrap.className = 'rgf-pair-gift';
+        const gIm = document.createElement('img');
+        gIm.src = gift;
+        imgOnErr(gIm, PREVIEW_GIFT);
+        gWrap.appendChild(gIm);
+        pair.appendChild(avWrap);
+        pair.appendChild(gWrap);
+        spoke.appendChild(pair);
+        ring.appendChild(spoke);
+        requestAnimationFrame(() => requestAnimationFrame(() => spoke.classList.add('on')));
+      }
+      ring.classList.remove('spin-rewind');
+      ring.classList.add('spin-open');
+    }
+
+    function triggerBurst() {
+      const flash = $('flash');
+      const glow = $('glow');
+      flash.classList.remove('on');
+      glow.classList.remove('on');
+      void flash.offsetWidth;
+      flash.classList.add('on');
+      glow.classList.add('on');
+      const { cx, cy } = centerXY();
+      burstSparks(cx, cy, 52, 8.5);
+      setTimeout(() => burstSparks(cx, cy, 36, 6), 80);
+      setTimeout(() => burstSparks(cx, cy, 24, 4.5), 160);
+    }
+
+    function showCompose(d) {
+      const name = donorName(d);
+      const gift = giftImg(d);
+      const avatar = avatarUrl(d);
+      const n = Math.max(6, Math.min(16, Number(cfg.ringCount) || 10));
+
+      $('rgf-name').textContent = name;
+      $('rgf-name').classList.remove('on');
+      const avImg = $('rgf-av-img');
+      imgOnErr(avImg, DEFAULT_AVATAR);
+      avImg.src = avatar;
+      avImg.alt = name;
+      $('rgf-av').classList.remove('on');
+
+      const compose = $('compose');
+      compose.classList.remove('show');
+      $('ring').innerHTML = '';
+      void compose.offsetWidth;
+      compose.classList.add('show');
+
+      triggerBurst();
+      buildRing(gift, avatar, n);
+
+      requestAnimationFrame(() => {
+        $('rgf-name').classList.add('on');
+        $('rgf-av').classList.add('on');
+      });
+
+      if (emberTimer) clearInterval(emberTimer);
+      emberTimer = setInterval(() => {
+        if (document.hidden) return;
+        for (let i = 0; i < 3; i++) spawnEmber();
+      }, 140);
+    }
+
+    function startRewind() {
+      if (emberTimer) { clearInterval(emberTimer); emberTimer = null; }
+      const compose = $('compose');
+      const ring = $('ring');
+      const spokes = [...ring.querySelectorAll('.rgf-spoke')];
+      const n = spokes.length;
+
+      compose.classList.add('rewind');
+      ring.classList.remove('spin-open');
+      ring.classList.add('spin-rewind');
+      $('glow').classList.add('rewind');
+      $('rgf-name').classList.remove('on');
+      $('rgf-name').classList.add('rewind');
+      $('rgf-av').classList.remove('on');
+      $('rgf-av').classList.add('rewind');
+
+      spokes.forEach((sp, i) => {
+        sp.classList.remove('on');
+        sp.style.animation = 'none';
+        void sp.offsetWidth;
+        sp.style.setProperty('--rdelay', ((n - 1 - i) * 0.028) + 's');
+        sp.style.setProperty('--rdur', '0.9s');
+        sp.classList.add('rewind');
+      });
+
+      const { cx, cy } = centerXY();
+      burstSparks(cx, cy, 20, 4);
+
+      closeT = setTimeout(finishRewind, CLOSE_MS);
+    }
+
+    function finishRewind() {
+      closeT = null;
+      $('stage').classList.remove('active');
+      resetVisual();
+      if (!isEmbed) {
+        busy = false;
+        show();
+      } else {
+        setTimeout(() => {
+          if (!document.hidden) {
+            q.push(DEMO);
+            show();
+          }
+        }, 500);
+      }
+    }
+
+    function scheduleRewind(launchMs) {
+      const total = Math.min(MAX_TOTAL_MS, Math.max(4500, (Number(cfg.durationSec) || 7) * 1000));
+      const holdMs = Math.max(800, total - launchMs - OPEN_MS - CLOSE_MS);
+      hideT = setTimeout(startRewind, launchMs + OPEN_MS + holdMs);
+    }
+
+    function resetVisual() {
+      $('stage').classList.remove('active');
+      $('launch').classList.remove('fly');
+      $('compose').classList.remove('show', 'rewind');
+      $('flash').classList.remove('on');
+      $('glow').classList.remove('on', 'rewind');
+      $('rgf-name').classList.remove('on', 'rewind');
+      $('rgf-av').classList.remove('on', 'rewind');
+      $('ring').innerHTML = '';
+      $('ring').classList.remove('spin-open', 'spin-rewind');
+      $('rgf-name').textContent = '';
+      $('rgf-av-img').src = '';
+      sparks = [];
+      sparkCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+
+    function runSequence(d) {
+      const skipLaunch = cfg.showStem === false;
+      const launchMs = skipLaunch ? 0 : 1050;
+
+      $('launch-gift').src = giftImg(d);
+      imgOnErr($('launch-gift'), PREVIEW_GIFT);
+
+      $('launch').classList.remove('fly');
+      $('compose').classList.remove('show');
+      void $('launch').offsetWidth;
+
+      $('stage').classList.add('active');
+
+      if (!skipLaunch) {
+        $('launch').classList.add('fly');
+      }
+
+      seqT = setTimeout(() => {
+        $('launch').classList.remove('fly');
+        showCompose(d);
+        scheduleRewind(skipLaunch ? 0 : launchMs);
+      }, skipLaunch ? 40 : launchMs);
+    }
+
+    function show() {
+      if (!q.length) return;
+      if (!isEmbed && busy) return;
+      const d = q.shift();
+      clearTimers();
+      resetVisual();
+      requestAnimationFrame(() => runSequence(d));
+      if (!isEmbed) busy = true;
+    }
+
+    const DEMO = { uniqueId: 'preview_fan', nickname: 'Username', photo: PREVIEW_AVATAR, giftName: 'Rose', image: PREVIEW_GIFT, repeatCount: 1 };
+
+    function idleDemo() {
+      q.push(DEMO);
+      show();
+    }
+
+    function runTest(payload) {
+      clearTimers(); busy = false; q.length = 0;
+      resetVisual();
+      const g = payload && payload.gift;
+      const d = g ? { ...DEMO, giftName: g.name || DEMO.giftName, image: g.image || DEMO.image, giftId: g.id } : { ...DEMO };
+      q.push(d);
+      show();
+    }
+
+    function resetAll() {
+      clearTimers(); q.length = 0; busy = false; resetVisual();
+      if (isEmbed) idleDemo();
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings') {
+          if (m.payload && m.payload.regaloFuegos) applyConfig(m.payload.regaloFuegos);
+          return;
+        }
+        if (isEmbed) return;
+        if (m.type === 'gift') {
+          if (m.payload && m.payload.streak) return;
+          q.push(m.payload);
+          show();
+        } else if (m.type === 'regaloFuegosTest') runTest();
+        else if (m.type === 'regaloFuegosReset') resetAll();
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'regalofuegos') return;
+      if (d.type === 'config') applyConfig(d.config);
+      else if (d.type === 'test') runTest(d);
+      else if (d.type === 'reset') resetAll();
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    applyConfig({});
+    if (isEmbed) requestAnimationFrame(() => requestAnimationFrame(idleDemo));
+    connect();
+  })();
+  </script>
+</body>
+</html>

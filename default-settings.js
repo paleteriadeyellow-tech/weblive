@@ -327,6 +327,10 @@ export const DEFAULT_SETTINGS = {
     headline: 'Gracias por tu regalo', durationSec: 6, scale: 100,
     g1: '#ff4d8d', g2: '#c084fc', g3: '#38bdf8', nameColor: '#ffffff', subColor: '#f8fafc',
   },
+  regaloFuegos: {
+    durationSec: 7, scale: 100, nameColor: '#ff52a8', glowColor: '#ffc400',
+    ringCount: 10, showStem: true,
+  },
   alertaLikes: {
     durationSec: 6, scale: 100, g1: '#ff4d8d', g2: '#c084fc', g3: '#38bdf8',
   },
@@ -384,6 +388,7 @@ export const DEFAULT_SETTINGS = {
   // Acciones del juego Plants vs Zombies (solo .exe): genera zombies (/spawn) o da
   // soles al jugador (/sun) al recibir un regalo o evento del live.
   pvzActions: [],
+  mslugActions: [],
   // Videos automáticos por nivel de miembro (public/video/niveles): al subir alguien de
   // nivel se reproduce nivelN.webm. screen = en qué Browser Source aparece.
   levelVideos: { enabled: true, screen: 1, volume: 100 },

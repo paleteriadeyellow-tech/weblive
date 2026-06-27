@@ -1847,6 +1847,27 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Regalo fuegos artificiales -->
+        <div id="rgfConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🎆 Configurar — Regalo fuegos artificiales</h2>
+              <button class="modal-close" id="rgfcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div><label class="ml">DURACIÓN TOTAL (3-90s, máx. 1 min 30 s)</label><input type="number" id="rgfcfg-dur" min="3" max="90" value="7"></div>
+                <div><label class="ml">ESCALA (50-150%)</label><input type="number" id="rgfcfg-scale" min="50" max="150" value="100"></div>
+                <div><label class="ml">REGALOS EN ANILLO (6-16)</label><input type="number" id="rgfcfg-ring" min="6" max="16" value="10"></div>
+                <div><label class="ml">COLOR NOMBRE</label><input type="color" id="rgfcfg-name" value="#ff52a8"></div>
+                <div><label class="ml">COLOR BRILLO</label><input type="color" id="rgfcfg-glow" value="#ffc400"></div>
+                <div><label class="switch-row plain" style="grid-column:1/-1"><input type="checkbox" id="rgfcfg-stem" checked> <span>Mostrar estela al lanzar el regalo</span></label></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="rgfcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Alerta de regalo -->
         <div id="agfConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -2946,6 +2967,28 @@
           <h1 class="view-title">🎨 Diseño Overlay</h1>
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
+
+              <!-- Tarjeta PRO: Regalo fuegos artificiales -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="rgf-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="rgf-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="rgf-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="rgf-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">🎆 Regalo fuegos artificiales</h3>
+                <p class="ovpro-desc">Como TikFinity: el regalo sube con estela → explota en anillo (foto + regalo) → nombre rosa con brillo dorado y avatar debajo. Chispas cayendo.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/regalo-fuegos.html">/regalo-fuegos.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="rgf-preview" src="/regalo-fuegos.html?embed=1&v=3" title="Vista previa regalo fuegos artificiales"></iframe>
+                </div>
+              </div>
 
               <!-- Tarjeta PRO: Contador de seguidores -->
               <div class="ovpro-card">

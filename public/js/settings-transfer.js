@@ -74,6 +74,7 @@
         { key: 'hypeBar', label: 'Barra de meta (Hype)' },
         { key: 'followerCounter', label: 'Contador de seguidores' },
         { key: 'alertaGift', label: 'Diseño alerta regalo' },
+        { key: 'regaloFuegos', label: 'Regalo fuegos artificiales' },
         { key: 'alertaLikes', label: 'Diseño alerta likes' },
         { key: 'alertaFollow', label: 'Diseño alerta seguidor' },
         { key: 'streamJoin', label: 'Join al live' },

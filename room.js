@@ -7,7 +7,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
 import { DEFAULT_SETTINGS, deepMerge } from './default-settings.js';
-import { createActionBridge } from './cloud-actions.js';
+import * as spotify from './spotify.js';
+import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
+import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan } from './mc-panic.js';
+import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, mslugSpawn } from './game-local.js';
+import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -143,7 +147,7 @@ function gifterLevelFromUser(u) {
   ];
   const badges = flattenBadges([].concat(u.badges || [], u.userBadges || [], u.newUserBadges || [], u.badgeImageList || []));
   for (const b of badges) {
-    if (badgeScene(b) === 8) levels.push(levelFromBadge(b));
+    if (badgeScene(b) === 8) levels.push(levelFromBadge(b)); // BadgeSceneType_UserGrade (donador TikTok)
     if (String(b?.type || '').toLowerCase() === 'privilege') levels.push(levelFromBadge(b));
   }
   return Math.max(0, ...levels);
@@ -234,14 +238,12 @@ const MAX_CONNECT_ATTEMPTS = 4;
 // archivo original queda intacto (nunca a medio escribir). Así las alertas, sonidos
 // y videos guardados no se pueden corromper ni perder por un guardado interrumpido.
 function writeJsonAtomic(file, obj) {
-  const tmp = file + '.tmp';
   try {
+    const tmp = file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
     fs.renameSync(tmp, file);
   } catch (e) {
-    try { fs.unlinkSync(tmp); } catch {}
-    if (e.code !== 'ENOSPC') console.error('  [!] No se pudo guardar', file, '-', e.message);
-    else console.error('  [!] Disco lleno, no se pudo guardar', path.basename(file));
+    console.error('  [!] No se pudo guardar', file, '-', e.message);
   }
 }
 
@@ -291,7 +293,7 @@ function normalizeProfilesMediaUrls(p) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onStreamerRank }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
@@ -304,8 +306,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const POINTS_FILE = path.join(dataDir, 'points.json');
   const SESSION_FILE = path.join(dataDir, 'session.json');
   const SESSION_OVERLAYS_FILE = path.join(dataDir, 'session-overlays.json');
-  // Perfiles: 10 ranuras, cada una guarda una configuración COMPLETA. El perfil activo
-  // es el que se edita/guarda. Nunca se borran: una ranura vacía arranca con defaults.
+  // Perfiles (solo se usan en la app .exe): 10 ranuras, cada una guarda una
+  // configuración COMPLETA. El perfil activo es el que se edita/guarda. Nunca se
+  // borran: una ranura vacía simplemente arranca con los valores por defecto.
   const PROFILE_COUNT = 10;
 
   const state = {
@@ -390,10 +393,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
   const POINTS_MAX_USERS = 2500;
   const POINTS_MAX_TX = 500;
-  const clients = new Set();         // panel + overlays (no incluye el cliente local)
-  const localClients = new Set();    // ejecutor local (.exe ligero) en la PC del streamer
-  const relayClients = new Set();    // app de escritorio completa (.exe) en modo relay:
-                                     // recibe datos para mostrar Y órdenes para ejecutar
+  const clients = new Set();         // todos los WS de esta room (panel + overlays)
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
   const recentChatKeys = new Set();
@@ -471,6 +471,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
   const memberLevels = new Map();    // uniqueId -> último nivel de miembro visto (para detectar subidas)
   const joinVideoCooldown = new Map(); // uniqueId -> última vez que se lanzó su video de entrada
+  // Spotify Song Requests (solo .exe): cola pedida por el chat + historial + anti-spam.
+  let spotifyQueue = [];             // { uniqueId, nickname, name, artists, image, uri, at }
+  let spotifyHistory = [];           // { at, user, track, status }
+  const spotifyCooldown = new Map(); // uniqueId -> ts
+  let spotifyNowPlaying = null;      // { name, artists, image, uri, progressMs, durationMs, playing, requestedBy, serverTs }
+  let lastSpotifyUri = '';
+  let spotifyPollTimer = null;
 
   let connection = null;
   let saveTimer = null;
@@ -612,8 +619,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     } catch {}
     return null;
   }
-  // Carga (o crea/migra) el archivo de perfiles. Migración: si ya había un settings.json
-  // suelto, se convierte en el "Perfil 1". NUNCA se borran ranuras con datos.
+  // Carga (o crea/migra) el archivo de perfiles. Migración: si ya había un
+  // settings.json suelto, se convierte en el "Perfil 1". NUNCA se borran ranuras
+  // con datos: si falta profiles.json se reconstruye conservando todo lo posible.
   function loadProfiles() {
     const r = readJsonSafe(PROFILES_FILE);
     let p = r.data;
@@ -625,6 +633,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       p.slots[0] = legacy; // Perfil 1 hereda lo que ya había (o null = defaults)
       created = true;
     }
+    // Normaliza tamaño y nombres.
     p.slots = Array.isArray(p.slots) ? p.slots.slice(0, PROFILE_COUNT) : [];
     while (p.slots.length < PROFILE_COUNT) p.slots.push(null);
     p.names = Array.isArray(p.names) ? p.names.slice(0, PROFILE_COUNT) : [];
@@ -634,6 +643,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     p.active = Number.isInteger(p.active) && p.active >= 0 && p.active < PROFILE_COUNT ? p.active : 0;
     if (p.general != null && (typeof p.general !== 'object' || Array.isArray(p.general))) p.general = null;
     if (p.editMode !== 'general') p.editMode = 'profile';
+    // Persiste de inmediato si acabamos de crear/migrar/recuperar para que un reinicio
+    // o actualización no vuelva a dejar la room sin profiles.json.
     if (created || r.corrupt || !fs.existsSync(PROFILES_FILE)) {
       try { writeJsonAtomic(PROFILES_FILE, p); } catch {}
     }
@@ -654,10 +665,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     else profiles.slots[profiles.active] = snap;
   }
   function getActiveProfileSettings() {
+    // Solo el perfil numerado activo (1, 2, 3…). Nunca otros slots guardados.
     if (profiles.editMode === 'profile') return resolveProfileSettings(settings);
     return loadSettings();
   }
   function getGeneralProfileSettings() {
+    // En edición del general, `settings` ya es la copia viva (el guardado en disco puede ir con debounce).
     if (profiles.editMode === 'general') return resolveProfileSettings(settings);
     if (!profiles.general) return null;
     return resolveProfileSettings(profiles.general);
@@ -672,10 +685,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     saveTimer = setTimeout(() => {
       normalizeSettingsMediaUrls(settings);
       const snap = cloneSettings(settings);
+      // Copia independiente por ranura: evita que acciones de un perfil contaminen otro.
       if (profiles.editMode === 'general') profiles.general = snap;
       else profiles.slots[profiles.active] = snap;
       saveProfilesNow();
-      // Mantenemos settings.json como espejo del perfil activo (compatibilidad).
+      // Mantenemos settings.json como espejo del perfil activo (compatibilidad y
+      // sincronización con el servidor remoto, que lee el perfil activo).
       writeJsonAtomic(SETTINGS_FILE, settings);
     }, 300);
   }
@@ -700,10 +715,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     };
   }
   function broadcastProfiles() { broadcast('profiles', profilesInfo()); }
+  // Cambia de perfil: primero asegura que lo actual quede guardado, luego carga el
+  // perfil destino y difunde sus ajustes a panel/overlays.
   function switchProfile(i) {
     const idx = Number(i);
     if (!Number.isInteger(idx) || idx < 0 || idx >= PROFILE_COUNT) return;
-    if (idx >= profileLimit()) return;
+    if (idx >= profileLimit()) return; // perfil bloqueado por el plan
     if (profiles.editMode === 'profile' && idx === profiles.active) return;
     persistCurrentEdit();
     profiles.editMode = 'profile';
@@ -724,6 +741,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastTimer();
     if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
   }
+  // Editar el perfil general (siempre activo en segundo plano junto al perfil activo).
   function switchToGeneralEdit() {
     if (profiles.editMode === 'general') return;
     persistCurrentEdit();
@@ -760,6 +778,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       editingGeneral: profiles.editMode === 'general',
     };
   }
+  // Importa una lista de perfiles { name, settings } en las ranuras 0..N-1. En modo
+  // 'replace' cada perfil sustituye al de su ranura; en 'merge' se fusiona encima.
   function importProfiles(list, mode) {
     if (!Array.isArray(list) || !list.length) return;
     persistCurrentEdit();
@@ -836,51 +856,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     for (const client of clients) {
       if (client.readyState === 1) client.send(msg);
     }
-    // El relay (.exe completo) también necesita los datos para mostrarlos en su ventana.
-    for (const client of relayClients) {
-      if (client.readyState === 1) client.send(msg);
-    }
   }
-  function broadcastToLocal(type, payload) {
-    const msg = JSON.stringify({ type, payload });
-    for (const client of localClients) {
-      if (client.readyState === 1) client.send(msg);
-    }
-    // El relay también ejecuta teclas/RCON/juegos en la PC del streamer.
-    for (const client of relayClients) {
-      if (client.readyState === 1) client.send(msg);
-    }
-  }
-  function broadcastLocalStatus() {
-    const online = localClients.size > 0 || relayClients.size > 0;
-    broadcast('localClient', { online, count: localClients.size + relayClients.size });
-  }
-  const actions = createActionBridge({
-    getSettings: () => settings,
-    forEachTriggerSettings: (fn) => forEachTriggerProfile((cfg) => fn(cfg)),
-    broadcast,
-    broadcastToLocal,
-    isCloud: process.env.DESKTOP !== '1',
-  });
   function broadcastScreens() {
     broadcast('screens', { connected: [...new Set(videoScreens.values())] });
-  }
-  const isCloudHost = process.env.DESKTOP !== '1';
-  function hasLocalRelay() { return localClients.size > 0 || relayClients.size > 0; }
-  // En relay (.exe): los archivos de video viven en la PC del streamer; delegamos
-  // reproducción/parada a la app local (Browser Source en 127.0.0.1), no en Render.
-  function emitMedia(payload) {
-    if (isCloudHost && hasLocalRelay()) broadcastToLocal('playMedia', payload);
-    else broadcast('media', payload);
-  }
-  function emitStopMedia(payload) {
-    if (isCloudHost && hasLocalRelay()) broadcastToLocal('stopMediaLocal', payload);
-    else broadcast('stopMedia', payload);
-  }
-  function emitPanicMedia() {
-    if (isCloudHost && hasLocalRelay()) broadcastToLocal('panicLocal', {});
-    else broadcast('panic', {});
-    for (let scr = 1; scr <= 5; scr++) emitStopMedia({ screen: scr });
   }
   /* --------------------- Contador de meta (gift counter) -------------------- */
   function serializeGiftCounter() {
@@ -906,6 +884,40 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastGiftCounter();
     saveSessionOverlays();
   }
+  // Contadores de victorias: si un regalo está asignado a una acción (+1/-1/sumar/restar),
+  // ajusta automáticamente el contador cuando llega ese regalo en el live.
+  function applyWinsGiftHooks(giftId, repeatCount) {
+    const reps = Math.max(1, Number(repeatCount) || 1);
+    const wantId = String(giftId || '').trim();
+    if (!wantId) return;
+    const ACTS = [
+      { id: 'inc1', sign: 1, fixed: 1 },
+      { id: 'dec1', sign: -1, fixed: 1 },
+      { id: 'incN', sign: 1, fixed: null },
+      { id: 'decN', sign: -1, fixed: null },
+    ];
+    let changed = false;
+    for (const key of ['winsCounter', 'winsCounterGamer']) {
+      const c = settings[key];
+      const hk = c && c.hotkeys;
+      if (!c || !hk) continue;
+      // wins libre: los regalos pueden subir por encima del máximo y bajar de 0.
+      let wins = parseInt(c.wins, 10) || 0;
+      let touched = false;
+      for (const a of ACTS) {
+        const d = hk[a.id];
+        if (!d || !d.giftId || String(d.giftId).trim() !== wantId) continue;
+        const amount = a.fixed != null ? a.fixed : Math.max(1, parseInt(d.amount, 10) || 1);
+        wins += a.sign * amount * reps;
+        touched = true;
+      }
+      if (touched) {
+        c.wins = Math.max(-999999, Math.min(999999, wins));
+        changed = true;
+      }
+    }
+    if (changed) { saveSettings(); broadcast('settings', settings); }
+  }
   // Capacidades del plan (límites + features). El panel las usa para ocultar
   // pestañas/overlays y bloquear el añadir más alertas de las permitidas.
   function currentCaps() {
@@ -913,6 +925,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function broadcastCaps(caps) {
     broadcast('caps', caps || currentCaps() || {});
+    // El límite de perfiles depende del plan: reenvía el estado para refrescar bloqueos.
+    broadcast('profiles', profilesInfo());
+    // Si el plan se degradó y el perfil activo quedó bloqueado, vuelve al Perfil 1.
+    if (profiles.active >= profileLimit() && profiles.active !== 0) switchProfile(0);
   }
   // Recorta los arrays guardados para no exceder los límites del plan. Solo actúa
   // si el límite es un número válido y el array lo supera (caso de degradar plan).
@@ -933,7 +949,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return cfg?.screens?.[(Number(n) || 1) - 1]?.size ?? 100;
   }
   function emitProfileMedia(cfg, v, scr, isGeneral) {
-    emitMedia({
+    broadcast('media', {
       id: v.id,
       name: v.name,
       url: v.url,
@@ -1043,6 +1059,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (getHabibiTopPeriod() === 'live') habibiTopSnapshot = null;
     fanCoinAcc.clear();
     fanLikeAcc.clear();
+    marioLikeAcc.clear();
     sessionOv.top1 = {};
     sessionOv.topGift = null;
     sessionOv.topStreak = null;
@@ -1071,6 +1088,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     fanCoinAcc.clear();
     fanLikeAcc.clear();
+    marioLikeAcc.clear();
     for (const row of raw.fanCoinAcc || []) {
       if (Array.isArray(row) && row[0]) fanCoinAcc.set(row[0], Number(row[1]) || 0);
     }
@@ -1250,6 +1268,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
     // Animaciones momentáneas (corta cualquier alerta en curso)
     broadcast('alertaGiftReset', {});
+    broadcast('regaloFuegosReset', {});
     broadcast('alertaLikesReset', {});
     broadcast('alertaFollowReset', {});
     broadcast('streamJoinReset', {});
@@ -1304,7 +1323,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let autoConnectTimer = null;
   let lastAutoWaitLog = 0;
 
+  // En modo relay (HOKEY_RELAY=1), la conexión a TikTok y el procesamiento corren en la
+  // NUBE. El servidor local NUNCA debe conectarse para no duplicar la conexión (y el
+  // gasto del sign server). Solo ejecuta lo local vía las órdenes que llegan de la nube.
+  const RELAY = process.env.HOKEY_RELAY === '1';
   function autoConnectOn() {
+    if (RELAY) return false;
     return settings.autoConnect !== false && !!settings.tiktokUser;
   }
   function startAutoConnectLoop() {
@@ -1335,6 +1359,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function connectTo(username, opts = {}) {
+    if (RELAY) return; // en modo relay la conexión a TikTok la hace la nube, no esta PC
     if (!username) return;
     if (state.connecting || (state.connected && state.username === username)) return;
 
@@ -1394,7 +1419,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           pushState();
           broadcastAllRankStates();
           if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
-    if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
+          if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
           broadcast('log', { level: 'ok', text: `Conectado a la sala ${newRoomId ?? ''}` });
         }
       })
@@ -1476,7 +1501,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return false;
   }
 
+  // Rachas (rosas, etc.): TikTok envía repeatCount 1,2,3… durante la racha.
+  // Minecraft/Roblox deben disparar por cada rosa nueva (delta), no solo al final
+  // ni bloqueados por "Racha = 1" de alertas.
   const giftStreakGameProgress = new Map();
+  // Mario (likes por usuario): acumula tandas pequeñas hasta llegar al mínimo configurado.
+  const marioLikeAcc = new Map();
   function giftStreakGameKey(uniqueId, giftId) {
     return `${uniqueId || ''}:${String(giftId || '')}`;
   }
@@ -1487,8 +1517,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     if (!streakGift) {
       giftStreakGameProgress.delete(key);
-      actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: rep }, user);
-      actions.triggerActions('gift', { ...giftInfo, repeatCount: rep });
+      triggerMinecraftActions('gift', { ...giftInfo, repeatCount: rep }, user);
+      triggerActions('gift', { ...giftInfo, repeatCount: rep }, user);
       return;
     }
 
@@ -1497,13 +1527,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (delta > 0) giftStreakGameProgress.set(key, rep);
 
     if (delta > 0) {
-      actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: delta, comboStreak: 'delta' }, user);
-      actions.triggerActions('gift', { ...giftInfo, repeatCount: delta, comboStreak: 'delta' });
+      triggerMinecraftActions('gift', { ...giftInfo, repeatCount: delta, comboStreak: 'delta' }, user);
+      triggerActions('gift', { ...giftInfo, repeatCount: delta, comboStreak: 'delta' }, user);
     }
     if (repeatEnd) {
       giftStreakGameProgress.delete(key);
-      actions.triggerMinecraftActions('gift', { ...giftInfo, repeatCount: rep, comboStreak: 'end' }, user);
-      actions.triggerActions('gift', { ...giftInfo, repeatCount: rep, comboStreak: 'end' });
+      triggerMinecraftActions('gift', { ...giftInfo, repeatCount: rep, comboStreak: 'end' }, user);
+      triggerActions('gift', { ...giftInfo, repeatCount: rep, comboStreak: 'end' }, user);
     }
   }
 
@@ -1570,9 +1600,1233 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
   }
 
+  // Acciones (solo se usan en la app .exe): cuando un evento coincide, avisamos al
+  // cliente de escritorio (vía 'keyAction') para que simule la pulsación de teclas.
+  // En la web nadie las atiende, así que no hacen nada.
+  // Una acción "dispara algo" si tiene teclas, sonido o alguna salida activada.
+  function actionDoesSomething(a) {
+    return !!(a && (a.keys || a.sound
+      || (a.marioSpawn && a.marioSpawn.npcId != null)
+      || (a.webhookCmd && a.webhookCmd.on && a.webhookCmd.url)
+      || (a.obsCmd && a.obsCmd.on)
+      || (a.sbCmd && a.sbCmd.on && a.sbCmd.action)));
+  }
+
+  function triggerActions(eventType, info = {}, user = null) {
+    forEachTriggerProfile((cfg) => {
+      const list = cfg.actions || [];
+      for (const a of list) {
+        if (!a || a.enabled === false || !actionDoesSomething(a)) continue;
+        const ev = a.event || 'gift-any';
+        if (eventType === 'gift') {
+          if (ev === 'gift') {
+            const wantName = (a.giftName || '').trim().toLowerCase();
+            const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+            if (!idMatch && !nameMatch) continue;
+            if ((a.minDiamonds || 0) > (info.diamonds || 0)) continue;
+            if (info.comboStreak === 'delta' && !a.comboInstant) continue;
+            if (info.comboStreak === 'end' && a.comboInstant) continue;
+            fireAction(a, Math.max(1, Number(info.repeatCount) || 1), cfg, { info, user });
+            continue;
+          } else if (ev === 'gift-any') {
+            const total = info.totalDiamonds || 0;
+            if ((a.rangeMin || 0) > total) continue;
+            if ((a.rangeMax || 0) > 0 && total > a.rangeMax) continue;
+            if (info.comboStreak === 'delta' && !a.comboInstant) continue;
+            if (info.comboStreak === 'end' && a.comboInstant) continue;
+          } else {
+            continue;
+          }
+        } else if (eventType === 'like') {
+          if (ev !== 'like') continue;
+          if ((a.likeMin || 1) > (info.likeCount || 0)) continue;
+        } else if (eventType === 'emote') {
+          if (ev !== 'emote') continue;
+          const wantId = (a.emoteId || '').trim();
+          if (wantId && wantId !== String(info.emoteId || '')) continue;
+        } else if (eventType === 'chatCommand') {
+          if (ev !== 'chatCommand') continue;
+          if (!matchesCommand(a.command, info.comment)) continue;
+          const want = String(a.user || '').replace(/^@/, '').trim().toLowerCase();
+          if (want) {
+            const u = String(info.username || '').toLowerCase();
+            const n = String(info.nickname || '').toLowerCase();
+            if (want !== u && want !== n) continue;
+          }
+        } else if (eventType === 'levelUp') {
+          if (ev !== 'levelUp') continue;
+          const wantLevel = Math.max(0, Number(a.level) || 0);
+          if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
+        } else if (ev !== eventType) {
+          continue;
+        }
+        fireAction(a, 1, cfg, { info, user });
+      }
+    });
+  }
+
+  // Likes globales: dispara la acción cada vez que el total de likes cruza un múltiplo
+  // del objetivo configurado (igual que las alertas sonoras de "Likes globales").
+  function triggerActionsLikeGlobal(total) {
+    if (!total) return;
+    forEachTriggerProfile((cfg) => {
+      for (const a of (cfg.actions || [])) {
+        if (!a || a.enabled === false || !actionDoesSomething(a) || (a.event || '') !== 'likeGlobal') continue;
+        const goal = Math.max(1, a.likeGoal || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          fireAction(a, 1, cfg, { info: { likeCount: total, totallikecount: total } });
+        }
+      }
+    });
+  }
+
+  // Lista de acciones para el webhook HTTP (/get_actions).
+  function listActions() {
+    return (settings.actions || []).map((a) => ({ id: a.id, name: a.name || '', enabled: a.enabled !== false }));
+  }
+
+  // Ejecuta una acción desde el webhook HTTP (/execute_action). Busca por id o por
+  // nombre, sustituye variables ({username}, {giftname}, …) en el texto/teclas y la dispara.
+  function executeWebhookAction({ id, name, data } = {}) {
+    const list = settings.actions || [];
+    let a = null;
+    if (id != null && String(id) !== '') a = list.find((x) => String(x.id) === String(id));
+    if (!a && name) {
+      const n = String(name).trim().toLowerCase();
+      a = list.find((x) => (x.name || '').trim().toLowerCase() === n);
+    }
+    if (!a) return { ok: false, error: 'not_found' };
+    if (a.enabled === false) return { ok: false, error: 'disabled' };
+    const d = data || {};
+    const times = Math.max(1, Number(d.repeatcount ?? d.repeatCount) || 1);
+    const vars = {
+      username: d.username ?? d.uniqueId ?? '',
+      nickname: d.nickname ?? '',
+      giftname: d.giftname ?? d.giftName ?? '',
+      giftid: d.giftid ?? d.giftId ?? '',
+      coins: d.coins ?? d.diamondCount ?? '',
+      repeatcount: times,
+      comment: d.comment ?? d.message ?? '',
+      likecount: d.likecount ?? '',
+      totaluserlikes: d.totaluserlikes ?? '',
+      totallikecount: d.totallikecount ?? '',
+      imgprofile: d.imgprofile ?? d.avatar ?? '',
+    };
+    const sub = (s) => String(s == null ? '' : s).replace(/\{(\w+)\}/g, (m, k) => {
+      const v = vars[k.toLowerCase()];
+      return v != null && v !== '' ? String(v) : m;
+    });
+    const fired = { ...a, keys: sub(a.keys), name: sub(a.name || '') };
+    broadcast('log', { level: 'ok', text: `🪝 Webhook → acción "${a.name || a.keys}"` });
+    fireAction(fired, times, settings, {
+      info: {
+        ...d,
+        giftName: d.giftname ?? d.giftName ?? '',
+        giftId: d.giftid ?? d.giftId ?? '',
+        repeatCount: times,
+        nickname: d.nickname ?? '',
+        username: d.username ?? d.uniqueId ?? '',
+      },
+      user: { nickname: d.nickname ?? '', uniqueId: d.username ?? d.uniqueId ?? '' },
+    });
+    return { ok: true, action: { id: a.id, name: a.name || '' } };
+  }
+
+  function resolveKeyTimes(a, eventTimes = 1) {
+    if (a && a.keyRepeatOn && a.keys) {
+      return Math.max(1, Math.min(50, parseInt(a.keyRepeat, 10) || 1));
+    }
+    return Math.max(1, Number(eventTimes) || 1);
+  }
+
+  function fireAction(a, times = 1, cfg, context = null) {
+    const s = cfg || settings;
+    const t = resolveKeyTimes(a, times);
+    if (a.keys) {
+      broadcast('log', { level: 'ok', text: `⚡ Acción: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}` });
+      broadcast('keyAction', {
+        id: a.id, name: a.name || '', keys: a.keys, gameCompat: !!a.gameCompat,
+        times: t, sound: a.sound || '', soundName: a.soundName || '',
+        soundVolume: a.soundVolume != null ? a.soundVolume : 1,
+      });
+    } else if (a.sound) {
+      broadcast('keyAction', { id: a.id, name: a.name || '', keys: '', times: 1, sound: a.sound, soundName: a.soundName || '', soundVolume: a.soundVolume != null ? a.soundVolume : 1 });
+    }
+    const ctx = context ? { info: context.info || {}, user: context.user || null, times: t } : null;
+    const marioFromField = fireMarioSpawnFromAction(a, context, t);
+    if (!marioFromField) {
+      runActionOutputs(
+        { webhookCmd: a.webhookCmd, obsCmd: a.obsCmd, sbCmd: a.sbCmd },
+        s,
+        ctx,
+      );
+    } else if (a.obsCmd?.on || (a.sbCmd?.on && a.sbCmd?.action)) {
+      runActionOutputs({ obsCmd: a.obsCmd, sbCmd: a.sbCmd }, s, ctx);
+    }
+  }
+
+  // Ejecuta las salidas de integración de una acción (si están activadas) usando los
+  // datos de conexión de settings.webhook. No bloquea: cada salida corre por su cuenta.
+  function runActionOutputs({ webhookCmd, obsCmd, sbCmd } = {}, cfg, context = null) {
+    const wh = (cfg || settings).webhook || {};
+    if (webhookCmd && webhookCmd.on && webhookCmd.url) {
+      const times = context?.times || 1;
+      const mario = resolveMarioSpawnFromWebhook(webhookCmd, context, times);
+      if (mario) {
+        marioSpawn(mario.npcId, mario.name, mario.times)
+          .then(() => {
+            broadcast('log', {
+              level: 'ok',
+              text: `🍄 Mario (panel): npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
+            });
+          })
+          .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
+      } else {
+        let whCmd = (context && urlHasActionPlaceholders(webhookCmd.url))
+          ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, times)
+          : { ...webhookCmd };
+        if (/\/spawn\b/i.test(whCmd.url)) {
+          whCmd = { ...whCmd, url: applySpawnQuantityToUrl(whCmd.url, times) };
+        }
+        const method = (whCmd.method || 'GET').toUpperCase();
+        const opts = { method };
+        if (method === 'POST' && whCmd.body) {
+          opts.body = whCmd.body;
+          opts.headers = { 'Content-Type': 'application/json' };
+        }
+        fetch(whCmd.url, opts)
+          .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
+          .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
+      }
+    }
+    if (obsCmd && obsCmd.on) {
+      sendObsCommand(wh.obs || {}, obsCmd)
+        .then((r) => broadcast('log', { level: r.ok ? 'ok' : 'err', text: r.ok ? `🎬 OBS: ${obsCmd.type} OK` : `🎬 OBS falló: ${r.error}` }))
+        .catch((e) => broadcast('log', { level: 'err', text: `🎬 OBS falló: ${e.message}` }));
+    }
+    if (sbCmd && sbCmd.on && sbCmd.action) {
+      triggerStreamerbot(wh.streamerbot || {}, sbCmd.action)
+        .then((r) => broadcast('log', { level: r.ok ? 'ok' : 'err', text: r.ok ? `🤖 Streamer.bot: "${sbCmd.action}" OK` : `🤖 Streamer.bot falló: ${r.error}` }))
+        .catch((e) => broadcast('log', { level: 'err', text: `🤖 Streamer.bot falló: ${e.message}` }));
+    }
+  }
+
+  /* ------------------- Acciones de Minecraft (RCON) ------------------- */
+  // Construye el mapa de variables disponibles para los comandos de Minecraft.
+  function buildMcVars(info = {}, user = null) {
+    const u = user || {};
+    const clean = (v) => String(v == null ? '' : v).replace(/["\\]/g, '').slice(0, 48);
+    return {
+      // Posición del streamer en el mundo (usar en «execute at …»).
+      streamer: '@p',
+      at: '@p',
+      playername: clean(u.nickname || u.uniqueId || info.nickname || info.giftName || 'Espectador') || 'Espectador',
+      nickname: clean(u.nickname || info.nickname || ''),
+      username: clean(u.uniqueId || info.username || ''),
+      giftname: clean(info.giftName || ''),
+      giftid: String(info.giftId || ''),
+      coins: String(info.totalDiamonds || info.diamonds || info.coins || ''),
+      comment: clean(info.comment || ''),
+      repeatcount: Math.max(1, Number(info.repeatCount) || 1),
+      likecount: String(info.likeCount || ''),
+      imgprofile: u.photo || '',
+    };
+  }
+
+  function buildActionWebhookVars(info = {}, user = null, times = 1) {
+    const u = user || {};
+    const nick = String(u.nickname || info.nickname || '');
+    const uname = String(u.uniqueId || info.username || info.uniqueId || '');
+    const rep = Math.max(1, Number(times) || Number(info.repeatCount) || 1);
+    return {
+      username: uname,
+      uniqueid: uname,
+      nickname: nick,
+      giftname: String(info.giftName || ''),
+      giftid: String(info.giftId || ''),
+      coins: String(info.totalDiamonds ?? info.diamonds ?? info.coins ?? ''),
+      diamondcount: String(info.diamonds ?? info.totalDiamonds ?? ''),
+      repeatcount: String(rep),
+      quantity: String(rep),
+      comment: String(info.comment || ''),
+      likecount: String(info.likeCount ?? ''),
+      imgprofile: String(u.photo || info.photo || ''),
+    };
+  }
+
+  function substituteActionTemplate(tpl, vars, encodeUri = false) {
+    const rep = (m, k) => {
+      const v = vars[k.toLowerCase()];
+      if (v == null || v === '') return m;
+      const s = String(v);
+      return encodeUri ? encodeURIComponent(s) : s;
+    };
+    return String(tpl == null ? '' : tpl)
+      .replace(/\{(\w+)\}/gi, rep)
+      .replace(/%([a-z_]+)%/gi, rep);
+  }
+
+  function webhookCmdWithVars(cmd, info = {}, user = null, times = 1) {
+    if (!cmd || !cmd.on || !cmd.url) return cmd;
+    const vars = buildActionWebhookVars(info, user, times);
+    return {
+      ...cmd,
+      url: substituteActionTemplate(cmd.url, vars, true),
+      body: cmd.body ? substituteActionTemplate(cmd.body, vars, false) : cmd.body,
+    };
+  }
+
+  function applySpawnQuantityToUrl(url, quantity) {
+    const q = Math.max(1, Math.min(999, Number(quantity) || 1));
+    const s = String(url || '');
+    if (!/\/spawn\b/i.test(s)) return s;
+    if (/[?&]quantity=\d+/i.test(s)) return s.replace(/([?&]quantity=)\d+/i, `$1${q}`);
+    if (/[?&]count=\d+/i.test(s)) return s.replace(/([?&]count=)\d+/i, `$1${q}`);
+    return `${s}${s.includes('?') ? '&' : '?'}quantity=${q}`;
+  }
+
+  /** URLs tipo TikFinity / SMBX2 Webhook: GET …/spawn?id=14&quantity=1&userName=… */
+  function parseExternalSpawnUrl(url) {
+    if (!url || !/\/spawn\b/i.test(String(url))) return null;
+    try {
+      const u = new URL(String(url).replace(/\{[^}]+\}/g, ''));
+      const rawId = u.searchParams.get('id') ?? u.searchParams.get('npcId');
+      if (rawId == null || rawId === '') return null;
+      const n = Number(rawId);
+      const npcId = Number.isFinite(n) ? n : rawId;
+      const quantity = Math.max(1, parseInt(u.searchParams.get('quantity') ?? u.searchParams.get('count') ?? '1', 10) || 1);
+      const rawName = u.searchParams.get('userName') ?? u.searchParams.get('nickname') ?? u.searchParams.get('name') ?? '';
+      const name = rawName ? decodeURIComponent(String(rawName).replace(/\+/g, ' ')) : '';
+      return { npcId, quantity, name };
+    } catch {
+      const idM = String(url).match(/[?&](?:id|npcId)=(\d+)/i);
+      if (!idM) return null;
+      return { npcId: Number(idM[1]), quantity: 1, name: '' };
+    }
+  }
+
+  function urlHasActionPlaceholders(url) {
+    return /\{[^}]+\}/.test(String(url || '')) || /%[a-z_]+%/i.test(String(url || ''));
+  }
+
+  function isExternalSmbxTiktokWebhook(url) {
+    return /(?:localhost|127\.0\.0\.1):5720\b/i.test(String(url || ''));
+  }
+
+  function resolveMarioSpawnFromWebhook(webhookCmd, context, times = 1) {
+    if (!webhookCmd?.on || !webhookCmd.url) return null;
+    if (isExternalSmbxTiktokWebhook(webhookCmd.url)) return null;
+    if (!/\/spawn\b/i.test(webhookCmd.url)) return null;
+    const t = Math.max(1, Number(times) || 1);
+    const resolved = (context && urlHasActionPlaceholders(webhookCmd.url))
+      ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, t)
+      : webhookCmd;
+    const parsed = parseExternalSpawnUrl(resolved.url);
+    if (!parsed) return null;
+    const vars = context ? buildActionWebhookVars(context.info || {}, context.user || null, t) : {};
+    const nick = parsed.name || vars.nickname || vars.username || '';
+    return { npcId: parsed.npcId, name: nick, times: parsed.quantity * t };
+  }
+
+  function fireMarioSpawnFromAction(a, context, times = 1) {
+    const ms = a?.marioSpawn;
+    if (ms == null || ms.npcId == null) return false;
+    const t = Math.max(1, Number(times) || 1);
+    const vars = context ? buildActionWebhookVars(context.info || {}, context.user || null, t) : { nickname: '', username: '' };
+    const nick = vars.nickname || vars.username || '';
+    const total = Math.max(1, (parseInt(ms.quantity, 10) || 1) * t);
+    marioSpawn(ms.npcId, nick, total)
+      .then(() => {
+        broadcast('log', {
+          level: 'ok',
+          text: `🍄 Mario (panel): npc ${ms.npcId} · ${nick || 'espectador'}${total > 1 ? ` ×${total}` : ''}`,
+        });
+      })
+      .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
+    return true;
+  }
+
+  // Recorre settings.mcActions y ejecuta por RCON las que coincidan con el evento.
+  function triggerMinecraftActions(eventType, info = {}, user = null) {
+    forEachTriggerProfile((cfg) => triggerMinecraftActionsCfg(eventType, info, user, cfg));
+  }
+  function triggerMinecraftActionsCfg(eventType, info = {}, user = null, cfg) {
+    triggerRobloxActions(eventType, info, user, cfg);
+    triggerRoblox3Actions(eventType, info, user, cfg);
+    if (eventType !== 'like') triggerMarioActions(eventType, info, user, cfg);
+    triggerMari0Actions(eventType, info, user, cfg);
+    triggerSmb3Actions(eventType, info, user, cfg);
+    triggerPvzActions(eventType, info, user, cfg);
+    triggerPvzHybridActions(eventType, info, user, cfg);
+    triggerMslugActions(eventType, info, user, cfg);
+    const vars = buildMcVars(info, user);
+    if (Array.isArray(cfg.mcActions) && cfg.mcActions.length) processMcList(cfg.mcActions, eventType, info, vars);
+    if (Array.isArray(cfg.bedrockActions) && cfg.bedrockActions.length) processMcList(cfg.bedrockActions, eventType, info, vars);
+    if (Array.isArray(cfg.sandboxActions) && cfg.sandboxActions.length) processMcList(cfg.sandboxActions, eventType, info, vars);
+  }
+
+  // Recorre una lista de acciones (Minecraft o Bedrock) y ejecuta las que coincidan.
+  function playMcActionSound(a, times = 1) {
+    if (!a || !a.audioOn || !a.sound) return;
+    const n = Math.max(1, Math.min(Number(times) || 1, 50));
+    for (let i = 0; i < n; i++) {
+      broadcast('sound', {
+        id: a.uid || a.catId || '',
+        name: a.name || a.soundName || 'Minecraft',
+        sound: a.sound,
+        image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
+        volume: a.soundVolume != null ? a.soundVolume : 100,
+      });
+    }
+  }
+
+  function processMcList(list, eventType, info, vars) {
+    for (const a of list) {
+      if (!a || a.enabled === false) continue;
+      if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
+      const trig = a.trigger || 'gift';
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+        } else if (trig !== 'gift-any') {
+          continue;
+        }
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else {
+          continue;
+        }
+      } else if (trig !== eventType) {
+        continue;
+      }
+      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      const soundTimes = eventType === 'gift' ? Math.max(1, Number(info.repeatCount) || 1) : 1;
+      scheduleMcAction(() => runMcAction(a, vars, { soundTimes }));
+    }
+  }
+
+  // ---- Acciones de Roblox: simulan teclas (vía 'keyAction') al cliente .exe ----
+  function fireRobloxKeys(a, times) {
+    if (!a || !a.keys) return;
+    const t = Math.max(1, Number(times) || 1);
+    broadcast('log', { level: 'ok', text: `🟥 Roblox: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}` });
+    broadcast('keyAction', {
+      id: 'rbx_' + (a.slot != null ? a.slot : ''), name: a.name || 'Roblox',
+      keys: a.keys, gameCompat: true, times: t, sound: '', soundName: '', soundVolume: 1,
+    });
+  }
+  function triggerRobloxActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.robloxActions || [];
+    if (!list.length) return;
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.keys) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig !== 'gift-any') {
+          continue;
+        }
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else {
+          continue;
+        }
+      } else if (trig !== eventType) {
+        continue;
+      }
+      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      fireRobloxKeys(a, times);
+    }
+  }
+
+  // ---- Acciones de Roblox 3: misma lógica que Roblox pero con su propia lista ----
+  function fireRoblox3Keys(a, times) {
+    if (!a || !a.keys) return;
+    const t = Math.max(1, Number(times) || 1);
+    broadcast('log', { level: 'ok', text: `🟥 Roblox 3: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}` });
+    broadcast('keyAction', {
+      id: 'rbx3_' + (a.slot != null ? a.slot : ''), name: a.name || 'Roblox 3',
+      keys: a.keys, gameCompat: true, times: t, sound: '', soundName: '', soundVolume: 1,
+    });
+  }
+  function triggerRoblox3Actions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.roblox3Actions || [];
+    if (!list.length) return;
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.keys) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig !== 'gift-any') {
+          continue;
+        }
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else {
+          continue;
+        }
+      } else if (trig !== eventType) {
+        continue;
+      }
+      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      fireRoblox3Keys(a, times);
+    }
+  }
+
+  // ---- Acciones de Mario Bros (SMBX2) vía bridge :7755 ----
+  function spawnMarioThing(npcIdOrThing, name, times) {
+    if (npcIdOrThing == null || npcIdOrThing === '') return;
+    marioSpawn(npcIdOrThing, name, times).catch((e) => {
+      broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e && e.message || e}` });
+    });
+  }
+
+  function applyMarioEffect(type, seconds, factor) {
+    if (!type) return;
+    marioEffect(type, seconds, factor).catch(() => {});
+  }
+
+  function marioLikeTriggerTimes(a, info, user) {
+    const uid = String(user?.uniqueId || info?.username || '').trim();
+    const batch = Math.max(0, Number(info.likeCount) || 0);
+    if (!uid || batch <= 0) return 0;
+    const goal = Math.max(1, Number(a.likeN) || 1);
+    const actKey = String(a.uid || a.label || 'mario');
+    const key = `${uid}:${actKey}`;
+    const carry = (marioLikeAcc.get(key) || 0) + batch;
+    const fires = Math.floor(carry / goal);
+    marioLikeAcc.set(key, carry - fires * goal);
+    if (marioLikeAcc.size > 8000) marioLikeAcc.clear();
+    return fires;
+  }
+
+  function triggerMarioActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.marioActions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false) continue;
+      const hasSpawn = a.thing || a.npcId != null || (a.webhookCmd?.on && a.webhookCmd?.url);
+      if (!hasSpawn) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else {
+          continue;
+        }
+        const comboOn = a.comboInstant !== false;
+        if (info.comboStreak === 'delta' && !comboOn) continue;
+        if (info.comboStreak === 'end' && comboOn) continue;
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        const likeFires = marioLikeTriggerTimes(a, info, user);
+        if (likeFires <= 0) continue;
+        for (let lf = 0; lf < likeFires; lf++) {
+          const qty = Math.min(999, Math.max(1, parseInt(a.count, 10) || 1));
+          if ((a.kind || 'spawn') === 'effect') {
+            broadcast('log', { level: 'ok', text: `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)` });
+            applyMarioEffect(a.thing, a.seconds, a.factor);
+          } else if (a.webhookCmd?.on && a.webhookCmd?.url) {
+            const ctx = {
+              info: { ...info, repeatCount: qty },
+              user: user || { nickname: name, uniqueId: info.username || '' },
+              times: qty,
+            };
+            runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, ctx);
+            broadcast('log', {
+              level: 'ok',
+              text: `🍄 Mario WebHook: ${a.label || a.thing || 'spawn'}${qty > 1 ? ` ×${qty}` : ''}`,
+            });
+          } else {
+            broadcast('log', { level: 'ok', text: `🍄 Mario: generar "${a.thing}"${qty > 1 ? ` ×${qty}` : ''}` });
+            spawnMarioThing(a.thing ?? a.npcId, name, qty);
+          }
+        }
+        continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else {
+          continue;
+        }
+      } else if (trig !== eventType) {
+        continue;
+      }
+      times = Math.min(999, times);
+      if ((a.kind || 'spawn') === 'effect') {
+        broadcast('log', { level: 'ok', text: `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)` });
+        applyMarioEffect(a.thing, a.seconds, a.factor);
+      } else if (a.webhookCmd?.on && a.webhookCmd?.url) {
+        const ctx = {
+          info: { ...info, repeatCount: times },
+          user: user || { nickname: name, uniqueId: info.username || '' },
+          times,
+        };
+        runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, ctx);
+        broadcast('log', {
+          level: 'ok',
+          text: `🍄 Mario WebHook: ${a.label || a.thing || 'spawn'}${times > 1 ? ` ×${times}` : ''}`,
+        });
+      } else {
+        broadcast('log', { level: 'ok', text: `🍄 Mario: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}` });
+        spawnMarioThing(a.thing ?? a.npcId, name, times);
+      }
+    }
+  }
+
+  // ---- Acciones de Super Mario Bros. 3 (FCEUX + smb3-bridge.exe :7755) ----
+  function spawnSmb3Thing(thing, spawnId, npcId, name, times) {
+    smb3Spawn({ thing, spawnId, npcId, name, times }).catch((e) => {
+      broadcast('log', { level: 'err', text: `🎮 SMB3 spawn falló: ${e && e.message || e}` });
+    });
+  }
+
+  function applySmb3Effect(effect, name, seconds) {
+    if (!effect) return;
+    smb3Effect(effect, name, seconds).catch(() => {});
+  }
+
+  function triggerSmb3Actions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.smb3Actions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false) continue;
+      if ((a.kind || 'spawn') !== 'effect' && !a.thing && a.spawnId == null && a.npcId == null) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else {
+          continue;
+        }
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else {
+          continue;
+        }
+      } else if (trig !== eventType) {
+        continue;
+      }
+      times = Math.min(200, times);
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      if ((a.kind || 'spawn') === 'effect') {
+        broadcast('log', { level: 'ok', text: `🎮 SMB3: efecto "${a.thing}" (${a.seconds || 5}s)` });
+        applySmb3Effect(a.thing, name, a.seconds);
+      } else {
+        broadcast('log', { level: 'ok', text: `🎮 SMB3: generar "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''}` });
+        spawnSmb3Thing(a.thing, a.spawnId, a.npcId, name, times);
+      }
+    }
+  }
+
+  // ---- Acciones de Mari0 (Crowd Control) vía bridge :7755 MARI0_ONLY ----
+  function spawnMari0Thing(thing, name, times) {
+    const t = Math.min(200, Math.max(1, Number(times) || 1));
+    if (!thing) return;
+    mari0Spawn(thing, name, t).catch((e) => {
+      broadcast('log', { level: 'err', text: `🌀 Mari0 spawn falló: ${e && e.message || e}` });
+    });
+  }
+
+  function applyMari0Effect(type, seconds, factor) {
+    if (!type) return;
+    mari0Effect(type, seconds, factor).catch(() => {});
+  }
+
+  function triggerMari0Actions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.mari0Actions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else {
+          continue;
+        }
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else {
+          continue;
+        }
+      } else if (trig !== eventType) {
+        continue;
+      }
+      times = Math.min(200, times);
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      if ((a.kind || 'spawn') === 'effect') {
+        broadcast('log', { level: 'ok', text: `🌀 Mari0: efecto "${a.thing}" (${a.seconds || 5}s)` });
+        applyMari0Effect(a.thing, a.seconds, a.factor);
+      } else {
+        broadcast('log', { level: 'ok', text: `🌀 Mari0: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}` });
+        spawnMari0Thing(a.thing, name, times);
+      }
+    }
+  }
+
+  // ---- Acciones de Plants vs Zombies (juego Godot embebido, puerto 7755) ----
+  function spawnPvzThing(thing, name, times) {
+    if (!thing) return;
+    const t = Math.min(20, Math.max(1, Number(times) || 1));
+    const url = 'http://127.0.0.1:7755/spawn?thing=' + encodeURIComponent(thing) +
+      '&name=' + encodeURIComponent(String(name || ''));
+    let i = 0;
+    const fireOne = async () => {
+      try {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 2000);
+        await fetch(url, { signal: ctrl.signal });
+        clearTimeout(to);
+      } catch { /* juego no abierto */ }
+    };
+    const loop = () => {
+      if (i >= t) return;
+      i += 1;
+      fireOne();
+      if (i < t) setTimeout(loop, 150);
+    };
+    loop();
+  }
+
+  function givePvzSun(amount) {
+    const n = Math.min(9990, Math.max(1, Number(amount) || 50));
+    (async () => {
+      try {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 2000);
+        await fetch('http://127.0.0.1:7755/sun?amount=' + n, { signal: ctrl.signal });
+        clearTimeout(to);
+      } catch { /* juego no abierto */ }
+    })();
+  }
+
+  function pvzCommand(p) {
+    const cmdPath = String(p || '');
+    if (!cmdPath.startsWith('/')) return;
+    (async () => {
+      try {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 2000);
+        await fetch('http://127.0.0.1:7755' + cmdPath, { signal: ctrl.signal });
+        clearTimeout(to);
+      } catch { /* juego no abierto */ }
+    })();
+  }
+
+  // ---- PvZ Hybrid vía PvZ Tools (bridge HTTP :7757 / WS :3132) ----
+  function spawnPvzHybridThing(thing, name, times, label) {
+    if (!thing) return;
+    pvzHybridSpawn(thing, name, times, label).catch(() => { /* bridge/tools no listo */ });
+  }
+
+  function givePvzHybridSun(amount, name, label) {
+    pvzHybridSun(amount, name, label).catch(() => { /* bridge/tools no listo */ });
+  }
+
+  function pvzHybridCommand(p, name, label) {
+    const cmdPath = String(p || '');
+    if (!cmdPath.startsWith('/')) return;
+    pvzHybridCmd(cmdPath, name, label).catch(() => { /* bridge/tools no listo */ });
+  }
+
+  function triggerPvzHybridActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.pvzHybridActions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else continue;
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else continue;
+      } else if (trig !== eventType) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      if ((a.kind || 'spawn') === 'sun') {
+        broadcast('log', { level: 'ok', text: `🧬 PvZ Hybrid: dar ${a.amount || 50} soles` });
+        givePvzHybridSun(a.amount, name, a.label || `+${a.amount || 50} soles`);
+      } else if ((a.kind || 'spawn') === 'cmd') {
+        broadcast('log', { level: 'ok', text: `🧬 PvZ Hybrid: ${a.label || a.thing}` });
+        pvzHybridCommand(a.path, name, a.label || a.thing);
+      } else {
+        times = Math.min(999, times);
+        broadcast('log', { level: 'ok', text: `🧬 PvZ Hybrid: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}` });
+        spawnPvzHybridThing(a.thing, name, times, a.label || a.thing);
+      }
+    }
+  }
+
+  function spawnMslugThing(thing, name, times) {
+    if (!thing) return;
+    mslugSpawn(thing, name, times).then((r) => {
+      if (r && r.ok === false) {
+        broadcast('log', { level: 'warn', text: `🎖️ Metal Slug spawn falló: ${r.error || 'bridge/juego no listo'}` });
+      }
+    }).catch((e) => {
+      broadcast('log', { level: 'warn', text: `🎖️ Metal Slug spawn error: ${e && e.message || e}` });
+    });
+  }
+
+  function triggerMslugActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.mslugActions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else continue;
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else continue;
+      } else if (trig !== eventType) continue;
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      times = Math.min(50, times);
+      broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''} (${name || 'viewer'})` });
+      spawnMslugThing(a.thing, name, times);
+    }
+  }
+
+  function triggerPvzActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.pvzActions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else {
+          continue;
+        }
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else {
+          continue;
+        }
+      } else if (trig !== eventType) {
+        continue;
+      }
+      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      if ((a.kind || 'spawn') === 'sun') {
+        broadcast('log', { level: 'ok', text: `🧟 PvZ: dar ${a.amount || 50} soles` });
+        givePvzSun(a.amount);
+      } else if ((a.kind || 'spawn') === 'cmd') {
+        broadcast('log', { level: 'ok', text: `🧟 PvZ: ${a.label || a.thing}` });
+        pvzCommand(a.path);
+      } else {
+        broadcast('log', { level: 'ok', text: `🧟 PvZ: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}` });
+        spawnPvzThing(a.thing, name, times);
+      }
+    }
+  }
+
+  // Sustituye variables {var}, {radius} y {random:min max} en un comando.
+  function substituteMcCmd(tpl, vars, radius) {
+    const map = {
+      ...vars,
+      streamer: '@p',
+      at: '@p',
+      radius: (radius != null && radius !== '') ? radius : 3,
+    };
+    // «execute at {playername}» usa el nombre de TikTok, no un jugador de MC → corregir a @p.
+    let out = String(tpl == null ? '' : tpl)
+      .replace(/\bexecute\s+at\s+\{(?:playername|nickname|username)\}/gi, 'execute at @p');
+    // Varias pasadas por si {radius} queda dentro de {random:…}.
+    for (let pass = 0; pass < 6; pass++) {
+      const prev = out;
+      out = out.replace(/\{(\w+)\}/g, (m, k) => {
+        const key = k.toLowerCase();
+        return Object.prototype.hasOwnProperty.call(map, key) ? String(map[key]) : m;
+      });
+      out = out.replace(/\{random:\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\}/gi, (m, a1, b1) => {
+        const lo = Math.min(parseFloat(a1), parseFloat(b1));
+        const hi = Math.max(parseFloat(a1), parseFloat(b1));
+        const isInt = Number.isInteger(parseFloat(a1)) && Number.isInteger(parseFloat(b1));
+        const val = lo + Math.random() * (hi - lo);
+        return String(isInt ? Math.round(val) : Number(val.toFixed(2)));
+      });
+      if (out === prev) break;
+    }
+    return out;
+  }
+
+  // Ejecuta una acción de Minecraft (catálogo o personalizada) por RCON, con repeticiones,
+  // delays, comando aleatorio y sustitución de variables.
+  function mcCmdText(entry) {
+    if (entry == null) return '';
+    if (typeof entry === 'string') return entry.trim();
+    return String(entry.cmd || entry.text || '').trim();
+  }
+
+  function mcActionUsesExtra(a) {
+    if (!a) return false;
+    if (a.cmdsExtra) return true;
+    if (!Array.isArray(a.cmds) || !a.cmds.length) return false;
+    if (a.custom && a.cmds.length > 1) return true;
+    return a.cmds.some((x) => x && typeof x === 'object' && (x.cmd != null || x.text != null || x.repeat != null || x.delayEach != null || x.delayBefore != null));
+  }
+
+  function parseMcCmdEntry(entry, defaults) {
+    const d = defaults || {};
+    const cmd = mcCmdText(entry);
+    if (!cmd) return null;
+    if (typeof entry === 'string') {
+      return {
+        cmd,
+        repeat: Math.max(1, parseInt(d.repeat, 10) || 1),
+        delayEach: Math.max(0, parseInt(d.delayEach, 10) || 0),
+        delayBefore: Math.max(0, parseInt(d.delayBefore ?? d.delayGroup, 10) || 0),
+        radius: d.radius != null ? d.radius : 3,
+      };
+    }
+    return {
+      cmd,
+      repeat: Math.max(1, parseInt(entry.repeat, 10) || 1),
+      delayEach: Math.max(0, parseInt(entry.delayEach, 10) || 0),
+      delayBefore: Math.max(0, parseInt(entry.delayBefore ?? entry.delayGroup, 10) || 0),
+      radius: entry.radius != null ? Number(entry.radius) : (d.radius != null ? d.radius : 3),
+    };
+  }
+
+  function mcActionRunTimes(a, vars) {
+    const baseRepeat = Math.max(1, parseInt(a.repeat, 10) || 1);
+    const rep = Math.max(1, Number(vars?.repeatcount) || 1);
+    // Comandos personalizados: «Veces que se repite» es exacto (sin «Cantidad a enviar»).
+    if (a.custom) {
+      const times = a.giftMult === false ? baseRepeat : baseRepeat * rep;
+      return Math.min(times, 600);
+    }
+    const qty = Math.max(1, parseInt(a.count, 10) || 1);
+    const base = baseRepeat * qty;
+    const times = a.giftMult === false ? base : base * rep;
+    return Math.min(times, 200);
+  }
+
+  let mcActionTail = Promise.resolve();
+
+  function scheduleMcAction(fn) {
+    const run = mcActionTail.then(() => fn());
+    mcActionTail = run.catch(() => {});
+    return run;
+  }
+
+  async function runMcActionExtra(a, vars, sendCmds, logMcFail, extra = {}) {
+    const token = extra.token ?? mcRunToken();
+    const defaults = {
+      repeat: a.repeat,
+      delayEach: a.delayEach,
+      delayGroup: a.delayGroup,
+      radius: a.radius,
+    };
+    let entries = (Array.isArray(a.cmds) ? a.cmds : [])
+      .map((e) => parseMcCmdEntry(e, defaults))
+      .filter(Boolean);
+    if (!entries.length) return;
+
+    const times = mcActionRunTimes(a, vars);
+    const delayGroup = extra.skipDelayGroup ? 0 : Math.max(0, parseInt(a.delayGroup, 10) || 0);
+    if (a.random) entries = [entries[Math.floor(Math.random() * entries.length)]];
+
+    const steps = [];
+    for (const e of entries) {
+      steps.push({
+        cmd: substituteMcCmd(e.cmd, vars, e.radius),
+        repeat: Math.max(1, Number(e.repeat) || 1),
+        delayEach: Math.max(0, Number(e.delayEach) || 0),
+        delayBefore: Math.max(0, Number(e.delayBefore) || 0),
+      });
+    }
+
+    try {
+      const r = await executeMcRconPlan(
+        { steps, times, delayGroup, random: false },
+        (cmd) => sendCmds([cmd]),
+        token,
+      );
+      if (r.cancelled) {
+        if (r.sent > 0) broadcast('log', { level: 'info', text: `⛔ Minecraft: ${a.name} cancelado (${r.sent} enviados)` });
+        return;
+      }
+      if (r.ok) broadcast('log', { level: 'ok', text: `🟩 Minecraft: ${a.name} OK (${r.sent})` });
+      else logMcFail(r, r.lastCmd);
+    } catch (e) {
+      broadcast('log', { level: 'err', text: `🟩 Minecraft "${a.name}" falló: ${e.message}` });
+    }
+  }
+
+  async function runMcAction(a, vars, opts = {}) {
+    const token = mcRunToken();
+    const soundTimes = Math.max(1, Number(opts.soundTimes) || 1);
+    const rcon = (settings.webhook && settings.webhook.rcon) || {};
+    const stap = (settings.webhook && settings.webhook.servertap) || {};
+    const useStap = !!stap.enabled;
+    const sendCmds = (cmds) => useStap ? sendServertap(stap, cmds) : sendRcon(rcon, cmds);
+    const logMcFail = (r, cmd) => {
+      const err = r?.error || 'Error desconocido';
+      const preview = cmd ? ` · ${String(cmd).slice(0, 90)}…` : '';
+      broadcast('log', { level: 'err', text: `🟩 Minecraft "${a.name}" falló: ${err}${preview}` });
+    };
+
+    const delayGroup = Math.max(0, parseInt(a.delayGroup, 10) || 0);
+    if (!(await mcWait(delayGroup, token))) return;
+    playMcActionSound(a, soundTimes);
+
+    const useCmdPlan = mcActionUsesExtra(a) || (a.custom && Array.isArray(a.cmds) && a.cmds.length);
+    if (useCmdPlan) {
+      return runMcActionExtra(a, vars, sendCmds, logMcFail, { skipDelayGroup: true, token });
+    }
+
+    const lines = (a.custom && Array.isArray(a.cmds) && a.cmds.length)
+      ? a.cmds
+      : String(a.cmd || '').split(';;');
+    const clean = lines.map((x) => mcCmdText(x)).filter(Boolean);
+    if (!clean.length) return;
+    const times = mcActionRunTimes(a, vars);
+    const delayEach = Math.max(0, parseInt(a.delayEach, 10) || 0);
+    const queue = [];
+    for (let i = 0; i < times; i++) {
+      if (a.random) queue.push(substituteMcCmd(clean[Math.floor(Math.random() * clean.length)], vars, a.radius));
+      else for (const l of clean) queue.push(substituteMcCmd(l, vars, a.radius));
+    }
+    if (queue.length > 600) queue.length = 600;
+
+    try {
+      const r = await executeMcRconQueue(queue, (cmd) => sendCmds([cmd]), { token, delayEach });
+      if (r.cancelled) {
+        if (r.sent > 0) broadcast('log', { level: 'info', text: `⛔ Minecraft: ${a.name} cancelado (${r.sent}/${queue.length})` });
+        return;
+      }
+      if (r.ok) broadcast('log', { level: 'ok', text: `🟩 Minecraft: ${a.name} OK (${r.sent})` });
+      else logMcFail(r, r.lastCmd || queue[0]);
+    } catch (e) {
+      broadcast('log', { level: 'err', text: `🟩 Minecraft "${a.name}" falló: ${e.message}` });
+    }
+  }
+
   function triggerLikeGlobal(total) {
     if (!total || total <= lastTotalLikes) { lastTotalLikes = total || lastTotalLikes; return; }
+    triggerActionsLikeGlobal(total);
     forEachTriggerProfile((cfg, isGeneral) => {
+      for (const a of (cfg.mcActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
+        if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          scheduleMcAction(() => runMcAction(a, buildMcVars({ likeCount: total }, null), { soundTimes: 1 }));
+        }
+      }
+      for (const a of (cfg.robloxActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.keys) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireRobloxKeys(a, Math.max(1, parseInt(a.count, 10) || 1));
+      }
+      for (const a of (cfg.roblox3Actions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.keys) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) fireRoblox3Keys(a, Math.max(1, parseInt(a.count, 10) || 1));
+      }
+      for (const a of (cfg.marioActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || (!a.thing && a.npcId == null && !a.webhookCmd?.url)) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          const t = Math.max(1, parseInt(a.count, 10) || 1);
+          if ((a.kind || 'spawn') === 'effect') applyMarioEffect(a.thing, a.seconds, a.factor);
+          else if (a.webhookCmd?.on && a.webhookCmd?.url) {
+            runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, { info: { likeCount: total }, user: null, times: t });
+          } else spawnMarioThing(a.thing ?? a.npcId, '', t);
+        }
+      }
+      for (const a of (cfg.mari0Actions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          if ((a.kind || 'spawn') === 'effect') applyMari0Effect(a.thing, a.seconds, a.factor);
+          else spawnMari0Thing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+        }
+      }
+      for (const a of (cfg.smb3Actions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
+        if ((a.kind || 'spawn') !== 'effect' && !a.thing && a.spawnId == null && a.npcId == null) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          if ((a.kind || 'spawn') === 'effect') applySmb3Effect(a.thing, '', a.seconds);
+          else spawnSmb3Thing(a.thing, a.spawnId, a.npcId, '', Math.max(1, parseInt(a.count, 10) || 1));
+        }
+      }
+      for (const a of (cfg.pvzActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          if ((a.kind || 'spawn') === 'sun') givePvzSun(a.amount);
+          else if ((a.kind || 'spawn') === 'cmd') pvzCommand(a.path);
+          else spawnPvzThing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+        }
+      }
+      for (const a of (cfg.pvzHybridActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          if ((a.kind || 'spawn') === 'sun') givePvzHybridSun(a.amount);
+          else if ((a.kind || 'spawn') === 'cmd') pvzHybridCommand(a.path);
+          else spawnPvzHybridThing(a.thing, '', Math.min(999, Math.max(1, parseInt(a.count, 10) || 1)));
+        }
+      }
+      for (const a of (cfg.mslugActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          spawnMslugThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)));
+        }
+      }
       for (const a of cfg.soundAlerts) {
         if (!a.enabled || !a.sound || (a.trigger || '') !== 'likeGlobal') continue;
         const goal = Math.max(1, a.likeGoal || 100);
@@ -1592,7 +2846,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
       }
     });
-    actions.triggerLikeGlobalExtras(total, lastTotalLikes);
     lastTotalLikes = total;
   }
 
@@ -1664,8 +2917,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const info = { username: uid, nickname: user.nickname, level: lvl, fromLevel: lvl - 1, toLevel: lvl };
       triggerVideos('levelUp', info);
       triggerSoundAlerts('levelUp', info);
-      actions.triggerActions('levelUp', info);
-      actions.triggerMinecraftActions('levelUp', info, user);
+      triggerActions('levelUp', info, user);
+      triggerMinecraftActions('levelUp', info, user);
       playLevelVideo(lvl);
     }
   }
@@ -1688,27 +2941,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   // Reproduce automáticamente el video de public/video/niveles (nivelN.webm).
-  function playLevelVideo(level, opts = {}) {
+  function playLevelVideo(level) {
     const cfg = settings.levelVideos || {};
     if (cfg.enabled === false) return;
-    const n = Math.max(1, Number(level) || 1);
-    const scr = Number(cfg.screen) || 1;
-    const vol = cfg.volume ?? 100;
-    const isCloud = process.env.DESKTOP !== '1';
-    const hasLocal = localClients.size > 0 || relayClients.size > 0;
-    // Subida real con relay: archivos en la PC del streamer → delegar al .exe local.
-    if (isCloud && hasLocal && !opts.test) {
-      broadcastToLocal('playLevelVideo', { level: n, screen: scr, volume: vol });
-      return;
-    }
     if (typeof getLevelVideo !== 'function') return;
+    const n = Math.max(1, Number(level) || 1);
     const url = getLevelVideo(n);
     if (!url) {
       broadcast('log', { level: 'warn', text: `⚠️ No hay video para nivel ${n} (nivel${n}.webm en public/video/niveles).` });
       return;
     }
+    const scr = Number(cfg.screen) || 1;
     broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${n} reproducido.` });
-    emitMedia({ id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: vol, size: screenSize(scr) });
+    broadcast('media', { id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: cfg.volume ?? 100, size: screenSize(scr) });
   }
 
   // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3), 'battleGift',
@@ -1731,7 +2976,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       const scr = Number(b.screen) || 1;
       broadcast('log', { level: 'ok', text: `⚔️ Animación de batalla [${actionType}]: "${b.name}"` });
-      emitMedia({ id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSize(scr) });
+      broadcast('media', { id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSize(scr) });
     }
   }
 
@@ -1755,6 +3000,181 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('botReply', { command: c.command, text });
       broadcast('log', { level: 'ok', text: `🤖 Comando ${c.command} → ${text}` });
       return; // solo un comando por mensaje
+    }
+  }
+
+  /* ---------------------- Spotify Song Requests (solo .exe) ---------------------- */
+  function spotifyBalance(uniqueId) {
+    const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
+    return points.get(key)?.total || 0;
+  }
+  function pushSpotifyQueue() {
+    broadcast('spotifyQueue', {
+      queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image })),
+    });
+  }
+  function pushSpotifyHistory() {
+    broadcast('spotifyHistory', { history: spotifyHistory });
+  }
+  function pushSpotifyNowPlaying() {
+    broadcast('spotifyNowPlaying', { track: spotifyNowPlaying });
+  }
+
+  async function pollSpotifyPlayback() {
+    if (!clients.size || !spotify.isConnected(id)) return;
+    let state;
+    try { state = await spotify.getPlaybackState(id); } catch { return; }
+    if (!state?.uri) {
+      if (spotifyNowPlaying) {
+        spotifyNowPlaying = null;
+        lastSpotifyUri = '';
+        pushSpotifyNowPlaying();
+      }
+      return;
+    }
+
+    let requestedBy = spotifyNowPlaying?.requestedBy || '';
+    if (state.uri !== lastSpotifyUri) {
+      requestedBy = '';
+      const idx = spotifyQueue.findIndex((q) => q.uri === state.uri);
+      if (idx !== -1) {
+        requestedBy = spotifyQueue[idx].nickname || '';
+        spotifyQueue.splice(idx, 1);
+        pushSpotifyQueue();
+        spotifyHistory.unshift({
+          at: Date.now(),
+          user: requestedBy,
+          track: `${state.name} — ${state.artists}`,
+          status: 'Reproduciendo',
+        });
+        if (spotifyHistory.length > 50) spotifyHistory.length = 50;
+        pushSpotifyHistory();
+      }
+      lastSpotifyUri = state.uri;
+    }
+
+    spotifyNowPlaying = {
+      name: state.name,
+      artists: state.artists,
+      image: state.image,
+      uri: state.uri,
+      progressMs: state.progressMs,
+      durationMs: state.durationMs,
+      playing: state.playing,
+      requestedBy,
+      serverTs: Date.now(),
+    };
+    pushSpotifyNowPlaying();
+  }
+
+  function startSpotifyPoller() {
+    if (spotifyPollTimer) return;
+    spotifyPollTimer = setInterval(() => { pollSpotifyPlayback().catch(() => {}); }, 3000);
+    spotifyPollTimer.unref?.();
+    pollSpotifyPlayback().catch(() => {});
+  }
+
+  function stopSpotifyPoller() {
+    if (spotifyPollTimer) { clearInterval(spotifyPollTimer); spotifyPollTimer = null; }
+  }
+
+  async function handleSpotifyCommands(comment, user, roles) {
+    const cfg = settings.spotify;
+    if (!cfg) return;
+    const text = String(comment || '').trim();
+    const lower = text.toLowerCase();
+    let kind = null, arg = '';
+    if (lower === '!skip') kind = 'skip';
+    else if (lower === '!revoke') kind = 'revoke';
+    else if (lower.startsWith('!play')) { kind = 'play'; arg = text.slice(5).trim(); }
+    if (!kind) return;
+
+    // Permisos: todos / mods / super fans-subs.
+    const allowed = !!cfg.permAll || (cfg.permMods && roles?.isMod) || (cfg.permSubs && roles?.isSub);
+    if (!allowed) return;
+
+    // Anti-spam por usuario (3s).
+    const now = Date.now();
+    if (now - (spotifyCooldown.get(user.uniqueId) || 0) < 3000) return;
+    spotifyCooldown.set(user.uniqueId, now);
+
+    if (!spotify.isConnected(id)) {
+      broadcast('log', { level: 'warn', text: '🎵 Spotify no está conectado. Conéctalo en la pestaña Spotify.' });
+      return;
+    }
+
+    const reply = (txt, ok = true) => {
+      broadcast('spotifyCommand', { user: user.nickname, text: txt, ok });
+      broadcast('log', { level: ok ? 'ok' : 'warn', text: '🎵 ' + txt });
+    };
+    const addHistory = (track, status) => {
+      spotifyHistory.unshift({ at: Date.now(), user: user.nickname, track, status });
+      if (spotifyHistory.length > 50) spotifyHistory.length = 50;
+      pushSpotifyHistory();
+    };
+    const charge = async (cost, desc) => {
+      cost = Math.max(0, parseInt(cost, 10) || 0);
+      if (cost <= 0) return true;
+      // En modo relay (.exe), los puntos viven en la nube (fuente de verdad): delegamos
+      // la comprobación + cobro a Render. Si no hay saldo, devuelve ok:false.
+      if (typeof chargeSpotifyRemote === 'function') {
+        let r = null;
+        try { r = await chargeSpotifyRemote({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, cost, desc }); } catch {}
+        if (!r || !r.ok) { reply(`${user.nickname}: necesitas ${cost} puntos.`, false); return false; }
+        return true;
+      }
+      if (spotifyBalance(user.uniqueId) < cost) { reply(`${user.nickname}: necesitas ${cost} puntos.`, false); return false; }
+      addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: -cost, counted: false, description: desc });
+      return true;
+    };
+
+    if (kind === 'play') {
+      if (cfg.playOn === false) return;
+      if (!arg) { reply('Uso: !play Canción - Artista', false); return; }
+      const total = spotifyQueue.length;
+      const userCount = spotifyQueue.filter((q) => q.uniqueId === user.uniqueId).length;
+      if (total >= Math.max(1, cfg.queueTotal)) { reply('La cola está llena, intenta más tarde.', false); return; }
+      if (userCount >= Math.max(1, cfg.queueUser)) { reply(`${user.nickname}: ya tienes el máximo en cola.`, false); return; }
+      let track = null;
+      try { track = await spotify.searchTrack(id, arg); } catch {}
+      if (!track) { reply(`No encontré "${arg}".`, false); return; }
+      if (track.explicit && cfg.explicit === false) { reply(`"${track.name}" es explícita y no está permitida.`, false); return; }
+      if (!(await charge(cfg.playCost, 'Spotify !play'))) return;
+      let ok = false;
+      try { ok = await spotify.addToQueue(id, track.uri); } catch {}
+      if (!ok) { reply('No pude añadir a la cola (¿Spotify está reproduciendo una playlist?).', false); return; }
+      spotifyQueue.push({ uniqueId: user.uniqueId, nickname: user.nickname, name: track.name, artists: track.artists, image: track.image, uri: track.uri, at: Date.now() });
+      pushSpotifyQueue();
+      addHistory(`${track.name} — ${track.artists}`, 'En cola');
+      reply(`Añadida: ${track.name} — ${track.artists} (por ${user.nickname})`);
+      pollSpotifyPlayback().catch(() => {});
+      return;
+    }
+
+    if (kind === 'skip') {
+      if (cfg.skipOn === false) return;
+      if (!(await charge(cfg.skipCost, 'Spotify !skip'))) return;
+      let ok = false;
+      try { ok = await spotify.skipNext(id); } catch {}
+      if (!ok) { reply('No pude saltar la pista.', false); return; }
+      if (spotifyQueue.length) spotifyQueue.shift();
+      pushSpotifyQueue();
+      pollSpotifyPlayback().catch(() => {});
+      addHistory('—', 'Saltada');
+      reply(`${user.nickname} saltó la pista.`);
+      return;
+    }
+
+    if (kind === 'revoke') {
+      // Spotify no permite quitar de su cola; revocamos de nuestra lista/overlay.
+      const rev = [...spotifyQueue].reverse().findIndex((q) => q.uniqueId === user.uniqueId);
+      if (rev === -1) { reply(`${user.nickname}: no tienes canciones para revocar.`, false); return; }
+      const realIdx = spotifyQueue.length - 1 - rev;
+      const removed = spotifyQueue.splice(realIdx, 1)[0];
+      pushSpotifyQueue();
+      addHistory(`${removed.name} — ${removed.artists}`, 'Revocada');
+      reply(`${user.nickname} revocó: ${removed.name}`);
+      return;
     }
   }
 
@@ -1890,6 +3310,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     recentChatOrder.length = 0;
     fanCoinAcc.clear();
     fanLikeAcc.clear();
+    marioLikeAcc.clear();
     recentSubs.clear();
     recentSuperFans.clear();
   }
@@ -2241,7 +3662,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const p = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
     return p === 'week' || p === 'month' ? p : 'live';
   }
-  // Restaura rankings de sesión (periodo «live») tras reinicio de Render si es el mismo live.
+  // Restaura rankings de sesión (periodo «live») tras reinicio si es el mismo live.
   function canRestoreLiveRank(saved) {
     if (!saved || saved.period !== 'live' || !Array.isArray(saved.users) || !saved.users.length) return false;
     if (saved.roomId && liveSession.roomId) {
@@ -2510,19 +3931,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return u;
   }
 
-  // Cobro de puntos para Spotify en modo relay (.exe): el .exe procesa el comando
-  // localmente (tiene los tokens), pero los puntos viven aquí (fuente de verdad).
-  // Comprobamos saldo y, si alcanza, descontamos. Devuelve { ok, balance }.
-  function spotifyCharge({ uniqueId, nickname, photo, cost, desc } = {}) {
-    const c = Math.max(0, parseInt(cost, 10) || 0);
-    if (c <= 0) return { ok: true, balance: null };
-    const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
-    const bal = points.get(key)?.total || 0;
-    if (bal < c) return { ok: false, balance: bal };
-    addUserPoints({ uniqueId, nickname, photo, amount: -c, counted: false, description: desc || 'Spotify' });
-    return { ok: true, balance: bal - c };
-  }
-
   function resetAllPoints() {
     points.clear();
     pointsTx = [];
@@ -2573,7 +3981,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return out;
   }
 
-  function fireEmoteTriggers(data) {
+  function fireEmoteTriggers(data, user = null) {
     const list = extractEmotes(data);
     if (!list.length) return;
     for (const e of list) rememberEmote(e.emoteId, e.image);
@@ -2581,7 +3989,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const info = { emoteId: e.emoteId };
       triggerSoundAlerts('emote', info);
       triggerVideos('emote', info);
-      actions.triggerActions('emote', info);
+      triggerActions('emote', info, user);
+      if (user) triggerMinecraftActions('emote', info, user);
     }
   }
 
@@ -2611,20 +4020,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('chat', { ...chatUser, comment, msgId: msgId && String(msgId) !== '0' ? String(msgId) : chatKey, ...roles, donorLevel, donorSource });
       pushStatsThrottled();
       checkMemberLevelUp(data);
-      fireEmoteTriggers(data);
+      fireEmoteTriggers(data, chatUser);
       const chatInfo = { comment, username: chatUser.uniqueId, nickname: chatUser.nickname };
       triggerVideos('chatCommand', chatInfo);
       triggerSoundAlerts('chatCommand', chatInfo);
-      actions.triggerActions('chatCommand', chatInfo);
+      triggerActions('chatCommand', chatInfo, chatUser);
       handleChatCommands(comment, chatUser);
-      actions.triggerMinecraftActions('chat', chatInfo, chatUser);
+      handleSpotifyCommands(comment, chatUser, chatUserRoles(data));
+      triggerMinecraftActions('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
       const uid = data.user?.uniqueId || data.user?.userId;
       if (uid && !chatSeenUsers.has(uid)) {
         chatSeenUsers.add(uid);
         triggerVideos('firstMessage', chatInfo);
         triggerSoundAlerts('firstMessage', chatInfo);
-        actions.triggerMinecraftActions('firstMessage', chatInfo, chatUser);
+        triggerMinecraftActions('firstMessage', chatInfo, chatUser);
       }
     });
 
@@ -2683,12 +4093,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
         addTimerSeconds(total * (settings.timer?.giftMult || 0));
 
+        const giftInfoForAlerts = { ...giftInfo, giftName: giftName.toLowerCase() };
         broadcast('log', { level: 'info', text: `🎁 Regalo: ${giftName} (id ${giftId}) ×${repeatCount} · 💎${diamondsEach}` });
+        // "Racha = 1": alertas/sonidos/videos una vez por racha (no afecta juegos).
         if (!comboShouldSkip(user.uniqueId, giftId)) {
-          triggerVideos('gift', { ...giftInfo, giftName: giftName.toLowerCase() });
+          triggerVideos('gift', giftInfoForAlerts);
           triggerSoundAlerts('gift', giftInfo);
         }
         countGiftForGoal(giftId, giftName, repeatCount);
+        applyWinsGiftHooks(giftId, repeatCount);
         processFanBalls('coins', user, total);
         trackSessionGift(user, giftName, repeatCount, diamondsEach, image);
       }
@@ -2706,12 +4119,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       addRankLikes(baseUser(data.user), data.likeCount || 0);
       trackSessionLike(baseUser(data.user), data.likeCount || 0);
       broadcast('like', { ...baseUser(data.user), count: data.likeCount || 0, total: state.stats.likes });
-      actions.triggerActions('like', { likeCount: data.likeCount || 0 });
-      actions.triggerMinecraftActions('like', { likeCount: data.likeCount || 0 }, baseUser(data.user));
+      const likeUser = baseUser(data.user);
+      const likeInfo = { likeCount: data.likeCount || 0 };
+      forEachTriggerProfile((cfg) => triggerMarioActions('like', likeInfo, likeUser, cfg));
       if (Date.now() - lastLikeSound > 3000) {
         lastLikeSound = Date.now();
-        triggerSoundAlerts('like', { likeCount: data.likeCount || 0 });
-        triggerVideos('like', { likeCount: data.likeCount || 0 });
+        triggerSoundAlerts('like', likeInfo);
+        triggerVideos('like', likeInfo);
+        triggerActions('like', likeInfo, likeUser);
+        triggerMinecraftActions('like', likeInfo, likeUser);
       }
       if (typeof data.totalLikeCount === 'number') triggerLikeGlobal(data.totalLikeCount);
       pushStatsThrottled();
@@ -2723,6 +4139,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (data.memberCount) state.stats.viewers = data.memberCount;
       const member = baseUser(data.user);
       broadcast('member', member);
+      // Registrar nivel al entrar (baseline para detectar subidas después).
       checkMemberLevelUp(data);
       // Video al entrar un usuario específico (el anti-spam por tiempo se aplica en
       // triggerVideos, con el delay configurado en cada video).
@@ -2749,8 +4166,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('follow', user);
         triggerVideos('follow');
         triggerSoundAlerts('follow');
-        actions.triggerActions('follow');
-        actions.triggerMinecraftActions('follow', {}, user);
+        triggerActions('follow', {}, user);
+        triggerMinecraftActions('follow', {}, user);
         if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
@@ -2759,8 +4176,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('share', user);
         triggerVideos('share');
         triggerSoundAlerts('share');
-        actions.triggerActions('share');
-        actions.triggerMinecraftActions('share', {}, user);
+        triggerActions('share', {}, user);
+        triggerMinecraftActions('share', {}, user);
         if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('share', Math.max(1, parseInt(c.pointsShare, 10) || 1));
@@ -2774,8 +4191,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.follows++;
       broadcast('follow', user);
       triggerSoundAlerts('follow');
-      actions.triggerActions('follow');
-      actions.triggerMinecraftActions('follow', {}, user);
+      triggerActions('follow', {}, user);
+      triggerMinecraftActions('follow', {}, user);
       if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
       const c = settings.hypeBar || {};
       trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
@@ -2787,14 +4204,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.shares++;
       broadcast('share', user);
       triggerSoundAlerts('share');
-      actions.triggerActions('share');
-      actions.triggerMinecraftActions('share', {}, user);
+      triggerActions('share', {}, user);
+      triggerMinecraftActions('share', {}, user);
       if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
       pushStatsThrottled();
     });
 
     conn.on(WebcastEvent.EMOTE, (data) => {
-      fireEmoteTriggers(data);
+      fireEmoteTriggers(data, baseUser(data.user || data));
     });
 
     // ===== Suscripciones (con nivel / meses) =====
@@ -2813,8 +4230,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('subscribe', info);
       triggerSoundAlerts('subscribe', info);
       triggerVideos('subscribe', info);
-      actions.triggerActions('subscribe', info);
-      actions.triggerMinecraftActions('subscribe', info, user);
+      triggerActions('subscribe', info, user);
+      triggerMinecraftActions('subscribe', info, user);
       addTimerSeconds(settings.timer?.subscribe || 0);
       const subBonus = Math.round(Number(settings.points?.subBonus) || 0);
       if (user.uniqueId && subBonus > 0) {
@@ -2838,8 +4255,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('superfan', info);
       triggerSoundAlerts('superFan', info);
       triggerVideos('superFan', info);
-      actions.triggerActions('superFan', info);
-      actions.triggerMinecraftActions('superFan', info, user);
+      triggerActions('superFan', info, user);
+      triggerMinecraftActions('superFan', info, user);
       // Pelota dorada con la foto del super fan (overlay de pelotas).
       broadcast('goldenBall', { photo: user.photo || '', nickname: user.nickname || '', count: 1 });
       const bonus = Math.round(Number(settings.points?.superFanBonus) || 0);
@@ -2923,9 +4340,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pong' })); } catch {}
         break;
       case 'connect':
+        if (RELAY) {
+          if (typeof onRelayAction === 'function' && data.username) {
+            onRelayAction('connect', { username: String(data.username).trim().replace(/^@/, '') });
+          }
+          break;
+        }
         if (data.username) connectTo(String(data.username).trim().replace(/^@/, ''));
         break;
       case 'disconnect':
+        if (RELAY) {
+          if (typeof onRelayAction === 'function') onRelayAction('disconnect', {});
+          break;
+        }
         disconnectManual();
         break;
       case 'saveSettings':
@@ -2960,7 +4387,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       case 'testAction': {
         const a = (settings.actions || []).find((x) => x.id === data.id);
-        if (a && actions.actionDoesSomething(a)) actions.fireAction(a);
+        if (a && actionDoesSomething(a)) fireAction(a);
         break;
       }
       case 'testMcAction': {
@@ -2968,16 +4395,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           || (settings.bedrockActions || []).find((x) => x.uid === data.uid)
           || (settings.sandboxActions || []).find((x) => x.uid === data.uid);
         if (a && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length))) {
-          actions.runMcAction(a, actions.buildMcVars(
-            { giftName: 'Rose', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' },
-            { nickname: 'Prueba', uniqueId: 'prueba' },
-          ));
+          scheduleMcAction(() => runMcAction(a, buildMcVars({ giftName: 'Rose', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' }, { nickname: 'Prueba', uniqueId: 'prueba' })));
         }
         break;
       }
       case 'testMcDraft': {
         const entry = data.entry;
-        if (!entry || !actions.mcCmdText(entry)) break;
+        if (!entry || !mcCmdText(entry)) break;
         const draft = {
           name: 'Prueba modal',
           custom: true,
@@ -2988,24 +4412,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           radius: data.radius != null ? data.radius : 3,
         };
         if (data.giftMult === false) draft.giftMult = false;
-        actions.runMcAction(draft, actions.buildMcVars(
-          { giftName: 'Prueba', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' },
-          { nickname: 'Prueba', uniqueId: 'prueba' },
-        ));
+        scheduleMcAction(() => runMcAction(draft, buildMcVars({ giftName: 'Prueba', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' }, { nickname: 'Prueba', uniqueId: 'prueba' })));
         break;
       }
       case 'runMcRaw': {
-        // Comando "crudo" para configuraciones de Bedrock (solo "Probar").
+        // Ejecuta un comando "crudo" en el servidor de Minecraft (configuraciones de
+        // Bedrock: solo "Probar", no se guardan como tarjeta).
         const cmd = String(data.command || '').trim();
-        if (cmd) actions.runMcAction({ cmd, name: String(data.name || 'Comando') }, actions.buildMcVars(
-          { nickname: 'Streamer', uniqueId: 'streamer' },
-          { nickname: 'Streamer', uniqueId: 'streamer' },
-        ));
+        if (cmd) scheduleMcAction(() => runMcAction({ cmd, name: String(data.name || 'Comando') }, buildMcVars({ nickname: 'Streamer', uniqueId: 'streamer' }, { nickname: 'Streamer', uniqueId: 'streamer' })));
         break;
       }
-      case 'runActionOutputs':
-        actions.runActionOutputs({ webhookCmd: data.webhookCmd, obsCmd: data.obsCmd, sbCmd: data.sbCmd });
+      case 'runActionOutputs': {
+        const testUser = { nickname: 'Prueba', uniqueId: 'prueba' };
+        const testInfo = { nickname: 'Prueba', username: 'prueba', giftName: 'Rose', giftId: '5655', repeatCount: 1 };
+        const testTimes = Math.max(1, Number(data.times) || 1);
+        runActionOutputs(
+          { webhookCmd: data.webhookCmd, obsCmd: data.obsCmd, sbCmd: data.sbCmd },
+          settings,
+          { info: testInfo, user: testUser, times: testTimes },
+        );
         break;
+      }
       case 'getPoints':
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() })); } catch {}
         break;
@@ -3036,7 +4463,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'testVideo':
         if (data.video) {
           const scr = Number(data.video.screen) || 1;
-          emitMedia({ ...data.video, screen: scr, size: screenSize(scr), test: true });
+          broadcast('media', { ...data.video, screen: scr, size: screenSize(scr), test: true });
         }
         break;
       case 'testLevelUp': {
@@ -3050,45 +4477,136 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       }
       case 'testLevelVideo':
-        playLevelVideo(Math.max(1, Number(data.level) || 1), { test: true });
+        playLevelVideo(Math.max(1, Number(data.level) || 1));
         break;
       case 'stopVideo': {
         const scr = Number(data.screen) || 1;
-        emitStopMedia({ screen: scr });
+        broadcast('stopMedia', { screen: scr });
         break;
       }
+      case 'playMediaRelay': {
+        if (data.media) {
+          const m = { ...data.media };
+          if (m.url) m.url = relativizeMediaUrl(m.url);
+          const scr = Number(m.screen) || 1;
+          broadcast('media', { ...m, screen: scr, size: m.size ?? screenSize(scr) });
+        }
+        break;
+      }
+      case 'panicLocal':
+        broadcast('panic', {});
+        for (let scr = 1; scr <= 5; scr++) broadcast('stopMedia', { screen: scr });
+        break;
       case 'testScreen': {
         const scr = Number(data.screen) || 1;
-        emitMedia({ test: true, screenTest: true, name: 'Pantalla ' + scr, screen: scr, size: screenSize(scr) });
+        broadcast('media', { test: true, screenTest: true, name: 'Pantalla ' + scr, screen: scr, size: screenSize(scr) });
         break;
       }
-      // Pruebas manuales de juegos: la nube delega la ejecución al .exe (relay) vía localExec.
-      case 'marioSpawn':
-        actions.spawnMarioThing(String(data.thing || ''), data.name, data.times);
+      case 'ensureMarioBridge': {
+        ensureMarioBridge().then((ok) => {
+          broadcast('log', {
+            level: ok ? 'ok' : 'warn',
+            text: ok
+              ? '🍄 Bridge Mario activo (SMBX2). Abre el juego en marios_pad.'
+              : '🍄 Bridge Mario no disponible. Descarga SMBX2 + mod o comprueba Node.',
+          });
+        }).catch(() => {
+          broadcast('log', {
+            level: 'warn',
+            text: '🍄 Bridge Mario no disponible. Descarga SMBX2 + mod o comprueba Node.',
+          });
+        });
         break;
+      }
+      case 'ensureMari0Bridge': {
+        ensureMari0Bridge().then((ok) => {
+          broadcast('log', {
+            level: ok ? 'ok' : 'warn',
+            text: ok
+              ? '🌀 Bridge Mari0 activo en :7755'
+              : '🌀 Bridge Mari0 no disponible. Instala el juego o comprueba Node.',
+          });
+        }).catch(() => {
+          broadcast('log', {
+            level: 'warn',
+            text: '🌀 Bridge Mari0 no disponible. Instala el juego o comprueba Node.',
+          });
+        });
+        break;
+      }
+      case 'marioSpawn': {
+        const thing = data.thing ?? data.npcId;
+        spawnMarioThing(thing, data.name, data.times);
+        broadcast('log', {
+          level: 'ok',
+          text: `🍄 Spawn: ${thing || '?'}${Number(data.times) > 1 ? ` ×${data.times}` : ''}`,
+        });
+        break;
+      }
       case 'marioEffect':
-        actions.applyMarioEffect(String(data.type || ''), data.seconds, data.factor);
+        applyMarioEffect(String(data.type || ''), data.seconds, data.factor);
         break;
-      case 'smb3Spawn':
-        actions.spawnSmb3Thing(data.thing, data.spawnId ?? data.spawn, data.npcId, data.name ?? data.viewer, data.times ?? data.count);
+      case 'mari0Spawn': {
+        const thing0 = data.thing;
+        spawnMari0Thing(thing0, data.name, data.times);
+        broadcast('log', {
+          level: 'ok',
+          text: `🌀 Mari0 spawn: ${thing0 || '?'}${Number(data.times) > 1 ? ` ×${data.times}` : ''}`,
+        });
         break;
+      }
+      case 'mari0Effect':
+        applyMari0Effect(String(data.type || ''), data.seconds, data.factor);
+        break;
+      case 'smb3Spawn': {
+        spawnSmb3Thing(
+          data.thing,
+          data.spawnId ?? data.spawn,
+          data.npcId,
+          data.name ?? data.viewer ?? data.nickname,
+          data.times ?? data.count,
+        );
+        broadcast('log', {
+          level: 'ok',
+          text: `🎮 SMB3 spawn: ${data.thing || data.spawnId || data.npcId || '?'}${Number(data.times || data.count) > 1 ? ` ×${data.times || data.count}` : ''}`,
+        });
+        break;
+      }
       case 'smb3Effect':
-        actions.applySmb3Effect(String(data.effect || data.type || ''), data.name ?? data.viewer, data.seconds);
+        applySmb3Effect(String(data.effect || data.type || ''), data.name ?? data.viewer, data.seconds);
         break;
       case 'pvzSpawn':
-        actions.spawnPvzThing(String(data.thing || ''), data.name, data.times);
+        // Prueba manual desde el panel: genera el zombie en Plants vs Zombies.
+        spawnPvzThing(String(data.thing || ''), data.name, data.times);
         break;
       case 'pvzSun':
-        actions.givePvzSun(data.amount);
+        // Prueba manual: da soles al jugador.
+        givePvzSun(data.amount);
         break;
       case 'pvzCmd':
-        actions.pvzCommand(String(data.path || ''));
+        // Prueba manual: comando GET (efecto de plantas, nivel, etc.).
+        pvzCommand(String(data.path || ''));
+        break;
+      case 'pvzHybridSpawn':
+        spawnPvzHybridThing(String(data.thing || ''), data.name, data.times);
+        break;
+      case 'pvzHybridSun':
+        givePvzHybridSun(data.amount);
+        break;
+      case 'pvzHybridCmd':
+        pvzHybridCommand(String(data.path || ''));
+        break;
+      case 'mslugSpawn':
+        spawnMslugThing(String(data.thing || ''), data.name, data.times);
         break;
       case 'testSound':
         if (data.alert) broadcast('sound', { ...data.alert, test: true });
         break;
       case 'panic':
-        emitPanicMedia();
+        bumpMcPanic();
+        broadcast('panic', {});
+        for (let scr = 1; scr <= 5; scr++) broadcast('stopMedia', { screen: scr });
+        broadcast('log', { level: 'info', text: '⛔ Pánico: cola de Minecraft cancelada' });
         break;
       case 'testPerrito':
         broadcast('perritoTest', { count: Number(data.count) || 200 });
@@ -3234,6 +4752,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetAlertaGift':
         broadcast('alertaGiftReset', {});
         break;
+      case 'testRegaloFuegos':
+        broadcast('regaloFuegosTest', {});
+        break;
+      case 'resetRegaloFuegos':
+        broadcast('regaloFuegosReset', {});
+        break;
       case 'testAlertaLikes':
         broadcast('alertaLikesTest', {});
         break;
@@ -3277,10 +4801,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   /* ------------------------ Gestión de clientes WS ------------------------ */
-  function sendInitialBurst(ws) {
+  function addClient(ws) {
+    clients.add(ws);
+    lastSeen = Date.now();
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
     ws.send(JSON.stringify({ type: 'settings', payload: settings }));
-    try { ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() })); } catch (e) { console.error('[profiles]', e); }
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
@@ -3295,37 +4820,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'sessionOverlays', payload: serializeSessionOverlaysPayload() }));
     ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
+    try { ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() })); } catch (e) { console.error('[profiles]', e); }
+    ws.send(JSON.stringify({ type: 'spotifyQueue', payload: { queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image })) } }));
+    ws.send(JSON.stringify({ type: 'spotifyHistory', payload: { history: spotifyHistory } }));
+    ws.send(JSON.stringify({ type: 'spotifyNowPlaying', payload: { track: spotifyNowPlaying } }));
     const caps = currentCaps();
     if (caps) ws.send(JSON.stringify({ type: 'caps', payload: caps }));
   }
-  function addClient(ws, role = 'panel') {
-    ws.clientRole = role;
-    if (role === 'local') {
-      localClients.add(ws);
-      lastSeen = Date.now();
-      try { ws.send(JSON.stringify({ type: 'localReady', payload: { ok: true } })); } catch {}
-      broadcastLocalStatus();
-      return;
-    }
-    if (role === 'relay') {
-      // App de escritorio completa: recibe la ráfaga inicial (para pintar la ventana)
-      // y queda suscrita a datos + órdenes de ejecución.
-      relayClients.add(ws);
-      lastSeen = Date.now();
-      try { ws.send(JSON.stringify({ type: 'localReady', payload: { ok: true, relay: true } })); } catch {}
-      try { sendInitialBurst(ws); } catch {}
-      broadcastLocalStatus();
-      return;
-    }
-    clients.add(ws);
-    lastSeen = Date.now();
-    sendInitialBurst(ws);
-  }
   function removeClient(ws) {
     clients.delete(ws);
-    let wasLocal = localClients.delete(ws);
-    if (relayClients.delete(ws)) wasLocal = true;
-    if (wasLocal) broadcastLocalStatus();
     lastSeen = Date.now();
     if (videoScreens.has(ws)) {
       videoScreens.delete(ws);
@@ -3358,11 +4861,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     try { saveSessionOverlaysNow(); } catch {}
     clearTimeout(emotesSaveTimer);
     try { saveEmotesCatalogNow(); } catch {}
+    stopSpotifyPoller();
   }
 
   // Chequeo de cambio de semana por room.
   const weekInterval = setInterval(ensureWeek, 60000);
   weekInterval.unref?.();
+  startSpotifyPoller();
 
   function getStatus() {
     return {
@@ -3374,26 +4879,24 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       photo: followerCounter.photo || '',
       viewers: Number(state.stats?.viewers) || 0,
       clients: clients.size,
-      localClients: localClients.size + relayClients.size,
-      online: clients.size > 0 || localClients.size > 0 || relayClients.size > 0,
+      online: clients.size > 0,
       lastSeen: lastSeen || 0,
     };
   }
 
   function kickAll() {
-    for (const ws of [...clients, ...localClients, ...relayClients]) {
+    for (const ws of [...clients]) {
       try { ws.send(JSON.stringify({ type: 'accountPending' })); } catch {}
       try { ws.close(4003, 'pending'); } catch {}
     }
     clients.clear();
-    localClients.clear();
-    relayClients.clear();
   }
 
   return {
     id, account, roomKey,
     addClient, removeClient, handleMessage,
     getEmotes, mergeEmotes, shutdown, getStatus, kickAll, broadcastCaps,
+    listActions, executeWebhookAction,
     getSettings: () => settings,
     applySettings: (obj) => applyIncomingSettings(obj, false),
     hasSavedSettings: () => fs.existsSync(SETTINGS_FILE),
@@ -3403,7 +4906,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     switchToGeneralEdit,
     renameProfile,
     importProfiles,
-    spotifyCharge,
+    // Modo relay (.exe): el chat lo recibe la nube; el panel reenvía aquí los comandos
+    // de Spotify para procesarlos LOCALMENTE (tokens y cola viven en esta PC).
+    handleSpotifyChat: (comment, user, roles) => handleSpotifyCommands(comment, user, roles),
     get clientCount() { return clients.size; },
   };
 }

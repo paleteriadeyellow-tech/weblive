@@ -229,7 +229,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'rgf-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -333,7 +333,8 @@ const OVERLAY_CAP = {
   '/toplikes.html': 'ov_toplikes', '/topdiamantes.html': 'ov_topdiamantes',
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
   '/contador-seguidores.html': 'ov_contadorseguidores',
-  '/alerta-regalo.html': 'ov_alertaregalo', '/alerta-likes.html': 'ov_alertalikes',
+  '/alerta-regalo.html': 'ov_alertaregalo', '/regalo-fuegos.html': 'ov_regalofuegos',
+  '/alerta-likes.html': 'ov_alertalikes',
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
   '/top1fire.html': 'ov_top1fire',
   '/toppoints.html': 'ov_toppoints',
@@ -910,6 +911,7 @@ function roomUrl(path) {
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
   if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=7';
+  if (/\/regalo-fuegos\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=3';
   return url;
 }
 
@@ -4200,9 +4202,25 @@ function setupStyleOverlay(o) {
   const buildCfg = () => readForm(o.map, o.types);
   const pushPreview = (cfg) => toPreview({ type: 'config', config: cfg || settings?.[o.settingsKey] || {} });
 
-  if ($(o.btnTest)) $(o.btnTest).onclick = () => {
+  const bumpPreviewFrame = () => new Promise((resolve) => {
+    const fr = $(o.previewId);
+    if (!fr || !o.ovBuild) { resolve(); return; }
+    const u = new URL(fr.src, location.origin);
+    u.searchParams.set('v', o.ovBuild);
+    u.searchParams.set('_', String(Date.now()));
+    const done = () => {
+      fr.removeEventListener('load', done);
+      pushPreview();
+      setTimeout(resolve, 120);
+    };
+    fr.addEventListener('load', done);
+    fr.src = u.pathname + u.search;
+  });
+
+  if ($(o.btnTest)) $(o.btnTest).onclick = async () => {
     const extra = o.randomGift ? { gift: randomGiftSample() } : {};
     if (o.rank) extra.rank = o.rank;
+    if (o.bumpPreview) await bumpPreviewFrame();
     toPreview({ type: 'test', ...extra });
     send({ action: o.testAction, ...extra });
   };
@@ -4384,6 +4402,16 @@ const STYLE_OVERLAYS = [
       'tp3cfg-rainbow': 'nameRainbow', 'tp3cfg-titlerainbow': 'titleRainbow', 'tp3cfg-glitter': 'glitter',
       'tp3cfg-lines': 'lines', 'tp3cfg-shadows': 'shadows' },
     types: { scale: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'regalofuegos', settingsKey: 'regaloFuegos', previewId: 'rgf-preview',
+    btnTest: 'rgf-test', btnReset: 'rgf-reset', btnConfig: 'rgf-config',
+    modalId: 'rgfConfigModal', closeId: 'rgfcfg-close', saveId: 'rgfcfg-save',
+    testAction: 'testRegaloFuegos', resetAction: 'resetRegaloFuegos', randomGift: true,
+    ovBuild: '3', bumpPreview: true,
+    map: { 'rgfcfg-dur': 'durationSec', 'rgfcfg-scale': 'scale', 'rgfcfg-ring': 'ringCount',
+      'rgfcfg-name': 'nameColor', 'rgfcfg-glow': 'glowColor', 'rgfcfg-stem': 'showStem' },
+    types: { durationSec: 'int', scale: 'int', ringCount: 'int' },
   }),
   setupStyleOverlay({
     kind: 'followercounter', settingsKey: 'followerCounter', previewId: 'foc-preview',
