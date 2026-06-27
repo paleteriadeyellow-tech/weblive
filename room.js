@@ -548,22 +548,33 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!obj || typeof obj !== 'object') return structuredClone(DEFAULT_SETTINGS);
     try { return structuredClone(obj); } catch { return JSON.parse(JSON.stringify(obj)); }
   }
-  (function dedupeProfileSlotReferences() {
-    let changed = false;
-    const seen = new Map();
+  (function isolateProfileSlotsOnLoad() {
+    let refDupes = false;
+    const refs = new Map();
     for (let i = 0; i < (profiles.slots || []).length; i++) {
       const s = profiles.slots[i];
       if (!s || typeof s !== 'object') continue;
-      if (seen.has(s)) { profiles.slots[i] = cloneSettings(s); changed = true; }
-      else seen.set(s, i);
+      if (refs.has(s)) refDupes = true;
+      else refs.set(s, i);
+      profiles.slots[i] = cloneSettings(s);
     }
-    if (profiles.general && typeof profiles.general === 'object' && seen.has(profiles.general)) {
+    if (profiles.general && typeof profiles.general === 'object') {
+      if (refs.has(profiles.general)) refDupes = true;
       profiles.general = cloneSettings(profiles.general);
-      changed = true;
     }
-    if (changed) {
+    const contentSeen = new Map();
+    for (let i = 0; i < (profiles.slots || []).length; i++) {
+      const s = profiles.slots[i];
+      if (!s) continue;
+      let hash;
+      try { hash = JSON.stringify(s); } catch { continue; }
+      if (contentSeen.has(hash)) {
+        console.warn(`  [profiles] Perfil ${i + 1} es idéntico al perfil ${contentSeen.get(hash) + 1} (datos duplicados en disco).`);
+      } else contentSeen.set(hash, i);
+    }
+    if (refDupes) {
       try { writeJsonAtomic(PROFILES_FILE, profiles); } catch {}
-      console.log('  [profiles] Ranuras duplicadas separadas (acciones/videos por perfil).');
+      console.log('  [profiles] Ranuras enlazadas separadas y guardadas.');
     }
   })();
   function loadSettings() {
@@ -737,14 +748,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // activo usa los ajustes en memoria (por si hay cambios sin guardar todavía).
   function getProfilesFull() {
     const slots = profiles.slots.map((s, i) => {
-      if (profiles.editMode === 'general') return s;
-      return i === profiles.active ? settings : s;
+      let src = s;
+      if (profiles.editMode !== 'general' && i === profiles.active) src = settings;
+      return src ? cloneSettings(src) : null;
     });
     return {
       active: profiles.active,
       names: profiles.names.slice(),
       slots,
-      general: profiles.editMode === 'general' ? settings : profiles.general,
+      general: profiles.editMode === 'general' ? cloneSettings(settings) : (profiles.general ? cloneSettings(profiles.general) : null),
       editingGeneral: profiles.editMode === 'general',
     };
   }
@@ -757,8 +769,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const entry = list[i] || {};
       const incoming = entry.settings || entry.data;
       if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
-        const base = (mode === 'merge' && profiles.slots[i]) ? profiles.slots[i] : structuredClone(DEFAULT_SETTINGS);
-        profiles.slots[i] = deepMerge(base, incoming);
+        const inc = cloneSettings(incoming);
+        const base = (mode === 'merge' && profiles.slots[i])
+          ? cloneSettings(profiles.slots[i])
+          : structuredClone(DEFAULT_SETTINGS);
+        profiles.slots[i] = deepMerge(base, inc);
       }
       const nm = String(entry.name || '').trim().slice(0, 40);
       if (nm) profiles.names[i] = nm;
