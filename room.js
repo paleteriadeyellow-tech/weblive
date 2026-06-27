@@ -897,7 +897,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       { id: 'decN', sign: -1, fixed: null },
     ];
     let changed = false;
-    for (const key of ['winsCounter', 'winsCounterGamer']) {
+    for (const key of ['winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario']) {
       const c = settings[key];
       const hk = c && c.hotkeys;
       if (!c || !hk) continue;
@@ -1255,6 +1255,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('batallaLikesReset', {});
     broadcast('winsReset', {});
     broadcast('winsGamerReset', {});
+    broadcast('winsMinecraftReset', {});
+    broadcast('winsMarioReset', {});
     // Barra de meta (hype)
     broadcast('hypeReset', {});
     // Coin match (partido cronometrado)
@@ -1268,7 +1270,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
     // Animaciones momentáneas (corta cualquier alerta en curso)
     broadcast('alertaGiftReset', {});
-    broadcast('regaloFuegosReset', {});
     broadcast('alertaLikesReset', {});
     broadcast('alertaFollowReset', {});
     broadcast('streamJoinReset', {});
@@ -4697,6 +4698,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetWinsGamer':
         broadcast('winsGamerReset', {});
         break;
+      case 'testWinsMinecraft':
+        broadcast('winsMinecraftTest', {});
+        break;
+      case 'resetWinsMinecraft':
+        broadcast('winsMinecraftReset', {});
+        break;
+      case 'testWinsMario':
+        broadcast('winsMarioTest', {});
+        break;
+      case 'resetWinsMario':
+        broadcast('winsMarioReset', {});
+        break;
       case 'testGiftCounter':
         broadcast('giftCounterTest', {});
         break;
@@ -4751,12 +4764,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetAlertaGift':
         broadcast('alertaGiftReset', {});
-        break;
-      case 'testRegaloFuegos':
-        broadcast('regaloFuegosTest', {});
-        break;
-      case 'resetRegaloFuegos':
-        broadcast('regaloFuegosReset', {});
         break;
       case 'testAlertaLikes':
         broadcast('alertaLikesTest', {});

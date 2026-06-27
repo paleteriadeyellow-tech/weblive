@@ -229,7 +229,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'foc-conn', 'rgf-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tllmc-conn', 'tdl-conn', 'tdlmc-conn', 'hyp-conn', 'foc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -326,14 +326,17 @@ const OVERLAY_CAP = {
   '/pelotas.html': 'ov_pelotas',
   '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
+  '/contador-wins-minecraft.html': 'ov_winscounterminecraft',
+  '/contador-wins-mario.html': 'ov_winscountermario',
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
   '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
   '/topalt-rank.html': 'ov_topaltrank',
   '/toplikes.html': 'ov_toplikes', '/topdiamantes.html': 'ov_topdiamantes',
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
+  '/toplikes-lista-minecraft.html': 'ov_toplikeslistamc', '/topdiamantes-lista-minecraft.html': 'ov_topdiamanteslistamc',
   '/contador-seguidores.html': 'ov_contadorseguidores',
-  '/alerta-regalo.html': 'ov_alertaregalo', '/regalo-fuegos.html': 'ov_regalofuegos',
+  '/alerta-regalo.html': 'ov_alertaregalo',
   '/alerta-likes.html': 'ov_alertalikes',
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
   '/top1fire.html': 'ov_top1fire',
@@ -451,13 +454,14 @@ const CAP_LABELS = {
   // overlays
   ov_joinlive: 'Join al live', ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
-  ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)',
+  ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
   ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_toplikes: 'Top likes',
   ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
-  ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_contadorseguidores: 'Contador de seguidores',
+  ov_toplikeslistamc: 'Ranking likes (lista Minecraft)', ov_topdiamanteslista: 'Ranking diamantes (lista)',
+  ov_topdiamanteslistamc: 'Ranking diamantes (lista Minecraft)', ov_contadorseguidores: 'Contador de seguidores',
   ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
@@ -471,8 +475,8 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
   'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_metalslug',
   'ov_joinlive', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
-  'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
-  'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
+  'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_toplikeslistamc', 'ov_topdiamanteslista', 'ov_topdiamanteslistamc',
   'ov_contadorseguidores', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
@@ -911,7 +915,6 @@ function roomUrl(path) {
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
   if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=7';
-  if (/\/regalo-fuegos\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=3';
   return url;
 }
 
@@ -4168,7 +4171,7 @@ function randomGiftSample() {
 }
 
 const CFG_FONTS = [
-  ['exo2', 'Exo 2'], ['luckiest', 'Luckiest Guy ⭐'], ['bangers', 'Bangers ⭐'], ['lilita', 'Lilita One ⭐'],
+  ['pressstart', 'Press Start 2P ⛏'], ['exo2', 'Exo 2'], ['luckiest', 'Luckiest Guy ⭐'], ['bangers', 'Bangers ⭐'], ['lilita', 'Lilita One ⭐'],
   ['titan', 'Titan One ⭐'], ['fredoka', 'Fredoka ⭐'], ['bungee', 'Bungee ⭐'],
   ['rubik', 'Rubik'], ['oswald', 'Oswald'], ['bebas', 'Bebas Neue'], ['montserrat', 'Montserrat'],
   ['poppins', 'Poppins'], ['orbitron', 'Orbitron'], ['inter', 'Inter'], ['system', 'Sistema'],
@@ -4347,7 +4350,7 @@ const STYLE_OVERLAYS = [
     map: { 'talfg-interval': 'intervalSec', 'talfg-period-likes': 'resetPeriodLikes', 'talfg-period-diam': 'resetPeriodDiam',
       'talfg-rows': 'rows', 'talfg-scale': 'scale', 'talfg-likes-accent': 'likesAccent', 'talfg-diam-accent': 'diamAccent',
       'talfg-rowbg': 'rowBg', 'talfg-font': 'font', 'talfg-transparent': 'transparent', 'talfg-rainbow': 'nameRainbow',
-      'talfg-lines': 'lines', 'talfg-shadows': 'shadows' },
+      'talfg-lines': 'lines', 'talfg-shadows': 'shadows', 'talfg-mirror': 'mirror' },
     types: { rows: 'int', scale: 'int', intervalSec: 'int' },
     onSave: (cfg) => {
       if (!settings.toplikesRank) settings.toplikesRank = {};
@@ -4362,7 +4365,7 @@ const STYLE_OVERLAYS = [
     modalId: 'tlkConfigModal', closeId: 'tlkcfg-close', saveId: 'tlkcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
     map: { 'tlkcfg-period': 'resetPeriod', 'tlkcfg-rows': 'rows', 'tlkcfg-scale': 'scale', 'tlkcfg-accent': 'accent', 'tlkcfg-rowbg': 'rowBg', 'tlkcfg-font': 'font',
-      'tlkcfg-transparent': 'transparent', 'tlkcfg-rainbow': 'nameRainbow', 'tlkcfg-lines': 'lines', 'tlkcfg-shadows': 'shadows' },
+      'tlkcfg-transparent': 'transparent', 'tlkcfg-rainbow': 'nameRainbow', 'tlkcfg-lines': 'lines', 'tlkcfg-shadows': 'shadows', 'tlkcfg-mirror': 'mirror' },
     types: { rows: 'int', scale: 'int' },
   }),
   setupStyleOverlay({
@@ -4371,7 +4374,7 @@ const STYLE_OVERLAYS = [
     modalId: 'tdmConfigModal', closeId: 'tdmcfg-close', saveId: 'tdmcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
     map: { 'tdmcfg-period': 'resetPeriod', 'tdmcfg-rows': 'rows', 'tdmcfg-scale': 'scale', 'tdmcfg-accent': 'accent', 'tdmcfg-rowbg': 'rowBg', 'tdmcfg-font': 'font',
-      'tdmcfg-transparent': 'transparent', 'tdmcfg-rainbow': 'nameRainbow', 'tdmcfg-lines': 'lines', 'tdmcfg-shadows': 'shadows' },
+      'tdmcfg-transparent': 'transparent', 'tdmcfg-rainbow': 'nameRainbow', 'tdmcfg-lines': 'lines', 'tdmcfg-shadows': 'shadows', 'tdmcfg-mirror': 'mirror' },
     types: { rows: 'int', scale: 'int' },
   }),
   setupStyleOverlay({
@@ -4380,7 +4383,16 @@ const STYLE_OVERLAYS = [
     modalId: 'tllConfigModal', closeId: 'tllcfg-close', saveId: 'tllcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
     map: { 'tllcfg-period': 'resetPeriod', 'tllcfg-rows': 'rows', 'tllcfg-scale': 'scale', 'tllcfg-accent': 'accent', 'tllcfg-font': 'font',
-      'tllcfg-transparent': 'transparent', 'tllcfg-rainbow': 'nameRainbow', 'tllcfg-lines': 'lines', 'tllcfg-shadows': 'shadows' },
+      'tllcfg-transparent': 'transparent', 'tllcfg-rainbow': 'nameRainbow', 'tllcfg-lines': 'lines', 'tllcfg-shadows': 'shadows', 'tllcfg-mirror': 'mirror' },
+    types: { rows: 'int', scale: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'toplikeslistmc', settingsKey: 'toplikesListMc', previewId: 'tllmc-preview', rank: 'toplikeslist',
+    btnTest: 'tllmc-test', btnReset: 'tllmc-reset', btnConfig: 'tllmc-config',
+    modalId: 'tllmcConfigModal', closeId: 'tllmcfg-close', saveId: 'tllmcfg-save',
+    testAction: 'testRank', resetAction: 'resetRank',
+    map: { 'tllmcfg-rows': 'rows', 'tllmcfg-scale': 'scale', 'tllmcfg-accent': 'accent', 'tllmcfg-font': 'font',
+      'tllmcfg-transparent': 'transparent', 'tllmcfg-rainbow': 'nameRainbow', 'tllmcfg-lines': 'lines', 'tllmcfg-shadows': 'shadows', 'tllmcfg-mirror': 'mirror' },
     types: { rows: 'int', scale: 'int' },
   }),
   setupStyleOverlay({
@@ -4389,7 +4401,16 @@ const STYLE_OVERLAYS = [
     modalId: 'tdlConfigModal', closeId: 'tdlcfg-close', saveId: 'tdlcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
     map: { 'tdlcfg-period': 'resetPeriod', 'tdlcfg-rows': 'rows', 'tdlcfg-scale': 'scale', 'tdlcfg-accent': 'accent', 'tdlcfg-font': 'font',
-      'tdlcfg-transparent': 'transparent', 'tdlcfg-rainbow': 'nameRainbow', 'tdlcfg-lines': 'lines', 'tdlcfg-shadows': 'shadows' },
+      'tdlcfg-transparent': 'transparent', 'tdlcfg-rainbow': 'nameRainbow', 'tdlcfg-lines': 'lines', 'tdlcfg-shadows': 'shadows', 'tdlcfg-mirror': 'mirror' },
+    types: { rows: 'int', scale: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'topdiamlistmc', settingsKey: 'topdiamListMc', previewId: 'tdlmc-preview', rank: 'topdiamlist',
+    btnTest: 'tdlmc-test', btnReset: 'tdlmc-reset', btnConfig: 'tdlmc-config',
+    modalId: 'tdlmcConfigModal', closeId: 'tdlmcfg-close', saveId: 'tdlmcfg-save',
+    testAction: 'testRank', resetAction: 'resetRank',
+    map: { 'tdlmcfg-rows': 'rows', 'tdlmcfg-scale': 'scale', 'tdlmcfg-accent': 'accent', 'tdlmcfg-font': 'font',
+      'tdlmcfg-transparent': 'transparent', 'tdlmcfg-rainbow': 'nameRainbow', 'tdlmcfg-lines': 'lines', 'tdlmcfg-shadows': 'shadows', 'tdlmcfg-mirror': 'mirror' },
     types: { rows: 'int', scale: 'int' },
   }),
   setupStyleOverlay({
@@ -4402,16 +4423,6 @@ const STYLE_OVERLAYS = [
       'tp3cfg-rainbow': 'nameRainbow', 'tp3cfg-titlerainbow': 'titleRainbow', 'tp3cfg-glitter': 'glitter',
       'tp3cfg-lines': 'lines', 'tp3cfg-shadows': 'shadows' },
     types: { scale: 'int' },
-  }),
-  setupStyleOverlay({
-    kind: 'regalofuegos', settingsKey: 'regaloFuegos', previewId: 'rgf-preview',
-    btnTest: 'rgf-test', btnReset: 'rgf-reset', btnConfig: 'rgf-config',
-    modalId: 'rgfConfigModal', closeId: 'rgfcfg-close', saveId: 'rgfcfg-save',
-    testAction: 'testRegaloFuegos', resetAction: 'resetRegaloFuegos', randomGift: true,
-    ovBuild: '3', bumpPreview: true,
-    map: { 'rgfcfg-dur': 'durationSec', 'rgfcfg-scale': 'scale', 'rgfcfg-ring': 'ringCount',
-      'rgfcfg-name': 'nameColor', 'rgfcfg-glow': 'glowColor', 'rgfcfg-stem': 'showStem' },
-    types: { durationSec: 'int', scale: 'int', ringCount: 'int' },
   }),
   setupStyleOverlay({
     kind: 'followercounter', settingsKey: 'followerCounter', previewId: 'foc-preview',
@@ -4685,6 +4696,28 @@ const WINS_COUNTERS = [
     hotkeysId: 'wcgcfg-hotkeys', fontSizeValId: 'wcgcfg-fontsize-val', inputWinsModal: 'wcgcfg-wins',
     map: { 'wcgcfg-label': 'label', 'wcgcfg-font': 'font', 'wcgcfg-wins': 'wins', 'wcgcfg-max': 'winsMax', 'wcgcfg-fontsize': 'fontSize',
       'wcgcfg-textcolor': 'textColor', 'wcgcfg-accentcolor': 'accentColor', 'wcgcfg-bgcolor': 'bgColor', 'wcgcfg-bordercolor': 'borderColor', 'wcgcfg-rainbow': 'rainbow', 'wcgcfg-scoreglow': 'scoreGlow' },
+    types: { wins: 'int', winsMax: 'int', fontSize: 'int' },
+  },
+  {
+    kind: 'wins_counter_minecraft', key: 'winsCounterMinecraft', previewId: 'wcm-preview',
+    btnReset: 'wcm-reset', btnTest: 'wcm-test', btnConfig: 'wcm-config',
+    btnMinus: 'wcm-minus', btnPlus: 'wcm-plus', inputWins: 'wcm-wins',
+    modalId: 'wcmConfigModal', closeId: 'wcmcfg-close', saveId: 'wcmcfg-save',
+    testAction: 'testWinsMinecraft',
+    hotkeysId: 'wcmcfg-hotkeys', fontSizeValId: 'wcmcfg-fontsize-val', inputWinsModal: 'wcmcfg-wins',
+    map: { 'wcmcfg-label': 'label', 'wcmcfg-font': 'font', 'wcmcfg-wins': 'wins', 'wcmcfg-max': 'winsMax', 'wcmcfg-fontsize': 'fontSize',
+      'wcmcfg-textcolor': 'textColor', 'wcmcfg-accentcolor': 'accentColor', 'wcmcfg-bgcolor': 'bgColor', 'wcmcfg-bordercolor': 'borderColor', 'wcmcfg-rainbow': 'rainbow', 'wcmcfg-scoreglow': 'scoreGlow' },
+    types: { wins: 'int', winsMax: 'int', fontSize: 'int' },
+  },
+  {
+    kind: 'wins_counter_mario', key: 'winsCounterMario', previewId: 'wmr-preview',
+    btnReset: 'wmr-reset', btnTest: 'wmr-test', btnConfig: 'wmr-config',
+    btnMinus: 'wmr-minus', btnPlus: 'wmr-plus', inputWins: 'wmr-wins',
+    modalId: 'wmrConfigModal', closeId: 'wmrcfg-close', saveId: 'wmrcfg-save',
+    testAction: 'testWinsMario',
+    hotkeysId: 'wmrcfg-hotkeys', fontSizeValId: 'wmrcfg-fontsize-val', inputWinsModal: 'wmrcfg-wins',
+    map: { 'wmrcfg-label': 'label', 'wmrcfg-font': 'font', 'wmrcfg-wins': 'wins', 'wmrcfg-max': 'winsMax', 'wmrcfg-fontsize': 'fontSize',
+      'wmrcfg-textcolor': 'textColor', 'wmrcfg-accentcolor': 'accentColor', 'wmrcfg-bgcolor': 'bgColor', 'wmrcfg-bordercolor': 'borderColor', 'wmrcfg-rainbow': 'rainbow', 'wmrcfg-scoreglow': 'scoreGlow' },
     types: { wins: 'int', winsMax: 'int', fontSize: 'int' },
   },
 ].map(setupWinsCounter);

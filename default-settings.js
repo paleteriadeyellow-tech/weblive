@@ -215,6 +215,30 @@ export const DEFAULT_SETTINGS = {
       decN: { on: false, key: 'F8', amount: 5, giftId: '', giftName: '', image: '' },
     },
   },
+  winsCounterMinecraft: {
+    label: 'WINS', winsMax: 10, wins: 0, font: 'pressstart', rainbow: false,
+    scoreGlow: true,
+    textColor: '#ffffff', accentColor: '#55ff55',
+    bgColor: '#565656', borderColor: '#c6c6c6', fontSize: 22,
+    hotkeys: {
+      inc1: { on: false, key: 'F1', amount: 1, giftId: '', giftName: '', image: '' },
+      dec1: { on: false, key: 'F2', amount: 1, giftId: '', giftName: '', image: '' },
+      incN: { on: false, key: 'F3', amount: 5, giftId: '', giftName: '', image: '' },
+      decN: { on: false, key: 'F4', amount: 5, giftId: '', giftName: '', image: '' },
+    },
+  },
+  winsCounterMario: {
+    label: 'WINS', winsMax: 10, wins: 0, font: 'pressstart', rainbow: false,
+    scoreGlow: true,
+    textColor: '#ffffff', accentColor: '#ffe14d',
+    bgColor: '#e52521', borderColor: '#049cd8', fontSize: 22,
+    hotkeys: {
+      inc1: { on: false, key: 'Ctrl+F1', amount: 1, giftId: '', giftName: '', image: '' },
+      dec1: { on: false, key: 'Ctrl+F2', amount: 1, giftId: '', giftName: '', image: '' },
+      incN: { on: false, key: 'Ctrl+F3', amount: 5, giftId: '', giftName: '', image: '' },
+      decN: { on: false, key: 'Ctrl+F4', amount: 5, giftId: '', giftName: '', image: '' },
+    },
+  },
   // Spotify Song Requests (solo .exe · admin / albertoyt). Comandos del chat: !play/!skip/!revoke.
   spotify: {
     playOn: true, playCost: 0, skipOn: true, skipCost: 0,
@@ -302,14 +326,16 @@ export const DEFAULT_SETTINGS = {
     sniper: false, slowReveal: false, font: 'inter',
   },
   // Rankings Likes / Diamantes (bandas y lista)
-  toplikesRank: { rows: 5, accent: '#ffffff', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, resetPeriod: 'live' },
-  topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, resetPeriod: 'live' },
-  toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, resetPeriod: 'live' },
-  topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, resetPeriod: 'live' },
+  toplikesRank: { rows: 5, accent: '#ffffff', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false, resetPeriod: 'live' },
+  topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false, resetPeriod: 'live' },
+  toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, mirror: false, resetPeriod: 'live' },
+  topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, mirror: false, resetPeriod: 'live' },
+  toplikesListMc: { rows: 9, accent: '#ff5555', scale: 100, font: 'pressstart', transparent: false, nameRainbow: false, lines: true, shadows: true, mirror: false },
+  topdiamListMc: { rows: 9, accent: '#55ffff', scale: 100, font: 'pressstart', transparent: false, nameRainbow: false, lines: true, shadows: true, mirror: false },
   topAltRank: {
     rows: 5, scale: 100, font: 'inter', rowBg: '#0c1c26',
     likesAccent: '#ffffff', diamAccent: '#ffe08a',
-    transparent: false, nameRainbow: true, lines: true, shadows: true,
+    transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false,
     intervalSec: 3, resetPeriodLikes: 'live', resetPeriodDiam: 'live',
   },
   topPointsRank: {
@@ -326,10 +352,6 @@ export const DEFAULT_SETTINGS = {
   alertaGift: {
     headline: 'Gracias por tu regalo', durationSec: 6, scale: 100,
     g1: '#ff4d8d', g2: '#c084fc', g3: '#38bdf8', nameColor: '#ffffff', subColor: '#f8fafc',
-  },
-  regaloFuegos: {
-    durationSec: 7, scale: 100, nameColor: '#ff52a8', glowColor: '#ffc400',
-    ringCount: 10, showStem: true,
   },
   alertaLikes: {
     durationSec: 6, scale: 100, g1: '#ff4d8d', g2: '#c084fc', g3: '#38bdf8',

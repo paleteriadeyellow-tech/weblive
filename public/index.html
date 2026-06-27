@@ -1450,6 +1450,72 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Contador de victorias (Minecraft) -->
+        <div id="wcmConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>⛏ Configurar — Contador de victorias (Minecraft)</h2>
+              <button class="modal-close" id="wcmcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">ETIQUETA</label>
+              <input type="text" id="wcmcfg-label" placeholder="WINS">
+              <label class="ml">FUENTE</label>
+              <select id="wcmcfg-font" class="cfg-font"></select>
+              <div class="wc-two">
+                <div><label class="ml">WINS ACTUALES</label><input type="number" id="wcmcfg-wins" min="0" value="0"></div>
+                <div><label class="ml">META (MÁX.)</label><input type="number" id="wcmcfg-max" min="1" value="10"></div>
+              </div>
+              <label class="ml">TAMAÑO TEXTO (PX) — <span class="opt" id="wcmcfg-fontsize-val">22</span></label>
+              <input type="range" id="wcmcfg-fontsize" class="wc-range" min="10" max="64" value="22" oninput="document.getElementById('wcmcfg-fontsize-val').textContent=this.value">
+              <div class="cfg-colors">
+                <div><label class="ml">TEXTO</label><input type="color" id="wcmcfg-textcolor" value="#ffffff"></div>
+                <div><label class="ml">NÚMERO</label><input type="color" id="wcmcfg-accentcolor" value="#55ff55"></div>
+                <div><label class="ml">FONDO</label><input type="color" id="wcmcfg-bgcolor" value="#565656"></div>
+                <div><label class="ml">SECUNDARIO</label><input type="color" id="wcmcfg-bordercolor" value="#c6c6c6"></div>
+              </div>
+              <label class="wc-check"><input type="checkbox" id="wcmcfg-rainbow"><span>🌈 Texto color arcoíris</span></label>
+              <label class="wc-check"><input type="checkbox" id="wcmcfg-scoreglow" checked><span>✨ Brillo en el número (00)</span></label>
+              <label class="ml">ATAJOS DE TECLADO <span class="opt">— marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinación que quieras (ej. F1, Ctrl+1). En la app .exe funcionan aunque esté minimizada o estés en OBS/juego. Además puedes asignar un regalo a cada acción: cuando lo envíen en el live, se sumará o restará automáticamente.</span></label>
+              <div id="wcmcfg-hotkeys" class="wc-hotkeys"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="wcmcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Contador de victorias (Mario Bros) -->
+        <div id="wmrConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🍄 Configurar — Contador de victorias (Mario Bros)</h2>
+              <button class="modal-close" id="wmrcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">ETIQUETA</label>
+              <input type="text" id="wmrcfg-label" placeholder="WINS">
+              <label class="ml">FUENTE</label>
+              <select id="wmrcfg-font" class="cfg-font"></select>
+              <div class="wc-two">
+                <div><label class="ml">WINS ACTUALES</label><input type="number" id="wmrcfg-wins" min="0" value="0"></div>
+                <div><label class="ml">META (MÁX.)</label><input type="number" id="wmrcfg-max" min="1" value="10"></div>
+              </div>
+              <label class="ml">TAMAÑO TEXTO (PX) — <span class="opt" id="wmrcfg-fontsize-val">22</span></label>
+              <input type="range" id="wmrcfg-fontsize" class="wc-range" min="10" max="64" value="22" oninput="document.getElementById('wmrcfg-fontsize-val').textContent=this.value">
+              <div class="cfg-colors">
+                <div><label class="ml">TEXTO</label><input type="color" id="wmrcfg-textcolor" value="#ffffff"></div>
+                <div><label class="ml">NÚMERO</label><input type="color" id="wmrcfg-accentcolor" value="#ffe14d"></div>
+                <div><label class="ml">FONDO</label><input type="color" id="wmrcfg-bgcolor" value="#e52521"></div>
+                <div><label class="ml">SECUNDARIO</label><input type="color" id="wmrcfg-bordercolor" value="#049cd8"></div>
+              </div>
+              <label class="wc-check"><input type="checkbox" id="wmrcfg-rainbow"><span>🌈 Texto color arcoíris</span></label>
+              <label class="wc-check"><input type="checkbox" id="wmrcfg-scoreglow" checked><span>✨ Brillo en el número (00)</span></label>
+              <label class="ml">ATAJOS DE TECLADO <span class="opt">— marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinación que quieras (ej. Ctrl+F1). En la app .exe funcionan aunque esté minimizada o estés en OBS/juego. Además puedes asignar un regalo a cada acción.</span></label>
+              <div id="wmrcfg-hotkeys" class="wc-hotkeys"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="wmrcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Contador de meta -->
         <div id="gctConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -1625,6 +1691,7 @@
                 <label class="switch-row plain"><input type="checkbox" id="talfg-rainbow" checked> <span>Nombres arcoíris</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="talfg-lines" checked> <span>Líneas separadoras</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="talfg-shadows" checked> <span>Sombras</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="talfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="talfg-save">Guardar para OBS / Live Studio</button></div>
@@ -1658,6 +1725,7 @@
                 <label class="switch-row plain"><input type="checkbox" id="tlkcfg-rainbow" checked> <span>Nombres arcoíris</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tlkcfg-lines" checked> <span>Líneas separadoras</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tlkcfg-shadows" checked> <span>Sombras</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tlkcfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="tlkcfg-save">Guardar para OBS / Live Studio</button></div>
@@ -1722,6 +1790,7 @@
                 <label class="switch-row plain"><input type="checkbox" id="tdmcfg-rainbow" checked> <span>Nombres arcoíris</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tdmcfg-lines" checked> <span>Líneas separadoras</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tdmcfg-shadows" checked> <span>Sombras</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tdmcfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="tdmcfg-save">Guardar para OBS / Live Studio</button></div>
@@ -1754,9 +1823,66 @@
                 <label class="switch-row plain"><input type="checkbox" id="tllcfg-rainbow" checked> <span>Nombres arcoíris</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tllcfg-lines"> <span>Líneas separadoras</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tllcfg-shadows"> <span>Sombras</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tllcfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="tllcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Ranking likes (lista Minecraft) -->
+        <div id="tllmcConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>⛏ Configurar — Ranking likes (lista Minecraft)</h2>
+              <button class="modal-close" id="tllmcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="opt" style="margin:0 0 14px">Mismos datos que el ranking likes (lista). El periodo de reinicio se configura en esa tarjeta.</p>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">FILAS (3-15)</label><input type="number" id="tllmcfg-rows" min="3" max="15" value="9"></div>
+                <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tllmcfg-scale" min="60" max="140" value="100"></div>
+                <div><label class="ml">COLOR NÚMERO</label><input type="color" id="tllmcfg-accent" value="#ff5555"></div>
+              </div>
+              <label class="ml">FUENTE</label>
+              <select id="tllmcfg-font" class="cfg-font"></select>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-transparent"> <span>Fondo transparente</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-rainbow"> <span>Nombres verdes (estilo XP)</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-lines" checked> <span>Líneas separadoras</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-shadows" checked> <span>Sombras pixel</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="tllmcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Ranking diamantes (lista Minecraft) -->
+        <div id="tdlmcConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>⛏ Configurar — Ranking diamantes (lista Minecraft)</h2>
+              <button class="modal-close" id="tdlmcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="opt" style="margin:0 0 14px">Mismos datos que el ranking diamantes (lista). El periodo de reinicio se configura en esa tarjeta.</p>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">FILAS (3-15)</label><input type="number" id="tdlmcfg-rows" min="3" max="15" value="9"></div>
+                <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tdlmcfg-scale" min="60" max="140" value="100"></div>
+                <div><label class="ml">COLOR NÚMERO</label><input type="color" id="tdlmcfg-accent" value="#55ffff"></div>
+              </div>
+              <label class="ml">FUENTE</label>
+              <select id="tdlmcfg-font" class="cfg-font"></select>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-transparent"> <span>Fondo transparente</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-rainbow"> <span>Nombres cyan (estilo diamante)</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-lines" checked> <span>Líneas separadoras</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-shadows" checked> <span>Sombras pixel</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="tdlmcfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
         </div>
 
@@ -1786,6 +1912,7 @@
                 <label class="switch-row plain"><input type="checkbox" id="tdlcfg-rainbow" checked> <span>Nombres arcoíris</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tdlcfg-lines"> <span>Líneas separadoras</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tdlcfg-shadows"> <span>Sombras</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tdlcfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="tdlcfg-save">Guardar para OBS / Live Studio</button></div>
@@ -1844,27 +1971,6 @@
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="hypcfg-save">Guardar para OBS / Live Studio</button></div>
-          </div>
-        </div>
-
-        <!-- Modal: Configurar Regalo fuegos artificiales -->
-        <div id="rgfConfigModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2>🎆 Configurar — Regalo fuegos artificiales</h2>
-              <button class="modal-close" id="rgfcfg-close">✕</button>
-            </div>
-            <div class="modal-body">
-              <div class="gvscfg-grid2">
-                <div><label class="ml">DURACIÓN TOTAL (3-90s, máx. 1 min 30 s)</label><input type="number" id="rgfcfg-dur" min="3" max="90" value="7"></div>
-                <div><label class="ml">ESCALA (50-150%)</label><input type="number" id="rgfcfg-scale" min="50" max="150" value="100"></div>
-                <div><label class="ml">REGALOS EN ANILLO (6-16)</label><input type="number" id="rgfcfg-ring" min="6" max="16" value="10"></div>
-                <div><label class="ml">COLOR NOMBRE</label><input type="color" id="rgfcfg-name" value="#ff52a8"></div>
-                <div><label class="ml">COLOR BRILLO</label><input type="color" id="rgfcfg-glow" value="#ffc400"></div>
-                <div><label class="switch-row plain" style="grid-column:1/-1"><input type="checkbox" id="rgfcfg-stem" checked> <span>Mostrar estela al lanzar el regalo</span></label></div>
-              </div>
-            </div>
-            <div class="modal-foot"><button class="btn primary" id="rgfcfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
         </div>
 
@@ -2915,6 +3021,50 @@
                 </div>
               </div>
 
+              <!-- Tarjeta PRO: Ranking likes (lista Minecraft) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="tllmc-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="tllmc-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="tllmc-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="tllmc-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">⛏ Ranking likes (lista Minecraft)</h3>
+                <p class="ovpro-desc">Lista compacta estilo Minecraft: bloques de oro/hierro/cobre, avatares cuadrados, corazón pixel y franja de césped. Mismos datos que el ranking likes lista.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/toplikes-lista-minecraft.html">/toplikes-lista-minecraft.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="tllmc-preview" src="/toplikes-lista-minecraft.html?embed=1" title="Vista previa ranking likes lista minecraft"></iframe>
+                </div>
+              </div>
+
+              <!-- Tarjeta PRO: Ranking diamantes (lista Minecraft) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="tdlmc-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="tdlmc-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="tdlmc-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="tdlmc-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">⛏ Ranking diamantes (lista Minecraft)</h3>
+                <p class="ovpro-desc">Lista compacta estilo Minecraft con diamante pixelado, casco cyan en el #1 y panel de piedra. Mismos datos que el ranking diamantes lista.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/topdiamantes-lista-minecraft.html">/topdiamantes-lista-minecraft.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="tdlmc-preview" src="/topdiamantes-lista-minecraft.html?embed=1" title="Vista previa ranking diamantes lista minecraft"></iframe>
+                </div>
+              </div>
+
               <!-- Tarjeta PRO: Ranking likes (lista) -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -2967,28 +3117,6 @@
           <h1 class="view-title">🎨 Diseño Overlay</h1>
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
-
-              <!-- Tarjeta PRO: Regalo fuegos artificiales -->
-              <div class="ovpro-card">
-                <div class="ovpro-top">
-                  <div class="ovpro-actions">
-                    <button class="ovpro-btn" id="rgf-reset">↺ Reset</button>
-                    <button class="ovpro-btn primary" id="rgf-test">▶ Testear</button>
-                    <button class="ovpro-btn" id="rgf-config">⚙ Configurar</button>
-                  </div>
-                  <div class="ovpro-conn" id="rgf-conn"><span class="cdot"></span> CONECTADO</div>
-                </div>
-                <h3 class="ovpro-title">🎆 Regalo fuegos artificiales</h3>
-                <p class="ovpro-desc">Como TikFinity: el regalo sube con estela → explota en anillo (foto + regalo) → nombre rosa con brillo dorado y avatar debajo. Chispas cayendo.</p>
-                <div class="ovpro-urlrow">
-                  <code class="ov-url" data-path="/regalo-fuegos.html">/regalo-fuegos.html</code>
-                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
-                </div>
-                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-                <div class="ovpro-preview">
-                  <iframe id="rgf-preview" src="/regalo-fuegos.html?embed=1&v=3" title="Vista previa regalo fuegos artificiales"></iframe>
-                </div>
-              </div>
 
               <!-- Tarjeta PRO: Contador de seguidores -->
               <div class="ovpro-card">
@@ -3085,6 +3213,75 @@
         <section class="view" id="view-ov-contador">
           <h1 class="view-title">🔢 Contador</h1>
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
+
+            <!-- Tarjeta PRO: Contador de victorias (Minecraft) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="wcm-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="wcm-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="wcm-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="wcm-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">⛏ Contador de victorias (Minecraft)</h3>
+              <p class="ovpro-desc">Estilo retro pixel art: panel tipo inventario, bloque de césped y fuente 8-bit. Ideal para streams de Minecraft o survival.</p>
+
+              <div class="gct-controls">
+                <div class="gct-field gct-narrow">
+                  <label>Victorias</label>
+                  <div class="gct-giftrow">
+                    <button class="btn ghost" id="wcm-minus">−</button>
+                    <input type="number" id="wcm-wins" min="0" value="0">
+                    <button class="btn ghost" id="wcm-plus">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/contador-wins-minecraft.html">/contador-wins-minecraft.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="wcm-preview" src="/contador-wins-minecraft.html?embed=1" title="Vista previa contador de victorias minecraft"></iframe>
+              </div>
+            </div>
+
+            <!-- Tarjeta PRO: Contador de victorias (Mario Bros) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="wmr-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="wmr-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="wmr-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="wmr-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">🍄 Contador de victorias (Mario Bros)</h3>
+              <p class="ovpro-desc">Estilo NES clásico: cielo azul, panel rojo ladrillo, moneda dorada y salto al sumar. Perfecto para retos de Mario o plataformas retro.</p>
+
+              <div class="gct-controls">
+                <div class="gct-field gct-narrow">
+                  <label>Victorias</label>
+                  <div class="gct-giftrow">
+                    <button class="btn ghost" id="wmr-minus">−</button>
+                    <input type="number" id="wmr-wins" min="0" value="0">
+                    <button class="btn ghost" id="wmr-plus">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/contador-wins-mario.html">/contador-wins-mario.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="wmr-preview" src="/contador-wins-mario.html?embed=1" title="Vista previa contador de victorias mario"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Contador de victorias (simple) -->
             <div class="ovpro-card">
               <div class="ovpro-top">

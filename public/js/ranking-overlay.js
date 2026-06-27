@@ -2,7 +2,7 @@
 (function () {
   const PLACEHOLDER = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
   const PREVIEW_AVATAR = '/jarron/lv.png';
-  const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+  const FONTS = { pressstart: "'Press Start 2P', monospace", luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -14,6 +14,21 @@
     st.textContent = '.ico .ico-coin { width: 1em; height: 1em; display: block; flex-shrink: 0; }';
     document.head.appendChild(st);
   }
+  function ensureMirrorStyles() {
+    let st = document.getElementById('ranking-overlay-mirror-css');
+    if (!st) {
+      st = document.createElement('style');
+      st.id = 'ranking-overlay-mirror-css';
+      document.head.appendChild(st);
+    }
+    st.textContent =
+      'html[data-mirror="1"] body{display:flex;justify-content:flex-end;width:100vw}' +
+      'html[data-mirror="1"] .widget{transform:scale(var(--ol-scale,1)) scaleX(-1);transform-origin:top right}' +
+      'html[data-mirror="1"] .list .row>*{transform:scaleX(-1)}' +
+      'html[data-mirror="1"] .meta{text-align:right}' +
+      'html[data-mirror="1"] .name-row{align-items:flex-end;text-align:right}' +
+      'html[data-mirror="1"] .valwrap{justify-content:flex-end;width:100%}';
+  }
   function coinIconMarkup(color) {
     const c = (color && /^#[0-9a-fA-F]{3,8}$/.test(color)) ? color : '#ffd700';
     return '<svg class="ico-coin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">' +
@@ -21,6 +36,8 @@
       '<circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/></svg>';
   }
   function iconMarkup(icon, accent) {
+    if (icon === 'mc-heart') return '<span class="ico-mc-heart" aria-hidden="true"></span>';
+    if (icon === 'mc-diamond') return '<span class="ico-mc-diamond" aria-hidden="true"></span>';
     if (icon === '🪙' || icon === 'coin') return coinIconMarkup(accent);
     return esc(icon);
   }
@@ -32,9 +49,11 @@
 
   function init(opt) {
     ensureCoinStyles();
+    ensureMirrorStyles();
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
     const style = opt.style; // 'banded' | 'lista'
+    const theme = opt.theme || '';
     const metric = opt.metric; // 'likes' | 'diamonds'
     const icon = opt.icon;
     const baseW = opt.baseW || (style === 'lista' ? 360 : 920);
@@ -53,13 +72,15 @@
     function maxRows() { return clamp(cfg.rows, 1, 15, 5); }
 
     function applyStyle() {
-      root.style.setProperty('--tf-font-stack', FONTS[cfg.font] || FONTS.inter);
+      root.style.setProperty('--tf-font-stack', FONTS[cfg.font] || (theme === 'minecraft' ? FONTS.pressstart : FONTS.inter));
       root.style.setProperty('--ol-accent', cfg.accent || '#ffffff');
       if (cfg.rowBg) root.style.setProperty('--row-bg', cfg.rowBg); else root.style.removeProperty('--row-bg');
       root.dataset.bg = cfg.transparent ? '1' : '0';
       root.dataset.lines = cfg.lines ? '1' : '0';
       root.dataset.shadows = cfg.shadows ? '1' : '0';
       root.dataset.namefx = cfg.nameRainbow ? '1' : '0';
+      if (cfg.mirror) root.dataset.mirror = '1'; else delete root.dataset.mirror;
+      if (theme) root.dataset.theme = theme; else delete root.dataset.theme;
       if (!isEmbed) {
         const sc = clamp(cfg.scale, 60, 140, 100) / 100;
         widget.style.setProperty('--ol-scale', String(sc));
@@ -87,14 +108,24 @@
     function rowKey(arr) { return arr.map((u) => u.id).join('\x1e'); }
 
     function buildRow(u, rank) {
-      const medal = rank <= 3 ? medalSet[rank - 1] : '';
+      const isMc = theme === 'minecraft';
+      let rankInner;
+      if (isMc && rank <= 3) {
+        const cls = ['mc-gold', 'mc-iron', 'mc-copper'][rank - 1];
+        rankInner = '<span class="medal mc-slot ' + cls + '"></span>';
+      } else if (rank <= 3) {
+        rankInner = '<span class="medal">' + medalSet[rank - 1] + '</span>';
+      } else {
+        rankInner = '<span class="rank-num">' + rank + '.</span>';
+      }
+      const crownHtml = isMc ? '<span class="crown mc-helm"></span>' : '<span class="crown">👑</span>';
       const div = document.createElement('div');
       div.className = 'row';
       div.dataset.rank = String(rank);
       div.dataset.uid = String(u.id);
       div.innerHTML =
-        '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
-        '<div class="av-wrap"><span class="crown">👑</span><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
+        '<div class="rank">' + rankInner + '</div>' +
+        '<div class="av-wrap">' + crownHtml + '<img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
         '<div class="meta"><div class="name-row"><span class="name"></span>' +
         '<div class="valwrap"><span class="ico">' + iconMarkup(icon, cfg.accent) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div></div>';
       const img = div.querySelector('.av');
@@ -275,6 +306,7 @@
   /* Alterna entre ranking diamantes y likes (mismas tarjetas banda). */
   function initAlt(opt) {
     ensureCoinStyles();
+    ensureMirrorStyles();
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
     const medalSet = ['👑', '🥈', '🥉'];
@@ -310,6 +342,7 @@
       root.dataset.lines = cfg.lines ? '1' : '0';
       root.dataset.shadows = cfg.shadows ? '1' : '0';
       root.dataset.namefx = cfg.nameRainbow ? '1' : '0';
+      if (cfg.mirror) root.dataset.mirror = '1'; else delete root.dataset.mirror;
       if (!isEmbed) {
         const sc = clamp(cfg.scale, 60, 140, 100) / 100;
         widget.style.setProperty('--ol-scale', String(sc));

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Ranking likes (lista Minecraft)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@500;600;700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: var(--tf-font-stack, 'Press Start 2P', monospace); color: #fff; image-rendering: pixelated; }
+    .widget { width: 380px; max-width: 96vw; transform: scale(var(--ol-scale, 1)); transform-origin: top center; filter: drop-shadow(0 8px 0 rgba(0,0,0,0.4)); }
+    .list { display: flex; flex-direction: column; border-radius: 0; overflow: hidden; border: 4px solid #1a1a1a; background: #565656; box-shadow: inset 3px 3px 0 rgba(255,255,255,0.22), inset -3px -3px 0 rgba(0,0,0,0.35); position: relative; }
+    .list::before { content: ''; display: block; height: 12px; background: repeating-linear-gradient(90deg, #5d9b38 0 8px, #4a7f2c 8px 16px), linear-gradient(180deg, #6dbb45, #4a7f2c); border-bottom: 4px solid #1a1a1a; box-shadow: inset 0 2px 0 rgba(255,255,255,0.25); }
+    .row { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; min-height: 58px; border-bottom: 4px solid #1a1a1a; background: rgba(45,45,45,0.85); }
+    .row:last-child { border-bottom: none; }
+    .row[data-rank="1"] { background: linear-gradient(90deg, rgba(93,155,56,0.45), rgba(45,45,45,0.9)); }
+    .row[data-rank="2"] { background: linear-gradient(90deg, rgba(120,120,120,0.35), rgba(45,45,45,0.9)); }
+    .row[data-rank="3"] { background: linear-gradient(90deg, rgba(154,80,48,0.35), rgba(45,45,45,0.9)); }
+    .rank { flex: 0 0 auto; width: 36px; display: flex; align-items: center; justify-content: center; }
+    .rank-num { font-size: 10px; font-weight: 700; color: #fff; text-shadow: 2px 2px 0 #1a1a1a; }
+    .medal { line-height: 0; }
+    .mc-slot { display: inline-block; width: 24px; height: 24px; border: 3px solid #1a1a1a; box-shadow: inset 2px 2px 0 rgba(255,255,255,0.25), inset -2px -2px 0 rgba(0,0,0,0.3); }
+    .mc-gold { background: linear-gradient(135deg, #ffe14d 0%, #f0a800 50%, #c97800 100%); }
+    .mc-iron { background: linear-gradient(135deg, #f0f0f0 0%, #b8b8b8 50%, #7a7a7a 100%); }
+    .mc-copper { background: linear-gradient(135deg, #e88b5a 0%, #c46a3a 50%, #8a4a28 100%); }
+    .av-wrap { position: relative; flex: 0 0 auto; width: 48px; height: 48px; }
+    .row[data-rank="1"] .av-wrap { width: 52px; height: 52px; }
+    .av { width: 48px; height: 48px; border-radius: 0; object-fit: cover; display: block; border: 3px solid #1a1a1a; background: #2a2a2a; image-rendering: pixelated; box-shadow: inset 2px 2px 0 rgba(255,255,255,0.15); }
+    .row[data-rank="1"] .av { width: 52px; height: 52px; border-color: #ffe14d; box-shadow: 0 0 0 2px #1a1a1a, inset 2px 2px 0 rgba(255,255,255,0.2); }
+    .row[data-rank="2"] .av { border-color: #d8d8d8; }
+    .row[data-rank="3"] .av { border-color: #e88b5a; }
+    .crown { display: none; position: absolute; left: 50%; top: 0; transform: translate(-50%, -70%); z-index: 2; pointer-events: none; }
+    .row[data-rank="1"] .crown { display: block; }
+    .mc-helm { width: 28px; height: 18px; background: linear-gradient(180deg, #ffe14d 0 55%, #c97800 55%); border: 3px solid #1a1a1a; box-shadow: inset 2px 2px 0 rgba(255,255,255,0.35); }
+    .mc-helm::after { content: ''; position: absolute; left: 50%; top: -5px; transform: translateX(-50%); width: 10px; height: 6px; background: #ffe14d; border: 2px solid #1a1a1a; }
+    .meta { flex: 1 1 auto; min-width: 0; }
+    .name-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .name { font-weight: 700; font-size: 10px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff !important; -webkit-text-fill-color: #fff !important; text-shadow: 2px 2px 0 #1a1a1a; flex: 1; min-width: 0; }
+    html[data-namefx="1"] .name { color: #55ff55 !important; -webkit-text-fill-color: #55ff55 !important; background: none; }
+    .valwrap { display: flex; flex-direction: row; align-items: center; gap: 6px; flex-shrink: 0; }
+    .ico { line-height: 0; display: flex; align-items: center; }
+    .ico-mc-heart { display: inline-block; width: 14px; height: 14px; background: #e52521; border: 2px solid #1a1a1a; transform: rotate(45deg); box-shadow: 2px 2px 0 #1a1a1a; position: relative; top: -1px; }
+    .ico-mc-heart::before, .ico-mc-heart::after { content: ''; position: absolute; width: 14px; height: 14px; background: #e52521; border: 2px solid #1a1a1a; border-radius: 50%; }
+    .ico-mc-heart::before { left: -9px; top: 0; }
+    .ico-mc-heart::after { left: 0; top: -9px; }
+    .num { font-size: 10px; font-weight: 700; color: var(--ol-accent, #ff5555); white-space: nowrap; text-shadow: 2px 2px 0 #1a1a1a; font-variant-numeric: tabular-nums; }
+    html[data-bg="1"] .list { background: transparent; border-color: transparent; box-shadow: none; }
+    html[data-bg="1"] .list::before { opacity: 0.92; }
+    html[data-bg="1"] .row { background: rgba(45,45,45,0.75); }
+    html[data-lines="0"] .row { border-bottom: none; }
+    html[data-shadows="0"] .name, html[data-shadows="0"] .num, html[data-shadows="0"] .rank-num { text-shadow: none; }
+    .list--seq .row { opacity: 0; transform: translateY(8px); transition: opacity .32s steps(4), transform .32s steps(4); }
+    .list--seq .row.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+  <div class="widget"><div class="list" id="list"></div></div>
+  <script src="/js/ranking-overlay.js"></script>
+  <script>
+    RankingOverlay.init({
+      kind: 'toplikeslistmc', settingsKey: 'toplikesListMc', rank: 'toplikeslist',
+      metric: 'likes', icon: 'mc-heart', style: 'lista', theme: 'minecraft',
+      defaults: { rows: 9, accent: '#ff5555', scale: 100, font: 'pressstart', transparent: false, nameRainbow: false, lines: true, shadows: true },
+      baseW: 380,
+    });
+  </script>
+</body>
+</html>
