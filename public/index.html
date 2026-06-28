@@ -2060,6 +2060,49 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Contador de seguidores (Minecraft) -->
+        <div id="focmcConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>⛏️ Configurar — Contador de seguidores (Minecraft)</h2>
+              <button class="modal-close" id="focmccfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">VARIACIÓN (DISEÑO)</label>
+              <select id="focmccfg-variation">
+                <option value="flip">Dígitos flip (bloques)</option>
+                <option value="classic">Número grande + perfil</option>
+                <option value="arc">Barra XP (progreso)</option>
+                <option value="minimal">Minimal (nombre + total)</option>
+              </select>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">FUENTE</label><select id="focmccfg-font" class="cfg-font"></select></div>
+                <div><label class="ml">TAMAÑO DE FUENTE</label><input type="number" id="focmccfg-fontsize" min="16" max="120" value="42"></div>
+                <div><label class="ml">ESPACIADO LÍNEAS</label><input type="number" id="focmccfg-linespace" min="10" max="100" value="50"></div>
+                <div><label class="ml">ESPACIADO LETRAS</label><input type="number" id="focmccfg-letterspace" min="0" max="100" value="50"></div>
+                <div><label class="ml">COLOR DE FUENTE</label><input type="color" id="focmccfg-color" value="#55ff55"></div>
+                <div>
+                  <label class="ml">ESTILO DE COLOR</label>
+                  <select id="focmccfg-colormode">
+                    <option value="solid">Color sólido</option>
+                    <option value="rainbow">Arcoíris</option>
+                    <option value="flow">Arcoíris animado</option>
+                  </select>
+                </div>
+                <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="focmccfg-scale" min="60" max="140" value="100"></div>
+                <div><label class="ml">META PROGRESO (barra XP)</label><input type="number" id="focmccfg-goal" min="100" max="99999999" value="10000"></div>
+              </div>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="focmccfg-showtext" checked> <span>Texto «Followers»</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="focmccfg-showprofile" checked> <span>Mostrar nombre / foto de perfil</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="focmccfg-showbar" checked> <span>Barra de progreso (XP)</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="focmccfg-confetti"> <span>Partículas al subir</span></label>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="focmccfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Alerta de nuevo seguidor -->
         <div id="aflConfigModal" class="modal hidden">
           <div class="modal-box wide">
@@ -3308,6 +3351,28 @@
                 </div>
               </div>
 
+              <!-- Tarjeta PRO: Contador de seguidores (Minecraft) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="focmc-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="focmc-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="focmc-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="focmc-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">⛏️ Contador de seguidores (Minecraft)</h3>
+                <p class="ovpro-desc">Mismo contador en tiempo real con estilo pixel art: bloques de piedra, hierba, creepers y barra XP. Cuatro diseños en uno.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/contador-seguidores-minecraft.html">/contador-seguidores-minecraft.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="focmc-preview" src="/contador-seguidores-minecraft.html?embed=1" title="Vista previa contador de seguidores Minecraft"></iframe>
+                </div>
+              </div>
+
               <!-- Tarjeta PRO: Alerta de regalo -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -3743,6 +3808,54 @@
                 <button class="btn primary" id="tts-cmd-add">Añadir</button>
               </div>
             </div>
+
+            <!-- Voces personalizadas por usuario -->
+            <div class="settings-card tts-card tts-uv-card">
+              <div class="tts-head"><h3>Voces Personalizadas</h3><span class="tts-sub">Asigna una voz distinta a cada usuario del chat</span></div>
+              <p class="hint">Cuando un usuario asignado comente, su mensaje se leerá con la voz que elijas (TikTok o del sistema). El resto del chat usa la voz general de arriba.</p>
+
+              <div class="tts-uv-new">
+                <h4 class="tts-uv-section">Nueva asignación</h4>
+                <div class="field">
+                  <label>Seleccionar usuario conectado</label>
+                  <select id="tts-uv-user-sel"><option value="">— Sin usuarios en el chat —</option></select>
+                </div>
+                <div class="field">
+                  <label>O escribir ID manualmente</label>
+                  <input type="text" id="tts-uv-user-manual" placeholder="Ej: usuario_tiktok_123" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Motor</label>
+                  <select id="tts-uv-engine">
+                    <option value="tiktok">TikTok (Server)</option>
+                    <option value="system">Sistema (navegador)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Idioma</label>
+                  <select id="tts-uv-lang"></select>
+                </div>
+                <div class="field">
+                  <label>Voz</label>
+                  <select id="tts-uv-voice"></select>
+                </div>
+                <button class="btn primary" id="tts-uv-add">Asignar +</button>
+              </div>
+
+              <div class="tts-uv-list-wrap">
+                <h4 class="tts-uv-section">Usuarios asignados</h4>
+                <div class="tts-uv-table-wrap">
+                  <table class="tts-uv-table">
+                    <thead>
+                      <tr><th>Usuario</th><th>Engine</th><th>Idioma</th><th>Voz</th><th></th></tr>
+                    </thead>
+                    <tbody id="tts-uv-tbody">
+                      <tr class="tts-uv-empty"><td colspan="5">Sin asignaciones</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="settings-card tts-footer">
@@ -4027,6 +4140,20 @@
                   <label><input type="checkbox" id="sp-perm-all"> <span>Todos los usuarios</span></label>
                   <label><input type="checkbox" id="sp-perm-subs" checked> <span>Super Fans / Subs</span></label>
                   <label><input type="checkbox" id="sp-perm-mods" checked> <span>Mods</span></label>
+                </div>
+              </div>
+              <div class="sp-row sp-perm-users-row">
+                <label>Usuarios específicos</label>
+                <div class="sp-perm-users">
+                  <label class="switch-row plain"><input type="checkbox" id="sp-perm-users-on"> <span>Permitir usuarios de la lista (por <code>@</code> de TikTok)</span></label>
+                  <p class="hint">Con la casilla activa, quienes añadas abajo podrán usar <code>!play</code>, <code>!skip</code> y <code>!revoke</code> aunque no sean mod ni sub.</p>
+                  <div class="sp-perm-users-add">
+                    <input type="text" id="sp-perm-user-in" placeholder="@usuario_tiktok" autocomplete="off">
+                    <button type="button" class="btn ghost" id="sp-perm-user-add">Añadir</button>
+                  </div>
+                  <div id="sp-perm-user-list" class="sp-perm-user-list">
+                    <div class="sp-perm-users-empty">Ningún usuario añadido</div>
+                  </div>
                 </div>
               </div>
               <div class="sp-save-row"><span id="sp-save-msg" class="sp-save-msg"></span></div>

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Contador de seguidores (Minecraft)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800&family=Orbitron:wght@700;800&family=Oswald:wght@600;700&family=Poppins:wght@700;800&family=Rubik:wght@700;800&family=Titan+One&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; overflow: hidden; background: transparent !important;
+      color: var(--mc-color, #55ff55);
+      font-family: var(--mc-font, 'Press Start 2P', monospace);
+      width: 100%; height: 100%; image-rendering: pixelated;
+    }
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+
+    .mc-wrap {
+      position: relative; transform: scale(var(--mc-scale, 1)); transform-origin: center center;
+      padding: 10px; filter: drop-shadow(0 8px 0 rgba(0,0,0,.45));
+    }
+    .mc-grass {
+      height: 12px; margin: 0 8px; border: 3px solid #1a1a1a; border-bottom: none;
+      background:
+        repeating-linear-gradient(90deg, #5d9b38 0 8px, #4a7f2c 8px 16px),
+        linear-gradient(180deg, #6dbb45 0%, #4a7f2c 100%);
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.25);
+    }
+    .mc-frame {
+      position: relative; padding: 14px 16px 16px;
+      background: linear-gradient(180deg, rgba(110,110,110,.96) 0%, rgba(62,62,62,.98) 100%);
+      border: 4px solid #1a1a1a;
+      box-shadow: inset 3px 3px 0 rgba(255,255,255,.18), inset -3px -3px 0 rgba(0,0,0,.35);
+    }
+    .mc-frame::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .1;
+      background-image:
+        linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%),
+        linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%);
+      background-size: 4px 4px; background-position: 0 0, 2px 2px;
+    }
+    .mc-creep {
+      position: absolute; width: 28px; height: 28px; opacity: .35; pointer-events: none; z-index: 0;
+      image-rendering: pixelated;
+    }
+    .mc-creep.tl { top: 6px; left: 6px; }
+    .mc-creep.br { bottom: 6px; right: 6px; transform: scaleX(-1); }
+
+    .profile { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; position: relative; z-index: 1; }
+    .profile.is-hidden { display: none !important; }
+    .av-wrap { position: relative; flex-shrink: 0; }
+    .av {
+      width: 52px; height: 52px; object-fit: cover; display: block;
+      border: 3px solid #1a1a1a;
+      box-shadow: inset 2px 2px 0 rgba(255,255,255,.15), inset -2px -2px 0 rgba(0,0,0,.3);
+      background: #3a3a3a;
+    }
+    .av-ph {
+      width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; color: #55ff55; background: #2a4a2a;
+      border: 3px solid #1a1a1a;
+      box-shadow: inset 2px 2px 0 rgba(255,255,255,.15), inset -2px -2px 0 rgba(0,0,0,.3);
+    }
+    .av-frame { position: absolute; inset: -4px; border: 2px solid #55ff55; pointer-events: none; opacity: .55; }
+    .pinfo { min-width: 0; }
+    .pname {
+      font-size: calc(var(--mc-size, 42px) * .34); font-weight: 700; line-height: var(--mc-lh, 1.35);
+      letter-spacing: var(--mc-ls, 0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 2px 2px 0 #1a1a1a;
+    }
+    .phandle {
+      font-size: calc(var(--mc-size, 42px) * .22); opacity: .78; margin-top: 4px;
+      line-height: var(--mc-lh, 1.35); letter-spacing: var(--mc-ls, 0);
+      text-shadow: 1px 1px 0 #1a1a1a;
+    }
+
+    .fc-txt { color: var(--mc-color, #55ff55); }
+    html[data-colormode="rainbow"] .fc-txt,
+    html[data-colormode="flow"] .fc-txt {
+      background: linear-gradient(90deg, #55ff55, #8b5a2b, #55ff55, #00e5ff, #ffcc00, #55ff55);
+      background-size: 220% auto; -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+    }
+    html[data-colormode="flow"] .fc-txt { animation: mc-rainbow 4s linear infinite; }
+    @keyframes mc-rainbow { 0% { background-position: 0% center; } 100% { background-position: 220% center; } }
+
+    /* Diseño 1: dígitos flip (bloques) */
+    .v-flip { display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; z-index: 1; }
+    .v-flip .profile { justify-content: center; width: 100%; }
+    .v-flip .flip-stack { display: inline-flex; flex-direction: column; align-items: stretch; width: fit-content; max-width: 100%; }
+    .v-flip .digits { display: flex; gap: 5px; justify-content: flex-start; flex-wrap: nowrap; }
+    .v-flip .digit-box {
+      min-width: calc(var(--mc-size, 42px) * .78); height: calc(var(--mc-size, 42px) * .95);
+      border: 3px solid #1a1a1a;
+      background: linear-gradient(180deg, #6e6e6e 0%, #3a3a3a 55%, #2a2a2a 100%);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: inset 2px 2px 0 rgba(255,255,255,.18), inset -2px -2px 0 rgba(0,0,0,.35), 0 3px 0 rgba(0,0,0,.4);
+    }
+    .v-flip .digit {
+      font-size: calc(var(--mc-size, 42px) * .58); font-weight: 700; line-height: 1;
+      font-variant-numeric: tabular-nums; text-shadow: 2px 2px 0 #1a4a1a;
+      transition: transform .3s steps(4), opacity .2s ease;
+    }
+    .v-flip .digit.flip { transform: translateY(-6px); opacity: .15; }
+    .v-flip .label-bar {
+      margin-top: 6px; padding: 6px 10px; border: 3px solid #1a1a1a;
+      background: linear-gradient(180deg, #8b6914 0%, #5c4510 100%);
+      text-align: center; font-size: calc(var(--mc-size, 42px) * .2); font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase; width: 100%; line-height: 1.3;
+      box-shadow: inset 2px 2px 0 rgba(255,255,255,.12), inset -2px -2px 0 rgba(0,0,0,.3);
+      text-shadow: 2px 2px 0 #1a1a1a;
+    }
+    .v-flip .label-bar.is-hidden { display: none !important; }
+
+    /* Diseño 2: número grande */
+    .v-classic { text-align: center; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
+    .v-classic .profile { justify-content: center; width: 100%; }
+    .v-classic .big-num {
+      font-size: calc(var(--mc-size, 42px) * 1.2); font-weight: 700; line-height: var(--mc-lh, 1.1);
+      letter-spacing: var(--mc-ls, 0); font-variant-numeric: tabular-nums;
+      text-shadow: 3px 3px 0 #1a4a1a, 0 0 12px rgba(85,255,85,.35);
+      transition: transform .25s steps(3);
+    }
+    .v-classic .big-num.bump { transform: scale(1.08); }
+    .v-classic .sub-label {
+      margin-top: 8px; font-size: calc(var(--mc-size, 42px) * .28); font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase; text-shadow: 2px 2px 0 #1a1a1a;
+    }
+    .v-classic .sub-label.is-hidden { display: none !important; }
+
+    /* Diseño 3: barra XP */
+    .v-arc { text-align: center; min-width: 280px; position: relative; z-index: 1; }
+    .v-arc .arc-wrap { position: relative; width: 240px; height: 28px; margin: 0 auto 10px; }
+    .v-arc .xp-track {
+      height: 100%; border: 3px solid #1a1a1a;
+      background: #2a2a2a;
+      box-shadow: inset 2px 2px 0 rgba(0,0,0,.4);
+      overflow: hidden; position: relative;
+    }
+    .v-arc .xp-fill {
+      height: 100%; width: 0%; background: linear-gradient(180deg, #7fff7f 0%, #55ff55 45%, #2a8a2a 100%);
+      transition: width .55s steps(8);
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.25);
+    }
+    .v-arc .arc-pct {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: calc(var(--mc-size, 42px) * .26); font-weight: 700; text-shadow: 1px 1px 0 #000;
+    }
+    .v-arc .arc-pct.is-hidden { display: none !important; }
+    .v-arc .arc-row { display: flex; align-items: baseline; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .v-arc .arc-num { font-size: calc(var(--mc-size, 42px) * .82); font-weight: 700; font-variant-numeric: tabular-nums; text-shadow: 2px 2px 0 #1a4a1a; }
+    .v-arc .arc-lbl { font-size: calc(var(--mc-size, 42px) * .26); font-weight: 700; text-shadow: 2px 2px 0 #1a1a1a; }
+    .v-arc .arc-lbl.is-hidden { display: none !important; }
+
+    /* Diseño 4: minimal */
+    .v-minimal { text-align: center; min-width: 260px; position: relative; z-index: 1; }
+    .v-minimal .m-name { font-size: calc(var(--mc-size, 42px) * .38); font-weight: 700; text-shadow: 2px 2px 0 #1a1a1a; }
+    .v-minimal .m-handle { font-size: calc(var(--mc-size, 42px) * .22); opacity: .65; margin: 4px 0 10px; }
+    .v-minimal .m-count { font-size: calc(var(--mc-size, 42px) * .44); font-weight: 700; text-shadow: 2px 2px 0 #1a4a1a; font-variant-numeric: tabular-nums; }
+    .v-minimal .profile { justify-content: center; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .is-hidden { display: none !important; }
+
+    #confetti { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 99; }
+    .conf {
+      position: absolute; width: 8px; height: 8px; opacity: 0;
+      animation: conf-fall 1.6s steps(6) forwards;
+      image-rendering: pixelated;
+    }
+    @keyframes conf-fall {
+      0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+      100% { opacity: 0; transform: translateY(100px) rotate(180deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="mc-wrap" id="wrap">
+    <div class="mc-grass"></div>
+    <div class="mc-frame">
+      <svg class="mc-creep tl" viewBox="0 0 16 16" aria-hidden="true"><rect fill="#4a7f2c" width="16" height="16"/><rect fill="#1a1a1a" x="3" y="3" width="2" height="2"/><rect fill="#1a1a1a" x="11" y="3" width="2" height="2"/><rect fill="#1a1a1a" x="5" y="7" width="6" height="2"/><rect fill="#1a1a1a" x="4" y="10" width="2" height="3"/><rect fill="#1a1a1a" x="10" y="10" width="2" height="3"/></svg>
+      <svg class="mc-creep br" viewBox="0 0 16 16" aria-hidden="true"><rect fill="#4a7f2c" width="16" height="16"/><rect fill="#1a1a1a" x="3" y="3" width="2" height="2"/><rect fill="#1a1a1a" x="11" y="3" width="2" height="2"/><rect fill="#1a1a1a" x="5" y="7" width="6" height="2"/><rect fill="#1a1a1a" x="4" y="10" width="2" height="3"/><rect fill="#1a1a1a" x="10" y="10" width="2" height="3"/></svg>
+
+      <div id="panel-flip" class="panel v-flip">
+        <div class="profile" id="prof-flip">
+          <div class="av-wrap"><img class="av" id="av-flip" alt="" referrerpolicy="no-referrer"><span class="av-frame"></span></div>
+          <div class="pinfo"><div class="pname fc-txt" id="name-flip"></div><div class="phandle" id="handle-flip"></div></div>
+        </div>
+        <div class="flip-stack">
+          <div class="digits" id="digits"></div>
+          <div class="label-bar fc-txt" id="lbl-flip">FOLLOWERS</div>
+        </div>
+      </div>
+      <div id="panel-classic" class="panel v-classic">
+        <div class="profile" id="prof-classic">
+          <div class="av-wrap"><img class="av" id="av-classic" alt="" referrerpolicy="no-referrer"><span class="av-frame"></span></div>
+          <div class="pinfo"><div class="pname fc-txt" id="name-classic"></div><div class="phandle" id="handle-classic"></div></div>
+        </div>
+        <div class="big-num fc-txt" id="num-classic">0</div>
+        <div class="sub-label fc-txt" id="lbl-classic">FOLLOWERS</div>
+      </div>
+      <div id="panel-arc" class="panel v-arc">
+        <div class="profile" id="prof-arc">
+          <div class="av-wrap"><img class="av" id="av-arc" alt="" referrerpolicy="no-referrer"><span class="av-frame"></span></div>
+          <div class="pinfo"><div class="pname fc-txt" id="name-arc"></div><div class="phandle" id="handle-arc"></div></div>
+        </div>
+        <div class="arc-wrap" id="arc-wrap">
+          <div class="xp-track"><div class="xp-fill" id="xp-fill"></div></div>
+          <div class="arc-pct fc-txt" id="arc-pct">0%</div>
+        </div>
+        <div class="arc-row"><span class="arc-num fc-txt" id="num-arc">0</span><span class="arc-lbl fc-txt" id="lbl-arc">Followers</span></div>
+      </div>
+      <div id="panel-minimal" class="panel v-minimal">
+        <div class="profile" id="prof-minimal">
+          <div class="av-wrap"><img class="av" id="av-minimal" alt="" referrerpolicy="no-referrer"><span class="av-frame"></span></div>
+          <div class="pinfo"><div class="m-name fc-txt" id="name-minimal"></div><div class="m-handle" id="handle-minimal"></div></div>
+        </div>
+        <div class="m-count fc-txt" id="num-minimal">0 Followers</div>
+      </div>
+    </div>
+  </div>
+  <div id="confetti" aria-hidden="true"></div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const PLACEHOLDER = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : PLACEHOLDER;
+
+    const FONTS = {
+      pressstart: "'Press Start 2P', monospace",
+      luckiest: "'Luckiest Guy', system-ui, sans-serif",
+      bangers: "'Bangers', system-ui, sans-serif",
+      lilita: "'Lilita One', system-ui, sans-serif",
+      titan: "'Titan One', system-ui, sans-serif",
+      fredoka: "'Fredoka', system-ui, sans-serif",
+      bungee: "'Bungee', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif",
+      oswald: "'Oswald', system-ui, sans-serif",
+      bebas: "'Bebas Neue', Impact, sans-serif",
+      montserrat: "'Montserrat', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif",
+      orbitron: "'Orbitron', system-ui, sans-serif",
+      inter: "'Inter', system-ui, sans-serif",
+      exo2: "'Exo 2', system-ui, sans-serif",
+      system: 'system-ui, sans-serif',
+    };
+
+    let cfg = {
+      variation: 'flip', font: 'pressstart', fontSize: 42, lineSpacing: 50, letterSpacing: 50,
+      fontColor: '#55ff55', colorMode: 'solid',
+      showFollowersText: true, showProfile: true, showProgressBar: true,
+      showConfetti: false, goalFollowers: 10000, scale: 100,
+    };
+    let data = { count: 0, nickname: 'SteveFan', uniqueId: 'stevefan', photo: PREVIEW_AVATAR, ready: false };
+    let displayCount = 0;
+
+    const panels = {
+      flip: document.getElementById('panel-flip'),
+      classic: document.getElementById('panel-classic'),
+      arc: document.getElementById('panel-arc'),
+      minimal: document.getElementById('panel-minimal'),
+    };
+
+    function clamp(n, lo, hi, d) { const x = parseInt(n, 10); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; }
+    function fmt(n) { return Math.max(0, Math.floor(n)).toLocaleString('es-ES'); }
+    function handleOf(u) { return '@' + String(u || 'usuario').replace(/^@/, ''); }
+
+    function imgUrl(u) {
+      if (!u) return '';
+      const s = String(u).trim();
+      if (!s) return '';
+      if (s.startsWith('/api/img-proxy')) return s;
+      if (/^https?:\/\//i.test(s)) {
+        if (s.startsWith(location.origin)) return s;
+        return '/api/img-proxy?url=' + encodeURIComponent(s);
+      }
+      if (s.startsWith('//')) return '/api/img-proxy?url=' + encodeURIComponent('https:' + s);
+      return s;
+    }
+
+    function applyStyle() {
+      const root = document.documentElement;
+      const sc = clamp(cfg.scale, 50, 150, 100) / 100;
+      const mode = cfg.colorMode === 'rainbow' || cfg.colorMode === 'flow' ? cfg.colorMode : 'solid';
+      root.style.setProperty('--mc-font', FONTS[cfg.font] || FONTS.pressstart);
+      root.style.setProperty('--mc-size', String(clamp(cfg.fontSize, 16, 120, 42)) + 'px');
+      root.style.setProperty('--mc-color', cfg.fontColor || '#55ff55');
+      root.style.setProperty('--mc-lh', String((clamp(cfg.lineSpacing, 10, 100, 50) / 50) * 1.35));
+      root.style.setProperty('--mc-ls', ((clamp(cfg.letterSpacing, 0, 100, 50) - 50) / 100) + 'em');
+      root.dataset.colormode = mode;
+      document.getElementById('wrap').style.setProperty('--mc-scale', isEmbed ? '1' : String(sc));
+    }
+
+    function fitEmbed() {
+      if (!isEmbed) return;
+      const w = document.getElementById('wrap');
+      w.style.setProperty('--mc-scale', '1');
+      const bw = w.offsetWidth, bh = w.offsetHeight;
+      if (!bw || !bh) return;
+      const s = Math.min(window.innerWidth / bw, window.innerHeight / bh, 1);
+      w.style.setProperty('--mc-scale', String(s));
+    }
+
+    function setAvatar(el, pic, fallback) {
+      if (!el) return;
+      const wrap = el.parentElement;
+      const ph = wrap?.querySelector('.av-ph');
+      const url = imgUrl(pic);
+      if (!url) {
+        el.remove();
+        if (!ph && wrap) {
+          const span = document.createElement('span');
+          span.className = 'av av-ph';
+          span.textContent = fallback;
+          wrap.insertBefore(span, wrap.firstChild);
+        }
+        return;
+      }
+      el.src = url;
+      el.hidden = false;
+      el.onerror = function () {
+        this.onerror = null;
+        this.remove();
+        if (wrap && !wrap.querySelector('.av-ph')) {
+          const span = document.createElement('span');
+          span.className = 'av av-ph';
+          span.textContent = fallback;
+          wrap.insertBefore(span, wrap.firstChild);
+        }
+      };
+    }
+
+    function setProfile() {
+      const show = cfg.showProfile !== false;
+      ['flip', 'classic', 'arc', 'minimal'].forEach((v) => {
+        const prof = document.getElementById('prof-' + v);
+        if (prof) prof.classList.toggle('is-hidden', !show);
+        const av = document.getElementById('av-' + v);
+        const nm = document.getElementById('name-' + v);
+        const hd = document.getElementById('handle-' + v);
+        const pic = data.photo || PREVIEW_AVATAR;
+        const name = data.nickname || data.uniqueId || 'Jugador';
+        const fb = (name[0] || '?').toUpperCase();
+        if (av) setAvatar(av, pic, fb);
+        if (nm) nm.textContent = name;
+        if (hd) hd.textContent = handleOf(data.uniqueId || name);
+      });
+    }
+
+    function setLabels() {
+      const show = cfg.showFollowersText !== false;
+      document.getElementById('lbl-flip')?.classList.toggle('is-hidden', !show);
+      document.getElementById('lbl-classic')?.classList.toggle('is-hidden', !show);
+      document.getElementById('lbl-arc')?.classList.toggle('is-hidden', !show);
+    }
+
+    function renderDigits(n, animate) {
+      const el = document.getElementById('digits');
+      if (!el) return;
+      const s = fmt(n);
+      const prev = el.dataset.val || '';
+      if (prev === s && el.childElementCount === s.length) return;
+      el.innerHTML = '';
+      for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (ch === '.' || ch === ',') {
+          const sep = document.createElement('div');
+          sep.className = 'digit-box';
+          sep.style.minWidth = 'calc(var(--mc-size, 42px) * .3)';
+          sep.style.border = 'none';
+          sep.style.background = 'transparent';
+          sep.style.boxShadow = 'none';
+          sep.innerHTML = '<span class="digit fc-txt">' + ch + '</span>';
+          el.appendChild(sep);
+          continue;
+        }
+        const box = document.createElement('div');
+        box.className = 'digit-box';
+        const d = document.createElement('span');
+        d.className = 'digit fc-txt' + (animate && prev && prev[i] !== ch ? ' flip' : '');
+        d.textContent = ch;
+        box.appendChild(d);
+        el.appendChild(box);
+        if (d.classList.contains('flip')) setTimeout(() => d.classList.remove('flip'), 300);
+      }
+      el.dataset.val = s;
+    }
+
+    function renderArc(n) {
+      const goal = Math.max(1, clamp(cfg.goalFollowers, 100, 99999999, 10000));
+      const pct = Math.min(100, Math.round((n / goal) * 100));
+      const showBar = cfg.showProgressBar !== false;
+      document.getElementById('arc-wrap')?.classList.toggle('is-hidden', !showBar);
+      document.getElementById('arc-pct')?.classList.toggle('is-hidden', !showBar);
+      const fill = document.getElementById('xp-fill');
+      if (fill) fill.style.width = pct + '%';
+      const pctEl = document.getElementById('arc-pct');
+      if (pctEl) pctEl.textContent = pct + '%';
+      const num = document.getElementById('num-arc');
+      if (num) num.textContent = fmt(n);
+    }
+
+    function renderAll(animate) {
+      applyStyle();
+      setProfile();
+      setLabels();
+      Object.values(panels).forEach((p) => p.classList.remove('active'));
+      const v = cfg.variation || 'flip';
+      (panels[v] || panels.flip).classList.add('active');
+
+      displayCount = Math.max(0, data.count || 0);
+      if (v === 'flip') renderDigits(displayCount, animate);
+      if (v === 'classic') {
+        const el = document.getElementById('num-classic');
+        if (el) {
+          el.textContent = fmt(displayCount);
+          if (animate) { el.classList.add('bump'); setTimeout(() => el.classList.remove('bump'), 280); }
+        }
+      }
+      if (v === 'arc') renderArc(displayCount);
+      if (v === 'minimal') {
+        const el = document.getElementById('num-minimal');
+        const lbl = cfg.showFollowersText !== false ? ' Followers' : '';
+        if (el) el.textContent = fmt(displayCount) + lbl;
+      }
+      fitEmbed();
+    }
+
+    function burstConfetti() {
+      if (!cfg.showConfetti) return;
+      const root = document.getElementById('confetti');
+      if (!root) return;
+      root.innerHTML = '';
+      const cols = ['#55ff55', '#8b5a2b', '#4a7f2c', '#c6c6c6', '#ffe14d', '#3a86ff'];
+      for (let i = 0; i < 24; i++) {
+        const p = document.createElement('span');
+        p.className = 'conf';
+        p.style.left = (15 + Math.random() * 70) + '%';
+        p.style.top = (8 + Math.random() * 25) + '%';
+        p.style.background = cols[i % cols.length];
+        p.style.animationDelay = (Math.random() * 0.35) + 's';
+        root.appendChild(p);
+      }
+      setTimeout(() => { root.innerHTML = ''; }, 2000);
+    }
+
+    function applyData(payload, animate) {
+      if (!payload) return;
+      const prev = data.count;
+      data = Object.assign(data, payload);
+      if (payload.count != null) data.count = Math.max(0, Math.floor(Number(payload.count) || 0));
+      renderAll(animate && data.count !== prev);
+      if (animate && data.count > prev) burstConfetti();
+    }
+
+    function mergeCfg(c) {
+      if (!c || typeof c !== 'object') return;
+      cfg = Object.assign(cfg, c);
+    }
+
+    function runTest() {
+      cancelTestAnim();
+      let cur = 1230;
+      const deltas = [1, 1, 1, -1, 2];
+      let i = 0;
+      applyData({ count: cur, nickname: 'SteveFan', uniqueId: 'stevefan', photo: PREVIEW_AVATAR, ready: true }, false);
+      function step() {
+        if (i >= deltas.length) { testAnimTimer = null; return; }
+        cur = Math.max(0, cur + deltas[i]);
+        i += 1;
+        applyData({ count: cur }, true);
+        testAnimTimer = setTimeout(step, 720);
+      }
+      testAnimTimer = setTimeout(step, 480);
+    }
+
+    let testAnimTimer = null;
+    function cancelTestAnim() {
+      if (testAnimTimer) { clearTimeout(testAnimTimer); testAnimTimer = null; }
+    }
+
+    function showPreviewIdle() {
+      applyData({ count: 1230, nickname: 'SteveFan', uniqueId: 'stevefan', photo: PREVIEW_AVATAR, ready: true }, false);
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings' && m.payload?.followerCounterMc) mergeCfg(m.payload.followerCounterMc);
+        if (m.type === 'followerCounter' && !isEmbed) applyData(m.payload, true);
+        if (m.type === 'settings' || m.type === 'followerCounter') renderAll(false);
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'followercounter_mc') return;
+      if (d.type === 'config') { mergeCfg(d.config); renderAll(false); }
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') { cancelTestAnim(); applyData({ count: isEmbed ? 1230 : 0, ready: false }, false); }
+      else if (d.type === 'data') applyData(d.payload, true);
+    });
+
+    window.addEventListener('resize', fitEmbed);
+    if (isEmbed) showPreviewIdle(); else renderAll(false);
+    connect();
+  })();
+  </script>
+</body>
+</html>

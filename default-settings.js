@@ -39,6 +39,8 @@ export const DEFAULT_SETTINGS = {
     // Comandos personalizados: cuando alguien escribe el comando (ej. !idwarzone) el
     // bot responde por voz (TTS) y muestra la respuesta. [{ id, command, response, enabled }]
     commands: [],
+    // Voces personalizadas por usuario del chat: [{ id, userId, nickname, engine, lang, voice, translate }]
+    userVoices: [],
   },
   // Usuario y Puntos: cuántos puntos otorga cada moneda (diamante) donada.
   points: {
@@ -244,6 +246,9 @@ export const DEFAULT_SETTINGS = {
     playOn: true, playCost: 0, skipOn: true, skipCost: 0,
     skipRequested: true, explicit: true, queueTotal: 2, queueUser: 2,
     overlayPermanent: true, permAll: false, permSubs: true, permMods: true,
+    permUsersOn: false,
+    // IDs de TikTok (@) que pueden usar !play / !skip / !revoke aunque no sean mod ni sub.
+    permUsers: [],
   },
   // Overlay Top 1 Donador (MVP de la sesión: quien más monedas regala)
   top1: {
@@ -364,6 +369,12 @@ export const DEFAULT_SETTINGS = {
   followerCounter: {
     variation: 'flip', font: 'exo2', fontSize: 50, lineSpacing: 50, letterSpacing: 50,
     fontColor: '#dedede', colorMode: 'solid',
+    showFollowersText: true, showProfile: true, showProgressBar: true,
+    showConfetti: false, goalFollowers: 10000, scale: 100,
+  },
+  followerCounterMc: {
+    variation: 'flip', font: 'pressstart', fontSize: 42, lineSpacing: 50, letterSpacing: 50,
+    fontColor: '#55ff55', colorMode: 'solid',
     showFollowersText: true, showProfile: true, showProgressBar: true,
     showConfetti: false, goalFollowers: 10000, scale: 100,
   },

@@ -3079,6 +3079,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (spotifyPollTimer) { clearInterval(spotifyPollTimer); spotifyPollTimer = null; }
   }
 
+  function spotifyPermUsersSet(cfg) {
+    const raw = cfg?.permUsers;
+    if (!Array.isArray(raw)) return new Set();
+    return new Set(raw.map((u) => String(u || '').trim().toLowerCase().replace(/^@/, '')).filter(Boolean));
+  }
+
+  function spotifyUserAllowed(cfg, user, roles) {
+    if (!cfg) return false;
+    if (cfg.permAll) return true;
+    if (cfg.permMods && roles?.isMod) return true;
+    if (cfg.permSubs && roles?.isSub) return true;
+    if (!cfg.permUsersOn) return false;
+    const uid = String(user?.uniqueId || '').trim().toLowerCase().replace(/^@/, '');
+    if (!uid) return false;
+    return spotifyPermUsersSet(cfg).has(uid);
+  }
+
   async function handleSpotifyCommands(comment, user, roles) {
     const cfg = settings.spotify;
     if (!cfg) return;
@@ -3090,8 +3107,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     else if (lower.startsWith('!play')) { kind = 'play'; arg = text.slice(5).trim(); }
     if (!kind) return;
 
-    // Permisos: todos / mods / super fans-subs.
-    const allowed = !!cfg.permAll || (cfg.permMods && roles?.isMod) || (cfg.permSubs && roles?.isSub);
+    // Permisos: todos / mods / super fans-subs / usuarios @ específicos.
+    const allowed = spotifyUserAllowed(cfg, user, roles);
     if (!allowed) return;
 
     // Anti-spam por usuario (3s).

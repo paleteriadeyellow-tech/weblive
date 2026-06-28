@@ -77,6 +77,7 @@
       items: [
         { key: 'hypeBar', label: 'Barra de meta (Hype)' },
         { key: 'followerCounter', label: 'Contador de seguidores' },
+        { key: 'followerCounterMc', label: 'Contador de seguidores (Minecraft)' },
         { key: 'alertaGift', label: 'Diseño alerta regalo' },
         { key: 'alertaLikes', label: 'Diseño alerta likes' },
         { key: 'alertaFollow', label: 'Diseño alerta seguidor' },
