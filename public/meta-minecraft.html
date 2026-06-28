@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Barra de meta (Minecraft)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ov-scale: 1;
+      --hb-text: #e8ffe8;
+      --hb-muted: #8fbc8f;
+      --hb-accent: #55ff55;
+      --hb-rainbow: linear-gradient(90deg, #55ff55 0%, #7fff7f 20%, #8b6914 40%, #55ff55 60%, #00e5ff 80%, #55ff55 100%);
+      --hb-track-idle: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    }
+    html { width: 100%; height: 100%; }
+    body {
+      margin: 0; width: 100%; min-height: 100%; overflow: hidden; background: transparent;
+      font-family: 'Press Start 2P', monospace; image-rendering: pixelated;
+      -webkit-font-smoothing: none;
+    }
+    .wrap { --ov-s: max(0.001, var(--ov-scale, 1)); box-sizing: border-box; width: calc(100% / var(--ov-s)); max-width: calc(900px / var(--ov-s)); padding: 2px 4px; transform: scale(var(--ov-scale, 1)); transform-origin: top left; }
+    .box {
+      position: relative; padding: 0 0 8px; overflow: visible;
+      background: linear-gradient(180deg, rgba(110,110,110,.96) 0%, rgba(62,62,62,.98) 100%);
+      border: 4px solid #1a1a1a;
+      box-shadow: inset 3px 3px 0 rgba(255,255,255,.15), inset -3px -3px 0 rgba(0,0,0,.35), 0 6px 0 rgba(0,0,0,.4);
+    }
+    .mc-grass {
+      height: 10px; margin: -4px -4px 0; border: 4px solid #1a1a1a; border-bottom: none;
+      background: repeating-linear-gradient(90deg, #5d9b38 0 8px, #4a7f2c 8px 16px), linear-gradient(180deg, #6dbb45, #4a7f2c);
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.2);
+    }
+    .mc-creep { position: absolute; width: 22px; height: 22px; opacity: .4; pointer-events: none; z-index: 2; image-rendering: pixelated; }
+    .mc-creep.tl { top: 14px; left: 4px; }
+    .mc-creep.br { bottom: 4px; right: 4px; transform: scaleX(-1); }
+    .box-inner { position: relative; z-index: 1; padding: 6px 10px 2px; }
+    .row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 6px; min-height: 28px; }
+    .title-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .title-icon { font-size: 11px; line-height: 1; flex-shrink: 0; }
+    #title { font-size: 8px; font-weight: 700; color: var(--hb-text); line-height: 1.5; text-shadow: 2px 2px 0 #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .meta-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .meta-icon { font-size: 10px; line-height: 1; }
+    .meta-line { font-size: 8px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.4; text-shadow: 2px 2px 0 #1a1a1a; }
+    .meta-gold { color: #fff; }
+    .meta-cyan { color: var(--hb-accent); }
+    .bar-bg { position: relative; height: 10px; overflow: visible; border: 3px solid #1a1a1a; background: #1a1a1a; }
+    .bar-track { position: absolute; inset: 0; z-index: 0; background: var(--hb-track-idle); opacity: .85; box-shadow: inset 2px 2px 0 rgba(0,0,0,.5); }
+    @keyframes rainbow-drift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    @keyframes meta2-fill-drift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    #bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; min-width: 0; z-index: 2; overflow: hidden; transition: width .35s steps(8); box-shadow: inset 0 2px 0 rgba(255,255,255,.25); }
+    .bar-plasma { position: absolute; inset: 0; overflow: hidden; }
+    .bar-plasma::before { content: ''; position: absolute; inset: 0; background: var(--hb-rainbow); background-size: 220% 100%; filter: saturate(1.1); animation: rainbow-drift 8s linear infinite; }
+    .bar-plasma::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.3) 0%, transparent 50%); pointer-events: none; }
+    .bar-shine { display: none; }
+    .bar-spark { position: absolute; top: 50%; right: 0; transform: translate(50%, -50%); width: 8px; height: 8px; pointer-events: none; z-index: 4; background: #55ff55; border: 2px solid #1a1a1a; box-shadow: 0 0 6px rgba(85,255,85,.6); }
+    #bar.is-empty .bar-spark { opacity: 0; }
+    .bar-test-light { position: absolute; top: 50%; left: 0; z-index: 6; width: 8px; height: 8px; pointer-events: none; opacity: 0; transform: translate(0, -50%); background: #55ff55; border: 2px solid #fff; box-shadow: 0 0 8px #55ff55; }
+    .bar-bg:not(.bar-bg--test-sweep) .bar-test-light { opacity: 0 !important; visibility: hidden; animation: none !important; }
+    .bar-bg.bar-bg--test-sweep .bar-test-light { visibility: visible; opacity: 1; animation: test-light-sweep 2.2s steps(20) forwards; }
+    @keyframes test-light-sweep { 0% { left: 0%; } 100% { left: 100%; transform: translate(-100%, -50%); } }
+    #bar.bar--no-transition { transition: none; }
+
+    /* meta2 — bloque inclinado */
+    body.skin-meta2 .wrap { max-width: calc(900px / var(--ov-s, 1)); }
+    body.skin-meta2 .meta2-box { width: 100%; padding: 2px 0; display: flex; justify-content: center; }
+    body.skin-meta2 .meta2-card.goal-card-slim {
+      position: relative; box-sizing: border-box; width: 100%; max-width: 550px;
+      background: linear-gradient(180deg, #6e6e6e, #3a3a3a); padding: 8px 16px;
+      border: 4px solid #1a1a1a; transform: skewX(-2deg);
+      box-shadow: inset 3px 3px 0 rgba(255,255,255,.12), 0 5px 0 rgba(0,0,0,.45);
+    }
+    body.skin-meta2 .info-group { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; min-width: 0; }
+    body.skin-meta2 .gift-icon { font-size: 12px; filter: none; }
+    body.skin-meta2 .goal-title#title { font-size: 8px; font-weight: 700; color: #55ff55; text-shadow: 2px 2px 0 #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body.skin-meta2 .progress-wrapper { flex: 1; min-width: 0; position: relative; height: 20px; background: #1a1a1a; border: 3px solid #1a1a1a; overflow: hidden; }
+    body.skin-meta2 .progress-wrapper .bar-bg { position: relative; margin-top: 0; height: 100%; background: transparent; }
+    body.skin-meta2 .progress-wrapper .bar-track { opacity: .5; }
+    body.skin-meta2 .progress-wrapper #bar { height: 100%; box-shadow: none; transition: width .38s steps(10); }
+    body.skin-meta2 .progress-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; pointer-events: none; font-size: 7px; color: #fff; text-shadow: 2px 2px 0 #1a1a1a; }
+    body.skin-meta2 .bar-plasma::before { background: linear-gradient(90deg, #55ff55, #7fff7f, #8b6914, #55ff55); background-size: 200% 100%; animation: meta2-fill-drift 8s linear infinite; }
+
+    /* meta3 — cofre XP */
+    body.skin-meta3 .wrap { max-width: calc(900px / var(--ov-s, 1)); padding: 2px 4px; }
+    body.skin-meta3 .meta3-goal-container {
+      position: relative; width: 100%; max-width: 560px; height: 48px; margin: 0 auto;
+      background: linear-gradient(180deg, #6e6e6e, #3a3a3a); border: 4px solid #1a1a1a;
+      box-shadow: inset 3px 3px 0 rgba(255,255,255,.12), 0 4px 0 rgba(0,0,0,.4);
+      overflow: hidden; display: flex; justify-content: center; align-items: center;
+    }
+    body.skin-meta3 .meta3-goal-container::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 8px;
+      background: repeating-linear-gradient(90deg, #5d9b38 0 8px, #4a7f2c 8px 16px);
+      border-bottom: 3px solid #1a1a1a;
+    }
+    body.skin-meta3 .meta3-goal-container .progress-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(180deg, #7fff7f, #55ff55 50%, #2a8a2a); transition: width .4s steps(10); z-index: 1; box-shadow: inset 0 2px 0 rgba(255,255,255,.2); }
+    body.skin-meta3 .meta3-goal-container .progress-bar.is-empty { width: 0% !important; }
+    body.skin-meta3 .meta3-goal-container .progress-bar .bar-plasma, body.skin-meta3 .meta3-goal-container .progress-bar .bar-shine, body.skin-meta3 .meta3-goal-container .progress-bar .bar-spark { display: none !important; }
+    body.skin-meta3 .meta3-goal-text { position: relative; z-index: 2; color: #e8ffe8; font-size: 8px; text-shadow: 2px 2px 0 #1a1a1a; text-transform: uppercase; white-space: nowrap; max-width: 94%; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; padding-top: 6px; }
+
+    /* meta4 — inventario */
+    body.skin-meta4 .wrap { max-width: calc(520px / var(--ov-s, 1)); padding: 2px 4px; }
+    body.skin-meta4 .hyper-glass-frame {
+      position: relative; width: 100%; max-width: 460px; height: 58px; margin: 0 auto;
+      background: #2a2a2a; border: 4px solid #1a1a1a; padding: 4px;
+      box-shadow: inset 3px 3px 0 rgba(255,255,255,.1), 0 4px 0 rgba(0,0,0,.4);
+    }
+    body.skin-meta4 .hyper-glass-container {
+      position: relative; width: 100%; height: 100%; background: #1a1a1a; border: 2px solid #55ff55;
+      overflow: hidden; display: flex; justify-content: center; align-items: center;
+    }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar {
+      position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+      background: linear-gradient(180deg, #7fff7f, #55ff55 60%, #2a8a2a);
+      border-right: 3px solid #1a1a1a; transition: width .4s steps(10); z-index: 1;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.2);
+    }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar.is-empty { width: 0% !important; border-right: none; }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-plasma, body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-shine, body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-spark { display: none !important; }
+    body.skin-meta4 .hyper-glass-text { position: relative; z-index: 3; color: #e8ffe8; font-size: 7px; text-shadow: 2px 2px 0 #1a1a1a; text-transform: uppercase; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; }
+
+    html.embed body { display: flex; align-items: center; justify-content: flex-start; }
+  </style>
+</head>
+<body data-hype-theme="minecraft">
+  <div class="wrap">
+    <div class="box">
+      <div class="mc-grass" aria-hidden="true"></div>
+      <svg class="mc-creep tl" viewBox="0 0 16 16" aria-hidden="true"><rect fill="#4a7f2c" width="16" height="16"/><rect fill="#1a1a1a" x="3" y="3" width="2" height="2"/><rect fill="#1a1a1a" x="11" y="3" width="2" height="2"/><rect fill="#1a1a1a" x="5" y="7" width="6" height="2"/><rect fill="#1a1a1a" x="4" y="10" width="2" height="3"/><rect fill="#1a1a1a" x="10" y="10" width="2" height="3"/></svg>
+      <svg class="mc-creep br" viewBox="0 0 16 16" aria-hidden="true"><rect fill="#4a7f2c" width="16" height="16"/><rect fill="#1a1a1a" x="3" y="3" width="2" height="2"/><rect fill="#1a1a1a" x="11" y="3" width="2" height="2"/><rect fill="#1a1a1a" x="5" y="7" width="6" height="2"/><rect fill="#1a1a1a" x="4" y="10" width="2" height="3"/><rect fill="#1a1a1a" x="10" y="10" width="2" height="3"/></svg>
+      <div class="box-inner">
+        <div class="row-top">
+          <div class="title-wrap">
+            <span class="title-icon" id="title-icon" aria-hidden="true">⛏️</span>
+            <span id="title"></span>
+          </div>
+          <div class="meta-wrap">
+            <span class="meta-icon" id="meta-icon" aria-hidden="true">💎</span>
+            <span class="meta-line">
+              <span id="meta-current" class="meta-gold">0</span><span class="meta-cyan"> / </span><span id="meta-goal" class="meta-cyan">100</span>
+            </span>
+          </div>
+        </div>
+        <div class="bar-bg" id="bar-bg">
+          <div class="bar-track" aria-hidden="true"></div>
+          <div id="bar" class="is-empty">
+            <div class="bar-plasma"><div class="bar-shine"></div></div>
+            <div class="bar-spark"></div>
+          </div>
+          <div class="bar-test-light" id="bar-test-light" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/js/hype-bar-overlay.js"></script>
+</body>
+</html>

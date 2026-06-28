@@ -229,7 +229,7 @@ window.addEventListener('online', connectWS);
 window.addEventListener('pageshow', connectWS);
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tllmc-conn', 'tdl-conn', 'tdlmc-conn', 'hyp-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tllmc-conn', 'tdl-conn', 'tdlmc-conn', 'hyp-conn', 'hypmc-conn', 'hypmr-conn', 'hypdbz-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -333,6 +333,7 @@ const OVERLAY_CAP = {
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
   '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
+  '/meta-minecraft.html': 'ov_metamc', '/meta-mario.html': 'ov_metamario', '/meta-dragonball.html': 'ov_metadbz',
   '/topalt-rank.html': 'ov_topaltrank',
   '/toplikes.html': 'ov_toplikes', '/topdiamantes.html': 'ov_topdiamantes',
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
@@ -4797,8 +4798,12 @@ document.addEventListener('keydown', (e) => {
 
 /* ---- Barra de meta (Hype) — config con selector de diseño (skin) ---- */
 (function setupHypeOverlay() {
-  const frame = () => $('hyp-preview');
-  const toPrev = (msg) => frame()?.contentWindow?.postMessage({ kind: 'hype', ...msg }, '*');
+  const HYPE_CARDS = [
+    { previewId: 'hyp-preview', basePath: '/meta.html', cardId: 'hyp-card' },
+    { previewId: 'hypmc-preview', basePath: '/meta-minecraft.html', cardId: 'hypmc-card' },
+    { previewId: 'hypmr-preview', basePath: '/meta-mario.html', cardId: 'hypmr-card' },
+    { previewId: 'hypdbz-preview', basePath: '/meta-dragonball.html', cardId: 'hypdbz-card' },
+  ];
   const MAP = {
     'hypcfg-skin': 'skin', 'hypcfg-kind': 'goalKind', 'hypcfg-title': 'title', 'hypcfg-meta': 'meta',
     'hypcfg-reach': 'whenReach', 'hypcfg-scale': 'scale', 'hypcfg-plike': 'pointsLike', 'hypcfg-pfollow': 'pointsFollow',
@@ -4807,28 +4812,41 @@ document.addEventListener('keydown', (e) => {
   const TYPES = { meta: 'int', scale: 'int', pointsLike: 'int', pointsFollow: 'int', pointsShare: 'int', pointsGift: 'int', pointsMember: 'int' };
   const build = () => readForm(MAP, TYPES);
 
-  function applySkin(skin) {
-    const f = frame();
-    const skinQ = skin && skin !== 'default' ? '&skin=' + skin : '';
-    const want = '/meta.html?embed=1' + skinQ;
-    if (f && f.getAttribute('src') !== want) {
-      f.onload = () => toPrev({ type: 'config', config: build() });
-      f.src = want;
-    }
-    const path = '/meta.html' + (skin && skin !== 'default' ? '?skin=' + skin : '');
-    const code = document.querySelector('#hyp-card .ov-url');
-    if (code) { code.dataset.path = path; code.textContent = roomUrl(path); }
+  function toAllPreviews(msg) {
+    HYPE_CARDS.forEach(({ previewId }) => {
+      $(previewId)?.contentWindow?.postMessage({ kind: 'hype', ...msg }, '*');
+    });
   }
-  function pushPreview(cfg) { toPrev({ type: 'config', config: cfg || settings?.hypeBar || {} }); }
-
-  if ($('hyp-test')) $('hyp-test').onclick = () => { toPrev({ type: 'test' }); send({ action: 'testHype' }); };
-  if ($('hyp-reset')) $('hyp-reset').onclick = () => { toPrev({ type: 'reset' }); send({ action: 'resetHype' }); };
-  if ($('hyp-config')) $('hyp-config').onclick = () => {
+  function applySkin(skin) {
+    const skinQ = skin && skin !== 'default' ? '?skin=' + skin : '';
+    const skinAmp = skin && skin !== 'default' ? '&skin=' + skin : '';
+    HYPE_CARDS.forEach(({ previewId, basePath, cardId }) => {
+      const f = $(previewId);
+      const want = basePath + '?embed=1' + skinAmp;
+      if (f && f.getAttribute('src') !== want) {
+        f.onload = () => toAllPreviews({ type: 'config', config: build() });
+        f.src = want;
+      }
+      const path = basePath + skinQ;
+      const code = document.querySelector('#' + cardId + ' .ov-url');
+      if (code) { code.dataset.path = path; code.textContent = roomUrl(path); }
+    });
+  }
+  function pushPreview(cfg) { toAllPreviews({ type: 'config', config: cfg || settings?.hypeBar || {} }); }
+  function openConfig() {
     fillForm(MAP, settings?.hypeBar || {});
     applySkin((settings?.hypeBar || {}).skin || 'default');
     pushPreview(build());
     $('hypConfigModal').classList.remove('hidden');
-  };
+  }
+
+  if ($('hyp-test')) $('hyp-test').onclick = () => { toAllPreviews({ type: 'test' }); send({ action: 'testHype' }); };
+  if ($('hyp-reset')) $('hyp-reset').onclick = () => { toAllPreviews({ type: 'reset' }); send({ action: 'resetHype' }); };
+  if ($('hyp-config')) $('hyp-config').onclick = openConfig;
+  ['hypmc-test', 'hypmr-test', 'hypdbz-test'].forEach((id) => { if ($(id)) $(id).onclick = () => { toAllPreviews({ type: 'test' }); send({ action: 'testHype' }); }; });
+  ['hypmc-reset', 'hypmr-reset', 'hypdbz-reset'].forEach((id) => { if ($(id)) $(id).onclick = () => { toAllPreviews({ type: 'reset' }); send({ action: 'resetHype' }); }; });
+  ['hypmc-config', 'hypmr-config', 'hypdbz-config'].forEach((id) => { if ($(id)) $(id).onclick = openConfig; });
+
   const close = () => $('hypConfigModal')?.classList.add('hidden');
   if ($('hypcfg-close')) $('hypcfg-close').onclick = close;
   if ($('hypConfigModal')) $('hypConfigModal').addEventListener('click', (e) => { if (e.target.id === 'hypConfigModal') close(); });

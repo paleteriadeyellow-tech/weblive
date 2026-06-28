@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Barra de meta (Mario Bros)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bangers&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ov-scale: 1;
+      --hb-text: #fff;
+      --hb-muted: #ffe14d;
+      --hb-accent: #ffe14d;
+      --hb-red: #e52521;
+      --hb-blue: #5c94fc;
+      --hb-rainbow: linear-gradient(90deg, #e52521 0%, #ffe14d 25%, #5c94fc 50%, #ffe14d 75%, #e52521 100%);
+      --hb-track-idle: linear-gradient(180deg, #3a2020 0%, #1a1010 100%);
+    }
+    html { width: 100%; height: 100%; }
+    body {
+      margin: 0; width: 100%; min-height: 100%; overflow: hidden; background: transparent;
+      font-family: 'Press Start 2P', monospace; image-rendering: pixelated;
+    }
+    .wrap { --ov-s: max(0.001, var(--ov-scale, 1)); box-sizing: border-box; width: calc(100% / var(--ov-s)); max-width: calc(900px / var(--ov-s)); padding: 2px 4px; transform: scale(var(--ov-scale, 1)); transform-origin: top left; }
+    .box {
+      position: relative; padding: 8px 12px 10px; overflow: visible;
+      background: linear-gradient(180deg, var(--hb-red) 0%, #b01818 55%, #8a1010 100%);
+      border: 4px solid #1a1a1a; border-radius: 6px;
+      box-shadow: inset 0 4px 0 rgba(255,255,255,.22), inset 0 -4px 0 rgba(0,0,0,.25), 0 6px 0 #1a1a1a, 0 8px 20px rgba(0,0,0,.4);
+    }
+    .box::before {
+      content: ''; position: absolute; inset: 6px; border: 2px dashed rgba(255,255,255,.15); border-radius: 3px; pointer-events: none;
+    }
+    .mario-coin {
+      position: absolute; top: -6px; right: 12px; width: 22px; height: 22px; border-radius: 50%;
+      border: 3px solid #1a1a1a; background: radial-gradient(circle at 35% 30%, #fff7a8, var(--hb-accent) 45%, #c97800);
+      box-shadow: 0 0 8px rgba(255,225,77,.5); animation: coinSpin 1.4s steps(8) infinite; z-index: 2;
+    }
+    @keyframes coinSpin { to { transform: rotate(360deg); } }
+    .box-inner { position: relative; z-index: 1; }
+    .row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 7px; gap: 8px; min-height: 28px; }
+    .title-wrap { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .title-icon { font-size: 12px; line-height: 1; flex-shrink: 0; }
+    #title {
+      font-family: 'Bangers', 'Press Start 2P', Impact, sans-serif; font-size: 14px; font-weight: 400;
+      color: var(--hb-text); line-height: 1.2; letter-spacing: .04em;
+      text-shadow: 2px 2px 0 #1a1a1a, 0 0 8px rgba(255,225,77,.35);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .meta-wrap { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .meta-icon { font-size: 11px; }
+    .meta-line { font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; text-shadow: 2px 2px 0 #1a1a1a; }
+    .meta-gold { color: var(--hb-accent); }
+    .meta-cyan { color: #fff; }
+    .bar-bg { position: relative; height: 12px; border-radius: 4px; background: #1a1a1a; border: 3px solid #1a1a1a; overflow: visible; }
+    .bar-track { position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: var(--hb-track-idle); opacity: .9; box-shadow: inset 2px 2px 0 rgba(0,0,0,.5); }
+    @keyframes rainbow-drift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    @keyframes meta2-fill-drift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    #bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; min-width: 0; z-index: 2; border-radius: inherit; overflow: hidden; transition: width .32s cubic-bezier(.34,1.2,.52,1); }
+    .bar-plasma { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+    .bar-plasma::before { content: ''; position: absolute; inset: 0; background: var(--hb-rainbow); background-size: 220% 100%; animation: rainbow-drift 6s linear infinite; }
+    .bar-plasma::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.4) 0%, transparent 45%); pointer-events: none; }
+    .bar-shine { display: none; }
+    .bar-spark {
+      position: absolute; top: 50%; right: 0; transform: translate(50%, -50%);
+      width: 14px; height: 14px; border-radius: 50%; pointer-events: none; z-index: 4;
+      background: radial-gradient(circle at 35% 30%, #fff7a8, var(--hb-accent) 50%, #c97800);
+      border: 2px solid #1a1a1a; box-shadow: 0 0 8px rgba(255,225,77,.6);
+    }
+    #bar.is-empty .bar-spark { opacity: 0; }
+    .bar-test-light { position: absolute; top: 50%; left: 0; z-index: 6; width: 12px; height: 12px; border-radius: 50%; pointer-events: none; opacity: 0; transform: translate(0, -50%); background: var(--hb-accent); border: 2px solid #fff; box-shadow: 0 0 10px var(--hb-accent); }
+    .bar-bg:not(.bar-bg--test-sweep) .bar-test-light { opacity: 0 !important; visibility: hidden; animation: none !important; }
+    .bar-bg.bar-bg--test-sweep .bar-test-light { visibility: visible; opacity: 1; animation: test-light-sweep 2.2s cubic-bezier(.4,0,.2,1) forwards; }
+    @keyframes test-light-sweep { 0% { left: 0%; transform: translate(0, -50%); } 100% { left: 100%; transform: translate(-100%, -50%); } }
+    #bar.bar--no-transition { transition: none; }
+
+    body.skin-meta2 .wrap { max-width: calc(900px / var(--ov-s, 1)); }
+    body.skin-meta2 .meta2-box { width: 100%; padding: 2px 0; display: flex; justify-content: center; }
+    body.skin-meta2 .meta2-card.goal-card-slim {
+      position: relative; width: 100%; max-width: 550px;
+      background: linear-gradient(180deg, var(--hb-red), #8a1010); padding: 8px 18px;
+      border: 4px solid #1a1a1a; border-radius: 6px; clip-path: polygon(2% 0%, 100% 0%, 98% 100%, 0% 100%);
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.2), 0 5px 0 #1a1a1a;
+      display: flex; align-items: center; gap: 12px;
+    }
+    body.skin-meta2 .info-group { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; min-width: 0; }
+    body.skin-meta2 .gift-icon { font-size: 16px; }
+    body.skin-meta2 .goal-title#title { font-family: 'Bangers', Impact, sans-serif; font-size: 13px; color: #fff; text-shadow: 2px 2px 0 #1a1a1a; }
+    body.skin-meta2 .progress-wrapper { flex: 1; min-width: 0; position: relative; height: 20px; background: #1a1a1a; border: 3px solid #1a1a1a; border-radius: 4px; overflow: hidden; transform: skewX(-8deg); }
+    body.skin-meta2 .progress-wrapper .bar-bg { position: relative; margin-top: 0; height: 100%; border-radius: 0; background: transparent; }
+    body.skin-meta2 .progress-wrapper #bar { border-radius: 0; height: 100%; transition: width .38s cubic-bezier(.33,1,.68,1); }
+    body.skin-meta2 .progress-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; pointer-events: none; transform: skewX(8deg); font-size: 8px; font-weight: 700; color: #fff; text-shadow: 2px 2px 0 #1a1a1a; }
+    body.skin-meta2 .bar-plasma::before { background: linear-gradient(90deg, #ffe14d, #5c94fc, #e52521, #ffe14d); background-size: 200% 100%; animation: meta2-fill-drift 7s linear infinite; }
+
+    body.skin-meta3 .wrap { max-width: calc(900px / var(--ov-s, 1)); padding: 2px 4px; }
+    body.skin-meta3 .meta3-goal-container {
+      position: relative; width: 100%; max-width: 560px; height: 52px; margin: 0 auto;
+      background: linear-gradient(180deg, var(--hb-blue) 0%, #3a6ccc 100%);
+      border: 4px solid #1a1a1a; border-radius: 8px;
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.25), 0 5px 0 #1a1a1a;
+      overflow: hidden; display: flex; justify-content: center; align-items: center;
+    }
+    body.skin-meta3 .meta3-goal-container::before, body.skin-meta3 .meta3-goal-container::after {
+      content: '★'; position: absolute; top: 4px; font-size: 10px; color: var(--hb-accent); text-shadow: 2px 2px 0 #1a1a1a; z-index: 3;
+    }
+    body.skin-meta3 .meta3-goal-container::before { left: 12px; }
+    body.skin-meta3 .meta3-goal-container::after { right: 12px; }
+    body.skin-meta3 .meta3-goal-container .progress-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #ffe14d, #fff7a8, #ffe14d); transition: width .4s ease-out; z-index: 1; opacity: .85; }
+    body.skin-meta3 .meta3-goal-container .progress-bar.is-empty { width: 0% !important; }
+    body.skin-meta3 .meta3-goal-container .progress-bar .bar-plasma, body.skin-meta3 .meta3-goal-container .progress-bar .bar-shine, body.skin-meta3 .meta3-goal-container .progress-bar .bar-spark { display: none !important; }
+    body.skin-meta3 .meta3-goal-text { position: relative; z-index: 2; font-family: 'Bangers', Impact, sans-serif; font-size: 14px; color: #fff; text-shadow: 2px 2px 0 #1a1a1a; text-transform: uppercase; white-space: nowrap; max-width: 90%; overflow: hidden; text-overflow: ellipsis; padding: 0 24px; }
+
+    body.skin-meta4 .wrap { max-width: calc(520px / var(--ov-s, 1)); padding: 2px 4px; }
+    body.skin-meta4 .hyper-glass-frame {
+      position: relative; width: 100%; max-width: 460px; height: 62px; margin: 0 auto;
+      background: var(--hb-red); border: 4px solid #1a1a1a; border-radius: 8px; padding: 5px;
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.2), 0 5px 0 #1a1a1a;
+    }
+    body.skin-meta4 .hyper-glass-frame::before {
+      content: '?'; position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+      width: 24px; height: 24px; background: var(--hb-accent); border: 3px solid #1a1a1a; border-radius: 4px;
+      display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #1a1a1a; z-index: 4;
+    }
+    body.skin-meta4 .hyper-glass-container {
+      position: relative; width: 100%; height: 100%; background: rgba(0,0,0,.35); border: 2px solid var(--hb-accent);
+      border-radius: 4px; overflow: hidden; display: flex; justify-content: center; align-items: center;
+    }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar {
+      position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+      background: linear-gradient(90deg, #ffe14d, #fff7a8, #ffe14d);
+      border-right: 3px solid #fff; transition: width .4s cubic-bezier(.25,1,.5,1); z-index: 1;
+    }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar.is-empty { width: 0% !important; border-right: none; }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-plasma, body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-shine, body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-spark { display: none !important; }
+    body.skin-meta4 .hyper-glass-text { position: relative; z-index: 3; font-family: 'Bangers', Impact, sans-serif; font-size: 12px; color: #fff; text-shadow: 2px 2px 0 #1a1a1a; text-transform: uppercase; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
+
+    html.embed body { display: flex; align-items: center; justify-content: flex-start; }
+  </style>
+</head>
+<body data-hype-theme="mario">
+  <div class="wrap">
+    <div class="box">
+      <div class="mario-coin" aria-hidden="true"></div>
+      <div class="box-inner">
+        <div class="row-top">
+          <div class="title-wrap">
+            <span class="title-icon" id="title-icon" aria-hidden="true">🍄</span>
+            <span id="title"></span>
+          </div>
+          <div class="meta-wrap">
+            <span class="meta-icon" id="meta-icon" aria-hidden="true">🪙</span>
+            <span class="meta-line">
+              <span id="meta-current" class="meta-gold">0</span><span class="meta-cyan"> / </span><span id="meta-goal" class="meta-cyan">100</span>
+            </span>
+          </div>
+        </div>
+        <div class="bar-bg" id="bar-bg">
+          <div class="bar-track" aria-hidden="true"></div>
+          <div id="bar" class="is-empty">
+            <div class="bar-plasma"><div class="bar-shine"></div></div>
+            <div class="bar-spark"></div>
+          </div>
+          <div class="bar-test-light" id="bar-test-light" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/js/hype-bar-overlay.js"></script>
+</body>
+</html>

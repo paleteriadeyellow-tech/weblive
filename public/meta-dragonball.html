@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Barra de meta (Dragon Ball Super)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ov-scale: 1;
+      --hb-text: #fff;
+      --hb-muted: #ff9100;
+      --hb-accent: #ff9100;
+      --hb-ki: #2196f3;
+      --hb-rainbow: linear-gradient(90deg, #ff9100 0%, #ffeb3b 20%, #2196f3 45%, #ff5722 70%, #ff9100 100%);
+      --hb-track-idle: linear-gradient(90deg, rgba(12,8,24,.95) 0%, rgba(20,12,8,.95) 100%);
+    }
+    html { width: 100%; height: 100%; }
+    body { margin: 0; width: 100%; min-height: 100%; overflow: hidden; background: transparent; font-family: 'Orbitron', sans-serif; }
+    .wrap { --ov-s: max(0.001, var(--ov-scale, 1)); box-sizing: border-box; width: calc(100% / var(--ov-s)); max-width: calc(900px / var(--ov-s)); padding: 2px 4px; transform: scale(var(--ov-scale, 1)); transform-origin: top left; }
+    .box {
+      position: relative; padding: 10px 14px 12px; overflow: visible;
+      background: linear-gradient(105deg, rgba(12,8,24,.94) 0%, rgba(20,12,8,.94) 100%);
+      border: 2px solid color-mix(in srgb, var(--hb-accent) 70%, #fff);
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+      box-shadow: 0 0 24px color-mix(in srgb, var(--hb-accent) 30%, transparent), 0 0 40px color-mix(in srgb, var(--hb-ki) 15%, transparent), inset 0 0 24px rgba(255,145,0,.06);
+    }
+    .box::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--hb-ki) 20%, transparent) 50%, transparent);
+      opacity: .4; animation: kiPulse 2s ease-in-out infinite;
+    }
+    @keyframes kiPulse { 0%, 100% { opacity: .25; } 50% { opacity: .55; } }
+    .dbz-orb {
+      position: absolute; top: 50%; left: -4px; transform: translateY(-50%);
+      width: 20px; height: 20px; border-radius: 50%; z-index: 2;
+      background: radial-gradient(circle at 35% 30%, #ffeb3b, var(--hb-accent) 50%, #e65100);
+      border: 2px solid rgba(255,255,255,.4);
+      box-shadow: 0 0 12px var(--hb-accent), 0 0 20px color-mix(in srgb, var(--hb-ki) 50%, transparent);
+      animation: orbGlow 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes orbGlow { from { box-shadow: 0 0 8px var(--hb-accent); } to { box-shadow: 0 0 18px var(--hb-accent), 0 0 28px var(--hb-ki); } }
+    .box-inner { position: relative; z-index: 1; padding-left: 16px; }
+    .row-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; min-height: 28px; }
+    .title-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .title-icon { font-size: 16px; line-height: 1; flex-shrink: 0; filter: drop-shadow(0 0 6px var(--hb-accent)); }
+    #title {
+      font-family: 'Bangers', Impact, sans-serif; font-size: 16px; font-weight: 400;
+      color: var(--hb-text); line-height: 1.1; letter-spacing: .06em; text-transform: uppercase;
+      text-shadow: 0 0 10px var(--hb-accent), 2px 2px 0 #c62800, -1px -1px 0 var(--hb-ki);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .meta-wrap { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .meta-icon { font-size: 14px; filter: drop-shadow(0 0 4px var(--hb-ki)); }
+    .meta-line { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .08em; text-shadow: 0 0 8px var(--hb-accent); }
+    .meta-gold { color: #ffeb3b; }
+    .meta-cyan { color: var(--hb-ki); }
+    .bar-bg { position: relative; height: 10px; border-radius: 2px; background: rgba(0,0,0,.5); overflow: visible; box-shadow: inset 0 0 8px rgba(0,0,0,.6), 0 0 0 1px rgba(255,145,0,.3); }
+    .bar-track { position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: var(--hb-track-idle); opacity: .8; }
+    @keyframes rainbow-drift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    @keyframes meta2-fill-drift { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    #bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; min-width: 0; z-index: 2; border-radius: inherit; overflow: hidden; transition: width .35s ease-out; box-shadow: 0 0 12px var(--hb-accent), 0 0 20px color-mix(in srgb, var(--hb-ki) 40%, transparent); }
+    .bar-plasma { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+    .bar-plasma::before { content: ''; position: absolute; inset: 0; background: var(--hb-rainbow); background-size: 220% 100%; filter: saturate(1.3) brightness(1.1); animation: rainbow-drift 5s linear infinite; }
+    .bar-plasma::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.35) 0%, transparent 50%); pointer-events: none; }
+    .bar-shine { position: absolute; inset: 0; background: linear-gradient(105deg, transparent, rgba(255,255,255,.25) 50%, transparent); animation: kiScan 2s ease-in-out infinite; mix-blend-mode: overlay; }
+    @keyframes kiScan { 0% { transform: translateX(-80%); } 100% { transform: translateX(80%); } }
+    .bar-spark { position: absolute; top: 50%; right: 0; transform: translate(50%, -50%); width: 10px; height: 10px; border-radius: 50%; pointer-events: none; z-index: 4; background: radial-gradient(circle, #fff, var(--hb-accent)); box-shadow: 0 0 10px var(--hb-accent), 0 0 18px var(--hb-ki); }
+    #bar.is-empty .bar-spark { opacity: 0; }
+    .bar-test-light { position: absolute; top: 50%; left: 0; z-index: 6; width: 10px; height: 10px; border-radius: 50%; pointer-events: none; opacity: 0; transform: translate(0, -50%); background: radial-gradient(circle, #fff, var(--hb-accent)); box-shadow: 0 0 14px var(--hb-accent), 0 0 22px var(--hb-ki); }
+    .bar-bg:not(.bar-bg--test-sweep) .bar-test-light { opacity: 0 !important; visibility: hidden; animation: none !important; }
+    .bar-bg.bar-bg--test-sweep .bar-test-light { visibility: visible; opacity: 1; animation: test-light-sweep 2.2s cubic-bezier(.4,0,.2,1) forwards; }
+    @keyframes test-light-sweep { 0% { left: 0%; transform: translate(0, -50%); } 100% { left: 100%; transform: translate(-100%, -50%); } }
+    #bar.bar--no-transition { transition: none; }
+
+    body.skin-meta2 .wrap { max-width: calc(900px / var(--ov-s, 1)); }
+    body.skin-meta2 .meta2-box { width: 100%; padding: 2px 0; display: flex; justify-content: center; }
+    body.skin-meta2 .meta2-card.goal-card-slim {
+      position: relative; width: 100%; max-width: 550px;
+      background: linear-gradient(105deg, rgba(12,8,24,.95), rgba(30,15,5,.95));
+      padding: 10px 20px; clip-path: polygon(3% 0%, 100% 0%, 97% 100%, 0% 100%);
+      border-left: 3px solid var(--hb-ki); border-right: 3px solid var(--hb-accent);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--hb-accent) 25%, transparent);
+      display: flex; align-items: center; gap: 14px;
+    }
+    body.skin-meta2 .info-group { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; min-width: 0; }
+    body.skin-meta2 .gift-icon { font-size: 18px; filter: drop-shadow(0 0 6px var(--hb-accent)); }
+    body.skin-meta2 .goal-title#title { font-family: 'Bangers', Impact, sans-serif; font-size: 14px; color: #fff; text-shadow: 0 0 8px var(--hb-accent); }
+    body.skin-meta2 .progress-wrapper { flex: 1; min-width: 0; position: relative; height: 20px; background: rgba(0,0,0,.5); transform: skewX(-12deg); overflow: hidden; border: 1px solid rgba(255,145,0,.4); }
+    body.skin-meta2 .progress-wrapper .bar-bg { position: relative; margin-top: 0; height: 100%; border-radius: 0; background: transparent; }
+    body.skin-meta2 .progress-wrapper #bar { border-radius: 0; height: 100%; box-shadow: 0 0 10px var(--hb-accent); transition: width .38s cubic-bezier(.33,1,.68,1); }
+    body.skin-meta2 .progress-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; pointer-events: none; transform: skewX(12deg); font-size: 10px; font-weight: 900; color: #fff; text-shadow: 0 0 6px var(--hb-accent); }
+    body.skin-meta2 .bar-plasma::before { background: linear-gradient(90deg, var(--hb-ki), var(--hb-accent), #ffeb3b, var(--hb-accent)); background-size: 200% 100%; animation: meta2-fill-drift 6s linear infinite; }
+
+    body.skin-meta3 .wrap { max-width: calc(900px / var(--ov-s, 1)); padding: 2px 4px; }
+    body.skin-meta3 .meta3-goal-container {
+      position: relative; width: 100%; max-width: 560px; height: 54px; margin: 0 auto;
+      background: linear-gradient(180deg, rgba(8,6,18,.97), rgba(20,10,5,.97));
+      border: 2px solid var(--hb-accent); clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
+      box-shadow: 0 0 28px color-mix(in srgb, var(--hb-accent) 35%, transparent), inset 0 0 20px rgba(255,145,0,.08);
+      overflow: hidden; display: flex; justify-content: center; align-items: center;
+    }
+    body.skin-meta3 .meta3-goal-container::before, body.skin-meta3 .meta3-goal-container::after {
+      content: ''; position: absolute; top: 0; width: 60px; height: 5px; filter: blur(3px); z-index: 3; pointer-events: none;
+    }
+    body.skin-meta3 .meta3-goal-container::before { left: 24px; background: var(--hb-ki); box-shadow: 0 0 12px var(--hb-ki); }
+    body.skin-meta3 .meta3-goal-container::after { right: 24px; background: var(--hb-accent); box-shadow: 0 0 12px var(--hb-accent); }
+    body.skin-meta3 .meta3-goal-container .progress-bar { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, rgba(33,150,243,.3), rgba(255,145,0,.5)); transition: width .4s ease-out; z-index: 1; }
+    body.skin-meta3 .meta3-goal-container .progress-bar.is-empty { width: 0% !important; }
+    body.skin-meta3 .meta3-goal-container .progress-bar .bar-plasma, body.skin-meta3 .meta3-goal-container .progress-bar .bar-shine, body.skin-meta3 .meta3-goal-container .progress-bar .bar-spark { display: none !important; }
+    body.skin-meta3 .meta3-goal-text { position: relative; z-index: 2; font-family: 'Bangers', Impact, sans-serif; font-size: 14px; color: #fff; letter-spacing: .06em; text-shadow: 0 0 10px var(--hb-accent); text-transform: uppercase; white-space: nowrap; max-width: 90%; overflow: hidden; text-overflow: ellipsis; padding: 0 12px; }
+
+    body.skin-meta4 .wrap { max-width: calc(520px / var(--ov-s, 1)); padding: 2px 4px; }
+    body.skin-meta4 .hyper-glass-frame {
+      position: relative; width: 100%; max-width: 460px; height: 64px; margin: 0 auto;
+      background: rgba(8,6,18,.6); border-radius: 4px; padding: 5px;
+      box-shadow: 0 0 20px color-mix(in srgb, var(--hb-ki) 30%, transparent), 0 0 0 2px color-mix(in srgb, var(--hb-accent) 40%, transparent);
+    }
+    body.skin-meta4 .hyper-glass-frame::before {
+      content: ''; position: absolute; top: -2px; left: 20%; width: 40%; height: 3px;
+      background: linear-gradient(90deg, var(--hb-ki), var(--hb-accent)); box-shadow: 0 0 12px var(--hb-accent); z-index: 4;
+    }
+    body.skin-meta4 .hyper-glass-container {
+      position: relative; width: 100%; height: 100%;
+      background: rgba(255,255,255,.03); border: 2px solid var(--hb-accent);
+      clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%);
+      overflow: hidden; display: flex; justify-content: center; align-items: center;
+    }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar {
+      position: absolute; left: 0; top: 0; height: 100%; width: 0%;
+      background: linear-gradient(90deg, rgba(33,150,243,.4), rgba(255,145,0,.6) 80%, var(--hb-accent));
+      border-right: 2px solid #fff; box-shadow: 0 0 16px var(--hb-accent), inset -4px 0 8px rgba(255,255,255,.3);
+      transition: width .4s cubic-bezier(.25,1,.5,1); z-index: 1;
+    }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar.is-empty { width: 0% !important; border-right: none; }
+    body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-plasma, body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-shine, body.skin-meta4 .hyper-glass-container .hyper-progress-bar .bar-spark { display: none !important; }
+    body.skin-meta4 .hyper-glass-text { position: relative; z-index: 3; font-family: 'Bangers', Impact, sans-serif; font-size: 12px; color: #fff; letter-spacing: .1em; text-shadow: 0 0 10px var(--hb-accent), 1px 1px 2px #000; text-transform: uppercase; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
+
+    html.embed body { display: flex; align-items: center; justify-content: flex-start; }
+  </style>
+</head>
+<body data-hype-theme="dragonball">
+  <div class="wrap">
+    <div class="box">
+      <div class="dbz-orb" aria-hidden="true"></div>
+      <div class="box-inner">
+        <div class="row-top">
+          <div class="title-wrap">
+            <span class="title-icon" id="title-icon" aria-hidden="true">🐉</span>
+            <span id="title"></span>
+          </div>
+          <div class="meta-wrap">
+            <span class="meta-icon" id="meta-icon" aria-hidden="true">⚡</span>
+            <span class="meta-line">
+              <span id="meta-current" class="meta-gold">0</span><span class="meta-cyan"> / </span><span id="meta-goal" class="meta-cyan">100</span>
+            </span>
+          </div>
+        </div>
+        <div class="bar-bg" id="bar-bg">
+          <div class="bar-track" aria-hidden="true"></div>
+          <div id="bar" class="is-empty">
+            <div class="bar-plasma"><div class="bar-shine"></div></div>
+            <div class="bar-spark"></div>
+          </div>
+          <div class="bar-test-light" id="bar-test-light" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/js/hype-bar-overlay.js"></script>
+</body>
+</html>
