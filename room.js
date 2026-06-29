@@ -2582,11 +2582,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
-  function spawnMslugThing(thing, name, times) {
+  function spawnMslugThing(thing, name, times, units) {
     if (!thing) return;
     const t = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(times) || 1));
     const spawnKey = resolveMslugSpawnKey(thing);
     const exec = { tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t };
+    if (units != null && Number(units) > 0) exec.units = Math.max(1, Number(units) || 1);
     if (emitLocalExec(exec)) return;
     const run = async () => {
       try { await ensureMslugBridge(); } catch { /* bridge arranca en mslugSpawn */ }
@@ -2636,7 +2637,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (likeFires <= 0) continue;
         const totalQty = Math.min(MSLUG_SPAWN_MAX, perUnit * likeFires);
         broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${totalQty > 1 ? ` ×${totalQty}` : ''} (${name || 'viewer'})` });
-        spawnMslugThing(a.thing, name, totalQty);
+        spawnMslugThing(a.thing, name, totalQty, likeFires);
         continue;
       } else if (eventType === 'chat') {
         if (trig === 'chatCommand') {
@@ -2656,7 +2657,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       const times = Math.min(MSLUG_SPAWN_MAX, perUnit * units);
       broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''} (${name || 'viewer'})` });
-      spawnMslugThing(a.thing, name, times);
+      spawnMslugThing(a.thing, name, times, units);
     }
   }
 
