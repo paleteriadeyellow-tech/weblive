@@ -2179,27 +2179,12 @@ function applyTimerSettingsUI() {
 
 /* ====================== Ajustes (sync con servidor) ====================== */
 let saveDebounce = null;
-let localSaveDebounce = null;
-
-function saveSettingsToLocalMirror() {
-  if (!relayActive() || !settings || applyingSettings) return;
-  clearTimeout(localSaveDebounce);
-  localSaveDebounce = setTimeout(() => {
-    fetch('/api/my-settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings }),
-    }).catch(() => {});
-  }, 250);
-}
-
 function saveSettings() {
   if (applyingSettings) return;
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => {
     stripSettingsMediaForSave(settings);
     send({ action: 'saveSettings', settings });
-    saveSettingsToLocalMirror();
   }, 200);
 }
 function flushSaveSettings() {
@@ -2208,13 +2193,6 @@ function flushSaveSettings() {
   saveDebounce = null;
   stripSettingsMediaForSave(settings);
   send({ action: 'saveSettings', settings });
-  clearTimeout(localSaveDebounce);
-  localSaveDebounce = null;
-  fetch('/api/my-settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ settings }),
-  }).catch(() => {});
 }
 
 function mcCmdReady(a) {
@@ -10474,9 +10452,11 @@ const MARI0_POWERUPS = [
   { id: 'OneUp', nombre: '+1 vida' },
   { id: 'SuperLeaf', nombre: 'Hoja (power-up aleatorio)' },
   { id: 'Coin', nombre: 'Monedas' },
-  { id: 'PoisonMushroom', nombre: 'Hongo venenoso (spawn)' },
+  { id: 'PoisonMushroom', nombre: 'Hongo malo (spawn)' },
   { id: 'SpawnMushroom', nombre: 'Hongo (spawn)' },
   { id: 'SpawnStar', nombre: 'Estrella (spawn)' },
+  { id: 'KillPlayer', nombre: 'Mata a Mario' },
+  { id: 'TakeLife', nombre: 'Quita vida' },
 ];
 /** spawn_* enemigos del mod Mari0 AE Crowd Control (59 códigos). */
 const MARI0_ENEMIES = [
@@ -10513,7 +10493,7 @@ const MARI0_ENEMIES = [
   { id: 'BigMole', nombre: 'Topo gigante' },
   { id: 'ParaBeetle', nombre: 'Parabeetle' },
   { id: 'RockyWrench', nombre: 'Rocky Wrench' },
-  { id: 'Grinder', nombre: 'Sierra (Grinder)' },
+  { id: 'Grinder', nombre: 'Grinder' },
   { id: 'Icicle', nombre: 'Carámbano' },
   { id: 'Fire', nombre: 'Fuego (enemigo)' },
   { id: 'CastleFire', nombre: 'Fuego de castillo' },
@@ -10537,54 +10517,20 @@ const MARI0_PROJECTILES = [
   { id: 'BroFireball', nombre: 'Bolas Hammer Bro' },
 ];
 const MARI0_MECHANICS = [
-  { id: 'Box', nombre: 'Cubo de compañía' },
-  { id: 'Donut', nombre: 'Bloque donut' },
-  { id: 'FlipBlock', nombre: 'Bloque conmutador' },
-  { id: 'Miniblock', nombre: 'Minibloque Minecraft' },
-  { id: 'PowBlock', nombre: 'Bloque POW' },
-  { id: 'Spring', nombre: 'Resorte grande' },
+  { id: 'Box', nombre: 'Caja Portal' },
+  { id: 'Donut', nombre: 'Donut' },
+  { id: 'FlipBlock', nombre: 'Bloque flip' },
+  { id: 'Miniblock', nombre: 'Minibloque' },
+  { id: 'PowBlock', nombre: 'Pow Block' },
+  { id: 'Spring', nombre: 'Resorte' },
   { id: 'SmallSpring', nombre: 'Resorte pequeño' },
 ];
 const MARI0_CHAOS = [
   { id: 'GoombaAttack', nombre: 'Goombas al caminar' },
-  { id: 'MeteorShower', nombre: 'Lluvia de meteoritos' },
+  { id: 'MeteorShower', nombre: 'Lluvia de meteoros' },
   { id: 'BulletBillStorm', nombre: 'Tormenta Bullet Bill' },
   { id: 'FlyingFishStorm', nombre: 'Peces voladores (caos)' },
   { id: 'Wind', nombre: 'Viento' },
-];
-const MARI0_GAME_MODS = [
-  { id: 'KillPlayer', nombre: 'Matar al jugador' },
-  { id: 'LightsOff', nombre: 'Luces apagadas' },
-  { id: 'LightsOn', nombre: 'Luces encendidas' },
-  { id: 'RandomizeOutfit', nombre: 'Aleatorizar atuendo' },
-  { id: 'RandomizePowerup', nombre: 'Aleatorizar potenciador' },
-  { id: 'RemovePowerup', nombre: 'Quitar potenciador' },
-  { id: 'RestartLevel', nombre: 'Reiniciar nivel' },
-  { id: 'SpeedUpGame', nombre: 'Acelerar juego (×1.5)' },
-  { id: 'SlowDownGame', nombre: 'Reducir velocidad (×0.67)' },
-  { id: 'EnlargeEnemies', nombre: 'Agrandar enemigos' },
-  { id: 'InvertButtons', nombre: 'Botones invertidos' },
-  { id: 'InvertWasd', nombre: 'Invertir WASD' },
-  { id: 'TakeLife', nombre: 'Quitar vida extra' },
-  { id: 'TakeHat', nombre: 'Quitar sombrero' },
-  { id: 'GiveHat', nombre: 'Dar sombrero' },
-  { id: 'TimeAdd', nombre: 'Añadir tiempo' },
-  { id: 'TimeSub', nombre: 'Quitar tiempo' },
-  { id: 'Underwater', nombre: 'Bajo el agua' },
-  { id: 'KillEnemies', nombre: 'Matar enemigos en pantalla' },
-  { id: 'FlipGravity', nombre: 'Gravedad invertida' },
-  { id: 'AutoRun', nombre: 'Correr automático' },
-  { id: 'AutoWalk', nombre: 'Caminar automático' },
-  { id: 'DisableScroll', nombre: 'Desactivar scroll' },
-  { id: 'Bonk', nombre: 'Golpe de techo (bonk)' },
-  { id: 'BigMario', nombre: 'Mario gigante' },
-  { id: 'DeadlyCoin', nombre: 'Monedas mortales' },
-  { id: 'LowFps', nombre: 'FPS bajos (cámara lenta)' },
-];
-const MARI0_SHADERS = [
-  { id: 'ShaderClear', nombre: 'Restablecer shaders' },
-  { id: 'Shader1', nombre: 'Cambiar shader (ranura 1)' },
-  { id: 'Shader2', nombre: 'Cambiar shader (ranura 2)' },
 ];
 const MARI0_EFFECTS = [
   { id: 'giant', nombre: 'Enemigos gigantes', seconds: 5, factor: 0 },
@@ -10597,20 +10543,13 @@ const MARI0_CATALOG = [
   ...MARI0_PROJECTILES.map((x) => ({ ...x, tipo: 'projectile', kind: 'spawn' })),
   ...MARI0_MECHANICS.map((x) => ({ ...x, tipo: 'mechanic', kind: 'spawn' })),
   ...MARI0_CHAOS.map((x) => ({ ...x, tipo: 'chaos', kind: 'spawn' })),
-  ...MARI0_GAME_MODS.map((x) => ({ ...x, tipo: 'game', kind: 'spawn' })),
-  ...MARI0_SHADERS.map((x) => ({ ...x, tipo: 'shader', kind: 'spawn' })),
   ...MARI0_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
 ];
-const MARI0_CAT_ICON = {
-  item: '🍄', enemy: '👾', boss: '👑', projectile: '💥', mechanic: '🔧',
-  chaos: '🌪️', game: '🎮', shader: '🖥️', effect: '✨',
-};
+const MARI0_CAT_ICON = { item: '🍄', enemy: '👾', boss: '👑', projectile: '💥', mechanic: '🔧', chaos: '🌪️', effect: '✨' };
 const MARI0_TIPO_LABEL = {
   item: 'Power-up', enemy: 'Enemigo', boss: 'Jefe', projectile: 'Proyectil',
-  mechanic: 'Mecánica', chaos: 'Caos de nivel', game: 'Modificador',
-  shader: 'Shader', effect: 'Efecto visual',
+  mechanic: 'Mecánica', chaos: 'Caos de nivel', effect: 'Efecto visual',
 };
-const MARI0_SINGLE_TIPOS = new Set(['chaos', 'game', 'shader', 'effect']);
 
 function ensureMari0Actions() {
   if (!settings) return [];
@@ -11195,7 +11134,7 @@ function mari0CardHtml(a) {
       <label class="mc-like-row" style="max-width:120px">Segundos<input type="number" min="1" max="60" class="mari0-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>
       <label class="mc-like-row" style="max-width:160px">Tamaño (x, 0=auto)<input type="number" min="0" max="10" class="mari0-factor" data-uid="${uid}" value="${esc(String(a.factor || 0))}"></label>`;
   } else {
-    const mari0MaxCount = (MARI0_SINGLE_TIPOS.has(a.tipo) || (a.tipo === 'item' && !/^Spawn/i.test(a.thing || ''))) ? 1 : 200;
+    const mari0MaxCount = (a.tipo === 'chaos' || (a.tipo === 'item' && !/^Spawn/i.test(a.thing || ''))) ? 1 : 200;
     const qtyHint = mari0MaxCount === 1 ? ' (máx. 1)' : '';
     qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad${qtyHint}<input type="number" min="1" max="${mari0MaxCount}" class="mari0-count" data-uid="${uid}" value="${esc(String(Math.min(mari0MaxCount, parseInt(a.count, 10) || 1)))}"></label>`;
   }
@@ -12015,7 +11954,8 @@ function setupMslugActionsUI() {
 }
 
 function mslugCatCardHtml(c) {
-  const ic = c.emoji ? `<span class="mc-cat-emoji">${c.emoji}</span>` : `<span class="mc-cat-emoji">${c.tipo === 'weapon' ? '🔫' : '🎖️'}</span>`;
+  const emoji = c.emoji || (c.tipo === 'weapon' ? '🔫' : '🎖️');
+  const ic = `<img class="mc-cat-ic" src="/img/mslug/${esc(c.id)}.png" alt="" onerror="this.outerHTML='<span class=\'mc-cat-emoji\'>${emoji}</span>'">`;
   return `
     <div class="mc-cat-card" data-id="${esc(c.id)}" title="${esc(c.desc || c.nombre)}">
       <div class="mc-cat-head-row">
