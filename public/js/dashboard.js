@@ -1042,11 +1042,11 @@ function handle(type, p) {
       break;
     case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
     case 'botReply': handleBotReply(p); break;
-    case 'gift': addGift(p); ttsOnGift(p); break;
-    case 'like': ttsOnLike(p); break;
+    case 'gift': addGift(p); ttsOnGift(p); relayMslugOnGift(p); break;
+    case 'like': ttsOnLike(p); relayMslugOnLike(p); break;
     case 'member': addEvent(`🙋 ${p.nickname} entró`, ''); break;
-    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); break;
-    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); break;
+    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); relayMslugOnLiveEvent('follow', {}, p); break;
+    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); relayMslugOnLiveEvent('share', {}, p); break;
     case 'subscribe': break;
     case 'superfan': break;
     case 'log': addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : ''); break;
@@ -6876,8 +6876,12 @@ function onKeyAction(p) {
 
 // En modo relay, la nube manda órdenes locales. Mario/PvZ van al módulo de juegos;
 // el resto (RCON, OBS, teclas…) al proceso principal de Electron.
+let mslugRelayCloudExecUntil = 0;
+const relayMslugLikeAcc = new Map();
+
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
+  if (exec.tipo === 'MSLUG_SPAWN') mslugRelayCloudExecUntil = Date.now() + 1500;
   if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
@@ -11904,7 +11908,110 @@ function ensureMslugActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.mslugActions)) settings.mslugActions = [];
   settings.mslugActions = migrateGameActions(settings.mslugActions, 'mslug');
+  for (const a of settings.mslugActions) {
+    const c = MSLUG_CATALOG.find((x) => x.id === a.thing);
+    if (!c) continue;
+    a.label = c.nombre;
+    a.desc = c.desc;
+    a.section = c.section;
+    a.tipo = c.tipo;
+    a.kind = c.kind || 'spawn';
+    if (a.comboInstant == null && (a.trigger === 'gift' || a.trigger === 'gift-any')) a.comboInstant = true;
+  }
   return settings.mslugActions;
+}
+
+function relayMslugLikeFires(a, info, user) {
+  const uid = String(user?.uniqueId || '').trim();
+  const batch = Math.max(0, Number(info.likeCount) || 0);
+  if (!uid || batch <= 0) return 0;
+  const goal = Math.max(1, Number(a.likeN) || 1);
+  const actKey = String(a.uid || a.label || 'mslug');
+  const key = `${uid}:${actKey}`;
+  const carry = (relayMslugLikeAcc.get(key) || 0) + batch;
+  const fires = Math.floor(carry / goal);
+  relayMslugLikeAcc.set(key, carry - fires * goal);
+  if (relayMslugLikeAcc.size > 8000) relayMslugLikeAcc.clear();
+  return fires;
+}
+
+function scheduleRelayMslug(eventType, info, user) {
+  if (!relayActive() || !IS_DESKTOP) return;
+  setTimeout(async () => {
+    if (Date.now() < mslugRelayCloudExecUntil) return;
+    await execRelayMslugActions(eventType, info, user);
+  }, 300);
+}
+
+async function execRelayMslugSpawn(thing, label, name, times) {
+  const spawnKey = resolveMslugSpawnKey(thing);
+  const capped = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(times) || 1));
+  const r = await execGameLocal({ tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: capped });
+  if (r && r.ok !== false) {
+    addEvent(`🎖️ Metal Slug: spawn "${label || thing}"${capped > 1 ? ` ×${capped}` : ''} (${name || 'viewer'})`, 'ok');
+  }
+}
+
+async function execRelayMslugActions(eventType, info = {}, user = null) {
+  const list = ensureMslugActions();
+  if (!list.length) return;
+  const name = user?.nickname || info.nickname || '';
+  for (const a of list) {
+    if (!a || a.enabled === false || !a.thing) continue;
+    const trig = a.trigger || 'gift';
+    let times = Math.max(1, parseInt(a.count, 10) || 1);
+    if (eventType === 'gift') {
+      if (trig === 'gift') {
+        const wantId = String(a.giftId || '').trim();
+        const wantName = (a.giftName || '').trim().toLowerCase();
+        if (!wantId && !wantName) {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else {
+          const idMatch = wantId && wantId === String(info.giftId || '');
+          const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        }
+      } else if (trig === 'gift-any') {
+        times *= Math.max(1, Number(info.repeatCount) || 1);
+      } else continue;
+    } else if (eventType === 'like') {
+      if (trig !== 'like') continue;
+      const likeFires = relayMslugLikeFires(a, info, user);
+      if (likeFires <= 0) continue;
+      for (let lf = 0; lf < likeFires; lf++) {
+        await execRelayMslugSpawn(a.thing, a.label || a.thing, name, times);
+      }
+      continue;
+    } else if (trig !== eventType) continue;
+    if (eventType === 'gift') {
+      const comboOn = a.comboInstant !== false;
+      if (info.comboStreak === 'delta' && !comboOn) continue;
+      if (info.comboStreak === 'end' && comboOn) continue;
+    }
+    times = Math.min(MSLUG_SPAWN_MAX, times);
+    await execRelayMslugSpawn(a.thing, a.label || a.thing, name, times);
+  }
+}
+
+function relayMslugOnGift(p) {
+  if (!p) return;
+  scheduleRelayMslug('gift', {
+    giftName: p.giftName,
+    giftId: p.giftId,
+    repeatCount: p.repeatCount || 1,
+    comboStreak: p.streak ? 'delta' : undefined,
+  }, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayMslugOnLike(p) {
+  if (!p) return;
+  scheduleRelayMslug('like', { likeCount: p.count || 1 }, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayMslugOnLiveEvent(eventType, info, p) {
+  if (!p) return;
+  scheduleRelayMslug(eventType, info, { uniqueId: p.uniqueId, nickname: p.nickname });
 }
 
 function resolveMslugSpawnKey(thing) {

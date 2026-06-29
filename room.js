@@ -2587,14 +2587,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const t = Math.min(50, Math.max(1, Number(times) || 1));
     const spawnKey = resolveMslugSpawnKey(thing);
     const exec = { tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t };
+    if (emitLocalExec(exec)) return;
     const run = async () => {
-      if (!IS_CLOUD_ROOM) {
-        try { await ensureMslugBridge(); } catch { /* bridge arranca en mslugSpawn */ }
-      }
-      return dispatchLocalGameExec(exec);
+      try { await ensureMslugBridge(); } catch { /* bridge arranca en mslugSpawn */ }
+      return runGameExec(exec);
     };
     run().then((r) => {
-      if (r && r.ok === false && !r.relayed) {
+      if (r && r.ok === false) {
         broadcast('log', { level: 'warn', text: `🎖️ Metal Slug spawn falló: ${r.error || 'bridge/juego no listo'}` });
       }
     }).catch((e) => {
@@ -2646,7 +2645,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (want !== uname && want !== nname) continue;
         } else continue;
       } else if (trig !== eventType) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      if (eventType === 'gift') {
+        const comboOn = a.comboInstant !== false;
+        if (info.comboStreak === 'delta' && !comboOn) continue;
+        if (info.comboStreak === 'end' && comboOn) continue;
+      }
       times = Math.min(50, times);
       broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''} (${name || 'viewer'})` });
       spawnMslugThing(a.thing, name, times);
