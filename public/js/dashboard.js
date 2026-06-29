@@ -10546,6 +10546,21 @@ const MARI0_CATALOG = [
   ...MARI0_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
 ];
 const MARI0_CAT_ICON = { item: '🍄', enemy: '👾', boss: '👑', projectile: '💥', mechanic: '🔧', chaos: '🌪️', effect: '✨' };
+const MARI0_ICON_DIR = '/img/mari0/';
+
+function mari0CatalogIconUrl(entry) {
+  const id = entry?.id || entry?.thing;
+  if (!id) return '';
+  return `${MARI0_ICON_DIR}${id}.png`;
+}
+
+function mari0CatalogIconHtml(entry) {
+  const emoji = MARI0_CAT_ICON[entry?.tipo] || (entry?.kind === 'effect' ? '✨' : '🎮');
+  const src = mari0CatalogIconUrl(entry);
+  if (!src) return `<span class="mc-cat-emoji">${emoji}</span>`;
+  return `<img class="mc-cat-ic" src="${esc(src)}" alt="" onerror="this.outerHTML='<span class=\\'mc-cat-emoji\\'>${emoji}</span>'">`;
+}
+
 const MARI0_TIPO_LABEL = {
   item: 'Power-up', enemy: 'Enemigo', boss: 'Jefe', projectile: 'Proyectil',
   mechanic: 'Mecánica', chaos: 'Caos de nivel', effect: 'Efecto visual',
@@ -11033,7 +11048,7 @@ function renderMari0Catalog(filter) {
   grid.innerHTML = list.map((c) => `
     <div class="mc-cat-card" data-id="${esc(c.id)}">
       <div class="mc-cat-head-row">
-        <span class="mc-cat-emoji">${MARI0_CAT_ICON[c.tipo] || '🎮'}</span>
+        ${mari0CatalogIconHtml(c)}
         <div class="mc-cat-texts">
           <div class="mc-cat-name">${esc(c.nombre)}</div>
           <div class="mc-cat-desc">${esc(MARI0_TIPO_LABEL[c.tipo] || '')}</div>
@@ -11128,6 +11143,10 @@ function mari0CardHtml(a) {
     likeRow = `<label class="mc-like-row">${txt}<input type="text" class="mari0-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
   }
   const emoji = MARI0_CAT_ICON[a.tipo] || (a.kind === 'effect' ? '✨' : '🎮');
+  const iconSrc = mari0CatalogIconUrl(a);
+  const nameHtml = iconSrc
+    ? `<span class="mc-act-name"><img class="mc-act-ic" src="${esc(iconSrc)}" alt="" onerror="this.outerHTML='${emoji} '">${esc(a.label || a.thing)}</span>`
+    : `<span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>`;
   let qtyRow;
   if (a.kind === 'effect') {
     qtyRow = `
@@ -11141,7 +11160,7 @@ function mari0CardHtml(a) {
   return `
   <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
     <div class="mc-act-top">
-      <span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>
+      ${nameHtml}
       <button type="button" class="mc-act-del mari0-del" data-uid="${uid}" title="Quitar">✕</button>
     </div>
     <div class="mc-act-row">
@@ -12573,7 +12592,7 @@ function renderStreamerRanking(data) {
   const valKey = isLikes ? 'likesWeek' : 'diamondsWeek';
   const valLabel = isLikes ? 'likes' : 'diamantes';
   if (resetEl) {
-    resetEl.textContent = `Semana ${fmtSrkWeekRange(data.weekStart, data.weekEnd)} · Reinicio en ${fmtSrkReset(data.resetAt)} (domingo 00:00)`;
+    resetEl.textContent = `Semana ${fmtSrkWeekRange(data.weekStart, data.weekEnd)} · Reinicio en ${fmtSrkReset(data.resetAt)} (lunes 00:00)`;
   }
   const entries = data.entries || [];
   if (!entries.length) {

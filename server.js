@@ -1663,5 +1663,6 @@ process.on('SIGINT', () => {
   for (const room of rooms.values()) {
     try { room.shutdown(); } catch {}
   }
+  try { streamerRankings.flush(); } catch {}
   process.exit(0);
 });
