@@ -10,9 +10,8 @@ import { DEFAULT_SETTINGS, deepMerge } from './default-settings.js';
 import * as spotify from './spotify.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan } from './mc-panic.js';
-import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, runGameExec, resolveMslugSpawnKey, MSLUG_SPAWN_MAX } from './game-local.js';
+import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, runGameExec } from './game-local.js';
 import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
-import { ensureMslugBridge } from './mslug-bridge.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -858,7 +857,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const scoreSlot = (s) => {
       if (!s || typeof s !== 'object') return 0;
       let n = 0;
-      for (const k of ['actions', 'mcActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'mslugActions', 'repoActions']) {
+      for (const k of ['actions', 'mcActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions']) {
         const a = s[k];
         if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
       }
@@ -1863,20 +1862,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           })
           .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
       } else {
-        const mslug = resolveMslugSpawnFromWebhook(webhookCmd, context, times);
-        if (mslug) {
-          const giftName = context?.info?.giftName;
-          const giftLabel = giftName
-            ? `Regalo: ${giftName}${mslug.times > 1 ? ` ×${mslug.times}` : ''}`
-            : 'Webhook spawn';
-          spawnMslugThing(mslug.thing, mslug.name, mslug.times, null, {
-            label: mslug.thing,
-            eventType: giftName ? 'gift' : undefined,
-            giftName,
-            reason: giftLabel,
-          });
-        } else {
-          let whCmd = (context && urlHasActionPlaceholders(webhookCmd.url))
+        let whCmd = (context && urlHasActionPlaceholders(webhookCmd.url))
             ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, times)
             : { ...webhookCmd };
           if (/\/spawn\b/i.test(whCmd.url)) {
@@ -1891,7 +1877,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           fetch(whCmd.url, opts)
             .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
             .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
-        }
       }
     }
     if (obsCmd && obsCmd.on) {
@@ -2023,42 +2008,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return { npcId: parsed.npcId, name: nick, times: parsed.quantity * t };
   }
 
-  function isMslugDaemonWebhook(url) {
-    return /(?:localhost|127\.0\.0\.1):7760\b/i.test(String(url || ''));
-  }
-
-  function parseMslugSpawnWebhookUrl(url) {
-    if (!url || !/\/spawn\b/i.test(String(url))) return null;
-    try {
-      const u = new URL(String(url).replace(/\{[^}]+\}/g, 'x'));
-      const thing = u.searchParams.get('thing') ?? u.searchParams.get('enemy') ?? u.searchParams.get('id');
-      if (thing == null || !String(thing).trim()) return null;
-      const quantity = Math.max(1, parseInt(u.searchParams.get('quantity') ?? u.searchParams.get('count') ?? '1', 10) || 1);
-      const rawName = u.searchParams.get('userName') ?? u.searchParams.get('nickname') ?? u.searchParams.get('name') ?? '';
-      const name = rawName ? decodeURIComponent(String(rawName).replace(/\+/g, ' ')) : '';
-      return { thing: String(thing).trim(), quantity, name };
-    } catch {
-      return null;
-    }
-  }
-
-  function resolveMslugSpawnFromWebhook(webhookCmd, context, times = 1) {
-    if (!webhookCmd?.on || !webhookCmd.url) return null;
-    if (!isMslugDaemonWebhook(webhookCmd.url)) return null;
-    if (!/\/spawn\b/i.test(webhookCmd.url)) return null;
-    const t = Math.max(1, Number(times) || 1);
-    const resolved = (context && urlHasActionPlaceholders(webhookCmd.url))
-      ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, t)
-      : webhookCmd;
-    let url = resolved.url;
-    if (/\/spawn\b/i.test(url)) url = applySpawnQuantityToUrl(url, t);
-    const parsed = parseMslugSpawnWebhookUrl(url);
-    if (!parsed) return null;
-    const vars = context ? buildActionWebhookVars(context.info || {}, context.user || null, t) : {};
-    const nick = parsed.name || vars.nickname || vars.username || '';
-    return { thing: parsed.thing, name: nick, times: parsed.quantity * t };
-  }
-
   function fireMarioSpawnFromAction(a, context, times = 1) {
     const ms = a?.marioSpawn;
     if (ms == null || ms.npcId == null) return false;
@@ -2089,7 +2038,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerSmb3Actions(eventType, info, user, cfg);
     triggerPvzActions(eventType, info, user, cfg);
     triggerPvzHybridActions(eventType, info, user, cfg);
-    if (eventType !== 'like') triggerMslugActions(eventType, info, user, cfg);
     if (eventType !== 'like') triggerRepoActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
     if (Array.isArray(cfg.mcActions) && cfg.mcActions.length) processMcList(cfg.mcActions, eventType, info, vars);
@@ -2633,101 +2581,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
-  function spawnMslugThing(thing, name, times, units, meta = {}) {
-    if (!thing) return;
-    const t = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(times) || 1));
-    const spawnKey = resolveMslugSpawnKey(thing);
-    const spawnMeta = {
-      label: meta.label || thing,
-      reason: meta.reason,
-      eventType: meta.eventType,
-      giftName: meta.giftName,
-      likeBatch: meta.likeBatch,
-      likeFires: meta.likeFires,
-    };
-    const exec = { tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t };
-    if (units != null && Number(units) > 0) exec.units = Math.max(1, Number(units) || 1);
-    if (spawnMeta.label) exec.label = spawnMeta.label;
-    if (spawnMeta.reason) exec.reason = spawnMeta.reason;
-    if (spawnMeta.giftName) exec.giftName = spawnMeta.giftName;
-    if (spawnMeta.eventType) exec.eventType = spawnMeta.eventType;
-    if (spawnMeta.likeBatch != null) exec.likeBatch = spawnMeta.likeBatch;
-    if (spawnMeta.likeFires != null) exec.likeFires = spawnMeta.likeFires;
-    if (emitLocalExec(exec)) return;
-    const run = async () => {
-      try { await ensureMslugBridge(); } catch { /* bridge arranca en mslugSpawn */ }
-      return runGameExec(exec);
-    };
-    run().catch(() => { /* spawns solo en CMD del cliente, sin log en panel */ });
-  }
-
-  function mslugPerUnit(a) {
-    const n = parseInt(a?.count, 10);
-    return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
-  }
-
-  function triggerMslugActions(eventType, info = {}, user = null, cfg = settings) {
-    const list = cfg.mslugActions || [];
-    if (!list.length) return;
-    const name = (user && user.nickname) || info.nickname || '';
-    for (const a of list) {
-      if (!a || a.enabled === false || !a.thing) continue;
-      const trig = a.trigger || 'gift';
-      const perUnit = mslugPerUnit(a);
-      let units = 1;
-      if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else continue;
-      } else if (eventType === 'like') {
-        if (trig !== 'like') continue;
-        const likeFires = gameLikeTriggerFires(a, info, user, 'mslug');
-        if (likeFires <= 0) continue;
-        const totalQty = Math.min(MSLUG_SPAWN_MAX, perUnit * likeFires);
-        spawnMslugThing(a.thing, name, totalQty, likeFires, {
-          label: a.label || a.thing,
-          eventType: 'like',
-          reason: `${likeFires} like(s)`,
-        });
-        continue;
-      } else if (eventType === 'chat') {
-        if (trig === 'chatCommand') {
-          if (!matchesCommand(a.text, info.comment)) continue;
-        } else if (trig === 'chatUser') {
-          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
-          if (!want) continue;
-          const uname = String(info.username || '').toLowerCase();
-          const nname = String(info.nickname || '').toLowerCase();
-          if (want !== uname && want !== nname) continue;
-        } else continue;
-      } else if (trig !== eventType) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
-      const times = Math.min(MSLUG_SPAWN_MAX, perUnit * units);
-      const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
-      spawnMslugThing(a.thing, name, times, units, {
-        label: a.label || a.thing,
-        eventType,
-        giftName: info.giftName,
-        reason: giftLabel || eventType,
-      });
-    }
-  }
-
   function resolveRepoSpawnKey(thing) {
     return String(thing || '').trim();
   }
@@ -3113,13 +2966,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if ((a.kind || 'spawn') === 'sun') givePvzHybridSun(a.amount);
           else if ((a.kind || 'spawn') === 'cmd') pvzHybridCommand(a.path);
           else spawnPvzHybridThing(a.thing, '', Math.min(999, Math.max(1, parseInt(a.count, 10) || 1)));
-        }
-      }
-      for (const a of (cfg.mslugActions || [])) {
-        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        const goal = Math.max(1, a.likeN || 100);
-        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-          spawnMslugThing(a.thing, '', Math.min(MSLUG_SPAWN_MAX, Math.max(1, parseInt(a.count, 10) || 1)));
         }
       }
       for (const a of (cfg.repoActions || [])) {
@@ -4452,7 +4298,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const likeUser = baseUser(data.user);
       const likeInfo = { likeCount: data.likeCount || 0 };
       forEachTriggerProfile((cfg) => triggerMarioActions('like', likeInfo, likeUser, cfg));
-      forEachTriggerProfile((cfg) => triggerMslugActions('like', likeInfo, likeUser, cfg));
       forEachTriggerProfile((cfg) => triggerRepoActions('like', likeInfo, likeUser, cfg));
       triggerMinecraftActions('like', likeInfo, likeUser);
       if (Date.now() - lastLikeSound > 3000) {
@@ -4929,9 +4774,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'pvzHybridCmd':
         pvzHybridCommand(String(data.path || ''));
-        break;
-      case 'mslugSpawn':
-        spawnMslugThing(String(data.thing || ''), data.name, data.times);
         break;
       case 'testSound':
         if (data.alert) broadcast('sound', { ...data.alert, test: true });

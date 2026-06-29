@@ -101,7 +101,6 @@
         { key: 'mari0Actions', label: 'Mari0' },
         { key: 'smb3Actions', label: 'Super Mario Bros 3' },
         { key: 'pvzActions', label: 'Plants vs Zombies' },
-        { key: 'mslugActions', label: 'Metal Slug' },
       ],
     },
   ];

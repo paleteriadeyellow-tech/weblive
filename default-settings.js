@@ -436,7 +436,6 @@ export const DEFAULT_SETTINGS = {
   // Acciones del juego Plants vs Zombies (solo .exe): genera zombies (/spawn) o da
   // soles al jugador (/sun) al recibir un regalo o evento del live.
   pvzActions: [],
-  mslugActions: [],
   // Videos automáticos por nivel de miembro (public/video/niveles): al subir alguien de
   // nivel se reproduce nivelN.webm. screen = en qué Browser Source aparece.
   levelVideos: { enabled: true, screen: 1, volume: 100 },

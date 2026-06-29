@@ -4424,9 +4424,6 @@
             <button type="button" class="juego-card" data-game="pvzhybrid" aria-label="PvZ Hybrid">
               <img src="/img/pvzhybrid.jpg" alt="PvZ Hybrid" class="juego-card-img">
             </button>
-            <button type="button" class="juego-card" data-game="metalslug" data-coming-soon="1" aria-label="Metal Slug — Próximamente">
-              <img src="/img/metalslug.png" alt="Metal Slug" class="juego-card-img">
-            </button>
           </div>
         </section>
 
@@ -4682,54 +4679,6 @@
               <input type="text" id="pvzhybrid-cat-search" class="mc-cat-search" placeholder="Buscar enemigo Hybrid, soles, god mode…">
             </div>
             <div id="pvzhybrid-catalog" class="mc-catalog"></div>
-          </div>
-        </section>
-
-        <!-- ===================== JUEGO: METAL SLUG ===================== -->
-        <section class="view" id="view-juego-metalslug">
-          <button type="button" class="juego-back">← Volver a Juegos</button>
-          <h1 class="view-title">🎖️ Metal Slug SB Fanthology</h1>
-          <p class="view-sub">Spawnea enemigos con el nick del viewer. Bridge HTTP :8787 / WS :8788.</p>
-
-          <div class="juego-banner">
-            <img src="/img/metalslug.png" alt="Metal Slug" class="juego-banner-img">
-            <button type="button" class="juego-play-btn" id="mslug-stack" title="Bridge + juego">▶ Iniciar todo</button>
-            <button type="button" class="juego-play-btn" id="mslug-bridge" title="Solo bridge">🔌 Bridge</button>
-          </div>
-          <div id="mslug-status" class="mari0-status-row" style="margin:8px 0 16px"></div>
-
-          <div class="juego-aviso">
-            <div class="juego-aviso-ico">📋</div>
-            <div class="juego-aviso-txt">
-              <b>Pasos (modo historia / arcade — no VS MODE):</b>
-              <ol>
-                <li><b>Paso 1:</b> Instala Metal Slug SB Fanthology en <code>desktop/mslug-game/</code> o en Downloads.</li>
-                <li><b>Paso 2:</b> Ejecuta <b>una sola vez</b> <code>bridge/apply_story_patch.bat</code> y espera <b>LISTO</b>. Si «Probar» no spawnea, cierra el juego, vuelve a ejecutar el parche y reinicia.</li>
-                <li><b>Paso 3:</b> Pulsa <b>Bridge</b> o <b>Iniciar todo</b> en este panel (necesitas Python).</li>
-                <li><b>Paso 4:</b> Entra a una <b>misión de historia o arcade</b> (no VS MODE), crea acciones y enciéndelas.</li>
-              </ol>
-              <p style="margin-top:8px"><b>Nota:</b> Los spawns <b>no funcionan en VS MODE</b>. El panel escribe en la carpeta del .exe; si no aparece nada tras «Probar», vuelve a ejecutar <code>apply_story_patch.bat</code> y reinicia el juego.</p>
-            </div>
-          </div>
-
-          <div class="mc-actions-wrap">
-            <div class="mc-actions-head">
-              <h2 class="mc-actions-title">🎖️ Acciones de Metal Slug</h2>
-              <p class="mc-actions-sub">Regalo del live → enemigo con nick del viewer. Solo en <b>historia / arcade</b> (no VS MODE). <b style="color:#22c55e">Enciende las acciones.</b></p>
-            </div>
-            <div class="mc-sub-head">
-              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
-              <div class="mc-sub-btns">
-                <button type="button" class="mc-create-btn" id="mslug-toggle-all">⏻ Encender / Apagar todas</button>
-                <button type="button" class="mc-img-btn" id="mslug-gen-overlay" title="PNG con tus acciones, regalos y cantidad (x10, etc.) para OBS">🖼️ Generar overlay</button>
-              </div>
-            </div>
-            <div id="mslug-my-actions" class="mc-my-actions"></div>
-            <h3 class="mc-sub-title">Catálogo de enemigos</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="mslug-cat-search" class="mc-cat-search" placeholder="Buscar (Allen, H, mortero, marcianos…)">
-            </div>
-            <div id="mslug-catalog" class="mc-catalog"></div>
           </div>
         </section>
 

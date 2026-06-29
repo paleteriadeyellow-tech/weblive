@@ -354,9 +354,9 @@ const TAB_CAP = {
   tts: 'tab_tts', timer: 'tab_timer',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', metalslug: 'game_metalslug' };
+const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid' };
 // Minijuegos visibles pero aún no disponibles (solo el admin puede entrar).
-const GAME_COMING_SOON = { metalslug: true };
+const GAME_COMING_SOON = {};
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
@@ -473,13 +473,13 @@ const CAP_LABELS = {
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_metalslug: 'Metal Slug by Livecoins',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_metalslug',
+  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_toplikeslistamc', 'ov_topdiamanteslista', 'ov_topdiamanteslistamc',
@@ -787,7 +787,7 @@ function setGameComingSoon(card) {
   </div>`;
   ov.addEventListener('click', (e) => {
     e.stopPropagation();
-    toast('Metal Slug estará disponible próximamente.', 'warn');
+    toast('Este juego estará disponible próximamente.', 'warn');
   });
   card.appendChild(ov);
 }
@@ -1042,11 +1042,11 @@ function handle(type, p) {
       break;
     case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
     case 'botReply': handleBotReply(p); break;
-    case 'gift': addGift(p); ttsOnGift(p); relayMslugOnGift(p); break;
-    case 'like': ttsOnLike(p); relayMslugOnLike(p); break;
+    case 'gift': addGift(p); ttsOnGift(p); break;
+    case 'like': ttsOnLike(p); break;
     case 'member': addEvent(`🙋 ${p.nickname} entró`, ''); break;
-    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); relayMslugOnLiveEvent('follow', {}, p); break;
-    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); relayMslugOnLiveEvent('share', {}, p); break;
+    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); break;
+    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); break;
     case 'subscribe': break;
     case 'superfan': break;
     case 'log': addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : ''); break;
@@ -1971,9 +1971,6 @@ async function doConnect() {
   connectBusy = true;
   try {
     flushSaveSettings();
-    if (IS_DESKTOP && settings?.mslugActions?.some((a) => a && a.enabled !== false && a.thing)) {
-      ensureMslugBridgeApi().catch(() => {});
-    }
     try { localStorage.setItem('lastTikTokUser', u); } catch {}
 
     const relay = relayActive() || desktopRelayOn();
@@ -2291,18 +2288,7 @@ function onSettings(s) {
   if (typeof renderSmb3Actions === 'function') renderSmb3Actions();
   if (typeof renderMari0Actions === 'function') renderMari0Actions();
   if (typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
-  // Igual que Mario/PvZ: Metal Slug arranca apagado al abrir el panel.
-  if (typeof renderMslugActions === 'function') {
-    if (!window._mslugResetDone) {
-      window._mslugResetDone = true;
-      const ml = ensureMslugActions();
-      if (ml.length && ml.some((a) => a.enabled !== false)) {
-        ml.forEach((a) => { a.enabled = false; });
-        saveSettings();
-      }
-    }
-    renderMslugActions();
-  }
+  
 }
 
 function applySettingsToUI() {
@@ -6887,18 +6873,10 @@ function onKeyAction(p) {
 
 // En modo relay, la nube manda órdenes locales. Mario/PvZ van al módulo de juegos;
 // el resto (RCON, OBS, teclas…) al proceso principal de Electron.
-let mslugRelayCloudExecUntil = 0;
-const relayMslugLikeAcc = new Map();
-const relayMslugTimers = new Set();
 
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (exec.tipo === 'MSLUG_SPAWN') {
-    mslugRelayCloudExecUntil = Date.now() + 2000;
-    for (const t of relayMslugTimers) clearTimeout(t);
-    relayMslugTimers.clear();
-  }
-  if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_)/.test(exec.tipo)) {
+  if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
   }
@@ -7709,7 +7687,7 @@ function revealJuegosTab() {
 function showViewById(viewId) {
   const gameMatch = viewId.match(/^view-juego-(.+)$/);
   if (gameMatch && isGameComingSoon(gameMatch[1])) {
-    toast('Metal Slug estará disponible próximamente.', 'warn');
+    toast('Este juego estará disponible próximamente.', 'warn');
     return;
   }
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
@@ -7720,14 +7698,13 @@ function showViewById(viewId) {
   const navBtn = document.querySelector(`.nav-item[data-view="${navSlug}"]`);
   if (navBtn && getComputedStyle(navBtn).display !== 'none') navBtn.classList.add('active');
   if (viewId === 'view-juego-pvzhybrid' && typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
-  if (viewId === 'view-juego-metalslug' && typeof renderMslugActions === 'function') renderMslugActions();
 }
 // Conecta las tarjetas de juego: al pulsar abren su pestaña; el botón "Volver" regresa.
 function setupJuegosUI() {
   document.querySelectorAll('#view-juegos .juego-card').forEach((card) => {
     card.onclick = () => {
       if (isGameComingSoon(card.dataset.game)) {
-        toast('Metal Slug estará disponible próximamente.', 'warn');
+        toast('Este juego estará disponible próximamente.', 'warn');
         return;
       }
       if (isGameLocked(card.dataset.game)) {
@@ -7768,9 +7745,6 @@ function setupJuegosUI() {
   setupPvzHybridLaunchBtn();
   setupPvzHybridStatusPoll();
   setupPvzHybridDownloads();
-  setupMslugActionsUI();
-  setupMslugLaunchBtn();
-  setupMslugStatusPoll();
   const change = document.getElementById('mc-change-bat');
   if (change) change.onclick = async (e) => { e.preventDefault(); await chooseMinecraftBat(true); };
   setupMcActionsUI();
@@ -7856,7 +7830,7 @@ const MC_TRIG_ICON = {
   firstMessage: { ic: '🆕', label: 'Primer mensaje' },
 };
 
-const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'mari0Actions', 'pvzActions', 'pvzHybridActions', 'mslugActions'];
+const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'mari0Actions', 'pvzActions', 'pvzHybridActions'];
 let lastGameActionEditAt = 0;
 
 function gameActionGiftUi(a, giftClass) {
@@ -11860,559 +11834,6 @@ function renderPvzHybridActions() {
   });
   bindGameActionGiftButtons(wrap, 'pvzhybrid-gift', 'pvzHybridActions', renderPvzHybridActions);
   wrap.querySelectorAll('.pvzhybrid-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzHybridAction(a); });
-}
-
-// ===================== Metal Slug SB Fanthology =====================
-const MSLUG_SECTION_ORDER = ['weapons', 'soldiers', 'creatures', 'bosses'];
-const MSLUG_SECTION_LABEL = {
-  weapons: 'Armas e ítems',
-  soldiers: 'Soldados y vehículos',
-  creatures: 'Criaturas y mutantes',
-  bosses: 'Jefes y oleadas',
-};
-const MSLUG_SECTION_ICON = {
-  weapons: '🔫',
-  soldiers: '🪖',
-  creatures: '🦀',
-  bosses: '👾',
-};
-const MSLUG_COMBOS = {
-  combo_armas: ['H', 'L', 'R', 'F', 'S', 'C', 'D', 'G', 'B', '2H', 'granada', 'firebomb'],
-  miniufo_oleada: ['miniufo', 'miniufo_baja'],
-  marcianos: ['ufo', 'mutante', 'miniufo'],
-};
-const MSLUG_CATALOG = [
-  // —— Armas e ítems ——
-  { id: 'H', nombre: 'Arma H', desc: 'Genera el ítem Heavy Machine Gun (H).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🟨' },
-  { id: 'L', nombre: 'Arma L', desc: 'Genera el ítem del arma Láser (L).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🟦' },
-  { id: 'R', nombre: 'Arma R', desc: 'Genera el ítem Rocket Launcher (R).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🚀' },
-  { id: 'F', nombre: 'Arma F', desc: 'Genera el ítem Flame Shot (F).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🔥' },
-  { id: 'S', nombre: 'Arma S', desc: 'Genera el ítem Shotgun (S).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🟩' },
-  { id: '2H', nombre: 'Doble H', desc: 'Genera el ítem Two Machine Guns (2H).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '⚔️' },
-  { id: 'C', nombre: 'Arma C', desc: 'Genera el ítem Enemy Chaser (C).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '💠' },
-  { id: 'D', nombre: 'Drop shots', desc: 'Genera el ítem Drop Shots (D).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '💧' },
-  { id: 'G', nombre: 'Super granada', desc: 'Genera el ítem Super Granada (G).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '💣' },
-  { id: 'B', nombre: 'Bomb launcher', desc: 'Genera el ítem Bomb Launcher (B).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🧨' },
-  { id: 'granada', nombre: 'Granada', desc: 'Genera granadas extra para el jugador.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🎇' },
-  { id: 'firebomb', nombre: 'Fire Bomb', desc: 'Genera cócteles molotov de fuego.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🔥' },
-  { id: 'combo_armas', nombre: 'Combo de armas', desc: 'Suelta una lluvia masiva de armas y explosivos.', section: 'weapons', tipo: 'weapon', kind: 'combo', emoji: '📦' },
-  // —— Soldados y vehículos ——
-  { id: 'puntitas', nombre: 'Soldado lanzagranadas', desc: 'Invoca soldados que lanzan granadas.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '💣' },
-  { id: 'knife', nombre: 'Cuchillo', desc: 'Activa un ataque cuerpo a cuerpo con cuchillo.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🔪' },
-  { id: 'mortero', nombre: 'Mortero', desc: 'Aparece un soldado rebelde con mortero.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🎯' },
-  { id: 'minigun', nombre: 'Minigun', desc: 'Invoca un ataque con torreta Minigun.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🔫' },
-  { id: 'rifle_parado', nombre: 'Soldado con escudo', desc: 'Aparecen soldados enemigos con escudo.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🛡️' },
-  { id: 'protoshiee', nombre: 'Nave Protoshiee', desc: 'Invoca a la nave de ataque Protoshiee.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚢' },
-  { id: 'bazooka', nombre: 'Antitanque', desc: 'Aparecen proyectiles antitanque.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚀' },
-  { id: 'riesolo', nombre: 'Soldado en moto', desc: 'Aparece un soldado rebelde en motocicleta.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🏍️' },
-  { id: 'paracaida', nombre: 'Paracaidistas', desc: 'Una oleada de soldados baja en paracaídas.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🪂' },
-  // —— Criaturas y mutantes ——
-  { id: 'escarabajo', nombre: 'Cangrejo', desc: 'Invoca cangrejos mutantes gigantes.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🦀' },
-  { id: 'yeti', nombre: 'Yeti', desc: 'Aparece el monstruo de las nieves Yeti.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '❄️' },
-  { id: 'murcielago', nombre: 'Murciélagos', desc: 'Suelta murciélagos que transforman al jugador en momia.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🦇' },
-  { id: 'momia_verde', nombre: 'Momia', desc: 'Aparecen momias que lanzan gas o insectos.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🧟' },
-  { id: 'camel', nombre: 'Camello', desc: 'Aparece el Camel Slug con ametralladoras.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🐫' },
-  { id: 'camel_rebel', nombre: 'Camello rebelde', desc: 'Invoca camellos de combate enemigos que lanzan bombas.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '💥' },
-  // —— Jefes y oleadas ——
-  { id: 'hudomi', nombre: "Allen O'Neil", desc: "Invoca al sargento Allen O'Neil.", section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '💪' },
-  { id: 'dragon', nombre: 'Nave dragón', desc: 'Despliega la nave gigante de ataque.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🐉' },
-  { id: 'kessi', nombre: 'Kessi', desc: 'Aparece el bombardero pesado rebelde.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '✈️' },
-  { id: 'miniufo_oleada', nombre: 'Mini UFO', desc: 'Invoca platillos voladores marcianos en dos alturas.', section: 'bosses', tipo: 'enemy', kind: 'combo', emoji: '🛸' },
-  { id: 'piramide', nombre: 'Jefe pirámide', desc: 'Despierta al jefe de la pirámide.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🔺' },
-  { id: 'marcianos', nombre: 'Marcianos', desc: 'Desata una horda de Mars People.', section: 'bosses', tipo: 'enemy', kind: 'combo', emoji: '👽' },
-  { id: 'random', nombre: 'Enemigo al azar', desc: 'Genera un enemigo aleatorio del juego.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🎲' },
-];
-const MSLUG_SPAWN_MAX = 200;
-const MSLUG_PER_UNIT_MAX = 50;
-
-function mslugPerUnit(a) {
-  const n = parseInt(a?.count, 10);
-  return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
-}
-
-function ensureMslugActions() {
-  if (!settings) return [];
-  if (!Array.isArray(settings.mslugActions)) settings.mslugActions = [];
-  settings.mslugActions = migrateGameActions(settings.mslugActions, 'mslug');
-  for (const a of settings.mslugActions) {
-    if (a.count == null || !Number.isFinite(Number(a.count)) || Number(a.count) < 1) a.count = 1;
-    const c = MSLUG_CATALOG.find((x) => x.id === a.thing);
-    if (!c) continue;
-    a.label = c.nombre;
-    a.desc = c.desc;
-    a.section = c.section;
-    a.tipo = c.tipo;
-    a.kind = c.kind || 'spawn';
-    if (a.comboInstant == null && (a.trigger === 'gift' || a.trigger === 'gift-any')) a.comboInstant = true;
-  }
-  return settings.mslugActions;
-}
-
-function relayMslugLikeFires(a, info, user) {
-  const uid = String(user?.uniqueId || '').trim();
-  const batch = Math.max(0, Number(info.likeCount) || 0);
-  if (!uid || batch <= 0) return 0;
-  const goal = Math.max(1, Number(a.likeN) || 1);
-  const actKey = String(a.uid || a.label || 'mslug');
-  const key = `${uid}:${actKey}`;
-  const carry = (relayMslugLikeAcc.get(key) || 0) + batch;
-  const fires = Math.floor(carry / goal);
-  relayMslugLikeAcc.set(key, carry - fires * goal);
-  if (relayMslugLikeAcc.size > 8000) relayMslugLikeAcc.clear();
-  return fires;
-}
-
-function scheduleRelayMslug(eventType, info, user) {
-  if (!relayActive() || !IS_DESKTOP) return;
-  const timer = setTimeout(async () => {
-    relayMslugTimers.delete(timer);
-    if (Date.now() < mslugRelayCloudExecUntil) return;
-    await execRelayMslugActions(eventType, info, user);
-  }, 400);
-  relayMslugTimers.add(timer);
-}
-
-async function execRelayMslugSpawn(thing, label, name, times) {
-  const spawnKey = resolveMslugSpawnKey(thing);
-  const capped = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(times) || 1));
-  const r = await execGameLocal({ tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: capped });
-  if (r && r.ok !== false) {
-    addEvent(`🎖️ Metal Slug: spawn "${label || thing}"${capped > 1 ? ` ×${capped}` : ''} (${name || 'viewer'})`, 'ok');
-  }
-}
-
-async function execRelayMslugActions(eventType, info = {}, user = null) {
-  const list = ensureMslugActions();
-  if (!list.length) return;
-  const name = user?.nickname || info.nickname || '';
-  for (const a of list) {
-    if (!a || a.enabled === false || !a.thing) continue;
-    const trig = a.trigger || 'gift';
-    const perUnit = mslugPerUnit(a);
-    let units = 1;
-    if (eventType === 'gift') {
-      if (trig === 'gift') {
-        const wantId = String(a.giftId || '').trim();
-        const wantName = (a.giftName || '').trim().toLowerCase();
-        if (!wantId && !wantName) {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else {
-          const idMatch = wantId && wantId === String(info.giftId || '');
-          const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        }
-      } else if (trig === 'gift-any') {
-        units = Math.max(1, Number(info.repeatCount) || 1);
-      } else continue;
-    } else if (eventType === 'like') {
-      if (trig !== 'like') continue;
-      const likeFires = relayMslugLikeFires(a, info, user);
-      if (likeFires <= 0) continue;
-      const totalQty = Math.min(MSLUG_SPAWN_MAX, perUnit * likeFires);
-      await execRelayMslugSpawn(a.thing, a.label || a.thing, name, totalQty);
-      continue;
-    } else if (trig !== eventType) continue;
-    if (eventType === 'gift') {
-      const comboOn = a.comboInstant !== false;
-      if (info.comboStreak === 'delta' && !comboOn) continue;
-      if (info.comboStreak === 'end' && comboOn) continue;
-    }
-    const times = Math.min(MSLUG_SPAWN_MAX, perUnit * units);
-    await execRelayMslugSpawn(a.thing, a.label || a.thing, name, times);
-  }
-}
-
-function relayMslugOnGift(p) {
-  if (!p) return;
-  const streakGift = !!p.streakGift;
-  const repeatEnd = !!p.repeatEnd;
-  let comboStreak;
-  let repeatForCalc;
-  if (streakGift && !repeatEnd) {
-    comboStreak = 'delta';
-    repeatForCalc = Math.max(0, Number(p.repeatDelta) || 0);
-    if (repeatForCalc <= 0) return;
-  } else if (streakGift && repeatEnd) {
-    comboStreak = 'end';
-    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
-  } else {
-    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
-  }
-  scheduleRelayMslug('gift', {
-    giftName: p.giftName,
-    giftId: p.giftId,
-    repeatCount: repeatForCalc,
-    comboStreak,
-  }, { uniqueId: p.uniqueId, nickname: p.nickname });
-}
-
-function relayMslugOnLike(p) {
-  if (!p) return;
-  scheduleRelayMslug('like', { likeCount: p.count || 1 }, { uniqueId: p.uniqueId, nickname: p.nickname });
-}
-
-function relayMslugOnLiveEvent(eventType, info, p) {
-  if (!p) return;
-  scheduleRelayMslug(eventType, info, { uniqueId: p.uniqueId, nickname: p.nickname });
-}
-
-function resolveMslugSpawnKey(thing) {
-  const key = String(thing || '').trim();
-  if (MSLUG_COMBOS[key]) return key;
-  const c = MSLUG_CATALOG.find((x) => x.id === thing);
-  return String(c?.spawnId || thing || '').trim();
-}
-
-async function ensureMslugBridgeApi() {
-  try {
-    const r = await fetch('/api/desktop/ensure-mslug-bridge', { method: 'POST', credentials: 'same-origin' });
-    return await r.json().catch(() => ({ ok: false }));
-  } catch { return { ok: false }; }
-}
-
-async function mslugBridgeHealth() {
-  try {
-    const r = await fetch('/api/desktop/mslug-health', { credentials: 'same-origin' });
-    return await r.json().catch(() => ({}));
-  } catch { return {}; }
-}
-
-function renderMslugStatus(payload) {
-  const el = document.getElementById('mslug-status');
-  if (!el) return;
-  if (!IS_DESKTOP) { el.innerHTML = ''; return; }
-  const h = payload?.health;
-  if (!h?.ok) {
-    el.innerHTML = '<span class="mari0-st off">Bridge Metal Slug — apagado</span>';
-    return;
-  }
-  el.innerHTML = [
-    '<span class="mari0-st on">HTTP :8787</span>',
-    '<span class="mari0-st on">WS :8788</span>',
-    `<span class="mari0-st on">${esc(h.game_dir || h.bridge || 'bridge ok')}</span>`,
-  ].join('');
-}
-
-async function refreshMslugStatus() {
-  if (!IS_DESKTOP) return null;
-  const d = await mslugBridgeHealth();
-  renderMslugStatus(d);
-  return d;
-}
-
-let mslugStatusTimer = null;
-function setupMslugStatusPoll() {
-  if (!IS_DESKTOP || mslugStatusTimer) return;
-  refreshMslugStatus();
-  mslugStatusTimer = setInterval(() => {
-    const view = document.getElementById('view-juego-metalslug');
-    if (view?.classList.contains('active')) refreshMslugStatus();
-  }, 2000);
-}
-
-function setupMslugLaunchBtn() {
-  if (!IS_DESKTOP) return;
-  const wire = (id, fn) => {
-    const btn = document.getElementById(id);
-    if (!btn || btn._wired) return;
-    btn._wired = true;
-    btn.onclick = fn;
-  };
-  wire('mslug-bridge', async () => {
-    const r = await ensureMslugBridgeApi();
-    if (r.ok) { toast && toast('Bridge Metal Slug activo.', 'ok'); refreshMslugStatus(); }
-    else toast && toast('No se pudo iniciar el bridge (¿Python instalado?).', 'warn');
-  });
-  wire('mslug-stack', async () => {
-    const r = window.desktopAPI?.launchMslugStack ? await window.desktopAPI.launchMslugStack() : { ok: false };
-    if (r?.ok) { toast && toast('Bridge + Metal Slug iniciados.', 'ok'); refreshMslugStatus(); }
-    else toast && toast(r?.error === 'no_instalado' ? 'Coloca el juego en desktop/mslug-game/' : 'Falló el arranque.', 'warn');
-  });
-}
-
-function setupMslugActionsUI() {
-  const search = document.getElementById('mslug-cat-search');
-  if (search && !search._wired) { search._wired = true; search.oninput = () => renderMslugCatalog(search.value); }
-  const toggleAll = document.getElementById('mslug-toggle-all');
-  if (toggleAll && !toggleAll._wired) {
-    toggleAll._wired = true;
-    toggleAll.onclick = () => {
-      const list = ensureMslugActions();
-      if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
-      const anyOff = list.some((a) => a.enabled === false);
-      list.forEach((a) => { a.enabled = anyOff; });
-      saveSettings(); renderMslugActions();
-    };
-  }
-  const genOverlayBtn = document.getElementById('mslug-gen-overlay');
-  if (genOverlayBtn && !genOverlayBtn._wired) {
-    genOverlayBtn._wired = true;
-    genOverlayBtn.onclick = () => generateMslugOverlayImage();
-  }
-  renderMslugCatalog(search ? search.value : '');
-  renderMslugActions();
-}
-
-function mslugCatalogIconHtml(c) {
-  const emoji = c.emoji || (c.tipo === 'weapon' ? '🔫' : '🎖️');
-  const src = `/img/mslug/${encodeURIComponent(c.id)}.png`;
-  return `<img class="mc-cat-ic" src="${esc(src)}" alt="" onerror="this.outerHTML='<span class=\\'mc-cat-emoji\\'>${emoji}</span>'">`;
-}
-
-function mslugCatCardHtml(c) {
-  const ic = mslugCatalogIconHtml(c);
-  return `
-    <div class="mc-cat-card" data-id="${esc(c.id)}" title="${esc(c.desc || c.nombre)}">
-      <div class="mc-cat-head-row">
-        ${ic}
-        <div class="mc-cat-texts">
-          <div class="mc-cat-name">${esc(c.nombre)}</div>
-          <div class="mc-cat-desc">${esc(c.desc || '')}</div>
-        </div>
-      </div>
-      <button type="button" class="mc-cat-add">+ Agregar</button>
-    </div>`;
-}
-
-function renderMslugCatalog(filter) {
-  const grid = document.getElementById('mslug-catalog');
-  if (!grid) return;
-  const f = (filter || '').trim().toLowerCase();
-  const list = f
-    ? MSLUG_CATALOG.filter((c) =>
-      c.nombre.toLowerCase().includes(f)
-      || c.id.toLowerCase().includes(f)
-      || (c.desc || '').toLowerCase().includes(f))
-    : MSLUG_CATALOG;
-  if (!list.length) {
-    grid.innerHTML = '<div class="empty">Sin resultados.</div>';
-    return;
-  }
-
-  const bySection = new Map();
-  for (const c of list) {
-    const sec = c.section || 'bosses';
-    if (!bySection.has(sec)) bySection.set(sec, []);
-    bySection.get(sec).push(c);
-  }
-
-  const order = f
-    ? [...bySection.keys()].sort((a, b) => MSLUG_SECTION_ORDER.indexOf(a) - MSLUG_SECTION_ORDER.indexOf(b))
-    : MSLUG_SECTION_ORDER.filter((sec) => bySection.has(sec));
-
-  grid.innerHTML = order.map((sec) => {
-    const items = bySection.get(sec) || [];
-    const icon = MSLUG_SECTION_ICON[sec] || '🎮';
-    const label = MSLUG_SECTION_LABEL[sec] || sec;
-    return `
-      <div class="smb3-cat-section">
-        <h4 class="mc-sub-title smb3-cat-title">${icon} ${esc(label)} <span class="smb3-cat-count">(${items.length})</span></h4>
-        <div class="mc-catalog smb3-cat-grid">${items.map((c) => mslugCatCardHtml(c)).join('')}</div>
-      </div>`;
-  }).join('');
-
-  grid.querySelectorAll('.mc-cat-card').forEach((card) => {
-    card.querySelector('.mc-cat-add').onclick = () => addMslugAction(card.dataset.id);
-  });
-}
-
-function addMslugAction(thing) {
-  const c = MSLUG_CATALOG.find((x) => x.id === thing);
-  if (!c || !settings) return;
-  ensureMslugActions().push({
-    uid: 'mslug_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-    thing: c.id, label: c.nombre, desc: c.desc, section: c.section,
-    tipo: c.tipo, kind: c.kind || 'spawn',
-    trigger: 'gift-any', giftId: '', giftName: '', giftImage: '',
-    count: 1, text: '', enabled: false,
-  });
-  saveSettings(); renderMslugActions();
-}
-
-async function testMslugAction(a) {
-  if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
-  const spawnKey = resolveMslugSpawnKey(a.thing);
-  const times = Math.max(1, Math.min(MSLUG_PER_UNIT_MAX, mslugPerUnit(a)));
-  toast && toast(`🎖️ «${a.label || a.thing}»… (Metal Slug en misión)`, 'ok');
-  const bridgeOk = await ensureMslugBridgeApi().catch(() => ({ ok: false }));
-  if (!bridgeOk?.ok) {
-    toast && toast('Bridge Metal Slug no listo. Elige carpeta del juego e instala el mod.', 'warn');
-    return;
-  }
-  const r = await execGameLocal({ tipo: 'MSLUG_SPAWN', thing: spawnKey, name: 'Prueba', times });
-  if (r && r.ok !== false) {
-    addEvent(`🎖️ Prueba Metal Slug: ${esc(a.label || a.thing)} (comando enviado)`, 'ok');
-    toast && toast('Comando enviado. Debe estar en misión de historia/arcade (no VS MODE).', 'ok');
-  } else {
-    toast && toast(r?.error === 'bridge_mslug_no_disponible' ? 'Elige carpeta e instala el mod.' : '¿Juego en misión (no VS MODE)?', 'warn');
-  }
-}
-
-function renderMslugActions() {
-  const wrap = document.getElementById('mslug-my-actions');
-  if (!wrap || !settings) return;
-  const list = ensureMslugActions();
-  if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
-  wrap.innerHTML = list.map((a) => pvzCardHtml(a, {
-    maxSpawn: MSLUG_PER_UNIT_MAX,
-    qtyLabel: 'Por unidad',
-    qtyTitle: 'Defecto 1 enemigo por regalo o like. Si pones 2, son 2 por cada uno. Ej.: 10 rosas con 1 → 10; con 2 → 20.',
-    qtyClass: 'mslug-count',
-    qtyWidth: '165px',
-  }).replace(/pvz-/g, 'mslug-').replace(/\/img\/pvz\//g, '/img/mslug/')).join('');
-  const find = (uid) => list.find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mslug-del').forEach((b) => b.onclick = () => { settings.mslugActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMslugActions(); });
-  bindGameTriggerSelects(wrap, 'mslug-trig-sel', 'mslugActions', renderMslugActions);
-  wrap.querySelectorAll('.mslug-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (a) { a.enabled = c.checked; saveSettings(); renderMslugActions(); } });
-  wrap.querySelectorAll('.mslug-like-n, .mslug-text-n, .mslug-count').forEach((inp) => {
-    inp.onchange = () => {
-      const a = find(inp.dataset.uid); if (!a) return;
-      if (inp.classList.contains('mslug-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('mslug-text-n')) a.text = inp.value.trim();
-      else if (inp.classList.contains('mslug-count')) a.count = Math.max(1, Math.min(MSLUG_PER_UNIT_MAX, parseInt(inp.value, 10) || 1));
-      saveSettings();
-    };
-  });
-  bindGameActionGiftButtons(wrap, 'mslug-gift', 'mslugActions', renderMslugActions);
-  wrap.querySelectorAll('.mslug-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMslugAction(a); });
-}
-
-// PNG con icono Metal Slug + regalo/evento + x{cantidad} (fondo transparente para OBS).
-async function generateMslugOverlayImage() {
-  const all = ensureMslugActions();
-  let list = all.filter((a) => a && a.enabled !== false);
-  if (!list.length) list = all.slice();
-  if (!list.length) { toast && toast('Agrega acciones del catálogo con su regalo primero.', 'warn'); return; }
-  toast && toast('Generando overlay…', 'ok');
-
-  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : (`/api/img-proxy?url=${encodeURIComponent(u)}`)));
-  const loadImg = (src) => new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.onload = () => resolve(im);
-    im.onerror = () => resolve(null);
-    im.src = src;
-  });
-
-  const rows = [];
-  for (const a of list) {
-    const slugImg = await loadImg(proxied(`/img/mslug/${encodeURIComponent(a.thing || '')}.png`));
-    const trig = a.trigger || 'gift';
-    let giftImg = null;
-    let giftEmoji = '';
-    if (trig === 'gift' || trig === 'gift-any') {
-      const gUrl = (a.giftImage && String(a.giftImage).trim()) || giftImageOf(a);
-      giftImg = await loadImg(proxied(gUrl));
-    } else {
-      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
-    }
-    rows.push({ slugImg, giftImg, giftEmoji, qty: Math.max(1, parseInt(a.count, 10) || 1) });
-  }
-
-  const cols = Math.min(7, Math.max(1, rows.length));
-  const gridRows = Math.ceil(rows.length / cols);
-  const margin = 12;
-  const gap = 8;
-  const cellW = 118;
-  const iconS = 108;
-  const giftS = 44;
-  const cellH = iconS + 6;
-  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
-  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const dpr = 2;
-  const cv = document.createElement('canvas');
-  cv.width = W * dpr;
-  cv.height = H * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  const rr = (x, y, w, h, r) => {
-    const rad = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rad, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rad);
-    ctx.arcTo(x + w, y + h, x, y + h, rad);
-    ctx.arcTo(x, y + h, x, y, rad);
-    ctx.arcTo(x, y, x + w, y, rad);
-    ctx.closePath();
-  };
-
-  const drawMultBadge = (label, x, y) => {
-    ctx.font = '800 22px Rubik, Montserrat, system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = '#0a0a0a';
-    ctx.strokeText(label, x, y);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(label, x, y);
-  };
-
-  const drawContain = (img, x, y, size) => {
-    const scale = Math.min(size / img.width, size / img.height);
-    const dw = img.width * scale;
-    const dh = img.height * scale;
-    ctx.drawImage(img, x + (size - dw) / 2, y + (size - dh) / 2, dw, dh);
-  };
-
-  const drawPlaceholder = (x, y, size, emoji) => {
-    ctx.save();
-    rr(x, y, size, size, 12);
-    ctx.fillStyle = '#2a3548';
-    ctx.fill();
-    ctx.font = '42px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#f0c040';
-    ctx.fillText(emoji || '🎖️', x + size / 2, y + size / 2);
-    ctx.restore();
-  };
-
-  rows.forEach((row, i) => {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    const cellX = margin + c * (cellW + gap);
-    const cellY = margin + r * (cellH + gap);
-    const iconX = cellX + (cellW - iconS) / 2;
-    const iconY = cellY;
-
-    if (row.slugImg) drawContain(row.slugImg, iconX, iconY, iconS);
-    else drawPlaceholder(iconX, iconY, iconS, '🎖️');
-
-    const gx = iconX + iconS - giftS + 2;
-    const gy = iconY + iconS - giftS + 2;
-    if (row.giftImg) {
-      ctx.save();
-      rr(gx, gy, giftS, giftS, 10);
-      ctx.clip();
-      ctx.drawImage(row.giftImg, gx, gy, giftS, giftS);
-      ctx.restore();
-    } else if (row.giftEmoji) {
-      ctx.font = '30px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(row.giftEmoji, gx + giftS / 2, gy + giftS / 2);
-    }
-
-    if (row.qty >= 2) drawMultBadge(`x${row.qty}`, iconX + iconS - 2, iconY + 1);
-  });
-
-  try {
-    const data = cv.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = data;
-    link.download = 'metal-slug-overlay.png';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    toast && toast('Overlay generado y descargado.', 'ok');
-  } catch {
-    toast && toast('No se pudo exportar. Revisa tu conexión e inténtalo de nuevo.', 'err');
-  }
 }
 
 // Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
