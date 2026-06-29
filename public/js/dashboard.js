@@ -1970,6 +1970,7 @@ async function doConnect() {
   if (connectBusy) return;
   connectBusy = true;
   try {
+    flushSaveSettings();
     try { localStorage.setItem('lastTikTokUser', u); } catch {}
 
     const relay = relayActive() || desktopRelayOn();
@@ -2179,12 +2180,27 @@ function applyTimerSettingsUI() {
 
 /* ====================== Ajustes (sync con servidor) ====================== */
 let saveDebounce = null;
+let localSaveDebounce = null;
+
+function saveSettingsToLocalMirror() {
+  if (!relayActive() || !settings || applyingSettings) return;
+  clearTimeout(localSaveDebounce);
+  localSaveDebounce = setTimeout(() => {
+    fetch('/api/my-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings }),
+    }).catch(() => {});
+  }, 250);
+}
+
 function saveSettings() {
   if (applyingSettings) return;
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => {
     stripSettingsMediaForSave(settings);
     send({ action: 'saveSettings', settings });
+    saveSettingsToLocalMirror();
   }, 200);
 }
 function flushSaveSettings() {
@@ -2193,6 +2209,7 @@ function flushSaveSettings() {
   saveDebounce = null;
   stripSettingsMediaForSave(settings);
   send({ action: 'saveSettings', settings });
+  saveSettingsToLocalMirror();
 }
 
 function mcCmdReady(a) {

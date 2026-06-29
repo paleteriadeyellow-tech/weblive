@@ -10,7 +10,7 @@ import { DEFAULT_SETTINGS, deepMerge } from './default-settings.js';
 import * as spotify from './spotify.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan } from './mc-panic.js';
-import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, mslugSpawn } from './game-local.js';
+import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, runGameExec, resolveMslugSpawnKey } from './game-local.js';
 import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
@@ -857,7 +857,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const scoreSlot = (s) => {
       if (!s || typeof s !== 'object') return 0;
       let n = 0;
-      for (const k of ['actions', 'mcActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos']) {
+      for (const k of ['actions', 'mcActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'mslugActions', 'repoActions']) {
         const a = s[k];
         if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
       }
@@ -929,6 +929,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!IS_CLOUD_ROOM || !exec || !exec.tipo) return false;
     broadcastToLocal('localExec', exec);
     return true;
+  }
+  function dispatchLocalGameExec(exec) {
+    if (!exec || !exec.tipo) return Promise.resolve({ ok: false, error: 'sin_tipo' });
+    if (emitLocalExec(exec)) return Promise.resolve({ ok: true, relayed: true });
+    return runGameExec(exec);
   }
   function broadcastScreens() {
     broadcast('screens', { connected: [...new Set(videoScreens.values())] });
@@ -2575,9 +2580,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function spawnMslugThing(thing, name, times) {
     if (!thing) return;
     const t = Math.min(50, Math.max(1, Number(times) || 1));
-    if (emitLocalExec({ tipo: 'MSLUG_SPAWN', thing, name: String(name || ''), times: t })) return;
-    mslugSpawn(thing, name, times).then((r) => {
-      if (r && r.ok === false) {
+    const spawnKey = resolveMslugSpawnKey(thing);
+    dispatchLocalGameExec({ tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t }).then((r) => {
+      if (r && r.ok === false && !r.relayed) {
         broadcast('log', { level: 'warn', text: `🎖️ Metal Slug spawn falló: ${r.error || 'bridge/juego no listo'}` });
       }
     }).catch((e) => {
