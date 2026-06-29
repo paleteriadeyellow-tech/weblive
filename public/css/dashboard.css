@@ -1374,7 +1374,7 @@ details.settings-card[open] summary::before { content: '▾ '; }
   display: block;
 }
 #view-juego-mari0 .juego-banner {
-  width: 10cm;
+  width: 100%;
   max-width: 100%;
   background: #ececec;
 }
@@ -1384,10 +1384,7 @@ details.settings-card[open] summary::before { content: '▾ '; }
   display: block;
 }
 #view-juego-mari0 .juego-banner-btns {
-  left: 8px; bottom: 8px; gap: 6px; max-width: calc(100% - 16px);
-}
-#view-juego-mari0 .juego-banner-btns .juego-play-btn {
-  font-size: 11px; padding: 6px 10px; border-radius: 10px;
+  left: 16px; bottom: 14px; gap: 10px;
 }
 #view-juego-smb3 .smb3-banner-btns { max-width: min(100%, 680px); }
 #view-juego-smb3 .smb3-banner-btns .juego-play-btn {
