@@ -2218,18 +2218,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     marioEffect(type, seconds, factor).catch(() => {});
   }
 
-  function marioLikeTriggerTimes(a, info, user) {
+  function gameLikeTriggerFires(a, info, user, fallbackKey) {
     const uid = String(user?.uniqueId || info?.username || '').trim();
     const batch = Math.max(0, Number(info.likeCount) || 0);
     if (!uid || batch <= 0) return 0;
     const goal = Math.max(1, Number(a.likeN) || 1);
-    const actKey = String(a.uid || a.label || 'mario');
+    const actKey = String(a.uid || a.label || fallbackKey);
     const key = `${uid}:${actKey}`;
     const carry = (marioLikeAcc.get(key) || 0) + batch;
     const fires = Math.floor(carry / goal);
     marioLikeAcc.set(key, carry - fires * goal);
     if (marioLikeAcc.size > 8000) marioLikeAcc.clear();
     return fires;
+  }
+
+  function marioLikeTriggerTimes(a, info, user) {
+    return gameLikeTriggerFires(a, info, user, 'mario');
   }
 
   function triggerMarioActions(eventType, info = {}, user = null, cfg = settings) {
@@ -2600,16 +2604,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       if (eventType === 'gift') {
         if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
+          const wantId = String(a.giftId || '').trim();
+          const wantName = (a.giftName || '').trim().toLowerCase();
+          if (!wantId && !wantName) {
+            times *= Math.max(1, Number(info.repeatCount) || 1);
+          } else {
+            const idMatch = wantId && wantId === String(info.giftId || '');
+            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+            if (!idMatch && !nameMatch) continue;
+            times *= Math.max(1, Number(info.repeatCount) || 1);
+          }
         } else if (trig === 'gift-any') {
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
-        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+        const likeFires = gameLikeTriggerFires(a, info, user, 'mslug');
+        if (likeFires <= 0) continue;
+        for (let lf = 0; lf < likeFires; lf++) {
+          const capped = Math.min(50, times);
+          broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${capped > 1 ? ` ×${capped}` : ''} (${name || 'viewer'})` });
+          spawnMslugThing(a.thing, name, capped);
+        }
+        continue;
       } else if (eventType === 'chat') {
         if (trig === 'chatCommand') {
           if (!matchesCommand(a.text, info.comment)) continue;
@@ -4249,12 +4266,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const likeUser = baseUser(data.user);
       const likeInfo = { likeCount: data.likeCount || 0 };
       forEachTriggerProfile((cfg) => triggerMarioActions('like', likeInfo, likeUser, cfg));
+      triggerMinecraftActions('like', likeInfo, likeUser);
       if (Date.now() - lastLikeSound > 3000) {
         lastLikeSound = Date.now();
         triggerSoundAlerts('like', likeInfo);
         triggerVideos('like', likeInfo);
         triggerActions('like', likeInfo, likeUser);
-        triggerMinecraftActions('like', likeInfo, likeUser);
       }
       if (typeof data.totalLikeCount === 'number') triggerLikeGlobal(data.totalLikeCount);
       pushStatsThrottled();

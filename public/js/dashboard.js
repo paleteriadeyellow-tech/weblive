@@ -12059,7 +12059,7 @@ function addMslugAction(thing) {
     uid: 'mslug_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
     thing: c.id, label: c.nombre, desc: c.desc, section: c.section,
     tipo: c.tipo, kind: c.kind || 'spawn',
-    trigger: 'gift', giftId: '', giftName: '', giftImage: '',
+    trigger: 'gift-any', giftId: '', giftName: '', giftImage: '',
     count: 1, text: '', enabled: true,
   });
   saveSettings(); renderMslugActions();
