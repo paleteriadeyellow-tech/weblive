@@ -2601,6 +2601,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
   }
 
+  function mslugPerUnit(a) {
+    const n = parseInt(a?.count, 10);
+    return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+  }
+
   function triggerMslugActions(eventType, info = {}, user = null, cfg = settings) {
     const list = cfg.mslugActions || [];
     if (!list.length) return;
@@ -2608,27 +2613,28 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     for (const a of list) {
       if (!a || a.enabled === false || !a.thing) continue;
       const trig = a.trigger || 'gift';
-      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      const perUnit = mslugPerUnit(a);
+      let units = 1;
       if (eventType === 'gift') {
         if (trig === 'gift') {
           const wantId = String(a.giftId || '').trim();
           const wantName = (a.giftName || '').trim().toLowerCase();
           if (!wantId && !wantName) {
-            times *= Math.max(1, Number(info.repeatCount) || 1);
+            units = Math.max(1, Number(info.repeatCount) || 1);
           } else {
             const idMatch = wantId && wantId === String(info.giftId || '');
             const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
             if (!idMatch && !nameMatch) continue;
-            times *= Math.max(1, Number(info.repeatCount) || 1);
+            units = Math.max(1, Number(info.repeatCount) || 1);
           }
         } else if (trig === 'gift-any') {
-          times *= Math.max(1, Number(info.repeatCount) || 1);
+          units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'mslug');
         if (likeFires <= 0) continue;
-        const totalQty = Math.min(MSLUG_SPAWN_MAX, times * likeFires);
+        const totalQty = Math.min(MSLUG_SPAWN_MAX, perUnit * likeFires);
         broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${totalQty > 1 ? ` ×${totalQty}` : ''} (${name || 'viewer'})` });
         spawnMslugThing(a.thing, name, totalQty);
         continue;
@@ -2648,7 +2654,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (info.comboStreak === 'delta' && !comboOn) continue;
         if (info.comboStreak === 'end' && comboOn) continue;
       }
-      times = Math.min(MSLUG_SPAWN_MAX, times);
+      const times = Math.min(MSLUG_SPAWN_MAX, perUnit * units);
       broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''} (${name || 'viewer'})` });
       spawnMslugThing(a.thing, name, times);
     }

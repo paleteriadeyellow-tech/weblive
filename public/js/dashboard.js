@@ -6878,10 +6878,15 @@ function onKeyAction(p) {
 // el resto (RCON, OBS, teclas…) al proceso principal de Electron.
 let mslugRelayCloudExecUntil = 0;
 const relayMslugLikeAcc = new Map();
+const relayMslugTimers = new Set();
 
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (exec.tipo === 'MSLUG_SPAWN') mslugRelayCloudExecUntil = Date.now() + 1500;
+  if (exec.tipo === 'MSLUG_SPAWN') {
+    mslugRelayCloudExecUntil = Date.now() + 2000;
+    for (const t of relayMslugTimers) clearTimeout(t);
+    relayMslugTimers.clear();
+  }
   if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
@@ -11414,7 +11419,11 @@ function pvzCardHtml(a, cardOpts = {}) {
   if (a.kind === 'sun') {
     qtyRow = `<label class="mc-like-row" style="max-width:150px">Cantidad de soles<input type="number" min="1" max="9990" step="25" class="pvz-amount" data-uid="${uid}" value="${esc(String(a.amount || 50))}"></label>`;
   } else if (a.kind !== 'cmd') {
-    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="${maxSpawn}" class="pvz-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+    const qtyLbl = cardOpts.qtyLabel || 'Cantidad';
+    const qtyTitle = cardOpts.qtyTitle || '';
+    const qtyClass = cardOpts.qtyClass || 'pvz-count';
+    const qtyW = cardOpts.qtyWidth || '130px';
+    qtyRow = `<label class="mc-like-row" style="max-width:${qtyW}"${qtyTitle ? ` title="${esc(qtyTitle)}"` : ''}>${qtyLbl}<input type="number" min="1" max="${maxSpawn}" class="${qtyClass}" data-uid="${uid}" value="${esc(String(a.count != null ? a.count : 1))}"></label>`;
   }
   const qtyBlock = qtyRow ? `<div class="mc-act-row">${qtyRow}</div>` : '';
   return `
@@ -11903,12 +11912,19 @@ const MSLUG_CATALOG = [
   { id: 'random', nombre: 'Enemigo al azar', desc: 'Genera un enemigo aleatorio del juego.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🎲' },
 ];
 const MSLUG_SPAWN_MAX = 200;
+const MSLUG_PER_UNIT_MAX = 50;
+
+function mslugPerUnit(a) {
+  const n = parseInt(a?.count, 10);
+  return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+}
 
 function ensureMslugActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.mslugActions)) settings.mslugActions = [];
   settings.mslugActions = migrateGameActions(settings.mslugActions, 'mslug');
   for (const a of settings.mslugActions) {
+    if (a.count == null || !Number.isFinite(Number(a.count)) || Number(a.count) < 1) a.count = 1;
     const c = MSLUG_CATALOG.find((x) => x.id === a.thing);
     if (!c) continue;
     a.label = c.nombre;
@@ -11937,10 +11953,12 @@ function relayMslugLikeFires(a, info, user) {
 
 function scheduleRelayMslug(eventType, info, user) {
   if (!relayActive() || !IS_DESKTOP) return;
-  setTimeout(async () => {
+  const timer = setTimeout(async () => {
+    relayMslugTimers.delete(timer);
     if (Date.now() < mslugRelayCloudExecUntil) return;
     await execRelayMslugActions(eventType, info, user);
-  }, 300);
+  }, 400);
+  relayMslugTimers.add(timer);
 }
 
 async function execRelayMslugSpawn(thing, label, name, times) {
@@ -11959,28 +11977,29 @@ async function execRelayMslugActions(eventType, info = {}, user = null) {
   for (const a of list) {
     if (!a || a.enabled === false || !a.thing) continue;
     const trig = a.trigger || 'gift';
-    let times = Math.max(1, parseInt(a.count, 10) || 1);
+    const perUnit = mslugPerUnit(a);
+    let units = 1;
     if (eventType === 'gift') {
       if (trig === 'gift') {
         const wantId = String(a.giftId || '').trim();
         const wantName = (a.giftName || '').trim().toLowerCase();
         if (!wantId && !wantName) {
-          times *= Math.max(1, Number(info.repeatCount) || 1);
+          units = Math.max(1, Number(info.repeatCount) || 1);
         } else {
           const idMatch = wantId && wantId === String(info.giftId || '');
           const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
           if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
+          units = Math.max(1, Number(info.repeatCount) || 1);
         }
       } else if (trig === 'gift-any') {
-        times *= Math.max(1, Number(info.repeatCount) || 1);
+        units = Math.max(1, Number(info.repeatCount) || 1);
       } else continue;
     } else if (eventType === 'like') {
       if (trig !== 'like') continue;
       const likeFires = relayMslugLikeFires(a, info, user);
       if (likeFires <= 0) continue;
-      times = Math.min(MSLUG_SPAWN_MAX, times * likeFires);
-      await execRelayMslugSpawn(a.thing, a.label || a.thing, name, times);
+      const totalQty = Math.min(MSLUG_SPAWN_MAX, perUnit * likeFires);
+      await execRelayMslugSpawn(a.thing, a.label || a.thing, name, totalQty);
       continue;
     } else if (trig !== eventType) continue;
     if (eventType === 'gift') {
@@ -11988,7 +12007,7 @@ async function execRelayMslugActions(eventType, info = {}, user = null) {
       if (info.comboStreak === 'delta' && !comboOn) continue;
       if (info.comboStreak === 'end' && comboOn) continue;
     }
-    times = Math.min(MSLUG_SPAWN_MAX, times);
+    const times = Math.min(MSLUG_SPAWN_MAX, perUnit * units);
     await execRelayMslugSpawn(a.thing, a.label || a.thing, name, times);
   }
 }
@@ -12198,7 +12217,7 @@ function addMslugAction(thing) {
 async function testMslugAction(a) {
   if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
   const spawnKey = resolveMslugSpawnKey(a.thing);
-  const times = Math.max(1, Math.min(MSLUG_SPAWN_MAX, parseInt(a.count, 10) || 1));
+  const times = Math.max(1, Math.min(MSLUG_PER_UNIT_MAX, mslugPerUnit(a)));
   toast && toast(`🎖️ «${a.label || a.thing}»… (Metal Slug en misión)`, 'ok');
   const bridgeOk = await ensureMslugBridgeApi().catch(() => ({ ok: false }));
   if (!bridgeOk?.ok) {
@@ -12219,7 +12238,13 @@ function renderMslugActions() {
   if (!wrap || !settings) return;
   const list = ensureMslugActions();
   if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
-  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: MSLUG_SPAWN_MAX }).replace(/pvz-/g, 'mslug-').replace(/\/img\/pvz\//g, '/img/mslug/')).join('');
+  wrap.innerHTML = list.map((a) => pvzCardHtml(a, {
+    maxSpawn: MSLUG_PER_UNIT_MAX,
+    qtyLabel: 'Por unidad',
+    qtyTitle: 'Defecto 1 enemigo por regalo o like. Si pones 2, son 2 por cada uno. Ej.: 10 rosas con 1 → 10; con 2 → 20.',
+    qtyClass: 'mslug-count',
+    qtyWidth: '165px',
+  }).replace(/pvz-/g, 'mslug-').replace(/\/img\/pvz\//g, '/img/mslug/')).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.mslug-del').forEach((b) => b.onclick = () => { settings.mslugActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMslugActions(); });
   bindGameTriggerSelects(wrap, 'mslug-trig-sel', 'mslugActions', renderMslugActions);
@@ -12229,7 +12254,7 @@ function renderMslugActions() {
       const a = find(inp.dataset.uid); if (!a) return;
       if (inp.classList.contains('mslug-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
       else if (inp.classList.contains('mslug-text-n')) a.text = inp.value.trim();
-      else if (inp.classList.contains('mslug-count')) a.count = Math.max(1, Math.min(MSLUG_SPAWN_MAX, parseInt(inp.value, 10) || 1));
+      else if (inp.classList.contains('mslug-count')) a.count = Math.max(1, Math.min(MSLUG_PER_UNIT_MAX, parseInt(inp.value, 10) || 1));
       saveSettings();
     };
   });
