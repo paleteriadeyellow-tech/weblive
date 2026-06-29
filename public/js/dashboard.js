@@ -2179,12 +2179,27 @@ function applyTimerSettingsUI() {
 
 /* ====================== Ajustes (sync con servidor) ====================== */
 let saveDebounce = null;
+let localSaveDebounce = null;
+
+function saveSettingsToLocalMirror() {
+  if (!relayActive() || !settings || applyingSettings) return;
+  clearTimeout(localSaveDebounce);
+  localSaveDebounce = setTimeout(() => {
+    fetch('/api/my-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings }),
+    }).catch(() => {});
+  }, 250);
+}
+
 function saveSettings() {
   if (applyingSettings) return;
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => {
     stripSettingsMediaForSave(settings);
     send({ action: 'saveSettings', settings });
+    saveSettingsToLocalMirror();
   }, 200);
 }
 function flushSaveSettings() {
@@ -2193,6 +2208,13 @@ function flushSaveSettings() {
   saveDebounce = null;
   stripSettingsMediaForSave(settings);
   send({ action: 'saveSettings', settings });
+  clearTimeout(localSaveDebounce);
+  localSaveDebounce = null;
+  fetch('/api/my-settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings }),
+  }).catch(() => {});
 }
 
 function mcCmdReady(a) {
@@ -10444,6 +10466,7 @@ async function generateMarioOverlayImage() {
 }
 
 /* ================= Acciones de Mari0 (bridge :7755 MARI0_ONLY) ================= */
+/** Efectos CC del jugador (no spawn de entidad). */
 const MARI0_POWERUPS = [
   { id: 'SuperMushroom', nombre: 'Hongo (power-up aleatorio)' },
   { id: 'FireFlower', nombre: 'Flor de fuego (power-up aleatorio)' },
@@ -10451,35 +10474,117 @@ const MARI0_POWERUPS = [
   { id: 'OneUp', nombre: '+1 vida' },
   { id: 'SuperLeaf', nombre: 'Hoja (power-up aleatorio)' },
   { id: 'Coin', nombre: 'Monedas' },
-  { id: 'PoisonMushroom', nombre: 'Hongo malo' },
-  { id: 'KillPlayer', nombre: 'Mata a Mario' },
-  { id: 'TakeLife', nombre: 'Quita vida' },
+  { id: 'PoisonMushroom', nombre: 'Hongo venenoso (spawn)' },
+  { id: 'SpawnMushroom', nombre: 'Hongo (spawn)' },
+  { id: 'SpawnStar', nombre: 'Estrella (spawn)' },
 ];
+/** spawn_* enemigos del mod Mari0 AE Crowd Control (59 códigos). */
 const MARI0_ENEMIES = [
   { id: 'Goomba', nombre: 'Goomba' },
   { id: 'GreenKoopaTroopa', nombre: 'Koopa verde' },
   { id: 'RedKoopaTroopa', nombre: 'Koopa roja' },
+  { id: 'Magikoopa', nombre: 'Magikoopa' },
   { id: 'Thwomp', nombre: 'Thwomp' },
-  { id: 'Lakitu', nombre: 'Lakitu' },
   { id: 'HammerBro', nombre: 'Hammer Bro' },
+  { id: 'Lakitu', nombre: 'Lakitu' },
   { id: 'BulletBill', nombre: 'Bullet Bill' },
+  { id: 'KingBill', nombre: 'King Bill' },
+  { id: 'BigBill', nombre: 'Big Bill' },
   { id: 'Boo', nombre: 'Boo' },
   { id: 'DryBones', nombre: 'Dry Bones' },
   { id: 'PiranhaPlant', nombre: 'Planta Piraña' },
+  { id: 'PlantCreeper', nombre: 'Planta trepadora' },
+  { id: 'PlantFire', nombre: 'Planta de fuego' },
   { id: 'Muncher', nombre: 'Muncher' },
   { id: 'ChainChomp', nombre: 'Chain Chomp' },
   { id: 'BobOmb', nombre: 'Bob-omb' },
-  { id: 'Magikoopa', nombre: 'Magikoopa' },
+  { id: 'CheepCheep', nombre: 'Cheep Cheep' },
+  { id: 'Fishbone', nombre: 'Fishbone' },
+  { id: 'FlyingFish', nombre: 'Pez volador' },
+  { id: 'Squid', nombre: 'Calamar' },
   { id: 'Pokey', nombre: 'Pokey' },
   { id: 'Spike', nombre: 'Spike' },
-  { id: 'Bowser', nombre: 'Fuego de Bowser' },
+  { id: 'Ninji', nombre: 'Ninji' },
+  { id: 'Sidestepper', nombre: 'Sidestepper' },
+  { id: 'TorpedoTed', nombre: 'Torpedo Ted' },
+  { id: 'Fuzzy', nombre: 'Fuzzy' },
+  { id: 'Amp', nombre: 'Amp' },
+  { id: 'Mole', nombre: 'Topo' },
+  { id: 'BigMole', nombre: 'Topo gigante' },
+  { id: 'ParaBeetle', nombre: 'Parabeetle' },
+  { id: 'RockyWrench', nombre: 'Rocky Wrench' },
+  { id: 'Grinder', nombre: 'Sierra (Grinder)' },
+  { id: 'Icicle', nombre: 'Carámbano' },
+  { id: 'Fire', nombre: 'Fuego (enemigo)' },
+  { id: 'CastleFire', nombre: 'Fuego de castillo' },
+  { id: 'UpFire', nombre: 'Up Fire' },
+  { id: 'Cannonball', nombre: 'Bala de cañón' },
+  { id: 'Turret', nombre: 'Torreta' },
+  { id: 'RocketTurret', nombre: 'Torreta cohete' },
+  { id: 'Skewer', nombre: 'Skewer' },
+  { id: 'Barrel', nombre: 'Barril' },
+  { id: 'Glados', nombre: 'GLaDOS' },
+  { id: 'Meteor', nombre: 'Meteoro' },
+  { id: 'AngrySun', nombre: 'Sol furioso' },
+];
+const MARI0_BOSSES = [
+  { id: 'Bowser', nombre: 'Bowser' },
+  { id: 'BoomBoom', nombre: 'Boom Boom' },
+  { id: 'BowserFire', nombre: 'Fuego de Bowser' },
+];
+const MARI0_PROJECTILES = [
+  { id: 'Fireball', nombre: 'Bolas de fuego (ráfaga)' },
+  { id: 'BroFireball', nombre: 'Bolas Hammer Bro' },
+];
+const MARI0_MECHANICS = [
+  { id: 'Box', nombre: 'Cubo de compañía' },
+  { id: 'Donut', nombre: 'Bloque donut' },
+  { id: 'FlipBlock', nombre: 'Bloque conmutador' },
+  { id: 'Miniblock', nombre: 'Minibloque Minecraft' },
+  { id: 'PowBlock', nombre: 'Bloque POW' },
+  { id: 'Spring', nombre: 'Resorte grande' },
+  { id: 'SmallSpring', nombre: 'Resorte pequeño' },
 ];
 const MARI0_CHAOS = [
   { id: 'GoombaAttack', nombre: 'Goombas al caminar' },
-  { id: 'MeteorShower', nombre: 'Meteoros' },
-  { id: 'BulletBillStorm', nombre: 'Bullet Bills' },
-  { id: 'FlyingFish', nombre: 'Peces voladores' },
+  { id: 'MeteorShower', nombre: 'Lluvia de meteoritos' },
+  { id: 'BulletBillStorm', nombre: 'Tormenta Bullet Bill' },
+  { id: 'FlyingFishStorm', nombre: 'Peces voladores (caos)' },
   { id: 'Wind', nombre: 'Viento' },
+];
+const MARI0_GAME_MODS = [
+  { id: 'KillPlayer', nombre: 'Matar al jugador' },
+  { id: 'LightsOff', nombre: 'Luces apagadas' },
+  { id: 'LightsOn', nombre: 'Luces encendidas' },
+  { id: 'RandomizeOutfit', nombre: 'Aleatorizar atuendo' },
+  { id: 'RandomizePowerup', nombre: 'Aleatorizar potenciador' },
+  { id: 'RemovePowerup', nombre: 'Quitar potenciador' },
+  { id: 'RestartLevel', nombre: 'Reiniciar nivel' },
+  { id: 'SpeedUpGame', nombre: 'Acelerar juego (×1.5)' },
+  { id: 'SlowDownGame', nombre: 'Reducir velocidad (×0.67)' },
+  { id: 'EnlargeEnemies', nombre: 'Agrandar enemigos' },
+  { id: 'InvertButtons', nombre: 'Botones invertidos' },
+  { id: 'InvertWasd', nombre: 'Invertir WASD' },
+  { id: 'TakeLife', nombre: 'Quitar vida extra' },
+  { id: 'TakeHat', nombre: 'Quitar sombrero' },
+  { id: 'GiveHat', nombre: 'Dar sombrero' },
+  { id: 'TimeAdd', nombre: 'Añadir tiempo' },
+  { id: 'TimeSub', nombre: 'Quitar tiempo' },
+  { id: 'Underwater', nombre: 'Bajo el agua' },
+  { id: 'KillEnemies', nombre: 'Matar enemigos en pantalla' },
+  { id: 'FlipGravity', nombre: 'Gravedad invertida' },
+  { id: 'AutoRun', nombre: 'Correr automático' },
+  { id: 'AutoWalk', nombre: 'Caminar automático' },
+  { id: 'DisableScroll', nombre: 'Desactivar scroll' },
+  { id: 'Bonk', nombre: 'Golpe de techo (bonk)' },
+  { id: 'BigMario', nombre: 'Mario gigante' },
+  { id: 'DeadlyCoin', nombre: 'Monedas mortales' },
+  { id: 'LowFps', nombre: 'FPS bajos (cámara lenta)' },
+];
+const MARI0_SHADERS = [
+  { id: 'ShaderClear', nombre: 'Restablecer shaders' },
+  { id: 'Shader1', nombre: 'Cambiar shader (ranura 1)' },
+  { id: 'Shader2', nombre: 'Cambiar shader (ranura 2)' },
 ];
 const MARI0_EFFECTS = [
   { id: 'giant', nombre: 'Enemigos gigantes', seconds: 5, factor: 0 },
@@ -10488,11 +10593,24 @@ const MARI0_EFFECTS = [
 const MARI0_CATALOG = [
   ...MARI0_POWERUPS.map((x) => ({ ...x, tipo: 'item', kind: 'spawn' })),
   ...MARI0_ENEMIES.map((x) => ({ ...x, tipo: 'enemy', kind: 'spawn' })),
+  ...MARI0_BOSSES.map((x) => ({ ...x, tipo: 'boss', kind: 'spawn' })),
+  ...MARI0_PROJECTILES.map((x) => ({ ...x, tipo: 'projectile', kind: 'spawn' })),
+  ...MARI0_MECHANICS.map((x) => ({ ...x, tipo: 'mechanic', kind: 'spawn' })),
   ...MARI0_CHAOS.map((x) => ({ ...x, tipo: 'chaos', kind: 'spawn' })),
+  ...MARI0_GAME_MODS.map((x) => ({ ...x, tipo: 'game', kind: 'spawn' })),
+  ...MARI0_SHADERS.map((x) => ({ ...x, tipo: 'shader', kind: 'spawn' })),
   ...MARI0_EFFECTS.map((x) => ({ ...x, tipo: 'effect', kind: 'effect' })),
 ];
-const MARI0_CAT_ICON = { item: '🍄', enemy: '👾', chaos: '🌪️', effect: '✨' };
-const MARI0_TIPO_LABEL = { item: 'Power-up', enemy: 'Enemigo', chaos: 'Caos de nivel', effect: 'Efecto visual' };
+const MARI0_CAT_ICON = {
+  item: '🍄', enemy: '👾', boss: '👑', projectile: '💥', mechanic: '🔧',
+  chaos: '🌪️', game: '🎮', shader: '🖥️', effect: '✨',
+};
+const MARI0_TIPO_LABEL = {
+  item: 'Power-up', enemy: 'Enemigo', boss: 'Jefe', projectile: 'Proyectil',
+  mechanic: 'Mecánica', chaos: 'Caos de nivel', game: 'Modificador',
+  shader: 'Shader', effect: 'Efecto visual',
+};
+const MARI0_SINGLE_TIPOS = new Set(['chaos', 'game', 'shader', 'effect']);
 
 function ensureMari0Actions() {
   if (!settings) return [];
@@ -11011,7 +11129,7 @@ async function testMari0Action(a) {
   const label = a.label || a.thing;
   if (!IS_DESKTOP) { toast && toast('Mari0 solo funciona en la app de escritorio (.exe).', 'warn'); return; }
 
-  toast && toast(`🌀 «${label}» en 2 s… (entra a un nivel en Mari0)`, 'ok');
+  toast && toast(`Probando «${label}»… Abre Mari0, entra a un nivel y espera 2 s.`, 'ok');
   await new Promise((r) => setTimeout(r, 2000));
 
   const bridgeH = await waitGameBridge('mari0');
@@ -11070,14 +11188,16 @@ function mari0CardHtml(a) {
     const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
     likeRow = `<label class="mc-like-row">${txt}<input type="text" class="mari0-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
   }
-  const emoji = a.kind === 'effect' ? '✨' : (a.tipo === 'chaos' ? '🌪️' : (a.tipo === 'enemy' ? '👾' : '🍄'));
+  const emoji = MARI0_CAT_ICON[a.tipo] || (a.kind === 'effect' ? '✨' : '🎮');
   let qtyRow;
   if (a.kind === 'effect') {
     qtyRow = `
       <label class="mc-like-row" style="max-width:120px">Segundos<input type="number" min="1" max="60" class="mari0-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>
       <label class="mc-like-row" style="max-width:160px">Tamaño (x, 0=auto)<input type="number" min="0" max="10" class="mari0-factor" data-uid="${uid}" value="${esc(String(a.factor || 0))}"></label>`;
   } else {
-    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="200" class="mari0-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
+    const mari0MaxCount = (MARI0_SINGLE_TIPOS.has(a.tipo) || (a.tipo === 'item' && !/^Spawn/i.test(a.thing || ''))) ? 1 : 200;
+    const qtyHint = mari0MaxCount === 1 ? ' (máx. 1)' : '';
+    qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad${qtyHint}<input type="number" min="1" max="${mari0MaxCount}" class="mari0-count" data-uid="${uid}" value="${esc(String(Math.min(mari0MaxCount, parseInt(a.count, 10) || 1)))}"></label>`;
   }
   return `
   <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
@@ -11119,7 +11239,7 @@ function renderMari0Actions() {
   wrap.querySelectorAll('.mari0-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.enabled = c.checked; saveSettings(); renderMari0Actions(); });
   wrap.querySelectorAll('.mari0-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
   wrap.querySelectorAll('.mari0-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
-  wrap.querySelectorAll('.mari0-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.count = Math.max(1, Math.min(200, parseInt(inp.value, 10) || 1)); saveSettings(); });
+  wrap.querySelectorAll('.mari0-count').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; const max = Math.max(1, parseInt(inp.max, 10) || 200); a.count = Math.max(1, Math.min(max, parseInt(inp.value, 10) || 1)); inp.value = String(a.count); saveSettings(); });
   wrap.querySelectorAll('.mari0-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
   wrap.querySelectorAll('.mari0-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
   wrap.querySelectorAll('.mari0-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });

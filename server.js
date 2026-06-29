@@ -697,6 +697,20 @@ app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/profiles/full', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  res.json({ ok: true, profiles: room.getProfilesFull() });
+});
+app.post('/api/profiles/full', express.json({ limit: '16mb' }), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  if (req.body?.profiles) room.importProfilesFull(req.body.profiles);
+  res.json({ ok: true, settings: room.getSettings(), profiles: room.getProfilesInfo() });
+});
+
 // Perfiles: lectura y cambio por HTTP (más fiable que solo WebSocket).
 app.get('/api/profiles', (req, res) => {
   const user = userFromRequest(req);

@@ -652,6 +652,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function saveProfilesNow() {
     try {
+      profiles.syncTs = Date.now();
       if (fs.existsSync(PROFILES_FILE)) {
         try { fs.copyFileSync(PROFILES_FILE, PROFILES_FILE + '.bak'); } catch {}
       }
@@ -776,6 +777,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       slots,
       general: profiles.editMode === 'general' ? cloneSettings(settings) : (profiles.general ? cloneSettings(profiles.general) : null),
       editingGeneral: profiles.editMode === 'general',
+      syncTs: profiles.syncTs || 0,
     };
   }
   // Importa una lista de perfiles { name, settings } en las ranuras 0..N-1. En modo
@@ -807,6 +809,62 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clampTimer();
     broadcastTimer();
     if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
+  }
+  function importProfilesFull(data, opts) {
+    if (!data || typeof data !== 'object') return false;
+    const silent = !!(opts && opts.silent);
+    persistCurrentEdit();
+    const idx = Number(data.active);
+    if (Number.isInteger(idx) && idx >= 0 && idx < PROFILE_COUNT) profiles.active = idx;
+    if (Array.isArray(data.names)) {
+      for (let i = 0; i < PROFILE_COUNT; i++) {
+        const nm = String(data.names[i] || '').trim().slice(0, 40);
+        if (nm) profiles.names[i] = nm;
+      }
+    }
+    if (Array.isArray(data.slots)) {
+      for (let i = 0; i < PROFILE_COUNT; i++) {
+        const s = data.slots[i];
+        profiles.slots[i] = (s && typeof s === 'object' && !Array.isArray(s)) ? cloneSettings(s) : null;
+      }
+    }
+    if (data.general != null) {
+      profiles.general = (data.general && typeof data.general === 'object' && !Array.isArray(data.general))
+        ? cloneSettings(data.general) : null;
+    }
+    profiles.editMode = data.editingGeneral ? 'general' : 'profile';
+    saveProfilesNow();
+    settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
+    enforceLimits();
+    writeJsonAtomic(SETTINGS_FILE, settings);
+    loadTop1Fire();
+    broadcastTop1Fire();
+    loadHabibiTop();
+    broadcastHabibiTop();
+    loadRankOverlays();
+    broadcastAllRankStates();
+    broadcast('settings', settings);
+    broadcastProfiles();
+    clampTimer();
+    broadcastTimer();
+    if (!silent && typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
+    return true;
+  }
+  function profilesFullSyncScore(full) {
+    if (!full || typeof full !== 'object') return 0;
+    const scoreSlot = (s) => {
+      if (!s || typeof s !== 'object') return 0;
+      let n = 0;
+      for (const k of ['actions', 'mcActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos']) {
+        const a = s[k];
+        if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
+      }
+      return n;
+    };
+    let total = Number(full.syncTs) || 0;
+    if (Array.isArray(full.slots)) for (const s of full.slots) total += scoreSlot(s);
+    if (full.general) total += scoreSlot(full.general);
+    return total;
   }
   // Aplica un bloque de ajustes (fusión profunda), persiste y difunde. Si el cambio
   // viene del panel del usuario (fromUser), avisa para sincronizarlo con el remoto.
@@ -4208,6 +4266,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       bumpFollowerCounter(1, data);
       state.stats.follows++;
       broadcast('follow', user);
+      triggerVideos('follow');
       triggerSoundAlerts('follow');
       triggerActions('follow', {}, user);
       triggerMinecraftActions('follow', {}, user);
@@ -4221,6 +4280,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const user = baseUser(data.user);
       state.stats.shares++;
       broadcast('share', user);
+      triggerVideos('share');
       triggerSoundAlerts('share');
       triggerActions('share', {}, user);
       triggerMinecraftActions('share', {}, user);
@@ -4926,6 +4986,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     hasSavedSettings: () => fs.existsSync(SETTINGS_FILE),
     getProfilesInfo: profilesInfo,
     getProfilesFull,
+    importProfilesFull,
+    profilesFullSyncScore,
     switchProfile,
     switchToGeneralEdit,
     renameProfile,
