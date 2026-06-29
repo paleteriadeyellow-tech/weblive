@@ -42,7 +42,6 @@
       <nav class="nav">
         <div class="nav-section">
           <button class="nav-item active" data-view="panel">Inicio</button>
-          <button class="nav-item" data-view="ranking">Ranking</button>
           <button class="nav-item" data-view="configuracion" id="navConfiguracion" style="display:none">Configuración</button>
           <button class="nav-item" data-view="planes">Planes</button>
           <button class="nav-item" data-view="regalos">Regalos</button>
@@ -271,27 +270,6 @@
                 <button type="button" class="btn primary" id="transfer-export-confirm">⬇ Descargar</button>
               </div>
             </div>
-          </div>
-        </section>
-
-        <!-- ===== VISTA: RANKING SEMANAL ===== -->
-        <section class="view" id="view-ranking">
-          <h1 class="view-title">🏆 Ranking semanal</h1>
-          <p class="view-sub">Top streamers de la semana (se reinicia cada <b>lunes a las 00:00</b>). Likes y diamantes acumulados en vivo + horas transmitidas. Debajo de cada uno verás la línea de tiempo <b>lun → dom</b> con lo hecho cada día.</p>
-
-          <div class="srk-toolbar">
-            <div class="srk-tabs">
-              <button type="button" class="srk-tab active" data-srk="likes">❤️ Likes</button>
-              <button type="button" class="srk-tab" data-srk="diamonds">💎 Diamantes</button>
-            </div>
-            <label class="srk-limit-wrap">Mostrar top
-              <input type="number" id="srk-limit" min="3" max="100" value="10" class="srk-limit-input">
-            </label>
-          </div>
-
-          <p class="srk-reset" id="srk-reset">Cargando periodo…</p>
-          <div class="srk-list" id="srk-list">
-            <p class="srk-empty">Cargando ranking…</p>
           </div>
         </section>
 

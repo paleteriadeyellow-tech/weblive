@@ -1182,7 +1182,6 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.view === 'acciones') {
       try { setupAccionesUI(); if (typeof renderAcciones === 'function') renderAcciones(); } catch (e) { console.error('Acciones UI:', e); }
     }
-    if (btn.dataset.view === 'ranking') { try { setupStreamerRanking(); refreshStreamerRanking(); } catch (e) { console.error('Ranking UI:', e); } }
   };
 });
 
