@@ -2582,24 +2582,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
-  function spawnMslugThing(thing, name, times, units) {
+  function spawnMslugThing(thing, name, times, units, meta = {}) {
     if (!thing) return;
     const t = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(times) || 1));
     const spawnKey = resolveMslugSpawnKey(thing);
     const exec = { tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t };
     if (units != null && Number(units) > 0) exec.units = Math.max(1, Number(units) || 1);
+    if (meta.label) exec.label = meta.label;
+    if (meta.reason) exec.reason = meta.reason;
+    if (meta.giftName) exec.giftName = meta.giftName;
     if (emitLocalExec(exec)) return;
     const run = async () => {
       try { await ensureMslugBridge(); } catch { /* bridge arranca en mslugSpawn */ }
       return runGameExec(exec);
     };
-    run().then((r) => {
-      if (r && r.ok === false) {
-        broadcast('log', { level: 'warn', text: `🎖️ Metal Slug spawn falló: ${r.error || 'bridge/juego no listo'}` });
-      }
-    }).catch((e) => {
-      broadcast('log', { level: 'warn', text: `🎖️ Metal Slug spawn error: ${e && e.message || e}` });
-    });
+    run().catch(() => { /* spawns solo en CMD del cliente, sin log en panel */ });
   }
 
   function mslugPerUnit(a) {
@@ -2636,8 +2633,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'mslug');
         if (likeFires <= 0) continue;
         const totalQty = Math.min(MSLUG_SPAWN_MAX, perUnit * likeFires);
-        broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${totalQty > 1 ? ` ×${totalQty}` : ''} (${name || 'viewer'})` });
-        spawnMslugThing(a.thing, name, totalQty, likeFires);
+        spawnMslugThing(a.thing, name, totalQty, likeFires, {
+          label: a.label || a.thing,
+          eventType: 'like',
+          reason: `${likeFires} like(s)`,
+        });
         continue;
       } else if (eventType === 'chat') {
         if (trig === 'chatCommand') {
@@ -2656,8 +2656,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (info.comboStreak === 'end' && comboOn) continue;
       }
       const times = Math.min(MSLUG_SPAWN_MAX, perUnit * units);
-      broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''} (${name || 'viewer'})` });
-      spawnMslugThing(a.thing, name, times, units);
+      const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
+      spawnMslugThing(a.thing, name, times, units, {
+        label: a.label || a.thing,
+        eventType,
+        giftName: info.giftName,
+        reason: giftLabel || eventType,
+      });
     }
   }
 
