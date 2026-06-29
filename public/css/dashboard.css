@@ -1351,6 +1351,11 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .juego-card:hover { transform: translateY(-3px); border-color: rgba(124,58,237,.6);
   box-shadow: 0 14px 34px rgba(0,0,0,.45); }
 .juego-card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+/* R.E.P.O.: repo-card.png ya viene recortada al ratio del cuadro (3:4.2) */
+.juego-card[data-game="repo"] .juego-card-img {
+  object-fit: cover;
+  object-position: center center;
+}
 .juego-back { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: var(--mut, #9aa);
   font-weight: 700; padding: 7px 14px; border-radius: 10px; cursor: pointer; margin-bottom: 14px; transition: .15s; }
 .juego-back:hover { color: #fff; border-color: rgba(255,255,255,.25); }

@@ -394,6 +394,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const POINTS_MAX_USERS = 2500;
   const POINTS_MAX_TX = 500;
   const clients = new Set();         // todos los WS de esta room (panel + overlays)
+  const IS_CLOUD_ROOM = !!process.env.RENDER;
+  const clientRoles = new WeakMap(); // ws -> 'panel' | 'relay' | 'local'
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
   const recentChatKeys = new Set();
@@ -914,6 +916,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     for (const client of clients) {
       if (client.readyState === 1) client.send(msg);
     }
+  }
+  function broadcastToLocal(type, payload) {
+    const msg = JSON.stringify({ type, payload });
+    for (const client of clients) {
+      if (client.readyState !== 1) continue;
+      const role = clientRoles.get(client) || 'panel';
+      if (role === 'relay' || role === 'local') client.send(msg);
+    }
+  }
+  function emitLocalExec(exec) {
+    if (!IS_CLOUD_ROOM || !exec || !exec.tipo) return false;
+    broadcastToLocal('localExec', exec);
+    return true;
   }
   function broadcastScreens() {
     broadcast('screens', { connected: [...new Set(videoScreens.values())] });
@@ -2181,6 +2196,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // ---- Acciones de Mario Bros (SMBX2) vía bridge :7755 ----
   function spawnMarioThing(npcIdOrThing, name, times) {
     if (npcIdOrThing == null || npcIdOrThing === '') return;
+    const t = Math.max(1, Number(times) || 1);
+    if (emitLocalExec({ tipo: 'MARIO_SPAWN', thing: npcIdOrThing, name: String(name || ''), times: t })) return;
     marioSpawn(npcIdOrThing, name, times).catch((e) => {
       broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e && e.message || e}` });
     });
@@ -2188,6 +2205,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function applyMarioEffect(type, seconds, factor) {
     if (!type) return;
+    if (emitLocalExec({
+      tipo: 'MARIO_EFFECT', type,
+      seconds: Math.min(60, Math.max(1, Number(seconds) || 5)),
+      factor: Math.min(10, Math.max(0, Number(factor) || 0)),
+    })) return;
     marioEffect(type, seconds, factor).catch(() => {});
   }
 
@@ -2294,6 +2316,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   // ---- Acciones de Super Mario Bros. 3 (FCEUX + smb3-bridge.exe :7755) ----
   function spawnSmb3Thing(thing, spawnId, npcId, name, times) {
+    const t = Math.min(200, Math.max(1, Number(times) || 1));
+    if (emitLocalExec({
+      tipo: 'SMB3_SPAWN', thing, spawnId, npcId, name: String(name || ''), times: t,
+    })) return;
     smb3Spawn({ thing, spawnId, npcId, name, times }).catch((e) => {
       broadcast('log', { level: 'err', text: `🎮 SMB3 spawn falló: ${e && e.message || e}` });
     });
@@ -2301,6 +2327,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function applySmb3Effect(effect, name, seconds) {
     if (!effect) return;
+    if (emitLocalExec({
+      tipo: 'SMB3_EFFECT', effect, name: String(name || ''),
+      seconds: Math.min(60, Math.max(1, Number(seconds) || 5)),
+    })) return;
     smb3Effect(effect, name, seconds).catch(() => {});
   }
 
@@ -2358,6 +2388,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function spawnMari0Thing(thing, name, times) {
     const t = Math.min(200, Math.max(1, Number(times) || 1));
     if (!thing) return;
+    if (emitLocalExec({ tipo: 'MARI0_SPAWN', thing, name: String(name || ''), times: t })) return;
     mari0Spawn(thing, name, t).catch((e) => {
       broadcast('log', { level: 'err', text: `🌀 Mari0 spawn falló: ${e && e.message || e}` });
     });
@@ -2365,6 +2396,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function applyMari0Effect(type, seconds, factor) {
     if (!type) return;
+    if (emitLocalExec({
+      tipo: 'MARI0_EFFECT', type,
+      seconds: Math.min(60, Math.max(1, Number(seconds) || 5)),
+      factor: Math.min(10, Math.max(0, Number(factor) || 0)),
+    })) return;
     mari0Effect(type, seconds, factor).catch(() => {});
   }
 
@@ -2421,6 +2457,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function spawnPvzThing(thing, name, times) {
     if (!thing) return;
     const t = Math.min(20, Math.max(1, Number(times) || 1));
+    if (emitLocalExec({ tipo: 'PVZ_SPAWN', thing, name: String(name || ''), times: t })) return;
     const url = 'http://127.0.0.1:7755/spawn?thing=' + encodeURIComponent(thing) +
       '&name=' + encodeURIComponent(String(name || ''));
     let i = 0;
@@ -2443,6 +2480,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function givePvzSun(amount) {
     const n = Math.min(9990, Math.max(1, Number(amount) || 50));
+    if (emitLocalExec({ tipo: 'PVZ_SUN', amount: n })) return;
     (async () => {
       try {
         const ctrl = new AbortController();
@@ -2456,6 +2494,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function pvzCommand(p) {
     const cmdPath = String(p || '');
     if (!cmdPath.startsWith('/')) return;
+    if (emitLocalExec({ tipo: 'PVZ_CMD', path: cmdPath })) return;
     (async () => {
       try {
         const ctrl = new AbortController();
@@ -2469,16 +2508,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // ---- PvZ Hybrid vía PvZ Tools (bridge HTTP :7757 / WS :3132) ----
   function spawnPvzHybridThing(thing, name, times, label) {
     if (!thing) return;
+    const t = Math.min(999, Math.max(1, Number(times) || 1));
+    if (emitLocalExec({ tipo: 'PVZ_HYBRID_SPAWN', thing, name: String(name || ''), times: t, label })) return;
     pvzHybridSpawn(thing, name, times, label).catch(() => { /* bridge/tools no listo */ });
   }
 
   function givePvzHybridSun(amount, name, label) {
+    const n = Math.min(9990, Math.max(1, Number(amount) || 50));
+    if (emitLocalExec({ tipo: 'PVZ_HYBRID_SUN', amount: n, name: String(name || ''), label })) return;
     pvzHybridSun(amount, name, label).catch(() => { /* bridge/tools no listo */ });
   }
 
   function pvzHybridCommand(p, name, label) {
     const cmdPath = String(p || '');
     if (!cmdPath.startsWith('/')) return;
+    if (emitLocalExec({ tipo: 'PVZ_HYBRID_CMD', path: cmdPath, name: String(name || ''), label })) return;
     pvzHybridCmd(cmdPath, name, label).catch(() => { /* bridge/tools no listo */ });
   }
 
@@ -2530,6 +2574,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function spawnMslugThing(thing, name, times) {
     if (!thing) return;
+    const t = Math.min(50, Math.max(1, Number(times) || 1));
+    if (emitLocalExec({ tipo: 'MSLUG_SPAWN', thing, name: String(name || ''), times: t })) return;
     mslugSpawn(thing, name, times).then((r) => {
       if (r && r.ok === false) {
         broadcast('log', { level: 'warn', text: `🎖️ Metal Slug spawn falló: ${r.error || 'bridge/juego no listo'}` });
@@ -4885,7 +4931,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   /* ------------------------ Gestión de clientes WS ------------------------ */
-  function addClient(ws) {
+  function addClient(ws, role = 'panel') {
+    clientRoles.set(ws, role === 'relay' || role === 'local' ? role : 'panel');
     clients.add(ws);
     lastSeen = Date.now();
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
