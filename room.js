@@ -1863,21 +1863,35 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           })
           .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
       } else {
-        let whCmd = (context && urlHasActionPlaceholders(webhookCmd.url))
-          ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, times)
-          : { ...webhookCmd };
-        if (/\/spawn\b/i.test(whCmd.url)) {
-          whCmd = { ...whCmd, url: applySpawnQuantityToUrl(whCmd.url, times) };
+        const mslug = resolveMslugSpawnFromWebhook(webhookCmd, context, times);
+        if (mslug) {
+          const giftName = context?.info?.giftName;
+          const giftLabel = giftName
+            ? `Regalo: ${giftName}${mslug.times > 1 ? ` ×${mslug.times}` : ''}`
+            : 'Webhook spawn';
+          spawnMslugThing(mslug.thing, mslug.name, mslug.times, null, {
+            label: mslug.thing,
+            eventType: giftName ? 'gift' : undefined,
+            giftName,
+            reason: giftLabel,
+          });
+        } else {
+          let whCmd = (context && urlHasActionPlaceholders(webhookCmd.url))
+            ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, times)
+            : { ...webhookCmd };
+          if (/\/spawn\b/i.test(whCmd.url)) {
+            whCmd = { ...whCmd, url: applySpawnQuantityToUrl(whCmd.url, times) };
+          }
+          const method = (whCmd.method || 'GET').toUpperCase();
+          const opts = { method };
+          if (method === 'POST' && whCmd.body) {
+            opts.body = whCmd.body;
+            opts.headers = { 'Content-Type': 'application/json' };
+          }
+          fetch(whCmd.url, opts)
+            .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
+            .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
         }
-        const method = (whCmd.method || 'GET').toUpperCase();
-        const opts = { method };
-        if (method === 'POST' && whCmd.body) {
-          opts.body = whCmd.body;
-          opts.headers = { 'Content-Type': 'application/json' };
-        }
-        fetch(whCmd.url, opts)
-          .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
-          .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
       }
     }
     if (obsCmd && obsCmd.on) {
@@ -2007,6 +2021,42 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const vars = context ? buildActionWebhookVars(context.info || {}, context.user || null, t) : {};
     const nick = parsed.name || vars.nickname || vars.username || '';
     return { npcId: parsed.npcId, name: nick, times: parsed.quantity * t };
+  }
+
+  function isMslugDaemonWebhook(url) {
+    return /(?:localhost|127\.0\.0\.1):7760\b/i.test(String(url || ''));
+  }
+
+  function parseMslugSpawnWebhookUrl(url) {
+    if (!url || !/\/spawn\b/i.test(String(url))) return null;
+    try {
+      const u = new URL(String(url).replace(/\{[^}]+\}/g, 'x'));
+      const thing = u.searchParams.get('thing') ?? u.searchParams.get('enemy') ?? u.searchParams.get('id');
+      if (thing == null || !String(thing).trim()) return null;
+      const quantity = Math.max(1, parseInt(u.searchParams.get('quantity') ?? u.searchParams.get('count') ?? '1', 10) || 1);
+      const rawName = u.searchParams.get('userName') ?? u.searchParams.get('nickname') ?? u.searchParams.get('name') ?? '';
+      const name = rawName ? decodeURIComponent(String(rawName).replace(/\+/g, ' ')) : '';
+      return { thing: String(thing).trim(), quantity, name };
+    } catch {
+      return null;
+    }
+  }
+
+  function resolveMslugSpawnFromWebhook(webhookCmd, context, times = 1) {
+    if (!webhookCmd?.on || !webhookCmd.url) return null;
+    if (!isMslugDaemonWebhook(webhookCmd.url)) return null;
+    if (!/\/spawn\b/i.test(webhookCmd.url)) return null;
+    const t = Math.max(1, Number(times) || 1);
+    const resolved = (context && urlHasActionPlaceholders(webhookCmd.url))
+      ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, t)
+      : webhookCmd;
+    let url = resolved.url;
+    if (/\/spawn\b/i.test(url)) url = applySpawnQuantityToUrl(url, t);
+    const parsed = parseMslugSpawnWebhookUrl(url);
+    if (!parsed) return null;
+    const vars = context ? buildActionWebhookVars(context.info || {}, context.user || null, t) : {};
+    const nick = parsed.name || vars.nickname || vars.username || '';
+    return { thing: parsed.thing, name: nick, times: parsed.quantity * t };
   }
 
   function fireMarioSpawnFromAction(a, context, times = 1) {
@@ -2586,11 +2636,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!thing) return;
     const t = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(times) || 1));
     const spawnKey = resolveMslugSpawnKey(thing);
+    const spawnMeta = {
+      label: meta.label || thing,
+      reason: meta.reason,
+      eventType: meta.eventType,
+      giftName: meta.giftName,
+      likeBatch: meta.likeBatch,
+      likeFires: meta.likeFires,
+    };
     const exec = { tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t };
     if (units != null && Number(units) > 0) exec.units = Math.max(1, Number(units) || 1);
-    if (meta.label) exec.label = meta.label;
-    if (meta.reason) exec.reason = meta.reason;
-    if (meta.giftName) exec.giftName = meta.giftName;
+    if (spawnMeta.label) exec.label = spawnMeta.label;
+    if (spawnMeta.reason) exec.reason = spawnMeta.reason;
+    if (spawnMeta.giftName) exec.giftName = spawnMeta.giftName;
+    if (spawnMeta.eventType) exec.eventType = spawnMeta.eventType;
+    if (spawnMeta.likeBatch != null) exec.likeBatch = spawnMeta.likeBatch;
+    if (spawnMeta.likeFires != null) exec.likeFires = spawnMeta.likeFires;
     if (emitLocalExec(exec)) return;
     const run = async () => {
       try { await ensureMslugBridge(); } catch { /* bridge arranca en mslugSpawn */ }
