@@ -354,7 +354,7 @@ const TAB_CAP = {
   tts: 'tab_tts', timer: 'tab_timer',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid' };
+const GAME_CAP = { minecraft: 'game_minecraft', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo' };
 // Minijuegos visibles pero aún no disponibles (solo el admin puede entrar).
 const GAME_COMING_SOON = {};
 
@@ -472,14 +472,15 @@ const CAP_LABELS = {
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
   // juegos
-  game_minecraft: 'Juego: Minecraft', game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack',
+  game_minecraft: 'Juego: Minecraft', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
+  game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_repo: 'Juego: R.E.P.O.',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid',
+  'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_toplikeslistamc', 'ov_topdiamanteslista', 'ov_topdiamanteslistamc',
@@ -7344,8 +7345,8 @@ function setupProfiles() {
   requestProfiles();
 }
 
-/* ====================== Spotify (solo .exe · admin / albertoyt / alee367) ====================== */
-const SPOTIFY_ALLOWED_USERS = ['albertoyt', 'alee367'];
+/* ====================== Spotify (solo .exe · admin / albertoyt / alee367 / albertoreyesyt) ====================== */
+const SPOTIFY_ALLOWED_USERS = ['albertoyt', 'alee367', 'albertoreyesyt'];
 const SPOTIFY_DEFAULTS = {
   playOn: true, playCost: 0, skipOn: true, skipCost: 0,
   skipRequested: true, explicit: true, queueTotal: 2, queueUser: 2,
@@ -11308,6 +11309,10 @@ function setupPvzActionsUI() {
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
+  const genImgV = document.getElementById('pvz-gen-img-v');
+  if (genImgV && !genImgV._wired) { genImgV._wired = true; genImgV.onclick = () => generatePvzMenuImage('vertical'); }
+  const genImgH = document.getElementById('pvz-gen-img-h');
+  if (genImgH && !genImgH._wired) { genImgH._wired = true; genImgH.onclick = () => generatePvzMenuImage('horizontal'); }
   renderPvzCatalog(search ? search.value : '');
   renderPvzActions();
 }
@@ -11834,6 +11839,144 @@ function renderPvzHybridActions() {
   });
   bindGameActionGiftButtons(wrap, 'pvzhybrid-gift', 'pvzHybridActions', renderPvzHybridActions);
   wrap.querySelectorAll('.pvzhybrid-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzHybridAction(a); });
+}
+
+// Genera una imagen tipo "menú de regalos" para PvZ: regalo/evento + acción + cantidad.
+async function generatePvzMenuImage(orientation) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const all = ensurePvzActions();
+  let list = all.filter((a) => a && a.enabled !== false);
+  if (!list.length) list = all.slice();
+  if (!list.length) { toast && toast('Agrega acciones del catálogo con su regalo primero.', 'warn'); return; }
+  toast && toast('Generando imagen…', 'ok');
+
+  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
+  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : (`/api/img-proxy?url=${encodeURIComponent(u)}`)));
+  const loadImg = (src) => new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+
+  const rows = [];
+  for (const a of list) {
+    const trig = a.trigger || 'gift';
+    let giftImg = null;
+    let giftEmoji = '';
+    if (trig === 'gift' || trig === 'gift-any') {
+      const gUrl = (a.giftImage && String(a.giftImage).trim()) || giftImageOf(a);
+      giftImg = await loadImg(proxied(gUrl));
+    } else {
+      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+    }
+    const actIcon = await loadImg(proxied(`/img/pvz/${encodeURIComponent(a.thing || '')}.png`));
+    const actEmoji = a.kind === 'sun' ? '☀️' : (PVZ_CAT_ICON[a.tipo] || '🧟');
+    const qty = a.kind === 'sun'
+      ? Math.max(1, parseInt(a.amount, 10) || 50)
+      : (a.kind === 'cmd' ? 0 : Math.max(1, parseInt(a.count, 10) || 1));
+    rows.push({ giftImg, giftEmoji, actIcon, actEmoji, qty });
+  }
+
+  let cols;
+  if (orientation === 'vertical') cols = 1;
+  else if (orientation === 'horizontal') cols = rows.length;
+  else cols = Math.max(1, Math.min(5, rows.length));
+  cols = Math.max(1, cols);
+  const gridRows = Math.ceil(rows.length / cols);
+  const margin = 10;
+  const gap = 14;
+  const cellW = 200;
+  const numH = 14;
+  const iconS = 156;
+  const giftS = 52;
+  const cellH = numH + iconS + 30;
+  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
+  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
+  const dpr = 2;
+  const cv = document.createElement('canvas');
+  cv.width = W * dpr;
+  cv.height = H * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const rr = (x, y, w, h, r) => {
+    const rad = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  };
+
+  const drawMultBadge = (label, x, y) => {
+    ctx.font = '800 20px Rubik, Montserrat, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.strokeText(label, x, y);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, x, y);
+  };
+
+  ctx.textBaseline = 'middle';
+  rows.forEach((row, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    const cellX = margin + c * (cellW + gap);
+    const cellY = margin + r * (cellH + gap);
+    const iconX = cellX + (cellW - iconS) / 2;
+    const iconY = cellY + numH;
+
+    if (row.actIcon) {
+      ctx.save();
+      rr(iconX, iconY, iconS, iconS, 16);
+      ctx.clip();
+      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
+      ctx.restore();
+    } else {
+      ctx.font = '96px serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(row.actEmoji, iconX + iconS / 2, iconY + iconS / 2);
+    }
+
+    const gx = cellX + (cellW - giftS) / 2;
+    const gy = iconY + iconS - Math.round(giftS * 0.5);
+    ctx.save();
+    rr(gx, gy, giftS, giftS, 12);
+    ctx.clip();
+    if (row.giftImg) ctx.drawImage(row.giftImg, gx, gy, giftS, giftS);
+    else {
+      ctx.font = '34px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(row.giftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1);
+    }
+    ctx.restore();
+
+    if (row.qty > 1) drawMultBadge(`x${row.qty}`, iconX + iconS - 4, iconY + 2);
+  });
+
+  try {
+    const data = cv.toDataURL('image/png');
+    const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
+    const link = document.createElement('a');
+    link.href = data;
+    link.download = 'menu-regalos-pvz' + suffix + '.png';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast && toast('Imagen generada y descargada.', 'ok');
+  } catch {
+    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
+  }
 }
 
 // Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el

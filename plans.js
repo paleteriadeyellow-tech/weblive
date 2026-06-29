@@ -93,6 +93,7 @@ export const CAPABILITIES = {
     { key: 'game_mari0', label: 'Juego: Mari0' },
     { key: 'game_plantasvszombies', label: 'Juego: Plants vs Zombies' },
     { key: 'game_pvzhybrid', label: 'Juego: Plants vs Zombies Pack' },
+    { key: 'game_repo', label: 'Juego: R.E.P.O.' },
   ],
   // Características sueltas.
   extras: [
@@ -123,6 +124,7 @@ function defaultConfig() {
   // Por defecto, en gratis bloqueamos las voces TikTok (suelen ser premium).
   freeFeatures.tts_tiktok = false;
   freeFeatures.game_pvzhybrid = false;
+  freeFeatures.game_repo = false;
 
   return {
     free: {
