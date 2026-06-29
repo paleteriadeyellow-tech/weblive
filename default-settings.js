@@ -437,6 +437,7 @@ export const DEFAULT_SETTINGS = {
   // soles al jugador (/sun) al recibir un regalo o evento del live.
   pvzActions: [],
   mslugActions: [],
+  repoActions: [],
   // Videos automáticos por nivel de miembro (public/video/niveles): al subir alguien de
   // nivel se reproduce nivelN.webm. screen = en qué Browser Source aparece.
   levelVideos: { enabled: true, screen: 1, volume: 100 },

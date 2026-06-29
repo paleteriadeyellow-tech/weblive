@@ -2291,7 +2291,18 @@ function onSettings(s) {
   if (typeof renderSmb3Actions === 'function') renderSmb3Actions();
   if (typeof renderMari0Actions === 'function') renderMari0Actions();
   if (typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
-  if (typeof renderMslugActions === 'function') renderMslugActions();
+  // Igual que Mario/PvZ: Metal Slug arranca apagado al abrir el panel.
+  if (typeof renderMslugActions === 'function') {
+    if (!window._mslugResetDone) {
+      window._mslugResetDone = true;
+      const ml = ensureMslugActions();
+      if (ml.length && ml.some((a) => a.enabled !== false)) {
+        ml.forEach((a) => { a.enabled = false; });
+        saveSettings();
+      }
+    }
+    renderMslugActions();
+  }
 }
 
 function applySettingsToUI() {
@@ -12209,7 +12220,7 @@ function addMslugAction(thing) {
     thing: c.id, label: c.nombre, desc: c.desc, section: c.section,
     tipo: c.tipo, kind: c.kind || 'spawn',
     trigger: 'gift-any', giftId: '', giftName: '', giftImage: '',
-    count: 1, text: '', enabled: true,
+    count: 1, text: '', enabled: false,
   });
   saveSettings(); renderMslugActions();
 }

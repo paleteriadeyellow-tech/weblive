@@ -2040,6 +2040,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerPvzActions(eventType, info, user, cfg);
     triggerPvzHybridActions(eventType, info, user, cfg);
     if (eventType !== 'like') triggerMslugActions(eventType, info, user, cfg);
+    if (eventType !== 'like') triggerRepoActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
     if (Array.isArray(cfg.mcActions) && cfg.mcActions.length) processMcList(cfg.mcActions, eventType, info, vars);
     if (Array.isArray(cfg.bedrockActions) && cfg.bedrockActions.length) processMcList(cfg.bedrockActions, eventType, info, vars);
@@ -2660,6 +2661,76 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  function spawnRepoThing(thing, name, times) {
+    if (!thing) return;
+    const t = Math.min(50, Math.max(1, Number(times) || 1));
+    const spawnKey = String(thing || '').trim();
+    const exec = { tipo: 'REPO_SPAWN', thing: spawnKey, name: String(name || ''), times: t };
+    if (emitLocalExec(exec)) return;
+    runGameExec(exec).then((r) => {
+      if (r && r.ok === false) {
+        broadcast('log', { level: 'warn', text: `👾 R.E.P.O. spawn falló: ${r.error || 'mod/juego no listo'}` });
+      }
+    }).catch((e) => {
+      broadcast('log', { level: 'warn', text: `👾 R.E.P.O. spawn error: ${e && e.message || e}` });
+    });
+  }
+
+  function triggerRepoActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.repoActions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const trig = a.trigger || 'gift';
+      let times = Math.max(1, parseInt(a.count, 10) || 1);
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const wantId = String(a.giftId || '').trim();
+          const wantName = (a.giftName || '').trim().toLowerCase();
+          if (!wantId && !wantName) {
+            times *= Math.max(1, Number(info.repeatCount) || 1);
+          } else {
+            const idMatch = wantId && wantId === String(info.giftId || '');
+            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+            if (!idMatch && !nameMatch) continue;
+            times *= Math.max(1, Number(info.repeatCount) || 1);
+          }
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else continue;
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        const likeFires = gameLikeTriggerFires(a, info, user, 'repo');
+        if (likeFires <= 0) continue;
+        for (let lf = 0; lf < likeFires; lf++) {
+          const capped = Math.min(50, times);
+          broadcast('log', { level: 'ok', text: `👾 R.E.P.O.: "${a.label || a.thing}"${capped > 1 ? ` ×${capped}` : ''} (${name || 'viewer'})` });
+          spawnRepoThing(a.thing, name, capped);
+        }
+        continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else continue;
+      } else if (trig !== eventType) continue;
+      if (eventType === 'gift') {
+        const comboOn = a.comboInstant !== false;
+        if (info.comboStreak === 'delta' && !comboOn) continue;
+        if (info.comboStreak === 'end' && comboOn) continue;
+      }
+      times = Math.min(50, times);
+      broadcast('log', { level: 'ok', text: `👾 R.E.P.O.: "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''} (${name || 'viewer'})` });
+      spawnRepoThing(a.thing, name, times);
+    }
+  }
+
   function triggerPvzActions(eventType, info = {}, user = null, cfg = settings) {
     const list = cfg.pvzActions || [];
     if (!list.length) return;
@@ -2967,6 +3038,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const goal = Math.max(1, a.likeN || 100);
         if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
           spawnMslugThing(a.thing, '', Math.min(MSLUG_SPAWN_MAX, Math.max(1, parseInt(a.count, 10) || 1)));
+        }
+      }
+      for (const a of (cfg.repoActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          spawnRepoThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)));
         }
       }
       for (const a of cfg.soundAlerts) {
@@ -4293,6 +4371,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const likeInfo = { likeCount: data.likeCount || 0 };
       forEachTriggerProfile((cfg) => triggerMarioActions('like', likeInfo, likeUser, cfg));
       forEachTriggerProfile((cfg) => triggerMslugActions('like', likeInfo, likeUser, cfg));
+      forEachTriggerProfile((cfg) => triggerRepoActions('like', likeInfo, likeUser, cfg));
       triggerMinecraftActions('like', likeInfo, likeUser);
       if (Date.now() - lastLikeSound > 3000) {
         lastLikeSound = Date.now();
@@ -4771,6 +4850,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'mslugSpawn':
         spawnMslugThing(String(data.thing || ''), data.name, data.times);
+        break;
+      case 'repoSpawn':
+        spawnRepoThing(String(data.thing || ''), data.name, data.times);
         break;
       case 'testSound':
         if (data.alert) broadcast('sound', { ...data.alert, test: true });
