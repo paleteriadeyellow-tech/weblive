@@ -1049,7 +1049,10 @@ function handle(type, p) {
     case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); relayMslugOnLiveEvent('share', {}, p); break;
     case 'subscribe': break;
     case 'superfan': break;
-    case 'log': addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : ''); break;
+    case 'log':
+      if (p.text && String(p.text).includes('🎖️ Metal Slug')) mslugCloudLogSeenAt = Date.now();
+      addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : '');
+      break;
     case 'sound': playPanelSound(p); break;
     case 'panic':
       stopPanelSounds();
@@ -6890,6 +6893,7 @@ function onKeyAction(p) {
 let mslugRelayCloudExecUntil = 0;
 const relayMslugLikeAcc = new Map();
 const relayMslugTimers = new Set();
+let mslugCloudLogSeenAt = 0;
 
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
@@ -6899,7 +6903,19 @@ function onLocalExec(exec) {
     relayMslugTimers.clear();
   }
   if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_)/.test(exec.tipo)) {
-    execGameLocal(exec);
+    if (exec.tipo === 'MSLUG_SPAWN') {
+      execGameLocal(exec).then((r) => {
+        if (!r || r.ok === false) return;
+        setTimeout(() => {
+          if (Date.now() - mslugCloudLogSeenAt < 1500) return;
+          const capped = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(exec.times) || 1));
+          const c = MSLUG_CATALOG.find((x) => x.id === exec.thing || x.spawnId === exec.thing);
+          addEvent(`🎖️ Metal Slug: spawn "${c?.nombre || exec.thing}"${capped > 1 ? ` ×${capped}` : ''} (${exec.name || 'viewer'})`, 'ok');
+        }, 500);
+      });
+    } else {
+      execGameLocal(exec);
+    }
     return;
   }
   if (IS_DESKTOP && window.desktopAPI?.localExec) {
@@ -11976,7 +11992,7 @@ async function execRelayMslugSpawn(thing, label, name, times) {
   const spawnKey = resolveMslugSpawnKey(thing);
   const capped = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(times) || 1));
   const r = await execGameLocal({ tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: capped });
-  if (r && r.ok !== false) {
+  if (r && r.ok !== false && Date.now() - mslugCloudLogSeenAt >= 1500) {
     addEvent(`🎖️ Metal Slug: spawn "${label || thing}"${capped > 1 ? ` ×${capped}` : ''} (${name || 'viewer'})`, 'ok');
   }
 }
