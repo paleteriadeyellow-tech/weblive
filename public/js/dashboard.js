@@ -1971,6 +1971,9 @@ async function doConnect() {
   connectBusy = true;
   try {
     flushSaveSettings();
+    if (IS_DESKTOP && settings?.mslugActions?.some((a) => a && a.enabled !== false && a.thing)) {
+      ensureMslugBridgeApi().catch(() => {});
+    }
     try { localStorage.setItem('lastTikTokUser', u); } catch {}
 
     const relay = relayActive() || desktopRelayOn();
@@ -11904,6 +11907,13 @@ function ensureMslugActions() {
   return settings.mslugActions;
 }
 
+function resolveMslugSpawnKey(thing) {
+  const key = String(thing || '').trim();
+  if (MSLUG_COMBOS[key]) return key;
+  const c = MSLUG_CATALOG.find((x) => x.id === thing);
+  return String(c?.spawnId || thing || '').trim();
+}
+
 async function ensureMslugBridgeApi() {
   try {
     const r = await fetch('/api/desktop/ensure-mslug-bridge', { method: 'POST', credentials: 'same-origin' });
@@ -12067,13 +12077,20 @@ function addMslugAction(thing) {
 
 async function testMslugAction(a) {
   if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
+  const spawnKey = resolveMslugSpawnKey(a.thing);
   const times = Math.max(1, Math.min(MSLUG_SPAWN_MAX, parseInt(a.count, 10) || 1));
-  const r = await execGameLocal({ tipo: 'MSLUG_SPAWN', thing: a.thing, name: 'Prueba', times });
+  toast && toast(`🎖️ «${a.label || a.thing}»… (Metal Slug en misión)`, 'ok');
+  const bridgeOk = await ensureMslugBridgeApi().catch(() => ({ ok: false }));
+  if (!bridgeOk?.ok) {
+    toast && toast('Bridge Metal Slug no listo. Elige carpeta del juego e instala el mod.', 'warn');
+    return;
+  }
+  const r = await execGameLocal({ tipo: 'MSLUG_SPAWN', thing: spawnKey, name: 'Prueba', times });
   if (r && r.ok !== false) {
     addEvent(`🎖️ Prueba Metal Slug: ${esc(a.label || a.thing)} (comando enviado)`, 'ok');
     toast && toast('Comando enviado. Debe estar en misión de historia/arcade (no VS MODE).', 'ok');
   } else {
-    toast && toast(r?.error === 'bridge_mslug_no_disponible' ? 'Bridge apagado. Pulsa Bridge o Iniciar todo.' : '¿Parche aplicado y en misión (no VS MODE)?', 'warn');
+    toast && toast(r?.error === 'bridge_mslug_no_disponible' ? 'Elige carpeta e instala el mod.' : '¿Juego en misión (no VS MODE)?', 'warn');
   }
 }
 

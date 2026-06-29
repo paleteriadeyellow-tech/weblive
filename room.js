@@ -12,6 +12,7 @@ import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './i
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan } from './mc-panic.js';
 import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, runGameExec, resolveMslugSpawnKey } from './game-local.js';
 import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
+import { ensureMslugBridge } from './mslug-bridge.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -2038,7 +2039,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerSmb3Actions(eventType, info, user, cfg);
     triggerPvzActions(eventType, info, user, cfg);
     triggerPvzHybridActions(eventType, info, user, cfg);
-    triggerMslugActions(eventType, info, user, cfg);
+    if (eventType !== 'like') triggerMslugActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
     if (Array.isArray(cfg.mcActions) && cfg.mcActions.length) processMcList(cfg.mcActions, eventType, info, vars);
     if (Array.isArray(cfg.bedrockActions) && cfg.bedrockActions.length) processMcList(cfg.bedrockActions, eventType, info, vars);
@@ -2585,7 +2586,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!thing) return;
     const t = Math.min(50, Math.max(1, Number(times) || 1));
     const spawnKey = resolveMslugSpawnKey(thing);
-    dispatchLocalGameExec({ tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t }).then((r) => {
+    const exec = { tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t };
+    const run = async () => {
+      if (!IS_CLOUD_ROOM) {
+        try { await ensureMslugBridge(); } catch { /* bridge arranca en mslugSpawn */ }
+      }
+      return dispatchLocalGameExec(exec);
+    };
+    run().then((r) => {
       if (r && r.ok === false && !r.relayed) {
         broadcast('log', { level: 'warn', text: `🎖️ Metal Slug spawn falló: ${r.error || 'bridge/juego no listo'}` });
       }
@@ -4266,6 +4274,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const likeUser = baseUser(data.user);
       const likeInfo = { likeCount: data.likeCount || 0 };
       forEachTriggerProfile((cfg) => triggerMarioActions('like', likeInfo, likeUser, cfg));
+      forEachTriggerProfile((cfg) => triggerMslugActions('like', likeInfo, likeUser, cfg));
       triggerMinecraftActions('like', likeInfo, likeUser);
       if (Date.now() - lastLikeSound > 3000) {
         lastLikeSound = Date.now();
