@@ -10,7 +10,7 @@ import { DEFAULT_SETTINGS, deepMerge } from './default-settings.js';
 import * as spotify from './spotify.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan } from './mc-panic.js';
-import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, runGameExec, resolveMslugSpawnKey } from './game-local.js';
+import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, runGameExec, resolveMslugSpawnKey, MSLUG_SPAWN_MAX } from './game-local.js';
 import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 import { ensureMslugBridge } from './mslug-bridge.js';
 
@@ -2584,7 +2584,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function spawnMslugThing(thing, name, times) {
     if (!thing) return;
-    const t = Math.min(50, Math.max(1, Number(times) || 1));
+    const t = Math.min(MSLUG_SPAWN_MAX, Math.max(1, Number(times) || 1));
     const spawnKey = resolveMslugSpawnKey(thing);
     const exec = { tipo: 'MSLUG_SPAWN', thing: spawnKey, name: String(name || ''), times: t };
     if (emitLocalExec(exec)) return;
@@ -2628,11 +2628,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'mslug');
         if (likeFires <= 0) continue;
-        for (let lf = 0; lf < likeFires; lf++) {
-          const capped = Math.min(50, times);
-          broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${capped > 1 ? ` ×${capped}` : ''} (${name || 'viewer'})` });
-          spawnMslugThing(a.thing, name, capped);
-        }
+        const totalQty = Math.min(MSLUG_SPAWN_MAX, times * likeFires);
+        broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${totalQty > 1 ? ` ×${totalQty}` : ''} (${name || 'viewer'})` });
+        spawnMslugThing(a.thing, name, totalQty);
         continue;
       } else if (eventType === 'chat') {
         if (trig === 'chatCommand') {
@@ -2650,7 +2648,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (info.comboStreak === 'delta' && !comboOn) continue;
         if (info.comboStreak === 'end' && comboOn) continue;
       }
-      times = Math.min(50, times);
+      times = Math.min(MSLUG_SPAWN_MAX, times);
       broadcast('log', { level: 'ok', text: `🎖️ Metal Slug: spawn "${a.label || a.thing}"${times > 1 ? ` ×${times}` : ''} (${name || 'viewer'})` });
       spawnMslugThing(a.thing, name, times);
     }
@@ -2962,7 +2960,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
         const goal = Math.max(1, a.likeN || 100);
         if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-          spawnMslugThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)));
+          spawnMslugThing(a.thing, '', Math.min(MSLUG_SPAWN_MAX, Math.max(1, parseInt(a.count, 10) || 1)));
         }
       }
       for (const a of cfg.soundAlerts) {
@@ -4215,6 +4213,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const giftInfo = { giftName, giftId, diamonds: diamondsEach, totalDiamonds: diamondsEach * repeatCount, repeatCount };
 
       const isStreak = giftType === 1 && !data.repeatEnd;
+      const streakGiftType = giftType === 1;
+      let repeatDelta = Math.max(1, Number(repeatCount) || 1);
+      if (streakGiftType) {
+        const sk = giftStreakGameKey(user.uniqueId, giftId);
+        const prev = giftStreakGameProgress.get(sk) || 0;
+        repeatDelta = Math.max(0, Number(repeatCount) - prev);
+      }
       if (!isStreak) {
         const total = diamondsEach * repeatCount;
         state.stats.gifts++;
@@ -4263,7 +4268,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
       triggerGiftGameActions(user, giftId, repeatCount, !!data.repeatEnd, giftType, giftInfo);
 
-      broadcast('gift', { ...user, giftName, giftId, repeatCount, diamonds: diamondsEach, image, streak: isStreak });
+      broadcast('gift', {
+        ...user, giftName, giftId, repeatCount, repeatDelta,
+        diamonds: diamondsEach, image, streak: isStreak,
+        repeatEnd: !!data.repeatEnd, streakGift: streakGiftType,
+      });
       checkMemberLevelUp(data);
     });
 

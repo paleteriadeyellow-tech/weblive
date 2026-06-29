@@ -11902,7 +11902,7 @@ const MSLUG_CATALOG = [
   { id: 'marcianos', nombre: 'Marcianos', desc: 'Desata una horda de Mars People.', section: 'bosses', tipo: 'enemy', kind: 'combo', emoji: '👽' },
   { id: 'random', nombre: 'Enemigo al azar', desc: 'Genera un enemigo aleatorio del juego.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🎲' },
 ];
-const MSLUG_SPAWN_MAX = 50;
+const MSLUG_SPAWN_MAX = 200;
 
 function ensureMslugActions() {
   if (!settings) return [];
@@ -11979,9 +11979,8 @@ async function execRelayMslugActions(eventType, info = {}, user = null) {
       if (trig !== 'like') continue;
       const likeFires = relayMslugLikeFires(a, info, user);
       if (likeFires <= 0) continue;
-      for (let lf = 0; lf < likeFires; lf++) {
-        await execRelayMslugSpawn(a.thing, a.label || a.thing, name, times);
-      }
+      times = Math.min(MSLUG_SPAWN_MAX, times * likeFires);
+      await execRelayMslugSpawn(a.thing, a.label || a.thing, name, times);
       continue;
     } else if (trig !== eventType) continue;
     if (eventType === 'gift') {
@@ -11996,11 +11995,25 @@ async function execRelayMslugActions(eventType, info = {}, user = null) {
 
 function relayMslugOnGift(p) {
   if (!p) return;
+  const streakGift = !!p.streakGift;
+  const repeatEnd = !!p.repeatEnd;
+  let comboStreak;
+  let repeatForCalc;
+  if (streakGift && !repeatEnd) {
+    comboStreak = 'delta';
+    repeatForCalc = Math.max(0, Number(p.repeatDelta) || 0);
+    if (repeatForCalc <= 0) return;
+  } else if (streakGift && repeatEnd) {
+    comboStreak = 'end';
+    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
+  } else {
+    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
+  }
   scheduleRelayMslug('gift', {
     giftName: p.giftName,
     giftId: p.giftId,
-    repeatCount: p.repeatCount || 1,
-    comboStreak: p.streak ? 'delta' : undefined,
+    repeatCount: repeatForCalc,
+    comboStreak,
   }, { uniqueId: p.uniqueId, nickname: p.nickname });
 }
 
