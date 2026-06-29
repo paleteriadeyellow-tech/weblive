@@ -11968,6 +11968,11 @@ function setupMslugActionsUI() {
       saveSettings(); renderMslugActions();
     };
   }
+  const genOverlayBtn = document.getElementById('mslug-gen-overlay');
+  if (genOverlayBtn && !genOverlayBtn._wired) {
+    genOverlayBtn._wired = true;
+    genOverlayBtn.onclick = () => generateMslugOverlayImage();
+  }
   renderMslugCatalog(search ? search.value : '');
   renderMslugActions();
 }
@@ -12076,6 +12081,143 @@ function renderMslugActions() {
   });
   bindGameActionGiftButtons(wrap, 'mslug-gift', 'mslugActions', renderMslugActions);
   wrap.querySelectorAll('.mslug-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMslugAction(a); });
+}
+
+// PNG con icono Metal Slug + regalo/evento + x{cantidad} (fondo transparente para OBS).
+async function generateMslugOverlayImage() {
+  const all = ensureMslugActions();
+  let list = all.filter((a) => a && a.enabled !== false);
+  if (!list.length) list = all.slice();
+  if (!list.length) { toast && toast('Agrega acciones del catálogo con su regalo primero.', 'warn'); return; }
+  toast && toast('Generando overlay…', 'ok');
+
+  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
+  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : (`/api/img-proxy?url=${encodeURIComponent(u)}`)));
+  const loadImg = (src) => new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const im = new Image();
+    im.crossOrigin = 'anonymous';
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = src;
+  });
+
+  const rows = [];
+  for (const a of list) {
+    const slugImg = await loadImg(proxied(`/img/mslug/${encodeURIComponent(a.thing || '')}.png`));
+    const trig = a.trigger || 'gift';
+    let giftImg = null;
+    let giftEmoji = '';
+    if (trig === 'gift' || trig === 'gift-any') {
+      const gUrl = (a.giftImage && String(a.giftImage).trim()) || giftImageOf(a);
+      giftImg = await loadImg(proxied(gUrl));
+    } else {
+      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+    }
+    rows.push({ slugImg, giftImg, giftEmoji, qty: Math.max(1, parseInt(a.count, 10) || 1) });
+  }
+
+  const cols = Math.min(7, Math.max(1, rows.length));
+  const gridRows = Math.ceil(rows.length / cols);
+  const margin = 12;
+  const gap = 8;
+  const cellW = 118;
+  const iconS = 108;
+  const giftS = 44;
+  const cellH = iconS + 6;
+  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
+  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
+  const dpr = 2;
+  const cv = document.createElement('canvas');
+  cv.width = W * dpr;
+  cv.height = H * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const rr = (x, y, w, h, r) => {
+    const rad = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  };
+
+  const drawMultBadge = (label, x, y) => {
+    ctx.font = '800 22px Rubik, Montserrat, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.strokeText(label, x, y);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, x, y);
+  };
+
+  const drawContain = (img, x, y, size) => {
+    const scale = Math.min(size / img.width, size / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    ctx.drawImage(img, x + (size - dw) / 2, y + (size - dh) / 2, dw, dh);
+  };
+
+  const drawPlaceholder = (x, y, size, emoji) => {
+    ctx.save();
+    rr(x, y, size, size, 12);
+    ctx.fillStyle = '#2a3548';
+    ctx.fill();
+    ctx.font = '42px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#f0c040';
+    ctx.fillText(emoji || '🎖️', x + size / 2, y + size / 2);
+    ctx.restore();
+  };
+
+  rows.forEach((row, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    const cellX = margin + c * (cellW + gap);
+    const cellY = margin + r * (cellH + gap);
+    const iconX = cellX + (cellW - iconS) / 2;
+    const iconY = cellY;
+
+    if (row.slugImg) drawContain(row.slugImg, iconX, iconY, iconS);
+    else drawPlaceholder(iconX, iconY, iconS, '🎖️');
+
+    const gx = iconX + iconS - giftS + 2;
+    const gy = iconY + iconS - giftS + 2;
+    if (row.giftImg) {
+      ctx.save();
+      rr(gx, gy, giftS, giftS, 10);
+      ctx.clip();
+      ctx.drawImage(row.giftImg, gx, gy, giftS, giftS);
+      ctx.restore();
+    } else if (row.giftEmoji) {
+      ctx.font = '30px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText(row.giftEmoji, gx + giftS / 2, gy + giftS / 2);
+    }
+
+    if (row.qty >= 2) drawMultBadge(`x${row.qty}`, iconX + iconS - 2, iconY + 1);
+  });
+
+  try {
+    const data = cv.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = data;
+    link.download = 'metal-slug-overlay.png';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast && toast('Overlay generado y descargado.', 'ok');
+  } catch {
+    toast && toast('No se pudo exportar. Revisa tu conexión e inténtalo de nuevo.', 'err');
+  }
 }
 
 // Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
