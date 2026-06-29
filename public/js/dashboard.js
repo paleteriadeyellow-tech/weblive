@@ -12172,7 +12172,7 @@ function setupMslugActionsUI() {
 
 function mslugCatCardHtml(c) {
   const emoji = c.emoji || (c.tipo === 'weapon' ? '🔫' : '🎖️');
-  const ic = `<img class="mc-cat-ic" src="/img/mslug/${esc(c.id)}.png" alt="" onerror="this.outerHTML='<span class=\'mc-cat-emoji\'>${emoji}</span>'">`;
+  const ic = `<img class="mc-cat-ic" src="/img/mslug/${esc(c.id)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-cat-emoji\\'>${emoji}</span>'">`;
   return `
     <div class="mc-cat-card" data-id="${esc(c.id)}" title="${esc(c.desc || c.nombre)}">
       <div class="mc-cat-head-row">
