@@ -459,6 +459,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Pelotas de fans: acumulado por usuario (con sobrante) para soltar pelotas.
   const fanCoinAcc = new Map();      // uniqueId -> monedas pendientes
   const fanLikeAcc = new Map();      // uniqueId -> likes pendientes
+  // Mario (likes por usuario): acumula tandas pequeñas hasta llegar al mínimo configurado.
+  const marioLikeAcc = new Map();
   // Overlays de sesión (top1, mejor regalo/racha, batallas, hype…) persistidos en disco.
   const sessionOv = {
     top1: {},
@@ -1585,8 +1587,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Minecraft/Roblox deben disparar por cada rosa nueva (delta), no solo al final
   // ni bloqueados por "Racha = 1" de alertas.
   const giftStreakGameProgress = new Map();
-  // Mario (likes por usuario): acumula tandas pequeñas hasta llegar al mínimo configurado.
-  const marioLikeAcc = new Map();
   function giftStreakGameKey(uniqueId, giftId) {
     return `${uniqueId || ''}:${String(giftId || '')}`;
   }
