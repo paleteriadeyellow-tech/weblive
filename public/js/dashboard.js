@@ -95,17 +95,19 @@ function connectLocalWS() {
   const k = window.ROOM_KEY || '';
   if (k) url += `?room=${encodeURIComponent(k)}`;
   if (localWs) {
-    if (localWs.readyState === WebSocket.OPEN && localWs.url === url) return;
-    if (localWs.readyState === WebSocket.CONNECTING) return;
+    if (wsUrlsMatch(localWs.url, url) && (localWs.readyState === WebSocket.OPEN || localWs.readyState === WebSocket.CONNECTING)) return;
     try { localWs.close(); } catch {}
     localWs = null;
   }
-  localWs = new WebSocket(url);
-  localWs.onclose = () => {
+  const sock = new WebSocket(url);
+  localWs = sock;
+  sock.onclose = () => {
+    if (localWs !== sock) return;
     clearTimeout(localReconnectTimer);
     localReconnectTimer = setTimeout(connectLocalWS, 1500);
   };
-  localWs.onmessage = (ev) => {
+  sock.onmessage = (ev) => {
+    if (localWs !== sock) return;
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (msg.type === 'screens') onScreens(msg.payload);
@@ -196,6 +198,17 @@ function buildWsUrl() {
   return url;
 }
 
+function wsUrlsMatch(a, b) {
+  if (!a || !b) return false;
+  try {
+    const ua = new URL(a);
+    const ub = new URL(b);
+    return ua.origin === ub.origin && ua.pathname === ub.pathname && ua.search === ub.search;
+  } catch {
+    return a === b;
+  }
+}
+
 function connectWS() {
   const url = buildWsUrl();
   if (!url) {
@@ -204,26 +217,34 @@ function connectWS() {
     return;
   }
   if (ws) {
-    if (ws.url === url && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    if (wsUrlsMatch(ws.url, url) && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     try { ws.close(); } catch {}
     ws = null;
   }
-  ws = new WebSocket(url);
-  ws.onopen = () => {
+  const sock = new WebSocket(url);
+  ws = sock;
+  sock.onopen = () => {
+    if (ws !== sock) return;
     clearTimeout(reconnectTimer);
     setConnBadge(true);
     buildKeepAliveWorker();
     connectLocalWS();
     try { requestProfiles(); } catch {}
   };
-  ws.onclose = () => { setConnBadge(false); clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectWS, 1500); };
-  ws.onerror = () => { try { ws.close(); } catch {} };
-  ws.onmessage = (ev) => {
+  sock.onclose = () => {
+    if (ws !== sock) return;
+    setConnBadge(false);
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connectWS, 1500);
+  };
+  sock.onerror = () => { if (ws === sock) try { sock.close(); } catch {} };
+  sock.onmessage = (ev) => {
+    if (ws !== sock) return;
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     const { type, payload } = msg;
-    if (type === 'pong') return; // respuesta al ping de keepalive
-    if (type === 'accountPending') { location.href = '/'; return; } // cuenta desactivada por el admin
+    if (type === 'pong') return;
+    if (type === 'accountPending') { location.href = '/'; return; }
     handle(type, payload);
   };
 }
@@ -243,13 +264,13 @@ function waitForWsOpen(maxMs = 8000) {
   });
 }
 
-// Reconexión inmediata al volver a la pestaña o al recuperar la conexión de red.
+// Reconexión al volver a la pestaña (solo si el WS no está abierto).
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') connectWS();
+  if (document.visibilityState === 'visible' && ws?.readyState !== WebSocket.OPEN) connectWS();
 });
-window.addEventListener('focus', connectWS);
-window.addEventListener('online', connectWS);
-window.addEventListener('pageshow', connectWS);
+window.addEventListener('focus', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
+window.addEventListener('online', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
+window.addEventListener('pageshow', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
 
 function setConnBadge(on) {
   ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tllmc-conn', 'tdl-conn', 'tdlmc-conn', 'hyp-conn', 'hypmc-conn', 'hypmr-conn', 'hypdbz-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
@@ -1972,7 +1993,7 @@ async function refreshCloudSession() {
     if (window.CLOUD_ROOM_KEY && window.CLOUD_ROOM_KEY !== prev) {
       connectWS();
       if (typeof refreshOverlayUrls === 'function') refreshOverlayUrls();
-    } else if (window.CLOUD_ROOM_KEY) connectWS();
+    }
     return !!window.CLOUD_ROOM_KEY;
   } catch {
     return false;
@@ -12736,7 +12757,6 @@ function initHomeWelcome() {
     catch (e) { console.error('Perfiles UI:', e); }
   }
   await loadMe();
-  connectWS();
   mountUserChip();
     refreshOverlayUrls();
     refreshLevelVideoScreenLink();
