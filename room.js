@@ -396,6 +396,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const clients = new Set();         // todos los WS de esta room (panel + overlays)
   const IS_CLOUD_ROOM = !!process.env.RENDER;
   const clientRoles = new WeakMap(); // ws -> 'panel' | 'relay' | 'local'
+  let relayLocalOrigin = '';         // http://127.0.0.1:PUERTO (modo relay .exe)
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
   const recentChatKeys = new Set();
@@ -927,9 +928,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (role === 'relay' || role === 'local') client.send(msg);
     }
   }
+  function hasLocalRelayClient() {
+    for (const client of clients) {
+      if (client.readyState !== 1) continue;
+      const role = clientRoles.get(client) || 'panel';
+      if (role === 'relay' || role === 'local') return true;
+    }
+    return false;
+  }
   function emitLocalExec(exec) {
     if (!IS_CLOUD_ROOM || !exec || !exec.tipo) return false;
+    if (!hasLocalRelayClient()) return false;
     broadcastToLocal('localExec', exec);
+    return true;
+  }
+  function mcRelayExec(exec) {
+    if (!emitLocalExec(exec)) return false;
+    broadcast('log', { level: 'ok', text: `🟩 Minecraft: ${exec.name || 'acción'} → tu PC` });
     return true;
   }
   function dispatchLocalGameExec(exec) {
@@ -1029,7 +1044,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return cfg?.screens?.[(Number(n) || 1) - 1]?.size ?? 100;
   }
   function emitProfileMedia(cfg, v, scr, isGeneral) {
-    broadcast('media', {
+    emitMedia({
       id: v.id,
       name: v.name,
       url: v.url,
@@ -1039,6 +1054,49 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       general: !!isGeneral,
       playQueue: cfg.playback?.playQueue !== false,
     });
+  }
+  function emitMedia(payload) {
+    if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
+      broadcastToLocal('playMedia', payload);
+      return;
+    }
+    broadcast('media', payload);
+  }
+  function emitStopMedia(scr) {
+    const screen = Number(scr) || 1;
+    if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
+      broadcastToLocal('stopMediaLocal', { screen });
+      return;
+    }
+    broadcast('stopMedia', { screen });
+  }
+  function emitPanicMedia() {
+    if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
+      broadcastToLocal('panicLocal', {});
+      return;
+    }
+    for (let scr = 1; scr <= 5; scr++) broadcast('stopMedia', { screen: scr });
+  }
+  function rewriteRelayMediaUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+    if (!IS_CLOUD_ROOM || !relayLocalOrigin) return url;
+    if (url.startsWith('/') && /^\/(uploads|audios)\//.test(url)) {
+      return relayLocalOrigin.replace(/\/+$/, '') + url;
+    }
+    return url;
+  }
+  function emitSound(payload) {
+    const p = { ...payload };
+    if (p.sound) p.sound = rewriteRelayMediaUrl(p.sound);
+    if (p.image) p.image = rewriteRelayMediaUrl(p.image);
+    broadcast('sound', p);
+  }
+  function emitKeyAction(payload) {
+    if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
+      broadcastToLocal('keyAction', payload);
+      return;
+    }
+    broadcast('keyAction', payload);
   }
 
   /* ----------------------------- Temporizador ----------------------------- */
@@ -1675,7 +1733,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!matchesCommand(a.command, info.comment)) continue;
         }
         broadcast('log', { level: 'ok', text: `🔊 Alerta sonora: "${a.name}"` });
-        broadcast('sound', { id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
+        emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
       }
     });
   }
@@ -1825,13 +1883,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const t = resolveKeyTimes(a, times);
     if (a.keys) {
       broadcast('log', { level: 'ok', text: `⚡ Acción: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}` });
-      broadcast('keyAction', {
+      emitKeyAction({
         id: a.id, name: a.name || '', keys: a.keys, gameCompat: !!a.gameCompat,
         times: t, sound: a.sound || '', soundName: a.soundName || '',
         soundVolume: a.soundVolume != null ? a.soundVolume : 1,
       });
     } else if (a.sound) {
-      broadcast('keyAction', { id: a.id, name: a.name || '', keys: '', times: 1, sound: a.sound, soundName: a.soundName || '', soundVolume: a.soundVolume != null ? a.soundVolume : 1 });
+      emitKeyAction({ id: a.id, name: a.name || '', keys: '', times: 1, sound: a.sound, soundName: a.soundName || '', soundVolume: a.soundVolume != null ? a.soundVolume : 1 });
     }
     const ctx = context ? { info: context.info || {}, user: context.user || null, times: t } : null;
     const marioFromField = fireMarioSpawnFromAction(a, context, t);
@@ -1854,14 +1912,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const times = context?.times || 1;
       const mario = resolveMarioSpawnFromWebhook(webhookCmd, context, times);
       if (mario) {
-        marioSpawn(mario.npcId, mario.name, mario.times)
-          .then(() => {
-            broadcast('log', {
-              level: 'ok',
-              text: `🍄 Mario (panel): npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
-            });
-          })
-          .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
+        if (emitLocalExec({ tipo: 'MARIO_SPAWN', thing: mario.npcId, name: mario.name, times: mario.times })) {
+          broadcast('log', {
+            level: 'ok',
+            text: `🍄 Mario → tu PC: npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
+          });
+        } else {
+          marioSpawn(mario.npcId, mario.name, mario.times)
+            .then(() => {
+              broadcast('log', {
+                level: 'ok',
+                text: `🍄 Mario (panel): npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
+              });
+            })
+            .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
+        }
       } else {
         let whCmd = (context && urlHasActionPlaceholders(webhookCmd.url))
             ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, times)
@@ -1870,25 +1935,37 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             whCmd = { ...whCmd, url: applySpawnQuantityToUrl(whCmd.url, times) };
           }
           const method = (whCmd.method || 'GET').toUpperCase();
-          const opts = { method };
-          if (method === 'POST' && whCmd.body) {
-            opts.body = whCmd.body;
-            opts.headers = { 'Content-Type': 'application/json' };
+          if (emitLocalExec({ tipo: 'WEBHOOK', method, url: whCmd.url, body: whCmd.body || '' })) {
+            broadcast('log', { level: 'ok', text: `🪝 WebHook → tu PC (${method} ${whCmd.url})` });
+          } else {
+            const opts = { method };
+            if (method === 'POST' && whCmd.body) {
+              opts.body = whCmd.body;
+              opts.headers = { 'Content-Type': 'application/json' };
+            }
+            fetch(whCmd.url, opts)
+              .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
+              .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
           }
-          fetch(whCmd.url, opts)
-            .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
-            .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
       }
     }
     if (obsCmd && obsCmd.on) {
-      sendObsCommand(wh.obs || {}, obsCmd)
-        .then((r) => broadcast('log', { level: r.ok ? 'ok' : 'err', text: r.ok ? `🎬 OBS: ${obsCmd.type} OK` : `🎬 OBS falló: ${r.error}` }))
-        .catch((e) => broadcast('log', { level: 'err', text: `🎬 OBS falló: ${e.message}` }));
+      if (emitLocalExec({ tipo: 'OBS', conn: wh.obs || {}, cmd: obsCmd })) {
+        broadcast('log', { level: 'ok', text: `🎬 OBS → tu PC (${obsCmd.type || 'cmd'})` });
+      } else {
+        sendObsCommand(wh.obs || {}, obsCmd)
+          .then((r) => broadcast('log', { level: r.ok ? 'ok' : 'err', text: r.ok ? `🎬 OBS: ${obsCmd.type} OK` : `🎬 OBS falló: ${r.error}` }))
+          .catch((e) => broadcast('log', { level: 'err', text: `🎬 OBS falló: ${e.message}` }));
+      }
     }
     if (sbCmd && sbCmd.on && sbCmd.action) {
-      triggerStreamerbot(wh.streamerbot || {}, sbCmd.action)
-        .then((r) => broadcast('log', { level: r.ok ? 'ok' : 'err', text: r.ok ? `🤖 Streamer.bot: "${sbCmd.action}" OK` : `🤖 Streamer.bot falló: ${r.error}` }))
-        .catch((e) => broadcast('log', { level: 'err', text: `🤖 Streamer.bot falló: ${e.message}` }));
+      if (emitLocalExec({ tipo: 'STREAMER_BOT', conn: wh.streamerbot || {}, action: sbCmd.action })) {
+        broadcast('log', { level: 'ok', text: `🤖 Streamer.bot → tu PC ("${sbCmd.action}")` });
+      } else {
+        triggerStreamerbot(wh.streamerbot || {}, sbCmd.action)
+          .then((r) => broadcast('log', { level: r.ok ? 'ok' : 'err', text: r.ok ? `🤖 Streamer.bot: "${sbCmd.action}" OK` : `🤖 Streamer.bot falló: ${r.error}` }))
+          .catch((e) => broadcast('log', { level: 'err', text: `🤖 Streamer.bot falló: ${e.message}` }));
+      }
     }
   }
 
@@ -2051,7 +2128,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!a || !a.audioOn || !a.sound) return;
     const n = Math.max(1, Math.min(Number(times) || 1, 50));
     for (let i = 0; i < n; i++) {
-      broadcast('sound', {
+      emitSound({
         id: a.uid || a.catId || '',
         name: a.name || a.soundName || 'Minecraft',
         sound: a.sound,
@@ -2104,7 +2181,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!a || !a.keys) return;
     const t = Math.max(1, Number(times) || 1);
     broadcast('log', { level: 'ok', text: `🟥 Roblox: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}` });
-    broadcast('keyAction', {
+    emitKeyAction({
       id: 'rbx_' + (a.slot != null ? a.slot : ''), name: a.name || 'Roblox',
       keys: a.keys, gameCompat: true, times: t, sound: '', soundName: '', soundVolume: 1,
     });
@@ -2154,7 +2231,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!a || !a.keys) return;
     const t = Math.max(1, Number(times) || 1);
     broadcast('log', { level: 'ok', text: `🟥 Roblox 3: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}` });
-    broadcast('keyAction', {
+    emitKeyAction({
       id: 'rbx3_' + (a.slot != null ? a.slot : ''), name: a.name || 'Roblox 3',
       keys: a.keys, gameCompat: true, times: t, sound: '', soundName: '', soundVolume: 1,
     });
@@ -2838,7 +2915,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const rconCfg = (settings.webhook && settings.webhook.rcon) || {};
     const stapCfg = (settings.webhook && settings.webhook.servertap) || {};
     const useStapRelay = !!stapCfg.enabled;
-    if (emitLocalExec({
+    if (mcRelayExec({
       tipo: 'MINECRAFT_RCON_SEQ',
       conn: useStapRelay ? stapCfg : rconCfg,
       useStap: useStapRelay,
@@ -2902,7 +2979,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     if (queue.length > 600) queue.length = 600;
 
-    if (emitLocalExec({
+    if (mcRelayExec({
       tipo: useStap ? 'SERVERTAP' : 'MINECRAFT_RCON',
       conn: useStap ? stap : rcon,
       commands: queue,
@@ -3004,7 +3081,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const before = Math.floor(lastTotalLikes / goal);
         const now = Math.floor(total / goal);
         if (now > before) {
-          broadcast('sound', { id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
+          emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
         }
       }
       if (cfg.videosEnabled !== false) {
@@ -3124,7 +3201,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     const scr = Number(cfg.screen) || 1;
     broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${n} reproducido.` });
-    broadcast('media', { id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: cfg.volume ?? 100, size: screenSize(scr) });
+    emitMedia({ id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: cfg.volume ?? 100, size: screenSize(scr) });
   }
 
   // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3), 'battleGift',
@@ -3147,7 +3224,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       const scr = Number(b.screen) || 1;
       broadcast('log', { level: 'ok', text: `⚔️ Animación de batalla [${actionType}]: "${b.name}"` });
-      broadcast('media', { id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSize(scr) });
+      emitMedia({ id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSize(scr) });
     }
   }
 
@@ -4578,6 +4655,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'importProfiles':
         importProfiles(data.profiles, data.mode);
         break;
+      case 'relayHello':
+        if (data.localOrigin && typeof data.localOrigin === 'string') {
+          relayLocalOrigin = String(data.localOrigin).replace(/\/+$/, '');
+        }
+        break;
       case 'testAlert': {
         const demoUser = { uniqueId: 'demo', nickname: 'Usuario de prueba', photo: null };
         broadcast(data.kind || 'gift', {
@@ -4598,6 +4680,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           || (settings.sandboxActions || []).find((x) => x.uid === data.uid);
         if (a && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length))) {
           scheduleMcAction(() => runMcAction(a, buildMcVars({ giftName: 'Rose', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' }, { nickname: 'Prueba', uniqueId: 'prueba' })));
+        } else {
+          broadcast('log', { level: 'warn', text: '⚠️ Acción no encontrada o sin comando configurado' });
         }
         break;
       }
@@ -4665,7 +4749,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'testVideo':
         if (data.video) {
           const scr = Number(data.video.screen) || 1;
-          broadcast('media', { ...data.video, screen: scr, size: screenSize(scr), test: true });
+          emitMedia({ ...data.video, screen: scr, size: screenSize(scr), test: true });
         }
         break;
       case 'testLevelUp': {
@@ -4682,8 +4766,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         playLevelVideo(Math.max(1, Number(data.level) || 1));
         break;
       case 'stopVideo': {
-        const scr = Number(data.screen) || 1;
-        broadcast('stopMedia', { screen: scr });
+        emitStopMedia(Number(data.screen) || 1);
         break;
       }
       case 'playMediaRelay': {
@@ -4701,7 +4784,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'testScreen': {
         const scr = Number(data.screen) || 1;
-        broadcast('media', { test: true, screenTest: true, name: 'Pantalla ' + scr, screen: scr, size: screenSize(scr) });
+        emitMedia({ test: true, screenTest: true, name: 'Pantalla ' + scr, screen: scr, size: screenSize(scr) });
         break;
       }
       case 'ensureMarioBridge': {
@@ -4799,12 +4882,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         pvzHybridCommand(String(data.path || ''));
         break;
       case 'testSound':
-        if (data.alert) broadcast('sound', { ...data.alert, test: true });
+        if (data.alert) emitSound({ ...data.alert, test: true });
         break;
       case 'panic':
         bumpMcPanic();
         broadcast('panic', {});
-        for (let scr = 1; scr <= 5; scr++) broadcast('stopMedia', { screen: scr });
+        emitPanicMedia();
         broadcast('log', { level: 'info', text: '⛔ Pánico: cola de Minecraft cancelada' });
         break;
       case 'testPerrito':

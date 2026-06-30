@@ -229,6 +229,9 @@ function connectWS() {
     setConnBadge(true);
     buildKeepAliveWorker();
     connectLocalWS();
+    if (relayActive()) {
+      try { sock.send(JSON.stringify({ action: 'relayHello', localOrigin: location.origin })); } catch {}
+    }
     try { requestProfiles(); } catch {}
   };
   sock.onclose = () => {
@@ -1097,12 +1100,19 @@ function handle(type, p) {
     case 'superfan': break;
     case 'log': addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : ''); break;
     case 'sound': playPanelSound(p); break;
+    case 'media':
+      if (relayActive() || desktopRelayOn()) postLocalMedia('media', { media: p });
+      break;
+    case 'stopMedia':
+      if (relayActive() || desktopRelayOn()) postLocalMedia('stop', { screen: Number(p?.screen) || 1 });
+      break;
     case 'panic':
       stopPanelSounds();
       if (typeof ttsHardStop === 'function') ttsHardStop();
       if (IS_DESKTOP && window.desktopAPI?.bumpMcPanic) {
         window.desktopAPI.bumpMcPanic().catch(() => {});
       }
+      if (relayActive() || desktopRelayOn()) postLocalMedia('panic');
       break;
     case 'timer': renderTimerState(p); break;
     case 'timerBeep': break;
@@ -1129,13 +1139,13 @@ function handle(type, p) {
       if (IS_DESKTOP) testLevelVideoLocal(Number(p?.level) || 1, { quiet: true });
       break;
     case 'playMedia':
-      if (IS_DESKTOP) postLocalMedia('media', { media: p });
+      if (IS_DESKTOP && (relayActive() || desktopRelayOn())) postLocalMedia('media', { media: p });
       break;
     case 'stopMediaLocal':
-      if (IS_DESKTOP) postLocalMedia('stop', { screen: Number(p?.screen) || 1 });
+      if (IS_DESKTOP && (relayActive() || desktopRelayOn())) postLocalMedia('stop', { screen: Number(p?.screen) || 1 });
       break;
     case 'panicLocal':
-      if (IS_DESKTOP) postLocalMedia('panic');
+      if (IS_DESKTOP && (relayActive() || desktopRelayOn())) postLocalMedia('panic');
       break;
     case 'localReady': break; // canal relay listo (no requiere acción en la UI)
     case 'profiles': onProfiles(p); break;
@@ -6914,15 +6924,24 @@ async function uploadAccImage(file) {
 
 // Llega del servidor cuando un evento del live dispara una acción (o al pulsar "Probar").
 function onKeyAction(p) {
-  if (!p || !p.keys) return;
+  if (!p) return;
+  const hasKeys = !!(p.keys && String(p.keys).trim());
+  if (!hasKeys && !p.sound) return;
   const times = Math.max(1, Number(p.times) || 1);
-  if (IS_DESKTOP && window.desktopAPI?.pressKeys) {
+  if (hasKeys && IS_DESKTOP && window.desktopAPI?.pressKeys) {
     // Si mandan varios regalos, pulsamos la tecla una vez por cada uno (el proceso
     // nativo las ejecuta en serie para que no se solapen).
     window.desktopAPI.pressKeys(p.keys, { gameCompat: !!p.gameCompat, times });
   }
-  if (p.sound) { try { const au = new Audio(p.sound); au.volume = p.soundVolume != null ? p.soundVolume : 1; au.play().catch(() => {}); } catch {} }
-  addEvent(`⚡ Acción: ${esc(p.name || p.keys)} → ${esc(p.keys)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+  if (p.sound) {
+    try {
+      const au = new Audio(mediaUrl(p.sound));
+      au.volume = p.soundVolume != null ? p.soundVolume : 1;
+      au.play().catch(() => {});
+    } catch {}
+  }
+  if (hasKeys) addEvent(`⚡ Acción: ${esc(p.name || p.keys)} → ${esc(p.keys)}${times > 1 ? ` ×${times}` : ''}`, 'ok');
+  else if (p.sound) addEvent(`🔊 Acción: ${esc(p.name || 'sonido')}`, 'ok');
 }
 
 // En modo relay, la nube manda órdenes locales. Mario/PvZ van al módulo de juegos;
@@ -6930,7 +6949,7 @@ function onKeyAction(p) {
 
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_)/.test(exec.tipo)) {
+  if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|REPO_)/.test(exec.tipo)) {
     execGameLocal(exec);
     return;
   }
@@ -8275,6 +8294,10 @@ function renderMccLines(lines) {
   box.querySelectorAll('.mcc-play').forEach((b) => b.onclick = () => testMccLine(+b.dataset.i));
 }
 function testMccLine(i) {
+  if (ws?.readyState !== WebSocket.OPEN) {
+    toast && toast('Sin conexión al servidor. Espera a que el panel conecte.', 'warn');
+    return;
+  }
   const extra = isMccExtraMode();
   const entries = collectMccEntries();
   const raw = entries[i];
