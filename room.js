@@ -1405,7 +1405,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // En modo relay (HOKEY_RELAY=1), la conexión a TikTok y el procesamiento corren en la
   // NUBE. El servidor local NUNCA debe conectarse para no duplicar la conexión (y el
   // gasto del sign server). Solo ejecuta lo local vía las órdenes que llegan de la nube.
-  const RELAY = process.env.HOKEY_RELAY === '1';
+  // En Render (IS_CLOUD_ROOM) HOKEY_RELAY no aplica: aquí SIEMPRE conecta TikTok.
+  const RELAY = process.env.HOKEY_RELAY === '1' && !IS_CLOUD_ROOM;
   function autoConnectOn() {
     if (RELAY) return false;
     return settings.autoConnect !== false && !!settings.tiktokUser;

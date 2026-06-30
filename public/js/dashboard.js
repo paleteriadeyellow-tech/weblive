@@ -199,6 +199,8 @@ function connectWS() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     url = `${proto}://${location.host}/ws`;
+    const k = window.ROOM_KEY || '';
+    if (k) url += `?room=${encodeURIComponent(k)}`;
   }
   ws = new WebSocket(url);
   ws.onopen = () => {
@@ -310,11 +312,22 @@ async function loadMe() {
         }
       } catch {}
     }
-    // Tras tener cloudRoomKey, conectar el WebSocket a la nube (modo relay).
+  // Tras tener roomKey / cloudRoomKey, abrir el WebSocket con la clave correcta.
+    if (relayActive() && window.CLOUD_ROOM_KEY && ws?.readyState === WebSocket.OPEN) {
+      const base = String(window.desktopAPI.cloudBase).replace(/\/+$/, '').replace(/^http/i, 'ws');
+      const want = `${base}/ws?room=${encodeURIComponent(window.CLOUD_ROOM_KEY)}&role=relay`;
+      if (ws.url !== want) { try { ws.close(); } catch {} ws = null; }
+    } else if (!relayActive() && window.ROOM_KEY && ws?.readyState === WebSocket.OPEN) {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      const want = `${proto}://${location.host}/ws?room=${encodeURIComponent(window.ROOM_KEY)}`;
+      if (ws.url !== want) { try { ws.close(); } catch {} ws = null; }
+    }
     connectWS();
     if (relayActive()) connectLocalWS();
     startCloudSessionPoll();
-  } catch {}
+  } catch {
+    toast('No se pudo cargar la sesión. Recarga o vuelve a iniciar sesión.', 'warn');
+  }
 }
 
 /* ====================== Planes / capacidades ====================== */
@@ -1999,12 +2012,15 @@ async function doConnect() {
     }
 
     connectWS();
+    for (let i = 0; i < 16; i++) {
+      if (ws?.readyState === 1) break;
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    if (ws?.readyState === 1) {
+      send({ action: 'connect', username: u });
+      return;
+    }
     if (relay) {
-      await new Promise((r) => setTimeout(r, 900));
-      if (ws?.readyState === 1) {
-        send({ action: 'connect', username: u });
-        return;
-      }
       if (!window.CLOUD_SESSION_OK) {
         toast('Sin sesión con la nube. Cierra sesión y vuelve a entrar con internet.', 'warn');
         return;
@@ -2014,12 +2030,12 @@ async function doConnect() {
         toast('Conectando a @' + u + '…', 'ok');
         return;
       } catch (e) {
-        toast(e.message || 'Sin conexión con el servidor', 'warn');
+        toast(e.message || 'Render no responde. Espera 1 min y vuelve a intentar.', 'warn');
         return;
       }
     }
 
-    toast('Espera a que el panel se conecte al servidor…', 'warn');
+    toast('Sin conexión al servidor. Si usas Render, espera que despierte (~1 min) y recarga.', 'warn');
   } finally {
     connectBusy = false;
   }
