@@ -2093,14 +2093,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const vars = context ? buildActionWebhookVars(context.info || {}, context.user || null, t) : { nickname: '', username: '' };
     const nick = vars.nickname || vars.username || '';
     const total = Math.max(1, (parseInt(ms.quantity, 10) || 1) * t);
-    marioSpawn(ms.npcId, nick, total)
-      .then(() => {
-        broadcast('log', {
-          level: 'ok',
-          text: `🍄 Mario (panel): npc ${ms.npcId} · ${nick || 'espectador'}${total > 1 ? ` ×${total}` : ''}`,
-        });
-      })
-      .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
+    broadcast('log', {
+      level: 'ok',
+      text: `🍄 Mario: npc ${ms.npcId} · ${nick || 'espectador'}${total > 1 ? ` ×${total}` : ''}`,
+    });
+    spawnMarioThing(ms.npcId, nick, total);
     return true;
   }
 
