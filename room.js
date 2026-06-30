@@ -2835,6 +2835,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       });
     }
 
+    const rconCfg = (settings.webhook && settings.webhook.rcon) || {};
+    const stapCfg = (settings.webhook && settings.webhook.servertap) || {};
+    const useStapRelay = !!stapCfg.enabled;
+    if (emitLocalExec({
+      tipo: 'MINECRAFT_RCON_SEQ',
+      conn: useStapRelay ? stapCfg : rconCfg,
+      useStap: useStapRelay,
+      delayGroup: 0,
+      times,
+      random: false,
+      steps,
+      name: a.name || '',
+    })) return;
+
     try {
       const r = await executeMcRconPlan(
         { steps, times, delayGroup, random: false },
@@ -2887,6 +2901,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       else for (const l of clean) queue.push(substituteMcCmd(l, vars, a.radius));
     }
     if (queue.length > 600) queue.length = 600;
+
+    if (emitLocalExec({
+      tipo: useStap ? 'SERVERTAP' : 'MINECRAFT_RCON',
+      conn: useStap ? stap : rcon,
+      commands: queue,
+      delayEach,
+      name: a.name || '',
+    })) return;
 
     try {
       const r = await executeMcRconQueue(queue, (cmd) => sendCmds([cmd]), { token, delayEach });

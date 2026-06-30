@@ -2256,6 +2256,15 @@ function flushSaveSettings() {
   send({ action: 'saveSettings', settings });
   saveSettingsToLocalMirror();
 }
+function sendTestMcAction(uid) {
+  flushSaveSettings();
+  if (ws?.readyState !== WebSocket.OPEN) {
+    toast && toast('Sin conexión al servidor. Espera a que el panel conecte.', 'warn');
+    return;
+  }
+  send({ action: 'testMcAction', uid });
+  toast && toast('Enviando comando al servidor de Minecraft…', 'ok');
+}
 
 function mcCmdReady(a) {
   return !!(a && a.enabled !== false && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)));
@@ -8538,12 +8547,7 @@ function renderMyMcActions() {
   wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
     const a = find(b.dataset.uid); if (a) openMcCmdModal(a);
   });
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid);
-    flushSaveSettings();
-    send({ action: 'testMcAction', uid: b.dataset.uid });
-    toast && toast('Enviando comando al servidor de Minecraft…', 'ok');
-  });
+  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcAction(b.dataset.uid));
   wrap.querySelectorAll('.mc-audio-en').forEach((c) => c.onchange = () => {
     const a = find(c.dataset.uid); if (!a) return;
     a.audioOn = c.checked;
@@ -9003,10 +9007,7 @@ function renderMyBedrockActions() {
   wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
     const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'bedrock');
   });
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => {
-    send({ action: 'testMcAction', uid: b.dataset.uid });
-    toast && toast('Enviando comando al servidor…', 'ok');
-  });
+  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcAction(b.dataset.uid));
   bindMcActionCardCommon(wrap, find, renderMyBedrockActions);
 }
 
@@ -9331,10 +9332,7 @@ function renderMySandboxActions() {
   wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
     const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'sandbox');
   });
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => {
-    send({ action: 'testMcAction', uid: b.dataset.uid });
-    toast && toast('Enviando comando al servidor…', 'ok');
-  });
+  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcAction(b.dataset.uid));
   bindMcActionCardCommon(wrap, find, renderMySandboxActions);
 }
 
