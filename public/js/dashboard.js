@@ -183,24 +183,30 @@ function stripSettingsMediaForSave(s) {
   for (const a of (s.mcActions || [])) if (a.sound) a.sound = rel(a.sound);
 }
 
-function connectWS() {
-  let url;
+function buildWsUrl() {
   if (relayActive()) {
-    if (!window.CLOUD_ROOM_KEY) { clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectWS, 600); return; }
+    if (!window.CLOUD_ROOM_KEY) return null;
     const base = String(window.desktopAPI.cloudBase).replace(/\/+$/, '').replace(/^http/i, 'ws');
-    url = `${base}/ws?room=${encodeURIComponent(window.CLOUD_ROOM_KEY)}&role=relay`;
-    if (ws) {
-      if (ws.readyState === WebSocket.OPEN && ws.url === url) return;
-      if (ws.readyState === WebSocket.CONNECTING) return;
-      try { ws.close(); } catch {}
-      ws = null;
-    }
-  } else {
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    url = `${proto}://${location.host}/ws`;
-    const k = window.ROOM_KEY || '';
-    if (k) url += `?room=${encodeURIComponent(k)}`;
+    return `${base}/ws?room=${encodeURIComponent(window.CLOUD_ROOM_KEY)}&role=relay`;
+  }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  let url = `${proto}://${location.host}/ws`;
+  const k = window.ROOM_KEY || '';
+  if (k) url += `?room=${encodeURIComponent(k)}`;
+  return url;
+}
+
+function connectWS() {
+  const url = buildWsUrl();
+  if (!url) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connectWS, 600);
+    return;
+  }
+  if (ws) {
+    if (ws.url === url && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    try { ws.close(); } catch {}
+    ws = null;
   }
   ws = new WebSocket(url);
   ws.onopen = () => {
@@ -220,6 +226,21 @@ function connectWS() {
     if (type === 'accountPending') { location.href = '/'; return; } // cuenta desactivada por el admin
     handle(type, payload);
   };
+}
+
+function waitForWsOpen(maxMs = 8000) {
+  return new Promise((resolve) => {
+    if (ws?.readyState === WebSocket.OPEN) return resolve(true);
+    const deadline = Date.now() + maxMs;
+    const tick = () => {
+      if (ws?.readyState === WebSocket.OPEN) return resolve(true);
+      if (Date.now() >= deadline) return resolve(false);
+      if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) connectWS();
+      setTimeout(tick, 250);
+    };
+    connectWS();
+    tick();
+  });
 }
 
 // Reconexión inmediata al volver a la pestaña o al recuperar la conexión de red.
@@ -311,16 +332,6 @@ async function loadMe() {
           if (sd && sd.settings) onSettings(sd.settings);
         }
       } catch {}
-    }
-  // Tras tener roomKey / cloudRoomKey, abrir el WebSocket con la clave correcta.
-    if (relayActive() && window.CLOUD_ROOM_KEY && ws?.readyState === WebSocket.OPEN) {
-      const base = String(window.desktopAPI.cloudBase).replace(/\/+$/, '').replace(/^http/i, 'ws');
-      const want = `${base}/ws?room=${encodeURIComponent(window.CLOUD_ROOM_KEY)}&role=relay`;
-      if (ws.url !== want) { try { ws.close(); } catch {} ws = null; }
-    } else if (!relayActive() && window.ROOM_KEY && ws?.readyState === WebSocket.OPEN) {
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const want = `${proto}://${location.host}/ws?room=${encodeURIComponent(window.ROOM_KEY)}`;
-      if (ws.url !== want) { try { ws.close(); } catch {} ws = null; }
     }
     connectWS();
     if (relayActive()) connectLocalWS();
@@ -2012,11 +2023,8 @@ async function doConnect() {
     }
 
     connectWS();
-    for (let i = 0; i < 16; i++) {
-      if (ws?.readyState === 1) break;
-      await new Promise((r) => setTimeout(r, 300));
-    }
-    if (ws?.readyState === 1) {
+    const ok = await waitForWsOpen(relay ? 12000 : 8000);
+    if (ok) {
       send({ action: 'connect', username: u });
       return;
     }
@@ -12704,10 +12712,7 @@ function initHomeWelcome() {
 }
 
 (async () => {
-  // Arranque en paralelo: abrimos el WebSocket y pedimos el catálogo de regalos
-  // de inmediato (no esperamos al /api/me). El WS es el que entrega ajustes, alertas
-  // y videos, así que cuanto antes se abra, antes se pinta TODO el panel.
-  connectWS();
+  // Primero sesión (roomKey / cloudRoomKey); luego WebSocket con la URL correcta.
   preloadGiftCatalog();
   await confirmDesktopPanelFromServer();
   setupPanelModeWarning();
@@ -12717,11 +12722,8 @@ function initHomeWelcome() {
   try { initHomeWelcome(); } catch (e) { console.error('Home welcome:', e); }
   try { setupPanelLives(); } catch (e) { console.error('Panel lives:', e); }
   try { setupSettingsTransfer(); } catch (e) { console.error('Settings transfer:', e); }
-  // Pestaña Acciones (solo .exe): al final del arranque, aislada para no romper el panel.
   if (IS_DESKTOP) {
-    // Tema azul marino (web + .exe); .exe añade animaciones y menú de perfiles.
     document.documentElement.classList.add('is-desktop');
-    // Quita SW cacheado de versiones anteriores (evita JS/HTML viejos en el .exe).
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
     }
@@ -12733,10 +12735,9 @@ function initHomeWelcome() {
     try { setupProfiles(); }
     catch (e) { console.error('Perfiles UI:', e); }
   }
-  // Datos de sesión (usuario / roomKey) en paralelo; solo afectan al chip y a las URLs
-  // de overlays, que no bloquean el render principal.
-  loadMe().then(() => {
-    mountUserChip();
+  await loadMe();
+  connectWS();
+  mountUserChip();
     refreshOverlayUrls();
     refreshLevelVideoScreenLink();
     try { loadAnnouncements(); } catch (e) { console.error('Anuncios:', e); }
@@ -12749,5 +12750,4 @@ function initHomeWelcome() {
     try { revealConfigTab(); } catch (e) { console.error('Config tab:', e); }
     if (IS_DESKTOP) { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     try { revealJuegosTab(); setupJuegosUI(); } catch (e) { console.error('Juegos tab:', e); }
-  });
 })();
