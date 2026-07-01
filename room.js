@@ -3794,6 +3794,33 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       coins: top.coins || 0,
     };
   }
+  function readHabibiTopFile() {
+    const r = readJsonSafe(HABIBI_TOP_FILE);
+    if (r.data) return r.data;
+    if (!r.corrupt) return null;
+    try {
+      const dir = path.dirname(HABIBI_TOP_FILE);
+      const base = path.basename(HABIBI_TOP_FILE);
+      const candidates = fs.readdirSync(dir)
+        .filter((f) => f.startsWith(base + '.corrupt'))
+        .map((f) => path.join(dir, f))
+        .sort((a, b) => (fs.statSync(b).mtimeMs || 0) - (fs.statSync(a).mtimeMs || 0));
+      for (const file of candidates) {
+        const rr = readJsonSafe(file);
+        if (rr.data && typeof rr.data === 'object') return rr.data;
+      }
+    } catch {}
+    return null;
+  }
+  function reconcileHabibiTopFromSnapshot() {
+    if (!habibiTopSnapshot?.uniqueId || habibiTop.donors.size > 0) return false;
+    const snap = restoreHabibiDonor(habibiTopSnapshot);
+    if (!(Number(snap.coins) > 0) && !snap.nickname) return false;
+    habibiTop.donors.set(snap.uniqueId, snap);
+    saveHabibiTop();
+    console.log('  [habibiTop] Donador restaurado desde topSnapshot:', snap.nickname || snap.uniqueId);
+    return true;
+  }
   function loadHabibiTop() {
     const period = getHabibiTopPeriod();
     lastHabibiTopPeriod = period;
@@ -3802,14 +3829,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       return;
     }
     const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
-    const r = readJsonSafe(HABIBI_TOP_FILE);
-    const raw = r.data;
+    const raw = readHabibiTopFile();
     habibiTopSnapshot = raw?.topSnapshot && typeof raw.topSnapshot === 'object' ? raw.topSnapshot : null;
     if (raw && raw.period === period && raw.start === start) {
       habibiTop.period = period;
       habibiTop.start = start;
       habibiTop.end = end;
       habibiTop.donors = new Map((raw.donors || []).map((u) => [u.uniqueId, restoreHabibiDonor(u)]));
+      reconcileHabibiTopFromSnapshot();
       return;
     }
     habibiTop.period = period;
@@ -3888,7 +3915,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       donors = [...habibiTop.donors.values()];
     }
     const sorted = donors.sort((a, b) => b.coins - a.coins);
-    const rawTop = sorted[0] || null;
+    let rawTop = sorted[0] || null;
+    if (!rawTop && habibiTopSnapshot?.uniqueId) rawTop = restoreHabibiDonor(habibiTopSnapshot);
     const top = buildHabibiTopPayload(rawTop);
     if (top) updateHabibiTopSnapshot(top);
     return {
