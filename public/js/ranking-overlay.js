@@ -11,7 +11,7 @@
     if (document.getElementById('ranking-overlay-coin-css')) return;
     const st = document.createElement('style');
     st.id = 'ranking-overlay-coin-css';
-    st.textContent = '.ico .ico-coin { width: 1em; height: 1em; display: block; flex-shrink: 0; }';
+    st.textContent = '.ico .ico-coin { width: 1em; height: 1em; display: block; flex-shrink: 0; object-fit: contain; }';
     document.head.appendChild(st);
   }
   function ensureMirrorStyles() {
@@ -38,12 +38,30 @@
     if (icon === 'mc-heart') return '<span class="ico-mc-heart" aria-hidden="true"></span>';
     if (icon === 'mc-diamond') return '<span class="ico-mc-diamond" aria-hidden="true"></span>';
     if (icon === '🪙' || icon === 'coin') return coinIconMarkup(accent);
+    if (/^(\/|https?:)/.test(icon)) {
+      return '<img class="ico-coin" src="' + esc(icon) + '" alt="" aria-hidden="true" decoding="async">';
+    }
     return esc(icon);
   }
   function cleanName(raw) {
     if (raw == null || raw === '') return 'Usuario';
     const s = String(raw).trim().replace(/^@+/, '');
     return s || 'Usuario';
+  }
+
+  function fitEmbed(widget) {
+    if (!widget) return;
+    widget.style.setProperty('--ol-scale', '1');
+    widget.style.zoom = '';
+    widget.style.height = '';
+    widget.style.marginBottom = '';
+    const w = widget.offsetWidth;
+    const h = widget.offsetHeight;
+    if (!w || !h) return;
+    const pad = 12;
+    const s = Math.min((window.innerWidth - pad * 2) / w, (window.innerHeight - pad * 2) / h, 1);
+    if (s >= 0.999) return;
+    widget.style.zoom = String(s);
   }
 
   function init(opt) {
@@ -90,11 +108,7 @@
 
     function fit() {
       if (!isEmbed) return;
-      widget.style.setProperty('--ol-scale', '1');
-      const w = widget.offsetWidth, h = widget.offsetHeight;
-      if (!w || !h) return;
-      const s = Math.min(window.innerWidth / w, window.innerHeight / h, 1);
-      widget.style.setProperty('--ol-scale', String(s));
+      fitEmbed(widget);
     }
 
     function clearSeq() { seqTimers.forEach((t) => clearTimeout(t)); seqTimers = []; }
@@ -327,6 +341,7 @@
     const root = document.documentElement;
     const listEl = document.getElementById('list');
     const widget = document.querySelector('.widget');
+    if (isEmbed) root.dataset.embed = '1';
 
     function clamp(v, lo, hi, def) { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; }
     function maxRows() { return clamp(cfg.rows, 1, 15, 5); }
@@ -334,14 +349,29 @@
     function curMode() { return modes[modeIdx]; }
     function curData() { return stores[curMode().rank]; }
 
+    const isNeon = opt.layout === 'neon';
+
     function applyStyle() {
-      root.style.setProperty('--tf-font-stack', FONTS[cfg.font] || FONTS.inter);
+      root.style.setProperty('--tf-font-stack', FONTS[cfg.font] || (isNeon ? FONTS.orbitron : FONTS.inter));
       const m = curMode();
       root.style.setProperty('--ol-accent', cfg[m.accentKey] || cfg.likesAccent || '#ffffff');
       if (cfg.rowBg) root.style.setProperty('--row-bg', cfg.rowBg); else root.style.removeProperty('--row-bg');
+      if (isNeon) {
+        root.style.setProperty('--neon-border', cfg.neonBorder || '#5b7cff');
+        root.style.setProperty('--neon-glow', cfg.neonGlow || '#b44dff');
+        root.style.setProperty('--pill-bg', cfg.pillBg || 'rgba(8,12,28,0.18)');
+        root.dataset.layout = 'neon';
+        root.dataset.bounce = cfg.bounce !== false ? '1' : '0';
+      } else {
+        root.style.removeProperty('--neon-border');
+        root.style.removeProperty('--neon-glow');
+        root.style.removeProperty('--pill-bg');
+        delete root.dataset.layout;
+        delete root.dataset.bounce;
+      }
       root.dataset.bg = cfg.transparent ? '1' : '0';
-      root.dataset.lines = cfg.lines ? '1' : '0';
-      root.dataset.shadows = cfg.shadows ? '1' : '0';
+      root.dataset.lines = cfg.lines != null ? (cfg.lines ? '1' : '0') : '0';
+      root.dataset.shadows = cfg.shadows != null ? (cfg.shadows ? '1' : '0') : '1';
       root.dataset.namefx = cfg.nameRainbow ? '1' : '0';
       if (cfg.mirror) root.dataset.mirror = '1'; else delete root.dataset.mirror;
       if (!isEmbed) {
@@ -354,11 +384,7 @@
 
     function fit() {
       if (!isEmbed) return;
-      widget.style.setProperty('--ol-scale', '1');
-      const w = widget.offsetWidth, h = widget.offsetHeight;
-      if (!w || !h) return;
-      const s = Math.min(window.innerWidth / w, window.innerHeight / h, 1);
-      widget.style.setProperty('--ol-scale', String(s));
+      fitEmbed(widget);
     }
 
     function clearSeq() { seqTimers.forEach((t) => clearTimeout(t)); seqTimers = []; }
@@ -372,16 +398,25 @@
     function rowKey(arr) { return arr.map((u) => u.id).join('\x1e'); }
 
     function buildRow(u, rank, icon, accentColor) {
-      const medal = rank <= 3 ? medalSet[rank - 1] : '';
       const div = document.createElement('div');
       div.className = 'row';
       div.dataset.rank = String(rank);
       div.dataset.uid = String(u.id);
-      div.innerHTML =
-        '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
-        '<div class="av-wrap"><span class="crown">👑</span><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
-        '<div class="meta"><div class="name-row"><span class="name"></span>' +
-        '<div class="valwrap"><span class="ico">' + iconMarkup(icon, accentColor) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div></div>';
+      if (isNeon) {
+        div.innerHTML =
+          '<div class="av-wrap"><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
+          '<div class="meta">' +
+            '<div class="name-pill"><div class="name-pill-inner"><span class="name"></span></div></div>' +
+            '<div class="valwrap"><span class="ico">' + iconMarkup(icon, accentColor) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div>' +
+          '</div>';
+      } else {
+        const medal = rank <= 3 ? medalSet[rank - 1] : '';
+        div.innerHTML =
+          '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
+          '<div class="av-wrap"><span class="crown">👑</span><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
+          '<div class="meta"><div class="name-row"><span class="name"></span>' +
+          '<div class="valwrap"><span class="ico">' + iconMarkup(icon, accentColor) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div></div>';
+      }
       const img = div.querySelector('.av');
       img.src = u.pic || PLACEHOLDER;
       img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
@@ -418,8 +453,15 @@
       listEl.innerHTML = '';
       arr.forEach((u, i) => { ensureDisp(u); listEl.appendChild(buildRow(u, i + 1, m.icon, cfg[m.accentKey] || cfg.likesAccent)); });
       orderKey = rowKey(arr);
-      if (opts.seq) runSeqReveal();
-      if (isEmbed) fit();
+      if (opts.seq) {
+        runSeqReveal();
+        if (isEmbed) seqTimers.push(setTimeout(fit, maxRows() * 360 + 80));
+      }
+      if (isEmbed) {
+        fit();
+        requestAnimationFrame(fit);
+        setTimeout(fit, 120);
+      }
     }
 
     function tick() {

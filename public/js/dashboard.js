@@ -276,7 +276,7 @@ window.addEventListener('online', () => { if (ws?.readyState !== WebSocket.OPEN)
 window.addEventListener('pageshow', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tllmc-conn', 'tdl-conn', 'tdlmc-conn', 'hyp-conn', 'hypmc-conn', 'hypmr-conn', 'hypdbz-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'hypmc-conn', 'hypmr-conn', 'hypdbz-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -382,10 +382,10 @@ const OVERLAY_CAP = {
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
   '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
   '/meta-minecraft.html': 'ov_metamc', '/meta-mario.html': 'ov_metamario', '/meta-dragonball.html': 'ov_metadbz',
+  '/topalt-rank-neon.html': 'ov_topaltrankneon',
   '/topalt-rank.html': 'ov_topaltrank',
   '/toplikes.html': 'ov_toplikes', '/topdiamantes.html': 'ov_topdiamantes',
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
-  '/toplikes-lista-minecraft.html': 'ov_toplikeslistamc', '/topdiamantes-lista-minecraft.html': 'ov_topdiamanteslistamc',
   '/contador-seguidores.html': 'ov_contadorseguidores',
   '/contador-seguidores-minecraft.html': 'ov_contadorseguidoresmc',
   '/alerta-regalo.html': 'ov_alertaregalo',
@@ -510,11 +510,10 @@ const CAP_LABELS = {
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
   ov_giftvs: 'Gift VS', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
-  ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
+  ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_toplikes: 'Top likes',
   ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
-  ov_toplikeslistamc: 'Ranking likes (lista Minecraft)', ov_topdiamanteslista: 'Ranking diamantes (lista)',
-  ov_topdiamanteslistamc: 'Ranking diamantes (lista Minecraft)', ov_contadorseguidores: 'Contador de seguidores',
+  ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_contadorseguidores: 'Contador de seguidores',
   ov_contadorseguidoresmc: 'Contador de seguidores (Minecraft)',
   ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
@@ -531,7 +530,7 @@ const PLAN_FEATURE_ORDER = [
   'tts_tiktok', 'game_minecraft', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
-  'ov_coinmatch', 'ov_meta', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_toplikeslistamc', 'ov_topdiamanteslista', 'ov_topdiamanteslistamc',
+  'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
@@ -2290,6 +2289,10 @@ function onSettings(s) {
   if (settings.topAltRank) {
     if (settings.topAltRank.resetPeriodLikes == null) settings.topAltRank.resetPeriodLikes = 'live';
     if (settings.topAltRank.resetPeriodDiam == null) settings.topAltRank.resetPeriodDiam = 'live';
+  }
+  if (settings.topAltRankNeon) {
+    if (settings.topAltRankNeon.resetPeriodLikes == null) settings.topAltRankNeon.resetPeriodLikes = 'live';
+    if (settings.topAltRankNeon.resetPeriodDiam == null) settings.topAltRankNeon.resetPeriodDiam = 'live';
   }
   applyingSettings = true;
   applySettingsToUI();
@@ -4431,6 +4434,24 @@ const STYLE_OVERLAYS = [
     types: { durationSec: 'int', topN: 'int', startDelaySec: 'int', revealSec: 'int', slowRevealFromSec: 'int', slowRevealSec: 'int', minBid: 'int', maxParticipants: 'int' },
   }),
   setupStyleOverlay({
+    kind: 'topaltneon', settingsKey: 'topAltRankNeon', previewId: 'taln-preview',
+    btnTest: 'taln-test', btnReset: 'taln-reset', btnConfig: 'taln-config',
+    modalId: 'talnConfigModal', closeId: 'talnfg-close', saveId: 'talnfg-save',
+    testAction: 'testRankAlt', resetAction: 'resetRankAlt',
+    map: { 'talnfg-interval': 'intervalSec', 'talnfg-period-likes': 'resetPeriodLikes', 'talnfg-period-diam': 'resetPeriodDiam',
+      'talnfg-rows': 'rows', 'talnfg-scale': 'scale', 'talnfg-likes-accent': 'likesAccent', 'talnfg-diam-accent': 'diamAccent',
+      'talnfg-neon-border': 'neonBorder', 'talnfg-neon-glow': 'neonGlow', 'talnfg-pillbg': 'pillBg',
+      'talnfg-font': 'font', 'talnfg-transparent': 'transparent', 'talnfg-rainbow': 'nameRainbow',
+      'talnfg-shadows': 'shadows', 'talnfg-bounce': 'bounce', 'talnfg-mirror': 'mirror' },
+    types: { rows: 'int', scale: 'int', intervalSec: 'int' },
+    onSave: (cfg) => {
+      if (!settings.toplikesRank) settings.toplikesRank = {};
+      if (!settings.topdiamRank) settings.topdiamRank = {};
+      if (cfg.resetPeriodLikes != null) settings.toplikesRank.resetPeriod = cfg.resetPeriodLikes;
+      if (cfg.resetPeriodDiam != null) settings.topdiamRank.resetPeriod = cfg.resetPeriodDiam;
+    },
+  }),
+  setupStyleOverlay({
     kind: 'topalt', settingsKey: 'topAltRank', previewId: 'tal-preview',
     btnTest: 'tal-test', btnReset: 'tal-reset', btnConfig: 'tal-config',
     modalId: 'talConfigModal', closeId: 'talfg-close', saveId: 'talfg-save',
@@ -4475,30 +4496,12 @@ const STYLE_OVERLAYS = [
     types: { rows: 'int', scale: 'int' },
   }),
   setupStyleOverlay({
-    kind: 'toplikeslistmc', settingsKey: 'toplikesListMc', previewId: 'tllmc-preview', rank: 'toplikeslist',
-    btnTest: 'tllmc-test', btnReset: 'tllmc-reset', btnConfig: 'tllmc-config',
-    modalId: 'tllmcConfigModal', closeId: 'tllmcfg-close', saveId: 'tllmcfg-save',
-    testAction: 'testRank', resetAction: 'resetRank',
-    map: { 'tllmcfg-rows': 'rows', 'tllmcfg-scale': 'scale', 'tllmcfg-accent': 'accent', 'tllmcfg-font': 'font',
-      'tllmcfg-transparent': 'transparent', 'tllmcfg-rainbow': 'nameRainbow', 'tllmcfg-lines': 'lines', 'tllmcfg-shadows': 'shadows', 'tllmcfg-mirror': 'mirror' },
-    types: { rows: 'int', scale: 'int' },
-  }),
-  setupStyleOverlay({
     kind: 'topdiamlist', settingsKey: 'topdiamList', previewId: 'tdl-preview', rank: 'topdiamlist',
     btnTest: 'tdl-test', btnReset: 'tdl-reset', btnConfig: 'tdl-config',
     modalId: 'tdlConfigModal', closeId: 'tdlcfg-close', saveId: 'tdlcfg-save',
     testAction: 'testRank', resetAction: 'resetRank',
     map: { 'tdlcfg-period': 'resetPeriod', 'tdlcfg-rows': 'rows', 'tdlcfg-scale': 'scale', 'tdlcfg-accent': 'accent', 'tdlcfg-font': 'font',
       'tdlcfg-transparent': 'transparent', 'tdlcfg-rainbow': 'nameRainbow', 'tdlcfg-lines': 'lines', 'tdlcfg-shadows': 'shadows', 'tdlcfg-mirror': 'mirror' },
-    types: { rows: 'int', scale: 'int' },
-  }),
-  setupStyleOverlay({
-    kind: 'topdiamlistmc', settingsKey: 'topdiamListMc', previewId: 'tdlmc-preview', rank: 'topdiamlist',
-    btnTest: 'tdlmc-test', btnReset: 'tdlmc-reset', btnConfig: 'tdlmc-config',
-    modalId: 'tdlmcConfigModal', closeId: 'tdlmcfg-close', saveId: 'tdlmcfg-save',
-    testAction: 'testRank', resetAction: 'resetRank',
-    map: { 'tdlmcfg-rows': 'rows', 'tdlmcfg-scale': 'scale', 'tdlmcfg-accent': 'accent', 'tdlmcfg-font': 'font',
-      'tdlmcfg-transparent': 'transparent', 'tdlmcfg-rainbow': 'nameRainbow', 'tdlmcfg-lines': 'lines', 'tdlmcfg-shadows': 'shadows', 'tdlmcfg-mirror': 'mirror' },
     types: { rows: 'int', scale: 'int' },
   }),
   setupStyleOverlay({

@@ -1676,6 +1676,51 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Top Likes / Diamantes alternado (neón) -->
+        <div id="talnConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>✨ Configurar — Top Likes / Diamantes (neón)</h2>
+              <button class="modal-close" id="talnfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">SEGUNDOS ENTRE CAMBIO</label>
+              <input type="number" id="talnfg-interval" min="2" max="60" value="3">
+              <label class="ml">PERIODO — LIKES</label>
+              <select id="talnfg-period-likes">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <label class="ml">PERIODO — DIAMANTES</label>
+              <select id="talnfg-period-diam">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">FILAS (1-5)</label><input type="number" id="talnfg-rows" min="1" max="5" value="3"></div>
+                <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="talnfg-scale" min="60" max="140" value="100"></div>
+                <div><label class="ml">COLOR NÚM. LIKES</label><input type="color" id="talnfg-likes-accent" value="#ff6b9d"></div>
+                <div><label class="ml">COLOR NÚM. DIAM.</label><input type="color" id="talnfg-diam-accent" value="#ffe566"></div>
+                <div><label class="ml">BORDE NEÓN</label><input type="color" id="talnfg-neon-border" value="#5b7cff"></div>
+                <div><label class="ml">BRILLO NEÓN</label><input type="color" id="talnfg-neon-glow" value="#b44dff"></div>
+                <div><label class="ml">FONDO PASTILLA</label><input type="color" id="talnfg-pillbg" value="#080c1c"></div>
+              </div>
+              <label class="ml">FUENTE</label>
+              <select id="talnfg-font" class="cfg-font"></select>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="talnfg-transparent" checked> <span>Fondo transparente</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="talnfg-rainbow" checked> <span>Nombres arcoíris</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="talnfg-shadows" checked> <span>Resplandor neón</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="talnfg-bounce" checked> <span>Rebote tipo bocina (avatares)</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="talnfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="talnfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Top likes (bandas) -->
         <div id="tlkConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -1805,62 +1850,6 @@
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="tllcfg-save">Guardar para OBS / Live Studio</button></div>
-          </div>
-        </div>
-
-        <!-- Modal: Configurar Ranking likes (lista Minecraft) -->
-        <div id="tllmcConfigModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2>⛏ Configurar — Ranking likes (lista Minecraft)</h2>
-              <button class="modal-close" id="tllmcfg-close">✕</button>
-            </div>
-            <div class="modal-body">
-              <p class="opt" style="margin:0 0 14px">Mismos datos que el ranking likes (lista). El periodo de reinicio se configura en esa tarjeta.</p>
-              <div class="gvscfg-grid2">
-                <div><label class="ml">FILAS (3-15)</label><input type="number" id="tllmcfg-rows" min="3" max="15" value="9"></div>
-                <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tllmcfg-scale" min="60" max="140" value="100"></div>
-                <div><label class="ml">COLOR NÚMERO</label><input type="color" id="tllmcfg-accent" value="#ff5555"></div>
-              </div>
-              <label class="ml">FUENTE</label>
-              <select id="tllmcfg-font" class="cfg-font"></select>
-              <div class="cfg-checks">
-                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-transparent"> <span>Fondo transparente</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-rainbow"> <span>Nombres verdes (estilo XP)</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-lines" checked> <span>Líneas separadoras</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-shadows" checked> <span>Sombras pixel</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="tllmcfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
-              </div>
-            </div>
-            <div class="modal-foot"><button class="btn primary" id="tllmcfg-save">Guardar para OBS / Live Studio</button></div>
-          </div>
-        </div>
-
-        <!-- Modal: Configurar Ranking diamantes (lista Minecraft) -->
-        <div id="tdlmcConfigModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2>⛏ Configurar — Ranking diamantes (lista Minecraft)</h2>
-              <button class="modal-close" id="tdlmcfg-close">✕</button>
-            </div>
-            <div class="modal-body">
-              <p class="opt" style="margin:0 0 14px">Mismos datos que el ranking diamantes (lista). El periodo de reinicio se configura en esa tarjeta.</p>
-              <div class="gvscfg-grid2">
-                <div><label class="ml">FILAS (3-15)</label><input type="number" id="tdlmcfg-rows" min="3" max="15" value="9"></div>
-                <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tdlmcfg-scale" min="60" max="140" value="100"></div>
-                <div><label class="ml">COLOR NÚMERO</label><input type="color" id="tdlmcfg-accent" value="#55ffff"></div>
-              </div>
-              <label class="ml">FUENTE</label>
-              <select id="tdlmcfg-font" class="cfg-font"></select>
-              <div class="cfg-checks">
-                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-transparent"> <span>Fondo transparente</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-rainbow"> <span>Nombres cyan (estilo diamante)</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-lines" checked> <span>Líneas separadoras</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-shadows" checked> <span>Sombras pixel</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="tdlmcfg-mirror"> <span>Modo espejo (invertir lado)</span></label>
-              </div>
-            </div>
-            <div class="modal-foot"><button class="btn primary" id="tdlmcfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
         </div>
 
@@ -3210,6 +3199,28 @@
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
 
+              <!-- Tarjeta PRO: Top Likes / Diamantes alternado (neón) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="taln-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="taln-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="taln-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="taln-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">✨ Top Likes / Diamantes (neón)</h3>
+                <p class="ovpro-desc">Misma alternancia likes/diamantes que el ranking banda, con diseño vertical neón: avatar con aro brillante, nombre en pastilla y puntuación debajo. Ideal arriba del stream.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/topalt-rank-neon.html">/topalt-rank-neon.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="taln-preview" src="/topalt-rank-neon.html?embed=1" title="Vista previa top likes diamantes neón"></iframe>
+                </div>
+              </div>
+
               <!-- Tarjeta PRO: Top Likes / Diamantes alternado -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -3273,50 +3284,6 @@
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
                   <iframe id="tdm-preview" src="/topdiamantes.html?embed=1" title="Vista previa top diamantes"></iframe>
-                </div>
-              </div>
-
-              <!-- Tarjeta PRO: Ranking likes (lista Minecraft) -->
-              <div class="ovpro-card">
-                <div class="ovpro-top">
-                  <div class="ovpro-actions">
-                    <button class="ovpro-btn" id="tllmc-reset">↺ Reset</button>
-                    <button class="ovpro-btn primary" id="tllmc-test">▶ Testear</button>
-                    <button class="ovpro-btn" id="tllmc-config">⚙ Configurar</button>
-                  </div>
-                  <div class="ovpro-conn" id="tllmc-conn"><span class="cdot"></span> CONECTADO</div>
-                </div>
-                <h3 class="ovpro-title">⛏ Ranking likes (lista Minecraft)</h3>
-                <p class="ovpro-desc">Lista compacta estilo Minecraft: bloques de oro/hierro/cobre, avatares cuadrados, corazón pixel y franja de césped. Mismos datos que el ranking likes lista.</p>
-                <div class="ovpro-urlrow">
-                  <code class="ov-url" data-path="/toplikes-lista-minecraft.html">/toplikes-lista-minecraft.html</code>
-                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
-                </div>
-                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-                <div class="ovpro-preview">
-                  <iframe id="tllmc-preview" src="/toplikes-lista-minecraft.html?embed=1" title="Vista previa ranking likes lista minecraft"></iframe>
-                </div>
-              </div>
-
-              <!-- Tarjeta PRO: Ranking diamantes (lista Minecraft) -->
-              <div class="ovpro-card">
-                <div class="ovpro-top">
-                  <div class="ovpro-actions">
-                    <button class="ovpro-btn" id="tdlmc-reset">↺ Reset</button>
-                    <button class="ovpro-btn primary" id="tdlmc-test">▶ Testear</button>
-                    <button class="ovpro-btn" id="tdlmc-config">⚙ Configurar</button>
-                  </div>
-                  <div class="ovpro-conn" id="tdlmc-conn"><span class="cdot"></span> CONECTADO</div>
-                </div>
-                <h3 class="ovpro-title">⛏ Ranking diamantes (lista Minecraft)</h3>
-                <p class="ovpro-desc">Lista compacta estilo Minecraft con diamante pixelado, casco cyan en el #1 y panel de piedra. Mismos datos que el ranking diamantes lista.</p>
-                <div class="ovpro-urlrow">
-                  <code class="ov-url" data-path="/topdiamantes-lista-minecraft.html">/topdiamantes-lista-minecraft.html</code>
-                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
-                </div>
-                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-                <div class="ovpro-preview">
-                  <iframe id="tdlmc-preview" src="/topdiamantes-lista-minecraft.html?embed=1" title="Vista previa ranking diamantes lista minecraft"></iframe>
                 </div>
               </div>
 

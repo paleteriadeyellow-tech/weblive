@@ -335,12 +335,17 @@ export const DEFAULT_SETTINGS = {
   topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false, resetPeriod: 'live' },
   toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, mirror: false, resetPeriod: 'live' },
   topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, mirror: false, resetPeriod: 'live' },
-  toplikesListMc: { rows: 9, accent: '#ff5555', scale: 100, font: 'pressstart', transparent: false, nameRainbow: false, lines: true, shadows: true, mirror: false },
-  topdiamListMc: { rows: 9, accent: '#55ffff', scale: 100, font: 'pressstart', transparent: false, nameRainbow: false, lines: true, shadows: true, mirror: false },
   topAltRank: {
     rows: 5, scale: 100, font: 'inter', rowBg: '#0c1c26',
     likesAccent: '#ffffff', diamAccent: '#ffe08a',
     transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false,
+    intervalSec: 3, resetPeriodLikes: 'live', resetPeriodDiam: 'live',
+  },
+  topAltRankNeon: {
+    rows: 3, scale: 100, font: 'orbitron',
+    likesAccent: '#ff6b9d', diamAccent: '#ffe566',
+    neonBorder: '#5b7cff', neonGlow: '#b44dff', pillBg: 'rgba(8,12,28,0.18)',
+    transparent: true, nameRainbow: true, shadows: true, bounce: true, mirror: false,
     intervalSec: 3, resetPeriodLikes: 'live', resetPeriodDiam: 'live',
   },
   topPointsRank: {

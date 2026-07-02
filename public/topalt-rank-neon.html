@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Top Likes / Diamantes (neón)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Cinzel:wght@700;900&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; overflow: hidden;
+      background: transparent !important;
+      font-family: var(--tf-font-stack, 'Orbitron', 'Inter', system-ui, sans-serif);
+      color: #fff;
+    }
+    .widget {
+      width: 280px;
+      max-width: 92vw;
+      transform: scale(var(--ol-scale, 1));
+      transform-origin: top center;
+      padding: 2px 0;
+      margin: 0 auto;
+    }
+    html[data-embed="1"] body {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 8px 6px 10px;
+    }
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity .35s ease;
+    }
+    .list.alt-show { opacity: 1; }
+    .row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 2px 0;
+    }
+    .av-wrap {
+      position: relative;
+      width: 50px;
+      height: 50px;
+      flex-shrink: 0;
+      transform-origin: center center;
+    }
+    html[data-bounce="1"] .av-wrap {
+      animation: speaker-bounce 1.75s ease-in-out infinite;
+    }
+    @keyframes speaker-bounce {
+      0%, 100% { transform: scale(1) translateY(0); }
+      12% { transform: scale(1.12) translateY(-1px); }
+      24% { transform: scale(0.95) translateY(1px); }
+      36% { transform: scale(1.08) translateY(-0.5px); }
+      48% { transform: scale(0.98) translateY(0.5px); }
+      60% { transform: scale(1.06) translateY(0); }
+      72% { transform: scale(0.97) translateY(0.5px); }
+      84% { transform: scale(1.03) translateY(0); }
+    }
+    .av-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #ff006e, #ffbe0b, #06ffa5, #3a86ff, #8338ec, #b44dff, #ff006e);
+      box-shadow: 0 0 8px rgba(255, 0, 110, .28),
+                  0 0 16px rgba(58, 134, 255, .22),
+                  0 0 24px rgba(131, 56, 236, .16);
+      animation: ring-spin 3.2s linear infinite, ring-pulse 2.4s ease-in-out infinite;
+    }
+    html[data-bounce="1"] .av-wrap::before {
+      animation: ring-spin 3.2s linear infinite, ring-bass 1.75s ease-in-out infinite;
+    }
+    @keyframes ring-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes ring-bass {
+      0%, 100% {
+        opacity: .72;
+        filter: brightness(.9) saturate(1.05);
+        box-shadow: 0 0 8px rgba(255, 0, 110, .28),
+                    0 0 16px rgba(58, 134, 255, .22),
+                    0 0 24px rgba(131, 56, 236, .16);
+      }
+      10% {
+        opacity: 1;
+        filter: brightness(1.18) saturate(1.35);
+        box-shadow: 0 0 14px rgba(255, 0, 110, .48),
+                    0 0 26px rgba(58, 134, 255, .38),
+                    0 0 38px rgba(131, 56, 236, .28);
+      }
+      18% {
+        opacity: .78;
+        filter: brightness(.95) saturate(1.1);
+        box-shadow: 0 0 6px rgba(255, 0, 110, .22),
+                    0 0 12px rgba(58, 134, 255, .18),
+                    0 0 18px rgba(131, 56, 236, .14);
+      }
+      58% {
+        opacity: .95;
+        filter: brightness(1.1) saturate(1.25);
+        box-shadow: 0 0 12px rgba(255, 0, 110, .4),
+                    0 0 22px rgba(58, 134, 255, .32),
+                    0 0 32px rgba(131, 56, 236, .22);
+      }
+    }
+    @keyframes ring-pulse {
+      0%, 100% { opacity: .72; filter: brightness(.9) saturate(1.05); }
+      50% { opacity: .88; filter: brightness(1.02) saturate(1.18); }
+    }
+    .av {
+      position: relative;
+      z-index: 1;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255,255,255,.36);
+      background: #111;
+      display: block;
+    }
+    .row[data-rank="1"] .av-wrap::before {
+      inset: -5px;
+      box-shadow: 0 0 10px rgba(255, 190, 11, .26),
+                  0 0 18px rgba(255, 0, 110, .22),
+                  0 0 28px rgba(6, 255, 165, .18);
+    }
+    .row[data-rank="2"] .av-wrap::before,
+    .row[data-rank="3"] .av-wrap::before {
+      box-shadow: 0 0 8px rgba(58, 134, 255, .22),
+                  0 0 16px rgba(180, 77, 255, .18),
+                  0 0 24px rgba(6, 255, 165, .14);
+    }
+    .meta {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-top: 2px;
+    }
+    .name-pill {
+      position: relative;
+      border-radius: 999px;
+    }
+    .name-pill::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      padding: 3px;
+      background: linear-gradient(90deg,
+        #ff006e, #ffbe0b, #06ffa5, #3a86ff, #8338ec, #b44dff, #ff006e);
+      background-size: 220% auto;
+      animation: border-flow 4s linear infinite;
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+              mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+      pointer-events: none;
+      box-shadow: 0 0 8px rgba(131, 56, 236, .45),
+                  0 0 16px rgba(58, 134, 255, .3);
+    }
+    @keyframes border-flow {
+      0% { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+    .name-pill-inner {
+      position: relative;
+      border-radius: 999px;
+      background: transparent;
+      padding: 4px 12px;
+      min-height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .name {
+      font-weight: 800;
+      font-size: 13px;
+      line-height: 1.15;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      text-align: center;
+      background: linear-gradient(90deg, #06ffa5, #3a86ff, #ffbe0b, #ff006e, #8338ec, #06ffa5);
+      background-size: 220% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,.85));
+      animation: rainbow-flow 5s linear infinite;
+    }
+    @keyframes rainbow-flow {
+      0% { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+    .valwrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-left: 4px;
+    }
+    .ico { font-size: 19px; line-height: 0; filter: none; }
+    .ico .ico-coin { filter: none; width: 18px; height: 18px; object-fit: contain; display: block; }
+    .num {
+      font-size: 19px;
+      font-weight: 900;
+      color: var(--ol-accent, #ffe566);
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      text-shadow: none;
+      font-variant-numeric: tabular-nums;
+    }
+    html[data-bg="1"] .name-pill-inner { background: transparent; }
+    html[data-shadows="0"] .av-wrap { animation: none; }
+    html[data-shadows="0"] .av-wrap::before { box-shadow: none; animation: ring-spin 2.6s linear infinite; }
+    html[data-shadows="0"] .name-pill::before { box-shadow: none; animation: none; }
+    html[data-shadows="0"] .num { text-shadow: none; }
+    html[data-shadows="0"] .ico { filter: none; }
+    html[data-shadows="0"] .name { filter: none; }
+    html[data-namefx="0"] .name {
+      animation: none;
+      background: none;
+      -webkit-text-fill-color: #e8f4ff;
+      color: #e8f4ff;
+      filter: none;
+    }
+    html[data-namefx="0"] .name-pill::before { animation: none; }
+    .list--seq .row { opacity: 0; transform: translateY(10px); transition: opacity .4s ease, transform .4s ease; }
+    .list--seq .row.show { opacity: 1; transform: translateY(0); }
+    html[data-mirror="1"] .meta { align-items: flex-end; }
+    html[data-mirror="1"] .valwrap { justify-content: flex-end; padding-left: 0; padding-right: 4px; }
+  </style>
+</head>
+<body>
+  <div class="widget"><div class="list" id="list"></div></div>
+  <script src="/js/ranking-overlay.js"></script>
+  <script>
+    RankingOverlay.initAlt({
+      kind: 'topaltneon',
+      layout: 'neon',
+      settingsKey: 'topAltRankNeon',
+      modes: [
+        { rank: 'topdiam', icon: '/img/tiktok-coin.webp', accentKey: 'diamAccent', periodKey: 'resetPeriodDiam' },
+        { rank: 'toplikes', icon: '❤️', accentKey: 'likesAccent', periodKey: 'resetPeriodLikes' },
+      ],
+      defaults: {
+        rows: 3, scale: 100, font: 'orbitron',
+        likesAccent: '#ff6b9d', diamAccent: '#ffe566',
+        neonBorder: '#5b7cff', neonGlow: '#b44dff', pillBg: 'rgba(8,12,28,0.18)',
+        transparent: true, nameRainbow: true, shadows: true, bounce: true,
+        intervalSec: 3, resetPeriodLikes: 'live', resetPeriodDiam: 'live',
+      },
+    });
+  </script>
+</body>
+</html>

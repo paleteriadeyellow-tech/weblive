@@ -903,6 +903,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
       }
     }
+    if (obj.topAltRankNeon) {
+      const alt = settings.topAltRankNeon;
+      if (alt.resetPeriodLikes != null) {
+        if (!settings.toplikesRank) settings.toplikesRank = {};
+        if (alt.resetPeriodLikes !== prevRankPeriods.toplikes) {
+          settings.toplikesRank.resetPeriod = alt.resetPeriodLikes;
+          onRankPeriodChange('toplikes');
+        }
+      }
+      if (alt.resetPeriodDiam != null) {
+        if (!settings.topdiamRank) settings.topdiamRank = {};
+        if (alt.resetPeriodDiam !== prevRankPeriods.topdiam) {
+          settings.topdiamRank.resetPeriod = alt.resetPeriodDiam;
+          onRankPeriodChange('topdiam');
+        }
+      }
+    }
     enforceLimits();
     saveSettings();
     broadcast('settings', settings);
