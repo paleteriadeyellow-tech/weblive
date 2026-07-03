@@ -93,6 +93,8 @@ export const CAPABILITIES = {
     { key: 'game_plantasvszombies', label: 'Juego: Plants vs Zombies' },
     { key: 'game_pvzhybrid', label: 'Juego: Plants vs Zombies Pack' },
     { key: 'game_repo', label: 'Juego: R.E.P.O.' },
+    { key: 'game_l4d', label: 'Juego: Left 4 Dead 2' },
+    { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins (Próximamente)' },
   ],
   // Características sueltas.
   extras: [
@@ -124,6 +126,11 @@ function defaultConfig() {
   freeFeatures.tts_tiktok = false;
   freeFeatures.game_pvzhybrid = false;
   freeFeatures.game_repo = false;
+  freeFeatures.game_l4d = false;
+  freeFeatures.game_metalslug = false;
+
+  // Metal Slug: próximamente — ni siquiera Premium hasta lanzamiento (solo admin).
+  features.game_metalslug = false;
 
   return {
     free: {
