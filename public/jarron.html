@@ -11,15 +11,15 @@
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
 
     .stage {
-      width: 540px; height: 820px; position: absolute; left: 50%; top: 50%;
+      width: 1180px; height: 820px; position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%) scale(var(--tf-fit, 1)); transform-origin: center center;
     }
-    .jar {
+    .jar-skin {
       position: absolute; left: 50%; top: 0; transform: translateX(-50%);
       width: 540px; height: 720px; pointer-events: none;
     }
     /* Piso y aro trasero del frasco: van DETRÁS de los regalos para dar profundidad */
-    .jar-back { position: absolute; inset: 0; z-index: 1; pointer-events: none; isolation: isolate; }
+    .jar-back { z-index: 1; isolation: isolate; }
     .jar-back img { position: absolute; left: 50%; transform: translate(-50%, -50%); height: auto; pointer-events: none; }
     .jar-back .jb-rim { top: 256px; width: 280px; }
     .jar-back .jb-floor { top: 616px; width: 300px; }
@@ -33,13 +33,15 @@
     .jar-back .tint-rim { top: 256px; width: 280px; height: 37px; -webkit-mask-image: url('/jarron/jar-top-bg-2.png'); mask-image: url('/jarron/jar-top-bg-2.png'); }
     .jar-back .tint-floor { top: 616px; width: 300px; height: 80px; -webkit-mask-image: url('/jarron/jar-bottom.png'); mask-image: url('/jarron/jar-bottom.png'); }
     .jar-glass-rim img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; pointer-events: none; }
-    .jar-interior { position: absolute; inset: 0; z-index: 3; isolation: isolate; }
-    .gifts-layer { position: absolute; inset: 0; overflow: visible; }
+    .gifts-layer {
+      position: absolute; left: 0; top: 0; width: 1180px; height: 720px;
+      overflow: visible; z-index: 3;
+    }
     .gift-body {
       position: absolute; top: 0; left: 0; object-fit: contain; pointer-events: none; will-change: transform;
       transform: translate3d(-999px, -999px, 0); filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); transition: opacity .2s linear;
     }
-    .jar-glass-rim { position: absolute; inset: 0; z-index: 5; pointer-events: none; isolation: isolate; }
+    .jar-glass-rim { z-index: 5; isolation: isolate; }
     .jar-tint {
       position: absolute; inset: 0; pointer-events: none;
       background: var(--jar-tint, transparent); mix-blend-mode: color;
@@ -122,20 +124,16 @@
 </head>
 <body>
   <div class="stage" id="stage">
-    <div class="jar">
-      <div class="jar-back" aria-hidden="true">
-        <img class="jb-floor" src="/jarron/jar-bottom.png" alt="" draggable="false" />
-        <img class="jb-rim" src="/jarron/jar-top-bg-2.png" alt="" draggable="false" />
-        <div class="tint tint-floor"></div>
-        <div class="tint tint-rim"></div>
-      </div>
-      <div class="jar-interior" id="bowl">
-        <div class="gifts-layer" id="gifts-layer"></div>
-      </div>
-      <div class="jar-glass-rim" aria-hidden="true">
-        <img src="/jarron/jar-top.png" alt="" draggable="false" />
-        <div class="jar-tint" id="jar-tint"></div>
-      </div>
+    <div class="jar-back jar-skin" aria-hidden="true">
+      <img class="jb-floor" src="/jarron/jar-bottom.png" alt="" draggable="false" />
+      <img class="jb-rim" src="/jarron/jar-top-bg-2.png" alt="" draggable="false" />
+      <div class="tint tint-floor"></div>
+      <div class="tint tint-rim"></div>
+    </div>
+    <div class="gifts-layer" id="gifts-layer"></div>
+    <div class="jar-glass-rim jar-skin" aria-hidden="true">
+      <img src="/jarron/jar-top.png" alt="" draggable="false" />
+      <div class="jar-tint" id="jar-tint"></div>
     </div>
     <div class="hud-stack" id="hud-stack">
       <div class="top-donor-bar" id="top-donor-bar">
@@ -297,9 +295,12 @@
       ]);
     }
 
-    // ---- Geometría del frasco (px del stage 540×720) ----
-    const STAGE_W = 540, STAGE_H = 720;
-    const IMG_SIZE = Math.min(STAGE_W, STAGE_H);
+    // ---- Geometría del frasco (frasco 540px centrado; stage más ancho para desborde) ----
+    const JAR_W = 540, JAR_H = 720;
+    const OVERFLOW_X = 320; // espacio extra a cada lado fuera del cristal
+    const STAGE_W = JAR_W + OVERFLOW_X * 2;
+    const STAGE_H = JAR_H;
+    const IMG_SIZE = JAR_W;
     const IMG_TOP = STAGE_H - IMG_SIZE, IMG_LEFT = (STAGE_W - IMG_SIZE) / 2;
     const artX = (p) => IMG_LEFT + (p / 100) * IMG_SIZE;
     const artY = (p) => IMG_TOP + (p / 100) * IMG_SIZE;
@@ -308,7 +309,9 @@
     const FLOOR_FLAT_L = artX(27), FLOOR_FLAT_R = artX(73);
     const SHOULDER_Y1 = artY(25), SHOULDER_Y2 = artY(31);
     const BODY_BOT_Y = artY(80), FLOOR_Y = artY(86);
-    const SPAWN_X_MIN = artX(40), SPAWN_X_MAX = artX(60), SPAWN_Y = 205;
+    const SPAWN_X_MIN = artX(40), SPAWN_X_MAX = artX(60);
+    const SPAWN_Y_TOP = artY(-34), SPAWN_Y_BOT = artY(-14);
+    const SPAWN_Y = (SPAWN_Y_TOP + SPAWN_Y_BOT) / 2;
     const JAR_CAPACITY = 150, HARD_CAP = 520;
 
     const M = window.Matter;
@@ -316,7 +319,7 @@
     const { Engine, World, Bodies, Body, Runner, Events } = M;
 
     const engine = Engine.create();
-    engine.gravity.y = 0.8; engine.enableSleeping = true;
+    engine.gravity.y = 1.28; engine.enableSleeping = true;
     engine.positionIterations = 10;
     engine.velocityIterations = 8;
     const world = engine.world;
@@ -383,7 +386,7 @@
         const g = gifts[i];
         if (!g.body.isSleeping) {
           const v = g.body.velocity, sp = Math.hypot(v.x, v.y);
-          if (sp > 8) { const s = 8 / sp; Body.setVelocity(g.body, { x: v.x * s, y: v.y * s }); }
+          if (sp > 12) { const s = 12 / sp; Body.setVelocity(g.body, { x: v.x * s, y: v.y * s }); }
         }
         constrainGiftInJar(g);
         if (g.body.isSleeping && g.awakeSynced) continue;
@@ -459,7 +462,7 @@
           gifts[i].awakeSynced = false;
           continue;
         }
-        if ((p.y - r) > (STAGE_H + 80) || (p.x + r) < -180 || (p.x - r) > (STAGE_W + 180)) removeGiftAt(i);
+        if ((p.y - r) > (STAGE_H + 80) || (p.x + r) < -360 || (p.x - r) > (STAGE_W + 360)) removeGiftAt(i);
       }
       if (gifts.length > HARD_CAP) {
         let toRemove = gifts.length - HARD_CAP;
@@ -482,8 +485,9 @@
       const lanes = [NECK_L + span * 0.2, mid, NECK_R - span * 0.2];
       let cx = lanes[Math.floor(Math.random() * lanes.length)] + rnd(-8, 8);
       cx = Math.max(minX, Math.min(maxX, cx));
-      const vx = (mid - cx) / 70 + rnd(-0.25, 0.25); // empuje suave hacia adentro
-      return { x: cx, y: SPAWN_Y + rnd(-8, 8), vx };
+      const vx = (mid - cx) / 70 + rnd(-0.25, 0.25);
+      const y = Math.max(28, rnd(SPAWN_Y_TOP, SPAWN_Y_BOT));
+      return { x: cx, y, vx };
     }
     function addGiftBody(src, sizePx, diamonds, opts) {
       if (!src) src = FALLBACK_IMG;
@@ -495,10 +499,10 @@
       if (opts.x != null) { x = opts.x; y = opts.y != null ? opts.y : SPAWN_Y; vx = 0; }
       else { const s = pickSpawnSpot(r); x = s.x; y = s.y; vx = s.vx; }
       // Los regalos más grandes (más diamantes) pesan más: se hunden y compactan el montón.
-      const density = 0.0012 * (1 + Math.min(2.5, (diamonds || 0) / 1500));
-      const body = Bodies.circle(x, y, r, { density, restitution: 0.02, friction: 0.16, frictionStatic: 0.18, frictionAir: 0.012, sleepThreshold: 22 });
+      const density = 0.0036 * (1 + Math.min(3, (diamonds || 0) / 1000));
+      const body = Bodies.circle(x, y, r, { density, restitution: 0.005, friction: 0.24, frictionStatic: 0.26, frictionAir: 0.004, sleepThreshold: 16 });
       if (opts.angle != null) Body.setAngle(body, opts.angle);
-      if (!opts.settled) { Body.setVelocity(body, { x: vx, y: rnd(0.3, 1.2) }); Body.setAngularVelocity(body, rnd(-0.12, 0.12)); }
+      if (!opts.settled) { Body.setVelocity(body, { x: vx, y: rnd(2.6, 5) }); Body.setAngularVelocity(body, rnd(-0.06, 0.06)); }
       const img = document.createElement('img');
       img.className = 'gift-body'; img.src = src; img.alt = ''; img.referrerPolicy = 'no-referrer';
       img.style.width = sizePx + 'px'; img.style.height = sizePx + 'px';
