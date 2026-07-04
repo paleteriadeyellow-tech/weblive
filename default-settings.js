@@ -383,6 +383,24 @@ export const DEFAULT_SETTINGS = {
     showFollowersText: true, showProfile: true, showProgressBar: true,
     showConfetti: false, goalFollowers: 10000, scale: 100,
   },
+  liveTimer: {
+    title: 'TIEMPO EN LIVE',
+    onLiveEnd: 'pause',
+    neon: '#00ffcc',
+    accent: '#ff00aa',
+    liveColor: '#ff2244',
+    textColor: '#ffffff',
+    colorMode: 'solid',
+    font: 'orbitron',
+    titleSize: 22,
+    timeSize: 42,
+    dotSize: 14,
+    letterSpacing: 12,
+    scale: 100,
+    bgOpacity: 88,
+    showTitle: true,
+    showLiveDot: true,
+  },
   // Streams overlay — Join al live (estilo gamer)
   streamJoin: {
     neon: '#00ff66', durationSec: 4.5, scale: 100, posTop: 30, posLeft: 30, laserSpeed: 2, bgOpacity: 90,
@@ -426,6 +444,16 @@ export const DEFAULT_SETTINGS = {
   // Acciones del juego Minecraft (solo .exe): cada una vincula un comando RCON a un
   // regalo o evento del live. { uid, catId, name, desc, cmd, trigger, giftId, giftName, giftImage, enabled }
   mcActions: [],
+  mcshooterActions: [],
+  mcshooterColiseo: {
+    enabled: false,
+    chatCmd: '!entro',
+    cooldownSec: 40,
+    posX: 0,
+    posY: 64,
+    posZ: 0,
+    spawnCmd: '',
+  },
   // Acciones del juego Bedrock (Cubo TNT): mismas que Minecraft pero con comandos
   // /bedrock; se ejecutan por el MISMO RCON/ServerTap del servidor de Minecraft.
   bedrockActions: [],

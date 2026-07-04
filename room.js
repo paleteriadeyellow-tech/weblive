@@ -525,6 +525,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function resetSessionState() {
     lastTotalLikes = 0;
     resetStats();
+    resetLiveUptimeSession();
     resetSessionOverlays();
   }
   // Auto-conexión / reinicio Render: resetea solo si es un live distinto (otro roomId).
@@ -860,7 +861,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const scoreSlot = (s) => {
       if (!s || typeof s !== 'object') return 0;
       let n = 0;
-      for (const k of ['actions', 'mcActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'ctrActions', 'mslugActions']) {
+      for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'ctrActions', 'mslugActions']) {
         const a = s[k];
         if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
       }
@@ -1178,6 +1179,69 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clampTimer();
     broadcastTimer();
   }
+
+  /* ------------------------ Tiempo en live (overlay) ------------------------ */
+  const liveUptime = { accumulatedMs: 0, tickStart: null, ticking: false, interval: null };
+  function liveTimerOnEndMode() {
+    return settings.liveTimer?.onLiveEnd === 'reset' ? 'reset' : 'pause';
+  }
+  function getLiveUptimeMs() {
+    let ms = liveUptime.accumulatedMs;
+    if (liveUptime.tickStart) ms += Date.now() - liveUptime.tickStart;
+    return Math.max(0, Math.floor(ms));
+  }
+  function serializeLiveUptime() {
+    return { ms: getLiveUptimeMs(), ticking: !!liveUptime.ticking, connected: !!state.connected };
+  }
+  function broadcastLiveUptime() { broadcast('liveUptime', serializeLiveUptime()); }
+  function stopLiveUptimeInterval() {
+    if (liveUptime.interval) { clearInterval(liveUptime.interval); liveUptime.interval = null; }
+  }
+  function startLiveUptimeInterval() {
+    stopLiveUptimeInterval();
+    if (!liveUptime.ticking) return;
+    liveUptime.interval = setInterval(broadcastLiveUptime, 1000);
+  }
+  function resetLiveUptimeHard() {
+    liveUptime.accumulatedMs = 0;
+    liveUptime.tickStart = liveUptime.ticking ? Date.now() : null;
+    broadcastLiveUptime();
+  }
+  function resetLiveUptimeSession() {
+    liveUptime.accumulatedMs = 0;
+    liveUptime.tickStart = null;
+    liveUptime.ticking = false;
+    stopLiveUptimeInterval();
+    broadcastLiveUptime();
+  }
+  function resetLiveUptime() {
+    resetLiveUptimeHard();
+    if (!liveUptime.ticking) broadcastLiveUptime();
+  }
+  function beginLiveUptimeTick() {
+    if (liveTimerOnEndMode() === 'reset') liveUptime.accumulatedMs = 0;
+    liveUptime.tickStart = Date.now();
+    liveUptime.ticking = true;
+    broadcastLiveUptime();
+    startLiveUptimeInterval();
+  }
+  function endLiveUptimeTick() {
+    if (liveUptime.tickStart) {
+      liveUptime.accumulatedMs += Date.now() - liveUptime.tickStart;
+      liveUptime.tickStart = null;
+    }
+    liveUptime.ticking = false;
+    stopLiveUptimeInterval();
+    if (liveTimerOnEndMode() === 'reset') liveUptime.accumulatedMs = 0;
+    broadcastLiveUptime();
+  }
+  function syncLiveUptimeOnConnect() {
+    if (state.connected) beginLiveUptimeTick();
+  }
+  function syncLiveUptimeOnDisconnect() {
+    if (liveUptime.ticking || liveUptime.accumulatedMs > 0) endLiveUptimeTick();
+  }
+
   // Evita contar dos veces el mismo evento (algunos eventos de TikTok llegan por dos
   // canales: p. ej. SOCIAL y FOLLOW). Coalesce por tipo+usuario en una ventana corta.
   const recentTimerEvents = new Map();
@@ -1561,6 +1625,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           resetRankSnap();
           startRankStreamerTimer();
           pushState();
+          syncLiveUptimeOnConnect();
           if (mode === 'reconnect') {
             broadcast('log', { level: 'ok', text: `Reconectado al live (sala ${newRoomId ?? ''}) — overlays conservados` });
           } else {
@@ -1574,6 +1639,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           resetRankSnap();
           startRankStreamerTimer();
           pushState();
+          syncLiveUptimeOnConnect();
           broadcastAllRankStates();
           if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
           if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
@@ -1623,6 +1689,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     state.connected = false;
     state.connecting = false;
     state.roomId = null;
+    syncLiveUptimeOnDisconnect();
   }
 
   // Desconexión MANUAL (botón "Desconectar"): además de cortar, apaga la auto-conexión
@@ -1899,9 +1966,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const s = cfg || settings;
     const t = resolveKeyTimes(a, times);
     if (a.keys) {
-      broadcast('log', { level: 'ok', text: `⚡ Acción: "${a.name || a.keys}" → ${a.keys}${t > 1 ? ` ×${t}` : ''}` });
+      const holdNote = Number(a.keyHoldSec) > 0 ? ` (${a.keyHoldSec}s)` : '';
+      broadcast('log', { level: 'ok', text: `⚡ Acción: "${a.name || a.keys}" → ${a.keys}${holdNote}${t > 1 ? ` ×${t}` : ''}` });
       emitKeyAction({
         id: a.id, name: a.name || '', keys: a.keys, gameCompat: !!a.gameCompat,
+        keyHoldSec: Number(a.keyHoldSec) > 0 ? Number(a.keyHoldSec) : 0,
         times: t, sound: a.sound || '', soundName: a.soundName || '',
         soundVolume: a.soundVolume != null ? a.soundVolume : 1,
       });
@@ -1991,10 +2060,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function buildMcVars(info = {}, user = null) {
     const u = user || {};
     const clean = (v) => String(v == null ? '' : v).replace(/["\\]/g, '').slice(0, 48);
+    const mcPl = String(settings.webhook?.rcon?.playername || settings.webhook?.servertap?.playername || '').trim().replace(/^@/, '');
+    const mcplayer = mcPl ? clean(mcPl) : '@p';
     return {
       // Posición del streamer en el mundo (usar en «execute at …»).
       streamer: '@p',
       at: '@p',
+      mcplayer,
       playername: clean(u.nickname || u.uniqueId || info.nickname || info.giftName || 'Espectador') || 'Espectador',
       nickname: clean(u.nickname || info.nickname || ''),
       username: clean(u.uniqueId || info.username || ''),
@@ -2134,8 +2206,42 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerCtrActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
     if (Array.isArray(cfg.mcActions) && cfg.mcActions.length) processMcList(cfg.mcActions, eventType, info, vars);
+    if (Array.isArray(cfg.mcshooterActions) && cfg.mcshooterActions.length) processMcList(cfg.mcshooterActions, eventType, info, vars);
     if (Array.isArray(cfg.bedrockActions) && cfg.bedrockActions.length) processMcList(cfg.bedrockActions, eventType, info, vars);
     if (Array.isArray(cfg.sandboxActions) && cfg.sandboxActions.length) processMcList(cfg.sandboxActions, eventType, info, vars);
+    if (eventType === 'chat') triggerMcShooterColiseo(info, user, cfg);
+  }
+
+  let lastMcshooterColiseoAt = 0;
+
+  function mcshooterColiseoSpawnTpl(col) {
+    const custom = String(col?.spawnCmd || '').trim();
+    if (custom) return custom;
+    const x = Number(col?.posX) || 0;
+    const y = Number.isFinite(Number(col?.posY)) ? Number(col.posY) : 64;
+    const z = Number(col?.posZ) || 0;
+    return `execute positioned ${x} ${y} ${z} run summon zombie ~ ~ ~ {CustomName:'"{playername}"',CustomNameVisible:1b}`;
+  }
+
+  function triggerMcShooterColiseo(info = {}, user = null, cfg = settings, opts = {}) {
+    const col = cfg?.mcshooterColiseo;
+    if (!col || col.enabled === false) return;
+    const cmdText = String(col.chatCmd || '!entro').trim();
+    if (!cmdText) return;
+    if (!matchesCommand(cmdText, info.comment)) return;
+    const cdMs = Math.max(1000, (Math.max(1, parseInt(col.cooldownSec, 10) || 40)) * 1000);
+    const now = Date.now();
+    if (!opts.force && now - lastMcshooterColiseoAt < cdMs) {
+      const wait = Math.ceil((cdMs - (now - lastMcshooterColiseoAt)) / 1000);
+      broadcast('log', { level: 'warn', text: `🏟️ Coliseo: espera ${wait}s para otro zombie` });
+      return;
+    }
+    lastMcshooterColiseoAt = now;
+    const vars = buildMcVars(info, user);
+    const spawnCmd = mcshooterColiseoSpawnTpl(col);
+    const who = vars.nickname || vars.username || 'Espectador';
+    scheduleMcAction(() => runMcAction({ name: 'Coliseo zombie', cmd: spawnCmd, enabled: true }, vars, { soundTimes: 1 }));
+    broadcast('log', { level: 'ok', text: `🏟️ Coliseo: zombie de ${who} (${cmdText})` });
   }
 
   // Recorre una lista de acciones (Minecraft o Bedrock) y ejecuta las que coincidan.
@@ -2917,6 +3023,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       });
       if (out === prev) break;
     }
+    const mcTarget = map.mcplayer;
+    if (mcTarget && mcTarget !== '@p' && /\bqa\s+/i.test(out)) out = out.replace(/@p\b/g, mcTarget);
     return out;
   }
 
@@ -3100,6 +3208,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerActionsLikeGlobal(total);
     forEachTriggerProfile((cfg, isGeneral) => {
       for (const a of (cfg.mcActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
+        if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          scheduleMcAction(() => runMcAction(a, buildMcVars({ likeCount: total }, null), { soundTimes: 1 }));
+        }
+      }
+      for (const a of (cfg.mcshooterActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
         if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
         const goal = Math.max(1, a.likeN || 100);
@@ -4734,6 +4850,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.STREAM_END, () => {
       state.inBattle = false;
       state.connected = false;
+      syncLiveUptimeOnDisconnect();
       markLiveSessionEnded();
       pushState();
       broadcast('log', { level: 'info', text: 'El live terminó.' });
@@ -4806,6 +4923,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       case 'testMcAction': {
         const a = (settings.mcActions || []).find((x) => x.uid === data.uid)
+          || (settings.mcshooterActions || []).find((x) => x.uid === data.uid)
           || (settings.bedrockActions || []).find((x) => x.uid === data.uid)
           || (settings.sandboxActions || []).find((x) => x.uid === data.uid);
         if (a && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length))) {
@@ -4836,6 +4954,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         // Bedrock: solo "Probar", no se guardan como tarjeta).
         const cmd = String(data.command || '').trim();
         if (cmd) scheduleMcAction(() => runMcAction({ cmd, name: String(data.name || 'Comando') }, buildMcVars({ nickname: 'Streamer', uniqueId: 'streamer' }, { nickname: 'Streamer', uniqueId: 'streamer' })));
+        break;
+      }
+      case 'testMcShooterColiseo': {
+        triggerMcShooterColiseo(
+          { comment: String(settings?.mcshooterColiseo?.chatCmd || '!entro') },
+          { nickname: 'Prueba', uniqueId: 'prueba' },
+          settings,
+          { force: !!data.force },
+        );
         break;
       }
       case 'runActionOutputs': {
@@ -5194,6 +5321,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetFollowerCounter':
         resetFollowerCounterFromRoom();
         break;
+      case 'testLiveTimer':
+        beginLiveUptimeTick();
+        break;
+      case 'resetLiveTimer':
+        resetLiveUptimeSession();
+        break;
       case 'testStreamJoin':
         broadcast('streamJoinTest', {});
         break;
@@ -5235,6 +5368,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() }));
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
+    ws.send(JSON.stringify({ type: 'liveUptime', payload: serializeLiveUptime() }));
     ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));
     ws.send(JSON.stringify({ type: 'sessionOverlays', payload: serializeSessionOverlaysPayload() }));
     ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));

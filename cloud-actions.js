@@ -181,8 +181,12 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
   function buildMcVars(info = {}, user = null) {
     const u = user || {};
     const clean = (v) => String(v == null ? '' : v).replace(/["\\]/g, '').slice(0, 48);
+    const s = settings();
+    const mcPl = String(s.webhook?.rcon?.playername || s.webhook?.servertap?.playername || '').trim().replace(/^@/, '');
+    const mcplayer = mcPl ? clean(mcPl) : '@p';
     return {
       streamer: '@p', at: '@p',
+      mcplayer,
       playername: clean(u.nickname || u.uniqueId || info.nickname || info.giftName || 'Espectador') || 'Espectador',
       nickname: clean(u.nickname || info.nickname || ''),
       username: clean(u.uniqueId || info.username || ''),
@@ -215,6 +219,8 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
       });
       if (out === prev) break;
     }
+    const mcTarget = map.mcplayer;
+    if (mcTarget && mcTarget !== '@p' && /\bqa\s+/i.test(out)) out = out.replace(/@p\b/g, mcTarget);
     return out;
   }
 

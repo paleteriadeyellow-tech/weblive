@@ -75,6 +75,7 @@ export const CAPABILITIES = {
     { key: 'ov_toppoints', label: 'Top 3 puntos', path: '/toppoints.html' },
     { key: 'ov_contadorseguidores', label: 'Contador de seguidores', path: '/contador-seguidores.html' },
     { key: 'ov_contadorseguidoresmc', label: 'Contador de seguidores (Minecraft)', path: '/contador-seguidores-minecraft.html' },
+    { key: 'ov_tiempolive', label: 'Tiempo en live (Neon)', path: '/tiempo-live-neon.html' },
     { key: 'ov_alertaregalo', label: 'Alerta de regalo', path: '/alerta-regalo.html' },
     { key: 'ov_alertalikes', label: 'Alerta de likes', path: '/alerta-likes.html' },
     { key: 'ov_alertaseguidor', label: 'Alerta de nuevo seguidor', path: '/alerta-seguidor.html' },
@@ -83,6 +84,7 @@ export const CAPABILITIES = {
   // Minijuegos (pestaña "Juegos" del .exe). Se pueden bloquear como los overlays.
   games: [
     { key: 'game_minecraft', label: 'Juego: Minecraft' },
+    { key: 'game_mcshooter', label: 'Juego: Minecraft Shooters' },
     { key: 'game_bedrock', label: 'Juego: Bedrock (Cubo TNT)' },
     { key: 'game_sandbox', label: 'Juego: Sandbox' },
     { key: 'game_roblox', label: 'Juego: Roblox' },

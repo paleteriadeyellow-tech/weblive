@@ -276,7 +276,7 @@ window.addEventListener('online', () => { if (ws?.readyState !== WebSocket.OPEN)
 window.addEventListener('pageshow', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'hypmc-conn', 'hypmr-conn', 'hypdbz-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'hypmc-conn', 'hypmr-conn', 'hypdbz-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -388,6 +388,7 @@ const OVERLAY_CAP = {
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
   '/contador-seguidores.html': 'ov_contadorseguidores',
   '/contador-seguidores-minecraft.html': 'ov_contadorseguidoresmc',
+  '/tiempo-live-neon.html': 'ov_tiempolive',
   '/alerta-regalo.html': 'ov_alertaregalo',
   '/alerta-likes.html': 'ov_alertalikes',
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
@@ -4345,6 +4346,18 @@ function setupStyleOverlay(o) {
 
 const STYLE_OVERLAYS = [
   setupStyleOverlay({
+    kind: 'livetimer', settingsKey: 'liveTimer', previewId: 'tlv-preview',
+    btnTest: 'tlv-test', btnReset: 'tlv-reset', btnConfig: 'tlv-config',
+    modalId: 'tlvConfigModal', closeId: 'tlvcfg-close', saveId: 'tlvcfg-save',
+    testAction: 'testLiveTimer', resetAction: 'resetLiveTimer',
+    map: { 'tlvcfg-title': 'title', 'tlvcfg-onliveend': 'onLiveEnd', 'tlvcfg-neon': 'neon', 'tlvcfg-accent': 'accent',
+      'tlvcfg-livecolor': 'liveColor', 'tlvcfg-textcolor': 'textColor', 'tlvcfg-font': 'font', 'tlvcfg-colormode': 'colorMode',
+      'tlvcfg-titlesize': 'titleSize', 'tlvcfg-timesize': 'timeSize', 'tlvcfg-dotsize': 'dotSize',
+      'tlvcfg-letterspace': 'letterSpacing', 'tlvcfg-scale': 'scale', 'tlvcfg-bgop': 'bgOpacity',
+      'tlvcfg-showtitle': 'showTitle', 'tlvcfg-showdot': 'showLiveDot' },
+    types: { titleSize: 'int', timeSize: 'int', dotSize: 'int', letterSpacing: 'int', scale: 'int', bgOpacity: 'int' },
+  }),
+  setupStyleOverlay({
     kind: 'habibitop', settingsKey: 'habibiTop', previewId: 'habi-preview',
     btnTest: 'habi-test', btnReset: 'habi-reset', btnConfig: 'habi-config',
     modalId: 'habiConfigModal', closeId: 'habicfg-close', saveId: 'habicfg-save',
@@ -5097,6 +5110,9 @@ const TTS_UV_LANGS = {
     { code: 'jp', label: 'Japonés' },
     { code: 'kr', label: 'Coreano' },
   ],
+  disney: [
+    { code: 'en', label: 'Inglés (traduce desde español)' },
+  ],
 };
 
 function ttsTrackChatUser(p) {
@@ -5122,6 +5138,21 @@ function getTikTokVoiceCatalog() {
   return out;
 }
 
+function getDisneyVoiceCatalog() {
+  const sel = $('tts-tiktok-voice');
+  if (!sel) return [];
+  const out = [];
+  sel.querySelectorAll('optgroup').forEach((og) => {
+    const label = String(og.label || '').toLowerCase();
+    if (!label.includes('disney')) return;
+    og.querySelectorAll('option[value]').forEach((opt) => {
+      const id = String(opt.value || '').trim();
+      if (id) out.push({ id, label: (opt.textContent || id).trim() });
+    });
+  });
+  return out;
+}
+
 function ttsVoiceLangFromId(voiceId) {
   const v = String(voiceId || '').toLowerCase();
   if (!v) return 'en';
@@ -5138,8 +5169,9 @@ function ttsVoiceLangFromId(voiceId) {
 
 function ttsVoiceLabel(engine, voice, lang) {
   if (!voice) return '—';
-  if (engine === 'tiktok') {
-    const hit = getTikTokVoiceCatalog().find((x) => x.id === voice);
+  if (engine === 'tiktok' || engine === 'disney') {
+    const catalog = engine === 'disney' ? getDisneyVoiceCatalog() : getTikTokVoiceCatalog();
+    const hit = catalog.find((x) => x.id === voice) || getTikTokVoiceCatalog().find((x) => x.id === voice);
     return hit ? hit.label : voice;
   }
   const hit = ttsVoices.find((v) => v.name === voice);
@@ -5147,12 +5179,14 @@ function ttsVoiceLabel(engine, voice, lang) {
 }
 
 function ttsEngineLabel(engine) {
+  if (engine === 'disney') return 'Disney';
   return engine === 'tiktok' ? 'TikTok (Server)' : 'Sistema';
 }
 
 function ttsUvLangLabel(code) {
   const c = String(code || '').toLowerCase();
-  const hit = (TTS_UV_LANGS.tiktok || []).find((x) => x.code === c);
+  const hit = (TTS_UV_LANGS.tiktok || []).find((x) => x.code === c)
+    || (TTS_UV_LANGS.disney || []).find((x) => x.code === c);
   if (hit) return hit.label;
   return langLabel(c);
 }
@@ -5182,6 +5216,11 @@ function fillTtsUvLangOptions() {
   const sel = $('tts-uv-lang');
   const engine = $('tts-uv-engine')?.value || 'tiktok';
   if (!sel) return;
+  if (engine === 'disney') {
+    sel.innerHTML = TTS_UV_LANGS.disney.map((l) => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
+    sel.value = 'en';
+    return;
+  }
   if (engine === 'tiktok') {
     const langs = TTS_UV_LANGS.tiktok;
     const cur = sel.value || 'es';
@@ -5208,6 +5247,16 @@ function fillTtsUvVoiceOptions() {
   if (!sel || !langSel) return;
   const lang = String(langSel.value || 'es').toLowerCase();
   const langBase = lang.split('-')[0];
+
+  if (engine === 'disney') {
+    const voices = getDisneyVoiceCatalog();
+    const cur = sel.value;
+    sel.innerHTML = voices.length
+      ? voices.map((v) => `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.label)}</option>`).join('')
+      : '<option value="">— Sin voces Disney —</option>';
+    if (!voices.some((v) => v.id === cur) && voices[0]) sel.value = voices[0].id;
+    return;
+  }
 
   if (engine === 'tiktok') {
     const voices = getTikTokVoiceCatalog().filter((v) => ttsVoiceLangFromId(v.id) === langBase);
@@ -5280,9 +5329,10 @@ function addTtsUserVoice() {
     return;
   }
 
-  const engine = engineEl.value === 'system' ? 'system' : 'tiktok';
-  if (engine === 'tiktok' && !capFeature('tts_tiktok')) {
-    toast('Las voces TikTok no están disponibles en tu plan', 'warn');
+  const engineRaw = engineEl.value;
+  const engine = engineRaw === 'system' ? 'system' : engineRaw;
+  if ((engine === 'tiktok' || engine === 'disney') && !capFeature('tts_tiktok')) {
+    toast('Las voces TikTok / Disney no están disponibles en tu plan', 'warn');
     return;
   }
 
@@ -5292,8 +5342,8 @@ function addTtsUserVoice() {
     return;
   }
 
-  const lang = String(langEl.value || 'es');
-  const translate = engine === 'tiktok' && ttsVoiceLangFromId(voice) === 'en';
+  const lang = engine === 'disney' ? 'en' : String(langEl.value || 'es');
+  const translate = engine === 'disney' || (engine === 'tiktok' && ttsVoiceLangFromId(voice) === 'en');
 
   if (!settings.tts) settings.tts = {};
   if (!Array.isArray(settings.tts.userVoices)) settings.tts.userVoices = [];
@@ -5329,11 +5379,11 @@ function ttsConfigForUser(userId) {
   const base = settings?.tts || {};
   const uv = ttsFindUserVoice(userId);
   if (!uv) return base;
-  if (uv.engine === 'tiktok') {
+  if (uv.engine === 'tiktok' || uv.engine === 'disney') {
     return {
       ...base,
       tiktokVoice: uv.voice,
-      tiktokTranslateEs: uv.translate !== false,
+      tiktokTranslateEs: uv.engine === 'disney' ? true : (uv.translate !== false),
       voice: '',
     };
   }
@@ -5924,6 +5974,7 @@ function ttsOnGift(p) {
     if (!capFeature('tts_tiktok')) {
       uvEngine.value = 'system';
       uvEngine.querySelector('option[value="tiktok"]')?.remove();
+      uvEngine.querySelector('option[value="disney"]')?.remove();
     }
     uvEngine.addEventListener('change', () => { fillTtsUvLangOptions(); fillTtsUvVoiceOptions(); });
   }

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Tiempo en live (Neon)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rajdhani:wght@700;800&family=Rubik:wght@700;800;900&family=Space+Grotesk:wght@700&family=Titan+One&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; overflow: hidden;
+      background: transparent !important;
+      width: 100%; height: 100%;
+      font-family: var(--tlv-font, 'Orbitron', system-ui, sans-serif);
+    }
+    body {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+    }
+    .wrap {
+      transform: scale(var(--tlv-scale, 1));
+      transform-origin: center center;
+      padding: 8px;
+    }
+    .panel {
+      position: relative;
+      min-width: 220px;
+      padding: 14px 22px 16px;
+      border-radius: 12px;
+      background: rgba(4, 4, 8, var(--tlv-bgop, 0.88));
+      border: 2px solid color-mix(in srgb, var(--tlv-neon, #00ffcc) 55%, transparent);
+      box-shadow:
+        0 0 18px color-mix(in srgb, var(--tlv-neon, #00ffcc) 35%, transparent),
+        0 0 42px color-mix(in srgb, var(--tlv-accent, #ff00aa) 18%, transparent),
+        inset 0 0 24px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+    }
+    .panel::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg,
+        color-mix(in srgb, var(--tlv-neon, #00ffcc) 8%, transparent) 0%,
+        transparent 45%,
+        color-mix(in srgb, var(--tlv-accent, #ff00aa) 6%, transparent) 100%);
+      pointer-events: none;
+    }
+    .panel::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -120%; width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+      transform: skewX(-18deg);
+      animation: tlv-scan 3.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes tlv-scan {
+      0%, 70%, 100% { left: -120%; opacity: 0; }
+      15%, 45% { left: 140%; opacity: 1; }
+    }
+    .title {
+      position: relative;
+      text-align: center;
+      font-family: var(--tlv-font, 'Orbitron', system-ui, sans-serif);
+      font-size: calc(var(--tlv-title-size, 22px) * var(--tlv-title-scale, 1));
+      font-weight: 900;
+      letter-spacing: var(--tlv-ls, 0.12em);
+      text-transform: uppercase;
+      line-height: 1.15;
+      margin: 0 0 10px;
+      color: var(--tlv-text, #ffffff);
+      text-shadow:
+        0 0 8px color-mix(in srgb, var(--tlv-neon, #00ffcc) 80%, transparent),
+        0 0 18px color-mix(in srgb, var(--tlv-accent, #ff00aa) 45%, transparent),
+        0 2px 0 rgba(0,0,0,.85);
+      -webkit-text-stroke: 1px rgba(0,0,0,.65);
+    }
+    .title.is-hidden { display: none !important; }
+    html[data-colormode="rainbow"] .tlv-txt,
+    html[data-colormode="flow"] .tlv-txt {
+      background: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5, #ffbe0b, #fb5607, #ff006e);
+      background-size: 220% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+      -webkit-text-stroke: 0;
+      filter: drop-shadow(0 0 8px rgba(255,255,255,.35));
+    }
+    html[data-colormode="flow"] .tlv-txt { animation: tlv-rainbow 5s linear infinite; }
+    @keyframes tlv-rainbow { 0% { background-position: 0% center; } 100% { background-position: 220% center; } }
+
+    .row {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .live-dot {
+      width: calc(var(--tlv-dot, 14px));
+      height: calc(var(--tlv-dot, 14px));
+      border-radius: 50%;
+      background: var(--tlv-live, #ff2244);
+      box-shadow:
+        0 0 8px var(--tlv-live, #ff2244),
+        0 0 18px color-mix(in srgb, var(--tlv-live, #ff2244) 70%, transparent);
+      flex-shrink: 0;
+      animation: tlv-pulse 1.4s ease-in-out infinite;
+    }
+    .live-dot.is-hidden { display: none !important; }
+    .live-dot.paused { animation: none; opacity: .45; box-shadow: 0 0 6px rgba(255,34,68,.35); }
+    @keyframes tlv-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.12); opacity: .82; }
+    }
+    .time {
+      font-family: var(--tlv-font, 'Orbitron', system-ui, sans-serif);
+      font-size: calc(var(--tlv-time-size, 42px) * var(--tlv-time-scale, 1));
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: var(--tlv-text, #ffffff);
+      text-shadow:
+        0 0 10px color-mix(in srgb, var(--tlv-neon, #00ffcc) 75%, transparent),
+        0 0 22px color-mix(in srgb, var(--tlv-accent, #ff00aa) 40%, transparent),
+        0 2px 0 rgba(0,0,0,.9);
+      -webkit-text-stroke: 1px rgba(0,0,0,.7);
+    }
+    body:not(.live) .panel {
+      border-color: color-mix(in srgb, var(--tlv-neon, #00ffcc) 28%, transparent);
+      box-shadow:
+        0 0 10px color-mix(in srgb, var(--tlv-neon, #00ffcc) 15%, transparent),
+        inset 0 0 20px rgba(0, 0, 0, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="wrap">
+    <div class="panel" id="panel">
+      <h1 class="title tlv-txt" id="title">TIEMPO EN LIVE</h1>
+      <div class="row">
+        <span class="live-dot" id="dot" aria-hidden="true"></span>
+        <div class="time tlv-txt" id="time">0:00:00</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+
+    const FONTS = {
+      pressstart: "'Press Start 2P', monospace",
+      exo2: "'Exo 2', system-ui, sans-serif",
+      luckiest: "'Luckiest Guy', system-ui, sans-serif",
+      bangers: "'Bangers', system-ui, sans-serif",
+      lilita: "'Lilita One', system-ui, sans-serif",
+      titan: "'Titan One', system-ui, sans-serif",
+      fredoka: "'Fredoka', system-ui, sans-serif",
+      bungee: "'Bungee', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif",
+      oswald: "'Oswald', system-ui, sans-serif",
+      bebas: "'Bebas Neue', Impact, sans-serif",
+      montserrat: "'Montserrat', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif",
+      orbitron: "'Orbitron', system-ui, sans-serif",
+      inter: "'Inter', system-ui, sans-serif",
+      rajdhani: "'Rajdhani', system-ui, sans-serif",
+      space: "'Space Grotesk', system-ui, sans-serif",
+      system: 'system-ui, sans-serif',
+    };
+
+    let cfg = {
+      title: 'TIEMPO EN LIVE',
+      onLiveEnd: 'pause',
+      neon: '#00ffcc',
+      accent: '#ff00aa',
+      liveColor: '#ff2244',
+      textColor: '#ffffff',
+      colorMode: 'solid',
+      font: 'orbitron',
+      titleSize: 22,
+      timeSize: 42,
+      dotSize: 14,
+      scale: 100,
+      bgOpacity: 88,
+      showTitle: true,
+      showLiveDot: true,
+    };
+
+    let elapsedMs = 0;
+    let ticking = false;
+    let localTick = null;
+    let localBaseMs = 0;
+    let localTickStart = 0;
+    let embedSim = null;
+
+    function clamp(n, min, max, fb) {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return fb;
+      return Math.min(max, Math.max(min, v));
+    }
+
+    function fmtMs(ms) {
+      const t = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(t / 3600);
+      const m = Math.floor((t % 3600) / 60);
+      const s = t % 60;
+      const mm = m < 10 ? '0' + m : String(m);
+      const ss = s < 10 ? '0' + s : String(s);
+      return h + ':' + mm + ':' + ss;
+    }
+
+    function stopLocalTick() {
+      if (localTick) { clearInterval(localTick); localTick = null; }
+    }
+
+    function render(ms) {
+      const el = document.getElementById('time');
+      if (el) el.textContent = fmtMs(ms == null ? elapsedMs : ms);
+      document.body.classList.toggle('live', ticking);
+      const dot = document.getElementById('dot');
+      if (dot) dot.classList.toggle('paused', !ticking);
+    }
+
+    function startLocalTick() {
+      stopLocalTick();
+      if (!ticking) { render(); return; }
+      localBaseMs = elapsedMs;
+      localTickStart = Date.now();
+      localTick = setInterval(() => {
+        render(localBaseMs + (Date.now() - localTickStart));
+      }, 200);
+      render();
+    }
+
+    function applyUptime(payload) {
+      if (!payload || typeof payload !== 'object') return;
+      if (typeof payload.ms === 'number') elapsedMs = Math.max(0, payload.ms);
+      ticking = !!payload.ticking;
+      startLocalTick();
+    }
+
+    function applyStyle() {
+      const root = document.documentElement;
+      root.style.setProperty('--tlv-font', FONTS[cfg.font] || FONTS.orbitron);
+      root.style.setProperty('--tlv-neon', cfg.neon || '#00ffcc');
+      root.style.setProperty('--tlv-accent', cfg.accent || '#ff00aa');
+      root.style.setProperty('--tlv-live', cfg.liveColor || '#ff2244');
+      root.style.setProperty('--tlv-text', cfg.textColor || '#ffffff');
+      root.style.setProperty('--tlv-title-size', String(clamp(cfg.titleSize, 12, 48, 22)) + 'px');
+      root.style.setProperty('--tlv-time-size', String(clamp(cfg.timeSize, 20, 96, 42)) + 'px');
+      root.style.setProperty('--tlv-dot', String(clamp(cfg.dotSize, 8, 28, 14)) + 'px');
+      root.style.setProperty('--tlv-scale', String(clamp(cfg.scale, 50, 200, 100) / 100));
+      root.style.setProperty('--tlv-bgop', String(clamp(cfg.bgOpacity, 0, 100, 88) / 100));
+      root.style.setProperty('--tlv-ls', String(clamp(cfg.letterSpacing, 0, 30, 12) / 100) + 'em');
+      root.dataset.colormode = cfg.colorMode === 'rainbow' || cfg.colorMode === 'flow' ? cfg.colorMode : 'solid';
+
+      const titleEl = document.getElementById('title');
+      if (titleEl) {
+        titleEl.textContent = String(cfg.title || 'TIEMPO EN LIVE').trim() || 'TIEMPO EN LIVE';
+        titleEl.classList.toggle('is-hidden', cfg.showTitle === false);
+      }
+      document.getElementById('dot')?.classList.toggle('is-hidden', cfg.showLiveDot === false);
+    }
+
+    function mergeCfg(c) {
+      if (!c || typeof c !== 'object') return;
+      cfg = Object.assign(cfg, c);
+      applyStyle();
+      render();
+    }
+
+    function cancelEmbedSim() {
+      if (embedSim) { clearTimeout(embedSim); embedSim = null; }
+    }
+
+    function runEmbedTest() {
+      cancelEmbedSim();
+      elapsedMs = 0;
+      ticking = true;
+      startLocalTick();
+      embedSim = setTimeout(() => {
+        if (cfg.onLiveEnd === 'reset') elapsedMs = 0;
+        else elapsedMs = localBaseMs + (Date.now() - localTickStart);
+        ticking = false;
+        stopLocalTick();
+        render();
+        embedSim = null;
+      }, 6500);
+    }
+
+    function runEmbedReset() {
+      cancelEmbedSim();
+      elapsedMs = 0;
+      ticking = false;
+      stopLocalTick();
+      render();
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings' && m.payload?.liveTimer) mergeCfg(m.payload.liveTimer);
+        if (m.type === 'liveUptime') applyUptime(m.payload);
+        if (m.type === 'state' && m.payload && typeof m.payload.connected === 'boolean') {
+          if (!m.payload.connected && !ticking && typeof m.payload.startedAt !== 'number') return;
+        }
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'livetimer') return;
+      if (d.type === 'config') { mergeCfg(d.config); return; }
+      if (d.type === 'test') {
+        if (isEmbed) runEmbedTest();
+        else applyUptime({ ms: elapsedMs, ticking: true });
+        return;
+      }
+      if (d.type === 'reset') {
+        if (isEmbed) runEmbedReset();
+        else applyUptime({ ms: 0, ticking: false });
+        return;
+      }
+      if (d.type === 'uptime') applyUptime(d.payload);
+    });
+
+    if (isEmbed) {
+      elapsedMs = 6677000;
+      ticking = true;
+      applyStyle();
+      startLocalTick();
+    } else {
+      applyStyle();
+      render();
+      connect();
+    }
+  })();
+  </script>
+</body>
+</html>

@@ -1984,6 +1984,51 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Tiempo en live (Neon) -->
+        <div id="tlvConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>⏱ Configurar — Tiempo en live (Neon)</h2>
+              <button class="modal-close" id="tlvcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="tlvcfg-title" maxlength="48" value="TIEMPO EN LIVE" placeholder="TIEMPO EN LIVE">
+              <label class="ml">AL APAGAR LIVE</label>
+              <select id="tlvcfg-onliveend">
+                <option value="pause">Pausar (conservar tiempo al reconectar)</option>
+                <option value="reset">Reiniciar a 0:00:00</option>
+              </select>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">NEÓN PRINCIPAL</label><input type="color" id="tlvcfg-neon" value="#00ffcc"></div>
+                <div><label class="ml">NEÓN SECUNDARIO</label><input type="color" id="tlvcfg-accent" value="#ff00aa"></div>
+                <div><label class="ml">PUNTO LIVE</label><input type="color" id="tlvcfg-livecolor" value="#ff2244"></div>
+                <div><label class="ml">COLOR TEXTO</label><input type="color" id="tlvcfg-textcolor" value="#ffffff"></div>
+                <div><label class="ml">FUENTE</label><select id="tlvcfg-font" class="cfg-font"></select></div>
+                <div>
+                  <label class="ml">ESTILO DE COLOR</label>
+                  <select id="tlvcfg-colormode">
+                    <option value="solid">Neón sólido</option>
+                    <option value="rainbow">Arcoíris</option>
+                    <option value="flow">Arcoíris animado</option>
+                  </select>
+                </div>
+                <div><label class="ml">TAMAÑO TÍTULO</label><input type="number" id="tlvcfg-titlesize" min="12" max="48" value="22"></div>
+                <div><label class="ml">TAMAÑO CONTADOR</label><input type="number" id="tlvcfg-timesize" min="20" max="96" value="42"></div>
+                <div><label class="ml">TAMAÑO PUNTO LIVE</label><input type="number" id="tlvcfg-dotsize" min="8" max="28" value="14"></div>
+                <div><label class="ml">ESPACIADO LETRAS</label><input type="number" id="tlvcfg-letterspace" min="0" max="30" value="12"></div>
+                <div><label class="ml">ESCALA (50-200%)</label><input type="number" id="tlvcfg-scale" min="50" max="200" value="100"></div>
+                <div><label class="ml">OPACIDAD FONDO (0-100)</label><input type="number" id="tlvcfg-bgop" min="0" max="100" value="88"></div>
+              </div>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="tlvcfg-showtitle" checked> <span>Mostrar título</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="tlvcfg-showdot" checked> <span>Mostrar punto rojo LIVE</span></label>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="tlvcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Contador de seguidores -->
         <div id="focConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -3340,6 +3385,28 @@
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
 
+              <!-- Tarjeta PRO: Tiempo en live (Neon) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="tlv-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="tlv-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="tlv-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="tlv-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">⏱ Tiempo en live (Neon)</h3>
+                <p class="ovpro-desc">Contador de duración del live con estilo gamer neón. Empieza al conectar al live; al desconectar pausa o reinicia según elijas. Título y colores personalizables.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/tiempo-live-neon.html">/tiempo-live-neon.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="tlv-preview" src="/tiempo-live-neon.html?embed=1" title="Vista previa tiempo en live neon"></iframe>
+                </div>
+              </div>
+
               <!-- Tarjeta PRO: Contador de seguidores -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -3823,7 +3890,7 @@
             <!-- Voces personalizadas por usuario -->
             <div class="settings-card tts-card tts-uv-card">
               <div class="tts-head"><h3>Voces Personalizadas</h3><span class="tts-sub">Asigna una voz distinta a cada usuario del chat</span></div>
-              <p class="hint">Cuando un usuario asignado comente, su mensaje se leerá con la voz que elijas (TikTok o del sistema). El resto del chat usa la voz general de arriba.</p>
+              <p class="hint">Cuando un usuario asignado comente, su mensaje se leerá con la voz que elijas (TikTok, Disney o del sistema). El resto del chat usa la voz general de arriba. Las voces Disney traducen al inglés automáticamente.</p>
 
               <div class="tts-uv-new">
                 <h4 class="tts-uv-section">Nueva asignación</h4>
@@ -3839,6 +3906,7 @@
                   <label>Motor</label>
                   <select id="tts-uv-engine">
                     <option value="tiktok">TikTok (Server)</option>
+                    <option value="disney">Disney / Personajes</option>
                     <option value="system">Sistema (navegador)</option>
                   </select>
                 </div>
