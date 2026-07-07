@@ -206,13 +206,22 @@ async function loadGiftCatalog(force = false, region = 'auto') {
 }
 
 function mergeGiftLists(base, extra) {
-  const merged = new Map();
-  for (const g of base || []) merged.set(String(g.id), g);
+  const byId = new Map();
+  const order = [];
   for (const g of extra || []) {
     const id = String(g.id);
-    merged.set(id, { ...merged.get(id), ...g, community: true });
+    if (!id) continue;
+    if (!byId.has(id)) order.push(id);
+    byId.set(id, { ...byId.get(id), ...g });
   }
-  return [...merged.values()].sort((a, b) => (a.diamonds - b.diamonds) || String(a.name).localeCompare(String(b.name)));
+  const sortedBase = [...(base || [])].sort((a, b) => (a.diamonds - b.diamonds) || String(a.name).localeCompare(String(b.name)));
+  for (const g of sortedBase) {
+    const id = String(g.id);
+    if (!id) continue;
+    if (!byId.has(id)) order.push(id);
+    byId.set(id, { ...byId.get(id), ...g });
+  }
+  return order.map((id) => byId.get(id));
 }
 
 loadGiftCatalog(false, 'auto').then((r) => {

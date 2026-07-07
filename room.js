@@ -4863,6 +4863,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     switch (data.action) {
       case 'ping':
         // Keepalive desde el navegador: respondemos al instante para confirmar vida.
+        if (ws) ws.isAlive = true;
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pong' })); } catch {}
         break;
       case 'connect':
