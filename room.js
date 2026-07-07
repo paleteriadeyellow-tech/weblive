@@ -1828,6 +1828,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Una acción "dispara algo" si tiene teclas, sonido o alguna salida activada.
   function actionDoesSomething(a) {
     return !!(a && (a.keys || a.sound
+      || (a.mediaShow && a.mediaShow.on && a.mediaShow.url)
       || (a.marioSpawn && a.marioSpawn.npcId != null)
       || (a.webhookCmd && a.webhookCmd.on && a.webhookCmd.url)
       || (a.obsCmd && a.obsCmd.on)
@@ -1976,6 +1977,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       });
     } else if (a.sound) {
       emitKeyAction({ id: a.id, name: a.name || '', keys: '', times: 1, sound: a.sound, soundName: a.soundName || '', soundVolume: a.soundVolume != null ? a.soundVolume : 1 });
+    }
+    if (a.mediaShow?.on && a.mediaShow?.url) {
+      const scr = Number(a.mediaShow.screen) || 1;
+      const ms = a.mediaShow;
+      broadcast('log', { level: 'ok', text: `🎬 Media: "${a.name || ms.name || 'acción'}"` });
+      emitMedia({
+        id: a.id,
+        name: a.name || ms.name || '',
+        url: ms.url,
+        screen: scr,
+        volume: ms.volume ?? 100,
+        size: ms.size ?? screenSize(scr),
+        playQueue: s.playback?.playQueue !== false,
+        maxDurationSec: ms.originalDuration === false ? 5 : 0,
+      });
     }
     const ctx = context ? { info: context.info || {}, user: context.user || null, times: t } : null;
     const marioFromField = fireMarioSpawnFromAction(a, context, t);
@@ -5007,7 +5023,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'testVideo':
         if (data.video) {
           const scr = Number(data.video.screen) || 1;
-          emitMedia({ ...data.video, screen: scr, size: screenSize(scr), test: true });
+          emitMedia({
+            ...data.video,
+            screen: scr,
+            size: data.video.size ?? screenSize(scr),
+            maxDurationSec: data.video.originalDuration === false ? 5 : (data.video.maxDurationSec || 0),
+            test: true,
+          });
         }
         break;
       case 'testLevelUp': {

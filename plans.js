@@ -97,7 +97,7 @@ export const CAPABILITIES = {
     { key: 'game_repo', label: 'Juego: R.E.P.O.' },
     { key: 'game_l4d', label: 'Juego: Left 4 Dead 2' },
     { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
-    { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins (Próximamente)' },
+    { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
   ],
   // Características sueltas.
   extras: [
