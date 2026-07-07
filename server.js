@@ -200,10 +200,19 @@ async function loadGiftCatalog(force = false, region = 'auto') {
   if (regionKey === 'auto') {
     giftsCache = results;
     giftsCacheAt = at;
-    giftsById.clear();
     for (const g of results) giftsById.set(String(g.id), g);
   }
   return results;
+}
+
+function mergeGiftLists(base, extra) {
+  const merged = new Map();
+  for (const g of base || []) merged.set(String(g.id), g);
+  for (const g of extra || []) {
+    const id = String(g.id);
+    merged.set(id, { ...merged.get(id), ...g, community: true });
+  }
+  return [...merged.values()].sort((a, b) => (a.diamonds - b.diamonds) || String(a.name).localeCompare(String(b.name)));
 }
 
 loadGiftCatalog(false, 'auto').then((r) => {
@@ -1249,13 +1258,25 @@ app.get('/api/gifts', async (req, res) => {
   try {
     const force = req.query.force === '1' || req.query.force === 'true';
     const region = normalizeGiftRegion(req.query.region);
-    const results = await loadGiftCatalog(force, region);
+    let results = await loadGiftCatalog(force, region);
+    const user = userFromRequest(req);
+    if (user) {
+      const community = getRoomForUser(user).getCommunityGifts();
+      if (community.length) results = mergeGiftLists(results, community);
+    }
     res.json({ results, region });
   } catch (e) {
     const region = normalizeGiftRegion(req.query.region);
     const fallback = giftsCacheByRegion.get(region)?.results || giftsCache || [];
     res.status(502).json({ results: fallback, region, error: 'No se pudo cargar el catálogo de regalos.' });
   }
+});
+
+// Regalos de comunidad vistos en el live del usuario (por room).
+app.get('/api/community-gifts', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.json({ results: [] });
+  res.json({ results: getRoomForUser(user).getCommunityGifts() });
 });
 
 // Proxy de imágenes externas (CDN de regalos TikTok) para descargar PNG sin CORS.
