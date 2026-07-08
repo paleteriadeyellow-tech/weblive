@@ -101,6 +101,7 @@ export const CAPABILITIES = {
     { key: 'game_l4d', label: 'Juego: Left 4 Dead 2' },
     { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
     { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
+    { key: 'game_geometrydash', label: 'Juego: Geometry Dash' },
   ],
   // Características sueltas.
   extras: [
@@ -135,6 +136,7 @@ function defaultConfig() {
   freeFeatures.game_l4d = false;
   freeFeatures.game_crashctr = false;
   freeFeatures.game_metalslug = false;
+  freeFeatures.game_geometrydash = false;
 
   // Metal Slug: próximamente — ni siquiera Premium hasta lanzamiento (solo admin).
   features.game_metalslug = false;
