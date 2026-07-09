@@ -53,6 +53,7 @@ export const CAPABILITIES = {
     { key: 'ov_winscounterminecraft', label: 'Contador de victorias (Minecraft)', path: '/contador-wins-minecraft.html' },
     { key: 'ov_winscountermario', label: 'Contador de victorias (Mario Bros)', path: '/contador-wins-mario.html' },
     { key: 'ov_giftvs', label: 'Gift VS', path: '/giftvs.html' },
+    { key: 'ov_flowmeter', label: 'Medidor de Flow', path: '/medidor-flow.html' },
     { key: 'ov_giftseq', label: 'Gift Sequence', path: '/giftseq.html' },
     { key: 'ov_habibitop', label: 'Habibi Top Donador', path: '/habibi-top.html' },
     { key: 'ov_giftshowcase', label: 'Banda de regalos', path: '/gift-banda.html' },

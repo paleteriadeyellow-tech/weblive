@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Medidor de Flow</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Arial+Black&family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; }
+    html.embed, html.embed body { width: 100%; height: 100%; }
+    html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.embed .flw-stage { transform: scale(var(--fit, 1)); transform-origin: center center; }
+
+    .flw-stage { width: 680px; transform: scale(var(--flw-scale, 1)); transform-origin: top center; }
+    .flw-card {
+      border-radius: 18px;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 10px 12px 10px;
+      color: var(--flw-text, #f4f8ff);
+    }
+    .flw-title { text-shadow: 0 1px 8px rgba(0, 0, 0, .65); }
+    .flw-meta { text-shadow: 0 1px 6px rgba(0, 0, 0, .55); }
+    .flw-name { text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+
+    .flw-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 2px;
+      margin-bottom: 10px;
+      min-height: calc(var(--flw-bar-h, 28px) + 36px);
+    }
+    .flw-title {
+      font-weight: 900;
+      font-size: var(--flw-title-size, 18px);
+      letter-spacing: .06em;
+      color: #5eead4;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+
+    .flw-countdown {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+    }
+    .flw-countdown[hidden] { display: none !important; }
+    .flw-countdown-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .1em;
+      color: rgba(255, 255, 255, .55);
+      text-transform: uppercase;
+    }
+    .flw-countdown-num {
+      font-family: 'Orbitron', 'Inter', system-ui, sans-serif;
+      font-size: calc(var(--flw-font-size, 13px) * 1.75);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .08em;
+      color: #ff6b4a;
+      line-height: 1;
+      text-shadow: 0 0 16px rgba(255, 107, 74, .45);
+    }
+    .flw-countdown.is-urgent .flw-countdown-num { animation: flwTimerUrgent .65s ease-in-out infinite; }
+    .flw-countdown.is-ended .flw-countdown-num { color: #94a3b8; text-shadow: none; animation: none; }
+    .flw-countdown.is-ended .flw-countdown-label { color: #fbbf24; }
+    @keyframes flwTimerUrgent { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .88; transform: scale(1.04); } }
+
+    .flw-timer { font-variant-numeric: tabular-nums; color: #fbbf24; }
+    .flw-timer[hidden] { display: none !important; }
+
+    .flw-people { display: grid; gap: 8px; margin-bottom: 8px; justify-items: center; }
+    .flw-people.cols-1 { grid-template-columns: 1fr; }
+    .flw-people.cols-2 { grid-template-columns: 1fr 1fr; }
+    .flw-people.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .flw-people.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .flw-people.cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+    .flw-person { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; text-align: center; }
+    .flw-av-wrap {
+      flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; padding: 2px;
+      background: transparent; border: 2px solid var(--p-color, #fff);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--p-color, #fff) 45%, transparent);
+      overflow: hidden;
+    }
+    .flw-av-wrap.is-link { cursor: pointer; }
+    .flw-av-wrap.flw-winner-glow {
+      border-color: #ffd700 !important;
+      box-shadow: 0 0 10px #fbbf24, 0 0 22px rgba(251, 191, 36, .75), 0 0 38px rgba(255, 215, 0, .45);
+      animation: flwGoldGlow 1.35s ease-in-out infinite;
+    }
+    @keyframes flwGoldGlow {
+      0%, 100% { box-shadow: 0 0 10px #fbbf24, 0 0 20px rgba(251, 191, 36, .6); filter: brightness(1); }
+      50% { box-shadow: 0 0 16px #ffd700, 0 0 32px rgba(255, 215, 0, .9), 0 0 48px rgba(255, 200, 50, .5); filter: brightness(1.12); }
+    }
+    .flw-av { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; background: #111; }
+    .flw-av-ph { width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; background: rgba(255,255,255,.06); }
+    .flw-name { font-weight: 800; font-size: calc(var(--flw-font-size, 16px) * .95); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .flw-name.flw-winner-name {
+      color: #ffd700;
+      text-shadow: 0 0 10px rgba(255, 215, 0, .85), 0 0 22px rgba(251, 191, 36, .55);
+      animation: flwNameGold 1.35s ease-in-out infinite;
+    }
+    @keyframes flwNameGold {
+      0%, 100% { color: #fbbf24; text-shadow: 0 0 10px rgba(251, 191, 36, .7), 0 0 20px rgba(255, 215, 0, .45); }
+      50% { color: #fff8dc; text-shadow: 0 0 14px rgba(255, 215, 0, .95), 0 0 28px rgba(251, 191, 36, .65); }
+    }
+    .flw-wins { font-size: 10px; font-weight: 800; color: #fbbf24; white-space: nowrap; }
+    .flw-wins[hidden] { display: none !important; }
+
+    .flw-bar-wrap {
+      display: flex; width: 100%; border-radius: 999px; overflow: hidden;
+      height: var(--flw-bar-h, 36px); border: 1px solid rgba(255, 255, 255, .18);
+      background: transparent; margin-bottom: 8px;
+    }
+    .flw-seg {
+      display: flex; align-items: center; justify-content: center; min-width: 0;
+      font-weight: 900; font-size: calc(var(--flw-font-size, 16px) * .85);
+      color: #0b1020; transition: flex-basis .35s ease, width .35s ease;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, .25);
+      overflow: hidden; white-space: nowrap;
+    }
+    .flw-seg.is-empty { color: rgba(255, 255, 255, .45); text-shadow: none; }
+    .flw-seg.flw-seg-pop { animation: flwSegPop .42s cubic-bezier(.22, 1.1, .36, 1); }
+    @keyframes flwSegPop {
+      0% { filter: brightness(1); }
+      40% { filter: brightness(1.45); box-shadow: inset 0 0 18px rgba(255,255,255,.35); }
+      100% { filter: brightness(1); }
+    }
+    .flw-card.flw-card-pulse { animation: flwCardPulse .35s ease; }
+    @keyframes flwCardPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.012); } }
+
+    .flw-gifts { display: grid; gap: 8px; }
+    .flw-gifts.cols-1 { grid-template-columns: 1fr; }
+    .flw-gifts.cols-2 { grid-template-columns: 1fr 1fr; }
+    .flw-gifts.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .flw-gifts.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    .flw-gifts.cols-5 { grid-template-columns: repeat(5, 1fr); }
+    .flw-gift { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+    .flw-gift img { width: 28px; height: 28px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
+    .flw-gift span { font-weight: 800; font-size: calc(var(--flw-font-size, 16px) * .78); color: var(--flw-text, #f4f8ff); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+
+    .flw-winner-banner {
+      margin-top: 10px; text-align: center; font-weight: 900; font-size: calc(var(--flw-font-size, 16px) * 1.05);
+      letter-spacing: .04em; color: #fbbf24; text-shadow: 0 0 18px rgba(251, 191, 36, .45);
+      animation: flw-pop .45s cubic-bezier(.22, 1.1, .36, 1) both;
+    }
+    .flw-winner-banner[hidden] { display: none !important; }
+    @keyframes flw-pop { 0% { opacity: 0; transform: translateY(8px) scale(.92); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+  </style>
+</head>
+<body>
+  <div class="flw-stage" id="flw-stage">
+    <div class="flw-card" id="flw-card">
+      <div class="flw-hero" id="flw-hero">
+        <div class="flw-title" id="flw-title">MEDIDOR DE FLOW</div>
+        <div class="flw-countdown" id="flw-countdown" hidden>
+          <span class="flw-countdown-num" id="flw-countdown-num">00:00</span>
+          <span class="flw-countdown-label" id="flw-countdown-label" hidden>Tiempo restante</span>
+        </div>
+      </div>
+      <div class="flw-people" id="flw-people"></div>
+      <div class="flw-bar-wrap" id="flw-bar"></div>
+      <div class="flw-gifts" id="flw-gifts"></div>
+      <div class="flw-winner-banner" id="flw-winner" hidden></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const FONTS = {
+      arialblack: "'Arial Black', 'Arial Black', Gadget, sans-serif",
+      luckiest: "'Luckiest Guy', system-ui, sans-serif",
+      bangers: "'Bangers', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif",
+      inter: "'Inter', system-ui, sans-serif",
+      montserrat: "'Montserrat', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif",
+      orbitron: "'Orbitron', system-ui, sans-serif",
+      oswald: "'Oswald', system-ui, sans-serif",
+      bebas: "'Bebas Neue', Impact, sans-serif",
+      system: "system-ui, sans-serif",
+    };
+
+    let cfg = defaultCfg();
+    let scores = [];
+    let wins = [];
+    let roundLeft = 0;
+    let roundTimer = null;
+    let roundActive = false;
+    let roundEnded = false;
+    let testTimers = [];
+    let simMode = false;
+    let popSegIdx = -1;
+    let winnerIdx = -1;
+    const avatarCache = {};
+
+    function demoParticipants() {
+      const gifts = ['Rose', 'GG', 'Heart Me', 'TikTok', 'Finger Heart'];
+      return [1, 2, 3].map((n, i) => ({
+        name: 'test' + n,
+        tiktokUrl: '',
+        avatar: '',
+        color: ['#ff4b91', '#40e0d0', '#9370db', '#fbbf24', '#f97316'][i] || '#5eead4',
+        giftId: '',
+        giftName: gifts[i] || 'Rose',
+        giftImage: '',
+      }));
+    }
+
+    function defaultCfg() {
+      return {
+        title: 'MEDIDOR DE FLOW',
+        textColor: '#f4f8ff',
+        fontSize: 13,
+        barHeight: 28,
+        scale: 78,
+        maxParticipants: 5,
+        font: 'inter',
+        showPercent: true,
+        roundByTime: false,
+        timerWins: false,
+        roundSec: 60,
+        participants: [],
+      };
+    }
+
+    function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function fmtTime(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    }
+
+    function parseTikTokProfileUrl(input) {
+      const s = String(input || '').trim();
+      if (!s) return '';
+      const m = s.match(/tiktok\.com\/@([^/?#]+)/i);
+      if (m) return 'https://www.tiktok.com/@' + m[1];
+      const user = s.replace(/^@/, '').trim();
+      return user ? ('https://www.tiktok.com/@' + user) : '';
+    }
+
+    function isTimedMode() {
+      return !!(cfg.roundByTime || cfg.timerWins) && (parseInt(cfg.roundSec, 10) || 0) > 0;
+    }
+
+    function syncTimedCfg() {
+      if (cfg.roundByTime == null) cfg.roundByTime = !!cfg.timerWins;
+      if (cfg.roundByTime) cfg.timerWins = true;
+    }
+
+    function activeParticipants() {
+      const max = clamp(cfg.maxParticipants || 5, 1, 5);
+      let list = (cfg.participants || []).slice(0, max).filter((p) => p && (p.name || p.giftId || p.giftName));
+      if (!list.length) list = demoParticipants().slice(0, max);
+      return list;
+    }
+
+    let embedFitFn = null;
+
+    function applyVisual() {
+      const card = document.getElementById('flw-card');
+      const stage = document.getElementById('flw-stage');
+      const fs = clamp(parseInt(cfg.fontSize, 10) || 13, 10, 32);
+      const bh = clamp(parseInt(cfg.barHeight, 10) || 28, 16, 72);
+      const sc = clamp(parseInt(cfg.scale, 10) || 78, 50, 100) / 100;
+      card.style.fontFamily = FONTS[cfg.font] || FONTS.inter;
+      card.style.setProperty('--flw-text', cfg.textColor || '#f4f8ff');
+      card.style.setProperty('--flw-font-size', fs + 'px');
+      card.style.setProperty('--flw-title-size', Math.round(fs * 1.08) + 'px');
+      card.style.setProperty('--flw-bar-h', bh + 'px');
+      stage.style.setProperty('--flw-scale', String(sc));
+      document.getElementById('flw-title').textContent = cfg.title || 'MEDIDOR DE FLOW';
+      if (!isEmbed) {
+        stage.style.transform = 'scale(' + sc + ')';
+        stage.style.transformOrigin = 'top center';
+      } else if (embedFitFn) {
+        embedFitFn();
+      }
+    }
+
+    function pctForIndex(i, total) {
+      if (!total) return 0;
+      const sum = scores.reduce((a, b) => a + b, 0);
+      if (!sum) {
+        const n = activeParticipants().length || 1;
+        return Math.round(100 / n);
+      }
+      return Math.round((scores[i] || 0) / sum * 100);
+    }
+
+    function render() {
+      applyVisual();
+      const parts = activeParticipants();
+      const n = parts.length || 1;
+      const cols = 'cols-' + clamp(n, 1, 5);
+      const people = document.getElementById('flw-people');
+      const bar = document.getElementById('flw-bar');
+      const gifts = document.getElementById('flw-gifts');
+
+      people.className = 'flw-people ' + cols;
+      gifts.className = 'flw-gifts ' + cols;
+      people.innerHTML = '';
+      bar.innerHTML = '';
+      gifts.innerHTML = '';
+
+      const total = scores.reduce((a, b) => a + b, 0);
+
+      parts.forEach((p, i) => {
+        const color = p.color || '#5eead4';
+        const profile = parseTikTokProfileUrl(p.tiktokUrl || p.profileUrl || '');
+        const av = (p.avatar || avatarCache[(p.tiktokUrl || '').trim()] || '').trim();
+        const row = document.createElement('div');
+        row.className = 'flw-person';
+        row.style.setProperty('--p-color', color);
+        const avWrap = document.createElement(profile ? 'a' : 'div');
+        avWrap.className = 'flw-av-wrap' + (profile ? ' is-link' : '') + (roundEnded && winnerIdx === i ? ' flw-winner-glow' : '');
+        if (profile) {
+          avWrap.href = profile;
+          avWrap.target = '_blank';
+          avWrap.rel = 'noopener noreferrer';
+          avWrap.title = 'Ver perfil de TikTok';
+        }
+        if (av) {
+          const img = document.createElement('img');
+          img.className = 'flw-av';
+          img.src = av;
+          img.alt = p.name || '';
+          img.referrerPolicy = 'no-referrer';
+          img.onerror = function () { this.replaceWith(Object.assign(document.createElement('div'), { className: 'flw-av-ph', textContent: '👤' })); };
+          avWrap.appendChild(img);
+        } else {
+          const ph = document.createElement('div');
+          ph.className = 'flw-av-ph';
+          ph.textContent = '👤';
+          avWrap.appendChild(ph);
+        }
+        const name = document.createElement('div');
+        name.className = 'flw-name' + (roundEnded && winnerIdx === i ? ' flw-winner-name' : '');
+        name.textContent = p.name || ('test' + (i + 1));
+        row.appendChild(avWrap);
+        row.appendChild(name);
+        if (isTimedMode() && (wins[i] || 0) > 0) {
+          const w = document.createElement('span');
+          w.className = 'flw-wins';
+          w.textContent = '🏆 ' + wins[i];
+          row.appendChild(w);
+        }
+        people.appendChild(row);
+
+        const pct = pctForIndex(i, total);
+        const seg = document.createElement('div');
+        seg.className = 'flw-seg' + (!total ? ' is-empty' : '') + (popSegIdx === i ? ' flw-seg-pop' : '');
+        seg.style.flex = pct + ' 1 0';
+        seg.style.background = 'linear-gradient(180deg, ' + color + ' 0%, color-mix(in srgb, ' + color + ' 72%, #000) 100%)';
+        seg.textContent = cfg.showPercent ? (pct + '%') : '';
+        if (popSegIdx === i) {
+          seg.addEventListener('animationend', () => seg.classList.remove('flw-seg-pop'), { once: true });
+        }
+        bar.appendChild(seg);
+
+        const gift = document.createElement('div');
+        gift.className = 'flw-gift';
+        if (p.giftImage) {
+          const gi = document.createElement('img');
+          gi.src = p.giftImage;
+          gi.alt = p.giftName || '';
+          gi.referrerPolicy = 'no-referrer';
+          gift.appendChild(gi);
+        }
+        const gl = document.createElement('span');
+        gl.textContent = p.giftName || 'Regalo';
+        gift.appendChild(gl);
+        gifts.appendChild(gift);
+      });
+
+      const countdown = document.getElementById('flw-countdown');
+      const countdownNum = document.getElementById('flw-countdown-num');
+      const countdownLabel = document.getElementById('flw-countdown-label');
+      if (isTimedMode() && (roundActive || roundEnded)) {
+        countdown.hidden = false;
+        countdownNum.textContent = fmtTime(roundLeft);
+        countdown.classList.toggle('is-urgent', roundActive && roundLeft > 0 && roundLeft <= 10);
+        countdown.classList.toggle('is-ended', roundEnded);
+        if (roundEnded) {
+          countdownLabel.hidden = false;
+          countdownLabel.textContent = 'Partida terminada';
+        } else {
+          countdownLabel.hidden = true;
+        }
+      } else if (isTimedMode() && !roundActive && !roundEnded) {
+        countdown.hidden = false;
+        countdownNum.textContent = fmtTime(cfg.roundSec);
+        countdownLabel.hidden = true;
+        countdown.classList.remove('is-urgent', 'is-ended');
+      } else {
+        countdown.hidden = true;
+        countdownLabel.hidden = true;
+      }
+    }
+
+    function beginTimedRound() {
+      if (!isTimedMode() || roundActive || roundEnded) return;
+      roundLeft = simMode && isEmbed ? Math.min(18, cfg.roundSec) : cfg.roundSec;
+      startRoundTimer();
+    }
+
+    function matchesGift(participant, data) {
+      const k = String(participant.giftId || '').trim().toLowerCase();
+      const nombreTikTok = (data.giftName || '').toLowerCase().replace(/_/g, ' ');
+      const gid = data.giftId != null ? String(data.giftId) : '';
+      if (k) {
+        if (/^\d+$/.test(k)) return gid === k;
+        const partes = k.split('_').filter(Boolean);
+        if (!partes.length) return false;
+        const last = partes[partes.length - 1];
+        if (/^\d+$/.test(last)) {
+          if (gid === last) return true;
+          const namePart = partes.slice(0, -1).join(' ');
+          return !!(namePart && nombreTikTok.indexOf(namePart) !== -1);
+        }
+        return nombreTikTok.indexOf(partes.join(' ')) !== -1;
+      }
+      const name = String(participant.giftName || '').trim().toLowerCase();
+      if (!name) return false;
+      return nombreTikTok === name || nombreTikTok.indexOf(name) !== -1;
+    }
+
+    function giftCoins(data) {
+      const n = parseInt(data.diamonds, 10);
+      if (n > 0) return n;
+      const rep = Math.max(1, parseInt(data.repeatDelta, 10) || parseInt(data.repeatCount, 10) || 1);
+      return rep;
+    }
+
+    function ensureScoreLen() {
+      const n = activeParticipants().length;
+      while (scores.length < n) scores.push(0);
+      while (wins.length < n) wins.push(0);
+      scores.length = n;
+      wins.length = n;
+    }
+
+    function startRoundTimer() {
+      clearInterval(roundTimer);
+      if (!isTimedMode()) return;
+      if (!roundLeft) roundLeft = simMode && isEmbed ? Math.min(18, cfg.roundSec) : cfg.roundSec;
+      roundActive = true;
+      roundEnded = false;
+      winnerIdx = -1;
+      document.getElementById('flw-winner').hidden = true;
+      roundTimer = setInterval(() => {
+        roundLeft -= 1;
+        if (roundLeft <= 0) {
+          clearInterval(roundTimer);
+          roundTimer = null;
+          roundActive = false;
+          roundEnded = true;
+          finishRound();
+        }
+        render();
+      }, 1000);
+      render();
+    }
+
+    function finishRound() {
+      ensureScoreLen();
+      let best = -1;
+      let bestIdx = -1;
+      scores.forEach((v, i) => { if (v > best) { best = v; bestIdx = i; } });
+      const parts = activeParticipants();
+      const banner = document.getElementById('flw-winner');
+      winnerIdx = bestIdx;
+      if (bestIdx >= 0 && best > 0) {
+        wins[bestIdx] = (wins[bestIdx] || 0) + 1;
+        banner.hidden = false;
+        banner.textContent = '🏆 Gana ' + (parts[bestIdx]?.name || ('Participante ' + (bestIdx + 1)));
+      } else {
+        winnerIdx = -1;
+        banner.hidden = false;
+        banner.textContent = '⏱ Partida terminada';
+      }
+      render();
+    }
+
+    function applyGiftHit(data) {
+      if (roundEnded) return false;
+      const parts = activeParticipants();
+      ensureScoreLen();
+      let hit = false;
+      parts.forEach((p, i) => {
+        if (matchesGift(p, data)) {
+          scores[i] += giftCoins(data);
+          popSegIdx = i;
+          hit = true;
+        }
+      });
+      if (!hit) return false;
+      const card = document.getElementById('flw-card');
+      card.classList.remove('flw-card-pulse');
+      void card.offsetWidth;
+      card.classList.add('flw-card-pulse');
+      if (isTimedMode() && !roundActive && !roundEnded) beginTimedRound();
+      render();
+      popSegIdx = -1;
+      return true;
+    }
+
+    function onGift(data) {
+      applyGiftHit(data || {});
+    }
+
+    function prepareNewRound() {
+      clearTestTimers();
+      simMode = false;
+      popSegIdx = -1;
+      winnerIdx = -1;
+      if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
+      scores = [];
+      roundActive = false;
+      roundEnded = false;
+      roundLeft = 0;
+      document.getElementById('flw-winner').hidden = true;
+      ensureScoreLen();
+    }
+
+    function startRound() {
+      if (roundActive && !roundEnded) return;
+      prepareNewRound();
+      if (isTimedMode()) {
+        roundLeft = cfg.roundSec;
+        startRoundTimer();
+      } else {
+        roundActive = true;
+        render();
+      }
+    }
+
+    function restartRound() {
+      prepareNewRound();
+      if (isTimedMode()) {
+        roundLeft = cfg.roundSec;
+        startRoundTimer();
+      } else {
+        roundActive = true;
+        render();
+      }
+    }
+
+    function stopRound() {
+      if (roundEnded) return;
+      clearTestTimers();
+      simMode = false;
+      if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
+      roundActive = false;
+      roundEnded = true;
+      finishRound();
+    }
+
+    function handleRoundAction(action) {
+      switch (String(action || '')) {
+        case 'start': startRound(); break;
+        case 'stop': stopRound(); break;
+        case 'restart': restartRound(); break;
+        default: break;
+      }
+    }
+
+    function resetAll() {
+      clearTestTimers();
+      simMode = false;
+      popSegIdx = -1;
+      winnerIdx = -1;
+      if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
+      scores = [];
+      wins = [];
+      roundLeft = 0;
+      roundActive = false;
+      roundEnded = false;
+      document.getElementById('flw-winner').hidden = true;
+      ensureScoreLen();
+      render();
+    }
+
+    function resetRoundScores(keepWins) {
+      clearTestTimers();
+      popSegIdx = -1;
+      winnerIdx = -1;
+      if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
+      scores = [];
+      if (!keepWins) wins = [];
+      roundLeft = 0;
+      roundActive = false;
+      roundEnded = false;
+      document.getElementById('flw-winner').hidden = true;
+      ensureScoreLen();
+      if (isTimedMode()) beginTimedRound();
+      else render();
+    }
+
+    function clearTestTimers() {
+      testTimers.forEach((id) => { try { clearTimeout(id); } catch {} });
+      testTimers = [];
+    }
+
+    function applyConfig(next) {
+      cfg = { ...defaultCfg(), ...(next || {}) };
+      syncTimedCfg();
+      cfg.maxParticipants = clamp(parseInt(cfg.maxParticipants, 10) || 5, 1, 5);
+      cfg.participants = Array.isArray(cfg.participants) ? cfg.participants.slice(0, cfg.maxParticipants) : [];
+      cfg.wins = Array.isArray(cfg.wins) ? cfg.wins : wins;
+      wins = cfg.wins.slice();
+      ensureScoreLen();
+      render();
+      hydrateMissingAvatars();
+    }
+
+    async function hydrateMissingAvatars() {
+      const parts = cfg.participants || [];
+      let changed = false;
+      await Promise.all(parts.map(async (p) => {
+        const url = String(p.tiktokUrl || '').trim();
+        if (!url || p.avatar || avatarCache[url]) return;
+        try {
+          const r = await fetch('/api/tiktok-profile?' + new URLSearchParams({ url }));
+          if (!r.ok) return;
+          const j = await r.json();
+          if (!j.avatar) return;
+          avatarCache[url] = j.avatar;
+          p.avatar = j.avatar;
+          if (j.profileUrl) p.tiktokUrl = j.profileUrl;
+          changed = true;
+        } catch {}
+      }));
+      if (changed) render();
+    }
+
+    function runSimulation() {
+      resetAll();
+      simMode = true;
+      syncTimedCfg();
+      const parts = activeParticipants();
+      if (!parts.length) return;
+      ensureScoreLen();
+      if (isTimedMode()) beginTimedRound();
+      else render();
+
+      const weights = [1.55, 1.15, 0.9, 0.75, 0.65];
+      const plan = [];
+      let t = 350;
+      for (let h = 0; h < 26; h++) {
+        const idx = h % parts.length;
+        const burst = h > 14 && idx === 0 ? 2 : 1;
+        for (let b = 0; b < burst; b++) {
+          plan.push({
+            idx,
+            gift: {
+              giftId: parts[idx].giftId,
+              giftName: parts[idx].giftName || 'Rose',
+              diamonds: Math.max(3, Math.round((6 + Math.floor(Math.random() * 14)) * (weights[idx] || 1))),
+              repeatCount: 1,
+              repeatDelta: 1,
+            },
+            t,
+          });
+          t += 160 + Math.floor(Math.random() * 140);
+        }
+      }
+
+      plan.forEach((hit) => {
+        testTimers.push(setTimeout(() => {
+          const p = activeParticipants()[hit.idx];
+          if (!p) return;
+          applyGiftHit(hit.gift);
+        }, hit.t));
+      });
+
+      if (isEmbed) {
+        const SIM_WIN_HOLD_MS = 8500;
+        const simTimerMs = isTimedMode()
+          ? (simMode && isEmbed ? Math.min(18, cfg.roundSec) : cfg.roundSec) * 1000
+          : 0;
+        const restartDelay = isTimedMode()
+          ? simTimerMs + SIM_WIN_HOLD_MS
+          : t + SIM_WIN_HOLD_MS;
+        testTimers.push(setTimeout(() => {
+          simMode = false;
+          resetAll();
+          setTimeout(runSimulation, 2800);
+        }, restartDelay));
+      } else {
+        testTimers.push(setTimeout(() => { simMode = false; }, t + 8500));
+      }
+    }
+
+    let ws, reconnectTimer;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        const { type, payload } = msg;
+        if (type === 'gift') { if (!isEmbed) onGift(payload || {}); }
+        else if (type === 'settings' && payload && payload.flowMeter) applyConfig(payload.flowMeter);
+        else if (type === 'flowMeterTest') runSimulation();
+        else if (type === 'flowMeterReset') resetRoundScores(true);
+        else if (type === 'flowMeterControl') handleRoundAction(payload && payload.action);
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'flowmeter') return;
+      if (d.type === 'config') applyConfig(d.config);
+      else if (d.type === 'test') runSimulation();
+      else if (d.type === 'reset') resetRoundScores(true);
+      else if (d.type === 'action') handleRoundAction(d.action);
+    });
+
+    if (isEmbed) {
+      document.documentElement.classList.add('embed');
+      embedFitFn = () => {
+        const sc = clamp(parseInt(cfg.scale, 10) || 78, 50, 100) / 100;
+        const fitScale = Math.min(window.innerWidth / 680, window.innerHeight / 220);
+        document.documentElement.style.setProperty('--fit', fitScale * sc);
+      };
+      embedFitFn();
+      window.addEventListener('resize', embedFitFn);
+    }
+
+    applyConfig(defaultCfg());
+    connectWS();
+  })();
+  </script>
+</body>
+</html>

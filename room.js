@@ -1465,6 +1465,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('pelotasReset', {});
     // Versus y secuencias
     broadcast('giftVsReset', {});
+    broadcast('flowMeterReset', {});
     broadcast('giftSeqReset', {});
     // Mejor regalo / mejor racha de la sesión
     broadcast('topGiftReset', {});
@@ -5222,6 +5223,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetGiftVs':
         broadcast('giftVsReset', {});
+        break;
+      case 'testFlowMeter':
+        broadcast('flowMeterTest', {});
+        break;
+      case 'resetFlowMeter':
+        broadcast('flowMeterReset', {});
+        break;
+      case 'flowMeterControl':
+        broadcast('flowMeterControl', { action: data.flwAction });
         break;
       case 'testGiftSeq':
         broadcast('giftSeqTest', {});

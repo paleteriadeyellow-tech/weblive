@@ -1068,6 +1068,73 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Medidor de Flow -->
+        <div id="flwConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>📊 Configurar — Medidor de Flow</h2>
+              <button class="modal-close" id="flwcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="box-sub">Asigna un regalo a cada participante. La barra muestra el porcentaje de flow según los regalos recibidos en vivo. Pega el enlace del perfil de TikTok para mostrar su foto (clic abre su perfil).</p>
+
+              <div class="gvscfg-grid2">
+                <div>
+                  <label class="ml">TÍTULO</label>
+                  <input type="text" id="flwcfg-title" value="MEDIDOR DE FLOW">
+                </div>
+                <div>
+                  <label class="ml">COLOR TEXTO</label>
+                  <input type="color" id="flwcfg-textcolor" value="#f4f8ff">
+                </div>
+                <div>
+                  <label class="ml">TAMAÑO LETRA</label>
+                  <input type="range" id="flwcfg-fontsize" min="10" max="32" value="13">
+                </div>
+                <div>
+                  <label class="ml">ALTURA BARRA</label>
+                  <input type="range" id="flwcfg-barheight" min="16" max="72" value="28">
+                </div>
+                <div>
+                  <label class="ml">TAMAÑO OVERLAY</label>
+                  <input type="range" id="flwcfg-scale" min="50" max="100" value="78">
+                </div>
+                <div>
+                  <label class="ml">MÁX. PARTICIPANTES</label>
+                  <input type="number" id="flwcfg-max" min="1" max="5" value="5">
+                </div>
+                <div>
+                  <label class="ml">FUENTE</label>
+                  <select id="flwcfg-font" class="cfg-font"></select>
+                </div>
+                <div class="gvscfg-chkcell">
+                  <label class="switch-row plain"><input type="checkbox" id="flwcfg-showpct" checked> <span>Mostrar porcentaje</span></label>
+                </div>
+                <div class="gvscfg-chkcell">
+                  <label class="switch-row plain"><input type="checkbox" id="flwcfg-timerwins"> <span>Partida por tiempo</span></label>
+                </div>
+                <div id="flwcfg-timed-fields">
+                  <label class="ml">TIEMPO DE PARTIDA (seg)</label>
+                  <input type="number" id="flwcfg-roundsec" min="5" max="3600" value="60">
+                  <p class="box-sub" style="margin:6px 0 0">Al terminar el tiempo gana quien tenga más flow. Su foto brilla en dorado y suma una victoria.</p>
+                </div>
+              </div>
+
+              <div class="jarcfg-rowshead">
+                <label class="ml">PARTICIPANTES</label>
+                <div class="flwcfg-head-actions">
+                  <button type="button" class="btn ghost" id="flwcfg-add">Agregar participante</button>
+                  <button type="button" class="btn ghost" id="flwcfg-example">Cargar ejemplo</button>
+                </div>
+              </div>
+              <div id="flwcfg-rows" class="flwcfg-rows"></div>
+            </div>
+            <div class="modal-foot">
+              <button class="btn primary" id="flwcfg-save">Guardar para OBS / Live Studio</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Gift Sequence -->
         <div id="gsqConfigModal" class="modal hidden">
           <div class="modal-box wide">
@@ -2691,6 +2758,35 @@
         <section class="view" id="view-ov-gifts">
           <h1 class="view-title">🎁 Gifts Overlays</h1>
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
+
+            <!-- Tarjeta PRO: Medidor de Flow -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="flw-start">▶ Inicio</button>
+                  <button class="ovpro-btn" id="flw-stop">■ Stop</button>
+                  <button class="ovpro-btn" id="flw-restart">↺ Reiniciar</button>
+                  <button class="ovpro-btn" id="flw-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="flw-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="flw-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="flw-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+
+              <h3 class="ovpro-title">📊 Medidor de Flow</h3>
+              <p class="ovpro-desc">Barra de progreso por participante según su regalo asignado. Con <b>partida por tiempo</b> activada, usa Inicio / Stop / Reiniciar para controlar la ronda en vivo.</p>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/medidor-flow.html">/medidor-flow.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="flw-preview" src="/medidor-flow.html?embed=1" title="Vista previa medidor de flow"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Habibi Top Donador -->
             <div class="ovpro-card">
               <div class="ovpro-top">

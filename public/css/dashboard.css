@@ -1280,6 +1280,39 @@ details.settings-card[open] summary::before { content: '▾ '; }
 .gvs-side-box label { font-size: 12px; color: rgba(255,255,255,.6); }
 .gvs-side-box input { width: 100%; }
 .gvs-vs { font-weight: 900; font-size: 20px; color: #ff9a3c; align-self: center; padding-top: 18px; }
+
+.flwcfg-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.flwcfg-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 12px; }
+.flw-part-card {
+  position: relative; border-radius: 16px; padding: 14px;
+  background: rgba(255,255,255,.03); border: 2px solid var(--flw-part-color, rgba(255,255,255,.14));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.flw-part-card-head { font-size: 12px; font-weight: 800; letter-spacing: .05em; margin-bottom: 12px; color: var(--flw-part-color, var(--cyan)); }
+.flw-part-card .jarcfg-del { top: 10px; right: 10px; }
+.flw-part-top { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+.flw-part-avcol { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; width: 72px; }
+.flw-part-av {
+  width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+  border: 2px solid var(--flw-part-color, rgba(255,255,255,.2)); background: #111;
+}
+.flw-part-av-ph {
+  width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 22px; background: rgba(255,255,255,.05);
+  border: 2px dashed var(--flw-part-color, rgba(255,255,255,.2));
+}
+.flw-part-avcol .btn.ghost.sm { width: 100%; padding: 5px 6px; font-size: 10px; line-height: 1.2; }
+.flw-part-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.flw-part-fields label.ml { margin: 0; }
+.flw-part-fields input[type="text"], .flw-part-fields input[type="color"] { width: 100%; }
+.flw-part-gift {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.18);
+}
+.flw-part-gift img { width: 36px; height: 36px; object-fit: contain; }
+.flw-part-gift-meta { min-width: 0; flex: 1; }
+.flw-part-gift-meta small { display: block; color: var(--mut); font-size: 11px; font-weight: 700; }
+.flw-part-gift-meta strong { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gvs-giftbtn {
   display: flex; align-items: center; gap: 8px; justify-content: center; width: 100%;
   border: 1px dashed rgba(255,255,255,.25); background: rgba(255,255,255,.04); color: rgba(255,255,255,.7);

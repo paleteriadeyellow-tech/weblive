@@ -175,6 +175,26 @@ export const DEFAULT_SETTINGS = {
       // { leftId, leftName, leftImg, leftDiamonds, rightId, rightName, rightImg, rightDiamonds }
     ],
   },
+  // Overlay Medidor de Flow (barra de progreso por participante / regalo)
+  flowMeter: {
+    title: 'MEDIDOR DE FLOW',
+    textColor: '#f4f8ff',
+    fontSize: 13,
+    barHeight: 28,
+    scale: 78,
+    maxParticipants: 5,
+    font: 'inter',
+    showPercent: true,
+    roundByTime: false,
+    timerWins: false,
+    roundSec: 60,
+    participants: [
+      { name: 'test1', tiktokUrl: '', avatar: '', color: '#ff4b91', giftId: '', giftName: 'Rose', giftImage: '' },
+      { name: 'test2', tiktokUrl: '', avatar: '', color: '#40e0d0', giftId: '', giftName: 'GG', giftImage: '' },
+      { name: 'test3', tiktokUrl: '', avatar: '', color: '#9370db', giftId: '', giftName: 'Heart Me', giftImage: '' },
+    ],
+    wins: [],
+  },
   // Overlay Gift Sequence (secuencia rotativa de regalos con texto)
   giftSeq: {
     text: '#f4f7ff',
