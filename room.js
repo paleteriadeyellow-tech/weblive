@@ -2041,7 +2041,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, times)
             : { ...webhookCmd };
           if (/\/spawn\b/i.test(whCmd.url)) {
-            whCmd = { ...whCmd, url: applySpawnQuantityToUrl(whCmd.url, times) };
+            whCmd = {
+              ...whCmd,
+              url: isMari0ActivadorWebhook(whCmd.url)
+                ? applyWebhookQuantityToUrl(whCmd.url, times)
+                : applySpawnQuantityToUrl(whCmd.url, times),
+            };
           } else {
             whCmd = { ...whCmd, url: applyWebhookQuantityToUrl(whCmd.url, times) };
           }
@@ -2126,6 +2131,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       comment: String(info.comment || ''),
       likecount: String(info.likeCount ?? ''),
       imgprofile: String(u.photo || info.photo || ''),
+      avatar: String(u.photo || info.photo || ''),
     };
   }
 
@@ -2643,6 +2649,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  function mari0GiftMatches(a, info) {
+    const trig = a.trigger || 'gift';
+    if (trig === 'gift-any') return true;
+    if (trig !== 'gift') return false;
+    const gid = String(a.giftId || '').trim();
+    const gname = String(a.giftName || '').trim().toLowerCase();
+    if (!gid && !gname) return true;
+    const idMatch = gid && gid === String(info.giftId || '');
+    const nameMatch = gname && gname === String(info.giftName || '').toLowerCase();
+    return idMatch || nameMatch;
+  }
+
   // ---- Acciones de Mari0 (webhook :5720 / spawn legacy :5722) ----
   function fireMari0MatchedAction(a, cfg, info, user, name, times) {
     const qty = Math.min(200, Math.max(1, Number(times) || 1));
@@ -2699,12 +2717,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const trig = a.trigger || 'gift';
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-any') {
+        if (trig === 'gift' || trig === 'gift-any') {
+          if (!mari0GiftMatches(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
