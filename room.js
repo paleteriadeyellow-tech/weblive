@@ -2042,6 +2042,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             : { ...webhookCmd };
           if (/\/spawn\b/i.test(whCmd.url)) {
             whCmd = { ...whCmd, url: applySpawnQuantityToUrl(whCmd.url, times) };
+          } else {
+            whCmd = { ...whCmd, url: applyWebhookQuantityToUrl(whCmd.url, times) };
           }
           const method = (whCmd.method || 'GET').toUpperCase();
           if (emitLocalExec({ tipo: 'WEBHOOK', method, url: whCmd.url, body: whCmd.body || '' })) {
@@ -2051,6 +2053,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             if (method === 'POST' && whCmd.body) {
               opts.body = whCmd.body;
               opts.headers = { 'Content-Type': 'application/json' };
+            }
+            if (isExternalSmbxTiktokWebhook(whCmd.url) && !isMari0ActivadorWebhook(whCmd.url)) {
+              ensureSmbxTiktokWebhook().catch(() => {});
             }
             fetch(whCmd.url, opts)
               .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
@@ -2155,6 +2160,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return `${s}${s.includes('?') ? '&' : '?'}quantity=${q}`;
   }
 
+  function applyWebhookQuantityToUrl(url, quantity) {
+    const q = Math.max(1, Math.min(999, Number(quantity) || 1));
+    const s = String(url || '');
+    if (/[?&]quantity=\d+/i.test(s)) return s.replace(/([?&]quantity=)\d+/i, `$1${q}`);
+    if (/[?&]count=\d+/i.test(s)) return s.replace(/([?&]count=)\d+/i, `$1${q}`);
+    if (/\/spawn\b|\/powerup\b/i.test(s)) return `${s}${s.includes('?') ? '&' : '?'}quantity=${q}`;
+    return s;
+  }
+
   /** URLs tipo TikFinity / SMBX2 Webhook: GET …/spawn?id=14&quantity=1&userName=… */
   function parseExternalSpawnUrl(url) {
     if (!url || !/\/spawn\b/i.test(String(url))) return null;
@@ -2181,6 +2195,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function isExternalSmbxTiktokWebhook(url) {
     return /(?:localhost|127\.0\.0\.1):5720\b/i.test(String(url || ''));
+  }
+
+  /** Webhook Mari0 activador (:5720 enemy=/powerup/efectos), no SMBX spawn?id=. */
+  function isMari0ActivadorWebhook(url) {
+    if (!isExternalSmbxTiktokWebhook(url)) return false;
+    try {
+      const u = new URL(String(url).replace(/\{[^}]+\}/g, 'x'));
+      if (!/\/spawn\b/i.test(u.pathname)) return true;
+      const rawId = u.searchParams.get('id') ?? u.searchParams.get('npcId');
+      if (rawId != null && rawId !== '') return false;
+      return !!(u.searchParams.get('enemy') || u.searchParams.get('type'));
+    } catch {
+      return /[?&]enemy=/i.test(String(url || '')) || /[?&]type=/i.test(String(url || ''));
+    }
   }
 
   function resolveMarioSpawnFromWebhook(webhookCmd, context, times = 1) {
@@ -2615,7 +2643,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
-  // ---- Acciones de Mari0 (Crowd Control) vía bridge :7755 MARI0_ONLY ----
+  // ---- Acciones de Mari0 (webhook :5720 / spawn legacy :5722) ----
+  function fireMari0MatchedAction(a, cfg, info, user, name, times) {
+    const qty = Math.min(200, Math.max(1, Number(times) || 1));
+    if (a.webhookCmd?.on && a.webhookCmd?.url) {
+      const ctx = {
+        info: { ...info, repeatCount: qty },
+        user: user || { nickname: name, uniqueId: user?.uniqueId || info.username || '' },
+        times: qty,
+      };
+      runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, ctx);
+      broadcast('log', {
+        level: 'ok',
+        text: `🌀 Mari0 WebHook: ${a.label || a.thing}${qty > 1 ? ` ×${qty}` : ''}`,
+      });
+      return;
+    }
+    if ((a.kind || 'spawn') === 'effect') {
+      const dur = a.instant ? '' : (a.seconds ? ` (${a.seconds}s)` : '');
+      broadcast('log', { level: 'ok', text: `🌀 Mari0: efecto "${a.label || a.thing}"${dur}` });
+      applyMari0Effect(a.thing, a.instant ? null : a.seconds, a.factor);
+      return;
+    }
+    broadcast('log', { level: 'ok', text: `🌀 Mari0: generar "${a.thing}"${qty > 1 ? ` ×${qty}` : ''}` });
+    spawnMari0Thing(a.thing, name, qty);
+  }
+
   function spawnMari0Thing(thing, name, times) {
     const t = Math.min(200, Math.max(1, Number(times) || 1));
     if (!thing) return;
@@ -2640,7 +2693,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!list.length) return;
     const name = (user && user.nickname) || info.nickname || '';
     for (const a of list) {
-      if (!a || a.enabled === false || !a.thing) continue;
+      if (!a || a.enabled === false) continue;
+      const hasSpawn = a.thing || (a.webhookCmd?.on && a.webhookCmd?.url);
+      if (!hasSpawn) continue;
       const trig = a.trigger || 'gift';
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       if (eventType === 'gift') {
@@ -2654,9 +2709,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else {
           continue;
         }
+        const comboOn = a.comboInstant !== false;
+        if (info.comboStreak === 'delta' && !comboOn) continue;
+        if (info.comboStreak === 'end' && comboOn) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
-        if ((a.likeN || 1) > (info.likeCount || 0)) continue;
+        const likeFires = gameLikeTriggerFires(a, info, user, 'mari0');
+        if (likeFires <= 0) continue;
+        for (let lf = 0; lf < likeFires; lf++) {
+          const qty = Math.min(200, Math.max(1, parseInt(a.count, 10) || 1));
+          fireMari0MatchedAction(a, cfg, info, user, name, qty);
+        }
+        continue;
       } else if (eventType === 'chat') {
         if (trig === 'chatCommand') {
           if (!matchesCommand(a.text, info.comment)) continue;
@@ -2674,13 +2738,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       times = Math.min(200, times);
       if (eventType === 'gift' && info.comboStreak === 'end') continue;
-      if ((a.kind || 'spawn') === 'effect') {
-        broadcast('log', { level: 'ok', text: `🌀 Mari0: efecto "${a.thing}" (${a.seconds || 5}s)` });
-        applyMari0Effect(a.thing, a.seconds, a.factor);
-      } else {
-        broadcast('log', { level: 'ok', text: `🌀 Mari0: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}` });
-        spawnMari0Thing(a.thing, name, times);
-      }
+      fireMari0MatchedAction(a, cfg, info, user, name, times);
     }
   }
 
@@ -3268,11 +3326,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
       }
       for (const a of (cfg.mari0Actions || [])) {
-        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
+        if (!a.thing && !(a.webhookCmd?.on && a.webhookCmd?.url)) continue;
         const goal = Math.max(1, a.likeN || 100);
         if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          const t = Math.max(1, parseInt(a.count, 10) || 1);
           if ((a.kind || 'spawn') === 'effect') applyMari0Effect(a.thing, a.seconds, a.factor);
-          else spawnMari0Thing(a.thing, '', Math.max(1, parseInt(a.count, 10) || 1));
+          else if (a.webhookCmd?.on && a.webhookCmd?.url) {
+            runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, { info: { likeCount: total }, user: null, times: t });
+            broadcast('log', { level: 'ok', text: `🌀 Mari0 WebHook (likes globales): ${a.label || a.thing}${t > 1 ? ` ×${t}` : ''}` });
+          } else spawnMari0Thing(a.thing, '', t);
         }
       }
       for (const a of (cfg.smb3Actions || [])) {
