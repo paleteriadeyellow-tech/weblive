@@ -872,33 +872,39 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (full.general) total += scoreSlot(full.general);
     return total;
   }
+  function normalizeResetPeriod(p) {
+    return p === 'week' || p === 'month' ? p : 'live';
+  }
   // Aplica un bloque de ajustes (fusión profunda), persiste y difunde. Si el cambio
   // viene del panel del usuario (fromUser), avisa para sincronizarlo con el remoto.
   function applyIncomingSettings(obj, fromUser) {
     if (!obj) return;
-    const prevTop1FirePeriod = settings.top1fire?.resetPeriod;
-    const prevHabibiTopPeriod = settings.habibiTop?.resetPeriod;
+    const prevTop1FirePeriod = getTop1FirePeriod();
+    const prevHabibiTopPeriod = getHabibiTopPeriod();
     const prevRankPeriods = {};
-    for (const rankId of RANK_IDS) prevRankPeriods[rankId] = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
+    for (const rankId of RANK_IDS) prevRankPeriods[rankId] = getRankPeriod(rankId);
     settings = deepMerge(settings, obj);
-    if (obj.top1fire && obj.top1fire.resetPeriod != null && obj.top1fire.resetPeriod !== prevTop1FirePeriod) onTop1FireSettingsChange();
-    if (obj.habibiTop && obj.habibiTop.resetPeriod != null && obj.habibiTop.resetPeriod !== prevHabibiTopPeriod) onHabibiTopSettingsChange();
+    if (obj.top1fire && obj.top1fire.resetPeriod != null
+      && normalizeResetPeriod(obj.top1fire.resetPeriod) !== prevTop1FirePeriod) onTop1FireSettingsChange();
+    if (obj.habibiTop && obj.habibiTop.resetPeriod != null
+      && normalizeResetPeriod(obj.habibiTop.resetPeriod) !== prevHabibiTopPeriod) onHabibiTopSettingsChange();
     for (const rankId of RANK_IDS) {
       const key = RANK_SETTINGS_KEY[rankId];
-      if (obj[key] && obj[key].resetPeriod != null && obj[key].resetPeriod !== prevRankPeriods[rankId]) onRankPeriodChange(rankId);
+      if (obj[key] && obj[key].resetPeriod != null
+        && normalizeResetPeriod(obj[key].resetPeriod) !== prevRankPeriods[rankId]) onRankPeriodChange(rankId);
     }
     if (obj.topAltRank) {
       const alt = settings.topAltRank;
       if (alt.resetPeriodLikes != null) {
         if (!settings.toplikesRank) settings.toplikesRank = {};
-        if (alt.resetPeriodLikes !== prevRankPeriods.toplikes) {
+        if (normalizeResetPeriod(alt.resetPeriodLikes) !== prevRankPeriods.toplikes) {
           settings.toplikesRank.resetPeriod = alt.resetPeriodLikes;
           onRankPeriodChange('toplikes');
         }
       }
       if (alt.resetPeriodDiam != null) {
         if (!settings.topdiamRank) settings.topdiamRank = {};
-        if (alt.resetPeriodDiam !== prevRankPeriods.topdiam) {
+        if (normalizeResetPeriod(alt.resetPeriodDiam) !== prevRankPeriods.topdiam) {
           settings.topdiamRank.resetPeriod = alt.resetPeriodDiam;
           onRankPeriodChange('topdiam');
         }
@@ -908,14 +914,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const alt = settings.topAltRankNeon;
       if (alt.resetPeriodLikes != null) {
         if (!settings.toplikesRank) settings.toplikesRank = {};
-        if (alt.resetPeriodLikes !== prevRankPeriods.toplikes) {
+        if (normalizeResetPeriod(alt.resetPeriodLikes) !== prevRankPeriods.toplikes) {
           settings.toplikesRank.resetPeriod = alt.resetPeriodLikes;
           onRankPeriodChange('toplikes');
         }
       }
       if (alt.resetPeriodDiam != null) {
         if (!settings.topdiamRank) settings.topdiamRank = {};
-        if (alt.resetPeriodDiam !== prevRankPeriods.topdiam) {
+        if (normalizeResetPeriod(alt.resetPeriodDiam) !== prevRankPeriods.topdiam) {
           settings.topdiamRank.resetPeriod = alt.resetPeriodDiam;
           onRankPeriodChange('topdiam');
         }
