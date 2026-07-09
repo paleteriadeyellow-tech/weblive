@@ -2354,7 +2354,17 @@ function onSettings(s) {
     renderPvzActions();
   }
   if (typeof renderSmb3Actions === 'function') renderSmb3Actions();
-  if (typeof renderMari0Actions === 'function') renderMari0Actions();
+  if (typeof renderMari0Actions === 'function') {
+    if (!window._mari0ResetDone) {
+      window._mari0ResetDone = true;
+      const ml = ensureMari0Actions();
+      if (ml.length && ml.some((a) => a.enabled !== false)) {
+        ml.forEach((a) => { a.enabled = false; });
+        saveSettings();
+      }
+    }
+    renderMari0Actions();
+  }
   if (typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
   
 }
