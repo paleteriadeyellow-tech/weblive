@@ -264,11 +264,25 @@ function getRoomForUser(user) {
 }
 
 // Usuarios conectados al panel y EN VIVO en TikTok (directorio público para el panel).
+// Solo lives reales: conexión activa + audiencia > 0 (o live recién iniciado).
+// Con viewers=0 suele ser conexión fantasma / live ya cerrado sin STREAM_END.
+function isActivePanelLiveEntry(stOrLive) {
+  const viewers = Number(stOrLive?.viewers) || 0;
+  if (viewers > 0) return true;
+  const since = Number(stOrLive?.liveSince) || 0;
+  return since > 0 && (Date.now() - since) < 90000;
+}
+
+function filterActivePanelLives(lives) {
+  return (Array.isArray(lives) ? lives : []).filter(isActivePanelLiveEntry);
+}
+
 function listPanelLives() {
   const out = [];
   for (const [userId, room] of rooms) {
     const st = room.getStatus();
     if (!st?.live || !st?.account) continue;
+    if (!isActivePanelLiveEntry(st)) continue;
     const u = getUserById(userId);
     const tiktok = String(st.account).replace(/^@+/, '');
     if (!tiktok) continue;
@@ -690,6 +704,13 @@ app.post('/api/relay/mirror-room-key', express.json(), (req, res) => {
 app.get('/api/panel-lives', (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  res.json({ lives: listPanelLives() });
+});
+
+// Directorio de lives para el .exe (relay): sin cookie de sesión, con CORS.
+app.get('/api/panel-lives-public', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-store');
   res.json({ lives: listPanelLives() });
 });
 

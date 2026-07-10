@@ -13018,13 +13018,22 @@ function panelLiveFallbackChar(name) {
   return ch ? ch.toUpperCase() : '?';
 }
 
+/** Solo lives reales: con viewers, o recién iniciados (<90s). Los de 0 suelen ser fantasmas. */
+function isActivePanelLive(l) {
+  const viewers = Number(l?.viewers) || 0;
+  if (viewers > 0) return true;
+  const since = Number(l?.liveSince) || 0;
+  return since > 0 && (Date.now() - since) < 90000;
+}
+
 function renderPanelLives(lives) {
   const sec = $('panel-lives');
   const track = $('panel-lives-track');
   if (!sec || !track) return;
-  if (!lives.length) { sec.hidden = true; track.innerHTML = ''; return; }
+  const active = (lives || []).filter(isActivePanelLive);
+  if (!active.length) { sec.hidden = true; track.innerHTML = ''; return; }
   sec.hidden = false;
-  track.innerHTML = lives.map((l) => {
+  track.innerHTML = active.map((l) => {
     const tiktok = String(l.tiktok || l.account || '').replace(/^@+/, '');
     const name = esc(l.nickname || tiktok || l.panelUser || 'Live');
     const viewers = fmt(Number(l.viewers) || 0);
@@ -13054,12 +13063,24 @@ function renderPanelLives(lives) {
   });
 }
 async function refreshPanelLives() {
+  // En .exe relay los lives viven en Render (no en el servidor local).
+  const urls = [];
   try {
-    const r = await fetch('/api/panel-lives');
-    if (!r.ok) return;
-    const d = await r.json();
-    renderPanelLives(d.lives || []);
-  } catch { /* sin red */ }
+    if (IS_DESKTOP && window.desktopAPI?.cloudBase) {
+      urls.push(String(window.desktopAPI.cloudBase).replace(/\/+$/, '') + '/api/panel-lives-public');
+    }
+  } catch { /* sin cloudBase */ }
+  urls.push('/api/panel-lives');
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, { credentials: url.startsWith('http') ? 'omit' : 'same-origin', cache: 'no-store' });
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (!Array.isArray(d.lives)) continue;
+      renderPanelLives(d.lives);
+      return;
+    } catch { /* siguiente URL */ }
+  }
 }
 function setupPanelLives() {
   const track = $('panel-lives-track');
