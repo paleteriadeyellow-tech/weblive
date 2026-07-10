@@ -6519,7 +6519,6 @@ function scheduleActionTest(a) {
       window.desktopAPI.pressKeys(a.keys, { gameCompat: !!a.gameCompat, times });
     }
     if (a.sound) { try { const au = new Audio(a.sound); au.volume = a.soundVolume != null ? a.soundVolume : 1; au.play().catch(() => {}); } catch {} }
-    // Las salidas (OBS / WebHook / Streamer.bot) las ejecuta el servidor.
     if (hasOutput) send({ action: 'runActionOutputs', webhookCmd: a.webhookCmd, obsCmd: a.obsCmd, sbCmd: a.sbCmd });
     addEvent(`⚡ Prueba: ${esc(a.name || a.keys || 'acción')}${a.keys ? ' → ' + esc(a.keys) + (times > 1 ? ` ×${times}` : '') : ''}`, 'ok');
   }, ACC_TEST_DELAY * 1000);
@@ -6537,8 +6536,6 @@ const ACC_EVENT_LABELS = {
   levelUp: '⬆️ Subió de nivel de miembro',
   emote: '😀 Sticker / emote',
 };
-// Miniatura de la tarjeta: imagen subida si la hay; si no, el icono del regalo (para
-// eventos de regalo) o un emoji acorde al evento (likes, seguidor, super fan…).
 const ACC_THUMB_EMOJI = {
   'gift-any': '🎁', gift: '🎁', like: '❤️', likeGlobal: '❤️',
   share: '🔁', subscribe: '⭐', superFan: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀',

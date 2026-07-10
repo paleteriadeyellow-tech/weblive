@@ -2655,7 +2655,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (trig !== 'gift') return false;
     const gid = String(a.giftId || '').trim();
     const gname = String(a.giftName || '').trim().toLowerCase();
-    if (!gid && !gname) return true;
+    if (!gid && !gname) return false;
     const idMatch = gid && gid === String(info.giftId || '');
     const nameMatch = gname && gname === String(info.giftName || '').toLowerCase();
     return idMatch || nameMatch;
@@ -2667,7 +2667,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (a.webhookCmd?.on && a.webhookCmd?.url) {
       const ctx = {
         info: { ...info, repeatCount: qty },
-        user: user || { nickname: name, uniqueId: user?.uniqueId || info.username || '' },
+        user: user || {
+          nickname: name,
+          uniqueId: info.username || info.uniqueId || '',
+          photo: info.photo || '',
+        },
         times: qty,
       };
       runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, ctx);
