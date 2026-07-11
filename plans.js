@@ -95,11 +95,13 @@ export const CAPABILITIES = {
     { key: 'game_roblox3', label: 'Juego: Roblox parkour' },
     { key: 'game_mariobros', label: 'Juego: Mario Bros' },
     { key: 'game_smb3', label: 'Juego: Super Mario Bros. 3' },
+    { key: 'game_smw', label: 'Juego: Super Mario World' },
     { key: 'game_mari0', label: 'Juego: Mari0' },
     { key: 'game_plantasvszombies', label: 'Juego: Plants vs Zombies' },
     { key: 'game_pvzhybrid', label: 'Juego: Plants vs Zombies Pack' },
     { key: 'game_repo', label: 'Juego: R.E.P.O.' },
     { key: 'game_l4d', label: 'Juego: Left 4 Dead 2' },
+    { key: 'game_unturned', label: 'Juego: Unturned' },
     { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
     { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
     { key: 'game_geometrydash', label: 'Juego: Geometry Dash' },
@@ -135,7 +137,9 @@ function defaultConfig() {
   freeFeatures.game_pvzhybrid = false;
   freeFeatures.game_repo = false;
   freeFeatures.game_l4d = false;
+  freeFeatures.game_unturned = false;
   freeFeatures.game_crashctr = false;
+  freeFeatures.game_smw = false;
   freeFeatures.game_metalslug = false;
   freeFeatures.game_geometrydash = false;
 

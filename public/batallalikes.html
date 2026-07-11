@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Batalla de likes</title>
   <style>
@@ -54,7 +54,7 @@
     .battle-duel--sequential .battle-duel__row, .battle-duel--sequential .battle-duel__vs-row { opacity: 0; transform: translateY(10px); transition: opacity .4s ease, transform .4s ease; }
     .battle-duel--sequential .battle-duel__row.bat-seq-visible, .battle-duel--sequential .battle-duel__vs-row.bat-seq-visible { opacity: 1; transform: translateY(0); }
     .battle-placeholder { color: var(--bat-ph); font-weight: 800; font-size: 14px; text-align: center; padding: 24px 12px; text-shadow: 0 0 12px var(--bat-ph-glow); }
-  </style>
+</style>
 </head>
 <body>
   <div class="battle-root">
@@ -64,7 +64,7 @@
   </div>
 
   <script>
-  (function () {
+(function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
     let cfg = { limit: 2, nameRainbow: true, placeholder: 'Esperando combatientes...', valueColor: '#fecaca', likesIcon: '❤️' };

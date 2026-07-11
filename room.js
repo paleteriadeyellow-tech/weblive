@@ -51,6 +51,21 @@ function baseUser(user) {
     photo: getPhoto(user),
   };
 }
+function normTikTokUser(s) {
+  return String(s || '')
+    .replace(/^@+/, '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '');
+}
+function tiktokUserMatches(wantRaw, username, nickname) {
+  const want = normTikTokUser(wantRaw);
+  if (!want) return false;
+  const u = normTikTokUser(username);
+  const n = normTikTokUser(nickname);
+  return want === u || want === n;
+}
 function numMemberLevel(v) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 && n <= 50 ? n : 0;
@@ -861,7 +876,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const scoreSlot = (s) => {
       if (!s || typeof s !== 'object') return 0;
       let n = 0;
-      for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'ctrActions', 'mslugActions', 'gdashActions']) {
+      for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions']) {
         const a = s[k];
         if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
       }
@@ -2261,6 +2276,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerPvzHybridActions(eventType, info, user, cfg);
     if (eventType !== 'like') triggerRepoActions(eventType, info, user, cfg);
     triggerCtrActions(eventType, info, user, cfg);
+    triggerSmwActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
     if (Array.isArray(cfg.mcActions) && cfg.mcActions.length) processMcList(cfg.mcActions, eventType, info, vars);
     if (Array.isArray(cfg.mcshooterActions) && cfg.mcshooterActions.length) processMcList(cfg.mcshooterActions, eventType, info, vars);
@@ -3044,6 +3060,86 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  function smwPerUnit(a) {
+    const n = parseInt(a?.count, 10);
+    return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+  }
+
+  function spawnSmwThing(thing, name, times, units, meta = {}) {
+    if (!thing) return;
+    const t = Math.min(40, Math.max(1, Number(times) || 1));
+    const exec = { tipo: 'SMW_SPAWN', thing: String(thing || ''), name: String(name || ''), times: t };
+    if (units != null && Number(units) > 0) exec.units = Math.max(1, Number(units) || 1);
+    if (meta.label) exec.label = meta.label;
+    if (meta.reason) exec.reason = meta.reason;
+    if (meta.giftName) exec.giftName = meta.giftName;
+    if (meta.eventType) exec.eventType = meta.eventType;
+    emitLocalExec(exec);
+  }
+
+  function triggerSmwActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.smwActions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const trig = a.trigger || 'gift';
+      const perUnit = smwPerUnit(a);
+      let units = 1;
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const wantId = String(a.giftId || '').trim();
+          const wantName = (a.giftName || '').trim().toLowerCase();
+          if (!wantId && !wantName) {
+            units = Math.max(1, Number(info.repeatCount) || 1);
+          } else {
+            const idMatch = wantId && wantId === String(info.giftId || '');
+            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+            if (!idMatch && !nameMatch) continue;
+            units = Math.max(1, Number(info.repeatCount) || 1);
+          }
+        } else if (trig === 'gift-any') {
+          units = Math.max(1, Number(info.repeatCount) || 1);
+        } else continue;
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        const likeFires = gameLikeTriggerFires(a, info, user, 'smw');
+        if (likeFires <= 0) continue;
+        const batch = Math.max(1, Number(info.likeCount) || 1);
+        const totalQty = Math.min(40, perUnit * likeFires);
+        spawnSmwThing(a.thing, name, totalQty, likeFires, {
+          label: a.label || a.thing,
+          eventType: 'like',
+          reason: `${batch} like(s) → ${likeFires} efecto(s)`,
+        });
+        continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@+/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else continue;
+      } else if (trig !== eventType) continue;
+      if (eventType === 'gift') {
+        const comboOn = a.comboInstant !== false;
+        if (info.comboStreak === 'delta' && !comboOn) continue;
+        if (info.comboStreak === 'end' && comboOn) continue;
+      }
+      const times = Math.min(40, perUnit * units);
+      const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
+      spawnSmwThing(a.thing, name, times, units, {
+        label: a.label || a.thing,
+        eventType,
+        giftName: info.giftName,
+        reason: giftLabel || eventType,
+      });
+    }
+  }
+
   function triggerPvzActions(eventType, info = {}, user = null, cfg = settings) {
     const list = cfg.pvzActions || [];
     if (!list.length) return;
@@ -3397,6 +3493,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           spawnCtrThing(a.thing, '', Math.min(80, Math.max(1, parseInt(a.count, 10) || 1)), 1);
         }
       }
+      for (const a of (cfg.smwActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          spawnSmwThing(a.thing, '', Math.min(40, Math.max(1, parseInt(a.count, 10) || 1)), 1);
+        }
+      }
       for (const a of cfg.soundAlerts) {
         if (!a.enabled || !a.sound || (a.trigger || '') !== 'likeGlobal') continue;
         const goal = Math.max(1, a.likeGoal || 100);
@@ -3648,21 +3751,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (spotifyPollTimer) { clearInterval(spotifyPollTimer); spotifyPollTimer = null; }
   }
 
-  function spotifyPermUsersSet(cfg) {
-    const raw = cfg?.permUsers;
-    if (!Array.isArray(raw)) return new Set();
-    return new Set(raw.map((u) => String(u || '').trim().toLowerCase().replace(/^@/, '')).filter(Boolean));
-  }
-
   function spotifyUserAllowed(cfg, user, roles) {
     if (!cfg) return false;
     if (cfg.permAll) return true;
     if (cfg.permMods && roles?.isMod) return true;
     if (cfg.permSubs && roles?.isSub) return true;
     if (!cfg.permUsersOn) return false;
-    const uid = String(user?.uniqueId || '').trim().toLowerCase().replace(/^@/, '');
-    if (!uid) return false;
-    return spotifyPermUsersSet(cfg).has(uid);
+    const list = Array.isArray(cfg.permUsers) ? cfg.permUsers : [];
+    if (!list.length) return false;
+    const username = user?.uniqueId || '';
+    const nickname = user?.nickname || '';
+    // Compara @uniqueId y nickname (con normalización), igual que el resto de filtros TikTok.
+    return list.some((want) => tiktokUserMatches(want, username, nickname));
   }
 
   async function handleSpotifyCommands(comment, user, roles) {

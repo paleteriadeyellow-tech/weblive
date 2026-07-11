@@ -1358,6 +1358,12 @@
               </select>
               <label class="ml">TÍTULO</label>
               <input type="text" id="habicfg-title" placeholder="HABIBI DEL MES">
+              <label class="ml">DISEÑO DEL MARCO</label>
+              <select id="habicfg-design">
+                <option value="1" selected>Diseño 1 — Gatito héroe</option>
+                <option value="2">Diseño 2 — Lobo hielo/fuego</option>
+                <option value="3">Diseño 3 — Gato mago</option>
+              </select>
               <label class="ml">ETIQUETA DE PUNTOS</label>
               <input type="text" id="habicfg-coinlabel" placeholder="diamantes">
               <label class="ml">FUENTE</label>
@@ -1368,6 +1374,8 @@
                 <option value="fixed">Arcoíris fijo</option>
                 <option value="move" selected>Arcoíris en movimiento</option>
               </select>
+              <label class="ml">TAMAÑO DEL TÍTULO (%)</label>
+              <input type="range" id="habicfg-titlesize" min="50" max="200" step="1" value="100">
               <label class="ml">TAMAÑO (%)</label>
               <input type="range" id="habicfg-scale" min="60" max="150" step="1" value="100">
               <div class="cfg-colors">
@@ -2386,7 +2394,8 @@
                   <option value="subscribe">Nuevo suscriptor</option>
                   <option value="superFan">Super fan</option>
                   <option value="follow">Nuevo seguidor</option>
-                  <option value="userJoin">Entró un usuario específico</option>
+                  <!-- Oculto: TikTok a menudo no dispara MEMBER y confunde (usuarios anotados sin alerta) -->
+                  <option value="userJoin" hidden disabled>Entró un usuario específico</option>
                   <option value="emote">Sticker / emote (ID)</option>
                   <option value="chatCommand">Comando de chat (!video)</option>
                   <option value="firstMessage">Primer mensaje en el chat (usuario)</option>
@@ -2805,7 +2814,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="habi-preview" src="/habibi-top.html?embed=1&v=7" title="Vista previa habibi top donador"></iframe>
+                <iframe id="habi-preview" src="/habibi-top.html?embed=1&v=11" title="Vista previa habibi top donador"></iframe>
               </div>
             </div>
 

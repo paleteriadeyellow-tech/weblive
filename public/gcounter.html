@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Contador de meta</title>
@@ -27,7 +27,7 @@
     .counter.bump { transform: scale(1.18); }
     .counter.reached { animation: reached-glow 1.4s ease-in-out infinite; }
     @keyframes reached-glow { 0%,100% { filter: drop-shadow(0 0 6px rgba(255,210,80,.5)); } 50% { filter: drop-shadow(0 0 22px rgba(255,210,80,.95)); } }
-  </style>
+</style>
 </head>
 <body>
   <div class="wrap" id="root">
@@ -40,7 +40,7 @@
   </div>
 
   <script>
-  (function () {
+(function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
     const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Gift Sequence</title>
@@ -54,13 +54,13 @@
       animation: seqTextRainbow 3.2s linear infinite;
     }
     @keyframes seqTextRainbow { to { background-position: 100% center; } }
-  </style>
+</style>
 </head>
 <body>
   <div id="stage" class="stage"></div>
 
   <script>
-  (function () {
+(function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
     const stage = document.getElementById('stage');

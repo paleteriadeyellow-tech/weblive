@@ -403,7 +403,7 @@ const TAB_CAP = {
   tts: 'tab_tts', timer: 'tab_timer',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
+const GAME_CAP = { minecraft: 'game_minecraft', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
 // Minijuegos visibles pero aún no disponibles (solo el admin puede entrar).
 const GAME_COMING_SOON = {};
 
@@ -522,13 +522,13 @@ const CAP_LABELS = {
   // juegos
   game_minecraft: 'Juego: Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_crashctr: 'Juego: Crash Team Racing (CTR)', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_crashctr: 'Juego: Crash Team Racing (CTR)', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
+  'tts_tiktok', 'game_minecraft', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -969,7 +969,7 @@ function roomUrl(path) {
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
-  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=7';
+  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=11';
   return url;
 }
 
@@ -4676,12 +4676,12 @@ const STYLE_OVERLAYS = [
     btnTest: 'habi-test', btnReset: 'habi-reset', btnConfig: 'habi-config',
     modalId: 'habiConfigModal', closeId: 'habicfg-close', saveId: 'habicfg-save',
     testAction: 'testTopHabibi', resetAction: 'resetTopHabibi',
-    map: { 'habicfg-period': 'resetPeriod', 'habicfg-title': 'headerTitle', 'habicfg-coinlabel': 'coinLabel',
-      'habicfg-font': 'font', 'habicfg-rainbow': 'rainbowMode', 'habicfg-scale': 'scale',
+    map: { 'habicfg-period': 'resetPeriod', 'habicfg-title': 'headerTitle', 'habicfg-design': 'design', 'habicfg-coinlabel': 'coinLabel',
+      'habicfg-font': 'font', 'habicfg-rainbow': 'rainbowMode', 'habicfg-titlesize': 'titleSize', 'habicfg-scale': 'scale',
       'habicfg-tc1': 'tc1', 'habicfg-tc2': 'tc2', 'habicfg-tc3': 'tc3',
       'habicfg-ng1': 'ng1', 'habicfg-ng2': 'ng2', 'habicfg-ng3': 'ng3',
       'habicfg-valuecolor': 'valueColor', 'habicfg-valuestroke': 'valueStroke', 'habicfg-coincolor': 'coinColor' },
-    types: { scale: 'int' },
+    types: { titleSize: 'int', scale: 'int' },
   }),
   setupStyleOverlay({
     kind: 'topgift', settingsKey: 'topGift', previewId: 'tgf-preview',
@@ -7815,6 +7815,9 @@ function applySpotifyUI() {
   if (!settings) return;
   const cfg = { ...SPOTIFY_DEFAULTS, ...(settings.spotify || {}) };
   if (!Array.isArray(cfg.permUsers)) cfg.permUsers = [];
+  if (cfg.permUsers.length && settings.spotify && !Object.prototype.hasOwnProperty.call(settings.spotify, 'permUsersOn')) {
+    cfg.permUsersOn = true;
+  }
   settings.spotify = { ...cfg };
   for (const [id, key] of Object.entries(SPOTIFY_MAP)) {
     const el = document.getElementById(id);
@@ -7851,8 +7854,8 @@ function syncSpotifyPermUsersUI() {
   if (wrap) wrap.classList.toggle('is-disabled', !on);
   const inp = document.getElementById('sp-perm-user-in');
   const btn = document.getElementById('sp-perm-user-add');
-  if (inp) inp.disabled = !on;
-  if (btn) btn.disabled = !on;
+  if (inp) inp.disabled = false;
+  if (btn) btn.disabled = false;
 }
 
 function renderSpotifyPermUsers() {
@@ -7881,10 +7884,6 @@ function renderSpotifyPermUsers() {
 function addSpotifyPermUser() {
   const inp = document.getElementById('sp-perm-user-in');
   if (!inp) return;
-  if (!document.getElementById('sp-perm-users-on')?.checked) {
-    toast && toast('Activa la casilla de usuarios específicos primero', 'warn');
-    return;
-  }
   const raw = String(inp.value || '').trim().replace(/^@/, '');
   if (!raw) {
     toast && toast('Escribe el @ del usuario', 'warn');
@@ -7897,11 +7896,15 @@ function addSpotifyPermUser() {
     toast && toast('Ese usuario ya está en la lista', 'warn');
     return;
   }
-  settings.spotify.permUsers.push(raw);
+  settings.spotify.permUsersOn = true;
+  const onEl = document.getElementById('sp-perm-users-on');
+  if (onEl) onEl.checked = true;
+  settings.spotify.permUsers.push(key);
   inp.value = '';
   saveSpotifySettings();
   renderSpotifyPermUsers();
-  toast && toast(`@${raw} puede usar los comandos de Spotify`, 'ok');
+  syncSpotifyPermUsersUI();
+  toast && toast(`@${key} puede usar los comandos de Spotify`, 'ok');
 }
 
 async function refreshSpotifyStatus() {

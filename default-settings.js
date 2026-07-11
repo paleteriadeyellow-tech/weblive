@@ -295,12 +295,14 @@ export const DEFAULT_SETTINGS = {
   habibiTop: {
     headerTitle: 'HABIBI DEL MES',
     resetPeriod: 'month',
+    design: '1',
     coinLabel: 'diamantes',
     font: 'luckiest',
     rainbowMode: 'move',
     tc1: '#ff6b35', tc2: '#ff4500', tc3: '#ffd700',
     ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
     valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
+    titleSize: 100,
     scale: 100,
   },
   // Overlay Mejor regalo (top único por monedas)

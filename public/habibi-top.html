@@ -49,7 +49,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   margin: 0;
   font-family: var(--tf-font-stack);
   font-weight: 800;
-  font-size: 26px;
+  font-size: calc(26px * var(--title-scale, 1));
   letter-spacing: 0.02em;
   line-height: 1.15;
   text-align: center;
@@ -212,7 +212,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 
 <script>
 (function () {
-  const OV_BUILD = '7';
+  const OV_BUILD = '11';
   const FW_PAD = 70;
   const params = new URLSearchParams(location.search);
   const TOP_CACHE_KEY = 'habibitop_v1_' + (params.get('room') || 'local');
@@ -236,17 +236,28 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     system: "system-ui, sans-serif",
   };
 
-  const AVATAR_LAYOUT = { top: 0.415, left: 0.5, size: 0.56 };
+  const DESIGNS = {
+    '1': { src: '/habibis/top9.png', layout: { top: 0.415, left: 0.5, size: 0.56 } },
+    '2': { src: '/habibis/design2.png', layout: { top: 0.415, left: 0.5, size: 0.54 } },
+    '3': { src: '/habibis/design3.png', layout: { top: 0.415, left: 0.5, size: 0.54 } },
+  };
+
+  function resolveDesign(id) {
+    const key = String(id == null ? '1' : id);
+    return DESIGNS[key] || DESIGNS['1'];
+  }
 
   let cfg = {
     headerTitle: 'HABIBI DEL MES',
     resetPeriod: 'month',
+    design: '1',
     coinLabel: 'diamantes',
     font: 'luckiest',
     rainbowMode: 'move',
     tc1: '#ff6b35', tc2: '#ff4500', tc3: '#ffd700',
     ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
     valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
+    titleSize: 100,
     scale: 100,
   };
   let topData = null;
@@ -308,7 +319,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   }
 
   function applyFrameLayout() {
-    const lay = AVATAR_LAYOUT;
+    const lay = resolveDesign(cfg.design).layout;
     const frame = $('frame');
     const hole = document.querySelector('.avatar-hole');
     const wrap = document.querySelector('.frame-wrap');
@@ -356,6 +367,22 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     let sc = parseInt(cfg.scale, 10);
     if (!Number.isFinite(sc)) sc = 100;
     root.style.setProperty('--ol-scale', String(Math.min(150, Math.max(60, sc)) / 100));
+    let ts = parseInt(cfg.titleSize, 10);
+    if (!Number.isFinite(ts)) ts = 100;
+    root.style.setProperty('--title-scale', String(Math.min(200, Math.max(50, ts)) / 100));
+
+    const design = resolveDesign(cfg.design);
+    const fr = $('frame');
+    if (fr) {
+      const nextSrc = design.src;
+      const applyLayout = () => applyFrameLayout();
+      fr.onload = applyLayout;
+      if (fr.getAttribute('src') !== nextSrc) {
+        fr.src = nextSrc;
+      } else if (fr.complete) {
+        applyLayout();
+      }
+    }
 
     const t = $('title');
     t.textContent = (cfg.headerTitle || 'HABIBI DEL MES').trim();
@@ -364,12 +391,6 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     if (rm === 'off') t.classList.add('mvp-header-title--gradient');
     else if (rm === 'fixed') t.classList.add('mvp-header-title--rainbow-fixed');
     else t.classList.add('mvp-header-title--rainbow');
-
-    const fr = $('frame');
-    if (fr) {
-      fr.onload = () => applyFrameLayout();
-      if (fr.complete) applyFrameLayout();
-    }
   }
 
   function render() {
