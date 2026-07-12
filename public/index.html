@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins · Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=navrb2" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=panels1" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
 </head>
 <body>
@@ -114,7 +114,18 @@
           <button id="btnConnect" class="btn primary">Conectar</button>
           <button id="btnDisconnect" class="btn ghost" hidden>Desconectar</button>
         </div>
-        <div class="ann-wrap" id="annWrap">
+        <div class="topbar-end">
+          <div class="topbar-quick-actions">
+            <button type="button" class="btn ghost topbar-action-btn" id="topbar-tutorial-btn" data-url="https://www.youtube.com/watch?v=YBLo2J0khbo&t=15s" title="Ver tutorial en YouTube">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span>Tutorial</span>
+            </button>
+            <button type="button" class="btn ghost topbar-action-btn" id="topbar-admin-btn" data-url="https://wa.me/522202079074" title="Contactar al admin por WhatsApp">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3 1.6-4.8A4 4 0 0 1 4 15V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+              <span>Contactar al Admin</span>
+            </button>
+          </div>
+          <div class="ann-wrap" id="annWrap">
           <button type="button" class="ann-bell-btn" id="annBellBtn" aria-label="Anuncios" title="Anuncios">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <span class="ann-dot" id="annDot" hidden></span>
@@ -130,112 +141,152 @@
           </div>
         </div>
         <div id="liveBadge" class="live-badge off">● Desconectado</div>
+        </div>
       </header>
 
       <main>
         <!-- ===== VISTA: PANEL ===== -->
         <section class="view active" id="view-panel">
-          <!-- Bienvenida con el último usuario -->
-          <div class="home-welcome" id="home-welcome">
-            <div class="home-welcome-glow"></div>
-            <div class="home-welcome-main">
-              <span class="home-welcome-emoji" id="home-welcome-emoji">👋</span>
-              <div class="home-welcome-texts">
-                <div class="home-welcome-greet" id="home-welcome-greet">¡Hola!</div>
-                <div class="home-welcome-sub" id="home-welcome-sub">Conecta tu cuenta de TikTok para empezar.</div>
+          <!-- Estado del live (avatar, @usuario, badge, tiempo) -->
+          <div class="home-hero" id="home-welcome">
+            <div class="home-hero-main">
+              <div class="home-hero-av" id="home-hero-av" aria-hidden="true">
+                <img id="home-hero-img" class="home-hero-img" hidden alt="">
+                <div id="home-hero-ph" class="home-hero-ph">?</div>
+              </div>
+              <div class="home-hero-texts">
+                <div class="home-hero-row">
+                  <div class="home-hero-user" id="home-hero-user">Sin cuenta conectada</div>
+                  <span class="home-hero-badge off" id="home-hero-badge">Desconectado</span>
+                </div>
+                <div class="home-hero-sub" id="home-hero-sub">Conecta tu cuenta de TikTok para empezar el directo.</div>
               </div>
             </div>
-            <button type="button" class="btn primary home-welcome-btn" id="home-welcome-btn">Conectar ahora</button>
+            <div class="home-hero-aside">
+              <div class="home-hero-time" id="home-hero-time" hidden>
+                <span class="home-hero-time-lbl">Tiempo en vivo</span>
+                <span class="home-hero-time-val" id="home-hero-time-val">00:00:00</span>
+              </div>
+              <button type="button" class="btn primary home-welcome-btn" id="home-welcome-btn">Conectar</button>
+            </div>
           </div>
 
           <section class="panel-lives" id="panel-lives" hidden>
             <div class="panel-lives-head">
-              <h2 class="panel-lives-title">🔴 En live con Livecoins</h2>
-              <span class="panel-lives-hint">Toca para abrir su live en TikTok</span>
+              <div class="panel-lives-head-main">
+                <h2 class="panel-lives-title"><span class="panel-lives-dot" aria-hidden="true"></span> En live con Livecoins</h2>
+                <span class="panel-lives-hint">Toca para abrir su live en TikTok</span>
+              </div>
             </div>
             <div class="panel-lives-track" id="panel-lives-track"></div>
           </section>
 
-          <div class="stats">
-            <div class="card"><div class="ico">👀</div><div class="meta"><span class="num" id="s-viewers">0</span><span class="lbl">Viewers</span></div></div>
-            <div class="card"><div class="ico">❤️</div><div class="meta"><span class="num" id="s-likes">0</span><span class="lbl">Likes</span></div></div>
-            <div class="card"><div class="ico">💎</div><div class="meta"><span class="num" id="s-diamonds">0</span><span class="lbl">Diamantes</span></div></div>
-            <div class="card"><div class="ico">🎁</div><div class="meta"><span class="num" id="s-gifts">0</span><span class="lbl">Regalos</span></div></div>
-            <div class="card"><div class="ico">💬</div><div class="meta"><span class="num" id="s-comments">0</span><span class="lbl">Comentarios</span></div></div>
-            <div class="card"><div class="ico">➕</div><div class="meta"><span class="num" id="s-follows">0</span><span class="lbl">Follows</span></div></div>
-            <div class="card"><div class="ico">🔁</div><div class="meta"><span class="num" id="s-shares">0</span><span class="lbl">Shares</span></div></div>
-            <div class="card"><div class="ico">🙋</div><div class="meta"><span class="num" id="s-joins">0</span><span class="lbl">Entradas</span></div></div>
+          <div class="stats" id="panel-stats">
+            <div class="stats-primary">
+              <div class="stat-card is-viewers">
+                <span class="stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                <div class="stat-meta"><span class="stat-num" id="s-viewers">0</span><span class="stat-lbl">Viewers</span></div>
+              </div>
+              <div class="stat-card is-likes">
+                <span class="stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
+                <div class="stat-meta"><span class="stat-num" id="s-likes">0</span><span class="stat-lbl">Likes</span></div>
+              </div>
+              <div class="stat-card is-diamonds">
+                <span class="stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l4 6-10 12L2 9l4-6z"/><path d="M2 9h20"/><path d="M12 21 8 9l4-6 4 6-4 12z"/></svg></span>
+                <div class="stat-meta"><span class="stat-num" id="s-diamonds">0</span><span class="stat-lbl">Diamantes</span></div>
+              </div>
+              <div class="stat-card is-gifts">
+                <span class="stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M12 8v13"/><path d="M19 8a3 3 0 0 0-3-3c-2 0-3 3-4 3s-2-3-4-3a3 3 0 0 0-3 3"/></svg></span>
+                <div class="stat-meta"><span class="stat-num" id="s-gifts">0</span><span class="stat-lbl">Regalos</span></div>
+              </div>
+            </div>
+            <div class="stats-secondary">
+              <div class="stat-card is-comments">
+                <span class="stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                <div class="stat-meta"><span class="stat-num" id="s-comments">0</span><span class="stat-lbl">Comentarios</span></div>
+              </div>
+              <div class="stat-card is-follows">
+                <span class="stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/></svg></span>
+                <div class="stat-meta"><span class="stat-num" id="s-follows">0</span><span class="stat-lbl">Follows</span></div>
+              </div>
+              <div class="stat-card is-shares">
+                <span class="stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98"/><path d="m15.41 6.51-6.82 3.98"/></svg></span>
+                <div class="stat-meta"><span class="stat-num" id="s-shares">0</span><span class="stat-lbl">Shares</span></div>
+              </div>
+              <div class="stat-card is-joins">
+                <span class="stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg></span>
+                <div class="stat-meta"><span class="stat-num" id="s-joins">0</span><span class="stat-lbl">Entradas</span></div>
+              </div>
+            </div>
           </div>
 
-          <div class="grid">
-            <section class="panel chat-panel">
-              <header class="panel-head">💬 Chat en vivo <button id="clearChat" class="mini">limpiar</button></header>
-              <div id="chat" class="feed"></div>
+          <div class="grid panel-live-grid">
+            <section class="panel chat-panel panel-accent-chat">
+              <header class="panel-head">
+                <div class="panel-head-left">
+                  <span class="panel-head-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                  <span class="panel-head-title">Chat en vivo</span>
+                  <span class="panel-head-count" id="chat-count">0</span>
+                </div>
+                <button type="button" id="clearChat" class="mini">Limpiar</button>
+              </header>
+              <div id="chat" class="feed">
+                <div class="feed-empty" data-empty="chat">
+                  <span class="feed-empty-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                  <div class="feed-empty-tt">Esperando mensajes</div>
+                  <div class="feed-empty-dx">El chat aparecerá aquí cuando conectes tu live.</div>
+                </div>
+              </div>
             </section>
-            <section class="panel">
-              <header class="panel-head">🎁 Regalos</header>
-              <div id="gifts" class="feed"></div>
+            <section class="panel panel-accent-gifts">
+              <header class="panel-head">
+                <div class="panel-head-left">
+                  <span class="panel-head-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M12 8v13"/><path d="M19 8a3 3 0 0 0-3-3c-2 0-3 3-4 3s-2-3-4-3a3 3 0 0 0-3 0"/></svg></span>
+                  <span class="panel-head-title">Regalos</span>
+                  <span class="panel-head-count" id="gifts-count">0</span>
+                </div>
+              </header>
+              <div id="gifts" class="feed">
+                <div class="feed-empty" data-empty="gifts">
+                  <span class="feed-empty-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="8" width="18" height="13" rx="1"/><path d="M12 8v13"/><path d="M19 8a3 3 0 0 0-3-3c-2 0-3 3-4 3s-2-3-4-3a3 3 0 0 0-3 0"/></svg></span>
+                  <div class="feed-empty-tt">Sin regalos aún</div>
+                  <div class="feed-empty-dx">Cuando alguien envíe un regalo, se listará aquí.</div>
+                </div>
+              </div>
             </section>
-            <section class="panel">
-              <header class="panel-head">🏆 Top regalos (diamantes)</header>
-              <div id="leaderboard" class="leaderboard"></div>
+            <section class="panel panel-accent-top">
+              <header class="panel-head">
+                <div class="panel-head-left">
+                  <span class="panel-head-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M17 4h2a2 2 0 0 1 0 4h-2"/><path d="M7 4H5a2 2 0 0 0 0 4h2"/></svg></span>
+                  <span class="panel-head-title">Top regalos</span>
+                  <span class="panel-head-count" id="lb-count">0</span>
+                </div>
+              </header>
+              <div id="leaderboard" class="leaderboard">
+                <div class="feed-empty" data-empty="leaderboard">
+                  <span class="feed-empty-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0V4z"/></svg></span>
+                  <div class="feed-empty-tt">Ranking vacío</div>
+                  <div class="feed-empty-dx">El top por diamantes se llenará durante el live.</div>
+                </div>
+              </div>
             </section>
-            <section class="panel">
-              <header class="panel-head">⚙️ Eventos y sistema</header>
-              <div id="events" class="feed small"></div>
+            <section class="panel panel-accent-events">
+              <header class="panel-head">
+                <div class="panel-head-left">
+                  <span class="panel-head-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></span>
+                  <span class="panel-head-title">Eventos y sistema</span>
+                  <span class="panel-head-count" id="events-count">0</span>
+                </div>
+              </header>
+              <div id="events" class="feed small">
+                <div class="feed-empty" data-empty="events">
+                  <span class="feed-empty-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2"/></svg></span>
+                  <div class="feed-empty-tt">Sin eventos</div>
+                  <div class="feed-empty-dx">Conexiones, follows y avisos del sistema saldrán aquí.</div>
+                </div>
+              </div>
             </section>
           </div>
-
-          <!-- Cómo usar la app + consejos -->
-          <section class="home-guide" id="home-guide">
-            <div class="home-guide-head">
-              <h2>🚀 Cómo usar la app</h2>
-              <p>Sigue estos pasos para sacarle el máximo provecho a tu live.</p>
-            </div>
-            <div class="home-steps">
-              <div class="home-step" style="--i:0">
-                <span class="home-step-num">1</span>
-                <span class="home-step-ic">🔗</span>
-                <div class="home-step-tt">Conecta tu cuenta</div>
-                <div class="home-step-dx">Escribe tu <b>@usuario</b> de TikTok y pulsa <b>Conectar</b>. La app recuerda tu usuario y se conecta sola cuando inicies tu live.</div>
-              </div>
-              <div class="home-step" style="--i:1">
-                <span class="home-step-num">2</span>
-                <span class="home-step-ic">🔔</span>
-                <div class="home-step-tt">Configura tus alertas</div>
-                <div class="home-step-dx">En <b>Alertas de sonido</b> elige qué regalo dispara cada sonido, imagen o video en tu overlay.</div>
-              </div>
-              <div class="home-step" style="--i:2">
-                <span class="home-step-num">3</span>
-                <span class="home-step-ic">⌨️</span>
-                <div class="home-step-tt">Crea acciones</div>
-                <div class="home-step-dx">Haz que un regalo o evento presione teclas para controlar tus juegos, OBS o lo que quieras.</div>
-              </div>
-              <div class="home-step" style="--i:3">
-                <span class="home-step-num">4</span>
-                <span class="home-step-ic">🎬</span>
-                <div class="home-step-tt">Abre tu overlay</div>
-                <div class="home-step-dx">Copia el enlace del overlay y pégalo en <b>OBS</b> o <b>TikTok Studio</b> (proporción 3:4).</div>
-              </div>
-              <div class="home-step" style="--i:4">
-                <span class="home-step-num">5</span>
-                <span class="home-step-ic">🗣️</span>
-                <div class="home-step-tt">Activa el Chat TTS</div>
-                <div class="home-step-dx">Haz que la app lea en voz alta los comentarios de tu audiencia durante el directo.</div>
-              </div>
-            </div>
-
-            <div class="home-tips-head"><h2>💡 Consejos</h2></div>
-            <div class="home-tips" id="home-tips">
-              <div class="home-tip is-active">💎 Tus diamantes, regalos y top fans se ven en tiempo real aquí mismo en el Panel.</div>
-              <div class="home-tip">🔁 No te preocupes por reconectar: la app entra sola a tu próximo live.</div>
-              <div class="home-tip">🎯 Usa la <b>Meta de regalos</b> para incentivar a tu audiencia a regalar.</div>
-              <div class="home-tip">🏆 Premia a tus fans leales con beneficios por <b>nivel de miembro</b> en el Chat TTS.</div>
-              <div class="home-tip">🎮 ¿Juegas Minecraft, Roblox o Plants vs Zombies? Actívalos en la pestaña <b>Juegos</b>.</div>
-              <div class="home-tip">🖼️ Personaliza tu overlay con tus propias imágenes para que se vea único.</div>
-            </div>
-            <div class="home-tips-dots" id="home-tips-dots"></div>
-          </section>
 
           <section class="panel panel-transfer" id="panel-transfer">
             <header class="panel-head">📦 Importar / Exportar configuración</header>
@@ -286,6 +337,8 @@
                 <label class="wh-field"><span>Host</span><input type="text" id="wh-rcon-host" value="127.0.0.1"></label>
                 <label class="wh-field"><span>Puerto</span><input type="number" id="wh-rcon-port" value="25575"></label>
                 <label class="wh-field"><span>Contraseña</span><input type="password" id="wh-rcon-pass" placeholder="Tu contraseña RCON"></label>
+                <label class="wh-field"><span>Nombre del jugador (Minecraft)</span><input type="text" id="wh-rcon-player" placeholder="ej. jesus — nick exacto en el servidor"></label>
+                <p class="hint" style="margin-top:0">Obligatorio para <b>QualityArmory</b> (<code>qa give</code>): el plugin no entiende <code>@p</code> por RCON. Los mobs con <code>execute at @p</code> sí usan tu personaje en el mundo.</p>
                 <button class="btn ghost wh-test" data-test="rcon">Probar Conexión</button>
                 <span class="wh-test-msg" id="wh-rcon-msg"></span>
               </div>
@@ -314,11 +367,10 @@
 
               <div class="wh-cfg-card">
                 <h4 class="wh-cfg-title" style="color:#5bd64f">Minecraft ServerTap</h4>
-                <p class="hint">Si utilizas el plugin <b>ServerTap</b> (o el mod de TikFinity), ingresa aquí tu nombre de jugador para usar el placeholder de <b>{playername}</b>. Si dejas el campo en blanco, los comandos se ejecutarán para todos los jugadores en el servidor (<b>@p</b>). Elige entre el mod de TikFinity (para un jugador) o el plugin ServerTap (para servidores). <b>¡No los uses juntos!</b></p>
+                <p class="hint">Alternativa a RCON. El <b>nick de Minecraft</b> se configura arriba en la tarjeta RCON (Nombre del jugador).</p>
                 <p class="hint"><a href="https://modrinth.com/mod/tikfinity/version/1.1" target="_blank" rel="noopener">⬇ Descarga TikFinity Minecraft Mod para Minecraft Fabric (solo para un jugador)</a></p>
                 <p class="hint"><a href="https://github.com/phybros/servertap/releases" target="_blank" rel="noopener">⬇ Descarga ServerTap Plugin para Minecraft (Java) (solo servidores)</a></p>
                 <label class="switch-row plain"><input type="checkbox" id="wh-stap-enabled"> <span>Usar ServerTap para enviar comandos de Minecraft (en vez de RCON)</span></label>
-                <label class="wh-field"><span>Nombre del Jugador</span><input type="text" id="wh-stap-player" placeholder="Vacío = todos (@p)"></label>
                 <label class="wh-field"><span>IP</span><input type="text" id="wh-stap-ip" value="localhost"></label>
                 <label class="wh-field"><span>Puerto</span><input type="number" id="wh-stap-port" value="4567"></label>
                 <label class="wh-field"><span>Key</span><input type="text" id="wh-stap-key" value="change_me"></label>
@@ -433,6 +485,7 @@
 
           <div class="sa-toolbar">
             <button class="btn primary" id="sa-create"><span>✚</span> Crear alerta sonora</button>
+            <button class="btn ghost" id="sa-toggle-all">⏻ Encender / Apagar todas</button>
             <button class="btn ghost" id="sa-delsel">🗑 Eliminar alertas (<span id="sa-selcount">0</span>)</button>
             <button class="btn danger" id="sa-panic">⛔ Pánico</button>
           </div>
@@ -449,7 +502,7 @@
             </label>
           </div>
 
-          <div id="saList" class="sa-grid"></div>
+          <div id="saList" class="vid-cards-grid"></div>
         </section>
 
         <!-- ===== VISTA: VIDEOS ===== -->
@@ -468,14 +521,25 @@
           <p class="view-sub">Dispara un video cuando llega un regalo o evento del live. Es independiente de tus alertas sonoras.</p>
 
           <div class="settings-card screens-card">
-            <div class="box-title">Links de reproducción para OBS / TikTok Studio</div>
+            <div class="screens-head">
+              <div>
+                <div class="box-title">Links de reproducción para OBS / TikTok Studio</div>
+                <p class="screens-sub">Usa cada link como <b>Browser Source</b> separado y asigna cada video a la pantalla que quieras.</p>
+              </div>
+              <p class="screens-warn" role="note">Si alguna pantalla te falla prueba otra</p>
+            </div>
             <div id="screenList" class="screen-grid"></div>
-            <p class="hint">Usa cada link como <b>Browser Source</b> separado en OBS o TikTok Studio y asigna cada video a la pantalla que quieras.</p>
           </div>
 
           <div class="settings-card levelvid-card" id="levelvid-card">
             <div class="levelvid-event-bar">
-              <span class="levelvid-event-label">Subió de nivel de miembro</span>
+              <div class="levelvid-title-wrap">
+                <span class="levelvid-ico" aria-hidden="true">⬆</span>
+                <div>
+                  <span class="levelvid-event-label">Subió de nivel de miembro</span>
+                  <p class="levelvid-event-sub">Video automático al subir de nivel · carpetas niveles</p>
+                </div>
+              </div>
               <label class="toggle levelvid-toggle" title="Activar o desactivar videos automáticos por nivel">
                 <input type="checkbox" id="levelvid-enabled" checked>
                 <span class="track"></span>
@@ -483,21 +547,31 @@
               </label>
             </div>
             <div class="levelvid-body">
-              <p class="levelvid-hint">En Live Studio usa el <b>link local</b> de abajo. Al subir de nivel lo detecta automático. Falta agregar nivel 11-19 y 41-50.</p>
+              <div class="levelvid-info">
+                <p class="levelvid-hint">Al subir de nivel lo detecta automático. Elige la pantalla, copia el link y pégalo en Live Studio.</p>
+                <p class="levelvid-note">Falta agregar nivel 11-19 y 41-50</p>
+              </div>
               <div class="levelvid-controls">
-                <code id="levelvid-screen-url" class="levelvid-url"></code>
-                <button type="button" class="btn ghost mini" id="levelvid-copy-url">Copiar link</button>
-                <span id="levelvid-screen-status" class="levelvid-url-status off"></span>
-                <label class="levelvid-test-lvl">
-                  <span>Nivel prueba</span>
-                  <input type="number" id="levelvid-test-level" min="1" max="50" value="1">
+                <label class="levelvid-screen-pick">
+                  <span>Pantalla</span>
+                  <select id="levelvid-screen"></select>
                 </label>
-                <button type="button" class="btn ghost mini" id="levelvid-test">▶ Probar</button>
+                <p class="levelvid-copy-hint" id="levelvid-screen-url" hidden aria-hidden="true"></p>
+                <button type="button" class="btn ghost mini levelvid-btn" id="levelvid-copy-url">Copiar link</button>
+                <span class="levelvid-copy-tip">Copia y pega el URL de la pantalla que elegiste</span>
+                <span id="levelvid-screen-status" class="levelvid-url-status off"></span>
+                <div class="levelvid-test-group">
+                  <label class="levelvid-test-lvl">
+                    <span>Nivel prueba</span>
+                    <input type="number" id="levelvid-test-level" min="1" max="50" value="1">
+                  </label>
+                  <button type="button" class="btn ghost mini levelvid-btn" id="levelvid-test">▶ Probar</button>
+                </div>
               </div>
             </div>
           </div>
 
-          <div id="videoCards" class="sa-grid"></div>
+          <div id="videoCards" class="vid-cards-grid"></div>
         </section>
 
         <!-- ===== VISTA: BATALLAS ===== -->
@@ -521,7 +595,7 @@
             <p class="hint">Las animaciones usan las mismas <b>pantallas</b> que la pestaña Videos: añade <code>/video.html?screen=1</code> (o 2, 3…) como <b>Browser Source</b> y elige esa pantalla en cada animación.</p>
           </div>
 
-          <div id="battleCards" class="sa-grid"></div>
+          <div id="battleCards" class="vid-cards-grid"></div>
         </section>
 
 <!-- Modal crear/editar alerta sonora -->
@@ -569,6 +643,10 @@
                 <div id="sa-emoteextra" class="gift-extra one" hidden>
                   <button type="button" class="btn ghost gift-pick-btn" id="sa-emotepick">🙂 Elegir sticker…</button>
                   <input type="hidden" id="sa-emoteid">
+                </div>
+                <div id="sa-eventdelayextra" class="gift-extra one" hidden>
+                  <label class="ml" for="sa-eventdelay">SEGUNDOS DE ESPERA por usuario (mismo seguidor no repite hasta pasar este tiempo)</label>
+                  <input type="number" id="sa-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
                 </div>
               </div>
 
@@ -680,6 +758,198 @@
           </div>
         </div>
 
+        <!-- Modales: catálogos de juegos -->
+        <div id="marioCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🍄 Catálogo Mario Interactivo</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="mario-cat-search" class="gift-search" placeholder="Buscar (hongo, goomba, leon, tnt…)" autocomplete="off">
+              <button type="button" class="modal-close" id="mario-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="mario-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="smb3CatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🎮 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="smb3-cat-search" class="gift-search" placeholder="Buscar acción (goomba, estrella, thwomp…)" autocomplete="off">
+              <button type="button" class="modal-close" id="smb3-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="smb3-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="mari0CatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🍄 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="mari0-cat-search" class="gift-search" placeholder="Buscar acción (goomba, estrella, thwomp…)" autocomplete="off">
+              <button type="button" class="modal-close" id="mari0-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="mari0-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="pvzCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🧟 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="pvz-cat-search" class="gift-search" placeholder="Buscar acción (zombie, soles, god mode…)" autocomplete="off">
+              <button type="button" class="modal-close" id="pvz-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="pvz-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="pvzhybridCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🌻 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="pvzhybrid-cat-search" class="gift-search" placeholder="Buscar enemigo Hybrid, soles, god mode…" autocomplete="off">
+              <button type="button" class="modal-close" id="pvzhybrid-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="pvzhybrid-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="repoCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>👾 Catálogo</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="repo-cat-search" class="gift-search" placeholder="Buscar (Duck, Cart Medium, Diamond, Heal…)" autocomplete="off">
+              <button type="button" class="modal-close" id="repo-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="repo-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="l4dCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🧟 Catálogo</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="l4d-cat-search" class="gift-search" placeholder="Buscar (Tank, Pipe Bomb, Airstrike…)" autocomplete="off">
+              <button type="button" class="modal-close" id="l4d-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="l4d-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="unturnedCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🎒 Catálogo</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="unturned-cat-search" class="gift-search" placeholder="Buscar (zombie, medkit, airdrop…)" autocomplete="off">
+              <button type="button" class="modal-close" id="unturned-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="unturned-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="ctrCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🏎️ Catálogo</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="ctr-cat-search" class="gift-search" placeholder="Buscar (turbo, bomba, misil, freno…)" autocomplete="off">
+              <button type="button" class="modal-close" id="ctr-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="ctr-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="smwCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🌍 Catálogo SMW</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="smw-cat-search" class="gift-search" placeholder="Buscar (goomba, koopa, mensaje…)" autocomplete="off">
+              <button type="button" class="modal-close" id="smw-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="smw-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="mslugCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🎖️ Catálogo de enemigos</h2><span class="vidlib-sub">Toca un enemigo para añadirlo a tus acciones</span></div>
+              <input type="text" id="mslug-cat-search" class="gift-search" placeholder="Buscar Allen, mortero, marcianos…" autocomplete="off">
+              <button type="button" class="modal-close" id="mslug-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="mslug-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="gdashCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>📐 Catálogo de efectos</h2><span class="vidlib-sub">Toca un efecto para añadirlo a tus acciones</span></div>
+              <input type="text" id="gdash-cat-search" class="gift-search" placeholder="Buscar color, cámara, gigante…" autocomplete="off">
+              <button type="button" class="modal-close" id="gdash-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="gdash-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="mcCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>⛏️ Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="mc-cat-search" class="gift-search" placeholder="Buscar acción (zombie, tnt, kit…)" autocomplete="off">
+              <button type="button" class="modal-close" id="mc-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="mc-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="mcshooterCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🔫 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="mcshooter-cat-search" class="gift-search" placeholder="Buscar (m16, zombie, 556, granada…)" autocomplete="off">
+              <button type="button" class="modal-close" id="mcshooter-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="mcshooter-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="bedrockCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🟩 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="bedrock-cat-search" class="gift-search" placeholder="Buscar acción (tnt, reset, enderman…)" autocomplete="off">
+              <button type="button" class="modal-close" id="bedrock-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="bedrock-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="mcparkourCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🏃 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="mcparkour-cat-search" class="gift-search" placeholder="Buscar tnt, flechas, timer…" autocomplete="off">
+              <button type="button" class="modal-close" id="mcparkour-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="mcparkour-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="mckothCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>👑 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="mckoth-cat-search" class="gift-search" placeholder="Buscar zombie, lobo, golem…" autocomplete="off">
+              <button type="button" class="modal-close" id="mckoth-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="mckoth-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="mcfarmCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🌾 Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="mcfarm-cat-search" class="gift-search" placeholder="Buscar acción (oveja, tnt, rayo…)" autocomplete="off">
+              <button type="button" class="modal-close" id="mcfarm-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="mcfarm-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+        <div id="sandboxCatalogModal" class="modal hidden game-catalog-modal">
+          <div class="modal-box wide game-cat-modal-box">
+            <div class="modal-head">
+              <div><h2>🏖️ Catálogo de acciones</h2><span class="vidlib-sub">Toca una acción para añadirla</span></div>
+              <input type="text" id="sandbox-cat-search" class="gift-search" placeholder="Buscar acción (tnt, arena, cárcel…)" autocomplete="off">
+              <button type="button" class="modal-close" id="sandbox-cat-close" aria-label="Cerrar">✕</button>
+            </div>
+            <div class="modal-body game-cat-modal-body"><div id="sandbox-catalog" class="game-catalog-wrap"></div></div>
+          </div>
+        </div>
+
         <!-- Modal: Nueva / Editar acción (solo .exe) -->
         <div id="accModal" class="modal hidden">
           <div class="modal-box">
@@ -739,7 +1009,7 @@
                 </div>
               </div>
 
-              <label class="switch-row plain"><input type="checkbox" id="acc-keys-on"> <span>Simulación de teclas <span class="opt">(se pulsa en tu PC)</span></span></label>
+              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-keys-on"> <span class="acc-switch-ico" aria-hidden="true">⌨️</span> <span>Simulación de teclas <span class="opt">(se pulsa en tu PC)</span></span></label>
               <div class="box" id="acc-keys-box" hidden>
                 <div class="acc-keyrow">
                   <input type="text" id="acc-keys" placeholder="Sin tecla asignada" readonly>
@@ -756,7 +1026,7 @@
                 </div>
               </div>
 
-              <label class="switch-row plain"><input type="checkbox" id="acc-wh-on"> <span>Comandos WebHook</span></label>
+              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-wh-on"> <span class="acc-switch-ico" aria-hidden="true">🪝</span> <span>Comandos WebHook</span></label>
               <div class="box" id="acc-wh-box" hidden>
                 <div class="box-sub">Cuando se dispare la acción, se enviará una petición HTTP a la URL indicada. Útil para Stream Deck, OBS u otros servicios.</div>
                 <div class="acc-keyrow">
@@ -769,7 +1039,7 @@
                 <textarea id="acc-wh-body" class="acc-area" rows="2" placeholder="Cuerpo opcional (JSON) para POST"></textarea>
               </div>
 
-              <label class="switch-row plain"><input type="checkbox" id="acc-obs-on"> <span>Conexión OBS</span></label>
+              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-obs-on"> <span class="acc-switch-ico" aria-hidden="true">📡</span> <span>Conexión OBS</span></label>
               <div class="box" id="acc-obs-box" hidden>
                 <div class="box-sub">Envía un comando a OBS usando los datos de conexión de la pestaña <b>Configuración</b>.</div>
                 <select id="acc-obs-type">
@@ -790,10 +1060,57 @@
                 </div>
               </div>
 
-              <label class="switch-row plain"><input type="checkbox" id="acc-sb-on"> <span>Streamer.bot</span></label>
+              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-sb-on"> <span class="acc-switch-ico" aria-hidden="true">🤖</span> <span>Streamer.bot</span></label>
               <div class="box" id="acc-sb-box" hidden>
                 <div class="box-sub">Ejecuta una acción de Streamer.bot usando los datos de conexión de la pestaña <b>Configuración</b>.</div>
                 <input type="text" id="acc-sb-action" placeholder="Nombre o ID de la acción de Streamer.bot">
+              </div>
+
+              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-media-on"> <span class="acc-switch-ico" aria-hidden="true">🎬</span> <span>Mostrar IMG / GIF / VIDEO</span></label>
+              <div class="box" id="acc-media-box" hidden>
+                <div class="box-sub">El archivo se muestra en tu directo usando una <b>fuente Navegador</b> en Live Studio u OBS.</div>
+                <label class="ml">PANTALLA</label>
+                <select id="acc-media-screen">
+                  <option value="1">Pantalla 1</option>
+                  <option value="2">Pantalla 2</option>
+                  <option value="3">Pantalla 3</option>
+                  <option value="4">Pantalla 4</option>
+                  <option value="5">Pantalla 5</option>
+                  <option value="6">Pantalla 6</option>
+                  <option value="7">Pantalla 7</option>
+                  <option value="8">Pantalla 8</option>
+                  <option value="9">Pantalla 9</option>
+                  <option value="10">Pantalla 10</option>
+                </select>
+                <p class="hint" style="margin-top:8px">Pega este enlace como <b>Fuente → Navegador</b> en TikTok Live Studio u OBS (una vez por pantalla):</p>
+                <div class="acc-media-urlrow">
+                  <code id="acc-media-ls-url" class="acc-media-ls-url"></code>
+                  <button type="button" class="btn ghost sm" id="acc-media-copy-url">Copiar link</button>
+                </div>
+                <span id="acc-media-ls-status" class="levelvid-url-status off">○ Pega el link en Live Studio y recarga la fuente</span>
+                <div class="acc-media-row">
+                  <label class="acc-media-field">
+                    <span class="ml">Tamaño Video</span>
+                    <div class="acc-media-pct">
+                      <input type="number" id="acc-media-size" min="10" max="100" value="100">
+                      <span>%</span>
+                    </div>
+                  </label>
+                  <label class="acc-media-field">
+                    <span class="ml">Audio Video</span>
+                    <div class="acc-media-pct">
+                      <input type="number" id="acc-media-vol" min="0" max="100" value="100">
+                      <span>%</span>
+                    </div>
+                  </label>
+                </div>
+                <label class="switch-row plain"><input type="checkbox" id="acc-media-orig" checked> <span>Video - Duración original</span></label>
+                <div class="acc-media-upload" id="acc-media-drop">
+                  <button type="button" class="btn ghost" id="acc-media-upbtn">Subir Archivo</button>
+                  <span class="acc-media-drop-hint">o suéltalo aquí</span>
+                  <input type="file" id="acc-media-file" accept="video/*,image/*" hidden>
+                </div>
+                <div class="chosen"><span id="acc-media-fname" class="fname">Ningún archivo…</span></div>
               </div>
 
               <div class="box">
@@ -838,7 +1155,8 @@
 
             <div class="modal-foot">
               <button class="btn ghost" id="acc-cancel2">Cancelar</button>
-              <button class="btn ghost" id="acc-test">▶ Probar</button>
+              <button class="btn ghost" id="acc-test" title="Espera 2 s para cambiar de ventana">▶ Probar</button>
+              <button class="btn ghost" id="acc-test-now" title="Sin espera — cada clic dispara al instante">⚡ Ya</button>
               <button class="btn primary" id="acc-save">Guardar acción</button>
             </div>
           </div>
@@ -864,6 +1182,7 @@
               <div id="kb-textrow" class="kb-textrow" hidden>
                 <label class="ml">TEXTO QUE SE ESCRIBIRÁ</label>
                 <input type="text" id="kb-textinput" placeholder="Escribe aquí el texto…" maxlength="500">
+                <label class="switch-row plain" style="margin-top:8px;"><input type="checkbox" id="kb-text-enter"> <span>Pulsar <strong>Enter</strong> al terminar <small>(chat / comandos en juegos)</small></span></label>
               </div>
 
               <div id="kb-charsrow" class="kb-charsrow" hidden>
@@ -871,12 +1190,22 @@
                 <div id="kb-charpad" class="kb-charpad"></div>
                 <div class="kb-chars-tools">
                   <button type="button" class="btn ghost kb-char-tool" id="kb-char-space">Espacio</button>
+                  <button type="button" class="btn ghost kb-char-tool" id="kb-char-enter">Enter ↵</button>
                   <button type="button" class="btn ghost kb-char-tool" id="kb-char-back">← Borrar</button>
                   <button type="button" class="btn ghost kb-char-tool" id="kb-char-clear">Vaciar</button>
                 </div>
               </div>
 
               <label class="switch-row plain kb-gamerow"><input type="checkbox" id="kb-gamecompat"> <span>Habilitar compatibilidad con juegos <small>( GTA 5, Roblox, etc )</small></span></label>
+
+              <div id="kb-hold-row" class="kb-hold-row" hidden>
+                <label class="switch-row plain"><input type="checkbox" id="kb-hold-on"> <span>Mantener tecla presionada</span></label>
+                <div id="kb-hold-box" class="kb-hold-box" hidden>
+                  <label class="ml">SEGUNDOS PRESIONADA</label>
+                  <input type="number" id="kb-hold-sec" min="0.1" max="30" step="0.1" value="1" style="max-width:120px;margin-top:6px">
+                  <p class="hint" style="margin-top:6px">Letras y números se repiten (k → kkk…). Teclas como W, Shift o Espacio se mantienen pulsadas (útil para correr o volar).</p>
+                </div>
+              </div>
 
               <div class="kb-manual-row">
                 <button type="button" class="btn ghost" id="kb-manual">⌨️ Elegir tecla manual</button>
@@ -1463,7 +1792,7 @@
                 <div><label class="ml">MARCO</label><input type="color" id="wccfg-bordercolor" value="#ffffff"></div>
               </div>
               <label class="wc-check"><input type="checkbox" id="wccfg-rainbow"><span>🌈 Texto color arcoíris</span></label>
-              <label class="ml">ATAJOS DE TECLADO <span class="opt">— marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinación que quieras (ej. F5, Ctrl+1). Además puedes asignar un regalo a cada acción: cuando lo envíen en el live, se sumará o restará automáticamente.</span></label>
+              <label class="ml">ATAJOS DE TECLADO <span class="opt">— marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinación que quieras (ej. F5, Ctrl+1). En la app .exe funcionan aunque esté minimizada o estés en OBS/juego. Además puedes asignar un regalo a cada acción: cuando lo envíen en el live, se sumará o restará automáticamente.</span></label>
               <div id="wccfg-hotkeys" class="wc-hotkeys"></div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="wccfg-save">Guardar para OBS / Live Studio</button></div>
@@ -1496,7 +1825,7 @@
               </div>
               <label class="wc-check"><input type="checkbox" id="wcgcfg-rainbow"><span>🌈 Texto color arcoíris</span></label>
               <label class="wc-check"><input type="checkbox" id="wcgcfg-scoreglow" checked><span>✨ Brillo en el número (00)</span></label>
-              <label class="ml">ATAJOS DE TECLADO <span class="opt">— marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinación que quieras (ej. F5, Ctrl+1). Además puedes asignar un regalo a cada acción: cuando lo envíen en el live, se sumará o restará automáticamente.</span></label>
+              <label class="ml">ATAJOS DE TECLADO <span class="opt">— marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinación que quieras (ej. F5, Ctrl+1). En la app .exe funcionan aunque esté minimizada o estés en OBS/juego. Además puedes asignar un regalo a cada acción: cuando lo envíen en el live, se sumará o restará automáticamente.</span></label>
               <div id="wcgcfg-hotkeys" class="wc-hotkeys"></div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="wcgcfg-save">Guardar para OBS / Live Studio</button></div>
@@ -2462,6 +2791,11 @@
                   <option value="3">Pantalla 3</option>
                   <option value="4">Pantalla 4</option>
                   <option value="5">Pantalla 5</option>
+                  <option value="6">Pantalla 6</option>
+                  <option value="7">Pantalla 7</option>
+                  <option value="8">Pantalla 8</option>
+                  <option value="9">Pantalla 9</option>
+                  <option value="10">Pantalla 10</option>
                 </select>
               </div>
 
@@ -2535,7 +2869,8 @@
                 </div>
                 <div class="mcc-vars">
                   <div><code>{streamer}</code> o <code>@p</code> Tu personaje en el juego (usar en «execute at …»)</div>
-                  <div><code>{playername}</code> Tu nombre en el juego (para <code>give</code>, etc.)</div>
+                  <div><code>{mcplayer}</code> Tu nick de Minecraft (<b>Configuración → RCON → Nombre del jugador</b>)</div>
+                  <div><code>{playername}</code> Nombre del espectador TikTok (etiqueta del mob, etc.)</div>
                   <div><code>{nickname}</code> Nombre visible del usuario</div>
                   <div><code>{username}</code> @usuario de TikTok</div>
                   <div><code>{giftname}</code> Nombre del regalo</div>
@@ -2619,6 +2954,11 @@
                   <option value="3">Pantalla 3</option>
                   <option value="4">Pantalla 4</option>
                   <option value="5">Pantalla 5</option>
+                  <option value="6">Pantalla 6</option>
+                  <option value="7">Pantalla 7</option>
+                  <option value="8">Pantalla 8</option>
+                  <option value="9">Pantalla 9</option>
+                  <option value="10">Pantalla 10</option>
                 </select>
               </div>
 
@@ -2759,7 +3099,7 @@
                   <a class="mini" target="_blank" rel="noopener">abrir</a>
                 </div>
               </div>
-              <p class="credit">Para más pantallas usa <code>/video.html?screen=3</code>, <code>4</code>, <code>5</code>…</p>
+              <p class="credit">Para más pantallas usa <code>/video.html?screen=3</code> … <code>screen=10</code>.</p>
             </div>
         </section>
 
@@ -3273,72 +3613,6 @@
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
                 <iframe id="hyp-preview" src="/meta.html?embed=1" title="Vista previa barra de meta"></iframe>
-              </div>
-            </div>
-
-            <!-- Tarjeta PRO: Barra de meta (Minecraft) -->
-            <div class="ovpro-card" id="hypmc-card">
-              <div class="ovpro-top">
-                <div class="ovpro-actions">
-                  <button class="ovpro-btn" id="hypmc-reset">↺ Reset</button>
-                  <button class="ovpro-btn primary" id="hypmc-test">▶ Testear</button>
-                  <button class="ovpro-btn" id="hypmc-config">⚙ Configurar</button>
-                </div>
-                <div class="ovpro-conn" id="hypmc-conn"><span class="cdot"></span> CONECTADO</div>
-              </div>
-              <h3 class="ovpro-title">⛏️ Barra de meta (Minecraft)</h3>
-              <p class="ovpro-desc">Misma barra de hype con estilo pixel art: bloques de piedra, hierba, creepers y barra XP. Cuatro diseños en uno.</p>
-              <div class="ovpro-urlrow">
-                <code class="ov-url" data-path="/meta-minecraft.html">/meta-minecraft.html</code>
-                <button class="ovpro-copy ov-copy">Copiar enlace</button>
-              </div>
-              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-              <div class="ovpro-preview">
-                <iframe id="hypmc-preview" src="/meta-minecraft.html?embed=1" title="Vista previa barra de meta Minecraft"></iframe>
-              </div>
-            </div>
-
-            <!-- Tarjeta PRO: Barra de meta (Mario Bros) -->
-            <div class="ovpro-card" id="hypmr-card">
-              <div class="ovpro-top">
-                <div class="ovpro-actions">
-                  <button class="ovpro-btn" id="hypmr-reset">↺ Reset</button>
-                  <button class="ovpro-btn primary" id="hypmr-test">▶ Testear</button>
-                  <button class="ovpro-btn" id="hypmr-config">⚙ Configurar</button>
-                </div>
-                <div class="ovpro-conn" id="hypmr-conn"><span class="cdot"></span> CONECTADO</div>
-              </div>
-              <h3 class="ovpro-title">🍄 Barra de meta (Mario Bros)</h3>
-              <p class="ovpro-desc">Barra de progreso estilo Mario: tuberías rojas, monedas giratorias, colores Nintendo y barra dorada.</p>
-              <div class="ovpro-urlrow">
-                <code class="ov-url" data-path="/meta-mario.html">/meta-mario.html</code>
-                <button class="ovpro-copy ov-copy">Copiar enlace</button>
-              </div>
-              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-              <div class="ovpro-preview">
-                <iframe id="hypmr-preview" src="/meta-mario.html?embed=1" title="Vista previa barra de meta Mario"></iframe>
-              </div>
-            </div>
-
-            <!-- Tarjeta PRO: Barra de meta (Dragon Ball Super) -->
-            <div class="ovpro-card" id="hypdbz-card">
-              <div class="ovpro-top">
-                <div class="ovpro-actions">
-                  <button class="ovpro-btn" id="hypdbz-reset">↺ Reset</button>
-                  <button class="ovpro-btn primary" id="hypdbz-test">▶ Testear</button>
-                  <button class="ovpro-btn" id="hypdbz-config">⚙ Configurar</button>
-                </div>
-                <div class="ovpro-conn" id="hypdbz-conn"><span class="cdot"></span> CONECTADO</div>
-              </div>
-              <h3 class="ovpro-title">🐉 Barra de meta (Dragon Ball Super)</h3>
-              <p class="ovpro-desc">Barra de ki con aura naranja y azul, esfera del dragón, energía animada y tipografía épica.</p>
-              <div class="ovpro-urlrow">
-                <code class="ov-url" data-path="/meta-dragonball.html">/meta-dragonball.html</code>
-                <button class="ovpro-copy ov-copy">Copiar enlace</button>
-              </div>
-              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-              <div class="ovpro-preview">
-                <iframe id="hypdbz-preview" src="/meta-dragonball.html?embed=1" title="Vista previa barra de meta Dragon Ball"></iframe>
               </div>
             </div>
         </section>
@@ -3948,6 +4222,7 @@
               <label class="switch-row plain"><input type="checkbox" id="tts-block-alpha"> <span>Bloquear mensajes en otros alfabetos o idiomas raros</span></label>
               <label class="switch-row plain"><input type="checkbox" id="tts-block-prof"> <span>Bloquear groserías y palabras ofensivas</span></label>
               <label class="switch-row plain"><input type="checkbox" id="tts-block-susp"> <span>Bloquear mensajes sospechosos o texto raro</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="tts-block-replies"> <span>No leer respuestas a otros (@usuario al inicio)</span></label>
               <label class="switch-row plain"><input type="checkbox" id="tts-strip-emojis"> <span>Quitar emojis antes de leer</span></label>
               <div class="field">
                 <label>Palabras bloqueadas extra</label>
@@ -4373,7 +4648,7 @@
         <!-- ===================== WEBHOOK Y CONFIGURACIÓN (solo .exe) ===================== -->
         <section class="view" id="view-webhook">
           <h1 class="view-title">🪝 Webhook</h1>
-          <p class="view-sub">Ejecuta tus acciones desde herramientas externas (OBS, Stream Deck, scripts). <b>Funciona solo en la app de escritorio.</b></p>
+          <p class="view-sub">Ejecuta tus <b>acciones</b> y <b>videos</b> desde herramientas externas (OBS, Stream Deck, scripts). <b>Funciona solo en la app de escritorio.</b></p>
 
           <div class="wh-premium" id="wh-premium" hidden>
             <div class="wh-premium-ico">⭐</div>
@@ -4388,10 +4663,14 @@
             <div class="wh-notes">
               <ul>
                 <li>Puedes usar esto en OBS Browser Source, Stream Deck (Petición Web), o scripts de Python/NodeJS.</li>
+                <li><b>Importante:</b> las URLs ya incluyen <b>tu</b> <code>room=</code> (igual que los overlays). Copia y pégalas en Stream Deck.</li>
                 <li>Si tienes el mismo nombre en dos acciones, se ejecutará la primera que encuentre.</li>
-                <li>Para agregar varios datos en una URL, usa <b>&amp;</b> después del primer parámetro. Ejemplo: <code>?name=ACTION_TEST&amp;username=interactive</code></li>
                 <li>Si un valor tiene espacios o caracteres especiales, debe ir codificado. Ejemplo: Hola mundo → <code>Hola%20mundo</code></li>
               </ul>
+              <p class="wh-room-line" id="wh-room-line" hidden>
+                Tu clave de sala: <code id="wh-room-key">—</code>
+                <button type="button" class="btn ghost wh-room-copy" id="wh-room-copy" title="Copiar clave">Copiar clave</button>
+              </p>
             </div>
 
             <div class="settings-card">
@@ -4424,6 +4703,36 @@
                   <code class="wh-url">http://localhost:3199/execute_action?name=ACTION_TEST</code>
                 </div>
               </div>
+
+              <div class="wh-block">
+                <h3>4. Obtener lista de videos / batallas</h3>
+                <p class="hint">Devuelve un JSON con id, nombre y pantalla de los videos de la pestaña <b>Videos</b> y las animaciones de la pestaña <b>Batallas</b>.</p>
+                <div class="wh-endpoint">
+                  <span class="wh-method get">GET</span><span class="wh-eplabel">Listar Videos + Batallas</span>
+                  <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                  <code class="wh-url">http://localhost:3199/get_videos</code>
+                </div>
+              </div>
+
+              <div class="wh-block">
+                <h3>5. Ejecutar video / batalla por ID</h3>
+                <p class="hint">Reproduce un video o una animación de batalla. El ID no cambia aunque cambies el nombre. Ideal para Stream Deck.</p>
+                <div class="wh-endpoint">
+                  <span class="wh-method getpost">GET/POST</span><span class="wh-eplabel">Ejemplo por ID</span>
+                  <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                  <code class="wh-url">http://localhost:3199/execute_video?id=v123</code>
+                </div>
+              </div>
+
+              <div class="wh-block">
+                <h3>6. Ejecutar video / batalla por Nombre</h3>
+                <p class="hint">Misma URL para <b>Videos</b> y <b>Batallas</b>. Usa el nombre exacto. No distingue mayúsculas/minúsculas. Espacios → <code>%20</code>. Opcional: <code>&amp;kind=video</code> o <code>&amp;kind=battle</code>.</p>
+                <div class="wh-endpoint">
+                  <span class="wh-method getpost">GET/POST</span><span class="wh-eplabel">Ejemplo por Nombre</span>
+                  <button class="wh-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                  <code class="wh-url">http://localhost:3199/execute_video?name=NOMBRE</code>
+                </div>
+              </div>
             </div>
 
             <div class="settings-card">
@@ -4447,8 +4756,10 @@
                 <table class="data-table wh-params">
                   <thead><tr><th>Parámetro</th><th>Descripción</th><th>Ejemplo</th></tr></thead>
                   <tbody>
-                    <tr><td><code>id</code></td><td>ID de la acción que quieres ejecutar.</td><td><code>id=1</code></td></tr>
-                    <tr><td><code>name</code> / <code>nombre</code></td><td>Nombre exacto de la acción que quieres ejecutar.</td><td><code>name=ACTION_TEST</code></td></tr>
+                    <tr><td><code>id</code></td><td>ID de la acción, video o animación de batalla.</td><td><code>id=1</code></td></tr>
+                    <tr><td><code>name</code> / <code>nombre</code></td><td>Nombre exacto (Acción, Videos o Batallas).</td><td><code>name=ACTION_TEST</code></td></tr>
+                    <tr><td><code>kind</code> / <code>tipo</code></td><td>Solo en <code>/execute_video</code>: <code>video</code> o <code>battle</code> si el nombre existe en ambas pestañas.</td><td><code>kind=battle</code></td></tr>
+                    <tr><td><code>room</code></td><td>Tu clave de sala (igual que en los overlays). Obligatoria si hay varias cuentas.</td><td><code>room=TU_CLAVE</code></td></tr>
                     <tr><td><code>username</code> / <code>uniqueId</code></td><td>Usuario que llegará a la variable <code>{username}</code>.</td><td><code>username=interactive</code></td></tr>
                     <tr><td><code>nickname</code></td><td>Nombre visible que llegará a la variable <code>{nickname}</code>.</td><td><code>nickname=Interactive</code></td></tr>
                     <tr><td><code>imgprofile</code> / <code>avatar</code></td><td>URL de imagen de perfil. Se usa para <code>{imgprofile}</code> y overlays.</td><td><code>imgprofile=https://...</code></td></tr>
@@ -4498,10 +4809,11 @@
 
           <div class="acc-toolbar">
             <button class="btn primary" id="acc-new">✨ Crear nueva acción</button>
+            <button class="btn ghost" id="acc-toggle-all">⏻ Encender / Apagar todas</button>
             <button class="btn ghost danger" id="acc-del" disabled>🗑 Eliminar seleccionadas (<span id="acc-selcount">0</span>)</button>
           </div>
 
-          <div class="acc-grid" id="acc-grid">
+          <div class="vid-cards-grid acc-grid" id="acc-grid">
             <div class="acc-empty" id="acc-empty">Aún no tienes acciones. Pulsa <b>Crear nueva acción</b> para empezar.</div>
           </div>
         </section>
@@ -4513,13 +4825,43 @@
 
           <div class="juegos-grid">
             <button type="button" class="juego-card" data-game="minecraft" aria-label="Minecraft">
-              <img src="/img/minecraft.png" alt="Minecraft" class="juego-card-img">
+              <picture>
+                <source srcset="/img/minecraft-card.webp" type="image/webp">
+                <img src="/img/minecraft-card.jpg" alt="Minecraft" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
+            </button>
+            <button type="button" class="juego-card" data-game="mcparkour" aria-label="Minecraft Parkour">
+              <picture>
+                <source srcset="/img/mcparkour-card.webp" type="image/webp">
+                <img src="/img/mcparkour-card.jpg" alt="Minecraft Parkour" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
+            </button>
+            <button type="button" class="juego-card" data-game="mckoth" aria-label="Minecraft KOTH">
+              <picture>
+                <source srcset="/img/mckoth-card.webp" type="image/webp">
+                <img src="/img/mckoth-card.jpg" alt="Minecraft KOTH" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
+            </button>
+            <button type="button" class="juego-card" data-game="mcfarm" aria-label="Minecraft Farm">
+              <picture>
+                <source srcset="/img/mcfarm-card.webp" type="image/webp">
+                <img src="/img/mcfarm-card.jpg" alt="Minecraft Farm" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
+            </button>
+            <button type="button" class="juego-card" data-game="mcshooter" aria-label="Minecraft Shooters">
+              <img src="/img/mcshooter-card.png" alt="Minecraft Shooters" class="juego-card-img" width="600" height="840" loading="lazy">
             </button>
             <button type="button" class="juego-card" data-game="bedrock" aria-label="Bedrock · Cubo TNT">
-              <img src="/img/bedrock.png" alt="Bedrock" class="juego-card-img">
+              <picture>
+                <source srcset="/img/bedrock-card.webp" type="image/webp">
+                <img src="/img/bedrock-card.jpg" alt="Bedrock" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
             </button>
             <button type="button" class="juego-card" data-game="sandbox" aria-label="Sandbox">
-              <img src="/img/sandbox.png" alt="Sandbox" class="juego-card-img">
+              <picture>
+                <source srcset="/img/sandbox-card.webp" type="image/webp">
+                <img src="/img/sandbox-card.jpg" alt="Sandbox" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
             </button>
             <button type="button" class="juego-card" data-game="roblox" aria-label="Roblox">
               <img src="/img/roblox.png" alt="Roblox" class="juego-card-img">
@@ -4528,19 +4870,34 @@
               <img src="/img/roblox3.png" alt="Roblox 3" class="juego-card-img">
             </button>
             <button type="button" class="juego-card" data-game="mariobros" aria-label="Mario Bros">
-              <img src="/img/mariobros.png" alt="Mario Bros" class="juego-card-img">
+              <picture>
+                <source srcset="/img/mariobros-card.webp" type="image/webp">
+                <img src="/img/mariobros-card.jpg" alt="Mario Bros" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
             </button>
             <button type="button" class="juego-card" data-game="smb3" aria-label="Super Mario Bros. 3">
               <img src="/img/smb3-card.png" alt="Super Mario Bros. 3" class="juego-card-img">
             </button>
+            <button type="button" class="juego-card" data-game="smw" aria-label="Super Mario World">
+              <picture>
+                <img src="/img/smw-card.jpg" alt="Super Mario World" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
+            </button>
             <button type="button" class="juego-card" data-game="mari0" aria-label="Mari0">
+              <span class="juego-version">Nueva versión</span>
               <img src="/img/mari0-card.png" alt="Mari0" class="juego-card-img">
             </button>
             <button type="button" class="juego-card" data-game="plantasvszombies" aria-label="Plants vs Zombies">
-              <img src="/img/PvZ_1.png" alt="Plants vs Zombies" class="juego-card-img">
+              <picture>
+                <source srcset="/img/plantasvszombies-card.webp" type="image/webp">
+                <img src="/img/plantasvszombies-card.jpg" alt="Plants vs Zombies" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
             </button>
             <button type="button" class="juego-card" data-game="pvzhybrid" aria-label="PvZ Hybrid">
-              <img src="/img/pvzhybrid.jpg" alt="PvZ Hybrid" class="juego-card-img">
+              <picture>
+                <source srcset="/img/pvzhybrid-card.webp" type="image/webp">
+                <img src="/img/pvzhybrid-card.jpg" alt="PvZ Hybrid" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
             </button>
             <button type="button" class="juego-card" data-game="repo" aria-label="R.E.P.O.">
               <picture>
@@ -4551,8 +4908,23 @@
             <button type="button" class="juego-card" data-game="l4d" aria-label="Left 4 Dead">
               <img src="/img/l4d2-card.png" alt="Left 4 Dead 2" class="juego-card-img">
             </button>
+            <button type="button" class="juego-card" data-game="unturned" aria-label="Unturned">
+              <img src="/img/unturned-card.png" alt="Unturned" class="juego-card-img">
+            </button>
+            <button type="button" class="juego-card" data-game="crashctr" aria-label="Crash Team Racing">
+              <picture>
+                <source srcset="/img/ctr-card.webp" type="image/webp">
+                <img src="/img/ctr-card.jpg" alt="Crash Team Racing" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
+            </button>
             <button type="button" class="juego-card" data-game="metalslug" aria-label="Metal Slug by Livecoins">
               <img src="/img/metalslug.png" alt="Metal Slug" class="juego-card-img">
+            </button>
+            <button type="button" class="juego-card" data-game="geometrydash" aria-label="Geometry Dash">
+              <picture>
+                <source srcset="/img/gdash/gdash-card.webp" type="image/webp">
+                <img src="/img/gdash/gdash-card.jpg" alt="Geometry Dash" class="juego-card-img" width="600" height="840" loading="lazy">
+              </picture>
             </button>
           </div>
         </section>
@@ -4561,16 +4933,21 @@
         <section class="view" id="view-juego-mariobros">
           <button type="button" class="juego-back">← Volver a Juegos</button>
           <h1 class="view-title">🍄 Mario Bros</h1>
-          <p class="view-sub">SMBX2 + mod Livecoins. El bridge solo se inicia al usar Mario (regalo, Probar o botón de abajo).</p>
 
-          <div class="juego-banner">
-            <img src="/img/mariobros2.png" alt="Mario Bros" class="juego-banner-img">
-            <div class="juego-banner-btns">
-              <button type="button" class="juego-play-btn" id="mario-play" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/SUPER.MARIO.INTERACTIVE.exe">⬇ Descargar juego</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="mario-room" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/livecoins.webhook.exe">⬇ Descargar Activador</button>
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <picture>
+                <source srcset="/img/mariobros-banner.webp" type="image/webp">
+                <img src="/img/mariobros-banner.jpg" alt="Mario SMBX2" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
             </div>
-            <div class="juego-banner-btns juego-banner-btns-right">
-              <button type="button" class="juego-play-btn juego-worlds-btn" id="mario-worlds" data-url="https://www.mediafire.com/file/59qmit3noi53mj8/Worlds.zip/file">⬇ Descargar Worlds</button>
+            <div class="repo-game-body mc-game-body">
+              <div class="pvz-game-actions mario-game-actions">
+                <button type="button" class="juego-play-btn bridge-connect-btn is-off" id="mario-bridge">Conectar</button>
+                <button type="button" class="juego-play-btn juego-room-btn mario-dl-btn" id="mario-play" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/SUPER.MARIO.INTERACTIVE.exe">⬇ Juego</button>
+                <button type="button" class="juego-play-btn juego-worlds-btn mario-dl-btn" id="mario-worlds" data-url="https://www.mediafire.com/file/59qmit3noi53mj8/Worlds.zip/file">⬇ Worlds</button>
+              </div>
+              <div id="mario-status" class="mari0-status-row repo-mod-status" aria-live="polite"></div>
             </div>
           </div>
 
@@ -4579,11 +4956,10 @@
             <div class="juego-aviso-txt">
               <b>Para que funcione con Livecoins:</b>
               <ol>
-                <li><b>Descarga el juego y el activador</b> con los botones <b>⬇ Descargar juego</b> y <b>⬇ Descargar Activador</b>.</li>
+                <li><b>Pulsa «Conectar»</b> (debe ponerse verde: Conectado) antes de probar acciones o usar spawns en el juego.</li>
+                <li><b>Descarga el juego</b> con el botón <b>⬇ Juego</b> (arriba).</li>
                 <li><b>Instala el juego</b> en la carpeta <b>C:\Games\SMBX2</b>.</li>
-                <li><b>Descarga los mapas</b> con <b>⬇ Descargar Worlds</b> y agrégalos en la carpeta <b>worlds</b> dentro de la instalación (<b>descomprímelos</b>).</li>
-                <li><b>Abre el activador</b>: te pedirá una <b>licencia</b> — pídesela a un <b>admin</b>.</li>
-                <li><b>Actívalo y conéctalo a tu live</b>. Cuando estés en live, si no lo conectas <b>no aparecerá el nombre del donador</b>.</li>
+                <li><b>Descarga los mapas</b> con <b>⬇ Worlds</b> y agrégalos en la carpeta <b>worlds</b> dentro de la instalación (<b>descomprímelos</b>).</li>
                 <li><b>Disfruta el juego</b> 🎮</li>
               </ol>
             </div>
@@ -4593,22 +4969,77 @@
           <div class="mc-actions-wrap">
             <div class="mc-actions-head">
               <h2 class="mc-actions-title">🍄 Acciones de Mario Bros</h2>
-              <p class="mc-actions-sub">Catálogo <b>Mario Interactivo</b>: elige las acciones que quieras con <b>+ Agregar</b>. Cada una lleva su <b>WebHook</b> (puerto 5720) y el regalo ya configurado. <b style="color:#22c55e">⚠️ Enciende las acciones con el botón verde.</b></p>
+              <p class="mc-actions-sub">Elige una acción del catálogo y asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">Enciende las acciones.</b></p>
             </div>
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mario-open-catalog">✨ Crear Acción</button>
                 <button type="button" class="mc-create-btn" id="mario-toggle-all">⏻ Encender / Apagar todas</button>
                 <button type="button" class="mc-img-btn" id="mario-gen-overlay" title="PNG con tus acciones, regalos y cantidad (x10, etc.) para OBS">🖼️ Generar overlay</button>
               </div>
             </div>
             <div id="mario-my-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
 
-            <h3 class="mc-sub-title">Catálogo Mario Interactivo</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="mario-cat-search" class="mc-cat-search" placeholder="Buscar (hongo, goomba, leon, tnt…)">
+        <!-- ===================== JUEGO: SUPER MARIO WORLD (BizHawk Interactive) ===================== -->
+        <section class="view" id="view-juego-smw">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🌍 Super Mario World</h1>
+
+          <div class="repo-game-card mc-game-card smw-game-card">
+            <div class="repo-game-banner mc-game-banner smw-game-banner">
+              <picture>
+                <img src="/img/smw-banner.jpg" alt="Super Mario World" class="repo-game-banner-img" width="920" height="360" loading="lazy">
+              </picture>
+              <div class="smw-banner-foot">
+                <div class="smw-banner-row">
+                  <div id="smw-status" class="mari0-status-row repo-mod-status smw-status-inline" aria-live="polite"></div>
+                  <div class="pvz-game-actions smw-game-actions">
+                    <button type="button" class="juego-play-btn bridge-connect-btn is-off smw-glass-btn" id="smw-bridge">Conectar</button>
+                    <button type="button" class="juego-play-btn smw-glass-btn" id="smw-install">Instalar mod</button>
+                    <button type="button" class="juego-play-btn smw-glass-btn" id="smw-uninstall">Borrar mod</button>
+                    <button type="button" class="juego-play-btn smw-glass-btn" id="smw-launch">Ejecutar juego</button>
+                  </div>
+                </div>
+                <div class="game-mod-progress hidden" id="smw-mod-progress" aria-hidden="true">
+                  <div class="game-mod-progress-track"><div class="game-mod-progress-fill" id="smw-mod-progress-fill"></div></div>
+                  <div class="game-mod-progress-txt" id="smw-mod-progress-txt">Descargando…</div>
+                </div>
+              </div>
             </div>
-            <div id="mario-catalog" class="mc-catalog"></div>
+          </div>
+
+          <div class="juego-aviso juego-aviso-smw">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Pasos para jugar Super Mario World con Livecoins:</b>
+              <ol>
+                <li><b>Paso 1:</b> Pulsa <b>Instalar mod</b> (descarga BizHawk + ROM + connector; necesita internet la 1ª vez).</li>
+                <li><b>Paso 2:</b> Si tienes <b>Interactive.exe</b> (Crowd Control) abierto, <b>ciérralo</b> — usa el mismo puerto <code>:23884</code>.</li>
+                <li><b>Paso 3:</b> Pulsa <b>Conectar</b> (bridge TCP <code>:23884</code>) — debe ponerse verde.</li>
+                <li><b>Paso 4:</b> Pulsa <b>Ejecutar juego</b> — abre BizHawk con SMW y el Lua del conector.</li>
+                <li><b>Paso 5:</b> Entra a un nivel, crea acciones abajo y prueba con el botón verde.</li>
+              </ol>
+              <p style="margin:.6rem 0 0;opacity:.85">Algunos enemigos dependen del tileset del nivel (castillo, fantasma, etc.).</p>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🌍 Acciones de Super Mario World</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">Enciende las acciones.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="smw-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-create-btn" id="smw-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="mc-img-btn" id="smw-gen-overlay" title="PNG con tus acciones, regalos y cantidad (x10, etc.) para OBS">🖼️ Generar overlay</button>
+              </div>
+            </div>
+            <div id="smw-my-actions" class="mc-my-actions"></div>
           </div>
         </section>
 
@@ -4616,26 +5047,31 @@
         <section class="view" id="view-juego-smb3">
           <button type="button" class="juego-back">← Volver a Juegos</button>
           <h1 class="view-title">🎮 Super Mario Bros. 3</h1>
-          <p class="view-sub">FCEUX + SMB3 Livecoins. El bridge (<code>smb3-bridge.exe</code>) debe estar corriendo en esta PC en <code>127.0.0.1:7755</code>.</p>
 
-          <div class="juego-banner">
-            <img src="/img/smb3.png" alt="Super Mario Bros. 3" class="juego-banner-img">
-            <div class="juego-banner-btns smb3-banner-btns">
-              <button type="button" class="juego-play-btn" id="smb3-test">🔌 Probar conexión</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="smb3-dl-mod" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/SMB3-Livecoins-Setup.exe">⬇ Descargar mod</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="smb3-dl-rom" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/Super.Mario.Bros.3.USA.Rev.1.nes">⬇ Descargar ROM</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="smb3-dl-emulator" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/fceux-win64.zip">⬇ Descargar emulador</button>
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <picture>
+                <source srcset="/img/smb3-banner.webp" type="image/webp">
+                <img src="/img/smb3-banner.jpg" alt="Super Mario Bros. 3" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+            </div>
+            <div class="repo-game-body mc-game-body">
+              <div class="pvz-game-actions smb3-game-actions">
+                <button type="button" class="juego-play-btn smb3-dl-btn" id="smb3-test">🔌 Probar conexión</button>
+                <button type="button" class="juego-play-btn juego-room-btn smb3-dl-btn" id="smb3-dl-mod" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/SMB3-Livecoins-Setup.exe">⬇ Mod</button>
+                <button type="button" class="juego-play-btn juego-room-btn smb3-dl-btn" id="smb3-dl-rom" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/Super.Mario.Bros.3.USA.Rev.1.nes">⬇ ROM</button>
+                <button type="button" class="juego-play-btn juego-room-btn smb3-dl-btn" id="smb3-dl-emulator" data-url="https://github.com/riusaki1995/mariobros/releases/download/mario3/fceux-win64.zip">⬇ Emulador</button>
+              </div>
+              <div id="smb3-status" class="mari0-status-bar repo-mod-status" aria-live="polite"></div>
             </div>
           </div>
-
-          <div id="smb3-status" class="mari0-status-bar" aria-live="polite"></div>
 
           <div class="juego-aviso">
             <div class="juego-aviso-ico">📋</div>
             <div class="juego-aviso-txt">
               <b>Para que funcione con Livecoins:</b>
               <ol>
-                <li><b>Descarga</b> el Mod, la <b>ROM</b> y el emulador <b>FCEUX</b>.</li>
+                <li><b>Descarga</b> el Mod, la ROM y el emulador con los botones de arriba.</li>
                 <li><b>Instala el Mod</b> (SMB3 Livecoins).</li>
                 <li>Primero te pedirá la <b>ROM</b>; después selecciona el <b>emulador</b> y espera a que abra.</li>
                 <li><b>No cierres</b> ninguna ventana que abra el juego.</li>
@@ -4653,16 +5089,11 @@
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="smb3-open-catalog">✨ Crear Acción</button>
                 <button type="button" class="mc-create-btn" id="smb3-toggle-all">⏻ Encender / Apagar todas</button>
               </div>
             </div>
             <div id="smb3-my-actions" class="mc-my-actions"></div>
-
-            <h3 class="mc-sub-title">Catálogo de acciones</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="smb3-cat-search" class="mc-cat-search" placeholder="Buscar acción (goomba, estrella, thwomp…)">
-            </div>
-            <div id="smb3-catalog" class="smb3-catalog-wrap"></div>
           </div>
         </section>
 
@@ -4670,28 +5101,28 @@
         <section class="view" id="view-juego-mari0">
           <button type="button" class="juego-back">← Volver a Juegos</button>
           <h1 class="view-title">🌀 Mari0</h1>
-          <p class="view-sub">Mari0 + portales con mod Crowd Control. El bridge HTTP solo habla con el juego; Livecoins no toca Mari0 directamente.</p>
 
-          <div class="juego-banner">
-            <img src="/img/mari0-banner.png" alt="Mari0" class="juego-banner-img">
-            <div class="juego-banner-btns">
-              <button type="button" class="juego-play-btn" id="mari0-bridge">▶ Iniciar bridge</button>
-              <button type="button" class="juego-play-btn juego-room-btn" id="mari0-room" data-url="https://github.com/riusaki1995/mariobros/releases/download/metalslug/Mari0.rar">⬇ Descargar juego</button>
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner mari0-game-banner">
+              <picture>
+                <img src="/img/mari0-banner.png" alt="Mari0" class="repo-game-banner-img" width="1024" height="341" loading="lazy">
+              </picture>
+              <div class="mari0-banner-foot">
+                <div id="mari0-downloads" class="mari0-banner-dl-row" aria-label="Descargas Mari0"></div>
+              </div>
             </div>
           </div>
-
-          <div id="mari0-status" class="mari0-status-bar" aria-live="polite"></div>
 
           <div class="juego-aviso">
             <div class="juego-aviso-ico">📋</div>
             <div class="juego-aviso-txt">
-              <b>Para que funcione con Livecoins:</b>
+              <b>Pasos:</b>
               <ol>
-                <li><b>Instala Mari0</b> de Livecoins en <code>%LOCALAPPDATA%\LivecoinsMari0\</code> (<code>mari0_exe.txt</code>). Tiene que ser ese .exe — el Mari0 normal de internet <b>no</b> trae el mod.</li>
-                <li><b>Pulsa «▶ Iniciar bridge»</b> y después <b>«▶ Jugar»</b> (en ese orden).</li>
-                <li><b>Entra a un nivel</b> (p. ej. 1-1). Arriba debe poner <b>Juego CC: conectado</b> en verde.</li>
-                <li class="juego-aviso-importante"><b>¿Estás en 1-1 pero dice «sin enlazar»?</b> No es el menú: el mod Crowd Control debe conectar al bridge en <code>127.0.0.1:28379</code>. Si sigue en rojo, no es el Mari0 de Livecoins o abriste el juego antes del bridge.</li>
-                <li>Asigna el <b>regalo</b> de cada acción y enciéndelas (botón verde).</li>
+                <li><b>Paso 1:</b> Descarga <b>Mari0</b> (botón izquierdo en la imagen).</li>
+                <li><b>Paso 2:</b> Descomprime la carpeta.</li>
+                <li><b>Paso 3:</b> Instala <b>Love.exe</b> y después abre <b>mari portal v2</b>.</li>
+                <li><b>Paso 4:</b> Instala el <b>activador</b> (botón derecho), pásale el <b>UUID</b> al admin para que te genere tu clave y después dale <b>Iniciar servidor</b>.</li>
+                <li><b>Paso 5:</b> Entra a una <b>partida</b> para que funcione.</li>
               </ol>
             </div>
           </div>
@@ -4699,21 +5130,20 @@
           <div class="mc-actions-wrap">
             <div class="mc-actions-head">
               <h2 class="mc-actions-title">🌀 Acciones de Mari0</h2>
-              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">⚠️ No te olvides de encender las acciones con el botón verde.</b> Mira el indicador de arriba: debe decir <b>Juego CC: conectado</b>.</p>
+              <p class="mc-actions-sub">Puedes personalizar tus acciones manualmente o pulsar <b>Generar preset</b> para cargar un conjunto por defecto. Puedes cambiar el regalo, el precio y la cantidad de cada acción. <b style="color:#22c55e">⚠️ Enciende las acciones con el botón verde.</b></p>
             </div>
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mari0-open-catalog">✨ Crear Acción</button>
                 <button type="button" class="mc-create-btn" id="mari0-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="btn ghost danger" id="mari0-clear-all" title="Quitar todas las tarjetas de acciones Mari0">🗑 Borrar todas</button>
+                <button type="button" class="mc-create-btn" id="mari0-gen-preset" title="Carga acciones del catálogo Mari0 (sin regalo; cantidad 1)">📋 Generar preset</button>
+                <button type="button" class="mc-img-btn" id="mari0-gen-overlay" title="PNG con tus acciones, regalos y cantidad (x10, etc.) para OBS">🖼️ Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="mari0-dl-preset-img" title="Descarga la guía visual de iconos del preset Mari0">🖼️ Imagen de preset</button>
               </div>
             </div>
             <div id="mari0-my-actions" class="mc-my-actions"></div>
-
-            <h3 class="mc-sub-title">Catálogo de acciones</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="mari0-cat-search" class="mc-cat-search" placeholder="Buscar acción (goomba, estrella, thwomp…)">
-            </div>
-            <div id="mari0-catalog" class="mc-catalog"></div>
           </div>
         </section>
 
@@ -4721,11 +5151,25 @@
         <section class="view" id="view-juego-plantasvszombies">
           <button type="button" class="juego-back">← Volver a Juegos</button>
           <h1 class="view-title">🧟 Plants vs Zombies</h1>
-          <p class="view-sub">Configura aquí el juego de Plants vs Zombies.</p>
 
-          <div class="juego-banner">
-            <img src="/img/PvZ_1.png" alt="Plants vs Zombies" class="juego-banner-img">
-            <button type="button" class="juego-play-btn" id="pvz-play" data-url="https://github.com/riusaki1995/plantsvszombies/releases/download/plantas/PlantsVsZombies-Windows.zip">⬇ Descargar</button>
+          <div class="repo-game-card pvz-game-card">
+            <div class="repo-game-banner pvz-game-banner">
+              <picture>
+                <source srcset="/img/pvz-banner.webp" type="image/webp">
+                <img src="/img/pvz-banner.jpg" alt="Plants vs Zombies" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+            </div>
+            <div class="repo-game-body pvz-game-body">
+              <div class="pvz-game-actions">
+                <button type="button" class="juego-play-btn bridge-connect-btn is-off" id="pvz-bridge">Conectar</button>
+                <button type="button" class="juego-play-btn juego-room-btn" id="pvz-tools">⚙ Abrir PvZ Tools</button>
+                <button type="button" class="juego-play-btn juego-steam-btn" id="pvz-steam" title="Plants vs. Zombies GOTY en Steam">
+                  <svg class="juego-steam-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.4c0-2.495 2.028-4.522 4.523-4.522 2.494 0 4.524 2.027 4.524 4.522 0 2.494-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.753 20.691 6.402 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.606 0 11.979 0zM7.54 18.35l-1.816-.751c.233.466.632.85 1.132 1.041a2.38 2.38 0 0 0 2.966-1.635 2.403 2.403 0 0 0-1.604-2.955 2.38 2.38 0 0 0-2.966 1.634l1.858.768a1.179 1.179 0 0 1 1.33-.509 1.198 1.198 0 0 1 .74 1.104 1.2 1.2 0 0 1-1.56 1.214zm8.934-11.856c-1.305 0-2.364 1.059-2.364 2.363 0 1.305 1.059 2.364 2.364 2.364 1.304 0 2.363-1.059 2.363-2.364 0-1.304-1.059-2.363-2.363-2.363z"/></svg>
+                  Steam
+                </button>
+              </div>
+              <div id="pvz-status" class="mari0-status-row repo-mod-status" aria-live="polite"></div>
+            </div>
           </div>
 
           <div class="juego-aviso">
@@ -4733,8 +5177,9 @@
             <div class="juego-aviso-txt">
               <b>Para que el juego funcione, sigue estos pasos:</b>
               <ol>
-                <li><b>Paso 1:</b> <b>Descarga</b> el juego con el botón y <b>descomprime</b> el archivo.</li>
-                <li><b>Paso 2:</b> <b>ejecútalo</b>, crea las acciones y configura los <b>regalos</b>.</li>
+                <li><b>Paso 1:</b> Compra o instala <b>Plants vs. Zombies GOTY</b> en <b>Steam</b> (botón arriba a la derecha).</li>
+                <li><b>Paso 2:</b> Pulsa <b>«Conectar»</b> (verde = Conectado) y luego <b>«⚙ Abrir PvZ Tools»</b> (en ese orden).</li>
+                <li><b>Paso 3:</b> Abre PvZ, entra a una <b>partida</b>, configura regalos y enciende las acciones (botón verde).</li>
               </ol>
             </div>
           </div>
@@ -4748,18 +5193,13 @@
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="pvz-open-catalog">✨ Crear Acción</button>
                 <button type="button" class="mc-img-btn" id="pvz-gen-img-v" title="Genera una imagen vertical (en columna)">🖼️ Imagen vertical</button>
                 <button type="button" class="mc-img-btn" id="pvz-gen-img-h" title="Genera una imagen horizontal (en fila)">🖼️ Imagen horizontal</button>
                 <button type="button" class="mc-create-btn" id="pvz-toggle-all">⏻ Encender / Apagar todas</button>
               </div>
             </div>
             <div id="pvz-my-actions" class="mc-my-actions"></div>
-
-            <h3 class="mc-sub-title">Catálogo de acciones</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="pvz-cat-search" class="mc-cat-search" placeholder="Buscar acción (zombie, soles, god mode…)">
-            </div>
-            <div id="pvz-catalog" class="mc-catalog"></div>
           </div>
         </section>
 
@@ -4769,20 +5209,30 @@
           <h1 class="view-title">🧬 PvZ Hybrid</h1>
           <p class="view-sub">Plants vs Zombies Hybrid + PvZ Tools. Los regalos del live generan zombies vía memoria externa.</p>
 
-          <div class="juego-banner">
-            <img src="/img/pvzhybrid.jpg" alt="PvZ Hybrid" class="juego-banner-img">
+          <div class="repo-game-card pvz-game-card">
+            <div class="repo-game-banner pvz-game-banner">
+              <picture>
+                <source srcset="/img/pvzhybrid-banner.webp" type="image/webp">
+                <img src="/img/pvzhybrid-banner.jpg" alt="PvZ Hybrid" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+            </div>
+            <div class="repo-game-body pvz-game-body">
+              <div class="pvz-game-actions">
+                <button type="button" class="juego-play-btn bridge-connect-btn is-off" id="pvzhybrid-bridge">Conectar</button>
+                <button type="button" class="juego-play-btn juego-room-btn" id="pvzhybrid-tools">⚙ Abrir PvZ Tools</button>
+              </div>
+              <div id="pvzhybrid-status" class="mari0-status-row repo-mod-status" aria-live="polite"></div>
+            </div>
           </div>
-          <div id="pvzhybrid-status" class="mari0-status-row" style="margin:8px 0 16px"></div>
 
           <div class="juego-aviso">
             <div class="juego-aviso-ico">📋</div>
             <div class="juego-aviso-txt">
               <b>Pasos (PvZ Hybrid + PvZ Tools):</b>
               <ol>
-                <li><b>Paso 1:</b> Descarga <b>PvZ Tools</b> (este no debes cerrarlo).</li>
-                <li><b>Paso 2:</b> Descarga <b>PvZ Hybrid Server</b> (tampoco debes cerrarlo; pide al admin que te active la licencia).</li>
-                <li><b>Paso 3:</b> Descarga el juego que quieras y ejecútalo.</li>
-                <li><b>Paso 4:</b> Crea las acciones y personalízalas.</li>
+                <li><b>Paso 1:</b> Pulsa <b>«Conectar»</b> (verde = Conectado) y <b>«⚙ Abrir PvZ Tools»</b>.</li>
+                <li><b>Paso 2:</b> Descarga el mod Hybrid que quieras y ejecútalo; entra a una <b>partida</b>.</li>
+                <li><b>Paso 3:</b> Crea acciones, asigna regalos y enciéndelas (botón verde).</li>
               </ol>
               <p style="margin-top:8px"><b>Nota:</b> Si PvZ Tools dice «Unsupported PvZ Version», el mod no coincide con la versión que soporta el .exe. Ajusta índices de zombies en <code>livecoins_pvz_hybrid_things.json</code>.</p>
             </div>
@@ -4800,15 +5250,395 @@
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="pvzhybrid-open-catalog">✨ Crear Acción</button>
                 <button type="button" class="mc-create-btn" id="pvzhybrid-toggle-all">⏻ Encender / Apagar todas</button>
               </div>
             </div>
             <div id="pvzhybrid-my-actions" class="mc-my-actions"></div>
-            <h3 class="mc-sub-title">Catálogo de acciones</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="pvzhybrid-cat-search" class="mc-cat-search" placeholder="Buscar enemigo Hybrid, soles, god mode…">
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: R.E.P.O. ===================== -->
+        <section class="view" id="view-juego-repo">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">👾 R.E.P.O.</h1>
+
+          <div class="repo-game-card">
+            <div class="repo-game-banner">
+              <img src="/img/repo-banner.png" alt="R.E.P.O." class="repo-game-banner-img" onerror="this.onerror=null;this.style.display='none'">
             </div>
-            <div id="pvzhybrid-catalog" class="mc-catalog"></div>
+            <div class="repo-game-body">
+              <div class="repo-mod-path">
+                <span class="repo-mod-ico" aria-hidden="true">🎮</span>
+                <input type="text" id="repo-game-dir" class="repo-mod-path-inp" placeholder="C:\...\Steam\steamapps\common\REPO" readonly>
+                <button type="button" class="repo-mod-pick" id="repo-pick-dir">Select R.E.P.O.</button>
+              </div>
+              <div id="repo-status" class="mari0-status-row repo-mod-status"></div>
+              <div class="game-mod-progress hidden" id="repo-mod-progress" aria-hidden="true">
+                <div class="game-mod-progress-track"><div class="game-mod-progress-fill" id="repo-mod-progress-fill"></div></div>
+                <div class="game-mod-progress-label" id="repo-mod-progress-label">Instalando mod…</div>
+              </div>
+              <div class="repo-mod-divider" role="separator"></div>
+              <div class="repo-mod-actions">
+                <div class="repo-mod-actions-left">
+                  <button type="button" class="repo-mod-btn repo-mod-btn-install" id="repo-install">Actualizar Mod</button>
+                  <button type="button" class="repo-mod-btn repo-mod-btn-uninstall" id="repo-uninstall">Borrar Mod</button>
+                  <button type="button" class="repo-mod-btn repo-mod-btn-launch" id="repo-launch">Lanzar Juego</button>
+                </div>
+                <button type="button" class="repo-mod-btn repo-mod-btn-steam" id="repo-steam" title="Comprar R.E.P.O. en Steam">
+                  <svg class="repo-steam-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.4c0-2.495 2.028-4.522 4.523-4.522 2.494 0 4.524 2.027 4.524 4.522 0 2.494-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.753 20.691 6.402 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.606 0 11.979 0zM7.54 18.35l-1.816-.751c.233.466.632.85 1.132 1.041a2.38 2.38 0 0 0 2.966-1.635 2.403 2.403 0 0 0-1.604-2.955 2.38 2.38 0 0 0-2.966 1.634l1.858.768a1.179 1.179 0 0 1 1.33-.509 1.198 1.198 0 0 1 .74 1.104 1.2 1.2 0 0 1-1.56 1.214zm8.934-11.856c-1.305 0-2.364 1.059-2.364 2.363 0 1.305 1.059 2.364 2.364 2.364 1.304 0 2.363-1.059 2.363-2.364 0-1.304-1.059-2.363-2.363-2.363z"/></svg>
+                  Steam
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Pasos (Steam):</b>
+              <ol>
+                <li><b>Paso 1:</b> Compra/instala <b>R.E.P.O.</b> en Steam.</li>
+                <li><b>Paso 2:</b> Pulsa <b>Select R.E.P.O.</b> y elige la carpeta con <code>REPO.exe</code> (p. ej. <code>Steam\steamapps\common\REPO</code>).</li>
+                <li><b>Paso 3:</b> Pulsa <b>Actualizar Mod</b> — PowerShell copia BepInEx + doorstop + plugin (como Interactive).</li>
+                <li><b>Paso 4:</b> Pulsa <b>Lanzar Juego</b> y entra a una <b>partida</b> (lobby o misión).</li>
+                <li><b>Paso 5:</b> Crea acciones, enciéndelas y prueba con el botón verde.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">👾 Acciones de R.E.P.O.</h2>
+              <p class="mc-actions-sub">Regalo del live → enemigo o efecto en partida. El juego debe estar <b>abierto y en partida</b>. <b style="color:#22c55e">Enciende las acciones.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="repo-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-create-btn" id="repo-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="mc-img-btn" id="repo-gen-overlay" title="PNG con tus acciones, regalos y cantidad (x10, etc.) para OBS">🖼️ Generar overlay</button>
+              </div>
+            </div>
+            <div id="repo-my-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: LEFT 4 DEAD 2 ===================== -->
+        <section class="view" id="view-juego-l4d">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🧟 Left 4 Dead</h1>
+
+          <div class="l4d-game-card">
+            <div class="l4d-game-banner">
+              <img src="/img/l4d2-banner.png" alt="Left 4 Dead 2" class="l4d-game-banner-img">
+            </div>
+            <div class="l4d-game-body">
+              <div class="l4d-mod-row">
+                <img src="/img/l4d2-thumb.png" alt="Left 4 Dead 2" class="l4d-mod-thumb">
+                <div class="l4d-mod-main">
+                  <div class="l4d-mod-title">left4dead2 Mod <span class="l4d-mod-ver" id="l4d-mod-ver">Versión: 3v</span></div>
+                  <div class="l4d-mod-pathrow">
+                    <input type="text" id="l4d-game-dir" class="l4d-mod-path-inp" placeholder="C:\...\Steam\steamapps\common\Left 4 Dead 2" readonly>
+                    <button type="button" class="l4d-btn l4d-btn-select" id="l4d-pick-dir">Select Directory</button>
+                  </div>
+                  <div id="l4d-status" class="l4d-mod-status"></div>
+                  <div class="game-mod-progress hidden" id="l4d-mod-progress" aria-hidden="true">
+                    <div class="game-mod-progress-track"><div class="game-mod-progress-fill" id="l4d-mod-progress-fill"></div></div>
+                    <div class="game-mod-progress-label" id="l4d-mod-progress-label">Instalando mod…</div>
+                  </div>
+                  <div class="l4d-mod-foot">
+                    <div class="l4d-mod-foot-left">
+                      <button type="button" class="l4d-btn l4d-btn-install" id="l4d-install">Instalar Mod</button>
+                      <button type="button" class="l4d-btn l4d-btn-uninstall" id="l4d-uninstall">Borrar Mod</button>
+                      <button type="button" class="l4d-btn l4d-btn-launch" id="l4d-launch">Ejecutar juego</button>
+                    </div>
+                    <button type="button" class="l4d-btn l4d-btn-steam" id="l4d-steam" title="Left 4 Dead 2 en Steam">
+                      <svg class="l4d-steam-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.4c0-2.495 2.028-4.522 4.523-4.522 2.494 0 4.524 2.027 4.524 4.522 0 2.494-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.753 20.691 6.402 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.606 0 11.979 0zM7.54 18.35l-1.816-.751c.233.466.632.85 1.132 1.041a2.38 2.38 0 0 0 2.966-1.635 2.403 2.403 0 0 0-1.604-2.955 2.38 2.38 0 0 0-2.966 1.634l1.858.768a1.179 1.179 0 0 1 1.33-.509 1.198 1.198 0 0 1 .74 1.104 1.2 1.2 0 0 1-1.56 1.214zm8.934-11.856c-1.305 0-2.364 1.059-2.364 2.363 0 1.305 1.059 2.364 2.364 2.364 1.304 0 2.363-1.059 2.363-2.364 0-1.304-1.059-2.363-2.363-2.363z"/></svg>
+                      Steam
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Pasos (Steam):</b>
+              <ol>
+                <li><b>Paso 1:</b> Compra/instala <b>Left 4 Dead 2</b> en Steam.</li>
+                <li><b>Paso 2:</b> En propiedades del juego, añade <code>-insecure</code> en <b>Opciones de lanzamiento</b>.</li>
+                <li><b>Paso 3:</b> Si está en Steam, Livecoins detecta la carpeta solo (como StreamToEarn). Si no, pulsa <b>Select Directory</b> y elige la carpeta con <code>left4dead2.exe</code>.</li>
+                <li><b>Paso 4:</b> Pulsa <b>Instalar Mod</b> — Livecoins descarga el pack y lo copia solo (necesita internet la 1ª vez).</li>
+                <li><b>Paso 5:</b> Abre el juego, entra a <b>Campaña → Un jugador</b>. Si sale aviso <b>VAC / metamod</b>, pulsa <b>ACEPTAR</b> (es normal con el mod). Las acciones solo funcionan <b>dentro del mapa</b>, no en el menú.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="l4d-steam-guide">
+            <p class="l4d-steam-guide-title">Cómo poner <code>-insecure</code> en Steam <span class="l4d-steam-guide-sub">(Paso 2)</span></p>
+            <div class="l4d-steam-guide-grid">
+              <figure class="l4d-steam-guide-card">
+                <img src="/img/l4d2-steam-step1.png" alt="Steam: engranaje y Propiedades de Left 4 Dead 2" class="l4d-steam-guide-img" loading="lazy">
+                <figcaption><span class="l4d-steam-guide-num">1</span> En tu biblioteca, pulsa el <b>engranaje</b> (arriba a la derecha) y elige <b>Propiedades...</b></figcaption>
+              </figure>
+              <figure class="l4d-steam-guide-card">
+                <img src="/img/l4d2-steam-step2.png" alt="Parámetros de lanzamiento -insecure en Left 4 Dead 2" class="l4d-steam-guide-img" loading="lazy">
+                <figcaption><span class="l4d-steam-guide-num">2</span> En <b>General</b>, en <b>Parámetros de lanzamiento</b>, escribe: <code>-insecure</code></figcaption>
+              </figure>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🧟 Acciones de Left 4 Dead</h2>
+              <p class="mc-actions-sub">Regalo del live → infectado, arma u efecto en partida. El juego debe estar <b>abierto en Campaña → Un jugador</b> con <code>-insecure</code>. <b style="color:#22c55e">Enciende las acciones.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="l4d-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-create-btn" id="l4d-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="l4d-my-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: UNTURNED ===================== -->
+        <section class="view" id="view-juego-unturned">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🎒 Unturned</h1>
+
+          <div class="l4d-game-card">
+            <div class="l4d-game-banner">
+              <img src="/img/unturned-banner.png" alt="Unturned" class="l4d-game-banner-img">
+            </div>
+            <div class="l4d-game-body">
+              <div class="l4d-mod-row">
+                <img src="/img/unturned-thumb.png" alt="Unturned" class="l4d-mod-thumb">
+                <div class="l4d-mod-main">
+                  <div class="l4d-mod-title">Unturned TikTok Mod <span class="l4d-mod-ver" id="unturned-mod-ver">Versión: 1.0.0</span></div>
+                  <div class="l4d-mod-pathrow">
+                    <input type="text" id="unturned-game-dir" class="l4d-mod-path-inp" placeholder="C:\...\Steam\steamapps\common\Unturned" readonly>
+                    <button type="button" class="l4d-btn l4d-btn-select" id="unturned-pick-dir">Select Directory</button>
+                  </div>
+                  <div id="unturned-status" class="l4d-mod-status"></div>
+                  <div class="game-mod-progress hidden" id="unturned-mod-progress" aria-hidden="true">
+                    <div class="game-mod-progress-track"><div class="game-mod-progress-fill" id="unturned-mod-progress-fill"></div></div>
+                    <div class="game-mod-progress-label" id="unturned-mod-progress-label">Instalando mod…</div>
+                  </div>
+                  <div class="l4d-mod-foot">
+                    <div class="l4d-mod-foot-left">
+                      <button type="button" class="l4d-btn l4d-btn-install" id="unturned-install">Instalar Mod</button>
+                      <button type="button" class="l4d-btn l4d-btn-uninstall" id="unturned-uninstall">Borrar Mod</button>
+                      <button type="button" class="l4d-btn l4d-btn-launch" id="unturned-launch">Ejecutar juego</button>
+                    </div>
+                    <button type="button" class="l4d-btn l4d-btn-steam" id="unturned-steam" title="Unturned en Steam">
+                      <svg class="l4d-steam-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.4c0-2.495 2.028-4.522 4.523-4.522 2.494 0 4.524 2.027 4.524 4.522 0 2.494-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.753 20.691 6.402 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.606 0 11.979 0zM7.54 18.35l-1.816-.751c.233.466.632.85 1.132 1.041a2.38 2.38 0 0 0 2.966-1.635 2.403 2.403 0 0 0-1.604-2.955 2.38 2.38 0 0 0-2.966 1.634l1.858.768a1.179 1.179 0 0 1 1.33-.509 1.198 1.198 0 0 1 .74 1.104 1.2 1.2 0 0 1-1.56 1.214zm8.934-11.856c-1.305 0-2.364 1.059-2.364 2.363 0 1.305 1.059 2.364 2.364 2.364 1.304 0 2.363-1.059 2.363-2.364 0-1.304-1.059-2.363-2.363-2.363z"/></svg>
+                      Steam
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Pasos (Steam):</b>
+              <ol>
+                <li><b>Paso 1:</b> Compra/instala <b>Unturned</b> en Steam (gratis).</li>
+                <li><b>Paso 2:</b> Pulsa <b>Instalar Mod</b> — Livecoins descarga el pack y lo copia solo (necesita internet la 1ª vez).</li>
+                <li><b>Paso 3:</b> Abre el juego, entra a un mapa (p. ej. PEI) y enlaza regalos.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🎒 Acciones de Unturned</h2>
+              <p class="mc-actions-sub">Regalo del live → zombie, ítem o efecto en partida. El juego debe estar <b>abierto</b> con el mod cargado. <b style="color:#22c55e">Enciende las acciones.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="unturned-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-create-btn" id="unturned-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="mc-img-btn" id="unturned-gen-overlay" title="PNG con tus acciones, regalos y cantidad (x10, etc.) para OBS">🖼️ Generar overlay</button>
+              </div>
+            </div>
+            <div id="unturned-my-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: CRASH TEAM RACING ===================== -->
+        <section class="view" id="view-juego-crashctr">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🏎️ Crash Team Racing</h1>
+
+          <div class="repo-game-card mc-game-card ctr-game-card">
+            <div class="repo-game-banner mc-game-banner ctr-game-banner">
+              <picture>
+                <source srcset="/img/ctr-banner.webp" type="image/webp">
+                <img src="/img/ctr-banner.jpg" alt="Crash Team Racing" class="repo-game-banner-img ctr-game-banner-img" width="920" height="380" loading="lazy">
+              </picture>
+              <div class="ctr-banner-foot">
+                <div class="pvz-game-actions ctr-game-actions">
+                  <button type="button" class="juego-play-btn bridge-connect-btn is-off" id="ctr-bridge">Conectar</button>
+                </div>
+                <div id="ctr-status" class="mari0-status-row repo-mod-status" aria-live="polite"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pvz-dl-section ctr-dl-section">
+            <div id="ctr-downloads" class="pvz-dl-list" aria-label="Descarga de Crash CTR"></div>
+          </div>
+
+          <div class="juego-aviso juego-aviso-ctr">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Pasos para jugar Crash CTR con Livecoins:</b>
+              <ol class="ctr-steps-list" id="ctr-steps-list">
+                <li><b>Paso 1:</b> Pulsa <b>Descargar Crash</b> (arriba), descomprime el RAR y abre <b>EmuHawk.exe</b> desde la carpeta <code>BizHawk con Crash CTR\BizHawk</code>. <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-01-emulador.png" data-alt="Abrir EmuHawk.exe">Imagen</button></li>
+                <li><b>Paso 2:</b> Menú <b>Config → Paths…</b> para configurar la carpeta de BIOS (firmware). <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-02-config-menu.png" data-alt="Menú Config y Paths">Imagen</button></li>
+                <li><b>Paso 2b:</b> En la fila <b>Firmware</b>, pulsa el botón de carpeta y selecciona la carpeta <code>Firmware</code> de tu BizHawk. <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-02b-firmware-ruta.png" data-alt="Campo Firmware en Paths">Imagen</button></li>
+                <li class="ctr-steps-extra"><b>Paso 2c:</b> Debe ser la carpeta <b>Firmware</b> dentro de BizHawk (donde están las BIOS de PSX). <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-02c-carpeta-firmware.png" data-alt="Seleccionar carpeta Firmware">Imagen</button></li>
+                <li class="ctr-steps-extra"><b>Paso 2d:</b> Si hace falta, <b>copia la ruta</b> de la carpeta (clic en la barra de direcciones → copiar) y pégala en el campo <b>Firmware</b>. Pulsa <b>Save</b> y <b>OK</b>. <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-02d-copiar-ruta.png" data-alt="Copiar ruta de Firmware">Imagen</button></li>
+                <li class="ctr-steps-extra"><b>Paso 3:</b> Menú <b>File → Open ROM…</b> (<code>Ctrl+O</code>). <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-03-open-rom.png" data-alt="File Open ROM">Imagen</button></li>
+                <li class="ctr-steps-extra"><b>Paso 4:</b> Ve a <code>roms\psx\CTR - Crash Team Racing</code> y abre <b>CTR - Crash Team Racing.bin</b>. <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-04-archivo-bin.png" data-alt="Archivo CTR bin">Imagen</button></li>
+                <li class="ctr-steps-extra"><b>Paso 5:</b> Si sale <b>ROM loader</b>, pulsa <b>No</b> (no cargar el <code>.cue</code> existente). <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-05-rom-loader-no.png" data-alt="ROM loader No">Imagen</button></li>
+                <li class="ctr-steps-extra"><b>Paso 6:</b> Con el juego cargado, abre <b>Tools</b> en la barra de menú. <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-06-tools-menu.png" data-alt="Menú Tools">Imagen</button></li>
+                <li class="ctr-steps-extra"><b>Paso 6b:</b> Elige <b>Lua Console</b> y <b>déjala abierta</b>. <button type="button" class="ctr-step-img-btn" data-src="/img/ctr/paso-06b-lua-console.png" data-alt="Lua Console">Imagen</button></li>
+                <li class="ctr-steps-extra"><b>Paso 7:</b> En Livecoins pulsa <b>Conectar</b> (arranca el bridge en puerto <code>19150</code>). Debe ponerse verde: <b>Conectado</b>.</li>
+                <li class="ctr-steps-extra"><b>Paso 8:</b> En la <b>Lua Console</b>, menú <b>File → Open Script</b> y carga <code>Lua\ctr_webhook_bridge_memory_effects_v2.lua</code>.</li>
+                <li class="ctr-steps-extra"><b>Paso 9:</b> Entra a una <b>carrera</b> en CTR. Crea acciones abajo, enciéndelas y prueba con el botón verde.</li>
+              </ol>
+              <button type="button" class="ctr-steps-more-btn" id="ctr-steps-more-btn" aria-expanded="false">Mostrar más ▾</button>
+            </div>
+          </div>
+
+          <div class="ctr-img-lightbox hidden" id="ctr-img-lightbox" role="dialog" aria-modal="true" aria-label="Vista ampliada del paso" hidden>
+            <button type="button" class="ctr-img-lightbox-backdrop" id="ctr-img-lightbox-backdrop" aria-label="Cerrar"></button>
+            <div class="ctr-img-lightbox-panel">
+              <button type="button" class="ctr-img-lightbox-close" id="ctr-img-lightbox-close" aria-label="Cerrar">✕</button>
+              <img src="" alt="" class="ctr-img-lightbox-img" id="ctr-img-lightbox-img">
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🏎️ Acciones de Crash CTR</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y asígnale el <b>regalo</b> o <b>evento</b> que la activará. <b style="color:#22c55e">Enciende las acciones.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="ctr-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-create-btn" id="ctr-load-presets" title="14 webhooks oficiales con regalos y cantidades">📥 Cargar preset oficial</button>
+                <button type="button" class="mc-img-btn" id="ctr-gen-overlay" title="PNG HEROES + VILLANOS con ítems, efectos y regalos para OBS">🖼️ Generar overlay</button>
+                <button type="button" class="mc-create-btn" id="ctr-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="ctr-my-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: METAL SLUG ===================== -->
+        <section class="view" id="view-juego-metalslug">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🎖️ Metal Slug SB Fanthology</h1>
+
+          <div class="repo-game-card mslug-game-card">
+            <div class="repo-game-banner mslug-game-banner">
+              <img src="/img/metalslug.png" alt="Metal Slug" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              <div class="mslug-banner-foot">
+                <div id="mslug-downloads" class="mslug-banner-dl-row" aria-label="Descargas Metal Slug"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Pasos (modo historia / arcade — no VS MODE):</b>
+              <ol>
+                <li><b>Paso 1:</b> Descarga <b>Metal Slug SB Fanthology</b> (botón izquierdo en la imagen).</li>
+                <li><b>Paso 2:</b> Descarga <b>Metal Slug Bridge</b> (botón derecho en la imagen).</li>
+                <li><b>Paso 3:</b> Instala <b>Metal Slug Bridge</b> y pasa tu código <b>UUID</b> al admin para que te genere tu licencia.</li>
+                <li><b>Paso 4:</b> Descomprime la carpeta <b>Metal Slug SB Fanthology</b>.</li>
+                <li><b>Paso 5:</b> Ejecuta <b>PLAY.exe</b>.</li>
+                <li><b>Paso 6:</b> Pulsa <b>➕ Añadir acciones del overlay</b> y <b>🖼️ Generar imagen</b>.</li>
+              </ol>
+              <p style="margin-top:10px"><b>Nota:</b> El juego debe estar dentro de la pestaña <b>música</b> en tu PC. No olvides encender las acciones para que funcione.</p>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🎖️ Acciones de Metal Slug</h2>
+              <p class="mc-actions-sub">Regalo del live → enemigo con nick del viewer. Solo en <b>historia / arcade</b> (no VS MODE). <b style="color:#22c55e">Enciende las acciones.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mslug-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-create-btn" id="mslug-add-overlay" title="37 acciones con regalos, cantidades y webhooks del overlay oficial">➕ Añadir acciones del overlay</button>
+                <button type="button" class="mc-img-btn" id="mslug-gen-overlay" title="Descarga la imagen fija del overlay oficial para OBS">🖼️ Generar imagen</button>
+                <button type="button" class="mc-create-btn" id="mslug-toggle-all">⏻ Encender / Apagar todas</button>
+              </div>
+            </div>
+            <div id="mslug-my-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: GEOMETRY DASH ===================== -->
+        <section class="view" id="view-juego-geometrydash">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">📐 Geometry Dash</h1>
+
+          <div class="repo-game-card gdash-game-card">
+            <div class="repo-game-banner gdash-game-banner">
+              <picture>
+                <source srcset="/img/gdash/gdash-banner.webp" type="image/webp">
+                <img src="/img/gdash/gdash-banner.jpg" alt="Geometry Dash" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+              <div class="gdash-banner-foot">
+                <div id="gdash-downloads" class="gdash-banner-dl-row" aria-label="Descargas Geometry Dash"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">📋</div>
+            <div class="juego-aviso-txt">
+              <b>Pasos:</b>
+              <ol>
+                <li><b>Paso 1:</b> Descarga <b>Geometry Dash</b> (botón izquierdo en la imagen) y <b>descomprímelo</b>.</li>
+                <li><b>Paso 2:</b> Descarga el <b>Activador</b> (botón derecho en la imagen), instálalo, genera tu licencia y <b>pídesela al Admin</b>.</li>
+                <li><b>Paso 3:</b> Ejecuta <b>GeometryDash.exe</b>, conecta el <b>servidor del activador</b> y configura las acciones abajo (<b style="color:#22c55e">enciéndelas</b>).</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">📐 Acciones de Geometry Dash</h2>
+              <p class="mc-actions-sub">Regalo del live → efecto en el juego con el nick del viewer. <b style="color:#22c55e">Enciende las acciones.</b></p>
+            </div>
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="gdash-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-create-btn" id="gdash-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="mc-img-btn" id="gdash-gen-overlay" title="PNG con tus efectos, regalos y cantidad (x10, etc.) para OBS">🖼️ Generar overlay</button>
+              </div>
+            </div>
+            <div id="gdash-my-actions" class="mc-my-actions"></div>
           </div>
         </section>
 
@@ -4920,16 +5750,25 @@
           <h1 class="view-title">🟩 Minecraft</h1>
           <p class="view-sub">Configura aquí el juego de Minecraft.</p>
 
-          <div class="juego-banner">
-            <img src="/img/minecraft2.png" alt="Minecraft" class="juego-banner-img">
-            <span class="juego-version">Versión: 1.21.11</span>
-            <div class="juego-dl-group">
-              <button type="button" class="juego-dl-btn" id="mc-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/servidor.minecraft.-.original.rar">
-                <span class="juego-dl-ico">⬇</span> CLICK AQUÍ · Versión Minecraft Original
-              </button>
-              <button type="button" class="juego-dl-btn" id="mc-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/servidor.minecraft.-.copia.2.rar">
-                <span class="juego-dl-ico">⬇</span> CLICK AQUÍ · Versión Minecraft Pirata
-              </button>
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <picture>
+                <source srcset="/img/minecraft-banner.webp" type="image/webp">
+                <img src="/img/minecraft-banner.jpg" alt="Minecraft Survival" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+            </div>
+            <div class="repo-game-body mc-game-body">
+              <div class="mc-game-dl-row">
+                <span class="mc-game-version">Versión: 1.21.11</span>
+                <div class="mc-game-dl-btns">
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mc-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/servidor.minecraft.-.original.rar">
+                    <span class="juego-dl-ico">⬇</span> Original
+                  </button>
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mc-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/servidor.minecraft.-.copia.2.rar">
+                    <span class="juego-dl-ico">⬇</span> Pirata
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -4938,7 +5777,7 @@
             <div class="juego-aviso-txt">
               <b>Antes de ejecutar el servidor sigue estos pasos:</b>
               <ol>
-                <li>Pulsa <b>CLICK AQUÍ</b> (sobre la imagen) para <b>descargar</b> el archivo.</li>
+                <li>Pulsa <b>Original</b> o <b>Pirata</b> (botones de descarga arriba) para <b>descargar</b> el archivo.</li>
                 <li>Guárdalo y descomprímelo en tu carpeta <b>Documentos</b>.</li>
                 <li>Instala el complemento <b>Java</b> que viene dentro de la carpeta.</li>
                 <li>Vuelve a este panel y pulsa <b>Ejecutar servidor</b>.</li>
@@ -4966,20 +5805,356 @@
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mc-open-catalog">✨ Crear Acción</button>
                 <button type="button" class="mc-img-btn" id="mc-export-preset" title="Descarga tus acciones de Minecraft como un archivo de presets">⬆️ Exportar presets</button>
                 <button type="button" class="mc-img-btn" id="mc-import-preset" title="Carga acciones de Minecraft desde un archivo de presets">⬇️ Importar presets</button>
                 <button type="button" class="mc-img-btn" id="mc-gen-img" title="Crea una imagen con tus regalos y sus acciones para mostrarla en el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="mc-toggle-all">⏻ Encender / Apagar todas</button>
                 <button type="button" class="mc-create-btn" id="mc-create-cmd">+ Crear comando propio</button>
               </div>
               <input type="file" id="mc-import-file" accept="application/json,.json" hidden>
             </div>
             <div id="mc-my-actions" class="mc-my-actions"></div>
+          </div>
+        </section>
 
-            <h3 class="mc-sub-title">Catálogo de acciones</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="mc-cat-search" class="mc-cat-search" placeholder="Buscar acción (zombie, tnt, kit…)">
+        <!-- ===================== JUEGO: MINECRAFT PARKOUR (solo .exe) ===================== -->
+        <section class="view" id="view-juego-mcparkour">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🏃 Minecraft Parkour</h1>
+          <p class="view-sub">Minijuego de parkour con comandos <b>/parkour</b>.</p>
+
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <picture>
+                <source srcset="/img/mcparkour-banner.webp" type="image/webp">
+                <img src="/img/mcparkour-banner.jpg" alt="Minecraft Parkour" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
             </div>
-            <div id="mc-catalog" class="mc-catalog"></div>
+            <div class="repo-game-body mc-game-body">
+              <div class="mc-game-dl-row">
+                <span class="mc-game-version">Versión: 1.21.11</span>
+                <div class="mc-game-dl-btns">
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mcparkour-dl-original" data-url="https://github.com/riusaki1995/mariobros/releases/download/farm/Minecraft.parkour.original.rar">
+                    <span class="juego-dl-ico">⬇</span> Original
+                  </button>
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mcparkour-dl-pirata" data-url="https://github.com/riusaki1995/mariobros/releases/download/farm/Minecraft.parkour.false.rar">
+                    <span class="juego-dl-ico">⬇</span> Pirata
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-tools">
+            <div class="juego-tools-row">
+              <button type="button" class="juego-run-btn" id="mcparkour-run">▶ Ejecutar servidor</button>
+              <button type="button" class="juego-run-btn" id="mcparkour-validate-license" title="Conecta Livecoins con LiveCoinsCore (puerto 4043)">🔑 Validar licencia</button>
+              <button type="button" class="btn danger juego-panic-btn" id="mcparkour-panic" title="Detiene videos, sonidos y TTS en cola">⛔ Pánico</button>
+            </div>
+            <a href="#" id="mcparkour-change-bat" class="juego-link">📁 Elegir / cambiar archivo del servidor (.bat)</a>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">⚠️</div>
+            <div class="juego-aviso-txt">
+              <b>Sigue estos pasos para usar Minecraft Parkour:</b>
+              <ol>
+                <li><b>Paso 1:</b> Descarga el servidor (<b>Pirata</b> u <b>Original</b>) con los botones de arriba.</li>
+                <li><b>Paso 2:</b> Pulsa <b>Ejecutar servidor</b> y selecciona <b>iniciar.bat</b> dentro de la carpeta del servidor (solo la primera vez).</li>
+                <li><b>Paso 2b:</b> Con Livecoins abierto y sesión iniciada, pulsa <b>Validar licencia</b> cuando el servidor esté en marcha (conecta con LiveCoinsCore en el puerto <b>4043</b>). Si no te funciona la licencia, escribe en la <b>consola negra</b>: <code>livecoinscore activate tu_usuario</code> y pulsa Enter (sustituye <code>tu_usuario</code> por tu nombre de Minecraft).</li>
+                <li class="juego-aviso-importante">⛔ <b>Paso 3:</b> <b>NO cierres la ventana negra</b> (la consola del servidor): si la cierras, el servidor se apaga y nada funcionará.</li>
+                <li><b>Paso 4:</b> Abre <b>Minecraft 1.21.11</b>, entra a <b>Multijugador</b> y conéctate a <b>localhost</b>.</li>
+                <li><b>Paso 5:</b> Pon <b>modo creativo</b>. Si no eres operador, escribe en la ventana negra: <code>op tu_nombre</code> y pulsa Enter.</li>
+                <li><b>Paso 6:</b> Usa el comando para <b>crear la torre</b> (sección Configuraciones, abajo).</li>
+                <li><b>Paso 7:</b> Abre la pestaña <b>Configuración</b> en Livecoins. En <b>RCON</b> pon: Host <b>127.0.0.1</b>, Puerto <b>25575</b>, Contraseña <b>Tiktok123</b> y pulsa <b>Probar conexión</b> (debe salir ✅).</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🏃 Acciones de Parkour</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y asígnale el <b>regalo</b> o <b>evento</b> que la activará durante tu live. Se ejecutan por el <b>mismo RCON</b> de tu servidor de Minecraft.</p>
+            </div>
+
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mcparkour-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-img-btn" id="mcparkour-export-preset" title="Descarga tus acciones de Parkour como presets">⬆️ Exportar presets</button>
+                <button type="button" class="mc-img-btn" id="mcparkour-import-preset" title="Carga acciones de Parkour desde presets">⬇️ Importar presets</button>
+                <button type="button" class="mc-img-btn" id="mcparkour-gen-img" title="Crea una imagen con tus regalos y acciones para el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="mcparkour-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="mc-create-btn" id="mcparkour-create-cmd">+ Crear comando propio</button>
+              </div>
+              <input type="file" id="mcparkour-import-file" accept="application/json,.json" hidden>
+            </div>
+            <div id="mcparkour-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title" style="margin-top:22px">⚙️ Configuraciones</h3>
+            <p class="mc-actions-sub">⚠️ Estos comandos se usan <b>directamente desde el juego</b>, <b>no</b> se ejecutan por RCON ni se vinculan a regalos. Pulsa <b>Copiar</b> y pégalo en el chat de Minecraft.</p>
+            <div id="mcparkour-configs" class="bd-cfg-grid"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: MINECRAFT KOTH (solo .exe) ===================== -->
+        <section class="view" id="view-juego-mckoth">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">👑 Minecraft KOTH</h1>
+          <p class="view-sub">Minijuego King of the Hill con comandos <b>/koth</b>.</p>
+
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <picture>
+                <source srcset="/img/mckoth-banner.webp" type="image/webp">
+                <img src="/img/mckoth-banner.jpg" alt="Minecraft KOTH" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+            </div>
+            <div class="repo-game-body mc-game-body">
+              <div class="mc-game-dl-row">
+                <span class="mc-game-version">Versión: 1.21.11</span>
+                <div class="mc-game-dl-btns">
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mckoth-dl-original" data-url="https://github.com/riusaki1995/mariobros/releases/download/farm/Minecraft.koth.original.rar">
+                    <span class="juego-dl-ico">⬇</span> Original
+                  </button>
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mckoth-dl-pirata" data-url="https://github.com/riusaki1995/mariobros/releases/download/farm/Minecraft.koth.launche.rar">
+                    <span class="juego-dl-ico">⬇</span> Pirata
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-tools">
+            <div class="juego-tools-row">
+              <button type="button" class="juego-run-btn" id="mckoth-run">▶ Ejecutar servidor</button>
+              <button type="button" class="btn danger juego-panic-btn" id="mckoth-panic" title="Detiene videos, sonidos y TTS en cola">⛔ Pánico</button>
+            </div>
+            <a href="#" id="mckoth-change-bat" class="juego-link">📁 Elegir / cambiar archivo del servidor (.bat)</a>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">⚠️</div>
+            <div class="juego-aviso-txt">
+              <b>Sigue estos pasos para usar Minecraft KOTH:</b>
+              <ol>
+                <li><b>Paso 1:</b> Descarga el servidor (<b>Pirata</b> u <b>Original</b>) con los botones de arriba.</li>
+                <li><b>Paso 2:</b> Pulsa <b>Ejecutar servidor</b> y selecciona <b>iniciar.bat</b> dentro de la carpeta del servidor (solo la primera vez).</li>
+                <li class="juego-aviso-importante">⛔ <b>Paso 3:</b> <b>NO cierres la ventana negra</b> (la consola del servidor): si la cierras, el servidor se apaga y nada funcionará.</li>
+                <li><b>Paso 4:</b> Abre <b>Minecraft 1.21.11</b>, entra a <b>Multijugador</b> y conéctate a <b>localhost</b>.</li>
+                <li><b>Paso 5:</b> Pon <b>modo creativo</b>. Si no eres operador, escribe en la ventana negra: <code>op tu_nombre</code> y pulsa Enter.</li>
+                <li><b>Paso 6:</b> Usa el comando para <b>crear la rampa</b> (sección Configuraciones, abajo).</li>
+                <li><b>Paso 7:</b> Abre la pestaña <b>Configuración</b> en Livecoins. En <b>RCON</b> pon: Host <b>127.0.0.1</b>, Puerto <b>25575</b>, Contraseña <b>Tiktok123</b> y pulsa <b>Probar conexión</b> (debe salir ✅).</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">👑 Acciones de KOTH</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y asígnale el <b>regalo</b> o <b>evento</b> que la activará durante tu live. Se ejecutan por el <b>mismo RCON</b> de tu servidor de Minecraft.</p>
+            </div>
+
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mckoth-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-img-btn" id="mckoth-export-preset" title="Descarga tus acciones de KOTH como presets">⬆️ Exportar presets</button>
+                <button type="button" class="mc-img-btn" id="mckoth-import-preset" title="Carga acciones de KOTH desde presets">⬇️ Importar presets</button>
+                <button type="button" class="mc-img-btn" id="mckoth-gen-img" title="Crea una imagen con tus regalos y acciones para el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="mckoth-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="mc-create-btn" id="mckoth-create-cmd">+ Crear comando propio</button>
+              </div>
+              <input type="file" id="mckoth-import-file" accept="application/json,.json" hidden>
+            </div>
+            <div id="mckoth-my-actions" class="mc-my-actions"></div>
+
+            <h3 class="mc-sub-title" style="margin-top:22px">⚙️ Configuraciones</h3>
+            <p class="mc-actions-sub">⚠️ Estos comandos se usan <b>directamente desde el juego</b>, <b>no</b> se ejecutan por RCON ni se vinculan a regalos. Pulsa <b>Copiar</b> y pégalo en el chat de Minecraft.</p>
+            <div id="mckoth-configs" class="bd-cfg-grid"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: MINECRAFT FARM (solo .exe) ===================== -->
+        <section class="view" id="view-juego-mcfarm">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🌾 Minecraft Farm</h1>
+          <p class="view-sub">Minijuego de granja con comandos <b>/farm</b>.</p>
+
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <picture>
+                <source srcset="/img/mcfarm-banner.webp" type="image/webp">
+                <img src="/img/mcfarm-banner.jpg" alt="Minecraft Farm" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+            </div>
+            <div class="repo-game-body mc-game-body">
+              <div class="mc-game-dl-row">
+                <span class="mc-game-version">Versión: 1.21.1</span>
+                <div class="mc-game-dl-btns">
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mcfarm-dl-original" data-url="https://github.com/riusaki1995/mariobros/releases/download/farm/Minecraft.Farm.Original.rar">
+                    <span class="juego-dl-ico">⬇</span> Original
+                  </button>
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mcfarm-dl-pirata" data-url="https://github.com/riusaki1995/mariobros/releases/download/farm/Minecraft.Farm.Launcher.rar">
+                    <span class="juego-dl-ico">⬇</span> Pirata
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-tools">
+            <div class="juego-tools-row">
+              <button type="button" class="juego-run-btn" id="mcfarm-run">▶ Ejecutar servidor</button>
+              <button type="button" class="btn danger juego-panic-btn" id="mcfarm-panic" title="Detiene videos, sonidos y TTS en cola">⛔ Pánico</button>
+            </div>
+            <a href="#" id="mcfarm-change-bat" class="juego-link">📁 Elegir / cambiar archivo del servidor (.bat)</a>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">⚠️</div>
+            <div class="juego-aviso-txt">
+              <b>Sigue estos pasos para usar Minecraft Farm:</b>
+              <ol>
+                <li><b>Paso 1:</b> Descarga el servidor (<b>Pirata</b> u <b>Original</b>) con los botones de arriba.</li>
+                <li><b>Paso 2:</b> Pulsa <b>Ejecutar servidor</b> y selecciona <b>iniciar.bat</b> dentro de la carpeta del servidor (solo la primera vez).</li>
+                <li class="juego-aviso-importante">⛔ <b>Paso 3:</b> <b>NO cierres la ventana negra</b> (la consola del servidor): si la cierras, el servidor se apaga y nada funcionará.</li>
+                <li><b>Paso 4:</b> Abre <b>Minecraft 1.21.1</b>, entra a <b>Multijugador</b> y conéctate a <b>localhost</b>.</li>
+                <li><b>Paso 5:</b> Pon <b>modo creativo</b>. Si no eres operador, escribe en la ventana negra: <code>op tu_nombre</code> (tu nombre exacto de Minecraft) y pulsa Enter.</li>
+                <li><b>Paso 6:</b> Usa el comando para <b>crear el campo</b> (sección Configuraciones, abajo). Debes estar en una <b>superficie plana</b>.</li>
+                <li><b>Paso 7:</b> Abre la pestaña <b>Configuración</b> en Livecoins. En <b>RCON</b> pon: Host <b>127.0.0.1</b>, Puerto <b>25575</b>, Contraseña <b>Tiktok123</b> y pulsa <b>Probar conexión</b> (debe salir ✅).</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- ===== Acciones de Farm (se agregan a tarjetas) ===== -->
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🌾 Acciones de Farm</h2>
+              <p class="mc-actions-sub">Elige una acción del catálogo y se agregará arriba. Luego asígnale el <b>regalo</b> o <b>evento</b> que la activará durante tu live (cuando el farm esté activo). Se ejecutan por el <b>mismo RCON</b> de tu servidor de Minecraft.</p>
+            </div>
+
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mcfarm-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-img-btn" id="mcfarm-export-preset" title="Descarga tus acciones de Farm como un archivo de presets">⬆️ Exportar presets</button>
+                <button type="button" class="mc-img-btn" id="mcfarm-import-preset" title="Carga acciones de Farm desde un archivo de presets">⬇️ Importar presets</button>
+                <button type="button" class="mc-img-btn" id="mcfarm-gen-img" title="Crea una imagen con tus regalos y sus acciones para mostrarla en el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="mcfarm-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="mc-create-btn" id="mcfarm-create-cmd">+ Crear comando propio</button>
+              </div>
+              <input type="file" id="mcfarm-import-file" accept="application/json,.json" hidden>
+            </div>
+            <div id="mcfarm-my-actions" class="mc-my-actions"></div>
+
+            <!-- ===== Configuraciones (se ejecutan DENTRO del juego, solo Copiar) ===== -->
+            <h3 class="mc-sub-title" style="margin-top:22px">⚙️ Configuraciones</h3>
+            <p class="mc-actions-sub">⚠️ Estos comandos se usan <b>directamente desde el juego</b> (dependen de tu personaje), <b>no</b> se ejecutan por RCON/ServerTap ni se vinculan a regalos. Edita el comando si quieres, pulsa <b>Copiar</b> y <b>pégalo en el chat de Minecraft</b> para activar el minijuego.</p>
+            <div id="mcfarm-configs" class="bd-cfg-grid"></div>
+          </div>
+        </section>
+
+        <!-- ===================== JUEGO: MINECRAFT SHOOTERS (solo .exe) ===================== -->
+        <section class="view" id="view-juego-mcshooter">
+          <button type="button" class="juego-back">← Volver a Juegos</button>
+          <h1 class="view-title">🔫 Minecraft Shooters</h1>
+          <p class="view-sub">Modo shooters con armas y combate. Configura acciones RCON igual que Survival, en un perfil aparte.</p>
+
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <img src="/img/mcshooter-banner.png" alt="Minecraft Shooters" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+            </div>
+            <div class="repo-game-body mc-game-body">
+              <div class="mc-game-dl-row">
+                <span class="mc-game-version">Versión: Shooters</span>
+                <div class="mc-game-dl-btns">
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mcshooter-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/shooter/Minecraft.shhoters.Online.rar">
+                    <span class="juego-dl-ico">⬇</span> Original
+                  </button>
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="mcshooter-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/shooter/Minecraft.shhoters.Offline.rar">
+                    <span class="juego-dl-ico">⬇</span> Pirata
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="juego-aviso">
+            <div class="juego-aviso-ico">⚠️</div>
+            <div class="juego-aviso-txt">
+              <b>Antes de ejecutar el servidor sigue estos pasos:</b>
+              <ol>
+                <li>Descarga el pack de <b>Minecraft Shooters</b> (enlaces arriba cuando estén disponibles).</li>
+                <li>Guárdalo y descomprímelo en tu carpeta <b>Documentos</b>.</li>
+                <li>Instala el complemento <b>Java</b> que viene dentro de la carpeta.</li>
+                <li>Vuelve a este panel y pulsa <b>Ejecutar servidor</b>.</li>
+                <li>La <b>primera vez</b> te pedirá seleccionar el archivo <b>iniciar.bat</b> del pack Shooters.</li>
+                <li class="juego-aviso-importante">⛔ <b>INDISPENSABLE:</b> <b>NO cierres la ventana negra</b> del servidor. Si no tienes permisos de administrador, escribe en la consola: <code>op tu_usuario</code> y pulsa Enter.</li>
+              </ol>
+              <b>Una vez dentro del mundo:</b>
+              <ol>
+                <li>Pulsa el botón <b>🎯 TT Target</b> (abajo en este panel) para activar el modo en el juego — hazlo estando ya conectado al servidor.</li>
+                <li>Con el arma en la mano: mantén <b>Shift</b> y <b>clic izquierdo</b> para disparar en <b>ráfaga</b>.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="juego-tools">
+            <div class="juego-tools-row">
+              <button type="button" class="juego-run-btn" id="mcshooter-run">▶ Ejecutar servidor</button>
+              <button type="button" class="btn ghost juego-cmd-btn" id="mcshooter-tttarget" title="Envía tttarget al servidor por RCON (como /tttarget en el juego)">🎯 TT Target</button>
+              <button type="button" class="btn danger juego-panic-btn" id="mcshooter-panic" title="Detiene la cola de comandos Minecraft, videos, sonidos y TTS">⛔ Pánico</button>
+            </div>
+            <a href="#" id="mcshooter-change-bat" class="juego-link">📁 Elegir / cambiar archivo del servidor (.bat)</a>
+          </div>
+
+          <div class="mc-actions-wrap mc-coliseo-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🏟️ Coliseo — zombie por chat</h2>
+              <p class="mc-actions-sub">Cuando un espectador escriba el comando en el chat (ej. <code>!entro</code>), aparece un zombie en las coordenadas del coliseo con <b>su nombre de TikTok</b>. Solo se puede generar <b>1 zombie cada 40 s</b> (configurable). Usa F3 en el juego para obtener X Y Z.</p>
+            </div>
+            <div class="settings-card mc-coliseo-card">
+              <label class="switch-row plain big-check"><input type="checkbox" id="mcshooter-coliseo-enabled"> <span>Activar coliseo</span></label>
+              <div class="wh-cfg-grid mc-coliseo-grid">
+                <label class="ml">Comando de chat</label>
+                <input type="text" id="mcshooter-coliseo-cmd" placeholder="!entro" spellcheck="false">
+                <label class="ml">Cooldown (segundos)</label>
+                <input type="number" id="mcshooter-coliseo-cd" min="1" max="600" value="40">
+                <label class="ml">Posición X</label>
+                <input type="text" id="mcshooter-coliseo-x" inputmode="decimal" autocomplete="off" spellcheck="false" value="0">
+                <label class="ml">Posición Y</label>
+                <input type="text" id="mcshooter-coliseo-y" inputmode="decimal" autocomplete="off" spellcheck="false" value="64">
+                <label class="ml">Posición Z</label>
+                <input type="text" id="mcshooter-coliseo-z" inputmode="decimal" autocomplete="off" spellcheck="false" value="0">
+              </div>
+              <label class="ml">Comando RCON personalizado (opcional)</label>
+              <input type="text" id="mcshooter-coliseo-spawncmd" class="mc-coliseo-spawncmd" placeholder="execute positioned X Y Z run summon zombie ~ ~ ~ {CustomName:'&quot;{nickname}&quot;',CustomNameVisible:1b}" spellcheck="false">
+              <p class="box-sub">Si lo dejas vacío se usa la posición de arriba. Variables: <code>{nickname}</code>, <code>{username}</code>, <code>{mcplayer}</code>.</p>
+              <button type="button" class="mc-create-btn" id="mcshooter-coliseo-test">▶ Probar zombie (sin cooldown)</button>
+            </div>
+          </div>
+
+          <div class="mc-actions-wrap">
+            <div class="mc-actions-head">
+              <h2 class="mc-actions-title">🔫 Acciones de Minecraft Shooters</h2>
+              <p class="mc-actions-sub">Elige acciones del catálogo y asígnalas a regalos o eventos. En <b>Configuración → RCON</b> pon tu <b>Nombre del jugador (Minecraft)</b> (ej. <code>jesus</code>) — QualityArmory no entiende <code>@p</code>. Mobs: entra al mundo antes de probar.</p>
+            </div>
+
+            <div class="mc-sub-head">
+              <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="mcshooter-open-catalog">✨ Crear Acción</button>
+                <button type="button" class="mc-img-btn" id="mcshooter-export-preset" title="Descarga tus acciones de Shooters como presets">⬆️ Exportar presets</button>
+                <button type="button" class="mc-img-btn" id="mcshooter-import-preset" title="Carga acciones de Shooters desde presets">⬇️ Importar presets</button>
+                <button type="button" class="mc-img-btn" id="mcshooter-gen-img" title="Crea una imagen con tus regalos y acciones para el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="mcshooter-toggle-all">⏻ Encender / Apagar todas</button>
+                <button type="button" class="mc-create-btn" id="mcshooter-create-cmd">+ Crear comando propio</button>
+              </div>
+              <input type="file" id="mcshooter-import-file" accept="application/json,.json" hidden>
+            </div>
+            <div id="mcshooter-my-actions" class="mc-my-actions"></div>
           </div>
         </section>
 
@@ -4989,16 +6164,25 @@
           <h1 class="view-title">🧨 Bedrock · Cubo TNT</h1>
           <p class="view-sub">Minijuego del cubo de TNT con comandos <b>/bedrock</b>.</p>
 
-          <div class="juego-banner">
-            <img src="/img/bedrock.png" alt="Bedrock" class="juego-banner-img">
-            <span class="juego-version">Versión: 1.21.1</span>
-            <div class="juego-dl-group">
-              <button type="button" class="juego-dl-btn" id="bedrock-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Cubo.Bedrockonline.rar">
-                <span class="juego-dl-ico">⬇</span> Descargar servidor Original
-              </button>
-              <button type="button" class="juego-dl-btn" id="bedrock-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Cubo.Bedrockoffline.rar">
-                <span class="juego-dl-ico">⬇</span> Descargar servidor Pirata
-              </button>
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <picture>
+                <source srcset="/img/bedrock-banner.webp" type="image/webp">
+                <img src="/img/bedrock-banner.jpg" alt="Cubo TNT" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+            </div>
+            <div class="repo-game-body mc-game-body">
+              <div class="mc-game-dl-row">
+                <span class="mc-game-version">Versión: 1.21.1</span>
+                <div class="mc-game-dl-btns">
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="bedrock-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Cubo.Bedrockonline.rar">
+                    <span class="juego-dl-ico">⬇</span> Original
+                  </button>
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="bedrock-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Cubo.Bedrockoffline.rar">
+                    <span class="juego-dl-ico">⬇</span> Pirata
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -5036,20 +6220,16 @@
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="bedrock-open-catalog">✨ Crear Acción</button>
                 <button type="button" class="mc-img-btn" id="bedrock-export-preset" title="Descarga tus acciones de Bedrock como un archivo de presets">⬆️ Exportar presets</button>
                 <button type="button" class="mc-img-btn" id="bedrock-import-preset" title="Carga acciones de Bedrock desde un archivo de presets">⬇️ Importar presets</button>
                 <button type="button" class="mc-img-btn" id="bedrock-gen-img" title="Crea una imagen con tus regalos y sus acciones para mostrarla en el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="bedrock-toggle-all">⏻ Encender / Apagar todas</button>
                 <button type="button" class="mc-create-btn" id="bedrock-create-cmd">+ Crear comando propio</button>
               </div>
               <input type="file" id="bedrock-import-file" accept="application/json,.json" hidden>
             </div>
             <div id="bedrock-my-actions" class="mc-my-actions"></div>
-
-            <h3 class="mc-sub-title">Catálogo de acciones</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="bedrock-cat-search" class="mc-cat-search" placeholder="Buscar acción (tnt, reset, enderman…)">
-            </div>
-            <div id="bedrock-catalog" class="mc-catalog"></div>
 
             <!-- ===== Configuraciones (se ejecutan DENTRO del juego, solo Copiar) ===== -->
             <h3 class="mc-sub-title" style="margin-top:22px">⚙️ Configuraciones</h3>
@@ -5064,16 +6244,25 @@
           <h1 class="view-title">🏖️ Sandbox</h1>
           <p class="view-sub">Minijuego de la plataforma de arena con comandos <b>/sandbox</b>.</p>
 
-          <div class="juego-banner">
-            <img src="/img/sandbox.png" alt="Sandbox" class="juego-banner-img">
-            <span class="juego-version">Versión: 1.21.1</span>
-            <div class="juego-dl-group">
-              <button type="button" class="juego-dl-btn" id="sandbox-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Sandbox.Online.rar">
-                <span class="juego-dl-ico">⬇</span> Descargar servidor Original
-              </button>
-              <button type="button" class="juego-dl-btn" id="sandbox-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Sandbox.Offline.rar">
-                <span class="juego-dl-ico">⬇</span> Descargar servidor Pirata
-              </button>
+          <div class="repo-game-card mc-game-card">
+            <div class="repo-game-banner mc-game-banner">
+              <picture>
+                <source srcset="/img/sandbox-banner.webp" type="image/webp">
+                <img src="/img/sandbox-banner.jpg" alt="Sandbox" class="repo-game-banner-img" width="920" height="300" loading="lazy">
+              </picture>
+            </div>
+            <div class="repo-game-body mc-game-body">
+              <div class="mc-game-dl-row">
+                <span class="mc-game-version">Versión: 1.21.1</span>
+                <div class="mc-game-dl-btns">
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="sandbox-dl-original" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Sandbox.Online.rar">
+                    <span class="juego-dl-ico">⬇</span> Original
+                  </button>
+                  <button type="button" class="juego-dl-btn mc-dl-btn" id="sandbox-dl-pirata" data-url="https://github.com/riusaki1995/.exe/releases/download/v.0.7/Sandbox.Offline.rar">
+                    <span class="juego-dl-ico">⬇</span> Pirata
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -5111,20 +6300,16 @@
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
+                <button type="button" class="mc-create-btn" id="sandbox-open-catalog">✨ Crear Acción</button>
                 <button type="button" class="mc-img-btn" id="sandbox-export-preset" title="Descarga tus acciones de Sandbox como un archivo de presets">⬆️ Exportar presets</button>
                 <button type="button" class="mc-img-btn" id="sandbox-import-preset" title="Carga acciones de Sandbox desde un archivo de presets">⬇️ Importar presets</button>
                 <button type="button" class="mc-img-btn" id="sandbox-gen-img" title="Crea una imagen con tus regalos y sus acciones para mostrarla en el live">🖼️ Generar imagen de regalos</button>
+                <button type="button" class="mc-create-btn" id="sandbox-toggle-all">⏻ Encender / Apagar todas</button>
                 <button type="button" class="mc-create-btn" id="sandbox-create-cmd">+ Crear comando propio</button>
               </div>
               <input type="file" id="sandbox-import-file" accept="application/json,.json" hidden>
             </div>
             <div id="sandbox-my-actions" class="mc-my-actions"></div>
-
-            <h3 class="mc-sub-title">Catálogo de acciones</h3>
-            <div class="mc-cat-head">
-              <input type="text" id="sandbox-cat-search" class="mc-cat-search" placeholder="Buscar acción (tnt, arena, cárcel…)">
-            </div>
-            <div id="sandbox-catalog" class="mc-catalog"></div>
 
             <!-- ===== Configuraciones (se ejecutan DENTRO del juego, solo Copiar) ===== -->
             <h3 class="mc-sub-title" style="margin-top:22px">⚙️ Configuraciones</h3>
@@ -5270,6 +6455,7 @@
 
   <script src="/js/settings-transfer.js?v=expick1"></script>
   <script src="/js/gift-catalog.js"></script>
-  <script src="/js/dashboard.js?v=expick1"></script>
+  <script src="/js/repo-catalog-data.js?v=2"></script>
+  <script src="/js/dashboard.js"></script>
 </body>
 </html>

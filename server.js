@@ -283,9 +283,11 @@ function listPanelLives() {
     const st = room.getStatus();
     if (!st?.live || !st?.account) continue;
     if (!isActivePanelLiveEntry(st)) continue;
-    const u = getUserById(userId);
+    const u = getUserById(userId) || getUserByUsername(room.account) || null;
     const tiktok = String(st.account).replace(/^@+/, '');
     if (!tiktok) continue;
+    // Plan efectivo (admin=premium; respeta caducidad). No usar solo u.plan crudo.
+    const plan = getUserPlan(u);
     out.push({
       panelUser: u?.username || room.account || '',
       tiktok,
@@ -293,6 +295,7 @@ function listPanelLives() {
       photo: st.photo || '',
       viewers: Number(st.viewers) || 0,
       liveSince: st.liveSince || null,
+      plan,
       url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
     });
   }

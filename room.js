@@ -898,6 +898,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prevHabibiTopPeriod = getHabibiTopPeriod();
     const prevRankPeriods = {};
     for (const rankId of RANK_IDS) prevRankPeriods[rankId] = getRankPeriod(rankId);
+    // Periodos ALT previos: solo reaccionar si el propio ALT cambió de periodo,
+    // no si el ranking individual difiere (evita vaciar likes/gifts en cada saveSettings).
+    const prevAltLikes = normalizeResetPeriod(settings.topAltRank?.resetPeriodLikes);
+    const prevAltDiam = normalizeResetPeriod(settings.topAltRank?.resetPeriodDiam);
+    const prevNeonLikes = normalizeResetPeriod(settings.topAltRankNeon?.resetPeriodLikes);
+    const prevNeonDiam = normalizeResetPeriod(settings.topAltRankNeon?.resetPeriodDiam);
     settings = deepMerge(settings, obj);
     if (obj.top1fire && obj.top1fire.resetPeriod != null
       && normalizeResetPeriod(obj.top1fire.resetPeriod) !== prevTop1FirePeriod) onTop1FireSettingsChange();
@@ -909,37 +915,33 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         && normalizeResetPeriod(obj[key].resetPeriod) !== prevRankPeriods[rankId]) onRankPeriodChange(rankId);
     }
     if (obj.topAltRank) {
-      const alt = settings.topAltRank;
-      if (alt.resetPeriodLikes != null) {
+      const incoming = obj.topAltRank;
+      if (incoming.resetPeriodLikes != null
+        && normalizeResetPeriod(incoming.resetPeriodLikes) !== prevAltLikes) {
         if (!settings.toplikesRank) settings.toplikesRank = {};
-        if (normalizeResetPeriod(alt.resetPeriodLikes) !== prevRankPeriods.toplikes) {
-          settings.toplikesRank.resetPeriod = alt.resetPeriodLikes;
-          onRankPeriodChange('toplikes');
-        }
+        settings.toplikesRank.resetPeriod = incoming.resetPeriodLikes;
+        onRankPeriodChange('toplikes');
       }
-      if (alt.resetPeriodDiam != null) {
+      if (incoming.resetPeriodDiam != null
+        && normalizeResetPeriod(incoming.resetPeriodDiam) !== prevAltDiam) {
         if (!settings.topdiamRank) settings.topdiamRank = {};
-        if (normalizeResetPeriod(alt.resetPeriodDiam) !== prevRankPeriods.topdiam) {
-          settings.topdiamRank.resetPeriod = alt.resetPeriodDiam;
-          onRankPeriodChange('topdiam');
-        }
+        settings.topdiamRank.resetPeriod = incoming.resetPeriodDiam;
+        onRankPeriodChange('topdiam');
       }
     }
     if (obj.topAltRankNeon) {
-      const alt = settings.topAltRankNeon;
-      if (alt.resetPeriodLikes != null) {
+      const incoming = obj.topAltRankNeon;
+      if (incoming.resetPeriodLikes != null
+        && normalizeResetPeriod(incoming.resetPeriodLikes) !== prevNeonLikes) {
         if (!settings.toplikesRank) settings.toplikesRank = {};
-        if (normalizeResetPeriod(alt.resetPeriodLikes) !== prevRankPeriods.toplikes) {
-          settings.toplikesRank.resetPeriod = alt.resetPeriodLikes;
-          onRankPeriodChange('toplikes');
-        }
+        settings.toplikesRank.resetPeriod = incoming.resetPeriodLikes;
+        onRankPeriodChange('toplikes');
       }
-      if (alt.resetPeriodDiam != null) {
+      if (incoming.resetPeriodDiam != null
+        && normalizeResetPeriod(incoming.resetPeriodDiam) !== prevNeonDiam) {
         if (!settings.topdiamRank) settings.topdiamRank = {};
-        if (normalizeResetPeriod(alt.resetPeriodDiam) !== prevRankPeriods.topdiam) {
-          settings.topdiamRank.resetPeriod = alt.resetPeriodDiam;
-          onRankPeriodChange('topdiam');
-        }
+        settings.topdiamRank.resetPeriod = incoming.resetPeriodDiam;
+        onRankPeriodChange('topdiam');
       }
     }
     enforceLimits();
@@ -5204,7 +5206,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'hello':
         if (data.role === 'videoScreen') {
-          videoScreens.set(ws, Number(data.screen) || 1);
+          videoScreens.set(ws, Math.max(1, Math.min(10, Number(data.screen) || 1)));
           broadcastScreens();
         }
         break;

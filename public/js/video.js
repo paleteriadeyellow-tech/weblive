@@ -1,20 +1,62 @@
 const stage = document.getElementById('stage');
 const stageGeneral = document.getElementById('stageGeneral');
-const screen = Number(new URLSearchParams(location.search).get('screen')) || 1;
+const params = new URLSearchParams(location.search);
+const screen = Math.max(1, Math.min(10, parseInt(params.get('screen'), 10) || 1));
 
-let ws, reconnectTimer;
+let ws, reconnectTimer, keepWorker;
 let settings = {};
+
+function sendHello(sock) {
+  try {
+    sock.send(JSON.stringify({ action: 'hello', role: 'videoScreen', screen }));
+  } catch {}
+}
+
+function buildKeepAliveWorker() {
+  if (keepWorker) return keepWorker;
+  try {
+    const code = 'setInterval(function(){ postMessage(1); }, 5000);';
+    const blob = new Blob([code], { type: 'application/javascript' });
+    keepWorker = new Worker(URL.createObjectURL(blob));
+    keepWorker.onmessage = () => {
+      if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+        connectWS();
+      } else if (ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ action: 'ping' })); } catch {}
+        sendHello(ws);
+      }
+    };
+  } catch { keepWorker = null; }
+  return keepWorker;
+}
 
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
-  ws.onopen = () => {
+  const url = `${proto}://${location.host}/ws${location.search}`;
+  if (ws) {
+    if (ws.url === url && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    try { ws.close(); } catch {}
+    ws = null;
+  }
+  const sock = new WebSocket(url);
+  ws = sock;
+  sock.onopen = () => {
+    if (ws !== sock) return;
     clearTimeout(reconnectTimer);
-    ws.send(JSON.stringify({ action: 'hello', role: 'videoScreen', screen }));
+    buildKeepAliveWorker();
+    sendHello(sock);
   };
-  ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
-  ws.onmessage = (ev) => {
-    const { type, payload } = JSON.parse(ev.data);
+  sock.onclose = () => {
+    if (ws !== sock) return;
+    clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connectWS, 800);
+  };
+  sock.onmessage = (ev) => {
+    if (ws !== sock) return;
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    const { type, payload } = msg;
+    if (type === 'pong') return;
     if (type === 'settings') { settings = payload || {}; return; }
     if (type === 'media' && (Number(payload.screen) || 1) === screen) {
       if (payload.screenTest) { showScreenTest(); return; }
@@ -24,6 +66,12 @@ function connectWS() {
     if (type === 'panic') { clearAllQueues(); stopAllStages(); }
   };
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && ws?.readyState !== WebSocket.OPEN) connectWS();
+});
+window.addEventListener('focus', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
+window.addEventListener('online', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
 
 /* Cola de reproducción: con la cola activada cada video espera a que termine el anterior.
    El Perfil General usa su propia capa/cola para no bloquearse con el perfil activo. */
@@ -78,6 +126,7 @@ function playOnStage(lane, m, done) {
 
   host.innerHTML = '';
   const size = Math.max(10, Math.min(100, m.size ?? 100));
+  const maxSec = Number(m.maxDurationSec) > 0 ? Number(m.maxDurationSec) : 0;
   const isImg = /\.(gif|png|jpe?g|webp)(\?|$)/i.test(m.url);
 
   let el;
@@ -86,7 +135,7 @@ function playOnStage(lane, m, done) {
     el.src = m.url;
     const finish = () => { if (el.parentNode) el.remove(); done?.(); };
     el.onerror = finish;
-    lane.safetyTimer = setTimeout(finish, 8000);
+    lane.safetyTimer = setTimeout(finish, maxSec > 0 ? maxSec * 1000 : 8000);
   } else {
     el = document.createElement('video');
     el.src = m.url;
@@ -153,6 +202,7 @@ function playOnStage(lane, m, done) {
       lane.safetyTimer = setTimeout(watch, 1000);
     };
     lane.safetyTimer = setTimeout(watch, 1000);
+    if (maxSec > 0) lane.safetyTimer = setTimeout(finish, maxSec * 1000);
     safePlay();
   }
   el.className = 'media';

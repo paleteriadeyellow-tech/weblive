@@ -40,7 +40,6 @@
         { key: 'pelotas', label: 'Pelotas de fans' },
         { key: 'topDonor', label: 'Top donador semanal' },
         { key: 'giftVs', label: 'Gift VS' },
-        { key: 'flowMeter', label: 'Medidor de Flow' },
         { key: 'giftSeq', label: 'Secuencia de regalos' },
         { key: 'giftShowcase', label: 'Showcase de regalos' },
         { key: 'topGift', label: 'Mejor regalo' },
@@ -94,7 +93,12 @@
       desktopOnly: true,
       items: [
         { key: 'mcActions', label: 'Minecraft' },
+        { key: 'mcshooterActions', label: 'Minecraft Shooters' },
+        { key: 'mcshooterColiseo', label: 'Minecraft Shooters — Coliseo' },
         { key: 'bedrockActions', label: 'Bedrock (Cubo TNT)' },
+        { key: 'parkourActions', label: 'Minecraft Parkour' },
+        { key: 'kothActions', label: 'Minecraft KOTH' },
+        { key: 'farmActions', label: 'Minecraft Farm' },
         { key: 'sandboxActions', label: 'Sandbox' },
         { key: 'robloxActions', label: 'Roblox' },
         { key: 'roblox3Actions', label: 'Roblox 3' },
@@ -102,6 +106,13 @@
         { key: 'mari0Actions', label: 'Mari0' },
         { key: 'smb3Actions', label: 'Super Mario Bros 3' },
         { key: 'pvzActions', label: 'Plants vs Zombies' },
+        { key: 'repoActions', label: 'R.E.P.O.' },
+        { key: 'l4dActions', label: 'Left 4 Dead 2' },
+        { key: 'unturnedActions', label: 'Unturned' },
+        { key: 'ctrActions', label: 'Crash Team Racing (CTR)' },
+        { key: 'smwActions', label: 'Super Mario World (BizHawk)' },
+        { key: 'mslugActions', label: 'Metal Slug' },
+        { key: 'gdashActions', label: 'Geometry Dash' },
       ],
     },
   ];
@@ -191,7 +202,7 @@
       url: String(v.videoUrl || '').trim(),
       fileName: String(v.videoName || 'video').trim(),
       volume: normVolume(v.videoVol),
-      screen: Math.max(1, Math.min(5, Number(v.screen) || 1)),
+      screen: Math.max(1, Math.min(10, Number(v.screen) || 1)),
     };
   }
 

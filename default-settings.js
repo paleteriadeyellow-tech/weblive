@@ -58,6 +58,11 @@ export const DEFAULT_SETTINGS = {
     { id: 3, size: 100 },
     { id: 4, size: 100 },
     { id: 5, size: 100 },
+    { id: 6, size: 100 },
+    { id: 7, size: 100 },
+    { id: 8, size: 100 },
+    { id: 9, size: 100 },
+    { id: 10, size: 100 },
   ],
   // alertas sonoras: [{ id, name, giftName, minDiamonds, sound, soundName, image, volume, enabled }]
   soundAlerts: [],
