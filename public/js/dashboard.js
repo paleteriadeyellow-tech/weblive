@@ -118,6 +118,15 @@ function connectLocalWS() {
     if (msg.type === 'screens') {
       onScreens(msg.payload);
       refreshLevelVideoScreenLink();
+    } else if (msg.type === 'sound') {
+      // Stream Deck / webhook :3199 emiten en la room local; el panel en relay
+      // está en la nube y solo oye estos sonidos por este WS local.
+      playPanelSound(msg.payload);
+    } else if (msg.type === 'stopSound') {
+      stopPanelSoundById(msg.payload?.id);
+    } else if (msg.type === 'log' && msg.payload) {
+      const p = msg.payload;
+      if (p.text) addEvent(p.text, p.level || 'info');
     }
   };
 }
@@ -366,6 +375,7 @@ async function loadMe() {
     window.MY_USER = d.username || '';
     window.IS_ADMIN = !!d.isAdmin;
     window.MY_PLAN = d.plan || 'free';
+    try { if (typeof window.refreshEmailAccountUi === 'function') window.refreshEmailAccountUi(d); } catch {}
     if (d.caps) setCaps(d.caps);
     try { if (typeof syncWebhookRoomUrls === 'function') syncWebhookRoomUrls(); } catch {}
     // Si la cuenta dejó de estar activa, vuelve a la pantalla de espera.
@@ -1190,6 +1200,7 @@ function handle(type, p) {
       addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : '');
       break;
     case 'sound': playPanelSound(p); break;
+    case 'stopSound': stopPanelSoundById(p?.id); break;
     case 'media':
       if (relayActive() || desktopRelayOn()) postLocalMedia('media', { media: p });
       break;
@@ -1281,12 +1292,27 @@ function pumpPanelSound() {
   panelSoundBusy = true;
   startPanelSound(s, () => { panelSoundBusy = false; pumpPanelSound(); });
 }
+function reportSoundEnded(id) {
+  if (!id) return;
+  const msg = JSON.stringify({ action: 'soundEnded', id });
+  try {
+    if (localWs?.readyState === WebSocket.OPEN) localWs.send(msg);
+    else if (ws?.readyState === WebSocket.OPEN) ws.send(msg);
+  } catch {}
+}
 function startPanelSound(s, done) {
   const audio = new Audio(mediaUrl(s.sound));
   audio.volume = (s.volume ?? 100) / 100;
+  if (s.id != null) audio.dataset.soundId = String(s.id);
   panelSounds.add(audio);
   let finished = false;
-  const finish = () => { if (finished) return; finished = true; panelSounds.delete(audio); done?.(); };
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    panelSounds.delete(audio);
+    if (s?.id) reportSoundEnded(s.id);
+    done?.();
+  };
   audio.onended = finish;
   audio.onerror = () => { addEvent(`⚠️ No se pudo reproducir: ${s.name || s.sound}`, 'error'); finish(); };
   const safety = setTimeout(finish, 20000);
@@ -1295,6 +1321,19 @@ function startPanelSound(s, done) {
     addEvent('🔇 El navegador bloqueó el audio. Haz clic en cualquier parte del panel para activarlo.', 'error');
     finish();
   });
+}
+function stopPanelSoundById(id) {
+  if (id == null || id === '') { stopPanelSounds(); return; }
+  const want = String(id);
+  panelSoundQueue = panelSoundQueue.filter((s) => String(s?.id || '') !== want);
+  for (const a of [...panelSounds]) {
+    if (String(a.dataset?.soundId || '') !== want) continue;
+    try { a.pause(); a.currentTime = 0; } catch {}
+    panelSounds.delete(a);
+  }
+  if (!panelSounds.size) panelSoundBusy = false;
+  reportSoundEnded(want);
+  pumpPanelSound();
 }
 function stopPanelSounds() {
   panelSoundQueue = [];
@@ -2465,6 +2504,26 @@ function flushSaveSettings() {
   send({ action: 'saveSettings', settings });
 }
 
+/** En relay el panel guarda en la nube; el webhook :3199 lee la room local.
+ *  Empuja videos/batallas al servidor local al instante (sin recargar). */
+function syncDesktopWebhookSettings() {
+  if (!IS_DESKTOP || !settings) return Promise.resolve(false);
+  const patch = {
+    videos: settings.videos || [],
+    videosEnabled: settings.videosEnabled !== false,
+    battleAlerts: settings.battleAlerts || [],
+    battleAlertsEnabled: settings.battleAlertsEnabled !== false,
+    soundAlerts: settings.soundAlerts || [],
+    actions: settings.actions || [],
+  };
+  return fetch('/api/desktop/sync-webhook-media', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  }).then((r) => r.ok).catch(() => false);
+}
+
 function mcCmdReady(a) {
   return !!(a && a.enabled !== false && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)));
 }
@@ -2629,6 +2688,47 @@ function videoCardThumbLabel(item, icon = '🎬') {
   return `<div class="vthumb-label" title="${name}"><span class="vthumb-ico">${icon}</span><span class="vthumb-name">${name}</span></div>`;
 }
 
+function baStreamdeckWebhookUrl(id) {
+  const rid = String(id || '').trim() || '…';
+  // 127.0.0.1: Stream Deck en Windows a veces falla con "localhost" (IPv6).
+  return `http://127.0.0.1:3199/execute_video?id=${encodeURIComponent(rid)}`;
+}
+
+function ensureAccEditId() {
+  if (accEditingId) return accEditingId;
+  accEditingId = 'act' + Date.now();
+  return accEditingId;
+}
+
+function refreshSaStreamdeckUrl() {
+  const code = $('sa-streamdeck-url');
+  if (!code) return;
+  code.textContent = streamdeckSoundWebhookUrl(ensureSaEditId());
+}
+
+function ensureSaEditId() {
+  if (editingId) return editingId;
+  editingId = 'sa' + Date.now();
+  return editingId;
+}
+
+function streamdeckSoundWebhookUrl(id) {
+  const rid = String(id || '').trim() || '…';
+  return `http://127.0.0.1:3199/execute_sound?id=${encodeURIComponent(rid)}`;
+}
+
+function ensureVidEditId() {
+  if (vidEditingId) return vidEditingId;
+  vidEditingId = 'v' + Date.now();
+  return vidEditingId;
+}
+
+function refreshVidStreamdeckUrl() {
+  const code = $('vid-streamdeck-url');
+  if (!code) return;
+  code.textContent = baStreamdeckWebhookUrl(ensureVidEditId());
+}
+
 function renderVideos() {
   const el = $('videoCards');
   const list = settings.videos || [];
@@ -2645,7 +2745,7 @@ function renderVideos() {
       </div>
       <div class="vid-card-body sa-info">
         <div class="sa-name">${esc(v.name || 'Video')}</div>
-        <div class="sa-file">${esc(v.fileName || 'video')} · 📺 P${v.screen || 1}</div>
+        <div class="sa-file">${esc(triggerLabelV(v))} · 📺 P${v.screen || 1}</div>
         <div class="sa-vol vid-card-vol">
           <span>Volumen</span>
           <input type="range" class="v-volrange" min="0" max="100" value="${v.volume ?? 100}">
@@ -2654,6 +2754,7 @@ function renderVideos() {
       </div>
       <div class="sa-card-btns acc-card-icons vid-card-btns">
         <button type="button" class="acc-icon-btn sa-edit" title="Editar">${CARD_ICON.gear}</button>
+        ${v.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
         <button type="button" class="acc-icon-btn sa-play" title="Probar en pantalla">${CARD_ICON.play}</button>
         <button type="button" class="acc-icon-btn sa-stop" title="Detener video">${CARD_ICON.stop}</button>
         <button type="button" class="acc-icon-btn sa-del" title="Borrar">${CARD_ICON.trash}</button>
@@ -2672,13 +2773,26 @@ function renderVideos() {
     const vr = card.querySelector('.v-volrange');
     vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; v.volume = +vr.value; saveVideosBattlePatch('videos'); };
     card.querySelector('.sa-edit').onclick = () => openVidModal(v);
+    const whBtn = card.querySelector('.sa-wh');
+    if (whBtn) {
+      whBtn.onclick = async () => {
+        await syncDesktopWebhookSettings();
+        const text = baStreamdeckWebhookUrl(v.id);
+        const done = () => toast && toast('Webhook copiado — pégalo en Stream Deck', 'ok');
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+        else fallbackCopy(text, done);
+      };
+    }
     card.querySelector('.sa-play').onclick = () => send({ action: 'testVideo', video: { id: v.id, name: v.name, url: v.url, screen: v.screen || 1, volume: v.volume ?? 100 } });
     card.querySelector('.sa-stop').onclick = () => send({ action: 'stopVideo', screen: v.screen || 1 });
     card.querySelector('.sa-del').onclick = async () => {
       const ok = await askConfirm({ title: 'Borrar video', message: `Se eliminará la alerta de video «${esc(v.name || 'video')}».` });
       if (!ok) return;
       settings.videos = settings.videos.filter((x) => x.id !== id);
-      saveSettings(); renderVideos(); renderScreens();
+      flushSaveSettings();
+      await syncDesktopWebhookSettings();
+      renderVideos();
+      renderScreens();
     };
   });
   syncVidMasterUI();
@@ -2744,6 +2858,7 @@ function saveSettingsKeysPatch(...keys) {
 }
 function saveVideosBattlePatch(kind) {
   saveSettingsKeysPatch(kind);
+  syncDesktopWebhookSettings();
 }
 
 function toggleAllVideos(on) {
@@ -2907,6 +3022,9 @@ function setVidEventUI(value) {
   $('vid-cmdextra').hidden = value !== 'chatCommand';
   $('vid-userextra').hidden = value !== 'chatCommand' && value !== 'firstMessage' && value !== 'userJoin';
   $('vid-joindelayextra').hidden = value !== 'userJoin';
+  const sd = $('vid-streamdeck-extra');
+  if (sd) sd.hidden = value !== 'streamdeck';
+  if (value === 'streamdeck') refreshVidStreamdeckUrl();
   const userInput = $('vid-user');
   if (userInput) userInput.placeholder = value === 'userJoin'
     ? 'Usuario @ (uniqueId), no el apodo. Si TikTok no avisa la entrada, dispara al primer chat'
@@ -2924,7 +3042,8 @@ function openVidModal(v = null) {
   else if (trig === 'levelUp') {
     ev = 'gift-any';
     $('vid-status').textContent = 'Los videos de «Subió de nivel» ahora usan la barra azul de arriba y la carpeta niveles.';
-  } else ev = trig;
+  } else if (trig === 'streamdeck') ev = 'streamdeck';
+  else ev = trig;
   setVidEventUI(ev);
   $('vid-gift').value = v?.giftName || '';
   $('vid-giftid').value = v?.giftId || '';
@@ -2941,7 +3060,9 @@ function openVidModal(v = null) {
   $('vid-vol').value = v?.volume ?? 100;
   fillScreenSelect($('vid-screen'), v?.screen || 1);
   $('vid-fname').textContent = v?.fileName || 'Ningún archivo';
-  $('vid-status').textContent = '';
+  $('vid-status').textContent = ev === 'streamdeck'
+    ? 'Guarda el video y copia el webhook para Stream Deck.'
+    : '';
   closeVideoLib();
   $('vidModal').classList.remove('hidden');
 }
@@ -2951,6 +3072,20 @@ $('vid-create').onclick = () => { if (ensureCanAdd('videos', 'videos', 'videos')
 $('vid-cancel').onclick = closeVidModal;
 $('vidModal').addEventListener('click', (e) => { if (e.target.id === 'vidModal') closeVidModal(); });
 $('vid-event').addEventListener('change', () => setVidEventUI($('vid-event').value));
+if ($('vid-streamdeck-copy')) {
+  $('vid-streamdeck-copy').onclick = () => {
+    refreshVidStreamdeckUrl();
+    const text = $('vid-streamdeck-url')?.textContent || '';
+    if (!text || text.includes('…')) {
+      toast && toast('Guarda el video primero para fijar el ID.', 'warn');
+      return;
+    }
+    const done = () => toast && toast('Webhook copiado — pégalo en Stream Deck', 'ok');
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    else fallbackCopy(text, done);
+  };
+}
+
 
 // Tras subir, el servidor puede convertir (MOV, MP4 HEVC/H.265, etc.).
 function uploadNeedsVideoConvert(file) {
@@ -3133,11 +3268,12 @@ function renderLocalVideos(filter) {
   });
 }
 
-$('vid-save').onclick = () => {
+$('vid-save').onclick = async () => {
   const name = $('vid-name').value.trim();
   if (!name) { $('vid-status').textContent = '⚠️ Escribe un nombre.'; return; }
   if (!vidPending?.url) { $('vid-status').textContent = '⚠️ Elige o sube un video.'; return; }
   const ev = $('vid-event').value;
+  const id = ensureVidEditId();
   const data = {
     name,
     trigger: ev === 'gift-any' || ev === 'gift-name' ? 'gift' : ev,
@@ -3161,16 +3297,19 @@ $('vid-save').onclick = () => {
   };
   if (ev === 'chatCommand' && !data.command) { $('vid-status').textContent = '⚠️ Escribe el comando (ej. !video).'; return; }
   if (ev === 'userJoin' && !data.user) { $('vid-status').textContent = '⚠️ Escribe el usuario que al entrar reproduce el video.'; return; }
-  if (vidEditingId) {
-    const v = settings.videos.find((x) => x.id === vidEditingId);
-    if (v) Object.assign(v, data);
-  } else {
-    settings.videos.push({ id: 'v' + Date.now(), enabled: true, ...data });
-  }
-  saveSettings();
+  if (!settings.videos) settings.videos = [];
+  const existing = settings.videos.find((x) => x.id === id);
+  if (existing) Object.assign(existing, data);
+  else settings.videos.push({ id, enabled: true, ...data });
+  vidEditingId = id;
+  flushSaveSettings();
+  await syncDesktopWebhookSettings();
   renderVideos();
   renderScreens();
   closeVidModal();
+  if (ev === 'streamdeck') {
+    toast && toast('Guardado. Usa 🔗 en la tarjeta para copiar el webhook a Stream Deck.', 'ok');
+  }
 };
 
 /* ---- Animaciones de batalla PK (video por acción) ---- */
@@ -3198,10 +3337,7 @@ function ensureBaEditId() {
   return baEditingId;
 }
 
-function baStreamdeckWebhookUrl(id) {
-  const rid = String(id || '').trim() || '…';
-  return `http://localhost:3199/execute_video?id=${encodeURIComponent(rid)}`;
-}
+
 
 function refreshBaStreamdeckUrl() {
   const code = $('ba-streamdeck-url');
@@ -3261,7 +3397,8 @@ function renderBattleAlerts() {
     card.querySelector('.sa-edit').onclick = () => openBaModal(b);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
-      whBtn.onclick = () => {
+      whBtn.onclick = async () => {
+        await syncDesktopWebhookSettings();
         const text = baStreamdeckWebhookUrl(b.id);
         const done = () => toast && toast('Webhook copiado — pégalo en Stream Deck', 'ok');
         if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
@@ -3274,7 +3411,9 @@ function renderBattleAlerts() {
       const ok = await askConfirm({ title: 'Borrar animación', message: `Se eliminará la animación de batalla «${esc(b.name || 'animación')}».` });
       if (!ok) return;
       settings.battleAlerts = settings.battleAlerts.filter((x) => x.id !== id);
-      saveSettings(); renderBattleAlerts();
+      flushSaveSettings();
+      await syncDesktopWebhookSettings();
+      renderBattleAlerts();
     };
   });
   syncBaMasterUI();
@@ -3293,6 +3432,13 @@ function setBaTriggerUI(value) {
   const sd = $('ba-streamdeck-extra');
   if (sd) sd.hidden = value !== 'streamdeck';
   if (value === 'streamdeck') refreshBaStreamdeckUrl();
+  const pkHint = $('ba-pk-hint');
+  if (pkHint) {
+    pkHint.hidden = false;
+    pkHint.innerHTML = value === 'streamdeck'
+      ? 'Se dispara <b>cuando pulsas el botón</b> en Stream Deck (no hace falta estar en PK).'
+      : 'Solo se dispara <b>durante una batalla PK</b> de TikTok.';
+  }
   const min = $('ba-mincount');
   if (min) {
     min.placeholder = value === 'battleGift'
@@ -3358,7 +3504,7 @@ $('ba-file').addEventListener('change', async (e) => {
   e.target.value = '';
 });
 
-$('ba-save').onclick = () => {
+$('ba-save').onclick = async () => {
   const name = $('ba-name').value.trim();
   const trig = $('ba-trigger').value;
   if (!name) { $('ba-status').textContent = '⚠️ Escribe un nombre.'; return; }
@@ -3381,7 +3527,8 @@ $('ba-save').onclick = () => {
   if (existing) Object.assign(existing, data);
   else settings.battleAlerts.push({ id, enabled: true, ...data });
   baEditingId = id;
-  saveSettings();
+  flushSaveSettings();
+  await syncDesktopWebhookSettings();
   renderBattleAlerts();
   closeBaModal();
   if (trig === 'streamdeck') {
@@ -3439,6 +3586,7 @@ function renderSoundAlerts() {
       </div>
       <div class="sa-card-btns acc-card-icons vid-card-btns">
         <button type="button" class="acc-icon-btn sa-edit" title="Editar">${CARD_ICON.gear}</button>
+        ${a.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
         <button type="button" class="acc-icon-btn sa-play" title="Escuchar aquí">${CARD_ICON.play}</button>
         <button type="button" class="acc-icon-btn sa-stop" title="Detener sonido">${CARD_ICON.stop}</button>
         <div class="vid-card-sel-wrap">
@@ -3451,11 +3599,26 @@ function renderSoundAlerts() {
   el.querySelectorAll('.sa-card').forEach((card) => {
     const id = card.dataset.id;
     const a = list.find((x) => x.id === id);
-    card.querySelector('.sa-toggle').onchange = (e) => { a.enabled = e.target.checked; saveSettingsKeysPatch('soundAlerts'); renderSoundAlerts(); };
+    card.querySelector('.sa-toggle').onchange = (e) => {
+      a.enabled = e.target.checked;
+      saveSettingsKeysPatch('soundAlerts');
+      syncDesktopWebhookSettings();
+      renderSoundAlerts();
+    };
     card.querySelector('.sa-sel').onchange = (e) => { e.target.checked ? selected.add(id) : selected.delete(id); updateSelCount(); };
     const vr = card.querySelector('.sa-volrange');
     vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; a.volume = +vr.value; saveSettings(); };
     card.querySelector('.sa-edit').onclick = () => openSaModal(a);
+    const whBtn = card.querySelector('.sa-wh');
+    if (whBtn) {
+      whBtn.onclick = async () => {
+        await syncDesktopWebhookSettings();
+        const text = streamdeckSoundWebhookUrl(a.id);
+        const done = () => toast && toast('Webhook copiado — pégalo en Stream Deck', 'ok');
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+        else fallbackCopy(text, done);
+      };
+    }
     card.querySelector('.sa-play').onclick = () => playPreview(a);
     card.querySelector('.sa-stop').onclick = () => {
       try { previewAudio?.pause(); } catch {}
@@ -3466,7 +3629,9 @@ function renderSoundAlerts() {
       const ok = await askConfirm({ title: 'Borrar alerta sonora', message: `Se eliminará la alerta «${esc(a.name || 'alerta')}».` });
       if (!ok) return;
       settings.soundAlerts = settings.soundAlerts.filter((x) => x.id !== id);
-      saveSettings(); renderSoundAlerts();
+      flushSaveSettings();
+      await syncDesktopWebhookSettings();
+      renderSoundAlerts();
     };
   });
 }
@@ -3486,6 +3651,7 @@ const EVENT_LABELS = {
   emote: '😀 Sticker / emote',
   chatCommand: '💬 Comando de chat',
   firstMessage: '🙋 Primer mensaje',
+  streamdeck: '🎛️ Stream Deck',
 };
 function triggerLabel(a) {
   const trig = a.trigger || 'gift';
@@ -3494,6 +3660,7 @@ function triggerLabel(a) {
     if (a.rangeMin || a.rangeMax) return `💎 ${a.rangeMin || 0}${a.rangeMax ? ' – ' + a.rangeMax : '+'}`;
     return '💎 Cantidad diamantes';
   }
+  if (trig === 'streamdeck') return '🎛️ Stream Deck';
   if (trig === 'chatCommand') return `💬 ${esc(a.command || '!comando')}`;
   if (trig === 'like' && a.likeMin > 1) return `❤️ Desde ${a.likeMin} likes`;
   if (trig === 'likeGlobal' && a.likeGoal) return `❤️ Cada ${a.likeGoal} likes`;
@@ -3523,6 +3690,9 @@ function setEventUI(value) {
   $('sa-likeextra').hidden = value !== 'likeGlobal';
   $('sa-emoteextra').hidden = value !== 'emote';
   $('sa-eventdelayextra').hidden = value !== 'follow' && value !== 'share';
+  const sd = $('sa-streamdeck-extra');
+  if (sd) sd.hidden = value !== 'streamdeck';
+  if (value === 'streamdeck') refreshSaStreamdeckUrl();
 }
 
 function openSaModal(alert = null) {
@@ -3536,6 +3706,7 @@ function openSaModal(alert = null) {
   let ev = 'gift-any';
   const trig = alert?.trigger || 'gift';
   if (trig === 'gift') ev = alert?.giftName ? 'gift-name' : 'gift-any';
+  else if (trig === 'streamdeck') ev = 'streamdeck';
   else ev = trig;
   setEventUI(ev);
 
@@ -3553,7 +3724,9 @@ function openSaModal(alert = null) {
   $('sa-vol').value = alert?.volume ?? 100;
   $('sa-soundname').textContent = alert?.soundName || 'Ningún archivo…';
   $('sa-active').checked = alert ? !!alert.enabled : true;
-  $('sa-status').textContent = '';
+  $('sa-status').textContent = ev === 'streamdeck'
+    ? 'Guarda la alerta y copia el webhook para Stream Deck.'
+    : '';
   closeSoundLib();
   $('saModal').classList.remove('hidden');
 }
@@ -3573,6 +3746,20 @@ $('sa-cancel').onclick = closeSaModal;
 $('sa-cancel2').onclick = closeSaModal;
 $('saModal').addEventListener('click', (e) => { if (e.target.id === 'saModal') closeSaModal(); });
 $('sa-event').addEventListener('change', () => setEventUI($('sa-event').value));
+if ($('sa-streamdeck-copy')) {
+  $('sa-streamdeck-copy').onclick = () => {
+    refreshSaStreamdeckUrl();
+    const text = $('sa-streamdeck-url')?.textContent || '';
+    if (!text || text.includes('…')) {
+      toast && toast('Guarda la alerta primero para fijar el ID.', 'warn');
+      return;
+    }
+    const done = () => toast && toast('Webhook copiado — pégalo en Stream Deck', 'ok');
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    else fallbackCopy(text, done);
+  };
+}
+
 
 /* ----- Selector de regalos ----- */
 let giftCatalog = [];
@@ -3638,7 +3825,7 @@ function refreshGiftCards() {
 const EVENT_EMOJI = {
   like: '❤️', likeGlobal: '❤️', follow: '➕', share: '🔁',
   subscribe: '⭐', superFan: '🌟', levelUp: '⬆️', emote: '😀', gift: '🎁',
-  chatCommand: '💬', firstMessage: '🙋',
+  chatCommand: '💬', firstMessage: '🙋', streamdeck: '🎛️',
 };
 
 // Busca la imagen de un sticker/emote por su id en el catálogo cargado.
@@ -3933,12 +4120,13 @@ function renderLocalSounds(filter) {
   });
 }
 
-$('sa-save').onclick = () => {
+$('sa-save').onclick = async () => {
   const name = $('sa-name').value.trim();
   if (!name) { $('sa-status').textContent = '⚠️ Escribe un nombre.'; return; }
   if (!pendingSound?.url) { $('sa-status').textContent = '⚠️ Elige un sonido (biblioteca o subir propio).'; return; }
 
   const ev = $('sa-event').value;
+  const id = ensureSaEditId();
   const data = {
     name,
     trigger: ev === 'gift-any' || ev === 'gift-name' ? 'gift' : ev,
@@ -3958,15 +4146,18 @@ $('sa-save').onclick = () => {
     volume: +$('sa-vol').value,
     enabled: $('sa-active').checked,
   };
-  if (editingId) {
-    const a = settings.soundAlerts.find((x) => x.id === editingId);
-    if (a) Object.assign(a, data);
-  } else {
-    settings.soundAlerts.push({ id: 'sa' + Date.now(), ...data });
-  }
-  saveSettings();
+  if (!settings.soundAlerts) settings.soundAlerts = [];
+  const existing = settings.soundAlerts.find((x) => x.id === id);
+  if (existing) Object.assign(existing, data);
+  else settings.soundAlerts.push({ id, ...data });
+  editingId = id;
+  flushSaveSettings();
+  await syncDesktopWebhookSettings();
   renderSoundAlerts();
   closeSaModal();
+  if (ev === 'streamdeck') {
+    toast && toast('Guardado. Usa 🔗 en la tarjeta para copiar el webhook a Stream Deck.', 'ok');
+  }
 };
 
 $('sa-delsel').onclick = async () => {
@@ -7237,6 +7428,7 @@ function accOutputChipsHTML(a) {
 const ACC_THUMB_EMOJI = {
   'gift-any': '🎁', gift: '🎁', like: '❤️', likeGlobal: '❤️',
   share: '🔁', subscribe: '⭐', superFan: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀',
+  chatCommand: '💬',
 };
 function accIconSmall(a) {
   const ev = a.event || 'gift-any';
@@ -7310,7 +7502,12 @@ function renderAcciones() {
     const id = card.dataset.id;
     const a = list.find((x) => x.id === id);
     if (!a) return;
-    card.querySelector('.acc-toggle').onchange = (e) => { a.enabled = e.target.checked; saveSettingsKeysPatch('actions'); renderAcciones(); };
+    card.querySelector('.acc-toggle').onchange = (e) => {
+      a.enabled = e.target.checked;
+      saveSettingsKeysPatch('actions');
+      syncDesktopWebhookSettings();
+      renderAcciones();
+    };
     card.querySelector('.sa-sel').onchange = (e) => { e.target.checked ? accSelected.add(id) : accSelected.delete(id); updateAccSelCount(); };
     card.querySelector('.acc-edit').onclick = () => openAccModal(a);
     card.querySelector('.acc-try').onclick = () => scheduleActionTest(a);
@@ -7564,6 +7761,8 @@ function applyAccEventExtras() {
   $('acc-likeextra').hidden = ev !== 'like';
   $('acc-likeglobalextra').hidden = ev !== 'likeGlobal';
   $('acc-emoteextra').hidden = ev !== 'emote';
+  if ($('acc-cmdextra')) $('acc-cmdextra').hidden = ev !== 'chatCommand';
+  if ($('acc-userextra')) $('acc-userextra').hidden = ev !== 'chatCommand';
   if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift';
 }
 
@@ -7726,13 +7925,13 @@ function saveAccModal() {
     mediaShow: hasMedia ? mediaShow : { on: false, url: '', name: '', size: 100, volume: 100, screen: 1, originalDuration: true },
   };
   if (!settings.actions) settings.actions = [];
-  if (accEditingId) {
-    const a = settings.actions.find((x) => x.id === accEditingId);
-    if (a) Object.assign(a, data);
-  } else {
-    settings.actions.push({ id: 'act' + Date.now(), ...data });
-  }
-  saveSettings();
+  const id = ensureAccEditId();
+  const existing = settings.actions.find((x) => x.id === id);
+  if (existing) Object.assign(existing, data);
+  else settings.actions.push({ id, ...data });
+  accEditingId = id;
+  flushSaveSettings();
+  syncDesktopWebhookSettings().then(() => {});
   renderAcciones();
   closeAccModal();
 }

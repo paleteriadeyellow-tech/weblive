@@ -182,6 +182,69 @@ export function getUserByUsername(username) {
   return users.find((u) => u.username === uname) || null;
 }
 
+export function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+/** Email verificado ligado a la cuenta (recuperación de contraseña). */
+export function getUserByVerifiedEmail(email) {
+  const mail = normalizeEmail(email);
+  if (!mail) return null;
+  return users.find((u) => u.emailVerified && normalizeEmail(u.email) === mail) || null;
+}
+
+export function isEmailTaken(email, exceptUserId) {
+  const mail = normalizeEmail(email);
+  if (!mail) return false;
+  return users.some((u) =>
+    u.id !== exceptUserId
+    && u.emailVerified
+    && normalizeEmail(u.email) === mail);
+}
+
+export function publicEmailFields(user) {
+  if (!user) return { email: null, emailVerified: false };
+  if (user.emailVerified && user.email) {
+    return { email: normalizeEmail(user.email), emailVerified: true };
+  }
+  return { email: null, emailVerified: false };
+}
+
+/** Solo escribe email tras verificar el código. No toca contraseña ni roomKey. */
+export function setUserVerifiedEmail(id, email) {
+  const u = users.find((x) => x.id === id);
+  if (!u) return false;
+  const mail = normalizeEmail(email);
+  if (!mail || !mail.includes('@')) return false;
+  u.email = mail;
+  u.emailVerified = true;
+  saveUsers();
+  return true;
+}
+
+export function setUserPassword(id, password) {
+  const u = users.find((x) => x.id === id);
+  if (!u) return false;
+  if (String(password || '').length < 4) return false;
+  const { salt, hash } = hashPassword(password);
+  u.salt = salt;
+  u.hash = hash;
+  saveUsers();
+  return true;
+}
+
+export function destroySessionsForUser(userId) {
+  let changed = 0;
+  for (const [token, s] of sessions.entries()) {
+    if (s.userId === userId) {
+      sessions.delete(token);
+      changed++;
+    }
+  }
+  if (changed) saveSessions();
+  return changed;
+}
+
 export function getAuthDataInfo() {
   return { dataDir: DATA_DIR, usersFile: USERS_FILE, userCount: users.length };
 }

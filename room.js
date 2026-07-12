@@ -1975,6 +1975,41 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
   }
 
+
+  // Stream Deck: 1.er pulsado = play; si aún suena/reproduce = stop; si ya terminó = play otra vez.
+  const webhookActive = new Map(); // id -> { kind, screen?, timer }
+
+  function clearWebhookActive(id) {
+    const key = String(id || '');
+    if (!key) return;
+    const prev = webhookActive.get(key);
+    if (prev?.timer) clearTimeout(prev.timer);
+    webhookActive.delete(key);
+  }
+
+  function noteWebhookActive(id, meta = {}) {
+    const key = String(id || '');
+    if (!key) return;
+    clearWebhookActive(key);
+    const timer = setTimeout(() => webhookActive.delete(key), 180000);
+    webhookActive.set(key, { kind: meta.kind || 'video', screen: meta.screen || 1, timer });
+  }
+
+  function stopWebhookActive(id) {
+    const key = String(id || '');
+    const cur = webhookActive.get(key);
+    if (!cur) return false;
+    if ((cur.kind === 'video' || cur.kind === 'battle' || cur.kind === 'action') && typeof emitStopMedia === 'function') {
+      emitStopMedia(cur.screen || 1);
+    }
+    if (cur.kind === 'sound' || cur.kind === 'action') {
+      broadcast('stopSound', { id: key });
+    }
+    clearWebhookActive(key);
+    broadcast('log', { level: 'ok', text: `🪝 Webhook stop → ${key}` });
+    return true;
+  }
+
   // Lista de acciones para el webhook HTTP (/get_actions).
   function listActions() {
     return (settings.actions || []).map((a) => ({ id: a.id, name: a.name || '', enabled: a.enabled !== false }));
@@ -1982,8 +2017,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   // Ejecuta una acción desde el webhook HTTP (/execute_action). Busca por id o por
   // nombre, sustituye variables ({username}, {giftname}, …) en el texto/teclas y la dispara.
-  function executeWebhookAction({ id, name, data } = {}) {
-    const list = settings.actions || [];
+  function executeWebhookAction({ id, name, data, actionsOverride } = {}) {
+    const list = Array.isArray(actionsOverride) ? actionsOverride : (settings.actions || []);
     let a = null;
     if (id != null && String(id) !== '') a = list.find((x) => String(x.id) === String(id));
     if (!a && name) {
@@ -1992,6 +2027,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     if (!a) return { ok: false, error: 'not_found' };
     if (a.enabled === false) return { ok: false, error: 'disabled' };
+
+    const aid = String(a.id);
+    if (typeof webhookActive !== 'undefined' && webhookActive.has(aid)) {
+      stopWebhookActive(aid);
+      return { ok: true, stopped: true, action: { id: a.id, name: a.name || '' } };
+    }
+
     const d = data || {};
     const times = Math.max(1, Number(d.repeatcount ?? d.repeatCount) || 1);
     const vars = {
@@ -2024,7 +2066,33 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       },
       user: { nickname: d.nickname ?? '', uniqueId: d.username ?? d.uniqueId ?? '' },
     });
+    const scr = Number(a.mediaShow?.screen) || 1;
+    noteWebhookActive(aid, { kind: 'action', screen: scr });
     return { ok: true, action: { id: a.id, name: a.name || '' } };
+  }
+
+  function executeWebhookSound({ id, name, soundAlertsOverride } = {}) {
+    const list = Array.isArray(soundAlertsOverride) ? soundAlertsOverride : (settings.soundAlerts || []);
+    let a = null;
+    if (id != null && String(id) !== '') a = list.find((x) => String(x.id) === String(id));
+    if (!a && name) {
+      const n = String(name).trim().toLowerCase();
+      a = list.find((x) => (x.name || '').trim().toLowerCase() === n);
+    }
+    if (!a) return { ok: false, error: 'not_found', message: 'No encontrada en Alertas sonoras.' };
+    if (a.enabled === false) return { ok: false, error: 'disabled' };
+    if (!a.sound) return { ok: false, error: 'no_sound' };
+
+    const sid = String(a.id);
+    if (typeof webhookActive !== 'undefined' && webhookActive.has(sid)) {
+      stopWebhookActive(sid);
+      return { ok: true, stopped: true, sound: { id: a.id, name: a.name || '' } };
+    }
+
+    broadcast('log', { level: 'ok', text: `🪝 Webhook → sonido "${a.name || a.id}"` });
+    emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume, webhookToggle: true });
+    noteWebhookActive(sid, { kind: 'sound' });
+    return { ok: true, sound: { id: a.id, name: a.name || '' } };
   }
 
   function resolveKeyTimes(a, eventTimes = 1) {
@@ -5440,6 +5508,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'panic':
         bumpMcPanic();
+        if (typeof webhookActive !== 'undefined') {
+          for (const key of [...webhookActive.keys()]) clearWebhookActive(key);
+        }
         broadcast('panic', {});
         emitPanicMedia();
         broadcast('log', { level: 'info', text: '⛔ Pánico: cola de Minecraft cancelada' });
@@ -5755,7 +5826,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     id, account, roomKey,
     addClient, removeClient, handleMessage,
     getEmotes, mergeEmotes, shutdown, getStatus, kickAll, broadcastCaps,
-    listActions, executeWebhookAction,
+    listActions, executeWebhookAction, executeWebhookSound,
     getSettings: () => settings,
     applySettings: (obj) => applyIncomingSettings(obj, false),
     hasSavedSettings: () => fs.existsSync(SETTINGS_FILE),

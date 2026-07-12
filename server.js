@@ -21,7 +21,12 @@ import {
   getUserPlan, setUserPlan, deleteUser,
   getAuthDataInfo, restoreUsersFromBackup, findBestUsersBackup, restoreUsersFromBestBackup,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
+  publicEmailFields,
 } from './auth.js';
+import {
+  requestLinkEmailCode, verifyLinkEmailCode,
+  requestPasswordReset, resetPasswordWithCode, mailStatus,
+} from './account-recovery.js';
 import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
 } from './plans.js';
@@ -684,6 +689,7 @@ app.get('/api/me', (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
   const caps = capsForUser(user);
+  const emailInfo = publicEmailFields(user);
   res.json({
     username: user.username,
     roomKey: user.roomKey,
@@ -692,7 +698,50 @@ app.get('/api/me', (req, res) => {
     plan: caps.plan,
     premiumUntil: user.premiumUntil || 0,
     caps: { limits: caps.limits, features: caps.features },
+    email: emailInfo.email,
+    emailVerified: emailInfo.emailVerified,
+    mailConfigured: mailStatus().configured,
   });
+});
+
+function clientRateKey(req) {
+  return String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || 'ip').split(',')[0].trim();
+}
+
+app.get('/api/account/mail-status', (_req, res) => {
+  res.json(mailStatus());
+});
+
+app.post('/api/account/email/request-code', express.json(), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const r = await requestLinkEmailCode(user.id, req.body?.email, clientRateKey(req));
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, message: r.message });
+});
+
+app.post('/api/account/email/verify', express.json(), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const r = verifyLinkEmailCode(user.id, req.body?.code);
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, email: r.email, message: r.message });
+});
+
+app.post('/api/account/password/forgot', express.json(), async (req, res) => {
+  const r = await requestPasswordReset(req.body?.username || req.body?.email || req.body?.identifier, clientRateKey(req));
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, message: r.message });
+});
+
+app.post('/api/account/password/reset', express.json(), (req, res) => {
+  const r = resetPasswordWithCode(
+    req.body?.username || req.body?.email || req.body?.identifier,
+    req.body?.code,
+    req.body?.password || req.body?.newPassword,
+  );
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, message: r.message });
 });
 
 // El .exe en modo relay puede pedir la roomKey de la nube por usuario (sin cookie de sesión).

@@ -124,6 +124,14 @@ function playOnStage(lane, m, done) {
   const host = lane.stage;
   if (!host || !m?.url) { done?.(); return; }
 
+  const reportEnded = () => {
+    try {
+      if (m?.id && ws?.readyState === 1) {
+        ws.send(JSON.stringify({ action: 'mediaEnded', id: m.id, screen }));
+      }
+    } catch {}
+  };
+
   host.innerHTML = '';
   const size = Math.max(10, Math.min(100, m.size ?? 100));
   const maxSec = Number(m.maxDurationSec) > 0 ? Number(m.maxDurationSec) : 0;
@@ -133,7 +141,7 @@ function playOnStage(lane, m, done) {
   if (isImg) {
     el = document.createElement('img');
     el.src = m.url;
-    const finish = () => { if (el.parentNode) el.remove(); done?.(); };
+    const finish = () => { if (el.parentNode) el.remove(); reportEnded(); done?.(); };
     el.onerror = finish;
     lane.safetyTimer = setTimeout(finish, maxSec > 0 ? maxSec * 1000 : 8000);
   } else {
@@ -155,6 +163,7 @@ function playOnStage(lane, m, done) {
       finished = true;
       if (lane.safetyTimer) { clearTimeout(lane.safetyTimer); lane.safetyTimer = null; }
       try { if (el.parentNode) el.remove(); } catch {}
+      reportEnded();
       done?.();
     };
 

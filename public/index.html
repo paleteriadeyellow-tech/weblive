@@ -624,7 +624,17 @@
                   <option value="follow">Nuevo seguidor</option>
                   <option value="levelUp">Subió de nivel de miembro</option>
                   <option value="emote">Sticker / emote (ID)</option>
+                  <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
                 </select>
+                <div id="sa-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
+                  <p class="hint" style="margin:0 0 8px">No se dispara por TikTok. Copia esta URL y pégala en Stream Deck. Solo app de escritorio (:3199). Usa <code>127.0.0.1</code>.</p>
+                  <div class="wh-endpoint" style="margin:0">
+                    <span class="wh-method getpost">GET</span>
+                    <span class="wh-eplabel">Webhook Stream Deck</span>
+                    <button type="button" class="wh-copy" id="sa-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    <code class="wh-url" id="sa-streamdeck-url">http://127.0.0.1:3199/execute_sound?id=…</code>
+                  </div>
+                </div>
                 <div id="sa-giftanyextra" class="gift-extra" hidden>
                   <input type="number" id="sa-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
                   <input type="number" id="sa-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
@@ -2729,7 +2739,17 @@
                   <option value="emote">Sticker / emote (ID)</option>
                   <option value="chatCommand">Comando de chat (!video)</option>
                   <option value="firstMessage">Primer mensaje en el chat (usuario)</option>
+                  <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
                 </select>
+                <div id="vid-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
+                  <p class="hint" style="margin:0 0 8px">No se dispara por TikTok. Copia esta URL y pégala en Stream Deck (Web Request / Open URL). Solo funciona en la <b>app de escritorio</b> (:3199). Usa <code>127.0.0.1</code> (no localhost).</p>
+                  <div class="wh-endpoint" style="margin:0">
+                    <span class="wh-method getpost">GET</span>
+                    <span class="wh-eplabel">Webhook Stream Deck</span>
+                    <button type="button" class="wh-copy" id="vid-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    <code class="wh-url" id="vid-streamdeck-url">http://127.0.0.1:3199/execute_video?id=…</code>
+                  </div>
+                </div>
                 <div id="vid-cmdextra" class="gift-extra one" hidden>
                   <input type="text" id="vid-command" placeholder="Comando exacto (ej. !video)">
                 </div>
@@ -2922,18 +2942,18 @@
                   <input type="hidden" id="ba-giftid">
                 </div>
                 <div id="ba-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
-                  <p class="hint" style="margin:0 0 8px">No se dispara solo en la PK. Copia esta URL y pégala en Stream Deck (Web Request / Open URL). Solo funciona en la <b>app de escritorio</b> (:3199).</p>
+                  <p class="hint" style="margin:0 0 8px">No se dispara solo en la PK. Copia esta URL y pégala en Stream Deck (Web Request / Open URL). Solo funciona en la <b>app de escritorio</b> (:3199). Usa <code>127.0.0.1</code> (no localhost).</p>
                   <div class="wh-endpoint" style="margin:0">
                     <span class="wh-method getpost">GET</span>
                     <span class="wh-eplabel">Webhook Stream Deck</span>
                     <button type="button" class="wh-copy" id="ba-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    <code class="wh-url" id="ba-streamdeck-url">http://localhost:3199/execute_video?id=…</code>
+                    <code class="wh-url" id="ba-streamdeck-url">http://127.0.0.1:3199/execute_video?id=…</code>
                   </div>
                 </div>
                 <div id="ba-countextra" class="gift-extra one" style="margin-top:8px" hidden>
                   <input type="number" id="ba-mincount" min="1" value="1" placeholder="A partir de cuántos envíos (1 = cualquiera, 5 = combo x5)">
                 </div>
-                <p class="hint" style="margin-top:6px">Solo se dispara <b>durante una batalla PK</b> de TikTok.</p>
+                <p class="hint" id="ba-pk-hint" style="margin-top:6px">Solo se dispara <b>durante una batalla PK</b> de TikTok.</p>
               </div>
 
               <div class="box">
@@ -6468,6 +6488,7 @@
   <script src="/js/settings-transfer.js?v=expick1"></script>
   <script src="/js/gift-catalog.js"></script>
   <script src="/js/repo-catalog-data.js?v=2"></script>
+  <script src="/js/account-email.js"></script>
   <script src="/js/dashboard.js"></script>
 </body>
 </html>
