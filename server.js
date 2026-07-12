@@ -865,8 +865,9 @@ app.post('/api/test-level-video', express.json(), (req, res) => {
   const room = getRoomForUser(user);
   const cfg = room.getSettings().levelVideos || {};
   if (cfg.enabled === false) return res.json({ ok: false, error: 'disabled', level });
-  room.handleMessage(null, { action: 'testLevelVideo', level });
-  res.json({ ok: true, level, url, screen: Number(cfg.screen) || 1 });
+  const screen = Math.max(1, Math.min(10, Number(req.body?.screen) || Number(cfg.screen) || 1));
+  room.handleMessage(null, { action: 'testLevelVideo', level, screen });
+  res.json({ ok: true, level, url, screen });
 });
 
 // Catálogo + configuración de planes para CUALQUIER usuario autenticado (solo lectura).

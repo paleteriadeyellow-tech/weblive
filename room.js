@@ -224,25 +224,72 @@ function currentMonthRange(now = Date.now()) {
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 1, 0, 0, 0, 0).getTime();
   return [start, end];
 }
-// Busca el multiplicador del golpe crítico (x2/x3) en cualquier parte de un mensaje PK.
-function scanMultiplier(obj, depth, acc) {
-  if (!obj || typeof obj !== 'object' || depth > 6) return;
-  for (const k in obj) {
+// Busca el multiplicador del golpe crítico / potenciador (x2/x3) en mensajes PK.
+// TikTok lo manda en regalos (matchInfo), LinkMicArmies (triggerCriticalStrike) y
+// otros envelopes de batalla. multiplierType: 1=critical, 2=top2/x2, 3=top3/x3.
+function readBattleMultiplier(obj, depth = 0, acc = null) {
+  const out = acc || { crit: false, value: 0, hits: [] };
+  if (!obj || typeof obj !== 'object' || depth > 8) return out;
+
+  // Atajo: matchInfo tipado del GiftMessage
+  const mi = obj.matchInfo || obj.match_info;
+  if (mi && typeof mi === 'object' && depth === 0) {
+    readBattleMultiplier(mi, depth + 1, out);
+  }
+
+  for (const k of Object.keys(obj)) {
     const v = obj[k];
-    if (v && typeof v === 'object') { scanMultiplier(v, depth + 1, acc); continue; }
-    const key = k.toLowerCase();
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      readBattleMultiplier(v, depth + 1, out);
+      continue;
+    }
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        if (item && typeof item === 'object') readBattleMultiplier(item, depth + 1, out);
+      }
+      continue;
+    }
+    const key = String(k).toLowerCase().replace(/_/g, '');
     if (key === 'triggercriticalstrike' && (v === true || v === 1 || v === '1')) {
-      acc.crit = true; acc.hits.push(`${k}=${v}`);
-    } else if (key === 'multipliertype' && Number(v) === 1) {
-      acc.crit = true; acc.hits.push(`${k}=${v}`);
+      out.crit = true;
+      out.value = Math.max(out.value, 2);
+      out.hits.push(`${k}=${v}`);
+    } else if (key === 'effectcardinuse' && (v === true || v === 1 || v === '1')) {
+      out.crit = true;
+      out.hits.push(`${k}=${v}`);
+    } else if (key === 'multipliertype') {
+      const t = Number(v);
+      // 1 = critical strike (guante), 2 = x2, 3 = x3 (enums TikTok)
+      if (t === 1) { out.crit = true; out.value = Math.max(out.value, 2); out.hits.push(`${k}=${v}`); }
+      else if (t === 2) { out.crit = true; out.value = Math.max(out.value, 2); out.hits.push(`${k}=${v}`); }
+      else if (t === 3) { out.crit = true; out.value = Math.max(out.value, 3); out.hits.push(`${k}=${v}`); }
+      else if (t >= 2 && t <= 50) { out.crit = true; out.value = Math.max(out.value, t); out.hits.push(`${k}=${v}`); }
     } else if (key === 'multipliervalue' || key === 'multiplier') {
       const n = Math.round(Number(v));
-      if (n >= 2 && n <= 50) { acc.value = Math.max(acc.value, n); acc.crit = true; }
-      if (n >= 1) acc.hits.push(`${k}=${v}`);
+      if (n >= 2 && n <= 50) { out.value = Math.max(out.value, n); out.crit = true; out.hits.push(`${k}=${v}`); }
     } else if (key === 'critical') {
-      if (Number(v) >= 1) { acc.crit = true; acc.hits.push(`${k}=${v}`); }
+      const n = Math.round(Number(v));
+      if (n >= 1 || v === true || v === 'true') {
+        out.crit = true;
+        if (n >= 2) out.value = Math.max(out.value, n);
+        else out.value = Math.max(out.value, 2);
+        out.hits.push(`${k}=${v}`);
+      }
+    } else if (typeof v === 'string') {
+      const s = v.toLowerCase();
+      if (/booster[_-]?x?3|card_?x?3|top3_buffer/.test(s)) {
+        out.crit = true; out.value = Math.max(out.value, 3); out.hits.push(`${k}=${v}`);
+      } else if (/booster[_-]?x?2|card_?x?2|top2_buffer|card_crit|gloves?/.test(s)) {
+        out.crit = true; out.value = Math.max(out.value, 2); out.hits.push(`${k}=${v}`);
+      }
     }
   }
+  return out;
+}
+
+/** Compat: mismo contrato que el antiguo scanMultiplier. */
+function scanMultiplier(obj, depth, acc) {
+  readBattleMultiplier(obj, depth || 0, acc);
 }
 
 const MAX_CONNECT_ATTEMPTS = 4;
@@ -3616,7 +3663,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   // Reproduce automáticamente el video de public/video/niveles (nivelN.webm).
-  function playLevelVideo(level) {
+  function playLevelVideo(level, screenOverride) {
     const cfg = settings.levelVideos || {};
     if (cfg.enabled === false) return;
     if (typeof getLevelVideo !== 'function') return;
@@ -3626,12 +3673,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('log', { level: 'warn', text: `⚠️ No hay video para nivel ${n} (nivel${n}.webm en public/video/niveles).` });
       return;
     }
-    const scr = Number(cfg.screen) || 1;
-    broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${n} reproducido.` });
-    emitMedia({ id: 'level_' + n, name: `Nivel ${n}`, url, screen: scr, volume: cfg.volume ?? 100, size: screenSize(scr) });
+    const scr = Math.max(1, Math.min(10, Number(screenOverride) || Number(cfg.screen) || 1));
+    const payload = {
+      id: 'level_' + n,
+      name: `Nivel ${n}`,
+      url,
+      screen: scr,
+      volume: cfg.volume ?? 100,
+      size: screenSize(scr),
+    };
+    broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${n} → pantalla ${scr}.` });
+    // Siempre a las fuentes video.html de esta room (Live Studio / «Fuente conectada»).
+    broadcast('media', payload);
+    // Si hay .exe en relay, también en local (por si la fuente apunta al host de la PC).
+    if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
+      broadcastToLocal('playMedia', payload);
+    }
   }
 
-  // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3), 'battleGift',
+  // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3),
+  // 'battleGift' = potenciador guante / multiplicador (NO el regalo Boxing Gloves),
   // 'battleGiftAny', 'battleStart', 'battleEnd'.
   function fireBattleAlerts(actionType, info = {}) {
     if (settings.battleAlertsEnabled === false) return;
@@ -3640,12 +3701,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const trig = b.trigger || ((b.giftName || b.giftId) ? 'battleGift' : 'battleGiftAny');
       if (trig !== actionType) continue;
       if (actionType === 'battleGift') {
-        const wantName = (b.giftName || '').trim().toLowerCase();
-        const idMatch = b.giftId && String(b.giftId) === String(info.giftId || '');
-        const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-        if (!idMatch && !nameMatch) continue;
+        // Potenciador guante: minCount = multiplicador mínimo (1/2 = x2+, 3 = x3+).
+        const minMult = Math.max(1, Number(b.minCount) || 1);
+        const m = Math.max(2, Number(info.multiplier) || 2);
+        if (m < minMult) continue;
       }
-      if (actionType === 'battleGift' || actionType === 'battleGiftAny') {
+      if (actionType === 'battleGiftAny') {
         const count = info.repeatCount || info.giftCount || 1;
         if ((b.minCount || 1) > count) continue;
       }
@@ -3879,10 +3940,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const src2 = state.pendingSrc;
       state.pendingMult = 0;
       state.pendingSrc = '';
-      broadcast('log', { level: 'ok', text: `⚡ Golpe crítico (x${m}) en la batalla → animación${src2 ? ' [' + src2 + ']' : ''}` });
+      broadcast('log', {
+        level: 'ok',
+        text: `⚡ Multiplicador x${m} en batalla PK → animación${src2 ? ' [' + src2 + ']' : ''}`,
+      });
+      // x2 → critical ; x3+ → critical3 (opciones separadas en el panel)
       if (m >= 3) fireBattleAlerts('critical3', { multiplier: m });
       else fireBattleAlerts('critical', { multiplier: m });
-    }, 600);
+      // «Potenciador guante / multiplicador» (cualquier x2+)
+      fireBattleAlerts('battleGift', { multiplier: m });
+    }, 350);
+  }
+
+  /** Detecta x2/x3 / guante crítico en un payload TikTok y dispara animaciones. */
+  function detectBattleMultiplier(payload, src = '') {
+    const acc = readBattleMultiplier(payload);
+    if (!(acc.crit || acc.value >= 2)) return false;
+    state.inBattle = true;
+    const label = src || (acc.hits.length ? acc.hits.slice(0, 4).join(' ') : 'battle');
+    noteCritical(acc.value, label);
+    return true;
   }
 
   /* ------------------------------- Estado ------------------------------- */
@@ -4756,6 +4833,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.GIFT, (data) => {
+      // Multiplicador x2/x3 / guante crítico en regalos durante la PK (matchInfo).
+      try {
+        if (data?.matchInfo || state.inBattle) detectBattleMultiplier(data, 'Gift.matchInfo');
+      } catch {}
       const user = baseUser(data.user);
       const giftType = data.giftDetails?.giftType;
       const giftId = data.giftId ?? data.giftDetails?.id ?? '';
@@ -4999,45 +5080,49 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.SUPER_FAN_JOIN, handleSuperFan);
 
     // ===== Batallas PK de TikTok =====
-    // Catch-all: escanea todos los mensajes en busca del golpe crítico (x2/x3).
+    // Catch-all: escanea mensajes gift/linkmic/battle por multiplicador x2/x3.
     conn.on(ControlEvent.DECODED_DATA, (type, decoded) => {
       try {
         const t = String(type || '');
-        if (!/gift|linkmic|battle/i.test(t)) return;
-        const isBattleMsg = /linkmic|battle/i.test(t);
+        if (!/gift|linkmic|battle|itemcard|boost/i.test(t)) return;
+        const isBattleMsg = /linkmic|battle|itemcard|boost/i.test(t);
         if (!isBattleMsg && !state.inBattle) return;
         const data = decoded?.data ?? decoded;
         if (!data || typeof data !== 'object') return;
-        const acc = { crit: false, value: 0, hits: [] };
-        scanMultiplier(data, 0, acc);
-        if (acc.crit || acc.value >= 2) {
-          state.inBattle = true;
-          const src = `${t.replace(/^Webcast/, '')}${acc.hits.length ? ' ' + acc.hits.join(' ') : ''}`;
-          noteCritical(acc.value, src);
-        }
+        detectBattleMultiplier(data, t.replace(/^Webcast/, ''));
       } catch {}
     });
 
     conn.on(WebcastEvent.LINK_MIC_BATTLE, (data) => {
       try {
         const a = data?.action;
-        const isStart = a === 4 || a === 'BATTLE_ACTION_OPEN';
+        const isOpen = a === 4 || a === 'BATTLE_ACTION_OPEN';
+        const isAccept = a === 7 || a === 'BATTLE_ACTION_ACCEPT';
         const isEnd = a === 5 || a === 6 || a === 'BATTLE_ACTION_FINISH' || a === 'BATTLE_ACTION_CUT_SHORT';
-        if (isStart) {
+        if (isOpen || isAccept) {
           state.inBattle = true;
-          broadcast('log', { level: 'ok', text: '⚔️ Batalla PK iniciada' });
-          fireBattleAlerts('battleStart', {});
+          if (isOpen) {
+            broadcast('log', { level: 'ok', text: '⚔️ Batalla PK iniciada' });
+            fireBattleAlerts('battleStart', {});
+          }
         } else if (isEnd) {
           state.inBattle = false;
           broadcast('log', { level: 'info', text: '⚔️ Batalla PK finalizada' });
           fireBattleAlerts('battleEnd', {});
         }
+        detectBattleMultiplier(data, 'LinkMicBattle');
       } catch {}
     });
 
     conn.on(WebcastEvent.LINK_MIC_ARMIES, (data) => {
       try {
         state.inBattle = true;
+        // Guante crítico / multiplicador en el aporte de ejército
+        if (data?.triggerCriticalStrike) {
+          detectBattleMultiplier(data, 'LinkMicArmies.crit');
+        } else {
+          detectBattleMultiplier(data, 'LinkMicArmies');
+        }
         const giftId = String(data?.giftId || '');
         const giftCount = Number(data?.giftCount || 0);
         const repeatCount = Number(data?.repeatCount || 0);
@@ -5048,7 +5133,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (giftId && giftId !== '0') {
           broadcast('log', { level: 'info', text: `⚔️ Regalo de batalla: ${cat?.name || ('id ' + giftId)} ×${info.repeatCount || 1}` });
           fireBattleAlerts('battleGiftAny', info);
-          fireBattleAlerts('battleGift', info);
         }
       } catch {}
     });
@@ -5233,7 +5317,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       }
       case 'testLevelVideo':
-        playLevelVideo(Math.max(1, Number(data.level) || 1));
+        playLevelVideo(Math.max(1, Number(data.level) || 1), data.screen);
         break;
       case 'stopVideo': {
         emitStopMedia(Number(data.screen) || 1);

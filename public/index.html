@@ -148,7 +148,7 @@
         <!-- ===== VISTA: PANEL ===== -->
         <section class="view active" id="view-panel">
           <!-- Estado del live (avatar, @usuario, badge, tiempo) -->
-          <div class="home-hero" id="home-welcome">
+          <div class="home-hero is-free" id="home-welcome">
             <div class="home-hero-main">
               <div class="home-hero-av" id="home-hero-av" aria-hidden="true">
                 <img id="home-hero-img" class="home-hero-img" hidden alt="">
@@ -157,6 +157,7 @@
               <div class="home-hero-texts">
                 <div class="home-hero-row">
                   <div class="home-hero-user" id="home-hero-user">Sin cuenta conectada</div>
+                  <span class="home-hero-tier free" id="home-hero-tier">Free</span>
                   <span class="home-hero-badge off" id="home-hero-badge">Desconectado</span>
                 </div>
                 <div class="home-hero-sub" id="home-hero-sub">Conecta tu cuenta de TikTok para empezar el directo.</div>
@@ -2908,15 +2909,26 @@
                 <select id="ba-trigger">
                   <option value="critical">⚡ Golpe crítico / x2 (multiplicador)</option>
                   <option value="critical3">⚡ Golpe crítico / x3 (multiplicador)</option>
-                  <option value="battleGift">🥊 Regalo de batalla específico (ej. guante)</option>
+                  <option value="battleGift">🥊 Potenciador guante / multiplicador (automático)</option>
                   <option value="battleGiftAny">🎁 Cualquier regalo en la batalla</option>
                   <option value="battleStart">🟢 Inicio de la batalla</option>
                   <option value="battleEnd">🔴 Fin de la batalla</option>
+                  <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
                 </select>
                 <div id="ba-giftextra" class="gift-extra one" style="margin-top:8px" hidden>
-                  <button type="button" class="btn ghost gift-pick-btn" id="ba-giftpick">🎁 Elegir regalo…</button>
+                  <p class="hint" id="ba-glove-hint" style="margin:0">Se activa solo cuando en la PK entra el <b>potenciador guante</b> (golpe crítico / multiplicador x2, x3…). No es el regalo Boxing Gloves.</p>
+                  <button type="button" class="btn ghost gift-pick-btn" id="ba-giftpick" hidden>🎁 Elegir regalo…</button>
                   <input type="hidden" id="ba-gift">
                   <input type="hidden" id="ba-giftid">
+                </div>
+                <div id="ba-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
+                  <p class="hint" style="margin:0 0 8px">No se dispara solo en la PK. Copia esta URL y pégala en Stream Deck (Web Request / Open URL). Solo funciona en la <b>app de escritorio</b> (:3199).</p>
+                  <div class="wh-endpoint" style="margin:0">
+                    <span class="wh-method getpost">GET</span>
+                    <span class="wh-eplabel">Webhook Stream Deck</span>
+                    <button type="button" class="wh-copy" id="ba-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                    <code class="wh-url" id="ba-streamdeck-url">http://localhost:3199/execute_video?id=…</code>
+                  </div>
                 </div>
                 <div id="ba-countextra" class="gift-extra one" style="margin-top:8px" hidden>
                   <input type="number" id="ba-mincount" min="1" value="1" placeholder="A partir de cuántos envíos (1 = cualquiera, 5 = combo x5)">

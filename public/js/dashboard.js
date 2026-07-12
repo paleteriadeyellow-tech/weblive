@@ -493,6 +493,7 @@ function navItemVisible(btn) {
 // Aplica las capacidades a la interfaz: oculta pestañas/overlays bloqueados,
 // muestra avisos de límite y desactiva botones de "crear" si se llegó al tope.
 function applyCaps() {
+  try { syncHomeHeroPlan(); } catch {}
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
@@ -2771,13 +2772,23 @@ $('vid-master').addEventListener('change', () => {
 });
 
 /* ----- Videos automáticos por nivel de miembro (carpeta «niveles») ----- */
-async function testLevelVideoLocal(level, { quiet = false } = {}) {
+function syncLevelVideosFromUI() {
+  if (!settings.levelVideos) settings.levelVideos = { enabled: true, screen: 1, volume: 100 };
+  const en = $('levelvid-enabled');
+  if (en) settings.levelVideos.enabled = !!en.checked;
+  const sel = $('levelvid-screen');
+  if (sel) settings.levelVideos.screen = clampScreenId(sel.value);
+  return settings.levelVideos;
+}
+
+async function testLevelVideoLocal(level, { quiet = false, screen } = {}) {
   const n = Math.max(1, parseInt(level, 10) || 1);
+  const scr = Math.max(1, Math.min(10, Number(screen) || Number(settings?.levelVideos?.screen) || 1));
   try {
     const r = await fetch('/api/test-level-video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ level: n }),
+      body: JSON.stringify({ level: n, screen: scr }),
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) {
@@ -2785,21 +2796,62 @@ async function testLevelVideoLocal(level, { quiet = false } = {}) {
         toast && toast(`No hay nivel${n}.webm en public/video/niveles`, 'warn');
       } else if (d.error === 'disabled') {
         toast && toast('Activa «Subió de nivel de miembro» (ON) para probar.', 'warn');
+      } else if (r.status === 401) {
+        toast && toast('Sesión caducada. Vuelve a iniciar sesión.', 'err');
       } else {
         toast && toast(d.error || 'No se pudo reproducir el video de prueba.', 'err');
       }
       return false;
     }
     if (!quiet) {
-      const scr = Number(d.screen) || Number(settings?.levelVideos?.screen) || 1;
-      if (connectedScreens.has(scr)) toast && toast(`Reproduciendo nivel ${n}…`, 'ok');
-      else toast && toast(`Video enviado. Abre el link local en Live Studio (Pantalla ${scr}).`, 'warn');
+      const outScr = Number(d.screen) || scr;
+      if (connectedScreens.has(outScr)) toast && toast(`Reproduciendo nivel ${n} en pantalla ${outScr}…`, 'ok');
+      else toast && toast(`Video enviado a pantalla ${outScr}. Abre/recarga el link en Live Studio.`, 'warn');
     }
     refreshLevelVideoScreenLink();
     return true;
   } catch {
     toast && toast('No se pudo contactar al servidor local.', 'err');
     return false;
+  }
+}
+
+/** Dispara la prueba: sincroniza UI, avisa por WS (misma room que la fuente) y por API. */
+async function runLevelVideoTest() {
+  const btn = $('levelvid-test');
+  if (btn?.dataset.busy === '1') return;
+  const level = Math.max(1, parseInt($('levelvid-test-level')?.value, 10) || 1);
+  const cfg = syncLevelVideosFromUI();
+  if (cfg.enabled === false) {
+    toast && toast('Activa «Subió de nivel de miembro» (ON) para probar.', 'warn');
+    return;
+  }
+  const screen = Number(cfg.screen) || 1;
+  try { saveSettingsKeysPatch('levelVideos'); } catch {}
+  if (btn) {
+    btn.dataset.busy = '1';
+    btn.disabled = true;
+  }
+  try {
+    const usingRelay = IS_DESKTOP && (
+      (typeof relayActive === 'function' && relayActive())
+      || (typeof desktopRelayOn === 'function' && desktopRelayOn())
+    );
+    if (usingRelay) {
+      // WS a la nube (donde suele estar «Fuente conectada») + API local por si la fuente es localhost.
+      send({ action: 'testLevelVideo', level, screen });
+      await testLevelVideoLocal(level, { quiet: true, screen });
+      if (connectedScreens.has(screen)) toast && toast(`Reproduciendo nivel ${level} en pantalla ${screen}…`, 'ok');
+      else toast && toast(`Video enviado a pantalla ${screen}. Abre/recarga el link en Live Studio.`, 'warn');
+    } else {
+      // Misma máquina / web: un solo disparo por API (valida archivo y reproduce).
+      await testLevelVideoLocal(level, { screen });
+    }
+  } finally {
+    if (btn) {
+      btn.dataset.busy = '0';
+      btn.disabled = false;
+    }
   }
 }
 function applyLevelVideosUI() {
@@ -2815,7 +2867,7 @@ function applyLevelVideosUI() {
 }
 if ($('levelvid-copy-url')) {
   $('levelvid-copy-url').addEventListener('click', () => {
-    const cfg = settings.levelVideos || {};
+    const cfg = syncLevelVideosFromUI();
     const url = levelVideoScreenUrl(Number(cfg.screen) || 1);
     navigator.clipboard?.writeText(url);
     toast && toast('Link copiado — pégalo en Live Studio', 'ok');
@@ -2841,10 +2893,7 @@ if ($('levelvid-screen')) {
   });
 }
 if ($('levelvid-test')) {
-  $('levelvid-test').addEventListener('click', () => {
-    const level = Math.max(1, parseInt($('levelvid-test-level')?.value, 10) || 1);
-    testLevelVideoLocal(level);
-  });
+  $('levelvid-test').addEventListener('click', () => { runLevelVideoTest(); });
 }
 
 /* ----- Modal video ----- */
@@ -3131,14 +3180,33 @@ let baPending = null;
 const BA_TRIGGER_LABELS = {
   critical: '⚡ Golpe crítico x2',
   critical3: '⚡ Golpe crítico x3',
+  battleGift: '🥊 Potenciador guante',
   battleGiftAny: '🎁 Cualquier regalo',
   battleStart: '🟢 Inicio batalla',
   battleEnd: '🔴 Fin batalla',
+  streamdeck: '🎛️ Stream Deck',
 };
 function baTriggerLabel(b) {
   const t = b.trigger || ((b.giftName || b.giftId) ? 'battleGift' : 'battleGiftAny');
-  if (t === 'battleGift') return `🥊 ${b.giftName || 'regalo'}${b.giftId ? ' (#' + b.giftId + ')' : ''}`;
+  if (t === 'battleGift') return '🥊 Potenciador guante';
   return BA_TRIGGER_LABELS[t] || t;
+}
+
+function ensureBaEditId() {
+  if (baEditingId) return baEditingId;
+  baEditingId = 'ba' + Date.now();
+  return baEditingId;
+}
+
+function baStreamdeckWebhookUrl(id) {
+  const rid = String(id || '').trim() || '…';
+  return `http://localhost:3199/execute_video?id=${encodeURIComponent(rid)}`;
+}
+
+function refreshBaStreamdeckUrl() {
+  const code = $('ba-streamdeck-url');
+  if (!code) return;
+  code.textContent = baStreamdeckWebhookUrl(ensureBaEditId());
 }
 
 function renderBattleAlerts() {
@@ -3171,6 +3239,7 @@ function renderBattleAlerts() {
       </div>
       <div class="sa-card-btns acc-card-icons vid-card-btns">
         <button type="button" class="acc-icon-btn sa-edit" title="Editar">${CARD_ICON.gear}</button>
+        ${b.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
         <button type="button" class="acc-icon-btn sa-play" title="Probar en pantalla">${CARD_ICON.play}</button>
         <button type="button" class="acc-icon-btn sa-stop" title="Detener video">${CARD_ICON.stop}</button>
         <button type="button" class="acc-icon-btn sa-del" title="Borrar">${CARD_ICON.trash}</button>
@@ -3190,6 +3259,15 @@ function renderBattleAlerts() {
     const vr = card.querySelector('.b-volrange');
     vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; b.volume = +vr.value; saveVideosBattlePatch('battleAlerts'); };
     card.querySelector('.sa-edit').onclick = () => openBaModal(b);
+    const whBtn = card.querySelector('.sa-wh');
+    if (whBtn) {
+      whBtn.onclick = () => {
+        const text = baStreamdeckWebhookUrl(b.id);
+        const done = () => toast && toast('Webhook copiado — pégalo en Stream Deck', 'ok');
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+        else fallbackCopy(text, done);
+      };
+    }
     card.querySelector('.sa-play').onclick = () => send({ action: 'testVideo', video: { id: b.id, name: b.name, url: b.url, screen: b.screen || 1, volume: b.volume ?? 100 } });
     card.querySelector('.sa-stop').onclick = () => send({ action: 'stopVideo', screen: b.screen || 1 });
     card.querySelector('.sa-del').onclick = async () => {
@@ -3212,6 +3290,15 @@ function setBaTriggerUI(value) {
   $('ba-trigger').value = value;
   $('ba-giftextra').hidden = value !== 'battleGift';
   $('ba-countextra').hidden = !(value === 'battleGift' || value === 'battleGiftAny');
+  const sd = $('ba-streamdeck-extra');
+  if (sd) sd.hidden = value !== 'streamdeck';
+  if (value === 'streamdeck') refreshBaStreamdeckUrl();
+  const min = $('ba-mincount');
+  if (min) {
+    min.placeholder = value === 'battleGift'
+      ? 'Multiplicador mínimo (1 = cualquier guante, 2 = x2+, 3 = solo x3+)'
+      : 'A partir de cuántos envíos (1 = cualquiera, 5 = combo x5)';
+  }
 }
 
 function openBaModal(b = null) {
@@ -3227,12 +3314,27 @@ function openBaModal(b = null) {
   $('ba-vol').value = b?.volume ?? 100;
   fillScreenSelect($('ba-screen'), b?.screen || 1);
   $('ba-fname').textContent = b?.fileName || 'Ningún archivo';
-  $('ba-status').textContent = '';
+  $('ba-status').textContent = trig === 'streamdeck'
+    ? 'Guarda la animación y copia el webhook para Stream Deck.'
+    : '';
   closeVideoLib();
   $('baModal').classList.remove('hidden');
 }
 function closeBaModal() { $('baModal').classList.add('hidden'); }
 $('ba-trigger').addEventListener('change', () => setBaTriggerUI($('ba-trigger').value));
+if ($('ba-streamdeck-copy')) {
+  $('ba-streamdeck-copy').onclick = () => {
+    refreshBaStreamdeckUrl();
+    const text = $('ba-streamdeck-url')?.textContent || '';
+    if (!text || text.includes('…')) {
+      toast && toast('Guarda la animación primero para fijar el ID.', 'warn');
+      return;
+    }
+    const done = () => toast && toast('Webhook copiado — pégalo en Stream Deck', 'ok');
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    else fallbackCopy(text, done);
+  };
+}
 
 $('ba-create').onclick = () => { if (ensureCanAdd('battleAlerts', 'battleAlerts', 'animaciones de batalla')) openBaModal(null); };
 $('ba-cancel').onclick = closeBaModal;
@@ -3260,15 +3362,14 @@ $('ba-save').onclick = () => {
   const name = $('ba-name').value.trim();
   const trig = $('ba-trigger').value;
   if (!name) { $('ba-status').textContent = '⚠️ Escribe un nombre.'; return; }
-  if (trig === 'battleGift' && !$('ba-giftid').value && !$('ba-gift').value.trim()) {
-    $('ba-status').textContent = '⚠️ Elige el regalo de batalla (ej. guante).'; return;
-  }
   if (!baPending?.url) { $('ba-status').textContent = '⚠️ Elige o sube un video.'; return; }
+  const id = ensureBaEditId();
   const data = {
     name,
     trigger: trig,
-    giftName: trig === 'battleGift' ? $('ba-gift').value.trim() : '',
-    giftId: trig === 'battleGift' ? ($('ba-giftid').value || '') : '',
+    // Potenciador guante / Stream Deck: no usan regalo.
+    giftName: '',
+    giftId: '',
     minCount: (trig === 'battleGift' || trig === 'battleGiftAny') ? Math.max(1, +$('ba-mincount').value || 1) : 1,
     url: baPending.url,
     fileName: baPending.name || 'video',
@@ -3276,15 +3377,16 @@ $('ba-save').onclick = () => {
     screen: clampScreenId(+$('ba-screen').value || 1),
   };
   if (!settings.battleAlerts) settings.battleAlerts = [];
-  if (baEditingId) {
-    const b = settings.battleAlerts.find((x) => x.id === baEditingId);
-    if (b) Object.assign(b, data);
-  } else {
-    settings.battleAlerts.push({ id: 'ba' + Date.now(), enabled: true, ...data });
-  }
+  const existing = settings.battleAlerts.find((x) => x.id === id);
+  if (existing) Object.assign(existing, data);
+  else settings.battleAlerts.push({ id, enabled: true, ...data });
+  baEditingId = id;
   saveSettings();
   renderBattleAlerts();
   closeBaModal();
+  if (trig === 'streamdeck') {
+    toast && toast('Guardado. Usa 🔗 en la tarjeta para copiar el webhook a Stream Deck.', 'ok');
+  }
 };
 
 $('ba-master').addEventListener('change', () => {
@@ -20908,6 +21010,19 @@ function updateHomeHeroAvatar({ photo, nickname, username, mode } = {}) {
   }
 }
 
+function syncHomeHeroPlan() {
+  const hero = document.getElementById('home-welcome');
+  const tier = document.getElementById('home-hero-tier');
+  if (!hero) return;
+  const isPremium = !!(window.IS_ADMIN || window.CAPS?.plan === 'premium' || window.MY_PLAN === 'premium');
+  hero.classList.toggle('is-vip', isPremium);
+  hero.classList.toggle('is-free', !isPremium);
+  if (tier) {
+    tier.textContent = isPremium ? 'VIP' : 'Free';
+    tier.className = 'home-hero-tier ' + (isPremium ? 'vip' : 'free');
+  }
+}
+
 function updateHomeWelcome(s) {
   const userEl = document.getElementById('home-hero-user');
   const badge = document.getElementById('home-hero-badge');
@@ -20954,6 +21069,7 @@ function updateHomeWelcome(s) {
     username: user,
     mode,
   });
+  syncHomeHeroPlan();
 
   if (s && s.connected) {
     const started = Number(s.startedAt) || homeLiveStartedAt || Date.now();
@@ -20969,6 +21085,7 @@ function updateHomeWelcome(s) {
 }
 
 function initHomeWelcome() {
+  syncHomeHeroPlan();
   updateHomeWelcome(null);
   const btn = document.getElementById('home-welcome-btn');
   if (btn) {
