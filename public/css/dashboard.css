@@ -4133,6 +4133,45 @@ pre.wh-url { margin: 9px 0 0; }
 }
 .kb-plus { color: var(--mut); font-weight: 800; }
 
+/* ===== Banner StreamDeck (Inicio, arriba de En live) ===== */
+/* Banner StreamDeck: mismo ancho que "En live", altura natural de la imagen */
+.home-streamdeck-banner {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 0 0 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(180, 220, 255, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 14px rgba(120, 200, 255, 0.22),
+    0 0 28px rgba(57, 255, 120, 0.1),
+    0 8px 20px rgba(0, 0, 0, 0.25);
+  background: transparent;
+  line-height: 0;
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter .15s ease, transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  animation: homeFadeUp .55s ease both;
+}
+.home-streamdeck-banner:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  border-color: rgba(200, 235, 255, 0.42);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 0 18px rgba(140, 210, 255, 0.32),
+    0 0 34px rgba(57, 255, 120, 0.16),
+    0 10px 24px rgba(0, 0, 0, 0.3);
+}
+.home-streamdeck-banner:active { transform: translateY(0); }
+.home-streamdeck-banner img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 /* ===== Directorio: lives conectados al panel ===== */
 .panel-lives {
   position: relative; margin-bottom: 14px; padding: 14px 14px 12px;

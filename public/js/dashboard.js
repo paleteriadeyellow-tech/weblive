@@ -1130,22 +1130,44 @@ function mountUserChip() {
 }
 
 let pcInstallUrl = '';
+const STREAMDECK_DOWNLOAD_URL = 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/StreamDeck-Livecoins-Setup-1.0.0.exe';
 async function applyPcInstallButton() {
   const btn = document.getElementById('pc-install-btn');
-  if (!btn) return;
-  if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; return; }
-  try {
-    const r = await fetch('/api/web-install');
-    if (!r.ok) { btn.hidden = true; return; }
-    const d = await r.json();
-    pcInstallUrl = String(d.url || '').trim();
-    btn.hidden = !pcInstallUrl;
-    btn.onclick = () => {
-      if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(pcInstallUrl);
-      else window.open(pcInstallUrl, '_blank', 'noopener');
-    };
-  } catch {
-    btn.hidden = true;
+  const banner = document.getElementById('home-streamdeck-banner');
+  const openInstall = (e) => {
+    if (e) e.preventDefault();
+    if (!pcInstallUrl) {
+      try { toast && toast('Aún no hay enlace de descarga configurado.', 'warn'); } catch {}
+      return;
+    }
+    if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(pcInstallUrl);
+    else window.open(pcInstallUrl, '_blank', 'noopener');
+  };
+  const openStreamdeck = (e) => {
+    if (e) e.preventDefault();
+    if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(STREAMDECK_DOWNLOAD_URL);
+    else window.open(STREAMDECK_DOWNLOAD_URL, '_blank', 'noopener');
+  };
+  if (banner) {
+    banner.setAttribute('href', STREAMDECK_DOWNLOAD_URL);
+    banner.addEventListener('click', openStreamdeck);
+  }
+  if (btn) {
+    if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; }
+    else {
+      try {
+        const r = await fetch('/api/web-install');
+        if (!r.ok) { btn.hidden = true; }
+        else {
+          const d = await r.json();
+          pcInstallUrl = String(d.url || '').trim();
+          btn.hidden = !pcInstallUrl;
+          btn.onclick = openInstall;
+        }
+      } catch {
+        btn.hidden = true;
+      }
+    }
   }
 }
 
