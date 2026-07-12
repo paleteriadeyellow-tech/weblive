@@ -2,19 +2,88 @@
 (function () {
   const $ = (id) => document.getElementById(id);
 
+  function ensureStyles() {
+    if ($('email-acc-glass-css')) return;
+    const style = document.createElement('style');
+    style.id = 'email-acc-glass-css';
+    style.textContent = `
+      #emailVerifyPrompt .email-glass-card,
+      #emailAccountModal .email-glass-card {
+        max-width: 420px;
+        width: 100%;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(18, 24, 38, 0.55);
+        backdrop-filter: blur(18px) saturate(1.35);
+        -webkit-backdrop-filter: blur(18px) saturate(1.35);
+        box-shadow:
+          0 0 0 1px rgba(0, 229, 255, 0.12),
+          0 20px 50px rgba(0, 0, 0, 0.45),
+          inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+      }
+      #emailVerifyPrompt .email-glass-card .modal-head,
+      #emailAccountModal .email-glass-card .modal-head {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+      }
+      #emailAccountModal .email-glass-card input[type="email"],
+      #emailAccountModal .email-glass-card input[type="text"] {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(12, 19, 34, 0.45);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #e8ecf5;
+        padding: 12px 14px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+      #emailAccountModal .email-glass-card input:focus {
+        outline: none;
+        border-color: rgba(0, 229, 255, 0.55);
+        box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.14);
+      }
+      #emailVerifyPrompt .btn.ghost {
+        border-color: rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function dismissKey() {
+    return `livecoins_email_prompt_later_${window.MY_USER || 'default'}`;
+  }
+
+  function wasDismissedLater() {
+    try { return sessionStorage.getItem(dismissKey()) === '1'; } catch { return false; }
+  }
+
+  function markDismissedLater() {
+    try { sessionStorage.setItem(dismissKey(), '1'); } catch {}
+  }
+
+  function clearDismissedLater() {
+    try { sessionStorage.removeItem(dismissKey()); } catch {}
+  }
+
   function ensureModal() {
     if ($('emailAccountModal')) return;
+    ensureStyles();
     const wrap = document.createElement('div');
     wrap.id = 'emailAccountModal';
     wrap.className = 'modal hidden';
     wrap.innerHTML = `
-      <div class="modal-card" style="max-width:420px">
+      <div class="modal-card email-glass-card">
         <div class="modal-head">
           <h3>Correo de recuperación</h3>
           <button type="button" class="modal-x" id="email-acc-close" aria-label="Cerrar">×</button>
         </div>
         <div class="modal-body">
-          <p class="hint" id="email-acc-status" style="margin-top:0">Añade un correo verificado para poder recuperar tu contraseña.</p>
+          <p class="hint" id="email-acc-status" style="margin-top:0">Añade un correo verificado para poder recuperar tu contraseña si la olvidas.</p>
           <label class="ml">Correo</label>
           <input type="email" id="email-acc-input" placeholder="tu@correo.com" autocomplete="email">
           <button type="button" class="btn primary" id="email-acc-send" style="margin-top:12px;width:100%">Enviar código</button>
@@ -33,6 +102,65 @@
     $('email-acc-verify').onclick = verifyCode;
   }
 
+  function ensurePrompt() {
+    if ($('emailVerifyPrompt')) return;
+    ensureStyles();
+    const wrap = document.createElement('div');
+    wrap.id = 'emailVerifyPrompt';
+    wrap.className = 'modal hidden';
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.innerHTML = `
+      <div class="modal-card email-glass-card">
+        <div class="modal-head">
+          <h3>Verifica tu correo</h3>
+        </div>
+        <div class="modal-body">
+          <p class="hint" style="margin-top:0;line-height:1.5">
+            Para poder recuperar tu contraseña si la olvidas, verifica un correo en tu cuenta.
+          </p>
+          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+            <button type="button" class="btn primary" id="email-prompt-verify" style="flex:1;min-width:140px">Verificar</button>
+            <button type="button" class="btn ghost" id="email-prompt-later" style="flex:1;min-width:140px">Después</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    $('email-prompt-verify').onclick = () => {
+      hidePrompt();
+      open();
+    };
+    $('email-prompt-later').onclick = () => {
+      markDismissedLater();
+      hidePrompt();
+    };
+  }
+
+  function showPrompt() {
+    ensurePrompt();
+    const el = $('emailVerifyPrompt');
+    if (el) el.classList.remove('hidden');
+  }
+
+  function hidePrompt() {
+    const el = $('emailVerifyPrompt');
+    if (el) el.classList.add('hidden');
+  }
+
+  function maybeShowVerifyPrompt() {
+    ensurePrompt();
+    if (window.MY_EMAIL_VERIFIED) {
+      hidePrompt();
+      clearDismissedLater();
+      return;
+    }
+    if (wasDismissedLater()) {
+      hidePrompt();
+      return;
+    }
+    showPrompt();
+  }
+
   function setMsg(text, ok) {
     const el = $('email-acc-msg');
     if (!el) return;
@@ -42,6 +170,7 @@
 
   function open() {
     ensureModal();
+    hidePrompt();
     const modal = $('emailAccountModal');
     const st = $('email-acc-status');
     const email = window.MY_EMAIL || '';
@@ -96,9 +225,16 @@
       if (!r.ok) { setMsg(d.error || 'No se pudo verificar.'); return; }
       window.MY_EMAIL = d.email || '';
       window.MY_EMAIL_VERIFIED = true;
+      clearDismissedLater();
+      hidePrompt();
       setMsg(d.message || 'Correo verificado.', true);
       const btn = $('email-acc-btn');
-      if (btn) btn.title = window.MY_EMAIL ? `Email: ${window.MY_EMAIL}` : 'Correo de recuperación';
+      if (btn) {
+        btn.hidden = true;
+        btn.title = window.MY_EMAIL ? `Email: ${window.MY_EMAIL}` : 'Correo de recuperación';
+      }
+      close();
+      try { if (typeof toast === 'function') toast(d.message || 'Correo verificado.', 'ok'); } catch {}
     } catch {
       setMsg('Error de conexión.');
     }
@@ -106,6 +242,7 @@
 
   function wireButton() {
     ensureModal();
+    ensurePrompt();
     let btn = $('email-acc-btn');
     if (!btn) {
       const row = document.querySelector('#user-chip .user-chip-row');
@@ -121,6 +258,8 @@
       else row.appendChild(btn);
     }
     btn.onclick = open;
+    // Solo cuentas sin correo verificado (usuarios antiguos). Las nuevas ya verifican al registrarse.
+    btn.hidden = !!window.MY_EMAIL_VERIFIED;
   }
 
   window.openEmailAccountModal = open;
@@ -130,7 +269,11 @@
     window.MY_EMAIL_VERIFIED = !!me.emailVerified;
     wireButton();
     const btn = $('email-acc-btn');
-    if (btn && me.email) btn.title = `Email: ${me.email}`;
+    if (btn) {
+      btn.hidden = !!me.emailVerified;
+      if (me.email) btn.title = `Email: ${me.email}`;
+    }
+    maybeShowVerifyPrompt();
   };
 
   if (document.readyState === 'loading') {

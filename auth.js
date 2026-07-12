@@ -298,7 +298,8 @@ export function restoreUsersFromBestBackup() {
 }
 
 // Crea un usuario. Devuelve { user } o { error }.
-export function registerUser(username, password) {
+// opts.email: si viene ya verificado (código OK), se guarda como emailVerified.
+export function registerUser(username, password, opts = {}) {
   const uname = normalizeUsername(username);
   if (!/^[a-z0-9_.]{3,20}$/.test(uname)) {
     return { error: 'El usuario debe tener 3-20 caracteres (letras, números, _ o .).' };
@@ -308,6 +309,11 @@ export function registerUser(username, password) {
   }
   if (users.some((u) => u.username === uname)) {
     return { error: 'Ese usuario ya existe.' };
+  }
+  const mail = normalizeEmail(opts.email);
+  if (mail) {
+    if (!mail.includes('@')) return { error: 'Correo inválido.' };
+    if (isEmailTaken(mail)) return { error: 'Ese correo ya está vinculado a otra cuenta.' };
   }
   const { salt, hash } = hashPassword(password);
   const isAdmin = uname === ADMIN_USERNAME;
@@ -325,6 +331,10 @@ export function registerUser(username, password) {
     plan: isAdmin ? 'premium' : 'free', // las cuentas nuevas empiezan en gratis
     premiumUntil: 0,
   };
+  if (mail) {
+    user.email = mail;
+    user.emailVerified = true;
+  }
   users.push(user);
   saveUsers();
   return { user };

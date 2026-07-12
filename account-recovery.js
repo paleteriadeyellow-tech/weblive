@@ -124,6 +124,39 @@ export function mailStatus() {
   return { configured: isMailConfigured() };
 }
 
+/** Registro: enviar código antes de crear la cuenta (aún no hay userId). */
+export async function requestRegisterEmailCode(rawEmail, rateKey) {
+  if (!isMailConfigured()) {
+    return { error: 'El envío de correo no está configurado en el servidor.' };
+  }
+  const email = normalizeEmail(rawEmail);
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: 'Escribe un correo válido.' };
+  }
+  if (isEmailTaken(email)) {
+    return { error: 'Ese correo ya está vinculado a otra cuenta.' };
+  }
+  if (!rateOk(`reg:${rateKey || email}`)) {
+    return { error: 'Demasiadas solicitudes. Espera unos minutos.' };
+  }
+  const code = putCode('reg', email, email);
+  const { subject, text } = mailBody(code, 'link');
+  const sent = await sendMail({ to: email, subject, text });
+  if (!sent.ok) {
+    delete codes[`reg:${email}`];
+    saveCodes();
+    return { error: sent.error || 'No se pudo enviar el correo.' };
+  }
+  return { ok: true, message: 'Te enviamos un código a tu correo. Caduca en 15 minutos.' };
+}
+
+/** Consume el código de registro. Si OK, el email queda listo para guardar verificado. */
+export function consumeRegisterEmailCode(rawEmail, code) {
+  const email = normalizeEmail(rawEmail);
+  if (!email) return { error: 'Escribe un correo válido.' };
+  return consumeCode('reg', email, String(code || '').trim());
+}
+
 /** Cuenta logueada: enviar código para vincular/cambiar email. */
 export async function requestLinkEmailCode(userId, rawEmail, rateKey) {
   if (!isMailConfigured()) {

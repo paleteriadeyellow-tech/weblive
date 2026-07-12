@@ -26,6 +26,7 @@ import {
 import {
   requestLinkEmailCode, verifyLinkEmailCode,
   requestPasswordReset, resetPasswordWithCode, mailStatus,
+  requestRegisterEmailCode, consumeRegisterEmailCode,
 } from './account-recovery.js';
 import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
@@ -633,17 +634,28 @@ app.get('/api/maintenance', (_req, res) => {
   res.json({ enabled: !!m.enabled, message: String(m.message || '') });
 });
 
-app.post('/api/register', express.json(), (req, res) => {
+app.post('/api/register', express.json(), async (req, res) => {
   if (isMaintenanceOn()) {
     return res.status(503).json({ error: 'Sitio en mantenimiento. Solo el administrador puede acceder.' });
   }
-  const { username, password } = req.body || {};
-  const { user, error } = registerUser(username, password);
+  const { username, password, email, code } = req.body || {};
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Verifica tu correo con el código para crear la cuenta.' });
+  }
+  const vr = consumeRegisterEmailCode(email, code);
+  if (vr.error) return res.status(400).json({ error: vr.error });
+  const { user, error } = registerUser(username, password, { email: vr.email || email });
   if (error) return res.status(400).json({ error });
   maybeMigrateLegacy(user);
   const token = createSession(user.id);
   res.setHeader('Set-Cookie', sessionCookie(token));
-  res.json({ ok: true, username: user.username });
+  res.json({ ok: true, username: user.username, email: user.email || null, emailVerified: !!user.emailVerified });
+});
+
+app.post('/api/account/register/request-code', express.json(), async (req, res) => {
+  const r = await requestRegisterEmailCode(req.body?.email, clientRateKey(req));
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, message: r.message });
 });
 
 app.post('/api/login', express.json(), (req, res) => {
