@@ -234,8 +234,9 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     if (!a) return false;
     if (a.cmdsExtra) return true;
     if (!Array.isArray(a.cmds) || !a.cmds.length) return false;
-    if (a.custom && a.cmds.length > 1) return true;
-    return a.cmds.some((x) => x && typeof x === 'object' && (x.cmd != null || x.text != null || x.repeat != null || x.delayEach != null || x.delayBefore != null));
+    return a.cmds.some((x) => x && typeof x === 'object' && (
+      x.repeat != null || x.delayEach != null || x.delayBefore != null || x.delayGroup != null
+    ));
   }
 
   function parseMcCmdEntry(entry, defaults) {
@@ -338,7 +339,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     if (delayGroup) await wait(delayGroup);
     playMcActionSound(a, soundTimes);
 
-    const useCmdPlan = mcActionUsesExtra(a) || (a.custom && Array.isArray(a.cmds) && a.cmds.length);
+    const useCmdPlan = mcActionUsesExtra(a);
     if (useCmdPlan) {
       const defaults = { repeat: a.repeat, delayEach: a.delayEach, delayGroup: a.delayGroup, radius: a.radius };
       const steps = (Array.isArray(a.cmds) ? a.cmds : [])

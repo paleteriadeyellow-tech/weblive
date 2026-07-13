@@ -1130,10 +1130,8 @@ function mountUserChip() {
 }
 
 let pcInstallUrl = '';
-const STREAMDECK_DOWNLOAD_URL = 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/StreamDeck-Livecoins-Setup-1.0.0.exe';
 async function applyPcInstallButton() {
   const btn = document.getElementById('pc-install-btn');
-  const banner = document.getElementById('home-streamdeck-banner');
   const openInstall = (e) => {
     if (e) e.preventDefault();
     if (!pcInstallUrl) {
@@ -1143,15 +1141,6 @@ async function applyPcInstallButton() {
     if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(pcInstallUrl);
     else window.open(pcInstallUrl, '_blank', 'noopener');
   };
-  const openStreamdeck = (e) => {
-    if (e) e.preventDefault();
-    if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(STREAMDECK_DOWNLOAD_URL);
-    else window.open(STREAMDECK_DOWNLOAD_URL, '_blank', 'noopener');
-  };
-  if (banner) {
-    banner.setAttribute('href', STREAMDECK_DOWNLOAD_URL);
-    banner.addEventListener('click', openStreamdeck);
-  }
   if (btn) {
     if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; }
     else {
@@ -10135,6 +10124,11 @@ function setupMcActionsUI() {
       renderMccLines(cur);
     };
   }
+  const mGallery = document.getElementById('mcc-gallery');
+  if (mGallery && !mGallery._wired) {
+    mGallery._wired = true;
+    mGallery.onclick = () => openMccGalleryPicker();
+  }
   const mVarsBtn = document.getElementById('mcc-vars-btn');
   if (mVarsBtn && !mVarsBtn._wired) {
     mVarsBtn._wired = true;
@@ -10236,22 +10230,23 @@ function closeMccVarsPop() {
 }
 function openMcCmdModal(a, game) {
   closeMccVarsPop();
+  closeMccGalleryPicker();
   mccGame = game || (a && a.game) || 'minecraft';
   mccEditingUid = a && a.uid ? a.uid : null;
   const gameLabel = (MC_GAME_MAP[mccGame] || MC_GAME_MAP.minecraft).label;
   document.getElementById('mcc-title').textContent = a ? 'Editar comando personalizado' : ('Comando personalizado de ' + gameLabel);
   document.getElementById('mcc-name').value = a?.name || '';
   document.getElementById('mcc-desc').value = a?.desc || '';
-  document.getElementById('mcc-repeat').value = a?.repeat || 1;
-  document.getElementById('mcc-delayeach').value = a?.delayEach || 0;
-  document.getElementById('mcc-delaygroup').value = a?.delayGroup || 0;
+  document.getElementById('mcc-repeat').value = a?.repeat != null ? a.repeat : 1;
+  document.getElementById('mcc-delayeach').value = a?.delayEach != null ? a.delayEach : 100;
+  document.getElementById('mcc-delaygroup').value = a?.delayGroup != null ? a.delayGroup : (a?.delayBefore != null ? a.delayBefore : 0);
   document.getElementById('mcc-radius').value = a?.radius != null ? a.radius : 3;
   const multEl = document.getElementById('mcc-mult');
   if (multEl) multEl.checked = a ? a.giftMult !== false : true;
   document.getElementById('mcc-random').checked = !!a?.random;
   const extraOn = a
-    ? !!(a.cmdsExtra || (Array.isArray(a.cmds) && a.cmds.some((x) => x && typeof x === 'object')))
-    : true;
+    ? !!(a.cmdsExtra || (Array.isArray(a.cmds) && a.cmds.some((x) => x && typeof x === 'object' && (x.repeat != null || x.delayEach != null || x.delayBefore != null))))
+    : false;
   document.getElementById('mcc-extra').checked = extraOn;
   document.getElementById('mcc-status').textContent = '';
   setMccImage(a?.image || '');
@@ -10261,6 +10256,7 @@ function openMcCmdModal(a, game) {
 }
 function closeMcCmdModal() {
   closeMccVarsPop();
+  closeMccGalleryPicker();
   document.getElementById('mcCmdModal').classList.add('hidden');
 }
 
@@ -10277,7 +10273,6 @@ function mccDefaultEntry() {
 function normalizeMccEntries(raw, action) {
   const extra = action?.cmdsExtra || isMccExtraMode();
   const defs = {
-    repeat: action?.repeat ?? (Math.max(1, parseInt(document.getElementById('mcc-repeat')?.value, 10) || 1)),
     radius: action?.radius ?? (Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3)),
   };
   if (!Array.isArray(raw) || !raw.length) return extra ? [mccDefaultEntry()] : [''];
@@ -10286,7 +10281,7 @@ function normalizeMccEntries(raw, action) {
     const o = (e && typeof e === 'object') ? e : { cmd: String(e || '') };
     return {
       cmd: o.cmd || o.text || '',
-      repeat: o.repeat != null ? o.repeat : defs.repeat,
+      repeat: o.repeat != null ? o.repeat : 1,
       delayEach: o.delayEach != null ? o.delayEach : 100,
       delayBefore: o.delayBefore != null ? o.delayBefore : (o.delayGroup != null ? o.delayGroup : 0),
       radius: o.radius != null ? o.radius : defs.radius,
@@ -10312,14 +10307,15 @@ function renderMccLines(lines) {
       <div class="mcc-line-times">
         <label class="mcc-time-field"><span class="mcc-time-lbl">Repetición</span><input type="number" class="mcc-x-repeat" min="1" value="${Math.max(1, parseInt(l.repeat, 10) || 1)}"></label>
         <label class="mcc-time-field"><span class="mcc-time-lbl">Retraso (ms)</span><input type="number" class="mcc-x-delaybefore" min="0" value="${Math.max(0, parseInt(l.delayBefore, 10) || 0)}" title="Milisegundos desde el inicio de la acción hasta el primer spawn de este comando"></label>
-        <label class="mcc-time-field"><span class="mcc-time-lbl">Intervalo (ms)</span><input type="number" class="mcc-x-delayeach" min="0" value="${Math.max(0, parseInt(l.delayEach, 10) || 100)}" title="Pausa entre cada repetición del mismo comando (sumada al retraso)"></label>
+        <label class="mcc-time-field"><span class="mcc-time-lbl">Intervalo (ms)</span><input type="number" class="mcc-x-delayeach" min="0" value="${Math.max(0, parseInt(l.delayEach, 10) || 100)}" title="Pausa entre cada repetición del mismo comando"></label>
       </div>` : '';
     return `
     <div class="mcc-line">
       <div class="mcc-line-head">
         <span class="mcc-line-num">#${i + 1} Comando</span>
         <div class="mcc-line-btns">
-          <button type="button" class="mcc-play" data-i="${i}" title="Probar en el juego">▶</button>
+          <button type="button" class="mcc-play mcc-play-once" data-i="${i}" data-mode="once" title="Probar 1 vez (solo sintaxis)">▶</button>
+          <button type="button" class="mcc-play mcc-play-timed" data-i="${i}" data-mode="timed" title="Probar con tiempos (repetición / retraso / intervalo)">▶</button>
           <button type="button" class="mcc-line-del" data-i="${i}" title="Quitar">✕</button>
         </div>
       </div>
@@ -10332,33 +10328,111 @@ function renderMccLines(lines) {
     cur.splice(+b.dataset.i, 1);
     renderMccLines(cur.length ? cur : (extra ? [mccDefaultEntry()] : ['']));
   });
-  box.querySelectorAll('.mcc-play').forEach((b) => b.onclick = () => testMccLine(+b.dataset.i));
+  box.querySelectorAll('.mcc-play').forEach((b) => b.onclick = () => testMccLine(+b.dataset.i, b.dataset.mode || 'once'));
 }
-function testMccLine(i) {
+function testMccLine(i, mode = 'once') {
   if (ws?.readyState !== WebSocket.OPEN) {
     toast && toast('Sin conexión al servidor. Espera a que el panel conecte.', 'warn');
     return;
   }
   const extra = isMccExtraMode();
+  const timed = mode === 'timed';
   const entries = collectMccEntries();
   const raw = entries[i];
   const cmd = extra ? (raw?.cmd || '').trim() : String(raw || '').trim();
   if (!cmd) { toast && toast('Escribe un comando antes de probar.', 'warn'); return; }
-  const entry = extra ? {
-    cmd,
-    repeat: Math.max(1, parseInt(raw.repeat, 10) || 1),
-    delayEach: Math.max(0, parseInt(raw.delayEach, 10) || 0),
-    delayBefore: Math.max(0, parseInt(raw.delayBefore, 10) || 0),
-    radius: Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3),
-  } : { cmd };
+  const globalRepeat = Math.max(1, parseInt(document.getElementById('mcc-repeat')?.value, 10) || 1);
+  const globalDelayEach = Math.max(0, parseInt(document.getElementById('mcc-delayeach')?.value, 10) || 0);
+  const globalDelayGroup = Math.max(0, parseInt(document.getElementById('mcc-delaygroup')?.value, 10) || 0);
+  const radius = Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3);
+  let entry;
+  if (!timed) {
+    entry = { cmd, repeat: 1, delayEach: 0, delayBefore: 0, radius };
+  } else if (extra) {
+    entry = {
+      cmd,
+      repeat: Math.max(1, parseInt(raw.repeat, 10) || 1),
+      delayEach: Math.max(0, parseInt(raw.delayEach, 10) || 0),
+      delayBefore: Math.max(0, parseInt(raw.delayBefore, 10) || 0),
+      radius,
+    };
+  } else {
+    entry = { cmd, repeat: globalRepeat, delayEach: globalDelayEach, delayBefore: globalDelayGroup, radius };
+  }
   send({
     action: 'testMcDraft',
     entry,
-    radius: Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3),
-    cmdsExtra: extra,
-    giftMult: document.getElementById('mcc-mult')?.checked !== false,
+    testMode: timed ? 'timed' : 'once',
+    radius,
+    cmdsExtra: timed && extra,
+    repeat: timed ? (extra ? 1 : globalRepeat) : 1,
+    delayEach: timed && !extra ? globalDelayEach : 0,
+    delayGroup: timed && !extra ? globalDelayGroup : 0,
+    giftMult: false,
   });
-  toast && toast('Enviando comando de prueba al juego…', 'ok');
+  toast && toast(timed ? 'Prueba con tiempos enviada…' : 'Prueba rápida (1 vez) enviada…', 'ok');
+}
+function openMccGalleryPicker() {
+  const modal = document.getElementById('mcCmdModal');
+  if (!modal) return;
+  let overlay = document.getElementById('mcc-gallery-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'mcc-gallery-overlay';
+    overlay.className = 'mcc-gallery-overlay hidden';
+    overlay.innerHTML = `
+      <div class="mcc-gallery-pop" role="dialog" aria-labelledby="mcc-gallery-title">
+        <div class="mcc-gallery-head">
+          <h3 id="mcc-gallery-title">Galería de comandos</h3>
+          <button type="button" class="mcc-vars-close" id="mcc-gallery-close" aria-label="Cerrar">✕</button>
+        </div>
+        <input type="search" class="mcc-gallery-search" id="mcc-gallery-search" placeholder="Buscar…">
+        <div class="mcc-gallery-list" id="mcc-gallery-list"></div>
+      </div>`;
+    modal.querySelector('.modal-box')?.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMccGalleryPicker(); });
+    overlay.querySelector('.mcc-gallery-pop')?.addEventListener('click', (e) => e.stopPropagation());
+    document.getElementById('mcc-gallery-close').onclick = () => closeMccGalleryPicker();
+    document.getElementById('mcc-gallery-search').oninput = (e) => renderMccGalleryList(e.target.value);
+  }
+  document.getElementById('mcc-gallery-search').value = '';
+  renderMccGalleryList('');
+  overlay.classList.remove('hidden');
+}
+function closeMccGalleryPicker() {
+  document.getElementById('mcc-gallery-overlay')?.classList.add('hidden');
+}
+function renderMccGalleryList(filter) {
+  const list = document.getElementById('mcc-gallery-list');
+  if (!list) return;
+  const f = String(filter || '').trim().toLowerCase();
+  const items = (MC_CATALOG || []).filter((c) => {
+    if (!f) return true;
+    return c.name.toLowerCase().includes(f) || (c.desc || '').toLowerCase().includes(f) || (c.cmd || '').toLowerCase().includes(f);
+  });
+  list.innerHTML = items.length ? items.map((c) => `
+    <button type="button" class="mcc-gallery-item" data-id="${esc(c.id)}">
+      <strong>${esc(c.name)}</strong>
+      <span>${esc(c.desc || '')}</span>
+    </button>`).join('') : '<p class="hint">Sin resultados</p>';
+  list.querySelectorAll('.mcc-gallery-item').forEach((btn) => {
+    btn.onclick = () => {
+      const cat = MC_CATALOG.find((x) => x.id === btn.dataset.id);
+      if (!cat?.cmd) return;
+      const cur = collectMccEntries();
+      if (cur.length >= MCC_MAX_CMDS) { toast && toast(`Máximo ${MCC_MAX_CMDS} comandos.`, 'warn'); return; }
+      if (isMccExtraMode()) {
+        if (cur.length && !(cur[cur.length - 1]?.cmd || '').trim()) cur.pop();
+        cur.push({ ...mccDefaultEntry(), cmd: cat.cmd });
+      } else {
+        if (cur.length && !String(cur[cur.length - 1] || '').trim()) cur.pop();
+        cur.push(cat.cmd);
+      }
+      renderMccLines(cur);
+      closeMccGalleryPicker();
+      toast && toast(`Añadido: ${cat.name}`, 'ok');
+    };
+  });
 }
 function collectMccEntries() {
   const extra = isMccExtraMode();
@@ -10393,13 +10467,15 @@ function saveMcCmd() {
     cmds = entries.map((s) => String(s).trim()).filter(Boolean);
   }
   if (!cmds.length) { document.getElementById('mcc-status').textContent = '⚠️ Escribe al menos un comando.'; return; }
+  const delayGroup = Math.max(0, parseInt(document.getElementById('mcc-delaygroup').value, 10) || 0);
   const payload = {
     name, desc: document.getElementById('mcc-desc').value.trim(),
     cmds,
     cmdsExtra: extra,
     repeat: Math.max(1, parseInt(document.getElementById('mcc-repeat').value, 10) || 1),
     delayEach: Math.max(0, parseInt(document.getElementById('mcc-delayeach').value, 10) || 0),
-    delayGroup: Math.max(0, parseInt(document.getElementById('mcc-delaygroup').value, 10) || 0),
+    delayGroup,
+    delayBefore: delayGroup,
     radius: Math.max(0, parseInt(document.getElementById('mcc-radius').value, 10) || 0),
     random: document.getElementById('mcc-random').checked,
     image: mccImage || '',

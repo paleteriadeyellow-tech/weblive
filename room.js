@@ -3352,8 +3352,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!a) return false;
     if (a.cmdsExtra) return true;
     if (!Array.isArray(a.cmds) || !a.cmds.length) return false;
-    if (a.custom && a.cmds.length > 1) return true;
-    return a.cmds.some((x) => x && typeof x === 'object' && (x.cmd != null || x.text != null || x.repeat != null || x.delayEach != null || x.delayBefore != null));
+    return a.cmds.some((x) => x && typeof x === 'object' && (
+      x.repeat != null || x.delayEach != null || x.delayBefore != null || x.delayGroup != null
+    ));
   }
 
   function parseMcCmdEntry(entry, defaults) {
@@ -3475,7 +3476,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!(await mcWait(delayGroup, token))) return;
     playMcActionSound(a, soundTimes);
 
-    const useCmdPlan = mcActionUsesExtra(a) || (a.custom && Array.isArray(a.cmds) && a.cmds.length);
+    const useCmdPlan = mcActionUsesExtra(a);
     if (useCmdPlan) {
       return runMcActionExtra(a, vars, sendCmds, logMcFail, { skipDelayGroup: true, token });
     }
@@ -5295,16 +5296,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'testMcDraft': {
         const entry = data.entry;
         if (!entry || !mcCmdText(entry)) break;
+        const once = String(data.testMode || '') !== 'timed';
+        const useExtra = !once && !!data.cmdsExtra;
         const draft = {
-          name: 'Prueba modal',
+          name: once ? 'Prueba rápida' : 'Prueba con tiempos',
           custom: true,
-          cmdsExtra: !!data.cmdsExtra,
-          cmds: [entry],
-          repeat: 1,
+          cmdsExtra: useExtra,
+          cmds: useExtra ? [entry] : [mcCmdText(entry)],
+          repeat: once ? 1 : Math.max(1, parseInt(data.repeat, 10) || 1),
+          delayEach: once ? 0 : Math.max(0, parseInt(data.delayEach, 10) || 0),
+          delayGroup: once ? 0 : Math.max(0, parseInt(data.delayGroup, 10) || 0),
+          delayBefore: once ? 0 : Math.max(0, parseInt(data.delayGroup, 10) || 0),
           random: false,
           radius: data.radius != null ? data.radius : 3,
+          giftMult: false,
         };
-        if (data.giftMult === false) draft.giftMult = false;
+        if (useExtra) {
+          draft.repeat = 1;
+          draft.delayGroup = 0;
+          draft.delayBefore = 0;
+          draft.delayEach = 0;
+        }
         scheduleMcAction(() => runMcAction(draft, buildMcVars({ giftName: 'Prueba', giftId: '5655', diamonds: 1, repeatCount: 1, comment: 'Prueba' }, { nickname: 'Prueba', uniqueId: 'prueba' })));
         break;
       }

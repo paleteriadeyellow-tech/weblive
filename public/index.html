@@ -172,10 +172,6 @@
             </div>
           </div>
 
-          <a class="home-streamdeck-banner" id="home-streamdeck-banner" href="https://github.com/riusaki1995/.exe/releases/download/v1.0.79/StreamDeck-Livecoins-Setup-1.0.0.exe" target="_blank" rel="noopener" aria-label="Descargar StreamDeck Livecoins">
-            <img src="/img/streamdeck-banner.png?v=7" alt="StreamDeck Livecoins — descarga" width="1024" height="227" loading="lazy" decoding="async">
-          </a>
-
           <section class="panel-lives" id="panel-lives" hidden>
             <div class="panel-lives-head">
               <div class="panel-lives-head-main">
@@ -2867,7 +2863,7 @@
                 <div class="mcc-mode-row">
                   <label class="mcc-check"><input type="checkbox" id="mcc-mult" checked> <span><b>Multiplicador de repeticiones</b> — multiplica por la cantidad del regalo (ej. 5 rosas = ×5).</span></label>
                   <label class="mcc-check"><input type="checkbox" id="mcc-random"> <span><b>Comando aleatorio</b> — elige una línea al azar en vez de ejecutar todas.</span></label>
-                  <label class="mcc-check"><input type="checkbox" id="mcc-extra" checked> <span><b>Extra</b> — cada comando con Repetición, Retraso (desde el inicio) e Intervalo.</span></label>
+                  <label class="mcc-check"><input type="checkbox" id="mcc-extra"> <span><b>Extra</b> — cada comando con su propia Repetición, Retraso e Intervalo.</span></label>
                 </div>
                 <div class="mcc-global-radius" id="mcc-radius-row">
                   <label class="mcc-flabel">Radio <code>{radius}</code></label>
@@ -2875,11 +2871,12 @@
                   <small class="mcc-fhint">Dispersión para <code>{radius}</code> y <code>{random:-N N}</code>.</small>
                 </div>
                 <input type="hidden" id="mcc-repeat" value="1">
-                <input type="hidden" id="mcc-delayeach" value="0">
+                <input type="hidden" id="mcc-delayeach" value="100">
                 <input type="hidden" id="mcc-delaygroup" value="0">
                 <div id="mcc-cmds"></div>
                 <div class="mcc-cmd-foot">
                   <button type="button" class="btn ghost mcc-addbtn" id="mcc-add">+ Añadir comando</button>
+                  <button type="button" class="btn ghost mcc-gallerybtn" id="mcc-gallery">Galería</button>
                   <small class="mcc-fhint mcc-pro-hint">Hasta 15 comandos en cadena por acción.</small>
                 </div>
               </div>
