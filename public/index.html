@@ -172,6 +172,10 @@
             </div>
           </div>
 
+          <a class="home-streamdeck-banner" id="home-streamdeck-banner" href="https://github.com/riusaki1995/.exe/releases/download/v1.0.79/StreamDeck-Livecoins-Setup-1.0.0.exe" target="_blank" rel="noopener" aria-label="Descargar StreamDeck Livecoins">
+            <img src="/img/streamdeck-banner.png?v=7" alt="StreamDeck Livecoins — descarga" width="1024" height="227" loading="lazy" decoding="async">
+          </a>
+
           <section class="panel-lives" id="panel-lives" hidden>
             <div class="panel-lives-head">
               <div class="panel-lives-head-main">
@@ -621,6 +625,7 @@
                   <option value="share">Compartida</option>
                   <option value="subscribe">Nuevo suscriptor</option>
                   <option value="superFan">Super fan</option>
+                  <option value="superFanJoin">Super fan entró</option>
                   <option value="follow">Nuevo seguidor</option>
                   <option value="levelUp">Subió de nivel de miembro</option>
                   <option value="emote">Sticker / emote (ID)</option>
@@ -656,7 +661,7 @@
                   <input type="hidden" id="sa-emoteid">
                 </div>
                 <div id="sa-eventdelayextra" class="gift-extra one" hidden>
-                  <label class="ml" for="sa-eventdelay">SEGUNDOS DE ESPERA por usuario (mismo seguidor no repite hasta pasar este tiempo)</label>
+                  <label class="ml" for="sa-eventdelay" id="sa-eventdelay-label">SEGUNDOS DE ESPERA por usuario (0 = sin límite)</label>
                   <input type="number" id="sa-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
                 </div>
               </div>
@@ -983,6 +988,7 @@
                   <option value="share">Compartida</option>
                   <option value="subscribe">Nuevo suscriptor</option>
                   <option value="superFan">Super fan</option>
+                  <option value="superFanJoin">Super fan entró</option>
                   <option value="follow">Nuevo seguidor</option>
                   <option value="levelUp">Subió de nivel de miembro</option>
                   <option value="emote">Sticker / emote (ID)</option>
@@ -1011,6 +1017,10 @@
                 <div id="acc-emoteextra" class="gift-extra one" hidden>
                   <button type="button" class="btn ghost gift-pick-btn" id="acc-emotepick">🙂 Elegir sticker…</button>
                   <input type="hidden" id="acc-emoteid">
+                </div>
+                <div id="acc-eventdelayextra" class="gift-extra one" hidden>
+                  <label class="ml" for="acc-eventdelay">SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin límite)</label>
+                  <input type="number" id="acc-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
                 </div>
                 <div id="acc-cmdextra" class="gift-extra one" hidden>
                   <input type="text" id="acc-command" placeholder="Comando exacto (ej. !video)">
@@ -2733,6 +2743,7 @@
                   <option value="share">Compartida</option>
                   <option value="subscribe">Nuevo suscriptor</option>
                   <option value="superFan">Super fan</option>
+                  <option value="superFanJoin">Super fan entró</option>
                   <option value="follow">Nuevo seguidor</option>
                   <!-- Oculto: TikTok a menudo no dispara MEMBER y confunde (usuarios anotados sin alerta) -->
                   <option value="userJoin" hidden disabled>Entró un usuario específico</option>
@@ -2779,6 +2790,10 @@
                 <div id="vid-emoteextra" class="gift-extra one" hidden>
                   <button type="button" class="btn ghost gift-pick-btn" id="vid-emotepick">🙂 Elegir sticker…</button>
                   <input type="hidden" id="vid-emoteid">
+                </div>
+                <div id="vid-eventdelayextra" class="gift-extra one" hidden>
+                  <label class="ml" for="vid-eventdelay">SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin límite)</label>
+                  <input type="number" id="vid-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
                 </div>
               </div>
 
@@ -2933,6 +2948,7 @@
                   <option value="battleGift">🥊 Potenciador guante / multiplicador (automático)</option>
                   <option value="battleGiftAny">🎁 Cualquier regalo en la batalla</option>
                   <option value="battleStart">🟢 Inicio de la batalla</option>
+                  <option value="battleLast10">⏱ Quedan 10 segundos</option>
                   <option value="battleEnd">🔴 Fin de la batalla</option>
                   <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
                 </select>
@@ -4100,7 +4116,7 @@
               <div class="field" id="tts-tiktok-voices-wrap">
                 <label>Voces TikTok <span style="font-weight:700;color:#fbbf24;">· Disney / Personajes</span></label>
                 <select id="tts-tiktok-voice">
-                  <option value="">— Usar voz del sistema —</option>
+                  <option value="">— Usar voz del sistema / idioma —</option>
                   <optgroup label="Disney / Personajes (habla en inglés)">
                     <option value="en_us_ghostface">Ghost Face</option>
                     <option value="en_us_chewbacca">Chewbacca</option>
@@ -4320,6 +4336,7 @@
                   <select id="tts-uv-engine">
                     <option value="tiktok">TikTok (Server)</option>
                     <option value="disney">Disney / Personajes</option>
+                    <option value="edge">Microsoft Edge (Colombia)</option>
                     <option value="system">Sistema (navegador)</option>
                   </select>
                 </div>

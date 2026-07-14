@@ -188,6 +188,9 @@ function normalizeRelayMedia(s) {
   for (const b of (s.battleAlerts || [])) if (b.url) b.url = fix(b.url);
   for (const a of (s.actions || [])) if (a.sound) a.sound = fix(a.sound);
   for (const a of (s.mcActions || [])) if (a.sound) a.sound = fix(a.sound);
+  for (const key of ['bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
+    for (const a of (s[key] || [])) if (a && a.sound) a.sound = fix(a.sound);
+  }
 }
 
 function relativizeMediaUrlForSave(u) {
@@ -207,6 +210,9 @@ function stripSettingsMediaForSave(s) {
   for (const b of (s.battleAlerts || [])) if (b.url) b.url = rel(b.url);
   for (const a of (s.actions || [])) if (a.sound) a.sound = rel(a.sound);
   for (const a of (s.mcActions || [])) if (a.sound) a.sound = rel(a.sound);
+  for (const key of ['bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
+    for (const a of (s[key] || [])) if (a && a.sound) a.sound = rel(a.sound);
+  }
 }
 
 function buildWsUrl() {
@@ -524,13 +530,8 @@ function applyCaps() {
   document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
     updateGameCardLock(card);
   });
-  // Voces TikTok/Disney en el TTS
-  const tkRow = document.getElementById('tts-tiktok-voices-wrap');
-  if (tkRow) tkRow.style.display = capFeature('tts_tiktok') ? '' : 'none';
-  if (!capFeature('tts_tiktok')) {
-    const sel = document.getElementById('tts-tiktok-voice');
-    if (sel && sel.value) { sel.value = ''; }
-  }
+  // Voces TTS de servidor: Edge Colombia siempre; TikTok/Disney según plan.
+  syncTtsServerVoicePlanUi();
   // Avisos de límite + botones de crear
   applyLimitUI();
   renderPlanView();
@@ -1130,8 +1131,10 @@ function mountUserChip() {
 }
 
 let pcInstallUrl = '';
+const STREAMDECK_DOWNLOAD_URL = 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/StreamDeck-Livecoins-Setup-1.0.0.exe';
 async function applyPcInstallButton() {
   const btn = document.getElementById('pc-install-btn');
+  const banner = document.getElementById('home-streamdeck-banner');
   const openInstall = (e) => {
     if (e) e.preventDefault();
     if (!pcInstallUrl) {
@@ -1141,6 +1144,15 @@ async function applyPcInstallButton() {
     if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(pcInstallUrl);
     else window.open(pcInstallUrl, '_blank', 'noopener');
   };
+  const openStreamdeck = (e) => {
+    if (e) e.preventDefault();
+    if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(STREAMDECK_DOWNLOAD_URL);
+    else window.open(STREAMDECK_DOWNLOAD_URL, '_blank', 'noopener');
+  };
+  if (banner) {
+    banner.setAttribute('href', STREAMDECK_DOWNLOAD_URL);
+    banner.addEventListener('click', openStreamdeck);
+  }
   if (btn) {
     if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; }
     else {
@@ -1207,6 +1219,7 @@ function handle(type, p) {
     case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); break;
     case 'subscribe': break;
     case 'superfan': break;
+    case 'superfanjoin': break;
     case 'log':
       addEvent(p.text, p.level === 'ok' ? 'ok' : p.level === 'error' ? 'error' : '');
       break;
@@ -1432,6 +1445,12 @@ async function loadAdminUsers() {
         : '<span class="badge off">Pendiente</span>';
       const adminTag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
       const plan = u.isAdmin ? '<span class="badge prem">⭐ Premium</span>' : planBadge(u);
+      const gamesOn = u.gamesEnabled !== false;
+      const gamesBadge = u.isAdmin
+        ? ''
+        : (gamesOn
+          ? '<span class="badge on" title="Minijuegos activos">🎮 On</span>'
+          : '<span class="badge off" title="Minijuegos desactivados">🎮 Off</span>');
       const action = u.isAdmin
         ? '<span class="tts-sub">—</span>'
         : `<div class="admin-actions">
@@ -1446,6 +1465,9 @@ async function loadAdminUsers() {
               ${u.plan === 'premium' ? `<button class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
             </div>
             </div>
+            <div class="admin-actions-row">
+              <button class="btn tiny games-toggle" data-id="${u.id}" data-enabled="${gamesOn ? '0' : '1'}">${gamesOn ? 'Desactivar juegos' : 'Activar juegos'}</button>
+            </div>
             <button class="btn tiny admin-delete" data-id="${u.id}" data-username="${u.username.replace(/"/g, '&quot;')}">Eliminar cuenta</button>
           </div>`;
       return `<tr>
@@ -1456,11 +1478,12 @@ async function loadAdminUsers() {
         <td>${live}</td>
         <td>${onlineCell}</td>
         <td>${estado}</td>
-        <td>${plan}</td>
+        <td>${plan} ${gamesBadge}</td>
         <td>${action}</td>
       </tr>`;
     }).join('');
     tbody.querySelectorAll('button[data-id]').forEach((b) => {
+      if (b.classList.contains('prem-give') || b.classList.contains('prem-fixed') || b.classList.contains('prem-remove') || b.classList.contains('admin-delete') || b.classList.contains('games-toggle')) return;
       b.onclick = async () => {
         b.disabled = true;
         try {
@@ -1489,6 +1512,9 @@ async function loadAdminUsers() {
     // Quitar Premium (volver a Gratis)
     tbody.querySelectorAll('.prem-remove').forEach((b) => {
       b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Premium retirado. Ahora es Gratis.');
+    });
+    tbody.querySelectorAll('.games-toggle').forEach((b) => {
+      b.onclick = () => setUserGamesReq(b.dataset.id, b.dataset.enabled === '1');
     });
     tbody.querySelectorAll('.admin-delete').forEach((b) => {
       b.onclick = () => deleteUserReq(b.dataset.id, b.dataset.username || '');
@@ -1531,6 +1557,19 @@ async function setUserPlanReq(id, plan, days, okMsg) {
     });
     if (r.ok) toast(okMsg || 'Plan actualizado.');
     else toast('No se pudo cambiar el plan.', 'warn');
+  } catch { toast('Error de conexión.', 'warn'); }
+  loadAdminUsers();
+}
+
+async function setUserGamesReq(id, enabled) {
+  try {
+    const r = await fetch('/api/admin/usergames', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, enabled: !!enabled }),
+    });
+    if (r.ok) toast(enabled ? 'Juegos activados para esa cuenta.' : 'Juegos desactivados para esa cuenta.');
+    else toast('No se pudo cambiar los juegos.', 'warn');
   } catch { toast('Error de conexión.', 'warn'); }
   loadAdminUsers();
 }
@@ -2704,25 +2743,6 @@ function baStreamdeckWebhookUrl(id) {
   // 127.0.0.1: Stream Deck en Windows a veces falla con "localhost" (IPv6).
   return `http://127.0.0.1:3199/execute_video?id=${encodeURIComponent(rid)}`;
 }
-
-function ensureAccEditId() {
-  if (accEditingId) return accEditingId;
-  accEditingId = 'act' + Date.now();
-  return accEditingId;
-}
-
-function refreshSaStreamdeckUrl() {
-  const code = $('sa-streamdeck-url');
-  if (!code) return;
-  code.textContent = streamdeckSoundWebhookUrl(ensureSaEditId());
-}
-
-function ensureSaEditId() {
-  if (editingId) return editingId;
-  editingId = 'sa' + Date.now();
-  return editingId;
-}
-
 function streamdeckSoundWebhookUrl(id) {
   const rid = String(id || '').trim() || '…';
   return `http://127.0.0.1:3199/execute_sound?id=${encodeURIComponent(rid)}`;
@@ -3030,6 +3050,8 @@ function setVidEventUI(value) {
   $('vid-likeuserextra').hidden = value !== 'like';
   $('vid-likeextra').hidden = value !== 'likeGlobal';
   $('vid-emoteextra').hidden = value !== 'emote';
+  const vidDelay = $('vid-eventdelayextra');
+  if (vidDelay) vidDelay.hidden = value !== 'emote';
   $('vid-cmdextra').hidden = value !== 'chatCommand';
   $('vid-userextra').hidden = value !== 'chatCommand' && value !== 'firstMessage' && value !== 'userJoin';
   $('vid-joindelayextra').hidden = value !== 'userJoin';
@@ -3065,6 +3087,7 @@ function openVidModal(v = null) {
   $('vid-likegoal').value = v?.likeGoal || 100;
   $('vid-emoteid').value = v?.emoteId || '';
   updateEmotePickBtn('vid');
+  if ($('vid-eventdelay')) $('vid-eventdelay').value = v?.eventDelay ?? 30;
   $('vid-command').value = v?.command || '';
   $('vid-user').value = v?.user || '';
   $('vid-joindelay').value = v?.joinDelay ?? 30;
@@ -3096,7 +3119,6 @@ if ($('vid-streamdeck-copy')) {
     else fallbackCopy(text, done);
   };
 }
-
 
 // Tras subir, el servidor puede convertir (MOV, MP4 HEVC/H.265, etc.).
 function uploadNeedsVideoConvert(file) {
@@ -3297,6 +3319,7 @@ $('vid-save').onclick = async () => {
     likeGoal: ev === 'likeGlobal' ? Math.max(1, +$('vid-likegoal').value || 100) : 0,
     emoteId: ev === 'emote' ? $('vid-emoteid').value.trim() : '',
     emoteImage: ev === 'emote' ? emoteImgById($('vid-emoteid').value.trim()) : '',
+    eventDelay: ev === 'emote' ? Math.max(0, parseInt($('vid-eventdelay')?.value, 10) || 0) : 0,
     command: ev === 'chatCommand' ? $('vid-command').value.trim() : '',
     user: (ev === 'chatCommand' || ev === 'firstMessage' || ev === 'userJoin') ? $('vid-user').value.trim().replace(/^@/, '') : '',
     joinDelay: ev === 'userJoin' ? Math.max(0, parseInt($('vid-joindelay').value, 10) || 0) : 0,
@@ -3333,6 +3356,7 @@ const BA_TRIGGER_LABELS = {
   battleGift: '🥊 Potenciador guante',
   battleGiftAny: '🎁 Cualquier regalo',
   battleStart: '🟢 Inicio batalla',
+  battleLast10: '⏱ Quedan 10 segundos',
   battleEnd: '🔴 Fin batalla',
   streamdeck: '🎛️ Stream Deck',
 };
@@ -3347,8 +3371,6 @@ function ensureBaEditId() {
   baEditingId = 'ba' + Date.now();
   return baEditingId;
 }
-
-
 
 function refreshBaStreamdeckUrl() {
   const code = $('ba-streamdeck-url');
@@ -3656,6 +3678,7 @@ const EVENT_LABELS = {
   share: '🔁 Compartida',
   subscribe: '⭐ Nuevo suscriptor',
   superFan: '🌟 Super fan',
+  superFanJoin: '🌟 Super fan entró',
   follow: '➕ Nuevo seguidor',
   levelUp: '⬆️ Subió de nivel de miembro',
   userJoin: '🚪 Entró un usuario',
@@ -3675,7 +3698,10 @@ function triggerLabel(a) {
   if (trig === 'chatCommand') return `💬 ${esc(a.command || '!comando')}`;
   if (trig === 'like' && a.likeMin > 1) return `❤️ Desde ${a.likeMin} likes`;
   if (trig === 'likeGlobal' && a.likeGoal) return `❤️ Cada ${a.likeGoal} likes`;
-  if (trig === 'emote' && a.emoteId) return `😀 Emote ${esc(a.emoteId)}`;
+  if (trig === 'emote') {
+    const base = a.emoteId ? `😀 Emote ${esc(a.emoteId)}` : (EVENT_LABELS.emote || '😀 Sticker');
+    return Number(a.eventDelay) > 0 ? `${base} · ${a.eventDelay}s/usuario` : base;
+  }
   if (trig === 'userJoin') return `🚪 Entra ${esc(a.user || 'usuario')}`;
   if (trig === 'levelUp' && a.level) return `⬆️ Nivel ${esc(a.level)}`;
   if ((trig === 'follow' || trig === 'share') && Number(a.eventDelay) > 0) {
@@ -3693,6 +3719,17 @@ function playPreview(a) {
 }
 
 /* ----- Modal crear/editar ----- */
+function ensureSaEditId() {
+  if (editingId) return editingId;
+  editingId = 'sa' + Date.now();
+  return editingId;
+}
+function refreshSaStreamdeckUrl() {
+  const code = $('sa-streamdeck-url');
+  if (!code) return;
+  code.textContent = streamdeckSoundWebhookUrl(ensureSaEditId());
+}
+
 function setEventUI(value) {
   $('sa-event').value = value;
   $('sa-giftanyextra').hidden = value !== 'gift-any';
@@ -3700,7 +3737,14 @@ function setEventUI(value) {
   $('sa-likeuserextra').hidden = value !== 'like';
   $('sa-likeextra').hidden = value !== 'likeGlobal';
   $('sa-emoteextra').hidden = value !== 'emote';
-  $('sa-eventdelayextra').hidden = value !== 'follow' && value !== 'share';
+  const showDelay = value === 'follow' || value === 'share' || value === 'emote';
+  $('sa-eventdelayextra').hidden = !showDelay;
+  const delayLbl = $('sa-eventdelay-label');
+  if (delayLbl) {
+    delayLbl.textContent = value === 'emote'
+      ? 'SEGUNDOS DE ESPERA por usuario (mismo sticker: ese usuario no dispara otra vez hasta pasar este tiempo; 0 = sin límite)'
+      : 'SEGUNDOS DE ESPERA por usuario (mismo seguidor/compartir no repite hasta pasar este tiempo; 0 = sin límite)';
+  }
   const sd = $('sa-streamdeck-extra');
   if (sd) sd.hidden = value !== 'streamdeck';
   if (value === 'streamdeck') refreshSaStreamdeckUrl();
@@ -3771,7 +3815,6 @@ if ($('sa-streamdeck-copy')) {
   };
 }
 
-
 /* ----- Selector de regalos ----- */
 let giftCatalog = [];
 const giftCatalogById = new Map();
@@ -3835,7 +3878,7 @@ function refreshGiftCards() {
 
 const EVENT_EMOJI = {
   like: '❤️', likeGlobal: '❤️', follow: '➕', share: '🔁',
-  subscribe: '⭐', superFan: '🌟', levelUp: '⬆️', emote: '😀', gift: '🎁',
+  subscribe: '⭐', superFan: '🌟', superFanJoin: '🌟', levelUp: '⬆️', emote: '😀', gift: '🎁',
   chatCommand: '💬', firstMessage: '🙋', streamdeck: '🎛️',
 };
 
@@ -4115,13 +4158,14 @@ function renderLocalSounds(filter) {
       const el = $('acc-soundname'); if (el) el.textContent = b.dataset.name;
       const vr = $('acc-volrow'); if (vr) vr.hidden = false;
     } else if (soundPickTarget === 'mc' && mcSoundPickUid) {
-      const a = (settings.mcActions || []).find((x) => x.uid === mcSoundPickUid);
-      if (a) {
-        a.sound = b.dataset.url;
-        a.soundName = b.dataset.name;
-        if (!a.audioOn) a.audioOn = true;
+      const hit = findAnyGameAction(mcSoundPickUid) || findMcFamilyAction(mcSoundPickUid);
+      if (hit?.action) {
+        hit.action.sound = b.dataset.url;
+        hit.action.soundName = b.dataset.name;
+        hit.action.audioOn = true;
+        if (hit.action.soundVolume == null) hit.action.soundVolume = 100;
         flushSaveSettings();
-        renderMyMcActions();
+        if (typeof hit.render === 'function') hit.render();
       }
     } else {
       pendingSound = { url: b.dataset.url, name: b.dataset.name };
@@ -4150,7 +4194,7 @@ $('sa-save').onclick = async () => {
     likeGoal: ev === 'likeGlobal' ? Math.max(1, +$('sa-likegoal').value || 100) : 0,
     emoteId: ev === 'emote' ? $('sa-emoteid').value.trim() : '',
     emoteImage: ev === 'emote' ? emoteImgById($('sa-emoteid').value.trim()) : '',
-    eventDelay: (ev === 'follow' || ev === 'share') ? Math.max(0, parseInt($('sa-eventdelay').value, 10) || 0) : 0,
+    eventDelay: (ev === 'follow' || ev === 'share' || ev === 'emote') ? Math.max(0, parseInt($('sa-eventdelay').value, 10) || 0) : 0,
     sound: pendingSound.url,
     soundName: pendingSound.name || 'audio',
     image: '',
@@ -5930,6 +5974,16 @@ const LANG_NAMES = {
   de: 'Alemán', ja: 'Japonés', ko: 'Coreano', zh: 'Chino', ru: 'Ruso',
   ar: 'Árabe', hi: 'Hindi', tr: 'Turco', nl: 'Neerlandés', pl: 'Polaco',
 };
+const TTS_EDGE_VOICES = [
+  { id: 'es-CO-SalomeNeural', label: 'Colombia — Salomé (mujer)' },
+  { id: 'es-CO-GonzaloNeural', label: 'Colombia — Gonzalo (hombre)' },
+];
+function isEdgeTtsVoiceId(v) {
+  return TTS_EDGE_VOICES.some((x) => x.id === String(v || '').trim());
+}
+function isTtsLangColombia(lang) {
+  return String(lang || '').toLowerCase().startsWith('es-co');
+}
 function langLabel(code) {
   const base = code.split('-')[0].toLowerCase();
   const name = LANG_NAMES[base] || base.toUpperCase();
@@ -5940,15 +5994,21 @@ function loadVoices() {
   if (!TTS_HAS) return;
   ttsVoices = speechSynthesis.getVoices() || [];
   const t = settings?.tts || {};
-  // Idiomas únicos disponibles
+  // Idiomas únicos disponibles (+ Colombia Edge, aunque no venga del SO)
   const langSel = $('tts-lang');
   if (langSel) {
     const seen = new Map();
     ttsVoices.forEach((v) => { if (v.lang && !seen.has(v.lang)) seen.set(v.lang, true); });
-    const langs = Array.from(seen.keys()).sort();
+    if (!seen.has('es-CO')) seen.set('es-CO', true);
+    const langs = Array.from(seen.keys()).sort((a, b) => a.localeCompare(b, 'es'));
     const cur = t.lang || 'es';
     langSel.innerHTML = '<option value="">Todos los idiomas</option>' +
-      langs.map((l) => `<option value="${esc(l)}" ${l === cur || l.startsWith(cur) ? 'selected' : ''}>${esc(langLabel(l))}</option>`).join('');
+      langs.map((l) => {
+        const on = l === cur || (cur && (l.toLowerCase() === String(cur).toLowerCase() || (cur.length <= 2 && l.toLowerCase().startsWith(String(cur).toLowerCase() + '-'))));
+        return `<option value="${esc(l)}" ${on ? 'selected' : ''}>${esc(langLabel(l))}</option>`;
+      }).join('');
+    // Si la selección exacta es Colombia, forzarla (evita que gane es-MX por startsWith('es')).
+    if (isTtsLangColombia(cur)) langSel.value = 'es-CO';
   }
   fillVoiceOptions();
   fillTtsUvLangOptions();
@@ -5959,6 +6019,17 @@ function fillVoiceOptions() {
   if (!sel) return;
   const t = settings?.tts || {};
   const langFilter = (t.lang || '').toLowerCase();
+  if (isTtsLangColombia(langFilter)) {
+    const cur = t.voice || TTS_EDGE_VOICES[0].id;
+    sel.innerHTML = TTS_EDGE_VOICES.map((v) =>
+      `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.label)}</option>`
+    ).join('');
+    if (!TTS_EDGE_VOICES.some((v) => v.id === t.voice) && settings?.tts) {
+      settings.tts.voice = TTS_EDGE_VOICES[0].id;
+      sel.value = TTS_EDGE_VOICES[0].id;
+    }
+    return;
+  }
   const list = ttsVoices.filter((v) => !langFilter || (v.lang || '').toLowerCase().startsWith(langFilter));
   const voices = list.length ? list : ttsVoices;
   sel.innerHTML = '<option value="">(voz por defecto)</option>' +
@@ -6059,6 +6130,35 @@ function saveTtsCommands() {
   saveSettings(); // envía settings completo (incluye tts.commands)
 }
 
+function syncTtsServerVoicePlanUi() {
+  const tkRow = document.getElementById('tts-tiktok-voices-wrap');
+  if (tkRow) tkRow.style.display = '';
+  const sel = document.getElementById('tts-tiktok-voice');
+  if (!sel) return;
+  const allowTk = capFeature('tts_tiktok');
+  sel.querySelectorAll('optgroup').forEach((og) => {
+    const label = String(og.label || '').toLowerCase();
+    const isEdge = label.includes('edge') || label.includes('colombia');
+    og.hidden = !isEdge && !allowTk;
+    og.querySelectorAll('option').forEach((opt) => { opt.disabled = !isEdge && !allowTk; });
+  });
+  if (!allowTk && sel.value && !isEdgeTtsVoiceId(sel.value)) {
+    sel.value = '';
+    if (settings?.tts) settings.tts.tiktokVoice = '';
+  }
+  const eng = document.getElementById('tts-uv-engine');
+  if (eng) {
+    eng.querySelectorAll('option[value="tiktok"], option[value="disney"]').forEach((opt) => {
+      opt.hidden = !allowTk;
+      opt.disabled = !allowTk;
+    });
+    if (!allowTk && (eng.value === 'tiktok' || eng.value === 'disney')) {
+      eng.value = 'edge';
+      try { fillTtsUvLangOptions(); fillTtsUvVoiceOptions(); } catch {}
+    }
+  }
+}
+
 /* ---- Voces personalizadas por usuario ---- */
 const TTS_UV_LANGS = {
   tiktok: [
@@ -6074,6 +6174,9 @@ const TTS_UV_LANGS = {
   ],
   disney: [
     { code: 'en', label: 'Inglés (traduce desde español)' },
+  ],
+  edge: [
+    { code: 'es', label: 'Español (Colombia)' },
   ],
 };
 
@@ -6094,7 +6197,7 @@ function getTikTokVoiceCatalog() {
   const out = [];
   sel.querySelectorAll('option[value]').forEach((opt) => {
     const id = String(opt.value || '').trim();
-    if (!id) return;
+    if (!id || isEdgeTtsVoiceId(id)) return;
     out.push({ id, label: (opt.textContent || id).trim() });
   });
   return out;
@@ -6115,6 +6218,10 @@ function getDisneyVoiceCatalog() {
   return out;
 }
 
+function getEdgeVoiceCatalog() {
+  return TTS_EDGE_VOICES.slice();
+}
+
 function ttsVoiceLangFromId(voiceId) {
   const v = String(voiceId || '').toLowerCase();
   if (!v) return 'en';
@@ -6131,6 +6238,10 @@ function ttsVoiceLangFromId(voiceId) {
 
 function ttsVoiceLabel(engine, voice, lang) {
   if (!voice) return '—';
+  if (engine === 'edge') {
+    const hit = getEdgeVoiceCatalog().find((x) => x.id === voice);
+    return hit ? hit.label : voice;
+  }
   if (engine === 'tiktok' || engine === 'disney') {
     const catalog = engine === 'disney' ? getDisneyVoiceCatalog() : getTikTokVoiceCatalog();
     const hit = catalog.find((x) => x.id === voice) || getTikTokVoiceCatalog().find((x) => x.id === voice);
@@ -6142,6 +6253,7 @@ function ttsVoiceLabel(engine, voice, lang) {
 
 function ttsEngineLabel(engine) {
   if (engine === 'disney') return 'Disney';
+  if (engine === 'edge') return 'Edge (Colombia)';
   return engine === 'tiktok' ? 'TikTok (Server)' : 'Sistema';
 }
 
@@ -6183,6 +6295,11 @@ function fillTtsUvLangOptions() {
     sel.value = 'en';
     return;
   }
+  if (engine === 'edge') {
+    sel.innerHTML = TTS_UV_LANGS.edge.map((l) => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
+    sel.value = 'es';
+    return;
+  }
   if (engine === 'tiktok') {
     const langs = TTS_UV_LANGS.tiktok;
     const cur = sel.value || 'es';
@@ -6216,6 +6333,14 @@ function fillTtsUvVoiceOptions() {
     sel.innerHTML = voices.length
       ? voices.map((v) => `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.label)}</option>`).join('')
       : '<option value="">— Sin voces Disney —</option>';
+    if (!voices.some((v) => v.id === cur) && voices[0]) sel.value = voices[0].id;
+    return;
+  }
+
+  if (engine === 'edge') {
+    const voices = getEdgeVoiceCatalog();
+    const cur = sel.value;
+    sel.innerHTML = voices.map((v) => `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.label)}</option>`).join('');
     if (!voices.some((v) => v.id === cur) && voices[0]) sel.value = voices[0].id;
     return;
   }
@@ -6341,11 +6466,11 @@ function ttsConfigForUser(userId) {
   const base = settings?.tts || {};
   const uv = ttsFindUserVoice(userId);
   if (!uv) return base;
-  if (uv.engine === 'tiktok' || uv.engine === 'disney') {
+  if (uv.engine === 'tiktok' || uv.engine === 'disney' || uv.engine === 'edge') {
     return {
       ...base,
       tiktokVoice: uv.voice,
-      tiktokTranslateEs: uv.engine === 'disney' ? true : (uv.translate !== false),
+      tiktokTranslateEs: uv.engine === 'disney' ? true : (uv.engine === 'edge' ? false : (uv.translate !== false)),
       voice: '',
     };
   }
@@ -6366,6 +6491,11 @@ function ttsSpeakTextForUser(text, userId) {
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
   if (cfg.tiktokVoice) { ttsSpeakTikTok(phrase, cfg); return; }
+  if (isEdgeTtsVoiceId(cfg.voice) || isTtsLangColombia(cfg.lang)) {
+    const edgeVoice = isEdgeTtsVoiceId(cfg.voice) ? cfg.voice : TTS_EDGE_VOICES[0].id;
+    ttsSpeakTikTok(phrase, { ...cfg, tiktokVoice: edgeVoice, tiktokTranslateEs: false });
+    return;
+  }
   ttsSpeakSystem(phrase, cfg);
 }
 
@@ -6620,6 +6750,12 @@ function ttsSpeakText(text) {
   if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
+  // Colombia Edge (idioma/voz del bloque Idioma + Voz)
+  if (isEdgeTtsVoiceId(t.voice) || (isTtsLangColombia(t.lang) && isEdgeTtsVoiceId(t.voice || TTS_EDGE_VOICES[0]?.id))) {
+    const edgeVoice = isEdgeTtsVoiceId(t.voice) ? t.voice : TTS_EDGE_VOICES[0].id;
+    ttsSpeakTikTok(phrase, { ...t, tiktokVoice: edgeVoice, tiktokTranslateEs: false });
+    return;
+  }
   // Si hay una voz TikTok elegida, la síntesis va por el servidor (voces Disney, etc.).
   if (t.tiktokVoice) { ttsSpeakTikTok(phrase, t); return; }
   ttsSpeakSystem(phrase, t);
@@ -6949,9 +7085,27 @@ function ttsOnGift(p) {
   if (readName) readName.addEventListener('change', () => { settings.tts.readName = readName.checked; syncTtsNameEmojisUI(); save(); });
   bindChk('tts-name-emojis', 'nameEmojis');
   const lang = $('tts-lang');
-  if (lang) lang.addEventListener('change', () => { settings.tts.lang = lang.value; settings.tts.voice = ''; fillVoiceOptions(); save(); });
+  if (lang) lang.addEventListener('change', () => {
+    settings.tts.lang = lang.value;
+    if (isTtsLangColombia(lang.value)) {
+      settings.tts.voice = TTS_EDGE_VOICES[0].id;
+      settings.tts.tiktokVoice = '';
+      const tk = $('tts-tiktok-voice'); if (tk) tk.value = '';
+    } else {
+      settings.tts.voice = '';
+    }
+    fillVoiceOptions();
+    save();
+  });
   const voice = $('tts-voice');
-  if (voice) voice.addEventListener('change', () => { settings.tts.voice = voice.value; save(); });
+  if (voice) voice.addEventListener('change', () => {
+    settings.tts.voice = voice.value;
+    if (isEdgeTtsVoiceId(voice.value)) {
+      settings.tts.tiktokVoice = '';
+      const tk = $('tts-tiktok-voice'); if (tk) tk.value = '';
+    }
+    save();
+  });
   const tkVoice = $('tts-tiktok-voice');
   if (tkVoice) tkVoice.addEventListener('change', () => { settings.tts.tiktokVoice = tkVoice.value; save(); });
   const tkTrans = $('tts-tiktok-translate');
@@ -7345,6 +7499,7 @@ const ACC_EVENT_META = {
   share: { ico: '🔁', label: 'Compartida' },
   subscribe: { ico: '⭐', label: 'Nuevo suscriptor' },
   superFan: { ico: '🌟', label: 'Super fan' },
+  superFanJoin: { ico: '🌟', label: 'Super fan entró' },
   follow: { ico: '➕', label: 'Nuevo seguidor' },
   levelUp: { ico: '⬆️', label: 'Subió de nivel' },
   emote: { ico: '😀', label: 'Sticker / emote' },
@@ -7386,7 +7541,10 @@ function accEventChipHTML(a) {
   }
   if (ev === 'like' && a.likeMin > 1) return accChipHTML('❤️', esc(`Desde ${a.likeMin} likes`), 'ev');
   if (ev === 'likeGlobal' && a.likeGoal) return accChipHTML('❤️', esc(`Cada ${a.likeGoal} likes`), 'ev');
-  if (ev === 'emote' && a.emoteId) return accChipHTML('😀', esc(a.emoteId), 'ev');
+  if (ev === 'emote' && a.emoteId) {
+    const delay = Number(a.eventDelay) > 0 ? ` · ${a.eventDelay}s` : '';
+    return accChipHTML('😀', esc(a.emoteId) + delay, 'ev');
+  }
   if (ev === 'chatCommand' && a.command) return accChipHTML('💬', esc(a.command), 'ev');
   if (ev === 'levelUp' && a.level) return accChipHTML('⬆️', esc(`Nivel ${a.level}`), 'ev');
   const meta = ACC_EVENT_META[ev] || { ico: '⚡', label: ev };
@@ -7438,7 +7596,7 @@ function accOutputChipsHTML(a) {
 // eventos de regalo) o un emoji acorde al evento (likes, seguidor, super fan…).
 const ACC_THUMB_EMOJI = {
   'gift-any': '🎁', gift: '🎁', like: '❤️', likeGlobal: '❤️',
-  share: '🔁', subscribe: '⭐', superFan: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀',
+  share: '🔁', subscribe: '⭐', superFan: '🌟', superFanJoin: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀',
   chatCommand: '💬',
 };
 function accIconSmall(a) {
@@ -7765,6 +7923,12 @@ function setupAccMediaDrop() {
   });
 }
 
+function ensureAccEditId() {
+  if (accEditingId) return accEditingId;
+  accEditingId = 'act' + Date.now();
+  return accEditingId;
+}
+
 function applyAccEventExtras() {
   const ev = $('acc-event').value;
   $('acc-giftanyextra').hidden = ev !== 'gift-any';
@@ -7772,6 +7936,7 @@ function applyAccEventExtras() {
   $('acc-likeextra').hidden = ev !== 'like';
   $('acc-likeglobalextra').hidden = ev !== 'likeGlobal';
   $('acc-emoteextra').hidden = ev !== 'emote';
+  if ($('acc-eventdelayextra')) $('acc-eventdelayextra').hidden = ev !== 'emote';
   if ($('acc-cmdextra')) $('acc-cmdextra').hidden = ev !== 'chatCommand';
   if ($('acc-userextra')) $('acc-userextra').hidden = ev !== 'chatCommand';
   if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift';
@@ -7823,6 +7988,7 @@ function openAccModal(a) {
   $('acc-likemin').value = a ? (a.likeMin || 1) : 1;
   $('acc-likegoal').value = a ? (a.likeGoal || 100) : 100;
   $('acc-emoteid').value = a ? (a.emoteId || '') : '';
+  if ($('acc-eventdelay')) $('acc-eventdelay').value = a?.eventDelay ?? 30;
   if ($('acc-comboinstant')) $('acc-comboinstant').checked = !!(a && a.comboInstant);
   $('acc-keys').value = a ? (a.keys || '') : '';
   $('acc-keys-on').checked = !!(a && a.keys);
@@ -7920,6 +8086,7 @@ function saveAccModal() {
     likeMin: +$('acc-likemin').value || 1,
     likeGoal: +$('acc-likegoal').value || 100,
     emoteId: $('acc-emoteid').value || '',
+    eventDelay: $('acc-event').value === 'emote' ? Math.max(0, parseInt($('acc-eventdelay')?.value, 10) || 0) : 0,
     comboInstant: $('acc-event').value === 'gift' && $('acc-comboinstant')?.checked,
     keys,
     keyRepeatOn: $('acc-keys-on').checked && $('acc-keyrepeat-on')?.checked,
@@ -9666,6 +9833,7 @@ const MC_TRIGGERS = [
   { v: 'share', label: 'Compartida' },
   { v: 'subscribe', label: 'Nuevo suscriptor' },
   { v: 'superFan', label: 'Super fan' },
+  { v: 'superFanJoin', label: 'Super fan entró' },
   { v: 'levelUp', label: 'Subió de nivel de miembro' },
   { v: 'chatUser', label: 'Mensaje de un usuario' },
   { v: 'chatCommand', label: 'Comando de chat' },
@@ -9673,6 +9841,7 @@ const MC_TRIGGERS = [
 ];
 // Icono por tipo de evento (para mostrarlo en la tarjeta agregada).
 const MC_TRIG_ICON = {
+  gift: { ic: '🎁', label: 'Regalo' },
   'gift-any': { ic: '🎁', label: 'Cualquier regalo' },
   like: { ic: '❤️', label: 'Likes' },
   likeGlobal: { ic: '💗', label: 'Likes globales' },
@@ -9680,11 +9849,208 @@ const MC_TRIG_ICON = {
   share: { ic: '🔁', label: 'Compartida' },
   subscribe: { ic: '⭐', label: 'Suscriptor' },
   superFan: { ic: '🌟', label: 'Super fan' },
+  superFanJoin: { ic: '🌟', label: 'Super fan entró' },
   levelUp: { ic: '⬆️', label: 'Subió de nivel' },
   chatUser: { ic: '🙋', label: 'Mensaje de usuario' },
   chatCommand: { ic: '💬', label: 'Comando de chat' },
   firstMessage: { ic: '🆕', label: 'Primer mensaje' },
 };
+
+let _mcTrigPop = null;
+
+function mcTrigLabel(trigger) {
+  return (MC_TRIGGERS.find((t) => t.v === trigger) || {}).label
+    || (MC_TRIG_ICON[trigger] || {}).label
+    || trigger;
+}
+
+function mcTrigCardBtnHtml(a) {
+  const trig = a.trigger || 'gift';
+  const ev = MC_TRIG_ICON[trig] || { ic: '⚡', label: trig };
+  let visual = `<span class="mc-trig-emoji">${ev.ic}</span>`;
+  let sub = esc(mcTrigLabel(trig));
+  if (trig === 'gift') {
+    visual = a.giftImage
+      ? `<img class="mc-trig-gift-img" src="${esc(a.giftImage)}" alt="" onerror="this.outerHTML='<span class=\\'mc-trig-emoji\\'>🎁</span>'">`
+      : `<span class="mc-trig-emoji">🎁</span>`;
+    sub = a.giftName ? esc(a.giftName) : 'Elegir regalo';
+  } else if (trig === 'like' || trig === 'likeGlobal') {
+    const defN = trig === 'likeGlobal' ? 100 : 1;
+    const n = a.likeN != null ? a.likeN : defN;
+    sub = `${esc(mcTrigLabel(trig))} · ${n}`;
+  } else if (trig === 'follow' || trig === 'share') {
+    const delay = a.eventDelay != null ? a.eventDelay : 30;
+    sub = delay > 0 ? `${esc(mcTrigLabel(trig))} · ${delay}s` : esc(mcTrigLabel(trig));
+  } else if ((trig === 'chatUser' || trig === 'chatCommand') && a.text) {
+    sub = esc(a.text);
+  }
+  return `<button type="button" class="mc-trig-icon-btn" data-uid="${esc(a.uid)}" title="Elegir disparador">
+    ${visual}
+    <span class="mc-trig-icon-sub">${sub}</span>
+  </button>`;
+}
+
+function ensureMcTrigPop() {
+  let el = document.getElementById('mcTrigPop');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'mcTrigPop';
+  el.className = 'mc-trig-pop hidden';
+  el.innerHTML = `
+    <div class="mc-trig-pop-box" role="dialog" aria-modal="true" aria-labelledby="mc-trig-pop-title">
+      <div class="mc-trig-pop-head">
+        <strong id="mc-trig-pop-title">Disparador</strong>
+        <button type="button" class="mc-trig-pop-x" id="mc-trig-pop-close" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="mc-trig-pop-grid" id="mc-trig-pop-grid"></div>
+      <div class="mc-trig-pop-detail" id="mc-trig-pop-detail"></div>
+      <div class="mc-trig-pop-foot">
+        <button type="button" class="btn mc-trig-pop-save" id="mc-trig-pop-save">Guardar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', (e) => { if (e.target === el) closeMcTrigPop(); });
+  el.querySelector('.mc-trig-pop-box').addEventListener('click', (e) => e.stopPropagation());
+  document.getElementById('mc-trig-pop-close').onclick = () => closeMcTrigPop();
+  document.getElementById('mc-trig-pop-save').onclick = () => saveMcTrigPop();
+  return el;
+}
+
+function closeMcTrigPop() {
+  document.getElementById('mcTrigPop')?.classList.add('hidden');
+  _mcTrigPop = null;
+}
+
+function openMcTrigPop(uid, settingsKey = 'mcActions') {
+  const list = settings?.[settingsKey];
+  const a = Array.isArray(list) ? list.find((x) => x.uid === uid) : null;
+  if (!a) return;
+  _mcTrigPop = {
+    uid,
+    settingsKey,
+    trigger: a.trigger || 'gift',
+    giftId: a.giftId || '',
+    giftName: a.giftName || '',
+    giftImage: a.giftImage || '',
+    likeN: a.likeN != null ? a.likeN : (a.trigger === 'likeGlobal' ? 100 : 1),
+    text: a.text || '',
+    eventDelay: a.eventDelay != null ? a.eventDelay : 30,
+  };
+  const el = ensureMcTrigPop();
+  renderMcTrigPop();
+  el.classList.remove('hidden');
+}
+
+function renderMcTrigPop() {
+  if (!_mcTrigPop) return;
+  const d = _mcTrigPop;
+  const grid = document.getElementById('mc-trig-pop-grid');
+  const detail = document.getElementById('mc-trig-pop-detail');
+  if (!grid || !detail) return;
+  grid.innerHTML = MC_TRIGGERS.map((t) => {
+    const ic = (MC_TRIG_ICON[t.v] || { ic: '⚡' }).ic;
+    const on = d.trigger === t.v ? ' is-on' : '';
+    return `<button type="button" class="mc-trig-pop-item${on}" data-v="${esc(t.v)}">
+      <span class="mc-trig-pop-ic">${ic}</span>
+      <span class="mc-trig-pop-lbl">${esc(t.label)}</span>
+    </button>`;
+  }).join('');
+  grid.querySelectorAll('.mc-trig-pop-item').forEach((btn) => {
+    btn.onclick = () => {
+      d.trigger = btn.dataset.v;
+      if (d.trigger === 'likeGlobal' && (!d.likeN || d.likeN < 1)) d.likeN = 100;
+      if (d.trigger === 'like' && (!d.likeN || d.likeN < 1)) d.likeN = 1;
+      renderMcTrigPop();
+    };
+  });
+
+  let detailHtml = '';
+  if (d.trigger === 'gift') {
+    const ic = d.giftImage
+      ? `<img class="mc-gift-ic" src="${esc(d.giftImage)}" alt="">`
+      : '<span class="mc-trig-emoji">🎁</span>';
+    detailHtml = `
+      <button type="button" class="mc-gift-btn" id="mc-trig-pop-gift">
+        ${ic}<span class="mc-gift-name">${d.giftName ? esc(d.giftName) : 'Elegir regalo'}</span>
+      </button>`;
+  } else if (d.trigger === 'gift-any') {
+    detailHtml = `<p class="mc-trig-pop-hint">Se dispara con cualquier regalo.</p>`;
+  } else if (d.trigger === 'like' || d.trigger === 'likeGlobal') {
+    const txt = d.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
+    detailHtml = `<label class="mc-like-row">${txt}
+      <input type="number" min="1" id="mc-trig-pop-liken" value="${esc(String(d.likeN != null ? d.likeN : 1))}"></label>`;
+  } else if (d.trigger === 'chatUser' || d.trigger === 'chatCommand') {
+    const txt = d.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !zombie)';
+    const ph = d.trigger === 'chatUser' ? 'usuario123' : '!zombie';
+    detailHtml = `<label class="mc-like-row">${txt}
+      <input type="text" id="mc-trig-pop-text" value="${esc(d.text || '')}" placeholder="${ph}"></label>`;
+  } else if (d.trigger === 'follow' || d.trigger === 'share') {
+    const delay = d.eventDelay != null ? d.eventDelay : 30;
+    detailHtml = `<label class="mc-like-row">Segundos de espera por usuario
+      <input type="number" min="0" id="mc-trig-pop-delay" value="${esc(String(delay))}" placeholder="30">
+      <span class="mc-trig-pop-hint" style="text-transform:none;letter-spacing:0;font-weight:600;margin-top:4px">El mismo usuario no puede volver a activar hasta que pase este tiempo (0 = sin límite). Evita spam de unfollow/follow o compartir varias veces.</span>
+    </label>`;
+  } else {
+    detailHtml = `<p class="mc-trig-pop-hint">${esc(mcTrigLabel(d.trigger))}</p>`;
+  }
+  detail.innerHTML = detailHtml;
+
+  const giftBtn = document.getElementById('mc-trig-pop-gift');
+  if (giftBtn) {
+    giftBtn.onclick = () => {
+      openGiftModalCb((g) => {
+        if (!_mcTrigPop) return;
+        _mcTrigPop.giftId = String(g.id);
+        _mcTrigPop.giftName = g.name || '';
+        _mcTrigPop.giftImage = g.image || '';
+        renderMcTrigPop();
+      });
+    };
+  }
+  const likeN = document.getElementById('mc-trig-pop-liken');
+  if (likeN) likeN.oninput = () => { d.likeN = Math.max(1, parseInt(likeN.value, 10) || 1); };
+  const textEl = document.getElementById('mc-trig-pop-text');
+  if (textEl) textEl.oninput = () => { d.text = textEl.value; };
+  const delayEl = document.getElementById('mc-trig-pop-delay');
+  if (delayEl) delayEl.oninput = () => { d.eventDelay = Math.max(0, parseInt(delayEl.value, 10) || 0); };
+}
+
+function saveMcTrigPop() {
+  if (!_mcTrigPop || !settings) return;
+  const key = _mcTrigPop.settingsKey || 'mcActions';
+  if (!Array.isArray(settings[key])) return;
+  const a = settings[key].find((x) => x.uid === _mcTrigPop.uid);
+  if (!a) { closeMcTrigPop(); return; }
+  const d = _mcTrigPop;
+  const likeNEl = document.getElementById('mc-trig-pop-liken');
+  const textEl = document.getElementById('mc-trig-pop-text');
+  const delayEl = document.getElementById('mc-trig-pop-delay');
+  if (likeNEl) d.likeN = Math.max(1, parseInt(likeNEl.value, 10) || 1);
+  if (textEl) d.text = textEl.value.trim();
+  if (delayEl) d.eventDelay = Math.max(0, parseInt(delayEl.value, 10) || 0);
+
+  a.trigger = d.trigger;
+  if (d.trigger === 'gift') {
+    a.giftId = d.giftId || '';
+    a.giftName = d.giftName || '';
+    a.giftImage = d.giftImage || '';
+  }
+  if (d.trigger === 'like' || d.trigger === 'likeGlobal') a.likeN = d.likeN;
+  if (d.trigger === 'chatUser' || d.trigger === 'chatCommand') a.text = d.text || '';
+  if (d.trigger === 'follow' || d.trigger === 'share') a.eventDelay = d.eventDelay;
+  else delete a.eventDelay;
+  saveSettings();
+  closeMcTrigPop();
+  const game = mcFamilyGameByKey(key);
+  if (MC_GAME_MAP[game] && MC_GAME_MAP[game].key === key) {
+    MC_GAME_MAP[game].render();
+  } else if (GAME_ACTION_RENDERERS[key]) {
+    GAME_ACTION_RENDERERS[key]();
+  } else {
+    // Fallback: otros juegos pueden estar registrados tarde
+    try { (GAME_ACTION_RENDERERS[key] || (() => {}))(); } catch {}
+  }
+}
 
 const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'smwActions', 'mari0Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions'];
 let lastGameActionEditAt = 0;
@@ -9854,7 +10220,134 @@ function gameActionConfigPopoverHtml() { return ''; }
 
 function gameActionConfigBtnHtml(a, opts = {}) {
   const cfgKey = registerGameActionCfgOpts(a, opts);
-  return `<button type="button" class="mc-act-cfg-btn" data-cfg-key="${esc(cfgKey)}" title="Configuración" aria-label="Configuración">⚙</button>`;
+  return `<button type="button" class="mc-act-cfg-btn mc-act-edit acc-icon-btn" data-cfg-key="${esc(cfgKey)}" title="Configuración" aria-label="Configuración">${CARD_ICON.gear}</button>`;
+}
+
+function gameSurvivalAudioHtml(a) {
+  const vol = a.soundVolume != null ? Math.max(0, Math.min(100, parseInt(a.soundVolume, 10) || 0)) : 100;
+  if (a.sound) {
+    return `
+      <div class="mc-audio-wrap mc-audio-has">
+        <button type="button" class="mc-audio-file" data-uid="${esc(a.uid)}" title="Cambiar audio">${esc(a.soundName || 'Audio')}</button>
+        <div class="mc-audio-volrow">
+          <span class="mc-audio-vol-lbl">Volume:</span>
+          <input type="range" class="mc-audio-vol" data-uid="${esc(a.uid)}" min="0" max="100" value="${vol}" title="Volumen">
+          <span class="mc-audio-vol-val">${vol}%</span>
+        </div>
+        <button type="button" class="mc-audio-clear" data-uid="${esc(a.uid)}" title="Quitar audio">✕</button>
+      </div>`;
+  }
+  return `
+      <div class="mc-audio-wrap mc-audio-empty">
+        <button type="button" class="mc-audio-add" data-uid="${esc(a.uid)}" title="Elegir audio">Agregar<br>audio</button>
+      </div>`;
+}
+
+/** Fila estilo Survival: trigger | thumb | info | audio | Activa + plays. */
+function gameSurvivalStyleCardHtml(a, opts = {}) {
+  const uid = esc(a.uid);
+  const cfgOpts = opts.cfgOpts || {};
+  const testClass = opts.testClass || 'game-test';
+  const delClass = opts.delClass || 'game-del';
+  const gearBtn = opts.hideGear ? '' : gameActionConfigBtnHtml(a, cfgOpts);
+  const editBtn = opts.editBtn || '';
+  const delBtn = opts.hideDel
+    ? ''
+    : `<button type="button" class="mc-act-del acc-icon-btn acc-del-one ${delClass}" data-uid="${uid}" title="Quitar">${CARD_ICON.trash}</button>`;
+  const delayBtn = opts.hideTest
+    ? ''
+    : `<button type="button" class="mc-act-test-delay acc-icon-btn" data-uid="${uid}" title="Probar en 4 s">${CARD_ICON.play}</button>`;
+  const instantBtn = opts.hideTest
+    ? ''
+    : (opts.slot != null
+      ? `<button type="button" class="mc-act-test acc-icon-btn acc-try-instant ${testClass}" data-slot="${opts.slot}" title="Probar ya">${CARD_ICON.play}</button>`
+      : `<button type="button" class="mc-act-test acc-icon-btn acc-try-instant ${testClass}" data-uid="${uid}" title="Probar ya">${CARD_ICON.play}</button>`);
+  const delayBtnSlot = opts.hideTest || opts.slot == null
+    ? delayBtn
+    : `<button type="button" class="mc-act-test-delay acc-icon-btn" data-slot="${opts.slot}" title="Probar en 4 s">${CARD_ICON.play}</button>`;
+  return `
+  <div class="mc-act-card mc-act-row ${a.enabled === false ? 'mc-off' : ''} ${opts.cardClass || ''}" data-uid="${uid}" ${opts.dataAttrs || ''}>
+    <div class="mc-act-col mc-act-col-trig">
+      ${mcTrigCardBtnHtml(a)}
+    </div>
+    <div class="mc-act-col mc-act-col-thumb" aria-hidden="true">
+      ${opts.thumbHtml || ''}
+    </div>
+    <div class="mc-act-col mc-act-col-info">
+      ${opts.nameHtml || `<div class="mc-act-name">${esc(a.label || a.name || a.thing || '')}</div>`}
+      ${opts.metaHtml || ''}
+      ${opts.infoExtraHtml || ''}
+    </div>
+    <div class="mc-act-col mc-act-col-audio">
+      ${gameSurvivalAudioHtml(a)}
+    </div>
+    <div class="mc-act-col mc-act-col-actions">
+      <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en ${opts.enClass || ''}" data-uid="${uid}" ${opts.slot != null ? `data-slot="${opts.slot}"` : ''} ${a.enabled === false ? '' : 'checked'}> Activa</label>
+      <div class="mc-act-btns">
+        ${gearBtn}
+        ${editBtn}
+        ${opts.slot != null ? delayBtnSlot : delayBtn}
+        ${instantBtn}
+        ${delBtn}
+      </div>
+    </div>
+  </div>`;
+}
+
+const GAME_ACTION_RENDERERS = {};
+function registerGameActionRenderer(settingsKey, fn) {
+  if (settingsKey && typeof fn === 'function') GAME_ACTION_RENDERERS[settingsKey] = fn;
+}
+
+function findAnyGameAction(uid) {
+  if (!uid || !settings) return null;
+  const mcHit = findMcFamilyAction(uid);
+  if (mcHit) return mcHit;
+  for (const key of (typeof GAME_ACTION_SETTINGS_KEYS !== 'undefined' ? GAME_ACTION_SETTINGS_KEYS : [])) {
+    const list = settings[key];
+    if (!Array.isArray(list)) continue;
+    const action = list.find((x) => x && x.uid === uid);
+    if (action) return { action, key, render: GAME_ACTION_RENDERERS[key] || (() => {}) };
+  }
+  return null;
+}
+
+function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
+  const settingsKey = opts.settingsKey;
+  wrap.querySelectorAll('.mc-trig-icon-btn').forEach((b) => {
+    b.onclick = () => openMcTrigPop(b.dataset.uid, settingsKey);
+  });
+  wrap.querySelectorAll('.mc-act-en').forEach((c) => {
+    c.onchange = () => {
+      const id = c.dataset.uid || c.dataset.slot;
+      const a = find(id);
+      if (!a) return;
+      a.enabled = c.checked;
+      if (settingsKey) saveSettingsKeysPatch(settingsKey);
+      else saveSettings();
+      render();
+    };
+  });
+  const runTest = (el) => {
+    if (opts.onTest) opts.onTest(el);
+    else if (opts.testFn) {
+      const a = find(el.dataset.uid || el.dataset.slot);
+      if (a) opts.testFn(a);
+    }
+  };
+  wrap.querySelectorAll('.mc-act-test-delay').forEach((b) => {
+    b.onclick = () => {
+      toast && toast('La acción se ejecutará en 4 segundos…', 'ok');
+      setTimeout(() => runTest(b), 4000);
+    };
+  });
+  if (opts.testClass) {
+    wrap.querySelectorAll(`.${opts.testClass}`).forEach((b) => {
+      b.onclick = () => runTest(b);
+    });
+  }
+  bindMcFamilyAudio(wrap, find, render);
+  bindMcActionCardCommon(wrap, find, render);
 }
 
 function gameActionCardFooter(a, testClass, opts = {}) {
@@ -10203,14 +10696,193 @@ function setMccImage(url) {
 
 // Mapa de juegos que usan el sistema de tarjetas tipo Minecraft (comando + disparador).
 const MC_GAME_MAP = {
-  minecraft: { key: 'mcActions', label: 'Minecraft', render: () => renderMyMcActions() },
-  mcparkour: { key: 'parkourActions', label: 'Minecraft Parkour', render: () => renderMyParkourActions() },
-  mckoth: { key: 'kothActions', label: 'Minecraft KOTH', render: () => renderMyKothActions() },
-  mcfarm: { key: 'farmActions', label: 'Minecraft Farm', render: () => renderMyFarmActions() },
-  mcshooter: { key: 'mcshooterActions', label: 'Minecraft Shooters', render: () => renderMyMcShooterActions() },
-  bedrock: { key: 'bedrockActions', label: 'Bedrock', render: () => renderMyBedrockActions() },
-  sandbox: { key: 'sandboxActions', label: 'Sandbox', render: () => renderMySandboxActions() },
+  minecraft: { key: 'mcActions', wrapId: 'mc-my-actions', label: 'Minecraft', render: () => renderMyMcActions() },
+  mcparkour: { key: 'parkourActions', wrapId: 'mcparkour-my-actions', label: 'Minecraft Parkour', render: () => renderMyParkourActions() },
+  mckoth: { key: 'kothActions', wrapId: 'mckoth-my-actions', label: 'Minecraft KOTH', render: () => renderMyKothActions() },
+  mcfarm: { key: 'farmActions', wrapId: 'mcfarm-my-actions', label: 'Minecraft Farm', render: () => renderMyFarmActions() },
+  mcshooter: { key: 'mcshooterActions', wrapId: 'mcshooter-my-actions', label: 'Minecraft Shooters', render: () => renderMyMcShooterActions() },
+  bedrock: { key: 'bedrockActions', wrapId: 'bedrock-my-actions', label: 'Bedrock', render: () => renderMyBedrockActions() },
+  sandbox: { key: 'sandboxActions', wrapId: 'sandbox-my-actions', label: 'Sandbox', render: () => renderMySandboxActions() },
 };
+
+function mcFamilyGameByKey(settingsKey) {
+  return Object.entries(MC_GAME_MAP).find(([, g]) => g.key === settingsKey)?.[0] || 'minecraft';
+}
+
+function findMcFamilyAction(uid) {
+  if (!uid || !settings) return null;
+  for (const [game, g] of Object.entries(MC_GAME_MAP)) {
+    const list = settings[g.key];
+    if (!Array.isArray(list)) continue;
+    const action = list.find((x) => x.uid === uid);
+    if (action) return { action, game, key: g.key, render: g.render };
+  }
+  return null;
+}
+
+function mcFamilyThumbHtml(a, game) {
+  if (game === 'mcfarm' && !a.image) return farmIconHtml(a.catId, 'mc-act-ic');
+  if (game === 'mcshooter') return mcShooterActionIconHtml(a);
+  if (a.image) return `<img class="mc-act-ic" src="${esc(a.image)}" alt="" onerror="this.style.display='none'">`;
+  const dirs = {
+    minecraft: '/img/minecraft/',
+    bedrock: '/img/bedrock/',
+    sandbox: '/img/sandbox/',
+    mcparkour: '/img/parkour/',
+    mckoth: '/img/koth/',
+    mcfarm: '/img/farm/',
+    mcshooter: '/img/mcshooter/',
+  };
+  return `<img class="mc-act-ic" src="${(dirs[game] || '/img/minecraft/') + esc(a.catId || '')}.png" alt="" onerror="this.style.display='none'">`;
+}
+
+function bindMcFamilyAudio(wrap, find, rerender) {
+  const openLib = (uid) => {
+    mcSoundPickUid = uid;
+    soundPickTarget = 'mc';
+    openSoundLib();
+  };
+  wrap.querySelectorAll('.mc-audio-add').forEach((b) => b.onclick = () => openLib(b.dataset.uid));
+  wrap.querySelectorAll('.mc-audio-file').forEach((b) => b.onclick = () => openLib(b.dataset.uid));
+  wrap.querySelectorAll('.mc-audio-clear').forEach((b) => b.onclick = (e) => {
+    e.stopPropagation();
+    const a = find(b.dataset.uid); if (!a) return;
+    a.sound = '';
+    a.soundName = '';
+    a.audioOn = false;
+    flushSaveSettings();
+    rerender();
+  });
+  wrap.querySelectorAll('.mc-audio-vol').forEach((inp) => {
+    const setVolUi = () => {
+      const a = find(inp.dataset.uid); if (!a) return;
+      const v = Math.max(0, Math.min(100, Number(inp.value) || 0));
+      a.soundVolume = v;
+      const val = inp.closest('.mc-act-card')?.querySelector('.mc-audio-vol-val');
+      if (val) val.textContent = `${v}%`;
+    };
+    inp.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      window._mcVolDrag = true;
+    });
+    const endDrag = () => {
+      if (!window._mcVolDrag) return;
+      window._mcVolDrag = false;
+      setVolUi();
+      saveSettings();
+    };
+    inp.addEventListener('pointerup', endDrag);
+    inp.addEventListener('pointercancel', endDrag);
+    inp.addEventListener('change', endDrag);
+    inp.oninput = () => { setVolUi(); };
+  });
+}
+
+function renderMcFamilyActions(game) {
+  if (window._mcVolDrag) return;
+  const meta = MC_GAME_MAP[game];
+  if (!meta) return;
+  const wrap = document.getElementById(meta.wrapId);
+  if (!wrap) return;
+  const key = meta.key;
+  const list = (settings && Array.isArray(settings[key])) ? settings[key] : [];
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((a) => {
+    const vol = a.soundVolume != null ? Math.max(0, Math.min(100, parseInt(a.soundVolume, 10) || 0)) : 100;
+    const hasSound = !!(a.sound);
+    const audioBlock = hasSound ? `
+      <div class="mc-audio-wrap mc-audio-has">
+        <button type="button" class="mc-audio-file" data-uid="${esc(a.uid)}" title="Cambiar audio">${esc(a.soundName || 'Audio')}</button>
+        <div class="mc-audio-volrow">
+          <span class="mc-audio-vol-lbl">Volume:</span>
+          <input type="range" class="mc-audio-vol" data-uid="${esc(a.uid)}" min="0" max="100" value="${vol}" title="Volumen">
+          <span class="mc-audio-vol-val">${vol}%</span>
+        </div>
+        <button type="button" class="mc-audio-clear" data-uid="${esc(a.uid)}" title="Quitar audio">✕</button>
+      </div>` : `
+      <div class="mc-audio-wrap mc-audio-empty">
+        <button type="button" class="mc-audio-add" data-uid="${esc(a.uid)}" title="Elegir audio">Agregar<br>audio</button>
+      </div>`;
+    const cmdCount = a.custom
+      ? (Array.isArray(a.cmds) ? a.cmds.filter((c) => (typeof c === 'string' ? c : c?.cmd || c?.text || '').trim()).length : 0)
+      : (a.cmd ? 1 : 0);
+    const cmdPreview = a.custom
+      ? String((Array.isArray(a.cmds) && a.cmds[0] && (typeof a.cmds[0] === 'string' ? a.cmds[0] : (a.cmds[0].cmd || a.cmds[0].text || ''))) || '')
+      : String(a.cmd || '');
+    const rep = Math.max(1, parseInt(a.repeat, 10) || 1);
+    const delayEach = Math.max(0, parseInt(a.delayEach, 10) || 0);
+    const delayGroup = Math.max(0, parseInt(a.delayGroup ?? a.delayBefore, 10) || 0);
+    const metaChips = a.custom ? `
+      <div class="mc-act-meta">
+        <span>Repetición: <b>${rep}</b></span>
+        <span>Intervalo: <b>${delayEach}</b></span>
+        <span>Retraso: <b>${delayGroup}</b></span>
+        <span>Comandos: <b>${cmdCount}</b></span>
+      </div>
+      ${cmdPreview ? `<div class="mc-act-cmdprev" title="${esc(cmdPreview)}">${esc(cmdPreview)}</div>` : ''}` : `
+      <div class="mc-act-meta">${a.desc ? `<span class="mc-act-desc-inline">${esc(a.desc)}</span>` : ''}</div>`;
+    return `
+    <div class="mc-act-card mc-act-row ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
+      <div class="mc-act-col mc-act-col-trig">
+        ${mcTrigCardBtnHtml(a)}
+      </div>
+      <div class="mc-act-col mc-act-col-thumb" aria-hidden="true">
+        ${mcFamilyThumbHtml(a, game)}
+      </div>
+      <div class="mc-act-col mc-act-col-info">
+        <div class="mc-act-name">${esc(a.name)}</div>
+        ${metaChips}
+        ${mcCardQtyHtml(a)}
+        ${mcCardComboInstantHtml(a)}
+      </div>
+      <div class="mc-act-col mc-act-col-audio">
+        ${audioBlock}
+      </div>
+      <div class="mc-act-col mc-act-col-actions">
+        <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en" data-uid="${esc(a.uid)}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
+        <div class="mc-act-btns">
+          ${a.custom ? `<button type="button" class="mc-act-edit acc-icon-btn" data-uid="${esc(a.uid)}" title="Editar">${CARD_ICON.gear}</button>` : ''}
+          <button type="button" class="mc-act-test-delay acc-icon-btn" data-uid="${esc(a.uid)}" title="Probar en 4 s">${CARD_ICON.play}</button>
+          <button type="button" class="mc-act-test acc-icon-btn acc-try-instant" data-uid="${esc(a.uid)}" title="Probar ya">${CARD_ICON.play}</button>
+          <button type="button" class="mc-act-del acc-icon-btn acc-del-one" data-uid="${esc(a.uid)}" title="Quitar">${CARD_ICON.trash}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const find = (uid) => (settings[key] || []).find((x) => x.uid === uid);
+  const rerender = () => meta.render();
+  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
+    settings[key] = (settings[key] || []).filter((x) => x.uid !== b.dataset.uid);
+    saveSettings(); rerender();
+  });
+  wrap.querySelectorAll('.mc-trig-icon-btn').forEach((b) => b.onclick = () => openMcTrigPop(b.dataset.uid, key));
+  wrap.querySelectorAll('.mc-act-en').forEach((c) => c.onchange = () => {
+    const a = find(c.dataset.uid); if (!a) return;
+    a.enabled = c.checked;
+    saveSettingsKeysPatch(key); rerender();
+  });
+  wrap.querySelectorAll('.mc-qty-n').forEach((inp) => inp.onchange = () => {
+    const a = find(inp.dataset.uid); if (!a) return;
+    a.count = Math.max(1, Math.min(100, parseInt(inp.value, 10) || 1));
+    inp.value = String(a.count);
+    saveSettings();
+  });
+  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
+    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, game === 'minecraft' ? undefined : game);
+  });
+  wrap.querySelectorAll('.mc-act-test-delay').forEach((b) => b.onclick = () => {
+    const uid = b.dataset.uid;
+    toast && toast('La acción se ejecutará en 4 segundos…', 'ok');
+    setTimeout(() => sendTestMcAction(uid), 4000);
+  });
+  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcAction(b.dataset.uid));
+  bindMcFamilyAudio(wrap, find, rerender);
+  bindMcActionCardCommon(wrap, find, rerender);
+}
 
 let mccEditingUid = null;
 let mccGame = 'minecraft'; // a qué pestaña pertenece el comando que se edita/crea
@@ -10559,161 +11231,7 @@ function bindMcActionCardCommon(wrap, find, render) {
 }
 
 function renderMyMcActions() {
-  const wrap = document.getElementById('mc-my-actions');
-  if (!wrap) return;
-  const list = (settings && Array.isArray(settings.mcActions)) ? settings.mcActions : [];
-  if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map((a) => {
-    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-    let giftBtn = '';
-    if (a.trigger === 'gift') {
-      const ic = a.giftImage
-        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">`
-        : '🎁';
-      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-    } else {
-      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-    }
-    let likeRow = '';
-    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-      const val = a.likeN != null ? a.likeN : defN;
-      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
-    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !zombie)';
-      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!zombie';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-    }
-    const audioOn = !!a.audioOn;
-    const vol = a.soundVolume != null ? Math.max(0, Math.min(100, parseInt(a.soundVolume, 10) || 0)) : 100;
-    const hasSound = !!(a.sound);
-    const audioBlock = `
-      <div class="mc-audio-wrap">
-        <label class="mc-audio-on"><input type="checkbox" class="mc-audio-en" data-uid="${esc(a.uid)}" ${audioOn ? 'checked' : ''}> Audio</label>
-        <div class="mc-audio-box"${audioOn ? '' : ' hidden'}>
-          <div class="mc-audio-picks">
-            <button type="button" class="btn ghost sm mc-audio-lib" data-uid="${esc(a.uid)}">Biblioteca</button>
-            <button type="button" class="btn ghost sm mc-audio-up" data-uid="${esc(a.uid)}">Subir</button>
-          </div>
-          <div class="mc-audio-chosen">
-            <span class="mc-audio-name">${hasSound ? esc(a.soundName || 'Audio') : 'Sin audio…'}</span>
-            ${hasSound ? `<button type="button" class="mc-audio-clear" data-uid="${esc(a.uid)}" title="Quitar">✕</button>` : ''}
-          </div>
-          <div class="mc-audio-volrow"${hasSound ? '' : ' hidden'}>
-            <label class="mc-audio-vol-lbl">Volumen</label>
-            <div class="mc-audio-volctl">
-              <input type="range" class="mc-audio-vol" data-uid="${esc(a.uid)}" min="0" max="100" value="${vol}">
-              <span class="mc-audio-vol-val">${vol}%</span>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    return `
-    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
-      <div class="mc-act-top">
-        <span class="mc-act-name"><img class="mc-act-ic" src="${a.image ? esc(a.image) : '/img/minecraft/' + esc(a.catId) + '.png'}" alt="" onerror="this.style.display='none'">${esc(a.name)}</span>
-        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
-      </div>
-      <div class="mc-act-desc">${esc(a.desc || '')}</div>
-      <div class="mc-act-row">
-        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
-        ${giftBtn}
-        ${likeRow}
-        ${mcCardQtyHtml(a)}
-        ${mcCardComboInstantHtml(a)}
-        ${audioBlock}
-      </div>
-      <div class="mc-act-actions">
-        <label class="mc-act-toggle"><input type="checkbox" class="mc-act-en" data-uid="${esc(a.uid)}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
-        <div class="mc-act-btns">
-          ${a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : ''}
-          <button type="button" class="mc-act-test" data-uid="${esc(a.uid)}">Probar</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  const find = (uid) => (settings.mcActions || []).find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
-    settings.mcActions = (settings.mcActions || []).filter((x) => x.uid !== b.dataset.uid);
-    saveSettings(); renderMyMcActions();
-  });
-  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
-    const a = find(s.dataset.uid); if (!a) return;
-    a.trigger = s.value;
-    saveSettings(); renderMyMcActions();
-  });
-  wrap.querySelectorAll('.mc-act-en').forEach((c) => c.onchange = () => {
-    const a = find(c.dataset.uid); if (!a) return;
-    a.enabled = c.checked;
-    saveSettingsKeysPatch('mcActions'); renderMyMcActions();
-  });
-  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.text = inp.value.trim();
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-qty-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.count = Math.max(1, Math.min(100, parseInt(inp.value, 10) || 1));
-    inp.value = String(a.count);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => {
-      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
-      saveSettings(); renderMyMcActions();
-    });
-  });
-  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (a) openMcCmdModal(a);
-  });
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcAction(b.dataset.uid));
-  wrap.querySelectorAll('.mc-audio-en').forEach((c) => c.onchange = () => {
-    const a = find(c.dataset.uid); if (!a) return;
-    a.audioOn = c.checked;
-    flushSaveSettings();
-    renderMyMcActions();
-  });
-  wrap.querySelectorAll('.mc-audio-lib').forEach((b) => b.onclick = () => {
-    mcSoundPickUid = b.dataset.uid;
-    soundPickTarget = 'mc';
-    openSoundLib();
-  });
-  wrap.querySelectorAll('.mc-audio-up').forEach((b) => b.onclick = () => {
-    mcAudioUploadUid = b.dataset.uid;
-    ensureMcAudioUpload().click();
-  });
-  wrap.querySelectorAll('.mc-audio-clear').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    a.sound = '';
-    a.soundName = '';
-    flushSaveSettings();
-    renderMyMcActions();
-  });
-  wrap.querySelectorAll('.mc-audio-vol').forEach((inp) => inp.oninput = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.soundVolume = Math.max(0, Math.min(100, parseInt(inp.value, 10) || 0));
-    const card = inp.closest('.mc-act-card');
-    const val = card?.querySelector('.mc-audio-vol-val');
-    if (val) val.textContent = a.soundVolume + '%';
-    flushSaveSettings();
-  });
-  bindMcActionCardCommon(wrap, find, renderMyMcActions);
+  renderMcFamilyActions('minecraft');
 }
 
 function ensureMcAudioUpload() {
@@ -10729,18 +11247,18 @@ function ensureMcAudioUpload() {
       mcAudioUploadUid = null;
       const file = e.target.files[0];
       e.target.value = '';
-      if (!file || !uid || !settings?.mcActions) return;
-      const a = settings.mcActions.find((x) => x.uid === uid);
-      if (!a) return;
+      if (!file || !uid) return;
+      const hit = findAnyGameAction(uid);
+      if (!hit?.action) return;
       try {
         const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
         const data = await res.json();
         if (!data.url) throw new Error(data.error || 'error');
-        a.sound = data.url;
-        a.soundName = file.name;
-        if (!a.audioOn) a.audioOn = true;
+        hit.action.sound = data.url;
+        hit.action.soundName = file.name;
+        if (!hit.action.audioOn) hit.action.audioOn = true;
         flushSaveSettings();
-        renderMyMcActions();
+        if (typeof hit.render === 'function') hit.render();
         toast && toast('Audio subido.', 'ok');
       } catch {
         toast && toast('No se pudo subir el audio.', 'error');
@@ -11043,94 +11561,8 @@ function addBedrockAction(catId) {
 }
 
 function renderMyBedrockActions() {
-  const wrap = document.getElementById('bedrock-my-actions');
-  if (!wrap) return;
-  const list = (settings && Array.isArray(settings.bedrockActions)) ? settings.bedrockActions : [];
-  if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map((a) => {
-    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-    let giftBtn = '';
-    if (a.trigger === 'gift') {
-      const ic = a.giftImage
-        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">`
-        : '🎁';
-      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-    } else {
-      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-    }
-    let likeRow = '';
-    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-      const val = a.likeN != null ? a.likeN : defN;
-      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
-    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !tnt)';
-      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!tnt';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-    }
-    return `
-    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
-      <div class="mc-act-top">
-        <span class="mc-act-name"><img class="mc-act-ic" src="${a.image ? esc(a.image) : '/img/bedrock/' + esc(a.catId) + '.png'}" alt="" onerror="this.style.display='none'">${esc(a.name)}</span>
-        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
-      </div>
-      <div class="mc-act-desc">${esc(a.desc || '')}</div>
-      <div class="mc-act-row">
-        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
-        ${giftBtn}
-        ${likeRow}
-        ${mcCardComboInstantHtml(a)}
-      </div>
-      ${gameActionCardFooter(a, 'mc-act-test', { timingMode: 'repeat', editBtn: a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : '' })}
-    </div>`;
-  }).join('');
-
-  const find = (uid) => (settings.bedrockActions || []).find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
-    settings.bedrockActions = (settings.bedrockActions || []).filter((x) => x.uid !== b.dataset.uid);
-    saveSettings(); renderMyBedrockActions();
-  });
-  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
-    const a = find(s.dataset.uid); if (!a) return;
-    a.trigger = s.value;
-    saveSettings(); renderMyBedrockActions();
-  });
-  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.text = inp.value.trim();
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => {
-      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
-      saveSettings(); renderMyBedrockActions();
-    });
-  });
-  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'bedrock');
-  });
-  bindGameActionConfigPopovers(wrap, find, renderMyBedrockActions);
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcActionTimed(b.dataset.uid, find));
-  bindMcActionCardCommon(wrap, find, renderMyBedrockActions);
+  renderMcFamilyActions('bedrock');
 }
-
-// Configuraciones de Bedrock: estos comandos se ejecutan DENTRO del juego (no por
-// RCON/ServerTap, porque dependen de tu personaje). El botón "Copiar" copia el comando
-// para que lo pegues en el chat del juego.
 function renderBedrockConfigs() {
   const grid = document.getElementById('bedrock-configs');
   if (!grid) return;
@@ -11307,91 +11739,8 @@ function addFarmAction(catId) {
 }
 
 function renderMyFarmActions() {
-  const wrap = document.getElementById('mcfarm-my-actions');
-  if (!wrap) return;
-  const list = (settings && Array.isArray(settings.farmActions)) ? settings.farmActions : [];
-  if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map((a) => {
-    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-    let giftBtn = '';
-    if (a.trigger === 'gift') {
-      const ic = a.giftImage
-        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">`
-        : '🎁';
-      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-    } else {
-      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-    }
-    let likeRow = '';
-    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-      const val = a.likeN != null ? a.likeN : defN;
-      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
-    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !tnt)';
-      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!tnt';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-    }
-    return `
-    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
-      <div class="mc-act-top">
-        <span class="mc-act-name">${a.image ? `<img class="mc-act-ic" src="${esc(a.image)}" alt="" onerror="this.style.display='none'">` : farmIconHtml(a.catId, 'mc-act-ic')}${esc(a.name)}</span>
-        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
-      </div>
-      <div class="mc-act-desc">${esc(a.desc || '')}</div>
-      <div class="mc-act-row">
-        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
-        ${giftBtn}
-        ${likeRow}
-        ${mcCardComboInstantHtml(a)}
-      </div>
-      ${gameActionCardFooter(a, 'mc-act-test', { timingMode: 'repeat', editBtn: a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : '' })}
-    </div>`;
-  }).join('');
-
-  const find = (uid) => (settings.farmActions || []).find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
-    settings.farmActions = (settings.farmActions || []).filter((x) => x.uid !== b.dataset.uid);
-    saveSettings(); renderMyFarmActions();
-  });
-  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
-    const a = find(s.dataset.uid); if (!a) return;
-    a.trigger = s.value;
-    saveSettings(); renderMyFarmActions();
-  });
-  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.text = inp.value.trim();
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => {
-      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
-      saveSettings(); renderMyFarmActions();
-    });
-  });
-  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'mcfarm');
-  });
-  bindGameActionConfigPopovers(wrap, find, renderMyFarmActions);
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcActionTimed(b.dataset.uid, find));
-  bindMcActionCardCommon(wrap, find, renderMyFarmActions);
+  renderMcFamilyActions('mcfarm');
 }
-
 function renderFarmConfigs() {
   const grid = document.getElementById('mcfarm-configs');
   if (!grid) return;
@@ -11562,86 +11911,8 @@ function addParkourAction(catId) {
 }
 
 function renderMyParkourActions() {
-  const wrap = document.getElementById('mcparkour-my-actions');
-  if (!wrap) return;
-  const list = (settings && Array.isArray(settings.parkourActions)) ? settings.parkourActions : [];
-  if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map((a) => {
-    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-    let giftBtn = '';
-    if (a.trigger === 'gift') {
-      const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-    } else {
-      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-    }
-    let likeRow = '';
-    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-      const val = a.likeN != null ? a.likeN : defN;
-      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-      likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
-    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !tnt)';
-      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!tnt';
-      likeRow = `<label class="mc-like-row">${txt}<input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-    }
-    return `
-    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
-      <div class="mc-act-top">
-        <span class="mc-act-name"><img class="mc-act-ic" src="${a.image ? esc(a.image) : '/img/parkour/' + esc(a.catId) + '.png'}" alt="" onerror="this.style.display='none'">${esc(a.name)}</span>
-        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
-      </div>
-      <div class="mc-act-desc">${esc(a.desc || '')}</div>
-      <div class="mc-act-row">
-        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
-        ${giftBtn}
-        ${likeRow}
-        ${mcCardComboInstantHtml(a)}
-      </div>
-      ${gameActionCardFooter(a, 'mc-act-test', { timingMode: 'repeat', editBtn: a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : '' })}
-    </div>`;
-  }).join('');
-  const find = (uid) => (settings.parkourActions || []).find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
-    settings.parkourActions = (settings.parkourActions || []).filter((x) => x.uid !== b.dataset.uid);
-    saveSettings(); renderMyParkourActions();
-  });
-  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
-    const a = find(s.dataset.uid); if (!a) return;
-    a.trigger = s.value;
-    saveSettings(); renderMyParkourActions();
-  });
-  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.text = inp.value.trim();
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => {
-      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
-      saveSettings(); renderMyParkourActions();
-    });
-  });
-  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'mcparkour');
-  });
-  bindGameActionConfigPopovers(wrap, find, renderMyParkourActions);
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcActionTimed(b.dataset.uid, find));
-  bindMcActionCardCommon(wrap, find, renderMyParkourActions);
+  renderMcFamilyActions('mcparkour');
 }
-
 function renderParkourConfigs() {
   const grid = document.getElementById('mcparkour-configs');
   if (!grid) return;
@@ -11819,86 +12090,8 @@ function addKothAction(catId) {
 }
 
 function renderMyKothActions() {
-  const wrap = document.getElementById('mckoth-my-actions');
-  if (!wrap) return;
-  const list = (settings && Array.isArray(settings.kothActions)) ? settings.kothActions : [];
-  if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map((a) => {
-    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-    let giftBtn = '';
-    if (a.trigger === 'gift') {
-      const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-    } else {
-      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-    }
-    let likeRow = '';
-    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-      const val = a.likeN != null ? a.likeN : defN;
-      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-      likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
-    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !tnt)';
-      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!tnt';
-      likeRow = `<label class="mc-like-row">${txt}<input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-    }
-    return `
-    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
-      <div class="mc-act-top">
-        <span class="mc-act-name"><img class="mc-act-ic" src="${a.image ? esc(a.image) : '/img/koth/' + esc(a.catId) + '.png'}" alt="" onerror="this.style.display='none'">${esc(a.name)}</span>
-        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
-      </div>
-      <div class="mc-act-desc">${esc(a.desc || '')}</div>
-      <div class="mc-act-row">
-        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
-        ${giftBtn}
-        ${likeRow}
-        ${mcCardComboInstantHtml(a)}
-      </div>
-      ${gameActionCardFooter(a, 'mc-act-test', { timingMode: 'repeat', editBtn: a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : '' })}
-    </div>`;
-  }).join('');
-  const find = (uid) => (settings.kothActions || []).find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
-    settings.kothActions = (settings.kothActions || []).filter((x) => x.uid !== b.dataset.uid);
-    saveSettings(); renderMyKothActions();
-  });
-  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
-    const a = find(s.dataset.uid); if (!a) return;
-    a.trigger = s.value;
-    saveSettings(); renderMyKothActions();
-  });
-  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.text = inp.value.trim();
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => {
-      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
-      saveSettings(); renderMyKothActions();
-    });
-  });
-  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'mckoth');
-  });
-  bindGameActionConfigPopovers(wrap, find, renderMyKothActions);
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcActionTimed(b.dataset.uid, find));
-  bindMcActionCardCommon(wrap, find, renderMyKothActions);
+  renderMcFamilyActions('mckoth');
 }
-
 function renderKothConfigs() {
   const grid = document.getElementById('mckoth-configs');
   if (!grid) return;
@@ -12115,92 +12308,8 @@ function addSandboxAction(catId) {
 }
 
 function renderMySandboxActions() {
-  const wrap = document.getElementById('sandbox-my-actions');
-  if (!wrap) return;
-  const list = (settings && Array.isArray(settings.sandboxActions)) ? settings.sandboxActions : [];
-  if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map((a) => {
-    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-    let giftBtn = '';
-    if (a.trigger === 'gift') {
-      const ic = a.giftImage
-        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">`
-        : '🎁';
-      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-    } else {
-      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-    }
-    let likeRow = '';
-    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-      const val = a.likeN != null ? a.likeN : defN;
-      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
-    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !tnt)';
-      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!tnt';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-    }
-    return `
-    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
-      <div class="mc-act-top">
-        <span class="mc-act-name"><img class="mc-act-ic" src="${a.image ? esc(a.image) : '/img/sandbox/' + esc(a.catId) + '.png'}" alt="" onerror="this.style.display='none'">${esc(a.name)}</span>
-        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
-      </div>
-      <div class="mc-act-desc">${esc(a.desc || '')}</div>
-      <div class="mc-act-row">
-        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
-        ${giftBtn}
-        ${likeRow}
-        ${mcCardComboInstantHtml(a)}
-      </div>
-      ${gameActionCardFooter(a, 'mc-act-test', { timingMode: 'repeat', editBtn: a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : '' })}
-    </div>`;
-  }).join('');
-
-  const find = (uid) => (settings.sandboxActions || []).find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
-    settings.sandboxActions = (settings.sandboxActions || []).filter((x) => x.uid !== b.dataset.uid);
-    saveSettings(); renderMySandboxActions();
-  });
-  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
-    const a = find(s.dataset.uid); if (!a) return;
-    a.trigger = s.value;
-    saveSettings(); renderMySandboxActions();
-  });
-  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.text = inp.value.trim();
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => {
-      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
-      saveSettings(); renderMySandboxActions();
-    });
-  });
-  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'sandbox');
-  });
-  bindGameActionConfigPopovers(wrap, find, renderMySandboxActions);
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcActionTimed(b.dataset.uid, find));
-  bindMcActionCardCommon(wrap, find, renderMySandboxActions);
+  renderMcFamilyActions('sandbox');
 }
-
-// Configuraciones de Sandbox: se ejecutan DENTRO del juego. El botón "Copiar" copia el comando.
 function renderSandboxConfigs() {
   const grid = document.getElementById('sandbox-configs');
   if (!grid) return;
@@ -12557,92 +12666,8 @@ function addMcShooterAction(catId) {
 }
 
 function renderMyMcShooterActions() {
-  const wrap = document.getElementById('mcshooter-my-actions');
-  if (!wrap) return;
-  const list = (settings && Array.isArray(settings.mcshooterActions)) ? settings.mcshooterActions : [];
-  if (!list.length) {
-    wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
-    return;
-  }
-  wrap.innerHTML = list.map((a) => {
-    const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-    let giftBtn = '';
-    if (a.trigger === 'gift') {
-      const ic = a.giftImage
-        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">`
-        : '🎁';
-      giftBtn = `<button type="button" class="mc-gift-btn" data-uid="${esc(a.uid)}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-    } else {
-      const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-      const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-    }
-    let likeRow = '';
-    if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-      const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-      const val = a.likeN != null ? a.likeN : defN;
-      const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="number" min="1" class="mc-like-n" data-uid="${esc(a.uid)}" value="${esc(String(val))}"></label>`;
-    } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-      const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !zombie)';
-      const ph = a.trigger === 'chatUser' ? 'usuario123' : '!zombie';
-      likeRow = `<label class="mc-like-row">${txt}
-        <input type="text" class="mc-text-n" data-uid="${esc(a.uid)}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-    }
-    return `
-    <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${esc(a.uid)}">
-      <div class="mc-act-top">
-        <span class="mc-act-name">${mcShooterActionIconHtml(a)}${esc(a.name)}</span>
-        <button type="button" class="mc-act-del" data-uid="${esc(a.uid)}" title="Quitar">✕</button>
-      </div>
-      <div class="mc-act-desc">${esc(a.desc || '')}</div>
-      <div class="mc-act-row">
-        <select class="mc-trig-sel" data-uid="${esc(a.uid)}">${opts}</select>
-        ${giftBtn}
-        ${likeRow}
-        ${mcCardComboInstantHtml(a)}
-      </div>
-      ${gameActionCardFooter(a, 'mc-act-test', { timingMode: 'repeat', editBtn: a.custom ? `<button type="button" class="mc-act-edit" data-uid="${esc(a.uid)}">Editar</button>` : '' })}
-    </div>`;
-  }).join('');
-
-  const find = (uid) => (settings.mcshooterActions || []).find((x) => x.uid === uid);
-  wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
-    settings.mcshooterActions = (settings.mcshooterActions || []).filter((x) => x.uid !== b.dataset.uid);
-    saveSettings(); renderMyMcShooterActions();
-  });
-  wrap.querySelectorAll('.mc-trig-sel').forEach((s) => s.onchange = () => {
-    const a = find(s.dataset.uid); if (!a) return;
-    a.trigger = s.value;
-    saveSettings(); renderMyMcShooterActions();
-  });
-  wrap.querySelectorAll('.mc-like-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-text-n').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.text = inp.value.trim();
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mc-gift-btn').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (!a) return;
-    openGiftModalCb((g) => {
-      a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || '';
-      saveSettings(); renderMyMcShooterActions();
-    });
-  });
-  wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
-    const a = find(b.dataset.uid); if (a) openMcCmdModal(a, 'mcshooter');
-  });
-  bindGameActionConfigPopovers(wrap, find, renderMyMcShooterActions);
-  wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcActionTimed(b.dataset.uid, find));
-  bindMcActionCardCommon(wrap, find, renderMyMcShooterActions);
+  renderMcFamilyActions('mcshooter');
 }
-
-// Abre un enlace en el navegador del sistema (.exe) o en una pestaña/ventana del navegador.
 function openExternalLink(url, opts = {}) {
   if (!url) return;
   const { popup = false, name = 'external', width = 960, height = 540 } = opts;
@@ -13811,16 +13836,12 @@ function marioCardHtml(a) {
   const webhookOn = !!(a.webhookCmd && a.webhookCmd.on && a.webhookCmd.url);
   const emoji = a.kind === 'effect' ? '✨' : (a.tipo === 'enemy' ? '👾' : '🍄');
   const iconSrc = marioCatalogIconUrl(a);
-  const nameHtml = iconSrc
-    ? `<span class="mc-act-name"><img class="mc-act-ic" src="${esc(iconSrc)}" alt="" onerror="this.outerHTML='${emoji} '">${esc(a.label || a.thing)}</span>`
-    : `<span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>`;
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-  const giftBtn = gameActionGiftUi(a, 'mario-gift');
-  const likeRow = gameActionExtraRow(a, 'mario-like-n', 'mario-text-n');
+  const thumbHtml = iconSrc
+    ? `<img class="mc-act-ic" src="${esc(iconSrc)}" alt="" onerror="this.style.display='none'">`
+    : `<span class="mc-act-em">${emoji}</span>`;
+  const nameHtml = `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`;
+  const actionSub = a.actionName ? `<div class="mc-act-meta"><span class="mc-act-desc-inline">${esc(a.actionName)}</span></div>` : '';
   const whChip = webhookOn ? '<span class="acc-chip key mc-wh-chip">🪝 WebHook</span>' : '';
-  const actionSub = a.actionName
-    ? `<div class="mc-act-sub">${esc(a.actionName)}</div>`
-    : '';
   let cfgOpts = {
     countMax: a.kind === 'effect' ? 60 : 999,
     countMin: 1,
@@ -13832,30 +13853,26 @@ function marioCardHtml(a) {
       <label class="mc-act-cfg-field"><span class="mc-act-cfg-lbl">Segundos</span><input type="number" min="1" max="60" class="mc-act-cfg-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>
       <label class="mc-act-cfg-field"><span class="mc-act-cfg-lbl">Tamaño (x, 0=auto)</span><input type="number" min="0" max="10" class="mc-act-cfg-factor" data-uid="${uid}" value="${esc(String(a.factor || 0))}"></label>`;
   }
-
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''} ${webhookOn ? 'mc-wh-card' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <div class="mc-act-title-wrap">
-        ${nameHtml}
-        ${actionSub}
-      </div>
-      <button type="button" class="mc-act-del mario-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row mc-act-trigger-row">
-      <select class="mario-trig-sel mc-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-      ${whChip}
-    </div>
-    ${((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any') ? `<div class="mc-act-row">${mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'mario-combo-instant-en')}</div>` : ''}
-    ${gameActionCardFooter(a, 'mario-test', cfgOpts)}
-  </div>`;
+  const infoExtra = `
+    ${actionSub}
+    ${whChip}
+    ${((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any') ? mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'mario-combo-instant-en') : ''}`;
+  return gameSurvivalStyleCardHtml(a, {
+    settingsKey: 'marioActions',
+    thumbHtml,
+    nameHtml,
+    infoExtraHtml: infoExtra,
+    cfgOpts,
+    testClass: 'mario-test',
+    delClass: 'mario-del',
+    cardClass: webhookOn ? 'mc-wh-card' : '',
+  });
 }
 
 function renderMarioActions() {
   const wrap = document.getElementById('mario-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('marioActions', renderMarioActions);
   const list = ensureMarioActions();
   if (!list.length) {
     wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Pulsa <b>+ Agregar</b> en el catálogo de abajo.</div>';
@@ -13870,7 +13887,6 @@ function renderMarioActions() {
     renderMarioActions();
     renderMarioCatalog(document.getElementById('mario-cat-search')?.value || '');
   });
-  bindGameTriggerSelects(wrap, 'mario-trig-sel', 'marioActions', renderMarioActions);
   bindGameActionConfigPopovers(wrap, find, renderMarioActions, {
     countMax: 999,
     extraBind: (w, _find, savePatch) => {
@@ -13878,26 +13894,14 @@ function renderMarioActions() {
       w.querySelectorAll('.mc-act-cfg-factor').forEach((inp) => inp.onchange = () => savePatch(inp, { factor: Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)) }));
     },
   });
-  wrap.querySelectorAll('.mario-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
-  wrap.querySelectorAll('.mario-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
-  wrap.querySelectorAll('.mario-count').forEach((inp) => {
-    const apply = () => {
-      const a = find(inp.dataset.uid);
-      if (!a) return;
-      a.count = Math.max(1, Math.min(999, parseInt(inp.value, 10) || 1));
-      if (a.webhookCmd?.url) a.webhookCmd.url = applyMarioWebhookQuantity(a.webhookCmd.url, a.count);
-      saveSettings();
-    };
-    inp.oninput = apply;
-    inp.onchange = apply;
-  });
-  wrap.querySelectorAll('.mario-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
-  wrap.querySelectorAll('.mario-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
   wrap.querySelectorAll('.mario-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
-  bindGameActionGiftButtons(wrap, 'mario-gift', 'marioActions', renderMarioActions);
-  wrap.querySelectorAll('.mario-test').forEach((b) => b.onclick = () => {
-    const a = syncMarioActionFieldsFromDom(b.dataset.uid);
-    if (a) testMarioAction(a);
+  bindGameSurvivalCardExtras(wrap, find, renderMarioActions, {
+    settingsKey: 'marioActions',
+    testClass: 'mario-test',
+    onTest: (el) => {
+      const a = syncMarioActionFieldsFromDom(el.dataset.uid);
+      if (a) testMarioAction(a);
+    },
   });
 }
 
@@ -14557,10 +14561,7 @@ async function testSmb3Action(a) {
 }
 
 function smb3CardHtml(a) {
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
-  const giftBtn = gameActionGiftUi(a, 'smb3-gift');
-  const likeRow = gameActionExtraRow(a, 'smb3-like-n', 'smb3-text-n');
   const emoji = a.kind === 'effect' ? '✨' : (SMB3_CAT_ICON[a.tipo] || '👾');
   const cfgOpts = {
     countMax: 200,
@@ -14569,25 +14570,22 @@ function smb3CardHtml(a) {
       ? `<label class="mc-act-cfg-field"><span class="mc-act-cfg-lbl">Segundos</span><input type="number" min="1" max="60" class="mc-act-cfg-seconds" data-uid="${uid}" value="${esc(String(a.seconds || 5))}"></label>`
       : '',
   };
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>
-      <button type="button" class="mc-act-del smb3-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="smb3-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    ${((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any') ? `<div class="mc-act-row">${mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'smb3-combo-instant-en')}</div>` : ''}
-    ${gameActionCardFooter(a, 'smb3-test', cfgOpts)}
-  </div>`;
+  return gameSurvivalStyleCardHtml(a, {
+    settingsKey: 'smb3Actions',
+    thumbHtml: `<span class="mc-act-em">${emoji}</span>`,
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    infoExtraHtml: ((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any')
+      ? mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'smb3-combo-instant-en') : '',
+    cfgOpts,
+    testClass: 'smb3-test',
+    delClass: 'smb3-del',
+  });
 }
 
 function renderSmb3Actions() {
   const wrap = document.getElementById('smb3-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('smb3Actions', renderSmb3Actions);
   const list = ensureSmb3Actions();
   if (!list.length) {
     wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
@@ -14596,18 +14594,18 @@ function renderSmb3Actions() {
   wrap.innerHTML = list.map((a) => smb3CardHtml(a)).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.smb3-del').forEach((b) => b.onclick = () => { settings.smb3Actions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderSmb3Actions(); });
-  bindGameTriggerSelects(wrap, 'smb3-trig-sel', 'smb3Actions', renderSmb3Actions);
   bindGameActionConfigPopovers(wrap, find, renderSmb3Actions, {
     countMax: 200,
     extraBind: (w, _find, savePatch) => {
       w.querySelectorAll('.mc-act-cfg-seconds').forEach((inp) => inp.onchange = () => savePatch(inp, { seconds: Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)) }));
     },
   });
-  wrap.querySelectorAll('.smb3-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
-  wrap.querySelectorAll('.smb3-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
   wrap.querySelectorAll('.smb3-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
-  wrap.querySelectorAll('.smb3-test').forEach((b) => b.onclick = () => testSmb3Action(find(b.dataset.uid)));
-  bindGameActionGiftButtons(wrap, 'smb3-gift', 'smb3Actions', renderSmb3Actions);
+  bindGameSurvivalCardExtras(wrap, find, renderSmb3Actions, {
+    settingsKey: 'smb3Actions',
+    testClass: 'smb3-test',
+    testFn: testSmb3Action,
+  });
 }
 
 function setupMari0Downloads() {
@@ -14962,15 +14960,12 @@ async function testMari0Action(a) {
 }
 
 function mari0CardHtml(a) {
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
-  const giftBtn = gameActionGiftUi(a, 'mari0-gift');
-  const likeRow = gameActionExtraRow(a, 'mari0-like-n', 'mari0-text-n');
   const emoji = MARI0_CAT_ICON[a.tipo] || (a.kind === 'effect' ? '✨' : '🎮');
   const iconSrc = mari0CatalogIconUrl(a);
-  const nameHtml = iconSrc
-    ? `<span class="mc-act-name"><img class="mc-act-ic" src="${esc(iconSrc)}" alt="" onerror="this.outerHTML='${emoji} '">${esc(a.label || a.thing)}</span>`
-    : `<span class="mc-act-name">${emoji} ${esc(a.label || a.thing)}</span>`;
+  const thumbHtml = iconSrc
+    ? `<img class="mc-act-ic" src="${esc(iconSrc)}" alt="" onerror="this.style.display='none'">`
+    : `<span class="mc-act-em">${emoji}</span>`;
   const cfgOpts = {
     countMax: MARI0_MAX_COUNT,
     hideCount: a.kind === 'effect' || (a.kind === 'webhook' && a.tipo === 'effect'),
@@ -14978,31 +14973,22 @@ function mari0CardHtml(a) {
       ? `<label class="mc-act-cfg-field"><span class="mc-act-cfg-lbl">Segundos</span><input type="number" min="1" max="60" class="mc-act-cfg-seconds" data-uid="${uid}" value="${esc(String(a.seconds ?? 10))}"></label>`
       : '',
   };
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      ${nameHtml}
-      <button type="button" class="mc-act-del mari0-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="mari0-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    ${((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any') ? `<div class="mc-act-row">${mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'mari0-combo-instant-en')}</div>` : ''}
-    <div class="mc-act-actions">
-      <label class="mc-act-toggle"><input type="checkbox" class="mari0-act-en" data-uid="${uid}" ${a.enabled === false ? '' : 'checked'}> Activa</label>
-      <div class="mc-act-btns">
-        ${gameActionConfigBtnHtml(a, cfgOpts)}
-        <button type="button" class="mc-act-test mari0-test" data-uid="${uid}">Probar</button>
-      </div>
-    </div>
-  </div>`;
+  return gameSurvivalStyleCardHtml(a, {
+    settingsKey: 'mari0Actions',
+    thumbHtml,
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    infoExtraHtml: ((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any')
+      ? mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'mari0-combo-instant-en') : '',
+    cfgOpts,
+    testClass: 'mari0-test',
+    delClass: 'mari0-del',
+  });
 }
 
 function renderMari0Actions() {
   const wrap = document.getElementById('mari0-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('mari0Actions', renderMari0Actions);
   const list = ensureMari0Actions();
   if (!list.length) {
     wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
@@ -15014,7 +15000,6 @@ function renderMari0Actions() {
   wrap.querySelectorAll('.mari0-del').forEach((b) => b.onclick = () => {
     removeGameActions('mari0Actions', (x) => x.uid !== b.dataset.uid, renderMari0Actions);
   });
-  bindGameTriggerSelects(wrap, 'mari0-trig-sel', 'mari0Actions', renderMari0Actions);
   bindGameActionConfigPopovers(wrap, find, renderMari0Actions, {
     countMax: MARI0_MAX_COUNT,
     extraBind: (w, _find, savePatch) => {
@@ -15022,26 +15007,12 @@ function renderMari0Actions() {
       w.querySelectorAll('.mc-act-cfg-factor').forEach((inp) => inp.onchange = () => savePatch(inp, { factor: Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)) }));
     },
   });
-  wrap.querySelectorAll('.mari0-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
-  wrap.querySelectorAll('.mari0-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
-  wrap.querySelectorAll('.mari0-count').forEach((inp) => inp.onchange = () => {
-    const a = find(inp.dataset.uid); if (!a) return;
-    a.count = Math.max(1, Math.min(MARI0_MAX_COUNT, parseInt(inp.value, 10) || 1));
-    inp.value = String(a.count);
-    if (a.webhookCmd?.url) a.webhookCmd.url = applyMarioWebhookQuantity(a.webhookCmd.url, a.count);
-    saveSettings();
-  });
-  wrap.querySelectorAll('.mari0-seconds').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.seconds = Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)); saveSettings(); });
-  wrap.querySelectorAll('.mari0-factor').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.factor = Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)); saveSettings(); });
   wrap.querySelectorAll('.mari0-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
-  wrap.querySelectorAll('.mari0-act-en').forEach((c) => c.onchange = () => {
-    const a = find(c.dataset.uid); if (!a) return;
-    a.enabled = c.checked;
-    saveSettingsKeysPatch('mari0Actions');
-    renderMari0Actions();
+  bindGameSurvivalCardExtras(wrap, find, renderMari0Actions, {
+    settingsKey: 'mari0Actions',
+    testClass: 'mari0-test',
+    testFn: testMari0Action,
   });
-  bindGameActionGiftButtons(wrap, 'mari0-gift', 'mari0Actions', renderMari0Actions);
-  wrap.querySelectorAll('.mari0-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMari0Action(a); });
 }
 
 /* ============ Acciones de Plants vs Zombies (generar zombies / dar soles) ============ */
@@ -15311,29 +15282,9 @@ async function testPvzAction(a) {
 
 function pvzCardHtml(a, cardOpts = {}) {
   const maxSpawn = cardOpts.maxSpawn != null ? cardOpts.maxSpawn : 20;
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn pvz-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="pvz-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !zombie)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!zombie';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="pvz-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
   const emoji = a.kind === 'sun' ? '☀️' : (a.tipo === 'plant' ? '🌱' : (a.tipo === 'command' ? '⚙️' : '🧟'));
+  const imgBase = cardOpts.imgBase || '/img/pvz/';
   const cfgOpts = {
     countMax: maxSpawn,
     countMin: 1,
@@ -15345,24 +15296,20 @@ function pvzCardHtml(a, cardOpts = {}) {
       ? `<label class="mc-act-cfg-field"><span class="mc-act-cfg-lbl">Cantidad de soles</span><input type="number" min="1" max="9990" step="25" class="mc-act-cfg-amount" data-uid="${uid}" value="${esc(String(a.amount || 50))}"></label>`
       : '',
   };
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <span class="mc-act-name"><img class="mc-act-ic" src="/img/pvz/${esc(a.thing)}.png" alt="" onerror="this.outerHTML='${emoji} '">${esc(a.label || a.thing)}</span>
-      <button type="button" class="mc-act-del pvz-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="pvz-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    ${gameActionCardFooter(a, 'pvz-test', cfgOpts)}
-  </div>`;
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: `<img class="mc-act-ic" src="${esc(imgBase)}${esc(a.thing)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-act-em\\'>${emoji}</span>'">`,
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    cfgOpts,
+    testClass: 'pvz-test',
+    delClass: 'pvz-del',
+    hideTest: !!cardOpts.hideTest,
+  });
 }
 
 function renderPvzActions() {
   const wrap = document.getElementById('pvz-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('pvzActions', renderPvzActions);
   const list = ensurePvzActions();
   if (!list.length) {
     wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
@@ -15372,7 +15319,6 @@ function renderPvzActions() {
 
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.pvz-del').forEach((b) => b.onclick = () => { settings.pvzActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderPvzActions(); });
-  bindGameTriggerSelects(wrap, 'pvz-trig-sel', 'pvzActions', renderPvzActions);
   bindGameActionConfigPopovers(wrap, find, renderPvzActions, {
     countMax: 20,
     extraBind: (w, _find, savePatch) => {
@@ -15381,10 +15327,11 @@ function renderPvzActions() {
       });
     },
   });
-  wrap.querySelectorAll('.pvz-like-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
-  wrap.querySelectorAll('.pvz-text-n').forEach((inp) => inp.onchange = () => { const a = find(inp.dataset.uid); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
-  bindGameActionGiftButtons(wrap, 'pvz-gift', 'pvzActions', renderPvzActions);
-  wrap.querySelectorAll('.pvz-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzAction(a); });
+  bindGameSurvivalCardExtras(wrap, find, renderPvzActions, {
+    settingsKey: 'pvzActions',
+    testClass: 'pvz-test',
+    testFn: testPvzAction,
+  });
 }
 
 /* ============ PvZ Hybrid (PvZ Tools + bridge :7757 / WS :3132) ============ */
@@ -15766,28 +15713,23 @@ async function testPvzHybridAction(a) {
 function renderPvzHybridActions() {
   const wrap = document.getElementById('pvzhybrid-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('pvzHybridActions', renderPvzHybridActions);
   const list = ensurePvzHybridActions();
   if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
   wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: PVZ_HYBRID_SPAWN_MAX }).replace(/pvz-/g, 'pvzhybrid-')).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.pvzhybrid-del').forEach((b) => b.onclick = () => { settings.pvzHybridActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderPvzHybridActions(); });
-  bindGameTriggerSelects(wrap, 'pvzhybrid-trig-sel', 'pvzHybridActions', renderPvzHybridActions);
   bindGameActionConfigPopovers(wrap, find, renderPvzHybridActions, {
     countMax: PVZ_HYBRID_SPAWN_MAX,
     extraBind: (w, _find, savePatch) => {
       w.querySelectorAll('.mc-act-cfg-amount').forEach((inp) => inp.onchange = () => savePatch(inp, { amount: Math.max(1, Math.min(9990, parseInt(inp.value, 10) || 50)) }));
     },
   });
-  wrap.querySelectorAll('.pvzhybrid-like-n, .pvzhybrid-text-n').forEach((inp) => {
-    inp.onchange = () => {
-      const a = find(inp.dataset.uid); if (!a) return;
-      if (inp.classList.contains('pvzhybrid-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('pvzhybrid-text-n')) a.text = inp.value.trim();
-      saveSettings();
-    };
+  bindGameSurvivalCardExtras(wrap, find, renderPvzHybridActions, {
+    settingsKey: 'pvzHybridActions',
+    testClass: 'pvzhybrid-test',
+    testFn: testPvzHybridAction,
   });
-  bindGameActionGiftButtons(wrap, 'pvzhybrid-gift', 'pvzHybridActions', renderPvzHybridActions);
-  wrap.querySelectorAll('.pvzhybrid-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testPvzHybridAction(a); });
 }
 
 // ===================== R.E.P.O. =====================
@@ -16987,43 +16929,15 @@ function repoCardHtml(a) {
   const c = repoCatalogEntry(a.thing);
   const imgSlug = a.img || repoImgSlug(a.thing);
   const em = REPO_SECTION_ICON[c?.section] || '👾';
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn repo-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="repo-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !duck)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!duck';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="repo-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
-  const qtyRow = '';
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <span class="mc-act-name"><img class="mc-act-ic" src="/img/repo/${esc(imgSlug)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-cat-em mc-act-em\\'>${em}</span>'">${esc(a.label || a.thing)}</span>
-      <button type="button" class="mc-act-del repo-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="repo-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    ${repoParamRowsHtml(a, c, uid)}
-    ${gameActionCardFooter(a, 'repo-test', { countMax: REPO_SPAWN_MAX })}
-  </div>`;
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: `<img class="mc-act-ic" src="/img/repo/${esc(imgSlug)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-act-em\\'>${em}</span>'">`,
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    infoExtraHtml: repoParamRowsHtml(a, c, uid),
+    cfgOpts: { countMax: REPO_SPAWN_MAX },
+    testClass: 'repo-test',
+    delClass: 'repo-del',
+  });
 }
 
 async function testRepoAction(a) {
@@ -17055,21 +16969,13 @@ async function testRepoAction(a) {
 function renderRepoActions() {
   const wrap = document.getElementById('repo-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('repoActions', renderRepoActions);
   const list = ensureRepoActions();
   if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
   wrap.innerHTML = list.map((a) => repoCardHtml(a)).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.repo-del').forEach((b) => b.onclick = () => { settings.repoActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderRepoActions(); });
-  bindGameTriggerSelects(wrap, 'repo-trig-sel', 'repoActions', renderRepoActions);
   bindGameActionConfigPopovers(wrap, find, renderRepoActions, { countMax: REPO_SPAWN_MAX });
-  wrap.querySelectorAll('.repo-like-n, .repo-text-n').forEach((inp) => {
-    inp.onchange = () => {
-      const a = find(inp.dataset.uid); if (!a) return;
-      if (inp.classList.contains('repo-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('repo-text-n')) a.text = inp.value.trim();
-      saveSettings();
-    };
-  });
   wrap.querySelectorAll('.repo-param').forEach((inp) => {
     inp.onchange = () => {
       const a = find(inp.dataset.uid);
@@ -17080,8 +16986,11 @@ function renderRepoActions() {
       saveSettings();
     };
   });
-  bindGameActionGiftButtons(wrap, 'repo-gift', 'repoActions', renderRepoActions);
-  wrap.querySelectorAll('.repo-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testRepoAction(a); });
+  bindGameSurvivalCardExtras(wrap, find, renderRepoActions, {
+    settingsKey: 'repoActions',
+    testClass: 'repo-test',
+    testFn: testRepoAction,
+  });
 }
 
 async function generateRepoOverlayImage() {
@@ -17625,43 +17534,15 @@ function l4dCardHtml(a) {
   const c = l4dCatalogEntry(a.thing);
   const imgSlug = a.img || l4dImgSlug(a.thing);
   const em = c?.emoji || '🧟';
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn l4d-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="l4d-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !tank)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!tank';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="l4d-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
-  const qtyRow = '';
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <span class="mc-act-name"><img class="mc-act-ic" src="/img/l4d/${esc(imgSlug)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-cat-em mc-act-em\\'>${em}</span>'">${esc(a.label || a.thing)}</span>
-      <button type="button" class="mc-act-del l4d-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="l4d-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    ${l4dParamRowsHtml(a, c, uid)}
-    ${gameActionCardFooter(a, 'l4d-test', { countMax: L4D_SPAWN_MAX })}
-  </div>`;
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: `<img class="mc-act-ic" src="/img/l4d/${esc(imgSlug)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-act-em\\'>${em}</span>'">`,
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    infoExtraHtml: l4dParamRowsHtml(a, c, uid),
+    cfgOpts: { countMax: L4D_SPAWN_MAX },
+    testClass: 'l4d-test',
+    delClass: 'l4d-del',
+  });
 }
 
 function renderL4dCatalog(filter) {
@@ -17783,6 +17664,7 @@ async function testL4dAction(a) {
 function renderL4dActions() {
   const wrap = document.getElementById('l4d-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('l4dActions', renderL4dActions);
   const list = ensureL4dActions();
   if (!list.length) {
     wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
@@ -17795,17 +17677,7 @@ function renderL4dActions() {
     saveSettings();
     renderL4dActions();
   });
-  bindGameTriggerSelects(wrap, 'l4d-trig-sel', 'l4dActions', renderL4dActions);
   bindGameActionConfigPopovers(wrap, find, renderL4dActions, { countMax: L4D_SPAWN_MAX });
-  wrap.querySelectorAll('.l4d-like-n, .l4d-text-n').forEach((inp) => {
-    inp.onchange = () => {
-      const a = find(inp.dataset.uid);
-      if (!a) return;
-      if (inp.classList.contains('l4d-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('l4d-text-n')) a.text = inp.value.trim();
-      saveSettings();
-    };
-  });
   wrap.querySelectorAll('.l4d-param').forEach((inp) => {
     inp.onchange = () => {
       const a = find(inp.dataset.uid);
@@ -17816,18 +17688,10 @@ function renderL4dActions() {
       saveSettings();
     };
   });
-  bindGameActionGiftButtons(wrap, 'l4d-gift', 'l4dActions', renderL4dActions);
-  wrap.querySelectorAll('.l4d-test').forEach((b) => {
-    b.onclick = async () => {
-      const a = find(b.dataset.uid);
-      if (!a || b.disabled) return;
-      b.disabled = true;
-      try {
-        await testL4dAction(a);
-      } finally {
-        b.disabled = false;
-      }
-    };
+  bindGameSurvivalCardExtras(wrap, find, renderL4dActions, {
+    settingsKey: 'l4dActions',
+    testClass: 'l4d-test',
+    testFn: testL4dAction,
   });
 }
 
@@ -18370,42 +18234,15 @@ function unturnedParamRowsHtml(a, c, uid) {
 function unturnedCardHtml(a) {
   const c = unturnedCatalogEntry(a.thing);
   const icon = unturnedCatalogIconHtml(c || { id: a.thing, emoji: '🎒' });
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
   const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn unturned-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="unturned-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !zombie)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!zombie';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="unturned-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <span class="mc-act-name">${icon}${esc(a.label || a.thing)}</span>
-      <button type="button" class="mc-act-del unturned-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="unturned-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    ${unturnedParamRowsHtml(a, c, uid)}
-    ${gameActionCardFooter(a, 'unturned-test', { countMax: UNTURNED_SPAWN_MAX })}
-  </div>`;
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: icon,
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    infoExtraHtml: unturnedParamRowsHtml(a, c, uid),
+    cfgOpts: { countMax: UNTURNED_SPAWN_MAX },
+    testClass: 'unturned-test',
+    delClass: 'unturned-del',
+  });
 }
 
 function renderUnturnedCatalog(filter) {
@@ -18489,6 +18326,7 @@ async function testUnturnedAction(a) {
 function renderUnturnedActions() {
   const wrap = document.getElementById('unturned-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('unturnedActions', renderUnturnedActions);
   const list = ensureUnturnedActions();
   if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
   wrap.innerHTML = list.map((a) => unturnedCardHtml(a)).join('');
@@ -18500,14 +18338,11 @@ function renderUnturnedActions() {
       renderUnturnedActions();
     };
   });
-  bindGameTriggerSelects(wrap, 'unturned-trig-sel', 'unturnedActions', renderUnturnedActions);
   bindGameActionConfigPopovers(wrap, find, renderUnturnedActions, { countMax: UNTURNED_SPAWN_MAX });
-  wrap.querySelectorAll('.unturned-like-n, .unturned-text-n, .unturned-param').forEach((inp) => {
+  wrap.querySelectorAll('.unturned-param').forEach((inp) => {
     const sync = () => {
       const a = find(inp.dataset.uid); if (!a) return;
-      if (inp.classList.contains('unturned-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('unturned-text-n')) a.text = inp.value.trim();
-      else if (inp.classList.contains('unturned-param') && inp.dataset.key) {
+      if (inp.dataset.key) {
         const n = parseInt(inp.value, 10);
         if (Number.isFinite(n)) a[inp.dataset.key] = n;
       }
@@ -18516,12 +18351,10 @@ function renderUnturnedActions() {
     inp.oninput = sync;
     inp.onchange = sync;
   });
-  bindGameActionGiftButtons(wrap, 'unturned-gift', 'unturnedActions', renderUnturnedActions);
-  wrap.querySelectorAll('.unturned-test').forEach((b) => {
-    b.onclick = async () => {
-      const a = find(b.dataset.uid);
-      if (a) await testUnturnedAction(a);
-    };
+  bindGameSurvivalCardExtras(wrap, find, renderUnturnedActions, {
+    settingsKey: 'unturnedActions',
+    testClass: 'unturned-test',
+    testFn: testUnturnedAction,
   });
 }
 
@@ -18614,42 +18447,13 @@ function ensureCtrActions() {
 function ctrCardHtml(a) {
   const c = ctrCatalogEntry(a.thing);
   const icon = ctrCatalogIconHtml(c || { id: a.thing, emoji: '🏎️' });
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-  const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn ctr-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="ctr-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !turbo)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!turbo';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="ctr-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
-  const qtyRow = `<label class="mc-like-row" style="max-width:130px">Cantidad<input type="number" min="1" max="${CTR_SPAWN_MAX}" class="ctr-count" data-uid="${uid}" value="${esc(String(a.count || 1))}"></label>`;
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <span class="mc-act-name">${icon}${esc(a.label || a.thing)}</span>
-      <button type="button" class="mc-act-del ctr-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="ctr-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    ${gameActionCardFooter(a, 'ctr-test', { countMax: CTR_SPAWN_MAX })}
-  </div>`;
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: icon,
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    cfgOpts: { countMax: CTR_SPAWN_MAX },
+    testClass: 'ctr-test',
+    delClass: 'ctr-del',
+  });
 }
 
 function renderCtrCatalog(filter) {
@@ -18784,6 +18588,7 @@ async function testCtrAction(a) {
 function renderCtrActions() {
   const wrap = document.getElementById('ctr-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('ctrActions', renderCtrActions);
   const list = ensureCtrActions();
   if (!list.length) {
     wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
@@ -18796,19 +18601,12 @@ function renderCtrActions() {
     saveSettings();
     renderCtrActions();
   });
-  bindGameTriggerSelects(wrap, 'ctr-trig-sel', 'ctrActions', renderCtrActions);
   bindGameActionConfigPopovers(wrap, find, renderCtrActions, { countMax: CTR_SPAWN_MAX });
-  wrap.querySelectorAll('.ctr-like-n, .ctr-text-n').forEach((inp) => {
-    inp.onchange = () => {
-      const a = find(inp.dataset.uid);
-      if (!a) return;
-      if (inp.classList.contains('ctr-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('ctr-text-n')) a.text = inp.value;
-      saveSettings();
-    };
+  bindGameSurvivalCardExtras(wrap, find, renderCtrActions, {
+    settingsKey: 'ctrActions',
+    testClass: 'ctr-test',
+    testFn: testCtrAction,
   });
-  bindGameActionGiftButtons(wrap, 'ctr-gift', 'ctrActions', renderCtrActions);
-  wrap.querySelectorAll('.ctr-test').forEach((btn) => btn.onclick = () => testCtrAction(find(btn.dataset.uid)));
 }
 
 let ctrStatusTimer = null;
@@ -19062,41 +18860,13 @@ function ensureSmwActions() {
 function smwCardHtml(a) {
   const c = smwCatalogEntry(a.thing);
   const icon = smwCatalogIconHtml(c || { id: a.thing, emoji: '🌍' });
-  const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
-  const uid = esc(a.uid);
-  let giftBtn = '';
-  if ((a.trigger || 'gift') === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
-    giftBtn = `<button type="button" class="mc-gift-btn smw-gift" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
-  } else {
-    const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
-    const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-    giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
-  }
-  let likeRow = '';
-  if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
-    const defN = a.trigger === 'likeGlobal' ? 100 : 1;
-    const val = a.likeN != null ? a.likeN : defN;
-    const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
-    likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="smw-like-n" data-uid="${uid}" value="${esc(String(val))}"></label>`;
-  } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
-    const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !goomba)';
-    const ph = a.trigger === 'chatUser' ? 'usuario123' : '!goomba';
-    likeRow = `<label class="mc-like-row">${txt}<input type="text" class="smw-text-n" data-uid="${uid}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
-  }
-  return `
-  <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-uid="${uid}">
-    <div class="mc-act-top">
-      <span class="mc-act-name">${icon}${esc(a.label || a.thing)}</span>
-      <button type="button" class="mc-act-del smw-del" data-uid="${uid}" title="Quitar">✕</button>
-    </div>
-    <div class="mc-act-row">
-      <select class="smw-trig-sel" data-uid="${uid}">${opts}</select>
-      ${giftBtn}
-      ${likeRow}
-    </div>
-    ${gameActionCardFooter(a, 'smw-test', { countMax: SMW_SPAWN_MAX })}
-  </div>`;
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: icon,
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    cfgOpts: { countMax: SMW_SPAWN_MAX },
+    testClass: 'smw-test',
+    delClass: 'smw-del',
+  });
 }
 
 function renderSmwCatalog(filter) {
@@ -19212,6 +18982,7 @@ async function testSmwAction(a) {
 function renderSmwActions() {
   const wrap = document.getElementById('smw-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('smwActions', renderSmwActions);
   const list = ensureSmwActions();
   if (!list.length) {
     wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo.</div>';
@@ -19224,19 +18995,12 @@ function renderSmwActions() {
     saveSettings();
     renderSmwActions();
   });
-  bindGameTriggerSelects(wrap, 'smw-trig-sel', 'smwActions', renderSmwActions);
   bindGameActionConfigPopovers(wrap, find, renderSmwActions, { countMax: SMW_SPAWN_MAX });
-  wrap.querySelectorAll('.smw-like-n, .smw-text-n').forEach((inp) => {
-    inp.onchange = () => {
-      const a = find(inp.dataset.uid);
-      if (!a) return;
-      if (inp.classList.contains('smw-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('smw-text-n')) a.text = inp.value;
-      saveSettings();
-    };
+  bindGameSurvivalCardExtras(wrap, find, renderSmwActions, {
+    settingsKey: 'smwActions',
+    testClass: 'smw-test',
+    testFn: testSmwAction,
   });
-  bindGameActionGiftButtons(wrap, 'smw-gift', 'smwActions', renderSmwActions);
-  wrap.querySelectorAll('.smw-test').forEach((btn) => btn.onclick = () => testSmwAction(find(btn.dataset.uid)));
 }
 
 let smwStatusTimer = null;
@@ -20162,25 +19926,18 @@ async function testMslugAction(a) {
 function renderMslugActions() {
   const wrap = document.getElementById('mslug-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('mslugActions', renderMslugActions);
   const list = ensureMslugActions();
   if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
-  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: MSLUG_SPAWN_MAX }).replace(/pvz-/g, 'mslug-').replace(/\/img\/pvz\//g, '/img/mslug/')).join('');
+  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: MSLUG_SPAWN_MAX, imgBase: '/img/mslug/' }).replace(/pvz-/g, 'mslug-')).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.mslug-del').forEach((b) => b.onclick = () => { settings.mslugActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMslugActions(); });
-  bindGameTriggerSelects(wrap, 'mslug-trig-sel', 'mslugActions', renderMslugActions);
   bindGameActionConfigPopovers(wrap, find, renderMslugActions, { countMax: MSLUG_SPAWN_MAX });
-  wrap.querySelectorAll('.mslug-like-n, .mslug-text-n').forEach((inp) => {
-    const sync = () => {
-      const a = find(inp.dataset.uid); if (!a) return;
-      if (inp.classList.contains('mslug-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('mslug-text-n')) a.text = inp.value.trim();
-      saveSettings();
-    };
-    inp.oninput = sync;
-    inp.onchange = sync;
+  bindGameSurvivalCardExtras(wrap, find, renderMslugActions, {
+    settingsKey: 'mslugActions',
+    testClass: 'mslug-test',
+    testFn: testMslugAction,
   });
-  bindGameActionGiftButtons(wrap, 'mslug-gift', 'mslugActions', renderMslugActions);
-  wrap.querySelectorAll('.mslug-test').forEach((b) => b.onclick = () => { const a = find(b.dataset.uid); if (a) testMslugAction(a); });
 }
 
 const MSLUG_OVERLAY_IMAGE_URL = '/img/metal-slug-overlay.png';
@@ -20440,38 +20197,21 @@ async function testGdashAction(a) {
 function renderGdashActions() {
   const wrap = document.getElementById('gdash-my-actions');
   if (!wrap || !settings) return;
+  registerGameActionRenderer('gdashActions', renderGdashActions);
   const list = ensureGdashActions();
   if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
-  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: GDASH_EFFECT_MAX }).replace(/pvz-/g, 'gdash-').replace(/\/img\/pvz\//g, '/img/gdash/')).join('');
+  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: GDASH_EFFECT_MAX, imgBase: '/img/gdash/' }).replace(/pvz-/g, 'gdash-')).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.gdash-del').forEach((b) => b.onclick = () => { settings.gdashActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderGdashActions(); });
-  bindGameTriggerSelects(wrap, 'gdash-trig-sel', 'gdashActions', renderGdashActions);
   bindGameActionConfigPopovers(wrap, find, renderGdashActions, { countMax: GDASH_EFFECT_MAX });
-  wrap.querySelectorAll('.gdash-like-n, .gdash-text-n').forEach((inp) => {
-    const sync = () => {
-      const a = find(inp.dataset.uid); if (!a) return;
-      if (inp.classList.contains('gdash-like-n')) a.likeN = Math.max(1, parseInt(inp.value, 10) || 1);
-      else if (inp.classList.contains('gdash-text-n')) a.text = inp.value.trim();
-      saveSettings();
-    };
-    inp.oninput = sync;
-    inp.onchange = sync;
-  });
-  bindGameActionGiftButtons(wrap, 'gdash-gift', 'gdashActions', renderGdashActions);
-  wrap.querySelectorAll('.gdash-test').forEach((b) => {
-    b.onclick = async () => {
-      const a = find(b.dataset.uid);
-      if (!a || b.disabled || gdashTestBusy) return;
-      b.disabled = true;
-      const prev = b.textContent;
-      b.textContent = 'Espera…';
-      try {
-        await testGdashAction(a);
-      } finally {
-        b.disabled = false;
-        b.textContent = prev || 'Probar';
-      }
-    };
+  bindGameSurvivalCardExtras(wrap, find, renderGdashActions, {
+    settingsKey: 'gdashActions',
+    testClass: 'gdash-test',
+    onTest: async (el) => {
+      const a = find(el.dataset.uid);
+      if (!a || gdashTestBusy) return;
+      await testGdashAction(a);
+    },
   });
 }
 

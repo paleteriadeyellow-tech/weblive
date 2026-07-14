@@ -5,6 +5,7 @@ import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './i
 export function createActionBridge({ getSettings, forEachTriggerSettings, broadcast, broadcastToLocal, isCloud }) {
   const cloud = isCloud !== false;
   const marioLikeAcc = new Map();
+  const followShareCooldown = new Map();
 
   function settings() { return getSettings() || {}; }
   function eachTrigger(fn) {
@@ -12,6 +13,31 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     else fn(settings());
   }
   function log(level, text) { broadcast('log', { level, text }); }
+
+  function normUser(s) {
+    return String(s || '').replace(/^@+/, '').trim().toLowerCase();
+  }
+
+  /** Anti-spam follow/share por usuario (default 30s; 0 = sin límite). */
+  function allowFollowSharePerUser(a, eventType, user, bucket) {
+    if (eventType !== 'follow' && eventType !== 'share') return true;
+    if (!a) return true;
+    const delaySec = (a.eventDelay == null) ? 30 : Math.max(0, Number(a.eventDelay) || 0);
+    if (delaySec <= 0) return true;
+    const now = Date.now();
+    const userKey = normUser(user?.uniqueId) || normUser(user?.nickname) || normUser(user?.username) || '_unknown';
+    const id = a.uid || a.id || a.catId || (a.slot != null ? String(a.slot) : '') || a.thing || a.name || 'x';
+    const cdKey = `${bucket}|${id}|${eventType}|${userKey}`;
+    const last = followShareCooldown.get(cdKey) || 0;
+    if (now - last < delaySec * 1000) return false;
+    followShareCooldown.set(cdKey, now);
+    if (followShareCooldown.size > 800) {
+      for (const [k, t] of followShareCooldown) {
+        if (now - t > Math.max(delaySec, 60) * 1000) followShareCooldown.delete(k);
+      }
+    }
+    return true;
+  }
 
   function emitKeyAction(payload) {
     if (cloud) broadcastToLocal('keyAction', payload);
@@ -86,7 +112,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     runActionOutputs(a, cfg);
   }
 
-  function triggerActionsForCfg(cfg, eventType, info = {}) {
+  function triggerActionsForCfg(cfg, eventType, info = {}, user = null) {
     for (const a of (cfg.actions || [])) {
       if (!a || a.enabled === false || !actionDoesSomething(a)) continue;
       const ev = a.event || 'gift-any';
@@ -128,12 +154,13 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
         const wantLevel = Math.max(0, Number(a.level) || 0);
         if (wantLevel > 0 && wantLevel !== Number(info.level || 0)) continue;
       } else if (ev !== eventType) continue;
+      if (!allowFollowSharePerUser(a, eventType, user || info, 'acc')) continue;
       fireAction(a, 1, cfg);
     }
   }
 
-  function triggerActions(eventType, info = {}) {
-    eachTrigger((cfg) => triggerActionsForCfg(cfg, eventType, info));
+  function triggerActions(eventType, info = {}, user = null) {
+    eachTrigger((cfg) => triggerActionsForCfg(cfg, eventType, info, user));
   }
 
   function triggerActionsLikeGlobal(total, lastTotalLikes) {
@@ -438,6 +465,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
         if (want !== uname && want !== nname) return null;
       } else return null;
     } else if (trig !== eventType) return null;
+    if (!allowFollowSharePerUser(a, eventType, user || info, 'game')) return null;
     return times;
   }
 
@@ -522,7 +550,37 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
     return fires;
   }
 
+  function playMcActionSound(a, times = 1) {
+    if (!a || !a.audioOn || !a.sound) return;
+    const n = Math.max(1, Math.min(Number(times) || 1, 50));
+    for (let i = 0; i < n; i++) {
+      broadcast('sound', {
+        id: a.uid || a.catId || '',
+        name: a.name || a.soundName || 'Minecraft',
+        sound: a.sound,
+        image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
+        volume: a.soundVolume != null ? a.soundVolume : 100,
+      });
+    }
+  }
+
+  function playGameActionSound(a, times = 1) {
+    if (!a || !a.sound || a.audioOn === false) return;
+    if (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)) return;
+    const n = Math.max(1, Math.min(Number(times) || 1, 50));
+    for (let i = 0; i < n; i++) {
+      broadcast('sound', {
+        id: a.uid || a.id || '',
+        name: a.name || a.label || a.soundName || 'Acción',
+        sound: a.sound,
+        image: a.image || a.giftImage || '',
+        volume: a.soundVolume != null ? a.soundVolume : 100,
+      });
+    }
+  }
+
   function fireMarioActionOnce(a, capped, name, cfg) {
+    playGameActionSound(a, 1);
     if ((a.kind || 'spawn') === 'effect') {
       log('ok', `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)`);
       applyMarioEffect(a.thing, a.seconds, a.factor);
@@ -575,6 +633,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
       if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      playGameActionSound(a, 1);
       if ((a.kind || 'spawn') === 'effect') {
         log('ok', `🌀 Mari0: efecto "${a.thing}" (${a.seconds || 5}s)`);
         applyMari0Effect(a.thing, a.seconds, a.factor);
@@ -593,6 +652,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
       if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      playGameActionSound(a, 1);
       if ((a.kind || 'spawn') === 'effect') {
         log('ok', `🎮 SMB3: efecto "${a.thing}" (${a.seconds || 5}s)`);
         applySmb3Effect(a.thing, name, a.seconds);
@@ -610,6 +670,7 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
       const times = matchGameTrigger(a, eventType, info, user);
       if (times == null) continue;
       if (eventType === 'gift' && info.comboStreak === 'end') continue;
+      playGameActionSound(a, 1);
       if ((a.kind || 'spawn') === 'sun') {
         log('ok', `🧟 PvZ: dar ${a.amount || 50} soles`);
         givePvzSun(a.amount);
@@ -620,20 +681,6 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
         log('ok', `🧟 PvZ: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}`);
         spawnPvzThing(a.thing, name, times);
       }
-    }
-  }
-
-  function playMcActionSound(a, times = 1) {
-    if (!a || !a.audioOn || !a.sound) return;
-    const n = Math.max(1, Math.min(Number(times) || 1, 50));
-    for (let i = 0; i < n; i++) {
-      broadcast('sound', {
-        id: a.uid || a.catId || '',
-        name: a.name || a.soundName || 'Minecraft',
-        sound: a.sound,
-        image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
-        volume: a.soundVolume != null ? a.soundVolume : 100,
-      });
     }
   }
 

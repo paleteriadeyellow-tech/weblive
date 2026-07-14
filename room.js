@@ -538,6 +538,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
   const memberLevels = new Map();    // uniqueId -> último nivel de miembro visto (para detectar subidas)
   const joinVideoCooldown = new Map(); // uniqueId -> última vez que se lanzó su video de entrada
+  const gameFollowShareCooldown = new Map();
+
+  function allowFollowSharePerUser(a, eventType, user, bucket) {
+    if (eventType !== 'follow' && eventType !== 'share' && eventType !== 'emote') return true;
+    if (!a) return true;
+    const delaySec = (a.eventDelay == null) ? 30 : Math.max(0, Number(a.eventDelay) || 0);
+    if (delaySec <= 0) return true;
+    const now = Date.now();
+    const userKey = normTikTokUser(user?.uniqueId) || normTikTokUser(user?.nickname) || '_unknown';
+    const id = a.uid || a.id || a.catId || (a.slot != null ? String(a.slot) : '') || a.thing || a.name || 'x';
+    const cdKey = `${bucket}|${id}|${eventType}|${userKey}`;
+    const last = gameFollowShareCooldown.get(cdKey) || 0;
+    if (now - last < delaySec * 1000) return false;
+    gameFollowShareCooldown.set(cdKey, now);
+    if (gameFollowShareCooldown.size > 800) {
+      for (const [k, t] of gameFollowShareCooldown) {
+        if (now - t > Math.max(delaySec, 60) * 1000) gameFollowShareCooldown.delete(k);
+      }
+    }
+    return true;
+  }
   // Spotify Song Requests (solo .exe): cola pedida por el chat + historial + anti-spam.
   let spotifyQueue = [];             // { uniqueId, nickname, name, artists, image, uri, at }
   let spotifyHistory = [];           // { at, user, track, status }
@@ -1753,6 +1774,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function disconnect() {
     if (state.connected) flushStreamerRank();
     stopRankStreamerTimer();
+    clearBattleCountdown();
+    state.inBattle = false;
     if (connection) {
       try { connection.disconnect(); } catch { /* ignore */ }
       connection = null;
@@ -1854,7 +1877,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
-  function triggerSoundAlerts(eventType, info = {}) {
+  function triggerSoundAlerts(eventType, info = {}, user = null) {
     forEachTriggerProfile((cfg) => {
       for (const a of cfg.soundAlerts) {
         if (!a.enabled || !a.sound) continue;
@@ -1886,6 +1909,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         if (eventType === 'chatCommand') {
           if (!matchesCommand(a.command, info.comment)) continue;
+        }
+        if (eventType === 'follow' || eventType === 'share' || eventType === 'emote') {
+          if (!allowFollowSharePerUser(a, eventType, user || info, 'sa')) continue;
         }
         broadcast('log', { level: 'ok', text: `🔊 Alerta sonora: "${a.name}"` });
         emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
@@ -1955,6 +1981,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else if (ev !== eventType) {
           continue;
         }
+        if (!allowFollowSharePerUser(a, eventType, user, 'acc')) continue;
         fireAction(a, 1, cfg, { info, user });
       }
     });
@@ -2395,10 +2422,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerCtrActions(eventType, info, user, cfg);
     triggerSmwActions(eventType, info, user, cfg);
     const vars = buildMcVars(info, user);
-    if (Array.isArray(cfg.mcActions) && cfg.mcActions.length) processMcList(cfg.mcActions, eventType, info, vars);
-    if (Array.isArray(cfg.mcshooterActions) && cfg.mcshooterActions.length) processMcList(cfg.mcshooterActions, eventType, info, vars);
-    if (Array.isArray(cfg.bedrockActions) && cfg.bedrockActions.length) processMcList(cfg.bedrockActions, eventType, info, vars);
-    if (Array.isArray(cfg.sandboxActions) && cfg.sandboxActions.length) processMcList(cfg.sandboxActions, eventType, info, vars);
+    if (Array.isArray(cfg.mcActions) && cfg.mcActions.length) processMcList(cfg.mcActions, eventType, info, vars, user);
+    if (Array.isArray(cfg.mcshooterActions) && cfg.mcshooterActions.length) processMcList(cfg.mcshooterActions, eventType, info, vars, user);
+    if (Array.isArray(cfg.bedrockActions) && cfg.bedrockActions.length) processMcList(cfg.bedrockActions, eventType, info, vars, user);
+    if (Array.isArray(cfg.sandboxActions) && cfg.sandboxActions.length) processMcList(cfg.sandboxActions, eventType, info, vars, user);
     if (eventType === 'chat') triggerMcShooterColiseo(info, user, cfg);
   }
 
@@ -2449,7 +2476,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
-  function processMcList(list, eventType, info, vars) {
+  function processMcList(list, eventType, info, vars, user = null) {
     for (const a of list) {
       if (!a || a.enabled === false) continue;
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
@@ -2482,6 +2509,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
       if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
+      if (!allowFollowSharePerUser(a, eventType, user, 'mc')) continue;
       const soundTimes = eventType === 'gift' ? Math.max(1, Number(info.repeatCount) || 1) : 1;
       scheduleMcAction(() => runMcAction(a, vars, { soundTimes }));
     }
@@ -3693,6 +3721,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             joinVideoCooldown.set(cdKey, now);
           }
         }
+        if (eventType === 'emote') {
+          if (!allowFollowSharePerUser(v, eventType, user || { uniqueId: info.username, nickname: info.nickname }, `vid_${isGeneral ? 'g' : 'a'}`)) continue;
+        }
         const scr = Number(v.screen) || 1;
         emitProfileMedia(cfg, v, scr, isGeneral);
       }
@@ -3760,9 +3791,65 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  // Cuenta atrás PK → dispara battleLast10 una vez al cruzar ≤10s.
+  let battleEndAtMs = 0;
+  let battleLast10Fired = false;
+  let battleCountdownTimer = null;
+
+  function clearBattleCountdown() {
+    if (battleCountdownTimer) {
+      clearInterval(battleCountdownTimer);
+      battleCountdownTimer = null;
+    }
+    battleEndAtMs = 0;
+    battleLast10Fired = false;
+  }
+
+  function parseBattleEndMs(bs) {
+    if (!bs || typeof bs !== 'object') return 0;
+    const endMs = Number(bs.endTimeMs) || 0;
+    if (endMs > 0) return endMs;
+    const startMs = Number(bs.startTimeMs) || 0;
+    let dur = Number(bs.duration) || 0;
+    const extraSec = Number(bs.extraDurationSecond) || 0;
+    // TikTok suele mandar duration en segundos (p.ej. 300); si es enorme, ya es ms.
+    if (dur > 0 && dur <= 7200) dur *= 1000;
+    const total = dur + extraSec * 1000;
+    if (startMs && total) return startMs + total;
+    if (total) return Date.now() + total;
+    return 0;
+  }
+
+  function syncBattleCountdown(bs) {
+    const end = parseBattleEndMs(bs);
+    if (!end || end < Date.now() - 2000) return;
+    battleEndAtMs = end;
+    ensureBattleCountdownTick();
+  }
+
+  function ensureBattleCountdownTick() {
+    if (battleCountdownTimer) return;
+    battleCountdownTimer = setInterval(() => {
+      if (!state.inBattle || !battleEndAtMs) {
+        if (!state.inBattle) clearBattleCountdown();
+        return;
+      }
+      const remainSec = Math.ceil((battleEndAtMs - Date.now()) / 1000);
+      if (!battleLast10Fired && remainSec <= 10 && remainSec >= 0) {
+        battleLast10Fired = true;
+        broadcast('log', { level: 'ok', text: `⚔️ Batalla: quedan ${remainSec}s` });
+        fireBattleAlerts('battleLast10', { remaining: remainSec });
+      }
+      if (remainSec < 0 && battleCountdownTimer) {
+        clearInterval(battleCountdownTimer);
+        battleCountdownTimer = null;
+      }
+    }, 400);
+  }
+
   // Animaciones de batalla PK: 'critical' (x2), 'critical3' (x3),
   // 'battleGift' = potenciador guante / multiplicador (NO el regalo Boxing Gloves),
-  // 'battleGiftAny', 'battleStart', 'battleEnd'.
+  // 'battleGiftAny', 'battleStart', 'battleEnd', 'battleLast10'.
   function fireBattleAlerts(actionType, info = {}) {
     if (settings.battleAlertsEnabled === false) return;
     for (const b of (settings.battleAlerts || [])) {
@@ -4850,8 +4937,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     for (const e of list) rememberEmote(e.emoteId, e.image);
     for (const e of list) {
       const info = { emoteId: e.emoteId };
-      triggerSoundAlerts('emote', info);
-      triggerVideos('emote', info);
+      triggerSoundAlerts('emote', info, user);
+      triggerVideos('emote', info, user);
       triggerActions('emote', info, user);
       if (user) triggerMinecraftActions('emote', info, user);
     }
@@ -5044,7 +5131,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         state.stats.follows++;
         broadcast('follow', user);
         triggerVideos('follow');
-        triggerSoundAlerts('follow');
+        triggerSoundAlerts('follow', {}, user);
         triggerActions('follow', {}, user);
         triggerMinecraftActions('follow', {}, user);
         if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
@@ -5054,7 +5141,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         state.stats.shares++;
         broadcast('share', user);
         triggerVideos('share');
-        triggerSoundAlerts('share');
+        triggerSoundAlerts('share', {}, user);
         triggerActions('share', {}, user);
         triggerMinecraftActions('share', {}, user);
         if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
@@ -5070,7 +5157,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.follows++;
       broadcast('follow', user);
       triggerVideos('follow');
-      triggerSoundAlerts('follow');
+      triggerSoundAlerts('follow', {}, user);
       triggerActions('follow', {}, user);
       triggerMinecraftActions('follow', {}, user);
       if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
@@ -5084,7 +5171,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.shares++;
       broadcast('share', user);
       triggerVideos('share');
-      triggerSoundAlerts('share');
+      triggerSoundAlerts('share', {}, user);
       triggerActions('share', {}, user);
       triggerMinecraftActions('share', {}, user);
       if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
@@ -5123,30 +5210,50 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.SUB_NOTIFY, handleSubscribe);
 
     // ===== Super fans =====
-    function handleSuperFan(data) {
+    // SUPER_FAN = se hace Super Fan. SUPER_FAN_JOIN / displayType joined = ya era SF y entró al live.
+    function isSuperFanJoinBarrage(data) {
+      const dts = [
+        data?.content?.displayType,
+        data?.commonBarrageContent?.displayType,
+        data?.displayType,
+      ].map((x) => String(x || '').toLowerCase());
+      return dts.some((dt) =>
+        dt.includes('superfanjoined')
+        || dt.includes('superfan_join')
+        || dt.includes('super_fan_join')
+        || (dt.includes('superfan') && dt.includes('join')));
+    }
+    function handleSuperFan(data, forceKind = null) {
+      const isJoin = forceKind === 'join' || (forceKind !== 'become' && isSuperFanJoinBarrage(data));
+      const eventType = isJoin ? 'superFanJoin' : 'superFan';
       const user = baseUser(data?.user || data);
       const level = Number(data?.superFanLevel ?? data?.fanLevel ?? data?.level ?? 0) || 0;
       const uid = user.uniqueId || 'anon';
       const now = Date.now();
-      if (now - (recentSuperFans.get(uid) || 0) < 5000) return; // dedupe superFan + superFanJoin
-      recentSuperFans.set(uid, now);
+      const dedupeKey = `${eventType}:${uid}`;
+      if (now - (recentSuperFans.get(dedupeKey) || 0) < 5000) return;
+      recentSuperFans.set(dedupeKey, now);
       if (recentSuperFans.size > 500) recentSuperFans.clear();
-      broadcast('log', { level: 'ok', text: `🌟 Super fan: ${user.nickname}${level ? ` · nivel ${level}` : ''}` });
-      const info = { ...user, level };
-      broadcast('superfan', info);
-      triggerSoundAlerts('superFan', info);
-      triggerVideos('superFan', info);
-      triggerActions('superFan', info, user);
-      triggerMinecraftActions('superFan', info, user);
-      // Pelota dorada con la foto del super fan (overlay de pelotas).
-      broadcast('goldenBall', { photo: user.photo || '', nickname: user.nickname || '', count: 1 });
-      const bonus = Math.round(Number(settings.points?.superFanBonus) || 0);
-      if (user.uniqueId && bonus > 0) {
-        addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: bonus, counted: true, description: 'Super fan', manual: false });
+      const label = isJoin ? 'Super fan entró' : 'Super fan';
+      broadcast('log', { level: 'ok', text: `🌟 ${label}: ${user.nickname}${level ? ` · nivel ${level}` : ''}` });
+      const info = { ...user, level, isJoin };
+      broadcast(isJoin ? 'superfanjoin' : 'superfan', info);
+      triggerSoundAlerts(eventType, info, user);
+      triggerVideos(eventType, info);
+      triggerActions(eventType, info, user);
+      triggerMinecraftActions(eventType, info, user);
+      if (!isJoin) {
+        broadcast('goldenBall', { photo: user.photo || '', nickname: user.nickname || '', count: 1 });
+        const bonus = Math.round(Number(settings.points?.superFanBonus) || 0);
+        if (user.uniqueId && bonus > 0) {
+          addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: bonus, counted: true, description: 'Super fan', manual: false });
+        }
       }
     }
-    conn.on(WebcastEvent.SUPER_FAN, handleSuperFan);
-    conn.on(WebcastEvent.SUPER_FAN_JOIN, handleSuperFan);
+    conn.on(WebcastEvent.SUPER_FAN, (data) => handleSuperFan(data));
+    if (WebcastEvent.SUPER_FAN_JOIN) {
+      conn.on(WebcastEvent.SUPER_FAN_JOIN, (data) => handleSuperFan(data, 'join'));
+    }
 
     // ===== Batallas PK de TikTok =====
     // Catch-all: escanea mensajes gift/linkmic/battle por multiplicador x2/x3.
@@ -5171,10 +5278,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (isOpen || isAccept) {
           state.inBattle = true;
           if (isOpen) {
+            clearBattleCountdown();
             broadcast('log', { level: 'ok', text: '⚔️ Batalla PK iniciada' });
             fireBattleAlerts('battleStart', {});
           }
+          syncBattleCountdown(data?.battleSetting);
         } else if (isEnd) {
+          clearBattleCountdown();
           state.inBattle = false;
           broadcast('log', { level: 'info', text: '⚔️ Batalla PK finalizada' });
           fireBattleAlerts('battleEnd', {});
@@ -5186,6 +5296,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.LINK_MIC_ARMIES, (data) => {
       try {
         state.inBattle = true;
+        syncBattleCountdown(data?.battleSettings);
         // Guante crítico / multiplicador en el aporte de ejército
         if (data?.triggerCriticalStrike) {
           detectBattleMultiplier(data, 'LinkMicArmies.crit');
@@ -5207,6 +5318,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.STREAM_END, () => {
+      clearBattleCountdown();
       state.inBattle = false;
       state.connected = false;
       syncLiveUptimeOnDisconnect();

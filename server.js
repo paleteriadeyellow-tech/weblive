@@ -14,11 +14,12 @@ import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import { createStreamerRankings } from './streamer-rankings.js';
+import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, deleteUser,
+  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, deleteUser,
   getAuthDataInfo, restoreUsersFromBackup, findBestUsersBackup, restoreUsersFromBestBackup,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
   publicEmailFields,
@@ -246,7 +247,13 @@ const rooms = new Map(); // userId -> room
 function capsForUser(user) {
   if (!user) return effectiveCaps('free');
   if (user.isAdmin) return adminCaps();
-  return effectiveCaps(getUserPlan(user));
+  const caps = effectiveCaps(getUserPlan(user));
+  if (!isUserGamesEnabled(user)) {
+    for (const k of Object.keys(caps.features || {})) {
+      if (k.startsWith('game_')) caps.features[k] = false;
+    }
+  }
+  return caps;
 }
 
 function getRoomForUser(user) {
@@ -709,6 +716,7 @@ app.get('/api/me', (req, res) => {
     active: isUserActive(user),
     plan: caps.plan,
     premiumUntil: user.premiumUntil || 0,
+    gamesEnabled: isUserGamesEnabled(user),
     caps: { limits: caps.limits, features: caps.features },
     email: emailInfo.email,
     emailVerified: emailInfo.emailVerified,
@@ -958,6 +966,7 @@ app.get('/api/admin/users', requireAdmin, (_req, res) => {
       ...u,
       plan,
       premiumUntil: full?.premiumUntil || 0,
+      gamesEnabled: full ? isUserGamesEnabled(full) : true,
       live: !!(st && st.live),
       connecting: !!(st && st.connecting),
       liveSince: st ? st.liveSince : null,
@@ -1072,6 +1081,17 @@ app.post('/api/admin/userplan', express.json(), requireAdmin, (req, res) => {
   const ok = setUserPlan(id, plan, days);
   if (!ok) return res.status(404).json({ error: 'cuenta no encontrada' });
   // Avisamos al panel del usuario (si está conectado) para que aplique sus nuevos límites.
+  const room = rooms.get(id);
+  if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
+  res.json({ ok: true });
+});
+
+// Activar / desactivar todos los minijuegos de una cuenta (independiente del plan).
+app.post('/api/admin/usergames', express.json(), requireAdmin, (req, res) => {
+  const { id, enabled } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const ok = setUserGamesEnabled(id, !!enabled);
+  if (!ok) return res.status(404).json({ error: 'cuenta no encontrada' });
   const room = rooms.get(id);
   if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
   res.json({ ok: true });
@@ -1678,21 +1698,20 @@ async function ttsSynthTikTok(text, voice) {
 app.post('/api/tts/speak', express.json(), async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
-  // Las voces TikTok/Disney pueden estar reservadas a ciertos planes.
-  if (!capsForUser(user).features.tts_tiktok) {
-    return res.status(403).json({ ok: false, error: 'plan_locked' });
-  }
   let text = String((req.body && req.body.text) || '').trim();
   const voice = String((req.body && req.body.voice) || '').trim();
   const translate = (req.body && req.body.translate) !== false;
   if (!text) return res.status(400).json({ ok: false, error: 'missing_text' });
-  if (!TIKTOK_VOICES.has(voice)) return res.status(400).json({ ok: false, error: 'bad_voice' });
+  const isEdge = isEdgeTtsVoice(voice);
+  if (!isEdge && !TIKTOK_VOICES.has(voice)) return res.status(400).json({ ok: false, error: 'bad_voice' });
+  if (!isEdge && !capsForUser(user).features.tts_tiktok) {
+    return res.status(403).json({ ok: false, error: 'plan_locked' });
+  }
   if (text.length > 280) text = text.slice(0, 280);
 
   let translated = false;
   let original = text;
-  // Traduce ES→EN solo para voces en inglés y si el texto parece español.
-  if (translate && voice.startsWith('en_') && /[áéíóúñ¿¡üA-Za-z]/.test(text)) {
+  if (!isEdge && translate && voice.startsWith('en_') && /[áéíóúñ¿¡üA-Za-z]/.test(text)) {
     try {
       const key = 'es|en|' + text.toLowerCase();
       let en = ttsTranslateCacheGet(key);
@@ -1702,7 +1721,9 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
   }
 
   try {
-    const audio = await ttsSynthTikTok(text, voice);
+    const audio = isEdge
+      ? await ttsSynthEdge(text, voice)
+      : await ttsSynthTikTok(text, voice);
     if (!audio) return res.status(502).json({ ok: false, error: 'synth_failed' });
     res.json({ ok: true, audio, mime: 'audio/mpeg', text, original, translated });
   } catch (e) {

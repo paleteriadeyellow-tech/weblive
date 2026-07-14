@@ -12,6 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+const DESKTOP_LAST_SESSION_FILE = path.join(DATA_DIR, 'desktop-last-session.json');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -22,9 +23,11 @@ const ADMIN_USERNAME = 'jesus'; // este usuario es el administrador
 let users = load(USERS_FILE, []);
 let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
 
-function normalizeUsersList(list) {
+// Normaliza usuarios existentes: marca al admin y asegura el campo `active`.
+// Las cuentas nuevas quedan inactivas hasta que el admin las active.
+(function normalizeUsers() {
   let changed = false;
-  for (const u of list) {
+  for (const u of users) {
     if (u.username === ADMIN_USERNAME) {
       if (!u.isAdmin) { u.isAdmin = true; changed = true; }
       if (u.active !== true) { u.active = true; changed = true; }
@@ -32,45 +35,21 @@ function normalizeUsersList(list) {
     if (u.active === undefined) { u.active = true; changed = true; }
     if (u.lastLogin === undefined) { u.lastLogin = 0; changed = true; }
     if (u.plan === undefined) { u.plan = u.isAdmin ? 'premium' : 'free'; changed = true; }
-    if (u.premiumUntil === undefined) { u.premiumUntil = 0; changed = true; }
+    if (u.premiumUntil === undefined) { u.premiumUntil = 0; changed = true; } // 0 = sin caducidad (fijo)
+    // Juegos activos por defecto; el admin puede desactivarlos a un usuario concreto.
+    if (u.gamesEnabled === undefined) { u.gamesEnabled = true; changed = true; }
+    // Migración: ya no se requiere activación. Activamos UNA sola vez a las cuentas
+    // antiguas que quedaron pendientes; después el admin puede desactivar y persiste.
     if (!u.activatedByDefault) { u.active = true; u.activatedByDefault = true; changed = true; }
   }
-  return changed;
-}
-
-// Normaliza usuarios existentes al arrancar.
-(function normalizeUsers() {
-  if (normalizeUsersList(users)) saveUsers();
+  if (changed) saveUsers();
 })();
 
 function load(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
 }
 function saveUsers() {
-  try {
-    if (fs.existsSync(USERS_FILE)) {
-      fs.copyFileSync(USERS_FILE, USERS_FILE + '.bak');
-    }
-  } catch {}
-  try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-  } catch (e) {
-    console.error('  [!] No se pudo guardar users.json -', e.message);
-  }
-  pruneOldUserBackups();
-}
-
-const MAX_USER_BACKUPS = 3;
-function pruneOldUserBackups() {
-  try {
-    const baks = fs.readdirSync(DATA_DIR)
-      .filter((n) => n.startsWith('users.json.bak-'))
-      .map((n) => ({ n, t: fs.statSync(path.join(DATA_DIR, n)).mtimeMs }))
-      .sort((a, b) => b.t - a.t);
-    for (const b of baks.slice(MAX_USER_BACKUPS)) {
-      try { fs.unlinkSync(path.join(DATA_DIR, b.n)); } catch {}
-    }
-  } catch {}
+  fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), () => {});
 }
 function saveSessions() {
   fs.writeFile(SESSIONS_FILE, JSON.stringify(Object.fromEntries(sessions)), () => {});
@@ -104,6 +83,7 @@ export function listUsersDetailed() {
     isAdmin: !!u.isAdmin,
     plan: u.plan || 'free',
     premiumUntil: u.premiumUntil || 0,
+    gamesEnabled: u.isAdmin ? true : u.gamesEnabled !== false,
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
   }));
@@ -148,6 +128,21 @@ export function setUserPlan(id, plan, days) {
     u.plan = 'free';
     u.premiumUntil = 0;
   }
+  saveUsers();
+  return true;
+}
+/** true salvo que el admin haya desactivado los juegos a ese usuario (admin siempre sí). */
+export function isUserGamesEnabled(user) {
+  if (!user) return true;
+  if (user.isAdmin) return true;
+  return user.gamesEnabled !== false;
+}
+/** Activa o desactiva todos los minijuegos para una cuenta (no afecta al admin). */
+export function setUserGamesEnabled(id, enabled) {
+  const u = users.find((x) => x.id === id);
+  if (!u) return false;
+  if (u.isAdmin) { u.gamesEnabled = true; saveUsers(); return true; }
+  u.gamesEnabled = !!enabled;
   saveUsers();
   return true;
 }
@@ -245,56 +240,80 @@ export function destroySessionsForUser(userId) {
   return changed;
 }
 
-export function getAuthDataInfo() {
-  return { dataDir: DATA_DIR, usersFile: USERS_FILE, userCount: users.length };
-}
-
-// Restaura users.json desde una copia en el mismo DATA_DIR (solo admin).
-export function restoreUsersFromBackup(backupName) {
-  const name = path.basename(String(backupName || ''));
-  if (!name.startsWith('users.json')) return { error: 'nombre de copia inválido' };
-  const src = path.join(DATA_DIR, name);
-  if (!fs.existsSync(src)) return { error: 'copia no encontrada' };
-  let parsed;
-  try { parsed = JSON.parse(fs.readFileSync(src, 'utf8')); } catch { return { error: 'JSON inválido' }; }
-  if (!Array.isArray(parsed) || !parsed.length) return { error: 'la copia no tiene cuentas' };
-  try { fs.copyFileSync(USERS_FILE, USERS_FILE + '.pre-restore-' + Date.now()); } catch {}
-  users = parsed;
-  normalizeUsersList(users);
-  saveUsers();
-  return { ok: true, userCount: users.length, usernames: users.map((u) => u.username) };
-}
-
-// Busca la mejor copia de users.json en DATA_DIR (más cuentas que la actual).
-export function findBestUsersBackup() {
-  const current = users.length;
-  let best = { name: null, userCount: 0, usernames: [] };
-  try {
-    for (const name of fs.readdirSync(DATA_DIR)) {
-      if (name === 'users.json') continue;
-      if (!name.startsWith('users.json')) continue;
-      const full = path.join(DATA_DIR, name);
-      let parsed;
-      try { parsed = JSON.parse(fs.readFileSync(full, 'utf8')); } catch { continue; }
-      if (!Array.isArray(parsed)) continue;
-      if (parsed.length > best.userCount) {
-        best = { name, userCount: parsed.length, usernames: parsed.map((u) => u.username) };
-      }
-    }
-  } catch {}
-  return { current, ...best, canRestore: best.userCount > current && !!best.name };
-}
-
-export function restoreUsersFromBestBackup() {
-  const best = findBestUsersBackup();
-  if (!best.canRestore) {
-    return { error: best.userCount > 0
-      ? `La mejor copia (${best.name}) tiene ${best.userCount} cuenta(s), no más que las ${best.current} actuales.`
-      : 'No hay copia de users.json en el disco.' };
+// "Espejo" de una cuenta de la web (login delegado en la app .exe). Si la cuenta no
+// existe localmente la crea; si existe, refresca su contraseña/plan/estado con lo que
+// devolvió el servidor remoto. Así el mismo usuario/clave de la web funciona en el .exe
+// y, una vez logueado, también puede entrar sin internet (queda cacheado en local).
+export function upsertMirrorUser({ username, password, plan, isAdmin, active }) {
+  const uname = normalizeUsername(username);
+  let user = users.find((u) => u.username === uname);
+  const { salt, hash } = hashPassword(password);
+  if (!user) {
+    user = {
+      id: crypto.randomUUID(),
+      username: uname,
+      salt,
+      hash,
+      roomKey: crypto.randomBytes(9).toString('base64url'),
+      createdAt: Date.now(),
+      lastLogin: Date.now(),
+      isAdmin: !!isAdmin || uname === ADMIN_USERNAME,
+      active: active !== false,
+      activatedByDefault: true,
+      plan: plan === 'premium' ? 'premium' : 'free',
+      premiumUntil: 0,
+      gamesEnabled: true,
+      mirror: true,
+    };
+    users.push(user);
+  } else {
+    // refresca credenciales (por si cambió la clave en la web) y datos de plan/estado
+    user.salt = salt;
+    user.hash = hash;
+    user.isAdmin = !!isAdmin || uname === ADMIN_USERNAME;
+    user.active = active !== false;
+    user.plan = plan === 'premium' ? 'premium' : 'free';
+    if (user.gamesEnabled === undefined) user.gamesEnabled = true;
+    user.premiumUntil = 0;
+    user.mirror = true;
   }
-  const result = restoreUsersFromBackup(best.name);
-  if (result.error) return result;
-  return { ...result, restoredFrom: best.name };
+  saveUsers();
+  return user;
+}
+
+// Actualiza SOLO el plan/estado de un usuario espejo (sin tocar la contraseña).
+// Se usa en el .exe para refrescar el plan que el admin cambió en Render, sin
+// necesidad de que el usuario vuelva a iniciar sesión. Devuelve true si cambió algo.
+export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled } = {}) {
+  const u = users.find((x) => x.id === id);
+  if (!u) return false;
+  let changed = false;
+  const newPlan = plan === 'premium' ? 'premium' : 'free';
+  if (u.plan !== newPlan) { u.plan = newPlan; changed = true; }
+  const pu = Number(premiumUntil);
+  const newPu = Number.isFinite(pu) && pu > 0 ? pu : 0;
+  if ((u.premiumUntil || 0) !== newPu) { u.premiumUntil = newPu; changed = true; }
+  if (isAdmin !== undefined && !!u.isAdmin !== !!isAdmin) { u.isAdmin = !!isAdmin; changed = true; }
+  if (active !== undefined && !!u.active !== (active !== false)) { u.active = active !== false; changed = true; }
+  if (gamesEnabled !== undefined) {
+    const next = u.isAdmin ? true : !!gamesEnabled;
+    const prevOn = u.gamesEnabled !== false;
+    if (prevOn !== next) { u.gamesEnabled = next; changed = true; }
+  }
+  if (changed) saveUsers();
+  return changed;
+}
+
+// Guarda la roomKey de Render para que el .exe pueda reconectar al panel en la nube
+// aunque caduque la cookie remota (el WebSocket usa esta clave, no la cookie).
+export function updateMirrorCloudRoomKey(id, cloudRoomKey) {
+  const u = users.find((x) => x.id === id);
+  if (!u) return false;
+  const key = String(cloudRoomKey || '').trim();
+  if (!key || u.cloudRoomKey === key) return false;
+  u.cloudRoomKey = key;
+  saveUsers();
+  return true;
 }
 
 // Crea un usuario. Devuelve { user } o { error }.
@@ -330,6 +349,7 @@ export function registerUser(username, password, opts = {}) {
     activatedByDefault: true,
     plan: isAdmin ? 'premium' : 'free', // las cuentas nuevas empiezan en gratis
     premiumUntil: 0,
+    gamesEnabled: true,
   };
   if (mail) {
     user.email = mail;
@@ -386,10 +406,51 @@ export function findOrCreateGoogleUser({ email, name } = {}) {
     activatedByDefault: true,
     plan: isAdmin ? 'premium' : 'free',
     premiumUntil: 0,
+    gamesEnabled: true,
   };
   users.push(user);
   saveUsers();
   return { user };
+}
+
+// "Espejo" de una cuenta de Google de la web en la app .exe (login delegado). Como
+// las cuentas de Google no tienen contraseña, este espejo no guarda credenciales
+// usables: solo sirve para que el .exe tenga la sesión iniciada mientras hay internet.
+export function upsertMirrorGoogleUser({ username, googleEmail, plan, isAdmin, active }) {
+  const uname = normalizeUsername(username);
+  const mail = normalizeUsername(googleEmail);
+  let user = users.find((u) => (mail && u.googleEmail === mail) || u.username === uname);
+  if (!user) {
+    const { salt, hash } = hashPassword(crypto.randomBytes(24).toString('hex'));
+    user = {
+      id: crypto.randomUUID(),
+      username: uname,
+      salt,
+      hash,
+      googleEmail: mail,
+      roomKey: crypto.randomBytes(9).toString('base64url'),
+      createdAt: Date.now(),
+      lastLogin: Date.now(),
+      isAdmin: !!isAdmin || uname === ADMIN_USERNAME,
+      active: active !== false,
+      activatedByDefault: true,
+      plan: plan === 'premium' ? 'premium' : 'free',
+      premiumUntil: 0,
+      gamesEnabled: true,
+      mirror: true,
+    };
+    users.push(user);
+  } else {
+    if (mail) user.googleEmail = mail;
+    user.isAdmin = !!isAdmin || uname === ADMIN_USERNAME;
+    user.active = active !== false;
+    user.plan = plan === 'premium' ? 'premium' : 'free';
+    user.premiumUntil = 0;
+    user.lastLogin = Date.now();
+    user.mirror = true;
+  }
+  saveUsers();
+  return user;
 }
 
 // Verifica credenciales. Devuelve { user } o { error }.
@@ -407,6 +468,114 @@ export function createSession(userId) {
   sessions.set(token, { userId, createdAt: Date.now() });
   saveSessions();
   return token;
+}
+
+function sessionStillValid(s) {
+  return s && Date.now() - s.createdAt <= SESSION_TTL;
+}
+
+export function findValidSessionTokenForUser(userId) {
+  if (!userId) return null;
+  for (const [token, s] of sessions.entries()) {
+    if (s.userId === userId && sessionStillValid(s)) return token;
+  }
+  return null;
+}
+
+export function ensureSessionForUser(userId) {
+  if (!userId || !getUserById(userId)) return null;
+  return findValidSessionTokenForUser(userId) || createSession(userId);
+}
+
+export function remapSessionUserIds(idMap) {
+  if (!idMap || !idMap.size) return 0;
+  let changed = 0;
+  for (const [, s] of sessions.entries()) {
+    const next = idMap.get(s.userId);
+    if (next && next !== s.userId) { s.userId = next; changed++; }
+  }
+  if (changed) saveSessions();
+  return changed;
+}
+
+export function importSessionsFromRecord(record) {
+  let added = 0;
+  for (const [token, s] of Object.entries(record || {})) {
+    if (!token || !s?.userId || sessions.has(token)) continue;
+    if (!sessionStillValid(s)) continue;
+    if (!getUserById(s.userId)) continue;
+    sessions.set(token, { userId: s.userId, createdAt: s.createdAt || Date.now() });
+    added++;
+  }
+  if (added) saveSessions();
+  return added;
+}
+
+export function pruneInvalidSessions() {
+  let changed = 0;
+  for (const [token, s] of sessions.entries()) {
+    if (!sessionStillValid(s) || !getUserById(s.userId)) {
+      sessions.delete(token);
+      changed++;
+    }
+  }
+  if (changed) saveSessions();
+  return changed;
+}
+
+export function hasAnyValidSession() {
+  for (const [, s] of sessions.entries()) {
+    if (sessionStillValid(s) && getUserById(s.userId)) return true;
+  }
+  return false;
+}
+
+export function saveDesktopLastLogin(userId) {
+  const user = getUserById(userId);
+  if (!user) return;
+  try {
+    fs.writeFileSync(DESKTOP_LAST_SESSION_FILE, JSON.stringify({
+      userId: user.id,
+      username: user.username,
+      at: Date.now(),
+    }, null, 2));
+  } catch {}
+}
+
+export function clearDesktopLastLogin() {
+  try { fs.unlinkSync(DESKTOP_LAST_SESSION_FILE); } catch {}
+}
+
+/** Usuario del último login en el .exe (para webhook / Stream Deck). */
+export function getDesktopLastLoginUser() {
+  let data = null;
+  try { data = JSON.parse(fs.readFileSync(DESKTOP_LAST_SESSION_FILE, 'utf8')); } catch {}
+  let user = data?.userId ? getUserById(data.userId) : null;
+  if (!user && data?.username) user = getUserByUsername(data.username);
+  if (user && isUserActive(user)) return user;
+  const recent = users
+    .filter((u) => u && isUserActive(u) && (u.lastLogin > 0))
+    .sort((a, b) => (b.lastLogin || 0) - (a.lastLogin || 0));
+  return recent[0] || null;
+}
+
+export function inferDesktopLastLoginFromUsers() {
+  try {
+    if (fs.existsSync(DESKTOP_LAST_SESSION_FILE)) return;
+  } catch {}
+  const recent = users
+    .filter((u) => u.lastLogin > 0)
+    .sort((a, b) => (b.lastLogin || 0) - (a.lastLogin || 0));
+  if (recent[0]) saveDesktopLastLogin(recent[0].id);
+}
+
+export function bootstrapDesktopSessionToken() {
+  let data = null;
+  try { data = JSON.parse(fs.readFileSync(DESKTOP_LAST_SESSION_FILE, 'utf8')); } catch {}
+  let user = data?.userId ? getUserById(data.userId) : null;
+  if (!user && data?.username) user = getUserByUsername(data.username);
+  if (!user || !isUserActive(user)) return null;
+  return ensureSessionForUser(user.id);
 }
 export function destroySession(token) {
   if (token && sessions.has(token)) {
@@ -450,6 +619,85 @@ export function sessionCookie(token) {
 }
 export function clearCookie() {
   return `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+}
+
+/** Info del disco de cuentas (diagnóstico admin / arranque en Render). */
+export function getAuthDataInfo() {
+  return {
+    dataDir: DATA_DIR,
+    usersFile: USERS_FILE,
+    userCount: users.length,
+  };
+}
+
+/** Mejor copia users.json* en DATA_DIR (más cuentas que la actual). */
+export function findBestUsersBackup() {
+  const current = users.length;
+  let best = { name: null, userCount: 0, usernames: [], canRestore: false };
+  try {
+    for (const name of fs.readdirSync(DATA_DIR)) {
+      if (name === 'users.json' || !name.startsWith('users.json')) continue;
+      const full = path.join(DATA_DIR, name);
+      let parsed;
+      try { parsed = JSON.parse(fs.readFileSync(full, 'utf8')); } catch { continue; }
+      if (!Array.isArray(parsed)) continue;
+      if (parsed.length > best.userCount) {
+        best = {
+          name,
+          userCount: parsed.length,
+          usernames: parsed.map((u) => u.username).filter(Boolean).slice(0, 30),
+          canRestore: parsed.length > current,
+        };
+      }
+    }
+  } catch {}
+  if (best.name) best.canRestore = best.userCount > current;
+  return best;
+}
+
+/** Restaura users.json desde una copia en DATA_DIR (p. ej. users.json.bak). */
+export function restoreUsersFromBackup(backupName) {
+  const name = String(backupName || '').trim();
+  if (!name || name === 'users.json' || name.includes('/') || name.includes('\\') || name.includes('..')) {
+    return { error: 'nombre de copia inválido' };
+  }
+  if (!name.startsWith('users.json')) return { error: 'nombre de copia inválido' };
+  const full = path.join(DATA_DIR, name);
+  let parsed;
+  try { parsed = JSON.parse(fs.readFileSync(full, 'utf8')); } catch {
+    return { error: 'no se pudo leer la copia' };
+  }
+  if (!Array.isArray(parsed) || !parsed.length) return { error: 'copia vacía o inválida' };
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      fs.copyFileSync(USERS_FILE, path.join(DATA_DIR, `users.json.bak-before-restore-${Date.now()}`));
+    }
+  } catch {}
+  users = parsed;
+  for (const u of users) {
+    if (u.username === ADMIN_USERNAME) {
+      u.isAdmin = true;
+      u.active = true;
+    }
+    if (u.active === undefined) u.active = true;
+    if (u.plan === undefined) u.plan = u.isAdmin ? 'premium' : 'free';
+    if (u.premiumUntil === undefined) u.premiumUntil = 0;
+    if (u.gamesEnabled === undefined) u.gamesEnabled = true;
+  }
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  } catch (e) {
+    return { error: 'no se pudo guardar users.json: ' + (e.message || e) };
+  }
+  return { ok: true, userCount: users.length, usernames: users.map((u) => u.username) };
+}
+
+export function restoreUsersFromBestBackup() {
+  const best = findBestUsersBackup();
+  if (!best.canRestore || !best.name) {
+    return { error: 'No hay una copia con más cuentas que la actual.' };
+  }
+  return restoreUsersFromBackup(best.name);
 }
 
 export { SESSION_COOKIE };
