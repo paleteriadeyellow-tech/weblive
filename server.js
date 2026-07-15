@@ -2784,6 +2784,30 @@ app.get('/api/img-proxy', async (req, res) => {
   }
 });
 
+// Descarga de packs ZIP (GitHub Releases) para el Editor → Catálogo local (no va en el instalador).
+app.get('/api/pack-download', async (req, res) => {
+  try {
+    const url = String(req.query.url || '');
+    if (!/^https:\/\/(github\.com|objects\.githubusercontent\.com)\//i.test(url)) {
+      return res.status(400).end('bad url');
+    }
+    const r = await fetch(url, {
+      redirect: 'follow',
+      headers: { 'User-Agent': 'Livecoins-PackDownload/1.0' },
+    });
+    if (!r.ok) return res.status(502).end('upstream error');
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 80 * 1024 * 1024) return res.status(413).end('too large');
+    const ct = r.headers.get('content-type') || 'application/zip';
+    res.set('Content-Type', ct);
+    res.set('Cache-Control', 'no-store');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.end(buf);
+  } catch {
+    res.status(502).end('proxy error');
+  }
+});
+
 // Stickers/emotes vistos en el live del usuario (por room).
 app.get('/api/emotes', (req, res) => {
   const user = userFromRequest(req);
@@ -3515,7 +3539,8 @@ wss.on('connection', (ws, req) => {
     }
 
     const room = getRoomForUser(user);
-    room.addClient(ws);
+    // role=relay|local desde el .exe (modo relay); sin esto emitLocalExec (WEBHOOK, etc.) no llega a la PC.
+    room.addClient(ws, url.searchParams.get('role'));
 
     // Heartbeat a nivel de protocolo: el navegador responde a los ping automáticamente,
     // incluso con la pestaña minimizada o en segundo plano (no depende de JS ni de timers

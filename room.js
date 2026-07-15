@@ -2425,6 +2425,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       emitKeyAction({
         id: a.id, name: a.name || '', keys: a.keys, gameCompat: !!a.gameCompat,
         keyHoldSec: Number(a.keyHoldSec) > 0 ? Number(a.keyHoldSec) : 0,
+        keyStaggerOn: !!a.keyStaggerOn,
+        keyStaggerMs: Math.max(50, Math.min(10000, parseInt(a.keyStaggerMs, 10) || 300)),
         times: t, sound: a.sound || '', soundName: a.soundName || '',
         soundVolume: a.soundVolume != null ? a.soundVolume : 1,
       });
@@ -2465,57 +2467,87 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   // Ejecuta las salidas de integración de una acción (si están activadas) usando los
   // datos de conexión de settings.webhook. No bloquea: cada salida corre por su cuenta.
+  function sleepMs(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  function fireWebhookShot(webhookCmd, wh, context, times) {
+    const t = Math.max(1, Number(times) || 1);
+    const mario = resolveMarioSpawnFromWebhook(webhookCmd, context, t);
+    if (mario) {
+      if (emitLocalExec({ tipo: 'MARIO_SPAWN', thing: mario.npcId, name: mario.name, times: mario.times })) {
+        broadcast('log', {
+          level: 'ok',
+          text: `🍄 Mario → tu PC: npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
+        });
+      } else {
+        marioSpawn(mario.npcId, mario.name, mario.times)
+          .then(() => {
+            broadcast('log', {
+              level: 'ok',
+              text: `🍄 Mario (panel): npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
+            });
+          })
+          .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
+      }
+      return;
+    }
+    let whCmd = (context && urlHasActionPlaceholders(webhookCmd.url))
+      ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, t)
+      : { ...webhookCmd };
+    if (/\/spawn\b/i.test(whCmd.url)) {
+      whCmd = {
+        ...whCmd,
+        url: isMari0ActivadorWebhook(whCmd.url)
+          ? applyWebhookQuantityToUrl(whCmd.url, t)
+          : applySpawnQuantityToUrl(whCmd.url, t),
+      };
+    } else {
+      whCmd = { ...whCmd, url: applyWebhookQuantityToUrl(whCmd.url, t) };
+    }
+    const method = (whCmd.method || 'GET').toUpperCase();
+    if (emitLocalExec({ tipo: 'WEBHOOK', method, url: whCmd.url, body: whCmd.body || '' })) {
+      broadcast('log', { level: 'ok', text: `🪝 WebHook → tu PC (${method} ${whCmd.url})` });
+    } else {
+      const opts = { method };
+      if (method === 'POST' && whCmd.body) {
+        opts.body = whCmd.body;
+        opts.headers = { 'Content-Type': 'application/json' };
+      }
+      if (isExternalSmbxTiktokWebhook(whCmd.url) && !isMari0ActivadorWebhook(whCmd.url)) {
+        ensureSmbxTiktokWebhook().catch(() => {});
+      }
+      fetch(whCmd.url, opts)
+        .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
+        .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
+    }
+  }
+
+  function fireStreamerbotShot(sbCmd, wh) {
+    if (emitLocalExec({ tipo: 'STREAMER_BOT', conn: wh.streamerbot || {}, action: sbCmd.action })) {
+      broadcast('log', { level: 'ok', text: `🤖 Streamer.bot → tu PC ("${sbCmd.action}")` });
+    } else {
+      triggerStreamerbot(wh.streamerbot || {}, sbCmd.action)
+        .then((r) => broadcast('log', { level: r.ok ? 'ok' : 'err', text: r.ok ? `🤖 Streamer.bot: "${sbCmd.action}" OK` : `🤖 Streamer.bot falló: ${r.error}` }))
+        .catch((e) => broadcast('log', { level: 'err', text: `🤖 Streamer.bot falló: ${e.message}` }));
+    }
+  }
+
   function runActionOutputs({ webhookCmd, obsCmd, sbCmd } = {}, cfg, context = null) {
     const wh = (cfg || settings).webhook || {};
     if (webhookCmd && webhookCmd.on && webhookCmd.url) {
-      const times = context?.times || 1;
-      const mario = resolveMarioSpawnFromWebhook(webhookCmd, context, times);
-      if (mario) {
-        if (emitLocalExec({ tipo: 'MARIO_SPAWN', thing: mario.npcId, name: mario.name, times: mario.times })) {
-          broadcast('log', {
-            level: 'ok',
-            text: `🍄 Mario → tu PC: npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
-          });
-        } else {
-          marioSpawn(mario.npcId, mario.name, mario.times)
-            .then(() => {
-              broadcast('log', {
-                level: 'ok',
-                text: `🍄 Mario (panel): npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
-              });
-            })
-            .catch((e) => broadcast('log', { level: 'err', text: `🍄 Mario spawn falló: ${e?.message || e}` }));
-        }
+      const times = Math.max(1, Number(context?.times) || 1);
+      const staggerOn = !!webhookCmd.staggerOn && times > 1;
+      const gap = Math.max(50, Math.min(10000, parseInt(webhookCmd.staggerMs, 10) || 300));
+      if (staggerOn) {
+        (async () => {
+          for (let i = 0; i < times; i++) {
+            fireWebhookShot(webhookCmd, wh, context, 1);
+            if (i < times - 1) await sleepMs(gap);
+          }
+        })();
       } else {
-        let whCmd = (context && urlHasActionPlaceholders(webhookCmd.url))
-            ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, times)
-            : { ...webhookCmd };
-          if (/\/spawn\b/i.test(whCmd.url)) {
-            whCmd = {
-              ...whCmd,
-              url: isMari0ActivadorWebhook(whCmd.url)
-                ? applyWebhookQuantityToUrl(whCmd.url, times)
-                : applySpawnQuantityToUrl(whCmd.url, times),
-            };
-          } else {
-            whCmd = { ...whCmd, url: applyWebhookQuantityToUrl(whCmd.url, times) };
-          }
-          const method = (whCmd.method || 'GET').toUpperCase();
-          if (emitLocalExec({ tipo: 'WEBHOOK', method, url: whCmd.url, body: whCmd.body || '' })) {
-            broadcast('log', { level: 'ok', text: `🪝 WebHook → tu PC (${method} ${whCmd.url})` });
-          } else {
-            const opts = { method };
-            if (method === 'POST' && whCmd.body) {
-              opts.body = whCmd.body;
-              opts.headers = { 'Content-Type': 'application/json' };
-            }
-            if (isExternalSmbxTiktokWebhook(whCmd.url) && !isMari0ActivadorWebhook(whCmd.url)) {
-              ensureSmbxTiktokWebhook().catch(() => {});
-            }
-            fetch(whCmd.url, opts)
-              .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
-              .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
-          }
+        fireWebhookShot(webhookCmd, wh, context, times);
       }
     }
     if (obsCmd && obsCmd.on) {
@@ -2528,12 +2560,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
     }
     if (sbCmd && sbCmd.on && sbCmd.action) {
-      if (emitLocalExec({ tipo: 'STREAMER_BOT', conn: wh.streamerbot || {}, action: sbCmd.action })) {
-        broadcast('log', { level: 'ok', text: `🤖 Streamer.bot → tu PC ("${sbCmd.action}")` });
+      const times = Math.max(1, Number(context?.times) || 1);
+      const staggerOn = !!sbCmd.staggerOn && times > 1;
+      const gap = Math.max(50, Math.min(10000, parseInt(sbCmd.staggerMs, 10) || 300));
+      if (staggerOn) {
+        (async () => {
+          for (let i = 0; i < times; i++) {
+            fireStreamerbotShot(sbCmd, wh);
+            if (i < times - 1) await sleepMs(gap);
+          }
+        })();
       } else {
-        triggerStreamerbot(wh.streamerbot || {}, sbCmd.action)
-          .then((r) => broadcast('log', { level: r.ok ? 'ok' : 'err', text: r.ok ? `🤖 Streamer.bot: "${sbCmd.action}" OK` : `🤖 Streamer.bot falló: ${r.error}` }))
-          .catch((e) => broadcast('log', { level: 'err', text: `🤖 Streamer.bot falló: ${e.message}` }));
+        fireStreamerbotShot(sbCmd, wh);
       }
     }
   }
@@ -6246,6 +6284,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         importProfiles(data.profiles, data.mode);
         break;
       case 'relayHello':
+        // El .exe manda esto al conectar; asegura rol relay por si la URL aún no lo pasó.
+        clientRoles.set(ws, 'relay');
         if (data.localOrigin && typeof data.localOrigin === 'string') {
           relayLocalOrigin = String(data.localOrigin).replace(/\/+$/, '');
         }

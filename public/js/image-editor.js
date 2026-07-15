@@ -650,6 +650,486 @@
     showModal('iedStickersModal', true);
   }
 
+  const PNG_DOWNLOAD_PACKS = [
+    {
+      id: 'geometrydash',
+      name: 'Geometry Dash',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/gdash/gdash-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/geometryDash.zip',
+      fileName: 'geometryDash.zip',
+    },
+  ];
+
+  const PACK_DB_NAME = 'livecoins-editor-packs';
+  const PACK_DB_VER = 1;
+  const PACK_IMG_EXT = /\.(png|jpe?g|gif|webp)$/i;
+  let pngDlTab = 'packs'; // packs | catalog
+  let catalogPackId = null;
+  let catalogFolder = null; // null = lista de carpetas del pack
+  const packObjectUrls = new Map(); // key -> blob url
+  let jszipPromise = null;
+
+  const PACK_ROOT_SKIP = /^(geometrydash|gdash|images?|pngs?|icons?|assets?|img)$/i;
+
+  function zipFolderFromPath(relativePath) {
+    const parts = String(relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean);
+    if (parts.length <= 1) return '';
+    parts.pop();
+    while (parts.length && PACK_ROOT_SKIP.test(parts[0])) parts.shift();
+    return parts.join(' / ');
+  }
+
+  function prettyFolderLabel(folder) {
+    const f = String(folder || '').trim();
+    if (!f) return 'General';
+    const labels = (typeof GDASH_SECTION_LABEL !== 'undefined' && GDASH_SECTION_LABEL) || {
+      colores: 'Colores del jugador',
+      jugador: 'Tamaño / estado del jugador',
+      camara: 'Efectos de cámara',
+    };
+    const key = f.toLowerCase().split('/').pop().trim();
+    return labels[key] || f;
+  }
+
+  function folderFromGdashCatalog(baseName) {
+    if (typeof GDASH_CATALOG === 'undefined' || !Array.isArray(GDASH_CATALOG)) return '';
+    const n = String(baseName || '').toLowerCase().trim();
+    if (!n) return '';
+    const cat = GDASH_CATALOG.find((c) => {
+      const id = String(c.id || '').toLowerCase();
+      const nom = String(c.nombre || c.name || '').toLowerCase();
+      return id === n || nom === n || nom.replace(/\s+/g, '') === n.replace(/\s+/g, '');
+    });
+    if (!cat?.section) return '';
+    return prettyFolderLabel(cat.section);
+  }
+
+  function sortFolderNames(names, packId) {
+    const list = [...names];
+    if (packId === 'geometrydash' && typeof GDASH_SECTION_ORDER !== 'undefined') {
+      const order = GDASH_SECTION_ORDER.map((s) => prettyFolderLabel(s));
+      list.sort((a, b) => {
+        const ia = order.indexOf(a);
+        const ib = order.indexOf(b);
+        if (ia < 0 && ib < 0) return a.localeCompare(b, 'es');
+        if (ia < 0) return 1;
+        if (ib < 0) return -1;
+        return ia - ib;
+      });
+      return list;
+    }
+    return list.sort((a, b) => a.localeCompare(b, 'es'));
+  }
+
+  function loadJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    if (jszipPromise) return jszipPromise;
+    jszipPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = '/js/lib/jszip.min.js';
+      s.async = true;
+      s.onload = () => (window.JSZip ? resolve(window.JSZip) : reject(new Error('JSZip')));
+      s.onerror = () => reject(new Error('JSZip load'));
+      document.head.appendChild(s);
+    });
+    return jszipPromise;
+  }
+
+  function openPackDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(PACK_DB_NAME, PACK_DB_VER);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('meta')) {
+          db.createObjectStore('meta', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('images')) {
+          const st = db.createObjectStore('images', { keyPath: 'key' });
+          st.createIndex('packId', 'packId', { unique: false });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('idb'));
+    });
+  }
+
+  function idbReq(req) {
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function listInstalledPackMeta() {
+    const db = await openPackDb();
+    return idbReq(db.transaction('meta', 'readonly').objectStore('meta').getAll());
+  }
+
+  async function getPackMeta(packId) {
+    const db = await openPackDb();
+    return idbReq(db.transaction('meta', 'readonly').objectStore('meta').get(packId));
+  }
+
+  async function listPackImages(packId) {
+    const db = await openPackDb();
+    const idx = db.transaction('images', 'readonly').objectStore('images').index('packId');
+    return idbReq(idx.getAll(packId));
+  }
+
+  async function clearPack(packId) {
+    const db = await openPackDb();
+    const imgs = await listPackImages(packId);
+    const tx = db.transaction(['meta', 'images'], 'readwrite');
+    tx.objectStore('meta').delete(packId);
+    for (const im of imgs) tx.objectStore('images').delete(im.key);
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    for (const [k, u] of packObjectUrls) {
+      if (k.startsWith(packId + '::')) {
+        try { URL.revokeObjectURL(u); } catch { /* ignore */ }
+        packObjectUrls.delete(k);
+      }
+    }
+  }
+
+  async function savePackFromZip(pack, zipBuf) {
+    const JSZip = await loadJSZip();
+    const zip = await JSZip.loadAsync(zipBuf);
+    const entries = [];
+    zip.forEach((relativePath, file) => {
+      if (file.dir) return;
+      if (/__MACOSX|\.DS_Store/i.test(relativePath)) return;
+      if (!PACK_IMG_EXT.test(relativePath)) return;
+      entries.push({ relativePath, file });
+    });
+    if (!entries.length) throw new Error('empty');
+
+    await clearPack(pack.id).catch(() => {});
+
+    const db = await openPackDb();
+    const selected = entries.slice(0, 250);
+    let saved = 0;
+    const folderSet = new Set();
+    for (const { relativePath, file } of selected) {
+      const blob = await file.async('blob');
+      if (!blob || blob.size < 32 || blob.size > 3 * 1024 * 1024) continue;
+      const base = (relativePath.split('/').pop() || file.name || '').replace(PACK_IMG_EXT, '');
+      let folder = zipFolderFromPath(relativePath);
+      if (!folder && pack.id === 'geometrydash') folder = folderFromGdashCatalog(base);
+      if (!folder) folder = 'General';
+      folderSet.add(folder);
+      const mime = /\.gif$/i.test(relativePath) ? 'image/gif'
+        : /\.webp$/i.test(relativePath) ? 'image/webp'
+          : /\.jpe?g$/i.test(relativePath) ? 'image/jpeg'
+            : 'image/png';
+      const typed = blob.type ? blob : new Blob([blob], { type: mime });
+      const key = `${pack.id}::${saved}::${base}`;
+      await idbReq(db.transaction('images', 'readwrite').objectStore('images').put({
+        key,
+        packId: pack.id,
+        name: base || `img-${saved + 1}`,
+        folder,
+        blob: typed,
+      }));
+      saved += 1;
+    }
+    if (!saved) throw new Error('empty');
+    await idbReq(db.transaction('meta', 'readwrite').objectStore('meta').put({
+      id: pack.id,
+      name: pack.name,
+      cover: pack.cover || '',
+      count: saved,
+      folders: sortFolderNames([...folderSet], pack.id),
+      updatedAt: Date.now(),
+    }));
+    return saved;
+  }
+
+  async function blobUrlForPackImage(im) {
+    const k = im.key;
+    if (packObjectUrls.has(k)) return packObjectUrls.get(k);
+    const u = URL.createObjectURL(im.blob);
+    packObjectUrls.set(k, u);
+    return u;
+  }
+
+  async function fetchPackZip(pack) {
+    const proxy = `/api/pack-download?url=${encodeURIComponent(pack.url)}`;
+    let r = await fetch(proxy);
+    if (!r.ok) {
+      // fallback directo (por si el proxy no está en una build vieja)
+      r = await fetch(pack.url);
+    }
+    if (!r.ok) throw new Error('fetch');
+    return r.arrayBuffer();
+  }
+
+  function ensurePngDlModal() {
+    let modal = $('iedPngDlModal');
+    // Si el modal es viejo (sin pestañas / vistas separadas), recrearlo
+    if (modal && (!$('ied-pngdl-packs-view') || !$('ied-pngdl-catalog-view') || !$('ied-pngdl-tabs'))) {
+      try { modal.remove(); } catch { /* ignore */ }
+      modal = null;
+    }
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'iedPngDlModal';
+    modal.className = 'modal hidden ied-pngdl-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+      <div class="modal-box ied-pngdl-box">
+        <div class="modal-head">
+          <h2>Descargar PNG</h2>
+          <button type="button" class="modal-close" id="ied-pngdl-close" aria-label="Cerrar">✕</button>
+        </div>
+        <div class="modal-body ied-pngdl-body">
+          <div class="ied-pngdl-tabs" id="ied-pngdl-tabs">
+            <button type="button" class="ied-pngdl-tab is-active" data-tab="packs">Descargar</button>
+            <button type="button" class="ied-pngdl-tab" data-tab="catalog">Catálogo</button>
+          </div>
+          <p class="ied-muted ied-pngdl-hint" id="ied-pngdl-hint">Solo packs disponibles para descargar (no van en el instalador).</p>
+          <div id="ied-pngdl-packs-view">
+            <div class="ied-pngdl-list" id="ied-pngdl-list"></div>
+            <p class="ied-muted ied-pngdl-status" id="ied-pngdl-status" hidden></p>
+          </div>
+          <div id="ied-pngdl-catalog-view" hidden>
+            <button type="button" class="ied-games-back ied-pngdl-back" id="ied-pngdl-back" hidden title="Volver">←</button>
+            <div class="ied-pngdl-list" id="ied-pngdl-catalog-packs"></div>
+            <div class="ied-pngdl-icons" id="ied-pngdl-catalog-icons" hidden></div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    $('ied-pngdl-close')?.addEventListener('click', () => showModal('iedPngDlModal', false));
+    modal.addEventListener('click', (e) => {
+      if (e.target?.id === 'iedPngDlModal') showModal('iedPngDlModal', false);
+    });
+    modal.querySelectorAll('.ied-pngdl-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        pngDlTab = btn.dataset.tab || 'packs';
+        catalogPackId = null;
+        catalogFolder = null;
+        setPngDlStatus('', false);
+        syncPngDlTabs();
+        refreshPngDlViews();
+      });
+    });
+    $('ied-pngdl-back')?.addEventListener('click', () => {
+      if (catalogFolder != null) catalogFolder = null;
+      else catalogPackId = null;
+      refreshPngDlViews();
+    });
+    return modal;
+  }
+
+  function syncPngDlTabs() {
+    document.querySelectorAll('#iedPngDlModal .ied-pngdl-tab').forEach((b) => {
+      b.classList.toggle('is-active', b.dataset.tab === pngDlTab);
+    });
+    const packsView = $('ied-pngdl-packs-view');
+    const catView = $('ied-pngdl-catalog-view');
+    if (packsView) packsView.hidden = pngDlTab !== 'packs';
+    if (catView) catView.hidden = pngDlTab !== 'catalog';
+    const hint = $('ied-pngdl-hint');
+    if (hint) {
+      hint.textContent = pngDlTab === 'catalog'
+        ? 'Packs guardados en tu PC. Ábre uno para ver carpetas e imágenes.'
+        : 'Solo packs disponibles para descargar (no van en el instalador).';
+    }
+  }
+
+  function setPngDlStatus(text, show) {
+    const el = $('ied-pngdl-status');
+    if (!el) return;
+    el.hidden = !show;
+    el.textContent = text || '';
+  }
+
+  async function importPngPack(pack) {
+    if (!pack?.url) return;
+    setPngDlStatus(`Descargando ${pack.name}…`, true);
+    toast && toast(`Descargando ${pack.name}…`, 'ok');
+    try {
+      const buf = await fetchPackZip(pack);
+      setPngDlStatus('Extrayendo imágenes…', true);
+      const n = await savePackFromZip(pack, buf);
+      setPngDlStatus('', false);
+      toast && toast(`${pack.name}: ${n} imágenes en Catálogo`, 'ok');
+      pngDlTab = 'catalog';
+      catalogPackId = null;
+      catalogFolder = null;
+      syncPngDlTabs();
+      await refreshPngDlViews();
+    } catch (e) {
+      console.error(e);
+      setPngDlStatus('', false);
+      toast && toast('No se pudo importar el pack. Revisa tu conexión.', 'err');
+    }
+  }
+
+  async function renderPngDlList() {
+    const list = $('ied-pngdl-list');
+    if (!list) return;
+    let installed = [];
+    try { installed = await listInstalledPackMeta(); } catch { installed = []; }
+    const have = new Set((installed || []).map((x) => x.id));
+    if (!PNG_DOWNLOAD_PACKS.length) {
+      list.innerHTML = '<p class="ied-muted">No hay packs para descargar.</p>';
+      return;
+    }
+    list.innerHTML = PNG_DOWNLOAD_PACKS.map((p) => `
+      <button type="button" class="ied-pngdl-row" data-id="${escapeAttr(p.id)}">
+        <img src="${escapeAttr(p.cover || '')}" alt="" onerror="this.style.visibility='hidden'">
+        <span class="ied-pngdl-copy">
+          <strong>${escapeHtml(p.name)}</strong>
+          <em>${have.has(p.id) ? 'Ya en catálogo · clic para actualizar' : escapeHtml(p.desc || 'Descargar')}</em>
+        </span>
+        <span class="ied-pngdl-dl" aria-hidden="true">↓</span>
+      </button>
+    `).join('');
+    list.querySelectorAll('.ied-pngdl-row').forEach((btn) => {
+      btn.onclick = () => {
+        const pack = PNG_DOWNLOAD_PACKS.find((x) => x.id === btn.dataset.id);
+        if (pack) importPngPack(pack);
+      };
+    });
+  }
+
+  async function renderPngCatalog() {
+    const packsEl = $('ied-pngdl-catalog-packs');
+    const iconsEl = $('ied-pngdl-catalog-icons');
+    const back = $('ied-pngdl-back');
+    if (!packsEl || !iconsEl) return;
+
+    // Pack abierto → carpetas o imágenes de una carpeta
+    if (catalogPackId) {
+      packsEl.hidden = true;
+      if (back) back.hidden = false;
+      let imgs = [];
+      try { imgs = await listPackImages(catalogPackId); } catch { imgs = []; }
+
+      // Retrocompat: packs viejos sin folder → asignar por catálogo GD o General
+      imgs = imgs.map((im) => {
+        if (im.folder) return im;
+        let folder = '';
+        if (catalogPackId === 'geometrydash') folder = folderFromGdashCatalog(im.name);
+        return { ...im, folder: folder || 'General' };
+      });
+
+      const byFolder = new Map();
+      for (const im of imgs) {
+        const f = im.folder || 'General';
+        if (!byFolder.has(f)) byFolder.set(f, []);
+        byFolder.get(f).push(im);
+      }
+      const folderNames = sortFolderNames([...byFolder.keys()], catalogPackId);
+
+      // Si hay más de una carpeta y aún no eligió ninguna → lista de carpetas
+      if (folderNames.length > 1 && catalogFolder == null) {
+        iconsEl.hidden = true;
+        packsEl.hidden = false;
+        packsEl.innerHTML = folderNames.map((f) => `
+          <button type="button" class="ied-pngdl-row" data-folder="${escapeAttr(f)}">
+            <span class="ied-pngdl-folder-ico" aria-hidden="true">📁</span>
+            <span class="ied-pngdl-copy">
+              <strong>${escapeHtml(f)}</strong>
+              <em>${(byFolder.get(f) || []).length} imágenes</em>
+            </span>
+            <span class="ied-pngdl-dl" aria-hidden="true">→</span>
+          </button>
+        `).join('');
+        packsEl.querySelectorAll('.ied-pngdl-row').forEach((btn) => {
+          btn.onclick = () => {
+            catalogFolder = btn.getAttribute('data-folder');
+            refreshPngDlViews();
+          };
+        });
+        return;
+      }
+
+      const activeFolder = catalogFolder != null
+        ? catalogFolder
+        : (folderNames[0] || 'General');
+      const folderImgs = byFolder.get(activeFolder) || imgs;
+      iconsEl.hidden = false;
+      packsEl.hidden = true;
+      if (!folderImgs.length) {
+        iconsEl.innerHTML = '<p class="ied-muted" style="grid-column:1/-1">Sin imágenes en esta carpeta.</p>';
+        return;
+      }
+      const urls = await Promise.all(folderImgs.map((im) => blobUrlForPackImage(im)));
+      const title = folderNames.length > 1
+        ? `<p class="ied-pngdl-folder-title">${escapeHtml(activeFolder)}</p>`
+        : '';
+      iconsEl.innerHTML = title + folderImgs.map((im, i) => `
+        <button type="button" class="ied-pngdl-ic" data-i="${i}" title="${escapeAttr(im.name)}">
+          <img src="${escapeAttr(urls[i])}" alt="" loading="lazy">
+          <span>${escapeHtml(im.name)}</span>
+        </button>
+      `).join('');
+      iconsEl.querySelectorAll('.ied-pngdl-ic').forEach((btn) => {
+        btn.onclick = () => {
+          const im = folderImgs[Number(btn.dataset.i)];
+          const src = urls[Number(btn.dataset.i)];
+          if (!im || !src) return;
+          addImageLayer(src, im.name);
+          showModal('iedPngDlModal', false);
+          toast && toast('Imagen añadida al Editor', 'ok');
+        };
+      });
+      return;
+    }
+
+    if (back) back.hidden = true;
+    iconsEl.hidden = true;
+    packsEl.hidden = false;
+    let metas = [];
+    try { metas = await listInstalledPackMeta(); } catch { metas = []; }
+    if (!metas.length) {
+      packsEl.innerHTML = '<p class="ied-muted">Aún no hay packs. Ve a Descargar e importa uno.</p>';
+      return;
+    }
+    packsEl.innerHTML = metas.map((p) => {
+      const cover = p.cover || (PNG_DOWNLOAD_PACKS.find((x) => x.id === p.id)?.cover) || '';
+      return `
+      <button type="button" class="ied-pngdl-row" data-id="${escapeAttr(p.id)}">
+        <img src="${escapeAttr(cover)}" alt="" onerror="this.style.visibility='hidden'">
+        <span class="ied-pngdl-copy">
+          <strong>${escapeHtml(p.name)}</strong>
+          <em>${p.count || 0} imágenes · clic para abrir</em>
+        </span>
+        <span class="ied-pngdl-dl" aria-hidden="true">→</span>
+      </button>`;
+    }).join('');
+    packsEl.querySelectorAll('.ied-pngdl-row').forEach((btn) => {
+      btn.onclick = () => {
+        catalogPackId = btn.dataset.id;
+        catalogFolder = null;
+        refreshPngDlViews();
+      };
+    });
+  }
+
+  async function refreshPngDlViews() {
+    syncPngDlTabs();
+    if (pngDlTab === 'packs') await renderPngDlList();
+    else await renderPngCatalog();
+  }
+
+  function openPngDlModal() {
+    ensurePngDlModal();
+    pngDlTab = 'packs';
+    catalogPackId = null;
+    catalogFolder = null;
+    setPngDlStatus('', false);
+    syncPngDlTabs();
+    refreshPngDlViews();
+    showModal('iedPngDlModal', true);
+  }
+
   let activeGamePack = null;
 
   function showModal(id, on) {
@@ -1994,6 +2474,7 @@
     $('ied-add-games')?.addEventListener('click', () => openGamesModal());
     $('ied-add-badge')?.addEventListener('click', () => addBadgeLayer());
     $('ied-add-sticker')?.addEventListener('click', () => openStickersModal());
+    $('ied-dl-png')?.addEventListener('click', () => openPngDlModal());
     $('ied-games-close')?.addEventListener('click', () => closeGamesModal());
     $('ied-icons-close')?.addEventListener('click', () => closeGameIconsModal());
     $('ied-games-back')?.addEventListener('click', () => backToGamesModal());
@@ -2150,5 +2631,191 @@
     pushSnapshot();
     updateUndoRedoUi();
     requestAnimationFrame(fitScale);
+  };
+
+  function openEditorViewShell() {
+    document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+    const view = $('view-editor');
+    if (view) view.classList.add('active');
+    const navBtn = document.querySelector('.nav-item[data-view="editor"]');
+    if (navBtn) navBtn.classList.add('active');
+    wire();
+    syncBgModeUi();
+    refreshDesignsSelect();
+  }
+
+  function prepareEditorStage(w, h) {
+    let sw = Math.max(1, Math.round(w) || 1080);
+    let sh = Math.max(1, Math.round(h) || 1080);
+    const maxSide = 4096;
+    if (sw > maxSide || sh > maxSide) {
+      const r = Math.min(maxSide / sw, maxSide / sh);
+      sw = Math.max(1, Math.round(sw * r));
+      sh = Math.max(1, Math.round(sh * r));
+    }
+    stageW = sw;
+    stageH = sh;
+    const sizeSel = $('ied-size');
+    if (sizeSel) {
+      const key = `${sw}x${sh}`;
+      let opt = Array.from(sizeSel.options).find((o) => o.value === key);
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = `Importado ${sw}×${sh}`;
+        sizeSel.appendChild(opt);
+      }
+      sizeSel.value = key;
+    }
+    const tr = $('ied-bg-transparent');
+    if (tr) tr.checked = true;
+    bgMode = 'color';
+    const bgModeSel = $('ied-bg-mode');
+    if (bgModeSel) bgModeSel.value = 'color';
+    syncBgModeUi();
+    const st = stage();
+    if (st) {
+      st.style.width = stageW + 'px';
+      st.style.height = stageH + 'px';
+    }
+    applyStageBackground();
+    return { sw, sh };
+  }
+
+  function finishEditorImport(selectId) {
+    history = [];
+    historyIndex = -1;
+    renderAll();
+    if (selectId) selectLayer(selectId);
+    else if (layers.length) selectLayer(layers[layers.length - 1].id);
+    pushSnapshot();
+    updateUndoRedoUi();
+    requestAnimationFrame(fitScale);
+  }
+
+  /** Abre la pestaña Editor e importa un PNG/URL generado (overlays planos, etc.). */
+  window.importGeneratedImageToEditor = async function importGeneratedImageToEditor(src, opts = {}) {
+    if (!src) return false;
+    const name = String(opts.name || 'Overlay generado').replace(/\.png$/i, '') || 'Overlay generado';
+    try {
+      openEditorViewShell();
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error('load'));
+        im.src = proxiedSrc(src);
+      });
+      const w = img.naturalWidth || img.width || 1080;
+      const h = img.naturalHeight || img.height || 1080;
+      prepareEditorStage(w, h);
+      layers = [];
+      selectedId = null;
+      const L = {
+        id: uid(),
+        type: 'image',
+        name,
+        src: proxiedSrc(src),
+        motion: 'off',
+        label: '',
+        x: 0,
+        y: 0,
+        w: stageW,
+        h: stageH,
+      };
+      layers.push(L);
+      finishEditorImport(L.id);
+      toast && toast('Imagen abierta en el Editor. Edítala y exporta cuando quieras.', 'ok');
+      return true;
+    } catch (e) {
+      console.error('importGeneratedImageToEditor', e);
+      toast && toast('No se pudo abrir la imagen en el Editor.', 'err');
+      return false;
+    }
+  };
+
+  /**
+   * Abre el Editor con capas separadas (acción, regalo, badge, texto…).
+   * payload: { width, height, layers: [{ type, name, src?, text?, x, y, w, h, ... }], name? }
+   */
+  window.importOverlayLayersToEditor = async function importOverlayLayersToEditor(payload = {}) {
+    const list = Array.isArray(payload.layers) ? payload.layers.filter(Boolean) : [];
+    if (!list.length) {
+      toast && toast('No hay elementos para importar al Editor.', 'warn');
+      return false;
+    }
+    try {
+      openEditorViewShell();
+      prepareEditorStage(payload.width || 1080, payload.height || 1080);
+      layers = [];
+      selectedId = null;
+      for (const raw of list) {
+        const type = raw.type || (raw.src ? 'image' : 'text');
+        const id = uid();
+        if (type === 'badge') {
+          layers.push({
+            id,
+            type: 'badge',
+            name: raw.name || 'Cantidad',
+            text: String(raw.text || 'x1'),
+            color: raw.color || '#ffffff',
+            bg: raw.bg || '#e91e63',
+            fontSize: Math.max(12, Math.round(raw.fontSize || 22)),
+            font: raw.font || 'rubik',
+            motion: 'off',
+            x: Math.round(raw.x || 0),
+            y: Math.round(raw.y || 0),
+            w: Math.max(20, Math.round(raw.w || 60)),
+            h: Math.max(16, Math.round(raw.h || 32)),
+          });
+          continue;
+        }
+        if (type === 'text') {
+          layers.push({
+            id,
+            type: 'text',
+            name: raw.name || 'Texto',
+            text: String(raw.text || ''),
+            color: raw.color || '#ffffff',
+            fontSize: Math.max(12, Math.round(raw.fontSize || 28)),
+            font: raw.font || 'system',
+            rainbow: 'off',
+            motion: 'off',
+            strokeWidth: raw.strokeWidth || 0,
+            strokeColor: raw.strokeColor || '#000',
+            x: Math.round(raw.x || 0),
+            y: Math.round(raw.y || 0),
+            w: Math.max(20, Math.round(raw.w || 80)),
+            h: Math.max(20, Math.round(raw.h || 40)),
+          });
+          continue;
+        }
+        if (!raw.src) continue;
+        layers.push({
+          id,
+          type: 'image',
+          name: raw.name || 'Imagen',
+          src: proxiedSrc(raw.src),
+          motion: 'off',
+          label: raw.label || '',
+          x: Math.round(raw.x || 0),
+          y: Math.round(raw.y || 0),
+          w: Math.max(8, Math.round(raw.w || 64)),
+          h: Math.max(8, Math.round(raw.h || 64)),
+        });
+      }
+      if (!layers.length) {
+        toast && toast('No se pudieron crear capas en el Editor.', 'warn');
+        return false;
+      }
+      finishEditorImport(layers[layers.length - 1].id);
+      toast && toast(`Overlay en el Editor: ${layers.length} capas editables.`, 'ok');
+      return true;
+    } catch (e) {
+      console.error('importOverlayLayersToEditor', e);
+      toast && toast('No se pudo abrir el overlay en el Editor.', 'err');
+      return false;
+    }
   };
 })();

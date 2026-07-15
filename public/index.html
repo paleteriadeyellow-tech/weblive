@@ -524,6 +524,10 @@
                     <span class="ied-tool-ico" aria-hidden="true">★</span>
                     <span class="ied-tool-copy"><strong>Stickers</strong><em>Coronas y formas</em></span>
                   </button>
+                  <button type="button" class="ied-tool" id="ied-dl-png">
+                    <span class="ied-tool-ico" aria-hidden="true">↓</span>
+                    <span class="ied-tool-copy"><strong>Descargar PNG</strong><em>Packs de iconos</em></span>
+                  </button>
                 </div>
                 <input type="file" id="ied-icon-file" accept="image/*,.gif,image/gif,image/png,image/jpeg,image/webp" multiple hidden>
                 <input type="file" id="ied-bg-file" accept="image/*" hidden>
@@ -838,143 +842,228 @@
         </section>
 
 <!-- Modal crear/editar alerta sonora -->
-        <div id="saModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2 id="sa-modal-title">Nueva alerta sonora</h2>
-              <button class="modal-close" id="sa-cancel">✕</button>
+        <div id="saModal" class="modal hidden create-modal">
+          <div class="modal-box create-modal-shell">
+            <div class="modal-head create-modal-head">
+              <div class="create-modal-head-text">
+                <p class="create-modal-kicker">Alertas sonoras</p>
+                <h2 id="sa-modal-title">Nueva alerta sonora</h2>
+                <p class="acc-modal-lead">Elige un disparador y el audio que suena.</p>
+              </div>
+              <button class="modal-close" id="sa-cancel" aria-label="Cerrar">✕</button>
             </div>
 
-            <div class="modal-body">
-              <label class="ml">NOMBRE EN LA LISTA</label>
-              <input type="text" id="sa-name" placeholder="Obligatorio — ej. Rosa, follow VIP…">
+            <div class="modal-body create-modal-body acc-modal-body">
+              <section class="acc-sec acc-sec-name">
+                <label class="ml" for="sa-name">NOMBRE EN LA LISTA</label>
+                <input type="text" id="sa-name" placeholder="Obligatorio — ej. Rosa, follow VIP…">
+              </section>
 
-              <div class="box">
-                <div class="box-head">🎵 <b>Evento del directo</b> <span class="opt">(misma lógica que antes: regalos, likes, seguidores…)</span></div>
-                <select id="sa-event">
-                  <option value="gift-any">Cantidad diamantes (99 - 200)</option>
-                  <option value="gift-name">Regalo específico (lista)</option>
-                  <option value="like">Likes (por usuario)</option>
-                  <option value="likeGlobal">Likes globales</option>
-                  <option value="share">Compartida</option>
-                  <option value="subscribe">Nuevo suscriptor</option>
-                  <option value="superFan">Super fan</option>
-                  <option value="superFanJoin">Super fan entró</option>
-                  <option value="follow">Nuevo seguidor</option>
-                  <option value="levelUp">Subió de nivel de miembro</option>
-                  <option value="emote">Sticker / emote (ID)</option>
-                  <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
-                </select>
-                <div id="sa-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
-                  <p class="hint" style="margin:0 0 8px">No se dispara por TikTok. Copia esta URL y pégala en Stream Deck. Solo app de escritorio (:3199). Usa <code>127.0.0.1</code>.</p>
-                  <div class="wh-endpoint" style="margin:0">
-                    <span class="wh-method getpost">GET</span>
-                    <span class="wh-eplabel">Webhook Stream Deck</span>
-                    <button type="button" class="wh-copy" id="sa-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    <code class="wh-url" id="sa-streamdeck-url">http://127.0.0.1:3199/execute_sound?id=…</code>
+              <div class="acc-modal-split">
+              <div class="acc-modal-col acc-modal-col-trigger">
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>1</span> Disparador</div>
+                <div class="box acc-box-trigger">
+                  <div class="box-head">🎵 <b>Evento del directo</b> <span class="opt">(misma lógica que antes: regalos, likes, seguidores…)</span></div>
+                  <select id="sa-event" class="acc-event-native" tabindex="-1" aria-hidden="true">
+                    <option value="gift-any">Cantidad diamantes (99 - 200)</option>
+                    <option value="gift-name">Regalo específico (lista)</option>
+                    <option value="like">Likes (por usuario)</option>
+                    <option value="likeGlobal">Likes globales</option>
+                    <option value="share">Compartida</option>
+                    <option value="subscribe">Nuevo suscriptor</option>
+                    <option value="superFan">Super fan</option>
+                    <option value="superFanJoin">Super fan entró</option>
+                    <option value="follow">Nuevo seguidor</option>
+                    <option value="levelUp">Subió de nivel de miembro</option>
+                    <option value="emote">Sticker / emote (ID)</option>
+                    <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
+                  </select>
+                  <div class="acc-trig-grid" id="sa-trig-grid" role="listbox" aria-label="Evento del directo">
+                    <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
+                      <span class="acc-trig-ic" aria-hidden="true">💎</span>
+                      <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="gift-name" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🎁</span>
+                      <span class="acc-trig-lbl">Regalo específico (lista)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="like" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">❤️</span>
+                      <span class="acc-trig-lbl">Likes (por usuario)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="likeGlobal" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">💗</span>
+                      <span class="acc-trig-lbl">Likes globales</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="share" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🔁</span>
+                      <span class="acc-trig-lbl">Compartida</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="subscribe" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">⭐</span>
+                      <span class="acc-trig-lbl">Nuevo suscriptor</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="superFan" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🌟</span>
+                      <span class="acc-trig-lbl">Super fan</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="superFanJoin" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🌟</span>
+                      <span class="acc-trig-lbl">Super fan entró</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="follow" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">➕</span>
+                      <span class="acc-trig-lbl">Nuevo seguidor</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="levelUp" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">⬆️</span>
+                      <span class="acc-trig-lbl">Subió de nivel de miembro</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="emote" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">😀</span>
+                      <span class="acc-trig-lbl">Sticker / emote (ID)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="streamdeck" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🎛️</span>
+                      <span class="acc-trig-lbl">Stream Deck (webhook manual)</span>
+                    </button>
+                  </div>
+                  <div id="sa-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
+                    <p class="hint" style="margin:0 0 8px">No se dispara por TikTok. Copia esta URL y pégala en Stream Deck. Solo app de escritorio (:3199). Usa <code>127.0.0.1</code>.</p>
+                    <div class="wh-endpoint" style="margin:0">
+                      <span class="wh-method getpost">GET</span>
+                      <span class="wh-eplabel">Webhook Stream Deck</span>
+                      <button type="button" class="wh-copy" id="sa-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                      <code class="wh-url" id="sa-streamdeck-url">http://127.0.0.1:3199/execute_sound?id=…</code>
+                    </div>
+                  </div>
+                  <div id="sa-giftanyextra" class="gift-extra" hidden>
+                    <input type="number" id="sa-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
+                    <input type="number" id="sa-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
+                  </div>
+                  <div id="sa-giftextra" class="gift-extra one" hidden>
+                    <button type="button" class="btn ghost gift-pick-btn" id="sa-giftpick">🎁 Elegir regalo…</button>
+                    <input type="hidden" id="sa-gift">
+                    <input type="hidden" id="sa-giftid">
+                    <input type="hidden" id="sa-mindia" value="0">
+                  </div>
+                  <div id="sa-likeuserextra" class="gift-extra one" hidden>
+                    <input type="number" id="sa-likemin" min="1" value="1" placeholder="A partir de cuántos likes del usuario">
+                  </div>
+                  <div id="sa-likeextra" class="gift-extra one" hidden>
+                    <input type="number" id="sa-likegoal" min="1" value="100" placeholder="Cada cuántos likes totales">
+                  </div>
+                  <div id="sa-emoteextra" class="gift-extra one" hidden>
+                    <button type="button" class="btn ghost gift-pick-btn" id="sa-emotepick">🙂 Elegir sticker…</button>
+                    <input type="hidden" id="sa-emoteid">
+                  </div>
+                  <div id="sa-eventdelayextra" class="gift-extra one" hidden>
+                    <label class="ml" for="sa-eventdelay" id="sa-eventdelay-label">SEGUNDOS DE ESPERA por usuario (0 = sin límite)</label>
+                    <input type="number" id="sa-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
                   </div>
                 </div>
-                <div id="sa-giftanyextra" class="gift-extra" hidden>
-                  <input type="number" id="sa-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
-                  <input type="number" id="sa-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
-                </div>
-                <div id="sa-giftextra" class="gift-extra one" hidden>
-                  <button type="button" class="btn ghost gift-pick-btn" id="sa-giftpick">🎁 Elegir regalo…</button>
-                  <input type="hidden" id="sa-gift">
-                  <input type="hidden" id="sa-giftid">
-                  <input type="hidden" id="sa-mindia" value="0">
-                </div>
-                <div id="sa-likeuserextra" class="gift-extra one" hidden>
-                  <input type="number" id="sa-likemin" min="1" value="1" placeholder="A partir de cuántos likes del usuario">
-                </div>
-                <div id="sa-likeextra" class="gift-extra one" hidden>
-                  <input type="number" id="sa-likegoal" min="1" value="100" placeholder="Cada cuántos likes totales">
-                </div>
-                <div id="sa-emoteextra" class="gift-extra one" hidden>
-                  <button type="button" class="btn ghost gift-pick-btn" id="sa-emotepick">🙂 Elegir sticker…</button>
-                  <input type="hidden" id="sa-emoteid">
-                </div>
-                <div id="sa-eventdelayextra" class="gift-extra one" hidden>
-                  <label class="ml" for="sa-eventdelay" id="sa-eventdelay-label">SEGUNDOS DE ESPERA por usuario (0 = sin límite)</label>
-                  <input type="number" id="sa-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
-                </div>
+              </section>
               </div>
 
-              <div class="box">
-                <div class="box-title">Audio y volumen</div>
-                <div class="box-sub">Sube un .mp3 u otro audio compatible; se guardará al pulsar «Guardar alerta».</div>
+              <div class="acc-modal-col acc-modal-col-out">
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>2</span> Audio</div>
+                <div class="box">
+                  <div class="box-title">Audio y volumen</div>
+                  <div class="box-sub">Sube un .mp3 u otro audio compatible; se guardará al pulsar «Guardar alerta».</div>
 
-                <button type="button" class="audio-opt" id="sa-libbtn">
-                  <span class="ao-ico cyan">🎵</span>
-                  <span class="ao-text"><b>Lista de Sonidos</b><small>Audios de tu carpeta «audios» (reproducir y elegir)</small></span>
-                  <span class="ao-arrow">→</span>
-                </button>
+                  <button type="button" class="audio-opt" id="sa-libbtn">
+                    <span class="ao-ico cyan">🎵</span>
+                    <span class="ao-text"><b>Lista de Sonidos</b><small>Audios de tu carpeta «audios» (reproducir y elegir)</small></span>
+                    <span class="ao-arrow">→</span>
+                  </button>
 
-                <button type="button" class="audio-opt" id="sa-upbtn">
-                  <span class="ao-ico blue">⬆️</span>
-                  <span class="ao-text"><b>Subir Propio</b><small>Sube tu propio archivo (MP3, WAV, OGG, AAC…)</small></span>
-                  <span class="ao-arrow">→</span>
-                </button>
-                <input type="file" id="sa-soundfile" accept="audio/*" hidden>
+                  <button type="button" class="audio-opt" id="sa-upbtn">
+                    <span class="ao-ico blue">⬆️</span>
+                    <span class="ao-text"><b>Subir Propio</b><small>Sube tu propio archivo (MP3, WAV, OGG, AAC…)</small></span>
+                    <span class="ao-arrow">→</span>
+                  </button>
+                  <input type="file" id="sa-soundfile" accept="audio/*" hidden>
 
-                <div class="chosen">
-                  <span id="sa-soundname" class="fname">Ningún archivo…</span>
+                  <div class="chosen">
+                    <span id="sa-soundname" class="fname">Ningún archivo…</span>
+                  </div>
+                  <div class="credit">Copia tus .mp3 en la carpeta <code>audios</code> del programa.</div>
+
+                  <label class="ml">VOLUMEN</label>
+                  <input type="range" id="sa-vol" min="0" max="100" step="1" value="100">
                 </div>
-                <div class="credit">Copia tus .mp3 en la carpeta <code>audios</code> del programa.</div>
 
-                <label class="ml">VOLUMEN</label>
-                <input type="range" id="sa-vol" min="0" max="100" step="1" value="100">
+                <label class="switch-row plain"><input type="checkbox" id="sa-active" checked> <span>Alerta activa</span></label>
+                <p class="hint" id="sa-status"></p>
+              </section>
               </div>
-
-              <label class="switch-row plain"><input type="checkbox" id="sa-active" checked> <span>Alerta activa</span></label>
-              <p class="hint" id="sa-status"></p>
+              </div>
             </div>
 
-            <div class="modal-foot">
-              <button class="btn ghost" id="sa-cancel2">Cancelar</button>
-              <button class="btn primary" id="sa-save">Guardar alerta</button>
+            <div class="modal-foot create-modal-foot acc-modal-foot">
+              <div class="acc-foot-left">
+                <button class="btn ghost" id="sa-cancel2">Cancelar</button>
+              </div>
+              <div class="acc-foot-right">
+                <button class="btn primary" id="sa-save">Guardar alerta</button>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Modal: Lista de Sonidos (ventana aparte) -->
-        <div id="soundLibModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2>🎵 Lista de Sonidos</h2>
-              <button type="button" class="modal-close" id="sa-lib-frompc" title="Elegir desde el PC" hidden>📁 PC</button>
-              <button class="modal-close" id="lib-close">✕</button>
+        <div id="soundLibModal" class="modal hidden create-modal lib-modal">
+          <div class="modal-box create-modal-shell lib-modal-shell">
+            <div class="modal-head create-modal-head">
+              <div class="create-modal-head-text">
+                <p class="create-modal-kicker">Biblioteca</p>
+                <h2>🎵 Lista de Sonidos</h2>
+                <p class="acc-modal-lead">Elige un audio de tu carpeta o escúchalo antes de usarlo.</p>
+              </div>
+              <div class="lib-modal-head-actions">
+                <button type="button" class="modal-close" id="sa-lib-frompc" title="Elegir desde el PC" hidden>📁</button>
+                <button class="modal-close" id="lib-close" aria-label="Cerrar">✕</button>
+              </div>
             </div>
-            <div class="modal-body">
+            <div class="modal-body create-modal-body">
               <div class="lib-search">
                 <input type="text" id="sa-libq" placeholder="Filtrar audios…">
-                <button class="btn ghost" id="sa-librefresh" title="Recargar">↻</button>
+                <button class="btn ghost lib-refresh-btn" id="sa-librefresh" title="Recargar">↻</button>
               </div>
               <div id="sa-libresults" class="lib-results tall"></div>
-              <p class="credit">Audios de la carpeta <code>public/audios</code>.</p>
+            </div>
+            <div class="modal-foot create-modal-foot">
+              <span class="credit">Audios de la carpeta <code>public/audios</code>.</span>
             </div>
           </div>
         </div>
 
         <!-- Modal: Biblioteca de Videos (cuadrícula con vista previa) -->
-        <div id="videoLibModal" class="modal hidden">
-          <div class="modal-box vidlib-box">
-            <div class="modal-head">
-              <div>
+        <div id="videoLibModal" class="modal hidden create-modal lib-modal">
+          <div class="modal-box create-modal-shell lib-modal-shell vidlib-box">
+            <div class="modal-head create-modal-head">
+              <div class="create-modal-head-text">
+                <p class="create-modal-kicker">Biblioteca</p>
                 <h2>🎬 Videos AI</h2>
-                <span class="vidlib-sub">Selecciona un video de la carpeta (vista previa vertical)</span>
+                <span class="vidlib-sub acc-modal-lead">Selecciona un video de la carpeta (vista previa vertical)</span>
               </div>
-              <button class="modal-close" id="vid-librefresh" title="Recargar">↻</button>
-              <button class="modal-close" id="vidlib-close">✕</button>
+              <div class="lib-modal-head-actions">
+                <button class="modal-close" id="vid-librefresh" title="Recargar">↻</button>
+                <button class="modal-close" id="vidlib-close" aria-label="Cerrar">✕</button>
+              </div>
             </div>
-            <div class="modal-body">
+            <div class="modal-body create-modal-body">
               <input type="text" id="vid-libq" class="gift-search vidlib-search" placeholder="Buscar por nombre…">
               <div id="vid-libgrid" class="vid-grid"></div>
             </div>
-            <div class="modal-foot">
+            <div class="modal-foot create-modal-foot">
               <span class="credit">Videos de la carpeta <code>public/video</code>.</span>
-              <button class="btn" id="vidlib-openniveles" style="display:none">📁 Abrir carpeta</button>
-              <button class="btn ghost" id="vidlib-cancel">Cancelar</button>
+              <div class="acc-foot-right">
+                <button class="btn" id="vidlib-openniveles" style="display:none">📁 Abrir carpeta</button>
+                <button class="btn ghost" id="vidlib-cancel">Cancelar</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1203,217 +1292,327 @@
 
         <!-- Modal: Nueva / Editar acción (solo .exe) -->
         <div id="accModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2 id="acc-modal-title">Nueva acción</h2>
-              <button class="modal-close" id="acc-cancel">✕</button>
+          <div class="modal-box acc-modal-shell">
+            <div class="modal-head acc-modal-head">
+              <div class="acc-modal-head-text">
+                <p class="acc-modal-kicker">Acciones del directo</p>
+                <h2 id="acc-modal-title">Nueva acción</h2>
+                <p class="acc-modal-lead">Elige un disparador y qué debe pasar en tu PC.</p>
+              </div>
+              <button class="modal-close" id="acc-cancel" aria-label="Cerrar">✕</button>
             </div>
 
-            <div class="modal-body">
-              <label class="ml">¿CÓMO SE LLAMA LA ACCIÓN?</label>
-              <input type="text" id="acc-name" placeholder="Ej. Saltar, Disparar, Cambiar escena…">
+            <div class="modal-body acc-modal-body">
+              <section class="acc-sec acc-sec-name">
+                <label class="ml" for="acc-name">Nombre de la acción</label>
+                <input type="text" id="acc-name" placeholder="Ej. Saltar, Disparar, Cambiar escena…">
+              </section>
 
-              <div class="box">
-                <div class="box-head">🎮 <b>Evento del directo</b> <span class="opt">(qué dispara la tecla)</span></div>
-                <select id="acc-event">
-                  <option value="gift-any">Cantidad diamantes (99 - 200)</option>
-                  <option value="gift">Regalo específico (lista)</option>
-                  <option value="like">Likes (por usuario)</option>
-                  <option value="likeGlobal">Likes globales</option>
-                  <option value="share">Compartida</option>
-                  <option value="subscribe">Nuevo suscriptor</option>
-                  <option value="superFan">Super fan</option>
-                  <option value="superFanJoin">Super fan entró</option>
-                  <option value="follow">Nuevo seguidor</option>
-                  <option value="levelUp">Subió de nivel de miembro</option>
-                  <option value="emote">Sticker / emote (ID)</option>
-                  <option value="chatCommand">Comando de chat (!video)</option>
-                </select>
-                <div id="acc-giftanyextra" class="gift-extra" hidden>
-                  <input type="number" id="acc-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
-                  <input type="number" id="acc-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
-                </div>
-                <div id="acc-giftextra" class="gift-extra one" hidden>
-                  <button type="button" class="btn ghost gift-pick-btn" id="acc-giftpick">🎁 Elegir regalo…</button>
-                  <input type="hidden" id="acc-giftid">
-                  <input type="hidden" id="acc-giftname">
-                  <input type="hidden" id="acc-mindia" value="0">
-                </div>
-                <label class="switch-row plain" id="acc-combo-row" hidden>
-                  <input type="checkbox" id="acc-comboinstant">
-                  <span><b>Llamada instantánea</b> <small>(en rachas: pulsa una vez por cada regalo; si está off, pulsa al cerrar el combo con el total)</small></span>
-                </label>
-                <div id="acc-likeextra" class="gift-extra one" hidden>
-                  <input type="number" id="acc-likemin" min="1" value="1" placeholder="A partir de cuántos likes del usuario">
-                </div>
-                <div id="acc-likeglobalextra" class="gift-extra one" hidden>
-                  <input type="number" id="acc-likegoal" min="1" value="100" placeholder="Cada cuántos likes totales">
-                </div>
-                <div id="acc-emoteextra" class="gift-extra one" hidden>
-                  <button type="button" class="btn ghost gift-pick-btn" id="acc-emotepick">🙂 Elegir sticker…</button>
-                  <input type="hidden" id="acc-emoteid">
-                </div>
-                <div id="acc-eventdelayextra" class="gift-extra one" hidden>
-                  <label class="ml" for="acc-eventdelay">SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin límite)</label>
-                  <input type="number" id="acc-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
-                </div>
-                <div id="acc-cmdextra" class="gift-extra one" hidden>
-                  <input type="text" id="acc-command" placeholder="Comando exacto (ej. !video)">
-                </div>
-                <div id="acc-userextra" class="gift-extra one" hidden>
-                  <input type="text" id="acc-user" placeholder="Solo este usuario (sin @) — opcional">
-                </div>
-              </div>
-
-              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-keys-on"> <span class="acc-switch-ico" aria-hidden="true">⌨️</span> <span>Simulación de teclas <span class="opt">(se pulsa en tu PC)</span></span></label>
-              <div class="box" id="acc-keys-box" hidden>
-                <div class="acc-keyrow">
-                  <input type="text" id="acc-keys" placeholder="Sin tecla asignada" readonly>
-                  <button type="button" class="btn ghost" id="acc-keypick">⌨️ Elegir teclas…</button>
-                  <button type="button" class="btn ghost" id="acc-keyclear">Limpiar</button>
-                </div>
-                <p class="hint">Pulsa <b>Elegir teclas</b> para abrir el teclado en pantalla y elegir la tecla, combinación o clic. La acción se mantiene pulsada un instante y se suelta.</p>
-                <label class="switch-row plain" id="acc-keyrepeat-on-row" hidden>
-                  <input type="checkbox" id="acc-keyrepeat-on">
-                  <span>Repetir la misma tecla varias veces <span class="opt">(por cada activación)</span></span>
-                </label>
-                <div id="acc-keyrepeat-wrap" class="gift-extra one" hidden>
-                  <input type="number" id="acc-keyrepeat" min="1" max="50" value="1" placeholder="Veces a pulsar (ej. 3)">
-                </div>
-              </div>
-
-              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-wh-on"> <span class="acc-switch-ico" aria-hidden="true">🪝</span> <span>Comandos WebHook</span></label>
-              <div class="box" id="acc-wh-box" hidden>
-                <div class="box-sub">Cuando se dispare la acción, se enviará una petición HTTP a la URL indicada. Útil para Stream Deck, OBS u otros servicios.</div>
-                <div class="acc-keyrow">
-                  <select id="acc-wh-method" class="acc-mini-sel">
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
+              <div class="acc-modal-split">
+              <div class="acc-modal-col acc-modal-col-trigger">
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>1</span> Disparador</div>
+                <div class="box acc-box-trigger">
+                  <div class="box-head">🎮 <b>Evento del directo</b> <span class="opt">qué dispara la acción</span></div>
+                  <select id="acc-event" class="acc-event-native" tabindex="-1" aria-hidden="true">
+                    <option value="gift-any">Cantidad diamantes (99 - 200)</option>
+                    <option value="gift">Regalo específico (lista)</option>
+                    <option value="like">Likes (por usuario)</option>
+                    <option value="likeGlobal">Likes globales</option>
+                    <option value="share">Compartida</option>
+                    <option value="subscribe">Nuevo suscriptor</option>
+                    <option value="superFan">Super fan</option>
+                    <option value="superFanJoin">Super fan entró</option>
+                    <option value="follow">Nuevo seguidor</option>
+                    <option value="levelUp">Subió de nivel de miembro</option>
+                    <option value="emote">Sticker / emote (ID)</option>
+                    <option value="chatCommand">Comando de chat (!video)</option>
                   </select>
-                  <input type="text" id="acc-wh-url" placeholder="https://… o http://localhost:3199/execute_action?id=1">
-                </div>
-                <textarea id="acc-wh-body" class="acc-area" rows="2" placeholder="Cuerpo opcional (JSON) para POST"></textarea>
-              </div>
-
-              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-obs-on"> <span class="acc-switch-ico" aria-hidden="true">📡</span> <span>Conexión OBS</span></label>
-              <div class="box" id="acc-obs-box" hidden>
-                <div class="box-sub">Envía un comando a OBS usando los datos de conexión de la pestaña <b>Configuración</b>.</div>
-                <select id="acc-obs-type">
-                  <option value="scene">Cambiar de escena</option>
-                  <option value="toggleSource">Mostrar / ocultar fuente</option>
-                  <option value="showSource">Mostrar fuente</option>
-                  <option value="hideSource">Ocultar fuente</option>
-                  <option value="startRecord">Iniciar grabación</option>
-                  <option value="stopRecord">Detener grabación</option>
-                  <option value="startStream">Iniciar transmisión</option>
-                  <option value="stopStream">Detener transmisión</option>
-                </select>
-                <div id="acc-obs-scenewrap" class="gift-extra one">
-                  <input type="text" id="acc-obs-scene" placeholder="Nombre exacto de la escena">
-                </div>
-                <div id="acc-obs-sourcewrap" class="gift-extra one" hidden>
-                  <input type="text" id="acc-obs-source" placeholder="Nombre exacto de la fuente">
-                </div>
-              </div>
-
-              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-sb-on"> <span class="acc-switch-ico" aria-hidden="true">🤖</span> <span>Streamer.bot</span></label>
-              <div class="box" id="acc-sb-box" hidden>
-                <div class="box-sub">Ejecuta una acción de Streamer.bot usando los datos de conexión de la pestaña <b>Configuración</b>.</div>
-                <input type="text" id="acc-sb-action" placeholder="Nombre o ID de la acción de Streamer.bot">
-              </div>
-
-              <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-media-on"> <span class="acc-switch-ico" aria-hidden="true">🎬</span> <span>Mostrar IMG / GIF / VIDEO</span></label>
-              <div class="box" id="acc-media-box" hidden>
-                <div class="box-sub">El archivo se muestra en tu directo usando una <b>fuente Navegador</b> en Live Studio u OBS.</div>
-                <label class="ml">PANTALLA</label>
-                <select id="acc-media-screen">
-                  <option value="1">Pantalla 1</option>
-                  <option value="2">Pantalla 2</option>
-                  <option value="3">Pantalla 3</option>
-                  <option value="4">Pantalla 4</option>
-                  <option value="5">Pantalla 5</option>
-                  <option value="6">Pantalla 6</option>
-                  <option value="7">Pantalla 7</option>
-                  <option value="8">Pantalla 8</option>
-                  <option value="9">Pantalla 9</option>
-                  <option value="10">Pantalla 10</option>
-                </select>
-                <p class="hint" style="margin-top:8px">Pega este enlace como <b>Fuente → Navegador</b> en TikTok Live Studio u OBS (una vez por pantalla):</p>
-                <div class="acc-media-urlrow">
-                  <code id="acc-media-ls-url" class="acc-media-ls-url"></code>
-                  <button type="button" class="btn ghost sm" id="acc-media-copy-url">Copiar link</button>
-                </div>
-                <span id="acc-media-ls-status" class="levelvid-url-status off">○ Pega el link en Live Studio y recarga la fuente</span>
-                <div class="acc-media-row">
-                  <label class="acc-media-field">
-                    <span class="ml">Tamaño Video</span>
-                    <div class="acc-media-pct">
-                      <input type="number" id="acc-media-size" min="10" max="100" value="100">
-                      <span>%</span>
-                    </div>
+                  <div class="acc-trig-grid" id="acc-trig-grid" role="listbox" aria-label="Evento del directo">
+                    <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
+                      <span class="acc-trig-ic" aria-hidden="true">💎</span>
+                      <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="gift" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🎁</span>
+                      <span class="acc-trig-lbl">Regalo específico (lista)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="like" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">❤️</span>
+                      <span class="acc-trig-lbl">Likes (por usuario)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="likeGlobal" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">💗</span>
+                      <span class="acc-trig-lbl">Likes globales</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="share" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🔁</span>
+                      <span class="acc-trig-lbl">Compartida</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="subscribe" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">⭐</span>
+                      <span class="acc-trig-lbl">Nuevo suscriptor</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="superFan" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🌟</span>
+                      <span class="acc-trig-lbl">Super fan</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="superFanJoin" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🌟</span>
+                      <span class="acc-trig-lbl">Super fan entró</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="follow" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">➕</span>
+                      <span class="acc-trig-lbl">Nuevo seguidor</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="levelUp" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">⬆️</span>
+                      <span class="acc-trig-lbl">Subió de nivel de miembro</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="emote" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">😀</span>
+                      <span class="acc-trig-lbl">Sticker / emote (ID)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="chatCommand" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">💬</span>
+                      <span class="acc-trig-lbl">Comando de chat (!video)</span>
+                    </button>
+                  </div>
+                  <div id="acc-giftanyextra" class="gift-extra" hidden>
+                    <input type="number" id="acc-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
+                    <input type="number" id="acc-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
+                  </div>
+                  <div id="acc-giftextra" class="gift-extra one" hidden>
+                    <button type="button" class="btn ghost gift-pick-btn acc-trig-giftbar" id="acc-giftpick">🎁 Elegir regalo…</button>
+                    <input type="hidden" id="acc-giftid">
+                    <input type="hidden" id="acc-giftname">
+                    <input type="hidden" id="acc-mindia" value="0">
+                  </div>
+                  <label class="switch-row plain" id="acc-combo-row" hidden>
+                    <input type="checkbox" id="acc-comboinstant">
+                    <span><b>Llamada instantánea</b> <small>(en rachas: pulsa una vez por cada regalo; si está off, pulsa al cerrar el combo con el total)</small></span>
                   </label>
-                  <label class="acc-media-field">
-                    <span class="ml">Audio Video</span>
-                    <div class="acc-media-pct">
-                      <input type="number" id="acc-media-vol" min="0" max="100" value="100">
-                      <span>%</span>
-                    </div>
-                  </label>
-                </div>
-                <label class="switch-row plain"><input type="checkbox" id="acc-media-orig" checked> <span>Video - Duración original</span></label>
-                <div class="acc-media-upload" id="acc-media-drop">
-                  <button type="button" class="btn ghost" id="acc-media-upbtn">Subir Archivo</button>
-                  <span class="acc-media-drop-hint">o suéltalo aquí</span>
-                  <input type="file" id="acc-media-file" accept="video/*,image/*" hidden>
-                </div>
-                <div class="chosen"><span id="acc-media-fname" class="fname">Ningún archivo…</span></div>
-              </div>
-
-              <div class="box">
-                <div class="box-title">Imagen (opcional)</div>
-                <div class="box-sub">Una imagen o GIF para identificar la acción en la lista.</div>
-                <button type="button" class="audio-opt" id="acc-imgbtn">
-                  <span class="ao-ico blue">🖼</span>
-                  <span class="ao-text"><b>Subir imagen</b><small>PNG, JPG, GIF, WEBP…</small></span>
-                  <span class="ao-arrow">→</span>
-                </button>
-                <input type="file" id="acc-imgfile" accept="image/*" hidden>
-                <div class="chosen">
-                  <span id="acc-imgname" class="fname">Ninguna imagen…</span>
-                </div>
-              </div>
-
-              <label class="switch-row plain"><input type="checkbox" id="acc-soundon"> <span>Reproducir un sonido al activarse</span></label>
-              <div class="box" id="acc-soundbox" hidden>
-                <div class="box-title">Sonido</div>
-                <div class="box-sub">Elige un audio de tu biblioteca para que suene cuando se dispare la acción.</div>
-                <button type="button" class="audio-opt" id="acc-soundpick">
-                  <span class="ao-ico blue">🔊</span>
-                  <span class="ao-text"><b>Elegir sonido</b><small>De la carpeta «audios»</small></span>
-                  <span class="ao-arrow">→</span>
-                </button>
-                <div class="chosen">
-                  <span id="acc-soundname" class="fname">Ningún audio…</span>
-                  <button type="button" class="btn ghost sm" id="acc-soundclear">Quitar</button>
-                </div>
-                <div class="acc-volrow" id="acc-volrow" hidden>
-                  <label class="ml">VOLUMEN</label>
-                  <div class="acc-volctl">
-                    <input type="range" id="acc-soundvol" min="0" max="100" value="100">
-                    <span id="acc-soundvolval">100%</span>
+                  <div id="acc-likeextra" class="gift-extra one" hidden>
+                    <input type="number" id="acc-likemin" min="1" value="1" placeholder="A partir de cuántos likes del usuario">
+                  </div>
+                  <div id="acc-likeglobalextra" class="gift-extra one" hidden>
+                    <input type="number" id="acc-likegoal" min="1" value="100" placeholder="Cada cuántos likes totales">
+                  </div>
+                  <div id="acc-emoteextra" class="gift-extra one" hidden>
+                    <button type="button" class="btn ghost gift-pick-btn" id="acc-emotepick">🙂 Elegir sticker…</button>
+                    <input type="hidden" id="acc-emoteid">
+                  </div>
+                  <div id="acc-eventdelayextra" class="gift-extra one" hidden>
+                    <label class="ml" for="acc-eventdelay">SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin límite)</label>
+                    <input type="number" id="acc-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
+                  </div>
+                  <div id="acc-cmdextra" class="gift-extra one" hidden>
+                    <input type="text" id="acc-command" placeholder="Comando exacto (ej. !video)">
+                  </div>
+                  <div id="acc-userextra" class="gift-extra one" hidden>
+                    <input type="text" id="acc-user" placeholder="Solo este usuario (sin @) — opcional">
                   </div>
                 </div>
+              </section>
               </div>
 
-              <label class="switch-row plain"><input type="checkbox" id="acc-active" checked> <span>Acción activa</span></label>
-              <p class="hint" id="acc-status"></p>
+              <div class="acc-modal-col acc-modal-col-out">
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>2</span> Qué hace</div>
+                <div class="acc-outlet-list">
+                  <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-keys-on"> <span class="acc-switch-ico" aria-hidden="true">⌨️</span> <span class="acc-switch-copy"><strong>Simulación de teclas</strong><small>Se pulsa en tu PC</small></span></label>
+                  <div class="box acc-box-outlet" id="acc-keys-box" hidden>
+                    <div class="acc-keypad">
+                      <div class="acc-keypad-preview">
+                        <span class="acc-keypad-label">Tecla</span>
+                        <input type="text" id="acc-keys" placeholder="—" readonly>
+                      </div>
+                      <div class="acc-keypad-actions">
+                        <button type="button" class="btn ghost" id="acc-keypick">⌨️ Elegir teclas…</button>
+                        <button type="button" class="btn ghost" id="acc-keyclear">Limpiar</button>
+                      </div>
+                    </div>
+                    <p class="hint">Pulsa <b>Elegir teclas</b> para abrir el teclado en pantalla y elegir la tecla, combinación o clic. La acción se mantiene pulsada un instante y se suelta.</p>
+                    <label class="switch-row plain" id="acc-keyrepeat-on-row" hidden>
+                      <input type="checkbox" id="acc-keyrepeat-on">
+                      <span>Repetir la misma tecla varias veces <span class="opt">(por cada activación)</span></span>
+                    </label>
+                    <div id="acc-keyrepeat-wrap" class="gift-extra one" hidden>
+                      <input type="number" id="acc-keyrepeat" min="1" max="50" value="1" placeholder="Veces a pulsar (ej. 3)">
+                    </div>
+                    <label class="switch-row plain" id="acc-keystagger-on-row" hidden>
+                      <input type="checkbox" id="acc-keystagger-on">
+                      <span>Uno por uno <span class="opt">(si hay varias, no salen juntas)</span></span>
+                    </label>
+                    <div id="acc-keystagger-wrap" class="gift-extra one" hidden>
+                      <label class="hint" style="margin:0 0 4px">Delay entre cada una (ms)</label>
+                      <input type="number" id="acc-keystagger-ms" min="50" max="10000" step="50" value="300" placeholder="300">
+                    </div>
+                  </div>
+
+                  <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-wh-on"> <span class="acc-switch-ico" aria-hidden="true">🪝</span> <span class="acc-switch-copy"><strong>Comandos WebHook</strong><small>HTTP / Stream Deck</small></span></label>
+                  <div class="box acc-box-outlet" id="acc-wh-box" hidden>
+                    <div class="box-sub">Cuando se dispare la acción, se enviará una petición HTTP a la URL indicada. Útil para Stream Deck, OBS u otros servicios.</div>
+                    <div class="acc-keyrow">
+                      <select id="acc-wh-method" class="acc-mini-sel">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                      </select>
+                      <input type="text" id="acc-wh-url" placeholder="https://… o http://localhost:3199/execute_action?id=1">
+                    </div>
+                    <textarea id="acc-wh-body" class="acc-area" rows="2" placeholder="Cuerpo opcional (JSON) para POST"></textarea>
+                    <label class="switch-row plain" id="acc-wh-stagger-on-row">
+                      <input type="checkbox" id="acc-wh-stagger-on">
+                      <span>Uno por uno <span class="opt">(si hay varias, no salen juntas)</span></span>
+                    </label>
+                    <div id="acc-wh-stagger-wrap" class="gift-extra one" hidden>
+                      <label class="hint" style="margin:0 0 4px">Delay entre cada una (ms)</label>
+                      <input type="number" id="acc-wh-stagger-ms" min="50" max="10000" step="50" value="300" placeholder="300">
+                    </div>
+                  </div>
+
+                  <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-obs-on"> <span class="acc-switch-ico" aria-hidden="true">📡</span> <span class="acc-switch-copy"><strong>Conexión OBS</strong><small>Escenas y fuentes</small></span></label>
+                  <div class="box acc-box-outlet" id="acc-obs-box" hidden>
+                    <div class="box-sub">Envía un comando a OBS usando los datos de conexión de la pestaña <b>Configuración</b>.</div>
+                    <select id="acc-obs-type">
+                      <option value="scene">Cambiar de escena</option>
+                      <option value="toggleSource">Mostrar / ocultar fuente</option>
+                      <option value="showSource">Mostrar fuente</option>
+                      <option value="hideSource">Ocultar fuente</option>
+                      <option value="startRecord">Iniciar grabación</option>
+                      <option value="stopRecord">Detener grabación</option>
+                      <option value="startStream">Iniciar transmisión</option>
+                      <option value="stopStream">Detener transmisión</option>
+                    </select>
+                    <div id="acc-obs-scenewrap" class="gift-extra one">
+                      <input type="text" id="acc-obs-scene" placeholder="Nombre exacto de la escena">
+                    </div>
+                    <div id="acc-obs-sourcewrap" class="gift-extra one" hidden>
+                      <input type="text" id="acc-obs-source" placeholder="Nombre exacto de la fuente">
+                    </div>
+                  </div>
+
+                  <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-sb-on"> <span class="acc-switch-ico" aria-hidden="true">🤖</span> <span class="acc-switch-copy"><strong>Streamer.bot</strong><small>Acciones remotas</small></span></label>
+                  <div class="box acc-box-outlet" id="acc-sb-box" hidden>
+                    <div class="box-sub">Ejecuta una acción de Streamer.bot usando los datos de conexión de la pestaña <b>Configuración</b>.</div>
+                    <input type="text" id="acc-sb-action" placeholder="Nombre o ID de la acción de Streamer.bot">
+                    <label class="switch-row plain" id="acc-sb-stagger-on-row">
+                      <input type="checkbox" id="acc-sb-stagger-on">
+                      <span>Uno por uno <span class="opt">(si hay varias, no salen juntas)</span></span>
+                    </label>
+                    <div id="acc-sb-stagger-wrap" class="gift-extra one" hidden>
+                      <label class="hint" style="margin:0 0 4px">Delay entre cada una (ms)</label>
+                      <input type="number" id="acc-sb-stagger-ms" min="50" max="10000" step="50" value="300" placeholder="300">
+                    </div>
+                  </div>
+
+                  <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-media-on"> <span class="acc-switch-ico" aria-hidden="true">🎬</span> <span class="acc-switch-copy"><strong>Mostrar IMG / GIF / VIDEO</strong><small>Overlay en Live Studio</small></span></label>
+                  <div class="box acc-box-outlet" id="acc-media-box" hidden>
+                    <div class="box-sub">El archivo se muestra en tu directo usando una <b>fuente Navegador</b> en Live Studio u OBS.</div>
+                    <label class="ml">PANTALLA</label>
+                    <select id="acc-media-screen">
+                      <option value="1">Pantalla 1</option>
+                      <option value="2">Pantalla 2</option>
+                      <option value="3">Pantalla 3</option>
+                      <option value="4">Pantalla 4</option>
+                      <option value="5">Pantalla 5</option>
+                      <option value="6">Pantalla 6</option>
+                      <option value="7">Pantalla 7</option>
+                      <option value="8">Pantalla 8</option>
+                      <option value="9">Pantalla 9</option>
+                      <option value="10">Pantalla 10</option>
+                    </select>
+                    <p class="hint" style="margin-top:8px">Pega este enlace como <b>Fuente → Navegador</b> en TikTok Live Studio u OBS (una vez por pantalla):</p>
+                    <div class="acc-media-urlrow">
+                      <code id="acc-media-ls-url" class="acc-media-ls-url"></code>
+                      <button type="button" class="btn ghost sm" id="acc-media-copy-url">Copiar link</button>
+                    </div>
+                    <span id="acc-media-ls-status" class="levelvid-url-status off">○ Pega el link en Live Studio y recarga la fuente</span>
+                    <div class="acc-media-row">
+                      <label class="acc-media-field">
+                        <span class="ml">Tamaño Video</span>
+                        <div class="acc-media-pct">
+                          <input type="number" id="acc-media-size" min="10" max="100" value="100">
+                          <span>%</span>
+                        </div>
+                      </label>
+                      <label class="acc-media-field">
+                        <span class="ml">Audio Video</span>
+                        <div class="acc-media-pct">
+                          <input type="number" id="acc-media-vol" min="0" max="100" value="100">
+                          <span>%</span>
+                        </div>
+                      </label>
+                    </div>
+                    <label class="switch-row plain"><input type="checkbox" id="acc-media-orig" checked> <span>Video - Duración original</span></label>
+                    <div class="acc-media-upload" id="acc-media-drop">
+                      <button type="button" class="btn ghost" id="acc-media-upbtn">Subir Archivo</button>
+                      <span class="acc-media-drop-hint">o suéltalo aquí</span>
+                      <input type="file" id="acc-media-file" accept="video/*,image/*" hidden>
+                    </div>
+                    <div class="chosen"><span id="acc-media-fname" class="fname">Ningún archivo…</span></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>3</span> Extra</div>
+                <div class="box acc-box-extra">
+                  <div class="box-title">Imagen (opcional)</div>
+                  <div class="box-sub">Una imagen o GIF para identificar la acción en la lista.</div>
+                  <button type="button" class="audio-opt" id="acc-imgbtn">
+                    <span class="ao-ico blue">🖼</span>
+                    <span class="ao-text"><b>Subir imagen</b><small>PNG, JPG, GIF, WEBP…</small></span>
+                    <span class="ao-arrow">→</span>
+                  </button>
+                  <input type="file" id="acc-imgfile" accept="image/*" hidden>
+                  <div class="chosen">
+                    <span id="acc-imgname" class="fname">Ninguna imagen…</span>
+                  </div>
+                </div>
+
+                <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-soundon"> <span class="acc-switch-ico" aria-hidden="true">🔊</span> <span class="acc-switch-copy"><strong>Reproducir un sonido</strong><small>Al activarse la acción</small></span></label>
+                <div class="box acc-box-outlet" id="acc-soundbox" hidden>
+                  <div class="box-title">Sonido</div>
+                  <div class="box-sub">Elige un audio de tu biblioteca para que suene cuando se dispare la acción.</div>
+                  <button type="button" class="audio-opt" id="acc-soundpick">
+                    <span class="ao-ico blue">🔊</span>
+                    <span class="ao-text"><b>Elegir sonido</b><small>De la carpeta «audios»</small></span>
+                    <span class="ao-arrow">→</span>
+                  </button>
+                  <div class="chosen">
+                    <span id="acc-soundname" class="fname">Ningún audio…</span>
+                    <button type="button" class="btn ghost sm" id="acc-soundclear">Quitar</button>
+                  </div>
+                  <div class="acc-volrow" id="acc-volrow" hidden>
+                    <label class="ml">VOLUMEN</label>
+                    <div class="acc-volctl">
+                      <input type="range" id="acc-soundvol" min="0" max="100" value="100">
+                      <span id="acc-soundvolval">100%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <label class="switch-row plain acc-active-row"><input type="checkbox" id="acc-active" checked> <span class="acc-switch-copy"><strong>Acción activa</strong><small>Lista para dispararse en el directo</small></span></label>
+                <p class="hint" id="acc-status"></p>
+              </section>
+              </div>
+              </div>
             </div>
 
-            <div class="modal-foot">
-              <button class="btn ghost" id="acc-cancel2">Cancelar</button>
-              <button class="btn ghost" id="acc-test" title="Espera 2 s para cambiar de ventana">▶ Probar</button>
-              <button class="btn ghost" id="acc-test-now" title="Sin espera — cada clic dispara al instante">⚡ Ya</button>
-              <button class="btn primary" id="acc-save">Guardar acción</button>
+            <div class="modal-foot acc-modal-foot">
+              <div class="acc-foot-left">
+                <button class="btn ghost" id="acc-cancel2">Cancelar</button>
+              </div>
+              <div class="acc-foot-right">
+                <button type="button" class="acc-icon-btn acc-try-delay acc-foot-try" id="acc-test" title="Probar — espera 2 s para cambiar de ventana" aria-label="Probar">
+                  <svg class="acc-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button type="button" class="acc-icon-btn acc-try-instant acc-foot-try" id="acc-test-now" title="Ya — sin espera, cada clic dispara al instante" aria-label="Ya">
+                  <svg class="acc-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button class="btn primary" id="acc-save">Guardar acción</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2995,124 +3194,198 @@
         
 
         <!-- Modal configurar alerta de video -->
-        <div id="vidModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2 id="vid-modal-title">Configurar alerta de video</h2>
-              <button class="modal-close" id="vid-cancel">✕</button>
+        <div id="vidModal" class="modal hidden create-modal">
+          <div class="modal-box create-modal-shell">
+            <div class="modal-head create-modal-head">
+              <div class="create-modal-head-text">
+                <p class="create-modal-kicker">Alertas de video</p>
+                <h2 id="vid-modal-title">Configurar alerta de video</h2>
+                <p class="acc-modal-lead">Elige un disparador y el video a mostrar.</p>
+              </div>
+              <button class="modal-close" id="vid-cancel" aria-label="Cerrar">✕</button>
             </div>
 
-            <div class="modal-body">
-              <label class="ml">NOMBRE EN LA LISTA</label>
-              <input type="text" id="vid-name" placeholder="ej. Susto, llegó Juan…">
+            <div class="modal-body create-modal-body acc-modal-body">
+              <section class="acc-sec acc-sec-name">
+                <label class="ml" for="vid-name">NOMBRE EN LA LISTA</label>
+                <input type="text" id="vid-name" placeholder="ej. Susto, llegó Juan…">
+              </section>
 
-              <div class="box">
-                <div class="box-head">» <b>Evento TikTok</b> <span class="opt">(regalos, likes, seguidores…)</span></div>
-                <select id="vid-event">
-                  <option value="gift-any">Cantidad diamantes (99 - 200)</option>
-                  <option value="gift-name">Regalo específico (lista)</option>
-                  <option value="like">Likes (por usuario)</option>
-                  <option value="likeGlobal">Likes globales</option>
-                  <option value="share">Compartida</option>
-                  <option value="subscribe">Nuevo suscriptor</option>
-                  <option value="superFan">Super fan</option>
-                  <option value="superFanJoin">Super fan entró</option>
-                  <option value="follow">Nuevo seguidor</option>
-                  <!-- Oculto: TikTok a menudo no dispara MEMBER y confunde (usuarios anotados sin alerta) -->
-                  <option value="userJoin" hidden disabled>Entró un usuario específico</option>
-                  <option value="emote">Sticker / emote (ID)</option>
-                  <option value="chatCommand">Comando de chat (!video)</option>
-                  <option value="firstMessage">Primer mensaje en el chat (usuario)</option>
-                  <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
-                </select>
-                <div id="vid-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
-                  <p class="hint" style="margin:0 0 8px">No se dispara por TikTok. Copia esta URL y pégala en Stream Deck (Web Request / Open URL). Solo funciona en la <b>app de escritorio</b> (:3199). Usa <code>127.0.0.1</code> (no localhost).</p>
-                  <div class="wh-endpoint" style="margin:0">
-                    <span class="wh-method getpost">GET</span>
-                    <span class="wh-eplabel">Webhook Stream Deck</span>
-                    <button type="button" class="wh-copy" id="vid-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    <code class="wh-url" id="vid-streamdeck-url">http://127.0.0.1:3199/execute_video?id=…</code>
+              <div class="acc-modal-split">
+              <div class="acc-modal-col acc-modal-col-trigger">
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>1</span> Disparador</div>
+                <div class="box acc-box-trigger">
+                  <div class="box-head">» <b>Evento TikTok</b> <span class="opt">(regalos, likes, seguidores…)</span></div>
+                  <select id="vid-event" class="acc-event-native" tabindex="-1" aria-hidden="true">
+                    <option value="gift-any">Cantidad diamantes (99 - 200)</option>
+                    <option value="gift-name">Regalo específico (lista)</option>
+                    <option value="like">Likes (por usuario)</option>
+                    <option value="likeGlobal">Likes globales</option>
+                    <option value="share">Compartida</option>
+                    <option value="subscribe">Nuevo suscriptor</option>
+                    <option value="superFan">Super fan</option>
+                    <option value="superFanJoin">Super fan entró</option>
+                    <option value="follow">Nuevo seguidor</option>
+                    <!-- Oculto: TikTok a menudo no dispara MEMBER y confunde (usuarios anotados sin alerta) -->
+                    <option value="userJoin" hidden disabled>Entró un usuario específico</option>
+                    <option value="emote">Sticker / emote (ID)</option>
+                    <option value="chatCommand">Comando de chat (!video)</option>
+                    <option value="firstMessage">Primer mensaje en el chat (usuario)</option>
+                    <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
+                  </select>
+                  <div class="acc-trig-grid" id="vid-trig-grid" role="listbox" aria-label="Evento TikTok">
+                    <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
+                      <span class="acc-trig-ic" aria-hidden="true">💎</span>
+                      <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="gift-name" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🎁</span>
+                      <span class="acc-trig-lbl">Regalo específico (lista)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="like" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">❤️</span>
+                      <span class="acc-trig-lbl">Likes (por usuario)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="likeGlobal" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">💗</span>
+                      <span class="acc-trig-lbl">Likes globales</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="share" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🔁</span>
+                      <span class="acc-trig-lbl">Compartida</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="subscribe" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">⭐</span>
+                      <span class="acc-trig-lbl">Nuevo suscriptor</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="superFan" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🌟</span>
+                      <span class="acc-trig-lbl">Super fan</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="superFanJoin" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🌟</span>
+                      <span class="acc-trig-lbl">Super fan entró</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="follow" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">➕</span>
+                      <span class="acc-trig-lbl">Nuevo seguidor</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="emote" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">😀</span>
+                      <span class="acc-trig-lbl">Sticker / emote (ID)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="chatCommand" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">💬</span>
+                      <span class="acc-trig-lbl">Comando de chat (!video)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="firstMessage" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🆕</span>
+                      <span class="acc-trig-lbl">Primer mensaje en el chat (usuario)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="streamdeck" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🎛️</span>
+                      <span class="acc-trig-lbl">Stream Deck (webhook manual)</span>
+                    </button>
+                  </div>
+                  <div id="vid-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
+                    <p class="hint" style="margin:0 0 8px">No se dispara por TikTok. Copia esta URL y pégala en Stream Deck (Web Request / Open URL). Solo funciona en la <b>app de escritorio</b> (:3199). Usa <code>127.0.0.1</code> (no localhost).</p>
+                    <div class="wh-endpoint" style="margin:0">
+                      <span class="wh-method getpost">GET</span>
+                      <span class="wh-eplabel">Webhook Stream Deck</span>
+                      <button type="button" class="wh-copy" id="vid-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                      <code class="wh-url" id="vid-streamdeck-url">http://127.0.0.1:3199/execute_video?id=…</code>
+                    </div>
+                  </div>
+                  <div id="vid-cmdextra" class="gift-extra one" hidden>
+                    <input type="text" id="vid-command" placeholder="Comando exacto (ej. !video)">
+                  </div>
+                  <div id="vid-userextra" class="gift-extra one" hidden>
+                    <input type="text" id="vid-user" placeholder="Solo este usuario (sin @) — opcional">
+                  </div>
+                  <div id="vid-joindelayextra" class="gift-extra one" hidden>
+                    <label class="ml" for="vid-joindelay">SEGUNDOS DE DELAY (espera antes de repetir, anti-spam)</label>
+                    <input type="number" id="vid-joindelay" min="0" value="30" placeholder="Segundos de espera antes de repetir (anti-spam)">
+                  </div>
+                  <div id="vid-giftanyextra" class="gift-extra" hidden>
+                    <input type="number" id="vid-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
+                    <input type="number" id="vid-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
+                  </div>
+                  <div id="vid-giftextra" class="gift-extra one" hidden>
+                    <button type="button" class="btn ghost gift-pick-btn" id="vid-giftpick">🎁 Elegir regalo…</button>
+                    <input type="hidden" id="vid-gift">
+                    <input type="hidden" id="vid-giftid">
+                    <input type="hidden" id="vid-mindia" value="0">
+                  </div>
+                  <div id="vid-likeuserextra" class="gift-extra one" hidden>
+                    <input type="number" id="vid-likemin" min="1" value="1" placeholder="A partir de cuántos likes del usuario">
+                  </div>
+                  <div id="vid-likeextra" class="gift-extra one" hidden>
+                    <input type="number" id="vid-likegoal" min="1" value="100" placeholder="Cada cuántos likes totales">
+                  </div>
+                  <div id="vid-emoteextra" class="gift-extra one" hidden>
+                    <button type="button" class="btn ghost gift-pick-btn" id="vid-emotepick">🙂 Elegir sticker…</button>
+                    <input type="hidden" id="vid-emoteid">
+                  </div>
+                  <div id="vid-eventdelayextra" class="gift-extra one" hidden>
+                    <label class="ml" for="vid-eventdelay">SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin límite)</label>
+                    <input type="number" id="vid-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
                   </div>
                 </div>
-                <div id="vid-cmdextra" class="gift-extra one" hidden>
-                  <input type="text" id="vid-command" placeholder="Comando exacto (ej. !video)">
-                </div>
-                <div id="vid-userextra" class="gift-extra one" hidden>
-                  <input type="text" id="vid-user" placeholder="Solo este usuario (sin @) — opcional">
-                </div>
-                <div id="vid-joindelayextra" class="gift-extra one" hidden>
-                  <label class="ml" for="vid-joindelay">SEGUNDOS DE DELAY (espera antes de repetir, anti-spam)</label>
-                  <input type="number" id="vid-joindelay" min="0" value="30" placeholder="Segundos de espera antes de repetir (anti-spam)">
-                </div>
-                <div id="vid-giftanyextra" class="gift-extra" hidden>
-                  <input type="number" id="vid-rangemin" min="0" value="0" placeholder="💎 desde (ej. 100)">
-                  <input type="number" id="vid-rangemax" min="0" value="0" placeholder="💎 hasta (0 = sin límite)">
-                </div>
-                <div id="vid-giftextra" class="gift-extra one" hidden>
-                  <button type="button" class="btn ghost gift-pick-btn" id="vid-giftpick">🎁 Elegir regalo…</button>
-                  <input type="hidden" id="vid-gift">
-                  <input type="hidden" id="vid-giftid">
-                  <input type="hidden" id="vid-mindia" value="0">
-                </div>
-                <div id="vid-likeuserextra" class="gift-extra one" hidden>
-                  <input type="number" id="vid-likemin" min="1" value="1" placeholder="A partir de cuántos likes del usuario">
-                </div>
-                <div id="vid-likeextra" class="gift-extra one" hidden>
-                  <input type="number" id="vid-likegoal" min="1" value="100" placeholder="Cada cuántos likes totales">
-                </div>
-                <div id="vid-emoteextra" class="gift-extra one" hidden>
-                  <button type="button" class="btn ghost gift-pick-btn" id="vid-emotepick">🙂 Elegir sticker…</button>
-                  <input type="hidden" id="vid-emoteid">
-                </div>
-                <div id="vid-eventdelayextra" class="gift-extra one" hidden>
-                  <label class="ml" for="vid-eventdelay">SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin límite)</label>
-                  <input type="number" id="vid-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
-                </div>
+              </section>
               </div>
 
-              <div class="box">
-                <div class="box-title">Archivo de video</div>
-                <div class="box-sub">Reutiliza un video ya subido o sube uno nuevo desde tu PC (MP4, WebM, GIF…). Se guarda al pulsar «Listo».</div>
+              <div class="acc-modal-col acc-modal-col-out">
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>2</span> Video</div>
+                <div class="box">
+                  <div class="box-title">Archivo de video</div>
+                  <div class="box-sub">Reutiliza un video ya subido o sube uno nuevo desde tu PC (MP4, WebM, GIF…). Se guarda al pulsar «Listo».</div>
 
-                <button type="button" class="audio-opt" id="vid-libbtn">
-                  <span class="ao-ico cyan">🎬</span>
-                  <span class="ao-text"><b>Videos AI</b><small>Reutiliza un video ya subido</small></span>
-                  <span class="ao-arrow">→</span>
-                </button>
-                <button type="button" class="audio-opt" id="vid-upbtn">
-                  <span class="ao-ico blue">⬆️</span>
-                  <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, MOV, WebP, GIF…</small></span>
-                  <span class="ao-arrow">→</span>
-                </button>
-                <input type="file" id="vid-file" accept="video/*,image/*" hidden>
+                  <button type="button" class="audio-opt" id="vid-libbtn">
+                    <span class="ao-ico cyan">🎬</span>
+                    <span class="ao-text"><b>Videos AI</b><small>Reutiliza un video ya subido</small></span>
+                    <span class="ao-arrow">→</span>
+                  </button>
+                  <button type="button" class="audio-opt" id="vid-upbtn">
+                    <span class="ao-ico blue">⬆️</span>
+                    <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, MOV, WebP, GIF…</small></span>
+                    <span class="ao-arrow">→</span>
+                  </button>
+                  <input type="file" id="vid-file" accept="video/*,image/*" hidden>
 
-                <div class="chosen"><span id="vid-fname" class="fname">Ningún archivo</span></div>
+                  <div class="chosen"><span id="vid-fname" class="fname">Ningún archivo</span></div>
 
-                <label class="ml">VOLUMEN</label>
-                <input type="range" id="vid-vol" min="0" max="100" step="1" value="100">
+                  <label class="ml">VOLUMEN</label>
+                  <input type="range" id="vid-vol" min="0" max="100" step="1" value="100">
+                </div>
+
+                <div class="box">
+                  <div class="box-head">» <b>Pantalla</b> <span class="opt">(en qué Browser Source aparece)</span></div>
+                  <select id="vid-screen">
+                    <option value="1">Pantalla 1</option>
+                    <option value="2">Pantalla 2</option>
+                    <option value="3">Pantalla 3</option>
+                    <option value="4">Pantalla 4</option>
+                    <option value="5">Pantalla 5</option>
+                    <option value="6">Pantalla 6</option>
+                    <option value="7">Pantalla 7</option>
+                    <option value="8">Pantalla 8</option>
+                    <option value="9">Pantalla 9</option>
+                    <option value="10">Pantalla 10</option>
+                  </select>
+                </div>
+
+                <p class="hint" id="vid-status"></p>
+              </section>
               </div>
-
-              <div class="box">
-                <div class="box-head">» <b>Pantalla</b> <span class="opt">(en qué Browser Source aparece)</span></div>
-                <select id="vid-screen">
-                  <option value="1">Pantalla 1</option>
-                  <option value="2">Pantalla 2</option>
-                  <option value="3">Pantalla 3</option>
-                  <option value="4">Pantalla 4</option>
-                  <option value="5">Pantalla 5</option>
-                  <option value="6">Pantalla 6</option>
-                  <option value="7">Pantalla 7</option>
-                  <option value="8">Pantalla 8</option>
-                  <option value="9">Pantalla 9</option>
-                  <option value="10">Pantalla 10</option>
-                </select>
               </div>
-
-              <p class="hint" id="vid-status"></p>
             </div>
 
-            <div class="modal-foot">
-              <button class="btn primary" id="vid-save">Listo</button>
+            <div class="modal-foot create-modal-foot acc-modal-foot">
+              <div class="acc-foot-right">
+                <button class="btn primary" id="vid-save">Listo</button>
+              </div>
             </div>
           </div>
         </div>
@@ -3202,93 +3475,147 @@
         </div>
 
         <!-- Modal configurar animación de batalla -->
-        <div id="baModal" class="modal hidden">
-          <div class="modal-box">
-            <div class="modal-head">
-              <h2 id="ba-modal-title">Configurar animación de batalla</h2>
-              <button class="modal-close" id="ba-cancel">✕</button>
+        <div id="baModal" class="modal hidden create-modal">
+          <div class="modal-box create-modal-shell">
+            <div class="modal-head create-modal-head">
+              <div class="create-modal-head-text">
+                <p class="create-modal-kicker">Batallas PK</p>
+                <h2 id="ba-modal-title">Configurar animación de batalla</h2>
+                <p class="acc-modal-lead">Elige qué dispara la animación en la PK.</p>
+              </div>
+              <button class="modal-close" id="ba-cancel" aria-label="Cerrar">✕</button>
             </div>
 
-            <div class="modal-body">
-              <label class="ml">NOMBRE EN LA LISTA</label>
-              <input type="text" id="ba-name" placeholder="ej. Guante, Knockout…">
+            <div class="modal-body create-modal-body acc-modal-body">
+              <section class="acc-sec acc-sec-name">
+                <label class="ml" for="ba-name">NOMBRE EN LA LISTA</label>
+                <input type="text" id="ba-name" placeholder="ej. Guante, Knockout…">
+              </section>
 
-              <div class="box">
-                <div class="box-head">» <b>Acción de la batalla PK</b> <span class="opt">(qué dispara la animación)</span></div>
-                <select id="ba-trigger">
-                  <option value="critical">⚡ Golpe crítico / x2 (multiplicador)</option>
-                  <option value="critical3">⚡ Golpe crítico / x3 (multiplicador)</option>
-                  <option value="battleGift">🥊 Potenciador guante / multiplicador (automático)</option>
-                  <option value="battleGiftAny">🎁 Cualquier regalo en la batalla</option>
-                  <option value="battleStart">🟢 Inicio de la batalla</option>
-                  <option value="battleLast10">⏱ Quedan 10 segundos</option>
-                  <option value="battleEnd">🔴 Fin de la batalla</option>
-                  <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
-                </select>
-                <div id="ba-giftextra" class="gift-extra one" style="margin-top:8px" hidden>
-                  <p class="hint" id="ba-glove-hint" style="margin:0">Se activa solo cuando en la PK entra el <b>potenciador guante</b> (golpe crítico / multiplicador x2, x3…). No es el regalo Boxing Gloves.</p>
-                  <button type="button" class="btn ghost gift-pick-btn" id="ba-giftpick" hidden>🎁 Elegir regalo…</button>
-                  <input type="hidden" id="ba-gift">
-                  <input type="hidden" id="ba-giftid">
-                </div>
-                <div id="ba-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
-                  <p class="hint" style="margin:0 0 8px">No se dispara solo en la PK. Copia esta URL y pégala en Stream Deck (Web Request / Open URL). Solo funciona en la <b>app de escritorio</b> (:3199). Usa <code>127.0.0.1</code> (no localhost).</p>
-                  <div class="wh-endpoint" style="margin:0">
-                    <span class="wh-method getpost">GET</span>
-                    <span class="wh-eplabel">Webhook Stream Deck</span>
-                    <button type="button" class="wh-copy" id="ba-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                    <code class="wh-url" id="ba-streamdeck-url">http://127.0.0.1:3199/execute_video?id=…</code>
+              <div class="acc-modal-split">
+              <div class="acc-modal-col acc-modal-col-trigger">
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>1</span> Disparador</div>
+                <div class="box acc-box-trigger">
+                  <div class="box-head">» <b>Acción de la batalla PK</b> <span class="opt">(qué dispara la animación)</span></div>
+                  <select id="ba-trigger" class="acc-event-native" tabindex="-1" aria-hidden="true">
+                    <option value="critical">⚡ Golpe crítico / x2 (multiplicador)</option>
+                    <option value="critical3">⚡ Golpe crítico / x3 (multiplicador)</option>
+                    <option value="battleGift">🥊 Potenciador guante / multiplicador (automático)</option>
+                    <option value="battleGiftAny">🎁 Cualquier regalo en la batalla</option>
+                    <option value="battleStart">🟢 Inicio de la batalla</option>
+                    <option value="battleLast10">⏱ Quedan 10 segundos</option>
+                    <option value="battleEnd">🔴 Fin de la batalla</option>
+                    <option value="streamdeck">🎛️ Stream Deck (webhook manual)</option>
+                  </select>
+                  <div class="acc-trig-grid" id="ba-trig-grid" role="listbox" aria-label="Acción de la batalla PK">
+                    <button type="button" class="acc-trig-item is-on" data-v="critical" role="option" aria-selected="true">
+                      <span class="acc-trig-ic" aria-hidden="true">⚡</span>
+                      <span class="acc-trig-lbl">Golpe crítico / x2 (multiplicador)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="critical3" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">⚡</span>
+                      <span class="acc-trig-lbl">Golpe crítico / x3 (multiplicador)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="battleGift" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🥊</span>
+                      <span class="acc-trig-lbl">Potenciador guante / multiplicador (automático)</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="battleGiftAny" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🎁</span>
+                      <span class="acc-trig-lbl">Cualquier regalo en la batalla</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="battleStart" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🟢</span>
+                      <span class="acc-trig-lbl">Inicio de la batalla</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="battleLast10" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">⏱</span>
+                      <span class="acc-trig-lbl">Quedan 10 segundos</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="battleEnd" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🔴</span>
+                      <span class="acc-trig-lbl">Fin de la batalla</span>
+                    </button>
+                    <button type="button" class="acc-trig-item" data-v="streamdeck" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true">🎛️</span>
+                      <span class="acc-trig-lbl">Stream Deck (webhook manual)</span>
+                    </button>
                   </div>
+                  <div id="ba-giftextra" class="gift-extra one" style="margin-top:8px" hidden>
+                    <p class="hint" id="ba-glove-hint" style="margin:0">Se activa solo cuando en la PK entra el <b>potenciador guante</b> (golpe crítico / multiplicador x2, x3…). No es el regalo Boxing Gloves.</p>
+                    <button type="button" class="btn ghost gift-pick-btn" id="ba-giftpick" hidden>🎁 Elegir regalo…</button>
+                    <input type="hidden" id="ba-gift">
+                    <input type="hidden" id="ba-giftid">
+                  </div>
+                  <div id="ba-streamdeck-extra" class="gift-extra" style="margin-top:8px" hidden>
+                    <p class="hint" style="margin:0 0 8px">No se dispara solo en la PK. Copia esta URL y pégala en Stream Deck (Web Request / Open URL). Solo funciona en la <b>app de escritorio</b> (:3199). Usa <code>127.0.0.1</code> (no localhost).</p>
+                    <div class="wh-endpoint" style="margin:0">
+                      <span class="wh-method getpost">GET</span>
+                      <span class="wh-eplabel">Webhook Stream Deck</span>
+                      <button type="button" class="wh-copy" id="ba-streamdeck-copy" title="Copiar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                      <code class="wh-url" id="ba-streamdeck-url">http://127.0.0.1:3199/execute_video?id=…</code>
+                    </div>
+                  </div>
+                  <div id="ba-countextra" class="gift-extra one" style="margin-top:8px" hidden>
+                    <input type="number" id="ba-mincount" min="1" value="1" placeholder="A partir de cuántos envíos (1 = cualquiera, 5 = combo x5)">
+                  </div>
+                  <p class="hint" id="ba-pk-hint" style="margin-top:6px">Solo se dispara <b>durante una batalla PK</b> de TikTok.</p>
                 </div>
-                <div id="ba-countextra" class="gift-extra one" style="margin-top:8px" hidden>
-                  <input type="number" id="ba-mincount" min="1" value="1" placeholder="A partir de cuántos envíos (1 = cualquiera, 5 = combo x5)">
+              </section>
+              </div>
+
+              <div class="acc-modal-col acc-modal-col-out">
+              <section class="acc-sec">
+                <div class="acc-sec-label"><span>2</span> Animación</div>
+                <div class="box">
+                  <div class="box-title">Archivo de video</div>
+                  <div class="box-sub">Reutiliza un video ya subido o sube uno nuevo desde tu PC (MP4, WebM, GIF…). Se guarda al pulsar «Listo».</div>
+
+                  <button type="button" class="audio-opt" id="ba-libbtn">
+                    <span class="ao-ico cyan">🎬</span>
+                    <span class="ao-text"><b>Videos AI</b><small>Reutiliza un video ya subido</small></span>
+                    <span class="ao-arrow">→</span>
+                  </button>
+                  <button type="button" class="audio-opt" id="ba-upbtn">
+                    <span class="ao-ico blue">⬆️</span>
+                    <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, MOV, WebP, GIF…</small></span>
+                    <span class="ao-arrow">→</span>
+                  </button>
+                  <input type="file" id="ba-file" accept="video/*,image/*" hidden>
+
+                  <div class="chosen"><span id="ba-fname" class="fname">Ningún archivo</span></div>
+
+                  <label class="ml">VOLUMEN</label>
+                  <input type="range" id="ba-vol" min="0" max="100" step="1" value="100">
                 </div>
-                <p class="hint" id="ba-pk-hint" style="margin-top:6px">Solo se dispara <b>durante una batalla PK</b> de TikTok.</p>
+
+                <div class="box">
+                  <div class="box-head">» <b>Pantalla</b> <span class="opt">(en qué Browser Source aparece)</span></div>
+                  <select id="ba-screen">
+                    <option value="1">Pantalla 1</option>
+                    <option value="2">Pantalla 2</option>
+                    <option value="3">Pantalla 3</option>
+                    <option value="4">Pantalla 4</option>
+                    <option value="5">Pantalla 5</option>
+                    <option value="6">Pantalla 6</option>
+                    <option value="7">Pantalla 7</option>
+                    <option value="8">Pantalla 8</option>
+                    <option value="9">Pantalla 9</option>
+                    <option value="10">Pantalla 10</option>
+                  </select>
+                </div>
+
+                <p class="hint" id="ba-status"></p>
+              </section>
               </div>
-
-              <div class="box">
-                <div class="box-title">Archivo de video</div>
-                <div class="box-sub">Reutiliza un video ya subido o sube uno nuevo desde tu PC (MP4, WebM, GIF…). Se guarda al pulsar «Listo».</div>
-
-                <button type="button" class="audio-opt" id="ba-libbtn">
-                  <span class="ao-ico cyan">🎬</span>
-                  <span class="ao-text"><b>Videos AI</b><small>Reutiliza un video ya subido</small></span>
-                  <span class="ao-arrow">→</span>
-                </button>
-                <button type="button" class="audio-opt" id="ba-upbtn">
-                  <span class="ao-ico blue">⬆️</span>
-                  <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, MOV, WebP, GIF…</small></span>
-                  <span class="ao-arrow">→</span>
-                </button>
-                <input type="file" id="ba-file" accept="video/*,image/*" hidden>
-
-                <div class="chosen"><span id="ba-fname" class="fname">Ningún archivo</span></div>
-
-                <label class="ml">VOLUMEN</label>
-                <input type="range" id="ba-vol" min="0" max="100" step="1" value="100">
               </div>
-
-              <div class="box">
-                <div class="box-head">» <b>Pantalla</b> <span class="opt">(en qué Browser Source aparece)</span></div>
-                <select id="ba-screen">
-                  <option value="1">Pantalla 1</option>
-                  <option value="2">Pantalla 2</option>
-                  <option value="3">Pantalla 3</option>
-                  <option value="4">Pantalla 4</option>
-                  <option value="5">Pantalla 5</option>
-                  <option value="6">Pantalla 6</option>
-                  <option value="7">Pantalla 7</option>
-                  <option value="8">Pantalla 8</option>
-                  <option value="9">Pantalla 9</option>
-                  <option value="10">Pantalla 10</option>
-                </select>
-              </div>
-
-              <p class="hint" id="ba-status"></p>
             </div>
 
-            <div class="modal-foot">
-              <button class="btn primary" id="ba-save">Listo</button>
+            <div class="modal-foot create-modal-foot acc-modal-foot">
+              <div class="acc-foot-right">
+                <button class="btn primary" id="ba-save">Listo</button>
+              </div>
             </div>
           </div>
         </div>

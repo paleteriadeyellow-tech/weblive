@@ -3125,6 +3125,7 @@ function setVidEventUI(value) {
   if (userInput) userInput.placeholder = value === 'userJoin'
     ? 'Usuario @ (uniqueId), no el apodo. Si TikTok no avisa la entrada, dispara al primer chat'
     : 'Solo este usuario (sin @) — opcional';
+  syncTrigSelectGrid('vid-trig-grid', 'vid-event', 'gift-any');
 }
 
 function openVidModal(v = null) {
@@ -3169,6 +3170,7 @@ $('vid-create').onclick = () => { if (ensureCanAdd('videos', 'videos', 'videos')
 $('vid-cancel').onclick = closeVidModal;
 $('vidModal').addEventListener('click', (e) => { if (e.target.id === 'vidModal') closeVidModal(); });
 $('vid-event').addEventListener('change', () => setVidEventUI($('vid-event').value));
+bindTrigSelectGrid('vid-trig-grid', 'vid-event');
 if ($('vid-streamdeck-copy')) {
   $('vid-streamdeck-copy').onclick = () => {
     refreshVidStreamdeckUrl();
@@ -3541,6 +3543,7 @@ function setBaTriggerUI(value) {
       ? 'Multiplicador mínimo (1 = cualquier guante, 2 = x2+, 3 = solo x3+)'
       : 'A partir de cuántos envíos (1 = cualquiera, 5 = combo x5)';
   }
+  syncTrigSelectGrid('ba-trig-grid', 'ba-trigger', 'critical');
 }
 
 function openBaModal(b = null) {
@@ -3564,6 +3567,7 @@ function openBaModal(b = null) {
 }
 function closeBaModal() { $('baModal').classList.add('hidden'); }
 $('ba-trigger').addEventListener('change', () => setBaTriggerUI($('ba-trigger').value));
+bindTrigSelectGrid('ba-trig-grid', 'ba-trigger');
 if ($('ba-streamdeck-copy')) {
   $('ba-streamdeck-copy').onclick = () => {
     refreshBaStreamdeckUrl();
@@ -3811,6 +3815,7 @@ function setEventUI(value) {
   const sd = $('sa-streamdeck-extra');
   if (sd) sd.hidden = value !== 'streamdeck';
   if (value === 'streamdeck') refreshSaStreamdeckUrl();
+  syncTrigSelectGrid('sa-trig-grid', 'sa-event', 'gift-any');
 }
 
 function openSaModal(alert = null) {
@@ -3864,6 +3869,7 @@ $('sa-cancel').onclick = closeSaModal;
 $('sa-cancel2').onclick = closeSaModal;
 $('saModal').addEventListener('click', (e) => { if (e.target.id === 'saModal') closeSaModal(); });
 $('sa-event').addEventListener('change', () => setEventUI($('sa-event').value));
+bindTrigSelectGrid('sa-trig-grid', 'sa-event');
 if ($('sa-streamdeck-copy')) {
   $('sa-streamdeck-copy').onclick = () => {
     refreshSaStreamdeckUrl();
@@ -4217,8 +4223,10 @@ function renderLocalSounds(filter) {
   box.innerHTML = list.map((s) => `
     <div class="lib-row">
       <span class="lr-name">${esc(s.name)}</span>
-      <button class="lr-play" data-url="${esc(s.url)}">▶️</button>
-      <button class="lr-pick" data-url="${esc(s.url)}" data-name="${esc(s.name)}">Usar</button>
+      <button type="button" class="lr-play acc-icon-btn acc-try-delay" data-url="${esc(s.url)}" title="Escuchar" aria-label="Escuchar">
+        <svg class="acc-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button type="button" class="lr-pick" data-url="${esc(s.url)}" data-name="${esc(s.name)}">Usar</button>
     </div>`).join('');
   box.querySelectorAll('.lr-play').forEach((b) => b.onclick = () => {
     try { libAudio?.pause(); } catch {}
@@ -7782,6 +7790,10 @@ function keyPressOpts(p, { burst = false } = {}) {
     times,
     holdSec: Number.isFinite(holdSec) && holdSec > 0 ? holdSec : 0,
   };
+  if (p?.keyStaggerOn) {
+    opts.keyStaggerOn = true;
+    opts.keyStaggerMs = Math.max(50, Math.min(10000, parseInt(p.keyStaggerMs, 10) || 300));
+  }
   if (burst) {
     opts.burst = true;
     opts.holdSec = 0;
@@ -7925,14 +7937,21 @@ function accOutputChipsHTML(a) {
   if (a.keys) {
     let txt = esc(a.keys);
     if (a.keyRepeatOn && (parseInt(a.keyRepeat, 10) || 1) > 1) txt += ` ×${parseInt(a.keyRepeat, 10) || 1}`;
+    if (a.keyStaggerOn) txt += ` · 1×1 ${Math.max(50, parseInt(a.keyStaggerMs, 10) || 300)}ms`;
     out.push(accChipHTML('⌨️', txt, 'key'));
   }
   if (a.webhookCmd?.on && a.webhookCmd?.url) {
     const method = String(a.webhookCmd.method || 'GET').toUpperCase();
-    out.push(accChipHTML('🪝', esc(`${method} ${accShortText(a.webhookCmd.url, 22)}`), 'wh'));
+    let whTxt = `${method} ${accShortText(a.webhookCmd.url, 22)}`;
+    if (a.webhookCmd.staggerOn) whTxt += ` · 1×1 ${Math.max(50, parseInt(a.webhookCmd.staggerMs, 10) || 300)}ms`;
+    out.push(accChipHTML('🪝', esc(whTxt), 'wh'));
   }
   if (a.obsCmd?.on) out.push(accChipHTML('📡', esc(accObsChipText(a.obsCmd)), 'obs'));
-  if (a.sbCmd?.on && a.sbCmd?.action) out.push(accChipHTML('🤖', esc(a.sbCmd.action), 'sb'));
+  if (a.sbCmd?.on && a.sbCmd?.action) {
+    let sbTxt = a.sbCmd.action;
+    if (a.sbCmd.staggerOn) sbTxt += ` · 1×1 ${Math.max(50, parseInt(a.sbCmd.staggerMs, 10) || 300)}ms`;
+    out.push(accChipHTML('🤖', esc(sbTxt), 'sb'));
+  }
   if (a.mediaShow?.on && a.mediaShow?.url) {
     const name = a.mediaShow.name || accShortText(String(a.mediaShow.url).split('/').pop(), 18);
     const scr = a.mediaShow.screen ? ` · P${a.mediaShow.screen}` : '';
@@ -8073,6 +8092,19 @@ function syncAccKeyRepeatUI() {
   if ($('acc-keyrepeat-on-row')) $('acc-keyrepeat-on-row').hidden = !keysOn;
   const repeatOn = keysOn && $('acc-keyrepeat-on') && $('acc-keyrepeat-on').checked;
   if ($('acc-keyrepeat-wrap')) $('acc-keyrepeat-wrap').hidden = !repeatOn;
+  if ($('acc-keystagger-on-row')) $('acc-keystagger-on-row').hidden = !keysOn;
+  const staggerOn = keysOn && $('acc-keystagger-on') && $('acc-keystagger-on').checked;
+  if ($('acc-keystagger-wrap')) $('acc-keystagger-wrap').hidden = !staggerOn;
+}
+
+function syncAccWhStaggerUI() {
+  const on = !!$('acc-wh-stagger-on')?.checked;
+  if ($('acc-wh-stagger-wrap')) $('acc-wh-stagger-wrap').hidden = !on;
+}
+
+function syncAccSbStaggerUI() {
+  const on = !!$('acc-sb-stagger-on')?.checked;
+  if ($('acc-sb-stagger-wrap')) $('acc-sb-stagger-wrap').hidden = !on;
 }
 
 function parseTikfinitySpawnUrlMeta(url) {
@@ -8150,6 +8182,8 @@ function setupAccionesUI() {
   const accModal = $('accModal');
   if (accModal) accModal.addEventListener('click', (e) => { if (e.target.id === 'accModal') closeAccModal(); });
   accBind('acc-event', applyAccEventExtras, 'onchange');
+  bindAccTrigGrid();
+  syncAccTrigGrid();
   accBind('acc-giftpick', () => openGiftModalCb((g) => {
     $('acc-giftid').value = g.id || '';
     $('acc-giftname').value = g.name || '';
@@ -8161,10 +8195,12 @@ function setupAccionesUI() {
     const on = $('acc-keys-on').checked;
     $('acc-keys-box').hidden = !on;
     if (!on && $('acc-keyrepeat-on')) $('acc-keyrepeat-on').checked = false;
+    if (!on && $('acc-keystagger-on')) $('acc-keystagger-on').checked = false;
     syncAccKeyRepeatUI();
     if (on && !$('acc-keys').value.trim()) openKeyboardModal();
   });
   accBind('acc-keyrepeat-on', syncAccKeyRepeatUI);
+  accBind('acc-keystagger-on', syncAccKeyRepeatUI);
   accBind('acc-keypick', openKeyboardModal);
   accBind('acc-keyclear', () => { $('acc-keys').value = ''; accPendingGameCompat = false; accPendingKeyHoldSec = 0; });
   accBind('acc-imgbtn', () => $('acc-imgfile')?.click());
@@ -8185,9 +8221,19 @@ function setupAccionesUI() {
   const volEl = $('acc-soundvol');
   if (volEl) volEl.addEventListener('input', () => { $('acc-soundvolval').textContent = volEl.value + '%'; });
   // Salidas extra: WebHook / OBS / Streamer.bot.
-  accBind('acc-wh-on', () => { $('acc-wh-box').hidden = !$('acc-wh-on').checked; });
+  accBind('acc-wh-on', () => {
+    $('acc-wh-box').hidden = !$('acc-wh-on').checked;
+    if (!$('acc-wh-on').checked && $('acc-wh-stagger-on')) $('acc-wh-stagger-on').checked = false;
+    syncAccWhStaggerUI();
+  });
+  accBind('acc-wh-stagger-on', syncAccWhStaggerUI);
   accBind('acc-obs-on', () => { $('acc-obs-box').hidden = !$('acc-obs-on').checked; });
-  accBind('acc-sb-on', () => { $('acc-sb-box').hidden = !$('acc-sb-on').checked; });
+  accBind('acc-sb-on', () => {
+    $('acc-sb-box').hidden = !$('acc-sb-on').checked;
+    if (!$('acc-sb-on').checked && $('acc-sb-stagger-on')) $('acc-sb-stagger-on').checked = false;
+    syncAccSbStaggerUI();
+  });
+  accBind('acc-sb-stagger-on', syncAccSbStaggerUI);
   accBind('acc-obs-type', applyObsCmdExtras, 'onchange');
   accBind('acc-media-on', () => {
     $('acc-media-box').hidden = !$('acc-media-on').checked;
@@ -8220,6 +8266,8 @@ function readAccTestAction() {
     keyHoldSec: accPendingKeyHoldSec,
     keyRepeatOn: $('acc-keyrepeat-on')?.checked,
     keyRepeat: Math.max(1, parseInt($('acc-keyrepeat')?.value, 10) || 1),
+    keyStaggerOn: !!$('acc-keystagger-on')?.checked,
+    keyStaggerMs: Math.max(50, Math.min(10000, parseInt($('acc-keystagger-ms')?.value, 10) || 300)),
     sound: $('acc-soundon').checked && accPendingSound ? accPendingSound.url : '',
     soundVolume: Math.max(0, Math.min(1, (+$('acc-soundvol').value || 100) / 100)),
     webhookCmd: readAccWebhookCmd(),
@@ -8294,6 +8342,46 @@ function applyAccEventExtras() {
   if ($('acc-cmdextra')) $('acc-cmdextra').hidden = ev !== 'chatCommand';
   if ($('acc-userextra')) $('acc-userextra').hidden = ev !== 'chatCommand';
   if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift' && ev !== 'gift-any';
+  syncAccTrigGrid();
+}
+
+function syncAccTrigGrid() {
+  syncTrigSelectGrid('acc-trig-grid', 'acc-event', 'gift-any');
+}
+
+function bindAccTrigGrid() {
+  bindTrigSelectGrid('acc-trig-grid', 'acc-event');
+}
+
+/** Sincroniza rejilla visual ↔ select oculto (acciones / sonoras / videos / batallas). */
+function syncTrigSelectGrid(gridId, selectId, fallback = '') {
+  const v = $(selectId)?.value || fallback;
+  const grid = $(gridId);
+  if (!grid) return;
+  grid.querySelectorAll('.acc-trig-item').forEach((btn) => {
+    const on = btn.dataset.v === v;
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+function bindTrigSelectGrid(gridId, selectId) {
+  const grid = $(gridId);
+  if (!grid || grid.dataset.bound === '1') return;
+  grid.dataset.bound = '1';
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.acc-trig-item');
+    if (!btn || !grid.contains(btn)) return;
+    const sel = $(selectId);
+    if (!sel) return;
+    const next = btn.dataset.v;
+    if (!next || sel.value === next) {
+      syncTrigSelectGrid(gridId, selectId);
+      return;
+    }
+    sel.value = next;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 }
 
 // Muestra los campos de escena/fuente según el tipo de comando de OBS elegido.
@@ -8311,6 +8399,8 @@ function readAccWebhookCmd() {
     method: $('acc-wh-method').value || 'GET',
     url: $('acc-wh-url').value.trim(),
     body: $('acc-wh-body').value,
+    staggerOn: !!$('acc-wh-stagger-on')?.checked,
+    staggerMs: Math.max(50, Math.min(10000, parseInt($('acc-wh-stagger-ms')?.value, 10) || 300)),
   };
 }
 function readAccObsCmd() {
@@ -8322,7 +8412,12 @@ function readAccObsCmd() {
   };
 }
 function readAccSbCmd() {
-  return { on: $('acc-sb-on').checked, action: $('acc-sb-action').value.trim() };
+  return {
+    on: $('acc-sb-on').checked,
+    action: $('acc-sb-action').value.trim(),
+    staggerOn: !!$('acc-sb-stagger-on')?.checked,
+    staggerMs: Math.max(50, Math.min(10000, parseInt($('acc-sb-stagger-ms')?.value, 10) || 300)),
+  };
 }
 
 function openAccModal(a) {
@@ -8334,6 +8429,7 @@ function openAccModal(a) {
   $('acc-modal-title').textContent = a ? 'Editar acción' : 'Nueva acción';
   $('acc-name').value = a ? (a.name || '') : '';
   $('acc-event').value = a ? (a.event || 'gift-any') : 'gift-any';
+  syncAccTrigGrid();
   $('acc-rangemin').value = a ? (a.rangeMin || 0) : 0;
   $('acc-rangemax').value = a ? (a.rangeMax || 0) : 0;
   $('acc-giftid').value = a ? (a.giftId || '') : '';
@@ -8354,6 +8450,10 @@ function openAccModal(a) {
   $('acc-keys-box').hidden = !(a && a.keys);
   if ($('acc-keyrepeat-on')) $('acc-keyrepeat-on').checked = !!(a && a.keyRepeatOn);
   if ($('acc-keyrepeat')) $('acc-keyrepeat').value = a && a.keyRepeat ? Math.max(1, parseInt(a.keyRepeat, 10) || 1) : 1;
+  if ($('acc-keystagger-on')) $('acc-keystagger-on').checked = !!(a && a.keyStaggerOn);
+  if ($('acc-keystagger-ms')) $('acc-keystagger-ms').value = a && a.keyStaggerMs != null
+    ? Math.max(50, Math.min(10000, parseInt(a.keyStaggerMs, 10) || 300))
+    : 300;
   syncAccKeyRepeatUI();
   $('acc-active').checked = a ? a.enabled !== false : true;
   $('acc-giftpick').innerHTML = giftBtnHTML(a ? a.giftName : '', a ? a.giftId : '');
@@ -8373,7 +8473,12 @@ function openAccModal(a) {
   $('acc-wh-method').value = wh.method || 'GET';
   $('acc-wh-url').value = wh.url || '';
   $('acc-wh-body').value = wh.body || '';
+  if ($('acc-wh-stagger-on')) $('acc-wh-stagger-on').checked = !!wh.staggerOn;
+  if ($('acc-wh-stagger-ms')) $('acc-wh-stagger-ms').value = wh.staggerMs != null
+    ? Math.max(50, Math.min(10000, parseInt(wh.staggerMs, 10) || 300))
+    : 300;
   $('acc-wh-box').hidden = !wh.on;
+  syncAccWhStaggerUI();
   const ob = (a && a.obsCmd) || {};
   $('acc-obs-on').checked = !!ob.on;
   $('acc-obs-type').value = ob.type || 'scene';
@@ -8383,7 +8488,12 @@ function openAccModal(a) {
   const sb = (a && a.sbCmd) || {};
   $('acc-sb-on').checked = !!sb.on;
   $('acc-sb-action').value = sb.action || '';
+  if ($('acc-sb-stagger-on')) $('acc-sb-stagger-on').checked = !!sb.staggerOn;
+  if ($('acc-sb-stagger-ms')) $('acc-sb-stagger-ms').value = sb.staggerMs != null
+    ? Math.max(50, Math.min(10000, parseInt(sb.staggerMs, 10) || 300))
+    : 300;
   $('acc-sb-box').hidden = !sb.on;
+  syncAccSbStaggerUI();
   const ms = (a && a.mediaShow) || {};
   $('acc-media-on').checked = !!ms.on;
   $('acc-media-box').hidden = !ms.on;
@@ -8450,6 +8560,8 @@ function saveAccModal() {
     keys,
     keyRepeatOn: $('acc-keys-on').checked && $('acc-keyrepeat-on')?.checked,
     keyRepeat: Math.max(1, Math.min(50, parseInt($('acc-keyrepeat')?.value, 10) || 1)),
+    keyStaggerOn: $('acc-keys-on').checked && !!$('acc-keystagger-on')?.checked,
+    keyStaggerMs: Math.max(50, Math.min(10000, parseInt($('acc-keystagger-ms')?.value, 10) || 300)),
     gameCompat: !!accPendingGameCompat,
     keyHoldSec: accPendingKeyHoldSec || 0,
     image: accPendingImage ? accPendingImage.url : '',
@@ -11633,123 +11745,164 @@ function ensureMcAudioUpload() {
 // Genera una imagen tipo "menú de regalos" con las acciones agregadas:
 // para cada acción muestra el regalo/evento que la activa, la cantidad a enviar
 // y la acción de Minecraft (zombie, tnt, etc.). Se descarga como PNG.
+/** Envía un PNG generado al Editor (sin descargar). Fallback: descarga clásica. */
+async function openGeneratedImageInEditor(dataUrl, fileName) {
+  if (!dataUrl) return false;
+  if (typeof window.importGeneratedImageToEditor === 'function') {
+    return !!(await window.importGeneratedImageToEditor(dataUrl, { name: fileName || 'overlay.png' }));
+  }
+  try {
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = fileName || 'overlay.png';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast && toast('Imagen descargada (Editor no disponible).', 'ok');
+    return true;
+  } catch {
+    toast && toast('No se pudo abrir ni descargar la imagen.', 'err');
+    return false;
+  }
+}
+
+/** Overlay con capas separadas (acción / regalo / xN) editables en el Editor. */
+async function openOverlayLayersInEditor(payload) {
+  if (typeof window.importOverlayLayersToEditor === 'function') {
+    return !!(await window.importOverlayLayersToEditor(payload || {}));
+  }
+  toast && toast('Editor no disponible.', 'err');
+  return false;
+}
+
+const EDITOR_OVERLAY_CLOUD_SRC = 'data:image/svg+xml,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">'
+  + '<ellipse cx="40" cy="58" rx="28" ry="22" fill="#c5e4f8"/>'
+  + '<ellipse cx="58" cy="48" rx="32" ry="26" fill="#c5e4f8"/>'
+  + '<ellipse cx="78" cy="56" rx="24" ry="20" fill="#c5e4f8"/>'
+  + '</svg>'
+);
+
+function overlayImgProxy(u) {
+  if (!u) return '';
+  try {
+    if (new URL(u, location.href).origin === location.origin) return u;
+  } catch { /* ignore */ }
+  return `/api/img-proxy?url=${encodeURIComponent(u)}`;
+}
+
 async function generateMcMenuImage(srcList, iconDir, fileName, iconUrlFor) {
   const all = Array.isArray(srcList) ? srcList : ((settings && Array.isArray(settings.mcActions)) ? settings.mcActions : []);
   const ICON_DIR = iconDir || '/img/minecraft/';
   const OUT_NAME = fileName || 'menu-regalos-minecraft.png';
   const list = all.filter((a) => a && a.enabled !== false);
   if (!list.length) { toast && toast('Agrega acciones primero (con su regalo o evento).', 'warn'); return; }
-  toast && toast('Generando imagen…', 'ok');
-
-  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : ('/api/img-proxy?url=' + encodeURIComponent(u))));
-  const loadImg = (src) => new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.onload = () => resolve(im);
-    im.onerror = () => resolve(null);
-    im.src = src;
-  });
+  toast && toast('Abriendo menú en el Editor…', 'ok');
 
   const rows = [];
   for (const a of list) {
     const trig = a.trigger || 'gift';
-    let leftImg = null, leftEmoji = '', leftLabel = '';
+    let giftSrc = '';
+    let giftEmoji = '';
+    let giftName = 'Regalo';
     if (trig === 'gift') {
-      leftImg = await loadImg(proxied(a.giftImage));
-      leftLabel = a.giftName || 'Regalo';
+      giftSrc = overlayImgProxy(a.giftImage);
+      giftName = a.giftName || 'Regalo';
     } else {
       const ev = MC_TRIG_ICON[trig] || { ic: '⚡', label: trig };
-      leftEmoji = ev.ic; leftLabel = ev.label;
-      if (trig === 'like' || trig === 'likeGlobal') leftLabel = (a.likeN || (trig === 'likeGlobal' ? 100 : 1)) + ' likes';
-      else if (trig === 'chatCommand' || trig === 'chatUser') leftLabel = a.text || ev.label;
+      giftEmoji = ev.ic;
+      giftName = ev.label || 'Evento';
     }
     const iconSrc = typeof iconUrlFor === 'function'
-      ? iconUrlFor(a)
-      : (ICON_DIR + (a.catId || '') + '.png');
-    const actIcon = await loadImg(iconSrc);
-    rows.push({ a, leftImg, leftEmoji, leftLabel, actIcon, qty: Math.max(1, parseInt(a.count, 10) || 1) });
+      ? overlayImgProxy(iconUrlFor(a))
+      : overlayImgProxy(ICON_DIR + (a.catId || '') + '.png');
+    rows.push({
+      actionSrc: iconSrc,
+      actionName: a.name || a.label || 'Acción',
+      giftSrc,
+      giftEmoji,
+      giftName,
+      qty: Math.max(1, parseInt(a.count, 10) || 1),
+    });
   }
 
-  // Cuadrícula con fondo TRANSPARENTE: cada celda muestra solo el icono de la
-  // acción, el icono del regalo (insignia) y el número de repeticiones arriba.
   const cols = Math.max(1, Math.min(5, rows.length));
   const gridRows = Math.ceil(rows.length / cols);
   const margin = 10, gap = 14, cellW = 200, numH = 44, iconS = 156, giftS = 52;
   const cellH = numH + iconS + 30;
   const W = margin * 2 + cols * cellW + (cols - 1) * gap;
   const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const dpr = 2;
-  const cv = document.createElement('canvas');
-  cv.width = W * dpr; cv.height = H * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.scale(dpr, dpr);
+  const s = 2;
+  const layers = [];
 
-  const rr = (x, y, w, h, r) => {
-    const rad = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rad, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rad);
-    ctx.arcTo(x + w, y + h, x, y + h, rad);
-    ctx.arcTo(x, y + h, x, y, rad);
-    ctx.arcTo(x, y, x + w, y, rad);
-    ctx.closePath();
-  };
-
-  ctx.textBaseline = 'middle';
   rows.forEach((row, i) => {
-    const c = i % cols, r = Math.floor(i / cols);
+    const c = i % cols;
+    const r = Math.floor(i / cols);
     const cellX = margin + c * (cellW + gap);
     const cellY = margin + r * (cellH + gap);
     const iconX = cellX + (cellW - iconS) / 2;
     const iconY = cellY + numH;
+    const gx = cellX + (cellW - giftS) / 2;
+    const gy = iconY + iconS - Math.round(giftS * 0.5);
 
-    // Icono de la acción de Minecraft
-    if (row.actIcon) {
-      ctx.save(); rr(iconX, iconY, iconS, iconS, 16); ctx.clip();
-      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
-      ctx.restore();
-    } else {
-      rr(iconX, iconY, iconS, iconS, 16);
-      ctx.fillStyle = 'rgba(124,58,237,.25)'; ctx.fill();
-      ctx.font = '70px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-      ctx.fillText('🎮', iconX + iconS / 2, iconY + iconS / 2);
+    layers.push({
+      type: 'image',
+      name: row.actionName || `Acción ${i + 1}`,
+      src: row.actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
+      x: Math.round(iconX * s),
+      y: Math.round(iconY * s),
+      w: Math.round(iconS * s),
+      h: Math.round(iconS * s),
+    });
+    if (row.giftSrc) {
+      layers.push({
+        type: 'image',
+        name: row.giftName || 'Regalo',
+        src: row.giftSrc,
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
+    } else if (row.giftEmoji) {
+      layers.push({
+        type: 'text',
+        name: row.giftName || 'Evento',
+        text: row.giftEmoji,
+        fontSize: Math.round(34 * s),
+        color: '#ffffff',
+        font: 'system',
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
     }
-
-    // Número de repeticiones (arriba del icono) SOLO si es 2 o más.
     if (row.qty >= 2) {
-      const label = 'x' + row.qty;
-      ctx.font = '800 26px Rubik, system-ui, sans-serif';
-      const tw = ctx.measureText(label).width;
-      const pw = tw + 30, ph = 34;
-      const px = cellX + (cellW - pw) / 2, py = cellY + (numH - ph) / 2;
-      const gb = ctx.createLinearGradient(px, py, px + pw, py);
-      gb.addColorStop(0, '#f43f5e'); gb.addColorStop(1, '#ec4899');
-      rr(px, py, pw, ph, 17); ctx.fillStyle = gb; ctx.fill();
-      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.stroke();
-      ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-      ctx.fillText(label, px + pw / 2, py + ph / 2 + 1);
+      const bw = Math.round(70 * s);
+      const bh = Math.round(34 * s);
+      layers.push({
+        type: 'badge',
+        name: 'Cantidad',
+        text: `x${row.qty}`,
+        color: '#ffffff',
+        bg: '#ec4899',
+        fontSize: Math.round(18 * s),
+        font: 'rubik',
+        x: Math.round((cellX + (cellW - bw / s) / 2) * s),
+        y: Math.round((cellY + (numH - bh / s) / 2) * s),
+        w: bw,
+        h: bh,
+      });
     }
-
-    // Icono del regalo/evento en pequeño, casi en los pies del icono de la acción
-    // (superpuesto a la parte baja).
-    const gx = cellX + (cellW - giftS) / 2, gy = iconY + iconS - Math.round(giftS * 0.5);
-    ctx.save(); rr(gx, gy, giftS, giftS, 12); ctx.clip();
-    if (row.leftImg) ctx.drawImage(row.leftImg, gx, gy, giftS, giftS);
-    else { ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(row.leftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1); }
-    ctx.restore();
   });
 
-  try {
-    const data = cv.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = data; link.download = OUT_NAME;
-    document.body.appendChild(link); link.click(); link.remove();
-    toast && toast('Imagen generada y descargada.', 'ok');
-  } catch {
-    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
-  }
+  await openOverlayLayersInEditor({
+    width: Math.round(W * s),
+    height: Math.round(H * s),
+    layers,
+    name: OUT_NAME,
+  });
 }
 
 /* ================= Acciones de Bedrock (Cubo TNT · comandos /bedrock) =================
@@ -14277,7 +14430,7 @@ function renderMarioActions() {
   });
 }
 
-// PNG tipo carta: icono de acción + regalo/evento + x{cantidad} (fondo transparente, para OBS).
+// Capas editables en el Editor: icono de acción + regalo/evento + x{cantidad}.
 async function generateGameActionsOverlayImage({ ensureList, iconUrlFor, downloadName, emptyToast }) {
   const all = ensureList();
   let list = all.filter((a) => a && a.enabled !== false);
@@ -14286,32 +14439,30 @@ async function generateGameActionsOverlayImage({ ensureList, iconUrlFor, downloa
     toast && toast(emptyToast || 'Agrega acciones del catálogo con su regalo primero.', 'warn');
     return;
   }
-  toast && toast('Generando overlay…', 'ok');
-
-  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : (`/api/img-proxy?url=${encodeURIComponent(u)}`)));
-  const loadImg = (src) => new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.onload = () => resolve(im);
-    im.onerror = () => resolve(null);
-    im.src = src;
-  });
+  toast && toast('Abriendo overlay en el Editor…', 'ok');
 
   const rows = [];
   for (const a of list) {
-    const actionImg = await loadImg(proxied(iconUrlFor(a)));
+    const actionSrc = overlayImgProxy(iconUrlFor(a));
     const trig = a.trigger || 'gift';
-    let giftImg = null;
+    let giftSrc = '';
     let giftEmoji = '';
+    let giftName = 'Regalo';
     if (trig === 'gift' || trig === 'gift-any') {
-      const gUrl = (a.giftImage && String(a.giftImage).trim()) || giftImageOf(a);
-      giftImg = await loadImg(proxied(gUrl));
+      giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
+      giftName = a.giftName || 'Regalo';
     } else {
       giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+      giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
     }
-    rows.push({ actionImg, giftImg, giftEmoji, qty: Math.max(1, parseInt(a.count, 10) || 1) });
+    rows.push({
+      actionSrc,
+      actionName: a.name || a.label || a.thing || 'Acción',
+      giftSrc,
+      giftEmoji,
+      giftName,
+      qty: Math.max(1, parseInt(a.count, 10) || 1),
+    });
   }
 
   const cols = Math.min(7, Math.max(1, rows.length));
@@ -14324,56 +14475,8 @@ async function generateGameActionsOverlayImage({ ensureList, iconUrlFor, downloa
   const cellH = iconS + 6;
   const W = margin * 2 + cols * cellW + (cols - 1) * gap;
   const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const dpr = 2;
-  const cv = document.createElement('canvas');
-  cv.width = W * dpr;
-  cv.height = H * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  const rr = (x, y, w, h, r) => {
-    const rad = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rad, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rad);
-    ctx.arcTo(x + w, y + h, x, y + h, rad);
-    ctx.arcTo(x, y + h, x, y, rad);
-    ctx.arcTo(x, y, x + w, y, rad);
-    ctx.closePath();
-  };
-
-  const drawCloud = (x, y, w, h) => {
-    ctx.save();
-    ctx.fillStyle = '#c5e4f8';
-    const blobs = [
-      [0.28, 0.48, 0.34, 0.3], [0.52, 0.4, 0.38, 0.34], [0.74, 0.5, 0.3, 0.28],
-      [0.38, 0.62, 0.28, 0.24], [0.62, 0.64, 0.26, 0.22],
-    ];
-    blobs.forEach(([bx, by, rw, rh]) => {
-      ctx.beginPath();
-      ctx.ellipse(x + w * bx, y + h * by, w * rw, h * rh, 0, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.restore();
-  };
-
-  const drawMultBadge = (label, x, y) => {
-    ctx.font = '800 22px Rubik, Montserrat, system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = '#0a0a0a';
-    ctx.strokeText(label, x, y);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(label, x, y);
-  };
-
-  const drawContain = (img, x, y, size) => {
-    const scale = Math.min(size / img.width, size / img.height);
-    const dw = img.width * scale;
-    const dh = img.height * scale;
-    ctx.drawImage(img, x + (size - dw) / 2, y + (size - dh) / 2, dw, dh);
-  };
+  const s = 2;
+  const layers = [];
 
   rows.forEach((row, i) => {
     const c = i % cols;
@@ -14382,41 +14485,67 @@ async function generateGameActionsOverlayImage({ ensureList, iconUrlFor, downloa
     const cellY = margin + r * (cellH + gap);
     const iconX = cellX + (cellW - iconS) / 2;
     const iconY = cellY;
-
-    if (row.actionImg) drawContain(row.actionImg, iconX, iconY, iconS);
-    else drawCloud(iconX, iconY, iconS, iconS);
-
     const gx = iconX + iconS - giftS + 2;
     const gy = iconY + iconS - giftS + 2;
-    if (row.giftImg) {
-      ctx.save();
-      rr(gx, gy, giftS, giftS, 10);
-      ctx.clip();
-      ctx.drawImage(row.giftImg, gx, gy, giftS, giftS);
-      ctx.restore();
-    } else if (row.giftEmoji) {
-      ctx.font = '30px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(row.giftEmoji, gx + giftS / 2, gy + giftS / 2);
-    }
 
-    if (row.qty >= 2) drawMultBadge(`x${row.qty}`, iconX + iconS - 2, iconY + 1);
+    layers.push({
+      type: 'image',
+      name: row.actionName || `Acción ${i + 1}`,
+      src: row.actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
+      x: Math.round(iconX * s),
+      y: Math.round(iconY * s),
+      w: Math.round(iconS * s),
+      h: Math.round(iconS * s),
+    });
+    if (row.giftSrc) {
+      layers.push({
+        type: 'image',
+        name: row.giftName || 'Regalo',
+        src: row.giftSrc,
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
+    } else if (row.giftEmoji) {
+      layers.push({
+        type: 'text',
+        name: row.giftName || 'Evento',
+        text: row.giftEmoji,
+        fontSize: Math.round(30 * s),
+        color: '#ffffff',
+        font: 'system',
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
+    }
+    if (row.qty >= 2) {
+      const bw = Math.round(52 * s);
+      const bh = Math.round(28 * s);
+      layers.push({
+        type: 'badge',
+        name: 'Cantidad',
+        text: `x${row.qty}`,
+        color: '#ffffff',
+        bg: '#111111',
+        fontSize: Math.round(16 * s),
+        font: 'rubik',
+        x: Math.round(iconX * s + iconS * s - bw),
+        y: Math.round(iconY * s),
+        w: bw,
+        h: bh,
+      });
+    }
   });
 
-  try {
-    const data = cv.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = data;
-    link.download = downloadName || 'game-overlay.png';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    toast && toast('Overlay generado y descargado.', 'ok');
-  } catch {
-    toast && toast('No se pudo exportar. Revisa tu conexión e inténtalo de nuevo.', 'err');
-  }
+  await openOverlayLayersInEditor({
+    width: Math.round(W * s),
+    height: Math.round(H * s),
+    layers,
+    name: downloadName || 'game-overlay',
+  });
 }
 
 async function generateMarioOverlayImage() {
@@ -14439,23 +14568,21 @@ async function generateMari0OverlayImage() {
 
 const MARI0_PRESET_IMAGE_URL = '/img/mari0-preset-reference.png';
 
-/** Descarga la imagen fija de referencia del preset Mari0 (iconos / guía visual). */
+/** Abre en el Editor la imagen fija de referencia del preset Mari0 (iconos / guía visual). */
 async function downloadMari0PresetImage() {
   const url = `${MARI0_PRESET_IMAGE_URL}?t=${Date.now()}`;
-  toast && toast('Descargando imagen de preset…', 'ok');
+  toast && toast('Abriendo imagen de preset en el Editor…', 'ok');
   try {
     const r = await fetch(url, { cache: 'no-store' });
     if (!r.ok) throw new Error('missing');
     const blob = await r.blob();
-    const obj = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = obj;
-    link.download = 'mari0-preset.png';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(obj), 2500);
-    toast && toast('Imagen de preset descargada.', 'ok');
+    const dataUrl = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+    await openGeneratedImageInEditor(dataUrl, 'mari0-preset.png');
   } catch {
     toast && toast('No se encontró la imagen de preset.', 'err');
   }
@@ -17370,37 +17497,29 @@ async function generateRepoOverlayImage() {
   let list = all.filter((a) => a && a.enabled !== false);
   if (!list.length) list = all.slice();
   if (!list.length) { toast && toast('Agrega acciones del catálogo primero.', 'warn'); return; }
-  toast && toast('Generando overlay…', 'ok');
-
-  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : (`/api/img-proxy?url=${encodeURIComponent(u)}`)));
-  const loadImg = (src) => new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.onload = () => resolve(im);
-    im.onerror = () => resolve(null);
-    im.src = src;
-  });
+  toast && toast('Abriendo overlay en el Editor…', 'ok');
 
   const rows = [];
   for (const a of list) {
     const imgSlug = repoImgSlug(a.thing);
-    const slugImg = await loadImg(proxied(`/img/repo/${encodeURIComponent(imgSlug)}.png`));
+    const actionSrc = overlayImgProxy(`/img/repo/${encodeURIComponent(imgSlug)}.png`);
     const trig = a.trigger || 'gift';
-    let giftImg = null;
+    let giftSrc = '';
     let giftEmoji = '';
+    let giftName = 'Regalo';
     if (trig === 'gift' || trig === 'gift-any') {
-      const gUrl = (a.giftImage && String(a.giftImage).trim()) || giftImageOf(a);
-      giftImg = await loadImg(proxied(gUrl));
+      giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
+      giftName = a.giftName || 'Regalo';
     } else {
       giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+      giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
     }
     rows.push({
       label: a.label || a.thing,
-      slugImg,
-      giftImg,
+      actionSrc,
+      giftSrc,
       giftEmoji,
+      giftName,
       qty: Math.max(1, parseInt(a.count, 10) || 1),
     });
   }
@@ -17416,41 +17535,8 @@ async function generateRepoOverlayImage() {
   const cellH = iconS + labelH + 4;
   const W = margin * 2 + cols * cellW + (cols - 1) * gap;
   const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const dpr = 2;
-  const cv = document.createElement('canvas');
-  cv.width = W * dpr;
-  cv.height = H * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  const rr = (x, y, w, h, r) => {
-    const rad = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rad, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rad);
-    ctx.arcTo(x + w, y + h, x, y + h, rad);
-    ctx.arcTo(x, y + h, x, y, rad);
-    ctx.arcTo(x, y, x + w, y, rad);
-    ctx.closePath();
-  };
-
-  const drawContain = (img, x, y, size) => {
-    const scale = Math.min(size / img.width, size / img.height);
-    const dw = img.width * scale;
-    const dh = img.height * scale;
-    ctx.drawImage(img, x + (size - dw) / 2, y + (size - dh) / 2, dw, dh);
-  };
-
-  const drawMultBadge = (label, x, y) => {
-    ctx.font = '800 20px Rubik, Montserrat, system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#0a0a0a';
-    ctx.strokeText(label, x, y);
-    ctx.fillStyle = '#22c55e';
-    ctx.fillText(label, x, y);
-  };
+  const s = 2;
+  const layers = [];
 
   rows.forEach((row, i) => {
     const c = i % cols;
@@ -17459,55 +17545,79 @@ async function generateRepoOverlayImage() {
     const cellY = margin + r * (cellH + gap);
     const iconX = cellX + (cellW - iconS) / 2;
     const iconY = cellY;
-
-    ctx.save();
-    rr(iconX, iconY, iconS, iconS, 12);
-    ctx.fillStyle = '#1e293b';
-    ctx.fill();
-    if (row.slugImg) drawContain(row.slugImg, iconX, iconY, iconS);
-    else {
-      ctx.font = '48px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#f0c040';
-      ctx.fillText('👾', iconX + iconS / 2, iconY + iconS / 2);
-    }
-
     const gx = iconX + 2;
     const gy = iconY + iconS - giftS + 2;
-    if (row.giftImg) {
-      ctx.save();
-      rr(gx, gy, giftS, giftS, 10);
-      ctx.clip();
-      drawContain(row.giftImg, gx, gy, giftS);
-      ctx.restore();
+
+    layers.push({
+      type: 'image',
+      name: String(row.label || `Acción ${i + 1}`).slice(0, 40),
+      src: row.actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
+      x: Math.round(iconX * s),
+      y: Math.round(iconY * s),
+      w: Math.round(iconS * s),
+      h: Math.round(iconS * s),
+    });
+    if (row.giftSrc) {
+      layers.push({
+        type: 'image',
+        name: row.giftName || 'Regalo',
+        src: row.giftSrc,
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
     } else if (row.giftEmoji) {
-      ctx.font = '28px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(row.giftEmoji, gx + giftS / 2, gy + giftS / 2);
+      layers.push({
+        type: 'text',
+        name: row.giftName || 'Evento',
+        text: row.giftEmoji,
+        fontSize: Math.round(28 * s),
+        color: '#ffffff',
+        font: 'system',
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
     }
-    ctx.restore();
-
-    ctx.font = 'bold 13px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(String(row.label || '').slice(0, 22), cellX + cellW / 2, iconY + iconS + 6);
-
-    if (row.qty >= 2) drawMultBadge(`x${row.qty}`, iconX + iconS - 2, iconY + 2);
+    layers.push({
+      type: 'text',
+      name: 'Etiqueta',
+      text: String(row.label || '').slice(0, 22),
+      fontSize: Math.round(13 * s),
+      color: '#ffffff',
+      font: 'rubik',
+      x: Math.round(cellX * s),
+      y: Math.round((iconY + iconS + 4) * s),
+      w: Math.round(cellW * s),
+      h: Math.round(labelH * s),
+    });
+    if (row.qty >= 2) {
+      const bw = Math.round(48 * s);
+      const bh = Math.round(26 * s);
+      layers.push({
+        type: 'badge',
+        name: 'Cantidad',
+        text: `x${row.qty}`,
+        color: '#ffffff',
+        bg: '#22c55e',
+        fontSize: Math.round(14 * s),
+        font: 'rubik',
+        x: Math.round(iconX * s + iconS * s - bw),
+        y: Math.round(iconY * s),
+        w: bw,
+        h: bh,
+      });
+    }
   });
 
-  try {
-    const link = document.createElement('a');
-    link.href = cv.toDataURL('image/png');
-    link.download = 'repo-overlay.png';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    toast && toast('Overlay generado.', 'ok');
-  } catch { toast && toast('No se pudo exportar.', 'err'); }
+  await openOverlayLayersInEditor({
+    width: Math.round(W * s),
+    height: Math.round(H * s),
+    layers,
+    name: 'repo-overlay',
+  });
 }
 
 // ===================== LEFT 4 DEAD 2 =====================
@@ -19580,7 +19690,7 @@ function ctrActionsForOverlay(section) {
     });
 }
 
-// Mismo patrón que generateMcMenuImage: canvas transparente, img-proxy y descarga PNG.
+// Capas editables HEROES + VILLANOS (misma disposición que el PNG anterior).
 async function generateCtrOverlayImage() {
   const heroes = ctrActionsForOverlay('items');
   const villains = ctrActionsForOverlay('effects');
@@ -19588,48 +19698,40 @@ async function generateCtrOverlayImage() {
     toast && toast('Agrega acciones del catálogo (ítems o efectos) primero.', 'warn');
     return;
   }
-  toast && toast('Generando overlay CTR…', 'ok');
+  toast && toast('Abriendo overlay CTR en el Editor…', 'ok');
 
   const ICON_DIR = '/img/ctr/';
-  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : ('/api/img-proxy?url=' + encodeURIComponent(u))));
-  const loadImg = (src) => new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.onload = () => resolve(im);
-    im.onerror = () => resolve(null);
-    im.src = src;
-  });
-
-  async function packRows(list) {
-    const rows = [];
-    for (const a of list) {
+  function packRows(list) {
+    return list.map((a) => {
       const thing = a.thing;
-      let actIcon = await loadImg(proxied(ICON_DIR + encodeURIComponent(thing) + '.webp'));
-      if (!actIcon) actIcon = await loadImg(proxied(ICON_DIR + encodeURIComponent(thing) + '.png'));
+      const srcWebp = overlayImgProxy(ICON_DIR + encodeURIComponent(thing) + '.webp');
+      const srcPng = overlayImgProxy(ICON_DIR + encodeURIComponent(thing) + '.png');
       const trig = a.trigger || 'gift';
-      let leftImg = null;
-      let leftEmoji = '';
+      let giftSrc = '';
+      let giftEmoji = '';
+      let giftName = 'Regalo';
       if (trig === 'gift' || trig === 'gift-any') {
-        const gUrl = (a.giftImage && String(a.giftImage).trim()) || giftImageOf(a);
-        leftImg = await loadImg(proxied(gUrl));
+        giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
+        giftName = a.giftName || 'Regalo';
       } else {
-        leftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+        giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+        giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
       }
-      rows.push({
-        actIcon,
-        leftImg,
-        leftEmoji,
+      return {
+        actionSrc: srcWebp || srcPng,
+        actionAlt: srcPng,
+        actionName: a.name || thing || 'Acción',
+        giftSrc,
+        giftEmoji,
+        giftName,
         qty: Math.max(1, parseInt(a.count, 10) || 1),
         foot: CTR_OVERLAY_EFFECT_LABEL[thing] || '',
-      });
-    }
-    return rows;
+      };
+    });
   }
 
-  const heroRows = await packRows(heroes);
-  const villainRows = await packRows(villains);
+  const heroRows = packRows(heroes);
+  const villainRows = packRows(villains);
 
   const cols = 3;
   const margin = 10;
@@ -19643,137 +19745,123 @@ async function generateCtrOverlayImage() {
   const titleH = 44;
   const panelW = cols * cellW + (cols - 1) * gap;
   const panelGridH = (n) => {
-    const rows = Math.max(1, Math.ceil(Math.max(1, n) / cols));
-    return rows * cellH + (rows - 1) * gap;
+    const rowsN = Math.max(1, Math.ceil(Math.max(1, n) / cols));
+    return rowsN * cellH + (rowsN - 1) * gap;
   };
   const H = margin * 2 + titleH + Math.max(panelGridH(heroRows.length), panelGridH(villainRows.length));
   const W = margin * 2 + panelW + panelGap + panelW;
-  const dpr = 2;
-  const cv = document.createElement('canvas');
-  cv.width = W * dpr;
-  cv.height = H * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.scale(dpr, dpr);
+  const s = 2;
+  const layers = [];
 
-  const rr = (x, y, w, h, r) => {
-    const rad = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rad, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rad);
-    ctx.arcTo(x + w, y + h, x, y + h, rad);
-    ctx.arcTo(x, y + h, x, y, rad);
-    ctx.arcTo(x, y, x + w, y, rad);
-    ctx.closePath();
+  const pushTitle = (text, panelX, color) => {
+    layers.push({
+      type: 'text',
+      name: text,
+      text,
+      fontSize: Math.round(32 * s),
+      color,
+      font: 'rubik',
+      strokeWidth: Math.round(4 * s),
+      strokeColor: '#1e3a8a',
+      x: Math.round(panelX * s),
+      y: Math.round(margin * s),
+      w: Math.round(panelW * s),
+      h: Math.round(titleH * s),
+    });
   };
 
-  const drawSectionTitle = (text, cx, y, fill, stroke) => {
-    ctx.font = '900 32px Rubik, Arial Black, system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = stroke;
-    ctx.strokeText(text, cx, y);
-    ctx.fillStyle = fill;
-    ctx.fillText(text, cx, y);
-  };
-
-  const drawMcCell = (row, cellX, cellY) => {
-    const iconX = cellX + (cellW - iconS) / 2;
-    const iconY = cellY + numH;
-    if (row.actIcon) {
-      ctx.save();
-      rr(iconX, iconY, iconS, iconS, 16);
-      ctx.clip();
-      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
-      ctx.restore();
-    } else {
-      rr(iconX, iconY, iconS, iconS, 16);
-      ctx.fillStyle = 'rgba(234,88,12,.35)';
-      ctx.fill();
-      ctx.font = '56px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText('🏎️', iconX + iconS / 2, iconY + iconS / 2);
-    }
-    if (row.qty >= 2) {
-      const label = 'x' + row.qty;
-      ctx.font = '800 24px Rubik, system-ui, sans-serif';
-      const tw = ctx.measureText(label).width;
-      const pw = tw + 26;
-      const ph = 32;
-      const px = cellX + (cellW - pw) / 2;
-      const py = cellY + (numH - ph) / 2;
-      const gb = ctx.createLinearGradient(px, py, px + pw, py);
-      gb.addColorStop(0, '#f43f5e');
-      gb.addColorStop(1, '#ec4899');
-      rr(px, py, pw, ph, 16);
-      ctx.fillStyle = gb;
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = 'rgba(0,0,0,.35)';
-      ctx.stroke();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(label, px + pw / 2, py + ph / 2 + 1);
-    }
-    const gx = cellX + (cellW - giftS) / 2;
-    const gy = iconY + iconS - Math.round(giftS * 0.5);
-    ctx.save();
-    rr(gx, gy, giftS, giftS, 12);
-    ctx.clip();
-    if (row.leftImg) ctx.drawImage(row.leftImg, gx, gy, giftS, giftS);
-    else {
-      ctx.font = '30px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(row.leftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1);
-    }
-    ctx.restore();
-    if (row.foot) {
-      ctx.font = 'bold 12px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = '#fff';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#111';
-      ctx.strokeText(row.foot, cellX + cellW / 2, iconY + iconS + 2);
-      ctx.fillText(row.foot, cellX + cellW / 2, iconY + iconS + 2);
-    }
-  };
-
-  const drawPanel = (title, titleFill, titleStroke, rows, panelX) => {
-    drawSectionTitle(title, panelX + panelW / 2, margin + titleH / 2, titleFill, titleStroke);
+  const pushPanel = (rows, panelX) => {
     const gridY = margin + titleH;
     rows.forEach((row, i) => {
       const c = i % cols;
       const r = Math.floor(i / cols);
       const cellX = panelX + c * (cellW + gap);
       const cellY = gridY + r * (cellH + gap);
-      drawMcCell(row, cellX, cellY);
+      const iconX = cellX + (cellW - iconS) / 2;
+      const iconY = cellY + numH;
+      const gx = cellX + (cellW - giftS) / 2;
+      const gy = iconY + iconS - Math.round(giftS * 0.5);
+
+      layers.push({
+        type: 'image',
+        name: row.actionName || `Acción ${i + 1}`,
+        src: row.actionSrc || row.actionAlt || EDITOR_OVERLAY_CLOUD_SRC,
+        x: Math.round(iconX * s),
+        y: Math.round(iconY * s),
+        w: Math.round(iconS * s),
+        h: Math.round(iconS * s),
+      });
+      if (row.giftSrc) {
+        layers.push({
+          type: 'image',
+          name: row.giftName || 'Regalo',
+          src: row.giftSrc,
+          x: Math.round(gx * s),
+          y: Math.round(gy * s),
+          w: Math.round(giftS * s),
+          h: Math.round(giftS * s),
+        });
+      } else if (row.giftEmoji) {
+        layers.push({
+          type: 'text',
+          name: row.giftName || 'Evento',
+          text: row.giftEmoji,
+          fontSize: Math.round(30 * s),
+          color: '#ffffff',
+          font: 'system',
+          x: Math.round(gx * s),
+          y: Math.round(gy * s),
+          w: Math.round(giftS * s),
+          h: Math.round(giftS * s),
+        });
+      }
+      if (row.qty >= 2) {
+        const bw = Math.round(64 * s);
+        const bh = Math.round(32 * s);
+        layers.push({
+          type: 'badge',
+          name: 'Cantidad',
+          text: `x${row.qty}`,
+          color: '#ffffff',
+          bg: '#ec4899',
+          fontSize: Math.round(16 * s),
+          font: 'rubik',
+          x: Math.round((cellX + (cellW - bw / s) / 2) * s),
+          y: Math.round((cellY + (numH - bh / s) / 2) * s),
+          w: bw,
+          h: bh,
+        });
+      }
+      if (row.foot) {
+        layers.push({
+          type: 'text',
+          name: 'Etiqueta',
+          text: row.foot,
+          fontSize: Math.round(12 * s),
+          color: '#ffffff',
+          font: 'rubik',
+          strokeWidth: Math.round(2 * s),
+          strokeColor: '#111111',
+          x: Math.round(cellX * s),
+          y: Math.round((iconY + iconS + 2) * s),
+          w: Math.round(cellW * s),
+          h: Math.round(18 * s),
+        });
+      }
     });
   };
 
-  ctx.textBaseline = 'middle';
-  if (heroRows.length) drawPanel('HEROES', '#fb923c', '#1e3a8a', heroRows, margin);
-  else drawSectionTitle('HEROES', margin + panelW / 2, margin + titleH / 2, '#fb923c', '#1e3a8a');
-  if (villainRows.length) drawPanel('VILLANOS', '#ef4444', '#1e3a8a', villainRows, margin + panelW + panelGap);
-  else drawSectionTitle('VILLANOS', margin + panelW + panelGap + panelW / 2, margin + titleH / 2, '#ef4444', '#1e3a8a');
+  pushTitle('HEROES', margin, '#fb923c');
+  pushTitle('VILLANOS', margin + panelW + panelGap, '#ef4444');
+  if (heroRows.length) pushPanel(heroRows, margin);
+  if (villainRows.length) pushPanel(villainRows, margin + panelW + panelGap);
 
-  try {
-    const data = cv.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = data;
-    link.download = 'crash-ctr-overlay.png';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    toast && toast('Overlay CTR generado y descargado.', 'ok');
-  } catch {
-    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
-  }
+  await openOverlayLayersInEditor({
+    width: Math.round(W * s),
+    height: Math.round(H * s),
+    layers,
+    name: 'crash-ctr-overlay',
+  });
 }
 
 // ===================== Metal Slug SB Fanthology =====================
@@ -20314,23 +20402,21 @@ function renderMslugActions() {
 
 const MSLUG_OVERLAY_IMAGE_URL = '/img/metal-slug-overlay.png';
 
-/** Descarga la imagen fija del overlay oficial (no la genera desde acciones). */
+/** Abre en el Editor la imagen fija del overlay oficial (no la genera desde acciones). */
 async function downloadMslugOverlayImage() {
   const url = `${MSLUG_OVERLAY_IMAGE_URL}?t=${Date.now()}`;
-  toast && toast('Descargando imagen del overlay…', 'ok');
+  toast && toast('Abriendo imagen del overlay en el Editor…', 'ok');
   try {
     const r = await fetch(url, { cache: 'no-store' });
     if (!r.ok) throw new Error('missing');
     const blob = await r.blob();
-    const obj = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = obj;
-    link.download = 'metal-slug-overlay.png';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(obj), 2500);
-    toast && toast('Imagen del overlay descargada.', 'ok');
+    const dataUrl = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+    await openGeneratedImageInEditor(dataUrl, 'metal-slug-overlay.png');
   } catch {
     toast && toast('No se encontró la imagen del overlay.', 'err');
   }
@@ -20588,43 +20674,42 @@ function renderGdashActions() {
 }
 
 
-// Genera una imagen tipo "menú de regalos" para PvZ: regalo/evento + acción + cantidad.
+// Capas editables: menú de regalos PvZ (acción + regalo + cantidad).
 async function generatePvzMenuImage(orientation) {
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
   const all = ensurePvzActions();
   let list = all.filter((a) => a && a.enabled !== false);
   if (!list.length) list = all.slice();
   if (!list.length) { toast && toast('Agrega acciones del catálogo con su regalo primero.', 'warn'); return; }
-  toast && toast('Generando imagen…', 'ok');
-
-  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : (`/api/img-proxy?url=${encodeURIComponent(u)}`)));
-  const loadImg = (src) => new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.onload = () => resolve(im);
-    im.onerror = () => resolve(null);
-    im.src = src;
-  });
+  toast && toast('Abriendo menú en el Editor…', 'ok');
 
   const rows = [];
   for (const a of list) {
     const trig = a.trigger || 'gift';
-    let giftImg = null;
+    let giftSrc = '';
     let giftEmoji = '';
+    let giftName = 'Regalo';
     if (trig === 'gift' || trig === 'gift-any') {
-      const gUrl = (a.giftImage && String(a.giftImage).trim()) || giftImageOf(a);
-      giftImg = await loadImg(proxied(gUrl));
+      giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
+      giftName = a.giftName || 'Regalo';
     } else {
       giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+      giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
     }
-    const actIcon = await loadImg(proxied(`/img/pvz/${encodeURIComponent(a.thing || '')}.png`));
+    const actionSrc = overlayImgProxy(`/img/pvz/${encodeURIComponent(a.thing || '')}.png`);
     const actEmoji = a.kind === 'sun' ? '☀️' : (PVZ_CAT_ICON[a.tipo] || '🧟');
     const qty = a.kind === 'sun'
       ? Math.max(1, parseInt(a.amount, 10) || 50)
       : (a.kind === 'cmd' ? 0 : Math.max(1, parseInt(a.count, 10) || 1));
-    rows.push({ giftImg, giftEmoji, actIcon, actEmoji, qty });
+    rows.push({
+      actionSrc,
+      actEmoji,
+      actionName: a.name || a.thing || 'Acción',
+      giftSrc,
+      giftEmoji,
+      giftName,
+      qty,
+    });
   }
 
   let cols;
@@ -20642,36 +20727,9 @@ async function generatePvzMenuImage(orientation) {
   const cellH = numH + iconS + 30;
   const W = margin * 2 + cols * cellW + (cols - 1) * gap;
   const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const dpr = 2;
-  const cv = document.createElement('canvas');
-  cv.width = W * dpr;
-  cv.height = H * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.scale(dpr, dpr);
+  const s = 2;
+  const layers = [];
 
-  const rr = (x, y, w, h, r) => {
-    const rad = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rad, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rad);
-    ctx.arcTo(x + w, y + h, x, y + h, rad);
-    ctx.arcTo(x, y + h, x, y, rad);
-    ctx.arcTo(x, y, x + w, y, rad);
-    ctx.closePath();
-  };
-
-  const drawMultBadge = (label, x, y) => {
-    ctx.font = '800 20px Rubik, Montserrat, system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = '#0a0a0a';
-    ctx.strokeText(label, x, y);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(label, x, y);
-  };
-
-  ctx.textBaseline = 'middle';
   rows.forEach((row, i) => {
     const c = i % cols;
     const r = Math.floor(i / cols);
@@ -20679,84 +20737,116 @@ async function generatePvzMenuImage(orientation) {
     const cellY = margin + r * (cellH + gap);
     const iconX = cellX + (cellW - iconS) / 2;
     const iconY = cellY + numH;
-
-    if (row.actIcon) {
-      ctx.save();
-      rr(iconX, iconY, iconS, iconS, 16);
-      ctx.clip();
-      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
-      ctx.restore();
-    } else {
-      ctx.font = '96px serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(row.actEmoji, iconX + iconS / 2, iconY + iconS / 2);
-    }
-
     const gx = cellX + (cellW - giftS) / 2;
     const gy = iconY + iconS - Math.round(giftS * 0.5);
-    ctx.save();
-    rr(gx, gy, giftS, giftS, 12);
-    ctx.clip();
-    if (row.giftImg) ctx.drawImage(row.giftImg, gx, gy, giftS, giftS);
-    else {
-      ctx.font = '34px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(row.giftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1);
-    }
-    ctx.restore();
 
-    if (row.qty > 1) drawMultBadge(`x${row.qty}`, iconX + iconS - 4, iconY + 2);
+    if (row.actionSrc) {
+      layers.push({
+        type: 'image',
+        name: row.actionName || `Acción ${i + 1}`,
+        src: row.actionSrc,
+        x: Math.round(iconX * s),
+        y: Math.round(iconY * s),
+        w: Math.round(iconS * s),
+        h: Math.round(iconS * s),
+      });
+    } else {
+      layers.push({
+        type: 'text',
+        name: row.actionName || `Acción ${i + 1}`,
+        text: row.actEmoji || '🧟',
+        fontSize: Math.round(72 * s),
+        color: '#ffffff',
+        font: 'system',
+        x: Math.round(iconX * s),
+        y: Math.round(iconY * s),
+        w: Math.round(iconS * s),
+        h: Math.round(iconS * s),
+      });
+    }
+    if (row.giftSrc) {
+      layers.push({
+        type: 'image',
+        name: row.giftName || 'Regalo',
+        src: row.giftSrc,
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
+    } else {
+      layers.push({
+        type: 'text',
+        name: row.giftName || 'Evento',
+        text: row.giftEmoji || '🎁',
+        fontSize: Math.round(34 * s),
+        color: '#ffffff',
+        font: 'system',
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
+    }
+    if (row.qty > 1) {
+      const bw = Math.round(52 * s);
+      const bh = Math.round(28 * s);
+      layers.push({
+        type: 'badge',
+        name: 'Cantidad',
+        text: `x${row.qty}`,
+        color: '#ffffff',
+        bg: '#111111',
+        fontSize: Math.round(16 * s),
+        font: 'rubik',
+        x: Math.round(iconX * s + iconS * s - bw),
+        y: Math.round(iconY * s),
+        w: bw,
+        h: bh,
+      });
+    }
   });
 
-  try {
-    const data = cv.toDataURL('image/png');
-    const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
-    const link = document.createElement('a');
-    link.href = data;
-    link.download = 'menu-regalos-pvz' + suffix + '.png';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    toast && toast('Imagen generada y descargada.', 'ok');
-  } catch {
-    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
-  }
+  const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
+  await openOverlayLayersInEditor({
+    width: Math.round(W * s),
+    height: Math.round(H * s),
+    layers,
+    name: 'menu-regalos-pvz' + suffix,
+  });
 }
 
-// Genera una imagen tipo "menú de regalos" para Roblox: para cada acción muestra el
-// regalo/evento que la activa, la acción (imagen/emoji) y la tecla. Se descarga como PNG.
+// Capas editables: menú de regalos Roblox.
 async function generateRobloxMenuImage(orientation) {
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
   const all = ensureRobloxSlots();
   let list = all.filter((a) => a && a.enabled !== false);
-  if (!list.length) list = all.slice(); // si no hay ninguna encendida, muestra todas
-  toast && toast('Generando imagen…', 'ok');
-
-  const sameOrigin = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch { return false; } };
-  const proxied = (u) => (!u ? '' : (sameOrigin(u) ? u : ('/api/img-proxy?url=' + encodeURIComponent(u))));
-  const loadImg = (src) => new Promise((resolve) => {
-    if (!src) return resolve(null);
-    const im = new Image();
-    im.crossOrigin = 'anonymous';
-    im.onload = () => resolve(im);
-    im.onerror = () => resolve(null);
-    im.src = src;
-  });
+  if (!list.length) list = all.slice();
+  toast && toast('Abriendo menú en el Editor…', 'ok');
 
   const rows = [];
   for (const a of list) {
     const trig = a.trigger || 'gift';
-    let leftImg = null, leftEmoji = '';
-    if (trig === 'gift') leftImg = await loadImg(proxied(a.giftImage));
-    else { const ev = MC_TRIG_ICON[trig] || { ic: '⚡' }; leftEmoji = ev.ic; }
-    const actIcon = await loadImg('/img/roblox/' + (a.id || '') + '.png');
-    rows.push({ a, leftImg, leftEmoji, actIcon, actEmoji: a.emoji || '🎮' });
+    let giftSrc = '';
+    let giftEmoji = '';
+    let giftName = 'Regalo';
+    if (trig === 'gift') {
+      giftSrc = overlayImgProxy(a.giftImage);
+      giftName = a.giftName || 'Regalo';
+    } else {
+      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+      giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
+    }
+    rows.push({
+      actionSrc: overlayImgProxy('/img/roblox/' + (a.id || '') + '.png'),
+      actEmoji: a.emoji || '🎮',
+      actionName: a.name || a.label || 'Acción',
+      giftSrc,
+      giftEmoji,
+      giftName,
+    });
   }
 
-  // Orientación: vertical = 1 columna; horizontal = 1 fila; por defecto cuadrícula.
   let cols;
   if (orientation === 'vertical') cols = 1;
   else if (orientation === 'horizontal') cols = rows.length;
@@ -20767,59 +20857,76 @@ async function generateRobloxMenuImage(orientation) {
   const cellH = numH + iconS + 30;
   const W = margin * 2 + cols * cellW + (cols - 1) * gap;
   const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const dpr = 2;
-  const cv = document.createElement('canvas');
-  cv.width = W * dpr; cv.height = H * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.scale(dpr, dpr);
+  const s = 2;
+  const layers = [];
 
-  const rr = (x, y, w, h, r) => {
-    const rad = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rad, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rad);
-    ctx.arcTo(x + w, y + h, x, y + h, rad);
-    ctx.arcTo(x, y + h, x, y, rad);
-    ctx.arcTo(x, y, x + w, y, rad);
-    ctx.closePath();
-  };
-
-  ctx.textBaseline = 'middle';
   rows.forEach((row, i) => {
-    const c = i % cols, r = Math.floor(i / cols);
+    const c = i % cols;
+    const r = Math.floor(i / cols);
     const cellX = margin + c * (cellW + gap);
     const cellY = margin + r * (cellH + gap);
     const iconX = cellX + (cellW - iconS) / 2;
     const iconY = cellY + numH;
+    const gx = cellX + (cellW - giftS) / 2;
+    const gy = iconY + iconS - Math.round(giftS * 0.5);
 
-    // Icono de la acción (imagen o emoji)
-    if (row.actIcon) {
-      ctx.save(); rr(iconX, iconY, iconS, iconS, 16); ctx.clip();
-      ctx.drawImage(row.actIcon, iconX, iconY, iconS, iconS);
-      ctx.restore();
+    if (row.actionSrc) {
+      layers.push({
+        type: 'image',
+        name: row.actionName || `Acción ${i + 1}`,
+        src: row.actionSrc,
+        x: Math.round(iconX * s),
+        y: Math.round(iconY * s),
+        w: Math.round(iconS * s),
+        h: Math.round(iconS * s),
+      });
     } else {
-      ctx.font = '96px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-      ctx.fillText(row.actEmoji, iconX + iconS / 2, iconY + iconS / 2);
+      layers.push({
+        type: 'text',
+        name: row.actionName || `Acción ${i + 1}`,
+        text: row.actEmoji || '🎮',
+        fontSize: Math.round(72 * s),
+        color: '#ffffff',
+        font: 'system',
+        x: Math.round(iconX * s),
+        y: Math.round(iconY * s),
+        w: Math.round(iconS * s),
+        h: Math.round(iconS * s),
+      });
     }
-
-    // Regalo/evento pequeño, casi en los pies del icono.
-    const gx = cellX + (cellW - giftS) / 2, gy = iconY + iconS - Math.round(giftS * 0.5);
-    ctx.save(); rr(gx, gy, giftS, giftS, 12); ctx.clip();
-    if (row.leftImg) ctx.drawImage(row.leftImg, gx, gy, giftS, giftS);
-    else { ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(row.leftEmoji || '🎁', gx + giftS / 2, gy + giftS / 2 + 1); }
-    ctx.restore();
+    if (row.giftSrc) {
+      layers.push({
+        type: 'image',
+        name: row.giftName || 'Regalo',
+        src: row.giftSrc,
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
+    } else {
+      layers.push({
+        type: 'text',
+        name: row.giftName || 'Evento',
+        text: row.giftEmoji || '🎁',
+        fontSize: Math.round(34 * s),
+        color: '#ffffff',
+        font: 'system',
+        x: Math.round(gx * s),
+        y: Math.round(gy * s),
+        w: Math.round(giftS * s),
+        h: Math.round(giftS * s),
+      });
+    }
   });
 
-  try {
-    const data = cv.toDataURL('image/png');
-    const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
-    const link = document.createElement('a');
-    link.href = data; link.download = 'menu-regalos-roblox' + suffix + '.png';
-    document.body.appendChild(link); link.click(); link.remove();
-    toast && toast('Imagen generada y descargada.', 'ok');
-  } catch {
-    toast && toast('No se pudo exportar la imagen. Revisa tu conexión e inténtalo de nuevo.', 'err');
-  }
+  const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
+  await openOverlayLayersInEditor({
+    width: Math.round(W * s),
+    height: Math.round(H * s),
+    layers,
+    name: 'menu-regalos-roblox' + suffix,
+  });
 }
 
 // Descarga el archivo del servidor (botón sobre la imagen).
