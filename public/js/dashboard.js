@@ -1,4 +1,4 @@
-﻿const $ = (id) => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 const MAX_ROWS = 120;
 // App de escritorio (.exe): preload de Electron + sello que inyecta el servidor local (DESKTOP=1).
 function detectDesktopPanel() {
