@@ -9,37 +9,11 @@ import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import ffmpegPath from 'ffmpeg-static';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { createStreamerRankings } from './streamer-rankings.js';
-import { stopMarioBridge } from './mario-bridge.js';
-import { stopPvzHybridBridge } from './pvz-hybrid-bridge.js';
-import { stopRepoBridge, ensureRepoBridge, repoBridgeHealth, repoBridgeHealthOk, repoBridgeStatus, getRepoGameDirConfig, setRepoGameDir, installRepoMod, uninstallRepoMod } from './repo-bridge.js';
-import { stopL4dBridge, l4dBridgeHealth, l4dBridgeStatus, getL4dGameDirConfig, setL4dGameDir, discoverL4dGameDir, syncL4dGameDir, installL4dMod, uninstallL4dMod } from './l4d-bridge.js';
-import {
-  stopUnturnedBridge, unturnedBridgeHealth, unturnedBridgeStatus,
-  getUnturnedGameDirConfig, setUnturnedGameDir, discoverUnturnedSteamDir, syncUnturnedGameDir,
-  installUnturnedMod, uninstallUnturnedMod,
-} from './unturned-bridge.js';
-import { ensureMcCoreLicense, mcCoreLicenseStatus, stopMcCoreBridge } from './mc-core-bridge.js';
-import { ctrBridgeHealth, ensureCtrBridge, ctrBridgeStatus } from './ctr-bridge.js';
-import { ensureSmwBridge, smwBridgeHealth, smwBridgeStatus, installSmwMod, uninstallSmwMod } from './smw-bridge.js';
-import {
-  mslugBridgeHealth, mslugBridgeStatus, getMslugGameDirConfig, setMslugGameDir,
-  getMslugLastSpawn, MSLUG_BRIDGE_VERSION,
-  installMslugMod, uninstallMslugMod, ensureMslugBridge,
-} from './mslug-bridge.js';
-import {
-  ensureMslugSpawnWebhook, isMslugSpawnWebhookUp, mslugSpawnWebhookStatus,
-  isMslug7760WebhookUrl, runMslug7760WebhookExec,
-} from './mslug-spawn-webhook.js';
-import {
-  ensureSmbxTiktokWebhook, stopSmbxTiktokWebhook, runWebhookExec, smbxTiktokWebhookStatus,
-  isMari0EnemySpawnWebhook,
-} from './smbx-tiktok-webhook.js';
 import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
@@ -61,13 +35,41 @@ import {
 } from './plans.js';
 import * as spotify from './spotify.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
-import { runGameExec, smb3HealthOk } from './game-local.js';
-import { ensureMarioBridge, ensureMari0Bridge, marioBridgeStatus, bridgeHealthOk } from './mario-bridge.js';
-import { ensurePvzHybridBridge, pvzHybridBridgeStatus, pvzHybridBridgeHealth, pvzHybridBridgeHealthOk, findPvzToolsExe } from './pvz-hybrid-bridge.js';
-import { ensurePvzToolkitBridge, pvzToolkitBridgeStatus, pvzToolkitBridgeHealth, pvzToolkitBridgeHealthOk, stopPvzToolkitBridge } from './pvz-toolkit-bridge.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
+const IS_RENDER = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL);
+
+// En Render NO cargamos ffmpeg ni bridges de juegos (pesan y matan el plan de 512MB).
+const desk = IS_RENDER
+  ? await import('./cloud-desktop-stubs.js')
+  : await import('./cloud-desktop-full.js');
+const {
+  ffmpegPath,
+  stopMarioBridge,
+  stopPvzHybridBridge,
+  stopRepoBridge, ensureRepoBridge, repoBridgeHealth, repoBridgeHealthOk, repoBridgeStatus,
+  getRepoGameDirConfig, setRepoGameDir, installRepoMod, uninstallRepoMod,
+  stopL4dBridge, l4dBridgeHealth, l4dBridgeStatus, getL4dGameDirConfig, setL4dGameDir,
+  discoverL4dGameDir, syncL4dGameDir, installL4dMod, uninstallL4dMod,
+  stopUnturnedBridge, unturnedBridgeHealth, unturnedBridgeStatus,
+  getUnturnedGameDirConfig, setUnturnedGameDir, discoverUnturnedSteamDir, syncUnturnedGameDir,
+  installUnturnedMod, uninstallUnturnedMod,
+  ensureMcCoreLicense, mcCoreLicenseStatus, stopMcCoreBridge,
+  ctrBridgeHealth, ensureCtrBridge, ctrBridgeStatus,
+  ensureSmwBridge, smwBridgeHealth, smwBridgeStatus, installSmwMod, uninstallSmwMod,
+  mslugBridgeHealth, mslugBridgeStatus, getMslugGameDirConfig, setMslugGameDir,
+  getMslugLastSpawn, MSLUG_BRIDGE_VERSION,
+  installMslugMod, uninstallMslugMod, ensureMslugBridge,
+  ensureMslugSpawnWebhook, isMslugSpawnWebhookUp, mslugSpawnWebhookStatus,
+  isMslug7760WebhookUrl, runMslug7760WebhookExec,
+  ensureSmbxTiktokWebhook, stopSmbxTiktokWebhook, runWebhookExec, smbxTiktokWebhookStatus,
+  isMari0EnemySpawnWebhook,
+  runGameExec, smb3HealthOk,
+  ensureMarioBridge, ensureMari0Bridge, marioBridgeStatus, bridgeHealthOk,
+  ensurePvzHybridBridge, pvzHybridBridgeStatus, pvzHybridBridgeHealth, pvzHybridBridgeHealthOk, findPvzToolsExe,
+  ensurePvzToolkitBridge, pvzToolkitBridgeStatus, pvzToolkitBridgeHealth, pvzToolkitBridgeHealthOk, stopPvzToolkitBridge,
+} = desk;
 // En hosting (Render) usamos un DISCO PERSISTENTE montado en la ruta de DATA_DIR
 // (ej. /var/data) para que usuarios y configuraciones NO se borren al redesplegar.
 // En local, si no existe la variable, se usa la carpeta "data" del proyecto.
@@ -3590,7 +3592,8 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
-server.listen(PORT, () => {
+// En Render hay que escuchar en 0.0.0.0 (si no, el health check falla y reinicia el servicio).
+server.listen(PORT, '0.0.0.0', () => {
   console.log('\n  ┌───────────────────────────────────────────┐');
   console.log('  │   Livecoins  —  panel estilo TikFinity       │');
   console.log('  ├───────────────────────────────────────────┤');
@@ -3598,15 +3601,32 @@ server.listen(PORT, () => {
   console.log(`  │   Panel:   http://localhost:${PORT}/`.padEnd(46) + '│');
   console.log(`  │   Login:   http://localhost:${PORT}/login.html`.padEnd(46) + '│');
   console.log('  └───────────────────────────────────────────┘\n');
+  if (IS_RENDER) {
+    const mem = process.memoryUsage();
+    console.log(`  [cloud] Render OK — listen 0.0.0.0:${PORT} · rss=${Math.round(mem.rss / 1024 / 1024)}MB`);
+  }
   if (AUTH_REMOTE) {
     syncPlansFromRemote().catch(() => {});
     syncAllCloudRoomKeysFromRemote().catch(() => {});
   }
-  startSpotifyCallbackServer();
-  startWebhookServer();
+  // Spotify :8888 y webhook :3199 son para PC local. En Render no aportan y
+  // suman memoria/puertos; omitirlos evita reinicios innecesarios.
+  if (!IS_RENDER) {
+    startSpotifyCallbackServer();
+    startWebhookServer();
+  } else {
+    console.log('  [cloud] Spotify callback y webhook :3199 omitidos (solo app PC)');
+  }
   if (IS_DESKTOP) {
     console.log('  [bridges] bajo demanda — usa «Iniciar bridge» en cada juego del panel');
   }
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaughtException:', err && (err.stack || err.message || err));
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandledRejection:', reason && (reason.stack || reason.message || reason));
 });
 
 process.on('SIGINT', () => {
