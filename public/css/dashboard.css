@@ -631,7 +631,7 @@ body {
 }
 
 /* Campana de anuncios (topbar) */
-.ann-wrap { position: relative; flex-shrink: 0; }
+.ann-wrap { position: relative; flex-shrink: 0; display: none !important; }
 .ann-bell-btn {
   position: relative; display: flex; align-items: center; justify-content: center;
   width: 38px; height: 38px; background: rgba(255,255,255,.04);
