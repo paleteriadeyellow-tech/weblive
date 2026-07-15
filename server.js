@@ -401,6 +401,7 @@ const LOCAL_ONLY_TABS = [
 // Minijuegos: exclusivos del .exe (pestaña "Juegos"). Se bloquean como los overlays.
 const LOCAL_ONLY_GAMES = [
   { key: 'game_minecraft', label: 'Juego: Minecraft' },
+  { key: 'game_mcservidor', label: 'Juego: Servidor Minecraft' },
   { key: 'game_bedrock', label: 'Juego: Bedrock (Cubo TNT)' },
   { key: 'game_sandbox', label: 'Juego: Sandbox' },
   { key: 'game_roblox', label: 'Juego: Roblox' },
@@ -2797,7 +2798,8 @@ app.get('/api/pack-download', async (req, res) => {
     });
     if (!r.ok) return res.status(502).end('upstream error');
     const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length > 80 * 1024 * 1024) return res.status(413).end('too large');
+    // Packs de juego (p. ej. mari0.zip ~84MB) pueden pasar de 80MB.
+    if (buf.length > 150 * 1024 * 1024) return res.status(413).end('too large');
     const ct = r.headers.get('content-type') || 'application/zip';
     res.set('Content-Type', ct);
     res.set('Cache-Control', 'no-store');

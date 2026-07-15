@@ -86,6 +86,7 @@ export const CAPABILITIES = {
   // Minijuegos (pestaña "Juegos" del .exe). Se pueden bloquear como los overlays.
   games: [
     { key: 'game_minecraft', label: 'Juego: Minecraft' },
+    { key: 'game_mcservidor', label: 'Juego: Servidor Minecraft' },
     { key: 'game_mcparkour', label: 'Juego: Minecraft Parkour' },
     { key: 'game_mckoth', label: 'Juego: Minecraft KOTH' },
     { key: 'game_mcfarm', label: 'Juego: Minecraft Farm' },

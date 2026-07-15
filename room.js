@@ -4184,11 +4184,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return Math.min(times, 200);
   }
 
-  let mcActionTail = Promise.resolve();
-
+  // Paralelo: varias "Probar" o regalos a la vez deben solaparse (no esperar a que
+  // acaben los N spawns de la acción anterior). Cada acción sigue su propia cola interna.
   function scheduleMcAction(fn) {
-    const run = mcActionTail.then(() => fn());
-    mcActionTail = run.catch(() => {});
+    const run = Promise.resolve().then(() => fn());
+    run.catch(() => {});
     return run;
   }
 

@@ -659,6 +659,142 @@
       url: 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/geometryDash.zip',
       fileName: 'geometryDash.zip',
     },
+    {
+      id: 'mario',
+      name: 'Mario',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/mari0-card.png',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/mari0.zip',
+      fileName: 'mari0.zip',
+    },
+    {
+      id: 'minecraftcubo',
+      name: 'Minecraft Cubo',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/bedrock-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/minecraftCubo.zip',
+      fileName: 'minecraftCubo.zip',
+    },
+    {
+      id: 'minecraftsandbox',
+      name: 'Minecraft SandBox',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/sandbox-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/minecraftSandBox.zip',
+      fileName: 'minecraftSandBox.zip',
+    },
+    {
+      id: 'pvzavengerszombies',
+      name: 'PvZ Avengers Zombies',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/pvzhybrid-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzAvengersZombies.zip',
+      fileName: 'pvzAvengersZombies.zip',
+    },
+    {
+      id: 'pvzextras',
+      name: 'PvZ Extras',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/plantasvszombies-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzExtras.zip',
+      fileName: 'pvzExtras.zip',
+    },
+    {
+      id: 'pvzfusionplantas',
+      name: 'PvZ Fusion Plantas',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/pvzhybrid-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzFusionPlantas.zip',
+      fileName: 'pvzFusionPlantas.zip',
+    },
+    {
+      id: 'pvzfusionzombies',
+      name: 'PvZ Fusion Zombies',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/pvzhybrid-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzFusionZombies.zip',
+      fileName: 'pvzFusionZombies.zip',
+    },
+    {
+      id: 'pvzhybridplantas',
+      name: 'PvZ Hybrid Plantas',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/pvzhybrid-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzHybridPlantas.zip',
+      fileName: 'pvzHybridPlantas.zip',
+    },
+    {
+      id: 'pvzhybridzombies',
+      name: 'PvZ Hybrid Zombies',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/pvzhybrid-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzHybridZombies.zip',
+      fileName: 'pvzHybridZombies.zip',
+    },
+    {
+      id: 'pvznarutoplantas',
+      name: 'PvZ Naruto Plantas',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/pvzhybrid-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzNarutoPlantas.zip',
+      fileName: 'pvzNarutoPlantas.zip',
+    },
+    {
+      id: 'pvznarutozombies',
+      name: 'PvZ Naruto Zombies',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/pvzhybrid-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzNarutoZombies.zip',
+      fileName: 'pvzNarutoZombies.zip',
+    },
+    {
+      id: 'pvzplantas',
+      name: 'PvZ Plantas',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/plantasvszombies-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzPlantas.zip',
+      fileName: 'pvzPlantas.zip',
+    },
+    {
+      id: 'pvzzombies',
+      name: 'PvZ Zombies',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/plantasvszombies-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzZombies.zip',
+      fileName: 'pvzZombies.zip',
+    },
+    {
+      id: 'repo',
+      name: 'R.E.P.O.',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/repo-card.jpg',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/repo.zip',
+      fileName: 'repo.zip',
+    },
+    {
+      id: 're2',
+      name: 'RE2',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/re2-card.png',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/re2.zip',
+      fileName: 're2.zip',
+    },
+    {
+      id: 'rdr2',
+      name: 'RDR2',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/rdr2-card.png',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/rdr2.zip',
+      fileName: 'rdr2.zip',
+    },
+    {
+      id: 'left4dead',
+      name: 'Left 4 Dead',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/l4d2-card.png',
+      url: 'https://github.com/riusaki1995/.exe/releases/download/plugins/lesfor.rar',
+      fileName: 'lesfor.rar',
+    },
   ];
 
   const PACK_DB_NAME = 'livecoins-editor-packs';
@@ -670,7 +806,7 @@
   const packObjectUrls = new Map(); // key -> blob url
   let jszipPromise = null;
 
-  const PACK_ROOT_SKIP = /^(geometrydash|gdash|images?|pngs?|icons?|assets?|img)$/i;
+  const PACK_ROOT_SKIP = /^(geometrydash|gdash|mari0|mario|minecraftcubo|minecraftsandbox|minecraft|cubo|sandbox|bedrock|pvz|plantasvszombies|repo|re2|rdr2|left4dead|l4d|l4d2|images?|pngs?|icons?|assets?|img)$/i;
 
   function zipFolderFromPath(relativePath) {
     const parts = String(relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean);
@@ -795,36 +931,34 @@
     }
   }
 
-  async function savePackFromZip(pack, zipBuf) {
-    const JSZip = await loadJSZip();
-    const zip = await JSZip.loadAsync(zipBuf);
-    const entries = [];
-    zip.forEach((relativePath, file) => {
-      if (file.dir) return;
-      if (/__MACOSX|\.DS_Store/i.test(relativePath)) return;
-      if (!PACK_IMG_EXT.test(relativePath)) return;
-      entries.push({ relativePath, file });
-    });
-    if (!entries.length) throw new Error('empty');
-
+  async function savePackFromEntries(pack, fileEntries) {
+    if (!fileEntries?.length) throw new Error('empty');
     await clearPack(pack.id).catch(() => {});
 
     const db = await openPackDb();
-    const selected = entries.slice(0, 250);
+    const selected = fileEntries.slice(0, 250);
     let saved = 0;
     const folderSet = new Set();
-    for (const { relativePath, file } of selected) {
-      const blob = await file.async('blob');
+    for (const ent of selected) {
+      const relativePath = String(ent.relativePath || ent.name || '');
+      let blob = ent.blob;
+      if (!blob && ent.base64) {
+        const bin = atob(ent.base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        blob = new Blob([bytes], { type: ent.mime || 'image/png' });
+      }
       if (!blob || blob.size < 32 || blob.size > 3 * 1024 * 1024) continue;
-      const base = (relativePath.split('/').pop() || file.name || '').replace(PACK_IMG_EXT, '');
+      const base = (relativePath.split('/').pop() || '').replace(PACK_IMG_EXT, '');
       let folder = zipFolderFromPath(relativePath);
       if (!folder && pack.id === 'geometrydash') folder = folderFromGdashCatalog(base);
       if (!folder) folder = 'General';
       folderSet.add(folder);
-      const mime = /\.gif$/i.test(relativePath) ? 'image/gif'
-        : /\.webp$/i.test(relativePath) ? 'image/webp'
-          : /\.jpe?g$/i.test(relativePath) ? 'image/jpeg'
-            : 'image/png';
+      const mime = ent.mime
+        || (/\.gif$/i.test(relativePath) ? 'image/gif'
+          : /\.webp$/i.test(relativePath) ? 'image/webp'
+            : /\.jpe?g$/i.test(relativePath) ? 'image/jpeg'
+              : 'image/png');
       const typed = blob.type ? blob : new Blob([blob], { type: mime });
       const key = `${pack.id}::${saved}::${base}`;
       await idbReq(db.transaction('images', 'readwrite').objectStore('images').put({
@@ -848,6 +982,25 @@
     return saved;
   }
 
+  async function savePackFromZip(pack, zipBuf) {
+    const JSZip = await loadJSZip();
+    const zip = await JSZip.loadAsync(zipBuf);
+    const entries = [];
+    zip.forEach((relativePath, file) => {
+      if (file.dir) return;
+      if (/__MACOSX|\.DS_Store/i.test(relativePath)) return;
+      if (!PACK_IMG_EXT.test(relativePath)) return;
+      entries.push({ relativePath, file });
+    });
+    if (!entries.length) throw new Error('empty');
+    const mapped = [];
+    for (const { relativePath, file } of entries.slice(0, 250)) {
+      const blob = await file.async('blob');
+      mapped.push({ relativePath, blob });
+    }
+    return savePackFromEntries(pack, mapped);
+  }
+
   async function blobUrlForPackImage(im) {
     const k = im.key;
     if (packObjectUrls.has(k)) return packObjectUrls.get(k);
@@ -859,6 +1012,7 @@
   async function fetchPackZip(pack) {
     const proxy = `/api/pack-download?url=${encodeURIComponent(pack.url)}`;
     let r = await fetch(proxy);
+    if (r.status === 413) throw new Error('too_large');
     if (!r.ok) {
       // fallback directo (por si el proxy no está en una build vieja)
       r = await fetch(pack.url);
@@ -867,36 +1021,44 @@
     return r.arrayBuffer();
   }
 
+  function isPackRar(pack) {
+    return /\.rar(\?|$)/i.test(String(pack?.url || ''))
+      || /\.rar$/i.test(String(pack?.fileName || ''));
+  }
+
   function ensurePngDlModal() {
     let modal = $('iedPngDlModal');
-    // Si el modal es viejo (sin pestañas / vistas separadas), recrearlo
-    if (modal && (!$('ied-pngdl-packs-view') || !$('ied-pngdl-catalog-view') || !$('ied-pngdl-tabs'))) {
+    // Recrear si es layout viejo (sin v2 / pestañas)
+    if (modal && (!modal.classList.contains('ied-pngdl-v3') || !$('ied-pngdl-packs-view') || !$('ied-pngdl-catalog-view') || !$('ied-pngdl-tabs'))) {
       try { modal.remove(); } catch { /* ignore */ }
       modal = null;
     }
     if (modal) return modal;
     modal = document.createElement('div');
     modal.id = 'iedPngDlModal';
-    modal.className = 'modal hidden ied-pngdl-modal';
+    modal.className = 'modal hidden ied-pngdl-modal ied-pngdl-v3';
     modal.setAttribute('aria-hidden', 'true');
     modal.innerHTML = `
       <div class="modal-box ied-pngdl-box">
-        <div class="modal-head">
-          <h2>Descargar PNG</h2>
+        <div class="modal-head ied-pngdl-head">
+          <div class="ied-pngdl-head-text">
+            <h2>Descargar PNG</h2>
+            <p class="ied-pngdl-sub">Elige un pack para descargar o abrir sus iconos</p>
+          </div>
           <button type="button" class="modal-close" id="ied-pngdl-close" aria-label="Cerrar">✕</button>
         </div>
         <div class="modal-body ied-pngdl-body">
-          <div class="ied-pngdl-tabs" id="ied-pngdl-tabs">
-            <button type="button" class="ied-pngdl-tab is-active" data-tab="packs">Descargar</button>
-            <button type="button" class="ied-pngdl-tab" data-tab="catalog">Catálogo</button>
+          <div class="ied-pngdl-seg" id="ied-pngdl-tabs" role="tablist">
+            <button type="button" class="ied-pngdl-tab is-active" data-tab="packs" role="tab" aria-selected="true">Descargar</button>
+            <button type="button" class="ied-pngdl-tab" data-tab="catalog" role="tab" aria-selected="false">Catálogo</button>
           </div>
-          <p class="ied-muted ied-pngdl-hint" id="ied-pngdl-hint">Solo packs disponibles para descargar (no van en el instalador).</p>
+          <p class="ied-muted ied-pngdl-hint" id="ied-pngdl-hint">Descargas online · no forman parte del instalador.</p>
           <div id="ied-pngdl-packs-view">
             <div class="ied-pngdl-list" id="ied-pngdl-list"></div>
             <p class="ied-muted ied-pngdl-status" id="ied-pngdl-status" hidden></p>
           </div>
           <div id="ied-pngdl-catalog-view" hidden>
-            <button type="button" class="ied-games-back ied-pngdl-back" id="ied-pngdl-back" hidden title="Volver">←</button>
+            <button type="button" class="ied-pngdl-back" id="ied-pngdl-back" hidden title="Volver">← Volver</button>
             <div class="ied-pngdl-list" id="ied-pngdl-catalog-packs"></div>
             <div class="ied-pngdl-icons" id="ied-pngdl-catalog-icons" hidden></div>
           </div>
@@ -918,8 +1080,8 @@
       });
     });
     $('ied-pngdl-back')?.addEventListener('click', () => {
-      if (catalogFolder != null) catalogFolder = null;
-      else catalogPackId = null;
+      catalogPackId = null;
+      catalogFolder = null;
       refreshPngDlViews();
     });
     return modal;
@@ -927,7 +1089,9 @@
 
   function syncPngDlTabs() {
     document.querySelectorAll('#iedPngDlModal .ied-pngdl-tab').forEach((b) => {
-      b.classList.toggle('is-active', b.dataset.tab === pngDlTab);
+      const on = b.dataset.tab === pngDlTab;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     const packsView = $('ied-pngdl-packs-view');
     const catView = $('ied-pngdl-catalog-view');
@@ -936,8 +1100,8 @@
     const hint = $('ied-pngdl-hint');
     if (hint) {
       hint.textContent = pngDlTab === 'catalog'
-        ? 'Packs guardados en tu PC. Ábre uno para ver carpetas e imágenes.'
-        : 'Solo packs disponibles para descargar (no van en el instalador).';
+        ? 'Packs guardados en tu PC. Ábre uno para ver todas sus imágenes.'
+        : 'Descargas online · no forman parte del instalador.';
     }
   }
 
@@ -953,9 +1117,19 @@
     setPngDlStatus(`Descargando ${pack.name}…`, true);
     toast && toast(`Descargando ${pack.name}…`, 'ok');
     try {
-      const buf = await fetchPackZip(pack);
-      setPngDlStatus('Extrayendo imágenes…', true);
-      const n = await savePackFromZip(pack, buf);
+      let n = 0;
+      if (isPackRar(pack)) {
+        if (!window.desktopAPI?.packImportArchive) throw new Error('rar_desktop_only');
+        setPngDlStatus('Extrayendo RAR…', true);
+        const r = await window.desktopAPI.packImportArchive(pack.url);
+        if (!r?.ok) throw new Error(r?.error || 'rar');
+        setPngDlStatus('Guardando imágenes…', true);
+        n = await savePackFromEntries(pack, r.files || []);
+      } else {
+        const buf = await fetchPackZip(pack);
+        setPngDlStatus('Extrayendo imágenes…', true);
+        n = await savePackFromZip(pack, buf);
+      }
       setPngDlStatus('', false);
       toast && toast(`${pack.name}: ${n} imágenes en Catálogo`, 'ok');
       pngDlTab = 'catalog';
@@ -966,7 +1140,11 @@
     } catch (e) {
       console.error(e);
       setPngDlStatus('', false);
-      toast && toast('No se pudo importar el pack. Revisa tu conexión.', 'err');
+      const msg = String(e?.message || e);
+      if (msg === 'too_large') toast && toast('El pack es demasiado grande para descargar.', 'err');
+      else if (msg === 'empty') toast && toast('El archivo no tiene imágenes PNG/JPG/GIF/WebP usables.', 'err');
+      else if (msg === 'rar_desktop_only') toast && toast('Los packs .rar solo se importan en la app PC (.exe).', 'warn');
+      else toast && toast('No se pudo importar el pack. Revisa tu conexión.', 'err');
     }
   }
 
@@ -980,16 +1158,20 @@
       list.innerHTML = '<p class="ied-muted">No hay packs para descargar.</p>';
       return;
     }
-    list.innerHTML = PNG_DOWNLOAD_PACKS.map((p) => `
-      <button type="button" class="ied-pngdl-row" data-id="${escapeAttr(p.id)}">
-        <img src="${escapeAttr(p.cover || '')}" alt="" onerror="this.style.visibility='hidden'">
+    list.innerHTML = PNG_DOWNLOAD_PACKS.map((p) => {
+      const installed = have.has(p.id);
+      return `
+      <button type="button" class="ied-pngdl-row${installed ? ' is-installed' : ''}" data-id="${escapeAttr(p.id)}">
+        <span class="ied-pngdl-thumb">
+          <img src="${escapeAttr(p.cover || '')}" alt="" onerror="this.style.opacity='0'">
+        </span>
         <span class="ied-pngdl-copy">
           <strong>${escapeHtml(p.name)}</strong>
-          <em>${have.has(p.id) ? 'Ya en catálogo · clic para actualizar' : escapeHtml(p.desc || 'Descargar')}</em>
+          <em>${installed ? 'Ya en catálogo · clic para actualizar' : escapeHtml(p.desc || 'Pack de iconos PNG')}</em>
         </span>
-        <span class="ied-pngdl-dl" aria-hidden="true">↓</span>
-      </button>
-    `).join('');
+        <span class="ied-pngdl-action ${installed ? 'is-refresh' : ''}" aria-hidden="true">${installed ? '↻' : '↓'}</span>
+      </button>`;
+    }).join('');
     list.querySelectorAll('.ied-pngdl-row').forEach((btn) => {
       btn.onclick = () => {
         const pack = PNG_DOWNLOAD_PACKS.find((x) => x.id === btn.dataset.id);
@@ -1004,67 +1186,19 @@
     const back = $('ied-pngdl-back');
     if (!packsEl || !iconsEl) return;
 
-    // Pack abierto → carpetas o imágenes de una carpeta
+    // Pack abierto → todas sus imágenes (sin carpetas intermedias)
     if (catalogPackId) {
       packsEl.hidden = true;
+      iconsEl.hidden = false;
       if (back) back.hidden = false;
       let imgs = [];
       try { imgs = await listPackImages(catalogPackId); } catch { imgs = []; }
-
-      // Retrocompat: packs viejos sin folder → asignar por catálogo GD o General
-      imgs = imgs.map((im) => {
-        if (im.folder) return im;
-        let folder = '';
-        if (catalogPackId === 'geometrydash') folder = folderFromGdashCatalog(im.name);
-        return { ...im, folder: folder || 'General' };
-      });
-
-      const byFolder = new Map();
-      for (const im of imgs) {
-        const f = im.folder || 'General';
-        if (!byFolder.has(f)) byFolder.set(f, []);
-        byFolder.get(f).push(im);
-      }
-      const folderNames = sortFolderNames([...byFolder.keys()], catalogPackId);
-
-      // Si hay más de una carpeta y aún no eligió ninguna → lista de carpetas
-      if (folderNames.length > 1 && catalogFolder == null) {
-        iconsEl.hidden = true;
-        packsEl.hidden = false;
-        packsEl.innerHTML = folderNames.map((f) => `
-          <button type="button" class="ied-pngdl-row" data-folder="${escapeAttr(f)}">
-            <span class="ied-pngdl-folder-ico" aria-hidden="true">📁</span>
-            <span class="ied-pngdl-copy">
-              <strong>${escapeHtml(f)}</strong>
-              <em>${(byFolder.get(f) || []).length} imágenes</em>
-            </span>
-            <span class="ied-pngdl-dl" aria-hidden="true">→</span>
-          </button>
-        `).join('');
-        packsEl.querySelectorAll('.ied-pngdl-row').forEach((btn) => {
-          btn.onclick = () => {
-            catalogFolder = btn.getAttribute('data-folder');
-            refreshPngDlViews();
-          };
-        });
+      if (!imgs.length) {
+        iconsEl.innerHTML = '<p class="ied-muted" style="grid-column:1/-1">Sin imágenes en este pack.</p>';
         return;
       }
-
-      const activeFolder = catalogFolder != null
-        ? catalogFolder
-        : (folderNames[0] || 'General');
-      const folderImgs = byFolder.get(activeFolder) || imgs;
-      iconsEl.hidden = false;
-      packsEl.hidden = true;
-      if (!folderImgs.length) {
-        iconsEl.innerHTML = '<p class="ied-muted" style="grid-column:1/-1">Sin imágenes en esta carpeta.</p>';
-        return;
-      }
-      const urls = await Promise.all(folderImgs.map((im) => blobUrlForPackImage(im)));
-      const title = folderNames.length > 1
-        ? `<p class="ied-pngdl-folder-title">${escapeHtml(activeFolder)}</p>`
-        : '';
-      iconsEl.innerHTML = title + folderImgs.map((im, i) => `
+      const urls = await Promise.all(imgs.map((im) => blobUrlForPackImage(im)));
+      iconsEl.innerHTML = imgs.map((im, i) => `
         <button type="button" class="ied-pngdl-ic" data-i="${i}" title="${escapeAttr(im.name)}">
           <img src="${escapeAttr(urls[i])}" alt="" loading="lazy">
           <span>${escapeHtml(im.name)}</span>
@@ -1072,7 +1206,7 @@
       `).join('');
       iconsEl.querySelectorAll('.ied-pngdl-ic').forEach((btn) => {
         btn.onclick = () => {
-          const im = folderImgs[Number(btn.dataset.i)];
+          const im = imgs[Number(btn.dataset.i)];
           const src = urls[Number(btn.dataset.i)];
           if (!im || !src) return;
           addImageLayer(src, im.name);
@@ -1096,12 +1230,14 @@
       const cover = p.cover || (PNG_DOWNLOAD_PACKS.find((x) => x.id === p.id)?.cover) || '';
       return `
       <button type="button" class="ied-pngdl-row" data-id="${escapeAttr(p.id)}">
-        <img src="${escapeAttr(cover)}" alt="" onerror="this.style.visibility='hidden'">
+        <span class="ied-pngdl-thumb">
+          <img src="${escapeAttr(cover)}" alt="" onerror="this.style.opacity='0'">
+        </span>
         <span class="ied-pngdl-copy">
           <strong>${escapeHtml(p.name)}</strong>
           <em>${p.count || 0} imágenes · clic para abrir</em>
         </span>
-        <span class="ied-pngdl-dl" aria-hidden="true">→</span>
+        <span class="ied-pngdl-action is-open" aria-hidden="true">→</span>
       </button>`;
     }).join('');
     packsEl.querySelectorAll('.ied-pngdl-row').forEach((btn) => {
