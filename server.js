@@ -15,7 +15,6 @@ import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { createStreamerRankings } from './streamer-rankings.js';
-import { createCommunityGoals } from './community-goals.js';
 import { stopMarioBridge } from './mario-bridge.js';
 import { stopPvzHybridBridge } from './pvz-hybrid-bridge.js';
 import { stopRepoBridge, ensureRepoBridge, repoBridgeHealth, repoBridgeHealthOk, repoBridgeStatus, getRepoGameDirConfig, setRepoGameDir, installRepoMod, uninstallRepoMod } from './repo-bridge.js';
@@ -75,7 +74,6 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const streamerRankings = createStreamerRankings(DATA_DIR);
-const communityGoals = createCommunityGoals(DATA_DIR);
 const IS_DESKTOP = process.env.DESKTOP === '1';
 
 /* -------------------- Migración de datos legacy (.exe) -------------------- */
@@ -586,12 +584,6 @@ function getRoomForUser(user) {
         ? (payload) => relayRoomActionToRemote(user.id, 'spotify-charge', payload)
         : undefined,
       onStreamerRank: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1') ? undefined : (p) => streamerRankings.record(p),
-      onCommunityGoalRecord: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1')
-        ? undefined
-        : (userId, delta) => communityGoals.recordDiamonds(userId, delta),
-      getCommunityGoal: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1')
-        ? undefined
-        : (userId) => communityGoals.getSnapshot(userId),
     });
     rooms.set(user.id, room);
   }
@@ -2565,27 +2557,6 @@ app.post('/api/admin/announcements/delete', express.json(), requireAdmin, async 
   res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
 });
 
-/* ---------- Meta global de diamantes (banner del panel) ---------- */
-function notifyRoomsCommunityGoal() {
-  for (const room of rooms.values()) {
-    try {
-      room.refreshCommunityGoal?.(communityGoals.getSnapshot(room.id));
-    } catch { /* ignore */ }
-  }
-}
-
-app.get('/api/admin/community-goals', requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/community-goals')) return;
-  res.json(communityGoals.getAdmin());
-});
-
-app.post('/api/admin/community-goals', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/community-goals', 'POST')) return;
-  const result = communityGoals.setGoalAndReset(req.body?.diamondsGoal);
-  notifyRoomsCommunityGoal();
-  res.json(result);
-});
-
 /* ------------------- Protección básica (disuasión copia) ------------------- */
 // Inyecta protect.js en todo HTML servido (panel + overlays). NO es seguridad
 // real: solo dificulta la copia casual (clic derecho, F12, ver fuente…).
@@ -3600,6 +3571,5 @@ process.on('SIGINT', () => {
     try { room.shutdown(); } catch {}
   }
   try { streamerRankings.flush(); } catch {}
-  try { communityGoals.flush(); } catch {}
   process.exit(0);
 });

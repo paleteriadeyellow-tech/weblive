@@ -4865,44 +4865,7 @@ pre.wh-url { margin: 9px 0 0; }
     0 0 22px rgba(212,175,55,.12),
     inset 0 1px 0 rgba(255,230,150,.1);
 }
-.home-hero-main { position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; min-width: 0; flex: 0 1 auto; }
-.home-hero-goal {
-  position: relative; z-index: 1;
-  flex: 1 1 220px; min-width: 160px; max-width: 420px;
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 8px 12px; border-radius: 12px;
-  background: rgba(91,140,255,.08); border: 1px solid rgba(91,140,255,.28);
-}
-.home-hero.is-vip .home-hero-goal {
-  background: rgba(212,175,55,.08);
-  border-color: rgba(212,175,55,.28);
-}
-.home-hero-goal-head {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-}
-.home-hero-goal-lbl {
-  font-size: 10px; font-weight: 700; letter-spacing: .4px;
-  text-transform: uppercase; color: var(--mut); white-space: nowrap;
-}
-.home-hero-goal-nums {
-  font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
-  color: #e8eef8; white-space: nowrap;
-}
-.home-hero-goal-track {
-  height: 8px; border-radius: 999px; overflow: hidden;
-  background: rgba(255,255,255,.08);
-}
-.home-hero-goal-fill {
-  height: 100%; width: 0%; border-radius: inherit;
-  background: linear-gradient(90deg, #5b8cff, #25f4ee);
-  transition: width .35s ease;
-}
-.home-hero.is-vip .home-hero-goal-fill {
-  background: linear-gradient(90deg, #d4af37, #f6e27a);
-}
-.home-hero-goal.is-done .home-hero-goal-fill {
-  background: linear-gradient(90deg, #1fd65f, #25f4ee);
-}
+.home-hero-main { position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
 .home-hero-av {
   position: relative; flex: 0 0 56px; width: 56px; height: 56px; border-radius: 50%;
   overflow: hidden; background: #122038; border: 2px solid rgba(148,163,184,.45);
@@ -5029,7 +4992,6 @@ pre.wh-url { margin: 9px 0 0; }
 
 @media (max-width: 720px) {
   .home-hero { flex-direction: column; align-items: flex-start; }
-  .home-hero-goal { max-width: none; width: 100%; flex: 1 1 auto; }
   .home-hero-aside { width: 100%; justify-content: space-between; }
   .home-welcome-btn { margin-left: auto; }
 }

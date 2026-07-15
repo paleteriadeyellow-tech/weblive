@@ -426,7 +426,7 @@ function normalizeProfilesMediaUrls(p) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank, onCommunityGoalRecord, getCommunityGoal }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
@@ -523,37 +523,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clearInterval(rankStreamerTimer);
     rankStreamerTimer = null;
   }
-
-  // Meta global de diamantes (progreso por cuenta Livecoins). No bloquea regalos si falla.
-  let communityGoalCache = null;
-  function resolveCommunityGoal() {
-    try {
-      if (typeof getCommunityGoal === 'function') communityGoalCache = getCommunityGoal(id);
-    } catch { /* ignore */ }
-    return communityGoalCache;
-  }
-  function bumpCommunityGoal(diamonds) {
-    const d = Math.floor(Number(diamonds));
-    if (!(d > 0) || typeof onCommunityGoalRecord !== 'function') return;
-    try {
-      const snap = onCommunityGoalRecord(id, d);
-      if (snap) {
-        communityGoalCache = snap;
-        broadcast('communityGoal', snap);
-      }
-    } catch { /* ignore — no tumbar el flujo de gifts */ }
-  }
-  function refreshCommunityGoal(snap) {
-    try {
-      communityGoalCache = snap || resolveCommunityGoal() || {
-        diamondsGoal: 50000,
-        current: 0,
-        periodId: 0,
-      };
-      broadcast('communityGoal', communityGoalCache);
-    } catch { /* ignore */ }
-  }
-
   // Usuario y Puntos: balance acumulado (de por vida) por usuario + historial de transacciones.
   const points = new Map();          // uniqueId -> { uniqueId, nickname, photo, total, levelPoints, firstAt, lastAt }
   let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
@@ -5015,7 +4984,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       startedAt: state.startedAt,
       stats: state.stats,
       topGifters: topGifters(),
-      communityGoal: communityGoalCache || resolveCommunityGoal() || null,
     };
   }
   function pushState() {
@@ -5941,7 +5909,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           const award = Math.round(total * (Number.isFinite(perCoin) && perCoin > 0 ? perCoin : 1));
           if (award > 0) addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: award, counted: true, description: `Regalo: ${giftName}`, manual: false });
         }
-        bumpCommunityGoal(total);
         pushState();
         flushStreamerRank();
 
@@ -6797,10 +6764,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clients.add(ws);
     lastSeen = Date.now();
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
-    try {
-      const cg = communityGoalCache || resolveCommunityGoal();
-      if (cg) ws.send(JSON.stringify({ type: 'communityGoal', payload: cg }));
-    } catch { /* ignore */ }
     ws.send(JSON.stringify({ type: 'settings', payload: settings }));
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
@@ -6895,7 +6858,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   return {
     id, account, roomKey,
     addClient, removeClient, handleMessage,
-    refreshCommunityGoal,
     getEmotes, mergeEmotes, getCommunityGifts, mergeCommunityGifts, shutdown, getStatus, kickAll, broadcastCaps,
     listActions, executeWebhookAction, executeWebhookSound, listVideos, executeWebhookVideo,
     getSettings: () => settings,

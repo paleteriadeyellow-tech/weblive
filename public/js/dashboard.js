@@ -1204,7 +1204,6 @@ function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'B
 function handle(type, p) {
   switch (type) {
     case 'state': renderState(p); break;
-    case 'communityGoal': renderCommunityGoal(p); break;
     case 'followerCounter':
       updateConnectAvatar({ photo: p.photo, nickname: p.nickname, username: p.uniqueId });
       break;
@@ -1390,7 +1389,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     const view = document.getElementById(`view-${btn.dataset.view}`);
     if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
     view.classList.add('active');
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadCommunityGoalsAdmin(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
@@ -1661,67 +1660,6 @@ async function loadMaintenanceAdmin() {
         status.textContent = r.ok
           ? (body.enabled ? 'Mantenimiento activado.' : 'Mantenimiento desactivado.')
           : (d.error || 'No se pudo guardar.');
-      }
-    } catch {
-      if (status) status.textContent = 'Error de conexión.';
-    } finally {
-      btn.disabled = false;
-    }
-  };
-})();
-
-/* ---- Meta global de diamantes (admin) ---- */
-async function loadCommunityGoalsAdmin() {
-  const inp = document.getElementById('cg-admin-goal');
-  if (!inp) return;
-  try {
-    const r = await fetch('/api/admin/community-goals');
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      const info = document.getElementById('cg-admin-info');
-      if (info) info.textContent = d.error || 'No se pudo cargar.';
-      return;
-    }
-    inp.value = String(d.diamondsGoal || 50000);
-    const info = document.getElementById('cg-admin-info');
-    if (info) {
-      info.textContent = `Periodo #${d.periodId || 1} · ${d.usersTracked || 0} usuarios con progreso`;
-    }
-  } catch {
-    const info = document.getElementById('cg-admin-info');
-    if (info) info.textContent = 'Error de conexión.';
-  }
-}
-
-(function setupCommunityGoalsAdmin() {
-  const btn = document.getElementById('cg-admin-save');
-  if (!btn) return;
-  btn.onclick = async () => {
-    const status = document.getElementById('cg-admin-status');
-    const inp = document.getElementById('cg-admin-goal');
-    const goal = Math.floor(Number(inp?.value));
-    if (!Number.isFinite(goal) || goal < 1) {
-      if (status) status.textContent = 'Escribe una meta válida (mín. 1).';
-      return;
-    }
-    if (!confirm(`¿Guardar meta ${goal.toLocaleString('es-MX')} diamantes y reiniciar el progreso de TODOS?`)) return;
-    btn.disabled = true;
-    if (status) status.textContent = 'Guardando…';
-    try {
-      const r = await fetch('/api/admin/community-goals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diamondsGoal: goal }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (r.ok) {
-        if (status) status.textContent = 'Guardado. Barras reiniciadas.';
-        if (inp) inp.value = String(d.diamondsGoal || goal);
-        const info = document.getElementById('cg-admin-info');
-        if (info) info.textContent = `Periodo #${d.periodId || '—'} · 0 usuarios con progreso`;
-        try { renderCommunityGoal({ diamondsGoal: d.diamondsGoal || goal, current: 0, periodId: d.periodId }); } catch {}
-      } else if (status) {
-        status.textContent = d.error || 'No se pudo guardar.';
       }
     } catch {
       if (status) status.textContent = 'Error de conexión.';
@@ -2173,9 +2111,6 @@ function renderState(s) {
   });
   renderLeaderboard(s.topGifters || []);
   try { updateHomeWelcome(s); } catch {}
-  if (s && s.communityGoal) {
-    try { renderCommunityGoal(s.communityGoal); } catch {}
-  }
 }
 
 function renderLeaderboard(list) {
@@ -21569,26 +21504,6 @@ function initHomeWelcome() {
       if (typeof doConnect === 'function') doConnect();
     };
   }
-}
-
-function fmtCommunityGoalNum(n) {
-  const v = Math.max(0, Math.floor(Number(n) || 0));
-  try { return v.toLocaleString('es-MX'); } catch { return String(v); }
-}
-
-function renderCommunityGoal(p) {
-  const wrap = document.getElementById('home-hero-goal');
-  const lbl = document.getElementById('home-hero-goal-lbl');
-  const nums = document.getElementById('home-hero-goal-nums');
-  const fill = document.getElementById('home-hero-goal-fill');
-  if (!wrap || !nums || !fill) return;
-  const goal = Math.max(1, Math.floor(Number(p?.diamondsGoal) || 50000));
-  const current = Math.max(0, Math.floor(Number(p?.current) || 0));
-  const pct = Math.max(0, Math.min(100, (current / goal) * 100));
-  if (lbl) lbl.textContent = `Meta ${fmtCommunityGoalNum(goal)} diamantes`;
-  nums.textContent = `${fmtCommunityGoalNum(current)} / ${fmtCommunityGoalNum(goal)}`;
-  fill.style.width = pct.toFixed(2) + '%';
-  wrap.classList.toggle('is-done', current >= goal);
 }
 
 let panelLivesTimer = null;
