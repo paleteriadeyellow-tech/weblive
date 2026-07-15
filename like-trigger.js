@@ -15,5 +15,3 @@ export function likeTriggerFires(acc, a, info, user, fallbackKey) {
   if (acc.size > 8000) acc.clear();
   return fires;
 }
-
-// deploy-stamp 2026-07-15T08:13:05.7051635-06:00

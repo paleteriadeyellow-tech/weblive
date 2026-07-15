@@ -216,4 +216,44 @@ export async function executeMcRconPlan(plan, sendOne, token) {
 
 }
 
+export function readGameActionCountTiming(a) {
+  return {
+    count: Math.max(1, parseInt(a?.count, 10) || 1),
+    delayBefore: Math.max(0, parseInt(a?.delayBefore ?? a?.delayGroup, 10) || 0),
+    delayEach: Math.max(0, parseInt(a?.delayEach, 10) || 100),
+  };
+}
 
+export async function runGameActionCountTimedRepeats(a, fn) {
+  const { count, delayBefore, delayEach } = readGameActionCountTiming(a);
+  if (delayBefore) await mcWait(delayBefore);
+  for (let i = 0; i < count; i++) {
+    await fn(i);
+    if (i < count - 1 && delayEach) await mcWait(delayEach);
+  }
+}
+
+export function fireGameActionCountTimed(a, fn) {
+  runGameActionCountTimedRepeats(a, fn).catch(() => {});
+}
+
+export function readGameActionTiming(a) {
+  return {
+    repeat: Math.max(1, parseInt(a?.repeat, 10) || 1),
+    delayBefore: Math.max(0, parseInt(a?.delayBefore ?? a?.delayGroup, 10) || 0),
+    delayEach: Math.max(0, parseInt(a?.delayEach, 10) || 100),
+  };
+}
+
+export async function runGameActionTimedRepeats(a, fn) {
+  const { repeat, delayBefore, delayEach } = readGameActionTiming(a);
+  if (delayBefore) await mcWait(delayBefore);
+  for (let i = 0; i < repeat; i++) {
+    await fn(i);
+    if (i < repeat - 1 && delayEach) await mcWait(delayEach);
+  }
+}
+
+export function fireGameActionTimed(a, fn) {
+  runGameActionTimedRepeats(a, fn).catch(() => {});
+}
