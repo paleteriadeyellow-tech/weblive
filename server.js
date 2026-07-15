@@ -2455,26 +2455,49 @@ app.post('/api/admin/plans', express.json(), requireAdmin, async (req, res) => {
   res.json(injectLocalCaps({ ok: true, config }));
 });
 
-/* ----------- Versión publicada de la app (.exe) — espejo del remoto ----------- */
-// La fuente de verdad es Render (weblive). Aquí solo reenviamos las peticiones del
-// panel admin del .exe al remoto, igual que con los planes.
-app.get('/api/app-version', async (_req, res) => {
-  // Nunca cachear: hay que ver siempre la última versión publicada en el remoto.
+/* ----------- Versión publicada de la app (.exe) — guardado en Render ----------- */
+// Fuente de verdad en DATA_DIR (disco persistente). El .exe consulta GET /api/app-version.
+const APP_VERSION_FILE = path.join(DATA_DIR, 'appversion.json');
+const WEB_INSTALL_FILE = path.join(DATA_DIR, 'webinstall.json');
+function readAppVersion() {
+  try { return JSON.parse(fs.readFileSync(APP_VERSION_FILE, 'utf8')); }
+  catch { return { version: '', url: '', notes: '', mandatory: false, updatedAt: 0 }; }
+}
+function readWebInstall() {
+  try { return JSON.parse(fs.readFileSync(WEB_INSTALL_FILE, 'utf8')); }
+  catch { return { url: '', updatedAt: 0 }; }
+}
+app.get('/api/app-version', (_req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  if (AUTH_REMOTE) {
-    try {
-      const r = await fetch(`${AUTH_REMOTE}/api/app-version?_=${Date.now()}`);
-      if (r.ok) return res.json(await r.json());
-    } catch {}
-  }
-  res.json({ version: '', url: '', notes: '', mandatory: false, updatedAt: 0 });
+  res.json(readAppVersion());
 });
-app.post('/api/admin/app-version', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/app-version', 'POST')) return;
-  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
+app.post('/api/admin/app-version', express.json(), requireAdmin, (req, res) => {
+  const b = req.body || {};
+  const data = {
+    version: String(b.version || '').trim(),
+    url: String(b.url || '').trim(),
+    notes: String(b.notes || '').trim(),
+    mandatory: !!b.mandatory,
+    updatedAt: Date.now(),
+  };
+  try {
+    const tmp = APP_VERSION_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+    fs.renameSync(tmp, APP_VERSION_FILE);
+    // Mismo .exe para nuevos usuarios (web-install) y para auto-actualización.
+    if (data.url) {
+      const wi = { url: data.url, updatedAt: Date.now() };
+      const wtmp = WEB_INSTALL_FILE + '.tmp';
+      fs.writeFileSync(wtmp, JSON.stringify(wi, null, 2));
+      fs.renameSync(wtmp, WEB_INSTALL_FILE);
+    }
+  } catch (e) {
+    return res.status(500).json({ error: 'No se pudo guardar.' });
+  }
+  res.json({ ok: true, ...data });
 });
 
-/* ----------- Enlace del instalador PC (.exe) — espejo del remoto ----------- */
+/* ----------- Enlace del instalador PC (.exe) ----------- */
 app.get('/api/desktop-build', (_req, res) => {
   res.set('Cache-Control', 'no-store');
   if (!IS_DESKTOP) return res.json({ pc: false });
@@ -2485,19 +2508,20 @@ app.get('/api/desktop-build', (_req, res) => {
   res.json({ pc: true, version: stamp?.version || '', builtAt: stamp?.builtAt || 0 });
 });
 
-app.get('/api/web-install', async (_req, res) => {
+app.get('/api/web-install', (_req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  if (AUTH_REMOTE) {
-    try {
-      const r = await fetch(`${AUTH_REMOTE}/api/web-install?_=${Date.now()}`);
-      if (r.ok) return res.json(await r.json());
-    } catch {}
-  }
-  res.json({ url: '', updatedAt: 0 });
+  res.json(readWebInstall());
 });
-app.post('/api/admin/web-install', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/web-install', 'POST')) return;
-  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
+app.post('/api/admin/web-install', express.json(), requireAdmin, (req, res) => {
+  const data = { url: String((req.body || {}).url || '').trim(), updatedAt: Date.now() };
+  try {
+    const tmp = WEB_INSTALL_FILE + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+    fs.renameSync(tmp, WEB_INSTALL_FILE);
+  } catch (e) {
+    return res.status(500).json({ error: 'No se pudo guardar.' });
+  }
+  res.json({ ok: true, ...data });
 });
 
 /* ----------- Modo mantenimiento (web en Render) — espejo del remoto ----------- */
