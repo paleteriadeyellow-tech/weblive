@@ -77,6 +77,7 @@ export const CAPABILITIES = {
     { key: 'ov_contadorseguidores', label: 'Contador de seguidores', path: '/contador-seguidores.html' },
     { key: 'ov_contadorseguidoresmc', label: 'Contador de seguidores (Minecraft)', path: '/contador-seguidores-minecraft.html' },
     { key: 'ov_tiempolive', label: 'Tiempo en live (Neon)', path: '/tiempo-live-neon.html' },
+    { key: 'ov_fuegos', label: 'Fuegos artificiales', path: '/fuegos.html' },
     { key: 'ov_alertaregalo', label: 'Alerta de regalo', path: '/alerta-regalo.html' },
     { key: 'ov_alertalikes', label: 'Alerta de likes', path: '/alerta-likes.html' },
     { key: 'ov_alertaseguidor', label: 'Alerta de nuevo seguidor', path: '/alerta-seguidor.html' },

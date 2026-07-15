@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Fuegos artificiales</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Edu+AU+VIC+WA+NT+Dots:wght@400..700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: transparent;
+      position: relative;
+      height: 100vh;
+      pointer-events: none;
+    }
+
+    .rocket {
+      position: absolute;
+      width: 8vmin;
+      height: 8vmin;
+      bottom: -10vmin;
+      left: 50%;
+      z-index: 50;
+      /* sin overflow:hidden → la cola de fuego puede salir debajo de la bolita */
+      animation: rocketAppear 0.5s ease-in-out forwards, rocketLaunch var(--rocket-launch-duration) ease-in-out forwards;
+    }
+
+    .rocket-ball {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      box-shadow: 0 0 0 2px rgba(255,255,255,.7), 0 0 12px rgba(255,140,0,.55);
+      z-index: 2;
+    }
+
+    /* Línea / estela de fuego artificial debajo de la bolita */
+    .rocket-tail {
+      position: absolute;
+      left: 50%;
+      top: 85%;
+      width: 1.35vmin;
+      height: 18vmin;
+      transform: translateX(-50%);
+      z-index: 1;
+      border-radius: 40% / 8%;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(255, 255, 220, 0.95) 0%,
+          rgba(255, 200, 40, 0.95) 18%,
+          rgba(255, 120, 0, 0.85) 45%,
+          rgba(255, 40, 0, 0.35) 72%,
+          rgba(255, 40, 0, 0) 100%
+        );
+      box-shadow:
+        0 0 6px 1px rgba(255, 180, 40, 0.85),
+        0 0 14px 3px rgba(255, 90, 0, 0.45);
+      filter: blur(0.2px);
+      animation: fireTailFlicker 0.09s infinite, fireTailHide 0.7s ease-out forwards calc(var(--rocket-launch-duration) - 0.45s);
+      transform-origin: top center;
+    }
+
+    .rocket-tail::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 2.6vmin;
+      height: 100%;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 220, 120, 0.35),
+        rgba(255, 80, 0, 0)
+      );
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    @keyframes rocketAppear {
+      0% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    @keyframes fireTailFlicker {
+      0% { opacity: 1; transform: translateX(-50%) scaleX(1) scaleY(1); }
+      50% { opacity: 0.82; transform: translateX(-50%) scaleX(1.25) scaleY(0.92); }
+      100% { opacity: 1; transform: translateX(-50%) scaleX(0.9) scaleY(1.05); }
+    }
+
+    @keyframes fireTailHide {
+      0% { opacity: 0.9; }
+      100% { opacity: 0; }
+    }
+
+    .username {
+      font-family: "Edu AU VIC WA NT Dots", cursive;
+      font-optical-sizing: auto;
+      font-weight: 400;
+      font-style: normal;
+      min-width: 80vmin;
+      text-align: center;
+      background-color: transparent;
+      min-height: 20vmin;
+      margin-left: -39vmin;
+      margin-bottom: -8vmin;
+      vertical-align: middle;
+      line-height: 20vmin;
+      position: absolute;
+      z-index: 5;
+      pointer-events: none;
+      animation: usernameGlow 1s ease-in-out infinite alternate, usernameZoom 2s ease-in-out forwards, usernameHide 3s ease-in-out forwards 3s;
+    }
+
+    @keyframes usernameGlow {
+      from {
+        text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px rgb(252, 168, 51), 0 0 40px rgb(252, 168, 51), 0 0 50px rgb(252, 168, 51), 0 0 60px rgb(252, 168, 51), 0 0 70px rgb(252, 168, 51);
+        transform: scale(0.5);
+      }
+      to {
+        text-shadow: 0 0 20px #fff, 0 0 30px rgb(255, 217, 0), 0 0 40px rgb(255, 217, 0), 0 0 50px rgb(255, 217, 0), 0 0 60px rgb(255, 217, 0), 0 0 70px rgb(255, 217, 0), 0 0 80px rgb(255, 217, 0);
+        transform: scale(1);
+      }
+    }
+
+    @keyframes usernameZoom {
+      from { transform: scale(0.01) rotate(0deg); }
+      to { transform: scale(1) rotate(var(--username-rotate)); }
+    }
+
+    @keyframes usernameHide {
+      from { opacity: 1; transform: translateY(0vmin) rotate(var(--username-rotate)); }
+      to { opacity: 0; transform: translateY(3vmin) rotate(calc(var(--username-rotate) + 2deg)); }
+    }
+
+    @keyframes rocketLaunch {
+      0% { bottom: 0; transform: translateX(-50%); }
+      100% { bottom: var(--rocket-offset-bottom); transform: translateX(calc(-60% + var(--rocket-offset))); }
+    }
+
+    @keyframes rocketExplode {
+      0% { bottom: var(--rocket-offset-bottom); transform: translateX(calc(-60% + var(--rocket-offset))) scale(1); }
+      100% { bottom: var(--rocket-offset-bottom); transform: translateX(calc(-60% + var(--rocket-offset))) scale(1.5); }
+    }
+
+    @keyframes rocketHide {
+      0% { bottom: var(--rocket-offset-bottom); transform: translateX(calc(-60% + var(--rocket-offset))) scale(1.5); opacity: 1; }
+      100% { bottom: var(--rocket-offset-bottom); transform: translateX(calc(-60% + var(--rocket-offset))) scale(1.5); opacity: 0; }
+    }
+
+    .explosion {
+      position: absolute;
+      width: 4vmin;
+      height: 4vmin;
+      animation: explosionEffect 2.5s ease-out forwards;
+      pointer-events: none;
+    }
+
+    /* Foto del donador: círculo perfecto y por encima del nombre / regalos */
+    .explosion-photo {
+      border-radius: 50%;
+      overflow: hidden;
+      z-index: 40;
+      box-shadow: 0 0 0 1.5px rgba(255,255,255,.65);
+    }
+    .explosion-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+      border-radius: 50%;
+    }
+
+    .explosion-gift {
+      z-index: 15;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    @keyframes explosionEffect {
+      0% { transform: scale(0.5); opacity: 1; }
+      30% { transform: translate(calc(var(--x) * 10vmin), calc(var(--y) * 10vmin)) scale(1.5); opacity: 1; }
+      60% { transform: translate(calc(var(--x) * 20vmin), calc(var(--y) * 20vmin)) scale(1.8); opacity: 0.8; }
+      80% { transform: translate(calc(var(--x) * 25vmin), calc(var(--y) * 25vmin)) scale(2); opacity: 0.6; }
+      100% { transform: translate(calc(var(--x) * 30vmin), calc(var(--y) * 30vmin)) scale(0.8); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="imagePreload" style="display:none;position:absolute;"></div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const FALLBACK_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const FALLBACK_GIFT = 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp';
+
+    let cfg = {
+      minCoins: 1,
+      maxFireworks: 5,
+      soundEnabled: true,
+      soundVolume: 80,
+      showUsername: true,
+      repeatWithCombos: true,
+    };
+
+    let rocketsInAirCount = 0;
+    const giftStreaks = {};
+    let audioCtx = null;
+    let noiseBuf = null;
+
+    function applyConfig(c) {
+      if (!c || typeof c !== 'object') return;
+      if (c.minCoins != null) cfg.minCoins = Math.max(0, Number(c.minCoins) || 0);
+      if (c.maxFireworks != null) cfg.maxFireworks = Math.max(1, Math.min(30, Number(c.maxFireworks) || 5));
+      if (c.soundEnabled != null) cfg.soundEnabled = !!c.soundEnabled;
+      if (c.soundVolume != null) cfg.soundVolume = Math.max(0, Math.min(100, Number(c.soundVolume) || 80));
+      if (c.showUsername != null) cfg.showUsername = !!c.showUsername;
+      if (c.repeatWithCombos != null) cfg.repeatWithCombos = !!c.repeatWithCombos;
+    }
+
+    function ensureAudio() {
+      if (audioCtx) return audioCtx;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const len = Math.floor(audioCtx.sampleRate * 2);
+        noiseBuf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+        const data = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      } catch {}
+      return audioCtx;
+    }
+
+    function noiseSrc(ctx, when, dur) {
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuf;
+      src.loop = true;
+      src.start(when);
+      src.stop(when + dur);
+      return src;
+    }
+
+    /** Silbido/whoosh de cohete subiendo */
+    function playLaunchSound(ctx, vol, t0) {
+      const src = noiseSrc(ctx, t0, 0.75);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 12;
+      bp.frequency.setValueAtTime(320, t0);
+      bp.frequency.exponentialRampToValueAtTime(3200, t0 + 0.62);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 200;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * 0.22), t0 + 0.05);
+      g.gain.linearRampToValueAtTime(Math.max(0.001, vol * 0.16), t0 + 0.45);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.72);
+      src.connect(bp);
+      bp.connect(hp);
+      hp.connect(g);
+      g.connect(ctx.destination);
+
+      // leve tono de silbido encima del ruido
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(480, t0);
+      osc.frequency.exponentialRampToValueAtTime(1900, t0 + 0.55);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0.0001, t0);
+      og.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * 0.045), t0 + 0.08);
+      og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+      osc.connect(og);
+      og.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.62);
+    }
+
+    /** Explosión de fuegos: bang + cola + crackles */
+    function playBoomSound(ctx, vol, t0) {
+      // 1) Bang grave
+      const boom = ctx.createOscillator();
+      boom.type = 'triangle';
+      boom.frequency.setValueAtTime(120, t0);
+      boom.frequency.exponentialRampToValueAtTime(28, t0 + 0.35);
+      const bg = ctx.createGain();
+      bg.gain.setValueAtTime(0.0001, t0);
+      bg.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * 0.55), t0 + 0.008);
+      bg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+      boom.connect(bg);
+      bg.connect(ctx.destination);
+      boom.start(t0);
+      boom.stop(t0 + 0.46);
+
+      // 2) Explosión principal (ruido filtrado)
+      const blast = noiseSrc(ctx, t0, 1.1);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(6500, t0);
+      lp.frequency.exponentialRampToValueAtTime(420, t0 + 0.9);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.7;
+      bp.frequency.setValueAtTime(1400, t0);
+      bp.frequency.exponentialRampToValueAtTime(380, t0 + 0.7);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * 0.7), t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * 0.18), t0 + 0.25);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.05);
+      blast.connect(lp);
+      lp.connect(bp);
+      bp.connect(g);
+      g.connect(ctx.destination);
+
+      // 3) Crackles / chispas (explosiones cortas aleatorias)
+      for (let i = 0; i < 10; i++) {
+        const at = t0 + 0.04 + Math.random() * 0.55;
+        const crack = noiseSrc(ctx, at, 0.045 + Math.random() * 0.04);
+        const cbp = ctx.createBiquadFilter();
+        cbp.type = 'bandpass';
+        cbp.Q.value = 4 + Math.random() * 6;
+        cbp.frequency.value = 1800 + Math.random() * 4200;
+        const cg = ctx.createGain();
+        const cVol = vol * (0.08 + Math.random() * 0.14);
+        cg.gain.setValueAtTime(0.0001, at);
+        cg.gain.exponentialRampToValueAtTime(Math.max(0.001, cVol), at + 0.003);
+        cg.gain.exponentialRampToValueAtTime(0.0001, at + 0.05);
+        crack.connect(cbp);
+        cbp.connect(cg);
+        cg.connect(ctx.destination);
+      }
+
+      // 4) Eco / cola lejana
+      const tail = noiseSrc(ctx, t0 + 0.12, 1.2);
+      const tlp = ctx.createBiquadFilter();
+      tlp.type = 'lowpass';
+      tlp.frequency.value = 900;
+      const tg = ctx.createGain();
+      tg.gain.setValueAtTime(0.0001, t0 + 0.12);
+      tg.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * 0.12), t0 + 0.2);
+      tg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.25);
+      tail.connect(tlp);
+      tlp.connect(tg);
+      tg.connect(ctx.destination);
+    }
+
+    /** allowEmbed: true en Test del panel (iframe) / fuerza audio OBS */
+    function playTone(kind, volMul, allowEmbed) {
+      if (!cfg.soundEnabled) return;
+      if (isEmbed && !allowEmbed) return;
+      const ctx = ensureAudio();
+      if (!ctx || !noiseBuf) return;
+      try {
+        if (ctx.state === 'suspended') ctx.resume();
+        const t0 = ctx.currentTime;
+        const vol = ((cfg.soundVolume || 80) / 100) * (volMul || 1);
+        if (kind === 'launch') playLaunchSound(ctx, vol, t0);
+        else playBoomSound(ctx, vol, t0);
+      } catch {}
+    }
+
+    function onGift(username, profilePictureUrl, giftImageUrl, forceAudio) {
+      const maxFw = Math.max(1, Number(cfg.maxFireworks) || 5);
+      if (rocketsInAirCount >= maxFw) return;
+
+      const photo = profilePictureUrl || FALLBACK_AVATAR;
+      const giftImg = giftImageUrl || FALLBACK_GIFT;
+
+      const pre1 = document.createElement('img');
+      pre1.src = photo;
+      document.getElementById('imagePreload').appendChild(pre1);
+      const pre2 = document.createElement('img');
+      pre2.src = giftImg;
+      document.getElementById('imagePreload').appendChild(pre2);
+
+      const rocket = document.createElement('div');
+      rocket.className = 'rocket';
+
+      const ball = document.createElement('div');
+      ball.className = 'rocket-ball';
+      ball.style.backgroundImage = 'url("' + String(photo).replace(/"/g, '\\"') + '")';
+
+      const tail = document.createElement('div');
+      tail.className = 'rocket-tail';
+      tail.setAttribute('aria-hidden', 'true');
+
+      rocket.appendChild(tail);
+      rocket.appendChild(ball);
+
+      const randomOffset = (Math.random() * 40 - 20) + 'vmin';
+      rocket.style.setProperty('--rocket-offset', randomOffset);
+      document.body.appendChild(rocket);
+
+      const verticalOffset = Math.floor(Math.random() * (75 - 60 + 1) + 60);
+      rocket.style.setProperty('--rocket-offset-bottom', (verticalOffset - 2) + 'vh');
+      rocket.style.setProperty('--rocket-launch-duration', (Math.random() * 1 + 2) + 's');
+
+      if (forceAudio || (!isEmbed && cfg.soundEnabled)) {
+        setTimeout(() => playTone('launch', 0.7, !!forceAudio), 300);
+      }
+
+      rocketsInAirCount += 1;
+
+      rocket.addEventListener('animationend', (e) => {
+        if (e.animationName === 'rocketLaunch') {
+          rocket.style.animation = 'rocketExplode 0.2s ease-out forwards';
+        }
+        if (e.animationName !== 'rocketExplode') return;
+
+        rocket.style.animation = 'rocketHide 1s ease-out forwards';
+
+        function makeExplosion(kind, imgUrl, i, ring) {
+          const explosion = document.createElement('div');
+          explosion.className = 'explosion ' + (kind === 'photo' ? 'explosion-photo' : 'explosion-gift');
+          explosion.style.setProperty('--x', Math.cos((i / 10) * 2 * Math.PI));
+          explosion.style.setProperty('--y', Math.sin((i / 10) * 2 * Math.PI));
+          explosion.style.left = 'calc(50% + ' + randomOffset + ' - 4vmin)';
+          explosion.style.bottom = verticalOffset + 'vh';
+          if (kind === 'photo') {
+            const img = document.createElement('img');
+            img.src = imgUrl;
+            img.alt = '';
+            img.referrerPolicy = 'no-referrer';
+            img.onerror = function () { this.onerror = null; this.src = FALLBACK_AVATAR; };
+            explosion.appendChild(img);
+          } else {
+            explosion.style.backgroundImage = 'url("' + String(imgUrl).replace(/"/g, '\\"') + '")';
+          }
+          document.body.appendChild(explosion);
+          explosion.addEventListener('animationend', () => { try { document.body.removeChild(explosion); } catch {} });
+        }
+
+        // Anillo 1: solo fotos (encima del texto)
+        for (let i = 0; i < 10; i++) makeExplosion('photo', photo, i, 1);
+
+        const possibleColors = ['#ffcc00', '#ff9d00', '#ff4d00', '#88ff00', '#00ccff', '#ff00b3'];
+        let textLabel = null;
+        if (cfg.showUsername !== false && username) {
+          textLabel = document.createElement('div');
+          textLabel.style.setProperty('--username-rotate', Math.floor(Math.random() * 20 - 10) + 'deg');
+          textLabel.innerText = username || '';
+          textLabel.style.position = 'absolute';
+          textLabel.style.left = 'calc(50% + ' + randomOffset + ' - 4vmin)';
+          textLabel.style.bottom = verticalOffset + 'vh';
+          textLabel.style.color = possibleColors[Math.floor(Math.random() * possibleColors.length)];
+          const len = (username || '').length;
+          if (len > 30) textLabel.style.fontSize = '3vmin';
+          else if (len > 15) textLabel.style.fontSize = '5vmin';
+          else if (len > 12) textLabel.style.fontSize = '7vmin';
+          else if (len > 8) textLabel.style.fontSize = '9vmin';
+          else if (len > 5) textLabel.style.fontSize = '13vmin';
+          else if (len > 3) textLabel.style.fontSize = '15vmin';
+          else textLabel.style.fontSize = '18vmin';
+          textLabel.classList.add('username');
+          document.body.appendChild(textLabel);
+        }
+
+        // Anillo 2: mezcla foto + regalo
+        setTimeout(() => {
+          for (let i = 0; i < 10; i++) {
+            if (i % 2 === 0) makeExplosion('photo', photo, i, 2);
+            else makeExplosion('gift', giftImg, i, 2);
+          }
+        }, 400);
+
+        // Anillo 3: solo regalos
+        setTimeout(() => {
+          for (let i = 0; i < 10; i++) makeExplosion('gift', giftImg, i, 3);
+        }, 800);
+
+        setTimeout(() => {
+          try { document.body.removeChild(rocket); } catch {}
+          if (textLabel) { try { document.body.removeChild(textLabel); } catch {} }
+          try { pre1.remove(); } catch {}
+          try { pre2.remove(); } catch {}
+        }, 8000);
+
+        setTimeout(() => { rocketsInAirCount = Math.max(0, rocketsInAirCount - 1); }, 2000);
+
+        if (forceAudio || (!isEmbed && cfg.soundEnabled)) {
+          setTimeout(() => playTone('boom', 1, !!forceAudio), 200);
+        }
+      });
+    }
+
+    function handleGiftPayload(giftData) {
+      if (!giftData) return;
+      const diamondsEach = Number(giftData.diamonds || giftData.diamondCount || 0);
+      if (!giftData.isTest && diamondsEach < (cfg.minCoins || 1)) return;
+
+      const nickname = giftData.nickname || '';
+      const photo = giftData.photo || giftData.profilePictureUrl || FALLBACK_AVATAR;
+      const giftImg = giftData.image || giftData.giftPictureUrl || FALLBACK_GIFT;
+      const forceAudio = !!giftData.overrideEnableAudio;
+
+      if (giftData.streakGift) {
+        const key = String(giftData.uniqueId || giftData.userId || '') + '_' + String(giftData.giftId || '');
+
+        if (cfg.repeatWithCombos === false) {
+          // Un solo cohete al empezar la racha (no uno por cada rosa)
+          if (giftData.streak && !giftStreaks[key]) {
+            giftStreaks[key] = true;
+            onGift(nickname, photo, giftImg, forceAudio);
+          }
+          if (giftData.repeatEnd || !giftData.streak) delete giftStreaks[key];
+          return;
+        }
+
+        // Combos ON: 1 cohete por cada nuevo regalo de la racha (delta)
+        if (giftData.streak) {
+          const delta = Math.max(0, Number(giftData.repeatDelta) || 0);
+          if (delta > 0) onGift(nickname, photo, giftImg, forceAudio);
+          return;
+        }
+        return;
+      }
+
+      // Regalo sin racha: siempre 1 cohete (no × monedas)
+      onGift(nickname, photo, giftImg, forceAudio);
+    }
+
+    function clearAll() {
+      rocketsInAirCount = 0;
+      Object.keys(giftStreaks).forEach((k) => delete giftStreaks[k]);
+      document.querySelectorAll('.rocket, .explosion, .username').forEach((el) => {
+        try { el.remove(); } catch {}
+      });
+      const preload = document.getElementById('imagePreload');
+      if (preload) preload.innerHTML = '';
+    }
+
+    function runTest() {
+      clearAll();
+      // forceAudio = soundEnabled → en preview (embed) el Test puede sonar si Sonido Activo está ON
+      onGift('PreviewFan', '/jarron/lv.png', FALLBACK_GIFT, !!cfg.soundEnabled);
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings' && m.payload && m.payload.fuegos) applyConfig(m.payload.fuegos);
+        if (isEmbed) return;
+        if (m.type === 'gift') handleGiftPayload(m.payload);
+        else if (m.type === 'fuegosTest') runTest();
+        else if (m.type === 'fuegosReset') clearAll();
+        else if (m.type === 'panic') clearAll();
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'fuegos') return;
+      if (d.type === 'config') applyConfig(d.config);
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') clearAll();
+    });
+
+    // Vista previa del panel: un solo cohete al cargar (no en cadena)
+    if (isEmbed) {
+      requestAnimationFrame(() => {
+        setTimeout(() => onGift('PreviewFan', '/jarron/lv.png', FALLBACK_GIFT, false), 400);
+      });
+    }
+
+    applyConfig({});
+    connect();
+  })();
+  </script>
+</body>
+</html>

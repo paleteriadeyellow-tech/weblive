@@ -435,6 +435,7 @@ const OVERLAY_CAP = {
   '/alerta-regalo.html': 'ov_alertaregalo',
   '/alerta-likes.html': 'ov_alertalikes',
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
+  '/fuegos.html': 'ov_fuegos',
   '/top1fire.html': 'ov_top1fire',
   '/toppoints.html': 'ov_toppoints',
 };
@@ -530,7 +531,7 @@ function applyCaps() {
   document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
     updateGameCardLock(card);
   });
-  // Voces TTS de servidor: Edge Colombia siempre; TikTok/Disney según plan.
+  // Voces TTS de servidor: Edge español (todos los países) siempre; TikTok/Disney según plan.
   syncTtsServerVoicePlanUi();
   // Avisos de límite + botones de crear
   applyLimitUI();
@@ -557,6 +558,7 @@ const CAP_LABELS = {
   ov_contadorseguidoresmc: 'Contador de seguidores (Minecraft)',
   ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
+  ov_fuegos: 'Fuegos artificiales',
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_mcshooter: 'Juego: Minecraft Shooters', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
@@ -571,7 +573,7 @@ const PLAN_FEATURE_ORDER = [
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
+  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
 function renderPlanView() {
@@ -1202,6 +1204,7 @@ function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'B
 function handle(type, p) {
   switch (type) {
     case 'state': renderState(p); break;
+    case 'communityGoal': renderCommunityGoal(p); break;
     case 'followerCounter':
       updateConnectAvatar({ photo: p.photo, nickname: p.nickname, username: p.uniqueId });
       break;
@@ -1387,9 +1390,10 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     const view = document.getElementById(`view-${btn.dataset.view}`);
     if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
     view.classList.add('active');
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadCommunityGoalsAdmin(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
+    if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
     if (btn.dataset.view === 'music-requests') { try { setupMusicRequestsUI(); } catch (e) { console.error('Music UI:', e); } }
@@ -1657,6 +1661,67 @@ async function loadMaintenanceAdmin() {
         status.textContent = r.ok
           ? (body.enabled ? 'Mantenimiento activado.' : 'Mantenimiento desactivado.')
           : (d.error || 'No se pudo guardar.');
+      }
+    } catch {
+      if (status) status.textContent = 'Error de conexión.';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+})();
+
+/* ---- Meta global de diamantes (admin) ---- */
+async function loadCommunityGoalsAdmin() {
+  const inp = document.getElementById('cg-admin-goal');
+  if (!inp) return;
+  try {
+    const r = await fetch('/api/admin/community-goals');
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const info = document.getElementById('cg-admin-info');
+      if (info) info.textContent = d.error || 'No se pudo cargar.';
+      return;
+    }
+    inp.value = String(d.diamondsGoal || 50000);
+    const info = document.getElementById('cg-admin-info');
+    if (info) {
+      info.textContent = `Periodo #${d.periodId || 1} · ${d.usersTracked || 0} usuarios con progreso`;
+    }
+  } catch {
+    const info = document.getElementById('cg-admin-info');
+    if (info) info.textContent = 'Error de conexión.';
+  }
+}
+
+(function setupCommunityGoalsAdmin() {
+  const btn = document.getElementById('cg-admin-save');
+  if (!btn) return;
+  btn.onclick = async () => {
+    const status = document.getElementById('cg-admin-status');
+    const inp = document.getElementById('cg-admin-goal');
+    const goal = Math.floor(Number(inp?.value));
+    if (!Number.isFinite(goal) || goal < 1) {
+      if (status) status.textContent = 'Escribe una meta válida (mín. 1).';
+      return;
+    }
+    if (!confirm(`¿Guardar meta ${goal.toLocaleString('es-MX')} diamantes y reiniciar el progreso de TODOS?`)) return;
+    btn.disabled = true;
+    if (status) status.textContent = 'Guardando…';
+    try {
+      const r = await fetch('/api/admin/community-goals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ diamondsGoal: goal }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) {
+        if (status) status.textContent = 'Guardado. Barras reiniciadas.';
+        if (inp) inp.value = String(d.diamondsGoal || goal);
+        const info = document.getElementById('cg-admin-info');
+        if (info) info.textContent = `Periodo #${d.periodId || '—'} · 0 usuarios con progreso`;
+        try { renderCommunityGoal({ diamondsGoal: d.diamondsGoal || goal, current: 0, periodId: d.periodId }); } catch {}
+      } else if (status) {
+        status.textContent = d.error || 'No se pudo guardar.';
       }
     } catch {
       if (status) status.textContent = 'Error de conexión.';
@@ -2108,6 +2173,9 @@ function renderState(s) {
   });
   renderLeaderboard(s.topGifters || []);
   try { updateHomeWelcome(s); } catch {}
+  if (s && s.communityGoal) {
+    try { renderCommunityGoal(s.communityGoal); } catch {}
+  }
 }
 
 function renderLeaderboard(list) {
@@ -2209,11 +2277,71 @@ function giftImageOf(p) {
   if (p.giftName) return giftCatalog.find((x) => x.name.toLowerCase() === String(p.giftName).toLowerCase())?.image || '';
   return '';
 }
-function addGift(p) {
-  const total = p.diamonds * (p.repeatCount || 1);
+
+/** Filas activas de rachas en el feed Regalos (una por usuario+regalo). */
+const activeGiftFeedRows = new Map();
+let lastGiftFeedSig = '';
+let lastGiftFeedAt = 0;
+
+function giftFeedRowHtml(p) {
+  const count = Math.max(1, Number(p.repeatCount) || 1);
+  const total = (Number(p.diamonds) || 0) * count;
   const img = giftImageOf(p);
   const giftIcon = img ? `<img class="gift-ic" src="${esc(img)}">` : '🎁';
-  pushRow('gifts', `${avatar(p)}<div><span class="name">${esc(p.nickname)}</span><span class="text">envió ${esc(p.giftName)} x${p.repeatCount || 1}</span></div>${giftIcon}<span class="badge">🪙 ${fmt(total)}</span>`, 'gift');
+  return `${avatar(p)}<div><span class="name">${esc(p.nickname)}</span><span class="text">envió ${esc(p.giftName)} x${count}</span></div>${giftIcon}<span class="badge">🪙 ${fmt(total)}</span>`;
+}
+
+function upsertGiftFeedRow(p, trackKey) {
+  const feed = $('gifts');
+  if (!feed) return;
+  feed.querySelector('.feed-empty')?.remove();
+  feed.querySelector('.empty')?.remove();
+  let row = trackKey ? activeGiftFeedRows.get(trackKey) : null;
+  if (row && !row.isConnected) {
+    activeGiftFeedRows.delete(trackKey);
+    row = null;
+  }
+  if (row) {
+    row.innerHTML = giftFeedRowHtml(p);
+  } else {
+    row = document.createElement('div');
+    row.className = 'row gift';
+    row.innerHTML = giftFeedRowHtml(p);
+    if (trackKey) {
+      row.dataset.giftKey = trackKey;
+      activeGiftFeedRows.set(trackKey, row);
+    }
+    feed.appendChild(row);
+    while (feed.querySelectorAll('.row').length > MAX_ROWS) {
+      const first = feed.querySelector('.row');
+      if (!first) break;
+      const k = first.dataset.giftKey;
+      if (k) activeGiftFeedRows.delete(k);
+      first.remove();
+    }
+  }
+  feed.scrollTop = feed.scrollHeight;
+  updateFeedCount('gifts');
+}
+
+function addGift(p) {
+  if (!p) return;
+  const count = Math.max(1, Number(p.repeatCount) || 1);
+  const sig = `${p.uniqueId || p.userId || ''}|${p.giftId || p.giftName || ''}|${count}|${p.repeatEnd ? 1 : 0}|${p.streak ? 1 : 0}`;
+  const now = Date.now();
+  // Evita duplicados exactos (mismo evento llegado 2 veces)
+  if (sig === lastGiftFeedSig && now - lastGiftFeedAt < 600) return;
+  lastGiftFeedSig = sig;
+  lastGiftFeedAt = now;
+
+  // Racha TikTok: una sola fila que se actualiza al total (x131 → x132), no una línea por tick
+  if (p.streakGift) {
+    const key = `${p.uniqueId || p.userId || p.nickname || ''}::${p.giftId || p.giftName || ''}`;
+    upsertGiftFeedRow(p, key);
+    if (p.repeatEnd || !p.streak) activeGiftFeedRows.delete(key);
+    return;
+  }
+  upsertGiftFeedRow(p, '');
 }
 function addEvent(text, cls) { pushRow('events', `<span class="text">${esc(text)}</span>`, `evt ${cls}`); }
 
@@ -4107,6 +4235,8 @@ let mcAudioUploadUid = null;
 
 function openSoundLib() {
   $('soundLibModal').classList.remove('hidden');
+  const pcBtn = $('sa-lib-frompc');
+  if (pcBtn) pcBtn.hidden = soundPickTarget !== 'mc';
   loadLocalSounds();
 }
 function closeSoundLib() {
@@ -4115,6 +4245,13 @@ function closeSoundLib() {
 }
 $('sa-libbtn').onclick = () => { soundPickTarget = 'alert'; openSoundLib(); };
 $('lib-close').onclick = closeSoundLib;
+if ($('sa-lib-frompc')) {
+  $('sa-lib-frompc').onclick = () => {
+    if (soundPickTarget !== 'mc' || !mcSoundPickUid) return;
+    mcAudioUploadUid = mcSoundPickUid;
+    ensureMcAudioUpload().click();
+  };
+}
 $('soundLibModal').addEventListener('click', (e) => { if (e.target.id === 'soundLibModal') closeSoundLib(); });
 $('sa-librefresh').onclick = () => loadLocalSounds();
 $('sa-libq').addEventListener('input', () => renderLocalSounds($('sa-libq').value.trim()));
@@ -5263,6 +5400,7 @@ function setupStyleOverlay(o) {
   const toPreview = (msg) => prevWin()?.postMessage({ kind: o.kind, ...msg }, '*');
   const buildCfg = () => readForm(o.map, o.types);
   const pushPreview = (cfg) => toPreview({ type: 'config', config: cfg || settings?.[o.settingsKey] || {} });
+  const syncFormExtras = () => { if (typeof o.onFormSync === 'function') o.onFormSync(); };
 
   const bumpPreviewFrame = () => new Promise((resolve) => {
     const fr = $(o.previewId);
@@ -5279,16 +5417,25 @@ function setupStyleOverlay(o) {
     fr.src = u.pathname + u.search;
   });
 
-  if ($(o.btnTest)) $(o.btnTest).onclick = async () => {
+  const runTest = async (fromModal) => {
     const extra = o.randomGift ? { gift: randomGiftSample() } : {};
     if (o.rank) extra.rank = o.rank;
+    if (fromModal) {
+      syncFormExtras();
+      pushPreview(buildCfg());
+    } else {
+      pushPreview(settings?.[o.settingsKey] || {});
+    }
     if (o.bumpPreview) await bumpPreviewFrame();
     toPreview({ type: 'test', ...extra });
     send({ action: o.testAction, ...extra });
   };
+  if ($(o.btnTest)) $(o.btnTest).onclick = () => runTest(false);
+  if (o.btnTestModal && $(o.btnTestModal)) $(o.btnTestModal).onclick = () => runTest(true);
   if ($(o.btnReset)) $(o.btnReset).onclick = () => { toPreview({ type: 'reset' }); send({ action: o.resetAction, ...(o.rank ? { rank: o.rank } : {}) }); };
   if ($(o.btnConfig)) $(o.btnConfig).onclick = () => {
     fillForm(o.map, settings?.[o.settingsKey] || {});
+    syncFormExtras();
     pushPreview(buildCfg());
     $(o.modalId).classList.remove('hidden');
   };
@@ -5297,7 +5444,10 @@ function setupStyleOverlay(o) {
   if ($(o.modalId)) $(o.modalId).addEventListener('click', (e) => { if (e.target.id === o.modalId) close(); });
   Object.keys(o.map).forEach((id) => {
     const el = $(id);
-    if (el) { el.oninput = () => pushPreview(buildCfg()); el.onchange = () => pushPreview(buildCfg()); }
+    if (el) {
+      el.oninput = () => { syncFormExtras(); pushPreview(buildCfg()); };
+      el.onchange = () => { syncFormExtras(); pushPreview(buildCfg()); };
+    }
   });
   if ($(o.saveId)) $(o.saveId).onclick = () => {
     const cfg = { ...(settings[o.settingsKey] || {}), ...buildCfg() };
@@ -5308,6 +5458,7 @@ function setupStyleOverlay(o) {
     close();
   };
   o._push = () => pushPreview();
+  syncFormExtras();
   return o;
 }
 
@@ -5544,6 +5695,23 @@ const STYLE_OVERLAYS = [
       'aflcfg-g1': 'g1', 'aflcfg-g2': 'g2', 'aflcfg-g3': 'g3', 'aflcfg-name': 'nameColor', 'aflcfg-sub': 'subColor',
       'aflcfg-avatar': 'showAvatar', 'aflcfg-rays': 'showRays', 'aflcfg-dust': 'showDust', 'aflcfg-shards': 'showShards' },
     types: { durationSec: 'int', scale: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'fuegos', settingsKey: 'fuegos', previewId: 'fw-preview',
+    btnTest: 'fw-test', btnReset: 'fw-reset', btnConfig: 'fw-config',
+    btnTestModal: 'fwcfg-test',
+    modalId: 'fwConfigModal', closeId: 'fwcfg-close', saveId: 'fwcfg-save',
+    testAction: 'testFuegos', resetAction: 'resetFuegos',
+    map: {
+      'fwcfg-mincoins': 'minCoins', 'fwcfg-maxfw': 'maxFireworks', 'fwcfg-vol': 'soundVolume',
+      'fwcfg-sound': 'soundEnabled', 'fwcfg-username': 'showUsername', 'fwcfg-combos': 'repeatWithCombos',
+    },
+    types: { minCoins: 'int', maxFireworks: 'int', soundVolume: 'int' },
+    onFormSync() {
+      const vol = $('fwcfg-vol');
+      const lab = $('fwcfg-volval');
+      if (vol && lab) lab.textContent = `${vol.value || 0}%`;
+    },
   }),
   setupStyleOverlay({
     kind: 'streamjoin', settingsKey: 'streamJoin', previewId: 'sjn-preview',
@@ -5974,41 +6142,146 @@ const LANG_NAMES = {
   de: 'Alemán', ja: 'Japonés', ko: 'Coreano', zh: 'Chino', ru: 'Ruso',
   ar: 'Árabe', hi: 'Hindi', tr: 'Turco', nl: 'Neerlandés', pl: 'Polaco',
 };
+/** Regiones Edge (Microsoft) en español — misma lógica que Colombia. */
+const TTS_EDGE_REGIONS = {
+  'es-AR': 'Argentina',
+  'es-BO': 'Bolivia',
+  'es-CL': 'Chile',
+  'es-CO': 'Colombia',
+  'es-CR': 'Costa Rica',
+  'es-CU': 'Cuba',
+  'es-DO': 'República Dominicana',
+  'es-EC': 'Ecuador',
+  'es-SV': 'El Salvador',
+  'es-GQ': 'Guinea Ecuatorial',
+  'es-GT': 'Guatemala',
+  'es-HN': 'Honduras',
+  'es-MX': 'México',
+  'es-NI': 'Nicaragua',
+  'es-PA': 'Panamá',
+  'es-PY': 'Paraguay',
+  'es-PE': 'Perú',
+  'es-PR': 'Puerto Rico',
+  'es-ES': 'España',
+  'es-US': 'Estados Unidos',
+  'es-UY': 'Uruguay',
+  'es-VE': 'Venezuela',
+};
 const TTS_EDGE_VOICES = [
-  { id: 'es-CO-SalomeNeural', label: 'Colombia — Salomé (mujer)' },
-  { id: 'es-CO-GonzaloNeural', label: 'Colombia — Gonzalo (hombre)' },
+  { id: 'es-AR-ElenaNeural', locale: 'es-AR', gender: 'f', name: 'Elena' },
+  { id: 'es-AR-TomasNeural', locale: 'es-AR', gender: 'm', name: 'Tomás' },
+  { id: 'es-BO-SofiaNeural', locale: 'es-BO', gender: 'f', name: 'Sofía' },
+  { id: 'es-BO-MarceloNeural', locale: 'es-BO', gender: 'm', name: 'Marcelo' },
+  { id: 'es-CL-CatalinaNeural', locale: 'es-CL', gender: 'f', name: 'Catalina' },
+  { id: 'es-CL-LorenzoNeural', locale: 'es-CL', gender: 'm', name: 'Lorenzo' },
+  { id: 'es-CO-SalomeNeural', locale: 'es-CO', gender: 'f', name: 'Salomé' },
+  { id: 'es-CO-GonzaloNeural', locale: 'es-CO', gender: 'm', name: 'Gonzalo' },
+  { id: 'es-CR-MariaNeural', locale: 'es-CR', gender: 'f', name: 'María' },
+  { id: 'es-CR-JuanNeural', locale: 'es-CR', gender: 'm', name: 'Juan' },
+  { id: 'es-CU-BelkysNeural', locale: 'es-CU', gender: 'f', name: 'Belkys' },
+  { id: 'es-CU-ManuelNeural', locale: 'es-CU', gender: 'm', name: 'Manuel' },
+  { id: 'es-DO-RamonaNeural', locale: 'es-DO', gender: 'f', name: 'Ramona' },
+  { id: 'es-DO-EmilioNeural', locale: 'es-DO', gender: 'm', name: 'Emilio' },
+  { id: 'es-EC-AndreaNeural', locale: 'es-EC', gender: 'f', name: 'Andrea' },
+  { id: 'es-EC-LuisNeural', locale: 'es-EC', gender: 'm', name: 'Luis' },
+  { id: 'es-SV-LorenaNeural', locale: 'es-SV', gender: 'f', name: 'Lorena' },
+  { id: 'es-SV-RodrigoNeural', locale: 'es-SV', gender: 'm', name: 'Rodrigo' },
+  { id: 'es-GQ-TeresaNeural', locale: 'es-GQ', gender: 'f', name: 'Teresa' },
+  { id: 'es-GQ-JavierNeural', locale: 'es-GQ', gender: 'm', name: 'Javier' },
+  { id: 'es-GT-MartaNeural', locale: 'es-GT', gender: 'f', name: 'Marta' },
+  { id: 'es-GT-AndresNeural', locale: 'es-GT', gender: 'm', name: 'Andrés' },
+  { id: 'es-HN-KarlaNeural', locale: 'es-HN', gender: 'f', name: 'Karla' },
+  { id: 'es-HN-CarlosNeural', locale: 'es-HN', gender: 'm', name: 'Carlos' },
+  { id: 'es-MX-DaliaNeural', locale: 'es-MX', gender: 'f', name: 'Dalia' },
+  { id: 'es-MX-JorgeNeural', locale: 'es-MX', gender: 'm', name: 'Jorge' },
+  { id: 'es-NI-YolandaNeural', locale: 'es-NI', gender: 'f', name: 'Yolanda' },
+  { id: 'es-NI-FedericoNeural', locale: 'es-NI', gender: 'm', name: 'Federico' },
+  { id: 'es-PA-MargaritaNeural', locale: 'es-PA', gender: 'f', name: 'Margarita' },
+  { id: 'es-PA-RobertoNeural', locale: 'es-PA', gender: 'm', name: 'Roberto' },
+  { id: 'es-PY-TaniaNeural', locale: 'es-PY', gender: 'f', name: 'Tania' },
+  { id: 'es-PY-MarioNeural', locale: 'es-PY', gender: 'm', name: 'Mario' },
+  { id: 'es-PE-CamilaNeural', locale: 'es-PE', gender: 'f', name: 'Camila' },
+  { id: 'es-PE-AlexNeural', locale: 'es-PE', gender: 'm', name: 'Alex' },
+  { id: 'es-PR-KarinaNeural', locale: 'es-PR', gender: 'f', name: 'Karina' },
+  { id: 'es-PR-VictorNeural', locale: 'es-PR', gender: 'm', name: 'Víctor' },
+  { id: 'es-ES-ElviraNeural', locale: 'es-ES', gender: 'f', name: 'Elvira' },
+  { id: 'es-ES-XimenaNeural', locale: 'es-ES', gender: 'f', name: 'Ximena' },
+  { id: 'es-ES-AlvaroNeural', locale: 'es-ES', gender: 'm', name: 'Álvaro' },
+  { id: 'es-US-PalomaNeural', locale: 'es-US', gender: 'f', name: 'Paloma' },
+  { id: 'es-US-AlonsoNeural', locale: 'es-US', gender: 'm', name: 'Alonso' },
+  { id: 'es-UY-ValentinaNeural', locale: 'es-UY', gender: 'f', name: 'Valentina' },
+  { id: 'es-UY-MateoNeural', locale: 'es-UY', gender: 'm', name: 'Mateo' },
+  { id: 'es-VE-PaolaNeural', locale: 'es-VE', gender: 'f', name: 'Paola' },
+  { id: 'es-VE-SebastianNeural', locale: 'es-VE', gender: 'm', name: 'Sebastián' },
 ];
+function edgeVoiceLabel(v) {
+  const region = TTS_EDGE_REGIONS[v.locale] || v.locale;
+  const sex = v.gender === 'm' ? 'hombre' : 'mujer';
+  return `${region} — ${v.name} (${sex})`;
+}
 function isEdgeTtsVoiceId(v) {
   return TTS_EDGE_VOICES.some((x) => x.id === String(v || '').trim());
 }
+function isTtsLangEdgeSpanish(lang) {
+  const l = String(lang || '').trim().toLowerCase();
+  return !!l && Object.keys(TTS_EDGE_REGIONS).some((k) => k.toLowerCase() === l);
+}
+/** Compat: Colombia sigue funcionando con el flag viejo. */
 function isTtsLangColombia(lang) {
   return String(lang || '').toLowerCase().startsWith('es-co');
 }
+function edgeVoicesForLocale(lang) {
+  const l = String(lang || '').trim().toLowerCase();
+  return TTS_EDGE_VOICES.filter((v) => v.locale.toLowerCase() === l)
+    .map((v) => ({ ...v, label: edgeVoiceLabel(v) }));
+}
+function defaultEdgeVoiceIdForLocale(lang) {
+  const list = edgeVoicesForLocale(lang);
+  if (!list.length) return TTS_EDGE_VOICES[0]?.id || '';
+  const female = list.find((v) => v.gender === 'f');
+  return (female || list[0]).id;
+}
+function edgeLocaleLabel(code) {
+  const key = Object.keys(TTS_EDGE_REGIONS).find((k) => k.toLowerCase() === String(code || '').toLowerCase());
+  if (!key) return langLabel(code);
+  return `Español (${TTS_EDGE_REGIONS[key]}) · Edge`;
+}
 function langLabel(code) {
-  const base = code.split('-')[0].toLowerCase();
+  if (isTtsLangEdgeSpanish(code)) return edgeLocaleLabel(code);
+  const base = String(code || '').split('-')[0].toLowerCase();
   const name = LANG_NAMES[base] || base.toUpperCase();
-  return code.includes('-') ? `${name} (${code})` : name;
+  return String(code || '').includes('-') ? `${name} (${code})` : name;
 }
 
 function loadVoices() {
   if (!TTS_HAS) return;
   ttsVoices = speechSynthesis.getVoices() || [];
   const t = settings?.tts || {};
-  // Idiomas únicos disponibles (+ Colombia Edge, aunque no venga del SO)
+  // Idiomas del SO + locales Edge español (siempre, aunque el SO no los traiga)
   const langSel = $('tts-lang');
   if (langSel) {
     const seen = new Map();
     ttsVoices.forEach((v) => { if (v.lang && !seen.has(v.lang)) seen.set(v.lang, true); });
-    if (!seen.has('es-CO')) seen.set('es-CO', true);
-    const langs = Array.from(seen.keys()).sort((a, b) => a.localeCompare(b, 'es'));
+    Object.keys(TTS_EDGE_REGIONS).forEach((loc) => {
+      if (!seen.has(loc)) seen.set(loc, true);
+    });
+    const langs = Array.from(seen.keys()).sort((a, b) => {
+      const ae = isTtsLangEdgeSpanish(a) ? 0 : 1;
+      const be = isTtsLangEdgeSpanish(b) ? 0 : 1;
+      if (ae !== be) return ae - be;
+      return a.localeCompare(b, 'es');
+    });
     const cur = t.lang || 'es';
     langSel.innerHTML = '<option value="">Todos los idiomas</option>' +
       langs.map((l) => {
-        const on = l === cur || (cur && (l.toLowerCase() === String(cur).toLowerCase() || (cur.length <= 2 && l.toLowerCase().startsWith(String(cur).toLowerCase() + '-'))));
+        const on = l === cur || (cur && (l.toLowerCase() === String(cur).toLowerCase() || (!isTtsLangEdgeSpanish(cur) && cur.length <= 2 && l.toLowerCase().startsWith(String(cur).toLowerCase() + '-'))));
         return `<option value="${esc(l)}" ${on ? 'selected' : ''}>${esc(langLabel(l))}</option>`;
       }).join('');
-    // Si la selección exacta es Colombia, forzarla (evita que gane es-MX por startsWith('es')).
-    if (isTtsLangColombia(cur)) langSel.value = 'es-CO';
+    // Forzar valor exacto de locale Edge (evitar que startsWith('es') gane).
+    if (isTtsLangEdgeSpanish(cur)) {
+      const exact = Object.keys(TTS_EDGE_REGIONS).find((k) => k.toLowerCase() === String(cur).toLowerCase());
+      if (exact) langSel.value = exact;
+    }
   }
   fillVoiceOptions();
   fillTtsUvLangOptions();
@@ -6019,14 +6292,16 @@ function fillVoiceOptions() {
   if (!sel) return;
   const t = settings?.tts || {};
   const langFilter = (t.lang || '').toLowerCase();
-  if (isTtsLangColombia(langFilter)) {
-    const cur = t.voice || TTS_EDGE_VOICES[0].id;
-    sel.innerHTML = TTS_EDGE_VOICES.map((v) =>
+  if (isTtsLangEdgeSpanish(langFilter)) {
+    const voices = edgeVoicesForLocale(langFilter);
+    const cur = t.voice || defaultEdgeVoiceIdForLocale(langFilter);
+    sel.innerHTML = voices.map((v) =>
       `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.label)}</option>`
     ).join('');
-    if (!TTS_EDGE_VOICES.some((v) => v.id === t.voice) && settings?.tts) {
-      settings.tts.voice = TTS_EDGE_VOICES[0].id;
-      sel.value = TTS_EDGE_VOICES[0].id;
+    if (!voices.some((v) => v.id === t.voice) && settings?.tts) {
+      const def = defaultEdgeVoiceIdForLocale(langFilter);
+      settings.tts.voice = def;
+      sel.value = def;
     }
     return;
   }
@@ -6048,6 +6323,13 @@ function applyTtsUI(t) {
   val('tts-rate', t.rate ?? 1.2); const rv = $('tts-rate-val'); if (rv) rv.textContent = (+(t.rate ?? 1.2)).toFixed(1);
   val('tts-pitch', t.pitch ?? 1); const pv = $('tts-pitch-val'); if (pv) pv.textContent = (+(t.pitch ?? 1)).toFixed(1);
   val('tts-vol', t.volume ?? 1); const vv = $('tts-vol-val'); if (vv) vv.textContent = Math.round((t.volume ?? 1) * 100);
+  // Si quedó el preset agresivo del fix anterior (4 / 10 s), volver a “leer todos”.
+  if (Number(t.maxQueue) === 4 && Number(t.maxLagSec) === 10) {
+    t.maxQueue = 50;
+    t.maxLagSec = 0;
+  }
+  val('tts-max-queue', t.maxQueue != null ? t.maxQueue : 50);
+  val('tts-max-lag', t.maxLagSec != null ? t.maxLagSec : 0);
   loadVoices();
   fillTtsUvLangOptions();
   fillTtsUvVoiceOptions();
@@ -6175,9 +6457,10 @@ const TTS_UV_LANGS = {
   disney: [
     { code: 'en', label: 'Inglés (traduce desde español)' },
   ],
-  edge: [
-    { code: 'es', label: 'Español (Colombia)' },
-  ],
+  edge: Object.keys(TTS_EDGE_REGIONS).map((code) => ({
+    code,
+    label: `Español (${TTS_EDGE_REGIONS[code]})`,
+  })),
 };
 
 function ttsTrackChatUser(p) {
@@ -6219,7 +6502,7 @@ function getDisneyVoiceCatalog() {
 }
 
 function getEdgeVoiceCatalog() {
-  return TTS_EDGE_VOICES.slice();
+  return TTS_EDGE_VOICES.map((v) => ({ id: v.id, label: edgeVoiceLabel(v), locale: v.locale }));
 }
 
 function ttsVoiceLangFromId(voiceId) {
@@ -6253,14 +6536,16 @@ function ttsVoiceLabel(engine, voice, lang) {
 
 function ttsEngineLabel(engine) {
   if (engine === 'disney') return 'Disney';
-  if (engine === 'edge') return 'Edge (Colombia)';
+  if (engine === 'edge') return 'Edge (español)';
   return engine === 'tiktok' ? 'TikTok (Server)' : 'Sistema';
 }
 
 function ttsUvLangLabel(code) {
   const c = String(code || '').toLowerCase();
+  if (isTtsLangEdgeSpanish(c)) return edgeLocaleLabel(c).replace(' · Edge', '');
   const hit = (TTS_UV_LANGS.tiktok || []).find((x) => x.code === c)
-    || (TTS_UV_LANGS.disney || []).find((x) => x.code === c);
+    || (TTS_UV_LANGS.disney || []).find((x) => x.code === c)
+    || (TTS_UV_LANGS.edge || []).find((x) => String(x.code).toLowerCase() === c);
   if (hit) return hit.label;
   return langLabel(c);
 }
@@ -6296,8 +6581,13 @@ function fillTtsUvLangOptions() {
     return;
   }
   if (engine === 'edge') {
-    sel.innerHTML = TTS_UV_LANGS.edge.map((l) => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
-    sel.value = 'es';
+    const langs = TTS_UV_LANGS.edge;
+    // Compat: UV antiguas guardaban `es` para Colombia
+    let cur = sel.value || 'es-CO';
+    if (String(cur).toLowerCase() === 'es') cur = 'es-CO';
+    sel.innerHTML = langs.map((l) => `<option value="${esc(l.code)}" ${l.code === cur ? 'selected' : ''}>${esc(l.label)}</option>`).join('');
+    if (!langs.some((l) => l.code === cur || l.code.toLowerCase() === String(cur).toLowerCase())) sel.value = 'es-CO';
+    else sel.value = cur;
     return;
   }
   if (engine === 'tiktok') {
@@ -6338,10 +6628,12 @@ function fillTtsUvVoiceOptions() {
   }
 
   if (engine === 'edge') {
-    const voices = getEdgeVoiceCatalog();
+    const voices = getEdgeVoiceCatalog().filter((v) => String(v.locale || '').toLowerCase() === lang
+      || (lang === 'es' && String(v.locale || '').toLowerCase().startsWith('es-')));
+    const list = voices.length ? voices : getEdgeVoiceCatalog();
     const cur = sel.value;
-    sel.innerHTML = voices.map((v) => `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.label)}</option>`).join('');
-    if (!voices.some((v) => v.id === cur) && voices[0]) sel.value = voices[0].id;
+    sel.innerHTML = list.map((v) => `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.label)}</option>`).join('');
+    if (!list.some((v) => v.id === cur) && list[0]) sel.value = list[0].id;
     return;
   }
 
@@ -6491,8 +6783,8 @@ function ttsSpeakTextForUser(text, userId) {
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
   if (cfg.tiktokVoice) { ttsSpeakTikTok(phrase, cfg); return; }
-  if (isEdgeTtsVoiceId(cfg.voice) || isTtsLangColombia(cfg.lang)) {
-    const edgeVoice = isEdgeTtsVoiceId(cfg.voice) ? cfg.voice : TTS_EDGE_VOICES[0].id;
+  if (isEdgeTtsVoiceId(cfg.voice) || isTtsLangEdgeSpanish(cfg.lang)) {
+    const edgeVoice = isEdgeTtsVoiceId(cfg.voice) ? cfg.voice : defaultEdgeVoiceIdForLocale(cfg.lang);
     ttsSpeakTikTok(phrase, { ...cfg, tiktokVoice: edgeVoice, tiktokTranslateEs: false });
     return;
   }
@@ -6750,9 +7042,9 @@ function ttsSpeakText(text) {
   if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
-  // Colombia Edge (idioma/voz del bloque Idioma + Voz)
-  if (isEdgeTtsVoiceId(t.voice) || (isTtsLangColombia(t.lang) && isEdgeTtsVoiceId(t.voice || TTS_EDGE_VOICES[0]?.id))) {
-    const edgeVoice = isEdgeTtsVoiceId(t.voice) ? t.voice : TTS_EDGE_VOICES[0].id;
+  // Edge español (idioma/voz del bloque Idioma + Voz, por país)
+  if (isEdgeTtsVoiceId(t.voice) || isTtsLangEdgeSpanish(t.lang)) {
+    const edgeVoice = isEdgeTtsVoiceId(t.voice) ? t.voice : defaultEdgeVoiceIdForLocale(t.lang);
     ttsSpeakTikTok(phrase, { ...t, tiktokVoice: edgeVoice, tiktokTranslateEs: false });
     return;
   }
@@ -6767,7 +7059,9 @@ function ttsSpeakText(text) {
    2) si llega mucho chat, la cola nativa se atora y `speaking` queda pegado en
       true, por lo que los mensajes siguientes NUNCA se leen.
    Para evitarlo gestionamos nosotros la cola: 1 frase a la vez, con onend/onerror
-   para avanzar y un watchdog que destraba si el motor se cuelga. */
+   para avanzar y un watchdog que destraba si el motor se cuelga.
+   Además limitamos cola + edad: si el chat va más rápido que la voz, no
+   acumulamos minutos de retraso (se descartan los comentarios viejos). */
 let ttsSysQueue = [];
 let ttsSysBusy = false;
 let ttsSysWatchdog = null;
@@ -6776,6 +7070,39 @@ const TTS_DEDUP_MS = 90000;
 const TTS_DEDUP_MAX = 400;
 let ttsLastPhrase = '';
 let ttsLastPhraseAt = 0;
+
+function ttsQueueLimits() {
+  const t = settings?.tts || {};
+  // 0 = sin límite (leer todos). Valores antiguos bajos (4) se respetan si el usuario los puso.
+  const rawQ = Number(t.maxQueue);
+  const maxQueue = !Number.isFinite(rawQ) ? 50
+    : rawQ <= 0 ? 0
+    : Math.max(1, Math.min(100, rawQ));
+  const rawLag = Number(t.maxLagSec);
+  const maxLagMs = !Number.isFinite(rawLag) || rawLag <= 0
+    ? 0
+    : Math.max(3000, Math.min(120000, rawLag * 1000));
+  return { maxQueue, maxLagMs };
+}
+
+/** Recorta por edad y deja solo los más recientes (máx. N). 0 = sin límite. Mutates the array. */
+function ttsPruneQueue(q) {
+  if (!Array.isArray(q) || !q.length) return q;
+  const { maxQueue, maxLagMs } = ttsQueueLimits();
+  if (maxLagMs > 0) {
+    const now = Date.now();
+    let i = 0;
+    while (i < q.length) {
+      const at = Number(q[i]?.at) || 0;
+      if (at && now - at > maxLagMs) q.splice(i, 1);
+      else i += 1;
+    }
+  }
+  if (maxQueue > 0) {
+    while (q.length > maxQueue) q.shift();
+  }
+  return q;
+}
 
 function ttsAlreadySpoken(key) {
   if (!key) return false;
@@ -6818,21 +7145,51 @@ function ttsSysUnstick() {
 }
 
 let ttsSysKickTimer = null;
+let ttsSysSilentSince = 0; // cuándo se detectó busy sin audio real
 
 function ttsSpeakSystem(phrase, t) {
   if (!TTS_HAS) return;
-  ttsSysQueue.push({ phrase: String(phrase || ''), t: { ...(t || {}) } });
-  if (ttsSysQueue.length > 25) ttsSysQueue.shift(); // no acumular si llega mucho chat
-  ttsSysUnstick();
-  ttsSysPump();
+  ttsSysQueue.push({ phrase: String(phrase || ''), t: { ...(t || {}) }, at: Date.now() });
+  ttsPruneQueue(ttsSysQueue);
+  // Si el motor quedó “ocupado” en silencio, destraba YA (no esperes el watchdog de 20 s).
+  if (ttsSysTryRecoverStuck()) ttsSysPump();
+  else {
+    ttsSysUnstick();
+    ttsSysPump();
+  }
+}
+
+/** true si estaba busy en silencio y se liberó. */
+function ttsSysTryRecoverStuck() {
+  if (!TTS_HAS || !ttsSysBusy) { ttsSysSilentSince = 0; return false; }
+  let speaking = false;
+  let pending = false;
+  try {
+    speaking = !!speechSynthesis.speaking;
+    pending = !!speechSynthesis.pending;
+  } catch {}
+  if (speaking || pending) { ttsSysSilentSince = 0; return false; }
+  const now = Date.now();
+  if (!ttsSysSilentSince) ttsSysSilentSince = now;
+  // ~600 ms en silencio con busy=true → el motor mintió; liberar cola.
+  if (now - ttsSysSilentSince < 600) return false;
+  if (ttsSysWatchdog) { clearTimeout(ttsSysWatchdog); ttsSysWatchdog = null; }
+  if (ttsSysKickTimer) { clearTimeout(ttsSysKickTimer); ttsSysKickTimer = null; }
+  try { speechSynthesis.cancel(); } catch {}
+  ttsSysBusy = false;
+  ttsSysSilentSince = 0;
+  return true;
 }
 
 function ttsSysPump() {
+  ttsSysTryRecoverStuck();
   ttsSysUnstick();
   if (!TTS_HAS || ttsSysBusy) return;
+  ttsPruneQueue(ttsSysQueue);
   const item = ttsSysQueue.shift();
   if (!item) return;
   ttsSysBusy = true;
+  ttsSysSilentSince = 0;
   const t = item.t || {};
   const u = new SpeechSynthesisUtterance(item.phrase);
   u.rate = t.rate || 1;
@@ -6848,18 +7205,17 @@ function ttsSysPump() {
     if (ttsSysWatchdog) { clearTimeout(ttsSysWatchdog); ttsSysWatchdog = null; }
     if (ttsSysKickTimer) { clearTimeout(ttsSysKickTimer); ttsSysKickTimer = null; }
     ttsSysBusy = false;
+    ttsSysSilentSince = 0;
     ttsSysPump();
   };
   u.onend = advance;
   u.onerror = advance;
-  // Watchdog: si onend nunca llega (motor congelado), cancelamos y seguimos con el
-  // siguiente mensaje en lugar de quedarnos mudos para siempre.
-  const estMs = Math.min(20000, 2000 + item.phrase.length * 90);
+  // Watchdog corto: si el motor no avanza, no dejes al chat 20 s mudo.
+  const estMs = Math.min(9000, 1800 + item.phrase.length * 70);
   ttsSysWatchdog = setTimeout(() => {
     try { speechSynthesis.cancel(); } catch {}
     advance();
   }, estMs);
-  // Chromium/Electron a veces tarda segundos en arrancar: despertar motor y reintentar si no habla.
   ttsWakeEngine();
   const speakNow = () => {
     try { speechSynthesis.speak(u); } catch { advance(); }
@@ -6871,35 +7227,67 @@ function ttsSysPump() {
     try { speechSynthesis.cancel(); } catch {}
     ttsWakeEngine();
     speakNow();
-  }, 350);
+  }, 280);
 }
 
-// Keep-alive: reactiva el motor periódicamente y destraba cola si quedó pegada.
+// Keep-alive + recuperación rápida de busy fantasma.
 if (TTS_HAS) {
   setInterval(() => {
     try {
       speechSynthesis.resume();
-      if (ttsSysUnstick() && ttsSysQueue.length) ttsSysPump();
+      ttsPruneQueue(ttsSysQueue);
+      ttsPruneQueue(ttsTkQueue);
+      const freed = ttsSysTryRecoverStuck() || ttsSysUnstick();
+      if (freed && ttsSysQueue.length) ttsSysPump();
+      // Cola TikTok/Edge: si busy sin audio audible y sin fetch, liberar.
+      ttsTkTryRecoverStuck();
     } catch {}
-  }, 3000);
+  }, 700);
 }
 
-/* ---- Cola de audio para voces TikTok (no se solapan; van una tras otra) ---- */
+/* ---- Cola de audio para voces TikTok/Edge (no se solapan; van una tras otra) ---- */
 let ttsTkQueue = [];
 let ttsTkBusy = false;
 let ttsTkAudio = null;
 let ttsTkAbort = null;
 let ttsTkPrefetch = null;
-const TTS_TK_FETCH_MS = 12000;
+let ttsTkBusySince = 0;
+const TTS_TK_FETCH_MS = 7000; // antes 12 s: si Edge/TikTok tarda, fallar rápido a voz sistema
 
 function ttsSpeakTikTok(phrase, t) {
-  ttsTkQueue.push({ text: phrase, voice: t.tiktokVoice, translate: t.tiktokTranslateEs !== false, volume: t.volume ?? 1 });
-  if (ttsTkQueue.length > 25) ttsTkQueue.shift(); // evita acumular si llega mucho chat
+  ttsTkQueue.push({
+    text: phrase,
+    voice: t.tiktokVoice,
+    translate: t.tiktokTranslateEs !== false,
+    volume: t.volume ?? 1,
+    at: Date.now(),
+  });
+  ttsPruneQueue(ttsTkQueue);
+  ttsTkTryRecoverStuck();
   // Empezar a pedir el audio en cuanto llega (no esperar al pump) → menos latencia.
-  if (!ttsTkBusy && ttsTkQueue.length === 1 && !ttsTkPrefetch) {
+  if (!ttsTkBusy && ttsTkQueue.length >= 1 && !ttsTkPrefetch) {
     ttsTkStartPrefetch(ttsTkQueue[0]);
   }
   ttsTkPump();
+}
+
+function ttsTkTryRecoverStuck() {
+  if (!ttsTkBusy) { ttsTkBusySince = 0; return false; }
+  const now = Date.now();
+  if (!ttsTkBusySince) ttsTkBusySince = now;
+  const audioAlive = !!(ttsTkAudio && !ttsTkAudio.paused && !ttsTkAudio.ended);
+  const fetching = !!(ttsTkAbort || ttsTkPrefetch);
+  // Más de 15 s “busy” sin audio sonando → estado zombie (p. ej. play sin onended).
+  if (audioAlive || fetching) return false;
+  if (now - ttsTkBusySince < 2500) return false;
+  try { if (ttsTkAudio) ttsTkAudio.pause(); } catch {}
+  ttsTkAudio = null;
+  if (ttsTkAbort) { try { ttsTkAbort.abort(); } catch {} ttsTkAbort = null; }
+  ttsTkPrefetch = null;
+  ttsTkBusy = false;
+  ttsTkBusySince = 0;
+  if (ttsTkQueue.length) ttsTkPump();
+  return true;
 }
 
 function ttsStopTikTok() {
@@ -6908,6 +7296,7 @@ function ttsStopTikTok() {
   if (ttsTkAbort) { try { ttsTkAbort.abort(); } catch {} ttsTkAbort = null; }
   if (ttsTkAudio) { try { ttsTkAudio.pause(); } catch {} ttsTkAudio = null; }
   ttsTkBusy = false;
+  ttsTkBusySince = 0;
 }
 
 // Corta TODO lo que se está leyendo ahora mismo (voz del sistema y cola TikTok).
@@ -6959,8 +7348,13 @@ function ttsTkStartPrefetch(item) {
 async function ttsTkPump() {
   if (ttsTkBusy) return;
   ttsTkBusy = true;
+  ttsTkBusySince = Date.now();
   while (ttsTkQueue.length) {
+    ttsPruneQueue(ttsTkQueue);
     const item = ttsTkQueue.shift();
+    if (!item) break;
+    const { maxLagMs } = ttsQueueLimits();
+    if (maxLagMs > 0 && item.at && Date.now() - item.at > maxLagMs) continue;
     let j = null;
     if (ttsTkPrefetch) {
       try { j = await ttsTkPrefetch; } catch { j = null; }
@@ -6980,24 +7374,47 @@ async function ttsTkPump() {
       await ttsPlayBase64(j.audio, j.mime || 'audio/mpeg', item.volume);
       continue;
     }
-    // Si la síntesis TikTok falla o tarda demasiado, no nos quedamos mudos: voz del sistema.
+    // Fallback inmediato a voz del sistema (no esperar otro ciclo largo).
     ttsSpeakSystem(item.text, settings?.tts || {});
   }
   ttsTkPrefetch = null;
   ttsTkBusy = false;
+  ttsTkBusySince = 0;
 }
 
 function ttsPlayBase64(b64, mime, volume) {
   return new Promise((resolve) => {
+    let doneOnce = false;
+    let hardCap = null;
+    let metaCap = null;
+    let audio = null;
+    const done = () => {
+      if (doneOnce) return;
+      doneOnce = true;
+      if (ttsTkAudio === audio) ttsTkAudio = null;
+      if (hardCap) clearTimeout(hardCap);
+      if (metaCap) clearTimeout(metaCap);
+      resolve();
+    };
     try {
-      const audio = new Audio('data:' + mime + ';base64,' + b64);
+      audio = new Audio('data:' + mime + ';base64,' + b64);
       audio.volume = Math.max(0, Math.min(1, Number(volume) ?? 1));
       ttsTkAudio = audio;
-      const done = () => { if (ttsTkAudio === audio) ttsTkAudio = null; resolve(); };
       audio.onended = done;
       audio.onerror = done;
+      // Tope duro: si onended no llega (bug/throttling), no dejes la cola congelada.
+      hardCap = setTimeout(done, 20000);
       audio.play().catch(done);
-    } catch { resolve(); }
+      audio.onloadedmetadata = () => {
+        try {
+          const d = Number(audio.duration);
+          if (Number.isFinite(d) && d > 0) {
+            if (hardCap) { clearTimeout(hardCap); hardCap = null; }
+            metaCap = setTimeout(done, Math.min(20000, d * 1000 + 1500));
+          }
+        } catch {}
+      };
+    } catch { done(); }
   });
 }
 
@@ -7081,14 +7498,16 @@ function ttsOnGift(p) {
 
   const en = $('tts-enabled');
   if (en) en.addEventListener('change', () => { settings.tts.enabled = en.checked; if (!settings.tts.enabled) ttsHardStop(); save(); });
+  bindNum('tts-max-queue', 'maxQueue');
+  bindNum('tts-max-lag', 'maxLagSec');
   const readName = $('tts-readname');
   if (readName) readName.addEventListener('change', () => { settings.tts.readName = readName.checked; syncTtsNameEmojisUI(); save(); });
   bindChk('tts-name-emojis', 'nameEmojis');
   const lang = $('tts-lang');
   if (lang) lang.addEventListener('change', () => {
     settings.tts.lang = lang.value;
-    if (isTtsLangColombia(lang.value)) {
-      settings.tts.voice = TTS_EDGE_VOICES[0].id;
+    if (isTtsLangEdgeSpanish(lang.value)) {
+      settings.tts.voice = defaultEdgeVoiceIdForLocale(lang.value);
       settings.tts.tiktokVoice = '';
       const tk = $('tts-tiktok-voice'); if (tk) tk.value = '';
     } else {
@@ -7939,7 +8358,7 @@ function applyAccEventExtras() {
   if ($('acc-eventdelayextra')) $('acc-eventdelayextra').hidden = ev !== 'emote';
   if ($('acc-cmdextra')) $('acc-cmdextra').hidden = ev !== 'chatCommand';
   if ($('acc-userextra')) $('acc-userextra').hidden = ev !== 'chatCommand';
-  if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift';
+  if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift' && ev !== 'gift-any';
 }
 
 // Muestra los campos de escena/fuente según el tipo de comando de OBS elegido.
@@ -7989,7 +8408,12 @@ function openAccModal(a) {
   $('acc-likegoal').value = a ? (a.likeGoal || 100) : 100;
   $('acc-emoteid').value = a ? (a.emoteId || '') : '';
   if ($('acc-eventdelay')) $('acc-eventdelay').value = a?.eventDelay ?? 30;
-  if ($('acc-comboinstant')) $('acc-comboinstant').checked = !!(a && a.comboInstant);
+  if ($('acc-comboinstant')) {
+    // Nuevas acciones: ON. gift-any antiguas se guardaban siempre en false (bug): tratar false como ON al abrir.
+    if (!a) $('acc-comboinstant').checked = true;
+    else if (a.event === 'gift-any' && a.comboInstant === false) $('acc-comboinstant').checked = true;
+    else $('acc-comboinstant').checked = !!a.comboInstant;
+  }
   $('acc-keys').value = a ? (a.keys || '') : '';
   $('acc-keys-on').checked = !!(a && a.keys);
   $('acc-keys-box').hidden = !(a && a.keys);
@@ -8087,7 +8511,7 @@ function saveAccModal() {
     likeGoal: +$('acc-likegoal').value || 100,
     emoteId: $('acc-emoteid').value || '',
     eventDelay: $('acc-event').value === 'emote' ? Math.max(0, parseInt($('acc-eventdelay')?.value, 10) || 0) : 0,
-    comboInstant: $('acc-event').value === 'gift' && $('acc-comboinstant')?.checked,
+    comboInstant: ($('acc-event').value === 'gift' || $('acc-event').value === 'gift-any') && !!$('acc-comboinstant')?.checked,
     keys,
     keyRepeatOn: $('acc-keys-on').checked && $('acc-keyrepeat-on')?.checked,
     keyRepeat: Math.max(1, Math.min(50, parseInt($('acc-keyrepeat')?.value, 10) || 1)),
@@ -11257,8 +11681,10 @@ function ensureMcAudioUpload() {
         hit.action.sound = data.url;
         hit.action.soundName = file.name;
         if (!hit.action.audioOn) hit.action.audioOn = true;
+        if (hit.action.soundVolume == null) hit.action.soundVolume = 100;
         flushSaveSettings();
         if (typeof hit.render === 'function') hit.render();
+        try { closeSoundLib(); } catch {}
         toast && toast('Audio subido.', 'ok');
       } catch {
         toast && toast('No se pudo subir el audio.', 'error');
@@ -13894,12 +14320,23 @@ function renderMarioActions() {
       w.querySelectorAll('.mc-act-cfg-factor').forEach((inp) => inp.onchange = () => savePatch(inp, { factor: Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)) }));
     },
   });
+  wrap.querySelectorAll('.mario-count').forEach((inp) => {
+    const apply = () => {
+      const a = find(inp.dataset.uid);
+      if (!a) return;
+      a.count = Math.max(1, Math.min(999, parseInt(inp.value, 10) || 1));
+      if (a.webhookCmd?.url) a.webhookCmd.url = applyMarioWebhookQuantity(a.webhookCmd.url, a.count);
+      saveSettings();
+    };
+    inp.oninput = apply;
+    inp.onchange = apply;
+  });
   wrap.querySelectorAll('.mario-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
   bindGameSurvivalCardExtras(wrap, find, renderMarioActions, {
     settingsKey: 'marioActions',
     testClass: 'mario-test',
-    onTest: (el) => {
-      const a = syncMarioActionFieldsFromDom(el.dataset.uid);
+    onTest: (b) => {
+      const a = syncMarioActionFieldsFromDom(b.dataset.uid);
       if (a) testMarioAction(a);
     },
   });
@@ -21134,6 +21571,26 @@ function initHomeWelcome() {
   }
 }
 
+function fmtCommunityGoalNum(n) {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  try { return v.toLocaleString('es-MX'); } catch { return String(v); }
+}
+
+function renderCommunityGoal(p) {
+  const wrap = document.getElementById('home-hero-goal');
+  const lbl = document.getElementById('home-hero-goal-lbl');
+  const nums = document.getElementById('home-hero-goal-nums');
+  const fill = document.getElementById('home-hero-goal-fill');
+  if (!wrap || !nums || !fill) return;
+  const goal = Math.max(1, Math.floor(Number(p?.diamondsGoal) || 50000));
+  const current = Math.max(0, Math.floor(Number(p?.current) || 0));
+  const pct = Math.max(0, Math.min(100, (current / goal) * 100));
+  if (lbl) lbl.textContent = `Meta ${fmtCommunityGoalNum(goal)} diamantes`;
+  nums.textContent = `${fmtCommunityGoalNum(current)} / ${fmtCommunityGoalNum(goal)}`;
+  fill.style.width = pct.toFixed(2) + '%';
+  wrap.classList.toggle('is-done', current >= goal);
+}
+
 let panelLivesTimer = null;
 
 /* ====================== Ranking semanal streamers ====================== */
@@ -21496,3 +21953,82 @@ function setupPanelLives() {
     if (IS_DESKTOP) { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     try { revealJuegosTab(); setupJuegosUI(); } catch (e) { console.error('Juegos tab:', e); }
 })();
+
+/** Packs de iconos de acciones de juegos para la pestaña Editor */
+window.getEditorGamePacks = function getEditorGamePacks() {
+  const byId = (list, dir) => (list || []).map((c) => ({
+    name: c.name || c.nombre || c.label || c.id,
+    src: `${dir}${c.id}.png`,
+  })).filter((x) => x.name && x.src);
+
+  const packs = [
+    { id: 'minecraft', name: 'Minecraft', cover: '/img/minecraft-card.jpg', items: byId(typeof MC_CATALOG !== 'undefined' ? MC_CATALOG : [], '/img/minecraft/') },
+    { id: 'mcparkour', name: 'Minecraft Parkour', cover: '/img/mcparkour-card.jpg', items: byId(typeof PARKOUR_CATALOG !== 'undefined' ? PARKOUR_CATALOG : [], '/img/parkour/') },
+    { id: 'mckoth', name: 'Minecraft KOTH', cover: '/img/mckoth-card.jpg', items: byId(typeof KOTH_CATALOG !== 'undefined' ? KOTH_CATALOG : [], '/img/koth/') },
+    { id: 'mcfarm', name: 'Minecraft Farm', cover: '/img/mcfarm-card.jpg', items: byId(typeof FARM_CATALOG !== 'undefined' ? FARM_CATALOG : [], '/img/farm/') },
+    {
+      id: 'mcshooter', name: 'Minecraft Shooters', cover: '/img/mcshooter-card.png',
+      items: (typeof MCSHOOTER_CATALOG !== 'undefined' ? MCSHOOTER_CATALOG : []).map((c) => ({
+        name: c.name,
+        src: c.img ? `/img/minecraft/${c.img}.png` : `/img/mcshooter/${c.id}.png`,
+      })),
+    },
+    { id: 'bedrock', name: 'Bedrock · Cubo TNT', cover: '/img/bedrock-card.jpg', items: byId(typeof BEDROCK_CATALOG !== 'undefined' ? BEDROCK_CATALOG : [], '/img/bedrock/') },
+    { id: 'sandbox', name: 'Sandbox', cover: '/img/sandbox-card.jpg', items: byId(typeof SANDBOX_CATALOG !== 'undefined' ? SANDBOX_CATALOG : [], '/img/sandbox/') },
+    {
+      id: 'mariobros', name: 'Mario Bros', cover: '/img/mariobros-card.jpg',
+      items: (typeof MARIO_CATALOG !== 'undefined' ? MARIO_CATALOG : []).map((c) => ({
+        name: c.nombre || c.name || c.id,
+        src: typeof marioCatalogIconUrl === 'function' ? marioCatalogIconUrl(c) : '',
+      })).filter((x) => x.src),
+    },
+    {
+      id: 'mari0', name: 'Mari0', cover: '/img/mari0-card.png',
+      items: (typeof MARI0_CATALOG !== 'undefined' ? MARI0_CATALOG : []).map((c) => ({
+        name: c.nombre || c.name || c.id,
+        src: typeof mari0CatalogIconUrl === 'function' ? mari0CatalogIconUrl(c) : `/img/mari0/${c.id}.png`,
+      })).filter((x) => x.src),
+    },
+    {
+      id: 'smw', name: 'Super Mario World', cover: '/img/smw-card.jpg',
+      items: (typeof SMW_CATALOG !== 'undefined' ? SMW_CATALOG : []).map((c) => ({
+        name: c.nombre || c.name || c.id,
+        src: typeof smwCatalogIconUrl === 'function' ? smwCatalogIconUrl(c) : `/img/smw/${c.id}.png`,
+      })).filter((x) => x.src),
+    },
+    { id: 'plantasvszombies', name: 'Plants vs Zombies', cover: '/img/plantasvszombies-card.jpg', items: byId(typeof PVZ_CATALOG !== 'undefined' ? PVZ_CATALOG : [], '/img/pvz/') },
+    { id: 'pvzhybrid', name: 'PvZ Hybrid', cover: '/img/pvzhybrid-card.jpg', items: byId(typeof PVZHYBRID_CATALOG !== 'undefined' ? PVZHYBRID_CATALOG : [], '/img/pvz/') },
+    {
+      id: 'repo', name: 'R.E.P.O.', cover: '/img/repo-card.jpg',
+      items: (typeof REPO_CATALOG !== 'undefined' ? REPO_CATALOG : []).map((c) => ({
+        name: c.nombre || c.name || c.id,
+        src: `/img/repo/${c.img || c.id}.png`,
+      })),
+    },
+    {
+      id: 'l4d', name: 'Left 4 Dead 2', cover: '/img/l4d2-card.png',
+      items: (typeof L4D_CATALOG !== 'undefined' ? L4D_CATALOG : []).map((c) => ({
+        name: c.nombre || c.name || c.id,
+        src: `/img/l4d/${c.img || c.id}.png`,
+      })),
+    },
+    {
+      id: 'unturned', name: 'Unturned', cover: '/img/unturned-card.png',
+      items: (typeof UNTURNED_CATALOG !== 'undefined' ? UNTURNED_CATALOG : []).map((c) => ({
+        name: c.nombre || c.name || c.id,
+        src: typeof unturnedCatalogIconUrl === 'function' ? unturnedCatalogIconUrl(c) : `/img/unturned/${c.id}.png`,
+      })).filter((x) => x.src),
+    },
+    {
+      id: 'crashctr', name: 'Crash Team Racing', cover: '/img/ctr-card.jpg',
+      items: (typeof CTR_CATALOG !== 'undefined' ? CTR_CATALOG : []).map((c) => ({
+        name: c.nombre || c.name || c.id,
+        src: `/img/ctr/${c.id}.webp`,
+        srcFallback: `/img/ctr/${c.id}.png`,
+      })),
+    },
+    { id: 'metalslug', name: 'Metal Slug', cover: '/img/metalslug.png', items: byId(typeof MSLUG_CATALOG !== 'undefined' ? MSLUG_CATALOG : [], '/img/mslug/') },
+    { id: 'geometrydash', name: 'Geometry Dash', cover: '/img/gdash/gdash-card.jpg', items: byId(typeof GDASH_CATALOG !== 'undefined' ? GDASH_CATALOG : [], '/img/gdash/') },
+  ];
+  return packs.filter((p) => Array.isArray(p.items) && p.items.length > 0);
+};

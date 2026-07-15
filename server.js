@@ -13,16 +13,44 @@ import ffmpegPath from 'ffmpeg-static';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
-import { createStreamerRankings } from './streamer-rankings.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
+import { createStreamerRankings } from './streamer-rankings.js';
+import { createCommunityGoals } from './community-goals.js';
+import { stopMarioBridge } from './mario-bridge.js';
+import { stopPvzHybridBridge } from './pvz-hybrid-bridge.js';
+import { stopRepoBridge, ensureRepoBridge, repoBridgeHealth, repoBridgeHealthOk, repoBridgeStatus, getRepoGameDirConfig, setRepoGameDir, installRepoMod, uninstallRepoMod } from './repo-bridge.js';
+import { stopL4dBridge, l4dBridgeHealth, l4dBridgeStatus, getL4dGameDirConfig, setL4dGameDir, discoverL4dGameDir, syncL4dGameDir, installL4dMod, uninstallL4dMod } from './l4d-bridge.js';
+import {
+  stopUnturnedBridge, unturnedBridgeHealth, unturnedBridgeStatus,
+  getUnturnedGameDirConfig, setUnturnedGameDir, discoverUnturnedSteamDir, syncUnturnedGameDir,
+  installUnturnedMod, uninstallUnturnedMod,
+} from './unturned-bridge.js';
+import { ensureMcCoreLicense, mcCoreLicenseStatus, stopMcCoreBridge } from './mc-core-bridge.js';
+import { ctrBridgeHealth, ensureCtrBridge, ctrBridgeStatus } from './ctr-bridge.js';
+import { ensureSmwBridge, smwBridgeHealth, smwBridgeStatus, installSmwMod, uninstallSmwMod } from './smw-bridge.js';
+import {
+  mslugBridgeHealth, mslugBridgeStatus, getMslugGameDirConfig, setMslugGameDir,
+  getMslugLastSpawn, MSLUG_BRIDGE_VERSION,
+  installMslugMod, uninstallMslugMod, ensureMslugBridge,
+} from './mslug-bridge.js';
+import {
+  ensureMslugSpawnWebhook, isMslugSpawnWebhookUp, mslugSpawnWebhookStatus,
+  isMslug7760WebhookUrl, runMslug7760WebhookExec,
+} from './mslug-spawn-webhook.js';
+import {
+  ensureSmbxTiktokWebhook, stopSmbxTiktokWebhook, runWebhookExec, smbxTiktokWebhookStatus,
+  isMari0EnemySpawnWebhook,
+} from './smbx-tiktok-webhook.js';
 import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, deleteUser,
-  getAuthDataInfo, restoreUsersFromBackup, findBestUsersBackup, restoreUsersFromBestBackup,
+  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
-  publicEmailFields,
+  remapSessionUserIds, importSessionsFromRecord, pruneInvalidSessions, hasAnyValidSession,
+  saveDesktopLastLogin, clearDesktopLastLogin, bootstrapDesktopSessionToken, ensureSessionForUser,
+  inferDesktopLastLoginFromUsers, getSessionUser, getDesktopLastLoginUser,
+  publicEmailFields, setUserVerifiedEmail,
 } from './auth.js';
 import {
   requestLinkEmailCode, verifyLinkEmailCode,
@@ -32,6 +60,12 @@ import {
 import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
 } from './plans.js';
+import * as spotify from './spotify.js';
+import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
+import { runGameExec, smb3HealthOk } from './game-local.js';
+import { ensureMarioBridge, ensureMari0Bridge, marioBridgeStatus, bridgeHealthOk } from './mario-bridge.js';
+import { ensurePvzHybridBridge, pvzHybridBridgeStatus, pvzHybridBridgeHealth, pvzHybridBridgeHealthOk, findPvzToolsExe } from './pvz-hybrid-bridge.js';
+import { ensurePvzToolkitBridge, pvzToolkitBridgeStatus, pvzToolkitBridgeHealth, pvzToolkitBridgeHealthOk, stopPvzToolkitBridge } from './pvz-toolkit-bridge.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -41,100 +75,217 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const streamerRankings = createStreamerRankings(DATA_DIR);
-const DEFAULT_DATA_DIR = path.join(__dirname, 'data');
-const ON_RENDER = !!process.env.RENDER;
-const USING_EPHEMERAL_DATA = ON_RENDER && path.resolve(DATA_DIR) === path.resolve(DEFAULT_DATA_DIR);
+const communityGoals = createCommunityGoals(DATA_DIR);
+const IS_DESKTOP = process.env.DESKTOP === '1';
 
-function scanDataDirUserFolders() {
-  const known = new Set(listUsers().map((u) => u.id));
-  const folders = [];
-  const orphans = [];
+/* -------------------- Migración de datos legacy (.exe) -------------------- */
+// Al renombrar la app (Hokey → Livecoins) cambió la carpeta de AppData y se
+// generaron IDs de usuario nuevos. Los perfiles viejos quedaron en la carpeta
+// anterior. Esta rutina los recupera por nombre de usuario SIN borrar nada.
+const DESKTOP_LEGACY_DATA_ROOTS = IS_DESKTOP ? [
+  path.join(process.env.APPDATA || '', 'hokey-desktop', 'data'),
+  path.join(process.env.APPDATA || '', 'Hokey Live', 'data'),
+  path.join(process.env.LOCALAPPDATA || '', 'hokey-desktop', 'data'),
+  path.join(process.env.LOCALAPPDATA || '', 'Hokey Live', 'data'),
+  path.join(__dirname, 'data'), // versión antigua que guardaba dentro del instalador
+].filter((p, i, a) => p && a.indexOf(p) === i) : [];
+
+function profileUsedCount(profilesPath) {
   try {
-    for (const name of fs.readdirSync(DATA_DIR)) {
-      if (!/^[0-9a-f-]{36}$/i.test(name)) continue;
-      const full = path.join(DATA_DIR, name);
-      if (!fs.statSync(full).isDirectory()) continue;
-      folders.push(name);
-      if (!known.has(name)) orphans.push(name);
-    }
-  } catch {}
-  return { folders, orphans };
+    const p = JSON.parse(fs.readFileSync(profilesPath, 'utf8'));
+    return Array.isArray(p?.slots) ? p.slots.filter((s) => s != null).length : 0;
+  } catch { return 0; }
 }
 
-function listUserBackupFiles() {
-  const out = [];
+function writeJsonAtomicSimple(file, obj) {
   try {
-    for (const name of fs.readdirSync(DATA_DIR)) {
-      if (!name.startsWith('users.json')) continue;
-      if (name === 'users.json') continue;
-      const full = path.join(DATA_DIR, name);
-      let count = 0;
+    const tmp = file + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
+    fs.renameSync(tmp, file);
+  } catch {}
+}
+
+function mergeProfilesData(legacy, current) {
+  if (!legacy || !Array.isArray(legacy.slots)) return current;
+  if (!current || !Array.isArray(current.slots)) return legacy;
+  const merged = {
+    active: Number.isInteger(current.active) ? current.active : (legacy.active || 0),
+    names: [],
+    slots: [],
+    general: current?.general ?? legacy?.general ?? null,
+    editMode: current?.editMode === 'general' ? 'general' : 'profile',
+  };
+  for (let i = 0; i < 10; i++) {
+    const ls = legacy.slots[i];
+    const cs = current.slots[i];
+    const lSize = ls ? JSON.stringify(ls).length : 0;
+    const cSize = cs ? JSON.stringify(cs).length : 0;
+    merged.slots[i] = lSize >= cSize ? ls : cs;
+    if (lSize > 0 && cSize > 0) merged.slots[i] = lSize >= cSize ? ls : cs;
+    const ln = String(legacy.names?.[i] || '').trim();
+    const cn = String(current.names?.[i] || '').trim();
+    const def = `Perfil ${i + 1}`;
+    merged.names[i] = (cn && cn !== def) ? cn : ((ln && ln !== def) ? ln : (cn || ln || def));
+  }
+  if (!Number.isInteger(merged.active) || merged.active < 0 || merged.active >= 10) merged.active = 0;
+  return merged;
+}
+
+function migrateUserDataFromLegacyDir(legacyDir, currentDir) {
+  if (!fs.existsSync(legacyDir)) return;
+  fs.mkdirSync(currentDir, { recursive: true });
+  const files = ['profiles.json', 'settings.json', 'weekly.json', 'points.json', 'emotes.json'];
+  for (const name of files) {
+    const from = path.join(legacyDir, name);
+    const to = path.join(currentDir, name);
+    if (!fs.existsSync(from)) continue;
+    if (name === 'profiles.json') {
+      let legacy = null;
+      let current = null;
+      try { legacy = JSON.parse(fs.readFileSync(from, 'utf8')); } catch {}
+      if (fs.existsSync(to)) { try { current = JSON.parse(fs.readFileSync(to, 'utf8')); } catch {} }
+      const merged = mergeProfilesData(legacy, current);
+      const before = current ? profileUsedCount(to) : 0;
+      const after = (merged.slots || []).filter((s) => s != null).length;
+      if (after > before || !fs.existsSync(to)) {
+        if (fs.existsSync(to)) {
+          try { fs.copyFileSync(to, to + '.bak-' + Date.now()); } catch {}
+        }
+        writeJsonAtomicSimple(to, merged);
+        console.log(`  [migrate] Perfiles fusionados: ${before} → ${after} ranuras (${path.basename(currentDir)})`);
+      }
+      continue;
+    }
+    if (!fs.existsSync(to)) {
+      try { fs.copyFileSync(from, to); } catch {}
+      continue;
+    }
+    if (name === 'settings.json') {
       try {
-        const parsed = JSON.parse(fs.readFileSync(full, 'utf8'));
-        if (Array.isArray(parsed)) count = parsed.length;
+        const fromSize = fs.statSync(from).size;
+        const toSize = fs.statSync(to).size;
+        if (fromSize > toSize + 512) {
+          try { fs.copyFileSync(to, to + '.bak-' + Date.now()); } catch {}
+          fs.copyFileSync(from, to);
+        }
       } catch {}
-      out.push({ name, bytes: fs.statSync(full).size, userCount: count });
     }
-  } catch {}
-  out.sort((a, b) => b.userCount - a.userCount || b.bytes - a.bytes);
-  return out;
+  }
 }
 
-function dirSizeBytesRecursive(dir) {
-  let total = 0;
-  try {
-    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, ent.name);
-      if (ent.isDirectory()) total += dirSizeBytesRecursive(p);
-      else if (ent.isFile()) total += fs.statSync(p).size;
+function migrateDesktopLegacyData() {
+  if (!IS_DESKTOP || !DESKTOP_LEGACY_DATA_ROOTS.length) return;
+  const currentRoot = path.resolve(DATA_DIR);
+  let currentUsers = [];
+  try { currentUsers = JSON.parse(fs.readFileSync(path.join(currentRoot, 'users.json'), 'utf8')); } catch {}
+  if (!Array.isArray(currentUsers)) currentUsers = [];
+
+  for (const legacyRootRaw of DESKTOP_LEGACY_DATA_ROOTS) {
+    const legacyRoot = path.resolve(legacyRootRaw);
+    if (legacyRoot === currentRoot || !fs.existsSync(legacyRoot)) continue;
+
+    let legacyUsers = [];
+    try { legacyUsers = JSON.parse(fs.readFileSync(path.join(legacyRoot, 'users.json'), 'utf8')); } catch {}
+    if (!Array.isArray(legacyUsers)) legacyUsers = [];
+
+    for (const cur of currentUsers) {
+      const leg = legacyUsers.find((u) => u.username === cur.username);
+      if (!leg) continue;
+      migrateUserDataFromLegacyDir(path.join(legacyRoot, leg.id), path.join(currentRoot, cur.id));
     }
-  } catch {}
-  return total;
+
+    // Si aún no hay users.json local pero sí legacy, copiamos cuentas y datos intactos.
+    if (!currentUsers.length && legacyUsers.length) {
+      for (const f of ['users.json', 'sessions.json', 'remote-cookies.json', 'plans.json', 'local-caps.json']) {
+        const from = path.join(legacyRoot, f);
+        const to = path.join(currentRoot, f);
+        if (fs.existsSync(from) && !fs.existsSync(to)) {
+          try { fs.copyFileSync(from, to); } catch {}
+        }
+      }
+      for (const leg of legacyUsers) {
+        migrateUserDataFromLegacyDir(path.join(legacyRoot, leg.id), path.join(currentRoot, leg.id));
+      }
+      console.log('  [migrate] Datos legacy importados desde', legacyRoot);
+    }
+  }
 }
 
-function pruneDiskJunk() {
-  let removed = 0;
-  let freed = 0;
-  function rm(p) {
+function migrateDesktopUserByUsername(username, userId) {
+  if (!IS_DESKTOP || !username || !userId) return;
+  const currentDir = path.join(DATA_DIR, userId);
+  const profilesPath = path.join(currentDir, 'profiles.json');
+  const before = profileUsedCount(profilesPath);
+  for (const legacyRootRaw of DESKTOP_LEGACY_DATA_ROOTS) {
+    const legacyRoot = path.resolve(legacyRootRaw);
+    if (legacyRoot === path.resolve(DATA_DIR) || !fs.existsSync(legacyRoot)) continue;
     try {
-      const st = fs.statSync(p);
-      freed += st.size;
-      fs.unlinkSync(p);
-      removed++;
+      const list = JSON.parse(fs.readFileSync(path.join(legacyRoot, 'users.json'), 'utf8'));
+      if (!Array.isArray(list)) continue;
+      const leg = list.find((u) => u.username === username);
+      if (leg) {
+        migrateUserDataFromLegacyDir(path.join(legacyRoot, leg.id), currentDir);
+        break;
+      }
     } catch {}
   }
-  try {
-    for (const name of fs.readdirSync(DATA_DIR)) {
-      const full = path.join(DATA_DIR, name);
-      if (name.endsWith('.tmp')) { rm(full); continue; }
-      if (name.startsWith('users.json.bak-')) continue; // auth.js gestiona las copias
-      if (name.startsWith('users.json.pre-restore-')) { rm(full); continue; }
+  const after = profileUsedCount(profilesPath);
+  if (after > before) {
+    // Si la room ya estaba en memoria, forzamos recarga desde disco.
+    try { if (rooms?.has?.(userId)) rooms.delete(userId); } catch {}
+  }
+}
+
+function reconcileDesktopSessions() {
+  if (!IS_DESKTOP) return;
+  const currentRoot = path.resolve(DATA_DIR);
+  let currentUsers = [];
+  try { currentUsers = JSON.parse(fs.readFileSync(path.join(currentRoot, 'users.json'), 'utf8')); } catch {}
+  if (!Array.isArray(currentUsers)) currentUsers = [];
+
+  for (const legacyRootRaw of DESKTOP_LEGACY_DATA_ROOTS) {
+    const legacyRoot = path.resolve(legacyRootRaw);
+    if (legacyRoot === currentRoot || !fs.existsSync(legacyRoot)) continue;
+
+    let legacyUsers = [];
+    let legacySessions = {};
+    try { legacyUsers = JSON.parse(fs.readFileSync(path.join(legacyRoot, 'users.json'), 'utf8')); } catch {}
+    try { legacySessions = JSON.parse(fs.readFileSync(path.join(legacyRoot, 'sessions.json'), 'utf8')); } catch {}
+    if (!Array.isArray(legacyUsers)) legacyUsers = [];
+    if (!legacySessions || typeof legacySessions !== 'object') legacySessions = {};
+
+    const idMap = new Map();
+    for (const leg of legacyUsers) {
+      const cur = currentUsers.find((u) => u.username === leg.username);
+      if (cur && cur.id !== leg.id) idMap.set(leg.id, cur.id);
     }
-    // .corrupt-* y .tmp dentro de carpetas de usuario
-    for (const name of fs.readdirSync(DATA_DIR)) {
-      const full = path.join(DATA_DIR, name);
-      if (!fs.statSync(full).isDirectory()) continue;
-      for (const f of fs.readdirSync(full)) {
-        if (f.endsWith('.tmp') || f.includes('.corrupt-')) rm(path.join(full, f));
+    if (idMap.size) remapSessionUserIds(idMap);
+
+    if (!hasAnyValidSession() && Object.keys(legacySessions).length) {
+      const remapped = {};
+      for (const [token, s] of Object.entries(legacySessions)) {
+        if (!s?.userId) continue;
+        const uid = idMap.get(s.userId) || s.userId;
+        remapped[token] = { ...s, userId: uid };
       }
+      importSessionsFromRecord(remapped);
     }
-    // Copias users.json.bak-* antiguas (mantener 3 más recientes)
-    const baks = fs.readdirSync(DATA_DIR)
-      .filter((n) => n.startsWith('users.json.bak-'))
-      .map((n) => ({ n, t: fs.statSync(path.join(DATA_DIR, n)).mtimeMs }))
-      .sort((a, b) => b.t - a.t);
-    for (const b of baks.slice(3)) rm(path.join(DATA_DIR, b.n));
-  } catch {}
-  if (removed) console.log(`  [data] Limpieza disco: ${removed} archivo(s), ~${Math.round(freed / 1024)} KB`);
-  return { removed, freed };
+  }
+
+  pruneInvalidSessions();
+  inferDesktopLastLoginFromUsers();
+  const token = bootstrapDesktopSessionToken();
+  if (token) console.log('  [auth] Sesión de escritorio restaurada tras actualización.');
 }
 
-function getDiskUsageSummary() {
-  const totalBytes = dirSizeBytesRecursive(DATA_DIR);
-  const uploadsBytes = fs.existsSync(UPLOADS_DIR) ? dirSizeBytesRecursive(UPLOADS_DIR) : 0;
-  return { totalBytes, uploadsBytes, totalMb: Math.round(totalBytes / 1024 / 1024) };
+if (IS_DESKTOP) {
+  migrateDesktopLegacyData();
+  reconcileDesktopSessions();
 }
 
+/* ----------------------------------------------------------------------------
+ * Catálogo de regalos de TikTok (compartido por todos los usuarios). Cacheado.
+ * --------------------------------------------------------------------------*/
 let giftsCache = null;
 let giftsCacheAt = 0;
 const giftsById = new Map(); // id -> { id, name, diamonds, image }
@@ -156,10 +307,9 @@ function normalizeGiftRegion(raw) {
   return GIFT_REGION_PARAMS[up] ? up : 'auto';
 }
 
-// Catálogo FIJO de respaldo (gifts.json), generado desde una PC con catálogo completo.
-// TikTok devuelve regalos distintos según la región/IP del servidor: en Render (datacenter)
-// suelen faltar varios. Por eso usamos este archivo como BASE y lo fusionamos con lo que
-// devuelva el fetch en vivo, para no perder ningún regalo.
+// Catálogo FIJO de respaldo (gifts.json). TikTok devuelve regalos distintos según la
+// región/IP del servidor; usamos este archivo como BASE y lo fusionamos con el fetch
+// en vivo para no perder ningún regalo (sobre todo en la web/Render).
 function loadGiftBaseFile() {
   try {
     const raw = fs.readFileSync(path.join(__dirname, 'gifts.json'), 'utf8');
@@ -244,16 +394,170 @@ const rooms = new Map(); // userId -> room
 
 // Capacidades efectivas de un usuario (límites + features según su plan). El admin
 // tiene todo abierto. Se recalcula siempre desde el plan actual del usuario.
+// Capacidades EXCLUSIVAS del .exe (no existen en el servidor remoto/web). El admin
+// las gestiona localmente: el catálogo remoto no las conoce, así que las inyectamos
+// aquí para que aparezcan en el editor de planes y se puedan marcar premium/gratis.
+const LOCAL_ONLY_TABS = [
+  { key: 'tab_webhook', label: 'Pestaña Webhook y Configuración (.exe)' },
+];
+// Minijuegos: exclusivos del .exe (pestaña "Juegos"). Se bloquean como los overlays.
+const LOCAL_ONLY_GAMES = [
+  { key: 'game_minecraft', label: 'Juego: Minecraft' },
+  { key: 'game_bedrock', label: 'Juego: Bedrock (Cubo TNT)' },
+  { key: 'game_sandbox', label: 'Juego: Sandbox' },
+  { key: 'game_roblox', label: 'Juego: Roblox' },
+  { key: 'game_roblox3', label: 'Juego: Roblox parkour' },
+  { key: 'game_mariobros', label: 'Juego: Mario Bros' },
+  { key: 'game_smb3', label: 'Juego: Super Mario Bros. 3' },
+  { key: 'game_mari0', label: 'Juego: Mari0' },
+  { key: 'game_plantasvszombies', label: 'Juego: Plants vs Zombies' },
+  { key: 'game_pvzhybrid', label: 'Juego: Plants vs Zombies Pack' },
+  { key: 'game_repo', label: 'Juego: R.E.P.O.' },
+  { key: 'game_l4d', label: 'Juego: Left 4 Dead' },
+  { key: 'game_unturned', label: 'Juego: Unturned' },
+  { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
+];
+const LOCAL_ONLY_KEYS = [...LOCAL_ONLY_TABS, ...LOCAL_ONLY_GAMES].map((t) => t.key);
+const LOCAL_CAPS_FILE = path.join(DATA_DIR, 'local-caps.json');
+
+function loadLocalCaps() {
+  try { return JSON.parse(fs.readFileSync(LOCAL_CAPS_FILE, 'utf8')); }
+  catch { return { free: {}, premium: {} }; }
+}
+let localCaps = loadLocalCaps();
+
+function saveLocalCapsFromBody(body) {
+  for (const plan of ['free', 'premium']) {
+    if (!localCaps[plan]) localCaps[plan] = {};
+    const feats = body && body[plan] && body[plan].features;
+    if (!feats) continue;
+    for (const k of LOCAL_ONLY_KEYS) {
+      if (feats[k] !== undefined) localCaps[plan][k] = !!feats[k];
+    }
+  }
+  try { fs.writeFileSync(LOCAL_CAPS_FILE, JSON.stringify(localCaps, null, 2)); } catch {}
+}
+
+// Inyecta las capacidades locales en la respuesta de /api/admin/plans (catálogo + valores),
+// para que el editor del admin las muestre aunque el remoto no las conozca.
+function injectLocalCaps(data) {
+  if (!data || typeof data !== 'object') return data;
+  if (data.catalog && Array.isArray(data.catalog.tabs)) {
+    for (const t of LOCAL_ONLY_TABS) {
+      if (!data.catalog.tabs.some((x) => x.key === t.key)) data.catalog.tabs.push({ ...t });
+    }
+  }
+  if (data.catalog) {
+    if (!Array.isArray(data.catalog.games)) data.catalog.games = [];
+    for (const g of LOCAL_ONLY_GAMES) {
+      if (!data.catalog.games.some((x) => x.key === g.key)) data.catalog.games.push({ ...g });
+    }
+  }
+  if (data.config) {
+    for (const plan of ['free', 'premium']) {
+      if (!data.config[plan]) data.config[plan] = { limits: {}, features: {} };
+      if (!data.config[plan].features) data.config[plan].features = {};
+      for (const k of LOCAL_ONLY_KEYS) {
+        const local = localCaps[plan] && localCaps[plan][k];
+        data.config[plan].features[k] = local !== undefined ? local : (data.config[plan].features[k] !== false);
+      }
+    }
+  }
+  return data;
+}
+
 function capsForUser(user) {
-  if (!user) return effectiveCaps('free');
+  if (!user) return applyLocalCaps(effectiveCaps('free'), 'free');
   if (user.isAdmin) return adminCaps();
-  const caps = effectiveCaps(getUserPlan(user));
+  const plan = getUserPlan(user) === 'premium' ? 'premium' : 'free';
+  const caps = applyLocalCaps(effectiveCaps(plan), plan);
+  // Override por usuario: el admin puede quitarles todos los minijuegos.
   if (!isUserGamesEnabled(user)) {
     for (const k of Object.keys(caps.features || {})) {
       if (k.startsWith('game_')) caps.features[k] = false;
     }
   }
   return caps;
+}
+
+// Sobrescribe las features locales (.exe) según el plan del usuario.
+function applyLocalCaps(caps, planName) {
+  for (const k of LOCAL_ONLY_KEYS) {
+    const v = localCaps[planName] && localCaps[planName][k];
+    if (v !== undefined) caps.features[k] = v;
+  }
+  return caps;
+}
+
+// En el .exe con login delegado, el admin guarda planes en Render pero el runtime
+// (límites, overlays bloqueados…) lee plans.json LOCAL. Esta función espeja la
+// config remota aquí y avisa a los paneles conectados.
+function applyPlansMirror(raw) {
+  const config = savePlanConfig(raw || {});
+  for (const [id, room] of rooms) {
+    const u = getUserById(id);
+    if (u) room.broadcastCaps?.(capsForUser(u));
+  }
+  return config;
+}
+
+// Al arrancar (o cuando un admin inicia sesión), trae la config de planes desde Render.
+async function syncPlansFromRemote() {
+  if (!AUTH_REMOTE) return;
+  for (const u of listUsers()) {
+    const full = getUserById(u.id);
+    if (!full?.isAdmin) continue;
+    const cookie = remoteCookies.get(u.id);
+    if (!cookie) continue;
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/plans`, { headers: { Cookie: cookie } });
+      if (!r.ok) continue;
+      const data = await r.json();
+      if (data.config) {
+        savePlanConfig(data.config);
+        console.log('  Planes sincronizados desde Render.');
+      }
+      return;
+    } catch {}
+  }
+}
+
+async function relayRoomActionToRemote(userId, action, body = {}) {
+  const cookie = remoteCookies.get(userId);
+  if (!cookie || !AUTH_REMOTE) throw new Error('Sin sesión con la nube. Cierra sesión y vuelve a entrar.');
+  const apiPath = action === 'disconnect' ? '/api/room/disconnect'
+    : action === 'spotify-charge' ? '/api/room/spotify-charge'
+    : '/api/room/connect';
+  const r = await fetch(`${AUTH_REMOTE}${apiPath}`, {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (r.status === 401 || r.status === 403) {
+    if (remoteCookies.delete(userId)) saveRemoteCookies();
+    throw new Error('Sesión con la nube caducada. Cierra sesión y vuelve a entrar.');
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `Error al conectar con la nube (${r.status})`);
+  return data;
+}
+
+async function relayEmotesFromRemote(userId) {
+  const cookie = remoteCookies.get(userId);
+  if (!cookie || !AUTH_REMOTE) return [];
+  const r = await fetch(`${AUTH_REMOTE}/api/emotes`, { headers: { Cookie: cookie } });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return [];
+  return data.results || [];
+}
+
+async function relayCommunityGiftsFromRemote(userId) {
+  const cookie = remoteCookies.get(userId);
+  if (!cookie || !AUTH_REMOTE) return [];
+  const r = await fetch(`${AUTH_REMOTE}/api/community-gifts`, { headers: { Cookie: cookie } });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return [];
+  return data.results || [];
 }
 
 function getRoomForUser(user) {
@@ -269,16 +573,35 @@ function getRoomForUser(user) {
       getLevelVideo: (lvl) => findLevelVideoUrl(lvl),
       // El room consulta esto al guardar para no exceder los límites del plan.
       getCaps: () => capsForUser(getUserById(user.id) || user),
-      onStreamerRank: (p) => streamerRankings.record(p),
+      // En el .exe: cada vez que el usuario guarda, replicamos sus ajustes a Render
+      // para que también aparezcan en la web (y en otros equipos).
+      onUserSave: () => scheduleRemoteSettingsPush(user.id),
+      // Modo relay: la conexión a TikTok la hace Render; reenviamos connect/disconnect.
+      onRelayAction: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1')
+        ? (action, data) => { relayRoomActionToRemote(user.id, action, data).catch((e) => console.error('  [relay]', action, e.message)); }
+        : undefined,
+      // Modo relay: los puntos viven en la nube. Para !play/!skip con costo, cobramos
+      // en Render (fuente de verdad) y solo seguimos si hay saldo suficiente.
+      chargeSpotifyRemote: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1')
+        ? (payload) => relayRoomActionToRemote(user.id, 'spotify-charge', payload)
+        : undefined,
+      onStreamerRank: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1') ? undefined : (p) => streamerRankings.record(p),
+      onCommunityGoalRecord: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1')
+        ? undefined
+        : (userId, delta) => communityGoals.recordDiamonds(userId, delta),
+      getCommunityGoal: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1')
+        ? undefined
+        : (userId) => communityGoals.getSnapshot(userId),
     });
     rooms.set(user.id, room);
   }
   return room;
 }
 
-// Usuarios conectados al panel y EN VIVO en TikTok (directorio público para el panel).
-// Solo lives reales: conexión activa + audiencia > 0 (o live recién iniciado).
-// Con viewers=0 suele ser conexión fantasma / live ya cerrado sin STREAM_END.
+// Usuarios conectados al panel y EN VIVO en TikTok (directorio para el panel).
+// Solo se listan lives reales: conexión activa + audiencia > 0 (o live recién
+// iniciado). Con viewers=0 suele ser conexión fantasma / live ya cerrado que
+// aún no disparó STREAM_END.
 function isActivePanelLiveEntry(stOrLive) {
   const viewers = Number(stOrLive?.viewers) || 0;
   if (viewers > 0) return true;
@@ -316,6 +639,213 @@ function listPanelLives() {
   return out;
 }
 
+/** Cuando el .exe trae lives de Render sin `plan` (API vieja), completa con usuarios locales. */
+function enrichPanelLivesPlans(lives) {
+  return (Array.isArray(lives) ? lives : []).map((l) => {
+    const remote = String(l?.plan || '').toLowerCase();
+    if (remote === 'premium' || remote === 'admin') return { ...l, plan: 'premium' };
+    const u = (l?.panelUser && getUserByUsername(String(l.panelUser))) || null;
+    const local = getUserPlan(u);
+    return { ...l, plan: local === 'premium' ? 'premium' : (remote || 'free') };
+  });
+}
+
+// ---- Sincronización de ajustes con el servidor remoto (solo .exe / AUTH_REMOTE) ----
+// Filosofía: Render es la fuente compartida. Al abrir el panel traemos (pull) los
+// ajustes del usuario desde Render; al guardar, los enviamos (push) a Render.
+const pendingSettingsPush = new Map(); // userId -> timeout
+
+function scheduleRemoteSettingsPush(userId) {
+  if (!AUTH_REMOTE) return;
+  clearTimeout(pendingSettingsPush.get(userId));
+  pendingSettingsPush.set(userId, setTimeout(() => {
+    pendingSettingsPush.delete(userId);
+    pushRemoteProfilesFull(userId).catch(() => {});
+  }, 700));
+}
+
+async function fetchRemoteProfilesFull(userId) {
+  const cookie = remoteCookies.get(userId);
+  if (!cookie || !AUTH_REMOTE) return null;
+  try {
+    const r = await fetch(`${AUTH_REMOTE}/api/profiles/full`, { headers: { Cookie: cookie } });
+    if (!r.ok) return null;
+    const data = await r.json().catch(() => ({}));
+    return data?.profiles || null;
+  } catch { return null; }
+}
+
+async function pushRemoteProfilesFull(userId) {
+  const cookie = remoteCookies.get(userId);
+  const room = rooms.get(userId);
+  if (!cookie || !room || !AUTH_REMOTE) return;
+  const profiles = room.getProfilesFull();
+  const r = await fetch(`${AUTH_REMOTE}/api/profiles/full`, {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profiles }),
+  }).catch(() => null);
+  if (r && r.ok) return;
+  await fetch(`${AUTH_REMOTE}/api/my-settings`, {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings: room.getSettings() }),
+  }).catch(() => {});
+}
+
+async function mirrorRelayProfileToLocal(user, data) {
+  if (!IS_DESKTOP) return;
+  const room = rooms.get(user.id);
+  if (!room || typeof room.importProfilesFull !== 'function') return;
+  const remoteProfiles = await fetchRemoteProfilesFull(user.id);
+  if (remoteProfiles) {
+    room.importProfilesFull(remoteProfiles, { silent: true });
+    return;
+  }
+  if (data?.settings) room.applySettings(data.settings);
+  const info = data?.profiles;
+  if (info && Number.isInteger(info.active) && typeof room.handleMessage === 'function') {
+    if (info.editingGeneral) room.handleMessage(null, { action: 'switchGeneralProfile' });
+    else room.handleMessage(null, { action: 'switchProfile', index: info.active });
+  }
+}
+
+async function pullRemoteSettings(user) {
+  if (!AUTH_REMOTE) return;
+  const cookie = remoteCookies.get(user.id);
+  if (!cookie) return;
+  if (pendingSettingsPush.has(user.id)) return;
+  try {
+    const room = getRoomForUser(user);
+    const [settingsRes, remoteProfiles] = await Promise.all([
+      fetch(`${AUTH_REMOTE}/api/my-settings`, { headers: { Cookie: cookie } }),
+      fetchRemoteProfilesFull(user.id),
+    ]);
+    const settingsData = settingsRes.ok ? await settingsRes.json().catch(() => ({})) : {};
+    const localProfiles = room.getProfilesFull();
+    const remoteScore = room.profilesFullSyncScore(remoteProfiles || {});
+    const localScore = room.profilesFullSyncScore(localProfiles);
+    const hasLocal = IS_DESKTOP && desktopHasLocalConfig(user.id);
+
+    if (remoteProfiles && remoteScore > localScore) {
+      room.importProfilesFull(remoteProfiles, { silent: true });
+      return;
+    }
+    if (hasLocal) {
+      if (localScore > 0 || !settingsData?.exists) {
+        scheduleRemoteSettingsPush(user.id);
+      } else if (settingsData?.exists && settingsData.settings) {
+        room.applySettings(settingsData.settings);
+      }
+      return;
+    }
+    if (remoteProfiles) room.importProfilesFull(remoteProfiles, { silent: true });
+    else if (settingsData?.exists && settingsData.settings) room.applySettings(settingsData.settings);
+    else if (room.hasSavedSettings()) scheduleRemoteSettingsPush(user.id);
+  } catch {}
+}
+
+function desktopHasLocalConfig(userId) {
+  const dir = path.join(DATA_DIR, userId);
+  const pf = path.join(dir, 'profiles.json');
+  if (fs.existsSync(pf) && profileUsedCount(pf) > 0) return true;
+  return fs.existsSync(path.join(dir, 'settings.json'));
+}
+
+// Refresca el plan/estado del usuario desde Render (solo .exe). El admin puede
+// activar premium en la web mientras el usuario ya está dentro del .exe: aquí
+// detectamos el cambio y actualizamos el espejo local + avisamos a su panel para
+// que apliquen los nuevos límites (y se desbloqueen los perfiles, etc.) al instante.
+async function pullRemotePlan(user) {
+  if (!AUTH_REMOTE || !user) return null;
+  const cookie = remoteCookies.get(user.id);
+  if (!cookie) return null;
+  try {
+    const r = await fetch(`${AUTH_REMOTE}/api/me`, { headers: { Cookie: cookie } });
+    if (r.status === 401 || r.status === 403) {
+      remoteCookies.delete(user.id);
+      saveRemoteCookies();
+      return null;
+    }
+    if (!r.ok) return null;
+    const me = await r.json().catch(() => ({}));
+    if (!me || me.plan === undefined) {
+      if (me?.roomKey) updateMirrorCloudRoomKey(user.id, me.roomKey);
+      return me || null;
+    }
+    const changed = updateMirrorPlan(user.id, {
+      plan: me.plan, isAdmin: me.isAdmin, active: me.active, premiumUntil: me.premiumUntil,
+      gamesEnabled: me.gamesEnabled,
+    });
+    if (changed) {
+      const room = rooms.get(user.id);
+      if (room) room.broadcastCaps?.(capsForUser(getUserById(user.id) || user));
+    }
+    if (me.roomKey) updateMirrorCloudRoomKey(user.id, me.roomKey);
+    // Devolvemos el "me" remoto para que /api/me pueda exponer la roomKey de la NUBE,
+    // que es la que el panel usa para conectar su WebSocket al servidor de Render.
+    return me;
+  } catch { return null; }
+}
+
+// Trae las roomKey de Render para TODOS los usuarios (por nombre) usando la cookie
+// de un admin. Así el .exe puede reconectar sin que cada uno cierre sesión.
+async function syncAllCloudRoomKeysFromRemote() {
+  if (!AUTH_REMOTE) return { updated: 0 };
+  let adminCookie = null;
+  for (const u of listUsers()) {
+    const full = getUserById(u.id);
+    if (!full?.isAdmin) continue;
+    const c = remoteCookies.get(u.id);
+    if (c) { adminCookie = c; break; }
+  }
+  if (!adminCookie) return { updated: 0 };
+  try {
+    const r = await fetch(`${AUTH_REMOTE}/api/admin/users`, { headers: { Cookie: adminCookie } });
+    if (r.status === 401 || r.status === 403) return { updated: 0 };
+    if (!r.ok) return { updated: 0 };
+    const data = await r.json().catch(() => ({}));
+    let updated = 0;
+    for (const remoteUser of data.users || []) {
+      if (!remoteUser?.username || !remoteUser.roomKey) continue;
+      const local = getUserByUsername(remoteUser.username);
+      if (!local) continue;
+      if (updateMirrorCloudRoomKey(local.id, remoteUser.roomKey)) updated++;
+    }
+    if (updated > 0) console.log(`  [cloud] ${updated} roomKey(s) de la nube sincronizadas.`);
+    return { updated };
+  } catch { return { updated: 0 }; }
+}
+
+let cloudKeySyncBusy = false;
+async function fetchCloudRoomKeyByUsername(username) {
+  if (!AUTH_REMOTE || !username) return null;
+  try {
+    const r = await fetch(`${AUTH_REMOTE}/api/relay/mirror-room-key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json().catch(() => ({}));
+    return data.roomKey || null;
+  } catch { return null; }
+}
+
+async function ensureCloudRoomKeyCached(user) {
+  const full = getUserById(user.id);
+  if (full?.cloudRoomKey || !AUTH_REMOTE) return;
+  if (cloudKeySyncBusy) return;
+  cloudKeySyncBusy = true;
+  try {
+    await syncAllCloudRoomKeysFromRemote();
+    const again = getUserById(user.id);
+    if (again?.cloudRoomKey) return;
+    const key = await fetchCloudRoomKeyByUsername(user.username);
+    if (key) updateMirrorCloudRoomKey(user.id, key);
+  } finally { cloudKeySyncBusy = false; }
+}
+
 // El primer usuario que se registra hereda la configuración antigua (settings.json /
 // weekly.json en la raíz), para no perder lo que ya tenías ajustado.
 function maybeMigrateLegacy(user) {
@@ -334,267 +864,92 @@ function maybeMigrateLegacy(user) {
 /* ----------------------------------------------------------------------------
  * Servidor HTTP + estáticos
  * --------------------------------------------------------------------------*/
-// Subidas del usuario en disco persistente (DATA_DIR), no en public/ (se borra al redesplegar).
+// Subidas y bibliotecas locales: disco persistente (userData en .exe). Las carpetas
+// dentro del instalador (public/uploads, public/audios, public/video…) se borran al
+// actualizar; solo se usan como origen legacy al migrar archivos viejos.
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(DATA_DIR, 'uploads');
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const PROJECT_VIDEOS_DIR = path.join(__dirname, 'public', 'video');
+const VIDEOS_DIR = process.env.LOCAL_VIDEOS_DIR || PROJECT_VIDEOS_DIR;
+const AUDIOS_DIR = process.env.AUDIOS_DIR || path.join(__dirname, 'public', 'audios');
+const BATALLA_VIDEOS_DIR = process.env.BATALLA_DIR || path.join(VIDEOS_DIR, 'batalla');
+const NIVELES_VIDEOS_DIR = process.env.NIVELES_DIR || path.join(VIDEOS_DIR, 'niveles');
+const PROJECT_NIVELES_DIR = path.join(PROJECT_VIDEOS_DIR, 'niveles');
+const PROJECT_BATALLA_DIR = path.join(PROJECT_VIDEOS_DIR, 'batalla');
+for (const d of [UPLOADS_DIR, AUDIOS_DIR, VIDEOS_DIR, BATALLA_VIDEOS_DIR, NIVELES_VIDEOS_DIR]) {
+  fs.mkdirSync(d, { recursive: true });
+}
 
-(function migrateUploadsToPersistentDir() {
-  const dest = path.resolve(UPLOADS_DIR);
-  const legacy = path.resolve(path.join(__dirname, 'public', 'uploads'));
-  if (legacy === dest || !fs.existsSync(legacy)) return;
+function desktopLegacyUserDataSubdirs(sub) {
+  const out = [];
+  if (!IS_DESKTOP) return out;
+  for (const root of [process.env.APPDATA, process.env.LOCALAPPDATA].filter(Boolean)) {
+    for (const name of ['Livecoins', 'hokey-desktop', 'Hokey Live', 'livecoins', 'hokey']) {
+      out.push(path.join(root, name, sub));
+    }
+  }
+  return out;
+}
+
+function migrateFilesToPersistentDir(dest, legacyDirs, label) {
+  const destResolved = path.resolve(dest);
   let copied = 0;
-  try {
-    for (const f of fs.readdirSync(legacy)) {
-      const from = path.join(legacy, f);
-      const to = path.join(dest, f);
-      if (fs.statSync(from).isFile() && !fs.existsSync(to)) {
-        fs.copyFileSync(from, to);
-        copied++;
-      }
-    }
-  } catch {}
-  if (copied) console.log(`  [migrate] ${copied} archivo(s) de uploads → ${dest}`);
-})();
-
-// Límites de almacenamiento web (Render). Evita llenar el disco persistente.
-const UPLOAD_MAX_FILE_BYTES = Math.max(1, Number(process.env.UPLOAD_MAX_FILE_MB) || 80) * 1024 * 1024;
-const UPLOAD_MAX_USER_BYTES = Math.max(UPLOAD_MAX_FILE_BYTES, Number(process.env.UPLOAD_MAX_USER_MB) || 150) * 1024 * 1024;
-const UPLOAD_PRUNE_MAX_AGE_MS = Math.max(1, Number(process.env.UPLOAD_PRUNE_DAYS) || 30) * 86400000;
-
-function userUploadDir(userId) {
-  const dir = path.join(UPLOADS_DIR, String(userId));
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-function dirSizeBytes(dir) {
-  try {
-    let n = 0;
-    for (const f of fs.readdirSync(dir)) {
-      const p = path.join(dir, f);
-      if (fs.statSync(p).isFile()) n += fs.statSync(p).size;
-    }
-    return n;
-  } catch { return 0; }
-}
-
-function normalizeUploadRef(u) {
-  if (!u || typeof u !== 'string') return '';
-  if (u.startsWith('/uploads/')) return u.split('?')[0];
-  try {
-    const p = new URL(u);
-    if (p.pathname.startsWith('/uploads/')) return p.pathname.split('?')[0];
-  } catch {}
-  return '';
-}
-
-function scanSettingsForUploadRefs(obj, refs) {
-  if (!obj || typeof obj !== 'object') return;
-  if (Array.isArray(obj)) { for (const x of obj) scanSettingsForUploadRefs(x, refs); return; }
-  for (const [k, v] of Object.entries(obj)) {
-    if ((k === 'url' || k === 'sound') && typeof v === 'string') {
-      const r = normalizeUploadRef(v);
-      if (r) refs.add(r);
-    } else if (typeof v === 'string' && v.includes('/uploads/')) {
-      const r = normalizeUploadRef(v);
-      if (r) refs.add(r);
-    } else if (v && typeof v === 'object') scanSettingsForUploadRefs(v, refs);
-  }
-}
-
-function collectReferencedUploads() {
-  const refs = new Set();
-  for (const u of listUsers()) {
-    const dir = path.join(DATA_DIR, u.id);
-    for (const file of ['profiles.json', 'settings.json']) {
-      try {
-        scanSettingsForUploadRefs(JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8')), refs);
-      } catch {}
-    }
-    const room = rooms.get(u.id);
-    if (room) {
-      try { scanSettingsForUploadRefs(room.getSettings(), refs); } catch {}
-    }
-  }
-  return refs;
-}
-
-function pruneOrphanUploads() {
-  const refs = collectReferencedUploads();
-  const cutoff = Date.now() - UPLOAD_PRUNE_MAX_AGE_MS;
-  let removed = 0;
-  function walk(absDir, urlPrefix) {
+  for (const legacyRaw of legacyDirs) {
+    const legacy = path.resolve(legacyRaw);
+    if (legacy === destResolved || !fs.existsSync(legacy)) continue;
     let entries;
-    try { entries = fs.readdirSync(absDir, { withFileTypes: true }); } catch { return; }
+    try { entries = fs.readdirSync(legacy, { withFileTypes: true }); } catch { continue; }
     for (const ent of entries) {
-      const abs = path.join(absDir, ent.name);
-      if (ent.isDirectory()) {
-        walk(abs, urlPrefix ? `${urlPrefix}${ent.name}/` : `${ent.name}/`);
-        continue;
-      }
       if (!ent.isFile()) continue;
-      const rel = urlPrefix ? `${urlPrefix}${ent.name}` : ent.name;
-      const urlPath = (`/uploads/${rel}`).replace(/\/+/g, '/');
-      const legacyPath = `/uploads/${ent.name}`;
-      let st;
-      try { st = fs.statSync(abs); } catch { continue; }
-      const referenced = refs.has(urlPath) || (!urlPrefix && refs.has(legacyPath));
-      if (!referenced && st.mtimeMs < cutoff) {
-        try { fs.unlinkSync(abs); removed++; } catch {}
-      }
-    }
-  }
-  walk(UPLOADS_DIR, '');
-  if (removed) console.log(`  [uploads] Limpieza: ${removed} archivo(s) huérfanos (>${UPLOAD_PRUNE_MAX_AGE_MS / 86400000} días)`);
-}
-
-const PERSISTENT_VIDEO_EXT = new Set([
-  '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v', '.mpeg', '.mpg', '.wmv', '.flv', '.3gp',
-]);
-
-// Borra todos los videos subidos al disco persistente (/var/data/uploads).
-function clearPersistentUploadVideos() {
-  let removed = 0;
-  let freed = 0;
-  function walk(dir) {
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const ent of entries) {
-      const abs = path.join(dir, ent.name);
-      if (ent.isDirectory()) { walk(abs); continue; }
-      if (!ent.isFile()) continue;
-      const ext = path.extname(ent.name).toLowerCase();
-      if (!PERSISTENT_VIDEO_EXT.has(ext)) continue;
+      const from = path.join(legacy, ent.name);
+      const to = path.join(destResolved, ent.name);
       try {
-        const st = fs.statSync(abs);
-        fs.unlinkSync(abs);
-        removed++;
-        freed += st.size;
+        if (!fs.existsSync(to)) {
+          fs.copyFileSync(from, to);
+          copied++;
+        }
       } catch {}
     }
   }
-  if (fs.existsSync(UPLOADS_DIR)) walk(UPLOADS_DIR);
-  return { removed, freed };
+  if (copied) console.log(`  [migrate] ${copied} archivo(s) de ${label} → ${destResolved}`);
 }
 
-// Borra todo el contenido de uploads (videos, audios, imágenes subidas).
-function clearAllPersistentUploads() {
-  let removed = 0;
-  let freed = 0;
-  function walk(dir) {
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const ent of entries) {
-      const abs = path.join(dir, ent.name);
-      if (ent.isDirectory()) { walk(abs); continue; }
-      if (!ent.isFile()) continue;
-      try {
-        const st = fs.statSync(abs);
-        fs.unlinkSync(abs);
-        removed++;
-        freed += st.size;
-      } catch {}
-    }
-  }
-  if (fs.existsSync(UPLOADS_DIR)) walk(UPLOADS_DIR);
-  return { removed, freed };
+function migrateDesktopMediaToPersistentDirs() {
+  migrateFilesToPersistentDir(UPLOADS_DIR, [
+    path.join(__dirname, 'public', 'uploads'),
+    path.join(DATA_DIR, 'uploads'),
+    ...desktopLegacyUserDataSubdirs('uploads'),
+  ], 'uploads');
+  migrateFilesToPersistentDir(AUDIOS_DIR, [
+    path.join(__dirname, 'public', 'audios'),
+    ...desktopLegacyUserDataSubdirs('audios'),
+  ], 'audios');
+  migrateFilesToPersistentDir(VIDEOS_DIR, [
+    PROJECT_VIDEOS_DIR,
+    ...desktopLegacyUserDataSubdirs('video'),
+  ], 'video');
+  migrateFilesToPersistentDir(BATALLA_VIDEOS_DIR, [
+    PROJECT_BATALLA_DIR,
+    path.join(PROJECT_VIDEOS_DIR, 'batalla'),
+    ...desktopLegacyUserDataSubdirs('video-batalla'),
+    ...desktopLegacyUserDataSubdirs(path.join('video', 'batalla')),
+  ], 'video/batalla');
+  migrateFilesToPersistentDir(NIVELES_VIDEOS_DIR, [
+    PROJECT_NIVELES_DIR,
+    ...desktopLegacyUserDataSubdirs('niveles'),
+    ...desktopLegacyUserDataSubdirs(path.join('video', 'niveles')),
+  ], 'niveles');
 }
-
-const BLOATED_USER_FILES = [
-  'session-overlays.json', 'weekly.json', 'top1fire.json', 'habibi-top.json',
-];
-const BLOATED_JSON_MAX_BYTES = 1.5 * 1024 * 1024;
-
-function pruneBloatedUserDataFiles() {
-  let removed = 0;
-  let freed = 0;
-  try {
-    for (const name of fs.readdirSync(DATA_DIR)) {
-      if (!/^[0-9a-f-]{36}$/i.test(name)) continue;
-      const userDir = path.join(DATA_DIR, name);
-      if (!fs.statSync(userDir).isDirectory()) continue;
-      for (const fname of BLOATED_USER_FILES) {
-        const f = path.join(userDir, fname);
-        if (!fs.existsSync(f)) continue;
-        let st;
-        try { st = fs.statSync(f); } catch { continue; }
-        if (st.size < BLOATED_JSON_MAX_BYTES) continue;
-        try {
-          fs.unlinkSync(f);
-          removed++;
-          freed += st.size;
-        } catch {}
-      }
-    }
-  } catch {}
-  return { removed, freed };
-}
-
-function getDiskFreeBytes(dir = DATA_DIR) {
-  try {
-    const s = fs.statfsSync(dir);
-    return Number(s.bfree) * Number(s.bsize);
-  } catch { return null; }
-}
-
-function emergencyFreeDiskSpace() {
-  if (!ON_RENDER) return null;
-  const freeBefore = getDiskFreeBytes();
-  const videos = clearPersistentUploadVideos();
-  const uploads = clearAllPersistentUploads();
-  const junk = pruneDiskJunk();
-  const bloated = pruneBloatedUserDataFiles();
-  const freeAfter = getDiskFreeBytes();
-  const totalFreed = videos.freed + uploads.freed + junk.freed + bloated.freed;
-  const mb = (n) => (n == null ? '?' : Math.round(n / 1024 / 1024));
-  console.log(`  [data] Disco libre: ${mb(freeBefore)} MB → ${mb(freeAfter)} MB (liberados ~${Math.round(totalFreed / 1024 / 1024)} MB)`);
-  if (videos.removed) console.log(`  [uploads] Videos eliminados: ${videos.removed}`);
-  if (uploads.removed) console.log(`  [uploads] Archivos en uploads eliminados: ${uploads.removed}`);
-  if (bloated.removed) console.log(`  [data] JSON pesados eliminados: ${bloated.removed}`);
-  if ((freeAfter ?? 0) < 50 * 1024 * 1024) {
-    console.error('  [!] DISCO CASI LLENO: amplía el disco en Render o borra datos manualmente en Shell.');
-  }
-  return { freeBefore, freeAfter, totalFreed, videos, uploads, junk, bloated };
-}
-
-// Antes de rutas/rooms: libera espacio para que profiles.json pueda guardarse.
-emergencyFreeDiskSpace();
-
-function trimUserUploadQuota(userId) {
-  const dir = path.join(UPLOADS_DIR, String(userId));
-  if (!fs.existsSync(dir)) return;
-  let used = dirSizeBytes(dir);
-  if (used <= UPLOAD_MAX_USER_BYTES) return;
-  const refs = collectReferencedUploads();
-  const files = fs.readdirSync(dir).map((f) => {
-    const p = path.join(dir, f);
-    const st = fs.statSync(p);
-    return { p, mtime: st.mtimeMs, size: st.size, url: `/uploads/${userId}/${f}` };
-  }).sort((a, b) => a.mtime - b.mtime);
-  for (const f of files) {
-    if (used <= UPLOAD_MAX_USER_BYTES) break;
-    if (refs.has(f.url)) continue;
-    try { fs.unlinkSync(f.p); used -= f.size; } catch {}
-  }
-}
-
-setInterval(() => { try { pruneOrphanUploads(); } catch {} }, 24 * 3600 * 1000);
-
-const AUDIOS_DIR = path.join(__dirname, 'public', 'audios');
-fs.mkdirSync(AUDIOS_DIR, { recursive: true });
-const VIDEOS_DIR = path.join(__dirname, 'public', 'video');
-fs.mkdirSync(VIDEOS_DIR, { recursive: true });
-// Carpeta dedicada para los videos de la pestaña Batallas (videos AI de batalla).
-const BATALLA_VIDEOS_DIR = path.join(VIDEOS_DIR, 'batalla');
-fs.mkdirSync(BATALLA_VIDEOS_DIR, { recursive: true });
-// Carpeta fija: public/video/niveles (nivel1.webm, nivel2.webm…).
-const NIVELES_VIDEOS_DIR = path.join(VIDEOS_DIR, 'niveles');
-fs.mkdirSync(NIVELES_VIDEOS_DIR, { recursive: true });
+migrateDesktopMediaToPersistentDirs();
 
 function nivelesSources() {
-  return [{ dir: NIVELES_VIDEOS_DIR, urlBase: '/video/niveles/' }];
+  const out = [{ dir: NIVELES_VIDEOS_DIR, urlBase: '/niveles/' }];
+  if (path.resolve(PROJECT_NIVELES_DIR) !== path.resolve(NIVELES_VIDEOS_DIR)) {
+    out.push({ dir: PROJECT_NIVELES_DIR, urlBase: '/video/niveles/' });
+  }
+  return out;
 }
 
+// Busca nivelN.webm (u otro formato compatible) para el nivel alcanzado.
 const NIVEL_EXTS = ['.webm', '.mp4', '.gif', '.webp', '.png', '.jpg', '.jpeg', '.mov', '.mkv'];
 function findLevelVideoUrl(level) {
   const n = Number(level) || 0;
@@ -618,34 +973,115 @@ function findLevelVideoUrl(level) {
 
 const app = express();
 
-/* --------------------------- Modo mantenimiento (web) --------------------------- */
-const MAINTENANCE_FILE = path.join(DATA_DIR, 'maintenance.json');
-function readMaintenance() {
-  try { return JSON.parse(fs.readFileSync(MAINTENANCE_FILE, 'utf8')); }
-  catch { return { enabled: false, message: '', updatedAt: 0 }; }
-}
-function writeMaintenance(data) {
-  const tmp = MAINTENANCE_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-  fs.renameSync(tmp, MAINTENANCE_FILE);
-}
-function isMaintenanceOn() {
-  if (process.env.MAINTENANCE === '1' || process.env.MAINTENANCE === 'true') return true;
-  return !!readMaintenance().enabled;
+/* ------------------------------- Autenticación ------------------------------- */
+// Login delegado (app .exe): si AUTH_REMOTE está definido, las cuentas son las de la
+// web. Validamos usuario/clave contra el servidor remoto y, si es correcto, creamos
+// un "espejo" local para que el mismo usuario funcione en el .exe (y luego offline).
+const AUTH_REMOTE = (process.env.AUTH_REMOTE || '').replace(/\/+$/, '');
+
+// Cookies de sesión remota (Render) por usuario local. Las usamos para que el panel
+// de Administración del .exe gestione las cuentas reales de la web. Se persisten para
+// que sobrevivan a reinicios de la app (caducan junto con la sesión remota).
+const REMOTE_COOKIES_FILE = path.join(DATA_DIR, 'remote-cookies.json');
+let remoteCookies = new Map();
+try { remoteCookies = new Map(Object.entries(JSON.parse(fs.readFileSync(REMOTE_COOKIES_FILE, 'utf8')))); } catch {}
+function saveRemoteCookies() {
+  try { fs.writeFile(REMOTE_COOKIES_FILE, JSON.stringify(Object.fromEntries(remoteCookies)), () => {}); } catch {}
 }
 
-/* ------------------------------- Autenticación ------------------------------- */
-app.get('/api/maintenance', (_req, res) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  const m = readMaintenance();
-  res.json({ enabled: !!m.enabled, message: String(m.message || '') });
-});
+function getSetCookies(headers) {
+  try { if (typeof headers.getSetCookie === 'function') return headers.getSetCookie(); } catch {}
+  const c = headers.get('set-cookie');
+  return c ? [c] : [];
+}
+
+// Devuelve { ok, plan, isAdmin, active, cookie } | { error } | { network:true } (fallo de red).
+async function remoteLogin(username, password) {
+  try {
+    const r = await fetch(`${AUTH_REMOTE}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: data.error || 'Usuario o contraseña incorrectos.' };
+    // Recupera el plan/estado real con la cookie de sesión que nos dio el login.
+    const cookie = getSetCookies(r.headers).map((c) => c.split(';')[0]).join('; ');
+    let me = {};
+    try {
+      const rm = await fetch(`${AUTH_REMOTE}/api/me`, { headers: { Cookie: cookie } });
+      if (rm.ok) me = await rm.json();
+    } catch {}
+    return {
+      ok: true, plan: me.plan || 'free', isAdmin: !!me.isAdmin, active: me.active !== false,
+      cookie, roomKey: me.roomKey || '',
+    };
+  } catch {
+    return { network: true };
+  }
+}
+
+// Reenvía una petición de administración al servidor remoto usando la cookie del admin.
+// Devuelve true si la atendió (éxito o error del remoto) o false si no hay sesión remota
+// (en ese caso el endpoint cae a la lógica local).
+async function proxyAdminToRemote(req, res, apiPath, method = 'GET') {
+  const cookie = req.user && remoteCookies.get(req.user.id);
+  if (!cookie) return false;
+  try {
+    const init = { method, headers: { Cookie: cookie } };
+    if (method !== 'GET') {
+      init.headers['Content-Type'] = 'application/json';
+      init.body = JSON.stringify(req.body || {});
+    }
+    const r = await fetch(`${AUTH_REMOTE}${apiPath}`, init);
+    // Sesión remota inválida/caducada: la olvidamos y dejamos que caiga a lo local.
+    if (r.status === 401 || r.status === 403) {
+      if (remoteCookies.delete(req.user.id)) saveRemoteCookies();
+      return false;
+    }
+    const data = await r.json().catch(() => ({}));
+    res.status(r.status).json(data);
+    return true;
+  } catch {
+    // Sin conexión: caemos a la lógica local (no rompemos el panel).
+    return false;
+  }
+}
+
+async function remoteRegister(username, password, email, code) {
+  try {
+    const r = await fetch(`${AUTH_REMOTE}/api/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, email, code }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: data.error || 'No se pudo crear la cuenta.' };
+    return { ok: true, email: data.email || email || null, emailVerified: !!data.emailVerified };
+  } catch {
+    return { network: true };
+  }
+}
 
 app.post('/api/register', express.json(), async (req, res) => {
-  if (isMaintenanceOn()) {
-    return res.status(503).json({ error: 'Sitio en mantenimiento. Solo el administrador puede acceder.' });
-  }
   const { username, password, email, code } = req.body || {};
+  // En el .exe la cuenta se crea en la web (fuente única); luego se replica en local.
+  if (AUTH_REMOTE) {
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Verifica tu correo con el código para crear la cuenta.' });
+    }
+    const rr = await remoteRegister(username, password, email, code);
+    if (rr.network) return res.status(503).json({ error: 'Sin conexión con el servidor. Revisa tu internet.' });
+    if (rr.error) return res.status(400).json({ error: rr.error });
+    const user = upsertMirrorUser({ username, password, plan: 'free', isAdmin: false, active: true });
+    if (rr.email) {
+      try { setUserVerifiedEmail(user.id, rr.email); } catch {}
+    }
+    const token = createSession(user.id);
+    if (IS_DESKTOP) saveDesktopLastLogin(user.id);
+    res.setHeader('Set-Cookie', sessionCookie(token));
+    return res.json({ ok: true, username: user.username, email: rr.email || null, emailVerified: !!rr.email });
+  }
   if (!email || !code) {
     return res.status(400).json({ error: 'Verifica tu correo con el código para crear la cuenta.' });
   }
@@ -655,34 +1091,69 @@ app.post('/api/register', express.json(), async (req, res) => {
   if (error) return res.status(400).json({ error });
   maybeMigrateLegacy(user);
   const token = createSession(user.id);
+  if (IS_DESKTOP) saveDesktopLastLogin(user.id);
   res.setHeader('Set-Cookie', sessionCookie(token));
   res.json({ ok: true, username: user.username, email: user.email || null, emailVerified: !!user.emailVerified });
 });
 
-app.post('/api/account/register/request-code', express.json(), async (req, res) => {
-  const r = await requestRegisterEmailCode(req.body?.email, clientRateKey(req));
-  if (r.error) return res.status(400).json({ error: r.error });
-  res.json({ ok: true, message: r.message });
-});
-
-app.post('/api/login', express.json(), (req, res) => {
+app.post('/api/login', express.json(), async (req, res) => {
   const { username, password } = req.body || {};
+  if (AUTH_REMOTE) {
+    const remote = await remoteLogin(username, password);
+    if (remote.ok) {
+      const user = upsertMirrorUser({ username, password, plan: remote.plan, isAdmin: remote.isAdmin, active: remote.active });
+      migrateDesktopUserByUsername(user.username, user.id);
+      touchLogin(user.id);
+      // Guardamos la sesión remota para poder gestionar/listar las cuentas de la web
+      // desde el panel de Administración del .exe.
+      if (remote.cookie) { remoteCookies.set(user.id, remote.cookie); saveRemoteCookies(); }
+      if (remote.roomKey) updateMirrorCloudRoomKey(user.id, remote.roomKey);
+      pullRemoteSettings(user).catch(() => {});
+      if (remote.isAdmin) {
+        syncPlansFromRemote().catch(() => {});
+        syncAllCloudRoomKeysFromRemote().catch(() => {});
+      }
+      const token = createSession(user.id);
+      if (IS_DESKTOP) saveDesktopLastLogin(user.id);
+      res.setHeader('Set-Cookie', sessionCookie(token));
+      return res.json({ ok: true, username: user.username });
+    }
+    // Si el remoto rechazó las credenciales, no seguimos. Si fue un fallo de red,
+    // permitimos el login local (cuenta ya cacheada de un inicio de sesión anterior).
+    if (remote.error) return res.status(400).json({ error: remote.error });
+  }
   const { user, error } = verifyLogin(username, password);
-  if (error) return res.status(400).json({ error });
-  if (isMaintenanceOn() && !user.isAdmin) {
-    return res.status(503).json({ error: 'Sitio en mantenimiento. Solo el administrador puede acceder.' });
+  if (error) {
+    if (AUTH_REMOTE) return res.status(503).json({ error: 'Sin conexión con el servidor y la cuenta no está guardada en este equipo.' });
+    return res.status(400).json({ error });
   }
   touchLogin(user.id);
   const token = createSession(user.id);
+  if (IS_DESKTOP) saveDesktopLastLogin(user.id);
   res.setHeader('Set-Cookie', sessionCookie(token));
   res.json({ ok: true, username: user.username });
 });
 
 app.post('/api/logout', (req, res) => {
   const cookies = parseCookies(req.headers.cookie);
+  const user = userFromRequest(req);
+  if (user && remoteCookies.delete(user.id)) saveRemoteCookies();
   destroySession(cookies[SESSION_COOKIE]);
+  if (IS_DESKTOP) clearDesktopLastLogin();
   res.setHeader('Set-Cookie', clearCookie());
   res.json({ ok: true });
+});
+
+// Restaura la cookie de sesión en Electron tras actualizar la app o cambiar de puerto.
+app.get('/api/desktop/ensure-session', (req, res) => {
+  if (!IS_DESKTOP) return res.status(404).json({ error: 'not found' });
+  const user = userFromRequest(req);
+  if (user) return res.json({ ok: true, username: user.username });
+  const token = bootstrapDesktopSessionToken();
+  if (!token) return res.status(401).json({ ok: false });
+  res.setHeader('Set-Cookie', sessionCookie(token));
+  const u = getSessionUser(token);
+  res.json({ ok: true, username: u?.username || '' });
 });
 
 /* ----------------------------------------------------------------------------
@@ -704,23 +1175,48 @@ app.post('/api/auth/google/desktop-exchange', express.json(), (_req, res) => {
   res.status(404).json({ error: 'No disponible.' });
 });
 
-app.get('/api/me', (req, res) => {
+app.get('/api/auth/google/desktop-finish', (_req, res) => {
+  res.redirect('/login.html');
+});
+
+app.get('/api/me', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
-  const caps = capsForUser(user);
-  const emailInfo = publicEmailFields(user);
+  // Al abrir el panel, traemos los ajustes guardados en Render (si los hay) para que
+  // lo que se guardó en la web aparezca también aquí. No bloquea la respuesta.
+  let remoteMe = null;
+  if (AUTH_REMOTE) {
+    migrateDesktopUserByUsername(user.username, user.id);
+    pullRemoteSettings(user);
+    // Refresca el plan (premium/free) desde Render ANTES de responder, para que el
+    // panel muestre de inmediato los límites correctos si el admin lo cambió.
+    remoteMe = await pullRemotePlan(user).catch(() => null);
+    if (!(remoteMe && remoteMe.roomKey) && !(getUserById(user.id) || user).cloudRoomKey) {
+      await ensureCloudRoomKeyCached(user);
+    }
+  }
+  const caps = capsForUser(getUserById(user.id) || user);
+  const fullUser = getUserById(user.id) || user;
+  const hasRemoteCookie = !!(AUTH_REMOTE && remoteCookies.get(user.id));
+  const cloudRoomKey = (remoteMe && remoteMe.roomKey) || fullUser.cloudRoomKey || null;
   res.json({
     username: user.username,
     roomKey: user.roomKey,
+    // roomKey de la NUBE (Render): el .exe la usa para conectar su panel/overlays al
+    // servidor remoto cuando el trabajo pesado (TikTok) corre en la nube (modo relay).
+    cloudRoomKey,
+    cloudSessionOk: hasRemoteCookie,
     isAdmin: !!user.isAdmin,
     active: isUserActive(user),
     plan: caps.plan,
-    premiumUntil: user.premiumUntil || 0,
-    gamesEnabled: isUserGamesEnabled(user),
+    premiumUntil: fullUser.premiumUntil || 0,
+    gamesEnabled: isUserGamesEnabled(fullUser),
     caps: { limits: caps.limits, features: caps.features },
-    email: emailInfo.email,
-    emailVerified: emailInfo.emailVerified,
-    mailConfigured: mailStatus().configured,
+    email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
+    emailVerified: !!(remoteMe && remoteMe.emailVerified) || publicEmailFields(fullUser).emailVerified,
+    mailConfigured: (remoteMe && typeof remoteMe.mailConfigured === 'boolean')
+      ? remoteMe.mailConfigured
+      : mailStatus().configured,
   });
 });
 
@@ -728,33 +1224,94 @@ function clientRateKey(req) {
   return String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || 'ip').split(',')[0].trim();
 }
 
-app.get('/api/account/mail-status', (_req, res) => {
+async function proxyAccountToRemote(req, res, apiPath, { auth = false } = {}) {
+  if (!AUTH_REMOTE) return false;
+  try {
+    const init = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body || {}),
+    };
+    if (auth) {
+      const cookie = req.user && remoteCookies.get(req.user.id);
+      if (!cookie) return false;
+      init.headers.Cookie = cookie;
+    }
+    const r = await fetch(`${AUTH_REMOTE}${apiPath}`, init);
+    if (auth && (r.status === 401 || r.status === 403)) {
+      if (req.user && remoteCookies.delete(req.user.id)) saveRemoteCookies();
+      return false;
+    }
+    const data = await r.json().catch(() => ({}));
+    res.status(r.status).json(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+app.get('/api/account/mail-status', async (req, res) => {
+  if (AUTH_REMOTE) {
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/account/mail-status`);
+      const data = await r.json().catch(() => ({}));
+      if (r.ok) return res.json(data);
+    } catch {}
+  }
   res.json(mailStatus());
+});
+
+app.post('/api/account/register/request-code', express.json(), async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAccountToRemote(req, res, '/api/account/register/request-code')) return;
+    return res.status(503).json({ error: 'Sin conexión con el servidor. Revisa tu internet.' });
+  }
+  const r = await requestRegisterEmailCode(req.body?.email, clientRateKey(req));
+  if (r.error) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, message: r.message });
 });
 
 app.post('/api/account/email/request-code', express.json(), async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  req.user = user;
+  if (AUTH_REMOTE) {
+    if (await proxyAccountToRemote(req, res, '/api/account/email/request-code', { auth: true })) return;
+    return res.status(503).json({ error: 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.' });
+  }
   const r = await requestLinkEmailCode(user.id, req.body?.email, clientRateKey(req));
   if (r.error) return res.status(400).json({ error: r.error });
   res.json({ ok: true, message: r.message });
 });
 
-app.post('/api/account/email/verify', express.json(), (req, res) => {
+app.post('/api/account/email/verify', express.json(), async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  req.user = user;
+  if (AUTH_REMOTE) {
+    if (await proxyAccountToRemote(req, res, '/api/account/email/verify', { auth: true })) return;
+    return res.status(503).json({ error: 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.' });
+  }
   const r = verifyLinkEmailCode(user.id, req.body?.code);
   if (r.error) return res.status(400).json({ error: r.error });
   res.json({ ok: true, email: r.email, message: r.message });
 });
 
 app.post('/api/account/password/forgot', express.json(), async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAccountToRemote(req, res, '/api/account/password/forgot')) return;
+    return res.status(503).json({ error: 'Sin conexión con el servidor. Revisa tu internet.' });
+  }
   const r = await requestPasswordReset(req.body?.username || req.body?.email || req.body?.identifier, clientRateKey(req));
   if (r.error) return res.status(400).json({ error: r.error });
   res.json({ ok: true, message: r.message });
 });
 
-app.post('/api/account/password/reset', express.json(), (req, res) => {
+app.post('/api/account/password/reset', express.json(), async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAccountToRemote(req, res, '/api/account/password/reset')) return;
+    return res.status(503).json({ error: 'Sin conexión con el servidor. Revisa tu internet.' });
+  }
   const r = resetPasswordWithCode(
     req.body?.username || req.body?.email || req.body?.identifier,
     req.body?.code,
@@ -764,33 +1321,44 @@ app.post('/api/account/password/reset', express.json(), (req, res) => {
   res.json({ ok: true, message: r.message });
 });
 
-// El .exe en modo relay puede pedir la roomKey de la nube por usuario (sin cookie de sesión).
-app.post('/api/relay/mirror-room-key', express.json(), (req, res) => {
-  const username = String(req.body?.username || '').trim().toLowerCase();
-  if (!username) return res.status(400).json({ error: 'falta usuario' });
-  const user = getUserByUsername(username);
-  if (!user) return res.status(404).json({ error: 'no existe' });
-  res.json({ roomKey: user.roomKey });
-});
-
-app.get('/api/panel-lives', (req, res) => {
+app.get('/api/panel-lives', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  // En .exe (relay) los lives reales están en Render: hay que pedirlos a la nube.
+  // No depender solo de HOKEY_RELAY ni de una cookie frágil: probar auth y público.
+  if (AUTH_REMOTE) {
+    const cookie = remoteCookies.get(user.id);
+    const attempts = [];
+    if (cookie) attempts.push({ url: `${AUTH_REMOTE}/api/panel-lives`, headers: { Cookie: cookie } });
+    attempts.push({ url: `${AUTH_REMOTE}/api/panel-lives-public`, headers: {} });
+    for (const a of attempts) {
+      try {
+        const r = await fetch(a.url, { headers: a.headers });
+        if (!r.ok) continue;
+        const data = await r.json().catch(() => ({}));
+        if (!Array.isArray(data.lives)) continue;
+        return res.json({ lives: enrichPanelLivesPlans(filterActivePanelLives(data.lives)) });
+      } catch { /* siguiente intento */ }
+    }
+  }
   res.json({ lives: listPanelLives() });
 });
 
-// Directorio de lives para el .exe (relay): sin cookie de sesión, con CORS.
-app.get('/api/panel-lives-public', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'no-store');
-  res.json({ lives: listPanelLives() });
-});
-
-app.get('/api/streamer-rankings', (req, res) => {
+app.get('/api/streamer-rankings', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
   const type = req.query.type === 'diamonds' ? 'diamonds' : 'likes';
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 10));
+  if (AUTH_REMOTE && process.env.HOKEY_RELAY === '1') {
+    try {
+      const cookie = remoteCookies.get(user.id);
+      if (cookie) {
+        const qs = new URLSearchParams({ type, limit: String(limit) });
+        const r = await fetch(`${AUTH_REMOTE}/api/streamer-rankings?${qs}`, { headers: { Cookie: cookie } });
+        if (r.ok) return res.json(await r.json());
+      }
+    } catch { /* fallback local */ }
+  }
   res.json(streamerRankings.getRankings({ type, limit }));
 });
 
@@ -800,12 +1368,6 @@ app.get('/api/my-settings', (req, res) => {
   if (!user) return res.status(401).json({ error: 'no auth' });
   const room = getRoomForUser(user);
   res.json({ settings: room.getSettings(), exists: room.hasSavedSettings() });
-});
-app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
-  const user = userFromRequest(req);
-  if (!user) return res.status(401).json({ error: 'no auth' });
-  getRoomForUser(user).applySettings(req.body?.settings || {});
-  res.json({ ok: true });
 });
 
 function parseTikTokUsernameInput(raw) {
@@ -851,6 +1413,14 @@ app.get('/api/tiktok-profile', async (req, res) => {
   }
 });
 
+app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  room.applySettings(req.body?.settings || {});
+  res.json({ ok: true });
+});
+
 app.get('/api/profiles/full', (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
@@ -865,64 +1435,142 @@ app.post('/api/profiles/full', express.json({ limit: '16mb' }), (req, res) => {
   res.json({ ok: true, settings: room.getSettings(), profiles: room.getProfilesInfo() });
 });
 
-// Perfiles: lectura y cambio por HTTP (más fiable que solo WebSocket).
-app.get('/api/profiles', (req, res) => {
+async function relayProfileActionToRemote(userId, path, body) {
+  const cookie = remoteCookies.get(userId);
+  if (!cookie || !AUTH_REMOTE) throw new Error('Sin sesión con la nube. Cierra sesión y vuelve a entrar.');
+  const r = await fetch(`${AUTH_REMOTE}${path}`, {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  if (r.status === 401 || r.status === 403) {
+    if (remoteCookies.delete(userId)) saveRemoteCookies();
+    throw new Error('Sesión con la nube caducada. Cierra sesión y vuelve a entrar.');
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `Error al cambiar perfil en la nube (${r.status})`);
+  return data;
+}
+
+async function relayGetFromRemote(userId, path) {
+  const cookie = remoteCookies.get(userId);
+  if (!cookie || !AUTH_REMOTE) throw new Error('Sin sesión con la nube. Cierra sesión y vuelve a entrar.');
+  const r = await fetch(`${AUTH_REMOTE}${path}`, { headers: { Cookie: cookie } });
+  if (r.status === 401 || r.status === 403) {
+    if (remoteCookies.delete(userId)) saveRemoteCookies();
+    throw new Error('Sesión con la nube caducada. Cierra sesión y vuelve a entrar.');
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `Error al leer perfiles en la nube (${r.status})`);
+  return data;
+}
+
+// Perfiles del panel (.exe): en modo relay la room activa está en Render.
+app.get('/api/profiles', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  if (process.env.HOKEY_RELAY === '1' && AUTH_REMOTE) {
+    const cookie = remoteCookies.get(user.id);
+    if (cookie) {
+      try {
+        return res.json(await relayGetFromRemote(user.id, '/api/profiles'));
+      } catch (e) {
+        return res.status(502).json({ error: e.message || 'sin conexión con la nube' });
+      }
+    }
+  }
   const room = getRoomForUser(user);
   res.json({ ok: true, profiles: room.getProfilesInfo() });
 });
-app.post('/api/profiles/switch-general', (req, res) => {
+app.post('/api/profiles/switch-general', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  if (process.env.HOKEY_RELAY === '1' && AUTH_REMOTE) {
+    try {
+      const data = await relayProfileActionToRemote(user.id, '/api/profiles/switch-general');
+      await mirrorRelayProfileToLocal(user, data);
+      return res.json(data);
+    } catch (e) {
+      return res.status(502).json({ error: e.message || 'sin conexión con la nube' });
+    }
+  }
   const room = getRoomForUser(user);
   room.handleMessage(null, { action: 'switchGeneralProfile' });
   res.json({ ok: true, settings: room.getSettings(), profiles: room.getProfilesInfo() });
 });
-app.post('/api/profiles/switch', express.json(), (req, res) => {
+app.post('/api/profiles/switch', express.json(), async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
   const idx = Number(req.body?.index);
   if (!Number.isInteger(idx)) return res.status(400).json({ error: 'index inválido' });
+  if (process.env.HOKEY_RELAY === '1' && AUTH_REMOTE) {
+    try {
+      const data = await relayProfileActionToRemote(user.id, '/api/profiles/switch', { index: idx });
+      await mirrorRelayProfileToLocal(user, data);
+      return res.json(data);
+    } catch (e) {
+      return res.status(502).json({ error: e.message || 'sin conexión con la nube' });
+    }
+  }
   const room = getRoomForUser(user);
   room.handleMessage(null, { action: 'switchProfile', index: idx });
   res.json({ ok: true, settings: room.getSettings(), profiles: room.getProfilesInfo() });
 });
 
-// Conectar/desconectar TikTok vía HTTP (usado por el .exe en modo relay como respaldo).
-app.post('/api/room/connect', express.json(), (req, res) => {
+// Refresca la sesión con Render sin cerrar el panel local (opcional: contraseña en el body).
+app.post('/api/desktop/refresh-cloud-session', express.json(), async (req, res) => {
+  if (!AUTH_REMOTE) return res.status(404).json({ error: 'no relay' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const password = String(req.body?.password || '');
+  if (password) {
+    const remote = await remoteLogin(user.username, password);
+    if (remote.ok && remote.cookie) {
+      remoteCookies.set(user.id, remote.cookie);
+      saveRemoteCookies();
+      if (remote.roomKey) updateMirrorCloudRoomKey(user.id, remote.roomKey);
+    } else if (remote.error) {
+      return res.status(400).json({ error: remote.error });
+    }
+  } else {
+    await ensureCloudRoomKeyCached(user);
+  }
+  const remoteMe = await pullRemotePlan(user).catch(() => null);
+  const fullUser = getUserById(user.id) || user;
+  res.json({
+    cloudRoomKey: (remoteMe && remoteMe.roomKey) || fullUser.cloudRoomKey || null,
+    cloudSessionOk: !!remoteCookies.get(user.id),
+  });
+});
+
+// Modo relay (.exe): conectar/desconectar TikTok en la nube cuando el panel no tiene
+// WebSocket abierto a Render (p. ej. exe antiguo o cloudRoomKey aún no cargada).
+app.post('/api/desktop/connect-live', express.json(), async (req, res) => {
+  if (process.env.HOKEY_RELAY !== '1' || !AUTH_REMOTE) return res.status(404).json({ error: 'no relay' });
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
   const username = String(req.body?.username || '').trim().replace(/^@/, '');
   if (!username) return res.status(400).json({ error: 'falta usuario' });
-  getRoomForUser(user).handleMessage(null, { action: 'connect', username });
-  res.json({ ok: true });
+  try {
+    const data = await relayRoomActionToRemote(user.id, 'connect', { username });
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'sin conexión con la nube' });
+  }
 });
-app.post('/api/room/disconnect', express.json(), (req, res) => {
+app.post('/api/desktop/disconnect-live', express.json(), async (req, res) => {
+  if (process.env.HOKEY_RELAY !== '1' || !AUTH_REMOTE) return res.status(404).json({ error: 'no relay' });
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
-  getRoomForUser(user).handleMessage(null, { action: 'disconnect' });
-  res.json({ ok: true });
+  try {
+    const data = await relayRoomActionToRemote(user.id, 'disconnect', {});
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'sin conexión con la nube' });
+  }
 });
-
-// Cobro de puntos para Spotify (modo relay del .exe): Spotify corre en la PC del
-// streamer, pero los puntos son la fuente de verdad en la nube. El .exe llama aquí
-// para comprobar saldo y descontar antes de añadir/saltar canciones.
-app.post('/api/room/spotify-charge', express.json({ limit: '16kb' }), (req, res) => {
-  const user = userFromRequest(req);
-  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
-  const b = req.body || {};
-  const result = getRoomForUser(user).spotifyCharge({
-    uniqueId: String(b.uniqueId || ''),
-    nickname: String(b.nickname || ''),
-    photo: String(b.photo || ''),
-    cost: b.cost,
-    desc: String(b.desc || 'Spotify'),
-  });
-  res.json(result || { ok: false });
-});
-
-// Prueba de videos por nivel (web en Render: reproduce en la nube; el overlay usa video.html de Render).
+// Prueba / reproducción local de videos por nivel (public/video/niveles). Siempre usa el
+// servidor de esta PC, no el WebSocket a la nube (los .webm están en disco local).
 app.post('/api/test-level-video', express.json(), (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
@@ -938,12 +1586,702 @@ app.post('/api/test-level-video', express.json(), (req, res) => {
   room.handleMessage(null, { action: 'testLevelVideo', level, screen });
   res.json({ ok: true, level, url, screen });
 });
+// Modo relay (.exe): la nube delega reproducción de videos a la PC local (5 pantallas).
+app.post('/api/desktop/local-media', express.json({ limit: '256kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  const action = String(req.body?.action || '');
+  if (action === 'media') {
+    room.handleMessage(null, { action: 'playMediaRelay', media: req.body.media || {} });
+  } else if (action === 'stop') {
+    room.handleMessage(null, { action: 'stopVideo', screen: Number(req.body.screen) || 1 });
+  } else if (action === 'panic') {
+    room.handleMessage(null, { action: 'panicLocal' });
+  } else {
+    return res.status(400).json({ error: 'action inválida' });
+  }
+  res.json({ ok: true });
+});
+
+// Relay: el panel guarda en la nube, pero Stream Deck (:3199) lee la room local.
+// Empuja videos/batallas al instante (sin esperar pull) y sin reenviar todo a Render.
+app.post('/api/desktop/sync-webhook-media', express.json({ limit: '8mb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  const body = req.body || {};
+  const patch = {};
+  if (Array.isArray(body.videos)) {
+    patch.videos = body.videos;
+    if (body.videosEnabled !== undefined) patch.videosEnabled = body.videosEnabled !== false;
+  }
+  if (Array.isArray(body.battleAlerts)) {
+    patch.battleAlerts = body.battleAlerts;
+    if (body.battleAlertsEnabled !== undefined) patch.battleAlertsEnabled = body.battleAlertsEnabled !== false;
+  }
+  if (Array.isArray(body.soundAlerts)) patch.soundAlerts = body.soundAlerts;
+  if (Array.isArray(body.actions)) patch.actions = body.actions;
+  if (!Object.keys(patch).length) {
+    return res.status(400).json({ ok: false, error: 'empty' });
+  }
+  // applySettings(..., fromUser=false) → no dispara push remoto.
+  room.applySettings(patch);
+  const s = room.getSettings() || {};
+  res.json({
+    ok: true,
+    videos: (s.videos || []).length,
+    battleAlerts: (s.battleAlerts || []).length,
+    soundAlerts: (s.soundAlerts || []).length,
+    actions: (s.actions || []).length,
+  });
+});
+// Modo relay (.exe): stickers vistos en el live se recogen en Render; los fusionamos
+// con el catálogo local persistido en userData para que sobrevivan a actualizaciones.
+app.get('/api/desktop/emotes', async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.json({ results: [] });
+  const room = getRoomForUser(user);
+  if (process.env.HOKEY_RELAY === '1' && AUTH_REMOTE) {
+    try {
+      const remote = await relayEmotesFromRemote(user.id);
+      if (remote.length) room.mergeEmotes(remote);
+    } catch {}
+  }
+  res.json({ results: room.getEmotes() });
+});
+
+app.get('/api/desktop/community-gifts', async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.json({ results: [] });
+  const room = getRoomForUser(user);
+  if (process.env.HOKEY_RELAY === '1' && AUTH_REMOTE) {
+    try {
+      const remote = await relayCommunityGiftsFromRemote(user.id);
+      if (remote.length) room.mergeCommunityGifts(remote);
+    } catch {}
+  }
+  res.json({ results: room.getCommunityGifts() });
+});
+
+app.post('/api/desktop/spotify-chat', express.json({ limit: '32kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const comment = String(req.body?.comment || '').trim();
+  const u = req.body?.user || {};
+  const roles = req.body?.roles || {};
+  if (!comment || !u.uniqueId) return res.json({ ok: false });
+  try {
+    await getRoomForUser(user).handleSpotifyChat(comment, {
+      uniqueId: String(u.uniqueId || ''),
+      nickname: String(u.nickname || u.uniqueId || ''),
+      photo: String(u.photo || ''),
+    }, {
+      isMod: !!roles.isMod,
+      isSub: !!roles.isSub,
+      memberLevel: Number(roles.memberLevel) || 0,
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false, error: String(e && e.message || e) });
+  }
+});
+
+// Prueba Minecraft en el servidor LOCAL (.exe): RCON solo llega al MC de esta PC.
+app.post('/api/desktop/mc-test', express.json({ limit: '2mb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const room = getRoomForUser(user);
+  if (req.body?.settings) room.applySettings(req.body.settings);
+  const cfg = room.getSettings()?.webhook || {};
+  const stap = cfg.servertap || {};
+  const rcon = { host: '127.0.0.1', port: 25575, ...(cfg.rcon || {}) };
+  if (stap.enabled) {
+    const ping = await testServertap({ ip: stap.ip || 'localhost', port: stap.port || 4567, key: stap.key });
+    if (!ping.ok) return res.json({ ok: false, error: ping.error || 'ServerTap no responde' });
+  } else {
+    if (!String(rcon.password || '').trim()) {
+      return res.json({ ok: false, error: 'Configura RCON en Webhook (contraseña)' });
+    }
+    const ping = await testRcon(rcon);
+    if (!ping.ok) return res.json({ ok: false, error: ping.error || 'RCON no responde' });
+  }
+  const uid = String(req.body?.uid || '');
+  const settingsNow = room.getSettings();
+  const a = (settingsNow.mcActions || []).find((x) => x.uid === uid)
+    || (settingsNow.mcshooterActions || []).find((x) => x.uid === uid)
+    || (settingsNow.bedrockActions || []).find((x) => x.uid === uid)
+    || (settingsNow.parkourActions || []).find((x) => x.uid === uid)
+    || (settingsNow.kothActions || []).find((x) => x.uid === uid)
+    || (settingsNow.farmActions || []).find((x) => x.uid === uid)
+    || (settingsNow.sandboxActions || []).find((x) => x.uid === uid);
+  if (!a || !(a.cmd || (Array.isArray(a.cmds) && a.cmds.length))) {
+    return res.json({ ok: false, error: 'Acción no encontrada o sin comando' });
+  }
+  room.handleMessage(null, { action: 'testMcAction', uid });
+  res.json({ ok: true });
+});
+
+// Mario / PvZ: SIEMPRE se ejecutan en esta PC. El panel del .exe
+// llama aquí para "Probar" y para acciones en vivo sin depender de la nube.
+app.post('/api/desktop/game-exec', express.json({ limit: '64kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const body = req.body || {};
+  if (body.tipo === 'WEBHOOK') {
+    if (isMari0EnemySpawnWebhook(body.url)) {
+      return res.json(await runWebhookExec(body));
+    }
+    if (isMslug7760WebhookUrl(body.url)) {
+      return res.json(await runMslug7760WebhookExec(body));
+    }
+    return res.json(await runWebhookExec(body));
+  }
+  const result = await runGameExec(body);
+  res.json(result);
+});
+
+app.post('/api/desktop/ensure-smbx-webhook', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const ok = await ensureSmbxTiktokWebhook();
+  res.json({ ok, status: smbxTiktokWebhookStatus() });
+});
+
+// LiveCoinsCore (Minecraft Parkour/KOTH/Farm): valida licencia vía WebSocket :4043.
+app.post('/api/desktop/ensure-mc-core-license', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const room = getRoomForUser(user);
+  if (req.body?.settings) room.applySettings(req.body.settings);
+  const rcon = room.getSettings()?.webhook?.rcon || {};
+  const fullUser = getUserById(user.id) || user;
+  const result = await ensureMcCoreLicense({
+    user: fullUser,
+    email: req.body?.email,
+    rcon,
+  });
+  res.json(result);
+});
+
+app.get('/api/desktop/mc-core-license-status', (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  res.json({ ok: true, ...mcCoreLicenseStatus() });
+});
+
+async function fetchLocalBridgeHealth() {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2000);
+    const r = await fetch('http://127.0.0.1:7755/health', { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+// Arranca el bridge Mario/Mari0 en esta PC y devuelve estado (el panel no puede
+// hablar con :7755 directamente en algunos entornos Electron).
+app.post('/api/desktop/ensure-bridge', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const mode = String(req.body?.mode || 'mari0').toLowerCase() === 'smbx' ? 'smbx' : 'mari0';
+  await (mode === 'mari0' ? ensureMari0Bridge() : ensureMarioBridge());
+  const health = await fetchLocalBridgeHealth();
+  const matched = bridgeHealthOk(health, mode);
+  res.json({ ok: matched, mode, health, status: marioBridgeStatus() });
+});
+
+app.get('/api/desktop/bridge-health', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await fetchLocalBridgeHealth();
+  res.json({ ok: !!(health && health.ok), health });
+});
+
+function smb3CatalogPaths() {
+  const out = [];
+  out.push(path.join(process.env.LOCALAPPDATA || '', 'LivecoinsSMB3', 'catalog.json'));
+  if (process.env.DESKTOP_RESOURCES) {
+    out.push(path.join(process.env.DESKTOP_RESOURCES, 'smb3-bridge', 'catalog.json'));
+  }
+  out.push(path.join(__dirname, 'public', 'smb3-catalog.json'));
+  return [...new Set(out.filter(Boolean))];
+}
+
+function extractSmb3Entities(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw?.entities && Array.isArray(raw.entities)) return raw.entities;
+  return raw?.items || raw?.catalog || [];
+}
+
+const SMB3_UI_SKIP_CATEGORIES = new Set(['nothing', 'unsafe', 'platform', 'special', 'meta', 'effect']);
+
+function normalizeSmb3Catalog(raw) {
+  const list = extractSmb3Entities(raw);
+  return list.filter((e) => {
+    if (!e || e.safe === false) return false;
+    const id = Number(e.id);
+    if (Number.isFinite(id) && id > 214) return false;
+    const cat = String(e.category || '').toLowerCase();
+    if (SMB3_UI_SKIP_CATEGORIES.has(cat)) return false;
+    return !!(e.name || e.thing);
+  });
+}
+
+app.get('/api/desktop/smb3-catalog', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  for (const filePath of smb3CatalogPaths()) {
+    try {
+      if (!fs.existsSync(filePath)) continue;
+      const raw = JSON.parse(fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''));
+      const catalog = normalizeSmb3Catalog(raw);
+      if (catalog.length) return res.json({ ok: true, catalog, source: filePath });
+    } catch { /* siguiente ruta */ }
+  }
+  res.json({ ok: false, error: 'catalog_no_encontrado' });
+});
+
+app.get('/api/desktop/smb3-health', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await fetchLocalBridgeHealth();
+  const ok = smb3HealthOk(health);
+  res.json({ ok, health });
+});
+
+app.post('/api/desktop/ensure-pvz-hybrid-bridge', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const ok = await ensurePvzHybridBridge();
+  const health = await pvzHybridBridgeHealth();
+  const status = pvzHybridBridgeStatus();
+  res.json({
+    ok: ok && pvzHybridBridgeHealthOk(health),
+    error: ok ? null : (status.lastError || (status.script ? 'timeout' : 'sin_script')),
+    health,
+    status,
+  });
+});
+
+app.get('/api/desktop/pvz-hybrid-health', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await pvzHybridBridgeHealth();
+  res.json({
+    ok: pvzHybridBridgeHealthOk(health),
+    health,
+    status: pvzHybridBridgeStatus(),
+    toolsExe: findPvzToolsExe(),
+  });
+});
+
+app.post('/api/desktop/ensure-pvz-toolkit-bridge', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const ok = await ensurePvzToolkitBridge();
+  const health = await pvzToolkitBridgeHealth();
+  const status = pvzToolkitBridgeStatus();
+  res.json({
+    ok: ok && pvzToolkitBridgeHealthOk(health),
+    error: ok ? null : (status.lastError || (status.script ? 'timeout' : 'sin_script')),
+    health,
+    status,
+  });
+});
+
+app.get('/api/desktop/pvz-toolkit-health', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await pvzToolkitBridgeHealth();
+  res.json({
+    ok: pvzToolkitBridgeHealthOk(health),
+    health,
+    status: pvzToolkitBridgeStatus(),
+    toolsExe: findPvzToolsExe(),
+  });
+});
+
+app.post('/api/desktop/ensure-repo-bridge', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const ok = await ensureRepoBridge();
+  const health = await repoBridgeHealth();
+  res.json({ ok: ok && repoBridgeHealthOk(health), health, status: repoBridgeStatus() });
+});
+
+app.get('/api/desktop/repo-health', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await repoBridgeHealth();
+  res.json({
+    ok: repoBridgeHealthOk(health),
+    health,
+    status: repoBridgeStatus(),
+    gameDir: getRepoGameDirConfig() || health?.game_dir || null,
+  });
+});
+
+app.get('/api/desktop/repo-game-dir', (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const dir = getRepoGameDirConfig();
+  const status = repoBridgeStatus();
+  res.json({ ok: true, dir, active: status.gameDir || null });
+});
+
+app.post('/api/desktop/repo-game-dir', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const dir = setRepoGameDir(req.body?.dir);
+    res.json({ ok: true, dir, status: repoBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'invalido' });
+  }
+});
+
+app.post('/api/desktop/repo-install-mod', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = installRepoMod(req.body?.dir);
+    res.json({ ok: true, ...result, status: repoBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'install_failed' });
+  }
+});
+
+app.post('/api/desktop/repo-uninstall-mod', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = uninstallRepoMod(req.body?.dir);
+    res.json({ ok: true, ...result, status: repoBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'uninstall_failed' });
+  }
+});
+
+app.get('/api/desktop/l4d-status', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await l4dBridgeHealth();
+  res.json({
+    ok: !!health?.mod_installed,
+    health,
+    status: l4dBridgeStatus(),
+    gameDir: getL4dGameDirConfig() || health?.game_dir || null,
+  });
+});
+
+app.get('/api/desktop/ctr-bridge-health', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await ctrBridgeHealth();
+  res.json({ ok: !!health?.running, health, status: ctrBridgeStatus() });
+});
+
+app.post('/api/desktop/ensure-ctr-bridge', express.json({ limit: '4kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const ok = await ensureCtrBridge();
+  const health = await ctrBridgeHealth();
+  res.json({
+    ok: ok && !!health?.running,
+    error: ok ? null : (ctrBridgeStatus().lastError || 'no_bridge'),
+    health,
+    status: ctrBridgeStatus(),
+  });
+});
+
+app.get('/api/desktop/smw-bridge-health', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await smwBridgeHealth();
+  res.json({ ok: !!health?.running, health, status: smwBridgeStatus() });
+});
+
+app.post('/api/desktop/ensure-smw-bridge', express.json({ limit: '4kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const r = await ensureSmwBridge();
+  const health = await smwBridgeHealth();
+  res.json({
+    ok: !!(r?.ok && health?.running),
+    error: r?.ok ? null : (r?.error || smwBridgeStatus().last_error || 'no_bridge'),
+    health,
+    status: smwBridgeStatus(),
+  });
+});
+
+app.post('/api/desktop/smw-install-mod', express.json({ limit: '4kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = await installSmwMod({
+      forceDownload: !!req.body?.forceDownload,
+    });
+    res.json({ ok: true, ...result, status: smwBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'install_failed' });
+  }
+});
+
+app.post('/api/desktop/smw-uninstall-mod', express.json({ limit: '4kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = uninstallSmwMod();
+    res.json({ ok: true, ...result, status: smwBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'uninstall_failed' });
+  }
+});
+
+app.get('/api/desktop/l4d-game-dir', (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const sync = syncL4dGameDir();
+  const dir = getL4dGameDirConfig();
+  const status = l4dBridgeStatus();
+  const suggested = discoverL4dGameDir();
+  res.json({ ok: true, dir, active: status.gameDir || null, suggested: suggested || null, synced: sync.synced || false });
+});
+
+app.post('/api/desktop/l4d-game-dir', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const dir = setL4dGameDir(req.body?.dir);
+    res.json({ ok: true, dir, status: l4dBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'invalido' });
+  }
+});
+
+app.post('/api/desktop/l4d-install-mod', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = await installL4dMod(req.body?.dir, {
+      forceDownload: !!req.body?.forceDownload,
+    });
+    res.json({ ok: true, ...result, status: l4dBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'install_failed' });
+  }
+});
+
+app.post('/api/desktop/l4d-uninstall-mod', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = uninstallL4dMod(req.body?.dir);
+    res.json({ ok: true, ...result, status: l4dBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'uninstall_failed' });
+  }
+});
+
+app.get('/api/desktop/unturned-status', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await unturnedBridgeHealth();
+  res.json({
+    ok: true,
+    ...health,
+    status: unturnedBridgeStatus(),
+  });
+});
+
+app.get('/api/desktop/unturned-game-dir', (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  syncUnturnedGameDir();
+  const dir = getUnturnedGameDirConfig() || discoverUnturnedSteamDir() || '';
+  res.json({ ok: true, dir, status: unturnedBridgeStatus() });
+});
+
+app.post('/api/desktop/unturned-game-dir', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const dir = setUnturnedGameDir(req.body?.dir);
+    res.json({ ok: true, dir, status: unturnedBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'dir_failed' });
+  }
+});
+
+app.post('/api/desktop/unturned-install-mod', express.json({ limit: '8kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = await installUnturnedMod(req.body?.dir, {
+      forceDownload: !!req.body?.forceDownload,
+    });
+    res.json({ ok: true, ...result, status: unturnedBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'install_failed' });
+  }
+});
+
+app.post('/api/desktop/unturned-uninstall-mod', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = uninstallUnturnedMod(req.body?.dir);
+    res.json({ ok: true, ...result, status: unturnedBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'uninstall_failed' });
+  }
+});
+
+app.post('/api/desktop/ensure-mslug-bridge', express.json({ limit: '4kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const ok = ensureMslugBridge();
+  const forceWindow = req.body?.forceWindow !== false;
+  const webhook = await ensureMslugSpawnWebhook({ visible: false, forceWindow }).catch(() => false);
+  res.json({ ok, webhook, status: mslugBridgeStatus(), webhookStatus: mslugSpawnWebhookStatus() });
+});
+
+app.post('/api/desktop/ensure-mslug-webhook', express.json({ limit: '4kb' }), async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const forceWindow = req.body?.forceWindow !== false;
+  const gameDir = String(req.body?.dir || getMslugGameDirConfig() || '').trim();
+  const ok = await ensureMslugSpawnWebhook({ visible: false, forceWindow, gameDir });
+  res.json({ ok, webhook: mslugSpawnWebhookStatus(), up: await isMslugSpawnWebhookUp(), gameDir: gameDir || null });
+});
+
+app.get('/api/desktop/mslug-health', async (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const health = await mslugBridgeHealth();
+  const webhookUp = await isMslugSpawnWebhookUp();
+  res.json({
+    ok: !!health?.ok,
+    health,
+    status: mslugBridgeStatus(),
+    gameDir: getMslugGameDirConfig() || health?.game_dir || null,
+    bridge_version: MSLUG_BRIDGE_VERSION,
+    last_spawn: getMslugLastSpawn(),
+    webhook: mslugSpawnWebhookStatus(),
+    webhook_up: webhookUp,
+  });
+});
+
+app.get('/api/desktop/mslug-game-dir', (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  const dir = getMslugGameDirConfig();
+  const status = mslugBridgeStatus();
+  res.json({ ok: true, dir, active: status.gameDir || null });
+});
+
+app.post('/api/desktop/mslug-game-dir', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const dir = setMslugGameDir(req.body?.dir);
+    res.json({ ok: true, dir, status: mslugBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'invalido' });
+  }
+});
+
+app.post('/api/desktop/mslug-install-mod', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = installMslugMod(req.body?.dir);
+    res.json({ ok: true, ...result, status: mslugBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'install_failed' });
+  }
+});
+
+app.post('/api/desktop/mslug-uninstall-mod', express.json({ limit: '8kb' }), (req, res) => {
+  if (!IS_DESKTOP) return res.status(403).json({ ok: false, error: 'solo_escritorio' });
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
+  try {
+    const result = uninstallMslugMod(req.body?.dir);
+    res.json({ ok: true, ...result, status: mslugBridgeStatus() });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e && e.message ? e.message : 'uninstall_failed' });
+  }
+});
 
 // Catálogo + configuración de planes para CUALQUIER usuario autenticado (solo lectura).
 // Lo usa la pestaña "Planes" para mostrar la comparación Gratis vs Premium.
-app.get('/api/plans', (req, res) => {
+app.get('/api/plans', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  // En el .exe, traemos la config real de Render y la espejamos en local.
+  if (AUTH_REMOTE) {
+    const cookie = remoteCookies.get(user.id);
+    if (cookie) {
+      try {
+        const r = await fetch(`${AUTH_REMOTE}/api/plans`, { headers: { Cookie: cookie } });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok) {
+          if (data.config) applyPlansMirror(data.config);
+          return res.json(data);
+        }
+      } catch {}
+    }
+  }
   res.json({ catalog: CAPABILITIES, config: getPlanConfig() });
 });
 
@@ -956,7 +2294,12 @@ function requireAdmin(req, res, next) {
 }
 
 // Lista de todas las cuentas con su estado (live, activación, clave, conexión).
-app.get('/api/admin/users', requireAdmin, (_req, res) => {
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  // En el .exe (login delegado), el admin gestiona las cuentas REALES de la web.
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/users')) {
+    syncAllCloudRoomKeysFromRemote().catch(() => {});
+    return;
+  }
   const out = listUsersDetailed().map((u) => {
     const full = getUserById(u.id);
     const plan = getUserPlan(full); // recalcula y baja a 'free' si el Premium caducó
@@ -978,89 +2321,9 @@ app.get('/api/admin/users', requireAdmin, (_req, res) => {
   res.json({ users: out });
 });
 
-// Diagnóstico del disco: comprueba si Render lee el volumen persistente correcto.
-app.get('/api/admin/data-diag', requireAdmin, (_req, res) => {
-  const info = getAuthDataInfo();
-  const { folders, orphans } = scanDataDirUserFolders();
-  const backups = listUserBackupFiles();
-  const bestBackup = findBestUsersBackup();
-  let usersFileCount = 0;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(info.usersFile, 'utf8'));
-    if (Array.isArray(parsed)) usersFileCount = parsed.length;
-  } catch {}
-  res.json({
-    dataDir: info.dataDir,
-    usersFile: info.usersFile,
-    onRender: ON_RENDER,
-    usingEphemeralData: USING_EPHEMERAL_DATA,
-    dataDirEnv: process.env.DATA_DIR || null,
-    usersInMemory: info.userCount,
-    usersInFile: usersFileCount,
-    userDataFolders: folders.length,
-    orphanFolders: orphans,
-    backups,
-    bestBackup,
-    disk: getDiskUsageSummary(),
-    diskFreeMb: Math.round((getDiskFreeBytes() ?? 0) / 1024 / 1024),
-    hint: USING_EPHEMERAL_DATA
-      ? 'Falta DATA_DIR en Render. Añade DATA_DIR=/var/data (o la ruta de tu disco) y redespliega.'
-      : (orphans.length && usersFileCount <= 1)
-        ? 'Hay carpetas de usuarios huérfanas: pulsa «Restaurar cuentas desde copia» o restaura users.json.bak en Shell.'
-        : (bestBackup.canRestore)
-          ? `Copia ${bestBackup.name} tiene ${bestBackup.userCount} cuentas (${bestBackup.usernames.join(', ')}). Restáurala.`
-          : null,
-  });
-});
-
-app.post('/api/admin/restore-users-best-backup', requireAdmin, (_req, res) => {
-  const result = restoreUsersFromBestBackup();
-  if (result.error) return res.status(400).json(result);
-  res.json(result);
-});
-
-// Libera espacio: basura temporal + subidas huérfanas.
-app.post('/api/admin/prune-disk', requireAdmin, (_req, res) => {
-  const junk = pruneDiskJunk();
-  let uploadsRemoved = 0;
-  try {
-    const before = getDiskUsageSummary().uploadsBytes;
-    pruneOrphanUploads();
-    uploadsRemoved = Math.max(0, before - getDiskUsageSummary().uploadsBytes);
-  } catch {}
-  res.json({ ok: true, junk, uploadsFreedBytes: uploadsRemoved, disk: getDiskUsageSummary() });
-});
-
-// Borra todos los videos en DATA_DIR/uploads (libera espacio en Render).
-app.post('/api/admin/clear-upload-videos', requireAdmin, (_req, res) => {
-  const before = getDiskUsageSummary();
-  const result = clearPersistentUploadVideos();
-  res.json({
-    ok: true,
-    removed: result.removed,
-    freedMb: Math.round(result.freed / 1024 / 1024),
-    diskBeforeMb: before.totalMb,
-    diskAfterMb: getDiskUsageSummary().totalMb,
-    diskFreeMb: Math.round((getDiskFreeBytes() ?? 0) / 1024 / 1024),
-  });
-});
-
-// Liberación agresiva (uploads + JSON pesados + basura).
-app.post('/api/admin/emergency-free-disk', requireAdmin, (_req, res) => {
-  const result = emergencyFreeDiskSpace();
-  res.json({ ok: true, ...result, diskFreeMb: Math.round((getDiskFreeBytes() ?? 0) / 1024 / 1024) });
-});
-
-// Restaura users.json desde una copia de seguridad en DATA_DIR.
-app.post('/api/admin/restore-users-backup', express.json(), requireAdmin, (req, res) => {
-  const { backupName } = req.body || {};
-  const result = restoreUsersFromBackup(backupName);
-  if (result.error) return res.status(400).json(result);
-  res.json(result);
-});
-
 // Activar / desactivar una cuenta.
-app.post('/api/admin/activate', express.json(), requireAdmin, (req, res) => {
+app.post('/api/admin/activate', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/activate', 'POST')) return;
   const { id, active } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const ok = setUserActive(id, !!active);
@@ -1075,7 +2338,8 @@ app.post('/api/admin/activate', express.json(), requireAdmin, (req, res) => {
 
 // Cambiar el plan de una cuenta (gratis / premium). days>0 => Premium por N días;
 // days=0/ausente => si es premium queda FIJO (sin caducidad).
-app.post('/api/admin/userplan', express.json(), requireAdmin, (req, res) => {
+app.post('/api/admin/userplan', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/userplan', 'POST')) return;
   const { id, plan, days } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const ok = setUserPlan(id, plan, days);
@@ -1087,7 +2351,8 @@ app.post('/api/admin/userplan', express.json(), requireAdmin, (req, res) => {
 });
 
 // Activar / desactivar todos los minijuegos de una cuenta (independiente del plan).
-app.post('/api/admin/usergames', express.json(), requireAdmin, (req, res) => {
+app.post('/api/admin/usergames', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/usergames', 'POST')) return;
   const { id, enabled } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const ok = setUserGamesEnabled(id, !!enabled);
@@ -1098,7 +2363,8 @@ app.post('/api/admin/usergames', express.json(), requireAdmin, (req, res) => {
 });
 
 // Eliminar una cuenta (excepto admin). Cierra su room, sesiones y datos locales.
-app.post('/api/admin/delete-user', express.json(), requireAdmin, (req, res) => {
+app.post('/api/admin/delete-user', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/delete-user', 'POST')) return;
   const { id } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const user = getUserById(id);
@@ -1110,6 +2376,7 @@ app.post('/api/admin/delete-user', express.json(), requireAdmin, (req, res) => {
     rooms.delete(id);
   }
   if (!deleteUser(id)) return res.status(404).json({ error: 'cuenta no encontrada' });
+  if (remoteCookies.delete(id)) saveRemoteCookies();
   try { fs.rmSync(path.join(DATA_DIR, id), { recursive: true, force: true }); } catch {}
   res.json({ ok: true, username: user.username });
 });
@@ -1129,146 +2396,194 @@ setInterval(() => {
   }
 }, 60 * 1000).unref?.();
 
-// Configuración de planes: catálogo de capacidades + límites/features por plan.
-app.get('/api/admin/plans', requireAdmin, (_req, res) => {
-  res.json({ catalog: CAPABILITIES, config: getPlanConfig() });
-});
-app.post('/api/admin/plans', express.json(), requireAdmin, (req, res) => {
-  const config = savePlanConfig(req.body || {});
-  // Reenviamos a todos los rooms conectados sus nuevas capacidades.
-  for (const [id, room] of rooms) {
-    const u = getUserById(id);
-    if (u) room.broadcastCaps?.(capsForUser(u));
-  }
-  res.json({ ok: true, config });
-});
-
-/* ----------- Versión publicada de la app de escritorio (.exe) ----------- */
-// El admin publica aquí la versión más reciente + enlace de descarga. La app .exe
-// consulta GET /api/app-version al arrancar; si hay una versión mayor, avisa al
-// usuario y (al aceptar) descarga e instala el nuevo instalador.
-const APP_VERSION_FILE = path.join(DATA_DIR, 'appversion.json');
-function readAppVersion() {
-  try { return JSON.parse(fs.readFileSync(APP_VERSION_FILE, 'utf8')); }
-  catch { return { version: '', url: '', notes: '', mandatory: false, updatedAt: 0 }; }
-}
-app.get('/api/app-version', (_req, res) => {
-  // Nunca cachear: la app .exe debe ver SIEMPRE la última versión publicada, no una
-  // respuesta vieja guardada por un proxy/CDN.
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.json(readAppVersion());
-});
-app.post('/api/admin/app-version', express.json(), requireAdmin, (req, res) => {
-  const b = req.body || {};
-  const data = {
-    version: String(b.version || '').trim(),
-    url: String(b.url || '').trim(),
-    notes: String(b.notes || '').trim(),
-    mandatory: !!b.mandatory,
-    updatedAt: Date.now(),
-  };
-  try {
-    const tmp = APP_VERSION_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-    fs.renameSync(tmp, APP_VERSION_FILE);
-    // Mismo .exe para nuevos usuarios (web-install) y para auto-actualización.
-    if (data.url) {
-      const wi = { url: data.url, updatedAt: Date.now() };
-      const wtmp = WEB_INSTALL_FILE + '.tmp';
-      fs.writeFileSync(wtmp, JSON.stringify(wi, null, 2));
-      fs.renameSync(wtmp, WEB_INSTALL_FILE);
+// Solo .exe: refresca periódicamente el plan desde Render para los usuarios con el
+// panel abierto. Así, si el admin activa premium en la web, el .exe lo aplica en
+// ~30s sin que el usuario tenga que cerrar sesión ni reiniciar la app.
+if (AUTH_REMOTE) {
+  setInterval(() => {
+    for (const [id, room] of rooms) {
+      if (!room || !room.clientCount) continue;
+      const u = getUserById(id);
+      if (u) pullRemotePlan(u).catch(() => {});
     }
-  } catch (e) {
-    return res.status(500).json({ error: 'No se pudo guardar.' });
+    syncAllCloudRoomKeysFromRemote().catch(() => {});
+  }, 30 * 1000).unref?.();
+}
+
+// Configuración de planes: catálogo de capacidades + límites/features por plan.
+app.get('/api/admin/plans', requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    const cookie = req.user && remoteCookies.get(req.user.id);
+    if (cookie) {
+      try {
+        const r = await fetch(`${AUTH_REMOTE}/api/admin/plans`, { headers: { Cookie: cookie } });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok) {
+          if (data.config) applyPlansMirror(data.config);
+          return res.json(injectLocalCaps(data));
+        }
+        if (r.status === 401 || r.status === 403) {
+          remoteCookies.delete(req.user.id); saveRemoteCookies();
+        } else {
+          return res.status(r.status).json(data);
+        }
+      } catch {}
+    }
   }
-  res.json({ ok: true, ...data });
+  res.json(injectLocalCaps({ catalog: CAPABILITIES, config: getPlanConfig() }));
 });
-
-/* ----------- Enlace para "Instalar versión PC" (.exe — lo fija el admin) ----------- */
-// El admin guarda aquí la URL del instalador de escritorio. El panel web muestra
-// un botón "Instalar versión PC" que apunta a esta URL; al cambiarla aquí, el
-// botón se actualiza para todos.
-const WEB_INSTALL_FILE = path.join(DATA_DIR, 'webinstall.json');
-function readWebInstall() {
-  try { return JSON.parse(fs.readFileSync(WEB_INSTALL_FILE, 'utf8')); }
-  catch { return { url: '', updatedAt: 0 }; }
-}
-app.get('/api/web-install', (_req, res) => {
-  res.json(readWebInstall());
-});
-app.post('/api/admin/web-install', express.json(), requireAdmin, (req, res) => {
-  const data = { url: String((req.body || {}).url || '').trim(), updatedAt: Date.now() };
-  try {
-    const tmp = WEB_INSTALL_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-    fs.renameSync(tmp, WEB_INSTALL_FILE);
-  } catch (e) {
-    return res.status(500).json({ error: 'No se pudo guardar.' });
+app.post('/api/admin/plans', express.json(), requireAdmin, async (req, res) => {
+  // Guarda primero las capacidades locales (.exe) que el remoto no conoce.
+  saveLocalCapsFromBody(req.body || {});
+  // Reaplica las caps a los paneles conectados (refleja el cambio local al instante).
+  for (const [id, room] of rooms) { const u = getUserById(id); if (u) room.broadcastCaps?.(capsForUser(u)); }
+  if (AUTH_REMOTE) {
+    const cookie = req.user && remoteCookies.get(req.user.id);
+    if (cookie) {
+      try {
+        const r = await fetch(`${AUTH_REMOTE}/api/admin/plans`, {
+          method: 'POST',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify(req.body || {}),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok) {
+          applyPlansMirror(data.config || req.body);
+          return res.json(injectLocalCaps(data));
+        }
+        if (r.status === 401 || r.status === 403) {
+          remoteCookies.delete(req.user.id); saveRemoteCookies();
+        } else {
+          return res.status(r.status).json(data);
+        }
+      } catch {}
+    }
   }
-  res.json({ ok: true, ...data });
+  const config = applyPlansMirror(req.body || {});
+  res.json(injectLocalCaps({ ok: true, config }));
 });
 
-app.post('/api/admin/maintenance', express.json(), requireAdmin, (req, res) => {
-  const b = req.body || {};
-  const data = {
-    enabled: !!b.enabled,
-    message: String(b.message || '').trim(),
-    updatedAt: Date.now(),
-  };
-  try { writeMaintenance(data); }
-  catch { return res.status(500).json({ error: 'No se pudo guardar.' }); }
-  res.json({ ok: true, ...data });
+/* ----------- Versión publicada de la app (.exe) — espejo del remoto ----------- */
+// La fuente de verdad es Render (weblive). Aquí solo reenviamos las peticiones del
+// panel admin del .exe al remoto, igual que con los planes.
+app.get('/api/app-version', async (_req, res) => {
+  // Nunca cachear: hay que ver siempre la última versión publicada en el remoto.
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  if (AUTH_REMOTE) {
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/app-version?_=${Date.now()}`);
+      if (r.ok) return res.json(await r.json());
+    } catch {}
+  }
+  res.json({ version: '', url: '', notes: '', mandatory: false, updatedAt: 0 });
+});
+app.post('/api/admin/app-version', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/app-version', 'POST')) return;
+  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
 });
 
-/* --------------------------- Anuncios (panel) --------------------------- */
-const ANNOUNCEMENTS_FILE = path.join(DATA_DIR, 'announcements.json');
-const ANNOUNCEMENTS_MAX = 50;
-
-function readAnnouncements() {
+/* ----------- Enlace del instalador PC (.exe) — espejo del remoto ----------- */
+app.get('/api/desktop-build', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!IS_DESKTOP) return res.json({ pc: false });
+  let stamp = null;
   try {
-    const raw = JSON.parse(fs.readFileSync(ANNOUNCEMENTS_FILE, 'utf8'));
-    return Array.isArray(raw) ? raw : (raw.announcements || []);
-  } catch { return []; }
-}
-function writeAnnouncements(list) {
-  const tmp = ANNOUNCEMENTS_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(list, null, 2));
-  fs.renameSync(tmp, ANNOUNCEMENTS_FILE);
+    stamp = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, '.desktop-build.json'), 'utf8'));
+  } catch {}
+  res.json({ pc: true, version: stamp?.version || '', builtAt: stamp?.builtAt || 0 });
+});
+
+app.get('/api/web-install', async (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  if (AUTH_REMOTE) {
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/web-install?_=${Date.now()}`);
+      if (r.ok) return res.json(await r.json());
+    } catch {}
+  }
+  res.json({ url: '', updatedAt: 0 });
+});
+app.post('/api/admin/web-install', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/web-install', 'POST')) return;
+  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
+});
+
+/* ----------- Modo mantenimiento (web en Render) — espejo del remoto ----------- */
+app.get('/api/maintenance', async (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  if (AUTH_REMOTE) {
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/maintenance?_=${Date.now()}`);
+      if (r.ok) return res.json(await r.json());
+    } catch {}
+  }
+  res.json({ enabled: false, message: '' });
+});
+app.post('/api/admin/maintenance', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/maintenance', 'POST')) return;
+  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
+});
+
+/* ----------- Anuncios del panel — espejo del remoto ----------- */
+async function fetchRemoteAnnouncements(user) {
+  if (!AUTH_REMOTE || !user) return null;
+  const remoteCookie = remoteCookies.get(user.id);
+  if (!remoteCookie) return null;
+  try {
+    const r = await fetch(`${AUTH_REMOTE}/api/announcements?_=${Date.now()}`, {
+      headers: { Cookie: remoteCookie },
+    });
+    if (r.ok) return await r.json();
+  } catch {}
+  return null;
 }
 
-app.get('/api/announcements', (req, res) => {
+app.get('/api/announcements', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  const list = readAnnouncements()
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  res.json({ announcements: list });
+  if (AUTH_REMOTE) {
+    const remote = await fetchRemoteAnnouncements(user);
+    if (remote) return res.json(remote);
+    // Fallback: misma cookie del navegador (panel web en Render, no .exe).
+    try {
+      const cookie = req.headers.cookie || '';
+      if (cookie) {
+        const r = await fetch(`${AUTH_REMOTE}/api/announcements?_=${Date.now()}`, { headers: { Cookie: cookie } });
+        if (r.ok) return res.json(await r.json());
+      }
+    } catch {}
+  }
+  res.json({ announcements: [] });
+});
+app.post('/api/admin/announcements', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/announcements', 'POST')) return;
+  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
+});
+app.post('/api/admin/announcements/delete', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/announcements/delete', 'POST')) return;
+  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
 });
 
-app.post('/api/admin/announcements', express.json(), requireAdmin, (req, res) => {
-  const title = String((req.body || {}).title || '').trim();
-  const message = String((req.body || {}).message || '').trim();
-  if (!title) return res.status(400).json({ error: 'Escribe un título.' });
-  if (!message) return res.status(400).json({ error: 'Escribe el mensaje.' });
-  const item = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-    title,
-    message,
-    createdAt: Date.now(),
-  };
-  const list = [item, ...readAnnouncements()].slice(0, ANNOUNCEMENTS_MAX);
-  try { writeAnnouncements(list); }
-  catch { return res.status(500).json({ error: 'No se pudo guardar.' }); }
-  res.json({ ok: true, announcement: item });
+/* ---------- Meta global de diamantes (banner del panel) ---------- */
+function notifyRoomsCommunityGoal() {
+  for (const room of rooms.values()) {
+    try {
+      room.refreshCommunityGoal?.(communityGoals.getSnapshot(room.id));
+    } catch { /* ignore */ }
+  }
+}
+
+app.get('/api/admin/community-goals', requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/community-goals')) return;
+  res.json(communityGoals.getAdmin());
 });
 
-app.post('/api/admin/announcements/delete', express.json(), requireAdmin, (req, res) => {
-  const id = String((req.body || {}).id || '').trim();
-  if (!id) return res.status(400).json({ error: 'falta id' });
-  const list = readAnnouncements().filter((a) => a.id !== id);
-  try { writeAnnouncements(list); }
-  catch { return res.status(500).json({ error: 'No se pudo eliminar.' }); }
-  res.json({ ok: true });
+app.post('/api/admin/community-goals', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/community-goals', 'POST')) return;
+  const result = communityGoals.setGoalAndReset(req.body?.diamondsGoal);
+  notifyRoomsCommunityGoal();
+  res.json(result);
 });
 
 /* ------------------- Protección básica (disuasión copia) ------------------- */
@@ -1276,11 +2591,18 @@ app.post('/api/admin/announcements/delete', express.json(), requireAdmin, (req, 
 // real: solo dificulta la copia casual (clic derecho, F12, ver fuente…).
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const GUARD_TAG = '<script src="/js/protect.js" defer></script>';
+const DESKTOP_HEAD_TAG = '<meta name="livecoins-app" content="desktop"><script>window.__LIVECOINS_PC_BUILD__=true;window.__LIVECOINS_DESKTOP__=true;try{document.documentElement.classList.add("is-desktop");}catch(e){}</script>';
 function injectGuard(html) {
-  if (html.includes('/js/protect.js')) return html;
-  if (html.includes('</head>')) return html.replace('</head>', GUARD_TAG + '</head>');
-  if (html.includes('</body>')) return html.replace('</body>', GUARD_TAG + '</body>');
-  return html + GUARD_TAG;
+  let out = html;
+  if (IS_DESKTOP && !out.includes('livecoins-app')) {
+    if (out.includes('</head>')) out = out.replace('</head>', DESKTOP_HEAD_TAG + '</head>');
+    else if (out.includes('</body>')) out = out.replace('</body>', DESKTOP_HEAD_TAG + '</body>');
+    else out += DESKTOP_HEAD_TAG;
+  }
+  if (out.includes('/js/protect.js')) return out;
+  if (out.includes('</head>')) return out.replace('</head>', GUARD_TAG + '</head>');
+  if (out.includes('</body>')) return out.replace('</body>', GUARD_TAG + '</body>');
+  return out + GUARD_TAG;
 }
 function sendHtmlFile(res, filePath, status = 200) {
   fs.readFile(filePath, 'utf8', (err, html) => {
@@ -1297,24 +2619,20 @@ function sendHtmlFile(res, filePath, status = 200) {
 app.get(['/', '/index.html'], (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.redirect('/login.html');
-  if (isMaintenanceOn() && !user.isAdmin) {
-    return sendHtmlFile(res, path.join(PUBLIC_DIR, 'maintenance.html'));
-  }
   if (!isUserActive(user)) return sendHtmlFile(res, path.join(PUBLIC_DIR, 'pending.html'));
   sendHtmlFile(res, path.join(PUBLIC_DIR, 'index.html'));
 });
-
 
 // Archivos pesados (videos subidos y audios): caché larga en el navegador. Sus nombres
 // son únicos, así que se pueden cachear sin problema y al ACTUALIZAR la página el
 // navegador los reutiliza al instante en vez de descargarlos otra vez.
 const heavyCache = { maxAge: '30d', immutable: true };
 app.use('/uploads', express.static(UPLOADS_DIR, heavyCache));
-app.use('/audios', express.static(path.join(__dirname, 'public', 'audios'), heavyCache));
+app.use('/audios', express.static(AUDIOS_DIR, heavyCache));
 // Videos de AI: caché larga en el navegador para que al recargar el panel no se
 // vuelvan a descargar (antes esto era lo que hacía lenta la carga).
 app.use('/video', express.static(VIDEOS_DIR, heavyCache));
-app.use('/niveles', express.static(NIVELES_VIDEOS_DIR, heavyCache));
+app.use('/niveles', express.static(NIVELES_VIDEOS_DIR, heavyCache)); // alias legacy → public/video/niveles
 
 // Cualquier otra página HTML (login, overlays, pending…) se sirve con el script
 // de protección inyectado. Debe ir ANTES del estático general.
@@ -1332,6 +2650,18 @@ app.use((req, res, next) => {
     res.type('html').send(injectGuard(html));
   });
 });
+
+// En el .exe evitamos caché agresiva del panel (Electron a veces conserva JS/HTML
+// de versiones web anteriores y el usuario ve el panel web sin Juegos/Acciones).
+if (IS_DESKTOP) {
+  app.use((req, res, next) => {
+    if (/\.(html|js|css)$/i.test(req.path) || /mario-presets\.json$/i.test(req.path)) {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.set('Pragma', 'no-cache');
+    }
+    next();
+  });
+}
 
 // Resto de estáticos: login, overlays, css, js… Con validación (ETag) para recargas
 // rápidas: si el archivo no cambió, el navegador recibe "304 Not Modified" al instante.
@@ -1376,6 +2706,7 @@ app.get('/api/local-videos-batalla', (_req, res) => {
   });
 });
 
+// Videos de la carpeta «niveles» (nivel1.webm, nivel2.webm… en public/video/niveles).
 app.get('/api/local-videos-niveles', (_req, res) => {
   const seen = new Set();
   const results = [];
@@ -1437,7 +2768,9 @@ app.get('/api/community-gifts', (req, res) => {
   res.json({ results: getRoomForUser(user).getCommunityGifts() });
 });
 
-// Proxy de imágenes externas (CDN de regalos TikTok) para descargar PNG sin CORS.
+// Proxy de imágenes externas (CDN de regalos TikTok) para servirlas desde el mismo
+// origen. Lo usa el generador de "imagen de regalos" (canvas) para poder exportar el
+// PNG sin que el lienzo quede "tainted" por CORS.
 app.get('/api/img-proxy', async (req, res) => {
   try {
     const url = String(req.query.url || '');
@@ -1463,13 +2796,43 @@ app.get('/api/emotes', (req, res) => {
   res.json({ results: getRoomForUser(user).getEmotes() });
 });
 
-// Formatos que el navegador reproduce tal cual; el resto se transcodifica a MP4 H.264.
+// Subida de archivos (compartida).
+// En modo relay (.exe), sube el archivo final a Render para que los overlays en la
+// nube puedan reproducir sonidos/videos/imágenes. Devuelve URL absoluta de la nube.
+async function uploadFileToRemote(cookie, filePath, originalName) {
+  const buf = await fs.promises.readFile(filePath);
+  const r = await fetch(`${AUTH_REMOTE}/api/upload?name=${encodeURIComponent(originalName || 'file')}`, {
+    method: 'POST',
+    headers: {
+      Cookie: cookie,
+      'Content-Type': 'application/octet-stream',
+    },
+    body: buf,
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `Error al subir a la nube (${r.status})`);
+  if (data.url && String(data.url).startsWith('/')) {
+    data.url = AUTH_REMOTE.replace(/\/+$/, '') + data.url;
+  }
+  return data;
+}
+
+function remoteUploadCookie(req) {
+  if (!AUTH_REMOTE || process.env.HOKEY_RELAY !== '1') return '';
+  const user = userFromRequest(req);
+  return (user && remoteCookies.get(user.id)) || '';
+}
+
+// Formatos que el navegador (Chromium/Electron) reproduce de forma fiable tal cual.
+// El resto (mov, avi, mkv, hevc, etc.) se transcodifica a MP4 H.264 con ffmpeg.
 const WEB_FRIENDLY_EXT = new Set([
-  '.mp4', '.webm', '.ogg', '.ogv', '.m4v',
-  '.gif', '.png', '.jpg', '.jpeg', '.webp', '.apng', '.bmp', '.svg',
-  '.mp3', '.wav', '.aac', '.m4a', '.oga',
+  '.mp4', '.webm', '.ogg', '.ogv', '.m4v', // video
+  '.gif', '.png', '.jpg', '.jpeg', '.webp', '.apng', '.bmp', '.svg', // imagen
+  '.mp3', '.wav', '.aac', '.m4a', '.oga', // audio
 ]);
 
+// Transcodifica un archivo de video a MP4 (H.264/AAC) compatible con navegador.
+// Devuelve la ruta del MP4 generado, o null si ffmpeg no está disponible o falla.
 function transcodeToMp4(srcPath) {
   return new Promise((resolve) => {
     if (!ffmpegPath) return resolve(null);
@@ -1527,42 +2890,25 @@ async function uploadNeedsTranscode(dest, ext, looksVideo) {
 const UPLOAD_INCOMPATIBLE_MSG =
   'Formato no compatible con Live Studio. Exporta el video como MP4 (H.264 + AAC) e inténtalo de nuevo.';
 
-// Subida por streaming. Requiere sesión; cada usuario tiene su carpeta y cuota en disco.
+// Subida de archivos (videos, batallas, imágenes, audios). Se transmite directo a
+// disco por streaming, así se aceptan archivos pesados (varios GB) sin límite de
+// tamaño y sin cargar todo en memoria. Si el formato no es compatible con el
+// navegador (p. ej. .mov), se convierte automáticamente a MP4 para que se reproduzca.
 app.post('/api/upload', (req, res) => {
-  const user = userFromRequest(req);
-  if (!user) return res.status(401).json({ error: 'Inicia sesión para subir archivos.' });
-
-  const userDir = userUploadDir(user.id);
-  trimUserUploadQuota(user.id);
-  const usedBefore = dirSizeBytes(userDir);
-  if (usedBefore >= UPLOAD_MAX_USER_BYTES) {
-    return res.status(507).json({
-      error: `Almacenamiento lleno (máx. ${Math.round(UPLOAD_MAX_USER_BYTES / 1024 / 1024)} MB por cuenta). Borra alertas con videos viejos o usa la app PC.`,
-    });
-  }
-
   const safe = String(req.query.name || 'file').replace(/[^\w.\-]+/g, '_').slice(-60);
   const fname = `${Date.now()}_${safe}`;
-  const dest = path.join(userDir, fname);
+  const dest = path.join(UPLOADS_DIR, fname);
   const out = fs.createWriteStream(dest);
   let bytes = 0;
   let failed = false;
-  const fail = (msg, code = 500) => {
+  const fail = (msg) => {
     if (failed) return;
     failed = true;
     out.destroy();
     fs.unlink(dest, () => {});
-    if (!res.headersSent) res.status(code).json({ error: msg || 'no se pudo guardar' });
+    if (!res.headersSent) res.status(500).json({ error: msg || 'no se pudo guardar' });
   };
-  req.on('data', (chunk) => {
-    bytes += chunk.length;
-    if (bytes > UPLOAD_MAX_FILE_BYTES) {
-      fail(`Archivo muy grande (máx. ${Math.round(UPLOAD_MAX_FILE_BYTES / 1024 / 1024)} MB por video).`, 413);
-    }
-    if (usedBefore + bytes > UPLOAD_MAX_USER_BYTES) {
-      fail(`Superarías tu cuota de ${Math.round(UPLOAD_MAX_USER_BYTES / 1024 / 1024)} MB. Borra videos antiguos.`, 507);
-    }
-  });
+  req.on('data', (chunk) => { bytes += chunk.length; });
   req.on('aborted', () => fail('subida cancelada'));
   req.on('error', () => fail());
   out.on('error', () => fail());
@@ -1584,10 +2930,12 @@ app.post('/api/upload', (req, res) => {
         return res.status(415).json({ error: UPLOAD_INCOMPATIBLE_MSG });
       }
     }
-    res.json({
-      url: `/uploads/${user.id}/${finalName}`,
-      converted: finalPath !== dest,
-    });
+    const cloudCookie = remoteUploadCookie(req);
+    // Modo relay: videos/audios solo en disco local (userData/uploads). Render no guarda copias.
+    if (cloudCookie) {
+      /* no-op: archivos locales + Browser Source en 127.0.0.1 */
+    }
+    res.json({ url: '/uploads/' + finalName, converted: finalPath !== dest, cloud: false });
   });
   req.pipe(out);
 });
@@ -1611,17 +2959,53 @@ function ttsTranslateCacheSet(key, val) {
   }
 }
 
+const ttsAudioCache = new Map();
+function ttsAudioCacheGet(key) { return ttsAudioCache.get(key) || ''; }
+function ttsAudioCacheSet(key, val) {
+  if (!val) return;
+  ttsAudioCache.set(key, val);
+  if (ttsAudioCache.size > 400) {
+    const first = ttsAudioCache.keys().next().value;
+    if (first !== undefined) ttsAudioCache.delete(first);
+  }
+}
+
+function ttsFetchTimeout(ms) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ms);
+  return { signal: ac.signal, clear: () => clearTimeout(timer) };
+}
+
+async function ttsWithTimeout(promise, ms) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), ms); }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 // Traducción gratuita con MyMemory (sin API key).
 async function ttsTranslateMyMemory(text, source, target) {
   const url = 'https://api.mymemory.translated.net/get?q=' +
     encodeURIComponent(text) + '&langpair=' + encodeURIComponent(source + '|' + target);
-  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-  if (!r.ok) return '';
-  const j = await r.json();
-  const out = j && j.responseData && j.responseData.translatedText ? String(j.responseData.translatedText).trim() : '';
-  // MyMemory a veces devuelve avisos en mayúsculas cuando falla; los descartamos.
-  if (!out || /^MYMEMORY WARNING/i.test(out) || /QUERY LENGTH LIMIT/i.test(out)) return '';
-  return out;
+  const to = ttsFetchTimeout(2800);
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: to.signal });
+    if (!r.ok) return '';
+    const j = await r.json();
+    const out = j && j.responseData && j.responseData.translatedText ? String(j.responseData.translatedText).trim() : '';
+    // MyMemory a veces devuelve avisos en mayúsculas cuando falla; los descartamos.
+    if (!out || /^MYMEMORY WARNING/i.test(out) || /QUERY LENGTH LIMIT/i.test(out)) return '';
+    return out;
+  } catch {
+    return '';
+  } finally {
+    to.clear();
+  }
 }
 
 app.post('/api/tts/translate', express.json(), async (req, res) => {
@@ -1672,26 +3056,31 @@ const TIKTOK_VOICES = new Set([
   'en_male_sing_deep_jingle', 'en_male_m03_classical', 'en_female_f08_twinkle',
 ]);
 
-// Sintetiza voz TikTok probando varios proxys públicos. Devuelve base64 (mp3) o ''.
+// Sintetiza voz TikTok probando varios proxys públicos en paralelo. Devuelve base64 (mp3) o ''.
 async function ttsSynthTikTok(text, voice) {
   const body = JSON.stringify({ text, voice });
   const headers = { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' };
-  // 1) Worker de Weilbyte (el más usado/estable).
-  try {
-    const r = await fetch('https://tiktok-tts.weilnet.workers.dev/api/generation', { method: 'POST', headers, body });
-    if (r.ok) {
-      const j = await r.json();
-      if (j && j.data && !j.error) return String(j.data);
+  const tryProxy = async (url, pick) => {
+    const to = ttsFetchTimeout(7000);
+    try {
+      const r = await fetch(url, { method: 'POST', headers, body, signal: to.signal });
+      if (!r.ok) return '';
+      const j = await r.json().catch(() => null);
+      return pick(j);
+    } catch {
+      return '';
+    } finally {
+      to.clear();
     }
-  } catch { /* probamos el siguiente */ }
-  // 2) Gesserit (fallback).
-  try {
-    const r = await fetch('https://gesserit.co/api/tts', { method: 'POST', headers, body });
-    if (r.ok) {
-      const j = await r.json();
-      if (j && (j.base64 || j.data)) return String(j.base64 || j.data);
-    }
-  } catch { /* sin más fallbacks */ }
+  };
+  const tasks = [
+    tryProxy('https://tiktok-tts.weilnet.workers.dev/api/generation', (j) => (j && j.data && !j.error ? String(j.data) : '')),
+    tryProxy('https://gesserit.co/api/tts', (j) => (j && (j.base64 || j.data) ? String(j.base64 || j.data) : '')),
+  ];
+  const results = await Promise.allSettled(tasks);
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value) return r.value;
+  }
   return '';
 }
 
@@ -1704,6 +3093,7 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
   if (!text) return res.status(400).json({ ok: false, error: 'missing_text' });
   const isEdge = isEdgeTtsVoice(voice);
   if (!isEdge && !TIKTOK_VOICES.has(voice)) return res.status(400).json({ ok: false, error: 'bad_voice' });
+  // TikTok/Disney sí pueden estar por plan; Edge (español, todos los países) es libre.
   if (!isEdge && !capsForUser(user).features.tts_tiktok) {
     return res.status(403).json({ ok: false, error: 'plan_locked' });
   }
@@ -1711,27 +3101,387 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
 
   let translated = false;
   let original = text;
+  // Traduce ES→EN solo para voces TikTok en inglés y si el texto parece español.
   if (!isEdge && translate && voice.startsWith('en_') && /[áéíóúñ¿¡üA-Za-z]/.test(text)) {
     try {
       const key = 'es|en|' + text.toLowerCase();
       let en = ttsTranslateCacheGet(key);
-      if (!en) { en = await ttsTranslateMyMemory(text, 'es', 'en'); if (en) ttsTranslateCacheSet(key, en); }
+      if (!en) {
+        en = await ttsWithTimeout(ttsTranslateMyMemory(text, 'es', 'en'), 2800).catch(() => '');
+        if (en) ttsTranslateCacheSet(key, en);
+      }
       if (en) { text = en; translated = true; }
-    } catch { /* si falla, hablamos el original */ }
+    } catch { /* si falla o tarda, hablamos el original */ }
+  }
+
+  const audioKey = voice + '|' + text.toLowerCase();
+  const cachedAudio = ttsAudioCacheGet(audioKey);
+  if (cachedAudio) {
+    return res.json({ ok: true, audio: cachedAudio, mime: 'audio/mpeg', text, original, translated, cached: true });
   }
 
   try {
     const audio = isEdge
-      ? await ttsSynthEdge(text, voice)
-      : await ttsSynthTikTok(text, voice);
+      ? await ttsWithTimeout(ttsSynthEdge(text, voice, 7000), 7500).catch(() => '')
+      : await ttsWithTimeout(ttsSynthTikTok(text, voice), 9000).catch(() => '');
     if (!audio) return res.status(502).json({ ok: false, error: 'synth_failed' });
+    ttsAudioCacheSet(audioKey, audio);
     res.json({ ok: true, audio, mime: 'audio/mpeg', text, original, translated });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }
 });
 
+/* ----------------------------------------------------------------------------
+ * Spotify Song Requests (solo .exe · admin / albertoyt / alee367 / albertoreyesyt).
+ * OAuth con PKCE: el callback llega a un listener fijo en SPOTIFY_CALLBACK_PORT.
+ * --------------------------------------------------------------------------*/
+const SPOTIFY_ALLOWED_USERS = new Set(['albertoyt', 'alee367', 'albertoreyesyt']);
+
+function spotifyUser(req) {
+  const user = userFromRequest(req);
+  if (!user) return null;
+  const uname = String(user.username || '').toLowerCase();
+  if (user.isAdmin || SPOTIFY_ALLOWED_USERS.has(uname)) return user;
+  return null;
+}
+
+app.get('/api/spotify/auth-url', (req, res) => {
+  const user = spotifyUser(req);
+  if (!user) return res.status(403).json({ error: 'No autorizado.' });
+  try {
+    const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : '');
+    if (origin) spotify.rememberPanelOrigin(origin);
+    res.json({ url: spotify.buildAuthUrl(user.id) });
+  } catch (e) {
+    res.status(500).json({ error: 'Error iniciando sesión con Spotify: ' + e.message });
+  }
+});
+
+app.get('/api/spotify/login', (req, res) => {
+  const user = spotifyUser(req);
+  if (!user) return res.status(403).send('No autorizado.');
+  try {
+    const url = spotify.buildAuthUrl(user.id);
+    res.redirect(url);
+  } catch (e) {
+    res.status(500).send('Error iniciando sesión con Spotify: ' + e.message);
+  }
+});
+
+app.get('/api/spotify/status', async (req, res) => {
+  const user = spotifyUser(req);
+  if (!user) return res.status(403).json({ connected: false });
+  try {
+    const st = await spotify.getStatus(user.id);
+    res.json(st);
+  } catch {
+    res.json({ connected: false });
+  }
+});
+
+app.post('/api/spotify/logout', (req, res) => {
+  const user = spotifyUser(req);
+  if (!user) return res.status(403).json({ ok: false });
+  spotify.logout(user.id);
+  res.json({ ok: true });
+});
+
+
+/* ----------------------------------------------------------------------------
+ * Webhook y Configuración (solo .exe). Pruebas de conexión RCON / OBS / Streamer.bot.
+ * Los datos de conexión viven en settings.webhook y se guardan por WebSocket.
+ * --------------------------------------------------------------------------*/
+function desktopAuthedUser(req) {
+  if (!IS_DESKTOP) return null;
+  return userFromRequest(req) || null;
+}
+
+app.post('/api/webhook/test-rcon', express.json(), async (req, res) => {
+  if (!desktopAuthedUser(req)) return res.status(403).json({ ok: false, error: 'No autorizado' });
+  try { res.json(await testRcon(req.body || {})); }
+  catch (e) { res.json({ ok: false, error: String(e.message || e) }); }
+});
+app.post('/api/webhook/test-obs', express.json(), async (req, res) => {
+  if (!desktopAuthedUser(req)) return res.status(403).json({ ok: false, error: 'No autorizado' });
+  try { res.json(await testObs(req.body || {})); }
+  catch (e) { res.json({ ok: false, error: String(e.message || e) }); }
+});
+app.post('/api/webhook/test-streamerbot', express.json(), async (req, res) => {
+  if (!desktopAuthedUser(req)) return res.status(403).json({ ok: false, error: 'No autorizado' });
+  try { res.json(await testStreamerbot(req.body || {})); }
+  catch (e) { res.json({ ok: false, error: String(e.message || e) }); }
+});
+app.post('/api/webhook/test-servertap', express.json(), async (req, res) => {
+  if (!desktopAuthedUser(req)) return res.status(403).json({ ok: false, error: 'No autorizado' });
+  try { res.json(await testServertap(req.body || {})); }
+  catch (e) { res.json({ ok: false, error: String(e.message || e) }); }
+});
+
 const server = http.createServer(app);
+
+/* ----------------------------------------------------------------------------
+ * Servidor de Webhook HTTP (solo .exe) en un puerto fijo (3199 por defecto).
+ * Permite ejecutar acciones desde herramientas externas (OBS, Stream Deck, scripts):
+ *   GET  /get_actions
+ *   GET/POST /execute_action?id=1   |  ?name=ACTION_TEST   (+ datos personalizados)
+ *   GET/POST /execute_sound?id=sa123 |  ?name=Rosa
+ *   GET  /get_videos          (Videos + animaciones Batallas)
+ *   GET/POST /execute_video?id=v123 |  ?name=Multiplicador%20x2
+ * En el .exe normalmente hay una sola cuenta; si no se indica ?room=, se usa esa.
+ * --------------------------------------------------------------------------*/
+const WEBHOOK_PORT = Number(process.env.WEBHOOK_PORT) || 3199;
+let webhookServer = null;
+
+function resolveWebhookUserByRoomParam(rk) {
+  const key = String(rk || '').trim();
+  if (!key) return null;
+  // Clave local (users.roomKey)
+  let usr = getUserByRoomKey(key);
+  if (usr) return usr;
+  // Solo para el servidor webhook (:3199): también acepta la roomKey de la nube
+  // (la de los overlays en relay). No modifica getUserByRoomKey ni el enrutado WS.
+  for (const u of listUsers()) {
+    const full = getUserById(u.id);
+    if (full && String(full.cloudRoomKey || '').trim() === key) return full;
+  }
+  return null;
+}
+
+function resolveWebhookRoom(u) {
+  // 1) ?room=… explícito (clave local O clave de overlay/nube).
+  const rk = u.searchParams.get('room');
+  if (rk) {
+    const usr = resolveWebhookUserByRoomParam(rk);
+    if (usr) return getRoomForUser(usr);
+  }
+  // 2) Si solo hay una room activa, esa.
+  if (rooms.size === 1) return [...rooms.values()][0];
+  // 3) Si solo hay un usuario registrado, su room.
+  const all = listUsers();
+  if (all.length === 1) return getRoomForUser(all[0]);
+  // 4) .exe: último usuario que inició sesión (Stream Deck sin ?room=).
+  if (IS_DESKTOP) {
+    const last = getDesktopLastLoginUser();
+    if (last) return getRoomForUser(last);
+  }
+  // 5) Cualquier room ya cargada en memoria.
+  for (const usr of all) {
+    if (usr && rooms.has(usr.id)) return rooms.get(usr.id);
+  }
+  return null;
+}
+
+function startWebhookServer() {
+  if (!IS_DESKTOP) return;
+
+  // En relay los videos del panel viven en la nube; el webhook local los lee solo para
+  // reproducir en OBS (emitMedia local). No modifica overlays ni settings persistidos.
+  async function fetchCloudSettingsForWebhook(userId) {
+    if (!AUTH_REMOTE || process.env.HOKEY_RELAY !== '1' || !userId) return null;
+    const cookie = remoteCookies.get(userId);
+    if (!cookie) return null;
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/my-settings`, { headers: { Cookie: cookie } });
+      if (!r.ok) return null;
+      const data = await r.json().catch(() => ({}));
+      return data?.settings || null;
+    } catch {
+      return null;
+    }
+  }
+
+  webhookServer = http.createServer((req, res) => {
+    const send = (code, obj) => {
+      res.writeHead(code, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      });
+      res.end(JSON.stringify(obj));
+    };
+    if (req.method === 'OPTIONS') { send(204, {}); return; }
+
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > 1e6) req.destroy(); });
+    req.on('end', () => {
+      (async () => {
+        let u; try { u = new URL(req.url, `http://127.0.0.1:${WEBHOOK_PORT}`); } catch { return send(400, { ok: false, error: 'bad_url' }); }
+        const data = {};
+        for (const [k, v] of u.searchParams) data[k] = v;
+        if (body) {
+          try { Object.assign(data, JSON.parse(body)); }
+          catch { try { for (const [k, v] of new URLSearchParams(body)) data[k] = v; } catch {} }
+        }
+        const room = resolveWebhookRoom(u);
+        if (!room) {
+          return send(503, {
+            ok: false,
+            error: 'no_room',
+            message: 'Abre Livecoins, inicia sesión y vuelve a intentar. En la URL puedes usar room= (clave del panel Webhook o la de tus overlays).',
+          });
+        }
+
+        if (u.pathname === '/get_actions' || u.pathname === '/execute_action' || u.pathname === '/execute_sound') {
+          const localSettings = room.getSettings() || {};
+          const cloud = await fetchCloudSettingsForWebhook(room.id);
+          const mergeById = (localArr, cloudArr) => {
+            const map = new Map();
+            for (const x of localArr || []) {
+              if (x && x.id != null) map.set(String(x.id), x);
+            }
+            for (const x of cloudArr || []) {
+              if (x && x.id != null) map.set(String(x.id), x);
+            }
+            return [...map.values()];
+          };
+          let actionsOverride = null;
+          let soundAlertsOverride = null;
+          if (cloud) {
+            const mergedAct = mergeById(localSettings.actions, cloud.actions);
+            const mergedSa = mergeById(localSettings.soundAlerts, cloud.soundAlerts);
+            if (mergedAct.length) actionsOverride = mergedAct;
+            if (mergedSa.length) soundAlertsOverride = mergedSa;
+          }
+          if (u.pathname === '/get_actions') {
+            const actions = Array.isArray(actionsOverride)
+              ? actionsOverride.map((a) => ({ id: a.id, name: a.name || '', enabled: a.enabled !== false }))
+              : room.listActions();
+            return send(200, { ok: true, actions });
+          }
+          if (u.pathname === '/execute_sound') {
+            const r = room.executeWebhookSound({
+              id: data.id,
+              name: data.name || data.nombre,
+              soundAlertsOverride,
+            });
+            if (!r.ok) return send(r.error === 'not_found' ? 404 : 400, r);
+            return send(200, r);
+          }
+          const r = room.executeWebhookAction({
+            id: data.id,
+            name: data.name || data.nombre,
+            data,
+            actionsOverride,
+          });
+          if (!r.ok) return send(r.error === 'not_found' ? 404 : 400, r);
+          return send(200, r);
+        }
+        if (u.pathname === '/get_videos' || u.pathname === '/execute_video') {
+          let videosOverride = null;
+          let battleAlertsOverride = null;
+          let videosEnabled = undefined;
+          let battleAlertsEnabled = undefined;
+          const localSettings = room.getSettings() || {};
+          const localVids = Array.isArray(localSettings.videos) ? localSettings.videos : [];
+          const localBas = Array.isArray(localSettings.battleAlerts) ? localSettings.battleAlerts : [];
+          // En relay el panel guarda en la nube; el webhook lee la room local y se queda
+          // desfasado si solo completa cuando falta TODA la categoría. Siempre fusionamos.
+          const cloud = await fetchCloudSettingsForWebhook(room.id);
+          const mergeById = (localArr, cloudArr) => {
+            const map = new Map();
+            for (const x of localArr || []) {
+              if (x && x.id != null) map.set(String(x.id), x);
+            }
+            for (const x of cloudArr || []) {
+              if (x && x.id != null) map.set(String(x.id), x); // nube gana (más reciente)
+            }
+            return [...map.values()];
+          };
+          if (cloud) {
+            const mergedVids = mergeById(localVids, cloud.videos);
+            const mergedBas = mergeById(localBas, cloud.battleAlerts);
+            if (mergedVids.length) {
+              videosOverride = mergedVids;
+              if (cloud.videosEnabled !== undefined) videosEnabled = cloud.videosEnabled;
+            }
+            if (mergedBas.length) {
+              battleAlertsOverride = mergedBas;
+              if (cloud.battleAlertsEnabled !== undefined) battleAlertsEnabled = cloud.battleAlertsEnabled;
+            }
+          }
+          if (u.pathname === '/get_videos') {
+            return send(200, { ok: true, videos: room.listVideos(videosOverride, battleAlertsOverride) });
+          }
+          const r = room.executeWebhookVideo({
+            id: data.id,
+            name: data.name || data.nombre,
+            kind: data.kind || data.tipo,
+            videosOverride,
+            battleAlertsOverride,
+            videosEnabled,
+            battleAlertsEnabled,
+          });
+          if (!r.ok) return send(r.error === 'not_found' ? 404 : 400, r);
+          return send(200, r);
+        }
+        send(404, { ok: false, error: 'not_found', message: 'Usa /get_actions, /execute_action, /execute_sound, /get_videos o /execute_video' });
+      })().catch((e) => {
+        send(500, { ok: false, error: 'internal', message: String(e?.message || e) });
+      });
+    });
+  });
+  webhookServer.on('error', (e) => {
+    console.error('  [webhook] No se pudo abrir el puerto ' + WEBHOOK_PORT + ':', e.message);
+  });
+  webhookServer.listen(WEBHOOK_PORT, '0.0.0.0', () => {
+    console.log('  [webhook] Escuchando en http://localhost:' + WEBHOOK_PORT + '/');
+  });
+}
+
+// Servidor dedicado SOLO para el callback de Spotify, en un puerto fijo registrado
+// en el panel de Spotify (http://127.0.0.1:8888/spotify/callback).
+let spotifyCallbackServer = null;
+function startSpotifyCallbackServer() {
+  if (spotifyCallbackServer) return;
+  spotifyCallbackServer = http.createServer(async (req, res) => {
+    try {
+      const u = new URL(req.url, `http://127.0.0.1:${spotify.SPOTIFY_CALLBACK_PORT}`);
+      if (u.pathname !== '/spotify/callback') { res.writeHead(404); res.end('Not found'); return; }
+      const err = u.searchParams.get('error');
+      const escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const page = (title, msg, ok) => `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+        <title>${escHtml(title)}</title><style>body{font-family:system-ui;background:#0f1320;color:#e8e8ff;
+        display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}
+        .box{max-width:440px;padding:32px;border-radius:16px;background:#1a2030;border:1px solid #2a3550}
+        h1{color:${ok ? '#22c55e' : '#ef4444'};margin:0 0 12px}p{color:#aab}</style></head>
+        <body><div class="box"><h1>${escHtml(title)}</h1><p>${escHtml(msg)}</p></div>
+        <script>(function(){
+          var ok=${ok ? 'true' : 'false'};
+          function done(){try{if(window.opener)window.opener.postMessage('spotify-connected','*');}catch(e){}
+            setTimeout(function(){try{window.close();}catch(e){}}, ok?900:2500);}
+          setTimeout(done,600);
+        })();</script></body></html>`;
+      if (err) { res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(page('Cancelado', 'No se autorizó el acceso a Spotify. Puedes cerrar esta ventana.', false)); return; }
+      const code = u.searchParams.get('code');
+      const state = u.searchParams.get('state');
+      await spotify.handleCallback(code, state);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(page('¡Spotify conectado!', 'Ya puedes cerrar esta ventana y volver al panel.', true));
+    } catch (e) {
+      const escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Error</title>
+        <style>body{font-family:system-ui;background:#0f1320;color:#e8e8ff;display:flex;align-items:center;
+        justify-content:center;height:100vh;margin:0;text-align:center}
+        .box{max-width:440px;padding:32px;border-radius:16px;background:#1a2030;border:1px solid #2a3550}
+        h1{color:#ef4444;margin:0 0 12px}p{color:#aab}</style></head>
+        <body><div class="box"><h1>Error</h1><p>${escHtml(e.message || 'desconocido')}. Cierra esta ventana e intenta de nuevo.</p></div></body></html>`);
+    }
+  });
+  spotifyCallbackServer.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      console.error('  [spotify] Puerto ' + spotify.SPOTIFY_CALLBACK_PORT + ' ocupado por otra instancia.');
+      console.error('  [spotify] Cierra Livecoins duplicado o mata el proceso en ese puerto y reinicia.');
+    } else {
+      console.error('  [spotify] No se pudo abrir el puerto del callback (' + spotify.SPOTIFY_CALLBACK_PORT + '):', e.message);
+    }
+  });
+  spotifyCallbackServer.listen(spotify.SPOTIFY_CALLBACK_PORT, '127.0.0.1', () => {
+    console.log('  [spotify] Callback escuchando en ' + spotify.SPOTIFY_REDIRECT_URI + ' (OAuth v2)');
+  });
+}
 
 /* ----------------------------------------------------------------------------
  * WebSocket: cada conexión se enruta a la room correcta.
@@ -1748,6 +3498,7 @@ wss.on('connection', (ws, req) => {
     let user = null;
     if (roomKey) user = getUserByRoomKey(roomKey);
     if (!user) user = userFromRequest(req);
+    // OBS Browser Source sin cookies: si solo hay un usuario activo, usar ese.
     if (!user) {
       const active = listUsers().filter((u) => isUserActive(u));
       if (active.length === 1) user = active[0];
@@ -1769,9 +3520,7 @@ wss.on('connection', (ws, req) => {
     }
 
     const room = getRoomForUser(user);
-    const roleRaw = String(url.searchParams.get('role') || 'panel').toLowerCase();
-    const role = (roleRaw === 'local' || roleRaw === 'relay') ? roleRaw : 'panel';
-    room.addClient(ws, role);
+    room.addClient(ws);
 
     // Heartbeat a nivel de protocolo: el navegador responde a los ping automáticamente,
     // incluso con la pestaña minimizada o en segundo plano (no depende de JS ni de timers
@@ -1820,29 +3569,37 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, () => {
-  const info = getAuthDataInfo();
   console.log('\n  ┌───────────────────────────────────────────┐');
   console.log('  │   Livecoins  —  panel estilo TikFinity       │');
   console.log('  ├───────────────────────────────────────────┤');
   console.log(`  │   ${eulerStartupLine().padEnd(42)}│`);
   console.log(`  │   Panel:   http://localhost:${PORT}/`.padEnd(46) + '│');
   console.log(`  │   Login:   http://localhost:${PORT}/login.html`.padEnd(46) + '│');
-  console.log('  └───────────────────────────────────────────┘');
-  console.log(`  [data] DATA_DIR=${info.dataDir}`);
-  console.log(`  [data] Cuentas cargadas: ${info.userCount}`);
-  const disk = getDiskUsageSummary();
-  console.log(`  [data] Uso disco: ~${disk.totalMb} MB (uploads ~${Math.round(disk.uploadsBytes / 1024 / 1024)} MB)`);
-  if (USING_EPHEMERAL_DATA) {
-    console.error('\n  [!] RENDER sin DATA_DIR: las cuentas NO usan el disco persistente.');
-    console.error('      En Environment añade:  DATA_DIR=/var/data  (ruta de tu disco)\n');
+  console.log('  └───────────────────────────────────────────┘\n');
+  if (AUTH_REMOTE) {
+    syncPlansFromRemote().catch(() => {});
+    syncAllCloudRoomKeysFromRemote().catch(() => {});
   }
-  console.log('');
+  startSpotifyCallbackServer();
+  startWebhookServer();
+  if (IS_DESKTOP) {
+    console.log('  [bridges] bajo demanda — usa «Iniciar bridge» en cada juego del panel');
+  }
 });
 
 process.on('SIGINT', () => {
+  stopMarioBridge();
+  stopPvzToolkitBridge();
+  stopPvzHybridBridge();
+  stopRepoBridge();
+  stopL4dBridge();
+  stopUnturnedBridge();
+  stopMcCoreBridge();
+  stopSmbxTiktokWebhook();
   for (const room of rooms.values()) {
     try { room.shutdown(); } catch {}
   }
   try { streamerRankings.flush(); } catch {}
+  try { communityGoals.flush(); } catch {}
   process.exit(0);
 });

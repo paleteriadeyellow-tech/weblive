@@ -6,6 +6,9 @@
   <title>Livecoins · Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
   <link rel="stylesheet" href="/css/dashboard.css?v=panels1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>" />
 </head>
 <body>
@@ -45,6 +48,7 @@
           <button class="nav-item" data-view="configuracion" id="navConfiguracion" style="display:none">Configuración</button>
           <button class="nav-item" data-view="planes">Planes</button>
           <button class="nav-item" data-view="regalos">Regalos</button>
+          <button class="nav-item" data-view="editor">Editor</button>
         </div>
 
         <div class="nav-divider" aria-hidden="true"><span class="nav-divider-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="nav-ico-stroke" d="M13 2L4 14h6l-2 8 10-12h-6l2-8z"/></svg></span></div>
@@ -161,6 +165,15 @@
                   <span class="home-hero-badge off" id="home-hero-badge">Desconectado</span>
                 </div>
                 <div class="home-hero-sub" id="home-hero-sub">Conecta tu cuenta de TikTok para empezar el directo.</div>
+              </div>
+            </div>
+            <div class="home-hero-goal" id="home-hero-goal" title="Meta de diamantes de esta semana">
+              <div class="home-hero-goal-head">
+                <span class="home-hero-goal-lbl" id="home-hero-goal-lbl">Meta diamantes</span>
+                <span class="home-hero-goal-nums" id="home-hero-goal-nums">0 / 50 000</span>
+              </div>
+              <div class="home-hero-goal-track" aria-hidden="true">
+                <div class="home-hero-goal-fill" id="home-hero-goal-fill" style="width:0%"></div>
               </div>
             </div>
             <div class="home-hero-aside">
@@ -483,6 +496,236 @@
           </div>
         </section>
 
+        <!-- ===== VISTA: EDITOR DE IMÁGENES ===== -->
+        <section class="view" id="view-editor">
+          <div class="ied-page-head">
+            <div>
+              <h1 class="view-title ied-title">Editor</h1>
+              <p class="view-sub ied-sub">Composiciones para tu live: regalos, texto, imágenes y GIF. Exporta PNG o GIF.</p>
+            </div>
+          </div>
+          <div class="ied-layout">
+            <aside class="ied-panel ied-tools">
+              <div class="ied-block">
+                <div class="ied-sec">Herramientas</div>
+                <div class="ied-tool-stack">
+                  <button type="button" class="ied-tool ied-tool-primary" id="ied-add-gift">
+                    <span class="ied-tool-ico" aria-hidden="true">◆</span>
+                    <span class="ied-tool-copy"><strong>Añadir regalo</strong><em>Catálogo TikTok</em></span>
+                  </button>
+                  <button type="button" class="ied-tool" id="ied-add-text">
+                    <span class="ied-tool-ico" aria-hidden="true">T</span>
+                    <span class="ied-tool-copy"><strong>Añadir texto</strong><em>Fuentes y estilos</em></span>
+                  </button>
+                  <button type="button" class="ied-tool" id="ied-add-icon">
+                    <span class="ied-tool-ico" aria-hidden="true">▣</span>
+                    <span class="ied-tool-copy"><strong>Imagen / GIF</strong><em>Desde tu PC</em></span>
+                  </button>
+                  <button type="button" class="ied-tool" id="ied-add-games">
+                    <span class="ied-tool-ico" aria-hidden="true">◍</span>
+                    <span class="ied-tool-copy"><strong>Juegos</strong><em>Iconos de acciones</em></span>
+                  </button>
+                  <button type="button" class="ied-tool" id="ied-add-badge">
+                    <span class="ied-tool-ico" aria-hidden="true">#</span>
+                    <span class="ied-tool-copy"><strong>Badge / número</strong><em>Contador visual</em></span>
+                  </button>
+                  <button type="button" class="ied-tool" id="ied-add-sticker">
+                    <span class="ied-tool-ico" aria-hidden="true">★</span>
+                    <span class="ied-tool-copy"><strong>Stickers</strong><em>Coronas y formas</em></span>
+                  </button>
+                </div>
+                <input type="file" id="ied-icon-file" accept="image/*,.gif,image/gif,image/png,image/jpeg,image/webp" multiple hidden>
+                <input type="file" id="ied-bg-file" accept="image/*" hidden>
+              </div>
+
+              <div class="ied-block">
+                <div class="ied-sec">Plantillas y proyectos</div>
+                <label class="ied-field">Plantilla rápida
+                  <select id="ied-template">
+                    <option value="">Elegir plantilla…</option>
+                    <option value="gift-menu">Menú de regalos</option>
+                    <option value="wins">Panel de wins</option>
+                    <option value="alert">Alerta simple</option>
+                    <option value="obs">Preset OBS transparente</option>
+                  </select>
+                </label>
+                <button type="button" class="ied-chip" id="ied-tpl-apply" style="width:100%">Aplicar plantilla</button>
+                <label class="ied-field" style="margin-top:6px">Nombre del proyecto
+                  <input type="text" id="ied-design-name" placeholder="Ej. Menú regalos" maxlength="80" autocomplete="off">
+                </label>
+                <div class="ied-chip-row">
+                  <button type="button" class="ied-chip" id="ied-save-design">Guardar</button>
+                  <button type="button" class="ied-chip" id="ied-load-design">Cargar</button>
+                  <button type="button" class="ied-chip" id="ied-del-design" title="Borrar el diseño seleccionado">Borrar</button>
+                </div>
+                <label class="ied-field">Mis diseños
+                  <select id="ied-designs" class="ied-designs-select">
+                    <option value="">Ninguno guardado aún</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="ied-block">
+                <div class="ied-sec">Lienzo</div>
+                <label class="ied-field">Tamaño
+                  <select id="ied-size">
+                    <option value="1080x1920">Vertical 1080×1920</option>
+                    <option value="1920x1080">Horizontal 1920×1080</option>
+                    <option value="1080x1080" selected>Cuadrado 1080×1080</option>
+                    <option value="1280x720">HD 1280×720</option>
+                    <option value="512x512">Sticker 512×512</option>
+                    <option value="256x256">Mini 256×256</option>
+                  </select>
+                </label>
+                <label class="ied-field">Tipo de fondo
+                  <select id="ied-bg-mode">
+                    <option value="color">Color sólido</option>
+                    <option value="gradient">Degradado</option>
+                    <option value="image">Imagen</option>
+                  </select>
+                </label>
+                <div id="ied-bg-color-wrap">
+                  <label class="ied-field">Fondo
+                    <span class="ied-color-wrap"><input type="color" id="ied-bg" value="#0b0f1a"></span>
+                  </label>
+                </div>
+                <div id="ied-bg-grad-wrap" hidden>
+                  <label class="ied-field">Color A
+                    <span class="ied-color-wrap"><input type="color" id="ied-bg-g1" value="#0b0f1a"></span>
+                  </label>
+                  <label class="ied-field">Color B
+                    <span class="ied-color-wrap"><input type="color" id="ied-bg-g2" value="#1a1040"></span>
+                  </label>
+                </div>
+                <div id="ied-bg-img-wrap" hidden>
+                  <button type="button" class="ied-export-btn" id="ied-bg-pick">Elegir imagen de fondo</button>
+                </div>
+                <label class="ied-toggle">
+                  <input type="checkbox" id="ied-bg-transparent" checked>
+                  <span class="ied-toggle-ui" aria-hidden="true"></span>
+                  <span class="ied-toggle-label">Fondo transparente al exportar</span>
+                </label>
+              </div>
+
+              <div class="ied-block">
+                <div class="ied-sec">Guías y alineación</div>
+                <label class="ied-toggle">
+                  <input type="checkbox" id="ied-grid" checked>
+                  <span class="ied-toggle-ui" aria-hidden="true"></span>
+                  <span class="ied-toggle-label">Mostrar cuadrícula</span>
+                </label>
+                <label class="ied-toggle">
+                  <input type="checkbox" id="ied-snap" checked>
+                  <span class="ied-toggle-ui" aria-hidden="true"></span>
+                  <span class="ied-toggle-label">Ajustar a la cuadrícula</span>
+                </label>
+                <label class="ied-toggle">
+                  <input type="checkbox" id="ied-center-guides" checked>
+                  <span class="ied-toggle-ui" aria-hidden="true"></span>
+                  <span class="ied-toggle-label">Líneas centrales</span>
+                </label>
+                <div class="ied-chip-row">
+                  <button type="button" class="ied-chip" id="ied-align-row">Fila</button>
+                  <button type="button" class="ied-chip" id="ied-equal-size">Igualar</button>
+                  <button type="button" class="ied-chip" id="ied-distribute">Distribuir</button>
+                </div>
+                <div class="ied-chip-row">
+                  <button type="button" class="ied-chip" id="ied-align-center">Centrar</button>
+                  <button type="button" class="ied-chip" id="ied-align-h">Centro H</button>
+                  <button type="button" class="ied-chip" id="ied-align-v">Centro V</button>
+                </div>
+              </div>
+
+              <div class="ied-block ied-block-export">
+                <div class="ied-sec">Exportar</div>
+                <label class="ied-field">Tamaño de export
+                  <select id="ied-export-scale">
+                    <option value="1" selected>Original</option>
+                    <option value="0.5">50%</option>
+                    <option value="0.25">25% (sticker)</option>
+                  </select>
+                </label>
+                <button type="button" class="ied-export-btn ied-export-png" id="ied-export">Descargar PNG</button>
+                <button type="button" class="ied-export-btn" id="ied-export-gif">Descargar GIF</button>
+                <button type="button" class="ied-export-btn" id="ied-copy">Copiar al portapapeles</button>
+                <button type="button" class="ied-export-btn ied-export-muted" id="ied-clear">Limpiar lienzo</button>
+              </div>
+            </aside>
+
+            <div class="ied-canvas-col">
+              <div class="ied-canvas-bar">
+                <div class="ied-zoom-controls">
+                  <button type="button" class="ied-zoom-btn" id="ied-zoom-out" title="Alejar">−</button>
+                  <span class="ied-zoom" id="ied-zoom-label">100%</span>
+                  <button type="button" class="ied-zoom-btn" id="ied-zoom-in" title="Acercar">+</button>
+                  <button type="button" class="ied-zoom-btn" id="ied-zoom-fit" title="Ajustar">Fit</button>
+                </div>
+                <div class="ied-bar-actions">
+                  <button type="button" class="ied-zoom-btn" id="ied-undo" title="Deshacer (Ctrl+Z)">↶</button>
+                  <button type="button" class="ied-zoom-btn" id="ied-redo" title="Rehacer (Ctrl+Y)">↷</button>
+                  <button type="button" class="ied-zoom-btn" id="ied-dup" title="Duplicar (Ctrl+D)">⧉</button>
+                </div>
+                <span class="ied-hint">Ctrl+Z · Delete · arrastra capas en la lista</span>
+              </div>
+              <div class="ied-viewport" id="ied-viewport">
+                <div class="ied-stage-scale" id="ied-stage-scale">
+                  <div class="ied-stage" id="ied-stage" tabindex="0"></div>
+                </div>
+              </div>
+            </div>
+
+            <aside class="ied-panel ied-side">
+              <div class="ied-block">
+                <div class="ied-sec">Capas</div>
+                <div id="ied-layers" class="ied-layers"></div>
+              </div>
+              <div class="ied-block ied-block-props">
+                <div class="ied-sec">Propiedades</div>
+                <div id="ied-props" class="ied-props">
+                  <p class="ied-muted">Selecciona una capa para editarla</p>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <!-- Mini pestaña 1: lista de juegos -->
+          <div id="iedGamesModal" class="modal hidden" aria-hidden="true">
+            <div class="modal-box ied-games-modal">
+              <div class="modal-head">
+                <div>
+                  <h2>🎮 Juegos</h2>
+                  <span class="vidlib-sub">Elige un juego para ver los iconos de sus acciones</span>
+                </div>
+                <button type="button" class="modal-close" id="ied-games-close" aria-label="Cerrar">✕</button>
+              </div>
+              <div class="modal-body ied-games-modal-body">
+                <input type="search" id="ied-games-q" class="ied-games-q" placeholder="Buscar juego…" autocomplete="off">
+                <div id="ied-games-list" class="ied-games-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mini pestaña 2: iconos del juego elegido -->
+          <div id="iedGameIconsModal" class="modal hidden" aria-hidden="true">
+            <div class="modal-box ied-games-modal">
+              <div class="modal-head">
+                <div class="ied-games-head">
+                  <button type="button" class="ied-games-back" id="ied-games-back" title="Volver a juegos">←</button>
+                  <div>
+                    <h2 id="ied-icons-title">Iconos</h2>
+                    <span class="vidlib-sub">Clic en un icono para añadirlo al lienzo</span>
+                  </div>
+                </div>
+                <button type="button" class="modal-close" id="ied-icons-close" aria-label="Cerrar">✕</button>
+              </div>
+              <div class="modal-body ied-games-modal-body">
+                <input type="search" id="ied-icons-q" class="ied-games-q" placeholder="Buscar acción…" autocomplete="off">
+                <div id="ied-games-icons" class="ied-games-icons"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- ===== VISTA: ALERTAS SONORAS ===== -->
         <section class="view" id="view-alertas">
           <h1 class="view-title">🔔 Alertas sonoras</h1>
@@ -708,6 +951,7 @@
           <div class="modal-box">
             <div class="modal-head">
               <h2>🎵 Lista de Sonidos</h2>
+              <button type="button" class="modal-close" id="sa-lib-frompc" title="Elegir desde el PC" hidden>📁 PC</button>
               <button class="modal-close" id="lib-close">✕</button>
             </div>
             <div class="modal-body">
@@ -2389,6 +2633,44 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Fuegos artificiales -->
+        <div id="fwConfigModal" class="modal hidden">
+          <div class="modal-box" style="max-width:440px">
+            <div class="modal-head">
+              <h2>Configuraciones de Superposición</h2>
+              <button class="modal-close" id="fwcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="switch-row plain"><input type="checkbox" id="fwcfg-sound" checked><span>Sonido Activo</span></label>
+
+              <label class="ml" style="margin-top:14px">Volumen de Sonido</label>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+                <input type="range" id="fwcfg-vol" min="0" max="100" step="1" value="80" style="flex:1;min-width:0">
+                <span id="fwcfg-volval" style="min-width:44px;text-align:right;font-variant-numeric:tabular-nums">80%</span>
+              </div>
+
+              <label class="ml">Min gift value</label>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+                <input type="number" id="fwcfg-mincoins" min="0" max="999999" value="1" style="flex:1;min-width:0">
+                <span style="opacity:.7;white-space:nowrap">Coins</span>
+              </div>
+
+              <label class="ml">Max concurrent rockets</label>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+                <input type="number" id="fwcfg-maxfw" min="1" max="30" value="5" style="flex:1;min-width:0">
+                <span style="opacity:.7;white-space:nowrap">Rockets</span>
+              </div>
+
+              <label class="switch-row plain" style="margin-top:14px"><input type="checkbox" id="fwcfg-username" checked><span>Show Username</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="fwcfg-combos" checked><span>Repeat on gift combos</span></label>
+            </div>
+            <div class="modal-foot" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+              <button type="button" class="btn ghost" id="fwcfg-test">Test</button>
+              <button type="button" class="btn primary" id="fwcfg-save">OK</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Alerta de likes -->
         <div id="alkConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -3813,6 +4095,28 @@
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
 
+              <!-- Tarjeta PRO: Fuegos artificiales -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="fw-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="fw-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="fw-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="fw-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">🎆 Fuegos artificiales</h3>
+                <p class="ovpro-desc">Cohete con la foto del donador que sube y explota en anillos de avatar + regalo. Ideal a pantalla completa en OBS. Respeta rachas de regalos.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/fuegos.html">/fuegos.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="fw-preview" src="/fuegos.html?embed=1" title="Vista previa fuegos artificiales"></iframe>
+                </div>
+              </div>
+
               <!-- Tarjeta PRO: Tiempo en live (Neon) -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -4221,6 +4525,16 @@
                 <label>Volumen <b><span id="tts-vol-val">100</span>%</b></label>
                 <input type="range" id="tts-vol" min="0" max="1" step="0.05">
               </div>
+              <div class="field">
+                <label>Máximo en cola</label>
+                <input type="number" id="tts-max-queue" min="0" max="100" step="1" value="50">
+                <span class="tts-sub">Cuántos comentarios pueden esperar. <b>0 = sin límite</b> (se leen todos). Si el chat es intenso y se atrasa, baja a 5–10.</span>
+              </div>
+              <div class="field">
+                <label>Descartar si esperan más de (segundos)</label>
+                <input type="number" id="tts-max-lag" min="0" max="120" step="1" value="0">
+                <span class="tts-sub"><b>0 = no descartar</b> (se leen todos). Si pones p. ej. 15, salta los que llevan más de 15 s en cola.</span>
+              </div>
             </div>
 
             <!-- Usuarios permitidos -->
@@ -4336,7 +4650,7 @@
                   <select id="tts-uv-engine">
                     <option value="tiktok">TikTok (Server)</option>
                     <option value="disney">Disney / Personajes</option>
-                    <option value="edge">Microsoft Edge (Colombia)</option>
+                    <option value="edge">Microsoft Edge (español · por país)</option>
                     <option value="system">Sistema (navegador)</option>
                   </select>
                 </div>
@@ -6419,6 +6733,23 @@
             </div>
           </div>
 
+          <!-- Meta global de diamantes (banner del panel) -->
+          <div class="settings-card plans-card">
+            <div class="tts-head">
+              <h3>Meta de diamantes</h3>
+              <span class="tts-sub">Misma meta para todos. Cada usuario lleva su propia barra. Al guardar se reinicia el progreso de todos.</span>
+            </div>
+            <div class="field">
+              <label>Meta (diamantes)</label>
+              <input type="number" id="cg-admin-goal" min="1" step="1000" placeholder="50000">
+            </div>
+            <p class="tts-sub" id="cg-admin-info">—</p>
+            <div class="plans-actions">
+              <span id="cg-admin-status" class="tts-sub"></span>
+              <button class="btn primary" id="cg-admin-save">Guardar y reiniciar barras</button>
+            </div>
+          </div>
+
           <!-- Anuncios a todos los usuarios -->
           <div class="settings-card plans-card">
             <div class="tts-head">
@@ -6508,5 +6839,6 @@
   <script src="/js/repo-catalog-data.js?v=2"></script>
   <script src="/js/account-email.js"></script>
   <script src="/js/dashboard.js"></script>
+  <script src="/js/image-editor.js"></script>
 </body>
 </html>

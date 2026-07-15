@@ -31,6 +31,7 @@ export const DEFAULT_SETTINGS = {
     charge: false, cost: 5,
     // Moderación inteligente
     blockSpam: true, blockAlpha: true, blockProfanity: true, blockSuspicious: true, stripEmojis: false,
+    blockReplies: false,
     blockedWords: '',
     // Nuevos seguidores
     readFollow: false, followMsg: 'Hola {user}, gracias por seguirme',
@@ -398,6 +399,10 @@ export const DEFAULT_SETTINGS = {
     durationSec: 5, scale: 100, g1: '#00ffff', g2: '#7c3aed', g3: '#ff00ff', nameColor: '#ffffff', subColor: '#f8fafc',
     showAvatar: true, showShards: true, showRays: true, showDust: true, enterAnim: 'lift',
   },
+  fuegos: {
+    minCoins: 1, maxFireworks: 5, soundEnabled: true, soundVolume: 80,
+    showUsername: true, repeatWithCombos: true,
+  },
   followerCounter: {
     variation: 'flip', font: 'exo2', fontSize: 50, lineSpacing: 50, letterSpacing: 50,
     fontColor: '#dedede', colorMode: 'solid',
@@ -452,7 +457,7 @@ export const DEFAULT_SETTINGS = {
   // Acciones (solo en la app .exe): cada acción dispara una tecla del teclado cuando
   // ocurre un evento del live. Lista de objetos:
   // { id, name, enabled, event, giftId, giftName, giftImage, minDiamonds,
-  //   rangeMin, rangeMax, likeMin, likeGoal, emoteId, keys, gameCompat, image, sound, soundName, soundVolume }
+  //   rangeMin, rangeMax, likeMin, likeGoal, emoteId, keys, gameCompat, keyHoldSec, image, sound, soundName, soundVolume }
   // Si el evento es un regalo específico y mandan varios (ej. 5 rosas), la tecla se
   // pulsa una vez por cada regalo. 'sound' (opcional) suena al activarse la acción.
   // event: 'gift-any' | 'gift' | 'like' | 'follow' | 'share'
@@ -462,7 +467,7 @@ export const DEFAULT_SETTINGS = {
   // permite ejecutar acciones desde herramientas externas (OBS, Stream Deck, scripts).
   // La sub-pestaña "Configuración" guarda los datos de conexión a RCON / OBS / Streamer.bot.
   webhook: {
-    rcon: { host: '127.0.0.1', port: 25575, password: '' },
+    rcon: { host: '127.0.0.1', port: 25575, password: '', playername: '' },
     obs: { ip: '127.0.0.1', port: 4455, password: '' },
     streamerbot: { address: '127.0.0.1', port: 8080, endpoint: '/', password: '' },
     // ServerTap / mod de TikFinity: alternativa a RCON para enviar comandos a Minecraft.
@@ -471,7 +476,9 @@ export const DEFAULT_SETTINGS = {
   // Acciones del juego Minecraft (solo .exe): cada una vincula un comando RCON a un
   // regalo o evento del live. { uid, catId, name, desc, cmd, trigger, giftId, giftName, giftImage, enabled }
   mcActions: [],
+  // Acciones de Minecraft Shooters: mismo RCON que Survival, lista aparte.
   mcshooterActions: [],
+  // Coliseo Shooters: comando de chat (!entro) → zombie en coords fijas, cooldown global.
   mcshooterColiseo: {
     enabled: false,
     chatCmd: '!entro',
@@ -484,6 +491,12 @@ export const DEFAULT_SETTINGS = {
   // Acciones del juego Bedrock (Cubo TNT): mismas que Minecraft pero con comandos
   // /bedrock; se ejecutan por el MISMO RCON/ServerTap del servidor de Minecraft.
   bedrockActions: [],
+  // Acciones del juego Minecraft Parkour: comandos /parkour; mismo RCON que Minecraft.
+  parkourActions: [],
+  // Acciones del juego Minecraft KOTH: comandos /koth; mismo RCON que Minecraft.
+  kothActions: [],
+  // Acciones del juego Minecraft Farm: comandos /farm; mismo RCON que Minecraft.
+  farmActions: [],
   // Acciones del juego Sandbox: mismas que Bedrock pero con comandos /sandbox.
   sandboxActions: [],
   robloxActions: [],
@@ -496,9 +509,13 @@ export const DEFAULT_SETTINGS = {
   // Acciones del juego Plants vs Zombies (solo .exe): genera zombies (/spawn) o da
   // soles al jugador (/sun) al recibir un regalo o evento del live.
   pvzActions: [],
-  pvzHybridActions: [],
   repoActions: [],
+  l4dActions: [],
+  unturnedActions: [],
   ctrActions: [],
+  smwActions: [],
+  mslugActions: [],
+  gdashActions: [],
   // Videos automáticos por nivel de miembro (public/video/niveles): al subir alguien de
   // nivel se reproduce nivelN.webm. screen = en qué Browser Source aparece.
   levelVideos: { enabled: true, screen: 1, volume: 100 },
