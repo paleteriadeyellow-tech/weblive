@@ -49,10 +49,20 @@ function load(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
 }
 function saveUsers() {
-  fs.writeFile(USERS_FILE, JSON.stringify(users, null, 2), () => {});
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+  } catch (e) {
+    try { console.error('[auth] No se pudo guardar users.json:', e && e.message); } catch {}
+  }
 }
 function saveSessions() {
-  fs.writeFile(SESSIONS_FILE, JSON.stringify(Object.fromEntries(sessions)), () => {});
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(Object.fromEntries(sessions)), 'utf8');
+  } catch (e) {
+    try { console.error('[auth] No se pudo guardar sessions.json:', e && e.message); } catch {}
+  }
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
@@ -574,7 +584,13 @@ export function bootstrapDesktopSessionToken() {
   try { data = JSON.parse(fs.readFileSync(DESKTOP_LAST_SESSION_FILE, 'utf8')); } catch {}
   let user = data?.userId ? getUserById(data.userId) : null;
   if (!user && data?.username) user = getUserByUsername(data.username);
-  if (!user || !isUserActive(user)) return null;
+  if (!user) {
+    const recent = users
+      .filter((u) => u && (u.lastLogin > 0))
+      .sort((a, b) => (b.lastLogin || 0) - (a.lastLogin || 0));
+    user = recent[0] || null;
+  }
+  if (!user) return null;
   return ensureSessionForUser(user.id);
 }
 export function destroySession(token) {

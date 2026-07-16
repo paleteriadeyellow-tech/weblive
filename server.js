@@ -1143,12 +1143,16 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/desktop/ensure-session', (req, res) => {
   if (!IS_DESKTOP) return res.status(404).json({ error: 'not found' });
   const user = userFromRequest(req);
-  if (user) return res.json({ ok: true, username: user.username });
+  if (user) {
+    const token = ensureSessionForUser(user.id);
+    if (token) res.setHeader('Set-Cookie', sessionCookie(token));
+    return res.json({ ok: true, username: user.username, token: token || null });
+  }
   const token = bootstrapDesktopSessionToken();
   if (!token) return res.status(401).json({ ok: false });
   res.setHeader('Set-Cookie', sessionCookie(token));
   const u = getSessionUser(token);
-  res.json({ ok: true, username: u?.username || '' });
+  res.json({ ok: true, username: u?.username || '', token });
 });
 
 /* ----------------------------------------------------------------------------
