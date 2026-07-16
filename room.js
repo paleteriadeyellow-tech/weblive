@@ -10,10 +10,24 @@ import { DEFAULT_SETTINGS, deepMerge } from './default-settings.js';
 import * as spotify from './spotify.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan, fireGameActionTimed, fireGameActionCountTimed } from './mc-panic.js';
-import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzSpawn, pvzSun, pvzCmd, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, repoSpawn, l4dSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn, runGameExec, resolveRepoSpawnKey } from './game-local.js';
-import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 import { likeTriggerFires } from './like-trigger.js';
 import { buildGdashEffectUrl, fireGdashEffectRequest } from './gdash-effect.js';
+
+// En Render NO cargar game-local ni bridges (pesan y empujan el plan de 512MB al OOM).
+const IS_RENDER_BOOT = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL);
+const __game = IS_RENDER_BOOT
+  ? await import('./cloud-game-local-stubs.js')
+  : await import('./game-local.js');
+const __marioBr = IS_RENDER_BOOT
+  ? await import('./cloud-game-local-stubs.js')
+  : await import('./mario-bridge.js');
+const {
+  marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect,
+  pvzSpawn, pvzSun, pvzCmd, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd,
+  repoSpawn, l4dSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn,
+  runGameExec, resolveRepoSpawnKey,
+} = __game;
+const { ensureMarioBridge, ensureMari0Bridge } = __marioBr;
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -529,7 +543,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const POINTS_MAX_USERS = 2500;
   const POINTS_MAX_TX = 500;
   const clients = new Set();         // todos los WS de esta room (panel + overlays)
-  const IS_CLOUD_ROOM = !!process.env.RENDER;
+  const IS_CLOUD_ROOM = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL);
   const clientRoles = new WeakMap(); // ws -> 'panel' | 'relay' | 'local'
   let relayLocalOrigin = '';         // http://127.0.0.1:PUERTO (modo relay .exe)
   const videoScreens = new Map();    // ws -> número de pantalla
@@ -1807,6 +1821,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const AUTO_CONNECT_POLL_MS = 45000;
   let autoConnectTimer = null;
   let lastAutoWaitLog = 0;
+  let idleCloudTimer = null;
 
   // En modo relay (HOKEY_RELAY=1), la conexión a TikTok y el procesamiento corren en la
   // NUBE. El servidor local NUNCA debe conectarse para no duplicar la conexión (y el
@@ -1815,7 +1830,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const RELAY = process.env.HOKEY_RELAY === '1' && !IS_CLOUD_ROOM;
   function autoConnectOn() {
     if (RELAY) return false;
+    // Sin clientes (panel/overlay) no mantener TikTok: cada conexión gasta mucha RAM.
+    if (IS_CLOUD_ROOM && clients.size === 0) return false;
     return settings.autoConnect !== false && !!settings.tiktokUser;
+  }
+  function clearIdleCloudTimer() {
+    if (idleCloudTimer) {
+      clearTimeout(idleCloudTimer);
+      idleCloudTimer = null;
+    }
+  }
+  /** En Render: si se van todos los clientes, cortar TikTok a los 90s (libera RAM). */
+  function scheduleCloudIdleDisconnect() {
+    if (!IS_CLOUD_ROOM) return;
+    clearIdleCloudTimer();
+    idleCloudTimer = setTimeout(() => {
+      idleCloudTimer = null;
+      if (clients.size > 0) return;
+      if (state.connected || state.connecting) {
+        console.log(`[cloud] room ${id}: sin clientes → disconnect TikTok (ahorro de memoria)`);
+        try { disconnect(); } catch {}
+      }
+    }, 90 * 1000);
+    idleCloudTimer.unref?.();
   }
   function startAutoConnectLoop() {
     if (autoConnectTimer) return;
@@ -6800,6 +6837,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   /* ------------------------ Gestión de clientes WS ------------------------ */
   function addClient(ws, role = 'panel') {
+    clearIdleCloudTimer();
     clientRoles.set(ws, role === 'relay' || role === 'local' ? role : 'panel');
     clients.add(ws);
     lastSeen = Date.now();
@@ -6835,6 +6873,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       videoScreens.delete(ws);
       broadcastScreens();
     }
+    if (clients.size === 0) scheduleCloudIdleDisconnect();
   }
 
   function getEmotes() {
@@ -6844,6 +6883,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     flushStreamerRank();
     stopRankStreamerTimer();
     disconnect();
+    clearIdleCloudTimer();
     if (autoConnectTimer) { clearInterval(autoConnectTimer); autoConnectTimer = null; }
     stopTimerInterval();
     clearTimeout(saveTimer);

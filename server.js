@@ -588,9 +588,33 @@ function getRoomForUser(user) {
         : undefined,
       onStreamerRank: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1') ? undefined : (p) => streamerRankings.record(p),
     });
+    room._createdAt = Date.now();
     rooms.set(user.id, room);
   }
   return room;
+}
+
+/** En Render: expulsar rooms sin clientes para no acumular TikTok + settings en RAM. */
+function reapIdleCloudRooms() {
+  if (!IS_RENDER) return;
+  const now = Date.now();
+  let evicted = 0;
+  for (const [id, room] of [...rooms.entries()]) {
+    const st = room.getStatus?.() || {};
+    if ((st.clients || 0) > 0) continue;
+    const lastSeen = Number(st.lastSeen) || Number(room._createdAt) || 0;
+    const idleMs = lastSeen ? (now - lastSeen) : (now - (room._createdAt || now));
+    // Sin clientes: 5 min. Si nunca hubo WS (solo API): 2 min.
+    const limit = lastSeen ? 5 * 60 * 1000 : 2 * 60 * 1000;
+    if (idleMs < limit) continue;
+    try { room.shutdown?.(); } catch {}
+    rooms.delete(id);
+    evicted += 1;
+  }
+  if (evicted) {
+    const mem = process.memoryUsage();
+    console.log(`[cloud] rooms idle evicted=${evicted} left=${rooms.size} rss=${Math.round(mem.rss / 1024 / 1024)}MB`);
+  }
 }
 
 // Usuarios conectados al panel y EN VIVO en TikTok (directorio para el panel).
@@ -2987,13 +3011,27 @@ function ttsTranslateCacheSet(key, val) {
 }
 
 const ttsAudioCache = new Map();
+let ttsAudioCacheBytes = 0;
+const TTS_AUDIO_CACHE_MAX_ENTRIES = IS_RENDER ? 40 : 400;
+const TTS_AUDIO_CACHE_MAX_BYTES = IS_RENDER ? 8 * 1024 * 1024 : 48 * 1024 * 1024;
 function ttsAudioCacheGet(key) { return ttsAudioCache.get(key) || ''; }
 function ttsAudioCacheSet(key, val) {
   if (!val) return;
+  if (ttsAudioCache.has(key)) {
+    const prev = ttsAudioCache.get(key) || '';
+    ttsAudioCacheBytes = Math.max(0, ttsAudioCacheBytes - prev.length);
+  }
   ttsAudioCache.set(key, val);
-  if (ttsAudioCache.size > 400) {
+  ttsAudioCacheBytes += val.length;
+  while (
+    ttsAudioCache.size > TTS_AUDIO_CACHE_MAX_ENTRIES
+    || ttsAudioCacheBytes > TTS_AUDIO_CACHE_MAX_BYTES
+  ) {
     const first = ttsAudioCache.keys().next().value;
-    if (first !== undefined) ttsAudioCache.delete(first);
+    if (first === undefined) break;
+    const gone = ttsAudioCache.get(first) || '';
+    ttsAudioCache.delete(first);
+    ttsAudioCacheBytes = Math.max(0, ttsAudioCacheBytes - gone.length);
   }
 }
 
@@ -3608,6 +3646,13 @@ server.listen(PORT, '0.0.0.0', () => {
   if (IS_RENDER) {
     const mem = process.memoryUsage();
     console.log(`  [cloud] Render OK — listen 0.0.0.0:${PORT} · rss=${Math.round(mem.rss / 1024 / 1024)}MB`);
+    setInterval(() => {
+      reapIdleCloudRooms();
+      const m = process.memoryUsage();
+      if (rooms.size > 0 || m.rss > 200 * 1024 * 1024) {
+        console.log(`[cloud] mem rss=${Math.round(m.rss / 1024 / 1024)}MB heap=${Math.round(m.heapUsed / 1024 / 1024)}MB rooms=${rooms.size}`);
+      }
+    }, 60 * 1000).unref?.();
   }
   if (AUTH_REMOTE) {
     syncPlansFromRemote().catch(() => {});
