@@ -4428,7 +4428,7 @@ function renderPotSimGiftBtn(key) {
       send({ action: cfg.testAction, count: 200 });
     };
     reset.onclick = () => { toPreview({ type: 'reset' }); send({ action: cfg.resetAction }); };
-    config.onclick = () => openPotConfig(key);
+    if (config) config.onclick = () => openPotConfig(key);
 
     const dropPayload = () => {
       const g = potSimGift[key];
@@ -4499,9 +4499,9 @@ function openPotConfig(target) {
   $('jarcfg-topbar-on').checked = data.topBarEnabled !== false;
   $('jarcfg-topbar-limit').value = Math.max(1, Math.min(10, Number(data.topBarLimit) || 3));
   const tbColor = data.topBarColor || '#161820';
-  $('jarcfg-topbar-color').value = /^#/.test(tbColor) ? tbColor : '#161820';
+  if ($('jarcfg-topbar-color')) $('jarcfg-topbar-color').value = /^#/.test(tbColor) ? tbColor : '#161820';
   const tbOp = Math.max(0, Math.min(100, Number(data.topBarOpacity != null ? data.topBarOpacity : 88)));
-  $('jarcfg-topbar-opacity').value = tbOp;
+  if ($('jarcfg-topbar-opacity')) $('jarcfg-topbar-opacity').value = tbOp;
   if ($('jarcfg-topbar-op-lbl')) $('jarcfg-topbar-op-lbl').textContent = tbOp + '%';
   const toastWrap = $('jarcfg-gifttoast-wrap');
   if (toastWrap) toastWrap.style.display = '';
@@ -4525,6 +4525,7 @@ function renderJarRows() {
   const sorted = [...cfgSizesDraft].sort((a, b) => b.t - a.t);
   cfgSizesDraft = sorted;
   const wrap = $('jarcfg-rows');
+  if (!wrap) return;
   wrap.innerHTML = sorted.map((r, i) => {
     const next = sorted[i - 1]; // umbral inmediatamente superior
     const range = next ? `${r.t} a ${next.t - 1} monedas` : `≥ ${r.t} monedas`;
@@ -4556,28 +4557,28 @@ function renderJarRows() {
   cfgToPreview({ type: 'config', sizes: sorted });
 }
 
-$('jarcfg-close').onclick = closeJarConfig;
-$('jarConfigModal').addEventListener('click', (e) => { if (e.target.id === 'jarConfigModal') closeJarConfig(); });
-$('jarcfg-add').onclick = () => {
+$('jarcfg-close') && ($('jarcfg-close').onclick = closeJarConfig);
+$('jarConfigModal')?.addEventListener('click', (e) => { if (e.target.id === 'jarConfigModal') closeJarConfig(); });
+$('jarcfg-add') && ($('jarcfg-add').onclick = () => {
   const min = cfgSizesDraft.length ? Math.min(...cfgSizesDraft.map((r) => r.t)) : 0;
   cfgSizesDraft.push({ t: Math.max(0, min + 100), sz: 48 });
   renderJarRows();
-};
-$('jarcfg-tintclear').onclick = () => {
-  $('jarcfg-tint').value = '#7cc8ff';
+});
+$('jarcfg-tintclear') && ($('jarcfg-tintclear').onclick = () => {
+  if ($('jarcfg-tint')) $('jarcfg-tint').value = '#7cc8ff';
   cfgToPreview({ type: 'config', tint: '' });
-  $('jarcfg-tint').dataset.cleared = '1';
-};
-$('jarcfg-tint').oninput = () => {
+  if ($('jarcfg-tint')) $('jarcfg-tint').dataset.cleared = '1';
+});
+if ($('jarcfg-tint')) $('jarcfg-tint').oninput = () => {
   $('jarcfg-tint').dataset.cleared = '';
   cfgToPreview({ type: 'config', tint: $('jarcfg-tint').value });
 };
-$('jarcfg-save').onclick = () => {
+$('jarcfg-save') && ($('jarcfg-save').onclick = () => {
   if (!settings[cfgTarget]) settings[cfgTarget] = {};
-  settings[cfgTarget].tint = $('jarcfg-tint').dataset.cleared === '1' ? '' : $('jarcfg-tint').value;
+  settings[cfgTarget].tint = $('jarcfg-tint')?.dataset.cleared === '1' ? '' : ($('jarcfg-tint')?.value || '');
   settings[cfgTarget].sizes = [...cfgSizesDraft].sort((a, b) => b.t - a.t);
-  settings[cfgTarget].topBarEnabled = $('jarcfg-topbar-on').checked;
-  settings[cfgTarget].topBarLimit = Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit').value, 10) || 3));
+  settings[cfgTarget].topBarEnabled = !!$('jarcfg-topbar-on')?.checked;
+  settings[cfgTarget].topBarLimit = Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit')?.value, 10) || 3));
   settings[cfgTarget].topBarColor = $('jarcfg-topbar-color')?.value || '#161820';
   settings[cfgTarget].topBarOpacity = Math.max(0, Math.min(100, parseInt($('jarcfg-topbar-opacity')?.value, 10) ?? 88));
   if ($('jarcfg-gifttoast-on')) {
@@ -4587,7 +4588,7 @@ $('jarcfg-save').onclick = () => {
   settings[cfgTarget].giftToastOpacity = Math.max(0, Math.min(100, parseInt($('jarcfg-gifttoast-opacity')?.value, 10) ?? 90));
   saveSettings();
   closeJarConfig();
-};
+});
 
 function pushJarTopBarPreview() {
   const op = Math.max(0, Math.min(100, parseInt($('jarcfg-topbar-opacity')?.value, 10) ?? 88));
