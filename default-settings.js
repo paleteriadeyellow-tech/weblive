@@ -104,6 +104,8 @@ export const DEFAULT_SETTINGS = {
   // Overlay del perrito (mismos controles que el jarrón; se desborda al llenarse)
   perrito: {
     tint: '',
+    topBarEnabled: true,
+    topBarLimit: 3,
     sizes: [
       { t: 5000, sz: 88 },
       { t: 1000, sz: 70 },
@@ -117,6 +119,7 @@ export const DEFAULT_SETTINGS = {
     tint: '', // color del cristal (vacío = transparente/normal)
     topBarEnabled: true, // barra rotativa TOP DONATOR encima del contador
     topBarLimit: 3, // hasta qué top mostrar (1–10)
+    giftToastEnabled: true, // píldora «NAME DONATED» al recibir regalo
     // Tabla de tamaños por umbral de monedas/diamantes: [{ t, sz }] de mayor a menor
     sizes: [
       { t: 5000, sz: 88 },
@@ -129,6 +132,8 @@ export const DEFAULT_SETTINGS = {
   // Overlay de la vaquita (mismos controles que el jarrón)
   vaquita: {
     tint: '',
+    topBarEnabled: true,
+    topBarLimit: 3,
     sizes: [
       { t: 5000, sz: 88 },
       { t: 1000, sz: 70 },
@@ -140,6 +145,8 @@ export const DEFAULT_SETTINGS = {
   // Overlay del marranito (mismos controles que el jarrón)
   marranito: {
     tint: '',
+    topBarEnabled: true,
+    topBarLimit: 3,
     sizes: [
       { t: 5000, sz: 88 },
       { t: 1000, sz: 70 },
@@ -171,14 +178,24 @@ export const DEFAULT_SETTINGS = {
   },
   // Overlay Gift VS (versus de regalos por bandos)
   giftVs: {
-    meta: 500,
-    goalStep: 500,
-    onGoal: 'increase', // 'increase' | 'reset' | 'none'
-    countdown: 0,
-    cdWhen: 'goal', // 'goal' | 'start'
+    meta: 100,
+    goalStep: 100,
+    onGoal: 'reset', // 'increase' | 'reset' | 'none'
+    countdown: 2,
+    cdWhen: 'start', // 'goal' | 'start'
     cdRestart: false,
+    vsStyle: 1,
     rows: [
-      // { leftId, leftName, leftImg, leftDiamonds, rightId, rightName, rightImg, rightDiamonds }
+      {
+        leftId: '13651',
+        leftName: 'Go Popular',
+        leftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp',
+        leftDiamonds: 1,
+        rightId: '231955',
+        rightName: 'Good Job',
+        rightImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/047bfa2dcc6813c72fd2d8f649ee8ee2.png~tplv-obj.webp',
+        rightDiamonds: 1,
+      },
     ],
   },
   // Overlay Medidor de Flow (barra de progreso por participante / regalo)
@@ -203,15 +220,28 @@ export const DEFAULT_SETTINGS = {
   },
   // Overlay Gift Sequence (secuencia rotativa de regalos con texto)
   giftSeq: {
-    text: '#f4f7ff',
+    text: '#ffffff',
     accent: '#8df7d8',
     size: 28,
     font: 'system',
-    anim: 'gift-pop',
+    anim: 'gift-zoom',
     rowSpeed: 7.6,
-    textRainbow: false,
+    textRainbow: true,
     stepSec: 2,
-    sequence: [],
+    sequence: [
+      {
+        giftName: "You're awesome",
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.webp',
+        customText: "You're awesome",
+        textSide: 'bottom',
+      },
+      {
+        giftName: 'Club Cheers',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/6a934c90e5533a4145bed7eae66d71bd.png~tplv-obj.webp',
+        customText: 'Club Cheers',
+        textSide: 'bottom',
+      },
+    ],
   },
   giftShowcase: {
     displayMode: 'rotate', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
@@ -315,10 +345,12 @@ export const DEFAULT_SETTINGS = {
   topGift: {
     title: 'MEJOR REGALO',
     titleRainbow: true,
+    titleColor: '#ffffff',
     tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
     nameColor: '#e4e4ee', valueColor: '#e8c4a0',
     nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
     coinLabel: 'monedas', font: 'rubik',
+    titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
   },
   // Overlay Contador de meta (cuenta un regalo concreto hasta una meta)
   // giftId/giftName vacíos => cuenta CUALQUIER regalo. count se lleva en el servidor.
@@ -336,20 +368,26 @@ export const DEFAULT_SETTINGS = {
   topStreak: {
     title: 'MEJOR RACHA',
     titleRainbow: true,
+    titleColor: '#ffffff',
     tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
     nameColor: '#e4e4ee', valueColor: '#e8c4a0',
     nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
     font: 'rubik',
+    titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
   },
   // Overlay Batalla de regalos (ranking por monedas)
   batallaGifts: {
     limit: 2, nameRainbow: true, placeholder: 'Esperando regalos...',
-    valueColor: '#fde68a', coinColor: '#ffd700',
+    valueColor: '#fde68a', coinColor: '#ffd700', bgOpacity: 45, vsStyle: 2,
+    vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter',
+    cardBg: '#16262e', cardBorder: '#94a3b8',
   },
   // Overlay Batalla de likes (ranking por likes)
   batallaLikes: {
     limit: 2, nameRainbow: true, placeholder: 'Esperando combatientes...',
-    valueColor: '#fecaca', likesIcon: '❤️',
+    valueColor: '#fecaca', likesIcon: '❤️', bgOpacity: 45, vsStyle: 2,
+    vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter',
+    cardBg: '#16262e', cardBorder: '#94a3b8',
   },
   // Overlay Coin Match (partido cronometrado con podio)
   coinMatch: {
@@ -530,4 +568,42 @@ export function deepMerge(target, src) {
     }
   }
   return target;
+}
+
+/** True si hay al menos un regalo con nombre o imagen en la secuencia. */
+export function giftSeqHasConfiguredGifts(cfg) {
+  return Array.isArray(cfg?.sequence) && cfg.sequence.some((r) =>
+    String(r?.giftName || '').trim() || String(r?.giftImage || '').trim()
+  );
+}
+
+/**
+ * Cuentas antiguas guardaron giftSeq con sequence: [] y pisan los defaults.
+ * Si no hay regalos reales, aplica la secuencia demo por defecto.
+ */
+export function ensureGiftSeqDefaults(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  if (!giftSeqHasConfiguredGifts(settings.giftSeq)) {
+    settings.giftSeq = structuredClone(DEFAULT_SETTINGS.giftSeq);
+  }
+  return settings;
+}
+
+function giftVsHasConfiguredRows(cfg) {
+  return Array.isArray(cfg?.rows) && cfg.rows.some((r) =>
+    String(r?.leftId || r?.leftName || r?.leftImg || '').trim() ||
+    String(r?.rightId || r?.rightName || r?.rightImg || '').trim()
+  );
+}
+
+/**
+ * Cuentas antiguas guardaron giftVs con rows: [] y pisan los defaults.
+ * Si no hay parejas, aplica la demo Go Popular vs Good Job.
+ */
+export function ensureGiftVsDefaults(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  if (!giftVsHasConfiguredRows(settings.giftVs)) {
+    settings.giftVs = structuredClone(DEFAULT_SETTINGS.giftVs);
+  }
+  return settings;
 }

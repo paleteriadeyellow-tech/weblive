@@ -21,7 +21,7 @@
     /* Piso y aro trasero del frasco: van DETRÁS de los regalos para dar profundidad */
     .jar-back { z-index: 1; isolation: isolate; }
     .jar-back img { position: absolute; left: 50%; transform: translate(-50%, -50%); height: auto; pointer-events: none; }
-    .jar-back .jb-rim { top: 256px; width: 280px; }
+    .jar-back .jb-rim { top: 246px; width: 266px; }
     .jar-back .jb-floor { top: 616px; width: 300px; }
     /* Tinte del aro y el piso: cambian de color junto con el frasco */
     .jar-back .tint {
@@ -30,7 +30,7 @@
       -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
       -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
     }
-    .jar-back .tint-rim { top: 256px; width: 280px; height: 37px; -webkit-mask-image: url('/jarron/jar-top-bg-2.png'); mask-image: url('/jarron/jar-top-bg-2.png'); }
+    .jar-back .tint-rim { top: 246px; width: 266px; height: 35px; -webkit-mask-image: url('/jarron/jar-top-bg-2.png'); mask-image: url('/jarron/jar-top-bg-2.png'); }
     .jar-back .tint-floor { top: 616px; width: 300px; height: 80px; -webkit-mask-image: url('/jarron/jar-bottom.png'); mask-image: url('/jarron/jar-bottom.png'); }
     .jar-glass-rim img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; pointer-events: none; }
     .gifts-layer {
@@ -57,6 +57,10 @@
       position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
       display: flex; flex-direction: column; align-items: center; gap: 8px;
       z-index: 7; pointer-events: none; width: min(100%, 420px);
+    }
+    /* Sin barra rotativa: monedas pegadas bajo el frasco */
+    .hud-stack.is-coins-only {
+      bottom: auto; top: 726px;
     }
     .top-donor-bar {
       display: flex; align-items: center; gap: 10px; width: 100%;
@@ -120,6 +124,45 @@
     }
     .coin-num.bump { animation: coinbump .25s ease; }
     @keyframes coinbump { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+
+    /* Toast de regalo: pegados al frasco (pueden montarse encima) */
+    .gift-toasts {
+      position: absolute; left: calc(50% - 268px); top: 38%;
+      width: 320px; max-height: 48%; z-index: 8; pointer-events: none;
+      display: flex; flex-direction: column; justify-content: flex-start; gap: 6px;
+      overflow: hidden;
+    }
+    .gift-toast {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 14px 7px 8px; border-radius: 999px;
+      background: rgba(28, 30, 38, .9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      box-shadow: 0 4px 16px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.07);
+      font-family: 'Rubik', system-ui, sans-serif;
+      animation: gt-in .32s cubic-bezier(.22,1.1,.36,1) both;
+      max-width: 100%;
+    }
+    .gift-toast.is-out { animation: gt-out .28s ease forwards; }
+    @keyframes gt-in { 0% { opacity: 0; transform: translateX(-18px) scale(.96); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
+    @keyframes gt-out { to { opacity: 0; transform: translateX(-14px) scale(.97); } }
+    .gt-avatar {
+      width: 28px; height: 28px; border-radius: 50%; flex: 0 0 auto; object-fit: cover;
+      border: 1.5px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06);
+    }
+    .gt-text {
+      flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 800; letter-spacing: .02em;
+      color: #fff; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 1px 0 rgba(0,0,0,.55);
+    }
+    .gt-gift {
+      width: 28px; height: 28px; object-fit: contain; flex: 0 0 auto;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,.35));
+    }
+    .gt-meta {
+      flex: 0 1 auto; min-width: 0; font-size: 12px; font-weight: 800;
+      color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 1px 0 rgba(0,0,0,.55);
+    }
+    .gt-meta .gt-coins { color: #ffd54a; margin-left: .2em; }
   </style>
 </head>
 <body>
@@ -135,6 +178,7 @@
       <img src="/jarron/jar-top.png" alt="" draggable="false" />
       <div class="jar-tint" id="jar-tint"></div>
     </div>
+    <div class="gift-toasts" id="gift-toasts" aria-live="polite"></div>
     <div class="hud-stack" id="hud-stack">
       <div class="top-donor-bar" id="top-donor-bar">
         <span class="td-medal" id="td-medal" aria-hidden="true">🥇</span>
@@ -237,6 +281,8 @@
       if (!topBarEl) return;
       const show = topBarCfg.enabled && activeTopList().length > 0;
       topBarEl.hidden = !show;
+      const hud = document.getElementById('hud-stack');
+      if (hud) hud.classList.toggle('is-coins-only', !show);
     }
 
     function renderTopBarSlot(animate) {
@@ -325,7 +371,7 @@
     const world = engine.world;
 
     const WT_GLASS = 24, WT_SOLID = 60;
-    const wallOpts = { isStatic: true, friction: 0.42, restitution: 0.06 };
+    const wallOpts = { isStatic: true, friction: 0.36, restitution: 0.42 };
     const glassV = (x, yT, yB) => Bodies.rectangle(x, (yT + yB) / 2, WT_GLASS, (yB - yT), wallOpts);
     function glassSlant(x1, y1, x2, y2) {
       const b = Bodies.rectangle((x1 + x2) / 2, (y1 + y2) / 2, Math.hypot(x2 - x1, y2 - y1), WT_GLASS, wallOpts);
@@ -500,9 +546,17 @@
       else { const s = pickSpawnSpot(r); x = s.x; y = s.y; vx = s.vx; }
       // Los regalos más grandes (más diamantes) pesan más: se hunden y compactan el montón.
       const density = 0.0036 * (1 + Math.min(3, (diamonds || 0) / 1000));
-      const body = Bodies.circle(x, y, r, { density, restitution: 0.005, friction: 0.24, frictionStatic: 0.26, frictionAir: 0.004, sleepThreshold: 16 });
+      const body = Bodies.circle(x, y, r, {
+        density,
+        restitution: 0.52,
+        friction: 0.16,
+        frictionStatic: 0.2,
+        frictionAir: 0.004,
+        sleepThreshold: 22,
+      });
       if (opts.angle != null) Body.setAngle(body, opts.angle);
-      if (!opts.settled) { Body.setVelocity(body, { x: vx, y: rnd(2.6, 5) }); Body.setAngularVelocity(body, rnd(-0.06, 0.06)); }
+      // Misma velocidad de caída; el rebote viene de restitution (vidrio + regalos).
+      if (!opts.settled) { Body.setVelocity(body, { x: vx, y: rnd(2.6, 5) }); Body.setAngularVelocity(body, rnd(-0.08, 0.08)); }
       const img = document.createElement('img');
       img.className = 'gift-body'; img.src = src; img.alt = ''; img.referrerPolicy = 'no-referrer';
       img.style.width = sizePx + 'px'; img.style.height = sizePx + 'px';
@@ -544,8 +598,62 @@
       return giftImgUrl(raw) || FALLBACK_IMG;
     }
 
+    // ---- Toast «NAME DONATED» + regalo + monedas ----
+    const giftToastsEl = document.getElementById('gift-toasts');
+    const GT_MAX = 6;
+    const GT_TTL_MS = 4200;
+    let giftToastEnabled = true;
+    function applyGiftToastSettings(cfg) {
+      if (!cfg) return;
+      giftToastEnabled = cfg.giftToastEnabled !== false;
+      if (!giftToastEnabled && giftToastsEl) giftToastsEl.innerHTML = '';
+    }
+    function showGiftToast(info) {
+      if (!giftToastsEl || !giftToastEnabled) return;
+      const name = String(info && (info.nickname || info.uniqueId) || 'Alguien').trim() || 'Alguien';
+      const giftName = String(info && (info.giftName || info.name) || 'Gift').trim() || 'Gift';
+      const per = Math.max(0, Number(info && (info.diamonds != null ? info.diamonds : info.diamondCount)) || 0);
+      const reps = Math.max(1, Number(info && info.repeatCount) || 1);
+      const coins = Math.max(1, (per > 0 ? per : 1) * reps);
+      const avatar = String(info && (info.profilePictureUrl || info.photo) || '').trim()
+        || (isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC);
+      let giftSrc = FALLBACK_IMG;
+      if (info && (info.giftImage || info.image)) {
+        giftSrc = giftImgUrl(info.giftImage || info.image) || FALLBACK_IMG;
+      } else if (info && info.giftId) {
+        giftSrc = giftImgUrl(giftImgById.get(String(info.giftId)) || '') || FALLBACK_IMG;
+      }
+
+      const el = document.createElement('div');
+      el.className = 'gift-toast';
+      el.innerHTML =
+        '<img class="gt-avatar" alt="" referrerpolicy="no-referrer">' +
+        '<span class="gt-text"></span>' +
+        '<img class="gt-gift" alt="" referrerpolicy="no-referrer">' +
+        '<span class="gt-meta"><span class="gt-gname"></span><span class="gt-coins"></span></span>';
+      const av = el.querySelector('.gt-avatar');
+      const gi = el.querySelector('.gt-gift');
+      av.src = avatar;
+      av.onerror = function () { this.onerror = null; this.src = isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC; };
+      gi.src = giftSrc;
+      gi.onerror = function () { this.onerror = null; this.src = FALLBACK_IMG; };
+      el.querySelector('.gt-text').textContent = name.toUpperCase() + ' DONATED';
+      el.querySelector('.gt-gname').textContent = giftName;
+      el.querySelector('.gt-coins').textContent = '(' + coins.toLocaleString('es-ES') + ' COIN' + (coins === 1 ? '' : 'S') + ')';
+
+      giftToastsEl.insertBefore(el, giftToastsEl.firstChild);
+      while (giftToastsEl.children.length > GT_MAX) {
+        const last = giftToastsEl.lastElementChild;
+        if (last) giftToastsEl.removeChild(last);
+      }
+      setTimeout(() => {
+        el.classList.add('is-out');
+        setTimeout(() => { try { el.remove(); } catch {} }, 300);
+      }, GT_TTL_MS);
+    }
+
     // ---- WebSocket nativo del panel ----
-    let ws, reconnectTimer;
+    let ws, reconnectTimer, fillTimer = null;
     function connectWS() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
@@ -558,12 +666,14 @@
         else if (type === 'state') { if (!isEmbed && payload) onTopGiftersState(payload.topGifters); }
         else if (type === 'panic') clearJar();
         else if (type === 'jarronTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
+        else if (type === 'jarronDropOne') { if (!isEmbed) dropOneGift(payload); }
         else if (type === 'jarronReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); try { localStorage.removeItem(lsKey); } catch {} } }
         else if (type === 'settings') {
           if (payload && payload.jarron) {
             if (!params.get('jc')) applyJarTint(payload.jarron.tint);
             if (payload.jarron.sizes) setSizeTable(payload.jarron.sizes);
             applyTopBarSettings(payload.jarron);
+            applyGiftToastSettings(payload.jarron);
           }
         }
       };
@@ -571,6 +681,7 @@
     function onGift(p) {
       if (!p || p.streak) return;            // espera el final de la racha
       const n = Math.min(99, Math.max(1, p.repeatCount || 1));
+      showGiftToast(p);
       spawnMany(resolveGiftImg(p), n, 150, p.diamonds || 0);
     }
     connectWS();
@@ -582,10 +693,37 @@
       const arr = [...giftImgById.values()];
       return arr.length ? arr[Math.floor(Math.random() * arr.length)] : FALLBACK_IMG;
     }
-    let fillTimer = null;
+    function dropOneGift(payload) {
+      const p = payload || {};
+      let src = '';
+      if (p.image) {
+        if (p.giftId) giftImgById.set(String(p.giftId), p.image);
+        src = giftImgUrl(p.image) || '';
+      }
+      if (!src) src = sampleImg();
+      const d = Math.max(0, Number(p.diamonds) || 1);
+      showGiftToast({
+        nickname: p.nickname || 'Tester',
+        giftName: p.giftName || 'Gift',
+        diamonds: d,
+        repeatCount: 1,
+        image: src,
+        giftImage: src,
+        photo: p.photo || (isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC),
+      });
+      addGiftBody(src, giftSizeForFill(d), d, {});
+    }
     function runFill(total) {
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
       clearJar(); setDiamonds(0);
+      // Demo del toast al pulsar Testear
+      showGiftToast({
+        nickname: 'Tester',
+        giftName: 'GG',
+        diamonds: 1,
+        image: sampleImg(),
+        photo: isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC,
+      });
       let i = 0; const max = total || 200;
       (function tick() {
         if (i >= max) return;
@@ -599,6 +737,7 @@
       const d = e.data;
       if (!d || d.kind !== 'jarron') return;
       if (d.type === 'test') runFill(d.count || 200);
+      else if (d.type === 'dropOne') dropOneGift(d);
       else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); }
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
@@ -609,6 +748,7 @@
             topBarLimit: d.topBarLimit !== undefined ? d.topBarLimit : topBarCfg.limit,
           });
         }
+        if (d.giftToastEnabled !== undefined) applyGiftToastSettings({ giftToastEnabled: d.giftToastEnabled });
       } else if (d.type === 'topDemo') demoTopGifters();
     });
 

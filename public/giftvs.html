@@ -11,13 +11,13 @@
     html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; }
     html.embed, html.embed body { width: 100%; height: 100%; }
     html.embed body { display: flex; align-items: center; justify-content: center; }
-    html.embed .stage { transform: scale(var(--fit, 1)); transform-origin: center center; margin-top: 36px; }
+    html.embed .stage { transform: scale(var(--fit, 1)); transform-origin: center center; margin-top: 72px; }
 
     #multi-rows { flex: 1; width: 100%; min-width: 0; min-height: 0; height: 100%; display: flex; align-items: flex-start; justify-content: center; }
     .stage { width: 850px; height: 520px; position: relative; background: transparent; display: flex; flex-direction: row; align-items: flex-start; justify-content: center; padding: 4px 32px 28px; }
     .battle-row { display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 4px; width: 100%; height: auto; min-height: 0; }
-    .side-m { flex: 0 1 300px; max-width: 300px; display: flex; flex-direction: column; align-items: center; min-width: 0; position: relative; }
-    .vs-winner-badge { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 6; font-family: 'Rubik', sans-serif; font-weight: 900; font-size: 30px; line-height: 1; letter-spacing: .12em; text-transform: uppercase; color: #fff8e8; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 22px rgba(255,200,80,.55); pointer-events: none; animation: winner-pop .55s cubic-bezier(.22,1.1,.36,1) both; }
+    .side-m { flex: 0 1 300px; max-width: 300px; display: flex; flex-direction: column; align-items: center; min-width: 0; position: relative; padding-top: 42px; }
+    .vs-winner-badge { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); z-index: 6; font-family: 'Rubik', sans-serif; font-weight: 900; font-size: 30px; line-height: 1; letter-spacing: .12em; text-transform: uppercase; color: #fff8e8; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 22px rgba(255,200,80,.55); pointer-events: none; animation: winner-pop .55s cubic-bezier(.22,1.1,.36,1) both; }
     .vs-winner-badge[hidden] { display: none !important; }
     .side-m.vs-side--winner .hero-m img, .side-m.vs-side--winner .hero-m .ph { filter: drop-shadow(0 0 24px rgba(255,210,100,.45)); }
     @keyframes winner-pop { 0% { opacity: 0; transform: translateX(-50%) translateY(12px) scale(.85); } 100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
@@ -38,10 +38,18 @@
     .score-m.score-pop { animation: score-pop .38s cubic-bezier(.22,1.2,.36,1); }
     @keyframes score-pop { 0% { transform: scale(1); } 35% { transform: scale(1.14); } 100% { transform: scale(1); } }
     .mid-m { flex: 0 0 auto; width: auto; min-width: 100px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; align-self: flex-start; padding: 28px 2px 0; position: relative; z-index: 1; }
-    .mid-m .mid-aura { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 110px; height: 110px; border-radius: 50%; pointer-events: none; z-index: 0; background: radial-gradient(circle at 50% 50%, rgba(255,210,120,.22) 0%, rgba(255,130,60,.12) 42%, rgba(255,70,40,.06) 62%, transparent 78%); animation: aura-flicker 2.2s ease-in-out infinite; }
+    .mid-m .mid-aura { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%); width: 130px; height: 130px; border-radius: 50%; pointer-events: none; z-index: 0; background: radial-gradient(circle at 50% 50%, rgba(255,210,120,.22) 0%, rgba(255,130,60,.12) 42%, rgba(255,70,40,.06) 62%, transparent 78%); animation: aura-flicker 2.2s ease-in-out infinite; }
     @keyframes aura-flicker { 0%,100% { opacity: .65; transform: translate(-50%,-50%) scale(1); } 33% { opacity: .85; transform: translate(-50%,-50%) scale(1.04); } 66% { opacity: .55; transform: translate(-50%,-50%) scale(.98); } }
-    .vs-mini { position: relative; z-index: 2; font-family: 'Rubik', sans-serif; font-weight: 900; font-size: 86px; line-height: .9; letter-spacing: -.04em; color: #fff8e8; text-transform: uppercase; background: linear-gradient(185deg, #fffef0 0%, #ffcc33 22%, #ff6600 55%, #ff2200 88%, #ffaa00 100%); background-size: 100% 140%; -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 3px rgba(255,190,100,.45)); animation: vs-fire 2.4s ease-in-out infinite; }
-    @keyframes vs-fire { 0%,100% { filter: drop-shadow(0 0 4px rgba(255,200,100,.5)) drop-shadow(0 0 10px rgba(255,120,50,.28)) drop-shadow(0 0 18px rgba(255,70,30,.14)); } 50% { filter: drop-shadow(0 0 5px rgba(255,220,130,.55)) drop-shadow(0 0 12px rgba(255,130,55,.32)) drop-shadow(0 0 22px rgba(255,80,35,.18)); } }
+    .vs-logo-img {
+      position: relative; z-index: 2;
+      width: 148px; height: auto; max-height: 110px;
+      object-fit: contain; display: block;
+      filter: drop-shadow(0 0 10px rgba(255,180,80,.45)) drop-shadow(0 0 18px rgba(255,100,40,.28));
+      animation: vs-fire 2.4s ease-in-out infinite;
+      user-select: none; pointer-events: none;
+    }
+    .vs-logo-img--s2, .vs-logo-img--s3 { width: 112px; max-height: 84px; }
+    @keyframes vs-fire { 0%,100% { filter: drop-shadow(0 0 8px rgba(255,200,100,.5)) drop-shadow(0 0 14px rgba(255,120,50,.28)); } 50% { filter: drop-shadow(0 0 12px rgba(255,220,130,.6)) drop-shadow(0 0 20px rgba(255,130,55,.35)); } }
     .vs-countdown { position: relative; z-index: 2; margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 44px; }
     .vs-countdown[hidden] { display: none !important; }
     .vs-countdown-label { font-family: 'Inter', system-ui, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,220,160,.75); }
@@ -65,8 +73,10 @@
     let cfgObj = null;
     let slotCount = 1, metaBase = 500, metaStep = 500, currentMeta = 500;
     let onGoal = 'increase';
+    let vsStyle = 1;
     let cdSeconds = 0, cdWhen = 'goal', cdRestartOnGoal = false, cdTimer = null, cdRemaining = 0;
-    let goalLatchMeta = -1, vsRoundFrozen = false, vsMatchStarted = false;
+    let goalLatchMeta = -1, vsRoundFrozen = false, vsMatchStarted = false, vsMatchLive = false;
+    let cdPaused = false;
 
     const isCountdownFromStart = () => cdWhen === 'start';
     const isMetaReached = () => leftPts >= currentMeta || rightPts >= currentMeta;
@@ -83,6 +93,15 @@
       for (const p of pairs) { if (p.gl) leftKeys.push(p.gl); if (p.gr) rightKeys.push(p.gr); }
     }
 
+    function vsImgSrc() {
+      const n = Math.max(1, Math.min(3, parseInt(vsStyle, 10) || 1));
+      return '/img/vs-battle-' + n + '.png';
+    }
+    function vsImgClass() {
+      const n = Math.max(1, Math.min(3, parseInt(vsStyle, 10) || 1));
+      return 'vs-logo-img' + (n > 1 ? ' vs-logo-img--s' + n : '');
+    }
+
     function syncFromConfig() {
       const c = cfgObj || {};
       const rows = Array.isArray(c.rows) ? c.rows : [];
@@ -90,6 +109,7 @@
       metaStep = Math.max(1, parseInt(c.goalStep, 10) || metaBase);
       currentMeta = metaBase;
       onGoal = c.onGoal || 'increase';
+      vsStyle = Math.max(1, Math.min(3, parseInt(c.vsStyle, 10) || 1));
       cdSeconds = Math.max(0, parseInt(c.countdown, 10) || 0);
       cdWhen = (c.cdWhen === 'start') ? 'start' : 'goal';
       cdRestartOnGoal = !!c.cdRestart;
@@ -262,6 +282,29 @@
       if (num) num.classList.remove('vs-countdown--urgent');
       if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
       cdRemaining = 0;
+      cdPaused = false;
+    }
+    function pauseGoalCountdown() {
+      if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
+      cdPaused = cdRemaining > 0;
+    }
+    function resumeGoalCountdown() {
+      if (!cdPaused || cdRemaining <= 0 || cdSeconds <= 0) return;
+      const box = document.getElementById('vs-countdown'); if (!box) return;
+      cdPaused = false;
+      box.hidden = false;
+      updateCountdownDisplay();
+      if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
+      cdTimer = setInterval(function () {
+        cdRemaining -= 1;
+        if (cdRemaining <= 0) {
+          cdRemaining = 0; updateCountdownDisplay();
+          clearInterval(cdTimer); cdTimer = null;
+          setTimeout(onCountdownFinished, 400);
+          return;
+        }
+        updateCountdownDisplay();
+      }, 1000);
     }
     function hideWinnerBadges() {
       const wl = document.getElementById('winner-l'), wr = document.getElementById('winner-r');
@@ -277,7 +320,12 @@
       if (w === 'L' || w === 'T') { const el = document.getElementById('winner-l'); if (el) el.hidden = false; if (sideL) sideL.classList.add('vs-side--winner'); }
       if (w === 'R' || w === 'T') { const el = document.getElementById('winner-r'); if (el) el.hidden = false; if (sideR) sideR.classList.add('vs-side--winner'); }
     }
-    function onCountdownFinished() { hideGoalCountdown(); showWinnerAnnouncement(); }
+    function onCountdownFinished() {
+      hideGoalCountdown();
+      showWinnerAnnouncement();
+      vsRoundFrozen = true;
+      vsMatchLive = false;
+    }
     function updateCountdownDisplay() {
       const num = document.getElementById('vs-countdown-num'); if (!num) return;
       num.textContent = formatCountdownDisplay(cdRemaining);
@@ -288,25 +336,52 @@
       if (cdSeconds <= 0) { hideGoalCountdown(); return; }
       if (!forceStartMode && !isCountdownFromStart() && !isMetaReached()) { hideGoalCountdown(); return; }
       const box = document.getElementById('vs-countdown'); if (!box) return;
-      if (cdTimer && !cdRestartOnGoal) return;
+      if (cdTimer && !cdRestartOnGoal && !forceStartMode) return;
       if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
+      cdPaused = false;
       cdRemaining = cdSeconds; box.hidden = false; updateCountdownDisplay();
       cdTimer = setInterval(function () {
         cdRemaining -= 1;
         if (cdRemaining <= 0) {
           cdRemaining = 0; updateCountdownDisplay();
           clearInterval(cdTimer); cdTimer = null;
-          if (isEmbed && cdSeconds > 0) setTimeout(startGoalCountdown, 650);
-          else setTimeout(onCountdownFinished, 400);
+          setTimeout(onCountdownFinished, 400);
           return;
         }
         updateCountdownDisplay();
       }, 1000);
     }
     function maybeStartCountdownFromMatchStart() {
-      if (!isCountdownFromStart() || cdSeconds <= 0) return;
-      if (vsMatchStarted && cdTimer && cdRemaining > 0) return;
+      if (!vsMatchLive || !isCountdownFromStart() || cdSeconds <= 0) return;
+      if (vsMatchStarted && (cdTimer || cdPaused) && cdRemaining > 0) return;
       vsMatchStarted = true; hideWinnerBadges(); startGoalCountdown(true);
+    }
+
+    function startMatch() {
+      if (testRunning) clearTestTimers();
+      vsMatchLive = true;
+      vsRoundFrozen = false;
+      hideWinnerBadges();
+      if (cdPaused && cdRemaining > 0) {
+        resumeGoalCountdown();
+      } else if (isCountdownFromStart() && cdSeconds > 0) {
+        vsMatchStarted = true;
+        startGoalCountdown(true);
+      }
+    }
+    function stopMatch() {
+      if (testRunning) return;
+      vsRoundFrozen = true;
+      pauseGoalCountdown();
+    }
+    function endMatch() {
+      if (testRunning) clearTestTimers();
+      pauseGoalCountdown();
+      hideGoalCountdown();
+      showWinnerAnnouncement();
+      vsRoundFrozen = true;
+      vsMatchLive = false;
+      vsMatchStarted = false;
     }
 
     function checkGoal() {
@@ -327,7 +402,7 @@
     }
 
     function considerGift(data) {
-      if (vsRoundFrozen) return;
+      if (!vsMatchLive || vsRoundFrozen) return;
       if (data && data.streak) return; // espera fin de racha
       maybeStartCountdownFromMatchStart();
       const li = findPairIndexForGift('l', data);
@@ -344,10 +419,10 @@
     }
 
     function resetAll() {
-      leftPts = 0; rightPts = 0; currentMeta = metaBase; goalLatchMeta = -1; vsRoundFrozen = false;
+      leftPts = 0; rightPts = 0; currentMeta = metaBase; goalLatchMeta = -1;
+      vsRoundFrozen = false; vsMatchLive = false; vsMatchStarted = false; cdPaused = false;
       combosRegalosActivos = {};
       hideGoalCountdown(); hideWinnerBadges(); renderAllScores(); startHeroCarousel();
-      maybeStartCountdownFromMatchStart();
     }
 
     function buildDom() {
@@ -360,7 +435,7 @@
         '<img id="img-l-0" alt="" style="display:none" referrerpolicy="no-referrer"><span class="ph" id="ph-l-0">🎁</span>' +
         '</span></div><div class="hero-coin-badge" id="coin-l-0" hidden></div></div>' +
         '<div class="score-m" id="score-l-0">0</div></div>' +
-        '<div class="mid-m"><div class="mid-aura" aria-hidden="true"></div><div class="vs-mini">VS</div>' +
+        '<div class="mid-m"><div class="mid-aura" aria-hidden="true"></div><img class="' + vsImgClass() + '" id="vs-logo" src="' + vsImgSrc() + '" alt="VS">' +
         '<div class="vs-countdown" id="vs-countdown" hidden><span class="vs-countdown-label">Cuenta atrás</span><span class="vs-countdown-num" id="vs-countdown-num">0</span></div></div>' +
         '<div class="side-m" id="side-r-m">' +
         '<div class="vs-winner-badge" id="winner-r" hidden>Winner</div>' +
@@ -381,7 +456,24 @@
 
     /* ---- Simulación (Testear / vista previa) ---- */
     let testTimers = [];
-    function clearTestTimers() { testTimers.forEach((id) => { try { clearTimeout(id); } catch {} }); testTimers = []; }
+    let testRunning = false;
+    let testCfgBackup = null;
+    function restoreTestCfg(saved) {
+      if (!saved) return;
+      cdSeconds = saved.cdSeconds;
+      cdWhen = saved.cdWhen;
+      onGoal = saved.onGoal;
+      cdRestartOnGoal = saved.cdRestartOnGoal;
+    }
+    function clearTestTimers() {
+      testTimers.forEach((id) => { try { clearTimeout(id); } catch {} });
+      testTimers = [];
+      testRunning = false;
+      if (testCfgBackup) {
+        restoreTestCfg(testCfgBackup);
+        testCfgBackup = null;
+      }
+    }
     function coinsForRowSide(rowIdx, goLeft) { const n = resolveRowCoins(goLeft ? 'l' : 'r', rowIdx); return n > 0 ? n : 1; }
     function applySimHit(hit) {
       const rows = activeRowSlots(); if (!rows.length) return;
@@ -391,7 +483,9 @@
       showHeroRow(rowIdx);
       let add = hit && hit.coins != null ? Math.max(1, parseInt(hit.coins, 10) || 0) : coinsForRowSide(rowIdx, goLeft);
       if (goLeft) leftPts += add; else rightPts += add;
-      renderAllScores(goLeft ? 'l' : 'r'); checkGoal();
+      // En Testear: solo marcar puntos/pulso; meta + countdown + Winner van al final.
+      renderAllScores(goLeft ? 'l' : 'r');
+      if (!testRunning) checkGoal();
     }
     function buildPlan(metaTarget) {
       const rows = activeRowSlots();
@@ -408,24 +502,76 @@
         if (lead + add > target) add = Math.max(1, target - lead);
         hits.push({ rowIndex: rowIdx, goLeft, coins: add, t });
         if (goLeft) left += add; else right += add;
-        t += 165 + Math.floor(Math.random() * 95);
+        t += 280 + Math.floor(Math.random() * 120);
         if ((step + 1) % 2 === 0) rowPtr += 1;
       }
       const goLeft = left >= right; const lead = goLeft ? left : right;
-      if (lead < target) { hits.push({ rowIndex: rows[rowPtr % rows.length], goLeft, coins: Math.max(1, target - lead), t }); t += 260; }
-      return { hits, endMs: t + 900 };
+      if (lead < target) { hits.push({ rowIndex: rows[rowPtr % rows.length], goLeft, coins: Math.max(1, target - lead), t }); t += 320; }
+      return { hits, endMs: t + 600 };
     }
     function runSimulation() {
-      clearTestTimers(); stopHeroCarousel();
-      combosRegalosActivos = {}; leftPts = 0; rightPts = 0; goalLatchMeta = -1; vsRoundFrozen = false;
+      clearTestTimers();
+      stopHeroCarousel();
+      testRunning = true;
+      combosRegalosActivos = {};
+      leftPts = 0; rightPts = 0;
+      currentMeta = metaBase;
+      goalLatchMeta = -1; vsRoundFrozen = false; vsMatchStarted = false;
       hideWinnerBadges(); hideGoalCountdown();
       const rows = activeRowSlots();
       if (rows.length) { carouselRowPos = 0; showHeroRow(rows[0]); }
       renderAllScores();
-      if (cdSeconds > 0 && isCountdownFromStart()) { vsMatchStarted = true; startGoalCountdown(); }
+
+      // Secuencia completa de demo: hits → flash meta → cuenta atrás → Winner.
+      // Congela onGoal/cdWhen para que reset/increase no borre el marcador a medias.
+      testCfgBackup = {
+        cdSeconds, cdWhen, onGoal, cdRestartOnGoal
+      };
+      const demoCd = testCfgBackup.cdSeconds > 0 ? Math.min(testCfgBackup.cdSeconds, 15) : 5;
+      cdSeconds = demoCd;
+      cdWhen = 'goal';
+      onGoal = 'none';
+      cdRestartOnGoal = false;
+
       const plan = buildPlan(currentMeta);
       plan.hits.forEach((hit) => testTimers.push(setTimeout(() => applySimHit(hit), hit.t)));
-      if (isEmbed) testTimers.push(setTimeout(() => { resetAll(); setTimeout(runSimulation, 2500); }, plan.endMs + 3500));
+
+      const afterHitsMs = plan.endMs + 450;
+      testTimers.push(setTimeout(() => {
+        if (!isMetaReached()) {
+          if (leftPts >= rightPts) leftPts = Math.max(leftPts, currentMeta);
+          else rightPts = Math.max(rightPts, currentMeta);
+          goalLatchMeta = -1;
+          renderAllScores();
+        }
+        // Flash de meta + arranque de cuenta atrás (flujo real del overlay).
+        goalLatchMeta = -1;
+        checkGoal();
+        if (cdSeconds > 0 && !cdTimer) startGoalCountdown(true);
+        else if (cdSeconds <= 0) onCountdownFinished();
+      }, afterHitsMs));
+
+      const winnerAt = afterHitsMs + (cdSeconds > 0 ? (cdSeconds * 1000 + 700) : 600);
+      const holdWinnerMs = 3800;
+      const loopAt = winnerAt + holdWinnerMs;
+
+      // Seguridad: si el interval no disparó Winner, forzarlo.
+      testTimers.push(setTimeout(() => { onCountdownFinished(); }, winnerAt));
+
+      testTimers.push(setTimeout(() => {
+        if (testCfgBackup) {
+          restoreTestCfg(testCfgBackup);
+          testCfgBackup = null;
+        }
+        testRunning = false;
+        if (isEmbed) {
+          resetAll();
+          testTimers.push(setTimeout(runSimulation, 2000));
+        } else {
+          vsRoundFrozen = true;
+          startHeroCarousel();
+        }
+      }, loopAt));
     }
 
     // ---- WebSocket nativo ----
@@ -442,6 +588,13 @@
         else if (type === 'settings') { if (payload && payload.giftVs) applyConfig(payload.giftVs); }
         else if (type === 'giftVsTest') { if (!isEmbed) runSimulation(); }
         else if (type === 'giftVsReset') { if (!isEmbed) { clearTestTimers(); resetAll(); } }
+        else if (type === 'giftVsControl') {
+          if (isEmbed) return;
+          const act = payload && payload.action;
+          if (act === 'start') startMatch();
+          else if (act === 'stop') stopMatch();
+          else if (act === 'end') endMatch();
+        }
       };
     }
 
@@ -452,6 +605,11 @@
       if (d.type === 'config') applyConfig(d.config);
       else if (d.type === 'test') runSimulation();
       else if (d.type === 'reset') { clearTestTimers(); resetAll(); }
+      else if (d.type === 'action') {
+        if (d.action === 'start') startMatch();
+        else if (d.action === 'stop') stopMatch();
+        else if (d.action === 'end') endMatch();
+      }
     });
 
     // Arranque
@@ -461,7 +619,7 @@
       fit();
       window.addEventListener('resize', fit);
     }
-    cfgObj = { meta: 500, goalStep: 500, onGoal: 'increase', countdown: 0, rows: [] };
+    cfgObj = { meta: 100, goalStep: 100, onGoal: 'reset', countdown: 2, cdWhen: 'start', vsStyle: 1, rows: [] };
     syncFromConfig();
     buildDom();
     connectWS();

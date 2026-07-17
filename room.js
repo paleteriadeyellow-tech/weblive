@@ -6,7 +6,7 @@ import './euler-config.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
-import { DEFAULT_SETTINGS, deepMerge } from './default-settings.js';
+import { DEFAULT_SETTINGS, deepMerge, ensureGiftSeqDefaults, ensureGiftVsDefaults } from './default-settings.js';
 import * as spotify from './spotify.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan, fireGameActionTimed, fireGameActionCountTimed } from './mc-panic.js';
@@ -798,7 +798,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     try { writeJsonAtomic(PROFILES_FILE, profiles); } catch {}
   }
   function resolveProfileSettings(slot) {
-    if (slot && typeof slot === 'object' && !Array.isArray(slot)) return deepMerge(structuredClone(DEFAULT_SETTINGS), slot);
+    if (slot && typeof slot === 'object' && !Array.isArray(slot)) {
+      return ensureGiftVsDefaults(ensureGiftSeqDefaults(deepMerge(structuredClone(DEFAULT_SETTINGS), slot)));
+    }
     return structuredClone(DEFAULT_SETTINGS);
   }
   function cloneSettings(obj) {
@@ -6622,11 +6624,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetPerrito':
         broadcast('perritoReset', {});
         break;
+      case 'dropPerrito':
+        broadcast('perritoDropOne', { image: data.image || '', diamonds: Number(data.diamonds) || 1, giftId: data.giftId || '', giftName: data.giftName || '' });
+        break;
       case 'testJarron':
         broadcast('jarronTest', { count: Number(data.count) || 200 });
         break;
       case 'resetJarron':
         broadcast('jarronReset', {});
+        break;
+      case 'dropJarron':
+        broadcast('jarronDropOne', { image: data.image || '', diamonds: Number(data.diamonds) || 1, giftId: data.giftId || '', giftName: data.giftName || '' });
         break;
       case 'testVaquita':
         broadcast('vaquitaTest', { count: Number(data.count) || 200 });
@@ -6634,11 +6642,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetVaquita':
         broadcast('vaquitaReset', {});
         break;
+      case 'dropVaquita':
+        broadcast('vaquitaDropOne', { image: data.image || '', diamonds: Number(data.diamonds) || 1, giftId: data.giftId || '', giftName: data.giftName || '' });
+        break;
       case 'testMarranito':
         broadcast('marranitoTest', { count: Number(data.count) || 200 });
         break;
       case 'resetMarranito':
         broadcast('marranitoReset', {});
+        break;
+      case 'dropMarranito':
+        broadcast('marranitoDropOne', { image: data.image || '', diamonds: Number(data.diamonds) || 1, giftId: data.giftId || '', giftName: data.giftName || '' });
         break;
       case 'testPelotas':
         broadcast('pelotasTest', { count: Number(data.count) || 16 });
@@ -6662,6 +6676,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetGiftVs':
         broadcast('giftVsReset', {});
+        break;
+      case 'giftVsControl':
+        broadcast('giftVsControl', { action: data.gvsAction });
         break;
       case 'testFlowMeter':
         broadcast('flowMeterTest', {});

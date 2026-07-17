@@ -125,17 +125,26 @@
     }
     function getDefaultSequence() {
       return [
-        normalizeItem({ giftName: 'Rose', customText: 'Bailo', textSide: 'bottom' }),
-        normalizeItem({ giftName: 'GG', customText: 'Modo épico', textSide: 'top' }),
-        normalizeItem({ giftName: 'TikTok', customText: 'Entrando con estilo', textSide: 'right' }),
+        normalizeItem({
+          giftName: "You're awesome",
+          giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.webp',
+          customText: "You're awesome",
+          textSide: 'bottom',
+        }),
+        normalizeItem({
+          giftName: 'Club Cheers',
+          giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/6a934c90e5533a4145bed7eae66d71bd.png~tplv-obj.webp',
+          customText: 'Club Cheers',
+          textSide: 'bottom',
+        }),
       ];
     }
 
     function normalizeAnim(value) {
       if (value === 'gift-slide-left' || value === 'gift-slide-right') return 'gift-row-left';
-      return value || 'gift-pop';
+      return value || 'gift-zoom';
     }
-    function getConfiguredAnimation() { return normalizeAnim((cfg && cfg.anim) || params.get('anim') || 'gift-pop'); }
+    function getConfiguredAnimation() { return normalizeAnim((cfg && cfg.anim) || params.get('anim') || 'gift-zoom'); }
     function normalizeRowSpeed(v) { return Math.round(clamp(v, 3.2, 16, 7.6) * 10) / 10; }
     function normColorHex(v, fallback) {
       const fb = fallback || '#f4f7ff';

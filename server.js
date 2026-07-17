@@ -338,13 +338,19 @@ async function loadGiftCatalog(force = false, region = 'auto') {
     const webParams = GIFT_REGION_PARAMS[regionKey] || {};
     const tmp = new TikTokLiveConnection('tv_asahi_news', { webClientParams: webParams });
     const gifts = await tmp.fetchAvailableGifts();
+    const musicNameRe = /music|song|melody|mic|guitar|piano|dj|beat|concert|album|drum|karaoke|band|singer|violin|trumpet|spotify|nota|canci[oó]n/i;
     for (const g of (Array.isArray(gifts) ? gifts : [])) {
       if (!g || !g.name) continue;
-      merged.set(String(g.id), {
+      const id = String(g.id);
+      const prev = merged.get(id) || {};
+      const bannerKey = g?.gift_panel_banner?.display_text?.key || '';
+      const audio = !!(prev.audio || /audio/i.test(bannerKey) || musicNameRe.test(String(g.name)));
+      merged.set(id, {
         id: g.id,
         name: g.name,
         diamonds: g.diamond_count ?? g.diamondCount ?? 0,
-        image: g.image?.url_list?.[0] || g.icon?.url_list?.[0] || (typeof g.image === 'string' ? g.image : ''),
+        image: g.image?.url_list?.[0] || g.icon?.url_list?.[0] || (typeof g.image === 'string' ? g.image : '') || prev.image || '',
+        ...(audio ? { audio: true } : {}),
       });
     }
   } catch (e) {
@@ -364,21 +370,14 @@ async function loadGiftCatalog(force = false, region = 'auto') {
 
 function mergeGiftLists(base, extra) {
   const byId = new Map();
-  const order = [];
-  for (const g of extra || []) {
-    const id = String(g.id);
+  for (const g of [...(extra || []), ...(base || [])]) {
+    const id = String(g?.id ?? '');
     if (!id) continue;
-    if (!byId.has(id)) order.push(id);
     byId.set(id, { ...byId.get(id), ...g });
   }
-  const sortedBase = [...(base || [])].sort((a, b) => (a.diamonds - b.diamonds) || String(a.name).localeCompare(String(b.name)));
-  for (const g of sortedBase) {
-    const id = String(g.id);
-    if (!id) continue;
-    if (!byId.has(id)) order.push(id);
-    byId.set(id, { ...byId.get(id), ...g });
-  }
-  return order.map((id) => byId.get(id));
+  return [...byId.values()].sort((a, b) =>
+    (Number(a.diamonds) || 0) - (Number(b.diamonds) || 0) || String(a.name || '').localeCompare(String(b.name || ''))
+  );
 }
 
 loadGiftCatalog(false, 'auto').then((r) => {

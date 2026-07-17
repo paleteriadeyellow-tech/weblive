@@ -6,14 +6,18 @@
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Perrito (regalos)</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
     * { box-sizing: border-box; }
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
 
     .stage {
-      width: 540px; height: 720px; position: absolute; left: 50%; top: 50%;
+      width: 540px; height: 785px; position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%) scale(var(--tf-fit, 1)); transform-origin: center center;
     }
-    .jar { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; height: 100%; pointer-events: none; }
+    .jar {
+      position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+      width: 100%; height: 720px; pointer-events: none;
+    }
 
     /* Silueta del perrito detrás de los regalos (profundidad) */
     .jar-glass-back {
@@ -47,10 +51,60 @@
       -webkit-mask-position: center bottom; mask-position: center bottom;
     }
 
+    /* HUD debajo del perrito */
+    .hud-stack {
+      position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      z-index: 7; pointer-events: none; width: min(100%, 420px);
+    }
+    /* Sin barra rotativa: monedas pegadas bajo la alcancía */
+    .hud-stack.is-coins-only {
+      bottom: auto; top: 726px;
+    }
+    .top-donor-bar {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      padding: 8px 10px 8px 12px; border-radius: 999px;
+      background: rgba(22, 24, 32, .88); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      box-shadow: 0 6px 20px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08);
+      font-family: 'Press Start 2P', 'Rubik', system-ui, sans-serif;
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    .top-donor-bar[hidden] { display: none !important; }
+    .top-donor-bar.is-switch { animation: tdSwitch .35s ease; }
+    @keyframes tdSwitch { 0% { opacity: .35; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
+    .td-medal { font-size: 22px; line-height: 1; flex: 0 0 auto; filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+    .td-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto; object-fit: cover;
+      border: 2px solid rgba(255,255,255,.22); box-shadow: 0 2px 8px rgba(0,0,0,.4);
+      background: rgba(255,255,255,.08);
+    }
+    .td-info {
+      flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; justify-content: center;
+    }
+    .td-name {
+      font-family: 'Rubik', system-ui, sans-serif; font-size: 14px; font-weight: 800;
+      color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55);
+    }
+    .td-amount-wrap {
+      display: flex; align-items: center; gap: 7px; flex: 0 0 auto;
+      padding: 6px 12px 6px 8px; border-radius: 999px;
+      background: rgba(8, 10, 16, .72); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .td-coin {
+      width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto;
+      background: radial-gradient(circle at 35% 30%, #ffe9a0 0%, #f7c948 45%, #e0a92e 72%, #b07d1a 100%);
+      box-shadow: inset 0 0 0 2px rgba(255,236,170,.45), inset 0 -2px 5px rgba(140,85,10,.5), 0 1px 3px rgba(0,0,0,.45);
+    }
+    .td-amount {
+      font-size: 11px; font-weight: 400; color: #fff; letter-spacing: .02em;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55); font-variant-numeric: tabular-nums; min-width: 2ch;
+    }
+
     /* Contador de diamantes debajo del perrito */
     .coin-total {
-      position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%);
-      display: flex; align-items: center; gap: 9px; z-index: 7; pointer-events: none;
+      position: relative; left: auto; bottom: auto; transform: none;
+      display: flex; align-items: center; gap: 9px; pointer-events: none;
       padding: 7px 18px 7px 9px; border-radius: 999px;
       background: rgba(16,18,26,.72); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
       box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
@@ -80,9 +134,22 @@
         <div class="gifts-layer" id="gifts-layer"></div>
       </div>
     </div>
-    <div class="coin-total" id="coin-total" aria-hidden="true">
-      <span class="coin-ico"></span>
-      <span class="coin-num" id="coin-num">0</span>
+    <div class="hud-stack" id="hud-stack">
+      <div class="top-donor-bar" id="top-donor-bar">
+        <span class="td-medal" id="td-medal" aria-hidden="true">🥇</span>
+        <img class="td-avatar" id="td-avatar" alt="" referrerpolicy="no-referrer" />
+        <div class="td-info">
+          <span class="td-name" id="td-name">—</span>
+        </div>
+        <div class="td-amount-wrap">
+          <span class="td-coin" aria-hidden="true"></span>
+          <span class="td-amount" id="td-amount">0</span>
+        </div>
+      </div>
+      <div class="coin-total" id="coin-total" aria-hidden="true">
+        <span class="coin-ico"></span>
+        <span class="coin-num" id="coin-num">0</span>
+      </div>
     </div>
   </div>
 
@@ -110,7 +177,7 @@
     // Escala para que el perrito se vea completo (sin recortes).
     (function fit() {
       function apply() {
-        const k = Math.min((innerWidth || 540) / 540, (innerHeight || 720) / 720) || 1;
+        const k = Math.min((innerWidth || 540) / 540, (innerHeight || 785) / 785) || 1;
         document.documentElement.style.setProperty('--tf-fit', k);
       }
       apply(); addEventListener('resize', apply);
@@ -181,7 +248,7 @@
           const sX = (px) => (px / w) * IMG_SIZE;
           const sY = (py) => IMG_TOP + (py / h) * IMG_SIZE;
           const cw = sX(CELL), ch = sY(CELL) - IMG_TOP; // tamaño de celda en stage
-          const wallOptsS = { isStatic: true, friction: 0.5, restitution: 0.04 };
+          const wallOptsS = { isStatic: true, friction: 0.36, restitution: 0.42 };
           const bodies = [];
           // Una celda EXTERIOR contigua a una INTERIOR se convierte en pared: forma
           // un muro que abraza la silueta por fuera y contiene los regalos dentro.
@@ -243,6 +310,97 @@
       persistDiamonds();
     }
 
+    // ---- Barra rotativa TOP DONATOR (encima del contador) ----
+    const topBarEl = document.getElementById('top-donor-bar');
+    const tdMedal = document.getElementById('td-medal');
+    const tdAvatar = document.getElementById('td-avatar');
+    const tdName = document.getElementById('td-name');
+    const tdAmount = document.getElementById('td-amount');
+    const TD_DEFAULT_PIC = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const TD_PREVIEW_PIC = '/jarron/lv.png';
+    const TOP_MEDALS = ['🥇', '🥈', '🥉', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅'];
+    let topGifters = [];
+    let topBarCfg = { enabled: true, limit: 3 };
+    let topCycleIdx = 0;
+    let topCycleTimer = null;
+
+    function applyTopBarSettings(jarron) {
+      if (!jarron) return;
+      topBarCfg.enabled = jarron.topBarEnabled !== false;
+      topBarCfg.limit = Math.max(1, Math.min(10, Number(jarron.topBarLimit) || 3));
+      updateTopBarVisibility();
+      renderTopBarSlot(false);
+      restartTopCycle();
+    }
+
+    function activeTopList() {
+      return topGifters.slice(0, topBarCfg.limit);
+    }
+
+    function updateTopBarVisibility() {
+      if (!topBarEl) return;
+      const show = topBarCfg.enabled && activeTopList().length > 0;
+      topBarEl.hidden = !show;
+      const hud = document.getElementById('hud-stack');
+      if (hud) hud.classList.toggle('is-coins-only', !show);
+    }
+
+    function renderTopBarSlot(animate) {
+      const list = activeTopList();
+      if (!list.length || !topBarCfg.enabled || !tdAmount) {
+        updateTopBarVisibility();
+        return;
+      }
+      if (topCycleIdx >= list.length) topCycleIdx = 0;
+      const g = list[topCycleIdx];
+      tdAmount.textContent = (g.diamonds || 0).toLocaleString('es-ES');
+      if (tdMedal) tdMedal.textContent = TOP_MEDALS[topCycleIdx] || '🏅';
+      if (tdName) tdName.textContent = g.nickname || g.uniqueId || '—';
+      if (tdAvatar) {
+        const pic = String(g.photo || g.profilePictureUrl || '').trim();
+        tdAvatar.src = pic || (isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC);
+        tdAvatar.onerror = function () {
+          this.onerror = null;
+          this.src = isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC;
+        };
+      }
+      updateTopBarVisibility();
+      if (animate && topBarEl) {
+        topBarEl.classList.remove('is-switch');
+        void topBarEl.offsetWidth;
+        topBarEl.classList.add('is-switch');
+      }
+    }
+
+    function restartTopCycle() {
+      if (topCycleTimer) clearInterval(topCycleTimer);
+      topCycleTimer = null;
+      if (!topBarCfg.enabled) return;
+      const list = activeTopList();
+      if (list.length < 2) return;
+      topCycleTimer = setInterval(() => {
+        const cur = activeTopList();
+        if (cur.length < 2) return;
+        topCycleIdx = (topCycleIdx + 1) % cur.length;
+        renderTopBarSlot(true);
+      }, 4200);
+    }
+
+    function onTopGiftersState(list) {
+      topGifters = Array.isArray(list) ? list.filter((g) => (g.diamonds || 0) > 0) : [];
+      topCycleIdx = 0;
+      renderTopBarSlot(false);
+      restartTopCycle();
+    }
+
+    function demoTopGifters() {
+      onTopGiftersState([
+        { nickname: 'Donador 1', diamonds: 12500, photo: TD_PREVIEW_PIC },
+        { nickname: 'Donador 2', diamonds: 8200, photo: TD_PREVIEW_PIC },
+        { nickname: 'Donador 3', diamonds: 4100, photo: TD_PREVIEW_PIC },
+      ]);
+    }
+
     // ---- Geometría del interior (stage 540×720; PNG cuadrado en los 540 inferiores) ----
     const STAGE_W = 540, STAGE_H = 720, IMG_SIZE = 540, IMG_TOP = 180;
     const artX = (p) => (p / 100) * IMG_SIZE;
@@ -262,7 +420,7 @@
     // Límites de seguridad muy lejanos (por si algún regalo se escapa); la
     // contención real la dan las colisiones generadas a partir de la silueta.
     const WT = 60;
-    const wallOpts = { isStatic: true, friction: 0.42, restitution: 0.06 };
+    const wallOpts = { isStatic: true, friction: 0.36, restitution: 0.42 };
     World.add(world, [
       Bodies.rectangle(STAGE_W / 2, STAGE_H + 200, STAGE_W * 3, WT, wallOpts),
       Bodies.rectangle(-260, STAGE_H / 2, WT, STAGE_H * 3, wallOpts),
@@ -365,8 +523,16 @@
       else { x = rnd(SLOT_CX - SLOT_HW, SLOT_CX + SLOT_HW); y = SPAWN_Y + rnd(-8, 8); vx = rnd(-1.3, 1.3); }
       // Los regalos más grandes (más diamantes) pesan más: se hunden y compactan el montón.
       const density = 0.0012 * (1 + Math.min(2.5, (diamonds || 0) / 1500));
-      const body = Bodies.circle(x, y, r, { density, restitution: 0.02, friction: 0.16, frictionStatic: 0.18, frictionAir: 0.012, sleepThreshold: 22 });
+      const body = Bodies.circle(x, y, r, {
+        density,
+        restitution: 0.52,
+        friction: 0.16,
+        frictionStatic: 0.2,
+        frictionAir: 0.012,
+        sleepThreshold: 22,
+      });
       if (opts.angle != null) Body.setAngle(body, opts.angle);
+      // Misma velocidad de caída; el rebote viene de restitution.
       if (!opts.settled) { Body.setVelocity(body, { x: vx, y: rnd(0.3, 1.2) }); Body.setAngularVelocity(body, rnd(-0.12, 0.12)); }
       const img = document.createElement('img');
       img.className = 'gift-body'; img.src = src; img.alt = ''; img.referrerPolicy = 'no-referrer';
@@ -414,6 +580,17 @@
       const arr = [...giftImgById.values()];
       return arr.length ? arr[Math.floor(Math.random() * arr.length)] : FALLBACK_IMG;
     }
+    function dropOneGift(payload) {
+      const p = payload || {};
+      let src = '';
+      if (p.image) {
+        if (p.giftId) giftImgById.set(String(p.giftId), p.image);
+        src = giftImgUrl(p.image) || '';
+      }
+      if (!src) src = sampleImg();
+      const d = Math.max(0, Number(p.diamonds) || 1);
+      addGiftBody(src, giftSizeForFill(d), d, {});
+    }
 
     // ---- WebSocket nativo del panel ----
     let ws, reconnectTimer, fillTimer = null;
@@ -426,13 +603,16 @@
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         const { type, payload } = msg;
         if (type === 'gift') { if (!isEmbed) onGift(payload); }
+        else if (type === 'state') { if (!isEmbed && payload) onTopGiftersState(payload.topGifters); }
         else if (type === 'panic') clearJar();
         else if (type === 'perritoTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
+        else if (type === 'perritoDropOne') { if (!isEmbed) dropOneGift(payload); }
         else if (type === 'perritoReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); try { localStorage.removeItem(lsKey); } catch {} } }
         else if (type === 'settings') {
           if (payload && payload.perrito) {
             if (!params.get('jc')) applyJarTint(payload.perrito.tint);
             if (payload.perrito.sizes) setSizeTable(payload.perrito.sizes);
+            applyTopBarSettings(payload.perrito);
           }
         }
       };
@@ -443,7 +623,8 @@
       spawnMany(resolveGiftImg(p), n, 165, p.diamonds || 0);
     }
     connectWS();
-    if (!isEmbed) loadPersistedDiamonds();
+    if (isEmbed) demoTopGifters();
+    else loadPersistedDiamonds();
 
     function runFill(total) {
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
@@ -461,11 +642,18 @@
       const d = e.data;
       if (!d || d.kind !== 'perrito') return;
       if (d.type === 'test') runFill(d.count || 200);
+      else if (d.type === 'dropOne') dropOneGift(d);
       else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); }
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
         if (d.sizes !== undefined) setSizeTable(d.sizes);
-      }
+        if (d.topBarEnabled !== undefined || d.topBarLimit !== undefined) {
+          applyTopBarSettings({
+            topBarEnabled: d.topBarEnabled !== undefined ? d.topBarEnabled : topBarCfg.enabled,
+            topBarLimit: d.topBarLimit !== undefined ? d.topBarLimit : topBarCfg.limit,
+          });
+        }
+      } else if (d.type === 'topDemo') demoTopGifters();
     });
 
     // ---- Vista previa standalone (?preview=1): llena en bucle ----

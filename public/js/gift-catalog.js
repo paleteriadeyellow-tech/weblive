@@ -15,6 +15,7 @@
 
   const CATEGORIES = [
     { id: 'all', label: 'Todos', icon: '📦', test: () => true },
+    { id: 'music', label: 'Música', icon: '🎵', test: (g) => !!(g.audio || /music|song|melody|mic|guitar|piano|dj|beat|concert|album|drum|karaoke|band|singer|violin|trumpet|spotify|nota|canci[oó]n/i.test(String(g.name || ''))) },
     { id: 'popular', label: 'Populares', icon: '🔥', test: (g) => g.diamonds <= 10 },
     { id: 'basic', label: 'Básicos', icon: '🌱', test: (g) => g.diamonds >= 1 && g.diamonds <= 5 },
     { id: 'animated', label: 'Animados', icon: '✨', test: (g) => g.diamonds >= 11 && g.diamonds <= 99 },
@@ -54,6 +55,7 @@
       name: g.name,
       diamonds: Number(g.diamonds) || 0,
       image: g.image || '',
+      audio: !!g.audio,
     };
   }
 
@@ -172,6 +174,7 @@
 
     if (countEl) countEl.textContent = `${total} / ${allGifts.length}`;
     if (pageInfo) pageInfo.textContent = `Página ${state.page} de ${pages}`;
+    updateDlAllButton();
 
     const prev = $('gc-prev');
     const next = $('gc-next');
@@ -229,53 +232,269 @@
         <div><dt>Categoría</dt><dd><span class="gc-badge">${esc(cat.label)}</span></dd></div>
         <div><dt>Región</dt><dd>${esc(regionLabel)}</dd></div>
       </dl>
-      <button type="button" class="btn primary gc-dl" id="gc-dl-btn">⬇ Descargar PNG</button>`;
-    $('gc-dl-btn').onclick = () => downloadGiftPng(g);
+      <div class="gc-dl-row">
+        <button type="button" class="btn primary gc-dl" id="gc-dl-btn">⬇ Descargar PNG</button>
+        <button type="button" class="btn gc-dl gc-dl-bw" id="gc-dl-bw-btn">⬇ PNG blanco y negro</button>
+      </div>`;
+    $('gc-dl-btn').onclick = () => downloadGiftPng(g, false);
+    $('gc-dl-bw-btn').onclick = () => downloadGiftPng(g, true);
   }
 
-  async function downloadGiftPng(g) {
-    if (!g?.image) {
-      (window.toast && toast('Este regalo no tiene imagen.', 'warn'));
-      return;
-    }
-    const btn = $('gc-dl-btn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Descargando…'; }
-    const safeName = (g.name || 'regalo').replace(/[^\w.\- ]+/g, '_').trim() || 'regalo';
-    const fileName = `${safeName}_${g.id}.png`;
-    try {
-      const r = await fetch(proxied(g.image));
-      if (!r.ok) throw new Error('fetch');
-      const blob = await r.blob();
+  function blobToImage(blob) {
+    return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      window.toast && toast('PNG descargado.', 'ok');
-    } catch {
-      try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = proxied(g.image); });
-        const cv = document.createElement('canvas');
-        cv.width = img.naturalWidth || 256;
-        cv.height = img.naturalHeight || 256;
-        cv.getContext('2d').drawImage(img, 0, 0);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); };
+      img.src = url;
+    });
+  }
+
+  function loadProxiedImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = proxied(src);
+    });
+  }
+
+  function canvasToPngDownload(cv, fileName) {
+    return new Promise((resolve, reject) => {
+      cv.toBlob((blob) => {
+        if (!blob) {
+          try {
+            const a = document.createElement('a');
+            a.href = cv.toDataURL('image/png');
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            resolve();
+          } catch (e) { reject(e); }
+          return;
+        }
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = cv.toDataURL('image/png');
+        a.href = url;
         a.download = fileName;
         document.body.appendChild(a);
         a.click();
         a.remove();
-        window.toast && toast('PNG descargado.', 'ok');
-      } catch {
-        window.toast && toast('No se pudo descargar. ¿Hay internet?', 'error');
+        URL.revokeObjectURL(url);
+        resolve();
+      }, 'image/png');
+    });
+  }
+
+  function drawGiftToCanvas(img, grayscale) {
+    const cv = document.createElement('canvas');
+    cv.width = img.naturalWidth || img.width || 256;
+    cv.height = img.naturalHeight || img.height || 256;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    if (grayscale) {
+      const id = ctx.getImageData(0, 0, cv.width, cv.height);
+      const d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        // Luma perceptual; conserva alpha (transparencia del PNG).
+        const y = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) | 0;
+        d[i] = d[i + 1] = d[i + 2] = y;
       }
+      ctx.putImageData(id, 0, 0);
+    }
+    return cv;
+  }
+
+  async function downloadGiftPng(g, grayscale = false) {
+    if (!g?.image) {
+      (window.toast && toast('Este regalo no tiene imagen.', 'warn'));
+      return;
+    }
+    const btn = grayscale ? $('gc-dl-bw-btn') : $('gc-dl-btn');
+    const other = grayscale ? $('gc-dl-btn') : $('gc-dl-bw-btn');
+    const labelColor = '⬇ Descargar PNG';
+    const labelBw = '⬇ PNG blanco y negro';
+    if (btn) { btn.disabled = true; btn.textContent = 'Descargando…'; }
+    if (other) other.disabled = true;
+    const safeName = (g.name || 'regalo').replace(/[^\w.\- ]+/g, '_').trim() || 'regalo';
+    const fileName = grayscale
+      ? `${safeName}_${g.id}_bn.png`
+      : `${safeName}_${g.id}.png`;
+    try {
+      let img = null;
+      try {
+        const r = await fetch(proxied(g.image));
+        if (!r.ok) throw new Error('fetch');
+        const blob = await r.blob();
+        if (grayscale) {
+          img = await blobToImage(blob);
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          window.toast && toast('PNG descargado.', 'ok');
+          return;
+        }
+      } catch {
+        img = await loadProxiedImage(g.image);
+      }
+      const cv = drawGiftToCanvas(img, !!grayscale);
+      await canvasToPngDownload(cv, fileName);
+      window.toast && toast(grayscale ? 'PNG blanco y negro descargado.' : 'PNG descargado.', 'ok');
+    } catch {
+      window.toast && toast('No se pudo descargar. ¿Hay internet?', 'error');
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '⬇ Descargar PNG'; }
+      const bColor = $('gc-dl-btn');
+      const bBw = $('gc-dl-bw-btn');
+      if (bColor) { bColor.disabled = false; bColor.textContent = labelColor; }
+      if (bBw) { bBw.disabled = false; bBw.textContent = labelBw; }
+    }
+  }
+
+  let jszipPromise = null;
+  let zipBusy = false;
+
+  function loadJSZip() {
+    if (window.JSZip) return Promise.resolve(window.JSZip);
+    if (jszipPromise) return jszipPromise;
+    jszipPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = '/js/lib/jszip.min.js';
+      s.async = true;
+      s.onload = () => (window.JSZip ? resolve(window.JSZip) : reject(new Error('JSZip')));
+      s.onerror = () => reject(new Error('JSZip load'));
+      document.head.appendChild(s);
+    });
+    return jszipPromise;
+  }
+
+  function updateDlAllButton() {
+    const btn = $('gc-dl-all');
+    const btnBw = $('gc-dl-all-bw');
+    if (zipBusy) return;
+    applyFilters();
+    const n = filtered.filter((g) => g.image).length;
+    const disabled = n === 0;
+    if (btn) {
+      btn.disabled = disabled;
+      btn.textContent = n ? `⬇ ZIP color · ${n}` : '⬇ ZIP color';
+    }
+    if (btnBw) {
+      btnBw.disabled = disabled;
+      btnBw.textContent = n ? `⬇ ZIP B/N · ${n}` : '⬇ ZIP B/N';
+    }
+  }
+
+  function canvasToPngBlob(cv) {
+    return new Promise((resolve, reject) => {
+      cv.toBlob((b) => (b ? resolve(b) : reject(new Error('png'))), 'image/png');
+    });
+  }
+
+  async function giftToPngBlob(g, grayscale = false) {
+    if (!g?.image) return null;
+    try {
+      const r = await fetch(proxied(g.image));
+      if (!r.ok) throw new Error('fetch');
+      const blob = await r.blob();
+      const img = await blobToImage(blob);
+      return await canvasToPngBlob(drawGiftToCanvas(img, !!grayscale));
+    } catch {
+      const img = await loadProxiedImage(g.image);
+      return await canvasToPngBlob(drawGiftToCanvas(img, !!grayscale));
+    }
+  }
+
+  async function mapPool(items, limit, fn) {
+    const results = new Array(items.length);
+    let next = 0;
+    async function worker() {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await fn(items[i], i);
+      }
+    }
+    const n = Math.max(1, Math.min(limit, items.length));
+    await Promise.all(Array.from({ length: n }, () => worker()));
+    return results;
+  }
+
+  async function downloadAllFilteredZip(grayscale = false) {
+    if (zipBusy) return;
+    applyFilters();
+    const list = filtered.filter((g) => g.image);
+    if (!list.length) {
+      window.toast && toast('No hay regalos con imagen para descargar.', 'warn');
+      return;
+    }
+    const btn = $('gc-dl-all');
+    const btnBw = $('gc-dl-all-bw');
+    const modeLabel = grayscale ? 'B/N' : 'color';
+    zipBusy = true;
+    if (btn) btn.disabled = true;
+    if (btnBw) btnBw.disabled = true;
+    const active = grayscale ? btnBw : btn;
+    if (active) active.textContent = `Preparando ZIP 0/${list.length}…`;
+    window.toast && toast(`Empaquetando ${list.length} PNG (${modeLabel})… puede tardar un poco.`, 'ok');
+    let ok = 0;
+    let fail = 0;
+    try {
+      const JSZip = await loadJSZip();
+      const zip = new JSZip();
+      const folderName = grayscale ? 'regalos_bn' : 'regalos';
+      const folder = zip.folder(folderName) || zip;
+      const used = new Set();
+      await mapPool(list, 6, async (g, idx) => {
+        try {
+          const png = await giftToPngBlob(g, grayscale);
+          if (!png) { fail++; return; }
+          let base = ((g.name || 'regalo').replace(/[^\w.\- ]+/g, '_').trim() || 'regalo') + '_' + g.id;
+          if (grayscale) base += '_bn';
+          let name = base + '.png';
+          let n = 2;
+          while (used.has(name.toLowerCase())) {
+            name = base + '_' + n + '.png';
+            n++;
+          }
+          used.add(name.toLowerCase());
+          folder.file(name, png);
+          ok++;
+        } catch {
+          fail++;
+        }
+        if (active && idx % 3 === 0) {
+          active.textContent = `Preparando ZIP ${ok + fail}/${list.length}…`;
+        }
+      });
+      if (active) active.textContent = 'Generando ZIP…';
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      const region = (state.region || 'auto').toLowerCase();
+      const suffix = grayscale ? 'bn' : 'color';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `regalos_${region}_${suffix}_${ok}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      window.toast && toast(
+        fail ? `ZIP ${modeLabel} listo: ${ok} PNG (${fail} fallaron).` : `ZIP ${modeLabel} listo: ${ok} PNG.`,
+        fail ? 'warn' : 'ok'
+      );
+    } catch (e) {
+      console.warn('[gift-catalog] zip', e);
+      window.toast && toast('No se pudo crear el ZIP.', 'error');
+    } finally {
+      zipBusy = false;
+      updateDlAllButton();
     }
   }
 
@@ -332,6 +551,17 @@
     if (refresh && !refresh.dataset.bound) {
       refresh.dataset.bound = '1';
       refresh.onclick = () => loadCatalog(true);
+    }
+
+    const dlAll = $('gc-dl-all');
+    if (dlAll && !dlAll.dataset.bound) {
+      dlAll.dataset.bound = '1';
+      dlAll.onclick = () => downloadAllFilteredZip(false);
+    }
+    const dlAllBw = $('gc-dl-all-bw');
+    if (dlAllBw && !dlAllBw.dataset.bound) {
+      dlAllBw.dataset.bound = '1';
+      dlAllBw.onclick = () => downloadAllFilteredZip(true);
     }
   }
 

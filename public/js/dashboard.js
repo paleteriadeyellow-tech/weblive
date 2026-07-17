@@ -3897,21 +3897,14 @@ function indexGiftCatalog() {
 
 function mergeGiftCatalogWithCommunity(base, community) {
   const byId = new Map();
-  const order = [];
-  for (const g of community || []) {
-    const id = String(g.id);
+  for (const g of [...(community || []), ...(base || [])]) {
+    const id = String(g?.id ?? '');
     if (!id) continue;
-    if (!byId.has(id)) order.push(id);
     byId.set(id, { ...byId.get(id), ...g });
   }
-  const sortedBase = [...(base || [])].sort((a, b) => (a.diamonds - b.diamonds) || String(a.name).localeCompare(String(b.name)));
-  for (const g of sortedBase) {
-    const id = String(g.id);
-    if (!id) continue;
-    if (!byId.has(id)) order.push(id);
-    byId.set(id, { ...byId.get(id), ...g });
-  }
-  return order.map((id) => byId.get(id));
+  return [...byId.values()].sort((a, b) =>
+    (Number(a.diamonds) || 0) - (Number(b.diamonds) || 0) || String(a.name || '').localeCompare(String(b.name || ''))
+  );
 }
 
 let giftCatalogLoading = false;
@@ -4079,6 +4072,21 @@ $('gift-close').onclick = () => $('giftModal').classList.add('hidden');
 $('giftModal').addEventListener('click', (e) => { if (e.target.id === 'giftModal') $('giftModal').classList.add('hidden'); });
 $('gift-q').addEventListener('input', () => renderGiftGrid($('gift-q').value.trim()));
 
+const GIFT_MUSIC_NAME_RE = /music|song|melody|mic|guitar|piano|dj|beat|concert|album|drum|karaoke|band|singer|violin|trumpet|spotify|nota|canci[oó]n/i;
+let giftModalTab = 'all';
+function isMusicGift(g) {
+  return !!(g && (g.audio || GIFT_MUSIC_NAME_RE.test(String(g.name || ''))));
+}
+if ($('gift-tabs')) {
+  $('gift-tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.gift-tab');
+    if (!btn) return;
+    giftModalTab = btn.dataset.tab || 'all';
+    $('gift-tabs').querySelectorAll('.gift-tab').forEach((el) => el.classList.toggle('active', el === btn));
+    renderGiftGrid($('gift-q').value.trim());
+  });
+}
+
 async function openGiftModalCb(cb) {
   await openGiftModal('sa', cb);
 }
@@ -4086,31 +4094,49 @@ async function openGiftModalCb(cb) {
 async function openGiftModal(target = 'sa', cb = null) {
   giftPickCallback = cb;
   giftTarget = target;
+  giftModalTab = 'all';
+  if ($('gift-tabs')) {
+    $('gift-tabs').querySelectorAll('.gift-tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === 'all'));
+  }
   $('giftModal').classList.remove('hidden');
   $('gift-q').value = '';
-  const grid = $('gift-grid');
-  grid.innerHTML = '<div class="empty">Cargando regalos…</div>';
+  // Mostrar al instante si el catálogo ya está en memoria (preload / apertura previa).
+  if (giftCatalog.length) {
+    if (communityGiftCatalog.length) {
+      giftCatalog = mergeGiftCatalogWithCommunity(giftCatalog, communityGiftCatalog);
+      indexGiftCatalog();
+    }
+    renderGiftGrid('');
+  } else {
+    $('gift-grid').innerHTML = '<div class="empty">Cargando regalos…</div>';
+  }
+
+  // Actualiza en segundo plano sin forzar TikTok (force=1 tardaba mucho).
   try {
     const communityUrl = (relayActive() || desktopRelayOn()) ? '/api/desktop/community-gifts' : '/api/community-gifts';
+    const needsGifts = !giftCatalog.length;
     const [giftsRes, communityRes] = await Promise.all([
-      fetch('/api/gifts'),
+      needsGifts ? fetch('/api/gifts') : Promise.resolve(null),
       fetch(communityUrl).catch(() => null),
     ]);
-    const data = await giftsRes.json();
-    giftCatalog = data.results || [];
+    if (giftsRes) {
+      const data = await giftsRes.json();
+      giftCatalog = data.results || giftCatalog;
+    }
     if (communityRes?.ok) {
       const commData = await communityRes.json();
       communityGiftCatalog = commData.results || [];
-      giftCatalog = mergeGiftCatalogWithCommunity(giftCatalog, communityGiftCatalog);
+      if (communityGiftCatalog.length) {
+        giftCatalog = mergeGiftCatalogWithCommunity(giftCatalog, communityGiftCatalog);
+      }
     }
     indexGiftCatalog();
+    if (!$('giftModal').classList.contains('hidden')) renderGiftGrid($('gift-q').value.trim());
   } catch {
     if (!giftCatalog.length) {
-      grid.innerHTML = '<div class="empty">No se pudo cargar el catálogo (¿hay internet?)</div>';
-      return;
+      $('gift-grid').innerHTML = '<div class="empty">No se pudo cargar el catálogo (¿hay internet?)</div>';
     }
   }
-  renderGiftGrid('');
 }
 
 function renderGiftGrid(filter) {
@@ -4119,10 +4145,20 @@ function renderGiftGrid(filter) {
   let list = f
     ? giftCatalog.filter((g) => g.name.toLowerCase().includes(f) || String(g.id).includes(f) || String(g.diamonds).includes(f))
     : giftCatalog;
-  if (!list.length) { grid.innerHTML = '<div class="empty">Sin resultados</div>'; return; }
+  if (giftModalTab === 'music') list = list.filter(isMusicGift);
+  list = [...list].sort((a, b) =>
+    (Number(a.diamonds) || 0) - (Number(b.diamonds) || 0) || String(a.name || '').localeCompare(String(b.name || ''))
+  );
+  if (!list.length) {
+    grid.innerHTML = giftModalTab === 'music'
+      ? '<div class="empty">No hay regalos de música/audio en el catálogo</div>'
+      : '<div class="empty">Sin resultados</div>';
+    return;
+  }
   const curId = giftPickCallback ? '' : $(giftTarget + '-giftid').value;
   grid.innerHTML = list.map((g) => `
     <div class="gift-cell ${String(g.id) === curId ? 'sel' : ''}" data-id="${g.id}" data-name="${esc(g.name)}" title="${esc(g.name)} · #${g.id}">
+      ${isMusicGift(g) ? '<span class="g-audio" title="Música / Audio">🎵</span>' : ''}
       <img src="${esc(g.image)}" loading="lazy" onerror="this.style.visibility='hidden'">
       <div class="g-name">${esc(g.name)}</div>
       <div class="g-coin">🪙 ${g.diamonds}</div>
@@ -4342,26 +4378,44 @@ const DEFAULT_JAR_SIZES = [
 
 // Configuración de cada overlay tipo "bote" (mismo comportamiento, distinta tarjeta)
 const POT_OVERLAYS = {
-  perrito: { previewId: 'perr-preview', testAction: 'testPerrito', resetAction: 'resetPerrito',
-             btnTest: 'perr-test', btnReset: 'perr-reset', btnConfig: 'perr-config', copyBtnIdx: 0 },
-  jarron: { previewId: 'jar-preview', testAction: 'testJarron', resetAction: 'resetJarron',
-            btnTest: 'jar-test', btnReset: 'jar-reset', btnConfig: 'jar-config', copyBtnIdx: 0 },
-  vaquita: { previewId: 'vaq-preview', testAction: 'testVaquita', resetAction: 'resetVaquita',
-             btnTest: 'vaq-test', btnReset: 'vaq-reset', btnConfig: 'vaq-config', copyBtnIdx: 1 },
-  marranito: { previewId: 'mar-preview', testAction: 'testMarranito', resetAction: 'resetMarranito',
-               btnTest: 'mar-test', btnReset: 'mar-reset', btnConfig: 'mar-config', copyBtnIdx: 2 },
+  perrito: { previewId: 'perr-preview', testAction: 'testPerrito', resetAction: 'resetPerrito', dropAction: 'dropPerrito',
+             btnTest: 'perr-test', btnReset: 'perr-reset', btnConfig: 'perr-config', btnSimGift: 'perr-simgift', btnDrop1: 'perr-drop1', copyBtnIdx: 0 },
+  jarron: { previewId: 'jar-preview', testAction: 'testJarron', resetAction: 'resetJarron', dropAction: 'dropJarron',
+            btnTest: 'jar-test', btnReset: 'jar-reset', btnConfig: 'jar-config', btnSimGift: 'jar-simgift', btnDrop1: 'jar-drop1', copyBtnIdx: 0 },
+  vaquita: { previewId: 'vaq-preview', testAction: 'testVaquita', resetAction: 'resetVaquita', dropAction: 'dropVaquita',
+             btnTest: 'vaq-test', btnReset: 'vaq-reset', btnConfig: 'vaq-config', btnSimGift: 'vaq-simgift', btnDrop1: 'vaq-drop1', copyBtnIdx: 1 },
+  marranito: { previewId: 'mar-preview', testAction: 'testMarranito', resetAction: 'resetMarranito', dropAction: 'dropMarranito',
+               btnTest: 'mar-test', btnReset: 'mar-reset', btnConfig: 'mar-config', btnSimGift: 'mar-simgift', btnDrop1: 'mar-drop1', copyBtnIdx: 2 },
 };
+
+const potSimGift = { perrito: null, jarron: null, vaquita: null, marranito: null };
+
+function renderPotSimGiftBtn(key) {
+  const cfg = POT_OVERLAYS[key]; if (!cfg) return;
+  const btn = $(cfg.btnSimGift); if (!btn) return;
+  const g = potSimGift[key];
+  if (!g) {
+    btn.innerHTML = 'Selecciona…';
+    btn.title = 'Elegir regalo para soltar de uno en uno';
+    return;
+  }
+  const img = g.image ? `<img src="${String(g.image).replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer">` : '🎁';
+  const name = String(g.name || 'Regalo').replace(/</g, '&lt;');
+  btn.innerHTML = `${img}<span class="ovpro-simgift-name">${name}</span>`;
+  btn.title = `${g.name || 'Regalo'} · ${g.diamonds || 0} coins · ID ${g.id || ''}`;
+}
 
 (function setupPotCards() {
   document.querySelectorAll('.ovpro-card').forEach((card) => {
     const code = card.querySelector('.ov-url');
+    if (!code) return;
     code.textContent = roomUrl(code.dataset.path);
-    card.querySelector('.ovpro-copy').onclick = (e) => {
+    card.querySelector('.ovpro-copy')?.addEventListener('click', (e) => {
       if (isOverlayUrlLocked(code)) { toast('Disponible solo en Premium ⭐', 'warn'); return; }
       navigator.clipboard?.writeText(roomUrl(code.dataset.path));
       const t = e.target; t.textContent = '¡Copiado!';
       setTimeout(() => (t.textContent = 'Copiar enlace'), 1200);
-    };
+    });
   });
 
   for (const [key, cfg] of Object.entries(POT_OVERLAYS)) {
@@ -4370,11 +4424,40 @@ const POT_OVERLAYS = {
     const toPreview = (msg) => $(cfg.previewId)?.contentWindow?.postMessage({ kind: key, ...msg }, '*');
     test.onclick = () => {
       toPreview({ type: 'test', count: 200 });
-      if (key === 'jarron') toPreview({ type: 'topDemo' });
+      toPreview({ type: 'topDemo' });
       send({ action: cfg.testAction, count: 200 });
     };
     reset.onclick = () => { toPreview({ type: 'reset' }); send({ action: cfg.resetAction }); };
     config.onclick = () => openPotConfig(key);
+
+    const dropPayload = () => {
+      const g = potSimGift[key];
+      return {
+        image: g?.image || '',
+        diamonds: Math.max(0, Number(g?.diamonds) || 1),
+        giftId: g?.id != null ? String(g.id) : '',
+        giftName: g?.name || '',
+      };
+    };
+    if ($(cfg.btnSimGift)) {
+      $(cfg.btnSimGift).onclick = () => {
+        openGiftModalCb((g) => {
+          potSimGift[key] = {
+            id: g.id, name: g.name, image: g.image || '',
+            diamonds: Number(g.diamonds) || Number(g.diamond_count) || 1,
+          };
+          renderPotSimGiftBtn(key);
+        });
+      };
+      renderPotSimGiftBtn(key);
+    }
+    if ($(cfg.btnDrop1)) {
+      $(cfg.btnDrop1).onclick = () => {
+        const payload = dropPayload();
+        toPreview({ type: 'dropOne', ...payload });
+        send({ action: cfg.dropAction, ...payload });
+      };
+    }
   }
 
   // Top donador (misma tarjeta PRO, pero con su propia config)
@@ -4412,10 +4495,13 @@ function openPotConfig(target) {
   };
   $('jarcfg-title').textContent = titles[target] || titles.jarron;
   const topWrap = $('jarcfg-topbar-wrap');
-  if (topWrap) topWrap.style.display = target === 'jarron' ? '' : 'none';
-  if (target === 'jarron') {
-    $('jarcfg-topbar-on').checked = data.topBarEnabled !== false;
-    $('jarcfg-topbar-limit').value = Math.max(1, Math.min(10, Number(data.topBarLimit) || 3));
+  if (topWrap) topWrap.style.display = '';
+  $('jarcfg-topbar-on').checked = data.topBarEnabled !== false;
+  $('jarcfg-topbar-limit').value = Math.max(1, Math.min(10, Number(data.topBarLimit) || 3));
+  const toastWrap = $('jarcfg-gifttoast-wrap');
+  if (toastWrap) toastWrap.style.display = target === 'jarron' ? '' : 'none';
+  if (target === 'jarron' && $('jarcfg-gifttoast-on')) {
+    $('jarcfg-gifttoast-on').checked = data.giftToastEnabled !== false;
   }
   renderJarRows();
   $('jarConfigModal').classList.remove('hidden');
@@ -4477,26 +4563,35 @@ $('jarcfg-save').onclick = () => {
   if (!settings[cfgTarget]) settings[cfgTarget] = {};
   settings[cfgTarget].tint = $('jarcfg-tint').dataset.cleared === '1' ? '' : $('jarcfg-tint').value;
   settings[cfgTarget].sizes = [...cfgSizesDraft].sort((a, b) => b.t - a.t);
-  if (cfgTarget === 'jarron') {
-    settings.jarron.topBarEnabled = $('jarcfg-topbar-on').checked;
-    settings.jarron.topBarLimit = Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit').value, 10) || 3));
+  settings[cfgTarget].topBarEnabled = $('jarcfg-topbar-on').checked;
+  settings[cfgTarget].topBarLimit = Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit').value, 10) || 3));
+  if (cfgTarget === 'jarron' && $('jarcfg-gifttoast-on')) {
+    settings.jarron.giftToastEnabled = $('jarcfg-gifttoast-on').checked;
   }
   saveSettings();
   closeJarConfig();
 };
 
 function pushJarTopBarPreview() {
-  if (cfgTarget !== 'jarron') return;
   cfgToPreview({
     type: 'config',
     topBarEnabled: $('jarcfg-topbar-on').checked,
     topBarLimit: Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit').value, 10) || 3)),
   });
 }
+function pushJarGiftToastPreview() {
+  if (cfgTarget !== 'jarron') return;
+  cfgToPreview({
+    type: 'config',
+    giftToastEnabled: $('jarcfg-gifttoast-on')?.checked !== false,
+  });
+}
 const jarcfgTopOn = $('jarcfg-topbar-on');
 const jarcfgTopLim = $('jarcfg-topbar-limit');
 if (jarcfgTopOn) jarcfgTopOn.onchange = pushJarTopBarPreview;
 if (jarcfgTopLim) jarcfgTopLim.oninput = pushJarTopBarPreview;
+const jarcfgGiftToastOn = $('jarcfg-gifttoast-on');
+if (jarcfgGiftToastOn) jarcfgGiftToastOn.onchange = pushJarGiftToastPreview;
 
 // Refleja el color guardado en el selector del modal (si está abierto)
 function applyJarronUI() {
@@ -4603,39 +4698,80 @@ function gvsToPreview(msg) { gvsPreviewWin()?.postMessage({ kind: 'giftvs', ...m
 let gvsRowsDraft = [];
 
 function defaultGiftVsCfg() {
-  return { meta: 500, goalStep: 500, onGoal: 'increase', countdown: 0, cdWhen: 'goal', cdRestart: false, rows: [] };
+  return {
+    meta: 100,
+    goalStep: 100,
+    onGoal: 'reset',
+    countdown: 2,
+    cdWhen: 'start',
+    cdRestart: false,
+    vsStyle: 1,
+    rows: [
+      {
+        leftId: '13651',
+        leftName: 'Go Popular',
+        leftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/b342e28d73dac6547e0b3e2ad57f6597.png~tplv-obj.webp',
+        leftDiamonds: 1,
+        rightId: '231955',
+        rightName: 'Good Job',
+        rightImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/047bfa2dcc6813c72fd2d8f649ee8ee2.png~tplv-obj.webp',
+        rightDiamonds: 1,
+      },
+    ],
+  };
+}
+
+function giftVsHasConfiguredRows(cfg) {
+  return Array.isArray(cfg?.rows) && cfg.rows.some((r) =>
+    String(r?.leftId || r?.leftName || r?.leftImg || '').trim() ||
+    String(r?.rightId || r?.rightName || r?.rightImg || '').trim()
+  );
+}
+
+function resolveGiftVsCfg(cfg) {
+  return giftVsHasConfiguredRows(cfg) ? cfg : defaultGiftVsCfg();
 }
 
 function currentGvsCfg() {
   return {
-    meta: Math.max(1, parseInt($('gvscfg-meta').value, 10) || 500),
-    goalStep: Math.max(1, parseInt($('gvscfg-goalstep').value, 10) || 500),
-    onGoal: $('gvscfg-ongoal').value || 'increase',
+    meta: Math.max(1, parseInt($('gvscfg-meta').value, 10) || 100),
+    goalStep: Math.max(1, parseInt($('gvscfg-goalstep').value, 10) || 100),
+    onGoal: $('gvscfg-ongoal').value || 'reset',
     countdown: Math.max(0, parseInt($('gvscfg-countdown').value, 10) || 0),
     cdWhen: $('gvscfg-cdwhen').value === 'start' ? 'start' : 'goal',
     cdRestart: $('gvscfg-cdrestart').checked,
+    vsStyle: Math.max(1, Math.min(3, parseInt($('gvscfg-vsstyle').value, 10) || 1)),
     rows: gvsRowsDraft.map((r) => ({ ...r })),
   };
 }
 
 function pushGiftVsPreview(cfg) {
-  gvsToPreview({ type: 'config', config: cfg || settings?.giftVs || defaultGiftVsCfg() });
+  gvsToPreview({ type: 'config', config: resolveGiftVsCfg(cfg || settings?.giftVs) });
 }
 
 if ($('gvs-test')) {
+  const gvsControl = (action) => {
+    gvsToPreview({ type: 'action', action });
+    send({ action: 'giftVsControl', gvsAction: action });
+  };
+  if ($('gvs-start')) $('gvs-start').onclick = () => gvsControl('start');
+  if ($('gvs-stop')) $('gvs-stop').onclick = () => gvsControl('stop');
+  if ($('gvs-end')) $('gvs-end').onclick = () => gvsControl('end');
   $('gvs-test').onclick = () => { gvsToPreview({ type: 'test' }); send({ action: 'testGiftVs' }); };
   $('gvs-reset').onclick = () => { gvsToPreview({ type: 'reset' }); send({ action: 'resetGiftVs' }); };
   $('gvs-config').onclick = openGvsConfig;
 }
 
 function openGvsConfig() {
-  const c = settings?.giftVs || defaultGiftVsCfg();
-  $('gvscfg-meta').value = c.meta || 500;
-  $('gvscfg-goalstep').value = c.goalStep || 500;
-  $('gvscfg-ongoal').value = c.onGoal || 'increase';
-  $('gvscfg-countdown').value = c.countdown || 0;
+  const c = resolveGiftVsCfg(settings?.giftVs);
+  $('gvscfg-meta').value = c.meta || 100;
+  $('gvscfg-goalstep').value = c.goalStep || 100;
+  $('gvscfg-ongoal').value = c.onGoal || 'reset';
+  $('gvscfg-countdown').value = c.countdown != null ? c.countdown : 2;
   $('gvscfg-cdwhen').value = c.cdWhen === 'start' ? 'start' : 'goal';
   $('gvscfg-cdrestart').checked = !!c.cdRestart;
+  if ($('gvscfg-vsstyle')) $('gvscfg-vsstyle').value = String(Math.max(1, Math.min(3, parseInt(c.vsStyle, 10) || 1)));
+  syncBatVsPick('gvscfg-vs-pick', 'gvscfg-vsstyle');
   gvsRowsDraft = (c.rows || []).map((r) => ({
     leftId: r.leftId || '', leftName: r.leftName || '', leftImg: r.leftImg || '', leftDiamonds: r.leftDiamonds || 0,
     rightId: r.rightId || '', rightName: r.rightName || '', rightImg: r.rightImg || '', rightDiamonds: r.rightDiamonds || 0,
@@ -4698,7 +4834,7 @@ function renderGvsRows() {
   pushGiftVsPreview(currentGvsCfg());
 }
 
-['gvscfg-meta', 'gvscfg-goalstep', 'gvscfg-ongoal', 'gvscfg-countdown', 'gvscfg-cdwhen', 'gvscfg-cdrestart'].forEach((id) => {
+['gvscfg-meta', 'gvscfg-goalstep', 'gvscfg-ongoal', 'gvscfg-countdown', 'gvscfg-cdwhen', 'gvscfg-cdrestart', 'gvscfg-vsstyle'].forEach((id) => {
   const el = $(id);
   if (el) { el.oninput = () => pushGiftVsPreview(currentGvsCfg()); el.onchange = () => pushGiftVsPreview(currentGvsCfg()); }
 });
@@ -5022,16 +5158,49 @@ function gsqToPreview(msg) { gsqPreviewWin()?.postMessage({ kind: 'giftseq', ...
 let gsqSeqDraft = [];
 
 function defaultGiftSeqCfg() {
-  return { text: '#f4f7ff', accent: '#8df7d8', size: 28, font: 'system', anim: 'gift-pop', rowSpeed: 7.6, textRainbow: false, stepSec: 2, sequence: [] };
+  return {
+    text: '#ffffff',
+    accent: '#8df7d8',
+    size: 28,
+    font: 'system',
+    anim: 'gift-zoom',
+    rowSpeed: 7.6,
+    textRainbow: true,
+    stepSec: 2,
+    sequence: [
+      {
+        giftName: "You're awesome",
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.webp',
+        customText: "You're awesome",
+        textSide: 'bottom',
+      },
+      {
+        giftName: 'Club Cheers',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/6a934c90e5533a4145bed7eae66d71bd.png~tplv-obj.webp',
+        customText: 'Club Cheers',
+        textSide: 'bottom',
+      },
+    ],
+  };
+}
+
+function giftSeqHasConfiguredGifts(cfg) {
+  return Array.isArray(cfg?.sequence) && cfg.sequence.some((r) =>
+    String(r?.giftName || '').trim() || String(r?.giftImage || '').trim()
+  );
+}
+
+function resolveGiftSeqCfg(cfg) {
+  return giftSeqHasConfiguredGifts(cfg) ? cfg : defaultGiftSeqCfg();
 }
 
 function currentGsqCfg() {
   return {
-    text: $('gsqcfg-text').value || '#f4f7ff',
+    text: $('gsqcfg-text').value || '#ffffff',
     accent: '#8df7d8',
     size: Math.max(10, Math.min(80, parseInt($('gsqcfg-size').value, 10) || 28)),
     font: $('gsqcfg-font').value || 'system',
-    anim: $('gsqcfg-anim').value || 'gift-pop',
+    anim: $('gsqcfg-anim').value || 'gift-zoom',
     rowSpeed: Math.max(3.2, Math.min(16, parseFloat($('gsqcfg-rowspeed').value) || 7.6)),
     textRainbow: $('gsqcfg-rainbow').checked,
     stepSec: Math.max(1, Math.min(15, parseInt($('gsqcfg-step').value, 10) || 2)),
@@ -5040,7 +5209,7 @@ function currentGsqCfg() {
 }
 
 function pushGiftSeqPreview(cfg) {
-  gsqToPreview({ type: 'config', config: cfg || settings?.giftSeq || defaultGiftSeqCfg() });
+  gsqToPreview({ type: 'config', config: resolveGiftSeqCfg(cfg || settings?.giftSeq) });
 }
 
 if ($('gsq-test')) {
@@ -5053,12 +5222,12 @@ const GSQ_SIDES = [['bottom', 'Abajo'], ['top', 'Arriba'], ['left', 'Izquierda']
 function emptyGsqItem() { return { giftName: '', giftImage: '', customText: '', textSide: 'bottom' }; }
 
 function openGsqConfig() {
-  const c = settings?.giftSeq || defaultGiftSeqCfg();
+  const c = resolveGiftSeqCfg(settings?.giftSeq);
   $('gsqcfg-step').value = c.stepSec || 2;
-  $('gsqcfg-anim').value = c.anim || 'gift-pop';
+  $('gsqcfg-anim').value = c.anim || 'gift-zoom';
   $('gsqcfg-size').value = c.size || 28;
   $('gsqcfg-rowspeed').value = c.rowSpeed || 7.6;
-  $('gsqcfg-text').value = /^#/.test(c.text || '') ? c.text : '#f4f7ff';
+  $('gsqcfg-text').value = /^#/.test(c.text || '') ? c.text : '#ffffff';
   $('gsqcfg-font').value = CFG_FONTS.some(([v]) => v === c.font) ? c.font : 'system';
   $('gsqcfg-rainbow').checked = !!c.textRainbow;
   gsqSeqDraft = (c.sequence || []).map((r) => ({
@@ -5324,7 +5493,7 @@ function fillForm(map, data) {
   for (const [id, key] of Object.entries(map)) {
     const el = $(id); if (!el) continue;
     const v = data[key];
-    if (el.type === 'checkbox') el.checked = v !== false;
+    if (el.type === 'checkbox') el.checked = v == null ? !!el.defaultChecked : !!v;
     else if (v != null) el.value = v;
   }
 }
@@ -5337,6 +5506,133 @@ function readForm(map, types) {
     else out[key] = el.value;
   }
   return out;
+}
+function syncBatVsPick(pickId, hiddenId) {
+  const hid = $(hiddenId);
+  const pick = $(pickId);
+  if (!hid || !pick) return;
+  const n = String(Math.max(1, Math.min(3, parseInt(hid.value, 10) || 1)));
+  hid.value = n;
+  pick.querySelectorAll('.bat-vs-opt').forEach((btn) => {
+    btn.classList.toggle('is-on', btn.getAttribute('data-vs') === n);
+  });
+  if (!pick._batVsBound) {
+    pick._batVsBound = true;
+    pick.addEventListener('click', (e) => {
+      const btn = e.target.closest('.bat-vs-opt');
+      if (!btn) return;
+      e.preventDefault();
+      hid.value = btn.getAttribute('data-vs') || '1';
+      syncBatVsPick(pickId, hiddenId);
+      hid.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
+}
+function syncBatVsAdjust(prefix) {
+  const scale = $(prefix + '-vsscale');
+  const scaleLbl = $(prefix + '-vsscale-lbl');
+  if (scale && scaleLbl) scaleLbl.textContent = Math.max(40, Math.min(180, parseInt(scale.value, 10) || 100)) + '%';
+  const x = $(prefix + '-vsx');
+  const xLbl = $(prefix + '-vsx-lbl');
+  if (x && xLbl) {
+    const n = Math.max(-80, Math.min(80, parseInt(x.value, 10) || 0));
+    xLbl.textContent = (n > 0 ? '+' : '') + n;
+  }
+  const y = $(prefix + '-vsy');
+  const yLbl = $(prefix + '-vsy-lbl');
+  if (y && yLbl) {
+    const n = Math.max(-80, Math.min(80, parseInt(y.value, 10) || 0));
+    yLbl.textContent = (n > 0 ? '+' : '') + n;
+  }
+}
+function syncBatCardClear(prefix) {
+  const btn = $(prefix + '-cardclear');
+  const bg = $(prefix + '-cardbg');
+  const bd = $(prefix + '-cardborder');
+  if (!btn) return;
+  if (!btn._batClearBound) {
+    btn._batClearBound = true;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (bg) {
+        bg.disabled = false;
+        bg.value = '#16262e';
+        bg.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (bd) {
+        bd.disabled = false;
+        bd.value = '#94a3b8';
+        bd.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  }
+}
+function syncTopTextAdjust(prefix) {
+  const syncScale = (id, lblId) => {
+    const el = $(id);
+    const lbl = $(lblId);
+    if (el && lbl) lbl.textContent = Math.max(50, Math.min(180, parseInt(el.value, 10) || 100)) + '%';
+  };
+  const syncY = (id, lblId) => {
+    const el = $(id);
+    const lbl = $(lblId);
+    if (el && lbl) {
+      const n = Math.max(-80, Math.min(80, parseInt(el.value, 10) || 0));
+      lbl.textContent = (n > 0 ? '+' : '') + n;
+    }
+  };
+  syncScale(prefix + '-titlescale', prefix + '-titlescale-lbl');
+  syncY(prefix + '-titley', prefix + '-titley-lbl');
+  syncScale(prefix + '-bodyscale', prefix + '-bodyscale-lbl');
+  syncY(prefix + '-bodyy', prefix + '-bodyy-lbl');
+}
+function enableModalDrag(modal) {
+  const box = modal.querySelector('.modal-box');
+  const head = box && box.querySelector('.modal-head');
+  if (!box || !head || head._dragBound) return;
+  head._dragBound = true;
+  let dragging = false;
+  let startX = 0, startY = 0, baseX = 0, baseY = 0, offX = 0, offY = 0;
+
+  const apply = () => {
+    box.style.transform = (offX || offY) ? `translate(${offX}px, ${offY}px)` : '';
+  };
+  const reset = () => { offX = 0; offY = 0; apply(); box.classList.remove('is-dragging'); };
+
+  head.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('button, a, input, select, textarea, label, .modal-close')) return;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    baseX = offX;
+    baseY = offY;
+    box.classList.add('is-dragging');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const maxX = Math.max(120, window.innerWidth * 0.48);
+    const maxY = Math.max(80, window.innerHeight * 0.48);
+    offX = Math.max(-maxX, Math.min(maxX, baseX + (e.clientX - startX)));
+    offY = Math.max(-maxY, Math.min(maxY, baseY + (e.clientY - startY)));
+    apply();
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    box.classList.remove('is-dragging');
+  });
+
+  let wasHidden = modal.classList.contains('hidden');
+  new MutationObserver(() => {
+    const nowHidden = modal.classList.contains('hidden');
+    if (wasHidden && !nowHidden) reset();
+    wasHidden = nowHidden;
+  }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+}
+function initModalDrag() {
+  document.querySelectorAll('.modal').forEach(enableModalDrag);
 }
 
 function setupStyleOverlay(o) {
@@ -5436,8 +5732,14 @@ const STYLE_OVERLAYS = [
     btnTest: 'tgf-test', btnReset: 'tgf-reset', btnConfig: 'tgf-config',
     modalId: 'tgfConfigModal', closeId: 'tgfcfg-close', saveId: 'tgfcfg-save',
     testAction: 'testTopGift', resetAction: 'resetTopGift', randomGift: true,
-    map: { 'tgfcfg-title': 'title', 'tgfcfg-coinlabel': 'coinLabel', 'tgfcfg-font': 'font', 'tgfcfg-rainbow': 'titleRainbow',
-      'tgfcfg-tc1': 'tc1', 'tgfcfg-tc2': 'tc2', 'tgfcfg-tc3': 'tc3', 'tgfcfg-namecolor': 'nameColor', 'tgfcfg-valuecolor': 'valueColor', 'tgfcfg-namestroke': 'nameStroke', 'tgfcfg-valuestroke': 'valueStroke' },
+    map: {
+      'tgfcfg-title': 'title', 'tgfcfg-coinlabel': 'coinLabel', 'tgfcfg-font': 'font', 'tgfcfg-rainbow': 'titleRainbow',
+      'tgfcfg-titlescale': 'titleScale', 'tgfcfg-titley': 'titleY', 'tgfcfg-bodyscale': 'bodyScale', 'tgfcfg-bodyy': 'bodyY',
+      'tgfcfg-textlayer': 'textLayer', 'tgfcfg-titlecolor': 'titleColor',
+      'tgfcfg-namecolor': 'nameColor', 'tgfcfg-valuecolor': 'valueColor', 'tgfcfg-namestroke': 'nameStroke', 'tgfcfg-valuestroke': 'valueStroke',
+    },
+    types: { titleScale: 'int', titleY: 'int', bodyScale: 'int', bodyY: 'int' },
+    onFormSync: () => syncTopTextAdjust('tgfcfg'),
   }),
   setupStyleOverlay({
     kind: 'top1', settingsKey: 'top1', previewId: 'top1-preview',
@@ -5477,24 +5779,58 @@ const STYLE_OVERLAYS = [
     btnTest: 'tst-test', btnReset: 'tst-reset', btnConfig: 'tst-config',
     modalId: 'tstConfigModal', closeId: 'tstcfg-close', saveId: 'tstcfg-save',
     testAction: 'testTopStreak', resetAction: 'resetTopStreak', randomGift: true,
-    map: { 'tstcfg-title': 'title', 'tstcfg-font': 'font', 'tstcfg-rainbow': 'titleRainbow',
-      'tstcfg-tc1': 'tc1', 'tstcfg-tc2': 'tc2', 'tstcfg-tc3': 'tc3', 'tstcfg-namecolor': 'nameColor', 'tstcfg-valuecolor': 'valueColor', 'tstcfg-namestroke': 'nameStroke', 'tstcfg-valuestroke': 'valueStroke' },
+    map: {
+      'tstcfg-title': 'title', 'tstcfg-font': 'font', 'tstcfg-rainbow': 'titleRainbow',
+      'tstcfg-titlescale': 'titleScale', 'tstcfg-titley': 'titleY', 'tstcfg-bodyscale': 'bodyScale', 'tstcfg-bodyy': 'bodyY',
+      'tstcfg-textlayer': 'textLayer', 'tstcfg-titlecolor': 'titleColor',
+      'tstcfg-namecolor': 'nameColor', 'tstcfg-valuecolor': 'valueColor', 'tstcfg-namestroke': 'nameStroke', 'tstcfg-valuestroke': 'valueStroke',
+    },
+    types: { titleScale: 'int', titleY: 'int', bodyScale: 'int', bodyY: 'int' },
+    onFormSync: () => syncTopTextAdjust('tstcfg'),
   }),
   setupStyleOverlay({
     kind: 'batgifts', settingsKey: 'batallaGifts', previewId: 'bgf-preview',
     btnTest: 'bgf-test', btnReset: 'bgf-reset', btnConfig: 'bgf-config',
     modalId: 'bgfConfigModal', closeId: 'bgfcfg-close', saveId: 'bgfcfg-save',
     testAction: 'testBatallaGifts', resetAction: 'resetBatallaGifts',
-    map: { 'bgfcfg-limit': 'limit', 'bgfcfg-rainbow': 'nameRainbow', 'bgfcfg-valuecolor': 'valueColor', 'bgfcfg-coincolor': 'coinColor', 'bgfcfg-placeholder': 'placeholder' },
-    types: { limit: 'int' },
+    map: {
+      'bgfcfg-limit': 'limit', 'bgfcfg-rainbow': 'nameRainbow', 'bgfcfg-namecolor': 'nameColor', 'bgfcfg-font': 'font',
+      'bgfcfg-cardbg': 'cardBg', 'bgfcfg-cardborder': 'cardBorder',
+      'bgfcfg-valuecolor': 'valueColor', 'bgfcfg-coincolor': 'coinColor',
+      'bgfcfg-placeholder': 'placeholder', 'bgfcfg-opacity': 'bgOpacity', 'bgfcfg-vsstyle': 'vsStyle',
+      'bgfcfg-vsscale': 'vsScale', 'bgfcfg-vsx': 'vsX', 'bgfcfg-vsy': 'vsY',
+    },
+    types: { limit: 'int', bgOpacity: 'int', vsStyle: 'int', vsScale: 'int', vsX: 'int', vsY: 'int' },
+    onFormSync: () => {
+      const el = $('bgfcfg-opacity');
+      const lbl = $('bgfcfg-opacity-lbl');
+      if (el && lbl) lbl.textContent = Math.max(10, Math.min(100, parseInt(el.value, 10) || 45)) + '%';
+      syncBatVsPick('bgfcfg-vs-pick', 'bgfcfg-vsstyle');
+      syncBatVsAdjust('bgfcfg');
+      syncBatCardClear('bgfcfg');
+    },
   }),
   setupStyleOverlay({
     kind: 'batlikes', settingsKey: 'batallaLikes', previewId: 'bli-preview',
     btnTest: 'bli-test', btnReset: 'bli-reset', btnConfig: 'bli-config',
     modalId: 'bliConfigModal', closeId: 'blicfg-close', saveId: 'blicfg-save',
     testAction: 'testBatallaLikes', resetAction: 'resetBatallaLikes',
-    map: { 'blicfg-limit': 'limit', 'blicfg-rainbow': 'nameRainbow', 'blicfg-valuecolor': 'valueColor', 'blicfg-icon': 'likesIcon', 'blicfg-placeholder': 'placeholder' },
-    types: { limit: 'int' },
+    map: {
+      'blicfg-limit': 'limit', 'blicfg-rainbow': 'nameRainbow', 'blicfg-namecolor': 'nameColor', 'blicfg-font': 'font',
+      'blicfg-cardbg': 'cardBg', 'blicfg-cardborder': 'cardBorder',
+      'blicfg-valuecolor': 'valueColor', 'blicfg-icon': 'likesIcon',
+      'blicfg-placeholder': 'placeholder', 'blicfg-opacity': 'bgOpacity', 'blicfg-vsstyle': 'vsStyle',
+      'blicfg-vsscale': 'vsScale', 'blicfg-vsx': 'vsX', 'blicfg-vsy': 'vsY',
+    },
+    types: { limit: 'int', bgOpacity: 'int', vsStyle: 'int', vsScale: 'int', vsX: 'int', vsY: 'int' },
+    onFormSync: () => {
+      const el = $('blicfg-opacity');
+      const lbl = $('blicfg-opacity-lbl');
+      if (el && lbl) lbl.textContent = Math.max(10, Math.min(100, parseInt(el.value, 10) || 45)) + '%';
+      syncBatVsPick('blicfg-vs-pick', 'blicfg-vsstyle');
+      syncBatVsAdjust('blicfg');
+      syncBatCardClear('blicfg');
+    },
   }),
   setupStyleOverlay({
     kind: 'coinmatch', settingsKey: 'coinMatch', previewId: 'cm-preview',
@@ -5755,6 +6091,7 @@ function refreshGiftCounterCardUI() {
 function pushStyleOverlayPreviews() {
   STYLE_OVERLAYS.forEach((o) => { if (o._push) o._push(); });
 }
+initModalDrag();
 
 /* ---- Contadores de victorias (manual): controles +/- y configuración ---- */
 const HK_ACTIONS = [
