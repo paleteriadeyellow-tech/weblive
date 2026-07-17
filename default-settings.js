@@ -89,6 +89,10 @@ export const DEFAULT_SETTINGS = {
     maxEnabled: false,
     maxCapSec: 18000,
     actionOnFinish: 'pause',
+    // Estado vivo (sobrevive reinicios de app / Render)
+    savedRemaining: null,
+    savedRunning: false,
+    savedAt: 0,
   },
   battle: {
     enabled: false,
@@ -220,20 +224,39 @@ export const DEFAULT_SETTINGS = {
   // Overlay Medidor de Flow (barra de progreso por participante / regalo)
   flowMeter: {
     title: 'MEDIDOR DE FLOW',
-    textColor: '#f4f8ff',
-    fontSize: 13,
-    barHeight: 28,
-    scale: 78,
+    textColor: '#ffffff',
+    fontSize: 23,
+    barHeight: 38,
+    scale: 65,
     maxParticipants: 5,
-    font: 'inter',
+    font: 'luckiest',
     showPercent: true,
+    titleRainbow: true,
+    nameRainbow: true,
     roundByTime: false,
     timerWins: false,
     roundSec: 60,
     participants: [
-      { name: 'test1', tiktokUrl: '', avatar: '', color: '#ff4b91', giftId: '', giftName: 'Rose', giftImage: '' },
-      { name: 'test2', tiktokUrl: '', avatar: '', color: '#40e0d0', giftId: '', giftName: 'GG', giftImage: '' },
-      { name: 'test3', tiktokUrl: '', avatar: '', color: '#9370db', giftId: '', giftName: 'Heart Me', giftImage: '' },
+      {
+        name: 'test1', tiktokUrl: '', avatar: '', color: '#ff4b91',
+        giftId: '6093', giftName: 'Football',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/c043cd9e418f13017793ddf6e0c6ee99~tplv-obj.webp',
+      },
+      {
+        name: 'test2', tiktokUrl: '', avatar: '', color: '#40e0d0',
+        giftId: '6064', giftName: 'GG',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp',
+      },
+      {
+        name: 'test3', tiktokUrl: '', avatar: '', color: '#9370db',
+        giftId: '7934', giftName: 'Heart Me',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/d56945782445b0b8c8658ed44f894c7b~tplv-obj.webp',
+      },
+      {
+        name: 'test4', tiktokUrl: '', avatar: '', color: '#fbbf24',
+        giftId: '7096', giftName: "It's corn",
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/37f5c76b65c17d6dbbbd4b6724f61bf2~tplv-obj.webp',
+      },
     ],
     wins: [],
   },
@@ -263,9 +286,47 @@ export const DEFAULT_SETTINGS = {
     ],
   },
   giftShowcase: {
-    displayMode: 'rotate', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
+    displayMode: 'marquee', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
     iconSize: 88, gap: 24, font: 'bangers', fontSize: 22, textColor: '#ffffff', textStroke: 2,
-    colorMode: 'solid', scale: 100, items: [],
+    colorMode: 'solid', scale: 100,
+    items: [
+      {
+        giftId: '19441',
+        giftName: 'Freestyle',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/1f5ca5cfb4b98c2761fb85987f47c641.png~tplv-obj.webp',
+        customText: 'Freestyle',
+      },
+      {
+        giftId: '6064',
+        giftName: 'GG',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp',
+        customText: 'GG',
+      },
+      {
+        giftId: '54724',
+        giftName: 'Creeper',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/d686d45bd66e16b0aca8b0e5eb52a977.png~tplv-obj.webp',
+        customText: 'Creeper',
+      },
+      {
+        giftId: '14543',
+        giftName: 'Congratulations',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8e73d843b23a9e68f8d3cf8c46fc0bee.png~tplv-obj.webp',
+        customText: 'Congratulations',
+      },
+      {
+        giftId: '131882',
+        giftName: "It's Match Time",
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/be170a9d325c02c1d5786301679bf013.png~tplv-obj.webp',
+        customText: "It's Match Time",
+      },
+      {
+        giftId: '7096',
+        giftName: "It's corn",
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/37f5c76b65c17d6dbbbd4b6724f61bf2~tplv-obj.webp',
+        customText: "It's corn",
+      },
+    ],
   },
   // Overlay Contador de victorias (manual, simple)
   winsCounter: {
@@ -623,6 +684,44 @@ export function ensureGiftVsDefaults(settings) {
   if (!settings || typeof settings !== 'object') return settings;
   if (!giftVsHasConfiguredRows(settings.giftVs)) {
     settings.giftVs = structuredClone(DEFAULT_SETTINGS.giftVs);
+  }
+  return settings;
+}
+
+/** True si hay al menos un regalo con nombre o imagen en la banda. */
+export function giftShowcaseHasConfiguredItems(cfg) {
+  return Array.isArray(cfg?.items) && cfg.items.some((r) =>
+    String(r?.giftName || '').trim() || String(r?.giftImage || '').trim() || String(r?.giftId || '').trim()
+  );
+}
+
+/**
+ * Cuentas antiguas guardaron giftShowcase con items: [] y pisan los defaults.
+ * Si no hay regalos reales, aplica la banda demo por defecto.
+ */
+export function ensureGiftShowcaseDefaults(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  if (!giftShowcaseHasConfiguredItems(settings.giftShowcase)) {
+    settings.giftShowcase = structuredClone(DEFAULT_SETTINGS.giftShowcase);
+  }
+  return settings;
+}
+
+/** True si hay al menos un participante con regalo real (id o imagen). */
+export function flowMeterHasConfiguredParticipants(cfg) {
+  return Array.isArray(cfg?.participants) && cfg.participants.some((p) =>
+    String(p?.giftId || '').trim() || String(p?.giftImage || '').trim()
+  );
+}
+
+/**
+ * Cuentas antiguas guardaron flowMeter sin regalos reales y pisan los defaults.
+ * Si no hay regalos, aplica la demo Football / GG / Heart Me / It's corn.
+ */
+export function ensureFlowMeterDefaults(settings) {
+  if (!settings || typeof settings !== 'object') return settings;
+  if (!flowMeterHasConfiguredParticipants(settings.flowMeter)) {
+    settings.flowMeter = structuredClone(DEFAULT_SETTINGS.flowMeter);
   }
   return settings;
 }

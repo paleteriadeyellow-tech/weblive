@@ -6,7 +6,7 @@ import './euler-config.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
-import { DEFAULT_SETTINGS, deepMerge, ensureGiftSeqDefaults, ensureGiftVsDefaults } from './default-settings.js';
+import { DEFAULT_SETTINGS, deepMerge, ensureGiftSeqDefaults, ensureGiftVsDefaults, ensureGiftShowcaseDefaults, ensureFlowMeterDefaults } from './default-settings.js';
 import * as spotify from './spotify.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan, fireGameActionTimed, fireGameActionCountTimed } from './mc-panic.js';
@@ -799,7 +799,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function resolveProfileSettings(slot) {
     if (slot && typeof slot === 'object' && !Array.isArray(slot)) {
-      return ensureGiftVsDefaults(ensureGiftSeqDefaults(deepMerge(structuredClone(DEFAULT_SETTINGS), slot)));
+      return ensureFlowMeterDefaults(ensureGiftShowcaseDefaults(ensureGiftVsDefaults(ensureGiftSeqDefaults(deepMerge(structuredClone(DEFAULT_SETTINGS), slot)))));
     }
     return structuredClone(DEFAULT_SETTINGS);
   }
@@ -849,7 +849,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   loadRankOverlays();
   loadSessionOverlays();
   loadPoints();
-  timer.remaining = Math.max(0, Math.floor(settings.timer?.defaultInitialSec || 0));
+  restoreTimerFromSettings();
   // Recuerda el último @usuario de TikTok conectado (queda guardado en los ajustes, así
   // sobrevive a reinicios) para prerellenar el campo y poder auto-conectar al iniciar el live.
   state.username = settings.tiktokUser || null;
@@ -1229,12 +1229,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return runGameExec(exec);
   }
   let screensBroadcastTimer = null;
-  function broadcastScreens() {
+  let screensPulseTimer = null;
+  function broadcastScreens(immediate) {
     clearTimeout(screensBroadcastTimer);
-    screensBroadcastTimer = setTimeout(() => {
-      broadcast('screens', { connected: [...new Set(videoScreens.values())] });
-    }, 450);
+    const send = () => broadcast('screens', { connected: [...new Set(videoScreens.values())] });
+    if (immediate) send();
+    else screensBroadcastTimer = setTimeout(send, 200);
   }
+  // Recordatorio periódico: el panel recupera "Conectada" tras un redeploy aunque se perdiera un hello.
+  screensPulseTimer = setInterval(() => {
+    if (videoScreens.size) broadcastScreens(true);
+  }, 15000);
   /* --------------------- Contador de meta (gift counter) -------------------- */
   function serializeGiftCounter() {
     const goal = Math.max(1, Number(settings.giftCounter?.goal) || 50);
@@ -1400,6 +1405,39 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // El temporizador es AUTORITATIVO en el servidor: aquí corre la cuenta atrás y
   // se difunde cada segundo a todos los overlays/paneles de la room. Así se mantiene
   // sincronizado aunque un overlay se reconecte o el navegador esté en segundo plano.
+  // El tiempo restante se persiste en settings.timer.saved* para sobrevivir reinicios
+  // de la app / redeploys en Render.
+  function persistTimerState() {
+    if (!settings.timer || typeof settings.timer !== 'object') settings.timer = {};
+    settings.timer.savedRemaining = Math.max(0, Math.round(timer.remaining));
+    settings.timer.savedRunning = !!timer.running;
+    settings.timer.savedAt = Date.now();
+    saveSettings();
+  }
+  function restoreTimerFromSettings() {
+    const t = settings.timer || {};
+    const raw = t.savedRemaining;
+    if (raw == null || !Number.isFinite(Number(raw))) {
+      timer.remaining = Math.max(0, Math.floor(Number(t.defaultInitialSec) || 0));
+      timer.running = false;
+      return;
+    }
+    let rem = Math.max(0, Math.floor(Number(raw)));
+    const wasRunning = !!t.savedRunning;
+    const savedAt = Number(t.savedAt) || 0;
+    if (wasRunning && savedAt > 0) {
+      const elapsed = Math.floor((Date.now() - savedAt) / 1000);
+      if (elapsed > 0) rem = Math.max(0, rem - elapsed);
+    }
+    timer.remaining = rem;
+    if (t.maxEnabled && Number(t.maxCapSec) > 0) {
+      timer.remaining = Math.min(timer.remaining, Number(t.maxCapSec));
+    }
+    timer.running = false;
+    if (wasRunning && timer.remaining > 0) {
+      setTimeout(() => { try { startTimer(); } catch {} }, 0);
+    }
+  }
   function clampTimer() {
     if (timer.remaining < 0) timer.remaining = 0;
     const t = settings.timer || {};
@@ -1410,7 +1448,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function serializeTimer() {
     return { remaining: Math.max(0, Math.round(timer.remaining)), running: !!timer.running };
   }
-  function broadcastTimer() { broadcast('timer', serializeTimer()); }
+  function broadcastTimer() {
+    broadcast('timer', serializeTimer());
+    persistTimerState();
+  }
   function stopTimerInterval() {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   }
@@ -1773,8 +1814,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('alertaFollowReset', {});
     broadcast('fuegosReset', {});
     broadcast('streamJoinReset', {});
-    // Temporizador: vuelve al tiempo inicial y en pausa al iniciar/terminar el live.
-    resetTimer();
+    // Temporizador: NO se reinicia aquí (subathon). Solo con el botón Reiniciar
+    // o la acción al llegar a 00:00. El tiempo se persiste entre reinicios de app/Render.
     // OJO: NO se reinicia el top donador semanal (weeklyTop / topDonor): es acumulado semanal.
   }
 
@@ -6438,7 +6479,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (data.role === 'videoScreen') {
           const scr = Math.max(1, Math.min(10, parseInt(data.screen, 10) || 1));
           videoScreens.set(ws, scr);
-          broadcastScreens();
+          broadcastScreens(true);
         }
         break;
       case 'mediaEnded':
@@ -6902,6 +6943,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     disconnect();
     clearIdleCloudTimer();
     if (autoConnectTimer) { clearInterval(autoConnectTimer); autoConnectTimer = null; }
+    if (screensPulseTimer) { clearInterval(screensPulseTimer); screensPulseTimer = null; }
+    clearTimeout(screensBroadcastTimer);
     stopTimerInterval();
     clearTimeout(saveTimer);
     clearTimeout(weeklySaveTimer);

@@ -149,9 +149,12 @@
 
   function maybeShowVerifyPrompt() {
     ensurePrompt();
-    if (window.MY_EMAIL_VERIFIED) {
+    // Ya verificado → nunca mostrar (cuentas antiguas tras vincular correo).
+    if (window.MY_EMAIL_VERIFIED === true) {
       hidePrompt();
       clearDismissedLater();
+      const btn = $('email-acc-btn');
+      if (btn) btn.hidden = true;
       return;
     }
     if (wasDismissedLater()) {
@@ -223,8 +226,30 @@
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { setMsg(d.error || 'No se pudo verificar.'); return; }
-      window.MY_EMAIL = d.email || '';
-      window.MY_EMAIL_VERIFIED = true;
+
+      // Revalidar con /api/me para no dejar el aviso colgado si el espejo local no sincronizó.
+      let confirmed = !!(d.emailVerified || d.email);
+      try {
+        const meR = await fetch('/api/me');
+        if (meR.ok) {
+          const me = await meR.json();
+          if (typeof window.refreshEmailAccountUi === 'function') {
+            window.refreshEmailAccountUi(me);
+          } else {
+            window.MY_EMAIL = me.email || d.email || '';
+            window.MY_EMAIL_VERIFIED = !!me.emailVerified;
+          }
+          confirmed = !!me.emailVerified;
+        }
+      } catch {}
+
+      if (!confirmed) {
+        // Confiar en la respuesta del verify si /api/me aún no refleja el cambio.
+        window.MY_EMAIL = d.email || window.MY_EMAIL || '';
+        window.MY_EMAIL_VERIFIED = true;
+        confirmed = true;
+      }
+
       clearDismissedLater();
       hidePrompt();
       setMsg(d.message || 'Correo verificado.', true);
@@ -266,11 +291,12 @@
   window.refreshEmailAccountUi = function (me) {
     if (!me) return;
     window.MY_EMAIL = me.email || null;
-    window.MY_EMAIL_VERIFIED = !!me.emailVerified;
+    // Aceptar true / "true" / 1 por si algún proxy altera el tipo.
+    window.MY_EMAIL_VERIFIED = me.emailVerified === true || me.emailVerified === 'true' || me.emailVerified === 1;
     wireButton();
     const btn = $('email-acc-btn');
     if (btn) {
-      btn.hidden = !!me.emailVerified;
+      btn.hidden = !!window.MY_EMAIL_VERIFIED;
       if (me.email) btn.title = `Email: ${me.email}`;
     }
     maybeShowVerifyPrompt();

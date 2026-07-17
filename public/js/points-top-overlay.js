@@ -1,4 +1,6 @@
-/* Overlay Top 3 puntos — datos en vivo desde pointsList / pointsUpdate */
+/* Overlay Top 3 puntos — datos en vivo desde pointsList / pointsUpdate
+   Optimizado para OBS: menos DOM de brillos, fuentes bajo demanda, poda del Map,
+   y pausa de animaciones cuando el documento no es visible. */
 (function () {
   const PLACEHOLDER = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
   const PREVIEW_AVATAR = '/jarron/lv.png';
@@ -11,12 +13,29 @@
     poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif",
     inter: "'Inter', system-ui, sans-serif", system: 'system-ui, sans-serif',
   };
+  const FONT_CSS = {
+    luckiest: 'Luckiest+Guy',
+    bangers: 'Bangers',
+    lilita: 'Lilita+One',
+    titan: 'Titan+One',
+    fredoka: 'Fredoka:wght@600;700',
+    bungee: 'Bungee',
+    rubik: 'Rubik:wght@700;800;900',
+    oswald: 'Oswald:wght@600;700',
+    bebas: 'Bebas+Neue',
+    montserrat: 'Montserrat:wght@700;800;900',
+    poppins: 'Poppins:wght@700;800;900',
+    orbitron: 'Orbitron:wght@700;800;900',
+    inter: 'Inter:wght@600;700;800;900',
+  };
   const MEDALS = ['👑', '🥈', '🥉'];
   const DEMO = [
     ['EverHdezHdez', 'https://randomuser.me/api/portraits/men/32.jpg', 6516, 43],
     ['MariaFan', 'https://randomuser.me/api/portraits/women/44.jpg', 6120, 42],
     ['LuisPro', 'https://randomuser.me/api/portraits/men/78.jpg', 3363, 31],
   ];
+  const SPARKLE_COUNT = 8;
+  const loadedFonts = new Set(['inter', 'system']);
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -27,6 +46,17 @@
     return s || 'Usuario';
   }
 
+  function ensureFont(key) {
+    const k = String(key || 'inter');
+    if (loadedFonts.has(k) || k === 'system' || !FONT_CSS[k]) return;
+    loadedFonts.add(k);
+    const href = 'https://fonts.googleapis.com/css2?family=' + FONT_CSS[k] + '&display=swap';
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  }
+
   function init(opt) {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
@@ -35,6 +65,7 @@
     let orderKey = '';
     let animTimer = null;
     let seqTimers = [];
+    let sparkBuilt = false;
 
     const root = document.documentElement;
     const listEl = document.getElementById('list');
@@ -49,7 +80,13 @@
     function clamp(v, lo, hi, def) { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; }
     function maxRows() { return clamp(cfg.rows, 1, 5, 3); }
 
+    function setPaused(on) {
+      root.dataset.paused = on ? '1' : '0';
+      if (on && animTimer) { clearInterval(animTimer); animTimer = null; }
+    }
+
     function applyStyle() {
+      ensureFont(cfg.font);
       root.style.setProperty('--tf-font-stack', FONTS[cfg.font] || FONTS.inter);
       root.style.setProperty('--ol-accent', cfg.accent || '#ffd54f');
       if (cfg.rowBg) root.style.setProperty('--row-bg', cfg.rowBg); else root.style.removeProperty('--row-bg');
@@ -61,7 +98,14 @@
       root.dataset.glitter = cfg.glitter ? '1' : '0';
       root.dataset.title = cfg.showTitle !== false ? '1' : '0';
       if (titleEl) titleEl.textContent = cfg.title || 'Top Puntos';
-      if (sparkEl) sparkEl.innerHTML = cfg.glitter ? buildSparkles() : '';
+      if (sparkEl) {
+        if (cfg.glitter) {
+          if (!sparkBuilt) { sparkEl.innerHTML = buildSparkles(); sparkBuilt = true; }
+        } else {
+          sparkEl.innerHTML = '';
+          sparkBuilt = false;
+        }
+      }
       if (!isEmbed) {
         const sc = clamp(cfg.scale, 60, 140, 100) / 100;
         widget.style.setProperty('--ol-scale', String(sc));
@@ -70,12 +114,12 @@
 
     function buildSparkles() {
       let html = '';
-      for (let i = 0; i < 24; i++) {
+      for (let i = 0; i < SPARKLE_COUNT; i++) {
         const x = Math.floor(Math.random() * 100);
         const y = Math.floor(Math.random() * 100);
-        const d = (1.5 + Math.random() * 3).toFixed(1);
+        const d = (2 + Math.random() * 2.5).toFixed(1);
         const delay = (Math.random() * 4).toFixed(2);
-        html += `<span class="spark" style="left:${x}%;top:${y}%;animation-delay:${delay}s;animation-duration:${d}s"></span>`;
+        html += '<span class="spark" style="left:' + x + '%;top:' + y + '%;animation-delay:' + delay + 's;animation-duration:' + d + 's"></span>';
       }
       return html;
     }
@@ -109,6 +153,17 @@
     }
     function rowKey(arr) { return arr.map((u) => u.id).join('\x1e'); }
 
+    /** Solo conserva candidatos al top (evita retener hasta 2500 usuarios en el overlay). */
+    function pruneUsers() {
+      const keepN = Math.max(12, maxRows() * 4);
+      if (users.size <= keepN) return;
+      const ranked = [...users.values()].sort((a, b) => b.val - a.val);
+      const keep = new Set(ranked.slice(0, keepN).map((u) => u.id));
+      for (const id of users.keys()) {
+        if (!keep.has(id)) users.delete(id);
+      }
+    }
+
     function buildRow(u, rank) {
       const div = document.createElement('div');
       div.className = 'row';
@@ -117,7 +172,7 @@
       const medal = rank <= 3 ? MEDALS[rank - 1] : '';
       div.innerHTML =
         '<div class="rank">' + (medal ? '<span class="medal">' + medal + '</span>' : '<span class="rank-num">' + rank + '.</span>') + '</div>' +
-        '<div class="av-wrap"><img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
+        '<div class="av-wrap"><img class="av" alt="" referrerpolicy="no-referrer" decoding="async" src=""></div>' +
         '<div class="meta"><div class="name-row"><span class="name"></span>' +
         '<div class="valwrap"><span class="ico">⭐</span><span class="num">' + (u.disp != null ? u.disp : u.val).toLocaleString('es-ES') + '</span></div></div></div>';
       const img = div.querySelector('.av');
@@ -162,6 +217,7 @@
     function ensureDisp(u) { if (u.disp == null) u.disp = u.val || 0; }
 
     function tick() {
+      if (document.hidden) return;
       const arr = topArr();
       let moved = false, pending = false;
       arr.forEach((u) => {
@@ -179,7 +235,11 @@
       }
       if (!pending && animTimer) { clearInterval(animTimer); animTimer = null; }
     }
-    function scheduleTick() { if (!animTimer) animTimer = setInterval(tick, 28); tick(); }
+    function scheduleTick() {
+      if (document.hidden) return;
+      if (!animTimer) animTimer = setInterval(tick, 40);
+      tick();
+    }
 
     function ingestUser(u) {
       if (!u) return;
@@ -200,6 +260,7 @@
     function ingestList(payload) {
       users.clear();
       (payload.users || []).forEach(ingestUser);
+      pruneUsers();
       const arr = topArr();
       const needsAnim = arr.some((u) => u.disp < u.val);
       if (rowKey(arr) !== orderKey || !patchCounts(arr)) render();
@@ -209,6 +270,7 @@
     function onUpdate(payload) {
       if (!payload || !payload.user) return;
       ingestUser(payload.user);
+      pruneUsers();
       const arr = topArr();
       if (rowKey(arr) === orderKey && patchCounts(arr)) { scheduleTick(); return; }
       render();
@@ -259,6 +321,15 @@
       else if (d.type === 'test') runTest();
       else if (d.type === 'reset') { if (isEmbed) runTest(); else render(); }
     });
+
+    document.addEventListener('visibilitychange', () => {
+      setPaused(document.hidden);
+      if (!document.hidden) {
+        const arr = topArr();
+        if (arr.some((u) => (u.disp || 0) < (u.val || 0))) scheduleTick();
+      }
+    });
+    setPaused(document.hidden);
 
     window.addEventListener('resize', fit);
     applyStyle();

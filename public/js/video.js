@@ -5,6 +5,9 @@ const screen = Math.max(1, Math.min(10, parseInt(params.get('screen'), 10) || 1)
 
 let ws, reconnectTimer, keepWorker;
 let settings = {};
+let connectStartedAt = 0;
+/** Si el WS se queda en CONNECTING (típico tras redeploy en Render), forzar reintento. */
+const CONNECT_STUCK_MS = 8000;
 
 /** Tope absoluto: evita cola bloqueada / frame negro eterno en Live Studio */
 const ABSOLUTE_MAX_MS = 180000;
@@ -17,16 +20,24 @@ function sendHello(sock) {
   } catch {}
 }
 
+function wsNeedsReconnect() {
+  if (!ws) return true;
+  const st = ws.readyState;
+  if (st === WebSocket.CLOSED || st === WebSocket.CLOSING) return true;
+  if (st === WebSocket.CONNECTING && Date.now() - connectStartedAt > CONNECT_STUCK_MS) return true;
+  return false;
+}
+
 function buildKeepAliveWorker() {
   if (keepWorker) return keepWorker;
   try {
-    const code = 'setInterval(function(){ postMessage(1); }, 5000);';
+    const code = 'setInterval(function(){ postMessage(1); }, 4000);';
     const blob = new Blob([code], { type: 'application/javascript' });
     keepWorker = new Worker(URL.createObjectURL(blob));
     keepWorker.onmessage = () => {
-      if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-        connectWS();
-      } else if (ws.readyState === WebSocket.OPEN) {
+      if (wsNeedsReconnect()) {
+        connectWS(true);
+      } else if (ws && ws.readyState === WebSocket.OPEN) {
         try { ws.send(JSON.stringify({ action: 'ping' })); } catch {}
         sendHello(ws);
       }
@@ -35,26 +46,38 @@ function buildKeepAliveWorker() {
   return keepWorker;
 }
 
-function connectWS() {
+function connectWS(force) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  // location.search incluye ?room=… — esa clave NO cambia entre reinicios/deploys.
   const url = `${proto}://${location.host}/ws${location.search}`;
+  if (!force && ws) {
+    if (ws.url === url && ws.readyState === WebSocket.OPEN) return;
+    if (ws.url === url && ws.readyState === WebSocket.CONNECTING
+      && Date.now() - connectStartedAt < CONNECT_STUCK_MS) return;
+  }
   if (ws) {
-    if (ws.url === url && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    try { ws.onopen = ws.onclose = ws.onmessage = ws.onerror = null; } catch {}
     try { ws.close(); } catch {}
     ws = null;
   }
+  connectStartedAt = Date.now();
   const sock = new WebSocket(url);
   ws = sock;
   sock.onopen = () => {
     if (ws !== sock) return;
     clearTimeout(reconnectTimer);
+    connectStartedAt = Date.now();
     buildKeepAliveWorker();
     sendHello(sock);
+  };
+  sock.onerror = () => {
+    if (ws !== sock) return;
+    try { sock.close(); } catch {}
   };
   sock.onclose = () => {
     if (ws !== sock) return;
     clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(connectWS, 800);
+    reconnectTimer = setTimeout(() => connectWS(true), 600);
   };
   sock.onmessage = (ev) => {
     if (ws !== sock) return;
@@ -72,11 +95,17 @@ function connectWS() {
   };
 }
 
+function ensureConnected() {
+  if (wsNeedsReconnect() || (ws && ws.readyState !== WebSocket.OPEN)) connectWS(true);
+}
+
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && ws?.readyState !== WebSocket.OPEN) connectWS();
+  if (document.visibilityState === 'visible') ensureConnected();
 });
-window.addEventListener('focus', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
-window.addEventListener('online', () => { if (ws?.readyState !== WebSocket.OPEN) connectWS(); });
+window.addEventListener('focus', ensureConnected);
+window.addEventListener('online', ensureConnected);
+// bfcache / vuelta de pestaña en Live Studio tras caída del servidor
+window.addEventListener('pageshow', ensureConnected);
 
 /* Cola de reproducción: con la cola activada cada video espera a que termine el anterior.
    El Perfil General usa su propia capa/cola para no bloquearse con el perfil activo. */
@@ -312,10 +341,8 @@ setInterval(() => {
       pump(lane);
     }
   });
-  // WS caído en Live Studio (CEF a veces no dispara onclose a tiempo)
-  if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-    connectWS();
-  }
-}, 4000);
+  // WS caído o CONNECTING eterno (CEF / redeploy Render)
+  if (wsNeedsReconnect()) connectWS(true);
+}, 3000);
 
 connectWS();

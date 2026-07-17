@@ -775,9 +775,9 @@
             <div class="screens-head">
               <div>
                 <div class="box-title">Links de reproducción para OBS / TikTok Studio</div>
-                <p class="screens-sub">Usa cada link como <b>Browser Source</b> separado y asigna cada video a la pantalla que quieras.</p>
+                <p class="screens-sub">Usa cada link como <b>Browser Source</b> separado y asigna cada video a la pantalla que quieras. El enlace <b>no cambia</b> al reiniciar o actualizar Render (lleva tu <code>room</code> fija).</p>
               </div>
-              <p class="screens-warn" role="note">Si alguna pantalla te falla prueba otra</p>
+              <p class="screens-warn" role="note">Si sale «Sin fuente» tras un reinicio: en OBS/Live Studio → Actualizar la fuente. No hace falta volver a pegar el URL salvo que Copiar link muestre uno distinto.</p>
             </div>
             <div id="screenList" class="screen-grid"></div>
           </div>
@@ -1908,19 +1908,19 @@
                 </div>
                 <div>
                   <label class="ml">COLOR TEXTO</label>
-                  <input type="color" id="flwcfg-textcolor" value="#f4f8ff">
+                  <input type="color" id="flwcfg-textcolor" value="#ffffff">
                 </div>
                 <div>
                   <label class="ml">TAMAÑO LETRA</label>
-                  <input type="range" id="flwcfg-fontsize" min="10" max="32" value="13">
+                  <input type="range" id="flwcfg-fontsize" min="10" max="32" value="23">
                 </div>
                 <div>
                   <label class="ml">ALTURA BARRA</label>
-                  <input type="range" id="flwcfg-barheight" min="16" max="72" value="28">
+                  <input type="range" id="flwcfg-barheight" min="16" max="72" value="38">
                 </div>
                 <div>
                   <label class="ml">TAMAÑO OVERLAY</label>
-                  <input type="range" id="flwcfg-scale" min="50" max="100" value="78">
+                  <input type="range" id="flwcfg-scale" min="50" max="100" value="65">
                 </div>
                 <div>
                   <label class="ml">MÁX. PARTICIPANTES</label>
@@ -1932,6 +1932,12 @@
                 </div>
                 <div class="gvscfg-chkcell">
                   <label class="switch-row plain"><input type="checkbox" id="flwcfg-showpct" checked> <span>Mostrar porcentaje</span></label>
+                </div>
+                <div class="gvscfg-chkcell">
+                  <label class="switch-row plain"><input type="checkbox" id="flwcfg-titlerainbow" checked> <span>Título arcoíris (movimiento)</span></label>
+                </div>
+                <div class="gvscfg-chkcell">
+                  <label class="switch-row plain"><input type="checkbox" id="flwcfg-namerainbow" checked> <span>Nombres arcoíris (movimiento)</span></label>
                 </div>
                 <div class="gvscfg-chkcell">
                   <label class="switch-row plain"><input type="checkbox" id="flwcfg-timerwins"> <span>Partida por tiempo</span></label>
@@ -2423,18 +2429,38 @@
               <button class="modal-close" id="gctcfg-close">â</button>
             </div>
             <div class="modal-body">
+              <label class="ml">REGALO A CONTAR</label>
+              <div class="gct-giftrow" style="margin-bottom:12px;flex-wrap:wrap;gap:8px">
+                <button type="button" class="btn ghost" id="gct-giftpick">Elegir regalo</button>
+                <span class="gct-giftname" id="gct-giftname">Cualquier regalo</span>
+                <button type="button" class="btn ghost gct-any" id="gct-giftany">Cualquiera</button>
+              </div>
+              <div class="gvscfg-grid2" style="margin-bottom:12px">
+                <div>
+                  <label class="ml">META</label>
+                  <input type="number" id="gct-goal" min="1" value="50">
+                </div>
+                <div>
+                  <label class="ml">VALOR ACTUAL</label>
+                  <div class="gct-giftrow" style="gap:8px">
+                    <input type="number" id="gct-value" min="0" value="0" style="flex:1">
+                    <button type="button" class="btn ghost" id="gct-set">Set</button>
+                  </div>
+                </div>
+              </div>
               <label class="ml">TÍTULO</label>
               <input type="text" id="gctcfg-title" placeholder="MY CHALLENGE">
               <label class="ml">FUENTE</label>
               <select id="gctcfg-font" class="cfg-font"></select>
               <label class="switch-row plain"><input type="checkbox" id="gctcfg-rainbow" checked> <span>Título arcoíris</span></label>
+              <p class="hint" id="gctcfg-rainbow-hint" style="margin-top:4px">Con arcoíris: el título se mueve en degradado. Sin arcoíris: color sólido (blanco por defecto).</p>
               <div class="cfg-colors">
-                <div><label class="ml">TÍTULO 1</label><input type="color" id="gctcfg-tc1" value="#ff00aa"></div>
-                <div><label class="ml">TÍTULO 2</label><input type="color" id="gctcfg-tc2" value="#00ddff"></div>
-                <div><label class="ml">TÍTULO 3</label><input type="color" id="gctcfg-tc3" value="#ffcc00"></div>
-                <div><label class="ml">COLOR TÍTULO</label><input type="color" id="gctcfg-titlecolor" value="#ffffff"></div>
+                <div class="gct-rain-colors"><label class="ml">ARCOÍRIS 1</label><input type="color" id="gctcfg-tc1" value="#ff00aa"></div>
+                <div class="gct-rain-colors"><label class="ml">ARCOÍRIS 2</label><input type="color" id="gctcfg-tc2" value="#00ddff"></div>
+                <div class="gct-rain-colors"><label class="ml">ARCOÍRIS 3</label><input type="color" id="gctcfg-tc3" value="#ffcc00"></div>
+                <div class="gct-solid-colors"><label class="ml">COLOR TÍTULO</label><input type="color" id="gctcfg-titlecolor" value="#ffffff"></div>
                 <div><label class="ml">COLOR CONTADOR</label><input type="color" id="gctcfg-countercolor" value="#ebc94d"></div>
-                <div><label class="ml">BORDE TÍTULO</label><input type="color" id="gctcfg-titlestroke" value="#242424"></div>
+                <div class="gct-solid-colors"><label class="ml">BORDE TÍTULO</label><input type="color" id="gctcfg-titlestroke" value="#242424"></div>
                 <div><label class="ml">BORDE CONTADOR</label><input type="color" id="gctcfg-counterstroke" value="#3a3320"></div>
               </div>
             </div>
@@ -2815,6 +2841,7 @@
                 <label class="switch-row plain"><input type="checkbox" id="tp3cfg-lines" checked> <span>Líneas separadoras</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="tp3cfg-shadows" checked> <span>Sombras</span></label>
               </div>
+              <p class="hint" style="margin-top:10px">Si OBS usa mucha RAM con este overlay, desactiva <b>Brillos</b>, arcoíris o sombras. Esos efectos son los que más consumen en Browser Source.</p>
             </div>
             <div class="modal-foot"><button class="btn primary" id="tp3cfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
@@ -3821,7 +3848,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="sjn-preview" src="/join-live.html?embed=1" title="Vista previa join al live"></iframe>
+                <iframe id="sjn-preview" data-src="/join-live.html?embed=1" title="Vista previa join al live"></iframe>
               </div>
             </div>
 
@@ -3843,7 +3870,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="sjnmc-preview" src="/join-live-minecraft.html?embed=1" title="Vista previa join al live minecraft"></iframe>
+                <iframe id="sjnmc-preview" data-src="/join-live-minecraft.html?embed=1" title="Vista previa join al live minecraft"></iframe>
               </div>
             </div>
 
@@ -3865,7 +3892,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="sjndbz-preview" src="/join-live-dragonball.html?embed=1" title="Vista previa join al live dragon ball"></iframe>
+                <iframe id="sjndbz-preview" data-src="/join-live-dragonball.html?embed=1" title="Vista previa join al live dragon ball"></iframe>
               </div>
             </div>
 
@@ -3887,7 +3914,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="sjnmr-preview" src="/join-live-mario.html?embed=1" title="Vista previa join al live mario"></iframe>
+                <iframe id="sjnmr-preview" data-src="/join-live-mario.html?embed=1" title="Vista previa join al live mario"></iframe>
               </div>
             </div>
 
@@ -3943,11 +3970,14 @@
                   <button class="ovpro-btn primary" id="flw-test">â¶ Testear</button>
                   <button class="ovpro-btn" id="flw-config">â Configurar</button>
                 </div>
-                <div class="ovpro-conn" id="flw-conn"><span class="cdot"></span> CONECTADO</div>
+                <div class="ovpro-status">
+                  <div class="ovpro-conn" id="flw-conn"><span class="cdot"></span> CONECTADO</div>
+                  <span class="ovpro-new" title="Overlay mejorado: top 3 donadores, rayo divisor, arcoíris animado">Nueva versión</span>
+                </div>
               </div>
 
               <h3 class="ovpro-title">ð Medidor de Flow</h3>
-              <p class="ovpro-desc">Barra de progreso por participante según su regalo asignado. Con <b>partida por tiempo</b> activada, usa Inicio / Stop / Reiniciar para controlar la ronda en vivo.</p>
+              <p class="ovpro-desc">Barra de progreso por participante según su regalo asignado. Con <b>partida por tiempo</b> activada, usa Inicio / Stop / Reiniciar para controlar la ronda en vivo. Muestra el top 3 de donadores de cada regalo.</p>
 
               <div class="ovpro-urlrow">
                 <code class="ov-url" data-path="/medidor-flow.html">/medidor-flow.html</code>
@@ -3956,7 +3986,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="flw-preview" src="/medidor-flow.html?embed=1" title="Vista previa medidor de flow"></iframe>
+                <iframe id="flw-preview" data-src="/medidor-flow.html?embed=1" title="Vista previa medidor de flow"></iframe>
               </div>
             </div>
 
@@ -3978,7 +4008,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="habi-preview" src="/habibi-top.html?embed=1&v=11" title="Vista previa habibi top donador"></iframe>
+                <iframe id="habi-preview" data-src="/habibi-top.html?embed=1&v=11" title="Vista previa habibi top donador"></iframe>
               </div>
             </div>
 
@@ -4000,7 +4030,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · BANDA EN MOVIMIENTO</div>
               <div class="ovpro-preview">
-                <iframe id="gsh-preview" src="/gift-banda.html?embed=1" title="Vista previa banda de regalos"></iframe>
+                <iframe id="gsh-preview" data-src="/gift-banda.html?embed=1" title="Vista previa banda de regalos"></iframe>
               </div>
             </div>
 
@@ -4022,7 +4052,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="top1fire-preview" src="/top1fire.html?embed=1" title="Vista previa top 1 donador fuego"></iframe>
+                <iframe id="top1fire-preview" data-src="/top1fire.html?embed=1" title="Vista previa top 1 donador fuego"></iframe>
               </div>
             </div>
 
@@ -4055,7 +4085,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="perr-preview" src="/perrito.html?embed=1" title="Vista previa perrito"></iframe>
+                <iframe id="perr-preview" data-src="/perrito.html?embed=1" title="Vista previa perrito"></iframe>
               </div>
             </div>
 
@@ -4063,41 +4093,18 @@
             <div class="ovpro-card">
               <div class="ovpro-top">
                 <div class="ovpro-actions">
-                  <button class="ovpro-btn" id="gct-reset">âº Reset</button>
-                  <button class="ovpro-btn primary" id="gct-test">â¶ Testear</button>
-                  <button class="ovpro-btn" id="gct-config">â Configurar</button>
+                  <button class="ovpro-btn" id="gct-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="gct-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="gct-config">⚙ Configurar</button>
                 </div>
-                <div class="ovpro-conn" id="gct-conn"><span class="cdot"></span> CONECTADO</div>
-              </div>
-
-              <h3 class="ovpro-title">ð¯ Contador de meta</h3>
-              <p class="ovpro-desc">Cuenta cuántas veces llega un regalo hasta una meta, ideal para retos: «junten 50 pasteles». Elige el regalo (o cualquiera), pon la meta y se muestra <code>0 / 50</code> con la imagen del regalo. Se reinicia al conectar al live.</p>
-
-              <div class="gct-controls">
-                <div class="gct-field">
-                  <label>Regalo a contar</label>
-                  <div class="gct-giftrow">
-                    <button class="btn ghost" id="gct-giftpick">Elegir regalo</button>
-                    <span class="gct-giftname" id="gct-giftname">Cualquier regalo</span>
-                    <button class="btn ghost gct-any" id="gct-giftany">Cualquiera</button>
-                  </div>
-                </div>
-                <div class="gct-field gct-narrow">
-                  <label>Meta</label>
-                  <input type="number" id="gct-goal" min="1" value="50">
-                </div>
-                <div class="gct-field">
-                  <label>Título</label>
-                  <input type="text" id="gct-title2" placeholder="MY CHALLENGE">
-                </div>
-                <div class="gct-field gct-narrow">
-                  <label>Valor actual</label>
-                  <div class="gct-giftrow">
-                    <input type="number" id="gct-value" min="0" value="0">
-                    <button class="btn ghost" id="gct-set">Set</button>
-                  </div>
+                <div class="ovpro-status">
+                  <div class="ovpro-conn" id="gct-conn"><span class="cdot"></span> CONECTADO</div>
+                  <span class="ovpro-new" title="Overlay mejorado: fuentes, arcoíris animado, colores y config de regalo/meta">Nueva versión</span>
                 </div>
               </div>
+
+              <h3 class="ovpro-title">🎯 Contador de meta</h3>
+              <p class="ovpro-desc">Cuenta cuántas veces llega un regalo hasta una meta, ideal para retos: «junten 50 pasteles». Elige el regalo (o cualquiera), pon la meta y se muestra <code>0 / 50</code> con la imagen del regalo. Se reinicia al conectar al live. Configura regalo, meta y estilo en <b>Configurar</b>.</p>
 
               <div class="ovpro-urlrow">
                 <code class="ov-url" data-path="/gcounter.html">/gcounter.html</code>
@@ -4106,7 +4113,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="gct-preview" src="/gcounter.html?embed=1" title="Vista previa contador de meta"></iframe>
+                <iframe id="gct-preview" data-src="/gcounter.html?embed=1" title="Vista previa contador de meta"></iframe>
               </div>
             </div>
 
@@ -4139,7 +4146,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="jar-preview" src="/jarron.html?embed=1" title="Vista previa jarrón"></iframe>
+                <iframe id="jar-preview" data-src="/jarron.html?embed=1" title="Vista previa jarrón"></iframe>
               </div>
             </div>
 
@@ -4172,7 +4179,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="vaq-preview" src="/vaquita.html?embed=1" title="Vista previa vaquita"></iframe>
+                <iframe id="vaq-preview" data-src="/vaquita.html?embed=1" title="Vista previa vaquita"></iframe>
               </div>
             </div>
 
@@ -4205,7 +4212,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="mar-preview" src="/marranito.html?embed=1" title="Vista previa marranito"></iframe>
+                <iframe id="mar-preview" data-src="/marranito.html?embed=1" title="Vista previa marranito"></iframe>
               </div>
             </div>
 
@@ -4230,7 +4237,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="pel-preview" src="/pelotas.html?embed=1" title="Vista previa pelotas de fans"></iframe>
+                <iframe id="pel-preview" data-src="/pelotas.html?embed=1" title="Vista previa pelotas de fans"></iframe>
               </div>
             </div>
 
@@ -4255,7 +4262,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="top-preview" src="/topdonor.html?embed=1" title="Vista previa top donador"></iframe>
+                <iframe id="top-preview" data-src="/topdonor.html?embed=1" title="Vista previa top donador"></iframe>
               </div>
             </div>
 
@@ -4286,7 +4293,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="gvs-preview" src="/giftvs.html?embed=1" title="Vista previa gift vs"></iframe>
+                <iframe id="gvs-preview" data-src="/giftvs.html?embed=1" title="Vista previa gift vs"></iframe>
               </div>
             </div>
 
@@ -4311,7 +4318,7 @@
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="gsq-preview" src="/giftseq.html?embed=1" title="Vista previa gift sequence"></iframe>
+                <iframe id="gsq-preview" data-src="/giftseq.html?embed=1" title="Vista previa gift sequence"></iframe>
               </div>
             </div>
 
@@ -4336,7 +4343,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="tgf-preview" src="/mejorregalo.html?embed=1" title="Vista previa mejor regalo"></iframe>
+                <iframe id="tgf-preview" data-src="/mejorregalo.html?embed=1" title="Vista previa mejor regalo"></iframe>
               </div>
             </div>
 
@@ -4361,7 +4368,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="tst-preview" src="/mejorracha.html?embed=1" title="Vista previa mejor racha"></iframe>
+                <iframe id="tst-preview" data-src="/mejorracha.html?embed=1" title="Vista previa mejor racha"></iframe>
               </div>
             </div>
 
@@ -4386,7 +4393,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="bgf-preview" src="/batallaregalos.html?embed=1" title="Vista previa batalla regalos"></iframe>
+                <iframe id="bgf-preview" data-src="/batallaregalos.html?embed=1" title="Vista previa batalla regalos"></iframe>
               </div>
             </div>
 
@@ -4411,7 +4418,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="bli-preview" src="/batallalikes.html?embed=1" title="Vista previa batalla likes"></iframe>
+                <iframe id="bli-preview" data-src="/batallalikes.html?embed=1" title="Vista previa batalla likes"></iframe>
               </div>
             </div>
 
@@ -4436,7 +4443,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="cm-preview" src="/coinmatch.html?embed=1" title="Vista previa coin match"></iframe>
+                <iframe id="cm-preview" data-src="/coinmatch.html?embed=1" title="Vista previa coin match"></iframe>
               </div>
             </div>
 
@@ -4458,7 +4465,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="top1-preview" src="/top1.html?embed=1" title="Vista previa top 1 donador"></iframe>
+                <iframe id="top1-preview" data-src="/top1.html?embed=1" title="Vista previa top 1 donador"></iframe>
               </div>
             </div>
 
@@ -4486,7 +4493,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="hyp-preview" src="/meta.html?embed=1" title="Vista previa barra de meta"></iframe>
+                <iframe id="hyp-preview" data-src="/meta.html?embed=1" title="Vista previa barra de meta"></iframe>
               </div>
             </div>
         </section>
@@ -4515,7 +4522,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="taln-preview" src="/topalt-rank-neon.html?embed=1" title="Vista previa top likes diamantes neón"></iframe>
+                  <iframe id="taln-preview" data-src="/topalt-rank-neon.html?embed=1" title="Vista previa top likes diamantes neón"></iframe>
                 </div>
               </div>
 
@@ -4537,7 +4544,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="tal-preview" src="/topalt-rank.html?embed=1" title="Vista previa top likes diamantes alternado"></iframe>
+                  <iframe id="tal-preview" data-src="/topalt-rank.html?embed=1" title="Vista previa top likes diamantes alternado"></iframe>
                 </div>
               </div>
 
@@ -4559,7 +4566,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="tlk-preview" src="/toplikes.html?embed=1" title="Vista previa top likes"></iframe>
+                  <iframe id="tlk-preview" data-src="/toplikes.html?embed=1" title="Vista previa top likes"></iframe>
                 </div>
               </div>
 
@@ -4581,7 +4588,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="tdm-preview" src="/topdiamantes.html?embed=1" title="Vista previa top diamantes"></iframe>
+                  <iframe id="tdm-preview" data-src="/topdiamantes.html?embed=1" title="Vista previa top diamantes"></iframe>
                 </div>
               </div>
 
@@ -4603,7 +4610,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="tll-preview" src="/toplikes-lista.html?embed=1" title="Vista previa ranking likes lista"></iframe>
+                  <iframe id="tll-preview" data-src="/toplikes-lista.html?embed=1" title="Vista previa ranking likes lista"></iframe>
                 </div>
               </div>
 
@@ -4625,7 +4632,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="tdl-preview" src="/topdiamantes-lista.html?embed=1" title="Vista previa ranking diamantes lista"></iframe>
+                  <iframe id="tdl-preview" data-src="/topdiamantes-lista.html?embed=1" title="Vista previa ranking diamantes lista"></iframe>
                 </div>
               </div>
 
@@ -4656,7 +4663,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="fw-preview" src="/fuegos.html?embed=1" title="Vista previa fuegos artificiales"></iframe>
+                  <iframe id="fw-preview" data-src="/fuegos.html?embed=1" title="Vista previa fuegos artificiales"></iframe>
                 </div>
               </div>
 
@@ -4678,7 +4685,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="tlv-preview" src="/tiempo-live-neon.html?embed=1" title="Vista previa tiempo en live neon"></iframe>
+                  <iframe id="tlv-preview" data-src="/tiempo-live-neon.html?embed=1" title="Vista previa tiempo en live neon"></iframe>
                 </div>
               </div>
 
@@ -4700,7 +4707,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="foc-preview" src="/contador-seguidores.html?embed=1" title="Vista previa contador de seguidores"></iframe>
+                  <iframe id="foc-preview" data-src="/contador-seguidores.html?embed=1" title="Vista previa contador de seguidores"></iframe>
                 </div>
               </div>
 
@@ -4722,7 +4729,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="focmc-preview" src="/contador-seguidores-minecraft.html?embed=1" title="Vista previa contador de seguidores Minecraft"></iframe>
+                  <iframe id="focmc-preview" data-src="/contador-seguidores-minecraft.html?embed=1" title="Vista previa contador de seguidores Minecraft"></iframe>
                 </div>
               </div>
 
@@ -4744,7 +4751,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="agf-preview" src="/alerta-regalo.html?embed=1" title="Vista previa alerta de regalo"></iframe>
+                  <iframe id="agf-preview" data-src="/alerta-regalo.html?embed=1" title="Vista previa alerta de regalo"></iframe>
                 </div>
               </div>
 
@@ -4766,7 +4773,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="alk-preview" src="/alerta-likes.html?embed=1" title="Vista previa alerta de likes"></iframe>
+                  <iframe id="alk-preview" data-src="/alerta-likes.html?embed=1" title="Vista previa alerta de likes"></iframe>
                 </div>
               </div>
 
@@ -4788,7 +4795,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="afl-preview" src="/alerta-seguidor.html?embed=1" title="Vista previa alerta de seguidor"></iframe>
+                  <iframe id="afl-preview" data-src="/alerta-seguidor.html?embed=1" title="Vista previa alerta de seguidor"></iframe>
                 </div>
               </div>
 
@@ -4830,7 +4837,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="wcm-preview" src="/contador-wins-minecraft.html?embed=1" title="Vista previa contador de victorias minecraft"></iframe>
+                <iframe id="wcm-preview" data-src="/contador-wins-minecraft.html?embed=1" title="Vista previa contador de victorias minecraft"></iframe>
               </div>
             </div>
 
@@ -4864,7 +4871,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="wmr-preview" src="/contador-wins-mario.html?embed=1" title="Vista previa contador de victorias mario"></iframe>
+                <iframe id="wmr-preview" data-src="/contador-wins-mario.html?embed=1" title="Vista previa contador de victorias mario"></iframe>
               </div>
             </div>
 
@@ -4898,7 +4905,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="wc-preview" src="/contador-wins.html?embed=1" title="Vista previa contador de victorias"></iframe>
+                <iframe id="wc-preview" data-src="/contador-wins.html?embed=1" title="Vista previa contador de victorias"></iframe>
               </div>
             </div>
 
@@ -4932,7 +4939,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="wcg-preview" src="/contador-wins-gamer.html?embed=1" title="Vista previa contador de victorias gamer"></iframe>
+                <iframe id="wcg-preview" data-src="/contador-wins-gamer.html?embed=1" title="Vista previa contador de victorias gamer"></iframe>
               </div>
             </div>
         </section>
@@ -5314,7 +5321,7 @@
               <div class="field">
                 <label>Tiempo inicial (minutos)</label>
                 <input type="number" id="tmr-default" min="0" step="1" />
-                <p class="hint">Es el tiempo al que vuelve el temporizador al reiniciar o al conectar a un live.</p>
+                <p class="hint">Es el tiempo al que vuelve el temporizador al pulsar <b>Reiniciar</b>. El tiempo actual se guarda solo y se recupera si reinicias la app o Render.</p>
               </div>
               <label class="switch-row plain"><input type="checkbox" id="tmr-maxon"> <span>Limitar tiempo máximo</span></label>
               <div class="field">
@@ -5403,7 +5410,7 @@
                   </div>
                   <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                   <div class="ovpro-preview pts-overlay-preview">
-                    <iframe id="tp3-preview" src="/toppoints.html?embed=1" title="Vista previa top 3 puntos"></iframe>
+                    <iframe id="tp3-preview" data-src="/toppoints.html?embed=1" title="Vista previa top 3 puntos"></iframe>
                   </div>
                 </div>
               </div>

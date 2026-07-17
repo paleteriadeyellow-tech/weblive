@@ -23,7 +23,7 @@ import {
   remapSessionUserIds, importSessionsFromRecord, pruneInvalidSessions, hasAnyValidSession,
   saveDesktopLastLogin, clearDesktopLastLogin, bootstrapDesktopSessionToken, ensureSessionForUser,
   inferDesktopLastLoginFromUsers, getSessionUser, getDesktopLastLoginUser,
-  publicEmailFields, setUserVerifiedEmail,
+  publicEmailFields, setUserVerifiedEmail, syncMirrorVerifiedEmail,
 } from './auth.js';
 import {
   requestLinkEmailCode, verifyLinkEmailCode,
@@ -800,6 +800,10 @@ async function pullRemotePlan(user) {
       if (room) room.broadcastCaps?.(capsForUser(getUserById(user.id) || user));
     }
     if (me.roomKey) updateMirrorCloudRoomKey(user.id, me.roomKey);
+    // Email verificado en la nube → espejo local (si no, el .exe vuelve a pedir verificar).
+    if (me.emailVerified && me.email) {
+      try { syncMirrorVerifiedEmail(user.id, me.email, true); } catch {}
+    }
     // Devolvemos el "me" remoto para que /api/me pueda exponer la roomKey de la NUBE,
     // que es la que el panel usa para conectar su WebSocket al servidor de Render.
     return me;
@@ -1235,7 +1239,10 @@ app.get('/api/me', async (req, res) => {
     gamesEnabled: isUserGamesEnabled(fullUser),
     caps: { limits: caps.limits, features: caps.features },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
-    emailVerified: !!(remoteMe && remoteMe.emailVerified) || publicEmailFields(fullUser).emailVerified,
+    // Preferir true si la nube O el espejo local ya tienen el correo verificado.
+    emailVerified: !!(remoteMe && remoteMe.emailVerified)
+      || publicEmailFields(fullUser).emailVerified
+      || !!(fullUser && fullUser.emailVerified && fullUser.email),
     mailConfigured: (remoteMe && typeof remoteMe.mailConfigured === 'boolean')
       ? remoteMe.mailConfigured
       : mailStatus().configured,
@@ -1311,12 +1318,34 @@ app.post('/api/account/email/verify', express.json(), async (req, res) => {
   if (!user) return res.status(401).json({ error: 'no auth' });
   req.user = user;
   if (AUTH_REMOTE) {
-    if (await proxyAccountToRemote(req, res, '/api/account/email/verify', { auth: true })) return;
-    return res.status(503).json({ error: 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.' });
+    const cookie = remoteCookies.get(user.id);
+    if (!cookie) {
+      return res.status(503).json({ error: 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.' });
+    }
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/account/email/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify(req.body || {}),
+      });
+      if (r.status === 401 || r.status === 403) {
+        remoteCookies.delete(user.id);
+        saveRemoteCookies();
+        return res.status(503).json({ error: 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.' });
+      }
+      const data = await r.json().catch(() => ({}));
+      // Persistir también en el espejo local para que el aviso no reaparezca sin cookie remota.
+      if (r.ok && data.email) {
+        try { setUserVerifiedEmail(user.id, data.email); } catch {}
+      }
+      return res.status(r.status).json(data);
+    } catch {
+      return res.status(503).json({ error: 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.' });
+    }
   }
   const r = verifyLinkEmailCode(user.id, req.body?.code);
   if (r.error) return res.status(400).json({ error: r.error });
-  res.json({ ok: true, email: r.email, message: r.message });
+  res.json({ ok: true, email: r.email, message: r.message, emailVerified: true });
 });
 
 app.post('/api/account/password/forgot', express.json(), async (req, res) => {

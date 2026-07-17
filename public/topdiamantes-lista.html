@@ -27,7 +27,13 @@
     .name { font-weight: 700; font-size: 15px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc; -webkit-text-fill-color: #f8fafc; }
     html[data-namefx="1"] .name { color: transparent; -webkit-text-fill-color: transparent; background: linear-gradient(90deg, #ff2d95 0%, #c026d3 35%, #22d3ee 70%, #38bdf8 100%); -webkit-background-clip: text; background-clip: text; }
     .valwrap { display: flex; flex-direction: row; align-items: center; gap: 6px; }
-    .ico { font-size: 16px; line-height: 0; filter: drop-shadow(0 0 4px rgba(255,193,7,.45)); }
+    .ico { font-size: 16px; line-height: 0; filter: drop-shadow(0 0 4px rgba(255,193,7,.45)); display: inline-flex; align-items: center; justify-content: center; }
+    .ico img, .ico .ico-coin {
+      width: 18px; height: 18px; display: block;
+      object-fit: contain;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
     .num { font-size: 14px; font-weight: 700; color: var(--ol-accent, #f4f4f5); white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.45); font-variant-numeric: tabular-nums; }
     html[data-bg="0"] .list { background: rgba(10,18,29,.78); box-shadow: 0 8px 28px rgba(0,0,0,.4); }
     html[data-bg="0"] .row { border-bottom: 1px solid rgba(255,255,255,.06); }
@@ -46,7 +52,7 @@
   <script>
     RankingOverlay.init({
       kind: 'topdiamlist', settingsKey: 'topdiamList', rank: 'topdiamlist',
-      metric: 'diamonds', icon: '🪙', style: 'lista',
+      metric: 'diamonds', icon: '/img/diamonds-coin.gif', style: 'lista',
       defaults: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false },
       baseW: 360,
     });

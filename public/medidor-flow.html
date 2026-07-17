@@ -25,6 +25,25 @@
     .flw-title { text-shadow: 0 1px 8px rgba(0, 0, 0, .65); }
     .flw-meta { text-shadow: 0 1px 6px rgba(0, 0, 0, .55); }
     .flw-name { text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+    .flw-title.flw-rainbow,
+    .flw-name.flw-rainbow {
+      background: linear-gradient(
+        90deg,
+        #ff4b91, #fbbf24, #40e0d0, #9370db, #ff6b4a, #ff4b91, #fbbf24, #40e0d0
+      );
+      background-size: 280% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent !important;
+      -webkit-text-fill-color: transparent;
+      text-shadow: none !important;
+      animation: flw-rainbow-move 3.2s linear infinite;
+      filter: drop-shadow(0 1px 6px rgba(0, 0, 0, .55));
+    }
+    @keyframes flw-rainbow-move {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
 
     .flw-hero {
       display: flex;
@@ -121,10 +140,30 @@
     .flw-wins { font-size: 10px; font-weight: 800; color: #fbbf24; white-space: nowrap; }
     .flw-wins[hidden] { display: none !important; }
 
+    .flw-bar-shell {
+      position: relative;
+      width: 100%;
+      margin-bottom: 8px;
+    }
     .flw-bar-wrap {
       display: flex; width: 100%; border-radius: 999px; overflow: hidden;
       height: var(--flw-bar-h, 36px); border: 1px solid rgba(255, 255, 255, .18);
-      background: transparent; margin-bottom: 8px;
+      background: transparent;
+    }
+    .flw-bolts {
+      position: absolute; inset: 0; pointer-events: none; z-index: 3;
+      overflow: visible;
+    }
+    .flw-bolt {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      height: calc(var(--flw-bar-h, 36px) * 1.85);
+      width: auto;
+      max-width: none;
+      display: block;
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .65));
+      user-select: none;
     }
     .flw-seg {
       display: flex; align-items: center; justify-content: center; min-width: 0;
@@ -132,6 +171,8 @@
       color: #0b1020; transition: flex-basis .35s ease, width .35s ease;
       text-shadow: 0 1px 0 rgba(255, 255, 255, .25);
       overflow: hidden; white-space: nowrap;
+      /* Sin línea entre colores: el rayo hace de divisor */
+      border: none; outline: none; box-shadow: none;
     }
     .flw-seg.is-empty { color: rgba(255, 255, 255, .45); text-shadow: none; }
     .flw-seg.flw-seg-pop { animation: flwSegPop .42s cubic-bezier(.22, 1.1, .36, 1); }
@@ -150,8 +191,43 @@
     .flw-gifts.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
     .flw-gifts.cols-5 { grid-template-columns: repeat(5, 1fr); }
     .flw-gift { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
-    .flw-gift img { width: 28px; height: 28px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
-    .flw-gift span { font-weight: 800; font-size: calc(var(--flw-font-size, 16px) * .78); color: var(--flw-text, #f4f8ff); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+    .flw-gift img.flw-gift-ic { width: 28px; height: 28px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
+    .flw-gift > span { font-weight: 800; font-size: calc(var(--flw-font-size, 16px) * .78); color: var(--flw-text, #f4f8ff); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+    .flw-top3 {
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px; min-height: 28px; padding: 0 2px;
+    }
+    .flw-top3:empty { display: none; }
+    .flw-top3-av {
+      position: relative; flex: 0 0 auto;
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, .92);
+      margin-left: -7px; overflow: visible;
+      background: #1a2233;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+    }
+    .flw-top3-av:first-child { margin-left: 0; z-index: 3; }
+    .flw-top3-av:nth-child(2) { z-index: 2; }
+    .flw-top3-av:nth-child(3) { z-index: 1; }
+    .flw-top3-av img {
+      width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;
+      background: #111;
+    }
+    .flw-top3-ph {
+      width: 100%; height: 100%; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900; color: #e2e8f0;
+      background: linear-gradient(145deg, #334155, #1e293b);
+    }
+    .flw-top3-rank {
+      position: absolute; right: -4px; bottom: -4px; z-index: 4;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; color: #0f172a;
+      font-size: 8px; font-weight: 900; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+      border: 1px solid rgba(15, 23, 42, .15);
+    }
 
     .flw-winner-banner {
       margin-top: 10px; text-align: center; font-weight: 900; font-size: calc(var(--flw-font-size, 16px) * 1.05);
@@ -173,7 +249,10 @@
         </div>
       </div>
       <div class="flw-people" id="flw-people"></div>
-      <div class="flw-bar-wrap" id="flw-bar"></div>
+      <div class="flw-bar-shell" id="flw-bar-shell">
+        <div class="flw-bar-wrap" id="flw-bar"></div>
+        <div class="flw-bolts" id="flw-bolts" aria-hidden="true"></div>
+      </div>
       <div class="flw-gifts" id="flw-gifts"></div>
       <div class="flw-winner-banner" id="flw-winner" hidden></div>
     </div>
@@ -200,6 +279,8 @@
     let cfg = defaultCfg();
     let scores = [];
     let wins = [];
+    /** @type {Map<string, {uniqueId:string,nickname:string,photo:string,coins:number}>[]} */
+    let donorMaps = [];
     let roundLeft = 0;
     let roundTimer = null;
     let roundActive = false;
@@ -210,29 +291,52 @@
     let winnerIdx = -1;
     const avatarCache = {};
 
+    const SIM_DONOR_POOL = [
+      { uniqueId: 'fan_cleo', nickname: 'Cleo', photo: 'https://api.dicebear.com/7.x/thumbs/svg?seed=cleo&backgroundColor=ff4b91' },
+      { uniqueId: 'fan_syndel', nickname: 'Syndel', photo: 'https://api.dicebear.com/7.x/thumbs/svg?seed=syndel&backgroundColor=40e0d0' },
+      { uniqueId: 'fan_nova', nickname: 'Nova', photo: 'https://api.dicebear.com/7.x/thumbs/svg?seed=nova&backgroundColor=9370db' },
+      { uniqueId: 'fan_kai', nickname: 'Kai', photo: 'https://api.dicebear.com/7.x/thumbs/svg?seed=kai&backgroundColor=fbbf24' },
+      { uniqueId: 'fan_rio', nickname: 'Rio', photo: 'https://api.dicebear.com/7.x/thumbs/svg?seed=rio&backgroundColor=22d3ee' },
+      { uniqueId: 'fan_lux', nickname: 'Lux', photo: 'https://api.dicebear.com/7.x/thumbs/svg?seed=lux&backgroundColor=f472b6' },
+    ];
+
     function demoParticipants() {
-      const gifts = ['Rose', 'GG', 'Heart Me', 'TikTok', 'Finger Heart'];
-      return [1, 2, 3].map((n, i) => ({
-        name: 'test' + n,
-        tiktokUrl: '',
-        avatar: '',
-        color: ['#ff4b91', '#40e0d0', '#9370db', '#fbbf24', '#f97316'][i] || '#5eead4',
-        giftId: '',
-        giftName: gifts[i] || 'Rose',
-        giftImage: '',
-      }));
+      return [
+        {
+          name: 'test1', tiktokUrl: '', avatar: '', color: '#ff4b91',
+          giftId: '6093', giftName: 'Football',
+          giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/c043cd9e418f13017793ddf6e0c6ee99~tplv-obj.webp',
+        },
+        {
+          name: 'test2', tiktokUrl: '', avatar: '', color: '#40e0d0',
+          giftId: '6064', giftName: 'GG',
+          giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp',
+        },
+        {
+          name: 'test3', tiktokUrl: '', avatar: '', color: '#9370db',
+          giftId: '7934', giftName: 'Heart Me',
+          giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/d56945782445b0b8c8658ed44f894c7b~tplv-obj.webp',
+        },
+        {
+          name: 'test4', tiktokUrl: '', avatar: '', color: '#fbbf24',
+          giftId: '7096', giftName: "It's corn",
+          giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/37f5c76b65c17d6dbbbd4b6724f61bf2~tplv-obj.webp',
+        },
+      ];
     }
 
     function defaultCfg() {
       return {
         title: 'MEDIDOR DE FLOW',
-        textColor: '#f4f8ff',
-        fontSize: 13,
-        barHeight: 28,
-        scale: 78,
+        textColor: '#ffffff',
+        fontSize: 23,
+        barHeight: 38,
+        scale: 65,
         maxParticipants: 5,
-        font: 'inter',
+        font: 'luckiest',
         showPercent: true,
+        titleRainbow: true,
+        nameRainbow: true,
         roundByTime: false,
         timerWins: false,
         roundSec: 60,
@@ -287,6 +391,7 @@
       card.style.setProperty('--flw-bar-h', bh + 'px');
       stage.style.setProperty('--flw-scale', String(sc));
       document.getElementById('flw-title').textContent = cfg.title || 'MEDIDOR DE FLOW';
+      document.getElementById('flw-title').classList.toggle('flw-rainbow', !!cfg.titleRainbow);
       if (!isEmbed) {
         stage.style.transform = 'scale(' + sc + ')';
         stage.style.transformOrigin = 'top center';
@@ -312,15 +417,18 @@
       const cols = 'cols-' + clamp(n, 1, 5);
       const people = document.getElementById('flw-people');
       const bar = document.getElementById('flw-bar');
+      const bolts = document.getElementById('flw-bolts');
       const gifts = document.getElementById('flw-gifts');
 
       people.className = 'flw-people ' + cols;
       gifts.className = 'flw-gifts ' + cols;
       people.innerHTML = '';
       bar.innerHTML = '';
+      if (bolts) bolts.innerHTML = '';
       gifts.innerHTML = '';
 
       const total = scores.reduce((a, b) => a + b, 0);
+      let cumPct = 0;
 
       parts.forEach((p, i) => {
         const color = p.color || '#5eead4';
@@ -352,7 +460,10 @@
           avWrap.appendChild(ph);
         }
         const name = document.createElement('div');
-        name.className = 'flw-name' + (roundEnded && winnerIdx === i ? ' flw-winner-name' : '');
+        const isWinner = roundEnded && winnerIdx === i;
+        name.className = 'flw-name'
+          + (isWinner ? ' flw-winner-name' : '')
+          + (!isWinner && cfg.nameRainbow ? ' flw-rainbow' : '');
         name.textContent = p.name || ('test' + (i + 1));
         row.appendChild(avWrap);
         row.appendChild(name);
@@ -375,18 +486,31 @@
         }
         bar.appendChild(seg);
 
+        cumPct += pct;
+        if (bolts && i < parts.length - 1 && cumPct > 0.4 && cumPct < 99.6) {
+          const bolt = document.createElement('img');
+          bolt.className = 'flw-bolt';
+          bolt.src = '/img/flow-bolt.png';
+          bolt.alt = '';
+          bolt.draggable = false;
+          bolt.style.left = cumPct + '%';
+          bolts.appendChild(bolt);
+        }
+
         const gift = document.createElement('div');
         gift.className = 'flw-gift';
         if (p.giftImage) {
           const gi = document.createElement('img');
+          gi.className = 'flw-gift-ic';
           gi.src = p.giftImage;
           gi.alt = p.giftName || '';
           gi.referrerPolicy = 'no-referrer';
           gift.appendChild(gi);
         }
-        const gl = document.createElement('span');
-        gl.textContent = p.giftName || 'Regalo';
-        gift.appendChild(gl);
+        const top3 = document.createElement('div');
+        top3.className = 'flw-top3';
+        renderTop3(top3, i);
+        gift.appendChild(top3);
         gifts.appendChild(gift);
       });
 
@@ -453,8 +577,76 @@
       const n = activeParticipants().length;
       while (scores.length < n) scores.push(0);
       while (wins.length < n) wins.push(0);
+      while (donorMaps.length < n) donorMaps.push(new Map());
       scores.length = n;
       wins.length = n;
+      donorMaps.length = n;
+    }
+
+    function clearDonorMaps() {
+      donorMaps = [];
+      ensureScoreLen();
+    }
+
+    function recordDonor(optIdx, data, coins) {
+      ensureScoreLen();
+      const uid = String(data.uniqueId || data.nickname || '').trim();
+      if (!uid || !(coins > 0)) return;
+      const map = donorMaps[optIdx];
+      if (!map) return;
+      const photo = String(data.photo || data.profilePictureUrl || '').trim();
+      const prev = map.get(uid) || {
+        uniqueId: uid,
+        nickname: String(data.nickname || uid).trim() || uid,
+        photo: '',
+        coins: 0,
+      };
+      prev.coins += coins;
+      if (photo) prev.photo = photo;
+      if (data.nickname) prev.nickname = String(data.nickname).trim() || prev.nickname;
+      map.set(uid, prev);
+    }
+
+    function top3For(optIdx) {
+      ensureScoreLen();
+      const map = donorMaps[optIdx];
+      if (!map || !map.size) return [];
+      return Array.from(map.values())
+        .sort((a, b) => b.coins - a.coins || String(a.nickname).localeCompare(String(b.nickname)))
+        .slice(0, 3);
+    }
+
+    function renderTop3(wrap, optIdx) {
+      const top = top3For(optIdx);
+      wrap.innerHTML = '';
+      top.forEach((d, rank) => {
+        const el = document.createElement('div');
+        el.className = 'flw-top3-av';
+        el.title = (d.nickname || d.uniqueId) + ' · ' + d.coins;
+        if (d.photo) {
+          const img = document.createElement('img');
+          img.src = d.photo;
+          img.alt = d.nickname || '';
+          img.referrerPolicy = 'no-referrer';
+          img.onerror = function () {
+            this.replaceWith(Object.assign(document.createElement('div'), {
+              className: 'flw-top3-ph',
+              textContent: String(d.nickname || '?').slice(0, 1).toUpperCase(),
+            }));
+          };
+          el.appendChild(img);
+        } else {
+          const ph = document.createElement('div');
+          ph.className = 'flw-top3-ph';
+          ph.textContent = String(d.nickname || '?').slice(0, 1).toUpperCase();
+          el.appendChild(ph);
+        }
+        const badge = document.createElement('span');
+        badge.className = 'flw-top3-rank';
+        badge.textContent = String(rank + 1);
+        el.appendChild(badge);
+        wrap.appendChild(el);
+      });
     }
 
     function startRoundTimer() {
@@ -504,9 +696,11 @@
       const parts = activeParticipants();
       ensureScoreLen();
       let hit = false;
+      const coins = giftCoins(data);
       parts.forEach((p, i) => {
         if (matchesGift(p, data)) {
-          scores[i] += giftCoins(data);
+          scores[i] += coins;
+          recordDonor(i, data, coins);
           popSegIdx = i;
           hit = true;
         }
@@ -533,6 +727,7 @@
       winnerIdx = -1;
       if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
       scores = [];
+      clearDonorMaps();
       roundActive = false;
       roundEnded = false;
       roundLeft = 0;
@@ -590,6 +785,7 @@
       if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
       scores = [];
       wins = [];
+      clearDonorMaps();
       roundLeft = 0;
       roundActive = false;
       roundEnded = false;
@@ -604,6 +800,7 @@
       winnerIdx = -1;
       if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
       scores = [];
+      clearDonorMaps();
       if (!keepWins) wins = [];
       roundLeft = 0;
       roundActive = false;
@@ -668,6 +865,8 @@
         const idx = h % parts.length;
         const burst = h > 14 && idx === 0 ? 2 : 1;
         for (let b = 0; b < burst; b++) {
+          // Variar donadores por opción para que se vean hasta 3 avatares en el test.
+          const donor = SIM_DONOR_POOL[(idx * 3 + h + b) % SIM_DONOR_POOL.length];
           plan.push({
             idx,
             gift: {
@@ -676,6 +875,9 @@
               diamonds: Math.max(3, Math.round((6 + Math.floor(Math.random() * 14)) * (weights[idx] || 1))),
               repeatCount: 1,
               repeatDelta: 1,
+              uniqueId: donor.uniqueId,
+              nickname: donor.nickname,
+              photo: donor.photo,
             },
             t,
           });
@@ -739,7 +941,7 @@
       document.documentElement.classList.add('embed');
       embedFitFn = () => {
         const sc = clamp(parseInt(cfg.scale, 10) || 78, 50, 100) / 100;
-        const fitScale = Math.min(window.innerWidth / 680, window.innerHeight / 220);
+        const fitScale = Math.min(window.innerWidth / 680, window.innerHeight / 280);
         document.documentElement.style.setProperty('--fit', fitScale * sc);
       };
       embedFitFn();

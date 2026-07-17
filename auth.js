@@ -51,9 +51,18 @@ function load(file, fallback) {
 function saveUsers() {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
+    const payload = JSON.stringify(users, null, 2);
+    const tmp = USERS_FILE + '.tmp';
+    fs.writeFileSync(tmp, payload, 'utf8');
+    try { fs.renameSync(tmp, USERS_FILE); }
+    catch {
+      fs.writeFileSync(USERS_FILE, payload, 'utf8');
+      try { fs.unlinkSync(tmp); } catch {}
+    }
+    return true;
   } catch (e) {
     try { console.error('[auth] No se pudo guardar users.json:', e && e.message); } catch {}
+    return false;
   }
 }
 function saveSessions() {
@@ -221,6 +230,20 @@ export function setUserVerifiedEmail(id, email) {
   if (!u) return false;
   const mail = normalizeEmail(email);
   if (!mail || !mail.includes('@')) return false;
+  u.email = mail;
+  u.emailVerified = true;
+  if (!saveUsers()) return false;
+  return true;
+}
+
+/** Copia email verificado de la nube al espejo local (.exe) sin tocar otros campos. */
+export function syncMirrorVerifiedEmail(id, email, emailVerified) {
+  if (!emailVerified || !email) return false;
+  const u = users.find((x) => x.id === id);
+  if (!u) return false;
+  const mail = normalizeEmail(email);
+  if (!mail || !mail.includes('@')) return false;
+  if (u.emailVerified && normalizeEmail(u.email) === mail) return false;
   u.email = mail;
   u.emailVerified = true;
   saveUsers();

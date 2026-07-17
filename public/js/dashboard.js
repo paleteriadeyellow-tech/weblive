@@ -1381,6 +1381,97 @@ function triggerAlertPanic() {
   toast('⛔ Pánico: Minecraft, videos, sonidos y TTS detenidos', 'warn');
 }
 
+/* ====================== Lazy embed previews (overlays) ====================== */
+/** Evita cargar ~40 iframes embed al abrir el panel; se hidratan al entrar a la pestaña. */
+const embedLoadQueue = [];
+let embedLoadBusy = false;
+
+function embedWantSrc(fr) {
+  return (fr && (fr.dataset.src || fr.getAttribute('data-src'))) || '';
+}
+
+function ensureEmbedLoaded(frOrId) {
+  const fr = typeof frOrId === 'string' ? $(frOrId) : frOrId;
+  return new Promise((resolve) => {
+    if (!fr) { resolve(null); return; }
+    const want = embedWantSrc(fr);
+    if (!want) { resolve(fr); return; }
+    if (fr.dataset.embedReady === '1' && fr.getAttribute('src')) { resolve(fr); return; }
+    const finish = () => {
+      fr.dataset.embedReady = '1';
+      resolve(fr);
+    };
+    if (fr.getAttribute('src')) {
+      try {
+        if (fr.contentDocument?.readyState === 'complete') { finish(); return; }
+      } catch { /* cross-origin or empty */ }
+      fr.addEventListener('load', finish, { once: true });
+      setTimeout(finish, 8000);
+      return;
+    }
+    const onLoad = () => {
+      fr.removeEventListener('load', onLoad);
+      finish();
+    };
+    fr.addEventListener('load', onLoad);
+    fr.src = want;
+    setTimeout(() => { fr.removeEventListener('load', onLoad); finish(); }, 8000);
+  });
+}
+
+function pumpEmbedLoadQueue() {
+  if (embedLoadBusy) return;
+  const fr = embedLoadQueue.shift();
+  if (!fr) return;
+  embedLoadBusy = true;
+  ensureEmbedLoaded(fr).finally(() => {
+    embedLoadBusy = false;
+    setTimeout(pumpEmbedLoadQueue, 60);
+  });
+}
+
+function queueEmbedLoad(fr) {
+  if (!fr || fr.dataset.embedQueued === '1') return;
+  fr.dataset.embedQueued = '1';
+  embedLoadQueue.push(fr);
+  pumpEmbedLoadQueue();
+}
+
+function hydrateViewEmbeds(view) {
+  if (!view) return;
+  const frames = view.querySelectorAll('iframe[data-src]');
+  if (!frames.length) return;
+  if (typeof IntersectionObserver !== 'function') {
+    frames.forEach((fr) => queueEmbedLoad(fr));
+    return;
+  }
+  if (!view._embedObs) {
+    view._embedObs = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const fr = e.target;
+        view._embedObs.unobserve(fr);
+        queueEmbedLoad(fr);
+      }
+    }, { root: null, rootMargin: '160px 0px', threshold: 0.01 });
+  }
+  frames.forEach((fr) => {
+    if (fr.dataset.embedReady === '1' || fr.dataset.embedQueued === '1') return;
+    view._embedObs.observe(fr);
+  });
+}
+
+function onOverlayNavShown(viewSlugOrId) {
+  const id = String(viewSlugOrId || '').startsWith('view-')
+    ? viewSlugOrId
+    : `view-${viewSlugOrId}`;
+  if (!String(id).startsWith('view-ov-')) return;
+  // Dejar pintar la UI antes de encolar iframes pesados (fuegos, alertas, etc.).
+  requestAnimationFrame(() => {
+    setTimeout(() => hydrateViewEmbeds(document.getElementById(id)), 0);
+  });
+}
+
 /* ====================== Navegación lateral ====================== */
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
@@ -1390,6 +1481,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     const view = document.getElementById(`view-${btn.dataset.view}`);
     if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
     view.classList.add('active');
+    onOverlayNavShown(btn.dataset.view);
     if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
@@ -2728,9 +2820,18 @@ const TT_GIFTS = [
 ];
 let connectedScreens = new Set();
 const screenSeenAt = new Map();
-const SCREEN_PRESENCE_GRACE_MS = 10000;
+/** Tras redeploy/reinicio el Browser Source tarda en reaparecer; no marcar "Sin fuente" al instante. */
+const SCREEN_PRESENCE_GRACE_MS = 60000;
 let vidEditingId = null;
 let vidPending = null; // { url, name }
+
+function screenCopyUrl(screenId) {
+  return IS_DESKTOP ? videoScreenUrl(screenId) : roomUrl(`/video.html?screen=${screenId}`);
+}
+
+function screenUrlHasRoom(url) {
+  try { return !!(new URL(url, location.origin).searchParams.get('room')); } catch { return /[?&]room=/.test(String(url || '')); }
+}
 
 function onScreens(p) {
   const next = new Set((p.connected || []).map((n) => Math.max(1, Number(n) || 0)).filter(Boolean));
@@ -2772,7 +2873,9 @@ function renderScreens() {
         </div>
       </div>
       <div class="screen-status ${on ? 'on' : 'off'}"><span class="sdot"></span>${on ? 'Conectada' : 'Sin fuente'}</div>
-      <p class="screen-tip">Copia y pega el URL de la pantalla que elegiste</p>
+      <p class="screen-tip">${on
+        ? 'Fuente activa — el link no cambia al reiniciar Render'
+        : 'Si ya tenías el link en OBS/Live Studio, no lo cambies: pulsa Actualizar en la fuente. Solo vuelve a pegar si el enlace es distinto.'}</p>
       <div class="screen-btns">
         <button type="button" class="copy">Copiar link</button>
         <button type="button" class="test">Probar</button>
@@ -2785,7 +2888,13 @@ function renderScreens() {
     const id = +card.dataset.id;
     const s = screens.find((x) => x.id === id);
     card.querySelector('.copy').onclick = (e) => {
-      const copyUrl = IS_DESKTOP ? videoScreenUrl(id) : roomUrl(`/video.html?screen=${id}`);
+      const copyUrl = screenCopyUrl(id);
+      if (!screenUrlHasRoom(copyUrl)) {
+        if (typeof toast === 'function') toast('Espera a que cargue la sesión y vuelve a copiar (falta room= en el link)', 'warn');
+        e.target.textContent = 'Espera…';
+        setTimeout(() => (e.target.textContent = 'Copiar link'), 1500);
+        return;
+      }
       navigator.clipboard?.writeText(copyUrl);
       e.target.textContent = '¡copiado!';
       setTimeout(() => (e.target.textContent = 'Copiar link'), 1200);
@@ -2890,6 +2999,10 @@ function renderVideos() {
       renderScreens();
     };
   });
+  bindSaCardLongPressReorder(el, (ids) => {
+    if (!applySettingsListOrder('videos', ids)) return;
+    saveVideosBattlePatch('videos');
+  });
   syncVidMasterUI();
 }
 
@@ -2919,6 +3032,114 @@ function syncBaMasterUI() {
   settings.battleAlertsEnabled = on;
   const st = el.parentElement?.querySelector('.state');
   if (st) st.textContent = on ? 'ON' : 'OFF';
+}
+
+/** Reordenar tarjetas .sa-card dejando pulsado (acciones, alertas, videos, batallas). */
+function applySettingsListOrder(listKey, ids) {
+  const list = (settings && settings[listKey]) || [];
+  if (!Array.isArray(list) || !ids?.length) return false;
+  const byId = new Map(list.map((x) => [String(x.id), x]));
+  const next = [];
+  for (const id of ids) {
+    const item = byId.get(String(id));
+    if (item) {
+      next.push(item);
+      byId.delete(String(id));
+    }
+  }
+  for (const item of byId.values()) next.push(item);
+  const same = next.length === list.length && next.every((x, i) => x === list[i]);
+  if (same) return false;
+  settings[listKey] = next;
+  return true;
+}
+
+function bindSaCardLongPressReorder(container, onReorder) {
+  if (!container || typeof onReorder !== 'function') return;
+  container._saOnReorder = onReorder;
+  if (container.dataset.saReorder === '1') return;
+  container.dataset.saReorder = '1';
+
+  const HOLD_MS = 420;
+  const CANCEL_PX = 12;
+  const INTERACTIVE = 'button, input, select, textarea, a, label, .toggle, .sa-card-btns, .acc-card-icons, .vid-card-btns, .sa-vol, .vid-card-vol';
+
+  container.addEventListener('pointerdown', (e) => {
+    if (e.button != null && e.button !== 0) return;
+    const card = e.target.closest?.('.sa-card');
+    if (!card || !container.contains(card) || !card.dataset.id) return;
+    if (e.target.closest?.(INTERACTIVE)) return;
+
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let timer = null;
+    let dragging = false;
+    let moved = false;
+
+    const finish = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      if (dragging) {
+        try { card.releasePointerCapture?.(pointerId); } catch {}
+        card.classList.remove('sa-dragging');
+        container.classList.remove('sa-reordering');
+        if (moved) {
+          const ids = [...container.querySelectorAll('.sa-card')].map((c) => c.dataset.id).filter(Boolean);
+          try { container._saOnReorder?.(ids); } catch {}
+          const swallow = (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            card.removeEventListener('click', swallow, true);
+          };
+          card.addEventListener('click', swallow, true);
+          setTimeout(() => card.removeEventListener('click', swallow, true), 400);
+        }
+      }
+    };
+
+    const onMove = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!dragging) {
+        if (Math.hypot(dx, dy) > CANCEL_PX && timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        return;
+      }
+      ev.preventDefault();
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const over = under?.closest?.('.sa-card');
+      if (!over || over === card || !container.contains(over)) return;
+      const rect = over.getBoundingClientRect();
+      const before = ev.clientY < rect.top + rect.height / 2;
+      const ref = before ? over : over.nextSibling;
+      if (ref === card || (before && card.nextSibling === over) || (!before && over.nextSibling === card)) return;
+      container.insertBefore(card, ref);
+      moved = true;
+    };
+
+    const onUp = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      finish();
+    };
+
+    timer = setTimeout(() => {
+      timer = null;
+      dragging = true;
+      card.classList.add('sa-dragging');
+      container.classList.add('sa-reordering');
+      try { card.setPointerCapture(pointerId); } catch {}
+    }, HOLD_MS);
+
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  });
 }
 
 /* Guardar SOLO las claves pedidas (no todo settings).
@@ -3515,6 +3736,10 @@ function renderBattleAlerts() {
       renderBattleAlerts();
     };
   });
+  bindSaCardLongPressReorder(el, (ids) => {
+    if (!applySettingsListOrder('battleAlerts', ids)) return;
+    saveVideosBattlePatch('battleAlerts');
+  });
   syncBaMasterUI();
 }
 
@@ -3734,6 +3959,11 @@ function renderSoundAlerts() {
       await syncDesktopWebhookSettings();
       renderSoundAlerts();
     };
+  });
+  bindSaCardLongPressReorder(el, (ids) => {
+    if (!applySettingsListOrder('soundAlerts', ids)) return;
+    saveSettingsKeysPatch('soundAlerts');
+    syncDesktopWebhookSettings();
   });
 }
 
@@ -4473,6 +4703,27 @@ function renderPotSimGiftBtn(key) {
 /* ---- Modal de configuración (compartido por jarrón y vaquita) ---- */
 let cfgTarget = 'jarron';
 let cfgSizesDraft = [];
+/** Color de relleno del <input type="color"> al quitar tinte; NO es el default del overlay (default = sin tinte). */
+const POT_TINT_PICKER_PLACEHOLDER = '#7cc8ff';
+
+function normalizeAlcanciaTintDefaults() {
+  if (!settings) return false;
+  let changed = false;
+  for (const key of ['jarron', 'vaquita', 'marranito', 'perrito']) {
+    if (!settings[key] || typeof settings[key] !== 'object') continue;
+    const t = String(settings[key].tint ?? '').trim();
+    if (!t) {
+      if (settings[key].tint) { settings[key].tint = ''; changed = true; }
+      continue;
+    }
+    // Perfiles que guardaron el azul del picker por el bug (tint vacío → se mostraba/guardaba #7cc8ff).
+    if (t.toLowerCase() === POT_TINT_PICKER_PLACEHOLDER) {
+      settings[key].tint = '';
+      changed = true;
+    }
+  }
+  return changed;
+}
 
 function cfgPreviewWin() { return $(POT_OVERLAYS[cfgTarget].previewId)?.contentWindow; }
 function cfgToPreview(msg) { cfgPreviewWin()?.postMessage({ kind: cfgTarget, ...msg }, '*'); }
@@ -4481,9 +4732,15 @@ function openPotConfig(target) {
   cfgTarget = target;
   if (!settings[target]) settings[target] = {};
   const data = settings[target];
-  const tint = data.tint || '#7cc8ff';
-  $('jarcfg-tint').value = /^#/.test(tint) ? tint : '#7cc8ff';
-  $('jarcfg-tint').dataset.cleared = data.tint ? '' : '';
+  // tint vacío = sin tinte (default). No usar || placeholder (convertía '' en azul y al Guardar lo persistía).
+  let tint = String(data.tint == null ? '' : data.tint).trim();
+  if (tint.toLowerCase() === POT_TINT_PICKER_PLACEHOLDER) tint = '';
+  const tintEl = $('jarcfg-tint');
+  if (tintEl) {
+    tintEl.value = /^#/.test(tint) ? tint : POT_TINT_PICKER_PLACEHOLDER;
+    tintEl.dataset.cleared = tint ? '' : '1';
+  }
+  cfgToPreview({ type: 'config', tint: tint || '' });
   cfgSizesDraft = (data.sizes && data.sizes.length)
     ? data.sizes.map((r) => ({ t: Number(r.t) || 0, sz: Number(r.sz) || 32 }))
     : DEFAULT_JAR_SIZES.map((r) => ({ ...r }));
@@ -4518,7 +4775,6 @@ function openPotConfig(target) {
   pushJarTopBarPreview();
   pushJarGiftToastPreview();
 }
-
 function closeJarConfig() { $('jarConfigModal').classList.add('hidden'); }
 
 function renderJarRows() {
@@ -4565,9 +4821,9 @@ $('jarcfg-add') && ($('jarcfg-add').onclick = () => {
   renderJarRows();
 });
 $('jarcfg-tintclear') && ($('jarcfg-tintclear').onclick = () => {
-  if ($('jarcfg-tint')) $('jarcfg-tint').value = '#7cc8ff';
+  $('jarcfg-tint').value = POT_TINT_PICKER_PLACEHOLDER;
   cfgToPreview({ type: 'config', tint: '' });
-  if ($('jarcfg-tint')) $('jarcfg-tint').dataset.cleared = '1';
+  $('jarcfg-tint').dataset.cleared = '1';
 });
 if ($('jarcfg-tint')) $('jarcfg-tint').oninput = () => {
   $('jarcfg-tint').dataset.cleared = '';
@@ -4575,7 +4831,11 @@ if ($('jarcfg-tint')) $('jarcfg-tint').oninput = () => {
 };
 $('jarcfg-save') && ($('jarcfg-save').onclick = () => {
   if (!settings[cfgTarget]) settings[cfgTarget] = {};
-  settings[cfgTarget].tint = $('jarcfg-tint')?.dataset.cleared === '1' ? '' : ($('jarcfg-tint')?.value || '');
+  const tintEl = $('jarcfg-tint');
+  const cleared = tintEl?.dataset.cleared === '1';
+  let tintVal = cleared ? '' : String(tintEl?.value || '').trim();
+  if (tintVal.toLowerCase() === POT_TINT_PICKER_PLACEHOLDER && cleared) tintVal = '';
+  settings[cfgTarget].tint = tintVal;
   settings[cfgTarget].sizes = [...cfgSizesDraft].sort((a, b) => b.t - a.t);
   settings[cfgTarget].topBarEnabled = !!$('jarcfg-topbar-on')?.checked;
   settings[cfgTarget].topBarLimit = Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit')?.value, 10) || 3));
@@ -4628,9 +4888,20 @@ if (jarcfgGiftToastOp) jarcfgGiftToastOp.oninput = pushJarGiftToastPreview;
 
 // Refleja el color guardado en el selector del modal (si está abierto)
 function applyJarronUI() {
+  if (normalizeAlcanciaTintDefaults()) {
+    try { saveSettings(); } catch {}
+  }
+  // Empuja tint vacío/correcto a las 4 vistas previas (sin tocar otros ajustes).
+  for (const [key, cfg] of Object.entries(POT_OVERLAYS)) {
+    const tint = String(settings?.[key]?.tint ?? '').trim();
+    $(cfg.previewId)?.contentWindow?.postMessage({ kind: key, type: 'config', tint: tint || '' }, '*');
+  }
   const t = $('jarcfg-tint');
   const data = settings?.[cfgTarget];
-  if (t && data?.tint && /^#/.test(data.tint)) t.value = data.tint;
+  if (!t) return;
+  const tint = String(data?.tint ?? '').trim();
+  t.value = /^#/.test(tint) ? tint : POT_TINT_PICKER_PLACEHOLDER;
+  t.dataset.cleared = tint ? '' : '1';
 }
 
 /* ---- Pelotas de fans: tarjeta + modal de configuración ---- */
@@ -4890,8 +5161,11 @@ let flwPartsDraft = [];
 
 function defaultFlowMeterCfg() {
   return {
-    title: 'MEDIDOR DE FLOW', textColor: '#f4f8ff', fontSize: 13, barHeight: 28, scale: 78, maxParticipants: 5,
-    font: 'inter', showPercent: true, roundByTime: false, timerWins: false, roundSec: 60, participants: [], wins: [],
+    title: 'MEDIDOR DE FLOW', textColor: '#ffffff', fontSize: 23, barHeight: 38, scale: 65, maxParticipants: 5,
+    font: 'luckiest', showPercent: true, titleRainbow: true, nameRainbow: true,
+    roundByTime: false, timerWins: false, roundSec: 60,
+    participants: exampleFlwParticipants(),
+    wins: [],
   };
 }
 
@@ -4900,28 +5174,42 @@ function emptyFlwParticipant(i) {
 }
 
 function exampleFlwParticipants() {
-  const gifts = ['Rose', 'GG', 'Heart Me', 'TikTok', 'Finger Heart'];
-  return [1, 2, 3].map((n, i) => ({
-    name: 'test' + n,
-    tiktokUrl: '',
-    avatar: '',
-    color: FLW_COLORS[i % FLW_COLORS.length],
-    giftId: '',
-    giftName: gifts[i] || 'Rose',
-    giftImage: '',
-  }));
+  return [
+    {
+      name: 'test1', tiktokUrl: '', avatar: '', color: FLW_COLORS[0],
+      giftId: '6093', giftName: 'Football',
+      giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/c043cd9e418f13017793ddf6e0c6ee99~tplv-obj.webp',
+    },
+    {
+      name: 'test2', tiktokUrl: '', avatar: '', color: FLW_COLORS[1],
+      giftId: '6064', giftName: 'GG',
+      giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp',
+    },
+    {
+      name: 'test3', tiktokUrl: '', avatar: '', color: FLW_COLORS[2],
+      giftId: '7934', giftName: 'Heart Me',
+      giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/d56945782445b0b8c8658ed44f894c7b~tplv-obj.webp',
+    },
+    {
+      name: 'test4', tiktokUrl: '', avatar: '', color: FLW_COLORS[3],
+      giftId: '7096', giftName: "It's corn",
+      giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/37f5c76b65c17d6dbbbd4b6724f61bf2~tplv-obj.webp',
+    },
+  ];
 }
 
 function currentFlowMeterCfg() {
   return {
     title: ($('flwcfg-title')?.value || 'MEDIDOR DE FLOW').trim(),
-    textColor: $('flwcfg-textcolor')?.value || '#f4f8ff',
-    fontSize: Math.max(10, parseInt($('flwcfg-fontsize')?.value, 10) || 13),
-    barHeight: Math.max(16, parseInt($('flwcfg-barheight')?.value, 10) || 28),
-    scale: Math.max(50, Math.min(100, parseInt($('flwcfg-scale')?.value, 10) || 78)),
+    textColor: $('flwcfg-textcolor')?.value || '#ffffff',
+    fontSize: Math.max(10, parseInt($('flwcfg-fontsize')?.value, 10) || 23),
+    barHeight: Math.max(16, parseInt($('flwcfg-barheight')?.value, 10) || 38),
+    scale: Math.max(50, Math.min(100, parseInt($('flwcfg-scale')?.value, 10) || 65)),
     maxParticipants: Math.max(1, Math.min(5, parseInt($('flwcfg-max')?.value, 10) || 5)),
-    font: $('flwcfg-font')?.value || 'inter',
+    font: $('flwcfg-font')?.value || 'luckiest',
     showPercent: !!$('flwcfg-showpct')?.checked,
+    titleRainbow: !!$('flwcfg-titlerainbow')?.checked,
+    nameRainbow: !!$('flwcfg-namerainbow')?.checked,
     roundByTime: !!$('flwcfg-timerwins')?.checked,
     timerWins: !!$('flwcfg-timerwins')?.checked,
     roundSec: Math.max(5, parseInt($('flwcfg-roundsec')?.value, 10) || 60),
@@ -5085,13 +5373,15 @@ function renderFlwParticipants() {
 function openFlwConfig() {
   const c = settings?.flowMeter || defaultFlowMeterCfg();
   $('flwcfg-title').value = c.title || 'MEDIDOR DE FLOW';
-  $('flwcfg-textcolor').value = c.textColor || '#f4f8ff';
-  $('flwcfg-fontsize').value = c.fontSize || 13;
-  $('flwcfg-barheight').value = c.barHeight || 28;
-  $('flwcfg-scale').value = c.scale || 78;
+  $('flwcfg-textcolor').value = c.textColor || '#ffffff';
+  $('flwcfg-fontsize').value = c.fontSize || 23;
+  $('flwcfg-barheight').value = c.barHeight || 38;
+  $('flwcfg-scale').value = c.scale || 65;
   $('flwcfg-max').value = c.maxParticipants || 5;
-  $('flwcfg-font').value = c.font || 'inter';
+  $('flwcfg-font').value = c.font || 'luckiest';
   $('flwcfg-showpct').checked = c.showPercent !== false;
+  if ($('flwcfg-titlerainbow')) $('flwcfg-titlerainbow').checked = !!c.titleRainbow;
+  if ($('flwcfg-namerainbow')) $('flwcfg-namerainbow').checked = !!c.nameRainbow;
   $('flwcfg-timerwins').checked = !!(c.roundByTime || c.timerWins);
   $('flwcfg-roundsec').value = c.roundSec || 60;
   const timedFields = $('flwcfg-timed-fields');
@@ -5141,7 +5431,7 @@ if ($('flwcfg-example')) {
     renderFlwParticipants();
   };
 }
-['flwcfg-title', 'flwcfg-textcolor', 'flwcfg-fontsize', 'flwcfg-barheight', 'flwcfg-scale', 'flwcfg-max', 'flwcfg-font', 'flwcfg-showpct', 'flwcfg-timerwins', 'flwcfg-roundsec'].forEach((id) => {
+['flwcfg-title', 'flwcfg-textcolor', 'flwcfg-fontsize', 'flwcfg-barheight', 'flwcfg-scale', 'flwcfg-max', 'flwcfg-font', 'flwcfg-showpct', 'flwcfg-titlerainbow', 'flwcfg-namerainbow', 'flwcfg-timerwins', 'flwcfg-roundsec'].forEach((id) => {
   const el = $(id);
   if (el) {
     el.oninput = () => {
@@ -5340,15 +5630,47 @@ let gshItemsDraft = [];
 
 function defaultGiftShowcaseCfg() {
   return {
-    displayMode: 'rotate', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
+    displayMode: 'marquee', visibleCount: 3, intervalSec: 2, marqueeSec: 18,
     iconSize: 88, gap: 24, font: 'bangers', fontSize: 22, textColor: '#ffffff', textStroke: 2,
-    colorMode: 'solid', scale: 100, items: [],
+    colorMode: 'solid', scale: 100,
+    items: [
+      {
+        giftId: '19441', giftName: 'Freestyle',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/1f5ca5cfb4b98c2761fb85987f47c641.png~tplv-obj.webp',
+        customText: 'Freestyle',
+      },
+      {
+        giftId: '6064', giftName: 'GG',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp',
+        customText: 'GG',
+      },
+      {
+        giftId: '54724', giftName: 'Creeper',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/d686d45bd66e16b0aca8b0e5eb52a977.png~tplv-obj.webp',
+        customText: 'Creeper',
+      },
+      {
+        giftId: '14543', giftName: 'Congratulations',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/8e73d843b23a9e68f8d3cf8c46fc0bee.png~tplv-obj.webp',
+        customText: 'Congratulations',
+      },
+      {
+        giftId: '131882', giftName: "It's Match Time",
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/be170a9d325c02c1d5786301679bf013.png~tplv-obj.webp',
+        customText: "It's Match Time",
+      },
+      {
+        giftId: '7096', giftName: "It's corn",
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/37f5c76b65c17d6dbbbd4b6724f61bf2~tplv-obj.webp',
+        customText: "It's corn",
+      },
+    ],
   };
 }
 
 function currentGshCfg() {
   return {
-    displayMode: $('gshcfg-mode')?.value || 'rotate',
+    displayMode: $('gshcfg-mode')?.value || 'marquee',
     visibleCount: Math.max(1, Math.min(8, parseInt($('gshcfg-visible')?.value, 10) || 3)),
     intervalSec: Math.max(1, Math.min(15, parseInt($('gshcfg-interval')?.value, 10) || 2)),
     marqueeSec: Math.max(6, Math.min(120, parseInt($('gshcfg-marquee')?.value, 10) || 18)),
@@ -5398,7 +5720,7 @@ function refreshGshNotice() {
 
 function openGshConfig() {
   const c = settings?.giftShowcase || defaultGiftShowcaseCfg();
-  if ($('gshcfg-mode')) $('gshcfg-mode').value = c.displayMode || 'rotate';
+  if ($('gshcfg-mode')) $('gshcfg-mode').value = c.displayMode || 'marquee';
   if ($('gshcfg-visible')) $('gshcfg-visible').value = c.visibleCount || 3;
   if ($('gshcfg-interval')) $('gshcfg-interval').value = c.intervalSec || 2;
   if ($('gshcfg-marquee')) $('gshcfg-marquee').value = c.marqueeSec || 18;
@@ -5669,28 +5991,37 @@ function initModalDrag() {
 }
 
 function setupStyleOverlay(o) {
-  const prevWin = () => $(o.previewId)?.contentWindow;
-  const toPreview = (msg) => prevWin()?.postMessage({ kind: o.kind, ...msg }, '*');
+  const frame = () => $(o.previewId);
+  const toPreview = (msg) => {
+    ensureEmbedLoaded(frame()).then((fr) => {
+      fr?.contentWindow?.postMessage({ kind: o.kind, ...msg }, '*');
+    });
+  };
   const buildCfg = () => readForm(o.map, o.types);
   const pushPreview = (cfg) => toPreview({ type: 'config', config: cfg || settings?.[o.settingsKey] || {} });
   const syncFormExtras = () => { if (typeof o.onFormSync === 'function') o.onFormSync(); };
 
-  const bumpPreviewFrame = () => new Promise((resolve) => {
-    const fr = $(o.previewId);
+  const bumpPreviewFrame = () => ensureEmbedLoaded(frame()).then((fr) => new Promise((resolve) => {
     if (!fr || !o.ovBuild) { resolve(); return; }
-    const u = new URL(fr.src, location.origin);
+    const base = fr.getAttribute('src') || embedWantSrc(fr) || '/';
+    const u = new URL(base, location.origin);
     u.searchParams.set('v', o.ovBuild);
     u.searchParams.set('_', String(Date.now()));
+    const next = u.pathname + u.search;
+    fr.dataset.src = next;
+    fr.dataset.embedReady = '';
     const done = () => {
       fr.removeEventListener('load', done);
+      fr.dataset.embedReady = '1';
       pushPreview();
       setTimeout(resolve, 120);
     };
     fr.addEventListener('load', done);
-    fr.src = u.pathname + u.search;
-  });
+    fr.src = next;
+  }));
 
   const runTest = async (fromModal) => {
+    await ensureEmbedLoaded(frame());
     const extra = o.randomGift ? { gift: randomGiftSample() } : {};
     if (o.rank) extra.rank = o.rank;
     if (fromModal) {
@@ -5705,8 +6036,13 @@ function setupStyleOverlay(o) {
   };
   if ($(o.btnTest)) $(o.btnTest).onclick = () => runTest(false);
   if (o.btnTestModal && $(o.btnTestModal)) $(o.btnTestModal).onclick = () => runTest(true);
-  if ($(o.btnReset)) $(o.btnReset).onclick = () => { toPreview({ type: 'reset' }); send({ action: o.resetAction, ...(o.rank ? { rank: o.rank } : {}) }); };
-  if ($(o.btnConfig)) $(o.btnConfig).onclick = () => {
+  if ($(o.btnReset)) $(o.btnReset).onclick = () => {
+    toPreview({ type: 'reset' });
+    send({ action: o.resetAction, ...(o.rank ? { rank: o.rank } : {}) });
+    if (typeof o.onReset === 'function') o.onReset();
+  };
+  if ($(o.btnConfig)) $(o.btnConfig).onclick = async () => {
+    await ensureEmbedLoaded(frame());
     fillForm(o.map, settings?.[o.settingsKey] || {});
     syncFormExtras();
     pushPreview(buildCfg());
@@ -5806,6 +6142,21 @@ const STYLE_OVERLAYS = [
       'gctcfg-tc1': 'tc1', 'gctcfg-tc2': 'tc2', 'gctcfg-tc3': 'tc3',
       'gctcfg-titlecolor': 'titleColor', 'gctcfg-countercolor': 'counterColor',
       'gctcfg-titlestroke': 'titleStroke', 'gctcfg-counterstroke': 'counterStroke' },
+    onFormSync: () => {
+      const on = !!$('gctcfg-rainbow')?.checked;
+      document.querySelectorAll('.gct-rain-colors').forEach((el) => { el.style.display = on ? '' : 'none'; });
+      document.querySelectorAll('.gct-solid-colors').forEach((el) => { el.style.display = on ? 'none' : ''; });
+      const hint = $('gctcfg-rainbow-hint');
+      if (hint) {
+        hint.textContent = on
+          ? 'Arcoíris ON: el título se anima con los 3 colores. Cámbialos abajo.'
+          : 'Arcoíris OFF: título en color sólido (blanco por defecto). Cámbialo en COLOR TÍTULO.';
+      }
+      if (typeof refreshGiftCounterCardUI === 'function') refreshGiftCounterCardUI();
+    },
+    onSave: (cfg) => {
+      if ($('gct-goal')) cfg.goal = Math.max(1, parseInt($('gct-goal').value, 10) || 1);
+    },
   }),
   setupStyleOverlay({
     kind: 'topstreak', settingsKey: 'topStreak', previewId: 'tst-preview',
@@ -6068,7 +6419,7 @@ const STYLE_OVERLAYS = [
   }),
 ];
 
-// Contador de meta: controles propios de la tarjeta (regalo, meta, título, valor).
+// Contador de meta: regalo / meta / valor viven en el modal Configurar.
 (function setupGiftCounterCard() {
   const prev = () => $('gct-preview')?.contentWindow;
   const toPrev = () => prev()?.postMessage({ kind: 'gcounter', type: 'config', config: settings?.giftCounter || {} }, '*');
@@ -6092,10 +6443,6 @@ const STYLE_OVERLAYS = [
     const c = ensure(); c.goal = Math.max(1, parseInt($('gct-goal').value, 10) || 1);
     saveSettings(); toPrev();
   });
-  if ($('gct-title2')) $('gct-title2').addEventListener('input', () => {
-    const c = ensure(); c.title = $('gct-title2').value;
-    saveSettings(); toPrev();
-  });
   if ($('gct-set')) $('gct-set').onclick = () => {
     const v = Math.max(0, parseInt($('gct-value').value, 10) || 0);
     send({ action: 'setGiftCounter', value: v });
@@ -6108,7 +6455,6 @@ function refreshGiftCounterCardUI() {
   const nameEl = $('gct-giftname');
   if (nameEl) nameEl.textContent = c.giftName ? c.giftName : 'Cualquier regalo';
   if ($('gct-goal')) $('gct-goal').value = c.goal ?? 50;
-  if ($('gct-title2')) $('gct-title2').value = c.title ?? 'MY CHALLENGE';
 }
 
 // Coin Match: controles de partido (iniciar/terminar/ganadores) + reset propio
@@ -6414,7 +6760,12 @@ if (window.desktopAPI?.onWinsHotkey) {
     const skinQ = skin && skin !== 'default' ? '&skin=' + skin : '';
     const want = '/meta.html?embed=1' + skinQ;
     if (f && f.getAttribute('src') !== want) {
-      f.onload = () => toPrev({ type: 'config', config: build() });
+      f.dataset.src = want;
+      f.dataset.embedReady = '';
+      f.onload = () => {
+        f.dataset.embedReady = '1';
+        toPrev({ type: 'config', config: build() });
+      };
       f.src = want;
     }
     const path = '/meta.html' + (skin && skin !== 'default' ? '?skin=' + skin : '');
@@ -6423,9 +6774,18 @@ if (window.desktopAPI?.onWinsHotkey) {
   }
   function pushPreview(cfg) { toPrev({ type: 'config', config: cfg || settings?.hypeBar || {} }); }
 
-  if ($('hyp-test')) $('hyp-test').onclick = () => { toPrev({ type: 'test' }); send({ action: 'testHype' }); };
-  if ($('hyp-reset')) $('hyp-reset').onclick = () => { toPrev({ type: 'reset' }); send({ action: 'resetHype' }); };
-  if ($('hyp-config')) $('hyp-config').onclick = () => {
+  if ($('hyp-test')) $('hyp-test').onclick = async () => {
+    await ensureEmbedLoaded(frame());
+    toPrev({ type: 'test' });
+    send({ action: 'testHype' });
+  };
+  if ($('hyp-reset')) $('hyp-reset').onclick = async () => {
+    await ensureEmbedLoaded(frame());
+    toPrev({ type: 'reset' });
+    send({ action: 'resetHype' });
+  };
+  if ($('hyp-config')) $('hyp-config').onclick = async () => {
+    await ensureEmbedLoaded(frame());
     fillForm(MAP, settings?.hypeBar || {});
     applySkin((settings?.hypeBar || {}).skin || 'default');
     pushPreview(build());
@@ -8441,6 +8801,11 @@ function renderAcciones() {
       renderAcciones();
     };
   });
+  bindSaCardLongPressReorder(grid, (ids) => {
+    if (!applySettingsListOrder('actions', ids)) return;
+    saveSettingsKeysPatch('actions');
+    syncDesktopWebhookSettings();
+  });
 }
 
 function updateAccSelCount() {
@@ -10357,6 +10722,7 @@ function showViewById(viewId) {
   if (viewId === 'view-juego-geometrydash') {
     if (typeof renderGdashActions === 'function') renderGdashActions();
   }
+  onOverlayNavShown(viewId);
 }
 // Conecta las tarjetas de juego: al pulsar abren su pestaña; el botón "Volver" regresa.
 function setupJuegosUI() {
@@ -10669,6 +11035,7 @@ const MC_CATALOG = [
 const MC_TRIGGERS = [
   { v: 'gift', label: 'Regalo específico' },
   { v: 'gift-any', label: 'Cualquier regalo' },
+  { v: 'gift-diamonds', label: 'Cantidad diamantes' },
   { v: 'like', label: 'Likes (por usuario)' },
   { v: 'likeGlobal', label: 'Likes globales' },
   { v: 'follow', label: 'Nuevo seguidor' },
@@ -10685,6 +11052,7 @@ const MC_TRIGGERS = [
 const MC_TRIG_ICON = {
   gift: { ic: '🎁', label: 'Regalo' },
   'gift-any': { ic: '🎁', label: 'Cualquier regalo' },
+  'gift-diamonds': { ic: '💎', label: 'Cantidad diamantes' },
   like: { ic: '❤️', label: 'Likes' },
   likeGlobal: { ic: '💗', label: 'Likes globales' },
   follow: { ic: '➕', label: 'Seguidor' },
@@ -10716,6 +11084,10 @@ function mcTrigCardBtnHtml(a) {
       ? `<img class="mc-trig-gift-img" src="${esc(a.giftImage)}" alt="" onerror="this.outerHTML='<span class=\\'mc-trig-emoji\\'>🎁</span>'">`
       : `<span class="mc-trig-emoji">🎁</span>`;
     sub = a.giftName ? esc(a.giftName) : 'Elegir regalo';
+  } else if (trig === 'gift-diamonds') {
+    const lo = Number(a.rangeMin) || 0;
+    const hi = Number(a.rangeMax) || 0;
+    sub = hi > 0 ? `💎 ${lo} - ${hi}` : (lo > 0 ? `💎 ≥${lo}` : '💎 Rango…');
   } else if (trig === 'like' || trig === 'likeGlobal') {
     const defN = trig === 'likeGlobal' ? 100 : 1;
     const n = a.likeN != null ? a.likeN : defN;
@@ -10774,6 +11146,8 @@ function openMcTrigPop(uid, settingsKey = 'mcActions') {
     giftId: a.giftId || '',
     giftName: a.giftName || '',
     giftImage: a.giftImage || '',
+    rangeMin: a.rangeMin != null ? a.rangeMin : 0,
+    rangeMax: a.rangeMax != null ? a.rangeMax : 0,
     likeN: a.likeN != null ? a.likeN : (a.trigger === 'likeGlobal' ? 100 : 1),
     text: a.text || '',
     eventDelay: a.eventDelay != null ? a.eventDelay : 30,
@@ -10817,6 +11191,17 @@ function renderMcTrigPop() {
       </button>`;
   } else if (d.trigger === 'gift-any') {
     detailHtml = `<p class="mc-trig-pop-hint">Se dispara con cualquier regalo.</p>`;
+  } else if (d.trigger === 'gift-diamonds') {
+    detailHtml = `
+      <div class="mc-like-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label>💎 desde
+          <input type="number" min="0" id="mc-trig-pop-rangemin" value="${esc(String(d.rangeMin != null ? d.rangeMin : 0))}" placeholder="ej. 99">
+        </label>
+        <label>hasta
+          <input type="number" min="0" id="mc-trig-pop-rangemax" value="${esc(String(d.rangeMax != null ? d.rangeMax : 0))}" placeholder="0 = sin límite">
+        </label>
+      </div>
+      <p class="mc-trig-pop-hint">Se dispara si el regalo (diamantes × cantidad) cae en ese rango. Ej. 99–200.</p>`;
   } else if (d.trigger === 'like' || d.trigger === 'likeGlobal') {
     const txt = d.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
     detailHtml = `<label class="mc-like-row">${txt}
@@ -10851,6 +11236,10 @@ function renderMcTrigPop() {
   }
   const likeN = document.getElementById('mc-trig-pop-liken');
   if (likeN) likeN.oninput = () => { d.likeN = Math.max(1, parseInt(likeN.value, 10) || 1); };
+  const rangeMinEl = document.getElementById('mc-trig-pop-rangemin');
+  if (rangeMinEl) rangeMinEl.oninput = () => { d.rangeMin = Math.max(0, parseInt(rangeMinEl.value, 10) || 0); };
+  const rangeMaxEl = document.getElementById('mc-trig-pop-rangemax');
+  if (rangeMaxEl) rangeMaxEl.oninput = () => { d.rangeMax = Math.max(0, parseInt(rangeMaxEl.value, 10) || 0); };
   const textEl = document.getElementById('mc-trig-pop-text');
   if (textEl) textEl.oninput = () => { d.text = textEl.value; };
   const delayEl = document.getElementById('mc-trig-pop-delay');
@@ -10867,15 +11256,29 @@ function saveMcTrigPop() {
   const likeNEl = document.getElementById('mc-trig-pop-liken');
   const textEl = document.getElementById('mc-trig-pop-text');
   const delayEl = document.getElementById('mc-trig-pop-delay');
+  const rangeMinEl = document.getElementById('mc-trig-pop-rangemin');
+  const rangeMaxEl = document.getElementById('mc-trig-pop-rangemax');
   if (likeNEl) d.likeN = Math.max(1, parseInt(likeNEl.value, 10) || 1);
   if (textEl) d.text = textEl.value.trim();
   if (delayEl) d.eventDelay = Math.max(0, parseInt(delayEl.value, 10) || 0);
+  if (rangeMinEl) d.rangeMin = Math.max(0, parseInt(rangeMinEl.value, 10) || 0);
+  if (rangeMaxEl) d.rangeMax = Math.max(0, parseInt(rangeMaxEl.value, 10) || 0);
 
   a.trigger = d.trigger;
   if (d.trigger === 'gift') {
     a.giftId = d.giftId || '';
     a.giftName = d.giftName || '';
     a.giftImage = d.giftImage || '';
+  }
+  if (d.trigger === 'gift-diamonds') {
+    a.rangeMin = d.rangeMin != null ? d.rangeMin : 0;
+    a.rangeMax = d.rangeMax != null ? d.rangeMax : 0;
+    a.giftId = '';
+    a.giftName = '';
+    a.giftImage = '';
+  } else {
+    delete a.rangeMin;
+    delete a.rangeMax;
   }
   if (d.trigger === 'like' || d.trigger === 'likeGlobal') a.likeN = d.likeN;
   if (d.trigger === 'chatUser' || d.trigger === 'chatCommand') a.text = d.text || '';
@@ -11265,7 +11668,12 @@ function gameActionGiftUi(a, giftClass) {
     return `<button type="button" class="mc-gift-btn ${giftClass}" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
   }
   const ev = MC_TRIG_ICON[t] || { ic: '⚡', label: t };
-  const lbl = (MC_TRIGGERS.find((x) => x.v === t) || {}).label || ev.label;
+  let lbl = (MC_TRIGGERS.find((x) => x.v === t) || {}).label || ev.label;
+  if (t === 'gift-diamonds') {
+    const lo = Number(a.rangeMin) || 0;
+    const hi = Number(a.rangeMax) || 0;
+    lbl = hi > 0 ? `Cantidad diamantes (${lo} - ${hi})` : (lo > 0 ? `Cantidad diamantes (≥${lo})` : 'Cantidad diamantes');
+  }
   return `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
 }
 function gameActionExtraRow(a, likeClass, textClass) {
@@ -11288,13 +11696,24 @@ function setGameActionTrigger(settingsKey, uid, value, renderFn) {
   const a = (settings[settingsKey] || []).find((x) => x && x.uid === uid);
   if (!a) return;
   a.trigger = value;
-  if (value !== 'gift' && value !== 'gift-any') {
+  if (value !== 'gift' && value !== 'gift-any' && value !== 'gift-diamonds') {
     a.giftId = '';
     a.giftName = '';
     a.giftImage = '';
     a.comboInstant = false;
   }
   if (value === 'gift-any' && a.comboInstant == null) a.comboInstant = true;
+  if (value === 'gift-diamonds') {
+    a.giftId = '';
+    a.giftName = '';
+    a.giftImage = '';
+    if (a.rangeMin == null) a.rangeMin = 0;
+    if (a.rangeMax == null) a.rangeMax = 0;
+    if (a.comboInstant == null) a.comboInstant = true;
+  } else {
+    delete a.rangeMin;
+    delete a.rangeMax;
+  }
   if (value === 'like') a.likeN = Math.max(1, parseInt(a.likeN, 10) || 1);
   else if (value === 'likeGlobal') a.likeN = Math.max(1, parseInt(a.likeN, 10) || 100);
   else if (value !== 'chatUser' && value !== 'chatCommand') a.text = '';
@@ -13668,6 +14087,13 @@ function renderRobloxActions() {
       const val = a.likeN != null ? a.likeN : defN;
       const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
       likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="rbx-like-n" data-slot="${i}" value="${esc(String(val))}"></label>`;
+    } else if (a.trigger === 'gift-diamonds') {
+      const lo = Number(a.rangeMin) || 0;
+      const hi = Number(a.rangeMax) || 0;
+      likeRow = `<div class="mc-like-row" style="display:flex;gap:8px;flex-wrap:wrap">
+        <label>💎 desde <input type="number" min="0" class="rbx-range-min" data-slot="${i}" value="${esc(String(lo))}"></label>
+        <label>hasta <input type="number" min="0" class="rbx-range-max" data-slot="${i}" value="${esc(String(hi))}" placeholder="0 = ∞"></label>
+      </div>`;
     } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
       const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !salta)';
       const ph = a.trigger === 'chatUser' ? 'usuario123' : '!salta';
@@ -13689,9 +14115,20 @@ function renderRobloxActions() {
   }).join('');
 
   const at = (el) => list[parseInt(el?.dataset?.slot ?? el, 10)];
-  wrap.querySelectorAll('.rbx-trig-sel').forEach((s) => s.onchange = () => { const a = at(s); if (!a) return; a.trigger = s.value; saveSettings(); renderRobloxActions(); });
+  wrap.querySelectorAll('.rbx-trig-sel').forEach((s) => s.onchange = () => {
+    const a = at(s); if (!a) return;
+    a.trigger = s.value;
+    if (s.value === 'gift-diamonds') {
+      if (a.rangeMin == null) a.rangeMin = 0;
+      if (a.rangeMax == null) a.rangeMax = 0;
+    }
+    saveSettings();
+    renderRobloxActions();
+  });
   bindGameActionConfigPopovers(wrap, (slot) => list[parseInt(slot, 10)], renderRobloxActions, { useSlot: true });
   wrap.querySelectorAll('.rbx-like-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.rbx-range-min').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMin = Math.max(0, parseInt(inp.value, 10) || 0); saveSettings(); });
+  wrap.querySelectorAll('.rbx-range-max').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMax = Math.max(0, parseInt(inp.value, 10) || 0); saveSettings(); });
   wrap.querySelectorAll('.rbx-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
   wrap.querySelectorAll('.rbx-gift').forEach((b) => b.onclick = () => {
     const a = at(b); if (!a) return;
@@ -13790,6 +14227,13 @@ function renderRoblox3Actions() {
       const val = a.likeN != null ? a.likeN : defN;
       const txt = a.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
       likeRow = `<label class="mc-like-row">${txt}<input type="number" min="1" class="rbx3-like-n" data-slot="${i}" value="${esc(String(val))}"></label>`;
+    } else if (a.trigger === 'gift-diamonds') {
+      const lo = Number(a.rangeMin) || 0;
+      const hi = Number(a.rangeMax) || 0;
+      likeRow = `<div class="mc-like-row" style="display:flex;gap:8px;flex-wrap:wrap">
+        <label>💎 desde <input type="number" min="0" class="rbx3-range-min" data-slot="${i}" value="${esc(String(lo))}"></label>
+        <label>hasta <input type="number" min="0" class="rbx3-range-max" data-slot="${i}" value="${esc(String(hi))}" placeholder="0 = ∞"></label>
+      </div>`;
     } else if (a.trigger === 'chatUser' || a.trigger === 'chatCommand') {
       const txt = a.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !salta)';
       const ph = a.trigger === 'chatUser' ? 'usuario123' : '!salta';
@@ -13815,9 +14259,20 @@ function renderRoblox3Actions() {
   }).join('');
 
   const at = (el) => list[parseInt(el?.dataset?.slot ?? el, 10)];
-  wrap.querySelectorAll('.rbx3-trig-sel').forEach((s) => s.onchange = () => { const a = at(s); if (!a) return; a.trigger = s.value; saveSettings(); renderRoblox3Actions(); });
+  wrap.querySelectorAll('.rbx3-trig-sel').forEach((s) => s.onchange = () => {
+    const a = at(s); if (!a) return;
+    a.trigger = s.value;
+    if (s.value === 'gift-diamonds') {
+      if (a.rangeMin == null) a.rangeMin = 0;
+      if (a.rangeMax == null) a.rangeMax = 0;
+    }
+    saveSettings();
+    renderRoblox3Actions();
+  });
   bindGameActionConfigPopovers(wrap, (slot) => list[parseInt(slot, 10)], renderRoblox3Actions, { useSlot: true });
   wrap.querySelectorAll('.rbx3-like-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
+  wrap.querySelectorAll('.rbx3-range-min').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMin = Math.max(0, parseInt(inp.value, 10) || 0); saveSettings(); });
+  wrap.querySelectorAll('.rbx3-range-max').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMax = Math.max(0, parseInt(inp.value, 10) || 0); saveSettings(); });
   wrap.querySelectorAll('.rbx3-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
   wrap.querySelectorAll('.rbx3-gift').forEach((b) => b.onclick = () => {
     const a = at(b); if (!a) return;
@@ -21730,6 +22185,26 @@ function saveWebhookSettings() {
   settings.webhook = cfg;
   saveSettings();
 }
+
+/** Sincroniza ServerTap desde pestaña Servidor Minecraft → Configuración global (Acciones). */
+window.syncMcservServerTap = function syncMcservServerTap(stap) {
+  if (!settings) return;
+  const s = stap || {};
+  settings.webhook = settings.webhook || {};
+  settings.webhook.servertap = {
+    ...WEBHOOK_DEFAULTS.servertap,
+    ...(settings.webhook.servertap || {}),
+    enabled: s.enabled !== false,
+    ip: String(s.ip || 'localhost').trim() || 'localhost',
+    port: parseInt(s.port, 10) || 4567,
+    key: String(s.key || 'tiktok123').trim() || 'tiktok123',
+    playername: String(s.playername || '@p').trim() || '@p',
+  };
+  const rpc = document.getElementById('wh-rcon-player');
+  if (rpc && s.playername && s.playername !== '@p') rpc.value = s.playername;
+  saveSettings();
+  if (typeof applyWebhookUI === 'function') applyWebhookUI();
+};
 
 let webhookWired = false;
 function syncWebhookRoomUrls() {
