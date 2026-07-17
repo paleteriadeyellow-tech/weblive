@@ -106,6 +106,11 @@ export const DEFAULT_SETTINGS = {
     tint: '',
     topBarEnabled: true,
     topBarLimit: 3,
+    topBarColor: '#161820',
+    topBarOpacity: 88,
+    giftToastEnabled: true,
+    giftToastColor: '#1c1e26',
+    giftToastOpacity: 90,
     sizes: [
       { t: 5000, sz: 88 },
       { t: 1000, sz: 70 },
@@ -119,7 +124,11 @@ export const DEFAULT_SETTINGS = {
     tint: '', // color del cristal (vacío = transparente/normal)
     topBarEnabled: true, // barra rotativa TOP DONATOR encima del contador
     topBarLimit: 3, // hasta qué top mostrar (1–10)
+    topBarColor: '#161820',
+    topBarOpacity: 88,
     giftToastEnabled: true, // píldora «NAME DONATED» al recibir regalo
+    giftToastColor: '#1c1e26',
+    giftToastOpacity: 90,
     // Tabla de tamaños por umbral de monedas/diamantes: [{ t, sz }] de mayor a menor
     sizes: [
       { t: 5000, sz: 88 },
@@ -134,6 +143,11 @@ export const DEFAULT_SETTINGS = {
     tint: '',
     topBarEnabled: true,
     topBarLimit: 3,
+    topBarColor: '#161820',
+    topBarOpacity: 88,
+    giftToastEnabled: true,
+    giftToastColor: '#1c1e26',
+    giftToastOpacity: 90,
     sizes: [
       { t: 5000, sz: 88 },
       { t: 1000, sz: 70 },
@@ -147,6 +161,11 @@ export const DEFAULT_SETTINGS = {
     tint: '',
     topBarEnabled: true,
     topBarLimit: 3,
+    topBarColor: '#161820',
+    topBarOpacity: 88,
+    giftToastEnabled: true,
+    giftToastColor: '#1c1e26',
+    giftToastOpacity: 90,
     sizes: [
       { t: 5000, sz: 88 },
       { t: 1000, sz: 70 },

@@ -65,7 +65,7 @@
     .top-donor-bar {
       display: flex; align-items: center; gap: 10px; width: 100%;
       padding: 8px 10px 8px 12px; border-radius: 999px;
-      background: rgba(22, 24, 32, .88); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      background: var(--topbar-bg, rgba(22, 24, 32, .88)); -webkit-backdrop-filter: var(--topbar-blur, blur(6px)); backdrop-filter: var(--topbar-blur, blur(6px));
       box-shadow: 0 6px 20px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08);
       font-family: 'Press Start 2P', 'Rubik', system-ui, sans-serif;
       transition: opacity .25s ease, transform .25s ease;
@@ -135,7 +135,7 @@
     .gift-toast {
       display: flex; align-items: center; gap: 8px;
       padding: 7px 14px 7px 8px; border-radius: 999px;
-      background: rgba(28, 30, 38, .9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      background: var(--gifttoast-bg, rgba(28, 30, 38, .9)); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
       box-shadow: 0 4px 16px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.07);
       font-family: 'Rubik', system-ui, sans-serif;
       animation: gt-in .32s cubic-bezier(.22,1.1,.36,1) both;
@@ -260,14 +260,56 @@
     const TD_PREVIEW_PIC = '/jarron/lv.png';
     const TOP_MEDALS = ['🥇', '🥈', '🥉', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅'];
     let topGifters = [];
-    let topBarCfg = { enabled: true, limit: 3 };
+    let topBarCfg = { enabled: true, limit: 3, color: '#161820', opacity: 88 };
     let topCycleIdx = 0;
     let topCycleTimer = null;
+
+
+    function hexToRgba(hex, opacityPct, fallbackHex) {
+      let h = String(hex || '').replace('#', '').trim();
+      if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+      if (!/^[0-9a-fA-F]{6}$/.test(h)) h = String(fallbackHex || '161820').replace('#', '');
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      const a = Math.max(0, Math.min(100, Number(opacityPct))) / 100;
+      if (!Number.isFinite(a)) return 'rgba(' + r + ',' + g + ',' + b + ',0.88)';
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+    }
+    function applyTopBarStyle(cfg) {
+      if (!cfg) return;
+      if (cfg.topBarColor !== undefined) topBarCfg.color = cfg.topBarColor || '#161820';
+      else if (cfg.color !== undefined) topBarCfg.color = cfg.color || '#161820';
+      if (cfg.topBarOpacity !== undefined) {
+        const n = Number(cfg.topBarOpacity);
+        topBarCfg.opacity = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 88;
+      } else if (cfg.opacity !== undefined) {
+        const n = Number(cfg.opacity);
+        topBarCfg.opacity = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 88;
+      }
+      const bg = hexToRgba(topBarCfg.color, topBarCfg.opacity, '161820');
+      const a = Math.max(0, Math.min(100, Number(topBarCfg.opacity))) / 100;
+      document.documentElement.style.setProperty('--topbar-bg', bg);
+      document.documentElement.style.setProperty('--topbar-blur', a < 0.08 ? 'none' : 'blur(6px)');
+      if (topBarEl) {
+        topBarEl.style.background = bg;
+        topBarEl.style.backdropFilter = a < 0.08 ? 'none' : 'blur(6px)';
+        topBarEl.style.webkitBackdropFilter = a < 0.08 ? 'none' : 'blur(6px)';
+        topBarEl.style.boxShadow = a < 0.05
+          ? 'none'
+          : ('0 6px 20px rgba(0,0,0,' + (0.45 * a).toFixed(2) + '), inset 0 0 0 1px rgba(255,255,255,' + (0.08 * Math.max(a, 0.2)).toFixed(2) + ')');
+        const chip = topBarEl.querySelector('.td-amount-wrap');
+        if (chip) {
+          chip.style.background = hexToRgba(topBarCfg.color, Math.min(100, topBarCfg.opacity * 0.82), '161820');
+        }
+      }
+    }
 
     function applyTopBarSettings(jarron) {
       if (!jarron) return;
       topBarCfg.enabled = jarron.topBarEnabled !== false;
       topBarCfg.limit = Math.max(1, Math.min(10, Number(jarron.topBarLimit) || 3));
+      applyTopBarStyle(jarron);
       updateTopBarVisibility();
       renderTopBarSlot(false);
       restartTopCycle();
@@ -603,9 +645,34 @@
     const GT_MAX = 6;
     const GT_TTL_MS = 4200;
     let giftToastEnabled = true;
+    let giftToastStyle = { color: '#1c1e26', opacity: 90 };
+    function applyGiftToastStyle(cfg) {
+      if (!cfg) return;
+      if (cfg.giftToastColor !== undefined) giftToastStyle.color = cfg.giftToastColor || '#1c1e26';
+      else if (cfg.color !== undefined) giftToastStyle.color = cfg.color || '#1c1e26';
+      if (cfg.giftToastOpacity !== undefined) {
+        const n = Number(cfg.giftToastOpacity);
+        giftToastStyle.opacity = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 90;
+      } else if (cfg.opacity !== undefined) {
+        const n = Number(cfg.opacity);
+        giftToastStyle.opacity = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 90;
+      }
+      const bg = hexToRgba(giftToastStyle.color, giftToastStyle.opacity, '1c1e26');
+      const a = Math.max(0, Math.min(100, Number(giftToastStyle.opacity))) / 100;
+      document.documentElement.style.setProperty('--gifttoast-bg', bg);
+      if (giftToastsEl) {
+        giftToastsEl.style.setProperty('--gifttoast-bg', bg);
+        giftToastsEl.querySelectorAll('.gift-toast').forEach((el) => {
+          el.style.background = bg;
+          el.style.backdropFilter = a < 0.08 ? 'none' : 'blur(6px)';
+          el.style.webkitBackdropFilter = a < 0.08 ? 'none' : 'blur(6px)';
+        });
+      }
+    }
     function applyGiftToastSettings(cfg) {
       if (!cfg) return;
-      giftToastEnabled = cfg.giftToastEnabled !== false;
+      if (cfg.giftToastEnabled !== undefined) giftToastEnabled = cfg.giftToastEnabled !== false;
+      applyGiftToastStyle(cfg);
       if (!giftToastEnabled && giftToastsEl) giftToastsEl.innerHTML = '';
     }
     function showGiftToast(info) {
@@ -626,6 +693,8 @@
 
       const el = document.createElement('div');
       el.className = 'gift-toast';
+      el.style.background = hexToRgba(giftToastStyle.color, giftToastStyle.opacity, '1c1e26');
+
       el.innerHTML =
         '<img class="gt-avatar" alt="" referrerpolicy="no-referrer">' +
         '<span class="gt-text"></span>' +
@@ -685,6 +754,8 @@
       spawnMany(resolveGiftImg(p), n, 150, p.diamonds || 0);
     }
     connectWS();
+    applyTopBarStyle(topBarCfg);
+    applyGiftToastStyle(giftToastStyle);
     if (!isEmbed) loadPersistedDiamonds();
     else demoTopGifters();
 
@@ -742,13 +813,21 @@
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
         if (d.sizes !== undefined) setSizeTable(d.sizes);
-        if (d.topBarEnabled !== undefined || d.topBarLimit !== undefined) {
+        if (d.topBarEnabled !== undefined || d.topBarLimit !== undefined || d.topBarColor !== undefined || d.topBarOpacity !== undefined) {
           applyTopBarSettings({
             topBarEnabled: d.topBarEnabled !== undefined ? d.topBarEnabled : topBarCfg.enabled,
             topBarLimit: d.topBarLimit !== undefined ? d.topBarLimit : topBarCfg.limit,
+            topBarColor: d.topBarColor !== undefined ? d.topBarColor : topBarCfg.color,
+            topBarOpacity: d.topBarOpacity !== undefined ? d.topBarOpacity : topBarCfg.opacity,
           });
         }
-        if (d.giftToastEnabled !== undefined) applyGiftToastSettings({ giftToastEnabled: d.giftToastEnabled });
+        if (d.giftToastEnabled !== undefined || d.giftToastColor !== undefined || d.giftToastOpacity !== undefined) {
+          applyGiftToastSettings({
+            giftToastEnabled: d.giftToastEnabled !== undefined ? d.giftToastEnabled : giftToastEnabled,
+            giftToastColor: d.giftToastColor !== undefined ? d.giftToastColor : giftToastStyle.color,
+            giftToastOpacity: d.giftToastOpacity !== undefined ? d.giftToastOpacity : giftToastStyle.opacity,
+          });
+        }
       } else if (d.type === 'topDemo') demoTopGifters();
     });
 

@@ -4498,14 +4498,27 @@ function openPotConfig(target) {
   if (topWrap) topWrap.style.display = '';
   $('jarcfg-topbar-on').checked = data.topBarEnabled !== false;
   $('jarcfg-topbar-limit').value = Math.max(1, Math.min(10, Number(data.topBarLimit) || 3));
+  const tbColor = data.topBarColor || '#161820';
+  $('jarcfg-topbar-color').value = /^#/.test(tbColor) ? tbColor : '#161820';
+  const tbOp = Math.max(0, Math.min(100, Number(data.topBarOpacity != null ? data.topBarOpacity : 88)));
+  $('jarcfg-topbar-opacity').value = tbOp;
+  if ($('jarcfg-topbar-op-lbl')) $('jarcfg-topbar-op-lbl').textContent = tbOp + '%';
   const toastWrap = $('jarcfg-gifttoast-wrap');
-  if (toastWrap) toastWrap.style.display = target === 'jarron' ? '' : 'none';
-  if (target === 'jarron' && $('jarcfg-gifttoast-on')) {
+  if (toastWrap) toastWrap.style.display = '';
+  if ($('jarcfg-gifttoast-on')) {
     $('jarcfg-gifttoast-on').checked = data.giftToastEnabled !== false;
   }
+  const gtColor = data.giftToastColor || '#1c1e26';
+  if ($('jarcfg-gifttoast-color')) $('jarcfg-gifttoast-color').value = /^#/.test(gtColor) ? gtColor : '#1c1e26';
+  const gtOp = Math.max(0, Math.min(100, Number(data.giftToastOpacity != null ? data.giftToastOpacity : 90)));
+  if ($('jarcfg-gifttoast-opacity')) $('jarcfg-gifttoast-opacity').value = gtOp;
+  if ($('jarcfg-gifttoast-op-lbl')) $('jarcfg-gifttoast-op-lbl').textContent = gtOp + '%';
   renderJarRows();
   $('jarConfigModal').classList.remove('hidden');
+  pushJarTopBarPreview();
+  pushJarGiftToastPreview();
 }
+
 function closeJarConfig() { $('jarConfigModal').classList.add('hidden'); }
 
 function renderJarRows() {
@@ -4565,33 +4578,52 @@ $('jarcfg-save').onclick = () => {
   settings[cfgTarget].sizes = [...cfgSizesDraft].sort((a, b) => b.t - a.t);
   settings[cfgTarget].topBarEnabled = $('jarcfg-topbar-on').checked;
   settings[cfgTarget].topBarLimit = Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit').value, 10) || 3));
-  if (cfgTarget === 'jarron' && $('jarcfg-gifttoast-on')) {
-    settings.jarron.giftToastEnabled = $('jarcfg-gifttoast-on').checked;
+  settings[cfgTarget].topBarColor = $('jarcfg-topbar-color')?.value || '#161820';
+  settings[cfgTarget].topBarOpacity = Math.max(0, Math.min(100, parseInt($('jarcfg-topbar-opacity')?.value, 10) ?? 88));
+  if ($('jarcfg-gifttoast-on')) {
+    settings[cfgTarget].giftToastEnabled = $('jarcfg-gifttoast-on').checked;
   }
+  settings[cfgTarget].giftToastColor = $('jarcfg-gifttoast-color')?.value || '#1c1e26';
+  settings[cfgTarget].giftToastOpacity = Math.max(0, Math.min(100, parseInt($('jarcfg-gifttoast-opacity')?.value, 10) ?? 90));
   saveSettings();
   closeJarConfig();
 };
 
 function pushJarTopBarPreview() {
+  const op = Math.max(0, Math.min(100, parseInt($('jarcfg-topbar-opacity')?.value, 10) ?? 88));
+  if ($('jarcfg-topbar-op-lbl')) $('jarcfg-topbar-op-lbl').textContent = op + '%';
   cfgToPreview({
     type: 'config',
     topBarEnabled: $('jarcfg-topbar-on').checked,
     topBarLimit: Math.max(1, Math.min(10, parseInt($('jarcfg-topbar-limit').value, 10) || 3)),
+    topBarColor: $('jarcfg-topbar-color')?.value || '#161820',
+    topBarOpacity: op,
   });
 }
 function pushJarGiftToastPreview() {
-  if (cfgTarget !== 'jarron') return;
+  const op = Math.max(0, Math.min(100, parseInt($('jarcfg-gifttoast-opacity')?.value, 10) ?? 90));
+  if ($('jarcfg-gifttoast-op-lbl')) $('jarcfg-gifttoast-op-lbl').textContent = op + '%';
   cfgToPreview({
     type: 'config',
     giftToastEnabled: $('jarcfg-gifttoast-on')?.checked !== false,
+    giftToastColor: $('jarcfg-gifttoast-color')?.value || '#1c1e26',
+    giftToastOpacity: op,
   });
 }
 const jarcfgTopOn = $('jarcfg-topbar-on');
 const jarcfgTopLim = $('jarcfg-topbar-limit');
+const jarcfgTopColor = $('jarcfg-topbar-color');
+const jarcfgTopOp = $('jarcfg-topbar-opacity');
 if (jarcfgTopOn) jarcfgTopOn.onchange = pushJarTopBarPreview;
 if (jarcfgTopLim) jarcfgTopLim.oninput = pushJarTopBarPreview;
+if (jarcfgTopColor) jarcfgTopColor.oninput = pushJarTopBarPreview;
+if (jarcfgTopOp) jarcfgTopOp.oninput = pushJarTopBarPreview;
 const jarcfgGiftToastOn = $('jarcfg-gifttoast-on');
+const jarcfgGiftToastColor = $('jarcfg-gifttoast-color');
+const jarcfgGiftToastOp = $('jarcfg-gifttoast-opacity');
 if (jarcfgGiftToastOn) jarcfgGiftToastOn.onchange = pushJarGiftToastPreview;
+if (jarcfgGiftToastColor) jarcfgGiftToastColor.oninput = pushJarGiftToastPreview;
+if (jarcfgGiftToastOp) jarcfgGiftToastOp.oninput = pushJarGiftToastPreview;
 
 // Refleja el color guardado en el selector del modal (si está abierto)
 function applyJarronUI() {
