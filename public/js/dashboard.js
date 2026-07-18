@@ -447,7 +447,7 @@ const TAB_CAP = {
   tts: 'tab_tts', timer: 'tab_timer',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
+const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
 // Minijuegos visibles pero aún no disponibles (solo el admin puede entrar).
 const GAME_COMING_SOON = {};
 
@@ -563,13 +563,13 @@ const CAP_LABELS = {
   // juegos
   game_minecraft: 'Juego: Minecraft', game_mcservidor: 'Juego: Servidor Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_mcshooter: 'Juego: Minecraft Shooters', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_unturned: 'Juego: Unturned', game_crashctr: 'Juego: Crash Team Racing (CTR)', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_unturned: 'Juego: Unturned', game_gtavkoth: 'Juego: GTA V King of the Hill', game_crashctr: 'Juego: Crash Team Racing (CTR)', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
+  'tts_tiktok', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -18804,6 +18804,29 @@ function l4dImgSlug(thing) {
   return l4dCatalogEntry(thing)?.img || String(thing || '').replace(/^[^:]+:/, '').replace(/_/g, '-');
 }
 
+/** Miniaturas como SMB3: local + CDN Render. */
+const L4D_THUMB_CDN = 'https://livecoins.onrender.com/img/l4d-thumbs';
+
+function l4dThumbUrls(entryOrSlug) {
+  const key = String(
+    typeof entryOrSlug === 'string'
+      ? entryOrSlug
+      : (entryOrSlug?.img || l4dImgSlug(entryOrSlug?.thing || entryOrSlug?.id || '')),
+  ).trim().replace(/[^a-z0-9_-]/gi, '');
+  if (!key) return { primary: '', fallback: '' };
+  return {
+    primary: `/img/l4d-thumbs/${key}.png`,
+    fallback: `${L4D_THUMB_CDN}/${encodeURIComponent(key)}.png`,
+  };
+}
+
+function l4dCatalogIconHtml(c) {
+  const em = esc(c?.emoji || L4D_SECTION_ICON[c?.section] || '🧟');
+  const { primary, fallback } = l4dThumbUrls(c);
+  if (!primary) return `<span class="repo-cat-list-em">${em}</span>`;
+  return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
+}
+
 function ensureL4dActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.l4dActions)) settings.l4dActions = [];
@@ -18843,8 +18866,12 @@ function l4dCardHtml(a) {
   const imgSlug = a.img || l4dImgSlug(a.thing);
   const em = c?.emoji || '🧟';
   const uid = esc(a.uid);
+  const { primary, fallback } = l4dThumbUrls(imgSlug);
+  const thumbHtml = primary
+    ? `<img class="mc-act-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'mc-act-em\\'>${em}</span>';}">`
+    : `<span class="mc-act-em">${em}</span>`;
   return gameSurvivalStyleCardHtml(a, {
-    thumbHtml: `<img class="mc-act-ic" src="/img/l4d/${esc(imgSlug)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-act-em\\'>${em}</span>'">`,
+    thumbHtml,
     nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
     infoExtraHtml: l4dParamRowsHtml(a, c, uid),
     cfgOpts: { countMax: L4D_SPAWN_MAX },
@@ -18877,13 +18904,7 @@ function renderL4dCatalog(filter) {
       descMap: L4D_SECTION_DESC,
       searching: !!f,
     }),
-    rowHtml: (c) => {
-      const em = c.emoji || L4D_SECTION_ICON[c.section] || '🧟';
-      const ic = c.img
-        ? `<img class="repo-cat-list-ic" src="/img/l4d/${esc(c.img)}.png" alt="" onerror="this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>'">`
-        : `<span class="repo-cat-list-em">${em}</span>`;
-      return gameCatListBtnHtml(c.id, c.nombre, ic, c.desc || c.nombre);
-    },
+    rowHtml: (c) => gameCatListBtnHtml(c.id, c.nombre, l4dCatalogIconHtml(c), c.desc || c.nombre),
     onPick: addL4dAction,
   });
 }
@@ -22877,7 +22898,7 @@ window.getEditorGamePacks = function getEditorGamePacks() {
       id: 'l4d', name: 'Left 4 Dead 2', cover: '/img/l4d2-card.png',
       items: (typeof L4D_CATALOG !== 'undefined' ? L4D_CATALOG : []).map((c) => ({
         name: c.nombre || c.name || c.id,
-        src: `/img/l4d/${c.img || c.id}.png`,
+        src: typeof l4dThumbUrls === 'function' ? (l4dThumbUrls(c).primary || l4dThumbUrls(c).fallback) : `/img/l4d-thumbs/${c.img || c.id}.png`,
       })),
     },
     {
