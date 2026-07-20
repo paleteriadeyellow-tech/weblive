@@ -2652,12 +2652,32 @@ function applyTimerSettingsUI() {
 
 /* ====================== Ajustes (sync con servidor) ====================== */
 let saveDebounce = null;
+let settingsKeysSaveDebounce = null;
+const settingsKeysSavePending = new Set();
+/** Cancela guardados pendientes para que un perfil no contamine otro al cambiar. */
+function cancelPendingProfileSaves() {
+  clearTimeout(saveDebounce);
+  saveDebounce = null;
+  clearTimeout(settingsKeysSaveDebounce);
+  settingsKeysSaveDebounce = null;
+  settingsKeysSavePending.clear();
+}
+function profileSaveMeta() {
+  const editingGeneral = !!(profilesState && profilesState.editingGeneral);
+  return {
+    profileActive: editingGeneral ? null : (profilesState && Number.isInteger(profilesState.active) ? profilesState.active : null),
+    editMode: editingGeneral ? 'general' : 'profile',
+    settingsGeneration: profilesState && profilesState.settingsGeneration != null
+      ? Number(profilesState.settingsGeneration)
+      : null,
+  };
+}
 function saveSettings() {
   if (applyingSettings) return;
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => {
     stripSettingsMediaForSave(settings);
-    send({ action: 'saveSettings', settings });
+    send({ action: 'saveSettings', settings, ...profileSaveMeta() });
     if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop();
   }, 200);
 }
@@ -2707,11 +2727,11 @@ function flushSaveSettings() {
   clearTimeout(saveDebounce);
   saveDebounce = null;
   stripSettingsMediaForSave(settings);
-  send({ action: 'saveSettings', settings });
+  send({ action: 'saveSettings', settings, ...profileSaveMeta() });
 }
 
 /** En relay el panel guarda en la nube; el webhook :3199 lee la room local.
- *  Empuja videos/batallas al servidor local al instante (sin recargar). */
+ *  Empuja videos/batallas/acciones al servidor local al instante (sin recargar). */
 function syncDesktopWebhookSettings() {
   if (!IS_DESKTOP || !settings) return Promise.resolve(false);
   const patch = {
@@ -2721,6 +2741,7 @@ function syncDesktopWebhookSettings() {
     battleAlertsEnabled: settings.battleAlertsEnabled !== false,
     soundAlerts: settings.soundAlerts || [],
     actions: settings.actions || [],
+    mcActions: settings.mcActions || [],
   };
   return fetch('/api/desktop/sync-webhook-media', {
     method: 'POST',
@@ -3144,8 +3165,6 @@ function bindSaCardLongPressReorder(container, onReorder) {
 
 /* Guardar SOLO las claves pedidas (no todo settings).
    Evita que encender/apagar reenvíe rankings y vacíe likes/gifts. */
-let settingsKeysSaveDebounce = null;
-const settingsKeysSavePending = new Set();
 function saveSettingsKeysPatch(...keys) {
   if (applyingSettings) return;
   for (const k of keys) {
@@ -3169,7 +3188,7 @@ function saveSettingsKeysPatch(...keys) {
     }
     settingsKeysSavePending.clear();
     if (!Object.keys(patch).length) return;
-    send({ action: 'saveSettings', settings: patch });
+    send({ action: 'saveSettings', settings: patch, ...profileSaveMeta() });
   }, 200);
 }
 function saveVideosBattlePatch(kind) {
@@ -10086,7 +10105,15 @@ let profilesState = null;
 let profilesFullWaiters = [];
 
 function onProfiles(p) {
+  const prevActive = profilesState && profilesState.active;
+  const prevGeneral = !!(profilesState && profilesState.editingGeneral);
   profilesState = p || null;
+  const nextActive = profilesState && profilesState.active;
+  const nextGeneral = !!(profilesState && profilesState.editingGeneral);
+  if (profilesState && (prevActive !== nextActive || prevGeneral !== nextGeneral)) {
+    cancelPendingProfileSaves();
+    lastGameActionEditAt = 0;
+  }
   renderProfilesList();
   updateProfileEditBadge();
 }
@@ -10146,12 +10173,19 @@ function requestProfilesFull(timeoutMs) {
 
 async function applyProfileSwitchResponse(data) {
   if (!data) return false;
-  if (data.settings) onSettings(data.settings);
+  cancelPendingProfileSaves();
+  lastGameActionEditAt = 0;
+  // Perfiles primero: así los saves posteriores llevan el profileActive correcto.
   if (data.profiles) onProfiles(data.profiles);
+  if (data.settings) onSettings(data.settings);
+  cancelPendingProfileSaves();
+  syncDesktopWebhookSettings();
   return true;
 }
 
 async function switchProfileReq(index) {
+  cancelPendingProfileSaves();
+  lastGameActionEditAt = 0;
   try {
     const r = await fetch('/api/profiles/switch', {
       method: 'POST',
@@ -10167,6 +10201,8 @@ async function switchProfileReq(index) {
 }
 
 async function switchGeneralProfileReq() {
+  cancelPendingProfileSaves();
+  lastGameActionEditAt = 0;
   try {
     const r = await fetch('/api/profiles/switch-general', { method: 'POST' });
     if (r.ok) {
@@ -20841,6 +20877,20 @@ function mslugThumbUrls(entryOrId) {
   };
 }
 
+function mslugCatalogIconUrl(entryOrAction) {
+  const urls = mslugThumbUrls(entryOrAction);
+  return urls.primary || urls.fallback || '';
+}
+
+async function generateMslugOverlayImage() {
+  return generateGameActionsOverlayImage({
+    ensureList: ensureMslugActions,
+    iconUrlFor: (a) => mslugCatalogIconUrl(a),
+    downloadName: 'metal-slug-acciones-overlay.png',
+    emptyToast: 'Agrega acciones del catálogo con su regalo primero.',
+  });
+}
+
 function mslugCatalogIconHtml(c) {
   const em = esc(c?.emoji || (c?.tipo === 'weapon' ? '🔫' : '🎖️'));
   const { primary, fallback } = mslugThumbUrls(c);
@@ -21186,6 +21236,16 @@ function setupMslugActionsUI() {
     genOverlayBtn._wired = true;
     genOverlayBtn.onclick = () => downloadMslugOverlayImage();
   }
+  const editOverlayBtn = document.getElementById('mslug-edit-overlay');
+  if (editOverlayBtn && !editOverlayBtn._wired) {
+    editOverlayBtn._wired = true;
+    editOverlayBtn.onclick = () => generateMslugOverlayImage();
+  }
+  const fullImagenesBtn = document.getElementById('mslug-full-imagenes');
+  if (fullImagenesBtn && !fullImagenesBtn._wired) {
+    fullImagenesBtn._wired = true;
+    fullImagenesBtn.onclick = () => downloadMslugFullImagenes();
+  }
   renderMslugActions();
 }
 
@@ -21313,6 +21373,13 @@ function renderMslugActions() {
 }
 
 const MSLUG_OVERLAY_IMAGE_URL = '/img/metal-slug-overlay.png';
+const MSLUG_FULL_IMAGENES_URL = 'https://github.com/riusaki1995/mariobros/releases/download/metalslug/OVERLAY.png';
+
+/** Descarga el overlay completo (todas las imágenes) desde GitHub. */
+function downloadMslugFullImagenes() {
+  downloadMinecraftServer(MSLUG_FULL_IMAGENES_URL);
+  toast && toast('Descargando Full imagenes…', 'ok');
+}
 
 /** Abre en el Editor la imagen fija del overlay oficial (no la genera desde acciones). */
 async function downloadMslugOverlayImage() {

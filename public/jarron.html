@@ -439,11 +439,11 @@
 
     Runner.run(Runner.create(), engine);
 
-    // Evita que el montón "explote" y suba por el cuello: congela lo asentado abajo
-    // y devuelve al interior cualquier regalo que escape hacia arriba.
+    // Devuelve al interior cualquier regalo que escape hacia arriba. No congelamos
+    // (setStatic): los dormidos se despiertan al caer regalos nuevos y compactan el montón.
     function constrainGiftInJar(g) {
       const p = g.body.position;
-      const r = Math.max(6, (g.sizePx / 2) * 0.86);
+      const r = Math.max(6, (g.sizePx / 2) * 0.80);
       const inNeckX = p.x >= NECK_L - r && p.x <= NECK_R + r;
       const vy = g.body.velocity.y;
 
@@ -463,10 +463,6 @@
         }
       }
 
-      if (g.body.isSleeping && !g.body.isStatic && p.y > SHOULDER_Y2 + 8) {
-        Body.setStatic(g.body, true);
-        g.awakeSynced = false;
-      }
     }
 
     Events.on(engine, 'afterUpdate', function () {
@@ -582,7 +578,7 @@
       opts = opts || {};
       // Radio de colisión un poco menor que el tamaño visual: las imágenes se
       // solapan y rellenan los huecos para que no quede espacio vacío.
-      const r = Math.max(6, (sizePx / 2) * 0.86);
+      const r = Math.max(6, (sizePx / 2) * 0.80);
       let x, y, vx;
       if (opts.x != null) { x = opts.x; y = opts.y != null ? opts.y : SPAWN_Y; vx = 0; }
       else { const s = pickSpawnSpot(r); x = s.x; y = s.y; vx = s.vx; }
@@ -590,7 +586,7 @@
       const density = 0.0036 * (1 + Math.min(3, (diamonds || 0) / 1000));
       const body = Bodies.circle(x, y, r, {
         density,
-        restitution: 0.52,
+        restitution: 0.40,
         friction: 0.16,
         frictionStatic: 0.2,
         frictionAir: 0.004,

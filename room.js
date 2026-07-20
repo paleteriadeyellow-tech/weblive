@@ -792,6 +792,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   let profiles = loadProfiles();
+  let settingsGeneration = 0;
   const profilesMediaBefore = JSON.stringify(profiles);
   normalizeProfilesMediaUrls(profiles);
   if (JSON.stringify(profiles) !== profilesMediaBefore) {
@@ -965,9 +966,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       used: profiles.slots.map((s) => !!s),
       editingGeneral: profiles.editMode === 'general',
       generalUsed: !!profiles.general,
+      settingsGeneration,
+      editMode: profiles.editMode === 'general' ? 'general' : 'profile',
     };
   }
   function broadcastProfiles() { broadcast('profiles', profilesInfo()); }
+  /** Al cambiar de perfil: cancela MC en cola, rachas y acumuladores del perfil anterior. */
+  function clearProfileRuntimeState() {
+    settingsGeneration += 1;
+    try { bumpMcPanic(); } catch {}
+    try { giftStreakGameProgress.clear(); } catch {}
+    try { gameLikeAcc.clear(); } catch {}
+    try { recentGiftTriggers.clear(); } catch {}
+    try {
+      for (const key of [...webhookActive.keys()]) clearWebhookActive(key);
+    } catch {}
+  }
   // Cambia de perfil: primero asegura que lo actual quede guardado, luego carga el
   // perfil destino y difunde sus ajustes a panel/overlays.
   function switchProfile(i) {
@@ -978,6 +992,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     persistCurrentEdit();
     profiles.editMode = 'profile';
     profiles.active = idx;
+    clearProfileRuntimeState();
     saveProfilesNow();
     settings = loadSettings();
     writeJsonAtomic(SETTINGS_FILE, settings);
@@ -999,6 +1014,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (profiles.editMode === 'general') return;
     persistCurrentEdit();
     profiles.editMode = 'general';
+    clearProfileRuntimeState();
     saveProfilesNow();
     settings = loadGeneralSettings();
     writeJsonAtomic(SETTINGS_FILE, settings);
@@ -1086,6 +1102,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         ? cloneSettings(data.general) : null;
     }
     profiles.editMode = data.editingGeneral ? 'general' : 'profile';
+    clearProfileRuntimeState();
     saveProfilesNow();
     settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
     enforceLimits();
@@ -1124,8 +1141,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   // Aplica un bloque de ajustes (fusión profunda), persiste y difunde. Si el cambio
   // viene del panel del usuario (fromUser), avisa para sincronizarlo con el remoto.
-  function applyIncomingSettings(obj, fromUser) {
+  // meta (opcional): profileActive / editMode / settingsGeneration — rechaza saves
+  // stale de otro perfil tras un cambio rápido de perfil.
+  function applyIncomingSettings(obj, fromUser, meta) {
     if (!obj) return;
+    if (fromUser && meta && typeof meta === 'object') {
+      const wantMode = meta.editMode === 'general' ? 'general' : (meta.editMode === 'profile' ? 'profile' : null);
+      if (wantMode && wantMode !== profiles.editMode) {
+        console.log('  [profiles] Ignorado saveSettings de modo', wantMode, '(activo:', profiles.editMode + ')');
+        return;
+      }
+      if (wantMode !== 'general' && meta.profileActive != null && Number.isFinite(Number(meta.profileActive))) {
+        if (Number(meta.profileActive) !== profiles.active) {
+          console.log('  [profiles] Ignorado saveSettings del perfil', meta.profileActive, '(activo:', profiles.active + ')');
+          return;
+        }
+      }
+      if (meta.settingsGeneration != null && Number.isFinite(Number(meta.settingsGeneration))) {
+        if (Number(meta.settingsGeneration) !== settingsGeneration) {
+          console.log('  [profiles] Ignorado saveSettings generation', meta.settingsGeneration, '(actual:', settingsGeneration + ')');
+          return;
+        }
+      }
+    }
     const prevTop1FirePeriod = getTop1FirePeriod();
     const prevHabibiTopPeriod = getHabibiTopPeriod();
     const prevRankPeriods = {};
@@ -6459,7 +6497,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         disconnectManual();
         break;
       case 'saveSettings':
-        if (data.settings) applyIncomingSettings(data.settings, true);
+        if (data.settings) {
+          applyIncomingSettings(data.settings, true, {
+            profileActive: data.profileActive,
+            editMode: data.editMode,
+            settingsGeneration: data.settingsGeneration,
+          });
+        }
         break;
       case 'getProfiles':
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() })); } catch {}

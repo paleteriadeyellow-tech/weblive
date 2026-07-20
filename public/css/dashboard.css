@@ -6250,6 +6250,31 @@ pre.wh-url { margin: 9px 0 0; }
 .game-catalog-modal .game-catalog-wrap .repo-cat-list-add {
   transition: transform 0.18s ease, color 0.18s ease;
 }
+/* Metal Slug: iconos HD pixel-art (fuente 256px, nítidos al escalar) */
+#view-juego-metalslug .repo-cat-list-ic,
+#mslugCatalogModal .repo-cat-list-ic,
+#mslug-catalog .mc-cat-ic,
+#view-juego-metalslug .mc-act-ic {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: transparent;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+#view-juego-metalslug .repo-cat-list-em,
+#mslugCatalogModal .repo-cat-list-em {
+  width: 52px;
+  height: 52px;
+  font-size: 26px;
+}
+#view-juego-metalslug .mc-my-actions .mc-act-col-thumb .mc-act-ic {
+  width: 48px;
+  height: 48px;
+}
+
 #view-juego-metalslug #mslug-open-catalog,
 .mc-sub-btns [id$="-open-catalog"] {
   background: linear-gradient(135deg, #f59e0b, #ea580c);
