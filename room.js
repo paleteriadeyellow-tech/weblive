@@ -24,7 +24,7 @@ const __marioBr = IS_RENDER_BOOT
 const {
   marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect,
   pvzSpawn, pvzSun, pvzCmd, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd,
-  repoSpawn, l4dSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn,
+  repoSpawn, l4dSpawn, gtavKothSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn,
   runGameExec, resolveRepoSpawnKey,
 } = __game;
 const { ensureMarioBridge, ensureMari0Bridge } = __marioBr;
@@ -1108,7 +1108,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const scoreSlot = (s) => {
       if (!s || typeof s !== 'object') return 0;
       let n = 0;
-      for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions']) {
+      for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions']) {
         const a = s[k];
         if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
       }
@@ -2830,6 +2830,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerPvzHybridActions(eventType, info, user, cfg);
     if (eventType !== 'like') triggerRepoActions(eventType, info, user, cfg);
     triggerL4dActions(eventType, info, user, cfg);
+    triggerGtavKothActions(eventType, info, user, cfg);
     triggerUnturnedActions(eventType, info, user, cfg);
     triggerCtrActions(eventType, info, user, cfg);
     triggerMslugActions(eventType, info, user, cfg);
@@ -3069,6 +3070,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       })) return;
       marioEffect(type, seconds, factor).catch(() => {});
     });
+  }
+
+  /** Rango de diamantes (trigger gift-diamonds): totalDiamonds = diamantes × cantidad. */
+  function gameGiftDiamondsRangeOk(a, info) {
+    const total = Number(info.totalDiamonds) || 0;
+    if ((Number(a.rangeMin) || 0) > total) return false;
+    if ((Number(a.rangeMax) || 0) > 0 && total > (Number(a.rangeMax) || 0)) return false;
+    return true;
   }
 
   function gameLikeTriggerFires(a, info, user, fallbackKey) {
@@ -3661,6 +3670,106 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         eventType,
         giftName: info.giftName,
         params: l4dActionParams(a),
+        reason: giftLabel || eventType,
+      }, a);
+    }
+  }
+
+  function gtavKothPerUnit(a) {
+    const n = parseInt(a?.count, 10);
+    return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+  }
+
+  function gtavKothActionParams(a) {
+    const out = {};
+    for (const key of ['hp', 'ammo', 'radius', 'seconds', 'wanted']) {
+      const n = Number(a?.[key]);
+      if (Number.isFinite(n)) out[key] = n;
+    }
+    return out;
+  }
+
+  function spawnGtavKothThing(thing, name, times, units, meta = {}, actionForTiming) {
+    const unitCount = Math.min(500, Math.max(1, Number(times) || 1));
+    // Una sola ejecución con times=N (no N×1) para respetar 200/500 coches.
+    withGameActionCountTiming(actionForTiming, 1, () => {
+      if (!thing) return;
+      const exec = { tipo: 'GTAVKOTH_SPAWN', thing: String(thing || ''), name: String(name || ''), times: unitCount };
+      if (meta.params && typeof meta.params === 'object') exec.params = meta.params;
+      if (units != null && Number(units) > 0) exec.units = Math.max(1, Number(units) || 1);
+      if (meta.label) exec.label = meta.label;
+      if (meta.reason) exec.reason = meta.reason;
+      if (meta.giftName) exec.giftName = meta.giftName;
+      if (meta.eventType) exec.eventType = meta.eventType;
+      if (emitLocalExec(exec)) return;
+      gtavKothSpawn(exec.thing, exec.name, unitCount, exec.params || {}).catch(() => { /* spawns en juego, sin log en panel */ });
+    });
+  }
+
+  function triggerGtavKothActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.gtavKothActions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const trig = a.trigger || 'gift';
+      const perUnit = gtavKothPerUnit(a);
+      let units = 1;
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const wantId = String(a.giftId || '').trim();
+          const wantName = (a.giftName || '').trim().toLowerCase();
+          if (!wantId && !wantName) {
+            units = Math.max(1, Number(info.repeatCount) || 1);
+          } else {
+            const idMatch = wantId && wantId === String(info.giftId || '');
+            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+            if (!idMatch && !nameMatch) continue;
+            units = Math.max(1, Number(info.repeatCount) || 1);
+          }
+        } else if (trig === 'gift-any') {
+          units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          units = Math.max(1, Number(info.repeatCount) || 1);
+        } else continue;
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        const likeFires = gameLikeTriggerFires(a, info, user, 'gtavkoth');
+        if (likeFires <= 0) continue;
+        const batch = Math.max(1, Number(info.likeCount) || 1);
+        const totalQty = Math.min(500, perUnit * likeFires);
+        spawnGtavKothThing(a.thing, name, totalQty, likeFires, {
+          label: a.label || a.thing,
+          eventType: 'like',
+          params: gtavKothActionParams(a),
+          reason: `${batch} like(s) → ${likeFires} spawn(s)`,
+        }, a);
+        continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else continue;
+      } else if (trig !== eventType) continue;
+      if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
+      if (eventType === 'gift') {
+        const comboOn = a.comboInstant !== false;
+        if (info.comboStreak === 'delta' && !comboOn) continue;
+        if (info.comboStreak === 'end' && comboOn) continue;
+      }
+      const times = Math.min(500, perUnit * units);
+      const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
+      spawnGtavKothThing(a.thing, name, times, units, {
+        label: a.label || a.thing,
+        eventType,
+        giftName: info.giftName,
+        params: gtavKothActionParams(a),
         reason: giftLabel || eventType,
       }, a);
     }
@@ -4488,6 +4597,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const goal = Math.max(1, a.likeN || 100);
         if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
           spawnL4dThing(a.thing, '', Math.min(20, Math.max(1, parseInt(a.count, 10) || 1)), 1, { params: l4dActionParams(a) }, a);
+        }
+      }
+      for (const a of (cfg.gtavKothActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          spawnGtavKothThing(a.thing, '', Math.min(500, Math.max(1, parseInt(a.count, 10) || 1)), 1, { params: gtavKothActionParams(a) }, a);
         }
       }
       for (const a of (cfg.unturnedActions || [])) {
@@ -6632,6 +6748,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'l4dSpawn':
         spawnL4dThing(String(data.thing || ''), data.name, data.times, null, {
+          params: data.params && typeof data.params === 'object' ? data.params : {},
+        });
+        break;
+      case 'gtavKothSpawn':
+        spawnGtavKothThing(String(data.thing || ''), data.name, data.times, null, {
           params: data.params && typeof data.params === 'object' ? data.params : {},
         });
         break;

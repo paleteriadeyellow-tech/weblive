@@ -16,6 +16,7 @@ export const pvzHybridSun = nope;
 export const pvzHybridCmd = nope;
 export const repoSpawn = nope;
 export const l4dSpawn = nope;
+export const gtavKothSpawn = nope;
 export const unturnedSpawn = nope;
 export const ctrSpawn = nope;
 export const mslugSpawn = nope;

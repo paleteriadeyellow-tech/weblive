@@ -469,6 +469,11 @@ export async function unturnedSpawn(thing, name, times = 1, params = {}) {
   return job;
 }
 
+/** GTA V KOTH: en weblive/Render no hay bridge; el .exe ejecuta vía emitLocalExec. */
+export async function gtavKothSpawn() {
+  return { ok: false, error: 'solo_escritorio' };
+}
+
 export async function ctrSpawn(thing, name, times = 1) {
   if (!thing) return { ok: false, error: 'sin_thing' };
   const t = Math.min(CTR_SPAWN_MAX, Math.max(1, Number(times) || 1));
@@ -575,6 +580,8 @@ export async function runGameExec(exec) {
       return repoSpawn(exec.thing, exec.name, exec.times, exec.params || {});
     case 'L4D_SPAWN':
       return l4dSpawnBridge(exec.thing, exec.name, exec.times, exec.params || {});
+    case 'GTAVKOTH_SPAWN':
+      return gtavKothSpawn(exec.thing, exec.name, exec.times, exec.params || {});
     case 'UNTURNED_SPAWN':
       return unturnedSpawnBridge(exec.thing, exec.name, exec.times, exec.params || {});
     case 'CTR_SPAWN':

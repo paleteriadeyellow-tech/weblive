@@ -629,6 +629,7 @@ export const DEFAULT_SETTINGS = {
   pvzActions: [],
   repoActions: [],
   l4dActions: [],
+  gtavKothActions: [],
   unturnedActions: [],
   ctrActions: [],
   smwActions: [],
