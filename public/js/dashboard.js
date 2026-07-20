@@ -16621,8 +16621,17 @@ function pvzCardHtml(a, cardOpts = {}) {
       ? `<label class="mc-act-cfg-field"><span class="mc-act-cfg-lbl">Cantidad de soles</span><input type="number" min="1" max="9990" step="25" class="mc-act-cfg-amount" data-uid="${uid}" value="${esc(String(a.amount || 50))}"></label>`
       : '',
   };
+  let thumbHtml;
+  if (typeof cardOpts.thumbUrlsFn === 'function') {
+    const { primary, fallback } = cardOpts.thumbUrlsFn(a.thing) || {};
+    thumbHtml = primary
+      ? `<img class="mc-act-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback || '')}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'mc-act-em\\'>${emoji}</span>';}">`
+      : `<span class="mc-act-em">${emoji}</span>`;
+  } else {
+    thumbHtml = `<img class="mc-act-ic" src="${esc(imgBase)}${esc(a.thing)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-act-em\\'>${emoji}</span>'">`;
+  }
   return gameSurvivalStyleCardHtml(a, {
-    thumbHtml: `<img class="mc-act-ic" src="${esc(imgBase)}${esc(a.thing)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-act-em\\'>${emoji}</span>'">`,
+    thumbHtml,
     nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
     cfgOpts,
     testClass: 'pvz-test',
@@ -20747,12 +20756,15 @@ const MSLUG_CATALOG = [
   { id: 'R', enemy: 'R', nombre: 'Arma R', desc: 'Rocket Launcher (R).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🚀', defaultCount: 2 },
   { id: 'F', enemy: 'F', nombre: 'Arma F', desc: 'Flame Shot (F).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🔥', defaultCount: 2 },
   { id: 'S', enemy: 'S', nombre: 'Arma S', desc: 'Shotgun (S).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🟩', defaultCount: 2 },
+  { id: 'E', enemy: 'E', nombre: 'Arma E', desc: 'Iron Lancer (E).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '⚡', defaultCount: 2 },
+  { id: 'T', enemy: 'T', nombre: 'Arma T', desc: 'Thunder Shot (T).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🟪', defaultCount: 2 },
   { id: '2H', enemy: '2H', nombre: 'Doble H', desc: 'Two Machine Guns (2H).', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '⚔️', defaultCount: 2 },
   { id: 'firebomb', enemy: 'firebomb', nombre: 'Fire Bomb', desc: 'Cócteles molotov de fuego.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🔥', defaultCount: 2 },
   { id: 'combo_armas', enemy: '2H,firebomb,mine,bomb,H,L,S,2H', nombre: 'Combo de armas', desc: 'Lluvia masiva de armas y explosivos.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '📦', defaultCount: 2 },
   { id: '1up', enemy: '1up', nombre: 'Vida 1UP', desc: 'Vidas extra.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '💚', defaultCount: 50 },
   { id: 'cofre', enemy: 'cofre', nombre: 'Cofre de oro', desc: 'Cofre de oro 50 mil.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🏆', defaultCount: 1 },
   { id: 'knife', enemy: 'knife', nombre: 'Cuchillo', desc: 'Ataque cuerpo a cuerpo con cuchillo.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '🔪', defaultCount: 1 },
+  { id: 'credit', enemy: 'credit', nombre: 'Crédito', desc: 'Créditos de game over.', section: 'weapons', tipo: 'weapon', kind: 'spawn', emoji: '💳', defaultCount: 3 },
   // —— Soldados y vehículos ——
   { id: 'grenade', enemy: 'grenade', nombre: 'Soldado lanzagranadas', desc: 'Soldados que lanzan granadas.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '💣', defaultCount: 2 },
   { id: 'mortero', enemy: 'mortero', nombre: 'Mortero', desc: 'Soldado rebelde con mortero.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🎯', defaultCount: 2 },
@@ -20766,6 +20778,19 @@ const MSLUG_CATALOG = [
   { id: 'slugcopter', enemy: 'slugcopter', nombre: 'Helicóptero', desc: 'Slug Copter.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚁', defaultCount: 1 },
   { id: 'elefante', enemy: 'elefante', nombre: 'Elefante', desc: 'Elefante de combate.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🐘', defaultCount: 1 },
   { id: 'protoshiee', enemy: 'protoshiee', nombre: 'Nave Protoshiee', desc: 'Nave de ataque Protoshiee.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚢', defaultCount: 1 },
+  { id: 'hyakutaro', enemy: 'hyakutaro', nombre: 'Hyakutaro', desc: 'Personaje aliado Hyakutaro.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🧑', defaultCount: 3 },
+  { id: 'slugnoid', enemy: 'slugnoid', nombre: 'Slugnoid', desc: 'Vehículo Slugnoid.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🤖', defaultCount: 1 },
+  { id: 'metalslug', enemy: 'metalslug', nombre: 'Metal Slug', desc: 'Tanque SV-001 Metal Slug.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🛡️', defaultCount: 1 },
+  { id: 'masknell', enemy: 'masknell', nombre: 'Helicóptero Masknell', desc: 'Helicóptero enemigo Masknell.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚁', defaultCount: 1 },
+  { id: 'submarine', enemy: 'submarine', nombre: 'Submarino', desc: 'Submarino enemigo.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🔱', defaultCount: 1 },
+  { id: 'firefly', enemy: 'firefly', nombre: 'Firefly', desc: 'Nave Firefly.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '✨', defaultCount: 1 },
+  { id: 'eacab', enemy: 'eacab', nombre: 'Eacab', desc: 'Unidad enemiga Eacab.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚗', defaultCount: 1 },
+  { id: 'girida', enemy: 'girida', nombre: 'Girida', desc: 'Enemigo Girida.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🎡', defaultCount: 1 },
+  { id: 'melty', enemy: 'melty', nombre: 'Melty', desc: 'Enemigo Melty.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '❄️', defaultCount: 1 },
+  { id: 'trocktruck', enemy: 'trocktruck', nombre: 'Trock Truck', desc: 'Camión Trock Truck.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🚚', defaultCount: 1 },
+  { id: 'karncafe', enemy: 'karncafe', nombre: 'Karn Café', desc: 'Enemigo Karn Café.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '☕', defaultCount: 1 },
+  { id: 'dicokka', enemy: 'dicokka', nombre: 'Di-Cokka', desc: 'Tanque Di-Cokka.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '🛞', defaultCount: 1 },
+  { id: 'hido', enemy: 'hido', nombre: 'Hido', desc: 'Enemigo Hido.', section: 'soldiers', tipo: 'enemy', kind: 'spawn', emoji: '👾', defaultCount: 1 },
   // —— Criaturas y mutantes ——
   { id: 'crab', enemy: 'crab', nombre: 'Cangrejo', desc: 'Cangrejos mutantes gigantes.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🦀', defaultCount: 4 },
   { id: 'yeti', enemy: 'yeti', nombre: 'Yeti', desc: 'Monstruo de las nieves.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '❄️', defaultCount: 4 },
@@ -20774,6 +20799,11 @@ const MSLUG_CATALOG = [
   { id: 'momia_verde', enemy: 'momia_verde', nombre: 'Momia verde', desc: 'Momias que lanzan insectos.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🧟', defaultCount: 10 },
   { id: 'camel', enemy: 'camel', nombre: 'Camello', desc: 'Camel Slug con ametralladoras.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🐫', defaultCount: 10 },
   { id: 'camel_rebel', enemy: 'camel_rebel', nombre: 'Camello rebelde', desc: 'Camellos que lanzan bombas.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '💥', defaultCount: 20 },
+  { id: 'utan', enemy: 'utan', nombre: 'Mono Utan', desc: 'Mono Utan salvaje.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🐒', defaultCount: 1 },
+  { id: 'morena', enemy: 'morena', nombre: 'Pez morena', desc: 'Pez morena gigante.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🐟', defaultCount: 1 },
+  { id: 'flyingtara', enemy: 'flyingtara', nombre: 'Flying Tara', desc: 'Enemigo volador Flying Tara.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🦅', defaultCount: 1 },
+  { id: 'dogmummy', enemy: 'dogmummy', nombre: 'Perro momia', desc: 'Momia perro guardián.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🐕', defaultCount: 1 },
+  { id: 'planta_carnivora', enemy: 'planta_carnivora', nombre: 'Planta carnívora', desc: 'Planta carnívora gigante.', section: 'creatures', tipo: 'enemy', kind: 'spawn', emoji: '🌿', defaultCount: 1 },
   // —— Jefes y oleadas ——
   { id: 'dragon', enemy: 'dragon', nombre: 'Nave dragón', desc: 'Nave gigante de ataque.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🐉', defaultCount: 5 },
   { id: 'allen', enemy: 'allen', nombre: "Allen O'Neil", desc: "Sargento Allen O'Neil.", section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '💪', defaultCount: 5 },
@@ -20781,10 +20811,43 @@ const MSLUG_CATALOG = [
   { id: 'miniufo_oleada', enemy: 'miniufo,miniufo_baja', nombre: 'Mini UFO', desc: 'Platillos voladores marcianos.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🛸', defaultCount: 5 },
   { id: 'piramide', enemy: 'piramide', nombre: 'Jefe pirámide', desc: 'Jefe de la pirámide.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🔺', defaultCount: 5 },
   { id: 'mars', enemy: 'mars', nombre: 'Marcianos', desc: 'Horda de Mars People.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '👽', defaultCount: 20 },
+  { id: 'jupiter', enemy: 'jupiter', nombre: 'Robot Júpiter', desc: 'Jefe Robot Júpiter.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '🤖', defaultCount: 1 },
   { id: 'full_enemigos', enemy: 'yeti,allen,dragon,kessi,piramide', nombre: 'Full enemigos', desc: 'Oleada de jefes variados.', section: 'bosses', tipo: 'enemy', kind: 'spawn', emoji: '👾', defaultCount: 5 },
 ];
 const MSLUG_SPAWN_MAX = 50;
 const MSLUG_WEBHOOK_BASE = 'http://127.0.0.1:5720';
+/** Miniaturas remotas (CDN Render). No van empaquetadas en el .exe. */
+const MSLUG_THUMB_CDN = 'https://livecoins.onrender.com/img/mslug-thumbs';
+
+function mslugThumbKey(entryOrId) {
+  const raw = typeof entryOrId === 'string'
+    ? entryOrId
+    : (entryOrId?.id || entryOrId?.thing || entryOrId?.enemy || '');
+  const key = String(raw || '').trim();
+  if (!key) return '';
+  const cat = (typeof MSLUG_CATALOG !== 'undefined' ? MSLUG_CATALOG : []).find(
+    (c) => c.id === key || c.enemy === key,
+  );
+  const id = cat?.id || key.split(',')[0];
+  return String(id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+function mslugThumbUrls(entryOrId) {
+  const key = mslugThumbKey(entryOrId);
+  if (!key) return { primary: '', fallback: '' };
+  return {
+    primary: `/img/mslug-thumbs/${key}.png`,
+    fallback: `${MSLUG_THUMB_CDN}/${encodeURIComponent(key)}.png`,
+  };
+}
+
+function mslugCatalogIconHtml(c) {
+  const em = esc(c?.emoji || (c?.tipo === 'weapon' ? '🔫' : '🎖️'));
+  const { primary, fallback } = mslugThumbUrls(c);
+  if (!primary) return `<span class="repo-cat-list-em">${em}</span>`;
+  return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
+}
+
 let _mslugOverlayPresetsCache = null;
 
 async function getMslugOverlayPresets() {
@@ -20950,7 +21013,7 @@ function ensureMslugActions() {
   return settings.mslugActions;
 }
 
-const MSLUG_DOWNLOAD_URL = 'https://github.com/riusaki1995/mariobros/releases/download/metalsl/METAL.SLUG.CLIENTES.rar';
+const MSLUG_DOWNLOAD_URL = 'https://github.com/riusaki1995/mariobros/releases/download/metalslug/Metal.Slug.Nueva.Version.rar';
 const MSLUG_ACTIVADOR_URL = 'https://github.com/riusaki1995/mariobros/releases/download/metalsl/Metal.Slug.Bridge.Setup.1.0.0.exe';
 
 const MSLUG_DL_ITEMS = [
@@ -21128,7 +21191,10 @@ function setupMslugActionsUI() {
 
 function mslugCatCardHtml(c) {
   const emoji = c.emoji || (c.tipo === 'weapon' ? '🔫' : '🎖️');
-  const ic = `<img class="mc-cat-ic" src="/img/mslug/${esc(c.id)}.png" alt="" onerror="this.outerHTML='<span class=\'mc-cat-emoji\'>${emoji}</span>'">`;
+  const { primary, fallback } = mslugThumbUrls(c);
+  const ic = primary
+    ? `<img class="mc-cat-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'mc-cat-emoji\\'>${emoji}</span>';}">`
+    : `<span class="mc-cat-emoji">${emoji}</span>`;
   return `
     <div class="mc-cat-card" data-id="${esc(c.id)}" title="${esc(c.desc || c.nombre)}">
       <div class="mc-cat-head-row">
@@ -21165,11 +21231,7 @@ function renderMslugCatalog(filter) {
       iconMap: MSLUG_SECTION_ICON,
       searching: !!f,
     }),
-    rowHtml: (c) => {
-      const em = c.emoji || (c.tipo === 'weapon' ? '🔫' : '🎖️');
-      const ic = `<img class="repo-cat-list-ic" src="/img/mslug/${esc(c.id)}.png" alt="" onerror="this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>'">`;
-      return gameCatListBtnHtml(c.id, c.nombre, ic, c.desc || c.nombre);
-    },
+    rowHtml: (c) => gameCatListBtnHtml(c.id, c.nombre, mslugCatalogIconHtml(c), c.desc || c.nombre),
     onPick: addMslugAction,
   });
 }
@@ -21236,7 +21298,10 @@ function renderMslugActions() {
   registerGameActionRenderer('mslugActions', renderMslugActions);
   const list = ensureMslugActions();
   if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
-  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: MSLUG_SPAWN_MAX, imgBase: '/img/mslug/' }).replace(/pvz-/g, 'mslug-')).join('');
+  wrap.innerHTML = list.map((a) => pvzCardHtml(a, {
+    maxSpawn: MSLUG_SPAWN_MAX,
+    thumbUrlsFn: mslugThumbUrls,
+  }).replace(/pvz-/g, 'mslug-')).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.mslug-del').forEach((b) => b.onclick = () => { settings.mslugActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderMslugActions(); });
   bindGameActionConfigPopovers(wrap, find, renderMslugActions, { countMax: MSLUG_SPAWN_MAX });
@@ -22916,7 +22981,13 @@ window.getEditorGamePacks = function getEditorGamePacks() {
         srcFallback: `/img/ctr/${c.id}.png`,
       })),
     },
-    { id: 'metalslug', name: 'Metal Slug', cover: '/img/metalslug.png', items: byId(typeof MSLUG_CATALOG !== 'undefined' ? MSLUG_CATALOG : [], '/img/mslug/') },
+    {
+      id: 'metalslug', name: 'Metal Slug', cover: '/img/metalslug.png',
+      items: (typeof MSLUG_CATALOG !== 'undefined' ? MSLUG_CATALOG : []).map((c) => {
+        const urls = mslugThumbUrls(c);
+        return { name: c.nombre || c.name || c.id, src: urls.primary || urls.fallback, srcFallback: urls.fallback };
+      }).filter((x) => x.src),
+    },
     { id: 'geometrydash', name: 'Geometry Dash', cover: '/img/gdash/gdash-card.jpg', items: byId(typeof GDASH_CATALOG !== 'undefined' ? GDASH_CATALOG : [], '/img/gdash/') },
   ];
   return packs.filter((p) => Array.isArray(p.items) && p.items.length > 0);
