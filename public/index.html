@@ -54,7 +54,7 @@
         <div class="nav-divider" aria-hidden="true"><span class="nav-divider-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="nav-ico-stroke" d="M13 2L4 14h6l-2 8 10-12h-6l2-8z"/></svg></span></div>
         <div class="nav-section">
           <button class="nav-item" data-view="acciones" id="navAcciones" style="display:none">Acciones</button>
-          <button class="nav-item" data-view="alertas">Alertas sonoras</button>
+          <button class="nav-item" data-view="alertas">Sonidos</button>
           <button class="nav-item" data-view="videos">Videos</button>
           <button class="nav-item" data-view="batallas">Batallas</button>
         </div>
@@ -176,10 +176,6 @@
             </div>
           </div>
 
-          <a class="home-streamdeck-banner" id="home-streamdeck-banner" href="https://github.com/riusaki1995/.exe/releases/download/v1.0.79/StreamDeck-Livecoins-Setup-1.0.0.exe" target="_blank" rel="noopener" aria-label="Descargar StreamDeck Livecoins">
-            <img src="/img/streamdeck-banner.png?v=7" alt="StreamDeck Livecoins â descarga" width="1024" height="227" loading="lazy" decoding="async">
-          </a>
-
           <section class="panel-lives" id="panel-lives" hidden>
             <div class="panel-lives-head">
               <div class="panel-lives-head-main">
@@ -299,8 +295,8 @@
 
           <section class="panel panel-transfer" id="panel-transfer">
             <header class="panel-head">ð¦ Importar / Exportar configuración</header>
-            <p class="transfer-desc">Si vas a importar los datos del otro Livecoins, marca la casilla de reemplazar y dale importar.</p>
-            <p class="transfer-desc">Si vas a importar más de 1 perfil, exporta e importa perfil por perfil.</p>
+            <p class="transfer-desc" hidden>Si vas a importar los datos del otro Livecoins, marca la casilla de reemplazar y dale importar.</p>
+            <p class="transfer-desc" hidden>Si vas a importar más de 1 perfil, exporta e importa perfil por perfil.</p>
             <div class="transfer-actions">
               <button type="button" class="btn primary" id="transfer-export">â¬ Exportar</button>
               <button type="button" class="btn ghost" id="transfer-import">â¬ Importar archivoâ¦</button>
@@ -731,7 +727,7 @@
 
         <!-- ===== VISTA: ALERTAS SONORAS ===== -->
         <section class="view" id="view-alertas">
-          <h1 class="view-title">ð Alertas sonoras</h1>
+          <h1 class="view-title">🔔 Sonidos</h1>
           <p class="view-sub">Crea alertas sonoras que se reproducen en el overlay cuando llega un regalo.</p>
 
           <div class="sa-toolbar">
@@ -854,7 +850,7 @@
           <div class="modal-box create-modal-shell">
             <div class="modal-head create-modal-head">
               <div class="create-modal-head-text">
-                <p class="create-modal-kicker">Alertas sonoras</p>
+                <p class="create-modal-kicker">Sonidos</p>
                 <h2 id="sa-modal-title">Nueva alerta sonora</h2>
                 <p class="acc-modal-lead">Elige un disparador y el audio que suena.</p>
               </div>
@@ -1043,7 +1039,7 @@
               <div id="sa-libresults" class="lib-results tall"></div>
             </div>
             <div class="modal-foot create-modal-foot">
-              <span class="credit">Audios de la carpeta <code>public/audios</code>.</span>
+              <span class="credit"><a href="https://www.myinstants.com/es/index/mx/" target="_blank" rel="noopener noreferrer">Descargar Sonidos - https://www.myinstants.com/es/index/mx/</a></span>
             </div>
           </div>
         </div>
@@ -5503,7 +5499,8 @@
               <div class="sp-row"><label>Costo de <code>!play</code></label><input type="number" id="sp-play-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
               <label class="switch-row plain"><input type="checkbox" id="sp-skip-on" checked> <span><code>!skip</code> habilitado</span></label>
               <div class="sp-row"><label>Costo de <code>!skip</code></label><input type="number" id="sp-skip-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
-              <label class="switch-row plain"><input type="checkbox" id="sp-skip-requested" checked> <span>Permitir <code>!skip</code> en pistas solicitadas</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only"> <span>Solo saltar canciones propias <small>(no las de otros ni las del streamer; los mods sí pueden saltar cualquiera)</small></span></label>
+              <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only-strict"> <span>Solo saltar canciones propias <small>(también los mods: nadie salta las de otros ni las del streamer)</small></span></label>
               <label class="switch-row plain"><input type="checkbox" id="sp-explicit" checked> <span>Permitir contenido explícito</span></label>
               <div class="sp-row"><label>Longitud máxima de la cola (total)</label><input type="number" id="sp-queue-total" min="1" value="2"><span class="sp-unit">Tracks</span></div>
               <div class="sp-row"><label>Longitud máxima de la cola (por usuario)</label><input type="number" id="sp-queue-user" min="1" value="2"><span class="sp-unit">Tracks</span></div>

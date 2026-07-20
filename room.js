@@ -78,9 +78,10 @@ function getGiftImage(data) {
   );
 }
 function baseUser(user) {
+  const uid = user?.uniqueId || (user?.userId != null && String(user.userId) !== '0' ? String(user.userId) : '') || '';
   return {
-    uniqueId: user?.uniqueId || '',
-    nickname: user?.nickname || user?.uniqueId || 'Anónimo',
+    uniqueId: uid,
+    nickname: user?.nickname || user?.uniqueId || uid || 'Anónimo',
     photo: getPhoto(user),
   };
 }
@@ -548,6 +549,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let relayLocalOrigin = '';         // http://127.0.0.1:PUERTO (modo relay .exe)
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
+  /** Último chat por usuario (ms) — para detectar “salió y volvió” en primer mensaje. */
+  const chatLastAt = new Map();
   const recentChatKeys = new Set();
   const recentChatOrder = [];
   function chatEventKey(data, comment) {
@@ -697,7 +700,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const recentSubs = new Map();      // dedupe suscripciones (subscribe/subNotify)
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
   const memberLevels = new Map();    // uniqueId -> último nivel de miembro visto (para detectar subidas)
-  const joinVideoCooldown = new Map(); // uniqueId -> última vez que se lanzó su video de entrada
+  const joinVideoCooldown = new Map(); // clave por video/usuario -> última vez que se disparó
+  /** ¿Silencio desde el último chat >= delay? (visita nueva / primer mensaje). */
+  function isFirstMessageVisit(info, delaySec = 30) {
+    const delay = Math.max(0, Number(delaySec) || 0);
+    const gapMs = Number.isFinite(Number(info.gapMs)) ? Number(info.gapMs) : Infinity;
+    if (delay <= 0) return true;
+    return gapMs >= delay * 1000;
+  }
+  /** Primer mensaje por ítem: delay 0 = una vez por live; >0 = solo tras silencio >= delay. */
+  function claimFirstMessageSlot(info, itemKey, delaySecRaw) {
+    const delaySec = (delaySecRaw == null) ? 30 : Math.max(0, Number(delaySecRaw) || 0);
+    const who = normTikTokUser(info.username) || normTikTokUser(info.nickname) || 'any';
+    const cdKey = `fm|${itemKey}|${who}`;
+    const now = Date.now();
+    const lastFire = joinVideoCooldown.get(cdKey) || 0;
+    if (delaySec <= 0) {
+      if (lastFire) return false;
+    } else if (!isFirstMessageVisit(info, delaySec)) {
+      return false;
+    }
+    joinVideoCooldown.set(cdKey, now);
+    return true;
+  }
   const gameFollowShareCooldown = new Map(); // follow/share de acciones de juego / teclas por usuario
 
   /** Anti-spam: mismo usuario no puede reactivar follow/share/emote hasta eventDelay segundos (default 30; 0 = sin límite). */
@@ -1366,6 +1391,34 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function screenSizeForCfg(cfg, n) {
     return cfg?.screens?.[(Number(n) || 1) - 1]?.size ?? 100;
   }
+  function clampMediaScreen(n) {
+    return Math.max(1, Math.min(10, Number(n) || 1));
+  }
+  /**
+   * Envía `media` solo a las Browser Sources de esa pantalla (+ clientes que no son
+   * videoScreen, p. ej. overlay). Evita que pantalla 2 reciba (y a veces muestre)
+   * un video de pantalla 1 si el filtro del cliente falla o hay fuentes mal pegadas.
+   */
+  function broadcastMedia(payload) {
+    const scr = clampMediaScreen(payload?.screen);
+    const body = { ...payload, screen: scr };
+    const msg = JSON.stringify({ type: 'media', payload: body });
+    if (videoScreens.size === 0) {
+      for (const client of clients) {
+        if (client.readyState === 1) client.send(msg);
+      }
+      return body;
+    }
+    const videoClients = new Set(videoScreens.keys());
+    for (const [client, screenNum] of videoScreens) {
+      if (client.readyState === 1 && clampMediaScreen(screenNum) === scr) client.send(msg);
+    }
+    for (const client of clients) {
+      if (videoClients.has(client)) continue;
+      if (client.readyState === 1) client.send(msg);
+    }
+    return body;
+  }
   function emitProfileMedia(cfg, v, scr, isGeneral) {
     emitMedia({
       id: v.id,
@@ -1379,11 +1432,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
   }
   function emitMedia(payload) {
-    // Siempre a las fuentes video.html de esta room (Live Studio / nube).
-    broadcast('media', payload);
+    const body = broadcastMedia(payload);
     // Si el .exe está en relay, también a local (por si la fuente apunta al host de la PC).
     if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
-      broadcastToLocal('playMedia', payload);
+      broadcastToLocal('playMedia', body);
     }
   }
   function emitStopMedia(scr) {
@@ -3739,8 +3791,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (meta.reason) exec.reason = meta.reason;
       if (meta.giftName) exec.giftName = meta.giftName;
       if (meta.eventType) exec.eventType = meta.eventType;
-      if (emitLocalExec(exec)) return;
-      gtavKothSpawn(exec.thing, exec.name, unitCount, exec.params || {}).catch(() => { /* spawns en juego, sin log en panel */ });
+      const label = meta.label || thing;
+      const why = meta.reason ? ` (${meta.reason})` : '';
+      if (emitLocalExec(exec)) {
+        broadcast('log', { level: 'ok', text: `🚗 GTA V KOTH: "${label}" ×${unitCount} → tu PC${why}` });
+        return;
+      }
+      broadcast('log', { level: 'info', text: `🚗 GTA V KOTH: enviando "${label}" ×${unitCount}${why}…` });
+      gtavKothSpawn(exec.thing, exec.name, unitCount, exec.params || {})
+        .then((r) => {
+          if (r && r.ok !== false) {
+            broadcast('log', { level: 'ok', text: `🚗 GTA V KOTH: "${label}" OK (${r.via || 'local'} · ${r.sent || unitCount})` });
+          } else {
+            broadcast('log', {
+              level: 'err',
+              text: `🚗 GTA V KOTH falló: ${r?.hint || r?.error || 'bridge_no_disponible'} — Conectar + GTA en Historia`,
+            });
+          }
+        })
+        .catch((e) => {
+          broadcast('log', { level: 'err', text: `🚗 GTA V KOTH falló: ${e?.message || e}` });
+        });
     });
   }
 
@@ -4545,6 +4616,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function triggerLikeGlobal(total) {
     if (!total || total <= lastTotalLikes) { lastTotalLikes = total || lastTotalLikes; return; }
     triggerActionsLikeGlobal(total);
+    const firedLikeVid = new Set();
     forEachTriggerProfile((cfg, isGeneral) => {
       for (const a of (cfg.mcActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal') continue;
@@ -4697,7 +4769,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!v.url || v.enabled === false || (v.trigger || '') !== 'likeGlobal') continue;
           const goal = Math.max(1, v.likeGoal || 100);
           if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-            emitProfileMedia(cfg, v, Number(v.screen) || 1, isGeneral);
+            const scr = clampMediaScreen(v.screen);
+            const dedupeKey = `${v.id || v.url}|${scr}`;
+            if (firedLikeVid.has(dedupeKey)) continue;
+            firedLikeVid.add(dedupeKey);
+            emitProfileMedia(cfg, v, scr, isGeneral);
           }
         }
       }
@@ -4706,6 +4782,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function triggerVideos(eventType, info = {}, user = null) {
+    // Evita el mismo video en la misma pantalla 2 veces (perfil activo + Perfil General).
+    const fired = new Set();
     forEachTriggerProfile((cfg, isGeneral) => {
       if (cfg.videosEnabled === false) return;
       for (const v of cfg.videos) {
@@ -4732,7 +4810,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (eventType === 'like') {
           const likeFires = gameLikeTriggerFires(v, info, user, `vid_${v.id}`);
           if (likeFires <= 0) continue;
-          const scr = Number(v.screen) || 1;
+          const scr = clampMediaScreen(v.screen);
+          const dedupeKey = `${v.id || v.url}|${scr}`;
+          if (fired.has(dedupeKey)) continue;
+          fired.add(dedupeKey);
           for (let lf = 0; lf < likeFires; lf++) {
             emitProfileMedia(cfg, v, scr, isGeneral);
           }
@@ -4752,6 +4833,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             if (!tiktokUserMatches(want, info.username, info.nickname)) continue;
           }
         }
+        if (eventType === 'firstMessage') {
+          // Cooldown por usuario: primer chat de la visita. Si sigue escribiendo, no.
+          // Si calla >= joinDelay s y vuelve, sí. joinDelay vacío/0 (legacy) → 30s.
+          const fmDelay = (v.joinDelay == null || Number(v.joinDelay) <= 0) ? 30 : Number(v.joinDelay);
+          if (!claimFirstMessageSlot(info, `${v.id}|${isGeneral ? 'g' : 'a'}`, fmDelay)) continue;
+        }
         if (eventType === 'userJoin') {
           const delaySec = (v.joinDelay == null) ? 30 : Math.max(0, Number(v.joinDelay) || 0);
           if (delaySec > 0) {
@@ -4766,7 +4853,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (eventType === 'emote') {
           if (!allowFollowSharePerUser(v, eventType, user || { uniqueId: info.username, nickname: info.nickname }, `vid_${isGeneral ? 'g' : 'a'}`)) continue;
         }
-        const scr = Number(v.screen) || 1;
+        const scr = clampMediaScreen(v.screen);
+        const dedupeKey = `${v.id || v.url}|${scr}`;
+        if (fired.has(dedupeKey)) continue;
+        fired.add(dedupeKey);
         emitProfileMedia(cfg, v, scr, isGeneral);
       }
     });
@@ -5015,11 +5105,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
 
     let requestedBy = spotifyNowPlaying?.requestedBy || '';
+    let requestedUniqueId = spotifyNowPlaying?.requestedUniqueId || '';
     if (state.uri !== lastSpotifyUri) {
       requestedBy = '';
+      requestedUniqueId = '';
       const idx = spotifyQueue.findIndex((q) => q.uri === state.uri);
       if (idx !== -1) {
         requestedBy = spotifyQueue[idx].nickname || '';
+        requestedUniqueId = spotifyQueue[idx].uniqueId || '';
         spotifyQueue.splice(idx, 1);
         pushSpotifyQueue();
         spotifyHistory.unshift({
@@ -5043,6 +5136,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       durationMs: state.durationMs,
       playing: state.playing,
       requestedBy,
+      requestedUniqueId,
       serverTs: Date.now(),
     };
     pushSpotifyNowPlaying();
@@ -5148,12 +5242,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     if (kind === 'skip') {
       if (cfg.skipOn === false) return;
+      // Opción: solo saltar canción propia (no las de otros ni las del streamer).
+      // skipOwnOnlyStrict: también aplica a mods. skipOwnOnly: los mods sí pueden saltar cualquiera.
+      const enforceOwnSkip = !!cfg.skipOwnOnlyStrict || (!!cfg.skipOwnOnly && !roles?.isMod);
+      if (enforceOwnSkip) {
+        const owner = normTikTokUser(spotifyNowPlaying?.requestedUniqueId);
+        const me = normTikTokUser(user.uniqueId);
+        if (!owner) {
+          reply(`${user.nickname}: no puedes saltar las pistas del streamer.`, false);
+          return;
+        }
+        if (owner !== me) {
+          reply(`${user.nickname}: solo puedes saltar tu propia canción.`, false);
+          return;
+        }
+      }
       if (!(await charge(cfg.skipCost, 'Spotify !skip'))) return;
       let ok = false;
       try { ok = await spotify.skipNext(id); } catch {}
       if (!ok) { reply('No pude saltar la pista.', false); return; }
-      if (spotifyQueue.length) spotifyQueue.shift();
-      pushSpotifyQueue();
+      // La pista actual ya salió de la cola al empezar a sonar; no hacer shift aquí.
       pollSpotifyPlayback().catch(() => {});
       addHistory('—', 'Saltada');
       reply(`${user.nickname} saltó la pista.`);
@@ -5350,6 +5458,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     state.stats = { viewers: 0, likes: 0, diamonds: 0, comments: 0, gifts: 0, follows: 0, shares: 0, joins: 0 };
     state.gifters.clear();
     chatSeenUsers.clear();
+    chatLastAt.clear();
+    joinVideoCooldown.clear();
     recentChatKeys.clear();
     recentChatOrder.length = 0;
     fanCoinAcc.clear();
@@ -6111,14 +6221,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       handleSpotifyCommands(comment, chatUser, chatUserRoles(data));
       triggerMinecraftActions('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
-      const uid = data.user?.uniqueId || data.user?.userId;
+      // ID estable del hablante (uniqueId o userId numérico).
+      const uidRaw = chatUser.uniqueId || data.user?.uniqueId || data.user?.userId || data.userId || '';
+      const uid = normTikTokUser(uidRaw) || String(uidRaw || '').trim()
+        || normTikTokUser(chatUser.nickname) || String(chatUser.nickname || '').trim();
+      const username = chatUser.uniqueId || String(data.user?.userId || data.userId || '').trim();
+      const nowChat = Date.now();
+      const prevChat = uid ? (chatLastAt.get(uid) || 0) : 0;
+      const gapMs = prevChat ? (nowChat - prevChat) : Infinity;
+      if (uid) {
+        chatLastAt.set(uid, nowChat);
+        if (chatLastAt.size > 8000) {
+          for (const [k, t] of chatLastAt) if (nowChat - t > 6 * 3600 * 1000) chatLastAt.delete(k);
+        }
+      }
+      const firstMsgInfo = { comment, username, nickname: chatUser.nickname, gapMs };
+      // Primer mensaje: cada video aplica su cooldown (joinDelay). Sonidos/juegos/acciones: visita ~30s.
+      triggerVideos('firstMessage', firstMsgInfo);
+      if (isFirstMessageVisit(firstMsgInfo, 30)) {
+        triggerSoundAlerts('firstMessage', firstMsgInfo);
+        triggerMinecraftActions('firstMessage', firstMsgInfo, chatUser);
+        triggerActions('firstMessage', firstMsgInfo, chatUser);
+      }
+      // Hint de entrada: solo la primera vez en el live (si TikTok no manda MEMBER).
       if (uid && !chatSeenUsers.has(uid)) {
         chatSeenUsers.add(uid);
-        triggerVideos('firstMessage', chatInfo);
-        triggerSoundAlerts('firstMessage', chatInfo);
-        triggerMinecraftActions('firstMessage', chatInfo, chatUser);
-        // TikTok a menudo NO envía MEMBER al entrar: disparamos userJoin en el primer chat.
-        triggerVideos('userJoin', chatInfo);
+        triggerVideos('userJoin', firstMsgInfo);
       }
     });
 
@@ -6679,8 +6807,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (data.media) {
           const m = { ...data.media };
           if (m.url) m.url = relativizeMediaUrl(m.url);
-          const scr = Number(m.screen) || 1;
-          broadcast('media', { ...m, screen: scr, size: m.size ?? screenSize(scr) });
+          const scr = clampMediaScreen(m.screen);
+          broadcastMedia({ ...m, screen: scr, size: m.size ?? screenSize(scr) });
         }
         break;
       }

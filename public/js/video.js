@@ -86,11 +86,18 @@ function connectWS(force) {
     const { type, payload } = msg;
     if (type === 'pong') return;
     if (type === 'settings') { settings = payload || {}; return; }
-    if (type === 'media' && (Number(payload.screen) || 1) === screen) {
+    if (type === 'media') {
+      const want = Math.max(1, Math.min(10, Number(payload?.screen) || 1));
+      if (want !== screen) return;
       if (payload.screenTest) { showScreenTest(); return; }
       enqueue(payload);
     }
-    if (type === 'stopMedia' && (Number(payload.screen) || 1) === screen) { clearAllQueues(); stopAllStages(); }
+    if (type === 'stopMedia') {
+      const want = Math.max(1, Math.min(10, Number(payload?.screen) || 1));
+      if (want !== screen) return;
+      clearAllQueues();
+      stopAllStages();
+    }
     if (type === 'panic') { clearAllQueues(); stopAllStages(); }
   };
 }
@@ -139,6 +146,12 @@ function clearLaneTimers(lane) {
 
 function enqueue(m) {
   const lane = laneFor(m);
+  // Anti-doble: el mismo clip no se encola dos veces seguidas (relay / perfil general).
+  const dedupeKey = `${m?.id || ''}|${String(m?.url || '')}|${lane === lanes.general ? 'g' : 'a'}`;
+  const now = Date.now();
+  if (lane._lastKey === dedupeKey && now - (lane._lastAt || 0) < 400) return;
+  lane._lastKey = dedupeKey;
+  lane._lastAt = now;
   if (!queueOn(m)) {
     // Sin cola: corta lo actual y reproduce ya (invalidando callbacks viejos)
     lane.token += 1;

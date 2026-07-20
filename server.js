@@ -6,6 +6,7 @@ import { eulerStartupLine } from './euler-config.js';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -19,6 +20,7 @@ import {
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
   getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
+  setUserPassword, destroySessionsForUser,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
   remapSessionUserIds, importSessionsFromRecord, pruneInvalidSessions, hasAnyValidSession,
   saveDesktopLastLogin, clearDesktopLastLogin, bootstrapDesktopSessionToken, ensureSessionForUser,
@@ -2431,6 +2433,32 @@ app.post('/api/admin/delete-user', express.json(), requireAdmin, async (req, res
   if (remoteCookies.delete(id)) saveRemoteCookies();
   try { fs.rmSync(path.join(DATA_DIR, id), { recursive: true, force: true }); } catch {}
   res.json({ ok: true, username: user.username });
+});
+
+// Restablecer contraseña de un usuario. La actual NO se puede ver (hash scrypt);
+// el admin define una nueva (o se genera) y se devuelve en claro SOLO en esta respuesta.
+app.post('/api/admin/set-password', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/set-password', 'POST')) return;
+  const { id, password } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const user = getUserById(id);
+  if (!user) return res.status(404).json({ error: 'cuenta no encontrada' });
+  if (user.isAdmin) return res.status(403).json({ error: 'no se puede cambiar la clave del administrador aquí' });
+  let pwd = String(password || '').trim();
+  if (!pwd) {
+    const alphabet = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = '';
+    const bytes = crypto.randomBytes(10);
+    for (let i = 0; i < 10; i++) out += alphabet[bytes[i] % alphabet.length];
+    pwd = out;
+  }
+  if (pwd.length < 4) return res.status(400).json({ error: 'mínimo 4 caracteres' });
+  if (pwd.length > 128) return res.status(400).json({ error: 'contraseña demasiado larga' });
+  if (!setUserPassword(id, pwd)) return res.status(500).json({ error: 'no se pudo guardar' });
+  destroySessionsForUser(id);
+  const room = rooms.get(id);
+  if (room) room.kickAll?.();
+  res.json({ ok: true, username: user.username, password: pwd });
 });
 
 // Revisión periódica: baja a 'free' a los Premium temporales que ya caducaron y

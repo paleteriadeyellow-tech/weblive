@@ -541,7 +541,7 @@ function applyCaps() {
 /* ---- Vista "Planes" (lo que ve el usuario sobre su plan) ---- */
 const CAP_LABELS = {
   // pestañas
-  tab_alertas: 'Alertas sonoras', tab_videos: 'Videos', tab_batallas: 'Batallas PK',
+  tab_alertas: 'Sonidos', tab_videos: 'Videos', tab_batallas: 'Batallas PK',
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
   tab_webhook: 'Webhook y Configuración',
   // overlays
@@ -606,7 +606,7 @@ function renderPlanView() {
   const meters = document.getElementById('plan-meters');
   if (meters) {
     const rows = [
-      { kind: 'soundAlerts', key: 'soundAlerts', noun: 'Alertas sonoras' },
+      { kind: 'soundAlerts', key: 'soundAlerts', noun: 'Sonidos' },
       { kind: 'videos', key: 'videos', noun: 'Videos' },
       { kind: 'battleAlerts', key: 'battleAlerts', noun: 'Animaciones de batalla' },
     ];
@@ -1133,10 +1133,8 @@ function mountUserChip() {
 }
 
 let pcInstallUrl = '';
-const STREAMDECK_DOWNLOAD_URL = 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/StreamDeck-Livecoins-Setup-1.0.0.exe';
 async function applyPcInstallButton() {
   const btn = document.getElementById('pc-install-btn');
-  const banner = document.getElementById('home-streamdeck-banner');
   const openInstall = (e) => {
     if (e) e.preventDefault();
     if (!pcInstallUrl) {
@@ -1146,15 +1144,6 @@ async function applyPcInstallButton() {
     if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(pcInstallUrl);
     else window.open(pcInstallUrl, '_blank', 'noopener');
   };
-  const openStreamdeck = (e) => {
-    if (e) e.preventDefault();
-    if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(STREAMDECK_DOWNLOAD_URL);
-    else window.open(STREAMDECK_DOWNLOAD_URL, '_blank', 'noopener');
-  };
-  if (banner) {
-    banner.setAttribute('href', STREAMDECK_DOWNLOAD_URL);
-    banner.addEventListener('click', openStreamdeck);
-  }
   if (btn) {
     if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; }
     else {
@@ -1382,12 +1371,47 @@ function triggerAlertPanic() {
 }
 
 /* ====================== Lazy embed previews (overlays) ====================== */
-/** Evita cargar ~40 iframes embed al abrir el panel; se hidratan al entrar a la pestaña. */
+/** Evita cargar ~40 iframes embed al abrir el panel; se hidratan al entrar a la pestaña
+ *  y se DESCARGAN al salir (Matter.js + imágenes dejan de comer RAM). */
 const embedLoadQueue = [];
 let embedLoadBusy = false;
 
 function embedWantSrc(fr) {
   return (fr && (fr.dataset.src || fr.getAttribute('data-src'))) || '';
+}
+
+function unloadEmbed(fr) {
+  if (!fr || !embedWantSrc(fr)) return;
+  clearTimeout(fr._embedUnloadTimer);
+  fr._embedUnloadTimer = null;
+  const qi = embedLoadQueue.indexOf(fr);
+  if (qi >= 0) embedLoadQueue.splice(qi, 1);
+  try {
+    fr.src = 'about:blank';
+  } catch {}
+  try { fr.removeAttribute('src'); } catch {}
+  delete fr.dataset.embedReady;
+  delete fr.dataset.embedQueued;
+}
+
+function unloadViewEmbeds(view) {
+  if (!view) return;
+  if (view._embedObs) {
+    try { view._embedObs.disconnect(); } catch {}
+    view._embedObs = null;
+  }
+  view.querySelectorAll('iframe[data-src]').forEach(unloadEmbed);
+}
+
+/** Libera previews de overlays que ya no son la vista activa. */
+function releaseOverlayEmbedsForNav(nextViewId) {
+  const nextId = String(nextViewId || '').startsWith('view-')
+    ? String(nextViewId)
+    : (nextViewId ? `view-${nextViewId}` : '');
+  document.querySelectorAll('section.view[id^="view-ov-"]').forEach((view) => {
+    if (nextId && view.id === nextId) return;
+    unloadViewEmbeds(view);
+  });
 }
 
 function ensureEmbedLoaded(frOrId) {
@@ -1396,12 +1420,16 @@ function ensureEmbedLoaded(frOrId) {
     if (!fr) { resolve(null); return; }
     const want = embedWantSrc(fr);
     if (!want) { resolve(fr); return; }
-    if (fr.dataset.embedReady === '1' && fr.getAttribute('src')) { resolve(fr); return; }
+    if (fr.dataset.embedReady === '1' && fr.getAttribute('src') && fr.getAttribute('src') !== 'about:blank') {
+      resolve(fr);
+      return;
+    }
     const finish = () => {
       fr.dataset.embedReady = '1';
       resolve(fr);
     };
-    if (fr.getAttribute('src')) {
+    const cur = fr.getAttribute('src');
+    if (cur && cur !== 'about:blank') {
       try {
         if (fr.contentDocument?.readyState === 'complete') { finish(); return; }
       } catch { /* cross-origin or empty */ }
@@ -1448,16 +1476,31 @@ function hydrateViewEmbeds(view) {
   if (!view._embedObs) {
     view._embedObs = new IntersectionObserver((entries) => {
       for (const e of entries) {
-        if (!e.isIntersecting) continue;
         const fr = e.target;
-        view._embedObs.unobserve(fr);
-        queueEmbedLoad(fr);
+        if (e.isIntersecting) {
+          clearTimeout(fr._embedUnloadTimer);
+          fr._embedUnloadTimer = null;
+          queueEmbedLoad(fr);
+          continue;
+        }
+        // Fuera de pantalla: liberar Matter/imágenes tras un momento (evita thrash al scrollear).
+        if (!(fr.dataset.embedReady === '1' || (fr.getAttribute('src') && fr.getAttribute('src') !== 'about:blank'))) continue;
+        clearTimeout(fr._embedUnloadTimer);
+        fr._embedUnloadTimer = setTimeout(() => {
+          fr._embedUnloadTimer = null;
+          if (!fr.isConnected || !view.classList.contains('active')) return;
+          const r = fr.getBoundingClientRect();
+          const margin = 200;
+          if (r.bottom < -margin || r.top > window.innerHeight + margin) {
+            unloadEmbed(fr);
+            try { view._embedObs.observe(fr); } catch {}
+          }
+        }, 2800);
       }
     }, { root: null, rootMargin: '160px 0px', threshold: 0.01 });
   }
   frames.forEach((fr) => {
-    if (fr.dataset.embedReady === '1' || fr.dataset.embedQueued === '1') return;
-    view._embedObs.observe(fr);
+    try { view._embedObs.observe(fr); } catch {}
   });
 }
 
@@ -1465,6 +1508,7 @@ function onOverlayNavShown(viewSlugOrId) {
   const id = String(viewSlugOrId || '').startsWith('view-')
     ? viewSlugOrId
     : `view-${viewSlugOrId}`;
+  releaseOverlayEmbedsForNav(id);
   if (!String(id).startsWith('view-ov-')) return;
   // Dejar pintar la UI antes de encolar iframes pesados (fuegos, alertas, etc.).
   requestAnimationFrame(() => {
@@ -1563,6 +1607,7 @@ async function loadAdminUsers() {
             </div>
             <div class="admin-actions-row">
               <button class="btn tiny games-toggle" data-id="${u.id}" data-enabled="${gamesOn ? '0' : '1'}">${gamesOn ? 'Desactivar juegos' : 'Activar juegos'}</button>
+              <button class="btn tiny admin-password" data-id="${u.id}" data-username="${u.username.replace(/"/g, '&quot;')}" title="La actual está cifrada; genera o define una nueva y la verás una vez">Contraseña</button>
             </div>
             <button class="btn tiny admin-delete" data-id="${u.id}" data-username="${u.username.replace(/"/g, '&quot;')}">Eliminar cuenta</button>
           </div>`;
@@ -1579,7 +1624,7 @@ async function loadAdminUsers() {
       </tr>`;
     }).join('');
     tbody.querySelectorAll('button[data-id]').forEach((b) => {
-      if (b.classList.contains('prem-give') || b.classList.contains('prem-fixed') || b.classList.contains('prem-remove') || b.classList.contains('admin-delete') || b.classList.contains('games-toggle')) return;
+      if (b.classList.contains('prem-give') || b.classList.contains('prem-fixed') || b.classList.contains('prem-remove') || b.classList.contains('admin-delete') || b.classList.contains('games-toggle') || b.classList.contains('admin-password')) return;
       b.onclick = async () => {
         b.disabled = true;
         try {
@@ -1614,6 +1659,9 @@ async function loadAdminUsers() {
     });
     tbody.querySelectorAll('.admin-delete').forEach((b) => {
       b.onclick = () => deleteUserReq(b.dataset.id, b.dataset.username || '');
+    });
+    tbody.querySelectorAll('.admin-password').forEach((b) => {
+      b.onclick = () => setUserPasswordReq(b.dataset.id, b.dataset.username || '');
     });
   } catch {
     tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Error al cargar.</td></tr>';
@@ -1688,6 +1736,42 @@ async function deleteUserReq(id, username) {
     else toast(data.error || 'No se pudo eliminar la cuenta.', 'warn');
   } catch { toast('Error de conexión.', 'warn'); }
   loadAdminUsers();
+}
+
+/** La contraseña actual no se puede ver (hash). Genera o define una nueva y la muestra una vez. */
+async function setUserPasswordReq(id, username) {
+  const ok = await askConfirm({
+    title: 'Contraseña del usuario',
+    message: `La contraseña actual de «${username || 'usuario'}» no se puede ver (está cifrada). ¿Generar o definir una nueva? Se cerrará su sesión y verás la clave una sola vez para copiarla.`,
+    confirmText: 'Continuar',
+  });
+  if (!ok) return;
+  const typed = window.prompt(
+    'Escribe la nueva contraseña, o deja vacío para generar una aleatoria:',
+    '',
+  );
+  if (typed === null) return;
+  const password = String(typed).trim();
+  try {
+    const r = await fetch('/api/admin/set-password', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password: password || undefined }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok) {
+      toast(data.error || 'No se pudo cambiar la contraseña.', 'warn');
+      return;
+    }
+    window.prompt(
+      `Nueva contraseña de «${data.username || username}» (cópiala ahora; no se volverá a mostrar):`,
+      data.password || '',
+    );
+    toast(`Contraseña actualizada para «${data.username || username}».`, 'ok');
+  } catch {
+    toast('Error de conexión.', 'warn');
+  }
 }
 
 const adminRefreshBtn = document.getElementById('admin-refresh');
@@ -2682,17 +2766,11 @@ function saveSettings() {
   }, 200);
 }
 
-// Al abrir el panel, las acciones de juego arrancan apagadas (una sola vez por sesión).
+// Al abrir el panel solo renderiza. Ya NO apaga «Activa» (eso cortaba spawns
+// en medio del live: regalos/likes en el log pero nada en el juego).
 function bootGameActionsOffOnce(flag, getList, renderFn) {
   if (typeof renderFn !== 'function') return;
-  if (!window[flag]) {
-    window[flag] = true;
-    const list = typeof getList === 'function' ? getList() : (getList || []);
-    if (list.length && list.some((a) => a && a.enabled !== false)) {
-      list.forEach((a) => { if (a) a.enabled = false; });
-      saveSettings();
-    }
-  }
+  if (!window[flag]) window[flag] = true;
   renderFn();
 }
 function sendTestMcActionTimed(uid, findFn) {
@@ -3358,7 +3436,13 @@ function setVidEventUI(value) {
   if (vidDelay) vidDelay.hidden = value !== 'emote';
   $('vid-cmdextra').hidden = value !== 'chatCommand';
   $('vid-userextra').hidden = value !== 'chatCommand' && value !== 'firstMessage' && value !== 'userJoin';
-  $('vid-joindelayextra').hidden = value !== 'userJoin';
+  $('vid-joindelayextra').hidden = value !== 'userJoin' && value !== 'firstMessage';
+  const jdLabel = document.querySelector('label[for="vid-joindelay"]');
+  if (jdLabel) {
+    jdLabel.textContent = value === 'firstMessage'
+      ? 'COOLDOWN (segundos) — si sale y vuelve a escribir, espera este tiempo'
+      : 'SEGUNDOS DE DELAY (espera antes de repetir, anti-spam)';
+  }
   const sd = $('vid-streamdeck-extra');
   if (sd) sd.hidden = value !== 'streamdeck';
   if (value === 'streamdeck') refreshVidStreamdeckUrl();
@@ -3395,7 +3479,9 @@ function openVidModal(v = null) {
   if ($('vid-eventdelay')) $('vid-eventdelay').value = v?.eventDelay ?? 30;
   $('vid-command').value = v?.command || '';
   $('vid-user').value = v?.user || '';
-  $('vid-joindelay').value = v?.joinDelay ?? 30;
+  $('vid-joindelay').value = (ev === 'firstMessage' && (v?.joinDelay == null || Number(v.joinDelay) <= 0))
+    ? 30
+    : (v?.joinDelay ?? 30);
   $('vid-vol').value = v?.volume ?? 100;
   fillScreenSelect($('vid-screen'), v?.screen || 1);
   $('vid-fname').textContent = v?.fileName || 'Ningún archivo';
@@ -3628,7 +3714,7 @@ $('vid-save').onclick = async () => {
     eventDelay: ev === 'emote' ? Math.max(0, parseInt($('vid-eventdelay')?.value, 10) || 0) : 0,
     command: ev === 'chatCommand' ? $('vid-command').value.trim() : '',
     user: (ev === 'chatCommand' || ev === 'firstMessage' || ev === 'userJoin') ? $('vid-user').value.trim().replace(/^@/, '') : '',
-    joinDelay: ev === 'userJoin' ? Math.max(0, parseInt($('vid-joindelay').value, 10) || 0) : 0,
+    joinDelay: (ev === 'userJoin' || ev === 'firstMessage') ? Math.max(0, parseInt($('vid-joindelay').value, 10) || 0) : 0,
     level: 0,
     url: vidPending.url,
     fileName: vidPending.name || 'video',
@@ -10370,14 +10456,14 @@ function setupProfiles() {
 const SPOTIFY_ALLOWED_USERS = ['albertoyt', 'alee367', 'albertoreyesyt'];
 const SPOTIFY_DEFAULTS = {
   playOn: true, playCost: 0, skipOn: true, skipCost: 0,
-  skipRequested: true, explicit: true, queueTotal: 2, queueUser: 2,
+  skipRequested: true, skipOwnOnly: false, skipOwnOnlyStrict: false, explicit: true, queueTotal: 2, queueUser: 2,
   overlayPermanent: true, permAll: false, permSubs: true, permMods: true,
   permUsersOn: false,
   permUsers: [],
 };
 const SPOTIFY_MAP = {
   'sp-play-on': 'playOn', 'sp-play-cost': 'playCost', 'sp-skip-on': 'skipOn',
-  'sp-skip-cost': 'skipCost', 'sp-skip-requested': 'skipRequested', 'sp-explicit': 'explicit',
+  'sp-skip-cost': 'skipCost', 'sp-skip-own-only': 'skipOwnOnly', 'sp-skip-own-only-strict': 'skipOwnOnlyStrict', 'sp-explicit': 'explicit',
   'sp-queue-total': 'queueTotal', 'sp-queue-user': 'queueUser', 'sp-overlay-perm': 'overlayPermanent',
   'sp-perm-all': 'permAll', 'sp-perm-subs': 'permSubs', 'sp-perm-mods': 'permMods',
   'sp-perm-users-on': 'permUsersOn',
@@ -11532,6 +11618,9 @@ function gameSurvivalStyleCardHtml(a, opts = {}) {
   const delClass = opts.delClass || 'game-del';
   const gearBtn = opts.hideGear ? '' : gameActionConfigBtnHtml(a, cfgOpts);
   const editBtn = opts.editBtn || '';
+  const dupBtn = opts.hideDup
+    ? ''
+    : `<button type="button" class="mc-act-dup acc-icon-btn acc-dup" data-uid="${uid}" title="Duplicar acción">${CARD_ICON.dup}</button>`;
   const delBtn = opts.hideDel
     ? ''
     : `<button type="button" class="mc-act-del acc-icon-btn acc-del-one ${delClass}" data-uid="${uid}" title="Quitar">${CARD_ICON.trash}</button>`;
@@ -11569,6 +11658,7 @@ function gameSurvivalStyleCardHtml(a, opts = {}) {
         ${editBtn}
         ${opts.slot != null ? delayBtnSlot : delayBtn}
         ${instantBtn}
+        ${dupBtn}
         ${delBtn}
       </div>
     </div>
@@ -11593,6 +11683,23 @@ function findAnyGameAction(uid) {
   return null;
 }
 
+/** Copia una acción de juego e inserta el duplicado justo debajo. */
+function duplicateGameActionBelow(settingsKey, uid, render) {
+  const list = settings?.[settingsKey];
+  if (!Array.isArray(list) || !uid) return;
+  const idx = list.findIndex((x) => x && x.uid === uid);
+  if (idx < 0) return;
+  const src = list[idx];
+  const copy = JSON.parse(JSON.stringify(src));
+  const prefix = String(src.uid || 'act').split('_')[0] || 'act';
+  copy.uid = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  list.splice(idx + 1, 0, copy);
+  lastGameActionEditAt = Date.now();
+  saveSettingsKeysPatch(settingsKey);
+  if (typeof render === 'function') render();
+  toast && toast('Acción duplicada.', 'ok');
+}
+
 function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
   const settingsKey = opts.settingsKey;
   wrap.querySelectorAll('.mc-trig-icon-btn').forEach((b) => {
@@ -11609,6 +11716,12 @@ function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
       render();
     };
   });
+  wrap.querySelectorAll('.mc-act-dup').forEach((b) => {
+    b.onclick = () => {
+      if (!settingsKey || !b.dataset.uid) return;
+      duplicateGameActionBelow(settingsKey, b.dataset.uid, render);
+    };
+  });
   const runTest = (el) => {
     if (opts.onTest) opts.onTest(el);
     else if (opts.testFn) {
@@ -11618,8 +11731,11 @@ function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
   };
   wrap.querySelectorAll('.mc-act-test-delay').forEach((b) => {
     b.onclick = () => {
-      toast && toast('La acción se ejecutará en 4 segundos…', 'ok');
-      setTimeout(() => runTest(b), 4000);
+      const delayMs = Math.max(0, Number(opts.testDelayMs) || 4000);
+      const sec = Math.round(delayMs / 1000);
+      toast && toast(sec > 0 ? `La acción se ejecutará en ${sec} segundo${sec === 1 ? '' : 's'}…` : 'Ejecutando…', 'ok');
+      if (delayMs <= 0) runTest(b);
+      else setTimeout(() => runTest(b), delayMs);
     };
   });
   if (opts.testClass) {
@@ -12144,6 +12260,7 @@ function renderMcFamilyActions(game) {
           ${a.custom ? `<button type="button" class="mc-act-edit acc-icon-btn" data-uid="${esc(a.uid)}" title="Editar">${CARD_ICON.gear}</button>` : ''}
           <button type="button" class="mc-act-test-delay acc-icon-btn" data-uid="${esc(a.uid)}" title="Probar en 4 s">${CARD_ICON.play}</button>
           <button type="button" class="mc-act-test acc-icon-btn acc-try-instant" data-uid="${esc(a.uid)}" title="Probar ya">${CARD_ICON.play}</button>
+          <button type="button" class="mc-act-dup acc-icon-btn acc-dup" data-uid="${esc(a.uid)}" title="Duplicar acción">${CARD_ICON.dup}</button>
           <button type="button" class="mc-act-del acc-icon-btn acc-del-one" data-uid="${esc(a.uid)}" title="Quitar">${CARD_ICON.trash}</button>
         </div>
       </div>
@@ -12152,6 +12269,10 @@ function renderMcFamilyActions(game) {
 
   const find = (uid) => (settings[key] || []).find((x) => x.uid === uid);
   const rerender = () => meta.render();
+  wrap.querySelectorAll('.mc-act-dup').forEach((b) => b.onclick = () => {
+    if (!b.dataset.uid) return;
+    duplicateGameActionBelow(key, b.dataset.uid, rerender);
+  });
   wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
     settings[key] = (settings[key] || []).filter((x) => x.uid !== b.dataset.uid);
     saveSettings(); rerender();

@@ -5,7 +5,7 @@
       id: 'alertas',
       label: 'Alertas y videos',
       items: [
-        { key: 'soundAlerts', label: 'Alertas sonoras (lista)' },
+        { key: 'soundAlerts', label: 'Sonidos (lista)' },
         { key: 'videos', label: 'Videos (lista)' },
         { key: 'battleAlerts', label: 'Animaciones de batalla (lista)' },
         { key: 'actions', label: 'Acciones / teclas', desktopOnly: true },
