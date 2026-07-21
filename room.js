@@ -699,6 +699,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let sessionOverlaysSaveTimer = null;
   const recentSubs = new Map();      // dedupe suscripciones (subscribe/subNotify)
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
+  // TikTok puede mandar el MISMO follow/share por dos canales (SOCIAL y FOLLOW/SHARE):
+  // sin esto, videos/sonidos/acciones/juegos disparaban dos veces por usuario.
+  const recentFollowShare = new Map(); // `${kind}:${uid}` -> ts
+  function followShareOnce(kind, user) {
+    const uid = normTikTokUser(user?.uniqueId) || normTikTokUser(user?.nickname)
+      || String(user?.uniqueId || user?.nickname || '').trim().toLowerCase();
+    if (!uid) return true; // sin identidad no podemos dedupe: mejor disparar que perder
+    const key = `${kind}:${uid}`;
+    const now = Date.now();
+    if (now - (recentFollowShare.get(key) || 0) < 4000) return false;
+    recentFollowShare.set(key, now);
+    if (recentFollowShare.size > 4000) recentFollowShare.clear();
+    return true;
+  }
   const memberLevels = new Map();    // uniqueId -> último nivel de miembro visto (para detectar subidas)
   const joinVideoCooldown = new Map(); // clave por video/usuario -> última vez que se disparó
   /** ¿Silencio desde el último chat >= delay? (visita nueva / primer mensaje). */
@@ -1432,6 +1446,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function broadcastMedia(payload) {
     const scr = clampMediaScreen(payload?.screen);
     const body = { ...payload, screen: scr };
+    // En relay, /uploads locales deben apuntar a la PC (igual que emitSound):
+    // OBS corre en la PC, así el overlay de Render también puede cargar el video.
+    if (body.url) body.url = rewriteRelayMediaUrl(body.url);
     const msg = JSON.stringify({ type: 'media', payload: body });
     if (videoScreens.size === 0) {
       for (const client of clients) {
@@ -2252,9 +2269,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function triggerSoundAlerts(eventType, info = {}, user = null) {
+    // Igual que videos/batallas: la misma alerta en perfil activo + Perfil General
+    // debe sonar UNA vez, no dos.
+    const fired = new Set();
     forEachTriggerProfile((cfg, isGeneral) => {
       for (const a of cfg.soundAlerts) {
         if (!a.enabled || !a.sound) continue;
+        const dedupeKey = String(a.id || a.sound);
+        if (fired.has(dedupeKey)) continue;
         const trig = a.trigger || 'gift';
         if (trig !== eventType) continue;
         if (eventType === 'gift') {
@@ -2277,6 +2299,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (eventType === 'like') {
           const likeFires = gameLikeTriggerFires(a, info, user, `sa_${a.id}`);
           if (likeFires <= 0) continue;
+          fired.add(dedupeKey);
           for (let lf = 0; lf < likeFires; lf++) {
             broadcast('log', { level: 'ok', text: `🔊 Alerta sonora: "${a.name}"` });
             emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
@@ -2293,6 +2316,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (eventType === 'follow' || eventType === 'share' || eventType === 'emote') {
           if (!allowFollowSharePerUser(a, eventType, user, `sa_${isGeneral ? 'g' : 'a'}`)) continue;
         }
+        fired.add(dedupeKey);
         broadcast('log', { level: 'ok', text: `🔊 Alerta sonora: "${a.name}"` });
         emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
       }
@@ -3024,7 +3048,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
           const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
           if (!idMatch && !nameMatch) continue;
-        } else if (trig !== 'gift-any') {
+        } else if (trig === 'gift-any') {
+          // ok
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        } else {
           continue;
         }
       } else if (eventType === 'like') {
@@ -3083,7 +3111,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
           if (!idMatch && !nameMatch) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig !== 'gift-any') {
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else {
           continue;
         }
       } else if (eventType === 'like') {
@@ -3139,7 +3172,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
           if (!idMatch && !nameMatch) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig !== 'gift-any') {
+        } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else {
           continue;
         }
       } else if (eventType === 'like') {
@@ -3227,6 +3265,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!idMatch && !nameMatch) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
@@ -3340,6 +3381,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else if (trig === 'gift-any') {
           times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
         }
@@ -3381,6 +3425,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function mari0GiftMatches(a, info) {
     const trig = a.trigger || 'gift';
     if (trig === 'gift-any') return true;
+    if (trig === 'gift-diamonds') return gameGiftDiamondsRangeOk(a, info);
     if (trig !== 'gift') return false;
     const gid = String(a.giftId || '').trim();
     const gname = String(a.giftName || '').trim().toLowerCase();
@@ -3456,7 +3501,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const trig = a.trigger || 'gift';
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       if (eventType === 'gift') {
-        if (trig === 'gift' || trig === 'gift-any') {
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
           if (!mari0GiftMatches(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
@@ -3567,6 +3612,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else if (trig === 'gift-any') {
           times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          times *= Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
@@ -3657,6 +3705,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             units = Math.max(1, Number(info.repeatCount) || 1);
           }
         } else if (trig === 'gift-any') {
+          units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
@@ -3753,6 +3804,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             units = Math.max(1, Number(info.repeatCount) || 1);
           }
         } else if (trig === 'gift-any') {
+          units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
@@ -4181,6 +4235,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           }
         } else if (trig === 'gift-any') {
           units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
@@ -4267,6 +4324,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           }
         } else if (trig === 'gift-any') {
           units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
@@ -4351,6 +4411,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           }
         } else if (trig === 'gift-any') {
           units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
@@ -4434,6 +4497,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             units = Math.max(1, Number(info.repeatCount) || 1);
           }
         } else if (trig === 'gift-any') {
+          units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
@@ -4539,6 +4605,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           }
         } else if (trig === 'gift-any') {
           units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
@@ -4598,6 +4667,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!idMatch && !nameMatch) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else if (trig === 'gift-any') {
+          times *= Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
@@ -5214,11 +5286,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       size: screenSize(scr),
     };
     broadcast('log', { level: 'ok', text: `🎬 Video de nivel ${n} → pantalla ${scr}.` });
-    // Siempre a las fuentes video.html de esta room (Live Studio / «Fuente conectada»).
-    broadcast('media', payload);
-    // Si hay .exe en relay, también en local (por si la fuente apunta al host de la PC).
+    // Por broadcastMedia: solo llega a las fuentes de ESA pantalla (mismo filtro
+    // servidor que el resto de videos). En relay también va a la PC.
+    const body = broadcastMedia(payload);
     if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
-      broadcastToLocal('playMedia', payload);
+      broadcastToLocal('playMedia', body);
     }
   }
 
@@ -5285,7 +5357,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     let matched = 0;
     // Igual que videos/sonidos: perfil activo + Perfil General, sin repetir el mismo clip.
     const fired = new Set();
-    forEachTriggerProfile((cfg) => {
+    forEachTriggerProfile((cfg, isGeneral) => {
       if (cfg.battleAlertsEnabled === false) return;
       for (const b of (cfg.battleAlerts || [])) {
         if (!b.url || b.enabled === false) continue;
@@ -5307,7 +5379,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         fired.add(dedupeKey);
         matched += 1;
         broadcast('log', { level: 'ok', text: `⚔️ Animación de batalla [${actionType}]: "${b.name}"` });
-        emitMedia({ id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSizeForCfg(cfg, scr) });
+        // Mismo carril que los videos: las del Perfil General van marcadas como
+        // "general" y respetan playQueue (antes se mezclaban con el perfil activo).
+        emitProfileMedia(cfg, b, scr, isGeneral);
       }
     });
     if (!matched && (actionType === 'critical' || actionType === 'critical3' || actionType === 'battleGift')) {
@@ -6622,11 +6696,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       forEachTriggerProfile((cfg) => triggerMarioActions('like', likeInfo, likeUser, cfg));
       forEachTriggerProfile((cfg) => triggerRepoActions('like', likeInfo, likeUser, cfg));
       triggerMinecraftActions('like', likeInfo, likeUser);
+      // Videos y Acciones acumulan likes por usuario (meta likeN): deben recibir
+      // TODAS las tandas o el conteo se queda corto. El freno de 3 s es solo
+      // anti-spam de sonidos (su propósito original).
+      triggerVideos('like', likeInfo, likeUser);
+      triggerActions('like', likeInfo, likeUser);
       if (Date.now() - lastLikeSound > 3000) {
         lastLikeSound = Date.now();
         triggerSoundAlerts('like', likeInfo, likeUser);
-        triggerVideos('like', likeInfo, likeUser);
-        triggerActions('like', likeInfo, likeUser);
       }
       if (typeof data.totalLikeCount === 'number') triggerLikeGlobal(data.totalLikeCount);
       pushStatsThrottled();
@@ -6643,10 +6720,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       // Video al entrar un usuario específico (el anti-spam por tiempo se aplica en
       // triggerVideos, con el delay configurado en cada video).
       const joinInfo = userJoinVideoInfo(data.user, data);
-      // Marcar visto ya en MEMBER para que el fallback de primer chat no dispare userJoin otra vez.
-      const joinUid = normTikTokUser(joinInfo.username) || normTikTokUser(joinInfo.nickname)
-        || String(joinInfo.username || '').trim();
-      if (joinUid) chatSeenUsers.add(joinUid);
+      // Marcar visto ya en MEMBER para que el fallback de primer chat no dispare
+      // userJoin otra vez. Se guardan TODAS las formas de la identidad (usuario y
+      // nickname, normalizados y crudos) porque el chat puede llegar con otra clave.
+      const joinKeys = [
+        normTikTokUser(joinInfo.username), String(joinInfo.username || '').trim(),
+        normTikTokUser(joinInfo.nickname), String(joinInfo.nickname || '').trim(),
+      ].filter(Boolean);
+      for (const k of joinKeys) chatSeenUsers.add(k);
       if (joinInfo.username || joinInfo.nickname) {
         triggerVideos('userJoin', joinInfo);
       }
@@ -6666,6 +6747,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const dt = socialDisplayType(data);
       if (dt.includes('unfollow') || action.includes('unfollow')) bumpFollowerCounter(-1, data);
       if (action.includes('follow')) {
+        if (!followShareOnce('follow', user)) return; // ya lo procesó el canal FOLLOW
         state.stats.follows++;
         broadcast('follow', user);
         triggerVideos('follow');
@@ -6676,6 +6758,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
       } else if (action.includes('share')) {
+        if (!followShareOnce('share', user)) return; // ya lo procesó el canal SHARE
         state.stats.shares++;
         broadcast('share', user);
         triggerVideos('share');
@@ -6691,7 +6774,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     conn.on(WebcastEvent.FOLLOW, (data) => {
       const user = baseUser(data.user);
-      bumpFollowerCounter(1, data);
+      bumpFollowerCounter(1, data); // el contador de seguidores solo se suma aquí
+      if (!followShareOnce('follow', user)) { pushStatsThrottled(); return; } // ya lo procesó SOCIAL
       state.stats.follows++;
       broadcast('follow', user);
       triggerVideos('follow');
@@ -6706,6 +6790,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     conn.on(WebcastEvent.SHARE, (data) => {
       const user = baseUser(data.user);
+      if (!followShareOnce('share', user)) { pushStatsThrottled(); return; } // ya lo procesó SOCIAL
       state.stats.shares++;
       broadcast('share', user);
       triggerVideos('share');
@@ -6713,6 +6798,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerActions('share', {}, user);
       triggerMinecraftActions('share', {}, user);
       if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
+      // Hype: igual que la rama share de SOCIAL (si este canal gana el dedupe, que no se pierda).
+      const c = settings.hypeBar || {};
+      trackSessionHypeEvent('share', Math.max(1, parseInt(c.pointsShare, 10) || 1));
       pushStatsThrottled();
     });
 
@@ -7233,6 +7321,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         emitPanicMedia();
         broadcast('log', { level: 'info', text: '⛔ Pánico: cola de Minecraft cancelada' });
         break;
+      case 'stopSounds':
+        // Stop de UNA tarjeta de alerta sonora: corta solo los sonidos (panel y
+        // overlays), sin tumbar videos, TTS ni la cola de Minecraft como 'panic'.
+        broadcast('stopSound', {});
+        broadcast('log', { level: 'info', text: '🔇 Sonidos detenidos' });
+        break;
       case 'testPerrito':
         broadcast('perritoTest', { count: Number(data.count) || 200 });
         break;
@@ -7577,6 +7671,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     getSettings: () => settings,
     applySettings: (obj) => applyIncomingSettings(obj, false),
     hasSavedSettings: () => fs.existsSync(SETTINGS_FILE),
+    broadcastLog: (level, text) => broadcast('log', { level, text }),
     getProfilesInfo: profilesInfo,
     getProfilesFull,
     importProfilesFull,

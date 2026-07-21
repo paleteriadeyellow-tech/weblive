@@ -1346,6 +1346,17 @@ function startPanelSound(s, done) {
   audio.onended = finish;
   audio.onerror = () => { addEvent(`⚠️ No se pudo reproducir: ${s.name || s.sound}`, 'error'); finish(); };
   safety = setTimeout(finish, 20000);
+  // Con la duración real, ajustar el tope: un audio de >20 s ya no se corta en la
+  // cola (antes el timer fijo avanzaba la cola y solapaba el siguiente sonido).
+  audio.onloadedmetadata = () => {
+    try {
+      const d = Number(audio.duration);
+      if (Number.isFinite(d) && d > 0) {
+        if (safety) clearTimeout(safety);
+        safety = setTimeout(finish, d * 1000 + 2000);
+      }
+    } catch {}
+  };
   audio.play().catch(() => {
     addEvent('🔇 El navegador bloqueó el audio. Haz clic en cualquier parte del panel para activarlo.', 'error');
     finish();
@@ -1980,16 +1991,10 @@ function toggleAnnPop(open) {
 })();
 
 (function setupTopbarQuickLinks() {
-  const tutorial = document.getElementById('topbar-tutorial-btn');
-  const admin = document.getElementById('topbar-admin-btn');
-  if (tutorial) {
-    tutorial.addEventListener('click', () => {
-      openExternalLink(tutorial.dataset.url, { popup: true, name: 'livecoins_tutorial', width: 980, height: 560 });
-    });
-  }
-  if (admin) {
-    admin.addEventListener('click', () => {
-      openExternalLink(admin.dataset.url);
+  const discord = document.getElementById('btnDiscordJoin');
+  if (discord) {
+    discord.addEventListener('click', () => {
+      openExternalLink(discord.dataset.url);
     });
   }
 })();
@@ -2241,8 +2246,13 @@ if (plansSaveBtn) plansSaveBtn.onclick = async () => {
         else planCompareData = { catalog: plansCatalog, config: d.config };
         renderPlanView();
       }
-      if (status) status.textContent = 'Guardado ✓';
-      toast('Planes guardados.');
+      if (d.localOnly) {
+        if (status) status.textContent = 'Guardado solo en esta PC';
+        toast('⚠️ Sin sesión en la nube: los planes se guardaron SOLO en esta PC. Vuelve a iniciar sesión para sincronizar con Render.', 'warn');
+      } else {
+        if (status) status.textContent = 'Guardado ✓';
+        toast('Planes guardados.');
+      }
     } else {
       if (status) status.textContent = 'Error al guardar';
     }
@@ -4145,7 +4155,8 @@ function renderSoundAlerts() {
     card.querySelector('.sa-stop').onclick = () => {
       try { previewAudio?.pause(); } catch {}
       stopPanelSounds();
-      send({ action: 'panic' });
+      // Solo sonidos: 'panic' cortaba también videos, TTS y la cola de Minecraft.
+      send({ action: 'stopSounds' });
     };
     card.querySelector('.sa-del').onclick = async () => {
       const ok = await askConfirm({ title: 'Borrar alerta sonora', message: `Se eliminará la alerta «${esc(a.name || 'alerta')}».` });
@@ -8121,6 +8132,7 @@ let ttsTkBusy = false;
 let ttsTkAudio = null;
 let ttsTkAbort = null;
 let ttsTkPrefetch = null;
+let ttsTkPrefetchItem = null; // a qué mensaje pertenece el prefetch (evita leer audio de otro texto)
 let ttsTkBusySince = 0;
 const TTS_TK_FETCH_MS = 7000; // antes 12 s: si Edge/TikTok tarda, fallar rápido a voz sistema
 
@@ -8154,6 +8166,7 @@ function ttsTkTryRecoverStuck() {
   ttsTkAudio = null;
   if (ttsTkAbort) { try { ttsTkAbort.abort(); } catch {} ttsTkAbort = null; }
   ttsTkPrefetch = null;
+  ttsTkPrefetchItem = null;
   ttsTkBusy = false;
   ttsTkBusySince = 0;
   if (ttsTkQueue.length) ttsTkPump();
@@ -8163,6 +8176,7 @@ function ttsTkTryRecoverStuck() {
 function ttsStopTikTok() {
   ttsTkQueue = [];
   ttsTkPrefetch = null;
+  ttsTkPrefetchItem = null;
   if (ttsTkAbort) { try { ttsTkAbort.abort(); } catch {} ttsTkAbort = null; }
   if (ttsTkAudio) { try { ttsTkAudio.pause(); } catch {} ttsTkAudio = null; }
   ttsTkBusy = false;
@@ -8211,8 +8225,9 @@ function ttsTkStartPrefetch(item) {
   if (!item || ttsTkPrefetch) return;
   const ac = new AbortController();
   const timer = setTimeout(() => { try { ac.abort(); } catch {} }, TTS_TK_FETCH_MS);
+  ttsTkPrefetchItem = item;
   ttsTkPrefetch = ttsTkFetchSpeak(item, ac.signal)
-    .finally(() => { clearTimeout(timer); ttsTkPrefetch = null; });
+    .finally(() => { clearTimeout(timer); ttsTkPrefetch = null; ttsTkPrefetchItem = null; });
 }
 
 async function ttsTkPump() {
@@ -8226,9 +8241,12 @@ async function ttsTkPump() {
     const { maxLagMs } = ttsQueueLimits();
     if (maxLagMs > 0 && item.at && Date.now() - item.at > maxLagMs) continue;
     let j = null;
-    if (ttsTkPrefetch) {
+    // Solo usar el prefetch si es DE ESTE mensaje: si la cola se recortó, el audio
+    // pre-descargado puede ser de un texto distinto (leería lo que no es).
+    if (ttsTkPrefetch && ttsTkPrefetchItem === item) {
       try { j = await ttsTkPrefetch; } catch { j = null; }
       ttsTkPrefetch = null;
+      ttsTkPrefetchItem = null;
     }
     if (!j) {
       if (ttsTkAbort) { try { ttsTkAbort.abort(); } catch {} }
@@ -8248,6 +8266,7 @@ async function ttsTkPump() {
     ttsSpeakSystem(item.text, settings?.tts || {});
   }
   ttsTkPrefetch = null;
+  ttsTkPrefetchItem = null;
   ttsTkBusy = false;
   ttsTkBusySince = 0;
 }
@@ -17567,6 +17586,14 @@ async function execRelayRepoSpawn(thing, label, name, times, meta = {}) {
   });
 }
 
+/** Rango de diamantes (trigger gift-diamonds) para acciones de juego en relay. */
+function gameGiftDiamondsRangeOk(a, info) {
+  const total = Number(info.totalDiamonds) || 0;
+  if ((Number(a.rangeMin) || 0) > total) return false;
+  if ((Number(a.rangeMax) || 0) > 0 && total > (Number(a.rangeMax) || 0)) return false;
+  return true;
+}
+
 async function execRelayRepoActions(eventType, info = {}, user = null) {
   const list = ensureRepoActions();
   if (!list.length) return;
@@ -17589,6 +17616,9 @@ async function execRelayRepoActions(eventType, info = {}, user = null) {
           units = Math.max(1, Number(info.repeatCount) || 1);
         }
       } else if (trig === 'gift-any') {
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
         units = Math.max(1, Number(info.repeatCount) || 1);
       } else continue;
     } else if (eventType === 'like') {
@@ -17640,6 +17670,7 @@ function relayRepoOnGift(p) {
     giftName: p.giftName,
     giftId: p.giftId,
     repeatCount: repeatForCalc,
+    totalDiamonds: Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0) * repeatForCalc,
     comboStreak,
   }, { uniqueId: p.uniqueId, nickname: p.nickname });
 }
@@ -17774,6 +17805,9 @@ async function execRelayL4dActions(eventType, info = {}, user = null) {
         }
       } else if (trig === 'gift-any') {
         units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        units = Math.max(1, Number(info.repeatCount) || 1);
       } else continue;
     } else if (eventType === 'like') {
       if (trig !== 'like') continue;
@@ -17822,6 +17856,7 @@ function relayL4dOnGift(p) {
     giftName: p.giftName,
     giftId: p.giftId,
     repeatCount: repeatForCalc,
+    totalDiamonds: Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0) * repeatForCalc,
     comboStreak,
   }, { uniqueId: p.uniqueId, nickname: p.nickname });
 }
@@ -17919,6 +17954,9 @@ async function execRelayMslugActions(eventType, info = {}, user = null) {
         }
       } else if (trig === 'gift-any') {
         units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        units = Math.max(1, Number(info.repeatCount) || 1);
       } else continue;
     } else if (eventType === 'like') {
       if (trig !== 'like') continue;
@@ -17967,6 +18005,7 @@ function relayMslugOnGift(p) {
     giftId: p.giftId,
     giftName: p.giftName,
     repeatCount: repeatForCalc,
+    totalDiamonds: Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0) * repeatForCalc,
     comboStreak,
   }, { uniqueId: p.uniqueId, nickname: p.nickname });
 }
@@ -18062,6 +18101,9 @@ async function execRelayCtrActions(eventType, info = {}, user = null) {
         }
       } else if (trig === 'gift-any') {
         units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        units = Math.max(1, Number(info.repeatCount) || 1);
       } else continue;
     } else if (eventType === 'like') {
       if (trig !== 'like') continue;
@@ -18120,6 +18162,7 @@ function relayCtrOnGift(p) {
     giftName: p.giftName,
     giftId: p.giftId,
     repeatCount: repeatForCalc,
+    totalDiamonds: Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0) * repeatForCalc,
     comboStreak,
   }, { uniqueId: p.uniqueId, nickname: p.nickname });
 }
@@ -18215,6 +18258,9 @@ async function execRelaySmwActions(eventType, info = {}, user = null) {
         }
       } else if (trig === 'gift-any') {
         units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        units = Math.max(1, Number(info.repeatCount) || 1);
       } else continue;
     } else if (eventType === 'like') {
       if (trig !== 'like') continue;
@@ -18263,6 +18309,7 @@ function relaySmwOnGift(p) {
     giftName: p.giftName,
     giftId: p.giftId,
     repeatCount: repeatForCalc,
+    totalDiamonds: Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0) * repeatForCalc,
     comboStreak,
   }, { uniqueId: p.uniqueId, nickname: p.nickname });
 }
@@ -19616,6 +19663,9 @@ async function execRelayUnturnedActions(eventType, info = {}, user = null) {
         }
       } else if (trig === 'gift-any') {
         units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        units = Math.max(1, Number(info.repeatCount) || 1);
       } else continue;
     } else if (eventType === 'like') {
       if (trig !== 'like') continue;
@@ -19664,6 +19714,7 @@ function relayUnturnedOnGift(p) {
     giftName: p.giftName,
     giftId: p.giftId,
     repeatCount: repeatForCalc,
+    totalDiamonds: Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0) * repeatForCalc,
     comboStreak,
   }, { uniqueId: p.uniqueId, nickname: p.nickname });
 }

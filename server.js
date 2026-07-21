@@ -405,6 +405,10 @@ const LOCAL_ONLY_TABS = [
 const LOCAL_ONLY_GAMES = [
   { key: 'game_minecraft', label: 'Juego: Minecraft' },
   { key: 'game_mcservidor', label: 'Juego: Servidor Minecraft' },
+  { key: 'game_mcparkour', label: 'Juego: Minecraft Parkour' },
+  { key: 'game_mckoth', label: 'Juego: Minecraft KOTH' },
+  { key: 'game_mcfarm', label: 'Juego: Minecraft Farm' },
+  { key: 'game_mcshooter', label: 'Juego: Minecraft Shooters' },
   { key: 'game_bedrock', label: 'Juego: Bedrock (Cubo TNT)' },
   { key: 'game_sandbox', label: 'Juego: Sandbox' },
   { key: 'game_roblox', label: 'Juego: Roblox' },
@@ -418,8 +422,12 @@ const LOCAL_ONLY_GAMES = [
   { key: 'game_l4d', label: 'Juego: Left 4 Dead' },
   { key: 'game_gtavkoth', label: 'Juego: GTA V King of the Hill' },
   { key: 'game_gtavchaos', label: 'Juego: GTA V Mod Chaos' },
+  { key: 'game_gtavchiliad', label: 'Juego: GTA V Chiliad' },
   { key: 'game_unturned', label: 'Juego: Unturned' },
   { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
+  { key: 'game_smw', label: 'Juego: Super Mario World' },
+  { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
+  { key: 'game_geometrydash', label: 'Juego: Geometry Dash' },
 ];
 const LOCAL_ONLY_KEYS = [...LOCAL_ONLY_TABS, ...LOCAL_ONLY_GAMES].map((t) => t.key);
 const LOCAL_CAPS_FILE = path.join(DATA_DIR, 'local-caps.json');
@@ -675,14 +683,20 @@ function enrichPanelLivesPlans(lives) {
 // ---- Sincronización de ajustes con el servidor remoto (solo .exe / AUTH_REMOTE) ----
 // Filosofía: Render es la fuente compartida. Al abrir el panel traemos (pull) los
 // ajustes del usuario desde Render; al guardar, los enviamos (push) a Render.
-const pendingSettingsPush = new Map(); // userId -> timeout
+const pendingSettingsPush = new Map(); // userId -> timeout (debounce)
+const activeSettingsPush = new Set();  // userId con POST a Render EN CURSO
 
 function scheduleRemoteSettingsPush(userId) {
   if (!AUTH_REMOTE) return;
   clearTimeout(pendingSettingsPush.get(userId));
   pendingSettingsPush.set(userId, setTimeout(() => {
     pendingSettingsPush.delete(userId);
-    pushRemoteProfilesFull(userId).catch(() => {});
+    // Mantener el candado hasta que el POST termine: un pull concurrente podría
+    // bajar perfiles viejos de la nube y pisar lo que se está guardando.
+    activeSettingsPush.add(userId);
+    pushRemoteProfilesFull(userId)
+      .catch(() => {})
+      .finally(() => activeSettingsPush.delete(userId));
   }, 700));
 }
 
@@ -708,6 +722,12 @@ async function pushRemoteProfilesFull(userId) {
     body: JSON.stringify({ profiles }),
   }).catch(() => null);
   if (r && r.ok) return;
+  // Fallback: solo llega el perfil ACTIVO a la nube (los demás quedan pendientes).
+  // Avisar en log y en el panel para que no pase inadvertido.
+  console.warn(`[sync] push de perfiles a la nube falló (${r ? `HTTP ${r.status}` : 'sin conexión'}); enviando solo el perfil activo (user ${userId}).`);
+  try {
+    room.broadcastLog?.('warn', '⚠️ No se pudieron sincronizar TODOS los perfiles con la nube; solo se guardó el perfil activo. Se reintentará al próximo cambio.');
+  } catch {}
   await fetch(`${AUTH_REMOTE}/api/my-settings`, {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
@@ -719,7 +739,10 @@ async function mirrorRelayProfileToLocal(user, data) {
   if (!IS_DESKTOP) return;
   const room = rooms.get(user.id);
   if (!room || typeof room.importProfilesFull !== 'function') return;
+  // No importar de la nube mientras hay un guardado local en camino: lo pisaría.
+  if (pendingSettingsPush.has(user.id) || activeSettingsPush.has(user.id)) return;
   const remoteProfiles = await fetchRemoteProfilesFull(user.id);
+  if (pendingSettingsPush.has(user.id) || activeSettingsPush.has(user.id)) return;
   if (remoteProfiles) {
     room.importProfilesFull(remoteProfiles, { silent: true });
     return;
@@ -736,13 +759,16 @@ async function pullRemoteSettings(user) {
   if (!AUTH_REMOTE) return;
   const cookie = remoteCookies.get(user.id);
   if (!cookie) return;
-  if (pendingSettingsPush.has(user.id)) return;
+  if (pendingSettingsPush.has(user.id) || activeSettingsPush.has(user.id)) return;
   try {
     const room = getRoomForUser(user);
     const [settingsRes, remoteProfiles] = await Promise.all([
       fetch(`${AUTH_REMOTE}/api/my-settings`, { headers: { Cookie: cookie } }),
       fetchRemoteProfilesFull(user.id),
     ]);
+    // Re-chequear el candado DESPUÉS del fetch: si el usuario guardó mientras
+    // bajábamos datos de la nube, esos datos ya están viejos y no deben importar.
+    if (pendingSettingsPush.has(user.id) || activeSettingsPush.has(user.id)) return;
     const settingsData = settingsRes.ok ? await settingsRes.json().catch(() => ({})) : {};
     const localProfiles = room.getProfilesFull();
     const remoteScore = room.profilesFullSyncScore(remoteProfiles || {});
@@ -2572,7 +2598,9 @@ app.post('/api/admin/plans', express.json(), requireAdmin, async (req, res) => {
     }
   }
   const config = applyPlansMirror(req.body || {});
-  res.json(injectLocalCaps({ ok: true, config }));
+  // Con remoto configurado, llegar aquí significa que NO se guardó en la nube
+  // (sin cookie o sesión caducada): avisar en vez de fingir éxito total.
+  res.json(injectLocalCaps({ ok: true, localOnly: !!AUTH_REMOTE, config }));
 });
 
 /* ----------- Versión publicada de la app (.exe) — guardado en Render ----------- */

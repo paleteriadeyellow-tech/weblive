@@ -16,6 +16,12 @@ function connectWS() {
     if (type === 'media') { if (!payload.screenTest) enqueue({ kind: 'video', payload }); return; }
     if (type === 'stopMedia') { stopMediaForScreen(payload?.screen); return; }
     if (type === 'sound') { enqueue({ kind: 'sound', payload }); return; }
+    if (type === 'stopSound') {
+      // Sin id = stop global de sonidos (botón Stop del panel). Con id (webhooks)
+      // no tocamos nada aquí para no cortar otros sonidos.
+      if (payload?.id == null || payload.id === '') stopSoundsOnly();
+      return;
+    }
     if (type === 'panic') { clearQueue(); stopAllSounds(); stopVideoLayer(); return; }
     const a = settings.alerts || {};
     if (type === 'gift') onGift(payload, a);
@@ -103,6 +109,20 @@ function clearQueue() {
   if (activeDoneTimer) { clearTimeout(activeDoneTimer); activeDoneTimer = null; }
 }
 
+/* Stop de sonidos: quita los sonidos de la cola y corta el que suena; los videos siguen. */
+function stopSoundsOnly() {
+  mediaQueue = mediaQueue.filter((it) => it.kind !== 'sound');
+  playingSounds.forEach((a) => { try { a.pause(); a.currentTime = 0; } catch {} });
+  playingSounds.clear();
+  if (queueBusy && currentItem?.kind === 'sound') {
+    // La imagen de la alerta sonora vive en videoLayer; limpiarla solo si lo actual es un sonido.
+    videoLayer.innerHTML = '';
+    const done = currentDone;
+    currentDone = null;
+    done?.();
+  }
+}
+
 /* stopMedia con pantalla: solo quita videos de esa pantalla; los sonidos en cola siguen. */
 function stopMediaForScreen(scr) {
   const screen = Number(scr) || 0;
@@ -140,6 +160,14 @@ function playVideoNow(media, done) {
     el.onended = finish;
     el.onerror = finish;
     activeDoneTimer = setTimeout(finish, 30000); // límite de seguridad
+    // Con la duración real: los videos de >30 s ya no se cortan a la mitad.
+    el.onloadedmetadata = () => {
+      const d = Number(el.duration);
+      if (Number.isFinite(d) && d > 0) {
+        clearTimeout(activeDoneTimer);
+        activeDoneTimer = setTimeout(finish, d * 1000 + 2000);
+      }
+    };
   }
   el.className = 'media';
   videoLayer.appendChild(el);
@@ -167,6 +195,14 @@ function playSoundNow(s, done) {
   audio.play().catch(() => {});
   // Límite de seguridad por si el audio nunca dispara 'ended'
   activeDoneTimer = setTimeout(finish, 20000);
+  // Con la duración real: los sonidos de >20 s ya no avanzan la cola antes de tiempo.
+  audio.onloadedmetadata = () => {
+    const d = Number(audio.duration);
+    if (Number.isFinite(d) && d > 0) {
+      clearTimeout(activeDoneTimer);
+      activeDoneTimer = setTimeout(finish, d * 1000 + 2000);
+    }
+  };
 
   if (s.image) {
     const el = document.createElement('img');

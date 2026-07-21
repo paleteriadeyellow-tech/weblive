@@ -625,6 +625,43 @@ body {
   height: 15px;
   flex-shrink: 0;
 }
+
+/* Botón "Únete al Discord" (junto a Conectar): pulso + saludo del logo */
+.discord-join-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #5865f2;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  animation: discordPulse 2.4s ease-in-out infinite;
+  transition: background .15s ease, transform .15s ease;
+}
+.discord-join-btn:hover { background: #4752c4; transform: translateY(-1px); }
+.discord-join-btn svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  animation: discordWiggle 2.4s ease-in-out infinite;
+}
+@keyframes discordPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(88, 101, 242, .55); }
+  55% { box-shadow: 0 0 0 10px rgba(88, 101, 242, 0); }
+}
+@keyframes discordWiggle {
+  0%, 70%, 100% { transform: rotate(0); }
+  76% { transform: rotate(-14deg); }
+  84% { transform: rotate(11deg); }
+  92% { transform: rotate(-5deg); }
+}
+@media (max-width: 1150px) { .discord-join-btn span { display: none; } }
 @media (max-width: 900px) {
   .topbar-action-btn span { display: none; }
   .topbar-action-btn { padding: 9px 11px; }

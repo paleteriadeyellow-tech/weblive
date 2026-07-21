@@ -585,7 +585,8 @@ export async function runGameExec(exec) {
     case 'REPO_SPAWN':
       return repoSpawn(exec.thing, exec.name, exec.times, exec.params || {});
     case 'L4D_SPAWN':
-      return l4dSpawnBridge(exec.thing, exec.name, exec.times, exec.params || {});
+      // Por el wrapper con cadena: peticiones en paralelo al mod pierden spawns.
+      return l4dSpawn(exec.thing, exec.name, exec.times, exec.params || {});
     case 'GTAVKOTH_SPAWN':
       return gtavKothSpawn(exec.thing, exec.name, exec.times, exec.params || {});
     case 'GTAVCHAOS_SPAWN':
@@ -593,7 +594,7 @@ export async function runGameExec(exec) {
     case 'GTAVCHILIAD_SPAWN':
       return gtavChiliadSpawn(exec.thing, exec.name, exec.times, exec.params || {});
     case 'UNTURNED_SPAWN':
-      return unturnedSpawnBridge(exec.thing, exec.name, exec.times, exec.params || {});
+      return unturnedSpawn(exec.thing, exec.name, exec.times, exec.params || {});
     case 'CTR_SPAWN':
       return ctrSpawn(exec.thing, exec.name, exec.times);
     case 'MSLUG_SPAWN':
