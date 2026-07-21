@@ -631,6 +631,7 @@ export const DEFAULT_SETTINGS = {
   l4dActions: [],
   gtavKothActions: [],
   gtavChaosActions: [],
+  gtavChiliadActions: [],
   unturnedActions: [],
   ctrActions: [],
   smwActions: [],
