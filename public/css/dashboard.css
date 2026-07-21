@@ -626,30 +626,54 @@ body {
   flex-shrink: 0;
 }
 
-/* Botón "Únete al Discord" (junto a Conectar): pulso + saludo del logo */
-.discord-join-btn {
-  display: inline-flex;
-  align-items: center;
+/* Botón "Únete al Discord" (junto a Conectar): pulso + saludo del logo.
+   Selector por id (#btnDiscordJoin) para que no quede el botón nativo blanco
+   si falla la clase o hay CSS en caché viejo. */
+.connect .discord-join-btn,
+.connect #btnDiscordJoin {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center;
   gap: 7px;
-  padding: 9px 14px;
-  border: 0;
+  height: 38px;
+  padding: 0 14px;
+  margin: 0;
+  border: 0 !important;
   border-radius: 10px;
-  background: #5865f2;
-  color: #fff;
+  background: #5865f2 !important;
+  color: #fff !important;
   font-weight: 700;
   font-size: 13px;
+  line-height: 1;
   cursor: pointer;
-  white-space: nowrap;
+  white-space: nowrap !important;
   flex-shrink: 0;
+  vertical-align: middle;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
   animation: discordPulse 2.4s ease-in-out infinite;
   transition: background .15s ease, transform .15s ease;
 }
-.discord-join-btn:hover { background: #4752c4; transform: translateY(-1px); }
-.discord-join-btn svg {
-  width: 17px;
-  height: 17px;
+.connect .discord-join-btn:hover,
+.connect #btnDiscordJoin:hover { background: #4752c4 !important; transform: translateY(-1px); }
+.connect .discord-join-btn svg,
+.connect #btnDiscordJoin svg {
+  width: 17px !important;
+  height: 17px !important;
+  max-width: 17px;
+  max-height: 17px;
   flex-shrink: 0;
+  display: block;
+  fill: currentColor;
   animation: discordWiggle 2.4s ease-in-out infinite;
+}
+.connect .discord-join-btn span,
+.connect #btnDiscordJoin span {
+  display: inline !important;
+  color: inherit;
+  white-space: nowrap;
 }
 @keyframes discordPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(88, 101, 242, .55); }
@@ -661,7 +685,10 @@ body {
   84% { transform: rotate(11deg); }
   92% { transform: rotate(-5deg); }
 }
-@media (max-width: 1150px) { .discord-join-btn span { display: none; } }
+@media (max-width: 1150px) {
+  .connect .discord-join-btn span,
+  .connect #btnDiscordJoin span { display: none !important; }
+}
 @media (max-width: 900px) {
   .topbar-action-btn span { display: none; }
   .topbar-action-btn { padding: 9px 11px; }
