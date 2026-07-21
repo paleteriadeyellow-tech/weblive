@@ -1426,6 +1426,31 @@ input:focus, select:focus { border-color: var(--cyan); }
 .modal-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--tiktok); z-index: 2; }
 .modal-box.wide { max-width: 760px; }
 
+/* Advertencia TTS (riesgo de baneo) */
+.tts-warn-box { max-width: 520px; }
+.tts-warn-box .modal-head h2 { font-size: 18px; }
+.tts-warn-hl { color: #60a5fa; }
+.tts-warn-body { padding: 16px 20px 6px; overflow-y: auto; }
+.tts-warn-danger {
+  border: 1px solid rgba(239,68,68,.45);
+  background: rgba(127,29,29,.18);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.tts-warn-danger-title { color: #f87171; font-weight: 800; letter-spacing: .5px; margin-bottom: 8px; }
+.tts-warn-danger p { margin: 0; font-size: 13.5px; line-height: 1.55; color: #e5e7eb; }
+.tts-warn-red { color: #f87171; font-weight: 700; }
+.tts-warn-recs-title { color: #60a5fa; font-weight: 700; font-size: 14px; margin: 4px 0 6px; }
+.tts-warn-recs { margin: 0 0 12px; padding-left: 20px; font-size: 13px; line-height: 1.7; color: #d1d5db; }
+.tts-warn-legal { font-size: 12px; color: #9ca3af; line-height: 1.5; border-top: 1px solid var(--line); padding-top: 10px; margin: 0 0 12px; }
+.tts-warn-skip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg2); border-radius: 10px; padding: 12px 14px;
+  font-size: 13px; color: #d1d5db; cursor: pointer; margin-bottom: 6px;
+}
+#tts-warn-accept:disabled { opacity: .5; cursor: not-allowed; }
+
 /* Selector de regalos */
 .gift-search { flex: 1; max-width: 360px; margin: 0 12px; background: var(--bg2); border: 1px solid var(--line); color: var(--txt); padding: 8px 12px; border-radius: 8px; outline: none; }
 .gift-search:focus { border-color: var(--cyan); }

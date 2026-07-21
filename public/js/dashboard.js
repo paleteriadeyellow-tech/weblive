@@ -8267,6 +8267,56 @@ function ttsOnGift(p) {
   }
 }
 
+/* ---- Advertencia de riesgo al activar el TTS (cierre tras 5 s) ---- */
+const TTS_WARN_HIDE_KEY = 'ttsWarnHide';
+let ttsWarnTimer = null;
+
+function ttsWarnSuppressed() {
+  try { return localStorage.getItem(TTS_WARN_HIDE_KEY) === '1'; } catch { return false; }
+}
+
+function closeTtsWarnModal() {
+  if (ttsWarnTimer) { clearInterval(ttsWarnTimer); ttsWarnTimer = null; }
+  const modal = $('ttsWarnModal');
+  if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); }
+}
+
+function openTtsWarnModal(onAccept) {
+  const modal = $('ttsWarnModal');
+  const accept = $('tts-warn-accept');
+  const cancel = $('tts-warn-cancel');
+  const skip = $('tts-warn-skip');
+  if (!modal || !accept || !cancel) { onAccept?.(); return; }
+  if (skip) skip.checked = false;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+
+  let left = 5;
+  accept.disabled = true;
+  accept.textContent = `Espera ${left} s…`;
+  if (ttsWarnTimer) clearInterval(ttsWarnTimer);
+  ttsWarnTimer = setInterval(() => {
+    left -= 1;
+    if (left > 0) {
+      accept.textContent = `Espera ${left} s…`;
+    } else {
+      clearInterval(ttsWarnTimer);
+      ttsWarnTimer = null;
+      accept.disabled = false;
+      accept.textContent = 'Aceptar y activar';
+    }
+  }, 1000);
+
+  accept.onclick = () => {
+    if (accept.disabled) return;
+    if (skip?.checked) { try { localStorage.setItem(TTS_WARN_HIDE_KEY, '1'); } catch {} }
+    closeTtsWarnModal();
+    onAccept?.();
+  };
+  cancel.onclick = () => closeTtsWarnModal();
+  modal.onclick = (e) => { if (e.target === modal) closeTtsWarnModal(); };
+}
+
 /* ---- Binds de controles ---- */
 (function setupTtsControls() {
   if (TTS_HAS) speechSynthesis.onvoiceschanged = loadVoices;
@@ -8276,7 +8326,21 @@ function ttsOnGift(p) {
   const bindNum = (id, key) => { const el = $(id); if (el) el.addEventListener('change', () => { settings.tts[key] = +el.value || 0; save(); }); };
 
   const en = $('tts-enabled');
-  if (en) en.addEventListener('change', () => { settings.tts.enabled = en.checked; if (!settings.tts.enabled) ttsHardStop(); save(); });
+  if (en) en.addEventListener('change', () => {
+    if (en.checked && !ttsWarnSuppressed()) {
+      // No activar aún: primero la advertencia. Se activa solo si acepta.
+      en.checked = false;
+      openTtsWarnModal(() => {
+        en.checked = true;
+        settings.tts.enabled = true;
+        save();
+      });
+      return;
+    }
+    settings.tts.enabled = en.checked;
+    if (!settings.tts.enabled) ttsHardStop();
+    save();
+  });
   bindNum('tts-max-queue', 'maxQueue');
   bindNum('tts-max-lag', 'maxLagSec');
   const readName = $('tts-readname');
@@ -8660,7 +8724,13 @@ function runActionTestNow(a, { burst = false } = {}) {
   if (keys && IS_DESKTOP && window.desktopAPI?.pressKeys) {
     window.desktopAPI.pressKeys(keys, keyPressOpts({ ...a, times }, { burst }));
   }
-  if (a.sound) { try { const au = new Audio(a.sound); au.volume = a.soundVolume != null ? a.soundVolume : 1; au.play().catch(() => {}); } catch {} }
+  if (a.sound) {
+    playPanelSound({
+      sound: a.sound,
+      volume: (a.soundVolume != null ? a.soundVolume : 1) * 100,
+      name: a.name || 'acción',
+    });
+  }
   // Las salidas (OBS / WebHook / Streamer.bot) las ejecuta el servidor.
   if (hasOutput) send({ action: 'runActionOutputs', webhookCmd: a.webhookCmd, obsCmd: a.obsCmd, sbCmd: a.sbCmd });
   if (hasMedia) {
@@ -9894,11 +9964,12 @@ function onKeyAction(p) {
     window.desktopAPI.pressKeys(p.keys, keyPressOpts(p));
   }
   if (p.sound) {
-    try {
-      const au = new Audio(mediaUrl(p.sound));
-      au.volume = p.soundVolume != null ? p.soundVolume : 1;
-      au.play().catch(() => {});
-    } catch {}
+    // Por la cola del panel: si llegan varias acciones a la vez, suenan una tras otra.
+    playPanelSound({
+      sound: p.sound,
+      volume: (p.soundVolume != null ? p.soundVolume : 1) * 100,
+      name: p.name || 'acción',
+    });
   }
   if (hasKeys) {
     const holdNote = Number(p.keyHoldSec) > 0 ? ` (${p.keyHoldSec}s)` : '';

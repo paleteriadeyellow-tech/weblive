@@ -4946,6 +4946,30 @@
           <p class="view-sub">Lee en voz alta el chat y los eventos del live. Se ejecuta en este navegador, déjalo abierto.</p>
 
           <div class="tts-grid">
+            <!-- Advertencia de riesgo al activar el TTS -->
+            <div class="modal hidden" id="ttsWarnModal" aria-hidden="true">
+              <div class="modal-box tts-warn-box">
+                <div class="modal-head"><h2>Advertencia importante sobre <span class="tts-warn-hl">TTS</span></h2></div>
+                <div class="modal-body tts-warn-body">
+                  <div class="tts-warn-danger">
+                    <div class="tts-warn-danger-title">RIESGO DE BANEO</div>
+                    <p>Al activar el TTS, los comentarios de tu chat se leerán en voz alta. Si contienen contenido que incumple las <b>Normas de la Comunidad de TikTok</b>, tu cuenta podría ser <span class="tts-warn-red">sancionada o baneada permanentemente</span>.</p>
+                  </div>
+                  <div class="tts-warn-recs-title">Recomendaciones:</div>
+                  <ul class="tts-warn-recs">
+                    <li>Usa la lista de palabras prohibidas para filtrar contenido inapropiado</li>
+                    <li>Limita el TTS solo a seguidores o suscriptores</li>
+                    <li>Monitorea tu chat activamente mientras el TTS esté activo</li>
+                  </ul>
+                  <p class="tts-warn-legal">Livecoins no se hace responsable de sanciones derivadas del uso del TTS. Al activar esta función, aceptas toda la responsabilidad.</p>
+                  <label class="tts-warn-skip"><input type="checkbox" id="tts-warn-skip"> <span>No volver a mostrar esta advertencia</span></label>
+                </div>
+                <div class="modal-foot">
+                  <button type="button" class="btn ghost" id="tts-warn-cancel">Cancelar</button>
+                  <button type="button" class="btn primary" id="tts-warn-accept" disabled>Espera 5 s…</button>
+                </div>
+              </div>
+            </div>
             <!-- Configuración general -->
             <div class="settings-card tts-card">
               <div class="tts-head"><h3>Configuración general</h3><span class="tts-sub">El cuerpo de la voz</span></div>
