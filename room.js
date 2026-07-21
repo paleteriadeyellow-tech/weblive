@@ -3915,7 +3915,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           } else {
             broadcast('log', {
               level: 'err',
-              text: `🌀 GTA V Chaos falló: ${r?.hint || r?.error || 'bridge_no_disponible'} — Conectar + GTA en Historia (:6720)`,
+              text: `🌀 GTA V Chaos falló: ${r?.hint || r?.error || 'bridge_no_disponible'} — Conectar + GTA en Historia (:6722)`,
             });
           }
         })
