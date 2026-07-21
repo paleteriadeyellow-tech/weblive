@@ -1199,6 +1199,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prevAltDiam = normalizeResetPeriod(settings.topAltRank?.resetPeriodDiam);
     const prevNeonLikes = normalizeResetPeriod(settings.topAltRankNeon?.resetPeriodLikes);
     const prevNeonDiam = normalizeResetPeriod(settings.topAltRankNeon?.resetPeriodDiam);
+    // Si apagan videos (master o individual), cortar los que estén sonando en Live Studio.
+    let stopVideoScreens = null;
+    if (obj.videos !== undefined || obj.videosEnabled !== undefined) {
+      const prevList = Array.isArray(settings.videos) ? settings.videos : [];
+      const prevEnabled = settings.videosEnabled !== false;
+      const nextList = Array.isArray(obj.videos) ? obj.videos : prevList;
+      const nextEnabled = obj.videosEnabled !== undefined ? obj.videosEnabled !== false : prevEnabled;
+      stopVideoScreens = new Set();
+      for (const v of prevList) {
+        if (!prevEnabled || v.enabled === false) continue; // ya estaba apagado
+        const nv = nextList.find((x) => String(x.id) === String(v.id));
+        const onNow = nextEnabled && !!nv && nv.enabled !== false;
+        if (!onNow) stopVideoScreens.add(clampMediaScreen(v.screen));
+      }
+      if (!stopVideoScreens.size) stopVideoScreens = null;
+    }
     settings = deepMerge(settings, obj);
     if (obj.top1fire && obj.top1fire.resetPeriod != null
       && normalizeResetPeriod(obj.top1fire.resetPeriod) !== prevTop1FirePeriod) onTop1FireSettingsChange();
@@ -1244,6 +1260,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('settings', settings);
     clampTimer();
     broadcastTimer();
+    if (stopVideoScreens) {
+      for (const scr of stopVideoScreens) emitStopMedia(scr);
+    }
     if (fromUser && typeof onUserSave === 'function') {
       try { onUserSave(settings); } catch {}
     }
@@ -4949,9 +4968,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           }
         }
         if (eventType === 'firstMessage') {
-          // Cooldown por usuario: primer chat de la visita. Si sigue escribiendo, no.
-          // Si calla >= joinDelay s y vuelve, sí. joinDelay vacío/0 (legacy) → 30s.
-          const fmDelay = (v.joinDelay == null || Number(v.joinDelay) <= 0) ? 30 : Number(v.joinDelay);
+          // Sin delay elegido (vacío/0) → solo su primer mensaje del live (una vez por usuario).
+          // Con delay > 0 → puede repetirse si calla >= delay s y vuelve a escribir.
+          const fmDelay = (v.joinDelay == null) ? 0 : Math.max(0, Number(v.joinDelay) || 0);
           if (!claimFirstMessageSlot(info, `${v.id}|${isGeneral ? 'g' : 'a'}`, fmDelay)) continue;
         }
         if (eventType === 'userJoin') {

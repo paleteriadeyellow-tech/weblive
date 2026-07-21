@@ -3425,6 +3425,22 @@ if ($('levelvid-test')) {
 }
 
 /* ----- Modal video ----- */
+function syncVidFirstMessageDelayUI(eventType = $('vid-event')?.value) {
+  const isFirstMessage = eventType === 'firstMessage';
+  const toggle = $('vid-firstmsg-delay-toggle');
+  const useDelay = $('vid-use-joindelay');
+  const input = $('vid-joindelay');
+  if (toggle) toggle.hidden = !isFirstMessage;
+  if (!input) return;
+  if (isFirstMessage) {
+    const enabled = !!useDelay?.checked;
+    input.disabled = !enabled;
+    if (!enabled) input.value = 0;
+  } else {
+    input.disabled = false;
+  }
+}
+
 function setVidEventUI(value) {
   $('vid-event').value = value;
   $('vid-giftanyextra').hidden = value !== 'gift-any';
@@ -3440,9 +3456,10 @@ function setVidEventUI(value) {
   const jdLabel = document.querySelector('label[for="vid-joindelay"]');
   if (jdLabel) {
     jdLabel.textContent = value === 'firstMessage'
-      ? 'COOLDOWN (segundos) — si sale y vuelve a escribir, espera este tiempo'
+      ? 'SEGUNDOS DE DELAY'
       : 'SEGUNDOS DE DELAY (espera antes de repetir, anti-spam)';
   }
+  syncVidFirstMessageDelayUI(value);
   const sd = $('vid-streamdeck-extra');
   if (sd) sd.hidden = value !== 'streamdeck';
   if (value === 'streamdeck') refreshVidStreamdeckUrl();
@@ -3479,9 +3496,10 @@ function openVidModal(v = null) {
   if ($('vid-eventdelay')) $('vid-eventdelay').value = v?.eventDelay ?? 30;
   $('vid-command').value = v?.command || '';
   $('vid-user').value = v?.user || '';
-  $('vid-joindelay').value = (ev === 'firstMessage' && (v?.joinDelay == null || Number(v.joinDelay) <= 0))
-    ? 30
-    : (v?.joinDelay ?? 30);
+  // firstMessage: vacío/0 = sin delay (solo primer mensaje del live). userJoin: default 30.
+  $('vid-joindelay').value = ev === 'firstMessage' ? (v?.joinDelay ?? 0) : (v?.joinDelay ?? 30);
+  if ($('vid-use-joindelay')) $('vid-use-joindelay').checked = ev === 'firstMessage' && Number(v?.joinDelay) > 0;
+  syncVidFirstMessageDelayUI(ev);
   $('vid-vol').value = v?.volume ?? 100;
   fillScreenSelect($('vid-screen'), v?.screen || 1);
   $('vid-fname').textContent = v?.fileName || 'Ningún archivo';
@@ -3492,6 +3510,15 @@ function openVidModal(v = null) {
   $('vidModal').classList.remove('hidden');
 }
 function closeVidModal() { $('vidModal').classList.add('hidden'); }
+
+if ($('vid-use-joindelay')) {
+  $('vid-use-joindelay').addEventListener('change', () => {
+    if ($('vid-use-joindelay').checked && Number($('vid-joindelay').value) <= 0) {
+      $('vid-joindelay').value = 30;
+    }
+    syncVidFirstMessageDelayUI();
+  });
+}
 
 $('vid-create').onclick = () => { if (ensureCanAdd('videos', 'videos', 'videos')) openVidModal(null); };
 $('vid-cancel').onclick = closeVidModal;
@@ -3714,7 +3741,9 @@ $('vid-save').onclick = async () => {
     eventDelay: ev === 'emote' ? Math.max(0, parseInt($('vid-eventdelay')?.value, 10) || 0) : 0,
     command: ev === 'chatCommand' ? $('vid-command').value.trim() : '',
     user: (ev === 'chatCommand' || ev === 'firstMessage' || ev === 'userJoin') ? $('vid-user').value.trim().replace(/^@/, '') : '',
-    joinDelay: (ev === 'userJoin' || ev === 'firstMessage') ? Math.max(0, parseInt($('vid-joindelay').value, 10) || 0) : 0,
+    joinDelay: ev === 'firstMessage'
+      ? ($('vid-use-joindelay')?.checked ? Math.max(1, parseInt($('vid-joindelay').value, 10) || 30) : 0)
+      : (ev === 'userJoin' ? Math.max(0, parseInt($('vid-joindelay').value, 10) || 0) : 0),
     level: 0,
     url: vidPending.url,
     fileName: vidPending.name || 'video',
