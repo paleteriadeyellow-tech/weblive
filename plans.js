@@ -104,6 +104,7 @@ export const CAPABILITIES = {
     { key: 'game_repo', label: 'Juego: R.E.P.O.' },
     { key: 'game_l4d', label: 'Juego: Left 4 Dead 2' },
     { key: 'game_gtavkoth', label: 'Juego: GTA V King of the Hill' },
+    { key: 'game_gtavchaos', label: 'Juego: GTA V Mod Chaos' },
     { key: 'game_unturned', label: 'Juego: Unturned' },
     { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
     { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
@@ -141,6 +142,7 @@ function defaultConfig() {
   freeFeatures.game_repo = false;
   freeFeatures.game_l4d = false;
   freeFeatures.game_gtavkoth = false;
+  freeFeatures.game_gtavchaos = false;
   freeFeatures.game_unturned = false;
   freeFeatures.game_crashctr = false;
   freeFeatures.game_smw = false;

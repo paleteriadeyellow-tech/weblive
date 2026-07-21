@@ -417,6 +417,7 @@ const LOCAL_ONLY_GAMES = [
   { key: 'game_repo', label: 'Juego: R.E.P.O.' },
   { key: 'game_l4d', label: 'Juego: Left 4 Dead' },
   { key: 'game_gtavkoth', label: 'Juego: GTA V King of the Hill' },
+  { key: 'game_gtavchaos', label: 'Juego: GTA V Mod Chaos' },
   { key: 'game_unturned', label: 'Juego: Unturned' },
   { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
 ];

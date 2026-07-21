@@ -473,6 +473,9 @@ export async function unturnedSpawn(thing, name, times = 1, params = {}) {
 export async function gtavKothSpawn() {
   return { ok: false, error: 'solo_escritorio' };
 }
+export async function gtavChaosSpawn() {
+  return { ok: false, error: 'solo_escritorio' };
+}
 
 export async function ctrSpawn(thing, name, times = 1) {
   if (!thing) return { ok: false, error: 'sin_thing' };
@@ -582,6 +585,8 @@ export async function runGameExec(exec) {
       return l4dSpawnBridge(exec.thing, exec.name, exec.times, exec.params || {});
     case 'GTAVKOTH_SPAWN':
       return gtavKothSpawn(exec.thing, exec.name, exec.times, exec.params || {});
+    case 'GTAVCHAOS_SPAWN':
+      return gtavChaosSpawn(exec.thing, exec.name, exec.times, exec.params || {});
     case 'UNTURNED_SPAWN':
       return unturnedSpawnBridge(exec.thing, exec.name, exec.times, exec.params || {});
     case 'CTR_SPAWN':
