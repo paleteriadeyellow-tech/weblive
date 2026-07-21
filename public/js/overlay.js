@@ -14,7 +14,7 @@ function connectWS() {
     const { type, payload } = JSON.parse(ev.data);
     if (type === 'settings') { settings = payload; return; }
     if (type === 'media') { if (!payload.screenTest) enqueue({ kind: 'video', payload }); return; }
-    if (type === 'stopMedia') { clearQueue(); stopVideoLayer(); return; }
+    if (type === 'stopMedia') { stopMediaForScreen(payload?.screen); return; }
     if (type === 'sound') { enqueue({ kind: 'sound', payload }); return; }
     if (type === 'panic') { clearQueue(); stopAllSounds(); stopVideoLayer(); return; }
     const a = settings.alerts || {};
@@ -60,6 +60,8 @@ function showAlert(kind, user, emoji, action, gift = null, diamonds = null) {
 let mediaQueue = [];
 let queueBusy = false;
 let activeDoneTimer = null;
+let currentItem = null;
+let currentDone = null;
 
 function queueOn() { return settings?.playback?.playQueue !== false; }
 
@@ -79,12 +81,16 @@ function pump() {
   const item = mediaQueue.shift();
   if (!item) return;
   queueBusy = true;
+  currentItem = item;
   const done = () => {
     if (activeDoneTimer) { clearTimeout(activeDoneTimer); activeDoneTimer = null; }
     if (!queueBusy) return;
     queueBusy = false;
+    currentItem = null;
+    currentDone = null;
     pump();
   };
+  currentDone = done;
   if (item.kind === 'video') playVideoNow(item.payload, done);
   else playSoundNow(item.payload, done);
 }
@@ -92,7 +98,25 @@ function pump() {
 function clearQueue() {
   mediaQueue = [];
   queueBusy = false;
+  currentItem = null;
+  currentDone = null;
   if (activeDoneTimer) { clearTimeout(activeDoneTimer); activeDoneTimer = null; }
+}
+
+/* stopMedia con pantalla: solo quita videos de esa pantalla; los sonidos en cola siguen. */
+function stopMediaForScreen(scr) {
+  const screen = Number(scr) || 0;
+  const matches = (p) => !screen || (Number(p?.screen) || 1) === screen;
+  mediaQueue = mediaQueue.filter((it) => !(it.kind === 'video' && matches(it.payload)));
+  if (queueBusy && currentItem?.kind === 'video' && matches(currentItem.payload)) {
+    stopVideoLayer();
+    const done = currentDone;
+    currentDone = null;
+    done?.();
+  } else if (!queueBusy) {
+    // Modo sin cola: no sabemos la pantalla del video actual; conservar el comportamiento anterior.
+    stopVideoLayer();
+  }
 }
 
 function playVideoNow(media, done) {

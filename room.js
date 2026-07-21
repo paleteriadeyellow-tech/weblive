@@ -24,7 +24,7 @@ const __marioBr = IS_RENDER_BOOT
 const {
   marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect,
   pvzSpawn, pvzSun, pvzCmd, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd,
-  repoSpawn, l4dSpawn, gtavKothSpawn, gtavChaosSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn,
+  repoSpawn, l4dSpawn, gtavKothSpawn, gtavChaosSpawn, gtavChiliadSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn,
   runGameExec, resolveRepoSpawnKey,
 } = __game;
 const { ensureMarioBridge, ensureMari0Bridge } = __marioBr;
@@ -1150,7 +1150,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const scoreSlot = (s) => {
       if (!s || typeof s !== 'object') return 0;
       let n = 0;
-      for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions']) {
+      for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions']) {
         const a = s[k];
         if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
       }
@@ -1199,19 +1199,30 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prevAltDiam = normalizeResetPeriod(settings.topAltRank?.resetPeriodDiam);
     const prevNeonLikes = normalizeResetPeriod(settings.topAltRankNeon?.resetPeriodLikes);
     const prevNeonDiam = normalizeResetPeriod(settings.topAltRankNeon?.resetPeriodDiam);
-    // Si apagan videos (master o individual), cortar los que estén sonando en Live Studio.
+    // Si apagan videos/batallas (master o individual), cortar lo que esté sonando en Live Studio.
     let stopVideoScreens = null;
-    if (obj.videos !== undefined || obj.videosEnabled !== undefined) {
-      const prevList = Array.isArray(settings.videos) ? settings.videos : [];
-      const prevEnabled = settings.videosEnabled !== false;
-      const nextList = Array.isArray(obj.videos) ? obj.videos : prevList;
-      const nextEnabled = obj.videosEnabled !== undefined ? obj.videosEnabled !== false : prevEnabled;
+    if (obj.videos !== undefined || obj.videosEnabled !== undefined
+      || obj.battleAlerts !== undefined || obj.battleAlertsEnabled !== undefined) {
+      const prevVids = Array.isArray(settings.videos) ? settings.videos : [];
+      const prevBas = Array.isArray(settings.battleAlerts) ? settings.battleAlerts : [];
+      const prevVidEn = settings.videosEnabled !== false;
+      const prevBaEn = settings.battleAlertsEnabled !== false;
+      const nextVids = Array.isArray(obj.videos) ? obj.videos : prevVids;
+      const nextBas = Array.isArray(obj.battleAlerts) ? obj.battleAlerts : prevBas;
+      const nextVidEn = obj.videosEnabled !== undefined ? obj.videosEnabled !== false : prevVidEn;
+      const nextBaEn = obj.battleAlertsEnabled !== undefined ? obj.battleAlertsEnabled !== false : prevBaEn;
       stopVideoScreens = new Set();
-      for (const v of prevList) {
-        if (!prevEnabled || v.enabled === false) continue; // ya estaba apagado
-        const nv = nextList.find((x) => String(x.id) === String(v.id));
-        const onNow = nextEnabled && !!nv && nv.enabled !== false;
+      for (const v of prevVids) {
+        if (!prevVidEn || v.enabled === false) continue;
+        const nv = nextVids.find((x) => String(x.id) === String(v.id));
+        const onNow = nextVidEn && !!nv && nv.enabled !== false;
         if (!onNow) stopVideoScreens.add(clampMediaScreen(v.screen));
+      }
+      for (const b of prevBas) {
+        if (!prevBaEn || b.enabled === false) continue;
+        const nb = nextBas.find((x) => String(x.id) === String(b.id));
+        const onNow = nextBaEn && !!nb && nb.enabled !== false;
+        if (!onNow) stopVideoScreens.add(clampMediaScreen(b.screen));
       }
       if (!stopVideoScreens.size) stopVideoScreens = null;
     }
@@ -1459,18 +1470,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function emitStopMedia(scr) {
     const screen = Number(scr) || 1;
+    // Siempre avisar a las fuentes de la room (p. ej. video.html en Render).
+    broadcast('stopMedia', { screen });
+    // En relay, también a la PC (fuentes apuntando a localhost).
     if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
       broadcastToLocal('stopMediaLocal', { screen });
-      return;
     }
-    broadcast('stopMedia', { screen });
   }
   function emitPanicMedia() {
+    for (let scr = 1; scr <= 10; scr++) broadcast('stopMedia', { screen: scr });
     if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
       broadcastToLocal('panicLocal', {});
-      return;
     }
-    for (let scr = 1; scr <= 10; scr++) broadcast('stopMedia', { screen: scr });
   }
   function rewriteRelayMediaUrl(url) {
     if (!url || typeof url !== 'string') return url;
@@ -2941,6 +2952,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerL4dActions(eventType, info, user, cfg);
     triggerGtavKothActions(eventType, info, user, cfg);
     triggerGtavChaosActions(eventType, info, user, cfg);
+    triggerGtavChiliadActions(eventType, info, user, cfg);
     triggerUnturnedActions(eventType, info, user, cfg);
     triggerCtrActions(eventType, info, user, cfg);
     triggerMslugActions(eventType, info, user, cfg);
@@ -4011,6 +4023,113 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  function gtavChiliadPerUnit(a) {
+    const n = parseInt(a?.count, 10);
+    return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+  }
+
+  function spawnGtavChiliadThing(thing, name, times, units, meta = {}, actionForTiming) {
+    const unitCount = Math.min(50, Math.max(1, Number(times) || 1));
+    withGameActionCountTiming(actionForTiming, 1, () => {
+      if (!thing) return;
+      const exec = { tipo: 'GTAVCHILIAD_SPAWN', thing: String(thing || ''), name: String(name || ''), times: unitCount };
+      if (meta.params && typeof meta.params === 'object') exec.params = meta.params;
+      if (units != null && Number(units) > 0) exec.units = Math.max(1, Number(units) || 1);
+      if (meta.label) exec.label = meta.label;
+      if (meta.reason) exec.reason = meta.reason;
+      if (meta.giftName) exec.giftName = meta.giftName;
+      if (meta.eventType) exec.eventType = meta.eventType;
+      const label = meta.label || thing;
+      const why = meta.reason ? ` (${meta.reason})` : '';
+      if (emitLocalExec(exec)) {
+        broadcast('log', { level: 'ok', text: `⛰️ GTA V Chiliad: "${label}" ×${unitCount} → tu PC${why}` });
+        return;
+      }
+      broadcast('log', { level: 'info', text: `⛰️ GTA V Chiliad: enviando "${label}" ×${unitCount}${why}…` });
+      gtavChiliadSpawn(exec.thing, exec.name, unitCount, exec.params || {})
+        .then((r) => {
+          if (r && r.ok !== false) {
+            broadcast('log', { level: 'ok', text: `⛰️ GTA V Chiliad: "${label}" OK (${r.via || 'local'} · ${r.sent || unitCount})` });
+          } else {
+            broadcast('log', {
+              level: 'err',
+              text: `⛰️ GTA V Chiliad falló: ${r?.hint || r?.error || 'bridge_no_disponible'} — Conectar + GTA en Historia (:6723)`,
+            });
+          }
+        })
+        .catch((e) => {
+          broadcast('log', { level: 'err', text: `⛰️ GTA V Chiliad falló: ${e?.message || e}` });
+        });
+    });
+  }
+
+  function triggerGtavChiliadActions(eventType, info = {}, user = null, cfg = settings) {
+    const list = cfg.gtavChiliadActions || [];
+    if (!list.length) return;
+    const name = (user && user.nickname) || info.nickname || '';
+    for (const a of list) {
+      if (!a || a.enabled === false || !a.thing) continue;
+      const trig = a.trigger || 'gift';
+      const perUnit = gtavChiliadPerUnit(a);
+      let units = 1;
+      if (eventType === 'gift') {
+        if (trig === 'gift') {
+          const wantId = String(a.giftId || '').trim();
+          const wantName = (a.giftName || '').trim().toLowerCase();
+          if (!wantId && !wantName) {
+            units = Math.max(1, Number(info.repeatCount) || 1);
+          } else {
+            const idMatch = wantId && wantId === String(info.giftId || '');
+            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+            if (!idMatch && !nameMatch) continue;
+            units = Math.max(1, Number(info.repeatCount) || 1);
+          }
+        } else if (trig === 'gift-any') {
+          units = Math.max(1, Number(info.repeatCount) || 1);
+        } else if (trig === 'gift-diamonds') {
+          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+          units = Math.max(1, Number(info.repeatCount) || 1);
+        } else continue;
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        const likeFires = gameLikeTriggerFires(a, info, user, 'gtavchiliad');
+        if (likeFires <= 0) continue;
+        const batch = Math.max(1, Number(info.likeCount) || 1);
+        const totalQty = Math.min(50, perUnit * likeFires);
+        spawnGtavChiliadThing(a.thing, name, totalQty, likeFires, {
+          label: a.label || a.thing,
+          eventType: 'like',
+          reason: `${batch} like(s) → ${likeFires} spawn(s)`,
+        }, a);
+        continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(a.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(a.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else continue;
+      } else if (trig !== eventType) continue;
+      if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
+      if (eventType === 'gift') {
+        const comboOn = a.comboInstant !== false;
+        if (info.comboStreak === 'delta' && !comboOn) continue;
+        if (info.comboStreak === 'end' && comboOn) continue;
+      }
+      const times = Math.min(50, perUnit * units);
+      const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
+      spawnGtavChiliadThing(a.thing, name, times, units, {
+        label: a.label || a.thing,
+        eventType,
+        giftName: info.giftName,
+        reason: giftLabel || eventType,
+      }, a);
+    }
+  }
+
   function unturnedPerUnit(a) {
     const n = parseInt(a?.count, 10);
     return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
@@ -4850,6 +4969,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           spawnGtavChaosThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a);
         }
       }
+      for (const a of (cfg.gtavChiliadActions || [])) {
+        if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
+        const goal = Math.max(1, a.likeN || 100);
+        if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
+          spawnGtavChiliadThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a);
+        }
+      }
       for (const a of (cfg.unturnedActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
         const goal = Math.max(1, a.likeN || 100);
@@ -5156,27 +5282,34 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // 'battleGift' = potenciador guante / multiplicador (NO el regalo Boxing Gloves),
   // 'battleGiftAny', 'battleStart', 'battleEnd', 'battleLast10'.
   function fireBattleAlerts(actionType, info = {}) {
-    if (settings.battleAlertsEnabled === false) return;
     let matched = 0;
-    for (const b of (settings.battleAlerts || [])) {
-      if (!b.url || b.enabled === false) continue;
-      const trig = b.trigger || ((b.giftName || b.giftId) ? 'battleGift' : 'battleGiftAny');
-      if (trig !== actionType) continue;
-      if (actionType === 'battleGift') {
-        // Potenciador guante: minCount = multiplicador mínimo (1/2 = x2+, 3 = x3+).
-        const minMult = Math.max(1, Number(b.minCount) || 1);
-        const m = Math.max(2, Number(info.multiplier) || 2);
-        if (m < minMult) continue;
+    // Igual que videos/sonidos: perfil activo + Perfil General, sin repetir el mismo clip.
+    const fired = new Set();
+    forEachTriggerProfile((cfg) => {
+      if (cfg.battleAlertsEnabled === false) return;
+      for (const b of (cfg.battleAlerts || [])) {
+        if (!b.url || b.enabled === false) continue;
+        const trig = b.trigger || ((b.giftName || b.giftId) ? 'battleGift' : 'battleGiftAny');
+        if (trig !== actionType) continue;
+        if (actionType === 'battleGift') {
+          // Potenciador guante: minCount = multiplicador mínimo (1/2 = x2+, 3 = x3+).
+          const minMult = Math.max(1, Number(b.minCount) || 1);
+          const m = Math.max(2, Number(info.multiplier) || 2);
+          if (m < minMult) continue;
+        }
+        if (actionType === 'battleGiftAny') {
+          const count = info.repeatCount || info.giftCount || 1;
+          if ((b.minCount || 1) > count) continue;
+        }
+        const scr = Number(b.screen) || 1;
+        const dedupeKey = `${b.id || b.url}|${scr}`;
+        if (fired.has(dedupeKey)) continue;
+        fired.add(dedupeKey);
+        matched += 1;
+        broadcast('log', { level: 'ok', text: `⚔️ Animación de batalla [${actionType}]: "${b.name}"` });
+        emitMedia({ id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSizeForCfg(cfg, scr) });
       }
-      if (actionType === 'battleGiftAny') {
-        const count = info.repeatCount || info.giftCount || 1;
-        if ((b.minCount || 1) > count) continue;
-      }
-      matched += 1;
-      const scr = Number(b.screen) || 1;
-      broadcast('log', { level: 'ok', text: `⚔️ Animación de batalla [${actionType}]: "${b.name}"` });
-      emitMedia({ id: b.id, name: b.name, url: b.url, screen: scr, volume: b.volume ?? 100, size: screenSize(scr) });
-    }
+    });
     if (!matched && (actionType === 'critical' || actionType === 'critical3' || actionType === 'battleGift')) {
       broadcast('log', {
         level: 'warn',
@@ -6510,6 +6643,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       // Video al entrar un usuario específico (el anti-spam por tiempo se aplica en
       // triggerVideos, con el delay configurado en cada video).
       const joinInfo = userJoinVideoInfo(data.user, data);
+      // Marcar visto ya en MEMBER para que el fallback de primer chat no dispare userJoin otra vez.
+      const joinUid = normTikTokUser(joinInfo.username) || normTikTokUser(joinInfo.nickname)
+        || String(joinInfo.username || '').trim();
+      if (joinUid) chatSeenUsers.add(joinUid);
       if (joinInfo.username || joinInfo.nickname) {
         triggerVideos('userJoin', joinInfo);
       }
@@ -7064,6 +7201,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'gtavChaosSpawn':
         spawnGtavChaosThing(String(data.thing || ''), data.name, data.times, null, {
+          params: data.params && typeof data.params === 'object' ? data.params : {},
+        });
+        break;
+      case 'gtavChiliadSpawn':
+        spawnGtavChiliadThing(String(data.thing || ''), data.name, data.times, null, {
           params: data.params && typeof data.params === 'object' ? data.params : {},
         });
         break;

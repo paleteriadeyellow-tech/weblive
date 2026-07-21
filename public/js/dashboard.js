@@ -1255,9 +1255,17 @@ function handle(type, p) {
     case 'playLevelVideo':
       if (IS_DESKTOP) testLevelVideoLocal(Number(p?.level) || 1, { quiet: true });
       break;
-    case 'playMedia':
+    case 'playMedia': {
+      // Prueba de video de nivel en relay: ya lo reprodujimos por la API local;
+      // ignorar el eco de la nube para no verlo dos veces.
+      const mark = window.__localLevelTestMark;
+      if (mark && p?.id && p.id === mark.id && Date.now() - mark.at < 10000) {
+        window.__localLevelTestMark = null;
+        break;
+      }
       if (IS_DESKTOP && (relayActive() || desktopRelayOn())) postLocalMedia('media', { media: p });
       break;
+    }
     case 'stopMediaLocal':
       if (IS_DESKTOP && (relayActive() || desktopRelayOn())) postLocalMedia('stop', { screen: Number(p?.screen) || 1 });
       break;
@@ -1322,17 +1330,22 @@ function startPanelSound(s, done) {
   if (s.id != null) audio.dataset.soundId = String(s.id);
   panelSounds.add(audio);
   let finished = false;
+  let safety = null;
   const finish = () => {
     if (finished) return;
     finished = true;
+    if (safety) { clearTimeout(safety); safety = null; }
     panelSounds.delete(audio);
     if (s?.id) reportSoundEnded(s.id);
     done?.();
   };
+  // Cierre limpio desde stopPanelSoundById/stopPanelSounds: marca terminado y
+  // cancela el timer de seguridad (si quedara vivo, 20 s después re-bombea la cola
+  // y puede solapar el siguiente sonido).
+  audio._panelFinish = finish;
   audio.onended = finish;
   audio.onerror = () => { addEvent(`⚠️ No se pudo reproducir: ${s.name || s.sound}`, 'error'); finish(); };
-  const safety = setTimeout(finish, 20000);
-  audio.addEventListener('ended', () => clearTimeout(safety));
+  safety = setTimeout(finish, 20000);
   audio.play().catch(() => {
     addEvent('🔇 El navegador bloqueó el audio. Haz clic en cualquier parte del panel para activarlo.', 'error');
     finish();
@@ -1342,20 +1355,27 @@ function stopPanelSoundById(id) {
   if (id == null || id === '') { stopPanelSounds(); return; }
   const want = String(id);
   panelSoundQueue = panelSoundQueue.filter((s) => String(s?.id || '') !== want);
+  let stoppedPlaying = false;
   for (const a of [...panelSounds]) {
     if (String(a.dataset?.soundId || '') !== want) continue;
     try { a.pause(); a.currentTime = 0; } catch {}
-    panelSounds.delete(a);
+    stoppedPlaying = true;
+    if (typeof a._panelFinish === 'function') a._panelFinish();
+    else panelSounds.delete(a);
   }
+  // Si solo estaba en cola (no sonando), el finish no corrió: reportamos aquí.
+  if (!stoppedPlaying) reportSoundEnded(want);
   if (!panelSounds.size) panelSoundBusy = false;
-  reportSoundEnded(want);
   pumpPanelSound();
 }
 function stopPanelSounds() {
   panelSoundQueue = [];
-  panelSoundBusy = false;
-  panelSounds.forEach((a) => { try { a.pause(); a.currentTime = 0; } catch {} });
+  panelSounds.forEach((a) => {
+    try { a.pause(); a.currentTime = 0; } catch {}
+    try { if (typeof a._panelFinish === 'function') a._panelFinish(); } catch {}
+  });
   panelSounds.clear();
+  panelSoundBusy = false;
 }
 
 /** Detiene videos en cola (OBS), sonidos del panel y TTS de inmediato. */
@@ -1552,6 +1572,23 @@ function fmtDateTime(ts) {
   } catch { return '—'; }
 }
 
+/** Aviso en Admin (.exe): sin sesión con la nube solo se ven cuentas locales. */
+function setAdminCloudWarn(show) {
+  const tbody = document.getElementById('admin-tbody');
+  const table = tbody ? tbody.closest('table') : null;
+  const host = table ? table.parentElement : null;
+  let warn = document.getElementById('admin-cloud-warn');
+  if (!show) { if (warn) warn.remove(); return; }
+  if (!host) return;
+  if (!warn) {
+    warn = document.createElement('div');
+    warn.id = 'admin-cloud-warn';
+    warn.style.cssText = 'margin:0 0 10px;padding:10px 12px;border:1px solid rgba(250,204,21,.45);background:rgba(250,204,21,.12);color:#facc15;border-radius:10px;font-size:13px;line-height:1.4;';
+    warn.textContent = '⚠️ Sin sesión con la nube: solo ves las cuentas locales de esta PC (no las cuentas reales de la web). Cierra sesión y vuelve a entrar con internet para gestionar las cuentas reales.';
+    host.insertBefore(warn, table);
+  }
+}
+
 async function loadAdminUsers() {
   const tbody = document.getElementById('admin-tbody');
   const count = document.getElementById('admin-count');
@@ -1559,7 +1596,8 @@ async function loadAdminUsers() {
   try {
     const r = await fetch('/api/admin/users');
     if (!r.ok) { tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Sin acceso.</td></tr>'; return; }
-    const { users } = await r.json();
+    const { users, localOnly } = await r.json();
+    setAdminCloudWarn(!!localOnly);
     rememberPanelLivePlansFromUsers(users);
     if (window.__lastPanelLives?.length) {
       try { renderPanelLives(window.__lastPanelLives); } catch { /* ok */ }
@@ -1628,12 +1666,16 @@ async function loadAdminUsers() {
       b.onclick = async () => {
         b.disabled = true;
         try {
-          await fetch('/api/admin/activate', {
+          const r = await fetch('/api/admin/activate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: b.dataset.id, active: b.dataset.active === '1' }),
           });
-        } catch {}
+          if (!r.ok) {
+            const data = await r.json().catch(() => ({}));
+            toast(data.error || 'No se pudo cambiar el estado de la cuenta.', 'warn');
+          }
+        } catch { toast('Error de conexión.', 'warn'); }
         loadAdminUsers();
       };
     });
@@ -1700,7 +1742,10 @@ async function setUserPlanReq(id, plan, days, okMsg) {
       body: JSON.stringify({ id, plan, days }),
     });
     if (r.ok) toast(okMsg || 'Plan actualizado.');
-    else toast('No se pudo cambiar el plan.', 'warn');
+    else {
+      const data = await r.json().catch(() => ({}));
+      toast(data.error || 'No se pudo cambiar el plan.', 'warn');
+    }
   } catch { toast('Error de conexión.', 'warn'); }
   loadAdminUsers();
 }
@@ -1713,7 +1758,10 @@ async function setUserGamesReq(id, enabled) {
       body: JSON.stringify({ id, enabled: !!enabled }),
     });
     if (r.ok) toast(enabled ? 'Juegos activados para esa cuenta.' : 'Juegos desactivados para esa cuenta.');
-    else toast('No se pudo cambiar los juegos.', 'warn');
+    else {
+      const data = await r.json().catch(() => ({}));
+      toast(data.error || 'No se pudo cambiar los juegos.', 'warn');
+    }
   } catch { toast('Error de conexión.', 'warn'); }
   loadAdminUsers();
 }
@@ -2381,7 +2429,8 @@ function handleBotReply(p) {
   const text = String(p?.text || '').trim();
   if (!text) return;
   pushRow('chat', `<div class="ph bot-ava">🤖</div><div><span class="name bot-name">Bot · ${esc(p.command || '')}</span><span class="text">${esc(text)}</span></div>`, 'bot');
-  ttsSpeakText(text); // la respuesta del comando siempre se lee en voz alta
+  // Solo se lee en voz alta si el TTS está activado (respeta el interruptor y su advertencia).
+  if (settings?.tts?.enabled) ttsSpeakText(text);
 }
 function giftImageOf(p) {
   if (p.image) return p.image;
@@ -3113,24 +3162,35 @@ function syncVidMasterUI() {
   const list = settings.videos || [];
   const el = $('vid-master');
   if (!el) return;
+  const anyOn = list.some((v) => v.enabled !== false);
   const allOn = list.length > 0 && list.every((v) => v.enabled !== false);
-  const on = list.length ? allOn : settings.videosEnabled !== false;
-  el.checked = on;
-  settings.videosEnabled = on;
+  // Solo el interruptor TODAS escribe videosEnabled. Apagar un video individual
+  // NO debe poner videosEnabled=false (eso mataba el resto de videos).
+  if (anyOn && settings.videosEnabled === false) {
+    settings.videosEnabled = true;
+    try { saveVideosBattlePatch('videos'); } catch {}
+  }
+  const masterOn = settings.videosEnabled !== false;
+  el.checked = masterOn && (list.length === 0 || allOn);
   const st = el.parentElement?.querySelector('.state');
-  if (st) st.textContent = on ? 'ON' : 'OFF';
+  if (st) st.textContent = el.checked ? 'ON' : 'OFF';
 }
 
 function syncBaMasterUI() {
   const list = settings.battleAlerts || [];
   const el = $('ba-master');
   if (!el) return;
+  const anyOn = list.some((b) => b.enabled !== false);
   const allOn = list.length > 0 && list.every((b) => b.enabled !== false);
-  const on = list.length ? allOn : settings.battleAlertsEnabled !== false;
-  el.checked = on;
-  settings.battleAlertsEnabled = on;
+  // Solo el interruptor TODAS escribe battleAlertsEnabled (mismo bug que videos).
+  if (anyOn && settings.battleAlertsEnabled === false) {
+    settings.battleAlertsEnabled = true;
+    try { saveVideosBattlePatch('battleAlerts'); } catch {}
+  }
+  const masterOn = settings.battleAlertsEnabled !== false;
+  el.checked = masterOn && (list.length === 0 || allOn);
   const st = el.parentElement?.querySelector('.state');
-  if (st) st.textContent = on ? 'ON' : 'OFF';
+  if (st) st.textContent = el.checked ? 'ON' : 'OFF';
 }
 
 /** Reordenar tarjetas .sa-card dejando pulsado (acciones, alertas, videos, batallas). */
@@ -3367,6 +3427,8 @@ async function runLevelVideoTest() {
     );
     if (usingRelay) {
       // WS a la nube (donde suele estar «Fuente conectada») + API local por si la fuente es localhost.
+      // Marcamos la prueba para descartar el eco 'playMedia' de la nube (evita doble reproducción).
+      window.__localLevelTestMark = { id: `level_${Math.max(1, parseInt(level, 10) || 1)}`, at: Date.now() };
       send({ action: 'testLevelVideo', level, screen });
       await testLevelVideoLocal(level, { quiet: true, screen });
       if (connectedScreens.has(screen)) toast && toast(`Reproduciendo nivel ${level} en pantalla ${screen}…`, 'ok');
@@ -6678,7 +6740,7 @@ function saveWinsCounterPatch(key) {
     }
     winsSavePendingKeys.clear();
     if (!Object.keys(patch).length) return;
-    send({ action: 'saveSettings', settings: patch });
+    send({ action: 'saveSettings', settings: patch, ...profileSaveMeta() });
     if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop();
   }, 200);
 }
@@ -10309,6 +10371,12 @@ async function fetchProfilesHttp() {
     const r = await fetch('/api/profiles', { credentials: 'same-origin' });
     if (!r.ok) return null;
     const data = await r.json();
+    if (data.localOnly && !window.__profilesLocalOnlyWarned) {
+      window.__profilesLocalOnlyWarned = true;
+      if (typeof toast === 'function') {
+        toast('Sin sesión con la nube: se muestran los perfiles locales de esta PC. Cierra sesión y vuelve a entrar con internet para ver los de la nube.', 'warn');
+      }
+    }
     return data.profiles || null;
   } catch {
     return null;

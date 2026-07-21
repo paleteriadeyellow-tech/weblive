@@ -1050,6 +1050,15 @@ async function remoteLogin(username, password) {
 // Reenvía una petición de administración al servidor remoto usando la cookie del admin.
 // Devuelve true si la atendió (éxito o error del remoto) o false si no hay sesión remota
 // (en ese caso el endpoint cae a la lógica local).
+// En el .exe (AUTH_REMOTE): si no hay sesión con la nube, NO mutamos el espejo local en
+// silencio (crearía divergencia con las cuentas reales de la web). Avisamos claro.
+function adminCloudUnavailable(res) {
+  return res.status(503).json({
+    error: 'Sin sesión con la nube: no se pueden modificar cuentas ahora. Cierra sesión y vuelve a entrar con internet.',
+    cloudDown: true,
+  });
+}
+
 async function proxyAdminToRemote(req, res, apiPath, method = 'GET') {
   const cookie = req.user && remoteCookies.get(req.user.id);
   if (!cookie) return false;
@@ -1533,6 +1542,10 @@ app.get('/api/profiles', async (req, res) => {
         return res.status(502).json({ error: e.message || 'sin conexión con la nube' });
       }
     }
+    // Relay sin cookie de la nube: devolvemos los perfiles locales pero marcados,
+    // para que el panel avise que no son los de la nube.
+    const room = getRoomForUser(user);
+    return res.json({ ok: true, profiles: room.getProfilesInfo(), localOnly: true });
   }
   const room = getRoomForUser(user);
   res.json({ ok: true, profiles: room.getProfilesInfo() });
@@ -2355,6 +2368,9 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
     syncAllCloudRoomKeysFromRemote().catch(() => {});
     return;
   }
+  // Sin sesión con la nube en el .exe: mostramos el espejo local pero lo marcamos
+  // para que el panel avise (estas NO son necesariamente las cuentas reales de la web).
+  const localOnly = !!AUTH_REMOTE;
   const out = listUsersDetailed().map((u) => {
     const full = getUserById(u.id);
     const plan = getUserPlan(full); // recalcula y baja a 'free' si el Premium caducó
@@ -2373,12 +2389,15 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
       lastSeen: st ? st.lastSeen : 0,
     };
   });
-  res.json({ users: out });
+  res.json({ users: out, localOnly });
 });
 
 // Activar / desactivar una cuenta.
 app.post('/api/admin/activate', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/activate', 'POST')) return;
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/activate', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
   const { id, active } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const ok = setUserActive(id, !!active);
@@ -2394,7 +2413,10 @@ app.post('/api/admin/activate', express.json(), requireAdmin, async (req, res) =
 // Cambiar el plan de una cuenta (gratis / premium). days>0 => Premium por N días;
 // days=0/ausente => si es premium queda FIJO (sin caducidad).
 app.post('/api/admin/userplan', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/userplan', 'POST')) return;
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/userplan', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
   const { id, plan, days } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const ok = setUserPlan(id, plan, days);
@@ -2407,7 +2429,10 @@ app.post('/api/admin/userplan', express.json(), requireAdmin, async (req, res) =
 
 // Activar / desactivar todos los minijuegos de una cuenta (independiente del plan).
 app.post('/api/admin/usergames', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/usergames', 'POST')) return;
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/usergames', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
   const { id, enabled } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const ok = setUserGamesEnabled(id, !!enabled);
@@ -2419,7 +2444,10 @@ app.post('/api/admin/usergames', express.json(), requireAdmin, async (req, res) 
 
 // Eliminar una cuenta (excepto admin). Cierra su room, sesiones y datos locales.
 app.post('/api/admin/delete-user', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/delete-user', 'POST')) return;
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/delete-user', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
   const { id } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const user = getUserById(id);
@@ -2439,7 +2467,10 @@ app.post('/api/admin/delete-user', express.json(), requireAdmin, async (req, res
 // Restablecer contraseña de un usuario. La actual NO se puede ver (hash scrypt);
 // el admin define una nueva (o se genera) y se devuelve en claro SOLO en esta respuesta.
 app.post('/api/admin/set-password', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/set-password', 'POST')) return;
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/set-password', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
   const { id, password } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
   const user = getUserById(id);
