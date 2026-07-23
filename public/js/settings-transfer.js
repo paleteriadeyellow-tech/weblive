@@ -44,6 +44,7 @@
         { key: 'giftShowcase', label: 'Showcase de regalos' },
         { key: 'topGift', label: 'Mejor regalo' },
         { key: 'giftCounter', label: 'Contador de meta' },
+        { key: 'corazonLava', label: 'Meta Heart Me' },
         { key: 'topStreak', label: 'Mejor racha' },
         { key: 'top1', label: 'Top 1 donador (MVP)' },
         { key: 'top1fire', label: 'Top 1 fuego' },

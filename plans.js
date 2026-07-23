@@ -48,6 +48,7 @@ export const CAPABILITIES = {
     { key: 'ov_pelotas', label: 'Pelotas de fans', path: '/pelotas.html' },
     { key: 'ov_topdonor', label: 'Top donador semanal', path: '/topdonor.html' },
     { key: 'ov_gcounter', label: 'Contador de meta', path: '/gcounter.html' },
+    { key: 'ov_giftheart', label: 'Meta Heart Me', path: '/corazon-lava.html' },
     { key: 'ov_giftgoals', label: 'Metas de regalos', path: '/gift-metas.html' },
     { key: 'ov_winscounter', label: 'Contador de victorias', path: '/contador-wins.html' },
     { key: 'ov_winscountergamer', label: 'Contador de victorias (Gamer HUD)', path: '/contador-wins-gamer.html' },

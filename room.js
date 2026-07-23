@@ -1391,6 +1391,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     saveSessionOverlays();
   }
 
+
   function getGiftGoalsPeriod() {
     const p = settings.giftGoals?.resetPeriod;
     return p === 'week' || p === 'month' ? p : 'live';
@@ -7650,6 +7651,25 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'dropMarranito':
         broadcast('marranitoDropOne', { image: data.image || '', diamonds: Number(data.diamonds) || 1, giftId: data.giftId || '', giftName: data.giftName || '' });
+        break;
+      case 'testCorazonLava':
+        broadcast('corazonLavaTest', {
+          count: Number(data.count) || 200,
+          filterGiftId: data.filterGiftId || data.giftId || '',
+          filterGiftName: data.filterGiftName || data.giftName || '',
+          filterGiftImage: data.filterGiftImage || data.image || '',
+          filterGiftDiamonds: Number(data.filterGiftDiamonds || data.diamonds) || 15,
+          giftId: data.filterGiftId || data.giftId || '',
+          giftName: data.filterGiftName || data.giftName || '',
+          image: data.filterGiftImage || data.image || '',
+          diamonds: Number(data.filterGiftDiamonds || data.diamonds) || 15,
+        });
+        break;
+      case 'resetCorazonLava':
+        broadcast('corazonLavaReset', {});
+        break;
+      case 'dropCorazonLava':
+        broadcast('corazonLavaDropOne', { image: data.image || '', diamonds: Number(data.diamonds) || 1, giftId: data.giftId || '', giftName: data.giftName || '' });
         break;
       case 'testPelotas':
         broadcast('pelotasTest', { count: Number(data.count) || 16 });

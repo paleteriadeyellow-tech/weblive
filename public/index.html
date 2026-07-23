@@ -1713,6 +1713,27 @@
                 <input type="number" id="jarcfg-topbar-limit" min="1" max="10" value="3" style="max-width:120px;margin-top:6px">
               </div>
 
+              <div id="jarcfg-meta-wrap" style="display:none">
+                <label class="ml">META DEL CORAZÓN</label>
+                <p class="credit" style="margin-top:4px">Texto y objetivo que se muestran debajo del corazón (ej. Meta · 0/50). Solo Meta Heart Me.</p>
+                <label class="ml">Texto</label>
+                <input type="text" id="jarcfg-meta-label" maxlength="24" value="Meta" style="max-width:220px;margin-top:6px" placeholder="Meta">
+                <label class="ml" style="margin-top:12px">Objetivo</label>
+                <input type="number" id="jarcfg-meta-goal" min="1" max="9999999" value="50" style="max-width:140px;margin-top:6px">
+                <label class="ml" style="margin-top:12px">Contar</label>
+                <select id="jarcfg-meta-mode" style="max-width:240px;margin-top:6px">
+                  <option value="gifts">Regalos (cada icono = +1)</option>
+                  <option value="coins">Monedas / diamantes</option>
+                </select>
+                <label class="ml" style="margin-top:16px">REGALO DE LA ALCANCÍA</label>
+                <p class="credit" style="margin-top:4px">Solo este regalo cae dentro, suma a la meta y aparece al Testear. Por defecto: Heart Me.</p>
+                <input type="hidden" id="jarcfg-filter-giftid" value="7934">
+                <input type="hidden" id="jarcfg-filter-giftname" value="Heart Me">
+                <input type="hidden" id="jarcfg-filter-giftimage" value="">
+                <input type="hidden" id="jarcfg-filter-giftdiamonds" value="15">
+                <button type="button" class="btn ghost" id="jarcfg-filter-giftpick" style="margin-top:8px">🎁 Heart Me</button>
+              </div>
+
               <div id="jarcfg-gifttoast-wrap">
                 <label class="ml">ALERTA DE REGALO</label>
                 <p class="credit" style="margin-top:4px">Píldora a un lado de la alcancía: «Nombre DONATED» + icono del regalo + monedas.</p>
@@ -2428,7 +2449,7 @@
               <select id="ggmcfg-period">
                 <option value="live">Por live (se reinicia al conectar)</option>
                 <option value="week">1 semana (lunes a domingo)</option>
-                <option value="month">1 mes (calendario)</option>
+                <option value="month" selected>1 mes (calendario)</option>
               </select>
               <div class="gvscfg-grid2">
                 <div>
@@ -2436,13 +2457,13 @@
                   <select id="ggmcfg-layout">
                     <option value="vertical">Vertical (lista)</option>
                     <option value="horizontal">Horizontal</option>
-                    <option value="banda">Banda horizontal (marquee)</option>
+                    <option value="banda" selected>Banda horizontal (marquee)</option>
                     <option value="banda-vertical">Banda vertical (marquee)</option>
                   </select>
                 </div>
                 <div style="grid-column:1/-1">
-                  <label class="ml">TAMAÑO DEL OVERLAY <span id="ggmcfg-scale-lbl">100%</span></label>
-                  <input type="range" id="ggmcfg-scale" min="60" max="140" value="100" style="width:100%">
+                  <label class="ml">TAMAÑO DEL OVERLAY <span id="ggmcfg-scale-lbl">67%</span></label>
+                  <input type="range" id="ggmcfg-scale" min="60" max="140" value="67" style="width:100%">
                   <p class="hint" style="margin:4px 0 0">Izquierda = mas pequeño · Derecha = mas grande</p>
                 </div>
                 <div>
@@ -2462,13 +2483,13 @@
                   <input type="number" id="ggmcfg-banda" min="8" max="90" value="22">
                 </div>
                 <div style="grid-column:1/-1">
-                  <label class="ml">VISIBLE EN BANDA <span id="ggmcfg-bandavisible-lbl">4</span></label>
-                  <input type="range" id="ggmcfg-bandavisible" min="2" max="12" value="4" style="width:100%">
+                  <label class="ml">VISIBLE EN BANDA <span id="ggmcfg-bandavisible-lbl">6</span></label>
+                  <input type="range" id="ggmcfg-bandavisible" min="2" max="12" value="6" style="width:100%">
                   <p class="hint" style="margin:4px 0 0">Cuantas tarjetas se ven a la vez (banda horizontal y vertical). Si hay mas, hace scroll.</p>
                 </div>
                 <div style="grid-column:1/-1">
-                  <label class="ml">OPACIDAD TARJETAS <span id="ggmcfg-opacity-lbl">48%</span></label>
-                  <input type="range" id="ggmcfg-opacity" min="10" max="95" value="48" style="width:100%">
+                  <label class="ml">OPACIDAD TARJETAS <span id="ggmcfg-opacity-lbl">39%</span></label>
+                  <input type="range" id="ggmcfg-opacity" min="10" max="95" value="39" style="width:100%">
                   <p class="hint" style="margin:4px 0 0">Izquierda = mas transparentes · Derecha = mas opacas (color mas visible)</p>
                 </div>
                 <div>
@@ -4049,6 +4070,61 @@
           <h1 class="view-title">ð Gifts Overlays</h1>
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
 
+            <!-- Tarjeta PRO: Meta Heart Me -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="ghl-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="ghl-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="ghl-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-status">
+                  <div class="ovpro-conn" id="ghl-conn"><span class="cdot"></span> CONECTADO</div>
+                  <span class="ovpro-new" title="Meta Heart Me: alcancía + meta del regalo elegido">Nuevo</span>
+                </div>
+              </div>
+
+              <h3 class="ovpro-title">❤️ Meta Heart Me</h3>
+              <p class="ovpro-desc">Alcancía en forma de corazón: solo el regalo elegido (por defecto Heart Me) cae dentro con física, suma a la meta y muestra Gracias + avatar del donador.</p>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/corazon-lava.html">/corazon-lava.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="ghl-preview" data-src="/corazon-lava.html?embed=1" title="Vista previa Meta Heart Me"></iframe>
+              </div>
+            </div>
+
+            <!-- Tarjeta PRO: Metas de regalos -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="ggm-reset">Reset</button>
+                  <button class="ovpro-btn primary" id="ggm-test">Testear</button>
+                  <button class="ovpro-btn" id="ggm-config">Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="ggm-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">Metas de regalos</h3>
+              <p class="ovpro-desc">Varias metas a la vez (ej. Rose 3/10). Al completar se muestra quien lo logro. Layout vertical, horizontal, banda horizontal o banda vertical. Independiente del Contador de meta.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/gift-metas.html">/gift-metas.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <p class="hint" style="margin:6px 0 10px">Fuente Navegador / Browser Source: <b>1080 × 1920</b> (vertical) para que se vea todo.</p>
+              <div class="ovpro-prevlabel">VISTA PREVIA · METAS</div>
+              <div class="ovpro-config" style="margin-top:0;margin-bottom:10px">
+                <label style="min-width:7.5em">Tamaño <b id="ggm-scale-live">67%</b></label>
+                <input type="range" id="ggm-scale-range" min="60" max="140" value="67" style="flex:1;accent-color:#22d3ee">
+              </div>
+              <div class="ovpro-preview">
+                <iframe id="ggm-preview" data-src="/gift-metas.html?embed=1" title="Vista previa metas de regalos"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Medidor de Flow -->
             <div class="ovpro-card">
               <div class="ovpro-top">
@@ -4121,33 +4197,6 @@
               <div class="ovpro-prevlabel">VISTA PREVIA · BANDA EN MOVIMIENTO</div>
               <div class="ovpro-preview">
                 <iframe id="gsh-preview" data-src="/gift-banda.html?embed=1" title="Vista previa banda de regalos"></iframe>
-              </div>
-            </div>
-
-            <!-- Tarjeta PRO: Metas de regalos -->
-            <div class="ovpro-card">
-              <div class="ovpro-top">
-                <div class="ovpro-actions">
-                  <button class="ovpro-btn" id="ggm-reset">Reset</button>
-                  <button class="ovpro-btn primary" id="ggm-test">Testear</button>
-                  <button class="ovpro-btn" id="ggm-config">Configurar</button>
-                </div>
-                <div class="ovpro-conn" id="ggm-conn"><span class="cdot"></span> CONECTADO</div>
-              </div>
-              <h3 class="ovpro-title">Metas de regalos</h3>
-              <p class="ovpro-desc">Varias metas a la vez (ej. Rose 3/10). Al completar se muestra quien lo logro. Layout vertical, horizontal, banda horizontal o banda vertical. Independiente del Contador de meta.</p>
-              <div class="ovpro-urlrow">
-                <code class="ov-url" data-path="/gift-metas.html">/gift-metas.html</code>
-                <button class="ovpro-copy ov-copy">Copiar enlace</button>
-              </div>
-              <p class="hint" style="margin:6px 0 10px">Fuente Navegador / Browser Source: <b>1080 × 1920</b> (vertical) para que se vea todo.</p>
-              <div class="ovpro-prevlabel">VISTA PREVIA · METAS</div>
-              <div class="ovpro-config" style="margin-top:0;margin-bottom:10px">
-                <label style="min-width:7.5em">Tamaño <b id="ggm-scale-live">100%</b></label>
-                <input type="range" id="ggm-scale-range" min="60" max="140" value="100" style="flex:1;accent-color:#22d3ee">
-              </div>
-              <div class="ovpro-preview">
-                <iframe id="ggm-preview" data-src="/gift-metas.html?embed=1" title="Vista previa metas de regalos"></iframe>
               </div>
             </div>
 
@@ -4233,6 +4282,7 @@
                 <iframe id="gct-preview" data-src="/gcounter.html?embed=1" title="Vista previa contador de meta"></iframe>
               </div>
             </div>
+
 
             <!-- Tarjeta PRO: Jarrón -->
             <div class="ovpro-card">

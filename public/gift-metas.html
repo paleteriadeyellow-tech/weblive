@@ -7,7 +7,7 @@
   <title>Overlay — Metas de regalos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Exo+2:wght@700;800;900&family=Inter:wght@600;700;800;900&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Exo+2:wght@700;800;900&family=Inter:wght@600;700;800;900&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -461,15 +461,16 @@
     orbitron: "'Orbitron', system-ui, sans-serif",
     bebas: "'Bebas Neue', Impact, sans-serif",
     bangers: "'Bangers', system-ui, sans-serif",
+    luckiest: "'Luckiest Guy', system-ui, sans-serif",
     system: 'system-ui, sans-serif',
   };
 
   let cfg = {
-    layout: 'vertical',
-    scale: 100,
+    layout: 'banda',
+    scale: 67,
     iconSize: 78,
     gap: 18,
-    font: 'montserrat',
+    font: 'luckiest',
     labelColor: '#ffffff',
     countColor: '#ffffff',
     barTrack: 'rgba(255,255,255,0.14)',
@@ -478,8 +479,9 @@
     bar3: '#a855f7',
     showCompleted: true,
     bandaSec: 22,
-    bandaVisible: 4,
-    cardOpacity: 48,
+    bandaVisible: 6,
+    cardOpacity: 39,
+    resetPeriod: 'month',
     items: [],
   };
   /** @type {Record<string, { count: number, completer?: { nickname?: string, avatar?: string } }>} */
