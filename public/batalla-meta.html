@@ -4,70 +4,108 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Overlay — Meta de la ronda (PK)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@700;800;900&family=Inter:wght@600;700;800&display=swap');
     * { box-sizing: border-box; }
     html, body {
       margin: 0; width: 100%; height: 100%; overflow: hidden;
       background: transparent !important;
+      font-family: var(--tf-font-stack, 'Rubik', system-ui, sans-serif);
     }
-    html.embed, html.embed body {
-      display: flex; align-items: center; justify-content: center;
-    }
-
+    html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
     .stage {
-      width: 900px; min-height: 160px;
+      width: 1080px; height: 1290px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; padding: 18px 28px;
-      font-family: 'Rubik', 'Inter', system-ui, sans-serif;
+      gap: 18px; padding: 48px 56px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
-      opacity: 0; transition: opacity .25s ease, transform .2s ease;
+      opacity: 0; transition: opacity .28s ease;
       pointer-events: none;
+      --title-color: #ffffff;
+      --sub-color: rgba(255,255,255,.82);
+      --behind-color: #ff8f6b;
+      --ahead-color: #7dffb0;
+      --tie-color: #7ec8ff;
+      --win-color: #7dffb0;
+      --lose-color: #ff8f6b;
+      --host-color: #7ec8ff;
+      --rival-color: #ffe566;
+      --tc1: #ff00aa; --tc2: #00ddff; --tc3: #ffcc00;
+      --tf-font-stack: 'Rubik', system-ui, sans-serif;
+      --title-size: 64px;
     }
     .stage.is-on { opacity: 1; }
-    .stage.is-pop .title { animation: metapop .35s ease; }
+    .stage.is-pop .title { animation: metapop .42s cubic-bezier(.2,1.4,.3,1); }
     @keyframes metapop {
-      0% { transform: scale(1); }
-      40% { transform: scale(1.06); }
+      0% { transform: scale(.86); opacity: .55; }
+      55% { transform: scale(1.08); opacity: 1; }
       100% { transform: scale(1); }
     }
-
     .badge {
       font-family: 'Inter', system-ui, sans-serif;
-      font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
-      padding: 5px 12px; border-radius: 999px;
-      background: rgba(0,0,0,.45); color: rgba(255,255,255,.7);
+      font-size: 18px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+      padding: 8px 18px; border-radius: 999px;
+      background: rgba(0,0,0,.45); color: rgba(255,255,255,.72);
       text-shadow: 0 1px 0 rgba(0,0,0,.4);
     }
     .badge.is-live { color: #7dffb0; background: rgba(20,80,50,.55); }
-
+    .badge.is-end { color: #ffe566; background: rgba(80,60,10,.55); }
     .title {
       margin: 0; text-align: center; max-width: 100%;
-      font-weight: 900; font-size: 42px; line-height: 1.15;
+      font-family: var(--tf-font-stack);
+      font-weight: 900; font-size: var(--title-size); line-height: 1.15;
       letter-spacing: .01em;
-      text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 24px rgba(0,0,0,.35);
-      color: #fff;
+      text-shadow: 0 4px 0 rgba(0,0,0,.55), 0 0 28px rgba(0,0,0,.35);
+      color: var(--title-color);
+      -webkit-text-fill-color: var(--title-color);
+      background: none;
     }
-    .stage.behind .title { color: #ff8f6b; }
-    .stage.ahead .title { color: #7dffb0; }
-    .stage.tie .title { color: #7ec8ff; }
-
+    .title.title--rainbow {
+      background: linear-gradient(90deg, var(--tc1), var(--tc2), var(--tc3), var(--tc1), var(--tc2), var(--tc3), var(--tc1));
+      background-size: 280% 100%;
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent; -webkit-text-fill-color: transparent;
+      text-shadow: none;
+      animation: title-rainbow-move 3.2s linear infinite;
+      filter: drop-shadow(0 3px 0 rgba(0,0,0,.55)) drop-shadow(0 6px 14px rgba(0,0,0,.35));
+    }
+    @keyframes title-rainbow-move {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+    .stage.behind .title:not(.title--rainbow) { color: var(--behind-color); -webkit-text-fill-color: var(--behind-color); }
+    .stage.ahead .title:not(.title--rainbow) { color: var(--ahead-color); -webkit-text-fill-color: var(--ahead-color); }
+    .stage.tie .title:not(.title--rainbow) { color: var(--tie-color); -webkit-text-fill-color: var(--tie-color); }
+    .stage.win .title:not(.title--rainbow) { color: var(--win-color); -webkit-text-fill-color: var(--win-color); }
+    .stage.lose .title:not(.title--rainbow) { color: var(--lose-color); -webkit-text-fill-color: var(--lose-color); }
+    .stage.win.is-pop .title, .stage.lose.is-pop .title { animation: endpop .55s cubic-bezier(.2,1.45,.3,1); }
+    @keyframes endpop {
+      0% { transform: scale(.7); opacity: 0; filter: blur(6px); }
+      55% { transform: scale(1.1); opacity: 1; filter: blur(0); }
+      100% { transform: scale(1); }
+    }
     .sub {
       margin: 0; text-align: center;
       font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 700; font-size: 16px; color: rgba(255,255,255,.82);
+      font-weight: 700; font-size: 26px; color: var(--sub-color);
       text-shadow: 0 2px 0 rgba(0,0,0,.5);
     }
-
     .scores {
-      display: flex; align-items: center; gap: 14px; margin-top: 4px;
+      display: flex; align-items: center; gap: 22px; margin-top: 8px;
       font-variant-numeric: tabular-nums;
-      font-weight: 900; font-size: 22px;
+      font-weight: 900; font-size: 36px;
       text-shadow: 0 2px 0 rgba(0,0,0,.5);
     }
-    .scores .h { color: #7ec8ff; }
-    .scores .r { color: #ffe566; }
-    .scores .sep { color: rgba(255,255,255,.45); font-size: 16px; font-weight: 800; }
+    .scores .h { color: var(--host-color); }
+    .scores .r { color: var(--rival-color); }
+    .scores .sep { color: rgba(255,255,255,.45); font-size: 24px; font-weight: 800; }
+    .scores.bump { animation: scorebump .35s ease; }
+    @keyframes scorebump {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
   </style>
 </head>
 <body>
@@ -88,14 +126,64 @@
     const isEmbed = params.get('embed') === '1';
     if (isEmbed) document.documentElement.classList.add('embed');
 
+    const FONTS = {
+      pressstart: "'Press Start 2P', monospace",
+      exo2: "'Exo 2', system-ui, sans-serif",
+      luckiest: "'Luckiest Guy', system-ui, sans-serif",
+      bangers: "'Bangers', system-ui, sans-serif",
+      lilita: "'Lilita One', system-ui, sans-serif",
+      titan: "'Titan One', system-ui, sans-serif",
+      fredoka: "'Fredoka', system-ui, sans-serif",
+      bungee: "'Bungee', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif",
+      oswald: "'Oswald', system-ui, sans-serif",
+      bebas: "'Bebas Neue', Impact, sans-serif",
+      montserrat: "'Montserrat', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif",
+      orbitron: "'Orbitron', system-ui, sans-serif",
+      inter: "'Inter', system-ui, sans-serif",
+      system: 'system-ui, sans-serif',
+    };
+
     (function fit() {
       function apply() {
-        const k = Math.min((innerWidth || 900) / 900, (innerHeight || 200) / 200) || 1;
-        document.documentElement.style.setProperty('--tf-fit', Math.min(1.25, k));
+        const k = Math.min((innerWidth || 1080) / 1080, (innerHeight || 1290) / 1290) || 1;
+        document.documentElement.style.setProperty('--tf-fit', Math.min(1, k));
       }
       apply();
       addEventListener('resize', apply);
     })();
+
+    let cfg = {
+      titleWaiting: 'Meta de la ronda',
+      subWaiting: 'Se activa sola al empezar la batalla',
+      labelWaiting: 'ESPERANDO PK',
+      labelLive: 'EN VIVO',
+      labelDemo: 'DEMO',
+      labelEnd: 'FIN DE RONDA',
+      subBehind: '¡Motiva al chat a empujar!',
+      subAhead: 'No aflojes la presión',
+      subTie: 'El siguiente punto decide la ronda',
+      titleWin: 'Felicidades',
+      subWin: '¡Ganaste la batalla!',
+      titleLose: 'Suerte en la siguiente',
+      subLose: 'La próxima es tuya',
+      titleDraw: '¡Empate!',
+      subDraw: 'La batalla terminó igualada',
+      font: 'rubik',
+      titleRainbow: true,
+      tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
+      titleColor: '#ffffff',
+      subColor: '#d2d2d8',
+      behindColor: '#ff8f6b',
+      aheadColor: '#7dffb0',
+      tieColor: '#7ec8ff',
+      winColor: '#7dffb0',
+      loseColor: '#ff8f6b',
+      hostScoreColor: '#7ec8ff',
+      rivalScoreColor: '#ffe566',
+      titleSize: 64,
+    };
 
     const el = {
       stage: document.getElementById('stage'),
@@ -109,97 +197,164 @@
 
     let demo = false;
     let lastSig = '';
-    let state = { live: false, pointsHost: 0, pointsRival: 0 };
+    let wasLive = false;
+    let state = { live: false, ending: null, pointsHost: 0, pointsRival: 0 };
+    let testTimers = [];
 
     function fmt(n) {
       return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('es-ES');
     }
-
+    function clearTest() {
+      testTimers.forEach(clearTimeout);
+      testTimers = [];
+    }
+    function applyStyle() {
+      const fontKey = FONTS[cfg.font] ? cfg.font : 'rubik';
+      const stack = FONTS[fontKey];
+      el.stage.style.setProperty('--tf-font-stack', stack);
+      document.documentElement.style.setProperty('--tf-font-stack', stack);
+      document.documentElement.dataset.font = fontKey;
+      el.stage.style.setProperty('--title-color', cfg.titleColor || '#ffffff');
+      el.stage.style.setProperty('--sub-color', cfg.subColor || '#d2d2d8');
+      el.stage.style.setProperty('--behind-color', cfg.behindColor || '#ff8f6b');
+      el.stage.style.setProperty('--ahead-color', cfg.aheadColor || '#7dffb0');
+      el.stage.style.setProperty('--tie-color', cfg.tieColor || '#7ec8ff');
+      el.stage.style.setProperty('--win-color', cfg.winColor || '#7dffb0');
+      el.stage.style.setProperty('--lose-color', cfg.loseColor || '#ff8f6b');
+      el.stage.style.setProperty('--host-color', cfg.hostScoreColor || '#7ec8ff');
+      el.stage.style.setProperty('--rival-color', cfg.rivalScoreColor || '#ffe566');
+      el.stage.style.setProperty('--tc1', cfg.tc1 || '#ff00aa');
+      el.stage.style.setProperty('--tc2', cfg.tc2 || '#00ddff');
+      el.stage.style.setProperty('--tc3', cfg.tc3 || '#ffcc00');
+      el.stage.style.setProperty('--title-size', Math.max(28, Math.min(96, Number(cfg.titleSize) || 64)) + 'px');
+      el.title.classList.toggle('title--rainbow', !!cfg.titleRainbow);
+    }
     function buildMeta(host, rival) {
       const h = Math.max(0, Math.round(Number(host) || 0));
       const r = Math.max(0, Math.round(Number(rival) || 0));
       const diff = Math.abs(h - r);
       if (h === r) {
+        return { kind: 'tie', title: '¡Empate!', sub: cfg.subTie || 'El siguiente punto decide la ronda' };
+      }
+      if (h < r) {
+        return { kind: 'behind', title: `Faltan ${fmt(diff)} para empatar`, sub: cfg.subBehind || '¡Motiva al chat a empujar!' };
+      }
+      return { kind: 'ahead', title: `Mantén ${fmt(diff)} de ventaja`, sub: cfg.subAhead || 'No aflojes la presión' };
+    }
+    function buildEnding(host, rival) {
+      const h = Math.max(0, Math.round(Number(host) || 0));
+      const r = Math.max(0, Math.round(Number(rival) || 0));
+      if (h > r) {
         return {
-          kind: 'tie',
-          title: '¡Empate!',
-          sub: 'El siguiente punto decide la ronda',
+          kind: 'win',
+          title: cfg.titleWin || 'Felicidades',
+          sub: cfg.subWin || '¡Ganaste la batalla!',
         };
       }
       if (h < r) {
         return {
-          kind: 'behind',
-          title: `Faltan ${fmt(diff)} para empatar`,
-          sub: '¡Motiva al chat a empujar!',
+          kind: 'lose',
+          title: cfg.titleLose || 'Suerte en la siguiente',
+          sub: cfg.subLose || 'La próxima es tuya',
         };
       }
       return {
-        kind: 'ahead',
-        title: `Mantén ${fmt(diff)} de ventaja`,
-        sub: 'No aflojes la presión',
+        kind: 'tie',
+        title: cfg.titleDraw || '¡Empate!',
+        sub: cfg.subDraw || 'La batalla terminó igualada',
       };
     }
-
+    function pop(sig) {
+      if (sig === lastSig) return;
+      lastSig = sig;
+      el.stage.classList.remove('is-pop');
+      el.scores.classList.remove('bump');
+      void el.stage.offsetWidth;
+      el.stage.classList.add('is-pop');
+      el.scores.classList.add('bump');
+    }
     function render() {
-      const active = demo || !!state.live;
+      const active = demo || !!state.live || !!state.ending;
       el.stage.classList.toggle('is-on', active);
+      el.badge.classList.remove('is-live', 'is-end');
+      el.stage.classList.remove('behind', 'ahead', 'tie', 'win', 'lose');
+
       if (!active) {
-        el.badge.textContent = 'ESPERANDO PK';
-        el.badge.classList.remove('is-live');
-        el.title.textContent = 'Meta de la ronda';
-        el.sub.textContent = 'Se activa sola al empezar la batalla';
+        el.badge.textContent = cfg.labelWaiting || 'ESPERANDO PK';
+        el.title.textContent = cfg.titleWaiting || 'Meta de la ronda';
+        el.sub.textContent = cfg.subWaiting || 'Se activa sola al empezar la batalla';
         el.scores.hidden = true;
-        el.stage.classList.remove('behind', 'ahead', 'tie');
+        el.stage.classList.remove('is-pop');
         return;
       }
 
-      const meta = buildMeta(state.pointsHost, state.pointsRival);
-      const sig = `${meta.kind}|${meta.title}|${state.pointsHost}|${state.pointsRival}`;
-      el.stage.classList.remove('behind', 'ahead', 'tie');
+      let meta;
+      if (state.ending) {
+        meta = buildEnding(state.pointsHost, state.pointsRival);
+        el.badge.textContent = demo ? (cfg.labelDemo || 'DEMO') : (cfg.labelEnd || 'FIN DE RONDA');
+        el.badge.classList.add('is-end');
+      } else {
+        meta = buildMeta(state.pointsHost, state.pointsRival);
+        el.badge.textContent = demo ? (cfg.labelDemo || 'DEMO') : (cfg.labelLive || 'EN VIVO');
+        el.badge.classList.add('is-live');
+      }
+
       el.stage.classList.add(meta.kind);
-      el.badge.textContent = state.live || demo ? 'EN VIVO' : 'DEMO';
-      el.badge.classList.toggle('is-live', !!(state.live || demo));
       el.title.textContent = meta.title;
       el.sub.textContent = meta.sub;
       el.scoreH.textContent = fmt(state.pointsHost);
       el.scoreR.textContent = fmt(state.pointsRival);
       el.scores.hidden = false;
-
-      if (sig !== lastSig) {
-        lastSig = sig;
-        el.stage.classList.remove('is-pop');
-        void el.stage.offsetWidth;
-        el.stage.classList.add('is-pop');
-      }
+      pop(`${state.ending ? 'end' : 'live'}|${meta.kind}|${meta.title}|${state.pointsHost}|${state.pointsRival}`);
     }
-
     function applyPk(payload) {
       if (!payload || typeof payload !== 'object') return;
-      demo = false;
-      state.live = !!payload.live;
+      if (demo) return;
+      const live = !!payload.live;
       if (payload.pointsHost != null) state.pointsHost = Number(payload.pointsHost) || 0;
       if (payload.pointsRival != null) state.pointsRival = Number(payload.pointsRival) || 0;
-      render();
-    }
 
-    function demoAhead() {
-      demo = true;
-      state.live = true;
-      state.pointsHost = 500;
-      state.pointsRival = 0;
+      if (live && !wasLive) {
+        // Nueva batalla → salir del mensaje final
+        state.ending = null;
+      } else if (wasLive && !live) {
+        // Acabó la batalla → Felicidades / Suerte en la siguiente
+        state.ending = true;
+      }
+      if (live) state.ending = null;
+      wasLive = live;
+      state.live = live;
       render();
     }
-    function demoBehind() {
+    function setDemoScores(h, r, ending) {
       demo = true;
-      state.live = true;
-      state.pointsHost = 44;
-      state.pointsRival = 244;
+      state.live = !ending;
+      state.ending = !!ending;
+      state.pointsHost = h;
+      state.pointsRival = r;
       render();
+    }
+    function runFullTest() {
+      clearTest();
+      lastSig = '';
+      wasLive = false;
+      // Animación completa: abajo → arriba → empate → ventaja → Felicidades
+      setDemoScores(44, 244, false);
+      testTimers.push(setTimeout(() => setDemoScores(180, 244, false), 1500));
+      testTimers.push(setTimeout(() => setDemoScores(244, 244, false), 3000));
+      testTimers.push(setTimeout(() => setDemoScores(500, 244, false), 4500));
+      testTimers.push(setTimeout(() => setDemoScores(820, 410, false), 6000));
+      testTimers.push(setTimeout(() => setDemoScores(820, 410, true), 7600));
+      // Luego muestra derrota también un momento en el test
+      testTimers.push(setTimeout(() => setDemoScores(210, 500, true), 9800));
+      testTimers.push(setTimeout(() => setDemoScores(820, 410, true), 11800));
     }
     function resetLocal() {
+      clearTest();
       demo = false;
-      state = { live: false, pointsHost: 0, pointsRival: 0 };
       lastSig = '';
+      wasLive = false;
+      state = { live: false, ending: null, pointsHost: 0, pointsRival: 0 };
       render();
     }
 
@@ -211,23 +366,32 @@
       ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
       ws.onmessage = (ev) => {
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
-        if (msg.type === 'pkBattle') applyPk(msg.payload);
-        else if (msg.type === 'pkBattleReset') resetLocal();
-        else if (msg.type === 'pkBattleTest') demoAhead();
+        if (msg.type === 'pkBattle') applyPk(msg.payload || {});
+        if (msg.type === 'pkBattleReset' || msg.type === 'batallaMetaReset') resetLocal();
+        if (msg.type === 'batallaMetaTest') runFullTest();
+        if (msg.type === 'settings' && msg.payload?.batallaMeta) {
+          cfg = Object.assign(cfg, msg.payload.batallaMeta);
+          applyStyle();
+          render();
+        }
       };
     }
     connectWS();
-    render();
 
     window.addEventListener('message', (e) => {
       const d = e.data;
       if (!d || d.kind !== 'batallaMeta') return;
-      if (d.type === 'test') demoBehind();
-      else if (d.type === 'testAhead') demoAhead();
+      if (d.type === 'config' && d.config) {
+        cfg = Object.assign(cfg, d.config);
+        applyStyle();
+        render();
+      } else if (d.type === 'test') runFullTest();
       else if (d.type === 'reset') resetLocal();
     });
 
-    if (isEmbed) setTimeout(demoBehind, 350);
+    applyStyle();
+    if (isEmbed) setTimeout(runFullTest, 350);
+    else render();
   })();
   </script>
 </body>

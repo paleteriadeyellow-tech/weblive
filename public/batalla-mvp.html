@@ -5,92 +5,140 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>Overlay — MVP de la batalla (PK)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@700;800;900&family=Inter:wght@600;700;800&display=swap');
     * { box-sizing: border-box; }
     html, body {
       margin: 0; width: 100%; height: 100%; overflow: hidden;
       background: transparent !important;
+      font-family: var(--tf-font-stack, 'Rubik', system-ui, sans-serif);
     }
-    html.embed, html.embed body {
-      display: flex; align-items: center; justify-content: center;
-    }
-
+    html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
     .stage {
-      width: 520px; min-height: 280px;
+      width: 1080px; height: 1290px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; padding: 20px;
-      font-family: 'Rubik', 'Inter', system-ui, sans-serif;
+      gap: 14px; padding: 40px 48px 56px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
       opacity: 0; pointer-events: none;
       transition: opacity .3s ease;
+      --name-color: #ffffff;
+      --line-color: #ffe566;
+      --score-color: rgba(255,255,255,.72);
+      --ring1: #ffe98a; --ring2: #f0b400;
+      --tc1: #ff00aa; --tc2: #00ddff; --tc3: #ffcc00;
+      --tf-font-stack: 'Rubik', system-ui, sans-serif;
+      --name-size: 52px;
+      --line-size: 32px;
     }
-    .stage.is-on { opacity: 1; animation: mvpIn .45s ease; }
+    .stage.is-on { opacity: 1; }
+    .stage.is-on .panel { animation: mvpIn .55s cubic-bezier(.2,1.3,.3,1); }
     @keyframes mvpIn {
-      0% { transform: scale(calc(var(--tf-fit, 1) * 0.86)); opacity: 0; }
-      100% { transform: scale(var(--tf-fit, 1)); opacity: 1; }
+      0% { transform: scale(0.78); opacity: 0; }
+      60% { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
     }
-
-    .badge {
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
-      padding: 6px 14px; border-radius: 999px;
-      background: linear-gradient(180deg, #ffd56a, #f0a800);
-      color: #1a1200;
-      box-shadow: 0 4px 14px rgba(0,0,0,.35);
+    .panel {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 12px; max-width: 100%;
     }
-    .stage.is-draw .badge {
-      background: linear-gradient(180deg, #9ec9ff, #4d8fe8);
-      color: #061428;
+    .hero {
+      position: relative;
+      width: 320px; height: 360px;
+      display: flex; align-items: flex-end; justify-content: center;
     }
-
+    .crown {
+      position: absolute; top: 0; left: 50%;
+      width: 250px; height: auto;
+      transform: translateX(-50%);
+      z-index: 3;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,.45));
+      pointer-events: none;
+      animation: crownIn .55s .05s both cubic-bezier(.2,1.4,.3,1);
+    }
+    @keyframes crownIn {
+      0% { transform: translateX(-50%) translateY(-28px) scale(.55); opacity: 0; }
+      100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+    }
     .avatar-wrap {
-      width: 118px; height: 118px; border-radius: 50%;
-      padding: 4px;
-      background: linear-gradient(145deg, #ffe98a, #f0b400);
-      box-shadow: 0 0 0 3px rgba(255,210,80,.35), 0 12px 28px rgba(0,0,0,.45);
+      width: 240px; height: 240px; border-radius: 50%;
+      padding: 7px; margin-bottom: 4px;
+      background: linear-gradient(145deg, var(--ring1), var(--ring2));
+      box-shadow: 0 0 0 5px rgba(255,210,80,.35), 0 18px 40px rgba(0,0,0,.45);
+      animation: avIn .55s .08s both cubic-bezier(.2,1.3,.3,1);
+      z-index: 1;
     }
-    .stage.is-draw .avatar-wrap {
-      background: linear-gradient(145deg, #9ec9ff, #3a7de0);
+    @keyframes avIn {
+      0% { transform: scale(.4) rotate(-12deg); opacity: 0; }
+      100% { transform: none; opacity: 1; }
     }
     .avatar {
       width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
       display: block; background: rgba(20,20,28,.85);
-      border: 2px solid rgba(0,0,0,.25);
+      border: 3px solid rgba(0,0,0,.25);
     }
-
     .name {
-      margin: 2px 0 0;
-      font-weight: 900; font-size: 28px; color: #fff; text-align: center;
-      max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 18px rgba(0,0,0,.35);
-      padding: 0 8px;
+      margin: 4px 0 0; max-width: 92%;
+      font-family: var(--tf-font-stack);
+      font-weight: 900; font-size: var(--name-size); color: var(--name-color);
+      text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 22px rgba(0,0,0,.35);
+      padding: 0 12px;
+      -webkit-text-fill-color: var(--name-color);
+      background: none;
+      animation: textIn .45s .2s both ease;
     }
-
+    .name.name--rainbow {
+      background: linear-gradient(90deg, var(--tc1), var(--tc2), var(--tc3), var(--tc1), var(--tc2), var(--tc3), var(--tc1));
+      background-size: 280% 100%;
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent; -webkit-text-fill-color: transparent;
+      text-shadow: none;
+      animation: title-rainbow-move 3.2s linear infinite, textIn .45s .2s both ease;
+      filter: drop-shadow(0 3px 0 rgba(0,0,0,.55));
+    }
+    @keyframes title-rainbow-move {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+    @keyframes textIn {
+      0% { transform: translateY(18px); opacity: 0; }
+      100% { transform: none; opacity: 1; }
+    }
     .line {
-      margin: 0; text-align: center;
+      margin: 0; text-align: center; max-width: 92%;
       font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 800; font-size: 20px; line-height: 1.3;
-      color: #ffe566;
+      font-weight: 800; font-size: var(--line-size); line-height: 1.3;
+      color: var(--line-color);
       text-shadow: 0 2px 0 rgba(0,0,0,.55);
-      max-width: 100%;
+      animation: textIn .45s .28s both ease;
     }
-    .stage.is-draw .line { color: #9ec9ff; }
-
     .score {
-      font-weight: 900; font-size: 15px; color: rgba(255,255,255,.7);
+      font-weight: 900; font-size: 24px; color: var(--score-color);
       font-variant-numeric: tabular-nums;
       text-shadow: 0 1px 0 rgba(0,0,0,.5);
+      animation: textIn .45s .36s both ease;
+    }
+    .pts-flash { animation: ptsFlash .55s ease; }
+    @keyframes ptsFlash {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.14); filter: brightness(1.3); }
+      100% { transform: scale(1); }
     }
   </style>
 </head>
 <body>
   <div class="stage" id="stage">
-    <div class="badge" id="badge">MVP</div>
-    <div class="avatar-wrap"><img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer" /></div>
-    <div class="name" id="name">—</div>
-    <p class="line" id="line">decidió la pelea</p>
-    <div class="score" id="score"></div>
+    <div class="panel">
+      <div class="hero">
+        <img class="crown" src="/overlays/corona-mvp.png" alt="" />
+        <div class="avatar-wrap"><img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer" /></div>
+      </div>
+      <div class="name" id="name">—</div>
+      <p class="line" id="line">decidió la pelea</p>
+      <div class="score" id="score"></div>
+    </div>
   </div>
 
   <script>
@@ -100,30 +148,82 @@
     if (isEmbed) document.documentElement.classList.add('embed');
     const FALLBACK = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
     const DEMO = '/jarron/lv.png';
-    const SHOW_MS = 6500;
+
+    const FONTS = {
+      pressstart: "'Press Start 2P', monospace",
+      exo2: "'Exo 2', system-ui, sans-serif",
+      luckiest: "'Luckiest Guy', system-ui, sans-serif",
+      bangers: "'Bangers', system-ui, sans-serif",
+      lilita: "'Lilita One', system-ui, sans-serif",
+      titan: "'Titan One', system-ui, sans-serif",
+      fredoka: "'Fredoka', system-ui, sans-serif",
+      bungee: "'Bungee', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif",
+      oswald: "'Oswald', system-ui, sans-serif",
+      bebas: "'Bebas Neue', Impact, sans-serif",
+      montserrat: "'Montserrat', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif",
+      orbitron: "'Orbitron', system-ui, sans-serif",
+      inter: "'Inter', system-ui, sans-serif",
+      system: 'system-ui, sans-serif',
+    };
 
     (function fit() {
       function apply() {
-        const k = Math.min((innerWidth || 520) / 520, (innerHeight || 300) / 300) || 1;
-        document.documentElement.style.setProperty('--tf-fit', Math.min(1.3, k));
+        const k = Math.min((innerWidth || 1080) / 1080, (innerHeight || 1290) / 1290) || 1;
+        document.documentElement.style.setProperty('--tf-fit', Math.min(1, k));
       }
       apply();
       addEventListener('resize', apply);
     })();
 
+    let cfg = {
+      lineTpl: 'decidió la pelea con {n} puntos',
+      lineNoPts: 'decidió la pelea',
+      font: 'rubik',
+      titleRainbow: true,
+      tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
+      nameColor: '#ffffff',
+      lineColor: '#ffe566',
+      scoreColor: '#b8b8c2',
+      ring1: '#ffe98a',
+      ring2: '#f0b400',
+      nameSize: 52,
+      lineSize: 32,
+    };
+
     const el = {
       stage: document.getElementById('stage'),
-      badge: document.getElementById('badge'),
       avatar: document.getElementById('avatar'),
       name: document.getElementById('name'),
       line: document.getElementById('line'),
       score: document.getElementById('score'),
     };
 
-    let hideTimer = null;
+    let countTimer = null;
+    let showing = false;
+    let wasBattleLive = false;
 
     function fmt(n) {
       return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('es-ES');
+    }
+    function applyStyle() {
+      const fontKey = FONTS[cfg.font] ? cfg.font : 'rubik';
+      const stack = FONTS[fontKey];
+      el.stage.style.setProperty('--tf-font-stack', stack);
+      document.documentElement.style.setProperty('--tf-font-stack', stack);
+      document.documentElement.dataset.font = fontKey;
+      el.stage.style.setProperty('--name-color', cfg.nameColor || '#ffffff');
+      el.stage.style.setProperty('--line-color', cfg.lineColor || '#ffe566');
+      el.stage.style.setProperty('--score-color', cfg.scoreColor || '#b8b8c2');
+      el.stage.style.setProperty('--ring1', cfg.ring1 || '#ffe98a');
+      el.stage.style.setProperty('--ring2', cfg.ring2 || '#f0b400');
+      el.stage.style.setProperty('--tc1', cfg.tc1 || '#ff00aa');
+      el.stage.style.setProperty('--tc2', cfg.tc2 || '#00ddff');
+      el.stage.style.setProperty('--tc3', cfg.tc3 || '#ffcc00');
+      el.stage.style.setProperty('--name-size', Math.max(28, Math.min(84, Number(cfg.nameSize) || 52)) + 'px');
+      el.stage.style.setProperty('--line-size', Math.max(18, Math.min(48, Number(cfg.lineSize) || 32)) + 'px');
+      el.name.classList.toggle('name--rainbow', !!cfg.titleRainbow);
     }
     function setAvatar(url) {
       const src = String(url || '').trim() || (isEmbed ? DEMO : FALLBACK);
@@ -131,27 +231,58 @@
       el.avatar.src = src;
     }
     function hide() {
-      el.stage.classList.remove('is-on', 'is-draw');
+      showing = false;
+      clearInterval(countTimer);
+      el.stage.classList.remove('is-on');
+    }
+    function lineFor(pts) {
+      if (pts > 0) {
+        const tpl = cfg.lineTpl || 'decidió la pelea con {n} puntos';
+        return tpl.replace('{n}', fmt(pts));
+      }
+      return cfg.lineNoPts || 'decidió la pelea';
     }
     function show(payload) {
-      clearTimeout(hideTimer);
+      clearInterval(countTimer);
       const mvp = payload?.mvp || {};
-      const pts = Math.max(0, Math.round(Number(mvp.points) || 0));
-      // Siempre el top de TU equipo (host), ganes, pierdas o empates.
-      el.stage.classList.remove('is-draw');
-      el.badge.textContent = 'MVP';
+      const targetPts = Math.max(0, Math.round(Number(mvp.points) || 0));
       setAvatar(mvp.photo);
       el.name.textContent = mvp.nickname || 'MVP';
-      el.line.textContent = pts > 0
-        ? `decidió la pelea con ${fmt(pts)} puntos`
-        : 'decidió la pelea';
       el.score.textContent = `Final ${fmt(payload.scoreHost)} — ${fmt(payload.scoreRival)}`;
+
+      let shown = 0;
+      el.line.textContent = lineFor(0);
       el.stage.classList.remove('is-on');
       void el.stage.offsetWidth;
       el.stage.classList.add('is-on');
-      hideTimer = setTimeout(hide, SHOW_MS);
-    }
+      showing = true;
 
+      if (targetPts > 0) {
+        const steps = 18;
+        const step = Math.max(1, Math.round(targetPts / steps));
+        countTimer = setInterval(() => {
+          shown = Math.min(targetPts, shown + step);
+          el.line.textContent = lineFor(shown);
+          el.line.classList.remove('pts-flash');
+          void el.line.offsetWidth;
+          el.line.classList.add('pts-flash');
+          if (shown >= targetPts) {
+            clearInterval(countTimer);
+            el.line.textContent = lineFor(targetPts);
+          }
+        }, 55);
+      } else {
+        el.line.textContent = lineFor(0);
+      }
+      // Se queda hasta la siguiente batalla (pkBattle live=true) o Reset.
+    }
+    function onPkBattle(payload) {
+      if (!payload || typeof payload !== 'object') return;
+      const live = !!payload.live;
+      // Nueva batalla empieza → quitar MVP de la ronda anterior
+      if (live && !wasBattleLive && showing) hide();
+      wasBattleLive = live;
+    }
     function demo() {
       show({
         draw: false,
@@ -171,6 +302,12 @@
       ws.onmessage = (ev) => {
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         if (msg.type === 'pkBattleMvp') show(msg.payload || {});
+        if (msg.type === 'pkBattle') onPkBattle(msg.payload || {});
+        if (msg.type === 'pkBattleMvpReset' || msg.type === 'pkBattleReset') hide();
+        if (msg.type === 'settings' && msg.payload?.batallaMvp) {
+          cfg = Object.assign(cfg, msg.payload.batallaMvp);
+          applyStyle();
+        }
       };
     }
     connectWS();
@@ -178,10 +315,14 @@
     window.addEventListener('message', (e) => {
       const d = e.data;
       if (!d || d.kind !== 'batallaMvp') return;
-      if (d.type === 'test') demo();
+      if (d.type === 'config' && d.config) {
+        cfg = Object.assign(cfg, d.config);
+        applyStyle();
+      } else if (d.type === 'test') demo();
       else if (d.type === 'reset') hide();
     });
 
+    applyStyle();
     if (isEmbed) setTimeout(demo, 400);
   })();
   </script>

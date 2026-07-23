@@ -58,6 +58,7 @@ export const CAPABILITIES = {
     { key: 'ov_batallavs', label: 'Batalla VS', path: '/batalla-vs.html' },
     { key: 'ov_batallameta', label: 'Meta de la ronda (PK)', path: '/batalla-meta.html' },
     { key: 'ov_batallamvp', label: 'MVP de la batalla (PK)', path: '/batalla-mvp.html' },
+    { key: 'ov_batallatop3', label: 'Top 3 de tu ejército (PK)', path: '/batalla-top3.html' },
     { key: 'ov_flowmeter', label: 'Medidor de Flow', path: '/medidor-flow.html' },
     { key: 'ov_giftseq', label: 'Gift Sequence', path: '/giftseq.html' },
     { key: 'ov_habibitop', label: 'Habibi Top Donador', path: '/habibi-top.html' },

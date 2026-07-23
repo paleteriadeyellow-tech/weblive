@@ -2576,6 +2576,136 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Meta de la ronda (PK) -->
+        <div id="bmtConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🎯 Configurar — Meta de la ronda</h2>
+              <button class="modal-close" id="bmtcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="hint">Resolución recomendada TikTok Studio: <b>1080 × 1290</b>.</p>
+              <label class="ml">TEXTO EN ESPERA</label>
+              <input type="text" id="bmtcfg-titlewaiting" placeholder="Meta de la ronda">
+              <label class="ml">SUBTEXTO EN ESPERA</label>
+              <input type="text" id="bmtcfg-subwaiting" placeholder="Se activa sola al empezar la batalla">
+              <label class="ml">SUB · VAS ABAJO</label>
+              <input type="text" id="bmtcfg-subbehind" placeholder="¡Motiva al chat a empujar!">
+              <label class="ml">SUB · VAS ARRIBA</label>
+              <input type="text" id="bmtcfg-subahead" placeholder="No aflojes la presión">
+              <label class="ml">SUB · EMPATE</label>
+              <input type="text" id="bmtcfg-subtie" placeholder="El siguiente punto decide la ronda">
+              <label class="ml">AL GANAR</label>
+              <input type="text" id="bmtcfg-titlewin" placeholder="Felicidades">
+              <label class="ml">SUB · AL GANAR</label>
+              <input type="text" id="bmtcfg-subwin" placeholder="¡Ganaste la batalla!">
+              <label class="ml">AL PERDER</label>
+              <input type="text" id="bmtcfg-titlelose" placeholder="Suerte en la siguiente">
+              <label class="ml">SUB · AL PERDER</label>
+              <input type="text" id="bmtcfg-sublose" placeholder="La próxima es tuya">
+              <label class="ml">FUENTE</label>
+              <select id="bmtcfg-font" class="cfg-font"></select>
+              <label class="ml">TAMAÑO TÍTULO (PX)</label>
+              <input type="number" id="bmtcfg-titlesize" min="28" max="96" value="64">
+              <label class="switch-row plain"><input type="checkbox" id="bmtcfg-rainbow" checked> <span>Título arcoíris con movimiento</span></label>
+              <p class="hint" id="bmtcfg-rainbow-hint">Con arcoíris: degradado animado. Sin arcoíris: colores de estado (abajo/arriba/empate).</p>
+              <div class="cfg-colors">
+                <div class="bmt-rain-colors"><label class="ml">ARCOÍRIS 1</label><input type="color" id="bmtcfg-tc1" value="#ff00aa"></div>
+                <div class="bmt-rain-colors"><label class="ml">ARCOÍRIS 2</label><input type="color" id="bmtcfg-tc2" value="#00ddff"></div>
+                <div class="bmt-rain-colors"><label class="ml">ARCOÍRIS 3</label><input type="color" id="bmtcfg-tc3" value="#ffcc00"></div>
+                <div class="bmt-solid-colors"><label class="ml">COLOR TÍTULO</label><input type="color" id="bmtcfg-titlecolor" value="#ffffff"></div>
+                <div><label class="ml">COLOR SUBTEXTO</label><input type="color" id="bmtcfg-subcolor" value="#d2d2d8"></div>
+                <div class="bmt-solid-colors"><label class="ml">COLOR ABAJO</label><input type="color" id="bmtcfg-behindcolor" value="#ff8f6b"></div>
+                <div class="bmt-solid-colors"><label class="ml">COLOR ARRIBA</label><input type="color" id="bmtcfg-aheadcolor" value="#7dffb0"></div>
+                <div class="bmt-solid-colors"><label class="ml">COLOR EMPATE</label><input type="color" id="bmtcfg-tiecolor" value="#7ec8ff"></div>
+                <div><label class="ml">COLOR TUS PUNTOS</label><input type="color" id="bmtcfg-hostscore" value="#7ec8ff"></div>
+                <div><label class="ml">COLOR RIVAL</label><input type="color" id="bmtcfg-rivalscore" value="#ffe566"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="bmtcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar MVP de la batalla (PK) -->
+        <div id="bmvConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🏆 Configurar — MVP de la batalla</h2>
+              <button class="modal-close" id="bmvcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="hint">Resolución recomendada TikTok Studio: <b>1080 × 1290</b>. Usa <code>{n}</code> en la frase para los puntos.</p>
+              <label class="ml">BADGE</label>
+              <input type="text" id="bmvcfg-badge" placeholder="MVP">
+              <label class="ml">FRASE CON PUNTOS</label>
+              <input type="text" id="bmvcfg-linetpl" placeholder="decidió la pelea con {n} puntos">
+              <label class="ml">FRASE SIN PUNTOS</label>
+              <input type="text" id="bmvcfg-linenopts" placeholder="decidió la pelea">
+              <label class="ml">FUENTE</label>
+              <select id="bmvcfg-font" class="cfg-font"></select>
+              <div class="gvscfg-grid2" style="margin-top:12px">
+                <div>
+                  <label class="ml">TAMAÑO NOMBRE</label>
+                  <input type="number" id="bmvcfg-namesize" min="28" max="84" value="56">
+                </div>
+                <div>
+                  <label class="ml">TAMAÑO FRASE</label>
+                  <input type="number" id="bmvcfg-linesize" min="18" max="48" value="34">
+                </div>
+              </div>
+              <label class="ml">DURACIÓN EN PANTALLA (MS)</label>
+              <input type="number" id="bmvcfg-showms" min="2500" max="20000" value="6500">
+              <label class="switch-row plain"><input type="checkbox" id="bmvcfg-rainbow" checked> <span>Nombre arcoíris con movimiento</span></label>
+              <div class="cfg-colors">
+                <div class="bmv-rain-colors"><label class="ml">ARCOÍRIS 1</label><input type="color" id="bmvcfg-tc1" value="#ff00aa"></div>
+                <div class="bmv-rain-colors"><label class="ml">ARCOÍRIS 2</label><input type="color" id="bmvcfg-tc2" value="#00ddff"></div>
+                <div class="bmv-rain-colors"><label class="ml">ARCOÍRIS 3</label><input type="color" id="bmvcfg-tc3" value="#ffcc00"></div>
+                <div class="bmv-solid-colors"><label class="ml">COLOR NOMBRE</label><input type="color" id="bmvcfg-namecolor" value="#ffffff"></div>
+                <div><label class="ml">COLOR FRASE</label><input type="color" id="bmvcfg-linecolor" value="#ffe566"></div>
+                <div><label class="ml">COLOR MARCADOR</label><input type="color" id="bmvcfg-scorecolor" value="#b8b8c2"></div>
+                <div><label class="ml">BADGE ARRIBA</label><input type="color" id="bmvcfg-badgebg1" value="#ffd56a"></div>
+                <div><label class="ml">BADGE ABAJO</label><input type="color" id="bmvcfg-badgebg2" value="#f0a800"></div>
+                <div><label class="ml">TEXTO BADGE</label><input type="color" id="bmvcfg-badgefg" value="#1a1200"></div>
+                <div><label class="ml">ANILLO 1</label><input type="color" id="bmvcfg-ring1" value="#ffe98a"></div>
+                <div><label class="ml">ANILLO 2</label><input type="color" id="bmvcfg-ring2" value="#f0b400"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="bmvcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Top 3 ejército (PK) -->
+        <div id="bt3ConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>👥 Configurar — Top 3 de tu ejército</h2>
+              <button class="modal-close" id="bt3cfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="hint">Resolución recomendada TikTok Studio: <b>1080 × 1290</b>.</p>
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="bt3cfg-title" placeholder="TOP 3 · TU EJÉRCITO">
+              <label class="ml">TEXTO VACÍO</label>
+              <input type="text" id="bt3cfg-empty" placeholder="Aún no hay aportes en tu ejército">
+              <label class="ml">FUENTE</label>
+              <select id="bt3cfg-font" class="cfg-font"></select>
+              <label class="ml">TAMAÑO TÍTULO (PX)</label>
+              <input type="number" id="bt3cfg-titlesize" min="22" max="72" value="42">
+              <label class="switch-row plain"><input type="checkbox" id="bt3cfg-rainbow" checked> <span>Título arcoíris con movimiento</span></label>
+              <div class="cfg-colors">
+                <div class="bt3-rain-colors"><label class="ml">ARCOÍRIS 1</label><input type="color" id="bt3cfg-tc1" value="#ff00aa"></div>
+                <div class="bt3-rain-colors"><label class="ml">ARCOÍRIS 2</label><input type="color" id="bt3cfg-tc2" value="#00ddff"></div>
+                <div class="bt3-rain-colors"><label class="ml">ARCOÍRIS 3</label><input type="color" id="bt3cfg-tc3" value="#ffcc00"></div>
+                <div class="bt3-solid-colors"><label class="ml">COLOR TÍTULO</label><input type="color" id="bt3cfg-titlecolor" value="#ffffff"></div>
+                <div><label class="ml">COLOR NOMBRE</label><input type="color" id="bt3cfg-namecolor" value="#ffffff"></div>
+                <div><label class="ml">COLOR PUNTOS</label><input type="color" id="bt3cfg-ptscolor" value="#ffe566"></div>
+                <div><label class="ml">COLOR VACÍO</label><input type="color" id="bt3cfg-emptycolor" value="#b8b8c2"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="bt3cfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Mejor racha -->
         <div id="tstConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -5007,6 +5137,7 @@
                   <div class="ovpro-actions">
                     <button class="ovpro-btn" id="bmt-reset">↺ Reset</button>
                     <button class="ovpro-btn primary" id="bmt-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="bmt-config">⚙ Configurar</button>
                   </div>
                   <div class="ovpro-status">
                     <div class="ovpro-conn" id="bmt-conn"><span class="cdot"></span> CONECTADO</div>
@@ -5014,7 +5145,7 @@
                   </div>
                 </div>
                 <h3 class="ovpro-title">🎯 Meta de la ronda</h3>
-                <p class="ovpro-desc">Automático con el PK: si vas abajo muestra “Faltan X para empatar”; si vas arriba “Mantén X de ventaja”; en empate avisa que el siguiente punto decide. Usa el marcador oficial de la batalla (mismo feed que Batalla VS).</p>
+                <p class="ovpro-desc">Durante el PK: faltan X / mantén ventaja. Al terminar: <b>Felicidades</b> si ganas o <b>Suerte en la siguiente</b> si pierdes. <b>TikTok Studio: 1080 × 1290</b>.</p>
                 <div class="ovpro-urlrow">
                   <code class="ov-url" data-path="/batalla-meta.html">/batalla-meta.html</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>
@@ -5031,6 +5162,7 @@
                   <div class="ovpro-actions">
                     <button class="ovpro-btn" id="bmv-reset">↺ Reset</button>
                     <button class="ovpro-btn primary" id="bmv-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="bmv-config">⚙ Configurar</button>
                   </div>
                   <div class="ovpro-status">
                     <div class="ovpro-conn" id="bmv-conn"><span class="cdot"></span> CONECTADO</div>
@@ -5038,7 +5170,7 @@
                   </div>
                 </div>
                 <h3 class="ovpro-title">🏆 MVP de la batalla</h3>
-                <p class="ovpro-desc">Automático al terminar el PK: siempre muestra al top de TU ejército (quien más aportó en esa batalla), ganes o pierdas. Nunca al del rival. Si nadie aportó, usa tu foto. Texto: “decidió la pelea con X puntos”.</p>
+                <p class="ovpro-desc">Al terminar el PK muestra corona + foto del top de TU ejército. Se queda hasta la siguiente batalla. <b>TikTok Studio: 1080 × 1290</b>.</p>
                 <div class="ovpro-urlrow">
                   <code class="ov-url" data-path="/batalla-mvp.html">/batalla-mvp.html</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>
@@ -5046,6 +5178,31 @@
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview">
                   <iframe id="bmv-preview" data-src="/batalla-mvp.html?embed=1" title="Vista previa MVP de la batalla"></iframe>
+                </div>
+              </div>
+
+              <!-- Tarjeta PRO: Top 3 ejército -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="bt3-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="bt3-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="bt3-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="bt3-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new" title="Automático con el PK de TikTok">Auto</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">👥 Top 3 de tu ejército</h3>
+                <p class="ovpro-desc">Top 3 de TU ejército en vivo (corona en el #1). Se queda al terminar hasta la siguiente batalla. <b>TikTok Studio: 1080 × 1290</b>.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/batalla-top3.html">/batalla-top3.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="bt3-preview" data-src="/batalla-top3.html?embed=1" title="Vista previa Top 3 ejército"></iframe>
                 </div>
               </div>
 

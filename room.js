@@ -491,6 +491,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     rivalKey: '',
     armyTopHost: null,
     armyTopRival: null,
+    armyTop3Host: [],
   };
   let pkBattleBroadcastTimer = null;
   const giftCounter = { count: 0 }; // contador de meta (cuenta de la sesión)
@@ -2229,6 +2230,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       winsHost: Math.max(0, Math.round(pkBattle.winsHost) || 0),
       winsRival: Math.max(0, Math.round(pkBattle.winsRival) || 0),
       rivalKey: pkBattle.rivalKey || '',
+      armyTop3Host: Array.isArray(pkBattle.armyTop3Host) ? pkBattle.armyTop3Host.map((u) => ({ ...u })) : [],
     };
   }
   function broadcastPkBattle(immediate) {
@@ -2410,25 +2412,46 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     pkBattle.armyTopHost = null;
     pkBattle.armyTopRival = null;
+    pkBattle.armyTop3Host = [];
     pkBattle.live = true;
     pkBattle.frozen = false;
     broadcastPkBattle(true);
   }
   function pkPickArmyTop(userArmy) {
-    if (!Array.isArray(userArmy) || !userArmy.length) return null;
-    let best = null;
+    const top = pkPickArmyTopN(userArmy, 1);
+    return top[0] || null;
+  }
+  function pkPickArmyTopN(userArmy, n = 3) {
+    if (!Array.isArray(userArmy) || !userArmy.length) return [];
+    const byId = new Map();
     for (const u of userArmy) {
       if (!u || typeof u !== 'object') continue;
       const points = Math.max(0, Math.round(Number(u.score ?? u.diamondScore ?? 0)) || 0);
-      if (best && points <= best.points) continue;
-      best = {
-        uniqueId: String(u.userIdStr || u.userId || u.uniqueId || '').replace(/^@/, ''),
-        nickname: String(u.nickname || u.nickName || 'MVP'),
+      const uniqueId = String(u.userIdStr || u.userId || u.uniqueId || '').replace(/^@/, '');
+      const key = uniqueId || `${u.nickname || ''}|${points}`;
+      const prev = byId.get(key);
+      if (prev && points <= prev.points) continue;
+      byId.set(key, {
+        uniqueId,
+        nickname: String(u.nickname || u.nickName || 'Fan'),
         photo: pkAvatarFromThumb(u.avatarThumb || u.avatar_thumb || u.profilePicture) || '',
         points,
-      };
+      });
     }
-    return best;
+    return [...byId.values()]
+      .sort((a, b) => b.points - a.points || String(a.nickname).localeCompare(String(b.nickname)))
+      .slice(0, Math.max(1, Math.min(10, Number(n) || 3)));
+  }
+  function pkArmyTop3Sig(list) {
+    if (!Array.isArray(list) || !list.length) return '';
+    return list.map((u) => `${u.uniqueId}|${u.points}|${u.nickname}|${u.photo}`).join(';');
+  }
+  function pkSetArmyTop3Host(top3) {
+    const next = Array.isArray(top3) ? top3 : [];
+    if (pkArmyTop3Sig(next) === pkArmyTop3Sig(pkBattle.armyTop3Host)) return false;
+    pkBattle.armyTop3Host = next;
+    if (next[0]) pkBattle.armyTopHost = { ...next[0] };
+    return true;
   }
   function emitPkBattleMvp() {
     let winner = null;
@@ -2481,6 +2504,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     pkBattle.rivalKey = '';
     pkBattle.armyTopHost = null;
     pkBattle.armyTopRival = null;
+    pkBattle.armyTop3Host = [];
     broadcastPkBattle(true);
   }
   function addPkHostGiftPoints(_diamonds) {
@@ -2565,9 +2589,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const ids = pkIdSet(team?.userArmies?.anchorIdStr, team?.teamId, ...teamUserIds);
         const isHost = [...ids].some((id) => hostIds.has(id));
         const top = pkPickArmyTop(team?.userArmies?.userArmy || team?.userArmy);
+        const top3 = pkPickArmyTopN(team?.userArmies?.userArmy || team?.userArmy, 3);
         if (isHost) {
           if (pkSetScore('host', score)) changed = true;
-          if (top && (!pkBattle.armyTopHost || top.points >= (pkBattle.armyTopHost.points || 0))) pkBattle.armyTopHost = top;
+          if (pkSetArmyTop3Host(top3)) changed = true;
+          else if (top && (!pkBattle.armyTopHost || top.points >= (pkBattle.armyTopHost.points || 0))) pkBattle.armyTopHost = top;
         } else {
           if (pkSetScore('rival', score)) changed = true;
           if (!pkBattle.rival.userId && teamUserIds[0]) {
@@ -2592,6 +2618,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           isHost: [...ids].some((id) => hostIds.has(id)),
           isRival: [...ids].some((id) => rivalIds.has(id)),
           top: pkPickArmyTop(v?.userArmy || v?.user_army),
+          top3: pkPickArmyTopN(v?.userArmy || v?.user_army, 3),
         };
       });
 
@@ -2623,7 +2650,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!followerCounter.userId) followerCounter.userId = hostEntry.k;
           changed = true;
         }
-        if (hostEntry.top && (!pkBattle.armyTopHost || hostEntry.top.points >= (pkBattle.armyTopHost.points || 0))) {
+        if (pkSetArmyTop3Host(hostEntry.top3)) changed = true;
+        else if (hostEntry.top && (!pkBattle.armyTopHost || hostEntry.top.points >= (pkBattle.armyTopHost.points || 0))) {
           pkBattle.armyTopHost = hostEntry.top;
         }
       }
@@ -8233,6 +8261,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         });
         break;
       }
+      case 'resetBatallaMvp':
+        broadcast('pkBattleMvpReset', {});
+        break;
+      case 'testBatallaMeta':
+        broadcast('batallaMetaTest', {});
+        break;
+      case 'resetBatallaMeta':
+        broadcast('batallaMetaReset', {});
+        break;
+      case 'testBatallaTop3':
+        broadcast('batallaTop3Test', {});
+        break;
+      case 'resetBatallaTop3':
+        broadcast('batallaTop3Reset', {});
+        break;
       case 'startBatallaVs':
       case 'stopBatallaVs':
         // El marcador es automático con el PK de TikTok; estos botones ya no hacen falta.

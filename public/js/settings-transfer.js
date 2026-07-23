@@ -43,6 +43,7 @@
         { key: 'batallaVs', label: 'Batalla VS' },
         { key: 'batallaMeta', label: 'Meta de la ronda (PK)' },
         { key: 'batallaMvp', label: 'MVP de la batalla (PK)' },
+        { key: 'batallaTop3', label: 'Top 3 de tu ejército (PK)' },
         { key: 'giftSeq', label: 'Secuencia de regalos' },
         { key: 'giftShowcase', label: 'Showcase de regalos' },
         { key: 'topGift', label: 'Mejor regalo' },
