@@ -456,6 +456,7 @@ export const DEFAULT_SETTINGS = {
     bar3: '#a855f7',
     showCompleted: true,
     bandaSec: 22,
+    bandaVisible: 4,
     cardOpacity: 48,
     items: [
       {
