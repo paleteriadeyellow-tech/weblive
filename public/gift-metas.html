@@ -96,8 +96,11 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: flex-start;
       gap: 10px;
       width: 168px;
+      /* icon + barra + label + gaps + padding ≈ misma altura completo/incompleto */
+      height: calc(var(--icon) + 72px);
       padding: 14px 12px 12px;
       border-radius: 20px;
       background: rgba(10, 12, 20, var(--card-alpha, 0.48));
@@ -108,6 +111,7 @@
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+      overflow: hidden;
     }
     .root[data-layout="vertical"] .item,
     .root[data-layout="banda-vertical"] .item { width: 100%; max-width: 220px; }
@@ -210,12 +214,9 @@
       text-overflow: ellipsis;
     }
 
-    /* Completado — dorado, mismo tamaño que incompleta */
+    /* Completado — dorado, misma altura que incompleta */
     .item.is-done {
-      padding: 14px 12px 12px;
-      gap: 8px;
-      min-height: 0;
-      justify-content: flex-start;
+      gap: 6px;
       background:
         radial-gradient(120% 100% at 50% 0%, rgba(255, 214, 102, 0.42), transparent 58%),
         rgba(28, 22, 10, calc(0.55 + var(--card-alpha, 0.48) * 0.35));
@@ -246,17 +247,20 @@
     .item.is-done .progress-row,
     .item.is-done .icon-wrap { display: none; }
 
+    /* Foto + regalo debajo (misma huella que icon-wrap incompleto) */
     .done-top {
       position: relative;
       width: var(--icon);
       height: var(--icon);
-      display: grid;
-      place-items: center;
       flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
     }
     .done-avatar {
-      width: calc(var(--icon) * 0.82);
-      height: calc(var(--icon) * 0.82);
+      width: calc(var(--icon) * 0.72);
+      height: calc(var(--icon) * 0.72);
       border-radius: 50%;
       object-fit: cover;
       border: 2.5px solid #ffe08a;
@@ -264,42 +268,46 @@
         0 0 0 3px rgba(255, 196, 60, 0.35),
         0 0 16px rgba(255, 200, 60, 0.5),
         0 6px 14px rgba(0,0,0,.4);
+      flex-shrink: 0;
     }
     .done-avatar-ph {
-      width: calc(var(--icon) * 0.82);
-      height: calc(var(--icon) * 0.82);
+      width: calc(var(--icon) * 0.72);
+      height: calc(var(--icon) * 0.72);
       border-radius: 50%;
       display: grid; place-items: center;
       background: linear-gradient(145deg, #ffe08a, #d4a017 55%, #a16207);
       border: 2.5px solid #fff3c4;
       box-shadow: 0 0 16px rgba(255, 200, 60, 0.5);
-      font-size: calc(var(--icon) * 0.32);
+      font-size: calc(var(--icon) * 0.28);
       color: #fff8e7;
       text-shadow: 0 1px 2px rgba(0,0,0,.4);
+      flex-shrink: 0;
     }
     .done-gift {
+      margin-top: -6px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
-      width: 100%;
+      gap: 0;
+      z-index: 2;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,.5));
     }
     .done-gift-ico {
-      width: 36px;
-      height: 36px;
+      width: calc(var(--icon) * 0.34);
+      height: calc(var(--icon) * 0.34);
+      min-width: 26px;
+      min-height: 26px;
       object-fit: contain;
-      filter: drop-shadow(0 4px 10px rgba(0,0,0,.45));
     }
     .done-gift-ph {
-      font-size: 28px;
+      font-size: calc(var(--icon) * 0.28);
       line-height: 1;
-      filter: drop-shadow(0 4px 8px rgba(0,0,0,.4));
     }
     .done-name {
       margin: 0;
       font-weight: 900;
-      font-size: 12px;
-      letter-spacing: .08em;
+      font-size: 11px;
+      letter-spacing: .06em;
       text-transform: uppercase;
       color: #fff8e7;
       text-align: center;
@@ -315,7 +323,7 @@
       margin: 0;
       font-weight: 800;
       font-size: 11px;
-      letter-spacing: .08em;
+      letter-spacing: .1em;
       text-transform: uppercase;
       color: #ffe9a8;
       text-align: center;
@@ -324,22 +332,6 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       text-shadow: 0 1px 3px rgba(0,0,0,.65);
-    }
-    .done-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      margin-top: 2px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(255, 214, 102, 0.28), rgba(212, 160, 23, 0.22));
-      border: 1px solid rgba(255, 214, 102, 0.7);
-      color: #fff3c4;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      box-shadow: 0 0 12px rgba(255, 196, 60, 0.35);
     }
     .empty {
       color: rgba(255,255,255,.7);
@@ -443,13 +435,12 @@
         ? `<img class="done-gift-ico" src="${esc(giftImg)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span class="done-gift-ph" style="display:none">🎁</span>`
         : `<span class="done-gift-ph">🎁</span>`;
       return `<div class="item is-done${clsExtra}" data-id="${esc(it.id)}">
-        <div class="done-top">${avHtml}</div>
-        <p class="done-name" title="${esc(name)}">${esc(name)}</p>
-        <div class="done-gift">
-          ${giftHtml}
-          <p class="done-gift-label" title="${esc(label)}">${esc(label)}</p>
+        <div class="done-top">
+          ${avHtml}
+          <div class="done-gift">${giftHtml}</div>
         </div>
-        <span class="done-badge">✓ COMPLETO</span>
+        <p class="done-name" title="${esc(name)}">${esc(name)}</p>
+        <p class="done-gift-label" title="${esc(label)}">${esc(label)}</p>
       </div>`;
     }
     const pct = Math.max(0, Math.min(100, Math.round((p.count / p.goal) * 100)));
