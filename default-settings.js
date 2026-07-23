@@ -458,6 +458,7 @@ export const DEFAULT_SETTINGS = {
     bandaSec: 22,
     bandaVisible: 4,
     cardOpacity: 48,
+    resetPeriod: 'live',
     items: [
       {
         id: 'gg_rose',

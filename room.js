@@ -448,6 +448,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
   const TOP1FIRE_FILE = path.join(dataDir, 'top1fire.json');
   const HABIBI_TOP_FILE = path.join(dataDir, 'habibi-top.json');
+  const GIFTGOALS_FILE = path.join(dataDir, 'gift-goals.json');
   const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
   const RANK_IDS = ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist'];
   const RANK_SETTINGS_KEY = { toplikes: 'toplikesRank', topdiam: 'topdiamRank', toplikeslist: 'toplikesList', topdiamlist: 'topdiamList' };
@@ -483,6 +484,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     completers: Object.create(null),
     donors: Object.create(null),
   };
+  const giftGoalsMeta = { period: 'live', start: 0, end: 0 };
+  let giftGoalsSaveTimer = null;
+  let lastGiftGoalsPeriod = null;
   const timer = { remaining: 0, running: false };
   let timerInterval = null;
   const weekly = { start: 0, end: 0, donors: new Map() };
@@ -892,6 +896,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   loadWeekly();
   loadTop1Fire();
   loadHabibiTop();
+  loadGiftGoalsPersist();
   loadRankOverlays();
   loadSessionOverlays();
   loadPoints();
@@ -1047,6 +1052,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastTop1Fire();
     loadHabibiTop();
     broadcastHabibiTop();
+    loadGiftGoalsPersist();
+    broadcastGiftGoals();
     loadRankOverlays();
     broadcastAllRankStates();
     broadcast('settings', settings);
@@ -1157,6 +1164,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastTop1Fire();
     loadHabibiTop();
     broadcastHabibiTop();
+    loadGiftGoalsPersist();
+    broadcastGiftGoals();
     loadRankOverlays();
     broadcastAllRankStates();
     broadcast('settings', settings);
@@ -1212,6 +1221,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     const prevTop1FirePeriod = getTop1FirePeriod();
     const prevHabibiTopPeriod = getHabibiTopPeriod();
+    const prevGiftGoalsPeriod = getGiftGoalsPeriod();
     const prevRankPeriods = {};
     for (const rankId of RANK_IDS) prevRankPeriods[rankId] = getRankPeriod(rankId);
     // Periodos ALT previos: solo reaccionar si el propio ALT cambió de periodo,
@@ -1252,6 +1262,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       && normalizeResetPeriod(obj.top1fire.resetPeriod) !== prevTop1FirePeriod) onTop1FireSettingsChange();
     if (obj.habibiTop && obj.habibiTop.resetPeriod != null
       && normalizeResetPeriod(obj.habibiTop.resetPeriod) !== prevHabibiTopPeriod) onHabibiTopSettingsChange();
+    if (obj.giftGoals && obj.giftGoals.resetPeriod != null
+      && normalizeResetPeriod(obj.giftGoals.resetPeriod) !== prevGiftGoalsPeriod) onGiftGoalsPeriodChange();
     for (const rankId of RANK_IDS) {
       const key = RANK_SETTINGS_KEY[rankId];
       if (obj[key] && obj[key].resetPeriod != null
@@ -1379,6 +1391,99 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     saveSessionOverlays();
   }
 
+  function getGiftGoalsPeriod() {
+    const p = settings.giftGoals?.resetPeriod;
+    return p === 'week' || p === 'month' ? p : 'live';
+  }
+  function clearGiftGoalsState() {
+    giftGoalsState.counts = Object.create(null);
+    giftGoalsState.completers = Object.create(null);
+    giftGoalsState.donors = Object.create(null);
+  }
+  function loadGiftGoalsPersist() {
+    const period = getGiftGoalsPeriod();
+    lastGiftGoalsPeriod = period;
+    if (period === 'live') {
+      giftGoalsMeta.period = 'live';
+      giftGoalsMeta.start = 0;
+      giftGoalsMeta.end = 0;
+      return;
+    }
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    const raw = readJsonSafe(GIFTGOALS_FILE).data;
+    if (raw && raw.period === period && raw.start === start) {
+      giftGoalsMeta.period = period;
+      giftGoalsMeta.start = start;
+      giftGoalsMeta.end = end;
+      clearGiftGoalsState();
+      const rc = raw.counts || {};
+      for (const [id, v] of Object.entries(rc)) {
+        giftGoalsState.counts[id] = Math.max(0, Number(v?.count != null ? v.count : v) || 0);
+        if (v?.completer) giftGoalsState.completers[id] = v.completer;
+      }
+      if (raw.completers && typeof raw.completers === 'object') {
+        for (const [id, c] of Object.entries(raw.completers)) {
+          if (c) giftGoalsState.completers[id] = c;
+        }
+      }
+      if (raw.donors && typeof raw.donors === 'object') {
+        for (const [id, map] of Object.entries(raw.donors)) {
+          if (!map || typeof map !== 'object') continue;
+          giftGoalsState.donors[id] = Object.create(null);
+          for (const [uid, d] of Object.entries(map)) {
+            giftGoalsState.donors[id][uid] = {
+              uniqueId: uid,
+              nickname: d?.nickname || uid,
+              avatar: d?.avatar || '',
+              count: Math.max(0, Number(d?.count) || 0),
+            };
+          }
+        }
+      }
+      return;
+    }
+    giftGoalsMeta.period = period;
+    giftGoalsMeta.start = start;
+    giftGoalsMeta.end = end;
+    clearGiftGoalsState();
+  }
+  function saveGiftGoalsPersist() {
+    if (getGiftGoalsPeriod() === 'live') return;
+    clearTimeout(giftGoalsSaveTimer);
+    giftGoalsSaveTimer = setTimeout(() => {
+      writeJsonAtomic(GIFTGOALS_FILE, {
+        period: giftGoalsMeta.period,
+        start: giftGoalsMeta.start,
+        end: giftGoalsMeta.end,
+        counts: giftGoalsState.counts,
+        completers: giftGoalsState.completers,
+        donors: giftGoalsState.donors,
+      });
+    }, 400);
+  }
+  function ensureGiftGoalsPeriod() {
+    const period = getGiftGoalsPeriod();
+    if (period === 'live') return;
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    if (period !== giftGoalsMeta.period || start !== giftGoalsMeta.start) {
+      giftGoalsMeta.period = period;
+      giftGoalsMeta.start = start;
+      giftGoalsMeta.end = end;
+      clearGiftGoalsState();
+      saveGiftGoalsPersist();
+      broadcastGiftGoals();
+    }
+  }
+  function onGiftGoalsPeriodChange() {
+    const period = getGiftGoalsPeriod();
+    if (period === lastGiftGoalsPeriod) return;
+    lastGiftGoalsPeriod = period;
+    clearGiftGoalsState();
+    loadGiftGoalsPersist();
+    broadcast('giftGoalsReset', {});
+    broadcastGiftGoals();
+  }
+
   function topDonorForGiftGoal(itemId) {
     const map = giftGoalsState.donors[itemId];
     if (!map) return null;
@@ -1413,15 +1518,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('giftGoals', serializeGiftGoals(bumpId));
   }
   function resetGiftGoals() {
-    giftGoalsState.counts = Object.create(null);
-    giftGoalsState.completers = Object.create(null);
-    giftGoalsState.donors = Object.create(null);
+    clearGiftGoalsState();
+    if (getGiftGoalsPeriod() !== 'live') saveGiftGoalsPersist();
+    broadcast('giftGoalsReset', {});
     broadcastGiftGoals();
-    saveSessionOverlays();
+    if (getGiftGoalsPeriod() === 'live') saveSessionOverlays();
+  }
+  function resetGiftGoalsSession() {
+    if (getGiftGoalsPeriod() !== 'live') return;
+    clearGiftGoalsState();
+    broadcast('giftGoalsReset', {});
+    broadcastGiftGoals();
   }
   function countGiftForGiftGoals(user, giftId, giftName, repeatCount) {
     const items = Array.isArray(settings.giftGoals?.items) ? settings.giftGoals.items : [];
     if (!items.length) return;
+    if (getGiftGoalsPeriod() !== 'live') ensureGiftGoalsPeriod();
     const gid = String(giftId || '').trim();
     const gname = String(giftName || '').trim().toLowerCase();
     const add = Math.max(1, Number(repeatCount) || 1);
@@ -1455,7 +1567,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     if (bumped) {
       broadcastGiftGoals(bumped);
-      saveSessionOverlays();
+      if (getGiftGoalsPeriod() === 'live') saveSessionOverlays();
+      else saveGiftGoalsPersist();
     }
   }
   // Contadores de victorias: si un regalo está asignado a una acción (+1/-1/sumar/restar),
@@ -1817,9 +1930,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function clearSessionOverlayState() {
     giftCounter.count = 0;
-    giftGoalsState.counts = Object.create(null);
-    giftGoalsState.completers = Object.create(null);
-    giftGoalsState.donors = Object.create(null);
+    if (getGiftGoalsPeriod() === 'live') clearGiftGoalsState();
     top1fireSession.clear();
     habibiTopSession.clear();
     if (getHabibiTopPeriod() === 'live') habibiTopSnapshot = null;
@@ -1837,32 +1948,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const raw = readJsonSafe(SESSION_OVERLAYS_FILE).data;
     if (!canRestoreSessionOverlays(raw)) return;
     giftCounter.count = Math.max(0, Number(raw.giftCounter?.count) || 0);
-    giftGoalsState.counts = Object.create(null);
-    giftGoalsState.completers = Object.create(null);
-    giftGoalsState.donors = Object.create(null);
-    if (raw.giftGoals && typeof raw.giftGoals === 'object') {
-      const rc = raw.giftGoals.counts || {};
-      for (const [id, v] of Object.entries(rc)) {
-        giftGoalsState.counts[id] = Math.max(0, Number(v?.count != null ? v.count : v) || 0);
-        if (v?.completer) giftGoalsState.completers[id] = v.completer;
-      }
-      if (raw.giftGoals.completers && typeof raw.giftGoals.completers === 'object') {
-        for (const [id, c] of Object.entries(raw.giftGoals.completers)) {
-          if (c) giftGoalsState.completers[id] = c;
+    if (getGiftGoalsPeriod() === 'live') {
+      clearGiftGoalsState();
+      if (raw.giftGoals && typeof raw.giftGoals === 'object') {
+        const rc = raw.giftGoals.counts || {};
+        for (const [id, v] of Object.entries(rc)) {
+          giftGoalsState.counts[id] = Math.max(0, Number(v?.count != null ? v.count : v) || 0);
+          if (v?.completer) giftGoalsState.completers[id] = v.completer;
         }
-      }
-      if (raw.giftGoals.donors && typeof raw.giftGoals.donors === 'object') {
-        for (const [id, map] of Object.entries(raw.giftGoals.donors)) {
-          if (!map || typeof map !== 'object') continue;
-          giftGoalsState.donors[id] = Object.create(null);
-          for (const [uid, d] of Object.entries(map)) {
-            if (!d) continue;
-            giftGoalsState.donors[id][uid] = {
-              uniqueId: uid,
-              nickname: d.nickname || uid,
-              avatar: d.avatar || '',
-              count: Math.max(0, Number(d.count) || 0),
-            };
+        if (raw.giftGoals.completers && typeof raw.giftGoals.completers === 'object') {
+          for (const [id, c] of Object.entries(raw.giftGoals.completers)) {
+            if (c) giftGoalsState.completers[id] = c;
+          }
+        }
+        if (raw.giftGoals.donors && typeof raw.giftGoals.donors === 'object') {
+          for (const [id, map] of Object.entries(raw.giftGoals.donors)) {
+            if (!map || typeof map !== 'object') continue;
+            giftGoalsState.donors[id] = Object.create(null);
+            for (const [uid, d] of Object.entries(map)) {
+              if (!d) continue;
+              giftGoalsState.donors[id][uid] = {
+                uniqueId: uid,
+                nickname: d.nickname || uid,
+                avatar: d.avatar || '',
+                count: Math.max(0, Number(d.count) || 0),
+              };
+            }
           }
         }
       }
@@ -1915,10 +2026,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       roomId: liveSession.roomId || null,
       username: liveSession.username || null,
       giftCounter: { count: giftCounter.count },
-      giftGoals: {
+      giftGoals: getGiftGoalsPeriod() === 'live' ? {
         ...serializeGiftGoals(),
         donors: giftGoalsState.donors,
-      },
+      } : null,
       top1fireLive: getTop1FirePeriod() === 'live' ? [...top1fireSession.values()] : [],
       habibiTopLive: getHabibiTopPeriod() === 'live' ? [...habibiTopSession.values()] : [],
       habibiTopSnapshot: habibiTopSnapshot || null,
@@ -2051,6 +2162,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     resetHabibiTopSession();
     // Contador de meta (gift counter) vuelve a 0
     resetGiftCounter();
+    // Metas de regalos: solo sesión live; semana/mes se conservan
+    if (getGiftGoalsPeriod() === 'live') {
+      broadcast('giftGoalsReset', {});
+      broadcastGiftGoals();
+    } else {
+      broadcastGiftGoals();
+    }
     // Batallas de ranking (regalos / likes)
     broadcast('batallaGiftsReset', {});
     broadcast('batallaLikesReset', {});

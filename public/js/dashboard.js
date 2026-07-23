@@ -6048,7 +6048,7 @@ function defaultGiftGoalsCfg() {
     labelColor: '#ffffff', countColor: '#ffffff',
     barTrack: 'rgba(255,255,255,0.14)',
     bar1: '#22d3ee', bar2: '#e879f9', bar3: '#a855f7',
-    showCompleted: true, bandaSec: 22, bandaVisible: 4, cardOpacity: 48, items: [],
+    showCompleted: true, bandaSec: 22, bandaVisible: 4, cardOpacity: 48, resetPeriod: 'live', items: [],
   };
 }
 function currentGgmCfg() {
@@ -6067,6 +6067,7 @@ function currentGgmCfg() {
     bandaSec: Math.max(8, Math.min(90, parseInt($('ggmcfg-banda')?.value, 10) || 22)),
     bandaVisible: Math.max(2, Math.min(12, parseInt($('ggmcfg-bandavisible')?.value, 10) || 4)),
     cardOpacity: Math.max(10, Math.min(95, parseInt($('ggmcfg-opacity')?.value, 10) || 48)),
+    resetPeriod: ['live', 'week', 'month'].includes($('ggmcfg-period')?.value) ? $('ggmcfg-period').value : 'live',
     items: ggmItemsDraft.map((r) => ({
       id: r.id || emptyGgmItem().id,
       giftId: String(r.giftId || ''),
@@ -6088,6 +6089,9 @@ function pushGiftGoalsPreview(cfg) {
 function openGgmConfig() {
   const c = { ...defaultGiftGoalsCfg(), ...(settings?.giftGoals || {}) };
   if ($('ggmcfg-layout')) $('ggmcfg-layout').value = c.layout || 'vertical';
+  if ($('ggmcfg-period')) {
+    $('ggmcfg-period').value = ['live', 'week', 'month'].includes(c.resetPeriod) ? c.resetPeriod : 'live';
+  }
   if ($('ggmcfg-scale')) {
     $('ggmcfg-scale').value = c.scale || 100;
     if ($('ggmcfg-scale-lbl')) $('ggmcfg-scale-lbl').textContent = (c.scale || 100) + '%';
@@ -6178,7 +6182,7 @@ function renderGgmRows() {
   pushGiftGoalsPreview(currentGgmCfg());
 }
 
-['ggmcfg-layout', 'ggmcfg-scale', 'ggmcfg-iconsize', 'ggmcfg-gap', 'ggmcfg-font', 'ggmcfg-banda',
+['ggmcfg-layout', 'ggmcfg-period', 'ggmcfg-scale', 'ggmcfg-iconsize', 'ggmcfg-gap', 'ggmcfg-font', 'ggmcfg-banda',
   'ggmcfg-bandavisible', 'ggmcfg-opacity', 'ggmcfg-label', 'ggmcfg-count', 'ggmcfg-bar1', 'ggmcfg-bar2', 'ggmcfg-bar3', 'ggmcfg-showdone'].forEach((id) => {
   const el = $(id);
   if (!el) return;
