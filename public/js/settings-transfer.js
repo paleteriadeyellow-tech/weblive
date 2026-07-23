@@ -41,6 +41,8 @@
         { key: 'topDonor', label: 'Top donador semanal' },
         { key: 'giftVs', label: 'Gift VS' },
         { key: 'batallaVs', label: 'Batalla VS' },
+        { key: 'batallaMeta', label: 'Meta de la ronda (PK)' },
+        { key: 'batallaMvp', label: 'MVP de la batalla (PK)' },
         { key: 'giftSeq', label: 'Secuencia de regalos' },
         { key: 'giftShowcase', label: 'Showcase de regalos' },
         { key: 'topGift', label: 'Mejor regalo' },

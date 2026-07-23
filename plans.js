@@ -56,6 +56,8 @@ export const CAPABILITIES = {
     { key: 'ov_winscountermario', label: 'Contador de victorias (Mario Bros)', path: '/contador-wins-mario.html' },
     { key: 'ov_giftvs', label: 'Gift VS', path: '/giftvs.html' },
     { key: 'ov_batallavs', label: 'Batalla VS', path: '/batalla-vs.html' },
+    { key: 'ov_batallameta', label: 'Meta de la ronda (PK)', path: '/batalla-meta.html' },
+    { key: 'ov_batallamvp', label: 'MVP de la batalla (PK)', path: '/batalla-mvp.html' },
     { key: 'ov_flowmeter', label: 'Medidor de Flow', path: '/medidor-flow.html' },
     { key: 'ov_giftseq', label: 'Gift Sequence', path: '/giftseq.html' },
     { key: 'ov_habibitop', label: 'Habibi Top Donador', path: '/habibi-top.html' },

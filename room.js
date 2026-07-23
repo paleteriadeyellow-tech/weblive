@@ -481,6 +481,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const pkBattle = {
     live: false,
     frozen: false,
+    battleId: '',
     host: { uniqueId: '', nickname: '', photo: '', userId: '' },
     rival: { uniqueId: '', nickname: '', photo: '', userId: '' },
     pointsHost: 0,
@@ -488,6 +489,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     winsHost: 0,
     winsRival: 0,
     rivalKey: '',
+    armyTopHost: null,
+    armyTopRival: null,
   };
   let pkBattleBroadcastTimer = null;
   const giftCounter = { count: 0 }; // contador de meta (cuenta de la sesión)
@@ -2405,9 +2408,52 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       pkBattle.pointsHost = 0;
       pkBattle.pointsRival = 0;
     }
+    pkBattle.armyTopHost = null;
+    pkBattle.armyTopRival = null;
     pkBattle.live = true;
     pkBattle.frozen = false;
     broadcastPkBattle(true);
+  }
+  function pkPickArmyTop(userArmy) {
+    if (!Array.isArray(userArmy) || !userArmy.length) return null;
+    let best = null;
+    for (const u of userArmy) {
+      if (!u || typeof u !== 'object') continue;
+      const points = Math.max(0, Math.round(Number(u.score ?? u.diamondScore ?? 0)) || 0);
+      if (best && points <= best.points) continue;
+      best = {
+        uniqueId: String(u.userIdStr || u.userId || u.uniqueId || '').replace(/^@/, ''),
+        nickname: String(u.nickname || u.nickName || 'MVP'),
+        photo: pkAvatarFromThumb(u.avatarThumb || u.avatar_thumb || u.profilePicture) || '',
+        points,
+      };
+    }
+    return best;
+  }
+  function emitPkBattleMvp() {
+    let winner = null;
+    if (pkBattle.pointsHost > pkBattle.pointsRival) winner = 'host';
+    else if (pkBattle.pointsRival > pkBattle.pointsHost) winner = 'rival';
+    const scoreHost = Math.max(0, Math.round(pkBattle.pointsHost) || 0);
+    const scoreRival = Math.max(0, Math.round(pkBattle.pointsRival) || 0);
+    // Siempre MVP de TU equipo (host), ganes o pierdas. Nunca el del rival.
+    const sideTop = pkBattle.armyTopHost;
+    const streamer = pkBattle.host;
+    const mvp = (sideTop && sideTop.points > 0)
+      ? { ...sideTop }
+      : {
+          uniqueId: streamer.uniqueId || '',
+          nickname: streamer.nickname || 'Tú',
+          photo: streamer.photo || '',
+          points: scoreHost,
+        };
+    broadcast('pkBattleMvp', {
+      draw: !winner,
+      winner: winner || null,
+      mvp,
+      scoreHost,
+      scoreRival,
+    });
   }
   function endPkBattleRound() {
     if (!pkBattle.live) {
@@ -2416,6 +2462,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     if (pkBattle.pointsHost > pkBattle.pointsRival) pkBattle.winsHost += 1;
     else if (pkBattle.pointsRival > pkBattle.pointsHost) pkBattle.winsRival += 1;
+    emitPkBattleMvp();
     pkBattle.live = false;
     pkBattle.frozen = false;
     // Conservamos battleId/rival/wins para la siguiente ronda vs el mismo
@@ -2432,6 +2479,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     pkBattle.winsHost = 0;
     pkBattle.winsRival = 0;
     pkBattle.rivalKey = '';
+    pkBattle.armyTopHost = null;
+    pkBattle.armyTopRival = null;
     broadcastPkBattle(true);
   }
   function addPkHostGiftPoints(_diamonds) {
@@ -2515,14 +2564,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const teamUserIds = (team?.teamUsers || []).map((u) => String(u?.userId || u || ''));
         const ids = pkIdSet(team?.userArmies?.anchorIdStr, team?.teamId, ...teamUserIds);
         const isHost = [...ids].some((id) => hostIds.has(id));
+        const top = pkPickArmyTop(team?.userArmies?.userArmy || team?.userArmy);
         if (isHost) {
           if (pkSetScore('host', score)) changed = true;
+          if (top && (!pkBattle.armyTopHost || top.points >= (pkBattle.armyTopHost.points || 0))) pkBattle.armyTopHost = top;
         } else {
           if (pkSetScore('rival', score)) changed = true;
           if (!pkBattle.rival.userId && teamUserIds[0]) {
             pkBattle.rival.userId = String(teamUserIds[0]);
             changed = true;
           }
+          if (top && (!pkBattle.armyTopRival || top.points >= (pkBattle.armyTopRival.points || 0))) pkBattle.armyTopRival = top;
         }
       }
     }
@@ -2539,6 +2591,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           anchor,
           isHost: [...ids].some((id) => hostIds.has(id)),
           isRival: [...ids].some((id) => rivalIds.has(id)),
+          top: pkPickArmyTop(v?.userArmy || v?.user_army),
         };
       });
 
@@ -2570,12 +2623,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!followerCounter.userId) followerCounter.userId = hostEntry.k;
           changed = true;
         }
+        if (hostEntry.top && (!pkBattle.armyTopHost || hostEntry.top.points >= (pkBattle.armyTopHost.points || 0))) {
+          pkBattle.armyTopHost = hostEntry.top;
+        }
       }
       if (rivalEntry) {
         if (pkSetScore('rival', rivalEntry.score)) changed = true;
         if (rivalEntry.k && !pkBattle.rival.userId) {
           pkBattle.rival.userId = rivalEntry.k;
           changed = true;
+        }
+        if (rivalEntry.top && (!pkBattle.armyTopRival || rivalEntry.top.points >= (pkBattle.armyTopRival.points || 0))) {
+          pkBattle.armyTopRival = rivalEntry.top;
         }
       }
     }
@@ -8157,6 +8216,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         resetPkBattleAll();
         broadcast('pkBattleReset', {});
         break;
+      case 'testBatallaMvp': {
+        const demoPhoto = '/jarron/lv.png';
+        broadcast('pkBattleMvp', {
+          draw: false,
+          winner: 'host',
+          demo: true,
+          mvp: {
+            uniqueId: 'mvp_demo',
+            nickname: followerCounter.nickname || 'Fan MVP',
+            photo: followerCounter.photo || demoPhoto,
+            points: 820,
+          },
+          scoreHost: 1171,
+          scoreRival: 44,
+        });
+        break;
+      }
       case 'startBatallaVs':
       case 'stopBatallaVs':
         // El marcador es automático con el PK de TikTok; estos botones ya no hacen falta.

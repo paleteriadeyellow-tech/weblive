@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Meta de la ronda (PK)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@700;800;900&family=Inter:wght@600;700;800&display=swap');
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: transparent !important;
+    }
+    html.embed, html.embed body {
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .stage {
+      width: 900px; min-height: 160px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 18px 28px;
+      font-family: 'Rubik', 'Inter', system-ui, sans-serif;
+      transform: scale(var(--tf-fit, 1)); transform-origin: center center;
+      opacity: 0; transition: opacity .25s ease, transform .2s ease;
+      pointer-events: none;
+    }
+    .stage.is-on { opacity: 1; }
+    .stage.is-pop .title { animation: metapop .35s ease; }
+    @keyframes metapop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+
+    .badge {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+      padding: 5px 12px; border-radius: 999px;
+      background: rgba(0,0,0,.45); color: rgba(255,255,255,.7);
+      text-shadow: 0 1px 0 rgba(0,0,0,.4);
+    }
+    .badge.is-live { color: #7dffb0; background: rgba(20,80,50,.55); }
+
+    .title {
+      margin: 0; text-align: center; max-width: 100%;
+      font-weight: 900; font-size: 42px; line-height: 1.15;
+      letter-spacing: .01em;
+      text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 24px rgba(0,0,0,.35);
+      color: #fff;
+    }
+    .stage.behind .title { color: #ff8f6b; }
+    .stage.ahead .title { color: #7dffb0; }
+    .stage.tie .title { color: #7ec8ff; }
+
+    .sub {
+      margin: 0; text-align: center;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 700; font-size: 16px; color: rgba(255,255,255,.82);
+      text-shadow: 0 2px 0 rgba(0,0,0,.5);
+    }
+
+    .scores {
+      display: flex; align-items: center; gap: 14px; margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 900; font-size: 22px;
+      text-shadow: 0 2px 0 rgba(0,0,0,.5);
+    }
+    .scores .h { color: #7ec8ff; }
+    .scores .r { color: #ffe566; }
+    .scores .sep { color: rgba(255,255,255,.45); font-size: 16px; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage" aria-live="polite">
+    <div class="badge" id="badge">ESPERANDO PK</div>
+    <h1 class="title" id="title">Meta de la ronda</h1>
+    <p class="sub" id="sub">Se activa sola al empezar la batalla</p>
+    <div class="scores" id="scores" hidden>
+      <span class="h" id="score-h">0</span>
+      <span class="sep">VS</span>
+      <span class="r" id="score-r">0</span>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    if (isEmbed) document.documentElement.classList.add('embed');
+
+    (function fit() {
+      function apply() {
+        const k = Math.min((innerWidth || 900) / 900, (innerHeight || 200) / 200) || 1;
+        document.documentElement.style.setProperty('--tf-fit', Math.min(1.25, k));
+      }
+      apply();
+      addEventListener('resize', apply);
+    })();
+
+    const el = {
+      stage: document.getElementById('stage'),
+      badge: document.getElementById('badge'),
+      title: document.getElementById('title'),
+      sub: document.getElementById('sub'),
+      scores: document.getElementById('scores'),
+      scoreH: document.getElementById('score-h'),
+      scoreR: document.getElementById('score-r'),
+    };
+
+    let demo = false;
+    let lastSig = '';
+    let state = { live: false, pointsHost: 0, pointsRival: 0 };
+
+    function fmt(n) {
+      return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('es-ES');
+    }
+
+    function buildMeta(host, rival) {
+      const h = Math.max(0, Math.round(Number(host) || 0));
+      const r = Math.max(0, Math.round(Number(rival) || 0));
+      const diff = Math.abs(h - r);
+      if (h === r) {
+        return {
+          kind: 'tie',
+          title: '¡Empate!',
+          sub: 'El siguiente punto decide la ronda',
+        };
+      }
+      if (h < r) {
+        return {
+          kind: 'behind',
+          title: `Faltan ${fmt(diff)} para empatar`,
+          sub: '¡Motiva al chat a empujar!',
+        };
+      }
+      return {
+        kind: 'ahead',
+        title: `Mantén ${fmt(diff)} de ventaja`,
+        sub: 'No aflojes la presión',
+      };
+    }
+
+    function render() {
+      const active = demo || !!state.live;
+      el.stage.classList.toggle('is-on', active);
+      if (!active) {
+        el.badge.textContent = 'ESPERANDO PK';
+        el.badge.classList.remove('is-live');
+        el.title.textContent = 'Meta de la ronda';
+        el.sub.textContent = 'Se activa sola al empezar la batalla';
+        el.scores.hidden = true;
+        el.stage.classList.remove('behind', 'ahead', 'tie');
+        return;
+      }
+
+      const meta = buildMeta(state.pointsHost, state.pointsRival);
+      const sig = `${meta.kind}|${meta.title}|${state.pointsHost}|${state.pointsRival}`;
+      el.stage.classList.remove('behind', 'ahead', 'tie');
+      el.stage.classList.add(meta.kind);
+      el.badge.textContent = state.live || demo ? 'EN VIVO' : 'DEMO';
+      el.badge.classList.toggle('is-live', !!(state.live || demo));
+      el.title.textContent = meta.title;
+      el.sub.textContent = meta.sub;
+      el.scoreH.textContent = fmt(state.pointsHost);
+      el.scoreR.textContent = fmt(state.pointsRival);
+      el.scores.hidden = false;
+
+      if (sig !== lastSig) {
+        lastSig = sig;
+        el.stage.classList.remove('is-pop');
+        void el.stage.offsetWidth;
+        el.stage.classList.add('is-pop');
+      }
+    }
+
+    function applyPk(payload) {
+      if (!payload || typeof payload !== 'object') return;
+      demo = false;
+      state.live = !!payload.live;
+      if (payload.pointsHost != null) state.pointsHost = Number(payload.pointsHost) || 0;
+      if (payload.pointsRival != null) state.pointsRival = Number(payload.pointsRival) || 0;
+      render();
+    }
+
+    function demoAhead() {
+      demo = true;
+      state.live = true;
+      state.pointsHost = 500;
+      state.pointsRival = 0;
+      render();
+    }
+    function demoBehind() {
+      demo = true;
+      state.live = true;
+      state.pointsHost = 44;
+      state.pointsRival = 244;
+      render();
+    }
+    function resetLocal() {
+      demo = false;
+      state = { live: false, pointsHost: 0, pointsRival: 0 };
+      lastSig = '';
+      render();
+    }
+
+    let ws, reconnectTimer;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.type === 'pkBattle') applyPk(msg.payload);
+        else if (msg.type === 'pkBattleReset') resetLocal();
+        else if (msg.type === 'pkBattleTest') demoAhead();
+      };
+    }
+    connectWS();
+    render();
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'batallaMeta') return;
+      if (d.type === 'test') demoBehind();
+      else if (d.type === 'testAhead') demoAhead();
+      else if (d.type === 'reset') resetLocal();
+    });
+
+    if (isEmbed) setTimeout(demoBehind, 350);
+  })();
+  </script>
+</body>
+</html>

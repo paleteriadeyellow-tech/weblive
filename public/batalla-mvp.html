@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — MVP de la batalla (PK)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@700;800;900&family=Inter:wght@600;700;800&display=swap');
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: transparent !important;
+    }
+    html.embed, html.embed body {
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .stage {
+      width: 520px; min-height: 280px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 20px;
+      font-family: 'Rubik', 'Inter', system-ui, sans-serif;
+      transform: scale(var(--tf-fit, 1)); transform-origin: center center;
+      opacity: 0; pointer-events: none;
+      transition: opacity .3s ease;
+    }
+    .stage.is-on { opacity: 1; animation: mvpIn .45s ease; }
+    @keyframes mvpIn {
+      0% { transform: scale(calc(var(--tf-fit, 1) * 0.86)); opacity: 0; }
+      100% { transform: scale(var(--tf-fit, 1)); opacity: 1; }
+    }
+
+    .badge {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+      padding: 6px 14px; border-radius: 999px;
+      background: linear-gradient(180deg, #ffd56a, #f0a800);
+      color: #1a1200;
+      box-shadow: 0 4px 14px rgba(0,0,0,.35);
+    }
+    .stage.is-draw .badge {
+      background: linear-gradient(180deg, #9ec9ff, #4d8fe8);
+      color: #061428;
+    }
+
+    .avatar-wrap {
+      width: 118px; height: 118px; border-radius: 50%;
+      padding: 4px;
+      background: linear-gradient(145deg, #ffe98a, #f0b400);
+      box-shadow: 0 0 0 3px rgba(255,210,80,.35), 0 12px 28px rgba(0,0,0,.45);
+    }
+    .stage.is-draw .avatar-wrap {
+      background: linear-gradient(145deg, #9ec9ff, #3a7de0);
+    }
+    .avatar {
+      width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+      display: block; background: rgba(20,20,28,.85);
+      border: 2px solid rgba(0,0,0,.25);
+    }
+
+    .name {
+      margin: 2px 0 0;
+      font-weight: 900; font-size: 28px; color: #fff; text-align: center;
+      max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 18px rgba(0,0,0,.35);
+      padding: 0 8px;
+    }
+
+    .line {
+      margin: 0; text-align: center;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 800; font-size: 20px; line-height: 1.3;
+      color: #ffe566;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55);
+      max-width: 100%;
+    }
+    .stage.is-draw .line { color: #9ec9ff; }
+
+    .score {
+      font-weight: 900; font-size: 15px; color: rgba(255,255,255,.7);
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 1px 0 rgba(0,0,0,.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="badge" id="badge">MVP</div>
+    <div class="avatar-wrap"><img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer" /></div>
+    <div class="name" id="name">—</div>
+    <p class="line" id="line">decidió la pelea</p>
+    <div class="score" id="score"></div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    if (isEmbed) document.documentElement.classList.add('embed');
+    const FALLBACK = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const DEMO = '/jarron/lv.png';
+    const SHOW_MS = 6500;
+
+    (function fit() {
+      function apply() {
+        const k = Math.min((innerWidth || 520) / 520, (innerHeight || 300) / 300) || 1;
+        document.documentElement.style.setProperty('--tf-fit', Math.min(1.3, k));
+      }
+      apply();
+      addEventListener('resize', apply);
+    })();
+
+    const el = {
+      stage: document.getElementById('stage'),
+      badge: document.getElementById('badge'),
+      avatar: document.getElementById('avatar'),
+      name: document.getElementById('name'),
+      line: document.getElementById('line'),
+      score: document.getElementById('score'),
+    };
+
+    let hideTimer = null;
+
+    function fmt(n) {
+      return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('es-ES');
+    }
+    function setAvatar(url) {
+      const src = String(url || '').trim() || (isEmbed ? DEMO : FALLBACK);
+      el.avatar.onerror = function () { this.onerror = null; this.src = isEmbed ? DEMO : FALLBACK; };
+      el.avatar.src = src;
+    }
+    function hide() {
+      el.stage.classList.remove('is-on', 'is-draw');
+    }
+    function show(payload) {
+      clearTimeout(hideTimer);
+      const mvp = payload?.mvp || {};
+      const pts = Math.max(0, Math.round(Number(mvp.points) || 0));
+      // Siempre el top de TU equipo (host), ganes, pierdas o empates.
+      el.stage.classList.remove('is-draw');
+      el.badge.textContent = 'MVP';
+      setAvatar(mvp.photo);
+      el.name.textContent = mvp.nickname || 'MVP';
+      el.line.textContent = pts > 0
+        ? `decidió la pelea con ${fmt(pts)} puntos`
+        : 'decidió la pelea';
+      el.score.textContent = `Final ${fmt(payload.scoreHost)} — ${fmt(payload.scoreRival)}`;
+      el.stage.classList.remove('is-on');
+      void el.stage.offsetWidth;
+      el.stage.classList.add('is-on');
+      hideTimer = setTimeout(hide, SHOW_MS);
+    }
+
+    function demo() {
+      show({
+        draw: false,
+        winner: 'host',
+        mvp: { nickname: 'Fan MVP 🔥', photo: DEMO, points: 820 },
+        scoreHost: 1171,
+        scoreRival: 44,
+      });
+    }
+
+    let ws, reconnectTimer;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        if (msg.type === 'pkBattleMvp') show(msg.payload || {});
+      };
+    }
+    connectWS();
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'batallaMvp') return;
+      if (d.type === 'test') demo();
+      else if (d.type === 'reset') hide();
+    });
+
+    if (isEmbed) setTimeout(demo, 400);
+  })();
+  </script>
+</body>
+</html>

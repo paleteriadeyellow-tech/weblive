@@ -256,6 +256,12 @@ export const DEFAULT_SETTINGS = {
   batallaVs: {
     enabled: true,
   },
+  batallaMeta: {
+    enabled: true,
+  },
+  batallaMvp: {
+    enabled: true,
+  },
   // Overlay Medidor de Flow (barra de progreso por participante / regalo)
   flowMeter: {
     title: 'MEDIDOR DE FLOW',

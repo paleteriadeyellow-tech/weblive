@@ -66,6 +66,7 @@
           <button class="nav-item" data-view="ov-metas">Metas Overlays</button>
           <button class="nav-item" data-view="ov-rankings">Rankings Likes / Diamantes</button>
           <button class="nav-item" data-view="ov-diseno">Diseño Overlay</button>
+          <button class="nav-item" data-view="ov-batalla">Batalla Overlay</button>
           <button class="nav-item" data-view="ov-contador">Contador</button>
         </div>
 
@@ -4991,6 +4992,64 @@
               </div>
 
             </div>
+        </section>
+
+        
+        <!-- ===== VISTA: BATALLA OVERLAY ===== -->
+        <section class="view" id="view-ov-batalla">
+          <h1 class="view-title">⚔️ Batalla Overlay</h1>
+          <p class="view-sub">Overlays automáticos para batallas PK. Añade la URL como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
+          <div class="ovpro-grid">
+
+              <!-- Tarjeta PRO: Meta de la ronda -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="bmt-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="bmt-test">▶ Testear</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="bmt-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new" title="Automático con el PK de TikTok">Auto</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">🎯 Meta de la ronda</h3>
+                <p class="ovpro-desc">Automático con el PK: si vas abajo muestra “Faltan X para empatar”; si vas arriba “Mantén X de ventaja”; en empate avisa que el siguiente punto decide. Usa el marcador oficial de la batalla (mismo feed que Batalla VS).</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/batalla-meta.html">/batalla-meta.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="bmt-preview" data-src="/batalla-meta.html?embed=1" title="Vista previa Meta de la ronda"></iframe>
+                </div>
+              </div>
+
+              <!-- Tarjeta PRO: MVP de la batalla -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="bmv-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="bmv-test">▶ Testear</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="bmv-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new" title="Automático al terminar el PK">Auto</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">🏆 MVP de la batalla</h3>
+                <p class="ovpro-desc">Automático al terminar el PK: siempre muestra al top de TU ejército (quien más aportó en esa batalla), ganes o pierdas. Nunca al del rival. Si nadie aportó, usa tu foto. Texto: “decidió la pelea con X puntos”.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/batalla-mvp.html">/batalla-mvp.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="bmv-preview" data-src="/batalla-mvp.html?embed=1" title="Vista previa MVP de la batalla"></iframe>
+                </div>
+              </div>
+
+          </div>
         </section>
 
         <!-- ===== VISTA: CONTADOR OVERLAYS ===== -->
