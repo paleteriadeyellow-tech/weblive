@@ -7201,6 +7201,14 @@ function applyTtsUI(t) {
   syncTtsNameEmojisUI();
   val('tts-tiktok-voice', t.tiktokVoice || '');
   set('tts-tiktok-translate', t.tiktokTranslateEs !== false);
+  // ElevenLabs (opcional; no rompe TTS si está vacío/apagado)
+  const el = (t.elevenlabs && typeof t.elevenlabs === 'object') ? t.elevenlabs : {};
+  set('tts-el-enabled', !!el.enabled);
+  val('tts-el-apikey', el.apiKey || '');
+  ttsElFillVoiceSelect(
+    (el.voiceId ? [{ id: el.voiceId, name: el.voiceName || el.voiceId, category: '' }] : []),
+    el.voiceId || ''
+  );
   val('tts-rate', t.rate ?? 1.2); const rv = $('tts-rate-val'); if (rv) rv.textContent = (+(t.rate ?? 1.2)).toFixed(1);
   val('tts-pitch', t.pitch ?? 1); const pv = $('tts-pitch-val'); if (pv) pv.textContent = (+(t.pitch ?? 1)).toFixed(1);
   val('tts-vol', t.volume ?? 1); const vv = $('tts-vol-val'); if (vv) vv.textContent = Math.round((t.volume ?? 1) * 100);
@@ -7663,6 +7671,9 @@ function ttsSpeakTextForUser(text, userId) {
   if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
+  // Override por usuario (TikTok/Edge/sistema) gana; si no hay override y EL está listo, EL.
+  const uv = ttsFindUserVoice(userId);
+  if (!uv && ttsElevenLabsReady(cfg)) { ttsSpeakElevenLabs(phrase, cfg); return; }
   if (cfg.tiktokVoice) { ttsSpeakTikTok(phrase, cfg); return; }
   if (isEdgeTtsVoiceId(cfg.voice) || isTtsLangEdgeSpanish(cfg.lang)) {
     const edgeVoice = isEdgeTtsVoiceId(cfg.voice) ? cfg.voice : defaultEdgeVoiceIdForLocale(cfg.lang);
@@ -7703,13 +7714,16 @@ function updateTtsSummary() {
   }
   const trig = { all: 'cualquier comentario', dot: 'comentarios que empiezan con punto', slash: 'comentarios que empiezan con /', command: `comentarios con "${t.command || '!tts'}"` }[t.trigger || 'all'];
   const money = t.charge ? `Cobra ${t.cost} monedas por mensaje.` : 'El uso es gratuito.';
+  const elVoice = ttsElevenLabsReady(t)
+    ? ` Voz: ElevenLabs (${t.elevenlabs.voiceName || t.elevenlabs.voiceId}).`
+    : '';
   const requireLvl = !!(t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
   const minLvl = Number(t.minMemberLevel || 0);
   if (requireLvl && minLvl > 0) {
-    el.textContent = `Se leerá ${trig} solo de miembros del club de fans nivel ${minLvl} o más (Nv.${minLvl}+). ${money}`;
+    el.textContent = `Se leerá ${trig} solo de miembros del club de fans nivel ${minLvl} o más (Nv.${minLvl}+). ${money}${elVoice}`;
     return;
   }
-  el.textContent = `Se leerá ${trig} ${who}. ${money}`;
+  el.textContent = `Se leerá ${trig} ${who}. ${money}${elVoice}`;
 }
 
 /* ---- Filtros de moderación ---- */
@@ -7923,6 +7937,8 @@ function ttsSpeakText(text) {
   if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
+  // ElevenLabs (API del creador): solo si está activado y completo; si no, flujo normal.
+  if (ttsElevenLabsReady(t)) { ttsSpeakElevenLabs(phrase, t); return; }
   // Edge español (idioma/voz del bloque Idioma + Voz, por país)
   if (isEdgeTtsVoiceId(t.voice) || isTtsLangEdgeSpanish(t.lang)) {
     const edgeVoice = isEdgeTtsVoiceId(t.voice) ? t.voice : defaultEdgeVoiceIdForLocale(t.lang);
@@ -8134,7 +8150,8 @@ let ttsTkAbort = null;
 let ttsTkPrefetch = null;
 let ttsTkPrefetchItem = null; // a qué mensaje pertenece el prefetch (evita leer audio de otro texto)
 let ttsTkBusySince = 0;
-const TTS_TK_FETCH_MS = 7000; // antes 12 s: si Edge/TikTok tarda, fallar rápido a voz sistema
+const TTS_TK_FETCH_MS = 7000; // Edge/TikTok
+const TTS_EL_FETCH_MS = 14000; // ElevenLabs suele tardar más
 
 function ttsSpeakTikTok(phrase, t) {
   ttsTkQueue.push({
@@ -8151,6 +8168,191 @@ function ttsSpeakTikTok(phrase, t) {
     ttsTkStartPrefetch(ttsTkQueue[0]);
   }
   ttsTkPump();
+}
+
+function ttsEnsureElevenlabs() {
+  if (!settings.tts) settings.tts = {};
+  if (!settings.tts.elevenlabs || typeof settings.tts.elevenlabs !== 'object') {
+    settings.tts.elevenlabs = {
+      enabled: false,
+      apiKey: '',
+      voiceId: '',
+      voiceName: '',
+      modelId: 'eleven_multilingual_v2',
+    };
+  }
+  return settings.tts.elevenlabs;
+}
+
+function ttsElevenLabsReady(t) {
+  const el = t?.elevenlabs;
+  return !!(el && el.enabled && String(el.apiKey || '').trim() && String(el.voiceId || '').trim());
+}
+
+function ttsSpeakElevenLabs(phrase, t) {
+  const el = t?.elevenlabs || {};
+  ttsTkQueue.push({
+    engine: 'elevenlabs',
+    text: phrase,
+    apiKey: String(el.apiKey || '').trim(),
+    voice: String(el.voiceId || '').trim(),
+    modelId: String(el.modelId || 'eleven_multilingual_v2').trim(),
+    volume: t.volume ?? 1,
+    at: Date.now(),
+  });
+  ttsPruneQueue(ttsTkQueue);
+  ttsTkTryRecoverStuck();
+  if (!ttsTkBusy && ttsTkQueue.length >= 1 && !ttsTkPrefetch) {
+    ttsTkStartPrefetch(ttsTkQueue[0]);
+  }
+  ttsTkPump();
+}
+
+function ttsElSetStatus(msg, kind) {
+  const el = $('tts-el-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color = kind === 'err' ? '#f87171' : (kind === 'ok' ? '#4ade80' : '');
+}
+
+function ttsElFillVoiceSelect(voices, selectedId) {
+  const sel = $('tts-el-voice');
+  if (!sel) return;
+  const list = Array.isArray(voices) ? voices : [];
+  const cur = selectedId || ttsEnsureElevenlabs().voiceId || '';
+  if (!list.length) {
+    sel.innerHTML = cur
+      ? `<option value="${esc(cur)}" selected>${esc(ttsEnsureElevenlabs().voiceName || cur)}</option>`
+      : '<option value="">— Carga tus voces o clona una abajo —</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">— Elige una voz —</option>' + list.map((v) => {
+    const id = String(v.id || '');
+    const label = `${v.name || id}${v.category ? ` (${v.category})` : ''}`;
+    return `<option value="${esc(id)}" ${id === cur ? 'selected' : ''}>${esc(label)}</option>`;
+  }).join('');
+  if (cur && !list.some((v) => String(v.id) === cur)) {
+    const opt = document.createElement('option');
+    opt.value = cur;
+    opt.textContent = ttsEnsureElevenlabs().voiceName || cur;
+    opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+async function ttsElLoadVoices() {
+  const el = ttsEnsureElevenlabs();
+  const keyEl = $('tts-el-apikey');
+  if (keyEl) el.apiKey = keyEl.value.trim();
+  if (!el.apiKey) {
+    ttsElSetStatus('Pega tu API key de ElevenLabs.', 'err');
+    toast('Falta la API key de ElevenLabs.', 'warn');
+    return;
+  }
+  ttsElSetStatus('Cargando voces…');
+  try {
+    const r = await fetch('/api/tts/elevenlabs/voices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ apiKey: el.apiKey }),
+    });
+    const j = await r.json().catch(() => null);
+    if (!j?.ok) {
+      ttsElSetStatus('Error: ' + (j?.error || r.status), 'err');
+      toast('No se pudieron cargar las voces. Revisa la API key / plan.', 'err');
+      return;
+    }
+    ttsElFillVoiceSelect(j.voices, el.voiceId);
+    ttsElSetStatus(`${j.voices.length} voz(es) en tu cuenta.`, 'ok');
+    toast('Voces de ElevenLabs cargadas.', 'ok');
+  } catch (e) {
+    ttsElSetStatus('Error de red al cargar voces.', 'err');
+    toast(String(e.message || e), 'err');
+  }
+}
+
+function ttsElFileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const s = String(reader.result || '');
+      const i = s.indexOf(',');
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    reader.onerror = () => reject(new Error('no se pudo leer el audio'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function ttsElCloneVoice() {
+  const el = ttsEnsureElevenlabs();
+  const keyEl = $('tts-el-apikey');
+  if (keyEl) el.apiKey = keyEl.value.trim();
+  const name = ($('tts-el-clone-name')?.value || '').trim() || 'Livecoins';
+  const file = $('tts-el-clone-file')?.files?.[0];
+  if (!el.apiKey) {
+    toast('Pega tu API key antes de clonar.', 'warn');
+    return;
+  }
+  if (!file) {
+    toast('Elige un archivo de audio (10–30 s).', 'warn');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    toast('El audio es demasiado grande (máx. ~10 MB).', 'warn');
+    return;
+  }
+  ttsElSetStatus('Clonando voz en ElevenLabs…');
+  const btn = $('tts-el-clone-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const audioBase64 = await ttsElFileToBase64(file);
+    const r = await fetch('/api/tts/elevenlabs/clone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        apiKey: el.apiKey,
+        name,
+        filename: file.name || 'sample.mp3',
+        audioBase64,
+      }),
+    });
+    const j = await r.json().catch(() => null);
+    if (!j?.ok || !j.voiceId) {
+      ttsElSetStatus('Error al clonar: ' + (j?.error || r.status), 'err');
+      toast('No se pudo clonar. ¿Plan Starter+ y audio válido?', 'err');
+      return;
+    }
+    el.voiceId = j.voiceId;
+    el.voiceName = name;
+    el.enabled = true;
+    const en = $('tts-el-enabled'); if (en) en.checked = true;
+    ttsElFillVoiceSelect([{ id: j.voiceId, name, category: 'cloned' }], j.voiceId);
+    saveSettings();
+    ttsElSetStatus(`Voz clonada: ${name}`, 'ok');
+    toast('Voz clonada. Ya puedes usarla en el chat.', 'ok');
+    try { await ttsElLoadVoices(); } catch { /* ignore */ }
+  } catch (e) {
+    ttsElSetStatus('Error al clonar.', 'err');
+    toast(String(e.message || e), 'err');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function openTtsElHelpModal() {
+  const modal = $('ttsElHelpModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+function closeTtsElHelpModal() {
+  const modal = $('ttsElHelpModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
 }
 
 function ttsTkTryRecoverStuck() {
@@ -8208,6 +8410,24 @@ if (window.desktopAPI && typeof window.desktopAPI.onToggleTts === 'function') {
 }
 
 async function ttsTkFetchSpeak(item, signal) {
+  if (item && item.engine === 'elevenlabs') {
+    const r = await fetch('/api/tts/elevenlabs/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      signal,
+      body: JSON.stringify({
+        text: item.text,
+        apiKey: item.apiKey,
+        voiceId: item.voice,
+        modelId: item.modelId,
+      }),
+    });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => null);
+    if (j && j.ok && j.audio) return j;
+    return null;
+  }
   const r = await fetch('/api/tts/speak', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -8224,7 +8444,8 @@ async function ttsTkFetchSpeak(item, signal) {
 function ttsTkStartPrefetch(item) {
   if (!item || ttsTkPrefetch) return;
   const ac = new AbortController();
-  const timer = setTimeout(() => { try { ac.abort(); } catch {} }, TTS_TK_FETCH_MS);
+  const waitMs = item.engine === 'elevenlabs' ? TTS_EL_FETCH_MS : TTS_TK_FETCH_MS;
+  const timer = setTimeout(() => { try { ac.abort(); } catch {} }, waitMs);
   ttsTkPrefetchItem = item;
   ttsTkPrefetch = ttsTkFetchSpeak(item, ac.signal)
     .finally(() => { clearTimeout(timer); ttsTkPrefetch = null; ttsTkPrefetchItem = null; });
@@ -8251,7 +8472,8 @@ async function ttsTkPump() {
     if (!j) {
       if (ttsTkAbort) { try { ttsTkAbort.abort(); } catch {} }
       ttsTkAbort = new AbortController();
-      const timer = setTimeout(() => { try { ttsTkAbort.abort(); } catch {} }, TTS_TK_FETCH_MS);
+      const waitMs = item.engine === 'elevenlabs' ? TTS_EL_FETCH_MS : TTS_TK_FETCH_MS;
+      const timer = setTimeout(() => { try { ttsTkAbort.abort(); } catch {} }, waitMs);
       try {
         j = await ttsTkFetchSpeak(item, ttsTkAbort.signal);
       } catch { j = null; }
@@ -8482,6 +8704,47 @@ function openTtsWarnModal(onAccept) {
   if (tkVoice) tkVoice.addEventListener('change', () => { settings.tts.tiktokVoice = tkVoice.value; save(); });
   const tkTrans = $('tts-tiktok-translate');
   if (tkTrans) tkTrans.addEventListener('change', () => { settings.tts.tiktokTranslateEs = tkTrans.checked; save(); });
+
+  // ElevenLabs (API del creador)
+  const elEn = $('tts-el-enabled');
+  if (elEn) elEn.addEventListener('change', () => {
+    const el = ttsEnsureElevenlabs();
+    el.enabled = elEn.checked;
+    if (el.enabled && (!el.apiKey || !el.voiceId)) {
+      toast('Activa ElevenLabs solo cuando tengas API key + voz. Pulsa ? para la guía.', 'warn');
+    }
+    save();
+  });
+  const elKey = $('tts-el-apikey');
+  if (elKey) elKey.addEventListener('change', () => {
+    ttsEnsureElevenlabs().apiKey = elKey.value.trim();
+    save();
+  });
+  if (elKey) elKey.addEventListener('blur', () => {
+    ttsEnsureElevenlabs().apiKey = elKey.value.trim();
+    save();
+  });
+  const elVoice = $('tts-el-voice');
+  if (elVoice) elVoice.addEventListener('change', () => {
+    const el = ttsEnsureElevenlabs();
+    el.voiceId = elVoice.value;
+    const opt = elVoice.selectedOptions && elVoice.selectedOptions[0];
+    el.voiceName = opt ? String(opt.textContent || '').replace(/\s*\([^)]*\)\s*$/, '').trim() : '';
+    save();
+  });
+  const elLoad = $('tts-el-load-voices');
+  if (elLoad) elLoad.addEventListener('click', () => { ttsElLoadVoices(); });
+  const elClone = $('tts-el-clone-btn');
+  if (elClone) elClone.addEventListener('click', () => { ttsElCloneVoice(); });
+  const elHelp = $('tts-el-help');
+  if (elHelp) elHelp.addEventListener('click', () => openTtsElHelpModal());
+  const elHelpClose = $('tts-el-help-close');
+  if (elHelpClose) elHelpClose.addEventListener('click', () => closeTtsElHelpModal());
+  const elHelpOk = $('tts-el-help-ok');
+  if (elHelpOk) elHelpOk.addEventListener('click', () => closeTtsElHelpModal());
+  const elHelpModal = $('ttsElHelpModal');
+  if (elHelpModal) elHelpModal.addEventListener('click', (e) => { if (e.target === elHelpModal) closeTtsElHelpModal(); });
+
   const rate = $('tts-rate');
   if (rate) rate.addEventListener('input', () => { $('tts-rate-val').textContent = (+rate.value).toFixed(1); settings.tts.rate = +rate.value; save(); });
   const pitch = $('tts-pitch');

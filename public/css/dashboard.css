@@ -1657,6 +1657,51 @@ input:focus, select:focus { border-color: var(--cyan); }
   border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 13.5px; resize: vertical; min-height: 64px;
 }
 .tts-memberlevel { margin-top: 4px; }
+.tts-el-block {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.tts-el-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.tts-el-head > label { margin: 0; }
+.tts-help-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg2);
+  color: var(--txt);
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tts-help-btn:hover { border-color: var(--pink); color: var(--pink); }
+.tts-el-key-row,
+.tts-el-clone-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.tts-el-key-row input[type="password"],
+.tts-el-clone-row input[type="text"] { flex: 1 1 180px; min-width: 140px; }
+.tts-el-clone-row input[type="file"] { flex: 1 1 160px; max-width: 100%; font-size: 12px; }
+.tts-el-help-body .tts-el-steps {
+  margin: 12px 0 0;
+  padding-left: 1.25rem;
+  line-height: 1.55;
+  color: var(--txt);
+}
+.tts-el-help-body .tts-el-steps li { margin: 0 0 10px; }
+.tts-el-help-body a { color: #7dd3fc; }
 .radio-row { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; font-size: 14px; cursor: pointer; line-height: 1.35; }
 .radio-row input[type=radio] { width: 17px; height: 17px; accent-color: var(--pink); cursor: pointer; flex-shrink: 0; margin-top: 2px; }
 .tts-grid > .cmd-card,

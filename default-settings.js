@@ -20,6 +20,15 @@ export const DEFAULT_SETTINGS = {
     // (síntesis en el servidor) en vez de la voz del sistema. tiktokTranslateEs traduce
     // el texto al inglés para las voces Disney (que solo existen en inglés).
     tiktokVoice: '', tiktokTranslateEs: true,
+    // ElevenLabs (API key del creador). Si enabled + apiKey + voiceId, tiene prioridad
+    // sobre TikTok/Edge/sistema. Livecoins no paga la API: usa la key del streamer.
+    elevenlabs: {
+      enabled: false,
+      apiKey: '',
+      voiceId: '',
+      voiceName: '',
+      modelId: 'eleven_multilingual_v2',
+    },
     // Usuarios permitidos
     allowAll: true, allowFollowers: false, allowSubs: false, allowMods: false, allowTeam: false,
     // Nivel mínimo de miembro (club de fans) para que se lea el mensaje. 0 = sin requisito.

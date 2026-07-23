@@ -14,6 +14,7 @@ import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
+import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
 import { createStreamerRankings } from './streamer-rankings.js';
 import {
   registerUser, verifyLogin, createSession, destroySession,
@@ -3309,6 +3310,76 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
     if (!audio) return res.status(502).json({ ok: false, error: 'synth_failed' });
     ttsAudioCacheSet(audioKey, audio);
     res.json({ ok: true, audio, mime: 'audio/mpeg', text, original, translated });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+/* ---- ElevenLabs (API key del creador; no afecta Edge/TikTok/sistema) ---- */
+app.post('/api/tts/elevenlabs/voices', express.json({ limit: '32kb' }), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
+  const apiKey = String((req.body && req.body.apiKey) || '').trim();
+  if (!apiKey) return res.status(400).json({ ok: false, error: 'missing_api_key' });
+  try {
+    const out = await elevenLabsListVoices(apiKey);
+    if (!out.ok) return res.status(out.status && out.status >= 400 ? out.status : 502).json(out);
+    res.json(out);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post('/api/tts/elevenlabs/speak', express.json({ limit: '64kb' }), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
+  const apiKey = String((req.body && req.body.apiKey) || '').trim();
+  const voiceId = String((req.body && req.body.voiceId) || '').trim();
+  const modelId = String((req.body && req.body.modelId) || '').trim();
+  let text = String((req.body && req.body.text) || '').trim();
+  if (!apiKey) return res.status(400).json({ ok: false, error: 'missing_api_key' });
+  if (!voiceId) return res.status(400).json({ ok: false, error: 'missing_voice_id' });
+  if (!text) return res.status(400).json({ ok: false, error: 'missing_text' });
+  if (text.length > 280) text = text.slice(0, 280);
+
+  const cacheKey = `el|${voiceId}|${text.toLowerCase()}`;
+  const cachedAudio = ttsAudioCacheGet(cacheKey);
+  if (cachedAudio) {
+    return res.json({ ok: true, audio: cachedAudio, mime: 'audio/mpeg', text, cached: true, engine: 'elevenlabs' });
+  }
+
+  try {
+    const out = await elevenLabsSpeak(apiKey, voiceId, text, { modelId: modelId || undefined, timeoutMs: 14000 });
+    if (!out.ok || !out.audio) {
+      return res.status(out.status && out.status >= 400 ? out.status : 502).json({
+        ok: false,
+        error: out.error || 'synth_failed',
+        engine: 'elevenlabs',
+      });
+    }
+    ttsAudioCacheSet(cacheKey, out.audio);
+    res.json({ ok: true, audio: out.audio, mime: out.mime || 'audio/mpeg', text, engine: 'elevenlabs' });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post('/api/tts/elevenlabs/clone', express.json({ limit: '14mb' }), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
+  const apiKey = String((req.body && req.body.apiKey) || '').trim();
+  const name = String((req.body && req.body.name) || '').trim() || 'Livecoins';
+  const filename = String((req.body && req.body.filename) || 'sample.mp3').trim();
+  const b64 = String((req.body && req.body.audioBase64) || '').replace(/^data:[^;]+;base64,/, '').trim();
+  if (!apiKey) return res.status(400).json({ ok: false, error: 'missing_api_key' });
+  if (!b64) return res.status(400).json({ ok: false, error: 'missing_audio' });
+  let buf;
+  try { buf = Buffer.from(b64, 'base64'); } catch { return res.status(400).json({ ok: false, error: 'bad_audio' }); }
+  if (!buf.length) return res.status(400).json({ ok: false, error: 'empty_audio' });
+  try {
+    const out = await elevenLabsCloneVoice(apiKey, name, buf, filename);
+    if (!out.ok) return res.status(out.status && out.status >= 400 ? out.status : 502).json(out);
+    res.json(out);
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }

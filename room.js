@@ -1015,6 +1015,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     settingsGeneration += 1;
     try { bumpMcPanic(); } catch {}
     try { giftStreakGameProgress.clear(); } catch {}
+    try { giftStreakAlertProgress.clear(); } catch {}
     try { gameLikeAcc.clear(); } catch {}
     try { recentGiftTriggers.clear(); } catch {}
     try {
@@ -2214,8 +2215,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Minecraft/Roblox deben disparar por cada rosa nueva (delta), no solo al final
   // ni bloqueados por "Racha = 1" de alertas.
   const giftStreakGameProgress = new Map();
+  // Cuántas alertas/videos ya disparamos en esta racha (para no duplicar al cerrar).
+  const giftStreakAlertProgress = new Map();
   function giftStreakGameKey(uniqueId, giftId) {
     return `${uniqueId || ''}:${String(giftId || '')}`;
+  }
+
+  /** Dispara videos + sonidos de regalo N veces (tope 50). */
+  function fireGiftMediaAlerts(user, giftId, giftInfo, times) {
+    const n = Math.max(1, Math.min(50, Number(times) || 1));
+    const giftInfoForAlerts = {
+      ...giftInfo,
+      giftName: String(giftInfo.giftName || '').toLowerCase(),
+      repeatCount: n,
+    };
+    triggerVideos('gift', giftInfoForAlerts, user, n);
+    triggerSoundAlerts('gift', giftInfo, user, n);
   }
   function triggerGiftGameActions(user, giftId, repeatCount, repeatEnd, giftType, giftInfo) {
     const key = giftStreakGameKey(user.uniqueId, giftId);
@@ -2268,9 +2283,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
-  function triggerSoundAlerts(eventType, info = {}, user = null) {
+  function triggerSoundAlerts(eventType, info = {}, user = null, times = 1) {
     // Igual que videos/batallas: la misma alerta en perfil activo + Perfil General
     // debe sonar UNA vez, no dos.
+    const fireTimes = Math.max(1, Math.min(50, Number(times) || 1));
     const fired = new Set();
     forEachTriggerProfile((cfg, isGeneral) => {
       for (const a of cfg.soundAlerts) {
@@ -2317,8 +2333,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!allowFollowSharePerUser(a, eventType, user, `sa_${isGeneral ? 'g' : 'a'}`)) continue;
         }
         fired.add(dedupeKey);
-        broadcast('log', { level: 'ok', text: `🔊 Alerta sonora: "${a.name}"` });
-        emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
+        for (let t = 0; t < fireTimes; t++) {
+          broadcast('log', { level: 'ok', text: `🔊 Alerta sonora: "${a.name}"${fireTimes > 1 ? ` (${t + 1}/${fireTimes})` : ''}` });
+          emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
+        }
       }
     });
   }
@@ -5113,8 +5131,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     lastTotalLikes = total;
   }
 
-  function triggerVideos(eventType, info = {}, user = null) {
+  function triggerVideos(eventType, info = {}, user = null, times = 1) {
     // Evita el mismo video en la misma pantalla 2 veces (perfil activo + Perfil General).
+    const fireTimes = Math.max(1, Math.min(50, Number(times) || 1));
     const fired = new Set();
     forEachTriggerProfile((cfg, isGeneral) => {
       if (cfg.videosEnabled === false) return;
@@ -5189,7 +5208,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const dedupeKey = `${v.id || v.url}|${scr}`;
         if (fired.has(dedupeKey)) continue;
         fired.add(dedupeKey);
-        emitProfileMedia(cfg, v, scr, isGeneral);
+        for (let t = 0; t < fireTimes; t++) {
+          emitProfileMedia(cfg, v, scr, isGeneral);
+        }
       }
     });
   }
@@ -6622,12 +6643,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
       const isStreak = giftType === 1 && !data.repeatEnd;
       const streakGiftType = giftType === 1;
+      const comboOnce = !!settings.playback?.comboOnce;
       let repeatDelta = Math.max(1, Number(repeatCount) || 1);
       if (streakGiftType) {
         const sk = giftStreakGameKey(user.uniqueId, giftId);
         const prev = giftStreakGameProgress.get(sk) || 0;
         repeatDelta = Math.max(0, Number(repeatCount) - prev);
       }
+
+      // Alertas durante la racha (rosas, etc.):
+      // - "Racha = 1" ON  → no suena aquí; solo al cerrar (abajo).
+      // - "Racha = 1" OFF → suena por cada rosa nueva (delta).
+      if (streakGiftType && isStreak && !comboOnce && repeatDelta > 0) {
+        const sk = giftStreakGameKey(user.uniqueId, giftId);
+        fireGiftMediaAlerts(user, giftId, giftInfo, repeatDelta);
+        giftStreakAlertProgress.set(sk, (giftStreakAlertProgress.get(sk) || 0) + repeatDelta);
+      }
+
       if (!isStreak) {
         const total = diamondsEach * repeatCount;
         state.stats.gifts++;
@@ -6661,13 +6693,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
         addTimerSeconds(total * (settings.timer?.giftMult || 0));
 
-        const giftInfoForAlerts = { ...giftInfo, giftName: giftName.toLowerCase() };
         broadcast('log', { level: 'info', text: `🎁 Regalo: ${giftName} (id ${giftId}) ×${repeatCount} · 💎${diamondsEach}` });
-        // "Racha = 1": alertas/sonidos/videos una vez por racha (no afecta juegos).
-        if (!comboShouldSkip(user.uniqueId, giftId)) {
-          triggerVideos('gift', giftInfoForAlerts);
-          triggerSoundAlerts('gift', giftInfo);
+
+        // Cierre de racha o regalo sin racha.
+        const sk = giftStreakGameKey(user.uniqueId, giftId);
+        if (comboOnce) {
+          // Una sola alerta por racha (o por regalo).
+          if (!comboShouldSkip(user.uniqueId, giftId)) {
+            fireGiftMediaAlerts(user, giftId, giftInfo, 1);
+          }
+          giftStreakAlertProgress.delete(sk);
+        } else if (streakGiftType) {
+          // Ya sonó por cada rosa durante la racha; solo completa si faltó algún evento.
+          const already = giftStreakAlertProgress.get(sk) || 0;
+          giftStreakAlertProgress.delete(sk);
+          const missing = Math.max(0, Math.max(1, Number(repeatCount) || 1) - already);
+          if (missing > 0) fireGiftMediaAlerts(user, giftId, giftInfo, missing);
+        } else {
+          // Regalo normal (no racha): N copias = repeatCount.
+          fireGiftMediaAlerts(user, giftId, giftInfo, Math.max(1, Number(repeatCount) || 1));
         }
+
         countGiftForGoal(giftId, giftName, repeatCount);
         applyWinsGiftHooks(giftId, repeatCount);
         processFanBalls('coins', user, total);

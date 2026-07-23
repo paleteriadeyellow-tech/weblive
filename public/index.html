@@ -5057,6 +5057,40 @@
                 <label class="switch-row plain" style="margin-top:8px;"><input type="checkbox" id="tts-tiktok-translate" checked> <span>Leer en <strong>español</strong> (traduce al inglés para las voces Disney)</span></label>
                 <p class="hint">Las voces Disney solo existen en inglés en TikTok. Con esta opción tu mensaje en español se traduce y la voz lo dice en inglés con su timbre. Si eliges una voz aquí, sustituye a la voz del sistema.</p>
               </div>
+
+              <!-- ElevenLabs: voz clonada con API del creador -->
+              <div class="field tts-el-block" id="tts-elevenlabs-wrap">
+                <div class="tts-el-head">
+                  <label>Mi voz · ElevenLabs <span style="font-weight:600;color:#94a3b8;">(tú pagas tu API)</span></label>
+                  <button type="button" class="tts-help-btn" id="tts-el-help" title="¿Cómo configurar ElevenLabs?" aria-label="Ayuda ElevenLabs">?</button>
+                </div>
+                <label class="switch-row plain"><input type="checkbox" id="tts-el-enabled"> <span>Usar mi voz de ElevenLabs para leer el chat</span></label>
+                <p class="hint">Si lo activas (con API key + voz), tiene prioridad sobre TikTok / Edge / sistema. Si lo apagas, el Chat TTS sigue igual que antes.</p>
+                <div class="field">
+                  <label>API key de ElevenLabs</label>
+                  <div class="tts-el-key-row">
+                    <input type="password" id="tts-el-apikey" placeholder="xi-…" autocomplete="off" spellcheck="false">
+                    <button type="button" class="btn ghost" id="tts-el-load-voices">Cargar voces</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Voz</label>
+                  <select id="tts-el-voice">
+                    <option value="">— Carga tus voces o clona una abajo —</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Clonar voz nueva (sube 10–30 s de audio limpio)</label>
+                  <div class="tts-el-clone-row">
+                    <input type="text" id="tts-el-clone-name" placeholder="Nombre de la voz (ej. Mi voz)" maxlength="60">
+                    <input type="file" id="tts-el-clone-file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm">
+                    <button type="button" class="btn primary" id="tts-el-clone-btn">Clonar</button>
+                  </div>
+                  <p class="hint">Necesitas plan <b>Starter</b> o superior en ElevenLabs para Instant Voice Cloning. Usa solo tu voz o con permiso.</p>
+                </div>
+                <p class="tts-sub" id="tts-el-status"></p>
+              </div>
+
               <div class="field">
                 <label>Velocidad <b><span id="tts-rate-val">1.2</span>x</b></label>
                 <input type="range" id="tts-rate" min="0.5" max="2" step="0.1">
@@ -7656,6 +7690,50 @@
       <div class="modal-foot">
         <button type="button" class="btn ghost" id="tts-warn-cancel">Cancelar</button>
         <button type="button" class="btn primary" id="tts-warn-accept" disabled>Espera 5 s…</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="ttsElHelpModal" aria-hidden="true">
+    <div class="modal-box wide tts-el-help-box">
+      <div class="modal-head">
+        <h2>Cómo usar tu voz con ElevenLabs</h2>
+        <button type="button" class="modal-close" id="tts-el-help-close" aria-label="Cerrar">×</button>
+      </div>
+      <div class="modal-body tts-el-help-body">
+        <p class="hint" style="margin-top:0">Livecoins <b>no cobra</b> ni paga ElevenLabs: usas <b>tu</b> cuenta y <b>tu</b> API key. El Chat TTS normal (Edge / TikTok / sistema) sigue funcionando si desactivas esta opción.</p>
+        <ol class="tts-el-steps">
+          <li>
+            <b>Crea una cuenta</b> en
+            <a href="https://elevenlabs.io/app/sign-up" target="_blank" rel="noopener">elevenlabs.io</a>
+            e inicia sesión.
+          </li>
+          <li>
+            <b>Contrata un plan de pago</b> (mínimo <b>Starter</b>, ~5–6 USD/mes). El plan Free casi no alcanza para un live y el clonado de voz requiere plan de pago.
+            Planes: <a href="https://elevenlabs.io/pricing" target="_blank" rel="noopener">elevenlabs.io/pricing</a>
+          </li>
+          <li>
+            Entra a <b>Profile → API Keys</b> (o
+            <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">Ajustes → API Keys</a>)
+            y pulsa <b>Create API Key</b>. Copia la key (empieza por <code>xi-</code> o similar).
+          </li>
+          <li>
+            En Livecoins → <b>Chat TTS</b> → sección <b>Mi voz · ElevenLabs</b>:
+            pega la API key y pulsa <b>Cargar voces</b> para ver las voces de tu cuenta.
+          </li>
+          <li>
+            <b>Opción A — Clonar tu voz:</b> pon un nombre, sube un audio limpio de <b>10–30 segundos</b> (solo tú hablando, sin música) y pulsa <b>Clonar</b>.
+            <br><b>Opción B:</b> elige una voz que ya tengas en ElevenLabs en el desplegable.
+          </li>
+          <li>
+            Activa <b>«Usar mi voz de ElevenLabs…»</b>. Con Chat TTS activado, el chat se leerá con esa voz.
+            Si se te acaban los créditos o la key falla, desactiva el interruptor y volverás a Edge/TikTok/sistema.
+          </li>
+        </ol>
+        <p class="hint">Privacidad: la key se guarda en <b>tus</b> ajustes de Livecoins. No compartas la key ni clones voces de otras personas sin permiso.</p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn primary" id="tts-el-help-ok">Entendido</button>
       </div>
     </div>
   </div>
