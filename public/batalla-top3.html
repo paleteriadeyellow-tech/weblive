@@ -15,9 +15,13 @@
       background: transparent !important;
       font-family: var(--tf-font-stack, 'Rubik', system-ui, sans-serif);
     }
+    /* Canvas fijo Live Studio / OBS — Browser Source 1080×1920 */
+    html.stage-1080x1920, html.stage-1080x1920 body {
+      width: 1080px; height: 1920px;
+    }
     html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
     .stage {
-      width: 1080px; height: 1290px;
+      width: 1080px; height: 1920px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 22px; padding: 36px 32px 48px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
@@ -96,13 +100,19 @@
       display: flex; align-items: flex-end; justify-content: center;
       width: 100%;
     }
-    .rank-1 .hero { height: 300px; }
+    .rank-1 .hero { padding-top: 95px; }
     .rank-2 .hero, .rank-3 .hero { height: auto; }
+    .avatar-stack {
+      position: relative;
+      width: 100%;
+      display: flex; justify-content: center;
+    }
+    .rank-1 .avatar-stack { width: 200px; }
     .crown {
       display: none;
-      position: absolute; top: 0; left: 50%;
-      width: 200px; height: auto;
-      transform: translateX(-50%);
+      position: absolute; left: 50%; top: 0;
+      width: 175px; height: auto;
+      transform: translate(-50%, -78%);
       z-index: 3;
       filter: drop-shadow(0 6px 12px rgba(0,0,0,.4));
       pointer-events: none;
@@ -147,6 +157,12 @@
       font-weight: 700; font-size: 20px; color: var(--empty-color);
       text-shadow: 0 1px 0 rgba(0,0,0,.45);
     }
+    .stage.hide-text .title,
+    .stage.hide-text .name,
+    .stage.hide-text .pts,
+    .stage.hide-text .empty,
+    .stage.hide-text .badge,
+    .stage.hide-text .medal { display: none !important; }
   </style>
 </head>
 <body>
@@ -157,8 +173,10 @@
       <div class="slot rank-1" data-rank="1">
         <div class="medal">#1</div>
         <div class="hero">
-          <img class="crown" src="/overlays/corona-mvp.png" alt="" />
-          <div class="avatar-wrap"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
+          <div class="avatar-stack">
+            <img class="crown" src="/overlays/corona-mvp.png" alt="" />
+            <div class="avatar-wrap"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
+          </div>
         </div>
         <p class="name">—</p>
         <p class="pts">0</p>
@@ -187,7 +205,10 @@
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
+    const STAGE_W = 1080;
+    const STAGE_H = 1920;
     if (isEmbed) document.documentElement.classList.add('embed');
+    else document.documentElement.classList.add('stage-1080x1920');
     const FALLBACK = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
     const DEMO = '/jarron/lv.png';
 
@@ -212,7 +233,11 @@
 
     (function fit() {
       function apply() {
-        const k = Math.min((innerWidth || 1080) / 1080, (innerHeight || 1290) / 1290) || 1;
+        if (!isEmbed) {
+          document.documentElement.style.setProperty('--tf-fit', '1');
+          return;
+        }
+        const k = Math.min((innerWidth || STAGE_W) / STAGE_W, (innerHeight || STAGE_H) / STAGE_H) || 1;
         document.documentElement.style.setProperty('--tf-fit', Math.min(1, k));
       }
       apply();
@@ -228,6 +253,7 @@
       labelDemo: 'DEMO',
       font: 'rubik',
       titleRainbow: true,
+      showText: true,
       tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
       titleColor: '#ffffff',
       nameColor: '#ffffff',
@@ -273,6 +299,7 @@
       el.title.textContent = cfg.title || 'TOP 3 · TU EJÉRCITO';
       el.title.classList.toggle('title--rainbow', !!cfg.titleRainbow);
       el.empty.textContent = cfg.emptyText || 'Aún no hay aportes en tu ejército';
+      el.stage.classList.toggle('hide-text', cfg.showText === false);
     }
     function setAvatar(img, url) {
       const src = String(url || '').trim() || (isEmbed ? DEMO : FALLBACK);

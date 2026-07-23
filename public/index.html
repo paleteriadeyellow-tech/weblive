@@ -2640,7 +2640,8 @@
               <label class="ml">FRASE CON PUNTOS</label>
               <input type="text" id="bmvcfg-linetpl" placeholder="decidió la pelea con {n} puntos">
               <label class="ml">FRASE SIN PUNTOS</label>
-              <input type="text" id="bmvcfg-linenopts" placeholder="decidió la pelea">
+              <input type="text" id="bmvcfg-linenopts" placeholder="(vacío = sin frase)">
+              <label class="switch-row plain"><input type="checkbox" id="bmvcfg-showtext" checked> <span>Mostrar textos (nombre / frase / marcador)</span></label>
               <label class="ml">FUENTE</label>
               <select id="bmvcfg-font" class="cfg-font"></select>
               <div class="gvscfg-grid2" style="margin-top:12px">
@@ -2687,6 +2688,7 @@
               <input type="text" id="bt3cfg-title" placeholder="TOP 3 · TU EJÉRCITO">
               <label class="ml">TEXTO VACÍO</label>
               <input type="text" id="bt3cfg-empty" placeholder="Aún no hay aportes en tu ejército">
+              <label class="switch-row plain"><input type="checkbox" id="bt3cfg-showtext" checked> <span>Mostrar textos (título / nombres / puntos)</span></label>
               <label class="ml">FUENTE</label>
               <select id="bt3cfg-font" class="cfg-font"></select>
               <label class="ml">TAMAÑO TÍTULO (PX)</label>
@@ -4943,30 +4945,6 @@
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
 
-              <!-- Tarjeta PRO: Batalla VS -->
-              <div class="ovpro-card">
-                <div class="ovpro-top">
-                  <div class="ovpro-actions">
-                    <button class="ovpro-btn" id="bvs-reset">↺ Reiniciar wins</button>
-                    <button class="ovpro-btn primary" id="bvs-test">▶ Testear</button>
-                  </div>
-                  <div class="ovpro-status">
-                    <div class="ovpro-conn" id="bvs-conn"><span class="cdot"></span> CONECTADO</div>
-                    <span class="ovpro-new" title="Automático con el PK de TikTok">Auto</span>
-                  </div>
-                </div>
-                <h3 class="ovpro-title">⚔️ Batalla VS</h3>
-                <p class="ovpro-desc">Automático: pon el link en OBS y listo. Al empezar un PK muestra avatares y el marcador real (si te conectas a media batalla, copia el 30–20). Misma rival → wins se acumulan; rival nuevo → wins a 0. Cada batalla reinicia solo los puntos.</p>
-                <div class="ovpro-urlrow">
-                  <code class="ov-url" data-path="/batalla-vs.html">/batalla-vs.html</code>
-                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
-                </div>
-                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
-                <div class="ovpro-preview">
-                  <iframe id="bvs-preview" data-src="/batalla-vs.html?embed=1" title="Vista previa Batalla VS"></iframe>
-                </div>
-              </div>
-
               <!-- Tarjeta PRO: Fuegos artificiales -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -5131,6 +5109,30 @@
           <p class="view-sub">Overlays automáticos para batallas PK. Añade la URL como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
           <div class="ovpro-grid">
 
+              <!-- Tarjeta PRO: Batalla VS -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="bvs-reset">↺ Reiniciar wins</button>
+                    <button class="ovpro-btn primary" id="bvs-test">▶ Testear</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="bvs-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new" title="Automático con el PK de TikTok">Auto</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">⚔️ Batalla VS</h3>
+                <p class="ovpro-desc">Automático: pon el link en OBS y listo. Al empezar un PK muestra avatares y el marcador real (si te conectas a media batalla, copia el 30–20). Misma rival → wins se acumulan; rival nuevo → wins a 0. Cada batalla reinicia solo los puntos.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/batalla-vs.html">/batalla-vs.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="bvs-preview" data-src="/batalla-vs.html?embed=1" title="Vista previa Batalla VS"></iframe>
+                </div>
+              </div>
+
               <!-- Tarjeta PRO: Meta de la ronda -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -5166,11 +5168,11 @@
                   </div>
                   <div class="ovpro-status">
                     <div class="ovpro-conn" id="bmv-conn"><span class="cdot"></span> CONECTADO</div>
-                    <span class="ovpro-new" title="Automático al terminar el PK">Auto</span>
+                    <span class="ovpro-new" title="Visible durante el PK">Auto</span>
                   </div>
                 </div>
                 <h3 class="ovpro-title">🏆 MVP de la batalla</h3>
-                <p class="ovpro-desc">Al terminar el PK muestra corona + foto del top de TU ejército. Se queda hasta la siguiente batalla. <b>TikTok Studio: 1080 × 1290</b>.</p>
+                <p class="ovpro-desc">Visible durante toda la batalla (top de TU ejército + corona). Se reinicia al empezar la siguiente. En Configurar puedes ocultar los textos. <b>TikTok Studio: 1080 × 1920</b>.</p>
                 <div class="ovpro-urlrow">
                   <code class="ov-url" data-path="/batalla-mvp.html">/batalla-mvp.html</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>
@@ -5195,7 +5197,7 @@
                   </div>
                 </div>
                 <h3 class="ovpro-title">👥 Top 3 de tu ejército</h3>
-                <p class="ovpro-desc">Top 3 de TU ejército en vivo (corona en el #1). Se queda al terminar hasta la siguiente batalla. <b>TikTok Studio: 1080 × 1290</b>.</p>
+                <p class="ovpro-desc">Top 3 de TU ejército en vivo (corona en el #1). Se queda al terminar hasta la siguiente batalla. En Configurar puedes ocultar los textos. <b>TikTok Studio: 1080 × 1920</b>.</p>
                 <div class="ovpro-urlrow">
                   <code class="ov-url" data-path="/batalla-top3.html">/batalla-top3.html</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>

@@ -14,9 +14,13 @@
       background: transparent !important;
       font-family: var(--tf-font-stack, 'Rubik', system-ui, sans-serif);
     }
+    /* Canvas fijo Live Studio / OBS — Browser Source 1080×1920 */
+    html.stage-1080x1920, html.stage-1080x1920 body {
+      width: 1080px; height: 1920px;
+    }
     html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
     .stage {
-      width: 1080px; height: 1290px;
+      width: 1080px; height: 1920px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 18px; padding: 48px 56px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
@@ -33,7 +37,7 @@
       --rival-color: #ffe566;
       --tc1: #ff00aa; --tc2: #00ddff; --tc3: #ffcc00;
       --tf-font-stack: 'Rubik', system-ui, sans-serif;
-      --title-size: 64px;
+      --title-size: 96px;
     }
     .stage.is-on { opacity: 1; }
     .stage.is-pop .title { animation: metapop .42s cubic-bezier(.2,1.4,.3,1); }
@@ -85,16 +89,16 @@
       55% { transform: scale(1.1); opacity: 1; filter: blur(0); }
       100% { transform: scale(1); }
     }
-    .sub {
+      .sub {
       margin: 0; text-align: center;
       font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 700; font-size: 26px; color: var(--sub-color);
+      font-weight: 700; font-size: 34px; color: var(--sub-color);
       text-shadow: 0 2px 0 rgba(0,0,0,.5);
     }
     .scores {
       display: flex; align-items: center; gap: 22px; margin-top: 8px;
       font-variant-numeric: tabular-nums;
-      font-weight: 900; font-size: 36px;
+      font-weight: 900; font-size: 48px;
       text-shadow: 0 2px 0 rgba(0,0,0,.5);
     }
     .scores .h { color: var(--host-color); }
@@ -124,7 +128,10 @@
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
+    const STAGE_W = 1080;
+    const STAGE_H = 1920;
     if (isEmbed) document.documentElement.classList.add('embed');
+    else document.documentElement.classList.add('stage-1080x1920');
 
     const FONTS = {
       pressstart: "'Press Start 2P', monospace",
@@ -147,7 +154,11 @@
 
     (function fit() {
       function apply() {
-        const k = Math.min((innerWidth || 1080) / 1080, (innerHeight || 1290) / 1290) || 1;
+        if (!isEmbed) {
+          document.documentElement.style.setProperty('--tf-fit', '1');
+          return;
+        }
+        const k = Math.min((innerWidth || STAGE_W) / STAGE_W, (innerHeight || STAGE_H) / STAGE_H) || 1;
         document.documentElement.style.setProperty('--tf-fit', Math.min(1, k));
       }
       apply();
@@ -182,7 +193,7 @@
       loseColor: '#ff8f6b',
       hostScoreColor: '#7ec8ff',
       rivalScoreColor: '#ffe566',
-      titleSize: 64,
+      titleSize: 96,
     };
 
     const el = {
@@ -226,7 +237,7 @@
       el.stage.style.setProperty('--tc1', cfg.tc1 || '#ff00aa');
       el.stage.style.setProperty('--tc2', cfg.tc2 || '#00ddff');
       el.stage.style.setProperty('--tc3', cfg.tc3 || '#ffcc00');
-      el.stage.style.setProperty('--title-size', Math.max(28, Math.min(96, Number(cfg.titleSize) || 64)) + 'px');
+      el.stage.style.setProperty('--title-size', Math.max(36, Math.min(140, Number(cfg.titleSize) || 96)) + 'px');
       el.title.classList.toggle('title--rainbow', !!cfg.titleRainbow);
     }
     function buildMeta(host, rival) {
@@ -314,6 +325,15 @@
       if (payload.pointsHost != null) state.pointsHost = Number(payload.pointsHost) || 0;
       if (payload.pointsRival != null) state.pointsRival = Number(payload.pointsRival) || 0;
 
+      // Flag persistente del server (showEnd) o evento de fin
+      if (payload.ending) {
+        state.ending = true;
+        state.live = false;
+        wasLive = false;
+        render();
+        return;
+      }
+
       if (live && !wasLive) {
         // Nueva batalla → salir del mensaje final
         state.ending = null;
@@ -321,9 +341,32 @@
         // Acabó la batalla → Felicidades / Suerte en la siguiente
         state.ending = true;
       }
-      if (live) state.ending = null;
+      if (live) {
+        state.ending = null;
+        state.live = true;
+      } else {
+        state.live = false;
+        // Si ya estábamos en fin de ronda, no apagar el overlay
+        if (state.ending) {
+          wasLive = false;
+          render();
+          return;
+        }
+      }
       wasLive = live;
-      state.live = live;
+      render();
+    }
+    function applyPkEnd(payload) {
+      if (demo) return;
+      if (payload && typeof payload === 'object') {
+        if (payload.pointsHost != null) state.pointsHost = Number(payload.pointsHost) || 0;
+        if (payload.pointsRival != null) state.pointsRival = Number(payload.pointsRival) || 0;
+        if (payload.scoreHost != null) state.pointsHost = Number(payload.scoreHost) || 0;
+        if (payload.scoreRival != null) state.pointsRival = Number(payload.scoreRival) || 0;
+      }
+      state.live = false;
+      state.ending = true;
+      wasLive = false;
       render();
     }
     function setDemoScores(h, r, ending) {
@@ -367,6 +410,7 @@
       ws.onmessage = (ev) => {
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         if (msg.type === 'pkBattle') applyPk(msg.payload || {});
+        if (msg.type === 'pkBattleEnd') applyPkEnd(msg.payload || {});
         if (msg.type === 'pkBattleReset' || msg.type === 'batallaMetaReset') resetLocal();
         if (msg.type === 'batallaMetaTest') runFullTest();
         if (msg.type === 'settings' && msg.payload?.batallaMeta) {

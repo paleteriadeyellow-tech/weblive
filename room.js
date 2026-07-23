@@ -492,6 +492,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     armyTopHost: null,
     armyTopRival: null,
     armyTop3Host: [],
+    /** Tras fin de ronda: overlays (Meta) muestran Felicidades/Suerte hasta el próximo PK */
+    showEnd: false,
   };
   let pkBattleBroadcastTimer = null;
   const giftCounter = { count: 0 }; // contador de meta (cuenta de la sesión)
@@ -2230,7 +2232,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       winsHost: Math.max(0, Math.round(pkBattle.winsHost) || 0),
       winsRival: Math.max(0, Math.round(pkBattle.winsRival) || 0),
       rivalKey: pkBattle.rivalKey || '',
+      armyTopHost: pkBattle.armyTopHost ? { ...pkBattle.armyTopHost } : null,
       armyTop3Host: Array.isArray(pkBattle.armyTop3Host) ? pkBattle.armyTop3Host.map((u) => ({ ...u })) : [],
+      ending: !!(pkBattle.showEnd && !pkBattle.live),
     };
   }
   function broadcastPkBattle(immediate) {
@@ -2415,6 +2419,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     pkBattle.armyTop3Host = [];
     pkBattle.live = true;
     pkBattle.frozen = false;
+    pkBattle.showEnd = false;
     broadcastPkBattle(true);
   }
   function pkPickArmyTop(userArmy) {
@@ -2486,8 +2491,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (pkBattle.pointsHost > pkBattle.pointsRival) pkBattle.winsHost += 1;
     else if (pkBattle.pointsRival > pkBattle.pointsHost) pkBattle.winsRival += 1;
     emitPkBattleMvp();
+    const scoreHost = Math.max(0, Math.round(pkBattle.pointsHost) || 0);
+    const scoreRival = Math.max(0, Math.round(pkBattle.pointsRival) || 0);
+    let winner = null;
+    if (scoreHost > scoreRival) winner = 'host';
+    else if (scoreRival > scoreHost) winner = 'rival';
     pkBattle.live = false;
     pkBattle.frozen = false;
+    pkBattle.showEnd = true;
+    // Evento explícito para overlays (Meta Felicidades / Suerte) — Live Studio no debe depender solo del flanco live.
+    broadcast('pkBattleEnd', {
+      ...serializePkBattle(),
+      ending: true,
+      winner,
+      scoreHost,
+      scoreRival,
+    });
     // Conservamos battleId/rival/wins para la siguiente ronda vs el mismo
     broadcastPkBattle(true);
   }
@@ -2505,6 +2524,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     pkBattle.armyTopHost = null;
     pkBattle.armyTopRival = null;
     pkBattle.armyTop3Host = [];
+    pkBattle.showEnd = false;
     broadcastPkBattle(true);
   }
   function addPkHostGiftPoints(_diamonds) {
