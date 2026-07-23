@@ -477,6 +477,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   };
 
   const battle = { scoreA: 0, scoreB: 0 };
+  /** Marcador Batalla VS (Diseño Overlay): wins vs mismo rival + puntos por ronda. */
+  const pkBattle = {
+    live: false,
+    frozen: false,
+    host: { uniqueId: '', nickname: '', photo: '' },
+    rival: { uniqueId: '', nickname: '', photo: '' },
+    pointsHost: 0,
+    pointsRival: 0,
+    winsHost: 0,
+    winsRival: 0,
+    rivalKey: '',
+  };
+  let pkBattleBroadcastTimer = null;
   const giftCounter = { count: 0 }; // contador de meta (cuenta de la sesión)
   /** Metas de regalos multi-item: counts[id], completers[id], donors[id][uid] */
   const giftGoalsState = {
@@ -2154,6 +2167,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('giftVsReset', {});
     broadcast('flowMeterReset', {});
     broadcast('giftSeqReset', {});
+    broadcast('pkBattleReset', {});
+    resetPkBattleAll();
     // Mejor regalo / mejor racha de la sesión
     broadcast('topGiftReset', {});
     broadcast('topStreakReset', {});
@@ -2197,6 +2212,177 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // Temporizador: NO se reinicia aquí (subathon). Solo con el botón Reiniciar
     // o la acción al llegar a 00:00. El tiempo se persiste entre reinicios de app/Render.
     // OJO: NO se reinicia el top donador semanal (weeklyTop / topDonor): es acumulado semanal.
+  }
+
+  /* ------------------------------- Batalla VS (Diseño Overlay) ------------------------------- */
+  function serializePkBattle() {
+    return {
+      live: !!pkBattle.live,
+      frozen: !!pkBattle.frozen,
+      host: { ...pkBattle.host },
+      rival: { ...pkBattle.rival },
+      pointsHost: Math.max(0, Math.round(pkBattle.pointsHost) || 0),
+      pointsRival: Math.max(0, Math.round(pkBattle.pointsRival) || 0),
+      winsHost: Math.max(0, Math.round(pkBattle.winsHost) || 0),
+      winsRival: Math.max(0, Math.round(pkBattle.winsRival) || 0),
+      rivalKey: pkBattle.rivalKey || '',
+    };
+  }
+  function broadcastPkBattle(immediate) {
+    if (immediate) {
+      if (pkBattleBroadcastTimer) { clearTimeout(pkBattleBroadcastTimer); pkBattleBroadcastTimer = null; }
+      broadcast('pkBattle', serializePkBattle());
+      return;
+    }
+    if (pkBattleBroadcastTimer) return;
+    pkBattleBroadcastTimer = setTimeout(() => {
+      pkBattleBroadcastTimer = null;
+      broadcast('pkBattle', serializePkBattle());
+    }, 120);
+  }
+  function pkHostIdentity() {
+    const uniqueId = String(followerCounter.uniqueId || state.username || '').replace(/^@/, '');
+    return {
+      uniqueId,
+      nickname: String(followerCounter.nickname || uniqueId || 'Yo'),
+      photo: String(followerCounter.photo || ''),
+    };
+  }
+  function pkAvatarFromThumb(img) {
+    if (!img) return '';
+    return pickImageUrl(img)
+      || (Array.isArray(img.urlList) && img.urlList[0])
+      || (Array.isArray(img.url_list) && img.url_list[0])
+      || '';
+  }
+  function parsePkAnchors(data) {
+    const info = data?.anchorInfo || data?.anchors || {};
+    const out = [];
+    if (!info || typeof info !== 'object') return out;
+    for (const [key, val] of Object.entries(info)) {
+      const u = val?.user || val;
+      if (!u || typeof u !== 'object') continue;
+      const uniqueId = String(u.displayId || u.uniqueId || u.display_id || '').replace(/^@/, '');
+      const nickname = String(u.nickName || u.nickname || uniqueId || '');
+      const photo = pkAvatarFromThumb(u.avatarThumb || u.avatar_thumb || u.profilePicture);
+      out.push({
+        userId: String(u.userId || u.user_id || key || ''),
+        uniqueId,
+        nickname: nickname || uniqueId || 'Rival',
+        photo: photo || '',
+      });
+    }
+    return out;
+  }
+  function beginPkBattleRound(opts) {
+    opts = opts || {};
+    const host = pkHostIdentity();
+    pkBattle.host = host;
+    const anchors = Array.isArray(opts.anchors) ? opts.anchors : [];
+    const hostNorm = normTikTokUser(host.uniqueId);
+    let rival = anchors.find((a) => {
+      const id = normTikTokUser(a.uniqueId);
+      const nick = normTikTokUser(a.nickname);
+      return (id && id !== hostNorm) || (nick && nick !== hostNorm && nick !== normTikTokUser(host.nickname));
+    }) || null;
+    if (!rival && opts.rival) rival = opts.rival;
+    if (!rival) {
+      rival = { uniqueId: '', nickname: 'Rival', photo: '', userId: '' };
+    }
+    const nextKey = normTikTokUser(rival.uniqueId) || normTikTokUser(rival.nickname) || String(rival.userId || '');
+    if (nextKey && pkBattle.rivalKey && nextKey !== pkBattle.rivalKey) {
+      pkBattle.winsHost = 0;
+      pkBattle.winsRival = 0;
+    }
+    if (nextKey) pkBattle.rivalKey = nextKey;
+    pkBattle.rival = {
+      uniqueId: rival.uniqueId || '',
+      nickname: rival.nickname || 'Rival',
+      photo: rival.photo || '',
+    };
+    pkBattle.pointsHost = 0;
+    pkBattle.pointsRival = 0;
+    pkBattle.live = true;
+    pkBattle.frozen = false;
+    broadcastPkBattle(true);
+  }
+  function endPkBattleRound() {
+    if (!pkBattle.live) {
+      broadcastPkBattle(true);
+      return;
+    }
+    if (pkBattle.pointsHost > pkBattle.pointsRival) pkBattle.winsHost += 1;
+    else if (pkBattle.pointsRival > pkBattle.pointsHost) pkBattle.winsRival += 1;
+    pkBattle.live = false;
+    pkBattle.frozen = false;
+    broadcastPkBattle(true);
+  }
+  function resetPkBattleAll() {
+    pkBattle.live = false;
+    pkBattle.frozen = false;
+    pkBattle.host = { uniqueId: '', nickname: '', photo: '' };
+    pkBattle.rival = { uniqueId: '', nickname: '', photo: '' };
+    pkBattle.pointsHost = 0;
+    pkBattle.pointsRival = 0;
+    pkBattle.winsHost = 0;
+    pkBattle.winsRival = 0;
+    pkBattle.rivalKey = '';
+    broadcastPkBattle(true);
+  }
+  function addPkHostGiftPoints(diamonds) {
+    const n = Math.max(0, Math.round(Number(diamonds) || 0));
+    if (!n || !pkBattle.live || pkBattle.frozen) return;
+    pkBattle.pointsHost += n;
+    broadcastPkBattle(false);
+  }
+  function updatePkArmyScores(data) {
+    if (!pkBattle.live || pkBattle.frozen) return;
+    const items = data?.battleItems;
+    if (!items || typeof items !== 'object') return;
+    const hostNorm = normTikTokUser(pkBattle.host.uniqueId || followerCounter.uniqueId || state.username);
+    const rivalNorm = normTikTokUser(pkBattle.rival.uniqueId);
+    let changed = false;
+    for (const [key, val] of Object.entries(items)) {
+      const score = Math.max(0, Number(val?.hostScore ?? val?.score ?? 0) || 0);
+      const keyNorm = normTikTokUser(key);
+      const anchor = String(val?.anchorIdStr || '');
+      const anchorNorm = normTikTokUser(anchor);
+      const isHost = (hostNorm && (keyNorm === hostNorm || anchorNorm === hostNorm))
+        || (!!followerCounter.uniqueId && String(key) === String(followerCounter.uniqueId));
+      const isRival = (rivalNorm && (keyNorm === rivalNorm || anchorNorm === rivalNorm))
+        || (!!pkBattle.rival.uniqueId && (String(key) === String(pkBattle.rival.uniqueId) || anchor === pkBattle.rival.uniqueId));
+      if (isHost && score >= pkBattle.pointsHost) {
+        pkBattle.pointsHost = score;
+        changed = true;
+      } else if (isRival && score >= pkBattle.pointsRival) {
+        pkBattle.pointsRival = score;
+        changed = true;
+      } else if (!isHost && !isRival && rivalNorm && score > 0) {
+        // Si solo hay 2 entradas y no matcheó host, la otra es rival
+        if (!isHost && score >= pkBattle.pointsRival) {
+          pkBattle.pointsRival = Math.max(pkBattle.pointsRival, score);
+          changed = true;
+        }
+      }
+    }
+    // Fallback: 2 scores → mayor distinto al host va al rival
+    const scores = Object.entries(items).map(([k, v]) => ({
+      k,
+      score: Math.max(0, Number(v?.hostScore ?? v?.score ?? 0) || 0),
+    })).filter((x) => x.score > 0);
+    if (scores.length >= 2 && hostNorm) {
+      const hostEntry = scores.find((s) => normTikTokUser(s.k) === hostNorm);
+      const other = scores.find((s) => !hostEntry || s.k !== hostEntry.k);
+      if (hostEntry && hostEntry.score >= pkBattle.pointsHost) {
+        pkBattle.pointsHost = hostEntry.score;
+        changed = true;
+      }
+      if (other && other.score >= pkBattle.pointsRival) {
+        pkBattle.pointsRival = other.score;
+        changed = true;
+      }
+    }
+    if (changed) broadcastPkBattle(false);
   }
 
   /* ------------------------------- Batalla ------------------------------- */
@@ -6932,6 +7118,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           else if (settings.battle.receiving === 'B') battle.scoreB += total;
           if (settings.battle.receiving !== 'off') broadcast('battle', serializeBattle());
         }
+        addPkHostGiftPoints(total);
 
         addTimerSeconds(total * (settings.timer?.giftMult || 0));
 
@@ -7198,6 +7385,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             resetBattleMultiplierState();
             broadcast('log', { level: 'ok', text: '⚔️ Batalla PK iniciada' });
             fireBattleAlerts('battleStart', {});
+            beginPkBattleRound({ anchors: parsePkAnchors(data) });
+          } else if (isAccept && !pkBattle.live) {
+            beginPkBattleRound({ anchors: parsePkAnchors(data) });
+          } else if (isAccept) {
+            const anchors = parsePkAnchors(data);
+            if (anchors.length) beginPkBattleRound({ anchors });
           }
           syncBattleCountdown(data?.battleSetting);
         } else if (isEnd) {
@@ -7206,6 +7399,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           resetBattleMultiplierState();
           broadcast('log', { level: 'info', text: '⚔️ Batalla PK finalizada' });
           fireBattleAlerts('battleEnd', {});
+          endPkBattleRound();
         }
         detectBattleMultiplier(data, 'LinkMicBattle');
       } catch {}
@@ -7215,6 +7409,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       try {
         state.inBattle = true;
         syncBattleCountdown(data?.battleSettings);
+        updatePkArmyScores(data);
         // Guante crítico / multiplicador en el aporte de ejército
         if (data?.triggerCriticalStrike) {
           detectBattleMultiplier(data, 'LinkMicArmies.crit');
@@ -7239,6 +7434,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       clearBattleCountdown();
       state.inBattle = false;
       resetBattleMultiplierState();
+      endPkBattleRound();
+      resetPkBattleAll();
       state.connected = false;
       syncLiveUptimeOnDisconnect();
       markLiveSessionEnded();
@@ -7697,6 +7894,41 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'giftVsControl':
         broadcast('giftVsControl', { action: data.gvsAction });
         break;
+      case 'testBatallaVs':
+        broadcast('pkBattleTest', {});
+        beginPkBattleRound({
+          rival: {
+            uniqueId: 'rival_demo',
+            nickname: 'Vianel',
+            photo: '/jarron/lv.png',
+          },
+        });
+        pkBattle.host = {
+          uniqueId: followerCounter.uniqueId || state.username || 'host',
+          nickname: followerCounter.nickname || 'GABY',
+          photo: followerCounter.photo || '/jarron/lv.png',
+        };
+        pkBattle.pointsHost = 210;
+        pkBattle.pointsRival = 57;
+        pkBattle.winsHost = 0;
+        pkBattle.winsRival = 0;
+        broadcastPkBattle(true);
+        break;
+      case 'resetBatallaVs':
+        resetPkBattleAll();
+        broadcast('pkBattleReset', {});
+        break;
+      case 'startBatallaVs':
+        beginPkBattleRound({
+          rival: pkBattle.rival.uniqueId || pkBattle.rival.nickname
+            ? pkBattle.rival
+            : { uniqueId: '', nickname: 'Rival', photo: '' },
+        });
+        break;
+      case 'stopBatallaVs':
+        pkBattle.frozen = true;
+        broadcastPkBattle(true);
+        break;
       case 'testFlowMeter':
         broadcast('flowMeterTest', {});
         break;
@@ -7884,6 +8116,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
     ws.send(JSON.stringify({ type: 'settings', payload: settings }));
     ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
+    ws.send(JSON.stringify({ type: 'pkBattle', payload: serializePkBattle() }));
     ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
     ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
     ws.send(JSON.stringify({ type: 'top1fire', payload: serializeTop1Fire() }));

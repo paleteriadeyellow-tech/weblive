@@ -252,6 +252,10 @@ export const DEFAULT_SETTINGS = {
       },
     ],
   },
+  // Overlay Batalla VS (PK azul vs amarillo: wins + puntos por ronda)
+  batallaVs: {
+    enabled: true,
+  },
   // Overlay Medidor de Flow (barra de progreso por participante / regalo)
   flowMeter: {
     title: 'MEDIDOR DE FLOW',

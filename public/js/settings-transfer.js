@@ -40,6 +40,7 @@
         { key: 'pelotas', label: 'Pelotas de fans' },
         { key: 'topDonor', label: 'Top donador semanal' },
         { key: 'giftVs', label: 'Gift VS' },
+        { key: 'batallaVs', label: 'Batalla VS' },
         { key: 'giftSeq', label: 'Secuencia de regalos' },
         { key: 'giftShowcase', label: 'Showcase de regalos' },
         { key: 'topGift', label: 'Mejor regalo' },

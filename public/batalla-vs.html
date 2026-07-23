@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Batalla VS</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@700;800;900&family=Inter:wght@600;700;800&display=swap');
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
+    html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
+
+    .stage {
+      width: 720px; height: 280px; position: relative;
+      display: flex; align-items: center; justify-content: center; gap: 18px;
+      transform: scale(var(--tf-fit, 1)); transform-origin: center center;
+      font-family: 'Rubik', 'Inter', system-ui, sans-serif;
+      padding: 12px 16px;
+    }
+
+    .side {
+      flex: 1 1 0; min-width: 0; max-width: 280px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .wins {
+      font-weight: 900; font-size: 42px; line-height: 1;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 18px rgba(0,0,0,.35);
+      transition: transform .15s ease;
+    }
+    .wins.is-pop { animation: winpop .32s ease; }
+    @keyframes winpop { 0% { transform: scale(1); } 40% { transform: scale(1.16); } 100% { transform: scale(1); } }
+    .side.host .wins { color: #4da3ff; }
+    .side.rival .wins { color: #ffe566; }
+
+    .avatar-wrap {
+      width: 92px; height: 92px; border-radius: 50%;
+      padding: 3px;
+      background: linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.05));
+      box-shadow: 0 8px 22px rgba(0,0,0,.4);
+    }
+    .side.host .avatar-wrap {
+      background: linear-gradient(145deg, #7ec8ff, #1a6fff);
+      box-shadow: 0 0 0 2px rgba(80,160,255,.35), 0 8px 22px rgba(0,0,0,.4);
+    }
+    .side.rival .avatar-wrap {
+      background: linear-gradient(145deg, #ffe98a, #f0b400);
+      box-shadow: 0 0 0 2px rgba(255,210,80,.35), 0 8px 22px rgba(0,0,0,.4);
+    }
+    .avatar {
+      width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+      display: block; background: rgba(20,20,28,.85);
+      border: 2px solid rgba(0,0,0,.25);
+    }
+
+    .name {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 800; font-size: 16px; color: #fff;
+      max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55);
+      text-align: center; padding: 0 4px;
+    }
+
+    .points {
+      font-weight: 900; font-size: 34px; line-height: 1;
+      color: #ffe566; font-variant-numeric: tabular-nums;
+      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 16px rgba(255,200,60,.3);
+      transition: transform .14s ease;
+    }
+    .points.is-pop { animation: winpop .28s ease; }
+    .side.host .points { color: #7ec8ff; }
+
+    .mid {
+      flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 8px; min-width: 72px; padding-top: 28px;
+    }
+    .vs-badge {
+      background: linear-gradient(180deg, #ff4d5e 0%, #d01830 100%);
+      color: #fff; font-weight: 900; font-size: 18px; letter-spacing: .08em;
+      padding: 8px 14px; border-radius: 10px;
+      box-shadow: 0 6px 16px rgba(200,20,40,.45), inset 0 1px 0 rgba(255,255,255,.25);
+      text-shadow: 0 1px 0 rgba(0,0,0,.35);
+    }
+    .status {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      color: rgba(255,255,255,.55); min-height: 12px;
+    }
+    .status.is-live { color: #7dffb0; }
+    .status.is-frozen { color: #ffb86a; }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="side host" id="side-host">
+      <div class="wins" id="wins-host">0</div>
+      <div class="avatar-wrap"><img class="avatar" id="avatar-host" alt="" referrerpolicy="no-referrer" /></div>
+      <div class="name" id="name-host">Esperando…</div>
+      <div class="points" id="points-host">0</div>
+    </div>
+    <div class="mid">
+      <div class="vs-badge">VS</div>
+      <div class="status" id="status-label"></div>
+    </div>
+    <div class="side rival" id="side-rival">
+      <div class="wins" id="wins-rival">0</div>
+      <div class="avatar-wrap"><img class="avatar" id="avatar-rival" alt="" referrerpolicy="no-referrer" /></div>
+      <div class="name" id="name-rival">Rival</div>
+      <div class="points" id="points-rival">0</div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const isPreview = params.get('preview') === '1';
+    const FALLBACK = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const DEMO = '/jarron/lv.png';
+
+    (function fit() {
+      function apply() {
+        const k = Math.min((innerWidth || 720) / 720, (innerHeight || 280) / 280) || 1;
+        document.documentElement.style.setProperty('--tf-fit', k);
+      }
+      apply(); addEventListener('resize', apply);
+      if (isEmbed) document.documentElement.classList.add('embed');
+    })();
+
+    const el = {
+      winsH: document.getElementById('wins-host'),
+      winsR: document.getElementById('wins-rival'),
+      ptsH: document.getElementById('points-host'),
+      ptsR: document.getElementById('points-rival'),
+      nameH: document.getElementById('name-host'),
+      nameR: document.getElementById('name-rival'),
+      avH: document.getElementById('avatar-host'),
+      avR: document.getElementById('avatar-rival'),
+      status: document.getElementById('status-label'),
+    };
+
+    let state = {
+      live: false, frozen: false,
+      host: { uniqueId: '', nickname: 'Esperando…', photo: '' },
+      rival: { uniqueId: '', nickname: 'Rival', photo: '' },
+      pointsHost: 0, pointsRival: 0, winsHost: 0, winsRival: 0,
+    };
+
+    function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('es-ES'); }
+    function setAvatar(img, url) {
+      const src = String(url || '').trim() || (isEmbed ? DEMO : FALLBACK);
+      img.onerror = function () { this.onerror = null; this.src = isEmbed ? DEMO : FALLBACK; };
+      img.src = src;
+    }
+    function bump(node) {
+      if (!node) return;
+      node.classList.remove('is-pop');
+      void node.offsetWidth;
+      node.classList.add('is-pop');
+    }
+    function render(prev) {
+      const p = prev || {};
+      el.winsH.textContent = fmt(state.winsHost);
+      el.winsR.textContent = fmt(state.winsRival);
+      el.ptsH.textContent = fmt(state.pointsHost);
+      el.ptsR.textContent = fmt(state.pointsRival);
+      el.nameH.textContent = state.host.nickname || 'Esperando…';
+      el.nameR.textContent = state.rival.nickname || 'Rival';
+      setAvatar(el.avH, state.host.photo);
+      setAvatar(el.avR, state.rival.photo);
+      if (p.pointsHost != null && Number(p.pointsHost) !== Number(state.pointsHost)) bump(el.ptsH);
+      if (p.pointsRival != null && Number(p.pointsRival) !== Number(state.pointsRival)) bump(el.ptsR);
+      if (p.winsHost != null && Number(p.winsHost) !== Number(state.winsHost)) bump(el.winsH);
+      if (p.winsRival != null && Number(p.winsRival) !== Number(state.winsRival)) bump(el.winsR);
+      el.status.classList.toggle('is-live', !!state.live && !state.frozen);
+      el.status.classList.toggle('is-frozen', !!state.frozen);
+      el.status.textContent = state.frozen ? 'STOP' : (state.live ? 'EN VIVO' : '');
+    }
+    function applyState(payload) {
+      if (!payload || typeof payload !== 'object') return;
+      const prev = {
+        pointsHost: state.pointsHost, pointsRival: state.pointsRival,
+        winsHost: state.winsHost, winsRival: state.winsRival,
+      };
+      state.live = !!payload.live;
+      state.frozen = !!payload.frozen;
+      if (payload.host) {
+        state.host = {
+          uniqueId: payload.host.uniqueId || '',
+          nickname: payload.host.nickname || state.host.nickname,
+          photo: payload.host.photo || '',
+        };
+      }
+      if (payload.rival) {
+        state.rival = {
+          uniqueId: payload.rival.uniqueId || '',
+          nickname: payload.rival.nickname || state.rival.nickname,
+          photo: payload.rival.photo || '',
+        };
+      }
+      if (payload.pointsHost != null) state.pointsHost = Number(payload.pointsHost) || 0;
+      if (payload.pointsRival != null) state.pointsRival = Number(payload.pointsRival) || 0;
+      if (payload.winsHost != null) state.winsHost = Number(payload.winsHost) || 0;
+      if (payload.winsRival != null) state.winsRival = Number(payload.winsRival) || 0;
+      render(prev);
+    }
+    function resetLocal() {
+      applyState({
+        live: false, frozen: false,
+        host: { uniqueId: '', nickname: 'Esperando…', photo: '' },
+        rival: { uniqueId: '', nickname: 'Rival', photo: '' },
+        pointsHost: 0, pointsRival: 0, winsHost: 0, winsRival: 0,
+      });
+    }
+    function demo() {
+      applyState({
+        live: true, frozen: false,
+        host: { uniqueId: 'host', nickname: 'GABY 🏆', photo: DEMO },
+        rival: { uniqueId: 'rival', nickname: 'Vianel 🔸', photo: DEMO },
+        pointsHost: 210, pointsRival: 57, winsHost: 0, winsRival: 0,
+      });
+    }
+
+    let ws, reconnectTimer;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        const { type, payload } = msg;
+        if (type === 'pkBattle') applyState(payload);
+        else if (type === 'pkBattleReset') resetLocal();
+        else if (type === 'pkBattleTest') { if (!isEmbed) demo(); }
+        else if (type === 'state' && payload && !state.host.photo) {
+          if (payload.photo || payload.nickname) {
+            state.host.photo = payload.photo || state.host.photo;
+            state.host.nickname = payload.nickname || state.host.nickname;
+            state.host.uniqueId = payload.username || state.host.uniqueId;
+            render();
+          }
+        }
+      };
+    }
+    connectWS();
+    render();
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'batallaVs') return;
+      if (d.type === 'test') demo();
+      else if (d.type === 'reset') resetLocal();
+      else if (d.type === 'config' && d.payload) applyState(Object.assign({}, state, d.payload));
+    });
+
+    if (isPreview || isEmbed) {
+      setTimeout(demo, 400);
+    }
+  })();
+  </script>
+</body>
+</html>
