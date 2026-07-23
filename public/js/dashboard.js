@@ -318,7 +318,7 @@ window.addEventListener('pageshow', () => {
 });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -418,7 +418,7 @@ const OVERLAY_CAP = {
   '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
-  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/giftvs.html': 'ov_giftvs', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
+  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/contador-wins-minecraft.html': 'ov_winscounterminecraft',
   '/contador-wins-mario.html': 'ov_winscountermario',
@@ -548,7 +548,7 @@ const CAP_LABELS = {
   ov_joinlive: 'Join al live', ov_joinlivemc: 'Join al live (Minecraft)', ov_joinlivedbz: 'Join al live (Dragon Ball Z)', ov_joinlivemario: 'Join al live (Mario Bros)',
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
-  ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
+  ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
   ov_giftvs: 'Gift VS', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
@@ -571,7 +571,7 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
   'tts_tiktok', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
-  'ov_habibitop', 'ov_gcounter', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_habibitop', 'ov_gcounter', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
@@ -4374,6 +4374,7 @@ function refreshGiftCards() {
   if (typeof renderBattleAlerts === 'function') { try { renderBattleAlerts(); } catch {} }
   if (typeof renderAcciones === 'function') { try { renderAcciones(); } catch {} }
   if (typeof pushGiftShowcasePreview === 'function') { try { pushGiftShowcasePreview(settings?.giftShowcase); } catch {} }
+  if (typeof pushGiftGoalsPreview === 'function') { try { pushGiftGoalsPreview(settings?.giftGoals); } catch {} }
 }
 
 const EVENT_EMOJI = {
@@ -6030,6 +6031,180 @@ if ($('gsh-preview')) {
   $('gsh-preview').addEventListener('load', () => pushGiftShowcasePreview(settings?.giftShowcase));
 }
 
+/* ---- Metas de regalos (multi-meta, vertical / horizontal / banda) ---- */
+let ggmItemsDraft = [];
+function emptyGgmItem() {
+  return {
+    id: 'gg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    giftId: '', giftName: '', giftImage: '', label: '', goal: 10,
+  };
+}
+function defaultGiftGoalsCfg() {
+  return {
+    layout: 'vertical', scale: 100, iconSize: 78, gap: 18, font: 'montserrat',
+    labelColor: '#ffffff', countColor: '#ffffff',
+    barTrack: 'rgba(255,255,255,0.14)',
+    bar1: '#22d3ee', bar2: '#e879f9', bar3: '#a855f7',
+    showCompleted: true, bandaSec: 22, cardOpacity: 48, items: [],
+  };
+}
+function currentGgmCfg() {
+  return {
+    layout: $('ggmcfg-layout')?.value || 'vertical',
+    scale: Math.max(60, Math.min(140, parseInt($('ggmcfg-scale')?.value, 10) || 100)),
+    iconSize: Math.max(48, Math.min(140, parseInt($('ggmcfg-iconsize')?.value, 10) || 92)),
+    gap: Math.max(8, Math.min(40, parseInt($('ggmcfg-gap')?.value, 10) || 22)),
+    font: $('ggmcfg-font')?.value || 'montserrat',
+    labelColor: $('ggmcfg-label')?.value || '#ffffff',
+    countColor: $('ggmcfg-count')?.value || '#ffffff',
+    bar1: $('ggmcfg-bar1')?.value || '#22d3ee',
+    bar2: $('ggmcfg-bar2')?.value || '#e879f9',
+    bar3: $('ggmcfg-bar3')?.value || '#a855f7',
+    showCompleted: !!$('ggmcfg-showdone')?.checked,
+    bandaSec: Math.max(8, Math.min(90, parseInt($('ggmcfg-banda')?.value, 10) || 22)),
+    cardOpacity: Math.max(10, Math.min(95, parseInt($('ggmcfg-opacity')?.value, 10) || 48)),
+    items: ggmItemsDraft.map((r) => ({
+      id: r.id || emptyGgmItem().id,
+      giftId: String(r.giftId || ''),
+      giftName: r.giftName || '',
+      giftImage: r.giftImage || '',
+      label: (r.label || r.giftName || '').trim(),
+      goal: Math.max(1, parseInt(r.goal, 10) || 10),
+    })).filter((r) => r.giftId || r.giftName),
+  };
+}
+function ggmToPreview(msg) {
+  const iframe = $('ggm-preview');
+  if (!iframe?.contentWindow) return;
+  try { iframe.contentWindow.postMessage({ kind: 'giftgoals', ...msg }, '*'); } catch {}
+}
+function pushGiftGoalsPreview(cfg) {
+  ggmToPreview({ type: 'config', config: cfg || settings?.giftGoals || defaultGiftGoalsCfg() });
+}
+function openGgmConfig() {
+  const c = { ...defaultGiftGoalsCfg(), ...(settings?.giftGoals || {}) };
+  if ($('ggmcfg-layout')) $('ggmcfg-layout').value = c.layout || 'vertical';
+  if ($('ggmcfg-scale')) $('ggmcfg-scale').value = c.scale || 100;
+  if ($('ggmcfg-iconsize')) $('ggmcfg-iconsize').value = c.iconSize || 78;
+  if ($('ggmcfg-gap')) $('ggmcfg-gap').value = c.gap || 18;
+  if ($('ggmcfg-font')) $('ggmcfg-font').value = CFG_FONTS.some(([v]) => v === c.font) ? c.font : 'montserrat';
+  if ($('ggmcfg-banda')) $('ggmcfg-banda').value = c.bandaSec || 22;
+  if ($('ggmcfg-opacity')) {
+    $('ggmcfg-opacity').value = c.cardOpacity != null ? c.cardOpacity : 48;
+    if ($('ggmcfg-opacity-lbl')) $('ggmcfg-opacity-lbl').textContent = (c.cardOpacity != null ? c.cardOpacity : 48) + '%';
+  }
+  if ($('ggmcfg-label')) $('ggmcfg-label').value = /^#/.test(c.labelColor || '') ? c.labelColor : '#ffffff';
+  if ($('ggmcfg-count')) $('ggmcfg-count').value = /^#/.test(c.countColor || '') ? c.countColor : '#ffffff';
+  if ($('ggmcfg-bar1')) $('ggmcfg-bar1').value = /^#/.test(c.bar1 || '') ? c.bar1 : '#22d3ee';
+  if ($('ggmcfg-bar2')) $('ggmcfg-bar2').value = /^#/.test(c.bar2 || '') ? c.bar2 : '#e879f9';
+  if ($('ggmcfg-bar3')) $('ggmcfg-bar3').value = /^#/.test(c.bar3 || '') ? c.bar3 : '#a855f7';
+  if ($('ggmcfg-showdone')) $('ggmcfg-showdone').checked = c.showCompleted !== false;
+  ggmItemsDraft = Array.isArray(c.items) ? c.items.map((r) => ({
+    id: r.id || emptyGgmItem().id,
+    giftId: String(r.giftId || ''),
+    giftName: r.giftName || '',
+    giftImage: r.giftImage || '',
+    label: r.label || r.giftName || '',
+    goal: Math.max(1, parseInt(r.goal, 10) || 10),
+  })) : [];
+  if (!ggmItemsDraft.length) ggmItemsDraft.push(emptyGgmItem());
+  renderGgmRows();
+  $('ggmConfigModal')?.classList.remove('hidden');
+}
+function closeGgmConfig() { $('ggmConfigModal')?.classList.add('hidden'); }
+
+function renderGgmRows() {
+  const wrap = $('ggmcfg-rows');
+  if (!wrap) return;
+  wrap.innerHTML = ggmItemsDraft.map((r, i) => {
+    const giftBtn = r.giftName
+      ? `<button type="button" class="gvs-giftbtn picked ggm-giftpick" data-i="${i}">${r.giftImage ? `<img src="${esc(r.giftImage)}">` : ''}<span>${esc(r.giftName)}</span></button>`
+      : `<button type="button" class="gvs-giftbtn ggm-giftpick" data-i="${i}">＋ Elegir regalo</button>`;
+    return `<div class="jarcfg-row ggm-row" data-i="${i}">
+      <button type="button" class="jarcfg-del ggm-del" title="Quitar">✕</button>
+      <div class="jarcfg-row-head">META ${i + 1}</div>
+      <div class="gsq-row-grid">
+        <div>${giftBtn}</div>
+        <div><label class="ml">ETIQUETA</label><input type="text" class="ggm-label" maxlength="40" placeholder="Ej.: ROSE" value="${esc(r.label)}"></div>
+        <div><label class="ml">META (cantidad)</label><input type="number" class="ggm-goal" min="1" max="999999" value="${Math.max(1, parseInt(r.goal, 10) || 10)}"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.ggm-row').forEach((row) => {
+    const i = Number(row.dataset.i);
+    row.querySelector('.ggm-del')?.addEventListener('click', () => {
+      ggmItemsDraft.splice(i, 1);
+      if (!ggmItemsDraft.length) ggmItemsDraft.push(emptyGgmItem());
+      renderGgmRows();
+    });
+    row.querySelector('.ggm-label')?.addEventListener('input', (e) => {
+      ggmItemsDraft[i].label = e.target.value;
+      pushGiftGoalsPreview(currentGgmCfg());
+    });
+    row.querySelector('.ggm-goal')?.addEventListener('input', (e) => {
+      ggmItemsDraft[i].goal = Math.max(1, parseInt(e.target.value, 10) || 10);
+      pushGiftGoalsPreview(currentGgmCfg());
+    });
+    row.querySelectorAll('.ggm-giftpick').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        openGiftModalCb((g) => {
+          ggmItemsDraft[i].giftId = String(g.id || '');
+          ggmItemsDraft[i].giftName = g.name || '';
+          ggmItemsDraft[i].giftImage = g.image || '';
+          if (!ggmItemsDraft[i].label) ggmItemsDraft[i].label = (g.name || '').toUpperCase();
+          renderGgmRows();
+          pushGiftGoalsPreview(currentGgmCfg());
+        });
+      });
+    });
+  });
+  pushGiftGoalsPreview(currentGgmCfg());
+}
+
+['ggmcfg-layout', 'ggmcfg-scale', 'ggmcfg-iconsize', 'ggmcfg-gap', 'ggmcfg-font', 'ggmcfg-banda',
+  'ggmcfg-opacity', 'ggmcfg-label', 'ggmcfg-count', 'ggmcfg-bar1', 'ggmcfg-bar2', 'ggmcfg-bar3', 'ggmcfg-showdone'].forEach((id) => {
+  const el = $(id);
+  if (!el) return;
+  const bump = () => {
+    if (id === 'ggmcfg-opacity' && $('ggmcfg-opacity-lbl')) {
+      $('ggmcfg-opacity-lbl').textContent = (parseInt(el.value, 10) || 48) + '%';
+    }
+    pushGiftGoalsPreview(currentGgmCfg());
+  };
+  el.oninput = bump;
+  el.onchange = bump;
+});
+if ($('ggmcfg-add')) $('ggmcfg-add').onclick = () => { ggmItemsDraft.push(emptyGgmItem()); renderGgmRows(); };
+if ($('ggmcfg-close')) $('ggmcfg-close').onclick = closeGgmConfig;
+if ($('ggmConfigModal')) $('ggmConfigModal').addEventListener('click', (e) => { if (e.target.id === 'ggmConfigModal') closeGgmConfig(); });
+if ($('ggmcfg-save')) $('ggmcfg-save').onclick = () => {
+  const cfg = currentGgmCfg();
+  settings.giftGoals = cfg;
+  saveSettings();
+  pushGiftGoalsPreview(settings.giftGoals);
+  closeGgmConfig();
+  try { if (typeof toast === 'function') toast('Metas de regalos guardadas.', 'ok'); } catch {}
+};
+if ($('ggm-test')) {
+  $('ggm-test').onclick = () => {
+    pushGiftGoalsPreview(settings?.giftGoals);
+    setTimeout(() => ggmToPreview({ type: 'test' }), 50);
+    send({ action: 'testGiftGoals' });
+  };
+}
+if ($('ggm-reset')) {
+  $('ggm-reset').onclick = () => {
+    send({ action: 'resetGiftGoals' });
+    ggmToPreview({ type: 'reset' });
+    pushGiftGoalsPreview(settings?.giftGoals);
+  };
+}
+if ($('ggm-config')) $('ggm-config').onclick = openGgmConfig;
+if ($('ggm-preview')) {
+  $('ggm-preview').addEventListener('load', () => pushGiftGoalsPreview(settings?.giftGoals));
+}
+
 /* ---- Overlays simples (mejor regalo, racha, batallas, coin match) ---- */
 function randomGiftSample() {
   if (giftCatalog && giftCatalog.length) {
@@ -7408,6 +7583,11 @@ function ttsVoiceLangFromId(voiceId) {
 
 function ttsVoiceLabel(engine, voice, lang) {
   if (!voice) return '—';
+  if (engine === 'elevenlabs') {
+    const hit = (typeof ttsElVoicesCache !== 'undefined' ? ttsElVoicesCache : [])
+      .find((x) => String(x.id) === String(voice));
+    return hit ? hit.name : voice;
+  }
   if (engine === 'edge') {
     const hit = getEdgeVoiceCatalog().find((x) => x.id === voice);
     return hit ? hit.label : voice;
@@ -7424,11 +7604,13 @@ function ttsVoiceLabel(engine, voice, lang) {
 function ttsEngineLabel(engine) {
   if (engine === 'disney') return 'Disney';
   if (engine === 'edge') return 'Edge (español)';
+  if (engine === 'elevenlabs') return 'ElevenLabs';
   return engine === 'tiktok' ? 'TikTok (Server)' : 'Sistema';
 }
 
 function ttsUvLangLabel(code) {
   const c = String(code || '').toLowerCase();
+  if (c === 'multi') return 'Multilingüe';
   if (isTtsLangEdgeSpanish(c)) return edgeLocaleLabel(c).replace(' · Edge', '');
   const hit = (TTS_UV_LANGS.tiktok || []).find((x) => x.code === c)
     || (TTS_UV_LANGS.disney || []).find((x) => x.code === c)
@@ -7462,6 +7644,11 @@ function fillTtsUvLangOptions() {
   const sel = $('tts-uv-lang');
   const engine = $('tts-uv-engine')?.value || 'tiktok';
   if (!sel) return;
+  if (engine === 'elevenlabs') {
+    sel.innerHTML = '<option value="multi">Multilingüe (ElevenLabs)</option>';
+    sel.value = 'multi';
+    return;
+  }
   if (engine === 'disney') {
     sel.innerHTML = TTS_UV_LANGS.disney.map((l) => `<option value="${esc(l.code)}">${esc(l.label)}</option>`).join('');
     sel.value = 'en';
@@ -7503,6 +7690,30 @@ function fillTtsUvVoiceOptions() {
   if (!sel || !langSel) return;
   const lang = String(langSel.value || 'es').toLowerCase();
   const langBase = lang.split('-')[0];
+
+  if (engine === 'elevenlabs') {
+    const list = (typeof ttsElVoicesCache !== 'undefined' && ttsElVoicesCache.length)
+      ? ttsElVoicesCache
+      : [];
+    const cur = sel.value;
+    if (!list.length) {
+      const savedId = String(settings?.tts?.elevenlabs?.voiceId || '').trim();
+      const savedName = String(settings?.tts?.elevenlabs?.voiceName || savedId).trim();
+      if (savedId) {
+        sel.innerHTML = `<option value="${esc(savedId)}" selected>${esc(savedName || savedId)}</option>`;
+      } else {
+        sel.innerHTML = '<option value="">— Primero pulsa «Cargar voces» en ElevenLabs —</option>';
+      }
+      return;
+    }
+    sel.innerHTML = list.map((v) => {
+      const id = String(v.id || '');
+      const label = `${v.name || id}${v.category ? ` (${v.category})` : ''}`;
+      return `<option value="${esc(id)}" ${id === cur ? 'selected' : ''}>${esc(label)}</option>`;
+    }).join('');
+    if (!list.some((v) => String(v.id) === cur) && list[0]) sel.value = list[0].id;
+    return;
+  }
 
   if (engine === 'disney') {
     const voices = getDisneyVoiceCatalog();
@@ -7556,7 +7767,7 @@ function renderTtsUserVoices() {
       <td><div class="tts-uv-user">${esc(uv.nickname || uv.userId)}<small>@${esc(uv.userId)}</small></div></td>
       <td>${esc(ttsEngineLabel(uv.engine))}</td>
       <td>${esc(ttsUvLangLabel(uv.lang))}</td>
-      <td>${esc(ttsVoiceLabel(uv.engine, uv.voice, uv.lang))}</td>
+      <td>${esc(uv.voiceLabel || ttsVoiceLabel(uv.engine, uv.voice, uv.lang))}</td>
       <td><button type="button" class="tts-uv-del" data-act="del" title="Quitar asignación">✕</button></td>
     </tr>`).join('');
   body.querySelectorAll('[data-act="del"]').forEach((btn) => {
@@ -7601,14 +7812,28 @@ function addTtsUserVoice() {
     toast('Las voces TikTok / Disney no están disponibles en tu plan', 'warn');
     return;
   }
+  if (engine === 'elevenlabs') {
+    const key = String(settings?.tts?.elevenlabs?.apiKey || '').trim()
+      || String($('tts-el-apikey')?.value || '').trim();
+    if (!key) {
+      toast('Configura tu API key en Mi voz · ElevenLabs antes de asignar.', 'warn');
+      return;
+    }
+  }
 
   const voice = String(voiceEl.value || '').trim();
   if (!voice) {
-    toast('Elige una voz', 'warn');
+    if (engine === 'elevenlabs' && !ttsElVoicesCache.length) {
+      toast('Pulsa «Cargar voces» en ElevenLabs y luego elige una voz.', 'warn');
+    } else {
+      toast('Elige una voz', 'warn');
+    }
     return;
   }
 
-  const lang = engine === 'disney' ? 'en' : String(langEl.value || 'es');
+  const lang = engine === 'disney' ? 'en'
+    : engine === 'elevenlabs' ? 'multi'
+    : String(langEl.value || 'es');
   const translate = engine === 'disney' || (engine === 'tiktok' && ttsVoiceLangFromId(voice) === 'en');
 
   if (!settings.tts) settings.tts = {};
@@ -7616,13 +7841,15 @@ function addTtsUserVoice() {
 
   const key = ttsUvNormId(userId);
   const existing = settings.tts.userVoices.find((x) => ttsUvNormId(x.userId) === key);
+  const voiceOpt = voiceEl.selectedOptions && voiceEl.selectedOptions[0];
   const entry = {
     id: existing?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     userId,
     nickname: nickname || userId,
     engine,
-    lang: lang.split('-')[0],
+    lang: engine === 'edge' ? lang : lang.split('-')[0],
     voice,
+    voiceLabel: voiceOpt ? String(voiceOpt.textContent || '').trim() : '',
     translate,
   };
 
@@ -7645,6 +7872,22 @@ function ttsConfigForUser(userId) {
   const base = settings?.tts || {};
   const uv = ttsFindUserVoice(userId);
   if (!uv) return base;
+  if (uv.engine === 'elevenlabs') {
+    const elBase = base.elevenlabs || {};
+    return {
+      ...base,
+      tiktokVoice: '',
+      voice: '',
+      elevenlabs: {
+        ...elBase,
+        enabled: true,
+        voiceId: uv.voice,
+        voiceName: uv.voiceLabel || elBase.voiceName || uv.voice,
+        apiKey: elBase.apiKey || '',
+        modelId: elBase.modelId || 'eleven_multilingual_v2',
+      },
+    };
+  }
   if (uv.engine === 'tiktok' || uv.engine === 'disney' || uv.engine === 'edge') {
     return {
       ...base,
@@ -7669,8 +7912,14 @@ function ttsSpeakTextForUser(text, userId) {
   if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
-  // Override por usuario (TikTok/Edge/sistema) gana; si no hay override y EL está listo, EL.
   const uv = ttsFindUserVoice(userId);
+  if (uv?.engine === 'elevenlabs') {
+    if (ttsElevenLabsReady(cfg)) { ttsSpeakElevenLabs(phrase, cfg); return; }
+    toast('ElevenLabs: falta API key guardada para esa voz de usuario.', 'warn');
+    ttsSpeakSystem(phrase, settings?.tts || {});
+    return;
+  }
+  // Sin override: si EL global está listo, usarlo.
   if (!uv && ttsElevenLabsReady(cfg)) { ttsSpeakElevenLabs(phrase, cfg); return; }
   if (cfg.tiktokVoice) { ttsSpeakTikTok(phrase, cfg); return; }
   if (isEdgeTtsVoiceId(cfg.voice) || isTtsLangEdgeSpanish(cfg.lang)) {
@@ -7933,7 +8182,11 @@ function ttsSyncElevenlabsFromDom() {
   const key = $('tts-el-apikey');
   const voice = $('tts-el-voice');
   if (en) el.enabled = !!en.checked;
-  if (key) el.apiKey = key.value.trim();
+  if (key) {
+    const v = key.value.trim();
+    // Nunca pisar la key guardada con vacío (campo limpio / password manager).
+    if (v) el.apiKey = v;
+  }
   if (voice) {
     el.voiceId = voice.value.trim();
     const opt = voice.selectedOptions && voice.selectedOptions[0];
@@ -7945,8 +8198,6 @@ function ttsSyncElevenlabsFromDom() {
 }
 
 function ttsSpeakText(text, opts = {}) {
-  // Antes de hablar: leer ElevenLabs del formulario (por si Probar sin haber hecho blur).
-  try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
   const t = settings?.tts || {};
   const phrase = String(text || '').trim();
   if (!phrase) return;
@@ -8215,7 +8466,7 @@ function ttsSpeakElevenLabs(phrase, t) {
   ttsTkQueue.push({
     engine: 'elevenlabs',
     text: phrase,
-    apiKey: String(el.apiKey || '').trim(),
+    // La key NO viaja en cada speak: el servidor la toma de settings guardados.
     voice: String(el.voiceId || '').trim(),
     modelId: String(el.modelId || 'eleven_multilingual_v2').trim(),
     volume: t.volume ?? 1,
@@ -8257,6 +8508,9 @@ function ttsElFillVoiceSelect(voices, selectedId) {
     sel.innerHTML = cur
       ? `<option value="${esc(cur)}" selected>${esc(ttsEnsureElevenlabs().voiceName || cur)}</option>`
       : '<option value="">— Carga tus voces o clona una abajo —</option>';
+    try {
+      if ($('tts-uv-engine')?.value === 'elevenlabs') fillTtsUvVoiceOptions();
+    } catch { /* ignore */ }
     return;
   }
   sel.innerHTML = '<option value="">— Elige una voz —</option>' + list.map((v) => {
@@ -8271,12 +8525,18 @@ function ttsElFillVoiceSelect(voices, selectedId) {
     opt.selected = true;
     sel.appendChild(opt);
   }
+  try {
+    if ($('tts-uv-engine')?.value === 'elevenlabs') fillTtsUvVoiceOptions();
+  } catch { /* ignore */ }
 }
 
 async function ttsElLoadVoices() {
   const el = ttsEnsureElevenlabs();
   const keyEl = $('tts-el-apikey');
-  if (keyEl) el.apiKey = keyEl.value.trim();
+  if (keyEl) {
+    const v = keyEl.value.trim();
+    if (v) el.apiKey = v;
+  }
   if (!el.apiKey) {
     ttsElSetStatus('Pega tu API key de ElevenLabs.', 'err');
     toast('Falta la API key de ElevenLabs.', 'warn');
@@ -8284,6 +8544,7 @@ async function ttsElLoadVoices() {
   }
   ttsElSetStatus('Cargando voces…');
   try {
+    try { saveSettings(); } catch { /* ignore */ }
     const r = await fetch('/api/tts/elevenlabs/voices', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -8321,7 +8582,10 @@ function ttsElFileToBase64(file) {
 async function ttsElCloneVoice() {
   const el = ttsEnsureElevenlabs();
   const keyEl = $('tts-el-apikey');
-  if (keyEl) el.apiKey = keyEl.value.trim();
+  if (keyEl) {
+    const v = keyEl.value.trim();
+    if (v) el.apiKey = v;
+  }
   const name = ($('tts-el-clone-name')?.value || '').trim() || 'Livecoins';
   const file = $('tts-el-clone-file')?.files?.[0];
   if (!el.apiKey) {
@@ -8454,7 +8718,6 @@ async function ttsTkFetchSpeak(item, signal) {
       signal,
       body: JSON.stringify({
         text: item.text,
-        apiKey: item.apiKey,
         voiceId: item.voice,
         modelId: item.modelId,
       }),
@@ -8746,18 +9009,23 @@ function openTtsWarnModal(onAccept) {
   if (elEn) elEn.addEventListener('change', () => {
     const el = ttsEnsureElevenlabs();
     el.enabled = elEn.checked;
+    const keyEl = $('tts-el-apikey');
+    const v = keyEl ? keyEl.value.trim() : '';
+    if (v) el.apiKey = v;
     if (el.enabled && (!el.apiKey || !el.voiceId)) {
-      toast('Activa ElevenLabs solo cuando tengas API key + voz. Pulsa ? para la guía.', 'warn');
+      toast('ElevenLabs ON: falta API key o voz. Pulsa ? o Cargar voces.', 'warn');
     }
     save();
   });
   const elKey = $('tts-el-apikey');
   if (elKey) elKey.addEventListener('change', () => {
-    ttsEnsureElevenlabs().apiKey = elKey.value.trim();
+    const v = elKey.value.trim();
+    if (v) ttsEnsureElevenlabs().apiKey = v;
     save();
   });
   if (elKey) elKey.addEventListener('blur', () => {
-    ttsEnsureElevenlabs().apiKey = elKey.value.trim();
+    const v = elKey.value.trim();
+    if (v) ttsEnsureElevenlabs().apiKey = v;
     save();
   });
   const elVoice = $('tts-el-voice');

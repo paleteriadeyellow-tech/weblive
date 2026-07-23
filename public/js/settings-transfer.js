@@ -396,6 +396,12 @@
     for (const k of keyList) {
       if (settings[k] !== undefined) data[k] = cloneVal(settings[k]);
     }
+    // No incluir API keys de ElevenLabs en el archivo exportado.
+    try {
+      if (data.tts && data.tts.elevenlabs && data.tts.elevenlabs.apiKey) {
+        data.tts = { ...data.tts, elevenlabs: { ...data.tts.elevenlabs, apiKey: '' } };
+      }
+    } catch { /* ignore */ }
     return {
       version: 2,
       format: 'livecoins',

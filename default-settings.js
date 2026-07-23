@@ -441,6 +441,41 @@ export const DEFAULT_SETTINGS = {
     coinLabel: 'monedas', font: 'rubik',
     titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
   },
+  // Overlay Metas de regalos (multi-meta: 1/10, vertical / horizontal / banda)
+  giftGoals: {
+    layout: 'vertical',
+    scale: 100,
+    iconSize: 78,
+    gap: 18,
+    font: 'montserrat',
+    labelColor: '#ffffff',
+    countColor: '#ffffff',
+    barTrack: 'rgba(255,255,255,0.14)',
+    bar1: '#22d3ee',
+    bar2: '#e879f9',
+    bar3: '#a855f7',
+    showCompleted: true,
+    bandaSec: 22,
+    cardOpacity: 48,
+    items: [
+      {
+        id: 'gg_rose',
+        giftId: '5655',
+        giftName: 'Rose',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7180~tplv-obj.webp',
+        label: 'ROSE',
+        goal: 10,
+      },
+      {
+        id: 'gg_gg',
+        giftId: '6064',
+        giftName: 'GG',
+        giftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp',
+        label: 'GG',
+        goal: 5,
+      },
+    ],
+  },
   // Overlay Contador de meta (cuenta un regalo concreto hasta una meta)
   // giftId/giftName vacíos => cuenta CUALQUIER regalo. count se lleva en el servidor.
   giftCounter: {

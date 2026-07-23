@@ -3319,7 +3319,13 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
 app.post('/api/tts/elevenlabs/voices', express.json({ limit: '32kb' }), async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
-  const apiKey = String((req.body && req.body.apiKey) || '').trim();
+  let apiKey = String((req.body && req.body.apiKey) || '').trim();
+  if (!apiKey) {
+    try {
+      const room = getRoomForUser(user);
+      apiKey = String(room?.getSettings?.()?.tts?.elevenlabs?.apiKey || '').trim();
+    } catch { /* ignore */ }
+  }
   if (!apiKey) return res.status(400).json({ ok: false, error: 'missing_api_key' });
   try {
     const out = await elevenLabsListVoices(apiKey);
@@ -3333,7 +3339,14 @@ app.post('/api/tts/elevenlabs/voices', express.json({ limit: '32kb' }), async (r
 app.post('/api/tts/elevenlabs/speak', express.json({ limit: '64kb' }), async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
-  const apiKey = String((req.body && req.body.apiKey) || '').trim();
+  let apiKey = String((req.body && req.body.apiKey) || '').trim();
+  // Preferir key guardada en el room (no hace falta mandarla en cada speak).
+  if (!apiKey) {
+    try {
+      const room = getRoomForUser(user);
+      apiKey = String(room?.getSettings?.()?.tts?.elevenlabs?.apiKey || '').trim();
+    } catch { /* ignore */ }
+  }
   const voiceId = String((req.body && req.body.voiceId) || '').trim();
   const modelId = String((req.body && req.body.modelId) || '').trim();
   let text = String((req.body && req.body.text) || '').trim();
@@ -3342,7 +3355,7 @@ app.post('/api/tts/elevenlabs/speak', express.json({ limit: '64kb' }), async (re
   if (!text) return res.status(400).json({ ok: false, error: 'missing_text' });
   if (text.length > 280) text = text.slice(0, 280);
 
-  const cacheKey = `el|${voiceId}|${text.toLowerCase()}`;
+  const cacheKey = `el|${user.id || 'u'}|${voiceId}|${text.toLowerCase()}`;
   const cachedAudio = ttsAudioCacheGet(cacheKey);
   if (cachedAudio) {
     return res.json({ ok: true, audio: cachedAudio, mime: 'audio/mpeg', text, cached: true, engine: 'elevenlabs' });

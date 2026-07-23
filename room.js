@@ -477,6 +477,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   const battle = { scoreA: 0, scoreB: 0 };
   const giftCounter = { count: 0 }; // contador de meta (cuenta de la sesión)
+  /** Metas de regalos multi-item: counts[id], completers[id], donors[id][uid] */
+  const giftGoalsState = {
+    counts: Object.create(null),
+    completers: Object.create(null),
+    donors: Object.create(null),
+  };
   const timer = { remaining: 0, running: false };
   let timerInterval = null;
   const weekly = { start: 0, end: 0, donors: new Map() };
@@ -1372,6 +1378,86 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastGiftCounter();
     saveSessionOverlays();
   }
+
+  function topDonorForGiftGoal(itemId) {
+    const map = giftGoalsState.donors[itemId];
+    if (!map) return null;
+    let best = null;
+    for (const d of Object.values(map)) {
+      if (!d) continue;
+      if (!best || Number(d.count) > Number(best.count)) best = d;
+    }
+    if (!best) return null;
+    return {
+      nickname: best.nickname || best.uniqueId || 'Usuario',
+      avatar: best.avatar || '',
+      uniqueId: best.uniqueId || '',
+      count: Math.max(0, Number(best.count) || 0),
+    };
+  }
+  function serializeGiftGoals(bumpId) {
+    const counts = {};
+    const completers = {};
+    for (const [id, n] of Object.entries(giftGoalsState.counts)) {
+      const top = giftGoalsState.completers[id] || topDonorForGiftGoal(id);
+      counts[id] = { count: Math.max(0, Number(n) || 0), completer: top || null };
+      if (top) completers[id] = top;
+    }
+    for (const [id, c] of Object.entries(giftGoalsState.completers)) {
+      completers[id] = c;
+      if (!counts[id]) counts[id] = { count: 0, completer: c };
+    }
+    return { counts, completers, bumpId: bumpId || '' };
+  }
+  function broadcastGiftGoals(bumpId) {
+    broadcast('giftGoals', serializeGiftGoals(bumpId));
+  }
+  function resetGiftGoals() {
+    giftGoalsState.counts = Object.create(null);
+    giftGoalsState.completers = Object.create(null);
+    giftGoalsState.donors = Object.create(null);
+    broadcastGiftGoals();
+    saveSessionOverlays();
+  }
+  function countGiftForGiftGoals(user, giftId, giftName, repeatCount) {
+    const items = Array.isArray(settings.giftGoals?.items) ? settings.giftGoals.items : [];
+    if (!items.length) return;
+    const gid = String(giftId || '').trim();
+    const gname = String(giftName || '').trim().toLowerCase();
+    const add = Math.max(1, Number(repeatCount) || 1);
+    const uid = String(user?.uniqueId || user?.nickname || '').trim() || 'anon';
+    let bumped = '';
+    for (const it of items) {
+      if (!it || !it.id) continue;
+      const wantId = String(it.giftId || '').trim();
+      const wantName = String(it.giftName || '').trim().toLowerCase();
+      if (wantId) {
+        if (gid !== wantId) continue;
+      } else if (wantName) {
+        if (gname !== wantName) continue;
+      } else continue;
+      const goal = Math.max(1, Number(it.goal) || 10);
+      if (!giftGoalsState.donors[it.id]) giftGoalsState.donors[it.id] = Object.create(null);
+      const prevDonor = giftGoalsState.donors[it.id][uid] || { count: 0 };
+      giftGoalsState.donors[it.id][uid] = {
+        uniqueId: uid,
+        nickname: user?.nickname || uid,
+        avatar: user?.photo || prevDonor.avatar || '',
+        count: Math.max(0, Number(prevDonor.count) || 0) + add,
+      };
+      const prev = Math.max(0, Number(giftGoalsState.counts[it.id]) || 0);
+      const next = Math.min(goal, prev + add);
+      giftGoalsState.counts[it.id] = next;
+      if (next >= goal) {
+        giftGoalsState.completers[it.id] = topDonorForGiftGoal(it.id);
+      }
+      bumped = it.id;
+    }
+    if (bumped) {
+      broadcastGiftGoals(bumped);
+      saveSessionOverlays();
+    }
+  }
   // Contadores de victorias: si un regalo está asignado a una acción (+1/-1/sumar/restar),
   // ajusta automáticamente el contador cuando llega ese regalo en el live.
   function applyWinsGiftHooks(giftId, repeatCount) {
@@ -1731,6 +1817,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function clearSessionOverlayState() {
     giftCounter.count = 0;
+    giftGoalsState.counts = Object.create(null);
+    giftGoalsState.completers = Object.create(null);
+    giftGoalsState.donors = Object.create(null);
     top1fireSession.clear();
     habibiTopSession.clear();
     if (getHabibiTopPeriod() === 'live') habibiTopSnapshot = null;
@@ -1748,6 +1837,36 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const raw = readJsonSafe(SESSION_OVERLAYS_FILE).data;
     if (!canRestoreSessionOverlays(raw)) return;
     giftCounter.count = Math.max(0, Number(raw.giftCounter?.count) || 0);
+    giftGoalsState.counts = Object.create(null);
+    giftGoalsState.completers = Object.create(null);
+    giftGoalsState.donors = Object.create(null);
+    if (raw.giftGoals && typeof raw.giftGoals === 'object') {
+      const rc = raw.giftGoals.counts || {};
+      for (const [id, v] of Object.entries(rc)) {
+        giftGoalsState.counts[id] = Math.max(0, Number(v?.count != null ? v.count : v) || 0);
+        if (v?.completer) giftGoalsState.completers[id] = v.completer;
+      }
+      if (raw.giftGoals.completers && typeof raw.giftGoals.completers === 'object') {
+        for (const [id, c] of Object.entries(raw.giftGoals.completers)) {
+          if (c) giftGoalsState.completers[id] = c;
+        }
+      }
+      if (raw.giftGoals.donors && typeof raw.giftGoals.donors === 'object') {
+        for (const [id, map] of Object.entries(raw.giftGoals.donors)) {
+          if (!map || typeof map !== 'object') continue;
+          giftGoalsState.donors[id] = Object.create(null);
+          for (const [uid, d] of Object.entries(map)) {
+            if (!d) continue;
+            giftGoalsState.donors[id][uid] = {
+              uniqueId: uid,
+              nickname: d.nickname || uid,
+              avatar: d.avatar || '',
+              count: Math.max(0, Number(d.count) || 0),
+            };
+          }
+        }
+      }
+    }
     if (getTop1FirePeriod() === 'live' && Array.isArray(raw.top1fireLive)) {
       top1fireSession.clear();
       for (const u of raw.top1fireLive) {
@@ -1796,6 +1915,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       roomId: liveSession.roomId || null,
       username: liveSession.username || null,
       giftCounter: { count: giftCounter.count },
+      giftGoals: {
+        ...serializeGiftGoals(),
+        donors: giftGoalsState.donors,
+      },
       top1fireLive: getTop1FirePeriod() === 'live' ? [...top1fireSession.values()] : [],
       habibiTopLive: getHabibiTopPeriod() === 'live' ? [...habibiTopSession.values()] : [],
       habibiTopSnapshot: habibiTopSnapshot || null,
@@ -6715,6 +6838,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
 
         countGiftForGoal(giftId, giftName, repeatCount);
+        countGiftForGiftGoals(user, giftId, giftName, repeatCount);
         applyWinsGiftHooks(giftId, repeatCount);
         processFanBalls('coins', user, total);
         trackSessionGift(user, giftName, repeatCount, diamondsEach, image);
@@ -7507,6 +7631,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'setGiftCounter':
         setGiftCounter(data.value);
         break;
+      case 'testGiftGoals':
+        broadcast('giftGoalsTest', {});
+        break;
+      case 'resetGiftGoals':
+        resetGiftGoals();
+        break;
       case 'testTopStreak':
         broadcast('topStreakTest', { gift: data.gift || null });
         break;
@@ -7627,6 +7757,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
     ws.send(JSON.stringify({ type: 'liveUptime', payload: serializeLiveUptime() }));
     ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));
+    ws.send(JSON.stringify({ type: 'giftGoals', payload: serializeGiftGoals() }));
     ws.send(JSON.stringify({ type: 'sessionOverlays', payload: serializeSessionOverlaysPayload() }));
     ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));

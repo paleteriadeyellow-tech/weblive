@@ -13,6 +13,8 @@
   let listDragId = null;
   let bgMode = 'color';
   let bgImageSrc = null;
+  let sliceMode = false;
+  let sliceDrag = null; // { layerId, startX, startY, curX, curY }
   const HISTORY_MAX = 40;
   const DESIGNS_KEY = 'livecoins-editor-designs';
   let history = [];
@@ -95,9 +97,52 @@
     return JSON.parse(JSON.stringify(L));
   }
 
+  /** blob: muere al recargar; hay que persistir data: (o URL http/proxy). */
+  function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result || ''));
+      fr.onerror = () => reject(fr.error || new Error('no se pudo leer el archivo'));
+      fr.readAsDataURL(file);
+    });
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result || ''));
+      fr.onerror = () => reject(fr.error || new Error('no se pudo convertir la imagen'));
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  async function persistableSrc(src) {
+    const s = String(src || '');
+    if (!s || s.startsWith('data:') || s.startsWith('/') || /^https?:\/\//i.test(s)) return s;
+    if (!s.startsWith('blob:')) return s;
+    try {
+      const res = await fetch(s);
+      const blob = await res.blob();
+      return await blobToDataUrl(blob);
+    } catch {
+      return s;
+    }
+  }
+
   function layerForSave(L) {
-    const o = deepCloneLayer(L);
-    if (o.gifBytes && o.gifBytes.byteLength > 512000) delete o.gifBytes;
+    // JSON.stringify pierde ArrayBuffer; serializar gifBytes a array de bytes.
+    const gifBytes = L && L.gifBytes;
+    const base = { ...L, gifBytes: undefined };
+    const o = deepCloneLayer(base);
+    if (gifBytes) {
+      try {
+        const u8 = gifBytes instanceof ArrayBuffer
+          ? new Uint8Array(gifBytes)
+          : new Uint8Array(gifBytes);
+        if (u8.byteLength > 512000) delete o.gifBytes;
+        else o.gifBytes = Array.from(u8);
+      } catch { /* ignore */ }
+    }
     return o;
   }
 
@@ -1509,7 +1554,7 @@
       list.map((d, i) => `<option value="${i}">${escapeHtml(d.name || 'Sin nombre')}</option>`).join('');
   }
 
-  function saveDesign() {
+  async function saveDesign() {
     const input = $('ied-design-name');
     let name = String(input?.value || '').trim();
     if (!name) {
@@ -1520,6 +1565,25 @@
       toast && toast('Añade algo al lienzo antes de guardar', 'warn');
       return;
     }
+    toast && toast('Guardando imágenes…', 'ok');
+    // Convertir blob: temporales a data: para que sobrevivan a Cargar / recargar.
+    const persistLayers = [];
+    for (const L of layers) {
+      const o = layerForSave(L);
+      if (o.src && String(o.src).startsWith('blob:')) {
+        const data = await persistableSrc(o.src);
+        o.src = data;
+        if (data && data.startsWith('data:')) L.src = data;
+      }
+      persistLayers.push(o);
+    }
+    let bgPersist = bgImageSrc || null;
+    if (bgPersist && String(bgPersist).startsWith('blob:')) {
+      bgPersist = await persistableSrc(bgPersist);
+      if (bgPersist && bgPersist.startsWith('data:')) bgImageSrc = bgPersist;
+    }
+    if (bgPersist && !String(bgPersist).startsWith('data:')) bgPersist = null;
+
     let list = loadDesignsList();
     const design = {
       id: 'd_' + Date.now().toString(36),
@@ -1531,8 +1595,8 @@
       bgMode,
       bgG1: $('ied-bg-g1')?.value || '#0b0f1a',
       bgG2: $('ied-bg-g2')?.value || '#1a1040',
-      bgImageSrc: (bgImageSrc && String(bgImageSrc).startsWith('data:')) ? bgImageSrc : null,
-      layers: layers.map(layerForSave),
+      bgImageSrc: bgPersist,
+      layers: persistLayers,
     };
     // Si ya existe el mismo nombre, actualizar
     const existing = list.findIndex((d) => String(d.name || '').toLowerCase() === name.toLowerCase());
@@ -1541,13 +1605,13 @@
     try {
       saveDesignsList(list);
     } catch (err) {
-      toast && toast('No se pudo guardar (almacenamiento lleno o bloqueado)', 'warn');
+      toast && toast('No se pudo guardar (imágenes muy pesadas o almacenamiento lleno). Prueba PNGs más pequeños.', 'warn');
       return;
     }
     // Verificar que quedó
     const check = loadDesignsList();
     if (!check.some((d) => d.name === name)) {
-      toast && toast('No se pudo guardar en este navegador', 'warn');
+      toast && toast('No se pudo guardar en este navegador (cuota llena)', 'warn');
       return;
     }
     refreshDesignsSelect();
@@ -1572,6 +1636,7 @@
       toast && toast('Elige un diseño en la lista y pulsa Cargar', 'warn');
       return;
     }
+    const broken = (design.layers || []).filter((L) => L && L.src && String(L.src).startsWith('blob:')).length;
     restoreState({
       layers: design.layers || [],
       stageW: design.stageW,
@@ -1587,7 +1652,14 @@
     pushSnapshot();
     refreshDesignsSelect();
     if (sel) sel.value = String(Math.max(0, list.indexOf(design)));
-    toast && toast('Cargado: ' + (design.name || ''), 'ok');
+    if (broken) {
+      toast && toast(
+        'Cargado, pero ' + broken + ' imagen(es) subidas se perdieron (guardado antiguo). Vuelve a añadirlas y pulsa Guardar.',
+        'warn'
+      );
+    } else {
+      toast && toast('Cargado: ' + (design.name || ''), 'ok');
+    }
   }
 
   function deleteDesign() {
@@ -1625,7 +1697,17 @@
     if (isGif) {
       try { gifBytes = await file.arrayBuffer(); } catch { /* ignore */ }
     }
-    const src = URL.createObjectURL(file);
+    let src;
+    try {
+      src = await fileToDataUrl(file);
+    } catch {
+      toast && toast('No se pudo leer el archivo', 'warn');
+      return;
+    }
+    if (!src) {
+      toast && toast('No se pudo leer el archivo', 'warn');
+      return;
+    }
     await new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -1656,7 +1738,6 @@
       };
       img.onerror = () => {
         toast && toast('No se pudo cargar el archivo', 'warn');
-        try { URL.revokeObjectURL(src); } catch { /* ignore */ }
         resolve();
       };
       img.src = src;
@@ -1977,6 +2058,8 @@
         <label class="ied-field">Alto
           <input type="number" id="ied-p-h" min="20" max="${stageH}" value="${L.h}">
         </label>
+        <button type="button" class="ied-chip" id="ied-p-slice" style="width:100%;margin-top:4px">✂ Cortar región a capa</button>
+        <p class="ied-muted" style="margin:4px 0 0">Una PNG no tiene capas internas: marca un rectángulo para separar un trozo.</p>
         ${lockField}
         ${actions}`;
       $('ied-p-motion').value = L.motion || 'off';
@@ -1987,6 +2070,7 @@
       $('ied-p-motion').onchange = () => { L.motion = $('ied-p-motion').value; renderStage(); pushSnapshot(); };
       $('ied-p-w').onchange = () => { L.w = clamp(parseInt($('ied-p-w').value, 10) || L.w, 20, stageW); renderStage(); pushSnapshot(); };
       $('ied-p-h').onchange = () => { L.h = clamp(parseInt($('ied-p-h').value, 10) || L.h, 20, stageH); renderStage(); pushSnapshot(); };
+      $('ied-p-slice')?.addEventListener('click', () => setSliceMode(true));
     }
     wireLockProp(L);
     const frontBtn = $('ied-p-front');
@@ -2014,6 +2098,120 @@
     };
   }
 
+  function setSliceMode(on) {
+    sliceMode = !!on;
+    if (!sliceMode) sliceDrag = null;
+    const btn = $('ied-slice-tool');
+    if (btn) btn.classList.toggle('is-active', sliceMode);
+    const st = stage();
+    if (st) st.classList.toggle('ied-slice-mode', sliceMode);
+    updateSliceOverlay(null);
+    if (sliceMode) {
+      toast && toast('Cortar: clic en la imagen y arrastra el rectángulo. Esc para salir.', 'ok');
+    }
+  }
+
+  function updateSliceOverlay(r) {
+    const st = stage();
+    if (!st) return;
+    let ov = st.querySelector('.ied-slice-overlay');
+    if (!r || r.w < 2 || r.h < 2) {
+      ov?.remove();
+      return;
+    }
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.className = 'ied-slice-overlay';
+      st.appendChild(ov);
+    }
+    ov.style.left = Math.round(r.x) + 'px';
+    ov.style.top = Math.round(r.y) + 'px';
+    ov.style.width = Math.round(r.w) + 'px';
+    ov.style.height = Math.round(r.h) + 'px';
+  }
+
+  function sliceRectFromDrag() {
+    if (!sliceDrag) return null;
+    const x1 = Math.min(sliceDrag.startX, sliceDrag.curX);
+    const y1 = Math.min(sliceDrag.startY, sliceDrag.curY);
+    const x2 = Math.max(sliceDrag.startX, sliceDrag.curX);
+    const y2 = Math.max(sliceDrag.startY, sliceDrag.curY);
+    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  }
+
+  async function applySliceFromDrag() {
+    const r = sliceRectFromDrag();
+    const layerId = sliceDrag?.layerId;
+    sliceDrag = null;
+    updateSliceOverlay(null);
+    if (!r || r.w < 8 || r.h < 8) {
+      toast && toast('Arrastra un área más grande para cortar', 'warn');
+      return;
+    }
+    const L = getLayer(layerId);
+    if (!L || L.type !== 'image' || !L.src) {
+      toast && toast('Selecciona una capa de imagen', 'warn');
+      return;
+    }
+    // Intersección con la capa
+    const ix = Math.max(L.x, r.x);
+    const iy = Math.max(L.y, r.y);
+    const ix2 = Math.min(L.x + L.w, r.x + r.w);
+    const iy2 = Math.min(L.y + L.h, r.y + r.h);
+    const rw = ix2 - ix;
+    const rh = iy2 - iy;
+    if (rw < 8 || rh < 8) {
+      toast && toast('El corte debe estar sobre la imagen', 'warn');
+      return;
+    }
+    try {
+      const img = await loadImage(L.src);
+      const nw = img.naturalWidth || img.width;
+      const nh = img.naturalHeight || img.height;
+      if (!nw || !nh) throw new Error('sin tamaño');
+      const sx = ((ix - L.x) / L.w) * nw;
+      const sy = ((iy - L.y) / L.h) * nh;
+      const sw = (rw / L.w) * nw;
+      const sh = (rh / L.h) * nh;
+
+      const cut = document.createElement('canvas');
+      cut.width = Math.max(1, Math.round(sw));
+      cut.height = Math.max(1, Math.round(sh));
+      cut.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, cut.width, cut.height);
+      const cutSrc = cut.toDataURL('image/png');
+
+      // Quitar el trozo de la imagen original (hueco transparente)
+      const full = document.createElement('canvas');
+      full.width = nw;
+      full.height = nh;
+      const fctx = full.getContext('2d');
+      fctx.drawImage(img, 0, 0);
+      fctx.clearRect(sx, sy, sw, sh);
+      L.src = full.toDataURL('image/png');
+      L.isGif = false;
+      delete L.gifBytes;
+
+      const NL = {
+        id: uid(),
+        type: 'image',
+        name: (L.name || 'Imagen') + ' · corte',
+        src: cutSrc,
+        motion: 'off',
+        x: Math.round(ix),
+        y: Math.round(iy),
+        w: Math.round(rw),
+        h: Math.round(rh),
+      };
+      layers.push(NL);
+      selectLayer(NL.id);
+      renderAll();
+      pushSnapshot();
+      toast && toast('Trozo separado como capa nueva. Repite para más botones.', 'ok');
+    } catch (err) {
+      toast && toast('No se pudo cortar esta imagen', 'warn');
+    }
+  }
+
   function onLayerPointerDown(e) {
     if (e.button != null && e.button !== 0) return;
     const el = e.currentTarget;
@@ -2022,8 +2220,23 @@
     if (!L) return;
     if (L.locked) return;
     selectLayer(id);
-    const handle = e.target.closest?.('.ied-handle');
     const p = stagePointFromEvent(e);
+
+    if (sliceMode) {
+      if (L.type !== 'image' || !L.src) {
+        toast && toast('Cortar solo funciona en capas de imagen', 'warn');
+        return;
+      }
+      drag = null;
+      sliceDrag = { layerId: id, startX: p.x, startY: p.y, curX: p.x, curY: p.y };
+      updateSliceOverlay({ x: p.x, y: p.y, w: 0, h: 0 });
+      el.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    const handle = e.target.closest?.('.ied-handle');
     drag = {
       id,
       mode: handle ? ('resize-' + handle.dataset.handle) : 'move',
@@ -2037,6 +2250,13 @@
   }
 
   function onPointerMove(e) {
+    if (sliceDrag) {
+      const p = stagePointFromEvent(e);
+      sliceDrag.curX = p.x;
+      sliceDrag.curY = p.y;
+      updateSliceOverlay(sliceRectFromDrag());
+      return;
+    }
     if (!drag) return;
     const L = getLayer(drag.id);
     if (!L) return;
@@ -2081,6 +2301,10 @@
   }
 
   function onPointerUp() {
+    if (sliceDrag) {
+      applySliceFromDrag();
+      return;
+    }
     if (!drag) return;
     if (drag.moved) pushSnapshot();
     drag = null;
@@ -2601,6 +2825,7 @@
 
     $('ied-add-text')?.addEventListener('click', () => addTextLayer());
     $('ied-add-icon')?.addEventListener('click', () => $('ied-icon-file')?.click());
+    $('ied-slice-tool')?.addEventListener('click', () => setSliceMode(!sliceMode));
     $('ied-icon-file')?.addEventListener('change', (e) => {
       const list = e.target.files;
       if (list && list.length) addImagesFromFiles(list).catch(() => {});
@@ -2636,17 +2861,21 @@
     $('ied-bg-g2')?.addEventListener('input', () => { if (bgMode === 'gradient') applyStageBackground(); });
     $('ied-bg-g2')?.addEventListener('change', () => pushSnapshot());
     $('ied-bg-pick')?.addEventListener('click', () => $('ied-bg-file')?.click());
-    $('ied-bg-file')?.addEventListener('change', (e) => {
+    $('ied-bg-file')?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      try { if (bgImageSrc?.startsWith('blob:')) URL.revokeObjectURL(bgImageSrc); } catch { /* ignore */ }
-      bgImageSrc = URL.createObjectURL(file);
-      bgMode = 'image';
-      const modeSel = $('ied-bg-mode');
-      if (modeSel) modeSel.value = 'image';
-      syncBgModeUi();
-      applyStageBackground();
-      pushSnapshot();
+      try {
+        const data = await fileToDataUrl(file);
+        bgImageSrc = data;
+        bgMode = 'image';
+        const modeSel = $('ied-bg-mode');
+        if (modeSel) modeSel.value = 'image';
+        syncBgModeUi();
+        applyStageBackground();
+        pushSnapshot();
+      } catch {
+        toast && toast('No se pudo cargar el fondo', 'warn');
+      }
       e.target.value = '';
     });
 
@@ -2717,6 +2946,11 @@
       if (!$('view-editor')?.classList.contains('active')) return;
       const tag = (e.target && e.target.tagName) || '';
       const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (e.key === 'Escape' && (sliceMode || sliceDrag)) {
+        e.preventDefault();
+        setSliceMode(false);
+        return;
+      }
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();

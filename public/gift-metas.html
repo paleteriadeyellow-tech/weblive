@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Metas de regalos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Exo+2:wght@700;800;900&family=Inter:wght@600;700;800;900&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; overflow: hidden; background: transparent !important;
+      font-family: var(--ggm-font, 'Montserrat', system-ui, sans-serif);
+    }
+    html.embed, html.embed body { width: 100%; height: 100%; }
+    html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.embed .root { transform: scale(var(--fit, 1)); transform-origin: center center; }
+
+    .root {
+      --ggm-scale: 1;
+      --icon: 92px;
+      --gap: 22px;
+      --label: #ffffff;
+      --count: #ffffff;
+      --track: rgba(255, 255, 255, 0.16);
+      --b1: #22d3ee;
+      --b2: #e879f9;
+      --b3: #a855f7;
+      padding: 14px;
+      transform: scale(var(--ggm-scale));
+      transform-origin: top left;
+    }
+
+    .list {
+      display: flex;
+      gap: var(--gap);
+      align-items: stretch;
+    }
+    .root[data-layout="vertical"] .list {
+      flex-direction: column;
+      width: min(280px, 92vw);
+      align-items: center;
+    }
+    .root[data-layout="horizontal"] .list {
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: flex-end;
+      max-width: none;
+    }
+    .root[data-layout="banda"] {
+      width: min(1100px, 96vw);
+      overflow: hidden;
+      mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+    }
+    .root[data-layout="banda"] .list {
+      flex-direction: row;
+      flex-wrap: nowrap;
+      align-items: flex-end;
+      width: max-content;
+      animation: ggm-marquee var(--banda-sec, 22s) linear infinite;
+    }
+    .root[data-layout="banda"] .list:hover { animation-play-state: paused; }
+    @keyframes ggm-marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* Banda vertical (marquee hacia arriba) */
+    .root[data-layout="banda-vertical"] {
+      width: min(280px, 92vw);
+      height: min(640px, 92vh);
+      overflow: hidden;
+      mask-image: linear-gradient(180deg, transparent, #000 8%, #000 92%, transparent);
+      -webkit-mask-image: linear-gradient(180deg, transparent, #000 8%, #000 92%, transparent);
+    }
+    .root[data-layout="banda-vertical"] .list {
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: center;
+      width: 100%;
+      height: max-content;
+      animation: ggm-marquee-v var(--banda-sec, 22s) linear infinite;
+    }
+    .root[data-layout="banda-vertical"] .list:hover { animation-play-state: paused; }
+    @keyframes ggm-marquee-v {
+      from { transform: translateY(0); }
+      to { transform: translateY(-50%); }
+    }
+
+    /* Tarjeta en progreso — marco semitransparente */
+    .item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 168px;
+      padding: 14px 12px 12px;
+      border-radius: 20px;
+      background: rgba(10, 12, 20, var(--card-alpha, 0.48));
+      border: 1.5px solid rgba(255, 255, 255, calc(0.08 + var(--card-alpha, 0.48) * 0.35));
+      box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.32),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+    }
+    .root[data-layout="vertical"] .item,
+    .root[data-layout="banda-vertical"] .item { width: 100%; max-width: 220px; }
+    .root[data-layout="horizontal"] .item,
+    .root[data-layout="banda"] .item { flex: 0 0 auto; width: 156px; }
+    .root[data-layout="banda-vertical"] .item { flex: 0 0 auto; }
+
+    .item.is-bump { animation: ggm-bump .38s cubic-bezier(.2,.9,.3,1.2); }
+    @keyframes ggm-bump {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.07); }
+      100% { transform: scale(1); }
+    }
+    .item.is-reveal {
+      animation: ggm-reveal .7s cubic-bezier(.2,.85,.3,1.15);
+    }
+    @keyframes ggm-reveal {
+      0% { transform: scale(0.86) rotate(-2deg); filter: brightness(1.4); }
+      55% { transform: scale(1.08); filter: brightness(1.25); }
+      100% { transform: scale(1); filter: none; }
+    }
+
+    .icon-wrap {
+      position: relative;
+      width: var(--icon); height: var(--icon);
+      display: grid; place-items: center;
+      filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5));
+    }
+    .icon-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 18% 10% auto;
+      height: 55%;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(255,255,255,.12), transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .icon-wrap img {
+      position: relative;
+      z-index: 1;
+      width: 100%; height: 100%; object-fit: contain;
+      animation: ggm-float 3.6s ease-in-out infinite;
+    }
+    @keyframes ggm-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-7px); }
+    }
+    .icon-ph { position: relative; z-index: 1; font-size: calc(var(--icon) * 0.55); }
+
+    .progress-row {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 2px;
+    }
+    .bar {
+      flex: 1;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--track);
+      overflow: hidden;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--b1), var(--b2), var(--b3));
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.55), 0 0 16px rgba(232, 121, 249, 0.35);
+      transition: width .45s cubic-bezier(.2,.8,.2,1);
+    }
+    .count {
+      flex: 0 0 auto;
+      min-width: 2.8em;
+      text-align: right;
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: .01em;
+      color: var(--count);
+      text-shadow: 0 1px 3px rgba(0,0,0,.75);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .label {
+      margin: 0;
+      width: 100%;
+      text-align: center;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--label);
+      line-height: 1.2;
+      text-shadow: 0 1px 4px rgba(0,0,0,.75);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Completado — dorado, mismo tamaño que incompleta */
+    .item.is-done {
+      padding: 14px 12px 12px;
+      gap: 8px;
+      min-height: 0;
+      justify-content: flex-start;
+      background:
+        radial-gradient(120% 100% at 50% 0%, rgba(255, 214, 102, 0.42), transparent 58%),
+        rgba(28, 22, 10, calc(0.55 + var(--card-alpha, 0.48) * 0.35));
+      border: 1.5px solid rgba(255, 214, 102, 0.72);
+      box-shadow:
+        0 0 0 1px rgba(255, 236, 170, 0.22) inset,
+        0 0 22px rgba(255, 196, 60, 0.5),
+        0 0 48px rgba(255, 170, 0, 0.3),
+        0 14px 32px rgba(0, 0, 0, 0.4);
+      animation: ggm-gold-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes ggm-gold-pulse {
+      0%, 100% {
+        box-shadow:
+          0 0 0 1px rgba(255, 236, 170, 0.2) inset,
+          0 0 20px rgba(255, 196, 60, 0.4),
+          0 0 42px rgba(255, 170, 0, 0.22),
+          0 14px 32px rgba(0, 0, 0, 0.4);
+      }
+      50% {
+        box-shadow:
+          0 0 0 1px rgba(255, 246, 200, 0.35) inset,
+          0 0 28px rgba(255, 210, 80, 0.65),
+          0 0 56px rgba(255, 180, 20, 0.38),
+          0 14px 32px rgba(0, 0, 0, 0.4);
+      }
+    }
+    .item.is-done .progress-row,
+    .item.is-done .icon-wrap { display: none; }
+
+    .done-top {
+      position: relative;
+      width: var(--icon);
+      height: var(--icon);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .done-avatar {
+      width: calc(var(--icon) * 0.82);
+      height: calc(var(--icon) * 0.82);
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2.5px solid #ffe08a;
+      box-shadow:
+        0 0 0 3px rgba(255, 196, 60, 0.35),
+        0 0 16px rgba(255, 200, 60, 0.5),
+        0 6px 14px rgba(0,0,0,.4);
+    }
+    .done-avatar-ph {
+      width: calc(var(--icon) * 0.82);
+      height: calc(var(--icon) * 0.82);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      background: linear-gradient(145deg, #ffe08a, #d4a017 55%, #a16207);
+      border: 2.5px solid #fff3c4;
+      box-shadow: 0 0 16px rgba(255, 200, 60, 0.5);
+      font-size: calc(var(--icon) * 0.32);
+      color: #fff8e7;
+      text-shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+    .done-gift {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+    }
+    .done-gift-ico {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,.45));
+    }
+    .done-gift-ph {
+      font-size: 28px;
+      line-height: 1;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,.4));
+    }
+    .done-name {
+      margin: 0;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #fff8e7;
+      text-align: center;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow:
+        0 0 12px rgba(255, 200, 60, 0.55),
+        0 2px 6px rgba(0,0,0,.55);
+    }
+    .done-gift-label {
+      margin: 0;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #ffe9a8;
+      text-align: center;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0,0,0,.65);
+    }
+    .done-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 2px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255, 214, 102, 0.28), rgba(212, 160, 23, 0.22));
+      border: 1px solid rgba(255, 214, 102, 0.7);
+      color: #fff3c4;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      box-shadow: 0 0 12px rgba(255, 196, 60, 0.35);
+    }
+    .empty {
+      color: rgba(255,255,255,.7);
+      font-weight: 700;
+      font-size: 14px;
+      padding: 24px;
+      text-align: center;
+      text-shadow: 0 1px 4px rgba(0,0,0,.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="root" id="root" data-layout="vertical">
+    <div class="list" id="list"></div>
+  </div>
+
+  <script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  const FONTS = {
+    montserrat: "'Montserrat', system-ui, sans-serif",
+    poppins: "'Poppins', system-ui, sans-serif",
+    inter: "'Inter', system-ui, sans-serif",
+    rubik: "'Rubik', system-ui, sans-serif",
+    exo2: "'Exo 2', system-ui, sans-serif",
+    orbitron: "'Orbitron', system-ui, sans-serif",
+    bebas: "'Bebas Neue', Impact, sans-serif",
+    bangers: "'Bangers', system-ui, sans-serif",
+    system: 'system-ui, sans-serif',
+  };
+
+  let cfg = {
+    layout: 'vertical',
+    scale: 100,
+    iconSize: 78,
+    gap: 18,
+    font: 'montserrat',
+    labelColor: '#ffffff',
+    countColor: '#ffffff',
+    barTrack: 'rgba(255,255,255,0.14)',
+    bar1: '#22d3ee',
+    bar2: '#e879f9',
+    bar3: '#a855f7',
+    showCompleted: true,
+    bandaSec: 22,
+    cardOpacity: 48,
+    items: [],
+  };
+  /** @type {Record<string, { count: number, completer?: { nickname?: string, avatar?: string } }>} */
+  let progress = {};
+  let lastBumpId = '';
+  let testGen = 0;
+  let testing = false;
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s || '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+
+  function applyStyle() {
+    const root = $('root');
+    const layout = ['vertical', 'horizontal', 'banda', 'banda-vertical'].includes(cfg.layout) ? cfg.layout : 'vertical';
+    root.dataset.layout = layout;
+    root.style.setProperty('--ggm-scale', String(Math.max(0.6, Math.min(1.4, (Number(cfg.scale) || 100) / 100))));
+    root.style.setProperty('--icon', Math.max(48, Math.min(140, Number(cfg.iconSize) || 92)) + 'px');
+    root.style.setProperty('--gap', Math.max(8, Math.min(40, Number(cfg.gap) || 22)) + 'px');
+    root.style.setProperty('--label', cfg.labelColor || '#ffffff');
+    root.style.setProperty('--count', cfg.countColor || '#ffffff');
+    root.style.setProperty('--track', cfg.barTrack || 'rgba(255,255,255,0.14)');
+    root.style.setProperty('--b1', cfg.bar1 || '#22d3ee');
+    root.style.setProperty('--b2', cfg.bar2 || '#e879f9');
+    root.style.setProperty('--b3', cfg.bar3 || '#a855f7');
+    root.style.setProperty('--banda-sec', Math.max(8, Math.min(90, Number(cfg.bandaSec) || 22)) + 's');
+    const alpha = Math.max(0.08, Math.min(0.95, (Number(cfg.cardOpacity) || 48) / 100));
+    root.style.setProperty('--card-alpha', String(alpha));
+    const fontKey = FONTS[cfg.font] ? cfg.font : 'montserrat';
+    root.style.setProperty('--ggm-font', FONTS[fontKey]);
+    document.documentElement.style.setProperty('--ggm-font', FONTS[fontKey]);
+  }
+
+  function itemProgress(it) {
+    const goal = Math.max(1, Number(it.goal) || 10);
+    const p = progress[it.id] || {};
+    const count = Math.max(0, Math.min(goal, Number(p.count) || 0));
+    const done = count >= goal;
+    return { goal, count, done, completer: p.completer || null };
+  }
+
+  function renderItemHtml(it, p, forceBump, reveal) {
+    const label = (it.label || it.giftName || 'REGALO').toUpperCase();
+    const clsExtra = (forceBump ? ' is-bump' : '') + (reveal ? ' is-reveal' : '');
+    if (p.done && cfg.showCompleted !== false) {
+      const name = (p.completer && p.completer.nickname) || 'DONADOR';
+      const av = (p.completer && p.completer.avatar) || '';
+      const giftImg = (it.giftImage || '').trim();
+      const avHtml = av
+        ? `<img class="done-avatar" src="${esc(av)}" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=\\'done-avatar-ph\\'>✓</div>'">`
+        : `<div class="done-avatar-ph">✓</div>`;
+      const giftHtml = giftImg
+        ? `<img class="done-gift-ico" src="${esc(giftImg)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span class="done-gift-ph" style="display:none">🎁</span>`
+        : `<span class="done-gift-ph">🎁</span>`;
+      return `<div class="item is-done${clsExtra}" data-id="${esc(it.id)}">
+        <div class="done-top">${avHtml}</div>
+        <p class="done-name" title="${esc(name)}">${esc(name)}</p>
+        <div class="done-gift">
+          ${giftHtml}
+          <p class="done-gift-label" title="${esc(label)}">${esc(label)}</p>
+        </div>
+        <span class="done-badge">✓ COMPLETO</span>
+      </div>`;
+    }
+    const pct = Math.max(0, Math.min(100, Math.round((p.count / p.goal) * 100)));
+    const img = (it.giftImage || '').trim();
+    return `<div class="item${clsExtra}" data-id="${esc(it.id)}">
+      <div class="icon-wrap">
+        ${img
+          ? `<img src="${esc(img)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><span class="icon-ph" style="display:none">🎁</span>`
+          : `<span class="icon-ph">🎁</span>`}
+      </div>
+      <div class="progress-row">
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <div class="count">${p.count}/${p.goal}</div>
+      </div>
+      <p class="label" title="${esc(label)}">${esc(label)}</p>
+    </div>`;
+  }
+
+  function render(bumpId, revealId) {
+    applyStyle();
+    const list = $('list');
+    const items = Array.isArray(cfg.items) ? cfg.items.filter((x) => x && (x.giftId || x.giftName || x.id)) : [];
+    if (!items.length) {
+      list.innerHTML = '<div class="empty">Añade regalos en Configurar</div>';
+      return;
+    }
+    let html = items.map((it) => renderItemHtml(
+      it,
+      itemProgress(it),
+      bumpId && it.id === bumpId,
+      revealId && it.id === revealId
+    )).join('');
+    if ((cfg.layout === 'banda' || cfg.layout === 'banda-vertical') && items.length) {
+      html += items.map((it) => renderItemHtml(it, itemProgress(it), false, false)).join('');
+    }
+    list.innerHTML = html;
+    if (bumpId) {
+      lastBumpId = bumpId;
+      setTimeout(() => {
+        list.querySelectorAll('.is-bump').forEach((el) => el.classList.remove('is-bump'));
+      }, 400);
+    }
+  }
+
+  function mergeCfg(next) {
+    if (!next || typeof next !== 'object') return;
+    cfg = Object.assign({}, cfg, next);
+    if (Array.isArray(next.items)) cfg.items = next.items;
+  }
+
+  function applyProgressPayload(payload, bumpId) {
+    if (!payload || typeof payload !== 'object') return;
+    if (payload.counts && typeof payload.counts === 'object') {
+      const next = {};
+      for (const [id, v] of Object.entries(payload.counts)) {
+        next[id] = {
+          count: Math.max(0, Number(v?.count != null ? v.count : v) || 0),
+          completer: v?.completer || payload.completers?.[id] || null,
+        };
+      }
+      progress = next;
+    } else if (payload.progress && typeof payload.progress === 'object') {
+      progress = payload.progress;
+    }
+    if (payload.completers && typeof payload.completers === 'object') {
+      for (const [id, c] of Object.entries(payload.completers)) {
+        if (!progress[id]) progress[id] = { count: 0 };
+        progress[id].completer = c;
+      }
+    }
+    render(bumpId || '');
+  }
+
+  let testTimer;
+  // Avatares SVG embebidos (no dependen de internet / pravatar)
+  function demoAvatar(letter, c1, c2) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/>
+      </linearGradient></defs>
+      <circle cx="75" cy="75" r="75" fill="url(#g)"/>
+      <text x="75" y="92" text-anchor="middle" font-family="Montserrat,Arial,sans-serif"
+        font-size="64" font-weight="800" fill="#fff">${letter}</text>
+    </svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  const DEMO_DONORS = [
+    { nickname: 'ZELDRIS', avatar: demoAvatar('Z', '#f59e0b', '#b45309') },
+    { nickname: 'NOVA', avatar: demoAvatar('N', '#8b5cf6', '#4c1d95') },
+    { nickname: 'KAITO', avatar: demoAvatar('K', '#06b6d4', '#0e7490') },
+    { nickname: 'MIA', avatar: demoAvatar('M', '#ec4899', '#9d174d') },
+  ];
+
+  function runTest() {
+    const gen = ++testGen;
+    testing = true;
+    clearTimeout(testTimer);
+    const items = Array.isArray(cfg.items) ? cfg.items.filter((x) => x && x.id) : [];
+    if (!items.length) { testing = false; render(); return; }
+    progress = {};
+    items.forEach((it) => { progress[it.id] = { count: 0 }; });
+    render();
+
+    const wait = (ms) => new Promise((resolve) => {
+      clearTimeout(testTimer);
+      testTimer = setTimeout(resolve, ms);
+    });
+
+    (async () => {
+      let itemIdx = 0;
+      for (const it of items) {
+        if (gen !== testGen) return;
+        const goal = Math.max(1, Number(it.goal) || 10);
+        const steps = Math.min(goal, 10);
+        const stepSize = Math.max(1, Math.ceil(goal / steps));
+        const donor = DEMO_DONORS[itemIdx % DEMO_DONORS.length];
+        itemIdx++;
+        let count = 0;
+        while (count < goal) {
+          if (gen !== testGen) return;
+          count = Math.min(goal, count + stepSize);
+          const reached = count >= goal;
+          progress[it.id] = {
+            count,
+            // Al llegar a la meta ya pone donador + dorado en el mismo frame
+            completer: reached
+              ? { nickname: donor.nickname, avatar: donor.avatar }
+              : null,
+          };
+          render(it.id, reached ? it.id : '');
+          await wait(reached ? 450 : 240);
+        }
+        if (gen !== testGen) return;
+        // Mantener la tarjeta dorada visible un momento
+        await wait(1200);
+      }
+      if (gen === testGen) testing = false;
+    })().catch(() => { if (gen === testGen) testing = false; });
+  }
+
+  let ws, rt;
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings' && m.payload?.giftGoals) {
+        mergeCfg(m.payload.giftGoals);
+        if (!testing) render(lastBumpId);
+      } else if (m.type === 'giftGoals') {
+        if (!testing) applyProgressPayload(m.payload, m.payload?.bumpId || '');
+      } else if (m.type === 'giftGoalsTest') {
+        // En preview embed el Test llega por postMessage; WS es para OBS en vivo
+        if (!isEmbed) runTest();
+      } else if (m.type === 'giftGoalsReset') {
+        testGen++;
+        testing = false;
+        progress = {};
+        render();
+      }
+    };
+  }
+
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.kind !== 'giftgoals') return;
+    if (d.type === 'config') {
+      mergeCfg(d.config);
+      if (!testing) render();
+    } else if (d.type === 'progress') {
+      if (!testing) applyProgressPayload(d.payload || d, d.bumpId || '');
+    } else if (d.type === 'test') {
+      runTest();
+    } else if (d.type === 'reset') {
+      testGen++;
+      testing = false;
+      progress = {};
+      render();
+    }
+  });
+
+  if (isEmbed) {
+    document.documentElement.classList.add('embed');
+    const fit = () => {
+      const w = (cfg.layout === 'horizontal' || cfg.layout === 'banda') ? 980 : 340;
+      const h = (cfg.layout === 'vertical' || cfg.layout === 'banda-vertical') ? 640 : 220;
+      document.documentElement.style.setProperty('--fit', Math.min(window.innerWidth / w, window.innerHeight / h, 1));
+    };
+    fit();
+    window.addEventListener('resize', fit);
+  }
+
+  applyStyle();
+  if (isEmbed) {
+    // Demo visual en la tarjeta del panel
+    cfg.items = [
+      { id: 'd1', giftName: 'Doughnut', giftImage: '', label: 'DOUGHNUT', goal: 33 },
+      { id: 'd2', giftName: 'Finger Heart', giftImage: '', label: 'FINGER HEART', goal: 11 },
+      { id: 'd3', giftName: 'Cowboy Hat', giftImage: '', label: 'COWBOY HAT', goal: 20 },
+    ];
+    progress = {
+      d1: { count: 15 },
+      d2: { count: 0 },
+      d3: { count: 20, completer: { nickname: 'ZELDRIS', avatar: '' } },
+    };
+    render();
+  } else {
+    render();
+  }
+  connectWS();
+})();
+  </script>
+</body>
+</html>
