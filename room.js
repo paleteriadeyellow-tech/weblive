@@ -481,8 +481,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const pkBattle = {
     live: false,
     frozen: false,
-    host: { uniqueId: '', nickname: '', photo: '' },
-    rival: { uniqueId: '', nickname: '', photo: '' },
+    host: { uniqueId: '', nickname: '', photo: '', userId: '' },
+    rival: { uniqueId: '', nickname: '', photo: '', userId: '' },
     pointsHost: 0,
     pointsRival: 0,
     winsHost: 0,
@@ -2242,66 +2242,161 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function pkHostIdentity() {
     const uniqueId = String(followerCounter.uniqueId || state.username || '').replace(/^@/, '');
+    const roomOwner = (() => {
+      try {
+        const ri = connection?.roomInfo;
+        const d = ri?.data || ri || {};
+        return d?.owner || d?.user || d?.anchor || d?.liveRoom?.owner || ri?.user || null;
+      } catch { return null; }
+    })();
+    const userId = String(
+      pkBattle.host.userId
+      || roomOwner?.userId
+      || roomOwner?.id
+      || '',
+    ).replace(/^0$/, '');
     return {
       uniqueId,
       nickname: String(followerCounter.nickname || uniqueId || 'Yo'),
       photo: String(followerCounter.photo || ''),
+      userId,
     };
   }
   function pkAvatarFromThumb(img) {
     if (!img) return '';
+    if (typeof img === 'string') return img.trim();
     return pickImageUrl(img)
+      || (Array.isArray(img.url) && img.url[0])
       || (Array.isArray(img.urlList) && img.urlList[0])
       || (Array.isArray(img.url_list) && img.url_list[0])
+      || (typeof img.url === 'string' ? img.url : '')
       || '';
   }
+  function pkNormalizeParticipant(raw, key) {
+    if (!raw || typeof raw !== 'object') return null;
+    const u = raw.user || raw.battleGroup?.user || raw;
+    if (!u || typeof u !== 'object') return null;
+    const uniqueId = String(
+      u.displayId || u.display_id || u.uniqueId || u.unique_id || raw.uniqueId || '',
+    ).replace(/^@/, '');
+    const nickname = String(
+      u.nickName || u.nickname || raw.nickname || uniqueId || '',
+    );
+    const photo = pkAvatarFromThumb(
+      u.avatarThumb || u.avatar_thumb || u.profilePicture || u.profilePictureUrl
+      || raw.profilePictureUrl || raw.avatarThumb,
+    ) || String(getPhoto(u) || getPhoto(raw) || '');
+    let userId = String(u.userId || u.user_id || raw.userId || key || '').trim();
+    if (userId === '0') userId = '';
+    if (!uniqueId && !nickname && !userId && !photo) return null;
+    return {
+      userId,
+      uniqueId,
+      nickname: nickname || uniqueId || 'Rival',
+      photo: photo || '',
+    };
+  }
   function parsePkAnchors(data) {
-    const info = data?.anchorInfo || data?.anchors || {};
     const out = [];
-    if (!info || typeof info !== 'object') return out;
-    for (const [key, val] of Object.entries(info)) {
-      const u = val?.user || val;
-      if (!u || typeof u !== 'object') continue;
-      const uniqueId = String(u.displayId || u.uniqueId || u.display_id || '').replace(/^@/, '');
-      const nickname = String(u.nickName || u.nickname || uniqueId || '');
-      const photo = pkAvatarFromThumb(u.avatarThumb || u.avatar_thumb || u.profilePicture);
-      out.push({
-        userId: String(u.userId || u.user_id || key || ''),
-        uniqueId,
-        nickname: nickname || uniqueId || 'Rival',
-        photo: photo || '',
-      });
+    const seen = new Set();
+    const push = (raw, key) => {
+      const p = pkNormalizeParticipant(raw, key);
+      if (!p) return;
+      const sig = [normTikTokUser(p.userId), normTikTokUser(p.uniqueId), normTikTokUser(p.nickname)]
+        .filter(Boolean).join('|') || p.photo;
+      if (!sig || seen.has(sig)) return;
+      seen.add(sig);
+      out.push(p);
+    };
+    const info = data?.anchorInfo || data?.anchors;
+    if (info && typeof info === 'object' && !Array.isArray(info)) {
+      for (const [key, val] of Object.entries(info)) push(val, key);
+    }
+    const users = data?.battleUsers;
+    if (Array.isArray(users)) {
+      for (const u of users) push(u, u?.userId || u?.uniqueId || '');
     }
     return out;
   }
+  function pkIsSamePerson(a, b) {
+    if (!a || !b) return false;
+    const idsA = [a.userId, a.uniqueId].map(normTikTokUser).filter(Boolean);
+    const idsB = [b.userId, b.uniqueId].map(normTikTokUser).filter(Boolean);
+    if (idsA.some((id) => idsB.includes(id))) return true;
+    const nickA = normTikTokUser(a.nickname);
+    const nickB = normTikTokUser(b.nickname);
+    const placeholders = new Set(['', 'rival', 'yo', 'esperando', 'anonimo', 'host']);
+    if (!nickA || !nickB || placeholders.has(nickA) || placeholders.has(nickB)) return false;
+    return nickA === nickB;
+  }
+  function pkPickRival(anchors, host) {
+    const list = Array.isArray(anchors) ? anchors : [];
+    return list.find((a) => !pkIsSamePerson(a, host)) || null;
+  }
+  function pkApplyRival(rival, { resetWinsIfChanged } = {}) {
+    if (!rival) return false;
+    const nextKey = normTikTokUser(rival.uniqueId) || normTikTokUser(rival.nickname) || String(rival.userId || '');
+    let changed = false;
+    if (resetWinsIfChanged && nextKey && pkBattle.rivalKey && nextKey !== pkBattle.rivalKey) {
+      pkBattle.winsHost = 0;
+      pkBattle.winsRival = 0;
+      changed = true;
+    }
+    if (nextKey) pkBattle.rivalKey = nextKey;
+    const next = {
+      uniqueId: rival.uniqueId || pkBattle.rival.uniqueId || '',
+      nickname: rival.nickname || pkBattle.rival.nickname || 'Rival',
+      photo: rival.photo || pkBattle.rival.photo || '',
+      userId: rival.userId || pkBattle.rival.userId || '',
+    };
+    if (
+      next.uniqueId !== pkBattle.rival.uniqueId
+      || next.nickname !== pkBattle.rival.nickname
+      || next.photo !== pkBattle.rival.photo
+      || next.userId !== pkBattle.rival.userId
+    ) {
+      pkBattle.rival = next;
+      changed = true;
+    }
+    return changed;
+  }
+  /** Actualiza rival/host sin reiniciar puntos (ACCEPT tardío, armies, etc.). */
+  function enrichPkParticipants(anchors) {
+    const host = pkHostIdentity();
+    if (host.uniqueId && !pkBattle.host.uniqueId) pkBattle.host.uniqueId = host.uniqueId;
+    if (host.nickname && (!pkBattle.host.nickname || pkBattle.host.nickname === 'Yo')) {
+      pkBattle.host.nickname = host.nickname;
+    }
+    if (host.photo && !pkBattle.host.photo) pkBattle.host.photo = host.photo;
+    if (host.userId && !pkBattle.host.userId) pkBattle.host.userId = host.userId;
+    const rival = pkPickRival(anchors, { ...pkBattle.host, ...host });
+    const changed = pkApplyRival(rival, { resetWinsIfChanged: false });
+    if (changed) broadcastPkBattle(true);
+    return changed;
+  }
   function beginPkBattleRound(opts) {
     opts = opts || {};
+    const midJoin = !!opts.midJoin;
     const host = pkHostIdentity();
-    pkBattle.host = host;
+    // Conservar userId de host si mid-join ya lo tenía
+    if (midJoin && pkBattle.host.userId && !host.userId) host.userId = pkBattle.host.userId;
+    pkBattle.host = { ...host, photo: host.photo || pkBattle.host.photo || '' };
     const anchors = Array.isArray(opts.anchors) ? opts.anchors : [];
-    const hostNorm = normTikTokUser(host.uniqueId);
-    let rival = anchors.find((a) => {
-      const id = normTikTokUser(a.uniqueId);
-      const nick = normTikTokUser(a.nickname);
-      return (id && id !== hostNorm) || (nick && nick !== hostNorm && nick !== normTikTokUser(host.nickname));
-    }) || null;
+    let rival = pkPickRival(anchors, host);
     if (!rival && opts.rival) rival = opts.rival;
+    if (!rival && midJoin && (pkBattle.rival.uniqueId || pkBattle.rival.userId || pkBattle.rival.nickname !== 'Rival')) {
+      rival = { ...pkBattle.rival };
+    }
     if (!rival) {
       rival = { uniqueId: '', nickname: 'Rival', photo: '', userId: '' };
     }
-    const nextKey = normTikTokUser(rival.uniqueId) || normTikTokUser(rival.nickname) || String(rival.userId || '');
-    if (nextKey && pkBattle.rivalKey && nextKey !== pkBattle.rivalKey) {
-      pkBattle.winsHost = 0;
-      pkBattle.winsRival = 0;
+    pkApplyRival(rival, { resetWinsIfChanged: true });
+    if (opts.battleId) pkBattle.battleId = String(opts.battleId);
+    // Batalla nueva → puntos a 0. Entrar a media batalla → NO tocar puntos (los pone el marcador oficial).
+    if (!midJoin) {
+      pkBattle.pointsHost = 0;
+      pkBattle.pointsRival = 0;
     }
-    if (nextKey) pkBattle.rivalKey = nextKey;
-    pkBattle.rival = {
-      uniqueId: rival.uniqueId || '',
-      nickname: rival.nickname || 'Rival',
-      photo: rival.photo || '',
-    };
-    pkBattle.pointsHost = 0;
-    pkBattle.pointsRival = 0;
     pkBattle.live = true;
     pkBattle.frozen = false;
     broadcastPkBattle(true);
@@ -2315,13 +2410,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     else if (pkBattle.pointsRival > pkBattle.pointsHost) pkBattle.winsRival += 1;
     pkBattle.live = false;
     pkBattle.frozen = false;
+    // Conservamos battleId/rival/wins para la siguiente ronda vs el mismo
     broadcastPkBattle(true);
   }
   function resetPkBattleAll() {
     pkBattle.live = false;
     pkBattle.frozen = false;
-    pkBattle.host = { uniqueId: '', nickname: '', photo: '' };
-    pkBattle.rival = { uniqueId: '', nickname: '', photo: '' };
+    pkBattle.battleId = '';
+    pkBattle.host = { uniqueId: '', nickname: '', photo: '', userId: '' };
+    pkBattle.rival = { uniqueId: '', nickname: '', photo: '', userId: '' };
     pkBattle.pointsHost = 0;
     pkBattle.pointsRival = 0;
     pkBattle.winsHost = 0;
@@ -2331,57 +2428,128 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function addPkHostGiftPoints(diamonds) {
     const n = Math.max(0, Math.round(Number(diamonds) || 0));
-    if (!n || !pkBattle.live || pkBattle.frozen) return;
+    if (!n || !pkBattle.live) return;
     pkBattle.pointsHost += n;
     broadcastPkBattle(false);
   }
+  /** En PK de TikTok los likes (taptap) suman al marcador del host. */
+  function addPkHostLikePoints(likeCount) {
+    const n = Math.max(0, Math.round(Number(likeCount) || 0));
+    if (!n || !pkBattle.live) return;
+    pkBattle.pointsHost += n;
+    broadcastPkBattle(false);
+  }
+  function pkIdSet(...parts) {
+    const set = new Set();
+    for (const p of parts) {
+      const n = normTikTokUser(p);
+      if (n) set.add(n);
+      const raw = String(p || '').trim();
+      if (raw && raw !== '0') set.add(raw.toLowerCase());
+    }
+    return set;
+  }
+  /**
+   * Activa el marcador si hay PK en curso (p. ej. te conectaste a media batalla).
+   * No reinicia puntos: updatePkArmyScores pondrá el 30–20 real.
+   */
+  function ensurePkBattleFromArmies(data) {
+    const battleId = String(data?.battleId || '').trim();
+    const hasScores = !!(
+      (data?.battleItems && Object.keys(data.battleItems).length)
+      || (Array.isArray(data?.teamArmies) && data.teamArmies.length)
+    );
+    if (!hasScores && !battleId) return;
+    if (!pkBattle.live) {
+      beginPkBattleRound({
+        midJoin: true,
+        battleId,
+        anchors: parsePkAnchors(data),
+      });
+      return;
+    }
+    if (battleId && pkBattle.battleId && battleId !== pkBattle.battleId) {
+      // Nueva batalla sin evento OPEN (o nos perdimos el OPEN)
+      beginPkBattleRound({
+        midJoin: false,
+        battleId,
+        anchors: parsePkAnchors(data),
+      });
+      return;
+    }
+    if (battleId && !pkBattle.battleId) pkBattle.battleId = battleId;
+  }
   function updatePkArmyScores(data) {
-    if (!pkBattle.live || pkBattle.frozen) return;
-    const items = data?.battleItems;
-    if (!items || typeof items !== 'object') return;
-    const hostNorm = normTikTokUser(pkBattle.host.uniqueId || followerCounter.uniqueId || state.username);
-    const rivalNorm = normTikTokUser(pkBattle.rival.uniqueId);
+    // Siempre sincroniza el marcador oficial de TikTok (fuente de verdad).
+    ensurePkBattleFromArmies(data);
+    if (!pkBattle.live) return;
     let changed = false;
-    for (const [key, val] of Object.entries(items)) {
-      const score = Math.max(0, Number(val?.hostScore ?? val?.score ?? 0) || 0);
-      const keyNorm = normTikTokUser(key);
-      const anchor = String(val?.anchorIdStr || '');
-      const anchorNorm = normTikTokUser(anchor);
-      const isHost = (hostNorm && (keyNorm === hostNorm || anchorNorm === hostNorm))
-        || (!!followerCounter.uniqueId && String(key) === String(followerCounter.uniqueId));
-      const isRival = (rivalNorm && (keyNorm === rivalNorm || anchorNorm === rivalNorm))
-        || (!!pkBattle.rival.uniqueId && (String(key) === String(pkBattle.rival.uniqueId) || anchor === pkBattle.rival.uniqueId));
-      if (isHost && score >= pkBattle.pointsHost) {
-        pkBattle.pointsHost = score;
-        changed = true;
-      } else if (isRival && score >= pkBattle.pointsRival) {
-        pkBattle.pointsRival = score;
-        changed = true;
-      } else if (!isHost && !isRival && rivalNorm && score > 0) {
-        // Si solo hay 2 entradas y no matcheó host, la otra es rival
-        if (!isHost && score >= pkBattle.pointsRival) {
-          pkBattle.pointsRival = Math.max(pkBattle.pointsRival, score);
-          changed = true;
+    const hostIds = pkIdSet(
+      pkBattle.host.userId, pkBattle.host.uniqueId,
+      followerCounter.uniqueId, state.username,
+    );
+    const rivalIds = pkIdSet(pkBattle.rival.userId, pkBattle.rival.uniqueId);
+
+    if (Array.isArray(data?.teamArmies) && data.teamArmies.length) {
+      for (const team of data.teamArmies) {
+        const score = Math.max(0, Math.round(Number(team?.teamTotalScore ?? team?.score ?? 0)) || 0);
+        const teamUserIds = (team?.teamUsers || []).map((u) => String(u?.userId || u || ''));
+        const ids = pkIdSet(team?.userArmies?.anchorIdStr, team?.teamId, ...teamUserIds);
+        const isHost = [...ids].some((id) => hostIds.has(id));
+        if (isHost) {
+          if (score >= pkBattle.pointsHost) { pkBattle.pointsHost = score; changed = true; }
+        } else if (score > 0 || teamUserIds.length) {
+          if (score >= pkBattle.pointsRival) { pkBattle.pointsRival = score; changed = true; }
+          if (!pkBattle.rival.userId && teamUserIds[0]) {
+            pkBattle.rival.userId = String(teamUserIds[0]);
+            changed = true;
+          }
         }
       }
     }
-    // Fallback: 2 scores → mayor distinto al host va al rival
-    const scores = Object.entries(items).map(([k, v]) => ({
-      k,
-      score: Math.max(0, Number(v?.hostScore ?? v?.score ?? 0) || 0),
-    })).filter((x) => x.score > 0);
-    if (scores.length >= 2 && hostNorm) {
-      const hostEntry = scores.find((s) => normTikTokUser(s.k) === hostNorm);
-      const other = scores.find((s) => !hostEntry || s.k !== hostEntry.k);
+
+    const items = data?.battleItems;
+    if (items && typeof items === 'object') {
+      const entries = Object.entries(items).map(([k, v]) => {
+        const score = Math.max(0, Math.round(Number(v?.hostScore ?? v?.score ?? 0)) || 0);
+        const anchor = String(v?.anchorIdStr || '');
+        const ids = pkIdSet(k, anchor);
+        return {
+          k: String(k),
+          score,
+          anchor,
+          isHost: [...ids].some((id) => hostIds.has(id)),
+          isRival: [...ids].some((id) => rivalIds.has(id)),
+        };
+      });
+
+      let hostEntry = entries.find((e) => e.isHost) || null;
+      let rivalEntry = entries.find((e) => e.isRival) || null;
+      if (!hostEntry && entries.length === 2 && rivalEntry) {
+        hostEntry = entries.find((e) => e.k !== rivalEntry.k) || null;
+      }
+      if (!rivalEntry && entries.length === 2 && hostEntry) {
+        rivalEntry = entries.find((e) => e.k !== hostEntry.k) || null;
+      }
+      if (!hostEntry && !rivalEntry && entries.length === 2) {
+        const local = pkBattle.pointsHost;
+        hostEntry = (local > 0 && entries.find((e) => e.score >= local)) || entries[0];
+        rivalEntry = entries.find((e) => e.k !== hostEntry.k) || entries[1];
+      }
+      if (!hostEntry && entries.length === 1) hostEntry = entries[0];
+
       if (hostEntry && hostEntry.score >= pkBattle.pointsHost) {
         pkBattle.pointsHost = hostEntry.score;
         changed = true;
+        if (hostEntry.k && !pkBattle.host.userId) pkBattle.host.userId = hostEntry.k;
       }
-      if (other && other.score >= pkBattle.pointsRival) {
-        pkBattle.pointsRival = other.score;
+      if (rivalEntry && rivalEntry.score >= pkBattle.pointsRival) {
+        pkBattle.pointsRival = rivalEntry.score;
         changed = true;
+        if (rivalEntry.k && !pkBattle.rival.userId) pkBattle.rival.userId = rivalEntry.k;
       }
     }
+
     if (changed) broadcastPkBattle(false);
   }
 
@@ -7167,6 +7335,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       addRankLikes(baseUser(data.user), data.likeCount || 0);
       trackSessionLike(baseUser(data.user), data.likeCount || 0);
       broadcast('like', { ...baseUser(data.user), count: data.likeCount || 0, total: state.stats.likes });
+      addPkHostLikePoints(data.likeCount || 0);
       const likeUser = baseUser(data.user);
       const likeInfo = { likeCount: data.likeCount || 0 };
       forEachTriggerProfile((cfg) => triggerMarioActions('like', likeInfo, likeUser, cfg));
@@ -7378,6 +7547,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const isOpen = a === 4 || a === 'BATTLE_ACTION_OPEN';
         const isAccept = a === 7 || a === 'BATTLE_ACTION_ACCEPT';
         const isEnd = a === 5 || a === 6 || a === 'BATTLE_ACTION_FINISH' || a === 'BATTLE_ACTION_CUT_SHORT';
+        const anchors = parsePkAnchors(data);
+        const battleId = String(data?.battleId || '').trim();
         if (isOpen || isAccept) {
           state.inBattle = true;
           if (isOpen) {
@@ -7385,14 +7556,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             resetBattleMultiplierState();
             broadcast('log', { level: 'ok', text: '⚔️ Batalla PK iniciada' });
             fireBattleAlerts('battleStart', {});
-            beginPkBattleRound({ anchors: parsePkAnchors(data) });
+            beginPkBattleRound({ anchors, battleId });
           } else if (isAccept && !pkBattle.live) {
-            beginPkBattleRound({ anchors: parsePkAnchors(data) });
-          } else if (isAccept) {
-            const anchors = parsePkAnchors(data);
-            if (anchors.length) beginPkBattleRound({ anchors });
+            beginPkBattleRound({ anchors, battleId });
+          } else if (isAccept && pkBattle.live) {
+            if (battleId && !pkBattle.battleId) pkBattle.battleId = battleId;
+            if (anchors.length) enrichPkParticipants(anchors);
           }
-          syncBattleCountdown(data?.battleSetting);
+          if (pkBattle.live && anchors.length) enrichPkParticipants(anchors);
+          syncBattleCountdown(data?.battleSetting || data?.battleSettings);
         } else if (isEnd) {
           clearBattleCountdown();
           state.inBattle = false;
@@ -7400,6 +7572,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           broadcast('log', { level: 'info', text: '⚔️ Batalla PK finalizada' });
           fireBattleAlerts('battleEnd', {});
           endPkBattleRound();
+        } else if (anchors.length || battleId) {
+          // Update sin open/accept: si hay PK activo o marcador, engancharse
+          if (!pkBattle.live && (state.inBattle || anchors.length >= 2)) {
+            beginPkBattleRound({ midJoin: true, anchors, battleId });
+          } else if (pkBattle.live && anchors.length) {
+            enrichPkParticipants(anchors);
+          }
         }
         detectBattleMultiplier(data, 'LinkMicBattle');
       } catch {}
@@ -7409,8 +7588,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       try {
         state.inBattle = true;
         syncBattleCountdown(data?.battleSettings);
+        // Auto: si entras a media batalla, activa y copia el marcador real (30–20, etc.)
         updatePkArmyScores(data);
-        // Guante crítico / multiplicador en el aporte de ejército
         if (data?.triggerCriticalStrike) {
           detectBattleMultiplier(data, 'LinkMicArmies.crit');
         } else {
@@ -7894,39 +8073,39 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'giftVsControl':
         broadcast('giftVsControl', { action: data.gvsAction });
         break;
-      case 'testBatallaVs':
-        broadcast('pkBattleTest', {});
-        beginPkBattleRound({
-          rival: {
-            uniqueId: 'rival_demo',
-            nickname: 'Vianel',
-            photo: '/jarron/lv.png',
-          },
-        });
+      case 'testBatallaVs': {
+        const demoPhoto = '/jarron/lv.png';
+        pkBattle.live = true;
+        pkBattle.frozen = false;
+        pkBattle.battleId = 'demo';
+        pkBattle.rivalKey = 'rival_demo';
         pkBattle.host = {
           uniqueId: followerCounter.uniqueId || state.username || 'host',
-          nickname: followerCounter.nickname || 'GABY',
-          photo: followerCounter.photo || '/jarron/lv.png',
+          nickname: followerCounter.nickname || 'GABY 🏆',
+          photo: followerCounter.photo || demoPhoto,
+          userId: pkBattle.host.userId || '',
+        };
+        pkBattle.rival = {
+          uniqueId: 'rival_demo',
+          nickname: 'Vianel 🔸',
+          photo: demoPhoto,
+          userId: 'rival_demo',
         };
         pkBattle.pointsHost = 210;
         pkBattle.pointsRival = 57;
         pkBattle.winsHost = 0;
         pkBattle.winsRival = 0;
+        broadcast('pkBattleTest', {});
         broadcastPkBattle(true);
         break;
+      }
       case 'resetBatallaVs':
         resetPkBattleAll();
         broadcast('pkBattleReset', {});
         break;
       case 'startBatallaVs':
-        beginPkBattleRound({
-          rival: pkBattle.rival.uniqueId || pkBattle.rival.nickname
-            ? pkBattle.rival
-            : { uniqueId: '', nickname: 'Rival', photo: '' },
-        });
-        break;
       case 'stopBatallaVs':
-        pkBattle.frozen = true;
+        // El marcador es automático con el PK de TikTok; estos botones ya no hacen falta.
         broadcastPkBattle(true);
         break;
       case 'testFlowMeter':

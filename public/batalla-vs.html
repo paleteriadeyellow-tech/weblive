@@ -115,7 +115,6 @@
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
-    const isPreview = params.get('preview') === '1';
     const FALLBACK = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
     const DEMO = '/jarron/lv.png';
 
@@ -159,6 +158,16 @@
       void node.offsetWidth;
       node.classList.add('is-pop');
     }
+    function pickSide(src, fallbackNick) {
+      const s = src && typeof src === 'object' ? src : {};
+      return {
+        uniqueId: s.uniqueId != null ? String(s.uniqueId) : '',
+        nickname: (s.nickname != null && String(s.nickname).trim())
+          ? String(s.nickname)
+          : fallbackNick,
+        photo: s.photo != null ? String(s.photo) : '',
+      };
+    }
     function render(prev) {
       const p = prev || {};
       el.winsH.textContent = fmt(state.winsHost);
@@ -173,9 +182,9 @@
       if (p.pointsRival != null && Number(p.pointsRival) !== Number(state.pointsRival)) bump(el.ptsR);
       if (p.winsHost != null && Number(p.winsHost) !== Number(state.winsHost)) bump(el.winsH);
       if (p.winsRival != null && Number(p.winsRival) !== Number(state.winsRival)) bump(el.winsR);
-      el.status.classList.toggle('is-live', !!state.live && !state.frozen);
-      el.status.classList.toggle('is-frozen', !!state.frozen);
-      el.status.textContent = state.frozen ? 'STOP' : (state.live ? 'EN VIVO' : '');
+      el.status.classList.toggle('is-live', !!state.live);
+      el.status.classList.remove('is-frozen');
+      el.status.textContent = state.live ? 'EN VIVO' : '';
     }
     function applyState(payload) {
       if (!payload || typeof payload !== 'object') return;
@@ -183,21 +192,31 @@
         pointsHost: state.pointsHost, pointsRival: state.pointsRival,
         winsHost: state.winsHost, winsRival: state.winsRival,
       };
-      state.live = !!payload.live;
-      state.frozen = !!payload.frozen;
+      if (payload.live != null) state.live = !!payload.live;
+      if (payload.frozen != null) state.frozen = !!payload.frozen;
       if (payload.host) {
-        state.host = {
-          uniqueId: payload.host.uniqueId || '',
-          nickname: payload.host.nickname || state.host.nickname,
-          photo: payload.host.photo || '',
-        };
+        const next = pickSide(payload.host, state.host.nickname || 'Esperando…');
+        // Conservar foto/nombre previos si el payload viene vacío (update parcial)
+        if (!next.photo && state.host.photo) next.photo = state.host.photo;
+        if ((!next.nickname || next.nickname === 'Esperando…') && state.host.nickname) {
+          next.nickname = state.host.nickname;
+        }
+        if (!next.uniqueId && state.host.uniqueId) next.uniqueId = state.host.uniqueId;
+        state.host = next;
       }
       if (payload.rival) {
-        state.rival = {
-          uniqueId: payload.rival.uniqueId || '',
-          nickname: payload.rival.nickname || state.rival.nickname,
-          photo: payload.rival.photo || '',
-        };
+        const next = pickSide(payload.rival, state.rival.nickname || 'Rival');
+        if (!next.photo && state.rival.photo) next.photo = state.rival.photo;
+        if ((!next.nickname || next.nickname === 'Rival') && state.rival.nickname && state.rival.nickname !== 'Rival') {
+          next.nickname = state.rival.nickname;
+        }
+        if (!next.uniqueId && state.rival.uniqueId) next.uniqueId = state.rival.uniqueId;
+        // Si llega foto/nombre reales, siempre sustituyen el placeholder
+        if (payload.rival.photo) next.photo = String(payload.rival.photo);
+        if (payload.rival.nickname && String(payload.rival.nickname).trim() && String(payload.rival.nickname) !== 'Rival') {
+          next.nickname = String(payload.rival.nickname);
+        }
+        state.rival = next;
       }
       if (payload.pointsHost != null) state.pointsHost = Number(payload.pointsHost) || 0;
       if (payload.pointsRival != null) state.pointsRival = Number(payload.pointsRival) || 0;
@@ -221,6 +240,24 @@
         pointsHost: 210, pointsRival: 57, winsHost: 0, winsRival: 0,
       });
     }
+    function startLocal() {
+      const hostOk = !!(state.host.uniqueId || (state.host.nickname && state.host.nickname !== 'Esperando…'));
+      const rivalOk = !!(state.rival.uniqueId || (state.rival.nickname && state.rival.nickname !== 'Rival'));
+      applyState({
+        live: true,
+        frozen: false,
+        host: hostOk ? state.host : { uniqueId: 'host', nickname: 'Tú', photo: DEMO },
+        rival: rivalOk ? state.rival : { uniqueId: '', nickname: 'Rival', photo: '' },
+        pointsHost: 0,
+        pointsRival: 0,
+        winsHost: state.winsHost,
+        winsRival: state.winsRival,
+      });
+    }
+    function stopLocal() {
+      state.frozen = true;
+      render();
+    }
 
     let ws, reconnectTimer;
     function connectWS() {
@@ -233,7 +270,7 @@
         const { type, payload } = msg;
         if (type === 'pkBattle') applyState(payload);
         else if (type === 'pkBattleReset') resetLocal();
-        else if (type === 'pkBattleTest') { if (!isEmbed) demo(); }
+        else if (type === 'pkBattleTest') demo();
         else if (type === 'state' && payload && !state.host.photo) {
           if (payload.photo || payload.nickname) {
             state.host.photo = payload.photo || state.host.photo;
@@ -252,12 +289,10 @@
       if (!d || d.kind !== 'batallaVs') return;
       if (d.type === 'test') demo();
       else if (d.type === 'reset') resetLocal();
+      else if (d.type === 'start') startLocal();
+      else if (d.type === 'stop') stopLocal();
       else if (d.type === 'config' && d.payload) applyState(Object.assign({}, state, d.payload));
     });
-
-    if (isPreview || isEmbed) {
-      setTimeout(demo, 400);
-    }
   })();
   </script>
 </body>

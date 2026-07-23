@@ -5332,21 +5332,21 @@ function gvsPreviewWin() { return $('gvs-preview')?.contentWindow; }
 function gvsToPreview(msg) { gvsPreviewWin()?.postMessage({ kind: 'giftvs', ...msg }, '*'); }
 
 /* ---- Batalla VS (PK azul / amarillo) ---- */
-function bvsPreviewWin() { return $('bvs-preview')?.contentWindow; }
-function bvsToPreview(msg) { bvsPreviewWin()?.postMessage({ kind: 'batallaVs', ...msg }, '*'); }
+function bvsToPreview(msg) {
+  return ensureEmbedLoaded('bvs-preview').then((fr) => {
+    try { fr?.contentWindow?.postMessage({ kind: 'batallaVs', ...msg }, '*'); } catch {}
+    return fr;
+  });
+}
 (function setupBatallaVsCard() {
   if (!$('bvs-test')) return;
-  const sendAction = (action) => send({ action });
-  if ($('bvs-test')) $('bvs-test').onclick = () => {
-    bvsToPreview({ type: 'test' });
-    sendAction('testBatallaVs');
+  const run = (type, action) => {
+    bvsToPreview({ type });
+    if (ws?.readyState === 1) send({ action });
+    else toast('Conectando al panel… reintenta en un segundo', 'warn');
   };
-  if ($('bvs-reset')) $('bvs-reset').onclick = () => {
-    bvsToPreview({ type: 'reset' });
-    sendAction('resetBatallaVs');
-  };
-  if ($('bvs-start')) $('bvs-start').onclick = () => sendAction('startBatallaVs');
-  if ($('bvs-stop')) $('bvs-stop').onclick = () => sendAction('stopBatallaVs');
+  $('bvs-test').onclick = () => run('test', 'testBatallaVs');
+  if ($('bvs-reset')) $('bvs-reset').onclick = () => run('reset', 'resetBatallaVs');
 })();
 
 let gvsRowsDraft = [];
