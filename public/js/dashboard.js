@@ -7205,10 +7205,8 @@ function applyTtsUI(t) {
   const el = (t.elevenlabs && typeof t.elevenlabs === 'object') ? t.elevenlabs : {};
   set('tts-el-enabled', !!el.enabled);
   val('tts-el-apikey', el.apiKey || '');
-  ttsElFillVoiceSelect(
-    (el.voiceId ? [{ id: el.voiceId, name: el.voiceName || el.voiceId, category: '' }] : []),
-    el.voiceId || ''
-  );
+  // No pisar la lista cargada: reusar caché (si hay) y solo marcar la seleccionada.
+  ttsElFillVoiceSelect(ttsElVoicesCache.length ? ttsElVoicesCache : null, el.voiceId || '');
   val('tts-rate', t.rate ?? 1.2); const rv = $('tts-rate-val'); if (rv) rv.textContent = (+(t.rate ?? 1.2)).toFixed(1);
   val('tts-pitch', t.pitch ?? 1); const pv = $('tts-pitch-val'); if (pv) pv.textContent = (+(t.pitch ?? 1)).toFixed(1);
   val('tts-vol', t.volume ?? 1); const vv = $('tts-vol-val'); if (vv) vv.textContent = Math.round((t.volume ?? 1) * 100);
@@ -7929,12 +7927,32 @@ function ttsTriggerMatch(text) {
   }
 }
 
-function ttsSpeakText(text) {
+function ttsSyncElevenlabsFromDom() {
+  const el = ttsEnsureElevenlabs();
+  const en = $('tts-el-enabled');
+  const key = $('tts-el-apikey');
+  const voice = $('tts-el-voice');
+  if (en) el.enabled = !!en.checked;
+  if (key) el.apiKey = key.value.trim();
+  if (voice) {
+    el.voiceId = voice.value.trim();
+    const opt = voice.selectedOptions && voice.selectedOptions[0];
+    if (opt && el.voiceId) {
+      el.voiceName = String(opt.textContent || '').replace(/\s*\([^)]*\)\s*$/, '').trim() || el.voiceName;
+    }
+  }
+  return el;
+}
+
+function ttsSpeakText(text, opts = {}) {
+  // Antes de hablar: leer ElevenLabs del formulario (por si Probar sin haber hecho blur).
+  try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
   const t = settings?.tts || {};
   const phrase = String(text || '').trim();
   if (!phrase) return;
+  const force = !!(opts && opts.force);
   const now = Date.now();
-  if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
+  if (!force && phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
   // ElevenLabs (API del creador): solo si está activado y completo; si no, flujo normal.
@@ -8184,6 +8202,9 @@ function ttsEnsureElevenlabs() {
   return settings.tts.elevenlabs;
 }
 
+/** Lista de voces cargadas con «Cargar voces» (no se borra al elegir una). */
+let ttsElVoicesCache = [];
+
 function ttsElevenLabsReady(t) {
   const el = t?.elevenlabs;
   return !!(el && el.enabled && String(el.apiKey || '').trim() && String(el.voiceId || '').trim());
@@ -8218,7 +8239,19 @@ function ttsElSetStatus(msg, kind) {
 function ttsElFillVoiceSelect(voices, selectedId) {
   const sel = $('tts-el-voice');
   if (!sel) return;
-  const list = Array.isArray(voices) ? voices : [];
+  let list;
+  if (Array.isArray(voices) && voices.length) {
+    ttsElVoicesCache = voices.map((v) => ({
+      id: String(v.id || ''),
+      name: String(v.name || v.id || 'Voz'),
+      category: String(v.category || ''),
+    })).filter((v) => v.id);
+    list = ttsElVoicesCache;
+  } else if (ttsElVoicesCache.length) {
+    list = ttsElVoicesCache;
+  } else {
+    list = [];
+  }
   const cur = selectedId || ttsEnsureElevenlabs().voiceId || '';
   if (!list.length) {
     sel.innerHTML = cur
@@ -8329,7 +8362,10 @@ async function ttsElCloneVoice() {
     el.voiceName = name;
     el.enabled = true;
     const en = $('tts-el-enabled'); if (en) en.checked = true;
-    ttsElFillVoiceSelect([{ id: j.voiceId, name, category: 'cloned' }], j.voiceId);
+    if (!ttsElVoicesCache.some((v) => String(v.id) === String(j.voiceId))) {
+      ttsElVoicesCache = [{ id: j.voiceId, name, category: 'cloned' }, ...ttsElVoicesCache];
+    }
+    ttsElFillVoiceSelect(ttsElVoicesCache, j.voiceId);
     saveSettings();
     ttsElSetStatus(`Voz clonada: ${name}`, 'ok');
     toast('Voz clonada. Ya puedes usarla en el chat.', 'ok');
@@ -8846,7 +8882,18 @@ function openTtsWarnModal(onAccept) {
   refreshTtsUvUserSelect();
 
   const test = $('tts-test');
-  if (test) test.onclick = () => ttsSpeakText('Hola, así se escucha el chat por voz');
+  if (test) test.onclick = () => {
+    const el = ttsSyncElevenlabsFromDom();
+    try { saveSettings(); } catch { /* ignore */ }
+    if (el.enabled && !ttsElevenLabsReady({ elevenlabs: el })) {
+      toast('ElevenLabs está ON pero falta API key o voz. Pulsa ? o Cargar voces.', 'warn');
+      return;
+    }
+    if (ttsElevenLabsReady(settings.tts)) {
+      toast('Probando voz ElevenLabs…', 'ok');
+    }
+    ttsSpeakText('Hola, así se escucha el chat por voz', { force: true });
+  };
   const stop = $('tts-stop');
   if (stop) stop.onclick = () => { ttsHardStop(); };
 })();
