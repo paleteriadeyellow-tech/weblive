@@ -516,7 +516,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const rankPersist = Object.fromEntries(RANK_IDS.map((id) => [id, { period: 'live', start: 0, end: 0, users: new Map() }]));
   let rankSaveTimer = null;
   const lastRankPeriods = {};
-  const followerCounter = { count: 0, nickname: '', uniqueId: '', photo: '', ready: false };
+  const followerCounter = { count: 0, nickname: '', uniqueId: '', photo: '', userId: '', ready: false };
 
   let rankSnap = { likes: 0, diamonds: 0 };
   let rankLastTick = 0;
@@ -2242,17 +2242,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function pkHostIdentity() {
     const uniqueId = String(followerCounter.uniqueId || state.username || '').replace(/^@/, '');
-    const roomOwner = (() => {
-      try {
-        const ri = connection?.roomInfo;
-        const d = ri?.data || ri || {};
-        return d?.owner || d?.user || d?.anchor || d?.liveRoom?.owner || ri?.user || null;
-      } catch { return null; }
-    })();
     const userId = String(
       pkBattle.host.userId
-      || roomOwner?.userId
-      || roomOwner?.id
+      || followerCounter.userId
+      || pkRoomOwnerUserId()
       || '',
     ).replace(/^0$/, '');
     return {
@@ -2261,6 +2254,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       photo: String(followerCounter.photo || ''),
       userId,
     };
+  }
+  function pkRoomOwnerUserId() {
+    try {
+      const ri = connection?.roomInfo;
+      const d = ri?.data || ri || {};
+      const users = [
+        d?.owner, d?.user, d?.anchor, d?.liveRoom?.owner,
+        ri?.user, ri?.liveRoomUserInfo?.user, d?.owner_info, d?.ownerInfo,
+      ].filter(Boolean);
+      for (const u of users) {
+        const id = u.userId ?? u.user_id ?? u.id;
+        if (id != null && String(id) !== '0' && String(id) !== '') return String(id);
+      }
+    } catch {}
+    return '';
   }
   function pkAvatarFromThumb(img) {
     if (!img) return '';
@@ -2426,19 +2434,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     pkBattle.rivalKey = '';
     broadcastPkBattle(true);
   }
-  function addPkHostGiftPoints(diamonds) {
-    const n = Math.max(0, Math.round(Number(diamonds) || 0));
-    if (!n || !pkBattle.live) return;
-    pkBattle.pointsHost += n;
-    broadcastPkBattle(false);
+  function addPkHostGiftPoints(_diamonds) {
+    // Intencionalmente vacío: el marcador PK usa SOLO el score oficial de TikTok
+    // (LINK_MIC_ARMIES). Sumar regalos/likes aquí inflaba el marcador y bloqueaba
+    // la corrección al valor real (p. ej. 1365 local vs 44 oficial).
   }
-  /** En PK de TikTok los likes (taptap) suman al marcador del host. */
-  function addPkHostLikePoints(likeCount) {
-    const n = Math.max(0, Math.round(Number(likeCount) || 0));
-    if (!n || !pkBattle.live) return;
-    pkBattle.pointsHost += n;
-    broadcastPkBattle(false);
-  }
+  /** @deprecated likes/taptap ya vienen en hostScore del ejército PK */
+  function addPkHostLikePoints(_likeCount) {}
   function pkIdSet(...parts) {
     const set = new Set();
     for (const p of parts) {
@@ -2451,7 +2453,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   /**
    * Activa el marcador si hay PK en curso (p. ej. te conectaste a media batalla).
-   * No reinicia puntos: updatePkArmyScores pondrá el 30–20 real.
+   * No reinicia puntos: updatePkArmyScores pondrá el marcador oficial.
    */
   function ensurePkBattleFromArmies(data) {
     const battleId = String(data?.battleId || '').trim();
@@ -2469,7 +2471,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       return;
     }
     if (battleId && pkBattle.battleId && battleId !== pkBattle.battleId) {
-      // Nueva batalla sin evento OPEN (o nos perdimos el OPEN)
       beginPkBattleRound({
         midJoin: false,
         battleId,
@@ -2479,14 +2480,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     if (battleId && !pkBattle.battleId) pkBattle.battleId = battleId;
   }
+  function pkSetScore(side, score) {
+    const n = Math.max(0, Math.round(Number(score) || 0));
+    if (side === 'host') {
+      if (pkBattle.pointsHost !== n) { pkBattle.pointsHost = n; return true; }
+    } else if (pkBattle.pointsRival !== n) {
+      pkBattle.pointsRival = n;
+      return true;
+    }
+    return false;
+  }
   function updatePkArmyScores(data) {
-    // Siempre sincroniza el marcador oficial de TikTok (fuente de verdad).
+    // Fuente de verdad ABSOLUTA: hostScore / teamTotalScore de TikTok (likes + regalos).
     ensurePkBattleFromArmies(data);
     if (!pkBattle.live) return;
     let changed = false;
+
+    // Asegurar userId del host desde roomInfo si aún falta
+    if (!pkBattle.host.userId) {
+      const oid = pkRoomOwnerUserId() || followerCounter.userId;
+      if (oid) pkBattle.host.userId = oid;
+    }
+
     const hostIds = pkIdSet(
       pkBattle.host.userId, pkBattle.host.uniqueId,
-      followerCounter.uniqueId, state.username,
+      followerCounter.userId, followerCounter.uniqueId, state.username,
+      pkRoomOwnerUserId(),
     );
     const rivalIds = pkIdSet(pkBattle.rival.userId, pkBattle.rival.uniqueId);
 
@@ -2497,9 +2516,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const ids = pkIdSet(team?.userArmies?.anchorIdStr, team?.teamId, ...teamUserIds);
         const isHost = [...ids].some((id) => hostIds.has(id));
         if (isHost) {
-          if (score >= pkBattle.pointsHost) { pkBattle.pointsHost = score; changed = true; }
-        } else if (score > 0 || teamUserIds.length) {
-          if (score >= pkBattle.pointsRival) { pkBattle.pointsRival = score; changed = true; }
+          if (pkSetScore('host', score)) changed = true;
+        } else {
+          if (pkSetScore('rival', score)) changed = true;
           if (!pkBattle.rival.userId && teamUserIds[0]) {
             pkBattle.rival.userId = String(teamUserIds[0]);
             changed = true;
@@ -2512,7 +2531,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (items && typeof items === 'object') {
       const entries = Object.entries(items).map(([k, v]) => {
         const score = Math.max(0, Math.round(Number(v?.hostScore ?? v?.score ?? 0)) || 0);
-        const anchor = String(v?.anchorIdStr || '');
+        const anchor = String(v?.anchorIdStr || k || '');
         const ids = pkIdSet(k, anchor);
         return {
           k: String(k),
@@ -2525,32 +2544,43 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
       let hostEntry = entries.find((e) => e.isHost) || null;
       let rivalEntry = entries.find((e) => e.isRival) || null;
-      if (!hostEntry && entries.length === 2 && rivalEntry) {
-        hostEntry = entries.find((e) => e.k !== rivalEntry.k) || null;
-      }
-      if (!rivalEntry && entries.length === 2 && hostEntry) {
+
+      // 1v1: si solo matcheó un lado, el otro es el contrario
+      if (hostEntry && !rivalEntry && entries.length >= 2) {
         rivalEntry = entries.find((e) => e.k !== hostEntry.k) || null;
       }
-      if (!hostEntry && !rivalEntry && entries.length === 2) {
-        const local = pkBattle.pointsHost;
-        hostEntry = (local > 0 && entries.find((e) => e.score >= local)) || entries[0];
-        rivalEntry = entries.find((e) => e.k !== hostEntry.k) || entries[1];
+      if (rivalEntry && !hostEntry && entries.length >= 2) {
+        hostEntry = entries.find((e) => e.k !== rivalEntry.k) || null;
       }
-      if (!hostEntry && entries.length === 1) hostEntry = entries[0];
 
-      if (hostEntry && hostEntry.score >= pkBattle.pointsHost) {
-        pkBattle.pointsHost = hostEntry.score;
-        changed = true;
-        if (hostEntry.k && !pkBattle.host.userId) pkBattle.host.userId = hostEntry.k;
+      // Sin IDs aún pero hay exactamente 2 lados: NO adivinar por puntuación.
+      // Si tenemos userId de host, matchear; si no, intentar room owner otra vez.
+      if (!hostEntry && !rivalEntry && entries.length === 2) {
+        const oid = pkBattle.host.userId || pkRoomOwnerUserId() || followerCounter.userId;
+        if (oid) {
+          hostEntry = entries.find((e) => e.k === String(oid) || e.anchor === String(oid)) || null;
+          if (hostEntry) rivalEntry = entries.find((e) => e.k !== hostEntry.k) || null;
+        }
       }
-      if (rivalEntry && rivalEntry.score >= pkBattle.pointsRival) {
-        pkBattle.pointsRival = rivalEntry.score;
-        changed = true;
-        if (rivalEntry.k && !pkBattle.rival.userId) pkBattle.rival.userId = rivalEntry.k;
+
+      if (hostEntry) {
+        if (pkSetScore('host', hostEntry.score)) changed = true;
+        if (hostEntry.k && !pkBattle.host.userId) {
+          pkBattle.host.userId = hostEntry.k;
+          if (!followerCounter.userId) followerCounter.userId = hostEntry.k;
+          changed = true;
+        }
+      }
+      if (rivalEntry) {
+        if (pkSetScore('rival', rivalEntry.score)) changed = true;
+        if (rivalEntry.k && !pkBattle.rival.userId) {
+          pkBattle.rival.userId = rivalEntry.k;
+          changed = true;
+        }
       }
     }
 
-    if (changed) broadcastPkBattle(false);
+    if (changed) broadcastPkBattle(true);
   }
 
   /* ------------------------------- Batalla ------------------------------- */
@@ -6342,7 +6372,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       || '';
   }
   function extractFollowerFromRoomInfo(ri, username) {
-    const out = { count: null, nickname: '', uniqueId: username || '', photo: '' };
+    const out = { count: null, nickname: '', uniqueId: username || '', photo: '', userId: '' };
     if (!ri) return out;
     const d = ri.data || ri;
     const users = [d?.owner, d?.user, d?.anchor, d?.liveRoom?.owner, ri?.user, ri?.liveRoomUserInfo?.user].filter(Boolean);
@@ -6350,6 +6380,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (!out.nickname && u.nickname) out.nickname = u.nickname;
       if (!out.uniqueId && (u.uniqueId || u.display_id || u.displayId)) out.uniqueId = u.uniqueId || u.display_id || u.displayId;
       if (!out.photo) out.photo = pickAvatarUrl(u);
+      if (!out.userId) {
+        const id = u.userId ?? u.user_id ?? u.id;
+        if (id != null && String(id) !== '0') out.userId = String(id);
+      }
       const fc = Number(
         u?.follow_info?.follower_count ?? u?.followInfo?.followerCount
         ?? u?.stats?.followerCount ?? u?.follower_count ?? u?.followerCount,
@@ -6363,7 +6397,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return out;
   }
   function serializeFollowerCounter() {
-    return { count: followerCounter.count, nickname: followerCounter.nickname, uniqueId: followerCounter.uniqueId, photo: followerCounter.photo, ready: followerCounter.ready };
+    return { count: followerCounter.count, nickname: followerCounter.nickname, uniqueId: followerCounter.uniqueId, photo: followerCounter.photo, userId: followerCounter.userId, ready: followerCounter.ready };
   }
   function broadcastFollowerCounter() {
     broadcast('followerCounter', serializeFollowerCounter());
@@ -7579,6 +7613,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           } else if (pkBattle.live && anchors.length) {
             enrichPkParticipants(anchors);
           }
+        }
+        // Scores en battleResult (a veces llegan aquí además de armies)
+        if (pkBattle.live && data?.battleResult && typeof data.battleResult === 'object') {
+          const hostIds = pkIdSet(
+            pkBattle.host.userId, pkBattle.host.uniqueId,
+            followerCounter.userId, followerCounter.uniqueId, state.username, pkRoomOwnerUserId(),
+          );
+          let brChanged = false;
+          for (const [k, val] of Object.entries(data.battleResult)) {
+            const score = Math.max(0, Math.round(Number(val?.score ?? 0)) || 0);
+            const uid = String(val?.userId || k || '');
+            const ids = pkIdSet(k, uid);
+            if ([...ids].some((id) => hostIds.has(id))) {
+              if (pkSetScore('host', score)) brChanged = true;
+            } else {
+              if (pkSetScore('rival', score)) brChanged = true;
+              if (uid && !pkBattle.rival.userId) pkBattle.rival.userId = uid;
+            }
+          }
+          if (brChanged) broadcastPkBattle(true);
         }
         detectBattleMultiplier(data, 'LinkMicBattle');
       } catch {}
