@@ -120,6 +120,7 @@ export const CAPABILITIES = {
   // Características sueltas.
   extras: [
     { key: 'tts_tiktok', label: 'Voces TikTok / Disney (TTS)' },
+    { key: 'videos_ai', label: 'Videos AI (biblioteca de videos)' },
   ],
 };
 
@@ -145,6 +146,7 @@ function defaultConfig() {
   for (const k of allFeatureKeys()) freeFeatures[k] = true;
   // Por defecto, en gratis bloqueamos las voces TikTok (suelen ser premium).
   freeFeatures.tts_tiktok = false;
+  freeFeatures.videos_ai = false;
   freeFeatures.game_pvzhybrid = false;
   freeFeatures.game_repo = false;
   freeFeatures.game_l4d = false;
