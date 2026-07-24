@@ -1,4 +1,4 @@
-// Ajustes por defecto de cada room (usuario). Es la plantilla que se fusiona con
+﻿// Ajustes por defecto de cada room (usuario). Es la plantilla que se fusiona con
 // lo que cada usuario tenga guardado en su data/<id>/settings.json.
 export const DEFAULT_SETTINGS = {
   alerts: {
@@ -510,16 +510,12 @@ export const DEFAULT_SETTINGS = {
     showHeader: true, showCrown: true, showFx: true,
   },
   top1fire: {
-    headerTitle: 'MVP: Top 1 Donador',
-    headerRainbow: false,
-    hc1: '#ff6b35', hc2: '#ff4500', hc3: '#ffd700',
+    coinLabel: '',
+    font: 'inter',
+    showFx: true,
+    resetPeriod: 'live',
     ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
     valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
-    fc1: '#fff4a3', fc2: '#ff8c00', fc3: '#ff2200',
-    rc1: '#3d1500', rc2: '#1a0800',
-    coinLabel: '', font: 'inter',
-    showHeader: true, showCrown: true, showFx: true,
-    resetPeriod: 'live',
   },
   habibiTop: {
     headerTitle: 'HABIBI DEL MES',

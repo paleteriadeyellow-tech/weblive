@@ -22,20 +22,11 @@ html.embed body { display: flex; align-items: center; justify-content: center; }
 html.embed .stage { transform: scale(var(--fit, 1)); transform-origin: center center; }
 
 :root {
-    --hc1: #ff6b35;
-    --hc2: #ff4500;
-    --hc3: #ffd700;
     --ng1: #fff8f0;
     --ng2: #ffb347;
     --ng3: #ff4500;
     --vc: #ffe8d6;
     --vs: rgba(42, 10, 0, 0.9);
-    --cc: #ffd700;
-    --fc1: #fff4a3;
-    --fc2: #ff8c00;
-    --fc3: #ff2200;
-    --rc1: #3d1500;
-    --rc2: #1a0800;
     --tf-font-stack: 'Inter', system-ui, sans-serif;
     --tf-name-font-stack: 'Cinzel', 'Inter', serif;
 }
@@ -51,62 +42,6 @@ html.embed .stage { transform: scale(var(--fit, 1)); transform-origin: center ce
     padding: 12px 20px 20px;
 }
 
-.mvp-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 4px;
-    max-width: 92%;
-    position: relative;
-    z-index: 4;
-}
-
-.mvp-header .crown-inline {
-    font-size: 30px;
-    flex-shrink: 0;
-    line-height: 1;
-    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.55));
-}
-
-.mvp-header-title {
-    margin: 0;
-    font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif);
-    font-weight: 800;
-    font-size: 22px;
-    letter-spacing: 0.02em;
-    line-height: 1.15;
-    text-align: center;
-}
-
-.mvp-header-title--rainbow {
-    background: linear-gradient(92deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #e040fb, #ff1744);
-    background-size: 300% 100%;
-    animation: title-rainbow 4.5s linear infinite;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.5));
-}
-
-.mvp-header-title--gradient {
-    background: linear-gradient(100deg, var(--hc1), var(--hc2), var(--hc3));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45));
-}
-
-@keyframes title-rainbow {
-    0% { background-position: 0% 50%; }
-    100% { background-position: 100% 50%; }
-}
-
-body.no-header .mvp-header { display: none; }
-body.no-crown .mvp-header .crown-inline { display: none; }
-
 .top-wrap {
     display: flex;
     flex-direction: column;
@@ -120,10 +55,18 @@ body.no-crown .mvp-header .crown-inline { display: none; }
     width: 300px;
     height: 300px;
     filter: drop-shadow(0 10px 22px rgba(0,0,0,.45)) drop-shadow(0 0 18px rgba(255, 180, 40, 0.35));
+    animation: frame-float 3.2s ease-in-out infinite;
+    will-change: transform;
+}
+
+@keyframes frame-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
 
 body.no-fx .frame-hero {
     filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+    animation: none;
 }
 
 .avatar-hole {
@@ -204,11 +147,6 @@ body.no-fx .frame-hero {
 <body>
 
 <div class="stage">
-    <header class="mvp-header" id="mvp-header">
-        <div class="crown-inline" aria-hidden="true">👑</div>
-        <h1 class="mvp-header-title mvp-header-title--gradient" id="mvp-header-title">MVP: Top 1 Donador</h1>
-    </header>
-
     <div class="top-wrap">
         <div class="frame-hero">
             <div class="avatar-hole">
@@ -229,17 +167,10 @@ body.no-fx .frame-hero {
   const DEFAULT_PIC = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
   const PREVIEW_PIC = 'https://randomuser.me/api/portraits/men/32.jpg';
   const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+  const COIN = '#ffd700';
 
   let cfg = {
-    headerTitle: 'MVP: Top 1 Donador',
-    headerRainbow: false,
-    hc1: '#ff6b35', hc2: '#ff4500', hc3: '#ffd700',
-    ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
-    valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
-    fc1: '#fff4a3', fc2: '#ff8c00', fc3: '#ff2200',
-    rc1: '#3d1500', rc2: '#1a0800',
-    coinLabel: '', font: 'inter', showHeader: true, showCrown: true, showFx: true,
-    resetPeriod: 'live',
+    coinLabel: '', font: 'inter', showFx: true, resetPeriod: 'live',
   };
   let topData = null;
   let previewMode = false;
@@ -247,39 +178,15 @@ body.no-fx .frame-hero {
   const $ = (id) => document.getElementById(id);
 
   function applyStyle() {
-    const root = document.documentElement;
     const stack = FONTS[cfg.font] || FONTS.inter;
-    root.style.setProperty('--tf-font-stack', stack);
-    root.style.setProperty('--tf-name-font-stack', stack);
-    root.style.setProperty('--hc1', cfg.hc1);
-    root.style.setProperty('--hc2', cfg.hc2);
-    root.style.setProperty('--hc3', cfg.hc3);
-    root.style.setProperty('--ng1', cfg.ng1);
-    root.style.setProperty('--ng2', cfg.ng2);
-    root.style.setProperty('--ng3', cfg.ng3);
-    root.style.setProperty('--vc', cfg.valueColor);
-    root.style.setProperty('--vs', cfg.valueStroke);
-    root.style.setProperty('--cc', cfg.coinColor);
-    root.style.setProperty('--fc1', cfg.fc1);
-    root.style.setProperty('--fc2', cfg.fc2);
-    root.style.setProperty('--fc3', cfg.fc3);
-    root.style.setProperty('--rc1', cfg.rc1);
-    root.style.setProperty('--rc2', cfg.rc2);
-
-    const ht = $('mvp-header-title');
-    ht.textContent = cfg.headerTitle || 'MVP: Top 1 Donador';
-    ht.classList.toggle('mvp-header-title--rainbow', !!cfg.headerRainbow);
-    ht.classList.toggle('mvp-header-title--gradient', !cfg.headerRainbow);
-
-    document.body.classList.toggle('no-header', cfg.showHeader === false);
-    document.body.classList.toggle('no-crown', cfg.showCrown === false);
+    document.documentElement.style.setProperty('--tf-font-stack', stack);
+    document.documentElement.style.setProperty('--tf-name-font-stack', stack);
     document.body.classList.toggle('no-fx', cfg.showFx === false);
   }
 
   function coinSvg() {
-    const c = /^#[0-9a-fA-F]{6}$/.test(cfg.coinColor || '') ? cfg.coinColor : '#ffd700';
     return '<svg class="moneda" viewBox="0 0 24 24" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="11" fill="' + c + '"/>' +
+      '<circle cx="12" cy="12" r="11" fill="' + COIN + '"/>' +
       '<circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/>' +
       '</svg>';
   }
