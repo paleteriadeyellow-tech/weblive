@@ -3,7 +3,9 @@
  * Ej.: mínimo 50 → tandas de 15+20+20 disparan 1 acción y guardan 5 de sobra.
  */
 export function likeTriggerFires(acc, a, info, user, fallbackKey) {
-  const uid = String(user?.uniqueId || info?.username || '').trim();
+  const uid = String(
+    user?.uniqueId || info?.username || user?.nickname || info?.nickname || '',
+  ).trim();
   const batch = Math.max(0, Number(info.likeCount) || 0);
   if (!uid || batch <= 0) return 0;
   const goal = Math.max(1, parseInt(a?.likeN ?? a?.likeMin, 10) || 1);

@@ -1,5 +1,7 @@
 const $ = (id) => document.getElementById(id);
-const MAX_ROWS = 120;
+// Tope de filas en Chat / Regalos / Eventos. Más allá se borran las más viejas (FIFO)
+// para no hinchar el DOM ni la RAM en lives largos. No afecta spawns ni lógica del live.
+const MAX_ROWS = 50;
 // App de escritorio (.exe): preload de Electron + sello que inyecta el servidor local (DESKTOP=1).
 function detectDesktopPanel() {
   if (window.desktopAPI?.isDesktop) return true;
@@ -2391,6 +2393,11 @@ const FEED_EMPTY_HTML = {
   </div>`,
 };
 
+/** Filas activas de rachas en el feed Regalos (una por usuario+regalo). */
+const activeGiftFeedRows = new Map();
+let lastGiftFeedSig = '';
+let lastGiftFeedAt = 0;
+
 function feedCountId(feedId) {
   if (feedId === 'chat') return 'chat-count';
   if (feedId === 'gifts') return 'gifts-count';
@@ -2406,6 +2413,21 @@ function updateFeedCount(feedId) {
   el.textContent = String(feed.querySelectorAll('.row').length);
 }
 
+/** Quita las filas más antiguas cuando el feed supera MAX_ROWS (una sola pasada). */
+function trimFeedRows(feed) {
+  if (!feed) return;
+  const rows = feed.querySelectorAll('.row');
+  const excess = rows.length - MAX_ROWS;
+  if (excess <= 0) return;
+  for (let i = 0; i < excess; i++) {
+    const row = rows[i];
+    if (!row) break;
+    const k = row.dataset && row.dataset.giftKey;
+    if (k) activeGiftFeedRows.delete(k);
+    row.remove();
+  }
+}
+
 function pushRow(feedId, html, cls = '') {
   const feed = $(feedId);
   if (!feed) return;
@@ -2415,11 +2437,7 @@ function pushRow(feedId, html, cls = '') {
   div.className = `row ${cls}`;
   div.innerHTML = html;
   feed.appendChild(div);
-  while (feed.querySelectorAll('.row').length > MAX_ROWS) {
-    const first = feed.querySelector('.row');
-    if (first) first.remove();
-    else break;
-  }
+  trimFeedRows(feed);
   feed.scrollTop = feed.scrollHeight;
   updateFeedCount(feedId);
 }
@@ -2448,11 +2466,6 @@ function giftImageOf(p) {
   if (p.giftName) return giftCatalog.find((x) => x.name.toLowerCase() === String(p.giftName).toLowerCase())?.image || '';
   return '';
 }
-
-/** Filas activas de rachas en el feed Regalos (una por usuario+regalo). */
-const activeGiftFeedRows = new Map();
-let lastGiftFeedSig = '';
-let lastGiftFeedAt = 0;
 
 function giftFeedRowHtml(p) {
   const count = Math.max(1, Number(p.repeatCount) || 1);
@@ -2483,13 +2496,7 @@ function upsertGiftFeedRow(p, trackKey) {
       activeGiftFeedRows.set(trackKey, row);
     }
     feed.appendChild(row);
-    while (feed.querySelectorAll('.row').length > MAX_ROWS) {
-      const first = feed.querySelector('.row');
-      if (!first) break;
-      const k = first.dataset.giftKey;
-      if (k) activeGiftFeedRows.delete(k);
-      first.remove();
-    }
+    trimFeedRows(feed);
   }
   feed.scrollTop = feed.scrollHeight;
   updateFeedCount('gifts');
