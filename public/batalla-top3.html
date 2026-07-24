@@ -15,15 +15,21 @@
       background: transparent !important;
       font-family: var(--tf-font-stack, 'Rubik', system-ui, sans-serif);
     }
-    /* Canvas fijo Live Studio / OBS — Browser Source 1080×1920 */
-    html.stage-1080x1920, html.stage-1080x1920 body {
-      width: 1080px; height: 1920px;
+    /* Canvas fijo Live Studio / OBS — Browser Source 800×600 */
+    html.stage-800x600, html.stage-800x600 body {
+      width: 800px; height: 600px;
     }
-    html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.embed, html.embed body { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+    html.embed .stage {
+      width: max-content;
+      height: max-content;
+      max-width: 760px;
+      padding: 16px 12px;
+    }
     .stage {
-      width: 1080px; height: 1920px;
+      width: 800px; height: 600px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 22px; padding: 36px 32px 48px;
+      gap: 12px; padding: 20px 16px 28px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
       opacity: 0; pointer-events: none;
       transition: opacity .25s ease;
@@ -33,13 +39,13 @@
       --empty-color: rgba(255,255,255,.7);
       --tc1: #ff00aa; --tc2: #00ddff; --tc3: #ffcc00;
       --tf-font-stack: 'Rubik', system-ui, sans-serif;
-      --title-size: 40px;
+      --title-size: 28px;
     }
     .stage.is-on { opacity: 1; }
     .badge {
       font-family: 'Inter', system-ui, sans-serif;
-      font-size: 16px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
-      padding: 7px 16px; border-radius: 999px;
+      font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+      padding: 5px 12px; border-radius: 999px;
       background: rgba(0,0,0,.45); color: rgba(255,255,255,.7);
     }
     .badge.is-live { color: #ffe566; background: rgba(80,60,10,.55); }
@@ -68,28 +74,28 @@
     }
     .row {
       display: flex; align-items: flex-end; justify-content: center;
-      gap: 28px; width: 100%; min-height: 480px;
+      gap: 16px; width: 100%; min-height: 280px;
     }
     .slot {
-      width: 250px;
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
-      opacity: 0; transform: translateY(40px) scale(.82);
+      width: 200px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      opacity: 0; transform: translateY(24px) scale(.82);
       transition: opacity .35s ease, transform .45s cubic-bezier(.2,1.3,.3,1);
     }
     .slot.is-filled { opacity: 1; transform: none; }
     .slot.is-pop { animation: slotPop .5s cubic-bezier(.2,1.4,.3,1); }
     @keyframes slotPop {
-      0% { transform: scale(.7) translateY(30px); }
-      60% { transform: scale(1.08) translateY(-6px); }
+      0% { transform: scale(.7) translateY(20px); }
+      60% { transform: scale(1.06) translateY(-4px); }
       100% { transform: none; }
     }
-    .slot.rank-1 { order: 2; width: 300px; }
+    .slot.rank-1 { order: 2; width: 250px; }
     .slot.rank-2 { order: 1; }
     .slot.rank-3 { order: 3; }
     .medal {
       font-family: 'Inter', system-ui, sans-serif;
-      font-size: 15px; font-weight: 900; letter-spacing: .1em;
-      padding: 5px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 900; letter-spacing: .08em;
+      padding: 4px 10px; border-radius: 999px;
       background: rgba(0,0,0,.4); color: #fff;
     }
     .rank-2 .medal { background: linear-gradient(180deg, #e8eef8, #9aa8bd); color: #1a1f28; }
@@ -100,61 +106,80 @@
       display: flex; align-items: flex-end; justify-content: center;
       width: 100%;
     }
-    .rank-1 .hero { padding-top: 95px; }
-    .rank-2 .hero, .rank-3 .hero { height: auto; }
-    .avatar-stack {
+    /* #1: marco con corona integrada — foto detrás del PNG, exacta al aro */
+    .frame-hero {
       position: relative;
+      width: 210px;
+      height: calc(210px * 718 / 747);
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+    }
+    .avatar-hole {
+      position: absolute;
+      left: 48.66%;
+      top: 53.76%;
+      width: 39.78%;
+      height: 41.39%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      overflow: hidden;
+      z-index: 1;
+      background: #111;
+      -webkit-clip-path: circle(50% at 50% 50%);
+      clip-path: circle(50% at 50% 50%);
+    }
+    .avatar-hole .avatar {
       width: 100%;
-      display: flex; justify-content: center;
+      height: 100%;
+      object-fit: cover;
+      object-position: center center;
+      display: block;
+      border: 0;
+      border-radius: 50%;
     }
-    .rank-1 .avatar-stack { width: 200px; }
-    .crown {
-      display: none;
-      position: absolute; left: 50%; top: 0;
-      width: 175px; height: auto;
-      transform: translate(-50%, -78%);
-      z-index: 3;
-      filter: drop-shadow(0 6px 12px rgba(0,0,0,.4));
+    .frame-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: fill;
+      display: block;
+      z-index: 2;
       pointer-events: none;
+      user-select: none;
     }
-    .rank-1 .crown { display: block; }
+    /* #2 / #3: círculos simples */
     .avatar-wrap {
-      width: 150px; height: 150px; border-radius: 50%;
-      padding: 5px;
+      width: 100px; height: 100px; border-radius: 50%;
+      padding: 4px;
       background: linear-gradient(145deg, #9ec9ff, #3a7de0);
-      box-shadow: 0 12px 28px rgba(0,0,0,.4);
+      box-shadow: 0 8px 20px rgba(0,0,0,.4);
       z-index: 1;
     }
-    .rank-1 .avatar-wrap {
-      width: 200px; height: 200px;
-      background: linear-gradient(145deg, #ffe98a, #f0b400);
-      box-shadow: 0 0 0 5px rgba(255,210,80,.35), 0 16px 36px rgba(0,0,0,.45);
-    }
     .rank-3 .avatar-wrap { background: linear-gradient(145deg, #f0c9a0, #c47844); }
-    .avatar {
+    .avatar-wrap .avatar {
       width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
       display: block; background: rgba(20,20,28,.85);
-      border: 3px solid rgba(0,0,0,.25);
+      border: 2px solid rgba(0,0,0,.25);
     }
     .name {
       margin: 0; max-width: 100%;
       font-family: var(--tf-font-stack);
-      font-weight: 800; font-size: 26px; color: var(--name-color); text-align: center;
+      font-weight: 800; font-size: 16px; color: var(--name-color); text-align: center;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       text-shadow: 0 2px 0 rgba(0,0,0,.55);
-      padding: 0 6px;
+      padding: 0 4px;
     }
-    .rank-1 .name { font-size: 32px; }
+    .rank-1 .name { font-size: 18px; }
     .pts {
       margin: 0;
       font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 800; font-size: 20px; color: var(--pts-color);
+      font-weight: 800; font-size: 15px; color: var(--pts-color);
       text-shadow: 0 1px 0 rgba(0,0,0,.5);
       font-variant-numeric: tabular-nums;
     }
     .empty {
       margin: 0; font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 700; font-size: 20px; color: var(--empty-color);
+      font-weight: 700; font-size: 16px; color: var(--empty-color);
       text-shadow: 0 1px 0 rgba(0,0,0,.45);
     }
     .stage.hide-text .title,
@@ -173,9 +198,9 @@
       <div class="slot rank-1" data-rank="1">
         <div class="medal">#1</div>
         <div class="hero">
-          <div class="avatar-stack">
-            <img class="crown" src="/overlays/corona-mvp.png" alt="" />
-            <div class="avatar-wrap"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
+          <div class="frame-hero">
+            <div class="avatar-hole"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
+            <img class="frame-img" src="/overlays/marco-mvp-top1.png" alt="" />
           </div>
         </div>
         <p class="name">—</p>
@@ -205,10 +230,10 @@
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
-    const STAGE_W = 1080;
-    const STAGE_H = 1920;
+    const STAGE_W = 800;
+    const STAGE_H = 600;
     if (isEmbed) document.documentElement.classList.add('embed');
-    else document.documentElement.classList.add('stage-1080x1920');
+    else document.documentElement.classList.add('stage-800x600');
     const FALLBACK = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
     const DEMO = '/jarron/lv.png';
 
@@ -231,17 +256,32 @@
       system: 'system-ui, sans-serif',
     };
 
+    let embedFit = null;
     (function fit() {
       function apply() {
         if (!isEmbed) {
           document.documentElement.style.setProperty('--tf-fit', '1');
           return;
         }
-        const k = Math.min((innerWidth || STAGE_W) / STAGE_W, (innerHeight || STAGE_H) / STAGE_H) || 1;
-        document.documentElement.style.setProperty('--tf-fit', Math.min(1, k));
+        const stage = document.getElementById('stage');
+        if (!stage) return;
+        document.documentElement.style.setProperty('--tf-fit', '1');
+        void stage.offsetWidth;
+        const pad = 20;
+        const w = Math.max(stage.scrollWidth, stage.offsetWidth, 280);
+        const h = Math.max(stage.scrollHeight, stage.offsetHeight, 200);
+        const k = Math.min(
+          ((innerWidth || 1) - pad) / w,
+          ((innerHeight || 1) - pad) / h,
+          2.6
+        );
+        document.documentElement.style.setProperty('--tf-fit', String(Math.max(0.4, k) || 1));
       }
+      embedFit = apply;
       apply();
       addEventListener('resize', apply);
+      setTimeout(apply, 120);
+      setTimeout(apply, 450);
     })();
 
     let cfg = {
@@ -259,7 +299,7 @@
       nameColor: '#ffffff',
       ptsColor: '#ffe566',
       emptyColor: '#b8b8c2',
-      titleSize: 40,
+      titleSize: 28,
     };
 
     const el = {
@@ -295,7 +335,7 @@
       el.stage.style.setProperty('--tc1', cfg.tc1 || '#ff00aa');
       el.stage.style.setProperty('--tc2', cfg.tc2 || '#00ddff');
       el.stage.style.setProperty('--tc3', cfg.tc3 || '#ffcc00');
-      el.stage.style.setProperty('--title-size', Math.max(22, Math.min(72, Number(cfg.titleSize) || 40)) + 'px');
+      el.stage.style.setProperty('--title-size', Math.max(18, Math.min(40, Number(cfg.titleSize) || 28)) + 'px');
       el.title.textContent = cfg.title || 'TOP 3 · TU EJÉRCITO';
       el.title.classList.toggle('title--rainbow', !!cfg.titleRainbow);
       el.empty.textContent = cfg.emptyText || 'Aún no hay aportes en tu ejército';
@@ -361,6 +401,7 @@
         return;
       }
       paintSlots(list, stagger);
+      if (typeof embedFit === 'function') requestAnimationFrame(embedFit);
     }
     function applyPk(payload) {
       if (!payload || typeof payload !== 'object') return;

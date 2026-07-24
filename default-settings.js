@@ -287,7 +287,7 @@ export const DEFAULT_SETTINGS = {
     loseColor: '#ff8f6b',
     hostScoreColor: '#7ec8ff',
     rivalScoreColor: '#ffe566',
-    titleSize: 96,
+    titleSize: 52,
   },
   // Overlay MVP de la batalla (PK: top al terminar)
   batallaMvp: {
@@ -309,7 +309,7 @@ export const DEFAULT_SETTINGS = {
     badgeFg: '#1a1200',
     ring1: '#ffe98a',
     ring2: '#f0b400',
-    nameSize: 56,
+    nameSize: 36,
     lineSize: 34,
     showMs: 6500,
   },
@@ -330,7 +330,7 @@ export const DEFAULT_SETTINGS = {
     nameColor: '#ffffff',
     ptsColor: '#ffe566',
     emptyColor: '#b8b8c2',
-    titleSize: 42,
+    titleSize: 28,
   },
   // Overlay Medidor de Flow (barra de progreso por participante / regalo)
   flowMeter: {

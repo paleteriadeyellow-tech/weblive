@@ -14,15 +14,22 @@
       background: transparent !important;
       font-family: var(--tf-font-stack, 'Rubik', system-ui, sans-serif);
     }
-    /* Canvas fijo Live Studio / OBS — Browser Source 1080×1920 */
-    html.stage-1080x1920, html.stage-1080x1920 body {
-      width: 1080px; height: 1920px;
+    /* Canvas fijo Live Studio / OBS — Browser Source 800×600 */
+    html.stage-800x600, html.stage-800x600 body {
+      width: 800px; height: 600px;
     }
-    html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.embed, html.embed body { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+    /* En preview del panel: el stage se ajusta al contenido */
+    html.embed .stage {
+      width: max-content;
+      height: max-content;
+      max-width: 760px;
+      padding: 20px 24px;
+    }
     .stage {
-      width: 1080px; height: 1920px;
+      width: 800px; height: 600px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 18px; padding: 48px 56px;
+      gap: 12px; padding: 28px 36px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
       opacity: 0; transition: opacity .28s ease;
       pointer-events: none;
@@ -37,7 +44,7 @@
       --rival-color: #ffe566;
       --tc1: #ff00aa; --tc2: #00ddff; --tc3: #ffcc00;
       --tf-font-stack: 'Rubik', system-ui, sans-serif;
-      --title-size: 96px;
+      --title-size: 52px;
     }
     .stage.is-on { opacity: 1; }
     .stage.is-pop .title { animation: metapop .42s cubic-bezier(.2,1.4,.3,1); }
@@ -48,8 +55,8 @@
     }
     .badge {
       font-family: 'Inter', system-ui, sans-serif;
-      font-size: 18px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
-      padding: 8px 18px; border-radius: 999px;
+      font-size: 14px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+      padding: 6px 14px; border-radius: 999px;
       background: rgba(0,0,0,.45); color: rgba(255,255,255,.72);
       text-shadow: 0 1px 0 rgba(0,0,0,.4);
     }
@@ -92,18 +99,18 @@
       .sub {
       margin: 0; text-align: center;
       font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 700; font-size: 34px; color: var(--sub-color);
+      font-weight: 700; font-size: 22px; color: var(--sub-color);
       text-shadow: 0 2px 0 rgba(0,0,0,.5);
     }
     .scores {
-      display: flex; align-items: center; gap: 22px; margin-top: 8px;
+      display: flex; align-items: center; gap: 16px; margin-top: 4px;
       font-variant-numeric: tabular-nums;
-      font-weight: 900; font-size: 48px;
+      font-weight: 900; font-size: 34px;
       text-shadow: 0 2px 0 rgba(0,0,0,.5);
     }
     .scores .h { color: var(--host-color); }
     .scores .r { color: var(--rival-color); }
-    .scores .sep { color: rgba(255,255,255,.45); font-size: 24px; font-weight: 800; }
+    .scores .sep { color: rgba(255,255,255,.45); font-size: 18px; font-weight: 800; }
     .scores.bump { animation: scorebump .35s ease; }
     @keyframes scorebump {
       0% { transform: scale(1); }
@@ -128,10 +135,10 @@
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
-    const STAGE_W = 1080;
-    const STAGE_H = 1920;
+    const STAGE_W = 800;
+    const STAGE_H = 600;
     if (isEmbed) document.documentElement.classList.add('embed');
-    else document.documentElement.classList.add('stage-1080x1920');
+    else document.documentElement.classList.add('stage-800x600');
 
     const FONTS = {
       pressstart: "'Press Start 2P', monospace",
@@ -152,17 +159,32 @@
       system: 'system-ui, sans-serif',
     };
 
+    let embedFit = null;
     (function fit() {
       function apply() {
         if (!isEmbed) {
           document.documentElement.style.setProperty('--tf-fit', '1');
           return;
         }
-        const k = Math.min((innerWidth || STAGE_W) / STAGE_W, (innerHeight || STAGE_H) / STAGE_H) || 1;
-        document.documentElement.style.setProperty('--tf-fit', Math.min(1, k));
+        const stage = document.getElementById('stage');
+        if (!stage) return;
+        document.documentElement.style.setProperty('--tf-fit', '1');
+        void stage.offsetWidth;
+        const pad = 20;
+        const w = Math.max(stage.scrollWidth, stage.offsetWidth, 280);
+        const h = Math.max(stage.scrollHeight, stage.offsetHeight, 200);
+        const k = Math.min(
+          ((innerWidth || 1) - pad) / w,
+          ((innerHeight || 1) - pad) / h,
+          2.6
+        );
+        document.documentElement.style.setProperty('--tf-fit', String(Math.max(0.4, k) || 1));
       }
+      embedFit = apply;
       apply();
       addEventListener('resize', apply);
+      setTimeout(apply, 120);
+      setTimeout(apply, 450);
     })();
 
     let cfg = {
@@ -193,7 +215,7 @@
       loseColor: '#ff8f6b',
       hostScoreColor: '#7ec8ff',
       rivalScoreColor: '#ffe566',
-      titleSize: 96,
+      titleSize: 52,
     };
 
     const el = {
@@ -237,7 +259,7 @@
       el.stage.style.setProperty('--tc1', cfg.tc1 || '#ff00aa');
       el.stage.style.setProperty('--tc2', cfg.tc2 || '#00ddff');
       el.stage.style.setProperty('--tc3', cfg.tc3 || '#ffcc00');
-      el.stage.style.setProperty('--title-size', Math.max(36, Math.min(140, Number(cfg.titleSize) || 96)) + 'px');
+      el.stage.style.setProperty('--title-size', Math.max(28, Math.min(72, Number(cfg.titleSize) || 52)) + 'px');
       el.title.classList.toggle('title--rainbow', !!cfg.titleRainbow);
     }
     function buildMeta(host, rival) {
@@ -317,13 +339,23 @@
       el.scoreR.textContent = fmt(state.pointsRival);
       el.scores.hidden = false;
       pop(`${state.ending ? 'end' : 'live'}|${meta.kind}|${meta.title}|${state.pointsHost}|${state.pointsRival}`);
+      if (typeof embedFit === 'function') requestAnimationFrame(embedFit);
     }
     function applyPk(payload) {
       if (!payload || typeof payload !== 'object') return;
       if (demo) return;
       const live = !!payload.live;
-      if (payload.pointsHost != null) state.pointsHost = Number(payload.pointsHost) || 0;
-      if (payload.pointsRival != null) state.pointsRival = Number(payload.pointsRival) || 0;
+      const nextH = payload.pointsHost != null ? Number(payload.pointsHost) || 0 : state.pointsHost;
+      const nextR = payload.pointsRival != null ? Number(payload.pointsRival) || 0 : state.pointsRival;
+
+      // Ignorar borrado a 0–0 a media pelea (paquetes incompletos → parpadeo EMPATE)
+      const wipeScores = live
+        && (state.pointsHost > 0 || state.pointsRival > 0)
+        && nextH === 0 && nextR === 0;
+      if (!wipeScores) {
+        if (payload.pointsHost != null) state.pointsHost = nextH;
+        if (payload.pointsRival != null) state.pointsRival = nextR;
+      }
 
       // Flag persistente del server (showEnd) o evento de fin
       if (payload.ending) {

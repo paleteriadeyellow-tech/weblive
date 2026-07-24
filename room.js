@@ -2413,10 +2413,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!midJoin) {
       pkBattle.pointsHost = 0;
       pkBattle.pointsRival = 0;
+      pkBattle.armyTopHost = null;
+      pkBattle.armyTopRival = null;
+      pkBattle.armyTop3Host = [];
     }
-    pkBattle.armyTopHost = null;
-    pkBattle.armyTopRival = null;
-    pkBattle.armyTop3Host = [];
     pkBattle.live = true;
     pkBattle.frozen = false;
     pkBattle.showEnd = false;
@@ -2452,7 +2452,41 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return list.map((u) => `${u.uniqueId}|${u.points}|${u.nickname}|${u.photo}`).join(';');
   }
   function pkSetArmyTop3Host(top3) {
-    const next = Array.isArray(top3) ? top3 : [];
+    // TikTok a veces manda userArmy vacío o a medias → no borrar el top ya conocido.
+    const incoming = Array.isArray(top3) ? top3 : [];
+    if (!incoming.length && pkBattle.armyTop3Host.length) return false;
+
+    // Fusionar por usuario y quedarse con el máximo de puntos de la ronda (no bajar).
+    const byId = new Map();
+    const push = (u) => {
+      if (!u || typeof u !== 'object') return;
+      const points = Math.max(0, Math.round(Number(u.points) || 0));
+      const uniqueId = String(u.uniqueId || '').replace(/^@/, '');
+      const key = uniqueId || `${u.nickname || ''}|${u.photo || ''}`;
+      if (!key || key === '|') return;
+      const prev = byId.get(key);
+      if (prev && points < prev.points) {
+        // Conservar foto/nick más recientes si vienen, pero no bajar puntos
+        byId.set(key, {
+          ...prev,
+          nickname: u.nickname || prev.nickname,
+          photo: u.photo || prev.photo,
+        });
+        return;
+      }
+      byId.set(key, {
+        uniqueId,
+        nickname: String(u.nickname || prev?.nickname || 'Fan'),
+        photo: u.photo || prev?.photo || '',
+        points: Math.max(points, prev?.points || 0),
+      });
+    };
+    for (const u of pkBattle.armyTop3Host) push(u);
+    for (const u of incoming) push(u);
+
+    const next = [...byId.values()]
+      .sort((a, b) => b.points - a.points || String(a.nickname).localeCompare(String(b.nickname)))
+      .slice(0, 3);
     if (pkArmyTop3Sig(next) === pkArmyTop3Sig(pkBattle.armyTop3Host)) return false;
     pkBattle.armyTop3Host = next;
     if (next[0]) pkBattle.armyTopHost = { ...next[0] };
@@ -2564,6 +2598,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       return;
     }
     if (battleId && pkBattle.battleId && battleId !== pkBattle.battleId) {
+      // TikTok a veces cambia battleId a media pelea → NO reiniciar a 0 (provoca EMPATE 0 vs 0).
+      if (pkBattle.pointsHost > 0 || pkBattle.pointsRival > 0 || pkBattle.armyTop3Host.length) {
+        pkBattle.battleId = battleId;
+        return;
+      }
       beginPkBattleRound({
         midJoin: false,
         battleId,
@@ -2575,6 +2614,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function pkSetScore(side, score) {
     const n = Math.max(0, Math.round(Number(score) || 0));
+    const cur = side === 'host' ? pkBattle.pointsHost : pkBattle.pointsRival;
+    // Durante el PK el marcador oficial no baja; paquetes incompletos mandan 0 y provocan
+    // parpadeo «EMPATE 0 vs 0» / «Faltan X» en el overlay Meta.
+    if (pkBattle.live && n < cur) return false;
     if (side === 'host') {
       if (pkBattle.pointsHost !== n) { pkBattle.pointsHost = n; return true; }
     } else if (pkBattle.pointsRival !== n) {
@@ -2613,7 +2656,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (isHost) {
           if (pkSetScore('host', score)) changed = true;
           if (pkSetArmyTop3Host(top3)) changed = true;
-          else if (top && (!pkBattle.armyTopHost || top.points >= (pkBattle.armyTopHost.points || 0))) pkBattle.armyTopHost = top;
+          else if (top && (!pkBattle.armyTopHost || top.points >= (pkBattle.armyTopHost.points || 0))) {
+            pkBattle.armyTopHost = top;
+            changed = true;
+          }
         } else {
           if (pkSetScore('rival', score)) changed = true;
           if (!pkBattle.rival.userId && teamUserIds[0]) {

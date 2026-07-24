@@ -1490,7 +1490,7 @@ input:focus, select:focus { border-color: var(--cyan); }
 .modal-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--tiktok); z-index: 2; }
 .modal-box.wide { max-width: 760px; }
 
-/* Advertencia TTS (riesgo de baneo) */
+/* Advertencia TTS (riesgo de baneo) — compacta y siempre centrada en pantalla */
 .tts-warn-box { max-width: 440px; max-height: 88vh; }
 .tts-warn-box .modal-head { padding: 12px 16px 10px; }
 .tts-warn-box .modal-head h2 { font-size: 15px; }
@@ -1766,6 +1766,7 @@ input:focus, select:focus { border-color: var(--cyan); }
   filter: none;
   box-shadow: none;
 }
+/* File picker: ocultar nativo feo y usar look de panel */
 .tts-el-clone-row input[type="file"] {
   flex: 1 1 180px;
   min-width: 140px;
@@ -1933,6 +1934,10 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
     radial-gradient(80% 60% at 50% 0%, rgba(37,244,238,.06), transparent 60%),
     linear-gradient(180deg, #060b13, #0a121d);
   border: 1px solid rgba(255,255,255,.08);
+}
+/* Vista previa grande para overlays PK 1080×1920 (Meta / MVP / Top3) */
+.ovpro-preview.ovpro-preview--pk {
+  height: 480px;
 }
 .ovpro-preview iframe { width: 100%; height: 100%; border: 0; display: block; background: transparent; }
 
@@ -3053,7 +3058,10 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 
 /* Left 4 Dead 2 / Unturned â€” tarjeta banner + panel */
 #view-juego-l4d .l4d-game-card,
-#view-juego-unturned .l4d-game-card {
+#view-juego-unturned .l4d-game-card,
+#view-juego-gtavkoth .l4d-game-card,
+#view-juego-gtavchaos .l4d-game-card,
+#view-juego-gtavchiliad .l4d-game-card {
   position: relative;
   max-width: 920px;
   margin: 0 auto 18px;
@@ -3064,12 +3072,18 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   box-shadow: 0 12px 36px rgba(0,0,0,.35);
 }
 #view-juego-l4d .l4d-game-banner,
-#view-juego-unturned .l4d-game-banner {
+#view-juego-unturned .l4d-game-banner,
+#view-juego-gtavkoth .l4d-game-banner,
+#view-juego-gtavchaos .l4d-game-banner,
+#view-juego-gtavchiliad .l4d-game-banner {
   position: relative;
   overflow: hidden;
 }
 #view-juego-l4d .l4d-game-banner::after,
-#view-juego-unturned .l4d-game-banner::after {
+#view-juego-unturned .l4d-game-banner::after,
+#view-juego-gtavkoth .l4d-game-banner::after,
+#view-juego-gtavchaos .l4d-game-banner::after,
+#view-juego-gtavchiliad .l4d-game-banner::after {
   content: '';
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -3079,7 +3093,10 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   z-index: 1;
 }
 #view-juego-l4d .l4d-game-banner-img,
-#view-juego-unturned .l4d-game-banner-img {
+#view-juego-unturned .l4d-game-banner-img,
+#view-juego-gtavkoth .l4d-game-banner-img,
+#view-juego-gtavchaos .l4d-game-banner-img,
+#view-juego-gtavchiliad .l4d-game-banner-img {
   display: block;
   width: 100%;
   aspect-ratio: auto;
@@ -3089,7 +3106,10 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   object-position: center top;
 }
 #view-juego-l4d .l4d-game-body,
-#view-juego-unturned .l4d-game-body {
+#view-juego-unturned .l4d-game-body,
+#view-juego-gtavkoth .l4d-game-body,
+#view-juego-gtavchaos .l4d-game-body,
+#view-juego-gtavchiliad .l4d-game-body {
   position: absolute;
   left: 0;
   right: 0;
@@ -3099,7 +3119,10 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   background: transparent;
 }
 #view-juego-l4d .l4d-mod-row,
-#view-juego-unturned .l4d-mod-row {
+#view-juego-unturned .l4d-mod-row,
+#view-juego-gtavkoth .l4d-mod-row,
+#view-juego-gtavchaos .l4d-mod-row,
+#view-juego-gtavchiliad .l4d-mod-row {
   display: flex;
   align-items: flex-start;
   gap: 14px;
@@ -3145,6 +3168,8 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   transition: background .15s, border-color .15s, opacity .15s;
 }
 .l4d-btn:disabled { opacity: .45; cursor: not-allowed; }
+#gtavchiliad-start-mode, #gtavchiliad-stop-mode { color: #fff; }
+#gtavchiliad-start-mode:hover:not(:disabled), #gtavchiliad-stop-mode:hover:not(:disabled) { background: rgba(255,255,255,.08); }
 .l4d-btn-select { color: #60a5fa; border-color: rgba(96,165,250,.35); }
 .l4d-btn-select:hover:not(:disabled) { background: rgba(59,130,246,.14); }
 .l4d-btn-install { color: #4ade80; border-color: rgba(74,222,128,.35); }
@@ -3165,6 +3190,59 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 }
 .l4d-btn-steam:hover:not(:disabled) { background: rgba(27,40,56,.92); border-color: rgba(102,192,244,.45); color: #fff; }
 .l4d-steam-ico { width: 18px; height: 18px; flex-shrink: 0; }
+#view-juego-gtavkoth .l4d-game-banner,
+#view-juego-gtavchaos .l4d-game-banner,
+#view-juego-gtavchiliad .l4d-game-banner {
+  position: relative;
+}
+#view-juego-gtavkoth .gtavkoth-bridge-top,
+#view-juego-gtavchaos .gtavkoth-bridge-top,
+#view-juego-gtavchiliad .gtavkoth-bridge-top {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  bottom: auto;
+  right: auto;
+  z-index: 3;
+  min-width: 120px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45);
+}
+#view-juego-gtavkoth .gtavkoth-bridge-row,
+#view-juego-gtavchaos .gtavkoth-bridge-row,
+#view-juego-gtavchiliad .gtavkoth-bridge-row {
+  display: none;
+}
+#view-juego-gtavkoth .gtavkoth-scripthook-btn,
+#view-juego-gtavchaos .gtavkoth-scripthook-btn,
+#view-juego-gtavchiliad .gtavkoth-scripthook-btn {
+  display: none !important;
+}
+.gtavkoth-sh-modal { background: rgba(0,0,0,.72); }
+.gtavkoth-sh-box {
+  width: min(440px, 92vw);
+  margin: 18vh auto 0;
+  padding: 22px 22px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: #12151c;
+  box-shadow: 0 18px 48px rgba(0,0,0,.45);
+  text-align: left;
+}
+.gtavkoth-sh-title { margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #f3f4f6; display: flex; align-items: center; gap: 10px; }
+.gtavkoth-sh-ico {
+  width: 28px; height: 28px; border-radius: 999px; background: #2563eb; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; flex-shrink: 0;
+}
+.gtavkoth-sh-msg { margin: 0 0 8px; font-size: 14px; color: #d1d5db; line-height: 1.45; }
+.gtavkoth-sh-meta { margin: 0 0 4px; font-size: 13px; color: #9ca3af; word-break: break-all; }
+.gtavkoth-sh-meta b { color: #e5e7eb; }
+.gtavkoth-sh-btns { display: flex; justify-content: flex-end; margin-top: 16px; }
+.gtavkoth-sh-ok {
+  min-width: 110px; padding: 9px 16px; border-radius: 10px; border: 1px solid rgba(59,130,246,.45);
+  background: #2563eb; color: #fff; font-weight: 800; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.gtavkoth-sh-ok:hover { background: #1d4ed8; }
 .l4d-actions-soon { opacity: .92; }
 #view-juego-l4d .l4d-cat-sec-desc { margin: 0 0 8px; font-size: 12px; color: rgba(255,255,255,.5); line-height: 1.45; }
 #l4d-catalog,
@@ -3189,7 +3267,10 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 #view-juego-l4d .l4d-param-row { flex: 1; min-width: 140px; max-width: 220px; }
 #view-juego-l4d .l4d-param-block { flex-wrap: wrap; gap: 10px; }
 #view-juego-l4d .juego-aviso,
-#view-juego-unturned .juego-aviso { max-width: 920px; }
+#view-juego-unturned .juego-aviso,
+#view-juego-gtavkoth .juego-aviso,
+#view-juego-gtavchaos .juego-aviso,
+#view-juego-gtavchiliad .juego-aviso { max-width: 920px; }
 .l4d-steam-guide {
   max-width: 920px;
   margin: 18px auto 0;
@@ -3291,11 +3372,20 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 .l4d-confirm-yes:hover:not(:disabled) { background: #b91c1c; }
 @media (max-width: 640px) {
   #view-juego-l4d .l4d-mod-row,
-  #view-juego-unturned .l4d-mod-row { flex-direction: column; align-items: center; }
+  #view-juego-unturned .l4d-mod-row,
+  #view-juego-gtavkoth .l4d-mod-row,
+  #view-juego-gtavchaos .l4d-mod-row,
+#view-juego-gtavchiliad .l4d-mod-row { flex-direction: column; align-items: center; }
   #view-juego-l4d .l4d-mod-foot,
-  #view-juego-unturned .l4d-mod-foot { width: 100%; flex-direction: column; align-items: stretch; }
+  #view-juego-unturned .l4d-mod-foot,
+  #view-juego-gtavkoth .l4d-mod-foot,
+  #view-juego-gtavchaos .l4d-mod-foot,
+#view-juego-gtavchiliad .l4d-mod-foot { width: 100%; flex-direction: column; align-items: stretch; }
   #view-juego-l4d .l4d-btn-steam,
-  #view-juego-unturned .l4d-btn-steam { margin-left: 0; width: 100%; }
+  #view-juego-unturned .l4d-btn-steam,
+  #view-juego-gtavkoth .l4d-btn-steam,
+  #view-juego-gtavchaos .l4d-btn-steam,
+#view-juego-gtavchiliad .l4d-btn-steam { margin-left: 0; width: 100%; }
 }
 
 /* Barra de progreso â€” instalar mod (REPO / L4D) */
