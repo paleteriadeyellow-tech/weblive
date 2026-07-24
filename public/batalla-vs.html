@@ -9,7 +9,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@700;800;900&family=Inter:wght@600;700;800&display=swap');
     * { box-sizing: border-box; }
     html, body {
-      margin: 0; width: 640px; height: 400px; overflow: hidden;
+      margin: 0; width: 480px; height: 300px; overflow: hidden;
       background: transparent !important;
     }
     html.embed, html.embed body {
@@ -18,22 +18,22 @@
     }
 
     .stage {
-      /* Lienzo compacto: marcos grandes, poco vacío (Live Studio) */
-      width: 640px; height: 400px; position: relative;
-      display: flex; align-items: center; justify-content: center; gap: 4px;
+      /* Lienzo más pequeño para Live Studio (menos espacio en pantalla) */
+      width: 480px; height: 300px; position: relative;
+      display: flex; align-items: center; justify-content: center; gap: 2px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
       font-family: 'Rubik', 'Inter', system-ui, sans-serif;
-      padding: 6px 8px 10px;
+      padding: 4px 6px 8px;
     }
 
     .side {
-      flex: 0 0 auto; width: 270px;
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      flex: 0 0 auto; width: 185px;
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
     }
     .wins {
-      font-weight: 900; font-size: 42px; line-height: 1;
+      font-weight: 900; font-size: 30px; line-height: 1;
       font-variant-numeric: tabular-nums;
-      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 18px rgba(0,0,0,.35);
+      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 14px rgba(0,0,0,.35);
       transition: transform .15s ease;
       z-index: 3;
     }
@@ -45,10 +45,10 @@
     /* Marcos: foto detrás del PNG, a la medida del círculo */
     .frame-hero {
       position: relative;
-      width: 270px;
-      height: 270px;
+      width: 185px;
+      height: 185px;
       background: transparent !important;
-      filter: drop-shadow(0 8px 18px rgba(0,0,0,.45));
+      filter: drop-shadow(0 6px 14px rgba(0,0,0,.45));
       flex: 0 0 auto;
     }
     .avatar-hole {
@@ -63,11 +63,11 @@
     }
     .side.host .avatar-hole {
       left: 50%; top: 50%;
-      width: 39.60%; height: 39.60%;
+      width: 72%; height: 72%;
     }
     .side.rival .avatar-hole {
-      left: 50%; top: 50.78%;
-      width: 42.31%; height: 42.31%;
+      left: 50%; top: 48.3%;
+      width: 67%; height: 67%;
     }
     .avatar-hole .avatar {
       width: 100%; height: 100%;
@@ -83,7 +83,7 @@
 
     .name {
       font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 800; font-size: 16px; color: #fff;
+      font-weight: 800; font-size: 13px; color: #fff;
       max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       text-shadow: 0 2px 0 rgba(0,0,0,.55);
       text-align: center; padding: 0 4px;
@@ -91,30 +91,30 @@
     }
 
     .points {
-      font-weight: 900; font-size: 34px; line-height: 1;
+      font-weight: 900; font-size: 24px; line-height: 1;
       color: #ffe566; font-variant-numeric: tabular-nums;
-      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 16px rgba(255,200,60,.3);
+      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 12px rgba(255,200,60,.3);
       transition: transform .14s ease;
       z-index: 3;
     }
     .points.is-pop { animation: winpop .28s ease; }
     .side.host .points { color: #ffe566; }
-    .side.rival .points { color: #7ec8ff; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 16px rgba(80,160,255,.3); }
+    .side.rival .points { color: #7ec8ff; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 12px rgba(80,160,255,.3); }
 
     .mid {
       flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 6px; width: 110px; padding-top: 20px;
+      justify-content: center; gap: 4px; width: 78px; padding-top: 12px;
     }
     .vs-badge {
-      width: 108px;
-      height: 72px;
+      width: 76px;
+      height: 50px;
       padding: 0;
       border: 0;
       background: transparent;
       box-shadow: none;
       display: block;
       object-fit: contain;
-      filter: drop-shadow(0 4px 10px rgba(0,0,0,.45));
+      filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
       pointer-events: none;
       user-select: none;
     }
@@ -134,7 +134,7 @@
       <div class="wins" id="wins-host">0</div>
       <div class="frame-hero">
         <div class="avatar-hole"><img class="avatar" id="avatar-host" alt="" referrerpolicy="no-referrer" /></div>
-        <img class="frame-img" src="/overlays/marco-vs-host.png" alt="" />
+        <img class="frame-img" src="/overlays/marco-vs-host.png?v=2" alt="" />
       </div>
       <div class="name" id="name-host">Esperando…</div>
       <div class="points" id="points-host">0</div>
@@ -147,7 +147,7 @@
       <div class="wins" id="wins-rival">0</div>
       <div class="frame-hero">
         <div class="avatar-hole"><img class="avatar" id="avatar-rival" alt="" referrerpolicy="no-referrer" /></div>
-        <img class="frame-img" src="/overlays/marco-vs-rival.png" alt="" />
+        <img class="frame-img" src="/overlays/marco-vs-rival.png?v=2" alt="" />
       </div>
       <div class="name" id="name-rival">Rival</div>
       <div class="points" id="points-rival">0</div>
@@ -163,7 +163,7 @@
 
     (function fit() {
       function apply() {
-        const k = Math.min((innerWidth || 640) / 640, (innerHeight || 400) / 400) || 1;
+        const k = Math.min((innerWidth || 480) / 480, (innerHeight || 300) / 300) || 1;
         document.documentElement.style.setProperty('--tf-fit', k);
       }
       apply(); addEventListener('resize', apply);
