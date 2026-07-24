@@ -481,6 +481,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const pkBattle = {
     live: false,
     frozen: false,
+    /** true solo tras «Testear» en el panel; el PK real lo limpia */
+    demo: false,
     battleId: '',
     host: { uniqueId: '', nickname: '', photo: '', userId: '' },
     rival: { uniqueId: '', nickname: '', photo: '', userId: '' },
@@ -2419,6 +2421,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     pkBattle.live = true;
     pkBattle.frozen = false;
+    pkBattle.demo = false;
     pkBattle.showEnd = false;
     broadcastPkBattle(true);
   }
@@ -2522,6 +2525,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcastPkBattle(true);
       return;
     }
+    // Fin de una demo de Testear: no sumar wins ni emitir MVP
+    if (pkBattle.demo) {
+      pkBattle.live = false;
+      pkBattle.frozen = false;
+      pkBattle.demo = false;
+      pkBattle.showEnd = false;
+      pkBattle.battleId = '';
+      pkBattle.pointsHost = 0;
+      pkBattle.pointsRival = 0;
+      broadcastPkBattle(true);
+      return;
+    }
     if (pkBattle.pointsHost > pkBattle.pointsRival) pkBattle.winsHost += 1;
     else if (pkBattle.pointsRival > pkBattle.pointsHost) pkBattle.winsRival += 1;
     emitPkBattleMvp();
@@ -2532,6 +2547,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     else if (scoreRival > scoreHost) winner = 'rival';
     pkBattle.live = false;
     pkBattle.frozen = false;
+    pkBattle.demo = false;
     pkBattle.showEnd = true;
     // Evento explícito para overlays (Meta Felicidades / Suerte) — Live Studio no debe depender solo del flanco live.
     broadcast('pkBattleEnd', {
@@ -2547,6 +2563,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function resetPkBattleAll() {
     pkBattle.live = false;
     pkBattle.frozen = false;
+    pkBattle.demo = false;
     pkBattle.battleId = '';
     pkBattle.host = { uniqueId: '', nickname: '', photo: '', userId: '' };
     pkBattle.rival = { uniqueId: '', nickname: '', photo: '', userId: '' };
@@ -7747,7 +7764,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             broadcast('log', { level: 'ok', text: '⚔️ Batalla PK iniciada' });
             fireBattleAlerts('battleStart', {});
             beginPkBattleRound({ anchors, battleId });
-          } else if (isAccept && !pkBattle.live) {
+          } else if (isAccept && (!pkBattle.live || pkBattle.demo)) {
+            // Si había un «Testear» (demo), sustituir por la PK real
             beginPkBattleRound({ anchors, battleId });
           } else if (isAccept && pkBattle.live) {
             if (battleId && !pkBattle.battleId) pkBattle.battleId = battleId;
@@ -7764,7 +7782,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           endPkBattleRound();
         } else if (anchors.length || battleId) {
           // Update sin open/accept: si hay PK activo o marcador, engancharse
-          if (!pkBattle.live && !pkBattle.showEnd && (state.inBattle || anchors.length >= 2)) {
+          if (pkBattle.demo) {
+            beginPkBattleRound({ anchors, battleId });
+          } else if (!pkBattle.live && !pkBattle.showEnd && (state.inBattle || anchors.length >= 2)) {
             beginPkBattleRound({ midJoin: true, anchors, battleId });
           } else if (pkBattle.live && anchors.length) {
             enrichPkParticipants(anchors);
@@ -8287,6 +8307,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const demoPhoto = '/jarron/lv.png';
         pkBattle.live = true;
         pkBattle.frozen = false;
+        pkBattle.demo = true;
         pkBattle.battleId = 'demo';
         pkBattle.rivalKey = 'rival_demo';
         pkBattle.host = {

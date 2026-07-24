@@ -46,21 +46,19 @@
       display: flex; flex-direction: column; align-items: center;
       gap: 8px; max-width: 100%;
     }
-    /* Marco Top1: corona + ala + nubes; la foto va DETRÁS del PNG, en el hueco del aro */
+    /* Marco dorado circular: foto detrás del PNG, en el hueco del aro */
     .frame-hero {
       position: relative;
-      width: 300px;
-      height: calc(300px * 718 / 747);
+      width: 280px;
+      height: 280px;
       filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
     }
     .avatar-hole {
       position: absolute;
-      /* Centro del hueco transparente (flood-fill del PNG 747×718) */
-      left: 48.66%;
-      top: 53.76%;
-      /* Diámetro en px iguales: width% del marco + height% compensando aspect 747/718 */
-      width: 39.78%;
-      height: 41.39%;
+      left: 50%;
+      top: 50%;
+      width: 72%;
+      height: 72%;
       transform: translate(-50%, -50%);
       border-radius: 50%;
       overflow: hidden;
@@ -147,7 +145,7 @@
     <div class="panel">
       <div class="frame-hero">
         <div class="avatar-hole"><img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer" /></div>
-        <img class="frame-img" src="/overlays/marco-mvp-top1.png" alt="" />
+        <img class="frame-img" src="/overlays/marco-mvp-top1.png?v=2" alt="" />
       </div>
       <div class="ov-title" id="title">FAN MVP</div>
       <div class="name" id="name"></div>
@@ -336,6 +334,8 @@
     }
     function applyPk(payload) {
       if (!payload || typeof payload !== 'object') return;
+      // PK real cancela el modo Testear (si no, se queda pegado el demo)
+      if (payload.live && demo) demo = false;
       if (demo) return;
       const live = !!payload.live;
       if (payload.pointsHost != null) scores.host = Number(payload.pointsHost) || 0;
@@ -364,7 +364,7 @@
     function demoFill() {
       demo = true;
       scores = { host: 1171, rival: 44 };
-      paint({ nickname: 'Arce Gonzalez', photo: DEMO, points: 820 });
+      paint({ uniqueId: 'mvp_demo', nickname: 'Arce Gonzalez', photo: DEMO, points: 820 });
       showOn();
     }
     function resetLocal() {
@@ -385,8 +385,16 @@
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         if (msg.type === 'pkBattle') applyPk(msg.payload || {});
         if (msg.type === 'pkBattleMvp' && msg.payload?.mvp) {
-          // Al terminar, refresca con el MVP final (por si armyTop no llegó)
-          if (!demo) {
+          if (msg.payload.demo) {
+            demo = true;
+            scores.host = Number(msg.payload.scoreHost) || 1171;
+            scores.rival = Number(msg.payload.scoreRival) || 44;
+            paint(msg.payload.mvp);
+            holding = false;
+            showOn();
+          } else {
+            // MVP real (fin de batalla): salir de Testear
+            demo = false;
             scores.host = Number(msg.payload.scoreHost) || scores.host;
             scores.rival = Number(msg.payload.scoreRival) || scores.rival;
             paint(msg.payload.mvp);

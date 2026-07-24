@@ -131,12 +131,12 @@
       width: 39.78%; height: 41.39%;
     }
     .rank-2 .avatar-hole {
-      left: 50.29%; top: 47.27%;
-      width: 43.42%; height: 43.42%;
+      left: 50%; top: 47.9%;
+      width: 64%; height: 64%;
     }
     .rank-3 .avatar-hole {
-      left: 49.90%; top: 54.69%;
-      width: 42.43%; height: 42.43%;
+      left: 50%; top: 47.7%;
+      width: 63%; height: 63%;
     }
     .avatar-hole .avatar {
       width: 100%;
@@ -208,7 +208,7 @@
         <div class="hero">
           <div class="frame-hero">
             <div class="avatar-hole"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
-            <img class="frame-img" src="/overlays/marco-top2.png" alt="" />
+            <img class="frame-img" src="/overlays/marco-top2.png?v=2" alt="" />
           </div>
         </div>
         <p class="name">—</p>
@@ -219,7 +219,7 @@
         <div class="hero">
           <div class="frame-hero">
             <div class="avatar-hole"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
-            <img class="frame-img" src="/overlays/marco-top3.png" alt="" />
+            <img class="frame-img" src="/overlays/marco-top3.png?v=2" alt="" />
           </div>
         </div>
         <p class="name">—</p>
@@ -410,6 +410,11 @@
     }
     function applyPk(payload) {
       if (!payload || typeof payload !== 'object') return;
+      // PK real cancela el modo Testear (si no, se queda pegado el demo)
+      if (payload.live && demo) {
+        clearAnim();
+        demo = false;
+      }
       if (demo) return;
       const live = !!payload.live;
       const nextTop = Array.isArray(payload.armyTop3Host) ? payload.armyTop3Host : [];
@@ -435,16 +440,16 @@
       state.live = true;
       state.holding = false;
       state.top3 = [
-        { nickname: 'Fan MVP 🔥', photo: DEMO, points: 820 },
-        { nickname: 'Donador2', photo: DEMO, points: 410 },
-        { nickname: 'Apoyo3', photo: DEMO, points: 188 },
+        { nickname: 'TOP1', photo: DEMO, points: 820 },
+        { nickname: 'top2', photo: DEMO, points: 410 },
+        { nickname: 'top 3', photo: DEMO, points: 188 },
       ];
       render({ stagger: true });
       animTimers.push(setTimeout(() => {
         state.top3 = [
-          { nickname: 'Donador2', photo: DEMO, points: 910 },
-          { nickname: 'Fan MVP 🔥', photo: DEMO, points: 820 },
-          { nickname: 'NuevoTop', photo: DEMO, points: 505 },
+          { nickname: 'TOP1', photo: DEMO, points: 910 },
+          { nickname: 'top2', photo: DEMO, points: 820 },
+          { nickname: 'top 3', photo: DEMO, points: 505 },
         ];
         render({ stagger: true });
       }, 2200));

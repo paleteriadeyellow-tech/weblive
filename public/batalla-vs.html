@@ -103,11 +103,11 @@
 
     .mid {
       flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 4px; width: 78px; padding-top: 12px;
+      justify-content: center; gap: 4px; width: 100px; padding-top: 8px;
     }
     .vs-badge {
-      width: 76px;
-      height: 50px;
+      width: 110px;
+      height: 74px;
       padding: 0;
       border: 0;
       background: transparent;
@@ -134,20 +134,20 @@
       <div class="wins" id="wins-host">0</div>
       <div class="frame-hero">
         <div class="avatar-hole"><img class="avatar" id="avatar-host" alt="" referrerpolicy="no-referrer" /></div>
-        <img class="frame-img" src="/overlays/marco-vs-host.png?v=2" alt="" />
+        <img class="frame-img" src="/overlays/marco-vs-host.png?v=4" alt="" />
       </div>
       <div class="name" id="name-host">Esperando…</div>
       <div class="points" id="points-host">0</div>
     </div>
     <div class="mid">
-      <img class="vs-badge" src="/overlays/vs-badge.png" alt="VS" />
+      <img class="vs-badge" src="/overlays/vs-badge.png?v=2" alt="VS" />
       <div class="status" id="status-label"></div>
     </div>
     <div class="side rival" id="side-rival">
       <div class="wins" id="wins-rival">0</div>
       <div class="frame-hero">
         <div class="avatar-hole"><img class="avatar" id="avatar-rival" alt="" referrerpolicy="no-referrer" /></div>
-        <img class="frame-img" src="/overlays/marco-vs-rival.png?v=2" alt="" />
+        <img class="frame-img" src="/overlays/marco-vs-rival.png?v=4" alt="" />
       </div>
       <div class="name" id="name-rival">Rival</div>
       <div class="points" id="points-rival">0</div>
@@ -258,6 +258,13 @@
         if (payload.rival.photo) next.photo = String(payload.rival.photo);
         if (payload.rival.nickname && String(payload.rival.nickname).trim() && String(payload.rival.nickname) !== 'Rival') {
           next.nickname = String(payload.rival.nickname);
+        }
+        // PK real tras Testear: no conservar nick/foto de la demo
+        if (payload.rival.uniqueId && String(payload.rival.uniqueId) !== 'rival_demo') {
+          if (state.rival.uniqueId === 'rival_demo' || state.rival.uniqueId === 'rival') {
+            next.photo = payload.rival.photo ? String(payload.rival.photo) : (next.photo || '');
+            if (payload.rival.nickname) next.nickname = String(payload.rival.nickname);
+          }
         }
         state.rival = next;
       }

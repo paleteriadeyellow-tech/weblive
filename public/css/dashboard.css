@@ -1914,6 +1914,12 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 .ovpro-title { font-size: 18px; margin: 0 0 6px; background: var(--tiktok); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .ovpro-desc { font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.65); margin: 0 0 14px; }
 .ovpro-desc code { background: rgba(255,255,255,.08); padding: 1px 6px; border-radius: 6px; }
+.ovpro-res-warn {
+  margin: -6px 0 14px; padding: 8px 12px; border-radius: 10px;
+  font-size: 12.5px; font-weight: 800; line-height: 1.35; color: #ff5c6a;
+  background: rgba(254, 44, 85, .12); border: 1px solid rgba(254, 44, 85, .35);
+}
+.ovpro-res-warn b { color: #ff8a94; font-weight: 900; }
 .ovpro-urlrow { display: flex; gap: 10px; align-items: stretch; margin-bottom: 14px; }
 .ovpro-urlrow .ov-url {
   flex: 1; min-width: 0; background: #0a0f18; border: 1px solid rgba(255,255,255,.1); border-radius: 10px;
