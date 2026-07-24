@@ -12,77 +12,107 @@
     html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
 
     .stage {
-      width: 720px; height: 280px; position: relative;
-      display: flex; align-items: center; justify-content: center; gap: 18px;
+      width: 760px; height: 320px; position: relative;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
       font-family: 'Rubik', 'Inter', system-ui, sans-serif;
-      padding: 12px 16px;
+      padding: 8px 12px;
     }
 
     .side {
-      flex: 1 1 0; min-width: 0; max-width: 280px;
-      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      flex: 1 1 0; min-width: 0; max-width: 300px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
     }
     .wins {
-      font-weight: 900; font-size: 42px; line-height: 1;
+      font-weight: 900; font-size: 38px; line-height: 1;
       font-variant-numeric: tabular-nums;
       text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 18px rgba(0,0,0,.35);
       transition: transform .15s ease;
+      z-index: 3;
     }
     .wins.is-pop { animation: winpop .32s ease; }
     @keyframes winpop { 0% { transform: scale(1); } 40% { transform: scale(1.16); } 100% { transform: scale(1); } }
-    .side.host .wins { color: #4da3ff; }
-    .side.rival .wins { color: #ffe566; }
+    .side.host .wins { color: #ffe566; }
+    .side.rival .wins { color: #4da3ff; }
 
-    .avatar-wrap {
-      width: 92px; height: 92px; border-radius: 50%;
-      padding: 3px;
-      background: linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.05));
-      box-shadow: 0 8px 22px rgba(0,0,0,.4);
+    /* Marcos: foto detrás del PNG, a la medida del círculo */
+    .frame-hero {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      background: transparent !important;
+      filter: drop-shadow(0 8px 18px rgba(0,0,0,.45));
+      flex: 0 0 auto;
     }
-    .side.host .avatar-wrap {
-      background: linear-gradient(145deg, #7ec8ff, #1a6fff);
-      box-shadow: 0 0 0 2px rgba(80,160,255,.35), 0 8px 22px rgba(0,0,0,.4);
+    .avatar-hole {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      overflow: hidden;
+      z-index: 1;
+      background: transparent;
+      -webkit-clip-path: circle(50% at 50% 50%);
+      clip-path: circle(50% at 50% 50%);
     }
-    .side.rival .avatar-wrap {
-      background: linear-gradient(145deg, #ffe98a, #f0b400);
-      box-shadow: 0 0 0 2px rgba(255,210,80,.35), 0 8px 22px rgba(0,0,0,.4);
+    .side.host .avatar-hole {
+      left: 50%; top: 50%;
+      width: 39.60%; height: 39.60%;
     }
-    .avatar {
-      width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
-      display: block; background: rgba(20,20,28,.85);
-      border: 2px solid rgba(0,0,0,.25);
+    .side.rival .avatar-hole {
+      left: 50%; top: 50.78%;
+      width: 42.31%; height: 42.31%;
+    }
+    .avatar-hole .avatar {
+      width: 100%; height: 100%;
+      object-fit: cover; object-position: center center;
+      display: block; border: 0; border-radius: 50%;
+    }
+    .frame-img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: fill; display: block;
+      z-index: 2; pointer-events: none; user-select: none;
     }
 
     .name {
       font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 800; font-size: 16px; color: #fff;
+      font-weight: 800; font-size: 15px; color: #fff;
       max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       text-shadow: 0 2px 0 rgba(0,0,0,.55);
       text-align: center; padding: 0 4px;
+      z-index: 3;
     }
 
     .points {
-      font-weight: 900; font-size: 34px; line-height: 1;
+      font-weight: 900; font-size: 30px; line-height: 1;
       color: #ffe566; font-variant-numeric: tabular-nums;
       text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 16px rgba(255,200,60,.3);
       transition: transform .14s ease;
+      z-index: 3;
     }
     .points.is-pop { animation: winpop .28s ease; }
-    .side.host .points { color: #7ec8ff; }
+    .side.host .points { color: #ffe566; }
+    .side.rival .points { color: #7ec8ff; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 16px rgba(80,160,255,.3); }
 
     .mid {
       flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 8px; min-width: 72px; padding-top: 28px;
+      justify-content: center; gap: 8px; min-width: 64px; padding-top: 36px;
     }
     .vs-badge {
-      background: linear-gradient(180deg, #ff4d5e 0%, #d01830 100%);
-      color: #fff; font-weight: 900; font-size: 18px; letter-spacing: .08em;
-      padding: 8px 14px; border-radius: 10px;
-      box-shadow: 0 6px 16px rgba(200,20,40,.45), inset 0 1px 0 rgba(255,255,255,.25);
-      text-shadow: 0 1px 0 rgba(0,0,0,.35);
+      width: 78px;
+      height: 52px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      display: block;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,.45));
+      pointer-events: none;
+      user-select: none;
     }
     .status {
+      display: none !important;
       font-family: 'Inter', system-ui, sans-serif;
       font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
       color: rgba(255,255,255,.55); min-height: 12px;
@@ -95,17 +125,23 @@
   <div class="stage" id="stage">
     <div class="side host" id="side-host">
       <div class="wins" id="wins-host">0</div>
-      <div class="avatar-wrap"><img class="avatar" id="avatar-host" alt="" referrerpolicy="no-referrer" /></div>
+      <div class="frame-hero">
+        <div class="avatar-hole"><img class="avatar" id="avatar-host" alt="" referrerpolicy="no-referrer" /></div>
+        <img class="frame-img" src="/overlays/marco-vs-host.png" alt="" />
+      </div>
       <div class="name" id="name-host">Esperando…</div>
       <div class="points" id="points-host">0</div>
     </div>
     <div class="mid">
-      <div class="vs-badge">VS</div>
+      <img class="vs-badge" src="/overlays/vs-badge.png" alt="VS" />
       <div class="status" id="status-label"></div>
     </div>
     <div class="side rival" id="side-rival">
       <div class="wins" id="wins-rival">0</div>
-      <div class="avatar-wrap"><img class="avatar" id="avatar-rival" alt="" referrerpolicy="no-referrer" /></div>
+      <div class="frame-hero">
+        <div class="avatar-hole"><img class="avatar" id="avatar-rival" alt="" referrerpolicy="no-referrer" /></div>
+        <img class="frame-img" src="/overlays/marco-vs-rival.png" alt="" />
+      </div>
       <div class="name" id="name-rival">Rival</div>
       <div class="points" id="points-rival">0</div>
     </div>
@@ -120,7 +156,7 @@
 
     (function fit() {
       function apply() {
-        const k = Math.min((innerWidth || 720) / 720, (innerHeight || 280) / 280) || 1;
+        const k = Math.min((innerWidth || 760) / 760, (innerHeight || 320) / 320) || 1;
         document.documentElement.style.setProperty('--tf-fit', k);
       }
       apply(); addEventListener('resize', apply);

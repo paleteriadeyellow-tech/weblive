@@ -7013,7 +7013,7 @@ const STYLE_OVERLAYS = [
     modalId: 'bmvConfigModal', closeId: 'bmvcfg-close', saveId: 'bmvcfg-save',
     testAction: 'testBatallaMvp', resetAction: 'resetBatallaMvp',
     map: {
-      'bmvcfg-badge': 'badgeText', 'bmvcfg-linetpl': 'lineTpl', 'bmvcfg-linenopts': 'lineNoPts',
+      'bmvcfg-title': 'title', 'bmvcfg-linetpl': 'lineTpl', 'bmvcfg-linenopts': 'lineNoPts',
       'bmvcfg-showtext': 'showText',
       'bmvcfg-font': 'font', 'bmvcfg-namesize': 'nameSize', 'bmvcfg-linesize': 'lineSize',
       'bmvcfg-showms': 'showMs', 'bmvcfg-rainbow': 'titleRainbow',
@@ -7035,7 +7035,8 @@ const STYLE_OVERLAYS = [
     modalId: 'bt3ConfigModal', closeId: 'bt3cfg-close', saveId: 'bt3cfg-save',
     testAction: 'testBatallaTop3', resetAction: 'resetBatallaTop3',
     map: {
-      'bt3cfg-title': 'title', 'bt3cfg-empty': 'emptyText', 'bt3cfg-showtext': 'showText',
+      'bt3cfg-title': 'title', 'bt3cfg-empty': 'emptyText',
+      'bt3cfg-showtitle': 'showTitle', 'bt3cfg-showtext': 'showText',
       'bt3cfg-font': 'font',
       'bt3cfg-titlesize': 'titleSize', 'bt3cfg-rainbow': 'titleRainbow',
       'bt3cfg-tc1': 'tc1', 'bt3cfg-tc2': 'tc2', 'bt3cfg-tc3': 'tc3',

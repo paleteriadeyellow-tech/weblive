@@ -89,17 +89,18 @@
       pointer-events: none;
       user-select: none;
     }
-    .name {
+    .ov-title {
       margin: 2px 0 0; max-width: 92%;
       font-family: var(--tf-font-stack);
-      font-weight: 900; font-size: var(--name-size); color: var(--name-color);
+      font-weight: 900; font-size: var(--name-size);
+      color: var(--name-color);
       text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 0 22px rgba(0,0,0,.35);
       padding: 0 12px;
       -webkit-text-fill-color: var(--name-color);
       background: none;
     }
-    .name.name--rainbow {
+    .ov-title.title--rainbow {
       background: linear-gradient(90deg, var(--tc1), var(--tc2), var(--tc3), var(--tc1), var(--tc2), var(--tc3), var(--tc1));
       background-size: 280% 100%;
       -webkit-background-clip: text; background-clip: text;
@@ -108,6 +109,17 @@
       animation: title-rainbow-move 3.2s linear infinite;
       filter: drop-shadow(0 3px 0 rgba(0,0,0,.55));
     }
+    .ov-title.is-empty { display: none !important; }
+    .name {
+      margin: 0; max-width: 92%;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 800; font-size: calc(var(--name-size) * 0.55);
+      color: rgba(255,255,255,.9);
+      text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 2px 0 rgba(0,0,0,.5);
+      padding: 0 10px;
+    }
+    .name.is-empty { display: none !important; }
     @keyframes title-rainbow-move {
       0% { background-position: 0% 50%; }
       100% { background-position: 100% 50%; }
@@ -124,6 +136,7 @@
       font-variant-numeric: tabular-nums;
       text-shadow: 0 1px 0 rgba(0,0,0,.5);
     }
+    .stage.hide-text .ov-title,
     .stage.hide-text .name,
     .stage.hide-text .line,
     .stage.hide-text .score { display: none !important; }
@@ -136,7 +149,8 @@
         <div class="avatar-hole"><img class="avatar" id="avatar" alt="" referrerpolicy="no-referrer" /></div>
         <img class="frame-img" src="/overlays/marco-mvp-top1.png" alt="" />
       </div>
-      <div class="name" id="name">—</div>
+      <div class="ov-title" id="title">FAN MVP</div>
+      <div class="name" id="name"></div>
       <p class="line" id="line"></p>
       <div class="score" id="score"></div>
     </div>
@@ -201,6 +215,7 @@
     })();
 
     let cfg = {
+      title: 'FAN MVP',
       lineTpl: 'decidió la pelea con {n} puntos',
       lineNoPts: '',
       font: 'rubik',
@@ -219,6 +234,7 @@
     const el = {
       stage: document.getElementById('stage'),
       avatar: document.getElementById('avatar'),
+      title: document.getElementById('title'),
       name: document.getElementById('name'),
       line: document.getElementById('line'),
       score: document.getElementById('score'),
@@ -232,6 +248,9 @@
 
     function fmt(n) {
       return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('es-ES');
+    }
+    function titleText() {
+      return String(cfg.title || cfg.badgeText || '').trim();
     }
     function applyStyle() {
       const fontKey = FONTS[cfg.font] ? cfg.font : 'rubik';
@@ -249,7 +268,10 @@
       el.stage.style.setProperty('--tc3', cfg.tc3 || '#ffcc00');
       el.stage.style.setProperty('--name-size', Math.max(22, Math.min(52, Number(cfg.nameSize) || 36)) + 'px');
       el.stage.style.setProperty('--line-size', Math.max(14, Math.min(32, Number(cfg.lineSize) || 22)) + 'px');
-      el.name.classList.toggle('name--rainbow', !!cfg.titleRainbow);
+      const t = titleText();
+      el.title.textContent = t || 'MVP';
+      el.title.classList.toggle('is-empty', !t);
+      el.title.classList.toggle('title--rainbow', !!cfg.titleRainbow);
       el.stage.classList.toggle('hide-text', cfg.showText === false);
     }
     function setAvatar(url) {
@@ -272,13 +294,16 @@
       current = mvp || null;
       if (!mvp) {
         setAvatar('');
-        el.name.textContent = '—';
+        el.name.textContent = '';
+        el.name.classList.add('is-empty');
         el.line.textContent = '';
         el.score.textContent = '';
         return;
       }
       setAvatar(mvp.photo);
-      el.name.textContent = mvp.nickname || 'MVP';
+      const nick = String(mvp.nickname || '').trim();
+      el.name.textContent = nick;
+      el.name.classList.toggle('is-empty', !nick);
       el.line.textContent = lineFor(mvp.points);
       if (holding) el.score.textContent = `Final ${fmt(scores.host)} — ${fmt(scores.rival)}`;
       else el.score.textContent = `${fmt(scores.host)} — ${fmt(scores.rival)}`;
@@ -339,7 +364,7 @@
     function demoFill() {
       demo = true;
       scores = { host: 1171, rival: 44 };
-      paint({ nickname: 'Fan MVP 🔥', photo: DEMO, points: 820 });
+      paint({ nickname: 'Arce Gonzalez', photo: DEMO, points: 820 });
       showOn();
     }
     function resetLocal() {

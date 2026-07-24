@@ -54,6 +54,7 @@
       100% { transform: scale(1); }
     }
     .badge {
+      display: none !important;
       font-family: 'Inter', system-ui, sans-serif;
       font-size: 14px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
       padding: 6px 14px; border-radius: 999px;
@@ -357,20 +358,22 @@
         if (payload.pointsRival != null) state.pointsRival = nextR;
       }
 
-      // Flag persistente del server (showEnd) o evento de fin
-      if (payload.ending) {
+      // Fin de ronda: mantener Felicidades/Suerte hasta que empiece otra batalla de verdad
+      if (payload.ending || (state.ending && !live)) {
         state.ending = true;
         state.live = false;
         wasLive = false;
         render();
         return;
       }
+      if (state.ending && live) {
+        // Solo aquí se limpia el fin: nueva batalla live
+        state.ending = null;
+      }
 
       if (live && !wasLive) {
-        // Nueva batalla → salir del mensaje final
         state.ending = null;
       } else if (wasLive && !live) {
-        // Acabó la batalla → Felicidades / Suerte en la siguiente
         state.ending = true;
       }
       if (live) {
@@ -378,7 +381,6 @@
         state.live = true;
       } else {
         state.live = false;
-        // Si ya estábamos en fin de ronda, no apagar el overlay
         if (state.ending) {
           wasLive = false;
           render();

@@ -2590,6 +2590,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     );
     if (!hasScores && !battleId) return;
     if (!pkBattle.live) {
+      // Tras el fin de ronda: NO reabrir el PK por paquetes residuales de ejército
+      // (eso borraba Felicidades y volvía a «Mantén X de ventaja»).
+      if (pkBattle.showEnd) return;
       beginPkBattleRound({
         midJoin: true,
         battleId,
@@ -7761,7 +7764,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           endPkBattleRound();
         } else if (anchors.length || battleId) {
           // Update sin open/accept: si hay PK activo o marcador, engancharse
-          if (!pkBattle.live && (state.inBattle || anchors.length >= 2)) {
+          if (!pkBattle.live && !pkBattle.showEnd && (state.inBattle || anchors.length >= 2)) {
             beginPkBattleRound({ midJoin: true, anchors, battleId });
           } else if (pkBattle.live && anchors.length) {
             enrichPkParticipants(anchors);

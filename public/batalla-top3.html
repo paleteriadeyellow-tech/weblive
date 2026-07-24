@@ -43,6 +43,7 @@
     }
     .stage.is-on { opacity: 1; }
     .badge {
+      display: none !important;
       font-family: 'Inter', system-ui, sans-serif;
       font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
       padding: 5px 12px; border-radius: 999px;
@@ -90,35 +91,33 @@
       100% { transform: none; }
     }
     .slot.rank-1 { order: 2; width: 250px; }
-    .slot.rank-2 { order: 1; }
-    .slot.rank-3 { order: 3; }
-    .medal {
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 12px; font-weight: 900; letter-spacing: .08em;
-      padding: 4px 10px; border-radius: 999px;
-      background: rgba(0,0,0,.4); color: #fff;
-    }
-    .rank-2 .medal { background: linear-gradient(180deg, #e8eef8, #9aa8bd); color: #1a1f28; }
-    .rank-3 .medal { background: linear-gradient(180deg, #f0c9a0, #c47844); color: #2a1608; }
-    .rank-1 .medal { display: none; }
+    .slot.rank-2 { order: 1; width: 210px; }
+    .slot.rank-3 { order: 3; width: 210px; }
+    .medal { display: none !important; }
     .hero {
       position: relative;
       display: flex; align-items: flex-end; justify-content: center;
       width: 100%;
     }
-    /* #1: marco con corona integrada — foto detrás del PNG, exacta al aro */
+    /* Marcos Top1/2/3: foto detrás del PNG, centrada en el aro */
     .frame-hero {
       position: relative;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+    }
+    .rank-1 .frame-hero {
       width: 210px;
       height: calc(210px * 718 / 747);
-      filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+    }
+    .rank-2 .frame-hero {
+      width: 168px;
+      height: 168px;
+    }
+    .rank-3 .frame-hero {
+      width: 168px;
+      height: 168px;
     }
     .avatar-hole {
       position: absolute;
-      left: 48.66%;
-      top: 53.76%;
-      width: 39.78%;
-      height: 41.39%;
       transform: translate(-50%, -50%);
       border-radius: 50%;
       overflow: hidden;
@@ -126,6 +125,18 @@
       background: #111;
       -webkit-clip-path: circle(50% at 50% 50%);
       clip-path: circle(50% at 50% 50%);
+    }
+    .rank-1 .avatar-hole {
+      left: 48.66%; top: 53.76%;
+      width: 39.78%; height: 41.39%;
+    }
+    .rank-2 .avatar-hole {
+      left: 50.29%; top: 47.27%;
+      width: 43.42%; height: 43.42%;
+    }
+    .rank-3 .avatar-hole {
+      left: 49.90%; top: 54.69%;
+      width: 42.43%; height: 42.43%;
     }
     .avatar-hole .avatar {
       width: 100%;
@@ -147,29 +158,15 @@
       pointer-events: none;
       user-select: none;
     }
-    /* #2 / #3: círculos simples */
-    .avatar-wrap {
-      width: 100px; height: 100px; border-radius: 50%;
-      padding: 4px;
-      background: linear-gradient(145deg, #9ec9ff, #3a7de0);
-      box-shadow: 0 8px 20px rgba(0,0,0,.4);
-      z-index: 1;
-    }
-    .rank-3 .avatar-wrap { background: linear-gradient(145deg, #f0c9a0, #c47844); }
-    .avatar-wrap .avatar {
-      width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
-      display: block; background: rgba(20,20,28,.85);
-      border: 2px solid rgba(0,0,0,.25);
-    }
     .name {
       margin: 0; max-width: 100%;
       font-family: var(--tf-font-stack);
-      font-weight: 800; font-size: 16px; color: var(--name-color); text-align: center;
+      font-weight: 800; font-size: 15px; color: var(--name-color); text-align: center;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       text-shadow: 0 2px 0 rgba(0,0,0,.55);
       padding: 0 4px;
     }
-    .rank-1 .name { font-size: 18px; }
+    .rank-1 .name { font-size: 17px; }
     .pts {
       margin: 0;
       font-family: 'Inter', system-ui, sans-serif;
@@ -182,7 +179,7 @@
       font-weight: 700; font-size: 16px; color: var(--empty-color);
       text-shadow: 0 1px 0 rgba(0,0,0,.45);
     }
-    .stage.hide-text .title,
+    .stage.hide-title .title { display: none !important; }
     .stage.hide-text .name,
     .stage.hide-text .pts,
     .stage.hide-text .empty,
@@ -209,7 +206,10 @@
       <div class="slot rank-2" data-rank="2">
         <div class="medal">#2</div>
         <div class="hero">
-          <div class="avatar-wrap"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
+          <div class="frame-hero">
+            <div class="avatar-hole"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
+            <img class="frame-img" src="/overlays/marco-top2.png" alt="" />
+          </div>
         </div>
         <p class="name">—</p>
         <p class="pts">0</p>
@@ -217,7 +217,10 @@
       <div class="slot rank-3" data-rank="3">
         <div class="medal">#3</div>
         <div class="hero">
-          <div class="avatar-wrap"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
+          <div class="frame-hero">
+            <div class="avatar-hole"><img class="avatar" alt="" referrerpolicy="no-referrer" /></div>
+            <img class="frame-img" src="/overlays/marco-top3.png" alt="" />
+          </div>
         </div>
         <p class="name">—</p>
         <p class="pts">0</p>
@@ -293,6 +296,7 @@
       labelDemo: 'DEMO',
       font: 'rubik',
       titleRainbow: true,
+      showTitle: true,
       showText: true,
       tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
       titleColor: '#ffffff',
@@ -339,6 +343,7 @@
       el.title.textContent = cfg.title || 'TOP 3 · TU EJÉRCITO';
       el.title.classList.toggle('title--rainbow', !!cfg.titleRainbow);
       el.empty.textContent = cfg.emptyText || 'Aún no hay aportes en tu ejército';
+      el.stage.classList.toggle('hide-title', cfg.showTitle === false);
       el.stage.classList.toggle('hide-text', cfg.showText === false);
     }
     function setAvatar(img, url) {

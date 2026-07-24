@@ -292,6 +292,7 @@ export const DEFAULT_SETTINGS = {
   // Overlay MVP de la batalla (PK: top al terminar)
   batallaMvp: {
     enabled: true,
+    title: 'FAN MVP',
     badgeText: 'MVP',
     lineTpl: 'decidió la pelea con {n} puntos',
     lineNoPts: '',
@@ -322,6 +323,7 @@ export const DEFAULT_SETTINGS = {
     labelDemo: 'DEMO',
     font: 'rubik',
     titleRainbow: true,
+    showTitle: true,
     showText: true,
     tc1: '#ff00aa',
     tc2: '#00ddff',

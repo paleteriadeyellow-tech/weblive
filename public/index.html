@@ -2635,13 +2635,13 @@
             </div>
             <div class="modal-body">
               <p class="hint">Resolución recomendada TikTok Studio: <b>800 × 600</b>. Usa <code>{n}</code> en la frase para los puntos.</p>
-              <label class="ml">BADGE</label>
-              <input type="text" id="bmvcfg-badge" placeholder="MVP">
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="bmvcfg-title" placeholder="FAN MVP">
               <label class="ml">FRASE CON PUNTOS</label>
               <input type="text" id="bmvcfg-linetpl" placeholder="decidió la pelea con {n} puntos">
               <label class="ml">FRASE SIN PUNTOS</label>
               <input type="text" id="bmvcfg-linenopts" placeholder="(vacío = sin frase)">
-              <label class="switch-row plain"><input type="checkbox" id="bmvcfg-showtext" checked> <span>Mostrar textos (nombre / frase / marcador)</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="bmvcfg-showtext" checked> <span>Mostrar textos (título / nombre / frase / marcador)</span></label>
               <label class="ml">FUENTE</label>
               <select id="bmvcfg-font" class="cfg-font"></select>
               <div class="gvscfg-grid2" style="margin-top:12px">
@@ -2656,7 +2656,7 @@
               </div>
               <label class="ml">DURACIÓN EN PANTALLA (MS)</label>
               <input type="number" id="bmvcfg-showms" min="2500" max="20000" value="6500">
-              <label class="switch-row plain"><input type="checkbox" id="bmvcfg-rainbow" checked> <span>Nombre arcoíris con movimiento</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="bmvcfg-rainbow" checked> <span>Título arcoíris con movimiento</span></label>
               <div class="cfg-colors">
                 <div class="bmv-rain-colors"><label class="ml">ARCOÍRIS 1</label><input type="color" id="bmvcfg-tc1" value="#ff00aa"></div>
                 <div class="bmv-rain-colors"><label class="ml">ARCOÍRIS 2</label><input type="color" id="bmvcfg-tc2" value="#00ddff"></div>
@@ -2688,7 +2688,8 @@
               <input type="text" id="bt3cfg-title" placeholder="TOP 3 · TU EJÉRCITO">
               <label class="ml">TEXTO VACÍO</label>
               <input type="text" id="bt3cfg-empty" placeholder="Aún no hay aportes en tu ejército">
-              <label class="switch-row plain"><input type="checkbox" id="bt3cfg-showtext" checked> <span>Mostrar textos (título / nombres / puntos)</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="bt3cfg-showtitle" checked> <span>Mostrar título</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="bt3cfg-showtext" checked> <span>Mostrar textos (nombres / puntos)</span></label>
               <label class="ml">FUENTE</label>
               <select id="bt3cfg-font" class="cfg-font"></select>
               <label class="ml">TAMAÑO TÍTULO (PX)</label>
