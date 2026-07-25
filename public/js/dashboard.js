@@ -8160,6 +8160,7 @@ function ttsConfigForUser(userId) {
 }
 
 function ttsSpeakTextForUser(text, userId) {
+  try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
   const phrase = String(text || '').trim();
   if (!phrase) return;
   const cfg = ttsConfigForUser(userId);
@@ -8453,6 +8454,7 @@ function ttsSyncElevenlabsFromDom() {
 }
 
 function ttsSpeakText(text, opts = {}) {
+  try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
   const t = settings?.tts || {};
   const phrase = String(text || '').trim();
   if (!phrase) return;
@@ -8718,11 +8720,15 @@ function ttsElevenLabsReady(t) {
 
 function ttsSpeakElevenLabs(phrase, t) {
   const el = t?.elevenlabs || {};
+  const apiKey = String(el.apiKey || '').trim();
+  const voiceId = String(el.voiceId || '').trim();
+  if (!apiKey || !voiceId) return;
   ttsTkQueue.push({
     engine: 'elevenlabs',
     text: phrase,
-    // La key NO viaja en cada speak: el servidor la toma de settings guardados.
-    voice: String(el.voiceId || '').trim(),
+    // Enviar key en el body: el room a veces aún no tiene el saveSettings debounced.
+    apiKey,
+    voice: voiceId,
     modelId: String(el.modelId || 'eleven_multilingual_v2').trim(),
     volume: t.volume ?? 1,
     at: Date.now(),
@@ -8964,6 +8970,8 @@ if (window.desktopAPI && typeof window.desktopAPI.onToggleTts === 'function') {
   window.desktopAPI.onToggleTts(() => toggleTtsHotkey());
 }
 
+let ttsElLastFailToastAt = 0;
+
 async function ttsTkFetchSpeak(item, signal) {
   if (item && item.engine === 'elevenlabs') {
     const r = await fetch('/api/tts/elevenlabs/speak', {
@@ -8975,12 +8983,12 @@ async function ttsTkFetchSpeak(item, signal) {
         text: item.text,
         voiceId: item.voice,
         modelId: item.modelId,
+        apiKey: item.apiKey || undefined,
       }),
     });
-    if (!r.ok) return null;
     const j = await r.json().catch(() => null);
     if (j && j.ok && j.audio) return j;
-    return null;
+    return { ok: false, error: (j && j.error) || (`http_${r.status}`), engine: 'elevenlabs' };
   }
   const r = await fetch('/api/tts/speak', {
     method: 'POST',
@@ -8993,6 +9001,43 @@ async function ttsTkFetchSpeak(item, signal) {
   const j = await r.json().catch(() => null);
   if (j && j.ok && j.audio) return j;
   return null;
+}
+
+/** Si ElevenLabs falla: Edge/TikTok (Audio) antes que speechSynthesis (a menudo muda en .exe). */
+function ttsFallbackAfterElFail(item, errMsg) {
+  const now = Date.now();
+  if (now - ttsElLastFailToastAt > 12000) {
+    ttsElLastFailToastAt = now;
+    const hint = String(errMsg || 'error').slice(0, 120);
+    toast(`ElevenLabs no habló (${hint}). Usando voz de respaldo. Revisa cuota/API key.`, 'warn');
+    try { ttsElSetStatus('Error speak: ' + hint, 'err'); } catch { /* ignore */ }
+  }
+  const t = settings?.tts || {};
+  const vol = item?.volume ?? t.volume ?? 1;
+  const phrase = String(item?.text || '').trim();
+  if (!phrase) return;
+  if (isEdgeTtsVoiceId(t.voice) || isTtsLangEdgeSpanish(t.lang)) {
+    const edgeVoice = isEdgeTtsVoiceId(t.voice) ? t.voice : defaultEdgeVoiceIdForLocale(t.lang);
+    ttsTkQueue.unshift({
+      text: phrase,
+      voice: edgeVoice,
+      translate: false,
+      volume: vol,
+      at: Date.now(),
+    });
+    return;
+  }
+  if (t.tiktokVoice) {
+    ttsTkQueue.unshift({
+      text: phrase,
+      voice: t.tiktokVoice,
+      translate: t.tiktokTranslateEs !== false,
+      volume: vol,
+      at: Date.now(),
+    });
+    return;
+  }
+  ttsSpeakSystem(phrase, t);
 }
 
 function ttsTkStartPrefetch(item) {
@@ -9034,8 +9079,12 @@ async function ttsTkPump() {
       finally { clearTimeout(timer); ttsTkAbort = null; }
     }
     if (ttsTkQueue.length) ttsTkStartPrefetch(ttsTkQueue[0]);
-    if (j && j.audio) {
+    if (j && j.ok !== false && j.audio) {
       await ttsPlayBase64(j.audio, j.mime || 'audio/mpeg', item.volume);
+      continue;
+    }
+    if (item.engine === 'elevenlabs') {
+      ttsFallbackAfterElFail(item, j && j.error);
       continue;
     }
     // Fallback inmediato a voz del sistema (no esperar otro ciclo largo).
@@ -9085,9 +9134,9 @@ function ttsPlayBase64(b64, mime, volume) {
 
 /* Comentario del chat */
 function ttsSpeak(p, force = false) {
-  if (!TTS_HAS) return;
   const t = settings?.tts;
   if (!t) return;
+  // No exigir speechSynthesis: ElevenLabs / TikTok / Edge usan Audio() (igual que alertas).
   if (force) { ttsSpeakText(`${speakEmojis(p.nickname)} dice: ${p.comment || ''}`); return; }
   if (!t.enabled) return;
   if (!ttsAllowedUser(p)) return;
@@ -9270,18 +9319,19 @@ function openTtsWarnModal(onAccept) {
     if (el.enabled && (!el.apiKey || !el.voiceId)) {
       toast('ElevenLabs ON: falta API key o voz. Pulsa ? o Cargar voces.', 'warn');
     }
-    save();
+    try { flushSaveSettings(); } catch { save(); }
+    try { updateTtsSummary(); } catch { /* ignore */ }
   });
   const elKey = $('tts-el-apikey');
   if (elKey) elKey.addEventListener('change', () => {
     const v = elKey.value.trim();
     if (v) ttsEnsureElevenlabs().apiKey = v;
-    save();
+    try { flushSaveSettings(); } catch { save(); }
   });
   if (elKey) elKey.addEventListener('blur', () => {
     const v = elKey.value.trim();
     if (v) ttsEnsureElevenlabs().apiKey = v;
-    save();
+    try { flushSaveSettings(); } catch { save(); }
   });
   const elVoice = $('tts-el-voice');
   if (elVoice) elVoice.addEventListener('change', () => {
@@ -9289,7 +9339,8 @@ function openTtsWarnModal(onAccept) {
     el.voiceId = elVoice.value;
     const opt = elVoice.selectedOptions && elVoice.selectedOptions[0];
     el.voiceName = opt ? String(opt.textContent || '').replace(/\s*\([^)]*\)\s*$/, '').trim() : '';
-    save();
+    try { flushSaveSettings(); } catch { save(); }
+    try { updateTtsSummary(); } catch { /* ignore */ }
   });
   const elLoad = $('tts-el-load-voices');
   if (elLoad) elLoad.addEventListener('click', () => { ttsElLoadVoices(); });
