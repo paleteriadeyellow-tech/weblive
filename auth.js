@@ -100,6 +100,20 @@ function normalizeUsername(name) {
 export function listUsers() {
   return users.map((u) => ({ id: u.id, username: u.username, roomKey: u.roomKey }));
 }
+/** Claves de minijuegos (.exe) que el admin puede activar por usuario. */
+export const GAME_FEATURE_KEYS = [
+  'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter',
+  'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw',
+  'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned',
+  'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
+];
+
+function normalizeAllowedGames(list) {
+  if (!Array.isArray(list)) return null;
+  const set = new Set(GAME_FEATURE_KEYS);
+  return [...new Set(list.map(String).filter((k) => set.has(k)))];
+}
+
 // Detalle para el panel de administración (sin exponer salt/hash).
 export function listUsersDetailed() {
   return users.map((u) => ({
@@ -111,6 +125,7 @@ export function listUsersDetailed() {
     plan: u.plan || 'free',
     premiumUntil: u.premiumUntil || 0,
     gamesEnabled: u.isAdmin ? true : u.gamesEnabled !== false,
+    allowedGames: u.isAdmin ? null : (Array.isArray(u.allowedGames) ? normalizeAllowedGames(u.allowedGames) : null),
     spotifyEnabled: u.isAdmin ? true : !!u.spotifyEnabled,
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
@@ -165,12 +180,72 @@ export function isUserGamesEnabled(user) {
   if (user.isAdmin) return true;
   return user.gamesEnabled !== false;
 }
-/** Activa o desactiva todos los minijuegos para una cuenta (no afecta al admin). */
+/**
+ * null = todos los juegos del plan; array = solo esos (puede estar vacío).
+ * Si gamesEnabled es false, se trata como lista vacía.
+ */
+export function getUserAllowedGames(user) {
+  if (!user || user.isAdmin) return null;
+  if (!isUserGamesEnabled(user)) return [];
+  if (!Array.isArray(user.allowedGames)) return null;
+  return normalizeAllowedGames(user.allowedGames) || [];
+}
+/** Activa o desactiva todos los minijuegos. Al activar → modo “todos”; al desactivar se conserva la lista. */
 export function setUserGamesEnabled(id, enabled) {
-  const u = users.find((x) => x.id === id);
+  const u = users.find((x) => String(x.id) === String(id));
   if (!u) return false;
-  if (u.isAdmin) { u.gamesEnabled = true; saveUsers(); return true; }
-  u.gamesEnabled = !!enabled;
+  if (u.isAdmin) { u.gamesEnabled = true; delete u.allowedGames; saveUsers(); return true; }
+  if (enabled) {
+    u.gamesEnabled = true;
+    delete u.allowedGames;
+  } else {
+    u.gamesEnabled = false;
+  }
+  saveUsers();
+  return true;
+}
+/** Lista concreta de juegos (null/'all' = todos). */
+export function setUserAllowedGames(id, allowedGames) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  if (u.isAdmin) { u.gamesEnabled = true; delete u.allowedGames; saveUsers(); return true; }
+  if (allowedGames === null || allowedGames === 'all') {
+    u.gamesEnabled = true;
+    delete u.allowedGames;
+  } else {
+    const list = normalizeAllowedGames(allowedGames) || [];
+    u.allowedGames = list;
+    u.gamesEnabled = list.length > 0;
+  }
+  saveUsers();
+  return true;
+}
+/** Activa o quita un solo juego. Si estaba en “todos”, pasa a lista personalizada. */
+export function setUserGameAllowed(id, gameKey, enabled) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  if (!GAME_FEATURE_KEYS.includes(gameKey)) return false;
+  if (u.isAdmin) return true;
+  let list;
+  if (Array.isArray(u.allowedGames)) {
+    list = normalizeAllowedGames(u.allowedGames) || [];
+  } else if (u.gamesEnabled === false) {
+    list = [];
+  } else {
+    list = GAME_FEATURE_KEYS.slice();
+  }
+  if (enabled) {
+    if (!list.includes(gameKey)) list.push(gameKey);
+  } else {
+    list = list.filter((k) => k !== gameKey);
+  }
+  if (list.length === GAME_FEATURE_KEYS.length) {
+    u.gamesEnabled = true;
+    delete u.allowedGames;
+  } else {
+    u.allowedGames = list;
+    u.gamesEnabled = list.length > 0;
+  }
   saveUsers();
   return true;
 }
@@ -341,7 +416,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
 // Actualiza SOLO el plan/estado de un usuario espejo (sin tocar la contraseña).
 // Se usa en el .exe para refrescar el plan que el admin cambió en Render, sin
 // necesidad de que el usuario vuelva a iniciar sesión. Devuelve true si cambió algo.
-export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled, spotifyEnabled } = {}) {
+export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled, allowedGames, spotifyEnabled } = {}) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
   let changed = false;
@@ -356,6 +431,18 @@ export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, game
     const next = u.isAdmin ? true : !!gamesEnabled;
     const prevOn = u.gamesEnabled !== false;
     if (prevOn !== next) { u.gamesEnabled = next; changed = true; }
+  }
+  if (allowedGames !== undefined) {
+    if (allowedGames === null) {
+      if (u.allowedGames !== undefined) { delete u.allowedGames; changed = true; }
+    } else {
+      const next = normalizeAllowedGames(allowedGames) || [];
+      const prev = Array.isArray(u.allowedGames) ? (normalizeAllowedGames(u.allowedGames) || []) : null;
+      if (!prev || prev.length !== next.length || next.some((k, i) => k !== prev[i])) {
+        u.allowedGames = next;
+        changed = true;
+      }
+    }
   }
   if (spotifyEnabled !== undefined) {
     const next = u.isAdmin ? true : !!spotifyEnabled;

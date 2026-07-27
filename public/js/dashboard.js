@@ -1565,7 +1565,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
     view.classList.add('active');
     onOverlayNavShown(btn.dataset.view);
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
@@ -1972,6 +1972,221 @@ async function loadAdminSpotify() {
     };
   }
   if (refresh) refresh.onclick = () => loadAdminSpotify();
+})();
+
+/* -------- Admin: juegos por usuario -------- */
+const ADMIN_GAME_CATALOG = [
+  { key: 'game_minecraft', label: 'Minecraft' },
+  { key: 'game_mcservidor', label: 'Servidor Minecraft' },
+  { key: 'game_mcparkour', label: 'Minecraft Parkour' },
+  { key: 'game_mckoth', label: 'Minecraft KOTH' },
+  { key: 'game_mcfarm', label: 'Minecraft Farm' },
+  { key: 'game_mcshooter', label: 'Minecraft Shooters' },
+  { key: 'game_bedrock', label: 'Bedrock (Cubo TNT)' },
+  { key: 'game_sandbox', label: 'Sandbox' },
+  { key: 'game_roblox', label: 'Roblox' },
+  { key: 'game_roblox3', label: 'Roblox parkour' },
+  { key: 'game_mariobros', label: 'Mario Bros' },
+  { key: 'game_smb3', label: 'Super Mario Bros. 3' },
+  { key: 'game_smw', label: 'Super Mario World' },
+  { key: 'game_mari0', label: 'Mari0' },
+  { key: 'game_plantasvszombies', label: 'Plants vs Zombies' },
+  { key: 'game_pvzhybrid', label: 'PvZ Pack' },
+  { key: 'game_repo', label: 'R.E.P.O.' },
+  { key: 'game_l4d', label: 'Left 4 Dead 2' },
+  { key: 'game_unturned', label: 'Unturned' },
+  { key: 'game_gtavkoth', label: 'GTA V KOTH' },
+  { key: 'game_gtavchaos', label: 'GTA V Chaos' },
+  { key: 'game_gtavchiliad', label: 'GTA V Chiliad' },
+  { key: 'game_crashctr', label: 'Crash Team Racing' },
+  { key: 'game_metalslug', label: 'Metal Slug' },
+  { key: 'game_geometrydash', label: 'Geometry Dash' },
+];
+
+let adminGamesUsersCache = [];
+let adminGamesSelectedId = '';
+
+function adminGamesSummary(u) {
+  if (!u || u.isAdmin) return 'Todos';
+  if (u.gamesEnabled === false) return 'Ninguno';
+  if (Array.isArray(u.allowedGames)) {
+    const n = u.allowedGames.length;
+    return n ? `${n} juego${n === 1 ? '' : 's'}` : 'Ninguno';
+  }
+  return 'Todos';
+}
+
+function adminGamesIsOn(u, key) {
+  if (!u || u.isAdmin) return true;
+  if (u.gamesEnabled === false) return false;
+  if (Array.isArray(u.allowedGames)) return u.allowedGames.includes(key);
+  return true;
+}
+
+async function setUserGamesApi(body) {
+  const r = await fetch('/api/admin/usergames', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'No se pudo actualizar los juegos');
+  return data;
+}
+
+function patchAdminGamesCache(id, data) {
+  const u = adminGamesUsersCache.find((x) => String(x.id) === String(id));
+  if (!u || u.isAdmin) return;
+  if (typeof data.gamesEnabled === 'boolean') u.gamesEnabled = data.gamesEnabled;
+  if (Object.prototype.hasOwnProperty.call(data, 'allowedGames')) {
+    u.allowedGames = data.allowedGames;
+  }
+}
+
+function renderAdminGamesEditor() {
+  const editor = document.getElementById('admin-games-editor');
+  const title = document.getElementById('admin-games-editor-title');
+  const checks = document.getElementById('admin-games-checks');
+  if (!editor || !checks) return;
+  const u = adminGamesUsersCache.find((x) => String(x.id) === String(adminGamesSelectedId));
+  if (!u || u.isAdmin) {
+    editor.hidden = true;
+    return;
+  }
+  editor.hidden = false;
+  if (title) title.textContent = `Juegos de ${u.username} · ${adminGamesSummary(u)}`;
+  checks.innerHTML = ADMIN_GAME_CATALOG.map((g) => {
+    const on = adminGamesIsOn(u, g.key);
+    return `<label><input type="checkbox" data-game="${esc(g.key)}" ${on ? 'checked' : ''}> ${esc(g.label)}</label>`;
+  }).join('');
+  checks.querySelectorAll('input[data-game]').forEach((inp) => {
+    inp.onchange = async () => {
+      inp.disabled = true;
+      try {
+        const data = await setUserGamesApi({ id: u.id, game: inp.dataset.game, gameEnabled: inp.checked });
+        patchAdminGamesCache(u.id, data);
+        renderAdminGamesFromCache();
+        renderAdminGamesEditor();
+        toast(inp.checked ? 'Juego activado.' : 'Juego desactivado.', 'ok');
+      } catch (e) {
+        toast(e.message || 'Error', 'warn');
+        inp.checked = !inp.checked;
+      } finally {
+        inp.disabled = false;
+      }
+    };
+  });
+}
+
+function renderAdminGamesFromCache() {
+  const tbody = document.getElementById('admin-games-tbody');
+  const sel = document.getElementById('admin-games-user');
+  const status = document.getElementById('admin-games-status');
+  if (!tbody) return;
+
+  const users = adminGamesUsersCache.slice().sort((a, b) => String(a.username).localeCompare(String(b.username)));
+  if (sel) {
+    const prev = sel.value || adminGamesSelectedId;
+    sel.innerHTML = '<option value="">Elegir usuario…</option>' + users
+      .filter((u) => !u.isAdmin)
+      .map((u) => `<option value="${esc(u.id)}">${esc(u.username)} · ${esc(adminGamesSummary(u))}</option>`)
+      .join('');
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+    adminGamesSelectedId = sel.value || '';
+  }
+
+  tbody.innerHTML = users.map((u) => {
+    const tag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
+    const summary = adminGamesSummary(u);
+    const action = u.isAdmin
+      ? '<span class="tts-sub">Siempre</span>'
+      : `<button type="button" class="btn tiny admin-games-edit" data-id="${esc(u.id)}">Editar</button>`;
+    return `<tr>
+      <td><span class="u-name">${esc(u.username)}</span>${tag}</td>
+      <td>${esc(summary)}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.admin-games-edit').forEach((btn) => {
+    btn.onclick = () => {
+      adminGamesSelectedId = btn.dataset.id;
+      const s = document.getElementById('admin-games-user');
+      if (s) s.value = adminGamesSelectedId;
+      renderAdminGamesEditor();
+      document.getElementById('admin-games-editor')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+  });
+
+  const custom = users.filter((u) => !u.isAdmin && Array.isArray(u.allowedGames)).length;
+  const none = users.filter((u) => !u.isAdmin && u.gamesEnabled === false && !Array.isArray(u.allowedGames)).length;
+  if (status) status.textContent = `${users.length} usuarios · ${custom} con lista personalizada · ${none} sin juegos`;
+  renderAdminGamesEditor();
+}
+
+async function loadAdminGames() {
+  const tbody = document.getElementById('admin-games-tbody');
+  if (!tbody) return;
+  try {
+    const r = await fetch('/api/admin/users');
+    if (!r.ok) {
+      tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Sin acceso.</td></tr>';
+      return;
+    }
+    const { users } = await r.json();
+    adminGamesUsersCache = Array.isArray(users) ? users : [];
+    renderAdminGamesFromCache();
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Error al cargar.</td></tr>';
+  }
+}
+
+(function setupAdminGamesUI() {
+  const sel = document.getElementById('admin-games-user');
+  const refresh = document.getElementById('admin-games-refresh');
+  const allBtn = document.getElementById('admin-games-all');
+  const noneBtn = document.getElementById('admin-games-none');
+  if (sel) {
+    sel.onchange = () => {
+      adminGamesSelectedId = sel.value || '';
+      renderAdminGamesEditor();
+    };
+  }
+  if (refresh) refresh.onclick = () => loadAdminGames();
+  if (allBtn) {
+    allBtn.onclick = async () => {
+      const id = adminGamesSelectedId || sel?.value;
+      if (!id) { toast('Elige un usuario.', 'warn'); return; }
+      allBtn.disabled = true;
+      try {
+        const data = await setUserGamesApi({ id, allowedGames: null });
+        patchAdminGamesCache(id, data);
+        renderAdminGamesFromCache();
+        toast('Todos los juegos activados.', 'ok');
+      } catch (e) {
+        toast(e.message || 'Error', 'warn');
+      } finally {
+        allBtn.disabled = false;
+      }
+    };
+  }
+  if (noneBtn) {
+    noneBtn.onclick = async () => {
+      const id = adminGamesSelectedId || sel?.value;
+      if (!id) { toast('Elige un usuario.', 'warn'); return; }
+      noneBtn.disabled = true;
+      try {
+        const data = await setUserGamesApi({ id, allowedGames: [] });
+        patchAdminGamesCache(id, data);
+        renderAdminGamesFromCache();
+        toast('Todos los juegos desactivados.', 'ok');
+      } catch (e) {
+        toast(e.message || 'Error', 'warn');
+      } finally {
+        noneBtn.disabled = false;
+      }
+    };
+  }
 })();
 
 const planUpgradeBtn = document.getElementById('plan-upgrade');

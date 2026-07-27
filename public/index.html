@@ -8066,6 +8066,7 @@
             <button type="button" class="subtab" data-sub="admin-ann" hidden>Anuncios</button>
             <button type="button" class="subtab" data-sub="admin-maint" hidden>Mantenimiento</button>
             <button type="button" class="subtab" data-sub="admin-spotify">Spotify</button>
+            <button type="button" class="subtab" data-sub="admin-games">Juegos</button>
             <button type="button" class="subtab" data-sub="admin-app">App (.exe)</button>
           </div>
 
@@ -8186,6 +8187,44 @@
                     </tr>
                   </thead>
                   <tbody id="admin-spotify-tbody">
+                    <tr><td colspan="3" class="admin-empty">Cargando…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="subview" id="sub-admin-games">
+            <div class="settings-card plans-card">
+              <div class="tts-head">
+                <h3>Juegos por usuario</h3>
+                <span class="tts-sub">Activa todos, ninguno, o solo juegos concretos en la app PC (.exe). El cambio llega al instante si está en línea.</span>
+              </div>
+              <div class="admin-spotify-add">
+                <select id="admin-games-user">
+                  <option value="">Elegir usuario…</option>
+                </select>
+                <button type="button" class="btn ghost" id="admin-games-refresh">Actualizar</button>
+              </div>
+              <div id="admin-games-editor" class="admin-games-editor" hidden>
+                <p id="admin-games-editor-title" class="admin-games-editor-title"></p>
+                <div class="admin-games-mode">
+                  <button type="button" class="btn tiny" id="admin-games-all">Todos</button>
+                  <button type="button" class="btn tiny" id="admin-games-none">Ninguno</button>
+                </div>
+                <div id="admin-games-checks" class="admin-games-checks"></div>
+              </div>
+              <p id="admin-games-status" class="tts-sub"></p>
+              <div class="admin-table-wrap" style="margin-top:12px">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Juegos</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-games-tbody">
                     <tr><td colspan="3" class="admin-empty">Cargando…</td></tr>
                   </tbody>
                 </table>

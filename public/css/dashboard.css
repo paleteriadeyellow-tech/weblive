@@ -1555,6 +1555,38 @@ input:focus, select:focus { border-color: var(--cyan); }
   background: var(--bg2);
   color: var(--txt);
 }
+.admin-games-editor {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg2);
+}
+.admin-games-editor-title {
+  margin: 0 0 10px;
+  font-weight: 600;
+  color: var(--txt);
+}
+.admin-games-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.admin-games-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px 12px;
+}
+.admin-games-checks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--txt);
+  cursor: pointer;
+}
+.admin-games-checks input { accent-color: var(--accent, #e11d48); }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 .settings-card.soon { text-align: center; padding: 38px 20px; color: var(--mut); }
 .settings-card.soon .soon-ico { font-size: 44px; margin-bottom: 8px; }

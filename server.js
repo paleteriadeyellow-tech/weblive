@@ -20,7 +20,7 @@ import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, setUserSpotifyEnabled, isUserSpotifyEnabled, deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
+  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
   setUserPassword, destroySessionsForUser,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
   remapSessionUserIds, importSessionsFromRecord, pruneInvalidSessions, hasAnyValidSession,
@@ -492,10 +492,17 @@ function capsForUser(user) {
   }
   const plan = getUserPlan(user) === 'premium' ? 'premium' : 'free';
   const caps = applyLocalCaps(effectiveCaps(plan), plan);
-  // Override por usuario: el admin puede quitarles todos los minijuegos.
+  // Override por usuario: off total, o allowlist de juegos concretos.
   if (!isUserGamesEnabled(user)) {
     for (const k of Object.keys(caps.features || {})) {
       if (k.startsWith('game_')) caps.features[k] = false;
+    }
+  } else {
+    const allowed = getUserAllowedGames(user);
+    if (Array.isArray(allowed)) {
+      for (const k of Object.keys(caps.features || {})) {
+        if (k.startsWith('game_')) caps.features[k] = caps.features[k] !== false && allowed.includes(k);
+      }
     }
   }
   caps.spotify = isUserSpotifyEnabled(user);
@@ -834,6 +841,7 @@ async function pullRemotePlan(user) {
     const changed = updateMirrorPlan(user.id, {
       plan: me.plan, isAdmin: me.isAdmin, active: me.active, premiumUntil: me.premiumUntil,
       gamesEnabled: me.gamesEnabled,
+      allowedGames: Object.prototype.hasOwnProperty.call(me, 'allowedGames') ? me.allowedGames : undefined,
       spotifyEnabled: me.spotifyEnabled,
     });
     if (changed) {
@@ -1287,6 +1295,7 @@ app.get('/api/me', async (req, res) => {
     plan: caps.plan,
     premiumUntil: fullUser.premiumUntil || 0,
     gamesEnabled: isUserGamesEnabled(fullUser),
+    allowedGames: fullUser.isAdmin ? null : (Array.isArray(fullUser.allowedGames) ? fullUser.allowedGames : null),
     spotifyEnabled: isUserSpotifyEnabled(fullUser),
     caps: { limits: caps.limits, features: caps.features, spotify: !!caps.spotify },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
@@ -2419,6 +2428,7 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
       plan,
       premiumUntil: full?.premiumUntil || 0,
       gamesEnabled: full ? isUserGamesEnabled(full) : true,
+      allowedGames: full?.isAdmin ? null : (Array.isArray(full?.allowedGames) ? full.allowedGames : null),
       spotifyEnabled: full ? isUserSpotifyEnabled(full) : false,
       live: !!(st && st.live),
       connecting: !!(st && st.connecting),
@@ -2466,19 +2476,31 @@ app.post('/api/admin/userplan', express.json(), requireAdmin, async (req, res) =
   res.json({ ok: true });
 });
 
-// Activar / desactivar todos los minijuegos de una cuenta (independiente del plan).
+// Activar / desactivar minijuegos de una cuenta (todos, lista, o un juego).
 app.post('/api/admin/usergames', express.json(), requireAdmin, async (req, res) => {
   if (AUTH_REMOTE) {
     if (await proxyAdminToRemote(req, res, '/api/admin/usergames', 'POST')) return;
     return adminCloudUnavailable(res);
   }
-  const { id, enabled } = req.body || {};
+  const { id, enabled, allowedGames, game, gameEnabled } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
-  const ok = setUserGamesEnabled(id, !!enabled);
+  let ok = false;
+  if (game !== undefined) {
+    ok = setUserGameAllowed(id, String(game), !!gameEnabled);
+  } else if (Object.prototype.hasOwnProperty.call(req.body || {}, 'allowedGames')) {
+    ok = setUserAllowedGames(id, allowedGames === null || allowedGames === 'all' ? null : allowedGames);
+  } else {
+    ok = setUserGamesEnabled(id, !!enabled);
+  }
   if (!ok) return res.status(404).json({ error: 'cuenta no encontrada' });
+  const full = getUserById(id);
   const room = rooms.get(id);
-  if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
-  res.json({ ok: true });
+  if (room) room.broadcastCaps?.(capsForUser(full));
+  res.json({
+    ok: true,
+    gamesEnabled: isUserGamesEnabled(full),
+    allowedGames: getUserAllowedGames(full),
+  });
 });
 
 // Eliminar una cuenta (excepto admin). Cierra su room, sesiones y datos locales.
