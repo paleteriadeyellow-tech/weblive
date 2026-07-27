@@ -2881,6 +2881,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           seedStatsFromRoomInfo();
           resetRankSnap();
           startRankStreamerTimer();
+          startLiveBadgeTimer();
           pushState();
           syncLiveUptimeOnConnect();
           if (mode === 'reconnect') {
@@ -2896,6 +2897,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           seedStatsFromRoomInfo();
           resetRankSnap();
           startRankStreamerTimer();
+          startLiveBadgeTimer();
           pushState();
           syncLiveUptimeOnConnect();
           broadcastAllRankStates();
@@ -2939,17 +2941,28 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   let liveBadgeSent = false;
+  const BADGE_LIVE_MIN_MS = 15 * 60 * 1000;
+  let liveBadgeTimer = null;
+
+  function stopLiveBadgeTimer() {
+    clearInterval(liveBadgeTimer);
+    liveBadgeTimer = null;
+  }
+
+  /** Acredita la live al cumplir 15 min (en vivo o al desconectar). */
   function notifyLiveSessionEnd() {
-    if (liveBadgeSent) return;
-    if (typeof onLiveSessionEnd !== 'function') return;
+    if (liveBadgeSent) return false;
+    if (typeof onLiveSessionEnd !== 'function') return false;
     const started = Number(state.startedAt || liveSession.startedAt) || 0;
-    if (!started) return;
+    if (!started) return false;
     const durationMs = Math.max(0, Date.now() - started);
+    if (durationMs < BADGE_LIVE_MIN_MS) return false;
     const peakViewers = Math.max(
       Number(state.stats?.peakViewers) || 0,
       Number(state.stats?.viewers) || 0,
     );
     liveBadgeSent = true;
+    stopLiveBadgeTimer();
     try {
       onLiveSessionEnd({
         userId: id,
@@ -2957,12 +2970,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         peakViewers,
       });
     } catch { /* ignore */ }
+    return true;
+  }
+
+  function maybeCreditLiveBadge() {
+    if (!state.connected) return;
+    notifyLiveSessionEnd();
+  }
+
+  function startLiveBadgeTimer() {
+    stopLiveBadgeTimer();
+    liveBadgeTimer = setInterval(maybeCreditLiveBadge, 15000);
+    liveBadgeTimer.unref?.();
+    // Por si ya llevaba ≥15 min (reconexión / reinicio).
+    setTimeout(maybeCreditLiveBadge, 2500);
   }
 
   function disconnect() {
     const wasLive = !!state.connected || !!state.startedAt;
     if (state.connected) flushStreamerRank();
     stopRankStreamerTimer();
+    stopLiveBadgeTimer();
     clearBattleCountdown();
     state.inBattle = false;
     if (connection) {
@@ -7680,6 +7708,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const wasLive = !!state.connected || !!state.startedAt;
       state.connected = false;
       syncLiveUptimeOnDisconnect();
+      stopLiveBadgeTimer();
       if (wasLive) notifyLiveSessionEnd();
       markLiveSessionEnded();
       pushState();
@@ -8505,5 +8534,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // de Spotify para procesarlos LOCALMENTE (tokens y cola viven en esta PC).
     handleSpotifyChat: (comment, user, roles) => handleSpotifyCommands(comment, user, roles),
     get clientCount() { return clients.size; },
+    pushBadges: (payload) => {
+      try { broadcast('badges', payload || {}); } catch { /* ignore */ }
+    },
   };
 }

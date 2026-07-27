@@ -279,13 +279,14 @@ function ensureBadgeStats(u) {
 
 /** Payload de insignias para /api/me y panel. */
 export function getUserBadgesPayload(user) {
-  if (!user) return { badges: [], cardBadges: [], stats: emptyBadgeStats() };
+  if (!user) return { badges: [], cardBadges: [], stats: emptyBadgeStats(), manualBadges: [] };
   const plan = getUserPlan(user);
   const badges = buildBadgesForUser(user, plan);
   return {
     badges,
     cardBadges: pickCardBadges(badges, 2),
     stats: { ...emptyBadgeStats(), ...(user.badgeStats || {}) },
+    manualBadges: Array.isArray(user.manualBadges) ? user.manualBadges.slice() : [],
   };
 }
 
@@ -522,7 +523,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
 // Actualiza SOLO el plan/estado de un usuario espejo (sin tocar la contraseña).
 // Se usa en el .exe para refrescar el plan que el admin cambió en Render, sin
 // necesidad de que el usuario vuelva a iniciar sesión. Devuelve true si cambió algo.
-export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled, allowedGames, spotifyEnabled } = {}) {
+export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled, allowedGames, spotifyEnabled, manualBadges, badgeStats } = {}) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
   let changed = false;
@@ -554,6 +555,27 @@ export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, game
     const next = u.isAdmin ? true : !!spotifyEnabled;
     const prevOn = !!u.spotifyEnabled;
     if (prevOn !== next) { u.spotifyEnabled = next; changed = true; }
+  }
+  if (manualBadges !== undefined) {
+    const next = Array.isArray(manualBadges) ? manualBadges.map(String).filter(Boolean) : [];
+    const prev = Array.isArray(u.manualBadges) ? u.manualBadges.map(String) : [];
+    if (next.length !== prev.length || next.some((k, i) => k !== prev[i])) {
+      u.manualBadges = next;
+      changed = true;
+    }
+  }
+  if (badgeStats && typeof badgeStats === 'object') {
+    const cur = ensureBadgeStats(u);
+    const keys = ['livesCount', 'lastLiveDay', 'streak', 'bestStreak', 'seenInDirectory', 'viewersTotal', 'dailyTop1', 'usedDesktop', 'gamesUsed'];
+    for (const k of keys) {
+      if (badgeStats[k] === undefined) continue;
+      const nv = badgeStats[k];
+      const ov = cur[k];
+      if (JSON.stringify(nv) !== JSON.stringify(ov)) {
+        cur[k] = nv;
+        changed = true;
+      }
+    }
   }
   if (changed) saveUsers();
   return changed;

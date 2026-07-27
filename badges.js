@@ -3,6 +3,11 @@
  * Los contadores viven en user.badgeStats / user.manualBadges (auth.js).
  */
 
+/** Arte dorado en /img/badges/{id}.png (PNG transparente). */
+function badgeImg(id) {
+  return `/img/badges/${id}.png`;
+}
+
 export const BADGE_CATALOG = [
   {
     id: 'first_live',
@@ -10,6 +15,7 @@ export const BADGE_CATALOG = [
     short: '1ª',
     desc: 'Completaste tu primera live con Livecoins (≥15 min).',
     icon: '🎬',
+    img: badgeImg('first_live'),
     group: 'lives',
     target: 1,
     progress: (s) => ({ current: Math.min(s.livesCount || 0, 1), target: 1 }),
@@ -21,6 +27,7 @@ export const BADGE_CATALOG = [
     short: '10',
     desc: '10 lives válidas con Livecoins.',
     icon: '🚀',
+    img: badgeImg('lives_10'),
     group: 'lives',
     target: 10,
     progress: (s) => ({ current: Math.min(s.livesCount || 0, 10), target: 10 }),
@@ -32,6 +39,7 @@ export const BADGE_CATALOG = [
     short: '50',
     desc: '50 lives válidas con Livecoins.',
     icon: '🔥',
+    img: badgeImg('lives_50'),
     group: 'lives',
     target: 50,
     progress: (s) => ({ current: Math.min(s.livesCount || 0, 50), target: 50 }),
@@ -43,6 +51,7 @@ export const BADGE_CATALOG = [
     short: '100',
     desc: '100 lives válidas con Livecoins.',
     icon: '⭐',
+    img: badgeImg('lives_100'),
     group: 'lives',
     target: 100,
     progress: (s) => ({ current: Math.min(s.livesCount || 0, 100), target: 100 }),
@@ -54,6 +63,7 @@ export const BADGE_CATALOG = [
     short: '500',
     desc: '500 lives válidas con Livecoins.',
     icon: '👑',
+    img: badgeImg('lives_500'),
     group: 'lives',
     target: 500,
     progress: (s) => ({ current: Math.min(s.livesCount || 0, 500), target: 500 }),
@@ -65,6 +75,7 @@ export const BADGE_CATALOG = [
     short: 'R3',
     desc: '3 días seguidos en live (≥15 min cada día).',
     icon: '📅',
+    img: badgeImg('streak_3'),
     group: 'streak',
     target: 3,
     progress: (s) => ({
@@ -79,6 +90,7 @@ export const BADGE_CATALOG = [
     short: 'R7',
     desc: '7 días seguidos en live (≥15 min cada día).',
     icon: '🗓️',
+    img: badgeImg('streak_7'),
     group: 'streak',
     target: 7,
     progress: (s) => ({
@@ -93,6 +105,7 @@ export const BADGE_CATALOG = [
     short: 'Mapa',
     desc: 'Apareciste en «En live con Livecoins».',
     icon: '🗺️',
+    img: badgeImg('on_map'),
     group: 'community',
     progress: (s) => ({ current: s.seenInDirectory ? 1 : 0, target: 1 }),
     earned: (s) => !!s.seenInDirectory,
@@ -103,6 +116,7 @@ export const BADGE_CATALOG = [
     short: '1K',
     desc: 'Sumaste 1.000 viewers (pico por live) en lives válidas.',
     icon: '👀',
+    img: badgeImg('popular'),
     group: 'community',
     target: 1000,
     progress: (s) => ({ current: Math.min(s.viewersTotal || 0, 1000), target: 1000 }),
@@ -114,6 +128,7 @@ export const BADGE_CATALOG = [
     short: '#1',
     desc: 'Fuiste #1 del día en horas de live (ranking Livecoins).',
     icon: '🏆',
+    img: badgeImg('daily_top'),
     group: 'community',
     progress: (s) => ({ current: s.dailyTop1 ? 1 : 0, target: 1 }),
     earned: (s) => !!s.dailyTop1,
@@ -124,6 +139,7 @@ export const BADGE_CATALOG = [
     short: 'VIP',
     desc: 'Tienes plan Premium activo.',
     icon: '💎',
+    img: badgeImg('vip'),
     group: 'plan',
     progress: (_s, _u, plan) => ({ current: plan === 'premium' ? 1 : 0, target: 1 }),
     earned: (_s, _u, plan) => plan === 'premium',
@@ -134,6 +150,7 @@ export const BADGE_CATALOG = [
     short: 'PC',
     desc: 'Entraste al menos una vez desde la app de escritorio (.exe).',
     icon: '💻',
+    img: badgeImg('desktop'),
     group: 'product',
     progress: (s) => ({ current: s.usedDesktop ? 1 : 0, target: 1 }),
     earned: (s) => !!s.usedDesktop,
@@ -144,6 +161,7 @@ export const BADGE_CATALOG = [
     short: 'Game',
     desc: 'Usaste 3 juegos distintos desde Livecoins.',
     icon: '🎮',
+    img: badgeImg('gamer'),
     group: 'games',
     target: 3,
     progress: (s) => ({
@@ -158,6 +176,7 @@ export const BADGE_CATALOG = [
     short: 'Partner',
     desc: 'Partner oficial de Livecoins.',
     icon: '🤝',
+    img: badgeImg('partner'),
     group: 'special',
     manual: true,
     progress: (_s, _u, _p, manual) => ({ current: manual.includes('partner') ? 1 : 0, target: 1 }),
@@ -169,6 +188,7 @@ export const BADGE_CATALOG = [
     short: 'Beta',
     desc: 'Probador early de Livecoins.',
     icon: '🧪',
+    img: badgeImg('beta'),
     group: 'special',
     manual: true,
     progress: (_s, _u, _p, manual) => ({ current: manual.includes('beta') ? 1 : 0, target: 1 }),
@@ -180,6 +200,7 @@ export const BADGE_CATALOG = [
     short: 'Staff',
     desc: 'Equipo / staff de la comunidad Livecoins.',
     icon: '🛡️',
+    img: badgeImg('staff'),
     group: 'special',
     manual: true,
     progress: (_s, _u, _p, manual) => ({ current: manual.includes('staff') ? 1 : 0, target: 1 }),
@@ -227,6 +248,7 @@ export function buildBadgesForUser(user, plan = 'free') {
       short: def.short,
       desc: def.desc,
       icon: def.icon,
+      img: def.img || `/img/badges/${def.id}.png`,
       group: def.group,
       manual: !!def.manual,
       earned,
@@ -248,6 +270,7 @@ export function pickCardBadges(badges, limit = 2) {
     name: b.name,
     short: b.short,
     icon: b.icon,
+    img: b.img || `/img/badges/${b.id}.png`,
   }));
 }
 

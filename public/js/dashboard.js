@@ -396,6 +396,7 @@ async function loadMe() {
     window.CLOUD_ROOM_KEY = d.cloudRoomKey || '';
     window.CLOUD_SESSION_OK = d.cloudSessionOk !== false;
     window.MY_USER = d.username || '';
+    window.MY_USER_ID = d.id || d.userId || window.MY_USER_ID || '';
     window.IS_ADMIN = !!d.isAdmin;
     window.MY_PLAN = d.plan || 'free';
     if (typeof d.spotifyEnabled === 'boolean') window.SPOTIFY_ACCESS = d.spotifyEnabled;
@@ -1328,6 +1329,12 @@ function handle(type, p) {
       if (typeof handleMusicWs === 'function') handleMusicWs(m.type, p);
       break;
     case 'caps': setCaps(p); loadPlanComparison(true); break;
+    case 'badges':
+      try {
+        if (Array.isArray(p.badges)) renderHomeBadges(p.badges);
+        else if (Array.isArray(p)) renderHomeBadges(p);
+      } catch { /* ignore */ }
+      break;
     case 'keyAction': onKeyAction(p); break;
     case 'localExec': onLocalExec(p); break;
     case 'playLevelVideo':
@@ -2273,9 +2280,9 @@ async function loadAdminGames() {
 
 /* -------- Admin: insignias especiales -------- */
 const ADMIN_MANUAL_BADGES = [
-  { id: 'partner', label: 'Partner', icon: '🤝' },
-  { id: 'beta', label: 'Beta', icon: '🧪' },
-  { id: 'staff', label: 'Staff', icon: '🛡️' },
+  { id: 'partner', label: 'Partner', icon: '🤝', img: '/img/badges/partner.png' },
+  { id: 'beta', label: 'Beta', icon: '🧪', img: '/img/badges/beta.png' },
+  { id: 'staff', label: 'Staff', icon: '🛡️', img: '/img/badges/staff.png' },
 ];
 let adminBadgesUsersCache = [];
 let adminBadgesSelectedId = '';
@@ -2291,6 +2298,15 @@ async function setUserBadgeReq(id, badge, enabled) {
   return data;
 }
 
+async function refreshHomeBadgesFromMe() {
+  try {
+    const r = await fetch('/api/me');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (Array.isArray(d.badges)) renderHomeBadges(d.badges);
+  } catch { /* ignore */ }
+}
+
 function renderAdminBadgesEditor() {
   const editor = document.getElementById('admin-badges-editor');
   const title = document.getElementById('admin-badges-editor-title');
@@ -2303,7 +2319,7 @@ function renderAdminBadgesEditor() {
   if (title) title.textContent = `Insignias de ${u.username}`;
   checks.innerHTML = ADMIN_MANUAL_BADGES.map((b) => {
     const on = manual.includes(b.id);
-    return `<label><input type="checkbox" data-badge="${esc(b.id)}" ${on ? 'checked' : ''}> ${esc(b.icon)} ${esc(b.label)}</label>`;
+    return `<label><input type="checkbox" data-badge="${esc(b.id)}" ${on ? 'checked' : ''}> <img class="admin-badge-ico" src="${esc(b.img || `/img/badges/${b.id}.png`)}" alt="" width="18" height="18"> ${esc(b.label)}</label>`;
   }).join('');
   checks.querySelectorAll('input[data-badge]').forEach((inp) => {
     inp.onchange = async () => {
@@ -2311,12 +2327,31 @@ function renderAdminBadgesEditor() {
       try {
         const data = await setUserBadgeReq(u.id, inp.dataset.badge, inp.checked);
         const row = adminBadgesUsersCache.find((x) => String(x.id) === String(u.id));
-        if (row && Array.isArray(data.badges)) {
-          row.manualBadges = data.badges.filter((b) => b.manual && b.earned).map((b) => b.id);
-        } else if (row) {
-          const set = new Set(row.manualBadges || []);
-          if (inp.checked) set.add(inp.dataset.badge); else set.delete(inp.dataset.badge);
-          row.manualBadges = [...set];
+        if (row) {
+          if (Array.isArray(data.manualBadges)) {
+            row.manualBadges = data.manualBadges.slice();
+          } else if (Array.isArray(data.badges)) {
+            row.manualBadges = data.badges.filter((b) => b.manual && b.earned).map((b) => b.id);
+          } else {
+            const set = new Set(row.manualBadges || []);
+            if (inp.checked) set.add(inp.dataset.badge); else set.delete(inp.dataset.badge);
+            row.manualBadges = [...set];
+          }
+        }
+        // Actualizar label del select + Inicio si es tu propia cuenta.
+        const sel = document.getElementById('admin-badges-user');
+        if (sel && row) {
+          const opt = [...sel.options].find((o) => o.value === String(u.id));
+          if (opt) {
+            const n = (row.manualBadges || []).length;
+            const tag = n ? ` · ${n} especial${n === 1 ? '' : 'es'}` : '';
+            opt.textContent = `${u.username}${tag}`;
+          }
+        }
+        if (String(u.username || '').toLowerCase() === String(window.MY_USER || '').toLowerCase()
+          || String(u.id) === String(window.MY_USER_ID || '')) {
+          if (Array.isArray(data.badges)) renderHomeBadges(data.badges);
+          else await refreshHomeBadgesFromMe();
         }
         renderAdminBadgesEditor();
         toast(inp.checked ? 'Insignia concedida.' : 'Insignia quitada.', 'ok');
@@ -26098,16 +26133,20 @@ function renderHomeBadges(badges) {
   if (!list.length) { sec.hidden = true; grid.innerHTML = ''; return; }
   sec.hidden = false;
   const earned = list.filter((b) => b.earned).length;
-  if (sub) sub.textContent = `${earned} de ${list.length} desbloqueadas · live ≥15 min cuenta 1 por día`;
+  if (sub) sub.textContent = `${earned} de ${list.length} desbloqueadas · a los 15 min de live suma +1 (máx. 1 al día)`;
   grid.innerHTML = list.map((b) => {
     const prog = b.progress;
     const pct = prog && prog.target ? Math.min(100, Math.round((Number(prog.current) || 0) / prog.target * 100)) : (b.earned ? 100 : 0);
     const progTxt = prog && prog.target
       ? `${prog.current}/${prog.target}`
       : (b.earned ? 'Conseguida' : 'Bloqueada');
+    const img = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
+    const ico = img
+      ? `<img class="home-badge-ico-img" src="${esc(img)}" alt="" width="28" height="28" loading="lazy" decoding="async">`
+      : `<span class="home-badge-ico">${esc(b.icon || '🏅')}</span>`;
     return `<div class="home-badge${b.earned ? ' is-earned' : ''}" title="${esc(b.desc || '')}">
       <div class="home-badge-top">
-        <span class="home-badge-ico">${esc(b.icon || '🏅')}</span>
+        ${ico}
         <span class="home-badge-name">${esc(b.name || b.id)}</span>
       </div>
       <div class="home-badge-desc">${esc(b.desc || '')}</div>
@@ -26153,9 +26192,13 @@ function renderPanelLives(lives) {
       : `<span class="panel-live-av panel-live-av-ph">${fallback}</span>`;
     const cardBadges = Array.isArray(l.badges) ? l.badges : [];
     const badgesHtml = cardBadges.length
-      ? `<span class="panel-live-badges">${cardBadges.map((b) =>
-          `<span class="panel-live-mini-badge" title="${esc(b.name || '')}">${esc(b.icon || '')} ${esc(b.short || b.name || '')}</span>`
-        ).join('')}</span>`
+      ? `<span class="panel-live-badges">${cardBadges.map((b) => {
+          const src = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
+          const ico = src
+            ? `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="" width="14" height="14" loading="lazy" decoding="async">`
+            : esc(b.icon || '');
+          return `<span class="panel-live-mini-badge" title="${esc(b.name || '')}">${ico} ${esc(b.short || b.name || '')}</span>`;
+        }).join('')}</span>`
       : '';
     return `<a class="panel-live-card ${tierClass}" href="${url}" data-live-url="${url}" target="_blank" rel="noopener noreferrer" title="Ver live de @${esc(tiktok)}">
       <span class="panel-live-tier">${tierLabel}</span>

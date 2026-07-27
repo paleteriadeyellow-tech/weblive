@@ -625,9 +625,17 @@ function getRoomForUser(user) {
       },
       onLiveSessionEnd: ({ userId, durationMs, peakViewers }) => {
         try {
-          recordBadgeLive(userId, { durationMs, peakViewers });
+          const recorded = recordBadgeLive(userId, { durationMs, peakViewers });
           const topId = streamerRankings.getDayTopUserId?.();
           if (topId) markBadgeDailyTop1(topId);
+          const u = getUserById(userId);
+          const room = rooms.get(userId);
+          if (u && room?.pushBadges) {
+            room.pushBadges(getUserBadgesPayload(u));
+          }
+          if (recorded && room?.broadcastLog) {
+            room.broadcastLog('ok', '🏅 Live válida registrada (+1 a tus insignias).');
+          }
         } catch { /* ignore */ }
       },
       onGameExec: (tipo) => {
@@ -866,6 +874,8 @@ async function pullRemotePlan(user) {
       gamesEnabled: me.gamesEnabled,
       allowedGames: Object.prototype.hasOwnProperty.call(me, 'allowedGames') ? me.allowedGames : undefined,
       spotifyEnabled: me.spotifyEnabled,
+      manualBadges: Array.isArray(me.manualBadges) ? me.manualBadges : undefined,
+      badgeStats: me.stats && typeof me.stats === 'object' ? me.stats : undefined,
     });
     if (changed) {
       const room = rooms.get(user.id);
@@ -1306,7 +1316,16 @@ app.get('/api/me', async (req, res) => {
   const fullUser = getUserById(user.id) || user;
   const hasRemoteCookie = !!(AUTH_REMOTE && remoteCookies.get(user.id));
   const cloudRoomKey = (remoteMe && remoteMe.roomKey) || fullUser.cloudRoomKey || null;
+  const badgePayload = (remoteMe && Array.isArray(remoteMe.badges))
+    ? {
+        badges: remoteMe.badges,
+        cardBadges: Array.isArray(remoteMe.cardBadges) ? remoteMe.cardBadges : [],
+        stats: remoteMe.stats || (getUserBadgesPayload(fullUser).stats || {}),
+        manualBadges: Array.isArray(remoteMe.manualBadges) ? remoteMe.manualBadges : [],
+      }
+    : getUserBadgesPayload(fullUser);
   res.json({
+    id: fullUser.id || user.id,
     username: user.username,
     roomKey: user.roomKey,
     // roomKey de la NUBE (Render): el .exe la usa para conectar su panel/overlays al
@@ -1320,7 +1339,7 @@ app.get('/api/me', async (req, res) => {
     gamesEnabled: isUserGamesEnabled(fullUser),
     allowedGames: fullUser.isAdmin ? null : (Array.isArray(fullUser.allowedGames) ? fullUser.allowedGames : null),
     spotifyEnabled: isUserSpotifyEnabled(fullUser),
-    ...getUserBadgesPayload(fullUser),
+    ...badgePayload,
     caps: { limits: caps.limits, features: caps.features, spotify: !!caps.spotify },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
     // Preferir true si la nube O el espejo local ya tienen el correo verificado.
@@ -2547,12 +2566,36 @@ app.post('/api/admin/userspotify', express.json(), requireAdmin, async (req, res
 
 // Insignias especiales (Partner / Beta / Staff).
 app.post('/api/admin/userbadges', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE) {
-    if (await proxyAdminToRemote(req, res, '/api/admin/userbadges', 'POST')) return;
-    return adminCloudUnavailable(res);
-  }
   const { id, badge, enabled } = req.body || {};
   if (!id || !badge) return res.status(400).json({ error: 'falta id o badge' });
+  if (AUTH_REMOTE) {
+    const cookie = req.user && remoteCookies.get(req.user.id);
+    if (!cookie) return adminCloudUnavailable(res);
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/admin/userbadges`, {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, badge, enabled: !!enabled }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 401 || r.status === 403) {
+        if (remoteCookies.delete(req.user.id)) saveRemoteCookies();
+        return adminCloudUnavailable(res);
+      }
+      if (r.ok) {
+        try { setUserManualBadge(id, badge, !!enabled); } catch { /* ignore */ }
+        if (Array.isArray(data.manualBadges) || Array.isArray(data.badges)) {
+          const manual = Array.isArray(data.manualBadges)
+            ? data.manualBadges
+            : (data.badges || []).filter((b) => b.manual && b.earned).map((b) => b.id);
+          try { updateMirrorPlan(id, { manualBadges: manual }); } catch { /* ignore */ }
+        }
+      }
+      return res.status(r.status).json(data);
+    } catch {
+      return adminCloudUnavailable(res);
+    }
+  }
   const ok = setUserManualBadge(id, badge, !!enabled);
   if (!ok) return res.status(404).json({ error: 'cuenta o insignia no válida' });
   res.json({ ok: true, ...getUserBadgesPayload(getUserById(id)) });
