@@ -19,7 +19,7 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 const SESSION_COOKIE = 'hokey_sid';
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 días
 const ADMIN_USERNAME = 'jesus'; // este usuario es el administrador
-/** Cuentas que ya tenían Spotify antes del panel admin (siempre con acceso). */
+/** Semilla inicial (solo si el flag aún no existe); el admin puede quitar el acceso después. */
 const SPOTIFY_SEED_USERS = ['albertoyt', 'alee367', 'albertoreyesyt'];
 
 let users = load(USERS_FILE, []);
@@ -40,14 +40,10 @@ let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
     if (u.premiumUntil === undefined) { u.premiumUntil = 0; changed = true; } // 0 = sin caducidad (fijo)
     // Juegos activos por defecto; el admin puede desactivarlos a un usuario concreto.
     if (u.gamesEnabled === undefined) { u.gamesEnabled = true; changed = true; }
-    // Spotify: semilla fija + flag admin. Asegura que la allowlist original quede en true.
-    const uname = normalizeUsername(u.username);
-    const seedSpotify = !!u.isAdmin || SPOTIFY_SEED_USERS.includes(uname);
+    // Spotify: una sola vez. Si el admin quita el acceso, no se vuelve a forzar.
     if (u.spotifyEnabled === undefined) {
-      u.spotifyEnabled = seedSpotify;
-      changed = true;
-    } else if (seedSpotify && !u.spotifyEnabled) {
-      u.spotifyEnabled = true;
+      const uname = normalizeUsername(u.username);
+      u.spotifyEnabled = !!u.isAdmin || SPOTIFY_SEED_USERS.includes(uname);
       changed = true;
     }
     // Migración: ya no se requiere activación. Activamos UNA sola vez a las cuentas
@@ -115,7 +111,7 @@ export function listUsersDetailed() {
     plan: u.plan || 'free',
     premiumUntil: u.premiumUntil || 0,
     gamesEnabled: u.isAdmin ? true : u.gamesEnabled !== false,
-    spotifyEnabled: u.isAdmin ? true : (SPOTIFY_SEED_USERS.includes(normalizeUsername(u.username)) || !!u.spotifyEnabled),
+    spotifyEnabled: u.isAdmin ? true : !!u.spotifyEnabled,
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
   }));
@@ -178,23 +174,16 @@ export function setUserGamesEnabled(id, enabled) {
   saveUsers();
   return true;
 }
-/** Acceso a la pestaña Spotify (admin, semilla fija, o flag activado por admin). */
+/** Acceso a la pestaña Spotify (admin siempre; resto según flag del admin). */
 export function isUserSpotifyEnabled(user) {
   if (!user) return false;
   if (user.isAdmin) return true;
-  if (SPOTIFY_SEED_USERS.includes(normalizeUsername(user.username))) return true;
   return !!user.spotifyEnabled;
 }
 export function setUserSpotifyEnabled(id, enabled) {
-  const u = users.find((x) => x.id === id);
+  const u = users.find((x) => String(x.id) === String(id));
   if (!u) return false;
   if (u.isAdmin) { u.spotifyEnabled = true; saveUsers(); return true; }
-  // Semilla fija: no se puede quitar el acceso.
-  if (SPOTIFY_SEED_USERS.includes(normalizeUsername(u.username))) {
-    u.spotifyEnabled = true;
-    saveUsers();
-    return true;
-  }
   u.spotifyEnabled = !!enabled;
   saveUsers();
   return true;

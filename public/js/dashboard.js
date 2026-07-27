@@ -1857,10 +1857,79 @@ async function setUserSpotifyReq(id, enabled) {
   return data;
 }
 
-async function loadAdminSpotify() {
+function userHasSpotifyAccess(u) {
+  return !!(u && (u.isAdmin || u.spotifyEnabled === true));
+}
+
+function patchAdminSpotifyCache(id, enabled) {
+  const u = adminSpotifyUsersCache.find((x) => String(x.id) === String(id));
+  if (u && !u.isAdmin) u.spotifyEnabled = !!enabled;
+}
+
+function renderAdminSpotifyFromCache() {
   const tbody = document.getElementById('admin-spotify-tbody');
   const sel = document.getElementById('admin-spotify-user');
   const status = document.getElementById('admin-spotify-status');
+  if (!tbody) return;
+  const withAccess = adminSpotifyUsersCache.filter(userHasSpotifyAccess);
+  const without = adminSpotifyUsersCache.filter((u) => !userHasSpotifyAccess(u));
+
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Elegir usuario…</option>' + without
+      .slice()
+      .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+      .map((u) => `<option value="${esc(u.id)}">${esc(u.username)}</option>`)
+      .join('');
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  }
+
+  if (!withAccess.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Nadie tiene acceso todavía.</td></tr>';
+  } else {
+    tbody.innerHTML = withAccess
+      .slice()
+      .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+      .map((u) => {
+        const tag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
+        const st = u.online
+          ? '<span class="badge on dot">En línea</span>'
+          : '<span class="tts-sub">—</span>';
+        const action = u.isAdmin
+          ? '<span class="tts-sub">Siempre</span>'
+          : `<button type="button" class="btn tiny admin-spotify-revoke" data-id="${esc(u.id)}">Quitar acceso</button>`;
+        return `<tr>
+          <td><span class="u-name">${esc(u.username)}</span>${tag}</td>
+          <td>${st}</td>
+          <td>${action}</td>
+        </tr>`;
+      }).join('');
+    tbody.querySelectorAll('.admin-spotify-revoke').forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        try {
+          const data = await setUserSpotifyReq(id, false);
+          if (data.spotifyEnabled === true) {
+            throw new Error('El servidor no quitó el acceso.');
+          }
+          patchAdminSpotifyCache(id, false);
+          renderAdminSpotifyFromCache();
+          toast('Acceso a Spotify quitado.', 'ok');
+          await loadAdminSpotify();
+        } catch (e) {
+          toast(e.message || 'Error', 'warn');
+          btn.disabled = false;
+          loadAdminSpotify();
+        }
+      };
+    });
+  }
+  if (status) status.textContent = `${withAccess.length} con acceso · ${without.length} sin acceso`;
+}
+
+async function loadAdminSpotify() {
+  const tbody = document.getElementById('admin-spotify-tbody');
   if (!tbody) return;
   try {
     const r = await fetch('/api/admin/users');
@@ -1870,55 +1939,7 @@ async function loadAdminSpotify() {
     }
     const { users } = await r.json();
     adminSpotifyUsersCache = Array.isArray(users) ? users : [];
-    const withAccess = adminSpotifyUsersCache.filter((u) => u.isAdmin || u.spotifyEnabled);
-    const without = adminSpotifyUsersCache.filter((u) => !u.isAdmin && !u.spotifyEnabled);
-
-    if (sel) {
-      const prev = sel.value;
-      sel.innerHTML = '<option value="">Elegir usuario…</option>' + without
-        .slice()
-        .sort((a, b) => String(a.username).localeCompare(String(b.username)))
-        .map((u) => `<option value="${esc(u.id)}">${esc(u.username)}</option>`)
-        .join('');
-      if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
-    }
-
-    if (!withAccess.length) {
-      tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Nadie tiene acceso todavía.</td></tr>';
-    } else {
-      tbody.innerHTML = withAccess
-        .slice()
-        .sort((a, b) => String(a.username).localeCompare(String(b.username)))
-        .map((u) => {
-          const tag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
-          const st = u.online
-            ? '<span class="badge on dot">En línea</span>'
-            : '<span class="tts-sub">—</span>';
-          const seedSpotify = !u.isAdmin && SPOTIFY_ALLOWED_USERS.includes(String(u.username || '').trim().toLowerCase());
-          const action = (u.isAdmin || seedSpotify)
-            ? '<span class="tts-sub">Siempre</span>'
-            : `<button type="button" class="btn tiny admin-spotify-revoke" data-id="${esc(u.id)}">Quitar acceso</button>`;
-          return `<tr>
-            <td><span class="u-name">${esc(u.username)}</span>${tag}</td>
-            <td>${st}</td>
-            <td>${action}</td>
-          </tr>`;
-        }).join('');
-      tbody.querySelectorAll('.admin-spotify-revoke').forEach((btn) => {
-        btn.onclick = async () => {
-          btn.disabled = true;
-          try {
-            await setUserSpotifyReq(btn.dataset.id, false);
-            toast('Acceso a Spotify quitado.', 'ok');
-            loadAdminSpotify();
-          } catch (e) {
-            toast(e.message || 'Error', 'warn');
-            btn.disabled = false;
-          }
-        };
-      });
-    }
-    if (status) status.textContent = `${withAccess.length} con acceso · ${without.length} sin acceso`;
+    renderAdminSpotifyFromCache();
   } catch {
     tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Error al cargar.</td></tr>';
   }
@@ -1935,8 +1956,14 @@ async function loadAdminSpotify() {
       grant.disabled = true;
       try {
         await setUserSpotifyReq(id, true);
+        patchAdminSpotifyCache(id, true);
+        if (!adminSpotifyUsersCache.some((u) => String(u.id) === String(id))) {
+          await loadAdminSpotify();
+        } else {
+          renderAdminSpotifyFromCache();
+          loadAdminSpotify();
+        }
         toast('Spotify desbloqueado. Si está en línea, le aparece ya.', 'ok');
-        loadAdminSpotify();
       } catch (e) {
         toast(e.message || 'Error', 'warn');
       } finally {

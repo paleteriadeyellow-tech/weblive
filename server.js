@@ -3427,16 +3427,13 @@ app.post('/api/tts/elevenlabs/clone', express.json({ limit: '14mb' }), async (re
 });
 
 /* ----------------------------------------------------------------------------
- * Spotify Song Requests (solo .exe · admin / albertoyt / alee367 / albertoreyesyt).
+ * Spotify Song Requests (solo .exe · admin o usuarios con spotifyEnabled).
  * OAuth con PKCE: el callback llega a un listener fijo en SPOTIFY_CALLBACK_PORT.
  * --------------------------------------------------------------------------*/
-const SPOTIFY_ALLOWED_USERS = new Set(['albertoyt', 'alee367', 'albertoreyesyt']);
-
 function spotifyUser(req) {
   const user = userFromRequest(req);
   if (!user) return null;
-  const uname = String(user.username || '').toLowerCase();
-  if (user.isAdmin || SPOTIFY_ALLOWED_USERS.has(uname)) return user;
+  if (isUserSpotifyEnabled(user)) return user;
   return null;
 }
 
