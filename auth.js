@@ -284,7 +284,7 @@ export function getUserBadgesPayload(user) {
   const badges = buildBadgesForUser(user, plan);
   return {
     badges,
-    cardBadges: pickCardBadges(badges, 2),
+    cardBadges: pickCardBadges(badges),
     stats: { ...emptyBadgeStats(), ...(user.badgeStats || {}) },
     manualBadges: Array.isArray(user.manualBadges) ? user.manualBadges.slice() : [],
   };

@@ -257,15 +257,16 @@ export function buildBadgesForUser(user, plan = 'free') {
   });
 }
 
-/** 1–2 insignias ganadas para tarjetas del directorio. */
-export function pickCardBadges(badges, limit = 2) {
+/** Insignias ganadas para tarjetas «En live» (todas, orden por prioridad). */
+export function pickCardBadges(badges, limit = Infinity) {
   const earned = (badges || []).filter((b) => b.earned);
   earned.sort((a, b) => {
     const ia = CARD_PRIORITY.indexOf(a.id);
     const ib = CARD_PRIORITY.indexOf(b.id);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
   });
-  return earned.slice(0, limit).map((b) => ({
+  const n = Number.isFinite(limit) ? Math.max(0, limit) : earned.length;
+  return earned.slice(0, n).map((b) => ({
     id: b.id,
     name: b.name,
     short: b.short,

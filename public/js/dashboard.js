@@ -26194,10 +26194,11 @@ function renderPanelLives(lives) {
     const badgesHtml = cardBadges.length
       ? `<span class="panel-live-badges">${cardBadges.map((b) => {
           const src = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
-          const ico = src
-            ? `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="" width="14" height="14" loading="lazy" decoding="async">`
-            : esc(b.icon || '');
-          return `<span class="panel-live-mini-badge" title="${esc(b.name || '')}">${ico} ${esc(b.short || b.name || '')}</span>`;
+          const label = esc(b.name || b.short || '');
+          if (src) {
+            return `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="${label}" title="${label}" width="20" height="20" loading="lazy" decoding="async">`;
+          }
+          return `<span class="panel-live-mini-badge" title="${label}">${esc(b.icon || '🏅')}</span>`;
         }).join('')}</span>`
       : '';
     return `<a class="panel-live-card ${tierClass}" href="${url}" data-live-url="${url}" target="_blank" rel="noopener noreferrer" title="Ver live de @${esc(tiktok)}">

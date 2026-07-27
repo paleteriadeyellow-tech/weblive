@@ -1654,12 +1654,6 @@ input:focus, select:focus { border-color: var(--cyan); }
   vertical-align: -4px;
   margin-right: 2px;
 }
-.panel-live-mini-badge-img {
-  width: 14px;
-  height: 14px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
 .home-badge-name {
   font-size: 12.5px;
   font-weight: 700;
@@ -1691,21 +1685,32 @@ input:focus, select:focus { border-color: var(--cyan); }
   grid-area: badges;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  align-items: center;
+  gap: 3px;
   margin-top: 2px;
+  max-width: 100%;
+}
+.panel-live-mini-badge-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55));
 }
 .panel-live-mini-badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .02em;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 0;
+  font-size: 14px;
+  line-height: 1;
   color: #e2e8f0;
-  background: rgba(255, 255, 255, .08);
-  border: 1px solid rgba(255, 255, 255, .12);
+  background: transparent;
+  border: none;
 }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 .settings-card.soon { text-align: center; padding: 38px 20px; color: var(--mut); }
