@@ -10,24 +10,11 @@ import { DEFAULT_SETTINGS, deepMerge, ensureGiftSeqDefaults, ensureGiftVsDefault
 import * as spotify from './spotify.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan, fireGameActionTimed, fireGameActionCountTimed } from './mc-panic.js';
+import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzSpawn, pvzSun, pvzCmd, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, repoSpawn, l4dSpawn, gtavKothSpawn, gtavChaosSpawn, gtavChiliadSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn, runGameExec, resolveRepoSpawnKey } from './game-local.js';
+import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 import { likeTriggerFires } from './like-trigger.js';
 import { buildGdashEffectUrl, fireGdashEffectRequest } from './gdash-effect.js';
-
-// En Render NO cargar game-local ni bridges (pesan y empujan el plan de 512MB al OOM).
-const IS_RENDER_BOOT = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL);
-const __game = IS_RENDER_BOOT
-  ? await import('./cloud-game-local-stubs.js')
-  : await import('./game-local.js');
-const __marioBr = IS_RENDER_BOOT
-  ? await import('./cloud-game-local-stubs.js')
-  : await import('./mario-bridge.js');
-const {
-  marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect,
-  pvzSpawn, pvzSun, pvzCmd, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd,
-  repoSpawn, l4dSpawn, gtavKothSpawn, gtavChaosSpawn, gtavChiliadSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn,
-  runGameExec, resolveRepoSpawnKey,
-} = __game;
-const { ensureMarioBridge, ensureMari0Bridge } = __marioBr;
+import { runWebhookExec } from './smbx-tiktok-webhook.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -36,6 +23,8 @@ function getPhoto(user) {
     user.profilePictureUrl ||
     user.profilePicture?.url?.[0] ||
     user.profilePicture?.urls?.[0] ||
+    user.avatarThumb?.url?.[0] ||
+    user.avatarThumb?.urlList?.[0] ||
     user.userDetails?.profilePictureUrls?.[0] ||
     null
   );
@@ -441,7 +430,7 @@ function normalizeProfilesMediaUrls(p) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank, onLiveSessionEnd, onGameExec }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
@@ -575,7 +564,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const POINTS_MAX_USERS = 2500;
   const POINTS_MAX_TX = 500;
   const clients = new Set();         // todos los WS de esta room (panel + overlays)
-  const IS_CLOUD_ROOM = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL);
+  const IS_CLOUD_ROOM = !!process.env.RENDER;
   const clientRoles = new WeakMap(); // ws -> 'panel' | 'relay' | 'local'
   let relayLocalOrigin = '';         // http://127.0.0.1:PUERTO (modo relay .exe)
   const videoScreens = new Map();    // ws -> número de pantalla
@@ -858,6 +847,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     liveSession = { roomId: newRoomId, username, active: true, startedAt: Date.now() };
     saveLiveSession();
     state.startedAt = liveSession.startedAt;
+    liveBadgeSent = false;
     return isNewLive || isFirstLive ? 'new' : 'auto';
   }
 
@@ -1356,10 +1346,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     return false;
   }
+  function noteGameExec(exec) {
+    if (typeof onGameExec !== 'function' || !exec?.tipo) return;
+    try { onGameExec(exec.tipo); } catch { /* ignore */ }
+  }
   function emitLocalExec(exec) {
     if (!IS_CLOUD_ROOM || !exec || !exec.tipo) return false;
     if (!hasLocalRelayClient()) return false;
     broadcastToLocal('localExec', exec);
+    noteGameExec(exec);
     return true;
   }
   function mcRelayExec(exec) {
@@ -1373,6 +1368,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function dispatchLocalGameExec(exec) {
     if (!exec || !exec.tipo) return Promise.resolve({ ok: false, error: 'sin_tipo' });
     if (emitLocalExec(exec)) return Promise.resolve({ ok: true, relayed: true });
+    noteGameExec(exec);
     return runGameExec(exec);
   }
   let screensBroadcastTimer = null;
@@ -1505,7 +1501,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('giftGoalsReset', {});
     broadcastGiftGoals();
   }
-
   function topDonorForGiftGoal(itemId) {
     const map = giftGoalsState.donors[itemId];
     if (!map) return null;
@@ -1582,6 +1577,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const prev = Math.max(0, Number(giftGoalsState.counts[it.id]) || 0);
       const next = Math.min(goal, prev + add);
       giftGoalsState.counts[it.id] = next;
+      // Top donador de ese regalo (quien más envió) ilumina el cuadro al completar
       if (next >= goal) {
         giftGoalsState.completers[it.id] = topDonorForGiftGoal(it.id);
       }
@@ -1794,6 +1790,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     timer.running = false;
     if (wasRunning && timer.remaining > 0) {
+      // Reanuda tras cargar la room (mismo tick de evento).
       setTimeout(() => { try { startTimer(); } catch {} }, 0);
     }
   }
@@ -2169,6 +2166,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('jarronReset', {});
     broadcast('vaquitaReset', {});
     broadcast('marranitoReset', {});
+    broadcast('corazonLavaReset', {});
     broadcast('perritoReset', {});
     broadcast('pelotasReset', {});
     // Versus y secuencias
@@ -2801,7 +2799,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const AUTO_CONNECT_POLL_MS = 45000;
   let autoConnectTimer = null;
   let lastAutoWaitLog = 0;
-  let idleCloudTimer = null;
 
   // En modo relay (HOKEY_RELAY=1), la conexión a TikTok y el procesamiento corren en la
   // NUBE. El servidor local NUNCA debe conectarse para no duplicar la conexión (y el
@@ -2810,29 +2807,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const RELAY = process.env.HOKEY_RELAY === '1' && !IS_CLOUD_ROOM;
   function autoConnectOn() {
     if (RELAY) return false;
-    // Sin clientes (panel/overlay) no mantener TikTok: cada conexión gasta mucha RAM.
-    if (IS_CLOUD_ROOM && clients.size === 0) return false;
     return settings.autoConnect !== false && !!settings.tiktokUser;
-  }
-  function clearIdleCloudTimer() {
-    if (idleCloudTimer) {
-      clearTimeout(idleCloudTimer);
-      idleCloudTimer = null;
-    }
-  }
-  /** En Render: si se van todos los clientes, cortar TikTok a los 90s (libera RAM). */
-  function scheduleCloudIdleDisconnect() {
-    if (!IS_CLOUD_ROOM) return;
-    clearIdleCloudTimer();
-    idleCloudTimer = setTimeout(() => {
-      idleCloudTimer = null;
-      if (clients.size > 0) return;
-      if (state.connected || state.connecting) {
-        console.log(`[cloud] room ${id}: sin clientes → disconnect TikTok (ahorro de memoria)`);
-        try { disconnect(); } catch {}
-      }
-    }, 90 * 1000);
-    idleCloudTimer.unref?.();
   }
   function startAutoConnectLoop() {
     if (autoConnectTimer) return;
@@ -2917,6 +2892,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           liveSession = { roomId: newRoomId, username, active: true, startedAt: Date.now() };
           saveLiveSession();
           state.startedAt = liveSession.startedAt;
+          liveBadgeSent = false;
           seedStatsFromRoomInfo();
           resetRankSnap();
           startRankStreamerTimer();
@@ -2962,7 +2938,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       });
   }
 
+  let liveBadgeSent = false;
+  function notifyLiveSessionEnd() {
+    if (liveBadgeSent) return;
+    if (typeof onLiveSessionEnd !== 'function') return;
+    const started = Number(state.startedAt || liveSession.startedAt) || 0;
+    if (!started) return;
+    const durationMs = Math.max(0, Date.now() - started);
+    const peakViewers = Math.max(
+      Number(state.stats?.peakViewers) || 0,
+      Number(state.stats?.viewers) || 0,
+    );
+    liveBadgeSent = true;
+    try {
+      onLiveSessionEnd({
+        userId: id,
+        durationMs,
+        peakViewers,
+      });
+    } catch { /* ignore */ }
+  }
+
   function disconnect() {
+    const wasLive = !!state.connected || !!state.startedAt;
     if (state.connected) flushStreamerRank();
     stopRankStreamerTimer();
     clearBattleCountdown();
@@ -2975,6 +2973,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     state.connecting = false;
     state.roomId = null;
     syncLiveUptimeOnDisconnect();
+    if (wasLive) notifyLiveSessionEnd();
   }
 
   // Desconexión MANUAL (botón "Desconectar"): además de cortar, apaga la auto-conexión
@@ -3162,20 +3161,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (eventType === 'gift') {
           if (ev === 'gift') {
             const wantName = (a.giftName || '').trim().toLowerCase();
-            const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+            const wantId = String(a.giftId || '').trim();
+            // Acciones: regalo vacío = no dispara (hay que asignar regalo; usa gift-any para cualquiera).
+            if (!wantId && !wantName) continue;
+            const idMatch = wantId && wantId === String(info.giftId || '');
             const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
             if (!idMatch && !nameMatch) continue;
             if ((a.minDiamonds || 0) > (info.diamonds || 0)) continue;
-            if (info.comboStreak === 'delta' && !a.comboInstant) continue;
-            if (info.comboStreak === 'end' && a.comboInstant) continue;
+            if (!gameComboStreakAllows(a, info)) continue;
             fireAction(a, Math.max(1, Number(info.repeatCount) || 1), cfg, { info, user });
             continue;
           } else if (ev === 'gift-any') {
             const total = info.totalDiamonds || 0;
             if ((a.rangeMin || 0) > total) continue;
             if ((a.rangeMax || 0) > 0 && total > a.rangeMax) continue;
-            if (info.comboStreak === 'delta' && !a.comboInstant) continue;
-            if (info.comboStreak === 'end' && a.comboInstant) continue;
+            if (!gameComboStreakAllows(a, info)) continue;
             fireAction(a, Math.max(1, Number(info.repeatCount) || 1), cfg, { info, user });
             continue;
           } else {
@@ -3550,16 +3550,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (emitLocalExec({ tipo: 'WEBHOOK', method, url: whCmd.url, body: whCmd.body || '' })) {
       broadcast('log', { level: 'ok', text: `🪝 WebHook → tu PC (${method} ${whCmd.url})` });
     } else {
-      const opts = { method };
-      if (method === 'POST' && whCmd.body) {
-        opts.body = whCmd.body;
-        opts.headers = { 'Content-Type': 'application/json' };
-      }
-      if (isExternalSmbxTiktokWebhook(whCmd.url) && !isMari0ActivadorWebhook(whCmd.url)) {
-        ensureSmbxTiktokWebhook().catch(() => {});
-      }
-      fetch(whCmd.url, opts)
-        .then(() => broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` }))
+      // Misma ruta que Probar (.exe / game-exec): nunca fetch a ciegas.
+      runWebhookExec({
+        tipo: 'WEBHOOK',
+        method,
+        url: whCmd.url,
+        body: whCmd.body || '',
+      })
+        .then((r) => {
+          if (r && r.ok !== false) {
+            broadcast('log', { level: 'ok', text: `🪝 WebHook → ${method} ${whCmd.url}` });
+          } else {
+            broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${r?.error || 'error'}` });
+          }
+        })
         .catch((e) => broadcast('log', { level: 'err', text: `🪝 WebHook falló: ${e.message}` }));
     }
   }
@@ -3749,8 +3753,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function resolveMarioSpawnFromWebhook(webhookCmd, context, times = 1) {
     if (!webhookCmd?.on || !webhookCmd.url) return null;
-    if (isExternalSmbxTiktokWebhook(webhookCmd.url)) return null;
     if (!/\/spawn\b/i.test(webhookCmd.url)) return null;
+    // Mari0 activador (enemy=/type=) no es spawn SMBX por id.
+    if (isMari0ActivadorWebhook(webhookCmd.url)) return null;
+    // Incluye http://127.0.0.1:5720/spawn?id=… — misma ruta que Probar (marioSpawn → archivo),
+    // no un fetch HTTP a ciegas (antes se excluía :5720 y el live no spawneaba).
     const t = Math.max(1, Number(times) || 1);
     const resolved = (context && urlHasActionPlaceholders(webhookCmd.url))
       ? webhookCmdWithVars(webhookCmd, context.info || {}, context.user || null, t)
@@ -3759,7 +3766,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!parsed) return null;
     const vars = context ? buildActionWebhookVars(context.info || {}, context.user || null, t) : {};
     const nick = parsed.name || vars.nickname || vars.username || '';
-    return { npcId: parsed.npcId, name: nick, times: parsed.quantity * t };
+    // times del contexto × quantity de la URL. Callers Mario ya ponen quantity=total y times=1.
+    return { npcId: parsed.npcId, name: nick, times: Math.max(1, parsed.quantity * t) };
   }
 
   function fireMarioSpawnFromAction(a, context, times = 1) {
@@ -3855,23 +3863,50 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+
+  /** Rango de diamantes (trigger gift-diamonds): totalDiamonds = diamantes × cantidad. */
+  function gameGiftDiamondsRangeOk(a, info) {
+    const total = Number(info.totalDiamonds) || 0;
+    if ((Number(a.rangeMin) || 0) > total) return false;
+    if ((Number(a.rangeMax) || 0) > 0 && total > (Number(a.rangeMax) || 0)) return false;
+    return true;
+  }
+
+  /** Regalo asignado: debe coincidir. Sin asignar: cualquier regalo (como Probar). */
+  function gameGiftTriggerMatches(a, info) {
+    const trig = a?.trigger || 'gift';
+    if (trig === 'gift-any') return true;
+    if (trig === 'gift-diamonds') return gameGiftDiamondsRangeOk(a, info);
+    if (trig !== 'gift') return false;
+    const wantId = String(a?.giftId || '').trim();
+    const wantName = String(a?.giftName || '').trim().toLowerCase();
+    if (!wantId && !wantName) return true;
+    const idMatch = wantId && wantId === String(info?.giftId || '');
+    const nameMatch = wantName && wantName === String(info?.giftName || '').toLowerCase();
+    return !!(idMatch || nameMatch);
+  }
+
+  /** comboInstant=true → solo delta; false → solo end. Sin streak → ok. */
+  function gameComboStreakAllows(a, info) {
+    if (!info || info.comboStreak == null) return true;
+    const comboOn = a?.comboInstant !== false;
+    if (info.comboStreak === 'delta' && !comboOn) return false;
+    if (info.comboStreak === 'end' && comboOn) return false;
+    return true;
+  }
+
   function processMcList(list, eventType, info, vars, user = null) {
     for (const a of list) {
       if (!a || a.enabled === false) continue;
       if (!a.cmd && !(Array.isArray(a.cmds) && a.cmds.length)) continue;
       const trig = a.trigger || 'gift';
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-        } else if (trig === 'gift-any') {
-          // ok
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
         } else {
           continue;
         }
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'mc');
@@ -3895,8 +3930,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) {
         continue;
       }
-      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'mc')) continue;
       const soundTimes = eventType === 'gift' ? Math.max(1, Number(info.repeatCount) || 1) : 1;
       scheduleMcAction(() => runMcAction(a, vars, { soundTimes }));
@@ -3923,19 +3956,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const trig = a.trigger || 'gift';
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-any') {
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
         }
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'roblox');
@@ -3958,8 +3985,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         continue;
       }
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
       fireRobloxKeys(a, times);
     }
   }
@@ -3984,19 +4009,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const trig = a.trigger || 'gift';
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-any') {
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
         }
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'roblox3');
@@ -4019,8 +4038,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         continue;
       }
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift' && info.comboStreak === 'delta' && !a.comboInstant) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end' && a.comboInstant) continue;
       fireRoblox3Keys(a, times);
     }
   }
@@ -4049,14 +4066,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
   }
 
-  /** Rango de diamantes (trigger gift-diamonds): totalDiamonds = diamantes × cantidad. */
-  function gameGiftDiamondsRangeOk(a, info) {
-    const total = Number(info.totalDiamonds) || 0;
-    if ((Number(a.rangeMin) || 0) > total) return false;
-    if ((Number(a.rangeMax) || 0) > 0 && total > (Number(a.rangeMax) || 0)) return false;
-    return true;
-  }
-
   function gameLikeTriggerFires(a, info, user, fallbackKey) {
     return likeTriggerFires(gameLikeAcc, a, info, user, fallbackKey);
   }
@@ -4076,22 +4085,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const trig = a.trigger || 'gift';
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-any') {
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
         }
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = marioLikeTriggerTimes(a, info, user);
@@ -4102,12 +4102,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             broadcast('log', { level: 'ok', text: `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)` });
             applyMarioEffect(a.thing, a.seconds, a.factor, a);
           } else if (a.webhookCmd?.on && a.webhookCmd?.url) {
+            // Igual que Probar: quantity en URL = total; times=1 para no multiplicar count².
+            const whCmd = {
+              ...a.webhookCmd,
+              url: applySpawnQuantityToUrl(a.webhookCmd.url, qty),
+            };
             const ctx = {
               info: { ...info, repeatCount: qty },
               user: user || { nickname: name, uniqueId: info.username || '' },
-              times: qty,
+              times: 1,
             };
-            runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, ctx);
+            runActionOutputs({ webhookCmd: whCmd }, cfg, ctx);
             broadcast('log', {
               level: 'ok',
               text: `🍄 Mario WebHook: ${a.label || a.thing || 'spawn'}${qty > 1 ? ` ×${qty}` : ''}`,
@@ -4139,12 +4144,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('log', { level: 'ok', text: `🍄 Mario: efecto "${a.thing}" (${a.seconds || 5}s)` });
         applyMarioEffect(a.thing, a.seconds, a.factor, a);
       } else if (a.webhookCmd?.on && a.webhookCmd?.url) {
+        // Igual que Probar: quantity en URL = total; times=1 para no multiplicar count².
+        const whCmd = {
+          ...a.webhookCmd,
+          url: applySpawnQuantityToUrl(a.webhookCmd.url, times),
+        };
         const ctx = {
           info: { ...info, repeatCount: times },
           user: user || { nickname: name, uniqueId: info.username || '' },
-          times,
+          times: 1,
         };
-        runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, ctx);
+        runActionOutputs({ webhookCmd: whCmd }, cfg, ctx);
         broadcast('log', {
           level: 'ok',
           text: `🍄 Mario WebHook: ${a.label || a.thing || 'spawn'}${times > 1 ? ` ×${times}` : ''}`,
@@ -4191,19 +4201,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       let likeFires = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-any') {
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
         }
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         likeFires = gameLikeTriggerFires(a, info, user, 'smb3');
@@ -4226,7 +4230,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
       times = Math.min(200, times);
-      if (eventType === 'gift' && info.comboStreak === 'end') continue;
       if ((a.kind || 'spawn') === 'effect') {
         broadcast('log', { level: 'ok', text: `🎮 SMB3: efecto "${a.thing}" (${a.seconds || 5}s)` });
         for (let lf = 0; lf < (eventType === 'like' ? likeFires : 1); lf++) {
@@ -4240,16 +4243,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function mari0GiftMatches(a, info) {
-    const trig = a.trigger || 'gift';
-    if (trig === 'gift-any') return true;
-    if (trig === 'gift-diamonds') return gameGiftDiamondsRangeOk(a, info);
-    if (trig !== 'gift') return false;
-    const gid = String(a.giftId || '').trim();
-    const gname = String(a.giftName || '').trim().toLowerCase();
-    if (!gid && !gname) return false;
-    const idMatch = gid && gid === String(info.giftId || '');
-    const nameMatch = gname && gname === String(info.giftName || '').toLowerCase();
-    return idMatch || nameMatch;
+    return gameGiftTriggerMatches(a, info);
   }
 
   // ---- Acciones de Mari0 (webhook :5720 / spawn :5722) ----
@@ -4324,9 +4318,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else {
           continue;
         }
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'mari0');
@@ -4353,7 +4345,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
       times = Math.min(200, times);
-      if (eventType === 'gift' && info.comboStreak === 'end') continue;
       fireMari0MatchedAction(a, cfg, info, user, name, times, a);
     }
   }
@@ -4422,17 +4413,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       let likeFires = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-any') {
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         likeFires = gameLikeTriggerFires(a, info, user, 'pvzhybrid');
@@ -4450,7 +4435,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end') continue;
       if ((a.kind || 'spawn') === 'sun') {
         for (let lf = 0; lf < (eventType === 'like' ? likeFires : 1); lf++) {
           broadcast('log', { level: 'ok', text: `🧬 PvZ Hybrid: dar ${a.amount || 50} soles` });
@@ -4510,23 +4494,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = repoPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'repo');
@@ -4552,11 +4524,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(50, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnRepoThing(a.thing, name, times, units, {
@@ -4609,23 +4577,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = l4dPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'l4d');
@@ -4651,11 +4607,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(20, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnL4dThing(a.thing, name, times, units, {
@@ -4728,23 +4680,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = gtavKothPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'gtavkoth');
@@ -4770,11 +4710,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(500, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnGtavKothThing(a.thing, name, times, units, {
@@ -4837,23 +4773,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = gtavChaosPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'gtavchaos');
@@ -4878,11 +4802,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(50, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnGtavChaosThing(a.thing, name, times, units, {
@@ -4944,23 +4864,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = gtavChiliadPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'gtavchiliad');
@@ -4985,11 +4893,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(50, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnGtavChiliadThing(a.thing, name, times, units, {
@@ -5039,23 +4943,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = unturnedPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'unturned');
@@ -5081,11 +4973,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(20, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnUnturnedThing(a.thing, name, times, units, {
@@ -5128,23 +5016,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = ctrPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'ctr');
@@ -5169,11 +5045,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(80, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnCtrThing(a.thing, name, times, units, {
@@ -5215,23 +5087,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = smwPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'smw');
@@ -5256,11 +5116,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(40, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnSmwThing(a.thing, name, times, units, {
@@ -5302,23 +5158,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = mslugPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'mslug');
@@ -5343,11 +5187,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } else continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(50, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnMslugThing(a.thing, name, times, units, {
@@ -5409,23 +5249,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const perUnit = gdashPerUnit(a);
       let units = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const wantId = String(a.giftId || '').trim();
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (!wantId && !wantName) {
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          } else {
-            const idMatch = wantId && wantId === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            units = Math.max(1, Number(info.repeatCount) || 1);
-          }
-        } else if (trig === 'gift-any') {
-          units = Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           units = Math.max(1, Number(info.repeatCount) || 1);
         } else continue;
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         const likeFires = gameLikeTriggerFires(a, info, user, 'gdash');
@@ -5452,11 +5280,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (trig !== 'firstMessage') continue;
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift') {
-        const comboOn = a.comboInstant !== false;
-        if (info.comboStreak === 'delta' && !comboOn) continue;
-        if (info.comboStreak === 'end' && comboOn) continue;
-      }
+
       const times = Math.min(50, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnGdashEffect(a.thing, name, times, {
@@ -5478,19 +5302,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       let times = Math.max(1, parseInt(a.count, 10) || 1);
       let likeFires = 1;
       if (eventType === 'gift') {
-        if (trig === 'gift') {
-          const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-          const nameMatch = (a.giftName || '').trim().toLowerCase() && (a.giftName || '').trim().toLowerCase() === (info.giftName || '').toLowerCase();
-          if (!idMatch && !nameMatch) continue;
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-any') {
-          times *= Math.max(1, Number(info.repeatCount) || 1);
-        } else if (trig === 'gift-diamonds') {
-          if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        if (trig === 'gift' || trig === 'gift-any' || trig === 'gift-diamonds') {
+          if (!gameGiftTriggerMatches(a, info)) continue;
           times *= Math.max(1, Number(info.repeatCount) || 1);
         } else {
           continue;
         }
+        if (!gameComboStreakAllows(a, info)) continue;
       } else if (eventType === 'like') {
         if (trig !== 'like') continue;
         likeFires = gameLikeTriggerFires(a, info, user, 'pvz');
@@ -5512,7 +5330,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         continue;
       }
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
-      if (eventType === 'gift' && info.comboStreak === 'end') continue;
       if ((a.kind || 'spawn') === 'sun') {
         for (let lf = 0; lf < (eventType === 'like' ? likeFires : 1); lf++) {
           broadcast('log', { level: 'ok', text: `🧟 PvZ: dar ${a.amount || 50} soles` });
@@ -6540,8 +6357,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function pickAvatarUrl(u) {
     if (!u || typeof u !== 'object') return '';
     return u.profilePictureUrl || u.profile_picture_url
+      || (Array.isArray(u.avatarThumb?.url) && u.avatarThumb.url[0])
       || (Array.isArray(u.avatarThumb?.urlList) && u.avatarThumb.urlList[0])
       || (Array.isArray(u.avatar_thumb?.url_list) && u.avatar_thumb.url_list[0])
+      || (Array.isArray(u.profilePicture?.url) && u.profilePicture.url[0])
+      || (Array.isArray(u.profilePicture?.urls) && u.profilePicture.urls[0])
       || '';
   }
   function extractFollowerFromRoomInfo(ri, username) {
@@ -6588,8 +6408,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (parsed.nickname) followerCounter.nickname = parsed.nickname;
     if (parsed.uniqueId) followerCounter.uniqueId = parsed.uniqueId;
     if (parsed.photo) followerCounter.photo = parsed.photo;
+    if (parsed.userId) followerCounter.userId = parsed.userId;
     followerCounter.ready = parsed.count != null;
     if (!followerCounter.uniqueId && state.username) followerCounter.uniqueId = state.username;
+    if (!followerCounter.userId) {
+      const oid = pkRoomOwnerUserId();
+      if (oid) followerCounter.userId = oid;
+    }
     broadcastFollowerCounter();
   }
   function resetFollowerCounterFromRoom() {
@@ -6613,14 +6438,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const viewers = Number(d.user_count ?? st.user_count ?? d.viewerCount ?? 0) || 0;
       const entradas = Number(st.total_user ?? d.total_user ?? 0) || 0;
       if (likes > state.stats.likes) { state.stats.likes = likes; lastTotalLikes = Math.max(lastTotalLikes, likes); }
-      if (viewers > 0) state.stats.viewers = viewers;
+      if (viewers > 0) {
+        state.stats.viewers = viewers;
+        state.stats.peakViewers = Math.max(Number(state.stats.peakViewers) || 0, viewers);
+      }
       if (entradas > state.stats.joins) state.stats.joins = entradas;
       seedFollowerCounterFromRoomInfo();
       pushState();
     } catch { /* roomInfo opcional: si falla, seguimos contando desde 0 */ }
   }
   function resetStats() {
-    state.stats = { viewers: 0, likes: 0, diamonds: 0, comments: 0, gifts: 0, follows: 0, shares: 0, joins: 0 };
+    state.stats = { viewers: 0, peakViewers: 0, likes: 0, diamonds: 0, comments: 0, gifts: 0, follows: 0, shares: 0, joins: 0 };
     state.gifters.clear();
     chatSeenUsers.clear();
     chatLastAt.clear();
@@ -7564,7 +7392,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     conn.on(WebcastEvent.MEMBER, (data) => {
       state.stats.joins++;
-      if (data.memberCount) state.stats.viewers = data.memberCount;
+      if (data.memberCount) {
+        state.stats.viewers = data.memberCount;
+        state.stats.peakViewers = Math.max(Number(state.stats.peakViewers) || 0, data.memberCount);
+      }
       const member = baseUser(data.user);
       broadcast('member', member);
       // Registrar nivel al entrar (baseline para detectar subidas después).
@@ -7589,6 +7420,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn.on(WebcastEvent.ROOM_USER, (data) => {
       if (typeof data.viewerCount === 'number') {
         state.stats.viewers = data.viewerCount;
+        state.stats.peakViewers = Math.max(Number(state.stats.peakViewers) || 0, data.viewerCount);
         pushStatsThrottled();
       }
     });
@@ -7845,8 +7677,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       resetBattleMultiplierState();
       endPkBattleRound();
       resetPkBattleAll();
+      const wasLive = !!state.connected || !!state.startedAt;
       state.connected = false;
       syncLiveUptimeOnDisconnect();
+      if (wasLive) notifyLiveSessionEnd();
       markLiveSessionEnded();
       pushState();
       broadcast('log', { level: 'info', text: 'El live terminó.' });
@@ -8551,7 +8385,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   /* ------------------------ Gestión de clientes WS ------------------------ */
   function addClient(ws, role = 'panel') {
-    clearIdleCloudTimer();
     clientRoles.set(ws, role === 'relay' || role === 'local' ? role : 'panel');
     clients.add(ws);
     lastSeen = Date.now();
@@ -8589,7 +8422,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       videoScreens.delete(ws);
       broadcastScreens();
     }
-    if (clients.size === 0) scheduleCloudIdleDisconnect();
   }
 
   function getEmotes() {
@@ -8599,7 +8431,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     flushStreamerRank();
     stopRankStreamerTimer();
     disconnect();
-    clearIdleCloudTimer();
     if (autoConnectTimer) { clearInterval(autoConnectTimer); autoConnectTimer = null; }
     if (screensPulseTimer) { clearInterval(screensPulseTimer); screensPulseTimer = null; }
     clearTimeout(screensBroadcastTimer);

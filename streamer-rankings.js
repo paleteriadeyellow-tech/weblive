@@ -328,13 +328,29 @@ export function createStreamerRankings(dataDir) {
 
 
 
+  function getDayTopUserId(dk = dayKey()) {
+    ensureWeek();
+    let bestId = null;
+    let bestMs = 0;
+    for (const s of Object.values(data.streamers || {})) {
+      const ms = Number(s?.days?.[dk]?.streamMs) || 0;
+      if (ms > bestMs) {
+        bestMs = ms;
+        bestId = s.userId || null;
+      }
+    }
+    // Al menos 30 min de live ese día para contar como #1.
+    if (bestMs < 30 * 60 * 1000) return null;
+    return bestId ? String(bestId) : null;
+  }
+
   const weekIv = setInterval(ensureWeek, 60000);
 
   weekIv.unref?.();
 
 
 
-  return { record, getRankings, ensureWeek, flush };
+  return { record, getRankings, ensureWeek, flush, getDayTopUserId };
 
 }
 

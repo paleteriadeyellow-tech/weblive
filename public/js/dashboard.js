@@ -163,10 +163,25 @@ function buildKeepAliveWorker() {
   return keepWorker;
 }
 
-// ¿El .exe debe conectar el panel directo a la nube (modo relay)? Solo en escritorio,
-// con cloudBase definido y la opción activada por el proceso principal.
+// ¿El .exe usa modo relay (TikTok en Render)? Opt-in vía desktopAPI.relayMode.
+// Por defecto el .exe conecta TikTok en esta PC (relayMode=false) para no gastar egress en la nube.
 function relayActive() {
   return IS_DESKTOP && !!(window.desktopAPI && window.desktopAPI.relayMode && window.desktopAPI.cloudBase);
+}
+
+/** Aviso único: overlays pasan a URLs locales al dejar el relay. */
+function maybeNotifyLocalTikTokOverlays() {
+  if (!IS_DESKTOP || relayActive()) return;
+  try {
+    if (localStorage.getItem('livecoins_local_tiktok_overlay_note_v1') === '1') return;
+    localStorage.setItem('livecoins_local_tiktok_overlay_note_v1', '1');
+  } catch { /* ignore */ }
+  try {
+    toast(
+      'TikTok corre en esta PC (ahorro de nube). Si tus overlays de OBS apuntaban a Render, vuelve a copiar las URLs de este panel.',
+      'ok',
+    );
+  } catch { /* ignore */ }
 }
 
 // En modo relay, uploads/audios viven en esta PC (userData). Solo rutas /uploads locales.
@@ -190,7 +205,7 @@ function normalizeRelayMedia(s) {
   for (const b of (s.battleAlerts || [])) if (b.url) b.url = fix(b.url);
   for (const a of (s.actions || [])) if (a.sound) a.sound = fix(a.sound);
   for (const a of (s.mcActions || [])) if (a.sound) a.sound = fix(a.sound);
-  for (const key of ['bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
+  for (const key of ['bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
     for (const a of (s[key] || [])) if (a && a.sound) a.sound = fix(a.sound);
   }
 }
@@ -212,7 +227,7 @@ function stripSettingsMediaForSave(s) {
   for (const b of (s.battleAlerts || [])) if (b.url) b.url = rel(b.url);
   for (const a of (s.actions || [])) if (a.sound) a.sound = rel(a.sound);
   for (const a of (s.mcActions || [])) if (a.sound) a.sound = rel(a.sound);
-  for (const key of ['bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
+  for (const key of ['bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
     for (const a of (s[key] || [])) if (a && a.sound) a.sound = rel(a.sound);
   }
 }
@@ -320,7 +335,7 @@ window.addEventListener('pageshow', () => {
 });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'ghl-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -386,6 +401,13 @@ async function loadMe() {
     if (typeof d.spotifyEnabled === 'boolean') window.SPOTIFY_ACCESS = d.spotifyEnabled;
     try { if (typeof window.refreshEmailAccountUi === 'function') window.refreshEmailAccountUi(d); } catch {}
     if (d.caps) setCaps(d.caps);
+    try { renderHomeBadges(Array.isArray(d.badges) ? d.badges : []); } catch {}
+    if (IS_DESKTOP) {
+      fetch('/api/badges/desktop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then((r) => r.ok ? r.json() : null)
+        .then((bd) => { if (bd?.badges) renderHomeBadges(bd.badges); })
+        .catch(() => {});
+    }
     try { if (typeof syncWebhookRoomUrls === 'function') syncWebhookRoomUrls(); } catch {}
     // Si la cuenta dejó de estar activa, vuelve a la pantalla de espera.
     if (!d.active) { location.href = '/'; return; }
@@ -519,6 +541,7 @@ function navItemVisible(btn) {
 // muestra avisos de límite y desactiva botones de "crear" si se llegó al tope.
 function applyCaps() {
   try { syncHomeHeroPlan(); } catch {}
+  try { updateVideosAiLocks(); } catch {}
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
@@ -544,6 +567,37 @@ function applyCaps() {
   // Avisos de límite + botones de crear
   applyLimitUI();
   renderPlanView();
+}
+
+function isVideosAiLocked() {
+  if (window.IS_ADMIN) return false;
+  return !capFeature('videos_ai');
+}
+
+function setAudioOptLock(btn, locked) {
+  if (!btn) return;
+  btn.classList.toggle('ao-locked', !!locked);
+  let ov = btn.querySelector('.ao-lock-overlay');
+  if (!locked) {
+    ov?.remove();
+    return;
+  }
+  if (ov) return;
+  ov = document.createElement('div');
+  ov.className = 'ao-lock-overlay';
+  ov.innerHTML = `<span class="ao-lock-ico">🔒</span><span class="ao-lock-title">⭐ Solo Premium</span>`;
+  ov.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toast('Videos AI es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+  });
+  btn.appendChild(ov);
+}
+
+function updateVideosAiLocks() {
+  const locked = isVideosAiLocked();
+  setAudioOptLock($('vid-libbtn'), locked);
+  setAudioOptLock($('ba-libbtn'), locked);
 }
 
 /* ---- Vista "Planes" (lo que ve el usuario sobre su plan) ---- */
@@ -574,10 +628,11 @@ const CAP_LABELS = {
   game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_unturned: 'Juego: Unturned', game_gtavkoth: 'Juego: GTA V King of the Hill', game_gtavchaos: 'Juego: GTA V Mod Chaos', game_gtavchiliad: 'Juego: GTA V Chiliad', game_crashctr: 'Juego: Crash Team Racing (CTR)', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
+  videos_ai: 'Videos AI',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
-  'tts_tiktok', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
+  'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -1171,30 +1226,45 @@ async function applyPcInstallButton() {
   }
 }
 
-/* ====================== Confirmación de borrado ====================== */
-function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'Borrar', cancelText = 'Cancelar' } = {}) {
+/* ====================== Confirmación (borrado / avisos) ====================== */
+function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'Borrar', cancelText = 'Cancelar', icon = '🗑️', danger = true, modalClass = '' } = {}) {
   return new Promise((resolve) => {
     const back = document.createElement('div');
-    back.className = 'modal confirm-modal';
+    back.className = 'modal confirm-modal' + (modalClass ? (' ' + modalClass) : '');
+    const okClass = danger ? 'btn danger c-ok' : 'btn primary c-ok';
     back.innerHTML = `
       <div class="confirm-box">
-        <div class="confirm-ico">🗑️</div>
+        <div class="confirm-ico">${icon || '🗑️'}</div>
         <h3>${title}</h3>
         ${message ? `<p>${message}</p>` : ''}
         <div class="confirm-btns">
-          <button class="btn ghost c-cancel">${cancelText}</button>
-          <button class="btn danger c-ok">${confirmText}</button>
+          <button type="button" class="btn ghost c-cancel">${cancelText}</button>
+          <button type="button" class="${okClass}">${confirmText}</button>
         </div>
       </div>`;
     document.body.appendChild(back);
-    const close = (val) => { back.remove(); resolve(val); };
+    let done = false;
+    const close = (val) => {
+      if (done) return;
+      done = true;
+      try { document.removeEventListener('keydown', onEsc); } catch {}
+      try { back.remove(); } catch {}
+      resolve(val);
+    };
+    const onEsc = (e) => { if (e.key === 'Escape') close(false); };
     back.querySelector('.c-cancel').onclick = () => close(false);
     back.querySelector('.c-ok').onclick = () => close(true);
     back.addEventListener('click', (e) => { if (e.target === back) close(false); });
-    document.addEventListener('keydown', function esc(e) {
-      if (e.key === 'Escape') { document.removeEventListener('keydown', esc); close(false); }
+    document.addEventListener('keydown', onEsc);
+    // Si el modal se quita desde fuera (cerrar biblioteca), resolver como cancelar
+    const obs = new MutationObserver(() => {
+      if (!document.body.contains(back)) {
+        try { obs.disconnect(); } catch {}
+        close(false);
+      }
     });
-    setTimeout(() => back.querySelector('.c-ok').focus(), 30);
+    try { obs.observe(document.body, { childList: true }); } catch {}
+    setTimeout(() => back.querySelector('.c-ok')?.focus(), 30);
   });
 }
 
@@ -1211,11 +1281,11 @@ function handle(type, p) {
       break;
     case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
     case 'botReply': handleBotReply(p); break;
-    case 'gift': addGift(p); ttsOnGift(p); relayRepoOnGift(p); relayL4dOnGift(p); relayUnturnedOnGift(p); relayMslugOnGift(p); relayCtrOnGift(p); relaySmwOnGift(p); break;
-    case 'like': ttsOnLike(p); relayRepoOnLike(p); relayL4dOnLike(p); relayUnturnedOnLike(p); relayMslugOnLike(p); relayCtrOnLike(p); relaySmwOnLike(p); break;
+    case 'gift': addGift(p); ttsOnGift(p); relayRepoOnGift(p); relayL4dOnGift(p); relayUnturnedOnGift(p); relayGtavKothOnGift(p); relayGtavChaosOnGift(p); relayGtavChiliadOnGift(p); relayMslugOnGift(p); relayCtrOnGift(p); relaySmwOnGift(p); break;
+    case 'like': ttsOnLike(p); relayRepoOnLike(p); relayL4dOnLike(p); relayUnturnedOnLike(p); relayGtavKothOnLike(p); relayGtavChaosOnLike(p); relayGtavChiliadOnLike(p); relayMslugOnLike(p); relayCtrOnLike(p); relaySmwOnLike(p); break;
     case 'member': addEvent(`🙋 ${p.nickname} entró`, ''); break;
-    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); break;
-    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); break;
+    case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); relayGtavKothOnFollow(p); relayGtavChaosOnFollow(p); relayGtavChiliadOnFollow(p); break;
+    case 'share': addEvent(`🔁 ${p.nickname} compartió el live`, 'ok'); ttsOnShare(p); relayGtavKothOnShare(p); relayGtavChaosOnShare(p); relayGtavChiliadOnShare(p); break;
     case 'subscribe': break;
     case 'superfan': break;
     case 'superfanjoin': break;
@@ -1442,7 +1512,7 @@ function unloadViewEmbeds(view) {
   view.querySelectorAll('iframe[data-src]').forEach(unloadEmbed);
 }
 
-/** Libera previews de overlays que ya no son la vista activa. */
+/** Libera previews de overlays que ya no están la vista activa. */
 function releaseOverlayEmbedsForNav(nextViewId) {
   const nextId = String(nextViewId || '').startsWith('view-')
     ? String(nextViewId)
@@ -1565,13 +1635,12 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
     view.classList.add('active');
     onOverlayNavShown(btn.dataset.view);
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); loadAdminBadges(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
-    if (btn.dataset.view === 'music-requests') { try { setupMusicRequestsUI(); } catch (e) { console.error('Music UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     if (btn.dataset.view === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
     if (btn.dataset.view === 'acciones') {
@@ -1579,6 +1648,17 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     }
   };
 });
+
+// Deep-link #planes: el botón "Quiero Premium" de la pantalla de bienvenida
+// abre el panel directamente en la pestaña Planes.
+if (location.hash === '#planes') {
+  setTimeout(() => {
+    try {
+      document.querySelector('.nav-item[data-view="planes"]')?.click();
+      history.replaceState(null, '', location.pathname + location.search);
+    } catch {}
+  }, 50);
+}
 
 /* ====================== Administración ====================== */
 function fmtDateTime(ts) {
@@ -1910,6 +1990,7 @@ function renderAdminSpotifyFromCache() {
         btn.disabled = true;
         try {
           const data = await setUserSpotifyReq(id, false);
+          // Si el servidor sigue marcándolo activo, no lo borramos de la lista.
           if (data.spotifyEnabled === true) {
             throw new Error('El servidor no quitó el acceso.');
           }
@@ -1957,6 +2038,7 @@ async function loadAdminSpotify() {
       try {
         await setUserSpotifyReq(id, true);
         patchAdminSpotifyCache(id, true);
+        // Si no estaba en caché (recién elegido del desplegable), forzar recarga.
         if (!adminSpotifyUsersCache.some((u) => String(u.id) === String(id))) {
           await loadAdminSpotify();
         } else {
@@ -2187,6 +2269,105 @@ async function loadAdminGames() {
       }
     };
   }
+})();
+
+/* -------- Admin: insignias especiales -------- */
+const ADMIN_MANUAL_BADGES = [
+  { id: 'partner', label: 'Partner', icon: '🤝' },
+  { id: 'beta', label: 'Beta', icon: '🧪' },
+  { id: 'staff', label: 'Staff', icon: '🛡️' },
+];
+let adminBadgesUsersCache = [];
+let adminBadgesSelectedId = '';
+
+async function setUserBadgeReq(id, badge, enabled) {
+  const r = await fetch('/api/admin/userbadges', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, badge, enabled: !!enabled }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'No se pudo actualizar la insignia');
+  return data;
+}
+
+function renderAdminBadgesEditor() {
+  const editor = document.getElementById('admin-badges-editor');
+  const title = document.getElementById('admin-badges-editor-title');
+  const checks = document.getElementById('admin-badges-checks');
+  if (!editor || !checks) return;
+  const u = adminBadgesUsersCache.find((x) => String(x.id) === String(adminBadgesSelectedId));
+  if (!u) { editor.hidden = true; return; }
+  editor.hidden = false;
+  const manual = Array.isArray(u.manualBadges) ? u.manualBadges : [];
+  if (title) title.textContent = `Insignias de ${u.username}`;
+  checks.innerHTML = ADMIN_MANUAL_BADGES.map((b) => {
+    const on = manual.includes(b.id);
+    return `<label><input type="checkbox" data-badge="${esc(b.id)}" ${on ? 'checked' : ''}> ${esc(b.icon)} ${esc(b.label)}</label>`;
+  }).join('');
+  checks.querySelectorAll('input[data-badge]').forEach((inp) => {
+    inp.onchange = async () => {
+      inp.disabled = true;
+      try {
+        const data = await setUserBadgeReq(u.id, inp.dataset.badge, inp.checked);
+        const row = adminBadgesUsersCache.find((x) => String(x.id) === String(u.id));
+        if (row && Array.isArray(data.badges)) {
+          row.manualBadges = data.badges.filter((b) => b.manual && b.earned).map((b) => b.id);
+        } else if (row) {
+          const set = new Set(row.manualBadges || []);
+          if (inp.checked) set.add(inp.dataset.badge); else set.delete(inp.dataset.badge);
+          row.manualBadges = [...set];
+        }
+        renderAdminBadgesEditor();
+        toast(inp.checked ? 'Insignia concedida.' : 'Insignia quitada.', 'ok');
+      } catch (e) {
+        toast(e.message || 'Error', 'warn');
+        inp.checked = !inp.checked;
+      } finally {
+        inp.disabled = false;
+      }
+    };
+  });
+}
+
+async function loadAdminBadges() {
+  const status = document.getElementById('admin-badges-status');
+  const sel = document.getElementById('admin-badges-user');
+  try {
+    const r = await fetch('/api/admin/users');
+    if (!r.ok) { if (status) status.textContent = 'Sin acceso.'; return; }
+    const { users } = await r.json();
+    adminBadgesUsersCache = Array.isArray(users) ? users : [];
+    if (sel) {
+      const prev = sel.value || adminBadgesSelectedId;
+      sel.innerHTML = '<option value="">Elegir usuario…</option>' + adminBadgesUsersCache
+        .slice()
+        .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+        .map((u) => {
+          const n = (u.manualBadges || []).length;
+          const tag = n ? ` · ${n} especial${n === 1 ? '' : 'es'}` : '';
+          return `<option value="${esc(u.id)}">${esc(u.username)}${esc(tag)}</option>`;
+        }).join('');
+      if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+      adminBadgesSelectedId = sel.value || '';
+    }
+    if (status) status.textContent = `${adminBadgesUsersCache.length} usuarios`;
+    renderAdminBadgesEditor();
+  } catch {
+    if (status) status.textContent = 'Error al cargar.';
+  }
+}
+
+(function setupAdminBadgesUI() {
+  const sel = document.getElementById('admin-badges-user');
+  const refresh = document.getElementById('admin-badges-refresh');
+  if (sel) {
+    sel.onchange = () => {
+      adminBadgesSelectedId = sel.value || '';
+      renderAdminBadgesEditor();
+    };
+  }
+  if (refresh) refresh.onclick = () => loadAdminBadges();
 })();
 
 const planUpgradeBtn = document.getElementById('plan-upgrade');
@@ -3239,11 +3420,23 @@ function saveSettings() {
   }, 200);
 }
 
-// Al abrir el panel solo renderiza. Ya NO apaga «Activa» (eso cortaba spawns
-// en medio del live: regalos/likes en el log pero nada en el juego).
+// Al abrir la app, cada lista de acciones de juego arranca apagada una sola vez.
+// El flag de sesión evita volver a apagarla cuando llega un eco de settings o
+// después de que el usuario la enciende manualmente.
 function bootGameActionsOffOnce(flag, getList, renderFn) {
   if (typeof renderFn !== 'function') return;
-  if (!window[flag]) window[flag] = true;
+  if (!window[flag]) {
+    window[flag] = true;
+    const list = typeof getList === 'function' ? getList() : [];
+    let changed = false;
+    for (const action of (Array.isArray(list) ? list : [])) {
+      if (!action || action.enabled === false) continue;
+      action.enabled = false;
+      changed = true;
+    }
+    // Las llamadas consecutivas se consolidan por el debounce de saveSettings.
+    if (changed) saveSettings();
+  }
   renderFn();
 }
 function sendTestMcActionTimed(uid, findFn) {
@@ -3338,6 +3531,10 @@ function onSettings(s) {
   bootGameActionsOffOnce('_repoResetDone', ensureRepoActions, renderRepoActions);
   bootGameActionsOffOnce('_l4dResetDone', ensureL4dActions, renderL4dActions);
   bootGameActionsOffOnce('_unturnedResetDone', ensureUnturnedActions, renderUnturnedActions);
+  bootGameActionsOffOnce('_gtavkothResetDone', ensureGtavKothActions, renderGtavKothActions);
+  bootGameActionsOffOnce('_gtavchaosResetDone', ensureGtavChaosActions, renderGtavChaosActions);
+  bootGameActionsOffOnce('_gtavchiliadResetDone', ensureGtavChiliadActions, renderGtavChiliadActions);
+
   bootGameActionsOffOnce('_ctrResetDone', ensureCtrActions, renderCtrActions);
   bootGameActionsOffOnce('_mslugResetDone', ensureMslugActions, renderMslugActions);
   bootGameActionsOffOnce('_mcResetDone', () => settings?.mcActions || [], renderMyMcActions);
@@ -4081,9 +4278,17 @@ $('vid-file').addEventListener('change', async (e) => {
 
 /* "Videos AI" = elegir un video de la carpeta public/video (ventana aparte) */
 let localVideos = [];
+let videoPackAiBusy = false;
 
 let libTarget = 'vid'; // 'vid' | 'ba' — a qué modal vuelve el video elegido de la librería
-$('vid-libbtn').onclick = () => { libTarget = 'vid'; openVideoLib(); };
+$('vid-libbtn').onclick = () => {
+  if (isVideosAiLocked()) {
+    toast('Videos AI es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+    return;
+  }
+  libTarget = 'vid';
+  openVideoLib();
+};
 $('vidlib-close').onclick = closeVideoLib;
 $('vidlib-cancel').onclick = closeVideoLib;
 $('videoLibModal').addEventListener('click', (e) => { if (e.target.id === 'videoLibModal') closeVideoLib(); });
@@ -4093,6 +4298,12 @@ if ($('vidlib-openniveles')) {
     try { if (window.desktopAPI && window.desktopAPI.openNivelesFolder) await window.desktopAPI.openNivelesFolder(); } catch {}
   };
 }
+if ($('vidlib-download-ai')) {
+  $('vidlib-download-ai').onclick = () => { void downloadVideoPackAi({ mode: 'install', fromButton: true }); };
+}
+if ($('vidlib-update-ai')) {
+  $('vidlib-update-ai').onclick = () => { void downloadVideoPackAi({ mode: 'update', fromButton: true }); };
+}
 $('vid-libq').addEventListener('input', () => renderLocalVideos($('vid-libq').value.trim()));
 
 // ¿La biblioteca debe mostrar la carpeta «niveles»? Solo en Videos y cuando el
@@ -4101,7 +4312,236 @@ function libIsNiveles() {
   return false;
 }
 
+function currentVideoPackKind() {
+  return libTarget === 'ba' ? 'batalla' : 'ai';
+}
+
+function canUseVideoPackAi() {
+  return !!(window.desktopAPI && (
+    typeof window.desktopAPI.videoPackStatus === 'function'
+    || typeof window.desktopAPI.videoPackAiStatus === 'function'
+  ) && (
+    typeof window.desktopAPI.installVideoPack === 'function'
+    || typeof window.desktopAPI.installVideoPackAi === 'function'
+  ));
+}
+
+async function videoPackStatusCall(kind) {
+  if (typeof window.desktopAPI.videoPackStatus === 'function') {
+    return window.desktopAPI.videoPackStatus(kind);
+  }
+  if (kind === 'ai' && typeof window.desktopAPI.videoPackAiStatus === 'function') {
+    return window.desktopAPI.videoPackAiStatus();
+  }
+  return { ok: false, installed: false, needsUpdate: false };
+}
+
+async function installVideoPackCall(kind) {
+  if (typeof window.desktopAPI.installVideoPack === 'function') {
+    return window.desktopAPI.installVideoPack(kind);
+  }
+  if (kind === 'ai' && typeof window.desktopAPI.installVideoPackAi === 'function') {
+    return window.desktopAPI.installVideoPackAi();
+  }
+  return { ok: false, error: 'API de pack no disponible' };
+}
+
+let videoPackAiUi = { installed: false, needsUpdate: false, kind: 'ai' };
+let videoPackPromptGen = 0;
+
+function dismissVideoPackConfirms() {
+  document.querySelectorAll('.confirm-modal.video-pack-confirm').forEach((el) => {
+    try { el.remove(); } catch {}
+  });
+}
+
+function packLabelArticle(kind) {
+  return kind === 'batalla' ? 'Las Batallas AI' : 'Los Videos AI';
+}
+
+function applyVideoPackAiButtons() {
+  const dl = $('vidlib-download-ai');
+  const up = $('vidlib-update-ai');
+  const kind = currentVideoPackKind();
+  const inLib = (libTarget === 'vid' || libTarget === 'ba') && !libIsNiveles() && canUseVideoPackAi();
+  const label = kind === 'batalla' ? 'Batallas AI' : 'Videos AI';
+  if (dl) {
+    const showDl = inLib && !videoPackAiUi.installed;
+    dl.style.display = showDl ? '' : 'none';
+    dl.disabled = !!videoPackAiBusy;
+    dl.textContent = videoPackAiBusy && showDl ? 'Descargando…' : ('⬇ Descargar ' + label);
+  }
+  if (up) {
+    const showUp = inLib && videoPackAiUi.installed && videoPackAiUi.needsUpdate;
+    up.style.display = showUp ? '' : 'none';
+    up.disabled = !!videoPackAiBusy;
+    up.textContent = videoPackAiBusy && showUp ? 'Actualizando…' : '↻ Actualizar';
+  }
+}
+
+async function refreshVideoPackAiUi() {
+  if (!canUseVideoPackAi() || libIsNiveles() || (libTarget !== 'vid' && libTarget !== 'ba')) {
+    videoPackAiUi = { installed: false, needsUpdate: false, kind: currentVideoPackKind() };
+    applyVideoPackAiButtons();
+    return videoPackAiUi;
+  }
+  const kind = currentVideoPackKind();
+  try {
+    const st = await videoPackStatusCall(kind);
+    videoPackAiUi = {
+      installed: !!(st && st.installed),
+      needsUpdate: !!(st && st.needsUpdate),
+      kind,
+    };
+  } catch {
+    videoPackAiUi = { installed: false, needsUpdate: false, kind };
+  }
+  applyVideoPackAiButtons();
+  return videoPackAiUi;
+}
+
+async function downloadVideoPackAi({ mode = 'install', fromButton = false } = {}) {
+  if (!canUseVideoPackAi() || videoPackAiBusy) return false;
+  const kind = currentVideoPackKind();
+  const label = kind === 'batalla' ? 'Batallas AI' : 'Videos AI';
+  const isUpdate = mode === 'update';
+  const myGen = videoPackPromptGen;
+
+  // Por si acaban de instalar por otro camino (botón vacío, etc.)
+  try {
+    const st0 = await videoPackStatusCall(kind);
+    if (!isUpdate && st0 && st0.installed) {
+      videoPackAiUi = { installed: true, needsUpdate: !!st0.needsUpdate, kind };
+      applyVideoPackAiButtons();
+      return true;
+    }
+  } catch {}
+
+  if (!fromButton && !isUpdate) {
+    const ok = await askConfirm({
+      icon: kind === 'batalla' ? '⚔️' : '🎬',
+      title: 'Descargar ' + label,
+      message: packLabelArticle(kind) + ' no están en la app (así el instalador pesa menos).<br><br>'
+        + 'Se guardan en tu PC y <b>no se borran</b> al actualizar Livecoins.',
+      confirmText: '⬇ Descargar',
+      cancelText: 'Cancelar',
+      danger: false,
+      modalClass: 'video-pack-confirm',
+    });
+    if (myGen !== videoPackPromptGen) return false;
+    if (!ok) return false;
+    // Revalidar: pudieron instalarse mientras el aviso estaba abierto
+    try {
+      const st1 = await videoPackStatusCall(kind);
+      if (st1 && st1.installed) {
+        videoPackAiUi = { installed: true, needsUpdate: !!st1.needsUpdate, kind };
+        applyVideoPackAiButtons();
+        await loadLocalVideos();
+        return true;
+      }
+    } catch {}
+  }
+  if (isUpdate && fromButton) {
+    const ok = await askConfirm({
+      icon: '↻',
+      title: 'Actualizar ' + label,
+      message: 'Se descargará el pack y se <b>añadirán los videos nuevos</b>. '
+        + 'Los que ya tienes se actualizan si cambiaron; <b>no se borran</b> los demás.',
+      confirmText: '↻ Actualizar',
+      cancelText: 'Cancelar',
+      danger: false,
+      modalClass: 'video-pack-confirm',
+    });
+    if (myGen !== videoPackPromptGen) return false;
+    if (!ok) return false;
+  }
+  if (myGen !== videoPackPromptGen) return false;
+
+  videoPackAiBusy = true;
+  applyVideoPackAiButtons();
+  const box = $('vid-libgrid');
+  const progressLabel = isUpdate ? ('Actualizando ' + label) : ('Descargando ' + label);
+  if (box) box.innerHTML = '<div class="empty">' + progressLabel + '… 0%</div>';
+  let unsub = null;
+  try {
+    const onProg = window.desktopAPI.onVideoPackProgress || window.desktopAPI.onVideoPackAiProgress;
+    if (typeof onProg === 'function') {
+      unsub = onProg((p) => {
+        if (!p || !box) return;
+        if (p.kind && p.kind !== kind) return;
+        if (p.error) {
+          box.innerHTML = '<div class="empty">Error: ' + esc(String(p.error)) + '</div>';
+          return;
+        }
+        const pct = p.pct != null ? p.pct : 0;
+        const lbl = p.phase === 'download' || p.started
+          ? (isUpdate ? 'Descargando actualización' : 'Descargando')
+          : (p.complete ? 'Listo' : 'Instalando');
+        box.innerHTML = '<div class="empty">' + esc(lbl) + '… ' + pct + '%</div>';
+      });
+    }
+    const r = await installVideoPackCall(kind);
+    if (myGen !== videoPackPromptGen) return false;
+    if (!r || !r.ok) {
+      const err = (r && r.error) || 'No se pudo descargar';
+      if (box) {
+        box.innerHTML = '<div class="empty">' + esc(err)
+          + '<br><button type="button" class="btn primary" id="vidlib-dl-retry">Reintentar</button></div>';
+        const retry = $('vidlib-dl-retry');
+        if (retry) retry.onclick = () => { void downloadVideoPackAi({ mode, fromButton: true }); };
+      }
+      try { toast && toast(err, 'err'); } catch {}
+      return false;
+    }
+    const added = Number(r.added) || 0;
+    const updated = Number(r.updated) || 0;
+    try {
+      toast && toast(
+        isUpdate
+          ? (label + ' actualizados (+' + added + ' nuevos, ' + updated + ' actualizados)')
+          : (label + ' listos (' + (r.count || 0) + ' archivos)'),
+        'ok'
+      );
+    } catch {}
+    await loadLocalVideos();
+    await refreshVideoPackAiUi();
+    return true;
+  } catch (e) {
+    const err = String(e && e.message || e);
+    if (box) box.innerHTML = '<div class="empty">' + esc(err) + '</div>';
+    try { toast && toast(err, 'err'); } catch {}
+    return false;
+  } finally {
+    videoPackAiBusy = false;
+    await refreshVideoPackAiUi();
+    try { if (typeof unsub === 'function') unsub(); } catch {}
+  }
+}
+
+async function maybePromptVideoPackAi() {
+  const myGen = videoPackPromptGen;
+  if (libIsNiveles() || !canUseVideoPackAi() || (libTarget !== 'vid' && libTarget !== 'ba')) {
+    videoPackAiUi = { installed: false, needsUpdate: false, kind: currentVideoPackKind() };
+    applyVideoPackAiButtons();
+    return;
+  }
+  // Si la grilla ya tiene clips, no volver a pedir descarga
+  if (localVideos && localVideos.length > 0) {
+    await refreshVideoPackAiUi();
+    return;
+  }
+  const st = await refreshVideoPackAiUi();
+  if (myGen !== videoPackPromptGen) return;
+  if (!st.installed) {
+    await downloadVideoPackAi({ mode: 'install', fromButton: false });
+  }
+}
+
 function openVideoLib() {
+  if ((libTarget === 'vid' || libTarget === 'ba') && !libIsNiveles() && isVideosAiLocked()) {
+    toast('Videos AI es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+    return;
+  }
   // Ajusta los textos del modal según la carpeta (Videos / Batallas / Niveles).
   const niveles = libIsNiveles();
   const folder = libTarget === 'ba' ? 'public/video/batalla' : (niveles ? 'public/video/niveles' : 'public/video');
@@ -4112,15 +4552,36 @@ function openVideoLib() {
       ? 'Selecciona el video del nivel (carpeta niveles)'
       : 'Selecciona un video de la carpeta (vista previa vertical)';
   const credit = document.querySelector('#videoLibModal .modal-foot .credit');
-  if (credit) credit.innerHTML = `Videos de la carpeta <code>${folder}</code>.`;
-  // El botón "Abrir carpeta" solo aplica a la carpeta de niveles y solo en la app .exe
-  // (donde la carpeta vive en los datos del usuario, no en el proyecto).
+  if (credit) {
+    // Pack AI: sin texto de pie (no anunciar peso del instalador).
+    if ((libTarget === 'ba' || (libTarget === 'vid' && !niveles))) {
+      credit.innerHTML = '';
+      credit.hidden = true;
+    } else {
+      credit.hidden = false;
+      credit.innerHTML = 'Videos de la carpeta <code>' + folder + '</code>.';
+    }
+  }
+  const titleEl = document.querySelector('#videoLibModal .create-modal-head h2');
+  if (titleEl) {
+    titleEl.textContent = libTarget === 'ba' ? '⚔️ Batallas AI' : '🎬 Videos AI';
+  }
   const openBtn = $('vidlib-openniveles');
   if (openBtn) openBtn.style.display = (niveles && window.desktopAPI && window.desktopAPI.openNivelesFolder) ? '' : 'none';
+  dismissVideoPackConfirms();
+  videoPackPromptGen += 1;
+  applyVideoPackAiButtons();
   $('videoLibModal').classList.remove('hidden');
-  loadLocalVideos();
+  const gen = videoPackPromptGen;
+  loadLocalVideos().then(() => {
+    if (gen !== videoPackPromptGen) return;
+    return maybePromptVideoPackAi();
+  });
 }
+
 function closeVideoLib() {
+  videoPackPromptGen += 1;
+  dismissVideoPackConfirms();
   $('videoLibModal').classList.add('hidden');
   // Libera los videos de la biblioteca para no seguir consumiendo CPU/memoria.
   if (window._vidLibIO) { try { window._vidLibIO.disconnect(); } catch {} window._vidLibIO = null; }
@@ -4154,11 +4615,20 @@ function renderLocalVideos(filter) {
   const list = f ? localVideos.filter((v) => v.name.toLowerCase().includes(f)) : localVideos;
   if (!list.length) {
     const folder = libTarget === 'ba' ? 'video/batalla' : (libIsNiveles() ? 'video/niveles' : 'video');
+    const needPack = (libTarget === 'vid' || libTarget === 'ba') && !libIsNiveles() && canUseVideoPackAi() && !localVideos.length && !videoPackAiUi.installed;
+    applyVideoPackAiButtons();
+    const packLabel = libTarget === 'ba' ? 'Batallas AI' : 'Videos AI';
     box.innerHTML = localVideos.length
       ? '<div class="empty">Ningún video coincide</div>'
-      : `<div class="empty">No hay videos en la carpeta «${folder}».<br>Copia tus .mp4 ahí y pulsa ↻</div>`;
+      : needPack
+        ? `<div class="empty">Aún no tienes ${packLabel} descargados.<br>
+            <button type="button" class="btn primary" id="vidlib-dl-empty">⬇ Descargar pack</button></div>`
+        : `<div class="empty">No hay videos en la carpeta «${folder}».<br>Copia tus .mp4 ahí y pulsa ↻</div>`;
+    const emptyBtn = $('vidlib-dl-empty');
+    if (emptyBtn) emptyBtn.onclick = () => { void downloadVideoPackAi({ mode: 'install', fromButton: true }); };
     return;
   }
+  applyVideoPackAiButtons();
   const niceName = (n) => n.replace(/\.[^.]+$/, '');
   // Importante: NO ponemos autoplay ni preload="auto" en todos. Si la carpeta tiene
   // muchos videos, descargar y decodificar todos a la vez traba el navegador. En su
@@ -4436,7 +4906,14 @@ $('ba-giftpick').onclick = () => openGiftModal('sa', (g) => {
   $('ba-giftid').value = g.id || '';
   updateBaGiftBtn();
 });
-$('ba-libbtn').onclick = () => { libTarget = 'ba'; openVideoLib(); };
+$('ba-libbtn').onclick = () => {
+  if (isVideosAiLocked()) {
+    toast('Videos AI es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+    return;
+  }
+  libTarget = 'ba';
+  openVideoLib();
+};
 $('ba-upbtn').onclick = () => $('ba-file').click();
 $('ba-file').addEventListener('change', async (e) => {
   const file = e.target.files[0];
@@ -6788,7 +7265,9 @@ if ($('ggmcfg-save')) $('ggmcfg-save').onclick = () => {
 if ($('ggm-test')) {
   $('ggm-test').onclick = () => {
     pushGiftGoalsPreview(settings?.giftGoals);
+    // Preview: solo postMessage (evita que el WS cancele la animación dorada)
     setTimeout(() => ggmToPreview({ type: 'test' }), 50);
+    // OBS / overlay real en vivo
     send({ action: 'testGiftGoals' });
   };
 }
@@ -7133,6 +7612,10 @@ const STYLE_OVERLAYS = [
     },
     onSave: (cfg) => {
       if ($('gct-goal')) cfg.goal = Math.max(1, parseInt($('gct-goal').value, 10) || 1);
+    },
+    onReset: () => {
+      if ($('gct-value')) $('gct-value').value = '0';
+      try { if (typeof toast === 'function') toast('Contador en 0.', 'ok'); } catch {}
     },
   }),
   setupStyleOverlay({
@@ -9177,6 +9660,7 @@ function ttsElSetStatus(msg, kind) {
 function ttsElFillVoiceSelect(voices, selectedId) {
   const sel = $('tts-el-voice');
   if (!sel) return;
+  // null/undefined → mantener caché; array vacío sin caché → placeholder
   let list;
   if (Array.isArray(voices) && voices.length) {
     ttsElVoicesCache = voices.map((v) => ({
@@ -9313,6 +9797,7 @@ async function ttsElCloneVoice() {
     el.voiceName = name;
     el.enabled = true;
     const en = $('tts-el-enabled'); if (en) en.checked = true;
+    // Añadir a la caché sin borrar el resto de voces cargadas.
     if (!ttsElVoicesCache.some((v) => String(v.id) === String(j.voiceId))) {
       ttsElVoicesCache = [{ id: j.voiceId, name, category: 'cloned' }, ...ttsElVoicesCache];
     }
@@ -9628,6 +10113,7 @@ function ttsOnGift(p) {
   }
 }
 
+/* ---- Binds de controles ---- */
 /* ---- Advertencia de riesgo al activar el TTS (cierre tras 5 s) ---- */
 const TTS_WARN_HIDE_KEY = 'ttsWarnHide';
 let ttsWarnTimer = null;
@@ -9678,7 +10164,6 @@ function openTtsWarnModal(onAccept) {
   modal.onclick = (e) => { if (e.target === modal) closeTtsWarnModal(); };
 }
 
-/* ---- Binds de controles ---- */
 (function setupTtsControls() {
   if (TTS_HAS) speechSynthesis.onvoiceschanged = loadVoices;
   const save = () => { saveSettings(); updateTtsSummary(); };
@@ -11432,7 +11917,7 @@ function withLocalMcConn(exec) {
 
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
-  if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_|REPO_|L4D_|CTR_|UNTURNED_|SMW_)/.test(exec.tipo)) {
+  if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_|REPO_|L4D_|CTR_|UNTURNED_|SMW_|GTAVCHILIAD_|GTAVCHAOS_|GTAVKOTH_)/.test(exec.tipo)) {
     if (exec.tipo === 'REPO_SPAWN') {
       (async () => {
         suppressRelayRepoAfterCloudOk();
@@ -11451,6 +11936,43 @@ function onLocalExec(exec) {
       (async () => {
         suppressRelayUnturnedAfterCloudOk();
         await execGameLocal({ ...exec, times: localUnturnedTimesForExec(exec), params: exec.params || readUnturnedParamsForThing(exec.thing) });
+      })();
+    } else if (exec.tipo === 'GTAVCHAOS_SPAWN') {
+      (async () => {
+        suppressRelayGtavChaosAfterCloudOk();
+        await execGameLocal({
+          ...exec,
+          times: localGtavChaosTimesForExec(exec),
+        });
+      })();
+    } else if (exec.tipo === 'GTAVCHILIAD_SPAWN') {
+      (async () => {
+        suppressRelayGtavChiliadAfterCloudOk();
+        await execGameLocal({
+          ...exec,
+          times: localGtavChiliadTimesForExec(exec),
+        });
+      })();
+    } else if (exec.tipo === 'GTAVKOTH_SPAWN') {
+      (async () => {
+        suppressRelayGtavKothAfterCloudOk();
+        const payload = {
+          ...exec,
+          times: localGtavKothTimesForExec(exec),
+          params: exec.params || readGtavKothParamsForThing(exec.thing),
+        };
+        let r = await execGameLocal(payload);
+        if (r && r.ok === false) {
+          // Un reintento: a veces :6721 tarda en responder tras el primer comando.
+          r = await execGameLocal(payload);
+        }
+        if (r && r.ok !== false) {
+          addEvent(`🚗 GTA V KOTH: ${exec.label || exec.thing || 'spawn'} OK`, 'ok');
+        } else {
+          const msg = r?.hint || r?.error || 'No llegó al mod (Conectar + GTA en Historia, HTTP :6721)';
+          addEvent(`🚗 GTA V KOTH falló: ${msg}`, 'error');
+          toast && toast(msg, 'warn');
+        }
       })();
     } else if (exec.tipo === 'MSLUG_SPAWN') {
       (async () => {
@@ -12306,7 +12828,7 @@ function revealJuegosTab() {
   try { syncNavSections(); } catch {}
 }
 // Cambia a una vista por su id completo (sin pasar por los botones del menú).
-function showViewById(viewId) {
+async function showViewById(viewId) {
   const gameMatch = viewId.match(/^view-juego-(.+)$/);
   if (gameMatch && isGameComingSoon(gameMatch[1])) {
     toast('Este juego estará disponible próximamente.', 'warn');
@@ -12319,6 +12841,9 @@ function showViewById(viewId) {
   const navSlug = viewId.replace(/^view-/, '');
   const navBtn = document.querySelector(`.nav-item[data-view="${navSlug}"]`);
   if (navBtn && getComputedStyle(navBtn).display !== 'none') navBtn.classList.add('active');
+  if (gameMatch) {
+    try { await ensureGameUi(gameMatch[1]); } catch (e) { console.warn('ensureGameUi', gameMatch[1], e); }
+  }
   if (viewId === 'view-juego-pvzhybrid' && typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
   if (viewId === 'view-juego-repo') {
     if (typeof renderRepoActions === 'function') renderRepoActions();
@@ -12333,6 +12858,21 @@ function showViewById(viewId) {
     if (typeof loadUnturnedGameDirField === 'function') loadUnturnedGameDirField();
     if (typeof refreshUnturnedStatus === 'function') refreshUnturnedStatus();
     if (typeof renderUnturnedActions === 'function') renderUnturnedActions();
+  }
+  if (viewId === 'view-juego-gtavkoth') {
+    if (typeof loadGtavKothGameDirField === 'function') loadGtavKothGameDirField();
+    if (typeof refreshGtavKothStatus === 'function') refreshGtavKothStatus();
+    if (typeof renderGtavKothActions === 'function') renderGtavKothActions();
+  }
+  if (viewId === 'view-juego-gtavchaos') {
+    if (typeof loadGtavChaosGameDirField === 'function') loadGtavChaosGameDirField();
+    if (typeof refreshGtavChaosStatus === 'function') refreshGtavChaosStatus();
+    if (typeof renderGtavChaosActions === 'function') renderGtavChaosActions();
+  }
+  if (viewId === 'view-juego-gtavchiliad') {
+    if (typeof loadGtavChiliadGameDirField === 'function') loadGtavChiliadGameDirField();
+    if (typeof refreshGtavChiliadStatus === 'function') refreshGtavChiliadStatus();
+    if (typeof renderGtavChiliadActions === 'function') renderGtavChiliadActions();
   }
   if (viewId === 'view-juego-crashctr') {
     if (typeof refreshCtrStatus === 'function') refreshCtrStatus();
@@ -12350,7 +12890,184 @@ function showViewById(viewId) {
   if (viewId === 'view-juego-geometrydash') {
     if (typeof renderGdashActions === 'function') renderGdashActions();
   }
+
   onOverlayNavShown(viewId);
+}
+
+/** Carga un script de catálogo una sola vez (p. ej. GTA / R.E.P.O.). */
+const _gameCatalogScripts = new Map();
+function loadGameCatalogScript(src) {
+  const key = String(src || '');
+  if (!key) return Promise.resolve();
+  if (_gameCatalogScripts.has(key)) return _gameCatalogScripts.get(key);
+  const p = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = key;
+    el.async = true;
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error('No se pudo cargar ' + key));
+    document.head.appendChild(el);
+  });
+  _gameCatalogScripts.set(key, p);
+  return p;
+}
+
+const CATALOG_PREFIX_TO_GAME = {
+  mario: 'mariobros', smb3: 'smb3', mari0: 'mari0', pvz: 'plantasvszombies', pvzhybrid: 'pvzhybrid',
+  repo: 'repo', l4d: 'l4d', unturned: 'unturned', gtavkoth: 'gtavkoth', gtavchaos: 'gtavchaos',
+  gtavchiliad: 'gtavchiliad', ctr: 'crashctr', smw: 'smw',
+  mslug: 'metalslug', gdash: 'geometrydash', mc: 'minecraft', mcshooter: 'mcshooter',
+  bedrock: 'bedrock', mcparkour: 'mcparkour', mckoth: 'mckoth', mcfarm: 'mcfarm', sandbox: 'sandbox',
+};
+
+const _gameUiBoot = new Map();
+
+/** Arranca UI + catálogo del juego solo la primera vez que se abre su pestaña. */
+async function ensureGameUi(gameKey) {
+  const key = String(gameKey || '');
+  if (!key || key === 'mcservidor') return;
+  const prev = _gameUiBoot.get(key);
+  if (prev === true) return;
+  if (prev && typeof prev.then === 'function') return prev;
+  const p = (async () => {
+    switch (key) {
+      case 'roblox':
+        setupRobloxActionsUI();
+        break;
+      case 'roblox3':
+        setupRoblox3ActionsUI();
+        break;
+      case 'mariobros':
+        setupMarioActionsUI();
+        setupMarioLaunchBtn();
+        setupMarioStatusPoll();
+        break;
+      case 'smb3':
+        setupSmb3ActionsUI();
+        setupSmb3LaunchBtn();
+        setupSmb3StatusPoll();
+        break;
+      case 'mari0':
+        setupMari0Downloads();
+        setupMari0ActionsUI();
+        break;
+      case 'plantasvszombies':
+        setupPvzActionsUI();
+        setupPvzLaunchBtn();
+        setupPvzStatusPoll();
+        break;
+      case 'pvzhybrid':
+        setupPvzHybridActionsUI();
+        setupPvzHybridLaunchBtn();
+        setupPvzHybridStatusPoll();
+        setupPvzHybridDownloads();
+        break;
+      case 'repo':
+        await loadGameCatalogScript('/js/repo-catalog-data.js?v=2');
+        bindRepoCatalogFromWindow();
+        setupRepoActionsUI();
+        setupRepoLaunchBtn();
+        setupRepoSteamBtn();
+        setupRepoGameDirUI();
+        setupRepoStatusPoll();
+        break;
+      case 'l4d':
+        setupL4dGameDirUI();
+        setupL4dInstallUI();
+        setupL4dStatusPoll();
+        setupL4dActionsUI();
+        break;
+      case 'unturned':
+        setupUnturnedGameDirUI();
+        setupUnturnedInstallUI();
+        setupUnturnedStatusPoll();
+        setupUnturnedActionsUI();
+        break;
+      case 'gtavkoth':
+        await loadGameCatalogScript('/js/gtavkoth-ramp-vehicles.js');
+        rebuildGtavKothCatalog();
+        setupGtavKothGameDirUI();
+        setupGtavKothInstallUI();
+        setupGtavKothBridgeBtn();
+        setupGtavKothStatusPoll();
+        setupGtavKothActionsUI();
+        break;
+      case 'gtavchaos':
+        await loadGameCatalogScript('/js/gtavchaos-spawn-catalog.js');
+        bindGtavChaosCatalogFromWindow();
+        setupGtavChaosGameDirUI();
+        setupGtavChaosInstallUI();
+        setupGtavChaosBridgeBtn();
+        setupGtavChaosStatusPoll();
+        setupGtavChaosActionsUI();
+        break;
+      case 'gtavchiliad':
+        await loadGameCatalogScript('/js/gtavchiliad-spawn-catalog.js');
+        bindGtavChiliadCatalogFromWindow();
+        setupGtavChiliadGameDirUI();
+        setupGtavChiliadInstallUI();
+        setupGtavChiliadBridgeBtn();
+        setupGtavChiliadStatusPoll();
+        setupGtavChiliadActionsUI();
+        setupGtavChiliadModeButtons();
+        break;
+
+      case 'crashctr':
+        setupCtrBridgeBtn();
+        setupCtrDownloads();
+        setupCtrStepsToggle();
+        setupCtrStatusPoll();
+        setupCtrGuideLightbox();
+        setupCtrActionsUI();
+        break;
+      case 'smw':
+        setupSmwBridgeBtn();
+        setupSmwStatusPoll();
+        setupSmwInstallUI();
+        setupSmwActionsUI();
+        break;
+      case 'metalslug':
+        setupMslugDownloads();
+        setupMslugStatusPoll();
+        setupMslugActionsUI();
+        break;
+      case 'geometrydash':
+        setupGdashDownloads();
+        setupGdashActionsUI();
+        break;
+      case 'minecraft':
+        setupMcActionsUI();
+        break;
+      case 'mcparkour':
+        setupMcParkourActionsUI();
+        break;
+      case 'mckoth':
+        setupMcKothActionsUI();
+        break;
+      case 'mcfarm':
+        setupMcFarmActionsUI();
+        break;
+      case 'mcshooter':
+        setupMcShooterActionsUI();
+        break;
+      case 'bedrock':
+        setupBedrockActionsUI();
+        break;
+      case 'sandbox':
+        setupSandboxActionsUI();
+        break;
+      default:
+        break;
+    }
+  })();
+  _gameUiBoot.set(key, p);
+  try {
+    await p;
+    _gameUiBoot.set(key, true);
+  } catch (e) {
+    _gameUiBoot.delete(key);
+    throw e;
+  }
 }
 // Conecta las tarjetas de juego: al pulsar abren su pestaña; el botón "Volver" regresa.
 function setupJuegosUI() {
@@ -12382,60 +13099,9 @@ function setupJuegosUI() {
   document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
     updateGameCardLock(card);
   });
-  setupRobloxActionsUI();
-  setupRoblox3ActionsUI();
-  setupMarioActionsUI();
-  setupMarioLaunchBtn();
-  setupMarioStatusPoll();
-  setupSmb3ActionsUI();
-  setupSmb3LaunchBtn();
-  setupSmb3StatusPoll();
-  setupMari0Downloads();
-  setupMari0ActionsUI();
-  setupPvzActionsUI();
-  setupPvzLaunchBtn();
-  setupPvzStatusPoll();
-  setupPvzHybridActionsUI();
-  setupPvzHybridLaunchBtn();
-  setupPvzHybridStatusPoll();
-  setupPvzHybridDownloads();
-  setupRepoActionsUI();
-  setupRepoLaunchBtn();
-  setupRepoSteamBtn();
-  setupRepoGameDirUI();
-  setupRepoStatusPoll();
-  setupL4dGameDirUI();
-  setupL4dInstallUI();
-  setupL4dStatusPoll();
-  setupL4dActionsUI();
-  setupUnturnedGameDirUI();
-  setupUnturnedInstallUI();
-  setupUnturnedStatusPoll();
-  setupUnturnedActionsUI();
-  setupCtrBridgeBtn();
-  setupCtrDownloads();
-  setupCtrStepsToggle();
-  setupCtrStatusPoll();
-  setupCtrGuideLightbox();
-  setupCtrActionsUI();
-  setupSmwBridgeBtn();
-  setupSmwStatusPoll();
-  setupSmwInstallUI();
-  setupSmwActionsUI();
-  setupMslugDownloads();
-  setupMslugStatusPoll();
-  setupMslugActionsUI();
-  setupGdashDownloads();
-  setupGdashActionsUI();
+  // UI + catálogos de cada juego: se cargan en ensureGameUi() al abrir su pestaña.
   const change = document.getElementById('mc-change-bat');
   if (change) change.onclick = async (e) => { e.preventDefault(); await chooseMinecraftBat(true); };
-  setupMcActionsUI();
-  setupMcParkourActionsUI();
-  setupMcKothActionsUI();
-  setupMcFarmActionsUI();
-  setupMcShooterActionsUI();
-  setupBedrockActionsUI();
-  setupSandboxActionsUI();
   initGameCatalogModals();
   ['mc-panic', 'mcparkour-panic', 'mckoth-panic', 'mcfarm-panic', 'mcshooter-panic', 'bedrock-panic', 'sandbox-panic'].forEach((id) => {
     const btn = document.getElementById(id);
@@ -12557,10 +13223,12 @@ function closeGameCatalogModal(modalId) {
   if (modal) modal.classList.add('hidden');
 }
 
-function openGameCatalogModal(cfg) {
+async function openGameCatalogModal(cfg) {
   const modal = document.getElementById(cfg.modalId);
   const search = document.getElementById(`${cfg.prefix}-cat-search`);
   if (!modal) return;
+  const gameKey = CATALOG_PREFIX_TO_GAME[cfg.prefix] || cfg.prefix;
+  try { await ensureGameUi(gameKey); } catch (e) { console.warn('catalog ensureGameUi', gameKey, e); }
   modal.classList.remove('hidden');
   if (search) search.value = '';
   cfg.render('');
@@ -12601,6 +13269,10 @@ function initGameCatalogModals() {
     { prefix: 'repo', modalId: 'repoCatalogModal', render: renderRepoCatalog },
     { prefix: 'l4d', modalId: 'l4dCatalogModal', render: renderL4dCatalog },
     { prefix: 'unturned', modalId: 'unturnedCatalogModal', render: renderUnturnedCatalog },
+    { prefix: 'gtavkoth', modalId: 'gtavkothCatalogModal', render: renderGtavKothCatalog },
+    { prefix: 'gtavchaos', modalId: 'gtavchaosCatalogModal', render: renderGtavChaosCatalog },
+    { prefix: 'gtavchiliad', modalId: 'gtavchiliadCatalogModal', render: renderGtavChiliadCatalog },
+
     { prefix: 'ctr', modalId: 'ctrCatalogModal', render: renderCtrCatalog },
     { prefix: 'smw', modalId: 'smwCatalogModal', render: renderSmwCatalog },
     { prefix: 'mslug', modalId: 'mslugCatalogModal', render: renderMslugCatalog },
@@ -12925,7 +13597,7 @@ function saveMcTrigPop() {
   }
 }
 
-const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'smwActions', 'mari0Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions'];
+const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'smwActions', 'mari0Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'ctrActions', 'mslugActions', 'gdashActions'];
 let lastGameActionEditAt = 0;
 const GAME_ACTION_EDIT_ECHO_MS = 3000;
 
@@ -13228,7 +13900,14 @@ function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
       duplicateGameActionBelow(settingsKey, b.dataset.uid, render);
     };
   });
+  const warnLiveNeedsOn = (el) => {
+    const a = find(el?.dataset?.uid || el?.dataset?.slot);
+    if (a && a.enabled === false) {
+      toast && toast('Probar sí funciona apagada, pero en el live hace falta ENCENDERLA (toggle Activa / Encender todas).', 'warn');
+    }
+  };
   const runTest = (el) => {
+    warnLiveNeedsOn(el);
     if (opts.onTest) opts.onTest(el);
     else if (opts.testFn) {
       const a = find(el.dataset.uid || el.dataset.slot);
@@ -16438,7 +17117,7 @@ function addMarioAction(thing) {
 // Mario / PvZ / R.E.P.O.: SIEMPRE en esta PC. IPC primero (más rápido); HTTP al servidor local como respaldo.
 async function execGameLocal(exec) {
   if (!IS_DESKTOP || !exec) return false;
-  const gameTipo = /^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_|REPO_|L4D_|CTR_|UNTURNED_|SMW_)/.test(exec.tipo || '');
+  const gameTipo = /^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_|REPO_|L4D_|CTR_|UNTURNED_|SMW_|GTAVCHILIAD_|GTAVCHAOS_|GTAVKOTH_)/.test(exec.tipo || '');
   const webhookTipo = exec.tipo === 'WEBHOOK';
   const okResult = (r) => r && r.ok !== false;
   const postGameExecHttp = async () => {
@@ -17284,6 +17963,32 @@ const SMB3_POWERUP_PRESETS = [
 ];
 const SMB3_CATALOG = [];
 
+/** Miniaturas remotas (no van en el .exe). Local en dev + CDN Render (weblive). */
+const SMB3_THUMB_CDN = 'https://livecoins.onrender.com/img/smb3-thumbs';
+
+function smb3ThumbKey(entryOrAction) {
+  const sid = entryOrAction?.spawnId ?? entryOrAction?.id;
+  if (sid == null || sid === '') return '';
+  const n = Number(String(sid).replace(/^spawn_/, ''));
+  return Number.isFinite(n) ? String(n) : '';
+}
+
+function smb3ThumbUrls(entryOrAction) {
+  const key = smb3ThumbKey(entryOrAction);
+  if (!key) return { primary: '', fallback: '' };
+  return {
+    primary: `/img/smb3-thumbs/${key}.png`,
+    fallback: `${SMB3_THUMB_CDN}/${encodeURIComponent(key)}.png`,
+  };
+}
+
+function smb3CatalogIconHtml(c) {
+  const em = esc(SMB3_CAT_ICON[c?.tipo] || '🎮');
+  const { primary, fallback } = smb3ThumbUrls(c);
+  if (!primary) return `<span class="repo-cat-list-em">${em}</span>`;
+  return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
+}
+
 function extractSmb3Entities(raw) {
   if (Array.isArray(raw)) return raw;
   if (raw?.entities && Array.isArray(raw.entities)) return raw.entities;
@@ -17475,7 +18180,7 @@ function renderSmb3Catalog(filter) {
     rowHtml: (c) => gameCatListBtnHtml(
       c.id,
       c.nombre,
-      `<span class="repo-cat-list-em">${SMB3_CAT_ICON[c.tipo] || '🎮'}</span>`,
+      smb3CatalogIconHtml(c),
       c.spawnId != null ? `ID ${c.spawnId}${c.hex ? ` · ${c.hex}` : ''}` : (SMB3_CAT_LABEL[c.tipo] || ''),
     ),
     onPick: addSmb3Action,
@@ -17551,6 +18256,10 @@ async function testSmb3Action(a) {
 function smb3CardHtml(a) {
   const uid = esc(a.uid);
   const emoji = a.kind === 'effect' ? '✨' : (SMB3_CAT_ICON[a.tipo] || '👾');
+  const { primary, fallback } = smb3ThumbUrls(a);
+  const thumbHtml = (a.kind === 'effect' || !primary)
+    ? `<span class="mc-act-em">${emoji}</span>`
+    : `<img class="mc-act-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'mc-act-em\\'>${emoji}</span>';}">`;
   const cfgOpts = {
     countMax: 200,
     hideCount: a.kind === 'effect',
@@ -17560,7 +18269,7 @@ function smb3CardHtml(a) {
   };
   return gameSurvivalStyleCardHtml(a, {
     settingsKey: 'smb3Actions',
-    thumbHtml: `<span class="mc-act-em">${emoji}</span>`,
+    thumbHtml,
     nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
     infoExtraHtml: ((a.trigger || 'gift') === 'gift' || a.trigger === 'gift-any')
       ? mcCardComboInstantHtml(a).replace('mc-combo-instant-en', 'smb3-combo-instant-en') : '',
@@ -18273,6 +18982,7 @@ function pvzCardHtml(a, cardOpts = {}) {
   const uid = esc(a.uid);
   const emoji = a.kind === 'sun' ? '☀️' : (a.tipo === 'plant' ? '🌱' : (a.tipo === 'command' ? '⚙️' : '🧟'));
   const imgBase = cardOpts.imgBase || '/img/pvz/';
+  const remoteThumb = !!cardOpts.remoteThumb;
   const cfgOpts = {
     countMax: maxSpawn,
     countMin: 1,
@@ -18290,6 +19000,9 @@ function pvzCardHtml(a, cardOpts = {}) {
     thumbHtml = primary
       ? `<img class="mc-act-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback || '')}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'mc-act-em\\'>${emoji}</span>';}">`
       : `<span class="mc-act-em">${emoji}</span>`;
+  } else if (remoteThumb) {
+    const { primary, fallback } = pvzHybridThumbUrls(a.thing);
+    thumbHtml = `<img class="mc-act-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'mc-act-em\\'>${emoji}</span>';}">`;
   } else {
     thumbHtml = `<img class="mc-act-ic" src="${esc(imgBase)}${esc(a.thing)}.png" alt="" onerror="this.outerHTML='<span class=\\'mc-act-em\\'>${emoji}</span>'">`;
   }
@@ -18479,11 +19192,31 @@ const PVZ_TOOLS_CLASSIC_ZOMBIES = [
 const PVZHYBRID_TIPO_LABEL = { zombie: 'Enemigo Hybrid', classic: 'Zombie PvZ Tools (0–32)', resource: 'Recurso / Soles' };
 const PVZHYBRID_CAT_ORDER = ['zombie', 'classic', 'resource', 'plant', 'command'];
 const PVZHYBRID_CAT_ICON = { zombie: '🧬', classic: '🧟', resource: '☀️', plant: '🌱', command: '⚙️' };
+/** Fotos remotas (weblive/Render) — no van en el .exe. */
+const PVZHYBRID_THUMB_CDN = 'https://livecoins.onrender.com/img/pvzhybrid-thumbs';
 const PVZHYBRID_CATALOG = [
   ...PVZ_RESOURCES.map((x) => ({ ...x, tipo: 'resource', kind: 'sun' })),
   ...PVZ_TOOLS_CLASSIC_ZOMBIES.map((x) => ({ ...x, tipo: 'classic', kind: 'spawn' })),
   ...PVZHYBRID_ZOMBIES.map((x) => ({ ...x, tipo: 'zombie', kind: 'spawn' })),
 ];
+
+function pvzHybridThumbUrls(id) {
+  const key = String(id || '').trim();
+  if (!key) return { primary: '', fallback: '' };
+  // 1) local (dev / carpeta si existe)  2) CDN Render (weblive) — nunca empaquetado en el .exe
+  return {
+    primary: `/img/pvzhybrid-thumbs/${key}.png`,
+    fallback: `${PVZHYBRID_THUMB_CDN}/${encodeURIComponent(key)}.png`,
+  };
+}
+
+function pvzHybridCatalogIconHtml(c) {
+  const em = esc(PVZHYBRID_CAT_ICON[c?.tipo] || PVZ_CAT_ICON[c?.tipo] || '🧬');
+  const id = String(c?.id || '').trim();
+  if (!id) return `<span class="repo-cat-list-em">${em}</span>`;
+  const { primary, fallback } = pvzHybridThumbUrls(id);
+  return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
+}
 
 function ensurePvzHybridActions() {
   if (!settings) return [];
@@ -18659,7 +19392,7 @@ function renderPvzHybridCatalog(filter) {
     rowHtml: (c) => gameCatListBtnHtml(
       c.id,
       c.nombre,
-      `<span class="repo-cat-list-em">${PVZHYBRID_CAT_ICON[c.tipo] || PVZ_CAT_ICON[c.tipo] || '⚙️'}</span>`,
+      pvzHybridCatalogIconHtml(c),
       labelMap[c.tipo] || '',
     ),
     onPick: addPvzHybridAction,
@@ -18713,7 +19446,10 @@ function renderPvzHybridActions() {
   registerGameActionRenderer('pvzHybridActions', renderPvzHybridActions);
   const list = ensurePvzHybridActions();
   if (!list.length) { wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones.</div>'; return; }
-  wrap.innerHTML = list.map((a) => pvzCardHtml(a, { maxSpawn: PVZ_HYBRID_SPAWN_MAX }).replace(/pvz-/g, 'pvzhybrid-')).join('');
+  wrap.innerHTML = list.map((a) => pvzCardHtml(a, {
+    maxSpawn: PVZ_HYBRID_SPAWN_MAX,
+    remoteThumb: true,
+  }).replace(/pvz-/g, 'pvzhybrid-')).join('');
   const find = (uid) => list.find((x) => x.uid === uid);
   wrap.querySelectorAll('.pvzhybrid-del').forEach((b) => b.onclick = () => { settings.pvzHybridActions = list.filter((x) => x.uid !== b.dataset.uid); saveSettings(); renderPvzHybridActions(); });
   bindGameActionConfigPopovers(wrap, find, renderPvzHybridActions, {
@@ -18799,12 +19535,30 @@ async function runGameModInstallWithProgress(prefix, installFn, labels = {}) {
   }
 }
 
-const REPO_SECTION_ORDER = window.REPO_SECTION_ORDER || ['actions'];
-const REPO_SECTION_LABEL = window.REPO_SECTION_LABEL || { actions: 'Acciones' };
-const REPO_SECTION_DESC = window.REPO_SECTION_DESC || { actions: 'Mismas acciones que Interactive / StreamToEarn.' };
-const REPO_SECTION_ICON = window.REPO_SECTION_ICON || { actions: '👾' };
-const REPO_CATALOG = window.REPO_CATALOG || [];
+let REPO_SECTION_ORDER = ['actions'];
+let REPO_SECTION_LABEL = { actions: 'Acciones' };
+let REPO_SECTION_DESC = { actions: 'Mismas acciones que Interactive / StreamToEarn.' };
+let REPO_SECTION_ICON = { actions: '👾' };
+let REPO_CATALOG = [];
 const REPO_SPAWN_MAX = 50;
+
+function bindRepoCatalogFromWindow() {
+  if (Array.isArray(window.REPO_CATALOG) && window.REPO_CATALOG.length) {
+    REPO_CATALOG = window.REPO_CATALOG;
+  }
+  if (Array.isArray(window.REPO_SECTION_ORDER) && window.REPO_SECTION_ORDER.length) {
+    REPO_SECTION_ORDER = window.REPO_SECTION_ORDER;
+  }
+  if (window.REPO_SECTION_LABEL && typeof window.REPO_SECTION_LABEL === 'object') {
+    REPO_SECTION_LABEL = window.REPO_SECTION_LABEL;
+  }
+  if (window.REPO_SECTION_DESC && typeof window.REPO_SECTION_DESC === 'object') {
+    REPO_SECTION_DESC = window.REPO_SECTION_DESC;
+  }
+  if (window.REPO_SECTION_ICON && typeof window.REPO_SECTION_ICON === 'object') {
+    REPO_SECTION_ICON = window.REPO_SECTION_ICON;
+  }
+}
 
 function repoImgSlug(thing) {
   const c = repoCatalogEntry(thing);
@@ -18903,14 +19657,6 @@ async function execRelayRepoSpawn(thing, label, name, times, meta = {}) {
     giftName: meta.giftName,
     eventType: meta.eventType,
   });
-}
-
-/** Rango de diamantes (trigger gift-diamonds) para acciones de juego en relay. */
-function gameGiftDiamondsRangeOk(a, info) {
-  const total = Number(info.totalDiamonds) || 0;
-  if ((Number(a.rangeMin) || 0) > total) return false;
-  if ((Number(a.rangeMax) || 0) > 0 && total > (Number(a.rangeMax) || 0)) return false;
-  return true;
 }
 
 async function execRelayRepoActions(eventType, info = {}, user = null) {
@@ -20504,7 +21250,7 @@ function l4dImgSlug(thing) {
   return l4dCatalogEntry(thing)?.img || String(thing || '').replace(/^[^:]+:/, '').replace(/_/g, '-');
 }
 
-/** Miniaturas como SMB3: local + CDN Render. */
+/** Miniaturas como SMB3: local en panel + CDN Render (weblive). No van en el .exe. */
 const L4D_THUMB_CDN = 'https://livecoins.onrender.com/img/l4d-thumbs';
 
 function l4dThumbUrls(entryOrSlug) {
@@ -21323,7 +22069,7 @@ function addUnturnedAction(thing) {
     giftImage: '',
     count: 1,
     text: '',
-    enabled: true,
+    enabled: false,
   };
   if (c.params) {
     for (const p of c.params) {
@@ -21417,6 +22163,844 @@ function setupUnturnedActionsUI() {
   renderUnturnedCatalog(search ? search.value : '');
   renderUnturnedActions();
 }
+
+// ===================== GTA V King of the Hill (:55002) =====================
+/* GTA V King of the Hill — panel aislado (cascarón UI tipo L4D/Unturned, contenido GTA). */
+const GTAVKOTH_STEAM_URL = 'https://store.steampowered.com/app/271590/Grand_Theft_Auto_V/';
+const GTAVKOTH_SECTION_ORDER = ['vehicles', 'actions'];
+const GTAVKOTH_SECTION_LABEL = {
+  vehicles: 'Vehículos',
+  actions: 'Acciones',
+};
+const GTAVKOTH_SECTION_DESC = {
+  vehicles: 'Caen desde arriba de la rampa (modo KOTH · F10).',
+  actions: 'Prueba NPC (nombre + ataque) y teletransporte meta/inicio.',
+};
+const GTAVKOTH_SECTION_ICON = {
+  vehicles: '🚗',
+  actions: '⚡',
+};
+const GTAVKOTH_SPAWN_MAX = 500;
+/** Delay del botón naranja (alt-tab). El azul (Probar ya) es inmediato. */
+const GTAVKOTH_TEST_DELAY_MS = 2000;
+
+function gtavKothVehicleTitle(id) {
+  return String(id || '')
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+const GTAVKOTH_STATIC_ACTIONS = [
+  {
+    id: 'koth:test_npc',
+    emoji: '🧑',
+    nombre: 'Probar aparición de NPC',
+    desc: 'NPC a tu lado con nombre del donador; te persigue y ataca',
+    section: 'actions',
+  },
+  {
+    id: 'koth:teleport_finish',
+    emoji: '🏁',
+    nombre: 'Teletransportarse a la meta',
+    desc: 'Te lleva a la cima (100%) para iniciar el contador',
+    section: 'actions',
+  },
+  {
+    id: 'koth:teleport_start',
+    emoji: '⬇️',
+    nombre: 'Teletransportarse al inicio',
+    desc: 'Te lleva a la base de la rampa',
+    section: 'actions',
+  },
+];
+
+let GTAVKOTH_CATALOG = [...GTAVKOTH_STATIC_ACTIONS];
+
+function rebuildGtavKothCatalog() {
+  const vehicles = (Array.isArray(window.GTAVKOTH_RAMP_VEHICLES) ? window.GTAVKOTH_RAMP_VEHICLES : [])
+    .map((id) => {
+      const key = String(id || '').toLowerCase().trim();
+      if (!key) return null;
+      return {
+        id: `vehicle:${key}`,
+        emoji: '🚗',
+        nombre: gtavKothVehicleTitle(key),
+        desc: 'Cae desde arriba de la rampa',
+        section: 'vehicles',
+      };
+    })
+    .filter(Boolean);
+  GTAVKOTH_CATALOG = [...vehicles, ...GTAVKOTH_STATIC_ACTIONS];
+}
+
+function gtavKothCatalogEntry(thing) {
+  return GTAVKOTH_CATALOG.find((x) => x.id === thing);
+}
+
+/** Modelo GTA (adder) desde thing vehicle:adder — fotos remotas, sin peso en el .exe. */
+function gtavKothVehicleModelId(thingOrEntry) {
+  const raw = typeof thingOrEntry === 'string'
+    ? thingOrEntry
+    : (thingOrEntry?.id || thingOrEntry?.thing || '');
+  const s = String(raw || '').trim();
+  const m = /^vehicle:(.+)$/i.exec(s);
+  return (m ? m[1] : s).toLowerCase().replace(/\s+/g, '');
+}
+
+/** CDN externos (no empaquetados). Primary FiveM docs + fallback jsDelivr. */
+function gtavKothVehicleImageUrls(model) {
+  const id = String(model || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!id) return { primary: '', fallback: '' };
+  return {
+    primary: `https://docs.fivem.net/vehicles/${id}.webp`,
+    fallback: `https://cdn.jsdelivr.net/gh/Stuyk/gtav-image-archive/vehicles/${id}.webp`,
+  };
+}
+
+function gtavKothVehicleImageUrl(model) {
+  return gtavKothVehicleImageUrls(model).primary;
+}
+
+function gtavKothCatalogIconHtml(c) {
+  const em = esc(c?.emoji || GTAVKOTH_SECTION_ICON[c?.section] || '🚗');
+  const thing = String(c?.id || '');
+  // Acciones KOTH: emoji (no hay foto de vehículo).
+  if (thing.startsWith('koth:')) return `<span class="repo-cat-list-em">${em}</span>`;
+  const model = gtavKothVehicleModelId(c);
+  if (!model) return `<span class="repo-cat-list-em">${em}</span>`;
+  const { primary, fallback } = gtavKothVehicleImageUrls(model);
+  // loading=lazy: solo descarga las visibles; onerror → otro CDN → emoji.
+  return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
+}
+
+function gtavKothParamRowsHtml(a, c, uid) {
+  if (!c?.params?.length) return '';
+  const rows = c.params.map((p) => {
+    const val = a[p.key] != null ? a[p.key] : (p.default != null ? p.default : '');
+    return `<label class="mc-like-row l4d-param-row">${esc(p.label)}
+      <input type="number" class="gtavkoth-param" data-uid="${uid}" data-key="${esc(p.key)}" value="${esc(String(val))}">
+    </label>`;
+  }).join('');
+  return `<div class="mc-act-row l4d-param-block">${rows}</div>`;
+}
+
+async function generateGtavKothOverlayImage() {
+  return generateGameActionsOverlayImage({
+    ensureList: ensureGtavKothActions,
+    iconUrlFor: (a) => {
+      const model = gtavKothVehicleModelId(a?.thing);
+      return model ? gtavKothVehicleImageUrl(model) : '/img/gtavkoth-thumb.png';
+    },
+    downloadName: 'gtavkoth-overlay.png',
+    emptyToast: 'Agrega acciones del catálogo con su regalo primero.',
+  });
+}
+
+function ensureGtavKothActions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.gtavKothActions)) settings.gtavKothActions = [];
+  // Vehículos + acciones KOTH (NPC / teleport).
+  settings.gtavKothActions = settings.gtavKothActions.filter((a) => {
+    const t = String(a?.thing || '');
+    return !t || t.startsWith('vehicle:') || t === 'koth:test_npc' || t === 'koth:teleport_finish' || t === 'koth:teleport_start';
+  });
+  settings.gtavKothActions = migrateGameActions(settings.gtavKothActions, 'gtavkoth');
+  for (const a of settings.gtavKothActions) {
+    const c = gtavKothCatalogEntry(a.thing);
+    if (!c) continue;
+    if (!a.label) a.label = c.nombre;
+    if (!a.desc) a.desc = c.desc;
+    if (!a.section) a.section = c.section;
+    if (c.params) {
+      for (const p of c.params) {
+        if (a[p.key] == null && p.default != null) a[p.key] = p.default;
+      }
+    }
+  }
+  return settings.gtavKothActions;
+}
+
+const relayGtavKothLikeAcc = new Map();
+const relayGtavKothTimers = new Set();
+let gtavKothRelayCloudExecUntil = 0;
+
+function suppressRelayGtavKothAfterCloudOk() {
+  gtavKothRelayCloudExecUntil = Date.now() + 1500;
+  for (const t of relayGtavKothTimers) clearTimeout(t);
+  relayGtavKothTimers.clear();
+}
+
+function gtavKothPerUnit(a) {
+  const n = parseInt(a?.count, 10);
+  return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+}
+
+function readGtavKothActionParams(a) {
+  const c = gtavKothCatalogEntry(a?.thing);
+  const out = {};
+  if (c?.params) {
+    for (const p of c.params) {
+      const n = parseInt(a[p.key], 10);
+      if (Number.isFinite(n)) out[p.key] = n;
+      else if (p.default != null) out[p.key] = p.default;
+    }
+  }
+  return out;
+}
+
+function readGtavKothParamsForThing(thing) {
+  for (const a of ensureGtavKothActions()) {
+    if (a?.thing === thing && a.enabled !== false) return readGtavKothActionParams(a);
+  }
+  return {};
+}
+
+function readGtavKothActionCount(a) {
+  const wrap = document.getElementById('gtavkoth-my-actions');
+  const uid = String(a?.uid || '');
+  const card = wrap && uid ? wrap.querySelector(`.mc-act-card[data-uid="${uid}"]`) : null;
+  const inp = card?.querySelector('.gtavkoth-count') || card?.querySelector('.l4d-count') || card?.querySelector('.mc-count');
+  const n = parseInt(inp?.value, 10);
+  if (Number.isFinite(n) && n > 0) return Math.min(GTAVKOTH_SPAWN_MAX, n);
+  return gtavKothPerUnit(a);
+}
+
+function gameGiftDiamondsRangeOk(a, info) {
+  const total = Number(info.totalDiamonds) || 0;
+  if ((Number(a.rangeMin) || 0) > total) return false;
+  if ((Number(a.rangeMax) || 0) > 0 && total > (Number(a.rangeMax) || 0)) return false;
+  return true;
+}
+
+function relayGtavKothLikeFires(a, info, user) {
+  const uid = String(user?.uniqueId || '').trim();
+  const batch = Math.max(0, Number(info.likeCount) || 0);
+  if (!uid || batch <= 0) return 0;
+  const goal = Math.max(1, Number(a.likeN) || 1);
+  const actKey = String(a.uid || a.label || 'gtavkoth');
+  const key = `${uid}:${actKey}`;
+  const carry = (relayGtavKothLikeAcc.get(key) || 0) + batch;
+  const fires = Math.floor(carry / goal);
+  relayGtavKothLikeAcc.set(key, carry - fires * goal);
+  if (relayGtavKothLikeAcc.size > 8000) relayGtavKothLikeAcc.clear();
+  return fires;
+}
+
+function scheduleRelayGtavKoth(eventType, info, user) {
+  if (!relayActive() || !IS_DESKTOP) return;
+  const timer = setTimeout(async () => {
+    relayGtavKothTimers.delete(timer);
+    if (Date.now() < gtavKothRelayCloudExecUntil) return;
+    await execRelayGtavKothActions(eventType, info, user);
+  }, 280);
+  relayGtavKothTimers.add(timer);
+}
+
+async function execRelayGtavKothSpawn(thing, label, name, times, params = {}, meta = {}) {
+  const capped = Math.min(GTAVKOTH_SPAWN_MAX, Math.max(1, Number(times) || 1));
+  const r = await execGameLocal({
+    tipo: 'GTAVKOTH_SPAWN',
+    thing: String(thing || ''),
+    name: String(name || ''),
+    times: capped,
+    params,
+    label: label || thing,
+    reason: meta.reason,
+    giftName: meta.giftName,
+    eventType: meta.eventType,
+  });
+  if (r && r.ok !== false) {
+    addEvent(`🚗 GTA V KOTH: ${label || thing} OK`, 'ok');
+  } else if (r && r.ok === false) {
+    addEvent(`🚗 GTA V KOTH falló: ${r.hint || r.error || 'bridge'}`, 'error');
+  }
+  return r;
+}
+
+async function execRelayGtavKothActions(eventType, info = {}, user = null) {
+  const list = ensureGtavKothActions();
+  if (!list.length) return;
+  const name = (user && user.nickname) || info.nickname || '';
+  for (const a of list) {
+    if (!a || a.enabled === false || !a.thing) continue;
+    const trig = a.trigger || 'gift';
+    const perUnit = readGtavKothActionCount(a);
+    const params = readGtavKothActionParams(a);
+    let units = 1;
+    if (eventType === 'gift') {
+      if (trig === 'gift') {
+        const wantId = String(a.giftId || '').trim();
+        const wantName = (a.giftName || '').trim().toLowerCase();
+        if (wantId || wantName) {
+          const idMatch = wantId && wantId === String(info.giftId || '');
+          const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+        }
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-any') {
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else continue;
+      const comboOn = a.comboInstant !== false;
+      if (info.comboStreak === 'delta' && !comboOn) continue;
+      if (info.comboStreak === 'end' && comboOn) continue;
+    } else if (eventType === 'like') {
+      if (trig !== 'like') continue;
+      const likeFires = relayGtavKothLikeFires(a, info, user);
+      if (likeFires <= 0) continue;
+      const totalQty = Math.min(GTAVKOTH_SPAWN_MAX, perUnit * likeFires);
+      await execRelayGtavKothSpawn(a.thing, a.label || a.thing, name, totalQty, params, {
+        eventType: 'like',
+        reason: `${Math.max(1, Number(info.likeCount) || 1)} like(s)`,
+      });
+      continue;
+    } else if (eventType === 'follow' || eventType === 'share') {
+      if (trig !== eventType) continue;
+      units = 1;
+    } else continue;
+    const times = Math.min(GTAVKOTH_SPAWN_MAX, perUnit * units);
+    const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
+    await execRelayGtavKothSpawn(a.thing, a.label || a.thing, name, times, params, {
+      eventType,
+      giftName: info.giftName,
+      reason: giftLabel || eventType,
+    });
+  }
+}
+
+function relayGtavKothOnGift(p) {
+  if (!p) return;
+  const streakGift = !!p.streakGift;
+  const repeatEnd = !!p.repeatEnd;
+  let comboStreak;
+  let repeatForCalc;
+  if (streakGift && !repeatEnd) {
+    comboStreak = 'delta';
+    repeatForCalc = Math.max(0, Number(p.repeatDelta) || 0);
+    if (repeatForCalc <= 0) return;
+  } else if (streakGift && repeatEnd) {
+    comboStreak = 'end';
+    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
+  } else {
+    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
+  }
+  const diamonds = Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0);
+  scheduleRelayGtavKoth('gift', {
+    giftName: p.giftName,
+    giftId: p.giftId,
+    repeatCount: repeatForCalc,
+    totalDiamonds: diamonds * repeatForCalc,
+    comboStreak,
+  }, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavKothOnLike(p) {
+  if (!p) return;
+  scheduleRelayGtavKoth('like', { likeCount: p.count || 1 }, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavKothOnFollow(p) {
+  if (!p) return;
+  scheduleRelayGtavKoth('follow', {}, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavKothOnShare(p) {
+  if (!p) return;
+  scheduleRelayGtavKoth('share', {}, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function localGtavKothTimesForExec(exec) {
+  const fromExec = Math.min(GTAVKOTH_SPAWN_MAX, Math.max(1, Number(exec?.times) || 1));
+  // Relay/Probar ya mandan el total en times → respetarlo (200, 500, …).
+  if (fromExec > 1) return fromExec;
+  const want = String(exec?.thing || '').trim();
+  if (!want) return fromExec;
+  for (const a of ensureGtavKothActions()) {
+    if (!a?.thing || a.enabled === false || a.thing !== want) continue;
+    const perUnit = readGtavKothActionCount(a);
+    const units = Math.max(1, Number(exec.units) || 1);
+    if (exec.units != null && Number(exec.units) > 0) {
+      return Math.min(GTAVKOTH_SPAWN_MAX, perUnit * units);
+    }
+    return Math.min(GTAVKOTH_SPAWN_MAX, perUnit);
+  }
+  return fromExec;
+}
+
+let gtavKothBridgeWanted = false;
+
+function renderGtavKothStatus(payload) {
+  const el = document.getElementById('gtavkoth-status');
+  if (!el) return;
+  const h = payload || {};
+  const st = h.status || h;
+  const httpOk = !!(h.http_ok || st.http_ok || h.webhook_live || st.webhook_live);
+  const hub = h.hub || st.hub || {};
+  const hubOn = !!(hub.running || hub.gameConnected);
+  const gameWs = !!hub.gameConnected;
+  const webhookLive = !!(h.webhook_live || st.webhook_live);
+  const httpWebhook = !!(h.http_webhook || st.http_webhook);
+  if (gtavKothBridgeWanted) {
+    syncBridgeConnectBtn('gtavkoth-bridge', webhookLive || httpOk || hubOn);
+    if (!(webhookLive || httpOk || hubOn)) gtavKothBridgeWanted = false;
+  } else {
+    syncBridgeConnectBtn('gtavkoth-bridge', false);
+  }
+  const parts = [];
+  const modOk = !!(h.mod_installed ?? st.mod_installed);
+  if (modOk) parts.push('<span class="mari0-st on">Mod OK</span>');
+  else parts.push('<span class="mari0-st warn">Mod no instalado</span>');
+  if (webhookLive) parts.push('<span class="mari0-st on">Webhook on</span>');
+  else if (httpWebhook) parts.push('<span class="mari0-st warn">Webhook · espera GTA</span>');
+  else if (gameWs) parts.push('<span class="mari0-st on">WSS juego</span>');
+  else if (hubOn) parts.push('<span class="mari0-st warn">Hub on · espera juego</span>');
+  else parts.push('<span class="mari0-st warn">Webhook off</span>');
+  if (httpOk) parts.push(`<span class="mari0-st on">HTTP :${esc(String(h.http_port || st.http_port || '6721'))}</span>`);
+  else parts.push('<span class="mari0-st warn">HTTP off</span>');
+  if (h.game_running || st.game_running) parts.push('<span class="mari0-st on">GTA abierto</span>');
+  else parts.push('<span class="mari0-st off">GTA cerrado</span>');
+  const dir = h.dir || st.dir || h.game_dir || st.game_dir || '';
+  if (dir) parts.push('<span class="mari0-st on">Carpeta OK</span>');
+  else parts.push('<span class="mari0-st warn">Sin carpeta</span>');
+  el.innerHTML = parts.join(' ');
+  const verEl = document.getElementById('gtavkoth-mod-ver');
+  if (verEl) verEl.textContent = `Versión: ${h.mod_version || st.mod_version || '1.1.0'}`;
+  const installBtn = document.getElementById('gtavkoth-install');
+  if (installBtn) installBtn.disabled = !dir && !document.getElementById('gtavkoth-game-dir')?.value?.trim();
+  const uninstallBtn = document.getElementById('gtavkoth-uninstall');
+  if (uninstallBtn) uninstallBtn.disabled = !modOk;
+}
+
+async function gtavKothBridgeHealthApi() {
+  try {
+    const r = await fetch('/api/desktop/gtavkoth-bridge-health', { credentials: 'same-origin' });
+    return await r.json().catch(() => ({}));
+  } catch {
+    return {};
+  }
+}
+
+async function ensureGtavKothBridgeApi() {
+  try {
+    const r = await fetch('/api/desktop/ensure-gtavkoth-bridge', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    return await r.json().catch(() => ({ ok: false }));
+  } catch {
+    return { ok: false };
+  }
+}
+
+function setupGtavKothBridgeBtn() {
+  const bridgeBtn = document.getElementById('gtavkoth-bridge');
+  if (!bridgeBtn || bridgeBtn._wired) return;
+  bridgeBtn._wired = true;
+  if (!IS_DESKTOP) {
+    bridgeBtn.style.display = 'none';
+    return;
+  }
+  paintBridgeConnectBtn(bridgeBtn, false);
+  bridgeBtn.onclick = async () => {
+    let lastEnsure = null;
+    const ok = await runBridgeConnectFlow({
+      btn: bridgeBtn,
+      isConnected: async () => {
+        const cur = await gtavKothBridgeHealthApi();
+        return !!(cur?.health?.webhook_live || cur?.status?.webhook_live
+          || cur?.health?.hub?.gameConnected || cur?.status?.hub?.gameConnected);
+      },
+      connect: async () => {
+        lastEnsure = await ensureGtavKothBridgeApi();
+        return !!(lastEnsure?.ok || lastEnsure?.connected || lastEnsure?.httpWebhook?.ok);
+      },
+    });
+    gtavKothBridgeWanted = !!ok;
+    if (ok) {
+      if (lastEnsure?.connected) {
+        toast && toast('GTA V webhook listo (HTTP :6721).', 'ok');
+      } else if (lastEnsure?.httpWebhook?.ok || lastEnsure?.httpWebhook?.already) {
+        toast && toast(lastEnsure?.hint || 'Webhook HTTP instalado. Abre GTA en Historia.', 'ok');
+      } else {
+        toast && toast(lastEnsure?.hint || 'Conectar listo. Abre GTA en Historia.', 'ok');
+      }
+    } else {
+      toast && toast(lastEnsure?.hint || lastEnsure?.error || 'No se pudo conectar el hub GTA V.', 'warn');
+    }
+    refreshGtavKothStatus();
+  };
+}
+
+function getGtavKothDirFromField() {
+  const inp = document.getElementById('gtavkoth-game-dir');
+  return inp ? inp.value.trim() : '';
+}
+
+async function installGtavKothModApi(dir) {
+  const r = await fetch('/api/desktop/gtavkoth-install-mod', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir }),
+  });
+  return r.json();
+}
+
+async function uninstallGtavKothModApi(dir) {
+  const r = await fetch('/api/desktop/gtavkoth-uninstall-mod', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir }),
+  });
+  return r.json();
+}
+
+async function loadGtavKothGameDirField() {
+  const inp = document.getElementById('gtavkoth-game-dir');
+  if (!inp || !IS_DESKTOP) return;
+  try {
+    const r = await fetch('/api/desktop/gtavkoth-game-dir', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (d?.dir) inp.value = d.dir;
+  } catch { /* ignore */ }
+}
+
+async function refreshGtavKothStatus() {
+  if (!IS_DESKTOP) return;
+  try {
+    const r = await fetch('/api/desktop/gtavkoth-status', { credentials: 'same-origin' });
+    const d = await r.json();
+    renderGtavKothStatus(d);
+  } catch {
+    renderGtavKothStatus(null);
+  }
+}
+
+function setupGtavKothGameDirUI() {
+  const pick = document.getElementById('gtavkoth-pick-dir');
+  const launch = document.getElementById('gtavkoth-launch');
+  const steam = document.getElementById('gtavkoth-steam');
+  if (pick && !pick._wired) {
+    pick._wired = true;
+    pick.onclick = async () => {
+      if (window.desktopAPI?.pickGtavKothGameDir) {
+        const dir = await window.desktopAPI.pickGtavKothGameDir();
+        if (!dir) return;
+        try {
+          const r = await fetch('/api/desktop/gtavkoth-game-dir', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir }),
+          });
+          const d = await r.json();
+          if (!d.ok) throw new Error(d.error || 'dir_failed');
+          const inp = document.getElementById('gtavkoth-game-dir');
+          if (inp) inp.value = dir;
+          toast && toast('Carpeta GTA V guardada.', 'ok');
+          refreshGtavKothStatus();
+        } catch (e) {
+          toast && toast(e?.message || 'No se pudo guardar la carpeta.', 'warn');
+        }
+        return;
+      }
+      toast && toast('Solo en la app PC (.exe).', 'warn');
+    };
+  }
+  if (steam && !steam._wired) {
+    steam._wired = true;
+    steam.onclick = () => {
+      if (window.desktopAPI?.openExternal) window.desktopAPI.openExternal(GTAVKOTH_STEAM_URL);
+      else window.open(GTAVKOTH_STEAM_URL, '_blank', 'noopener,noreferrer');
+    };
+  }
+  if (launch && !launch._wired) {
+    launch._wired = true;
+    launch.onclick = async () => {
+      const r = window.desktopAPI?.launchGtavKothGame ? await window.desktopAPI.launchGtavKothGame() : { ok: false };
+      if (r?.ok) toast && toast('Lanzando GTA V…', 'ok');
+      else toast && toast(r?.error || 'No se pudo lanzar GTA V.', 'warn');
+      setTimeout(refreshGtavKothStatus, 2500);
+    };
+  }
+  loadGtavKothGameDirField();
+}
+
+function setupGtavKothInstallUI() {
+  if (!IS_DESKTOP) return;
+  const installBtn = document.getElementById('gtavkoth-install');
+  if (installBtn && !installBtn._wired) {
+    installBtn._wired = true;
+    installBtn.onclick = async () => {
+      let dir = getGtavKothDirFromField();
+      if (!dir) {
+        try {
+          const r = await fetch('/api/desktop/gtavkoth-game-dir', { credentials: 'same-origin' });
+          const d = await r.json();
+          dir = d.dir || '';
+          if (dir && document.getElementById('gtavkoth-game-dir')) {
+            document.getElementById('gtavkoth-game-dir').value = dir;
+          }
+        } catch { /* ignore */ }
+      }
+      if (!dir) { toast && toast('No se encontró GTA V. Elige la carpeta del juego.', 'warn'); return; }
+      const uninstallBtn = document.getElementById('gtavkoth-uninstall');
+      installBtn.disabled = true;
+      if (uninstallBtn) uninstallBtn.disabled = true;
+      try {
+        await fetch('/api/desktop/gtavkoth-game-dir', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dir }),
+        });
+        const r = await runGameModInstallWithProgress('gtavkoth', () => installGtavKothModApi(dir), {
+          installing: 'Instalando mod GTA V KOTH v1.2 (rampa + NPC)…',
+          done: 'Mod v1.2 instalado',
+          fail: 'No se pudo instalar el mod',
+        });
+        if (r.ok) {
+          toast && toast('Mod Livecoins v1.2 instalado (KOTH + HTTP :6721).', 'ok');
+          if (r.gameDir && document.getElementById('gtavkoth-game-dir')) {
+            document.getElementById('gtavkoth-game-dir').value = r.gameDir;
+          }
+          refreshGtavKothStatus();
+        } else toast && toast(r.error || 'No se pudo instalar el mod.', 'warn');
+      } catch (e) {
+        toast && toast(e?.message || 'No se pudo instalar el mod.', 'warn');
+      } finally {
+        installBtn.disabled = false;
+        refreshGtavKothStatus();
+      }
+    };
+  }
+  const uninstallBtn = document.getElementById('gtavkoth-uninstall');
+  if (uninstallBtn && !uninstallBtn._wired) {
+    uninstallBtn._wired = true;
+    uninstallBtn.onclick = async () => {
+      const dir = getGtavKothDirFromField();
+      if (!dir) { toast && toast('Elige la carpeta del juego primero.', 'warn'); return; }
+      if (!window.confirm('¿Borrar el mod Livecoins de GTA V de esta carpeta?')) return;
+      uninstallBtn.disabled = true;
+      const installBtn2 = document.getElementById('gtavkoth-install');
+      if (installBtn2) installBtn2.disabled = true;
+      try {
+        const r = await uninstallGtavKothModApi(dir);
+        if (r.ok) {
+          toast && toast('Mod eliminado de GTA V.', 'ok');
+          refreshGtavKothStatus();
+        } else toast && toast(r.error || 'No se pudo borrar el mod.', 'warn');
+      } catch (e) {
+        toast && toast(e?.message || 'No se pudo borrar el mod.', 'warn');
+      } finally {
+        uninstallBtn.disabled = false;
+        if (installBtn2) installBtn2.disabled = false;
+        refreshGtavKothStatus();
+      }
+    };
+  }
+}
+
+async function updateGtavScriptHookApi(dir) {
+  const r = await fetch('/api/desktop/gtavkoth-update-scripthook', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir, forceDownload: true }),
+  });
+  return r.json();
+}
+
+function showGtavScriptHookUpdatedModal({ version, path: gamePath }) {
+  const back = document.createElement('div');
+  back.className = 'modal gtavkoth-sh-modal';
+  back.innerHTML = `
+    <div class="gtavkoth-sh-box" role="dialog" aria-labelledby="gtavkoth-sh-title">
+      <h3 class="gtavkoth-sh-title" id="gtavkoth-sh-title"><span class="gtavkoth-sh-ico" aria-hidden="true">i</span> ScriptHook V Actualizado</h3>
+      <p class="gtavkoth-sh-msg">ScriptHook V se actualizó correctamente</p>
+      <p class="gtavkoth-sh-meta"><b>Versión nueva:</b> ${esc(version || '—')}</p>
+      <p class="gtavkoth-sh-meta"><b>Ruta:</b> ${esc(gamePath || '')}</p>
+      <div class="gtavkoth-sh-btns">
+        <button type="button" class="gtavkoth-sh-ok">➜ Aceptar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  const close = () => back.remove();
+  back.querySelector('.gtavkoth-sh-ok').onclick = close;
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+  document.addEventListener('keydown', function escKey(e) {
+    if (e.key === 'Escape') { document.removeEventListener('keydown', escKey); close(); }
+  });
+  setTimeout(() => back.querySelector('.gtavkoth-sh-ok')?.focus(), 30);
+}
+
+function setupGtavKothStatusPoll() {
+  if (setupGtavKothStatusPoll._wired) return;
+  setupGtavKothStatusPoll._wired = true;
+  setInterval(() => {
+    if (document.getElementById('view-juego-gtavkoth')?.classList.contains('active')) {
+      refreshGtavKothStatus();
+    }
+  }, 4000);
+}
+
+function gtavKothCardHtml(a) {
+  const c = gtavKothCatalogEntry(a.thing);
+  const uid = esc(a.uid);
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: gtavKothCatalogIconHtml(c || { emoji: '👑' }),
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    infoExtraHtml: gtavKothParamRowsHtml(a, c, uid),
+    cfgOpts: { countMax: GTAVKOTH_SPAWN_MAX },
+    testClass: 'gtavkoth-test',
+    delClass: 'gtavkoth-del',
+  });
+}
+
+function renderGtavKothCatalog(filter) {
+  const f = (filter || '').trim().toLowerCase();
+  const list = f
+    ? GTAVKOTH_CATALOG.filter((c) =>
+      c.nombre.toLowerCase().includes(f)
+      || c.id.toLowerCase().includes(f)
+      || (c.desc || '').toLowerCase().includes(f)
+      || (GTAVKOTH_SECTION_LABEL[c.section] || '').toLowerCase().includes(f))
+    : GTAVKOTH_CATALOG;
+  renderGameCatalogFold({
+    grid: 'gtavkoth-catalog',
+    stateKey: 'gtavkoth',
+    filter: f,
+    searchId: 'gtavkoth-cat-search',
+    rerender: renderGtavKothCatalog,
+    closeModalId: 'gtavkothCatalogModal',
+    sections: buildCatalogSections(list, {
+      sectionKey: 'section',
+      order: GTAVKOTH_SECTION_ORDER,
+      labelMap: GTAVKOTH_SECTION_LABEL,
+      iconMap: GTAVKOTH_SECTION_ICON,
+      descMap: GTAVKOTH_SECTION_DESC,
+      searching: !!f,
+    }),
+    rowHtml: (c) => gameCatListBtnHtml(c.id, c.nombre, gtavKothCatalogIconHtml(c), c.desc || c.nombre),
+    onPick: addGtavKothFromCatalog,
+  });
+}
+
+function addGtavKothFromCatalog(thing) {
+  const c = gtavKothCatalogEntry(thing);
+  if (!c || !settings) return;
+  if (!ensureCanAdd('gtavKothActions', 'game_actions', 'acciones de juego')) return;
+  const row = {
+    uid: 'gtavkoth_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id,
+    label: c.nombre,
+    desc: c.desc,
+    section: c.section,
+    trigger: 'gift',
+    giftId: '',
+    giftName: '',
+    giftImage: '',
+    count: 1,
+    text: '',
+    enabled: true,
+  };
+  if (c.params) {
+    for (const p of c.params) {
+      if (p.default != null) row[p.key] = p.default;
+    }
+  }
+  ensureGtavKothActions().push(row);
+  saveSettings();
+  renderGtavKothActions();
+  renderGtavKothCatalog(document.getElementById('gtavkoth-cat-search')?.value || '');
+  const wrap = document.getElementById('gtavkoth-my-actions');
+  if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  toast && toast(`Agregado: ${c.nombre}`, 'ok');
+}
+
+async function testGtavKothAction(a) {
+  if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
+  // Directo a :6721 — sin health previo ni espera artificial (eso tardaba varios segundos).
+  const params = readGtavKothActionParams(a);
+  const times = Math.max(1, Math.min(GTAVKOTH_SPAWN_MAX, parseInt(a.count, 10) || 1));
+  const r = await execGameLocal({
+    tipo: 'GTAVKOTH_SPAWN',
+    thing: a.thing,
+    name: 'Prueba',
+    times,
+    params,
+  });
+  if (r && r.ok !== false) toast && toast('Enviado al juego.', 'ok');
+  else toast && toast(r?.hint || r?.error || 'No llegó al mod (Conectar + GTA en Historia).', 'warn');
+}
+
+function renderGtavKothActions() {
+  const wrap = document.getElementById('gtavkoth-my-actions');
+  if (!wrap || !settings) return;
+  registerGameActionRenderer('gtavKothActions', renderGtavKothActions);
+  const list = ensureGtavKothActions();
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Sin acciones. Pulsa Crear Acción.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(gtavKothCardHtml).join('');
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.gtavkoth-del').forEach((b) => {
+    b.onclick = () => {
+      settings.gtavKothActions = list.filter((x) => x.uid !== b.dataset.uid);
+      saveSettings();
+      renderGtavKothActions();
+    };
+  });
+  bindGameActionConfigPopovers(wrap, find, renderGtavKothActions, { countMax: GTAVKOTH_SPAWN_MAX });
+  wrap.querySelectorAll('.gtavkoth-param').forEach((inp) => {
+    const sync = () => {
+      const a = find(inp.dataset.uid);
+      if (!a || !inp.dataset.key) return;
+      const n = parseInt(inp.value, 10);
+      if (Number.isFinite(n)) a[inp.dataset.key] = n;
+      saveSettingsKeysPatch('gtavKothActions');
+    };
+    inp.oninput = sync;
+    inp.onchange = sync;
+  });
+  bindGameSurvivalCardExtras(wrap, find, renderGtavKothActions, {
+    settingsKey: 'gtavKothActions',
+    testClass: 'gtavkoth-test',
+    testFn: testGtavKothAction,
+    testDelayMs: GTAVKOTH_TEST_DELAY_MS,
+  });
+}
+
+function setupGtavKothActionsUI() {
+  const search = document.getElementById('gtavkoth-cat-search');
+  if (search && !search._wired) {
+    search._wired = true;
+    search.oninput = () => renderGtavKothCatalog(search.value);
+  }
+  const toggleAll = document.getElementById('gtavkoth-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureGtavKothActions();
+      if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettingsKeysPatch('gtavKothActions');
+      renderGtavKothActions();
+    };
+  }
+  const genOverlayBtn = document.getElementById('gtavkoth-gen-overlay');
+  if (genOverlayBtn && !genOverlayBtn._wired) {
+    genOverlayBtn._wired = true;
+    genOverlayBtn.onclick = () => generateGtavKothOverlayImage();
+  }
+  renderGtavKothCatalog(search ? search.value : '');
+  renderGtavKothActions();
+}
+
 
 // ===================== Crash Team Racing (BizHawk + :19150) =====================
 const CTR_SECTION_ORDER = ['items', 'effects'];
@@ -22977,34 +24561,22 @@ async function testMslugAction(a) {
   const eta = Math.ceil(times * (Math.max(0, parseInt(a.delayEach, 10) || 100) / 1000 + 0.45));
   toast && toast(`Enviando ×${times} vía webhook (~${eta}s)…`, 'ok');
   try {
+    // Solo el Metal Slug Bridge (Activador) en :5720. Si ya está ON, no lo reiniciamos.
     if (!await mslugWebhookConnected()) {
-      await ensureMslugWebhookApi();
-      if (!await mslugWebhookConnected()) {
-        toast && toast('Abre Metal Slug Bridge e inicia el servidor en :5720.', 'warn');
-        return;
-      }
+      toast && toast('Abre Metal Slug Bridge e inicia el servidor en :5720.', 'warn');
+      return;
     }
     let sent = 0;
     await runTimedGameActionTest(a, async () => {
       const r = await mslugFetch127Spawn(a.thing, 'Prueba', 1);
-      if (r && r.ok !== false) sent += (r.sent || 1);
+      if (r && r.ok !== false) sent += (r.sent || r.quantity || 1);
     }, { timingMode: 'count' });
-    const r = { ok: sent > 0, sent, consumed: sent };
-    if (r && r.ok !== false) {
-      const n = r.sent || times;
-      const c = r.consumed != null ? r.consumed : n;
-      addEvent(`🎖️ Prueba Metal Slug: ${esc(a.label || a.thing)} ×${n}`, c > 0 ? 'ok' : 'warn');
-      if (r.warn === 'juego_no_leyo' || c === 0) {
-        toast && toast('✗ NO LEYO: usa ARCADE GAME→MS1 (no Lost Missions/LEVEL-4). Camina tras GO. Reinstala mod.', 'warn');
-      } else {
-        toast && toast(`Listo: ${c} spawn(s) confirmados en juego`, 'ok');
-      }
+    if (sent > 0) {
+      addEvent(`🎖️ Prueba Metal Slug: ${esc(a.label || a.thing)} ×${sent}`, 'ok');
+      toast && toast(`Listo: ${sent} spawn(s) confirmados en juego`, 'ok');
       refreshMslugStatus();
     } else {
-      const err = r?.error === 'bridge_mslug_no_disponible' ? 'Elige la carpeta del juego.'
-        : r?.error === 'webhook_no_disponible' ? 'Abre Metal Slug Bridge e inicia el servidor (:5720).'
-        : (r?.error || 'No se pudo enviar spawn');
-      toast && toast(err, 'warn');
+      toast && toast('No se pudo enviar spawn al Bridge.', 'warn');
     }
   } finally {
     mslugTestBusy = false;
@@ -24517,6 +26089,34 @@ async function enrichPanelLivesWithKnownPlans(lives) {
   return applyPanelLivePlanMap(list, map);
 }
 
+function renderHomeBadges(badges) {
+  const sec = document.getElementById('home-badges');
+  const grid = document.getElementById('home-badges-grid');
+  const sub = document.getElementById('home-badges-sub');
+  if (!sec || !grid) return;
+  const list = Array.isArray(badges) ? badges : [];
+  if (!list.length) { sec.hidden = true; grid.innerHTML = ''; return; }
+  sec.hidden = false;
+  const earned = list.filter((b) => b.earned).length;
+  if (sub) sub.textContent = `${earned} de ${list.length} desbloqueadas · live ≥15 min cuenta 1 por día`;
+  grid.innerHTML = list.map((b) => {
+    const prog = b.progress;
+    const pct = prog && prog.target ? Math.min(100, Math.round((Number(prog.current) || 0) / prog.target * 100)) : (b.earned ? 100 : 0);
+    const progTxt = prog && prog.target
+      ? `${prog.current}/${prog.target}`
+      : (b.earned ? 'Conseguida' : 'Bloqueada');
+    return `<div class="home-badge${b.earned ? ' is-earned' : ''}" title="${esc(b.desc || '')}">
+      <div class="home-badge-top">
+        <span class="home-badge-ico">${esc(b.icon || '🏅')}</span>
+        <span class="home-badge-name">${esc(b.name || b.id)}</span>
+      </div>
+      <div class="home-badge-desc">${esc(b.desc || '')}</div>
+      <div class="home-badge-bar"><span style="width:${pct}%"></span></div>
+      <div class="home-badge-prog">${esc(progTxt)}</div>
+    </div>`;
+  }).join('');
+}
+
 function renderPanelLives(lives) {
   const sec = $('panel-lives');
   const track = $('panel-lives-track');
@@ -24551,12 +26151,19 @@ function renderPanelLives(lives) {
     const av = photo
       ? `<img class="panel-live-av" src="${esc(photo)}" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" data-fallback="${fallback}">`
       : `<span class="panel-live-av panel-live-av-ph">${fallback}</span>`;
+    const cardBadges = Array.isArray(l.badges) ? l.badges : [];
+    const badgesHtml = cardBadges.length
+      ? `<span class="panel-live-badges">${cardBadges.map((b) =>
+          `<span class="panel-live-mini-badge" title="${esc(b.name || '')}">${esc(b.icon || '')} ${esc(b.short || b.name || '')}</span>`
+        ).join('')}</span>`
+      : '';
     return `<a class="panel-live-card ${tierClass}" href="${url}" data-live-url="${url}" target="_blank" rel="noopener noreferrer" title="Ver live de @${esc(tiktok)}">
       <span class="panel-live-tier">${tierLabel}</span>
       ${av}
       <span class="panel-live-badge">EN LIVE</span>
       <span class="panel-live-name">${name}</span>
       <span class="panel-live-user">@${esc(tiktok)}</span>
+      ${badgesHtml}
       <span class="panel-live-viewers"><span class="panel-live-viewers-ic" aria-hidden="true"></span>${viewers}</span>
     </a>`;
   }).join('');
@@ -24634,6 +26241,7 @@ function setupPanelLives() {
   await loadMe();
   mountUserChip();
     refreshOverlayUrls();
+    maybeNotifyLocalTikTokOverlays();
     refreshLevelVideoScreenLink();
     try { loadAnnouncements(); } catch (e) { console.error('Anuncios:', e); }
     try { revealSpotifyTab(); } catch (e) { console.error('Spotify tab:', e); }
@@ -24690,7 +26298,7 @@ window.getEditorGamePacks = function getEditorGamePacks() {
       })).filter((x) => x.src),
     },
     { id: 'plantasvszombies', name: 'Plants vs Zombies', cover: '/img/plantasvszombies-card.jpg', items: byId(typeof PVZ_CATALOG !== 'undefined' ? PVZ_CATALOG : [], '/img/pvz/') },
-    { id: 'pvzhybrid', name: 'PvZ Hybrid', cover: '/img/pvzhybrid-card.jpg', items: byId(typeof PVZHYBRID_CATALOG !== 'undefined' ? PVZHYBRID_CATALOG : [], '/img/pvz/') },
+    { id: 'pvzhybrid', name: 'PvZ Hybrid', cover: '/img/pvzhybrid-card.jpg', items: byId(typeof PVZHYBRID_CATALOG !== 'undefined' ? PVZHYBRID_CATALOG : [], '/img/pvzhybrid-thumbs/') },
     {
       id: 'repo', name: 'R.E.P.O.', cover: '/img/repo-card.jpg',
       items: (typeof REPO_CATALOG !== 'undefined' ? REPO_CATALOG : []).map((c) => ({
@@ -24702,7 +26310,7 @@ window.getEditorGamePacks = function getEditorGamePacks() {
       id: 'l4d', name: 'Left 4 Dead 2', cover: '/img/l4d2-card.png',
       items: (typeof L4D_CATALOG !== 'undefined' ? L4D_CATALOG : []).map((c) => ({
         name: c.nombre || c.name || c.id,
-        src: typeof l4dThumbUrls === 'function' ? (l4dThumbUrls(c).primary || l4dThumbUrls(c).fallback) : `/img/l4d-thumbs/${c.img || c.id}.png`,
+        src: l4dThumbUrls(c).primary || l4dThumbUrls(c).fallback,
       })),
     },
     {
@@ -24731,3 +26339,1517 @@ window.getEditorGamePacks = function getEditorGamePacks() {
   ];
   return packs.filter((p) => Array.isArray(p.items) && p.items.length > 0);
 };
+
+
+// ===================== GTA V Mod Chaos (:6722) =====================
+const GTAVCHAOS_SECTION_ORDER = ['vehicles', 'peds', 'weapons', 'player', 'pedfx', 'vehiclefx', 'world', 'teleports', 'misc'];
+const GTAVCHAOS_SECTION_LABEL = {
+  vehicles: 'Vehículos',
+  peds: 'Peatones',
+  weapons: 'Armas',
+  player: 'Jugador',
+  pedfx: 'Caos con NPCs',
+  vehiclefx: 'Efectos de vehículos',
+  world: 'Mundo y clima',
+  teleports: 'Teletransportes',
+  misc: 'Otros',
+};
+const GTAVCHAOS_SECTION_DESC = {
+  vehicles: 'Autos que caen o aparecen cerca del jugador.',
+  peds: 'NPCs hostiles/aliados que aparecen cerca del jugador.',
+  weapons: 'Armas para el jugador o los NPCs (efectos de ChaosMod).',
+  player: 'Ayudas, castigos y poderes que afectan al jugador.',
+  pedfx: 'Efectos caóticos que afectan a los peatones.',
+  vehiclefx: 'Modifica el tráfico y los vehículos existentes.',
+  world: 'Clima, gravedad y desastres en el mundo.',
+  teleports: 'Envía al jugador a ubicaciones especiales.',
+  misc: 'Efectos aleatorios de caos sobre el jugador o el mundo.',
+};
+const GTAVCHAOS_SECTION_ICON = {
+  vehicles: '🚗',
+  peds: '🧍',
+  weapons: '🔫',
+  player: '🎮',
+  pedfx: '🧟',
+  vehiclefx: '💥',
+  world: '🌎',
+  teleports: '📍',
+  misc: '🎲',
+};
+const GTAVCHAOS_SPAWN_MAX = 50;
+/** Delay del botón naranja (alt-tab). El azul (Probar ya) es inmediato. */
+const GTAVCHAOS_TEST_DELAY_MS = 2000;
+const GTAVCHAOS_STEAM_URL = 'https://store.steampowered.com/app/271590/Grand_Theft_Auto_V/';
+
+let GTAVCHAOS_CATALOG = [];
+function bindGtavChaosCatalogFromWindow() {
+  GTAVCHAOS_CATALOG = Array.isArray(window.GTAVCHAOS_SPAWN_ENTRIES) ? window.GTAVCHAOS_SPAWN_ENTRIES : [];
+}
+
+function gtavChaosCatalogEntry(thing) {
+  return GTAVCHAOS_CATALOG.find((x) => x.id === thing);
+}
+
+/** Modelo de vehículo (si aplica) — fotos remotas, sin peso en el .exe. */
+function gtavChaosVehicleModelId(thingOrEntry) {
+  const entry = typeof thingOrEntry === 'string' ? gtavChaosCatalogEntry(thingOrEntry) : thingOrEntry;
+  const explicit = entry?.vehicleModel;
+  if (explicit) return String(explicit).toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const raw = typeof thingOrEntry === 'string' ? thingOrEntry : (entry?.id || entry?.thing || '');
+  const s = String(raw || '').trim();
+  const m = /^vehicle:(.+)$/i.exec(s);
+  return m ? m[1].toLowerCase().replace(/[^a-z0-9_]/g, '') : '';
+}
+
+/** CDN externos (no empaquetados). Primary FiveM docs + fallback jsDelivr. */
+function gtavChaosVehicleImageUrls(model) {
+  const id = String(model || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!id) return { primary: '', fallback: '' };
+  return {
+    primary: `https://docs.fivem.net/vehicles/${id}.webp`,
+    fallback: `https://cdn.jsdelivr.net/gh/Stuyk/gtav-image-archive/vehicles/${id}.webp`,
+  };
+}
+
+function gtavChaosVehicleImageUrl(model) {
+  return gtavChaosVehicleImageUrls(model).primary;
+}
+
+/** Fotos de armas del mismo CDN remoto (Stuyk/gtav-image-archive/weapons). */
+function gtavChaosWeaponImageUrls(model) {
+  const id = String(model || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!id) return { primary: '', fallback: '' };
+  return {
+    primary: `https://cdn.jsdelivr.net/gh/Stuyk/gtav-image-archive/weapons/${id}.webp`,
+    fallback: `https://raw.githubusercontent.com/Stuyk/gtav-image-archive/main/weapons/${id}.webp`,
+  };
+}
+
+/** Fotos de peatones/NPCs del CDN de FiveM docs (sin peso en el .exe). */
+function gtavChaosPedImageUrls(model) {
+  const id = String(model || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!id) return { primary: '', fallback: '' };
+  return { primary: `https://docs.fivem.net/peds/${id}.webp`, fallback: '' };
+}
+
+function gtavChaosCatalogImageUrls(c) {
+  const model = gtavChaosVehicleModelId(c);
+  if (model) return gtavChaosVehicleImageUrls(model);
+  if (c?.weaponModel) return gtavChaosWeaponImageUrls(c.weaponModel);
+  if (c?.pedModel) return gtavChaosPedImageUrls(c.pedModel);
+  // URL directa (imágenes de GTA Wiki para lugares/efectos concretos).
+  if (c?.imageUrl) return { primary: String(c.imageUrl), fallback: '' };
+  return null;
+}
+
+function gtavChaosCatalogIconHtml(c) {
+  const em = esc(c?.emoji || GTAVCHAOS_SECTION_ICON[c?.section] || '🎲');
+  // Vehículos, armas y NPCs: foto remota con fallback a emoji. Resto: emoji.
+  const urls = gtavChaosCatalogImageUrls(c);
+  if (!urls) return `<span class="repo-cat-list-em">${em}</span>`;
+  const { primary, fallback } = urls;
+  return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
+}
+
+async function generateGtavChaosOverlayImage() {
+  return generateGameActionsOverlayImage({
+    ensureList: ensureGtavChaosActions,
+    iconUrlFor: (a) => {
+      const entry = gtavChaosCatalogEntry(a?.thing) || a;
+      const urls = gtavChaosCatalogImageUrls(entry);
+      return urls?.primary || '/img/gtavchaos-thumb.png';
+    },
+    downloadName: 'gtavchaos-overlay.png',
+    emptyToast: 'Agrega acciones del catálogo con su regalo primero.',
+  });
+}
+
+function ensureGtavChaosActions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.gtavChaosActions)) settings.gtavChaosActions = [];
+  settings.gtavChaosActions = migrateGameActions(settings.gtavChaosActions, 'gtavchaos');
+  for (const a of settings.gtavChaosActions) {
+    const c = gtavChaosCatalogEntry(a.thing);
+    if (!c) continue;
+    if (!a.label) a.label = c.nombre;
+    if (!a.desc) a.desc = c.desc;
+    if (!a.section) a.section = c.section;
+  }
+  return settings.gtavChaosActions;
+}
+
+const relayGtavChaosLikeAcc = new Map();
+const relayGtavChaosTimers = new Set();
+let gtavChaosRelayCloudExecUntil = 0;
+
+function suppressRelayGtavChaosAfterCloudOk() {
+  gtavChaosRelayCloudExecUntil = Date.now() + 1500;
+  for (const t of relayGtavChaosTimers) clearTimeout(t);
+  relayGtavChaosTimers.clear();
+}
+
+function gtavChaosPerUnit(a) {
+  const n = parseInt(a?.count, 10);
+  return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+}
+
+function readGtavChaosActionCount(a) {
+  const wrap = document.getElementById('gtavchaos-my-actions');
+  const uid = String(a?.uid || '');
+  const card = wrap && uid ? wrap.querySelector(`.mc-act-card[data-uid="${uid}"]`) : null;
+  const inp = card?.querySelector('.gtavchaos-count') || card?.querySelector('.l4d-count') || card?.querySelector('.mc-count');
+  const n = parseInt(inp?.value, 10);
+  if (Number.isFinite(n) && n > 0) return Math.min(GTAVCHAOS_SPAWN_MAX, n);
+  return gtavChaosPerUnit(a);
+}
+
+function relayGtavChaosLikeFires(a, info, user) {
+  const uid = String(user?.uniqueId || '').trim();
+  const batch = Math.max(0, Number(info.likeCount) || 0);
+  if (!uid || batch <= 0) return 0;
+  const goal = Math.max(1, Number(a.likeN) || 1);
+  const actKey = String(a.uid || a.label || 'gtavchaos');
+  const key = `${uid}:${actKey}`;
+  const carry = (relayGtavChaosLikeAcc.get(key) || 0) + batch;
+  const fires = Math.floor(carry / goal);
+  relayGtavChaosLikeAcc.set(key, carry - fires * goal);
+  if (relayGtavChaosLikeAcc.size > 8000) relayGtavChaosLikeAcc.clear();
+  return fires;
+}
+
+function scheduleRelayGtavChaos(eventType, info, user) {
+  if (!relayActive() || !IS_DESKTOP) return;
+  const timer = setTimeout(async () => {
+    relayGtavChaosTimers.delete(timer);
+    if (Date.now() < gtavChaosRelayCloudExecUntil) return;
+    await execRelayGtavChaosActions(eventType, info, user);
+  }, 280);
+  relayGtavChaosTimers.add(timer);
+}
+
+async function execRelayGtavChaosSpawn(thing, label, name, times, params = {}, meta = {}) {
+  const capped = Math.min(GTAVCHAOS_SPAWN_MAX, Math.max(1, Number(times) || 1));
+  const r = await execGameLocal({
+    tipo: 'GTAVCHAOS_SPAWN',
+    thing: String(thing || ''),
+    name: String(name || ''),
+    times: capped,
+    params,
+    label: label || thing,
+    reason: meta.reason,
+    giftName: meta.giftName,
+    eventType: meta.eventType,
+  });
+  if (r && r.ok !== false) {
+    addEvent(`🌀 GTA V Chaos: ${label || thing} OK`, 'ok');
+  } else if (r && r.ok === false) {
+    addEvent(`🌀 GTA V Chaos falló: ${r.hint || r.error || 'bridge'}`, 'error');
+  }
+  return r;
+}
+
+async function execRelayGtavChaosActions(eventType, info = {}, user = null) {
+  const list = ensureGtavChaosActions();
+  if (!list.length) return;
+  const name = (user && user.nickname) || info.nickname || '';
+  for (const a of list) {
+    if (!a || a.enabled === false || !a.thing) continue;
+    const trig = a.trigger || 'gift';
+    const perUnit = readGtavChaosActionCount(a);
+    let units = 1;
+    if (eventType === 'gift') {
+      if (trig === 'gift') {
+        const wantId = String(a.giftId || '').trim();
+        const wantName = (a.giftName || '').trim().toLowerCase();
+        if (wantId || wantName) {
+          const idMatch = wantId && wantId === String(info.giftId || '');
+          const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+        }
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-any') {
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else continue;
+      const comboOn = a.comboInstant !== false;
+      if (info.comboStreak === 'delta' && !comboOn) continue;
+      if (info.comboStreak === 'end' && comboOn) continue;
+    } else if (eventType === 'like') {
+      if (trig !== 'like') continue;
+      const likeFires = relayGtavChaosLikeFires(a, info, user);
+      if (likeFires <= 0) continue;
+      const totalQty = Math.min(GTAVCHAOS_SPAWN_MAX, perUnit * likeFires);
+      await execRelayGtavChaosSpawn(a.thing, a.label || a.thing, name, totalQty, {}, {
+        eventType: 'like',
+        reason: `${Math.max(1, Number(info.likeCount) || 1)} like(s)`,
+      });
+      continue;
+    } else if (eventType === 'follow' || eventType === 'share') {
+      if (trig !== eventType) continue;
+      units = 1;
+    } else continue;
+    const times = Math.min(GTAVCHAOS_SPAWN_MAX, perUnit * units);
+    const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
+    await execRelayGtavChaosSpawn(a.thing, a.label || a.thing, name, times, {}, {
+      eventType,
+      giftName: info.giftName,
+      reason: giftLabel || eventType,
+    });
+  }
+}
+
+function relayGtavChaosOnGift(p) {
+  if (!p) return;
+  const streakGift = !!p.streakGift;
+  const repeatEnd = !!p.repeatEnd;
+  let comboStreak;
+  let repeatForCalc;
+  if (streakGift && !repeatEnd) {
+    comboStreak = 'delta';
+    repeatForCalc = Math.max(0, Number(p.repeatDelta) || 0);
+    if (repeatForCalc <= 0) return;
+  } else if (streakGift && repeatEnd) {
+    comboStreak = 'end';
+    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
+  } else {
+    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
+  }
+  const diamonds = Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0);
+  scheduleRelayGtavChaos('gift', {
+    giftName: p.giftName,
+    giftId: p.giftId,
+    repeatCount: repeatForCalc,
+    totalDiamonds: diamonds * repeatForCalc,
+    comboStreak,
+  }, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavChaosOnLike(p) {
+  if (!p) return;
+  scheduleRelayGtavChaos('like', { likeCount: p.count || 1 }, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavChaosOnFollow(p) {
+  if (!p) return;
+  scheduleRelayGtavChaos('follow', {}, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavChaosOnShare(p) {
+  if (!p) return;
+  scheduleRelayGtavChaos('share', {}, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function localGtavChaosTimesForExec(exec) {
+  const fromExec = Math.min(GTAVCHAOS_SPAWN_MAX, Math.max(1, Number(exec?.times) || 1));
+  // Relay/Probar ya mandan el total en times → respetarlo.
+  if (fromExec > 1) return fromExec;
+  const want = String(exec?.thing || '').trim();
+  if (!want) return fromExec;
+  for (const a of ensureGtavChaosActions()) {
+    if (!a?.thing || a.enabled === false || a.thing !== want) continue;
+    const perUnit = readGtavChaosActionCount(a);
+    const units = Math.max(1, Number(exec.units) || 1);
+    if (exec.units != null && Number(exec.units) > 0) {
+      return Math.min(GTAVCHAOS_SPAWN_MAX, perUnit * units);
+    }
+    return Math.min(GTAVCHAOS_SPAWN_MAX, perUnit);
+  }
+  return fromExec;
+}
+
+let gtavChaosBridgeWanted = false;
+
+function renderGtavChaosStatus(payload) {
+  const el = document.getElementById('gtavchaos-status');
+  if (!el) return;
+  const h = payload || {};
+  const st = h.status || h;
+  const httpOk = !!(h.http_ok || st.http_ok || h.webhook_live || st.webhook_live);
+  const hub = h.hub || st.hub || {};
+  const hubOn = !!(hub.running || hub.gameConnected);
+  const gameWs = !!hub.gameConnected;
+  const webhookLive = !!(h.webhook_live || st.webhook_live);
+  const httpWebhook = !!(h.http_webhook || st.http_webhook);
+  const gameRunning = !!(h.game_running || st.game_running);
+  if (gtavChaosBridgeWanted) {
+    syncBridgeConnectBtn('gtavchaos-bridge', (webhookLive || httpOk) && gameRunning);
+    if (!((webhookLive || httpOk) && gameRunning)) gtavChaosBridgeWanted = false;
+  } else {
+    syncBridgeConnectBtn('gtavchaos-bridge', false);
+  }
+  const parts = [];
+  const modOk = !!(h.mod_installed ?? st.mod_installed);
+  if (modOk) parts.push('<span class="mari0-st on">Mod OK</span>');
+  else parts.push('<span class="mari0-st warn">Mod no instalado</span>');
+  if (webhookLive) parts.push('<span class="mari0-st on">Webhook on</span>');
+  else if (httpWebhook) parts.push('<span class="mari0-st warn">Webhook · espera GTA</span>');
+  else if (gameWs) parts.push('<span class="mari0-st on">WSS juego</span>');
+  else if (hubOn) parts.push('<span class="mari0-st warn">Hub on · espera juego</span>');
+  else parts.push('<span class="mari0-st warn">Webhook off</span>');
+  if (httpOk) parts.push(`<span class="mari0-st on">HTTP :${esc(String(h.http_port || st.http_port || '6722'))}</span>`);
+  else parts.push('<span class="mari0-st warn">HTTP off</span>');
+  if (gameRunning) parts.push('<span class="mari0-st on">GTA abierto</span>');
+  else parts.push('<span class="mari0-st off">GTA cerrado</span>');
+  const dir = h.dir || st.dir || h.game_dir || st.game_dir || '';
+  if (dir) parts.push('<span class="mari0-st on">Carpeta OK</span>');
+  else parts.push('<span class="mari0-st warn">Sin carpeta</span>');
+  el.innerHTML = parts.join(' ');
+  const verEl = document.getElementById('gtavchaos-mod-ver');
+  if (verEl) verEl.textContent = `Versión: ${h.mod_version || st.mod_version || '1.1.0'}`;
+  const installBtn = document.getElementById('gtavchaos-install');
+  if (installBtn) installBtn.disabled = !dir && !document.getElementById('gtavchaos-game-dir')?.value?.trim();
+  const uninstallBtn = document.getElementById('gtavchaos-uninstall');
+  if (uninstallBtn) uninstallBtn.disabled = !modOk;
+}
+
+async function gtavChaosBridgeHealthApi() {
+  try {
+    const r = await fetch('/api/desktop/gtavchaos-bridge-health', { credentials: 'same-origin' });
+    return await r.json().catch(() => ({}));
+  } catch {
+    return {};
+  }
+}
+
+async function ensureGtavChaosBridgeApi() {
+  try {
+    const r = await fetch('/api/desktop/ensure-gtavchaos-bridge', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    return await r.json().catch(() => ({ ok: false }));
+  } catch {
+    return { ok: false };
+  }
+}
+
+function setupGtavChaosBridgeBtn() {
+  const bridgeBtn = document.getElementById('gtavchaos-bridge');
+  if (!bridgeBtn || bridgeBtn._wired) return;
+  bridgeBtn._wired = true;
+  if (!IS_DESKTOP) {
+    bridgeBtn.style.display = 'none';
+    return;
+  }
+  paintBridgeConnectBtn(bridgeBtn, false);
+  bridgeBtn.onclick = async () => {
+    let lastEnsure = null;
+    const ok = await runBridgeConnectFlow({
+      btn: bridgeBtn,
+      isConnected: async () => {
+        const cur = await gtavChaosBridgeHealthApi();
+        const h = cur?.health || cur?.status || cur || {};
+        return !!((h.webhook_live || h.http_ok) && h.game_running);
+      },
+      connect: async () => {
+        lastEnsure = await ensureGtavChaosBridgeApi();
+        return !!(lastEnsure?.ok || lastEnsure?.connected || lastEnsure?.httpWebhook?.ok);
+      },
+    });
+    gtavChaosBridgeWanted = !!ok;
+    if (ok) {
+      if (lastEnsure?.connected) {
+        toast && toast('GTA V Chaos listo (HTTP :6722).', 'ok');
+      } else if (lastEnsure?.httpWebhook?.ok || lastEnsure?.httpWebhook?.already) {
+        toast && toast(lastEnsure?.hint || 'Webhook HTTP instalado. Abre GTA en Historia.', 'ok');
+      } else {
+        toast && toast(lastEnsure?.hint || 'Conectar listo. Abre GTA en Historia.', 'ok');
+      }
+    } else {
+      toast && toast(lastEnsure?.hint || lastEnsure?.error || 'No se pudo conectar el hub GTA V.', 'warn');
+    }
+    refreshGtavChaosStatus();
+  };
+}
+
+function getGtavChaosDirFromField() {
+  const inp = document.getElementById('gtavchaos-game-dir');
+  return inp ? inp.value.trim() : '';
+}
+
+// Mismo pack base / misma carpeta que KOTH; Chaos en :6722 -> reutiliza las APIs de instalacion/carpeta.
+async function installGtavChaosModApi(dir) {
+  const r = await fetch('/api/desktop/gtavkoth-install-mod', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir }),
+  });
+  return r.json();
+}
+
+async function uninstallGtavChaosModApi(dir) {
+  const r = await fetch('/api/desktop/gtavkoth-uninstall-mod', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir }),
+  });
+  return r.json();
+}
+
+async function loadGtavChaosGameDirField() {
+  const inp = document.getElementById('gtavchaos-game-dir');
+  if (!inp || !IS_DESKTOP) return;
+  try {
+    const r = await fetch('/api/desktop/gtavkoth-game-dir', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (d?.dir) inp.value = d.dir;
+  } catch { /* ignore */ }
+}
+
+async function refreshGtavChaosStatus() {
+  if (!IS_DESKTOP) return;
+  try {
+    const r = await fetch('/api/desktop/gtavchaos-status', { credentials: 'same-origin' });
+    const d = await r.json();
+    renderGtavChaosStatus(d);
+  } catch {
+    renderGtavChaosStatus(null);
+  }
+}
+
+function setupGtavChaosGameDirUI() {
+  const pick = document.getElementById('gtavchaos-pick-dir');
+  const launch = document.getElementById('gtavchaos-launch');
+  const steam = document.getElementById('gtavchaos-steam');
+  if (pick && !pick._wired) {
+    pick._wired = true;
+    pick.onclick = async () => {
+      if (window.desktopAPI?.pickGtavKothGameDir) {
+        const dir = await window.desktopAPI.pickGtavKothGameDir();
+        if (!dir) return;
+        try {
+          const r = await fetch('/api/desktop/gtavkoth-game-dir', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir }),
+          });
+          const d = await r.json();
+          if (!d.ok) throw new Error(d.error || 'dir_failed');
+          const inp = document.getElementById('gtavchaos-game-dir');
+          if (inp) inp.value = dir;
+          toast && toast('Carpeta GTA V guardada.', 'ok');
+          refreshGtavChaosStatus();
+        } catch (e) {
+          toast && toast(e?.message || 'No se pudo guardar la carpeta.', 'warn');
+        }
+        return;
+      }
+      toast && toast('Solo en la app PC (.exe).', 'warn');
+    };
+  }
+  if (steam && !steam._wired) {
+    steam._wired = true;
+    steam.onclick = () => {
+      if (window.desktopAPI?.openExternal) window.desktopAPI.openExternal(GTAVCHAOS_STEAM_URL);
+      else window.open(GTAVCHAOS_STEAM_URL, '_blank', 'noopener,noreferrer');
+    };
+  }
+  if (launch && !launch._wired) {
+    launch._wired = true;
+    launch.onclick = async () => {
+      const r = window.desktopAPI?.launchGtavKothGame ? await window.desktopAPI.launchGtavKothGame() : { ok: false };
+      if (r?.ok) toast && toast('Lanzando GTA V…', 'ok');
+      else toast && toast(r?.error || 'No se pudo lanzar GTA V.', 'warn');
+      setTimeout(refreshGtavChaosStatus, 2500);
+    };
+  }
+  loadGtavChaosGameDirField();
+}
+
+function setupGtavChaosInstallUI() {
+  if (!IS_DESKTOP) return;
+  const installBtn = document.getElementById('gtavchaos-install');
+  if (installBtn && !installBtn._wired) {
+    installBtn._wired = true;
+    installBtn.onclick = async () => {
+      let dir = getGtavChaosDirFromField();
+      if (!dir) {
+        try {
+          const r = await fetch('/api/desktop/gtavkoth-game-dir', { credentials: 'same-origin' });
+          const d = await r.json();
+          dir = d.dir || '';
+          if (dir && document.getElementById('gtavchaos-game-dir')) {
+            document.getElementById('gtavchaos-game-dir').value = dir;
+          }
+        } catch { /* ignore */ }
+      }
+      if (!dir) { toast && toast('No se encontró GTA V. Elige la carpeta del juego.', 'warn'); return; }
+      const uninstallBtn = document.getElementById('gtavchaos-uninstall');
+      installBtn.disabled = true;
+      if (uninstallBtn) uninstallBtn.disabled = true;
+      try {
+        await fetch('/api/desktop/gtavkoth-game-dir', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dir }),
+        });
+        const r = await runGameModInstallWithProgress('gtavchaos', () => installGtavChaosModApi(dir), {
+          installing: 'Instalando mod GTA V Chaos (spawns aleatorios)…',
+          done: 'Mod instalado',
+          fail: 'No se pudo instalar el mod',
+        });
+        if (r.ok) {
+          toast && toast('Mod Chaos instalado (plugin Livecoins HTTP :6722).', 'ok');
+          if (r.gameDir && document.getElementById('gtavchaos-game-dir')) {
+            document.getElementById('gtavchaos-game-dir').value = r.gameDir;
+          }
+          refreshGtavChaosStatus();
+        } else toast && toast(r.error || 'No se pudo instalar el mod.', 'warn');
+      } catch (e) {
+        toast && toast(e?.message || 'No se pudo instalar el mod.', 'warn');
+      } finally {
+        installBtn.disabled = false;
+        refreshGtavChaosStatus();
+      }
+    };
+  }
+  const uninstallBtn = document.getElementById('gtavchaos-uninstall');
+  if (uninstallBtn && !uninstallBtn._wired) {
+    uninstallBtn._wired = true;
+    uninstallBtn.onclick = async () => {
+      const dir = getGtavChaosDirFromField();
+      if (!dir) { toast && toast('Elige la carpeta del juego primero.', 'warn'); return; }
+      if (!window.confirm('¿Borrar el mod Chaos de GTA V de esta carpeta?')) return;
+      uninstallBtn.disabled = true;
+      const installBtn2 = document.getElementById('gtavchaos-install');
+      if (installBtn2) installBtn2.disabled = true;
+      try {
+        const r = await uninstallGtavChaosModApi(dir);
+        if (r.ok) {
+          toast && toast('Mod eliminado de GTA V.', 'ok');
+          refreshGtavChaosStatus();
+        } else toast && toast(r.error || 'No se pudo borrar el mod.', 'warn');
+      } catch (e) {
+        toast && toast(e?.message || 'No se pudo borrar el mod.', 'warn');
+      } finally {
+        uninstallBtn.disabled = false;
+        if (installBtn2) installBtn2.disabled = false;
+        refreshGtavChaosStatus();
+      }
+    };
+  }
+}
+
+function setupGtavChaosStatusPoll() {
+  if (setupGtavChaosStatusPoll._wired) return;
+  setupGtavChaosStatusPoll._wired = true;
+  setInterval(() => {
+    if (document.getElementById('view-juego-gtavchaos')?.classList.contains('active')) {
+      refreshGtavChaosStatus();
+    }
+  }, 4000);
+}
+
+function gtavChaosCardHtml(a) {
+  const c = gtavChaosCatalogEntry(a.thing);
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: gtavChaosCatalogIconHtml(c || { emoji: '🌀' }),
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    cfgOpts: { countMax: GTAVCHAOS_SPAWN_MAX },
+    testClass: 'gtavchaos-test',
+    delClass: 'gtavchaos-del',
+  });
+}
+
+function renderGtavChaosCatalog(filter) {
+  const f = (filter || '').trim().toLowerCase();
+  const list = f
+    ? GTAVCHAOS_CATALOG.filter((c) =>
+      (c.nombre || '').toLowerCase().includes(f)
+      || (c.id || '').toLowerCase().includes(f)
+      || (c.desc || '').toLowerCase().includes(f)
+      || (GTAVCHAOS_SECTION_LABEL[c.section] || '').toLowerCase().includes(f))
+    : GTAVCHAOS_CATALOG;
+  renderGameCatalogFold({
+    grid: 'gtavchaos-catalog',
+    stateKey: 'gtavchaos',
+    filter: f,
+    searchId: 'gtavchaos-cat-search',
+    rerender: renderGtavChaosCatalog,
+    closeModalId: 'gtavchaosCatalogModal',
+    sections: buildCatalogSections(list, {
+      sectionKey: 'section',
+      order: GTAVCHAOS_SECTION_ORDER,
+      labelMap: GTAVCHAOS_SECTION_LABEL,
+      iconMap: GTAVCHAOS_SECTION_ICON,
+      descMap: GTAVCHAOS_SECTION_DESC,
+      searching: !!f,
+    }),
+    rowHtml: (c) => gameCatListBtnHtml(c.id, c.nombre, gtavChaosCatalogIconHtml(c), c.desc || c.nombre),
+    onPick: addGtavChaosFromCatalog,
+  });
+}
+
+function addGtavChaosFromCatalog(thing) {
+  const c = gtavChaosCatalogEntry(thing);
+  if (!c || !settings) return;
+  if (!ensureCanAdd('gtavChaosActions', 'game_gtavchaos', 'acciones de GTA V Chaos')) return;
+  const row = {
+    uid: 'gtavchaos_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id,
+    label: c.nombre,
+    desc: c.desc,
+    section: c.section,
+    trigger: 'gift',
+    giftId: '',
+    giftName: '',
+    giftImage: '',
+    count: 1,
+    text: '',
+    enabled: true,
+  };
+  ensureGtavChaosActions().push(row);
+  saveSettings();
+  renderGtavChaosActions();
+  renderGtavChaosCatalog(document.getElementById('gtavchaos-cat-search')?.value || '');
+  const wrap = document.getElementById('gtavchaos-my-actions');
+  if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  toast && toast(`Agregado: ${c.nombre}`, 'ok');
+}
+
+async function testGtavChaosAction(a) {
+  if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
+  // Directo a :6722 — sin health previo ni espera artificial.
+  const times = Math.max(1, Math.min(GTAVCHAOS_SPAWN_MAX, parseInt(a.count, 10) || 1));
+  const r = await execGameLocal({
+    tipo: 'GTAVCHAOS_SPAWN',
+    thing: a.thing,
+    name: 'Prueba',
+    times,
+  });
+  if (r && r.ok !== false) toast && toast('Enviado al juego.', 'ok');
+  else toast && toast(r?.hint || r?.error || 'No llegó al mod (Conectar + GTA en Historia).', 'warn');
+}
+
+function renderGtavChaosActions() {
+  const wrap = document.getElementById('gtavchaos-my-actions');
+  if (!wrap || !settings) return;
+  registerGameActionRenderer('gtavChaosActions', renderGtavChaosActions);
+  const list = ensureGtavChaosActions();
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Sin acciones. Pulsa Crear Acción.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(gtavChaosCardHtml).join('');
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.gtavchaos-del').forEach((b) => {
+    b.onclick = () => {
+      settings.gtavChaosActions = list.filter((x) => x.uid !== b.dataset.uid);
+      saveSettings();
+      renderGtavChaosActions();
+    };
+  });
+  bindGameActionConfigPopovers(wrap, find, renderGtavChaosActions, { countMax: GTAVCHAOS_SPAWN_MAX });
+  bindGameSurvivalCardExtras(wrap, find, renderGtavChaosActions, {
+    settingsKey: 'gtavChaosActions',
+    testClass: 'gtavchaos-test',
+    testFn: testGtavChaosAction,
+    testDelayMs: GTAVCHAOS_TEST_DELAY_MS,
+  });
+}
+
+function setupGtavChaosActionsUI() {
+  const search = document.getElementById('gtavchaos-cat-search');
+  if (search && !search._wired) {
+    search._wired = true;
+    search.oninput = () => renderGtavChaosCatalog(search.value);
+  }
+  const toggleAll = document.getElementById('gtavchaos-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureGtavChaosActions();
+      if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettingsKeysPatch('gtavChaosActions');
+      renderGtavChaosActions();
+    };
+  }
+  const genOverlayBtn = document.getElementById('gtavchaos-gen-overlay');
+  if (genOverlayBtn && !genOverlayBtn._wired) {
+    genOverlayBtn._wired = true;
+    genOverlayBtn.onclick = () => generateGtavChaosOverlayImage();
+  }
+  renderGtavChaosCatalog(search ? search.value : '');
+  renderGtavChaosActions();
+}
+
+
+// ===================== GTA V Mod Chiliad (:6723) =====================
+const GTAVCHILIAD_SECTION_ORDER = ['mode', 'vehicles', 'attackers', 'weapons', 'player', 'vehiclefx', 'world', 'teleports'];
+const GTAVCHILIAD_SECTION_LABEL = {
+  mode: 'Modo Chiliad',
+  vehicles: 'Vehículos',
+  attackers: 'Atacantes',
+  weapons: 'Armas',
+  player: 'Jugador',
+  vehiclefx: 'Efectos de vehículos',
+  world: 'Mundo y clima',
+  teleports: 'Teletransportes',
+};
+const GTAVCHILIAD_SECTION_DESC = {
+  mode: 'Inicia, detiene y ajusta el reto de subir el Monte Chiliad.',
+  vehicles: 'Autos que caen o aparecen cerca del jugador.',
+  attackers: 'NPCs hostiles que aparecen y persiguen al jugador.',
+  weapons: 'Armas y munición para el jugador.',
+  player: 'Ayudas, castigos y poderes que afectan al jugador.',
+  vehiclefx: 'Modifica el vehículo actual y el tráfico cercano.',
+  world: 'Clima, hora, tráfico y desastres en el mundo.',
+  teleports: 'Envía al jugador a ubicaciones especiales.',
+};
+const GTAVCHILIAD_SECTION_ICON = {
+  mode: '🏔️',
+  vehicles: '🚗',
+  attackers: '🧍',
+  weapons: '🔫',
+  player: '🎮',
+  vehiclefx: '💥',
+  world: '🌎',
+  teleports: '📍',
+};
+const GTAVCHILIAD_SPAWN_MAX = 50;
+/** Delay del botón naranja (alt-tab). El azul (Probar ya) es inmediato. */
+const GTAVCHILIAD_TEST_DELAY_MS = 2000;
+const GTAVCHILIAD_STEAM_URL = 'https://store.steampowered.com/app/271590/Grand_Theft_Auto_V/';
+
+let GTAVCHILIAD_CATALOG = [];
+function bindGtavChiliadCatalogFromWindow() {
+  GTAVCHILIAD_CATALOG = Array.isArray(window.GTAVCHILIAD_SPAWN_ENTRIES) ? window.GTAVCHILIAD_SPAWN_ENTRIES : [];
+}
+
+function gtavChiliadCatalogEntry(thing) {
+  return GTAVCHILIAD_CATALOG.find((x) => x.id === thing);
+}
+
+/** Modelo de vehículo (si aplica) — fotos remotas, sin peso en el .exe. */
+function gtavChiliadVehicleModelId(thingOrEntry) {
+  const entry = typeof thingOrEntry === 'string' ? gtavChiliadCatalogEntry(thingOrEntry) : thingOrEntry;
+  const explicit = entry?.vehicleModel;
+  if (explicit) return String(explicit).toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const raw = typeof thingOrEntry === 'string' ? thingOrEntry : (entry?.id || entry?.thing || '');
+  const s = String(raw || '').trim();
+  const m = /^vehicle:(.+)$/i.exec(s);
+  return m ? m[1].toLowerCase().replace(/[^a-z0-9_]/g, '') : '';
+}
+
+/** CDN externos (no empaquetados). Primary FiveM docs + fallback jsDelivr. */
+function gtavChiliadVehicleImageUrls(model) {
+  const id = String(model || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!id) return { primary: '', fallback: '' };
+  return {
+    primary: `https://docs.fivem.net/vehicles/${id}.webp`,
+    fallback: `https://cdn.jsdelivr.net/gh/Stuyk/gtav-image-archive/vehicles/${id}.webp`,
+  };
+}
+
+function gtavChiliadVehicleImageUrl(model) {
+  return gtavChiliadVehicleImageUrls(model).primary;
+}
+
+/** Fotos de armas del mismo CDN remoto (Stuyk/gtav-image-archive/weapons). */
+function gtavChiliadWeaponImageUrls(model) {
+  const id = String(model || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!id) return { primary: '', fallback: '' };
+  return {
+    primary: `https://cdn.jsdelivr.net/gh/Stuyk/gtav-image-archive/weapons/${id}.webp`,
+    fallback: `https://raw.githubusercontent.com/Stuyk/gtav-image-archive/main/weapons/${id}.webp`,
+  };
+}
+
+/** Fotos de peatones/NPCs del CDN de FiveM docs (sin peso en el .exe). */
+function gtavChiliadPedImageUrls(model) {
+  const id = String(model || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  if (!id) return { primary: '', fallback: '' };
+  return { primary: `https://docs.fivem.net/peds/${id}.webp`, fallback: '' };
+}
+
+function gtavChiliadCatalogImageUrls(c) {
+  const model = gtavChiliadVehicleModelId(c);
+  if (model) return gtavChiliadVehicleImageUrls(model);
+  if (c?.weaponModel) return gtavChiliadWeaponImageUrls(c.weaponModel);
+  if (c?.pedModel) return gtavChiliadPedImageUrls(c.pedModel);
+  // URL directa (imágenes de GTA Wiki para lugares/efectos concretos).
+  if (c?.imageUrl) return { primary: String(c.imageUrl), fallback: '' };
+  return null;
+}
+
+function gtavChiliadCatalogIconHtml(c) {
+  const em = esc(c?.emoji || GTAVCHILIAD_SECTION_ICON[c?.section] || '🎲');
+  // Vehículos, armas y NPCs: foto remota con fallback a emoji. Resto: emoji.
+  const urls = gtavChiliadCatalogImageUrls(c);
+  if (!urls) return `<span class="repo-cat-list-em">${em}</span>`;
+  const { primary, fallback } = urls;
+  return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
+}
+
+async function generateGtavChiliadOverlayImage() {
+  return generateGameActionsOverlayImage({
+    ensureList: ensureGtavChiliadActions,
+    iconUrlFor: (a) => {
+      const entry = gtavChiliadCatalogEntry(a?.thing) || a;
+      const urls = gtavChiliadCatalogImageUrls(entry);
+      return urls?.primary || '/img/gtavchiliad-thumb.png';
+    },
+    downloadName: 'gtavchiliad-overlay.png',
+    emptyToast: 'Agrega acciones del catálogo con su regalo primero.',
+  });
+}
+
+function ensureGtavChiliadActions() {
+  if (!settings) return [];
+  if (!Array.isArray(settings.gtavChiliadActions)) settings.gtavChiliadActions = [];
+  settings.gtavChiliadActions = migrateGameActions(settings.gtavChiliadActions, 'gtavchiliad');
+  for (const a of settings.gtavChiliadActions) {
+    const c = gtavChiliadCatalogEntry(a.thing);
+    if (!c) continue;
+    if (!a.label) a.label = c.nombre;
+    if (!a.desc) a.desc = c.desc;
+    if (!a.section) a.section = c.section;
+  }
+  return settings.gtavChiliadActions;
+}
+
+const relayGtavChiliadLikeAcc = new Map();
+const relayGtavChiliadTimers = new Set();
+let gtavChiliadRelayCloudExecUntil = 0;
+
+function suppressRelayGtavChiliadAfterCloudOk() {
+  gtavChiliadRelayCloudExecUntil = Date.now() + 1500;
+  for (const t of relayGtavChiliadTimers) clearTimeout(t);
+  relayGtavChiliadTimers.clear();
+}
+
+function gtavChiliadPerUnit(a) {
+  const n = parseInt(a?.count, 10);
+  return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+}
+
+function readGtavChiliadActionCount(a) {
+  const wrap = document.getElementById('gtavchiliad-my-actions');
+  const uid = String(a?.uid || '');
+  const card = wrap && uid ? wrap.querySelector(`.mc-act-card[data-uid="${uid}"]`) : null;
+  const inp = card?.querySelector('.gtavchiliad-count') || card?.querySelector('.l4d-count') || card?.querySelector('.mc-count');
+  const n = parseInt(inp?.value, 10);
+  if (Number.isFinite(n) && n > 0) return Math.min(GTAVCHILIAD_SPAWN_MAX, n);
+  return gtavChiliadPerUnit(a);
+}
+
+function relayGtavChiliadLikeFires(a, info, user) {
+  const uid = String(user?.uniqueId || '').trim();
+  const batch = Math.max(0, Number(info.likeCount) || 0);
+  if (!uid || batch <= 0) return 0;
+  const goal = Math.max(1, Number(a.likeN) || 1);
+  const actKey = String(a.uid || a.label || 'gtavchiliad');
+  const key = `${uid}:${actKey}`;
+  const carry = (relayGtavChiliadLikeAcc.get(key) || 0) + batch;
+  const fires = Math.floor(carry / goal);
+  relayGtavChiliadLikeAcc.set(key, carry - fires * goal);
+  if (relayGtavChiliadLikeAcc.size > 8000) relayGtavChiliadLikeAcc.clear();
+  return fires;
+}
+
+function scheduleRelayGtavChiliad(eventType, info, user) {
+  if (!relayActive() || !IS_DESKTOP) return;
+  const timer = setTimeout(async () => {
+    relayGtavChiliadTimers.delete(timer);
+    if (Date.now() < gtavChiliadRelayCloudExecUntil) return;
+    await execRelayGtavChiliadActions(eventType, info, user);
+  }, 280);
+  relayGtavChiliadTimers.add(timer);
+}
+
+async function execRelayGtavChiliadSpawn(thing, label, name, times, params = {}, meta = {}) {
+  const capped = Math.min(GTAVCHILIAD_SPAWN_MAX, Math.max(1, Number(times) || 1));
+  const r = await execGameLocal({
+    tipo: 'GTAVCHILIAD_SPAWN',
+    thing: String(thing || ''),
+    name: String(name || ''),
+    times: capped,
+    params,
+    label: label || thing,
+    reason: meta.reason,
+    giftName: meta.giftName,
+    eventType: meta.eventType,
+  });
+  if (r && r.ok !== false) {
+    addEvent(`🏔️ GTA V Chiliad: ${label || thing} OK`, 'ok');
+  } else if (r && r.ok === false) {
+    addEvent(`🏔️ GTA V Chiliad falló: ${r.hint || r.error || 'bridge'}`, 'error');
+  }
+  return r;
+}
+
+async function execRelayGtavChiliadActions(eventType, info = {}, user = null) {
+  const list = ensureGtavChiliadActions();
+  if (!list.length) return;
+  const name = (user && user.nickname) || info.nickname || '';
+  for (const a of list) {
+    if (!a || a.enabled === false || !a.thing) continue;
+    const trig = a.trigger || 'gift';
+    const perUnit = readGtavChiliadActionCount(a);
+    let units = 1;
+    if (eventType === 'gift') {
+      if (trig === 'gift') {
+        const wantId = String(a.giftId || '').trim();
+        const wantName = (a.giftName || '').trim().toLowerCase();
+        if (wantId || wantName) {
+          const idMatch = wantId && wantId === String(info.giftId || '');
+          const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+          if (!idMatch && !nameMatch) continue;
+        }
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-any') {
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else if (trig === 'gift-diamonds') {
+        if (!gameGiftDiamondsRangeOk(a, info)) continue;
+        units = Math.max(1, Number(info.repeatCount) || 1);
+      } else continue;
+      const comboOn = a.comboInstant !== false;
+      if (info.comboStreak === 'delta' && !comboOn) continue;
+      if (info.comboStreak === 'end' && comboOn) continue;
+    } else if (eventType === 'like') {
+      if (trig !== 'like') continue;
+      const likeFires = relayGtavChiliadLikeFires(a, info, user);
+      if (likeFires <= 0) continue;
+      const totalQty = Math.min(GTAVCHILIAD_SPAWN_MAX, perUnit * likeFires);
+      await execRelayGtavChiliadSpawn(a.thing, a.label || a.thing, name, totalQty, {}, {
+        eventType: 'like',
+        reason: `${Math.max(1, Number(info.likeCount) || 1)} like(s)`,
+      });
+      continue;
+    } else if (eventType === 'follow' || eventType === 'share') {
+      if (trig !== eventType) continue;
+      units = 1;
+    } else continue;
+    const times = Math.min(GTAVCHILIAD_SPAWN_MAX, perUnit * units);
+    const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
+    await execRelayGtavChiliadSpawn(a.thing, a.label || a.thing, name, times, {}, {
+      eventType,
+      giftName: info.giftName,
+      reason: giftLabel || eventType,
+    });
+  }
+}
+
+function relayGtavChiliadOnGift(p) {
+  if (!p) return;
+  const streakGift = !!p.streakGift;
+  const repeatEnd = !!p.repeatEnd;
+  let comboStreak;
+  let repeatForCalc;
+  if (streakGift && !repeatEnd) {
+    comboStreak = 'delta';
+    repeatForCalc = Math.max(0, Number(p.repeatDelta) || 0);
+    if (repeatForCalc <= 0) return;
+  } else if (streakGift && repeatEnd) {
+    comboStreak = 'end';
+    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
+  } else {
+    repeatForCalc = Math.max(1, Number(p.repeatCount) || 1);
+  }
+  const diamonds = Math.max(0, Number(p.diamondCount ?? p.diamond_count ?? p.diamonds) || 0);
+  scheduleRelayGtavChiliad('gift', {
+    giftName: p.giftName,
+    giftId: p.giftId,
+    repeatCount: repeatForCalc,
+    totalDiamonds: diamonds * repeatForCalc,
+    comboStreak,
+  }, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavChiliadOnLike(p) {
+  if (!p) return;
+  scheduleRelayGtavChiliad('like', { likeCount: p.count || 1 }, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavChiliadOnFollow(p) {
+  if (!p) return;
+  scheduleRelayGtavChiliad('follow', {}, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function relayGtavChiliadOnShare(p) {
+  if (!p) return;
+  scheduleRelayGtavChiliad('share', {}, { uniqueId: p.uniqueId, nickname: p.nickname });
+}
+
+function localGtavChiliadTimesForExec(exec) {
+  const fromExec = Math.min(GTAVCHILIAD_SPAWN_MAX, Math.max(1, Number(exec?.times) || 1));
+  // Relay/Probar ya mandan el total en times → respetarlo.
+  if (fromExec > 1) return fromExec;
+  const want = String(exec?.thing || '').trim();
+  if (!want) return fromExec;
+  for (const a of ensureGtavChiliadActions()) {
+    if (!a?.thing || a.enabled === false || a.thing !== want) continue;
+    const perUnit = readGtavChiliadActionCount(a);
+    const units = Math.max(1, Number(exec.units) || 1);
+    if (exec.units != null && Number(exec.units) > 0) {
+      return Math.min(GTAVCHILIAD_SPAWN_MAX, perUnit * units);
+    }
+    return Math.min(GTAVCHILIAD_SPAWN_MAX, perUnit);
+  }
+  return fromExec;
+}
+
+let gtavChiliadBridgeWanted = false;
+
+function renderGtavChiliadStatus(payload) {
+  const el = document.getElementById('gtavchiliad-status');
+  if (!el) return;
+  const h = payload || {};
+  const st = h.status || h;
+  const httpOk = !!(h.http_ok || st.http_ok || h.webhook_live || st.webhook_live);
+  const hub = h.hub || st.hub || {};
+  const hubOn = !!(hub.running || hub.gameConnected);
+  const gameWs = !!hub.gameConnected;
+  const webhookLive = !!(h.webhook_live || st.webhook_live);
+  const httpWebhook = !!(h.http_webhook || st.http_webhook);
+  const gameRunning = !!(h.game_running || st.game_running);
+  if (gtavChiliadBridgeWanted) {
+    syncBridgeConnectBtn('gtavchiliad-bridge', (webhookLive || httpOk) && gameRunning);
+    if (!((webhookLive || httpOk) && gameRunning)) gtavChiliadBridgeWanted = false;
+  } else {
+    syncBridgeConnectBtn('gtavchiliad-bridge', false);
+  }
+  const parts = [];
+  const modOk = !!(h.mod_installed ?? st.mod_installed);
+  if (modOk) parts.push('<span class="mari0-st on">Mod OK</span>');
+  else parts.push('<span class="mari0-st warn">Mod no instalado</span>');
+  if (webhookLive) parts.push('<span class="mari0-st on">Webhook on</span>');
+  else if (httpWebhook) parts.push('<span class="mari0-st warn">Webhook · espera GTA</span>');
+  else if (gameWs) parts.push('<span class="mari0-st on">WSS juego</span>');
+  else if (hubOn) parts.push('<span class="mari0-st warn">Hub on · espera juego</span>');
+  else parts.push('<span class="mari0-st warn">Webhook off</span>');
+  if (httpOk) parts.push(`<span class="mari0-st on">HTTP :${esc(String(h.http_port || st.http_port || '6723'))}</span>`);
+  else parts.push('<span class="mari0-st warn">HTTP off</span>');
+  if (gameRunning) parts.push('<span class="mari0-st on">GTA abierto</span>');
+  else parts.push('<span class="mari0-st off">GTA cerrado</span>');
+  const dir = h.dir || st.dir || h.game_dir || st.game_dir || '';
+  if (dir) parts.push('<span class="mari0-st on">Carpeta OK</span>');
+  else parts.push('<span class="mari0-st warn">Sin carpeta</span>');
+  el.innerHTML = parts.join(' ');
+  const verEl = document.getElementById('gtavchiliad-mod-ver');
+  if (verEl) verEl.textContent = `Versión: ${h.mod_version || st.mod_version || '1.1.0'}`;
+  const installBtn = document.getElementById('gtavchiliad-install');
+  if (installBtn) installBtn.disabled = !dir && !document.getElementById('gtavchiliad-game-dir')?.value?.trim();
+  const uninstallBtn = document.getElementById('gtavchiliad-uninstall');
+  if (uninstallBtn) uninstallBtn.disabled = !modOk;
+}
+
+async function gtavChiliadBridgeHealthApi() {
+  try {
+    const r = await fetch('/api/desktop/gtavchiliad-bridge-health', { credentials: 'same-origin' });
+    return await r.json().catch(() => ({}));
+  } catch {
+    return {};
+  }
+}
+
+async function ensureGtavChiliadBridgeApi() {
+  try {
+    const r = await fetch('/api/desktop/ensure-gtavchiliad-bridge', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    return await r.json().catch(() => ({ ok: false }));
+  } catch {
+    return { ok: false };
+  }
+}
+
+function setupGtavChiliadBridgeBtn() {
+  const bridgeBtn = document.getElementById('gtavchiliad-bridge');
+  if (!bridgeBtn || bridgeBtn._wired) return;
+  bridgeBtn._wired = true;
+  if (!IS_DESKTOP) {
+    bridgeBtn.style.display = 'none';
+    return;
+  }
+  paintBridgeConnectBtn(bridgeBtn, false);
+  bridgeBtn.onclick = async () => {
+    let lastEnsure = null;
+    const ok = await runBridgeConnectFlow({
+      btn: bridgeBtn,
+      isConnected: async () => {
+        const cur = await gtavChiliadBridgeHealthApi();
+        const h = cur?.health || cur?.status || cur || {};
+        return !!((h.webhook_live || h.http_ok) && h.game_running);
+      },
+      connect: async () => {
+        lastEnsure = await ensureGtavChiliadBridgeApi();
+        return !!(lastEnsure?.ok || lastEnsure?.connected || lastEnsure?.httpWebhook?.ok);
+      },
+    });
+    gtavChiliadBridgeWanted = !!ok;
+    if (ok) {
+      if (lastEnsure?.connected) {
+        toast && toast('GTA V Chiliad listo (HTTP :6723).', 'ok');
+      } else if (lastEnsure?.httpWebhook?.ok || lastEnsure?.httpWebhook?.already) {
+        toast && toast(lastEnsure?.hint || 'Webhook HTTP instalado. Abre GTA en Historia.', 'ok');
+      } else {
+        toast && toast(lastEnsure?.hint || 'Conectar listo. Abre GTA en Historia.', 'ok');
+      }
+    } else {
+      toast && toast(lastEnsure?.hint || lastEnsure?.error || 'No se pudo conectar el hub GTA V.', 'warn');
+    }
+    refreshGtavChiliadStatus();
+  };
+}
+
+function getGtavChiliadDirFromField() {
+  const inp = document.getElementById('gtavchiliad-game-dir');
+  return inp ? inp.value.trim() : '';
+}
+
+// Mismo pack base / misma carpeta que KOTH; Chiliad en :6723 -> reutiliza las APIs de instalacion/carpeta.
+async function installGtavChiliadModApi(dir) {
+  const r = await fetch('/api/desktop/gtavkoth-install-mod', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir }),
+  });
+  return r.json();
+}
+
+async function uninstallGtavChiliadModApi(dir) {
+  const r = await fetch('/api/desktop/gtavkoth-uninstall-mod', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dir }),
+  });
+  return r.json();
+}
+
+async function loadGtavChiliadGameDirField() {
+  const inp = document.getElementById('gtavchiliad-game-dir');
+  if (!inp || !IS_DESKTOP) return;
+  try {
+    const r = await fetch('/api/desktop/gtavkoth-game-dir', { credentials: 'same-origin' });
+    const d = await r.json();
+    if (d?.dir) inp.value = d.dir;
+  } catch { /* ignore */ }
+}
+
+async function refreshGtavChiliadStatus() {
+  if (!IS_DESKTOP) return;
+  try {
+    const r = await fetch('/api/desktop/gtavchiliad-status', { credentials: 'same-origin' });
+    const d = await r.json();
+    renderGtavChiliadStatus(d);
+  } catch {
+    renderGtavChiliadStatus(null);
+  }
+}
+
+function setupGtavChiliadGameDirUI() {
+  const pick = document.getElementById('gtavchiliad-pick-dir');
+  const launch = document.getElementById('gtavchiliad-launch');
+  const steam = document.getElementById('gtavchiliad-steam');
+  if (pick && !pick._wired) {
+    pick._wired = true;
+    pick.onclick = async () => {
+      if (window.desktopAPI?.pickGtavKothGameDir) {
+        const dir = await window.desktopAPI.pickGtavKothGameDir();
+        if (!dir) return;
+        try {
+          const r = await fetch('/api/desktop/gtavkoth-game-dir', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir }),
+          });
+          const d = await r.json();
+          if (!d.ok) throw new Error(d.error || 'dir_failed');
+          const inp = document.getElementById('gtavchiliad-game-dir');
+          if (inp) inp.value = dir;
+          toast && toast('Carpeta GTA V guardada.', 'ok');
+          refreshGtavChiliadStatus();
+        } catch (e) {
+          toast && toast(e?.message || 'No se pudo guardar la carpeta.', 'warn');
+        }
+        return;
+      }
+      toast && toast('Solo en la app PC (.exe).', 'warn');
+    };
+  }
+  if (steam && !steam._wired) {
+    steam._wired = true;
+    steam.onclick = () => {
+      if (window.desktopAPI?.openExternal) window.desktopAPI.openExternal(GTAVCHILIAD_STEAM_URL);
+      else window.open(GTAVCHILIAD_STEAM_URL, '_blank', 'noopener,noreferrer');
+    };
+  }
+  if (launch && !launch._wired) {
+    launch._wired = true;
+    launch.onclick = async () => {
+      const r = window.desktopAPI?.launchGtavKothGame ? await window.desktopAPI.launchGtavKothGame() : { ok: false };
+      if (r?.ok) toast && toast('Lanzando GTA V…', 'ok');
+      else toast && toast(r?.error || 'No se pudo lanzar GTA V.', 'warn');
+      setTimeout(refreshGtavChiliadStatus, 2500);
+    };
+  }
+  loadGtavChiliadGameDirField();
+}
+
+function setupGtavChiliadInstallUI() {
+  if (!IS_DESKTOP) return;
+  const installBtn = document.getElementById('gtavchiliad-install');
+  if (installBtn && !installBtn._wired) {
+    installBtn._wired = true;
+    installBtn.onclick = async () => {
+      let dir = getGtavChiliadDirFromField();
+      if (!dir) {
+        try {
+          const r = await fetch('/api/desktop/gtavkoth-game-dir', { credentials: 'same-origin' });
+          const d = await r.json();
+          dir = d.dir || '';
+          if (dir && document.getElementById('gtavchiliad-game-dir')) {
+            document.getElementById('gtavchiliad-game-dir').value = dir;
+          }
+        } catch { /* ignore */ }
+      }
+      if (!dir) { toast && toast('No se encontró GTA V. Elige la carpeta del juego.', 'warn'); return; }
+      const uninstallBtn = document.getElementById('gtavchiliad-uninstall');
+      installBtn.disabled = true;
+      if (uninstallBtn) uninstallBtn.disabled = true;
+      try {
+        await fetch('/api/desktop/gtavkoth-game-dir', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dir }),
+        });
+        const r = await runGameModInstallWithProgress('gtavchiliad', () => installGtavChiliadModApi(dir), {
+          installing: 'Instalando mod GTA V Chiliad (modo + efectos)…',
+          done: 'Mod instalado',
+          fail: 'No se pudo instalar el mod',
+        });
+        if (r.ok) {
+          toast && toast('Mod Chiliad instalado (plugin Livecoins HTTP :6723).', 'ok');
+          if (r.gameDir && document.getElementById('gtavchiliad-game-dir')) {
+            document.getElementById('gtavchiliad-game-dir').value = r.gameDir;
+          }
+          refreshGtavChiliadStatus();
+        } else toast && toast(r.error || 'No se pudo instalar el mod.', 'warn');
+      } catch (e) {
+        toast && toast(e?.message || 'No se pudo instalar el mod.', 'warn');
+      } finally {
+        installBtn.disabled = false;
+        refreshGtavChiliadStatus();
+      }
+    };
+  }
+  const uninstallBtn = document.getElementById('gtavchiliad-uninstall');
+  if (uninstallBtn && !uninstallBtn._wired) {
+    uninstallBtn._wired = true;
+    uninstallBtn.onclick = async () => {
+      const dir = getGtavChiliadDirFromField();
+      if (!dir) { toast && toast('Elige la carpeta del juego primero.', 'warn'); return; }
+      if (!window.confirm('¿Borrar el mod Chiliad de GTA V de esta carpeta?')) return;
+      uninstallBtn.disabled = true;
+      const installBtn2 = document.getElementById('gtavchiliad-install');
+      if (installBtn2) installBtn2.disabled = true;
+      try {
+        const r = await uninstallGtavChiliadModApi(dir);
+        if (r.ok) {
+          toast && toast('Mod eliminado de GTA V.', 'ok');
+          refreshGtavChiliadStatus();
+        } else toast && toast(r.error || 'No se pudo borrar el mod.', 'warn');
+      } catch (e) {
+        toast && toast(e?.message || 'No se pudo borrar el mod.', 'warn');
+      } finally {
+        uninstallBtn.disabled = false;
+        if (installBtn2) installBtn2.disabled = false;
+        refreshGtavChiliadStatus();
+      }
+    };
+  }
+}
+
+function setupGtavChiliadStatusPoll() {
+  if (setupGtavChiliadStatusPoll._wired) return;
+  setupGtavChiliadStatusPoll._wired = true;
+  setInterval(() => {
+    if (document.getElementById('view-juego-gtavchiliad')?.classList.contains('active')) {
+      refreshGtavChiliadStatus();
+    }
+  }, 4000);
+}
+
+function gtavChiliadCardHtml(a) {
+  const c = gtavChiliadCatalogEntry(a.thing);
+  return gameSurvivalStyleCardHtml(a, {
+    thumbHtml: gtavChiliadCatalogIconHtml(c || { emoji: '🏔️' }),
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
+    cfgOpts: { countMax: GTAVCHILIAD_SPAWN_MAX },
+    testClass: 'gtavchiliad-test',
+    delClass: 'gtavchiliad-del',
+  });
+}
+
+function renderGtavChiliadCatalog(filter) {
+  const f = (filter || '').trim().toLowerCase();
+  const list = f
+    ? GTAVCHILIAD_CATALOG.filter((c) =>
+      (c.nombre || '').toLowerCase().includes(f)
+      || (c.id || '').toLowerCase().includes(f)
+      || (c.desc || '').toLowerCase().includes(f)
+      || (GTAVCHILIAD_SECTION_LABEL[c.section] || '').toLowerCase().includes(f))
+    : GTAVCHILIAD_CATALOG;
+  renderGameCatalogFold({
+    grid: 'gtavchiliad-catalog',
+    stateKey: 'gtavchiliad',
+    filter: f,
+    searchId: 'gtavchiliad-cat-search',
+    rerender: renderGtavChiliadCatalog,
+    closeModalId: 'gtavchiliadCatalogModal',
+    sections: buildCatalogSections(list, {
+      sectionKey: 'section',
+      order: GTAVCHILIAD_SECTION_ORDER,
+      labelMap: GTAVCHILIAD_SECTION_LABEL,
+      iconMap: GTAVCHILIAD_SECTION_ICON,
+      descMap: GTAVCHILIAD_SECTION_DESC,
+      searching: !!f,
+    }),
+    rowHtml: (c) => gameCatListBtnHtml(c.id, c.nombre, gtavChiliadCatalogIconHtml(c), c.desc || c.nombre),
+    onPick: addGtavChiliadFromCatalog,
+  });
+}
+
+function addGtavChiliadFromCatalog(thing) {
+  const c = gtavChiliadCatalogEntry(thing);
+  if (!c || !settings) return;
+  if (!ensureCanAdd('gtavChiliadActions', 'game_gtavchiliad', 'acciones de GTA V Chiliad')) return;
+  const row = {
+    uid: 'gtavchiliad_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    thing: c.id,
+    label: c.nombre,
+    desc: c.desc,
+    section: c.section,
+    trigger: 'gift',
+    giftId: '',
+    giftName: '',
+    giftImage: '',
+    count: 1,
+    text: '',
+    enabled: true,
+  };
+  ensureGtavChiliadActions().push(row);
+  saveSettings();
+  renderGtavChiliadActions();
+  renderGtavChiliadCatalog(document.getElementById('gtavchiliad-cat-search')?.value || '');
+  const wrap = document.getElementById('gtavchiliad-my-actions');
+  if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  toast && toast(`Agregado: ${c.nombre}`, 'ok');
+}
+
+async function testGtavChiliadAction(a) {
+  if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
+  // Directo a :6723 — sin health previo ni espera artificial.
+  const times = Math.max(1, Math.min(GTAVCHILIAD_SPAWN_MAX, parseInt(a.count, 10) || 1));
+  const r = await execGameLocal({
+    tipo: 'GTAVCHILIAD_SPAWN',
+    thing: a.thing,
+    name: 'Prueba',
+    times,
+  });
+  if (r && r.ok !== false) toast && toast('Enviado al juego.', 'ok');
+  else toast && toast(r?.hint || r?.error || 'No llegó al mod (Conectar + GTA en Historia).', 'warn');
+}
+
+function renderGtavChiliadActions() {
+  const wrap = document.getElementById('gtavchiliad-my-actions');
+  if (!wrap || !settings) return;
+  registerGameActionRenderer('gtavChiliadActions', renderGtavChiliadActions);
+  const list = ensureGtavChiliadActions();
+  if (!list.length) {
+    wrap.innerHTML = '<div class="mc-empty">Sin acciones. Pulsa Crear Acción.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(gtavChiliadCardHtml).join('');
+  const find = (uid) => list.find((x) => x.uid === uid);
+  wrap.querySelectorAll('.gtavchiliad-del').forEach((b) => {
+    b.onclick = () => {
+      settings.gtavChiliadActions = list.filter((x) => x.uid !== b.dataset.uid);
+      saveSettings();
+      renderGtavChiliadActions();
+    };
+  });
+  bindGameActionConfigPopovers(wrap, find, renderGtavChiliadActions, { countMax: GTAVCHILIAD_SPAWN_MAX });
+  bindGameSurvivalCardExtras(wrap, find, renderGtavChiliadActions, {
+    settingsKey: 'gtavChiliadActions',
+    testClass: 'gtavchiliad-test',
+    testFn: testGtavChiliadAction,
+    testDelayMs: GTAVCHILIAD_TEST_DELAY_MS,
+  });
+}
+
+function setupGtavChiliadActionsUI() {
+  const search = document.getElementById('gtavchiliad-cat-search');
+  if (search && !search._wired) {
+    search._wired = true;
+    search.oninput = () => renderGtavChiliadCatalog(search.value);
+  }
+  const toggleAll = document.getElementById('gtavchiliad-toggle-all');
+  if (toggleAll && !toggleAll._wired) {
+    toggleAll._wired = true;
+    toggleAll.onclick = () => {
+      const list = ensureGtavChiliadActions();
+      if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
+      const anyOff = list.some((a) => a.enabled === false);
+      list.forEach((a) => { a.enabled = anyOff; });
+      saveSettingsKeysPatch('gtavChiliadActions');
+      renderGtavChiliadActions();
+    };
+  }
+  const genOverlayBtn = document.getElementById('gtavchiliad-gen-overlay');
+  if (genOverlayBtn && !genOverlayBtn._wired) {
+    genOverlayBtn._wired = true;
+    genOverlayBtn.onclick = () => generateGtavChiliadOverlayImage();
+  }
+  renderGtavChiliadCatalog(search ? search.value : '');
+  renderGtavChiliadActions();
+}
+
+// ---- Controles rápidos del Modo Chiliad (botones start/stop del panel) ----
+async function gtavChiliadStartMode() {
+  return execGameLocal({ tipo: 'GTAVCHILIAD_SPAWN', thing: 'chiliad:chiliad_start', name: '', times: 1 });
+}
+
+async function gtavChiliadStopMode() {
+  return execGameLocal({ tipo: 'GTAVCHILIAD_SPAWN', thing: 'chiliad:chiliad_stop', name: '', times: 1 });
+}
+
+function setupGtavChiliadModeButtons() {
+  const wire = (id, run, busyLabel, okMsg) => {
+    const btn = document.getElementById(id);
+    if (!btn || btn._wired) return;
+    btn._wired = true;
+    const idleHtml = btn.innerHTML;
+    btn.onclick = async () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.innerHTML = busyLabel;
+      if (typeof toast === 'function') toast(busyLabel, 'info');
+      try {
+        const r = await run();
+        if (r && r.ok !== false) {
+          if (typeof toast === 'function') toast(okMsg, 'ok');
+        } else if (typeof toast === 'function') {
+          toast(r?.hint || r?.error || 'No llegó al mod. Dale a Conectar y abre GTA V en modo Historia (:6723).', 'warn');
+        }
+      } catch (e) {
+        if (typeof toast === 'function') toast(`Error: ${e?.message || e}`, 'err');
+      } finally {
+        btn.innerHTML = idleHtml;
+        btn.disabled = false;
+      }
+    };
+  };
+  wire('gtavchiliad-start-mode', gtavChiliadStartMode, 'Iniciando modo Chiliad…', 'Modo Chiliad iniciado: 20:00 para llegar a la cima.');
+  wire('gtavchiliad-stop-mode', gtavChiliadStopMode, 'Deteniendo modo Chiliad…', 'Modo Chiliad detenido.');
+}

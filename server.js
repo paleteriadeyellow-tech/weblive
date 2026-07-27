@@ -20,7 +20,9 @@ import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
+  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled,
+  getUserBadgesPayload, recordBadgeLive, markBadgeDirectory, markBadgeDesktop, markBadgeGame, markBadgeDailyTop1, setUserManualBadge,
+  deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
   setUserPassword, destroySessionsForUser,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
   remapSessionUserIds, importSessionsFromRecord, pruneInvalidSessions, hasAnyValidSession,
@@ -614,7 +616,23 @@ function getRoomForUser(user) {
       chargeSpotifyRemote: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1')
         ? (payload) => relayRoomActionToRemote(user.id, 'spotify-charge', payload)
         : undefined,
-      onStreamerRank: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1') ? undefined : (p) => streamerRankings.record(p),
+      onStreamerRank: (AUTH_REMOTE && process.env.HOKEY_RELAY === '1') ? undefined : (p) => {
+        streamerRankings.record(p);
+        try {
+          const topId = streamerRankings.getDayTopUserId?.();
+          if (topId) markBadgeDailyTop1(topId);
+        } catch { /* ignore */ }
+      },
+      onLiveSessionEnd: ({ userId, durationMs, peakViewers }) => {
+        try {
+          recordBadgeLive(userId, { durationMs, peakViewers });
+          const topId = streamerRankings.getDayTopUserId?.();
+          if (topId) markBadgeDailyTop1(topId);
+        } catch { /* ignore */ }
+      },
+      onGameExec: (tipo) => {
+        try { markBadgeGame(user.id, tipo); } catch { /* ignore */ }
+      },
     });
     room._createdAt = Date.now();
     rooms.set(user.id, room);
@@ -671,6 +689,10 @@ function listPanelLives() {
     if (!tiktok) continue;
     // Plan efectivo (admin=premium; respeta caducidad). No usar solo u.plan crudo.
     const plan = getUserPlan(u);
+    if (u?.id) {
+      try { markBadgeDirectory(u.id); } catch { /* ignore */ }
+    }
+    const badgePayload = u ? getUserBadgesPayload(u) : null;
     out.push({
       panelUser: u?.username || room.account || '',
       tiktok,
@@ -680,6 +702,7 @@ function listPanelLives() {
       liveSince: st.liveSince || null,
       plan,
       url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
+      badges: badgePayload?.cardBadges || [],
     });
   }
   out.sort((a, b) => b.viewers - a.viewers || a.tiktok.localeCompare(b.tiktok));
@@ -1297,6 +1320,7 @@ app.get('/api/me', async (req, res) => {
     gamesEnabled: isUserGamesEnabled(fullUser),
     allowedGames: fullUser.isAdmin ? null : (Array.isArray(fullUser.allowedGames) ? fullUser.allowedGames : null),
     spotifyEnabled: isUserSpotifyEnabled(fullUser),
+    ...getUserBadgesPayload(fullUser),
     caps: { limits: caps.limits, features: caps.features, spotify: !!caps.spotify },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
     // Preferir true si la nube O el espejo local ya tienen el correo verificado.
@@ -1858,6 +1882,7 @@ app.post('/api/desktop/game-exec', express.json({ limit: '64kb' }), async (req, 
     return res.json(await runWebhookExec(body));
   }
   const result = await runGameExec(body);
+  try { markBadgeGame(user.id, body.tipo); } catch { /* ignore */ }
   res.json(result);
 });
 
@@ -2520,6 +2545,19 @@ app.post('/api/admin/userspotify', express.json(), requireAdmin, async (req, res
   res.json({ ok: true, spotifyEnabled: isUserSpotifyEnabled(getUserById(id)) });
 });
 
+// Insignias especiales (Partner / Beta / Staff).
+app.post('/api/admin/userbadges', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/userbadges', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const { id, badge, enabled } = req.body || {};
+  if (!id || !badge) return res.status(400).json({ error: 'falta id o badge' });
+  const ok = setUserManualBadge(id, badge, !!enabled);
+  if (!ok) return res.status(404).json({ error: 'cuenta o insignia no válida' });
+  res.json({ ok: true, ...getUserBadgesPayload(getUserById(id)) });
+});
+
 app.post('/api/admin/delete-user', express.json(), requireAdmin, async (req, res) => {
   if (AUTH_REMOTE) {
     if (await proxyAdminToRemote(req, res, '/api/admin/delete-user', 'POST')) return;
@@ -2697,14 +2735,25 @@ app.post('/api/admin/app-version', express.json(), requireAdmin, (req, res) => {
 });
 
 /* ----------- Enlace del instalador PC (.exe) ----------- */
-app.get('/api/desktop-build', (_req, res) => {
+app.get('/api/desktop-build', (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (!IS_DESKTOP) return res.json({ pc: false });
+  const user = userFromRequest(req);
+  if (user) {
+    try { markBadgeDesktop(user.id); } catch { /* ignore */ }
+  }
   let stamp = null;
   try {
     stamp = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, '.desktop-build.json'), 'utf8'));
   } catch {}
   res.json({ pc: true, version: stamp?.version || '', builtAt: stamp?.builtAt || 0 });
+});
+
+app.post('/api/badges/desktop', express.json(), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  markBadgeDesktop(user.id);
+  res.json({ ok: true, ...getUserBadgesPayload(getUserById(user.id) || user) });
 });
 
 app.get('/api/web-install', (_req, res) => {

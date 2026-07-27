@@ -5,6 +5,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  BADGE_LIVE_MIN_MS, MANUAL_BADGE_IDS, buildBadgesForUser, dayKey, emptyBadgeStats,
+  gameKeyFromExecTipo, pickCardBadges, prevDayKey,
+} from './badges.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Mismo criterio que server.js: en hosting usamos el disco persistente (DATA_DIR),
@@ -127,6 +131,8 @@ export function listUsersDetailed() {
     gamesEnabled: u.isAdmin ? true : u.gamesEnabled !== false,
     allowedGames: u.isAdmin ? null : (Array.isArray(u.allowedGames) ? normalizeAllowedGames(u.allowedGames) : null),
     spotifyEnabled: u.isAdmin ? true : !!u.spotifyEnabled,
+    manualBadges: Array.isArray(u.manualBadges) ? u.manualBadges.slice() : [],
+    badgeStats: { ...emptyBadgeStats(), ...(u.badgeStats || {}) },
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
   }));
@@ -263,6 +269,106 @@ export function setUserSpotifyEnabled(id, enabled) {
   saveUsers();
   return true;
 }
+
+function ensureBadgeStats(u) {
+  if (!u.badgeStats || typeof u.badgeStats !== 'object') u.badgeStats = emptyBadgeStats();
+  const s = u.badgeStats;
+  if (!Array.isArray(s.gamesUsed)) s.gamesUsed = [];
+  return s;
+}
+
+/** Payload de insignias para /api/me y panel. */
+export function getUserBadgesPayload(user) {
+  if (!user) return { badges: [], cardBadges: [], stats: emptyBadgeStats() };
+  const plan = getUserPlan(user);
+  const badges = buildBadgesForUser(user, plan);
+  return {
+    badges,
+    cardBadges: pickCardBadges(badges, 2),
+    stats: { ...emptyBadgeStats(), ...(user.badgeStats || {}) },
+  };
+}
+
+/** Live válida ≥15 min, máx. 1 por día. */
+export function recordBadgeLive(id, { durationMs = 0, peakViewers = 0 } = {}) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  const dur = Number(durationMs) || 0;
+  if (dur < BADGE_LIVE_MIN_MS) return false;
+  const s = ensureBadgeStats(u);
+  const today = dayKey();
+  const viewers = Math.max(0, Math.floor(Number(peakViewers) || 0));
+  if (s.lastLiveDay === today) {
+    // Misma sesión/día: no suma otra live, pero sí puede aportar viewers una vez más si subió el pico.
+    return false;
+  }
+  const yesterday = prevDayKey(today);
+  if (s.lastLiveDay === yesterday) s.streak = (s.streak || 0) + 1;
+  else s.streak = 1;
+  s.bestStreak = Math.max(s.bestStreak || 0, s.streak || 0);
+  s.lastLiveDay = today;
+  s.livesCount = (s.livesCount || 0) + 1;
+  s.viewersTotal = (s.viewersTotal || 0) + viewers;
+  saveUsers();
+  return true;
+}
+
+export function markBadgeDirectory(id) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  const s = ensureBadgeStats(u);
+  if (s.seenInDirectory) return false;
+  s.seenInDirectory = true;
+  saveUsers();
+  return true;
+}
+
+export function markBadgeDesktop(id) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  const s = ensureBadgeStats(u);
+  if (s.usedDesktop) return false;
+  s.usedDesktop = true;
+  saveUsers();
+  return true;
+}
+
+export function markBadgeGame(id, gameKeyOrTipo) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  let key = String(gameKeyOrTipo || '');
+  if (!key.startsWith('game_')) key = gameKeyFromExecTipo(key);
+  if (!key) return false;
+  const s = ensureBadgeStats(u);
+  if (s.gamesUsed.includes(key)) return false;
+  s.gamesUsed.push(key);
+  saveUsers();
+  return true;
+}
+
+export function markBadgeDailyTop1(id) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  const s = ensureBadgeStats(u);
+  if (s.dailyTop1) return false;
+  s.dailyTop1 = true;
+  saveUsers();
+  return true;
+}
+
+export function setUserManualBadge(id, badgeId, enabled) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  const bid = String(badgeId || '');
+  if (!MANUAL_BADGE_IDS.includes(bid)) return false;
+  if (!Array.isArray(u.manualBadges)) u.manualBadges = [];
+  const has = u.manualBadges.includes(bid);
+  if (enabled && !has) u.manualBadges.push(bid);
+  if (!enabled && has) u.manualBadges = u.manualBadges.filter((x) => x !== bid);
+  saveUsers();
+  return true;
+}
+
 // Elimina una cuenta (no admin). Cierra sus sesiones en sessions.json.
 export function deleteUser(id) {
   const idx = users.findIndex((x) => x.id === id);
@@ -726,6 +832,7 @@ export function bootstrapDesktopSessionToken() {
   try { data = JSON.parse(fs.readFileSync(DESKTOP_LAST_SESSION_FILE, 'utf8')); } catch {}
   let user = data?.userId ? getUserById(data.userId) : null;
   if (!user && data?.username) user = getUserByUsername(data.username);
+  // Si no hay "último login" guardado, usa la cuenta con lastLogin más reciente.
   if (!user) {
     const recent = users
       .filter((u) => u && (u.lastLogin > 0))
@@ -733,6 +840,8 @@ export function bootstrapDesktopSessionToken() {
     user = recent[0] || null;
   }
   if (!user) return null;
+  // Restaurar sesión aunque `active` sea false: el panel mostrará pending.html,
+  // no el login (antes bootstrap fallaba y pedía usuario/clave otra vez).
   return ensureSessionForUser(user.id);
 }
 export function destroySession(token) {
@@ -777,85 +886,6 @@ export function sessionCookie(token) {
 }
 export function clearCookie() {
   return `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
-}
-
-/** Info del disco de cuentas (diagnóstico admin / arranque en Render). */
-export function getAuthDataInfo() {
-  return {
-    dataDir: DATA_DIR,
-    usersFile: USERS_FILE,
-    userCount: users.length,
-  };
-}
-
-/** Mejor copia users.json* en DATA_DIR (más cuentas que la actual). */
-export function findBestUsersBackup() {
-  const current = users.length;
-  let best = { name: null, userCount: 0, usernames: [], canRestore: false };
-  try {
-    for (const name of fs.readdirSync(DATA_DIR)) {
-      if (name === 'users.json' || !name.startsWith('users.json')) continue;
-      const full = path.join(DATA_DIR, name);
-      let parsed;
-      try { parsed = JSON.parse(fs.readFileSync(full, 'utf8')); } catch { continue; }
-      if (!Array.isArray(parsed)) continue;
-      if (parsed.length > best.userCount) {
-        best = {
-          name,
-          userCount: parsed.length,
-          usernames: parsed.map((u) => u.username).filter(Boolean).slice(0, 30),
-          canRestore: parsed.length > current,
-        };
-      }
-    }
-  } catch {}
-  if (best.name) best.canRestore = best.userCount > current;
-  return best;
-}
-
-/** Restaura users.json desde una copia en DATA_DIR (p. ej. users.json.bak). */
-export function restoreUsersFromBackup(backupName) {
-  const name = String(backupName || '').trim();
-  if (!name || name === 'users.json' || name.includes('/') || name.includes('\\') || name.includes('..')) {
-    return { error: 'nombre de copia inválido' };
-  }
-  if (!name.startsWith('users.json')) return { error: 'nombre de copia inválido' };
-  const full = path.join(DATA_DIR, name);
-  let parsed;
-  try { parsed = JSON.parse(fs.readFileSync(full, 'utf8')); } catch {
-    return { error: 'no se pudo leer la copia' };
-  }
-  if (!Array.isArray(parsed) || !parsed.length) return { error: 'copia vacía o inválida' };
-  try {
-    if (fs.existsSync(USERS_FILE)) {
-      fs.copyFileSync(USERS_FILE, path.join(DATA_DIR, `users.json.bak-before-restore-${Date.now()}`));
-    }
-  } catch {}
-  users = parsed;
-  for (const u of users) {
-    if (u.username === ADMIN_USERNAME) {
-      u.isAdmin = true;
-      u.active = true;
-    }
-    if (u.active === undefined) u.active = true;
-    if (u.plan === undefined) u.plan = u.isAdmin ? 'premium' : 'free';
-    if (u.premiumUntil === undefined) u.premiumUntil = 0;
-    if (u.gamesEnabled === undefined) u.gamesEnabled = true;
-  }
-  try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-  } catch (e) {
-    return { error: 'no se pudo guardar users.json: ' + (e.message || e) };
-  }
-  return { ok: true, userCount: users.length, usernames: users.map((u) => u.username) };
-}
-
-export function restoreUsersFromBestBackup() {
-  const best = findBestUsersBackup();
-  if (!best.canRestore || !best.name) {
-    return { error: 'No hay una copia con más cuentas que la actual.' };
-  }
-  return restoreUsersFromBackup(best.name);
 }
 
 export { SESSION_COOKIE };
