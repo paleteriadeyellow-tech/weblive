@@ -17,9 +17,10 @@ export const DEFAULT_SETTINGS = {
     rate: 1.2, pitch: 1, volume: 1,
     minLen: 1, maxLen: 150,
     // Voces TikTok (Disney / personajes). Si tiktokVoice tiene valor, se usa esa voz
-    // (síntesis en el servidor) en vez de la voz del sistema. tiktokTranslateEs traduce
-    // el texto al inglés para las voces Disney (que solo existen en inglés).
-    tiktokVoice: '', tiktokTranslateEs: true,
+    // (síntesis en el servidor) en vez de la voz del sistema. tiktokTranslateEs=true
+    // traduce el texto al inglés para voces Disney. La casilla UI «Leer en español»
+    // está marcada cuando tiktokTranslateEs es false.
+    tiktokVoice: '', tiktokTranslateEs: false,
     // ElevenLabs (API key del creador). Si enabled + apiKey + voiceId, tiene prioridad
     // sobre TikTok/Edge/sistema. Livecoins no paga la API: usa la key del streamer.
     elevenlabs: {

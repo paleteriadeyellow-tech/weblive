@@ -383,6 +383,7 @@ async function loadMe() {
     window.MY_USER = d.username || '';
     window.IS_ADMIN = !!d.isAdmin;
     window.MY_PLAN = d.plan || 'free';
+    if (typeof d.spotifyEnabled === 'boolean') window.SPOTIFY_ACCESS = d.spotifyEnabled;
     try { if (typeof window.refreshEmailAccountUi === 'function') window.refreshEmailAccountUi(d); } catch {}
     if (d.caps) setCaps(d.caps);
     try { if (typeof syncWebhookRoomUrls === 'function') syncWebhookRoomUrls(); } catch {}
@@ -461,10 +462,15 @@ function setCaps(c) {
     limits: c.limits || {},
     features: c.features || {},
   };
+  if (typeof c.spotify === 'boolean') window.SPOTIFY_ACCESS = c.spotify;
   applyCaps();
   try { revealWebhookTab(); } catch {}
   try { revealConfigTab(); } catch {}
   try { revealJuegosTab(); } catch {}
+  try { revealSpotifyTab(); } catch {}
+  if (typeof spotifyAllowed === 'function' && spotifyAllowed() && typeof setupSpotifyUI === 'function') {
+    try { setupSpotifyUI(); } catch {}
+  }
 }
 function capLimit(key) {
   const n = window.CAPS?.limits?.[key];
@@ -1559,7 +1565,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
     view.classList.add('active');
     onOverlayNavShown(btn.dataset.view);
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); }
+    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
@@ -1838,6 +1844,109 @@ async function setUserPasswordReq(id, username) {
 const adminRefreshBtn = document.getElementById('admin-refresh');
 if (adminRefreshBtn) adminRefreshBtn.onclick = loadAdminUsers;
 
+let adminSpotifyUsersCache = [];
+
+async function setUserSpotifyReq(id, enabled) {
+  const r = await fetch('/api/admin/userspotify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, enabled: !!enabled }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'No se pudo actualizar Spotify');
+  return data;
+}
+
+async function loadAdminSpotify() {
+  const tbody = document.getElementById('admin-spotify-tbody');
+  const sel = document.getElementById('admin-spotify-user');
+  const status = document.getElementById('admin-spotify-status');
+  if (!tbody) return;
+  try {
+    const r = await fetch('/api/admin/users');
+    if (!r.ok) {
+      tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Sin acceso.</td></tr>';
+      return;
+    }
+    const { users } = await r.json();
+    adminSpotifyUsersCache = Array.isArray(users) ? users : [];
+    const withAccess = adminSpotifyUsersCache.filter((u) => u.isAdmin || u.spotifyEnabled);
+    const without = adminSpotifyUsersCache.filter((u) => !u.isAdmin && !u.spotifyEnabled);
+
+    if (sel) {
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Elegir usuario…</option>' + without
+        .slice()
+        .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+        .map((u) => `<option value="${esc(u.id)}">${esc(u.username)}</option>`)
+        .join('');
+      if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+    }
+
+    if (!withAccess.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Nadie tiene acceso todavía.</td></tr>';
+    } else {
+      tbody.innerHTML = withAccess
+        .slice()
+        .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+        .map((u) => {
+          const tag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
+          const st = u.online
+            ? '<span class="badge on dot">En línea</span>'
+            : '<span class="tts-sub">—</span>';
+          const seedSpotify = !u.isAdmin && SPOTIFY_ALLOWED_USERS.includes(String(u.username || '').trim().toLowerCase());
+          const action = (u.isAdmin || seedSpotify)
+            ? '<span class="tts-sub">Siempre</span>'
+            : `<button type="button" class="btn tiny admin-spotify-revoke" data-id="${esc(u.id)}">Quitar acceso</button>`;
+          return `<tr>
+            <td><span class="u-name">${esc(u.username)}</span>${tag}</td>
+            <td>${st}</td>
+            <td>${action}</td>
+          </tr>`;
+        }).join('');
+      tbody.querySelectorAll('.admin-spotify-revoke').forEach((btn) => {
+        btn.onclick = async () => {
+          btn.disabled = true;
+          try {
+            await setUserSpotifyReq(btn.dataset.id, false);
+            toast('Acceso a Spotify quitado.', 'ok');
+            loadAdminSpotify();
+          } catch (e) {
+            toast(e.message || 'Error', 'warn');
+            btn.disabled = false;
+          }
+        };
+      });
+    }
+    if (status) status.textContent = `${withAccess.length} con acceso · ${without.length} sin acceso`;
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Error al cargar.</td></tr>';
+  }
+}
+
+(function setupAdminSpotifyUI() {
+  const grant = document.getElementById('admin-spotify-grant');
+  const refresh = document.getElementById('admin-spotify-refresh');
+  const sel = document.getElementById('admin-spotify-user');
+  if (grant) {
+    grant.onclick = async () => {
+      const id = sel?.value || '';
+      if (!id) { toast('Elige un usuario.', 'warn'); return; }
+      grant.disabled = true;
+      try {
+        await setUserSpotifyReq(id, true);
+        toast('Spotify desbloqueado. Si está en línea, le aparece ya.', 'ok');
+        loadAdminSpotify();
+      } catch (e) {
+        toast(e.message || 'Error', 'warn');
+      } finally {
+        grant.disabled = false;
+      }
+    };
+  }
+  if (refresh) refresh.onclick = () => loadAdminSpotify();
+})();
+
 const planUpgradeBtn = document.getElementById('plan-upgrade');
 if (planUpgradeBtn) planUpgradeBtn.onclick = () => {
   toast('Contacta con el administrador para activar tu plan Premium ⭐');
@@ -1953,6 +2062,52 @@ function renderAnnList() {
   `).join('');
 }
 
+function renderHomeAnnList() {
+  /* Legacy no-op: la tarjeta de inicio ahora usa novedades de la app. */
+}
+
+async function loadHomeAppNews() {
+  const list = document.getElementById('home-ann-list');
+  const verBadge = document.getElementById('home-app-ver');
+  if (!list) return;
+  try {
+    const r = await fetch('/api/app-version', { cache: 'no-store' });
+    if (!r.ok) throw new Error('fail');
+    const d = await r.json();
+    const version = String(d.version || '').trim();
+    const notes = String(d.notes || '').trim();
+    const updatedAt = Number(d.updatedAt) || 0;
+    if (verBadge) {
+      if (version) {
+        verBadge.hidden = false;
+        verBadge.textContent = `v${version}`;
+      } else {
+        verBadge.hidden = true;
+        verBadge.textContent = '';
+      }
+    }
+    if (!version && !notes) {
+      list.innerHTML = '<p class="home-ann-empty">Aún no hay novedades de la app.</p>';
+      return;
+    }
+    const lines = notes
+      ? notes.split(/\r?\n/).map((s) => s.trim()).filter(Boolean).slice(0, 6)
+      : [];
+    const body = lines.length
+      ? `<ul class="home-app-notes">${lines.map((l) => `<li>${annEsc(l)}</li>`).join('')}</ul>`
+      : '<div class="home-ann-item-msg">Nueva versión publicada.</div>';
+    list.innerHTML = `
+      <article class="home-ann-item home-ann-item--app">
+        <div class="home-ann-item-title">${version ? `Actualización ${annEsc(version)}` : 'Actualización'}</div>
+        ${body}
+        ${updatedAt ? `<div class="home-ann-item-date">${formatAnnDate(updatedAt)}</div>` : ''}
+      </article>`;
+  } catch {
+    list.innerHTML = '<p class="home-ann-empty">No se pudieron cargar las novedades de la app.</p>';
+    if (verBadge) { verBadge.hidden = true; verBadge.textContent = ''; }
+  }
+}
+
 async function loadAnnouncements() {
   try {
     const r = await fetch('/api/announcements', { credentials: 'same-origin', cache: 'no-store' });
@@ -1993,12 +2148,22 @@ function toggleAnnPop(open) {
 })();
 
 (function setupTopbarQuickLinks() {
-  const discord = document.getElementById('btnDiscordJoin');
-  if (discord) {
-    discord.addEventListener('click', () => {
-      openExternalLink(discord.dataset.url);
+  const openDiscord = (el) => {
+    if (!el) return;
+    el.addEventListener('click', () => openExternalLink(el.dataset.url));
+  };
+  openDiscord(document.getElementById('btnDiscordJoin'));
+  openDiscord(document.getElementById('homeDiscordJoin'));
+  document.querySelectorAll('[data-home-nav]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const slug = btn.getAttribute('data-home-nav');
+      if (!slug) return;
+      const nav = document.querySelector(`.nav-item[data-view="${slug}"]`);
+      if (nav && getComputedStyle(nav).display !== 'none') nav.click();
+      else if (typeof showViewById === 'function') showViewById('view-' + slug);
     });
-  }
+  });
+  try { loadHomeAppNews(); } catch {}
 })();
 
 async function loadAnnouncementsAdmin() {
@@ -7630,7 +7795,8 @@ function applyTtsUI(t) {
   set('tts-name-emojis', t.nameEmojis !== false);
   syncTtsNameEmojisUI();
   val('tts-tiktok-voice', t.tiktokVoice || '');
-  set('tts-tiktok-translate', t.tiktokTranslateEs !== false);
+  // Casilla «Leer en español»: marcada = NO traducir a inglés (tiktokTranslateEs false).
+  set('tts-tiktok-translate', t.tiktokTranslateEs === false);
   // ElevenLabs (opcional; no rompe TTS si está vacío/apagado)
   const el = (t.elevenlabs && typeof t.elevenlabs === 'object') ? t.elevenlabs : {};
   set('tts-el-enabled', !!el.enabled);
@@ -7874,6 +8040,14 @@ function ttsUvLangLabel(code) {
   return langLabel(c);
 }
 
+function syncTtsUvDisneyTranslateUI() {
+  const disney = ($('tts-uv-engine')?.value || '') === 'disney';
+  const wrap = $('tts-uv-disney-translate-wrap');
+  const hint = $('tts-uv-disney-translate-hint');
+  if (wrap) wrap.style.display = disney ? '' : 'none';
+  if (hint) hint.style.display = disney ? '' : 'none';
+}
+
 function ttsFindUserVoice(userId) {
   const key = ttsUvNormId(userId);
   if (!key) return null;
@@ -7899,6 +8073,7 @@ function fillTtsUvLangOptions() {
   const sel = $('tts-uv-lang');
   const engine = $('tts-uv-engine')?.value || 'tiktok';
   if (!sel) return;
+  syncTtsUvDisneyTranslateUI();
   if (engine === 'elevenlabs') {
     sel.innerHTML = '<option value="multi">Multilingüe (ElevenLabs)</option>';
     sel.value = 'multi';
@@ -8017,14 +8192,19 @@ function renderTtsUserVoices() {
     body.innerHTML = '<tr class="tts-uv-empty"><td colspan="5">Sin asignaciones</td></tr>';
     return;
   }
-  body.innerHTML = list.map((uv) => `
+  body.innerHTML = list.map((uv) => {
+    const langCell = uv.engine === 'disney'
+      ? (uv.translate === false ? 'Español (sin traducir)' : 'Inglés (traduce)')
+      : ttsUvLangLabel(uv.lang);
+    return `
     <tr data-id="${esc(uv.id)}">
       <td><div class="tts-uv-user">${esc(uv.nickname || uv.userId)}<small>@${esc(uv.userId)}</small></div></td>
       <td>${esc(ttsEngineLabel(uv.engine))}</td>
-      <td>${esc(ttsUvLangLabel(uv.lang))}</td>
+      <td>${esc(langCell)}</td>
       <td>${esc(uv.voiceLabel || ttsVoiceLabel(uv.engine, uv.voice, uv.lang))}</td>
       <td><button type="button" class="tts-uv-del" data-act="del" title="Quitar asignación">✕</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   body.querySelectorAll('[data-act="del"]').forEach((btn) => {
     btn.onclick = async () => {
       const row = btn.closest('tr');
@@ -8089,7 +8269,10 @@ function addTtsUserVoice() {
   const lang = engine === 'disney' ? 'en'
     : engine === 'elevenlabs' ? 'multi'
     : String(langEl.value || 'es');
-  const translate = engine === 'disney' || (engine === 'tiktok' && ttsVoiceLangFromId(voice) === 'en');
+  const disneyTranslateEl = $('tts-uv-disney-translate');
+  const translate = engine === 'disney'
+    ? !!(disneyTranslateEl ? disneyTranslateEl.checked : true)
+    : (engine === 'tiktok' && ttsVoiceLangFromId(voice) === 'en');
 
   if (!settings.tts) settings.tts = {};
   if (!Array.isArray(settings.tts.userVoices)) settings.tts.userVoices = [];
@@ -8147,7 +8330,8 @@ function ttsConfigForUser(userId) {
     return {
       ...base,
       tiktokVoice: uv.voice,
-      tiktokTranslateEs: uv.engine === 'disney' ? true : (uv.engine === 'edge' ? false : (uv.translate !== false)),
+      // Disney: respeta uv.translate (casilla «Traducir al inglés»). Antes forzaba true.
+      tiktokTranslateEs: uv.engine === 'edge' ? false : (uv.translate !== false),
       voice: '',
     };
   }
@@ -9306,7 +9490,8 @@ function openTtsWarnModal(onAccept) {
   const tkVoice = $('tts-tiktok-voice');
   if (tkVoice) tkVoice.addEventListener('change', () => { settings.tts.tiktokVoice = tkVoice.value; save(); });
   const tkTrans = $('tts-tiktok-translate');
-  if (tkTrans) tkTrans.addEventListener('change', () => { settings.tts.tiktokTranslateEs = tkTrans.checked; save(); });
+  // Marcada = leer en español → tiktokTranslateEs false (no traducir a inglés).
+  if (tkTrans) tkTrans.addEventListener('change', () => { settings.tts.tiktokTranslateEs = !tkTrans.checked; save(); });
 
   // ElevenLabs (API del creador)
   const elEn = $('tts-el-enabled');
@@ -9444,7 +9629,11 @@ function openTtsWarnModal(onAccept) {
       uvEngine.querySelector('option[value="tiktok"]')?.remove();
       uvEngine.querySelector('option[value="disney"]')?.remove();
     }
-    uvEngine.addEventListener('change', () => { fillTtsUvLangOptions(); fillTtsUvVoiceOptions(); });
+    uvEngine.addEventListener('change', () => {
+      fillTtsUvLangOptions();
+      fillTtsUvVoiceOptions();
+      syncTtsUvDisneyTranslateUI();
+    });
   }
   const uvLang = $('tts-uv-lang');
   if (uvLang) uvLang.addEventListener('change', fillTtsUvVoiceOptions);
@@ -9452,6 +9641,7 @@ function openTtsWarnModal(onAccept) {
   if (uvAdd) uvAdd.onclick = addTtsUserVoice;
   fillTtsUvLangOptions();
   fillTtsUvVoiceOptions();
+  syncTtsUvDisneyTranslateUI();
   renderTtsUserVoices();
   refreshTtsUvUserSelect();
 
@@ -11523,8 +11713,8 @@ function setupProfiles() {
   requestProfiles();
 }
 
-/* ====================== Spotify (solo .exe · admin / albertoyt / alee367 / albertoreyesyt) ====================== */
-const SPOTIFY_ALLOWED_USERS = ['albertoyt', 'alee367', 'albertoreyesyt'];
+/* ====================== Spotify (solo .exe · admin o allowlist) ====================== */
+const SPOTIFY_ALLOWED_USERS = ['albertoyt', 'alee367', 'albertoreyesyt']; // semilla legacy (fallback)
 const SPOTIFY_DEFAULTS = {
   playOn: true, playCost: 0, skipOn: true, skipCost: 0,
   skipRequested: true, skipOwnOnly: false, skipOwnOnlyStrict: false, explicit: true, queueTotal: 2, queueUser: 2,
@@ -11542,8 +11732,11 @@ const SPOTIFY_MAP = {
 const SPOTIFY_INT_KEYS = ['playCost', 'skipCost', 'queueTotal', 'queueUser'];
 
 function spotifyAllowed() {
+  if (!IS_DESKTOP) return false;
+  if (window.IS_ADMIN) return true;
+  if (typeof window.SPOTIFY_ACCESS === 'boolean') return window.SPOTIFY_ACCESS;
   const u = (window.MY_USER || '').toLowerCase();
-  return IS_DESKTOP && (window.IS_ADMIN || SPOTIFY_ALLOWED_USERS.includes(u));
+  return SPOTIFY_ALLOWED_USERS.includes(u);
 }
 function revealSpotifyTab() {
   const nav = document.getElementById('navSpotify');
@@ -24085,10 +24278,23 @@ async function enrichPanelLivesWithKnownPlans(lives) {
 function renderPanelLives(lives) {
   const sec = $('panel-lives');
   const track = $('panel-lives-track');
+  const empty = document.getElementById('home-lives-empty');
+  const countEl = document.getElementById('panel-lives-count');
   if (!sec || !track) return;
   const active = applyPanelLivePlanMap((lives || []).filter(isActivePanelLive), window.__panelLivePlanMap);
-  if (!active.length) { sec.hidden = true; track.innerHTML = ''; return; }
+  if (!active.length) {
+    sec.hidden = true;
+    track.innerHTML = '';
+    if (empty) empty.hidden = false;
+    if (countEl) { countEl.hidden = true; countEl.textContent = ''; }
+    return;
+  }
   sec.hidden = false;
+  if (empty) empty.hidden = true;
+  if (countEl) {
+    countEl.hidden = false;
+    countEl.textContent = active.length === 1 ? '1 en vivo' : `${active.length} en vivo`;
+  }
   track.innerHTML = active.map((l) => {
     const tiktok = String(l.tiktok || l.account || '').replace(/^@+/, '');
     const name = esc(l.nickname || tiktok || l.panelUser || 'Live');

@@ -20,7 +20,7 @@ import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
+  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, setUserSpotifyEnabled, isUserSpotifyEnabled, deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
   setUserPassword, destroySessionsForUser,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
   remapSessionUserIds, importSessionsFromRecord, pruneInvalidSessions, hasAnyValidSession,
@@ -480,8 +480,16 @@ function injectLocalCaps(data) {
 }
 
 function capsForUser(user) {
-  if (!user) return applyLocalCaps(effectiveCaps('free'), 'free');
-  if (user.isAdmin) return adminCaps();
+  if (!user) {
+    const caps = applyLocalCaps(effectiveCaps('free'), 'free');
+    caps.spotify = false;
+    return caps;
+  }
+  if (user.isAdmin) {
+    const caps = adminCaps();
+    caps.spotify = true;
+    return caps;
+  }
   const plan = getUserPlan(user) === 'premium' ? 'premium' : 'free';
   const caps = applyLocalCaps(effectiveCaps(plan), plan);
   // Override por usuario: el admin puede quitarles todos los minijuegos.
@@ -490,6 +498,7 @@ function capsForUser(user) {
       if (k.startsWith('game_')) caps.features[k] = false;
     }
   }
+  caps.spotify = isUserSpotifyEnabled(user);
   return caps;
 }
 
@@ -825,6 +834,7 @@ async function pullRemotePlan(user) {
     const changed = updateMirrorPlan(user.id, {
       plan: me.plan, isAdmin: me.isAdmin, active: me.active, premiumUntil: me.premiumUntil,
       gamesEnabled: me.gamesEnabled,
+      spotifyEnabled: me.spotifyEnabled,
     });
     if (changed) {
       const room = rooms.get(user.id);
@@ -1277,7 +1287,8 @@ app.get('/api/me', async (req, res) => {
     plan: caps.plan,
     premiumUntil: fullUser.premiumUntil || 0,
     gamesEnabled: isUserGamesEnabled(fullUser),
-    caps: { limits: caps.limits, features: caps.features },
+    spotifyEnabled: isUserSpotifyEnabled(fullUser),
+    caps: { limits: caps.limits, features: caps.features, spotify: !!caps.spotify },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
     // Preferir true si la nube O el espejo local ya tienen el correo verificado.
     emailVerified: !!(remoteMe && remoteMe.emailVerified)
@@ -2408,6 +2419,7 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
       plan,
       premiumUntil: full?.premiumUntil || 0,
       gamesEnabled: full ? isUserGamesEnabled(full) : true,
+      spotifyEnabled: full ? isUserSpotifyEnabled(full) : false,
       live: !!(st && st.live),
       connecting: !!(st && st.connecting),
       liveSince: st ? st.liveSince : null,
@@ -2470,6 +2482,22 @@ app.post('/api/admin/usergames', express.json(), requireAdmin, async (req, res) 
 });
 
 // Eliminar una cuenta (excepto admin). Cierra su room, sesiones y datos locales.
+
+// Activar / desactivar pestaña Spotify para una cuenta (independiente del plan).
+app.post('/api/admin/userspotify', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/userspotify', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const { id, enabled } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const ok = setUserSpotifyEnabled(id, !!enabled);
+  if (!ok) return res.status(404).json({ error: 'cuenta no encontrada' });
+  const room = rooms.get(id);
+  if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
+  res.json({ ok: true, spotifyEnabled: isUserSpotifyEnabled(getUserById(id)) });
+});
+
 app.post('/api/admin/delete-user', express.json(), requireAdmin, async (req, res) => {
   if (AUTH_REMOTE) {
     if (await proxyAdminToRemote(req, res, '/api/admin/delete-user', 'POST')) return;
