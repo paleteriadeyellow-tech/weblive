@@ -26196,6 +26196,7 @@ function renderPanelLives(lives) {
     const photo = panelLiveImgUrl(l.photo || '');
     const premium = isPanelLivePremium(l.plan);
     const tierClass = premium ? 'panel-live-card--vip' : 'panel-live-card--free';
+    const tierLabel = premium ? 'VIP' : 'Free';
     const av = photo
       ? `<img class="panel-live-av" src="${esc(photo)}" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" data-fallback="${fallback}">`
       : `<span class="panel-live-av panel-live-av-ph">${fallback}</span>`;
@@ -26258,6 +26259,10 @@ function renderPanelLives(lives) {
           <span class="panel-live-id">
             <span class="panel-live-name">${name}</span>
             <span class="panel-live-user">@${esc(tiktok)}</span>
+          </span>
+          <span class="panel-live-status">
+            <span class="panel-live-tier">${tierLabel}</span>
+            <span class="panel-live-badge">EN LIVE</span>
           </span>
         </span>
         ${badgesHtml}
@@ -26437,7 +26442,7 @@ function setupPanelLiveBadgeTrays(root) {
     });
   });
 
-  // Delegación en el track: sobrevive re-renders y no acumula listeners
+  // Captura: la flecha NO debe abrir el live (el listener del track está en bubble)
   if (host.addEventListener && !host._badgeTrayDelegated) {
     host._badgeTrayDelegated = true;
     host.addEventListener('click', (e) => {
@@ -26445,10 +26450,11 @@ function setupPanelLiveBadgeTrays(root) {
       if (!btn || !host.contains(btn)) return;
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       const tray = btn.closest('.panel-live-badges');
       if (!tray) return;
       togglePanelLiveBadgePop(tray);
-    });
+    }, true);
   }
 
   if (!window._panelLiveBadgePopClose) {
@@ -26496,6 +26502,7 @@ function setupPanelLives() {
   if (track && !track._panelLiveClick) {
     track._panelLiveClick = true;
     track.addEventListener('click', (e) => {
+      if (e.target.closest('.panel-live-badges-more-btn, .panel-live-badges-pop')) return;
       const card = e.target.closest('.panel-live-card');
       if (!card) return;
       e.preventDefault();
