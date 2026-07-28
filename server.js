@@ -3606,6 +3606,8 @@ app.get('/api/youtube/search', async (req, res) => {
     .map((x) => x.trim())
     .filter(Boolean)
     .slice(0, 20);
+  const preferNonVevo = String(req.query.vevo || '') !== '1';
+  const allowCover = String(req.query.cover || '') === '1';
   const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
   const now = Date.now();
   let hit = _ytSearchHits.get(ip);
@@ -3615,7 +3617,7 @@ app.get('/api/youtube/search', async (req, res) => {
   _ytSearchHits.set(ip, hit);
   if (hit.n > 40) return res.status(429).json({ ok: false, error: 'rate' });
   try {
-    const track = await youtubeSearchEmbeddable(q, key, { excludeIds });
+    const track = await youtubeSearchEmbeddable(q, key, { excludeIds, preferNonVevo, allowCover });
     return res.json({ ok: true, track: track || null });
   } catch (e) {
     const msg = String(e?.message || e);

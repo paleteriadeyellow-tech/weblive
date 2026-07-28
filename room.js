@@ -6375,6 +6375,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     let url = remote + '/api/youtube/search?q=' + encodeURIComponent(query);
     const ex = Array.isArray(opts.excludeIds) ? opts.excludeIds.filter(Boolean) : [];
     if (ex.length) url += '&exclude=' + encodeURIComponent(ex.join(','));
+    if (opts.preferNonVevo === false) url += '&vevo=1';
+    if (opts.allowCover) url += '&cover=1';
     const r = await fetch(url);
     if (!r.ok) {
       if (r.status === 503) throw new Error('missing_api_key');
@@ -6390,15 +6392,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const queries = [];
     const fromTitle = youtubeAltQueryFromTitle(failed.title);
     if (fromTitle) {
-      queries.push(fromTitle);
+      // Sin covers/karaoke: lyrics / audio / visualizer (canales no VEVO).
       queries.push(fromTitle + ' lyrics');
+      queries.push(fromTitle + ' letra');
+      queries.push(fromTitle + ' official audio');
       queries.push(fromTitle + ' audio');
+      queries.push(fromTitle + ' visualizer');
+      queries.push(fromTitle);
     }
-    if (failed.channel && fromTitle) queries.push(fromTitle + ' ' + failed.channel);
     const seen = new Set(exclude.map(String));
     for (const q of queries) {
       try {
-        const track = await youtubeSearch(q, { excludeIds: [...seen] });
+        const track = await youtubeSearch(q, { excludeIds: [...seen], preferNonVevo: true, allowCover: false });
         if (track?.videoId && !seen.has(String(track.videoId))) return track;
       } catch {}
     }
