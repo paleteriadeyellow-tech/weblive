@@ -617,6 +617,7 @@ const CAP_LABELS = {
   tab_alertas: 'Sonidos', tab_videos: 'Videos', tab_batallas: 'Batallas PK',
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
   tab_webhook: 'Webhook y Configuración',
+  tab_spotify: 'Spotify (Client ID)',
   // overlays
   ov_joinlive: 'Join al live', ov_joinlivemc: 'Join al live (Minecraft)', ov_joinlivedbz: 'Join al live (Dragon Ball Z)', ov_joinlivemario: 'Join al live (Mario Bros)',
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
@@ -642,7 +643,7 @@ const CAP_LABELS = {
   videos_ai: 'Videos AI',
 };
 const PLAN_FEATURE_ORDER = [
-  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook',
+  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify',
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
@@ -12604,14 +12605,14 @@ const SPOTIFY_INT_KEYS = ['playCost', 'skipCost', 'queueTotal', 'queueUser'];
 function spotifyTabVisible() {
   return !!IS_DESKTOP;
 }
-/** Solo Premium (o admin) puede conectar Client ID / login. */
+/** Solo Premium (feature tab_spotify) o admin puede conectar Client ID / login. */
 function spotifyUnlocked() {
   if (!IS_DESKTOP) return false;
   if (window.IS_ADMIN) return true;
-  const plan = String(window.CAPS?.plan || window.MY_PLAN || '').toLowerCase();
-  if (plan === 'premium' || plan === 'admin') return true;
+  if (typeof capFeature === 'function' && capFeature('tab_spotify')) return true;
   if (window.CAPS?.spotify === true) return true;
-  return false;
+  const plan = String(window.CAPS?.plan || window.MY_PLAN || '').toLowerCase();
+  return plan === 'premium' || plan === 'admin';
 }
 /** @deprecated usar spotifyTabVisible / spotifyUnlocked */
 function spotifyAllowed() {

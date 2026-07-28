@@ -32,6 +32,7 @@ export const CAPABILITIES = {
     { key: 'tab_tts', label: 'Pestaña Chat TTS' },
     { key: 'tab_timer', label: 'Pestaña Temporizador' },
     { key: 'tab_webhook', label: 'Pestaña Webhook y Configuración (.exe)' },
+    { key: 'tab_spotify', label: 'Spotify Client ID / conexión (.exe)' },
   ],
   // Overlays individuales (se ocultan en la lista si no están permitidos).
   // El "path" enlaza con el data-path del overlay en el panel.
@@ -147,6 +148,7 @@ function defaultConfig() {
   // Por defecto, en gratis bloqueamos las voces TikTok (suelen ser premium).
   freeFeatures.tts_tiktok = false;
   freeFeatures.videos_ai = false;
+  freeFeatures.tab_spotify = false;
   freeFeatures.game_pvzhybrid = false;
   freeFeatures.game_repo = false;
   freeFeatures.game_l4d = false;

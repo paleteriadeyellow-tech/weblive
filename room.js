@@ -889,6 +889,45 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!obj || typeof obj !== 'object') return structuredClone(DEFAULT_SETTINGS);
     try { return structuredClone(obj); } catch { return JSON.parse(JSON.stringify(obj)); }
   }
+  /** Spotify es global a la cuenta: no depende del perfil activo. */
+  function defaultSpotifyCfg() {
+    try { return structuredClone(DEFAULT_SETTINGS.spotify || {}); }
+    catch { return { ...(DEFAULT_SETTINGS.spotify || {}) }; }
+  }
+  function normalizeSpotifyCfg(raw) {
+    return { ...defaultSpotifyCfg(), ...(raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) };
+  }
+  function pickSpotifyForMigration() {
+    const candidates = [];
+    for (const s of profiles.slots || []) {
+      if (s?.spotify) candidates.push(s.spotify);
+    }
+    if (profiles.general?.spotify) candidates.push(profiles.general.spotify);
+    const withId = candidates.find((c) => String(c?.clientId || '').trim());
+    return normalizeSpotifyCfg(withId || candidates[0] || null);
+  }
+  function ensureSharedSpotify() {
+    if (profiles.spotify && typeof profiles.spotify === 'object' && !Array.isArray(profiles.spotify)) {
+      profiles.spotify = normalizeSpotifyCfg(profiles.spotify);
+      return false;
+    }
+    profiles.spotify = pickSpotifyForMigration();
+    return true;
+  }
+  function getSharedSpotify() {
+    ensureSharedSpotify();
+    return normalizeSpotifyCfg(profiles.spotify);
+  }
+  function persistSharedSpotifyFromSettings() {
+    if (!settings || typeof settings !== 'object') return;
+    profiles.spotify = normalizeSpotifyCfg(settings.spotify);
+    settings.spotify = normalizeSpotifyCfg(profiles.spotify);
+  }
+  function attachSharedSpotify(s) {
+    if (!s || typeof s !== 'object') return s;
+    s.spotify = getSharedSpotify();
+    return s;
+  }
   (function isolateProfileSlotsOnLoad() {
     let refDupes = false;
     const refs = new Map();
@@ -919,12 +958,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   })();
   function loadSettings() {
-    return resolveProfileSettings(profiles.slots[profiles.active]);
+    return attachSharedSpotify(resolveProfileSettings(profiles.slots[profiles.active]));
   }
   function loadGeneralSettings() {
-    return resolveProfileSettings(profiles.general);
+    return attachSharedSpotify(resolveProfileSettings(profiles.general));
   }
+  const hadSharedSpotify = !!(profiles.spotify && typeof profiles.spotify === 'object' && !Array.isArray(profiles.spotify));
   let settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
+  settings.spotify = getSharedSpotify();
+  if (!hadSharedSpotify) {
+    try { saveProfilesNow(); } catch {}
+  }
   loadWeekly();
   loadTop1Fire();
   loadHabibiTop();
@@ -996,6 +1040,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function persistCurrentEdit() {
     clearTimeout(saveTimer);
+    persistSharedSpotifyFromSettings();
     const snap = cloneSettings(settings);
     if (profiles.editMode === 'general') profiles.general = snap;
     else profiles.slots[profiles.active] = snap;
@@ -1020,6 +1065,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       normalizeSettingsMediaUrls(settings);
+      persistSharedSpotifyFromSettings();
       const snap = cloneSettings(settings);
       // Copia independiente por ranura: evita que acciones de un perfil contaminen otro.
       if (profiles.editMode === 'general') profiles.general = snap;
@@ -1131,6 +1177,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       general: profiles.editMode === 'general' ? cloneSettings(settings) : (profiles.general ? cloneSettings(profiles.general) : null),
       editingGeneral: profiles.editMode === 'general',
       syncTs: profiles.syncTs || 0,
+      spotify: getSharedSpotify(),
     };
   }
   // Importa una lista de perfiles { name, settings } en las ranuras 0..N-1. En modo
@@ -1186,10 +1233,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       profiles.general = (data.general && typeof data.general === 'object' && !Array.isArray(data.general))
         ? cloneSettings(data.general) : null;
     }
+    if (data.spotify && typeof data.spotify === 'object' && !Array.isArray(data.spotify)) {
+      profiles.spotify = normalizeSpotifyCfg(data.spotify);
+    } else {
+      ensureSharedSpotify();
+    }
     profiles.editMode = data.editingGeneral ? 'general' : 'profile';
     clearProfileRuntimeState();
     saveProfilesNow();
     settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
+    settings.spotify = getSharedSpotify();
     enforceLimits();
     writeJsonAtomic(SETTINGS_FILE, settings);
     loadTop1Fire();

@@ -403,6 +403,7 @@ const rooms = new Map(); // userId -> room
 // aquí para que aparezcan en el editor de planes y se puedan marcar premium/gratis.
 const LOCAL_ONLY_TABS = [
   { key: 'tab_webhook', label: 'Pestaña Webhook y Configuración (.exe)' },
+  { key: 'tab_spotify', label: 'Spotify Client ID / conexión (.exe)' },
 ];
 // Minijuegos: exclusivos del .exe (pestaña "Juegos"). Se bloquean como los overlays.
 const LOCAL_ONLY_GAMES = [
@@ -508,14 +509,16 @@ function capsForUser(user) {
       }
     }
   }
-  caps.spotify = !!(user.isAdmin || getUserPlan(user) === 'premium');
+  caps.spotify = !!(user.isAdmin || caps.features?.tab_spotify);
   return caps;
 }
 
 // Sobrescribe las features locales (.exe) según el plan del usuario.
 function applyLocalCaps(caps, planName) {
   for (const k of LOCAL_ONLY_KEYS) {
-    const v = localCaps[planName] && localCaps[planName][k];
+    let v = localCaps[planName] && localCaps[planName][k];
+    // Spotify: si aún no está en local-caps.json, Premium on / Gratis off.
+    if (v === undefined && k === 'tab_spotify') v = planName === 'premium';
     if (v !== undefined) caps.features[k] = v;
   }
   return caps;
@@ -3556,7 +3559,8 @@ function spotifyUser(req) {
   const user = userFromRequest(req);
   if (!user) return null;
   if (user.isAdmin) return user;
-  if (getUserPlan(user) === 'premium') return user;
+  const caps = capsForUser(user);
+  if (caps?.features?.tab_spotify) return user;
   return null;
 }
 
