@@ -1081,6 +1081,7 @@ function roomUrl(path) {
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
   if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=11';
+  if (/\/youtube-overlay\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=3';
   return url;
 }
 
@@ -13080,6 +13081,7 @@ function renderYoutubeState(p) {
   const now = p?.now || null;
   const played = Number(p?.played) || 0;
   const status = String(p?.status || (now ? (now.paused ? 'Pausado' : 'Reproduciendo') : 'Inactivo'));
+  const volume = Math.max(0, Math.min(100, Number(p?.volume != null ? p.volume : now?.volume) || 80));
 
   const qEl = document.getElementById('yt-stat-queue');
   const pEl = document.getElementById('yt-stat-played');
@@ -13116,22 +13118,108 @@ function renderYoutubeState(p) {
     if (idle) idle.hidden = false;
     if (track) track.hidden = true;
     if (sub) sub.textContent = 'Sin reproducción';
+    ytPanelPlayerSync(null, volume);
   } else {
     if (idle) idle.hidden = true;
     if (track) track.hidden = false;
     if (sub) sub.textContent = now.paused ? 'Pausado' : 'Reproduciendo';
-    const thumb = document.getElementById('yt-now-thumb');
     const title = document.getElementById('yt-now-title');
     const ch = document.getElementById('yt-now-channel');
     const by = document.getElementById('yt-now-by');
-    if (thumb) thumb.src = now.thumb || `https://i.ytimg.com/vi/${now.videoId}/hqdefault.jpg`;
     if (title) title.textContent = now.title || '—';
     if (ch) ch.textContent = now.channel || '';
     if (by) {
       if (now.nickname) { by.hidden = false; by.textContent = 'Pedida por @' + now.nickname; }
       else by.hidden = true;
     }
+    ytPanelPlayerSync(now, volume);
   }
+}
+
+let _ytPanelPlayer = null;
+let _ytPanelReady = false;
+let _ytPanelId = '';
+let _ytPanelPending = null;
+let _ytApiLoading = false;
+
+function ensureYoutubeIframeApi(cb) {
+  if (window.YT && window.YT.Player) { cb(); return; }
+  const prev = window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady = function () {
+    try { if (typeof prev === 'function') prev(); } catch {}
+    cb();
+  };
+  if (_ytApiLoading) return;
+  _ytApiLoading = true;
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+
+function ytPanelUnmute(vol) {
+  if (!_ytPanelPlayer || !_ytPanelReady) return;
+  const n = Math.max(0, Math.min(100, Number(vol) || 80));
+  try { _ytPanelPlayer.unMute(); } catch {}
+  try { _ytPanelPlayer.setVolume(n); } catch {}
+}
+
+function ytPanelPlayerSync(now, volume) {
+  _ytPanelPending = { now, volume };
+  const mount = document.getElementById('yt-panel-player');
+  if (!mount) return;
+  ensureYoutubeIframeApi(() => {
+    if (!_ytPanelPlayer) {
+      _ytPanelPlayer = new YT.Player('yt-panel-player', {
+        width: '200',
+        height: '112',
+        playerVars: {
+          autoplay: 1,
+          controls: 1,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          mute: 0,
+          origin: location.origin,
+        },
+        events: {
+          onReady: () => {
+            _ytPanelReady = true;
+            const pend = _ytPanelPending;
+            if (pend) ytPanelPlayerSync(pend.now, pend.volume);
+          },
+        },
+      });
+      return;
+    }
+    if (!_ytPanelReady) return;
+    if (!now || !now.videoId) {
+      _ytPanelId = '';
+      try { _ytPanelPlayer.pauseVideo(); } catch {}
+      return;
+    }
+    const vol = now.volume != null ? now.volume : volume;
+    if (now.videoId !== _ytPanelId) {
+      _ytPanelId = now.videoId;
+      try {
+        _ytPanelPlayer.loadVideoById({ videoId: now.videoId, startSeconds: 0 });
+      } catch {
+        try { _ytPanelPlayer.cueVideoById(now.videoId); } catch {}
+      }
+      setTimeout(() => {
+        ytPanelUnmute(vol);
+        try {
+          if (now.paused) _ytPanelPlayer.pauseVideo();
+          else _ytPanelPlayer.playVideo();
+        } catch {}
+      }, 250);
+    } else {
+      ytPanelUnmute(vol);
+      try {
+        if (now.paused) _ytPanelPlayer.pauseVideo();
+        else _ytPanelPlayer.playVideo();
+      } catch {}
+    }
+  });
 }
 
 function youtubeSendCommand(text) {
