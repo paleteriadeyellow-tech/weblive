@@ -5,6 +5,11 @@ export const SPOTIFY_CLIENT_ID = '';
 export const SPOTIFY_CALLBACK_PORT = 8888;
 export const SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:8888/spotify/callback';
 
+export function normalizeClientId(raw) {
+  const id = String(raw || '').trim();
+  if (!id || !/^[a-zA-Z0-9]{16,64}$/.test(id)) return '';
+  return id;
+}
 export function isConnected() { return false; }
 export function rememberPanelOrigin() {}
 export function getPanelOrigin() { return ''; }

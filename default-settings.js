@@ -493,6 +493,7 @@ export const DEFAULT_SETTINGS = {
   },
   // Spotify Song Requests (solo .exe · admin / albertoyt). Comandos del chat: !play/!skip/!revoke.
   spotify: {
+    clientId: '',
     playOn: true, playCost: 0, skipOn: true, skipCost: 0,
     skipRequested: true, skipOwnOnly: false, skipOwnOnlyStrict: false, explicit: true, queueTotal: 2, queueUser: 2,
     overlayPermanent: true, permAll: false, permSubs: true, permMods: true,

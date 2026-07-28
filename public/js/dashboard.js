@@ -12580,6 +12580,7 @@ function setupProfiles() {
 /* ====================== Spotify (solo .exe · admin o allowlist) ====================== */
 const SPOTIFY_ALLOWED_USERS = ['albertoyt', 'alee367', 'albertoreyesyt']; // semilla legacy (fallback)
 const SPOTIFY_DEFAULTS = {
+  clientId: '',
   playOn: true, playCost: 0, skipOn: true, skipCost: 0,
   skipRequested: true, skipOwnOnly: false, skipOwnOnlyStrict: false, explicit: true, queueTotal: 2, queueUser: 2,
   overlayPermanent: true, permAll: false, permSubs: true, permMods: true,
@@ -12587,6 +12588,7 @@ const SPOTIFY_DEFAULTS = {
   permUsers: [],
 };
 const SPOTIFY_MAP = {
+  'sp-client-id': 'clientId',
   'sp-play-on': 'playOn', 'sp-play-cost': 'playCost', 'sp-skip-on': 'skipOn',
   'sp-skip-cost': 'skipCost', 'sp-skip-own-only': 'skipOwnOnly', 'sp-skip-own-only-strict': 'skipOwnOnlyStrict', 'sp-explicit': 'explicit',
   'sp-queue-total': 'queueTotal', 'sp-queue-user': 'queueUser', 'sp-overlay-perm': 'overlayPermanent',
@@ -12637,6 +12639,7 @@ function saveSpotifySettings() {
     if (!el) continue;
     if (el.type === 'checkbox') cfg[key] = el.checked;
     else if (SPOTIFY_INT_KEYS.includes(key)) cfg[key] = Math.max(0, parseInt(el.value, 10) || 0);
+    else if (key === 'clientId') cfg[key] = String(el.value || '').trim();
     else cfg[key] = el.value;
   }
   if (!Array.isArray(cfg.permUsers)) cfg.permUsers = [];
@@ -12784,9 +12787,26 @@ function openSpotifyViewAfterConnect() {
 
 async function startSpotifyLogin() {
   try {
-    const r = await fetch('/api/spotify/auth-url', { credentials: 'same-origin' });
+    saveSpotifySettings();
+    const clientId = String(document.getElementById('sp-client-id')?.value || settings?.spotify?.clientId || '').trim();
+    if (!clientId) {
+      toast && toast('Pega primero el Client ID de tu app (Spotify Dashboard → Settings).', 'err');
+      document.getElementById('sp-client-id')?.focus();
+      return;
+    }
+    if (!/^[a-zA-Z0-9]{16,64}$/.test(clientId)) {
+      toast && toast('Client ID inválido. Cópialo completo desde Settings de tu app.', 'err');
+      document.getElementById('sp-client-id')?.focus();
+      return;
+    }
+    const r = await fetch('/api/spotify/auth-url?clientId=' + encodeURIComponent(clientId), { credentials: 'same-origin' });
     if (!r.ok) {
-      toast && toast('No autorizado para conectar Spotify.', 'err');
+      let msg = 'No autorizado para conectar Spotify.';
+      try {
+        const err = await r.json();
+        if (err?.error) msg = String(err.error);
+      } catch {}
+      toast && toast(msg, 'err');
       return;
     }
     const d = await r.json();

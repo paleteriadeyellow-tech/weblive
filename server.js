@@ -3559,13 +3559,36 @@ function spotifyUser(req) {
   return null;
 }
 
+function spotifyClientIdFromReq(req, user) {
+  const fromQ = typeof spotify.normalizeClientId === 'function'
+    ? spotify.normalizeClientId(req.query?.clientId || req.body?.clientId)
+    : String(req.query?.clientId || req.body?.clientId || '').trim();
+  if (fromQ) return fromQ;
+  try {
+    if (user) {
+      const raw = getRoomForUser(user)?.getSettings?.()?.spotify?.clientId;
+      const fromSettings = typeof spotify.normalizeClientId === 'function'
+        ? spotify.normalizeClientId(raw)
+        : String(raw || '').trim();
+      if (fromSettings) return fromSettings;
+    }
+  } catch {}
+  return typeof spotify.normalizeClientId === 'function'
+    ? spotify.normalizeClientId(spotify.SPOTIFY_CLIENT_ID)
+    : String(spotify.SPOTIFY_CLIENT_ID || '').trim();
+}
+
 app.get('/api/spotify/auth-url', (req, res) => {
   const user = spotifyUser(req);
   if (!user) return res.status(403).json({ error: 'No autorizado.' });
   try {
     const origin = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : '');
     if (origin) spotify.rememberPanelOrigin(origin);
-    res.json({ url: spotify.buildAuthUrl(user.id) });
+    const clientId = spotifyClientIdFromReq(req, user);
+    if (!clientId) {
+      return res.status(400).json({ error: 'Pega el Client ID de tu app de Spotify (Dashboard → Settings).' });
+    }
+    res.json({ url: spotify.buildAuthUrl(user.id, clientId) });
   } catch (e) {
     res.status(500).json({ error: 'Error iniciando sesión con Spotify: ' + e.message });
   }
@@ -3575,7 +3598,9 @@ app.get('/api/spotify/login', (req, res) => {
   const user = spotifyUser(req);
   if (!user) return res.status(403).send('No autorizado.');
   try {
-    const url = spotify.buildAuthUrl(user.id);
+    const clientId = spotifyClientIdFromReq(req, user);
+    if (!clientId) return res.status(400).send('Pega el Client ID de tu app de Spotify en Livecoins.');
+    const url = spotify.buildAuthUrl(user.id, clientId);
     res.redirect(url);
   } catch (e) {
     res.status(500).send('Error iniciando sesión con Spotify: ' + e.message);

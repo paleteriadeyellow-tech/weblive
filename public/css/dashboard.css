@@ -2622,11 +2622,22 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   --sp-border: rgba(30, 215, 96, .22);
   --sp-muted: rgba(255, 255, 255, .58);
 }
-.sp-shell {
-  display: flex;
-  flex-direction: column;
+#view-spotify .settings-card { max-width: none; }
+.sp-grid {
+  display: grid;
   gap: 16px;
-  max-width: 920px;
+  align-items: stretch;
+  grid-template-columns: 1fr;
+  margin-top: 16px;
+}
+.sp-span-all { grid-column: 1 / -1; }
+@media (min-width: 768px) {
+  .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1200px) {
+  .sp-grid {
+    grid-template-columns: minmax(300px, 1.12fr) repeat(2, minmax(260px, 1fr));
+  }
 }
 .sp-hero {
   display: flex;
@@ -2658,7 +2669,7 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 }
 .sp-hero-sub {
   margin: 0;
-  max-width: 62ch;
+  max-width: 72ch;
   line-height: 1.55;
   color: var(--sp-muted);
 }
@@ -2669,6 +2680,12 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   border-color: rgba(30, 215, 96, .14);
   background: linear-gradient(180deg, rgba(14, 28, 22, .55) 0%, var(--card, #0e1a2e) 40%);
   box-shadow: 0 8px 28px rgba(0, 0, 0, .22);
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  max-width: none;
 }
 #view-spotify .sp-card::before {
   content: '';
@@ -2679,16 +2696,14 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   opacity: .85;
   pointer-events: none;
 }
-#view-spotify .sp-card .tts-head {
-  margin-bottom: 12px;
-}
-#view-spotify .sp-card .tts-head h3 {
-  color: #e8fff0;
-}
+#view-spotify .sp-card .tts-head { margin-bottom: 12px; }
+#view-spotify .sp-card .tts-head h3 { color: #e8fff0; }
 #view-spotify .sp-card .tts-sub {
   color: rgba(30, 215, 96, .7);
   font-weight: 700;
   letter-spacing: .02em;
+  -webkit-text-fill-color: unset;
+  background: none;
 }
 
 /* Setup guide */
@@ -2707,18 +2722,23 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 12px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1000px) {
+  .sp-setup-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .sp-setup-steps > li {
   display: flex;
   gap: 14px;
   align-items: flex-start;
-  padding: 12px 14px;
+  padding: 14px 14px 16px;
   border-radius: 12px;
   background: rgba(0, 0, 0, .22);
   border: 1px solid rgba(255, 255, 255, .06);
+  height: 100%;
+  box-sizing: border-box;
 }
 .sp-step-num {
   flex-shrink: 0;
@@ -2734,16 +2754,21 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 }
 .sp-setup-steps strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   color: #fff;
   font-size: 14px;
 }
-.sp-setup-steps p {
+.sp-step-detail {
   margin: 0;
+  padding-left: 18px;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--sp-muted);
 }
+.sp-step-detail li { margin: 0 0 7px; }
+.sp-step-detail li:last-child { margin-bottom: 0; }
+.sp-step-detail-cont { margin-top: 8px; }
+.sp-step-detail b { color: #e8fff0; font-weight: 800; }
 .sp-setup-steps a {
   color: var(--sp-green);
   font-weight: 700;
@@ -2752,11 +2777,11 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 }
 .sp-setup-steps a:hover { border-bottom-color: var(--sp-green); }
 .sp-redirect {
-  display: inline-block;
-  margin-top: 8px;
+  display: block;
+  margin: 8px 0;
   padding: 8px 12px;
   border-radius: 10px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .01em;
   color: #bbf7d0;
@@ -2796,6 +2821,39 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   vertical-align: middle;
 }
 .sp-conn-ok b { color: var(--sp-green); }
+.sp-client-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, .22);
+  border: 1px solid rgba(30, 215, 96, .18);
+}
+.sp-client-field label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #e8fff0;
+}
+.sp-client-field input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #07110c;
+  color: #fff;
+  border: 1px solid rgba(30, 215, 96, .28);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: .02em;
+}
+.sp-client-field input:focus {
+  outline: none;
+  border-color: var(--sp-green);
+  box-shadow: 0 0 0 3px rgba(30, 215, 96, .18);
+}
+.sp-client-field .hint { margin: 0; font-size: 12.5px; line-height: 1.4; }
 
 /* Commands */
 .sp-cmds { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -2823,7 +2881,7 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 /* Form */
 .sp-form { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
 .sp-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.sp-row > label { min-width: 240px; font-weight: 600; color: rgba(255, 255, 255, .88); }
+.sp-row > label { min-width: 180px; font-weight: 600; color: rgba(255, 255, 255, .88); }
 .sp-row input[type="number"] {
   width: 110px;
   background: #07110c;
@@ -2860,7 +2918,7 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 }
 #view-spotify .switch-row.plain input { accent-color: var(--sp-green); }
 .sp-unit { color: var(--sp-muted); font-size: 13px; }
-.sp-perms { display: flex; gap: 14px; flex-wrap: wrap; }
+.sp-perms { display: flex; gap: 10px; flex-wrap: wrap; }
 .sp-perms label {
   display: flex;
   align-items: center;
@@ -2875,7 +2933,7 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 }
 .sp-perms input { width: 16px; height: 16px; accent-color: var(--sp-green); cursor: pointer; }
 .sp-perm-users-row { align-items: flex-start; }
-.sp-perm-users { flex: 1; min-width: 240px; }
+.sp-perm-users { flex: 1; min-width: 200px; }
 .sp-perm-users .hint { margin: 0 0 8px; }
 .sp-perm-users.is-disabled .sp-perm-users-add,
 .sp-perm-users.is-disabled .sp-perm-user-list { opacity: .45; pointer-events: none; }

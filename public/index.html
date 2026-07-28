@@ -6032,54 +6032,85 @@
 
         <!-- ===================== SPOTIFY (solo .exe · admin / albertoyt) ===================== -->
         <section class="view" id="view-spotify">
-          <div class="sp-shell">
-            <header class="sp-hero">
-              <div class="sp-hero-badge" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-              </div>
-              <div class="sp-hero-text">
-                <h1 class="view-title sp-hero-title">Solicitudes de Canciones de Spotify</h1>
-                <p class="view-sub sp-hero-sub">Tus espectadores pueden solicitar y saltar canciones en Spotify con comandos del chat. Reproduce tu playlist favorita y las canciones solicitadas se añadirán a tu cola. <b>Funciona solo en la app de escritorio.</b></p>
-              </div>
-            </header>
+          <header class="sp-hero">
+            <div class="sp-hero-badge" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+            </div>
+            <div class="sp-hero-text">
+              <h1 class="view-title sp-hero-title">Solicitudes de Canciones de Spotify</h1>
+              <p class="view-sub sp-hero-sub">Tus espectadores pueden solicitar y saltar canciones en Spotify con comandos del chat. Reproduce tu playlist favorita y las canciones solicitadas se añadirán a tu cola. <b>Funciona solo en la app de escritorio.</b></p>
+            </div>
+          </header>
 
+          <div class="sp-grid">
             <!-- Guía: app propia (Development Mode = 5 usuarios) -->
-            <div class="settings-card sp-card sp-setup">
+            <div class="settings-card sp-card sp-setup sp-span-all">
               <div class="tts-head">
                 <h3>Tu propia app de Spotify</h3>
                 <span class="tts-sub">Recomendado · Development Mode limita a 5 usuarios</span>
               </div>
-              <p class="sp-setup-lead">Para un panel de stream, lo correcto es que cada streamer use su propia app de Spotify Developers:</p>
+              <p class="sp-setup-lead">Spotify solo deja <b>5 usuarios</b> por app en modo desarrollo. Para tu live, crea <b>tu propia app</b> y agrégate a ti mismo. Sigue estos pasos exactamente:</p>
               <ol class="sp-setup-steps">
                 <li>
                   <span class="sp-step-num">1</span>
                   <div>
-                    <strong>Crea tu app</strong>
-                    <p>En <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">Spotify for Developers</a> pulsa <em>Create app</em> (como tu app de panel).</p>
+                    <strong>Crear la app</strong>
+                    <ol class="sp-step-detail">
+                      <li>Abre <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> e inicia sesión con tu cuenta de Spotify (con Premium).</li>
+                      <li>Arriba a la derecha pulsa el botón morado <b>Create app</b>.</li>
+                      <li>En <b>App name</b> escribe un nombre (ej. <em>Livecoins</em> o tu nick).</li>
+                      <li>En <b>App description</b> pon algo como <em>Panel de control para TikTok Live</em>.</li>
+                      <li>En <b>Redirect URI</b> pega exactamente esto y pulsa <b>Add</b>:</li>
+                    </ol>
+                    <code class="sp-redirect">http://127.0.0.1:8888/spotify/callback</code>
+                    <ol class="sp-step-detail sp-step-detail-cont" start="6">
+                      <li>Marca la casilla de <b>Developer Terms of Service</b> / términos.</li>
+                      <li>Pulsa <b>Save</b> (o <b>Create</b>) para crear la app.</li>
+                    </ol>
                   </div>
                 </li>
                 <li>
                   <span class="sp-step-num">2</span>
                   <div>
-                    <strong>Users and Access</strong>
-                    <p>Agrégate a ti mismo. Con 5 cupos te sobra (tú + mods de prueba).</p>
+                    <strong>Users and Access (quién puede conectar)</strong>
+                    <ol class="sp-step-detail">
+                      <li>En el Dashboard, haz clic en el <b>nombre de tu app</b> para abrirla.</li>
+                      <li>En el menú de la app entra a <b>Users and Access</b> (a veces aparece como User Management).</li>
+                      <li>Pulsa <b>Add user</b> / <b>Add new user</b>.</li>
+                      <li>Escribe el <b>email de la cuenta Spotify</b> con la que harás el live (la misma que usas en la app de Spotify del PC).</li>
+                      <li>Confirma / guarda. Puedes añadir hasta <b>5</b> emails (tú + mods de prueba).</li>
+                    </ol>
                   </div>
                 </li>
                 <li>
                   <span class="sp-step-num">3</span>
                   <div>
-                    <strong>Redirect URI</strong>
-                    <p>En Settings de tu app, añade exactamente este URI de redirección:</p>
+                    <strong>Redirect URI + Client ID en Livecoins</strong>
+                    <ol class="sp-step-detail">
+                      <li>Dentro de tu app pulsa <b>Settings</b> (o <b>Edit settings</b>).</li>
+                      <li>En <b>Redirect URIs</b> debe existir exactamente:</li>
+                    </ol>
                     <code class="sp-redirect">http://127.0.0.1:8888/spotify/callback</code>
+                    <ol class="sp-step-detail sp-step-detail-cont" start="3">
+                      <li>Si no está: pégalo, pulsa <b>Add</b> y luego <b>Save</b>.</li>
+                      <li>Copia el <b>Client ID</b> (Settings → Client ID → Copy).</li>
+                      <li>Pégalo abajo en <b>Client ID</b> de Livecoins (se guarda solo).</li>
+                      <li>Pulsa <b>Iniciar sesión con Spotify</b> y acepta los permisos.</li>
+                    </ol>
                   </div>
                 </li>
               </ol>
-              <p class="sp-setup-note">Así cada streamer tiene sus propios 5 cupos y no gastas los de una sola app compartida.</p>
+              <p class="sp-setup-note">Así cada streamer tiene sus propios 5 cupos y no gastas los de una sola app compartida. Si el login falla con error de redirect, casi siempre falta el URI de arriba o un espacio de más al pegarlo.</p>
             </div>
 
             <!-- Conexión con Spotify -->
             <div class="settings-card sp-card">
-              <div class="tts-head"><h3>Conexión con la Cuenta de Spotify</h3><span class="tts-sub">Necesario para reproducir y gestionar la cola</span></div>
+              <div class="tts-head"><h3>Conexión con la Cuenta de Spotify</h3><span class="tts-sub">Client ID de tu app + login</span></div>
+              <div class="sp-client-field">
+                <label for="sp-client-id">Client ID de tu app</label>
+                <input type="text" id="sp-client-id" placeholder="Pega aquí el Client ID (Settings → Client ID)" autocomplete="off" spellcheck="false">
+                <p class="hint">Sin tu Client ID, el login no usa tu app de Developers. Si lo cambias, vuelve a iniciar sesión.</p>
+              </div>
               <div id="sp-disconnected" class="sp-conn-block">
                 <p class="hint">Primero, necesitas conectar tu cuenta de Spotify.</p>
                 <button class="btn primary sp-login-btn" id="sp-login"><span class="sp-login-dot" aria-hidden="true"></span> Iniciar sesión con Spotify</button>
@@ -6102,7 +6133,7 @@
 
             <!-- Configuraciones -->
             <div class="settings-card sp-card">
-              <div class="tts-head"><h3>Configuraciones</h3></div>
+              <div class="tts-head"><h3>Configuraciones</h3><span class="tts-sub">Costos, cola y reglas</span></div>
               <div class="sp-form">
                 <div class="sp-row sp-row-status"><label>Estado</label><span id="sp-estado" class="sp-estado warn">Inicia Spotify y reproduce una playlist</span></div>
                 <label class="switch-row plain"><input type="checkbox" id="sp-play-on" checked> <span><code>!play</code> habilitado</span></label>
@@ -6115,6 +6146,14 @@
                 <div class="sp-row"><label>Longitud máxima de la cola (total)</label><input type="number" id="sp-queue-total" min="1" value="2"><span class="sp-unit">Tracks</span></div>
                 <div class="sp-row"><label>Longitud máxima de la cola (por usuario)</label><input type="number" id="sp-queue-user" min="1" value="2"><span class="sp-unit">Tracks</span></div>
                 <label class="switch-row plain"><input type="checkbox" id="sp-overlay-perm" checked> <span>Mostrar superposición permanente</span></label>
+                <div class="sp-save-row"><span id="sp-save-msg" class="sp-save-msg"></span></div>
+              </div>
+            </div>
+
+            <!-- Permisos -->
+            <div class="settings-card sp-card">
+              <div class="tts-head"><h3>Permisos</h3><span class="tts-sub">Quién puede usar los comandos</span></div>
+              <div class="sp-form">
                 <div class="sp-row"><label>Comandos disponibles para</label>
                   <div class="sp-perms">
                     <label><input type="checkbox" id="sp-perm-all"> <span>Todos los usuarios</span></label>
@@ -6136,7 +6175,6 @@
                     </div>
                   </div>
                 </div>
-                <div class="sp-save-row"><span id="sp-save-msg" class="sp-save-msg"></span></div>
               </div>
             </div>
 
@@ -6151,7 +6189,7 @@
             </div>
 
             <!-- Historial -->
-            <div class="settings-card sp-card">
+            <div class="settings-card sp-card sp-span-all">
               <div class="tts-head"><h3>Historial</h3><span class="tts-sub">Últimas canciones solicitadas</span></div>
               <div class="table-wrap sp-table-wrap">
                 <table class="data-table">
