@@ -500,23 +500,6 @@ export const DEFAULT_SETTINGS = {
     // IDs de TikTok (@) que pueden usar !play / !skip / !revoke aunque no sean mod ni sub.
     permUsers: [],
   },
-  // YouTube song requests (chat + overlay OBS).
-  youtube: {
-    // La API key NO va aquí: se configura una sola vez en el servidor
-    // con la variable de entorno YOUTUBE_API_KEY (Render / .exe).
-    preventDuplicates: true,
-    maxPerUser: 0,
-    volume: 80,
-    commands: {
-      play: { cmd: '!play', on: true, readAll: false, followers: false, mods: true, superFans: true, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
-      skip: { cmd: '!skip', on: true, readAll: false, followers: false, mods: true, superFans: true, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
-      pause: { cmd: '!pause', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
-      resume: { cmd: '!resume', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
-      clear: { cmd: '!clear', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
-      quit: { cmd: '!quit', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [], modsCanRemoveOthers: true },
-      volumen: { cmd: '!volumen', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
-    },
-  },
   // Overlay Top 1 Donador (MVP de la sesión: quien más monedas regala)
   top1: {
     headerTitle: 'MVP: Top 1 Donador',

@@ -13,7 +13,6 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
-import { youtubeSearchEmbeddable, youtubeSearchForPlay } from './youtube-api.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
 import { createStreamerRankings } from './streamer-rankings.js';
@@ -3591,43 +3590,6 @@ app.get('/api/spotify/status', async (req, res) => {
     res.json(st);
   } catch {
     res.json({ connected: false });
-  }
-});
-
-/** Búsqueda YouTube centralizada (key en env). Usada por rooms locales del .exe vía AUTH_REMOTE. */
-const _ytSearchHits = new Map(); // ip -> { n, at }
-app.get('/api/youtube/search', async (req, res) => {
-  const key = String(process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
-  if (!key) return res.status(503).json({ ok: false, error: 'no_key' });
-  const q = String(req.query.q || '').trim();
-  if (!q || q.length > 200) return res.status(400).json({ ok: false, error: 'bad_q' });
-  const excludeIds = String(req.query.exclude || '')
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .slice(0, 20);
-  const preferNonVevo = String(req.query.vevo || '') !== '1';
-  const allowCover = String(req.query.cover || '') === '1';
-  const forPlay = String(req.query.play || '') === '1';
-  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
-  const now = Date.now();
-  let hit = _ytSearchHits.get(ip);
-  if (!hit || now - hit.at > 60_000) hit = { n: 0, at: now };
-  hit.n += 1;
-  hit.at = now;
-  _ytSearchHits.set(ip, hit);
-  if (hit.n > 40) return res.status(429).json({ ok: false, error: 'rate' });
-  try {
-    const track = forPlay
-      ? await youtubeSearchForPlay(q, key, { excludeIds, preferNonVevo, allowCover })
-      : await youtubeSearchEmbeddable(q, key, { excludeIds, preferNonVevo, allowCover });
-    return res.json({ ok: true, track: track || null });
-  } catch (e) {
-    const msg = String(e?.message || e);
-    if (msg.startsWith('youtube_http_')) {
-      return res.status(502).json({ ok: false, error: msg });
-    }
-    return res.status(500).json({ ok: false, error: msg });
   }
 });
 

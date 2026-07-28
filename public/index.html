@@ -80,7 +80,6 @@
 
         <div class="nav-divider" aria-hidden="true"><span class="nav-divider-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="nav-ico-stroke" d="M6 12h4v4"/><path class="nav-ico-stroke" d="M8 10v4"/><path class="nav-ico-stroke" d="M15 11h.01"/><path class="nav-ico-stroke" d="M18 13h.01"/><path class="nav-ico-stroke" d="M17.32 5H6.68a4 4 0 00-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 003 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 019.828 16h4.344a2 2 0 011.414.586L17 18c.5.5 1 1 2 1a3 3 0 003-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0017.32 5z"/></svg></span></div>
         <div class="nav-section">
-          <button class="nav-item" data-view="youtube" id="navYoutube">YouTube</button>
           <button class="nav-item" data-view="spotify" id="navSpotify" style="display:none">Spotify</button>
           <button class="nav-item" data-view="juegos" id="navJuegos" style="display:none">Juegos</button>
           <button class="nav-item" data-view="webhook" id="navWebhook" style="display:none">Webhook</button>
@@ -6031,181 +6030,139 @@
           </div>
         </section>
 
-        <!-- ===================== YOUTUBE (solicitudes + overlay) ===================== -->
-        <section class="view" id="view-youtube">
-          <h1 class="view-title">YouTube — Solicitudes de canciones</h1>
-          <p class="view-sub">Los espectadores piden canciones con comandos del chat. La cola se reproduce en el overlay de OBS (IFrame de YouTube). Usa <b>!play nombre</b> o pega un enlace de YouTube.</p>
-
-          <div class="yt-stats">
-            <div class="yt-stat"><div class="yt-stat-num" id="yt-stat-queue">0</div><div class="yt-stat-lbl">En cola</div></div>
-            <div class="yt-stat"><div class="yt-stat-num is-ok" id="yt-stat-played">0</div><div class="yt-stat-lbl">Reproducidas</div></div>
-            <div class="yt-stat"><div class="yt-stat-num is-mut" id="yt-stat-status">Inactivo</div><div class="yt-stat-lbl">Estado</div></div>
-          </div>
-
-          <div class="settings-card yt-control-card">
-            <div class="yt-ctrl-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
-            <div class="yt-ctrl-row">
-              <input type="text" id="yt-cmd-input" class="yt-cmd-input" placeholder="$ !play &lt;canción&gt; | !skip | !pause | !resume | !clear | !volumen 0-100" autocomplete="off">
-              <button type="button" class="btn primary" id="yt-cmd-enter">ENTER</button>
-            </div>
-            <div class="yt-ctrl-label">Control directo del streamer</div>
-            <div class="yt-ctrl-btns" id="yt-ctrl-btns">
-              <button type="button" class="btn ghost yt-quick" data-cmd="!play ">!play</button>
-              <button type="button" class="btn ghost yt-quick" data-cmd="!skip">!skip</button>
-              <button type="button" class="btn ghost yt-quick" data-cmd="!pause">!pause</button>
-              <button type="button" class="btn ghost yt-quick" data-cmd="!resume">!resume</button>
-              <button type="button" class="btn ghost yt-quick" data-cmd="!clear">!clear</button>
-              <button type="button" class="btn ghost yt-quick" data-cmd="!quit">!quit</button>
-              <button type="button" class="btn ghost yt-quick" data-cmd="!volumen ">!volumen</button>
-            </div>
-          </div>
-
-          <div class="yt-main-grid">
-            <div class="settings-card yt-panel">
-              <div class="tts-head"><h3>Vista previa — Cola</h3><span class="tts-sub">Próximas canciones</span></div>
-              <div class="yt-queue" id="yt-queue-list">
-                <div class="yt-empty">Cola vacía.<br><span>Usa !play para buscar en YouTube</span></div>
-              </div>
-            </div>
-            <div class="settings-card yt-panel yt-now-panel">
-              <div class="tts-head"><h3>Ahora suena</h3><span class="tts-sub" id="yt-now-sub">Sin reproducción</span></div>
-              <div class="yt-now" id="yt-now">
-                <div class="yt-now-idle">
-                  <div class="yt-now-ico" aria-hidden="true">♪</div>
-                  <div>Sin reproducción</div>
-                </div>
-                <div class="yt-now-track" id="yt-now-track" hidden>
-                  <div class="yt-now-player-wrap">
-                    <div id="yt-panel-player"></div>
-                  </div>
-                  <div class="yt-now-meta">
-                    <div class="yt-now-title" id="yt-now-title">—</div>
-                    <div class="yt-now-artist" id="yt-now-channel">—</div>
-                    <div class="yt-now-by" id="yt-now-by" hidden></div>
-                    <p class="hint yt-now-hint">El audio del <b>directo</b> sale del overlay en OBS. Aquí oyes un preview del panel.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="yt-overlay-grid">
-            <div class="settings-card">
-              <div class="tts-head"><h3>Superposición de música</h3><span class="tts-sub">Canción actual y cola para OBS — aquí sale el audio del stream</span></div>
-              <div class="yt-ov-preview" aria-hidden="true"></div>
-              <div class="ovpro-urlrow" style="margin-top:12px">
-                <code class="ov-url" data-path="/youtube-overlay.html">/youtube-overlay.html</code>
-                <button type="button" class="ovpro-copy ov-copy">Copiar enlace</button>
-              </div>
-              <p class="hint" style="margin-top:10px">Pega esa URL exacta en OBS (Browser Source), volumen de la fuente &gt; 0, y recarga la fuente tras cada actualización.</p>
-            </div>
-            <div class="settings-card">
-              <div class="tts-head"><h3>Ajustes</h3><span class="tts-sub">Cola y comandos</span></div>
-              <div class="yt-form">
-                <label class="switch-row plain"><input type="checkbox" id="yt-prevent-dup" checked> <span>Prevenir canciones duplicadas</span></label>
-                <div class="sp-row"><label>Máx. canciones por usuario</label><input type="number" id="yt-max-user" min="0" value="0"><span class="sp-unit">(0 = sin límite)</span></div>
-                <div class="yt-cmd-names" id="yt-cmd-names"></div>
-                <div class="sp-save-row"><button type="button" class="btn primary" id="yt-save">Guardar</button><span id="yt-save-msg" class="sp-save-msg"></span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-card">
-            <div class="tts-head"><h3>Comandos y permisos del chat</h3><span class="tts-sub">Quién puede usar cada comando</span></div>
-            <div class="yt-perm-grid" id="yt-perm-grid"></div>
-          </div>
-        </section>
-
         <!-- ===================== SPOTIFY (solo .exe · admin / albertoyt) ===================== -->
         <section class="view" id="view-spotify">
-          <h1 class="view-title">🎵 Solicitudes de Canciones de Spotify</h1>
-          <p class="view-sub">Tus espectadores pueden solicitar y saltar canciones en Spotify con comandos del chat. Reproduce tu playlist favorita y las canciones solicitadas se añadirán a tu cola. <b>Funciona solo en la app de escritorio.</b></p>
-
-          <!-- Conexión con Spotify -->
-          <div class="settings-card">
-            <div class="tts-head"><h3>Conexión con la Cuenta de Spotify</h3><span class="tts-sub">Necesario para reproducir y gestionar la cola</span></div>
-            <div id="sp-disconnected">
-              <p class="hint">Primero, necesitas conectar tu cuenta de Spotify.</p>
-              <button class="btn primary" id="sp-login"><span style="margin-right:6px">🟢</span> Iniciar sesión con Spotify</button>
-            </div>
-            <div id="sp-connected" hidden>
-              <p class="hint">Conectado como <b id="sp-account">—</b>.</p>
-              <button class="btn ghost danger" id="sp-logout">Desconectar Spotify</button>
-            </div>
-          </div>
-
-          <!-- Comandos -->
-          <div class="settings-card">
-            <div class="tts-head"><h3>Comandos</h3><span class="tts-sub">Escríbelos en el chat del live</span></div>
-            <ul class="sp-cmds">
-              <li><code>!play [Canción - Artista]</code> <span>Agregar canción a la cola</span></li>
-              <li><code>!revoke</code> <span>Revocar tu última canción solicitada</span></li>
-              <li><code>!skip</code> <span>Saltar la pista actual</span></li>
-            </ul>
-          </div>
-
-          <!-- Configuraciones -->
-          <div class="settings-card">
-            <div class="tts-head"><h3>Configuraciones</h3></div>
-            <div class="sp-form">
-              <div class="sp-row"><label>Estado</label><span id="sp-estado" class="sp-estado warn">Inicia Spotify y reproduce una playlist</span></div>
-              <label class="switch-row plain"><input type="checkbox" id="sp-play-on" checked> <span><code>!play</code> habilitado</span></label>
-              <div class="sp-row"><label>Costo de <code>!play</code></label><input type="number" id="sp-play-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
-              <label class="switch-row plain"><input type="checkbox" id="sp-skip-on" checked> <span><code>!skip</code> habilitado</span></label>
-              <div class="sp-row"><label>Costo de <code>!skip</code></label><input type="number" id="sp-skip-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
-              <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only"> <span>Solo saltar canciones propias <small>(no las de otros ni las del streamer; los mods sí pueden saltar cualquiera)</small></span></label>
-              <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only-strict"> <span>Solo saltar canciones propias <small>(también los mods: nadie salta las de otros ni las del streamer)</small></span></label>
-              <label class="switch-row plain"><input type="checkbox" id="sp-explicit" checked> <span>Permitir contenido explícito</span></label>
-              <div class="sp-row"><label>Longitud máxima de la cola (total)</label><input type="number" id="sp-queue-total" min="1" value="2"><span class="sp-unit">Tracks</span></div>
-              <div class="sp-row"><label>Longitud máxima de la cola (por usuario)</label><input type="number" id="sp-queue-user" min="1" value="2"><span class="sp-unit">Tracks</span></div>
-              <label class="switch-row plain"><input type="checkbox" id="sp-overlay-perm" checked> <span>Mostrar superposición permanente</span></label>
-              <div class="sp-row"><label>Comandos disponibles para</label>
-                <div class="sp-perms">
-                  <label><input type="checkbox" id="sp-perm-all"> <span>Todos los usuarios</span></label>
-                  <label><input type="checkbox" id="sp-perm-subs" checked> <span>Super Fans / Subs</span></label>
-                  <label><input type="checkbox" id="sp-perm-mods" checked> <span>Mods</span></label>
-                </div>
+          <div class="sp-shell">
+            <header class="sp-hero">
+              <div class="sp-hero-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
               </div>
-              <div class="sp-row sp-perm-users-row">
-                <label>Usuarios específicos</label>
-                <div class="sp-perm-users">
-                  <label class="switch-row plain"><input type="checkbox" id="sp-perm-users-on"> <span>Permitir usuarios de la lista (por <code>@</code> de TikTok)</span></label>
-                  <p class="hint">Con la casilla activa, quienes añadas abajo podrán usar <code>!play</code>, <code>!skip</code> y <code>!revoke</code> aunque no sean mod ni sub.</p>
-                  <div class="sp-perm-users-add">
-                    <input type="text" id="sp-perm-user-in" placeholder="@usuario_tiktok" autocomplete="off">
-                    <button type="button" class="btn ghost" id="sp-perm-user-add">Añadir</button>
+              <div class="sp-hero-text">
+                <h1 class="view-title sp-hero-title">Solicitudes de Canciones de Spotify</h1>
+                <p class="view-sub sp-hero-sub">Tus espectadores pueden solicitar y saltar canciones en Spotify con comandos del chat. Reproduce tu playlist favorita y las canciones solicitadas se añadirán a tu cola. <b>Funciona solo en la app de escritorio.</b></p>
+              </div>
+            </header>
+
+            <!-- Guía: app propia (Development Mode = 5 usuarios) -->
+            <div class="settings-card sp-card sp-setup">
+              <div class="tts-head">
+                <h3>Tu propia app de Spotify</h3>
+                <span class="tts-sub">Recomendado · Development Mode limita a 5 usuarios</span>
+              </div>
+              <p class="sp-setup-lead">Para un panel de stream, lo correcto es que cada streamer use su propia app de Spotify Developers:</p>
+              <ol class="sp-setup-steps">
+                <li>
+                  <span class="sp-step-num">1</span>
+                  <div>
+                    <strong>Crea tu app</strong>
+                    <p>En <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">Spotify for Developers</a> pulsa <em>Create app</em> (como tu app de panel).</p>
                   </div>
-                  <div id="sp-perm-user-list" class="sp-perm-user-list">
-                    <div class="sp-perm-users-empty">Ningún usuario añadido</div>
+                </li>
+                <li>
+                  <span class="sp-step-num">2</span>
+                  <div>
+                    <strong>Users and Access</strong>
+                    <p>Agrégate a ti mismo. Con 5 cupos te sobra (tú + mods de prueba).</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="sp-step-num">3</span>
+                  <div>
+                    <strong>Redirect URI</strong>
+                    <p>En Settings de tu app, añade exactamente este URI de redirección:</p>
+                    <code class="sp-redirect">http://127.0.0.1:8888/spotify/callback</code>
+                  </div>
+                </li>
+              </ol>
+              <p class="sp-setup-note">Así cada streamer tiene sus propios 5 cupos y no gastas los de una sola app compartida.</p>
+            </div>
+
+            <!-- Conexión con Spotify -->
+            <div class="settings-card sp-card">
+              <div class="tts-head"><h3>Conexión con la Cuenta de Spotify</h3><span class="tts-sub">Necesario para reproducir y gestionar la cola</span></div>
+              <div id="sp-disconnected" class="sp-conn-block">
+                <p class="hint">Primero, necesitas conectar tu cuenta de Spotify.</p>
+                <button class="btn primary sp-login-btn" id="sp-login"><span class="sp-login-dot" aria-hidden="true"></span> Iniciar sesión con Spotify</button>
+              </div>
+              <div id="sp-connected" class="sp-conn-block" hidden>
+                <p class="hint sp-conn-ok">Conectado como <b id="sp-account">—</b>.</p>
+                <button class="btn ghost danger" id="sp-logout">Desconectar Spotify</button>
+              </div>
+            </div>
+
+            <!-- Comandos -->
+            <div class="settings-card sp-card">
+              <div class="tts-head"><h3>Comandos</h3><span class="tts-sub">Escríbelos en el chat del live</span></div>
+              <ul class="sp-cmds">
+                <li><code>!play [Canción - Artista]</code> <span>Agregar canción a la cola</span></li>
+                <li><code>!revoke</code> <span>Revocar tu última canción solicitada</span></li>
+                <li><code>!skip</code> <span>Saltar la pista actual</span></li>
+              </ul>
+            </div>
+
+            <!-- Configuraciones -->
+            <div class="settings-card sp-card">
+              <div class="tts-head"><h3>Configuraciones</h3></div>
+              <div class="sp-form">
+                <div class="sp-row sp-row-status"><label>Estado</label><span id="sp-estado" class="sp-estado warn">Inicia Spotify y reproduce una playlist</span></div>
+                <label class="switch-row plain"><input type="checkbox" id="sp-play-on" checked> <span><code>!play</code> habilitado</span></label>
+                <div class="sp-row"><label>Costo de <code>!play</code></label><input type="number" id="sp-play-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
+                <label class="switch-row plain"><input type="checkbox" id="sp-skip-on" checked> <span><code>!skip</code> habilitado</span></label>
+                <div class="sp-row"><label>Costo de <code>!skip</code></label><input type="number" id="sp-skip-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
+                <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only"> <span>Solo saltar canciones propias <small>(no las de otros ni las del streamer; los mods sí pueden saltar cualquiera)</small></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only-strict"> <span>Solo saltar canciones propias <small>(también los mods: nadie salta las de otros ni las del streamer)</small></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sp-explicit" checked> <span>Permitir contenido explícito</span></label>
+                <div class="sp-row"><label>Longitud máxima de la cola (total)</label><input type="number" id="sp-queue-total" min="1" value="2"><span class="sp-unit">Tracks</span></div>
+                <div class="sp-row"><label>Longitud máxima de la cola (por usuario)</label><input type="number" id="sp-queue-user" min="1" value="2"><span class="sp-unit">Tracks</span></div>
+                <label class="switch-row plain"><input type="checkbox" id="sp-overlay-perm" checked> <span>Mostrar superposición permanente</span></label>
+                <div class="sp-row"><label>Comandos disponibles para</label>
+                  <div class="sp-perms">
+                    <label><input type="checkbox" id="sp-perm-all"> <span>Todos los usuarios</span></label>
+                    <label><input type="checkbox" id="sp-perm-subs" checked> <span>Super Fans / Subs</span></label>
+                    <label><input type="checkbox" id="sp-perm-mods" checked> <span>Mods</span></label>
                   </div>
                 </div>
+                <div class="sp-row sp-perm-users-row">
+                  <label>Usuarios específicos</label>
+                  <div class="sp-perm-users">
+                    <label class="switch-row plain"><input type="checkbox" id="sp-perm-users-on"> <span>Permitir usuarios de la lista (por <code>@</code> de TikTok)</span></label>
+                    <p class="hint">Con la casilla activa, quienes añadas abajo podrán usar <code>!play</code>, <code>!skip</code> y <code>!revoke</code> aunque no sean mod ni sub.</p>
+                    <div class="sp-perm-users-add">
+                      <input type="text" id="sp-perm-user-in" placeholder="@usuario_tiktok" autocomplete="off">
+                      <button type="button" class="btn ghost" id="sp-perm-user-add">Añadir</button>
+                    </div>
+                    <div id="sp-perm-user-list" class="sp-perm-user-list">
+                      <div class="sp-perm-users-empty">Ningún usuario añadido</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="sp-save-row"><span id="sp-save-msg" class="sp-save-msg"></span></div>
               </div>
-              <div class="sp-save-row"><span id="sp-save-msg" class="sp-save-msg"></span></div>
             </div>
-          </div>
 
-          <!-- Superposiciones (OBS) -->
-          <div class="settings-card">
-            <div class="tts-head"><h3>Superposiciones (OBS)</h3><span class="tts-sub">Añádelas como fuente de navegador</span></div>
-            <div class="ovpro-urlrow">
-              <code class="ov-url" data-path="/spotify-overlay.html">/spotify-overlay.html</code>
-              <button class="ovpro-copy ov-copy">Copiar enlace</button>
+            <!-- Superposiciones (OBS) -->
+            <div class="settings-card sp-card">
+              <div class="tts-head"><h3>Superposiciones (OBS)</h3><span class="tts-sub">Añádelas como fuente de navegador</span></div>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/spotify-overlay.html">/spotify-overlay.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <p class="hint">Un solo overlay: <b>ahora suena</b> arriba (título, artista, minutos/segundos y barra de progreso) y <b>cola</b> abajo con las próximas canciones del chat (!play).</p>
             </div>
-            <p class="hint">Un solo overlay: <b>ahora suena</b> arriba (título, artista, minutos/segundos y barra de progreso) y <b>cola</b> abajo con las próximas canciones del chat (!play).</p>
-          </div>
 
-          <!-- Historial -->
-          <div class="settings-card">
-            <div class="tts-head"><h3>Historial</h3><span class="tts-sub">Últimas canciones solicitadas</span></div>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr><th>Fecha</th><th>Usuario</th><th>Pista</th><th>Estado</th></tr>
-                </thead>
-                <tbody id="sp-history">
-                  <tr><td colspan="4" class="sp-nodata">Sin datos todavía</td></tr>
-                </tbody>
-              </table>
+            <!-- Historial -->
+            <div class="settings-card sp-card">
+              <div class="tts-head"><h3>Historial</h3><span class="tts-sub">Últimas canciones solicitadas</span></div>
+              <div class="table-wrap sp-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr><th>Fecha</th><th>Usuario</th><th>Pista</th><th>Estado</th></tr>
+                  </thead>
+                  <tbody id="sp-history">
+                    <tr><td colspan="4" class="sp-nodata">Sin datos todavía</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </section>
