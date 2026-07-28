@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="origin">
   <title>Overlay — YouTube (ahora + cola)</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap');
@@ -235,9 +236,11 @@
 
     function maybeRequestNext(reason) {
       if (!currentId) return;
-      if (Date.now() < ignoreEndedUntil) return;
+      const isErr = reason === 'error' || reason === 'embed';
+      // Los errores de embed llegan al momento; no hay que esperar el cooldown del skip.
+      if (!isErr && Date.now() < ignoreEndedUntil) return;
       const playingId = playerVideoId() || currentId;
-      if (playingId && playingId !== currentId) return;
+      if (!isErr && playingId && playingId !== currentId) return;
       if (endedSentFor === currentId) return;
       endedSentFor = currentId;
       send({ action: 'youtubeControl', op: 'ended', reason: reason || 'ended' });
@@ -265,8 +268,10 @@
             // 0 = ENDED — solo si es el vídeo actual y no venimos de un skip/cambio
             if (ev.data === 0) maybeRequestNext('ended');
           },
-          onError: () => {
-            maybeRequestNext('error');
+          onError: (ev) => {
+            // 101/150 = no permitido incrustar; 100 = no encontrado; 153 = config/referrer
+            const code = Number(ev?.data);
+            maybeRequestNext(code === 101 || code === 150 || code === 153 ? 'embed' : 'error');
           },
         },
       });

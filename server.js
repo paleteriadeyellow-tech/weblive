@@ -13,6 +13,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
+import { youtubeSearchEmbeddable } from './youtube-api.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
 import { createStreamerRankings } from './streamer-rankings.js';
@@ -3609,29 +3610,14 @@ app.get('/api/youtube/search', async (req, res) => {
   _ytSearchHits.set(ip, hit);
   if (hit.n > 40) return res.status(429).json({ ok: false, error: 'rate' });
   try {
-    const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q='
-      + encodeURIComponent(q) + '&key=' + encodeURIComponent(key);
-    const r = await fetch(url);
-    if (!r.ok) {
-      const body = await r.text().catch(() => '');
-      return res.status(502).json({ ok: false, error: 'youtube_http_' + r.status, detail: body.slice(0, 200) });
-    }
-    const d = await r.json();
-    const item = Array.isArray(d.items) && d.items[0];
-    if (!item?.id?.videoId) return res.json({ ok: true, track: null });
-    const sn = item.snippet || {};
-    const thumbs = sn.thumbnails || {};
-    return res.json({
-      ok: true,
-      track: {
-        videoId: String(item.id.videoId),
-        title: String(sn.title || q),
-        channel: String(sn.channelTitle || ''),
-        thumb: thumbs.medium?.url || thumbs.default?.url || thumbs.high?.url || '',
-      },
-    });
+    const track = await youtubeSearchEmbeddable(q, key);
+    return res.json({ ok: true, track: track || null });
   } catch (e) {
-    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+    const msg = String(e?.message || e);
+    if (msg.startsWith('youtube_http_')) {
+      return res.status(502).json({ ok: false, error: msg });
+    }
+    return res.status(500).json({ ok: false, error: msg });
   }
 });
 

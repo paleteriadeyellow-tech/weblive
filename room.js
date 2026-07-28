@@ -15,6 +15,7 @@ import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 import { likeTriggerFires } from './like-trigger.js';
 import { buildGdashEffectUrl, fireGdashEffectRequest } from './gdash-effect.js';
 import { runWebhookExec } from './smbx-tiktok-webhook.js';
+import { youtubeSearchEmbeddable, youtubeCheckEmbeddable } from './youtube-api.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -6365,24 +6366,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   async function youtubeSearch(query) {
     const key = youtubeApiKey();
-    if (key) {
-      const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q='
-        + encodeURIComponent(query) + '&key=' + encodeURIComponent(key);
-      const r = await fetch(url);
-      if (!r.ok) throw new Error('youtube_http_' + r.status);
-      const d = await r.json();
-      const item = Array.isArray(d.items) && d.items[0];
-      if (!item?.id?.videoId) return null;
-      const sn = item.snippet || {};
-      const thumbs = sn.thumbnails || {};
-      const thumb = thumbs.medium?.url || thumbs.default?.url || thumbs.high?.url || '';
-      return {
-        videoId: String(item.id.videoId),
-        title: String(sn.title || query),
-        channel: String(sn.channelTitle || ''),
-        thumb,
-      };
-    }
+    if (key) return youtubeSearchEmbeddable(query, key);
     // .exe local: la key vive en Render → proxy
     const remote = String(process.env.AUTH_REMOTE || '').replace(/\/+$/, '');
     if (!remote) throw new Error('missing_api_key');
@@ -6491,6 +6475,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (m) videoId = m[1];
       let track = null;
       if (videoId) {
+        const key = youtubeApiKey();
+        if (key) {
+          const okEmbed = await youtubeCheckEmbeddable(videoId, key);
+          if (!okEmbed) {
+            reply('Ese vídeo no permite reproducción en overlay. Prueba !play con el nombre de la canción.', false);
+            return;
+          }
+        }
         track = await youtubeOEmbed(videoId)
           || { videoId, title: arg, channel: '', thumb: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` };
       } else {
@@ -6501,7 +6493,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           } else reply('Error al buscar en YouTube.', false);
           return;
         }
-        if (!track) { reply(`No encontré "${arg}".`, false); return; }
+        if (!track) {
+          reply(`No encontré una versión reproducible de "${arg}". Prueba otro nombre.`, false);
+          return;
+        }
       }
       if (cfg.preventDuplicates) {
         const dup = youtubeQueue.some((q) => q.videoId === track.videoId)

@@ -1081,7 +1081,7 @@ function roomUrl(path) {
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
   if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=11';
-  if (/\/youtube-overlay\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=3';
+  if (/\/youtube-overlay\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=4';
   return url;
 }
 
@@ -13186,6 +13186,10 @@ function ytPanelPlayerSync(now, volume) {
             _ytPanelReady = true;
             const pend = _ytPanelPending;
             if (pend) ytPanelPlayerSync(pend.now, pend.volume);
+          },
+          onError: () => {
+            // Vídeo no incrustable → saltar a la siguiente
+            try { send({ action: 'youtubeControl', op: 'ended', reason: 'embed' }); } catch {}
           },
         },
       });
