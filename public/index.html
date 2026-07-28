@@ -6106,10 +6106,17 @@
             <!-- Conexión con Spotify -->
             <div class="settings-card sp-card">
               <div class="tts-head"><h3>Conexión con la Cuenta de Spotify</h3><span class="tts-sub">Client ID de tu app + login</span></div>
-              <div class="sp-client-field">
+              <div class="sp-client-field" id="sp-client-wrap">
                 <label for="sp-client-id">Client ID de tu app</label>
                 <input type="text" id="sp-client-id" placeholder="Pega aquí el Client ID (Settings → Client ID)" autocomplete="off" spellcheck="false">
                 <p class="hint">Sin tu Client ID, el login no usa tu app de Developers. Si lo cambias, vuelve a iniciar sesión.</p>
+                <div class="sp-premium-lock" id="sp-premium-lock" hidden>
+                  <div class="ov-lock-box">
+                    <div class="ov-lock-ico">🔒</div>
+                    <div class="ov-lock-title">⭐ Solo Premium</div>
+                    <div class="ov-lock-sub">Mejora tu plan para conectar Spotify con tu Client ID</div>
+                  </div>
+                </div>
               </div>
               <div id="sp-disconnected" class="sp-conn-block">
                 <p class="hint">Primero, necesitas conectar tu cuenta de Spotify.</p>

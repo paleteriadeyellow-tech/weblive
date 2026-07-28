@@ -2854,6 +2854,39 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   box-shadow: 0 0 0 3px rgba(30, 215, 96, .18);
 }
 .sp-client-field .hint { margin: 0; font-size: 12.5px; line-height: 1.4; }
+.sp-client-field {
+  position: relative;
+}
+.sp-client-field.is-locked #sp-client-id,
+.sp-client-field.is-locked .hint {
+  filter: grayscale(1) brightness(.55);
+  pointer-events: none;
+  user-select: none;
+}
+.sp-premium-lock {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border-radius: 12px;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(7, 12, 24, .72);
+  backdrop-filter: blur(2px);
+}
+.sp-premium-lock .ov-lock-box { padding: 10px 14px; }
+.sp-premium-lock .ov-lock-ico { font-size: 22px; margin-bottom: 4px; }
+.sp-premium-lock .ov-lock-title { font-size: 14px; }
+.sp-premium-lock .ov-lock-sub { font-size: 12px; max-width: 240px; margin: 4px auto 0; }
+#view-spotify.is-sp-locked .sp-login-btn,
+#view-spotify.is-sp-locked #sp-logout {
+  opacity: .45;
+  pointer-events: none;
+  cursor: not-allowed;
+  filter: grayscale(.4);
+}
 
 /* Commands */
 .sp-cmds { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }

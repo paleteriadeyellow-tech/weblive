@@ -497,7 +497,7 @@ function setCaps(c) {
   try { revealConfigTab(); } catch {}
   try { revealJuegosTab(); } catch {}
   try { revealSpotifyTab(); } catch {}
-  if (typeof spotifyAllowed === 'function' && spotifyAllowed() && typeof setupSpotifyUI === 'function') {
+  if (typeof spotifyTabVisible === 'function' && spotifyTabVisible() && typeof setupSpotifyUI === 'function') {
     try { setupSpotifyUI(); } catch {}
   }
 }
@@ -1653,7 +1653,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
-    if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
+    if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); applySpotifyLock(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     if (btn.dataset.view === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
     if (btn.dataset.view === 'acciones') {
@@ -12597,16 +12597,37 @@ const SPOTIFY_MAP = {
 };
 const SPOTIFY_INT_KEYS = ['playCost', 'skipCost', 'queueTotal', 'queueUser'];
 
-function spotifyAllowed() {
+function spotifyTabVisible() {
+  return !!IS_DESKTOP;
+}
+/** Solo Premium (o admin) puede conectar Client ID / login. */
+function spotifyUnlocked() {
   if (!IS_DESKTOP) return false;
   if (window.IS_ADMIN) return true;
-  if (typeof window.SPOTIFY_ACCESS === 'boolean') return window.SPOTIFY_ACCESS;
-  const u = (window.MY_USER || '').toLowerCase();
-  return SPOTIFY_ALLOWED_USERS.includes(u);
+  return window.CAPS?.plan === 'premium';
+}
+/** @deprecated usar spotifyTabVisible / spotifyUnlocked */
+function spotifyAllowed() {
+  return spotifyTabVisible();
+}
+function applySpotifyLock() {
+  const view = document.getElementById('view-spotify');
+  const wrap = document.getElementById('sp-client-wrap');
+  const lock = document.getElementById('sp-premium-lock');
+  const input = document.getElementById('sp-client-id');
+  const locked = IS_DESKTOP && !spotifyUnlocked();
+  if (view) view.classList.toggle('is-sp-locked', locked);
+  if (wrap) wrap.classList.toggle('is-locked', locked);
+  if (lock) lock.hidden = !locked;
+  if (input) {
+    input.readOnly = locked;
+    input.tabIndex = locked ? -1 : 0;
+  }
 }
 function revealSpotifyTab() {
   const nav = document.getElementById('navSpotify');
-  if (nav) nav.style.display = spotifyAllowed() ? '' : 'none';
+  if (nav) nav.style.display = spotifyTabVisible() ? '' : 'none';
+  applySpotifyLock();
   try { syncNavSections(); } catch {}
 }
 
@@ -12787,6 +12808,10 @@ function openSpotifyViewAfterConnect() {
 
 async function startSpotifyLogin() {
   try {
+    if (!spotifyUnlocked()) {
+      toast && toast('Spotify es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+      return;
+    }
     saveSpotifySettings();
     const clientId = String(document.getElementById('sp-client-id')?.value || settings?.spotify?.clientId || '').trim();
     if (!clientId) {
@@ -26629,9 +26654,9 @@ function setupPanelLives() {
     refreshLevelVideoScreenLink();
     try { loadAnnouncements(); } catch (e) { console.error('Anuncios:', e); }
     try { revealSpotifyTab(); } catch (e) { console.error('Spotify tab:', e); }
-    if (spotifyAllowed()) {
+    if (spotifyTabVisible()) {
       try { setupSpotifyUI(); } catch (e) { console.error('Spotify UI:', e); }
-      if (new URLSearchParams(location.search).get('spotify') === 'connected') openSpotifyViewAfterConnect();
+      if (spotifyUnlocked() && new URLSearchParams(location.search).get('spotify') === 'connected') openSpotifyViewAfterConnect();
     }
     try { revealWebhookTab(); } catch (e) { console.error('Webhook tab:', e); }
     try { revealConfigTab(); } catch (e) { console.error('Config tab:', e); }

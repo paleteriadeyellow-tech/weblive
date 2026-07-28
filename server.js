@@ -508,7 +508,7 @@ function capsForUser(user) {
       }
     }
   }
-  caps.spotify = isUserSpotifyEnabled(user);
+  caps.spotify = !!(user.isAdmin || getUserPlan(user) === 'premium');
   return caps;
 }
 
@@ -3555,7 +3555,8 @@ app.post('/api/tts/elevenlabs/clone', express.json({ limit: '14mb' }), async (re
 function spotifyUser(req) {
   const user = userFromRequest(req);
   if (!user) return null;
-  if (isUserSpotifyEnabled(user)) return user;
+  if (user.isAdmin) return user;
+  if (getUserPlan(user) === 'premium') return user;
   return null;
 }
 
