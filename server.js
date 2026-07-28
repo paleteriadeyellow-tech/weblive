@@ -13,7 +13,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
-import { youtubeSearchEmbeddable } from './youtube-api.js';
+import { youtubeSearchEmbeddable, youtubeSearchForPlay } from './youtube-api.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
 import { createStreamerRankings } from './streamer-rankings.js';
@@ -3608,6 +3608,7 @@ app.get('/api/youtube/search', async (req, res) => {
     .slice(0, 20);
   const preferNonVevo = String(req.query.vevo || '') !== '1';
   const allowCover = String(req.query.cover || '') === '1';
+  const forPlay = String(req.query.play || '') === '1';
   const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
   const now = Date.now();
   let hit = _ytSearchHits.get(ip);
@@ -3617,7 +3618,9 @@ app.get('/api/youtube/search', async (req, res) => {
   _ytSearchHits.set(ip, hit);
   if (hit.n > 40) return res.status(429).json({ ok: false, error: 'rate' });
   try {
-    const track = await youtubeSearchEmbeddable(q, key, { excludeIds, preferNonVevo, allowCover });
+    const track = forPlay
+      ? await youtubeSearchForPlay(q, key, { excludeIds, preferNonVevo, allowCover })
+      : await youtubeSearchEmbeddable(q, key, { excludeIds, preferNonVevo, allowCover });
     return res.json({ ok: true, track: track || null });
   } catch (e) {
     const msg = String(e?.message || e);

@@ -15,7 +15,7 @@ import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 import { likeTriggerFires } from './like-trigger.js';
 import { buildGdashEffectUrl, fireGdashEffectRequest } from './gdash-effect.js';
 import { runWebhookExec } from './smbx-tiktok-webhook.js';
-import { youtubeSearchEmbeddable, youtubeCheckEmbeddable, youtubeAltQueryFromTitle } from './youtube-api.js';
+import { youtubeSearchEmbeddable, youtubeCheckEmbeddable, youtubeAltQueryFromTitle, youtubeSearchForPlay } from './youtube-api.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -6368,7 +6368,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   async function youtubeSearch(query, opts = {}) {
     const key = youtubeApiKey();
-    if (key) return youtubeSearchEmbeddable(query, key, opts);
+    if (key) {
+      if (opts.forPlay) return youtubeSearchForPlay(query, key, opts);
+      return youtubeSearchEmbeddable(query, key, opts);
+    }
     // .exe local: la key vive en Render → proxy
     const remote = String(process.env.AUTH_REMOTE || '').replace(/\/+$/, '');
     if (!remote) throw new Error('missing_api_key');
@@ -6377,12 +6380,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (ex.length) url += '&exclude=' + encodeURIComponent(ex.join(','));
     if (opts.preferNonVevo === false) url += '&vevo=1';
     if (opts.allowCover) url += '&cover=1';
+    if (opts.forPlay) url += '&play=1';
     const r = await fetch(url);
+    let d = null;
+    try { d = await r.json(); } catch {}
     if (!r.ok) {
       if (r.status === 503) throw new Error('missing_api_key');
-      throw new Error('youtube_http_' + r.status);
+      throw new Error(String(d?.error || ('youtube_http_' + r.status)));
     }
-    const d = await r.json();
     if (!d?.ok) throw new Error(String(d?.error || 'youtube_proxy'));
     return d.track || null;
   }
@@ -6569,15 +6574,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           track = alt;
         }
       } else {
-        try { track = await youtubeSearch(arg); }
+        try { track = await youtubeSearch(arg, { forPlay: true, preferNonVevo: true, allowCover: false }); }
         catch (e) {
-          if (String(e?.message || e) === 'missing_api_key') {
-            reply('Búsqueda no disponible ahora. Pega un enlace de YouTube o prueba más tarde.', false);
-          } else reply('Error al buscar en YouTube.', false);
+          const msg = String(e?.message || e);
+          if (msg === 'missing_api_key' || msg.includes('no_key')) {
+            reply('Búsqueda no disponible ahora. Revisa YOUTUBE_API_KEY en el servidor.', false);
+          } else if (/quota|dailyLimit|403/i.test(msg)) {
+            reply('Cuota de YouTube agotada o key sin permiso. Revisa Google Cloud.', false);
+          } else {
+            reply('Error al buscar en YouTube (' + msg.slice(0, 80) + ').', false);
+          }
           return;
         }
         if (!track) {
-          reply(`No encontré una versión reproducible de "${arg}". Prueba otro nombre.`, false);
+          reply(`No encontré una versión con letra reproducible de "${arg}".`, false);
           return;
         }
       }

@@ -1,11 +1,12 @@
 /**
  * Búsqueda YouTube: solo vídeos incrustables (OBS / iframe).
- * La API key viene del entorno (YOUTUBE_API_KEY), nunca del usuario final.
+ * Prefiere letras (lyrics/letra), evita covers/karaoke y canales VEVO.
+ * La API key viene del entorno (YOUTUBE_API_KEY).
  */
 
 function isVevoChannel(channel) {
   const c = String(channel || '');
-  return /\bvevo\b/i.test(c) || /VEVO$/.test(c.trim());
+  return /\bvevo\b/i.test(c) || /VEVO$/i.test(c.trim());
 }
 
 function isCoverOrKaraoke(title) {
@@ -13,21 +14,41 @@ function isCoverOrKaraoke(title) {
     .test(String(title || ''));
 }
 
-/** Penaliza VEVO / covers; premia lyrics/audio/visualizer de otros canales. */
+function isLyricsTitle(title) {
+  return /\b(lyrics?|letra|lyric\s*video|letra\s*oficial|con\s*letra)\b/i.test(String(title || ''));
+}
+
 function youtubeScoreCandidate(track, opts = {}) {
   if (!track) return -999;
   const title = String(track.title || '');
   const channel = String(track.channel || '');
   let score = 10;
-  if (isVevoChannel(channel)) score -= 100;
-  if (opts.preferNonVevo && isVevoChannel(channel)) score -= 50;
-  if (isCoverOrKaraoke(title)) score -= 80;
-  if (/\b(lyrics?|letra|official\s*audio|audio|visualizer|lyric\s*video)\b/i.test(title)) score += 25;
-  if (/\b(super\s*bowl|halftime|live\s+at|vevo)\b/i.test(title)) score -= 30;
-  if (/ - Topic$/i.test(channel)) score += 5; // Topic suele ir mejor en embed que VEVO
+  if (isCoverOrKaraoke(title)) score -= 200;
+  if (isVevoChannel(channel)) score -= (opts.preferNonVevo !== false ? 80 : 20);
+  if (isLyricsTitle(title)) score += 60;
+  if (/\b(official\s*audio|audio\s*oficial|visualizer)\b/i.test(title)) score += 20;
+  if (/\b(super\s*bowl|halftime|live\s+at|vevo|official\s*music\s*video)\b/i.test(title)) score -= 25;
+  if (/ - Topic$/i.test(channel)) score += 8;
   return score;
 }
 
+async function youtubeApiJson(url) {
+  const r = await fetch(url);
+  const text = await r.text().catch(() => '');
+  let d = null;
+  try { d = text ? JSON.parse(text) : null; } catch {}
+  if (!r.ok) {
+    const reason = d?.error?.errors?.[0]?.reason || d?.error?.message || text.slice(0, 120);
+    throw new Error('youtube_http_' + r.status + (reason ? ':' + reason : ''));
+  }
+  return d || {};
+}
+
+/**
+ * @param {string} query
+ * @param {string} apiKey
+ * @param {{ excludeIds?: string[], preferNonVevo?: boolean, allowCover?: boolean, preferLyrics?: boolean }} opts
+ */
 export async function youtubeSearchEmbeddable(query, apiKey, opts = {}) {
   const key = String(apiKey || '').trim();
   if (!key) throw new Error('missing_api_key');
@@ -40,13 +61,12 @@ export async function youtubeSearchEmbeddable(query, apiKey, opts = {}) {
   );
   const preferNonVevo = opts.preferNonVevo !== false;
   const allowCover = !!opts.allowCover;
+  const preferLyrics = opts.preferLyrics !== false;
 
   const searchUrl = 'https://www.googleapis.com/youtube/v3/search'
     + '?part=snippet&type=video&videoEmbeddable=true&maxResults=15&q='
     + encodeURIComponent(q) + '&key=' + encodeURIComponent(key);
-  const r = await fetch(searchUrl);
-  if (!r.ok) throw new Error('youtube_http_' + r.status);
-  const d = await r.json();
+  const d = await youtubeApiJson(searchUrl);
   const items = Array.isArray(d.items) ? d.items : [];
   if (!items.length) return null;
 
@@ -68,12 +88,11 @@ export async function youtubeSearchEmbeddable(query, apiKey, opts = {}) {
   const ids = [...metaById.keys()];
   if (!ids.length) return null;
 
-  const candidates = [];
-  const vUrl = 'https://www.googleapis.com/youtube/v3/videos?part=status,snippet&id='
-    + ids.map(encodeURIComponent).join(',') + '&key=' + encodeURIComponent(key);
-  const vr = await fetch(vUrl);
-  if (vr.ok) {
-    const vd = await vr.json();
+  let candidates = [];
+  try {
+    const vUrl = 'https://www.googleapis.com/youtube/v3/videos?part=status,snippet&id='
+      + ids.map(encodeURIComponent).join(',') + '&key=' + encodeURIComponent(key);
+    const vd = await youtubeApiJson(vUrl);
     for (const it of (vd.items || [])) {
       if (it?.status?.embeddable !== true) continue;
       const id = String(it.id || '');
@@ -88,25 +107,63 @@ export async function youtubeSearchEmbeddable(query, apiKey, opts = {}) {
           || metaById.get(id)?.thumb || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
       };
       if (!allowCover && isCoverOrKaraoke(track.title)) continue;
-      if (preferNonVevo && isVevoChannel(track.channel)) continue;
       candidates.push(track);
     }
-  } else {
-    for (const id of ids) {
-      const hit = metaById.get(id);
-      if (!hit) continue;
-      if (preferNonVevo && isVevoChannel(hit.channel)) continue;
-      candidates.push(hit);
+  } catch {
+    candidates = [...metaById.values()];
+  }
+
+  if (!candidates.length) return null;
+
+  // Preferir no-VEVO si hay alguno; si no, usar lo que haya.
+  let pool = candidates;
+  if (preferNonVevo) {
+    const nonVevo = candidates.filter((t) => !isVevoChannel(t.channel));
+    if (nonVevo.length) pool = nonVevo;
+  }
+  // Preferir letras si hay alguna en el pool.
+  if (preferLyrics) {
+    const lyrics = pool.filter((t) => isLyricsTitle(t.title));
+    if (lyrics.length) pool = lyrics;
+  }
+
+  pool.sort((a, b) => youtubeScoreCandidate(b, { preferNonVevo }) - youtubeScoreCandidate(a, { preferNonVevo }));
+  return pool[0] || null;
+}
+
+/** Búsqueda para !play: prioriza letras / letra, luego audio, luego genérico. */
+export async function youtubeSearchForPlay(query, apiKey, opts = {}) {
+  const base = String(query || '').trim();
+  if (!base) return null;
+  const tries = [];
+  if (!/\b(lyrics?|letra)\b/i.test(base)) {
+    tries.push(base + ' lyrics');
+    tries.push(base + ' letra');
+    tries.push(base + ' lyric video');
+  }
+  tries.push(base + ' official audio');
+  tries.push(base);
+  let lastErr = null;
+  for (const q of tries) {
+    try {
+      const track = await youtubeSearchEmbeddable(q, apiKey, {
+        ...opts,
+        preferNonVevo: true,
+        allowCover: false,
+        preferLyrics: true,
+      });
+      if (track) return track;
+    } catch (e) {
+      lastErr = e;
+      // Si la key/cuota falla, no seguir gastando cuota.
+      const msg = String(e?.message || e);
+      if (msg.includes('missing_api_key') || msg.includes('quota') || msg.includes('403') || msg.includes('400')) {
+        throw e;
+      }
     }
   }
-
-  // Si filtrar VEVO dejó vacío, reintentar permitiendo VEVO (mejor algo que nada).
-  if (!candidates.length && preferNonVevo) {
-    return youtubeSearchEmbeddable(query, apiKey, { ...opts, preferNonVevo: false });
-  }
-
-  candidates.sort((a, b) => youtubeScoreCandidate(b, { preferNonVevo }) - youtubeScoreCandidate(a, { preferNonVevo }));
-  return candidates[0] || null;
+  if (lastErr) throw lastErr;
+  return null;
 }
 
 export async function youtubeCheckEmbeddable(videoId, apiKey) {
@@ -114,11 +171,10 @@ export async function youtubeCheckEmbeddable(videoId, apiKey) {
   const id = String(videoId || '').trim();
   if (!key || !id) return false;
   try {
-    const url = 'https://www.googleapis.com/youtube/v3/videos?part=status&id='
-      + encodeURIComponent(id) + '&key=' + encodeURIComponent(key);
-    const r = await fetch(url);
-    if (!r.ok) return true;
-    const d = await r.json();
+    const d = await youtubeApiJson(
+      'https://www.googleapis.com/youtube/v3/videos?part=status&id='
+      + encodeURIComponent(id) + '&key=' + encodeURIComponent(key)
+    );
     const it = Array.isArray(d.items) && d.items[0];
     if (!it) return false;
     return it.status?.embeddable === true;
@@ -127,7 +183,6 @@ export async function youtubeCheckEmbeddable(videoId, apiKey) {
   }
 }
 
-/** Limpia títulos tipo "Artist - Song (Audio) / Official Video" para rebuscar. */
 export function youtubeAltQueryFromTitle(title) {
   let q = String(title || '').trim();
   if (!q) return '';
@@ -141,4 +196,4 @@ export function youtubeAltQueryFromTitle(title) {
   return q;
 }
 
-export { isVevoChannel, isCoverOrKaraoke };
+export { isVevoChannel, isCoverOrKaraoke, isLyricsTitle };
