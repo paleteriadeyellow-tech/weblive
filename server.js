@@ -3552,7 +3552,7 @@ app.post('/api/tts/elevenlabs/clone', express.json({ limit: '14mb' }), async (re
 });
 
 /* ----------------------------------------------------------------------------
- * Spotify Song Requests (solo .exe · admin o usuarios con spotifyEnabled).
+ * Spotify Song Requests (solo .exe · Premium via tab_spotify / admin).
  * OAuth con PKCE: el callback llega a un listener fijo en SPOTIFY_CALLBACK_PORT.
  * --------------------------------------------------------------------------*/
 function spotifyUser(req) {

@@ -1042,6 +1042,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clearTimeout(saveTimer);
     persistSharedSpotifyFromSettings();
     const snap = cloneSettings(settings);
+    // Spotify es global: no guardar copia por ranura (evita que un perfil pise el Client ID).
+    delete snap.spotify;
     if (profiles.editMode === 'general') profiles.general = snap;
     else profiles.slots[profiles.active] = snap;
   }
@@ -1068,6 +1070,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       persistSharedSpotifyFromSettings();
       const snap = cloneSettings(settings);
       // Copia independiente por ranura: evita que acciones de un perfil contaminen otro.
+      // Spotify queda solo en profiles.spotify (compartido entre perfiles).
+      delete snap.spotify;
       if (profiles.editMode === 'general') profiles.general = snap;
       else profiles.slots[profiles.active] = snap;
       saveProfilesNow();
@@ -1168,13 +1172,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const slots = profiles.slots.map((s, i) => {
       let src = s;
       if (profiles.editMode !== 'general' && i === profiles.active) src = settings;
-      return src ? cloneSettings(src) : null;
+      if (!src) return null;
+      const out = cloneSettings(src);
+      delete out.spotify;
+      return out;
     });
+    let general = null;
+    if (profiles.editMode === 'general') general = cloneSettings(settings);
+    else if (profiles.general) general = cloneSettings(profiles.general);
+    if (general) delete general.spotify;
     return {
       active: profiles.active,
       names: profiles.names.slice(),
       slots,
-      general: profiles.editMode === 'general' ? cloneSettings(settings) : (profiles.general ? cloneSettings(profiles.general) : null),
+      general,
       editingGeneral: profiles.editMode === 'general',
       syncTs: profiles.syncTs || 0,
       spotify: getSharedSpotify(),
@@ -8536,7 +8547,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
     ws.send(JSON.stringify({ type: 'communityGiftCatalog', payload: { results: [...communityGiftCatalog.values()] } }));
     try { ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() })); } catch (e) { console.error('[profiles]', e); }
-    ws.send(JSON.stringify({ type: 'spotifyQueue', payload: { queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image })) } }));
+    ws.send(JSON.stringify({ type: 'spotifyQueue', payload: { queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image, durationMs: q.durationMs || 0 })) } }));
     ws.send(JSON.stringify({ type: 'spotifyHistory', payload: { history: spotifyHistory } }));
     ws.send(JSON.stringify({ type: 'spotifyNowPlaying', payload: { track: spotifyNowPlaying } }));
     const caps = currentCaps();

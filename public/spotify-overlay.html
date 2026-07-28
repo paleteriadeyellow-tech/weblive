@@ -14,11 +14,10 @@
         }
         .sp-wrap {
             width: 420px;
-            min-height: 80px;
-            padding: 16px 18px;
+            min-height: 0;
+            padding: 0;
             box-sizing: border-box;
-            background: #212121;
-            border-radius: 4px;
+            background: transparent;
         }
         .sp-list {
             list-style: none;
@@ -39,7 +38,7 @@
             height: 70px;
             border-radius: 6px;
             object-fit: cover;
-            background: #333;
+            background: transparent;
             flex: none;
             display: block;
         }
@@ -62,27 +61,21 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
         }
         .sp-time {
-            color: rgba(255, 255, 255, .85);
+            color: rgba(255, 255, 255, .9);
             font-weight: 400;
             font-size: 14px;
             line-height: 1.2;
             font-variant-numeric: tabular-nums;
-        }
-        .sp-empty {
-            color: rgba(255, 255, 255, .45);
-            font-size: 14px;
-            font-weight: 400;
-            padding: 8px 0;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
         }
     </style>
 </head>
 <body>
     <div class="sp-wrap">
-        <ul class="sp-list" id="sp-list">
-            <li class="sp-empty">Sin reproducción activa</li>
-        </ul>
+        <ul class="sp-list" id="sp-list"></ul>
     </div>
 
     <script>
@@ -174,11 +167,7 @@
 
         function paint() {
             const rows = buildRows();
-            if (!rows.length) {
-                list.innerHTML = '<li class="sp-empty">Sin reproducción activa</li>';
-                return;
-            }
-            list.innerHTML = rows.map(rowHtml).join('');
+            list.innerHTML = rows.length ? rows.map(rowHtml).join('') : '';
         }
 
         function renderNow(t) {
