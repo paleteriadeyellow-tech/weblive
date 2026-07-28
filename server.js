@@ -502,8 +502,9 @@ function capsForUser(user) {
   } else {
     const allowed = getUserAllowedGames(user);
     if (Array.isArray(allowed)) {
+      // Allowlist del admin = fuente de verdad por juego (puede conceder aunque el plan lo tenga off).
       for (const k of Object.keys(caps.features || {})) {
-        if (k.startsWith('game_')) caps.features[k] = caps.features[k] !== false && allowed.includes(k);
+        if (k.startsWith('game_')) caps.features[k] = allowed.includes(k);
       }
     }
   }

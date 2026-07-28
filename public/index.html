@@ -80,6 +80,7 @@
 
         <div class="nav-divider" aria-hidden="true"><span class="nav-divider-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="nav-ico-stroke" d="M6 12h4v4"/><path class="nav-ico-stroke" d="M8 10v4"/><path class="nav-ico-stroke" d="M15 11h.01"/><path class="nav-ico-stroke" d="M18 13h.01"/><path class="nav-ico-stroke" d="M17.32 5H6.68a4 4 0 00-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 003 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 019.828 16h4.344a2 2 0 011.414.586L17 18c.5.5 1 1 2 1a3 3 0 003-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0017.32 5z"/></svg></span></div>
         <div class="nav-section">
+          <button class="nav-item" data-view="youtube" id="navYoutube">YouTube</button>
           <button class="nav-item" data-view="spotify" id="navSpotify" style="display:none">Spotify</button>
           <button class="nav-item" data-view="juegos" id="navJuegos" style="display:none">Juegos</button>
           <button class="nav-item" data-view="webhook" id="navWebhook" style="display:none">Webhook</button>
@@ -6027,6 +6028,87 @@
                 </table>
               </div>
             </div>
+          </div>
+        </section>
+
+        <!-- ===================== YOUTUBE (solicitudes + overlay) ===================== -->
+        <section class="view" id="view-youtube">
+          <h1 class="view-title">YouTube — Solicitudes de canciones</h1>
+          <p class="view-sub">Los espectadores piden canciones con comandos del chat. La cola se reproduce en el overlay de OBS (IFrame de YouTube). Usa <b>!play nombre</b> o pega un enlace de YouTube.</p>
+
+          <div class="yt-stats">
+            <div class="yt-stat"><div class="yt-stat-num" id="yt-stat-queue">0</div><div class="yt-stat-lbl">En cola</div></div>
+            <div class="yt-stat"><div class="yt-stat-num is-ok" id="yt-stat-played">0</div><div class="yt-stat-lbl">Reproducidas</div></div>
+            <div class="yt-stat"><div class="yt-stat-num is-mut" id="yt-stat-status">Inactivo</div><div class="yt-stat-lbl">Estado</div></div>
+          </div>
+
+          <div class="settings-card yt-control-card">
+            <div class="yt-ctrl-chrome" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div class="yt-ctrl-row">
+              <input type="text" id="yt-cmd-input" class="yt-cmd-input" placeholder="$ !play &lt;canción&gt; | !skip | !pause | !resume | !clear | !volumen 0-100" autocomplete="off">
+              <button type="button" class="btn primary" id="yt-cmd-enter">ENTER</button>
+            </div>
+            <div class="yt-ctrl-label">Control directo del streamer</div>
+            <div class="yt-ctrl-btns" id="yt-ctrl-btns">
+              <button type="button" class="btn ghost yt-quick" data-cmd="!play ">!play</button>
+              <button type="button" class="btn ghost yt-quick" data-cmd="!skip">!skip</button>
+              <button type="button" class="btn ghost yt-quick" data-cmd="!pause">!pause</button>
+              <button type="button" class="btn ghost yt-quick" data-cmd="!resume">!resume</button>
+              <button type="button" class="btn ghost yt-quick" data-cmd="!clear">!clear</button>
+              <button type="button" class="btn ghost yt-quick" data-cmd="!quit">!quit</button>
+              <button type="button" class="btn ghost yt-quick" data-cmd="!volumen ">!volumen</button>
+            </div>
+          </div>
+
+          <div class="yt-main-grid">
+            <div class="settings-card yt-panel">
+              <div class="tts-head"><h3>Vista previa — Cola</h3><span class="tts-sub">Próximas canciones</span></div>
+              <div class="yt-queue" id="yt-queue-list">
+                <div class="yt-empty">Cola vacía.<br><span>Usa !play para buscar en YouTube</span></div>
+              </div>
+            </div>
+            <div class="settings-card yt-panel yt-now-panel">
+              <div class="tts-head"><h3>Ahora suena</h3><span class="tts-sub" id="yt-now-sub">Sin reproducción</span></div>
+              <div class="yt-now" id="yt-now">
+                <div class="yt-now-idle">
+                  <div class="yt-now-ico" aria-hidden="true">♪</div>
+                  <div>Sin reproducción</div>
+                </div>
+                <div class="yt-now-track" id="yt-now-track" hidden>
+                  <img id="yt-now-thumb" alt="" width="120" height="68" decoding="async">
+                  <div class="yt-now-meta">
+                    <div class="yt-now-title" id="yt-now-title">—</div>
+                    <div class="yt-now-artist" id="yt-now-channel">—</div>
+                    <div class="yt-now-by" id="yt-now-by" hidden></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="yt-overlay-grid">
+            <div class="settings-card">
+              <div class="tts-head"><h3>Superposición de música</h3><span class="tts-sub">Canción actual y cola para OBS</span></div>
+              <div class="yt-ov-preview" aria-hidden="true"></div>
+              <div class="ovpro-urlrow" style="margin-top:12px">
+                <code class="ov-url" data-path="/youtube-overlay.html">/youtube-overlay.html</code>
+                <button type="button" class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+            </div>
+            <div class="settings-card">
+              <div class="tts-head"><h3>Ajustes</h3><span class="tts-sub">Cola y comandos</span></div>
+              <div class="yt-form">
+                <label class="switch-row plain"><input type="checkbox" id="yt-prevent-dup" checked> <span>Prevenir canciones duplicadas</span></label>
+                <div class="sp-row"><label>Máx. canciones por usuario</label><input type="number" id="yt-max-user" min="0" value="0"><span class="sp-unit">(0 = sin límite)</span></div>
+                <div class="yt-cmd-names" id="yt-cmd-names"></div>
+                <div class="sp-save-row"><button type="button" class="btn primary" id="yt-save">Guardar</button><span id="yt-save-msg" class="sp-save-msg"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <div class="tts-head"><h3>Comandos y permisos del chat</h3><span class="tts-sub">Quién puede usar cada comando</span></div>
+            <div class="yt-perm-grid" id="yt-perm-grid"></div>
           </div>
         </section>
 

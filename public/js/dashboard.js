@@ -1325,6 +1325,7 @@ function handle(type, p) {
     case 'spotifyQueue': break;
     case 'spotifyNowPlaying': break;
     case 'spotifyCommand': break;
+    case 'youtubeState': if (typeof renderYoutubeState === 'function') renderYoutubeState(p); break;
     case 'musicState': if (typeof handleMusicWs === 'function') handleMusicWs('musicState', p); break;
     case 'queueUpdated': if (typeof handleMusicWs === 'function') handleMusicWs('queueUpdated', p); break;
     case 'currentSongUpdated': if (typeof handleMusicWs === 'function') handleMusicWs('currentSongUpdated', p); break;
@@ -1654,6 +1655,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
+    if (btn.dataset.view === 'youtube') { try { setupYoutubeUI(); send({ action: 'getYoutubeState' }); } catch (e) { console.error('YouTube UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     if (btn.dataset.view === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
     if (btn.dataset.view === 'acciones') {
@@ -3675,6 +3677,7 @@ function applySettingsToUI() {
   renderSoundAlerts();
   if (typeof applyPointsSettingsUI === 'function') applyPointsSettingsUI();
   if (typeof applySpotifyUI === 'function') applySpotifyUI();
+  if (typeof applyYoutubeUI === 'function') applyYoutubeUI();
   if (typeof applyWebhookUI === 'function') applyWebhookUI();
   if (typeof renderAcciones === 'function') renderAcciones();
 }
@@ -12886,6 +12889,316 @@ function fallbackCopy(text, done) {
     document.execCommand('copy'); document.body.removeChild(ta);
     if (done) done();
   } catch {}
+}
+
+/* ====================== YouTube song requests ====================== */
+const YT_CMD_KINDS = ['play', 'skip', 'pause', 'resume', 'clear', 'quit', 'volumen'];
+const YT_CMD_LABELS = {
+  play: 'Pedir canción',
+  skip: 'Saltar',
+  pause: 'Pausar',
+  resume: 'Reanudar',
+  clear: 'Vaciar cola',
+  quit: 'Quitar de la cola',
+  volumen: 'Volumen',
+};
+const YOUTUBE_DEFAULTS = {
+  preventDuplicates: true,
+  maxPerUser: 0,
+  volume: 80,
+  commands: {
+    play: { cmd: '!play', on: true, readAll: false, followers: false, mods: true, superFans: true, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
+    skip: { cmd: '!skip', on: true, readAll: false, followers: false, mods: true, superFans: true, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
+    pause: { cmd: '!pause', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
+    resume: { cmd: '!resume', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
+    clear: { cmd: '!clear', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
+    quit: { cmd: '!quit', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [], modsCanRemoveOthers: true },
+    volumen: { cmd: '!volumen', on: true, readAll: false, followers: false, mods: true, superFans: false, fanClub: false, fanClubMin: 1, allowUsers: [], blockUsers: [] },
+  },
+};
+
+function ytNormUserId(s) {
+  return String(s || '').trim().replace(/^@/, '').toLowerCase();
+}
+function ytMergeCmd(kind, raw) {
+  const base = (YOUTUBE_DEFAULTS.commands[kind] || {});
+  const c = { ...base, ...(raw && typeof raw === 'object' ? raw : {}) };
+  c.allowUsers = Array.isArray(c.allowUsers) ? c.allowUsers.map(ytNormUserId).filter(Boolean) : [];
+  c.blockUsers = Array.isArray(c.blockUsers) ? c.blockUsers.map(ytNormUserId).filter(Boolean) : [];
+  return c;
+}
+function ytEnsureSettings() {
+  const cfg = { ...YOUTUBE_DEFAULTS, ...(settings.youtube || {}) };
+  cfg.commands = { ...(YOUTUBE_DEFAULTS.commands || {}), ...(cfg.commands || {}) };
+  for (const k of YT_CMD_KINDS) cfg.commands[k] = ytMergeCmd(k, cfg.commands[k]);
+  settings.youtube = cfg;
+  return cfg;
+}
+
+function applyYoutubeUI() {
+  const cfg = ytEnsureSettings();
+  const dup = document.getElementById('yt-prevent-dup');
+  if (dup) dup.checked = cfg.preventDuplicates !== false;
+  const max = document.getElementById('yt-max-user');
+  if (max && document.activeElement !== max) max.value = String(Math.max(0, Number(cfg.maxPerUser) || 0));
+  renderYoutubeCmdNames();
+  renderYoutubePermGrid();
+}
+
+function renderYoutubeCmdNames() {
+  const box = document.getElementById('yt-cmd-names');
+  if (!box) return;
+  const cfg = ytEnsureSettings();
+  box.innerHTML = YT_CMD_KINDS.map((k) => {
+    const c = cfg.commands[k] || ytMergeCmd(k);
+    return `<label>${esc(YT_CMD_LABELS[k] || k)}<input type="text" data-yt-cmd="${esc(k)}" value="${esc(c.cmd || ('!' + k))}" spellcheck="false"></label>`;
+  }).join('');
+}
+
+function renderYoutubePermGrid() {
+  const grid = document.getElementById('yt-perm-grid');
+  if (!grid) return;
+  const cfg = ytEnsureSettings();
+  grid.innerHTML = YT_CMD_KINDS.map((k) => {
+    const c = cfg.commands[k] || ytMergeCmd(k);
+    const chips = (arr, kind) => (arr || []).map((u) =>
+      `<span class="yt-chip${kind === 'block' ? ' is-block' : ''}" data-kind="${esc(kind)}" data-user="${esc(u)}">@${esc(u)}<button type="button" data-act="del" title="Quitar">✕</button></span>`
+    ).join('');
+    const quitExtra = k === 'quit'
+      ? `<label class="switch-row plain"><input type="checkbox" data-yt-field="modsCanRemoveOthers" ${c.modsCanRemoveOthers ? 'checked' : ''}> <span>Mods pueden quitar canciones de otros</span></label>`
+      : '';
+    return `<div class="yt-perm-card" data-yt-kind="${esc(k)}">
+      <div class="yt-perm-head">
+        <code>${esc(c.cmd || ('!' + k))}</code>
+        <label class="switch-row plain"><input type="checkbox" data-yt-field="on" ${c.on !== false ? 'checked' : ''}> <span>Activo</span></label>
+      </div>
+      <div class="yt-perm-roles">
+        <label class="switch-row plain"><input type="checkbox" data-yt-field="readAll" ${c.readAll ? 'checked' : ''}> <span>Leer todos</span></label>
+        <label class="switch-row plain"><input type="checkbox" data-yt-field="followers" ${c.followers ? 'checked' : ''}> <span>Seguidores</span></label>
+        <label class="switch-row plain"><input type="checkbox" data-yt-field="mods" ${c.mods ? 'checked' : ''}> <span>Mods</span></label>
+        <label class="switch-row plain"><input type="checkbox" data-yt-field="superFans" ${c.superFans ? 'checked' : ''}> <span>Super Fans</span></label>
+        <label class="switch-row plain"><input type="checkbox" data-yt-field="fanClub" ${c.fanClub ? 'checked' : ''}> <span>Fan Club</span>
+          <span class="hint">Nivel mín. <input type="number" min="1" max="50" data-yt-field="fanClubMin" value="${esc(String(Math.max(1, Number(c.fanClubMin) || 1)))}" style="width:52px"></span>
+        </label>
+      </div>
+      ${quitExtra}
+      <div class="yt-perm-users">
+        <div class="hint">Permitidos</div>
+        <div class="yt-perm-add">
+          <input type="text" data-yt-list="allow" placeholder="@usuario" autocomplete="off">
+          <button type="button" class="btn tiny" data-yt-add="allow">Añadir</button>
+        </div>
+        <div class="yt-perm-chips" data-yt-chips="allow">${chips(c.allowUsers, 'allow')}</div>
+        <div class="hint">Bloqueados</div>
+        <div class="yt-perm-add">
+          <input type="text" data-yt-list="block" placeholder="@usuario" autocomplete="off">
+          <button type="button" class="btn tiny" data-yt-add="block">Añadir</button>
+        </div>
+        <div class="yt-perm-chips" data-yt-chips="block">${chips(c.blockUsers, 'block')}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.yt-perm-card').forEach((card) => {
+    const kind = card.dataset.ytKind;
+    card.querySelectorAll('[data-yt-field]').forEach((el) => {
+      const ev = el.type === 'checkbox' || el.type === 'number' ? 'change' : 'input';
+      el.addEventListener(ev, () => {
+        const cfg2 = ytEnsureSettings();
+        const cmd = cfg2.commands[kind] || ytMergeCmd(kind);
+        const field = el.dataset.ytField;
+        if (el.type === 'checkbox') cmd[field] = !!el.checked;
+        else if (field === 'fanClubMin') cmd.fanClubMin = Math.max(1, parseInt(el.value, 10) || 1);
+        cfg2.commands[kind] = cmd;
+        settings.youtube = cfg2;
+        saveSettings();
+        if (field === 'on' || el.tagName === 'CODE') { /* noop */ }
+        const code = card.querySelector('.yt-perm-head code');
+        if (code && cfg2.commands[kind]?.cmd) code.textContent = cfg2.commands[kind].cmd;
+      });
+    });
+    card.querySelectorAll('[data-yt-add]').forEach((btn) => {
+      btn.onclick = () => {
+        const list = btn.dataset.ytAdd;
+        const inp = card.querySelector(`input[data-yt-list="${list}"]`);
+        const id = ytNormUserId(inp?.value);
+        if (!id) return;
+        const cfg2 = ytEnsureSettings();
+        const cmd = cfg2.commands[kind] || ytMergeCmd(kind);
+        const key = list === 'block' ? 'blockUsers' : 'allowUsers';
+        if (!cmd[key].includes(id)) cmd[key].push(id);
+        cfg2.commands[kind] = cmd;
+        settings.youtube = cfg2;
+        if (inp) inp.value = '';
+        saveSettings();
+        renderYoutubePermGrid();
+      };
+    });
+    card.querySelectorAll('.yt-chip [data-act="del"]').forEach((btn) => {
+      btn.onclick = () => {
+        const chip = btn.closest('.yt-chip');
+        const list = chip?.dataset.kind === 'block' ? 'blockUsers' : 'allowUsers';
+        const uid = ytNormUserId(chip?.dataset.user);
+        const cfg2 = ytEnsureSettings();
+        const cmd = cfg2.commands[kind] || ytMergeCmd(kind);
+        cmd[list] = (cmd[list] || []).filter((x) => ytNormUserId(x) !== uid);
+        cfg2.commands[kind] = cmd;
+        settings.youtube = cfg2;
+        saveSettings();
+        renderYoutubePermGrid();
+      };
+    });
+  });
+}
+
+function collectYoutubeSettingsFromDom() {
+  const cfg = ytEnsureSettings();
+  cfg.preventDuplicates = !!document.getElementById('yt-prevent-dup')?.checked;
+  cfg.maxPerUser = Math.max(0, parseInt(document.getElementById('yt-max-user')?.value, 10) || 0);
+  delete cfg.apiKey;
+  document.querySelectorAll('#yt-cmd-names [data-yt-cmd]').forEach((inp) => {
+    const k = inp.dataset.ytCmd;
+    if (!cfg.commands[k]) cfg.commands[k] = ytMergeCmd(k);
+    let v = String(inp.value || '').trim();
+    if (v && !v.startsWith('!')) v = '!' + v;
+    cfg.commands[k].cmd = v || ('!' + k);
+  });
+  settings.youtube = cfg;
+  return cfg;
+}
+
+function saveYoutubeSettings() {
+  collectYoutubeSettingsFromDom();
+  saveSettings();
+  renderYoutubePermGrid();
+  const msg = document.getElementById('yt-save-msg');
+  if (msg) { msg.textContent = '✓ Guardado'; clearTimeout(saveYoutubeSettings._t); saveYoutubeSettings._t = setTimeout(() => { msg.textContent = ''; }, 1500); }
+}
+
+function renderYoutubeState(p) {
+  const queue = Array.isArray(p?.queue) ? p.queue : [];
+  const now = p?.now || null;
+  const played = Number(p?.played) || 0;
+  const status = String(p?.status || (now ? (now.paused ? 'Pausado' : 'Reproduciendo') : 'Inactivo'));
+
+  const qEl = document.getElementById('yt-stat-queue');
+  const pEl = document.getElementById('yt-stat-played');
+  const sEl = document.getElementById('yt-stat-status');
+  if (qEl) qEl.textContent = String(queue.length);
+  if (pEl) pEl.textContent = String(played);
+  if (sEl) {
+    sEl.textContent = status;
+    sEl.classList.toggle('is-ok', status === 'Reproduciendo');
+    sEl.classList.toggle('is-mut', status === 'Inactivo' || status === 'Pausado');
+  }
+
+  const list = document.getElementById('yt-queue-list');
+  if (list) {
+    if (!queue.length) {
+      list.innerHTML = '<div class="yt-empty">Cola vacía.<br><span>Usa !play para buscar en YouTube</span></div>';
+    } else {
+      list.innerHTML = queue.map((item, i) => `
+        <div class="yt-q-item">
+          <span class="yt-q-pos">${i + 1}</span>
+          <img src="${esc(item.thumb || '')}" alt="" onerror="this.style.visibility='hidden'">
+          <div style="min-width:0;flex:1">
+            <div class="yt-q-name">${esc(item.title || '—')}</div>
+            <div class="yt-q-meta">${esc(item.channel || '')}${item.nickname ? ' · @' + esc(item.nickname) : ''}</div>
+          </div>
+        </div>`).join('');
+    }
+  }
+
+  const idle = document.querySelector('#yt-now .yt-now-idle');
+  const track = document.getElementById('yt-now-track');
+  const sub = document.getElementById('yt-now-sub');
+  if (!now || !now.videoId) {
+    if (idle) idle.hidden = false;
+    if (track) track.hidden = true;
+    if (sub) sub.textContent = 'Sin reproducción';
+  } else {
+    if (idle) idle.hidden = true;
+    if (track) track.hidden = false;
+    if (sub) sub.textContent = now.paused ? 'Pausado' : 'Reproduciendo';
+    const thumb = document.getElementById('yt-now-thumb');
+    const title = document.getElementById('yt-now-title');
+    const ch = document.getElementById('yt-now-channel');
+    const by = document.getElementById('yt-now-by');
+    if (thumb) thumb.src = now.thumb || `https://i.ytimg.com/vi/${now.videoId}/hqdefault.jpg`;
+    if (title) title.textContent = now.title || '—';
+    if (ch) ch.textContent = now.channel || '';
+    if (by) {
+      if (now.nickname) { by.hidden = false; by.textContent = 'Pedida por @' + now.nickname; }
+      else by.hidden = true;
+    }
+  }
+}
+
+function youtubeSendCommand(text) {
+  const t = String(text || '').trim();
+  if (!t) return;
+  send({ action: 'youtubeControl', op: 'command', text: t.startsWith('!') ? t : '!' + t });
+}
+
+let youtubeWired = false;
+function setupYoutubeUI() {
+  if (youtubeWired) return;
+  youtubeWired = true;
+  applyYoutubeUI();
+
+  const saveBtn = document.getElementById('yt-save');
+  if (saveBtn) saveBtn.onclick = () => saveYoutubeSettings();
+
+  const enter = document.getElementById('yt-cmd-enter');
+  const inp = document.getElementById('yt-cmd-input');
+  const run = () => {
+    youtubeSendCommand(inp?.value || '');
+    if (inp) inp.value = '';
+  };
+  if (enter) enter.onclick = run;
+  if (inp) inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); run(); }
+  });
+
+  document.querySelectorAll('#yt-ctrl-btns .yt-quick').forEach((btn) => {
+    btn.onclick = () => {
+      const cmd = String(btn.dataset.cmd || '');
+      if (cmd.endsWith(' ')) {
+        if (inp) { inp.value = cmd; inp.focus(); }
+        return;
+      }
+      youtubeSendCommand(cmd);
+    };
+  });
+
+  document.querySelectorAll('#view-youtube .ovpro-urlrow').forEach((row) => {
+    const code = row.querySelector('.ov-url');
+    const btn = row.querySelector('.ovpro-copy, .ov-copy');
+    if (code && code.dataset.path) code.textContent = roomUrl(code.dataset.path);
+    if (btn && code) btn.onclick = () => {
+      const url = roomUrl(code.dataset.path);
+      const done = () => { btn.textContent = '¡Copiado!'; setTimeout(() => { btn.textContent = 'Copiar enlace'; }, 1200); };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
+      else fallbackCopy(url, done);
+    };
+  });
+
+  let ytAutoSave = null;
+  const autoSave = () => {
+    clearTimeout(ytAutoSave);
+    ytAutoSave = setTimeout(() => saveYoutubeSettings(), 400);
+  };
+  ['yt-prevent-dup', 'yt-max-user'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', autoSave);
+  });
+  const names = document.getElementById('yt-cmd-names');
+  if (names) names.addEventListener('input', (e) => {
+    if (e.target?.matches?.('[data-yt-cmd]')) autoSave();
+  });
+
+  send({ action: 'getYoutubeState' });
 }
 
 /* ====================== Webhook y Configuración (solo .exe) ====================== */
@@ -26613,6 +26926,7 @@ function setupPanelLives() {
       try { setupSpotifyUI(); } catch (e) { console.error('Spotify UI:', e); }
       if (new URLSearchParams(location.search).get('spotify') === 'connected') openSpotifyViewAfterConnect();
     }
+    try { setupYoutubeUI(); } catch (e) { console.error('YouTube UI:', e); }
     try { revealWebhookTab(); } catch (e) { console.error('Webhook tab:', e); }
     try { revealConfigTab(); } catch (e) { console.error('Config tab:', e); }
     if (IS_DESKTOP) { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }

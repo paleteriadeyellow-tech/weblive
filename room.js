@@ -733,6 +733,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (recentFollowShare.size > 4000) recentFollowShare.clear();
     return true;
   }
+  // Stickers: el mismo emote suele llegar por CHAT y por EMOTE → sonidos/videos/acciones x2.
+  const recentEmoteFire = new Map(); // `${uid}:${emoteId}` | `msg:${msgId}:${emoteId}` -> ts
+  function emoteFireOnce(user, emoteId, data) {
+    const eid = String(emoteId || '').trim();
+    if (!eid) return true;
+    const msgId = String(data?.common?.msgId || data?.msgId || '').trim();
+    const uid = normTikTokUser(user?.uniqueId) || normTikTokUser(user?.nickname)
+      || String(user?.uniqueId || user?.nickname || '').trim().toLowerCase();
+    const keys = [];
+    if (msgId && msgId !== '0') keys.push(`msg:${msgId}:${eid}`);
+    if (uid) keys.push(`u:${uid}:${eid}`);
+    if (!keys.length) return true;
+    const now = Date.now();
+    for (const key of keys) {
+      if (now - (recentEmoteFire.get(key) || 0) < 2500) return false;
+    }
+    for (const key of keys) recentEmoteFire.set(key, now);
+    if (recentEmoteFire.size > 4000) recentEmoteFire.clear();
+    return true;
+  }
   const memberLevels = new Map();    // uniqueId -> último nivel de miembro visto (para detectar subidas)
   const joinVideoCooldown = new Map(); // clave por video/usuario -> última vez que se disparó
   /** ¿Silencio desde el último chat >= delay? (visita nueva / primer mensaje). */
@@ -786,6 +806,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let spotifyNowPlaying = null;      // { name, artists, image, uri, progressMs, durationMs, playing, requestedBy, serverTs }
   let lastSpotifyUri = '';
   let spotifyPollTimer = null;
+
+  // YouTube song requests: cola + now playing (overlay IFrame).
+  let youtubeQueue = []; // { videoId, title, channel, thumb, uniqueId, nickname, at }
+  let youtubeNow = null; // { videoId, title, channel, thumb, uniqueId, nickname, playing, paused, volume }
+  let youtubePlayed = 0;
+  const youtubeCooldown = new Map();
 
   let connection = null;
   let saveTimer = null;
@@ -6287,6 +6313,261 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
+  /* ---------------------- YouTube song requests ---------------------- */
+  function ytCfg() {
+    return settings.youtube && typeof settings.youtube === 'object' ? settings.youtube : {};
+  }
+  function ytCmd(kind) {
+    const c = ytCfg().commands && ytCfg().commands[kind];
+    return c && typeof c === 'object' ? c : null;
+  }
+  function pushYoutubeState() {
+    const status = !youtubeNow ? 'Inactivo'
+      : (youtubeNow.paused ? 'Pausado' : (youtubeNow.playing ? 'Reproduciendo' : 'Inactivo'));
+    broadcast('youtubeState', {
+      queue: youtubeQueue.slice(),
+      now: youtubeNow,
+      played: youtubePlayed,
+      status,
+      volume: Math.max(0, Math.min(100, Number(ytCfg().volume) || 80)),
+    });
+  }
+  function youtubeSerializeItem(q) {
+    return {
+      videoId: q.videoId,
+      title: q.title,
+      channel: q.channel,
+      thumb: q.thumb,
+      uniqueId: q.uniqueId,
+      nickname: q.nickname,
+    };
+  }
+  /** Key global de Livecoins (env). Nunca se pide al streamer en el panel. */
+  function youtubeApiKey() {
+    return String(process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+  }
+  async function youtubeOEmbed(videoId) {
+    try {
+      const url = 'https://www.youtube.com/oembed?format=json&url='
+        + encodeURIComponent('https://www.youtube.com/watch?v=' + videoId);
+      const r = await fetch(url);
+      if (!r.ok) return null;
+      const d = await r.json();
+      return {
+        videoId,
+        title: String(d.title || videoId),
+        channel: String(d.author_name || ''),
+        thumb: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      };
+    } catch {
+      return null;
+    }
+  }
+  async function youtubeSearch(query) {
+    const key = youtubeApiKey();
+    if (!key) throw new Error('missing_api_key');
+    const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q='
+      + encodeURIComponent(query) + '&key=' + encodeURIComponent(key);
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('youtube_http_' + r.status);
+    const d = await r.json();
+    const item = Array.isArray(d.items) && d.items[0];
+    if (!item?.id?.videoId) return null;
+    const sn = item.snippet || {};
+    const thumbs = sn.thumbnails || {};
+    const thumb = thumbs.medium?.url || thumbs.default?.url || thumbs.high?.url || '';
+    return {
+      videoId: String(item.id.videoId),
+      title: String(sn.title || query),
+      channel: String(sn.channelTitle || ''),
+      thumb,
+    };
+  }
+  function youtubeUserAllowed(cmd, user, roles) {
+    if (!cmd || cmd.on === false) return false;
+    const uid = normTikTokUser(user?.uniqueId) || '';
+    const nick = normTikTokUser(user?.nickname) || '';
+    const inList = (arr) => (arr || []).some((w) => {
+      const n = normTikTokUser(String(w || '').replace(/^@/, ''));
+      return n && (n === uid || n === nick);
+    });
+    if (inList(cmd.blockUsers)) return false;
+    if (inList(cmd.allowUsers)) return true;
+    if (cmd.readAll) return true;
+    if (cmd.mods && roles?.isMod) return true;
+    if (cmd.superFans && roles?.isSub) return true;
+    if (cmd.followers && roles?.isFollower) return true;
+    if (cmd.fanClub) {
+      const min = Math.max(1, Number(cmd.fanClubMin) || 1);
+      if ((Number(roles?.memberLevel) || 0) >= min) return true;
+    }
+    // Streamer panel controls pass roles.isStreamer
+    if (roles?.isStreamer) return true;
+    return false;
+  }
+  function youtubeEnsurePlaying() {
+    if (youtubeNow && youtubeNow.videoId) return;
+    const next = youtubeQueue.shift();
+    if (!next) {
+      youtubeNow = null;
+      pushYoutubeState();
+      return;
+    }
+    youtubeNow = {
+      ...youtubeSerializeItem(next),
+      playing: true,
+      paused: false,
+      volume: Math.max(0, Math.min(100, Number(ytCfg().volume) || 80)),
+    };
+    pushYoutubeState();
+  }
+  function youtubeSkip() {
+    if (youtubeNow) youtubePlayed += 1;
+    youtubeNow = null;
+    youtubeEnsurePlaying();
+    pushYoutubeState();
+  }
+  function youtubeClear({ quitPlaying = false } = {}) {
+    youtubeQueue = [];
+    if (quitPlaying) {
+      youtubeNow = null;
+    }
+    pushYoutubeState();
+  }
+  async function handleYoutubeCommands(comment, user, roles = {}) {
+    const cfg = ytCfg();
+    if (!cfg || typeof cfg !== 'object') return;
+    const text = String(comment || '').trim();
+    if (!text.startsWith('!')) return;
+    const lower = text.toLowerCase();
+    const cmds = cfg.commands || {};
+    const kinds = ['play', 'skip', 'pause', 'resume', 'clear', 'quit', 'volumen'];
+    let kind = null;
+    let arg = '';
+    for (const k of kinds) {
+      const c = cmds[k];
+      const raw = String(c?.cmd || ('!' + k)).trim().toLowerCase();
+      if (!raw) continue;
+      if (lower === raw || lower.startsWith(raw + ' ')) {
+        kind = k;
+        arg = text.slice(raw.length).trim();
+        break;
+      }
+    }
+    if (!kind) return;
+    const cmd = ytCmd(kind);
+    if (!youtubeUserAllowed(cmd, user, roles)) return;
+
+    const now = Date.now();
+    const cdKey = String(user?.uniqueId || user?.nickname || 'x');
+    if (now - (youtubeCooldown.get(cdKey) || 0) < 1500) return;
+    youtubeCooldown.set(cdKey, now);
+
+    const reply = (txt, ok = true) => {
+      broadcast('log', { level: ok ? 'ok' : 'warn', text: '▶️ ' + txt });
+    };
+
+    if (kind === 'play') {
+      if (!arg) { reply('Uso: !play canción o enlace de YouTube', false); return; }
+      const maxUser = Math.max(0, Number(cfg.maxPerUser) || 0);
+      if (maxUser > 0) {
+        const n = youtubeQueue.filter((q) => q.uniqueId === user.uniqueId).length
+          + (youtubeNow && youtubeNow.uniqueId === user.uniqueId ? 1 : 0);
+        if (n >= maxUser) { reply(`${user.nickname}: ya tienes el máximo en cola.`, false); return; }
+      }
+      let videoId = '';
+      const m = arg.match(/(?:youtu\.be\/|v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{6,})/);
+      if (m) videoId = m[1];
+      let track = null;
+      if (videoId) {
+        track = await youtubeOEmbed(videoId)
+          || { videoId, title: arg, channel: '', thumb: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` };
+      } else {
+        try { track = await youtubeSearch(arg); }
+        catch (e) {
+          if (String(e?.message || e) === 'missing_api_key') {
+            reply('Búsqueda no disponible ahora. Pega un enlace de YouTube o prueba más tarde.', false);
+          } else reply('Error al buscar en YouTube.', false);
+          return;
+        }
+        if (!track) { reply(`No encontré "${arg}".`, false); return; }
+      }
+      if (cfg.preventDuplicates) {
+        const dup = youtubeQueue.some((q) => q.videoId === track.videoId)
+          || (youtubeNow && youtubeNow.videoId === track.videoId);
+        if (dup) { reply('Esa canción ya está en cola o sonando.', false); return; }
+      }
+      youtubeQueue.push({
+        ...track,
+        uniqueId: user.uniqueId || '',
+        nickname: user.nickname || user.uniqueId || '',
+        at: Date.now(),
+      });
+      reply(`Añadida: ${track.title} (por ${user.nickname || user.uniqueId})`);
+      youtubeEnsurePlaying();
+      pushYoutubeState();
+      return;
+    }
+
+    if (kind === 'skip') {
+      if (!youtubeNow) { reply('No hay nada reproduciéndose.', false); return; }
+      youtubeSkip();
+      reply(`${user.nickname || 'Streamer'} saltó la pista.`);
+      return;
+    }
+    if (kind === 'pause') {
+      if (!youtubeNow) return;
+      youtubeNow.paused = true;
+      youtubeNow.playing = false;
+      pushYoutubeState();
+      return;
+    }
+    if (kind === 'resume') {
+      if (!youtubeNow) return;
+      youtubeNow.paused = false;
+      youtubeNow.playing = true;
+      pushYoutubeState();
+      return;
+    }
+    if (kind === 'clear') {
+      youtubeClear({ quitPlaying: false });
+      reply('Cola vaciada.');
+      return;
+    }
+    if (kind === 'quit') {
+      // Quitar la última petición del usuario; mods pueden quitar de otros si está activo.
+      const allowOthers = !!cmd.modsCanRemoveOthers && !!roles?.isMod;
+      let idx = -1;
+      for (let i = youtubeQueue.length - 1; i >= 0; i--) {
+        const q = youtubeQueue[i];
+        if (allowOthers || q.uniqueId === user.uniqueId) { idx = i; break; }
+      }
+      if (idx < 0) {
+        if (youtubeNow && (allowOthers || youtubeNow.uniqueId === user.uniqueId)) {
+          youtubeSkip();
+          reply('Reproducción detenida / siguiente.');
+          return;
+        }
+        reply('No hay canciones tuyas para quitar.', false);
+        return;
+      }
+      const removed = youtubeQueue.splice(idx, 1)[0];
+      pushYoutubeState();
+      reply(`Quitada: ${removed.title}`);
+      return;
+    }
+    if (kind === 'volumen') {
+      const n = Math.max(0, Math.min(100, parseInt(arg, 10)));
+      if (!Number.isFinite(n)) { reply('Uso: !volumen 0-100', false); return; }
+      if (!settings.youtube) settings.youtube = {};
+      settings.youtube.volume = n;
+      if (youtubeNow) youtubeNow.volume = n;
+      pushYoutubeState();
+      reply(`Volumen ${n}%`);
+      return;
+    }
+  }
+
   function noteCritical(value = 0, src = '') {
     if (settings.battleAlertsEnabled === false) return;
     const v = Math.round(Number(value) || 0);
@@ -7161,7 +7442,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   // TikTok envía stickers en varios formatos según el conector / tipo de mensaje:
   // emoteList (EMOTE), emotes[].emote (CHAT protobuf), emotes[].emoteId (legacy/simplificado).
-  function extractEmotes(data) {
+  // allowRootFallback: solo en WebcastEvent.EMOTE (el payload trae el emote en la raíz).
+  // En CHAT, si no hay emotes[], NO usar data.id del mensaje (dispararía alertas falsas).
+  function extractEmotes(data, { allowRootFallback = false } = {}) {
     const out = [];
     const seen = new Set();
     const addRaw = (item) => {
@@ -7180,15 +7463,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         else addRaw(se);
       }
     }
-    if (!out.length) addRaw(data);
+    if (!out.length && allowRootFallback) {
+      if (data?.emoteId || data?.emote_id || data?.emoteImageUrl || data?.uuid || data?.packageId) {
+        addRaw(data);
+      }
+    }
     return out;
   }
 
-  function fireEmoteTriggers(data, user = null) {
-    const list = extractEmotes(data);
+  function fireEmoteTriggers(data, user = null, opts = {}) {
+    const list = extractEmotes(data, opts);
     if (!list.length) return;
     for (const e of list) rememberEmote(e.emoteId, e.image);
     for (const e of list) {
+      // Evita 1 sticker → 2 sonidos cuando TikTok manda CHAT + EMOTE casi a la vez.
+      if (!emoteFireOnce(user, e.emoteId, data)) continue;
       const info = { emoteId: e.emoteId };
       triggerSoundAlerts('emote', info, user);
       triggerVideos('emote', info, user);
@@ -7240,6 +7529,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerActions('chatCommand', chatInfo, chatUser);
       handleChatCommands(comment, chatUser);
       handleSpotifyCommands(comment, chatUser, chatUserRoles(data));
+      handleYoutubeCommands(comment, chatUser, chatUserRoles(data));
       triggerMinecraftActions('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
       // ID estable del hablante (uniqueId o userId numérico).
@@ -7517,7 +7807,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.EMOTE, (data) => {
-      fireEmoteTriggers(data, baseUser(data.user || data));
+      fireEmoteTriggers(data, baseUser(data.user || data), { allowRootFallback: true });
     });
 
     // ===== Suscripciones (con nivel / meses) =====
@@ -7749,6 +8039,38 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             settingsGeneration: data.settingsGeneration,
           });
         }
+        break;
+      case 'youtubeControl': {
+        const op = String(data.op || '').toLowerCase();
+        const streamer = { uniqueId: '__streamer__', nickname: 'Streamer' };
+        const roles = { isMod: true, isSub: true, isFollower: true, isStreamer: true, memberLevel: 99 };
+        if (op === 'ended' || op === 'next') {
+          youtubeSkip();
+          break;
+        }
+        if (op === 'command' && data.text) {
+          handleYoutubeCommands(String(data.text), streamer, roles).catch(() => {});
+          break;
+        }
+        break;
+      }
+      case 'getYoutubeState':
+        try {
+          if (ws && ws.readyState === 1) {
+            const status = !youtubeNow ? 'Inactivo'
+              : (youtubeNow.paused ? 'Pausado' : (youtubeNow.playing ? 'Reproduciendo' : 'Inactivo'));
+            ws.send(JSON.stringify({
+              type: 'youtubeState',
+              payload: {
+                queue: youtubeQueue.slice(),
+                now: youtubeNow,
+                played: youtubePlayed,
+                status,
+                volume: Math.max(0, Math.min(100, Number(ytCfg().volume) || 80)),
+              },
+            }));
+          }
+        } catch {}
         break;
       case 'getProfiles':
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() })); } catch {}
@@ -8441,6 +8763,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'spotifyQueue', payload: { queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image })) } }));
     ws.send(JSON.stringify({ type: 'spotifyHistory', payload: { history: spotifyHistory } }));
     ws.send(JSON.stringify({ type: 'spotifyNowPlaying', payload: { track: spotifyNowPlaying } }));
+    try {
+      const status = !youtubeNow ? 'Inactivo'
+        : (youtubeNow.paused ? 'Pausado' : (youtubeNow.playing ? 'Reproduciendo' : 'Inactivo'));
+      ws.send(JSON.stringify({
+        type: 'youtubeState',
+        payload: {
+          queue: youtubeQueue.slice(),
+          now: youtubeNow,
+          played: youtubePlayed,
+          status,
+          volume: Math.max(0, Math.min(100, Number((settings.youtube || {}).volume) || 80)),
+        },
+      }));
+    } catch {}
     const caps = currentCaps();
     if (caps) ws.send(JSON.stringify({ type: 'caps', payload: caps }));
   }

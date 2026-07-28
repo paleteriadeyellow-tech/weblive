@@ -159,9 +159,6 @@ function defaultConfig() {
   freeFeatures.game_metalslug = false;
   freeFeatures.game_geometrydash = false;
 
-  // Metal Slug: próximamente — ni siquiera Premium hasta lanzamiento (solo admin).
-  features.game_metalslug = false;
-
   return {
     free: {
       limits: { soundAlerts: 5, videos: 3, battleAlerts: 2, actions: 3, profiles: 1 },
