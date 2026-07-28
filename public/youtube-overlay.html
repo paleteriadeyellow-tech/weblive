@@ -118,6 +118,8 @@
     let currentId = '';
     let lastState = null;
     let endedSentFor = '';
+    let ignoreEndedUntil = 0;
+    let loadToken = 0;
 
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -125,6 +127,13 @@
       try {
         if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
       } catch {}
+    }
+
+    function playerVideoId() {
+      try {
+        const d = player && player.getVideoData && player.getVideoData();
+        return d && d.video_id ? String(d.video_id) : '';
+      } catch { return ''; }
     }
 
     function applyVolume(vol) {
@@ -138,11 +147,24 @@
       if (videoId !== currentId) {
         currentId = videoId;
         endedSentFor = '';
+        // Al cambiar de vídeo el iframe a veces dispara ENDED del anterior:
+        // ignoramos ended unos segundos para no saltar la pista nueva.
+        ignoreEndedUntil = Date.now() + 2500;
+        loadToken += 1;
+        const token = loadToken;
         try {
           player.loadVideoById({ videoId, startSeconds: 0 });
         } catch {
           try { player.cueVideoById(videoId); } catch {}
         }
+        setTimeout(() => {
+          if (token !== loadToken || currentId !== videoId) return;
+          try {
+            if (paused) player.pauseVideo();
+            else player.playVideo();
+          } catch {}
+        }, 200);
+        return;
       }
       try {
         if (paused) player.pauseVideo();
@@ -156,8 +178,13 @@
         badge.hidden = true;
         trackEl.hidden = true;
         idle.hidden = false;
+        // No stopVideo aquí: un skip con cola manda el siguiente estado al instante;
+        // stopVideo disparaba ENDED y vaciaba la cola.
+        if (!currentId) return;
+        ignoreEndedUntil = Date.now() + 2500;
         currentId = '';
-        try { if (player && playerReady) player.stopVideo(); } catch {}
+        endedSentFor = '';
+        try { if (player && playerReady) player.pauseVideo(); } catch {}
         return;
       }
       card.classList.remove('idle');
@@ -201,6 +228,16 @@
       renderNow(lastState.now || null, lastState.volume);
     }
 
+    function maybeRequestNext(reason) {
+      if (!currentId) return;
+      if (Date.now() < ignoreEndedUntil) return;
+      const playingId = playerVideoId() || currentId;
+      if (playingId && playingId !== currentId) return;
+      if (endedSentFor === currentId) return;
+      endedSentFor = currentId;
+      send({ action: 'youtubeControl', op: 'ended', reason: reason || 'ended' });
+    }
+
     window.onYouTubeIframeAPIReady = function () {
       player = new YT.Player('yt-player', {
         width: '200',
@@ -219,17 +256,11 @@
             if (lastState) onState(lastState);
           },
           onStateChange: (ev) => {
-            // 0 = ended
-            if (ev.data === 0 && currentId && endedSentFor !== currentId) {
-              endedSentFor = currentId;
-              send({ action: 'youtubeControl', op: 'ended' });
-            }
+            // 0 = ENDED — solo si es el vídeo actual y no venimos de un skip/cambio
+            if (ev.data === 0) maybeRequestNext('ended');
           },
           onError: () => {
-            if (currentId && endedSentFor !== currentId) {
-              endedSentFor = currentId;
-              send({ action: 'youtubeControl', op: 'ended' });
-            }
+            maybeRequestNext('error');
           },
         },
       });

@@ -3593,6 +3593,48 @@ app.get('/api/spotify/status', async (req, res) => {
   }
 });
 
+/** Búsqueda YouTube centralizada (key en env). Usada por rooms locales del .exe vía AUTH_REMOTE. */
+const _ytSearchHits = new Map(); // ip -> { n, at }
+app.get('/api/youtube/search', async (req, res) => {
+  const key = String(process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+  if (!key) return res.status(503).json({ ok: false, error: 'no_key' });
+  const q = String(req.query.q || '').trim();
+  if (!q || q.length > 200) return res.status(400).json({ ok: false, error: 'bad_q' });
+  const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
+  const now = Date.now();
+  let hit = _ytSearchHits.get(ip);
+  if (!hit || now - hit.at > 60_000) hit = { n: 0, at: now };
+  hit.n += 1;
+  hit.at = now;
+  _ytSearchHits.set(ip, hit);
+  if (hit.n > 40) return res.status(429).json({ ok: false, error: 'rate' });
+  try {
+    const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q='
+      + encodeURIComponent(q) + '&key=' + encodeURIComponent(key);
+    const r = await fetch(url);
+    if (!r.ok) {
+      const body = await r.text().catch(() => '');
+      return res.status(502).json({ ok: false, error: 'youtube_http_' + r.status, detail: body.slice(0, 200) });
+    }
+    const d = await r.json();
+    const item = Array.isArray(d.items) && d.items[0];
+    if (!item?.id?.videoId) return res.json({ ok: true, track: null });
+    const sn = item.snippet || {};
+    const thumbs = sn.thumbnails || {};
+    return res.json({
+      ok: true,
+      track: {
+        videoId: String(item.id.videoId),
+        title: String(sn.title || q),
+        channel: String(sn.channelTitle || ''),
+        thumb: thumbs.medium?.url || thumbs.default?.url || thumbs.high?.url || '',
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
 app.post('/api/spotify/logout', (req, res) => {
   const user = spotifyUser(req);
   if (!user) return res.status(403).json({ ok: false });

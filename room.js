@@ -6365,23 +6365,35 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   async function youtubeSearch(query) {
     const key = youtubeApiKey();
-    if (!key) throw new Error('missing_api_key');
-    const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q='
-      + encodeURIComponent(query) + '&key=' + encodeURIComponent(key);
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('youtube_http_' + r.status);
+    if (key) {
+      const url = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q='
+        + encodeURIComponent(query) + '&key=' + encodeURIComponent(key);
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('youtube_http_' + r.status);
+      const d = await r.json();
+      const item = Array.isArray(d.items) && d.items[0];
+      if (!item?.id?.videoId) return null;
+      const sn = item.snippet || {};
+      const thumbs = sn.thumbnails || {};
+      const thumb = thumbs.medium?.url || thumbs.default?.url || thumbs.high?.url || '';
+      return {
+        videoId: String(item.id.videoId),
+        title: String(sn.title || query),
+        channel: String(sn.channelTitle || ''),
+        thumb,
+      };
+    }
+    // .exe local: la key vive en Render → proxy
+    const remote = String(process.env.AUTH_REMOTE || '').replace(/\/+$/, '');
+    if (!remote) throw new Error('missing_api_key');
+    const r = await fetch(remote + '/api/youtube/search?q=' + encodeURIComponent(query));
+    if (!r.ok) {
+      if (r.status === 503) throw new Error('missing_api_key');
+      throw new Error('youtube_http_' + r.status);
+    }
     const d = await r.json();
-    const item = Array.isArray(d.items) && d.items[0];
-    if (!item?.id?.videoId) return null;
-    const sn = item.snippet || {};
-    const thumbs = sn.thumbnails || {};
-    const thumb = thumbs.medium?.url || thumbs.default?.url || thumbs.high?.url || '';
-    return {
-      videoId: String(item.id.videoId),
-      title: String(sn.title || query),
-      channel: String(sn.channelTitle || ''),
-      thumb,
-    };
+    if (!d?.ok) throw new Error(String(d?.error || 'youtube_proxy'));
+    return d.track || null;
   }
   function youtubeUserAllowed(cmd, user, roles) {
     if (!cmd || cmd.on === false) return false;
@@ -6425,7 +6437,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (youtubeNow) youtubePlayed += 1;
     youtubeNow = null;
     youtubeEnsurePlaying();
-    pushYoutubeState();
   }
   function youtubeClear({ quitPlaying = false } = {}) {
     youtubeQueue = [];
