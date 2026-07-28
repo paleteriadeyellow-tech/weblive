@@ -3,9 +3,12 @@
  * Los contadores viven en user.badgeStats / user.manualBadges (auth.js).
  */
 
-/** Arte dorado en /img/badges/{id}.png (PNG transparente). */
+/** Cache-bust de arte (subir al cambiar PNG en /img/badges). */
+export const BADGE_IMG_VER = '20260727d';
+
+/** Arte en /img/badges/{id}.png (PNG transparente). */
 function badgeImg(id) {
-  return `/img/badges/${id}.png`;
+  return `/img/badges/${id}.png?v=${BADGE_IMG_VER}`;
 }
 
 export const BADGE_CATALOG = [
@@ -248,7 +251,7 @@ export function buildBadgesForUser(user, plan = 'free') {
       short: def.short,
       desc: def.desc,
       icon: def.icon,
-      img: def.img || `/img/badges/${def.id}.png`,
+      img: def.img || `/img/badges/${def.id}.png?v=${BADGE_IMG_VER}`,
       group: def.group,
       manual: !!def.manual,
       earned,
@@ -271,7 +274,7 @@ export function pickCardBadges(badges, limit = Infinity) {
     name: b.name,
     short: b.short,
     icon: b.icon,
-    img: b.img || `/img/badges/${b.id}.png`,
+    img: b.img || `/img/badges/${b.id}.png?v=${BADGE_IMG_VER}`,
   }));
 }
 

@@ -13,6 +13,12 @@ function detectDesktopPanel() {
 }
 let IS_DESKTOP = detectDesktopPanel();
 const IS_LOCALHOST = /^127\.|^localhost$/i.test(location.hostname || '');
+/** Cache-bust arte de insignias (mismo valor que badges.js BADGE_IMG_VER). */
+const BADGE_IMG_VER = '20260727d';
+function badgeArtUrl(id) {
+  const clean = String(id || '').replace(/[^\w-]/g, '');
+  return clean ? `/img/badges/${clean}.png?v=${BADGE_IMG_VER}` : '';
+}
 
 function syncDesktopPanelMode() {
   IS_DESKTOP = detectDesktopPanel();
@@ -2622,7 +2628,66 @@ function toggleAnnPop(open) {
     });
   });
   try { loadHomeAppNews(); } catch {}
+  try { setupHomePromoCarousel(); } catch {}
 })();
+
+/** Carrusel Inicio: 2 promos, auto cada 5s + dots (sin flechas). */
+function setupHomePromoCarousel() {
+  const root = document.getElementById('homePromoSilla');
+  if (!root || root.dataset.carouselReady === '1') return;
+  const slides = Array.from(root.querySelectorAll('.home-promo-slide'));
+  const dots = Array.from(root.querySelectorAll('.home-promo-dot'));
+  if (slides.length < 2) return;
+  root.dataset.carouselReady = '1';
+  let idx = Math.max(0, slides.findIndex((s) => s.classList.contains('is-active')));
+  if (idx < 0) idx = 0;
+  let timer = null;
+  const INTERVAL_MS = 5000;
+
+  function show(next) {
+    const n = ((next % slides.length) + slides.length) % slides.length;
+    idx = n;
+    slides.forEach((s, i) => s.classList.toggle('is-active', i === n));
+    dots.forEach((d, i) => {
+      const on = i === n;
+      d.classList.toggle('is-active', on);
+      d.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+  function restart() {
+    if (timer) clearInterval(timer);
+    timer = setInterval(() => show(idx + 1), INTERVAL_MS);
+  }
+
+  dots.forEach((d) => {
+    d.addEventListener('click', (e) => {
+      e.preventDefault();
+      const n = Number(d.getAttribute('data-dot'));
+      if (!Number.isFinite(n)) return;
+      show(n);
+      restart();
+    });
+  });
+
+  root.querySelectorAll('.home-promo-cta').forEach((a) => {
+    a.addEventListener('click', (e) => {
+      const url = a.getAttribute('href');
+      if (!url) return;
+      e.preventDefault();
+      openExternalLink(url);
+    });
+  });
+
+  root.addEventListener('mouseenter', () => { if (timer) { clearInterval(timer); timer = null; } });
+  root.addEventListener('mouseleave', restart);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (timer) { clearInterval(timer); timer = null; }
+    } else restart();
+  });
+  show(idx);
+  restart();
+}
 
 async function loadAnnouncementsAdmin() {
   const list = document.getElementById('ann-admin-list');
