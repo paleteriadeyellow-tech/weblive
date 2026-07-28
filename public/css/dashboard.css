@@ -2863,18 +2863,25 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   pointer-events: none;
   user-select: none;
 }
+/* No usar display:flex de base: pisa el atributo HTML [hidden] y el candado queda siempre visible. */
 .sp-premium-lock {
   position: absolute;
   inset: 0;
   z-index: 6;
   border-radius: 12px;
   cursor: not-allowed;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   text-align: center;
   background: rgba(7, 12, 24, .72);
   backdrop-filter: blur(2px);
+}
+.sp-client-field.is-locked .sp-premium-lock {
+  display: flex;
+}
+.sp-premium-lock[hidden] {
+  display: none !important;
 }
 .sp-premium-lock .ov-lock-box { padding: 10px 14px; }
 .sp-premium-lock .ov-lock-ico { font-size: 22px; margin-bottom: 4px; }
