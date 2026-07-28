@@ -6075,11 +6075,14 @@
                   <div>Sin reproducción</div>
                 </div>
                 <div class="yt-now-track" id="yt-now-track" hidden>
-                  <img id="yt-now-thumb" alt="" width="120" height="68" decoding="async">
+                  <div class="yt-now-player-wrap">
+                    <div id="yt-panel-player"></div>
+                  </div>
                   <div class="yt-now-meta">
                     <div class="yt-now-title" id="yt-now-title">—</div>
                     <div class="yt-now-artist" id="yt-now-channel">—</div>
                     <div class="yt-now-by" id="yt-now-by" hidden></div>
+                    <p class="hint yt-now-hint">El audio del <b>directo</b> sale del overlay en OBS. Aquí oyes un preview del panel.</p>
                   </div>
                 </div>
               </div>
@@ -6088,12 +6091,13 @@
 
           <div class="yt-overlay-grid">
             <div class="settings-card">
-              <div class="tts-head"><h3>Superposición de música</h3><span class="tts-sub">Canción actual y cola para OBS</span></div>
+              <div class="tts-head"><h3>Superposición de música</h3><span class="tts-sub">Canción actual y cola para OBS — aquí sale el audio del stream</span></div>
               <div class="yt-ov-preview" aria-hidden="true"></div>
               <div class="ovpro-urlrow" style="margin-top:12px">
                 <code class="ov-url" data-path="/youtube-overlay.html">/youtube-overlay.html</code>
                 <button type="button" class="ovpro-copy ov-copy">Copiar enlace</button>
               </div>
+              <p class="hint" style="margin-top:10px">Pega esa URL exacta en OBS (Browser Source), volumen de la fuente &gt; 0, y recarga la fuente tras cada actualización.</p>
             </div>
             <div class="settings-card">
               <div class="tts-head"><h3>Ajustes</h3><span class="tts-sub">Cola y comandos</span></div>
