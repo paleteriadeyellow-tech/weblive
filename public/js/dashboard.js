@@ -486,11 +486,14 @@ const GAME_COMING_SOON = {};
 window.CAPS = { plan: 'free', limits: {}, features: {} };
 function setCaps(c) {
   if (!c) return;
+  const plan = c.plan || window.MY_PLAN || window.CAPS?.plan || 'free';
   window.CAPS = {
-    plan: c.plan || window.MY_PLAN || 'free',
+    plan,
     limits: c.limits || {},
     features: c.features || {},
+    spotify: typeof c.spotify === 'boolean' ? c.spotify : !!window.CAPS?.spotify,
   };
+  if (plan && plan !== 'free') window.MY_PLAN = plan === 'admin' ? 'premium' : plan;
   if (typeof c.spotify === 'boolean') window.SPOTIFY_ACCESS = c.spotify;
   applyCaps();
   try { revealWebhookTab(); } catch {}
@@ -500,6 +503,7 @@ function setCaps(c) {
   if (typeof spotifyTabVisible === 'function' && spotifyTabVisible() && typeof setupSpotifyUI === 'function') {
     try { setupSpotifyUI(); } catch {}
   }
+  try { applySpotifyLock(); } catch {}
 }
 function capLimit(key) {
   const n = window.CAPS?.limits?.[key];
@@ -12604,7 +12608,10 @@ function spotifyTabVisible() {
 function spotifyUnlocked() {
   if (!IS_DESKTOP) return false;
   if (window.IS_ADMIN) return true;
-  return window.CAPS?.plan === 'premium';
+  const plan = String(window.CAPS?.plan || window.MY_PLAN || '').toLowerCase();
+  if (plan === 'premium' || plan === 'admin') return true;
+  if (window.CAPS?.spotify === true) return true;
+  return false;
 }
 /** @deprecated usar spotifyTabVisible / spotifyUnlocked */
 function spotifyAllowed() {

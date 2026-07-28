@@ -6108,7 +6108,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function pushSpotifyQueue() {
     broadcast('spotifyQueue', {
-      queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image })),
+      queue: spotifyQueue.map((q) => ({
+        uniqueId: q.uniqueId,
+        nickname: q.nickname,
+        name: q.name,
+        artists: q.artists,
+        image: q.image,
+        durationMs: q.durationMs || 0,
+      })),
     });
   }
   function pushSpotifyHistory() {
@@ -6259,7 +6266,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       let ok = false;
       try { ok = await spotify.addToQueue(id, track.uri); } catch {}
       if (!ok) { reply('No pude añadir a la cola (¿Spotify está reproduciendo una playlist?).', false); return; }
-      spotifyQueue.push({ uniqueId: user.uniqueId, nickname: user.nickname, name: track.name, artists: track.artists, image: track.image, uri: track.uri, at: Date.now() });
+      spotifyQueue.push({
+        uniqueId: user.uniqueId,
+        nickname: user.nickname,
+        name: track.name,
+        artists: track.artists,
+        image: track.image,
+        uri: track.uri,
+        durationMs: track.durationMs || 0,
+        at: Date.now(),
+      });
       pushSpotifyQueue();
       addHistory(`${track.name} — ${track.artists}`, 'En cola');
       reply(`Añadida: ${track.name} — ${track.artists} (por ${user.nickname})`);

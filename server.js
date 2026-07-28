@@ -1348,7 +1348,7 @@ app.get('/api/me', async (req, res) => {
     allowedGames: fullUser.isAdmin ? null : (Array.isArray(fullUser.allowedGames) ? fullUser.allowedGames : null),
     spotifyEnabled: isUserSpotifyEnabled(fullUser),
     ...badgePayload,
-    caps: { limits: caps.limits, features: caps.features, spotify: !!caps.spotify },
+    caps: { plan: caps.plan, limits: caps.limits, features: caps.features, spotify: !!caps.spotify },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
     // Preferir true si la nube O el espejo local ya tienen el correo verificado.
     emailVerified: !!(remoteMe && remoteMe.emailVerified)

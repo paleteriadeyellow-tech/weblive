@@ -3,211 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overlay — Spotify (ahora + cola)</title>
+    <title>Overlay — Spotify Song Requests</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap');
-        html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: 'Montserrat', system-ui, sans-serif; }
-        .sp-wrap { width: 420px; padding: 14px; }
-        .sp-card {
-            background: linear-gradient(135deg, rgba(18,22,30,.97), rgba(10,12,18,.97));
-            border: 1px solid rgba(29,185,84,.45);
-            border-radius: 18px; overflow: hidden;
-            box-shadow: 0 12px 40px rgba(0,0,0,.55);
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
         }
-        .np-section { padding: 14px 16px 12px; border-bottom: 1px solid rgba(255,255,255,.08); }
-        .np-row { display: flex; gap: 14px; align-items: center; }
-        .np-art {
-            width: 88px; height: 88px; border-radius: 12px; flex: none;
-            object-fit: cover; background: #1a1f28;
-            box-shadow: 0 6px 20px rgba(0,0,0,.4);
+        .sp-wrap {
+            width: 420px;
+            min-height: 80px;
+            padding: 16px 18px;
+            box-sizing: border-box;
+            background: #212121;
+            border-radius: 4px;
         }
-        .np-art.ph { display: grid; place-items: center; color: #1db954; }
-        .np-body { min-width: 0; flex: 1; }
-        .np-badge {
-            display: inline-flex; align-items: center;
-            font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
-            color: #1db954; margin-bottom: 6px;
+        .sp-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
-        .np-title {
-            color: #fff; font-weight: 800; font-size: 17px; line-height: 1.2;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        .sp-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            min-width: 0;
         }
-        .np-artist {
-            color: #9fb3c8; font-size: 13px; font-weight: 600; margin-top: 3px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        .sp-art {
+            width: 70px;
+            height: 70px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: #333;
+            flex: none;
+            display: block;
         }
-        .np-by { color: #1db954; font-size: 11px; font-weight: 700; margin-top: 6px; }
-        .np-bar-wrap { margin-top: 10px; height: 5px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; }
-        .np-bar { height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, #1db954, #1ed760); transition: width .25s linear; }
-        .np-times { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #8aa; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .np-idle-text { color: #8aa; font-size: 14px; font-weight: 600; }
-        .sp-card.idle { border-color: rgba(255,255,255,.12); opacity: .9; }
-        .queue-section { padding: 0; }
-        .queue-head {
-            display: flex; align-items: center; justify-content: space-between; gap: 10px;
-            padding: 10px 14px; background: rgba(29,185,84,.12);
-            border-bottom: 1px solid rgba(255,255,255,.06);
+        .sp-art.is-empty {
+            visibility: hidden;
         }
-        .queue-head-left { display: flex; align-items: center; gap: 8px; color: #1db954; font-weight: 800; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
-        .queue-head svg { width: 18px; height: 18px; flex: none; }
-        .queue-count { font-size: 11px; font-weight: 800; background: rgba(29,185,84,.2); color: #1ed760; padding: 3px 8px; border-radius: 99px; }
-        .sp-list { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: hidden; }
-        .sp-item {
-            display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px;
-            background: rgba(255,255,255,.04); animation: sp-in .35s ease;
+        .sp-meta {
+            min-width: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            justify-content: center;
         }
-        .sp-pos {
-            width: 22px; height: 22px; border-radius: 6px; flex: none;
-            display: grid; place-items: center; font-size: 11px; font-weight: 800;
-            color: #1db954; background: rgba(29,185,84,.15);
+        .sp-title {
+            color: #fff;
+            font-weight: 700;
+            font-size: 16px;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        .sp-item img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: #222; flex: none; }
-        .sp-info { min-width: 0; flex: 1; }
-        .sp-name { color: #fff; font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sp-artist { color: #9fb3c8; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sp-by { color: #1db954; font-size: 10px; font-weight: 700; margin-top: 2px; }
-        .sp-empty { color: #6b7f94; text-align: center; padding: 14px 12px; font-size: 12px; font-weight: 600; }
-        @keyframes sp-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+        .sp-time {
+            color: rgba(255, 255, 255, .85);
+            font-weight: 400;
+            font-size: 14px;
+            line-height: 1.2;
+            font-variant-numeric: tabular-nums;
+        }
+        .sp-empty {
+            color: rgba(255, 255, 255, .45);
+            font-size: 14px;
+            font-weight: 400;
+            padding: 8px 0;
+        }
     </style>
 </head>
 <body>
     <div class="sp-wrap">
-        <div class="sp-card idle" id="sp-card">
-            <div class="np-section">
-                <div class="np-row">
-                    <div class="np-art ph" id="np-art-ph">
-                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M7.5 14.5c2.5-1 6-1 9 .5"/><path d="M7 11c3-1 7.5-.8 10.5 1"/><path d="M7.5 8c3.5-1 8 0 9.5 1"/></svg>
-                    </div>
-                    <img class="np-art" id="np-art" alt="" hidden>
-                    <div class="np-body">
-                        <div class="np-badge" id="np-badge" hidden>
-                            <span>Ahora suena</span>
-                        </div>
-                        <div class="np-idle-text" id="np-idle">Sin reproducción activa</div>
-                        <div id="np-track" hidden>
-                            <div class="np-title" id="np-title"></div>
-                            <div class="np-artist" id="np-artist"></div>
-                            <div class="np-by" id="np-by" hidden></div>
-                            <div class="np-bar-wrap"><div class="np-bar" id="np-bar"></div></div>
-                            <div class="np-times"><span id="np-cur">0:00</span><span id="np-dur">0:00</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="queue-section">
-                <div class="queue-head">
-                    <div class="queue-head-left">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 10h16M4 14h10"/></svg>
-                        <span>En cola</span>
-                    </div>
-                    <span class="queue-count" id="sp-count">0</span>
-                </div>
-                <ul class="sp-list" id="sp-list">
-                    <li class="sp-empty">La cola está vacía</li>
-                </ul>
-            </div>
-        </div>
+        <ul class="sp-list" id="sp-list">
+            <li class="sp-empty">Sin reproducción activa</li>
+        </ul>
     </div>
 
     <script>
     (function () {
-        const card = document.getElementById('sp-card');
-        const art = document.getElementById('np-art');
-        const artPh = document.getElementById('np-art-ph');
-        const badge = document.getElementById('np-badge');
-        const idle = document.getElementById('np-idle');
-        const trackEl = document.getElementById('np-track');
-        const title = document.getElementById('np-title');
-        const artist = document.getElementById('np-artist');
-        const by = document.getElementById('np-by');
-        const bar = document.getElementById('np-bar');
-        const cur = document.getElementById('np-cur');
-        const dur = document.getElementById('np-dur');
         const list = document.getElementById('sp-list');
-        const countEl = document.getElementById('sp-count');
-
-        let track = null;
+        let now = null;
+        let queue = [];
         let anim = null;
 
-        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const esc = (s) => String(s == null ? '' : s)
+            .replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         const fmt = (ms) => {
-            const s = Math.max(0, Math.floor((ms || 0) / 1000));
+            const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
             const m = Math.floor(s / 60);
             return `${m}:${String(s % 60).padStart(2, '0')}`;
         };
 
-        function stopAnim() { if (anim) { cancelAnimationFrame(anim); anim = null; } }
-
-        function progressNow() {
-            if (!track) return 0;
-            if (!track.playing) return track.progressMs || 0;
-            const elapsed = Date.now() - (track.serverTs || Date.now());
-            return Math.min(track.durationMs || 0, (track.progressMs || 0) + elapsed);
+        function stopAnim() {
+            if (anim) { clearInterval(anim); anim = null; }
         }
 
-        function tickBar() {
-            if (!track) return;
-            const p = progressNow();
-            const d = track.durationMs || 0;
-            bar.style.width = d > 0 ? `${Math.min(100, (p / d) * 100)}%` : '0%';
-            cur.textContent = fmt(p);
-            dur.textContent = fmt(d);
-            if (track.playing) anim = requestAnimationFrame(tickBar);
+        function startAnim() {
+            stopAnim();
+            if (now && now.playing) {
+                anim = setInterval(paint, 250);
+            }
+        }
+
+        function progressNow() {
+            if (!now) return 0;
+            if (!now.playing) return now.progressMs || 0;
+            const elapsed = Date.now() - (now.serverTs || Date.now());
+            return Math.min(now.durationMs || 0, (now.progressMs || 0) + elapsed);
+        }
+
+        function remainingNow() {
+            if (!now) return 0;
+            return Math.max(0, (now.durationMs || 0) - progressNow());
+        }
+
+        function artUrl(url) {
+            const raw = String(url || '').trim();
+            if (!raw) return '';
+            return `/api/img-proxy?url=${encodeURIComponent(raw)}`;
+        }
+
+        function rowHtml(item) {
+            const title = item.artists
+                ? `${item.name || ''} - ${item.artists}`
+                : (item.name || '—');
+            const img = artUrl(item.image);
+            return `
+                <li class="sp-row" data-kind="${esc(item.kind)}">
+                    <img class="sp-art${img ? '' : ' is-empty'}" src="${esc(img)}" alt="" referrerpolicy="no-referrer"
+                        onerror="this.classList.add('is-empty'); this.removeAttribute('src');">
+                    <div class="sp-meta">
+                        <div class="sp-title">${esc(title)}</div>
+                        <div class="sp-time">${esc(item.timeLabel || '')}</div>
+                    </div>
+                </li>`;
+        }
+
+        function buildRows() {
+            const rows = [];
+            if (now && now.name) {
+                const p = progressNow();
+                const d = now.durationMs || 0;
+                rows.push({
+                    kind: 'now',
+                    name: now.name,
+                    artists: now.artists,
+                    image: now.image,
+                    timeLabel: `${fmt(p)} / ${fmt(d)}`,
+                });
+            }
+            let startIn = remainingNow();
+            for (const q of queue) {
+                rows.push({
+                    kind: 'queue',
+                    name: q.name,
+                    artists: q.artists,
+                    image: q.image,
+                    timeLabel: `Start in ${fmt(startIn)}`,
+                });
+                startIn += Math.max(0, Number(q.durationMs) || 0);
+            }
+            return rows;
+        }
+
+        function paint() {
+            const rows = buildRows();
+            if (!rows.length) {
+                list.innerHTML = '<li class="sp-empty">Sin reproducción activa</li>';
+                return;
+            }
+            list.innerHTML = rows.map(rowHtml).join('');
         }
 
         function renderNow(t) {
-            stopAnim();
-            track = t && t.name ? { ...t } : null;
-            if (!track) {
-                card.classList.add('idle');
-                badge.hidden = true;
-                trackEl.hidden = true;
-                idle.hidden = false;
-                art.hidden = true;
-                artPh.hidden = false;
-                return;
-            }
-            card.classList.remove('idle');
-            idle.hidden = true;
-            badge.hidden = false;
-            trackEl.hidden = false;
-            title.textContent = track.name;
-            artist.textContent = track.artists || '';
-            if (track.requestedBy) {
-                by.hidden = false;
-                by.textContent = `🎧 Pedida por ${track.requestedBy}`;
-            } else {
-                by.hidden = true;
-            }
-            if (track.image) {
-                art.src = track.image;
-                art.hidden = false;
-                artPh.hidden = true;
-                art.onerror = () => { art.hidden = true; artPh.hidden = false; };
-            } else {
-                art.hidden = true;
-                artPh.hidden = false;
-            }
-            tickBar();
+            now = t && t.name ? { ...t } : null;
+            paint();
+            startAnim();
         }
 
-        function renderQueue(queue) {
-            const q = Array.isArray(queue) ? queue : [];
-            countEl.textContent = String(q.length);
-            if (!q.length) {
-                list.innerHTML = '<li class="sp-empty">La cola está vacía</li>';
-                return;
-            }
-            list.innerHTML = q.map((item, i) => `
-                <li class="sp-item">
-                    <span class="sp-pos">${i + 1}</span>
-                    <img src="${esc(item.image)}" alt="" onerror="this.style.visibility='hidden'">
-                    <div class="sp-info">
-                        <div class="sp-name">${esc(item.name)}</div>
-                        <div class="sp-artist">${esc(item.artists)}</div>
-                        <div class="sp-by">🎧 ${esc(item.nickname)}</div>
-                    </div>
-                </li>`).join('');
+        function renderQueue(q) {
+            queue = Array.isArray(q) ? q.map((x) => ({ ...x })) : [];
+            paint();
+            startAnim();
         }
 
         let ws, rt;
