@@ -2,26 +2,32 @@
  * Búsqueda YouTube: solo vídeos incrustables (OBS / iframe).
  * La API key viene del entorno (YOUTUBE_API_KEY), nunca del usuario final.
  */
-export async function youtubeSearchEmbeddable(query, apiKey) {
+export async function youtubeSearchEmbeddable(query, apiKey, opts = {}) {
   const key = String(apiKey || '').trim();
   if (!key) throw new Error('missing_api_key');
   const q = String(query || '').trim();
   if (!q) return null;
+  const exclude = new Set(
+    (Array.isArray(opts.excludeIds) ? opts.excludeIds : [])
+      .map((x) => String(x || '').trim())
+      .filter(Boolean)
+  );
 
   const searchUrl = 'https://www.googleapis.com/youtube/v3/search'
-    + '?part=snippet&type=video&videoEmbeddable=true&maxResults=8&q='
+    + '?part=snippet&type=video&videoEmbeddable=true&maxResults=10&q='
     + encodeURIComponent(q) + '&key=' + encodeURIComponent(key);
   const r = await fetch(searchUrl);
   if (!r.ok) throw new Error('youtube_http_' + r.status);
   const d = await r.json();
   const items = Array.isArray(d.items) ? d.items : [];
-  const ids = items.map((it) => it?.id?.videoId).filter(Boolean).map(String);
+  const ids = items.map((it) => it?.id?.videoId).filter(Boolean).map(String)
+    .filter((id) => !exclude.has(id));
   if (!ids.length) return null;
 
   const metaById = new Map();
   for (const it of items) {
     const id = it?.id?.videoId;
-    if (!id) continue;
+    if (!id || exclude.has(String(id))) continue;
     const sn = it.snippet || {};
     const thumbs = sn.thumbnails || {};
     metaById.set(String(id), {
@@ -41,6 +47,7 @@ export async function youtubeSearchEmbeddable(query, apiKey) {
     for (const it of (vd.items || [])) {
       if (it?.status?.embeddable !== true) continue;
       const id = String(it.id || '');
+      if (exclude.has(id)) continue;
       const sn = it.snippet || {};
       const thumbs = sn.thumbnails || {};
       return {
@@ -54,7 +61,11 @@ export async function youtubeSearchEmbeddable(query, apiKey) {
     return null;
   }
 
-  return metaById.get(ids[0]) || null;
+  for (const id of ids) {
+    const hit = metaById.get(id);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 export async function youtubeCheckEmbeddable(videoId, apiKey) {
@@ -73,4 +84,17 @@ export async function youtubeCheckEmbeddable(videoId, apiKey) {
   } catch {
     return true;
   }
+}
+
+/** Limpia títulos tipo "Artist - Song (Audio) / Official Video" para rebuscar. */
+export function youtubeAltQueryFromTitle(title) {
+  let q = String(title || '').trim();
+  if (!q) return '';
+  q = q
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\b(official\s*(music\s*)?video|official\s*audio|lyric\s*video|lyrics|audio|hd|4k|vevo)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return q;
 }

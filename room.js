@@ -15,7 +15,7 @@ import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 import { likeTriggerFires } from './like-trigger.js';
 import { buildGdashEffectUrl, fireGdashEffectRequest } from './gdash-effect.js';
 import { runWebhookExec } from './smbx-tiktok-webhook.js';
-import { youtubeSearchEmbeddable, youtubeCheckEmbeddable } from './youtube-api.js';
+import { youtubeSearchEmbeddable, youtubeCheckEmbeddable, youtubeAltQueryFromTitle } from './youtube-api.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -813,6 +813,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let youtubeNow = null; // { videoId, title, channel, thumb, uniqueId, nickname, playing, paused, volume }
   let youtubePlayed = 0;
   const youtubeCooldown = new Map();
+  const youtubeTriedIds = new Set(); // evitar bucle al reintentar versiones no incrustables
+  let youtubeRecovering = false;
 
   let connection = null;
   let saveTimer = null;
@@ -6364,13 +6366,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       return null;
     }
   }
-  async function youtubeSearch(query) {
+  async function youtubeSearch(query, opts = {}) {
     const key = youtubeApiKey();
-    if (key) return youtubeSearchEmbeddable(query, key);
+    if (key) return youtubeSearchEmbeddable(query, key, opts);
     // .exe local: la key vive en Render → proxy
     const remote = String(process.env.AUTH_REMOTE || '').replace(/\/+$/, '');
     if (!remote) throw new Error('missing_api_key');
-    const r = await fetch(remote + '/api/youtube/search?q=' + encodeURIComponent(query));
+    let url = remote + '/api/youtube/search?q=' + encodeURIComponent(query);
+    const ex = Array.isArray(opts.excludeIds) ? opts.excludeIds.filter(Boolean) : [];
+    if (ex.length) url += '&exclude=' + encodeURIComponent(ex.join(','));
+    const r = await fetch(url);
     if (!r.ok) {
       if (r.status === 503) throw new Error('missing_api_key');
       throw new Error('youtube_http_' + r.status);
@@ -6378,6 +6383,68 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const d = await r.json();
     if (!d?.ok) throw new Error(String(d?.error || 'youtube_proxy'));
     return d.track || null;
+  }
+  async function youtubeFindAlternative(failed, extraExclude = []) {
+    if (!failed) return null;
+    const exclude = [failed.videoId, ...extraExclude].filter(Boolean);
+    const queries = [];
+    const fromTitle = youtubeAltQueryFromTitle(failed.title);
+    if (fromTitle) {
+      queries.push(fromTitle);
+      queries.push(fromTitle + ' lyrics');
+      queries.push(fromTitle + ' audio');
+    }
+    if (failed.channel && fromTitle) queries.push(fromTitle + ' ' + failed.channel);
+    const seen = new Set(exclude.map(String));
+    for (const q of queries) {
+      try {
+        const track = await youtubeSearch(q, { excludeIds: [...seen] });
+        if (track?.videoId && !seen.has(String(track.videoId))) return track;
+      } catch {}
+    }
+    return null;
+  }
+  async function youtubeRecoverEmbedFail() {
+    if (youtubeRecovering) return;
+    youtubeRecovering = true;
+    try {
+      const failed = youtubeNow;
+      if (!failed?.videoId) {
+        youtubeSkip();
+        return;
+      }
+      youtubeTriedIds.add(String(failed.videoId));
+      youtubePlayed += 1;
+      youtubeNow = null;
+      pushYoutubeState();
+      let alt = null;
+      try { alt = await youtubeFindAlternative(failed, [...youtubeTriedIds]); } catch {}
+      if (alt?.videoId) {
+        youtubeTriedIds.add(String(alt.videoId));
+        youtubeNow = {
+          ...alt,
+          uniqueId: failed.uniqueId || '',
+          nickname: failed.nickname || '',
+          playing: true,
+          paused: false,
+          volume: Math.max(0, Math.min(100, Number(ytCfg().volume) || 80)),
+        };
+        broadcast('log', {
+          level: 'ok',
+          text: `▶️ Versión alternativa: ${alt.title} (la anterior no se podía reproducir)`,
+        });
+        pushYoutubeState();
+        return;
+      }
+      broadcast('log', {
+        level: 'warn',
+        text: `▶️ No se pudo reproducir "${failed.title}" y no hay alternativa incrustable. Siguiente…`,
+      });
+      youtubeTriedIds.clear();
+      youtubeEnsurePlaying();
+    } finally {
+      youtubeRecovering = false;
+    }
   }
   function youtubeUserAllowed(cmd, user, roles) {
     if (!cmd || cmd.on === false) return false;
@@ -6406,9 +6473,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const next = youtubeQueue.shift();
     if (!next) {
       youtubeNow = null;
+      youtubeTriedIds.clear();
       pushYoutubeState();
       return;
     }
+    youtubeTriedIds.clear();
     youtubeNow = {
       ...youtubeSerializeItem(next),
       playing: true,
@@ -6420,6 +6489,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function youtubeSkip() {
     if (youtubeNow) youtubePlayed += 1;
     youtubeNow = null;
+    youtubeTriedIds.clear();
     youtubeEnsurePlaying();
   }
   function youtubeClear({ quitPlaying = false } = {}) {
@@ -6476,15 +6546,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       let track = null;
       if (videoId) {
         const key = youtubeApiKey();
-        if (key) {
-          const okEmbed = await youtubeCheckEmbeddable(videoId, key);
-          if (!okEmbed) {
-            reply('Ese vídeo no permite reproducción en overlay. Prueba !play con el nombre de la canción.', false);
-            return;
-          }
-        }
+        let okEmbed = true;
+        if (key) okEmbed = await youtubeCheckEmbeddable(videoId, key);
         track = await youtubeOEmbed(videoId)
           || { videoId, title: arg, channel: '', thumb: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` };
+        if (!okEmbed) {
+          // Link bloqueado → buscar otra versión reproducible automáticamente
+          let alt = null;
+          try {
+            alt = await youtubeFindAlternative(track, [videoId]);
+          } catch {}
+          if (!alt) {
+            reply('Ese vídeo no permite overlay y no hallé otra versión. Prueba con el nombre de la canción.', false);
+            return;
+          }
+          reply(`Ese link no se puede incrustar → usando: ${alt.title}`);
+          track = alt;
+        }
       } else {
         try { track = await youtubeSearch(arg); }
         catch (e) {
@@ -8050,8 +8128,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const op = String(data.op || '').toLowerCase();
         const streamer = { uniqueId: '__streamer__', nickname: 'Streamer' };
         const roles = { isMod: true, isSub: true, isFollower: true, isStreamer: true, memberLevel: 99 };
+        const reason = String(data.reason || '').toLowerCase();
         if (op === 'ended' || op === 'next') {
-          youtubeSkip();
+          if (reason === 'embed' || reason === 'error') {
+            youtubeRecoverEmbedFail().catch(() => youtubeSkip());
+          } else {
+            youtubeSkip();
+          }
           break;
         }
         if (op === 'command' && data.text) {

@@ -3601,6 +3601,11 @@ app.get('/api/youtube/search', async (req, res) => {
   if (!key) return res.status(503).json({ ok: false, error: 'no_key' });
   const q = String(req.query.q || '').trim();
   if (!q || q.length > 200) return res.status(400).json({ ok: false, error: 'bad_q' });
+  const excludeIds = String(req.query.exclude || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .slice(0, 20);
   const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'x').split(',')[0].trim();
   const now = Date.now();
   let hit = _ytSearchHits.get(ip);
@@ -3610,7 +3615,7 @@ app.get('/api/youtube/search', async (req, res) => {
   _ytSearchHits.set(ip, hit);
   if (hit.n > 40) return res.status(429).json({ ok: false, error: 'rate' });
   try {
-    const track = await youtubeSearchEmbeddable(q, key);
+    const track = await youtubeSearchEmbeddable(q, key, { excludeIds });
     return res.json({ ok: true, track: track || null });
   } catch (e) {
     const msg = String(e?.message || e);
