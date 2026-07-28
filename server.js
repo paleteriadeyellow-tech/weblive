@@ -711,6 +711,13 @@ function listPanelLives() {
       plan,
       url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
       badges: badgePayload?.cardBadges || [],
+      allBadges: (badgePayload?.badges || []).map((b) => ({
+        id: b.id,
+        name: b.name,
+        short: b.short,
+        img: b.img || `/img/badges/${b.id}.png`,
+        earned: !!b.earned,
+      })),
     });
   }
   out.sort((a, b) => b.viewers - a.viewers || a.tiktok.localeCompare(b.tiktok));

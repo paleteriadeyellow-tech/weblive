@@ -26133,26 +26133,34 @@ function renderHomeBadges(badges) {
   if (!list.length) { sec.hidden = true; grid.innerHTML = ''; return; }
   sec.hidden = false;
   const earned = list.filter((b) => b.earned).length;
-  if (sub) sub.textContent = `${earned} de ${list.length} desbloqueadas · a los 15 min de live suma +1 (máx. 1 al día)`;
+  if (sub) {
+    sub.innerHTML = `<span class="home-badges-count"><strong>${earned}</strong>/${list.length}</span>`
+      + `<span class="home-badges-hint">Live ≥15 min cuenta 1 por día</span>`;
+  }
   grid.innerHTML = list.map((b) => {
     const prog = b.progress;
-    const pct = prog && prog.target ? Math.min(100, Math.round((Number(prog.current) || 0) / prog.target * 100)) : (b.earned ? 100 : 0);
+    const cur = prog ? Number(prog.current) || 0 : (b.earned ? 1 : 0);
+    const tgt = prog && prog.target ? Number(prog.target) || 1 : 1;
+    const pct = Math.min(100, Math.round((cur / tgt) * 100));
     const progTxt = prog && prog.target
-      ? `${prog.current}/${prog.target}`
-      : (b.earned ? 'Conseguida' : 'Bloqueada');
+      ? `${prog.current} / ${prog.target}`
+      : (b.earned ? 'Desbloqueada' : 'Bloqueada');
     const img = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
     const ico = img
-      ? `<img class="home-badge-ico-img" src="${esc(img)}" alt="" width="28" height="28" loading="lazy" decoding="async">`
+      ? `<img class="home-badge-ico-img" src="${esc(img)}" alt="" width="56" height="56" loading="lazy" decoding="async">`
       : `<span class="home-badge-ico">${esc(b.icon || '🏅')}</span>`;
-    return `<div class="home-badge${b.earned ? ' is-earned' : ''}" title="${esc(b.desc || '')}">
-      <div class="home-badge-top">
-        ${ico}
-        <span class="home-badge-name">${esc(b.name || b.id)}</span>
+    const status = b.earned ? 'Desbloqueada' : 'Bloqueada';
+    return `<article class="home-badge${b.earned ? ' is-earned' : ''}" title="${esc(b.desc || '')}" aria-label="${esc(b.name || b.id)} · ${status}">
+      <div class="home-badge-medal">${ico}</div>
+      <div class="home-badge-body">
+        <h4 class="home-badge-name">${esc(b.name || b.id)}</h4>
+        <p class="home-badge-desc">${esc(b.desc || '')}</p>
       </div>
-      <div class="home-badge-desc">${esc(b.desc || '')}</div>
-      <div class="home-badge-bar"><span style="width:${pct}%"></span></div>
-      <div class="home-badge-prog">${esc(progTxt)}</div>
-    </div>`;
+      <div class="home-badge-foot">
+        <div class="home-badge-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
+        <div class="home-badge-prog">${esc(progTxt)}</div>
+      </div>
+    </article>`;
   }).join('');
 }
 
@@ -26162,6 +26170,8 @@ function renderPanelLives(lives) {
   const empty = document.getElementById('home-lives-empty');
   const countEl = document.getElementById('panel-lives-count');
   if (!sec || !track) return;
+  // Evita ventanas huérfanas al re-render (refresh cada 25s)
+  forceClosePanelLiveBadgePops();
   const active = applyPanelLivePlanMap((lives || []).filter(isActivePanelLive), window.__panelLivePlanMap);
   if (!active.length) {
     sec.hidden = true;
@@ -26186,29 +26196,73 @@ function renderPanelLives(lives) {
     const photo = panelLiveImgUrl(l.photo || '');
     const premium = isPanelLivePremium(l.plan);
     const tierClass = premium ? 'panel-live-card--vip' : 'panel-live-card--free';
-    const tierLabel = premium ? 'VIP' : 'Free';
     const av = photo
       ? `<img class="panel-live-av" src="${esc(photo)}" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" data-fallback="${fallback}">`
       : `<span class="panel-live-av panel-live-av-ph">${fallback}</span>`;
     const cardBadges = Array.isArray(l.badges) ? l.badges : [];
-    const badgesHtml = cardBadges.length
-      ? `<span class="panel-live-badges">${cardBadges.map((b) => {
-          const src = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
-          const label = esc(b.name || b.short || '');
-          if (src) {
-            return `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="${label}" title="${label}" width="20" height="20" loading="lazy" decoding="async">`;
-          }
-          return `<span class="panel-live-mini-badge" title="${label}">${esc(b.icon || '🏅')}</span>`;
-        }).join('')}</span>`
-      : '';
+    const earnedIds = new Set(cardBadges.map((b) => b.id).filter(Boolean));
+    const PANEL_BADGE_FALLBACK = [
+      { id: 'first_live', name: 'Primera live' },
+      { id: 'lives_10', name: 'En marcha' },
+      { id: 'lives_50', name: 'Constante' },
+      { id: 'lives_100', name: 'Veterano' },
+      { id: 'lives_500', name: 'Leyenda' },
+      { id: 'streak_3', name: 'Racha 3' },
+      { id: 'streak_7', name: 'Racha 7' },
+      { id: 'on_map', name: 'En el mapa' },
+      { id: 'popular', name: 'Popular' },
+      { id: 'daily_top', name: 'Foco de la noche' },
+      { id: 'vip', name: 'VIP' },
+      { id: 'desktop', name: 'App PC' },
+      { id: 'gamer', name: 'Gamer' },
+      { id: 'partner', name: 'Partner' },
+      { id: 'beta', name: 'Beta' },
+      { id: 'staff', name: 'Staff' },
+    ];
+    const allBadges = Array.isArray(l.allBadges) && l.allBadges.length
+      ? l.allBadges
+      : PANEL_BADGE_FALLBACK.map((b) => ({
+          ...b,
+          img: `/img/badges/${b.id}.png`,
+          earned: earnedIds.has(b.id),
+        }));
+    const badgeIcons = cardBadges.map((b) => {
+      const src = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
+      const label = esc(b.name || b.short || '');
+      if (src) {
+        return `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="${label}" title="${label}" width="18" height="18" loading="lazy" decoding="async">`;
+      }
+      return `<span class="panel-live-mini-badge" title="${label}">${esc(b.icon || '🏅')}</span>`;
+    }).join('');
+    const popIcons = allBadges.map((b) => {
+      const src = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
+      const label = esc(b.name || b.short || '');
+      const earned = !!b.earned;
+      const img = src
+        ? `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="${label}" width="26" height="26" loading="lazy" decoding="async">`
+        : `<span class="panel-live-mini-badge">${esc(b.icon || '🏅')}</span>`;
+      return `<span class="panel-live-pop-item${earned ? ' is-earned' : ' is-locked'}" title="${label}${earned ? '' : ' (pendiente)'}">${img}<span class="panel-live-pop-name">${label}</span></span>`;
+    }).join('');
+    const hasAny = cardBadges.length || allBadges.length;
+    const badgesHtml = hasAny
+      ? `<span class="panel-live-badges" aria-label="Insignias" data-has-catalog="1">
+          <span class="panel-live-badges-row">${badgeIcons}</span>
+          <button type="button" class="panel-live-badges-more-btn" aria-expanded="false" aria-label="Ver todas las insignias" title="Ver todas">›</button>
+          <span class="panel-live-badges-pop" hidden role="dialog" aria-label="Todas las insignias">${popIcons}</span>
+        </span>`
+      : '<span class="panel-live-badges panel-live-badges--empty" aria-hidden="true"></span>';
     return `<a class="panel-live-card ${tierClass}" href="${url}" data-live-url="${url}" target="_blank" rel="noopener noreferrer" title="Ver live de @${esc(tiktok)}">
-      <span class="panel-live-tier">${tierLabel}</span>
       ${av}
-      <span class="panel-live-badge">EN LIVE</span>
-      <span class="panel-live-name">${name}</span>
-      <span class="panel-live-user">@${esc(tiktok)}</span>
-      ${badgesHtml}
-      <span class="panel-live-viewers"><span class="panel-live-viewers-ic" aria-hidden="true"></span>${viewers}</span>
+      <span class="panel-live-main">
+        <span class="panel-live-headrow">
+          <span class="panel-live-id">
+            <span class="panel-live-name">${name}</span>
+            <span class="panel-live-user">@${esc(tiktok)}</span>
+          </span>
+        </span>
+        ${badgesHtml}
+        <span class="panel-live-viewers"><span class="panel-live-viewers-ic" aria-hidden="true"></span>${viewers}</span>
+      </span>
     </a>`;
   }).join('');
   track.querySelectorAll('.panel-live-av').forEach((el) => {
@@ -26220,6 +26274,200 @@ function renderPanelLives(lives) {
       el.replaceWith(ph);
     };
   });
+  setupPanelLiveBadgeTrays(track);
+}
+
+/** Cierra y limpia TODOS los popovers (incluye huérfanos en body). */
+function forceClosePanelLiveBadgePops() {
+  document.querySelectorAll('.panel-live-badges.is-open').forEach((tray) => {
+    tray.classList.remove('is-open');
+    const btn = tray.querySelector('.panel-live-badges-more-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+  document.querySelectorAll('.panel-live-card.is-badges-open').forEach((card) => {
+    card.classList.remove('is-badges-open');
+  });
+  document.querySelectorAll('.panel-live-badges-pop').forEach((pop) => {
+    pop.hidden = true;
+    pop.classList.remove('panel-live-badges-pop--portal', 'is-visible');
+    pop.style.cssText = '';
+    if (pop.parentElement === document.body) pop.remove();
+  });
+  window.__panelLiveBadgeOpenTray = null;
+}
+
+function closePanelLiveBadgePops(except) {
+  if (!except) {
+    forceClosePanelLiveBadgePops();
+    return;
+  }
+  document.querySelectorAll('.panel-live-badges.is-open').forEach((tray) => {
+    if (tray === except) return;
+    tray.classList.remove('is-open');
+    const card = tray.closest('.panel-live-card');
+    if (card) card.classList.remove('is-badges-open');
+    const btn = tray.querySelector('.panel-live-badges-more-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  });
+  document.querySelectorAll('.panel-live-badges-pop').forEach((pop) => {
+    if (except._popEl && pop === except._popEl) return;
+    if (except.contains(pop)) return;
+    pop.hidden = true;
+    pop.classList.remove('panel-live-badges-pop--portal', 'is-visible');
+    pop.style.cssText = '';
+    if (pop.parentElement === document.body) pop.remove();
+  });
+}
+
+function placePanelLiveBadgePop(tray) {
+  let pop = tray._popEl;
+  if (!pop || !document.contains(pop)) {
+    pop = tray.querySelector('.panel-live-badges-pop');
+  }
+  if (!pop) return null;
+  tray._popEl = pop;
+  tray._popHome = tray;
+  // Clonar al body para no perderlo si el track se re-renderiza a medias
+  if (pop.parentElement !== document.body) {
+    const portal = pop.cloneNode(true);
+    portal.classList.add('panel-live-badges-pop--portal');
+    pop.hidden = true;
+    document.body.appendChild(portal);
+    tray._popEl = portal;
+    tray._popSource = pop;
+    pop = portal;
+  } else {
+    pop.classList.add('panel-live-badges-pop--portal');
+  }
+  pop.hidden = false;
+  pop.classList.add('is-visible');
+  const r = tray.getBoundingClientRect();
+  const width = Math.min(Math.max(r.width, 260), Math.min(300, window.innerWidth - 16));
+  let left = r.left;
+  if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8);
+  const preferUp = r.top > 180;
+  pop.style.position = 'fixed';
+  pop.style.left = `${Math.round(left)}px`;
+  pop.style.width = `${Math.round(width)}px`;
+  pop.style.right = 'auto';
+  pop.style.zIndex = '10050';
+  if (preferUp) {
+    pop.style.bottom = `${Math.round(window.innerHeight - r.top + 8)}px`;
+    pop.style.top = 'auto';
+  } else {
+    pop.style.top = `${Math.round(r.bottom + 8)}px`;
+    pop.style.bottom = 'auto';
+  }
+  window.__panelLiveBadgeOpenTray = tray;
+  return pop;
+}
+
+function openPanelLiveBadgePop(tray) {
+  forceClosePanelLiveBadgePops();
+  const btn = tray.querySelector('.panel-live-badges-more-btn');
+  const card = tray.closest('.panel-live-card');
+  tray.classList.add('is-open');
+  if (card) card.classList.add('is-badges-open');
+  if (btn) btn.setAttribute('aria-expanded', 'true');
+  placePanelLiveBadgePop(tray);
+}
+
+function togglePanelLiveBadgePop(tray) {
+  if (tray.classList.contains('is-open') || window.__panelLiveBadgeOpenTray === tray) {
+    forceClosePanelLiveBadgePops();
+    return;
+  }
+  openPanelLiveBadgePop(tray);
+}
+
+function fitPanelLiveBadgeTray(tray) {
+  if (!tray || tray.classList.contains('panel-live-badges--empty')) return;
+  const row = tray.querySelector('.panel-live-badges-row');
+  const btn = tray.querySelector('.panel-live-badges-more-btn');
+  if (!row || !btn) return;
+  const items = [...row.children];
+  const hasCatalog = tray.dataset.hasCatalog === '1';
+
+  items.forEach((el) => { el.hidden = false; });
+
+  if (hasCatalog) {
+    btn.hidden = false;
+    tray.classList.add('has-more');
+    btn.textContent = '›';
+    btn.title = 'Ver todas las insignias';
+    btn.setAttribute('aria-label', 'Ver todas las insignias');
+    if (items.length && row.scrollWidth > row.clientWidth + 1) {
+      for (let i = items.length - 1; i >= 0; i--) {
+        if (row.scrollWidth <= row.clientWidth + 1) break;
+        items[i].hidden = true;
+      }
+      if (items.every((el) => el.hidden) && items[0]) items[0].hidden = false;
+    }
+    return;
+  }
+
+  btn.hidden = true;
+  tray.classList.remove('has-more');
+  if (row.scrollWidth <= row.clientWidth + 1) return;
+  btn.hidden = false;
+  tray.classList.add('has-more');
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (row.scrollWidth <= row.clientWidth + 1) break;
+    items[i].hidden = true;
+  }
+  if (items.every((el) => el.hidden) && items[0]) items[0].hidden = false;
+  const hiddenCount = items.filter((el) => el.hidden).length;
+  if (!hiddenCount) {
+    btn.hidden = true;
+    tray.classList.remove('has-more');
+    return;
+  }
+  btn.textContent = '›';
+  btn.title = `Ver ${hiddenCount} más`;
+  btn.setAttribute('aria-label', `Ver ${hiddenCount} insignias más`);
+}
+
+function setupPanelLiveBadgeTrays(root) {
+  const host = root || document;
+  host.querySelectorAll('.panel-live-badges').forEach((tray) => {
+    fitPanelLiveBadgeTray(tray);
+    tray.querySelectorAll('.panel-live-badges-row img').forEach((img) => {
+      if (img.complete) return;
+      img.addEventListener('load', () => fitPanelLiveBadgeTray(tray), { once: true });
+    });
+  });
+
+  // Delegación en el track: sobrevive re-renders y no acumula listeners
+  if (host.addEventListener && !host._badgeTrayDelegated) {
+    host._badgeTrayDelegated = true;
+    host.addEventListener('click', (e) => {
+      const btn = e.target.closest('.panel-live-badges-more-btn');
+      if (!btn || !host.contains(btn)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const tray = btn.closest('.panel-live-badges');
+      if (!tray) return;
+      togglePanelLiveBadgePop(tray);
+    });
+  }
+
+  if (!window._panelLiveBadgePopClose) {
+    window._panelLiveBadgePopClose = true;
+    document.addEventListener('pointerdown', (e) => {
+      if (!window.__panelLiveBadgeOpenTray && !document.querySelector('.panel-live-badges-pop--portal')) return;
+      if (e.target.closest('.panel-live-badges-more-btn')) return;
+      if (e.target.closest('.panel-live-badges-pop')) return;
+      forceClosePanelLiveBadgePops();
+    }, true);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') forceClosePanelLiveBadgePops();
+    });
+    window.addEventListener('resize', () => forceClosePanelLiveBadgePops());
+    window.addEventListener('scroll', () => forceClosePanelLiveBadgePops(), true);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) forceClosePanelLiveBadgePops();
+    });
+  }
 }
 async function refreshPanelLives() {
   // Preferir /api/panel-lives (local o proxy) para que el plan venga resuelto.
