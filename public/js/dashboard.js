@@ -14,7 +14,7 @@ function detectDesktopPanel() {
 let IS_DESKTOP = detectDesktopPanel();
 const IS_LOCALHOST = /^127\.|^localhost$/i.test(location.hostname || '');
 /** Cache-bust arte de insignias (mismo valor que badges.js BADGE_IMG_VER). */
-const BADGE_IMG_VER = '20260727d';
+const BADGE_IMG_VER = '20260728a';
 function badgeArtUrl(id) {
   const clean = String(id || '').replace(/[^\w-]/g, '');
   return clean ? `/img/badges/${clean}.png?v=${BADGE_IMG_VER}` : '';

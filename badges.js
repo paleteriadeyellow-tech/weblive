@@ -4,7 +4,7 @@
  */
 
 /** Cache-bust de arte (subir al cambiar PNG en /img/badges). */
-export const BADGE_IMG_VER = '20260727d';
+export const BADGE_IMG_VER = '20260728a';
 
 /** Arte en /img/badges/{id}.png (PNG transparente). */
 function badgeImg(id) {

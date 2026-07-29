@@ -889,7 +889,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!obj || typeof obj !== 'object') return structuredClone(DEFAULT_SETTINGS);
     try { return structuredClone(obj); } catch { return JSON.parse(JSON.stringify(obj)); }
   }
-  /** Spotify es global a la cuenta: no depende del perfil activo. */
+  /** Claves de ajustes compartidos entre perfiles (como Spotify).
+   *  Overlays + Chat TTS + Temporizador + Usuario/Puntos no cambian al cambiar de perfil. */
+  const PROFILE_SHARED_KEYS = [
+    'spotify',
+    'tts',
+    'timer',
+    'points',
+    // Overlays (Streams / Gifts / Metas / Rankings / Diseño / Batalla / Contador)
+    'perrito', 'jarron', 'vaquita', 'marranito', 'corazonLava', 'pelotas',
+    'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3',
+    'flowMeter', 'giftSeq', 'giftShowcase',
+    'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
+    'top1', 'top1fire', 'habibiTop', 'topGift', 'giftGoals', 'giftCounter', 'topStreak',
+    'batallaGifts', 'batallaLikes', 'coinMatch',
+    'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList',
+    'topAltRank', 'topAltRankNeon', 'topPointsRank',
+    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
+    'followerCounter', 'followerCounterMc', 'liveTimer',
+    'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
+  ];
+  /** Spotify (y el resto de keys globales) no dependen del perfil activo. */
   function defaultSpotifyCfg() {
     try { return structuredClone(DEFAULT_SETTINGS.spotify || {}); }
     catch { return { ...(DEFAULT_SETTINGS.spotify || {}) }; }
@@ -897,37 +917,93 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function normalizeSpotifyCfg(raw) {
     return { ...defaultSpotifyCfg(), ...(raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}) };
   }
-  function pickSpotifyForMigration() {
-    const candidates = [];
-    for (const s of profiles.slots || []) {
-      if (s?.spotify) candidates.push(s.spotify);
+  function defaultSharedValue(key) {
+    const def = DEFAULT_SETTINGS[key];
+    if (def === undefined) return null;
+    try { return structuredClone(def); }
+    catch {
+      if (Array.isArray(def)) return def.slice();
+      if (def && typeof def === 'object') return { ...def };
+      return def;
     }
-    if (profiles.general?.spotify) candidates.push(profiles.general.spotify);
-    const withId = candidates.find((c) => String(c?.clientId || '').trim());
-    return normalizeSpotifyCfg(withId || candidates[0] || null);
   }
-  function ensureSharedSpotify() {
-    if (profiles.spotify && typeof profiles.spotify === 'object' && !Array.isArray(profiles.spotify)) {
-      profiles.spotify = normalizeSpotifyCfg(profiles.spotify);
+  function normalizeSharedValue(key, raw) {
+    if (key === 'spotify') return normalizeSpotifyCfg(raw);
+    const def = defaultSharedValue(key);
+    if (def == null) return raw == null ? null : raw;
+    if (Array.isArray(def)) return Array.isArray(raw) ? raw : def;
+    if (def && typeof def === 'object') {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return def;
+      try { return deepMerge(structuredClone(def), raw); }
+      catch { return { ...def, ...raw }; }
+    }
+    return raw !== undefined && raw !== null ? raw : def;
+  }
+  function pickSharedForMigration(key) {
+    const candidates = [];
+    const activeSlot = profiles.slots?.[profiles.active];
+    if (activeSlot && activeSlot[key] != null) candidates.push(activeSlot[key]);
+    for (const s of profiles.slots || []) {
+      if (!s || s === activeSlot) continue;
+      if (s[key] != null) candidates.push(s[key]);
+    }
+    if (profiles.general && profiles.general[key] != null) candidates.push(profiles.general[key]);
+    if (key === 'spotify') {
+      const withId = candidates.find((c) => String(c?.clientId || '').trim());
+      return normalizeSharedValue(key, withId || candidates[0] || null);
+    }
+    return normalizeSharedValue(key, candidates[0] || null);
+  }
+  function ensureSharedKey(key) {
+    const cur = profiles[key];
+    if (cur != null && typeof cur === 'object' && !Array.isArray(cur)) {
+      profiles[key] = normalizeSharedValue(key, cur);
       return false;
     }
-    profiles.spotify = pickSpotifyForMigration();
+    // Algunas keys pueden ser arrays en el futuro; hoy todas son objetos.
+    if (Array.isArray(DEFAULT_SETTINGS[key]) && Array.isArray(cur)) {
+      profiles[key] = normalizeSharedValue(key, cur);
+      return false;
+    }
+    profiles[key] = pickSharedForMigration(key);
     return true;
   }
-  function getSharedSpotify() {
-    ensureSharedSpotify();
-    return normalizeSpotifyCfg(profiles.spotify);
+  function ensureAllSharedKeys() {
+    let migrated = false;
+    for (const key of PROFILE_SHARED_KEYS) {
+      if (ensureSharedKey(key)) migrated = true;
+    }
+    return migrated;
   }
-  function persistSharedSpotifyFromSettings() {
+  function getSharedValue(key) {
+    ensureSharedKey(key);
+    return normalizeSharedValue(key, profiles[key]);
+  }
+  function persistSharedFromSettings() {
     if (!settings || typeof settings !== 'object') return;
-    profiles.spotify = normalizeSpotifyCfg(settings.spotify);
-    settings.spotify = normalizeSpotifyCfg(profiles.spotify);
+    for (const key of PROFILE_SHARED_KEYS) {
+      if (settings[key] === undefined) continue;
+      profiles[key] = normalizeSharedValue(key, settings[key]);
+      settings[key] = normalizeSharedValue(key, profiles[key]);
+    }
   }
-  function attachSharedSpotify(s) {
+  function stripSharedFromSnap(snap) {
+    if (!snap || typeof snap !== 'object') return snap;
+    for (const key of PROFILE_SHARED_KEYS) delete snap[key];
+    return snap;
+  }
+  function attachSharedSettings(s) {
     if (!s || typeof s !== 'object') return s;
-    s.spotify = getSharedSpotify();
+    for (const key of PROFILE_SHARED_KEYS) {
+      s[key] = getSharedValue(key);
+    }
     return s;
   }
+  // Compat: nombres antiguos usados por Spotify
+  function ensureSharedSpotify() { return ensureSharedKey('spotify'); }
+  function getSharedSpotify() { return getSharedValue('spotify'); }
+  function persistSharedSpotifyFromSettings() { persistSharedFromSettings(); }
+  function attachSharedSpotify(s) { return attachSharedSettings(s); }
   (function isolateProfileSlotsOnLoad() {
     let refDupes = false;
     const refs = new Map();
@@ -958,15 +1034,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   })();
   function loadSettings() {
-    return attachSharedSpotify(resolveProfileSettings(profiles.slots[profiles.active]));
+    return attachSharedSettings(resolveProfileSettings(profiles.slots[profiles.active]));
   }
   function loadGeneralSettings() {
-    return attachSharedSpotify(resolveProfileSettings(profiles.general));
+    return attachSharedSettings(resolveProfileSettings(profiles.general));
   }
   const hadSharedSpotify = !!(profiles.spotify && typeof profiles.spotify === 'object' && !Array.isArray(profiles.spotify));
+  const migratedShared = ensureAllSharedKeys();
   let settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
-  settings.spotify = getSharedSpotify();
-  if (!hadSharedSpotify) {
+  attachSharedSettings(settings);
+  if (!hadSharedSpotify || migratedShared) {
     try { saveProfilesNow(); } catch {}
   }
   loadWeekly();
@@ -1040,23 +1117,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function persistCurrentEdit() {
     clearTimeout(saveTimer);
-    persistSharedSpotifyFromSettings();
+    persistSharedFromSettings();
     const snap = cloneSettings(settings);
-    // Spotify es global: no guardar copia por ranura (evita que un perfil pise el Client ID).
-    delete snap.spotify;
+    // Globales (Spotify, overlays, TTS, timer, puntos): no guardar copia por ranura.
+    stripSharedFromSnap(snap);
     if (profiles.editMode === 'general') profiles.general = snap;
     else profiles.slots[profiles.active] = snap;
   }
   function getActiveProfileSettings() {
     // Solo el perfil numerado activo (1, 2, 3…). Nunca otros slots guardados.
-    if (profiles.editMode === 'profile') return resolveProfileSettings(settings);
+    if (profiles.editMode === 'profile') return attachSharedSettings(resolveProfileSettings(settings));
     return loadSettings();
   }
   function getGeneralProfileSettings() {
     // En edición del general, `settings` ya es la copia viva (el guardado en disco puede ir con debounce).
-    if (profiles.editMode === 'general') return resolveProfileSettings(settings);
+    if (profiles.editMode === 'general') return attachSharedSettings(resolveProfileSettings(settings));
     if (!profiles.general) return null;
-    return resolveProfileSettings(profiles.general);
+    return attachSharedSettings(resolveProfileSettings(profiles.general));
   }
   function forEachTriggerProfile(run) {
     run(getActiveProfileSettings(), false);
@@ -1067,11 +1144,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       normalizeSettingsMediaUrls(settings);
-      persistSharedSpotifyFromSettings();
+      persistSharedFromSettings();
       const snap = cloneSettings(settings);
       // Copia independiente por ranura: evita que acciones de un perfil contaminen otro.
-      // Spotify queda solo en profiles.spotify (compartido entre perfiles).
-      delete snap.spotify;
+      // Spotify / overlays / TTS / timer / puntos quedan en profiles.* (compartidos).
+      stripSharedFromSnap(snap);
       if (profiles.editMode === 'general') profiles.general = snap;
       else profiles.slots[profiles.active] = snap;
       saveProfilesNow();
@@ -1174,13 +1251,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (profiles.editMode !== 'general' && i === profiles.active) src = settings;
       if (!src) return null;
       const out = cloneSettings(src);
-      delete out.spotify;
+      stripSharedFromSnap(out);
       return out;
     });
     let general = null;
     if (profiles.editMode === 'general') general = cloneSettings(settings);
     else if (profiles.general) general = cloneSettings(profiles.general);
-    if (general) delete general.spotify;
+    if (general) stripSharedFromSnap(general);
+    const shared = {};
+    for (const key of PROFILE_SHARED_KEYS) shared[key] = getSharedValue(key);
     return {
       active: profiles.active,
       names: profiles.names.slice(),
@@ -1188,7 +1267,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       general,
       editingGeneral: profiles.editMode === 'general',
       syncTs: profiles.syncTs || 0,
-      spotify: getSharedSpotify(),
+      // Compat export: spotify también en raíz (clientes viejos / transfer)
+      spotify: shared.spotify,
+      shared,
     };
   }
   // Importa una lista de perfiles { name, settings } en las ranuras 0..N-1. En modo
@@ -1244,16 +1325,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       profiles.general = (data.general && typeof data.general === 'object' && !Array.isArray(data.general))
         ? cloneSettings(data.general) : null;
     }
-    if (data.spotify && typeof data.spotify === 'object' && !Array.isArray(data.spotify)) {
-      profiles.spotify = normalizeSpotifyCfg(data.spotify);
-    } else {
-      ensureSharedSpotify();
+    // Restaurar claves globales (Spotify + overlays + TTS + timer + puntos).
+    if (data.shared && typeof data.shared === 'object' && !Array.isArray(data.shared)) {
+      for (const key of PROFILE_SHARED_KEYS) {
+        if (data.shared[key] != null) profiles[key] = normalizeSharedValue(key, data.shared[key]);
+      }
     }
+    for (const key of PROFILE_SHARED_KEYS) {
+      if (data[key] != null && typeof data[key] === 'object') {
+        profiles[key] = normalizeSharedValue(key, data[key]);
+      }
+    }
+    ensureAllSharedKeys();
     profiles.editMode = data.editingGeneral ? 'general' : 'profile';
     clearProfileRuntimeState();
     saveProfilesNow();
     settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
-    settings.spotify = getSharedSpotify();
+    attachSharedSettings(settings);
     enforceLimits();
     writeJsonAtomic(SETTINGS_FILE, settings);
     loadTop1Fire();

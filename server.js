@@ -133,6 +133,27 @@ function mergeProfilesData(legacy, current) {
     merged.names[i] = (cn && cn !== def) ? cn : ((ln && ln !== def) ? ln : (cn || ln || def));
   }
   if (!Number.isInteger(merged.active) || merged.active < 0 || merged.active >= 10) merged.active = 0;
+  // Conservar claves globales (Spotify / overlays / TTS / …) si existían.
+  const sharedKeys = [
+    'spotify', 'tts', 'timer', 'points', 'shared',
+    'perrito', 'jarron', 'vaquita', 'marranito', 'corazonLava', 'pelotas',
+    'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3',
+    'flowMeter', 'giftSeq', 'giftShowcase',
+    'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
+    'top1', 'top1fire', 'habibiTop', 'topGift', 'giftGoals', 'giftCounter', 'topStreak',
+    'batallaGifts', 'batallaLikes', 'coinMatch',
+    'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList',
+    'topAltRank', 'topAltRankNeon', 'topPointsRank',
+    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
+    'followerCounter', 'followerCounterMc', 'liveTimer',
+    'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
+  ];
+  for (const key of sharedKeys) {
+    const cv = current?.[key];
+    const lv = legacy?.[key];
+    if (cv != null) merged[key] = cv;
+    else if (lv != null) merged[key] = lv;
+  }
   return merged;
 }
 
