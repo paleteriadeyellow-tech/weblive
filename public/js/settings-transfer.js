@@ -46,6 +46,8 @@
         { key: 'batallaTop3', label: 'Top 3 de tu ejército (PK)' },
         { key: 'giftSeq', label: 'Secuencia de regalos' },
         { key: 'giftShowcase', label: 'Showcase de regalos' },
+        { key: 'flowMeter', label: 'Medidor de flow / regalos' },
+        { key: 'giftGoals', label: 'Metas de regalos' },
         { key: 'topGift', label: 'Mejor regalo' },
         { key: 'giftCounter', label: 'Contador de meta' },
         { key: 'corazonLava', label: 'Meta Heart Me' },
@@ -367,7 +369,22 @@
     let total = 0;
     for (const p of profiles) if (p.settings) total += Object.keys(p.settings).length;
     const filled = profiles.filter((p) => p.settings).length;
-    return { profiles, multi: true, counts: { profiles: filled }, format: 'livecoins-v2' };
+    // Claves globales (overlays/TTS/timer/…) en raíz del backup o en raw.shared.
+    let shared = null;
+    if (raw.shared && typeof raw.shared === 'object' && !Array.isArray(raw.shared)) {
+      shared = cloneVal(raw.shared);
+    } else {
+      const bag = {};
+      let n = 0;
+      for (const k of EXPORT_KEYS) {
+        if (raw[k] != null && typeof raw[k] === 'object') {
+          bag[k] = cloneVal(raw[k]);
+          n++;
+        }
+      }
+      if (n) shared = bag;
+    }
+    return { profiles, multi: true, counts: { profiles: filled }, format: 'livecoins-v2', shared };
   }
 
   function countPatch(patch) {

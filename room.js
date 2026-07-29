@@ -992,12 +992,71 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     for (const key of PROFILE_SHARED_KEYS) delete snap[key];
     return snap;
   }
+  /** Quita claves globales de todas las ranuras (evita copias viejas en disco).
+   *  Devuelve true si se borró alguna clave (hay que persistir). */
+  function stripSharedFromAllSlots() {
+    let stripped = false;
+    const stripOne = (snap) => {
+      if (!snap || typeof snap !== 'object') return;
+      for (const key of PROFILE_SHARED_KEYS) {
+        if (!Object.prototype.hasOwnProperty.call(snap, key)) continue;
+        delete snap[key];
+        stripped = true;
+      }
+    };
+    for (let i = 0; i < (profiles.slots || []).length; i++) stripOne(profiles.slots[i]);
+    stripOne(profiles.general);
+    return stripped;
+  }
+  /**
+   * Tras migrar, un slot vacío puede dejar flowMeter/giftShowcase/etc. sin demos.
+   * Solo en migración/import — no en cada attach (respeta vacíos intencionales del usuario).
+   */
+  function healSharedOverlayDefaults() {
+    const bag = {};
+    for (const key of ['flowMeter', 'giftShowcase', 'giftSeq', 'giftVs']) {
+      bag[key] = getSharedValue(key);
+    }
+    ensureFlowMeterDefaults(ensureGiftShowcaseDefaults(ensureGiftVsDefaults(ensureGiftSeqDefaults(bag))));
+    for (const key of ['flowMeter', 'giftShowcase', 'giftSeq', 'giftVs']) {
+      if (bag[key] && typeof bag[key] === 'object') profiles[key] = bag[key];
+    }
+  }
   function attachSharedSettings(s) {
     if (!s || typeof s !== 'object') return s;
     for (const key of PROFILE_SHARED_KEYS) {
       s[key] = getSharedValue(key);
     }
     return s;
+  }
+  /** Aplica bolsa shared de backup/nube. replace pisa; merge solo rellena keys ausentes. */
+  function applySharedBag(sharedBag, mode) {
+    if (!sharedBag || typeof sharedBag !== 'object' || Array.isArray(sharedBag)) return false;
+    let applied = false;
+    const merge = mode === 'merge';
+    for (const key of PROFILE_SHARED_KEYS) {
+      if (sharedBag[key] == null) continue;
+      if (key === 'spotify') {
+        const curId = String(profiles.spotify?.clientId || '').trim();
+        const incId = String(sharedBag.spotify?.clientId || '').trim();
+        // Merge: no borrar un Client ID local con un backup sin ID.
+        if (merge && curId && !incId) continue;
+        if (merge && profiles.spotify != null && typeof profiles.spotify === 'object' && !incId) continue;
+        if (!merge || !profiles.spotify || incId || !curId) {
+          profiles.spotify = normalizeSpotifyCfg(sharedBag.spotify);
+          applied = true;
+        }
+        continue;
+      }
+      if (merge && profiles[key] != null && typeof profiles[key] === 'object') continue;
+      profiles[key] = normalizeSharedValue(key, sharedBag[key]);
+      applied = true;
+    }
+    return applied;
+  }
+  function sharedBagHasContent(sharedBag) {
+    if (!sharedBag || typeof sharedBag !== 'object' || Array.isArray(sharedBag)) return false;
+    return PROFILE_SHARED_KEYS.some((k) => sharedBag[k] != null);
   }
   // Compat: nombres antiguos usados por Spotify
   function ensureSharedSpotify() { return ensureSharedKey('spotify'); }
@@ -1041,9 +1100,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   const hadSharedSpotify = !!(profiles.spotify && typeof profiles.spotify === 'object' && !Array.isArray(profiles.spotify));
   const migratedShared = ensureAllSharedKeys();
+  // Solo sanar demos al migrar por primera vez (no en cada arranque: respeta vacíos del usuario).
+  if (migratedShared) healSharedOverlayDefaults();
+  const strippedSharedSlots = stripSharedFromAllSlots();
   let settings = profiles.editMode === 'general' ? loadGeneralSettings() : loadSettings();
   attachSharedSettings(settings);
-  if (!hadSharedSpotify || migratedShared) {
+  if (!hadSharedSpotify || migratedShared || strippedSharedSlots) {
     try { saveProfilesNow(); } catch {}
   }
   loadWeekly();
@@ -1207,14 +1269,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     settings = loadSettings();
     writeJsonAtomic(SETTINGS_FILE, settings);
     enforceLimits();
-    loadTop1Fire();
-    broadcastTop1Fire();
-    loadHabibiTop();
-    broadcastHabibiTop();
-    loadGiftGoalsPersist();
-    broadcastGiftGoals();
-    loadRankOverlays();
-    broadcastAllRankStates();
+    // Overlays/TTS/timer son globales: no recargar ni vaciar sesiones live al cambiar de perfil.
+    // Solo reenviar el estado actual a paneles/overlays.
+    try { broadcastTop1Fire(); } catch {}
+    try { broadcastHabibiTop(); } catch {}
+    try { broadcastGiftGoals(); } catch {}
+    try { broadcastAllRankStates(); } catch {}
     broadcast('settings', settings);
     broadcastProfiles();
     clampTimer();
@@ -1274,30 +1334,43 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   // Importa una lista de perfiles { name, settings } en las ranuras 0..N-1. En modo
   // 'replace' cada perfil sustituye al de su ranura; en 'merge' se fusiona encima.
-  function importProfiles(list, mode) {
+  function importProfiles(list, mode, sharedBag) {
     if (!Array.isArray(list) || !list.length) return;
     persistCurrentEdit();
     profiles.editMode = 'profile';
+    const hasBag = sharedBagHasContent(sharedBag);
+    if (hasBag) applySharedBag(sharedBag, mode);
     const n = Math.min(list.length, PROFILE_COUNT);
     for (let i = 0; i < n; i++) {
       const entry = list[i] || {};
       const incoming = entry.settings || entry.data;
       if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
         const inc = cloneSettings(incoming);
+        // Promueve claves globales del primer perfil (backups viejos las traían en cada ranura).
+        if (i === 0 && !hasBag) {
+          applySharedBag(inc, mode);
+        }
+        stripSharedFromSnap(inc);
         const base = (mode === 'merge' && profiles.slots[i])
           ? cloneSettings(profiles.slots[i])
           : structuredClone(DEFAULT_SETTINGS);
+        stripSharedFromSnap(base);
         profiles.slots[i] = deepMerge(base, inc);
       }
       const nm = String(entry.name || '').trim().slice(0, 40);
       if (nm) profiles.names[i] = nm;
     }
+    const migrated = ensureAllSharedKeys();
+    // En replace: sanar demos vacíos del backup. En merge: solo si acabamos de migrar keys nuevas.
+    if (mode !== 'merge' || migrated) healSharedOverlayDefaults();
+    stripSharedFromAllSlots();
     saveProfilesNow();
     settings = loadSettings(); // recarga el perfil activo desde su ranura ya actualizada
     enforceLimits();
     writeJsonAtomic(SETTINGS_FILE, settings);
     broadcast('settings', settings);
     broadcastProfiles();
+    restoreTimerFromSettings();
     clampTimer();
     broadcastTimer();
     if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
@@ -1337,6 +1410,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
     }
     ensureAllSharedKeys();
+    healSharedOverlayDefaults();
+    stripSharedFromAllSlots();
     profiles.editMode = data.editingGeneral ? 'general' : 'profile';
     clearProfileRuntimeState();
     saveProfilesNow();
@@ -1354,6 +1429,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastAllRankStates();
     broadcast('settings', settings);
     broadcastProfiles();
+    restoreTimerFromSettings();
     clampTimer();
     broadcastTimer();
     if (!silent && typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
@@ -1370,9 +1446,30 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       return n;
     };
+    // Overlays/TTS/timer/puntos/Spotify viven fuera de las ranuras: contarlos evita
+    // que una nube con más acciones pero sin shared pise la config global local.
+    const scoreSharedBag = (bag) => {
+      if (!bag || typeof bag !== 'object') return 0;
+      let n = 0;
+      for (const key of PROFILE_SHARED_KEYS) {
+        const v = bag[key];
+        if (v == null) continue;
+        try {
+          const s = JSON.stringify(v);
+          if (s && s !== '{}' && s !== '[]' && s !== 'null') n += Math.min(s.length, 80000);
+        } catch {}
+      }
+      return n;
+    };
     let total = Number(full.syncTs) || 0;
     if (Array.isArray(full.slots)) for (const s of full.slots) total += scoreSlot(s);
     if (full.general) total += scoreSlot(full.general);
+    const sharedBag = (full.shared && typeof full.shared === 'object' && !Array.isArray(full.shared))
+      ? { ...full.shared } : {};
+    for (const key of PROFILE_SHARED_KEYS) {
+      if (full[key] != null && sharedBag[key] == null) sharedBag[key] = full[key];
+    }
+    total += scoreSharedBag(sharedBag);
     return total;
   }
   function normalizeResetPeriod(p) {
@@ -7963,7 +8060,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'profilesFull', payload: getProfilesFull() })); } catch {}
         break;
       case 'importProfiles':
-        importProfiles(data.profiles, data.mode);
+        importProfiles(data.profiles, data.mode, data.shared);
         break;
       case 'relayHello':
         // El .exe manda esto al conectar; asegura rol relay por si la URL aún no lo pasó.

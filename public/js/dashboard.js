@@ -12230,10 +12230,25 @@ function setupSettingsTransfer() {
         try {
           const full = await requestProfilesFull(2500);
           if (full && Array.isArray(full.slots)) {
-            out.profiles = full.slots.map((s, i) => ({
-              name: (full.names && full.names[i]) || `Perfil ${i + 1}`,
-              data: s ? window.SettingsTransfer.exportSettings(s, { keys }).data : null,
-            }));
+            const sharedBag = (full.shared && typeof full.shared === 'object') ? full.shared : {};
+            out.profiles = full.slots.map((s, i) => {
+              let data = null;
+              if (s) {
+                // Los slots ya no guardan overlays/TTS/timer: reinyectar shared al exportar.
+                const merged = { ...s };
+                for (const [k, v] of Object.entries(sharedBag)) {
+                  if (v != null) merged[k] = v;
+                }
+                if (full.spotify && !merged.spotify) merged.spotify = full.spotify;
+                data = window.SettingsTransfer.exportSettings(merged, { keys }).data;
+              }
+              return {
+                name: (full.names && full.names[i]) || `Perfil ${i + 1}`,
+                data,
+              };
+            });
+            if (Object.keys(sharedBag).length) out.shared = sharedBag;
+            if (full.spotify) out.spotify = full.spotify;
           }
         } catch {}
       }
@@ -12283,7 +12298,7 @@ function setupSettingsTransfer() {
           name: p.name || '',
           settings: p.settings || null,
         }));
-        importProfilesReq(profiles, mode);
+        importProfilesReq(profiles, mode, result.shared || null);
         const summary = window.SettingsTransfer.summarize(counts);
         setStatus(`Importado (${mode === 'replace' ? 'reemplazo' : 'añadir'}): ${summary}.`, 'ok');
         toast(`Importado: ${summary}`, 'ok');
@@ -12431,7 +12446,11 @@ async function switchGeneralProfileReq() {
 }
 
 function renameProfileReq(index, name) { send({ action: 'renameProfile', index, name }); }
-function importProfilesReq(profiles, mode) { send({ action: 'importProfiles', profiles, mode }); }
+function importProfilesReq(profiles, mode, shared) {
+  const payload = { action: 'importProfiles', profiles, mode };
+  if (shared && typeof shared === 'object') payload.shared = shared;
+  send(payload);
+}
 
 function renderProfilesList() {
   const list = $('profilesList');
