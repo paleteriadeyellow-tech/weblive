@@ -135,7 +135,7 @@ function mergeProfilesData(legacy, current) {
   if (!Number.isInteger(merged.active) || merged.active < 0 || merged.active >= 10) merged.active = 0;
   // Conservar claves globales (Spotify / overlays / TTS / …) si existían.
   const sharedKeys = [
-    'spotify', 'tts', 'timer', 'points', 'shared',
+    'spotify', 'tts', 'timer', 'points', 'webhook', 'shared',
     'perrito', 'jarron', 'vaquita', 'marranito', 'corazonLava', 'pelotas',
     'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3',
     'flowMeter', 'giftSeq', 'giftShowcase',

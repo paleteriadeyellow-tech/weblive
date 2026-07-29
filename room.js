@@ -890,12 +890,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     try { return structuredClone(obj); } catch { return JSON.parse(JSON.stringify(obj)); }
   }
   /** Claves de ajustes compartidos entre perfiles (como Spotify).
-   *  Overlays + Chat TTS + Temporizador + Usuario/Puntos no cambian al cambiar de perfil. */
+   *  Overlays + Chat TTS + Temporizador + Usuario/Puntos + Webhook/RCON
+   *  no cambian al cambiar de perfil. */
   const PROFILE_SHARED_KEYS = [
     'spotify',
     'tts',
     'timer',
     'points',
+    'webhook', // RCON / OBS / Streamer.bot / ServerTap (conexión global)
     // Overlays (Streams / Gifts / Metas / Rankings / Diseño / Batalla / Contador)
     'perrito', 'jarron', 'vaquita', 'marranito', 'corazonLava', 'pelotas',
     'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3',
@@ -951,6 +953,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (key === 'spotify') {
       const withId = candidates.find((c) => String(c?.clientId || '').trim());
       return normalizeSharedValue(key, withId || candidates[0] || null);
+    }
+    if (key === 'webhook') {
+      // Preferir la ranura que ya tenga RCON/ServerTap configurado.
+      const withCreds = candidates.find((c) => {
+        if (!c || typeof c !== 'object') return false;
+        const pw = String(c.rcon?.password || '').trim();
+        const host = String(c.rcon?.host || '').trim();
+        const stapKey = String(c.servertap?.key || '').trim();
+        const stapOn = !!c.servertap?.enabled;
+        return !!(pw || (host && host !== '127.0.0.1') || (stapOn && stapKey && stapKey !== 'change_me'));
+      });
+      return normalizeSharedValue(key, withCreds || candidates[0] || null);
     }
     return normalizeSharedValue(key, candidates[0] || null);
   }
@@ -1044,6 +1058,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (merge && profiles.spotify != null && typeof profiles.spotify === 'object' && !incId) continue;
         if (!merge || !profiles.spotify || incId || !curId) {
           profiles.spotify = normalizeSpotifyCfg(sharedBag.spotify);
+          applied = true;
+        }
+        continue;
+      }
+      if (key === 'webhook') {
+        const curPw = String(profiles.webhook?.rcon?.password || '').trim();
+        const incPw = String(sharedBag.webhook?.rcon?.password || '').trim();
+        const stapInc = String(sharedBag.webhook?.servertap?.key || '').trim();
+        const hasInc = !!(incPw || (stapInc && stapInc !== 'change_me'));
+        // Merge: no pisar RCON local; sí rellenar si local está vacío y el backup trae credenciales.
+        if (merge && curPw) continue;
+        if (merge && profiles.webhook != null && typeof profiles.webhook === 'object' && !hasInc) continue;
+        if (!merge || !profiles.webhook || hasInc || !curPw) {
+          profiles.webhook = normalizeSharedValue('webhook', sharedBag.webhook);
           applied = true;
         }
         continue;

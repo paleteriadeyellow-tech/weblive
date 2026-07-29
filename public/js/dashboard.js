@@ -3642,6 +3642,8 @@ function onSettings(s) {
 
   bootGameActionsOffOnce('_ctrResetDone', ensureCtrActions, renderCtrActions);
   bootGameActionsOffOnce('_mslugResetDone', ensureMslugActions, renderMslugActions);
+  bootGameActionsOffOnce('_smwResetDone', ensureSmwActions, renderSmwActions);
+  bootGameActionsOffOnce('_gdashResetDone', ensureGdashActions, renderGdashActions);
   bootGameActionsOffOnce('_mcResetDone', () => settings?.mcActions || [], renderMyMcActions);
   bootGameActionsOffOnce('_mcshooterResetDone', () => settings?.mcshooterActions || [], renderMyMcShooterActions);
   applyMcShooterColiseoUI();
