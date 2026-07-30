@@ -10,18 +10,23 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif); color: #fff; }
     .widget { width: 360px; max-width: 96vw; transform: scale(var(--ol-scale, 1)); transform-origin: top center; }
-    .list { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; }
+    .list { display: flex; flex-direction: column; border-radius: 14px; overflow: visible; }
     .row { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 10px 12px; min-height: 56px; }
+    .row[data-rank="1"] { padding-top: 22px; }
     .rank { flex: 0 0 auto; width: 40px; display: flex; align-items: center; justify-content: center; }
     .rank-num { font-size: 16px; font-weight: 800; color: rgba(255,255,255,.92); }
     .medal { font-size: 26px; line-height: 1; filter: drop-shadow(0 2px 5px rgba(0,0,0,.45)); }
-    .av-wrap { position: relative; flex: 0 0 auto; width: 46px; height: 46px; }
+    .av-wrap { position: relative; flex: 0 0 auto; width: 46px; height: 46px; overflow: visible; }
     .row[data-rank="1"] .av-wrap { width: 52px; height: 52px; }
     .av { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; display: block; border: 2px solid rgba(255,255,255,.22); background: #111; }
     .row[data-rank="1"] .av { width: 52px; height: 52px; border-color: #ffd700; box-shadow: 0 0 0 1px rgba(255,215,0,.35), 0 3px 10px rgba(0,0,0,.35); }
     .row[data-rank="2"] .av { border-color: #c8d0d8; }
     .row[data-rank="3"] .av { border-color: #d4a574; }
-    .crown { display: none; position: absolute; left: 50%; top: 0; transform: translate(-50%, -55%); font-size: 24px; z-index: 2; filter: drop-shadow(0 1px 3px rgba(0,0,0,.6)); pointer-events: none; }
+    .crown {
+      display: none; position: absolute; left: 50%; top: -26px;
+      transform: translateX(-50%); width: 42px; height: auto; z-index: 3;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,.6)); pointer-events: none;
+    }
     .row[data-rank="1"] .crown { display: block; }
     .meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; justify-content: center; }
     .name { font-weight: 700; font-size: 15px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc; -webkit-text-fill-color: #f8fafc; }

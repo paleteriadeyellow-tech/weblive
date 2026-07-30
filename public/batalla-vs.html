@@ -18,7 +18,24 @@
     }
 
     .stage {
-      /* Lienzo más pequeño para Live Studio (menos espacio en pantalla) */
+      --circle-scale: 1;
+      --text-scale: 1;
+      --wins-host: #ffe566;
+      --wins-rival: #4da3ff;
+      --pts-host: #ffe566;
+      --pts-rival: #7ec8ff;
+      --name-host: #ffffff;
+      --name-rival: #ffffff;
+      --ring-host: transparent;
+      --ring-rival: transparent;
+      --ring-host-on: 0;
+      --ring-rival-on: 0;
+      --frame-size: calc(185px * var(--circle-scale));
+      /* El ancho de la columna NO sigue al círculo: números/nombre no se comprimen al achicar el aro */
+      --side-w: max(185px, var(--frame-size));
+      --wins-size: calc(30px * var(--text-scale));
+      --pts-size: calc(24px * var(--text-scale));
+      --name-size: calc(13px * var(--text-scale));
       width: 480px; height: 300px; position: relative;
       display: flex; align-items: center; justify-content: center; gap: 2px;
       transform: scale(var(--tf-fit, 1)); transform-origin: center center;
@@ -27,11 +44,11 @@
     }
 
     .side {
-      flex: 0 0 auto; width: 185px;
+      flex: 0 0 auto; width: var(--side-w);
       display: flex; flex-direction: column; align-items: center; gap: 1px;
     }
     .wins {
-      font-weight: 900; font-size: 30px; line-height: 1;
+      font-weight: 900; font-size: var(--wins-size); line-height: 1;
       font-variant-numeric: tabular-nums;
       text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 14px rgba(0,0,0,.35);
       transition: transform .15s ease;
@@ -39,14 +56,13 @@
     }
     .wins.is-pop { animation: winpop .32s ease; }
     @keyframes winpop { 0% { transform: scale(1); } 40% { transform: scale(1.16); } 100% { transform: scale(1); } }
-    .side.host .wins { color: #ffe566; }
-    .side.rival .wins { color: #4da3ff; }
+    .side.host .wins { color: var(--wins-host); }
+    .side.rival .wins { color: var(--wins-rival); }
 
-    /* Marcos: foto detrás del PNG, a la medida del círculo */
     .frame-hero {
       position: relative;
-      width: 185px;
-      height: 185px;
+      width: var(--frame-size);
+      height: var(--frame-size);
       background: transparent !important;
       filter: drop-shadow(0 6px 14px rgba(0,0,0,.45));
       flex: 0 0 auto;
@@ -79,27 +95,60 @@
       width: 100%; height: 100%;
       object-fit: fill; display: block;
       z-index: 2; pointer-events: none; user-select: none;
+      opacity: calc(1 - (var(--ring-on, 0) * 0.92));
+      transition: opacity .15s ease;
+    }
+    .side.host .frame-img { --ring-on: var(--ring-host-on); }
+    .side.rival .frame-img { --ring-on: var(--ring-rival-on); }
+    .frame-color {
+      position: absolute; inset: 0;
+      z-index: 3; pointer-events: none;
+      opacity: var(--ring-on, 0);
+      -webkit-mask-size: 100% 100%;
+      mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat;
+      mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+      mask-position: center;
+      transition: opacity .15s ease;
+    }
+    .side.host .frame-color {
+      --ring-on: var(--ring-host-on);
+      background: var(--ring-host);
+      -webkit-mask-image: url('/overlays/marco-vs-host.png?v=4');
+      mask-image: url('/overlays/marco-vs-host.png?v=4');
+    }
+    .side.rival .frame-color {
+      --ring-on: var(--ring-rival-on);
+      background: var(--ring-rival);
+      -webkit-mask-image: url('/overlays/marco-vs-rival.png?v=4');
+      mask-image: url('/overlays/marco-vs-rival.png?v=4');
     }
 
     .name {
       font-family: 'Inter', system-ui, sans-serif;
-      font-weight: 800; font-size: 13px; color: #fff;
+      font-weight: 800; font-size: var(--name-size);
       max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       text-shadow: 0 2px 0 rgba(0,0,0,.55);
       text-align: center; padding: 0 4px;
       z-index: 3;
     }
+    .side.host .name { color: var(--name-host); }
+    .side.rival .name { color: var(--name-rival); }
 
     .points {
-      font-weight: 900; font-size: 24px; line-height: 1;
-      color: #ffe566; font-variant-numeric: tabular-nums;
+      font-weight: 900; font-size: var(--pts-size); line-height: 1;
+      font-variant-numeric: tabular-nums;
       text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 12px rgba(255,200,60,.3);
       transition: transform .14s ease;
       z-index: 3;
     }
     .points.is-pop { animation: winpop .28s ease; }
-    .side.host .points { color: #ffe566; }
-    .side.rival .points { color: #7ec8ff; text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 12px rgba(80,160,255,.3); }
+    .side.host .points { color: var(--pts-host); }
+    .side.rival .points {
+      color: var(--pts-rival);
+      text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 12px rgba(80,160,255,.3);
+    }
 
     .mid {
       flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
@@ -135,6 +184,7 @@
       <div class="frame-hero">
         <div class="avatar-hole"><img class="avatar" id="avatar-host" alt="" referrerpolicy="no-referrer" /></div>
         <img class="frame-img" src="/overlays/marco-vs-host.png?v=4" alt="" />
+        <div class="frame-color" aria-hidden="true"></div>
       </div>
       <div class="name" id="name-host">Esperando…</div>
       <div class="points" id="points-host">0</div>
@@ -148,6 +198,7 @@
       <div class="frame-hero">
         <div class="avatar-hole"><img class="avatar" id="avatar-rival" alt="" referrerpolicy="no-referrer" /></div>
         <img class="frame-img" src="/overlays/marco-vs-rival.png?v=4" alt="" />
+        <div class="frame-color" aria-hidden="true"></div>
       </div>
       <div class="name" id="name-rival">Rival</div>
       <div class="points" id="points-rival">0</div>
@@ -171,6 +222,7 @@
     })();
 
     const el = {
+      stage: document.getElementById('stage'),
       winsH: document.getElementById('wins-host'),
       winsR: document.getElementById('wins-rival'),
       ptsH: document.getElementById('points-host'),
@@ -188,6 +240,45 @@
       rival: { uniqueId: '', nickname: 'Rival', photo: '' },
       pointsHost: 0, pointsRival: 0, winsHost: 0, winsRival: 0,
     };
+
+    let cfg = {
+      winsHostColor: '#ffe566',
+      winsRivalColor: '#4da3ff',
+      pointsHostColor: '#ffe566',
+      pointsRivalColor: '#7ec8ff',
+      nameHostColor: '#ffffff',
+      nameRivalColor: '#ffffff',
+      ringHostColor: '',
+      ringRivalColor: '',
+      circleScale: 100,
+      textScale: 100,
+    };
+
+    function hexOk(v, fallback) {
+      const s = String(v || '').trim();
+      return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(s) ? s : fallback;
+    }
+    function applyStyle() {
+      if (!el.stage) return;
+      const circle = Math.max(35, Math.min(140, Number(cfg.circleScale) || 100)) / 100;
+      const text = Math.max(70, Math.min(150, Number(cfg.textScale) || 100)) / 100;
+      el.stage.style.setProperty('--circle-scale', String(circle));
+      el.stage.style.setProperty('--text-scale', String(text));
+      el.stage.style.setProperty('--wins-host', hexOk(cfg.winsHostColor, '#ffe566'));
+      el.stage.style.setProperty('--wins-rival', hexOk(cfg.winsRivalColor, '#4da3ff'));
+      el.stage.style.setProperty('--pts-host', hexOk(cfg.pointsHostColor, '#ffe566'));
+      el.stage.style.setProperty('--pts-rival', hexOk(cfg.pointsRivalColor, '#7ec8ff'));
+      el.stage.style.setProperty('--name-host', hexOk(cfg.nameHostColor, '#ffffff'));
+      el.stage.style.setProperty('--name-rival', hexOk(cfg.nameRivalColor, '#ffffff'));
+      const rh = String(cfg.ringHostColor || '').trim();
+      const rr = String(cfg.ringRivalColor || '').trim();
+      const rhOn = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(rh);
+      const rrOn = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(rr);
+      el.stage.style.setProperty('--ring-host', rhOn ? rh : 'transparent');
+      el.stage.style.setProperty('--ring-rival', rrOn ? rr : 'transparent');
+      el.stage.style.setProperty('--ring-host-on', rhOn ? '1' : '0');
+      el.stage.style.setProperty('--ring-rival-on', rrOn ? '1' : '0');
+    }
 
     function fmt(n) { return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('es-ES'); }
     function setAvatar(img, url) {
@@ -239,7 +330,6 @@
       if (payload.frozen != null) state.frozen = !!payload.frozen;
       if (payload.host) {
         const next = pickSide(payload.host, state.host.nickname || 'Esperando…');
-        // Conservar foto/nombre previos si el payload viene vacío (update parcial)
         if (!next.photo && state.host.photo) next.photo = state.host.photo;
         if ((!next.nickname || next.nickname === 'Esperando…') && state.host.nickname) {
           next.nickname = state.host.nickname;
@@ -254,12 +344,10 @@
           next.nickname = state.rival.nickname;
         }
         if (!next.uniqueId && state.rival.uniqueId) next.uniqueId = state.rival.uniqueId;
-        // Si llega foto/nombre reales, siempre sustituyen el placeholder
         if (payload.rival.photo) next.photo = String(payload.rival.photo);
         if (payload.rival.nickname && String(payload.rival.nickname).trim() && String(payload.rival.nickname) !== 'Rival') {
           next.nickname = String(payload.rival.nickname);
         }
-        // PK real tras Testear: no conservar nick/foto de la demo
         if (payload.rival.uniqueId && String(payload.rival.uniqueId) !== 'rival_demo') {
           if (state.rival.uniqueId === 'rival_demo' || state.rival.uniqueId === 'rival') {
             next.photo = payload.rival.photo ? String(payload.rival.photo) : (next.photo || '');
@@ -321,6 +409,10 @@
         if (type === 'pkBattle') applyState(payload);
         else if (type === 'pkBattleReset') resetLocal();
         else if (type === 'pkBattleTest') demo();
+        else if (type === 'settings' && payload && payload.batallaVs) {
+          cfg = Object.assign(cfg, payload.batallaVs);
+          applyStyle();
+        }
         else if (type === 'state' && payload && !state.host.photo) {
           if (payload.photo || payload.nickname) {
             state.host.photo = payload.photo || state.host.photo;
@@ -332,6 +424,7 @@
       };
     }
     connectWS();
+    applyStyle();
     render();
 
     window.addEventListener('message', (e) => {
@@ -341,7 +434,12 @@
       else if (d.type === 'reset') resetLocal();
       else if (d.type === 'start') startLocal();
       else if (d.type === 'stop') stopLocal();
-      else if (d.type === 'config' && d.payload) applyState(Object.assign({}, state, d.payload));
+      else if (d.type === 'config' && d.config) {
+        cfg = Object.assign(cfg, d.config);
+        applyStyle();
+      } else if (d.type === 'config' && d.payload) {
+        applyState(Object.assign({}, state, d.payload));
+      }
     });
   })();
   </script>

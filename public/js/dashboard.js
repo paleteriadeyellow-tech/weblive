@@ -341,7 +341,7 @@ window.addEventListener('pageshow', () => {
 });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -459,6 +459,8 @@ const OVERLAY_CAP = {
   '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
   '/topalt-rank-neon.html': 'ov_topaltrankneon',
   '/topalt-rank.html': 'ov_topaltrank',
+  '/topmulti-rank.html': 'ov_topmultirank',
+  '/points-lookup.html': 'ov_pointslookup',
   '/toplikes.html': 'ov_toplikes', '/topdiamantes.html': 'ov_topdiamantes',
   '/toplikes-lista.html': 'ov_toplikeslista', '/topdiamantes-lista.html': 'ov_topdiamanteslista',
   '/contador-seguidores.html': 'ov_contadorseguidores',
@@ -626,6 +628,8 @@ const CAP_LABELS = {
   ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
+  ov_topmultirank: 'Top rotatorio (likes / coins / chat / puntos)',
+  ov_pointslookup: 'Consulta de puntos (!puntos)',
   ov_toplikes: 'Top likes',
   ov_topdiamantes: 'Top diamantes', ov_toplikeslista: 'Ranking likes (lista)',
   ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_contadorseguidores: 'Contador de seguidores',
@@ -647,7 +651,7 @@ const PLAN_FEATURE_ORDER = [
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
-  'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
+  'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
@@ -3619,6 +3623,15 @@ function onSettings(s) {
     if (settings.topAltRankNeon.resetPeriodLikes == null) settings.topAltRankNeon.resetPeriodLikes = 'live';
     if (settings.topAltRankNeon.resetPeriodDiam == null) settings.topAltRankNeon.resetPeriodDiam = 'live';
   }
+  if (settings.topMultiRank) {
+    if (settings.topMultiRank.resetPeriodLikes == null) settings.topMultiRank.resetPeriodLikes = 'live';
+    if (settings.topMultiRank.resetPeriodDiam == null) settings.topMultiRank.resetPeriodDiam = 'live';
+    if (settings.topMultiRank.resetPeriodComments == null) settings.topMultiRank.resetPeriodComments = 'live';
+    if (settings.topMultiRank.showLikes == null) settings.topMultiRank.showLikes = true;
+    if (settings.topMultiRank.showCoins == null) settings.topMultiRank.showCoins = true;
+    if (settings.topMultiRank.showComments == null) settings.topMultiRank.showComments = true;
+    if (settings.topMultiRank.showPoints == null) settings.topMultiRank.showPoints = true;
+  }
   applyingSettings = true;
   applySettingsToUI();
   applyingSettings = false;
@@ -6336,15 +6349,85 @@ function bvsToPreview(msg) {
     return fr;
   });
 }
-(function setupBatallaVsCard() {
-  if (!$('bvs-test')) return;
-  const run = (type, action) => {
-    bvsToPreview({ type });
-    if (ws?.readyState === 1) send({ action });
-    else toast('Conectando al panel… reintenta en un segundo', 'warn');
+function syncBvsCfgLabels() {
+  const c = $('bvscfg-circle');
+  const cl = $('bvscfg-circle-lbl');
+  if (c && cl) cl.textContent = Math.max(35, Math.min(140, parseInt(c.value, 10) || 100)) + '%';
+  const t = $('bvscfg-text');
+  const tl = $('bvscfg-text-lbl');
+  if (t && tl) tl.textContent = Math.max(70, Math.min(150, parseInt(t.value, 10) || 100)) + '%';
+}
+function syncBvsRingClearedFromSettings() {
+  const data = settings?.batallaVs || {};
+  const sync = (id, val, fallback) => {
+    const el = $(id);
+    if (!el) return;
+    const v = String(val || '').trim();
+    if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) {
+      el.value = v;
+      el.dataset.cleared = '';
+    } else {
+      el.value = fallback;
+      el.dataset.cleared = '1';
+    }
   };
-  $('bvs-test').onclick = () => run('test', 'testBatallaVs');
-  if ($('bvs-reset')) $('bvs-reset').onclick = () => run('reset', 'resetBatallaVs');
+  sync('bvscfg-ringhost', data.ringHostColor, '#ffe566');
+  sync('bvscfg-ringrival', data.ringRivalColor, '#4da3ff');
+}
+function pushBvsStylePreview(extra) {
+  const base = readForm({
+    'bvscfg-winshost': 'winsHostColor', 'bvscfg-winsrival': 'winsRivalColor',
+    'bvscfg-ptshost': 'pointsHostColor', 'bvscfg-ptsrival': 'pointsRivalColor',
+    'bvscfg-namehost': 'nameHostColor', 'bvscfg-namerival': 'nameRivalColor',
+    'bvscfg-ringhost': 'ringHostColor', 'bvscfg-ringrival': 'ringRivalColor',
+    'bvscfg-circle': 'circleScale', 'bvscfg-text': 'textScale',
+  }, { circleScale: 'int', textScale: 'int' });
+  if ($('bvscfg-ringhost')?.dataset.cleared === '1') base.ringHostColor = '';
+  if ($('bvscfg-ringrival')?.dataset.cleared === '1') base.ringRivalColor = '';
+  bvsToPreview({ type: 'config', config: { ...(settings?.batallaVs || {}), ...base, ...(extra || {}) } });
+}
+(function setupBatallaVsRingClears() {
+  const bind = (btnId, inputId, key, fallback) => {
+    const btn = $(btnId);
+    const input = $(inputId);
+    if (!btn || !input) return;
+    btn.onclick = () => {
+      input.value = fallback;
+      input.dataset.cleared = '1';
+      syncBvsCfgLabels();
+      pushBvsStylePreview({ [key]: '' });
+    };
+    input.addEventListener('input', () => { input.dataset.cleared = ''; });
+  };
+  bind('bvscfg-ringhost-clear', 'bvscfg-ringhost', 'ringHostColor', '#ffe566');
+  bind('bvscfg-ringrival-clear', 'bvscfg-ringrival', 'ringRivalColor', '#4da3ff');
+})();
+
+(function patchBatallaVsStylePreview() {
+  const ids = [
+    'bvscfg-winshost', 'bvscfg-winsrival', 'bvscfg-ptshost', 'bvscfg-ptsrival',
+    'bvscfg-namehost', 'bvscfg-namerival', 'bvscfg-ringhost', 'bvscfg-ringrival',
+    'bvscfg-circle', 'bvscfg-text',
+  ];
+  const wire = () => {
+    ids.forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.oninput = () => { syncBvsCfgLabels(); pushBvsStylePreview(); };
+      el.onchange = () => { syncBvsCfgLabels(); pushBvsStylePreview(); };
+    });
+    const btn = $('bvs-config');
+    if (!btn || btn._bvsPatched) return;
+    btn._bvsPatched = true;
+    const prev = btn.onclick;
+    btn.onclick = async function (ev) {
+      if (typeof prev === 'function') await prev.call(this, ev);
+      syncBvsRingClearedFromSettings();
+      syncBvsCfgLabels();
+      pushBvsStylePreview();
+    };
+  };
+  window.__patchBatallaVsStylePreview = wire;
 })();
 
 let gvsRowsDraft = [];
@@ -7405,7 +7488,7 @@ const CFG_FONTS = [
   ['pressstart', 'Press Start 2P ⛏'], ['exo2', 'Exo 2'], ['luckiest', 'Luckiest Guy ⭐'], ['bangers', 'Bangers ⭐'], ['lilita', 'Lilita One ⭐'],
   ['titan', 'Titan One ⭐'], ['fredoka', 'Fredoka ⭐'], ['bungee', 'Bungee ⭐'],
   ['rubik', 'Rubik'], ['oswald', 'Oswald'], ['bebas', 'Bebas Neue'], ['montserrat', 'Montserrat'],
-  ['poppins', 'Poppins'], ['orbitron', 'Orbitron'], ['inter', 'Inter'], ['system', 'Sistema'],
+  ['poppins', 'Poppins'], ['orbitron', 'Orbitron'], ['inter', 'Inter'], ['cinzel', 'Cinzel'], ['system', 'Sistema'],
 ];
 document.querySelectorAll('select.cfg-font').forEach((sel) => {
   sel.innerHTML = CFG_FONTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
@@ -7831,6 +7914,60 @@ const STYLE_OVERLAYS = [
     },
   }),
   setupStyleOverlay({
+    kind: 'topmulti', settingsKey: 'topMultiRank', previewId: 'tmr-preview',
+    btnTest: 'tmr-test', btnReset: 'tmr-reset', btnConfig: 'tmr-config',
+    modalId: 'tmrConfigModal', closeId: 'tmrcfg-close', saveId: 'tmrcfg-save',
+    testAction: 'testRankMulti', resetAction: 'resetRankMulti',
+    map: {
+      'tmrcfg-interval': 'intervalSec',
+      'tmrcfg-show-likes': 'showLikes', 'tmrcfg-show-coins': 'showCoins',
+      'tmrcfg-show-comments': 'showComments', 'tmrcfg-show-points': 'showPoints',
+      'tmrcfg-title-likes': 'titleLikes', 'tmrcfg-title-coins': 'titleCoins',
+      'tmrcfg-title-comments': 'titleComments', 'tmrcfg-title-points': 'titlePoints',
+      'tmrcfg-period-likes': 'resetPeriodLikes', 'tmrcfg-period-diam': 'resetPeriodDiam',
+      'tmrcfg-period-comments': 'resetPeriodComments',
+      'tmrcfg-rows': 'rows', 'tmrcfg-scale': 'scale', 'tmrcfg-font': 'font',
+      'tmrcfg-colormode': 'colorMode',
+      'tmrcfg-titlecolor': 'titleColor', 'tmrcfg-namecolor': 'nameColor',
+      'tmrcfg-valuecolor': 'valueColor', 'tmrcfg-starcolor': 'starColor',
+      'tmrcfg-ring1': 'ring1', 'tmrcfg-ring2': 'ring2', 'tmrcfg-ring3': 'ring3',
+      'tmrcfg-ringother': 'ringOther', 'tmrcfg-poscolor': 'posColor',
+    },
+    types: { rows: 'int', scale: 'int', intervalSec: 'int' },
+    onFormSync: () => {
+      const sc = $('tmrcfg-scale');
+      const val = $('tmrcfg-scale-val');
+      if (sc && val) val.textContent = sc.value || '100';
+    },
+    onSave: (cfg) => {
+      if (!settings.toplikesRank) settings.toplikesRank = {};
+      if (!settings.topdiamRank) settings.topdiamRank = {};
+      if (!settings.topcommentsRank) settings.topcommentsRank = {};
+      if (cfg.resetPeriodLikes != null) settings.toplikesRank.resetPeriod = cfg.resetPeriodLikes;
+      if (cfg.resetPeriodDiam != null) settings.topdiamRank.resetPeriod = cfg.resetPeriodDiam;
+      if (cfg.resetPeriodComments != null) settings.topcommentsRank.resetPeriod = cfg.resetPeriodComments;
+    },
+  }),
+  setupStyleOverlay({
+    kind: 'pointslookup', settingsKey: 'pointsLookup', previewId: 'plu-preview',
+    btnTest: 'plu-test', btnReset: 'plu-reset', btnConfig: 'plu-config',
+    modalId: 'pluConfigModal', closeId: 'plucfg-close', saveId: 'plucfg-save',
+    testAction: 'testPointsLookup', resetAction: 'resetPointsLookup',
+    map: {
+      'plucfg-command': 'command', 'plucfg-dur': 'durationSec', 'plucfg-scale': 'scale',
+      'plucfg-font': 'font', 'plucfg-label': 'pointsLabel',
+      'plucfg-enabled': 'enabled', 'plucfg-crown': 'showCrown',
+      'plucfg-rank': 'rankColor', 'plucfg-level': 'levelColor', 'plucfg-name': 'nameColor',
+      'plucfg-points': 'pointsColor', 'plucfg-ring': 'ringColor',
+    },
+    types: { durationSec: 'int', scale: 'int' },
+    onFormSync: () => {
+      const sc = $('plucfg-scale');
+      const val = $('plucfg-scale-val');
+      if (sc && val) val.textContent = sc.value || '100';
+    },
+  }),
+  setupStyleOverlay({
     kind: 'toplikes', settingsKey: 'toplikesRank', previewId: 'tlk-preview', rank: 'toplikes',
     btnTest: 'tlk-test', btnReset: 'tlk-reset', btnConfig: 'tlk-config',
     modalId: 'tlkConfigModal', closeId: 'tlkcfg-close', saveId: 'tlkcfg-save',
@@ -7985,6 +8122,29 @@ const STYLE_OVERLAYS = [
     types: { scale: 'int', posTop: 'int', posLeft: 'int', bgOpacity: 'int' },
   }),
   setupStyleOverlay({
+    kind: 'batallaVs', settingsKey: 'batallaVs', previewId: 'bvs-preview',
+    btnTest: 'bvs-test', btnReset: 'bvs-reset', btnConfig: 'bvs-config',
+    modalId: 'bvsConfigModal', closeId: 'bvscfg-close', saveId: 'bvscfg-save',
+    testAction: 'testBatallaVs', resetAction: 'resetBatallaVs',
+    map: {
+      'bvscfg-winshost': 'winsHostColor', 'bvscfg-winsrival': 'winsRivalColor',
+      'bvscfg-ptshost': 'pointsHostColor', 'bvscfg-ptsrival': 'pointsRivalColor',
+      'bvscfg-namehost': 'nameHostColor', 'bvscfg-namerival': 'nameRivalColor',
+      'bvscfg-ringhost': 'ringHostColor', 'bvscfg-ringrival': 'ringRivalColor',
+      'bvscfg-circle': 'circleScale', 'bvscfg-text': 'textScale',
+    },
+    types: { circleScale: 'int', textScale: 'int' },
+    onFormSync() {
+      syncBvsCfgLabels();
+    },
+    onSave(cfg) {
+      if ($('bvscfg-ringhost')?.dataset.cleared === '1') cfg.ringHostColor = '';
+      if ($('bvscfg-ringrival')?.dataset.cleared === '1') cfg.ringRivalColor = '';
+      cfg.circleScale = Math.max(35, Math.min(140, Number(cfg.circleScale) || 100));
+      cfg.textScale = Math.max(70, Math.min(150, Number(cfg.textScale) || 100));
+    },
+  }),
+  setupStyleOverlay({
     kind: 'batallaMeta', settingsKey: 'batallaMeta', previewId: 'bmt-preview',
     btnTest: 'bmt-test', btnReset: 'bmt-reset', btnConfig: 'bmt-config',
     modalId: 'bmtConfigModal', closeId: 'bmtcfg-close', saveId: 'bmtcfg-save',
@@ -8051,6 +8211,8 @@ const STYLE_OVERLAYS = [
     },
   }),
 ];
+
+try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__patchBatallaVsStylePreview(); } catch {}
 
 // Contador de meta: regalo / meta / valor viven en el modal Configurar.
 (function setupGiftCounterCard() {
@@ -8385,6 +8547,8 @@ if (window.desktopAPI?.onWinsHotkey) {
     'hypcfg-skin': 'skin', 'hypcfg-kind': 'goalKind', 'hypcfg-title': 'title', 'hypcfg-meta': 'meta',
     'hypcfg-reach': 'whenReach', 'hypcfg-scale': 'scale', 'hypcfg-plike': 'pointsLike', 'hypcfg-pfollow': 'pointsFollow',
     'hypcfg-pshare': 'pointsShare', 'hypcfg-pgift': 'pointsGift', 'hypcfg-pmember': 'pointsMember',
+    'hypcfg-font': 'font', 'hypcfg-titlecolor': 'titleColor', 'hypcfg-textcolor': 'textColor',
+    'hypcfg-accent': 'accent', 'hypcfg-bar1': 'bar1', 'hypcfg-bar2': 'bar2', 'hypcfg-bar3': 'bar3',
   };
   const TYPES = { meta: 'int', scale: 'int', pointsLike: 'int', pointsFollow: 'int', pointsShare: 'int', pointsGift: 'int', pointsMember: 'int' };
   const build = () => readForm(MAP, TYPES);
@@ -8420,7 +8584,11 @@ if (window.desktopAPI?.onWinsHotkey) {
   };
   if ($('hyp-config')) $('hyp-config').onclick = async () => {
     await ensureEmbedLoaded(frame());
-    fillForm(MAP, settings?.hypeBar || {});
+    const styleDefaults = {
+      font: 'inter', titleColor: '#ffffff', textColor: '#f8fafc',
+      accent: '#38bdf8', bar1: '#ff0f8f', bar2: '#38bdf8', bar3: '#c084fc',
+    };
+    fillForm(MAP, { ...styleDefaults, ...(settings?.hypeBar || {}) });
     applySkin((settings?.hypeBar || {}).skin || 'default');
     pushPreview(build());
     $('hypConfigModal').classList.remove('hidden');

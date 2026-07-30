@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Top rotatorio (likes / coins / chat / puntos)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Cinzel:wght@700;900&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; color: #fff; font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif); }
+    html[data-embed="1"] body { display: flex; justify-content: center; align-items: flex-start; width: 100%; min-height: 100%; }
+    .widget {
+      width: 420px; max-width: 96vw;
+      transform: scale(var(--ol-scale, 1)); transform-origin: top center;
+      padding: 8px 10px 14px;
+    }
+    .header {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin: 0 0 14px; opacity: 0; transition: opacity .28s ease;
+    }
+    .header.multi-show { opacity: 1; }
+    .header-star {
+      width: 28px; height: 28px; flex-shrink: 0;
+      filter: drop-shadow(0 0 8px color-mix(in srgb, var(--tmr-star, #ffd54f) 75%, transparent));
+    }
+    .header-star path { fill: var(--tmr-star, #ffd54f); }
+    .header-title {
+      margin: 0; font-family: var(--tf-font-stack, 'Cinzel', Georgia, serif); font-weight: 900;
+      font-size: 28px; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--tmr-title, #fff);
+      text-shadow: 0 2px 10px rgba(0,0,0,.65), 0 0 18px color-mix(in srgb, var(--tmr-star, #ffd54f) 35%, transparent);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+    }
+    .list { display: flex; flex-direction: column; gap: 12px; opacity: 0; transition: opacity .28s ease; }
+    .list.multi-show { opacity: 1; }
+    .row {
+      display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 0 14px;
+      padding: 4px 6px;
+    }
+    .av-wrap { position: relative; width: 84px; height: 84px; flex-shrink: 0; overflow: visible; }
+    .row[data-rank="1"] { padding-top: 32px; }
+    .crown {
+      position: absolute;
+      top: -42px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 72px;
+      height: auto;
+      z-index: 3;
+      pointer-events: none;
+      display: block;
+      filter: drop-shadow(0 2px 5px rgba(0,0,0,.55));
+    }
+    .av-ring {
+      width: 84px; height: 84px; border-radius: 50%; padding: 4px;
+      background: conic-gradient(from 200deg, var(--tmr-ring-other, #7dd3fc), #fff, var(--tmr-ring-other, #7dd3fc));
+      box-shadow: 0 0 0 2px rgba(255,255,255,.12), 0 0 14px color-mix(in srgb, var(--tmr-ring-other, #7dd3fc) 40%, transparent);
+    }
+    .row[data-rank="1"] .av-ring {
+      background: conic-gradient(from 200deg, var(--tmr-ring-1, #ffd54f), #fff8e1, var(--tmr-ring-1, #ffd54f));
+      box-shadow: 0 0 0 2px rgba(255,255,255,.12), 0 0 18px color-mix(in srgb, var(--tmr-ring-1, #ffd54f) 45%, transparent);
+    }
+    .row[data-rank="2"] .av-ring {
+      background: conic-gradient(from 200deg, var(--tmr-ring-2, #cfd8dc), #fff, var(--tmr-ring-2, #cfd8dc));
+      box-shadow: 0 0 0 2px rgba(255,255,255,.1), 0 0 16px color-mix(in srgb, var(--tmr-ring-2, #cfd8dc) 40%, transparent);
+    }
+    .row[data-rank="3"] .av-ring {
+      background: conic-gradient(from 200deg, var(--tmr-ring-3, #ffab73), #ffe0c2, var(--tmr-ring-3, #ffab73));
+      box-shadow: 0 0 0 2px rgba(255,255,255,.1), 0 0 16px color-mix(in srgb, var(--tmr-ring-3, #ffab73) 40%, transparent);
+    }
+    .av {
+      width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
+      display: block; background: #111; border: 2px solid rgba(0,0,0,.35);
+    }
+    .pos {
+      position: absolute; right: -2px; bottom: -2px; z-index: 2;
+      min-width: 34px; padding: 2px 6px; border-radius: 999px;
+      font-family: var(--tf-font-stack, 'Oswald', system-ui, sans-serif); font-size: 13px; font-weight: 700;
+      text-align: center; background: rgba(8, 12, 20, .82); color: #fff;
+      border: 1px solid rgba(255,255,255,.2); letter-spacing: .02em;
+    }
+    .row[data-rank="1"] .pos { color: var(--tmr-pos, #ffd54f); border-color: color-mix(in srgb, var(--tmr-pos, #ffd54f) 45%, transparent); }
+    .meta { min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+    .name {
+      font-family: var(--tf-font-stack, 'Poppins', system-ui, sans-serif);
+      font-weight: 800; font-size: 26px; line-height: 1.05;
+      color: var(--tmr-name, #fff);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+      text-shadow: 0 2px 8px rgba(0,0,0,.7);
+    }
+    .row[data-rank="1"] .name { font-size: 28px; }
+    .row[data-rank="2"] .name { font-size: 27px; }
+    .row[data-rank="3"] .name { font-size: 26px; }
+    .row:not([data-rank="1"]):not([data-rank="2"]):not([data-rank="3"]) .name { font-size: 22px; }
+    .valwrap { display: flex; align-items: center; gap: 8px; }
+    .num {
+      font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif); font-size: 22px; font-weight: 900;
+      color: var(--tmr-value, #fff); letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+      text-shadow: 0 2px 8px rgba(0,0,0,.55);
+    }
+    .ico { font-size: 20px; line-height: 0; filter: drop-shadow(0 0 6px rgba(255, 200, 80, .45)); display: inline-flex; align-items: center; justify-content: center; }
+    .ico img, .ico .ico-coin {
+      width: 22px; height: 22px; display: block;
+      object-fit: contain;
+      image-rendering: auto;
+    }
+    .list--seq .row { opacity: 0; transform: translateY(10px); transition: opacity .35s ease, transform .35s ease; }
+    .list--seq .row.show { opacity: 1; transform: translateY(0); }
+
+    /* Color modes: rainbow / aurora (animated) */
+    html[data-colormode="rainbow"] .fx-text,
+    html[data-colormode="aurora"] .fx-text {
+      background-size: 220% auto;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+      text-shadow: none;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.75));
+    }
+    html[data-colormode="rainbow"] .fx-text {
+      background-image: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5, #ffbe0b, #fb5607, #ff006e);
+      animation: tmr-rainbow 5s linear infinite;
+    }
+    html[data-colormode="aurora"] .fx-text {
+      background-image: linear-gradient(90deg, #22d3ee, #a78bfa, #34d399, #60a5fa, #c084fc, #2dd4bf, #22d3ee);
+      animation: tmr-aurora 7s ease-in-out infinite;
+    }
+    @keyframes tmr-rainbow { 0% { background-position: 0% center; } 100% { background-position: 220% center; } }
+    @keyframes tmr-aurora { 0% { background-position: 0% center; } 50% { background-position: 100% center; } 100% { background-position: 0% center; } }
+  </style>
+</head>
+<body>
+  <div class="widget">
+    <div class="header" id="multi-header">
+      <svg class="header-star" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2.2l2.7 6.4 6.9.6-5.2 4.6 1.6 6.7L12 16.9 5.9 20.5l1.6-6.7L2.4 9.2l6.9-.6L12 2.2z"/>
+      </svg>
+      <h1 class="header-title fx-text" id="multi-title">TOP LIKES</h1>
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+  <script src="/js/ranking-overlay.js"></script>
+  <script>
+    RankingOverlay.initMulti({
+      kind: 'topmulti', settingsKey: 'topMultiRank',
+      defaults: {
+        rows: 3, scale: 100, intervalSec: 4, font: 'cinzel',
+        colorMode: 'solid',
+        titleColor: '#ffffff', nameColor: '#ffffff', valueColor: '#ffffff', starColor: '#ffd54f',
+        ring1: '#ffd54f', ring2: '#cfd8dc', ring3: '#ffab73', ringOther: '#7dd3fc', posColor: '#ffd54f',
+        showLikes: true, showCoins: true, showComments: true, showPoints: true,
+        titleLikes: 'TOP LIKES', titleCoins: 'TOP COINS', titleComments: 'TOP CHAT', titlePoints: 'RANKING',
+        resetPeriodLikes: 'live', resetPeriodDiam: 'live', resetPeriodComments: 'live',
+      },
+    });
+  </script>
+</body>
+</html>

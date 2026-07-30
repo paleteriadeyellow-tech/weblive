@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Consulta de puntos (!puntos)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800&family=Titan+One&display=swap');
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; width: 100%; height: 100%; }
+    body {
+      font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif);
+      color: #fff; min-height: 100%;
+      display: flex; align-items: flex-start; justify-content: flex-start;
+    }
+    html[data-embed="1"] body {
+      align-items: center; justify-content: center;
+      width: 100%; height: 100%; min-height: 100%;
+    }
+    .card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 34px 18px 10px 12px;
+      transform: scale(var(--ol-scale, 1)); transform-origin: top left;
+      opacity: 0; pointer-events: none;
+      transition: opacity .28s ease, transform .28s ease;
+    }
+    html[data-embed="1"] .card { transform-origin: center center; }
+    .card.show {
+      opacity: 1;
+      transform: scale(var(--ol-scale, 1)) translateY(0);
+    }
+    .card.hide {
+      opacity: 0;
+      transform: scale(calc(var(--ol-scale, 1) * 0.96)) translateY(8px);
+    }
+    .rank {
+      font-size: 42px; font-weight: 800; line-height: 1;
+      color: var(--pl-rank, #cfd8dc); min-width: 1.2em; text-align: right;
+      text-shadow: 0 2px 8px rgba(0,0,0,.55);
+    }
+    .av-wrap {
+      position: relative; width: 72px; height: 72px; flex-shrink: 0; overflow: visible;
+    }
+    .crown {
+      position: absolute; top: -28px; left: 50%; transform: translateX(-50%);
+      width: 52px; height: auto; z-index: 2; pointer-events: none;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.55));
+    }
+    .av {
+      width: 72px; height: 72px; border-radius: 50%; object-fit: cover; display: block;
+      border: 3px solid var(--pl-ring, #ffd54f); background: #111;
+      box-shadow: 0 0 14px color-mix(in srgb, var(--pl-ring, #ffd54f) 40%, transparent);
+    }
+    .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .name-row {
+      display: flex; align-items: baseline; gap: 10px; min-width: 0;
+    }
+    .level {
+      font-size: 28px; font-weight: 800; color: var(--pl-level, #7dd3fc);
+      text-shadow: 0 2px 8px rgba(0,0,0,.5); flex-shrink: 0;
+    }
+    .name {
+      font-size: 28px; font-weight: 800; color: var(--pl-name, #ffffff);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+      text-shadow: 0 2px 8px rgba(0,0,0,.55);
+    }
+    .pts {
+      font-size: 20px; font-weight: 700; color: var(--pl-points, #b0b8c4);
+      text-shadow: 0 1px 4px rgba(0,0,0,.5);
+    }
+    html[data-crown="0"] .crown { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="rank" id="rank">1.</div>
+    <div class="av-wrap">
+      <img class="crown" id="crown" src="/img/gold-crown.png" alt="" aria-hidden="true">
+      <img class="av" id="av" alt="" referrerpolicy="no-referrer" src="">
+    </div>
+    <div class="meta">
+      <div class="name-row">
+        <span class="level" id="level">1</span>
+        <span class="name" id="name">Usuario</span>
+      </div>
+      <div class="pts" id="pts">0 Points</div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    if (isEmbed) document.documentElement.dataset.embed = '1';
+    const PLACEHOLDER = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+    const PREVIEW_AVATAR = '/jarron/lv.png';
+    const FONTS = {
+      pressstart: "'Press Start 2P', monospace", exo2: "'Exo 2', system-ui, sans-serif",
+      luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif",
+      lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif",
+      fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif",
+      bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif",
+      inter: "'Inter', system-ui, sans-serif", cinzel: "'Cinzel', Georgia, serif",
+      system: 'system-ui, sans-serif',
+    };
+
+    let cfg = {
+      command: '!puntos', durationSec: 6, scale: 100, font: 'inter',
+      showCrown: true, pointsLabel: 'Points',
+      rankColor: '#cfd8dc', levelColor: '#7dd3fc', nameColor: '#ffffff',
+      pointsColor: '#b0b8c4', ringColor: '#ffd54f',
+    };
+    const q = [];
+    let busy = false;
+    let hideT = null;
+
+    const card = document.getElementById('card');
+    const elRank = document.getElementById('rank');
+    const elAv = document.getElementById('av');
+    const elLevel = document.getElementById('level');
+    const elName = document.getElementById('name');
+    const elPts = document.getElementById('pts');
+
+    function clamp(v, lo, hi, def) {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
+    }
+    function applyStyle() {
+      const root = document.documentElement;
+      root.style.setProperty('--tf-font-stack', FONTS[cfg.font] || FONTS.inter);
+      root.style.setProperty('--pl-rank', cfg.rankColor || '#cfd8dc');
+      root.style.setProperty('--pl-level', cfg.levelColor || '#7dd3fc');
+      root.style.setProperty('--pl-name', cfg.nameColor || '#ffffff');
+      root.style.setProperty('--pl-points', cfg.pointsColor || '#b0b8c4');
+      root.style.setProperty('--pl-ring', cfg.ringColor || '#ffd54f');
+      root.dataset.crown = cfg.showCrown === false ? '0' : '1';
+      card.style.setProperty('--ol-scale', String(clamp(cfg.scale, 50, 160, 100) / 100));
+    }
+    function fmtPts(n) {
+      const v = Math.max(0, Math.floor(Number(n) || 0));
+      const label = (cfg.pointsLabel && String(cfg.pointsLabel).trim()) || 'Points';
+      return v.toLocaleString('es-ES') + ' ' + label;
+    }
+    function show(payload) {
+      if (!payload) return;
+      const name = (payload.nickname || payload.uniqueId || 'Usuario').trim() || 'Usuario';
+      const rank = Math.max(1, Math.floor(Number(payload.rank) || 1));
+      const level = Math.max(1, Math.floor(Number(payload.level) || 1));
+      const total = Math.max(0, Number(payload.total) || 0);
+      elRank.textContent = rank + '.';
+      elLevel.textContent = String(level);
+      elName.textContent = name;
+      elName.title = name;
+      elPts.textContent = fmtPts(total);
+      elAv.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
+      elAv.src = payload.photo || (isEmbed ? PREVIEW_AVATAR : PLACEHOLDER);
+      card.classList.remove('hide');
+      card.classList.add('show');
+      clearTimeout(hideT);
+      const ms = Math.min(60000, Math.max(2000, clamp(cfg.durationSec, 2, 60, 6) * 1000));
+      hideT = setTimeout(() => {
+        card.classList.add('hide');
+        card.classList.remove('show');
+        setTimeout(() => { busy = false; pump(); }, 300);
+      }, ms);
+    }
+    function pump() {
+      if (busy || !q.length) return;
+      busy = true;
+      show(q.shift());
+    }
+    function enqueue(payload) {
+      q.push(payload);
+      if (q.length > 8) q.shift();
+      pump();
+    }
+    function runTest() {
+      enqueue({
+        uniqueId: 'preview',
+        nickname: 'PreviewFan',
+        photo: isEmbed ? PREVIEW_AVATAR : 'https://randomuser.me/api/portraits/women/44.jpg',
+        total: 1001,
+        level: 17,
+        rank: 1,
+      });
+    }
+    function reset() {
+      clearTimeout(hideT);
+      q.length = 0;
+      busy = false;
+      card.classList.remove('show');
+      card.classList.add('hide');
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings' && m.payload && m.payload.pointsLookup) {
+          cfg = Object.assign(cfg, m.payload.pointsLookup);
+          applyStyle();
+        } else if (m.type === 'pointsLookup' && !isEmbed && m.payload) {
+          enqueue(m.payload);
+        } else if (m.type === 'pointsLookupTest' && !isEmbed) {
+          runTest();
+        } else if (m.type === 'pointsLookupReset' && !isEmbed) {
+          reset();
+        }
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'pointslookup') return;
+      if (d.type === 'config') { cfg = Object.assign(cfg, d.config || {}); applyStyle(); }
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') { isEmbed ? runTest() : reset(); }
+    });
+
+    applyStyle();
+    if (isEmbed) runTest();
+    connect();
+  })();
+  </script>
+</body>
+</html>

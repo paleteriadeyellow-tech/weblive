@@ -439,8 +439,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const HABIBI_TOP_FILE = path.join(dataDir, 'habibi-top.json');
   const GIFTGOALS_FILE = path.join(dataDir, 'gift-goals.json');
   const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
-  const RANK_IDS = ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist'];
-  const RANK_SETTINGS_KEY = { toplikes: 'toplikesRank', topdiam: 'topdiamRank', toplikeslist: 'toplikesList', topdiamlist: 'topdiamList' };
+  const RANK_IDS = ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist', 'topcomments'];
+  const RANK_SETTINGS_KEY = {
+    toplikes: 'toplikesRank', topdiam: 'topdiamRank',
+    toplikeslist: 'toplikesList', topdiamlist: 'topdiamList',
+    topcomments: 'topcommentsRank',
+  };
   const POINTS_FILE = path.join(dataDir, 'points.json');
   const SESSION_FILE = path.join(dataDir, 'session.json');
   const SESSION_OVERLAYS_FILE = path.join(dataDir, 'session-overlays.json');
@@ -905,8 +909,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'giftGoals', 'giftCounter', 'topStreak',
     'batallaGifts', 'batallaLikes', 'coinMatch',
-    'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList',
-    'topAltRank', 'topAltRankNeon', 'topPointsRank',
+    'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
+    'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
     'followerCounter', 'followerCounterMc', 'liveTimer',
     'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
@@ -1539,6 +1543,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prevAltDiam = normalizeResetPeriod(settings.topAltRank?.resetPeriodDiam);
     const prevNeonLikes = normalizeResetPeriod(settings.topAltRankNeon?.resetPeriodLikes);
     const prevNeonDiam = normalizeResetPeriod(settings.topAltRankNeon?.resetPeriodDiam);
+    const prevMultiLikes = normalizeResetPeriod(settings.topMultiRank?.resetPeriodLikes);
+    const prevMultiDiam = normalizeResetPeriod(settings.topMultiRank?.resetPeriodDiam);
+    const prevMultiComments = normalizeResetPeriod(settings.topMultiRank?.resetPeriodComments);
     // Si apagan videos/batallas (master o individual), cortar lo que esté sonando en Live Studio.
     let stopVideoScreens = null;
     if (obj.videos !== undefined || obj.videosEnabled !== undefined
@@ -1606,6 +1613,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (!settings.topdiamRank) settings.topdiamRank = {};
         settings.topdiamRank.resetPeriod = incoming.resetPeriodDiam;
         onRankPeriodChange('topdiam');
+      }
+    }
+    if (obj.topMultiRank) {
+      const incoming = obj.topMultiRank;
+      if (incoming.resetPeriodLikes != null
+        && normalizeResetPeriod(incoming.resetPeriodLikes) !== prevMultiLikes) {
+        if (!settings.toplikesRank) settings.toplikesRank = {};
+        settings.toplikesRank.resetPeriod = incoming.resetPeriodLikes;
+        onRankPeriodChange('toplikes');
+      }
+      if (incoming.resetPeriodDiam != null
+        && normalizeResetPeriod(incoming.resetPeriodDiam) !== prevMultiDiam) {
+        if (!settings.topdiamRank) settings.topdiamRank = {};
+        settings.topdiamRank.resetPeriod = incoming.resetPeriodDiam;
+        onRankPeriodChange('topdiam');
+      }
+      if (incoming.resetPeriodComments != null
+        && normalizeResetPeriod(incoming.resetPeriodComments) !== prevMultiComments) {
+        if (!settings.topcommentsRank) settings.topcommentsRank = {};
+        settings.topcommentsRank.resetPeriod = incoming.resetPeriodComments;
+        onRankPeriodChange('topcomments');
       }
     }
     enforceLimits();
@@ -7302,6 +7330,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     addRankValue('topdiam', user, coins);
     addRankValue('topdiamlist', user, coins);
   }
+  function addRankComments(user, count) {
+    if (!user?.uniqueId || !(count > 0)) return;
+    addRankValue('topcomments', user, count);
+  }
   function serializeRankState(rankId) {
     const period = getRankPeriod(rankId);
     const users = getRankUsers(rankId);
@@ -7404,6 +7436,56 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function pushPointUser(u) {
     broadcast('pointsUpdate', { user: serializePointUser(u), count: points.size });
+  }
+
+  const pointsLookupCooldown = new Map();
+  function buildPointsLookupPayload(user) {
+    const key = String(user?.uniqueId || '').trim().replace(/^@/, '').toLowerCase();
+    const sorted = [...points.values()].sort((a, b) => b.total - a.total);
+    let stored = null;
+    let rank = 0;
+    if (key) {
+      stored = points.get(key) || null;
+      if (!stored) {
+        for (const v of points.values()) {
+          if (String(v.uniqueId || '').toLowerCase() === key) { stored = v; break; }
+        }
+      }
+      rank = sorted.findIndex((x) => String(x.uniqueId || '').toLowerCase() === key) + 1;
+    }
+    if (stored) {
+      const ser = serializePointUser(stored);
+      return {
+        uniqueId: ser.uniqueId,
+        nickname: user?.nickname || ser.nickname,
+        photo: user?.photo || ser.photo,
+        total: ser.total,
+        level: ser.level,
+        rank: rank || 1,
+      };
+    }
+    return {
+      uniqueId: key || user?.uniqueId || '',
+      nickname: user?.nickname || key || 'Usuario',
+      photo: user?.photo || '',
+      total: 0,
+      level: 1,
+      rank: Math.max(1, sorted.length + 1),
+    };
+  }
+  function tryPointsLookupCommand(comment, user) {
+    const cfg = settings.pointsLookup || {};
+    if (cfg.enabled === false) return;
+    const cmd = (cfg.command && String(cfg.command).trim()) || '!puntos';
+    if (!matchesCommand(cmd, comment)) return;
+    const uid = String(user?.uniqueId || '').trim().replace(/^@/, '').toLowerCase() || 'anon';
+    const now = Date.now();
+    if (now - (pointsLookupCooldown.get(uid) || 0) < 3000) return;
+    pointsLookupCooldown.set(uid, now);
+    if (pointsLookupCooldown.size > 2000) {
+      for (const [k, t] of pointsLookupCooldown) if (now - t > 600000) pointsLookupCooldown.delete(k);
+    }
+    broadcast('pointsLookup', buildPointsLookupPayload(user));
   }
 
   // Si superamos el tope de usuarios, quitamos al de actividad más antigua.
@@ -7538,6 +7620,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       state.stats.comments++;
       const msgId = data?.common?.msgId || '';
       const chatUser = baseUser(data.user || data);
+      addRankComments(chatUser, 1);
       const atUser = data.atUser ? baseUser(data.atUser) : null;
       const roles = chatUserRoles(data);
       const ptsDonor = donorLevelForUid(chatUser.uniqueId);
@@ -7561,6 +7644,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerSoundAlerts('chatCommand', chatInfo);
       triggerActions('chatCommand', chatInfo, chatUser);
       handleChatCommands(comment, chatUser);
+      tryPointsLookupCommand(comment, chatUser);
       handleSpotifyCommands(comment, chatUser, chatUserRoles(data));
       triggerMinecraftActions('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
@@ -8667,6 +8751,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetRankAlt':
         resetRankAll('toplikes');
         resetRankAll('topdiam');
+        break;
+      case 'testRankMulti':
+        broadcast('rankMultiTest', {});
+        break;
+      case 'resetRankMulti':
+        resetRankAll('toplikes');
+        resetRankAll('topdiam');
+        resetRankAll('topcomments');
+        break;
+      case 'testPointsLookup':
+        broadcast('pointsLookupTest', {});
+        break;
+      case 'resetPointsLookup':
+        broadcast('pointsLookupReset', {});
         break;
       case 'testHype':
         broadcast('hypeTest', {});

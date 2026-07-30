@@ -256,6 +256,17 @@ export const DEFAULT_SETTINGS = {
   // Overlay Batalla VS (PK azul vs amarillo: wins + puntos por ronda)
   batallaVs: {
     enabled: true,
+    // Estilo visual (no afecta la lógica del PK)
+    winsHostColor: '#ffe566',
+    winsRivalColor: '#4da3ff',
+    pointsHostColor: '#ffe566',
+    pointsRivalColor: '#7ec8ff',
+    nameHostColor: '#ffffff',
+    nameRivalColor: '#ffffff',
+    ringHostColor: '', // vacío = marco PNG original
+    ringRivalColor: '',
+    circleScale: 100, // % tamaño círculo + avatar
+    textScale: 100,   // % tamaño números + nombres
   },
   // Overlay Meta de la ronda (PK: faltan X / mantén ventaja)
   batallaMeta: {
@@ -690,6 +701,28 @@ export const DEFAULT_SETTINGS = {
     transparent: true, nameRainbow: true, shadows: true, bounce: true, mirror: false,
     intervalSec: 3, resetPeriodLikes: 'live', resetPeriodDiam: 'live',
   },
+  // Ranking de comentarios (chat): +1 por mensaje
+  topcommentsRank: {
+    rows: 5, accent: '#7dd3fc', rowBg: '#0c1c26', scale: 100, font: 'inter',
+    transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false, resetPeriod: 'live',
+  },
+  // Overlay rotatorio: likes / coins / comentarios / puntos
+  topMultiRank: {
+    rows: 3, scale: 100, intervalSec: 4, font: 'cinzel',
+    colorMode: 'solid',
+    titleColor: '#ffffff', nameColor: '#ffffff', valueColor: '#ffffff', starColor: '#ffd54f',
+    ring1: '#ffd54f', ring2: '#cfd8dc', ring3: '#ffab73', ringOther: '#7dd3fc', posColor: '#ffd54f',
+    showLikes: true, showCoins: true, showComments: true, showPoints: true,
+    titleLikes: 'TOP LIKES', titleCoins: 'TOP COINS', titleComments: 'TOP CHAT', titlePoints: 'RANKING',
+    resetPeriodLikes: 'live', resetPeriodDiam: 'live', resetPeriodComments: 'live',
+  },
+  // Consulta de puntos por comando de chat (!puntos)
+  pointsLookup: {
+    enabled: true, command: '!puntos', durationSec: 6, scale: 100, font: 'inter',
+    showCrown: true, pointsLabel: 'Points',
+    rankColor: '#cfd8dc', levelColor: '#7dd3fc', nameColor: '#ffffff',
+    pointsColor: '#b0b8c4', ringColor: '#ffd54f',
+  },
   topPointsRank: {
     rows: 3, title: 'Top Puntos', accent: '#ffd54f', rowBg: '#0c1c26', scale: 100,
     font: 'inter', transparent: false, nameRainbow: true, titleRainbow: true,
@@ -699,6 +732,8 @@ export const DEFAULT_SETTINGS = {
   hypeBar: {
     skin: 'default', goalKind: 'hype', title: '', meta: 100, whenReach: 'increase', scale: 100,
     pointsLike: 1, pointsFollow: 10, pointsShare: 8, pointsGift: 1, pointsMember: 1,
+    font: 'inter', titleColor: '#ffffff', textColor: '#f8fafc',
+    bar1: '#ff0f8f', bar2: '#38bdf8', bar3: '#c084fc', accent: '#38bdf8',
   },
   // Diseño Overlay — alertas animadas (regalo / likes / nuevo seguidor)
   alertaGift: {

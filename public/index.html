@@ -2681,6 +2681,46 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Batalla VS (estilo visual) -->
+        <div id="bvsConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>⚔️ Configurar — Batalla VS</h2>
+              <button class="modal-close" id="bvscfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="hint">Solo cambia colores y tamaños. La lógica del PK no se toca. Resolución recomendada: <b>480 × 300</b>.</p>
+              <div class="cfg-colors">
+                <div><label class="ml">NÚMEROS (TÚ)</label><input type="color" id="bvscfg-winshost" value="#ffe566"></div>
+                <div><label class="ml">NÚMEROS (RIVAL)</label><input type="color" id="bvscfg-winsrival" value="#4da3ff"></div>
+                <div><label class="ml">PUNTOS (TÚ)</label><input type="color" id="bvscfg-ptshost" value="#ffe566"></div>
+                <div><label class="ml">PUNTOS (RIVAL)</label><input type="color" id="bvscfg-ptsrival" value="#7ec8ff"></div>
+                <div><label class="ml">NOMBRE (TÚ)</label><input type="color" id="bvscfg-namehost" value="#ffffff"></div>
+                <div><label class="ml">NOMBRE (RIVAL)</label><input type="color" id="bvscfg-namerival" value="#ffffff"></div>
+                <div>
+                  <label class="ml">ARO (TÚ)</label>
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <input type="color" id="bvscfg-ringhost" value="#ffe566">
+                    <button type="button" class="btn sm" id="bvscfg-ringhost-clear" title="Usar marco original">Original</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="ml">ARO (RIVAL)</label>
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <input type="color" id="bvscfg-ringrival" value="#4da3ff">
+                    <button type="button" class="btn sm" id="bvscfg-ringrival-clear" title="Usar marco original">Original</button>
+                  </div>
+                </div>
+              </div>
+              <label class="ml" style="margin-top:12px">TAMAÑO DEL CÍRCULO (+ avatar) <span id="bvscfg-circle-lbl">100%</span></label>
+              <input type="range" id="bvscfg-circle" min="35" max="140" value="100" step="1">
+              <label class="ml">TAMAÑO NÚMEROS Y NOMBRE <span id="bvscfg-text-lbl">100%</span></label>
+              <input type="range" id="bvscfg-text" min="70" max="150" value="100" step="1">
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="bvscfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Meta de la ronda (PK) -->
         <div id="bmtConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -3082,6 +3122,115 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Top rotatorio (4 métricas) -->
+        <div id="tmrConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>👑 Configurar — Top rotatorio</h2>
+              <button class="modal-close" id="tmrcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">SEGUNDOS ENTRE CAMBIO</label>
+              <input type="number" id="tmrcfg-interval" min="2" max="60" value="4">
+              <label class="ml">TOPS A MOSTRAR</label>
+              <div class="cfg-checks" style="margin-bottom:10px">
+                <label class="switch-row plain"><input type="checkbox" id="tmrcfg-show-likes" checked> <span>Top Likes</span></label>
+                <input type="text" id="tmrcfg-title-likes" value="TOP LIKES" placeholder="Título Likes" style="margin:0 0 8px 28px;width:calc(100% - 28px)">
+                <label class="switch-row plain"><input type="checkbox" id="tmrcfg-show-coins" checked> <span>Top Coins</span></label>
+                <input type="text" id="tmrcfg-title-coins" value="TOP COINS" placeholder="Título Coins" style="margin:0 0 8px 28px;width:calc(100% - 28px)">
+                <label class="switch-row plain"><input type="checkbox" id="tmrcfg-show-comments" checked> <span>Top Comentarios</span></label>
+                <input type="text" id="tmrcfg-title-comments" value="TOP CHAT" placeholder="Título Comentarios" style="margin:0 0 8px 28px;width:calc(100% - 28px)">
+                <label class="switch-row plain"><input type="checkbox" id="tmrcfg-show-points" checked> <span>Top Puntos</span></label>
+                <input type="text" id="tmrcfg-title-points" value="RANKING" placeholder="Título Puntos" style="margin:0 0 8px 28px;width:calc(100% - 28px)">
+              </div>
+              <label class="ml">PERIODO — LIKES</label>
+              <select id="tmrcfg-period-likes">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <label class="ml">PERIODO — COINS</label>
+              <select id="tmrcfg-period-diam">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <label class="ml">PERIODO — COMENTARIOS</label>
+              <select id="tmrcfg-period-comments">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">FILAS (1-10)</label><input type="number" id="tmrcfg-rows" min="1" max="10" value="3"></div>
+                <div>
+                  <label class="ml">FUENTE</label>
+                  <select id="tmrcfg-font" class="cfg-font"></select>
+                </div>
+              </div>
+              <label class="ml">TAMAÑO DEL OVERLAY (<span id="tmrcfg-scale-val">100</span>%)</label>
+              <input type="range" id="tmrcfg-scale" min="60" max="150" step="1" value="100" style="width:100%"
+                oninput="document.getElementById('tmrcfg-scale-val').textContent=this.value">
+              <label class="ml">ESTILO DE COLOR</label>
+              <select id="tmrcfg-colormode">
+                <option value="solid">Color normal</option>
+                <option value="rainbow">Arcoíris con movimiento</option>
+                <option value="aurora">Aurora con movimiento</option>
+              </select>
+              <div class="cfg-colors">
+                <div><label class="ml">TÍTULO</label><input type="color" id="tmrcfg-titlecolor" value="#ffffff"></div>
+                <div><label class="ml">NOMBRES</label><input type="color" id="tmrcfg-namecolor" value="#ffffff"></div>
+                <div><label class="ml">NÚMEROS</label><input type="color" id="tmrcfg-valuecolor" value="#ffffff"></div>
+                <div><label class="ml">ESTRELLA</label><input type="color" id="tmrcfg-starcolor" value="#ffd54f"></div>
+                <div><label class="ml">ARO #1</label><input type="color" id="tmrcfg-ring1" value="#ffd54f"></div>
+                <div><label class="ml">ARO #2</label><input type="color" id="tmrcfg-ring2" value="#cfd8dc"></div>
+                <div><label class="ml">ARO #3</label><input type="color" id="tmrcfg-ring3" value="#ffab73"></div>
+                <div><label class="ml">ARO OTROS</label><input type="color" id="tmrcfg-ringother" value="#7dd3fc"></div>
+                <div><label class="ml">BADGE PUESTO</label><input type="color" id="tmrcfg-poscolor" value="#ffd54f"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="tmrcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Consulta de puntos (!puntos) -->
+        <div id="pluConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>💬 Configurar — Consulta de puntos</h2>
+              <button class="modal-close" id="plucfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">COMANDO DE CHAT</label>
+              <input type="text" id="plucfg-command" value="!puntos" placeholder="!puntos">
+              <div class="gvscfg-grid2">
+                <div><label class="ml">DURACIÓN (seg)</label><input type="number" id="plucfg-dur" min="2" max="60" value="6"></div>
+                <div>
+                  <label class="ml">FUENTE</label>
+                  <select id="plucfg-font" class="cfg-font"></select>
+                </div>
+              </div>
+              <label class="ml">TAMAÑO (<span id="plucfg-scale-val">100</span>%)</label>
+              <input type="range" id="plucfg-scale" min="50" max="160" step="1" value="100" style="width:100%"
+                oninput="document.getElementById('plucfg-scale-val').textContent=this.value">
+              <label class="ml">ETIQUETA DE PUNTOS</label>
+              <input type="text" id="plucfg-label" value="Points" placeholder="Points">
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="plucfg-enabled" checked> <span>Activado</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="plucfg-crown" checked> <span>Mostrar corona</span></label>
+              </div>
+              <div class="cfg-colors">
+                <div><label class="ml">PUESTO</label><input type="color" id="plucfg-rank" value="#cfd8dc"></div>
+                <div><label class="ml">NIVEL</label><input type="color" id="plucfg-level" value="#7dd3fc"></div>
+                <div><label class="ml">NOMBRE</label><input type="color" id="plucfg-name" value="#ffffff"></div>
+                <div><label class="ml">PUNTOS</label><input type="color" id="plucfg-points" value="#b0b8c4"></div>
+                <div><label class="ml">ARO</label><input type="color" id="plucfg-ring" value="#ffd54f"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="plucfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Top Likes / Diamantes alternado (neón) -->
         <div id="talnConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -3352,6 +3501,19 @@
                 <div><label class="ml">COMPARTIR</label><input type="number" id="hypcfg-pshare" min="1" max="9999" value="8"></div>
                 <div><label class="ml">MULT. REGALO</label><input type="number" id="hypcfg-pgift" min="1" max="9999" value="1"></div>
                 <div><label class="ml">MIEMBRO</label><input type="number" id="hypcfg-pmember" min="1" max="9999" value="1"></div>
+              </div>
+              <label class="ml" style="margin-top:12px;display:block">FUENTE Y COLORES (todos los diseños)</label>
+              <div class="gvscfg-grid2">
+                <div>
+                  <label class="ml">FUENTE</label>
+                  <select id="hypcfg-font" class="cfg-font"></select>
+                </div>
+                <div><label class="ml">COLOR TEXTO</label><input type="color" id="hypcfg-titlecolor" value="#ffffff"></div>
+                <div><label class="ml">COLOR NÚMEROS</label><input type="color" id="hypcfg-textcolor" value="#f8fafc"></div>
+                <div><label class="ml">ACENTO / BORDE</label><input type="color" id="hypcfg-accent" value="#38bdf8"></div>
+                <div><label class="ml">BARRA 1</label><input type="color" id="hypcfg-bar1" value="#ff0f8f"></div>
+                <div><label class="ml">BARRA 2</label><input type="color" id="hypcfg-bar2" value="#38bdf8"></div>
+                <div><label class="ml">BARRA 3</label><input type="color" id="hypcfg-bar3" value="#c084fc"></div>
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="hypcfg-save">Guardar para OBS / Live Studio</button></div>
@@ -4916,6 +5078,50 @@
           <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
 
+              <!-- Tarjeta PRO: Top rotatorio (4 métricas) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="tmr-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="tmr-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="tmr-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="tmr-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">👑 Top rotatorio (Likes / Coins / Chat / Puntos)</h3>
+                <p class="ovpro-desc">Rota entre Top Likes, Top Coins, Top Comentarios y Top Puntos. Elige qué tops mostrar y personaliza los títulos. Diseño con corona y aros brillantes.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/topmulti-rank.html">/topmulti-rank.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="tmr-preview" data-src="/topmulti-rank.html?embed=1" title="Vista previa top rotatorio"></iframe>
+                </div>
+              </div>
+
+              <!-- Tarjeta PRO: Consulta de puntos (!puntos) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="plu-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="plu-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="plu-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="plu-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">💬 Consulta de puntos (!puntos)</h3>
+                <p class="ovpro-desc">Cuando un viewer escribe el comando (por defecto <b>!puntos</b>), aparece solo su ficha con puesto, nivel y puntos de la tabla Usuario y Puntos.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/points-lookup.html">/points-lookup.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="plu-preview" data-src="/points-lookup.html?embed=1" title="Vista previa consulta de puntos"></iframe>
+                </div>
+              </div>
+
               <!-- Tarjeta PRO: Top Likes / Diamantes alternado (neón) -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -5226,6 +5432,7 @@
                   <div class="ovpro-actions">
                     <button class="ovpro-btn" id="bvs-reset">↺ Reiniciar wins</button>
                     <button class="ovpro-btn primary" id="bvs-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="bvs-config">⚙ Configurar</button>
                   </div>
                   <div class="ovpro-status">
                     <div class="ovpro-conn" id="bvs-conn"><span class="cdot"></span> CONECTADO</div>

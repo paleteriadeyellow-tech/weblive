@@ -6,19 +6,23 @@
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Barra de meta (Hype)</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Cinzel:wght@700;900&family=Exo+2:wght@600;700;800&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800&family=Orbitron:wght@700;800&family=Oswald:wght@600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Poppins:wght@700;800&family=Press+Start+2P&family=Rubik:wght@700;800&family=Share+Tech+Mono&family=Titan+One&display=swap');
 
     :root {
       --ov-scale: 1;
+      --hb-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --hb-title: #f8fafc;
       --hb-text: #f8fafc;
       --hb-muted: #94a3b8;
       --hb-accent: #38bdf8;
-      --hb-rainbow: linear-gradient(90deg, #ff0f8f 0%, #ff6b35 16%, #ffd93d 33%, #5eead4 50%, #38bdf8 66%, #818cf8 83%, #c084fc 92%, #ff0f8f 100%);
+      --hb-bar1: #ff0f8f;
+      --hb-bar2: #38bdf8;
+      --hb-bar3: #c084fc;
+      --hb-rainbow: linear-gradient(90deg, var(--hb-bar1) 0%, var(--hb-bar2) 50%, var(--hb-bar3) 100%, var(--hb-bar1) 100%);
       --hb-track-idle: linear-gradient(90deg, rgba(55,65,81,.9) 0%, rgba(82,91,107,.95) 35%, rgba(71,80,94,.92) 70%, rgba(55,65,81,.9) 100%);
     }
     html { width: 100%; height: 100%; }
-    body { margin: 0; width: 100%; min-height: 100%; overflow: hidden; background: transparent; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    body { margin: 0; width: 100%; min-height: 100%; overflow: hidden; background: transparent; font-family: var(--hb-font); -webkit-font-smoothing: antialiased; }
     .wrap { --ov-s: max(0.001, var(--ov-scale, 1)); box-sizing: border-box; width: calc(100% / var(--ov-s)); max-width: calc(900px / var(--ov-s)); padding: 2px 4px; transform: scale(var(--ov-scale, 1)); transform-origin: top left; }
     .box { position: relative; padding: 5px 10px 6px; overflow: visible; border-radius: 10px; background: linear-gradient(165deg, rgba(42,48,58,.92) 0%, rgba(26,31,40,.94) 55%, rgba(20,24,32,.96) 100%); border: 1px solid rgba(255,255,255,.08); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 14px rgba(0,0,0,.35); backdrop-filter: blur(8px); }
     .box-inner { position: relative; z-index: 1; }
@@ -218,6 +222,116 @@
     body.skin-meta14 .m14-inner #bar.is-empty { width: 0% !important; }
     body.skin-meta14 .m14-inner #bar .bar-plasma, body.skin-meta14 .m14-inner #bar .bar-shine, body.skin-meta14 .m14-inner #bar .bar-spark { display: none !important; }
     body.skin-meta14 .m14-text { position: relative; z-index: 5; color: #fff; font-weight: 800; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; max-width: 88%; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+
+    /* —— Estilo configurable (fuente + colores) para TODOS los diseños —— */
+    html.hb-styled #title,
+    html.hb-styled .goal-title,
+    html.hb-styled .meta-line,
+    html.hb-styled .meta-gold,
+    html.hb-styled .meta3-goal-text,
+    html.hb-styled .hyper-glass-text,
+    html.hb-styled .m5-pct,
+    html.hb-styled .m5-label,
+    html.hb-styled .m5-label-inner,
+    html.hb-styled .m6-text,
+    html.hb-styled .m7-text,
+    html.hb-styled .m8-text,
+    html.hb-styled .m9-text,
+    html.hb-styled .m10-text,
+    html.hb-styled .m11-text,
+    html.hb-styled .m12-text,
+    html.hb-styled .m13-text,
+    html.hb-styled .m14-text,
+    html.hb-styled #compact-goal-text {
+      color: var(--hb-title) !important;
+      font-family: var(--hb-font) !important;
+    }
+    html.hb-styled .meta-cyan,
+    html.hb-styled .progress-text,
+    html.hb-styled .progress-text #meta-current,
+    html.hb-styled .progress-text #meta-goal {
+      color: var(--hb-text) !important;
+      font-family: var(--hb-font) !important;
+    }
+    html.hb-styled .meta-gold { color: var(--hb-title) !important; }
+    html.hb-styled .bar-plasma::before {
+      background: linear-gradient(90deg, var(--hb-bar1), var(--hb-bar2), var(--hb-bar3), var(--hb-bar1)) !important;
+      background-size: 220% 100% !important;
+    }
+    html.hb-styled body.skin-meta2 .bar-plasma::before {
+      background: linear-gradient(90deg, var(--hb-bar1) 0%, var(--hb-bar2) 50%, var(--hb-bar3) 100%) !important;
+      background-size: 220% 100% !important;
+    }
+    html.hb-styled body.skin-meta2 .meta2-card.goal-card-slim { border-left-color: var(--hb-bar1) !important; border-right-color: var(--hb-bar3) !important; }
+    html.hb-styled body.skin-meta3 .meta3-goal-container {
+      border-color: var(--hb-accent) !important;
+      box-shadow: 0 0 20px color-mix(in srgb, var(--hb-accent) 50%, transparent), inset 0 0 15px color-mix(in srgb, var(--hb-accent) 20%, transparent) !important;
+    }
+    html.hb-styled body.skin-meta3 .meta3-goal-container::before,
+    html.hb-styled body.skin-meta3 .meta3-goal-container::after { background: var(--hb-accent) !important; box-shadow: 0 0 15px var(--hb-accent) !important; }
+    html.hb-styled body.skin-meta3 .meta3-goal-container .progress-bar {
+      background: linear-gradient(90deg, color-mix(in srgb, var(--hb-bar1) 20%, transparent), color-mix(in srgb, var(--hb-bar2) 55%, transparent)) !important;
+    }
+    html.hb-styled body.skin-meta4 .hyper-glass-container { border-color: var(--hb-accent) !important; box-shadow: 0 0 22px color-mix(in srgb, var(--hb-accent) 55%, transparent), inset 0 0 14px color-mix(in srgb, var(--hb-accent) 28%, transparent) !important; }
+    html.hb-styled body.skin-meta4 .hyper-glass-frame::before,
+    html.hb-styled body.skin-meta4 .hyper-glass-container::after { background: var(--hb-accent) !important; box-shadow: 0 0 10px var(--hb-accent) !important; }
+    html.hb-styled body.skin-meta4 .hyper-glass-container .hyper-progress-bar {
+      background: linear-gradient(90deg, color-mix(in srgb, var(--hb-bar1) 15%, transparent), color-mix(in srgb, var(--hb-bar2) 50%, transparent) 85%, var(--hb-bar3) 100%) !important;
+    }
+    html.hb-styled body.skin-meta5 .m5-bar-track #bar {
+      background: linear-gradient(90deg, var(--hb-bar1), var(--hb-bar2)) !important;
+    }
+    html.hb-styled body.skin-meta5 .m5-bar-shell,
+    html.hb-styled body.skin-meta5 .m5-label { background: color-mix(in srgb, var(--hb-accent) 35%, #0a1020) !important; }
+    html.hb-styled body.skin-meta6 .m6-inner #bar { background: linear-gradient(90deg, var(--hb-bar1), var(--hb-bar2)) !important; }
+    html.hb-styled body.skin-meta6 .m6-frame {
+      box-shadow: 0 -1px 0 var(--hb-bar3), 0 1px 0 var(--hb-accent), inset 0 1px 0 color-mix(in srgb, var(--hb-accent) 35%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--hb-bar3) 40%, transparent) !important;
+    }
+    html.hb-styled body.skin-meta6 .m6-inner::before { background: var(--hb-accent) !important; }
+    html.hb-styled body.skin-meta7 .m7-frame {
+      background: linear-gradient(90deg, var(--hb-bar1) 0%, var(--hb-bar2) 50%, var(--hb-bar3) 100%) !important;
+      box-shadow: 0 0 14px color-mix(in srgb, var(--hb-bar1) 55%, transparent), 0 0 22px color-mix(in srgb, var(--hb-bar3) 40%, transparent) !important;
+    }
+    html.hb-styled body.skin-meta7 .m7-inner #bar { background: linear-gradient(90deg, var(--hb-bar1), var(--hb-bar2)) !important; }
+    html.hb-styled body.skin-meta8 .m8-inner #bar { background: linear-gradient(90deg, var(--hb-bar1), var(--hb-bar2)) !important; }
+    html.hb-styled body.skin-meta8 .m8-frame::before,
+    html.hb-styled body.skin-meta8 .m8-frame::after {
+      background: linear-gradient(90deg, var(--hb-accent), var(--hb-bar2)) !important;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--hb-accent) 65%, transparent) !important;
+    }
+    html.hb-styled body.skin-meta9 .m9-frame {
+      border-color: var(--hb-accent) !important;
+      box-shadow: 0 0 14px color-mix(in srgb, var(--hb-accent) 65%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--hb-accent) 25%, transparent) !important;
+    }
+    html.hb-styled body.skin-meta9 .m9-frame #bar { background: linear-gradient(90deg, var(--hb-bar1), var(--hb-bar2)) !important; }
+    html.hb-styled body.skin-meta9 .m9-crest { background: radial-gradient(ellipse at 50% 100%, var(--hb-accent) 0%, transparent 70%) !important; filter: drop-shadow(0 0 6px var(--hb-accent)) !important; }
+    html.hb-styled body.skin-meta9 .m9-crest::before,
+    html.hb-styled body.skin-meta9 .m9-crest::after { border-color: var(--hb-accent) !important; box-shadow: 0 0 8px var(--hb-accent) !important; }
+    html.hb-styled body.skin-meta10 .m10-inner #bar {
+      background: linear-gradient(90deg, color-mix(in srgb, var(--hb-bar1) 25%, transparent), color-mix(in srgb, var(--hb-bar2) 55%, transparent)) !important;
+    }
+    html.hb-styled body.skin-meta10 .m10-frame::before,
+    html.hb-styled body.skin-meta10 .m10-frame::after,
+    html.hb-styled body.skin-meta10 .m10-notch { background: var(--hb-accent) !important; box-shadow: 0 0 8px var(--hb-accent) !important; }
+    html.hb-styled body.skin-meta10 .m10-brackets span { border-color: var(--hb-accent) !important; box-shadow: 0 0 10px var(--hb-accent) !important; }
+    html.hb-styled body.skin-meta11 .m11-inner #bar { background: linear-gradient(90deg, var(--hb-bar1), var(--hb-bar2)) !important; }
+    html.hb-styled body.skin-meta11 .m11-chev.left { border-right-color: var(--hb-accent) !important; }
+    html.hb-styled body.skin-meta11 .m11-chev.right { border-left-color: var(--hb-accent) !important; }
+    html.hb-styled body.skin-meta11 .m11-chev { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--hb-accent) 85%, transparent)) !important; }
+    html.hb-styled body.skin-meta12 .m12-frame #bar { background: var(--hb-bar1) !important; }
+    html.hb-styled body.skin-meta12 .m12-frame { background: color-mix(in srgb, var(--hb-bar2) 45%, #1a2a30) !important; }
+    html.hb-styled body.skin-meta13 .m13-inner #bar { background: var(--hb-bar2) !important; }
+    html.hb-styled body.skin-meta13 .m13-frame {
+      background: linear-gradient(180deg, var(--hb-bar3) 0%, var(--hb-accent) 40%, color-mix(in srgb, var(--hb-accent) 70%, #000) 100%) !important;
+      box-shadow: 0 0 16px color-mix(in srgb, var(--hb-accent) 55%, transparent) !important;
+    }
+    html.hb-styled body.skin-meta14 .m14-inner #bar { background: var(--hb-bar2) !important; }
+    html.hb-styled body.skin-meta14 .m14-glow {
+      background: linear-gradient(90deg, var(--hb-bar1) 0%, var(--hb-bar1) 46%, var(--hb-bar3) 54%, var(--hb-bar3) 100%) !important;
+      box-shadow: 0 0 12px color-mix(in srgb, var(--hb-bar1) 45%, transparent), 0 0 16px color-mix(in srgb, var(--hb-bar3) 35%, transparent) !important;
+    }
+    html.hb-styled body.skin-meta14 .m14-hub::before,
+    html.hb-styled body.skin-meta14 .m14-hub::after { background: var(--hb-accent) !important; box-shadow: 0 0 6px var(--hb-accent) !important; }
 
     html.embed body { display: flex; align-items: center; justify-content: flex-start; }
   </style>
@@ -503,11 +617,38 @@
     }
 
     /* ---- Configuración ---- */
+    const HB_FONTS = {
+      pressstart: "'Press Start 2P', monospace", exo2: "'Exo 2', system-ui, sans-serif",
+      luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif",
+      lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif",
+      fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif",
+      rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif",
+      bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif",
+      poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif",
+      inter: "'Inter', system-ui, sans-serif", cinzel: "'Cinzel', Georgia, serif",
+      system: 'system-ui, sans-serif',
+    };
+    function isHexColor(v) { return typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v); }
+    function applyStyleFromConfig(c) {
+      if (!c || typeof c !== 'object') return;
+      const root = document.documentElement;
+      root.classList.add('hb-styled');
+      root.style.setProperty('--hb-font', HB_FONTS[c.font] || HB_FONTS.inter || "'Plus Jakarta Sans', system-ui, sans-serif");
+      if (isHexColor(c.titleColor)) root.style.setProperty('--hb-title', c.titleColor);
+      if (isHexColor(c.textColor)) root.style.setProperty('--hb-text', c.textColor);
+      if (isHexColor(c.bar1)) root.style.setProperty('--hb-bar1', c.bar1);
+      if (isHexColor(c.bar2)) root.style.setProperty('--hb-bar2', c.bar2);
+      if (isHexColor(c.bar3)) root.style.setProperty('--hb-bar3', c.bar3);
+      if (isHexColor(c.accent)) root.style.setProperty('--hb-accent', c.accent);
+      root.style.setProperty('--hb-rainbow',
+        'linear-gradient(90deg, var(--hb-bar1), var(--hb-bar2), var(--hb-bar3), var(--hb-bar1))');
+    }
     function applyConfig(c) {
       if (!c || typeof c !== 'object') return;
       // En vista previa (embed) el panel controla el diseño recargando el iframe;
       // el overlay en vivo sí debe recargarse al recibir el diseño guardado.
       if (!isEmbed && maybeReloadSkin(skinFromConfig(c))) return;
+      applyStyleFromConfig(c);
       if (c.goalKind) goalKind = String(c.goalKind).toLowerCase();
       if (c.title != null) customTitle = String(c.title).trim();
       const nm = parseInt(c.meta, 10); if (Number.isFinite(nm) && nm > 0) target = Math.max(1, nm);
@@ -533,6 +674,7 @@
       const NAT = {
         default: 640, meta2: 600, meta3: 620, meta4: 520,
         meta5: 700, meta6: 700, meta7: 700, meta8: 700, meta9: 700, meta10: 700,
+        meta11: 720, meta12: 700, meta13: 700, meta14: 720,
       }[activeSkin] || 640;
       const s = Math.min(1, window.innerWidth / NAT);
       document.documentElement.style.setProperty('--ov-scale', String(s));

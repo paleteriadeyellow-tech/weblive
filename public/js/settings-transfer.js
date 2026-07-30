@@ -74,7 +74,10 @@
         { key: 'topdiamList', label: 'Lista ranking diamantes' },
         { key: 'topAltRank', label: 'Ranking alternado likes/diamantes' },
         { key: 'topAltRankNeon', label: 'Ranking alternado likes/diamantes (neón)' },
+        { key: 'topMultiRank', label: 'Top rotatorio (likes / coins / chat / puntos)' },
+        { key: 'pointsLookup', label: 'Consulta de puntos (!puntos)' },
         { key: 'topPointsRank', label: 'Ranking de puntos' },
+        { key: 'topcommentsRank', label: 'Ranking de comentarios' },
       ],
     },
     {

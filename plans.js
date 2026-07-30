@@ -76,6 +76,8 @@ export const CAPABILITIES = {
     { key: 'ov_metadbz', label: 'Barra de meta (Dragon Ball Super)', path: '/meta-dragonball.html' },
     { key: 'ov_topaltrankneon', label: 'Top Likes / Diamantes (neón)', path: '/topalt-rank-neon.html' },
     { key: 'ov_topaltrank', label: 'Top Likes / Diamantes (alternado)', path: '/topalt-rank.html' },
+    { key: 'ov_topmultirank', label: 'Top rotatorio (likes / coins / chat / puntos)', path: '/topmulti-rank.html' },
+    { key: 'ov_pointslookup', label: 'Consulta de puntos (!puntos)', path: '/points-lookup.html' },
     { key: 'ov_toplikes', label: 'Top likes', path: '/toplikes.html' },
     { key: 'ov_topdiamantes', label: 'Top diamantes', path: '/topdiamantes.html' },
     { key: 'ov_toplikeslista', label: 'Ranking likes (lista)', path: '/toplikes-lista.html' },

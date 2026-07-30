@@ -4,17 +4,21 @@
 
   let wired = false;
   let layers = []; // { id, type, x, y, w, h, src?, name?, text?, color?, fontSize?, font?, rainbow?, motion?, locked?, label?, strokeWidth?, strokeColor?, shadow?, bg? }
-  let selectedId = null;
+  let selectedId = null; // capa primaria (props / handles)
+  let selectedIds = []; // selección múltiple (incluye selectedId)
   let stageW = 1080;
   let stageH = 1080;
   let scale = 1;
   let userZoom = null;
   let drag = null;
+  let marquee = null; // { startX, startY, curX, curY, additive, moved }
   let listDragId = null;
   let bgMode = 'color';
   let bgImageSrc = null;
   let sliceMode = false;
   let sliceDrag = null; // { layerId, startX, startY, curX, curY }
+  let layerClipboard = []; // capas copiadas (deep clone sin id vivo)
+  let ctxPasteAt = null; // { x, y } en coords del stage para pegar
   const HISTORY_MAX = 40;
   const DESIGNS_KEY = 'livecoins-editor-designs';
   let history = [];
@@ -157,6 +161,7 @@
       bgG2: $('ied-bg-g2')?.value || '#1a1040',
       bgImageSrc,
       selectedId,
+      selectedIds: selectedIds.slice(),
     };
   }
 
@@ -184,7 +189,13 @@
     if ($('ied-bg')) $('ied-bg').value = snap.bg || '#0b0f1a';
     if ($('ied-bg-g1')) $('ied-bg-g1').value = snap.bgG1 || '#0b0f1a';
     if ($('ied-bg-g2')) $('ied-bg-g2').value = snap.bgG2 || '#1a1040';
-    selectedId = snap.selectedId && getLayer(snap.selectedId) ? snap.selectedId : (layers.length ? layers[layers.length - 1].id : null);
+    const validIds = (snap.selectedIds || (snap.selectedId ? [snap.selectedId] : []))
+      .filter((id) => layers.some((l) => l.id === id));
+    selectedIds = validIds;
+    selectedId = (snap.selectedId && validIds.includes(snap.selectedId))
+      ? snap.selectedId
+      : (validIds.length ? validIds[validIds.length - 1] : (layers.length ? layers[layers.length - 1].id : null));
+    if (selectedId && !selectedIds.includes(selectedId)) selectedIds = [selectedId];
     syncBgModeUi();
     applyStageBackground();
     fitScale();
@@ -394,46 +405,67 @@
   }
 
   function alignSelectedCenter() {
-    const L = getLayer(selectedId);
-    if (!L) { toast && toast('Selecciona una capa', 'warn'); return; }
-    L.x = snapVal((stageW - L.w) / 2);
-    L.y = snapVal((stageH - L.h) / 2);
+    const ids = selectedIds.length ? selectedIds : (selectedId ? [selectedId] : []);
+    if (!ids.length) { toast && toast('Selecciona una capa', 'warn'); return; }
+    ids.forEach((id) => {
+      const L = getLayer(id);
+      if (!L || L.locked) return;
+      L.x = snapVal((stageW - L.w) / 2);
+      L.y = snapVal((stageH - L.h) / 2);
+    });
     renderAll();
     pushSnapshot();
-    toast && toast('Centrado', 'ok');
+    toast && toast(ids.length > 1 ? 'Centradas' : 'Centrado', 'ok');
   }
 
   function alignSelectedH() {
-    const L = getLayer(selectedId);
-    if (!L) { toast && toast('Selecciona una capa', 'warn'); return; }
-    L.x = snapVal((stageW - L.w) / 2);
+    const ids = selectedIds.length ? selectedIds : (selectedId ? [selectedId] : []);
+    if (!ids.length) { toast && toast('Selecciona una capa', 'warn'); return; }
+    ids.forEach((id) => {
+      const L = getLayer(id);
+      if (!L || L.locked) return;
+      L.x = snapVal((stageW - L.w) / 2);
+    });
     renderAll();
     pushSnapshot();
     toast && toast('Centro horizontal', 'ok');
   }
 
   function alignSelectedV() {
-    const L = getLayer(selectedId);
-    if (!L) { toast && toast('Selecciona una capa', 'warn'); return; }
-    L.y = snapVal((stageH - L.h) / 2);
+    const ids = selectedIds.length ? selectedIds : (selectedId ? [selectedId] : []);
+    if (!ids.length) { toast && toast('Selecciona una capa', 'warn'); return; }
+    ids.forEach((id) => {
+      const L = getLayer(id);
+      if (!L || L.locked) return;
+      L.y = snapVal((stageH - L.h) / 2);
+    });
     renderAll();
     pushSnapshot();
     toast && toast('Centro vertical', 'ok');
   }
 
   function duplicateLayer(id) {
-    const src = getLayer(id || selectedId);
-    if (!src) { toast && toast('Selecciona una capa', 'warn'); return; }
-    const L = deepCloneLayer(src);
-    L.id = uid();
-    L.x = snapVal((src.x || 0) + 20);
-    L.y = snapVal((src.y || 0) + 20);
-    L.locked = false;
-    layers.push(L);
+    const ids = id
+      ? [id]
+      : (selectedIds.length ? selectedIds.slice() : (selectedId ? [selectedId] : []));
+    if (!ids.length) { toast && toast('Selecciona una capa', 'warn'); return; }
+    const created = [];
+    ids.forEach((sid) => {
+      const src = getLayer(sid);
+      if (!src) return;
+      const L = deepCloneLayer(src);
+      L.id = uid();
+      L.x = snapVal((src.x || 0) + 20);
+      L.y = snapVal((src.y || 0) + 20);
+      L.locked = false;
+      layers.push(L);
+      created.push(L.id);
+    });
+    if (!created.length) return;
     renderAll();
-    selectLayer(L.id);
+    setSelection(created, created[created.length - 1]);
     pushSnapshot();
-    toast && toast('Capa duplicada', 'ok');
+    toast && toast(created.length > 1 ? (created.length + ' capas duplicadas') : 'Capa duplicada', 'ok');
   }
 
   function equalSize() {
@@ -449,6 +481,217 @@
     renderAll();
     pushSnapshot();
     toast && toast('Tamaño igualado', 'ok');
+  }
+
+  /** Alinea las seleccionadas al mismo Y que la capa de referencia (clic derecho). */
+  function alignSelectedToLevel(refId) {
+    const ref = getLayer(refId) || getLayer(selectedId);
+    if (!ref) { toast && toast('Selecciona una capa', 'warn'); return; }
+    let ids = selectedIds.length ? selectedIds.slice() : [ref.id];
+    if (!ids.includes(ref.id)) ids = [...ids, ref.id];
+    if (ids.length < 2) {
+      toast && toast('Selecciona al menos 2 capas para alinear', 'warn');
+      return;
+    }
+    const y = snapVal(ref.y);
+    let n = 0;
+    ids.forEach((id) => {
+      const L = getLayer(id);
+      if (!L || L.locked) return;
+      L.y = y;
+      n++;
+    });
+    if (!n) return;
+    renderAll();
+    pushSnapshot();
+    updateGroupSelectionBox();
+    toast && toast('Alineadas al mismo nivel', 'ok');
+  }
+
+  /** Todas las seleccionadas toman el tamaño de la capa de referencia (clic derecho). */
+  function matchSelectedSizeTo(refId) {
+    const ref = getLayer(refId) || getLayer(selectedId);
+    if (!ref) { toast && toast('Selecciona una capa de referencia', 'warn'); return; }
+    let ids = selectedIds.length ? selectedIds.slice() : [ref.id];
+    if (!ids.includes(ref.id)) ids = [...ids, ref.id];
+    if (ids.length < 2) {
+      toast && toast('Selecciona al menos 2 capas', 'warn');
+      return;
+    }
+    const w = snapVal(ref.w);
+    const h = snapVal(ref.h);
+    const scaleFont = (ref.fontSize || 48);
+    let n = 0;
+    ids.forEach((id) => {
+      if (id === ref.id) return;
+      const L = getLayer(id);
+      if (!L || L.locked) return;
+      const oldW = Math.max(1, L.w);
+      const oldH = Math.max(1, L.h);
+      L.w = w;
+      L.h = h;
+      if (L.type === 'text' || L.type === 'badge') {
+        const s = Math.min(w / oldW, h / oldH);
+        L.fontSize = clamp(Math.round((L.fontSize || scaleFont) * s), 8, 400);
+      }
+      n++;
+    });
+    if (!n) { toast && toast('No hay otras capas para igualar', 'warn'); return; }
+    renderAll();
+    pushSnapshot();
+    updateGroupSelectionBox();
+    toast && toast('Mismo tamaño aplicado', 'ok');
+  }
+
+  function copySelectedLayers() {
+    const ids = selectedIds.length ? selectedIds.slice() : (selectedId ? [selectedId] : []);
+    if (!ids.length) { toast && toast('Selecciona algo para copiar', 'warn'); return false; }
+    layerClipboard = ids.map((id) => getLayer(id)).filter(Boolean).map((L) => {
+      const c = deepCloneLayer(layerForSave(L));
+      delete c.id;
+      return c;
+    });
+    if (!layerClipboard.length) return false;
+    toast && toast(layerClipboard.length > 1 ? (layerClipboard.length + ' capas copiadas') : 'Capa copiada', 'ok');
+    return true;
+  }
+
+  function pasteClipboardLayers(at) {
+    if (!layerClipboard.length) { toast && toast('Nada en el portapapeles', 'warn'); return; }
+    let minX = Infinity;
+    let minY = Infinity;
+    layerClipboard.forEach((L) => {
+      minX = Math.min(minX, L.x || 0);
+      minY = Math.min(minY, L.y || 0);
+    });
+    if (!Number.isFinite(minX)) minX = 0;
+    if (!Number.isFinite(minY)) minY = 0;
+    const dx = at && Number.isFinite(at.x) ? (at.x - minX) : 24;
+    const dy = at && Number.isFinite(at.y) ? (at.y - minY) : 24;
+    const created = [];
+    layerClipboard.forEach((raw) => {
+      const L = deepCloneLayer(raw);
+      L.id = uid();
+      L.x = snapVal((raw.x || 0) + dx);
+      L.y = snapVal((raw.y || 0) + dy);
+      L.locked = false;
+      if (L.gifBytes && !(L.gifBytes instanceof ArrayBuffer)) {
+        try {
+          const u8 = new Uint8Array(L.gifBytes);
+          L.gifBytes = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+        } catch { delete L.gifBytes; }
+      }
+      layers.push(L);
+      created.push(L.id);
+    });
+    renderAll();
+    setSelection(created, created[created.length - 1]);
+    pushSnapshot();
+    toast && toast(created.length > 1 ? (created.length + ' capas pegadas') : 'Capa pegada', 'ok');
+  }
+
+  function hideContextMenu() {
+    document.getElementById('ied-ctx-menu')?.remove();
+    ctxPasteAt = null;
+  }
+
+  function showContextMenu(clientX, clientY, refId, opts) {
+    hideContextMenu();
+    opts = opts || {};
+    const onLayer = !!refId && !!getLayer(refId);
+    const hasSel = selectedIds.length > 0 || !!selectedId;
+    const hasClip = layerClipboard.length > 0;
+
+    const menu = document.createElement('div');
+    menu.id = 'ied-ctx-menu';
+    menu.className = 'ied-ctx-menu';
+    menu.setAttribute('role', 'menu');
+
+    const nSel = selectedIds.length;
+    const items = [];
+    if (onLayer || nSel >= 2) {
+      items.push({
+        id: 'align',
+        label: nSel >= 2 ? `Alinear las ${nSel} al mismo nivel` : 'Alinear al mismo nivel',
+        enabled: nSel >= 2,
+      });
+      items.push({
+        id: 'size',
+        label: nSel >= 2 ? `Mismo tamaño en las ${nSel} (como esta)` : 'Mismo tamaño que esta',
+        enabled: nSel >= 2,
+      });
+      items.push({ sep: true });
+    }
+    items.push({
+      id: 'copy',
+      label: nSel > 1 ? `Copiar las ${nSel}` : 'Copiar',
+      enabled: hasSel || onLayer,
+      shortcut: 'Ctrl+C',
+    });
+    items.push({ id: 'paste', label: 'Pegar', enabled: hasClip, shortcut: 'Ctrl+V' });
+    items.push({ sep: true });
+    items.push({
+      id: 'delete',
+      label: nSel > 1 ? `Borrar las ${nSel}` : 'Borrar',
+      enabled: hasSel || onLayer,
+      danger: true,
+    });
+
+    menu.innerHTML = items.map((it) => {
+      if (it.sep) return '<div class="ied-ctx-sep"></div>';
+      const dis = it.enabled === false ? ' disabled' : '';
+      const danger = it.danger ? ' is-danger' : '';
+      const tip = it.shortcut ? `<span class="ied-ctx-kbd">${it.shortcut}</span>` : '';
+      return `<button type="button" class="ied-ctx-item${danger}${dis}" data-act="${it.id}" ${it.enabled === false ? 'disabled' : ''}><span>${it.label}</span>${tip}</button>`;
+    }).join('');
+
+    document.body.appendChild(menu);
+    const pad = 8;
+    const mw = menu.offsetWidth;
+    const mh = menu.offsetHeight;
+    let left = clientX;
+    let top = clientY;
+    if (left + mw > window.innerWidth - pad) left = window.innerWidth - mw - pad;
+    if (top + mh > window.innerHeight - pad) top = window.innerHeight - mh - pad;
+    menu.style.left = Math.max(pad, left) + 'px';
+    menu.style.top = Math.max(pad, top) + 'px';
+
+    menu.addEventListener('pointerdown', (e) => e.stopPropagation());
+    menu.querySelectorAll('.ied-ctx-item').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const act = btn.dataset.act;
+        const pastePt = ctxPasteAt;
+        hideContextMenu();
+        if (act === 'align') alignSelectedToLevel(refId);
+        else if (act === 'size') matchSelectedSizeTo(refId);
+        else if (act === 'copy') {
+          if (onLayer && !isSelected(refId)) selectLayer(refId);
+          copySelectedLayers();
+        } else if (act === 'paste') pasteClipboardLayers(pastePt);
+        else if (act === 'delete') removeSelectedLayers();
+      });
+    });
+  }
+
+  function onLayerContextMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (sliceMode) return;
+    const id = e.currentTarget?.dataset?.id;
+    const L = getLayer(id);
+    if (!L) return;
+    if (!isSelected(id)) selectLayer(id);
+    else {
+      selectedId = id;
+      renderLayersList();
+      renderProps();
+      renderStageSelection();
+    }
+    const p = stagePointFromEvent(e);
+    ctxPasteAt = { x: p.x, y: p.y };
+    showContextMenu(e.clientX, e.clientY, id);
   }
 
   function distributeH() {
@@ -483,15 +726,62 @@
     toast && toast('Separación repartida', 'ok');
   }
 
-  function selectLayer(id) {
-    selectedId = id;
+  function isSelected(id) {
+    return !!id && selectedIds.includes(id);
+  }
+
+  function setSelection(ids, primary) {
+    const seen = new Set();
+    const next = [];
+    (ids || []).forEach((id) => {
+      if (!id || seen.has(id) || !getLayer(id)) return;
+      seen.add(id);
+      next.push(id);
+    });
+    selectedIds = next;
+    if (primary && selectedIds.includes(primary)) selectedId = primary;
+    else selectedId = selectedIds.length ? selectedIds[selectedIds.length - 1] : null;
     renderLayersList();
     renderProps();
     renderStageSelection();
   }
 
+  /** @param {string|null} id @param {{ add?: boolean, toggle?: boolean, keepMulti?: boolean }=} opts */
+  function selectLayer(id, opts) {
+    opts = opts || {};
+    if (!id) {
+      setSelection([]);
+      return;
+    }
+    if (!getLayer(id)) return;
+    if (opts.toggle) {
+      if (isSelected(id)) setSelection(selectedIds.filter((x) => x !== id));
+      else setSelection([...selectedIds, id], id);
+      return;
+    }
+    if (opts.add) {
+      if (!isSelected(id)) setSelection([...selectedIds, id], id);
+      else setSelection(selectedIds, id);
+      return;
+    }
+    if (opts.keepMulti && isSelected(id) && selectedIds.length > 1) {
+      selectedId = id;
+      renderLayersList();
+      renderProps();
+      renderStageSelection();
+      return;
+    }
+    setSelection([id], id);
+  }
+
   function getLayer(id) {
     return layers.find((l) => l.id === id);
+  }
+
+  function focusSingleInSelection(id) {
+    if (!id) return;
+    selectedId = id;
+    if (!selectedIds.includes(id)) selectedIds = [id];
   }
 
   function bringToFront(id) {
@@ -503,7 +793,7 @@
     }
     const [L] = layers.splice(i, 1);
     layers.push(L);
-    selectedId = id;
+    focusSingleInSelection(id);
     renderAll();
     pushSnapshot();
     toast && toast('Capa al frente', 'ok');
@@ -518,7 +808,7 @@
     }
     const [L] = layers.splice(i, 1);
     layers.unshift(L);
-    selectedId = id;
+    focusSingleInSelection(id);
     renderAll();
     pushSnapshot();
     toast && toast('Capa atrás', 'ok');
@@ -531,7 +821,7 @@
     const tmp = layers[i];
     layers[i] = layers[i + 1];
     layers[i + 1] = tmp;
-    selectedId = id;
+    focusSingleInSelection(id);
     renderAll();
     pushSnapshot();
   }
@@ -543,7 +833,7 @@
     const tmp = layers[i];
     layers[i] = layers[i - 1];
     layers[i - 1] = tmp;
-    selectedId = id;
+    focusSingleInSelection(id);
     renderAll();
     pushSnapshot();
   }
@@ -552,9 +842,35 @@
     const L = getLayer(id);
     if (L?.locked) { toast && toast('Capa bloqueada', 'warn'); return; }
     layers = layers.filter((l) => l.id !== id);
-    if (selectedId === id) selectedId = layers.length ? layers[layers.length - 1].id : null;
+    selectedIds = selectedIds.filter((x) => x !== id && getLayer(x));
+    if (selectedId === id) {
+      selectedId = selectedIds.length
+        ? selectedIds[selectedIds.length - 1]
+        : (layers.length ? layers[layers.length - 1].id : null);
+    }
+    if (selectedId && !selectedIds.includes(selectedId) && getLayer(selectedId)) {
+      selectedIds = [selectedId];
+    }
+    if (!selectedId) selectedIds = [];
     renderAll();
     pushSnapshot();
+  }
+
+  function removeSelectedLayers() {
+    const ids = selectedIds.length ? selectedIds.slice() : (selectedId ? [selectedId] : []);
+    if (!ids.length) return;
+    let removed = 0;
+    ids.forEach((id) => {
+      const L = getLayer(id);
+      if (!L || L.locked) return;
+      layers = layers.filter((l) => l.id !== id);
+      removed++;
+    });
+    selectedIds = [];
+    selectedId = layers.length ? layers[layers.length - 1].id : null;
+    if (selectedId) selectedIds = [selectedId];
+    renderAll();
+    if (removed) pushSnapshot();
   }
 
   function stripFrameLayers() {
@@ -567,6 +883,10 @@
     });
     if (selectedId && !getLayer(selectedId)) {
       selectedId = layers.length ? layers[layers.length - 1].id : null;
+    }
+    selectedIds = selectedIds.filter((id) => getLayer(id));
+    if (selectedId && !selectedIds.includes(selectedId)) {
+      selectedIds = selectedId ? [selectedId] : [];
     }
   }
 
@@ -1490,9 +1810,11 @@
         }
       }
       selectedId = null;
+      selectedIds = [];
     } else if (key === 'wins') {
       layers = [];
       selectedId = null;
+      selectedIds = [];
       layers.push({
         id: uid(), type: 'text', name: 'Título', text: 'WINS',
         color: '#ffd700', fontSize: Math.round(stageH * 0.12), font: 'bangers',
@@ -1510,6 +1832,7 @@
     } else if (key === 'alert') {
       layers = [];
       selectedId = null;
+      selectedIds = [];
       layers.push({
         id: uid(), type: 'text', name: 'Alerta', text: 'ALERTA',
         color: '#ff1744', fontSize: Math.round(stageH * 0.1), font: 'bangers',
@@ -1749,14 +2072,212 @@
     for (const f of files) await addImageFromFile(f);
   }
 
+  function selectionBounds(ids) {
+    const list = (ids && ids.length ? ids : selectedIds)
+      .map((id) => getLayer(id))
+      .filter((L) => L && !L.locked);
+    if (!list.length) return null;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    list.forEach((L) => {
+      minX = Math.min(minX, L.x);
+      minY = Math.min(minY, L.y);
+      maxX = Math.max(maxX, L.x + L.w);
+      maxY = Math.max(maxY, L.y + L.h);
+    });
+    return { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) };
+  }
+
+  function editableSelectedIds() {
+    return selectedIds.filter((id) => {
+      const L = getLayer(id);
+      return L && !L.locked;
+    });
+  }
+
+  /** Escala el grupo respecto a un ancla (esquina opuesta o centro). */
+  function applyGroupScale(ids, origById, groupOrig, scale, anchorX, anchorY) {
+    const s = clamp(scale, 0.05, 8);
+    ids.forEach((sid) => {
+      const L = getLayer(sid);
+      const o = origById[sid];
+      if (!L || !o) return;
+      L.w = snapVal(clamp(o.w * s, 16, stageW * 2));
+      L.h = snapVal(clamp(o.h * s, 16, stageH * 2));
+      L.x = snapVal(anchorX + (o.x - anchorX) * s);
+      L.y = snapVal(anchorY + (o.y - anchorY) * s);
+      if ((L.type === 'text' || L.type === 'badge') && o.fontSize) {
+        L.fontSize = clamp(Math.round(o.fontSize * s), 8, 400);
+      }
+      patchLayerDom(L);
+    });
+    return s;
+  }
+
+  function scaleSelectedGroup(factor, opts) {
+    opts = opts || {};
+    const ids = editableSelectedIds();
+    if (ids.length < 1) {
+      if (!opts.quiet) toast && toast('Selecciona capas', 'warn');
+      return;
+    }
+    const bounds = selectionBounds(ids);
+    if (!bounds) return;
+    const origById = {};
+    ids.forEach((sid) => {
+      const L = getLayer(sid);
+      if (!L) return;
+      origById[sid] = { x: L.x, y: L.y, w: L.w, h: L.h, fontSize: L.fontSize || 48 };
+    });
+    const cx = bounds.x + bounds.w / 2;
+    const cy = bounds.y + bounds.h / 2;
+    applyGroupScale(ids, origById, bounds, factor, cx, cy);
+    updateGroupSelectionBox();
+    if (!opts.skipHistory) pushSnapshot();
+    if (!opts.quiet) toast && toast(factor < 1 ? 'Más chicas' : 'Más grandes', 'ok');
+  }
+
+  let wheelScaleTimer = null;
+  function pointInSelectionBounds(p, pad) {
+    const ids = editableSelectedIds();
+    if (ids.length < 1) return false;
+    const b = selectionBounds(ids);
+    if (!b) return false;
+    const m = pad == null ? 12 : pad;
+    return p.x >= b.x - m && p.y >= b.y - m && p.x <= b.x + b.w + m && p.y <= b.y + b.h + m;
+  }
+
+  function onStageWheel(e) {
+    if (sliceMode) return;
+    if (!$('view-editor')?.classList.contains('active')) return;
+
+    const layerEl = e.target.closest?.('.ied-layer');
+    const p = stagePointFromEvent(e);
+    let ids = editableSelectedIds();
+
+    if (layerEl) {
+      const id = layerEl.dataset.id;
+      const L = getLayer(id);
+      if (!L || L.locked) return;
+      if (!isSelected(id)) {
+        // Con varias ya seleccionadas, no romper el grupo al pasar la rueda por otra capa
+        if (selectedIds.length > 1) {
+          if (!pointInSelectionBounds(p, 20)) return;
+        } else {
+          selectLayer(id);
+        }
+      }
+    } else {
+      // Huecos del marco / guía / lienzo: si hay selección (2+), escalar todo el grupo
+      if (ids.length < 1) return;
+      if (!pointInSelectionBounds(p, 16)) return;
+    }
+
+    ids = editableSelectedIds();
+    if (!ids.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Rueda arriba → más grande; abajo → más chica (mismo factor para TODAS)
+    const steps = Math.min(4, Math.max(1, Math.round(Math.abs(e.deltaY) / 80)));
+    const base = e.deltaY < 0 ? 1.07 : 0.935;
+    const factor = Math.pow(base, steps);
+    scaleSelectedGroup(factor, { quiet: true, skipHistory: true });
+    if (wheelScaleTimer) clearTimeout(wheelScaleTimer);
+    wheelScaleTimer = setTimeout(() => {
+      wheelScaleTimer = null;
+      pushSnapshot();
+    }, 300);
+  }
+
+  function updateGroupSelectionBox() {
+    const st = stage();
+    if (!st) return;
+    let box = st.querySelector('.ied-group-box');
+    const ids = editableSelectedIds();
+    if (selectedIds.length <= 1 || ids.length <= 1) {
+      box?.remove();
+      return;
+    }
+    const b = selectionBounds(ids);
+    if (!b) {
+      box?.remove();
+      return;
+    }
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'ied-group-box';
+      box.innerHTML = ['nw', 'ne', 'sw', 'se'].map((pos) =>
+        `<div class="ied-handle ied-group-handle ${pos}" data-handle="${pos}"></div>`
+      ).join('');
+      st.appendChild(box);
+      box.querySelectorAll('.ied-group-handle').forEach((h) => {
+        h.addEventListener('pointerdown', onGroupHandlePointerDown);
+      });
+    }
+    box.style.left = Math.round(b.x) + 'px';
+    box.style.top = Math.round(b.y) + 'px';
+    box.style.width = Math.round(b.w) + 'px';
+    box.style.height = Math.round(b.h) + 'px';
+  }
+
+  function onGroupHandlePointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    if (sliceMode) return;
+    const handle = e.currentTarget?.dataset?.handle;
+    if (!handle) return;
+    const ids = editableSelectedIds();
+    if (ids.length < 2) return;
+    const bounds = selectionBounds(ids);
+    if (!bounds) return;
+    const p = stagePointFromEvent(e);
+    const origById = {};
+    ids.forEach((sid) => {
+      const L = getLayer(sid);
+      if (!L) return;
+      origById[sid] = { x: L.x, y: L.y, w: L.w, h: L.h, fontSize: L.fontSize || 48 };
+    });
+    let anchorX = bounds.x;
+    let anchorY = bounds.y;
+    if (handle.includes('w')) anchorX = bounds.x + bounds.w;
+    if (handle.includes('n')) anchorY = bounds.y + bounds.h;
+    if (handle.includes('e')) anchorX = bounds.x;
+    if (handle.includes('s')) anchorY = bounds.y;
+    // esquinas: ancla = esquina opuesta
+    if (handle === 'se') { anchorX = bounds.x; anchorY = bounds.y; }
+    if (handle === 'sw') { anchorX = bounds.x + bounds.w; anchorY = bounds.y; }
+    if (handle === 'ne') { anchorX = bounds.x; anchorY = bounds.y + bounds.h; }
+    if (handle === 'nw') { anchorX = bounds.x + bounds.w; anchorY = bounds.y + bounds.h; }
+
+    drag = {
+      id: null,
+      ids,
+      mode: 'group-resize-' + handle,
+      startX: p.x,
+      startY: p.y,
+      orig: { ...bounds },
+      origById,
+      anchorX,
+      anchorY,
+      moved: false,
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
   function renderStageSelection() {
     const st = stage();
     if (!st) return;
     st.querySelectorAll('.ied-layer').forEach((el) => {
       const L = getLayer(el.dataset.id);
-      el.classList.toggle('is-selected', el.dataset.id === selectedId);
+      const sel = isSelected(el.dataset.id);
+      el.classList.toggle('is-selected', sel);
+      el.classList.toggle('is-primary', el.dataset.id === selectedId && sel);
       el.querySelectorAll('.ied-handle').forEach((h) => h.remove());
-      if (el.dataset.id === selectedId && !L?.locked) {
+      // Handles individuales solo con 1 capa; con varias usa el marco del grupo
+      if (el.dataset.id === selectedId && sel && selectedIds.length <= 1 && !L?.locked) {
         ['nw', 'ne', 'sw', 'se'].forEach((pos) => {
           const handle = document.createElement('div');
           handle.className = 'ied-handle ' + pos;
@@ -1765,6 +2286,7 @@
         });
       }
     });
+    updateGroupSelectionBox();
   }
 
   function layerListLabel(L) {
@@ -1781,7 +2303,8 @@
     layers.forEach((L, idx) => {
       const el = document.createElement('div');
       el.className = 'ied-layer' +
-        (L.id === selectedId ? ' is-selected' : '') +
+        (isSelected(L.id) ? ' is-selected' : '') +
+        (L.id === selectedId && isSelected(L.id) ? ' is-primary' : '') +
         (L.locked ? ' is-locked' : '') +
         (L.type === 'badge' ? ' ied-badge-layer' : '');
       el.dataset.id = L.id;
@@ -1846,6 +2369,7 @@
       }
 
       el.addEventListener('pointerdown', onLayerPointerDown);
+      el.addEventListener('contextmenu', onLayerContextMenu);
       st.appendChild(el);
     });
     updateGuides();
@@ -1875,7 +2399,7 @@
     }
     const ordered = [...layers].reverse();
     box.innerHTML = ordered.map((L) => `
-      <div class="ied-layer-row ${L.id === selectedId ? 'active' : ''}${L.locked ? ' is-locked' : ''}" data-id="${L.id}" draggable="${L.locked ? 'false' : 'true'}">
+      <div class="ied-layer-row ${isSelected(L.id) ? 'active' : ''}${L.id === selectedId && isSelected(L.id) ? ' is-primary' : ''}${L.locked ? ' is-locked' : ''}" data-id="${L.id}" draggable="${L.locked ? 'false' : 'true'}">
         <span class="ied-lr-grip" title="Arrastrar">⠿</span>
         <span class="ied-lr-name">${escapeHtml(layerListLabel(L))}${L.locked ? ' 🔒' : ''}</span>
         <button type="button" data-act="up" title="Traer al frente">↑</button>
@@ -1895,7 +2419,9 @@
           else if (act === 'down') lowerLayer(id);
           return;
         }
-        selectLayer(id);
+        if (e.ctrlKey || e.metaKey) selectLayer(id, { toggle: true });
+        else if (e.shiftKey) selectLayer(id, { add: true });
+        else selectLayer(id);
       };
       row.addEventListener('dragstart', (e) => {
         if (getLayer(id)?.locked) { e.preventDefault(); return; }
@@ -1943,9 +2469,96 @@
   function renderProps() {
     const box = $('ied-props');
     if (!box) return;
+    if (selectedIds.length > 1) {
+      const n = selectedIds.length;
+      const ref = getLayer(selectedId) || getLayer(selectedIds[0]);
+      const ids = editableSelectedIds();
+      const sameW = ids.length && ids.every((id) => getLayer(id)?.w === ref?.w);
+      const sameH = ids.length && ids.every((id) => getLayer(id)?.h === ref?.h);
+      const sameMot = ids.length && ids.every((id) => (getLayer(id)?.motion || 'off') === (ref?.motion || 'off'));
+      const wVal = sameW ? (ref?.w || 80) : (ref?.w || 80);
+      const hVal = sameH ? (ref?.h || 80) : (ref?.h || 80);
+      box.innerHTML = `
+        <p class="ied-muted"><strong>${n}</strong> capas seleccionadas — los cambios se aplican a todas</p>
+        <label class="ied-field">Movimiento
+          <select id="ied-p-motion">${motionSelectOptions()}</select>
+        </label>
+        <label class="ied-field">Ancho
+          <input type="number" id="ied-p-w" min="20" max="${Math.round(stageW * 2)}" value="${wVal}">
+        </label>
+        <label class="ied-field">Alto
+          <input type="number" id="ied-p-h" min="20" max="${Math.round(stageH * 2)}" value="${hVal}">
+        </label>
+        ${!sameW || !sameH || !sameMot ? '<p class="ied-muted" style="margin-top:2px">Hay tamaños/movimientos distintos; al editar se igualan en las ' + n + '.</p>' : ''}
+        <div class="ied-prop-actions" style="flex-wrap:wrap;margin-top:8px">
+          <button type="button" class="btn ghost" id="ied-p-smaller">Más chicas</button>
+          <button type="button" class="btn ghost" id="ied-p-bigger">Más grandes</button>
+          <button type="button" class="btn ghost" id="ied-p-align-multi">Alinear nivel</button>
+          <button type="button" class="btn ghost" id="ied-p-size-multi">Igualar tamaño</button>
+          <button type="button" class="btn ghost" id="ied-p-dup-multi">Duplicar</button>
+          <button type="button" class="btn danger" id="ied-p-del-multi">Borrar</button>
+        </div>`;
+      if ($('ied-p-motion')) {
+        $('ied-p-motion').value = sameMot ? (ref?.motion || 'off') : (ref?.motion || 'off');
+        $('ied-p-motion').onchange = () => {
+          const mot = $('ied-p-motion').value;
+          editableSelectedIds().forEach((id) => {
+            const layer = getLayer(id);
+            if (layer) layer.motion = mot;
+          });
+          renderStage();
+          updateGroupSelectionBox();
+          pushSnapshot();
+        };
+      }
+      const applySizeToAll = (dim) => {
+        const wEl = $('ied-p-w');
+        const hEl = $('ied-p-h');
+        const w = clamp(parseInt(wEl?.value, 10) || 20, 20, Math.round(stageW * 2));
+        const h = clamp(parseInt(hEl?.value, 10) || 20, 20, Math.round(stageH * 2));
+        if (wEl) wEl.value = String(w);
+        if (hEl) hEl.value = String(h);
+        editableSelectedIds().forEach((id) => {
+          const layer = getLayer(id);
+          if (!layer) return;
+          if (dim === 'w' || dim === 'both') {
+            if (layer.type === 'text' || layer.type === 'badge') {
+              const s = w / Math.max(1, layer.w);
+              layer.fontSize = clamp(Math.round((layer.fontSize || 48) * s), 8, 400);
+            }
+            layer.w = w;
+          }
+          if (dim === 'h' || dim === 'both') {
+            if ((layer.type === 'text' || layer.type === 'badge') && dim === 'h') {
+              const s = h / Math.max(1, layer.h);
+              layer.fontSize = clamp(Math.round((layer.fontSize || 48) * s), 8, 400);
+            }
+            layer.h = h;
+          }
+        });
+        renderStage();
+        updateGroupSelectionBox();
+        pushSnapshot();
+      };
+      if ($('ied-p-w')) {
+        $('ied-p-w').onchange = () => applySizeToAll('w');
+        $('ied-p-w').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); applySizeToAll('w'); } };
+      }
+      if ($('ied-p-h')) {
+        $('ied-p-h').onchange = () => applySizeToAll('h');
+        $('ied-p-h').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); applySizeToAll('h'); } };
+      }
+      if ($('ied-p-smaller')) $('ied-p-smaller').onclick = () => scaleSelectedGroup(0.85);
+      if ($('ied-p-bigger')) $('ied-p-bigger').onclick = () => scaleSelectedGroup(1.15);
+      if ($('ied-p-align-multi')) $('ied-p-align-multi').onclick = () => alignSelectedToLevel(selectedId);
+      if ($('ied-p-size-multi')) $('ied-p-size-multi').onclick = () => matchSelectedSizeTo(selectedId);
+      if ($('ied-p-dup-multi')) $('ied-p-dup-multi').onclick = () => duplicateLayer();
+      if ($('ied-p-del-multi')) $('ied-p-del-multi').onclick = () => removeSelectedLayers();
+      return;
+    }
     const L = getLayer(selectedId);
     if (!L) {
-      box.innerHTML = '<p class="ied-muted">Selecciona una capa</p>';
+      box.innerHTML = '<p class="ied-muted">Selecciona una capa<br><span style="opacity:.75">Arrastra un rectángulo en el lienzo para seleccionar varias</span></p>';
       return;
     }
     const lockField = `
@@ -2130,6 +2743,58 @@
     ov.style.height = Math.round(r.h) + 'px';
   }
 
+  function updateMarqueeOverlay(r) {
+    const st = stage();
+    if (!st) return;
+    let ov = st.querySelector('.ied-marquee');
+    if (!r || r.w < 1 || r.h < 1) {
+      ov?.remove();
+      return;
+    }
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.className = 'ied-marquee';
+      st.appendChild(ov);
+    }
+    ov.style.left = Math.round(r.x) + 'px';
+    ov.style.top = Math.round(r.y) + 'px';
+    ov.style.width = Math.round(r.w) + 'px';
+    ov.style.height = Math.round(r.h) + 'px';
+  }
+
+  function marqueeRectFromDrag() {
+    if (!marquee) return null;
+    const x1 = Math.min(marquee.startX, marquee.curX);
+    const y1 = Math.min(marquee.startY, marquee.curY);
+    const x2 = Math.max(marquee.startX, marquee.curX);
+    const y2 = Math.max(marquee.startY, marquee.curY);
+    return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+  }
+
+  function rectsIntersect(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function layersInMarquee(r) {
+    if (!r || r.w < 4 || r.h < 4) return [];
+    return layers
+      .filter((L) => rectsIntersect({ x: L.x, y: L.y, w: L.w, h: L.h }, r))
+      .map((L) => L.id);
+  }
+
+  function patchLayerDom(L) {
+    const el = stage()?.querySelector(`.ied-layer[data-id="${L.id}"]`);
+    if (!el) return;
+    el.style.left = L.x + 'px';
+    el.style.top = L.y + 'px';
+    el.style.width = L.w + 'px';
+    el.style.height = L.h + 'px';
+    if (L.type === 'text') {
+      const t = el.querySelector('.ied-text');
+      if (t) t.style.fontSize = (L.fontSize || 48) + 'px';
+    }
+  }
+
   function sliceRectFromDrag() {
     if (!sliceDrag) return null;
     const x1 = Math.min(sliceDrag.startX, sliceDrag.curX);
@@ -2219,8 +2884,8 @@
     const L = getLayer(id);
     if (!L) return;
     if (L.locked) return;
-    selectLayer(id);
     const p = stagePointFromEvent(e);
+    const additive = e.ctrlKey || e.metaKey || e.shiftKey;
 
     if (sliceMode) {
       if (L.type !== 'image' || !L.src) {
@@ -2228,6 +2893,9 @@
         return;
       }
       drag = null;
+      marquee = null;
+      updateMarqueeOverlay(null);
+      selectLayer(id);
       sliceDrag = { layerId: id, startX: p.x, startY: p.y, curX: p.x, curY: p.y };
       updateSliceOverlay({ x: p.x, y: p.y, w: 0, h: 0 });
       el.setPointerCapture?.(e.pointerId);
@@ -2236,20 +2904,91 @@
       return;
     }
 
-    const handle = e.target.closest?.('.ied-handle');
+    if (additive) {
+      if (e.shiftKey && !(e.ctrlKey || e.metaKey)) selectLayer(id, { add: true });
+      else selectLayer(id, { toggle: true });
+    } else {
+      selectLayer(id, { keepMulti: true });
+    }
+
+    let handle = e.target.closest?.('.ied-handle');
+    if (handle?.classList?.contains('ied-group-handle')) return;
+
+    const moveIds = (!handle && selectedIds.length > 1 && isSelected(id))
+      ? selectedIds.filter((sid) => {
+          const layer = getLayer(sid);
+          return layer && !layer.locked;
+        })
+      : [id];
+
+    // Redimensionar una sola capa del grupo → escala todo el grupo desde esa esquina
+    if (handle && selectedIds.length > 1 && isSelected(id)) {
+      const ids = editableSelectedIds();
+      const bounds = selectionBounds(ids);
+      if (bounds && ids.length > 1) {
+        const pos = handle.dataset.handle;
+        const origById = {};
+        ids.forEach((sid) => {
+          const layer = getLayer(sid);
+          if (!layer) return;
+          origById[sid] = { x: layer.x, y: layer.y, w: layer.w, h: layer.h, fontSize: layer.fontSize || 48 };
+        });
+        let anchorX = bounds.x;
+        let anchorY = bounds.y;
+        if (pos === 'se') { anchorX = bounds.x; anchorY = bounds.y; }
+        if (pos === 'sw') { anchorX = bounds.x + bounds.w; anchorY = bounds.y; }
+        if (pos === 'ne') { anchorX = bounds.x; anchorY = bounds.y + bounds.h; }
+        if (pos === 'nw') { anchorX = bounds.x + bounds.w; anchorY = bounds.y + bounds.h; }
+        drag = {
+          id,
+          ids,
+          mode: 'group-resize-' + pos,
+          startX: p.x,
+          startY: p.y,
+          orig: { ...bounds },
+          origById,
+          anchorX,
+          anchorY,
+          moved: false,
+        };
+        el.setPointerCapture?.(e.pointerId);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
+
+    const origById = {};
+    moveIds.forEach((sid) => {
+      const layer = getLayer(sid);
+      if (!layer) return;
+      origById[sid] = { x: layer.x, y: layer.y, w: layer.w, h: layer.h, fontSize: layer.fontSize || 48 };
+    });
+
     drag = {
       id,
+      ids: moveIds,
       mode: handle ? ('resize-' + handle.dataset.handle) : 'move',
       startX: p.x,
       startY: p.y,
       orig: { x: L.x, y: L.y, w: L.w, h: L.h, fontSize: L.fontSize || 48 },
+      origById,
       moved: false,
     };
     el.setPointerCapture?.(e.pointerId);
     e.preventDefault();
+    e.stopPropagation();
   }
 
   function onPointerMove(e) {
+    if (marquee) {
+      const p = stagePointFromEvent(e);
+      marquee.curX = p.x;
+      marquee.curY = p.y;
+      if (Math.abs(p.x - marquee.startX) > 3 || Math.abs(p.y - marquee.startY) > 3) marquee.moved = true;
+      updateMarqueeOverlay(marqueeRectFromDrag());
+      return;
+    }
     if (sliceDrag) {
       const p = stagePointFromEvent(e);
       sliceDrag.curX = p.x;
@@ -2258,17 +2997,41 @@
       return;
     }
     if (!drag) return;
-    const L = getLayer(drag.id);
-    if (!L) return;
     const p = stagePointFromEvent(e);
     const dx = p.x - drag.startX;
     const dy = p.y - drag.startY;
-    const o = drag.orig;
 
-    if (drag.mode === 'move') {
-      L.x = snapVal(clamp(o.x + dx, -L.w + 20, stageW - 20));
-      L.y = snapVal(clamp(o.y + dy, -L.h + 20, stageH - 20));
+    if (drag.mode === 'move' && drag.ids && drag.ids.length) {
+      drag.ids.forEach((sid) => {
+        const L = getLayer(sid);
+        const o = drag.origById?.[sid];
+        if (!L || !o) return;
+        L.x = snapVal(clamp(o.x + dx, -L.w + 20, stageW - 20));
+        L.y = snapVal(clamp(o.y + dy, -L.h + 20, stageH - 20));
+        patchLayerDom(L);
+      });
+      updateGroupSelectionBox();
+    } else if (String(drag.mode).startsWith('group-resize-')) {
+      const g = drag.orig;
+      const ax = drag.anchorX;
+      const ay = drag.anchorY;
+      const handle = drag.mode.replace('group-resize-', '');
+      let newW = g.w;
+      let newH = g.h;
+      if (handle.includes('e')) newW = Math.max(16, (p.x - ax));
+      if (handle.includes('w')) newW = Math.max(16, (ax - p.x));
+      if (handle.includes('s')) newH = Math.max(16, (p.y - ay));
+      if (handle.includes('n')) newH = Math.max(16, (ay - p.y));
+      // Escala uniforme (misma proporción para todas)
+      const sx = newW / Math.max(1, g.w);
+      const sy = newH / Math.max(1, g.h);
+      const scale = Math.max(0.05, Math.min(8, (sx + sy) / 2));
+      applyGroupScale(drag.ids, drag.origById, g, scale, ax, ay);
+      updateGroupSelectionBox();
     } else {
+      const L = getLayer(drag.id);
+      if (!L) return;
+      const o = drag.orig;
       let x = o.x, y = o.y, w = o.w, h = o.h;
       const m = drag.mode.replace('resize-', '');
       if (m.includes('e')) w = o.w + dx;
@@ -2285,22 +3048,35 @@
         const scaleF = Math.min(L.w / o.w, L.h / o.h);
         L.fontSize = clamp(Math.round(o.fontSize * scaleF), 8, 400);
       }
+      patchLayerDom(L);
     }
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1) drag.moved = true;
-    const el = stage()?.querySelector(`.ied-layer[data-id="${L.id}"]`);
-    if (el) {
-      el.style.left = L.x + 'px';
-      el.style.top = L.y + 'px';
-      el.style.width = L.w + 'px';
-      el.style.height = L.h + 'px';
-      if (L.type === 'text') {
-        const t = el.querySelector('.ied-text');
-        if (t) t.style.fontSize = (L.fontSize || 48) + 'px';
-      }
-    }
   }
 
   function onPointerUp() {
+    if (marquee) {
+      const r = marqueeRectFromDrag();
+      const hit = layersInMarquee(r);
+      if (hit.length) {
+        if (marquee.additive) {
+          const merged = [];
+          const seen = new Set();
+          [...selectedIds, ...hit].forEach((id) => {
+            if (seen.has(id)) return;
+            seen.add(id);
+            merged.push(id);
+          });
+          setSelection(merged);
+        } else {
+          setSelection(hit);
+        }
+      } else if (!marquee.additive && !marquee.moved) {
+        setSelection([]);
+      }
+      marquee = null;
+      updateMarqueeOverlay(null);
+      return;
+    }
     if (sliceDrag) {
       applySliceFromDrag();
       return;
@@ -2331,34 +3107,84 @@
   }
 
   function rainbowColors() {
-    return ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#00b0ff', '#e040fb'];
+    return ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#00b0ff', '#e040fb', '#ff1744'];
+  }
+
+  /** Interpola keyframes CSS-like: [{ p:0..1, v }, ...] */
+  function sampleKeyframes(frames, tSec, periodSec) {
+    const u = ((tSec % periodSec) + periodSec) % periodSec / periodSec;
+    for (let i = 0; i < frames.length - 1; i++) {
+      const a = frames[i];
+      const b = frames[i + 1];
+      if (u >= a.p && u <= b.p) {
+        const k = (u - a.p) / Math.max(1e-6, b.p - a.p);
+        return a.v + (b.v - a.v) * k;
+      }
+    }
+    return frames[frames.length - 1].v;
   }
 
   function motionOffset(L, tMs) {
     const mot = L.motion || 'off';
     if (mot === 'off') return { dx: 0, dy: 0, scale: 1, rot: 0 };
     const t = (tMs || 0) / 1000;
+    const h = Math.max(1, L.h || 1);
+    const w = Math.max(1, L.w || 1);
+    // Misma timing/amplitud que @keyframes del editor (CSS)
     if (mot === 'float') {
-      return { dx: 0, dy: Math.sin(t * Math.PI * 2 / 2.6) * (L.h * 0.08), scale: 1, rot: 0 };
+      // 2.6s: 0 → -10% → 0
+      const dy = sampleKeyframes(
+        [{ p: 0, v: 0 }, { p: 0.5, v: -0.10 }, { p: 1, v: 0 }],
+        t, 2.6,
+      ) * h;
+      return { dx: 0, dy, scale: 1, rot: 0 };
     }
     if (mot === 'bounce') {
-      const p = (t % 1.1) / 1.1;
-      const up = p < 0.4 ? (p / 0.4) : p < 0.6 ? 1 - ((p - 0.4) / 0.2) * 0.45 : 0.55 * (1 - (p - 0.6) / 0.4);
-      return { dx: 0, dy: -up * (L.h * 0.12), scale: 1, rot: 0 };
+      // 1.1s: 0 → -14% @40% → -6% @60% → 0
+      const dy = sampleKeyframes(
+        [{ p: 0, v: 0 }, { p: 0.4, v: -0.14 }, { p: 0.6, v: -0.06 }, { p: 1, v: 0 }],
+        t, 1.1,
+      ) * h;
+      return { dx: 0, dy, scale: 1, rot: 0 };
     }
     if (mot === 'pulse') {
-      const s = 1 + Math.sin(t * Math.PI * 2 / 1.4) * 0.08;
-      return { dx: 0, dy: 0, scale: s, rot: 0 };
+      // 1.4s: scale 1 → 1.08 → 1
+      const scale = sampleKeyframes(
+        [{ p: 0, v: 1 }, { p: 0.5, v: 1.08 }, { p: 1, v: 1 }],
+        t, 1.4,
+      );
+      return { dx: 0, dy: 0, scale, rot: 0 };
     }
     if (mot === 'shake') {
-      return {
-        dx: Math.sin(t * Math.PI * 2 / 0.55) * (L.w * 0.02),
-        dy: 0,
-        scale: 1,
-        rot: Math.sin(t * Math.PI * 2 / 0.55) * 0.04,
-      };
+      // 0.55s: ±3% X, ±2deg
+      const dx = sampleKeyframes(
+        [{ p: 0, v: 0 }, { p: 0.25, v: -0.03 }, { p: 0.75, v: 0.03 }, { p: 1, v: 0 }],
+        t, 0.55,
+      ) * w;
+      const rotDeg = sampleKeyframes(
+        [{ p: 0, v: 0 }, { p: 0.25, v: -2 }, { p: 0.75, v: 2 }, { p: 1, v: 0 }],
+        t, 0.55,
+      );
+      return { dx, dy: 0, scale: 1, rot: rotDeg * Math.PI / 180 };
     }
     return { dx: 0, dy: 0, scale: 1, rot: 0 };
+  }
+
+  /** Degradado arcoíris continuo (como CSS background-clip), con scroll si rainbow=move. */
+  function rainbowFillStyle(ctx, textW, tMs, moving) {
+    const colors = rainbowColors();
+    const tw = Math.max(8, textW);
+    // background-size: 300%; position 0%→100% en 4.5s
+    const period = 4500;
+    const progress = moving ? (((tMs || 0) % period) / period) : 0;
+    const span = tw * 3;
+    const start = -tw / 2 - progress * (span - tw);
+    const grd = ctx.createLinearGradient(start, 0, start + span, 0);
+    const stops = colors.length;
+    for (let i = 0; i < stops; i++) {
+      grd.addColorStop(i / (stops - 1), colors[i]);
+    }
+    return grd;
   }
 
   function drawTextLayer(ctx, L, tMs) {
@@ -2379,49 +3205,44 @@
     const rb = L.rainbow || 'off';
     const sw = L.strokeWidth || 0;
     const strokeCol = L.strokeColor || '#000';
+    const movingRb = rb === 'move';
 
-    if (L.shadow) {
-      ctx.shadowColor = 'rgba(0,0,0,0.55)';
-      ctx.shadowBlur = Math.max(4, fs * 0.08);
-      ctx.shadowOffsetX = Math.max(2, fs * 0.04);
-      ctx.shadowOffsetY = Math.max(2, fs * 0.04);
+    if (L.shadow || rb === 'fixed' || rb === 'move') {
+      // drop-shadow del editor en arcoíris / sombra
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = L.shadow ? Math.max(4, fs * 0.08) : 0;
+      ctx.shadowOffsetX = L.shadow ? Math.max(2, fs * 0.04) : 0;
+      ctx.shadowOffsetY = Math.max(2, Math.round(fs * 0.04));
     }
 
     lines.forEach((line, i) => {
       const y = baseY + i * lineH;
+      const textW = Math.max(8, Math.min(L.w, ctx.measureText(line).width || L.w));
+
+      // Contorno sin sombra (más limpio, como paint-order stroke fill)
+      if (sw > 0) {
+        ctx.save();
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.strokeStyle = strokeCol;
+        ctx.lineWidth = sw * 2;
+        ctx.lineJoin = 'round';
+        ctx.miterLimit = 2;
+        ctx.strokeText(line, 0, y, L.w);
+        ctx.restore();
+      }
+
       if (rb === 'off') {
-        if (sw > 0) {
-          ctx.strokeStyle = strokeCol;
-          ctx.lineWidth = sw * 2;
-          ctx.lineJoin = 'round';
-          ctx.strokeText(line, 0, y, L.w);
-        }
         ctx.fillStyle = L.color || '#fff';
         ctx.fillText(line, 0, y, L.w);
         return;
       }
-      const colors = rainbowColors();
-      const shift = rb === 'move' ? Math.floor(((tMs || 0) / 90) % colors.length) : 0;
-      let totalW = 0;
-      const widths = [];
-      for (const ch of line) {
-        const w = ctx.measureText(ch).width;
-        widths.push(w);
-        totalW += w;
-      }
-      let x = -totalW / 2;
-      for (let ci = 0; ci < line.length; ci++) {
-        const ch = line[ci];
-        const cx = x + widths[ci] / 2;
-        if (sw > 0) {
-          ctx.strokeStyle = strokeCol;
-          ctx.lineWidth = sw * 2;
-          ctx.strokeText(ch, cx, y);
-        }
-        ctx.fillStyle = colors[(ci + shift) % colors.length];
-        ctx.fillText(ch, cx, y);
-        x += widths[ci];
-      }
+
+      // Arcoíris fijo o en movimiento = degradado continuo (igual que CSS del editor)
+      ctx.fillStyle = rainbowFillStyle(ctx, textW, tMs, movingRb);
+      ctx.fillText(line, 0, y, L.w);
     });
     ctx.restore();
   }
@@ -2468,13 +3289,71 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+    ctx.strokeStyle = 'rgba(0,0,0,.7)';
     ctx.lineWidth = Math.max(2, fs * 0.12);
     const tx = L.x + L.w / 2;
     const ty = L.y + L.h + 4;
     ctx.strokeText(L.label, tx, ty, L.w);
     ctx.fillText(L.label, tx, ty, L.w);
     ctx.restore();
+  }
+
+  /**
+   * Igual que CSS object-fit en el editor (por defecto contain = no estirar).
+   * mode: 'contain' | 'cover' | 'fill'
+   */
+  function fitRectInBox(srcW, srcH, boxX, boxY, boxW, boxH, mode) {
+    const m = mode || 'contain';
+    if (!srcW || !srcH || !boxW || !boxH) {
+      return { x: boxX, y: boxY, w: boxW, h: boxH };
+    }
+    if (m === 'fill' || m === 'stretch') {
+      return { x: boxX, y: boxY, w: boxW, h: boxH };
+    }
+    const srcR = srcW / srcH;
+    const boxR = boxW / boxH;
+    let w;
+    let h;
+    if (m === 'cover') {
+      if (srcR > boxR) { h = boxH; w = boxH * srcR; }
+      else { w = boxW; h = boxW / srcR; }
+    } else {
+      // contain — misma apariencia que en el lienzo del editor
+      if (srcR > boxR) { w = boxW; h = boxW / srcR; }
+      else { h = boxH; w = boxH * srcR; }
+    }
+    return {
+      x: boxX + (boxW - w) / 2,
+      y: boxY + (boxH - h) / 2,
+      w,
+      h,
+    };
+  }
+
+  function layerImageSize(img) {
+    const w = img.naturalWidth || img.width || 0;
+    const h = img.naturalHeight || img.height || 0;
+    return { w, h };
+  }
+
+  /** Dibuja la imagen de una capa como en el editor (sin estirar por defecto). */
+  function drawLayerImage(ctx, img, L, tMs) {
+    const { w: nw, h: nh } = layerImageSize(img);
+    const fitMode = L.objectFit || L.fit || 'contain';
+    const fit = fitRectInBox(nw, nh, L.x, L.y, L.w, L.h, fitMode);
+    const mot = motionOffset(L, tMs || 0);
+    if (mot.dx || mot.dy || mot.scale !== 1 || mot.rot) {
+      ctx.save();
+      const cx = L.x + L.w / 2;
+      const cy = L.y + L.h / 2;
+      ctx.translate(cx + mot.dx, cy + mot.dy);
+      ctx.rotate(mot.rot);
+      ctx.scale(mot.scale, mot.scale);
+      ctx.drawImage(img, fit.x - cx, fit.y - cy, fit.w, fit.h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img, fit.x, fit.y, fit.w, fit.h);
+    }
   }
 
   async function fillStageBackground(ctx, forceTransparent, bgImg) {
@@ -2541,19 +3420,7 @@
       const img = sourceMap.get(L.id);
       if (!img) continue;
       try {
-        const mot = motionOffset(L, tMs || 0);
-        if (mot.dx || mot.dy || mot.scale !== 1 || mot.rot) {
-          ctx.save();
-          const cx = L.x + L.w / 2;
-          const cy = L.y + L.h / 2;
-          ctx.translate(cx + mot.dx, cy + mot.dy);
-          ctx.rotate(mot.rot);
-          ctx.scale(mot.scale, mot.scale);
-          ctx.drawImage(img, -L.w / 2, -L.h / 2, L.w, L.h);
-          ctx.restore();
-        } else {
-          ctx.drawImage(img, L.x, L.y, L.w, L.h);
-        }
+        drawLayerImage(ctx, img, L, tMs || 0);
         drawImageLabel(ctx, L);
       } catch { /* ignore */ }
     }
@@ -2911,6 +3778,7 @@
       if (!confirm('¿Limpiar todas las capas del lienzo?')) return;
       layers = [];
       selectedId = null;
+      selectedIds = [];
       renderAll();
       pushSnapshot();
     });
@@ -2931,10 +3799,55 @@
     window.addEventListener('pointercancel', onPointerUp);
 
     stage()?.addEventListener('pointerdown', (e) => {
-      if (e.target === stage() || e.target?.classList?.contains('ied-guides') || e.target?.closest?.('.ied-guides')) {
-        selectLayer(null);
-      }
+      if (sliceMode) return;
+      if (e.button != null && e.button !== 0) return;
+      hideContextMenu();
+      const t = e.target;
+      const onEmpty = t === stage()
+        || t?.classList?.contains('ied-guides')
+        || t?.closest?.('.ied-guides')
+        || t?.classList?.contains('ied-marquee');
+      if (!onEmpty) return;
+      const p = stagePointFromEvent(e);
+      const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+      drag = null;
+      marquee = {
+        startX: p.x, startY: p.y, curX: p.x, curY: p.y,
+        additive, moved: false,
+      };
+      if (!additive) setSelection([]);
+      updateMarqueeOverlay({ x: p.x, y: p.y, w: 0, h: 0 });
+      e.preventDefault();
     });
+
+    stage()?.addEventListener('contextmenu', (e) => {
+      if (sliceMode) return;
+      const t = e.target;
+      if (t?.closest?.('.ied-layer')) return;
+      e.preventDefault();
+      const p = stagePointFromEvent(e);
+      ctxPasteAt = { x: p.x, y: p.y };
+      showContextMenu(e.clientX, e.clientY, null, { empty: true });
+    });
+
+    // Rueda: escala TODAS las seleccionadas por igual (también con 8, 10, etc.)
+    viewport()?.addEventListener('wheel', (e) => {
+      if (sliceMode) return;
+      if (!editableSelectedIds().length && !e.target?.closest?.('.ied-layer')) return;
+      const overStage = e.target === stage()
+        || !!e.target?.closest?.('#ied-stage')
+        || !!e.target?.closest?.('.ied-guides')
+        || !!e.target?.closest?.('.ied-layer')
+        || !!e.target?.closest?.('.ied-group-box')
+        || !!e.target?.closest?.('#ied-stage-scale');
+      if (!overStage) return;
+      onStageWheel(e);
+    }, { passive: false });
+
+    document.addEventListener('pointerdown', (e) => {
+      if (e.target?.closest?.('#ied-ctx-menu')) return;
+      hideContextMenu();
+    }, true);
 
     $('ied-grid')?.addEventListener('change', () => updateGuides());
     $('ied-center-guides')?.addEventListener('change', () => updateGuides());
@@ -2949,7 +3862,20 @@
       if (e.key === 'Escape' && (sliceMode || sliceDrag)) {
         e.preventDefault();
         setSliceMode(false);
+        hideContextMenu();
         return;
+      }
+      if (e.key === 'Escape') {
+        if (document.getElementById('ied-ctx-menu')) {
+          e.preventDefault();
+          hideContextMenu();
+          return;
+        }
+        if (selectedIds.length && !inField) {
+          e.preventDefault();
+          setSelection([]);
+          return;
+        }
       }
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
@@ -2967,11 +3893,19 @@
         duplicateLayer();
         return;
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId && !inField) {
-        const L = getLayer(selectedId);
-        if (L?.locked) return;
+      if (mod && e.key.toLowerCase() === 'c' && !inField) {
         e.preventDefault();
-        removeLayer(selectedId);
+        copySelectedLayers();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === 'v' && !inField) {
+        e.preventDefault();
+        pasteClipboardLayers({ x: 40, y: 40 });
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && (selectedIds.length || selectedId) && !inField) {
+        e.preventDefault();
+        removeSelectedLayers();
       }
     });
 
@@ -3082,6 +4016,7 @@
       prepareEditorStage(w, h);
       layers = [];
       selectedId = null;
+      selectedIds = [];
       const L = {
         id: uid(),
         type: 'image',
@@ -3120,6 +4055,7 @@
       prepareEditorStage(payload.width || 1080, payload.height || 1080);
       layers = [];
       selectedId = null;
+      selectedIds = [];
       for (const raw of list) {
         const type = raw.type || (raw.src ? 'image' : 'text');
         const id = uid();

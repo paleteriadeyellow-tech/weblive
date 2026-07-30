@@ -1064,6 +1064,13 @@ main:has(#view-points.active) { max-width: none; }
   box-shadow: none;
   overflow: hidden;
 }
+/* Misma caja que Configuración (.settings-card max-width: 760px) */
+#view-configuracion .transfer-card,
+#view-configuracion #panel-transfer {
+  max-width: 760px;
+  width: 100%;
+  box-sizing: border-box;
+}
 .transfer-card-title {
   margin: 0 0 12px;
   font-size: 15px;
@@ -3486,13 +3493,23 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   object-position: center top;
 }
 #view-juego-mcfarm .repo-game-banner-img {
-  object-position: center 24%;
+  object-position: center center;
 }
 #view-juego-mcparkour .repo-game-banner-img {
-  object-position: center 42%;
+  object-position: center center;
+}
+#view-juego-mcparkour.mc-survival-pro .repo-game-banner-img {
+  object-position: center center !important;
 }
 #view-juego-mckoth .repo-game-banner-img {
-  object-position: center 42%;
+  object-position: center center;
+}
+#view-juego-mckoth.mc-survival-pro .repo-game-banner-img,
+#view-juego-mcfarm.mc-survival-pro .repo-game-banner-img,
+#view-juego-mcshooter.mc-survival-pro .repo-game-banner-img,
+#view-juego-bedrock.mc-survival-pro .repo-game-banner-img,
+#view-juego-sandbox.mc-survival-pro .repo-game-banner-img {
+  object-position: center center !important;
 }
 #view-juego-plantasvszombies .repo-game-banner picture,
 #view-juego-pvzhybrid .repo-game-banner picture,
@@ -8633,6 +8650,14 @@ pre.wh-url { margin: 9px 0 0; }
   z-index: 10000;
   border-radius: 2px;
 }
+.ied-marquee {
+  position: absolute;
+  border: 1px dashed rgba(255, 255, 255, 0.92);
+  background: rgba(56, 189, 248, 0.14);
+  pointer-events: none;
+  z-index: 10001;
+  box-sizing: border-box;
+}
 .ied-tool-primary {
   border-color: rgba(254, 44, 85, 0.45);
   background: linear-gradient(135deg, rgba(254, 44, 85, 0.92), rgba(220, 38, 90, 0.88));
@@ -9008,6 +9033,75 @@ pre.wh-url { margin: 9px 0 0; }
 .ied-handle.ne { right: -7px; top: -7px; cursor: nesw-resize; }
 .ied-handle.sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
 .ied-handle.se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.ied-group-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px dashed rgba(37, 244, 238, 0.95);
+  background: rgba(37, 244, 238, 0.04);
+  pointer-events: none;
+  z-index: 9998;
+}
+.ied-group-box .ied-group-handle {
+  pointer-events: auto;
+  z-index: 9999;
+}
+/* Zona de rueda sobre el grupo: no tapa clics a las capas (events en stage) */
+.ied-ctx-menu {
+  position: fixed;
+  z-index: 100000;
+  min-width: 210px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(14, 18, 28, 0.97);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(37, 244, 238, 0.08);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ied-ctx-item {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(248, 250, 252, 0.92);
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ied-ctx-kbd {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.45;
+  letter-spacing: 0.02em;
+}
+.ied-ctx-item:hover:not(:disabled) {
+  background: rgba(37, 244, 238, 0.12);
+  color: #fff;
+}
+.ied-ctx-item.is-danger {
+  color: #fb7185;
+}
+.ied-ctx-item.is-danger:hover:not(:disabled) {
+  background: rgba(251, 113, 133, 0.14);
+}
+.ied-ctx-item:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+.ied-ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
 .ied-layers {
   display: flex;
   flex-direction: column;
@@ -9034,6 +9128,10 @@ pre.wh-url { margin: 9px 0 0; }
 .ied-layer-row.active {
   border-color: rgba(37, 244, 238, 0.4);
   background: rgba(37, 244, 238, 0.08);
+}
+.ied-layer-row.active.is-primary {
+  border-color: rgba(37, 244, 238, 0.65);
+  box-shadow: 0 0 0 1px rgba(37, 244, 238, 0.2) inset;
 }
 .ied-layer-row .ied-lr-name {
   flex: 1;
@@ -9238,13 +9336,17 @@ pre.wh-url { margin: 9px 0 0; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   pointer-events: none;
+  overflow: hidden;
 }
 .ied-img-wrap .ied-img {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 .ied-layer-label {
   font-size: 11px;
@@ -10385,3 +10487,2257 @@ pre.wh-url { margin: 9px 0 0; }
   border: 1px solid rgba(93, 156, 61, .3);
   font-weight: 700;
 }
+
+/* =============================================================================
+   MC SURVIVAL PRO — solo visual (.view.mc-survival-pro)
+   REVERTIR: quita class "mc-survival-pro" del section y este archivo / import.
+   ============================================================================= */
+.view.mc-survival-pro {
+  --mc-grass: #5d9c3d;
+  --mc-grass-2: #3f6d29;
+  max-width: 980px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+  background:
+    radial-gradient(1200px 420px at 50% -10%, rgba(93, 156, 61, .16), transparent 60%),
+    linear-gradient(180deg, rgba(18, 24, 32, .35), transparent 220px);
+}
+
+.view.mc-survival-pro .mc-pro-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0 18px;
+}
+.view.mc-survival-pro .mc-pro-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #9fd47a;
+  margin-bottom: 6px;
+}
+.view.mc-survival-pro .mc-pro-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+  color: #f4f7f2;
+  letter-spacing: -.02em;
+}
+.view.mc-survival-pro .mc-pro-sub {
+  margin: 6px 0 0;
+  color: #9aa7b2;
+  max-width: 46ch;
+}
+.view.mc-survival-pro .mc-pro-head-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(18, 24, 32, .9);
+  border: 1px solid rgba(93, 156, 61, .35);
+  color: #d7f0c4;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .03);
+}
+.view.mc-survival-pro .mc-pro-pixel {
+  width: 12px;
+  height: 12px;
+  image-rendering: pixelated;
+  background:
+    linear-gradient(90deg, #5d9c3d 50%, #3f6d29 50%) 0 0 / 6px 6px,
+    linear-gradient(90deg, #7bc24a 50%, #4f8a30 50%) 0 6px / 6px 6px;
+  background-repeat: repeat;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .35);
+}
+
+.view.mc-survival-pro .mc-pro-hero {
+  max-width: none;
+  margin: 0 0 20px;
+  border-radius: 0;
+  overflow: visible;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.view.mc-survival-pro .mc-game-banner {
+  position: relative;
+  min-height: 360px;
+  aspect-ratio: auto;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .1);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, .38),
+    inset 0 0 0 1px rgba(255, 255, 255, .04);
+}
+/* Difuminado inferior + velo izquierdo — !important para ganar al CSS base por ID */
+.view.mc-survival-pro .mc-game-banner::before {
+  content: '';
+  position: absolute;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  top: auto !important;
+  height: 48% !important;
+  z-index: 1;
+  pointer-events: none;
+  backdrop-filter: blur(14px) saturate(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(1.05);
+  mask-image: linear-gradient(to top, #000 8%, rgba(0, 0, 0, .55) 42%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 8%, rgba(0, 0, 0, .55) 42%, transparent 100%);
+  background: none !important;
+}
+.view.mc-survival-pro .mc-game-banner::after {
+  content: '';
+  position: absolute !important;
+  inset: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  height: auto !important;
+  background:
+    linear-gradient(105deg, rgba(6, 10, 14, .72) 0%, rgba(6, 10, 14, .28) 34%, transparent 62%),
+    linear-gradient(0deg, rgba(6, 10, 14, .55) 0%, rgba(6, 10, 14, .18) 38%, transparent 68%) !important;
+  z-index: 1;
+  pointer-events: none;
+}
+.view.mc-survival-pro .repo-game-banner-img {
+  min-height: 360px !important;
+  max-height: 460px !important;
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  object-position: center 42%;
+  filter: saturate(1.08) contrast(1.03);
+}
+.view.mc-survival-pro .mc-pro-hero-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0;
+  padding: 22px 24px 18px;
+  pointer-events: none;
+}
+.view.mc-survival-pro .mc-pro-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #102010;
+  background: linear-gradient(180deg, #9fd47a, #5d9c3d);
+  border: 1px solid rgba(255, 255, 255, .2);
+}
+.view.mc-survival-pro .mc-pro-hero-title {
+  margin: 8px 0 0;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -.02em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .55);
+}
+.view.mc-survival-pro .mc-pro-hero-desc {
+  margin: 8px 0 0;
+  max-width: 52ch;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #d8e0e8;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .45);
+}
+.view.mc-survival-pro .mc-pro-hero-desc b { color: #fff; }
+.view.mc-survival-pro .mc-pro-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  margin: 12px 0 0;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, .09);
+  background:
+    linear-gradient(180deg, rgba(28, 36, 44, .92), rgba(14, 18, 24, .96));
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, .32),
+    inset 0 1px 0 rgba(255, 255, 255, .05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.view.mc-survival-pro .mc-pro-hero-actions-main,
+.view.mc-survival-pro .mc-pro-hero-actions-dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.view.mc-survival-pro .mc-pro-hero-actions-dl {
+  margin-left: auto;
+}
+.view.mc-survival-pro .mc-pro-hero-actions .mc-pro-btn,
+.view.mc-survival-pro .mc-pro-hero-actions .mc-pro-dl {
+  flex: 0 0 auto;
+}
+
+/* Marco estilo menú Minecraft (bevel piedra) — gana a .juego-run-btn / .btn.danger */
+.view.mc-survival-pro .mc-pro-btn,
+.view.mc-survival-pro a.mc-pro-btn,
+.view.mc-survival-pro button.mc-pro-btn,
+.view.mc-survival-pro .juego-run-btn.mc-pro-btn,
+.view.mc-survival-pro .juego-link.mc-pro-btn,
+.view.mc-survival-pro .btn.mc-pro-btn,
+.view.mc-survival-pro .juego-panic-btn.mc-pro-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 42px !important;
+  min-width: 0 !important;
+  padding: 9px 16px !important;
+  border-radius: 2px !important;
+  border: 2px solid #1a1a1a !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+  letter-spacing: .02em !important;
+  text-decoration: none !important;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .45) !important;
+  cursor: pointer !important;
+  image-rendering: auto !important;
+  position: relative !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, .28),
+    inset 0 -3px 0 rgba(0, 0, 0, .35),
+    0 0 0 1px rgba(0, 0, 0, .45) !important;
+  transition: filter .12s ease, transform .08s ease, box-shadow .12s ease !important;
+  transform: none !important;
+}
+.view.mc-survival-pro .mc-pro-btn:hover,
+.view.mc-survival-pro .juego-run-btn.mc-pro-btn:hover,
+.view.mc-survival-pro .btn.mc-pro-btn:hover {
+  filter: brightness(1.08) !important;
+  transform: none !important;
+  text-decoration: none !important;
+}
+.view.mc-survival-pro .mc-pro-btn:active,
+.view.mc-survival-pro .juego-run-btn.mc-pro-btn:active {
+  transform: translateY(1px) !important;
+  box-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, .4),
+    inset 0 -1px 0 rgba(255, 255, 255, .12),
+    0 0 0 1px rgba(0, 0, 0, .45) !important;
+  filter: brightness(.96) !important;
+}
+.view.mc-survival-pro .mc-pro-btn-run,
+.view.mc-survival-pro .juego-run-btn.mc-pro-btn-run,
+.view.mc-survival-pro #mc-run.juego-run-btn {
+  color: #fff !important;
+  background:
+    linear-gradient(180deg, #7ec24f 0%, #5a9c3d 48%, #3f6d29 100%) !important;
+  border-color: #111 !important;
+}
+.view.mc-survival-pro .mc-pro-btn-ghost,
+.view.mc-survival-pro .juego-run-btn.mc-pro-btn-ghost,
+.view.mc-survival-pro a.mc-pro-btn-ghost {
+  color: #f2f2f2 !important;
+  background:
+    linear-gradient(180deg, #8a8a8a 0%, #6e6e6e 48%, #555 100%) !important;
+  border-color: #111 !important;
+}
+.view.mc-survival-pro .mc-pro-btn-ghost:hover {
+  color: #fff !important;
+  filter: brightness(1.1) !important;
+}
+.view.mc-survival-pro .mc-pro-btn-stop,
+.view.mc-survival-pro .juego-panic-btn.mc-pro-btn-stop,
+.view.mc-survival-pro #mc-panic,
+.view.mc-survival-pro .btn.danger.mc-pro-btn-stop {
+  color: #fff !important;
+  background:
+    linear-gradient(180deg, #d45a5a 0%, #b33a3a 48%, #8a2424 100%) !important;
+  border-color: #111 !important;
+}
+
+.view.mc-survival-pro .mc-pro-dlbar {
+  display: none !important;
+}
+.view.mc-survival-pro .mc-game-dl-btns .mc-dl-btn.mc-pro-dl,
+.view.mc-survival-pro .mc-pro-dl,
+.view.mc-survival-pro .juego-dl-btn.mc-pro-dl,
+.view.mc-survival-pro button.mc-dl-btn.mc-pro-dl {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 42px !important;
+  min-width: 0 !important;
+  border-radius: 2px !important;
+  border: 2px solid #1a1a1a !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  letter-spacing: .02em !important;
+  text-transform: none !important;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .45) !important;
+  color: #fff !important;
+  padding: 9px 16px !important;
+  image-rendering: auto !important;
+  background:
+    linear-gradient(180deg, #7ec24f 0%, #5a9c3d 48%, #3f6d29 100%) !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, .28),
+    inset 0 -3px 0 rgba(0, 0, 0, .35),
+    0 0 0 1px rgba(0, 0, 0, .45) !important;
+  transition: filter .12s ease, transform .08s ease, box-shadow .12s ease !important;
+  transform: none !important;
+}
+.view.mc-survival-pro .mc-pro-dl:hover,
+.view.mc-survival-pro .juego-dl-btn.mc-pro-dl:hover {
+  filter: brightness(1.08) !important;
+  transform: none !important;
+  border-color: #1a1a1a !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, .28),
+    inset 0 -3px 0 rgba(0, 0, 0, .35),
+    0 0 0 1px rgba(0, 0, 0, .45) !important;
+}
+.view.mc-survival-pro .mc-pro-dl:active {
+  transform: translateY(1px) !important;
+  box-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, .4),
+    inset 0 -1px 0 rgba(255, 255, 255, .12),
+    0 0 0 1px rgba(0, 0, 0, .45) !important;
+  filter: brightness(.96) !important;
+}
+.view.mc-survival-pro .mc-pro-dl-alt,
+.view.mc-survival-pro .juego-dl-btn.mc-pro-dl-alt {
+  color: #f2f2f2 !important;
+  background:
+    linear-gradient(180deg, #8a8a8a 0%, #6e6e6e 48%, #555 100%) !important;
+}
+.view.mc-survival-pro .mc-pro-dl .juego-dl-ico {
+  font-size: 12px;
+  opacity: .95;
+}
+
+.view.mc-survival-pro .mc-pro-guide {
+  margin: 0 0 22px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  position: relative;
+  overflow: visible;
+}
+.view.mc-survival-pro .mc-pro-guide::before { display: none; }
+.view.mc-survival-pro .mc-pro-guide-frame {
+  padding: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .06), transparent 28%),
+    repeating-linear-gradient(90deg, #8b8b8b 0 3px, #7a7a7a 3px 6px),
+    #7a7a7a;
+  border: 3px solid #1b1b1b;
+  box-shadow:
+    inset -3px -4px 0 0 rgba(0, 0, 0, .35),
+    inset 3px 3px 0 0 rgba(255, 255, 255, .18),
+    0 10px 28px rgba(0, 0, 0, .35);
+  image-rendering: pixelated;
+}
+.view.mc-survival-pro .mc-pro-guide-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .08), transparent 50%),
+    #3d3d3d;
+  border: 2px solid #1b1b1b;
+  box-shadow:
+    inset -2px -2px 0 0 rgba(0, 0, 0, .35),
+    inset 2px 2px 0 0 rgba(255, 255, 255, .12);
+}
+.view.mc-survival-pro .mc-pro-guide-icon {
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(1px 1px 0 #000);
+}
+.view.mc-survival-pro .mc-pro-guide-top h3 {
+  margin: 0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: #ffffa0;
+  text-shadow: 2px 2px 0 #3f3f00;
+}
+.view.mc-survival-pro .mc-pro-guide-top p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #d0d0d0;
+  text-shadow: 1px 1px 0 #000;
+}
+.view.mc-survival-pro .mc-pro-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.view.mc-survival-pro .mc-pro-step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .05), transparent 40%),
+    #2c2c2c;
+  border: 2px solid #1b1b1b;
+  box-shadow:
+    inset -2px -2px 0 0 rgba(0, 0, 0, .4),
+    inset 2px 2px 0 0 rgba(255, 255, 255, .08);
+  transition: border-color .12s ease, filter .12s ease;
+}
+.view.mc-survival-pro .mc-pro-step:hover {
+  transform: none;
+  border-color: #ffffa0;
+  filter: brightness(1.06);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .07), transparent 40%),
+    #333;
+}
+.view.mc-survival-pro .mc-pro-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #102010;
+  background:
+    linear-gradient(180deg, #9fd47a, #5d9c3d 55%, #3f6d29);
+  border: 2px solid #1b1b1b;
+  box-shadow:
+    inset -1px -2px 0 0 rgba(0, 0, 0, .35),
+    inset 1px 1px 0 0 rgba(255, 255, 255, .25);
+}
+.view.mc-survival-pro .mc-pro-step-body strong {
+  display: block;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #fff;
+  margin-bottom: 4px;
+  text-shadow: 1px 1px 0 #000;
+}
+.view.mc-survival-pro .mc-pro-step-body p,
+.view.mc-survival-pro .mc-pro-step p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #d6d6d6;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, .6);
+}
+.view.mc-survival-pro .mc-pro-step b { color: #ffffa0; }
+.view.mc-survival-pro .mc-pro-step-focus {
+  border-color: #5d9c3d;
+  background:
+    linear-gradient(180deg, rgba(93, 156, 61, .18), transparent 50%),
+    #24301f;
+}
+.view.mc-survival-pro .mc-pro-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #ffd0d0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .04), transparent 40%),
+    #4a1f1f;
+  border: 2px solid #1b1b1b;
+  box-shadow:
+    inset -2px -2px 0 0 rgba(0, 0, 0, .4),
+    inset 2px 2px 0 0 rgba(255, 120, 120, .12),
+    0 0 0 1px #7a2a2a;
+  text-shadow: 1px 1px 0 #000;
+}
+.view.mc-survival-pro .mc-pro-note-ico {
+  font-size: 16px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+.view.mc-survival-pro .mc-pro-note b { color: #ffaaaa; }
+.view.mc-survival-pro .mc-pro-note code {
+  display: inline-block;
+  background: #1b1b1b;
+  color: #ffffa0;
+  padding: 2px 6px;
+  border-radius: 0;
+  border: 1px solid #3f3f00;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.view.mc-survival-pro .mc-pro-actions {
+  max-width: none;
+  margin-top: 8px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(14, 18, 24, .72);
+  border: 1px solid rgba(255, 255, 255, .06);
+}
+
+/* Tarjetas de acciones: mismo ancho; más bajas (chaparras) */
+.view.mc-survival-pro .mc-my-actions {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  gap: 6px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-card.mc-act-row {
+  border: 1px solid rgba(255, 255, 255, .07);
+  background: linear-gradient(180deg, #171e27, #121820);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .22);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  min-height: 0;
+  align-items: center;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-card.mc-act-row:hover {
+  border-color: rgba(93, 156, 61, .35);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .28);
+  transform: translateY(-1px);
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col {
+  padding: 5px 8px;
+  gap: 2px;
+  justify-content: center;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-trig {
+  flex: 0 0 72px;
+  max-width: 72px;
+  padding: 4px 3px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-trig-icon-btn {
+  min-height: 52px;
+  padding: 4px 3px;
+  gap: 2px;
+  border-radius: 8px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-trig-emoji {
+  font-size: 20px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-trig-gift-img {
+  width: 26px;
+  height: 26px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-trig-icon-sub {
+  font-size: 9px;
+  -webkit-line-clamp: 1;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-thumb {
+  flex: 0 0 56px;
+  padding: 4px 2px 4px 4px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-thumb .mc-act-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-em {
+  font-size: 22px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-info {
+  flex: 1 1 200px;
+  max-width: none;
+  padding-left: 4px;
+  gap: 2px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-info .mc-act-name {
+  font-size: 12.5px;
+  line-height: 1.2;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-meta,
+.view.mc-survival-pro .mc-my-actions .mc-act-desc-inline {
+  font-size: 10.5px;
+  line-height: 1.25;
+}
+.view.mc-survival-pro .mc-my-actions .mc-qty-row {
+  max-width: none;
+  font-size: 10px;
+  gap: 1px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-qty-row input.mc-qty-n,
+.view.mc-survival-pro .mc-my-actions .mc-qty-n {
+  width: auto !important;
+  max-width: 72px !important;
+  min-width: 56px !important;
+  padding: 3px 6px !important;
+  font-size: 11px !important;
+  box-sizing: border-box;
+}
+.view.mc-survival-pro .mc-my-actions .mc-combo-instant {
+  margin-top: 0;
+  font-size: 10px;
+  line-height: 1.2;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-audio {
+  flex: 0 1 160px;
+  max-width: 180px;
+  padding: 4px 6px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-audio-wrap,
+.view.mc-survival-pro .mc-my-actions .mc-audio-add {
+  min-height: 44px;
+  height: auto;
+}
+.view.mc-survival-pro .mc-my-actions .mc-audio-add {
+  font-size: 11px;
+  padding: 4px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-audio-has .mc-audio-file {
+  font-size: 11px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-actions {
+  padding: 4px 8px;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-actions .mc-act-edit,
+.view.mc-survival-pro .mc-my-actions .mc-act-col-actions .mc-act-test-delay,
+.view.mc-survival-pro .mc-my-actions .mc-act-col-actions .mc-act-test,
+.view.mc-survival-pro .mc-my-actions .mc-act-col-actions .mc-act-del {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+}
+.view.mc-survival-pro .mc-my-actions .mc-act-col-actions .acc-ico {
+  width: 12px;
+  height: 12px;
+}
+
+/* Coliseo (Shooters): compacto, al ancho de la pestaña, sin hueco abajo */
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-wrap {
+  max-width: none;
+  width: 100%;
+  margin: 14px 0 0;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-wrap .mc-actions-head {
+  text-align: left;
+  margin-bottom: 8px;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-wrap .mc-actions-title {
+  font-size: 16px;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-wrap .mc-actions-sub {
+  max-width: none;
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-card {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px 12px;
+  min-height: 0;
+  height: auto;
+  border-radius: 12px;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-card .switch-row.plain.big-check {
+  margin: 0 0 6px;
+  padding: 2px 0 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(0, 1fr);
+  gap: 6px 10px;
+  margin-top: 8px;
+  align-items: center;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-grid label.ml {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-grid input {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-card > label.ml {
+  display: block;
+  margin: 10px 0 4px;
+  font-size: 12.5px;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-spawncmd {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 12px;
+  margin: 0;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-card .box-sub {
+  margin: 4px 0 8px;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+#view-juego-mcshooter.mc-survival-pro .mc-coliseo-card #mcshooter-coliseo-test {
+  margin: 0 !important;
+  min-height: 36px !important;
+  padding: 7px 12px !important;
+  font-size: 12px !important;
+}
+
+/* Mismo tamaño que Survival; ancla centrada para ver el logo del banner */
+#view-juego-mcshooter.mc-survival-pro .repo-game-banner-img {
+  object-position: center center !important;
+}
+
+.view.mc-survival-pro .mc-actions-title {
+  font-size: 18px;
+  letter-spacing: -.01em;
+}
+.view.mc-survival-pro .mc-actions-sub { color: #93a0ab; }
+.view.mc-survival-pro .mc-sub-head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.view.mc-survival-pro .mc-sub-btns {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  max-width: 100%;
+  width: 100%;
+  padding-bottom: 2px;
+}
+.view.mc-survival-pro .mc-sub-btns .mc-create-btn,
+.view.mc-survival-pro .mc-sub-btns .mc-img-btn {
+  border-radius: 2px !important;
+  border: 2px solid #1a1a1a !important;
+  font-family: inherit !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  line-height: 1.15 !important;
+  letter-spacing: .01em !important;
+  padding: 6px 9px !important;
+  min-height: 32px !important;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  color: #fff !important;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, .45) !important;
+  image-rendering: auto;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, .28),
+    inset 0 -2px 0 rgba(0, 0, 0, .35),
+    0 0 0 1px rgba(0, 0, 0, .45) !important;
+  transition: filter .12s ease, transform .08s ease, box-shadow .12s ease !important;
+}
+.view.mc-survival-pro .mc-sub-btns .mc-create-btn:hover,
+.view.mc-survival-pro .mc-sub-btns .mc-img-btn:hover {
+  transform: none !important;
+  border-color: #1a1a1a !important;
+  filter: brightness(1.08);
+}
+.view.mc-survival-pro .mc-sub-btns .mc-create-btn:active,
+.view.mc-survival-pro .mc-sub-btns .mc-img-btn:active {
+  transform: translateY(1px) !important;
+  box-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, .4),
+    inset 0 -1px 0 rgba(255, 255, 255, .12),
+    0 0 0 1px rgba(0, 0, 0, .45) !important;
+  filter: brightness(.96);
+}
+.view.mc-survival-pro .mc-pro-tone-create {
+  background: linear-gradient(180deg, #e39a3a 0%, #c07018 48%, #9a5810 100%) !important;
+}
+.view.mc-survival-pro .mc-pro-tone-export {
+  background: linear-gradient(180deg, #9470d8 0%, #6b45b5 48%, #523691 100%) !important;
+}
+.view.mc-survival-pro .mc-pro-tone-import {
+  background: linear-gradient(180deg, #5a92e0 0%, #3a6fc4 48%, #2b589e 100%) !important;
+}
+.view.mc-survival-pro .mc-pro-tone-img {
+  color: #1a1400 !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .25) !important;
+  background: linear-gradient(180deg, #efc84a 0%, #d4a820 48%, #b08a12 100%) !important;
+}
+.view.mc-survival-pro .mc-pro-tone-toggle {
+  background: linear-gradient(180deg, #7ec24f 0%, #5a9c3d 48%, #3f6d29 100%) !important;
+}
+.view.mc-survival-pro .mc-pro-tone-cmd {
+  background: linear-gradient(180deg, #3cbcab 0%, #2a8f82 48%, #1f6f65 100%) !important;
+}
+
+/* Avisos legacy (si quedan): ocultos — usamos mc-pro-guide */
+.view.mc-survival-pro .juego-aviso { display: none !important; }
+.view.mc-survival-pro .juego-tools { display: none !important; }
+
+@media (max-width: 860px) {
+  .view.mc-survival-pro .mc-pro-steps {
+    grid-template-columns: 1fr;
+  }
+  .view.mc-survival-pro .mc-pro-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (max-width: 520px) {
+  .view.mc-survival-pro .mc-pro-steps {
+    grid-template-columns: 1fr;
+  }
+  .view.mc-survival-pro .mc-pro-hero-actions-dl {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .view.mc-survival-pro .mc-pro-hero-actions .mc-pro-btn,
+  .view.mc-survival-pro .mc-pro-hero-actions .mc-pro-dl {
+    flex: 0 0 auto;
+  }
+}
+
+/* =============================================================================
+   MARIO BROS PRO — solo visual (#view-juego-mariobros.mario-bros-pro)
+   REVERTIR: quita class "mario-bros-pro" del section y este bloque.
+   ============================================================================= */
+#view-juego-mariobros.mario-bros-pro {
+  --mario-red: #e52521;
+  --mario-red-2: #c41e1a;
+  --mario-blue: #049cd8;
+  --mario-blue-2: #1a6fb5;
+  --mario-purple: #6b4ce6;
+  --mario-green: #5cb338;
+  --mario-green-2: #3e8c1e;
+  --mario-yellow: #fbd000;
+  max-width: 980px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+  background:
+    radial-gradient(900px 360px at 50% -8%, rgba(229, 37, 33, .14), transparent 55%),
+    radial-gradient(700px 280px at 90% 10%, rgba(4, 156, 216, .1), transparent 50%),
+    linear-gradient(180deg, rgba(18, 24, 40, .35), transparent 220px);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0 18px;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #ff8a80;
+  margin-bottom: 6px;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+  color: #f4f7fb;
+  letter-spacing: -.02em;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-sub {
+  margin: 6px 0 0;
+  color: #9aa7b2;
+  max-width: 46ch;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-head-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(18, 24, 32, .92);
+  border: 2px solid rgba(251, 208, 0, .45);
+  color: #ffe082;
+  font-size: 12px;
+  font-weight: 800;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-coin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe566, #fbd000 45%, #c9a000 100%);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.35);
+}
+
+#view-juego-mariobros.mario-bros-pro .mario-pro-hero {
+  max-width: none;
+  margin: 0 0 20px;
+  border-radius: 0;
+  overflow: visible;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+#view-juego-mariobros.mario-bros-pro .mc-game-banner {
+  position: relative;
+  min-height: 360px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px solid rgba(251, 208, 0, .28);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .38);
+}
+#view-juego-mariobros.mario-bros-pro .mc-game-banner::before {
+  content: '';
+  position: absolute;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  top: auto !important;
+  height: 48% !important;
+  z-index: 1;
+  pointer-events: none;
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  mask-image: linear-gradient(to top, #000 8%, rgba(0,0,0,.5) 42%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 8%, rgba(0,0,0,.5) 42%, transparent 100%);
+  background: none !important;
+}
+#view-juego-mariobros.mario-bros-pro .mc-game-banner::after {
+  content: '';
+  position: absolute !important;
+  inset: 0 !important;
+  height: auto !important;
+  background:
+    linear-gradient(105deg, rgba(10, 14, 28, .7) 0%, rgba(10, 14, 28, .25) 36%, transparent 62%),
+    linear-gradient(0deg, rgba(10, 14, 28, .55) 0%, rgba(10, 14, 28, .16) 38%, transparent 68%) !important;
+  z-index: 1;
+  pointer-events: none;
+}
+#view-juego-mariobros.mario-bros-pro .repo-game-banner-img {
+  min-height: 360px !important;
+  max-height: 460px !important;
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center center;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-hero-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 22px 24px 18px;
+  pointer-events: none;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #1a1200;
+  background: linear-gradient(180deg, #ffe566, #fbd000);
+  border: 1px solid rgba(255,255,255,.35);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-hero-title {
+  margin: 8px 0 0;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0,0,0,.55);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-hero-desc {
+  margin: 8px 0 0;
+  max-width: 52ch;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #d8e0e8;
+  text-shadow: 0 1px 10px rgba(0,0,0,.45);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-hero-desc b { color: #fff; }
+
+#view-juego-mariobros.mario-bros-pro .mario-pro-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  margin: 12px 0 0;
+  border-radius: 14px;
+  border: 2px solid rgba(251, 208, 0, .22);
+  background: linear-gradient(180deg, rgba(28, 36, 52, .94), rgba(14, 18, 28, .96));
+  box-shadow: 0 12px 28px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.06);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-hero-actions-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-status {
+  margin: 0 !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-btn,
+#view-juego-mariobros.mario-bros-pro .juego-play-btn.mario-pro-btn,
+#view-juego-mariobros.mario-bros-pro a.mario-pro-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  min-height: 42px !important;
+  min-width: 0 !important;
+  padding: 9px 16px !important;
+  border-radius: 12px !important;
+  border: 2px solid rgba(0,0,0,.45) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  text-shadow: 0 1px 0 rgba(0,0,0,.35) !important;
+  cursor: pointer !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.28),
+    inset 0 -3px 0 rgba(0,0,0,.28),
+    0 4px 0 rgba(0,0,0,.25) !important;
+  transform: none !important;
+  transition: filter .12s ease, box-shadow .12s ease !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-btn:hover,
+#view-juego-mariobros.mario-bros-pro .juego-play-btn.mario-pro-btn:hover {
+  filter: brightness(1.08) !important;
+  transform: none !important;
+  text-decoration: none !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-btn:active {
+  transform: translateY(2px) !important;
+  box-shadow:
+    inset 0 3px 0 rgba(0,0,0,.35),
+    inset 0 -1px 0 rgba(255,255,255,.12),
+    0 1px 0 rgba(0,0,0,.25) !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-btn-connect,
+#view-juego-mariobros.mario-bros-pro #mario-bridge.mario-pro-btn {
+  color: #fff !important;
+  background: linear-gradient(180deg, #ff5a52 0%, #e52521 48%, #c41e1a 100%) !important;
+}
+#view-juego-mariobros.mario-bros-pro #mario-bridge.bridge-connect-btn.is-on {
+  background: linear-gradient(180deg, #7ed957 0%, #5cb338 48%, #3e8c1e 100%) !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-btn-game,
+#view-juego-mariobros.mario-bros-pro #mario-play.mario-pro-btn {
+  color: #fff !important;
+  background: linear-gradient(180deg, #3db8ef 0%, #049cd8 48%, #1a6fb5 100%) !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-btn-worlds,
+#view-juego-mariobros.mario-bros-pro #mario-worlds.mario-pro-btn {
+  color: #fff !important;
+  background: linear-gradient(180deg, #8b6ef0 0%, #6b4ce6 48%, #4f35b8 100%) !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-btn-ghost {
+  color: #f2f2f2 !important;
+  background: linear-gradient(180deg, #7a8494 0%, #5a6474 48%, #454e5c 100%) !important;
+}
+
+#view-juego-mariobros.mario-bros-pro .mario-pro-guide {
+  margin: 0 0 22px;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-guide-frame {
+  padding: 14px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 30%),
+    linear-gradient(180deg, #2a3344, #1a2230);
+  border: 3px solid #fbd000;
+  box-shadow:
+    inset 0 0 0 2px rgba(196, 30, 26, .35),
+    0 10px 28px rgba(0,0,0,.35);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-guide-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(229,37,33,.25), rgba(229,37,33,.12));
+  border: 2px solid rgba(251,208,0,.35);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-guide-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-guide-top h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  color: #ffe082;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-guide-top p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #c8d0da;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), transparent 45%), #222a38;
+  border: 2px solid rgba(255,255,255,.08);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-step:hover {
+  border-color: rgba(251,208,0,.45);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 900;
+  color: #1a1200;
+  background: linear-gradient(180deg, #ffe566, #fbd000 55%, #c9a000);
+  border: 2px solid rgba(0,0,0,.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-step-body strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #fff;
+  font-size: 13px;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-step-body p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #c8d0da;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-step b { color: #ffe082; }
+#view-juego-mariobros.mario-bros-pro .mario-pro-step-focus {
+  border-color: rgba(229,37,33,.55);
+  background: linear-gradient(180deg, rgba(229,37,33,.18), transparent 50%), #2a2230;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #ffe0d8;
+  background: linear-gradient(180deg, rgba(229,37,33,.2), rgba(100,20,20,.35));
+  border: 2px solid rgba(229,37,33,.45);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-note b { color: #ffb4a8; }
+
+#view-juego-mariobros.mario-bros-pro .mario-pro-actions {
+  max-width: none;
+  margin-top: 8px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(14, 18, 28, .72);
+  border: 2px solid rgba(251, 208, 0, .16);
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-enfatiza { color: #7ed957 !important; }
+#view-juego-mariobros.mario-bros-pro .mc-sub-head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+#view-juego-mariobros.mario-bros-pro .mc-sub-btns {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  width: 100%;
+}
+#view-juego-mariobros.mario-bros-pro .mc-sub-btns .mc-create-btn,
+#view-juego-mariobros.mario-bros-pro .mc-sub-btns .mc-img-btn {
+  border-radius: 10px !important;
+  border: 2px solid rgba(0,0,0,.4) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  padding: 6px 10px !important;
+  min-height: 32px !important;
+  white-space: nowrap;
+  color: #fff !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.25),
+    inset 0 -2px 0 rgba(0,0,0,.28) !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-tone-create {
+  background: linear-gradient(180deg, #ff9a3a, #e07018 55%, #b85810) !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-tone-toggle {
+  background: linear-gradient(180deg, #7ed957, #5cb338 55%, #3e8c1e) !important;
+}
+#view-juego-mariobros.mario-bros-pro .mario-pro-tone-overlay {
+  background: linear-gradient(180deg, #8b6ef0, #6b4ce6 55%, #4f35b8) !important;
+}
+
+#view-juego-mariobros.mario-bros-pro .mc-my-actions {
+  gap: 6px;
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-card.mc-act-row {
+  border: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(180deg, #1a2230, #121820);
+  box-shadow: 0 8px 20px rgba(0,0,0,.22);
+  min-height: 0;
+  align-items: center;
+  border-radius: 12px;
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-card.mc-act-row:hover {
+  border-color: rgba(251,208,0,.35);
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-col {
+  padding: 5px 8px;
+  gap: 2px;
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-col-trig {
+  flex: 0 0 72px;
+  max-width: 72px;
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-trig-icon-btn {
+  min-height: 52px;
+  border-radius: 10px;
+  border-color: rgba(229,37,33,.45);
+  background: rgba(229,37,33,.16);
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-col-thumb {
+  flex: 0 0 56px;
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-col-thumb .mc-act-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-audio-wrap,
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-audio-add {
+  min-height: 44px;
+}
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-col-actions .mc-act-edit,
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-col-actions .mc-act-test-delay,
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-col-actions .mc-act-test,
+#view-juego-mariobros.mario-bros-pro .mc-my-actions .mc-act-col-actions .mc-act-del {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 8px;
+}
+#view-juego-mariobros.mario-bros-pro .repo-game-body,
+#view-juego-mariobros.mario-bros-pro .juego-aviso {
+  display: none !important;
+}
+
+@media (max-width: 860px) {
+  #view-juego-mariobros.mario-bros-pro .mario-pro-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (max-width: 520px) {
+  #view-juego-mariobros.mario-bros-pro .mario-pro-hero-actions-main .mario-pro-btn {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+/* =============================================================================
+   SMB3 PRO — solo visual (#view-juego-smb3.smb3-pro)
+   REVERTIR: quita class "smb3-pro" del section y este bloque.
+   ============================================================================= */
+#view-juego-smb3.smb3-pro {
+  --smb3-red: #e52521;
+  --smb3-red-2: #c41e1a;
+  --smb3-blue: #049cd8;
+  --smb3-blue-2: #1a6fb5;
+  --smb3-sky: #5c94fc;
+  --smb3-green: #5cb338;
+  --smb3-green-2: #3e8c1e;
+  --smb3-yellow: #fbd000;
+  --smb3-orange: #e07018;
+  max-width: 980px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+  background:
+    radial-gradient(900px 360px at 50% -8%, rgba(92, 148, 252, .16), transparent 55%),
+    radial-gradient(700px 280px at 90% 10%, rgba(229, 37, 33, .1), transparent 50%),
+    linear-gradient(180deg, rgba(18, 24, 40, .35), transparent 220px);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0 18px;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #8eb6ff;
+  margin-bottom: 6px;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+  color: #f4f7fb;
+  letter-spacing: -.02em;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-sub {
+  margin: 6px 0 0;
+  color: #9aa7b2;
+  max-width: 48ch;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-head-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(18, 24, 32, .92);
+  border: 2px solid rgba(92, 148, 252, .55);
+  color: #b8d0ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-leaf {
+  width: 14px;
+  height: 14px;
+  border-radius: 40% 60% 45% 55%;
+  background: radial-gradient(circle at 35% 30%, #7ed957, #5cb338 45%, #3e8c1e 100%);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.35);
+  transform: rotate(-25deg);
+}
+
+#view-juego-smb3.smb3-pro .smb3-pro-hero {
+  max-width: none;
+  margin: 0 0 20px;
+  border-radius: 0;
+  overflow: visible;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+#view-juego-smb3.smb3-pro .mc-game-banner {
+  position: relative;
+  min-height: 360px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px solid rgba(92, 148, 252, .35);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .38);
+}
+#view-juego-smb3.smb3-pro .mc-game-banner::before {
+  content: '';
+  position: absolute;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  top: auto !important;
+  height: 48% !important;
+  z-index: 1;
+  pointer-events: none;
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  mask-image: linear-gradient(to top, #000 8%, rgba(0,0,0,.5) 42%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 8%, rgba(0,0,0,.5) 42%, transparent 100%);
+  background: none !important;
+}
+#view-juego-smb3.smb3-pro .mc-game-banner::after {
+  content: '';
+  position: absolute !important;
+  inset: 0 !important;
+  height: auto !important;
+  background:
+    linear-gradient(105deg, rgba(10, 14, 28, .7) 0%, rgba(10, 14, 28, .25) 36%, transparent 62%),
+    linear-gradient(0deg, rgba(10, 14, 28, .55) 0%, rgba(10, 14, 28, .16) 38%, transparent 68%) !important;
+  z-index: 1;
+  pointer-events: none;
+}
+#view-juego-smb3.smb3-pro .repo-game-banner-img {
+  min-height: 360px !important;
+  max-height: 460px !important;
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center center;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-hero-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 22px 24px 18px;
+  pointer-events: none;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(180deg, #3db8ef, #1a6fb5);
+  border: 1px solid rgba(255,255,255,.35);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-hero-title {
+  margin: 8px 0 0;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0,0,0,.55);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-hero-desc {
+  margin: 8px 0 0;
+  max-width: 52ch;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #d8e0e8;
+  text-shadow: 0 1px 10px rgba(0,0,0,.45);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-hero-desc b { color: #fff; }
+
+#view-juego-smb3.smb3-pro .smb3-pro-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  margin: 12px 0 0;
+  border-radius: 14px;
+  border: 2px solid rgba(92, 148, 252, .28);
+  background: linear-gradient(180deg, rgba(28, 36, 52, .94), rgba(14, 18, 28, .96));
+  box-shadow: 0 12px 28px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.06);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-hero-actions-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-status {
+  margin: 0 !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-btn,
+#view-juego-smb3.smb3-pro .juego-play-btn.smb3-pro-btn,
+#view-juego-smb3.smb3-pro a.smb3-pro-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  min-height: 42px !important;
+  min-width: 0 !important;
+  padding: 9px 16px !important;
+  border-radius: 12px !important;
+  border: 2px solid rgba(0,0,0,.45) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  text-shadow: 0 1px 0 rgba(0,0,0,.35) !important;
+  cursor: pointer !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.28),
+    inset 0 -3px 0 rgba(0,0,0,.28),
+    0 4px 0 rgba(0,0,0,.25) !important;
+  transform: none !important;
+  transition: filter .12s ease, box-shadow .12s ease !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-btn:hover,
+#view-juego-smb3.smb3-pro .juego-play-btn.smb3-pro-btn:hover {
+  filter: brightness(1.08) !important;
+  transform: none !important;
+  text-decoration: none !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-btn:active {
+  transform: translateY(2px) !important;
+  box-shadow:
+    inset 0 3px 0 rgba(0,0,0,.35),
+    inset 0 -1px 0 rgba(255,255,255,.12),
+    0 1px 0 rgba(0,0,0,.25) !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-btn-test,
+#view-juego-smb3.smb3-pro #smb3-test.smb3-pro-btn {
+  color: #fff !important;
+  background: linear-gradient(180deg, #7ed957 0%, #5cb338 48%, #3e8c1e 100%) !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-btn-dl,
+#view-juego-smb3.smb3-pro #smb3-dl-mod.smb3-pro-btn,
+#view-juego-smb3.smb3-pro #smb3-dl-rom.smb3-pro-btn,
+#view-juego-smb3.smb3-pro #smb3-dl-emulator.smb3-pro-btn {
+  color: #fff !important;
+  background: linear-gradient(180deg, #3db8ef 0%, #049cd8 48%, #1a6fb5 100%) !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-btn-ghost {
+  color: #f2f2f2 !important;
+  background: linear-gradient(180deg, #7a8494 0%, #5a6474 48%, #454e5c 100%) !important;
+}
+
+#view-juego-smb3.smb3-pro .smb3-pro-guide {
+  margin: 0 0 22px;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-guide-frame {
+  padding: 14px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 30%),
+    linear-gradient(180deg, #2a3344, #1a2230);
+  border: 3px solid #fbd000;
+  box-shadow:
+    inset 0 0 0 2px rgba(26, 111, 181, .35),
+    0 10px 28px rgba(0,0,0,.35);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-guide-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(92,148,252,.25), rgba(92,148,252,.1));
+  border: 2px solid rgba(251,208,0,.35);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-guide-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-guide-top h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  color: #ffe082;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-guide-top p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #c8d0da;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), transparent 45%), #222a38;
+  border: 2px solid rgba(255,255,255,.08);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-step:hover {
+  border-color: rgba(251,208,0,.45);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 900;
+  color: #1a1200;
+  background: linear-gradient(180deg, #ffe566, #fbd000 55%, #c9a000);
+  border: 2px solid rgba(0,0,0,.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-step-body strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #fff;
+  font-size: 13px;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-step-body p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #c8d0da;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-step b { color: #ffe082; }
+#view-juego-smb3.smb3-pro .smb3-pro-step-focus {
+  border-color: rgba(92, 203, 56, .55);
+  background: linear-gradient(180deg, rgba(92,203,56,.16), transparent 50%), #223028;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #d8ffe0;
+  background: linear-gradient(180deg, rgba(92,203,56,.18), rgba(30,80,30,.35));
+  border: 2px solid rgba(92,203,56,.45);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-note b { color: #b8ffc0; }
+
+#view-juego-smb3.smb3-pro .smb3-pro-actions {
+  max-width: none;
+  margin-top: 8px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(14, 18, 28, .72);
+  border: 2px solid rgba(92, 148, 252, .16);
+}
+#view-juego-smb3.smb3-pro .smb3-pro-enfatiza { color: #7ed957 !important; }
+#view-juego-smb3.smb3-pro .mc-sub-head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+#view-juego-smb3.smb3-pro .mc-sub-btns {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  width: 100%;
+}
+#view-juego-smb3.smb3-pro .mc-sub-btns .mc-create-btn {
+  border-radius: 10px !important;
+  border: 2px solid rgba(0,0,0,.4) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  padding: 6px 10px !important;
+  min-height: 32px !important;
+  white-space: nowrap;
+  color: #fff !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.25),
+    inset 0 -2px 0 rgba(0,0,0,.28) !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-tone-create {
+  background: linear-gradient(180deg, #ff9a3a, #e07018 55%, #b85810) !important;
+}
+#view-juego-smb3.smb3-pro .smb3-pro-tone-toggle {
+  background: linear-gradient(180deg, #7ed957, #5cb338 55%, #3e8c1e) !important;
+}
+
+#view-juego-smb3.smb3-pro .mc-my-actions {
+  gap: 6px;
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-card.mc-act-row {
+  border: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(180deg, #1a2230, #121820);
+  box-shadow: 0 8px 20px rgba(0,0,0,.22);
+  min-height: 0;
+  align-items: center;
+  border-radius: 12px;
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-card.mc-act-row:hover {
+  border-color: rgba(92,148,252,.4);
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-col {
+  padding: 5px 8px;
+  gap: 2px;
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-col-trig {
+  flex: 0 0 72px;
+  max-width: 72px;
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-trig-icon-btn {
+  min-height: 52px;
+  border-radius: 10px;
+  border-color: rgba(92,148,252,.45);
+  background: rgba(92,148,252,.16);
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-col-thumb {
+  flex: 0 0 56px;
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-col-thumb .mc-act-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-audio-wrap,
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-audio-add {
+  min-height: 44px;
+}
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-col-actions .mc-act-edit,
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-col-actions .mc-act-test-delay,
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-col-actions .mc-act-test,
+#view-juego-smb3.smb3-pro .mc-my-actions .mc-act-col-actions .mc-act-del {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 8px;
+}
+#view-juego-smb3.smb3-pro .repo-game-body,
+#view-juego-smb3.smb3-pro .juego-aviso {
+  display: none !important;
+}
+
+@media (max-width: 860px) {
+  #view-juego-smb3.smb3-pro .smb3-pro-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (max-width: 520px) {
+  #view-juego-smb3.smb3-pro .smb3-pro-hero-actions-main .smb3-pro-btn {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+/* =============================================================================
+   SMW PRO — solo visual (#view-juego-smw.smw-pro)
+   REVERTIR: quita class "smw-pro" del section y este bloque.
+   ============================================================================= */
+#view-juego-smw.smw-pro {
+  --smw-green: #00a800;
+  --smw-green-2: #007800;
+  --smw-yoshi: #5cb338;
+  --smw-sky: #5c94fc;
+  --smw-blue: #049cd8;
+  --smw-blue-2: #1a6fb5;
+  --smw-red: #e52521;
+  --smw-yellow: #fbd000;
+  --smw-wood: #c48a3a;
+  --smw-purple: #6b4ce6;
+  max-width: 980px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+  background:
+    radial-gradient(900px 360px at 50% -8%, rgba(0, 168, 0, .14), transparent 55%),
+    radial-gradient(700px 280px at 90% 10%, rgba(92, 148, 252, .12), transparent 50%),
+    linear-gradient(180deg, rgba(18, 24, 40, .35), transparent 220px);
+}
+#view-juego-smw.smw-pro .smw-pro-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 6px 0 18px;
+}
+#view-juego-smw.smw-pro .smw-pro-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #7ed957;
+  margin-bottom: 6px;
+}
+#view-juego-smw.smw-pro .smw-pro-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 900;
+  color: #f4f7fb;
+  letter-spacing: -.02em;
+}
+#view-juego-smw.smw-pro .smw-pro-sub {
+  margin: 6px 0 0;
+  color: #9aa7b2;
+  max-width: 48ch;
+}
+#view-juego-smw.smw-pro .smw-pro-head-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(18, 24, 32, .92);
+  border: 2px solid rgba(0, 168, 0, .5);
+  color: #b8ffb0;
+  font-size: 12px;
+  font-weight: 800;
+}
+#view-juego-smw.smw-pro .smw-pro-yoshi {
+  width: 14px;
+  height: 14px;
+  border-radius: 50% 50% 45% 55%;
+  background: radial-gradient(circle at 35% 30%, #7ed957, #00a800 50%, #007800 100%);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.35);
+}
+
+#view-juego-smw.smw-pro .smw-pro-hero {
+  max-width: none;
+  margin: 0 0 20px;
+  border-radius: 0;
+  overflow: visible;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+#view-juego-smw.smw-pro .mc-game-banner,
+#view-juego-smw.smw-pro .smw-game-banner {
+  position: relative;
+  min-height: 360px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 2px solid rgba(0, 168, 0, .35);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .38);
+  margin: 0;
+}
+#view-juego-smw.smw-pro .mc-game-banner::before,
+#view-juego-smw.smw-pro .smw-game-banner::before {
+  content: '';
+  position: absolute;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  top: auto !important;
+  height: 48% !important;
+  z-index: 1;
+  pointer-events: none;
+  backdrop-filter: blur(12px) saturate(1.05);
+  -webkit-backdrop-filter: blur(12px) saturate(1.05);
+  mask-image: linear-gradient(to top, #000 8%, rgba(0,0,0,.5) 42%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 8%, rgba(0,0,0,.5) 42%, transparent 100%);
+  background: none !important;
+}
+#view-juego-smw.smw-pro .mc-game-banner::after,
+#view-juego-smw.smw-pro .smw-game-banner::after {
+  content: '';
+  position: absolute !important;
+  inset: 0 !important;
+  height: auto !important;
+  background:
+    linear-gradient(105deg, rgba(10, 14, 28, .7) 0%, rgba(10, 14, 28, .25) 36%, transparent 62%),
+    linear-gradient(0deg, rgba(10, 14, 28, .55) 0%, rgba(10, 14, 28, .16) 38%, transparent 68%) !important;
+  z-index: 1;
+  pointer-events: none;
+}
+#view-juego-smw.smw-pro .repo-game-banner-img {
+  min-height: 360px !important;
+  max-height: 460px !important;
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center 40%;
+}
+#view-juego-smw.smw-pro .smw-pro-hero-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 22px 24px 18px;
+  pointer-events: none;
+}
+#view-juego-smw.smw-pro .smw-pro-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #062010;
+  background: linear-gradient(180deg, #7ed957, #00a800);
+  border: 1px solid rgba(255,255,255,.35);
+}
+#view-juego-smw.smw-pro .smw-pro-hero-title {
+  margin: 8px 0 0;
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0,0,0,.55);
+}
+#view-juego-smw.smw-pro .smw-pro-hero-desc {
+  margin: 8px 0 0;
+  max-width: 52ch;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #d8e0e8;
+  text-shadow: 0 1px 10px rgba(0,0,0,.45);
+}
+#view-juego-smw.smw-pro .smw-pro-hero-desc b { color: #fff; }
+
+#view-juego-smw.smw-pro .smw-pro-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  margin: 12px 0 0;
+  border-radius: 14px;
+  border: 2px solid rgba(0, 168, 0, .28);
+  background: linear-gradient(180deg, rgba(28, 36, 52, .94), rgba(14, 18, 28, .96));
+  box-shadow: 0 12px 28px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.06);
+}
+#view-juego-smw.smw-pro .smw-pro-hero-actions-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 !important;
+}
+#view-juego-smw.smw-pro .smw-pro-status {
+  margin: 0 !important;
+}
+#view-juego-smw.smw-pro .smw-pro-progress {
+  flex: 1 1 100%;
+  margin: 0;
+}
+#view-juego-smw.smw-pro .smw-pro-btn,
+#view-juego-smw.smw-pro .juego-play-btn.smw-pro-btn,
+#view-juego-smw.smw-pro .smw-glass-btn.smw-pro-btn,
+#view-juego-smw.smw-pro a.smw-pro-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  min-height: 42px !important;
+  min-width: 0 !important;
+  padding: 9px 16px !important;
+  border-radius: 12px !important;
+  border: 2px solid rgba(0,0,0,.45) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  line-height: 1.2 !important;
+  text-decoration: none !important;
+  text-shadow: 0 1px 0 rgba(0,0,0,.35) !important;
+  cursor: pointer !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.28),
+    inset 0 -3px 0 rgba(0,0,0,.28),
+    0 4px 0 rgba(0,0,0,.25) !important;
+  transform: none !important;
+  transition: filter .12s ease, box-shadow .12s ease !important;
+}
+#view-juego-smw.smw-pro .smw-pro-btn:hover,
+#view-juego-smw.smw-pro .juego-play-btn.smw-pro-btn:hover,
+#view-juego-smw.smw-pro .smw-glass-btn.smw-pro-btn:hover {
+  filter: brightness(1.08) !important;
+  transform: none !important;
+  text-decoration: none !important;
+}
+#view-juego-smw.smw-pro .smw-pro-btn:active {
+  transform: translateY(2px) !important;
+  box-shadow:
+    inset 0 3px 0 rgba(0,0,0,.35),
+    inset 0 -1px 0 rgba(255,255,255,.12),
+    0 1px 0 rgba(0,0,0,.25) !important;
+}
+#view-juego-smw.smw-pro .smw-pro-btn-connect,
+#view-juego-smw.smw-pro #smw-bridge.smw-pro-btn {
+  color: #fff !important;
+  background: linear-gradient(180deg, #ff5a52 0%, #e52521 48%, #c41e1a 100%) !important;
+}
+#view-juego-smw.smw-pro #smw-bridge.bridge-connect-btn.is-on {
+  background: linear-gradient(180deg, #7ed957 0%, #00a800 48%, #007800 100%) !important;
+}
+#view-juego-smw.smw-pro .smw-pro-btn-install,
+#view-juego-smw.smw-pro #smw-install.smw-pro-btn {
+  color: #fff !important;
+  background: linear-gradient(180deg, #3db8ef 0%, #049cd8 48%, #1a6fb5 100%) !important;
+}
+#view-juego-smw.smw-pro .smw-pro-btn-danger,
+#view-juego-smw.smw-pro #smw-uninstall.smw-pro-btn {
+  color: #fff !important;
+  background: linear-gradient(180deg, #8a94a4 0%, #5a6474 48%, #3e4654 100%) !important;
+}
+#view-juego-smw.smw-pro .smw-pro-btn-launch,
+#view-juego-smw.smw-pro #smw-launch.smw-pro-btn {
+  color: #062010 !important;
+  text-shadow: 0 1px 0 rgba(255,255,255,.25) !important;
+  background: linear-gradient(180deg, #7ed957 0%, #00a800 48%, #007800 100%) !important;
+}
+#view-juego-smw.smw-pro .smw-pro-btn-ghost {
+  color: #f2f2f2 !important;
+  background: linear-gradient(180deg, #7a8494 0%, #5a6474 48%, #454e5c 100%) !important;
+}
+
+#view-juego-smw.smw-pro .smw-pro-guide {
+  margin: 0 0 22px;
+}
+#view-juego-smw.smw-pro .smw-pro-guide-frame {
+  padding: 14px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 30%),
+    linear-gradient(180deg, #2a3344, #1a2230);
+  border: 3px solid #c48a3a;
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 168, 0, .28),
+    0 10px 28px rgba(0,0,0,.35);
+}
+#view-juego-smw.smw-pro .smw-pro-guide-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(196,138,58,.28), rgba(196,138,58,.12));
+  border: 2px solid rgba(251,208,0,.35);
+}
+#view-juego-smw.smw-pro .smw-pro-guide-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+#view-juego-smw.smw-pro .smw-pro-guide-top h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 900;
+  color: #ffe082;
+}
+#view-juego-smw.smw-pro .smw-pro-guide-top p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #c8d0da;
+}
+#view-juego-smw.smw-pro .smw-pro-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+#view-juego-smw.smw-pro .smw-pro-step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), transparent 45%), #222a38;
+  border: 2px solid rgba(255,255,255,.08);
+}
+#view-juego-smw.smw-pro .smw-pro-step:hover {
+  border-color: rgba(0,168,0,.45);
+}
+#view-juego-smw.smw-pro .smw-pro-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 900;
+  color: #062010;
+  background: linear-gradient(180deg, #7ed957, #00a800 55%, #007800);
+  border: 2px solid rgba(0,0,0,.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+}
+#view-juego-smw.smw-pro .smw-pro-step-body strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #fff;
+  font-size: 13px;
+}
+#view-juego-smw.smw-pro .smw-pro-step-body p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #c8d0da;
+}
+#view-juego-smw.smw-pro .smw-pro-step b { color: #b8ffb0; }
+#view-juego-smw.smw-pro .smw-pro-step code {
+  font-size: 11.5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(0,0,0,.35);
+  color: #ffe082;
+}
+#view-juego-smw.smw-pro .smw-pro-step-focus {
+  border-color: rgba(229,37,33,.55);
+  background: linear-gradient(180deg, rgba(229,37,33,.16), transparent 50%), #2a2230;
+}
+#view-juego-smw.smw-pro .smw-pro-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #ffe8c8;
+  background: linear-gradient(180deg, rgba(196,138,58,.22), rgba(80,50,20,.35));
+  border: 2px solid rgba(196,138,58,.5);
+}
+
+#view-juego-smw.smw-pro .smw-pro-actions {
+  max-width: none;
+  margin-top: 8px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(14, 18, 28, .72);
+  border: 2px solid rgba(0, 168, 0, .16);
+}
+#view-juego-smw.smw-pro .smw-pro-enfatiza { color: #7ed957 !important; }
+#view-juego-smw.smw-pro .mc-sub-head {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+#view-juego-smw.smw-pro .mc-sub-btns {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  width: 100%;
+}
+#view-juego-smw.smw-pro .mc-sub-btns .mc-create-btn,
+#view-juego-smw.smw-pro .mc-sub-btns .mc-img-btn {
+  border-radius: 10px !important;
+  border: 2px solid rgba(0,0,0,.4) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  padding: 6px 10px !important;
+  min-height: 32px !important;
+  white-space: nowrap;
+  color: #fff !important;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.25),
+    inset 0 -2px 0 rgba(0,0,0,.28) !important;
+}
+#view-juego-smw.smw-pro .smw-pro-tone-create {
+  background: linear-gradient(180deg, #ff9a3a, #e07018 55%, #b85810) !important;
+}
+#view-juego-smw.smw-pro .smw-pro-tone-toggle {
+  background: linear-gradient(180deg, #7ed957, #00a800 55%, #007800) !important;
+}
+#view-juego-smw.smw-pro .smw-pro-tone-overlay {
+  background: linear-gradient(180deg, #8b6ef0, #6b4ce6 55%, #4f35b8) !important;
+}
+
+#view-juego-smw.smw-pro .mc-my-actions {
+  gap: 6px;
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-card.mc-act-row {
+  border: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(180deg, #1a2230, #121820);
+  box-shadow: 0 8px 20px rgba(0,0,0,.22);
+  min-height: 0;
+  align-items: center;
+  border-radius: 12px;
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-card.mc-act-row:hover {
+  border-color: rgba(0,168,0,.4);
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-col {
+  padding: 5px 8px;
+  gap: 2px;
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-col-trig {
+  flex: 0 0 72px;
+  max-width: 72px;
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-trig-icon-btn {
+  min-height: 52px;
+  border-radius: 10px;
+  border-color: rgba(0,168,0,.45);
+  background: rgba(0,168,0,.14);
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-col-thumb {
+  flex: 0 0 56px;
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-col-thumb .mc-act-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-audio-wrap,
+#view-juego-smw.smw-pro .mc-my-actions .mc-audio-add {
+  min-height: 44px;
+}
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-col-actions .mc-act-edit,
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-col-actions .mc-act-test-delay,
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-col-actions .mc-act-test,
+#view-juego-smw.smw-pro .mc-my-actions .mc-act-col-actions .mc-act-del {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 8px;
+}
+#view-juego-smw.smw-pro .smw-banner-foot,
+#view-juego-smw.smw-pro .juego-aviso {
+  display: none !important;
+}
+
+@media (max-width: 860px) {
+  #view-juego-smw.smw-pro .smw-pro-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (max-width: 520px) {
+  #view-juego-smw.smw-pro .smw-pro-hero-actions-main .smw-pro-btn {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
