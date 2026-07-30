@@ -334,11 +334,11 @@ export function markBadgeDesktop(id) {
   return true;
 }
 
-export function markBadgeGame(id, gameKeyOrTipo) {
+export function markBadgeGame(id, gameKeyOrTipo, hintUrl = '') {
   const u = users.find((x) => String(x.id) === String(id));
   if (!u) return false;
   let key = String(gameKeyOrTipo || '');
-  if (!key.startsWith('game_')) key = gameKeyFromExecTipo(key);
+  if (!key.startsWith('game_')) key = gameKeyFromExecTipo(key, hintUrl);
   if (!key) return false;
   const s = ensureBadgeStats(u);
   if (s.gamesUsed.includes(key)) return false;
@@ -571,6 +571,34 @@ export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, game
       if (badgeStats[k] === undefined) continue;
       const nv = badgeStats[k];
       const ov = cur[k];
+      if (k === 'gamesUsed') {
+        const a = Array.isArray(ov) ? ov.map(String) : [];
+        const b = Array.isArray(nv) ? nv.map(String) : [];
+        const merged = [...new Set([...a, ...b])];
+        if (JSON.stringify(merged) !== JSON.stringify(a)) {
+          cur[k] = merged;
+          changed = true;
+        }
+        continue;
+      }
+      if (k === 'usedDesktop' || k === 'dailyTop1' || k === 'seenInDirectory') {
+        const merged = !!(ov || nv);
+        if (merged !== !!ov) { cur[k] = merged; changed = true; }
+        continue;
+      }
+      if (k === 'livesCount' || k === 'streak' || k === 'bestStreak' || k === 'viewersTotal') {
+        const merged = Math.max(Number(ov) || 0, Number(nv) || 0);
+        if (merged !== (Number(ov) || 0)) { cur[k] = merged; changed = true; }
+        continue;
+      }
+      // lastLiveDay: quedarse con el más reciente (string YYYY-MM-DD)
+      if (k === 'lastLiveDay') {
+        const a = String(ov || '');
+        const b = String(nv || '');
+        const pick = (!a || (b && b > a)) ? b : a;
+        if (pick !== a) { cur[k] = pick; changed = true; }
+        continue;
+      }
       if (JSON.stringify(nv) !== JSON.stringify(ov)) {
         cur[k] = nv;
         changed = true;

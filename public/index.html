@@ -6364,7 +6364,7 @@
               </div>
             </div>
 
-            <!-- Permisos -->
+            <!-- Permisos + overlays OBS en la misma fila (3 columnas del .sp-grid) -->
             <div class="settings-card sp-card">
               <div class="tts-head"><h3>Permisos</h3><span class="tts-sub">Quién puede usar los comandos</span></div>
               <div class="sp-form">
@@ -6392,14 +6392,30 @@
               </div>
             </div>
 
-            <!-- Superposiciones (OBS) -->
             <div class="settings-card sp-card">
-              <div class="tts-head"><h3>Superposiciones (OBS)</h3><span class="tts-sub">Añádelas como fuente de navegador</span></div>
+              <div class="tts-head"><h3>Lista Tikfinity</h3><span class="tts-sub">OBS · cola + ahora suena</span></div>
               <div class="ovpro-urlrow">
                 <code class="ov-url" data-path="/spotify-overlay.html">/spotify-overlay.html</code>
                 <button class="ovpro-copy ov-copy">Copiar enlace</button>
               </div>
-              <p class="hint">Overlay estilo Tikfinity: lista con portada, <b>Título - Artista</b>, tiempo <b>mm:ss / mm:ss</b> en la actual y <b>Start in …</b> en la cola (!play).</p>
+              <p class="hint">Lista: portada, título, tiempo y cola (!play).</p>
+              <div class="ovpro-prevlabel">VISTA PREVIA</div>
+              <div class="ovpro-preview sp-overlay-preview">
+                <iframe id="sp-overlay-preview" data-src="/spotify-overlay.html?embed=1" title="Vista previa overlay Spotify lista"></iframe>
+              </div>
+            </div>
+
+            <div class="settings-card sp-card">
+              <div class="tts-head"><h3>Reproductor</h3><span class="tts-sub">OBS · portada + progreso</span></div>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/spotify-player-overlay.html">/spotify-player-overlay.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <p class="hint">Tarjeta: portada, título, barra y controles.</p>
+              <div class="ovpro-prevlabel">VISTA PREVIA</div>
+              <div class="ovpro-preview sp-overlay-preview sp-overlay-preview--player">
+                <iframe id="sp-player-preview" data-src="/spotify-player-overlay.html?embed=1" title="Vista previa overlay Spotify player"></iframe>
+              </div>
             </div>
 
             <!-- Historial -->

@@ -2643,8 +2643,19 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 }
 @media (min-width: 1200px) {
   .sp-grid {
-    grid-template-columns: minmax(300px, 1.12fr) repeat(2, minmax(260px, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+/* Previews compactas para que Permisos + Lista + Reproductor quepan en la misma fila */
+#view-spotify .sp-overlay-preview {
+  height: 280px;
+  margin-top: 4px;
+}
+#view-spotify .sp-overlay-preview--player {
+  height: 200px;
+}
+#view-spotify .sp-card .ovpro-urlrow .ov-url {
+  font-size: 11px;
 }
 .sp-hero {
   display: flex;

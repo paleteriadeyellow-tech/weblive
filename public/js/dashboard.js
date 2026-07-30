@@ -13116,6 +13116,9 @@ function setupSpotifyUI() {
     };
   });
   applySpotifyUI();
+  try { ensureEmbedLoaded('sp-overlay-preview'); } catch { /* ignore */ }
+  try { ensureEmbedLoaded('sp-player-preview'); } catch { /* ignore */ }
+  try { hydrateViewEmbeds(document.getElementById('view-spotify')); } catch { /* ignore */ }
   refreshSpotifyStatus();
 }
 
@@ -17462,6 +17465,19 @@ async function execGameLocal(exec) {
   const gameTipo = /^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_|REPO_|L4D_|CTR_|UNTURNED_|SMW_|GTAVCHILIAD_|GTAVCHAOS_|GTAVKOTH_)/.test(exec.tipo || '');
   const webhookTipo = exec.tipo === 'WEBHOOK';
   const okResult = (r) => r && r.ok !== false;
+  const noteGamerBadge = () => {
+    try {
+      fetch('/api/badges/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ tipo: exec.tipo || '', url: exec.url || '' }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((bd) => { if (bd?.badges && typeof renderHomeBadges === 'function') renderHomeBadges(bd.badges); })
+        .catch(() => {});
+    } catch { /* ignore */ }
+  };
   const postGameExecHttp = async () => {
     const r = await fetch('/api/desktop/game-exec', {
       method: 'POST',
@@ -17478,12 +17494,12 @@ async function execGameLocal(exec) {
   if (exec.tipo === 'SMW_SPAWN' || String(exec.tipo || '').startsWith('SMW_')) {
     try {
       const d = await postGameExecHttp();
-      if (d) return d;
+      if (d) { noteGamerBadge(); return d; }
     } catch { /* fallback IPC */ }
   }
   if (exec.tipo === 'MSLUG_SPAWN') {
     const direct = await mslugFetch127Spawn(exec.thing, exec.name, exec.times);
-    if (okResult(direct)) return direct;
+    if (okResult(direct)) { noteGamerBadge(); return direct; }
   }
   if (webhookTipo && isMslug7760WebhookUrl(exec.url)) {
     try {
@@ -17493,7 +17509,7 @@ async function execGameLocal(exec) {
         u.searchParams.get('userName') || u.searchParams.get('nickname') || u.searchParams.get('name'),
         u.searchParams.get('quantity') || u.searchParams.get('times') || '1',
       );
-      if (okResult(direct)) return direct;
+      if (okResult(direct)) { noteGamerBadge(); return direct; }
     } catch { /* fallback */ }
   }
   if (webhookTipo && isGdash5721EffectUrl(exec.url)) {
@@ -17504,23 +17520,23 @@ async function execGameLocal(exec) {
         u.searchParams.get('name') || 'Viewer',
         parseInt(u.searchParams.get('seconds') || '10', 10),
       );
-      if (okResult(direct)) return direct;
+      if (okResult(direct)) { noteGamerBadge(); return direct; }
     } catch { /* fallback */ }
   }
   if ((gameTipo || webhookTipo) && window.desktopAPI?.localExec) {
     try {
       const r = await window.desktopAPI.localExec(exec);
-      if (okResult(r)) return r;
+      if (okResult(r)) { noteGamerBadge(); return r; }
     } catch { /* fallback HTTP */ }
   }
   try {
     const d = await postGameExecHttp();
-    if (d) return d;
+    if (d) { noteGamerBadge(); return d; }
   } catch { /* fallback IPC */ }
   if (!gameTipo && !webhookTipo && window.desktopAPI?.localExec) {
     try {
       const r = await window.desktopAPI.localExec(exec);
-      if (okResult(r)) return r;
+      if (okResult(r)) { noteGamerBadge(); return r; }
     } catch {}
   }
   return { ok: false };
@@ -26377,12 +26393,9 @@ function panelLiveFallbackChar(name) {
   return ch ? ch.toUpperCase() : '?';
 }
 
-/** Solo lives reales: con viewers, o recién iniciados (<90s). Los de 0 suelen ser fantasmas. */
+/** Lives del directorio: el servidor ya filtró; no ocultar por viewers=0. */
 function isActivePanelLive(l) {
-  const viewers = Number(l?.viewers) || 0;
-  if (viewers > 0) return true;
-  const since = Number(l?.liveSince) || 0;
-  return since > 0 && (Date.now() - since) < 90000;
+  return !!(l && (l.tiktok || l.account));
 }
 
 function isPanelLivePremium(plan) {

@@ -664,7 +664,12 @@ function getRoomForUser(user) {
         } catch { /* ignore */ }
       },
       onGameExec: (tipo) => {
-        try { markBadgeGame(user.id, tipo); } catch { /* ignore */ }
+        try {
+          if (markBadgeGame(user.id, tipo)) {
+            const r = rooms.get(user.id);
+            if (r?.pushBadges) r.pushBadges(getUserBadgesPayload(getUserById(user.id) || user));
+          }
+        } catch { /* ignore */ }
       },
     });
     room._createdAt = Date.now();
@@ -697,18 +702,34 @@ function reapIdleCloudRooms() {
 }
 
 // Usuarios conectados al panel y EN VIVO en TikTok (directorio para el panel).
-// Solo se listan lives reales: conexión activa + audiencia > 0 (o live recién
-// iniciado). Con viewers=0 suele ser conexión fantasma / live ya cerrado que
-// aún no disparó STREAM_END.
+// Criterio: conexión TikTok activa (live). Antes se exigía viewers>0 tras 90s y
+// se ocultaban lives reales cuando TikTok no mandaba user_count a tiempo.
 function isActivePanelLiveEntry(stOrLive) {
-  const viewers = Number(stOrLive?.viewers) || 0;
-  if (viewers > 0) return true;
-  const since = Number(stOrLive?.liveSince) || 0;
-  return since > 0 && (Date.now() - since) < 90000;
+  if (!stOrLive) return false;
+  if (stOrLive.live && (stOrLive.account || stOrLive.tiktok)) return true;
+  const viewers = Number(stOrLive.viewers) || 0;
+  if (viewers > 0 && (stOrLive.account || stOrLive.tiktok)) return true;
+  const since = Number(stOrLive.liveSince) || 0;
+  return since > 0 && (Date.now() - since) < 15 * 60 * 1000 && !!(stOrLive.account || stOrLive.tiktok);
 }
 
 function filterActivePanelLives(lives) {
   return (Array.isArray(lives) ? lives : []).filter(isActivePanelLiveEntry);
+}
+
+function mergePanelLivesLists(...lists) {
+  const map = new Map();
+  for (const list of lists) {
+    for (const l of Array.isArray(list) ? list : []) {
+      const key = String(l?.tiktok || l?.account || '').replace(/^@+/, '').trim().toLowerCase();
+      if (!key) continue;
+      const prev = map.get(key);
+      if (!prev || (Number(l.viewers) || 0) >= (Number(prev.viewers) || 0)) map.set(key, { ...l, tiktok: key });
+    }
+  }
+  const out = [...map.values()];
+  out.sort((a, b) => (Number(b.viewers) || 0) - (Number(a.viewers) || 0) || String(a.tiktok).localeCompare(String(b.tiktok)));
+  return out;
 }
 
 function listPanelLives() {
@@ -733,6 +754,7 @@ function listPanelLives() {
       photo: st.photo || '',
       viewers: Number(st.viewers) || 0,
       liveSince: st.liveSince || null,
+      live: true,
       plan,
       url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
       badges: badgePayload?.cardBadges || [],
@@ -1348,14 +1370,10 @@ app.get('/api/me', async (req, res) => {
   const fullUser = getUserById(user.id) || user;
   const hasRemoteCookie = !!(AUTH_REMOTE && remoteCookies.get(user.id));
   const cloudRoomKey = (remoteMe && remoteMe.roomKey) || fullUser.cloudRoomKey || null;
-  const badgePayload = (remoteMe && Array.isArray(remoteMe.badges))
-    ? {
-        badges: remoteMe.badges,
-        cardBadges: Array.isArray(remoteMe.cardBadges) ? remoteMe.cardBadges : [],
-        stats: remoteMe.stats || (getUserBadgesPayload(fullUser).stats || {}),
-        manualBadges: Array.isArray(remoteMe.manualBadges) ? remoteMe.manualBadges : [],
-      }
-    : getUserBadgesPayload(fullUser);
+  const badgePayload = getUserBadgesPayload(fullUser);
+  if (remoteMe && Array.isArray(remoteMe.manualBadges)) {
+    badgePayload.manualBadges = remoteMe.manualBadges;
+  }
   res.json({
     id: fullUser.id || user.id,
     username: user.username,
@@ -1510,8 +1528,9 @@ app.post('/api/account/password/reset', express.json(), async (req, res) => {
 app.get('/api/panel-lives', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  const localLives = listPanelLives();
   // En .exe (relay) los lives reales están en Render: hay que pedirlos a la nube.
-  // No depender solo de HOKEY_RELAY ni de una cookie frágil: probar auth y público.
+  // Se fusionan con los locales para no perder a quien esté live solo en esta PC.
   if (AUTH_REMOTE) {
     const cookie = remoteCookies.get(user.id);
     const attempts = [];
@@ -1523,10 +1542,17 @@ app.get('/api/panel-lives', async (req, res) => {
         if (!r.ok) continue;
         const data = await r.json().catch(() => ({}));
         if (!Array.isArray(data.lives)) continue;
-        return res.json({ lives: enrichPanelLivesPlans(filterActivePanelLives(data.lives)) });
+        const merged = mergePanelLivesLists(filterActivePanelLives(data.lives), localLives);
+        return res.json({ lives: enrichPanelLivesPlans(merged) });
       } catch { /* siguiente intento */ }
     }
   }
+  res.json({ lives: localLives });
+});
+
+/** Directorio público (sin cookie): el .exe lo usa si falla la sesión remota. */
+app.get('/api/panel-lives-public', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.json({ lives: listPanelLives() });
 });
 
@@ -1923,17 +1949,23 @@ app.post('/api/desktop/game-exec', express.json({ limit: '64kb' }), async (req, 
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
   const body = req.body || {};
+  const noteGameBadge = () => {
+    try { markBadgeGame(user.id, body.tipo, body.url || ''); } catch { /* ignore */ }
+  };
   if (body.tipo === 'WEBHOOK') {
+    let result;
     if (isMari0EnemySpawnWebhook(body.url)) {
-      return res.json(await runWebhookExec(body));
+      result = await runWebhookExec(body);
+    } else if (isMslug7760WebhookUrl(body.url)) {
+      result = await runMslug7760WebhookExec(body);
+    } else {
+      result = await runWebhookExec(body);
     }
-    if (isMslug7760WebhookUrl(body.url)) {
-      return res.json(await runMslug7760WebhookExec(body));
-    }
-    return res.json(await runWebhookExec(body));
+    if (result && result.ok !== false) noteGameBadge();
+    return res.json(result);
   }
   const result = await runGameExec(body);
-  try { markBadgeGame(user.id, body.tipo); } catch { /* ignore */ }
+  if (result && result.ok !== false) noteGameBadge();
   res.json(result);
 });
 
@@ -2829,6 +2861,21 @@ app.post('/api/badges/desktop', express.json(), (req, res) => {
   if (!user) return res.status(401).json({ error: 'no auth' });
   markBadgeDesktop(user.id);
   res.json({ ok: true, ...getUserBadgesPayload(getUserById(user.id) || user) });
+});
+
+/** Marca un juego usado (insignia Gamer). El .exe lo llama tras Probar / IPC. */
+app.post('/api/badges/game', express.json({ limit: '8kb' }), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const tipo = req.body?.tipo || req.body?.game || '';
+  const url = req.body?.url || '';
+  try { markBadgeGame(user.id, tipo, url); } catch { /* ignore */ }
+  const payload = getUserBadgesPayload(getUserById(user.id) || user);
+  try {
+    const room = rooms.get(user.id);
+    if (room?.pushBadges) room.pushBadges(payload);
+  } catch { /* ignore */ }
+  res.json({ ok: true, ...payload });
 });
 
 app.get('/api/web-install', (_req, res) => {

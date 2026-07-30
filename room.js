@@ -4296,6 +4296,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const units = Math.max(1, Number(times) || 1);
     withGameActionCountTiming(a, units, () => {
       broadcast('log', { level: 'ok', text: `🟥 Roblox: "${a.name || a.keys}" → ${a.keys}${units > 1 ? ` ×${units}` : ''}` });
+      try { if (typeof onGameExec === 'function') onGameExec('ROBLOX'); } catch { /* ignore */ }
       emitKeyAction({
         id: 'rbx_' + (a.slot != null ? a.slot : ''), name: a.name || 'Roblox',
         keys: a.keys, gameCompat: true, times: 1, sound: '', soundName: '', soundVolume: 1,
@@ -4349,6 +4350,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const units = Math.max(1, Number(times) || 1);
     withGameActionCountTiming(a, units, () => {
       broadcast('log', { level: 'ok', text: `🟥 Roblox 3: "${a.name || a.keys}" → ${a.keys}${units > 1 ? ` ×${units}` : ''}` });
+      try { if (typeof onGameExec === 'function') onGameExec('ROBLOX3'); } catch { /* ignore */ }
       emitKeyAction({
         id: 'rbx3_' + (a.slot != null ? a.slot : ''), name: a.name || 'Roblox 3',
         keys: a.keys, gameCompat: true, times: 1, sound: '', soundName: '', soundVolume: 1,

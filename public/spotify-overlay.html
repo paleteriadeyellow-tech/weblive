@@ -12,13 +12,38 @@
             overflow: hidden;
             font-family: Arial, Helvetica, sans-serif;
         }
+        html.embed, html.embed body {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        html.embed body {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 10px 12px;
+            overflow: hidden;
+        }
         .sp-wrap {
             width: 420px;
+            max-width: 100%;
             min-height: 0;
             padding: 0;
             box-sizing: border-box;
             background: transparent;
         }
+        html.embed .sp-wrap {
+            width: 100%;
+            max-width: none;
+        }
+        html.embed .sp-list { gap: 10px; }
+        html.embed .sp-art {
+            width: 56px;
+            height: 56px;
+        }
+        html.embed .sp-title { font-size: 14px; }
+        html.embed .sp-time { font-size: 12px; }
+        html.embed .sp-row { gap: 12px; }
         .sp-list {
             list-style: none;
             margin: 0;
@@ -32,18 +57,25 @@
             align-items: center;
             gap: 15px;
             min-width: 0;
+            width: 100%;
         }
         .sp-art {
             width: 70px;
             height: 70px;
             border-radius: 6px;
             object-fit: cover;
-            background: transparent;
+            background: linear-gradient(135deg, #1db954 0%, #191414 100%);
             flex: none;
             display: block;
         }
         .sp-art.is-empty {
             visibility: hidden;
+        }
+        .sp-art.is-demo {
+            visibility: visible;
+            background:
+                radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), transparent 45%),
+                linear-gradient(135deg, #1db954, #0d2818 55%, #191414);
         }
         .sp-meta {
             min-width: 0;
@@ -81,9 +113,13 @@
     <script>
     (function () {
         const list = document.getElementById('sp-list');
+        const isEmbed = /(?:^|[?&])embed=1(?:&|$)/.test(location.search);
+        if (isEmbed) document.documentElement.classList.add('embed');
+
         let now = null;
         let queue = [];
         let anim = null;
+        let demoMode = false;
 
         const esc = (s) => String(s == null ? '' : s)
             .replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -119,6 +155,7 @@
         function artUrl(url) {
             const raw = String(url || '').trim();
             if (!raw) return '';
+            if (raw.startsWith('data:') || raw.startsWith('/') || raw.startsWith('blob:')) return raw;
             return `/api/img-proxy?url=${encodeURIComponent(raw)}`;
         }
 
@@ -127,10 +164,12 @@
                 ? `${item.name || ''} - ${item.artists}`
                 : (item.name || '—');
             const img = artUrl(item.image);
+            const demoCls = !img && item.demoArt ? ' is-demo' : '';
+            const emptyCls = !img && !item.demoArt ? ' is-empty' : '';
             return `
                 <li class="sp-row" data-kind="${esc(item.kind)}">
-                    <img class="sp-art${img ? '' : ' is-empty'}" src="${esc(img)}" alt="" referrerpolicy="no-referrer"
-                        onerror="this.classList.add('is-empty'); this.removeAttribute('src');">
+                    <img class="sp-art${emptyCls}${demoCls}" ${img ? `src="${esc(img)}"` : ''} alt="" referrerpolicy="no-referrer"
+                        onerror="this.classList.add('is-demo'); this.removeAttribute('src');">
                     <div class="sp-meta">
                         <div class="sp-title">${esc(title)}</div>
                         <div class="sp-time">${esc(item.timeLabel || '')}</div>
@@ -148,6 +187,7 @@
                     name: now.name,
                     artists: now.artists,
                     image: now.image,
+                    demoArt: !!now.demoArt,
                     timeLabel: `${fmt(p)} / ${fmt(d)}`,
                 });
             }
@@ -158,6 +198,7 @@
                     name: q.name,
                     artists: q.artists,
                     image: q.image,
+                    demoArt: !!q.demoArt,
                     timeLabel: `Start in ${fmt(startIn)}`,
                 });
                 startIn += Math.max(0, Number(q.durationMs) || 0);
@@ -182,6 +223,36 @@
             startAnim();
         }
 
+        function showDemoPreview() {
+            demoMode = true;
+            renderNow({
+                name: 'Blinding Lights',
+                artists: 'The Weeknd',
+                image: '',
+                demoArt: true,
+                durationMs: 3 * 60 * 1000 + 20 * 1000,
+                progressMs: 72 * 1000,
+                playing: true,
+                serverTs: Date.now(),
+            });
+            renderQueue([
+                {
+                    name: 'Save Your Tears',
+                    artists: 'The Weeknd',
+                    image: '',
+                    demoArt: true,
+                    durationMs: 3 * 60 * 1000 + 35 * 1000,
+                },
+                {
+                    name: 'Starboy',
+                    artists: 'The Weeknd, Daft Punk',
+                    image: '',
+                    demoArt: true,
+                    durationMs: 3 * 60 * 1000 + 50 * 1000,
+                },
+            ]);
+        }
+
         let ws, rt;
         function connect() {
             const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -190,10 +261,22 @@
             ws.onclose = () => { rt = setTimeout(connect, 1500); };
             ws.onmessage = (ev) => {
                 let m; try { m = JSON.parse(ev.data); } catch { return; }
-                if (m.type === 'spotifyNowPlaying') renderNow(m.payload?.track || null);
-                else if (m.type === 'spotifyQueue') renderQueue(m.payload?.queue || []);
+                if (m.type === 'spotifyNowPlaying') {
+                    const t = m.payload?.track || null;
+                    if (t && t.name) demoMode = false;
+                    // En embed: si aún no hay pista real, mantener la demo
+                    if (!t && isEmbed && demoMode) return;
+                    renderNow(t);
+                } else if (m.type === 'spotifyQueue') {
+                    const q = m.payload?.queue || [];
+                    if (Array.isArray(q) && q.length) demoMode = false;
+                    if ((!q || !q.length) && isEmbed && demoMode) return;
+                    renderQueue(q);
+                }
             };
         }
+
+        if (isEmbed) showDemoPreview();
         connect();
     })();
     </script>

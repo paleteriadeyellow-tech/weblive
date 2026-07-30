@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Spotify Player</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+    }
+    html.embed, html.embed body {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+    }
+        html.embed body {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 12px;
+        }
+        html.embed .sp-player {
+          width: min(100%, 480px);
+          height: auto;
+          min-height: 140px;
+          aspect-ratio: 520 / 168;
+        }
+        html.embed .sp-cover-wrap {
+          width: auto;
+          height: auto;
+          aspect-ratio: 1;
+          align-self: stretch;
+        }
+    .sp-player {
+      --bg: #121212;
+      --fg: #ffffff;
+      --muted: #a7a7a7;
+      --track: #404040;
+      width: 520px;
+      max-width: 100%;
+      height: 168px;
+      box-sizing: border-box;
+      background: var(--bg);
+      border-radius: 10px;
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      overflow: hidden;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity .25s ease, transform .25s ease;
+    }
+    .sp-player.is-on {
+      opacity: 1;
+      transform: none;
+    }
+    .sp-cover-wrap {
+      position: relative;
+      width: 168px;
+      height: 168px;
+      flex: none;
+      background: #000;
+    }
+    .sp-cover {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.18), transparent 42%),
+        linear-gradient(145deg, #1db954, #121212 70%);
+    }
+    .sp-cover-title {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 15px;
+      line-height: 1.15;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      text-shadow: 0 2px 8px rgba(0,0,0,.85);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .sp-body {
+      flex: 1;
+      min-width: 0;
+      padding: 16px 18px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-sizing: border-box;
+    }
+    .sp-info { min-width: 0; }
+    .sp-name {
+      color: var(--fg);
+      font-weight: 700;
+      font-size: 20px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sp-artist {
+      margin-top: 4px;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 14px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sp-progress-block { margin-top: 10px; }
+    .sp-bar {
+      position: relative;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--track);
+      overflow: visible;
+    }
+    .sp-bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: #fff;
+    }
+    .sp-bar-thumb {
+      position: absolute;
+      top: 50%;
+      left: 0%;
+      width: 10px;
+      height: 10px;
+      margin-left: -5px;
+      margin-top: -5px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.2);
+    }
+    .sp-times {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .02em;
+    }
+    .sp-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      margin-top: 8px;
+      color: #fff;
+    }
+    .sp-controls svg {
+      display: block;
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .sp-play {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,.92);
+      display: grid;
+      place-items: center;
+      box-sizing: border-box;
+    }
+    .sp-play svg { width: 16px; height: 16px; }
+    .sp-empty {
+      display: none;
+      color: rgba(255,255,255,.7);
+      font-size: 14px;
+      padding: 18px;
+    }
+    .sp-player.is-empty .sp-empty { display: block; }
+    .sp-player.is-empty .sp-cover-wrap,
+    .sp-player.is-empty .sp-body { display: none; }
+  </style>
+</head>
+<body>
+  <div class="sp-player is-empty" id="sp-player" aria-live="polite">
+    <div class="sp-cover-wrap">
+      <img class="sp-cover" id="sp-cover" alt="">
+      <div class="sp-cover-title" id="sp-cover-title"></div>
+    </div>
+    <div class="sp-body">
+      <div class="sp-info">
+        <div class="sp-name" id="sp-name">—</div>
+        <div class="sp-artist" id="sp-artist">—</div>
+      </div>
+      <div>
+        <div class="sp-progress-block">
+          <div class="sp-bar" id="sp-bar">
+            <div class="sp-bar-fill" id="sp-fill"></div>
+            <div class="sp-bar-thumb" id="sp-thumb"></div>
+          </div>
+          <div class="sp-times">
+            <span id="sp-cur">0:00</span>
+            <span id="sp-dur">0:00</span>
+          </div>
+        </div>
+        <div class="sp-controls" aria-hidden="true">
+          <!-- previous -->
+          <svg viewBox="0 0 24 24"><path d="M6 6h2.2v12H6V6zm3.2 6 8.8 6.2V5.8L9.2 12z"/></svg>
+          <div class="sp-play" id="sp-playbtn">
+            <!-- pause by default when playing -->
+            <svg id="sp-icon-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7V5zm6.5 0H17v14h-3.5V5z"/></svg>
+            <svg id="sp-icon-play" viewBox="0 0 24 24" style="display:none"><path d="M8 5.2v13.6L19 12 8 5.2z"/></svg>
+          </div>
+          <!-- next -->
+          <svg viewBox="0 0 24 24"><path d="M15.8 6H18v12h-2.2V6zM6 5.8v12.4L14.8 12 6 5.8z"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="sp-empty">Sin reproducción</div>
+  </div>
+
+  <script>
+  (function () {
+    const isEmbed = /(?:^|[?&])embed=1(?:&|$)/.test(location.search);
+    if (isEmbed) document.documentElement.classList.add('embed');
+
+    const el = {
+      root: document.getElementById('sp-player'),
+      cover: document.getElementById('sp-cover'),
+      coverTitle: document.getElementById('sp-cover-title'),
+      name: document.getElementById('sp-name'),
+      artist: document.getElementById('sp-artist'),
+      fill: document.getElementById('sp-fill'),
+      thumb: document.getElementById('sp-thumb'),
+      cur: document.getElementById('sp-cur'),
+      dur: document.getElementById('sp-dur'),
+      iconPause: document.getElementById('sp-icon-pause'),
+      iconPlay: document.getElementById('sp-icon-play'),
+    };
+
+    let track = null;
+    let anim = null;
+    let demoMode = false;
+
+    const fmt = (ms) => {
+      const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+      const m = Math.floor(s / 60);
+      return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    };
+
+    function artUrl(url) {
+      const raw = String(url || '').trim();
+      if (!raw) return '';
+      if (raw.startsWith('data:') || raw.startsWith('/') || raw.startsWith('blob:')) return raw;
+      return `/api/img-proxy?url=${encodeURIComponent(raw)}`;
+    }
+
+    function progressNow() {
+      if (!track) return 0;
+      if (!track.playing) return track.progressMs || 0;
+      const elapsed = Date.now() - (track.serverTs || Date.now());
+      return Math.min(track.durationMs || 0, (track.progressMs || 0) + elapsed);
+    }
+
+    function paintProgress() {
+      if (!track) return;
+      const dur = Math.max(1, track.durationMs || 1);
+      const p = progressNow();
+      const pct = Math.max(0, Math.min(100, (p / dur) * 100));
+      el.fill.style.width = pct + '%';
+      el.thumb.style.left = pct + '%';
+      el.cur.textContent = fmt(p);
+      el.dur.textContent = fmt(dur);
+    }
+
+    function stopAnim() {
+      if (anim) { clearInterval(anim); anim = null; }
+    }
+
+    function startAnim() {
+      stopAnim();
+      if (track && track.playing) anim = setInterval(paintProgress, 250);
+    }
+
+    function render(t) {
+      track = t && t.name ? { ...t } : null;
+      if (!track) {
+        el.root.classList.add('is-empty');
+        el.root.classList.remove('is-on');
+        stopAnim();
+        return;
+      }
+      el.root.classList.remove('is-empty');
+      el.root.classList.add('is-on');
+      el.name.textContent = track.name || '—';
+      el.artist.textContent = track.artists || '—';
+      el.coverTitle.textContent = String(track.name || '').toUpperCase();
+      const src = artUrl(track.image);
+      if (src) {
+        el.cover.src = src;
+        el.cover.onerror = () => { el.cover.removeAttribute('src'); };
+      } else {
+        el.cover.removeAttribute('src');
+      }
+      const playing = !!track.playing;
+      el.iconPause.style.display = playing ? '' : 'none';
+      el.iconPlay.style.display = playing ? 'none' : '';
+      paintProgress();
+      startAnim();
+    }
+
+    function showDemo() {
+      demoMode = true;
+      render({
+        name: 'Blinding Lights',
+        artists: 'The Weeknd',
+        image: '',
+        durationMs: 3 * 60 * 1000 + 20 * 1000,
+        progressMs: 84 * 1000,
+        playing: true,
+        serverTs: Date.now(),
+      });
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type !== 'spotifyNowPlaying') return;
+        const t = m.payload?.track || null;
+        if (t && t.name) demoMode = false;
+        if (!t && isEmbed && demoMode) return;
+        render(t);
+      };
+    }
+
+    if (isEmbed) showDemo();
+    connect();
+  })();
+  </script>
+</body>
+</html>

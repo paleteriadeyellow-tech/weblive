@@ -278,10 +278,11 @@ export function pickCardBadges(badges, limit = Infinity) {
   }));
 }
 
-/** Mapea exec.tipo de juegos → clave game_*. */
-export function gameKeyFromExecTipo(tipo) {
+/** Mapea exec.tipo de juegos → clave game_*. hintUrl ayuda con WEBHOOK. */
+export function gameKeyFromExecTipo(tipo, hintUrl = '') {
   const t = String(tipo || '').toUpperCase();
-  if (!t) return '';
+  const u = String(hintUrl || '').toLowerCase();
+  if (!t && !u) return '';
   if (t.startsWith('MARIO_') || t === 'SMBX' || t.includes('SMBX')) return 'game_mariobros';
   if (t.startsWith('SMB3_')) return 'game_smb3';
   if (t.startsWith('SMW_')) return 'game_smw';
@@ -307,6 +308,17 @@ export function gameKeyFromExecTipo(tipo) {
   if (t.includes('FARM') && t.includes('MC')) return 'game_mcfarm';
   if (t.includes('SHOOT')) return 'game_mcshooter';
   if (t.includes('MCSERVIDOR') || t.includes('MC_SERVER')) return 'game_mcservidor';
+  // WEBHOOK / URLs locales de bridges
+  if (t === 'WEBHOOK' || u) {
+    if (u.includes(':5722') || u.includes('mari0')) return 'game_mari0';
+    if (u.includes(':5720') || u.includes('smbx') || u.includes('smb3')) return 'game_mariobros';
+    if (u.includes(':7757') || (u.includes('pvz') && u.includes('hybrid'))) return 'game_pvzhybrid';
+    if (u.includes(':7756') || u.includes('pvz')) return 'game_plantasvszombies';
+    if (u.includes(':7760') || u.includes('mslug') || u.includes('metal')) return 'game_metalslug';
+    if (u.includes(':5721') || u.includes('geometry') || u.includes('gdash')) return 'game_geometrydash';
+    if (u.includes('repo')) return 'game_repo';
+    if (u.includes('l4d')) return 'game_l4d';
+  }
   return '';
 }
 

@@ -2476,8 +2476,8 @@
       const sameW = ids.length && ids.every((id) => getLayer(id)?.w === ref?.w);
       const sameH = ids.length && ids.every((id) => getLayer(id)?.h === ref?.h);
       const sameMot = ids.length && ids.every((id) => (getLayer(id)?.motion || 'off') === (ref?.motion || 'off'));
-      const wVal = sameW ? (ref?.w || 80) : (ref?.w || 80);
-      const hVal = sameH ? (ref?.h || 80) : (ref?.h || 80);
+      const wVal = ref?.w || 80;
+      const hVal = ref?.h || 80;
       box.innerHTML = `
         <p class="ied-muted"><strong>${n}</strong> capas seleccionadas — los cambios se aplican a todas</p>
         <label class="ied-field">Movimiento
@@ -3583,11 +3583,12 @@
       if (!animMap.size && !textAnim) {
         timeline.push({ t: 0, delay: 100 });
       } else if (!animMap.size && textAnim) {
-        const step = 90;
+        // Ciclo del arcoíris CSS (4.5s) + frames más suaves para flotar/rebote/etc.
+        const step = 50;
         const duration = 4500;
         for (let t = 0; t < duration; t += step) timeline.push({ t, delay: step });
       } else {
-        const duration = Math.min(Math.max(maxLoop, textAnim ? 4500 : 100), 6000);
+        const duration = Math.min(Math.max(maxLoop, textAnim ? 4500 : 100), 9000);
         let primary = null;
         let primaryTotal = 0;
         animMap.forEach((frames) => {
@@ -3605,12 +3606,12 @@
             t += f.delay;
           }
         } else {
-          const step = 80;
+          const step = textAnim ? 50 : 80;
           for (let t = 0; t < duration; t += step) {
             timeline.push({ t, delay: step });
           }
         }
-        if (timeline.length > 80) timeline.length = 80;
+        if (timeline.length > (textAnim ? 100 : 80)) timeline.length = textAnim ? 100 : 80;
       }
 
       const gif = tools.GIFEncoder();
