@@ -114,6 +114,26 @@ window.addEventListener('online', ensureConnected);
 // bfcache / vuelta de pestaña en Live Studio tras caída del servidor
 window.addEventListener('pageshow', ensureConnected);
 
+/** Si el WS lleva mucho caído pero el HTTP ya responde, recargar (Live Studio CEF). */
+let __vidDownSince = 0;
+setInterval(() => {
+  const dead = wsNeedsReconnect() || !ws || ws.readyState !== WebSocket.OPEN;
+  if (dead) {
+    if (!__vidDownSince) __vidDownSince = Date.now();
+    if (Date.now() - __vidDownSince < 8000) return;
+    fetch('/api/overlay-ping?t=' + Date.now(), { cache: 'no-store', credentials: 'omit' })
+      .then((r) => {
+        if (r && (r.ok || r.status === 204)) {
+          __vidDownSince = 0;
+          try { location.reload(); } catch {}
+        }
+      })
+      .catch(() => {});
+    return;
+  }
+  __vidDownSince = 0;
+}, 4000);
+
 /* Cola de reproducción: con la cola activada cada video espera a que termine el anterior.
    El Perfil General usa su propia capa/cola para no bloquearse con el perfil activo. */
 const lanes = {

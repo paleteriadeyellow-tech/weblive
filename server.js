@@ -3032,6 +3032,36 @@ if (IS_DESKTOP) {
 
 // Resto de estáticos: login, overlays, css, js… Con validación (ETag) para recargas
 // rápidas: si el archivo no cambió, el navegador recibe "304 Not Modified" al instante.
+app.get('/api/overlay-ping', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, t: Date.now() });
+});
+
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const raw = String(req.path || '');
+  if (!/\.html$/i.test(raw)) return next();
+  const base = path.basename(raw).toLowerCase();
+  if (base === 'index.html' || base === 'login.html' || base === 'register.html') return next();
+  if (raw.toLowerCase().includes('/intro/')) return next();
+  const file = path.normalize(path.join(__dirname, 'public', decodeURIComponent(raw)));
+  const root = path.normalize(path.join(__dirname, 'public'));
+  if (!file.startsWith(root + path.sep) && file !== root) return next();
+  fs.readFile(file, 'utf8', (err, html) => {
+    if (err || typeof html !== 'string') return next();
+    if (html.includes('overlay-keepalive.js')) {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      return res.type('html').send(html);
+    }
+    const tag = '<script src="/js/overlay-keepalive.js?v=ka1" defer></script>';
+    const out = /<\/head>/i.test(html)
+      ? html.replace(/<\/head>/i, `${tag}\n</head>`)
+      : `${tag}\n${html}`;
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.type('html').send(out);
+  });
+});
+
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 /* ------------------------------- APIs compartidas ------------------------------- */

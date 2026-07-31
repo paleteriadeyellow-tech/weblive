@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins Â· Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=dock44" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=dock47" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
@@ -29,6 +29,22 @@
           </linearGradient>
         </defs>
       </svg>
+      <div class="dock-user" id="user-chip">
+        <button type="button" class="dock-user-btn" id="dock-user-btn" aria-haspopup="true" aria-expanded="false" title="Cuenta">
+          <span class="dock-user-av" id="dock-user-av" aria-hidden="true">
+            <img id="dock-user-img" class="dock-user-img" hidden alt="">
+            <span id="dock-user-ph" class="dock-user-ph">?</span>
+          </span>
+        </button>
+        <div class="dock-user-menu" id="dock-user-menu" role="menu" hidden>
+          <div class="dock-user-menu-head">
+            <span class="user-chip-name" id="user-chip-name">…</span>
+            <span class="user-chip-ver" id="user-chip-ver"></span>
+          </div>
+          <button type="button" class="dock-user-item" id="email-acc-btn" role="menuitem" hidden>Verificar email</button>
+          <button type="button" class="dock-user-item dock-user-item--out" id="logout-btn" role="menuitem">Cerrar sesión</button>
+        </div>
+      </div>
       <a class="dock-logo" href="#panel" id="dockLogo" title="Livecoins" aria-label="Livecoins">
         <img src="/img/livecoins-logo.png?v=logo2" alt="Livecoins" width="180" height="46" decoding="async" draggable="false" />
       </a>
@@ -416,15 +432,8 @@
           <h1 class="view-title">âš™ï¸ ConfiguraciÃ³n</h1>
           <p class="view-sub">ConexiÃ³n RCON al servidor Minecraft, OBS, Streamer.bot y ServerTap. Los mismos datos se usan en Acciones y en la pestaÃ±a Minecraft.</p>
 
-          <div class="cfg-account-bar" id="user-sidebar-foot">
-            <button type="button" class="sidebar-install-btn" id="pc-install-btn" hidden>â¬‡ï¸ Instalar versiÃ³n PC</button>
-            <div class="user-chip" id="user-chip">
-              <div class="user-chip-row">
-                <span class="user-chip-name" id="user-chip-name">ðŸ‘¤ â€¦</span>
-                <span class="user-chip-ver" id="user-chip-ver"></span>
-                <button type="button" class="sidebar-logout-btn" id="logout-btn">Salir</button>
-              </div>
-            </div>
+                    <div class="cfg-account-bar" id="user-sidebar-foot">
+            <button type="button" class="sidebar-install-btn" id="pc-install-btn" hidden>⬇️ Instalar versión PC</button>
           </div>
 
           <div class="settings-card">

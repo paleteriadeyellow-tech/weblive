@@ -212,12 +212,137 @@ body {
 }
 .dock-logo img {
   display: block;
-  height: 46px;
+  height: 34px;
   width: auto;
-  max-width: 200px;
+  max-width: 148px;
   object-fit: contain;
   background: transparent;
 }
+
+/* Avatar de cuenta junto al logo */
+.dock-user {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: 0;
+  margin-right: 10px;
+  z-index: 6;
+}
+.dock-user-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 0;
+}
+.dock-user-av {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0a1424;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  box-shadow:
+    0 0 0 1.5px rgba(186, 210, 240, .55),
+    0 0 0 2.5px rgba(10, 20, 36, .9),
+    inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+.dock-user-btn:hover .dock-user-av,
+.dock-user.is-open .dock-user-av {
+  box-shadow:
+    0 0 0 1.5px rgba(220, 236, 255, .85),
+    0 0 0 2.5px rgba(10, 20, 36, .95),
+    0 0 14px rgba(125, 211, 252, .28),
+    inset 0 1px 0 rgba(255, 255, 255, .25);
+}
+.dock-user-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+.dock-user-ph {
+  font-size: 13px;
+  font-weight: 800;
+  color: #c5d4ea;
+  letter-spacing: .02em;
+  user-select: none;
+}
+.dock-user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 188px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(142, 199, 255, .22);
+  background:
+    linear-gradient(165deg, rgba(18, 32, 56, .98), rgba(8, 14, 26, .98));
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, .45),
+    0 0 0 1px rgba(255, 255, 255, .04) inset;
+  z-index: 40;
+}
+.dock-user-menu[hidden] { display: none !important; }
+.dock-user-menu-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  margin-bottom: 6px;
+}
+.dock-user-menu-head .user-chip-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  opacity: 1;
+  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dock-user-menu-head .user-chip-ver {
+  font-size: 11px;
+  color: var(--cyan);
+  opacity: .75;
+}
+.dock-user-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 10px;
+  margin: 0;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #e8eef8;
+  background: transparent;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.dock-user-item:hover {
+  background: rgba(0, 102, 255, .16);
+  color: #fff;
+}
+.dock-user-item--out:hover {
+  background: rgba(254, 44, 85, .16);
+  color: #ffb4c0;
+}
+.dock-user-item[hidden] { display: none !important; }
+
 .brand {
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 700;

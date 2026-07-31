@@ -268,23 +268,26 @@
   function wireButton() {
     ensureModal();
     ensurePrompt();
-    let btn = $('email-acc-btn');
-    if (!btn) {
-      const row = document.querySelector('#user-chip .user-chip-row');
-      if (!row) return;
-      btn = document.createElement('button');
-      btn.type = 'button';
-      btn.id = 'email-acc-btn';
-      btn.className = 'sidebar-logout-btn';
-      btn.textContent = 'Email';
-      btn.title = 'Correo de recuperación';
-      const logout = $('logout-btn');
-      if (logout) row.insertBefore(btn, logout);
-      else row.appendChild(btn);
+    const btn = $('email-acc-btn');
+    if (!btn) return;
+    if (!btn.dataset.wiredEmail) {
+      btn.dataset.wiredEmail = '1';
+      btn.onclick = () => {
+        try {
+          const menu = $('dock-user-menu');
+          if (menu) menu.hidden = true;
+          const chip = $('user-chip');
+          if (chip) chip.classList.remove('is-open');
+          const dockBtn = $('dock-user-btn');
+          if (dockBtn) dockBtn.setAttribute('aria-expanded', 'false');
+        } catch {}
+        open();
+      };
     }
-    btn.onclick = open;
     // Solo cuentas sin correo verificado (usuarios antiguos). Las nuevas ya verifican al registrarse.
     btn.hidden = !!window.MY_EMAIL_VERIFIED;
+    btn.textContent = 'Verificar email';
+    btn.title = window.MY_EMAIL ? `Email: ${window.MY_EMAIL}` : 'Correo de recuperación';
   }
 
   window.openEmailAccountModal = open;

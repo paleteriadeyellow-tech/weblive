@@ -1197,18 +1197,70 @@ function refreshOverlayUrls() {
   });
 }
 
-// Chip de usuario con botón de cerrar sesión (barra lateral).
+function updateDockUserAvatar({ photo, nickname, username } = {}) {
+  const img = document.getElementById('dock-user-img');
+  const ph = document.getElementById('dock-user-ph');
+  if (!img || !ph) return;
+  if (photo) connectStreamerPhoto = photo;
+  const name = nickname || username || window.MY_USER || '';
+  const url = connectAvatarUrl(photo || connectStreamerPhoto);
+  if (url) {
+    img.referrerPolicy = 'no-referrer';
+    img.src = url;
+    img.hidden = false;
+    ph.hidden = true;
+    img.onerror = () => {
+      img.hidden = true;
+      ph.hidden = false;
+      ph.textContent = (typeof initial === 'function' ? initial(name) : (name[0] || '?')).toString().toUpperCase();
+    };
+  } else {
+    img.hidden = true;
+    ph.hidden = false;
+    ph.textContent = (typeof initial === 'function' ? initial(name || '?') : (name[0] || '?')).toString().toUpperCase();
+  }
+}
+
+function setDockUserMenuOpen(open) {
+  const chip = document.getElementById('user-chip');
+  const btn = document.getElementById('dock-user-btn');
+  const menu = document.getElementById('dock-user-menu');
+  if (!chip || !btn || !menu) return;
+  menu.hidden = !open;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  chip.classList.toggle('is-open', !!open);
+}
+
+// Chip de usuario con menú (avatar junto al logo).
 function mountUserChip() {
   const chip = document.getElementById('user-chip');
   const nameEl = document.getElementById('user-chip-name');
   if (!chip || !nameEl) return;
-  nameEl.textContent = `👤 ${window.MY_USER || 'usuario'}`;
+  nameEl.textContent = window.MY_USER || 'usuario';
   const verEl = document.getElementById('user-chip-ver');
   if (verEl) verEl.hidden = !IS_DESKTOP;
+  updateDockUserAvatar({ username: window.MY_USER });
+  const btn = document.getElementById('dock-user-btn');
+  const menu = document.getElementById('dock-user-menu');
+  if (btn && menu && !btn.dataset.wired) {
+    btn.dataset.wired = '1';
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDockUserMenuOpen(menu.hidden);
+    };
+    document.addEventListener('click', (e) => {
+      if (!chip.contains(e.target)) setDockUserMenuOpen(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') setDockUserMenuOpen(false);
+    });
+  }
   const logout = document.getElementById('logout-btn');
   if (logout && !logout.dataset.wired) {
     logout.dataset.wired = '1';
     logout.onclick = async () => {
+      setDockUserMenuOpen(false);
       try { await fetch('/api/logout', { method: 'POST' }); } catch {}
       location.href = '/login.html';
     };
@@ -3144,6 +3196,7 @@ function updateConnectAvatar({ photo, nickname, username, live } = {}) {
     ph.hidden = false;
     ph.textContent = initial(name || '?');
   }
+  try { updateDockUserAvatar({ photo: photo || connectStreamerPhoto, nickname: name, username: username || window.MY_USER }); } catch {}
 }
 
 function renderState(s) {
@@ -3931,8 +3984,8 @@ function renderScreens() {
       </div>
       <div class="screen-status ${on ? 'on' : 'off'}"><span class="sdot"></span>${on ? 'Conectada' : 'Sin fuente'}</div>
       <p class="screen-tip">${on
-        ? 'Fuente activa — el link no cambia al reiniciar Render'
-        : 'Si ya tenías el link en OBS/Live Studio, no lo cambies: pulsa Actualizar en la fuente. Solo vuelve a pegar si el enlace es distinto.'}</p>
+        ? 'Fuente activa — si Livecoins se reinicia, el overlay se reconecta solo (no hace falta volver a pegar el link)'
+        : 'Pega el link una vez. Si se ve negro: abre Livecoins y pulsa Actualizar en la fuente (no la borres). El .exe debe estar abierto.'}</p>
       <div class="screen-btns">
         <button type="button" class="copy">Copiar link</button>
         <button type="button" class="test">Probar</button>
