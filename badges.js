@@ -144,8 +144,8 @@ export const BADGE_CATALOG = [
     icon: '💎',
     img: badgeImg('vip'),
     group: 'plan',
-    progress: (_s, _u, plan) => ({ current: plan === 'premium' ? 1 : 0, target: 1 }),
-    earned: (_s, _u, plan) => plan === 'premium',
+    progress: (_s, _u, plan) => ({ current: (plan === 'premium' || plan === 'founder') ? 1 : 0, target: 1 }),
+    earned: (_s, _u, plan) => plan === 'premium' || plan === 'founder',
   },
   {
     id: 'desktop',
@@ -240,7 +240,9 @@ export function buildBadgesForUser(user, plan = 'free') {
   const manual = Array.isArray(user?.manualBadges)
     ? user.manualBadges.map(String)
     : [];
-  const effectivePlan = user?.isAdmin ? 'premium' : (plan === 'premium' ? 'premium' : 'free');
+  const effectivePlan = user?.isAdmin
+    ? 'premium'
+    : (plan === 'premium' || plan === 'founder' ? plan : 'free');
 
   return BADGE_CATALOG.map((def) => {
     const earned = !!def.earned(stats, user, effectivePlan, manual);

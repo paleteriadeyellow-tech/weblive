@@ -148,11 +148,24 @@ export function setUserActive(id, active) {
   saveUsers();
   return true;
 }
+/** Normaliza plan guardado: free | premium | founder */
+export function normalizeStoredPlan(plan) {
+  const p = String(plan || '').toLowerCase();
+  if (p === 'premium' || p === 'founder') return p;
+  return 'free';
+}
+/** Plan de pago (mismos límites que Premium). */
+export function isPaidPlanName(plan) {
+  const p = String(plan || '').toLowerCase();
+  return p === 'premium' || p === 'founder' || p === 'admin';
+}
 // Plan efectivo del usuario ('premium' para el admin). Si el Premium tenía fecha de
 // caducidad y ya pasó, lo baja a 'free' de forma persistente (y devuelve 'free').
+// 'founder' = mismos caps que premium; solo etiqueta / asignación admin.
 export function getUserPlan(user) {
   if (!user) return 'free';
   if (user.isAdmin) return 'premium';
+  if (user.plan === 'founder') return 'founder';
   if (user.plan === 'premium') {
     if (user.premiumUntil && user.premiumUntil > 0 && Date.now() > user.premiumUntil) {
       user.plan = 'free';
@@ -166,10 +179,14 @@ export function getUserPlan(user) {
 }
 // Cambia el plan. days > 0 => Premium temporal que caduca en N días.
 // days = 0/null => si es premium, queda FIJO (sin caducidad).
+// plan = 'founder' => Founder fijo (solo admin; mismos caps que premium).
 export function setUserPlan(id, plan, days) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
-  if (plan === 'premium') {
+  if (plan === 'founder') {
+    u.plan = 'founder';
+    u.premiumUntil = 0;
+  } else if (plan === 'premium') {
     u.plan = 'premium';
     const n = Number(days);
     u.premiumUntil = (Number.isFinite(n) && n > 0) ? Date.now() + n * 24 * 60 * 60 * 1000 : 0;
@@ -498,7 +515,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
       isAdmin: !!isAdmin || uname === ADMIN_USERNAME,
       active: active !== false,
       activatedByDefault: true,
-      plan: plan === 'premium' ? 'premium' : 'free',
+      plan: normalizeStoredPlan(plan),
       premiumUntil: 0,
       gamesEnabled: true,
       spotifyEnabled: false,
@@ -511,7 +528,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
     user.hash = hash;
     user.isAdmin = !!isAdmin || uname === ADMIN_USERNAME;
     user.active = active !== false;
-    user.plan = plan === 'premium' ? 'premium' : 'free';
+    user.plan = normalizeStoredPlan(plan);
     if (user.gamesEnabled === undefined) user.gamesEnabled = true;
     user.premiumUntil = 0;
     user.mirror = true;
@@ -527,7 +544,7 @@ export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, game
   const u = users.find((x) => x.id === id);
   if (!u) return false;
   let changed = false;
-  const newPlan = plan === 'premium' ? 'premium' : 'free';
+  const newPlan = normalizeStoredPlan(plan);
   if (u.plan !== newPlan) { u.plan = newPlan; changed = true; }
   const pu = Number(premiumUntil);
   const newPu = Number.isFinite(pu) && pu > 0 ? pu : 0;
@@ -741,7 +758,7 @@ export function upsertMirrorGoogleUser({ username, googleEmail, plan, isAdmin, a
       isAdmin: !!isAdmin || uname === ADMIN_USERNAME,
       active: active !== false,
       activatedByDefault: true,
-      plan: plan === 'premium' ? 'premium' : 'free',
+      plan: normalizeStoredPlan(plan),
       premiumUntil: 0,
       gamesEnabled: true,
       spotifyEnabled: false,
@@ -752,7 +769,7 @@ export function upsertMirrorGoogleUser({ username, googleEmail, plan, isAdmin, a
     if (mail) user.googleEmail = mail;
     user.isAdmin = !!isAdmin || uname === ADMIN_USERNAME;
     user.active = active !== false;
-    user.plan = plan === 'premium' ? 'premium' : 'free';
+    user.plan = normalizeStoredPlan(plan);
     user.premiumUntil = 0;
     user.lastLogin = Date.now();
     user.mirror = true;

@@ -514,7 +514,8 @@ function capsForUser(user) {
     caps.spotify = true;
     return caps;
   }
-  const plan = getUserPlan(user) === 'premium' ? 'premium' : 'free';
+  const raw = getUserPlan(user);
+  const plan = (raw === 'premium' || raw === 'founder') ? 'premium' : 'free';
   const caps = applyLocalCaps(effectiveCaps(plan), plan);
   // Override por usuario: off total, o allowlist de juegos concretos.
   if (!isUserGamesEnabled(user)) {
@@ -775,9 +776,11 @@ function listPanelLives() {
 function enrichPanelLivesPlans(lives) {
   return (Array.isArray(lives) ? lives : []).map((l) => {
     const remote = String(l?.plan || '').toLowerCase();
+    if (remote === 'founder') return { ...l, plan: 'founder' };
     if (remote === 'premium' || remote === 'admin') return { ...l, plan: 'premium' };
     const u = (l?.panelUser && getUserByUsername(String(l.panelUser))) || null;
     const local = getUserPlan(u);
+    if (local === 'founder') return { ...l, plan: 'founder' };
     return { ...l, plan: local === 'premium' ? 'premium' : (remote || 'free') };
   });
 }

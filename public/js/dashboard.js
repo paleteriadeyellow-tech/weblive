@@ -495,7 +495,13 @@ function setCaps(c) {
     features: c.features || {},
     spotify: typeof c.spotify === 'boolean' ? c.spotify : !!window.CAPS?.spotify,
   };
-  if (plan && plan !== 'free') window.MY_PLAN = plan === 'admin' ? 'premium' : plan;
+  if (plan && plan !== 'free') {
+    const cur = String(window.MY_PLAN || '').toLowerCase();
+    // caps.plan es el bucket (premium/free); no pisar etiqueta Founder
+    if (!(cur === 'founder' && (plan === 'premium' || plan === 'admin'))) {
+      window.MY_PLAN = plan === 'admin' ? 'premium' : plan;
+    }
+  }
   if (typeof c.spotify === 'boolean') window.SPOTIFY_ACCESS = c.spotify;
   applyCaps();
   try { revealWebhookTab(); } catch {}
@@ -851,7 +857,7 @@ function renderPlanPricing() {
       <span class="pp-tag gold">⭐ RECOMENDADO</span>
       <div class="pp-head">
         <div class="pp-name">⭐ Plan Premium</div>
-        <div class="pp-price">$12 USD<small>/ mes · todo desbloqueado</small></div>
+        <div class="pp-price">$17 USD<small>/ mes · todo desbloqueado</small></div>
       </div>
       <p class="pp-tagline">Sin límites y con todos los overlays y funciones.</p>
       <ul class="pp-list">${buildList('premium')}</ul>
@@ -862,7 +868,7 @@ function renderPlanPricing() {
 
   const buyBtn = document.getElementById('pp-buy');
   if (buyBtn) buyBtn.onclick = () => {
-    const msg = `Hola, quiero comprar el Plan Premium ($12 USD/mes) de Livecoins. Mi usuario es: ${window.MY_USER || ''}`;
+    const msg = `Hola, quiero comprar el Plan Premium ($17 USD/mes) de Livecoins. Mi usuario es: ${window.MY_USER || ''}`;
     const url = 'https://wa.me/522202079074?text=' + encodeURIComponent(msg);
     window.open(url, '_blank', 'noopener');
   };
@@ -1648,14 +1654,33 @@ function onOverlayNavShown(viewSlugOrId) {
 }
 
 /* ====================== Navegación lateral ====================== */
+function pulseDockNav(btn) {
+  if (!btn) return;
+  document.querySelectorAll('.nav-item.dock-bounce').forEach((b) => b.classList.remove('dock-bounce'));
+  btn.classList.remove('dock-bounce');
+  void btn.offsetWidth;
+  btn.classList.add('dock-bounce');
+  try { btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch {}
+  clearTimeout(pulseDockNav._t);
+  pulseDockNav._t = setTimeout(() => btn.classList.remove('dock-bounce'), 480);
+}
+
+document.getElementById('dockLogo')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  document.querySelector('.nav-item[data-view="panel"]')?.click();
+});
+
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
+    pulseDockNav(btn);
     const view = document.getElementById(`view-${btn.dataset.view}`);
     if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
     view.classList.add('active');
+    // Cerrar flyout tras activar vista; solo bloquear reabrir el menú del que salió el click
+    closeNavFlyouts({ suppressEl: btn.closest('.nav-flyout') });
     onOverlayNavShown(btn.dataset.view);
     if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); loadAdminBadges(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
@@ -1669,6 +1694,116 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
       try { setupAccionesUI(); if (typeof renderAcciones === 'function') renderAcciones(); } catch (e) { console.error('Acciones UI:', e); }
     }
   };
+});
+
+/* Flyouts (Overlays / Acciones y eventos): hover fiable, sin estados trabados */
+function closeNavFlyouts(opts) {
+  const except = opts && opts.except;
+  const suppressEl = opts && opts.suppressEl;
+  document.querySelectorAll('.nav-flyout').forEach((f) => {
+    if (except && f === except) return;
+    const st = f._flyoutState;
+    if (st) {
+      if (suppressEl && f === suppressEl) st.suppress = true;
+      st.close();
+    } else {
+      f.classList.remove('is-open', 'is-forced-closed');
+      f.querySelector('.nav-flyout-btn')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
+document.querySelectorAll('.nav-flyout').forEach((fly) => {
+  const btn = fly.querySelector('.nav-flyout-btn');
+  const menu = fly.querySelector('.nav-flyout-menu');
+  if (!btn) return;
+
+  // Tooltip cuando el texto se oculta en pantallas chicas
+  const label = btn.querySelector('span:not(.nav-flyout-caret)')?.textContent?.trim();
+  if (label && !btn.title) btn.title = label;
+
+  const placeMenu = () => {
+    if (!menu) return;
+    const r = btn.getBoundingClientRect();
+    const mw = Math.max(menu.offsetWidth || 220, 220);
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - mw - 8));
+    menu.classList.add('is-dock-fixed');
+    menu.style.top = `${Math.round(r.bottom + 6)}px`;
+    menu.style.left = `${Math.round(left)}px`;
+  };
+  const clearMenuPos = () => {
+    if (!menu) return;
+    menu.classList.remove('is-dock-fixed');
+    menu.style.top = '';
+    menu.style.left = '';
+  };
+
+  const state = {
+    suppress: false,
+    closeTimer: null,
+    open() {
+      if (state.suppress) return;
+      if (state.closeTimer) {
+        clearTimeout(state.closeTimer);
+        state.closeTimer = null;
+      }
+      closeNavFlyouts({ except: fly });
+      fly.classList.add('is-open');
+      fly.classList.remove('is-forced-closed');
+      btn.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(placeMenu);
+    },
+    close() {
+      if (state.closeTimer) {
+        clearTimeout(state.closeTimer);
+        state.closeTimer = null;
+      }
+      fly.classList.remove('is-open', 'is-forced-closed');
+      btn.setAttribute('aria-expanded', 'false');
+      clearMenuPos();
+    },
+    closeSoon() {
+      if (state.closeTimer) clearTimeout(state.closeTimer);
+      state.closeTimer = setTimeout(() => {
+        state.closeTimer = null;
+        if (!fly.matches(':hover')) state.close();
+      }, 160);
+    },
+  };
+  fly._flyoutState = state;
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (fly.classList.contains('is-open')) state.close();
+    else state.open();
+  });
+
+  fly.addEventListener('mouseenter', () => {
+    if (state.closeTimer) {
+      clearTimeout(state.closeTimer);
+      state.closeTimer = null;
+    }
+    if (state.suppress) return;
+    state.open();
+  });
+
+  fly.addEventListener('mouseleave', () => {
+    state.suppress = false;
+    state.closeSoon();
+  });
+
+  window.addEventListener('resize', () => {
+    if (fly.classList.contains('is-open')) placeMenu();
+  }, { passive: true });
+  document.querySelector('.nav')?.addEventListener('scroll', () => {
+    if (fly.classList.contains('is-open')) placeMenu();
+  }, { passive: true });
+});
+
+document.addEventListener('click', (ev) => {
+  if (ev.target.closest('.nav-flyout')) return;
+  closeNavFlyouts();
 });
 
 // Deep-link #planes: el botón "Quiero Premium" de la pantalla de bienvenida
@@ -1761,7 +1896,8 @@ async function loadAdminUsers() {
               <input type="number" class="prem-days" min="1" max="3650" placeholder="días" data-id="${u.id}">
               <button class="btn tiny prem-give" data-id="${u.id}">Dar Premium</button>
               <button class="btn tiny prem-fixed" data-id="${u.id}">Fijo</button>
-              ${u.plan === 'premium' ? `<button class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
+              <button class="btn tiny founder-give" data-id="${u.id}" title="Mismos privilegios que Premium; solo etiqueta Founder">Founder</button>
+              ${(u.plan === 'premium' || u.plan === 'founder') ? `<button class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
             </div>
             </div>
             <div class="admin-actions-row">
@@ -1783,7 +1919,7 @@ async function loadAdminUsers() {
       </tr>`;
     }).join('');
     tbody.querySelectorAll('button[data-id]').forEach((b) => {
-      if (b.classList.contains('prem-give') || b.classList.contains('prem-fixed') || b.classList.contains('prem-remove') || b.classList.contains('admin-delete') || b.classList.contains('games-toggle') || b.classList.contains('admin-password')) return;
+      if (b.classList.contains('prem-give') || b.classList.contains('prem-fixed') || b.classList.contains('prem-remove') || b.classList.contains('founder-give') || b.classList.contains('admin-delete') || b.classList.contains('games-toggle') || b.classList.contains('admin-password')) return;
       b.onclick = async () => {
         b.disabled = true;
         try {
@@ -1813,9 +1949,13 @@ async function loadAdminUsers() {
     tbody.querySelectorAll('.prem-fixed').forEach((b) => {
       b.onclick = () => setUserPlanReq(b.dataset.id, 'premium', 0, 'Premium fijo activado.');
     });
-    // Quitar Premium (volver a Gratis)
+    // Founder (solo admin; mismos caps que Premium)
+    tbody.querySelectorAll('.founder-give').forEach((b) => {
+      b.onclick = () => setUserPlanReq(b.dataset.id, 'founder', 0, 'Plan Founder activado.');
+    });
+    // Quitar Premium/Founder (volver a Gratis)
     tbody.querySelectorAll('.prem-remove').forEach((b) => {
-      b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Premium retirado. Ahora es Gratis.');
+      b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Plan retirado. Ahora es Gratis.');
     });
     tbody.querySelectorAll('.games-toggle').forEach((b) => {
       b.onclick = () => setUserGamesReq(b.dataset.id, b.dataset.enabled === '1');
@@ -1846,6 +1986,7 @@ function timeAgo(ts) {
 
 // Insignia de plan para la tabla de admin (con días restantes o "fijo").
 function planBadge(u) {
+  if (u.plan === 'founder') return '<span class="badge prem">👑 Founder</span>';
   if (u.plan !== 'premium') return '<span class="badge off">Gratis</span>';
   if (u.premiumUntil && u.premiumUntil > 0) {
     const days = Math.max(0, Math.ceil((u.premiumUntil - Date.now()) / 86400000));
@@ -2295,9 +2436,9 @@ async function loadAdminGames() {
 
 /* -------- Admin: insignias especiales -------- */
 const ADMIN_MANUAL_BADGES = [
-  { id: 'partner', label: 'Partner', icon: '🤝', img: '/img/badges/partner.png' },
-  { id: 'beta', label: 'Beta', icon: '🧪', img: '/img/badges/beta.png' },
-  { id: 'staff', label: 'Staff', icon: '🛡️', img: '/img/badges/staff.png' },
+  { id: 'partner', label: 'Partner', icon: '🤝', img: badgeArtUrl('partner') },
+  { id: 'beta', label: 'Beta', icon: '🧪', img: badgeArtUrl('beta') },
+  { id: 'staff', label: 'Staff', icon: '🛡️', img: badgeArtUrl('staff') },
 ];
 let adminBadgesUsersCache = [];
 let adminBadgesSelectedId = '';
@@ -2334,7 +2475,7 @@ function renderAdminBadgesEditor() {
   if (title) title.textContent = `Insignias de ${u.username}`;
   checks.innerHTML = ADMIN_MANUAL_BADGES.map((b) => {
     const on = manual.includes(b.id);
-    return `<label><input type="checkbox" data-badge="${esc(b.id)}" ${on ? 'checked' : ''}> <img class="admin-badge-ico" src="${esc(b.img || `/img/badges/${b.id}.png`)}" alt="" width="18" height="18"> ${esc(b.label)}</label>`;
+    return `<label><input type="checkbox" data-badge="${esc(b.id)}" ${on ? 'checked' : ''}> <img class="admin-badge-ico" src="${esc(b.img || badgeArtUrl(b.id))}" alt="" width="18" height="18"> ${esc(b.label)}</label>`;
   }).join('');
   checks.querySelectorAll('input[data-badge]').forEach((inp) => {
     inp.onchange = async () => {
@@ -3016,13 +3157,17 @@ function renderState(s) {
   $('s-joins').textContent = fmt(s.stats.joins);
 
   const dot = $('dot'), st = $('statusText'), badge = $('liveBadge');
+  const btnC = $('btnConnect'), btnD = $('btnDisconnect');
   if (s.connected) {
     dot.className = 'dot live'; st.textContent = `En vivo · @${s.username}`;
     badge.className = 'live-badge live'; badge.textContent = `● En vivo · @${s.username}`;
-    $('btnConnect').hidden = true; $('btnDisconnect').hidden = false;
+    if (btnC) { btnC.hidden = true; btnC.disabled = false; btnC.textContent = 'Conectar'; btnC.classList.remove('is-connecting'); }
+    if (btnD) btnD.hidden = false;
   } else if (s.connecting) {
     dot.className = 'dot wait'; st.textContent = `Conectando...`;
     badge.className = 'live-badge wait'; badge.textContent = '● Conectando...';
+    if (btnC) { btnC.hidden = false; btnC.disabled = true; btnC.textContent = 'Conectando…'; btnC.classList.add('is-connecting'); }
+    if (btnD) btnD.hidden = true;
   } else {
     dot.className = 'dot off';
     if (s.autoConnect && s.username) {
@@ -3033,7 +3178,8 @@ function renderState(s) {
       st.textContent = 'Desconectado';
       badge.className = 'live-badge off'; badge.textContent = '● Desconectado';
     }
-    $('btnConnect').hidden = false; $('btnDisconnect').hidden = true;
+    if (btnC) { btnC.hidden = false; btnC.disabled = false; btnC.textContent = 'Conectar'; btnC.classList.remove('is-connecting'); }
+    if (btnD) btnD.hidden = true;
   }
   if (s.username && !$('username').value) $('username').value = s.username;
   if (s.username) { try { localStorage.setItem('lastTikTokUser', s.username); } catch {} }
@@ -3284,6 +3430,23 @@ async function doConnect() {
   if (!u) { $('username').focus(); return; }
   if (connectBusy) return;
   connectBusy = true;
+  const btnC = $('btnConnect');
+  const markConnecting = () => {
+    if (!btnC) return;
+    btnC.hidden = false;
+    btnC.disabled = true;
+    btnC.textContent = 'Conectando…';
+    btnC.classList.add('is-connecting');
+    const btnD = $('btnDisconnect');
+    if (btnD) btnD.hidden = true;
+  };
+  const resetConnectBtn = () => {
+    if (!btnC) return;
+    btnC.disabled = false;
+    btnC.textContent = 'Conectar';
+    btnC.classList.remove('is-connecting');
+  };
+  markConnecting();
   try {
     try { localStorage.setItem('lastTikTokUser', u); } catch {}
 
@@ -3296,6 +3459,7 @@ async function doConnect() {
     if (relay && !window.CLOUD_ROOM_KEY) {
       if (!window.CLOUD_SESSION_OK) {
         toast('Sin sesión con la nube. Cierra sesión y vuelve a entrar con internet.', 'warn');
+        resetConnectBtn();
         return;
       }
       try {
@@ -3303,6 +3467,7 @@ async function doConnect() {
         toast('Conectando a @' + u + '…', 'ok');
       } catch (e) {
         toast(e.message || 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.', 'warn');
+        resetConnectBtn();
       }
       return;
     }
@@ -3321,6 +3486,7 @@ async function doConnect() {
     if (relay) {
       if (!window.CLOUD_SESSION_OK) {
         toast('Sin sesión con la nube. Cierra sesión y vuelve a entrar con internet.', 'warn');
+        resetConnectBtn();
         return;
       }
       try {
@@ -3329,11 +3495,13 @@ async function doConnect() {
         return;
       } catch (e) {
         toast(e.message || 'Render no responde. Espera 1 min y vuelve a intentar.', 'warn');
+        resetConnectBtn();
         return;
       }
     }
 
     toast('Sin conexión al servidor. Si usas Render, espera que despierte (~1 min) y recarga.', 'warn');
+    resetConnectBtn();
   } finally {
     connectBusy = false;
   }
@@ -6427,6 +6595,7 @@ function pushBvsStylePreview(extra) {
       pushBvsStylePreview();
     };
   };
+  // Tras STYLE_OVERLAYS (definido más abajo) se vuelve a llamar.
   window.__patchBatallaVsStylePreview = wire;
 })();
 
@@ -12759,8 +12928,31 @@ function setupProfiles() {
   if (!btn || !pop) return;
   if (btn.dataset.profilesWired === '1') return;
   btn.dataset.profilesWired = '1';
+  const wrap = btn.closest('.brand-wrap');
+  let closeTimer = null;
+  const cancelClose = () => {
+    if (closeTimer) {
+      clearTimeout(closeTimer);
+      closeTimer = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer = setTimeout(() => {
+      closeTimer = null;
+      closeProfilesPop();
+    }, 180);
+  };
+  if (wrap) {
+    wrap.addEventListener('mouseenter', () => {
+      cancelClose();
+      openProfilesPop();
+    });
+    wrap.addEventListener('mouseleave', scheduleClose);
+  }
   btn.addEventListener('click', (ev) => {
     ev.stopPropagation();
+    cancelClose();
     if (pop.hidden) openProfilesPop(); else closeProfilesPop();
   });
   document.addEventListener('click', (ev) => {
@@ -12801,7 +12993,7 @@ function spotifyUnlocked() {
   if (typeof capFeature === 'function' && capFeature('tab_spotify')) return true;
   if (window.CAPS?.spotify === true) return true;
   const plan = String(window.CAPS?.plan || window.MY_PLAN || '').toLowerCase();
-  return plan === 'premium' || plan === 'admin';
+  return plan === 'premium' || plan === 'admin' || plan === 'founder';
 }
 /** @deprecated usar spotifyTabVisible / spotifyUnlocked */
 function spotifyAllowed() {
@@ -13072,6 +13264,16 @@ function setupSpotifyUI() {
   });
   const login = document.getElementById('sp-login');
   if (login) login.onclick = () => startSpotifyLogin();
+  const premLock = document.getElementById('sp-premium-lock');
+  if (premLock && !premLock._spWired) {
+    premLock._spWired = true;
+    premLock.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toast && toast('Spotify es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+    });
+  }
+  applySpotifyLock();
   // La ventana del callback (puerto 8888) avisa aquí en cuanto termina el login,
   // así la conexión se detecta al instante sin esperar al sondeo.
   window.addEventListener('message', (e) => {
@@ -13185,7 +13387,10 @@ async function showViewById(viewId) {
   if (view) view.classList.add('active');
   const navSlug = viewId.replace(/^view-/, '');
   const navBtn = document.querySelector(`.nav-item[data-view="${navSlug}"]`);
-  if (navBtn && getComputedStyle(navBtn).display !== 'none') navBtn.classList.add('active');
+  if (navBtn && getComputedStyle(navBtn).display !== 'none') {
+    navBtn.classList.add('active');
+    if (typeof pulseDockNav === 'function') pulseDockNav(navBtn);
+  }
   if (gameMatch) {
     try { await ensureGameUi(gameMatch[1]); } catch (e) { console.warn('ensureGameUi', gameMatch[1], e); }
   }
@@ -26118,11 +26323,12 @@ function syncHomeHeroPlan() {
   const hero = document.getElementById('home-welcome');
   const tier = document.getElementById('home-hero-tier');
   if (!hero) return;
-  const isPremium = !!(window.IS_ADMIN || window.CAPS?.plan === 'premium' || window.MY_PLAN === 'premium');
+  const isPremium = !!(window.IS_ADMIN || window.CAPS?.plan === 'premium' || window.MY_PLAN === 'premium' || window.MY_PLAN === 'founder');
   hero.classList.toggle('is-vip', isPremium);
   hero.classList.toggle('is-free', !isPremium);
   if (tier) {
-    tier.textContent = isPremium ? 'VIP' : 'Free';
+    const isFounder = String(window.MY_PLAN || '').toLowerCase() === 'founder';
+    tier.textContent = isFounder ? 'Founder' : (isPremium ? 'VIP' : 'Free');
     tier.className = 'home-hero-tier ' + (isPremium ? 'vip' : 'free');
   }
 }
@@ -26400,14 +26606,24 @@ function isActivePanelLive(l) {
 
 function isPanelLivePremium(plan) {
   const p = String(plan || 'free').toLowerCase();
-  return p === 'premium' || p === 'admin';
+  return p === 'premium' || p === 'admin' || p === 'founder';
+}
+
+function panelLiveTierLabel(plan) {
+  const p = String(plan || 'free').toLowerCase();
+  if (p === 'founder') return 'Founder';
+  if (isPanelLivePremium(p)) return 'VIP';
+  return 'Free';
 }
 
 /** Mapa username/tiktok → plan, rellenado desde admin (y usable al pintar lives). */
 function rememberPanelLivePlansFromUsers(users) {
   const map = window.__panelLivePlanMap || new Map();
   for (const u of users || []) {
-    const plan = (u?.isAdmin || u?.plan === 'premium' || u?.plan === 'admin') ? 'premium' : 'free';
+    let plan = 'free';
+    if (u?.isAdmin || u?.plan === 'admin') plan = 'premium';
+    else if (u?.plan === 'founder') plan = 'founder';
+    else if (u?.plan === 'premium') plan = 'premium';
     const name = String(u?.username || '').trim().toLowerCase();
     if (name) map.set(name, plan);
     const acc = String(u?.account || '').replace(/^@+/, '').trim().toLowerCase();
@@ -26420,10 +26636,14 @@ function rememberPanelLivePlansFromUsers(users) {
 function applyPanelLivePlanMap(lives, map) {
   if (!map || !map.size) return lives || [];
   return (lives || []).map((l) => {
+    const cur = String(l.plan || '').toLowerCase();
+    if (cur === 'founder') return { ...l, plan: 'founder' };
     if (isPanelLivePremium(l.plan)) return { ...l, plan: 'premium' };
     const byUser = map.get(String(l.panelUser || '').trim().toLowerCase());
     const byTt = map.get(String(l.tiktok || l.account || '').replace(/^@+/, '').trim().toLowerCase());
-    const plan = (byUser === 'premium' || byTt === 'premium') ? 'premium' : (l.plan || 'free');
+    const pick = byUser || byTt;
+    if (pick === 'founder') return { ...l, plan: 'founder' };
+    const plan = (pick === 'premium') ? 'premium' : (l.plan || 'free');
     return { ...l, plan };
   });
 }
@@ -26465,7 +26685,7 @@ function renderHomeBadges(badges) {
     const progTxt = prog && prog.target
       ? `${prog.current} / ${prog.target}`
       : (b.earned ? 'Desbloqueada' : 'Bloqueada');
-    const img = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
+    const img = b.img || badgeArtUrl(b.id);
     const ico = img
       ? `<img class="home-badge-ico-img" src="${esc(img)}" alt="" width="56" height="56" loading="lazy" decoding="async">`
       : `<span class="home-badge-ico">${esc(b.icon || '🏅')}</span>`;
@@ -26516,7 +26736,7 @@ function renderPanelLives(lives) {
     const photo = panelLiveImgUrl(l.photo || '');
     const premium = isPanelLivePremium(l.plan);
     const tierClass = premium ? 'panel-live-card--vip' : 'panel-live-card--free';
-    const tierLabel = premium ? 'VIP' : 'Free';
+    const tierLabel = panelLiveTierLabel(l.plan);
     const av = photo
       ? `<img class="panel-live-av" src="${esc(photo)}" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" data-fallback="${fallback}">`
       : `<span class="panel-live-av panel-live-av-ph">${fallback}</span>`;
@@ -26544,11 +26764,11 @@ function renderPanelLives(lives) {
       ? l.allBadges
       : PANEL_BADGE_FALLBACK.map((b) => ({
           ...b,
-          img: `/img/badges/${b.id}.png`,
+          img: badgeArtUrl(b.id),
           earned: earnedIds.has(b.id),
         }));
     const badgeIcons = cardBadges.map((b) => {
-      const src = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
+      const src = badgeArtUrl(b.id) || b.img || '';
       const label = esc(b.name || b.short || '');
       if (src) {
         return `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="${label}" title="${label}" width="18" height="18" loading="lazy" decoding="async">`;
@@ -26556,7 +26776,7 @@ function renderPanelLives(lives) {
       return `<span class="panel-live-mini-badge" title="${label}">${esc(b.icon || '🏅')}</span>`;
     }).join('');
     const popIcons = allBadges.map((b) => {
-      const src = b.img || (b.id ? `/img/badges/${b.id}.png` : '');
+      const src = badgeArtUrl(b.id) || b.img || '';
       const label = esc(b.name || b.short || '');
       const earned = !!b.earned;
       const img = src
