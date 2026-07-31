@@ -24,6 +24,16 @@
   --vip-wash: rgba(232, 184, 46, .16);
   --vip-wash-strong: rgba(232, 184, 46, .32);
   --vip-glow: rgba(232, 184, 46, .28);
+  /* Founder — platino / diamante (más exclusivo que VIP oro) */
+  --founder-hi: #f4f9ff;
+  --founder-mid: #b8d4f5;
+  --founder-accent: #7dd3fc;
+  --founder-ink: #0a101c;
+  --founder-line: rgba(186, 220, 255, .62);
+  --founder-line-strong: rgba(230, 244, 255, .95);
+  --founder-wash: rgba(125, 211, 252, .2);
+  --founder-wash-strong: rgba(186, 220, 255, .34);
+  --founder-glow: rgba(147, 197, 253, .42);
 }
 
 /* Scrollbars â€” azul marino del panel (no gris del sistema) */
@@ -8225,6 +8235,34 @@ pre.wh-url { margin: 9px 0 0; }
     0 0 0 1px rgba(255, 230, 150, .2) inset,
     0 0 28px rgba(232, 184, 46, .4);
 }
+.panel-lives.home-lives-spotlight .panel-live-card--founder {
+  border-color: var(--founder-line-strong);
+  background:
+    linear-gradient(90deg, rgba(125, 211, 252, .45), rgba(232, 180, 220, .18) 12px, transparent 22px),
+    radial-gradient(130% 110% at 0% 0%, rgba(224, 242, 255, .38), transparent 50%),
+    radial-gradient(90% 80% at 100% 0%, rgba(186, 160, 255, .16), transparent 45%),
+    linear-gradient(155deg, rgba(18, 36, 58, .75), rgba(6, 10, 20, .35) 58%),
+    rgba(8, 14, 28, .55);
+  box-shadow:
+    0 0 0 1px rgba(230, 244, 255, .22) inset,
+    0 8px 22px rgba(0, 0, 0, .32),
+    0 0 28px var(--founder-glow),
+    0 0 48px rgba(125, 211, 252, .12);
+}
+.panel-lives.home-lives-spotlight .panel-live-card--founder:hover {
+  border-color: #fff;
+  background:
+    linear-gradient(90deg, rgba(167, 230, 255, .55), rgba(240, 190, 230, .22) 14px, transparent 24px),
+    radial-gradient(130% 110% at 0% 0%, rgba(240, 248, 255, .45), transparent 52%),
+    radial-gradient(90% 80% at 100% 0%, rgba(200, 180, 255, .22), transparent 45%),
+    linear-gradient(155deg, rgba(24, 44, 70, .8), rgba(6, 10, 20, .3) 58%),
+    rgba(8, 14, 28, .5);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, .4),
+    0 0 0 1px rgba(255, 255, 255, .28) inset,
+    0 0 36px rgba(147, 197, 253, .55),
+    0 0 60px rgba(125, 211, 252, .18);
+}
 .panel-lives.home-lives-spotlight .panel-live-card--free {
   border-color: rgba(148, 163, 184, .28);
 }
@@ -8247,6 +8285,14 @@ pre.wh-url { margin: 9px 0 0; }
 .panel-lives.home-lives-spotlight .panel-live-card--vip .panel-live-av-ph {
   border-color: var(--vip-line-strong);
   box-shadow: 0 0 0 2px var(--vip-wash), 0 4px 12px rgba(0, 0, 0, .35);
+}
+.panel-lives.home-lives-spotlight .panel-live-card--founder .panel-live-av,
+.panel-lives.home-lives-spotlight .panel-live-card--founder .panel-live-av-ph {
+  border-color: var(--founder-line-strong);
+  box-shadow:
+    0 0 0 2px var(--founder-wash),
+    0 0 14px rgba(125, 211, 252, .35),
+    0 4px 12px rgba(0, 0, 0, .35);
 }
 .panel-lives.home-lives-spotlight .panel-live-card--free .panel-live-av,
 .panel-lives.home-lives-spotlight .panel-live-card--free .panel-live-av-ph {
@@ -8315,6 +8361,20 @@ pre.wh-url { margin: 9px 0 0; }
 }
 .panel-lives.home-lives-spotlight .panel-live-card--vip .panel-live-name {
   color: #ffe9a8;
+}
+.panel-lives.home-lives-spotlight .panel-live-card--founder .panel-live-tier {
+  color: var(--founder-ink);
+  background: linear-gradient(135deg, #f8fbff 0%, #c7e2ff 40%, #7dd3fc 78%, #e9d5ff 100%);
+  border: 1px solid rgba(255, 255, 255, .9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .7),
+    0 2px 12px rgba(125, 211, 252, .45);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.panel-lives.home-lives-spotlight .panel-live-card--founder .panel-live-name {
+  color: #e8f4ff;
+  text-shadow: 0 0 18px rgba(125, 211, 252, .35);
 }
 .panel-lives.home-lives-spotlight .panel-live-badge {
   font-size: 8px;
@@ -8490,6 +8550,10 @@ pre.wh-url { margin: 9px 0 0; }
 .panel-lives.home-lives-spotlight .panel-live-card--vip .panel-live-badges {
   background: linear-gradient(135deg, var(--vip-wash), rgba(148, 163, 184, .06));
   border-color: var(--vip-line);
+}
+.panel-lives.home-lives-spotlight .panel-live-card--founder .panel-live-badges {
+  background: linear-gradient(135deg, var(--founder-wash), rgba(186, 160, 255, .1));
+  border-color: var(--founder-line);
 }
 .panel-lives.home-lives-spotlight .panel-live-card.is-badges-open {
   z-index: 12;

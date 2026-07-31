@@ -164,7 +164,11 @@ export function isPaidPlanName(plan) {
 // 'founder' = mismos caps que premium; solo etiqueta / asignación admin.
 export function getUserPlan(user) {
   if (!user) return 'free';
-  if (user.isAdmin) return 'premium';
+  if (user.isAdmin) {
+    // Admin sigue con caps totales; si le pusiste Founder, respeta la etiqueta.
+    if (user.plan === 'founder') return 'founder';
+    return 'premium';
+  }
   if (user.plan === 'founder') return 'founder';
   if (user.plan === 'premium') {
     if (user.premiumUntil && user.premiumUntil > 0 && Date.now() > user.premiumUntil) {

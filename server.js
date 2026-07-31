@@ -2700,7 +2700,6 @@ app.post('/api/admin/set-password', express.json(), requireAdmin, async (req, re
   if (!id) return res.status(400).json({ error: 'falta id' });
   const user = getUserById(id);
   if (!user) return res.status(404).json({ error: 'cuenta no encontrada' });
-  if (user.isAdmin) return res.status(403).json({ error: 'no se puede cambiar la clave del administrador aquí' });
   let pwd = String(password || '').trim();
   if (!pwd) {
     const alphabet = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';

@@ -1878,16 +1878,16 @@ async function loadAdminUsers() {
         ? '<span class="badge on">Activa</span>'
         : '<span class="badge off">Pendiente</span>';
       const adminTag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
-      const plan = u.isAdmin ? '<span class="badge prem">⭐ Premium</span>' : planBadge(u);
+      const plan = u.isAdmin
+        ? (u.plan === 'founder'
+          ? planBadge(u)
+          : '<span class="badge prem">⭐ Premium</span>')
+        : planBadge(u);
       const gamesOn = u.gamesEnabled !== false;
-      const gamesBadge = u.isAdmin
-        ? ''
-        : (gamesOn
-          ? '<span class="badge on" title="Minijuegos activos">🎮 On</span>'
-          : '<span class="badge off" title="Minijuegos desactivados">🎮 Off</span>');
-      const action = u.isAdmin
-        ? '<span class="tts-sub">—</span>'
-        : `<div class="admin-actions">
+      const gamesBadge = gamesOn
+        ? '<span class="badge on" title="Minijuegos activos">🎮 On</span>'
+        : '<span class="badge off" title="Minijuegos desactivados">🎮 Off</span>';
+      const action = `<div class="admin-actions">
             <div class="admin-actions-row">
             ${u.active
               ? `<button class="btn tiny deactivate" data-id="${u.id}" data-active="0">Desactivar</button>`
@@ -26735,7 +26735,10 @@ function renderPanelLives(lives) {
     const fallback = esc(panelLiveFallbackChar(l.nickname || tiktok || name));
     const photo = panelLiveImgUrl(l.photo || '');
     const premium = isPanelLivePremium(l.plan);
-    const tierClass = premium ? 'panel-live-card--vip' : 'panel-live-card--free';
+    const isFounder = String(l.plan || '').toLowerCase() === 'founder';
+    const tierClass = isFounder
+      ? 'panel-live-card--founder'
+      : (premium ? 'panel-live-card--vip' : 'panel-live-card--free');
     const tierLabel = panelLiveTierLabel(l.plan);
     const av = photo
       ? `<img class="panel-live-av" src="${esc(photo)}" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" data-fallback="${fallback}">`
