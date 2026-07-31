@@ -12405,7 +12405,10 @@ function withLocalMcConn(exec) {
     const cloud = exec.conn || {};
     const localStap = local.servertap || {};
     out.conn = { ...cloud };
-    if (localStap.key) out.conn.key = localStap.key;
+    // Preferir key local; no pisar una key de la nube con el placeholder `change_me` del panel.
+    if (localStap.key && (localStap.key !== 'change_me' || !String(cloud.key || '').trim())) {
+      out.conn.key = localStap.key;
+    }
     if (localStap.ip) out.conn.ip = localStap.ip;
     if (localStap.port != null) out.conn.port = localStap.port;
   }

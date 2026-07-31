@@ -244,17 +244,13 @@ export function buildMslug7760SpawnUrl(thing, qty, userName) {
   return url.href;
 }
 
-export function isMslug7760WebhookUrl(urlStr) {
-  const parsed = parseMslug7760SpawnUrl(urlStr);
-  if (!parsed) return false;
-  if (isMari0SpawnEnemyName(parsed.thing)) return false;
-  return true;
-}
-
 export function parseMslug7760SpawnUrl(urlStr) {
   try {
     const u = new URL(String(urlStr || '').replace(/localhost/gi, '127.0.0.1'));
-    if (!isMslug7760WebhookUrl(u.href)) return null;
+    const hostOk = /^(127\.0\.0\.1|localhost)$/i.test(u.hostname);
+    const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+    if (!hostOk || String(port) !== String(MSLUG_WEBHOOK_PORT)) return null;
+    if (!/\/spawn\b/i.test(u.pathname)) return null;
     const thing = String(u.searchParams.get('thing') || u.searchParams.get('enemy') || '').trim();
     const qty = Math.max(1, Math.min(50, parseInt(
       u.searchParams.get('quantity') || u.searchParams.get('times') || u.searchParams.get('qty') || '1',
@@ -268,6 +264,13 @@ export function parseMslug7760SpawnUrl(urlStr) {
   } catch {
     return null;
   }
+}
+
+export function isMslug7760WebhookUrl(urlStr) {
+  const parsed = parseMslug7760SpawnUrl(urlStr);
+  if (!parsed) return false;
+  if (isMari0SpawnEnemyName(parsed.thing)) return false;
+  return true;
 }
 
 export async function runMslug7760Spawn(thing, name, times = 1) {

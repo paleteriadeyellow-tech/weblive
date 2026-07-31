@@ -238,8 +238,8 @@ export async function runWebhookExec(exec) {
 
 export async function ensureSmbxTiktokWebhook() {
   const health = await fetchWebhookHealth();
+  // Solo aceptar health SMBX real (puerto + spawnFile). Un {ok:true} de Mari0/MSlug en :5720 no cuenta.
   if (smbxWebhookHealthOk(health)) return true;
-  if (health && health.ok) return true;
   if (webhookStarting) return webhookStarting;
 
   webhookStarting = (async () => {

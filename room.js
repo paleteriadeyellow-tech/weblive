@@ -1151,6 +1151,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Recuerda el último @usuario de TikTok conectado (queda guardado en los ajustes, así
   // sobrevive a reinicios) para prerellenar el campo y poder auto-conectar al iniciar el live.
   state.username = settings.tiktokUser || null;
+  if (settings.tiktokPhoto) followerCounter.photo = String(settings.tiktokPhoto);
 
   /* ----------------------------- Persistencia ----------------------------- */
   // Intenta recuperar profiles.json desde copias de seguridad (.bak / .corrupt).
@@ -3154,12 +3155,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Guarda el último usuario (y reactiva el auto si fue una conexión manual).
   function rememberTikTokUser(username, manual) {
     let changed = false;
-    if (settings.tiktokUser !== username) { settings.tiktokUser = username; changed = true; }
+    if (settings.tiktokUser !== username) {
+      settings.tiktokUser = username;
+      if (settings.tiktokPhoto) settings.tiktokPhoto = '';
+      changed = true;
+    }
     if (manual && settings.autoConnect === false) { settings.autoConnect = true; changed = true; }
     if (changed) {
       saveSettings();
       if (manual && typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
     }
+  }
+
+  function rememberTikTokPhoto(photo) {
+    const p = String(photo || '').trim();
+    if (!p || settings.tiktokPhoto === p) return;
+    settings.tiktokPhoto = p;
+    saveSettings();
   }
 
   function connectTo(username, opts = {}) {
@@ -6706,7 +6718,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return {
       username: state.username || settings.tiktokUser || null,
       nickname: followerCounter.nickname || state.username || null,
-      photo: followerCounter.photo || '',
+      photo: followerCounter.photo || settings.tiktokPhoto || '',
       connected: state.connected,
       connecting: state.connecting,
       autoConnect: settings.autoConnect !== false,
@@ -6779,7 +6791,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (parsed.count != null) followerCounter.count = parsed.count;
     if (parsed.nickname) followerCounter.nickname = parsed.nickname;
     if (parsed.uniqueId) followerCounter.uniqueId = parsed.uniqueId;
-    if (parsed.photo) followerCounter.photo = parsed.photo;
+    if (parsed.photo) {
+      followerCounter.photo = parsed.photo;
+      rememberTikTokPhoto(parsed.photo);
+    }
     if (parsed.userId) followerCounter.userId = parsed.userId;
     followerCounter.ready = parsed.count != null;
     if (!followerCounter.uniqueId && state.username) followerCounter.uniqueId = state.username;
@@ -8886,11 +8901,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (screensPulseTimer) { clearInterval(screensPulseTimer); screensPulseTimer = null; }
     clearTimeout(screensBroadcastTimer);
     stopTimerInterval();
-    clearTimeout(saveTimer);
     clearTimeout(weeklySaveTimer);
     clearTimeout(statsTimer);
-    // Vaciar a disco el estado actual antes de cerrar, por si quedó un guardado
-    // pendiente en la ventana de debounce: así nunca se pierde el último cambio.
+    // Flush perfiles YA: saveSettings() va con debounce 300ms y settings es un clone
+    // de la ranura. Si solo cancelamos el timer (antes) se perdían acciones/regalos
+    // al cambiar de cuenta o cerrar sesión.
+    try {
+      try { normalizeSettingsMediaUrls(settings); } catch {}
+      persistCurrentEdit();
+      saveProfilesNow();
+    } catch {}
     try { writeJsonAtomic(SETTINGS_FILE, settings); } catch {}
     try {
       const data = { start: weekly.start, end: weekly.end, donors: [...weekly.donors.values()] };
@@ -8905,6 +8925,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clearTimeout(communityGiftsSaveTimer);
     try { saveCommunityGiftsCatalogNow(); } catch {}
     stopSpotifyPoller();
+    try { if (weekInterval) clearInterval(weekInterval); } catch {}
+    try { kickAll(); } catch {}
   }
 
   // Chequeo de cambio de semana por room.
