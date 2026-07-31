@@ -1086,6 +1086,253 @@ img.nav-flyout-ico {
   .content { padding-top: 110px; }
 }
 
+/*
+ * Dock compacto (misma fila, textos e iconos chicos):
+ * - vertical siempre
+ * - horizontal SOLO si la ventana es chica (≤1280px)
+ * Ventana grande en horizontal: no se toca.
+ */
+@media (orientation: portrait),
+       (orientation: landscape) and (max-width: 1280px) {
+  .sidebar {
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 6px;
+    min-height: 42px;
+    row-gap: 0;
+  }
+  .dock-user {
+    margin-right: 3px;
+  }
+  .dock-user-av {
+    width: 22px;
+    height: 22px;
+  }
+  .dock-user-ph { font-size: 9px; }
+  .dock-logo {
+    order: 0 !important;
+    flex: 0 0 auto;
+  }
+  .dock-logo img {
+    height: 22px !important;
+    width: auto !important;
+    max-width: 100px !important;
+    object-fit: contain !important;
+    object-position: center !important;
+  }
+  .nav {
+    order: 0 !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    flex-wrap: nowrap !important;
+    margin-left: 3px !important;
+    max-width: none !important;
+    gap: 0 1px;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { height: 0; display: none; }
+  .nav-section {
+    gap: 0;
+    flex: 0 0 auto;
+  }
+  .nav-divider {
+    width: 2px;
+    margin: 0;
+  }
+  /* Restaurar textos que max-width:1200px oculta (solo iconos) */
+  .nav-flyout-btn > span:not(.nav-flyout-caret),
+  .nav-item[data-view="tts"] > span,
+  .nav-item[data-view="points"] > span,
+  .nav-item[data-view="spotify"] > span,
+  .brand > span:not(.logo):not(.brand-caret) {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    clip: auto !important;
+    clip-path: none !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+  .nav-item,
+  .nav-flyout-btn {
+    font-size: 10px !important;
+    font-weight: 650 !important;
+    padding: 4px 5px !important;
+    gap: 3px !important;
+    line-height: 1.1;
+    letter-spacing: 0;
+  }
+  .nav-flyout-btn {
+    position: relative;
+  }
+  .nav-item[data-view="tts"],
+  .nav-item[data-view="points"],
+  .nav-item[data-view="spotify"],
+  .nav-item[data-view="juegos"] {
+    position: relative;
+    padding: 4px 5px !important;
+  }
+  .nav-flyout-ico,
+  img.nav-flyout-ico,
+  .nav-item-ico,
+  .nav-menu-ico {
+    width: 14px !important;
+    height: 14px !important;
+  }
+  .nav-flyout-caret {
+    width: 7px !important;
+    height: 7px !important;
+    opacity: .7;
+    margin-left: 0 !important;
+  }
+  .brand {
+    font-size: 9px !important;
+    padding: 3px 6px 3px 5px !important;
+    gap: 4px !important;
+    max-width: none !important;
+  }
+  .brand .logo {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  .brand .logo svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  .brand-caret {
+    font-size: 9px !important;
+    margin-left: 0 !important;
+  }
+  .dock-end {
+    order: 0 !important;
+    margin-left: 2px !important;
+    gap: 3px !important;
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    max-width: min(46vw, 300px) !important;
+  }
+  .brand-wrap--end {
+    flex: 0 0 auto !important;
+  }
+  .dock-connect-wrap {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    overflow: hidden !important;
+  }
+  .sidebar .connect.home-hero,
+  .sidebar .connect.home-hero.is-vip,
+  .sidebar .connect.home-hero.is-free {
+    min-height: 30px !important;
+    padding: 2px 2px 2px 3px !important;
+    gap: 4px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+  .sidebar .connect.home-hero .home-hero-main {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    gap: 4px !important;
+  }
+  .sidebar .connect.home-hero .home-hero-texts {
+    display: flex !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+  .sidebar .connect.home-hero .home-hero-row {
+    min-width: 0 !important;
+    width: 100%;
+  }
+  .sidebar .connect.home-hero .home-hero-aside {
+    flex: 0 0 auto !important;
+    gap: 4px !important;
+  }
+  .sidebar .connect.home-hero .connect-av.home-hero-av,
+  .sidebar .connect.home-hero.is-vip .connect-av.home-hero-av,
+  .sidebar .connect.home-hero.is-free .connect-av.home-hero-av {
+    flex: 0 0 22px !important;
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .sidebar .connect.home-hero #username,
+  .sidebar .connect.home-hero.is-vip #username,
+  .sidebar .connect.home-hero.is-free #username {
+    flex: 1 1 48px !important;
+    min-width: 0 !important;
+    max-width: 72px !important;
+    font-size: 9px !important;
+    padding: 2px 4px !important;
+    border-radius: 8px !important;
+  }
+  .sidebar .connect.home-hero #btnConnect.btn.primary,
+  .sidebar .connect.home-hero.is-vip #btnConnect.btn.primary,
+  .sidebar .connect.home-hero.is-free #btnConnect.btn.primary,
+  .sidebar .connect.home-hero #btnDisconnect.btn.ghost {
+    flex: 0 0 auto !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 0 8px !important;
+    font-size: 9px !important;
+    white-space: nowrap !important;
+  }
+  .content { padding-top: 50px !important; }
+}
+
+/* Ventana muy estrecha (vertical u horizontal chica): un poco más compacto */
+@media (max-width: 900px) and (orientation: portrait),
+       (max-width: 900px) and (orientation: landscape) {
+  .dock-logo img {
+    height: 18px !important;
+    max-width: 80px !important;
+  }
+  .nav-item,
+  .nav-flyout-btn {
+    font-size: 9px !important;
+    padding: 3px 4px !important;
+  }
+  .nav-flyout-ico,
+  img.nav-flyout-ico,
+  .nav-item-ico,
+  .nav-menu-ico {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  .dock-connect-wrap {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .brand {
+    font-size: 8px !important;
+    padding: 2px 5px 2px 4px !important;
+  }
+  .sidebar .connect.home-hero #username,
+  .sidebar .connect.home-hero.is-vip #username,
+  .sidebar .connect.home-hero.is-free #username {
+    max-width: 56px !important;
+    font-size: 8px !important;
+  }
+  .sidebar .connect.home-hero #btnConnect.btn.primary,
+  .sidebar .connect.home-hero.is-vip #btnConnect.btn.primary,
+  .sidebar .connect.home-hero.is-free #btnConnect.btn.primary,
+  .sidebar .connect.home-hero #btnDisconnect.btn.ghost {
+    height: 22px !important;
+    min-height: 22px !important;
+    padding: 0 6px !important;
+    font-size: 8px !important;
+  }
+}
+
 .nav-divider {
   display: none !important;
 }
