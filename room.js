@@ -1984,9 +1984,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return Math.max(1, Math.min(10, Number(n) || 1));
   }
   /**
-   * Envía `media` solo a las Browser Sources de esa pantalla (+ clientes que no son
-   * videoScreen, p. ej. overlay). Evita que pantalla 2 reciba (y a veces muestre)
-   * un video de pantalla 1 si el filtro del cliente falla o hay fuentes mal pegadas.
+   * Envía `media` a las Browser Sources de esa pantalla.
+   * Si hay video.html conectado: SOLO a esas pantallas (no al overlay alertas+videos),
+   * para no duplicar el clip. Sin video.html: fallback a todos los clientes (overlay).
+   * En relay nube→PC: no spamear media al overlay de Render; el video va por playMedia.
    */
   function broadcastMedia(payload) {
     const scr = clampMediaScreen(payload?.screen);
@@ -1995,18 +1996,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // OBS corre en la PC, así el overlay de Render también puede cargar el video.
     if (body.url) body.url = rewriteRelayMediaUrl(body.url);
     const msg = JSON.stringify({ type: 'media', payload: body });
-    if (videoScreens.size === 0) {
-      for (const client of clients) {
-        if (client.readyState === 1) client.send(msg);
+    if (videoScreens.size > 0) {
+      for (const [client, screenNum] of videoScreens) {
+        if (client.readyState === 1 && clampMediaScreen(screenNum) === scr) client.send(msg);
       }
       return body;
     }
-    const videoClients = new Set(videoScreens.keys());
-    for (const [client, screenNum] of videoScreens) {
-      if (client.readyState === 1 && clampMediaScreen(screenNum) === scr) client.send(msg);
-    }
+    // Sin pantallas video.html: el overlay "Alertas + Videos" hace de fallback,
+    // excepto si el .exe en relay ya va a reproducir en la PC (playMedia).
+    if (IS_CLOUD_ROOM && hasLocalRelayClient()) return body;
     for (const client of clients) {
-      if (videoClients.has(client)) continue;
       if (client.readyState === 1) client.send(msg);
     }
     return body;
