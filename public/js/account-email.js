@@ -153,8 +153,7 @@
     if (window.MY_EMAIL_VERIFIED === true) {
       hidePrompt();
       clearDismissedLater();
-      const btn = $('email-acc-btn');
-      if (btn) btn.hidden = true;
+      applyEmailDockBtn();
       return;
     }
     if (wasDismissedLater()) {
@@ -253,15 +252,26 @@
       clearDismissedLater();
       hidePrompt();
       setMsg(d.message || 'Correo verificado.', true);
-      const btn = $('email-acc-btn');
-      if (btn) {
-        btn.hidden = true;
-        btn.title = window.MY_EMAIL ? `Email: ${window.MY_EMAIL}` : 'Correo de recuperación';
-      }
+      applyEmailDockBtn();
       close();
       try { if (typeof toast === 'function') toast(d.message || 'Correo verificado.', 'ok'); } catch {}
     } catch {
       setMsg('Error de conexión.');
+    }
+  }
+
+  function applyEmailDockBtn() {
+    const btn = $('email-acc-btn');
+    if (!btn) return;
+    btn.hidden = false;
+    if (window.MY_EMAIL_VERIFIED) {
+      btn.textContent = '✓ Email verificado';
+      btn.classList.add('dock-user-item--ok');
+      btn.title = window.MY_EMAIL ? `Email: ${window.MY_EMAIL}` : 'Correo verificado';
+    } else {
+      btn.textContent = 'Verificar email';
+      btn.classList.remove('dock-user-item--ok');
+      btn.title = window.MY_EMAIL ? `Email: ${window.MY_EMAIL}` : 'Correo de recuperación';
     }
   }
 
@@ -284,10 +294,7 @@
         open();
       };
     }
-    // Solo cuentas sin correo verificado (usuarios antiguos). Las nuevas ya verifican al registrarse.
-    btn.hidden = !!window.MY_EMAIL_VERIFIED;
-    btn.textContent = 'Verificar email';
-    btn.title = window.MY_EMAIL ? `Email: ${window.MY_EMAIL}` : 'Correo de recuperación';
+    applyEmailDockBtn();
   }
 
   window.openEmailAccountModal = open;
@@ -297,11 +304,7 @@
     // Aceptar true / "true" / 1 por si algún proxy altera el tipo.
     window.MY_EMAIL_VERIFIED = me.emailVerified === true || me.emailVerified === 'true' || me.emailVerified === 1;
     wireButton();
-    const btn = $('email-acc-btn');
-    if (btn) {
-      btn.hidden = !!window.MY_EMAIL_VERIFIED;
-      if (me.email) btn.title = `Email: ${me.email}`;
-    }
+    applyEmailDockBtn();
     maybeShowVerifyPrompt();
   };
 

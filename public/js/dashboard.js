@@ -405,8 +405,10 @@ async function loadMe() {
     window.MY_USER_ID = d.id || d.userId || window.MY_USER_ID || '';
     window.IS_ADMIN = !!d.isAdmin;
     window.MY_PLAN = d.plan || 'free';
+    window.MY_PREMIUM_UNTIL = Number(d.premiumUntil) || 0;
     if (typeof d.spotifyEnabled === 'boolean') window.SPOTIFY_ACCESS = d.spotifyEnabled;
     try { if (typeof window.refreshEmailAccountUi === 'function') window.refreshEmailAccountUi(d); } catch {}
+    try { if (typeof refreshDockPlanUi === 'function') refreshDockPlanUi(d); } catch {}
     if (d.caps) setCaps(d.caps);
     try { renderHomeBadges(Array.isArray(d.badges) ? d.badges : []); } catch {}
     if (IS_DESKTOP) {
@@ -512,6 +514,7 @@ function setCaps(c) {
     try { setupSpotifyUI(); } catch {}
   }
   try { applySpotifyLock(); } catch {}
+  try { if (typeof refreshDockPlanUi === 'function') refreshDockPlanUi(); } catch {}
 }
 function capLimit(key) {
   const n = window.CAPS?.limits?.[key];
@@ -1231,6 +1234,36 @@ function setDockUserMenuOpen(open) {
   chip.classList.toggle('is-open', !!open);
 }
 
+/** Plan + días restantes en el menú del avatar (datos de /api/me). */
+function refreshDockPlanUi(me) {
+  const label = document.getElementById('dock-user-plan-label');
+  const upBtn = document.getElementById('dock-plan-upgrade');
+  if (!label) return;
+  const plan = String((me && me.plan) || window.MY_PLAN || window.CAPS?.plan || 'free').toLowerCase();
+  const until = Number(
+    me && me.premiumUntil != null ? me.premiumUntil : (window.MY_PREMIUM_UNTIL || 0),
+  ) || 0;
+  if (me && me.premiumUntil != null) window.MY_PREMIUM_UNTIL = until;
+  let text = 'Plan Gratis';
+  if (window.IS_ADMIN || plan === 'admin') text = 'Admin · acceso total';
+  else if (plan === 'founder') text = '👑 Founder';
+  else if (plan === 'premium') {
+    if (until > 0) {
+      const days = Math.max(0, Math.ceil((until - Date.now()) / 86400000));
+      text = days > 0
+        ? `⭐ Premium · ${days} día${days === 1 ? '' : 's'}`
+        : '⭐ Premium · vencido';
+    } else {
+      text = '⭐ Premium · fijo';
+    }
+  }
+  label.textContent = text;
+  if (upBtn) {
+    const showUp = !window.IS_ADMIN && plan !== 'premium' && plan !== 'founder' && plan !== 'admin';
+    upBtn.hidden = !showUp;
+  }
+}
+
 // Chip de usuario con menú (avatar junto al logo).
 function mountUserChip() {
   const chip = document.getElementById('user-chip');
@@ -1239,6 +1272,7 @@ function mountUserChip() {
   nameEl.textContent = window.MY_USER || 'usuario';
   const verEl = document.getElementById('user-chip-ver');
   if (verEl) verEl.hidden = !IS_DESKTOP;
+  try { refreshDockPlanUi(); } catch {}
   updateDockUserAvatar({ username: window.MY_USER });
   const btn = document.getElementById('dock-user-btn');
   const menu = document.getElementById('dock-user-menu');
@@ -1255,6 +1289,16 @@ function mountUserChip() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') setDockUserMenuOpen(false);
     });
+  }
+  const planUp = document.getElementById('dock-plan-upgrade');
+  if (planUp && !planUp.dataset.wired) {
+    planUp.dataset.wired = '1';
+    planUp.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDockUserMenuOpen(false);
+      document.querySelector('.nav-item[data-view="planes"]')?.click();
+    };
   }
   const logout = document.getElementById('logout-btn');
   if (logout && !logout.dataset.wired) {
