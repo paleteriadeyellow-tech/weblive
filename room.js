@@ -8348,9 +8348,45 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
   }
 
+  /* ---- TTS: solo 1 cliente habla el mismo mensaje (anti .exe + OBS / multi-pestaña) ---- */
+  const ttsClaims = new Map();
+  const TTS_CLAIM_TTL_MS = 90000;
+  const TTS_CLAIM_MAX = 500;
+  function pruneTtsClaims() {
+    const now = Date.now();
+    for (const [k, t] of ttsClaims) {
+      if (now - t >= TTS_CLAIM_TTL_MS) ttsClaims.delete(k);
+    }
+    if (ttsClaims.size <= TTS_CLAIM_MAX) return;
+    const sorted = [...ttsClaims.entries()].sort((a, b) => a[1] - b[1]);
+    for (let i = 0; i < sorted.length - TTS_CLAIM_MAX; i++) ttsClaims.delete(sorted[i][0]);
+  }
+
   /* ---------------------- Mensajes WS desde el navegador ---------------------- */
   function handleMessage(ws, data) {
     switch (data.action) {
+      case 'ttsClaim': {
+        // Primer cliente que reclama la clave gana; el resto recibe deny / ttsClaimed.
+        const key = String(data.key || '').slice(0, 240);
+        if (!key) break;
+        pruneTtsClaims();
+        let ok = false;
+        if (!ttsClaims.has(key)) {
+          ttsClaims.set(key, Date.now());
+          ok = true;
+          const msg = JSON.stringify({ type: 'ttsClaimed', payload: { key } });
+          for (const client of clients) {
+            if (client === ws || client.readyState !== 1) continue;
+            try { client.send(msg); } catch { /* ignore */ }
+          }
+        }
+        try {
+          if (ws && ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'ttsClaimResult', payload: { key, ok } }));
+          }
+        } catch { /* ignore */ }
+        break;
+      }
       case 'ping':
         // Keepalive desde el navegador: respondemos al instante para confirmar vida.
         if (ws) ws.isAlive = true;

@@ -1393,6 +1393,8 @@ function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'B
 }
 
 function handle(type, p) {
+  if (type === 'ttsClaimResult') { onTtsClaimResult(p); return; }
+  if (type === 'ttsClaimed') { onTtsClaimed(p); return; }
   switch (type) {
     case 'state': renderState(p); break;
     case 'followerCounter':
@@ -1403,7 +1405,7 @@ function handle(type, p) {
       if (!relayActive()) onScreens(p);
       refreshLevelVideoScreenLink();
       break;
-    case 'chat': addChat(p); ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
+    case 'chat': addChat(p); void ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
     case 'botReply': handleBotReply(p); break;
     case 'gift': addGift(p); ttsOnGift(p); relayRepoOnGift(p); relayL4dOnGift(p); relayUnturnedOnGift(p); relayGtavKothOnGift(p); relayGtavChaosOnGift(p); relayGtavChiliadOnGift(p); relayMslugOnGift(p); relayCtrOnGift(p); relaySmwOnGift(p); break;
     case 'like': ttsOnLike(p); relayRepoOnLike(p); relayL4dOnLike(p); relayUnturnedOnLike(p); relayGtavKothOnLike(p); relayGtavChaosOnLike(p); relayGtavChiliadOnLike(p); relayMslugOnLike(p); relayCtrOnLike(p); relaySmwOnLike(p); break;
@@ -9949,6 +9951,117 @@ const TTS_DEDUP_MS = 90000;
 const TTS_DEDUP_MAX = 400;
 let ttsLastPhrase = '';
 let ttsLastPhraseAt = 0;
+/** Id estable por pestaña: desempate localStorage + preferencia .exe vs navegador/OBS. */
+const TTS_TAB_ID = Math.random().toString(36).slice(2, 11);
+const ttsClaimWaiters = new Map();
+let ttsBroadcast = null;
+try {
+  ttsBroadcast = new BroadcastChannel('livecoins_tts_v1');
+  ttsBroadcast.onmessage = (ev) => {
+    const key = ev && ev.data && ev.data.key;
+    if (key) ttsMarkSpokenLocal(String(key), false);
+  };
+} catch { ttsBroadcast = null; }
+
+function ttsStorageKey(key) {
+  return 'lc_tts:' + String(key || '').slice(0, 220);
+}
+
+function ttsMarkSpokenLocal(key, notifyBus) {
+  if (!key) return;
+  const now = Date.now();
+  ttsSpokenKeys.set(key, now);
+  try { localStorage.setItem(ttsStorageKey(key), JSON.stringify({ at: now, tab: TTS_TAB_ID })); } catch { /* ignore */ }
+  if (notifyBus) {
+    try { ttsBroadcast?.postMessage({ key, at: now, tab: TTS_TAB_ID }); } catch { /* ignore */ }
+  }
+  if (ttsSpokenKeys.size > TTS_DEDUP_MAX) {
+    for (const [k, t] of ttsSpokenKeys) {
+      if (now - t >= TTS_DEDUP_MS) ttsSpokenKeys.delete(k);
+    }
+  }
+}
+
+function ttsCrossTabSeen(key) {
+  if (!key) return false;
+  const now = Date.now();
+  const prevMem = ttsSpokenKeys.get(key);
+  if (prevMem != null && now - prevMem < TTS_DEDUP_MS) return true;
+  try {
+    const raw = localStorage.getItem(ttsStorageKey(key));
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    const at = Number(parsed && parsed.at) || Number(raw) || 0;
+    if (at && now - at < TTS_DEDUP_MS) {
+      ttsSpokenKeys.set(key, at);
+      return true;
+    }
+  } catch { /* ignore */ }
+  return false;
+}
+
+/**
+ * Reclama el derecho a hablar este mensaje.
+ * - Misma origen (2 pestañas / OBS+panel mismo host): localStorage + BroadcastChannel.
+ * - Orígenes distintos (.exe 127.0.0.1 + OBS en Render): claim en la room por WebSocket.
+ * El .exe no espera; el navegador cede ~50ms para que gane la app PC si está abierta.
+ */
+async function ttsTryClaimAsync(key) {
+  if (!key) return true;
+  if (ttsCrossTabSeen(key)) return false;
+  if (!IS_DESKTOP) {
+    await new Promise((r) => setTimeout(r, 50));
+    if (ttsCrossTabSeen(key)) return false;
+  }
+  // CAS blando en localStorage
+  try {
+    const sk = ttsStorageKey(key);
+    const raw = localStorage.getItem(sk);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const at = Number(parsed && parsed.at) || 0;
+      if (at && Date.now() - at < TTS_DEDUP_MS && parsed.tab !== TTS_TAB_ID) return false;
+    }
+    localStorage.setItem(sk, JSON.stringify({ at: Date.now(), tab: TTS_TAB_ID }));
+    const check = JSON.parse(localStorage.getItem(sk) || '{}');
+    if (check.tab && check.tab !== TTS_TAB_ID) return false;
+  } catch { /* ignore */ }
+  ttsMarkSpokenLocal(key, true);
+
+  if (!ws || ws.readyState !== WebSocket.OPEN) return true;
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      ttsClaimWaiters.delete(key);
+      resolve(!!ok);
+    };
+    const timer = setTimeout(() => finish(true), 160);
+    ttsClaimWaiters.set(key, (ok) => {
+      clearTimeout(timer);
+      finish(ok);
+    });
+    try { send({ action: 'ttsClaim', key: String(key).slice(0, 240) }); }
+    catch {
+      clearTimeout(timer);
+      finish(true);
+    }
+  });
+}
+
+function onTtsClaimResult(p) {
+  const key = p && p.key != null ? String(p.key) : '';
+  if (!key) return;
+  const waiter = ttsClaimWaiters.get(key);
+  if (waiter) waiter(!!p?.ok);
+  if (p && p.ok === false) ttsMarkSpokenLocal(key, false);
+}
+
+function onTtsClaimed(p) {
+  const key = p && p.key != null ? String(p.key) : '';
+  if (key) ttsMarkSpokenLocal(key, false);
+}
 
 function ttsQueueLimits() {
   const t = settings?.tts || {};
@@ -9984,16 +10097,10 @@ function ttsPruneQueue(q) {
 }
 
 function ttsAlreadySpoken(key) {
+  // Compat: solo memoria local. El claim real va por ttsTryClaimAsync.
   if (!key) return false;
-  const now = Date.now();
-  const prev = ttsSpokenKeys.get(key);
-  if (prev != null && now - prev < TTS_DEDUP_MS) return true;
-  ttsSpokenKeys.set(key, now);
-  if (ttsSpokenKeys.size > TTS_DEDUP_MAX) {
-    for (const [k, t] of ttsSpokenKeys) {
-      if (now - t >= TTS_DEDUP_MS) ttsSpokenKeys.delete(k);
-    }
-  }
+  if (ttsCrossTabSeen(key)) return true;
+  ttsMarkSpokenLocal(key, true);
   return false;
 }
 
@@ -10591,11 +10698,18 @@ function ttsPlayBase64(b64, mime, volume) {
 }
 
 /* Comentario del chat */
-function ttsSpeak(p, force = false) {
+async function ttsSpeak(p, force = false) {
   const t = settings?.tts;
   if (!t) return;
   // No exigir speechSynthesis: ElevenLabs / TikTok / Edge usan Audio() (igual que alertas).
-  if (force) { ttsSpeakText(`${speakEmojis(p.nickname)} dice: ${p.comment || ''}`); return; }
+  if (force) {
+    const forceKey = p.msgId
+      ? ('m:' + p.msgId)
+      : ('c:' + (p.uniqueId || p.nickname || '') + '|' + (p.comment || ''));
+    if (!(await ttsTryClaimAsync(forceKey))) return;
+    ttsSpeakText(`${speakEmojis(p.nickname)} dice: ${p.comment || ''}`);
+    return;
+  }
   if (!t.enabled) return;
   if (!ttsAllowedUser(p)) return;
 
@@ -10609,7 +10723,7 @@ function ttsSpeak(p, force = false) {
   if (!body) return;
 
   const dedupKey = p.msgId ? ('m:' + p.msgId) : ('c:' + (p.uniqueId || p.nickname || '') + '|' + (p.comment || ''));
-  if (ttsAlreadySpoken(dedupKey)) return;
+  if (!(await ttsTryClaimAsync(dedupKey))) return;
 
   // Monetización: cobra monedas acumuladas por regalos
   if (t.charge) {
