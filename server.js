@@ -849,7 +849,21 @@ async function mirrorRelayProfileToLocal(user, data) {
   const remoteProfiles = await fetchRemoteProfilesFull(user.id);
   if (pendingSettingsPush.has(user.id) || activeSettingsPush.has(user.id)) return;
   if (remoteProfiles) {
-    room.importProfilesFull(remoteProfiles, { silent: true });
+    const localProfiles = room.getProfilesFull();
+    const remoteC = typeof room.profilesFullContentScore === 'function'
+      ? room.profilesFullContentScore(remoteProfiles) : 0;
+    const localC = typeof room.profilesFullContentScore === 'function'
+      ? room.profilesFullContentScore(localProfiles) : 0;
+    // Unión si ambos tienen contenido; si no, el lado con datos.
+    if (remoteC > 0 && localC > 0) {
+      room.importProfilesFull(remoteProfiles, { silent: true, mergeKeepRicher: true });
+      scheduleRemoteSettingsPush(user.id);
+    } else if (remoteC > localC) {
+      room.importProfilesFull(remoteProfiles, { silent: true, mergeKeepRicher: true });
+      scheduleRemoteSettingsPush(user.id);
+    } else if (localC > 0) {
+      scheduleRemoteSettingsPush(user.id);
+    }
     return;
   }
   if (data?.settings) room.applySettings(data.settings);
@@ -876,24 +890,36 @@ async function pullRemoteSettings(user) {
     if (pendingSettingsPush.has(user.id) || activeSettingsPush.has(user.id)) return;
     const settingsData = settingsRes.ok ? await settingsRes.json().catch(() => ({})) : {};
     const localProfiles = room.getProfilesFull();
-    const remoteScore = room.profilesFullSyncScore(remoteProfiles || {});
-    const localScore = room.profilesFullSyncScore(localProfiles);
+    const remoteContent = typeof room.profilesFullContentScore === 'function'
+      ? room.profilesFullContentScore(remoteProfiles || {}) : 0;
+    const localContent = typeof room.profilesFullContentScore === 'function'
+      ? room.profilesFullContentScore(localProfiles) : 0;
     const hasLocal = IS_DESKTOP && desktopHasLocalConfig(user.id);
 
-    if (remoteProfiles && remoteScore > localScore) {
-      room.importProfilesFull(remoteProfiles, { silent: true });
+    // Si hay datos en ambos lados → unir (mergeKeepRicher). Si solo nube → importar.
+    // Si solo local → subir a la nube. Nunca reemplazar a ciegas.
+    if (remoteProfiles && remoteContent > 0 && localContent > 0) {
+      room.importProfilesFull(remoteProfiles, { silent: true, mergeKeepRicher: true });
+      scheduleRemoteSettingsPush(user.id);
+      return;
+    }
+    if (remoteProfiles && remoteContent > localContent) {
+      room.importProfilesFull(remoteProfiles, { silent: true, mergeKeepRicher: true });
+      scheduleRemoteSettingsPush(user.id);
       return;
     }
     if (hasLocal) {
-      if (localScore > 0 || !settingsData?.exists) {
+      if (localContent > 0 || !settingsData?.exists) {
         scheduleRemoteSettingsPush(user.id);
       } else if (settingsData?.exists && settingsData.settings) {
         room.applySettings(settingsData.settings);
       }
       return;
     }
-    if (remoteProfiles) room.importProfilesFull(remoteProfiles, { silent: true });
-    else if (settingsData?.exists && settingsData.settings) room.applySettings(settingsData.settings);
+    if (remoteProfiles) {
+      room.importProfilesFull(remoteProfiles, { silent: true, mergeKeepRicher: true });
+      scheduleRemoteSettingsPush(user.id);
+    } else if (settingsData?.exists && settingsData.settings) room.applySettings(settingsData.settings);
     else if (room.hasSavedSettings()) scheduleRemoteSettingsPush(user.id);
   } catch {}
 }

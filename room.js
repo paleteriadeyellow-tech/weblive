@@ -378,7 +378,13 @@ function writeJsonAtomic(file, obj) {
   try {
     const tmp = file + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(obj, null, 2));
-    fs.renameSync(tmp, file);
+    try {
+      fs.renameSync(tmp, file);
+    } catch {
+      // Windows/antivirus a veces bloquea rename: copiar encima y borrar tmp.
+      fs.copyFileSync(tmp, file);
+      try { fs.unlinkSync(tmp); } catch {}
+    }
   } catch (e) {
     console.error('  [!] No se pudo guardar', file, '-', e.message);
   }
@@ -1155,20 +1161,201 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   /* ----------------------------- Persistencia ----------------------------- */
   // Intenta recuperar profiles.json desde copias de seguridad (.bak / .corrupt).
+  // Preferir el backup con MÁS contenido (no el más reciente): tras un wipe + AV
+  // el .bak nuevo suele ser el vacío y el .corrupt viejo el bueno.
+  function profileSlotContentScore(s) {
+    if (!s || typeof s !== 'object') return 0;
+    let n = 0;
+    for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
+      const a = s[k];
+      if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
+    }
+    return n;
+  }
+  const PROFILE_ACTION_KEYS = ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions'];
+  /** Huella estable para detectar acciones duplicadas al mezclar PC + nube. */
+  function actionDedupeKey(a) {
+    if (!a || typeof a !== 'object') return String(a);
+    try {
+      const mario = a.marioSpawn && typeof a.marioSpawn === 'object' ? a.marioSpawn : null;
+      return [
+        String(a.trigger || a.event || ''),
+        String(a.giftId || ''),
+        String(a.giftName || '').trim().toLowerCase(),
+        String(a.likeN || a.likeMin || a.likes || ''),
+        String(a.name || a.label || '').trim().toLowerCase(),
+        String(a.keys || a.key || a.combo || ''),
+        String(a.cmd || a.command || ''),
+        String(a.thing || a.npcId || mario?.npcId || ''),
+        String(a.count || a.times || a.quantity || mario?.quantity || ''),
+        String(a.url || a.webhook || a.file || a.src || a.sound || a.video || ''),
+        String(a.holdDurationMs || a.holdSec || ''),
+        String(a.enabled === false ? '0' : '1'),
+      ].join('|');
+    } catch {
+      try { return JSON.stringify(a); } catch { return String(Math.random()); }
+    }
+  }
+  /** Une dos listas de acciones: local + remoto, sin duplicados. */
+  function mergeActionArraysUnion(localArr, remoteArr) {
+    const out = [];
+    const seen = new Set();
+    const add = (item) => {
+      if (!item || typeof item !== 'object') return;
+      const key = actionDedupeKey(item);
+      if (seen.has(key)) return;
+      seen.add(key);
+      try { out.push(cloneSettings(item)); } catch { out.push({ ...item }); }
+    };
+    if (Array.isArray(localArr)) for (const a of localArr) add(a);
+    if (Array.isArray(remoteArr)) for (const a of remoteArr) add(a);
+    return out;
+  }
+  /**
+   * Mezcla dos ranuras de perfil: une acciones de ambos lados (sin repetir)
+   * y en el resto de campos conserva valores reales (no pisa con vacíos).
+   */
+  function mergeSlotsUnion(local, remote) {
+    if (!remote || typeof remote !== 'object') return local || remote;
+    if (!local || typeof local !== 'object') return remote;
+    const out = mergePreferFilledShared(cloneSettings(local), cloneSettings(remote));
+    for (const k of PROFILE_ACTION_KEYS) {
+      out[k] = mergeActionArraysUnion(local[k], remote[k]);
+    }
+    return out;
+  }
+  /** Valor “vacío” que no debe pisar un secreto/config local al sincronizar. */
+  function isEmptyishSharedField(v) {
+    if (v == null) return true;
+    if (typeof v === 'boolean') return false;
+    if (typeof v === 'number') return false;
+    if (typeof v === 'string') {
+      const t = v.trim();
+      return !t || t === 'change_me' || t === 'changeme';
+    }
+    if (Array.isArray(v)) return v.length === 0;
+    if (typeof v === 'object') {
+      try {
+        const s = JSON.stringify(v);
+        return !s || s === '{}' || s === '[]' || s === 'null';
+      } catch { return true; }
+    }
+    return false;
+  }
+  /** Mezcla remoto sobre local sin borrar campos locales con valor real. */
+  function mergePreferFilledShared(local, remote) {
+    if (remote == null) return local;
+    if (local == null) return remote;
+    if (Array.isArray(remote)) {
+      if (Array.isArray(local) && local.length > remote.length && remote.length === 0) return local;
+      return remote;
+    }
+    if (typeof remote !== 'object') {
+      if (isEmptyishSharedField(remote) && !isEmptyishSharedField(local)) return local;
+      return remote;
+    }
+    if (typeof local !== 'object' || Array.isArray(local)) return remote;
+    const out = { ...local };
+    for (const k of Object.keys(remote)) {
+      const rv = remote[k];
+      const lv = local[k];
+      if (rv && typeof rv === 'object' && !Array.isArray(rv)) {
+        out[k] = mergePreferFilledShared(lv && typeof lv === 'object' && !Array.isArray(lv) ? lv : {}, rv);
+      } else if (isEmptyishSharedField(rv) && !isEmptyishSharedField(lv)) {
+        out[k] = lv;
+      } else {
+        out[k] = rv;
+      }
+    }
+    return out;
+  }
+  function sharedValueContentScore(key, v) {
+    if (v == null) return 0;
+    let n = 0;
+    try {
+      const s = JSON.stringify(v);
+      if (s && s !== '{}' && s !== '[]' && s !== 'null') n += Math.min(s.length, 80000);
+    } catch { return 0; }
+    // Extra peso a credenciales: que una nube vacía nunca “gane” a RCON/Spotify local.
+    if (key === 'webhook' && v && typeof v === 'object') {
+      const pw = String(v.rcon?.password || '').trim();
+      const host = String(v.rcon?.host || '').trim();
+      const stapKey = String(v.servertap?.key || '').trim();
+      const stapOn = !!v.servertap?.enabled;
+      if (pw) n += 50000;
+      if (host && host !== '127.0.0.1') n += 20000;
+      if (stapOn && stapKey && stapKey !== 'change_me') n += 50000;
+      const wh = String(v.url || v.webhookUrl || '').trim();
+      if (wh) n += 15000;
+    }
+    if (key === 'spotify' && v && typeof v === 'object') {
+      if (String(v.clientId || '').trim()) n += 40000;
+      if (String(v.refreshToken || v.accessToken || '').trim()) n += 40000;
+    }
+    return n;
+  }
+  function applySharedKeyFromRemote(key, rawRemote, mergeKeepRicher) {
+    if (rawRemote == null) return false;
+    const incoming = normalizeSharedValue(key, rawRemote);
+    if (!mergeKeepRicher) {
+      profiles[key] = incoming;
+      return true;
+    }
+    const local = profiles[key];
+    // Unión: campos de ambos; si uno viene vacío y el otro tiene valor, se conserva el valor.
+    profiles[key] = normalizeSharedValue(key, mergePreferFilledShared(local, incoming));
+    return true;
+  }
+  function profilesDataContentScore(p) {
+    if (!p || typeof p !== 'object') return 0;
+    let total = 0;
+    if (Array.isArray(p.slots)) for (const s of p.slots) total += profileSlotContentScore(s);
+    if (p.general) total += profileSlotContentScore(p.general);
+    return total;
+  }
   function recoverProfilesFromBackups() {
     try {
       const dir = path.dirname(PROFILES_FILE);
       const base = path.basename(PROFILES_FILE);
       const candidates = fs.readdirSync(dir)
-        .filter((f) => f.startsWith(base + '.bak') || f.startsWith(base + '.corrupt'))
-        .map((f) => path.join(dir, f))
-        .sort((a, b) => (fs.statSync(b).mtimeMs || 0) - (fs.statSync(a).mtimeMs || 0));
+        .filter((f) => f === base + '.bak' || f.startsWith(base + '.bak.') || f.startsWith(base + '.corrupt'))
+        .map((f) => path.join(dir, f));
+      let best = null;
+      let bestScore = -1;
+      let bestSize = -1;
       for (const file of candidates) {
+        let size = 0;
+        try { size = fs.statSync(file).size || 0; } catch { continue; }
         const r = readJsonSafe(file);
-        if (r.data && Array.isArray(r.data.slots) && r.data.slots.some((s) => s != null)) return r.data;
+        if (!r.data || !Array.isArray(r.data.slots) || !r.data.slots.some((s) => s != null)) continue;
+        const score = profilesDataContentScore(r.data);
+        if (score > bestScore || (score === bestScore && size > bestSize)) {
+          best = r.data;
+          bestScore = score;
+          bestSize = size;
+        }
+      }
+      if (best) {
+        console.log('  [profiles] Recuperado backup con score', bestScore, '(tamaño ~' + bestSize + ')');
+        return best;
       }
     } catch {}
     return null;
+  }
+  // Si el profiles.json actual quedó “flaco” tras un update/AV pero hay un backup
+  // mucho más rico, restaurarlo automáticamente (una sola vez al cargar).
+  function healThinProfilesFromBackup(current) {
+    try {
+      const curScore = profilesDataContentScore(current);
+      const best = recoverProfilesFromBackups();
+      if (!best) return current;
+      const bestScore = profilesDataContentScore(best);
+      if (bestScore > curScore + 8000 && bestScore > curScore * 1.4) {
+        console.log('  [profiles] Restaurando backup más completo (local', curScore, '→ backup', bestScore + ')');
+        return best;
+      }
+    } catch {}
+    return current;
   }
   // Carga (o crea/migra) el archivo de perfiles. Migración: si ya había un
   // settings.json suelto, se convierte en el "Perfil 1". NUNCA se borran ranuras
@@ -1177,12 +1364,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const r = readJsonSafe(PROFILES_FILE);
     let p = r.data;
     let created = false;
+    let healed = false;
     if (r.corrupt) p = recoverProfilesFromBackups();
     if (!p || !Array.isArray(p.slots)) {
       const legacy = readJsonSafe(SETTINGS_FILE).data || null;
       p = { active: 0, names: [], slots: [] };
       p.slots[0] = legacy; // Perfil 1 hereda lo que ya había (o null = defaults)
       created = true;
+    } else {
+      const before = p;
+      p = healThinProfilesFromBackup(p);
+      if (p !== before) healed = true;
     }
     // Normaliza tamaño y nombres.
     p.slots = Array.isArray(p.slots) ? p.slots.slice(0, PROFILE_COUNT) : [];
@@ -1196,7 +1388,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (p.editMode !== 'general') p.editMode = 'profile';
     // Persiste de inmediato si acabamos de crear/migrar/recuperar para que un reinicio
     // o actualización no vuelva a dejar la room sin profiles.json.
-    if (created || r.corrupt || !fs.existsSync(PROFILES_FILE)) {
+    if (created || healed || r.corrupt || !fs.existsSync(PROFILES_FILE)) {
       try { writeJsonAtomic(PROFILES_FILE, p); } catch {}
     }
     return p;
@@ -1409,9 +1601,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
   }
   // Sincroniza la estructura completa de perfiles (desde la nube o copia de seguridad).
+  // opts.mergeKeepRicher: no reemplazar una ranura local rica con una remota vacía/pobre
+  // (evita que un sync tras update borre acciones de juegos).
   function importProfilesFull(data, opts) {
     if (!data || typeof data !== 'object') return false;
     const silent = !!(opts && opts.silent);
+    const mergeKeepRicher = !!(opts && opts.mergeKeepRicher);
     persistCurrentEdit();
     const idx = Number(data.active);
     if (Number.isInteger(idx) && idx >= 0 && idx < PROFILE_COUNT) profiles.active = idx;
@@ -1424,22 +1619,39 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (Array.isArray(data.slots)) {
       for (let i = 0; i < PROFILE_COUNT; i++) {
         const s = data.slots[i];
-        profiles.slots[i] = (s && typeof s === 'object' && !Array.isArray(s)) ? cloneSettings(s) : null;
+        const incoming = (s && typeof s === 'object' && !Array.isArray(s)) ? cloneSettings(s) : null;
+        if (mergeKeepRicher) {
+          // Unión PC + nube: acciones de ambos, sin duplicados; no se pierde nada.
+          if (profiles.slots[i] && incoming) {
+            profiles.slots[i] = mergeSlotsUnion(profiles.slots[i], incoming);
+          } else {
+            profiles.slots[i] = incoming || profiles.slots[i] || null;
+          }
+        } else {
+          profiles.slots[i] = incoming;
+        }
       }
     }
     if (data.general != null) {
-      profiles.general = (data.general && typeof data.general === 'object' && !Array.isArray(data.general))
+      const incomingG = (data.general && typeof data.general === 'object' && !Array.isArray(data.general))
         ? cloneSettings(data.general) : null;
+      if (mergeKeepRicher) {
+        if (profiles.general && incomingG) profiles.general = mergeSlotsUnion(profiles.general, incomingG);
+        else profiles.general = incomingG || profiles.general || null;
+      } else {
+        profiles.general = incomingG;
+      }
     }
-    // Restaurar claves globales (Spotify + overlays + TTS + timer + puntos).
+    // Restaurar claves globales (Spotify + overlays + TTS + timer + webhook/RCON…).
+    // Con mergeKeepRicher: no pisar secretos/config local con nube vacía o más pobre.
     if (data.shared && typeof data.shared === 'object' && !Array.isArray(data.shared)) {
       for (const key of PROFILE_SHARED_KEYS) {
-        if (data.shared[key] != null) profiles[key] = normalizeSharedValue(key, data.shared[key]);
+        if (data.shared[key] != null) applySharedKeyFromRemote(key, data.shared[key], mergeKeepRicher);
       }
     }
     for (const key of PROFILE_SHARED_KEYS) {
       if (data[key] != null && typeof data[key] === 'object') {
-        profiles[key] = normalizeSharedValue(key, data[key]);
+        applySharedKeyFromRemote(key, data[key], mergeKeepRicher);
       }
     }
     ensureAllSharedKeys();
@@ -1468,35 +1680,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!silent && typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
     return true;
   }
-  function profilesFullSyncScore(full) {
+  function profilesFullContentScore(full) {
     if (!full || typeof full !== 'object') return 0;
-    const scoreSlot = (s) => {
-      if (!s || typeof s !== 'object') return 0;
-      let n = 0;
-      for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions']) {
-        const a = s[k];
-        if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
-      }
-      return n;
-    };
-    // Overlays/TTS/timer/puntos/Spotify viven fuera de las ranuras: contarlos evita
-    // que una nube con más acciones pero sin shared pise la config global local.
+    let total = 0;
+    if (Array.isArray(full.slots)) for (const s of full.slots) total += profileSlotContentScore(s);
+    if (full.general) total += profileSlotContentScore(full.general);
     const scoreSharedBag = (bag) => {
       if (!bag || typeof bag !== 'object') return 0;
       let n = 0;
       for (const key of PROFILE_SHARED_KEYS) {
-        const v = bag[key];
-        if (v == null) continue;
-        try {
-          const s = JSON.stringify(v);
-          if (s && s !== '{}' && s !== '[]' && s !== 'null') n += Math.min(s.length, 80000);
-        } catch {}
+        n += sharedValueContentScore(key, bag[key]);
       }
       return n;
     };
-    let total = Number(full.syncTs) || 0;
-    if (Array.isArray(full.slots)) for (const s of full.slots) total += scoreSlot(s);
-    if (full.general) total += scoreSlot(full.general);
     const sharedBag = (full.shared && typeof full.shared === 'object' && !Array.isArray(full.shared))
       ? { ...full.shared } : {};
     for (const key of PROFILE_SHARED_KEYS) {
@@ -1504,6 +1700,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     total += scoreSharedBag(sharedBag);
     return total;
+  }
+  function profilesFullSyncScore(full) {
+    // Contenido + syncTs (desempate). La decisión de pisar local usa content score.
+    if (!full || typeof full !== 'object') return 0;
+    return profilesFullContentScore(full) + (Number(full.syncTs) || 0);
   }
   function normalizeResetPeriod(p) {
     return p === 'week' || p === 'month' ? p : 'live';
@@ -3156,6 +3357,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     let changed = false;
     if (settings.tiktokUser !== username) {
       settings.tiktokUser = username;
+      // Usuario distinto → foto vieja no aplica hasta el próximo live.
       if (settings.tiktokPhoto) settings.tiktokPhoto = '';
       changed = true;
     }
@@ -4141,12 +4343,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const t = Math.max(1, Number(times) || 1);
     const vars = context ? buildActionWebhookVars(context.info || {}, context.user || null, t) : { nickname: '', username: '' };
     const nick = vars.nickname || vars.username || '';
-    const total = Math.max(1, (parseInt(ms.quantity, 10) || 1) * t);
+    // Cap 999 (igual que pestaña Mario). Hay que pasar `a` a spawnMarioThing para que
+    // withGameActionCountTiming repita N veces; sin eso solo spawneaba 1.
+    const total = Math.min(999, Math.max(1, (parseInt(ms.quantity, 10) || 1) * t));
     broadcast('log', {
       level: 'ok',
       text: `🍄 Mario: npc ${ms.npcId} · ${nick || 'espectador'}${total > 1 ? ` ×${total}` : ''}`,
     });
-    spawnMarioThing(ms.npcId, nick, total);
+    spawnMarioThing(ms.npcId, nick, total, a);
     return true;
   }
 
@@ -4411,8 +4615,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   // ---- Acciones de Mario Bros (SMBX2) vía bridge :7755 ----
   function spawnMarioThing(npcIdOrThing, name, times, actionForTiming) {
-    const units = Math.max(1, Number(times) || 1);
-    withGameActionCountTiming(actionForTiming, units, () => {
+    const units = Math.min(999, Math.max(1, Number(times) || 1));
+    // Si no hay objeto acción (p. ej. WS marioSpawn), usar timing sintético para
+    // que withGameActionCountTiming sí repita N veces (si no, solo spawnea 1).
+    const timing = (actionForTiming && typeof actionForTiming === 'object')
+      ? actionForTiming
+      : { count: units, delayEach: 0, delayBefore: 0 };
+    withGameActionCountTiming(timing, units, () => {
       if (npcIdOrThing == null || npcIdOrThing === '') return;
       if (emitLocalExec({ tipo: 'MARIO_SPAWN', thing: npcIdOrThing, name: String(name || ''), times: 1 })) return;
       marioSpawn(npcIdOrThing, name, 1).catch((e) => {
@@ -5971,7 +6180,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if ((a.kind || 'spawn') === 'effect') applyMarioEffect(a.thing, a.seconds, a.factor);
           else if (a.webhookCmd?.on && a.webhookCmd?.url) {
             runActionOutputs({ webhookCmd: a.webhookCmd }, cfg, { info: { likeCount: total }, user: null, times: t });
-          } else spawnMarioThing(a.thing ?? a.npcId, '', t);
+          } else spawnMarioThing(a.thing ?? a.npcId, '', t, a);
         }
       }
       for (const a of (cfg.mari0Actions || [])) {
@@ -8969,6 +9178,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     getProfilesFull,
     importProfilesFull,
     profilesFullSyncScore,
+    profilesFullContentScore,
     switchProfile,
     switchToGeneralEdit,
     renameProfile,
