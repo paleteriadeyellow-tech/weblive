@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins Â· Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=dock59" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=dock60" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
@@ -204,6 +204,11 @@
         <span id="statusText">Desconectado</span>
       </div>
     </aside>
+
+    <!-- Botón descarga .exe (solo panel web; abajo izquierda) -->
+    <div class="pc-install-dock" id="user-sidebar-foot">
+      <button type="button" class="sidebar-install-btn" id="pc-install-btn" hidden>⬇️ Instalar versión PC</button>
+    </div>
 
     <!-- ============ CONTENIDO ============ -->
     <div class="content">
@@ -435,10 +440,6 @@
         <section class="view" id="view-configuracion">
           <h1 class="view-title">âš™ï¸ ConfiguraciÃ³n</h1>
           <p class="view-sub">ConexiÃ³n RCON al servidor Minecraft, OBS, Streamer.bot y ServerTap. Los mismos datos se usan en Acciones y en la pestaÃ±a Minecraft.</p>
-
-                    <div class="cfg-account-bar" id="user-sidebar-foot">
-            <button type="button" class="sidebar-install-btn" id="pc-install-btn" hidden>⬇️ Instalar versión PC</button>
-          </div>
 
           <div class="settings-card">
             <div class="wh-cfg-grid">

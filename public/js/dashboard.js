@@ -1325,22 +1325,28 @@ async function applyPcInstallButton() {
     if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(pcInstallUrl);
     else window.open(pcInstallUrl, '_blank', 'noopener');
   };
-  if (btn) {
-    if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; }
-    else {
-      try {
-        const r = await fetch('/api/web-install');
-        if (!r.ok) { btn.hidden = true; }
-        else {
-          const d = await r.json();
-          pcInstallUrl = String(d.url || '').trim();
-          btn.hidden = !pcInstallUrl;
-          btn.onclick = openInstall;
-        }
-      } catch {
-        btn.hidden = true;
+  if (!btn) return;
+  if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; return; }
+  try {
+    let url = '';
+    const r = await fetch('/api/web-install');
+    if (r.ok) {
+      const d = await r.json();
+      url = String(d.url || '').trim();
+    }
+    // Fallback: mismo enlace que publica Admin → versión de la app.
+    if (!url) {
+      const rv = await fetch('/api/app-version');
+      if (rv.ok) {
+        const v = await rv.json();
+        url = String(v.url || '').trim();
       }
     }
+    pcInstallUrl = url;
+    btn.hidden = !pcInstallUrl;
+    btn.onclick = openInstall;
+  } catch {
+    btn.hidden = true;
   }
 }
 

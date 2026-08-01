@@ -1371,6 +1371,33 @@ img.nav-flyout-ico {
   background: linear-gradient(90deg, #00e5ff, #ff2bd6);
 }
 .sidebar-install-btn:hover { filter: brightness(1.08); }
+
+/* Descarga .exe — fijo abajo izquierda (solo web; en .exe se oculta por JS) */
+.pc-install-dock {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 95;
+  width: auto;
+  max-width: min(220px, calc(100vw - 28px));
+  pointer-events: none;
+}
+.pc-install-dock .sidebar-install-btn {
+  pointer-events: auto;
+  width: auto;
+  min-width: 0;
+  padding: 9px 14px;
+  font-size: 12px;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(0, 20, 60, .35);
+  white-space: nowrap;
+}
+.pc-install-dock .sidebar-install-btn[hidden] {
+  display: none !important;
+}
+html.is-desktop .pc-install-dock {
+  display: none !important;
+}
 .user-chip {
   padding: 0;
 }
