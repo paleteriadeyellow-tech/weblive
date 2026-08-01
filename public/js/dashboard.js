@@ -18969,8 +18969,8 @@ function renderSmb3Actions() {
 }
 
 function setupMari0Downloads() {
-  const MARI0_DOWNLOAD_URL = 'https://github.com/riusaki1995/.exe/releases/download/mari0/mari0.livecoins.rar';
-  const MARI0_ACTIVADOR_URL = 'https://github.com/riusaki1995/.exe/releases/download/mari0/Mari0.Livecoins.Bridge.Setup.2.0.0.exe';
+  const MARI0_DOWNLOAD_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/world/mari0.livecoins.rar';
+  const MARI0_ACTIVADOR_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/Mari0.Livecoins.Bridge.Setup.2.0.0.exe';
   const items = [
     { head: 'Descargar juego', name: 'Mari0', size: 'Juego (RAR)', img: '/img/mari0-card.png', url: MARI0_DOWNLOAD_URL, id: 'mari0-download-game', btn: '⬇ Descargar juego', toast: 'Mari0' },
     { head: 'Activador', name: 'Mari0 Bridge', size: 'Instalador (.exe)', img: '/img/mari0-card.png', url: MARI0_ACTIVADOR_URL, id: 'mari0-activador', btn: '⬇ Activador', toast: 'activador' },
@@ -19935,33 +19935,37 @@ function setupPvzHybridStatusPoll() {
 
 const PVZ_DL_BASE = 'https://github.com/riusaki1995/.exe/releases/download/pvz/';
 const PVZ_HYBRID_DOWNLOADS = [
-  { head: 'Descargar PvZ Tools', name: 'PvZ Tools', file: 'PvZ.Tools.v2.6.1.exe', size: '1.3 MB', icon: '⚙️' },
-  { head: 'Descargar Plantas vs Zombies 1', name: 'PvZ 1', file: 'PVZ.1.ESP-ENG.zip', size: '132.78 MB', img: '/img/plantasvszombies-card.jpg' },
-  { head: 'Descargar Plantas vs Zombies Hybrid v3.6', name: 'PvZ Hybrid v3.6', file: 'PVZ.HYBRID.v3.6.zip', size: '269.61 MB', img: '/img/pvzhybrid-card.jpg' },
-  { head: 'Descargar Plantas vs Zombies Naruto v1.20', name: 'PvZ Naruto v1.20', file: 'PVZ.Naruto.zip', size: '83.47 MB', img: '/img/PvZ_Naruto.png' },
-  { head: 'Descargar Plantas vs Zombies Parasyte v1.0', name: 'PvZ Parasyte v1.0', file: 'PVZ_Parasyte_en.zip', size: '50.8 MB', img: '/img/PvZ_Parasyte.png' },
-  { head: 'Descargar Plantas vs Zombies Cute', name: 'PvZ Cute', file: 'PVZ.CUTE.zip', size: '271.97 MB', img: '/img/PvZ_Cute.png' },
-  { head: 'Descargar Plantas vs Zombies AmongUs', name: 'PvZ AmongUs', file: 'PVZ.AmongUs.zip', size: '230.79 MB', img: '/img/PvZ_AmongUs.png' },
-  { head: 'Descargar Plantas vs Zombies Fusion v3.7', name: 'PvZ Fusion v3.7', file: 'PvZ.Fusion.-.Interactive.v3.7.-.MelonLoader.zip', size: '695 MB', img: '/img/PvZ_Fusion.png' },
-  { head: 'Descargar Plantas vs Zombies Future', name: 'PvZ Future', file: 'PVZ.Future.zip', size: '630.94 MB', img: '/img/PvZ_Future.png' },
-  { head: 'Descargar Plantas vs Zombies Avengers', name: 'PvZ Avengers', file: 'PVZ.Avengers.zip', size: '266.66 MB', img: '/img/PvZ_Avengers.png' },
+  { head: 'Descargar PvZ Tools', name: 'PvZ Tools', file: 'PvZ.Tools.v2.6.1.exe', size: '1.3 MB', icon: '⚙️', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/PvZ.Tools.v2.6.1.exe' },
+  { head: 'Descargar Plantas vs Zombies 1', name: 'PvZ 1', file: 'PVZ.1.ESP-ENG.zip', size: '132.78 MB', img: '/img/plantasvszombies-card.jpg', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies Hybrid v3.6', name: 'PvZ Hybrid v3.6', file: 'PVZ.HYBRID.v3.6.zip', size: '269.61 MB', img: '/img/pvzhybrid-card.jpg', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies Naruto v1.20', name: 'PvZ Naruto v1.20', file: 'PVZ.Naruto.zip', size: '83.47 MB', img: '/img/PvZ_Naruto.png', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies Parasyte v1.0', name: 'PvZ Parasyte v1.0', file: 'PVZ_Parasyte_en.zip', size: '50.8 MB', img: '/img/PvZ_Parasyte.png', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies Cute', name: 'PvZ Cute', file: 'PVZ.CUTE.zip', size: '271.97 MB', img: '/img/PvZ_Cute.png', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies AmongUs', name: 'PvZ AmongUs', file: 'PVZ.AmongUs.zip', size: '230.79 MB', img: '/img/PvZ_AmongUs.png', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies Fusion v3.7', name: 'PvZ Fusion v3.7', file: 'PvZ.Fusion.-.Interactive.v3.7.-.MelonLoader.zip', size: '695 MB', img: '/img/PvZ_Fusion.png', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies Future', name: 'PvZ Future', file: 'PVZ.Future.zip', size: '630.94 MB', img: '/img/PvZ_Future.png', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies Avengers', name: 'PvZ Avengers', file: 'PVZ.Avengers.zip', size: '266.66 MB', img: '/img/PvZ_Avengers.png', maintenance: true },
 ];
 
 function renderPvzHybridDownloads() {
   const wrap = document.getElementById('pvzhybrid-downloads');
   if (!wrap) return;
   wrap.innerHTML = PVZ_HYBRID_DOWNLOADS.map((d) => {
-    const url = PVZ_DL_BASE + d.file;
+    const maint = !!d.maintenance;
+    const url = d.url || (PVZ_DL_BASE + d.file);
     const thumb = d.img ? `<img src="${esc(d.img)}" alt="">` : esc(d.icon || '🎮');
-    return `<div class="pvz-dl-group">
+    const btn = maint
+      ? `<span class="pvz-dl-maint-badge" aria-label="En mantenimiento">Mantenimiento</span>`
+      : `<button type="button" class="pvz-dl-btn" data-url="${esc(url)}">⬇ Descargar</button>`;
+    return `<div class="pvz-dl-group${maint ? ' is-maintenance' : ''}">
       <div class="pvz-dl-group-head"><span class="pvz-dl-plus">+</span> ${esc(d.head)}</div>
       <div class="pvz-dl-card">
         <div class="pvz-dl-thumb">${thumb}</div>
         <div class="pvz-dl-info">
           <div class="pvz-dl-name">${esc(d.name)}</div>
-          <div class="pvz-dl-size">${esc(d.size)}</div>
+          <div class="pvz-dl-size">${maint ? 'Temporalmente no disponible' : esc(d.size)}</div>
         </div>
-        <button type="button" class="pvz-dl-btn" data-url="${esc(url)}">⬇ Descargar</button>
+        ${btn}
       </div>
     </div>`;
   }).join('');
@@ -25267,7 +25271,7 @@ function renderMslugActions() {
 }
 
 const MSLUG_OVERLAY_IMAGE_URL = '/img/metal-slug-overlay.png';
-const MSLUG_FULL_IMAGENES_URL = 'https://github.com/riusaki1995/mariobros/releases/download/metalslug/OVERLAY.png';
+const MSLUG_FULL_IMAGENES_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/OVERLAY.1.png';
 
 /** Descarga el overlay completo (todas las imágenes) desde GitHub. */
 function downloadMslugFullImagenes() {

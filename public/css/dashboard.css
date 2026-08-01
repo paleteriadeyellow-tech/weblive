@@ -4553,6 +4553,29 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   font-size: 12.5px; font-weight: 800; cursor: pointer; transition: background .15s, border-color .15s; }
 .pvz-dl-btn:hover { background: rgba(34,197,94,.18); border-color: rgba(74,222,128,.45); }
 .pvz-dl-btn:active { transform: translateY(1px); }
+.pvz-dl-group.is-maintenance { filter: grayscale(1); opacity: 0.72; pointer-events: none; user-select: none; }
+.pvz-dl-group.is-maintenance .pvz-dl-card {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.55);
+}
+.pvz-dl-group.is-maintenance .pvz-dl-group-head { color: #94a3b8; }
+.pvz-dl-group.is-maintenance .pvz-dl-name { color: #cbd5e1; }
+.pvz-dl-group.is-maintenance .pvz-dl-size { color: #94a3b8; }
+.pvz-dl-maint-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+  background: rgba(71, 85, 105, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+}
 
 .mari0-status-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 720px; margin: 12px auto 0; }
 .mari0-st { font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.15); }

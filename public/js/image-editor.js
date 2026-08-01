@@ -1029,7 +1029,7 @@
       name: 'Mario',
       desc: 'Pack de iconos PNG',
       cover: '/img/mari0-card.png',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/mari0.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/mari0.zip',
       fileName: 'mari0.zip',
     },
     {
@@ -1037,7 +1037,7 @@
       name: 'Minecraft Cubo',
       desc: 'Pack de iconos PNG',
       cover: '/img/bedrock-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/minecraftCubo.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/minecraftCubo.zip',
       fileName: 'minecraftCubo.zip',
     },
     {
@@ -1045,15 +1045,23 @@
       name: 'Minecraft SandBox',
       desc: 'Pack de iconos PNG',
       cover: '/img/sandbox-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/minecraftSandBox.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/minecraftSandBox.zip',
       fileName: 'minecraftSandBox.zip',
+    },
+    {
+      id: 'gtavsurvival',
+      name: 'GTA V Survival',
+      desc: 'Pack de iconos PNG',
+      cover: '/img/gtavkoth-card.png',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/gtavSurvival.zip',
+      fileName: 'gtavSurvival.zip',
     },
     {
       id: 'pvzavengerszombies',
       name: 'PvZ Avengers Zombies',
       desc: 'Pack de iconos PNG',
       cover: '/img/pvzhybrid-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzAvengersZombies.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzAvengersZombies.zip',
       fileName: 'pvzAvengersZombies.zip',
     },
     {
@@ -1061,7 +1069,7 @@
       name: 'PvZ Extras',
       desc: 'Pack de iconos PNG',
       cover: '/img/plantasvszombies-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzExtras.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzExtras.zip',
       fileName: 'pvzExtras.zip',
     },
     {
@@ -1069,7 +1077,7 @@
       name: 'PvZ Fusion Plantas',
       desc: 'Pack de iconos PNG',
       cover: '/img/pvzhybrid-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzFusionPlantas.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzFusionPlantas.zip',
       fileName: 'pvzFusionPlantas.zip',
     },
     {
@@ -1077,7 +1085,7 @@
       name: 'PvZ Fusion Zombies',
       desc: 'Pack de iconos PNG',
       cover: '/img/pvzhybrid-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzFusionZombies.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzFusionZombies.zip',
       fileName: 'pvzFusionZombies.zip',
     },
     {
@@ -1085,7 +1093,7 @@
       name: 'PvZ Hybrid Plantas',
       desc: 'Pack de iconos PNG',
       cover: '/img/pvzhybrid-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzHybridPlantas.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzHybridPlantas.zip',
       fileName: 'pvzHybridPlantas.zip',
     },
     {
@@ -1093,7 +1101,7 @@
       name: 'PvZ Hybrid Zombies',
       desc: 'Pack de iconos PNG',
       cover: '/img/pvzhybrid-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzHybridZombies.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzHybridZombies.zip',
       fileName: 'pvzHybridZombies.zip',
     },
     {
@@ -1101,7 +1109,7 @@
       name: 'PvZ Naruto Plantas',
       desc: 'Pack de iconos PNG',
       cover: '/img/pvzhybrid-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzNarutoPlantas.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzNarutoPlantas.zip',
       fileName: 'pvzNarutoPlantas.zip',
     },
     {
@@ -1109,7 +1117,7 @@
       name: 'PvZ Naruto Zombies',
       desc: 'Pack de iconos PNG',
       cover: '/img/pvzhybrid-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzNarutoZombies.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzNarutoZombies.zip',
       fileName: 'pvzNarutoZombies.zip',
     },
     {
@@ -1117,7 +1125,7 @@
       name: 'PvZ Plantas',
       desc: 'Pack de iconos PNG',
       cover: '/img/plantasvszombies-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzPlantas.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzPlantas.zip',
       fileName: 'pvzPlantas.zip',
     },
     {
@@ -1125,7 +1133,7 @@
       name: 'PvZ Zombies',
       desc: 'Pack de iconos PNG',
       cover: '/img/plantasvszombies-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/pvzZombies.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/pvzZombies.zip',
       fileName: 'pvzZombies.zip',
     },
     {
@@ -1133,7 +1141,7 @@
       name: 'R.E.P.O.',
       desc: 'Pack de iconos PNG',
       cover: '/img/repo-card.jpg',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/repo.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/repo.zip',
       fileName: 'repo.zip',
     },
     {
@@ -1141,7 +1149,7 @@
       name: 'RE2',
       desc: 'Pack de iconos PNG',
       cover: '/img/re2-card.png',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/re2.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/re2.zip',
       fileName: 're2.zip',
     },
     {
@@ -1149,7 +1157,7 @@
       name: 'RDR2',
       desc: 'Pack de iconos PNG',
       cover: '/img/rdr2-card.png',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/v.0.7/rdr2.zip',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/rdr2.zip',
       fileName: 'rdr2.zip',
     },
     {
@@ -1157,7 +1165,7 @@
       name: 'Left 4 Dead',
       desc: 'Pack de iconos PNG',
       cover: '/img/l4d2-card.png',
-      url: 'https://github.com/riusaki1995/.exe/releases/download/plugins/lesfor.rar',
+      url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/lesfor.rar',
       fileName: 'lesfor.rar',
     },
   ];

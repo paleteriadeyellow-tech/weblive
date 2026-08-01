@@ -18,7 +18,7 @@ export const SMW_TCP_HOST = process.env.SMW_TCP_HOST || '127.0.0.1';
 export const SMW_MOD_VERSION = '1.0.0';
 /** Zip remoto (GitHub Releases). Override: SMW_MOD_ZIP_URL */
 export const SMW_MOD_ZIP_URL = process.env.SMW_MOD_ZIP_URL
-  || 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/smw-livecoins-mod.zip';
+  || 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/smw-livecoins-mod.zip';
 
 const SMW_ROOT = path.join(process.env.LOCALAPPDATA || '', 'LivecoinsSmw');
 const SMW_CACHE_DIR = path.join(SMW_ROOT, 'mod-cache');
