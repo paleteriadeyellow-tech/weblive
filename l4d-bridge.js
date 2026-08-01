@@ -17,7 +17,7 @@ const L4D_MOD_VERSION = '1.0.0';
 const L4D_MOD_VERSION_CODE = 1;
 /** Zip remoto (GitHub Releases). Override: L4D_MOD_ZIP_URL */
 export const L4D_MOD_ZIP_URL = process.env.L4D_MOD_ZIP_URL
-  || 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/l4d-livecoins-mod.zip';
+  || 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/l4d-livecoins-mod.zip';
 const L4D_CACHE_DIR = path.join(process.env.LOCALAPPDATA || '', 'LivecoinsL4d', 'mod-cache');
 
 function normDir(dir) {

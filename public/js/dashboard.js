@@ -23917,7 +23917,7 @@ async function refreshCtrStatus() {
   }
 }
 
-const CTR_DOWNLOAD_URL = 'https://github.com/riusaki1995/mariobros/releases/download/farm/BizHawk.con.Crash.CTR.rar';
+const CTR_DOWNLOAD_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/BizHawk.con.Crash.CTR.rar';
 
 function renderCtrDownloads() {
   const wrap = document.getElementById('ctr-downloads');
@@ -24969,8 +24969,8 @@ function ensureMslugActions() {
   return settings.mslugActions;
 }
 
-const MSLUG_DOWNLOAD_URL = 'https://github.com/riusaki1995/mariobros/releases/download/metalslug/Metal.Slug.Nueva.Version.rar';
-const MSLUG_ACTIVADOR_URL = 'https://github.com/riusaki1995/mariobros/releases/download/metalsl/Metal.Slug.Bridge.Setup.1.0.0.exe';
+const MSLUG_DOWNLOAD_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/Metal.Slug.Nueva.Version.rar';
+const MSLUG_ACTIVADOR_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/Metal.Slug.Bridge.Setup.1.0.0.exe';
 
 const MSLUG_DL_ITEMS = [
   { head: 'Descargar Metal Slug', name: 'Metal Slug SB Fanthology', size: 'Juego (RAR)', img: '/img/metalslug.png', url: MSLUG_DOWNLOAD_URL, id: 'mslug-download-game', toast: 'Metal Slug' },
@@ -25393,8 +25393,8 @@ function ensureGdashActions() {
   return settings.gdashActions;
 }
 
-const GDASH_DOWNLOAD_URL = 'https://github.com/riusaki1995/mariobros/releases/download/geometrydash/Geometry.Dash.rar';
-const GDASH_ACTIVADOR_URL = 'https://github.com/riusaki1995/mariobros/releases/download/geometrydash/Geometry.Dash.Bridge.Setup.1.0.0.exe';
+const GDASH_DOWNLOAD_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/Geometry.Dash.rar';
+const GDASH_ACTIVADOR_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/Geometry.Dash.Bridge.Setup.1.0.0.exe';
 
 const GDASH_DL_ITEMS = [
   { head: 'Descargar Geometry Dash', name: 'Geometry Dash', size: 'Juego (RAR)', img: '/img/gdash/gdash-card.jpg', url: GDASH_DOWNLOAD_URL, id: 'gdash-download-game', btn: '⬇ Descargar', toast: 'Geometry Dash' },

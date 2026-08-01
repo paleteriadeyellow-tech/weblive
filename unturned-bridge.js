@@ -15,7 +15,7 @@ const UNTURNED_MOD_VERSION = '1.0.0';
 const UNTURNED_MOD_VERSION_CODE = 1;
 /** Zip remoto (GitHub Releases). Override: UNTURNED_MOD_ZIP_URL */
 export const UNTURNED_MOD_ZIP_URL = process.env.UNTURNED_MOD_ZIP_URL
-  || 'https://github.com/riusaki1995/.exe/releases/download/v1.0.79/unturned-livecoins-mod.zip';
+  || 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/unturned-livecoins-mod.zip';
 const UNTURNED_CACHE_DIR = path.join(process.env.LOCALAPPDATA || '', 'LivecoinsUnturned', 'mod-cache');
 const UNTURNED_INSTALL_ROOT_FILES = [
   'doorstop_config.ini',
