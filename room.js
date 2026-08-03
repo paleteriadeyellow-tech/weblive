@@ -598,6 +598,41 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (recentChatOrder.length > 500) recentChatKeys.delete(recentChatOrder.shift());
     return true;
   }
+  // Al conectar/reconectar tarde, TikTok a menudo suelta un chorro de chats viejos.
+  // Los absorbemos y solo procesamos el ÚLTIMO (TTS, comandos, etc.); luego todo normal.
+  let chatCatchupActive = false;
+  let chatCatchupLast = null;
+  let chatCatchupTimer = null;
+  const CHAT_CATCHUP_IDLE_MS = 900;
+  const CHAT_CATCHUP_MAX_MS = 3500;
+  function clearChatCatchup() {
+    clearTimeout(chatCatchupTimer);
+    chatCatchupTimer = null;
+    chatCatchupActive = false;
+    chatCatchupLast = null;
+  }
+  function beginChatCatchup() {
+    clearTimeout(chatCatchupTimer);
+    chatCatchupActive = true;
+    chatCatchupLast = null;
+    chatCatchupTimer = setTimeout(() => flushChatCatchup(), CHAT_CATCHUP_MAX_MS);
+    try { chatCatchupTimer.unref?.(); } catch {}
+  }
+  function noteChatCatchup(data) {
+    chatCatchupLast = data;
+    clearTimeout(chatCatchupTimer);
+    chatCatchupTimer = setTimeout(() => flushChatCatchup(), CHAT_CATCHUP_IDLE_MS);
+    try { chatCatchupTimer.unref?.(); } catch {}
+  }
+  function flushChatCatchup() {
+    clearTimeout(chatCatchupTimer);
+    chatCatchupTimer = null;
+    if (!chatCatchupActive) return;
+    chatCatchupActive = false;
+    const last = chatCatchupLast;
+    chatCatchupLast = null;
+    if (last) processChatEvent(last);
+  }
   const emoteCatalog = new Map();
   const EMOTES_FILE = path.join(dataDir, 'emotes.json');
   let emotesSaveTimer = null;
@@ -3449,6 +3484,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           broadcast('log', { level: 'ok', text: `Conectado a la sala ${newRoomId ?? ''}` });
         }
         fetchRoomCommunityGifts(conn);
+        beginChatCatchup();
       })
       .catch((err) => {
         if (conn !== connection) return;
@@ -3535,6 +3571,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     stopRankStreamerTimer();
     stopLiveBadgeTimer();
     clearBattleCountdown();
+    clearChatCatchup();
     state.inBattle = false;
     if (connection) {
       try { connection.disconnect(); } catch { /* ignore */ }
@@ -7937,22 +7974,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
   }
 
-  /* --------------------------- Eventos del live --------------------------- */
-  function bindEvents(conn) {
-    conn.on(ControlEvent.DISCONNECTED, () => {
-      state.connected = false;
-      pushState();
-      broadcast('log', { level: 'info', text: 'Desconectado del live.' });
-    });
-
-    conn.on(ControlEvent.ERROR, (e) => {
-      broadcast('log', { level: 'error', text: `Error: ${e?.info || e?.exception?.message || e}` });
-    });
-
-    conn.on(WebcastEvent.CHAT, (data) => {
+  function processChatEvent(data) {
       const comment = data.comment || '';
-      const chatKey = chatEventKey(data, comment);
-      if (!consumeChatOnce(chatKey)) return;
       state.stats.comments++;
       const msgId = data?.common?.msgId || '';
       const chatUser = baseUser(data.user || data);
@@ -8011,8 +8034,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         chatSeenUsers.add(uid);
         triggerVideos('userJoin', firstMsgInfo);
       }
+  }
+
+  /* --------------------------- Eventos del live --------------------------- */
+  function bindEvents(conn) {
+    conn.on(ControlEvent.DISCONNECTED, () => {
+      state.connected = false;
+      clearChatCatchup();
+      pushState();
+      broadcast('log', { level: 'info', text: 'Desconectado del live.' });
     });
 
+    conn.on(ControlEvent.ERROR, (e) => {
+      broadcast('log', { level: 'error', text: `Error: ${e?.info || e?.exception?.message || e}` });
+    });
+
+    conn.on(WebcastEvent.CHAT, (data) => {
+      const comment = data.comment || '';
+      const chatKey = chatEventKey(data, comment);
+      if (!consumeChatOnce(chatKey)) return;
+      // Conectar/reconectar tarde: TikTok suelta chats viejos; solo procesar el último.
+      if (chatCatchupActive) {
+        noteChatCatchup(data);
+        return;
+      }
+      processChatEvent(data);
+    });
     conn.on(WebcastEvent.GIFT, (data) => {
       // Multiplicador x2/x3 / guante crítico en regalos durante la PK (matchInfo).
       try {

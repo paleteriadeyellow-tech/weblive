@@ -3079,7 +3079,7 @@ app.use((req, res, next) => {
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
       return res.type('html').send(html);
     }
-    const tag = '<script src="/js/overlay-keepalive.js?v=ka2" defer></script>';
+    const tag = '<script src="/js/overlay-keepalive.js?v=ka3" defer></script>';
     const out = /<\/head>/i.test(html)
       ? html.replace(/<\/head>/i, `${tag}\n</head>`)
       : `${tag}\n${html}`;

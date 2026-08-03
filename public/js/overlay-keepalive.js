@@ -7,6 +7,8 @@
  *    en negro/error; cuando el ping ya responde, recarga sola (hasta 3 veces).
  * 3) CEF se “congela” (ping OK pero WebSocket no abre) → reload.
  * 4) Vuelta a la escena / pageshow / online → re-chequeo.
+ * 5) Reinicio de Render (502): registra SW para que el próximo fallo
+ *    sirva caché/recuperación en vez de quedarse en Bad Gateway.
  *
  * Así no hace falta borrar y volver a pegar el link en Live Studio.
  */
@@ -15,11 +17,11 @@
   window.__lcOverlayKeepalive = true;
 
   const PING = '/api/overlay-ping';
-  const INTERVAL_MS = 3500;
-  const DOWN_BEFORE_RELOAD_MS = 2000;
-  const COOLDOWN_MS = 12000;
-  const BOOT_WINDOW_MS = 45000;
-  const MAX_BOOT_RELOADS = 3;
+  const INTERVAL_MS = 3000;
+  const DOWN_BEFORE_RELOAD_MS = 1500;
+  const COOLDOWN_MS = 10000;
+  const BOOT_WINDOW_MS = 60000;
+  const MAX_BOOT_RELOADS = 5;
   const WS_FAIL_BEFORE_RELOAD = 2;
 
   let downSince = 0;
@@ -29,6 +31,14 @@
   let wsFailStreak = 0;
   let forceWsProbe = true; // primer tick + al volver a la escena
   const bootAt = Date.now();
+
+  // Overlays en OBS/Live Studio no cargan el panel: registrar SW aquí
+  // para sobrevivir reinicios de Render (502) con caché/reintento.
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    }
+  } catch { /* ignore */ }
 
   try {
     const n = Number(sessionStorage.getItem('lc_ov_boot_reloads') || 0);
@@ -113,7 +123,7 @@
         return;
       }
 
-      // Servidor volvió tras caída → recargar (Live Studio se queda en negro).
+      // Servidor volvió tras caída → recargar (Live Studio se queda en negro/502).
       if (downSince && Date.now() - downSince >= DOWN_BEFORE_RELOAD_MS) {
         downSince = 0;
         maybeReload('server-back');
@@ -147,10 +157,11 @@
   }
 
   setInterval(tick, INTERVAL_MS);
-  setTimeout(tick, 1200);
+  setTimeout(tick, 800);
   // Segundo pase temprano: típico “abrí Live Studio y Livecoins aún no”.
-  setTimeout(tick, 5000);
-  setTimeout(tick, 12000);
+  setTimeout(tick, 4000);
+  setTimeout(tick, 10000);
+  setTimeout(tick, 20000);
 
   window.addEventListener('pageshow', (ev) => {
     if (ev && ev.persisted) maybeReload('pageshow-bfcache');

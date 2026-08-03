@@ -1099,7 +1099,7 @@ function roomUrl(path) {
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
-  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=11';
+  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=12';
   return url;
 }
 
@@ -1208,21 +1208,47 @@ function updateDockUserAvatar({ photo, nickname, username } = {}) {
   if (photo) connectStreamerPhoto = photo;
   const name = nickname || username || window.MY_USER || '';
   const url = connectAvatarUrl(photo || connectStreamerPhoto);
-  if (url) {
-    img.referrerPolicy = 'no-referrer';
-    img.src = url;
-    img.hidden = false;
-    ph.hidden = true;
-    img.onerror = () => {
-      img.hidden = true;
-      ph.hidden = false;
-      ph.textContent = (typeof initial === 'function' ? initial(name) : (name[0] || '?')).toString().toUpperCase();
-    };
-  } else {
-    img.hidden = true;
-    ph.hidden = false;
-    ph.textContent = (typeof initial === 'function' ? initial(name || '?') : (name[0] || '?')).toString().toUpperCase();
-  }
+  const applyPair = (imageEl, phEl) => {
+    if (!imageEl || !phEl) return;
+    if (url) {
+      imageEl.referrerPolicy = 'no-referrer';
+      imageEl.src = url;
+      imageEl.hidden = false;
+      phEl.hidden = true;
+      imageEl.onerror = () => {
+        imageEl.hidden = true;
+        phEl.hidden = false;
+        phEl.textContent = (typeof initial === 'function' ? initial(name) : (name[0] || '?')).toString().toUpperCase();
+      };
+    } else {
+      imageEl.hidden = true;
+      phEl.hidden = false;
+      phEl.textContent = (typeof initial === 'function' ? initial(name || '?') : (name[0] || '?')).toString().toUpperCase();
+    }
+  };
+  applyPair(img, ph);
+  applyPair(document.getElementById('dock-menu-img'), document.getElementById('dock-menu-ph'));
+}
+
+function lastTikTokStorageKey() {
+  const u = String(window.MY_USER || '').trim().toLowerCase();
+  return u ? `lastTikTokUser:${u}` : '';
+}
+function getLastTikTokUserPref() {
+  try {
+    const key = lastTikTokStorageKey();
+    if (!key) return '';
+    return localStorage.getItem(key) || '';
+  } catch {}
+  return '';
+}
+function setLastTikTokUserPref(name) {
+  const n = String(name || '').trim();
+  if (!n) return;
+  try {
+    const key = lastTikTokStorageKey();
+    if (key) localStorage.setItem(key, n);
+  } catch {}
 }
 
 function setDockUserMenuOpen(open) {
@@ -1273,8 +1299,18 @@ function mountUserChip() {
   nameEl.textContent = window.MY_USER || 'usuario';
   const verEl = document.getElementById('user-chip-ver');
   if (verEl) verEl.hidden = !IS_DESKTOP;
+  const subEl = document.querySelector('.dock-user-menu-sub');
+  if (subEl) subEl.hidden = !IS_DESKTOP;
   try { refreshDockPlanUi(); } catch {}
   updateDockUserAvatar({ username: window.MY_USER });
+  try {
+    const lastU = getLastTikTokUserPref();
+    const userInp = $('username');
+    if (lastU && userInp && !userInp.value) {
+      userInp.value = lastU;
+      updateConnectAvatar({ username: lastU });
+    }
+  } catch {}
   const btn = document.getElementById('dock-user-btn');
   const menu = document.getElementById('dock-user-menu');
   if (btn && menu && !btn.dataset.wired) {
@@ -1306,6 +1342,15 @@ function mountUserChip() {
     logout.dataset.wired = '1';
     logout.onclick = async () => {
       setDockUserMenuOpen(false);
+      try {
+        if (typeof send === 'function' && typeof ws !== 'undefined' && ws?.readyState === 1) {
+          send({ action: 'disconnect' });
+        }
+      } catch {}
+      try {
+        if (typeof desktopRelayOn === 'function' && desktopRelayOn()) await relayDisconnectHttp();
+        else if (typeof relayActive === 'function' && relayActive()) await relayDisconnectHttp();
+      } catch {}
       try { await fetch('/api/logout', { method: 'POST' }); } catch {}
       location.href = '/login.html';
     };
@@ -1326,28 +1371,22 @@ async function applyPcInstallButton() {
     if (IS_DESKTOP && window.desktopAPI?.openExternal) window.desktopAPI.openExternal(pcInstallUrl);
     else window.open(pcInstallUrl, '_blank', 'noopener');
   };
-  if (!btn) return;
-  if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; return; }
-  try {
-    let url = '';
-    const r = await fetch('/api/web-install');
-    if (r.ok) {
-      const d = await r.json();
-      url = String(d.url || '').trim();
-    }
-    // Fallback: mismo enlace que publica Admin → versión de la app.
-    if (!url) {
-      const rv = await fetch('/api/app-version');
-      if (rv.ok) {
-        const v = await rv.json();
-        url = String(v.url || '').trim();
+  if (btn) {
+    if (IS_DESKTOP || IS_LOCALHOST) { btn.hidden = true; }
+    else {
+      try {
+        const r = await fetch('/api/web-install');
+        if (!r.ok) { btn.hidden = true; }
+        else {
+          const d = await r.json();
+          pcInstallUrl = String(d.url || '').trim();
+          btn.hidden = !pcInstallUrl;
+          btn.onclick = openInstall;
+        }
+      } catch {
+        btn.hidden = true;
       }
     }
-    pcInstallUrl = url;
-    btn.hidden = !pcInstallUrl;
-    btn.onclick = openInstall;
-  } catch {
-    btn.hidden = true;
   }
 }
 
@@ -3290,7 +3329,7 @@ function renderState(s) {
     if (btnD) btnD.hidden = true;
   }
   if (s.username && !$('username').value) $('username').value = s.username;
-  if (s.username) { try { localStorage.setItem('lastTikTokUser', s.username); } catch {} }
+  if (s.username) setLastTikTokUserPref(s.username);
   updateConnectAvatar({
     photo: s.photo,
     nickname: s.nickname,
@@ -3556,7 +3595,7 @@ async function doConnect() {
   };
   markConnecting();
   try {
-    try { localStorage.setItem('lastTikTokUser', u); } catch {}
+    try { setLastTikTokUserPref(u); } catch {}
 
     const relay = relayActive() || desktopRelayOn();
 
@@ -3634,13 +3673,8 @@ $('btnConnect').onclick = doConnect;
 $('btnDisconnect').onclick = doDisconnect;
 $('username').addEventListener('keydown', (e) => { if (e.key === 'Enter') doConnect(); });
 $('username').addEventListener('input', () => updateConnectAvatar({ username: $('username').value.trim() }));
-// Prerellena el último usuario guardado al abrir el panel (antes incluso de que llegue
-// el estado del servidor), para que el campo nunca aparezca vacío.
-try {
-  const lastU = localStorage.getItem('lastTikTokUser');
-  if (lastU && !$('username').value) $('username').value = lastU;
-  if (lastU) updateConnectAvatar({ username: lastU });
-} catch {}
+// El prerelleno de @TikTok va por cuenta Livecoins (tras loadMe → mountUserChip).
+// No usar una clave global: mezclaría el usuario TikTok entre cuentas del .exe.
 $('clearChat').onclick = () => {
   const chat = $('chat');
   if (!chat) return;
@@ -3911,6 +3945,16 @@ function onSettings(s) {
   applyingSettings = true;
   applySettingsToUI();
   applyingSettings = false;
+  try {
+    const livePhoto = String(settings?.tiktokPhoto || '').trim();
+    if (livePhoto) {
+      updateDockUserAvatar({
+        photo: livePhoto,
+        nickname: settings.tiktokUser || '',
+        username: window.MY_USER,
+      });
+    }
+  } catch {}
   if (typeof onMusicSettingsLoaded === 'function') onMusicSettingsLoaded();
   applyLimitUI();
   renderPlanView();
@@ -8261,8 +8305,12 @@ const STYLE_OVERLAYS = [
         const sc = $('socfg-scale');
         const lbl = $('socfg-scale-lbl');
         if (sc && lbl) lbl.textContent = (parseInt(sc.value, 10) || 100) + '%';
+        // Sin límite de jugadores (campo oculto)
+        const maxp = $('socfg-maxp');
+        if (maxp) maxp.value = '0';
       } catch {}
     },
+    onSave: (cfg) => { cfg.maxPlayers = 0; },
   }),
   setupStyleOverlay({
     kind: 'topaltneon', settingsKey: 'topAltRankNeon', previewId: 'taln-preview',
@@ -8676,8 +8724,15 @@ function refreshGiftCounterCardUI() {
 })();
 
 (function setupSorteosControls() {
-  const soPrev = () => $('so-preview')?.contentWindow;
-  const toPrev = (msg) => soPrev()?.postMessage({ kind: 'sorteos', ...msg }, '*');
+  const soFrame = () => $('so-preview');
+  const toPrev = async (msg) => {
+    const fr = await ensureEmbedLoaded(soFrame());
+    try { fr?.contentWindow?.postMessage({ kind: 'sorteos', ...msg }, '*'); } catch {}
+  };
+  const pushCfg = () => {
+    const cfg = settings?.sorteosOverlay || {};
+    toPrev({ type: 'config', config: cfg });
+  };
   window.refreshSorteosGiftBtn = function refreshSorteosGiftBtn() {
     const btn = $('socfg-giftpick');
     if (!btn) return;
@@ -8700,6 +8755,7 @@ function refreshGiftCounterCardUI() {
     if ($('socfg-giftid')) $('socfg-giftid').value = String(g.id || '');
     if ($('socfg-giftname')) $('socfg-giftname').value = g.name || '';
     refreshSorteosGiftBtn();
+    // Preview en vivo (igual que el resto del modal)
     const cfg = {
       ...(settings?.sorteosOverlay || {}),
       entryCost: diamonds,
@@ -8727,19 +8783,33 @@ function refreshGiftCounterCardUI() {
   if ($('so-start')) $('so-start').onclick = () => {
     toPrev({ type: 'action', action: 'start', forceInitial: true });
     send({ action: 'sorteos', sorteosAction: 'start', forceInitial: true });
+    try { toast('Sorteos · Iniciar', 'ok'); } catch {}
   };
   if ($('so-lock')) $('so-lock').onclick = () => {
     toPrev({ type: 'action', action: 'lock' });
     send({ action: 'sorteos', sorteosAction: 'lock' });
+    try { toast('Sorteos · Lock entradas', 'ok'); } catch {}
   };
   if ($('so-unlock')) $('so-unlock').onclick = () => {
     toPrev({ type: 'action', action: 'unlock' });
     send({ action: 'sorteos', sorteosAction: 'unlock' });
+    try { toast('Sorteos · Unlock', 'ok'); } catch {}
   };
   if ($('so-reset')) $('so-reset').onclick = () => {
     toPrev({ type: 'reset' });
     send({ action: 'sorteos', sorteosAction: 'reset' });
+    try { toast('Sorteos · Reset', 'ok'); } catch {}
   };
+  // Cuando el iframe avisa que cargó, reenviar config (evita preview gigante con scale por defecto)
+  window.addEventListener('message', (ev) => {
+    const d = ev?.data;
+    if (!d || d.kind !== 'sorteos' || d.type !== 'ready') return;
+    pushCfg();
+  });
+  const soFr = soFrame();
+  if (soFr) {
+    soFr.addEventListener('load', () => { pushCfg(); setTimeout(pushCfg, 200); });
+  }
 })();
 
 function pushStyleOverlayPreviews() {
@@ -26693,7 +26763,7 @@ async function testWebhookConnection(kind, btn) {
 function homeLastUser() {
   let u = '';
   try { u = ($('username') && $('username').value || '').trim(); } catch {}
-  if (!u) { try { u = (localStorage.getItem('lastTikTokUser') || '').trim(); } catch {} }
+  if (!u) { try { u = (getLastTikTokUserPref() || '').trim(); } catch {} }
   return u.replace(/^@/, '');
 }
 
@@ -26746,6 +26816,7 @@ function updateHomeHeroAvatar({ photo, nickname, username, mode } = {}) {
     ph.hidden = false;
     ph.textContent = initial(name || '?');
   }
+  try { updateDockUserAvatar({ photo: photo || connectStreamerPhoto, nickname: name, username: username || window.MY_USER }); } catch {}
 }
 
 function syncHomeHeroPlan() {

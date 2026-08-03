@@ -702,7 +702,7 @@ export const DEFAULT_SETTINGS = {
     lockEntryMin: 30,
     vouchKeywords: 'vouch,gracias,confiable',
     overlayScale: 100,
-    maxPlayers: 400,
+    maxPlayers: 0,
     autoStart: true,
     statsPos: 'bottom',
     showGift: true,

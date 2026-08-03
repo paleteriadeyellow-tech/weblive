@@ -866,6 +866,8 @@ export function saveDesktopLastLogin(userId) {
     fs.writeFileSync(DESKTOP_LAST_SESSION_FILE, JSON.stringify({
       userId: user.id,
       username: user.username,
+      plan: getUserPlan(user),
+      isAdmin: !!user.isAdmin,
       at: Date.now(),
     }, null, 2));
   } catch {}
