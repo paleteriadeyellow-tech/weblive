@@ -445,6 +445,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const HABIBI_TOP_FILE = path.join(dataDir, 'habibi-top.json');
   const GIFTGOALS_FILE = path.join(dataDir, 'gift-goals.json');
   const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
+  const FOC_METRICS_FILE = path.join(dataDir, 'foc-metrics.json');
   const RANK_IDS = ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist', 'topcomments'];
   const RANK_SETTINGS_KEY = {
     toplikes: 'toplikesRank', topdiam: 'topdiamRank',
@@ -914,7 +915,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'flowMeter', 'giftSeq', 'giftShowcase',
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'giftGoals', 'giftCounter', 'topStreak',
-    'batallaGifts', 'batallaLikes', 'coinMatch',
+    'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
@@ -1841,6 +1842,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     enforceLimits();
     saveSettings();
     broadcast('settings', settings);
+    if (obj.followerCounter || obj.followerCounterMc) {
+      try { broadcastFollowerCounter(); } catch { /* foc aún no listo en boot */ }
+    }
     clampTimer();
     broadcastTimer();
     if (stopVideoScreens) {
@@ -6982,11 +6986,108 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return out;
   }
   function serializeFollowerCounter() {
-    return { count: followerCounter.count, nickname: followerCounter.nickname, uniqueId: followerCounter.uniqueId, photo: followerCounter.photo, userId: followerCounter.userId, ready: followerCounter.ready };
+    ensureFocMetricsFresh();
+    const followers = Math.max(0, Math.floor(Number(followerCounter.count) || 0));
+    const likesLive = Math.max(0, Math.floor(Number(state.stats.likes) || 0));
+    const diamondsLive = Math.max(0, Math.floor(Number(state.stats.diamonds) || 0));
+    const likesWeek = Math.max(0, Math.floor(Number(focMetrics.likes.week.total) || 0));
+    const likesMonth = Math.max(0, Math.floor(Number(focMetrics.likes.month.total) || 0));
+    const diamondsWeek = Math.max(0, Math.floor(Number(focMetrics.diamonds.week.total) || 0));
+    const diamondsMonth = Math.max(0, Math.floor(Number(focMetrics.diamonds.month.total) || 0));
+    const metric = normalizeFocMetric(settings.followerCounter?.metric);
+    const period = normalizeResetPeriod(settings.followerCounter?.resetPeriod);
+    let count = followers;
+    if (metric === 'likes') count = period === 'week' ? likesWeek : period === 'month' ? likesMonth : likesLive;
+    else if (metric === 'diamonds') count = period === 'week' ? diamondsWeek : period === 'month' ? diamondsMonth : diamondsLive;
+    return {
+      count,
+      followers,
+      likesLive, likesWeek, likesMonth,
+      diamondsLive, diamondsWeek, diamondsMonth,
+      metric, resetPeriod: period,
+      nickname: followerCounter.nickname,
+      uniqueId: followerCounter.uniqueId,
+      photo: followerCounter.photo,
+      userId: followerCounter.userId,
+      ready: followerCounter.ready || metric !== 'followers',
+    };
   }
   function broadcastFollowerCounter() {
     broadcast('followerCounter', serializeFollowerCounter());
   }
+  function normalizeFocMetric(m) {
+    return m === 'likes' || m === 'diamonds' ? m : 'followers';
+  }
+  function emptyFocBucket(period) {
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    return { start, end, total: 0 };
+  }
+  let focMetrics = {
+    likes: { week: emptyFocBucket('week'), month: emptyFocBucket('month') },
+    diamonds: { week: emptyFocBucket('week'), month: emptyFocBucket('month') },
+  };
+  let focMetricsSaveTimer = null;
+  function loadFocMetrics() {
+    const raw = readJsonSafe(FOC_METRICS_FILE).data || {};
+    for (const kind of ['likes', 'diamonds']) {
+      for (const period of ['week', 'month']) {
+        const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+        const saved = raw[kind]?.[period];
+        if (saved && saved.start === start && Number.isFinite(Number(saved.total))) {
+          focMetrics[kind][period] = { start, end, total: Math.max(0, Math.floor(Number(saved.total) || 0)) };
+        } else {
+          focMetrics[kind][period] = { start, end, total: 0 };
+        }
+      }
+    }
+  }
+  function saveFocMetrics() {
+    clearTimeout(focMetricsSaveTimer);
+    focMetricsSaveTimer = setTimeout(() => {
+      try {
+        writeJsonAtomic(FOC_METRICS_FILE, {
+          likes: focMetrics.likes,
+          diamonds: focMetrics.diamonds,
+        });
+      } catch { /* ignore */ }
+    }, 400);
+  }
+  function ensureFocMetricsFresh() {
+    for (const kind of ['likes', 'diamonds']) {
+      for (const period of ['week', 'month']) {
+        const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+        const cur = focMetrics[kind][period];
+        if (!cur || cur.start !== start) {
+          focMetrics[kind][period] = { start, end, total: 0 };
+          saveFocMetrics();
+        } else {
+          cur.end = end;
+        }
+      }
+    }
+  }
+  function bumpFocMetrics(kind, amount) {
+    const n = Math.max(0, Math.floor(Number(amount) || 0));
+    if (kind !== 'likes' && kind !== 'diamonds') return;
+    if (n > 0) {
+      ensureFocMetricsFresh();
+      focMetrics[kind].week.total += n;
+      focMetrics[kind].month.total += n;
+      saveFocMetrics();
+    }
+    const uses = [settings.followerCounter, settings.followerCounterMc].some((c) => normalizeFocMetric(c?.metric) === kind);
+    if (uses) broadcastFollowerCounter();
+  }
+  function resetFocMetricTotals(kind, period) {
+    if (kind !== 'likes' && kind !== 'diamonds') return;
+    ensureFocMetricsFresh();
+    if (period === 'week' || period === 'month') {
+      focMetrics[kind][period].total = 0;
+      saveFocMetrics();
+    }
+  }
+  loadFocMetrics();
+
   function bumpFollowerCounter(delta, raw) {
     const abs = Number(raw?.followCount);
     if (Number.isFinite(abs) && abs > 0) followerCounter.count = Math.floor(abs);
@@ -7017,8 +7118,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     else {
       followerCounter.count = 0;
       followerCounter.ready = false;
-      broadcastFollowerCounter();
     }
+    const metric = normalizeFocMetric(settings.followerCounter?.metric);
+    const period = normalizeResetPeriod(settings.followerCounter?.resetPeriod);
+    if ((metric === 'likes' || metric === 'diamonds') && (period === 'week' || period === 'month')) {
+      resetFocMetricTotals(metric, period);
+    }
+    const metricMc = normalizeFocMetric(settings.followerCounterMc?.metric);
+    const periodMc = normalizeResetPeriod(settings.followerCounterMc?.resetPeriod);
+    if ((metricMc === 'likes' || metricMc === 'diamonds') && (periodMc === 'week' || periodMc === 'month')) {
+      if (metricMc !== metric || periodMc !== period) resetFocMetricTotals(metricMc, periodMc);
+    }
+    broadcastFollowerCounter();
   }
   function socialDisplayType(data) {
     return String(data?.common?.displayText?.displayType || data?.displayType || '').toLowerCase();
@@ -7954,6 +8065,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const total = diamondsEach * repeatCount;
         state.stats.gifts++;
         state.stats.diamonds += total;
+        bumpFocMetrics('diamonds', total);
 
         if (user.uniqueId) {
           const g = state.gifters.get(user.uniqueId) || { ...user, diamonds: 0 };
@@ -8028,6 +8140,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       processFanBalls('likes', baseUser(data.user), data.likeCount || 0);
       addRankLikes(baseUser(data.user), data.likeCount || 0);
       trackSessionLike(baseUser(data.user), data.likeCount || 0);
+      bumpFocMetrics('likes', data.likeCount || 0);
       broadcast('like', { ...baseUser(data.user), count: data.likeCount || 0, total: state.stats.likes });
       addPkHostLikePoints(data.likeCount || 0);
       const likeUser = baseUser(data.user);
@@ -9057,9 +9170,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetFuegos':
         broadcast('fuegosReset', {});
         break;
-      case 'testFollowerCounter':
-        broadcast('followerCounter', { count: 1234, nickname: 'PreviewFan', uniqueId: 'previewfan', photo: '', ready: true });
+      case 'testFollowerCounter': {
+        const base = serializeFollowerCounter();
+        broadcast('followerCounter', {
+          ...base,
+          count: 1234,
+          followers: 1234,
+          likesLive: 1234, likesWeek: 1234, likesMonth: 1234,
+          diamondsLive: 1234, diamondsWeek: 1234, diamondsMonth: 1234,
+          nickname: base.nickname || 'PreviewFan',
+          uniqueId: base.uniqueId || 'previewfan',
+          photo: base.photo || '',
+          ready: true,
+        });
         break;
+      }
       case 'resetFollowerCounter':
         resetFollowerCounterFromRoom();
         break;
@@ -9077,6 +9202,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'coinMatch':
         broadcast('coinMatchControl', { action: data.coinAction, durationSec: data.durationSec });
+        break;
+      case 'sorteos':
+        broadcast('sorteosControl', {
+          action: data.sorteosAction,
+          forceInitial: !!data.forceInitial,
+        });
+        break;
+      case 'testSorteos':
+        broadcast('sorteosTest', {});
         break;
       case 'timerControl': {
         const op = data.op;

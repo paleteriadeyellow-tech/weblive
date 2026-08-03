@@ -69,6 +69,7 @@ export const CAPABILITIES = {
     { key: 'ov_batallaregalos', label: 'Batalla de regalos', path: '/batallaregalos.html' },
     { key: 'ov_batallalikes', label: 'Batalla de likes', path: '/batallalikes.html' },
     { key: 'ov_coinmatch', label: 'Coin Match', path: '/coinmatch.html' },
+    { key: 'ov_sorteos', label: 'Sorteos overlay', path: '/sorteos.html' },
     { key: 'ov_top1fire', label: 'Top 1 Donador Fuego', path: '/top1fire.html' },
     { key: 'ov_meta', label: 'Barra de meta (Hype)', path: '/meta.html' },
     { key: 'ov_metamc', label: 'Barra de meta (Minecraft)', path: '/meta-minecraft.html' },

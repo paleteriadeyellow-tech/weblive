@@ -1,4 +1,4 @@
-﻿// Ajustes por defecto de cada room (usuario). Es la plantilla que se fusiona con
+// Ajustes por defecto de cada room (usuario). Es la plantilla que se fusiona con
 // lo que cada usuario tenga guardado en su data/<id>/settings.json.
 export const DEFAULT_SETTINGS = {
   alerts: {
@@ -683,6 +683,44 @@ export const DEFAULT_SETTINGS = {
     winMode: 'keep', showTitle: true, showCount: true, scroll: true,
     sniper: false, slowReveal: false, font: 'inter',
   },
+  // Overlay Sorteos (vidas por monedas + eliminación aleatoria)
+  sorteosOverlay: {
+    entryCost: 30,
+    entryGiftImage: '',
+    entryGiftId: '',
+    entryGiftName: '',
+    elimIntervalSec: 5,
+    elimCardSec: 3,
+    animSpeed: 'normal',
+    minPlayers: 3,
+    initialTimerSec: 120,
+    slowCountdown: true,
+    slowFromSec: 3,
+    slowSec: 2,
+    instaClaim: 3000,
+    lockMode: false,
+    lockEntryMin: 30,
+    vouchKeywords: 'vouch,gracias,confiable',
+    overlayScale: 100,
+    maxPlayers: 400,
+    autoStart: true,
+    statsPos: 'bottom',
+    showGift: true,
+    showMin: true,
+    showPlayers: true,
+    showCoins: true,
+    showVouches: true,
+    showInsta: true,
+    frameColor: '#a78bfa',
+    frameBg: '#0c081c',
+    boxBg: '#0a0c14',
+    giftColor: '#c084fc',
+    minColor: '#f5c542',
+    playersColor: '#38bdf8',
+    coinsColor: '#fbbf24',
+    vouchesColor: '#34d399',
+    instaColor: '#fb7185',
+  },
   // Rankings Likes / Diamantes (bandas y lista)
   toplikesRank: { rows: 5, accent: '#ffffff', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false, resetPeriod: 'live' },
   topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false, resetPeriod: 'live' },
@@ -757,12 +795,14 @@ export const DEFAULT_SETTINGS = {
     fontColor: '#dedede', colorMode: 'solid',
     showFollowersText: true, showProfile: true, showProgressBar: true,
     showConfetti: false, goalFollowers: 10000, scale: 100,
+    metric: 'followers', resetPeriod: 'live',
   },
   followerCounterMc: {
     variation: 'flip', font: 'pressstart', fontSize: 42, lineSpacing: 50, letterSpacing: 50,
     fontColor: '#55ff55', colorMode: 'solid',
     showFollowersText: true, showProfile: true, showProgressBar: true,
     showConfetti: false, goalFollowers: 10000, scale: 100,
+    metric: 'followers', resetPeriod: 'live',
   },
   liveTimer: {
     title: 'TIEMPO EN LIVE',

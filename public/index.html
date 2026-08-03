@@ -114,6 +114,7 @@
               <button class="nav-item" data-view="ov-batalla" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-batalla.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Batalla Overlay</span></button>
               <button class="nav-item" data-view="ov-contador" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-contador.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Contador</span></button>
               <button class="nav-item" data-view="timer" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-timer.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Temporizador</span></button>
+              <button class="nav-item" data-view="ov-sorteos" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-gifts.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Sorteos overlay</span></button>
             </div>
           </div>
         </div>
@@ -3147,6 +3148,88 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Sorteos overlay -->
+        <div id="soConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>🎲 Configurar — Sorteos overlay</h2>
+              <button class="modal-close" id="socfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div style="grid-column:1/-1">
+                  <label class="ml">REGALO DE REFERENCIA (costo + imagen)</label>
+                  <div class="gct-giftrow" style="gap:8px;flex-wrap:wrap;align-items:center">
+                    <button type="button" class="gvs-giftbtn" id="socfg-giftpick">＋ Elegir regalo</button>
+                    <button type="button" class="btn ghost" id="socfg-giftclear" title="Quitar imagen; el costo se mantiene">Quitar imagen</button>
+                  </div>
+                  <p class="hint" style="margin-top:6px">Al elegir un regalo se usan sus <b>monedas como costo de entrada</b> y su <b>imagen</b> en el HUD. Sigue valiendo <b>cualquier combinación</b> de regalos para entrar (ej. Control 100 + Perfume 20 = 4 entradas de 30).</p>
+                  <input type="hidden" id="socfg-entry" value="30">
+                  <input type="hidden" id="socfg-giftimg" value="">
+                  <input type="hidden" id="socfg-giftid" value="">
+                  <input type="hidden" id="socfg-giftname" value="">
+                </div>
+                <div><label class="ml">ELIMINACIÓN CADA (seg)</label><input type="number" id="socfg-elim" min="1" max="600" value="5"></div>
+                <div><label class="ml">TARJETA ELIMINADO (seg)</label><input type="number" id="socfg-elimcard" min="1" max="30" value="3" title="Cuánto dura la pantalla ELIMINATED antes de seguir"></div>
+                <div>
+                  <label class="ml">VELOCIDAD ANIMACIÓN</label>
+                  <select id="socfg-anim">
+                    <option value="fast">Muy rápida</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="slow">Lenta</option>
+                  </select>
+                </div>
+                <div><label class="ml">MÍN. JUGADORES</label><input type="number" id="socfg-minp" min="1" max="100" value="3"></div>
+                <div><label class="ml">TIEMPO INICIAL (seg)</label><input type="number" id="socfg-initial" min="1" max="3600" value="120" title="Solo si Modo Lock está apagado"></div>
+                <div><label class="ml">INSTA-CLAIM (monedas)</label><input type="number" id="socfg-insta" min="0" max="100000000" value="3000"></div>
+                <div><label class="ml">MÁX. JUGADORES</label><input type="number" id="socfg-maxp" min="1" max="400" value="400"></div>
+                <div><label class="ml">LENTO DESDE (seg)</label><input type="number" id="socfg-slowfrom" min="1" max="30" value="3"></div>
+                <div><label class="ml">DURACIÓN SEG. LENTO (1–5)</label><input type="number" id="socfg-slowsec" min="1" max="5" value="2"></div>
+                <div><label class="ml">MODO LOCK — ENTRADA (min)</label><input type="number" id="socfg-lockmin" min="1" max="180" value="30" title="Ventana para entrar antes de bloquear"></div>
+                <div style="grid-column:1/-1">
+                  <label class="ml">TAMAÑO OVERLAY <b id="socfg-scale-lbl">100%</b></label>
+                  <input type="range" id="socfg-scale" min="0" max="140" value="100" step="5">
+                  <p class="hint" style="margin-top:6px">Ajusta el tamaño en OBS / Live Studio y en la vista previa (0%–140%).</p>
+                </div>
+                <div>
+                  <label class="ml">POSICIÓN DE CUADROS</label>
+                  <select id="socfg-statspos">
+                    <option value="bottom">Abajo (debajo del marco)</option>
+                    <option value="top">Arriba (entre timer y marco)</option>
+                  </select>
+                </div>
+                <div><label class="ml">COLOR DEL MARCO</label><input type="color" id="socfg-frame" value="#a78bfa"></div>
+                <div><label class="ml">FONDO DEL MARCO</label><input type="color" id="socfg-framebg" value="#0c081c"></div>
+                <div><label class="ml">FONDO DE CUADROS</label><input type="color" id="socfg-boxbg" value="#0a0c14"></div>
+                <div><label class="ml">COLOR GIFT</label><input type="color" id="socfg-cgift" value="#c084fc"></div>
+                <div><label class="ml">COLOR MÍNIMO</label><input type="color" id="socfg-cmin" value="#f5c542"></div>
+                <div><label class="ml">COLOR PLAYERS</label><input type="color" id="socfg-cplayers" value="#38bdf8"></div>
+                <div><label class="ml">COLOR COINS</label><input type="color" id="socfg-ccoins" value="#fbbf24"></div>
+                <div><label class="ml">COLOR VOUCHES</label><input type="color" id="socfg-cvouches" value="#34d399"></div>
+                <div><label class="ml">COLOR INSTA</label><input type="color" id="socfg-cinsta" value="#fb7185"></div>
+                <div style="grid-column:1/-1">
+                  <label class="ml">PALABRAS VOUCH (reseña del ganador)</label>
+                  <input type="text" id="socfg-vouchkeys" value="vouch,gracias,confiable" placeholder="vouch, gracias, confiable">
+                  <p class="hint" style="margin-top:6px">Cuando hay ganador y escribe una de estas palabras en el chat → animación <b>+1 vouch</b> y suma al total. Solo cuenta el ganador (1 vez por ronda).</p>
+                </div>
+              </div>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="socfg-showgift" checked> <span>Mostrar cuadro <b>Gift</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-showmin" checked> <span>Mostrar cuadro <b>Mínimo</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-showplayers" checked> <span>Mostrar cuadro <b>Players</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-showcoins" checked> <span>Mostrar cuadro <b>Coins</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-showvouches" checked> <span>Mostrar cuadro <b>Vouches</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-showinsta" checked> <span>Mostrar cuadro <b>Insta-Claim</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-lockmode"> <span><b>Modo Lock</b> — tiempo para entrar; al acabar se bloquea y empiezan eliminaciones</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-slow" checked> <span>Cuenta regresiva lenta al final</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-autostart" checked> <span>Arrancar solo al llegar al mínimo de jugadores</span></label>
+              </div>
+              <p class="hint">Las monedas son el valor TikTok (diamantes × cantidad) de <b>cualquier</b> regalo. Con <b>Modo Lock</b> la gente entra durante X minutos; luego nadie más entra y arranca la eliminación.</p>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="socfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Top Likes / Diamantes alternado -->
         <div id="talConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -3730,6 +3813,22 @@
                 <option value="minimal">Minimal (nombre + total)</option>
               </select>
               <div class="gvscfg-grid2">
+                <div>
+                  <label class="ml">MÉTRICA</label>
+                  <select id="foccfg-metric">
+                    <option value="followers">Seguidores</option>
+                    <option value="likes">Likes</option>
+                    <option value="diamonds">Diamantes</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="ml">PERIODO</label>
+                  <select id="foccfg-period">
+                    <option value="live">Por live (se reinicia al conectar)</option>
+                    <option value="week">1 semana (lunes a domingo)</option>
+                    <option value="month">1 mes (calendario)</option>
+                  </select>
+                </div>
                 <div><label class="ml">FUENTE</label><select id="foccfg-font" class="cfg-font"></select></div>
                 <div><label class="ml">TAMAÃ‘O DE FUENTE</label><input type="number" id="foccfg-fontsize" min="16" max="120" value="50"></div>
                 <div><label class="ml">ESPACIADO LÃNEAS</label><input type="number" id="foccfg-linespace" min="10" max="100" value="50"></div>
@@ -3746,8 +3845,9 @@
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="foccfg-scale" min="60" max="140" value="100"></div>
                 <div><label class="ml">META PROGRESO (arco)</label><input type="number" id="foccfg-goal" min="100" max="99999999" value="10000"></div>
               </div>
+              <p class="hint" style="margin-top:8px">Seguidores = total actual de TikTok (el periodo no aplica). Likes y diamantes usan el periodo elegido.</p>
               <div class="cfg-checks">
-                <label class="switch-row plain"><input type="checkbox" id="foccfg-showtext" checked> <span>Texto Â«FollowersÂ»</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="foccfg-showtext" checked> <span>Mostrar texto de la métrica</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="foccfg-showprofile" checked> <span>Mostrar nombre / foto de perfil</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="foccfg-showbar" checked> <span>Barra de progreso (arco)</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="foccfg-confetti"> <span>Confeti al subir</span></label>
@@ -3773,6 +3873,22 @@
                 <option value="minimal">Minimal (nombre + total)</option>
               </select>
               <div class="gvscfg-grid2">
+                <div>
+                  <label class="ml">MÉTRICA</label>
+                  <select id="focmccfg-metric">
+                    <option value="followers">Seguidores</option>
+                    <option value="likes">Likes</option>
+                    <option value="diamonds">Diamantes</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="ml">PERIODO</label>
+                  <select id="focmccfg-period">
+                    <option value="live">Por live (se reinicia al conectar)</option>
+                    <option value="week">1 semana (lunes a domingo)</option>
+                    <option value="month">1 mes (calendario)</option>
+                  </select>
+                </div>
                 <div><label class="ml">FUENTE</label><select id="focmccfg-font" class="cfg-font"></select></div>
                 <div><label class="ml">TAMAÃ‘O DE FUENTE</label><input type="number" id="focmccfg-fontsize" min="16" max="120" value="42"></div>
                 <div><label class="ml">ESPACIADO LÃNEAS</label><input type="number" id="focmccfg-linespace" min="10" max="100" value="50"></div>
@@ -3789,8 +3905,9 @@
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="focmccfg-scale" min="60" max="140" value="100"></div>
                 <div><label class="ml">META PROGRESO (barra XP)</label><input type="number" id="focmccfg-goal" min="100" max="99999999" value="10000"></div>
               </div>
+              <p class="hint" style="margin-top:8px">Seguidores = total actual de TikTok (el periodo no aplica). Likes y diamantes usan el periodo elegido.</p>
               <div class="cfg-checks">
-                <label class="switch-row plain"><input type="checkbox" id="focmccfg-showtext" checked> <span>Texto Â«FollowersÂ»</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="focmccfg-showtext" checked> <span>Mostrar texto de la métrica</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="focmccfg-showprofile" checked> <span>Mostrar nombre / foto de perfil</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="focmccfg-showbar" checked> <span>Barra de progreso (XP)</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="focmccfg-confetti"> <span>PartÃ­culas al subir</span></label>
@@ -5393,7 +5510,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA Â· PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="foc-preview" data-src="/contador-seguidores.html?embed=1" title="Vista previa contador de seguidores"></iframe>
+                  <iframe id="foc-preview" data-src="/contador-seguidores.html?embed=1&v=foc2" title="Vista previa contador de seguidores"></iframe>
                 </div>
               </div>
 
@@ -5415,7 +5532,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA Â· PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="focmc-preview" data-src="/contador-seguidores-minecraft.html?embed=1" title="Vista previa contador de seguidores Minecraft"></iframe>
+                  <iframe id="focmc-preview" data-src="/contador-seguidores-minecraft.html?embed=1&v=foc2" title="Vista previa contador de seguidores Minecraft"></iframe>
                 </div>
               </div>
 
@@ -6175,6 +6292,37 @@
                   <option value="beep">Sonar un pitido</option>
                 </select>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================== SORTEOS OVERLAY ===================== -->
+        <section class="view" id="view-ov-sorteos">
+          <h1 class="view-title">🎲 Sorteos overlay</h1>
+          <p class="view-sub">Entrada por monedas (cualquier regalo), vidas, eliminación aleatoria e Insta-Claim. Añade la URL como fuente <b>Navegador</b> en OBS / Live Studio.</p>
+
+          <div class="ovpro-card">
+            <div class="ovpro-top">
+              <div class="ovpro-actions">
+                <button class="ovpro-btn" id="so-reset">↺ Reset</button>
+                <button class="ovpro-btn primary" id="so-test">▶ Testear</button>
+                <button class="ovpro-btn" id="so-start">▶ Iniciar</button>
+                <button class="ovpro-btn" id="so-lock">🔒 Lock entradas</button>
+                <button class="ovpro-btn" id="so-unlock">🔓 Unlock</button>
+                <button class="ovpro-btn" id="so-config">⚙ Configurar</button>
+              </div>
+              <div class="ovpro-conn" id="so-conn"><span class="cdot"></span> CONECTADO</div>
+            </div>
+            <h3 class="ovpro-title">🎲 Sorteos (vidas + eliminación)</h3>
+            <p class="ovpro-desc">Suma monedas de todos los regalos, convierte en vidas según el costo de entrada, elimina al azar con temporizador y permite victoria instantánea (Insta-Claim). Las donaciones durante el giro quedan en cola.</p>
+
+            <div class="ovpro-urlrow">
+              <code class="ov-url" data-path="/sorteos.html?v=so23">/sorteos.html?v=so23</code>
+              <button class="ovpro-copy ov-copy">Copiar enlace</button>
+            </div>
+            <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+            <div class="ovpro-preview">
+              <iframe id="so-preview" data-src="/sorteos.html?embed=1&v=so20" title="Vista previa sorteos overlay"></iframe>
             </div>
           </div>
         </section>

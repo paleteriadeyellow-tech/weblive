@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Sorteos Overlay · Livecoins</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&family=JetBrains+Mono:wght@700;800&display=swap');
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: transparent !important;
+      font-family: 'DM Sans', system-ui, sans-serif; color: #fff;
+    }
+    html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
+    .so-root {
+      width: fit-content; max-width: 96vw;
+      padding: 0; background: transparent; border: 0; box-shadow: none;
+      transform-origin: center center;
+    }
+    .so-panel {
+      width: min(92vmin, 720px); max-width: 96vw;
+      display: flex; flex-direction: column; gap: 10px;
+      padding: 0;
+      background: transparent; border: 0; box-shadow: none;
+    }
+    .so-header { order: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 8px 0; }
+    .so-stage { order: 2; position: relative; width: 100%; margin: 0; }
+    .so-stats { order: 3; }
+    .so-panel.stats-top .so-stats { order: 2; }
+    .so-panel.stats-top .so-stage { order: 3; }
+    .so-timer {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-weight: 800; font-size: clamp(36px, 8vmin, 56px);
+      line-height: 1; letter-spacing: .04em;
+      color: #fff; text-align: center;
+      text-shadow: 0 2px 18px rgba(0,0,0,.55);
+      min-width: 0; padding: 0; border: 0; background: transparent; border-radius: 0;
+      box-shadow: none;
+    }
+    .so-timer.urgent { color: #ff6b6b; animation: soPulse .55s ease-in-out infinite; }
+    .so-timer.is-spin { color: #ffe08a; }
+    .so-timer.is-wait { color: rgba(255,255,255,.45); font-size: clamp(22px, 5vmin, 32px); letter-spacing: .18em; }
+    .so-timer.is-win { color: #86efac; }
+    .so-timer.is-entry { color: #fff; }
+    @keyframes soPulse { 50% { transform: scale(1.04); } }
+    .so-modes { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+    .so-badge {
+      display: none; align-items: center; justify-content: center; gap: 10px;
+      min-width: min(420px, 92%);
+      padding: 10px 22px; border-radius: 999px;
+      font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase;
+      border: 2px solid rgba(255,255,255,.85);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    }
+    .so-badge.on { display: inline-flex; }
+    .so-badge-mode { background: #e53935; color: #fff; }
+    .so-badge-mode.is-entry { background: linear-gradient(90deg, #1b8f4a, #22c55e); border-color: rgba(255,255,255,.75); }
+    .so-badge-lock { background: #c62828; color: #fff; font-size: 12px; padding: 8px 18px; border-color: rgba(255,220,100,.85); }
+    .so-badge .ico { font-size: 14px; line-height: 1; }
+    .so-grid-wrap {
+      --so-frame: #a78bfa;
+      --so-frame-bg: #0c081c;
+      position: relative;
+      width: 100%; aspect-ratio: 1 / 1;
+      border: 2.5px solid var(--so-frame);
+      border-radius: 18px;
+      background: linear-gradient(145deg, color-mix(in srgb, var(--so-frame) 24%, transparent), transparent 55%), color-mix(in srgb, var(--so-frame-bg) 82%, transparent);
+      padding: 7px; overflow: hidden;
+      display: flex; align-items: stretch; justify-content: stretch;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--so-frame) 40%, transparent), 0 0 30px color-mix(in srgb, var(--so-frame) 48%, transparent), 0 18px 44px rgba(0,0,0,.45), inset 0 0 42px color-mix(in srgb, var(--so-frame) 14%, transparent);
+      backdrop-filter: blur(12px);
+    }
+    .so-grid { flex: 1; width: 100%; height: 100%; min-height: 0; display: grid; gap: 4px; }
+    .so-grid.is-empty-state { display: flex; align-items: center; justify-content: center; }
+    .so-cell { min-width: 0; min-height: 0; width: 100%; height: 100%; border-radius: 8px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,.10); background: rgba(22, 26, 36, .9); transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+    .so-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .so-cell .ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; color: #94a3b8; background: #1a2030; }
+    .so-cell.is-new { animation: soJoin .7s ease; box-shadow: 0 0 0 2px #22c55e; }
+    .so-cell.is-spin { border-color: #f5c542; box-shadow: 0 0 16px rgba(245,197,66,.55); transform: scale(1.05); z-index: 2; }
+    .so-cell.is-hit { border-color: #ef4444; box-shadow: 0 0 18px rgba(239,68,68,.65); }
+    .so-cell.is-dead { filter: grayscale(1) brightness(.45); opacity: .55; }
+    .so-cell.is-dead::after { content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: clamp(10px, 5%, 22px); background: rgba(80,0,0,.35); }
+    .so-cell.life-flash { animation: soLifeFlash .55s ease; }
+    @keyframes soJoin { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes soLifeFlash { 0%,100% { box-shadow: none; } 40% { box-shadow: 0 0 18px rgba(34,197,94,.75); border-color: #22c55e; } }
+    .so-stats {
+      --so-box-bg: #0a0c14;
+      --so-gift: #c084fc; --so-min: #f5c542; --so-players: #38bdf8; --so-coins: #fbbf24; --so-vouches: #34d399; --so-insta: #fb7185;
+      display: grid; grid-template-columns: repeat(var(--so-cols, 6), minmax(0, 1fr));
+      align-items: stretch; gap: 8px; padding: 2px 0 0; width: 100%;
+    }
+    .so-panel.stats-top .so-stats { padding: 0 0 2px; }
+    .so-stat {
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      gap: 6px; min-height: 108px; padding: 12px 8px 14px;
+      background: linear-gradient(165deg, color-mix(in srgb, var(--so-accent, #fff) 28%, transparent) 0%, transparent 48%), color-mix(in srgb, var(--so-box-bg) 90%, transparent);
+      border: 1.5px solid color-mix(in srgb, var(--so-accent, #fff) 72%, transparent);
+      border-radius: 16px; backdrop-filter: blur(14px);
+      box-shadow: 0 0 18px color-mix(in srgb, var(--so-accent, #fff) 30%, transparent), 0 10px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.12);
+      position: relative; overflow: hidden;
+    }
+    .so-stat.is-hidden { display: none !important; }
+    .so-stat::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, transparent, var(--so-accent, #fff), transparent); opacity: .95; pointer-events: none; }
+    .so-stat .lbl {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      color: rgba(255,255,255,.88); font-size: clamp(13px, 2.6vmin, 16px); font-weight: 800;
+      letter-spacing: .06em; text-transform: uppercase; line-height: 1.15;
+      width: 100%; text-shadow: 0 1px 6px rgba(0,0,0,.55);
+    }
+    .so-stat b {
+      color: var(--so-accent, #ffe08a); font-size: clamp(28px, 5.6vmin, 40px); font-weight: 800;
+      font-variant-numeric: tabular-nums; line-height: 1;
+      text-shadow: 0 2px 12px rgba(0,0,0,.45);
+      letter-spacing: -.02em;
+    }
+    .so-stat.so-gift { --so-accent: var(--so-gift); justify-content: center; gap: 6px; min-height: 124px; }
+    .so-stat.so-min { --so-accent: var(--so-min); }
+    .so-stat.so-players { --so-accent: var(--so-players); }
+    .so-stat.so-coins { --so-accent: var(--so-coins); }
+    .so-stat.so-vouches { --so-accent: var(--so-vouches); }
+    .so-stat.so-insta { --so-accent: var(--so-insta); }
+    .so-stat img.so-gift-ico {
+      width: clamp(56px, 11vmin, 78px); height: clamp(56px, 11vmin, 78px);
+      object-fit: contain; border-radius: 12px;
+      background: rgba(0,0,0,.28); padding: 4px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.4);
+      flex: 0 0 auto;
+    }
+    .so-stat.so-gift b.so-gift-cost {
+      font-size: clamp(22px, 4.2vmin, 30px);
+      color: var(--so-accent);
+    }
+    .so-stat.so-gift .so-gift-ph {
+      font-size: clamp(48px, 10vmin, 64px); line-height: 1;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,.45));
+    }
+    @media (max-width: 480px) {
+      .so-stats { gap: 6px; }
+      .so-stat { min-height: 84px; padding: 8px 5px 10px; }
+      .so-stat .lbl { font-size: clamp(11px, 3.2vw, 13px); }
+      .so-stat b { font-size: clamp(20px, 5.5vw, 28px); }
+      .so-stat.so-gift { min-height: 100px; }
+      .so-stat img.so-gift-ico { width: 48px; height: 48px; }
+      .so-stat.so-gift b.so-gift-cost { font-size: clamp(18px, 4.5vw, 24px); }
+    }
+
+
+    .so-toast {
+      position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+      background: rgba(15,23,42,.92); border: 1px solid rgba(34,197,94,.5); color: #ecfdf5;
+      padding: 8px 14px; border-radius: 999px; font-weight: 700; font-size: 12px;
+      opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 5;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    }
+    .so-toast.on { opacity: 1; transform: translateX(-50%) translateY(4px); }
+    .so-winner {
+      display: none; position: absolute; inset: 0; z-index: 8; border-radius: 16px;
+      background: rgba(0,0,0,.78); align-items: center; justify-content: center; flex-direction: column; gap: 10px;
+      text-align: center; padding: 20px; backdrop-filter: blur(8px);
+    }
+    .so-winner.on { display: flex; animation: soWinIn .45s ease; }
+    @keyframes soWinIn { from { opacity: 0; } to { opacity: 1; } }
+    .so-winner img { width: 110px; height: 110px; border-radius: 50%; border: 3px solid #f5c542; object-fit: cover; box-shadow: 0 0 30px rgba(245,197,66,.4); }
+    .so-winner h2 { margin: 0; font-size: 26px; color: #ffe08a; }
+    .so-winner p { margin: 0; color: #e2e8f0; font-weight: 600; }
+    .so-winner .vouch {
+      margin-top: 6px; max-width: 420px; padding: 10px 14px; border-radius: 12px;
+      background: rgba(245,197,66,.1); border: 1px solid rgba(245,197,66,.35);
+      color: #fff7d6; font-style: italic;
+    }
+    .so-empty { color: rgba(226,232,240,.7); text-align: center; padding: 40px 20px; font-weight: 600; font-size: 14px; }
+    /* Estado WAITING (sin jugadores) — estilo full-frame */
+    .so-wait {
+      width: 100%; height: 100%; min-height: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: clamp(10px, 2.2vmin, 16px);
+      padding: clamp(16px, 4vmin, 28px);
+      text-align: center; box-sizing: border-box;
+    }
+    .so-wait-icon {
+      width: clamp(96px, 28vmin, 168px); height: clamp(96px, 28vmin, 168px);
+      display: flex; align-items: center; justify-content: center;
+      filter: drop-shadow(0 12px 28px rgba(0,0,0,.45));
+    }
+    .so-wait-icon img {
+      width: 100%; height: 100%; object-fit: contain; display: block;
+      animation: soWaitFloat 2.8s ease-in-out infinite;
+    }
+    .so-wait-ph {
+      font-size: clamp(72px, 22vmin, 120px); line-height: 1;
+      animation: soWaitFloat 2.8s ease-in-out infinite;
+      user-select: none;
+    }
+    @keyframes soWaitFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .so-wait-title {
+      margin: 0; font-weight: 900; letter-spacing: .18em; text-transform: uppercase;
+      font-size: clamp(22px, 5.5vmin, 36px);
+      color: #c4b5fd;
+      text-shadow: 0 0 22px rgba(167, 139, 250, .45);
+    }
+    .so-wait-sub {
+      margin: 0; max-width: 90%;
+      font-weight: 600; font-size: clamp(13px, 2.8vmin, 17px);
+      color: rgba(241, 245, 249, .92);
+      letter-spacing: .01em;
+    }
+    .so-vouch-pop {
+      position: absolute; left: 50%; top: 42%; transform: translate(-50%, -40%) scale(.7);
+      z-index: 9; pointer-events: none; opacity: 0;
+      font-weight: 900; font-size: clamp(28px, 7vmin, 48px);
+      color: #ffe08a; text-shadow: 0 4px 24px rgba(0,0,0,.65), 0 0 30px rgba(245,197,66,.45);
+      transition: none;
+    }
+    .so-vouch-pop.on {
+      animation: soVouchPop 1.35s ease forwards;
+    }
+    @keyframes soVouchPop {
+      0% { opacity: 0; transform: translate(-50%, -30%) scale(.5); }
+      18% { opacity: 1; transform: translate(-50%, -45%) scale(1.15); }
+      55% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -70%) scale(.9); }
+    }
+
+    /* Tarjeta ELIMINATED a pantalla completa del marco */
+    .so-elim {
+      display: none; position: absolute; inset: 0; z-index: 7;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: clamp(10px, 2.5vmin, 18px);
+      padding: clamp(16px, 4vmin, 28px);
+      border-radius: 12px;
+      background: rgba(4, 4, 8, .92);
+      border: 3px solid #ef4444;
+      box-shadow:
+        inset 0 0 0 2px rgba(245, 197, 66, .85),
+        0 0 40px rgba(239, 68, 68, .45),
+        inset 0 0 60px rgba(239, 68, 68, .12);
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+    .so-elim.on { display: flex; animation: soElimIn .4s ease; }
+    @keyframes soElimIn {
+      from { opacity: 0; transform: scale(.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .so-elim .so-elim-title {
+      margin: 0; font-weight: 900; letter-spacing: .14em; text-transform: uppercase;
+      font-size: clamp(22px, 5.5vmin, 36px); color: #ff3b3b;
+      text-shadow: 0 0 18px rgba(239, 68, 68, .65);
+    }
+    .so-elim .so-elim-av {
+      width: clamp(88px, 22vmin, 140px); height: clamp(88px, 22vmin, 140px);
+      border-radius: 50%; object-fit: cover; display: block;
+      border: 3px solid #ef4444;
+      box-shadow: 0 0 24px rgba(239, 68, 68, .55);
+      background: #1a1a22;
+    }
+    .so-elim .so-elim-av-ph {
+      width: clamp(88px, 22vmin, 140px); height: clamp(88px, 22vmin, 140px);
+      border-radius: 50%; display: none; align-items: center; justify-content: center;
+      border: 3px solid #ef4444; background: #1a1a22;
+      font-weight: 900; font-size: clamp(36px, 10vmin, 56px); color: #fda4af;
+      box-shadow: 0 0 24px rgba(239, 68, 68, .55);
+    }
+    .so-elim .so-elim-name {
+      margin: 0; font-weight: 800; font-size: clamp(18px, 4.2vmin, 28px);
+      color: #fff; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .so-elim .so-elim-chance {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: 999px;
+      background: rgba(20, 20, 28, .95);
+      border: 1px solid rgba(255,255,255,.14);
+      font-weight: 700; font-size: clamp(13px, 2.8vmin, 17px); color: #f1f5f9;
+    }
+    .so-elim .so-elim-foot {
+      margin: 4px 0 0; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+      font-size: clamp(11px, 2.2vmin, 14px); color: rgba(148, 163, 184, .9);
+    }
+  </style>
+</head>
+<body>
+  <div class="so-root" id="so-root">
+    <div class="so-panel" id="so-panel">
+      <div class="so-header">
+        <div class="so-timer is-wait" id="so-timer">--</div>
+        <div class="so-modes">
+          <div class="so-badge so-badge-mode" id="so-mode"><span class="ico">💀</span><span id="so-mode-txt">ELIMINATION MODE</span><span class="ico">💀</span></div>
+          <div class="so-badge so-badge-lock" id="so-lock"><span class="ico">🔒</span> LOCKED ENTRIES <span class="ico">🔒</span></div>
+        </div>
+      </div>
+      <div class="so-stage">
+        <div class="so-toast" id="so-toast">Nuevo jugador</div>
+        <div class="so-grid-wrap" id="so-grid-wrap">
+          <div class="so-grid" id="so-grid">
+            <div class="so-wait" id="so-wait">
+              <div class="so-wait-icon">
+                <img id="so-wait-img" alt="" hidden referrerpolicy="no-referrer" />
+                <span class="so-wait-ph" id="so-wait-ph" aria-hidden="true">🎁</span>
+              </div>
+              <h2 class="so-wait-title">WAITING</h2>
+              <p class="so-wait-sub">¡Envía un regalo para unirte!</p>
+            </div>
+          </div>
+          <div class="so-elim" id="so-elim" aria-hidden="true">
+            <h2 class="so-elim-title">ELIMINATED</h2>
+            <img class="so-elim-av" id="so-elim-av" alt="" referrerpolicy="no-referrer" />
+            <div class="so-elim-av-ph" id="so-elim-av-ph">?</div>
+            <p class="so-elim-name" id="so-elim-name">—</p>
+            <div class="so-elim-chance"><span aria-hidden="true">🎲</span><span id="so-elim-chance">0% chance</span></div>
+            <p class="so-elim-foot" id="so-elim-foot">ROUND CONTINUES...</p>
+          </div>
+        </div>
+        <div class="so-winner" id="so-winner">
+          <img id="so-win-pic" alt="" />
+          <h2 id="so-win-name">Ganador</h2>
+          <p id="so-win-coins">0 monedas usadas</p>
+          <div class="vouch" id="so-win-vouch" hidden></div>
+        </div>
+        <div class="so-vouch-pop" id="so-vouch-pop">+1 VOUCH ★</div>
+      </div>
+      <div class="so-stats" id="so-stats">
+        <div class="so-stat so-gift" data-stat="gift" title="Regalo de entrada">
+          <span class="lbl">Gift</span>
+          <img class="so-gift-ico" id="so-entry-img" alt="" hidden />
+          <span class="so-gift-ph" id="so-gift-ph" hidden>🎁</span>
+          <b class="so-gift-cost" id="so-gift-cost">30</b>
+        </div>
+        <div class="so-stat so-min" data-stat="min" title="Mínimo de monedas">
+          <span class="lbl">Mínimo</span>
+          <b id="so-entry">30</b>
+        </div>
+        <div class="so-stat so-players" data-stat="players" title="Entradas activas"><span class="lbl">Players</span><b id="so-players">0</b></div>
+        <div class="so-stat so-coins" data-stat="coins" title="Monedas en juego"><span class="lbl">Coins</span><b id="so-coins">0</b></div>
+        <div class="so-stat so-vouches" data-stat="vouches" title="Vouches"><span class="lbl">★ Vouches</span><b id="so-vouches">0</b></div>
+        <div class="so-stat so-insta" data-stat="insta" title="Insta-Claim">
+          <span class="lbl">⚡ Insta</span>
+          <b id="so-insta-val">3000</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+
+    const DEFAULT_CFG = {
+      entryCost: 30,
+      entryGiftImage: '',
+      entryGiftName: '',
+      elimIntervalSec: 5,
+      elimCardSec: 3,
+      animSpeed: 'normal', // fast | normal | slow
+      minPlayers: 3,
+      initialTimerSec: 60,
+      slowCountdown: true,
+      slowFromSec: 3,
+      slowSec: 2,
+      instaClaim: 3000,
+      maxPlayers: 400,
+      autoStart: true,
+      lockMode: false,
+      lockEntryMin: 30,
+      vouchKeywords: 'vouch,gracias,confiable',
+      overlayScale: 100,
+      statsPos: 'bottom', // bottom | top
+      showGift: true,
+      showMin: true,
+      showPlayers: true,
+      showCoins: true,
+      showVouches: true,
+      showInsta: true,
+      frameColor: '#a78bfa',
+      frameBg: '#0c081c',
+      boxBg: '#0a0c14',
+      giftColor: '#c084fc',
+      minColor: '#f5c542',
+      playersColor: '#38bdf8',
+      coinsColor: '#fbbf24',
+      vouchesColor: '#34d399',
+      instaColor: '#fb7185',
+    };
+
+    let cfg = Object.assign({}, DEFAULT_CFG);
+    /** @type {Record<string, {id:string,name:string,pic:string,lives:number,bank:number,spent:number,donated:number,stakes:number[],alive:boolean,lastChat:string,lastVouch:string}>} */
+    let players = {};
+    let phase = 'waiting'; // waiting | entry | initial | elim | spinning | winner
+    let entriesLocked = false;
+    let coinsInPlay = 0;
+    let vouchCount = 0;
+    let winnerId = '';
+    let winnerVouched = false;
+    let timerLeft = 0;
+    let timerHandle = null;
+    let usedInitial = false;
+    let giftQueue = [];
+    let spinning = false;
+    let fitFn = null;
+    let toastTimer = null;
+    let testTimers = [];
+    /** Demo de Testear: llena + cuenta + eliminaciones (rápido con muchos). */
+    let demoRapid = false;
+    /** Cancela animaciones de spin pendientes tras Reset / nuevo spin. */
+    let spinGen = 0;
+    let elimCardTimer = null;
+    let elimCardGen = 0;
+    let elimCardResolve = null;
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || lo));
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function cssAttr(v) {
+      const s = String(v == null ? '' : v);
+      return (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(s) : s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+    function clearSpinClasses() {
+      document.querySelectorAll('.so-cell').forEach((c) => c.classList.remove('is-spin', 'is-hit'));
+    }
+    function hideElimCard() {
+      elimCardGen += 1;
+      clearTimeout(elimCardTimer);
+      elimCardTimer = null;
+      const el = $('so-elim');
+      if (el) {
+        el.classList.remove('on');
+        el.setAttribute('aria-hidden', 'true');
+      }
+      // No dejar finishSpin colgado si Reset/Stop corta la tarjeta
+      if (elimCardResolve) {
+        const r = elimCardResolve;
+        elimCardResolve = null;
+        r();
+      }
+    }
+    /** Invalida spinners pendientes (Reset / Stop / Iniciar / ganador). */
+    function cancelPendingSpin() {
+      spinGen += 1;
+      spinning = false;
+      clearSpinClasses();
+      hideElimCard();
+    }
+    function fmtChancePct(pct) {
+      const n = Math.max(0, Math.min(100, Number(pct) || 0));
+      const rounded = Math.round(n * 10) / 10;
+      const txt = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+      return txt + '% chance';
+    }
+    function showElimCard(info) {
+      return new Promise((resolve) => {
+        const el = $('so-elim');
+        if (!el) { resolve(); return; }
+        // Si había otra tarjeta pendiente, liberar su await
+        if (elimCardResolve) {
+          const prev = elimCardResolve;
+          elimCardResolve = null;
+          prev();
+        }
+        const av = $('so-elim-av');
+        const ph = $('so-elim-av-ph');
+        const name = $('so-elim-name');
+        const chance = $('so-elim-chance');
+        const foot = $('so-elim-foot');
+        if (name) name.textContent = info.name || 'Jugador';
+        if (chance) chance.textContent = fmtChancePct(info.pct);
+        if (foot) foot.textContent = info.continues ? 'ROUND CONTINUES...' : 'FINAL HIT...';
+        if (av && ph) {
+          if (info.pic) {
+            ph.style.display = 'none';
+            av.style.display = 'block';
+            av.onerror = function () {
+              this.onerror = null;
+              this.style.display = 'none';
+              this.removeAttribute('src');
+              ph.textContent = String((info.name || '?').slice(0, 1)).toUpperCase();
+              ph.style.display = 'flex';
+            };
+            av.src = info.pic;
+          } else {
+            av.style.display = 'none';
+            av.removeAttribute('src');
+            ph.textContent = String((info.name || '?').slice(0, 1)).toUpperCase();
+            ph.style.display = 'flex';
+          }
+        }
+        el.classList.add('on');
+        el.setAttribute('aria-hidden', 'false');
+        const my = ++elimCardGen;
+        // Duración configurable (TARJETA ELIMINADO); en Testear se acorta un poco
+        const cfgMs = clamp(cfg.elimCardSec == null ? 3 : cfg.elimCardSec, 1, 30) * 1000;
+        const ms = demoRapid ? Math.min(cfgMs, 1100) : cfgMs;
+        clearTimeout(elimCardTimer);
+        elimCardResolve = resolve;
+        elimCardTimer = setTimeout(() => {
+          if (my === elimCardGen) {
+            el.classList.remove('on');
+            el.setAttribute('aria-hidden', 'true');
+          }
+          elimCardTimer = null;
+          elimCardResolve = null;
+          resolve();
+        }, ms);
+      });
+    }
+    function animStepMs() {
+      if (cfg.animSpeed === 'fast') return 55;
+      if (cfg.animSpeed === 'slow') return 220;
+      return 110;
+    }
+    function aliveList() {
+      return Object.values(players).filter((p) => p.alive && p.lives > 0);
+    }
+    /** Una silla = una vida = un cuadrado en el grid (misma foto puede repetirse). */
+    function lifeSeats() {
+      const seats = [];
+      for (const p of aliveList()) {
+        for (let i = 0; i < p.lives; i++) seats.push({ id: p.id, seat: i, name: p.name, pic: p.pic });
+      }
+      return seats;
+    }
+    function fmtTime(sec) {
+      const s = Math.max(0, Math.ceil(sec));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+    }
+
+    function showToast(msg) {
+      const el = $('so-toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('on');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('on'), 2200);
+    }
+
+    function syncHud() {
+      const cost = String(cfg.entryCost);
+      if ($('so-entry')) $('so-entry').textContent = cost;
+      if ($('so-gift-cost')) $('so-gift-cost').textContent = cost;
+      if ($('so-insta-val')) {
+        const ic = Math.max(0, Number(cfg.instaClaim) || 0);
+        $('so-insta-val').textContent = ic > 0 ? ic.toLocaleString('es-ES') : 'OFF';
+      }
+      const img = $('so-entry-img');
+      const giftPh = $('so-gift-ph');
+      if (img) {
+        img.onerror = function () {
+          this.onerror = null;
+          this.hidden = true;
+          this.removeAttribute('src');
+          if (giftPh) giftPh.hidden = false;
+        };
+        if (cfg.entryGiftImage) {
+          img.hidden = false;
+          img.src = cfg.entryGiftImage;
+          if (giftPh) giftPh.hidden = true;
+        } else {
+          img.hidden = true;
+          img.removeAttribute('src');
+          if (giftPh) giftPh.hidden = false;
+        }
+      }
+      syncWaitGift();
+      if ($('so-players')) $('so-players').textContent = String(lifeSeats().length);
+      if ($('so-coins')) $('so-coins').textContent = Number(coinsInPlay).toLocaleString('es-ES');
+      if ($('so-vouches')) $('so-vouches').textContent = String(vouchCount);
+
+      const flags = {
+        gift: cfg.showGift !== false,
+        min: cfg.showMin !== false,
+        players: cfg.showPlayers !== false,
+        coins: cfg.showCoins !== false,
+        vouches: cfg.showVouches !== false,
+        insta: cfg.showInsta !== false,
+      };
+      let cols = 0;
+      document.querySelectorAll('.so-stat[data-stat]').forEach((el) => {
+        const key = el.getAttribute('data-stat');
+        const on = !!flags[key];
+        el.classList.toggle('is-hidden', !on);
+        if (on) cols += 1;
+      });
+      const stats = $('so-stats');
+      if (stats) {
+        stats.style.setProperty('--so-cols', String(Math.max(1, cols || 1)));
+        stats.style.display = cols > 0 ? '' : 'none';
+      }
+      const panel = $('so-panel');
+      if (panel) panel.classList.toggle('stats-top', cfg.statsPos === 'top');
+      applyThemeColors();
+
+      const lockEl = $('so-lock');
+      if (lockEl) {
+        // No mostrar LOCKED en WAIT / WIN (queda confuso tras Stop o ganador)
+        lockEl.classList.toggle('on', !!entriesLocked && phase !== 'waiting' && phase !== 'winner');
+      }
+
+      const mode = $('so-mode');
+      const modeTxt = $('so-mode-txt');
+      if (mode) {
+        mode.classList.remove('is-entry');
+        if (phase === 'entry') {
+          mode.classList.add('on', 'is-entry');
+          if (modeTxt) modeTxt.textContent = 'ENTRY MODE';
+        } else if (phase === 'elim' || phase === 'spinning') {
+          mode.classList.add('on');
+          if (modeTxt) modeTxt.textContent = 'ELIMINATION MODE';
+        } else if (phase === 'initial') {
+          mode.classList.add('on');
+          if (modeTxt) modeTxt.textContent = 'STARTING SOON';
+        } else if (phase === 'winner') {
+          mode.classList.add('on');
+          if (modeTxt) modeTxt.textContent = 'WINNER';
+        } else {
+          mode.classList.remove('on');
+        }
+      }
+
+      const t = $('so-timer');
+      if (!t) return;
+      t.classList.remove('is-wait', 'is-spin', 'is-win', 'is-entry', 'urgent');
+      if (phase === 'waiting') { t.textContent = 'WAIT'; t.classList.add('is-wait'); }
+      else if (phase === 'winner') { t.textContent = 'WIN'; t.classList.add('is-win'); }
+      else if (phase === 'spinning') { t.textContent = 'SPIN'; t.classList.add('is-spin'); }
+      else if (phase === 'entry') {
+        t.textContent = fmtTime(timerLeft);
+        t.classList.add('is-entry');
+        if (timerLeft <= 60) t.classList.add('urgent');
+      } else {
+        t.textContent = fmtTime(timerLeft);
+        if ((phase === 'elim' || phase === 'initial') && timerLeft <= (cfg.slowFromSec || 3)) t.classList.add('urgent');
+      }
+    }
+
+    function applyThemeColors() {
+      const wrap = $('so-grid-wrap');
+      const stats = $('so-stats');
+      if (wrap) {
+        wrap.style.setProperty('--so-frame', cfg.frameColor || '#a78bfa');
+        wrap.style.setProperty('--so-frame-bg', cfg.frameBg || '#0c081c');
+      }
+      if (stats) {
+        stats.style.setProperty('--so-box-bg', cfg.boxBg || '#0a0c14');
+        stats.style.setProperty('--so-gift', cfg.giftColor || '#c084fc');
+        stats.style.setProperty('--so-min', cfg.minColor || '#f5c542');
+        stats.style.setProperty('--so-players', cfg.playersColor || '#38bdf8');
+        stats.style.setProperty('--so-coins', cfg.coinsColor || '#fbbf24');
+        stats.style.setProperty('--so-vouches', cfg.vouchesColor || '#34d399');
+        stats.style.setProperty('--so-insta', cfg.instaColor || '#fb7185');
+      }
+    }
+
+    function syncWaitGift() {
+      const wImg = $('so-wait-img');
+      const wPh = $('so-wait-ph');
+      if (!wImg || !wPh) return;
+      wImg.onerror = function () {
+        this.onerror = null;
+        this.hidden = true;
+        this.removeAttribute('src');
+        wPh.hidden = false;
+      };
+      if (cfg.entryGiftImage) {
+        wImg.hidden = false;
+        wImg.src = cfg.entryGiftImage;
+        wPh.hidden = true;
+      } else {
+        wImg.hidden = true;
+        wImg.removeAttribute('src');
+        wPh.hidden = false;
+      }
+    }
+    function emptyWaitHtml() {
+      return (
+        '<div class="so-wait" id="so-wait">' +
+          '<div class="so-wait-icon">' +
+            '<img id="so-wait-img" alt="" hidden referrerpolicy="no-referrer" />' +
+            '<span class="so-wait-ph" id="so-wait-ph" aria-hidden="true">🎁</span>' +
+          '</div>' +
+          '<h2 class="so-wait-title">WAITING</h2>' +
+          '<p class="so-wait-sub">¡Envía un regalo para unirte!</p>' +
+        '</div>'
+      );
+    }
+    function renderGrid() {
+      const grid = $('so-grid');
+      const seats = lifeSeats();
+      if (!seats.length) {
+        grid.className = 'so-grid is-empty-state';
+        grid.style.gridTemplateColumns = '';
+        grid.style.gridTemplateRows = '';
+        grid.innerHTML = emptyWaitHtml();
+        syncHud();
+        if (fitFn) fitFn();
+        return;
+      }
+      // Cuadrado hasta 20×20; gap más fino con más fotos
+      const n = seats.length;
+      const cols = Math.min(20, Math.max(1, Math.ceil(Math.sqrt(n))));
+      const rows = Math.max(1, Math.ceil(n / cols));
+      const gap = cols <= 2 ? 8 : cols <= 4 ? 5 : cols <= 8 ? 3 : cols <= 12 ? 2 : 1;
+      const radius = cols <= 4 ? 8 : cols <= 10 ? 4 : 2;
+      grid.className = 'so-grid';
+      grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+      grid.style.gridTemplateRows = 'repeat(' + rows + ', 1fr)';
+      grid.style.gap = gap + 'px';
+      grid.innerHTML = seats.map((s) => {
+        const av = s.pic
+          ? '<img src="' + esc(s.pic) + '" alt="" referrerpolicy="no-referrer" onerror="this.parentNode && (this.parentNode.innerHTML=\'<div class=ph>' + esc((s.name || '?').slice(0, 1).toUpperCase()) + '</div>\')">'
+          : '<div class="ph">' + esc((s.name || '?').slice(0, 1).toUpperCase()) + '</div>';
+        return '<div class="so-cell" style="border-radius:' + radius + 'px" data-id="' + esc(s.id) + '" data-seat="' + s.seat + '" title="' + esc(s.name) + '">' + av + '</div>';
+      }).join('');
+      syncHud();
+      if (fitFn) fitFn();
+    }
+
+    function ensurePlayer(d) {
+      const id = String(d.uniqueId || d.nickname || '').trim();
+      if (!id) return null;
+      if (!players[id]) {
+        if (Object.keys(players).length >= clamp(cfg.maxPlayers, 1, 400)) return null;
+        players[id] = {
+          id, name: d.nickname || id, pic: d.photo || '',
+          lives: 0, bank: 0, spent: 0, donated: 0, stakes: [],
+          alive: false, lastChat: '', lastVouch: '',
+        };
+      }
+      const p = players[id];
+      if (d.nickname) p.name = d.nickname;
+      if (d.photo) p.pic = d.photo;
+      return p;
+    }
+
+    function grantLivesFromBank(p, isNewJoin) {
+      const cost = Math.max(1, clamp(cfg.entryCost, 1, 1000000));
+      let gained = 0;
+      while (p.bank >= cost) {
+        // LOCKED ENTRIES: nadie suma más vidas (ni nuevos ni quien ya está)
+        if (entriesLocked) break;
+        p.bank -= cost;
+        p.lives += 1;
+        p.spent += cost;
+        p.stakes.push(cost);
+        coinsInPlay += cost;
+        gained += 1;
+        if (!p.alive) {
+          p.alive = true;
+          if (isNewJoin || gained === 1) {
+            showToast('Nuevo jugador · ' + p.name);
+            isNewJoin = false;
+          }
+        }
+      }
+      return gained;
+    }
+
+    function checkInstaClaim(p) {
+      if (!p || phase === 'winner') return false;
+      // En demo Testear no cerrar por Insta (evita pisar la config real)
+      if (demoRapid) return false;
+      // Solo quien ya está en el sorteo puede ganar por Insta-Claim
+      if (!(p.alive && p.lives > 0)) return false;
+      const need = Math.max(0, Number(cfg.instaClaim) || 0);
+      if (need <= 0) return false;
+      if (p.donated >= need) {
+        declareWinner(p, true);
+        return true;
+      }
+      return false;
+    }
+
+    function applyDonation(d) {
+      if (phase === 'winner') return;
+      if (d && d.streak) return;
+      const coins = (Number(d.diamonds) || 0) * (Number(d.repeatCount) || 1);
+      if (coins <= 0) return;
+      const p = ensurePlayer(d);
+      if (!p) return;
+      const wasAlive = p.alive && p.lives > 0;
+      p.donated += coins;
+      p.bank += coins;
+      if (entriesLocked && !wasAlive) {
+        // Bloqueado: no entra, no Insta-Claim; monedas quedan en bank
+        syncHud();
+        return;
+      }
+      const gained = grantLivesFromBank(p, !wasAlive);
+      renderGrid();
+      if (gained) {
+        const cells = [...document.querySelectorAll('.so-cell[data-id="' + cssAttr(p.id) + '"]')];
+        const fresh = cells.slice(-gained);
+        fresh.forEach((cell, idx) => {
+          cell.classList.add('life-flash');
+          if (!wasAlive && idx === 0) cell.classList.add('is-new');
+          setTimeout(() => cell.classList.remove('life-flash', 'is-new'), 800);
+        });
+      }
+      if (checkInstaClaim(p)) return;
+      maybeStartTimers();
+    }
+
+    function enqueueOrApply(d) {
+      if (spinning || phase === 'spinning') {
+        giftQueue.push(d);
+        return;
+      }
+      applyDonation(d);
+    }
+
+    function flushQueue() {
+      const q = giftQueue.splice(0, giftQueue.length);
+      for (const d of q) applyDonation(d);
+    }
+
+    function clearTimer() {
+      if (timerHandle) { clearTimeout(timerHandle); clearInterval(timerHandle); timerHandle = null; }
+    }
+
+    function scheduleTick(ms) {
+      clearTimer();
+      timerHandle = setTimeout(onTimerTick, ms);
+    }
+
+    function currentTickMs() {
+      // Siempre respeta elimInterval / lento desde / duración lento (también con 200 jugadores)
+      if (phase === 'entry') return 1000;
+      const slowOn = !!cfg.slowCountdown;
+      const from = clamp(cfg.slowFromSec, 1, 30);
+      const slow = clamp(cfg.slowSec, 1, 5) * 1000;
+      if (slowOn && timerLeft <= from) return slow;
+      return 1000;
+    }
+
+    function beginElimPhase() {
+      if (cfg.lockMode) entriesLocked = true;
+      phase = 'elim';
+      timerLeft = clamp(cfg.elimIntervalSec, 1, 600);
+      syncHud();
+      scheduleTick(currentTickMs());
+    }
+
+    function onTimerTick() {
+      if (phase !== 'initial' && phase !== 'elim' && phase !== 'entry') return;
+      timerLeft -= 1;
+      syncHud();
+      if (timerLeft <= 0) {
+        timerLeft = 0;
+        if (phase === 'entry') {
+          entriesLocked = true;
+          showToast('🔒 Entradas bloqueadas · empiezan eliminaciones');
+          syncHud();
+          beginSpin();
+          return;
+        }
+        beginSpin();
+        return;
+      }
+      scheduleTick(currentTickMs());
+    }
+
+    function maybeStartTimers() {
+      // Arranque automático al llegar al mínimo (no tocar esta lógica)
+      if (!cfg.autoStart) return;
+      if (phase === 'winner' || phase === 'spinning' || phase === 'initial' || phase === 'elim' || phase === 'entry') return;
+      if (aliveList().length < clamp(cfg.minPlayers, 1, 100)) return;
+      beginOpeningPhase();
+    }
+
+    /** Inicio manual (botón Iniciar) o auto: ventana Lock / timer inicial. */
+    function beginOpeningPhase() {
+      usedInitial = true;
+      if (cfg.lockMode) {
+        entriesLocked = false;
+        phase = 'entry';
+        timerLeft = clamp(cfg.lockEntryMin, 1, 180) * 60;
+        if (demoRapid) timerLeft = Math.min(timerLeft, 12);
+        showToast('Modo Lock · ventana de entrada');
+      } else {
+        phase = 'initial';
+        timerLeft = clamp(cfg.initialTimerSec, 1, 3600);
+        if (demoRapid) timerLeft = Math.min(timerLeft, 8);
+        showToast('Cuenta inicial');
+      }
+      syncHud();
+      scheduleTick(currentTickMs());
+    }
+
+    /** Botón Iniciar: arranca ya (sin exigir mínimo de jugadores). */
+    function startManual() {
+      demoRapid = false;
+      testTimers.forEach((t) => clearTimeout(t));
+      testTimers = [];
+      clearTimer();
+      cancelPendingSpin();
+      restoreDemoCfgBackup();
+      const win = $('so-winner');
+      if (win) win.classList.remove('on');
+      // Si ya está en marcha, reinicia la fase de apertura
+      if (phase === 'spinning' || phase === 'initial' || phase === 'elim' || phase === 'entry' || phase === 'winner') {
+        phase = 'waiting';
+      }
+      cfg.autoStart = true;
+      usedInitial = false;
+      beginOpeningPhase();
+    }
+
+    function beginSpin() {
+      if (spinning) return;
+      clearTimer();
+      const seats = lifeSeats();
+      if (seats.length <= 1) {
+        if (seats.length === 1 && players[seats[0].id]) declareWinner(players[seats[0].id], false);
+        else { phase = 'waiting'; entriesLocked = false; syncHud(); }
+        return;
+      }
+      spinning = true;
+      phase = 'spinning';
+      syncHud();
+      const myGen = ++spinGen;
+      const steps = cfg.animSpeed === 'fast' ? 14 : cfg.animSpeed === 'slow' ? 28 : 20;
+      const hitPause = 450;
+      const victim = seats[Math.floor(Math.random() * seats.length)];
+      let i = 0;
+      const cells = () => [...document.querySelectorAll('.so-cell')];
+      const tick = () => {
+        if (myGen !== spinGen) return;
+        const list = cells();
+        list.forEach((c) => c.classList.remove('is-spin', 'is-hit'));
+        if (!list.length) { finishSpin(victim, myGen); return; }
+        const pick = list[i % list.length];
+        pick.classList.add('is-spin');
+        i += 1;
+        if (i >= steps) {
+          list.forEach((c) => c.classList.remove('is-spin'));
+          const finalCell = document.querySelector(
+            '.so-cell[data-id="' + cssAttr(victim.id) + '"][data-seat="' + cssAttr(victim.seat) + '"]'
+          ) || list[Math.floor(Math.random() * list.length)];
+          if (finalCell) finalCell.classList.add('is-hit');
+          setTimeout(() => finishSpin(victim, myGen), hitPause);
+          return;
+        }
+        setTimeout(tick, animStepMs());
+      };
+      tick();
+    }
+
+    async function finishSpin(victim, gen) {
+      if (gen != null && gen !== spinGen) return;
+      spinning = false;
+      const totalBefore = lifeSeats().length;
+      const p = players[victim && victim.id];
+      if (p && p.alive && p.lives > 0) {
+        // % = vidas del jugador / total de entradas en ese momento (ej. 5 de 10 → 50%)
+        const pct = totalBefore > 0 ? (p.lives / totalBefore) * 100 : 0;
+        const willContinue = (totalBefore - 1) > 1;
+        p.lives -= 1;
+        const stake = p.stakes.shift() || cfg.entryCost;
+        coinsInPlay = Math.max(0, coinsInPlay - stake);
+        if (p.lives <= 0) p.alive = false;
+        clearSpinClasses();
+        renderGrid();
+        await showElimCard({
+          name: p.name,
+          pic: p.pic,
+          pct,
+          continues: willContinue,
+        });
+        if (gen != null && gen !== spinGen) return;
+      } else {
+        clearSpinClasses();
+        renderGrid();
+      }
+      flushQueue();
+      if (phase === 'winner') return;
+      const seats = lifeSeats();
+      if (seats.length <= 1) {
+        if (seats.length === 1 && players[seats[0].id]) declareWinner(players[seats[0].id], false);
+        else { phase = 'waiting'; entriesLocked = false; syncHud(); }
+        return;
+      }
+      // Siempre el intervalo configurado (no acelerar aunque haya muchos)
+      phase = 'elim';
+      timerLeft = clamp(cfg.elimIntervalSec, 1, 600);
+      syncHud();
+      scheduleTick(currentTickMs());
+    }
+
+    /** Snapshot de config mutada por Testear (se restaura en Reset). */
+    let cfgDemoBackup = null;
+
+    function restoreDemoCfgBackup() {
+      if (!cfgDemoBackup) return;
+      Object.assign(cfg, cfgDemoBackup);
+      cfgDemoBackup = null;
+    }
+
+    function declareWinner(p, insta) {
+      if (!p) return;
+      clearTimer();
+      cancelPendingSpin();
+      demoRapid = false;
+      entriesLocked = false;
+      phase = 'winner';
+      giftQueue = [];
+      winnerId = p.id ? String(p.id) : '';
+      winnerVouched = false;
+      const win = $('so-winner');
+      if (win) win.classList.add('on');
+      const pic = $('so-win-pic');
+      if (pic) {
+        if (p.pic) { pic.src = p.pic; pic.style.display = ''; }
+        else { pic.removeAttribute('src'); pic.style.display = 'none'; }
+      }
+      if ($('so-win-name')) {
+        $('so-win-name').textContent = (insta ? '⚡ Insta-Claim · ' : '🏆 ') + (p.name || 'Ganador');
+      }
+      if ($('so-win-coins')) {
+        $('so-win-coins').textContent = (p.spent || 0).toLocaleString('es-ES') + ' monedas usadas · total donado ' + (p.donated || 0).toLocaleString('es-ES');
+      }
+      const vouchEl = $('so-win-vouch');
+      if (vouchEl) {
+        vouchEl.hidden = true;
+        vouchEl.textContent = '';
+      }
+      syncHud();
+    }
+
+    function resetAll() {
+      clearTimer();
+      testTimers.forEach((t) => clearTimeout(t));
+      testTimers = [];
+      cancelPendingSpin();
+      restoreDemoCfgBackup();
+      players = {};
+      phase = 'waiting';
+      entriesLocked = false;
+      coinsInPlay = 0;
+      vouchCount = 0;
+      winnerId = '';
+      winnerVouched = false;
+      timerLeft = 0;
+      usedInitial = false;
+      giftQueue = [];
+      demoRapid = false;
+      // Mantener autoStart de la config (los regalos pueden volver a arrancar al mínimo)
+      cfg.autoStart = cfg.autoStart !== false;
+      const win = $('so-winner');
+      if (win) win.classList.remove('on');
+      const pop = $('so-vouch-pop');
+      if (pop) pop.classList.remove('on');
+      renderGrid();
+      syncHud();
+      showToast('Reiniciado · pulsa Iniciar o espera el mínimo');
+    }
+
+    function setLocked(on) {
+      entriesLocked = !!on;
+      syncHud();
+    }
+
+    function parseVouchKeywords() {
+      const raw = String(cfg.vouchKeywords || 'vouch,gracias,confiable');
+      return raw.split(/[,;\n]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+    }
+
+    function chatMatchesVouch(text) {
+      const t = String(text || '').toLowerCase();
+      if (!t) return false;
+      const keys = parseVouchKeywords();
+      return keys.some((k) => k && t.includes(k));
+    }
+
+    function playVouchPlusOne() {
+      const pop = $('so-vouch-pop');
+      if (!pop) return;
+      pop.classList.remove('on');
+      void pop.offsetWidth;
+      pop.classList.add('on');
+      clearTimeout(pop._t);
+      pop._t = setTimeout(() => pop.classList.remove('on'), 1400);
+    }
+
+    function onChat(d) {
+      const id = String(d?.uniqueId || d?.nickname || '').trim();
+      if (!id) return;
+      const text = String(d.comment || '').trim();
+      if (!text) return;
+      const p = players[id] || ensurePlayer(d);
+      if (!p) return;
+      p.lastChat = text;
+
+      // Vouch = reseña positiva del GANADOR con palabra clave configurable
+      if (phase === 'winner' && winnerId && id === winnerId && !winnerVouched && chatMatchesVouch(text)) {
+        winnerVouched = true;
+        p.lastVouch = text;
+        vouchCount += 1;
+        playVouchPlusOne();
+        const vouchEl = $('so-win-vouch');
+        if (vouchEl) {
+          vouchEl.hidden = false;
+          vouchEl.textContent = '“' + text + '”';
+        }
+        showToast('+1 vouch · ' + (p.name || 'ganador'));
+        syncHud();
+      }
+    }
+
+    function applyCfg(next) {
+      cfg = Object.assign({}, cfg, next || {});
+      cfg.entryCost = clamp(cfg.entryCost, 1, 1000000);
+      cfg.elimIntervalSec = clamp(cfg.elimIntervalSec, 1, 600);
+      cfg.elimCardSec = clamp(cfg.elimCardSec == null ? 3 : cfg.elimCardSec, 1, 30);
+      cfg.minPlayers = clamp(cfg.minPlayers, 1, 100);
+      cfg.initialTimerSec = clamp(cfg.initialTimerSec, 1, 3600);
+      cfg.slowFromSec = clamp(cfg.slowFromSec, 1, 30);
+      cfg.slowSec = clamp(cfg.slowSec, 1, 5);
+      cfg.instaClaim = clamp(cfg.instaClaim, 0, 100000000);
+      cfg.maxPlayers = clamp(cfg.maxPlayers, 1, 400);
+      cfg.lockEntryMin = clamp(cfg.lockEntryMin == null ? 30 : cfg.lockEntryMin, 1, 180);
+      cfg.lockMode = !!cfg.lockMode;
+      cfg.autoStart = cfg.autoStart !== false;
+      cfg.vouchKeywords = String(cfg.vouchKeywords || 'vouch,gracias,confiable').trim() || 'vouch,gracias,confiable';
+      cfg.overlayScale = clamp(cfg.overlayScale == null ? 100 : cfg.overlayScale, 0, 140);
+      if (!['fast', 'normal', 'slow'].includes(cfg.animSpeed)) cfg.animSpeed = 'normal';
+      cfg.statsPos = cfg.statsPos === 'top' ? 'top' : 'bottom';
+      cfg.showGift = cfg.showGift !== false;
+      cfg.showMin = cfg.showMin !== false;
+      cfg.showPlayers = cfg.showPlayers !== false;
+      cfg.showCoins = cfg.showCoins !== false;
+      cfg.showVouches = cfg.showVouches !== false;
+      cfg.showInsta = cfg.showInsta !== false;
+      const hex = (v, d) => (/^#[0-9a-fA-F]{6}$/.test(String(v || '')) ? String(v) : d);
+      cfg.frameColor = hex(cfg.frameColor, '#a78bfa');
+      cfg.frameBg = hex(cfg.frameBg, '#0c081c');
+      cfg.boxBg = hex(cfg.boxBg, '#0a0c14');
+      cfg.giftColor = hex(cfg.giftColor, '#c084fc');
+      cfg.minColor = hex(cfg.minColor, '#f5c542');
+      cfg.playersColor = hex(cfg.playersColor, '#38bdf8');
+      cfg.coinsColor = hex(cfg.coinsColor, '#fbbf24');
+      cfg.vouchesColor = hex(cfg.vouchesColor, '#34d399');
+      cfg.instaColor = hex(cfg.instaColor, '#fb7185');
+      syncHud();
+      applyRootScale();
+    }
+
+    function applyRootScale() {
+      const root = $('so-root');
+      if (!root) return;
+      const user = clamp(cfg.overlayScale, 0, 140) / 100;
+      if (typeof fitFn === 'function' && fitFn) {
+        fitFn();
+        return;
+      }
+      root.style.transformOrigin = 'top center';
+      root.style.transform = 'scale(' + user + ')';
+      root.style.opacity = user <= 0 ? '0' : '';
+    }
+
+    function runTest() {
+      // Respeta Modo Lock de la config (si está activo → demo Lock; si no → modo normal)
+      const wantLock = !!cfg.lockMode;
+      const entryCost = Math.max(1, clamp(cfg.entryCost, 1, 1000000));
+      const elimSec = clamp(cfg.elimIntervalSec, 1, 600);
+      const anim = cfg.animSpeed || 'normal';
+      const slowOn = !!cfg.slowCountdown;
+      const slowFrom = clamp(cfg.slowFromSec, 1, 30);
+      const slowSec = clamp(cfg.slowSec, 1, 5);
+      const giftImg = cfg.entryGiftImage || '';
+
+      // Snapshot de valores reales (antes de mutar). resetAll restaura uno previo si existía.
+      const snap = cfgDemoBackup || {
+        minPlayers: cfg.minPlayers,
+        autoStart: cfg.autoStart !== false,
+        instaClaim: cfg.instaClaim,
+        initialTimerSec: cfg.initialTimerSec,
+        lockEntryMin: cfg.lockEntryMin,
+        maxPlayers: cfg.maxPlayers,
+        lockMode: !!cfg.lockMode,
+      };
+      resetAll();
+      cfgDemoBackup = snap;
+
+      demoRapid = true;
+      cfg.minPlayers = 999;
+      cfg.autoStart = false;
+      cfg.entryCost = entryCost;
+      cfg.entryGiftImage = giftImg;
+      // demoRapid bloquea Insta-Claim; el HUD sigue mostrando el valor real
+      cfg.maxPlayers = 400;
+      cfg.animSpeed = anim;
+      cfg.slowCountdown = slowOn;
+      cfg.slowFromSec = slowFrom;
+      cfg.slowSec = slowSec;
+      cfg.elimIntervalSec = elimSec;
+      cfg.lockMode = wantLock;
+      cfg.lockEntryMin = clamp(cfg.lockEntryMin, 1, 180);
+      applyCfg(cfg);
+
+      const TARGET = 200;
+      let added = 0;
+      const cost = entryCost;
+      const startSorteo = () => {
+        cfg.minPlayers = 3;
+        cfg.autoStart = true;
+        cfg.lockMode = wantLock;
+        usedInitial = false;
+        phase = 'waiting';
+        if (wantLock) {
+          // Demo Lock: ventana corta, luego LOCKED + eliminaciones
+          cfg.lockEntryMin = 1;
+          showToast('¡Modo Lock · ventana de entrada!');
+        } else {
+          cfg.initialTimerSec = Math.min(8, clamp(cfg.initialTimerSec, 1, 3600));
+          showToast('¡Sorteo · cuenta inicial!');
+        }
+        applyCfg(cfg);
+        testTimers.push(setTimeout(() => maybeStartTimers(), 700));
+      };
+      const addBatch = () => {
+        if (added >= TARGET) {
+          showToast(wantLock ? '200 listos · Modo Lock…' : '200 listos · cuenta…');
+          renderGrid();
+          testTimers.push(setTimeout(startSorteo, 1200));
+          return;
+        }
+        const batch =
+          added < 4 ? 1 :
+          added < 9 ? 1 :
+          added < 16 ? 2 :
+          added < 36 ? 3 :
+          added < 64 ? 5 :
+          added < 100 ? 8 :
+          12;
+        const end = Math.min(TARGET, added + batch);
+        while (added < end) {
+          const i = added;
+          const id = 'demo' + i;
+          const gender = i % 2 ? 'women' : 'men';
+          const picN = (i % 99) + 1;
+          players[id] = {
+            id,
+            name: 'User' + (i + 1),
+            pic: 'https://randomuser.me/api/portraits/' + gender + '/' + picN + '.jpg',
+            lives: 1,
+            bank: 0,
+            spent: cost,
+            donated: cost,
+            stakes: [cost],
+            alive: true,
+            lastChat: '',
+            lastVouch: '',
+          };
+          coinsInPlay += cost;
+          added += 1;
+        }
+        renderGrid();
+        if (added === 4 || added === 9 || added === 16 || added === 25 || added === 49 || added === 100 || added === TARGET) {
+          showToast(added + ' / ' + TARGET);
+        }
+        const delay =
+          added <= 9 ? 300 :
+          added <= 25 ? 140 :
+          added <= 64 ? 80 :
+          added <= 120 ? 45 :
+          30;
+        testTimers.push(setTimeout(addBatch, delay));
+      };
+      showToast(wantLock ? 'Demo Lock · llenando hasta 200…' : 'Demo · llenando hasta 200…');
+      testTimers.push(setTimeout(addBatch, 200));
+    }
+
+    function handleAction(action, payload) {
+      switch (String(action || '')) {
+        case 'reset': resetAll(); break;
+        case 'lock': setLocked(true); break;
+        case 'unlock': setLocked(false); break;
+        case 'toggleLock': setLocked(!entriesLocked); break;
+        case 'start':
+          startManual();
+          break;
+        case 'stop':
+          clearTimer();
+          cancelPendingSpin();
+          demoRapid = false;
+          entriesLocked = false;
+          phase = 'waiting';
+          usedInitial = false;
+          restoreDemoCfgBackup();
+          syncHud();
+          break;
+      }
+    }
+
+    let ws, rt;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'gift') { if (!isEmbed) enqueueOrApply(m.payload); }
+        else if (m.type === 'chat') { if (!isEmbed) onChat(m.payload); }
+        else if (m.type === 'settings') {
+          if (m.payload && m.payload.sorteosOverlay) applyCfg(m.payload.sorteosOverlay);
+        } else if (m.type === 'sorteosControl') {
+          if (!isEmbed) handleAction(m.payload?.action, m.payload);
+        } else if (m.type === 'sorteosTest') {
+          if (!isEmbed) runTest();
+        }
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'sorteos') return;
+      if (d.type === 'config') applyCfg(d.config);
+      else if (d.type === 'test') {
+        if (d.config) applyCfg(d.config);
+        runTest();
+      }
+      else if (d.type === 'reset') resetAll();
+      else if (d.type === 'action') handleAction(d.action, d);
+    });
+
+    if (isEmbed) {
+      document.documentElement.classList.add('embed');
+      const root = $('so-root');
+      fitFn = () => {
+        const user = clamp(cfg.overlayScale, 0, 140) / 100;
+        root.style.transform = 'none';
+        const fit = Math.min(
+          window.innerWidth / (root.offsetWidth + 8),
+          window.innerHeight / (root.offsetHeight + 8),
+          1
+        );
+        root.style.transformOrigin = 'center center';
+        root.style.transform = 'scale(' + (fit * user) + ')';
+        root.style.opacity = user <= 0 ? '0' : '';
+      };
+      window.addEventListener('resize', fitFn);
+      // Demo: 3 vidas = 3 cuadrados de la misma foto (nunca un solo cuadro con ×3)
+      players = {
+        a: { id: 'a', name: 'Demo1', pic: 'https://randomuser.me/api/portraits/men/32.jpg', lives: 3, bank: 0, spent: 90, donated: 90, stakes: [30, 30, 30], alive: true, lastChat: '', lastVouch: '' },
+        b: { id: 'b', name: 'Demo2', pic: 'https://randomuser.me/api/portraits/women/44.jpg', lives: 1, bank: 0, spent: 30, donated: 30, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
+        c: { id: 'c', name: 'Demo3', pic: 'https://randomuser.me/api/portraits/men/45.jpg', lives: 1, bank: 5, spent: 30, donated: 35, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
+        d: { id: 'd', name: 'Demo4', pic: 'https://randomuser.me/api/portraits/women/68.jpg', lives: 1, bank: 0, spent: 30, donated: 30, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
+      };
+      coinsInPlay = 180;
+      vouchCount = 3;
+    }
+    applyCfg(cfg);
+    renderGrid();
+    connectWS();
+  })();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

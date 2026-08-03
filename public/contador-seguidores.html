@@ -151,8 +151,14 @@
       fontColor: '#dedede', colorMode: 'solid',
       showFollowersText: true, showProfile: true, showProgressBar: true,
       showConfetti: false, goalFollowers: 10000, scale: 100,
+      metric: 'followers', resetPeriod: 'live',
     };
-    let data = { count: 0, nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: false };
+    let data = {
+      count: 0, followers: 0,
+      likesLive: 0, likesWeek: 0, likesMonth: 0,
+      diamondsLive: 0, diamondsWeek: 0, diamondsMonth: 0,
+      nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: false,
+    };
     let displayCount = 0;
 
     const panels = {
@@ -165,9 +171,33 @@
     function clamp(n, lo, hi, d) { const x = parseInt(n, 10); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; }
     function fmt(n) { return Math.max(0, Math.floor(n)).toLocaleString('es-ES'); }
     function handleOf(u) { return '@' + String(u || 'usuario').replace(/^@/, ''); }
+    function normalizeMetric(m) { return m === 'likes' || m === 'diamonds' ? m : 'followers'; }
+    function normalizePeriod(p) { return p === 'week' || p === 'month' ? p : 'live'; }
+    function metricLabels() {
+      const m = normalizeMetric(cfg.metric);
+      if (m === 'likes') return { bar: 'LIKES', arc: 'Likes', short: 'Likes' };
+      if (m === 'diamonds') return { bar: 'DIAMONDS', arc: 'Diamonds', short: 'Diamonds' };
+      return { bar: 'FOLLOWERS', arc: 'Followers', short: 'Followers' };
+    }
+    function pickCountFromPayload(payload) {
+      const m = normalizeMetric(cfg.metric);
+      const p = normalizePeriod(cfg.resetPeriod);
+      if (m === 'likes') {
+        if (p === 'week') return Number(payload.likesWeek) || 0;
+        if (p === 'month') return Number(payload.likesMonth) || 0;
+        return Number(payload.likesLive != null ? payload.likesLive : payload.count) || 0;
+      }
+      if (m === 'diamonds') {
+        if (p === 'week') return Number(payload.diamondsWeek) || 0;
+        if (p === 'month') return Number(payload.diamondsMonth) || 0;
+        return Number(payload.diamondsLive != null ? payload.diamondsLive : payload.count) || 0;
+      }
+      return Number(payload.followers != null ? payload.followers : payload.count) || 0;
+    }
 
     function applyStyle() {
       const root = document.documentElement;
+      if (isEmbed) root.dataset.embed = '1';
       const sc = clamp(cfg.scale, 50, 150, 100) / 100;
       const mode = cfg.colorMode === 'rainbow' || cfg.colorMode === 'flow' ? cfg.colorMode : 'solid';
       root.style.setProperty('--fc-font', FONTS[cfg.font] || FONTS.exo2);
@@ -212,9 +242,13 @@
 
     function setLabels() {
       const show = cfg.showFollowersText !== false;
-      document.getElementById('lbl-flip')?.classList.toggle('is-hidden', !show);
-      document.getElementById('lbl-classic')?.classList.toggle('is-hidden', !show);
-      document.getElementById('lbl-arc')?.classList.toggle('is-hidden', !show);
+      const labels = metricLabels();
+      const flip = document.getElementById('lbl-flip');
+      const classic = document.getElementById('lbl-classic');
+      const arc = document.getElementById('lbl-arc');
+      if (flip) { flip.textContent = labels.bar; flip.classList.toggle('is-hidden', !show); }
+      if (classic) { classic.textContent = labels.bar; classic.classList.toggle('is-hidden', !show); }
+      if (arc) { arc.textContent = labels.arc; arc.classList.toggle('is-hidden', !show); }
     }
 
     function renderDigits(n, animate) {
@@ -271,7 +305,7 @@
       const v = cfg.variation || 'flip';
       (panels[v] || panels.flip).classList.add('active');
 
-      displayCount = Math.max(0, data.count || 0);
+      displayCount = Math.max(0, pickCountFromPayload(data));
       if (v === 'flip') renderDigits(displayCount, animate);
       if (v === 'classic') {
         const el = document.getElementById('num-classic');
@@ -283,7 +317,7 @@
       if (v === 'arc') renderArc(displayCount);
       if (v === 'minimal') {
         const el = document.getElementById('num-minimal');
-        const lbl = cfg.showFollowersText !== false ? ' Followers' : '';
+        const lbl = cfg.showFollowersText !== false ? (' ' + metricLabels().short) : '';
         if (el) el.textContent = fmt(displayCount) + lbl;
       }
       fitEmbed();
@@ -309,16 +343,34 @@
 
     function applyData(payload, animate) {
       if (!payload) return;
-      const prev = data.count;
+      const prev = pickCountFromPayload(data);
       data = Object.assign(data, payload);
-      if (payload.count != null) data.count = Math.max(0, Math.floor(Number(payload.count) || 0));
-      renderAll(animate && data.count !== prev);
-      if (animate && data.count > prev) burstConfetti();
+      if (payload.count != null && payload.followers == null && payload.likesLive == null && payload.diamondsLive == null) {
+        // payload legacy solo con count → rellena la métrica activa
+        const m = normalizeMetric(cfg.metric);
+        const p = normalizePeriod(cfg.resetPeriod);
+        if (m === 'followers') data.followers = Math.max(0, Math.floor(Number(payload.count) || 0));
+        else if (m === 'likes') {
+          if (p === 'week') data.likesWeek = Math.max(0, Math.floor(Number(payload.count) || 0));
+          else if (p === 'month') data.likesMonth = Math.max(0, Math.floor(Number(payload.count) || 0));
+          else data.likesLive = Math.max(0, Math.floor(Number(payload.count) || 0));
+        } else {
+          if (p === 'week') data.diamondsWeek = Math.max(0, Math.floor(Number(payload.count) || 0));
+          else if (p === 'month') data.diamondsMonth = Math.max(0, Math.floor(Number(payload.count) || 0));
+          else data.diamondsLive = Math.max(0, Math.floor(Number(payload.count) || 0));
+        }
+      }
+      const next = pickCountFromPayload(data);
+      data.count = next;
+      renderAll(animate && next !== prev);
+      if (animate && next > prev) burstConfetti();
     }
 
     function mergeCfg(c) {
       if (!c || typeof c !== 'object') return;
       cfg = Object.assign(cfg, c);
+      if (c.metric != null) cfg.metric = normalizeMetric(c.metric);
+      if (c.resetPeriod != null) cfg.resetPeriod = normalizePeriod(c.resetPeriod);
     }
 
     function runTest() {
@@ -327,12 +379,21 @@
       const deltas = [1, 1, 1, -1, 2];
       let cur = base;
       let i = 0;
-      applyData({ count: cur, nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: true }, false);
+      const seed = {
+        nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: true,
+        followers: base, likesLive: base, likesWeek: base, likesMonth: base,
+        diamondsLive: base, diamondsWeek: base, diamondsMonth: base, count: base,
+      };
+      applyData(seed, false);
       function step() {
         if (i >= deltas.length) { testAnimTimer = null; return; }
         cur = Math.max(0, cur + deltas[i]);
         i += 1;
-        applyData({ count: cur }, true);
+        applyData({
+          count: cur,
+          followers: cur, likesLive: cur, likesWeek: cur, likesMonth: cur,
+          diamondsLive: cur, diamondsWeek: cur, diamondsMonth: cur,
+        }, true);
         testAnimTimer = setTimeout(step, 720);
       }
       testAnimTimer = setTimeout(step, 480);
@@ -344,7 +405,12 @@
     }
 
     function showPreviewIdle() {
-      applyData({ count: 1230, nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: true }, false);
+      applyData({
+        count: 1230, followers: 1230,
+        likesLive: 1230, likesWeek: 1230, likesMonth: 1230,
+        diamondsLive: 1230, diamondsWeek: 1230, diamondsMonth: 1230,
+        nickname: 'elastrom', uniqueId: 'elastrom', photo: PREVIEW_AVATAR, ready: true,
+      }, false);
     }
 
     let ws, rt;

@@ -341,7 +341,7 @@ window.addEventListener('pageshow', () => {
 });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -458,7 +458,7 @@ const OVERLAY_CAP = {
   '/contador-wins-mario.html': 'ov_winscountermario',
   '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
-  '/coinmatch.html': 'ov_coinmatch', '/meta.html': 'ov_meta',
+  '/coinmatch.html': 'ov_coinmatch', '/sorteos.html': 'ov_sorteos', '/meta.html': 'ov_meta',
   '/topalt-rank-neon.html': 'ov_topaltrankneon',
   '/topalt-rank.html': 'ov_topaltrank',
   '/topmulti-rank.html': 'ov_topmultirank',
@@ -480,6 +480,7 @@ const TAB_CAP = {
   alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas',
   'ov-streams': 'tab_overlays', 'ov-gifts': 'tab_overlays', 'ov-metas': 'tab_overlays',
   'ov-rankings': 'tab_overlays', 'ov-diseno': 'tab_overlays', 'ov-batalla': 'tab_overlays', 'ov-contador': 'tab_overlays',
+  'ov-sorteos': 'tab_overlays',
   tts: 'tab_tts', timer: 'tab_timer',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
@@ -1497,8 +1498,10 @@ function handle(type, p) {
       break;
     case 'communityGiftCatalog':
       communityGiftCatalog = p.results || [];
+      giftCommunityFetchedAt = Date.now();
       if (!$('giftModal').classList.contains('hidden')) {
         giftCatalog = mergeGiftCatalogWithCommunity(giftCatalog, communityGiftCatalog);
+        giftCommunityMerged = true;
         indexGiftCatalog();
         renderGiftGrid($('gift-q').value.trim());
       }
@@ -5613,7 +5616,18 @@ let communityGiftCatalog = [];
 
 function indexGiftCatalog() {
   giftCatalogById.clear();
+  giftCatalogSorted = null;
   for (const g of giftCatalog) giftCatalogById.set(String(g.id), g);
+}
+
+/** Lista ordenada cacheada (evita sort O(n log n) en cada tecla / apertura). */
+let giftCatalogSorted = null;
+function getSortedGiftCatalog() {
+  if (giftCatalogSorted) return giftCatalogSorted;
+  giftCatalogSorted = [...giftCatalog].sort((a, b) =>
+    (Number(a.diamonds) || 0) - (Number(b.diamonds) || 0) || String(a.name || '').localeCompare(String(b.name || ''))
+  );
+  return giftCatalogSorted;
 }
 
 function mergeGiftCatalogWithCommunity(base, community) {
@@ -5795,7 +5809,11 @@ $('emote-close').onclick = closeEmoteModal;
 $('emoteModal').addEventListener('click', (e) => { if (e.target.id === 'emoteModal') closeEmoteModal(); });
 $('gift-close').onclick = () => $('giftModal').classList.add('hidden');
 $('giftModal').addEventListener('click', (e) => { if (e.target.id === 'giftModal') $('giftModal').classList.add('hidden'); });
-$('gift-q').addEventListener('input', () => renderGiftGrid($('gift-q').value.trim()));
+let giftFilterTimer = null;
+$('gift-q').addEventListener('input', () => {
+  clearTimeout(giftFilterTimer);
+  giftFilterTimer = setTimeout(() => renderGiftGrid($('gift-q').value.trim()), 120);
+});
 
 const GIFT_MUSIC_NAME_RE = /music|song|melody|mic|guitar|piano|dj|beat|concert|album|drum|karaoke|band|singer|violin|trumpet|spotify|nota|canci[oó]n/i;
 let giftModalTab = 'all';
@@ -5810,6 +5828,64 @@ if ($('gift-tabs')) {
     $('gift-tabs').querySelectorAll('.gift-tab').forEach((el) => el.classList.toggle('active', el === btn));
     renderGiftGrid($('gift-q').value.trim());
   });
+}
+
+const GIFT_GRID_PAGE = 72;
+let giftGridList = [];
+let giftGridShown = 0;
+let giftCommunityFetchedAt = 0;
+let giftCommunityMerged = false;
+
+function ensureGiftGridBindings(grid) {
+  if (!grid || grid._giftBound) return;
+  grid._giftBound = true;
+  grid.addEventListener('click', (e) => {
+    const cell = e.target.closest('.gift-cell');
+    if (!cell || !grid.contains(cell)) return;
+    pickGiftCell(cell);
+  });
+  grid.addEventListener('scroll', () => {
+    if (giftGridShown >= giftGridList.length) return;
+    if (grid.scrollTop + grid.clientHeight < grid.scrollHeight - 180) return;
+    appendGiftGridPage();
+  }, { passive: true });
+}
+
+function pickGiftCell(cell) {
+  if (giftPickCallback) {
+    const g = giftCatalogById.get(String(cell.dataset.id));
+    giftPickCallback({
+      id: cell.dataset.id,
+      name: g?.name || cell.dataset.name || '',
+      image: g?.image || '',
+      diamonds: g?.diamonds || 0,
+    });
+    giftPickCallback = null;
+    $('giftModal').classList.add('hidden');
+    return;
+  }
+  $(giftTarget + '-gift').value = cell.dataset.name;
+  $(giftTarget + '-giftid').value = cell.dataset.id;
+  if (giftTarget === 'vid') updateGiftPickBtnV(); else updateGiftPickBtn();
+  $('giftModal').classList.add('hidden');
+}
+
+function giftCellHtml(g, curId) {
+  return `<div class="gift-cell ${String(g.id) === curId ? 'sel' : ''}" data-id="${g.id}" data-name="${esc(g.name)}" title="${esc(g.name)} · #${g.id}">
+      ${isMusicGift(g) ? '<span class="g-audio" title="Música / Audio">🎵</span>' : ''}
+      <img src="${esc(g.image)}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
+      <div class="g-name">${esc(g.name)}</div>
+      <div class="g-coin">🪙 ${g.diamonds}</div>
+    </div>`;
+}
+
+function appendGiftGridPage() {
+  const grid = $('gift-grid');
+  if (!grid || giftGridShown >= giftGridList.length) return;
+  const curId = giftPickCallback ? '' : ($(giftTarget + '-giftid')?.value || '');
+  const slice = giftGridList.slice(giftGridShown, giftGridShown + GIFT_GRID_PAGE);
+  giftGridShown += slice.length;
+  grid.insertAdjacentHTML('beforeend', slice.map((g) => giftCellHtml(g, curId)).join(''));
 }
 
 async function openGiftModalCb(cb) {
@@ -5827,8 +5903,9 @@ async function openGiftModal(target = 'sa', cb = null) {
   $('gift-q').value = '';
   // Mostrar al instante si el catálogo ya está en memoria (preload / apertura previa).
   if (giftCatalog.length) {
-    if (communityGiftCatalog.length) {
+    if (communityGiftCatalog.length && !giftCommunityMerged) {
       giftCatalog = mergeGiftCatalogWithCommunity(giftCatalog, communityGiftCatalog);
+      giftCommunityMerged = true;
       indexGiftCatalog();
     }
     renderGiftGrid('');
@@ -5836,27 +5913,42 @@ async function openGiftModal(target = 'sa', cb = null) {
     $('gift-grid').innerHTML = '<div class="empty">Cargando regalos…</div>';
   }
 
-  // Actualiza en segundo plano sin forzar TikTok (force=1 tardaba mucho).
+  // Actualiza en segundo plano; no vuelve a pedir comunidad si ya se cargó hace poco.
   try {
     const communityUrl = (relayActive() || desktopRelayOn()) ? '/api/desktop/community-gifts' : '/api/community-gifts';
     const needsGifts = !giftCatalog.length;
+    const needsCommunity = (Date.now() - giftCommunityFetchedAt) > 120000;
+    if (!needsGifts && !needsCommunity) return;
     const [giftsRes, communityRes] = await Promise.all([
       needsGifts ? fetch('/api/gifts') : Promise.resolve(null),
-      fetch(communityUrl).catch(() => null),
+      needsCommunity ? fetch(communityUrl).catch(() => null) : Promise.resolve(null),
     ]);
+    let changed = false;
+    const prevLen = giftCatalog.length;
     if (giftsRes) {
       const data = await giftsRes.json();
       giftCatalog = data.results || giftCatalog;
+      giftCommunityMerged = false;
+      changed = true;
     }
     if (communityRes?.ok) {
       const commData = await communityRes.json();
       communityGiftCatalog = commData.results || [];
+      giftCommunityFetchedAt = Date.now();
       if (communityGiftCatalog.length) {
         giftCatalog = mergeGiftCatalogWithCommunity(giftCatalog, communityGiftCatalog);
+        giftCommunityMerged = true;
+        changed = true;
+      }
+    } else if (needsCommunity) {
+      giftCommunityFetchedAt = Date.now();
+    }
+    if (changed) {
+      indexGiftCatalog();
+      if (giftCatalog.length !== prevLen || needsGifts) {
+        if (!$('giftModal').classList.contains('hidden')) renderGiftGrid($('gift-q').value.trim());
       }
     }
-    indexGiftCatalog();
-    if (!$('giftModal').classList.contains('hidden')) renderGiftGrid($('gift-q').value.trim());
   } catch {
     if (!giftCatalog.length) {
       $('gift-grid').innerHTML = '<div class="empty">No se pudo cargar el catálogo (¿hay internet?)</div>';
@@ -5866,48 +5958,29 @@ async function openGiftModal(target = 'sa', cb = null) {
 
 function renderGiftGrid(filter) {
   const grid = $('gift-grid');
+  if (!grid) return;
+  ensureGiftGridBindings(grid);
   const f = (filter || '').toLowerCase();
+  const sorted = getSortedGiftCatalog();
   let list = f
-    ? giftCatalog.filter((g) => g.name.toLowerCase().includes(f) || String(g.id).includes(f) || String(g.diamonds).includes(f))
-    : giftCatalog;
+    ? sorted.filter((g) =>
+      String(g.name || '').toLowerCase().includes(f)
+      || String(g.id).includes(f)
+      || String(g.diamonds).includes(f))
+    : sorted;
   if (giftModalTab === 'music') list = list.filter(isMusicGift);
-  list = [...list].sort((a, b) =>
-    (Number(a.diamonds) || 0) - (Number(b.diamonds) || 0) || String(a.name || '').localeCompare(String(b.name || ''))
-  );
   if (!list.length) {
+    giftGridList = [];
+    giftGridShown = 0;
     grid.innerHTML = giftModalTab === 'music'
       ? '<div class="empty">No hay regalos de música/audio en el catálogo</div>'
       : '<div class="empty">Sin resultados</div>';
     return;
   }
-  const curId = giftPickCallback ? '' : $(giftTarget + '-giftid').value;
-  grid.innerHTML = list.map((g) => `
-    <div class="gift-cell ${String(g.id) === curId ? 'sel' : ''}" data-id="${g.id}" data-name="${esc(g.name)}" title="${esc(g.name)} · #${g.id}">
-      ${isMusicGift(g) ? '<span class="g-audio" title="Música / Audio">🎵</span>' : ''}
-      <img src="${esc(g.image)}" loading="lazy" onerror="this.style.visibility='hidden'">
-      <div class="g-name">${esc(g.name)}</div>
-      <div class="g-coin">🪙 ${g.diamonds}</div>
-    </div>`).join('');
-  grid.querySelectorAll('.gift-cell').forEach((cell) => {
-    cell.onclick = () => {
-      if (giftPickCallback) {
-        const g = giftCatalogById.get(String(cell.dataset.id));
-        giftPickCallback({
-          id: cell.dataset.id,
-          name: g?.name || cell.dataset.name || '',
-          image: g?.image || '',
-          diamonds: g?.diamonds || 0,
-        });
-        giftPickCallback = null;
-        $('giftModal').classList.add('hidden');
-        return;
-      }
-      $(giftTarget + '-gift').value = cell.dataset.name;
-      $(giftTarget + '-giftid').value = cell.dataset.id;
-      if (giftTarget === 'vid') updateGiftPickBtnV(); else updateGiftPickBtn();
-      $('giftModal').classList.add('hidden');
-    };
-  });
+  giftGridList = list;
+  giftGridShown = 0;
+  grid.innerHTML = '';
+  appendGiftGridPage();
 }
 
 /* Subir propio */
@@ -7955,7 +8028,8 @@ function setupStyleOverlay(o) {
       pushPreview(settings?.[o.settingsKey] || {});
     }
     if (o.bumpPreview) await bumpPreviewFrame();
-    toPreview({ type: 'test', ...extra });
+    const cfgNow = fromModal ? buildCfg() : (settings?.[o.settingsKey] || {});
+    toPreview({ type: 'test', config: cfgNow, ...extra });
     send({ action: o.testAction, ...extra });
   };
   if ($(o.btnTest)) $(o.btnTest).onclick = () => runTest(false);
@@ -8153,6 +8227,44 @@ const STYLE_OVERLAYS = [
     types: { durationSec: 'int', topN: 'int', startDelaySec: 'int', revealSec: 'int', slowRevealFromSec: 'int', slowRevealSec: 'int', minBid: 'int', maxParticipants: 'int' },
   }),
   setupStyleOverlay({
+    kind: 'sorteos', settingsKey: 'sorteosOverlay', previewId: 'so-preview',
+    btnTest: 'so-test', btnReset: '', btnConfig: 'so-config',
+    modalId: 'soConfigModal', closeId: 'socfg-close', saveId: 'socfg-save',
+    testAction: 'testSorteos', resetAction: '',
+    map: {
+      'socfg-entry': 'entryCost', 'socfg-giftimg': 'entryGiftImage',
+      'socfg-giftid': 'entryGiftId', 'socfg-giftname': 'entryGiftName',
+      'socfg-elim': 'elimIntervalSec',
+      'socfg-elimcard': 'elimCardSec',
+      'socfg-anim': 'animSpeed', 'socfg-minp': 'minPlayers', 'socfg-initial': 'initialTimerSec',
+      'socfg-insta': 'instaClaim', 'socfg-maxp': 'maxPlayers',
+      'socfg-slowfrom': 'slowFromSec', 'socfg-slowsec': 'slowSec',
+      'socfg-lockmin': 'lockEntryMin',
+      'socfg-vouchkeys': 'vouchKeywords',
+      'socfg-scale': 'overlayScale',
+      'socfg-statspos': 'statsPos',
+      'socfg-frame': 'frameColor', 'socfg-framebg': 'frameBg', 'socfg-boxbg': 'boxBg',
+      'socfg-cgift': 'giftColor', 'socfg-cmin': 'minColor', 'socfg-cplayers': 'playersColor',
+      'socfg-ccoins': 'coinsColor', 'socfg-cvouches': 'vouchesColor', 'socfg-cinsta': 'instaColor',
+      'socfg-showgift': 'showGift', 'socfg-showmin': 'showMin', 'socfg-showplayers': 'showPlayers',
+      'socfg-showcoins': 'showCoins', 'socfg-showvouches': 'showVouches', 'socfg-showinsta': 'showInsta',
+      'socfg-lockmode': 'lockMode', 'socfg-slow': 'slowCountdown', 'socfg-autostart': 'autoStart',
+    },
+    types: {
+      entryCost: 'int', elimIntervalSec: 'int', elimCardSec: 'int', minPlayers: 'int', initialTimerSec: 'int',
+      instaClaim: 'int', maxPlayers: 'int', slowFromSec: 'int', slowSec: 'int', lockEntryMin: 'int',
+      overlayScale: 'int',
+    },
+    onFormSync: () => {
+      try {
+        refreshSorteosGiftBtn();
+        const sc = $('socfg-scale');
+        const lbl = $('socfg-scale-lbl');
+        if (sc && lbl) lbl.textContent = (parseInt(sc.value, 10) || 100) + '%';
+      } catch {}
+    },
+  }),
+  setupStyleOverlay({
     kind: 'topaltneon', settingsKey: 'topAltRankNeon', previewId: 'taln-preview',
     btnTest: 'taln-test', btnReset: 'taln-reset', btnConfig: 'taln-config',
     modalId: 'talnConfigModal', closeId: 'talnfg-close', saveId: 'talnfg-save',
@@ -8296,8 +8408,21 @@ const STYLE_OVERLAYS = [
     map: { 'foccfg-variation': 'variation', 'foccfg-font': 'font', 'foccfg-fontsize': 'fontSize',
       'foccfg-linespace': 'lineSpacing', 'foccfg-letterspace': 'letterSpacing', 'foccfg-color': 'fontColor',
       'foccfg-colormode': 'colorMode', 'foccfg-scale': 'scale', 'foccfg-goal': 'goalFollowers', 'foccfg-showtext': 'showFollowersText',
-      'foccfg-showprofile': 'showProfile', 'foccfg-showbar': 'showProgressBar', 'foccfg-confetti': 'showConfetti' },
+      'foccfg-showprofile': 'showProfile', 'foccfg-showbar': 'showProgressBar', 'foccfg-confetti': 'showConfetti',
+      'foccfg-metric': 'metric', 'foccfg-period': 'resetPeriod' },
     types: { fontSize: 'int', lineSpacing: 'int', letterSpacing: 'int', scale: 'int', goalFollowers: 'int' },
+    onFormSync: () => {
+      try {
+        const metric = $('foccfg-metric')?.value || 'followers';
+        const period = $('foccfg-period');
+        if (period) {
+          period.disabled = metric === 'followers';
+          period.title = metric === 'followers'
+            ? 'El periodo no aplica a seguidores (total actual de TikTok)'
+            : '';
+        }
+      } catch {}
+    },
   }),
   setupStyleOverlay({
     kind: 'followercounter_mc', settingsKey: 'followerCounterMc', previewId: 'focmc-preview',
@@ -8307,8 +8432,21 @@ const STYLE_OVERLAYS = [
     map: { 'focmccfg-variation': 'variation', 'focmccfg-font': 'font', 'focmccfg-fontsize': 'fontSize',
       'focmccfg-linespace': 'lineSpacing', 'focmccfg-letterspace': 'letterSpacing', 'focmccfg-color': 'fontColor',
       'focmccfg-colormode': 'colorMode', 'focmccfg-scale': 'scale', 'focmccfg-goal': 'goalFollowers', 'focmccfg-showtext': 'showFollowersText',
-      'focmccfg-showprofile': 'showProfile', 'focmccfg-showbar': 'showProgressBar', 'focmccfg-confetti': 'showConfetti' },
+      'focmccfg-showprofile': 'showProfile', 'focmccfg-showbar': 'showProgressBar', 'focmccfg-confetti': 'showConfetti',
+      'focmccfg-metric': 'metric', 'focmccfg-period': 'resetPeriod' },
     types: { fontSize: 'int', lineSpacing: 'int', letterSpacing: 'int', scale: 'int', goalFollowers: 'int' },
+    onFormSync: () => {
+      try {
+        const metric = $('focmccfg-metric')?.value || 'followers';
+        const period = $('focmccfg-period');
+        if (period) {
+          period.disabled = metric === 'followers';
+          period.title = metric === 'followers'
+            ? 'El periodo no aplica a seguidores (total actual de TikTok)'
+            : '';
+        }
+      } catch {}
+    },
   }),
   setupStyleOverlay({
     kind: 'alertagift', settingsKey: 'alertaGift', previewId: 'agf-preview',
@@ -8535,6 +8673,73 @@ function refreshGiftCounterCardUI() {
   if ($('cm-end')) $('cm-end').onclick = () => { toPrev({ type: 'action', action: 'end' }); send({ action: 'coinMatch', coinAction: 'end' }); };
   if ($('cm-winners')) $('cm-winners').onclick = () => { toPrev({ type: 'action', action: 'winners' }); send({ action: 'coinMatch', coinAction: 'winners' }); };
   if ($('cm-reset')) $('cm-reset').onclick = () => { toPrev({ type: 'action', action: 'reset' }); send({ action: 'coinMatch', coinAction: 'reset' }); };
+})();
+
+(function setupSorteosControls() {
+  const soPrev = () => $('so-preview')?.contentWindow;
+  const toPrev = (msg) => soPrev()?.postMessage({ kind: 'sorteos', ...msg }, '*');
+  window.refreshSorteosGiftBtn = function refreshSorteosGiftBtn() {
+    const btn = $('socfg-giftpick');
+    if (!btn) return;
+    const name = ($('socfg-giftname')?.value || '').trim();
+    const img = ($('socfg-giftimg')?.value || '').trim();
+    const cost = Math.max(1, parseInt($('socfg-entry')?.value, 10) || 1);
+    if (name || img) {
+      btn.classList.add('picked');
+      btn.innerHTML = (img ? `<img src="${esc(img)}" alt="">` : '') +
+        `<span>${esc(name || 'Regalo')} · ${cost} 🪙</span>`;
+    } else {
+      btn.classList.remove('picked');
+      btn.textContent = '＋ Elegir regalo';
+    }
+  };
+  if ($('socfg-giftpick')) $('socfg-giftpick').onclick = () => openGiftModalCb((g) => {
+    const diamonds = Math.max(1, Number(g.diamonds) || Number(g.diamond_count) || 1);
+    if ($('socfg-entry')) $('socfg-entry').value = String(diamonds);
+    if ($('socfg-giftimg')) $('socfg-giftimg').value = g.image || '';
+    if ($('socfg-giftid')) $('socfg-giftid').value = String(g.id || '');
+    if ($('socfg-giftname')) $('socfg-giftname').value = g.name || '';
+    refreshSorteosGiftBtn();
+    const cfg = {
+      ...(settings?.sorteosOverlay || {}),
+      entryCost: diamonds,
+      entryGiftImage: g.image || '',
+      entryGiftId: String(g.id || ''),
+      entryGiftName: g.name || '',
+    };
+    toPrev({ type: 'config', config: cfg });
+  });
+  if ($('socfg-giftclear')) $('socfg-giftclear').onclick = () => {
+    if ($('socfg-giftimg')) $('socfg-giftimg').value = '';
+    if ($('socfg-giftid')) $('socfg-giftid').value = '';
+    if ($('socfg-giftname')) $('socfg-giftname').value = '';
+    refreshSorteosGiftBtn();
+    const cfg = {
+      ...(settings?.sorteosOverlay || {}),
+      entryGiftImage: '',
+      entryGiftId: '',
+      entryGiftName: '',
+      entryCost: Math.max(1, parseInt($('socfg-entry')?.value, 10) || 30),
+    };
+    toPrev({ type: 'config', config: cfg });
+  };
+  if ($('socfg-entry')) $('socfg-entry').addEventListener('input', () => refreshSorteosGiftBtn());
+  if ($('so-start')) $('so-start').onclick = () => {
+    toPrev({ type: 'action', action: 'start', forceInitial: true });
+    send({ action: 'sorteos', sorteosAction: 'start', forceInitial: true });
+  };
+  if ($('so-lock')) $('so-lock').onclick = () => {
+    toPrev({ type: 'action', action: 'lock' });
+    send({ action: 'sorteos', sorteosAction: 'lock' });
+  };
+  if ($('so-unlock')) $('so-unlock').onclick = () => {
+    toPrev({ type: 'action', action: 'unlock' });
+    send({ action: 'sorteos', sorteosAction: 'unlock' });
+  };
+  if ($('so-reset')) $('so-reset').onclick = () => {
+    toPrev({ type: 'reset' });
+    send({ action: 'sorteos', sorteosAction: 'reset' });
+  };
 })();
 
 function pushStyleOverlayPreviews() {
