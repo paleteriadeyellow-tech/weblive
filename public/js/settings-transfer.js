@@ -49,6 +49,7 @@
         { key: 'flowMeter', label: 'Medidor de flow / regalos' },
         { key: 'giftGoals', label: 'Metas de regalos' },
         { key: 'topGift', label: 'Mejor regalo' },
+        { key: 'lastGift', label: 'Último regalo' },
         { key: 'giftCounter', label: 'Contador de meta' },
         { key: 'corazonLava', label: 'Meta Heart Me' },
         { key: 'topStreak', label: 'Mejor racha' },
@@ -59,6 +60,7 @@
         { key: 'winsCounterGamer', label: 'Contador de victorias (Gamer HUD)' },
         { key: 'winsCounterMinecraft', label: 'Contador de victorias (Minecraft)' },
         { key: 'winsCounterMario', label: 'Contador de victorias (Mario Bros)' },
+        { key: 'topKills', label: 'Top kills (manual)' },
       ],
     },
     {

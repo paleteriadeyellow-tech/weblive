@@ -502,6 +502,44 @@ export const DEFAULT_SETTINGS = {
       decN: { on: false, key: 'Ctrl+F4', amount: 5, giftId: '', giftName: '', image: '' },
     },
   },
+  // Overlay Top Kills (manual: nombre → avatar, +/- kills, orden por kills, estilo por puesto)
+  topKills: {
+    title: 'TOP KILLS',
+    nickTemplate: '{nickname}',
+    nickMode: 'nickname',
+    subtitle: 'Lleva {kills} Kills',
+    textColor: '#39ff14',
+    bold: true,
+    italic: false,
+    strike: false,
+    underline: false,
+    design: 'transparent',
+    font: 'inter',
+    scale: 100,
+    rankStyles: [
+      { bg: '#1a3a5c', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1e3558', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#223a5e', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1c3354', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1f385a', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#183250', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#203c5c', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1a3050', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1d3656', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#16304c', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1b3452', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1e3856', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#17304e', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#21405c', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1a3250', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1c3654', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#19324c', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#223a5a', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#15304a', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+      { bg: '#1f3a58', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false },
+    ],
+    players: [],
+  },
   // Spotify Song Requests (solo .exe · admin / albertoyt). Comandos del chat: !play/!skip/!revoke.
   spotify: {
     clientId: '',
@@ -553,6 +591,19 @@ export const DEFAULT_SETTINGS = {
     nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
     coinLabel: 'monedas', font: 'rubik',
     titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
+    resetPeriod: 'live',
+  },
+  // Overlay Último regalo (siempre el más reciente del live)
+  lastGift: {
+    title: 'ÚLTIMO REGALO',
+    titleRainbow: true,
+    titleColor: '#ffffff',
+    tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
+    nameColor: '#e4e4ee', valueColor: '#e8c4a0',
+    nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
+    coinLabel: 'monedas', font: 'rubik',
+    titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
+    resetPeriod: 'live',
   },
   // Overlay Metas de regalos (multi-meta: 1/10, vertical / horizontal / banda)
   giftGoals: {
@@ -661,6 +712,7 @@ export const DEFAULT_SETTINGS = {
     nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
     font: 'rubik',
     titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
+    resetPeriod: 'live',
   },
   // Overlay Batalla de regalos (ranking por monedas)
   batallaGifts: {

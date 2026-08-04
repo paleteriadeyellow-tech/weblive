@@ -141,7 +141,7 @@ function mergeProfilesData(legacy, current) {
     'flowMeter', 'giftSeq', 'giftShowcase',
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'giftGoals', 'giftCounter', 'topStreak',
-    'batallaGifts', 'batallaLikes', 'coinMatch',
+    'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
@@ -1640,13 +1640,34 @@ app.get('/api/tiktok-profile', async (req, res) => {
   if (!username) return res.status(400).json({ error: 'Usuario TikTok inválido' });
   try {
     const conn = new TikTokLiveConnection(username, { fetchRoomInfoOnConnect: false });
-    const info = await conn.webClient.fetchRoomInfoFromHtml({ uniqueId: username });
-    const user = info?.user || info?.liveRoomUserInfo?.user || {};
-    const avatar = extractTikTokUserAvatar(user);
+    let user = {};
+    let avatar = '';
+    let nickname = '';
+
+    try {
+      const info = await conn.webClient.fetchRoomInfoFromApiLive({ uniqueId: username });
+      user = info?.data?.user || info?.user || {};
+      avatar = extractTikTokUserAvatar(user);
+      nickname = String(user.nickname || user.nickName || user.display_name || user.displayName || '').trim();
+    } catch { /* fallback HTML */ }
+
+    if (!avatar) {
+      try {
+        const info = await conn.webClient.fetchRoomInfoFromHtml({ uniqueId: username });
+        user = info?.user || info?.liveRoomUserInfo?.user || user;
+        avatar = extractTikTokUserAvatar(user);
+        if (!nickname) {
+          nickname = String(user.nickname || user.nickName || user.display_name || user.displayName || '').trim();
+        }
+      } catch { /* ignore */ }
+    }
+
     if (!avatar) return res.status(404).json({ error: 'No se encontró foto de perfil' });
+    const unique = String(user.uniqueId || username).replace(/^@/, '');
     res.json({
-      username,
-      profileUrl: `https://www.tiktok.com/@${username}`,
+      username: unique,
+      nickname: nickname || unique,
+      profileUrl: `https://www.tiktok.com/@${unique}`,
       avatar,
     });
   } catch (e) {
@@ -1660,6 +1681,299 @@ app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
   const room = getRoomForUser(user);
   room.applySettings(req.body?.settings || {});
   res.json({ ok: true });
+});
+
+/* Editor Rápido — estado live + plantillas en disco (DATA_DIR / userData, sobreviven a updates) */
+const editorRapidoLiveByRoom = new Map();
+const ER_DIR = path.join(DATA_DIR, 'editor-rapido');
+const ER_TPL_DIR = path.join(ER_DIR, 'templates');
+const ER_MEDIA_DIR = path.join(ER_DIR, 'media');
+const ER_INDEX_FILE = path.join(ER_DIR, 'index.json');
+
+function ensureEditorRapidoDirs() {
+  try { fs.mkdirSync(ER_TPL_DIR, { recursive: true }); } catch {}
+  try { fs.mkdirSync(ER_MEDIA_DIR, { recursive: true }); } catch {}
+}
+
+function erSafeId(id) {
+  const s = String(id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+  return s || '';
+}
+
+function erReadIndex() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(ER_INDEX_FILE, 'utf8'));
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+}
+
+function erWriteIndex(list) {
+  ensureEditorRapidoDirs();
+  fs.writeFileSync(ER_INDEX_FILE, JSON.stringify(list, null, 2), 'utf8');
+}
+
+function erPersistDataUrl(dataUrl) {
+  const s = String(dataUrl || '');
+  if (!s) return '';
+  if (!s.startsWith('data:')) return s;
+  const m = /^data:([^;,]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(s);
+  if (!m) return '';
+  ensureEditorRapidoDirs();
+  const mime = String(m[1] || '').toLowerCase();
+  let ext = 'bin';
+  if (mime.includes('png')) ext = 'png';
+  else if (mime.includes('gif')) ext = 'gif';
+  else if (mime.includes('webp')) ext = 'webp';
+  else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+  else if (mime.includes('svg')) ext = 'svg';
+  const buf = Buffer.from(m[2].replace(/\s+/g, ''), 'base64');
+  if (!buf.length || buf.length > 28 * 1024 * 1024) return '';
+  const hash = crypto.createHash('sha1').update(buf).digest('hex').slice(0, 20);
+  const name = `${hash}.${ext}`;
+  const fp = path.join(ER_MEDIA_DIR, name);
+  if (!fs.existsSync(fp)) fs.writeFileSync(fp, buf);
+  return `/api/editor-rapido/media/${name}`;
+}
+
+function erNormalizeItemSrc(item) {
+  if (!item || typeof item !== 'object' || !item.src) return item;
+  const src = String(item.src);
+  if (src.startsWith('data:')) {
+    const saved = erPersistDataUrl(src);
+    return saved ? { ...item, src: saved } : item;
+  }
+  return item;
+}
+
+function erSanitizeTemplatePayload(tpl) {
+  const id = erSafeId(tpl?.id);
+  if (!id) return null;
+  const data = tpl?.data && typeof tpl.data === 'object' ? { ...tpl.data } : {};
+  if (Array.isArray(data.overlays)) data.overlays = data.overlays.map(erNormalizeItemSrc);
+  if (Array.isArray(data.gifts)) data.gifts = data.gifts.map(erNormalizeItemSrc);
+  if (typeof data.fondoCustomSrc === 'string' && data.fondoCustomSrc.startsWith('data:')) {
+    data.fondoCustomSrc = erPersistDataUrl(data.fondoCustomSrc) || '';
+  }
+  return {
+    id,
+    name: String(tpl?.name || 'Plantilla').slice(0, 80),
+    protected: true,
+    savedAt: Number(tpl?.savedAt) || Date.now(),
+    data,
+  };
+}
+
+function erListTemplates() {
+  ensureEditorRapidoDirs();
+  const index = erReadIndex();
+  const out = [];
+  const seen = new Set();
+  for (const meta of index) {
+    const id = erSafeId(meta?.id);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const fp = path.join(ER_TPL_DIR, `${id}.json`);
+    try {
+      const full = JSON.parse(fs.readFileSync(fp, 'utf8'));
+      if (full?.id && full?.data) {
+        out.push({
+          id: full.id,
+          name: String(full.name || meta.name || 'Plantilla').slice(0, 80),
+          protected: true,
+          savedAt: Number(full.savedAt || meta.savedAt) || Date.now(),
+          data: full.data,
+        });
+        continue;
+      }
+    } catch {}
+  }
+  try {
+    for (const name of fs.readdirSync(ER_TPL_DIR)) {
+      if (!name.endsWith('.json')) continue;
+      const id = erSafeId(name.slice(0, -5));
+      if (!id || seen.has(id)) continue;
+      try {
+        const full = JSON.parse(fs.readFileSync(path.join(ER_TPL_DIR, name), 'utf8'));
+        if (full?.id && full?.data) {
+          seen.add(id);
+          out.push({
+            id: full.id,
+            name: String(full.name || 'Plantilla').slice(0, 80),
+            protected: true,
+            savedAt: Number(full.savedAt) || Date.now(),
+            data: full.data,
+          });
+        }
+      } catch {}
+    }
+  } catch {}
+  out.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+  return out;
+}
+
+function erSanitizeLivePayload(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = { ...raw };
+  if (Array.isArray(data.overlays)) data.overlays = data.overlays.map(erNormalizeItemSrc);
+  if (Array.isArray(data.gifts)) data.gifts = data.gifts.map(erNormalizeItemSrc);
+  if (typeof data.fondoCustomSrc === 'string' && data.fondoCustomSrc.startsWith('data:')) {
+    data.fondoCustomSrc = erPersistDataUrl(data.fondoCustomSrc) || '';
+  }
+  if (data.fondo === 'custom' && !data.fondoCustomSrc) {
+    data.fondoCustomSrc = '';
+  }
+  return data;
+}
+
+function erLiveFile(room) {
+  const key = erSafeId(room) || 'local';
+  return path.join(ER_DIR, `live_${key}.json`);
+}
+
+function erReadLive(room) {
+  const mem = editorRapidoLiveByRoom.get(room);
+  if (mem?.payload) return mem;
+  try {
+    ensureEditorRapidoDirs();
+    const raw = JSON.parse(fs.readFileSync(erLiveFile(room), 'utf8'));
+    if (raw?.payload) {
+      editorRapidoLiveByRoom.set(room, raw);
+      return raw;
+    }
+  } catch {}
+  if (room !== 'local') {
+    const localMem = editorRapidoLiveByRoom.get('local');
+    if (localMem?.payload) return localMem;
+    try {
+      const raw = JSON.parse(fs.readFileSync(erLiveFile('local'), 'utf8'));
+      if (raw?.payload) {
+        editorRapidoLiveByRoom.set('local', raw);
+        return raw;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function erWriteLive(room, payload) {
+  const cleaned = erSanitizeLivePayload(payload);
+  if (!cleaned) return null;
+  const entry = { updatedAt: Date.now(), payload: cleaned };
+  editorRapidoLiveByRoom.set(room, entry);
+  try {
+    ensureEditorRapidoDirs();
+    fs.writeFileSync(erLiveFile(room), JSON.stringify(entry), 'utf8');
+    if (room !== 'local') {
+      editorRapidoLiveByRoom.set('local', entry);
+      fs.writeFileSync(erLiveFile('local'), JSON.stringify(entry), 'utf8');
+    }
+  } catch {}
+  return entry;
+}
+
+function erWarmLiveFromDisk() {
+  try {
+    ensureEditorRapidoDirs();
+    for (const name of fs.readdirSync(ER_DIR)) {
+      if (!/^live_[a-zA-Z0-9_-]+\.json$/i.test(name)) continue;
+      try {
+        const raw = JSON.parse(fs.readFileSync(path.join(ER_DIR, name), 'utf8'));
+        if (!raw?.payload) continue;
+        const room = name.slice(5, -5) || 'local';
+        editorRapidoLiveByRoom.set(room, raw);
+      } catch {}
+    }
+  } catch {}
+}
+erWarmLiveFromDisk();
+
+app.get('/api/editor-rapido/live', (req, res) => {
+  const room = String(req.query.room || req.query.key || 'local').trim() || 'local';
+  const data = erReadLive(room);
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, live: data });
+});
+app.post('/api/editor-rapido/live', express.json({ limit: '32mb' }), (req, res) => {
+  const room = String(req.body?.room || req.query.room || 'local').trim() || 'local';
+  const payload = req.body?.payload;
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ ok: false, error: 'payload required' });
+  }
+  try {
+    const entry = erWriteLive(room, payload);
+    if (!entry) return res.status(400).json({ ok: false, error: 'payload inválido' });
+    res.json({ ok: true, live: entry });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || 'error' });
+  }
+});
+
+app.get('/api/editor-rapido/templates', (_req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, templates: erListTemplates() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || 'error' });
+  }
+});
+
+app.post('/api/editor-rapido/templates', express.json({ limit: '32mb' }), (req, res) => {
+  try {
+    const cleaned = erSanitizeTemplatePayload(req.body?.template || req.body);
+    if (!cleaned) return res.status(400).json({ ok: false, error: 'template inválida' });
+    ensureEditorRapidoDirs();
+    const fp = path.join(ER_TPL_DIR, `${cleaned.id}.json`);
+    fs.writeFileSync(fp, JSON.stringify(cleaned), 'utf8');
+    const index = erReadIndex().filter((x) => erSafeId(x?.id) !== cleaned.id);
+    index.unshift({ id: cleaned.id, name: cleaned.name, savedAt: cleaned.savedAt, protected: true });
+    erWriteIndex(index);
+    res.json({ ok: true, template: cleaned });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || 'no se pudo guardar' });
+  }
+});
+
+app.delete('/api/editor-rapido/templates/:id', (req, res) => {
+  try {
+    const id = erSafeId(req.params.id);
+    if (!id) return res.status(400).json({ ok: false, error: 'id inválido' });
+    ensureEditorRapidoDirs();
+    const fp = path.join(ER_TPL_DIR, `${id}.json`);
+    try { fs.unlinkSync(fp); } catch {}
+    erWriteIndex(erReadIndex().filter((x) => erSafeId(x?.id) !== id));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || 'no se pudo borrar' });
+  }
+});
+
+app.get('/api/editor-rapido/media/:name', (req, res) => {
+  const name = String(req.params.name || '');
+  if (!/^[a-f0-9]{8,40}\.(png|gif|jpg|jpeg|webp|svg|bin)$/i.test(name)) {
+    return res.status(400).end();
+  }
+  const fp = path.join(ER_MEDIA_DIR, name);
+  if (!fs.existsSync(fp)) return res.status(404).end();
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.sendFile(fp);
+});
+
+app.post('/api/editor-rapido/media', express.json({ limit: '40mb' }), (req, res) => {
+  try {
+    const dataUrl = req.body?.dataUrl;
+    if (!dataUrl || typeof dataUrl !== 'string') {
+      return res.status(400).json({ ok: false, error: 'dataUrl required' });
+    }
+    const url = erPersistDataUrl(dataUrl);
+    if (!url || url.startsWith('data:')) {
+      return res.status(400).json({ ok: false, error: 'No se pudo guardar (archivo inválido o > 25 MB)' });
+    }
+    res.json({ ok: true, url });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message || 'error' });
+  }
 });
 
 app.get('/api/profiles/full', (req, res) => {

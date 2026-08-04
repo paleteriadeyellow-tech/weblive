@@ -455,6 +455,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const POINTS_FILE = path.join(dataDir, 'points.json');
   const SESSION_FILE = path.join(dataDir, 'session.json');
   const SESSION_OVERLAYS_FILE = path.join(dataDir, 'session-overlays.json');
+  const GIFT_OVERLAY_PERIOD_FILE = path.join(dataDir, 'gift-overlays-period.json');
+  const GIFT_OVERLAY_KEYS = ['topGift', 'lastGift', 'topStreak'];
   // Perfiles (solo se usan en la app .exe): 10 ranuras, cada una guarda una
   // configuración COMPLETA. El perfil activo es el que se edita/guarda. Nunca se
   // borran: una ranura vacía simplemente arranca con los valores por defecto.
@@ -757,12 +759,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const sessionOv = {
     top1: {},
     topGift: null,
+    lastGift: null,
     topStreak: null,
     batallaGifts: {},
     batallaLikes: {},
     hype: { score: 0, target: 100, coinTotal: 0 },
   };
   let sessionOverlaysSaveTimer = null;
+  const giftOverlayPeriod = Object.create(null);
+  const lastGiftOverlayPeriods = Object.create(null);
+  let giftOverlayPeriodSaveTimer = null;
+  for (const k of GIFT_OVERLAY_KEYS) {
+    giftOverlayPeriod[k] = { period: 'live', start: 0, end: 0, record: null };
+    lastGiftOverlayPeriods[k] = null;
+  }
   const recentSubs = new Map();      // dedupe suscripciones (subscribe/subNotify)
   const recentSuperFans = new Map(); // dedupe super fans (superFan/superFanJoin)
   // TikTok puede mandar el MISMO follow/share por dos canales (SOCIAL y FOLLOW/SHARE):
@@ -949,8 +959,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3',
     'flowMeter', 'giftSeq', 'giftShowcase',
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
-    'top1', 'top1fire', 'habibiTop', 'topGift', 'giftGoals', 'giftCounter', 'topStreak',
-    'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay',
+    'top1', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'giftGoals', 'giftCounter', 'topStreak',
+    'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
@@ -1187,6 +1197,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   loadHabibiTop();
   loadGiftGoalsPersist();
   loadRankOverlays();
+  loadGiftOverlayPeriods();
   loadSessionOverlays();
   loadPoints();
   restoreTimerFromSettings();
@@ -1773,6 +1784,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prevTop1FirePeriod = getTop1FirePeriod();
     const prevHabibiTopPeriod = getHabibiTopPeriod();
     const prevGiftGoalsPeriod = getGiftGoalsPeriod();
+    const prevGiftOverlayPeriods = {};
+    for (const k of GIFT_OVERLAY_KEYS) prevGiftOverlayPeriods[k] = getGiftOverlayPeriod(k);
     const prevRankPeriods = {};
     for (const rankId of RANK_IDS) prevRankPeriods[rankId] = getRankPeriod(rankId);
     // Periodos ALT previos: solo reaccionar si el propio ALT cambió de periodo,
@@ -1811,13 +1824,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       if (!stopVideoScreens.size) stopVideoScreens = null;
     }
+    // Top kills: no pisar jugadores con [] salvo clearPlayers (Reset del usuario).
+    if (obj.topKills && typeof obj.topKills === 'object') {
+      const incomingPlayers = obj.topKills.players;
+      const curPlayers = settings.topKills?.players;
+      const clearPlayers = !!obj.topKills.clearPlayers;
+      if (clearPlayers) {
+        obj.topKills = { ...obj.topKills, players: Array.isArray(incomingPlayers) ? incomingPlayers : [], clearPlayers: undefined };
+      } else if (Array.isArray(incomingPlayers) && incomingPlayers.length === 0
+        && Array.isArray(curPlayers) && curPlayers.length > 0) {
+        obj.topKills = { ...obj.topKills, players: curPlayers };
+      }
+    }
     settings = deepMerge(settings, obj);
+    if (settings.topKills && 'clearPlayers' in settings.topKills) delete settings.topKills.clearPlayers;
     if (obj.top1fire && obj.top1fire.resetPeriod != null
       && normalizeResetPeriod(obj.top1fire.resetPeriod) !== prevTop1FirePeriod) onTop1FireSettingsChange();
     if (obj.habibiTop && obj.habibiTop.resetPeriod != null
       && normalizeResetPeriod(obj.habibiTop.resetPeriod) !== prevHabibiTopPeriod) onHabibiTopSettingsChange();
     if (obj.giftGoals && obj.giftGoals.resetPeriod != null
       && normalizeResetPeriod(obj.giftGoals.resetPeriod) !== prevGiftGoalsPeriod) onGiftGoalsPeriodChange();
+    for (const k of GIFT_OVERLAY_KEYS) {
+      if (obj[k] && obj[k].resetPeriod != null
+        && normalizeResetPeriod(obj[k].resetPeriod) !== prevGiftOverlayPeriods[k]) {
+        onGiftOverlayPeriodChange(k);
+      }
+    }
     for (const rankId of RANK_IDS) {
       const key = RANK_SETTINGS_KEY[rankId];
       if (obj[key] && obj[key].resetPeriod != null
@@ -2523,8 +2555,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     fanLikeAcc.clear();
     gameLikeAcc.clear();
     sessionOv.top1 = {};
-    sessionOv.topGift = null;
-    sessionOv.topStreak = null;
+    if (getGiftOverlayPeriod('topGift') === 'live') sessionOv.topGift = null;
+    if (getGiftOverlayPeriod('lastGift') === 'live') sessionOv.lastGift = null;
+    if (getGiftOverlayPeriod('topStreak') === 'live') sessionOv.topStreak = null;
     sessionOv.batallaGifts = {};
     sessionOv.batallaLikes = {};
     sessionOv.hype = { score: 0, target: 100, coinTotal: 0 };
@@ -2589,6 +2622,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     sessionOv.top1 = (raw.top1 && typeof raw.top1 === 'object') ? raw.top1 : {};
     sessionOv.topGift = raw.topGift || null;
+    sessionOv.lastGift = raw.lastGift || null;
     sessionOv.topStreak = raw.topStreak || null;
     sessionOv.batallaGifts = (raw.batallaGifts && typeof raw.batallaGifts === 'object') ? raw.batallaGifts : {};
     sessionOv.batallaLikes = (raw.batallaLikes && typeof raw.batallaLikes === 'object') ? raw.batallaLikes : {};
@@ -2597,8 +2631,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function serializeSessionOverlaysPayload() {
     return {
       top1: sessionOv.top1,
-      topGift: sessionOv.topGift,
-      topStreak: sessionOv.topStreak,
+      topGift: getActiveGiftOverlayRecord('topGift'),
+      lastGift: getActiveGiftOverlayRecord('lastGift'),
+      topStreak: getActiveGiftOverlayRecord('topStreak'),
       batallaGifts: sessionOv.batallaGifts,
       batallaLikes: sessionOv.batallaLikes,
       hype: sessionOv.hype,
@@ -2622,6 +2657,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       fanLikeAcc: [...fanLikeAcc.entries()],
       top1: sessionOv.top1,
       topGift: sessionOv.topGift,
+      lastGift: sessionOv.lastGift,
       topStreak: sessionOv.topStreak,
       batallaGifts: sessionOv.batallaGifts,
       batallaLikes: sessionOv.batallaLikes,
@@ -2672,6 +2708,114 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     sessionOv.hype = { score, target, coinTotal };
     saveSessionOverlays();
   }
+  function getGiftOverlayPeriod(key) {
+    const p = settings?.[key]?.resetPeriod;
+    return p === 'week' || p === 'month' ? p : 'live';
+  }
+  function loadGiftOverlayPeriods() {
+    const raw = readJsonSafe(GIFT_OVERLAY_PERIOD_FILE).data || {};
+    for (const key of GIFT_OVERLAY_KEYS) {
+      const period = getGiftOverlayPeriod(key);
+      lastGiftOverlayPeriods[key] = period;
+      if (period === 'live') {
+        giftOverlayPeriod[key] = { period: 'live', start: 0, end: 0, record: null };
+        continue;
+      }
+      const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+      const bag = raw[key];
+      if (bag && bag.period === period && bag.start === start) {
+        giftOverlayPeriod[key] = {
+          period,
+          start,
+          end,
+          record: bag.record && typeof bag.record === 'object' ? bag.record : null,
+        };
+      } else {
+        giftOverlayPeriod[key] = { period, start, end, record: null };
+      }
+    }
+  }
+  function saveGiftOverlayPeriodsNow() {
+    clearTimeout(giftOverlayPeriodSaveTimer);
+    giftOverlayPeriodSaveTimer = null;
+    const data = {};
+    for (const key of GIFT_OVERLAY_KEYS) {
+      if (getGiftOverlayPeriod(key) === 'live') continue;
+      const bag = giftOverlayPeriod[key] || {};
+      data[key] = {
+        period: bag.period,
+        start: bag.start,
+        end: bag.end,
+        record: bag.record || null,
+      };
+    }
+    writeJsonAtomic(GIFT_OVERLAY_PERIOD_FILE, data);
+  }
+  function saveGiftOverlayPeriods() {
+    clearTimeout(giftOverlayPeriodSaveTimer);
+    giftOverlayPeriodSaveTimer = setTimeout(saveGiftOverlayPeriodsNow, 400);
+  }
+  function ensureGiftOverlayPeriod(key) {
+    const period = getGiftOverlayPeriod(key);
+    if (period === 'live') return;
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    const bag = giftOverlayPeriod[key] || (giftOverlayPeriod[key] = { period: 'live', start: 0, end: 0, record: null });
+    if (bag.period !== period || bag.start !== start) {
+      bag.period = period;
+      bag.start = start;
+      bag.end = end;
+      bag.record = null;
+      saveGiftOverlayPeriods();
+    }
+  }
+  function getActiveGiftOverlayRecord(key) {
+    if (getGiftOverlayPeriod(key) === 'live') return sessionOv[key] || null;
+    ensureGiftOverlayPeriod(key);
+    return giftOverlayPeriod[key]?.record || null;
+  }
+  function setActiveGiftOverlayRecord(key, record) {
+    if (getGiftOverlayPeriod(key) === 'live') {
+      sessionOv[key] = record;
+      return;
+    }
+    ensureGiftOverlayPeriod(key);
+    giftOverlayPeriod[key].record = record;
+    saveGiftOverlayPeriods();
+  }
+  function clearActiveGiftOverlayRecord(key) {
+    if (getGiftOverlayPeriod(key) === 'live') {
+      sessionOv[key] = null;
+      saveSessionOverlays();
+      return;
+    }
+    ensureGiftOverlayPeriod(key);
+    giftOverlayPeriod[key].record = null;
+    saveGiftOverlayPeriods();
+  }
+  function onGiftOverlayPeriodChange(key) {
+    const period = getGiftOverlayPeriod(key);
+    if (period === lastGiftOverlayPeriods[key]) return;
+    lastGiftOverlayPeriods[key] = period;
+    if (period === 'live') {
+      giftOverlayPeriod[key] = { period: 'live', start: 0, end: 0, record: null };
+    } else {
+      const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+      const raw = readJsonSafe(GIFT_OVERLAY_PERIOD_FILE).data || {};
+      const bag = raw[key];
+      if (bag && bag.period === period && bag.start === start) {
+        giftOverlayPeriod[key] = {
+          period,
+          start,
+          end,
+          record: bag.record && typeof bag.record === 'object' ? bag.record : null,
+        };
+      } else {
+        giftOverlayPeriod[key] = { period, start, end, record: null };
+      }
+      saveGiftOverlayPeriods();
+    }
+    broadcast('sessionOverlays', serializeSessionOverlaysPayload());
+  }
   function trackSessionGift(user, giftName, repeatCount, diamondsEach, image) {
     const total = diamondsEach * repeatCount;
     if (total <= 0) return;
@@ -2688,23 +2832,39 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       sessionOv.batallaGifts[uid].monedas += total;
       if (user.photo) sessionOv.batallaGifts[uid].pic = user.photo;
     }
-    if (diamondsEach > 0 && (!sessionOv.topGift || diamondsEach > sessionOv.topGift.coins)) {
-      sessionOv.topGift = {
-        coins: diamondsEach,
-        nickname: user.nickname || uid || 'Usuario',
+    const nick = user.nickname || uid || 'Usuario';
+    if (diamondsEach > 0) {
+      const curTop = getActiveGiftOverlayRecord('topGift');
+      if (!curTop || diamondsEach > curTop.coins) {
+        setActiveGiftOverlayRecord('topGift', {
+          coins: diamondsEach,
+          nickname: nick,
+          image: image || '',
+          uniqueId: uid || '',
+        });
+      }
+    }
+    if (diamondsEach > 0 || image) {
+      setActiveGiftOverlayRecord('lastGift', {
+        coins: Math.max(0, Number(diamondsEach) || 0),
+        nickname: nick,
         image: image || '',
+        giftName: giftName || '',
         uniqueId: uid || '',
-      };
+      });
     }
     const rc = Math.max(0, Number(repeatCount) || 0);
-    if (rc > 0 && (!sessionOv.topStreak || rc > sessionOv.topStreak.streak)) {
-      sessionOv.topStreak = {
-        streak: rc,
-        nickname: user.nickname || uid || 'Usuario',
-        giftName: giftName || '',
-        image: image || '',
-        uniqueId: uid || '',
-      };
+    if (rc > 0) {
+      const curStreak = getActiveGiftOverlayRecord('topStreak');
+      if (!curStreak || rc > curStreak.streak) {
+        setActiveGiftOverlayRecord('topStreak', {
+          streak: rc,
+          nickname: nick,
+          giftName: giftName || '',
+          image: image || '',
+          uniqueId: uid || '',
+        });
+      }
     }
     trackSessionHypeEvent('gift', total);
     saveSessionOverlays();
@@ -2741,9 +2901,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('giftSeqReset', {});
     broadcast('pkBattleReset', {});
     resetPkBattleAll();
-    // Mejor regalo / mejor racha de la sesión
-    broadcast('topGiftReset', {});
-    broadcast('topStreakReset', {});
+    // Mejor regalo / último regalo / mejor racha (solo si periodo = live)
+    if (getGiftOverlayPeriod('topGift') === 'live') broadcast('topGiftReset', {});
+    if (getGiftOverlayPeriod('lastGift') === 'live') broadcast('lastGiftReset', {});
+    if (getGiftOverlayPeriod('topStreak') === 'live') broadcast('topStreakReset', {});
     // Top 1 donador (MVP de la sesión)
     broadcast('top1Reset', {});
     resetTop1FireSession();
@@ -3484,6 +3645,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           broadcast('log', { level: 'ok', text: `Conectado a la sala ${newRoomId ?? ''}` });
         }
         fetchRoomCommunityGifts(conn);
+        // Evita leer/TTS de todo el backlog de chat al conectar tarde.
         beginChatCatchup();
       })
       .catch((err) => {
@@ -9080,7 +9242,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('topGiftTest', { gift: data.gift || null });
         break;
       case 'resetTopGift':
+        clearActiveGiftOverlayRecord('topGift');
         broadcast('topGiftReset', {});
+        broadcast('sessionOverlays', serializeSessionOverlaysPayload());
+        break;
+      case 'testLastGift':
+        broadcast('lastGiftTest', { gift: data.gift || null });
+        break;
+      case 'resetLastGift':
+        clearActiveGiftOverlayRecord('lastGift');
+        broadcast('lastGiftReset', {});
+        broadcast('sessionOverlays', serializeSessionOverlaysPayload());
         break;
       case 'testTop1':
         broadcast('top1Test', {});
@@ -9124,6 +9296,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetWinsMario':
         broadcast('winsMarioReset', {});
         break;
+      case 'testTopKills':
+        broadcast('topKillsTest', {});
+        break;
       case 'testGiftCounter':
         broadcast('giftCounterTest', {});
         break;
@@ -9143,7 +9318,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('topStreakTest', { gift: data.gift || null });
         break;
       case 'resetTopStreak':
+        clearActiveGiftOverlayRecord('topStreak');
         broadcast('topStreakReset', {});
+        broadcast('sessionOverlays', serializeSessionOverlaysPayload());
         break;
       case 'testBatallaGifts':
         broadcast('batallaGiftsTest', {});

@@ -1175,6 +1175,7 @@
   const PACK_IMG_EXT = /\.(png|jpe?g|gif|webp)$/i;
   let pngDlTab = 'packs'; // packs | catalog
   let catalogPackId = null;
+  let pngDlPickHandler = null;
   let catalogFolder = null; // null = lista de carpetas del pack
   const packObjectUrls = new Map(); // key -> blob url
   let jszipPromise = null;
@@ -1438,9 +1439,15 @@
         </div>
       </div>`;
     document.body.appendChild(modal);
-    $('ied-pngdl-close')?.addEventListener('click', () => showModal('iedPngDlModal', false));
+    $('ied-pngdl-close')?.addEventListener('click', () => {
+      pngDlPickHandler = null;
+      showModal('iedPngDlModal', false);
+    });
     modal.addEventListener('click', (e) => {
-      if (e.target?.id === 'iedPngDlModal') showModal('iedPngDlModal', false);
+      if (e.target?.id === 'iedPngDlModal') {
+        pngDlPickHandler = null;
+        showModal('iedPngDlModal', false);
+      }
     });
     modal.querySelectorAll('.ied-pngdl-tab').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1582,8 +1589,14 @@
           const im = imgs[Number(btn.dataset.i)];
           const src = urls[Number(btn.dataset.i)];
           if (!im || !src) return;
-          addImageLayer(src, im.name);
+          const pick = pngDlPickHandler;
+          pngDlPickHandler = null;
           showModal('iedPngDlModal', false);
+          if (typeof pick === 'function') {
+            pick(src, im.name);
+            return;
+          }
+          addImageLayer(src, im.name);
           toast && toast('Imagen añadida al Editor', 'ok');
         };
       });
@@ -1628,7 +1641,8 @@
     else await renderPngCatalog();
   }
 
-  function openPngDlModal() {
+  function openPngDlModal(opts) {
+    pngDlPickHandler = (opts && typeof opts.onPickImage === 'function') ? opts.onPickImage : null;
     ensurePngDlModal();
     pngDlTab = 'packs';
     catalogPackId = null;
@@ -1638,6 +1652,7 @@
     refreshPngDlViews();
     showModal('iedPngDlModal', true);
   }
+  window.openPngDlModal = openPngDlModal;
 
   let activeGamePack = null;
 

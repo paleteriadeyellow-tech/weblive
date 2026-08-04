@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Top Kills — Widget</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: transparent;
+    font-family: Inter, system-ui, Segoe UI, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    user-select: none;
+  }
+  .shell {
+    display: flex; flex-direction: column;
+    height: 100vh; min-height: 240px;
+    margin: 6px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(12, 18, 32, .82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 16px 40px rgba(0,0,0,.45);
+    overflow: hidden;
+  }
+  .head {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    -webkit-app-region: drag;
+    app-region: drag;
+    cursor: grab;
+  }
+  .head-ico { font-size: 18px; line-height: 1; }
+  .head-title { flex: 1; font-weight: 800; font-size: 15px; letter-spacing: .02em; }
+  .head-btn {
+    -webkit-app-region: no-drag; app-region: no-drag;
+    width: 28px; height: 28px; border: 0; border-radius: 8px;
+    background: rgba(255,255,255,.08); color: #fff; cursor: pointer;
+    font-size: 16px; font-weight: 700; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .head-btn:hover { background: rgba(254,44,85,.85); }
+  .hint {
+    flex: 0 0 auto;
+    padding: 6px 12px 0;
+    font-size: 11px; color: rgba(255,255,255,.55); line-height: 1.35;
+    -webkit-app-region: no-drag;
+  }
+  .rows {
+    flex: 1 1 auto; min-height: 0;
+    overflow: auto;
+    padding: 8px 10px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+    -webkit-app-region: no-drag; app-region: no-drag;
+  }
+  .row {
+    position: relative;
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 8px 8px 10px;
+    min-height: 46px;
+    border-radius: 11px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: var(--tk-row-bg, rgba(20, 40, 70, .55));
+  }
+  .rank {
+    position: absolute; left: 8px; top: -6px;
+    background: #e8a838; color: #1a1208; font-weight: 900;
+    font-size: 10px; padding: 1px 6px; border-radius: 5px; z-index: 1;
+  }
+  .av, .av-ph {
+    width: 32px; height: 32px; border-radius: 50%; flex: 0 0 auto;
+    margin-left: 20px; object-fit: cover;
+    border: 2px solid rgba(96, 165, 250, .45); background: #0b1524;
+  }
+  .av-ph { border-style: dashed; display: block; }
+  .name {
+    flex: 1 1 auto; min-width: 72px; max-width: 180px;
+    background: #0c1322; color: #fff;
+    border: 1px solid rgba(255,255,255,.14); border-radius: 8px;
+    padding: 6px 8px; font-size: 12px; font-weight: 700;
+  }
+  .name:focus { outline: none; border-color: #25f4ee; }
+  .kills {
+    flex: 0 0 auto; min-width: 30px; text-align: center;
+    background: rgba(37, 244, 238, .12); color: #25f4ee; font-weight: 900;
+    border: 1px solid rgba(37, 244, 238, .35);
+    border-radius: 999px; padding: 4px 9px; font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pm {
+    width: 26px; height: 26px; border-radius: 7px;
+    font-size: 15px; font-weight: 900; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid transparent;
+  }
+  .pm.plus {
+    background: rgba(37, 244, 238, .14); color: #25f4ee;
+    border-color: rgba(37, 244, 238, .4);
+  }
+  .pm.minus {
+    background: rgba(254, 44, 85, .14); color: #fe2c55;
+    border-color: rgba(254, 44, 85, .4);
+  }
+  .pm:active { transform: scale(.94); }
+  .del {
+    width: 26px; height: 26px; border: 0; border-radius: 7px;
+    background: #dc6b6b; color: #fff; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .del svg { width: 13px; height: 13px; }
+  .status {
+    flex: 0 0 auto; padding: 4px 12px 8px;
+    font-size: 10px; color: rgba(255,255,255,.4);
+    -webkit-app-region: no-drag;
+  }
+  .status.on { color: rgba(37,244,238,.75); }
+  .resize-hint {
+    position: absolute; right: 10px; bottom: 8px;
+    width: 12px; height: 12px; opacity: .35; pointer-events: none;
+    border-right: 2px solid #fff; border-bottom: 2px solid #fff;
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="head">
+      <span class="head-ico" aria-hidden="true">🗡️</span>
+      <span class="head-title">Top Kills</span>
+      <button type="button" class="head-btn" id="btnClose" title="Cerrar">×</button>
+    </div>
+    <p class="hint">Kills a mano. Arrastra la barra de arriba · redimensiona por el borde.</p>
+    <div class="rows" id="rows" aria-label="Jugadores top kills"></div>
+    <div class="status" id="status">Conectando…</div>
+  </div>
+  <div class="resize-hint" aria-hidden="true"></div>
+<script>
+(function () {
+  const TK_MAX = 20;
+  const DEFAULT_RANK = { bg: '#1a3a5c' };
+  const DEFAULT_BGS = [
+    '#1a3a5c', '#1e3558', '#223a5e', '#1c3354', '#1f385a',
+    '#183250', '#203c5c', '#1a3050', '#1d3656', '#16304c',
+    '#1b3452', '#1e3856', '#17304e', '#21405c', '#1a3250',
+    '#1c3654', '#19324c', '#223a5a', '#15304a', '#1f3a58',
+  ];
+  const qs = new URLSearchParams(location.search);
+  const room = String(qs.get('room') || '').trim();
+  const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+  let players = [];
+  let rankStyles = DEFAULT_BGS.map((bg) => ({ ...DEFAULT_RANK, bg }));
+  let saveTimer = null;
+  let suppressEchoUntil = 0;
+  let ws;
+
+  const $ = (id) => document.getElementById(id);
+  const status = (t, on) => {
+    const el = $('status');
+    if (!el) return;
+    el.textContent = t;
+    el.classList.toggle('on', !!on);
+  };
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function newPlayer(partial) {
+    return {
+      id: 'tk_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7),
+      username: '', nickname: '', uniqueId: '', avatar: '', kills: 0,
+      ...(partial || {}),
+    };
+  }
+  function sorted() {
+    return players.slice().sort((a, b) => (b.kills | 0) - (a.kills | 0)
+      || String(a.username || '').localeCompare(String(b.username || '')));
+  }
+  function rankBg(i) {
+    return (rankStyles[i] && rankStyles[i].bg) || DEFAULT_BGS[i] || DEFAULT_RANK.bg;
+  }
+  function send(obj) {
+    if (!ws || ws.readyState !== 1) return;
+    try { ws.send(JSON.stringify(obj)); } catch {}
+  }
+  function saveSoon() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      suppressEchoUntil = Date.now() + 900;
+      send({
+        action: 'saveSettings',
+        settings: {
+          topKills: {
+            players,
+            rankStyles,
+            clearPlayers: !players.length,
+          },
+        },
+      });
+    }, 120);
+  }
+  function applyTopKills(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    if (Date.now() < suppressEchoUntil) return;
+    if (Array.isArray(cfg.players)) players = cfg.players.filter((p) => p && p.id);
+    if (Array.isArray(cfg.rankStyles) && cfg.rankStyles.length) {
+      const base = cfg.rankStyles.slice();
+      while (base.length < TK_MAX) base.push({ bg: DEFAULT_BGS[base.length] || DEFAULT_RANK.bg });
+      rankStyles = base.slice(0, TK_MAX);
+    }
+    render();
+  }
+  function playerAt(rank) {
+    const s = sorted();
+    if (s[rank]) return s[rank];
+    const p = newPlayer();
+    players.push(p);
+    return p;
+  }
+  function render() {
+    const wrap = $('rows');
+    if (!wrap) return;
+    const s = sorted();
+    const slots = [];
+    for (let i = 0; i < TK_MAX; i++) slots.push(s[i] || null);
+    wrap.innerHTML = slots.map((p, i) => {
+      const nameVal = p ? (p.username ? '@' + String(p.username).replace(/^@/, '') : (p.nickname || '')) : '';
+      const kills = p ? (p.kills | 0) : 0;
+      const av = p?.avatar
+        ? `<img class="av" src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer">`
+        : '<span class="av-ph" aria-hidden="true"></span>';
+      return `<div class="row" data-rank="${i}" data-id="${esc(p?.id || '')}" style="--tk-row-bg:${esc(rankBg(i))}">
+        <span class="rank">#${i + 1}</span>
+        ${av}
+        <input type="text" class="name" value="${esc(nameVal)}" placeholder="Nombre" spellcheck="false" autocomplete="off">
+        <span class="kills">${kills}</span>
+        <button type="button" class="pm plus" title="+1">+</button>
+        <button type="button" class="pm minus" title="-1">−</button>
+        <button type="button" class="del" title="Quitar">${TRASH}</button>
+      </div>`;
+    }).join('');
+  }
+
+  $('rows').addEventListener('pointerdown', (e) => {
+    if (e.button != null && e.button !== 0) return;
+    const btn = e.target.closest?.('.pm');
+    if (!btn) return;
+    const row = btn.closest('.row');
+    if (!row) return;
+    e.preventDefault();
+    const rank = Number(row.dataset.rank);
+    const p = playerAt(rank);
+    row.dataset.id = p.id;
+    const delta = btn.classList.contains('plus') ? 1 : -1;
+    p.kills = Math.max(0, (p.kills | 0) + delta);
+    const kel = row.querySelector('.kills');
+    if (kel) kel.textContent = String(p.kills);
+    saveSoon();
+    const before = sorted().map((x) => x.id).join('|');
+    setTimeout(() => {
+      const after = sorted().map((x) => x.id).join('|');
+      if (before !== after) render();
+    }, 0);
+  });
+
+  $('rows').addEventListener('click', (e) => {
+    const btn = e.target.closest?.('.del');
+    if (!btn) return;
+    const row = btn.closest('.row');
+    if (!row) return;
+    const id = row.dataset.id;
+    if (id) players = players.filter((x) => x.id !== id);
+    saveSoon();
+    render();
+  });
+
+  $('rows').addEventListener('change', (e) => {
+    const inp = e.target.closest?.('.name');
+    if (!inp) return;
+    const row = inp.closest('.row');
+    if (!row) return;
+    const rank = Number(row.dataset.rank);
+    const raw = inp.value.trim();
+    const handle = raw.replace(/^@/, '').replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/i, '').split(/[/?#]/)[0];
+    if (!handle) {
+      const id = row.dataset.id;
+      const p = id ? players.find((x) => x.id === id) : null;
+      if (p && !(p.kills | 0)) {
+        players = players.filter((x) => x.id !== p.id);
+      } else if (p) {
+        p.username = ''; p.uniqueId = ''; p.nickname = ''; p.avatar = '';
+      }
+      saveSoon();
+      render();
+      return;
+    }
+    const p = playerAt(rank);
+    row.dataset.id = p.id;
+    p.username = handle;
+    p.uniqueId = handle;
+    if (!p.nickname) p.nickname = handle;
+    inp.value = '@' + handle;
+    saveSoon();
+  });
+
+  $('btnClose').onclick = () => {
+    try {
+      if (window.desktopAPI?.closeFloatingWidget) window.desktopAPI.closeFloatingWidget('topkills');
+      else window.close();
+    } catch { window.close(); }
+  };
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    let url = `${proto}://${location.host}/ws`;
+    if (room) url += `?room=${encodeURIComponent(room)}`;
+    ws = new WebSocket(url);
+    ws.onopen = () => status('Conectado · listo', true);
+    ws.onclose = () => {
+      status('Reconectando…', false);
+      setTimeout(connect, 1200);
+    };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings' && m.payload?.topKills) applyTopKills(m.payload.topKills);
+    };
+  }
+
+  render();
+  connect();
+})();
+</script>
+</body>
+</html>

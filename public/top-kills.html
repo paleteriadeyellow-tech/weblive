@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="es" data-skin="lista">
+<head>
+<meta charset="UTF-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Top Kills</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Cinzel:wght@700;900&family=Fredoka:wght@600;700&family=Inter:wght@500;600;700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; overflow: hidden; background: transparent !important;
+      font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif); color: #fff;
+    }
+    .widget {
+      width: 420px; max-width: 96vw;
+      transform: scale(var(--ol-scale, 1));
+      transform-origin: top center;
+      padding: 8px;
+    }
+    .title {
+      text-align: center; font-weight: 900; letter-spacing: .08em;
+      text-transform: uppercase; font-size: 22px; margin: 0 0 12px;
+      padding: 10px 16px; border-radius: 12px;
+      background: transparent;
+      color: var(--tk-title-color, #fff);
+      text-shadow: 0 2px 8px rgba(0,0,0,.55);
+    }
+    .title.bold { font-weight: 900; }
+    .title.italic { font-style: italic; }
+    .title.underline { text-decoration: underline; }
+    .title.strike { text-decoration: line-through; }
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .row {
+      display: flex; flex-direction: row; align-items: center; gap: 10px;
+      padding: 10px 12px 10px 14px; min-height: 58px; border-radius: 14px;
+      position: relative;
+      background: var(--row-bg, rgba(18, 32, 52, .88));
+      box-shadow: 0 4px 14px rgba(0,0,0,.28);
+      transition: background .25s ease, transform .25s ease;
+    }
+    .rank {
+      position: absolute; left: 10px; top: -7px;
+      background: #e8a838; color: #1a1208; font-weight: 900;
+      font-size: 11px; padding: 2px 8px; border-radius: 6px;
+      letter-spacing: .02em; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    }
+    .av-wrap { position: relative; flex: 0 0 auto; width: 44px; height: 44px; margin-left: 22px; }
+    .av, .av-ph {
+      width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+      display: block; border: 2px solid rgba(255,255,255,.28); background: #0b1524;
+    }
+    .av-ph { border-style: dashed; border-color: rgba(96, 165, 250, .55); background: rgba(30, 58, 95, .35); }
+    .crown { display: none; }
+    .badge { display: none; }
+    .meta { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .name {
+      font-weight: 800; font-size: var(--row-size, 14px); line-height: 1.2;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      color: var(--row-color, #f8fafc);
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    .name.bold { font-weight: 900; }
+    .name.italic { font-style: italic; }
+    .sub {
+      font-size: calc(var(--row-size, 14px) * .85); font-weight: 700;
+      color: rgba(255,255,255,.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .kills {
+      flex: 0 0 auto; min-width: 42px; text-align: center;
+      background: #16a34a; color: #fff; font-weight: 900;
+      border-radius: 999px; padding: 6px 14px; font-variant-numeric: tabular-nums;
+      box-shadow: 0 2px 8px rgba(22, 163, 74, .4);
+    }
+    .valwrap { display: none; }
+    .empty {
+      text-align: center; color: rgba(255,255,255,.45); font-weight: 700;
+      padding: 24px 12px; border-radius: 14px; background: rgba(12,18,28,.45);
+    }
+
+    /* —— Skin: LISTA (estilo podium / foto 2) —— */
+    html[data-skin="lista"] .widget { width: 380px; padding: 6px; }
+    html[data-skin="lista"] .title {
+      font-family: 'Cinzel', 'Montserrat', var(--tf-font-stack, system-ui, sans-serif);
+      font-size: 26px; letter-spacing: .12em; margin-bottom: 14px;
+      text-shadow: 0 2px 10px rgba(0,0,0,.65);
+    }
+    html[data-skin="lista"] .list { gap: 14px; }
+    html[data-skin="lista"] .row {
+      background: transparent !important;
+      box-shadow: none;
+      padding: 0;
+      min-height: 0;
+      gap: 14px;
+      border-radius: 0;
+    }
+    html[data-skin="lista"] .rank { display: none; }
+    html[data-skin="lista"] .av-wrap {
+      width: 72px; height: 72px; margin-left: 0;
+    }
+    html[data-skin="lista"] .av,
+    html[data-skin="lista"] .av-ph {
+      width: 72px; height: 72px;
+      border: 3px solid var(--accent, #ffd700);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--accent, #ffd700) 55%, transparent),
+                  0 4px 12px rgba(0,0,0,.45);
+    }
+    html[data-skin="lista"] .crown {
+      display: block; position: absolute; left: 50%; top: -22px;
+      transform: translateX(-50%); width: 36px; height: auto; z-index: 2;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.55));
+      pointer-events: none;
+    }
+    html[data-skin="lista"] .row:not([data-rank="1"]) .crown { display: none; }
+    html[data-skin="lista"] .badge {
+      display: block; position: absolute; left: 50%; bottom: -8px;
+      transform: translateX(-50%);
+      background: #0a0e16; color: var(--accent, #ffd700);
+      border: 1px solid color-mix(in srgb, var(--accent, #ffd700) 70%, #000);
+      font-size: 10px; font-weight: 900; letter-spacing: .06em;
+      padding: 2px 8px; border-radius: 999px; white-space: nowrap; z-index: 2;
+      box-shadow: 0 2px 8px rgba(0,0,0,.45);
+    }
+    html[data-skin="lista"] .meta { gap: 4px; justify-content: center; }
+    html[data-skin="lista"] .name {
+      font-family: 'Cinzel', 'Montserrat', system-ui, sans-serif;
+      font-size: var(--row-size, 22px); letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--accent, #fff);
+      -webkit-text-fill-color: var(--accent, #fff);
+      text-shadow: 0 2px 6px rgba(0,0,0,.7);
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+      font-weight: 700;
+    }
+    html[data-skin="lista"] .name.bold { font-weight: 900; }
+    html[data-skin="lista"] .name.italic { font-style: italic; }
+    html[data-skin="lista"] .sub { display: none; }
+    html[data-skin="lista"] .kills { display: none; }
+    html[data-skin="lista"] .valwrap {
+      display: flex; align-items: center; gap: 8px;
+    }
+    html[data-skin="lista"] .num {
+      font-size: var(--row-size, 22px); font-weight: 900; color: var(--accent, #fff);
+      text-shadow: 0 2px 6px rgba(0,0,0,.65);
+      font-variant-numeric: tabular-nums;
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    html[data-skin="lista"] .ico {
+      font-size: calc(var(--row-size, 22px) * .82); line-height: 1;
+      filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent, #ffd700) 50%, transparent));
+    }
+    html[data-skin="lista"] .empty { background: transparent; }
+
+    /* —— Skin: compact —— */
+    html[data-skin="compact"] .widget { width: 300px; padding: 4px; }
+    html[data-skin="compact"] .title { font-size: 15px; margin-bottom: 8px; padding: 4px 8px; letter-spacing: .06em; }
+    html[data-skin="compact"] .list { gap: 8px; }
+    html[data-skin="compact"] .row {
+      min-height: 40px; padding: 8px 8px 12px 10px; border-radius: 10px; gap: 8px;
+      box-shadow: none;
+    }
+    html[data-skin="compact"] .rank { display: none; }
+    html[data-skin="compact"] .av-wrap {
+      position: relative; width: 28px; height: 28px; margin-left: 0; margin-bottom: 4px;
+    }
+    html[data-skin="compact"] .av, html[data-skin="compact"] .av-ph { width: 28px; height: 28px; }
+    html[data-skin="compact"] .badge {
+      display: block; position: absolute; left: 50%; bottom: -7px;
+      transform: translateX(-50%);
+      background: color-mix(in srgb, var(--accent, #e8a838) 88%, #000);
+      color: #1a1208;
+      font-size: 8px; font-weight: 900; letter-spacing: .04em;
+      padding: 1px 5px; border-radius: 999px; white-space: nowrap; z-index: 2;
+      box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    }
+    html[data-skin="compact"] .name {
+      font-size: var(--row-size, 14px);
+    }
+    html[data-skin="compact"] .sub { display: none; }
+    html[data-skin="compact"] .kills {
+      min-width: 28px; padding: 3px 8px; font-size: 12px;
+      box-shadow: none;
+    }
+
+    /* —— Skin: NEON (ranking superestrella, sin fondo) —— */
+    html[data-skin="neon"] .widget { width: 360px; padding: 10px 4px; }
+    html[data-skin="neon"] .title {
+      font-family: 'Orbitron', 'Montserrat', var(--tf-font-stack, system-ui, sans-serif);
+      font-size: 18px; letter-spacing: .22em; margin-bottom: 16px; padding: 0;
+      border: none; background: transparent; border-radius: 0;
+      background-image: linear-gradient(92deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #e040fb, #ff1744);
+      background-size: 280% 100%;
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent; -webkit-text-fill-color: transparent;
+      animation: tk-neon-title 4.5s linear infinite;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.75));
+    }
+    @keyframes tk-neon-title {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 100% 50%; }
+    }
+    html[data-skin="neon"] .list { gap: 16px; }
+    html[data-skin="neon"] .row {
+      background: transparent !important;
+      box-shadow: none; border: none; clip-path: none;
+      padding: 4px 0; min-height: 0; gap: 12px; border-radius: 0;
+      align-items: center;
+    }
+    html[data-skin="neon"] .rank { display: none; }
+    html[data-skin="neon"] .av-wrap {
+      width: 58px; height: 58px; margin-left: 0; margin-bottom: 6px;
+    }
+    html[data-skin="neon"] .av-wrap::before {
+      content: '';
+      position: absolute; inset: -4px; border-radius: 50%; z-index: 0;
+      background: conic-gradient(from 0deg,
+        var(--accent, #ff006e), #ffbe0b, #06ffa5, #3a86ff, #8338ec, var(--accent, #ff006e));
+      box-shadow: 0 0 12px color-mix(in srgb, var(--accent, #ff006e) 45%, transparent),
+                  0 0 22px rgba(58, 134, 255, .22);
+      animation: tk-ring-spin 3s linear infinite;
+    }
+    html[data-skin="neon"] .row[data-rank="1"] .av-wrap::before {
+      inset: -5px;
+      box-shadow: 0 0 14px rgba(255, 215, 0, .55),
+                  0 0 28px color-mix(in srgb, var(--accent, #ff006e) 40%, transparent);
+    }
+    @keyframes tk-ring-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    html[data-skin="neon"] .av,
+    html[data-skin="neon"] .av-ph {
+      position: relative; z-index: 1;
+      width: 58px; height: 58px;
+      border: 2px solid rgba(255,255,255,.4);
+      box-shadow: 0 4px 14px rgba(0,0,0,.5);
+    }
+    html[data-skin="neon"] .crown {
+      display: block; position: absolute; left: 50%; top: -20px;
+      transform: translateX(-50%); width: 28px; height: auto; z-index: 3;
+      filter: drop-shadow(0 0 8px rgba(255,215,0,.8)) drop-shadow(0 2px 4px rgba(0,0,0,.55));
+      pointer-events: none;
+    }
+    html[data-skin="neon"] .row:not([data-rank="1"]) .crown { display: none; }
+    html[data-skin="neon"] .badge {
+      display: block; position: absolute; left: 50%; bottom: -8px;
+      transform: translateX(-50%);
+      background: #0a0e16; color: var(--accent, #ffd700);
+      border: 1px solid color-mix(in srgb, var(--accent, #ffd700) 70%, #000);
+      font-family: 'Orbitron', system-ui, sans-serif;
+      font-size: 9px; font-weight: 900; letter-spacing: .06em;
+      padding: 2px 7px; border-radius: 999px; white-space: nowrap; z-index: 4;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #ffd700) 35%, transparent),
+                  0 2px 8px rgba(0,0,0,.45);
+    }
+    html[data-skin="neon"] .meta { gap: 3px; justify-content: center; }
+    html[data-skin="neon"] .name {
+      font-family: 'Orbitron', 'Montserrat', system-ui, sans-serif;
+      font-size: var(--row-size, 15px); font-weight: 700; letter-spacing: .04em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #06ffa5, #3a86ff, #ffbe0b, #ff006e, #8338ec, #06ffa5);
+      background-size: 220% auto;
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,.9));
+      animation: tk-name-flow 5s linear infinite;
+    }
+    html[data-skin="neon"] .name.bold { font-weight: 900; }
+    html[data-skin="neon"] .name.italic { font-style: italic; }
+    html[data-skin="neon"] .row[data-rank="1"] .name {
+      background: linear-gradient(90deg, #fff7c2, #ffd700, #fff, #ffbe0b, #fff7c2);
+      background-size: 200% auto;
+      -webkit-background-clip: text; background-clip: text;
+      animation: tk-name-flow 3.5s linear infinite;
+      filter: drop-shadow(0 0 8px rgba(255,215,0,.55)) drop-shadow(0 1px 3px rgba(0,0,0,.85));
+    }
+    /* Color custom del puesto: sólido + contorno (sin arcoíris) */
+    html[data-skin="neon"] .row[data-custom="1"] .name,
+    html[data-skin="neon"] .row[data-custom="1"][data-rank="1"] .name {
+      animation: none;
+      background: none;
+      -webkit-background-clip: unset; background-clip: unset;
+      color: var(--accent, #fff);
+      -webkit-text-fill-color: var(--accent, #fff);
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,.85));
+    }
+    @keyframes tk-name-flow {
+      0% { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+    html[data-skin="neon"] .sub { display: none; }
+    html[data-skin="neon"] .kills { display: none; }
+    html[data-skin="neon"] .valwrap {
+      display: flex; align-items: center; gap: 6px;
+    }
+    html[data-skin="neon"] .num {
+      font-family: 'Orbitron', system-ui, sans-serif;
+      font-size: calc(var(--row-size, 15px) * 1.35); font-weight: 900; letter-spacing: -.02em;
+      color: var(--accent, #ffe566);
+      text-shadow: 0 0 12px color-mix(in srgb, var(--accent, #ffe566) 65%, transparent),
+                   0 2px 6px rgba(0,0,0,.7);
+      font-variant-numeric: tabular-nums;
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    html[data-skin="neon"] .ico {
+      font-size: 16px; line-height: 1;
+      filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent, #ff006e) 55%, transparent));
+    }
+    html[data-skin="neon"] .star {
+      display: none; position: absolute; right: -6px; top: -4px; z-index: 4;
+      font-size: 14px; line-height: 1;
+      filter: drop-shadow(0 0 6px rgba(255,215,0,.9));
+      animation: tk-star-pulse 1.6s ease-in-out infinite;
+    }
+    html[data-skin="neon"] .row[data-rank="1"] .star { display: block; }
+    @keyframes tk-star-pulse {
+      0%, 100% { transform: scale(1) rotate(-8deg); opacity: .85; }
+      50% { transform: scale(1.18) rotate(8deg); opacity: 1; }
+    }
+    html[data-skin="neon"] .empty { background: transparent; }
+
+    /* —— Skin: MINECRAFT (pixel / inventario) —— */
+    html[data-skin="minecraft"] {
+      image-rendering: pixelated;
+    }
+    html[data-skin="minecraft"] .widget { width: 400px; padding: 8px 4px; }
+    html[data-skin="minecraft"] .title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px; letter-spacing: .06em; line-height: 1.6;
+      margin-bottom: 14px; padding: 14px 12px 10px;
+      color: #ffe14d; -webkit-text-fill-color: #ffe14d;
+      text-shadow: 3px 3px 0 #1a1a1a, -1px 0 #1a1a1a, 0 -1px #1a1a1a, 1px 0 #1a1a1a, 0 1px #1a1a1a;
+      background: rgba(86, 86, 86, .88);
+      border: 4px solid #1a1a1a;
+      border-radius: 0;
+      box-shadow: inset 3px 3px 0 rgba(255,255,255,.18), inset -3px -3px 0 rgba(0,0,0,.35), 0 6px 0 rgba(0,0,0,.4);
+      position: relative;
+    }
+    html[data-skin="minecraft"] .title::before {
+      content: ''; position: absolute; left: -4px; right: -4px; top: -4px; height: 12px;
+      background: repeating-linear-gradient(90deg, #5d9b38 0 8px, #4a7f2c 8px 16px),
+                  linear-gradient(180deg, #6dbb45, #4a7f2c);
+      border: 4px solid #1a1a1a; border-bottom: none;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.25);
+    }
+    html[data-skin="minecraft"] .list { gap: 12px; }
+    html[data-skin="minecraft"] .row {
+      background: rgba(86, 86, 86, .9) !important;
+      border: 3px solid #1a1a1a;
+      border-radius: 0;
+      box-shadow: inset 2px 2px 0 rgba(255,255,255,.16), inset -2px -2px 0 rgba(0,0,0,.3), 0 4px 0 rgba(0,0,0,.35);
+      padding: 10px 10px 14px 10px;
+      min-height: 0; gap: 10px;
+      border-left: 5px solid var(--accent, #55ff55);
+    }
+    html[data-skin="minecraft"] .rank { display: none; }
+    html[data-skin="minecraft"] .av-wrap {
+      width: 40px; height: 40px; margin-left: 0; margin-bottom: 6px;
+    }
+    html[data-skin="minecraft"] .av,
+    html[data-skin="minecraft"] .av-ph {
+      width: 40px; height: 40px; border-radius: 0;
+      border: 3px solid #1a1a1a;
+      box-shadow: 0 0 0 2px var(--accent, #ffe14d), inset 1px 1px 0 rgba(255,255,255,.15);
+      image-rendering: pixelated;
+      background: #2a2a2a;
+    }
+    html[data-skin="minecraft"] .crown,
+    html[data-skin="minecraft"] .star { display: none !important; }
+    html[data-skin="minecraft"] .badge {
+      display: block; position: absolute; left: 50%; bottom: -9px;
+      transform: translateX(-50%);
+      background: #1a1a1a; color: var(--accent, #ffe14d);
+      border: 2px solid #1a1a1a;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px; font-weight: 400; letter-spacing: 0;
+      padding: 3px 5px; border-radius: 0; white-space: nowrap; z-index: 4;
+      text-shadow: 1px 1px 0 #000;
+      box-shadow: 2px 2px 0 rgba(0,0,0,.45), inset 1px 1px 0 rgba(255,255,255,.12);
+    }
+    html[data-skin="minecraft"] .meta { gap: 4px; }
+    html[data-skin="minecraft"] .name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: var(--row-size, 9px); line-height: 1.45; font-weight: 400;
+      color: var(--accent, #fff); -webkit-text-fill-color: var(--accent, #fff);
+      text-shadow: 2px 2px 0 #1a1a1a;
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    html[data-skin="minecraft"] .name.bold { font-weight: 700; }
+    html[data-skin="minecraft"] .name.italic { font-style: italic; }
+    html[data-skin="minecraft"] .sub { display: none; }
+    html[data-skin="minecraft"] .kills { display: none; }
+    html[data-skin="minecraft"] .valwrap {
+      display: flex; align-items: center; gap: 6px;
+    }
+    html[data-skin="minecraft"] .num {
+      font-family: 'Press Start 2P', monospace;
+      font-size: calc(var(--row-size, 9px) * 1.15); color: var(--accent, #55ff55);
+      text-shadow: 2px 2px 0 #1a1a1a;
+      font-variant-numeric: tabular-nums;
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    html[data-skin="minecraft"] .ico {
+      font-size: 14px; line-height: 1;
+      filter: drop-shadow(2px 2px 0 #1a1a1a);
+    }
+    html[data-skin="minecraft"] .empty {
+      font-family: 'Press Start 2P', monospace; font-size: 8px; line-height: 1.6;
+      background: rgba(86,86,86,.75); border: 3px solid #1a1a1a; border-radius: 0;
+      color: #cfcfcf; text-shadow: 2px 2px 0 #1a1a1a;
+    }
+
+    /* —— Skin: GAMER (HUD neón cyber) —— */
+    html[data-skin="gamer"] .widget { width: 380px; padding: 8px 6px; }
+    html[data-skin="gamer"] .title {
+      font-family: 'Orbitron', system-ui, sans-serif;
+      font-size: 18px; letter-spacing: .18em; padding: 8px 0; margin-bottom: 14px;
+      border: none; background: transparent; border-radius: 0;
+      color: #00f0ff; -webkit-text-fill-color: #00f0ff;
+      text-shadow:
+        0 0 8px #00f0ff,
+        0 0 18px rgba(0, 240, 255, .55),
+        0 0 4px #ff00aa,
+        2px 0 0 rgba(255, 0, 170, .35),
+        -2px 0 0 rgba(0, 240, 255, .35);
+    }
+    html[data-skin="gamer"] .list { gap: 16px; }
+    html[data-skin="gamer"] .row {
+      background: transparent !important;
+      box-shadow: none; border: none; clip-path: none;
+      padding: 6px 8px 10px; min-height: 0; gap: 12px; border-radius: 0;
+      position: relative;
+    }
+    html[data-skin="gamer"] .row::before,
+    html[data-skin="gamer"] .row::after {
+      content: ''; position: absolute; width: 14px; height: 14px;
+      border-color: var(--accent, #00f0ff); border-style: solid; pointer-events: none;
+      opacity: .9;
+      filter: drop-shadow(0 0 4px var(--accent, #00f0ff));
+    }
+    html[data-skin="gamer"] .row::before {
+      left: 0; top: 0; border-width: 2px 0 0 2px;
+    }
+    html[data-skin="gamer"] .row::after {
+      right: 0; bottom: 0; border-width: 0 2px 2px 0;
+    }
+    html[data-skin="gamer"] .rank { display: none; }
+    html[data-skin="gamer"] .av-wrap {
+      width: 52px; height: 52px; margin-left: 0; margin-bottom: 6px;
+    }
+    html[data-skin="gamer"] .av,
+    html[data-skin="gamer"] .av-ph {
+      width: 52px; height: 52px; border-radius: 4px;
+      border: 2px solid var(--accent, #00f0ff);
+      box-shadow:
+        0 0 12px color-mix(in srgb, var(--accent, #00f0ff) 55%, transparent),
+        0 0 2px #ff00aa,
+        inset 0 0 12px rgba(0,0,0,.35);
+      clip-path: polygon(10% 0, 90% 0, 100% 10%, 100% 90%, 90% 100%, 10% 100%, 0 90%, 0 10%);
+    }
+    html[data-skin="gamer"] .crown {
+      display: block; position: absolute; left: 50%; top: -16px;
+      transform: translateX(-50%); width: 22px; z-index: 2;
+      filter: drop-shadow(0 0 6px #00f0ff);
+    }
+    html[data-skin="gamer"] .row:not([data-rank="1"]) .crown { display: none; }
+    html[data-skin="gamer"] .star { display: none; }
+    html[data-skin="gamer"] .badge {
+      display: block; position: absolute; left: 50%; bottom: -8px;
+      transform: translateX(-50%);
+      background: #050a12; color: var(--accent, #00f0ff);
+      border: 1px solid color-mix(in srgb, var(--accent, #00f0ff) 75%, #000);
+      font-family: 'Orbitron', system-ui, sans-serif;
+      font-size: 9px; font-weight: 900; letter-spacing: .06em;
+      padding: 2px 7px; border-radius: 999px; white-space: nowrap; z-index: 4;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #00f0ff) 40%, transparent),
+                  0 2px 8px rgba(0,0,0,.45);
+    }
+    html[data-skin="gamer"] .meta { gap: 4px; }
+    html[data-skin="gamer"] .name {
+      font-family: 'Orbitron', 'Montserrat', system-ui, sans-serif;
+      font-size: var(--row-size, 13px); font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--accent, #e8ffff); -webkit-text-fill-color: var(--accent, #e8ffff);
+      text-shadow: 0 0 8px color-mix(in srgb, var(--accent, #00f0ff) 50%, transparent),
+                   0 1px 3px rgba(0,0,0,.8);
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    html[data-skin="gamer"] .name.bold { font-weight: 900; }
+    html[data-skin="gamer"] .name.italic { font-style: italic; }
+    html[data-skin="gamer"] .sub { display: none; }
+    html[data-skin="gamer"] .kills { display: none; }
+    html[data-skin="gamer"] .valwrap {
+      display: flex; align-items: center; gap: 8px;
+    }
+    html[data-skin="gamer"] .num {
+      font-family: 'Orbitron', system-ui, sans-serif;
+      font-size: calc(var(--row-size, 13px) * 1.45); font-weight: 900;
+      color: var(--accent, #39ff14);
+      text-shadow: 0 0 12px color-mix(in srgb, var(--accent, #39ff14) 65%, transparent);
+      font-variant-numeric: tabular-nums;
+      padding: 2px 8px;
+      border: 1px solid color-mix(in srgb, var(--accent, #39ff14) 70%, transparent);
+      box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #39ff14) 30%, transparent),
+                  inset 0 0 8px rgba(0,0,0,.25);
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    html[data-skin="gamer"] .ico {
+      font-size: 15px; line-height: 1;
+      filter: drop-shadow(0 0 6px var(--accent, #ff00aa));
+    }
+    html[data-skin="gamer"] .empty {
+      background: transparent; color: rgba(0, 240, 255, .55);
+      font-family: 'Orbitron', system-ui, sans-serif; letter-spacing: .08em;
+      text-shadow: 0 0 8px rgba(0,240,255,.35);
+    }
+
+    /* —— Skin: PRO (moderno / elegante) —— */
+    html[data-skin="pro"] .widget { width: 400px; padding: 10px 8px; }
+    html[data-skin="pro"] .title {
+      font-family: 'Montserrat', 'Inter', var(--tf-font-stack, system-ui, sans-serif);
+      font-size: 13px; font-weight: 700; letter-spacing: .28em;
+      margin: 0 0 18px; padding: 0 0 12px;
+      border: none; border-radius: 0; background: transparent;
+      color: rgba(248, 250, 252, .92); -webkit-text-fill-color: rgba(248, 250, 252, .92);
+      text-shadow: none;
+      position: relative;
+    }
+    html[data-skin="pro"] .title::after {
+      content: ''; position: absolute; left: 50%; bottom: 0;
+      transform: translateX(-50%); width: 48px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--tk-title-color, #c8a96a), transparent);
+      opacity: .85;
+    }
+    html[data-skin="pro"] .list { gap: 4px; }
+    html[data-skin="pro"] .row {
+      background: transparent !important;
+      box-shadow: none; border: none; border-radius: 0; clip-path: none;
+      padding: 12px 4px 14px; min-height: 0; gap: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, .07);
+      align-items: center;
+    }
+    html[data-skin="pro"] .row:last-child { border-bottom: none; }
+    html[data-skin="pro"] .rank { display: none; }
+    html[data-skin="pro"] .av-wrap {
+      width: 48px; height: 48px; margin-left: 0; margin-bottom: 4px;
+    }
+    html[data-skin="pro"] .av,
+    html[data-skin="pro"] .av-ph {
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 1.5px solid color-mix(in srgb, var(--accent, #c8a96a) 75%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #c8a96a) 12%, transparent),
+                  0 6px 16px rgba(0, 0, 0, .35);
+      background: #0d1218;
+    }
+    html[data-skin="pro"] .row[data-rank="1"] .av,
+    html[data-skin="pro"] .row[data-rank="1"] .av-ph {
+      border-width: 2px;
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent, #c8a96a) 16%, transparent),
+                  0 8px 22px rgba(0, 0, 0, .4);
+    }
+    html[data-skin="pro"] .crown {
+      display: block; position: absolute; left: 50%; top: -14px;
+      transform: translateX(-50%); width: 18px; height: auto; z-index: 2;
+      opacity: .9; filter: drop-shadow(0 2px 4px rgba(0,0,0,.45));
+      pointer-events: none;
+    }
+    html[data-skin="pro"] .row:not([data-rank="1"]) .crown { display: none; }
+    html[data-skin="pro"] .star { display: none; }
+    html[data-skin="pro"] .badge {
+      display: block; position: absolute; left: 50%; bottom: -8px;
+      transform: translateX(-50%);
+      background: #0a0e14; color: var(--accent, #c8a96a);
+      border: 1px solid color-mix(in srgb, var(--accent, #c8a96a) 65%, #000);
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-size: 9px; font-weight: 700; letter-spacing: .08em;
+      padding: 2px 7px; border-radius: 999px; white-space: nowrap; z-index: 4;
+      box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    }
+    html[data-skin="pro"] .meta { gap: 3px; justify-content: center; min-width: 0; }
+    html[data-skin="pro"] .name {
+      font-family: 'Montserrat', 'Inter', system-ui, sans-serif;
+      font-size: var(--row-size, 14px); font-weight: 600; letter-spacing: .02em;
+      color: var(--accent, #f1f5f9); -webkit-text-fill-color: var(--accent, #f1f5f9);
+      text-shadow: 0 1px 8px rgba(0,0,0,.45);
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    html[data-skin="pro"] .name.bold { font-weight: 800; }
+    html[data-skin="pro"] .name.italic { font-style: italic; }
+    html[data-skin="pro"] .sub { display: none; }
+    html[data-skin="pro"] .kills { display: none; }
+    html[data-skin="pro"] .valwrap {
+      display: flex; align-items: baseline; gap: 6px;
+    }
+    html[data-skin="pro"] .num {
+      font-family: 'Montserrat', 'Inter', system-ui, sans-serif;
+      font-size: calc(var(--row-size, 14px) * 1.25); font-weight: 700; letter-spacing: -.01em;
+      color: var(--accent, #c8a96a);
+      text-shadow: none;
+      font-variant-numeric: tabular-nums;
+      -webkit-text-stroke: var(--row-outline-w, 0px) var(--row-outline, transparent);
+      paint-order: stroke fill;
+    }
+    html[data-skin="pro"] .ico {
+      font-size: 11px; line-height: 1; opacity: .55;
+      letter-spacing: .08em; text-transform: uppercase;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-style: normal; filter: none;
+      color: rgba(226, 232, 240, .7);
+    }
+    html[data-skin="pro"] .empty {
+      background: transparent; border: none;
+      color: rgba(226, 232, 240, .4);
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="widget" id="widget">
+    <div class="title" id="title">TOP KILLS</div>
+    <div class="list" id="list"></div>
+  </div>
+  <script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  const skinRaw = String(params.get('skin') || 'lista').toLowerCase();
+  const SKINS = new Set(['lista', 'compact', 'neon', 'minecraft', 'gamer', 'pro']);
+  const skin = SKINS.has(skinRaw) ? skinRaw : 'lista';
+  document.documentElement.setAttribute('data-skin', skin);
+
+  const FONTS = {
+    luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif",
+    lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif",
+    fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif",
+    rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif",
+    bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif",
+    poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif",
+    cinzel: "'Cinzel', 'Montserrat', system-ui, sans-serif",
+    pressstart: "'Press Start 2P', monospace",
+    inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif",
+  };
+  const DEFAULT_RANK = { bg: '#1a3a5c', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false };
+  const TK_MAX = 20;
+  const LISTA_ACCENT = ['#ffd700', '#e8eef5', '#e0a86b', '#7dd3fc', '#c4b5fd', '#f9a8d4', '#6ee7b7', '#fcd34d', '#fb7185', '#94a3b8', '#a5b4fc', '#86efac', '#fca5a5', '#fdba74', '#67e8f9', '#d8b4fe', '#fde68a', '#fda4af', '#99f6e4', '#cbd5e1'];
+  const NEON_ACCENT = ['#ffd700', '#b8c5d6', '#ff6b35', '#06ffa5', '#3a86ff', '#ff006e', '#8338ec', '#ffbe0b', '#00e5ff', '#c77dff', '#ff4d6d', '#4cc9f0', '#80ed99', '#f72585', '#4361ee', '#f9c74f', '#90e0ef', '#b5179e', '#48cae4', '#adb5bd'];
+  const MC_ACCENT = ['#ffe14d', '#c6c6c6', '#b87333', '#55ff55', '#3c91ff', '#ff5555', '#aa00aa', '#ffff55', '#00aaaa', '#5555ff', '#55ffff', '#ff55ff', '#aaaaaa', '#00ff00', '#ffaa00', '#55ffaa', '#aa55ff', '#ff5555', '#55aaff', '#aaff55'];
+  const GAMER_ACCENT = ['#00f0ff', '#ff00aa', '#39ff14', '#ffea00', '#b44dff', '#ff6b35', '#00e5ff', '#ff2d95', '#7cffcb', '#ffd166', '#5efc8d', '#ff5e78', '#6c63ff', '#00d4ff', '#ff9f1c', '#2ec4b6', '#e71d36', '#011627', '#fdfffc', '#ff9f1c'];
+  const PRO_ACCENT = ['#c8a96a', '#b8c0cc', '#a67c52', '#8fa3b8', '#9aa0b8', '#b0a090', '#7d8f9c', '#c4b59a', '#8a9aa8', '#9c9588', '#a8b2bc', '#c9b896', '#8b9aab', '#b5a890', '#7a8b99', '#d0c4a8', '#6f7f8c', '#bea97e', '#95a3b0', '#ada496'];
+  const RANK_LABEL = Array.from({ length: TK_MAX }, (_, i) => {
+    const n = i + 1;
+    const v = n % 100;
+    const suf = (v >= 11 && v <= 13) ? 'TH' : ({ 1: 'ST', 2: 'ND', 3: 'RD' }[v % 10] || 'TH');
+    return n + suf;
+  });
+  const DEFAULT_NAVY = [
+    '#1a3a5c', '#1e3558', '#223a5e', '#1c3354', '#1f385a', '#183250', '#203c5c', '#1a3050', '#1d3656', '#16304c',
+    '#1b3452', '#1e3856', '#17304e', '#21405c', '#1a3250', '#1c3654', '#19324c', '#223a5a', '#15304a', '#1f3a58',
+  ];
+  const DEFAULT_FONT = { lista: 'cinzel', neon: 'orbitron', minecraft: 'pressstart', gamer: 'orbitron', compact: 'inter', pro: 'montserrat' };
+  let gotConfig = false;
+  const state = {
+    title: 'TOP KILLS',
+    nickTemplate: '{nickname}',
+    nickMode: 'nickname',
+    subtitle: 'Lleva {kills} Kills',
+    textColor: '#ffffff',
+    bold: true, italic: false, strike: false, underline: false,
+    font: DEFAULT_FONT[skin] || 'inter',
+    scale: 100,
+    rankStyles: [],
+    players: [],
+  };
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function clampInt(v, lo, hi, fb) {
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n)) return fb;
+    return Math.max(lo, Math.min(hi, n));
+  }
+  function rankStyle(i) {
+    const s = state.rankStyles[i];
+    return s && typeof s === 'object' ? { ...DEFAULT_RANK, ...s } : { ...DEFAULT_RANK };
+  }
+  function slotAccent(i, st, palette) {
+    const c = String(st.color || '').toLowerCase();
+    if (c && c !== '#ffffff' && c !== '#fff') return st.color;
+    const bg = String(st.bg || '').toLowerCase();
+    if (bg && !DEFAULT_NAVY.includes(bg)) return st.bg;
+    return (palette || LISTA_ACCENT)[i] || '#c5d0dc';
+  }
+  function isCustomAccent(st) {
+    const c = String(st.color || '').toLowerCase();
+    if (c && c !== '#ffffff' && c !== '#fff') return true;
+    const bg = String(st.bg || '').toLowerCase();
+    return !!(bg && !DEFAULT_NAVY.includes(bg));
+  }
+  function rowCss(st, accent, sizeLo, sizeHi, sizeFb) {
+    const size = clampInt(st.size, sizeLo, sizeHi, sizeFb);
+    const ow = clampInt(st.outlineW, 0, 6, 0);
+    return [
+      `--accent:${esc(accent)}`,
+      `--row-bg:${esc(st.bg || '#1a3a5c')}`,
+      `--row-color:${esc(st.color || '#ffffff')}`,
+      `--row-size:${size}px`,
+      `--row-outline:${esc(st.outline || '#000000')}`,
+      `--row-outline-w:${ow}px`,
+    ].join(';');
+  }
+  function listaAccent(i, st) { return slotAccent(i, st, LISTA_ACCENT); }
+  function neonAccent(i, st) { return slotAccent(i, st, NEON_ACCENT); }
+  function mcAccent(i, st) { return slotAccent(i, st, MC_ACCENT); }
+  function gamerAccent(i, st) { return slotAccent(i, st, GAMER_ACCENT); }
+  function proAccent(i, st) { return slotAccent(i, st, PRO_ACCENT); }
+  function sortedPlayers() {
+    return (state.players || [])
+      .filter((p) => p && (String(p.username || '').trim() || String(p.nickname || '').trim() || (p.kills | 0) !== 0))
+      .slice()
+      .sort((a, b) => (b.kills | 0) - (a.kills | 0) || String(a.username || '').localeCompare(String(b.username || '')))
+      .slice(0, TK_MAX);
+  }
+  function fillTemplate(tpl, p) {
+    const user = String(p.username || p.uniqueId || '').replace(/^@/, '');
+    const nick = String(p.nickname || '').trim() || user;
+    const kills = String(p.kills | 0);
+    let t = String(tpl || '');
+    if (!t) t = state.nickMode === 'username' ? '{username}' : '{nickname}';
+    return t
+      .replace(/\{nickname\}/gi, nick)
+      .replace(/\{username\}/gi, user ? '@' + user : nick)
+      .replace(/\{kills\}/gi, kills);
+  }
+  function displayName(p) {
+    const mode = state.nickMode === 'username' ? 'username' : 'nickname';
+    let tpl = state.nickTemplate || (mode === 'username' ? '{username}' : '{nickname}');
+    if (tpl === '{nickname}' && mode === 'username') tpl = '{username}';
+    if (tpl === '{username}' && mode === 'nickname') tpl = '{nickname}';
+    return fillTemplate(tpl, p);
+  }
+  function mergeConfig(c) {
+    if (!c || typeof c !== 'object') return;
+    if (c.title != null) state.title = String(c.title).trim().slice(0, 48) || 'TOP KILLS';
+    if (c.nickTemplate != null) state.nickTemplate = String(c.nickTemplate);
+    if (c.nickMode != null) state.nickMode = c.nickMode === 'username' ? 'username' : 'nickname';
+    if (c.subtitle != null) state.subtitle = String(c.subtitle);
+    if (c.textColor) state.textColor = String(c.textColor);
+    if (c.bold != null) state.bold = !!c.bold;
+    if (c.italic != null) state.italic = !!c.italic;
+    if (c.strike != null) state.strike = !!c.strike;
+    if (c.underline != null) state.underline = !!c.underline;
+    if (c.font != null && FONTS[c.font]) state.font = c.font;
+    if (c.scale != null) state.scale = clampInt(c.scale, 40, 160, 100);
+    if (Array.isArray(c.rankStyles)) state.rankStyles = c.rankStyles.slice(0, TK_MAX);
+    if (Array.isArray(c.players)) {
+      const clear = !!c.clearPlayers;
+      if (clear || c.players.length > 0 || !state.players.length) {
+        state.players = c.players;
+      }
+      // Si viene [] sin clearPlayers y ya hay jugadores, conservar (evita flash vacío)
+    }
+    gotConfig = true;
+  }
+  function render() {
+    const fontKey = state.font || DEFAULT_FONT[skin] || 'inter';
+    document.documentElement.style.setProperty('--tf-font-stack', FONTS[fontKey] || FONTS.inter);
+    document.documentElement.style.setProperty('--ol-scale', String((state.scale || 100) / 100));
+    document.documentElement.style.setProperty('--tk-title-color', state.textColor || '#fff');
+    const title = document.getElementById('title');
+    title.textContent = state.title;
+    title.classList.toggle('bold', !!state.bold);
+    title.classList.toggle('italic', !!state.italic);
+    title.classList.toggle('underline', !!state.underline);
+    title.classList.toggle('strike', !!state.strike);
+    const list = document.getElementById('list');
+    const players = sortedPlayers();
+    if (!gotConfig) {
+      list.innerHTML = '';
+      fitEmbed();
+      return;
+    }
+    if (!players.length) {
+      list.innerHTML = '<div class="empty">Sin jugadores aún</div>';
+      fitEmbed();
+      return;
+    }
+    list.innerHTML = players.map((p, i) => {
+      const st = rankStyle(i);
+      const name = displayName(p);
+      const sub = fillTemplate(state.subtitle || 'Lleva {kills} Kills', p);
+      const avInner = p.avatar
+        ? `<img class="av" src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer">`
+        : '<div class="av-ph" aria-hidden="true"></div>';
+      const nameCls = ['name', st.bold ? 'bold' : '', st.italic ? 'italic' : ''].filter(Boolean).join(' ');
+
+      if (skin === 'lista') {
+        const accent = listaAccent(i, st);
+        return `<div class="row" data-rank="${i + 1}" data-custom="${isCustomAccent(st) ? '1' : '0'}" style="${rowCss(st, accent, 12, 32, 22)}">
+          <div class="av-wrap">
+            <img class="crown" src="/img/gold-crown.svg" alt="" aria-hidden="true">
+            ${avInner}
+            <span class="badge">${RANK_LABEL[i] || ('#' + (i + 1))}</span>
+          </div>
+          <div class="meta">
+            <div class="${nameCls}">${esc(name)}</div>
+            <div class="valwrap"><span class="num">${p.kills | 0}</span><span class="ico" aria-hidden="true">💀</span></div>
+          </div>
+        </div>`;
+      }
+
+      if (skin === 'neon') {
+        const accent = neonAccent(i, st);
+        return `<div class="row" data-rank="${i + 1}" data-custom="${isCustomAccent(st) ? '1' : '0'}" style="${rowCss(st, accent, 11, 28, 15)}">
+          <div class="av-wrap">
+            <img class="crown" src="/img/gold-crown.svg" alt="" aria-hidden="true">
+            <span class="star" aria-hidden="true">✦</span>
+            ${avInner}
+            <span class="badge">${RANK_LABEL[i] || ('#' + (i + 1))}</span>
+          </div>
+          <div class="meta">
+            <div class="${nameCls}">${esc(name)}</div>
+            <div class="valwrap"><span class="num">${p.kills | 0}</span><span class="ico" aria-hidden="true">💀</span></div>
+          </div>
+        </div>`;
+      }
+
+      if (skin === 'minecraft') {
+        const accent = mcAccent(i, st);
+        return `<div class="row" data-rank="${i + 1}" data-custom="${isCustomAccent(st) ? '1' : '0'}" style="${rowCss(st, accent, 7, 16, 9)}">
+          <div class="av-wrap">
+            ${avInner}
+            <span class="badge">${RANK_LABEL[i] || ('#' + (i + 1))}</span>
+          </div>
+          <div class="meta">
+            <div class="${nameCls}">${esc(name)}</div>
+            <div class="valwrap"><span class="num">${p.kills | 0}</span><span class="ico" aria-hidden="true">❤</span></div>
+          </div>
+        </div>`;
+      }
+
+      if (skin === 'compact') {
+        return `<div class="row" data-rank="${i + 1}" style="${rowCss(st, st.bg || '#1a3a5c', 10, 28, 14)}">
+          <div class="av-wrap">
+            ${avInner}
+            <span class="badge">${RANK_LABEL[i] || ('#' + (i + 1))}</span>
+          </div>
+          <div class="meta"><div class="${nameCls}">${esc(name)}</div><div class="sub">${esc(sub)}</div></div>
+          <div class="kills">${p.kills | 0}</div>
+        </div>`;
+      }
+
+      if (skin === 'gamer') {
+        const accent = gamerAccent(i, st);
+        return `<div class="row" data-rank="${i + 1}" data-custom="${isCustomAccent(st) ? '1' : '0'}" style="${rowCss(st, accent, 10, 24, 13)}">
+          <div class="av-wrap">
+            <img class="crown" src="/img/gold-crown.svg" alt="" aria-hidden="true">
+            ${avInner}
+            <span class="badge">${RANK_LABEL[i] || ('#' + (i + 1))}</span>
+          </div>
+          <div class="meta">
+            <div class="${nameCls}">${esc(name)}</div>
+            <div class="valwrap"><span class="num">${p.kills | 0}</span><span class="ico" aria-hidden="true">💀</span></div>
+          </div>
+        </div>`;
+      }
+
+      if (skin === 'pro') {
+        const accent = proAccent(i, st);
+        return `<div class="row" data-rank="${i + 1}" data-custom="${isCustomAccent(st) ? '1' : '0'}" style="${rowCss(st, accent, 11, 24, 14)}">
+          <div class="av-wrap">
+            <img class="crown" src="/img/gold-crown.svg" alt="" aria-hidden="true">
+            ${avInner}
+            <span class="badge">${RANK_LABEL[i] || ('#' + (i + 1))}</span>
+          </div>
+          <div class="meta">
+            <div class="${nameCls}">${esc(name)}</div>
+            <div class="valwrap"><span class="num">${p.kills | 0}</span><span class="ico">KILLS</span></div>
+          </div>
+        </div>`;
+      }
+
+      return `<div class="row" data-rank="${i + 1}" style="${rowCss(st, st.bg || '#1a3a5c', 10, 28, 14)}">
+        <span class="rank">#${i + 1}</span>
+        <div class="av-wrap">${avInner}</div>
+        <div class="meta"><div class="${nameCls}">${esc(name)}</div><div class="sub">${esc(sub)}</div></div>
+        <div class="kills">${p.kills | 0}</div>
+      </div>`;
+    }).join('');
+    fitEmbed();
+  }
+  function fitEmbed() {
+    if (!isEmbed) return;
+    const w = document.getElementById('widget');
+    w.style.transform = 'scale(1)';
+    const r = w.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const s = Math.min(1, (window.innerWidth - 16) / r.width, (window.innerHeight - 16) / r.height);
+    w.style.transform = 'scale(' + s + ')';
+  }
+  let ws, rt;
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings' && m.payload && m.payload.topKills) {
+        mergeConfig(m.payload.topKills);
+        render();
+      } else if (m.type === 'topKillsTest') {
+        document.getElementById('widget').style.transform = 'scale(1.03)';
+        setTimeout(() => fitEmbed(), 180);
+      }
+    };
+  }
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.kind !== 'top_kills') return;
+    if (d.type === 'config') { mergeConfig(d.config); render(); }
+    else if (d.type === 'test') {
+      document.getElementById('widget').style.transform = 'scale(1.03)';
+      setTimeout(() => fitEmbed(), 180);
+    }
+  });
+  window.addEventListener('resize', fitEmbed);
+  render();
+  connectWS();
+})();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

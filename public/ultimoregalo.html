@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Último regalo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Titan+One&display=swap');
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: var(--tf-font-stack, 'Rubik', system-ui, sans-serif); }
+    html.embed, html.embed body { width: 100%; height: 100%; }
+    html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.embed .wrap { transform: scale(var(--fit, 1)); transform-origin: center center; }
+    .wrap { width: 800px; height: 450px; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 24px 16px; background: transparent;
+      --title-color: #ffffff; --name-color: #e4e4ee; --name-stroke: #3d3d4a; --value-color: #e8c4a0; --value-stroke: #4a3d2e; --tf-font-stack: 'Rubik', system-ui, sans-serif;
+      --title-scale: 1; --title-y: 0px; --body-scale: 1; --body-y: 0px;
+      --gift-z: 2; --text-z: 5; }
+    .wrap--hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .title { position: relative; z-index: var(--text-z); font-family: var(--tf-font-stack, 'Rubik', sans-serif); font-weight: 900; font-size: calc(34px * var(--title-scale)); letter-spacing: .1em; line-height: 1.1; margin: 0 0 8px; max-width: 96%; text-align: center; text-transform: uppercase; color: var(--title-color); -webkit-text-fill-color: var(--title-color); background: none; animation: none; text-shadow: 0 3px 0 rgba(0,0,0,.55), 0 5px 12px rgba(0,0,0,.4); filter: none; transform: translateY(var(--title-y)); }
+    .title--rainbow { background: linear-gradient(92deg, #ff1744, #ff9100, #ffea00, #00e676, #00b0ff, #e040fb, #ff1744); background-size: 300% 100%; animation: title-rainbow 4.5s linear infinite; -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; text-shadow: none; filter: drop-shadow(0 3px 0 rgba(0,0,0,.55)) drop-shadow(0 5px 12px rgba(0,0,0,.4)); }
+    @keyframes title-rainbow { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
+    .img-wrap { position: relative; z-index: var(--gift-z); display: flex; align-items: center; justify-content: center; width: 100%; max-height: 230px; min-height: 200px; margin: 4px 0 10px; }
+    .img-wrap::before { content: ''; position: absolute; width: min(320px, 85vw); height: min(320px, 85vw); max-height: 260px; border-radius: 50%; z-index: 0; pointer-events: none; background: radial-gradient(circle at 50% 45%, rgba(255,130,180,.22) 0%, rgba(120,160,255,.12) 38%, rgba(40,200,160,.08) 58%, transparent 72%); filter: blur(.5px); }
+    .hero-img { position: relative; z-index: 1; max-width: 300px; max-height: 220px; width: auto; height: auto; object-fit: contain; filter: drop-shadow(0 8px 20px rgba(0,0,0,.45)) drop-shadow(0 0 28px rgba(255,150,200,.15)); will-change: transform; animation: gift-float 3.2s ease-in-out infinite; }
+    @keyframes gift-float { 0% { transform: translateY(0) rotate(-1.2deg); } 50% { transform: translateY(-12px) rotate(1.2deg); } 100% { transform: translateY(0) rotate(-1.2deg); } }
+    .hero-ph { position: relative; z-index: 1; font-size: 150px; filter: drop-shadow(0 8px 20px rgba(0,0,0,.45)); animation: gift-float 3.2s ease-in-out infinite; }
+    .name { position: relative; z-index: var(--text-z); font-family: var(--tf-font-stack, 'Rubik', sans-serif); font-weight: 900; font-size: calc(46px * var(--body-scale)); letter-spacing: .02em; color: var(--name-color); text-align: center; line-height: 1.05; max-width: 92%; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 0 8px; -webkit-text-stroke: calc(3px * var(--body-scale)); paint-order: stroke fill; text-shadow: 0 4px 0 rgba(15,15,22,.55), 0 7px 14px rgba(0,0,0,.5), 0 0 20px rgba(255,255,255,.06); transform: translateY(var(--body-y)); }
+    .value-line { position: relative; z-index: var(--text-z); font-family: var(--tf-font-stack, 'Rubik', sans-serif); font-weight: 800; font-size: calc(30px * var(--body-scale)); letter-spacing: .03em; color: var(--value-color); text-align: center; margin: 0; text-transform: uppercase; -webkit-text-stroke: calc(2px * var(--body-scale)); paint-order: stroke fill; text-shadow: 0 3px 0 rgba(20,15,10,.45), 0 5px 12px rgba(0,0,0,.45); transform: translateY(var(--body-y)); }
+</style>
+</head>
+<body>
+  <div class="wrap wrap--hidden" id="root">
+    <div class="title title--rainbow" id="el-title">ÚLTIMO REGALO</div>
+    <div class="img-wrap">
+      <img class="hero-img" id="gift-img" alt="" referrerpolicy="no-referrer" style="display:none">
+      <span class="hero-ph" id="gift-ph" style="display:none">🎁</span>
+    </div>
+    <div class="name" id="el-name"></div>
+    <div class="value-line" id="el-value"></div>
+  </div>
+
+  <script>
+(function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
+
+    let cfg = { title: 'ÚLTIMO REGALO', titleRainbow: true, titleColor: '#ffffff', nameColor: '#e4e4ee', valueColor: '#e8c4a0', nameStroke: '#3d3d4a', valueStroke: '#4a3d2e', coinLabel: 'monedas', font: 'rubik', titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front' };
+    let last = { coins: 0, nickname: '', image: '' };
+
+    const $ = (id) => document.getElementById(id);
+    function applyStyle() {
+      const root = $('root');
+      root.style.setProperty('--tf-font-stack', FONTS[cfg.font] || FONTS.rubik);
+      root.style.setProperty('--title-color', cfg.titleColor || '#ffffff');
+      root.style.setProperty('--name-color', cfg.nameColor);
+      root.style.setProperty('--value-color', cfg.valueColor);
+      root.style.setProperty('--name-stroke', cfg.nameStroke);
+      root.style.setProperty('--value-stroke', cfg.valueStroke);
+      const titleScale = Math.max(50, Math.min(180, Number(cfg.titleScale ?? cfg.textScale) || 100)) / 100;
+      const bodyScale = Math.max(50, Math.min(180, Number(cfg.bodyScale ?? cfg.textScale) || 100)) / 100;
+      const titleY = Math.max(-80, Math.min(80, Number(cfg.titleY ?? cfg.textY) || 0));
+      const bodyY = Math.max(-80, Math.min(80, Number(cfg.bodyY ?? cfg.textY) || 0));
+      root.style.setProperty('--title-scale', String(titleScale));
+      root.style.setProperty('--body-scale', String(bodyScale));
+      root.style.setProperty('--title-y', titleY + 'px');
+      root.style.setProperty('--body-y', bodyY + 'px');
+      const behind = String(cfg.textLayer || 'front') === 'behind';
+      root.style.setProperty('--gift-z', behind ? '8' : '2');
+      root.style.setProperty('--text-z', behind ? '1' : '5');
+      const t = $('el-title');
+      t.textContent = cfg.title || 'ÚLTIMO REGALO';
+      t.classList.toggle('title--rainbow', !!cfg.titleRainbow);
+    }
+    function applyUI() {
+      const root = $('root');
+      const has = last.coins > 0 || !!(last.nickname || last.image);
+      root.classList.toggle('wrap--hidden', !has);
+      if (!has) return;
+      $('el-name').textContent = (last.nickname || 'Usuario').replace(/^@+/, '');
+      $('el-value').textContent = Math.max(0, Number(last.coins) || 0).toLocaleString('es-ES') + ' ' + (cfg.coinLabel || 'monedas');
+      const img = $('gift-img'), ph = $('gift-ph');
+      const url = (last.image || '').trim();
+      if (url) { img.style.display = ''; ph.style.display = 'none'; img.src = url; img.onerror = () => { img.style.display = 'none'; ph.style.display = ''; }; }
+      else { img.style.display = 'none'; ph.style.display = ''; }
+    }
+    function applyLastGift(d) {
+      if (!d) return;
+      // Valor por unidad (igual que Mejor regalo). Se actualiza con CADA regalo del live.
+      const unit = Math.max(0, Number(d.diamonds) || Number(d.coins) || 0);
+      last = {
+        coins: unit > 0 ? unit : Math.max(0, Number(last.coins) || 0),
+        nickname: d.nickname || d.uniqueId || 'Usuario',
+        image: d.image || '',
+      };
+      if (!last.coins && !last.image) last.coins = 1;
+      applyUI();
+    }
+    function runTest(gift) {
+      const g = gift || {};
+      const unit = Math.max(1, parseInt(g.diamonds, 10) || (1 + Math.floor(Math.random() * 50)));
+      last = { coins: unit, nickname: 'PreviewFan', image: g.image || '' };
+      applyUI();
+    }
+    function resetLast() { last = { coins: 0, nickname: '', image: '' }; applyUI(); }
+
+    let ws, rt;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'gift') { if (!isEmbed) applyLastGift(m.payload); }
+        else if (m.type === 'settings') { if (m.payload && m.payload.lastGift) { cfg = Object.assign(cfg, m.payload.lastGift); applyStyle(); applyUI(); } }
+        else if (m.type === 'lastGiftTest') { if (!isEmbed) runTest(m.payload && m.payload.gift); }
+        else if (m.type === 'lastGiftReset') { if (!isEmbed) resetLast(); }
+        else if (m.type === 'sessionOverlays') {
+          if (!isEmbed && m.payload && m.payload.lastGift) {
+            const lg = m.payload.lastGift;
+            if (lg.coins > 0 || lg.nickname || lg.image) {
+              last = { coins: lg.coins || 0, nickname: lg.nickname || '', image: lg.image || '' };
+              applyUI();
+            }
+          }
+        }
+      };
+    }
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'lastgift') return;
+      if (d.type === 'config') { cfg = Object.assign(cfg, d.config); applyStyle(); applyUI(); }
+      else if (d.type === 'test') runTest(d.gift);
+      else if (d.type === 'reset') { isEmbed ? runTest() : resetLast(); }
+    });
+
+    if (isEmbed) {
+      document.documentElement.classList.add('embed');
+      const fit = () => document.documentElement.style.setProperty('--fit', Math.min(window.innerWidth / 800, window.innerHeight / 450));
+      fit(); window.addEventListener('resize', fit);
+    }
+    applyStyle();
+    if (isEmbed) runTest(); else applyUI();
+    connectWS();
+  })();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

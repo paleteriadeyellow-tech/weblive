@@ -341,7 +341,7 @@ window.addEventListener('pageshow', () => {
 });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'lgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -456,9 +456,9 @@ const OVERLAY_CAP = {
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/contador-wins-minecraft.html': 'ov_winscounterminecraft',
   '/contador-wins-mario.html': 'ov_winscountermario',
-  '/mejorregalo.html': 'ov_mejorregalo', '/mejorracha.html': 'ov_mejorracha',
+  '/mejorregalo.html': 'ov_mejorregalo', '/ultimoregalo.html': 'ov_ultimoregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
-  '/coinmatch.html': 'ov_coinmatch', '/sorteos.html': 'ov_sorteos', '/meta.html': 'ov_meta',
+  '/coinmatch.html': 'ov_coinmatch', '/sorteos.html': 'ov_sorteos', '/top-kills.html': 'ov_topkills', '/meta.html': 'ov_meta',
   '/topalt-rank-neon.html': 'ov_topaltrankneon',
   '/topalt-rank.html': 'ov_topaltrank',
   '/topmulti-rank.html': 'ov_topmultirank',
@@ -480,7 +480,7 @@ const TAB_CAP = {
   alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas',
   'ov-streams': 'tab_overlays', 'ov-gifts': 'tab_overlays', 'ov-metas': 'tab_overlays',
   'ov-rankings': 'tab_overlays', 'ov-diseno': 'tab_overlays', 'ov-batalla': 'tab_overlays', 'ov-contador': 'tab_overlays',
-  'ov-sorteos': 'tab_overlays',
+  'ov-sorteos': 'tab_overlays', 'ov-topkills': 'tab_overlays',
   tts: 'tab_tts', timer: 'tab_timer',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
@@ -636,8 +636,8 @@ const CAP_LABELS = {
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
   ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
-  ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
-  ov_coinmatch: 'Coin Match', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
+  ov_ultimoregalo: 'Último regalo', ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
+  ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_topmultirank: 'Top rotatorio (likes / coins / chat / puntos)',
   ov_pointslookup: 'Consulta de puntos (!puntos)',
   ov_toplikes: 'Top likes',
@@ -660,8 +660,8 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify',
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
-  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
-  'ov_coinmatch', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
+  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
@@ -1093,7 +1093,7 @@ function maybeForwardMusicChat(p) {
 // SIEMPRE al servidor local (127.0.0.1) — archivos en userData/uploads.
 function roomUrl(path) {
   const p = String(path || '');
-  const isLocalOnly = /^\/spotify-/.test(p) || (relayActive() && /^\/video\.html/.test(p));
+  const isLocalOnly = /^\/spotify-/.test(p) || /^\/editor-rapido-overlay/.test(p) || (relayActive() && /^\/video\.html/.test(p));
   const useCloud = relayActive() && !isLocalOnly;
   const base = useCloud ? String(window.desktopAPI.cloudBase).replace(/\/+$/, '') : location.origin;
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
@@ -1767,6 +1767,10 @@ function hydrateViewEmbeds(view) {
           continue;
         }
         // Fuera de pantalla: liberar Matter/imágenes tras un momento (evita thrash al scrollear).
+        // Top kills: NUNCA descargar — al rehidratar parpadeaba «Sin jugadores» ↔ lista.
+        if (fr.classList?.contains('tk-preview') || fr.closest?.('.tk-preview') || String(fr.id || '').startsWith('tk-preview-')) {
+          continue;
+        }
         if (!(fr.dataset.embedReady === '1' || (fr.getAttribute('src') && fr.getAttribute('src') !== 'about:blank'))) continue;
         clearTimeout(fr._embedUnloadTimer);
         fr._embedUnloadTimer = setTimeout(() => {
@@ -1832,6 +1836,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
+    if (btn.dataset.view === 'editor-rapido') { try { initEditorRapidoView(); } catch (e) { console.error('Editor Rapido:', e); } }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); applySpotifyLock(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
@@ -2914,6 +2919,113 @@ function toggleAnnPop(open) {
   };
   openDiscord(document.getElementById('btnDiscordJoin'));
   openDiscord(document.getElementById('homeDiscordJoin'));
+
+  const widgetsModal = document.getElementById('homeWidgetsModal');
+  const winsWidgetsModal = document.getElementById('homeWinsWidgetsModal');
+  const openWidgetsModal = () => {
+    if (!widgetsModal) return;
+    widgetsModal.classList.remove('hidden');
+    widgetsModal.setAttribute('aria-hidden', 'false');
+  };
+  const closeWidgetsModal = () => {
+    if (!widgetsModal) return;
+    widgetsModal.classList.add('hidden');
+    widgetsModal.setAttribute('aria-hidden', 'true');
+  };
+  const openWinsWidgetsModal = () => {
+    if (!winsWidgetsModal) return;
+    winsWidgetsModal.classList.remove('hidden');
+    winsWidgetsModal.setAttribute('aria-hidden', 'false');
+  };
+  const closeWinsWidgetsModal = () => {
+    if (!winsWidgetsModal) return;
+    winsWidgetsModal.classList.add('hidden');
+    winsWidgetsModal.setAttribute('aria-hidden', 'true');
+  };
+  document.getElementById('homeWidgetsOpen')?.addEventListener('click', openWidgetsModal);
+  document.getElementById('homeWidgetsClose')?.addEventListener('click', closeWidgetsModal);
+  widgetsModal?.addEventListener('click', (e) => {
+    if (e.target === widgetsModal) closeWidgetsModal();
+  });
+  document.getElementById('homeWinsWidgetsClose')?.addEventListener('click', closeWinsWidgetsModal);
+  document.getElementById('homeWinsWidgetsBack')?.addEventListener('click', () => {
+    closeWinsWidgetsModal();
+    openWidgetsModal();
+  });
+  winsWidgetsModal?.addEventListener('click', (e) => {
+    if (e.target === winsWidgetsModal) closeWinsWidgetsModal();
+  });
+
+  const openWinsOverlayWidget = (key, label) => {
+    const room = String(window.ROOM_KEY || window.CLOUD_ROOM_KEY || '').trim();
+    const k = String(key || '').trim();
+    if (!k) return;
+    const lbl = String(label || '').trim();
+    closeWinsWidgetsModal();
+    closeWidgetsModal();
+    if (IS_DESKTOP && window.desktopAPI?.openWinsWidget) {
+      window.desktopAPI.openWinsWidget({ room, key: k, label: lbl }).then((r) => {
+        if (r && r.ok === false && typeof toast === 'function') toast('No se pudo abrir el widget', 'warn');
+      }).catch(() => {});
+      return;
+    }
+    const u = `/wins-widget.html?v=ww1&key=${encodeURIComponent(k)}${lbl ? `&label=${encodeURIComponent(lbl)}` : ''}${room ? `&room=${encodeURIComponent(room)}` : ''}`;
+    try {
+      window.open(u, 'livecoinsWinsWidget_' + k, 'popup=yes,width=280,height=260');
+    } catch {}
+  };
+  winsWidgetsModal?.querySelectorAll('[data-wins-widget]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      openWinsOverlayWidget(btn.getAttribute('data-wins-widget'), btn.getAttribute('data-wins-label'));
+    });
+  });
+
+  const goHomeWidget = (slug) => {
+    if (!slug) return;
+    // Victorias: otra ventanita con los overlays de wins
+    if (slug === 'ov-contador') {
+      closeWidgetsModal();
+      openWinsWidgetsModal();
+      return;
+    }
+    closeWidgetsModal();
+    const room = String(window.ROOM_KEY || window.CLOUD_ROOM_KEY || '').trim();
+    // Top Kills: widget flotante (solo .exe) — encima, fuera de la app, redimensionable
+    if (slug === 'ov-topkills') {
+      if (IS_DESKTOP && window.desktopAPI?.openTopKillsWidget) {
+        window.desktopAPI.openTopKillsWidget({ room }).then((r) => {
+          if (r && r.ok === false && typeof toast === 'function') toast('No se pudo abrir el widget', 'warn');
+        }).catch(() => {});
+        return;
+      }
+      const u = `/top-kills-widget.html?v=tkw1${room ? `&room=${encodeURIComponent(room)}` : ''}`;
+      try {
+        window.open(u, 'livecoinsTopKillsWidget', 'popup=yes,width=420,height=640');
+        return;
+      } catch {}
+    }
+    // Botón Pánico: widget flotante con el botón de emergencia
+    if (slug === 'alertas') {
+      if (IS_DESKTOP && window.desktopAPI?.openPanicWidget) {
+        window.desktopAPI.openPanicWidget({ room }).then((r) => {
+          if (r && r.ok === false && typeof toast === 'function') toast('No se pudo abrir el widget', 'warn');
+        }).catch(() => {});
+        return;
+      }
+      const u = `/panic-widget.html?v=pw2${room ? `&room=${encodeURIComponent(room)}` : ''}`;
+      try {
+        window.open(u, 'livecoinsPanicWidget', 'popup=yes,width=260,height=300');
+        return;
+      } catch {}
+    }
+    const nav = document.querySelector(`.nav-item[data-view="${slug}"]`);
+    if (nav && getComputedStyle(nav).display !== 'none') nav.click();
+    else if (typeof showViewById === 'function') showViewById('view-' + slug);
+  };
+  widgetsModal?.querySelectorAll('[data-widget-nav]').forEach((btn) => {
+    btn.addEventListener('click', () => goHomeWidget(btn.getAttribute('data-widget-nav')));
+  });
+
   document.querySelectorAll('[data-home-nav]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const slug = btn.getAttribute('data-home-nav');
@@ -3836,12 +3948,31 @@ function saveSettings() {
     stripSettingsMediaForSave(settings);
     send({ action: 'saveSettings', settings, ...profileSaveMeta() });
     if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop();
+    scheduleErSyncFromLinkedGame();
   }, 200);
+}
+
+
+
+function scheduleErSyncFromLinkedGame() {
+  try {
+    let key = '';
+    if (typeof window.getEditorRapidoLinkedSettingsKey === 'function') {
+      key = window.getEditorRapidoLinkedSettingsKey() || '';
+    }
+    if (!key) {
+      const raw = JSON.parse(localStorage.getItem('livecoins_editor_rapido_v10') || 'null');
+      key = String(raw?.gameSync?.settingsKey || '').trim();
+    }
+    if (key && Array.isArray(settings?.[key])) notifyEditorRapidoActionsChanged(key);
+  } catch {}
 }
 
 // Al abrir la app, cada lista de acciones de juego arranca apagada una sola vez.
 // El flag de sesión evita volver a apagarla cuando llega un eco de settings o
 // después de que el usuario la enciende manualmente.
+
+
 function bootGameActionsOffOnce(flag, getList, renderFn) {
   if (typeof renderFn !== 'function') return;
   if (!window[flag]) {
@@ -3919,10 +4050,10 @@ function mcCmdReady(a) {
 }
 
 function onSettings(s) {
-  settings = preserveLocalGameActionsOnSettingsEcho(s);
+  settings = preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s)));
   if (migrateAccionesSpawnWebhooks(settings.actions)) saveSettings();
   normalizeRelayMedia(settings);
-  ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop'].forEach((k) => {
+  ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'topStreak'].forEach((k) => {
     if (settings[k] && settings[k].resetPeriod == null) settings[k].resetPeriod = 'live';
   });
   if (settings.topAltRank) {
@@ -4008,6 +4139,7 @@ function applySettingsToUI() {
   if (typeof pushGiftShowcasePreview === 'function') setTimeout(() => pushGiftShowcasePreview(), 300);
   if (typeof pushStyleOverlayPreviews === 'function') setTimeout(() => pushStyleOverlayPreviews(), 300);
   if (typeof refreshWinsCounters === 'function') setTimeout(() => refreshWinsCounters(), 300);
+  if (typeof refreshTopKills === 'function') setTimeout(() => refreshTopKills(), 300);
   if (typeof window.pushHypePreview === 'function') setTimeout(() => window.pushHypePreview(), 300);
   renderScreens();
   renderVideos();
@@ -4374,6 +4506,7 @@ function saveSettingsKeysPatch(...keys) {
     settingsKeysSaveDebounce = null;
     if (!settings || !settingsKeysSavePending.size) return;
     const patch = {};
+    const touched = [...settingsKeysSavePending];
     for (const k of settingsKeysSavePending) {
       if (k === 'videos') {
         patch.videos = settings.videos || [];
@@ -4388,8 +4521,13 @@ function saveSettingsKeysPatch(...keys) {
     settingsKeysSavePending.clear();
     if (!Object.keys(patch).length) return;
     send({ action: 'saveSettings', settings: patch, ...profileSaveMeta() });
+    for (const k of touched) {
+      if (ER_SYNCABLE_ACTION_KEYS.includes(k)) notifyEditorRapidoActionsChanged(k);
+    }
   }, 200);
 }
+
+
 function saveVideosBattlePatch(kind) {
   saveSettingsKeysPatch(kind);
   syncDesktopWebhookSettings();
@@ -8144,6 +8282,7 @@ const STYLE_OVERLAYS = [
     modalId: 'tgfConfigModal', closeId: 'tgfcfg-close', saveId: 'tgfcfg-save',
     testAction: 'testTopGift', resetAction: 'resetTopGift', randomGift: true,
     map: {
+      'tgfcfg-period': 'resetPeriod',
       'tgfcfg-title': 'title', 'tgfcfg-coinlabel': 'coinLabel', 'tgfcfg-font': 'font', 'tgfcfg-rainbow': 'titleRainbow',
       'tgfcfg-titlescale': 'titleScale', 'tgfcfg-titley': 'titleY', 'tgfcfg-bodyscale': 'bodyScale', 'tgfcfg-bodyy': 'bodyY',
       'tgfcfg-textlayer': 'textLayer', 'tgfcfg-titlecolor': 'titleColor',
@@ -8151,6 +8290,21 @@ const STYLE_OVERLAYS = [
     },
     types: { titleScale: 'int', titleY: 'int', bodyScale: 'int', bodyY: 'int' },
     onFormSync: () => syncTopTextAdjust('tgfcfg'),
+  }),
+  setupStyleOverlay({
+    kind: 'lastgift', settingsKey: 'lastGift', previewId: 'lgf-preview',
+    btnTest: 'lgf-test', btnReset: 'lgf-reset', btnConfig: 'lgf-config',
+    modalId: 'lgfConfigModal', closeId: 'lgfcfg-close', saveId: 'lgfcfg-save',
+    testAction: 'testLastGift', resetAction: 'resetLastGift', randomGift: true,
+    map: {
+      'lgfcfg-period': 'resetPeriod',
+      'lgfcfg-title': 'title', 'lgfcfg-coinlabel': 'coinLabel', 'lgfcfg-font': 'font', 'lgfcfg-rainbow': 'titleRainbow',
+      'lgfcfg-titlescale': 'titleScale', 'lgfcfg-titley': 'titleY', 'lgfcfg-bodyscale': 'bodyScale', 'lgfcfg-bodyy': 'bodyY',
+      'lgfcfg-textlayer': 'textLayer', 'lgfcfg-titlecolor': 'titleColor',
+      'lgfcfg-namecolor': 'nameColor', 'lgfcfg-valuecolor': 'valueColor', 'lgfcfg-namestroke': 'nameStroke', 'lgfcfg-valuestroke': 'valueStroke',
+    },
+    types: { titleScale: 'int', titleY: 'int', bodyScale: 'int', bodyY: 'int' },
+    onFormSync: () => syncTopTextAdjust('lgfcfg'),
   }),
   setupStyleOverlay({
     kind: 'top1', settingsKey: 'top1', previewId: 'top1-preview',
@@ -8206,6 +8360,7 @@ const STYLE_OVERLAYS = [
     modalId: 'tstConfigModal', closeId: 'tstcfg-close', saveId: 'tstcfg-save',
     testAction: 'testTopStreak', resetAction: 'resetTopStreak', randomGift: true,
     map: {
+      'tstcfg-period': 'resetPeriod',
       'tstcfg-title': 'title', 'tstcfg-font': 'font', 'tstcfg-rainbow': 'titleRainbow',
       'tstcfg-titlescale': 'titleScale', 'tstcfg-titley': 'titleY', 'tstcfg-bodyscale': 'bodyScale', 'tstcfg-bodyy': 'bodyY',
       'tstcfg-textlayer': 'textLayer', 'tstcfg-titlecolor': 'titleColor',
@@ -8876,9 +9031,27 @@ function captureHotkey(btn, onSet) {
    que podía disparar onRankPeriodChange y vaciar overlays de ranking. */
 let winsSaveDebounce = null;
 const winsSavePendingKeys = new Set();
+let lastWinsEditAt = 0;
+const WINS_EDIT_ECHO_MS = 1200;
+
+function preserveLocalWinsOnSettingsEcho(incoming) {
+  if (!incoming || !settings) return incoming;
+  if (Date.now() - lastWinsEditAt > WINS_EDIT_ECHO_MS && !winsSavePendingKeys.size) return incoming;
+  const out = { ...incoming };
+  const keys = ['winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario'];
+  for (const k of keys) {
+    if (!winsSavePendingKeys.has(k) && Date.now() - lastWinsEditAt > WINS_EDIT_ECHO_MS) continue;
+    const local = settings[k];
+    if (!local || typeof local !== 'object') continue;
+    out[k] = { ...(out[k] || {}), ...local, wins: local.wins };
+  }
+  return out;
+}
+
 function saveWinsCounterPatch(key) {
   if (applyingSettings) return;
   if (key) winsSavePendingKeys.add(key);
+  lastWinsEditAt = Date.now();
   clearTimeout(winsSaveDebounce);
   winsSaveDebounce = setTimeout(() => {
     winsSaveDebounce = null;
@@ -8891,7 +9064,7 @@ function saveWinsCounterPatch(key) {
     if (!Object.keys(patch).length) return;
     send({ action: 'saveSettings', settings: patch, ...profileSaveMeta() });
     if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop();
-  }, 200);
+  }, 280);
 }
 
 function buildWinsHotkeys(o) {
@@ -8946,9 +9119,29 @@ function setupWinsCounter(o) {
   // denominador que se muestra (wins/max), no un límite.
   const clampW = (v) => { const x = parseInt(v, 10); return Number.isFinite(x) ? Math.max(-999999, Math.min(999999, x)) : 0; };
   const syncWinsInputs = (val) => { if ($(o.inputWins)) $(o.inputWins).value = val; if ($(o.inputWinsModal)) $(o.inputWinsModal).value = val; };
-  function setWins(v) { const c = ensure(); c.wins = clampW(v); syncWinsInputs(c.wins); saveWinsCounterPatch(o.key); pushPrev(); }
-  if ($(o.btnMinus)) $(o.btnMinus).onclick = () => setWins((settings?.[o.key]?.wins || 0) - 1);
-  if ($(o.btnPlus)) $(o.btnPlus).onclick = () => setWins((settings?.[o.key]?.wins || 0) + 1);
+  function setWins(v) {
+    const c = ensure();
+    c.wins = clampW(v);
+    lastWinsEditAt = Date.now();
+    syncWinsInputs(c.wins);
+    saveWinsCounterPatch(o.key);
+    pushPrev();
+  }
+  function bumpWins(delta) {
+    const c = ensure();
+    setWins((c.wins | 0) + (delta | 0));
+  }
+  // pointerdown: el 1er clic cuenta y no pelea con blur/focus; evita eco up/down al spamear
+  const bindBump = (el, delta) => {
+    if (!el) return;
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      e.preventDefault();
+      bumpWins(delta);
+    });
+  };
+  bindBump($(o.btnMinus), -1);
+  bindBump($(o.btnPlus), 1);
   if ($(o.inputWins)) $(o.inputWins).addEventListener('change', () => setWins($(o.inputWins).value));
   if ($(o.btnReset)) $(o.btnReset).onclick = () => { setWins(0); toPrev({ type: 'reset' }); };
   if ($(o.btnTest)) $(o.btnTest).onclick = () => { toPrev({ type: 'test' }); send({ action: o.testAction }); };
@@ -8972,8 +9165,15 @@ function setupWinsCounter(o) {
     saveWinsCounterPatch(o.key); pushPrev(); close();
   };
   buildWinsHotkeys(o);
-  o._adjust = (delta) => setWins((settings?.[o.key]?.wins || 0) + delta);
+  o._adjust = (delta) => bumpWins(delta);
   o._refresh = () => {
+    // No pisar el número local mientras hay +/- recientes o save pendiente
+    if (winsSavePendingKeys.has(o.key) || Date.now() - lastWinsEditAt < WINS_EDIT_ECHO_MS) {
+      const local = settings?.[o.key]?.wins ?? 0;
+      syncWinsInputs(local);
+      pushPrev();
+      return;
+    }
     const c = settings?.[o.key] || {};
     syncWinsInputs(c.wins ?? 0);
     if ($(o.fontSizeValId)) $(o.fontSizeValId).textContent = c.fontSize ?? 28;
@@ -9034,6 +9234,560 @@ function refreshWinsCounters() {
   WINS_COUNTERS.forEach((o) => { if (o._refresh) o._refresh(); if (o._push) o._push(); });
   syncWinsHotkeysToDesktop();
 }
+
+/* ====================== Top Kills (manual) ====================== */
+const TK_DEFAULT_RANK = { bg: '#1a3a5c', color: '#ffffff', size: 14, outline: '#000000', outlineW: 0, bold: true, italic: false };
+const TK_MAX_RANKS = 20;
+const TK_DEFAULT_RANKS = [
+  '#1a3a5c', '#1e3558', '#223a5e', '#1c3354', '#1f385a',
+  '#183250', '#203c5c', '#1a3050', '#1d3656', '#16304c',
+  '#1b3452', '#1e3856', '#17304e', '#21405c', '#1a3250',
+  '#1c3654', '#19324c', '#223a5a', '#15304a', '#1f3a58',
+].map((bg) => ({ ...TK_DEFAULT_RANK, bg }));
+
+function defaultTopKillsCfg() {
+  try {
+    return structuredClone(window.DEFAULT_SETTINGS?.topKills || { title: 'TOP KILLS', players: [], rankStyles: TK_DEFAULT_RANKS.slice() });
+  } catch {
+    return {
+      title: 'TOP KILLS', nickTemplate: '{nickname}', nickMode: 'nickname',
+      subtitle: 'Lleva {kills} Kills', textColor: '#39ff14',
+      bold: true, italic: false, strike: false, underline: false,
+      design: 'transparent', font: 'inter', scale: 100,
+      rankStyles: TK_DEFAULT_RANKS.map((r) => ({ ...r })),
+      players: [],
+    };
+  }
+}
+
+function ensureTopKillsCfg() {
+  if (!settings || typeof settings !== 'object') return defaultTopKillsCfg();
+  if (!settings.topKills || typeof settings.topKills !== 'object') settings.topKills = defaultTopKillsCfg();
+  const c = settings.topKills;
+  if (!Array.isArray(c.players)) c.players = [];
+  else {
+    const seen = new Set();
+    c.players = c.players.filter((x) => {
+      if (!x || typeof x !== 'object') return false;
+      if (!x.id) x.id = 'tk_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+      if (seen.has(x.id)) return false;
+      seen.add(x.id);
+      return true;
+    });
+  }
+  if (!Array.isArray(c.rankStyles) || c.rankStyles.length !== TK_MAX_RANKS) {
+    const base = (c.rankStyles || []).slice();
+    while (base.length < TK_MAX_RANKS) base.push({ ...(TK_DEFAULT_RANKS[base.length] || TK_DEFAULT_RANK) });
+    c.rankStyles = base.slice(0, TK_MAX_RANKS).map((r, i) => ({ ...(TK_DEFAULT_RANKS[i] || TK_DEFAULT_RANK), ...(r || {}) }));
+  }
+  return c;
+}
+
+function tkNewPlayer(partial) {
+  return {
+    id: 'tk_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7),
+    username: '', nickname: '', uniqueId: '', avatar: '', kills: 0,
+    ...(partial || {}),
+  };
+}
+
+function tkSortedPlayers(cfg) {
+  return (cfg.players || []).slice().sort((a, b) => (b.kills | 0) - (a.kills | 0)
+    || String(a.username || '').localeCompare(String(b.username || '')));
+}
+
+function tkRankStyle(cfg, i) {
+  return { ...TK_DEFAULT_RANK, ...(cfg.rankStyles?.[i] || TK_DEFAULT_RANKS[i] || {}) };
+}
+
+const TK_PREVIEW_IDS = ['tk-preview-lista', 'tk-preview-compact', 'tk-preview-neon', 'tk-preview-minecraft', 'tk-preview-gamer', 'tk-preview-pro'];
+let tkPreviewDebounce = null;
+let lastTopKillsEditAt = 0;
+const TK_EDIT_ECHO_MS = 2500;
+let tkClearPlayersIntent = false;
+
+function preserveLocalTopKillsOnSettingsEcho(incoming) {
+  if (!incoming || !settings?.topKills) return incoming;
+  const localPlayers = settings.topKills.players;
+  if (!Array.isArray(localPlayers) || !localPlayers.length) return incoming;
+  // Reset explícito del usuario: dejar pasar players: []
+  if (tkClearPlayersIntent) return incoming;
+  const remote = incoming.topKills;
+  const remotePlayers = remote?.players;
+  // Nunca aceptar un eco vacío que borre tops (actualizaciones, merges, otros saves)
+  if (!remote || !Array.isArray(remotePlayers) || remotePlayers.length === 0) {
+    const out = { ...incoming };
+    out.topKills = { ...(remote || {}), ...settings.topKills, players: localPlayers.slice() };
+    return out;
+  }
+  // Eco incompleto justo tras editar: preferir lo local si tiene más jugadores
+  if (Date.now() - lastTopKillsEditAt < TK_EDIT_ECHO_MS && remotePlayers.length < localPlayers.length) {
+    const out = { ...incoming };
+    out.topKills = { ...remote, ...settings.topKills, players: localPlayers.slice() };
+    return out;
+  }
+  return incoming;
+}
+
+function pushTopKillsPreview(cfg) {
+  const config = cfg || (settings ? ensureTopKillsCfg() : defaultTopKillsCfg());
+  const msg = { kind: 'top_kills', type: 'config', config };
+  const viewActive = !!$('view-ov-topkills')?.classList?.contains('active');
+  TK_PREVIEW_IDS.forEach((id) => {
+    const fr = $(id);
+    if (!fr) return;
+    const ready = fr.dataset.embedReady === '1' && fr.getAttribute('src') && fr.getAttribute('src') !== 'about:blank';
+    const sendMsg = (frame) => { try { frame?.contentWindow?.postMessage(msg, '*'); } catch {} };
+    if (ready) sendMsg(fr);
+    else if (viewActive) ensureEmbedLoaded(fr).then(sendMsg);
+  });
+}
+
+function pushTopKillsPreviewSoon(cfg, ms = 60) {
+  clearTimeout(tkPreviewDebounce);
+  tkPreviewDebounce = setTimeout(() => {
+    tkPreviewDebounce = null;
+    pushTopKillsPreview(cfg);
+  }, ms);
+}
+
+function pushTopKillsTest(previewId) {
+  const ids = previewId ? [previewId] : TK_PREVIEW_IDS;
+  ids.forEach((id) => {
+    try { $(id)?.contentWindow?.postMessage({ kind: 'top_kills', type: 'test' }, '*'); } catch {}
+  });
+}
+
+function saveTopKillsPatch(opts) {
+  if (applyingSettings || !settings) return;
+  ensureTopKillsCfg();
+  lastTopKillsEditAt = Date.now();
+  if (opts && opts.clearPlayers) {
+    tkClearPlayersIntent = true;
+    settings.topKills.clearPlayers = true;
+  }
+  saveSettingsKeysPatch('topKills');
+  if (opts && opts.clearPlayers) {
+    setTimeout(() => {
+      tkClearPlayersIntent = false;
+      if (settings?.topKills) delete settings.topKills.clearPlayers;
+    }, 1500);
+  }
+  if (opts && opts.preview === false) return;
+  if (opts && opts.previewSoon) pushTopKillsPreviewSoon(settings.topKills, opts.previewSoon);
+  else pushTopKillsPreview(settings.topKills);
+}
+
+function refreshTopKills() {
+  if (!settings) return;
+  ensureTopKillsCfg();
+  const active = document.activeElement;
+  const typing = !!(active && active.classList?.contains('tk-name') && active.closest('#tk-rows'));
+  if (!typing && typeof window.renderTopKillsRows === 'function') window.renderTopKillsRows();
+  pushTopKillsPreview(settings.topKills);
+}
+
+(function setupTopKills() {
+  try {
+  let rankEditIdx = -1;
+  let nameTimers = {};
+  const pop = () => $('tkRankStylePop');
+
+  function closeRankPop() {
+    const p = pop();
+    if (p) p.classList.add('hidden');
+    rankEditIdx = -1;
+  }
+
+  function syncFmtBtn(id, on) {
+    const el = $(id);
+    if (!el) return;
+    if (on) el.setAttribute('data-on', '1');
+    else el.removeAttribute('data-on');
+  }
+
+  function openRankPop(idx, anchor) {
+    const cfg = ensureTopKillsCfg();
+    const st = tkRankStyle(cfg, idx);
+    rankEditIdx = idx;
+    if ($('tkrs-bg')) $('tkrs-bg').value = st.bg || '#1a3a5c';
+    if ($('tkrs-outline')) $('tkrs-outline').value = st.outline || '#000000';
+    if ($('tkrs-outlinew')) $('tkrs-outlinew').value = String(st.outlineW | 0);
+    if ($('tkrs-size-lbl')) $('tkrs-size-lbl').textContent = String(st.size || 14);
+    syncFmtBtn('tkrs-bold', !!st.bold);
+    syncFmtBtn('tkrs-italic', !!st.italic);
+    const p = pop();
+    if (!p || !anchor) return;
+    p.classList.remove('hidden');
+    const r = anchor.getBoundingClientRect();
+    const pw = 240;
+    let left = r.right - pw;
+    let top = r.bottom + 8;
+    if (left < 8) left = 8;
+    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+    if (top + 220 > window.innerHeight) top = Math.max(8, r.top - 228);
+    p.style.left = left + 'px';
+    p.style.top = top + 'px';
+  }
+
+  function patchRankStyle(mut) {
+    if (rankEditIdx < 0) return;
+    const cfg = ensureTopKillsCfg();
+    cfg.rankStyles[rankEditIdx] = { ...tkRankStyle(cfg, rankEditIdx), ...mut };
+    saveTopKillsPatch();
+    renderTopKillsRows();
+  }
+
+  function findOrCreateAtSlot(rankIdx) {
+    const cfg = ensureTopKillsCfg();
+    const sorted = tkSortedPlayers(cfg);
+    let p = sorted[rankIdx];
+    if (p) return p;
+    p = tkNewPlayer();
+    cfg.players.push(p);
+    return p;
+  }
+
+  function playerFromRow(row, rankIdx) {
+    const cfg = ensureTopKillsCfg();
+    const id = row?.dataset?.id;
+    if (id) {
+      const byId = cfg.players.find((x) => x && x.id === id);
+      if (byId) return byId;
+    }
+    return findOrCreateAtSlot(rankIdx);
+  }
+
+  function orderKey(cfg) {
+    return tkSortedPlayers(cfg).map((p) => p.id).join('|');
+  }
+
+  function bumpKillsFromRow(row, delta) {
+    if (!row || !settings) return;
+    const rank = Number(row.dataset.rank);
+    if (!Number.isFinite(rank) || rank < 0) return;
+    const cfg = ensureTopKillsCfg();
+    const before = orderKey(cfg);
+    const p = playerFromRow(row, rank);
+    p.kills = Math.max(0, (p.kills | 0) + delta);
+    row.dataset.id = p.id || '';
+    const killsEl = row.querySelector('.tk-kills');
+    if (killsEl) killsEl.textContent = String(p.kills | 0);
+    const after = orderKey(cfg);
+    saveTopKillsPatch({ previewSoon: 70 });
+    if (before !== after) window.renderTopKillsRows();
+  }
+
+  async function resolvePlayerAvatar(p, raw) {
+    const q = String(raw || '').trim();
+    if (!q) {
+      p.avatar = '';
+      p.username = '';
+      p.nickname = '';
+      p.uniqueId = '';
+      return;
+    }
+    const handle = q.replace(/^@/, '').replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/i, '').split(/[/?#]/)[0];
+    const query = handle ? ('@' + handle) : q;
+    const prof = await resolveFlwTiktokProfile(query);
+    if (prof?.error) {
+      p.avatar = '';
+      if (handle) {
+        p.username = handle;
+        p.uniqueId = handle;
+        if (!p.nickname) p.nickname = handle;
+      }
+      return;
+    }
+    if (prof) {
+      p.username = prof.username || p.username || handle;
+      p.uniqueId = prof.username || p.uniqueId || handle;
+      p.nickname = prof.nickname || prof.username || p.nickname || handle;
+      p.avatar = prof.avatar || '';
+    }
+  }
+
+  function setRowAvatar(row, avatarUrl) {
+    const oldAv = row.querySelector('.tk-av, .tk-av-ph');
+    if (!oldAv) return;
+    if (avatarUrl) {
+      const img = document.createElement('img');
+      img.className = 'tk-av';
+      img.src = avatarUrl;
+      img.alt = '';
+      img.referrerPolicy = 'no-referrer';
+      oldAv.replaceWith(img);
+    } else if (!oldAv.classList.contains('tk-av-ph')) {
+      const ph = document.createElement('span');
+      ph.className = 'tk-av-ph';
+      ph.setAttribute('aria-hidden', 'true');
+      oldAv.replaceWith(ph);
+    }
+  }
+
+  async function resolveRowName(row, rank, nameInp, { rerender } = {}) {
+    if (!row?.isConnected || !nameInp || !settings) return;
+    const p = playerFromRow(row, rank);
+    if (p?.id) row.dataset.id = p.id;
+    const raw = nameInp.value.trim();
+    const handle = raw.replace(/^@/, '').replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/i, '').split(/[/?#]/)[0];
+    let removed = false;
+    const avGen = (p._avGen = (p._avGen | 0) + 1);
+    if (handle) {
+      p.username = handle;
+      p.uniqueId = handle;
+      if (!p.nickname) p.nickname = handle;
+      row.classList.add('tk-loading-av');
+      await resolvePlayerAvatar(p, '@' + handle);
+      if (p._avGen !== avGen || !row.isConnected) return;
+      row.classList.remove('tk-loading-av');
+    } else {
+      p.username = '';
+      p.uniqueId = '';
+      p.nickname = '';
+      p.avatar = '';
+      const cfg = ensureTopKillsCfg();
+      if (!(p.kills | 0)) {
+        cfg.players = cfg.players.filter((x) => x.id !== p.id);
+        removed = true;
+      }
+    }
+    if (!row.isConnected) return;
+    // Si el jugador ya no está (borrado mientras resolvíamos), no recrear
+    const still = ensureTopKillsCfg().players.some((x) => x && x.id === p.id);
+    if (!still && !removed) return;
+    saveTopKillsPatch(removed && !ensureTopKillsCfg().players.length ? { clearPlayers: true } : undefined);
+    if (removed) {
+      window.renderTopKillsRows();
+      return;
+    }
+    setRowAvatar(row, p.avatar);
+    if (document.activeElement !== nameInp && p.username) {
+      nameInp.value = '@' + String(p.username).replace(/^@/, '');
+    }
+    if (rerender && document.activeElement?.classList?.contains('tk-name') === false) {
+      window.renderTopKillsRows();
+    }
+  }
+
+  window.renderTopKillsRows = function renderTopKillsRows() {
+    const wrap = $('tk-rows');
+    if (!wrap) return;
+    const cfg = ensureTopKillsCfg();
+    const sorted = tkSortedPlayers(cfg);
+    const slots = [];
+    for (let i = 0; i < TK_MAX_RANKS; i++) slots.push(sorted[i] || null);
+    wrap.innerHTML = slots.map((p, i) => {
+      const st = tkRankStyle(cfg, i);
+      const nameVal = p ? (p.username ? '@' + String(p.username).replace(/^@/, '') : (p.nickname || '')) : '';
+      const kills = p ? (p.kills | 0) : 0;
+      const av = p?.avatar
+        ? `<img class="tk-av" src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer">`
+        : '<span class="tk-av-ph" aria-hidden="true"></span>';
+      return `<div class="tk-row" data-rank="${i}" data-id="${esc(p?.id || '')}" style="--tk-row-bg:${esc(st.bg)};--tk-swatch:${esc(st.bg)}">
+        <span class="tk-rank">#${i + 1}</span>
+        ${av}
+        <input type="text" class="tk-name" value="${esc(nameVal)}" placeholder="Nombre" spellcheck="false" autocomplete="off">
+        <span class="tk-row-spacer" aria-hidden="true"></span>
+        <span class="tk-kills">${kills}</span>
+        <button type="button" class="tk-pm plus" title="+1 kill">+</button>
+        <button type="button" class="tk-pm minus" title="-1 kill">−</button>
+        <button type="button" class="tk-stylebtn" title="Color / estilo del puesto #${i + 1}" aria-label="Estilo puesto"></button>
+        <button type="button" class="tk-del" title="Quitar">${CARD_ICON.trash}</button>
+      </div>`;
+    }).join('');
+
+    wrap.querySelectorAll('.tk-row').forEach((row) => {
+      const rank = Number(row.dataset.rank);
+      const nameInp = row.querySelector('.tk-name');
+      if (!nameInp) return;
+      nameInp.oninput = () => {
+        const p = playerFromRow(row, rank);
+        if (p?.id) row.dataset.id = p.id;
+        const raw = nameInp.value.trim();
+        const handle = raw.replace(/^@/, '').replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/i, '').split(/[/?#]/)[0];
+        if (handle) {
+          p.username = handle;
+          p.uniqueId = handle;
+          if (!p.nickname) p.nickname = handle;
+        } else {
+          p.username = '';
+          p.uniqueId = '';
+          p.nickname = '';
+          p.avatar = '';
+        }
+        clearTimeout(nameTimers[rank]);
+        nameTimers[rank] = setTimeout(() => {
+          resolveRowName(row, rank, nameInp, { rerender: false });
+        }, 500);
+      };
+      nameInp.onblur = (e) => {
+        clearTimeout(nameTimers[rank]);
+        const toBtn = e.relatedTarget?.closest?.('.tk-pm, .tk-del, .tk-stylebtn');
+        // Si el foco va a +/- u otro botón de la fila, no re-renderizar (se comía el clic)
+        nameTimers[rank] = setTimeout(() => {
+          resolveRowName(row, rank, nameInp, { rerender: !toBtn });
+        }, 50);
+      };
+    });
+  };
+
+  // Delegación: +/- en pointerdown (antes del blur del input) para que el 1er clic cuente
+  const tkRowsHost = $('tk-rows');
+  if (tkRowsHost && !tkRowsHost.dataset.tkBound) {
+    tkRowsHost.dataset.tkBound = '1';
+    tkRowsHost.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      const btn = e.target.closest?.('.tk-pm');
+      if (!btn || !tkRowsHost.contains(btn)) return;
+      const row = btn.closest('.tk-row');
+      if (!row) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (btn.classList.contains('plus')) bumpKillsFromRow(row, 1);
+      else if (btn.classList.contains('minus')) bumpKillsFromRow(row, -1);
+    });
+    tkRowsHost.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('.tk-del, .tk-stylebtn');
+      if (!btn || !tkRowsHost.contains(btn)) return;
+      const row = btn.closest('.tk-row');
+      if (!row) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rank = Number(row.dataset.rank);
+      if (btn.classList.contains('tk-del')) {
+        clearTimeout(nameTimers[rank]);
+        delete nameTimers[rank];
+        const cfg = ensureTopKillsCfg();
+        const id = row.dataset.id;
+        if (id) cfg.players = cfg.players.filter((x) => x.id !== id);
+        else {
+          const sorted = tkSortedPlayers(cfg);
+          if (sorted[rank]) cfg.players = cfg.players.filter((x) => x.id !== sorted[rank].id);
+        }
+        const cleared = !cfg.players.length;
+        saveTopKillsPatch({ previewSoon: 70, clearPlayers: cleared });
+        window.renderTopKillsRows();
+        return;
+      }
+      if (btn.classList.contains('tk-stylebtn')) openRankPop(rank, btn);
+    });
+  }
+
+  function fillConfigForm() {
+    const c = ensureTopKillsCfg();
+    if ($('tkcfg-title')) $('tkcfg-title').value = c.title || 'TOP KILLS';
+    if ($('tkcfg-nick')) $('tkcfg-nick').value = c.nickTemplate || '{nickname}';
+    if ($('tkcfg-nickmode')) $('tkcfg-nickmode').value = c.nickMode === 'username' ? 'username' : 'nickname';
+    if ($('tkcfg-subtitle')) $('tkcfg-subtitle').value = c.subtitle || 'Lleva {kills} Kills';
+    if ($('tkcfg-textcolor')) $('tkcfg-textcolor').value = c.textColor || '#39ff14';
+    if ($('tkcfg-font')) $('tkcfg-font').value = c.font || 'inter';
+    if ($('tkcfg-scale')) $('tkcfg-scale').value = String(c.scale ?? 100);
+    if ($('tkcfg-scale-lbl')) $('tkcfg-scale-lbl').textContent = (c.scale ?? 100) + '%';
+    syncFmtBtn('tkcfg-bold', c.bold !== false);
+    syncFmtBtn('tkcfg-italic', !!c.italic);
+    syncFmtBtn('tkcfg-strike', !!c.strike);
+    syncFmtBtn('tkcfg-underline', !!c.underline);
+  }
+
+  function readConfigForm() {
+    const c = ensureTopKillsCfg();
+    c.title = ($('tkcfg-title')?.value || 'TOP KILLS').trim().slice(0, 48) || 'TOP KILLS';
+    c.nickMode = $('tkcfg-nickmode')?.value === 'username' ? 'username' : 'nickname';
+    c.nickTemplate = ($('tkcfg-nick')?.value || (c.nickMode === 'username' ? '{username}' : '{nickname}')).trim();
+    c.subtitle = ($('tkcfg-subtitle')?.value || 'Lleva {kills} Kills').trim();
+    c.textColor = $('tkcfg-textcolor')?.value || '#39ff14';
+    c.font = $('tkcfg-font')?.value || 'inter';
+    c.scale = Math.max(50, Math.min(140, parseInt($('tkcfg-scale')?.value, 10) || 100));
+    c.bold = $('tkcfg-bold')?.getAttribute('data-on') === '1';
+    c.italic = $('tkcfg-italic')?.getAttribute('data-on') === '1';
+    c.strike = $('tkcfg-strike')?.getAttribute('data-on') === '1';
+    c.underline = $('tkcfg-underline')?.getAttribute('data-on') === '1';
+    return c;
+  }
+
+  if ($('tk-config')) $('tk-config').onclick = () => {
+    try {
+      if (settings) fillConfigForm();
+      pushTopKillsPreview(settings ? ensureTopKillsCfg() : defaultTopKillsCfg());
+    } catch (err) { console.error('Top Kills config:', err); }
+    const m = $('tkConfigModal');
+    if (m) m.classList.remove('hidden');
+    else if (typeof toast === 'function') toast('No se encontró el modal de Top kills', 'warn');
+  };
+  const closeCfg = () => $('tkConfigModal')?.classList.add('hidden');
+  if ($('tkcfg-close')) $('tkcfg-close').onclick = closeCfg;
+  $('tkConfigModal')?.addEventListener('click', (e) => { if (e.target.id === 'tkConfigModal') closeCfg(); });
+  if ($('tkcfg-save')) $('tkcfg-save').onclick = () => { readConfigForm(); saveTopKillsPatch(); closeCfg(); };
+
+  ['tkcfg-bold', 'tkcfg-italic', 'tkcfg-strike', 'tkcfg-underline'].forEach((id) => {
+    $(id)?.addEventListener('click', () => {
+      const el = $(id);
+      if (el.getAttribute('data-on') === '1') el.removeAttribute('data-on');
+      else el.setAttribute('data-on', '1');
+      readConfigForm();
+      pushTopKillsPreview();
+    });
+  });
+  ['tkcfg-title', 'tkcfg-nick', 'tkcfg-subtitle', 'tkcfg-textcolor', 'tkcfg-font', 'tkcfg-scale', 'tkcfg-nickmode'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    const sync = () => {
+      if (id === 'tkcfg-nickmode') {
+        const mode = el.value === 'username' ? 'username' : 'nickname';
+        if ($('tkcfg-nick')) $('tkcfg-nick').value = mode === 'username' ? '{username}' : '{nickname}';
+      }
+      if (id === 'tkcfg-scale' && $('tkcfg-scale-lbl')) $('tkcfg-scale-lbl').textContent = (parseInt(el.value, 10) || 100) + '%';
+      readConfigForm();
+      pushTopKillsPreview();
+    };
+    el.oninput = sync;
+    el.onchange = sync;
+  });
+
+  if ($('tk-reset')) $('tk-reset').onclick = () => {
+    const c = ensureTopKillsCfg();
+    c.players = [];
+    saveTopKillsPatch({ clearPlayers: true });
+    window.renderTopKillsRows();
+  };
+  // (sin botón Test: la preview se actualiza sola al cambiar jugadores)
+
+  $('tkrs-bg')?.addEventListener('input', () => patchRankStyle({ bg: $('tkrs-bg').value }));
+  $('tkrs-outline')?.addEventListener('input', () => patchRankStyle({ outline: $('tkrs-outline').value }));
+  $('tkrs-outlinew')?.addEventListener('input', () => patchRankStyle({ outlineW: parseInt($('tkrs-outlinew').value, 10) || 0 }));
+  $('tkrs-bold')?.addEventListener('click', () => {
+    const on = $('tkrs-bold').getAttribute('data-on') !== '1';
+    syncFmtBtn('tkrs-bold', on);
+    patchRankStyle({ bold: on });
+  });
+  $('tkrs-italic')?.addEventListener('click', () => {
+    const on = $('tkrs-italic').getAttribute('data-on') !== '1';
+    syncFmtBtn('tkrs-italic', on);
+    patchRankStyle({ italic: on });
+  });
+  $('tkrs-size-up')?.addEventListener('click', () => {
+    const n = Math.min(32, (parseInt($('tkrs-size-lbl')?.textContent, 10) || 14) + 1);
+    if ($('tkrs-size-lbl')) $('tkrs-size-lbl').textContent = String(n);
+    patchRankStyle({ size: n });
+  });
+  $('tkrs-size-dn')?.addEventListener('click', () => {
+    const n = Math.max(8, (parseInt($('tkrs-size-lbl')?.textContent, 10) || 14) - 1);
+    if ($('tkrs-size-lbl')) $('tkrs-size-lbl').textContent = String(n);
+    patchRankStyle({ size: n });
+  });
+  document.addEventListener('click', (e) => {
+    const p = pop();
+    if (!p || p.classList.contains('hidden')) return;
+    if (p.contains(e.target) || e.target.closest?.('.tk-stylebtn')) return;
+    closeRankPop();
+  });
+
+  if (settings) window.renderTopKillsRows();
+  } catch (err) {
+    console.error('Top Kills setup:', err);
+  }
+})();
 
 function applyWinsHotkeyByCombo(combo) {
   if (!combo) return false;
@@ -14631,6 +15385,7 @@ function saveMcTrigPop() {
   else delete a.eventDelay;
   saveSettings();
   closeMcTrigPop();
+  notifyEditorRapidoActionsChanged(key);
   const game = mcFamilyGameByKey(key);
   if (MC_GAME_MAP[game] && MC_GAME_MAP[game].key === key) {
     MC_GAME_MAP[game].render();
@@ -14645,6 +15400,7 @@ function saveMcTrigPop() {
 const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'smwActions', 'mari0Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'ctrActions', 'mslugActions', 'gdashActions'];
 let lastGameActionEditAt = 0;
 const GAME_ACTION_EDIT_ECHO_MS = 3000;
+
 
 function ensureGameActionTimingFields(a) {
   if (!a || typeof a !== 'object') return;
@@ -14791,8 +15547,11 @@ function saveGameActionConfigModal() {
     : `.mc-act-card[data-uid="${CSS.escape(String(ctx.key))}"]`);
   if (card && patch.enabled != null) card.classList.toggle('mc-off', !patch.enabled);
   closeGameActionConfigModal();
+  const syncKey = ctx.opts?.settingsKey || findSettingsKeyForActionUid(a.uid) || findSettingsKeyForActionUid(ctx.key);
+  if (syncKey) notifyEditorRapidoActionsChanged(syncKey);
   toast && toast('Configuración guardada.', 'ok');
 }
+
 
 function openGameActionConfigModal(a, cardOpts, ctx) {
   ensureGameActionCfgModal();
@@ -14919,9 +15678,11 @@ function duplicateGameActionBelow(settingsKey, uid, render) {
   list.splice(idx + 1, 0, copy);
   lastGameActionEditAt = Date.now();
   saveSettingsKeysPatch(settingsKey);
+  notifyEditorRapidoActionsChanged(settingsKey);
   if (typeof render === 'function') render();
   toast && toast('Acción duplicada.', 'ok');
 }
+
 
 function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
   const settingsKey = opts.settingsKey;
@@ -15101,8 +15862,11 @@ function setGameActionTrigger(settingsKey, uid, value, renderFn) {
   else if (value !== 'chatUser' && value !== 'chatCommand') a.text = '';
   lastGameActionEditAt = Date.now();
   flushSaveSettings();
+  notifyEditorRapidoActionsChanged(settingsKey);
   if (renderFn) renderFn();
 }
+
+
 function bindGameTriggerSelects(wrap, selClass, settingsKey, renderFn) {
   wrap.querySelectorAll('.' + selClass).forEach((s) => {
     const handler = () => {
@@ -15126,8 +15890,11 @@ function removeGameActions(settingsKey, keepFn, renderFn) {
   settings[settingsKey] = list.filter(keepFn);
   lastGameActionEditAt = Date.now();
   flushSaveSettings();
+  notifyEditorRapidoActionsChanged(settingsKey);
   if (renderFn) renderFn();
 }
+
+
 function applyGameActionGift(settingsKey, uid, g, renderFn) {
   const act = (settings?.[settingsKey] || []).find((x) => x && x.uid === uid);
   if (!act || !g) return;
@@ -15136,8 +15903,11 @@ function applyGameActionGift(settingsKey, uid, g, renderFn) {
   act.giftImage = g.image || '';
   lastGameActionEditAt = Date.now();
   flushSaveSettings();
+  notifyEditorRapidoActionsChanged(settingsKey);
   if (renderFn) renderFn();
 }
+
+
 function bindGameActionGiftButtons(wrap, btnClass, settingsKey, renderFn) {
   wrap.querySelectorAll('.' + btnClass).forEach((b) => {
     b.onclick = () => {
@@ -15518,6 +16288,7 @@ function renderMcFamilyActions(game) {
     a.count = Math.max(1, Math.min(100, parseInt(inp.value, 10) || 1));
     inp.value = String(a.count);
     saveSettings();
+    notifyEditorRapidoActionsChanged(key);
   });
   wrap.querySelectorAll('.mc-act-edit').forEach((b) => b.onclick = () => {
     const a = find(b.dataset.uid); if (a) openMcCmdModal(a, game === 'minecraft' ? undefined : game);
@@ -15945,11 +16716,172 @@ async function openGeneratedImageInEditor(dataUrl, fileName) {
 
 /** Overlay con capas separadas (acción / regalo / xN) editables en el Editor. */
 async function openOverlayLayersInEditor(payload) {
+  if (payload && Array.isArray(payload.erRows) && payload.erRows.length) {
+    return openGameActionsInEditorRapido(payload.erRows, { name: payload.name });
+  }
   if (typeof window.importOverlayLayersToEditor === 'function') {
     return !!(await window.importOverlayLayersToEditor(payload || {}));
   }
   toast && toast('Editor no disponible.', 'err');
   return false;
+}
+
+async function openGameActionsInEditorRapido(rows, opts) {
+  if (typeof window.importGameActionsToEditorRapido === 'function') {
+    return !!(await window.importGameActionsToEditorRapido(rows || [], opts || {}));
+  }
+  toast && toast('Editor Rápido no disponible. Recarga el panel.', 'err');
+  return false;
+}
+
+function editorRapidoCornerFromTrigger(trig) {
+  const t = String(trig || 'gift');
+  if (t === 'like' || t === 'likeGlobal') return 'like';
+  if (t === 'follow') return 'follow';
+  if (t === 'share') return 'share';
+  if (t === 'subscribe' || t === 'superFan' || t === 'superFanJoin') return 'superfan';
+  return '';
+}
+
+const ER_SYNCABLE_ACTION_KEYS = [
+  'mcActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions',
+  'marioActions', 'smb3Actions', 'smwActions', 'mari0Actions', 'pvzActions', 'pvzHybridActions',
+  'repoActions', 'l4dActions', 'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions',
+  'ctrActions', 'mslugActions', 'gdashActions', 'robloxActions', 'roblox3Actions',
+];
+
+function settingsKeyFromEnsureList(fn) {
+  const n = String(fn?.name || '');
+  const m = /^ensure([A-Z].*)Actions$/.exec(n);
+  if (!m) return '';
+  return m[1].charAt(0).toLowerCase() + m[1].slice(1) + 'Actions';
+}
+
+function settingsKeyForActionList(list) {
+  if (!settings || !Array.isArray(list)) return 'mcActions';
+  for (const k of ER_SYNCABLE_ACTION_KEYS) {
+    if (settings[k] === list) return k;
+  }
+  return 'mcActions';
+}
+
+function findSettingsKeyForActionUid(uid) {
+  if (!uid || !settings) return '';
+  for (const k of ER_SYNCABLE_ACTION_KEYS) {
+    if ((settings[k] || []).some((a) => a && a.uid === uid)) return k;
+  }
+  return '';
+}
+
+function editorRapidoPatchFromAction(a) {
+  if (!a) return null;
+  const trig = a.trigger || 'gift';
+  const cornerType = editorRapidoCornerFromTrigger(trig);
+  let giftSrc = '';
+  let giftEmoji = '';
+  let giftName = 'Regalo';
+  if (cornerType) {
+    giftName = (MC_TRIG_ICON[trig] || {}).label || giftName;
+  } else if (trig === 'gift' || trig === 'gift-any') {
+    giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
+    giftName = a.giftName || 'Regalo';
+  } else {
+    giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
+    giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
+  }
+  let qty = Math.max(1, parseInt(a.count, 10) || 1);
+  if (a.kind === 'sun') qty = Math.max(1, parseInt(a.amount, 10) || 50);
+  return {
+    uid: a.uid || '',
+    giftSrc,
+    giftEmoji,
+    giftName,
+    cornerType,
+    qty,
+  };
+}
+
+function erIconUrlForSettingsKey(key, a) {
+  if (!a) return '';
+  try {
+    switch (key) {
+      case 'marioActions': return typeof marioCatalogIconUrl === 'function' ? marioCatalogIconUrl(a) : '';
+      case 'mari0Actions': return typeof mari0CatalogIconUrl === 'function' ? mari0CatalogIconUrl(a) : '';
+      case 'smb3Actions': return typeof smb3CatalogIconUrl === 'function' ? smb3CatalogIconUrl(a) : '';
+      case 'smwActions': return typeof smwCatalogIconUrl === 'function' ? smwCatalogIconUrl(a) : '';
+      case 'mslugActions': return typeof mslugCatalogIconUrl === 'function' ? mslugCatalogIconUrl(a) : '';
+      case 'unturnedActions': return typeof unturnedCatalogIconUrl === 'function' ? unturnedCatalogIconUrl(a) : '';
+      case 'gtavKothActions': return typeof gtavKothCatalogIconUrl === 'function' ? gtavKothCatalogIconUrl(a) : '';
+      case 'gtavChaosActions': return typeof gtavChaosCatalogIconUrl === 'function' ? gtavChaosCatalogIconUrl(a) : '';
+      case 'gtavChiliadActions': return typeof gtavChiliadCatalogIconUrl === 'function' ? gtavChiliadCatalogIconUrl(a) : '';
+      case 'ctrActions': return typeof ctrCatalogIconUrl === 'function' ? ctrCatalogIconUrl(a) : '';
+      case 'l4dActions': return typeof l4dCatalogIconUrl === 'function' ? l4dCatalogIconUrl(a) : '';
+      case 'repoActions':
+        return typeof repoImgSlug === 'function'
+          ? `/img/repo/${encodeURIComponent(repoImgSlug(a.thing))}.png`
+          : '';
+      case 'pvzActions':
+      case 'pvzHybridActions':
+        return `/img/pvz/${encodeURIComponent(a.thing || '')}.png`;
+      case 'gdashActions':
+        return a.thing ? `/img/gdash/${a.thing}.png` : '';
+      case 'robloxActions':
+        return `/img/roblox/${a.id || ''}.png`;
+      case 'roblox3Actions':
+        return `/img/roblox3/${a.id || ''}.png`;
+      case 'mcActions':
+        return `/img/minecraft/${a.catId || ''}.png`;
+      case 'bedrockActions':
+        return `/img/bedrock/${a.catId || ''}.png`;
+      case 'farmActions':
+        return `/img/farm/${a.catId || ''}.png`;
+      case 'parkourActions':
+        return `/img/parkour/${a.catId || ''}.png`;
+      case 'kothActions':
+        return `/img/koth/${a.catId || ''}.png`;
+      case 'sandboxActions':
+        return `/img/sandbox/${a.catId || ''}.png`;
+      case 'mcshooterActions':
+        return `/img/mcshooter/${a.catId || ''}.png`;
+      default:
+        if (a.thing) return '';
+        return '';
+    }
+  } catch {
+    return '';
+  }
+}
+
+function buildEditorRapidoRowsForSettingsKey(settingsKey) {
+  const key = String(settingsKey || '').trim();
+  const list = Array.isArray(settings?.[key]) ? settings[key].filter(Boolean) : [];
+  return list.map((a) => {
+    const patch = editorRapidoPatchFromAction(a) || {};
+    const iconSrc = overlayImgProxy(erIconUrlForSettingsKey(key, a));
+    return {
+      actionSrc: iconSrc || EDITOR_OVERLAY_CLOUD_SRC,
+      actionName: a.name || a.label || a.thing || 'Acción',
+      actionUid: a.uid || '',
+      uid: a.uid || '',
+      giftSrc: patch.giftSrc || '',
+      giftEmoji: patch.giftEmoji || '',
+      giftName: patch.giftName || 'Regalo',
+      cornerType: patch.cornerType || '',
+      qty: patch.qty || 1,
+    };
+  });
+}
+
+let _erGameSyncTimer = null;
+function notifyEditorRapidoActionsChanged(settingsKey) {
+  const key = String(settingsKey || '').trim();
+  if (!key || !Array.isArray(settings?.[key])) return;
+  clearTimeout(_erGameSyncTimer);
+  _erGameSyncTimer = setTimeout(() => {
+    if (typeof window.syncEditorRapidoFromGameActions !== 'function') return;
+    const rows = buildEditorRapidoRowsForSettingsKey(key);
+    window.syncEditorRapidoFromGameActions(key, rows).catch(() => {});
+  }, 250);
 }
 
 const EDITOR_OVERLAY_CLOUD_SRC = 'data:image/svg+xml,' + encodeURIComponent(
@@ -15959,6 +16891,7 @@ const EDITOR_OVERLAY_CLOUD_SRC = 'data:image/svg+xml,' + encodeURIComponent(
   + '<ellipse cx="78" cy="56" rx="24" ry="20" fill="#c5e4f8"/>'
   + '</svg>'
 );
+
 
 function overlayImgProxy(u) {
   if (!u) return '';
@@ -15971,116 +16904,35 @@ function overlayImgProxy(u) {
 async function generateMcMenuImage(srcList, iconDir, fileName, iconUrlFor) {
   const all = Array.isArray(srcList) ? srcList : ((settings && Array.isArray(settings.mcActions)) ? settings.mcActions : []);
   const ICON_DIR = iconDir || '/img/minecraft/';
-  const OUT_NAME = fileName || 'menu-regalos-minecraft.png';
-  const list = all.filter((a) => a && a.enabled !== false);
+  const settingsKey = settingsKeyForActionList(all);
+  const list = all.filter(Boolean);
   if (!list.length) { toast && toast('Agrega acciones primero (con su regalo o evento).', 'warn'); return; }
-  toast && toast('Abriendo menú en el Editor…', 'ok');
+  toast && toast('Abriendo en Editor Rápido…', 'ok');
 
   const rows = [];
   for (const a of list) {
-    const trig = a.trigger || 'gift';
-    let giftSrc = '';
-    let giftEmoji = '';
-    let giftName = 'Regalo';
-    if (trig === 'gift') {
-      giftSrc = overlayImgProxy(a.giftImage);
-      giftName = a.giftName || 'Regalo';
-    } else {
-      const ev = MC_TRIG_ICON[trig] || { ic: '⚡', label: trig };
-      giftEmoji = ev.ic;
-      giftName = ev.label || 'Evento';
-    }
+    const patch = editorRapidoPatchFromAction(a) || {};
     const iconSrc = typeof iconUrlFor === 'function'
       ? overlayImgProxy(iconUrlFor(a))
       : overlayImgProxy(ICON_DIR + (a.catId || '') + '.png');
     rows.push({
-      actionSrc: iconSrc,
+      actionSrc: iconSrc || EDITOR_OVERLAY_CLOUD_SRC,
       actionName: a.name || a.label || 'Acción',
-      giftSrc,
-      giftEmoji,
-      giftName,
-      qty: Math.max(1, parseInt(a.count, 10) || 1),
+      actionUid: a.uid || '',
+      giftSrc: patch.giftSrc || '',
+      giftEmoji: patch.giftEmoji || '',
+      giftName: patch.giftName || 'Regalo',
+      cornerType: patch.cornerType || '',
+      qty: patch.qty || 1,
     });
   }
 
-  const cols = Math.max(1, Math.min(5, rows.length));
-  const gridRows = Math.ceil(rows.length / cols);
-  const margin = 10, gap = 14, cellW = 200, numH = 44, iconS = 156, giftS = 52;
-  const cellH = numH + iconS + 30;
-  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
-  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const s = 2;
-  const layers = [];
-
-  rows.forEach((row, i) => {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    const cellX = margin + c * (cellW + gap);
-    const cellY = margin + r * (cellH + gap);
-    const iconX = cellX + (cellW - iconS) / 2;
-    const iconY = cellY + numH;
-    const gx = cellX + (cellW - giftS) / 2;
-    const gy = iconY + iconS - Math.round(giftS * 0.5);
-
-    layers.push({
-      type: 'image',
-      name: row.actionName || `Acción ${i + 1}`,
-      src: row.actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
-      x: Math.round(iconX * s),
-      y: Math.round(iconY * s),
-      w: Math.round(iconS * s),
-      h: Math.round(iconS * s),
-    });
-    if (row.giftSrc) {
-      layers.push({
-        type: 'image',
-        name: row.giftName || 'Regalo',
-        src: row.giftSrc,
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    } else if (row.giftEmoji) {
-      layers.push({
-        type: 'text',
-        name: row.giftName || 'Evento',
-        text: row.giftEmoji,
-        fontSize: Math.round(34 * s),
-        color: '#ffffff',
-        font: 'system',
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    }
-    if (row.qty >= 2) {
-      const bw = Math.round(70 * s);
-      const bh = Math.round(34 * s);
-      layers.push({
-        type: 'badge',
-        name: 'Cantidad',
-        text: `x${row.qty}`,
-        color: '#ffffff',
-        bg: '#ec4899',
-        fontSize: Math.round(18 * s),
-        font: 'rubik',
-        x: Math.round((cellX + (cellW - bw / s) / 2) * s),
-        y: Math.round((cellY + (numH - bh / s) / 2) * s),
-        w: bw,
-        h: bh,
-      });
-    }
-  });
-
-  await openOverlayLayersInEditor({
-    width: Math.round(W * s),
-    height: Math.round(H * s),
-    layers,
-    name: OUT_NAME,
+  await openGameActionsInEditorRapido(rows, {
+    name: fileName || 'menu-regalos-minecraft.png',
+    settingsKey,
   });
 }
+
 
 /* ================= Acciones de Bedrock (Cubo TNT · comandos /bedrock) =================
    Misma mecánica que Minecraft (tarjetas con disparador + Probar), pero con los
@@ -17413,12 +18265,14 @@ function ensureRobloxSlots() {
     }
     const a = settings.robloxActions[i];
     a.slot = i;
+    if (!a.uid) a.uid = `rbx_slot_${i}`;
     a.id = p.id; a.name = p.name; a.emoji = p.emoji; a.keys = p.keys; // siempre forzados (no editables)
     ensureGameActionTimingFields(a);
   }
   settings.robloxActions.length = RBX_SLOTS;
   return settings.robloxActions;
 }
+
 
 function setupRobloxActionsUI() {
   const toggleAll = document.getElementById('rbx-toggle-all');
@@ -17519,7 +18373,7 @@ function renderRobloxActions() {
   wrap.querySelectorAll('.rbx-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
   wrap.querySelectorAll('.rbx-gift').forEach((b) => b.onclick = () => {
     const a = at(b); if (!a) return;
-    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderRobloxActions(); });
+    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); notifyEditorRapidoActionsChanged('robloxActions'); renderRobloxActions(); });
   });
   wrap.querySelectorAll('.rbx-test').forEach((b) => b.onclick = () => { const a = at(b); if (a) testRobloxAction(a); });
 }
@@ -17555,6 +18409,7 @@ function ensureRoblox3Slots() {
     }
     const a = settings.roblox3Actions[i];
     a.slot = i;
+    if (!a.uid) a.uid = `rbx3_slot_${i}`;
     a.id = p.id; a.name = p.name; a.emoji = p.emoji;
     if (p.editable) { if (typeof a.keys !== 'string') a.keys = ''; } // el usuario elige la tecla
     else a.keys = p.keys; // tecla fija (no editable)
@@ -17576,7 +18431,40 @@ function setupRoblox3ActionsUI() {
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
+  const genOverlayBtn = document.getElementById('rbx3-gen-overlay');
+  if (genOverlayBtn && !genOverlayBtn._wired) {
+    genOverlayBtn._wired = true;
+    genOverlayBtn.onclick = () => generateRoblox3OverlayImage();
+  }
   renderRoblox3Actions();
+}
+
+async function generateRoblox3OverlayImage() {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const all = ensureRoblox3Slots();
+  const list = (Array.isArray(all) ? all : []).filter(Boolean);
+  if (!list.length) { toast && toast('Agrega acciones primero.', 'warn'); return; }
+  toast && toast('Abriendo en Editor Rápido…', 'ok');
+
+  const rows = [];
+  for (const a of list) {
+    const patch = editorRapidoPatchFromAction(a) || {};
+    rows.push({
+      actionSrc: overlayImgProxy('/img/roblox3/' + (a.id || '') + '.png') || EDITOR_OVERLAY_CLOUD_SRC,
+      actionName: a.name || a.label || 'Acción',
+      actionUid: a.uid || '',
+      giftSrc: patch.giftSrc || '',
+      giftEmoji: patch.giftEmoji || '',
+      giftName: patch.giftName || 'Regalo',
+      cornerType: patch.cornerType || '',
+      qty: patch.qty || 1,
+    });
+  }
+
+  await openGameActionsInEditorRapido(rows, {
+    name: 'roblox3-acciones-overlay.png',
+    settingsKey: 'roblox3Actions',
+  });
 }
 
 function testRoblox3Action(a) {
@@ -17663,7 +18551,7 @@ function renderRoblox3Actions() {
   wrap.querySelectorAll('.rbx3-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
   wrap.querySelectorAll('.rbx3-gift').forEach((b) => b.onclick = () => {
     const a = at(b); if (!a) return;
-    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); renderRoblox3Actions(); });
+    openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); notifyEditorRapidoActionsChanged('roblox3Actions'); renderRoblox3Actions(); });
   });
   wrap.querySelectorAll('.rbx3-test').forEach((b) => b.onclick = () => { const a = at(b); if (a) testRoblox3Action(a); });
   wrap.querySelectorAll('.rbx3-keyset').forEach((b) => b.onclick = () => {
@@ -18641,6 +19529,7 @@ function renderMarioActions() {
       a.count = Math.max(1, Math.min(999, parseInt(inp.value, 10) || 1));
       if (a.webhookCmd?.url) a.webhookCmd.url = applyMarioWebhookQuantity(a.webhookCmd.url, a.count);
       saveSettings();
+      notifyEditorRapidoActionsChanged('marioActions');
     };
     inp.oninput = apply;
     inp.onchange = apply;
@@ -18657,122 +19546,38 @@ function renderMarioActions() {
 }
 
 // Capas editables en el Editor: icono de acción + regalo/evento + x{cantidad}.
-async function generateGameActionsOverlayImage({ ensureList, iconUrlFor, downloadName, emptyToast }) {
+async function generateGameActionsOverlayImage({ ensureList, iconUrlFor, downloadName, emptyToast, settingsKey: sk }) {
   const all = ensureList();
-  let list = all.filter((a) => a && a.enabled !== false);
-  if (!list.length) list = all.slice();
+  const list = (Array.isArray(all) ? all : []).filter(Boolean);
   if (!list.length) {
     toast && toast(emptyToast || 'Agrega acciones del catálogo con su regalo primero.', 'warn');
     return;
   }
-  toast && toast('Abriendo overlay en el Editor…', 'ok');
+  toast && toast('Abriendo en Editor Rápido…', 'ok');
+  const settingsKey = sk || settingsKeyFromEnsureList(ensureList) || settingsKeyForActionList(all);
 
   const rows = [];
   for (const a of list) {
     const actionSrc = overlayImgProxy(iconUrlFor(a));
-    const trig = a.trigger || 'gift';
-    let giftSrc = '';
-    let giftEmoji = '';
-    let giftName = 'Regalo';
-    if (trig === 'gift' || trig === 'gift-any') {
-      giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
-      giftName = a.giftName || 'Regalo';
-    } else {
-      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
-      giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
-    }
+    const patch = editorRapidoPatchFromAction(a) || {};
     rows.push({
-      actionSrc,
+      actionSrc: actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
       actionName: a.name || a.label || a.thing || 'Acción',
-      giftSrc,
-      giftEmoji,
-      giftName,
-      qty: Math.max(1, parseInt(a.count, 10) || 1),
+      actionUid: a.uid || '',
+      giftSrc: patch.giftSrc || '',
+      giftEmoji: patch.giftEmoji || '',
+      giftName: patch.giftName || 'Regalo',
+      cornerType: patch.cornerType || '',
+      qty: patch.qty || 1,
     });
   }
 
-  const cols = Math.min(7, Math.max(1, rows.length));
-  const gridRows = Math.ceil(rows.length / cols);
-  const margin = 12;
-  const gap = 8;
-  const cellW = 118;
-  const iconS = 108;
-  const giftS = 44;
-  const cellH = iconS + 6;
-  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
-  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const s = 2;
-  const layers = [];
-
-  rows.forEach((row, i) => {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    const cellX = margin + c * (cellW + gap);
-    const cellY = margin + r * (cellH + gap);
-    const iconX = cellX + (cellW - iconS) / 2;
-    const iconY = cellY;
-    const gx = iconX + iconS - giftS + 2;
-    const gy = iconY + iconS - giftS + 2;
-
-    layers.push({
-      type: 'image',
-      name: row.actionName || `Acción ${i + 1}`,
-      src: row.actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
-      x: Math.round(iconX * s),
-      y: Math.round(iconY * s),
-      w: Math.round(iconS * s),
-      h: Math.round(iconS * s),
-    });
-    if (row.giftSrc) {
-      layers.push({
-        type: 'image',
-        name: row.giftName || 'Regalo',
-        src: row.giftSrc,
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    } else if (row.giftEmoji) {
-      layers.push({
-        type: 'text',
-        name: row.giftName || 'Evento',
-        text: row.giftEmoji,
-        fontSize: Math.round(30 * s),
-        color: '#ffffff',
-        font: 'system',
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    }
-    if (row.qty >= 2) {
-      const bw = Math.round(52 * s);
-      const bh = Math.round(28 * s);
-      layers.push({
-        type: 'badge',
-        name: 'Cantidad',
-        text: `x${row.qty}`,
-        color: '#ffffff',
-        bg: '#111111',
-        fontSize: Math.round(16 * s),
-        font: 'rubik',
-        x: Math.round(iconX * s + iconS * s - bw),
-        y: Math.round(iconY * s),
-        w: bw,
-        h: bh,
-      });
-    }
-  });
-
-  await openOverlayLayersInEditor({
-    width: Math.round(W * s),
-    height: Math.round(H * s),
-    layers,
+  await openGameActionsInEditorRapido(rows, {
     name: downloadName || 'game-overlay',
+    settingsKey,
   });
 }
+
 
 async function generateMarioOverlayImage() {
   return generateGameActionsOverlayImage({
@@ -19047,6 +19852,20 @@ function smb3CatalogIconHtml(c) {
   return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
 }
 
+function smb3CatalogIconUrl(entry) {
+  return smb3ThumbUrls(entry).primary || '';
+}
+
+async function generateSmb3OverlayImage() {
+  return generateGameActionsOverlayImage({
+    ensureList: ensureSmb3Actions,
+    iconUrlFor: (a) => smb3CatalogIconUrl(a),
+    downloadName: 'smb3-overlay.png',
+    emptyToast: 'Agrega acciones del catálogo con su regalo primero.',
+    settingsKey: 'smb3Actions',
+  });
+}
+
 function extractSmb3Entities(raw) {
   if (Array.isArray(raw)) return raw;
   if (raw?.entities && Array.isArray(raw.entities)) return raw.entities;
@@ -19180,6 +19999,11 @@ function setupSmb3ActionsUI() {
       saveSettingsKeysPatch('smb3Actions'); renderSmb3Actions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
+  }
+  const genOverlayBtn = document.getElementById('smb3-gen-overlay');
+  if (genOverlayBtn && !genOverlayBtn._wired) {
+    genOverlayBtn._wired = true;
+    genOverlayBtn.onclick = () => generateSmb3OverlayImage();
   }
   loadSmb3Catalog().finally(() => {
     renderSmb3Catalog(search ? search.value : '');
@@ -21828,133 +22652,31 @@ function renderRepoActions() {
 
 async function generateRepoOverlayImage() {
   const all = ensureRepoActions();
-  let list = all.filter((a) => a && a.enabled !== false);
-  if (!list.length) list = all.slice();
+  const list = (Array.isArray(all) ? all : []).filter(Boolean);
   if (!list.length) { toast && toast('Agrega acciones del catálogo primero.', 'warn'); return; }
-  toast && toast('Abriendo overlay en el Editor…', 'ok');
+  toast && toast('Abriendo en Editor Rápido…', 'ok');
 
   const rows = [];
   for (const a of list) {
     const imgSlug = repoImgSlug(a.thing);
     const actionSrc = overlayImgProxy(`/img/repo/${encodeURIComponent(imgSlug)}.png`);
-    const trig = a.trigger || 'gift';
-    let giftSrc = '';
-    let giftEmoji = '';
-    let giftName = 'Regalo';
-    if (trig === 'gift' || trig === 'gift-any') {
-      giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
-      giftName = a.giftName || 'Regalo';
-    } else {
-      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
-      giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
-    }
+    const patch = editorRapidoPatchFromAction(a) || {};
     rows.push({
-      label: a.label || a.thing,
-      actionSrc,
-      giftSrc,
-      giftEmoji,
-      giftName,
-      qty: Math.max(1, parseInt(a.count, 10) || 1),
+      actionSrc: actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
+      actionName: a.label || a.thing || 'Acción',
+      actionUid: a.uid || '',
+      giftSrc: patch.giftSrc || '',
+      giftEmoji: patch.giftEmoji || '',
+      giftName: patch.giftName || 'Regalo',
+      cornerType: patch.cornerType || '',
+      qty: patch.qty || 1,
     });
   }
 
-  const cols = Math.min(5, Math.max(2, Math.ceil(Math.sqrt(rows.length))));
-  const gridRows = Math.ceil(rows.length / cols);
-  const margin = 16;
-  const gap = 12;
-  const cellW = 140;
-  const iconS = 108;
-  const giftS = 44;
-  const labelH = 22;
-  const cellH = iconS + labelH + 4;
-  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
-  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const s = 2;
-  const layers = [];
-
-  rows.forEach((row, i) => {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    const cellX = margin + c * (cellW + gap);
-    const cellY = margin + r * (cellH + gap);
-    const iconX = cellX + (cellW - iconS) / 2;
-    const iconY = cellY;
-    const gx = iconX + 2;
-    const gy = iconY + iconS - giftS + 2;
-
-    layers.push({
-      type: 'image',
-      name: String(row.label || `Acción ${i + 1}`).slice(0, 40),
-      src: row.actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
-      x: Math.round(iconX * s),
-      y: Math.round(iconY * s),
-      w: Math.round(iconS * s),
-      h: Math.round(iconS * s),
-    });
-    if (row.giftSrc) {
-      layers.push({
-        type: 'image',
-        name: row.giftName || 'Regalo',
-        src: row.giftSrc,
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    } else if (row.giftEmoji) {
-      layers.push({
-        type: 'text',
-        name: row.giftName || 'Evento',
-        text: row.giftEmoji,
-        fontSize: Math.round(28 * s),
-        color: '#ffffff',
-        font: 'system',
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    }
-    layers.push({
-      type: 'text',
-      name: 'Etiqueta',
-      text: String(row.label || '').slice(0, 22),
-      fontSize: Math.round(13 * s),
-      color: '#ffffff',
-      font: 'rubik',
-      x: Math.round(cellX * s),
-      y: Math.round((iconY + iconS + 4) * s),
-      w: Math.round(cellW * s),
-      h: Math.round(labelH * s),
-    });
-    if (row.qty >= 2) {
-      const bw = Math.round(48 * s);
-      const bh = Math.round(26 * s);
-      layers.push({
-        type: 'badge',
-        name: 'Cantidad',
-        text: `x${row.qty}`,
-        color: '#ffffff',
-        bg: '#22c55e',
-        fontSize: Math.round(14 * s),
-        font: 'rubik',
-        x: Math.round(iconX * s + iconS * s - bw),
-        y: Math.round(iconY * s),
-        w: bw,
-        h: bh,
-      });
-    }
-  });
-
-  await openOverlayLayersInEditor({
-    width: Math.round(W * s),
-    height: Math.round(H * s),
-    layers,
-    name: 'repo-overlay',
-  });
+  await openGameActionsInEditorRapido(rows, { name: 'repo-overlay', settingsKey: 'repoActions' });
 }
 
-// ===================== LEFT 4 DEAD 2 =====================
+
 function askL4dModifyConfirm() {
   return new Promise((resolve) => {
     const back = document.createElement('div');
@@ -22335,6 +23057,21 @@ function l4dCatalogIconHtml(c) {
   return `<img class="repo-cat-list-ic" loading="lazy" decoding="async" alt="" src="${esc(primary)}" data-fb="${esc(fallback)}" onerror="if(this.dataset.fb&&this.src!==this.dataset.fb){const u=this.dataset.fb;this.dataset.fb='';this.src=u;}else{this.outerHTML='<span class=\\'repo-cat-list-em\\'>${em}</span>';}">`;
 }
 
+function l4dCatalogIconUrl(entry) {
+  const c = entry?.thing ? (l4dCatalogEntry(entry.thing) || entry) : entry;
+  return l4dThumbUrls(c).primary || '';
+}
+
+async function generateL4dOverlayImage() {
+  return generateGameActionsOverlayImage({
+    ensureList: ensureL4dActions,
+    iconUrlFor: (a) => l4dCatalogIconUrl(a),
+    downloadName: 'l4d-overlay.png',
+    emptyToast: 'Agrega acciones del catálogo con su regalo primero.',
+    settingsKey: 'l4dActions',
+  });
+}
+
 function ensureL4dActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.l4dActions)) settings.l4dActions = [];
@@ -22549,6 +23286,11 @@ function setupL4dActionsUI() {
       saveSettingsKeysPatch('l4dActions');
       renderL4dActions();
     };
+  }
+  const genOverlayBtn = document.getElementById('l4d-gen-overlay');
+  if (genOverlayBtn && !genOverlayBtn._wired) {
+    genOverlayBtn._wired = true;
+    genOverlayBtn.onclick = () => generateL4dOverlayImage();
   }
   renderL4dCatalog(search ? search.value : '');
   renderL4dActions();
@@ -24109,6 +24851,12 @@ function ctrCatalogIconHtml(c) {
   return `<img class="repo-cat-list-ic ctr-cat-ic" src="/img/ctr/${id}.webp" alt="" loading="lazy" onerror="this.onerror=null;this.src='/img/ctr/${id}.png';this.onerror=function(){this.outerHTML='<span class=\\'repo-cat-list-em ctr-cat-em\\'>${em}</span>'}">`;
 }
 
+function ctrCatalogIconUrl(entry) {
+  const id = entry?.id || entry?.thing;
+  if (!id) return '';
+  return `/img/ctr/${id}.webp`;
+}
+
 function ensureCtrActions() {
   if (!settings) return [];
   if (!Array.isArray(settings.ctrActions)) settings.ctrActions = [];
@@ -24887,180 +25635,21 @@ function ctrActionsForOverlay(section) {
     });
 }
 
-// Capas editables HEROES + VILLANOS (misma disposición que el PNG anterior).
+// Capas editables CTR → Editor Rápido (ítems + efectos).
 async function generateCtrOverlayImage() {
-  const heroes = ctrActionsForOverlay('items');
-  const villains = ctrActionsForOverlay('effects');
-  if (!heroes.length && !villains.length) {
-    toast && toast('Agrega acciones del catálogo (ítems o efectos) primero.', 'warn');
-    return;
-  }
-  toast && toast('Abriendo overlay CTR en el Editor…', 'ok');
-
-  const ICON_DIR = '/img/ctr/';
-  function packRows(list) {
-    return list.map((a) => {
-      const thing = a.thing;
-      const srcWebp = overlayImgProxy(ICON_DIR + encodeURIComponent(thing) + '.webp');
-      const srcPng = overlayImgProxy(ICON_DIR + encodeURIComponent(thing) + '.png');
-      const trig = a.trigger || 'gift';
-      let giftSrc = '';
-      let giftEmoji = '';
-      let giftName = 'Regalo';
-      if (trig === 'gift' || trig === 'gift-any') {
-        giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
-        giftName = a.giftName || 'Regalo';
-      } else {
-        giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
-        giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
-      }
-      return {
-        actionSrc: srcWebp || srcPng,
-        actionAlt: srcPng,
-        actionName: a.name || thing || 'Acción',
-        giftSrc,
-        giftEmoji,
-        giftName,
-        qty: Math.max(1, parseInt(a.count, 10) || 1),
-        foot: CTR_OVERLAY_EFFECT_LABEL[thing] || '',
-      };
-    });
-  }
-
-  const heroRows = packRows(heroes);
-  const villainRows = packRows(villains);
-
-  const cols = 3;
-  const margin = 10;
-  const gap = 14;
-  const panelGap = 28;
-  const cellW = 156;
-  const numH = 36;
-  const iconS = 128;
-  const giftS = 48;
-  const cellH = numH + iconS + 8;
-  const titleH = 44;
-  const panelW = cols * cellW + (cols - 1) * gap;
-  const panelGridH = (n) => {
-    const rowsN = Math.max(1, Math.ceil(Math.max(1, n) / cols));
-    return rowsN * cellH + (rowsN - 1) * gap;
-  };
-  const H = margin * 2 + titleH + Math.max(panelGridH(heroRows.length), panelGridH(villainRows.length));
-  const W = margin * 2 + panelW + panelGap + panelW;
-  const s = 2;
-  const layers = [];
-
-  const pushTitle = (text, panelX, color) => {
-    layers.push({
-      type: 'text',
-      name: text,
-      text,
-      fontSize: Math.round(32 * s),
-      color,
-      font: 'rubik',
-      strokeWidth: Math.round(4 * s),
-      strokeColor: '#1e3a8a',
-      x: Math.round(panelX * s),
-      y: Math.round(margin * s),
-      w: Math.round(panelW * s),
-      h: Math.round(titleH * s),
-    });
-  };
-
-  const pushPanel = (rows, panelX) => {
-    const gridY = margin + titleH;
-    rows.forEach((row, i) => {
-      const c = i % cols;
-      const r = Math.floor(i / cols);
-      const cellX = panelX + c * (cellW + gap);
-      const cellY = gridY + r * (cellH + gap);
-      const iconX = cellX + (cellW - iconS) / 2;
-      const iconY = cellY + numH;
-      const gx = cellX + (cellW - giftS) / 2;
-      const gy = iconY + iconS - Math.round(giftS * 0.5);
-
-      layers.push({
-        type: 'image',
-        name: row.actionName || `Acción ${i + 1}`,
-        src: row.actionSrc || row.actionAlt || EDITOR_OVERLAY_CLOUD_SRC,
-        x: Math.round(iconX * s),
-        y: Math.round(iconY * s),
-        w: Math.round(iconS * s),
-        h: Math.round(iconS * s),
-      });
-      if (row.giftSrc) {
-        layers.push({
-          type: 'image',
-          name: row.giftName || 'Regalo',
-          src: row.giftSrc,
-          x: Math.round(gx * s),
-          y: Math.round(gy * s),
-          w: Math.round(giftS * s),
-          h: Math.round(giftS * s),
-        });
-      } else if (row.giftEmoji) {
-        layers.push({
-          type: 'text',
-          name: row.giftName || 'Evento',
-          text: row.giftEmoji,
-          fontSize: Math.round(30 * s),
-          color: '#ffffff',
-          font: 'system',
-          x: Math.round(gx * s),
-          y: Math.round(gy * s),
-          w: Math.round(giftS * s),
-          h: Math.round(giftS * s),
-        });
-      }
-      if (row.qty >= 2) {
-        const bw = Math.round(64 * s);
-        const bh = Math.round(32 * s);
-        layers.push({
-          type: 'badge',
-          name: 'Cantidad',
-          text: `x${row.qty}`,
-          color: '#ffffff',
-          bg: '#ec4899',
-          fontSize: Math.round(16 * s),
-          font: 'rubik',
-          x: Math.round((cellX + (cellW - bw / s) / 2) * s),
-          y: Math.round((cellY + (numH - bh / s) / 2) * s),
-          w: bw,
-          h: bh,
-        });
-      }
-      if (row.foot) {
-        layers.push({
-          type: 'text',
-          name: 'Etiqueta',
-          text: row.foot,
-          fontSize: Math.round(12 * s),
-          color: '#ffffff',
-          font: 'rubik',
-          strokeWidth: Math.round(2 * s),
-          strokeColor: '#111111',
-          x: Math.round(cellX * s),
-          y: Math.round((iconY + iconS + 2) * s),
-          w: Math.round(cellW * s),
-          h: Math.round(18 * s),
-        });
-      }
-    });
-  };
-
-  pushTitle('HEROES', margin, '#fb923c');
-  pushTitle('VILLANOS', margin + panelW + panelGap, '#ef4444');
-  if (heroRows.length) pushPanel(heroRows, margin);
-  if (villainRows.length) pushPanel(villainRows, margin + panelW + panelGap);
-
-  await openOverlayLayersInEditor({
-    width: Math.round(W * s),
-    height: Math.round(H * s),
-    layers,
-    name: 'crash-ctr-overlay',
+  return generateGameActionsOverlayImage({
+    ensureList: () => {
+      const heroes = ctrActionsForOverlay('items');
+      const villains = ctrActionsForOverlay('effects');
+      const list = [...heroes, ...villains];
+      return list.length ? list : ensureCtrActions();
+    },
+    iconUrlFor: (a) => ctrCatalogIconUrl(a),
+    downloadName: 'crash-ctr-overlay.png',
+    emptyToast: 'Agrega acciones del catálogo (ítems o efectos) primero.',
+    settingsKey: 'ctrActions',
   });
 }
-
 // ===================== Metal Slug SB Fanthology =====================
 const MSLUG_SECTION_ORDER = ['weapons', 'soldiers', 'creatures', 'bosses'];
 const MSLUG_SECTION_LABEL = {
@@ -25539,7 +26128,7 @@ function setupMslugActionsUI() {
   const genOverlayBtn = document.getElementById('mslug-gen-overlay');
   if (genOverlayBtn && !genOverlayBtn._wired) {
     genOverlayBtn._wired = true;
-    genOverlayBtn.onclick = () => downloadMslugOverlayImage();
+    genOverlayBtn.onclick = () => generateMslugOverlayImage();
   }
   const editOverlayBtn = document.getElementById('mslug-edit-overlay');
   if (editOverlayBtn && !editOverlayBtn._wired) {
@@ -25947,262 +26536,66 @@ function renderGdashActions() {
 
 
 // Capas editables: menú de regalos PvZ (acción + regalo + cantidad).
+// Capas editables: menú de regalos PvZ → Editor Rápido.
 async function generatePvzMenuImage(orientation) {
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
   const all = ensurePvzActions();
-  let list = all.filter((a) => a && a.enabled !== false);
-  if (!list.length) list = all.slice();
+  const list = (Array.isArray(all) ? all : []).filter(Boolean);
   if (!list.length) { toast && toast('Agrega acciones del catálogo con su regalo primero.', 'warn'); return; }
-  toast && toast('Abriendo menú en el Editor…', 'ok');
+  toast && toast('Abriendo en Editor Rápido…', 'ok');
 
   const rows = [];
   for (const a of list) {
-    const trig = a.trigger || 'gift';
-    let giftSrc = '';
-    let giftEmoji = '';
-    let giftName = 'Regalo';
-    if (trig === 'gift' || trig === 'gift-any') {
-      giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
-      giftName = a.giftName || 'Regalo';
-    } else {
-      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
-      giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
-    }
+    const patch = editorRapidoPatchFromAction(a) || {};
     const actionSrc = overlayImgProxy(`/img/pvz/${encodeURIComponent(a.thing || '')}.png`);
-    const actEmoji = a.kind === 'sun' ? '☀️' : (PVZ_CAT_ICON[a.tipo] || '🧟');
-    const qty = a.kind === 'sun'
-      ? Math.max(1, parseInt(a.amount, 10) || 50)
-      : (a.kind === 'cmd' ? 0 : Math.max(1, parseInt(a.count, 10) || 1));
     rows.push({
-      actionSrc,
-      actEmoji,
+      actionSrc: actionSrc || EDITOR_OVERLAY_CLOUD_SRC,
       actionName: a.name || a.thing || 'Acción',
-      giftSrc,
-      giftEmoji,
-      giftName,
-      qty,
+      actionUid: a.uid || '',
+      giftSrc: patch.giftSrc || '',
+      giftEmoji: patch.giftEmoji || '',
+      giftName: patch.giftName || 'Regalo',
+      cornerType: patch.cornerType || '',
+      qty: patch.qty || 1,
     });
   }
 
-  let cols;
-  if (orientation === 'vertical') cols = 1;
-  else if (orientation === 'horizontal') cols = rows.length;
-  else cols = Math.max(1, Math.min(5, rows.length));
-  cols = Math.max(1, cols);
-  const gridRows = Math.ceil(rows.length / cols);
-  const margin = 10;
-  const gap = 14;
-  const cellW = 200;
-  const numH = 14;
-  const iconS = 156;
-  const giftS = 52;
-  const cellH = numH + iconS + 30;
-  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
-  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const s = 2;
-  const layers = [];
-
-  rows.forEach((row, i) => {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    const cellX = margin + c * (cellW + gap);
-    const cellY = margin + r * (cellH + gap);
-    const iconX = cellX + (cellW - iconS) / 2;
-    const iconY = cellY + numH;
-    const gx = cellX + (cellW - giftS) / 2;
-    const gy = iconY + iconS - Math.round(giftS * 0.5);
-
-    if (row.actionSrc) {
-      layers.push({
-        type: 'image',
-        name: row.actionName || `Acción ${i + 1}`,
-        src: row.actionSrc,
-        x: Math.round(iconX * s),
-        y: Math.round(iconY * s),
-        w: Math.round(iconS * s),
-        h: Math.round(iconS * s),
-      });
-    } else {
-      layers.push({
-        type: 'text',
-        name: row.actionName || `Acción ${i + 1}`,
-        text: row.actEmoji || '🧟',
-        fontSize: Math.round(72 * s),
-        color: '#ffffff',
-        font: 'system',
-        x: Math.round(iconX * s),
-        y: Math.round(iconY * s),
-        w: Math.round(iconS * s),
-        h: Math.round(iconS * s),
-      });
-    }
-    if (row.giftSrc) {
-      layers.push({
-        type: 'image',
-        name: row.giftName || 'Regalo',
-        src: row.giftSrc,
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    } else {
-      layers.push({
-        type: 'text',
-        name: row.giftName || 'Evento',
-        text: row.giftEmoji || '🎁',
-        fontSize: Math.round(34 * s),
-        color: '#ffffff',
-        font: 'system',
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    }
-    if (row.qty > 1) {
-      const bw = Math.round(52 * s);
-      const bh = Math.round(28 * s);
-      layers.push({
-        type: 'badge',
-        name: 'Cantidad',
-        text: `x${row.qty}`,
-        color: '#ffffff',
-        bg: '#111111',
-        fontSize: Math.round(16 * s),
-        font: 'rubik',
-        x: Math.round(iconX * s + iconS * s - bw),
-        y: Math.round(iconY * s),
-        w: bw,
-        h: bh,
-      });
-    }
-  });
-
   const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
-  await openOverlayLayersInEditor({
-    width: Math.round(W * s),
-    height: Math.round(H * s),
-    layers,
-    name: 'menu-regalos-pvz' + suffix,
-  });
+  await openGameActionsInEditorRapido(rows, { name: 'menu-regalos-pvz' + suffix, settingsKey: 'pvzActions' });
 }
 
-// Capas editables: menú de regalos Roblox.
+// Capas editables: menú de regalos Roblox → Editor Rápido.
+
+
 async function generateRobloxMenuImage(orientation) {
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
   const all = ensureRobloxSlots();
-  let list = all.filter((a) => a && a.enabled !== false);
-  if (!list.length) list = all.slice();
-  toast && toast('Abriendo menú en el Editor…', 'ok');
+  const list = (Array.isArray(all) ? all : []).filter(Boolean);
+  if (!list.length) { toast && toast('Agrega acciones primero.', 'warn'); return; }
+  toast && toast('Abriendo en Editor Rápido…', 'ok');
 
   const rows = [];
   for (const a of list) {
-    const trig = a.trigger || 'gift';
-    let giftSrc = '';
-    let giftEmoji = '';
-    let giftName = 'Regalo';
-    if (trig === 'gift') {
-      giftSrc = overlayImgProxy(a.giftImage);
-      giftName = a.giftName || 'Regalo';
-    } else {
-      giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
-      giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
-    }
+    const patch = editorRapidoPatchFromAction(a) || {};
     rows.push({
-      actionSrc: overlayImgProxy('/img/roblox/' + (a.id || '') + '.png'),
-      actEmoji: a.emoji || '🎮',
+      actionSrc: overlayImgProxy('/img/roblox/' + (a.id || '') + '.png') || EDITOR_OVERLAY_CLOUD_SRC,
       actionName: a.name || a.label || 'Acción',
-      giftSrc,
-      giftEmoji,
-      giftName,
+      actionUid: a.uid || '',
+      giftSrc: patch.giftSrc || '',
+      giftEmoji: patch.giftEmoji || '',
+      giftName: patch.giftName || 'Regalo',
+      cornerType: patch.cornerType || '',
+      qty: patch.qty || 1,
     });
   }
 
-  let cols;
-  if (orientation === 'vertical') cols = 1;
-  else if (orientation === 'horizontal') cols = rows.length;
-  else cols = Math.max(1, Math.min(5, rows.length));
-  cols = Math.max(1, cols);
-  const gridRows = Math.ceil(rows.length / cols);
-  const margin = 10, gap = 14, cellW = 200, numH = 14, iconS = 156, giftS = 52;
-  const cellH = numH + iconS + 30;
-  const W = margin * 2 + cols * cellW + (cols - 1) * gap;
-  const H = margin * 2 + gridRows * cellH + (gridRows - 1) * gap;
-  const s = 2;
-  const layers = [];
-
-  rows.forEach((row, i) => {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    const cellX = margin + c * (cellW + gap);
-    const cellY = margin + r * (cellH + gap);
-    const iconX = cellX + (cellW - iconS) / 2;
-    const iconY = cellY + numH;
-    const gx = cellX + (cellW - giftS) / 2;
-    const gy = iconY + iconS - Math.round(giftS * 0.5);
-
-    if (row.actionSrc) {
-      layers.push({
-        type: 'image',
-        name: row.actionName || `Acción ${i + 1}`,
-        src: row.actionSrc,
-        x: Math.round(iconX * s),
-        y: Math.round(iconY * s),
-        w: Math.round(iconS * s),
-        h: Math.round(iconS * s),
-      });
-    } else {
-      layers.push({
-        type: 'text',
-        name: row.actionName || `Acción ${i + 1}`,
-        text: row.actEmoji || '🎮',
-        fontSize: Math.round(72 * s),
-        color: '#ffffff',
-        font: 'system',
-        x: Math.round(iconX * s),
-        y: Math.round(iconY * s),
-        w: Math.round(iconS * s),
-        h: Math.round(iconS * s),
-      });
-    }
-    if (row.giftSrc) {
-      layers.push({
-        type: 'image',
-        name: row.giftName || 'Regalo',
-        src: row.giftSrc,
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    } else {
-      layers.push({
-        type: 'text',
-        name: row.giftName || 'Evento',
-        text: row.giftEmoji || '🎁',
-        fontSize: Math.round(34 * s),
-        color: '#ffffff',
-        font: 'system',
-        x: Math.round(gx * s),
-        y: Math.round(gy * s),
-        w: Math.round(giftS * s),
-        h: Math.round(giftS * s),
-      });
-    }
-  });
-
   const suffix = orientation === 'vertical' ? '-vertical' : orientation === 'horizontal' ? '-horizontal' : '';
-  await openOverlayLayersInEditor({
-    width: Math.round(W * s),
-    height: Math.round(H * s),
-    layers,
-    name: 'menu-regalos-roblox' + suffix,
-  });
+  await openGameActionsInEditorRapido(rows, { name: 'menu-regalos-roblox' + suffix, settingsKey: 'robloxActions' });
 }
 
 // Descarga el archivo del servidor (botón sobre la imagen).
 let gameDlProgressOff = null;
+
 
 function fmtDlBytes(b) {
   if (!b) return '0 B';
@@ -27583,6 +27976,11 @@ function setupPanelLives() {
   await loadMe();
   mountUserChip();
     refreshOverlayUrls();
+    try {
+      if (typeof window.ensureEditorRapidoLivePublished === 'function') {
+        window.ensureEditorRapidoLivePublished();
+      }
+    } catch (e) { console.error('Editor Rápido live:', e); }
     maybeNotifyLocalTikTokOverlays();
     refreshLevelVideoScreenLink();
     try { loadAnnouncements(); } catch (e) { console.error('Anuncios:', e); }

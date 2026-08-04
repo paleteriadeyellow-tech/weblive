@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Botón Pánico — Widget</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: transparent;
+    font-family: Inter, system-ui, Segoe UI, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    user-select: none;
+  }
+  .shell {
+    display: flex; flex-direction: column;
+    height: 100vh; min-height: 160px;
+    margin: 6px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(18, 12, 18, .82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 16px 40px rgba(0,0,0,.5);
+    overflow: hidden;
+  }
+  .head {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    -webkit-app-region: drag; app-region: drag;
+    cursor: grab;
+  }
+  .head-ico { font-size: 16px; line-height: 1; }
+  .head-title { flex: 1; font-weight: 800; font-size: 13px; letter-spacing: .02em; }
+  .head-btn {
+    -webkit-app-region: no-drag; app-region: no-drag;
+    width: 26px; height: 26px; border: 0; border-radius: 8px;
+    background: rgba(255,255,255,.08); color: #fff; cursor: pointer;
+    font-size: 15px; font-weight: 700; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .head-btn:hover { background: rgba(254,44,85,.85); }
+  .body {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; padding: 14px 16px 16px;
+    -webkit-app-region: no-drag; app-region: no-drag;
+  }
+  .hint {
+    margin: 0; text-align: center;
+    font-size: 11px; color: rgba(255,255,255,.55); line-height: 1.35;
+  }
+  .panic {
+    width: min(100%, 200px); aspect-ratio: 1;
+    max-height: min(200px, 55vh);
+    border: 0; border-radius: 50%;
+    cursor: pointer;
+    color: #fff;
+    font-family: inherit;
+    font-weight: 900;
+    font-size: clamp(14px, 4.2vw, 18px);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    background:
+      radial-gradient(circle at 35% 30%, #ff7a8a, transparent 45%),
+      linear-gradient(145deg, #ff2b55 0%, #c01030 55%, #8b0a20 100%);
+    box-shadow:
+      0 0 0 4px rgba(255, 43, 85, .25),
+      0 14px 28px rgba(200, 20, 50, .45),
+      inset 0 2px 0 rgba(255,255,255,.25);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px;
+    transition: transform .1s ease, filter .12s ease, box-shadow .12s ease;
+  }
+  .panic .ico { font-size: clamp(28px, 8vw, 40px); line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+  .panic:hover {
+    filter: brightness(1.06);
+    box-shadow:
+      0 0 0 5px rgba(255, 43, 85, .32),
+      0 16px 32px rgba(200, 20, 50, .55),
+      inset 0 2px 0 rgba(255,255,255,.28);
+  }
+  .panic:active { transform: scale(.94); }
+  .panic.fired {
+    animation: panic-pulse .55s ease;
+  }
+  @keyframes panic-pulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.08); filter: brightness(1.2); }
+    100% { transform: scale(1); }
+  }
+  .status {
+    font-size: 10px; color: rgba(255,255,255,.4);
+    min-height: 14px;
+  }
+  .status.on { color: rgba(37,244,238,.8); }
+  .status.warn { color: #ff8fa0; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="head">
+      <span class="head-ico" aria-hidden="true">🚨</span>
+      <span class="head-title">Botón Pánico</span>
+      <button type="button" class="head-btn" id="btnClose" title="Cerrar">×</button>
+    </div>
+    <div class="body">
+      <p class="hint">Detiene videos, sonidos, TTS y cola de Minecraft</p>
+      <button type="button" class="panic" id="btnPanic" title="Activar pánico">
+        <span class="ico" aria-hidden="true">⛔</span>
+        <span>Pánico</span>
+      </button>
+      <div class="status" id="status">Conectando…</div>
+    </div>
+  </div>
+<script>
+(function () {
+  const qs = new URLSearchParams(location.search);
+  const room = String(qs.get('room') || '').trim();
+  let ws;
+  let lastFire = 0;
+
+  const status = (t, cls) => {
+    const el = document.getElementById('status');
+    if (!el) return;
+    el.textContent = t;
+    el.className = 'status' + (cls ? ' ' + cls : '');
+  };
+
+  function send(obj) {
+    if (!ws || ws.readyState !== 1) return false;
+    try { ws.send(JSON.stringify(obj)); return true; } catch { return false; }
+  }
+
+  async function firePanic() {
+    const now = Date.now();
+    if (now - lastFire < 400) return;
+    lastFire = now;
+    const btn = document.getElementById('btnPanic');
+    btn?.classList.remove('fired');
+    void btn?.offsetWidth;
+    btn?.classList.add('fired');
+    status('⛔ Enviando pánico…', 'warn');
+
+    // .exe: misma ruta que el botón del panel (nube/relay + sonidos/TTS/videos)
+    if (window.desktopAPI?.triggerAlertPanic) {
+      try {
+        const r = await window.desktopAPI.triggerAlertPanic();
+        status(r && r.ok !== false ? '⛔ Pánico enviado' : 'Error al enviar pánico', 'warn');
+        setTimeout(() => status('Conectado · listo', 'on'), 1600);
+        return;
+      } catch {}
+    }
+
+    try {
+      if (window.desktopAPI?.bumpMcPanic) await window.desktopAPI.bumpMcPanic();
+    } catch {}
+
+    let ok = send({ action: 'panic' });
+    try {
+      const res = await fetch('/api/desktop/widget-panic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: '{}',
+      });
+      if (res.ok) ok = true;
+    } catch {}
+    try {
+      const res2 = await fetch('/api/desktop/local-media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'panic' }),
+      });
+      if (res2.ok) ok = true;
+    } catch {}
+
+    status(ok ? '⛔ Pánico enviado' : 'Sin conexión — reintentando…', ok ? 'warn' : '');
+    if (ok) setTimeout(() => status('Conectado · listo', 'on'), 1600);
+  }
+
+  document.getElementById('btnPanic').onclick = firePanic;
+  document.getElementById('btnClose').onclick = () => {
+    try {
+      if (window.desktopAPI?.closeFloatingWidget) window.desktopAPI.closeFloatingWidget('panic');
+      else window.close();
+    } catch { window.close(); }
+  };
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    let url = `${proto}://${location.host}/ws`;
+    if (room) url += `?room=${encodeURIComponent(room)}`;
+    ws = new WebSocket(url);
+    ws.onopen = () => status('Conectado · listo', 'on');
+    ws.onclose = () => {
+      status('Reconectando…');
+      setTimeout(connect, 1200);
+    };
+    ws.onerror = () => {};
+  }
+
+  connect();
+})();
+</script>
+</body>
+</html>

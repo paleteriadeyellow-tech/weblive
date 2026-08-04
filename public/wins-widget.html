@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Victorias — Widget</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; min-height: 100%;
+    background: transparent;
+    font-family: Inter, system-ui, Segoe UI, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    user-select: none;
+  }
+  .shell {
+    display: flex; flex-direction: column;
+    height: 100vh; min-height: 150px;
+    margin: 6px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(12, 18, 32, .84);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 16px 40px rgba(0,0,0,.45);
+    overflow: hidden;
+  }
+  .head {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    -webkit-app-region: drag; app-region: drag;
+    cursor: grab;
+  }
+  .head-ico { font-size: 16px; line-height: 1; }
+  .head-title {
+    flex: 1; min-width: 0;
+    font-weight: 800; font-size: 13px; letter-spacing: .02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .head-btn {
+    -webkit-app-region: no-drag; app-region: no-drag;
+    width: 26px; height: 26px; border: 0; border-radius: 8px;
+    background: rgba(255,255,255,.08); color: #fff; cursor: pointer;
+    font-size: 15px; font-weight: 700; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .head-btn:hover { background: rgba(254,44,85,.85); }
+  .body {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; padding: 14px 16px 16px;
+    -webkit-app-region: no-drag; app-region: no-drag;
+  }
+  .hint {
+    margin: 0; text-align: center;
+    font-size: 11px; color: rgba(255,255,255,.55); line-height: 1.35;
+  }
+  .wins {
+    font-size: clamp(36px, 12vw, 52px);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
+    color: #25f4ee;
+    text-shadow: 0 0 18px rgba(37,244,238,.25);
+    line-height: 1;
+  }
+  .wins.has-max {
+    font-size: clamp(22px, 7vw, 28px);
+    color: rgba(255,255,255,.88);
+  }
+  .wins .den { color: rgba(255,255,255,.45); font-weight: 700; }
+  .row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .pm {
+    width: 48px; height: 48px; border-radius: 14px;
+    font-size: 28px; font-weight: 900; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid transparent;
+    transition: transform .1s ease, filter .12s ease;
+  }
+  .pm.plus {
+    background: rgba(37, 244, 238, .16); color: #25f4ee;
+    border-color: rgba(37, 244, 238, .45);
+  }
+  .pm.minus {
+    background: rgba(254, 44, 85, .16); color: #fe2c55;
+    border-color: rgba(254, 44, 85, .45);
+  }
+  .pm:hover { filter: brightness(1.08); }
+  .pm:active { transform: scale(.94); }
+  .status {
+    font-size: 10px; color: rgba(255,255,255,.4);
+    min-height: 14px;
+  }
+  .status.on { color: rgba(37,244,238,.8); }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="head">
+      <span class="head-ico" id="ico" aria-hidden="true">🏆</span>
+      <span class="head-title" id="title">Victorias</span>
+      <button type="button" class="head-btn" id="btnClose" title="Cerrar">×</button>
+    </div>
+    <div class="body">
+      <p class="hint">Sube o baja wins · arrastra la barra de arriba</p>
+      <div class="wins" id="winsDisplay">0</div>
+      <div class="row">
+        <button type="button" class="pm minus" id="btnMinus" title="-1">−</button>
+        <button type="button" class="pm plus" id="btnPlus" title="+1">+</button>
+      </div>
+      <div class="status" id="status">Conectando…</div>
+    </div>
+  </div>
+<script>
+(function () {
+  const KEYS = {
+    winsCounter: { label: 'Contador de victorias', ico: '🏆' },
+    winsCounterGamer: { label: 'Victorias (Gamer HUD)', ico: '🎮' },
+    winsCounterMinecraft: { label: 'Victorias (Minecraft)', ico: '⛏' },
+    winsCounterMario: { label: 'Victorias (Mario Bros)', ico: '🍄' },
+  };
+  const qs = new URLSearchParams(location.search);
+  const room = String(qs.get('room') || '').trim();
+  const key = String(qs.get('key') || 'winsCounter').trim();
+  const meta = KEYS[key] || KEYS.winsCounter;
+  const labelParam = String(qs.get('label') || '').trim();
+
+  let cfg = { wins: 0, winsMax: 10 };
+  let gotSettings = false;
+  let saveTimer = null;
+  let suppressEchoUntil = 0;
+  let ws;
+
+  const $ = (id) => document.getElementById(id);
+  $('ico').textContent = meta.ico;
+  $('title').textContent = labelParam || meta.label;
+  document.title = (labelParam || meta.label) + ' — Widget';
+
+  const status = (t, on) => {
+    const el = $('status');
+    if (!el) return;
+    el.textContent = t;
+    el.classList.toggle('on', !!on);
+  };
+
+  function clampW(v) {
+    const x = parseInt(v, 10);
+    return Number.isFinite(x) ? Math.max(-999999, Math.min(999999, x)) : 0;
+  }
+
+  function render() {
+    const wins = clampW(cfg.wins);
+    const max = clampW(cfg.winsMax);
+    const el = $('winsDisplay');
+    if (!el) return;
+    if (max > 0) {
+      el.className = 'wins has-max';
+      el.innerHTML = `${wins}<span class="den">/${max}</span>`;
+    } else {
+      el.className = 'wins';
+      el.textContent = String(wins);
+    }
+  }
+
+  function send(obj) {
+    if (!ws || ws.readyState !== 1) return;
+    try { ws.send(JSON.stringify(obj)); } catch {}
+  }
+
+  function saveSoon() {
+    if (!gotSettings) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      suppressEchoUntil = Date.now() + 900;
+      send({
+        action: 'saveSettings',
+        settings: { [key]: { ...cfg, wins: clampW(cfg.wins) } },
+      });
+    }, 100);
+  }
+
+  function bump(delta) {
+    if (!gotSettings) return;
+    cfg.wins = clampW((cfg.wins | 0) + (delta | 0));
+    render();
+    saveSoon();
+  }
+
+  function applySettings(s) {
+    if (!s || typeof s !== 'object') return;
+    if (Date.now() < suppressEchoUntil) return;
+    const block = s[key];
+    if (block && typeof block === 'object') cfg = { ...cfg, ...block };
+    gotSettings = true;
+    render();
+  }
+
+  function bindBump(el, delta) {
+    if (!el) return;
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button != null && e.button !== 0) return;
+      e.preventDefault();
+      bump(delta);
+    });
+  }
+  bindBump($('btnMinus'), -1);
+  bindBump($('btnPlus'), 1);
+
+  $('btnClose').onclick = () => {
+    try {
+      if (window.desktopAPI?.closeFloatingWidget) {
+        window.desktopAPI.closeFloatingWidget('wins:' + key);
+      } else window.close();
+    } catch { window.close(); }
+  };
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    let url = `${proto}://${location.host}/ws`;
+    if (room) url += `?room=${encodeURIComponent(room)}`;
+    ws = new WebSocket(url);
+    ws.onopen = () => status('Conectado · listo', true);
+    ws.onmessage = (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+      if (msg && msg.type === 'settings' && msg.payload) applySettings(msg.payload);
+    };
+    ws.onclose = () => {
+      status('Reconectando…');
+      setTimeout(connect, 1200);
+    };
+    ws.onerror = () => {};
+  }
+
+  render();
+  connect();
+})();
+</script>
+</body>
+</html>
