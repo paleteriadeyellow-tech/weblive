@@ -33,6 +33,7 @@ export const CAPABILITIES = {
     { key: 'tab_timer', label: 'Pestaña Temporizador' },
     { key: 'tab_webhook', label: 'Pestaña Webhook y Configuración (.exe)' },
     { key: 'tab_spotify', label: 'Spotify Client ID / conexión (.exe)' },
+    { key: 'tab_editor_rapido', label: 'Pestaña Editor Rápido (VIP / Founder)' },
   ],
   // Overlays individuales (se ocultan en la lista si no están permitidos).
   // El "path" enlaza con el data-path del overlay en el panel.
@@ -154,6 +155,7 @@ function defaultConfig() {
   freeFeatures.tts_tiktok = false;
   freeFeatures.videos_ai = false;
   freeFeatures.tab_spotify = false;
+  freeFeatures.tab_editor_rapido = false;
   freeFeatures.game_pvzhybrid = false;
   freeFeatures.game_repo = false;
   freeFeatures.game_l4d = false;

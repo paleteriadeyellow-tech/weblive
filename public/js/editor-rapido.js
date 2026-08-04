@@ -773,7 +773,7 @@
 
   /**
    * En Automática, empuja ediciones (texto, regalo, tamaño, layout libre…) al snapshot de Filas
-   * y también agrega cuadros nuevos creados en Automática.
+   * y también agrega cuadros nuevos / quita los borrados en Automática.
    */
   function syncFilasSnapFromCurrent(st) {
     const s = st || state;
@@ -786,6 +786,16 @@
     if (s.gameSync?.uids && !snap.uids) {
       snap.uids = Array.from({ length: MAX_COUNT }, () => '');
     }
+
+    const clearSnapSlot = (j) => {
+      if (!Number.isFinite(j) || j < 0 || j >= MAX_COUNT) return;
+      snap.overlays[j] = null;
+      snap.gifts[j] = null;
+      snap.texts[j] = [];
+      snap.freeMove[j] = false;
+      snap.freeLayout[j] = false;
+      if (snap.uids) snap.uids[j] = '';
+    };
 
     const copyAutoToSnap = (i, j) => {
       snap.overlays[j] = cloneItem(s.overlays[i]);
@@ -807,15 +817,26 @@
     const claimedAuto = new Set();
     const claimedSnap = new Set();
     const autoToSnap = [];
+    const map = Array.isArray(prev.autoMap) ? prev.autoMap.slice() : [];
 
-    // 1) Por UID (juego vinculado)
-    const curUids = s.gameSync?.uids;
-    if (curUids && snap.uids) {
-      const destByUid = new Map();
+    // Índice UID → slot Filas (antes de limpiar, para no perder el mapeo)
+    const destByUid = new Map();
+    if (snap.uids) {
       for (let j = 0; j < MAX_COUNT; j++) {
         const u = String(snap.uids[j] || '').trim();
         if (u) destByUid.set(u, j);
       }
+    }
+
+    // Limpiar slots que venían de Automática (así un borrado en Automática no revive en Filas)
+    for (const jRaw of map) {
+      const j = Number(jRaw);
+      if (Number.isFinite(j)) clearSnapSlot(j);
+    }
+
+    // 1) Por UID (juego vinculado)
+    const curUids = s.gameSync?.uids;
+    if (curUids && destByUid.size) {
       for (let i = 0; i < s.count; i++) {
         const u = String(curUids[i] || '').trim();
         if (!u || !destByUid.has(u)) continue;
@@ -828,7 +849,6 @@
     }
 
     // 2) Por autoMap (mapeo al compactar Automática)
-    const map = Array.isArray(prev.autoMap) ? prev.autoMap.slice() : [];
     for (let i = 0; i < map.length && i < s.count; i++) {
       if (claimedAuto.has(i)) continue;
       const j = Number(map[i]);
@@ -880,19 +900,20 @@
     }
     const g = clampGridN(snap.gridN) || 1;
     const full = g * g;
-    const need = Math.max(snap.count, maxIdx + 1);
+    const need = Math.max(1, maxIdx + 1);
     // Si la rejilla estaba “llena” N×N, crecer al menos al full o al contenido
-    if (snap.count >= full) {
+    if (prev.count >= full) {
       snap.count = clampCount(Math.max(full, need));
     } else {
-      snap.count = clampCount(need);
+      snap.count = clampCount(Math.max(need, Math.min(prev.count, full)));
+      // Si hay más contenido que el count anterior (se agregó cuadro), crecer
+      if (need > snap.count) snap.count = clampCount(need);
     }
 
     // Actualizar autoMap para el próximo viaje Automática ↔ Filas
     const newMap = [];
     for (let i = 0; i < s.count; i++) {
       if (Number.isFinite(autoToSnap[i])) newMap.push(autoToSnap[i]);
-      else if (Number.isFinite(map[i])) newMap.push(map[i]);
     }
     snap.autoMap = newMap;
     s.filasSnap = snap;
@@ -916,6 +937,7 @@
     if (state.filasSnap && Array.isArray(s.autoMap)) state.filasSnap.autoMap = s.autoMap.slice();
     selectedSlot = null;
     selectedText = null;
+    selectedFreeItem = null;
     if (moveFrom && moveFrom.slot >= state.count) cancelPick();
     return true;
   }
@@ -1900,7 +1922,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       paintMontageFrame(ctx, metrics, assets, slot.t, { forceTransparent: true });
       const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const { index, palette } = encodeRgbaToGifIndex(tools, data, canvas.width, canvas.height);
+      const { index, palette } = encodeRgbaToGifIndex(tools, data);
       gif.writeFrame(index, canvas.width, canvas.height, {
         palette,
         delay: slot.delay,
@@ -4271,6 +4293,10 @@
   };
 
   function openEditorRapidoViewShell() {
+    if (typeof window.editorRapidoUnlocked === 'function' && !window.editorRapidoUnlocked()) {
+      toastMsg('Editor Rápido es Solo VIP / Founder');
+      return false;
+    }
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     const view = document.getElementById('view-editor-rapido');
@@ -4280,6 +4306,7 @@
       navBtn.classList.add('active');
       if (typeof pulseDockNav === 'function') pulseDockNav(navBtn);
     }
+    return true;
   }
 
   function defaultQtyText(qty) {
@@ -4704,7 +4731,7 @@
     });
     saveState(state);
     setActiveTplId('');
-    openEditorRapidoViewShell();
+    if (!openEditorRapidoViewShell()) return false;
     window.initEditorRapidoView();
 
     const tplName = templateNameFromImport(opts, n);
@@ -4730,6 +4757,10 @@
   };
 
   window.initEditorRapidoView = function initEditorRapidoView() {
+    if (typeof window.editorRapidoUnlocked === 'function' && !window.editorRapidoUnlocked()) {
+      toastMsg('Editor Rápido es Solo VIP / Founder');
+      return;
+    }
     wire();
     renderLibrary();
     renderCountControls();

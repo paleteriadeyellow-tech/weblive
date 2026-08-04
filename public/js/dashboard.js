@@ -482,6 +482,7 @@ const TAB_CAP = {
   'ov-rankings': 'tab_overlays', 'ov-diseno': 'tab_overlays', 'ov-batalla': 'tab_overlays', 'ov-contador': 'tab_overlays',
   'ov-sorteos': 'tab_overlays', 'ov-topkills': 'tab_overlays',
   tts: 'tab_tts', timer: 'tab_timer',
+  'editor-rapido': 'tab_editor_rapido',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
 const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
@@ -526,6 +527,15 @@ function capFeature(key) {
   if (!f) return true;            // sin info -> permitir (admin / aún cargando)
   return f[key] !== false;
 }
+
+/** Editor Rápido: solo VIP (premium) / Founder / admin. */
+function editorRapidoUnlocked() {
+  if (window.IS_ADMIN) return true;
+  if (typeof capFeature === 'function' && capFeature('tab_editor_rapido')) return true;
+  const plan = String(window.CAPS?.plan || window.MY_PLAN || '').toLowerCase();
+  return plan === 'premium' || plan === 'admin' || plan === 'founder';
+}
+window.editorRapidoUnlocked = editorRapidoUnlocked;
 function planCountOf(kind) {
   return (settings?.[kind] || []).length;
 }
@@ -630,6 +640,7 @@ const CAP_LABELS = {
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
   tab_webhook: 'Webhook y Configuración',
   tab_spotify: 'Spotify (Client ID)',
+  tab_editor_rapido: 'Editor Rápido',
   // overlays
   ov_joinlive: 'Join al live', ov_joinlivemc: 'Join al live (Minecraft)', ov_joinlivedbz: 'Join al live (Dragon Ball Z)', ov_joinlivemario: 'Join al live (Mario Bros)',
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
@@ -657,7 +668,7 @@ const CAP_LABELS = {
   videos_ai: 'Videos AI',
 };
 const PLAN_FEATURE_ORDER = [
-  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify',
+  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_editor_rapido',
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
@@ -1822,6 +1833,12 @@ document.getElementById('dockLogo')?.addEventListener('click', (e) => {
 
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
+    if (btn.dataset.view === 'editor-rapido') {
+      if (typeof editorRapidoUnlocked === 'function' && !editorRapidoUnlocked()) {
+        toast('Editor Rápido es Solo VIP / Founder. Mejora tu plan para usarlo ⭐', 'warn');
+        return;
+      }
+    }
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
