@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=dock132" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=dock133" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
@@ -76,7 +76,7 @@
             <div class="nav-flyout-menu" role="menu">
               <button class="nav-item" data-view="regalos" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-regalos.png?v=nav8" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Regalos</span></button>
               <button class="nav-item" data-view="editor" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-editor.png?v=nav8" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Editor</span></button>
-              <button class="nav-item" data-view="editor-rapido" id="navEditorRapido" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-editor.png?v=nav8" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Editor Rapido</span></button>
+              <button class="nav-item" data-view="editor-rapido" id="navEditorRapido" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-editor.png?v=nav8" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Editor Pro</span></button>
             </div>
           </div>
         </div>
@@ -957,11 +957,19 @@
           </div>
         </section>
 
-        <!-- ===== VISTA: EDITOR RAPIDO ===== -->
+        <!-- ===== VISTA: EDITOR PRO ===== -->
         <section class="view" id="view-editor-rapido">
+          <div class="er-premium-lock" id="er-premium-lock" hidden>
+            <div class="ov-lock-box">
+              <div class="ov-lock-ico">🔒</div>
+              <div class="ov-lock-title">⭐ Solo Premium</div>
+              <div class="ov-lock-sub">Editor Pro es para <strong>VIP / Founder</strong>. Mejora tu plan para usarlo.</div>
+              <button type="button" class="btn primary er-premium-upgrade" id="er-premium-upgrade">Ver planes</button>
+            </div>
+          </div>
           <div class="er-page-head">
             <div>
-              <h1 class="view-title er-view-title"><span class="er-title-a">Editor</span> <span class="er-title-b">Rápido</span></h1>
+              <h1 class="view-title er-view-title"><span class="er-title-a">Editor</span> <span class="er-title-b">Pro</span></h1>
               <p class="view-sub">Elige cuántos cuadros quieres y qué fondo va en cada uno. Ideal para montajes rápidos del live.</p>
             </div>
           </div>
@@ -4161,6 +4169,32 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Chat Gamer -->
+        <div id="cgmConfigModal" class="modal hidden">
+          <div class="modal-box" style="max-width:460px">
+            <div class="modal-head">
+              <h2>💬 Configurar — Chat Gamer</h2>
+              <button class="modal-close" id="cgmcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">DISEÑO</label>
+              <select id="cgmcfg-design">
+                <option value="neon">1 — Neon Pulse (cian / magenta)</option>
+                <option value="tactical">2 — Tactical (verde esports)</option>
+                <option value="void">3 — Void Gold (oscuro / dorado)</option>
+              </select>
+                            <div class="gvscfg-grid2" style="margin-top:10px">
+                <div><label class="ml">MÁX. MENSAJES (3-16)</label><input type="number" id="cgmcfg-max" min="3" max="16" value="8"></div>
+                <div><label class="ml">TAMAÑO TEXTO (11-28)</label><input type="number" id="cgmcfg-fontsize" min="11" max="28" value="15"></div>
+                <div><label class="ml">ESCALA (60-140)</label><input type="number" id="cgmcfg-scale" min="60" max="140" value="100"></div>
+                <div><label class="ml">AUTO-OCULTAR (0=no, ms)</label><input type="number" id="cgmcfg-fade" min="0" max="120000" step="500" value="0"></div>
+              </div>
+              <p class="hint" style="margin-top:8px">Solo burbujas de mensaje (sin marco ni título). Fondo semitransparente. Colores: mod / sub / VIP.</p>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="cgmcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Fuegos artificiales -->
         <div id="fwConfigModal" class="modal hidden">
           <div class="modal-box" style="max-width:440px">
@@ -5939,6 +5973,31 @@
           <p class="view-sub">A?ade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
 
+              <!-- Tarjeta PRO: Chat Gamer -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="cgm-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="cgm-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="cgm-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="cgm-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new" title="Chat del live con 3 diseños gamer">Nuevo</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">💬 Chat Gamer</h3>
+                <p class="ovpro-desc">Chat de TikTok en vivo: nombre + mensaje, aparecen de poco en poco. Tres diseños profesionales (Neon, Tactical, Void Gold). Ideal en el lateral del live.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/chat-gamer.html">/chat-gamer.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="cgm-preview" data-src="/chat-gamer.html?embed=1&v=4" title="Vista previa Chat Gamer"></iframe>
+                </div>
+              </div>
+
               <!-- Tarjeta PRO: Fuegos artificiales -->
               <div class="ovpro-card">
                 <div class="ovpro-top">
@@ -7714,7 +7773,7 @@
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="smb3-open-catalog">? Crear Acci?n</button>
-                <button type="button" class="mc-img-btn" id="smb3-gen-overlay" title="Abre tus acciones en Editor Rápido (cuadros + regalos) y guarda plantilla">🖼️ Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="smb3-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">🖼️ Generar overlay</button>
                 <button type="button" class="mc-create-btn" id="smb3-toggle-all">? Encender / Apagar todas</button>
               </div>
             </div>
@@ -8025,7 +8084,7 @@
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="l4d-open-catalog">? Crear Acci?n</button>
-                <button type="button" class="mc-img-btn" id="l4d-gen-overlay" title="Abre tus acciones en Editor Rápido (cuadros + regalos) y guarda plantilla">🖼️ Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="l4d-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">🖼️ Generar overlay</button>
                 <button type="button" class="mc-create-btn" id="l4d-toggle-all">? Encender / Apagar todas</button>
               </div>
             </div>
@@ -8384,7 +8443,7 @@
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="ctr-open-catalog">? Crear Acci?n</button>
                 <button type="button" class="mc-create-btn" id="ctr-load-presets" title="14 webhooks oficiales con regalos y cantidades">?? Cargar preset oficial</button>
-                <button type="button" class="mc-img-btn" id="ctr-gen-overlay" title="Abre tus acciones en Editor Rápido (cuadros + regalos) y guarda plantilla">🖼️ Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="ctr-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">🖼️ Generar overlay</button>
                 <button type="button" class="mc-create-btn" id="ctr-toggle-all">? Encender / Apagar todas</button>
               </div>
             </div>
@@ -8432,7 +8491,7 @@
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="mslug-open-catalog">? Crear Acci?n</button>
                 <button type="button" class="mc-create-btn" id="mslug-add-overlay" title="37 acciones con regalos, cantidades y webhooks del overlay oficial">? A?adir acciones del overlay</button>
-                <button type="button" class="mc-img-btn" id="mslug-gen-overlay" title="Abre tus acciones en Editor Rápido (cuadros + regalos) y guarda plantilla">??? Generar imagen</button>
+                <button type="button" class="mc-img-btn" id="mslug-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">??? Generar imagen</button>
                 <button type="button" class="mc-create-btn" id="mslug-toggle-all">? Encender / Apagar todas</button>
                 <button type="button" class="mc-img-btn" id="mslug-edit-overlay" title="Genera un overlay con tus acciones y lo abre en el Editor">??? Editar imagen</button>
                 <button type="button" class="mc-img-btn" id="mslug-full-imagenes" title="Descarga el overlay completo (todas las im?genes) para OBS">??? Full imagenes</button>
@@ -8533,7 +8592,7 @@
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones (12)</h3>
               <div class="mc-sub-btns">
-                <button type="button" class="mc-img-btn" id="rbx3-gen-overlay" title="Abre tus acciones en Editor Rápido (cuadros + regalos) y guarda plantilla">🖼️ Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="rbx3-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">🖼️ Generar overlay</button>
                 <button type="button" class="mc-create-btn" id="rbx3-toggle-all">? Encender / Apagar todas</button>
               </div>
             </div>
@@ -9699,8 +9758,8 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=editorrapido11"></script>
-  <script src="/js/editor-rapido.js?v=er75"></script>
+  <script src="/js/dashboard.js?v=chatgamer2"></script>
+  <script src="/js/editor-rapido.js?v=er76"></script>
   <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedpng1"></script>
 </body>

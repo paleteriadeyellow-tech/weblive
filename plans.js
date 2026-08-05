@@ -33,7 +33,7 @@ export const CAPABILITIES = {
     { key: 'tab_timer', label: 'Pestaña Temporizador' },
     { key: 'tab_webhook', label: 'Pestaña Webhook y Configuración (.exe)' },
     { key: 'tab_spotify', label: 'Spotify Client ID / conexión (.exe)' },
-    { key: 'tab_editor_rapido', label: 'Pestaña Editor Rápido (VIP / Founder)' },
+    { key: 'tab_editor_rapido', label: 'Pestaña Editor Pro (VIP / Founder)' },
   ],
   // Overlays individuales (se ocultan en la lista si no están permitidos).
   // El "path" enlaza con el data-path del overlay en el panel.
@@ -91,6 +91,7 @@ export const CAPABILITIES = {
     { key: 'ov_contadorseguidoresmc', label: 'Contador de seguidores (Minecraft)', path: '/contador-seguidores-minecraft.html' },
     { key: 'ov_tiempolive', label: 'Tiempo en live (Neon)', path: '/tiempo-live-neon.html' },
     { key: 'ov_fuegos', label: 'Fuegos artificiales', path: '/fuegos.html' },
+    { key: 'ov_chatgamer', label: 'Chat Gamer', path: '/chat-gamer.html' },
     { key: 'ov_alertaregalo', label: 'Alerta de regalo', path: '/alerta-regalo.html' },
     { key: 'ov_alertalikes', label: 'Alerta de likes', path: '/alerta-likes.html' },
     { key: 'ov_alertaseguidor', label: 'Alerta de nuevo seguidor', path: '/alerta-seguidor.html' },

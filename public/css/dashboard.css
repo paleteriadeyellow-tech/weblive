@@ -699,6 +699,17 @@ body {
     drop-shadow(0 0 5px rgba(254,44,85,.28));
 }
 .nav-rb-defs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.nav-item .nav-plan-lock {
+  font-size: 11px;
+  line-height: 1;
+  margin-left: 1px;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 5px rgba(255, 207, 92, .5));
+  opacity: .95;
+}
+.nav-item.nav-item-plan-locked {
+  opacity: .92;
+}
 .nav-item {
   position: relative;
   display: inline-flex;
@@ -10003,6 +10014,44 @@ body.er-text-dragging .er-cell-text {
 .er-tool-stack { margin-top: 2px; }
 
 /* ===== Editor Rápido — visual pro (solo diseño) ===== */
+#view-editor-rapido {
+  position: relative;
+}
+#view-editor-rapido .er-premium-lock {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  border-radius: inherit;
+  background: rgba(7, 12, 24, .78);
+  backdrop-filter: blur(3px);
+  cursor: not-allowed;
+}
+#view-editor-rapido.is-er-locked .er-premium-lock {
+  display: flex;
+}
+#view-editor-rapido .er-premium-lock[hidden] {
+  display: none !important;
+}
+#view-editor-rapido .er-premium-lock .ov-lock-box {
+  pointer-events: auto;
+  cursor: default;
+  padding: 18px 22px;
+  max-width: 320px;
+}
+#view-editor-rapido .er-premium-lock .er-premium-upgrade {
+  margin-top: 14px;
+  cursor: pointer;
+}
+#view-editor-rapido.is-er-locked > *:not(.er-premium-lock) {
+  filter: grayscale(.35) brightness(.72);
+  pointer-events: none;
+  user-select: none;
+}
 #view-editor-rapido {
   --er-glass: rgba(14, 22, 40, 0.78);
   --er-glass-2: rgba(10, 16, 30, 0.92);

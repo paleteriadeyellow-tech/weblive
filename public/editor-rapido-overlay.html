@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Overlay — Editor Rápido</title>
+  <title>Overlay — Editor Pro</title>
   <style>
     html, body {
       margin: 0;
@@ -324,7 +324,7 @@
   </style>
 </head>
 <body>
-  <div id="root"><div class="er-empty">Esperando Editor Rápido…</div></div>
+  <div id="root"><div class="er-empty">Esperando Editor Pro…</div></div>
   <script>
 (function () {
   const FONDOS = {
@@ -448,7 +448,7 @@
   function render(payload) {
     if (!payload || typeof payload !== 'object') {
       if (!hasRendered) {
-        root.innerHTML = '<div class="er-empty">Abre la pestaña Editor Rápido en el panel</div>';
+        root.innerHTML = '<div class="er-empty">Abre la pestaña Editor Pro en el panel</div>';
       }
       return;
     }

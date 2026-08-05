@@ -9394,6 +9394,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetFuegos':
         broadcast('fuegosReset', {});
         break;
+      case 'testChatGamer':
+        broadcast('chatGamerTest', {});
+        break;
+      case 'resetChatGamer':
+        broadcast('chatGamerReset', {});
+        break;
       case 'testFollowerCounter': {
         const base = serializeFollowerCounter();
         broadcast('followerCounter', {

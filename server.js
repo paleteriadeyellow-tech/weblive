@@ -144,7 +144,7 @@ function mergeProfilesData(legacy, current) {
     'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
-    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
+    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos', 'chatGamer',
     'followerCounter', 'followerCounterMc', 'liveTimer',
     'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
   ];
@@ -1683,7 +1683,7 @@ app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {
   res.json({ ok: true });
 });
 
-/* Editor Rápido — estado live + plantillas en disco (DATA_DIR / userData, sobreviven a updates) */
+/* Editor Pro — estado live + plantillas en disco (DATA_DIR / userData, sobreviven a updates) */
 const editorRapidoLiveByRoom = new Map();
 const ER_DIR = path.join(DATA_DIR, 'editor-rapido');
 const ER_TPL_DIR = path.join(ER_DIR, 'templates');

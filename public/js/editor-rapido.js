@@ -1,5 +1,5 @@
 /**
- * Editor Rápido — rejilla de fondos GIF + iconos centrados + regalos abajo-derecha.
+ * Editor Pro — rejilla de fondos GIF + iconos centrados + regalos abajo-derecha.
  */
 (function () {
   const FONDOS = [
@@ -2136,7 +2136,7 @@
       const url = await uploadErMedia(src);
       return { ...item, src: url };
     } catch (e) {
-      console.warn('Editor Rápido: no se pudo subir media', e);
+      console.warn('Editor Pro: no se pudo subir media', e);
       return item;
     }
   }
@@ -2154,7 +2154,7 @@
           if (s === state || st === state) state.fondoCustomSrc = url;
           changed = true;
         } catch (e) {
-          console.warn('Editor Rápido: no se pudo subir fondo custom', e);
+          console.warn('Editor Pro: no se pudo subir fondo custom', e);
         }
       }
     }
@@ -4294,7 +4294,7 @@
 
   function openEditorRapidoViewShell() {
     if (typeof window.editorRapidoUnlocked === 'function' && !window.editorRapidoUnlocked()) {
-      toastMsg('Editor Rápido es Solo VIP / Founder');
+      toastMsg('Editor Pro es Solo VIP / Founder');
       return false;
     }
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
@@ -4749,16 +4749,16 @@
       const extra = list.length > MAX_COUNT ? ` (${MAX_COUNT} de ${list.length})` : '';
       toastMsg(`Plantilla nueva «${saved.name || tplName}»${extra}. Ya puedes editarla y Guardar.`);
     } else if (list.length > MAX_COUNT) {
-      toastMsg(`Editor Rápido: ${MAX_COUNT} de ${list.length} acciones (máximo ${MAX_COUNT}).`);
+      toastMsg(`Editor Pro: ${MAX_COUNT} de ${list.length} acciones (máximo ${MAX_COUNT}).`);
     } else {
-      toastMsg(`Editor Rápido: ${n} cuadro${n === 1 ? '' : 's'} listos.`);
+      toastMsg(`Editor Pro: ${n} cuadro${n === 1 ? '' : 's'} listos.`);
     }
     return true;
   };
 
   window.initEditorRapidoView = function initEditorRapidoView() {
     if (typeof window.editorRapidoUnlocked === 'function' && !window.editorRapidoUnlocked()) {
-      toastMsg('Editor Rápido es Solo VIP / Founder');
+      toastMsg('Editor Pro es Solo VIP / Founder');
       return;
     }
     wire();

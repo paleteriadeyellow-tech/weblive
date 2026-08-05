@@ -842,6 +842,15 @@ export const DEFAULT_SETTINGS = {
     minCoins: 1, maxFireworks: 5, soundEnabled: true, soundVolume: 80,
     showUsername: true, repeatWithCombos: true,
   },
+  chatGamer: {
+    design: 'neon',
+    title: 'Chat del live',
+    showTitle: false,
+    maxMessages: 8,
+    fontSize: 15,
+    scale: 100,
+    fadeMs: 0,
+  },
   followerCounter: {
     variation: 'flip', font: 'exo2', fontSize: 50, lineSpacing: 50, letterSpacing: 50,
     fontColor: '#dedede', colorMode: 'solid',

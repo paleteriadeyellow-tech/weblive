@@ -472,6 +472,7 @@ const OVERLAY_CAP = {
   '/alerta-likes.html': 'ov_alertalikes',
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
   '/fuegos.html': 'ov_fuegos',
+  '/chat-gamer.html': 'ov_chatgamer',
   '/top1fire.html': 'ov_top1fire',
   '/toppoints.html': 'ov_toppoints',
 };
@@ -528,7 +529,7 @@ function capFeature(key) {
   return f[key] !== false;
 }
 
-/** Editor Rápido: solo VIP (premium) / Founder / admin. */
+/** Editor Pro: solo VIP (premium) / Founder / admin. */
 function editorRapidoUnlocked() {
   if (window.IS_ADMIN) return true;
   if (typeof capFeature === 'function' && capFeature('tab_editor_rapido')) return true;
@@ -572,14 +573,62 @@ function navItemVisible(btn) {
 
 // Aplica las capacidades a la interfaz: oculta pestañas/overlays bloqueados,
 // muestra avisos de límite y desactiva botones de "crear" si se llegó al tope.
+/** Candado en ítem del dock (pestaña visible pero bloqueada por plan). */
+function setNavItemPlanLock(btn, locked) {
+  if (!btn) return;
+  btn.classList.toggle('nav-item-plan-locked', !!locked);
+  let badge = btn.querySelector('.nav-plan-lock');
+  if (!locked) {
+    badge?.remove();
+    if (btn.getAttribute('title') === 'Solo Premium — VIP / Founder') btn.removeAttribute('title');
+    return;
+  }
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'nav-plan-lock';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.textContent = '🔒';
+    btn.appendChild(badge);
+  }
+  btn.title = 'Solo Premium — VIP / Founder';
+}
+
+/** Editor Pro: visible para free, con candado en menú + overlay en la vista. */
+function applyEditorRapidoLock() {
+  const locked = typeof editorRapidoUnlocked === 'function' ? !editorRapidoUnlocked() : false;
+  const view = document.getElementById('view-editor-rapido');
+  const lock = document.getElementById('er-premium-lock');
+  const nav = document.getElementById('navEditorRapido')
+    || document.querySelector('.nav-item[data-view="editor-rapido"]');
+  if (view) view.classList.toggle('is-er-locked', locked);
+  if (lock) lock.hidden = !locked;
+  setNavItemPlanLock(nav, locked);
+  const up = document.getElementById('er-premium-upgrade');
+  if (up && !up._erPlanWired) {
+    up._erPlanWired = true;
+    up.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelector('.nav-item[data-view="planes"]')?.click();
+    });
+  }
+}
+window.applyEditorRapidoLock = applyEditorRapidoLock;
+
 function applyCaps() {
   try { syncHomeHeroPlan(); } catch {}
   try { updateVideosAiLocks(); } catch {}
+  try { applyEditorRapidoLock(); } catch {}
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
     const cap = TAB_CAP[btn.dataset.view];
-    if (cap) btn.style.display = capFeature(cap) ? '' : 'none';
+    if (!cap) return;
+    // Editor Pro: no ocultar; se muestra con candadito (VIP / Founder).
+    if (btn.dataset.view === 'editor-rapido') {
+      btn.style.display = '';
+      return;
+    }
+    btn.style.display = capFeature(cap) ? '' : 'none';
   });
   try { syncNavSections(); } catch {}
   // Overlays individuales: si no están en el plan, NO se ocultan; se muestran con
@@ -640,7 +689,7 @@ const CAP_LABELS = {
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
   tab_webhook: 'Webhook y Configuración',
   tab_spotify: 'Spotify (Client ID)',
-  tab_editor_rapido: 'Editor Rápido',
+  tab_editor_rapido: 'Editor Pro',
   // overlays
   ov_joinlive: 'Join al live', ov_joinlivemc: 'Join al live (Minecraft)', ov_joinlivedbz: 'Join al live (Dragon Ball Z)', ov_joinlivemario: 'Join al live (Mario Bros)',
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
@@ -658,6 +707,7 @@ const CAP_LABELS = {
   ov_alertaregalo: 'Alerta de regalo',
   ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   ov_fuegos: 'Fuegos artificiales',
+  ov_chatgamer: 'Chat Gamer',
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_mcservidor: 'Juego: Servidor Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_mcshooter: 'Juego: Minecraft Shooters', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
@@ -673,7 +723,7 @@ const PLAN_FEATURE_ORDER = [
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
+  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
 function renderPlanView() {
@@ -1833,12 +1883,6 @@ document.getElementById('dockLogo')?.addEventListener('click', (e) => {
 
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
-    if (btn.dataset.view === 'editor-rapido') {
-      if (typeof editorRapidoUnlocked === 'function' && !editorRapidoUnlocked()) {
-        toast('Editor Rápido es Solo VIP / Founder. Mejora tu plan para usarlo ⭐', 'warn');
-        return;
-      }
-    }
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
@@ -1853,7 +1897,14 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
     if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
-    if (btn.dataset.view === 'editor-rapido') { try { initEditorRapidoView(); } catch (e) { console.error('Editor Rapido:', e); } }
+    if (btn.dataset.view === 'editor-rapido') {
+      try { applyEditorRapidoLock(); } catch {}
+      if (typeof editorRapidoUnlocked === 'function' && !editorRapidoUnlocked()) {
+        toast('Editor Pro es Solo Premium (VIP / Founder) ⭐', 'warn');
+      } else {
+        try { initEditorRapidoView(); } catch (e) { console.error('Editor Pro:', e); }
+      }
+    }
     if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); applySpotifyLock(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
@@ -8695,6 +8746,18 @@ const STYLE_OVERLAYS = [
       'aflcfg-g1': 'g1', 'aflcfg-g2': 'g2', 'aflcfg-g3': 'g3', 'aflcfg-name': 'nameColor', 'aflcfg-sub': 'subColor',
       'aflcfg-avatar': 'showAvatar', 'aflcfg-rays': 'showRays', 'aflcfg-dust': 'showDust', 'aflcfg-shards': 'showShards' },
     types: { durationSec: 'int', scale: 'int' },
+  }),
+  setupStyleOverlay({
+    kind: 'chatgamer', settingsKey: 'chatGamer', previewId: 'cgm-preview',
+    btnTest: 'cgm-test', btnReset: 'cgm-reset', btnConfig: 'cgm-config',
+    modalId: 'cgmConfigModal', closeId: 'cgmcfg-close', saveId: 'cgmcfg-save',
+    testAction: 'testChatGamer', resetAction: 'resetChatGamer',
+    map: {
+      'cgmcfg-design': 'design', 'cgmcfg-max': 'maxMessages',
+      'cgmcfg-fontsize': 'fontSize', 'cgmcfg-scale': 'scale', 'cgmcfg-fade': 'fadeMs',
+    },
+    types: { maxMessages: 'int', fontSize: 'int', scale: 'int', fadeMs: 'int' },
+    onSave: (cfg) => { cfg.showTitle = false; cfg.title = 'Chat del live'; },
   }),
   setupStyleOverlay({
     kind: 'fuegos', settingsKey: 'fuegos', previewId: 'fw-preview',
@@ -16747,7 +16810,7 @@ async function openGameActionsInEditorRapido(rows, opts) {
   if (typeof window.importGameActionsToEditorRapido === 'function') {
     return !!(await window.importGameActionsToEditorRapido(rows || [], opts || {}));
   }
-  toast && toast('Editor Rápido no disponible. Recarga el panel.', 'err');
+  toast && toast('Editor Pro no disponible. Recarga el panel.', 'err');
   return false;
 }
 
@@ -16924,7 +16987,7 @@ async function generateMcMenuImage(srcList, iconDir, fileName, iconUrlFor) {
   const settingsKey = settingsKeyForActionList(all);
   const list = all.filter(Boolean);
   if (!list.length) { toast && toast('Agrega acciones primero (con su regalo o evento).', 'warn'); return; }
-  toast && toast('Abriendo en Editor Rápido…', 'ok');
+  toast && toast('Abriendo en Editor Pro…', 'ok');
 
   const rows = [];
   for (const a of list) {
@@ -18461,7 +18524,7 @@ async function generateRoblox3OverlayImage() {
   const all = ensureRoblox3Slots();
   const list = (Array.isArray(all) ? all : []).filter(Boolean);
   if (!list.length) { toast && toast('Agrega acciones primero.', 'warn'); return; }
-  toast && toast('Abriendo en Editor Rápido…', 'ok');
+  toast && toast('Abriendo en Editor Pro…', 'ok');
 
   const rows = [];
   for (const a of list) {
@@ -19570,7 +19633,7 @@ async function generateGameActionsOverlayImage({ ensureList, iconUrlFor, downloa
     toast && toast(emptyToast || 'Agrega acciones del catálogo con su regalo primero.', 'warn');
     return;
   }
-  toast && toast('Abriendo en Editor Rápido…', 'ok');
+  toast && toast('Abriendo en Editor Pro…', 'ok');
   const settingsKey = sk || settingsKeyFromEnsureList(ensureList) || settingsKeyForActionList(all);
 
   const rows = [];
@@ -22671,7 +22734,7 @@ async function generateRepoOverlayImage() {
   const all = ensureRepoActions();
   const list = (Array.isArray(all) ? all : []).filter(Boolean);
   if (!list.length) { toast && toast('Agrega acciones del catálogo primero.', 'warn'); return; }
-  toast && toast('Abriendo en Editor Rápido…', 'ok');
+  toast && toast('Abriendo en Editor Pro…', 'ok');
 
   const rows = [];
   for (const a of list) {
@@ -25652,7 +25715,7 @@ function ctrActionsForOverlay(section) {
     });
 }
 
-// Capas editables CTR → Editor Rápido (ítems + efectos).
+// Capas editables CTR → Editor Pro (ítems + efectos).
 async function generateCtrOverlayImage() {
   return generateGameActionsOverlayImage({
     ensureList: () => {
@@ -26553,13 +26616,13 @@ function renderGdashActions() {
 
 
 // Capas editables: menú de regalos PvZ (acción + regalo + cantidad).
-// Capas editables: menú de regalos PvZ → Editor Rápido.
+// Capas editables: menú de regalos PvZ → Editor Pro.
 async function generatePvzMenuImage(orientation) {
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
   const all = ensurePvzActions();
   const list = (Array.isArray(all) ? all : []).filter(Boolean);
   if (!list.length) { toast && toast('Agrega acciones del catálogo con su regalo primero.', 'warn'); return; }
-  toast && toast('Abriendo en Editor Rápido…', 'ok');
+  toast && toast('Abriendo en Editor Pro…', 'ok');
 
   const rows = [];
   for (const a of list) {
@@ -26581,7 +26644,7 @@ async function generatePvzMenuImage(orientation) {
   await openGameActionsInEditorRapido(rows, { name: 'menu-regalos-pvz' + suffix, settingsKey: 'pvzActions' });
 }
 
-// Capas editables: menú de regalos Roblox → Editor Rápido.
+// Capas editables: menú de regalos Roblox → Editor Pro.
 
 
 async function generateRobloxMenuImage(orientation) {
@@ -26589,7 +26652,7 @@ async function generateRobloxMenuImage(orientation) {
   const all = ensureRobloxSlots();
   const list = (Array.isArray(all) ? all : []).filter(Boolean);
   if (!list.length) { toast && toast('Agrega acciones primero.', 'warn'); return; }
-  toast && toast('Abriendo en Editor Rápido…', 'ok');
+  toast && toast('Abriendo en Editor Pro…', 'ok');
 
   const rows = [];
   for (const a of list) {
@@ -27997,7 +28060,7 @@ function setupPanelLives() {
       if (typeof window.ensureEditorRapidoLivePublished === 'function') {
         window.ensureEditorRapidoLivePublished();
       }
-    } catch (e) { console.error('Editor Rápido live:', e); }
+    } catch (e) { console.error('Editor Pro live:', e); }
     maybeNotifyLocalTikTokOverlays();
     refreshLevelVideoScreenLink();
     try { loadAnnouncements(); } catch (e) { console.error('Anuncios:', e); }

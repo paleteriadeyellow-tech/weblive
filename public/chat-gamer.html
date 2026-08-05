@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="es" data-design="neon">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Chat Gamer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Exo+2:wght@600;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: transparent !important;
+    }
+    html { --cg-fs: 15px; }
+    :root {
+      --cg-msg: #ffffff;
+      --cg-bubble: rgba(12, 14, 20, .42);
+      --cg-bubble-edge: rgba(255,255,255,.08);
+      --cg-user: #c084fc;
+      --cg-mod: #38bdf8;
+      --cg-sub: #4ade80;
+      --cg-vip: #fbbf24;
+      --cg-font: 'Rajdhani', system-ui, sans-serif;
+    }
+
+    html[data-design="neon"] {
+      --cg-bubble: rgba(8, 12, 24, .40);
+      --cg-bubble-edge: rgba(34, 211, 238, .18);
+      --cg-user: #c084fc;
+      --cg-mod: #38bdf8;
+      --cg-sub: #34d399;
+      --cg-vip: #f472b6;
+      --cg-font: 'Rajdhani', system-ui, sans-serif;
+    }
+    html[data-design="tactical"] {
+      --cg-bubble: rgba(4, 12, 8, .40);
+      --cg-bubble-edge: rgba(74, 222, 128, .20);
+      --cg-user: #86efac;
+      --cg-mod: #5eead4;
+      --cg-sub: #a3e635;
+      --cg-vip: #facc15;
+      --cg-font: 'Exo 2', system-ui, sans-serif;
+    }
+    html[data-design="void"] {
+      --cg-bubble: rgba(14, 10, 18, .42);
+      --cg-bubble-edge: rgba(251, 191, 36, .16);
+      --cg-user: #c4b5fd;
+      --cg-mod: #93c5fd;
+      --cg-sub: #6ee7b7;
+      --cg-vip: #fcd34d;
+      --cg-font: 'Rajdhani', system-ui, sans-serif;
+    }
+
+    @keyframes cg-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes cg-out {
+      to { opacity: 0; transform: translateY(-8px); max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
+    }
+
+    .cg-root {
+      position: absolute; inset: 0;
+      display: flex; align-items: flex-end; justify-content: flex-start;
+      padding: 10px;
+      font-family: var(--cg-font);
+      font-size: var(--cg-fs);
+      background: transparent;
+      opacity: 0;
+    }
+    html.cg-ready .cg-root { opacity: 1; }
+    .cg-shell {
+      position: relative;
+      width: min(100%, 440px);
+      max-height: 100%;
+      display: flex; flex-direction: column;
+      justify-content: flex-end;
+      padding: 0; margin: 0;
+      background: transparent;
+      border: 0; box-shadow: none;
+      overflow: hidden;
+    }
+    .cg-list {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 8px;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .cg-row {
+      display: block;
+      width: fit-content;
+      max-width: 100%;
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: var(--cg-bubble);
+      border: 1px solid var(--cg-bubble-edge);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      font-size: 1em;
+      line-height: 1.35;
+      animation: cg-in .32s ease-out both;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0,0,0,.18);
+    }
+    html[data-design="tactical"] .cg-row { border-radius: 10px; }
+    html[data-design="void"] .cg-row { border-radius: 12px; }
+    .cg-row.is-leaving { animation: cg-out .28s ease forwards; }
+
+    .cg-user {
+      font-weight: 800;
+      color: var(--cg-user);
+      margin-right: 2px;
+      letter-spacing: .01em;
+    }
+    .cg-user.is-mod { color: var(--cg-mod); }
+    .cg-user.is-sub { color: var(--cg-sub); }
+    .cg-user.is-vip { color: var(--cg-vip); }
+    .cg-sep { color: rgba(255,255,255,.75); font-weight: 700; margin-right: 5px; }
+    .cg-text {
+      color: var(--cg-msg);
+      font-weight: 650;
+      word-break: break-word;
+      text-shadow: 0 1px 2px rgba(0,0,0,.45);
+    }
+  </style>
+</head>
+<body>
+  <div class="cg-root" id="cg-root">
+    <div class="cg-shell" id="cg-shell">
+      <div class="cg-list" id="cg-list" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const listEl = document.getElementById('cg-list');
+    const rootEl = document.getElementById('cg-root');
+
+    const DEFAULTS = {
+      design: 'neon',
+      title: 'Chat del live',
+      showTitle: false,
+      maxMessages: 8,
+      fontSize: 15,
+      scale: 100,
+      fadeMs: 0,
+    };
+
+    let cfg = { ...DEFAULTS };
+    const rows = [];
+    const inbound = [];
+    let pumping = false;
+    let demoTimer = null;
+    let demoOn = false;
+    let testSeq = 0;
+    let testGuardUntil = 0;
+    const seenIds = new Set();
+    const visibleKeys = new Set();
+
+    function clamp(n, a, b) {
+      const x = Number(n);
+      if (!Number.isFinite(x)) return a;
+      return Math.max(a, Math.min(b, x));
+    }
+
+    function contentKey(p) {
+      return (displayName(p) + '|' + displayComment(p)).toLowerCase();
+    }
+
+    function markReady() {
+      document.documentElement.classList.add('cg-ready');
+    }
+
+    function applyConfig(raw) {
+      const c = raw && typeof raw === 'object' ? raw : {};
+      cfg = {
+        design: ['neon', 'tactical', 'void'].includes(c.design) ? c.design : DEFAULTS.design,
+        title: String(c.title != null ? c.title : DEFAULTS.title).slice(0, 48) || DEFAULTS.title,
+        showTitle: false,
+        maxMessages: clamp(c.maxMessages, 3, 16),
+        fontSize: clamp(c.fontSize, 11, 28),
+        scale: clamp(c.scale, 60, 140),
+        fadeMs: clamp(c.fadeMs, 0, 120000),
+      };
+      document.documentElement.setAttribute('data-design', cfg.design);
+      // Escala vía tamaño de fuente (evita transform que “crece” el preview).
+      const px = Math.round(cfg.fontSize * (cfg.scale / 100));
+      rootEl.style.setProperty('--cg-fs', px + 'px');
+      document.documentElement.style.setProperty('--cg-fs', px + 'px');
+      while (rows.length > cfg.maxMessages) removeOldest(true);
+    }
+
+    function roleClass(p) {
+      if (p?.isMod) return 'is-mod';
+      if ((Number(p?.gifterLevel) || 0) >= 10 || (Number(p?.donorLevel) || 0) >= 10) return 'is-vip';
+      if (p?.isSub || p?.isTeam || (Number(p?.memberLevel) || 0) > 0) return 'is-sub';
+      return '';
+    }
+
+    function displayName(p) {
+      return String(p?.nickname || p?.uniqueId || 'Usuario').trim() || 'Usuario';
+    }
+
+    function displayComment(p) {
+      return String(p?.comment || p?.message || '').trim();
+    }
+
+    function removeOldest(instant) {
+      const row = rows.shift();
+      if (!row) return;
+      if (row._fadeTid) clearTimeout(row._fadeTid);
+      if (row.key) visibleKeys.delete(row.key);
+      if (instant) {
+        row.el.remove();
+        return;
+      }
+      row.el.classList.add('is-leaving');
+      setTimeout(() => row.el.remove(), 300);
+    }
+
+    function mountRow(payload) {
+      const comment = displayComment(payload);
+      if (!comment) return;
+      const key = contentKey(payload);
+      if (visibleKeys.has(key)) return;
+      const el = document.createElement('div');
+      el.className = 'cg-row';
+      const user = document.createElement('span');
+      user.className = 'cg-user ' + roleClass(payload);
+      user.textContent = displayName(payload);
+      const sep = document.createElement('span');
+      sep.className = 'cg-sep';
+      sep.textContent = ':';
+      const text = document.createElement('span');
+      text.className = 'cg-text';
+      text.textContent = comment;
+      el.append(user, sep, text);
+      listEl.appendChild(el);
+      visibleKeys.add(key);
+      const entry = { el, key, _fadeTid: null };
+      rows.push(entry);
+      while (rows.length > cfg.maxMessages) removeOldest(false);
+      if (cfg.fadeMs > 0) {
+        entry._fadeTid = setTimeout(() => {
+          const i = rows.indexOf(entry);
+          if (i >= 0) {
+            rows.splice(i, 1);
+            visibleKeys.delete(key);
+            el.classList.add('is-leaving');
+            setTimeout(() => el.remove(), 300);
+          }
+        }, cfg.fadeMs);
+      }
+    }
+
+    function enqueue(payload) {
+      if (!payload) return;
+      const comment = displayComment(payload);
+      if (!comment) return;
+      const key = contentKey(payload);
+      // No encolar si ya está visible o ya va en la cola.
+      if (visibleKeys.has(key)) return;
+      if (inbound.some((p) => contentKey(p) === key)) return;
+      if (payload.msgId) {
+        const id = String(payload.msgId);
+        if (seenIds.has(id)) return;
+        seenIds.add(id);
+        if (seenIds.size > 500) {
+          const arr = [...seenIds];
+          seenIds.clear();
+          arr.slice(-250).forEach((k) => seenIds.add(k));
+        }
+      }
+      inbound.push({ ...payload, comment });
+      pump();
+    }
+
+    function pump() {
+      if (pumping) return;
+      pumping = true;
+      const tick = () => {
+        const next = inbound.shift();
+        if (!next) {
+          pumping = false;
+          return;
+        }
+        mountRow(next);
+        const delay = inbound.length > 6 ? 90 : inbound.length > 0 ? 150 : 0;
+        if (delay) setTimeout(tick, delay);
+        else pumping = false;
+      };
+      tick();
+    }
+
+    function clearAll() {
+      inbound.length = 0;
+      pumping = false;
+      visibleKeys.clear();
+      while (rows.length) removeOldest(true);
+      listEl.innerHTML = '';
+    }
+
+    function stopDemo() {
+      demoOn = false;
+      if (demoTimer) {
+        clearTimeout(demoTimer);
+        demoTimer = null;
+      }
+    }
+
+    const DEMO = [
+      { nickname: 'NeonAce', comment: 'Click en Configurar para cambiar el diseño…', isSub: true },
+      { nickname: 'ModNova', comment: 'Reduce el ancho del widget en OBS si quieres.', isMod: true },
+      { nickname: 'PixelKing', comment: '¡Vamos con el clutch!', gifterLevel: 12 },
+      { nickname: 'Zerody', comment: 'Diseño gamer listo para el live 🔥' },
+      { nickname: 'LunaFX', comment: 'Los mensajes aparecen de poco en poco.', isSub: true },
+    ];
+
+    function runTest() {
+      // Evita doble disparo (postMessage + WS test a la vez).
+      const now = Date.now();
+      if (now < testGuardUntil) return;
+      testGuardUntil = now + 700;
+      stopDemo();
+      const seq = ++testSeq;
+      clearAll();
+      DEMO.forEach((d, i) => {
+        setTimeout(() => {
+          if (seq !== testSeq) return;
+          enqueue({ ...d, msgId: 'test-' + seq + '-' + i });
+        }, i * 380);
+      });
+      if (isEmbed) {
+        setTimeout(() => {
+          if (seq !== testSeq) return;
+          idleDemo();
+        }, DEMO.length * 380 + 1600);
+      }
+    }
+
+    function idleDemo() {
+      if (!isEmbed) return;
+      stopDemo();
+      demoOn = true;
+      let i = 0;
+      const loop = () => {
+        if (!demoOn) return;
+        const d = DEMO[i % DEMO.length];
+        // Sin msgId fijo: solo evita duplicar mientras sigue visible.
+        enqueue({ ...d });
+        i++;
+        demoTimer = setTimeout(loop, 2400);
+      };
+      demoTimer = setTimeout(loop, 500);
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings') {
+          if (m.payload?.chatGamer) applyConfig(m.payload.chatGamer);
+          return;
+        }
+        // En embed el panel manda test/reset por postMessage; ignorar WS evita dobles.
+        if (isEmbed) return;
+        if (m.type === 'chatGamerTest') { runTest(); return; }
+        if (m.type === 'chatGamerReset') { stopDemo(); clearAll(); return; }
+        if (m.type === 'chat') enqueue(m.payload || {});
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'chatgamer') return;
+      if (d.type === 'config') applyConfig(d.config);
+      else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') { stopDemo(); clearAll(); if (isEmbed) idleDemo(); }
+    });
+
+    applyConfig({});
+    const ready = () => {
+      markReady();
+      if (isEmbed) idleDemo();
+    };
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(ready).catch(ready);
+      setTimeout(ready, 900);
+    } else {
+      requestAnimationFrame(() => requestAnimationFrame(ready));
+    }
+    connect();
+  })();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>
