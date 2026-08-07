@@ -356,7 +356,9 @@
     if (!raw || typeof raw !== 'object') return 'unknown';
     if (raw.format === 'livecoins' || raw.version === 2) return 'livecoins-v2';
     const d = legacyPayloadRoot(raw);
-    if (d && (Array.isArray(d.alertas) || Array.isArray(d.interacciones))) return 'legacy-v1';
+    if (d && (Array.isArray(d.alertas) || Array.isArray(d.interacciones) || Array.isArray(d.soundAlerts) || Array.isArray(d.videos) || Array.isArray(d.actions))) {
+      return 'legacy-v1';
+    }
     if (raw.data && (raw.data.soundAlerts || raw.data.videos)) return 'livecoins-v2';
     if (extractPointsUsers(raw)) return 'points-users';
     return 'unknown';
@@ -390,36 +392,75 @@
     const patch = {};
     const counts = { soundAlerts: 0, videos: 0, actions: 0, tts: 0, timer: 0, points: 0 };
 
-    if (Array.isArray(data.alertas) && data.alertas.length) {
-      patch.soundAlerts = data.alertas.map(importLegacyAlerta);
+    const alertas = Array.isArray(data.alertas) ? data.alertas
+      : (Array.isArray(data.soundAlerts) ? data.soundAlerts : null);
+    if (alertas && alertas.length) {
+      patch.soundAlerts = alertas.map((a, i) => {
+        // Formato Livecoins ya migrado dentro del dump
+        if (a && (a.sound != null || a.giftName != null) && a.nombre == null && a.audioUrl == null) {
+          return { ...cloneVal(a), id: a.id || uid('sa_') };
+        }
+        return importLegacyAlerta(a, i);
+      });
       counts.soundAlerts = patch.soundAlerts.length;
     }
-    if (Array.isArray(data.videos) && data.videos.length) {
-      patch.videos = data.videos.map(importLegacyVideo);
+
+    const videos = Array.isArray(data.videos) ? data.videos : null;
+    if (videos && videos.length) {
+      patch.videos = videos.map((v, i) => {
+        if (v && v.url != null && v.nombreLista == null && v.videoUrl == null) {
+          return { ...cloneVal(v), id: v.id || uid('v_') };
+        }
+        return importLegacyVideo(v, i);
+      });
       counts.videos = patch.videos.length;
     }
-    if (opts.includeActions && Array.isArray(data.interacciones) && data.interacciones.length) {
-      patch.actions = data.interacciones.map(importLegacyAction);
+
+    const interacciones = Array.isArray(data.interacciones) ? data.interacciones
+      : (Array.isArray(data.actions) ? data.actions : null);
+    if (opts.includeActions && interacciones && interacciones.length) {
+      patch.actions = interacciones.map((a, i) => {
+        if (a && (a.keys != null || a.event != null) && a.tecla == null && a.nombreRegalo == null) {
+          return { ...cloneVal(a), id: a.id || uid('act_') };
+        }
+        return importLegacyAction(a, i);
+      });
       counts.actions = patch.actions.length;
     }
 
     const tts = importLegacyTts(data.fields, data.ttsChatExtra);
     if (tts) { patch.tts = tts; counts.tts = 1; }
+    else if (data.tts && typeof data.tts === 'object') {
+      patch.tts = cloneVal(data.tts);
+      counts.tts = 1;
+    }
 
     const ols = data.overlayLocalStorage || {};
     const timerRaw = ols['tf_timer_panel_config_v1'];
     const timer = importLegacyTimer(timerRaw);
     if (timer) { patch.timer = timer; counts.timer = 1; }
+    else if (data.timer && typeof data.timer === 'object') {
+      patch.timer = cloneVal(data.timer);
+      counts.timer = 1;
+    }
 
     // Reglas de puntos (no la lista de usuarios): campos típicos del panel legacy.
     const fields = data.fields || {};
     const pts = {};
-    const perCoin = fields['puntos-por-moneda'] ?? fields['points-per-coin'] ?? fields['pts-per-coin'];
+    const perCoin = fields['puntos-por-moneda'] ?? fields['points-per-coin'] ?? fields['pts-per-coin']
+      ?? data.pointsPerCoin ?? (data.points && data.points.perCoin);
     if (perCoin != null && perCoin !== '') pts.perCoin = Math.max(0, Number(perCoin) || 0);
-    const sf = fields['bono-super-fan'] ?? fields['superfan-bonus'] ?? fields['super-fan-bonus'];
+    const sf = fields['bono-super-fan'] ?? fields['superfan-bonus'] ?? fields['super-fan-bonus']
+      ?? (data.points && data.points.superFanBonus);
     if (sf != null && sf !== '') pts.superFanBonus = Math.max(0, Math.round(Number(sf) || 0));
-    const sub = fields['bono-suscripcion'] ?? fields['sub-bonus'] ?? fields['subscribe-bonus'];
+    const sub = fields['bono-suscripcion'] ?? fields['sub-bonus'] ?? fields['subscribe-bonus']
+      ?? (data.points && data.points.subBonus);
     if (sub != null && sub !== '') pts.subBonus = Math.max(0, Math.round(Number(sub) || 0));
+    if (data.points && typeof data.points === 'object' && !Array.isArray(data.points)) {
+      if (data.points.perCoin != null) pts.perCoin = Math.max(0, Number(data.points.perCoin) || 0);
+      if (data.points.superFanBonus != null) pts.superFanBonus = Math.max(0, Math.round(Number(data.points.superFanBonus) || 0));
+      if (data.points.subBonus != null) pts.subBonus = Math.max(0, Math.round(Number(data.points.subBonus) || 0));
+    }
     if (Object.keys(pts).length) { patch.points = pts; counts.points = 1; }
 
     if (data.checks && data.checks['activar-sonidos-global'] === false) {

@@ -8171,6 +8171,108 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     } catch {}
   }
 
+  /** Descifra export .tfc de TikFinity (CryptoJS AES / OpenSSL Salted__). */
+  function evpBytesToKey(password, salt, keyLen, ivLen) {
+    const crypto = require('crypto');
+    const pass = Buffer.from(String(password || ''), 'utf8');
+    let data = Buffer.alloc(0);
+    const parts = [];
+    while (Buffer.concat(parts).length < keyLen + ivLen) {
+      const hash = crypto.createHash('md5');
+      hash.update(data);
+      hash.update(pass);
+      hash.update(salt);
+      data = hash.digest();
+      parts.push(data);
+    }
+    const ms = Buffer.concat(parts);
+    return { key: ms.slice(0, keyLen), iv: ms.slice(keyLen, keyLen + ivLen) };
+  }
+
+  function decryptCryptoJsOpenSsl(ciphertextB64, password) {
+    const crypto = require('crypto');
+    const buf = Buffer.from(String(ciphertextB64 || '').trim().replace(/\s+/g, ''), 'base64');
+    if (buf.length < 32 || buf.slice(0, 8).toString('utf8') !== 'Salted__') {
+      throw new Error('No es un .tfc cifrado (Salted__) válido.');
+    }
+    const salt = buf.slice(8, 16);
+    const ct = buf.slice(16);
+    const attempts = [
+      { keyLen: 32, ivLen: 16, algo: 'aes-256-cbc' },
+      { keyLen: 16, ivLen: 16, algo: 'aes-128-cbc' },
+    ];
+    let lastErr = null;
+    for (const a of attempts) {
+      try {
+        const { key, iv } = evpBytesToKey(password, salt, a.keyLen, a.ivLen);
+        const decipher = crypto.createDecipheriv(a.algo, key, iv);
+        const out = Buffer.concat([decipher.update(ct), decipher.final()]);
+        const text = out.toString('utf8');
+        if (text && text.trim()) return text;
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error('descifrado falló');
+  }
+
+  function buildTikfinityPassphrases({ channelId, password, username } = {}) {
+    const out = [];
+    const add = (v) => {
+      const s = String(v == null ? '' : v);
+      if (!s || out.includes(s)) return;
+      out.push(s);
+    };
+    add(password);
+    add(channelId);
+    if (channelId) {
+      add(String(channelId).trim());
+      add('tikfinity' + channelId);
+      add('TikFinity' + channelId);
+      add('tikfinity_' + channelId);
+      add(channelId + '_settings');
+    }
+    if (username) {
+      add(username);
+      add(String(username).toLowerCase());
+      add(String(username).replace(/^@/, ''));
+    }
+    add('tikfinity');
+    add('TikFinity');
+    add('zerody');
+    add('TikFinitySettings');
+    add('settings');
+    add('export');
+    add('tfc');
+    return out;
+  }
+
+  function decryptTikfinityTfc(ciphertext, opts = {}) {
+    const keys = buildTikfinityPassphrases(opts);
+    let lastErr = null;
+    for (const key of keys) {
+      try {
+        const plain = decryptCryptoJsOpenSsl(ciphertext, key);
+        const trimmed = String(plain || '').trim();
+        if (!trimmed) continue;
+        const data = JSON.parse(trimmed);
+        if (!data || typeof data !== 'object') continue;
+        return { data, passphraseUsed: key === opts.password ? '(password)' : (key === String(opts.channelId) ? 'channelId' : 'key') };
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw new Error(
+      lastErr?.message?.includes('Salted')
+        ? lastErr.message
+        : 'No se pudo descifrar el .tfc con tu User ID. Prueba la contraseña de exportación (si TikFinity te la pidió) o exporta de nuevo.'
+    );
+  }
+
+  function replyTikfinityDecrypt(ws, payload) {
+    try {
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'tikfinityDecryptResult', payload }));
+    } catch {}
+  }
+
   /* ------------------------------- Emotes ------------------------------- */
   function rememberEmote(emoteId, image) {
     const eid = String(emoteId || '').trim();
@@ -8993,6 +9095,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             replyPointsImport(ws, { ok: false, error: e.message || String(e) });
           }
         })();
+        break;
+      }
+      case 'decryptTikfinityTfc': {
+        try {
+          const ciphertext = String(data.ciphertext || '');
+          if (!ciphertext || ciphertext.length < 32) {
+            replyTikfinityDecrypt(ws, { ok: false, error: 'Archivo vacío o inválido.' });
+            break;
+          }
+          if (ciphertext.length > 12_000_000) {
+            replyTikfinityDecrypt(ws, { ok: false, error: 'Archivo demasiado grande.' });
+            break;
+          }
+          const result = decryptTikfinityTfc(ciphertext, {
+            channelId: data.channelId,
+            password: data.password,
+            username: data.username,
+          });
+          replyTikfinityDecrypt(ws, { ok: true, data: result.data, hint: result.passphraseUsed });
+          broadcast('log', { level: 'info', text: '📥 .tfc de TikFinity descifrado correctamente.' });
+        } catch (e) {
+          replyTikfinityDecrypt(ws, { ok: false, error: e.message || String(e) });
+        }
         break;
       }
       case 'hello':
