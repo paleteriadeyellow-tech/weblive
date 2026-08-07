@@ -1493,6 +1493,126 @@ function askConfirm({ title = '¿Estás seguro?', message = '', confirmText = 'B
   });
 }
 
+/** Pide Channel ID de TikFinity e importa puntos (el .tfc cifrado no trae la lista). */
+function askTikfinityPointsImport({ reason = '' } = {}) {
+  return new Promise((resolve) => {
+    const back = document.createElement('div');
+    back.className = 'modal confirm-modal';
+    const canLogin = !!(window.desktopAPI && window.desktopAPI.openTikfinityImport);
+    back.innerHTML = `
+      <div class="confirm-box" style="max-width:480px;text-align:left">
+        <div class="confirm-ico">📥</div>
+        <h3>Importar puntos de TikFinity</h3>
+        <p style="margin:0 0 10px;opacity:.9;font-size:13px;line-height:1.45">
+          ${reason || 'El archivo .tfc está cifrado y no se puede leer aquí.'}
+          La pantalla <b>«Sistema de Puntos»</b> solo son reglas (puntos por moneda, etc.),
+          <b>no</b> la lista de usuarios. Los puntos se traen desde tu cuenta TikFinity.
+        </p>
+        ${canLogin ? `
+          <button type="button" class="btn primary tf-login-btn" style="width:100%;margin:0 0 12px">
+            Iniciar sesión en TikFinity e importar
+          </button>
+          <p style="margin:0 0 12px;font-size:12px;opacity:.75;line-height:1.35">
+            Se abrirá TikFinity. Entra con tu cuenta; cuando detectemos el ID, importamos solos.
+          </p>
+          <p style="margin:0 0 8px;font-size:12px;opacity:.7;text-align:center">— o pega el ID a mano —</p>
+        ` : `
+          <p style="margin:0 0 10px;font-size:12px;opacity:.8;line-height:1.35">
+            En TikFinity ve a <b>Setup → Account / Tu cuenta</b> (no «Sistema de Puntos») y copia el <b>User ID</b> numérico.
+          </p>
+        `}
+        <label style="display:block;font-size:12px;margin:0 0 4px;opacity:.8">Channel / User ID</label>
+        <input type="text" class="tf-ch-input" placeholder="Ej. 590698" autocomplete="off"
+          style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#0c1322;color:#fff;font-size:15px;margin-bottom:10px">
+        <label class="switch-row plain" style="margin:0 0 14px">
+          <input type="checkbox" class="tf-ch-replace" checked>
+          <span>Reemplazar lista actual de puntos en Livecoins</span>
+        </label>
+        <div class="confirm-btns">
+          <button type="button" class="btn ghost c-cancel">Cancelar</button>
+          <button type="button" class="btn primary c-ok">Importar con este ID</button>
+        </div>
+      </div>`;
+    document.body.appendChild(back);
+    const input = back.querySelector('.tf-ch-input');
+    let done = false;
+    const close = (val) => {
+      if (done) return;
+      done = true;
+      try { document.removeEventListener('keydown', onKey); } catch {}
+      try { back.remove(); } catch {}
+      resolve(val);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') close(null);
+      if (e.key === 'Enter' && document.activeElement === input) back.querySelector('.c-ok')?.click();
+    };
+    back.querySelector('.c-cancel').onclick = () => close(null);
+    back.querySelector('.c-ok').onclick = () => {
+      const channelId = String(input?.value || '').trim();
+      if (!/^\d+$/.test(channelId)) {
+        input?.focus();
+        toast('Pon el User ID numérico (Setup → Account en TikFinity).', 'warn');
+        return;
+      }
+      close({
+        channelId,
+        replace: !!back.querySelector('.tf-ch-replace')?.checked,
+      });
+    };
+    const loginBtn = back.querySelector('.tf-login-btn');
+    if (loginBtn) {
+      loginBtn.onclick = async () => {
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Esperando login en TikFinity…';
+        try {
+          const r = await window.desktopAPI.openTikfinityImport();
+          if (r && r.ok && r.channelId) {
+            if (input) input.value = r.channelId;
+            close({
+              channelId: String(r.channelId),
+              replace: !!back.querySelector('.tf-ch-replace')?.checked,
+            });
+            return;
+          }
+          if (r && r.cancelled) toast('Login cancelado. Puedes pegar el User ID a mano.', 'warn');
+          else toast((r && r.error) || 'No se detectó la cuenta. Pega el User ID a mano (Setup → Account).', 'warn');
+        } catch (e) {
+          toast(String(e.message || e), 'warn');
+        }
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Iniciar sesión en TikFinity e importar';
+      };
+    }
+    back.addEventListener('click', (e) => { if (e.target === back) close(null); });
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => (canLogin ? loginBtn : input)?.focus(), 40);
+  });
+}
+
+async function runTikfinityPointsImportFlow(opts) {
+  const ans = await askTikfinityPointsImport(opts);
+  if (!ans) return false;
+  try {
+    const ch = $('pts-tf-channel');
+    if (ch) ch.value = ans.channelId;
+    const rep = $('pts-tf-replace');
+    if (rep) rep.checked = !!ans.replace;
+  } catch {}
+  try {
+    const nav = document.querySelector('[data-view="points"]');
+    if (nav) nav.click();
+  } catch {}
+  if (typeof window.setPtsTfStatus === 'function') window.setPtsTfStatus('Descargando desde TikFinity…');
+  send({
+    action: 'importTikfinityPoints',
+    channelId: ans.channelId,
+    mode: ans.replace ? 'replace' : 'merge',
+  });
+  toast('Importando puntos desde tu cuenta TikFinity…', 'ok');
+  return true;
+}
+
 function handle(type, p) {
   if (type === 'ttsClaimResult') { onTtsClaimResult(p); return; }
   if (type === 'ttsClaimed') { onTtsClaimed(p); return; }
@@ -1541,6 +1661,7 @@ function handle(type, p) {
     case 'pointsList': onPointsList(p); break;
     case 'pointsUpdate': onPointsUpdate(p); break;
     case 'pointsTx': onPointsTx(p); break;
+    case 'pointsImportResult': onPointsImportResult(p); break;
     case 'spotifyHistory': if (typeof renderSpotifyHistory === 'function') renderSpotifyHistory(p.history || []); break;
     case 'spotifyQueue': break;
     case 'spotifyNowPlaying': break;
@@ -12310,6 +12431,142 @@ function renderPointsTx() {
     }
   };
 
+  function setPtsTfStatus(msg, kind) {
+    const el = $('pts-tf-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = 'transfer-status' + (kind ? ' ' + kind : '');
+  }
+  window.setPtsTfStatus = setPtsTfStatus;
+  function onPointsImportResult(p) {
+    if (!p) return;
+    if (p.pending) { setPtsTfStatus(p.text || 'Importando…'); return; }
+    if (p.ok === false) {
+      setPtsTfStatus('Error: ' + (p.error || 'falló la importación'), 'err');
+      toast(String(p.error || 'Error al importar puntos'), 'warn');
+      return;
+    }
+    const n = (Number(p.imported) || 0) + (Number(p.updated) || 0);
+    const msg = `Importados ${n} usuario(s). Base: ${fmtPts(p.total || ptsState.count)}.`;
+    setPtsTfStatus(msg, 'ok');
+    toast(msg, 'ok');
+    send({ action: 'getPoints' });
+  }
+
+  const tfImportBtn = $('pts-tf-import-btn');
+  if (tfImportBtn) tfImportBtn.onclick = async () => {
+    const channelId = ($('pts-tf-channel')?.value || '').trim();
+    if (!/^\d+$/.test(channelId)) {
+      setPtsTfStatus('Pon el User ID numérico (Setup → Account en TikFinity).', 'err');
+      $('pts-tf-channel')?.focus();
+      return;
+    }
+    const replace = !!$('pts-tf-replace')?.checked;
+    if (replace) {
+      const ok = await askConfirm({
+        title: 'Reemplazar puntos',
+        message: 'Se borrará tu lista actual de puntos y se cargará la de TikFinity. ¿Continuar?',
+        confirmText: 'Reemplazar e importar',
+      });
+      if (!ok) return;
+    }
+    setPtsTfStatus('Descargando desde TikFinity…');
+    send({ action: 'importTikfinityPoints', channelId, mode: replace ? 'replace' : 'merge' });
+  };
+
+  const tfLoginBtn = $('pts-tf-login-btn');
+  if (tfLoginBtn) {
+    if (!(window.desktopAPI && window.desktopAPI.openTikfinityImport)) {
+      tfLoginBtn.style.display = 'none';
+    } else {
+      tfLoginBtn.onclick = async () => {
+        tfLoginBtn.disabled = true;
+        const prev = tfLoginBtn.textContent;
+        tfLoginBtn.textContent = 'Esperando TikFinity…';
+        setPtsTfStatus('Abre la ventana, inicia sesión en TikFinity…');
+        try {
+          const r = await window.desktopAPI.openTikfinityImport();
+          if (r && r.ok && r.channelId) {
+            if ($('pts-tf-channel')) $('pts-tf-channel').value = r.channelId;
+            const replace = !!$('pts-tf-replace')?.checked;
+            setPtsTfStatus('Cuenta detectada. Descargando puntos…');
+            send({ action: 'importTikfinityPoints', channelId: String(r.channelId), mode: replace ? 'replace' : 'merge' });
+            toast('Cuenta TikFinity detectada. Importando puntos…', 'ok');
+          } else if (r && r.cancelled) {
+            setPtsTfStatus('Login cancelado.', 'err');
+          } else {
+            setPtsTfStatus((r && r.error) || 'No se detectó la cuenta. Pega el User ID a mano (Setup → Account).', 'err');
+            toast('No se detectó sola la cuenta. Ve a Setup → Account y pega el User ID.', 'warn');
+          }
+        } catch (e) {
+          setPtsTfStatus(String(e.message || e), 'err');
+        }
+        tfLoginBtn.disabled = false;
+        tfLoginBtn.textContent = prev || 'Iniciar sesión TikFinity';
+      };
+    }
+  }
+
+  const tfFileBtn = $('pts-tf-file-btn');
+  const tfFileIn = $('pts-tf-file');
+  if (tfFileBtn && tfFileIn) {
+    tfFileBtn.onclick = () => tfFileIn.click();
+    tfFileIn.addEventListener('change', async () => {
+      const file = tfFileIn.files?.[0];
+      tfFileIn.value = '';
+      if (!file) return;
+      setPtsTfStatus('Leyendo archivo…');
+      try {
+        const text = await file.text();
+        const head = String(text || '').replace(/^\uFEFF/, '').trim().slice(0, 16);
+        if (head.startsWith('U2FsdGVk')) {
+          setPtsTfStatus('Archivo cifrado: usa tu Channel ID de TikFinity.', 'err');
+          await runTikfinityPointsImportFlow({
+            reason: 'Ese .tfc está cifrado. Los puntos se importan con tu cuenta TikFinity (Channel ID).',
+          });
+          return;
+        }
+        let users = null;
+        if (window.SettingsTransfer) {
+          try {
+            const result = window.SettingsTransfer.parseFile(text);
+            users = result.pointsUsers || null;
+          } catch (e) {
+            try {
+              const raw = JSON.parse(text);
+              users = window.SettingsTransfer.extractPointsUsers(raw);
+            } catch {
+              throw e;
+            }
+          }
+        }
+        if (!users || !users.length) throw new Error('No hay usuarios/puntos en el archivo.');
+        const replace = !!$('pts-tf-replace')?.checked;
+        if (replace) {
+          const ok = await askConfirm({
+            title: 'Reemplazar puntos',
+            message: `Se importarán ${users.length} usuario(s) reemplazando la lista actual.`,
+            confirmText: 'Reemplazar',
+          });
+          if (!ok) return;
+        }
+        send({ action: 'importPointsBulk', users, mode: replace ? 'replace' : 'merge' });
+        setPtsTfStatus(`Enviando ${users.length} usuario(s)…`);
+      } catch (e) {
+        const msg = String(e.message || e);
+        if (/cifrado|U2FsdGVk|Channel ID/i.test(msg)) {
+          setPtsTfStatus('El .tfc está cifrado. Usa el Channel ID abajo o el botón Importar.', 'err');
+          runTikfinityPointsImportFlow({
+            reason: 'Ese .tfc está cifrado. Los puntos se importan con tu cuenta TikFinity (Channel ID).',
+          });
+          return;
+        }
+        setPtsTfStatus('Error: ' + msg, 'err');
+        toast(msg, 'warn');
+      }
+    });
+  }
+
   const txSend = $('pts-tx-send');
   if (txSend) txSend.onclick = () => {
     const user = ($('pts-tx-user')?.value || '').trim().replace(/^@/, '');
@@ -13951,6 +14208,14 @@ function setupSettingsTransfer() {
     setStatus('Importando…');
     try {
       const text = await file.text();
+      const head = String(text || '').replace(/^\uFEFF/, '').trim().slice(0, 16);
+      if (head.startsWith('U2FsdGVk')) {
+        setStatus('Archivo TikFinity cifrado detectado.', 'err');
+        await runTikfinityPointsImportFlow({
+          reason: 'Ese .tfc está cifrado por TikFinity y no se puede abrir aquí.',
+        });
+        return;
+      }
       const result = window.SettingsTransfer.parseFile(text);
       const { counts, format } = result;
       const replace = !!$('transfer-replace')?.checked;
@@ -13967,6 +14232,18 @@ function setupSettingsTransfer() {
           settings: p.settings || null,
         }));
         importProfilesReq(profiles, mode, result.shared || null);
+        if (Array.isArray(result.pointsUsers) && result.pointsUsers.length) {
+          send({ action: 'importPointsBulk', users: result.pointsUsers, mode });
+        }
+        const summary = window.SettingsTransfer.summarize(counts);
+        setStatus(`Importado (${mode === 'replace' ? 'reemplazo' : 'añadir'}): ${summary}.`, 'ok');
+        toast(`Importado: ${summary}`, 'ok');
+        return;
+      }
+
+      // Solo usuarios/puntos (p. ej. dump de channelusers).
+      if (result.format === 'points-users' && Array.isArray(result.pointsUsers)) {
+        send({ action: 'importPointsBulk', users: result.pointsUsers, mode });
         const summary = window.SettingsTransfer.summarize(counts);
         setStatus(`Importado (${mode === 'replace' ? 'reemplazo' : 'añadir'}): ${summary}.`, 'ok');
         toast(`Importado: ${summary}`, 'ok');
@@ -13982,13 +14259,25 @@ function setupSettingsTransfer() {
       applySettingsToUI();
       applyLimitUI();
 
+      if (Array.isArray(result.pointsUsers) && result.pointsUsers.length) {
+        send({ action: 'importPointsBulk', users: result.pointsUsers, mode });
+      }
+
       const summary = window.SettingsTransfer.summarize(counts);
-      const fmtLabel = format === 'legacy-v1' ? 'TikFinity legacy' : 'Livecoins';
+      const fmtLabel = format === 'legacy-v1' ? 'TikFinity legacy' : (format === 'points-users' ? 'Puntos' : 'Livecoins');
       setStatus(`Importado (${fmtLabel}, ${mode === 'replace' ? 'reemplazo' : 'añadir'}): ${summary}.`, 'ok');
       toast(`Importado: ${summary}`, 'ok');
     } catch (e) {
-      setStatus('Error: ' + (e.message || e), 'err');
-      toast(String(e.message || e), 'warn');
+      const msg = String(e.message || e);
+      if (/cifrado|U2FsdGVk|Channel ID/i.test(msg)) {
+        setStatus('El .tfc está cifrado. Usa tu Channel ID de TikFinity para importar los puntos.', 'err');
+        runTikfinityPointsImportFlow({
+          reason: 'Ese .tfc está cifrado por TikFinity y no se puede abrir aquí.',
+        });
+        return;
+      }
+      setStatus('Error: ' + msg, 'err');
+      toast(msg, 'warn');
     }
   });
 }

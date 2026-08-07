@@ -8076,6 +8076,101 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (points.delete(key)) { savePoints(); broadcast('pointsList', serializePoints()); }
   }
 
+  function normalizeImportedPhoto(url) {
+    let p = String(url || '').trim();
+    if (!p) return '';
+    if (p.startsWith('//')) p = 'https:' + p;
+    else if (!/^https?:\/\//i.test(p)) p = 'https://' + p.replace(/^\/+/, '');
+    return p.slice(0, 500);
+  }
+
+  /** Importa lista de usuarios con puntos (absolutos). mode: merge | replace */
+  function importPointsUsers(list, mode) {
+    const arr = Array.isArray(list) ? list : [];
+    if (mode === 'replace') {
+      points.clear();
+      pointsTx = [];
+    }
+    let imported = 0;
+    let updated = 0;
+    const now = Date.now();
+    for (const raw of arr) {
+      if (!raw || typeof raw !== 'object') continue;
+      const key = String(raw.uniqueId || raw.username || '').trim().replace(/^@/, '').toLowerCase();
+      if (!key) continue;
+      const total = Math.max(0, Math.round(Number(raw.total != null ? raw.total : raw.totalRewardAmount != null ? raw.totalRewardAmount : raw.totalAmount) || 0));
+      const levelPoints = Math.max(0, Math.round(Number(raw.levelPoints != null ? raw.levelPoints : total) || 0));
+      const nickname = String(raw.nickname || key).slice(0, 64);
+      const photo = normalizeImportedPhoto(raw.photo || raw.thumbnailUrl || '');
+      const firstAt = Number(raw.firstAt) || Date.parse(raw.createdAt) || now;
+      const lastAt = Number(raw.lastAt) || Date.parse(raw.lastUpsertAt || raw.updatedAt) || now;
+      const prev = points.get(key);
+      if (mode === 'merge' && prev && prev.total >= total && prev.levelPoints >= levelPoints) {
+        if (nickname && nickname !== prev.nickname) prev.nickname = nickname;
+        if (photo && !prev.photo) prev.photo = photo;
+        continue;
+      }
+      if (prev) updated++;
+      else imported++;
+      points.set(key, {
+        uniqueId: key,
+        nickname: nickname || (prev && prev.nickname) || key,
+        photo: photo || (prev && prev.photo) || '',
+        total,
+        levelPoints,
+        firstAt: prev ? Math.min(prev.firstAt || firstAt, firstAt) : firstAt,
+        lastAt: Math.max(prev ? (prev.lastAt || 0) : 0, lastAt),
+      });
+    }
+    enforcePointsCap();
+    savePoints();
+    broadcast('pointsList', serializePoints());
+    return { ok: true, imported, updated, total: points.size };
+  }
+
+  async function fetchTikfinityChannelUsers(channelId) {
+    const id = String(channelId || '').trim();
+    if (!/^\d+$/.test(id)) throw new Error('Channel ID inválido (debe ser el número de Setup → Tu cuenta).');
+    const out = [];
+    const pageSize = 100;
+    let page = 0;
+    for (;;) {
+      const url = `https://tikfinity.zerody.one/api/rest/channeluser?channelId=${encodeURIComponent(id)}&pageSize=${pageSize}&page=${page}&orderColumn=totalRewardAmount`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`TikFinity respondió HTTP ${res.status}`);
+      const data = await res.json();
+      const list = Array.isArray(data.channelusers) ? data.channelusers
+        : (Array.isArray(data.channelUsers) ? data.channelUsers : []);
+      for (const u of list) {
+        if (!u) continue;
+        const uniqueId = String(u.username || u.uniqueId || '').trim().replace(/^@/, '').toLowerCase();
+        if (!uniqueId) continue;
+        const total = Math.max(0, Math.round(Number(
+          u.totalRewardAmount != null ? u.totalRewardAmount : u.totalAmount
+        ) || 0));
+        out.push({
+          uniqueId,
+          nickname: String(u.nickname || uniqueId).slice(0, 64),
+          photo: normalizeImportedPhoto(u.thumbnailUrl || u.thumbnailUrlV2 || ''),
+          total,
+          levelPoints: total,
+          firstAt: Date.parse(u.createdAt) || Date.now(),
+          lastAt: Date.parse(u.lastUpsertAt || u.updatedAt) || Date.now(),
+        });
+      }
+      if (!data.hasNext || !list.length) break;
+      page += 1;
+      if (out.length >= POINTS_MAX_USERS || page > 250) break;
+    }
+    return out.slice(0, POINTS_MAX_USERS);
+  }
+
+  function replyPointsImport(ws, payload) {
+    try {
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pointsImportResult', payload }));
+    } catch {}
+  }
+
   /* ------------------------------- Emotes ------------------------------- */
   function rememberEmote(emoteId, image) {
     const eid = String(emoteId || '').trim();
@@ -8869,6 +8964,37 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetUserPoints':
         if (data.user) resetOnePoints(data.user);
         break;
+      case 'importPointsBulk': {
+        try {
+          const mode = data.mode === 'replace' ? 'replace' : 'merge';
+          const result = importPointsUsers(data.users || [], mode);
+          replyPointsImport(ws, { ...result, source: 'file' });
+          broadcast('log', { level: 'info', text: `📥 Puntos importados: ${result.imported + result.updated} usuario(s) (total ${result.total}).` });
+        } catch (e) {
+          replyPointsImport(ws, { ok: false, error: e.message || String(e) });
+        }
+        break;
+      }
+      case 'importTikfinityPoints': {
+        const channelId = String(data.channelId || '').trim();
+        const mode = data.mode === 'replace' ? 'replace' : 'merge';
+        (async () => {
+          try {
+            replyPointsImport(ws, { ok: true, pending: true, text: 'Descargando usuarios de TikFinity…' });
+            const users = await fetchTikfinityChannelUsers(channelId);
+            if (!users.length) {
+              replyPointsImport(ws, { ok: false, error: 'TikFinity no devolvió usuarios para ese Channel ID.' });
+              return;
+            }
+            const result = importPointsUsers(users, mode);
+            replyPointsImport(ws, { ...result, source: 'tikfinity', fetched: users.length });
+            broadcast('log', { level: 'info', text: `📥 TikFinity: ${users.length} usuario(s) → ${result.total} en Livecoins.` });
+          } catch (e) {
+            replyPointsImport(ws, { ok: false, error: e.message || String(e) });
+          }
+        })();
+        break;
+      }
       case 'hello':
         if (data.role === 'videoScreen') {
           const scr = Math.max(1, Math.min(10, parseInt(data.screen, 10) || 1));

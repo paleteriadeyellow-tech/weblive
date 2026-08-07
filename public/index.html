@@ -573,7 +573,8 @@
             </div>
             <div class="transfer-info transfer-info-tip">
               <p class="transfer-desc">Si vas a importar los datos del otro Livecoins, marca la casilla de reemplazar y dale importar.</p>
-              <p class="transfer-desc">Si vas a importar m?s de 1 perfil, exporta e importa perfil por perfil.</p>
+              <p class="transfer-desc">Si vas a importar más de 1 perfil, exporta e importa perfil por perfil.</p>
+              <p class="transfer-desc">Puntos de TikFinity: el <code>.tfc</code> suele ir cifrado. Al elegirlo te pediremos tu <b>Channel ID</b> (Setup → Tu cuenta) para traer la lista de usuarios.</p>
             </div>
             <div class="transfer-actions">
               <button type="button" class="transfer-btn transfer-btn-export" id="transfer-export">
@@ -582,7 +583,7 @@
               </button>
               <button type="button" class="transfer-btn transfer-btn-import" id="transfer-import">
                 <span class="transfer-btn-ico" aria-hidden="true">?</span>
-                <span class="transfer-btn-txt"><b>Importar archivo?</b><small>Cargar desde disco</small></span>
+                <span class="transfer-btn-txt"><b>Importar archivo…</b><small>JSON o .tfc</small></span>
               </button>
             </div>
             <label class="transfer-opt">
@@ -590,7 +591,7 @@
               <span>Reemplazar listas importadas (alertas, videos, acciones?)</span>
             </label>
             <p class="transfer-status" id="transfer-status"></p>
-            <input type="file" id="transfer-file" accept=".json,application/json" hidden>
+            <input type="file" id="transfer-file" accept=".json,.tfc,application/json,text/plain" hidden>
           </section>
 
           <div class="modal hidden" id="transfer-export-modal" aria-hidden="true">
@@ -7017,6 +7018,18 @@
                   <input type="number" id="pts-subbonus" min="0" step="1" value="100">
                 </div>
                 <button class="btn ghost danger" id="pts-reset">Restablecer puntos</button>
+              </div>
+              <div class="pts-tf-import" id="pts-tf-import">
+                <p class="tts-sub pts-tf-hint">La pantalla «Sistema de Puntos» de TikFinity solo son reglas. Para traer la <b>lista de usuarios</b>: pega tu User ID (Setup → Account / Tu cuenta). En la app PC también puedes iniciar sesión desde el botón.</p>
+                <div class="pts-tf-row">
+                  <input type="text" id="pts-tf-channel" class="pts-search" placeholder="User ID de TikFinity (número)" autocomplete="off">
+                  <button type="button" class="btn primary" id="pts-tf-login-btn" title="Abre TikFinity, inicia sesión e importa">Iniciar sesión TikFinity</button>
+                  <button type="button" class="btn primary" id="pts-tf-import-btn">Importar con este ID</button>
+                  <button type="button" class="btn ghost" id="pts-tf-file-btn">Desde archivo…</button>
+                  <input type="file" id="pts-tf-file" accept=".json,.tfc,application/json,text/plain" hidden>
+                </div>
+                <label class="switch-row plain pts-tf-replace"><input type="checkbox" id="pts-tf-replace"> <span>Reemplazar lista actual (si no, fusiona tomando el mayor)</span></label>
+                <p class="transfer-status" id="pts-tf-status"></p>
               </div>
 
               <div class="pts-body">

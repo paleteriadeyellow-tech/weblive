@@ -120,8 +120,12 @@
         { key: 'mari0Actions', label: 'Mari0' },
         { key: 'smb3Actions', label: 'Super Mario Bros 3' },
         { key: 'pvzActions', label: 'Plants vs Zombies' },
+        { key: 'pvzHybridActions', label: 'Plants vs Zombies Pack (Hybrid)' },
         { key: 'repoActions', label: 'R.E.P.O.' },
         { key: 'l4dActions', label: 'Left 4 Dead 2' },
+        { key: 'gtavKothActions', label: 'GTA V King of the Hill' },
+        { key: 'gtavChaosActions', label: 'GTA V Mod Chaos' },
+        { key: 'gtavChiliadActions', label: 'GTA V Chiliad' },
         { key: 'unturnedActions', label: 'Unturned' },
         { key: 'ctrActions', label: 'Crash Team Racing (CTR)' },
         { key: 'smwActions', label: 'Super Mario World (BizHawk)' },
@@ -303,11 +307,88 @@
     return raw.data || null;
   }
 
+  function extractPointsUsers(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const roots = [raw, raw.data, raw.payload, raw.shared].filter((x) => x && typeof x === 'object');
+    let arr = null;
+    for (const r of roots) {
+      if (Array.isArray(r.channelusers)) { arr = r.channelusers; break; }
+      if (Array.isArray(r.channelUsers)) { arr = r.channelUsers; break; }
+      if (Array.isArray(r.users) && r.users.some((u) => u && (u.totalAmount != null || u.totalRewardAmount != null || u.total != null || u.uniqueId))) {
+        arr = r.users; break;
+      }
+      if (r.points && Array.isArray(r.points.users)) { arr = r.points.users; break; }
+    }
+    if (!arr || !arr.length) return null;
+    const out = [];
+    const seen = new Set();
+    for (const u of arr) {
+      if (!u || typeof u !== 'object') continue;
+      const uniqueId = String(u.uniqueId || u.username || u.user || '').trim().replace(/^@/, '').toLowerCase();
+      if (!uniqueId || seen.has(uniqueId)) continue;
+      seen.add(uniqueId);
+      const total = Math.max(0, Math.round(Number(
+        u.total != null ? u.total
+          : (u.totalRewardAmount != null ? u.totalRewardAmount : u.totalAmount)
+      ) || 0));
+      const levelPoints = Math.max(0, Math.round(Number(
+        u.levelPoints != null ? u.levelPoints : total
+      ) || 0));
+      let photo = String(u.photo || u.thumbnailUrl || u.thumbnailUrlV2 || u.profilePictureUrl || '').trim();
+      if (photo.startsWith('//')) photo = 'https:' + photo;
+      else if (photo && !/^https?:\/\//i.test(photo)) photo = 'https://' + photo.replace(/^\/+/, '');
+      const firstAt = Number(u.firstAt) || Date.parse(u.createdAt) || Date.now();
+      const lastAt = Number(u.lastAt) || Date.parse(u.lastUpsertAt || u.updatedAt) || firstAt;
+      out.push({
+        uniqueId,
+        nickname: String(u.nickname || uniqueId).slice(0, 64),
+        photo,
+        total,
+        levelPoints,
+        firstAt,
+        lastAt,
+      });
+    }
+    return out.length ? out : null;
+  }
+
+  function detectFormat(raw) {
+    if (!raw || typeof raw !== 'object') return 'unknown';
+    if (raw.format === 'livecoins' || raw.version === 2) return 'livecoins-v2';
+    const d = legacyPayloadRoot(raw);
+    if (d && (Array.isArray(d.alertas) || Array.isArray(d.interacciones))) return 'legacy-v1';
+    if (raw.data && (raw.data.soundAlerts || raw.data.videos)) return 'livecoins-v2';
+    if (extractPointsUsers(raw)) return 'points-users';
+    return 'unknown';
+  }
+
+  function convertPointsOnly(raw) {
+    const users = extractPointsUsers(raw);
+    if (!users) throw new Error('No se encontraron usuarios/puntos en el archivo.');
+    return {
+      patch: {},
+      counts: { pointsUsers: users.length },
+      format: 'points-users',
+      pointsUsers: users,
+    };
+  }
+
+  function attachPointsUsers(result, raw) {
+    if (!result || result.pointsUsers) return result;
+    const users = extractPointsUsers(raw);
+    if (users && users.length) {
+      result.pointsUsers = users;
+      result.counts = result.counts || {};
+      result.counts.pointsUsers = users.length;
+    }
+    return result;
+  }
+
   function convertLegacy(raw, opts) {
     const data = legacyPayloadRoot(raw);
     if (!data) throw new Error('Archivo legacy no reconocido.');
     const patch = {};
-    const counts = { soundAlerts: 0, videos: 0, actions: 0, tts: 0, timer: 0 };
+    const counts = { soundAlerts: 0, videos: 0, actions: 0, tts: 0, timer: 0, points: 0 };
 
     if (Array.isArray(data.alertas) && data.alertas.length) {
       patch.soundAlerts = data.alertas.map(importLegacyAlerta);
@@ -330,11 +411,22 @@
     const timer = importLegacyTimer(timerRaw);
     if (timer) { patch.timer = timer; counts.timer = 1; }
 
+    // Reglas de puntos (no la lista de usuarios): campos típicos del panel legacy.
+    const fields = data.fields || {};
+    const pts = {};
+    const perCoin = fields['puntos-por-moneda'] ?? fields['points-per-coin'] ?? fields['pts-per-coin'];
+    if (perCoin != null && perCoin !== '') pts.perCoin = Math.max(0, Number(perCoin) || 0);
+    const sf = fields['bono-super-fan'] ?? fields['superfan-bonus'] ?? fields['super-fan-bonus'];
+    if (sf != null && sf !== '') pts.superFanBonus = Math.max(0, Math.round(Number(sf) || 0));
+    const sub = fields['bono-suscripcion'] ?? fields['sub-bonus'] ?? fields['subscribe-bonus'];
+    if (sub != null && sub !== '') pts.subBonus = Math.max(0, Math.round(Number(sub) || 0));
+    if (Object.keys(pts).length) { patch.points = pts; counts.points = 1; }
+
     if (data.checks && data.checks['activar-sonidos-global'] === false) {
       /* no global flag in our model — skip */
     }
 
-    return { patch, counts, format: 'legacy-v1' };
+    return attachPointsUsers({ patch, counts, format: 'legacy-v1' }, raw);
   }
 
   function convertNative(raw) {
@@ -344,7 +436,7 @@
     for (const k of EXPORT_KEYS) {
       if (data[k] !== undefined) patch[k] = cloneVal(data[k]);
     }
-    return { patch, counts: countPatch(patch), format: 'livecoins-v2' };
+    return attachPointsUsers({ patch, counts: countPatch(patch), format: 'livecoins-v2' }, raw);
   }
 
   // Extrae una lista de perfiles { name, settings } si el archivo contiene varios.
@@ -400,15 +492,6 @@
       else if (v && typeof v === 'object') c[k] = 1;
     }
     return c;
-  }
-
-  function detectFormat(raw) {
-    if (!raw || typeof raw !== 'object') return 'unknown';
-    if (raw.format === 'livecoins' || raw.version === 2) return 'livecoins-v2';
-    const d = legacyPayloadRoot(raw);
-    if (d && (Array.isArray(d.alertas) || Array.isArray(d.interacciones))) return 'legacy-v1';
-    if (raw.data && (raw.data.soundAlerts || raw.data.videos)) return 'livecoins-v2';
-    return 'unknown';
   }
 
   function exportSettings(settings, opts) {
@@ -470,6 +553,8 @@
     if (counts.battleAlerts) parts.push(`${counts.battleAlerts} batalla(s)`);
     if (counts.tts) parts.push('TTS');
     if (counts.timer) parts.push('temporizador');
+    if (counts.points) parts.push('reglas de puntos');
+    if (counts.pointsUsers) parts.push(`${counts.pointsUsers} usuario(s) con puntos`);
     return parts.length ? parts.join(', ') : 'sin datos compatibles';
   }
 
@@ -483,20 +568,30 @@
     detectFormat,
     convertLegacy,
     convertNative,
+    convertPointsOnly,
+    extractPointsUsers,
     applyPatch,
     summarize,
     profilesFromFile,
     parseFile(text) {
-      const raw = JSON.parse(text);
+      const trimmed = String(text || '').replace(/^\uFEFF/, '').trim();
+      if (!trimmed) throw new Error('Archivo vacío.');
+      // TikFinity cifra muchos .tfc (AES CryptoJS "Salted__"). No se puede leer aquí.
+      if (trimmed.startsWith('U2FsdGVkX1') || (trimmed.startsWith('U2FsdGVk') && trimmed.charAt(0) !== '{')) {
+        throw new Error('Este .tfc está cifrado por TikFinity. Los puntos NO van en ese archivo: ve a Usuario y Puntos → Importar puntos TikFinity e introduce tu Channel ID (Setup → Tu cuenta).');
+      }
+      let raw;
+      try { raw = JSON.parse(trimmed); }
+      catch { throw new Error('No es JSON válido. Si es un .tfc cifrado, usa Channel ID para puntos.'); }
       const fmt = detectFormat(raw);
       if (fmt === 'legacy-v1') return convertLegacy(raw, { includeActions: true });
       if (fmt === 'livecoins-v2') {
-        // Si el archivo trae varios perfiles, los devolvemos todos para restaurarlos.
         const multi = convertMultiProfile(raw);
-        if (multi) return multi;
+        if (multi) return attachPointsUsers(multi, raw);
         return convertNative(raw);
       }
-      throw new Error('Formato de archivo no reconocido. Usa un export de Livecoins o TikFinity legacy.');
+      if (fmt === 'points-users') return convertPointsOnly(raw);
+      throw new Error('Formato de archivo no reconocido. Usa un export de Livecoins, JSON de usuarios/puntos, o TikFinity legacy.');
     },
   };
 })();
