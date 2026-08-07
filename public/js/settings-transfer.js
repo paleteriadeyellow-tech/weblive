@@ -302,8 +302,31 @@
 
   function legacyPayloadRoot(raw) {
     if (!raw || typeof raw !== 'object') return null;
-    if (raw.data && typeof raw.data === 'object') return raw.data;
-    if (raw.alertas || raw.videos || raw.interacciones) return raw;
+    if (raw.data && typeof raw.data === 'object') {
+      const d = raw.data;
+      if (d.alertas || d.videos || d.interacciones || d.soundAlerts || d.actions) return d;
+    }
+    if (raw.alertas || raw.videos || raw.interacciones || raw.soundAlerts || raw.actions) return raw;
+    if (raw.settings && typeof raw.settings === 'object') {
+      const s = raw.settings;
+      if (s.alertas || s.videos || s.interacciones || s.soundAlerts || s.actions || s.soundAlerts) return s;
+    }
+    // Buscar anidado (perfiles / slots / dumps modernos).
+    const stack = [raw];
+    const seen = new Set();
+    while (stack.length) {
+      const cur = stack.pop();
+      if (!cur || typeof cur !== 'object' || seen.has(cur)) continue;
+      seen.add(cur);
+      if (Array.isArray(cur.alertas) || Array.isArray(cur.soundAlerts) || Array.isArray(cur.interacciones)
+        || Array.isArray(cur.videos) || Array.isArray(cur.actions)) {
+        return cur;
+      }
+      for (const v of Object.values(cur)) {
+        if (v && typeof v === 'object') stack.push(v);
+        if (seen.size > 400) break;
+      }
+    }
     return raw.data || null;
   }
 

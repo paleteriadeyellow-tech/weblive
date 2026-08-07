@@ -1572,6 +1572,8 @@ function askTikfinityPointsImport({ reason = '', needPassword = false, title = '
               channelId: String(r.channelId),
               password: String(back.querySelector('.tf-pass-input')?.value || ''),
               replace: !!back.querySelector('.tf-ch-replace')?.checked,
+              settings: r.settings || null,
+              settingsScore: r.settingsScore || 0,
             });
             return;
           }
@@ -1581,7 +1583,7 @@ function askTikfinityPointsImport({ reason = '', needPassword = false, title = '
           toast(String(e.message || e), 'warn');
         }
         loginBtn.disabled = false;
-        loginBtn.textContent = 'Iniciar sesión en TikFinity (detectar ID)';
+        loginBtn.textContent = 'Iniciar sesión en TikFinity (ID + alertas si hay)';
       };
     }
     back.addEventListener('click', (e) => { if (e.target === back) close(null); });
@@ -1643,7 +1645,8 @@ function applyTikfinitySettingsBundle(raw, mode) {
     try {
       result = window.SettingsTransfer.convertLegacy(raw, { includeActions: true });
     } catch (e2) {
-      return { ok: false, error: e2.message || e.message || String(e) };
+      const keys = Object.keys(raw).slice(0, 12).join(', ');
+      return { ok: false, error: (e2.message || e.message || String(e)) + (keys ? ` [claves: ${keys}]` : '') };
     }
   }
   if (result.multi && Array.isArray(result.profiles)) {
@@ -1653,12 +1656,44 @@ function applyTikfinitySettingsBundle(raw, mode) {
     return { ok: true, pointsOnly: true, result };
   }
   const patch = result.patch || {};
+  const counts = result.counts || {};
+  const hasLists = (counts.soundAlerts || 0) + (counts.videos || 0) + (counts.actions || 0) + (counts.tts || 0) + (counts.timer || 0);
+  if (!hasLists && !Object.keys(patch).length) {
+    const keys = Object.keys(raw).slice(0, 16).join(', ');
+    return { ok: false, error: `El archivo se abrió pero no trae alertas/videos/acciones reconocibles.${keys ? ' Claves: ' + keys : ''}` };
+  }
   const merged = window.SettingsTransfer.applyPatch(settings || {}, patch, mode);
   settings = merged;
   saveSettings();
   applySettingsToUI();
   applyLimitUI();
-  return { ok: true, result, summary: window.SettingsTransfer.summarize(result.counts || {}) };
+  return { ok: true, result, summary: window.SettingsTransfer.summarize(counts) };
+}
+
+async function applyTikfinityLoginResult(r, { replace = true, importPoints = true } = {}) {
+  if (!r || !r.ok || !r.channelId) return false;
+  try { localStorage.setItem('lc_tikfinity_channel_id', String(r.channelId)); } catch {}
+  try {
+    const ch = $('pts-tf-channel');
+    if (ch) ch.value = r.channelId;
+  } catch {}
+  const mode = replace ? 'replace' : 'merge';
+  let appliedSettings = false;
+  if (r.settings) {
+    const applied = applyTikfinitySettingsBundle(r.settings, mode);
+    if (applied.ok && applied.summary) {
+      toast('Ajustes desde sesión TikFinity: ' + applied.summary, 'ok');
+      appliedSettings = true;
+    } else if (applied.error) {
+      toast('Sesión OK, pero sin alertas en caché: ' + applied.error, 'warn');
+    }
+  } else {
+    toast('Cuenta detectada. No había alertas en la sesión (solo ID). Importa el .tfc o abre Sound Alerts en TikFinity y reintenta login.', 'warn');
+  }
+  if (importPoints) {
+    send({ action: 'importTikfinityPoints', channelId: String(r.channelId), mode });
+  }
+  return appliedSettings;
 }
 
 async function runTikfinityTfcFullImport(ciphertext, opts = {}) {
@@ -1678,9 +1713,15 @@ async function runTikfinityTfcFullImport(ciphertext, opts = {}) {
   });
   if (!dec || !dec.ok || !dec.data) {
     toast(dec?.error || 'No se pudo descifrar el .tfc', 'warn');
+    if (ans.settings) {
+      const fromSession = applyTikfinitySettingsBundle(ans.settings, mode);
+      if (fromSession.ok && fromSession.summary) {
+        toast('Ajustes desde sesión TikFinity: ' + fromSession.summary, 'ok');
+      }
+    }
     const onlyPts = await askConfirm({
       title: '¿Importar solo puntos?',
-      message: 'No pudimos abrir el .tfc (alertas/acciones). ¿Quieres importar al menos los puntos con este User ID?',
+      message: 'No pudimos abrir el .tfc (alertas/acciones). ¿Quieres importar al menos los puntos con este User ID? (Para alertas: exporta de nuevo el .tfc o usa Copia de seguridad.)',
       confirmText: 'Solo puntos',
       cancelText: 'Cancelar',
       danger: false,
@@ -1695,6 +1736,12 @@ async function runTikfinityTfcFullImport(ciphertext, opts = {}) {
   const applied = applyTikfinitySettingsBundle(dec.data, mode);
   if (!applied.ok && !applied.pointsOnly) {
     toast(applied.error || 'No había ajustes compatibles en el .tfc', 'warn');
+    if (ans.settings) {
+      const fromSession = applyTikfinitySettingsBundle(ans.settings, mode);
+      if (fromSession.ok && fromSession.summary) {
+        toast('Fallback sesión: ' + fromSession.summary, 'ok');
+      }
+    }
   } else if (applied.summary) {
     toast('Ajustes TikFinity: ' + applied.summary, 'ok');
   }
@@ -12583,15 +12630,18 @@ function renderPointsTx() {
         tfLoginBtn.disabled = true;
         const prev = tfLoginBtn.textContent;
         tfLoginBtn.textContent = 'Esperando TikFinity…';
-        setPtsTfStatus('Abre la ventana, inicia sesión en TikFinity…');
+        setPtsTfStatus('Abre la ventana, inicia sesión. Luego visitaremos Sound Alerts para copiar alertas…');
         try {
           const r = await window.desktopAPI.openTikfinityImport();
           if (r && r.ok && r.channelId) {
-            if ($('pts-tf-channel')) $('pts-tf-channel').value = r.channelId;
             const replace = !!$('pts-tf-replace')?.checked;
-            setPtsTfStatus('Cuenta detectada. Descargando puntos…');
-            send({ action: 'importTikfinityPoints', channelId: String(r.channelId), mode: replace ? 'replace' : 'merge' });
-            toast('Cuenta TikFinity detectada. Importando puntos…', 'ok');
+            setPtsTfStatus(r.settings
+              ? 'Cuenta + ajustes detectados. Aplicando e importando puntos…'
+              : 'Cuenta detectada (sin alertas en sesión). Importando puntos… Para alertas usa el .tfc en Copia de seguridad.');
+            await applyTikfinityLoginResult(r, { replace, importPoints: true });
+            if (!r.settings) {
+              toast('Solo puntos: el ID/login no trae alertas. Importa el .tfc en Copia de seguridad.', 'warn');
+            }
           } else if (r && r.cancelled) {
             setPtsTfStatus('Login cancelado.', 'err');
           } else {

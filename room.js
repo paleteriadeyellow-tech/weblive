@@ -8171,6 +8171,105 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     } catch {}
   }
 
+  function replyTikfinityCloudSettings(ws, payload) {
+    try {
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'tikfinityCloudSettingsResult', payload }));
+    } catch {}
+  }
+
+  async function fetchTikfinityActions(channelId) {
+    const id = String(channelId || '').trim();
+    if (!/^\d+$/.test(id)) throw new Error('Channel ID inválido (debe ser el número de Setup → Tu cuenta).');
+    const out = [];
+    const pageSize = 100;
+    let page = 0;
+    for (;;) {
+      const url = `https://tikfinity.zerody.one/api/rest/action?channelId=${encodeURIComponent(id)}&pageSize=${pageSize}&page=${page}&orderColumn=id`;
+      const res = await fetch(url);
+      if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+      if (!res.ok) throw new Error(`TikFinity actions HTTP ${res.status}`);
+      const data = await res.json();
+      const list = Array.isArray(data.actions) ? data.actions : [];
+      for (const a of list) {
+        if (!a || a.isDeleted) continue;
+        out.push(a);
+      }
+      if (!data.hasNext || !list.length) break;
+      page += 1;
+      if (out.length >= 2000 || page > 100) break;
+    }
+    return out;
+  }
+
+  function mapTikfinityActionsToLegacy(actions, events) {
+    const byId = new Map();
+    if (Array.isArray(events)) {
+      for (const ev of events) {
+        if (!ev) continue;
+        const aid = ev.actionId ?? ev.action_id ?? ev.action?.id;
+        if (aid == null) continue;
+        const giftName = String(ev.giftName || ev.gift_name || ev.gift || ev.triggerName || '').trim();
+        const giftId = String(ev.giftId || ev.gift_id || '').trim();
+        const type = String(ev.type || ev.eventType || ev.trigger || ev.event || 'gift').toLowerCase();
+        byId.set(Number(aid), { giftName, giftId, type });
+      }
+    }
+    const alertas = [];
+    const videos = [];
+    const interacciones = [];
+    for (const a of actions || []) {
+      if (!a) continue;
+      const link = byId.get(Number(a.id)) || {};
+      const giftRef = link.giftName || (link.giftId ? `#${link.giftId}` : '');
+      const volPct = Math.max(0, Math.min(100, Math.round(Number(a.dynamicConfig?.mediaSoundVolume ?? 100) || 100)));
+      const name = String(a.name || 'Acción').slice(0, 80);
+      const enabled = a.isDeleted !== true;
+      if (a.videoUrl) {
+        videos.push({
+          nombreLista: name,
+          videoUrl: String(a.videoUrl),
+          videoName: String(a.dynamicConfig?.videoUrlOriginalFilename || 'video').slice(0, 80),
+          videoVol: volPct,
+          screen: Math.max(1, Math.min(10, Number(a.screenId) || 1)),
+          enabled,
+          nombreRegalo: giftRef,
+          trigger: link.type || 'gift',
+        });
+      } else if (a.audioUrl) {
+        alertas.push({
+          nombre: name,
+          audioUrl: String(a.audioUrl),
+          audioName: String(a.dynamicConfig?.audioUrlOriginalFilename || 'audio').slice(0, 80),
+          volumen: volPct,
+          enabled,
+          nombreRegalo: giftRef,
+          trigger: link.type === 'any_gift' ? 'any_gift' : 'gift',
+        });
+      }
+      if (a.keystrokes) {
+        interacciones.push({
+          nombre: name,
+          tecla: String(a.keystrokes).slice(0, 120),
+          enabled,
+          nombreRegalo: giftRef,
+        });
+      } else if (a.mcCmd || a.webhookUrl) {
+        interacciones.push({
+          nombre: name + (a.mcCmd ? ' [MC]' : ' [WH]'),
+          tecla: '',
+          enabled,
+          nombreRegalo: giftRef,
+          _mcCmd: a.mcCmd || '',
+          _webhookUrl: a.webhookUrl || '',
+        });
+      }
+    }
+    return { alertas, videos, interacciones };
+  }
+
   /** Descifra export .tfc de TikFinity (CryptoJS AES / OpenSSL Salted__). */
   function evpBytesToKey(password, salt, keyLen, ivLen) {
     const crypto = require('crypto');
@@ -9118,6 +9217,35 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         } catch (e) {
           replyTikfinityDecrypt(ws, { ok: false, error: e.message || String(e) });
         }
+        break;
+      }
+      case 'importTikfinityCloudSettings': {
+        const channelId = String(data.channelId || '').trim();
+        const events = Array.isArray(data.events) ? data.events : null;
+        (async () => {
+          try {
+            replyTikfinityCloudSettings(ws, { ok: true, pending: true, text: 'Descargando acciones de TikFinity…' });
+            const actions = await fetchTikfinityActions(channelId);
+            if (!actions.length) {
+              replyTikfinityCloudSettings(ws, { ok: false, error: 'TikFinity no devolvió acciones/alertas para ese User ID.' });
+              return;
+            }
+            const legacy = mapTikfinityActionsToLegacy(actions, events);
+            const counts = {
+              alertas: legacy.alertas.length,
+              videos: legacy.videos.length,
+              interacciones: legacy.interacciones.length,
+              actionsFetched: actions.length,
+            };
+            replyTikfinityCloudSettings(ws, { ok: true, data: legacy, counts });
+            broadcast('log', {
+              level: 'info',
+              text: `📥 TikFinity nube: ${counts.alertas} sonido(s), ${counts.videos} video(s), ${counts.interacciones} acción(es).`,
+            });
+          } catch (e) {
+            replyTikfinityCloudSettings(ws, { ok: false, error: e.message || String(e) });
+          }
+        })();
         break;
       }
       case 'hello':
