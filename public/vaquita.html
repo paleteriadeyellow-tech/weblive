@@ -240,23 +240,47 @@
 
     let FALLBACK_IMG = '/jarron/Vaquita.png';
 
-    // ---- Contador de diamantes (debajo de la vaquita) ----
+    // ---- Contador + regalos persistidos (sobreviven apagón / reload de OBS) ----
     const coinNumEl = document.getElementById('coin-num');
     let totalDiamonds = 0;
     const lsKey = 'lc_vaquita_' + (params.get('room') || 'default');
-    function persistDiamonds() { try { localStorage.setItem(lsKey, String(totalDiamonds)); } catch {} }
-    function loadPersistedDiamonds() {
-      try {
-        const raw = localStorage.getItem(lsKey);
-        if (raw != null) setDiamonds(parseInt(raw, 10) || 0);
-      } catch {}
+    const PERSIST_MAX = 400;
+    let persistTimer = null;
+    let restoringGifts = false;
+    function schedulePersist() {
+      if (isEmbed || isPreview || restoringGifts) return;
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(savePersistState, 220);
     }
-    function setDiamonds(n, bump) {
+    function savePersistState() {
+      if (isEmbed || isPreview) return;
+      try {
+        const g = gifts.slice(-PERSIST_MAX).map((x) => ({
+          u: String((x.img && (x.img.currentSrc || x.img.src)) || x.src || FALLBACK_IMG),
+          d: Math.max(0, Math.round(Number(x.diamonds) || 0)),
+          s: Math.max(14, Math.round(Number(x.sizePx) || 28)),
+        }));
+        localStorage.setItem(lsKey, JSON.stringify({ v: 2, t: totalDiamonds, g }));
+      } catch {
+        try {
+          const g = gifts.slice(-120).map((x) => ({
+            u: String((x.img && (x.img.currentSrc || x.img.src)) || x.src || FALLBACK_IMG),
+            d: Math.max(0, Math.round(Number(x.diamonds) || 0)),
+            s: Math.max(14, Math.round(Number(x.sizePx) || 28)),
+          }));
+          localStorage.setItem(lsKey, JSON.stringify({ v: 2, t: totalDiamonds, g }));
+        } catch { /* quota */ }
+      }
+    }
+    function setDiamonds(n, bump, skipPersist) {
       totalDiamonds = Math.max(0, Math.round(Number(n) || 0));
       if (!coinNumEl) return;
       coinNumEl.textContent = totalDiamonds.toLocaleString('es-ES');
       if (bump) { coinNumEl.classList.remove('bump'); void coinNumEl.offsetWidth; coinNumEl.classList.add('bump'); }
-      persistDiamonds();
+      if (!skipPersist) schedulePersist();
+    }
+    function clearPersistState() {
+      try { localStorage.removeItem(lsKey); } catch {}
     }
 
     // ---- Barra rotativa TOP DONATOR (encima del contador) ----
@@ -477,11 +501,12 @@
       return Math.round(Math.max(14, Math.min(maxPx, base)));
     }
 
-    function removeGiftAt(i) {
+    function removeGiftAt(i, skipPersist) {
       const g = gifts[i]; if (!g) return;
       try { World.remove(world, g.body); } catch {}
       if (g.img && g.img.parentNode) g.img.parentNode.removeChild(g.img);
       gifts.splice(i, 1);
+      if (!skipPersist && !restoringGifts) schedulePersist();
     }
     function pruneJar() {
       for (let i = gifts.length - 1; i >= 0; i--) {
@@ -530,9 +555,15 @@
       img.style.transform = 'translate3d(' + (x - r).toFixed(1) + 'px,' + (y - r).toFixed(1) + 'px,0) rotate(' + (opts.angle || 0).toFixed(3) + 'rad)';
       giftsLayer.appendChild(img);
       World.add(world, body);
-      gifts.push({ body, img, sizePx, awakeSynced: false });
-      // Cuenta las monedas conforme caen los regalos (no antes).
-      setDiamonds(totalDiamonds + (diamonds || 0), true);
+      gifts.push({
+        body, img, sizePx,
+        diamonds: Math.max(0, Number(diamonds) || 0),
+        src,
+        awakeSynced: false,
+      });
+      // Restauración: el total ya viene de localStorage; no sumar otra vez.
+      if (!opts.restore && !opts.skipCount) setDiamonds(totalDiamonds + (diamonds || 0), true);
+      else if (!opts.restore) schedulePersist();
     }
     function spawnMany(src, count, gap, diamonds) {
       const n = Math.max(0, parseInt(count, 10) || 0);
@@ -542,7 +573,47 @@
         setTimeout(() => addGiftBody(src, giftSizeForFill(diamonds || 0), diamonds || 0, {}), idx * gap);
       })(i);
     }
-    function clearJar() { for (let i = gifts.length - 1; i >= 0; i--) removeGiftAt(i); }
+    function clearJar(skipPersist) {
+      for (let i = gifts.length - 1; i >= 0; i--) removeGiftAt(i, true);
+      if (!skipPersist) schedulePersist();
+    }
+    /** Recupera total + imágenes tras reload / apagón (OBS). */
+    function restorePersistedGifts() {
+      if (isEmbed || isPreview) return;
+      let data = null;
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (raw == null || raw === '') return;
+        const trimmed = String(raw).trim();
+        if (trimmed.charAt(0) === '{') data = JSON.parse(trimmed);
+        else {
+          setDiamonds(parseInt(trimmed, 10) || 0, false, true);
+          savePersistState();
+          return;
+        }
+      } catch { return; }
+      const t = Math.max(0, Math.round(Number(data.t) || 0));
+      const list = Array.isArray(data.g) ? data.g.slice(-PERSIST_MAX) : [];
+      setDiamonds(t, false, true);
+      if (!list.length) return;
+      restoringGifts = true;
+      let i = 0;
+      (function batch() {
+        const end = Math.min(i + 28, list.length);
+        for (; i < end; i++) {
+          const it = list[i] || {};
+          const d = Math.max(0, Number(it.d) || 0);
+          const src = it.u || FALLBACK_IMG;
+          const sizePx = Math.max(14, Number(it.s) || giftSizeForFill(d));
+          const r = Math.max(6, (sizePx / 2) * 0.80);
+          const x = rnd(LEFT + r + 4, RIGHT - r - 4);
+          const y = rnd(TOPY + r + 8, FLOOR - r - 6);
+          addGiftBody(src, sizePx, d, { restore: true, settled: true, x, y, angle: rnd(-0.35, 0.35) });
+        }
+        if (i < list.length) setTimeout(batch, 0);
+        else { restoringGifts = false; schedulePersist(); }
+      })();
+    }
 
     // ---- Catálogo de regalos (id -> imagen) ----
     const giftImgById = new Map();
@@ -686,7 +757,7 @@
         else if (type === 'panic') clearJar();
         else if (type === 'vaquitaTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
         else if (type === 'vaquitaDropOne') { if (!isEmbed) dropOneGift(payload); }
-        else if (type === 'vaquitaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); try { localStorage.removeItem(lsKey); } catch {} } }
+        else if (type === 'vaquitaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); setDiamonds(0, false, true); clearPersistState(); } }
         else if (type === 'settings') {
           if (payload && payload.vaquita) {
             if (!params.get('jc')) applyJarTint(payload.vaquita.tint);
@@ -707,11 +778,11 @@
     applyTopBarStyle(topBarCfg);
     applyGiftToastStyle(giftToastStyle);
     if (isEmbed) demoTopGifters();
-    else loadPersistedDiamonds();
+    else restorePersistedGifts();
 
     function runFill(total) {
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
-      clearJar(); setDiamonds(0);
+      clearJar(true); setDiamonds(0, false, true); clearPersistState();
       showGiftToast({
         nickname: 'Tester',
         giftName: 'GG',
@@ -733,7 +804,7 @@
       if (!d || d.kind !== 'vaquita') return;
       if (d.type === 'test') runFill(d.count || 200);
       else if (d.type === 'dropOne') dropOneGift(d);
-      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); setDiamonds(0); }
+      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(true); setDiamonds(0, false, true); clearPersistState(); }
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
         if (d.sizes !== undefined) setSizeTable(d.sizes);

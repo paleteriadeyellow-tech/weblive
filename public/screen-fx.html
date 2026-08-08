@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Livecoins</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: transparent;
+      cursor: none;
+      font-family: Rubik, system-ui, sans-serif;
+      user-select: none;
+    }
+    body.is-black { background: #000; }
+    #fx { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+    .dvd {
+      position: fixed; left: 0; top: 0; z-index: 2;
+      width: 220px; height: auto;
+      display: block;
+      object-fit: contain;
+      background: transparent;
+      will-change: transform, filter; pointer-events: none;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .dvd[hidden] { display: none !important; }
+    .hint {
+      position: fixed; right: 16px; bottom: 14px; z-index: 9;
+      color: rgba(255,255,255,.45); font-size: 12px; font-weight: 600;
+      letter-spacing: .04em; pointer-events: none;
+      text-shadow: 0 1px 4px rgba(0,0,0,.8);
+    }
+    body.is-black .hint { color: rgba(255,255,255,.28); }
+  </style>
+</head>
+<body>
+  <canvas id="fx" hidden></canvas>
+  <img class="dvd" id="dvd" alt="" hidden draggable="false" />
+  <div class="hint">Esc · cerrar</div>
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const effect = String(params.get('effect') || 'black').toLowerCase();
+    let sec = Number(params.get('sec'));
+    if (!Number.isFinite(sec) || sec < 1) sec = 10;
+    sec = Math.min(120, Math.max(1, sec));
+    const soundUrl = String(params.get('sound') || '').trim();
+    const fxId = String(params.get('id') || '').trim();
+    let vol = Number(params.get('vol'));
+    if (!Number.isFinite(vol)) vol = 80;
+    vol = Math.max(0, Math.min(100, vol)) / 100;
+
+    let audio = null;
+    function stopAudio() {
+      try {
+        if (audio) { audio.pause(); audio.src = ''; audio = null; }
+      } catch {}
+    }
+    function playSound() {
+      if (!soundUrl) return;
+      try {
+        audio = new Audio(soundUrl);
+        audio.volume = vol;
+        audio.loop = false;
+        audio.play().catch(() => {});
+      } catch {}
+    }
+
+    function closeFx() {
+      stopAudio();
+      try {
+        if (fxId && window.desktopAPI?.closeScreenFxId) {
+          window.desktopAPI.closeScreenFxId(fxId);
+          return;
+        }
+      } catch {}
+      try { window.desktopAPI?.closeScreenFx?.(); } catch {}
+      try { window.close(); } catch {}
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Esc') closeFx();
+    });
+
+    const startAt = Date.now();
+    const endAt = startAt + sec * 1000;
+    setTimeout(closeFx, sec * 1000 + 80);
+    playSound();
+
+    /** 0 → 1 con el tiempo (acelera al final para tapar del todo). */
+    function progress() {
+      const t = (Date.now() - startAt) / Math.max(1, endAt - startAt);
+      const p = Math.max(0, Math.min(1, t));
+      return p * p; // ease-in
+    }
+    function alive() { return Date.now() < endAt; }
+
+    const canvas = document.getElementById('fx');
+    const ctx = canvas.getContext('2d');
+    function resize() {
+      canvas.width = innerWidth;
+      canvas.height = innerHeight;
+    }
+    function showCanvas() {
+      canvas.hidden = false;
+      resize();
+      addEventListener('resize', resize);
+    }
+    /** Cubre la pantalla según progreso (al final = opaco). */
+    function fillCover(p, rgb) {
+      const a = Math.max(0, Math.min(1, p));
+      if (a <= 0.001) return;
+      const c = rgb || '0,0,0';
+      ctx.fillStyle = 'rgba(' + c + ',' + a.toFixed(3) + ')';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    if (effect === 'black') {
+      document.body.classList.add('is-black');
+      return;
+    }
+
+    showCanvas();
+
+    if (effect === 'dvd') {
+      const el = document.getElementById('dvd');
+      el.src = '/img/dvd-logo.png?v=2';
+      el.hidden = false;
+      const hues = [0, 40, 80, 140, 190, 260, 300];
+      let hi = Math.floor(Math.random() * hues.length);
+      el.style.filter = 'hue-rotate(' + hues[hi] + 'deg)';
+      const DW = 220;
+      let x = Math.random() * Math.max(1, innerWidth - DW);
+      let y = Math.random() * Math.max(1, innerHeight - 160);
+      let vx = (Math.random() > 0.5 ? 1 : -1) * (2.4 + Math.random() * 1.8);
+      let vy = (Math.random() > 0.5 ? 1 : -1) * (2.0 + Math.random() * 1.6);
+      function dvdSize() {
+        const w = el.offsetWidth || DW;
+        const h = el.offsetHeight || Math.round(DW * 0.72);
+        return { w, h };
+      }
+      (function tick() {
+        if (!alive()) return;
+        const p = progress();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        fillCover(p * 0.92, '0,0,0');
+        const { w, h } = dvdSize();
+        x += vx; y += vy;
+        let hit = false;
+        if (x <= 0) { x = 0; vx = Math.abs(vx); hit = true; }
+        if (y <= 0) { y = 0; vy = Math.abs(vy); hit = true; }
+        if (x + w >= innerWidth) { x = innerWidth - w; vx = -Math.abs(vx); hit = true; }
+        if (y + h >= innerHeight) { y = innerHeight - h; vy = -Math.abs(vy); hit = true; }
+        if (hit) {
+          hi = (hi + 1) % hues.length;
+          el.style.filter = 'hue-rotate(' + hues[hi] + 'deg)';
+        }
+        el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+        requestAnimationFrame(tick);
+      })();
+      return;
+    }
+
+    if (effect === 'lightning') {
+      function bolt(x0, y0, x1, y1, depth) {
+        if (depth <= 0) {
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+          return;
+        }
+        const mx = (x0 + x1) / 2 + (Math.random() - 0.5) * (80 + depth * 18);
+        const my = (y0 + y1) / 2 + (Math.random() - 0.5) * (40 + depth * 10);
+        bolt(x0, y0, mx, my, depth - 1);
+        bolt(mx, my, x1, y1, depth - 1);
+        if (Math.random() < 0.35) {
+          bolt(mx, my, mx + (Math.random() - 0.5) * 120, my + 40 + Math.random() * 100, depth - 2);
+        }
+      }
+      let flash = 0;
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        fillCover(p * 0.88, '5,10,25');
+        if (flash > 0) {
+          ctx.fillStyle = 'rgba(255,255,255,' + (flash * (0.35 + p * 0.45)).toFixed(3) + ')';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          flash *= 0.82;
+          if (flash < 0.04) flash = 0;
+        }
+        const rate = 0.03 + p * 0.22;
+        if (Math.random() < rate) {
+          flash = 0.55 + Math.random() * 0.45 + p * 0.3;
+          const bolts = 1 + Math.floor(p * 4);
+          for (let i = 0; i < bolts; i++) {
+            const x0 = Math.random() * canvas.width;
+            const x1 = x0 + (Math.random() - 0.5) * canvas.width * 0.35;
+            ctx.strokeStyle = 'rgba(180,220,255,' + (0.7 + p * 0.3).toFixed(2) + ')';
+            ctx.lineWidth = 2 + p * 3;
+            ctx.shadowColor = '#9ecbff';
+            ctx.shadowBlur = 12 + p * 20;
+            bolt(x0, 0, x1, canvas.height * (0.55 + Math.random() * 0.4), 5);
+            ctx.shadowBlur = 0;
+          }
+        }
+        fillCover(p * 0.55, '0,0,0');
+        requestAnimationFrame(frame);
+      })();
+      return;
+    }
+
+    if (effect === 'snow') {
+      const flakes = [];
+      function addFlake(full) {
+        flakes.push({
+          x: Math.random() * canvas.width,
+          y: full ? Math.random() * canvas.height : -6,
+          r: 1 + Math.random() * 3.5,
+          s: 0.5 + Math.random() * 2.4,
+          w: Math.random() * Math.PI * 2,
+        });
+      }
+      for (let i = 0; i < 80; i++) addFlake(true);
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        const want = Math.floor(80 + p * 420);
+        while (flakes.length < want) addFlake(false);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Capa blanca que se espesa
+        fillCover(p * 0.55, '230,240,255');
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.75 + p * 0.25).toFixed(2) + ')';
+        const n = Math.min(flakes.length, want);
+        for (let i = 0; i < n; i++) {
+          const f = flakes[i];
+          f.y += f.s * (1 + p * 1.2);
+          f.w += 0.02;
+          f.x += Math.sin(f.w) * (0.5 + p);
+          if (f.y > canvas.height) { f.y = -4; f.x = Math.random() * canvas.width; }
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, f.r * (1 + p * 0.8), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        fillCover(p * 0.75, '255,255,255');
+        requestAnimationFrame(frame);
+      })();
+      return;
+    }
+
+    if (effect === 'confetti') {
+      const cols = ['#25f4ee', '#f5c542', '#fb7185', '#a78bfa', '#34d399', '#38bdf8', '#fff'];
+      const bits = [];
+      function addBit(full) {
+        bits.push({
+          x: Math.random() * canvas.width,
+          y: full ? Math.random() * canvas.height : -20,
+          w: 6 + Math.random() * 8,
+          h: 4 + Math.random() * 6,
+          vy: 2 + Math.random() * 4,
+          vx: -1.5 + Math.random() * 3,
+          rot: Math.random() * Math.PI,
+          vr: -0.12 + Math.random() * 0.24,
+          c: cols[Math.floor(Math.random() * cols.length)],
+        });
+      }
+      for (let i = 0; i < 90; i++) addBit(true);
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        const want = Math.floor(90 + p * 380);
+        while (bits.length < want) addBit(false);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const n = Math.min(bits.length, want);
+        for (let i = 0; i < n; i++) {
+          const b = bits[i];
+          b.x += b.vx; b.y += b.vy * (1 + p); b.rot += b.vr;
+          if (b.y > canvas.height + 20) {
+            b.y = -20; b.x = Math.random() * canvas.width;
+          }
+          ctx.save();
+          ctx.translate(b.x, b.y);
+          ctx.rotate(b.rot);
+          ctx.globalAlpha = 0.7 + p * 0.3;
+          ctx.fillStyle = b.c;
+          ctx.fillRect(-b.w / 2, -b.h / 2, b.w * (1 + p), b.h * (1 + p));
+          ctx.restore();
+        }
+        fillCover(p * 0.9, '8,10,18');
+        requestAnimationFrame(frame);
+      })();
+      return;
+    }
+
+    if (effect === 'glitch') {
+      let t = 0;
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        t += 1;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        fillCover(p * 0.5, '10,0,20');
+        const chance = 0.06 + p * 0.45;
+        if (t % Math.max(1, Math.floor(7 - p * 5)) === 0 || Math.random() < chance) {
+          const bands = 4 + Math.floor(Math.random() * 6) + Math.floor(p * 10);
+          for (let i = 0; i < bands; i++) {
+            const y = Math.random() * canvas.height;
+            const h = 8 + Math.random() * (40 + p * 60);
+            const ox = (Math.random() - 0.5) * (40 + p * 80);
+            ctx.fillStyle = 'rgba(255,0,80,' + (0.15 + p * 0.35).toFixed(2) + ')';
+            ctx.fillRect(ox, y, canvas.width, h);
+            ctx.fillStyle = 'rgba(0,220,255,' + (0.12 + p * 0.3).toFixed(2) + ')';
+            ctx.fillRect(-ox, y + 4, canvas.width, h);
+          }
+        }
+        fillCover(p * 0.85, '0,0,0');
+        requestAnimationFrame(frame);
+      })();
+      return;
+    }
+
+    if (effect === 'matrix') {
+      const font = 16;
+      let cols = Math.ceil(canvas.width / font);
+      let drops = Array.from({ length: cols }, () => Math.random() * -40);
+      const chars = '01アイウエオカキクケコｻﾞｼﾞｽﾞｾﾞｿﾞ01LIVECOINS';
+      addEventListener('resize', () => {
+        cols = Math.ceil(canvas.width / font);
+        while (drops.length < cols) drops.push(Math.random() * -40);
+        drops.length = cols;
+      });
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        ctx.fillStyle = 'rgba(0,0,0,' + (0.06 + p * 0.2).toFixed(3) + ')';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const alpha = 0.55 + p * 0.45;
+        ctx.fillStyle = 'rgba(37,244,238,' + alpha.toFixed(2) + ')';
+        ctx.font = font + 'px monospace';
+        const speed = 0.7 + p * 2.2;
+        for (let i = 0; i < drops.length; i++) {
+          const ch = chars[Math.floor(Math.random() * chars.length)];
+          ctx.fillText(ch, i * font, drops[i] * font);
+          if (drops[i] * font > canvas.height && Math.random() > (0.975 - p * 0.2)) drops[i] = 0;
+          drops[i] += speed;
+        }
+        fillCover(p * 0.88, '0,20,18');
+        requestAnimationFrame(frame);
+      })();
+      return;
+    }
+
+    if (effect === 'static') {
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        const img = ctx.createImageData(canvas.width, canvas.height);
+        const d = img.data;
+        const baseA = 40 + p * 200;
+        for (let i = 0; i < d.length; i += 4) {
+          const v = Math.random() * 255;
+          d[i] = d[i + 1] = d[i + 2] = v;
+          d[i + 3] = baseA + Math.random() * (40 + p * 40);
+        }
+        ctx.putImageData(img, 0, 0);
+        fillCover(p * 0.7, '0,0,0');
+        requestAnimationFrame(frame);
+      })();
+      return;
+    }
+
+    if (effect === 'flash') {
+      let on = false;
+      let next = 0;
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        const now = Date.now();
+        if (now >= next) {
+          on = !on;
+          const onMs = Math.max(25, 70 - p * 40);
+          const offMs = Math.max(20, 120 - p * 90);
+          next = now + (on ? onMs + Math.random() * 40 : offMs + Math.random() * 60);
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        fillCover(p * 0.65, '0,0,0');
+        if (on) {
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.55 + p * 0.45).toFixed(2) + ')';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        fillCover(p * 0.5, '255,255,255');
+        requestAnimationFrame(frame);
+      })();
+      return;
+    }
+
+    if (effect === 'hearts') {
+      const hearts = [];
+      function addHeart(full) {
+        hearts.push({
+          x: Math.random() * canvas.width,
+          y: full ? Math.random() * canvas.height : canvas.height + 20,
+          s: 10 + Math.random() * 22,
+          vy: 1.2 + Math.random() * 2.4,
+          vx: -0.6 + Math.random() * 1.2,
+          a: 0.45 + Math.random() * 0.5,
+        });
+      }
+      for (let i = 0; i < 36; i++) addHeart(true);
+      function drawHeart(x, y, s, a) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(s / 30, s / 30);
+        ctx.beginPath();
+        ctx.moveTo(0, 6);
+        ctx.bezierCurveTo(0, 0, -12, 0, -12, 8);
+        ctx.bezierCurveTo(-12, 16, 0, 22, 0, 28);
+        ctx.bezierCurveTo(0, 22, 12, 16, 12, 8);
+        ctx.bezierCurveTo(12, 0, 0, 0, 0, 6);
+        ctx.fillStyle = 'rgba(251,113,133,' + a + ')';
+        ctx.fill();
+        ctx.restore();
+      }
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        const want = Math.floor(36 + p * 220);
+        while (hearts.length < want) addHeart(false);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        fillCover(p * 0.4, '40,0,20');
+        const n = Math.min(hearts.length, want);
+        for (let i = 0; i < n; i++) {
+          const h = hearts[i];
+          h.y -= h.vy * (1 + p); h.x += h.vx;
+          if (h.y < -40) {
+            h.y = canvas.height + 20;
+            h.x = Math.random() * canvas.width;
+          }
+          drawHeart(h.x, h.y, h.s * (1 + p * 0.6), Math.min(1, h.a + p * 0.3));
+        }
+        fillCover(p * 0.85, '120,20,50');
+        requestAnimationFrame(frame);
+      })();
+      return;
+    }
+
+    // bubbles
+    {
+      const bubbles = [];
+      function addBubble(full) {
+        bubbles.push({
+          x: Math.random() * canvas.width,
+          y: full ? Math.random() * canvas.height : canvas.height + 30,
+          r: 8 + Math.random() * 28,
+          vy: 0.8 + Math.random() * 2,
+          vx: -0.4 + Math.random() * 0.8,
+        });
+      }
+      for (let i = 0; i < 40; i++) addBubble(true);
+      (function frame() {
+        if (!alive()) return;
+        const p = progress();
+        const want = Math.floor(40 + p * 200);
+        while (bubbles.length < want) addBubble(false);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        fillCover(p * 0.35, '0,30,50');
+        const n = Math.min(bubbles.length, want);
+        for (let i = 0; i < n; i++) {
+          const b = bubbles[i];
+          b.y -= b.vy * (1 + p); b.x += b.vx + Math.sin(b.y / 40) * 0.3;
+          if (b.y < -40) {
+            b.y = canvas.height + 30;
+            b.x = Math.random() * canvas.width;
+          }
+          const rr = b.r * (1 + p * 0.5);
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, rr, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(56,189,248,' + (0.55 + p * 0.4).toFixed(2) + ')';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(56,189,248,' + (0.1 + p * 0.35).toFixed(2) + ')';
+          ctx.fill();
+        }
+        fillCover(p * 0.88, '5,25,40');
+        requestAnimationFrame(frame);
+      })();
+    }
+  })();
+  </script>
+</body>
+</html>

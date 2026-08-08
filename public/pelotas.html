@@ -124,6 +124,40 @@
     }
     const FALLBACK_IMG = avatarDataUri(210);
 
+    // ---- Pelotas persistidas (sobreviven apagón / reload de OBS) ----
+    const lsKey = 'lc_pelotas_' + (params.get('room') || 'default');
+    const PERSIST_MAX = 400;
+    let persistTimer = null;
+    let restoringBalls = false;
+    function schedulePersist() {
+      if (isEmbed || isPreview || restoringBalls) return;
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(savePersistState, 220);
+    }
+    function savePersistState() {
+      if (isEmbed || isPreview) return;
+      try {
+        const g = balls.slice(-PERSIST_MAX).map((x) => ({
+          u: String((x.img && (x.img.currentSrc || x.img.src)) || x.src || FALLBACK_IMG),
+          s: Math.max(16, Math.round(Number(x.sizePx) || ballSize)),
+          g: !!x.golden,
+        }));
+        localStorage.setItem(lsKey, JSON.stringify({ v: 2, g }));
+      } catch {
+        try {
+          const g = balls.slice(-120).map((x) => ({
+            u: String((x.img && (x.img.currentSrc || x.img.src)) || x.src || FALLBACK_IMG),
+            s: Math.max(16, Math.round(Number(x.sizePx) || ballSize)),
+            g: !!x.golden,
+          }));
+          localStorage.setItem(lsKey, JSON.stringify({ v: 2, g }));
+        } catch { /* quota */ }
+      }
+    }
+    function clearPersistState() {
+      try { localStorage.removeItem(lsKey); } catch {}
+    }
+
     // ---- Geometría del frasco (px del stage 540×720) ----
     const STAGE_W = 540, STAGE_H = 720;
     const IMG_SIZE = Math.min(STAGE_W, STAGE_H);
@@ -135,7 +169,9 @@
     const FLOOR_FLAT_L = artX(27), FLOOR_FLAT_R = artX(73);
     const SHOULDER_Y1 = artY(25), SHOULDER_Y2 = artY(31);
     const BODY_BOT_Y = artY(80), FLOOR_Y = artY(86);
-    const SPAWN_Y = 205;
+    // Spawn un poco por encima del borde (como el jarrón), no tan alto que se atasquen fuera.
+    const SPAWN_Y_TOP = artY(-8), SPAWN_Y_BOT = artY(6);
+    const SPAWN_Y = (SPAWN_Y_TOP + SPAWN_Y_BOT) / 2;
     const JAR_CAPACITY = 150, HARD_CAP = 520;
 
     const M = window.Matter;
@@ -170,8 +206,50 @@
     const giftsLayer = document.getElementById('gifts-layer');
     const balls = [];
     let spawnSeq = 0;
+    const rnd = (a, b) => a + Math.random() * (b - a);
 
     Runner.run(Runner.create(), engine);
+
+    // Devuelve al interior pelotas que rebotan / explotan hacia arriba o se atascan
+    // en un montón encima de la boca (bug reportado en lives con muchas pelotas).
+    function constrainBallInJar(g) {
+      const p = g.body.position;
+      const r = Math.max(8, (g.sizePx / 2) * 0.92);
+      const inNeckX = p.x >= NECK_L - r && p.x <= NECK_R + r;
+      const vy = g.body.velocity.y;
+      const sp = Math.hypot(g.body.velocity.x, vy);
+
+      if (p.y > SHOULDER_Y1) g.wasInside = true;
+
+      if (!g.body.isStatic && g.wasInside && inNeckX && p.y < RIM_Y + r) {
+        if (vy < 0.15) {
+          const tuckY = Math.max(SHOULDER_Y2 + r, Math.min(FLOOR_Y - r, BODY_BOT_Y));
+          Body.setPosition(g.body, {
+            x: Math.max(BODY_L + r, Math.min(BODY_R - r, p.x)),
+            y: tuckY,
+          });
+          Body.setVelocity(g.body, { x: g.body.velocity.x * 0.15, y: 0.4 });
+          Body.setAngularVelocity(g.body, g.body.angularVelocity * 0.2);
+          g.awakeSynced = false;
+        } else if (vy < 0) {
+          Body.setVelocity(g.body, { x: g.body.velocity.x * 0.45, y: vy * 0.08 });
+        }
+        return;
+      }
+
+      // Atasco en la boca: aún no entraron y están casi quietas encima del borde.
+      if (!g.body.isStatic && !g.wasInside && inNeckX && (p.y + r) < RIM_Y + 12 && sp < 1.2) {
+        const mid = (NECK_L + NECK_R) / 2;
+        Body.setPosition(g.body, {
+          x: Math.max(NECK_L + r + 2, Math.min(NECK_R - r - 2, mid + rnd(-10, 10))),
+          y: RIM_Y + r + 8,
+        });
+        Body.setVelocity(g.body, { x: rnd(-0.4, 0.4), y: rnd(1.6, 3.2) });
+        Body.setAngularVelocity(g.body, rnd(-0.08, 0.08));
+        g.awakeSynced = false;
+      }
+    }
+
     Events.on(engine, 'afterUpdate', function () {
       for (let i = 0; i < balls.length; i++) {
         const g = balls[i];
@@ -179,14 +257,13 @@
           const v = g.body.velocity, sp = Math.hypot(v.x, v.y);
           if (sp > 10) { const s = 10 / sp; Body.setVelocity(g.body, { x: v.x * s, y: v.y * s }); }
         }
+        constrainBallInJar(g);
         if (g.body.isSleeping && g.awakeSynced) continue;
         const p = g.body.position, half = g.sizePx / 2;
         g.img.style.transform = 'translate3d(' + (p.x - half).toFixed(1) + 'px,' + (p.y - half).toFixed(1) + 'px,0) rotate(' + g.body.angle.toFixed(3) + 'rad)';
         g.awakeSynced = g.body.isSleeping;
       }
     });
-
-    const rnd = (a, b) => a + Math.random() * (b - a);
 
     function ballSizeForFill() {
       let base = ballSize * rnd(0.94, 1.06);
@@ -197,15 +274,28 @@
       return Math.round(Math.max(16, Math.min(160, base)));
     }
 
-    function removeBallAt(i) {
+    function removeBallAt(i, skipPersist) {
       const g = balls[i]; if (!g) return;
       try { World.remove(world, g.body); } catch {}
       if (g.img && g.img.parentNode) g.img.parentNode.removeChild(g.img);
       balls.splice(i, 1);
+      if (!skipPersist && !restoringBalls) schedulePersist();
     }
     function pruneJar() {
       for (let i = balls.length - 1; i >= 0; i--) {
         const p = balls[i].body.position, r = balls[i].sizePx / 2;
+        const inNeckX = p.x >= NECK_L - r && p.x <= NECK_R + r;
+        if (inNeckX && (p.y + r) < RIM_Y - 6 && balls[i].wasInside && !balls[i].body.isStatic) {
+          const tuckY = Math.max(SHOULDER_Y2 + r, Math.min(FLOOR_Y - r, BODY_BOT_Y));
+          Body.setPosition(balls[i].body, {
+            x: Math.max(BODY_L + r, Math.min(BODY_R - r, p.x)),
+            y: tuckY,
+          });
+          Body.setVelocity(balls[i].body, { x: 0, y: 0 });
+          Body.setAngularVelocity(balls[i].body, 0);
+          balls[i].awakeSynced = false;
+          continue;
+        }
         if ((p.y - r) > (STAGE_H + 80) || (p.x + r) < -180 || (p.x - r) > (STAGE_W + 180)) removeBallAt(i);
       }
       if (balls.length > HARD_CAP) {
@@ -228,47 +318,106 @@
       let cx = lanes[Math.floor(Math.random() * lanes.length)] + rnd(-8, 8);
       cx = Math.max(minX, Math.min(maxX, cx));
       const vx = (mid - cx) / 70 + rnd(-0.25, 0.25);
-      return { x: cx, y: SPAWN_Y + rnd(-8, 8), vx };
+      const y = Math.max(28, rnd(SPAWN_Y_TOP, SPAWN_Y_BOT));
+      return { x: cx, y, vx };
     }
-    function addBall(photo, sizePx, golden) {
+    function addBall(photo, sizePx, golden, opts) {
+      opts = opts || {};
       const src = photo || FALLBACK_IMG;
       // La pelota dorada del super fan es algo más grande para que destaque.
-      if (golden) sizePx = Math.round(sizePx * 1.25);
+      if (golden && !opts.restore) sizePx = Math.round(sizePx * 1.25);
       const r = Math.max(8, (sizePx / 2) * 0.92);
-      const s = pickSpawnSpot(r);
-      const body = Bodies.circle(s.x, s.y, r, {
+      let x, y, vx;
+      if (opts.x != null) { x = opts.x; y = opts.y != null ? opts.y : SPAWN_Y; vx = 0; }
+      else {
+        const s = pickSpawnSpot(r);
+        x = s.x; y = s.y; vx = s.vx;
+      }
+      const body = Bodies.circle(x, y, r, {
         density: 0.0014,
-        restitution: 0.52,
-        friction: 0.16,
-        frictionStatic: 0.2,
+        restitution: 0.38,
+        friction: 0.18,
+        frictionStatic: 0.22,
         frictionAir: 0.012,
         sleepThreshold: 22,
       });
+      if (opts.angle != null) Body.setAngle(body, opts.angle);
       // Misma velocidad de caída; el rebote viene de restitution.
-      Body.setVelocity(body, { x: s.vx, y: rnd(0.3, 1.2) });
-      Body.setAngularVelocity(body, rnd(-0.12, 0.12));
+      if (!opts.settled) {
+        Body.setVelocity(body, { x: vx, y: rnd(1.4, 3.2) });
+        Body.setAngularVelocity(body, rnd(-0.12, 0.12));
+      }
       const img = document.createElement('img');
       img.className = golden ? 'fan-ball golden' : 'fan-ball'; img.src = src; img.alt = ''; img.referrerPolicy = 'no-referrer';
       img.style.width = sizePx + 'px'; img.style.height = sizePx + 'px';
       img.style.zIndex = String((golden ? 230 : 30) + (++spawnSeq % 200));
       img.onerror = function () { this.onerror = null; this.src = FALLBACK_IMG; };
-      img.style.transform = 'translate3d(' + (s.x - r).toFixed(1) + 'px,' + (s.y - r).toFixed(1) + 'px,0)';
+      img.style.transform = 'translate3d(' + (x - r).toFixed(1) + 'px,' + (y - r).toFixed(1) + 'px,0) rotate(' + (opts.angle || 0).toFixed(3) + 'rad)';
       giftsLayer.appendChild(img);
       World.add(world, body);
-      balls.push({ body, img, sizePx, awakeSynced: false });
+      balls.push({ body, img, sizePx, src, golden: !!golden, awakeSynced: false, wasInside: !!(opts.restore || opts.settled) });
+      if (!opts.restore) schedulePersist();
     }
     function dropBalls(photo, count, gap, golden) {
       const n = Math.max(0, parseInt(count, 10) || 0);
       if (n < 1) return;
-      // Espaciado adaptativo: con muchas pelotas se acelera para que caigan todas
-      // sin tardar demasiado, pero sin solaparse al spawnear.
-      gap = gap || (n > 30 ? 45 : n > 10 ? 80 : 130);
-      gap = Math.max(35, gap);
+      // Espaciado adaptativo: con muchas pelotas se acelera, pero no tanto
+      // como para atascarlas todas en la boca del frasco.
+      gap = gap || (n > 40 ? 70 : n > 20 ? 95 : n > 10 ? 110 : 130);
+      gap = Math.max(55, gap);
       for (let i = 0; i < n; i++) (function (idx) {
         setTimeout(() => addBall(photo, ballSizeForFill(), golden), idx * gap);
       })(i);
     }
-    function clearJar() { for (let i = balls.length - 1; i >= 0; i--) removeBallAt(i); }
+    function clearJar(skipPersist) {
+      for (let i = balls.length - 1; i >= 0; i--) removeBallAt(i, true);
+      if (!skipPersist) schedulePersist();
+    }
+    function restorePersistedBalls() {
+      if (isEmbed || isPreview) return;
+      let data = null;
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (raw == null || raw === '') return;
+        data = JSON.parse(String(raw).trim());
+      } catch { return; }
+      const list = Array.isArray(data && data.g) ? data.g.slice(-PERSIST_MAX) : [];
+      if (!list.length) return;
+      restoringBalls = true;
+      // Empaque desde el piso hacia arriba (sin solapes fuertes) para evitar la
+      // explosión de Matter que empuja el montón fuera de la boca.
+      let i = 0;
+      (function batch() {
+        const end = Math.min(i + 24, list.length);
+        for (; i < end; i++) {
+          const it = list[i] || {};
+          const sizePx = Math.max(16, Number(it.s) || ballSize);
+          const r = Math.max(8, (sizePx / 2) * 0.92);
+          const stepX = Math.max(r * 1.85, 18);
+          const stepY = Math.max(r * 1.7, 16);
+          const usableW = Math.max(stepX, (BODY_R - BODY_L) - 2 * r - 10);
+          const cols = Math.max(1, Math.floor(usableW / stepX));
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x0 = BODY_L + r + 6;
+          const x = cols <= 1
+            ? (BODY_L + BODY_R) / 2
+            : x0 + col * ((BODY_R - BODY_L - 2 * r - 12) / (cols - 1));
+          const y = FLOOR_Y - r - 6 - row * stepY;
+          const clampedY = Math.max(SHOULDER_Y2 + r + 2, Math.min(FLOOR_Y - r - 4, y));
+          const clampedX = Math.max(BODY_L + r + 2, Math.min(BODY_R - r - 2, x));
+          addBall(it.u || FALLBACK_IMG, sizePx, !!it.g, {
+            restore: true,
+            settled: true,
+            x: clampedX + rnd(-1.5, 1.5),
+            y: clampedY + rnd(-1, 1),
+            angle: rnd(-0.25, 0.25),
+          });
+        }
+        if (i < list.length) setTimeout(batch, 0);
+        else { restoringBalls = false; schedulePersist(); }
+      })();
+    }
 
     // ---- WebSocket nativo del panel ----
     let ws, reconnectTimer, fillTimer = null;
@@ -284,7 +433,7 @@
         else if (type === 'goldenBall') { if (!isEmbed && payload) dropBalls(payload.photo, payload.count || 1, 0, true); }
         else if (type === 'panic') clearJar();
         else if (type === 'pelotasTest') { if (!isEmbed) runDemo((payload && payload.count) || 16); }
-        else if (type === 'pelotasReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); } }
+        else if (type === 'pelotasReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); clearPersistState(); } }
         else if (type === 'settings') {
           if (payload && payload.pelotas) {
             if (!params.get('jc')) applyJarTint(payload.pelotas.tint);
@@ -294,6 +443,7 @@
       };
     }
     connectWS();
+    if (!isEmbed) restorePersistedBalls();
 
     // ---- Demo / prueba: deja caer pelotas con FOTOS de personas de muestra ----
     // (si no hay internet, cada imagen cae al avatar local por su onerror).
@@ -302,7 +452,7 @@
     }
     function runDemo(total) {
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
-      clearJar();
+      clearJar(true); clearPersistState();
       let i = 0; const max = total || 16;
       (function tick() {
         if (i >= max) {
@@ -318,7 +468,7 @@
       const d = e.data;
       if (!d || d.kind !== 'pelotas') return;
       if (d.type === 'test') runDemo(d.count || 16);
-      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); }
+      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(true); clearPersistState(); }
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
         if (d.ballSize !== undefined) setBallSize(d.ballSize);

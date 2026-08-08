@@ -87,6 +87,46 @@
     let heroCarouselTimer = null, carouselRowPos = 0, carouselPauseUntil = 0;
     let combosRegalosActivos = {};
     let leftPts = 0, rightPts = 0;
+    const isPreview = params.get('preview') === '1';
+    const lsKey = 'lc_giftvs_' + (params.get('room') || 'default');
+    let persistTimer = null;
+    function schedulePersist() {
+      if (isEmbed || isPreview) return;
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(savePersistState, 220);
+    }
+    function savePersistState() {
+      if (isEmbed || isPreview) return;
+      try {
+        localStorage.setItem(lsKey, JSON.stringify({
+          v: 1,
+          l: leftPts,
+          r: rightPts,
+          m: currentMeta,
+          frozen: !!vsRoundFrozen,
+          live: !!vsMatchLive,
+          started: !!vsMatchStarted,
+        }));
+      } catch {}
+    }
+    function clearPersistState() {
+      try { localStorage.removeItem(lsKey); } catch {}
+    }
+    function restorePersistState() {
+      if (isEmbed || isPreview) return;
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        leftPts = Math.max(0, Math.round(Number(d.l) || 0));
+        rightPts = Math.max(0, Math.round(Number(d.r) || 0));
+        const meta = Math.max(1, Math.round(Number(d.m) || 0));
+        if (meta > 0) currentMeta = meta;
+        vsRoundFrozen = !!d.frozen;
+        vsMatchLive = !!d.live;
+        vsMatchStarted = !!d.started;
+      } catch {}
+    }
 
     function rebuildKeys() {
       leftKeys = []; rightKeys = [];
@@ -269,6 +309,7 @@
       if (el) el.textContent = String(leftPts);
       if (er) er.textContent = String(rightPts);
       if (pulseSide === 'l') pulseScore('l'); else if (pulseSide === 'r') pulseScore('r');
+      schedulePersist();
     }
 
     function formatCountdownDisplay(sec) {
@@ -423,6 +464,7 @@
       vsRoundFrozen = false; vsMatchLive = false; vsMatchStarted = false; cdPaused = false;
       combosRegalosActivos = {};
       hideGoalCountdown(); hideWinnerBadges(); renderAllScores(); startHeroCarousel();
+      clearPersistState();
     }
 
     function buildDom() {
@@ -448,10 +490,28 @@
     }
 
     function applyConfig(cfg) {
+      const prev = {
+        l: leftPts, r: rightPts, m: currentMeta,
+        frozen: vsRoundFrozen, live: vsMatchLive, started: vsMatchStarted,
+      };
+      const keepScores = !!(prev.l || prev.r || prev.live || prev.started || (prev.m > 0 && prev.m !== metaBase));
       cfgObj = cfg || {};
       syncFromConfig();
       buildDom();
-      resetAll();
+      // settings llega en cada reconnect WS: no borrar el marcador por eso
+      if (keepScores) {
+        leftPts = prev.l;
+        rightPts = prev.r;
+        currentMeta = Math.max(metaBase, prev.m || metaBase);
+        vsRoundFrozen = prev.frozen;
+        vsMatchLive = prev.live;
+        vsMatchStarted = prev.started;
+      } else {
+        restorePersistState();
+      }
+      renderAllScores();
+      startHeroCarousel();
+      schedulePersist();
     }
 
     /* ---- Simulación (Testear / vista previa) ---- */
@@ -622,6 +682,8 @@
     cfgObj = { meta: 100, goalStep: 100, onGoal: 'reset', countdown: 2, cdWhen: 'start', vsStyle: 1, rows: [] };
     syncFromConfig();
     buildDom();
+    restorePersistState();
+    renderAllScores();
     connectWS();
   })();
   </script>

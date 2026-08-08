@@ -1,11 +1,11 @@
-Ôªø<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=dock133" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=dock141" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
@@ -117,6 +117,7 @@
               <button class="nav-item" data-view="timer" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-timer.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Temporizador</span></button>
               <button class="nav-item" data-view="ov-sorteos" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-gifts.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Sorteos overlay</span></button>
               <button class="nav-item" data-view="ov-topkills" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-rankings.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Top kills</span></button>
+              <button class="nav-item" data-view="ov-screenfx" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-batalla.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Efectos pantalla</span></button>
             </div>
           </div>
         </div>
@@ -261,13 +262,13 @@
                       <span class="home-comm-card-cta">Unirme</span>
                     </button>
 
-                    <button type="button" class="home-comm-card home-comm-widgets" id="homeWidgetsOpen" title="A√±adir widgets">
+                    <button type="button" class="home-comm-card home-comm-widgets" id="homeWidgetsOpen" title="AÒadir widgets">
                       <span class="home-comm-card-ico" aria-hidden="true">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
                       </span>
                       <span class="home-comm-card-body">
                         <span class="home-comm-card-title">Widgets</span>
-                        <span class="home-comm-card-dx">Accesos r√°pidos para tus overlays</span>
+                        <span class="home-comm-card-dx">Accesos r·pidos para tus overlays</span>
                       </span>
                       <span class="home-comm-card-cta">Abrir</span>
                     </button>
@@ -332,21 +333,21 @@
 
             <div id="homeWidgetsModal" class="modal home-widgets-modal hidden" aria-hidden="true">
               <div class="home-widgets-box" role="dialog" aria-modal="true" aria-labelledby="home-widgets-title">
-                <h3 id="home-widgets-title">A√±adir Widget</h3>
+                <h3 id="home-widgets-title">AÒadir Widget</h3>
                 <div class="home-widgets-list">
                   <button type="button" class="home-widgets-item" data-widget-nav="ov-topkills">
-                    <span class="home-widgets-ico" aria-hidden="true">üó°Ô∏è</span>
+                    <span class="home-widgets-ico" aria-hidden="true">???</span>
                     <span class="home-widgets-label">Top Kills</span>
                     <span class="home-widgets-plus" aria-hidden="true">+</span>
                   </button>
                   <button type="button" class="home-widgets-item" data-widget-nav="ov-contador">
-                    <span class="home-widgets-ico" aria-hidden="true">üèÜ</span>
+                    <span class="home-widgets-ico" aria-hidden="true">??</span>
                     <span class="home-widgets-label">Victorias</span>
                     <span class="home-widgets-plus" aria-hidden="true">+</span>
                   </button>
                   <button type="button" class="home-widgets-item" data-widget-nav="alertas">
-                    <span class="home-widgets-ico" aria-hidden="true">üö®</span>
-                    <span class="home-widgets-label">Bot√≥n P√°nico</span>
+                    <span class="home-widgets-ico" aria-hidden="true">??</span>
+                    <span class="home-widgets-label">BotÛn P·nico</span>
                     <span class="home-widgets-plus" aria-hidden="true">+</span>
                   </button>
                 </div>
@@ -357,25 +358,25 @@
             <div id="homeWinsWidgetsModal" class="modal home-widgets-modal hidden" aria-hidden="true">
               <div class="home-widgets-box home-widgets-box--wins" role="dialog" aria-modal="true" aria-labelledby="home-wins-widgets-title">
                 <h3 id="home-wins-widgets-title">Widget Victorias</h3>
-                <p class="home-widgets-sub">Elige el overlay y se abre un widget con + / ‚àí</p>
+                <p class="home-widgets-sub">Elige el overlay y se abre un widget con + / -</p>
                 <div class="home-widgets-list">
-                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounter" data-wins-label="Contador de victorias" data-wins-ico="üèÜ">
-                    <span class="home-widgets-ico" aria-hidden="true">üèÜ</span>
+                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounter" data-wins-label="Contador de victorias" data-wins-ico="??">
+                    <span class="home-widgets-ico" aria-hidden="true">??</span>
                     <span class="home-widgets-label">Contador de victorias</span>
                     <span class="home-widgets-plus" aria-hidden="true">+</span>
                   </button>
-                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounterGamer" data-wins-label="Victorias (Gamer HUD)" data-wins-ico="üéÆ">
-                    <span class="home-widgets-ico" aria-hidden="true">üéÆ</span>
+                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounterGamer" data-wins-label="Victorias (Gamer HUD)" data-wins-ico="??">
+                    <span class="home-widgets-ico" aria-hidden="true">??</span>
                     <span class="home-widgets-label">Victorias (Gamer HUD)</span>
                     <span class="home-widgets-plus" aria-hidden="true">+</span>
                   </button>
-                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounterMinecraft" data-wins-label="Victorias (Minecraft)" data-wins-ico="‚õè">
-                    <span class="home-widgets-ico" aria-hidden="true">‚õè</span>
+                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounterMinecraft" data-wins-label="Victorias (Minecraft)" data-wins-ico="?">
+                    <span class="home-widgets-ico" aria-hidden="true">?</span>
                     <span class="home-widgets-label">Victorias (Minecraft)</span>
                     <span class="home-widgets-plus" aria-hidden="true">+</span>
                   </button>
-                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounterMario" data-wins-label="Victorias (Mario Bros)" data-wins-ico="üçÑ">
-                    <span class="home-widgets-ico" aria-hidden="true">üçÑ</span>
+                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounterMario" data-wins-label="Victorias (Mario Bros)" data-wins-ico="??">
+                    <span class="home-widgets-ico" aria-hidden="true">??</span>
                     <span class="home-widgets-label">Victorias (Mario Bros)</span>
                     <span class="home-widgets-plus" aria-hidden="true">+</span>
                   </button>
@@ -573,8 +574,8 @@
             </div>
             <div class="transfer-info transfer-info-tip">
               <p class="transfer-desc">Si vas a importar los datos del otro Livecoins, marca la casilla de reemplazar y dale importar.</p>
-              <p class="transfer-desc">Si vas a importar m√°s de 1 perfil, exporta e importa perfil por perfil.</p>
-              <p class="transfer-desc"><b>Alertas, videos y acciones</b> vienen del archivo <code>.tfc</code> (Importar aqu√≠). El User ID solo descarga <b>puntos</b>; no trae alertas.</p>
+              <p class="transfer-desc">Si vas a importar m·s de 1 perfil, exporta e importa perfil por perfil.</p>
+              <p class="transfer-desc"><b>TikFinity:</b> importa tu <code>.tfc</code> aquÌ (alertas, videos, acciones, Minecraft, webhooksÖ). Los puntos tambiÈn se pueden traer en el mismo flujo.</p>
             </div>
             <div class="transfer-actions">
               <button type="button" class="transfer-btn transfer-btn-export" id="transfer-export">
@@ -583,7 +584,7 @@
               </button>
               <button type="button" class="transfer-btn transfer-btn-import" id="transfer-import">
                 <span class="transfer-btn-ico" aria-hidden="true">?</span>
-                <span class="transfer-btn-txt"><b>Importar archivo‚Ä¶</b><small>JSON o .tfc</small></span>
+                <span class="transfer-btn-txt"><b>Importar archivoÖ</b><small>JSON o .tfc</small></span>
               </button>
             </div>
             <label class="transfer-opt">
@@ -962,8 +963,8 @@
         <section class="view" id="view-editor-rapido">
           <div class="er-premium-lock" id="er-premium-lock" hidden>
             <div class="ov-lock-box">
-              <div class="ov-lock-ico">üîí</div>
-              <div class="ov-lock-title">‚≠ê Solo Premium</div>
+              <div class="ov-lock-ico">??</div>
+              <div class="ov-lock-title">? Solo Premium</div>
               <div class="ov-lock-sub">Editor Pro es para <strong>VIP / Founder</strong>. Mejora tu plan para usarlo.</div>
               <button type="button" class="btn primary er-premium-upgrade" id="er-premium-upgrade">Ver planes</button>
             </div>
@@ -971,7 +972,7 @@
           <div class="er-page-head">
             <div>
               <h1 class="view-title er-view-title"><span class="er-title-a">Editor</span> <span class="er-title-b">Pro</span></h1>
-              <p class="view-sub">Elige cu√°ntos cuadros quieres y qu√© fondo va en cada uno. Ideal para montajes r√°pidos del live.</p>
+              <p class="view-sub">Elige cu·ntos cuadros quieres y quÈ fondo va en cada uno. Ideal para montajes r·pidos del live.</p>
             </div>
           </div>
 
@@ -982,17 +983,17 @@
                 <span class="er-plantillas-pill" title="Los cambios se guardan solos en esta PC">Autoguardado</span>
               </div>
               <p class="er-tpl-active-line" id="er-tpl-active-line" aria-live="polite">Sin plantilla abierta</p>
-              <p class="er-hint er-plantillas-hint">Si hay una plantilla abierta, cada cambio se guarda solo. Solo se borran si t√∫ pulsas <b>Borrar</b>.</p>
+              <p class="er-hint er-plantillas-hint">Si hay una plantilla abierta, cada cambio se guarda solo. Solo se borran si t˙ pulsas <b>Borrar</b>.</p>
               <div class="er-plantillas-fields">
                 <label class="er-field er-plantillas-field">
                   <span class="er-plantillas-label">Plantilla guardada</span>
                   <select id="er-tpl-select">
-                    <option value="">‚Äî Elegir plantilla ‚Äî</option>
+                    <option value="">ó Elegir plantilla ó</option>
                   </select>
                 </label>
                 <label class="er-field er-plantillas-field">
                   <span class="er-plantillas-label">Nombre</span>
-                  <input type="text" id="er-tpl-name" maxlength="80" placeholder="Ej. Men√∫ 4 regalos" autocomplete="off">
+                  <input type="text" id="er-tpl-name" maxlength="80" placeholder="Ej. Men˙ 4 regalos" autocomplete="off">
                 </label>
               </div>
               <div class="er-tpl-actions">
@@ -1011,19 +1012,19 @@
               <div class="er-ov-copybox">
                 <div class="er-ov-urlwrap">
                   <span class="er-ov-url-label">URL del overlay</span>
-                  <code class="er-ov-url" id="er-ov-url" data-path="/editor-rapido-overlay.html" title="Clic para seleccionar">‚Ä¶</code>
+                  <code class="er-ov-url" id="er-ov-url" data-path="/editor-rapido-overlay.html" title="Clic para seleccionar">Ö</code>
                 </div>
                 <button type="button" class="er-ov-copy-btn" id="er-ov-copy" title="Copiar URL">
-                  <span class="er-ov-copy-ic" aria-hidden="true">‚ßâ</span>
+                  <span class="er-ov-copy-ic" aria-hidden="true">?</span>
                   <span class="er-ov-copy-txt">Copiar URL</span>
                 </button>
               </div>
               <details class="er-bs-guide" id="er-bs-guide">
-                <summary>Gu√≠a r√°pida Browser Source</summary>
+                <summary>GuÌa r·pida Browser Source</summary>
                 <ol class="er-bs-checklist">
                   <li>Copia la URL de arriba.</li>
-                  <li>En Live Studio / OBS ‚Üí a√±ade <b>Browser Source</b>.</li>
-                  <li>Tama√±o recomendado: <b>1920√ó1080</b> (horizontal) o <b>1080√ó1920</b> (vertical TikTok).</li>
+                  <li>En Live Studio / OBS ? aÒade <b>Browser Source</b>.</li>
+                  <li>TamaÒo recomendado: <b>1920◊1080</b> (horizontal) o <b>1080◊1920</b> (vertical TikTok).</li>
                   <li>Marca fondo transparente si tu fuente lo permite.</li>
                   <li>No hace falta Guardar: el overlay se actualiza al editar.</li>
                 </ol>
@@ -1035,31 +1036,42 @@
             <aside class="er-side">
               <div class="er-block">
                 <div class="er-sec">Cuadros</div>
-                <p class="er-hint">Suma o resta: al poner m√°s, se hacen m√°s chicos solos (1‚Äì36).</p>
+                <p class="er-hint">Suma o resta: al poner m·s, se hacen m·s chicos solos (1ñ36).</p>
                 <div class="er-count-stepper">
-                  <button type="button" class="er-count-step" id="er-count-minus" aria-label="Menos cuadros">‚àí</button>
+                  <button type="button" class="er-count-step" id="er-count-minus" aria-label="Menos cuadros">-</button>
                   <input type="number" class="er-count-input" id="er-count-input" min="1" max="64" value="4" inputmode="numeric">
-                  <button type="button" class="er-count-step" id="er-count-plus" aria-label="M√°s cuadros">+</button>
+                  <button type="button" class="er-count-step" id="er-count-plus" aria-label="M·s cuadros">+</button>
                 </div>
                 <p class="er-count-label" id="er-count-label">4 en una fila</p>
               </div>
               <div class="er-block">
-                <div class="er-sec">Cuadr√≠cula</div>
-                <p class="er-hint">n¬∞ Filas se recuerda al pasar a Autom√°tica (vuelves tal cual). Cada cambio se guarda solo. Autom√°tica arma el layout libre.</p>
+                <div class="er-sec">CuadrÌcula</div>
+                <p class="er-hint">n∞ Filas se recuerda al pasar a Autom·tica (vuelves tal cual). Cada cambio se guarda solo. Autom·tica arma el layout libre.</p>
                 <div class="er-gap-btns">
-                  <button type="button" class="er-gap-btn is-on" id="er-grid-auto">Autom√°tica</button>
-                  <button type="button" class="er-gap-btn" id="er-grid-fixed">n¬∞ Filas</button>
+                  <button type="button" class="er-gap-btn is-on" id="er-grid-auto">Autom·tica</button>
+                  <button type="button" class="er-gap-btn" id="er-grid-fixed">n∞ Filas</button>
                 </div>
                 <div class="er-grid-n-btns hidden" id="er-grid-n-btns">
-                  <button type="button" class="er-mini-btn" data-er-grid-n="2">2√ó2</button>
-                  <button type="button" class="er-mini-btn" data-er-grid-n="3">3√ó3</button>
-                  <button type="button" class="er-mini-btn" data-er-grid-n="4">4√ó4</button>
-                  <button type="button" class="er-mini-btn" data-er-grid-n="5">5√ó5</button>
-                  <button type="button" class="er-mini-btn" data-er-grid-n="6">6√ó6</button>
-                  <button type="button" class="er-mini-btn" data-er-grid-n="7">7√ó7</button>
-                  <button type="button" class="er-mini-btn" data-er-grid-n="8">8√ó8</button>
+                  <button type="button" class="er-mini-btn" data-er-grid-n="2">2◊2</button>
+                  <button type="button" class="er-mini-btn" data-er-grid-n="3">3◊3</button>
+                  <button type="button" class="er-mini-btn" data-er-grid-n="4">4◊4</button>
+                  <button type="button" class="er-mini-btn" data-er-grid-n="5">5◊5</button>
+                  <button type="button" class="er-mini-btn" data-er-grid-n="6">6◊6</button>
+                  <button type="button" class="er-mini-btn" data-er-grid-n="7">7◊7</button>
+                  <button type="button" class="er-mini-btn" data-er-grid-n="8">8◊8</button>
+                  <button type="button" class="er-mini-btn" id="er-grid-custom-btn">Personalizado</button>
                 </div>
-                <button type="button" class="er-gap-btn er-remove-empty-btn" id="er-remove-empty" style="margin-top:8px;width:100%">Eliminar cuadros vac√≠os</button>
+                <div class="er-grid-custom hidden" id="er-grid-custom" hidden>
+                  <label class="er-grid-custom-lab">Columnas
+                    <input type="number" id="er-grid-cols" class="er-grid-custom-inp" min="1" max="64" value="8" inputmode="numeric">
+                  </label>
+                  <span class="er-grid-custom-x" aria-hidden="true">◊</span>
+                  <label class="er-grid-custom-lab">Filas
+                    <input type="number" id="er-grid-rows" class="er-grid-custom-inp" min="1" max="64" value="4" inputmode="numeric">
+                  </label>
+                  <button type="button" class="er-gap-btn er-grid-custom-apply" id="er-grid-custom-apply">Aplicar</button>
+                </div>
+                <button type="button" class="er-gap-btn er-remove-empty-btn" id="er-remove-empty" style="margin-top:8px;width:100%">Eliminar cuadros vacÌos</button>
               </div>
               <div class="er-block">
                 <div class="er-sec">Espacio entre cuadros</div>
@@ -1068,9 +1080,17 @@
                   <button type="button" class="er-gap-btn" id="er-gap-off">Pegados</button>
                 </div>
               </div>
+              <div class="er-block">
+                <div class="er-sec">TamaÒo de cuadros</div>
+                <p class="er-hint">Con <b>TamaÒo fijo</b>, una rejilla grande (ej. 10◊5) no achica los cuadros: se mantiene el tamaÒo y puedes hacer scroll o bajar el zoom.</p>
+                <div class="er-gap-btns">
+                  <button type="button" class="er-gap-btn is-on" id="er-cellsize-fit">Se adaptan</button>
+                  <button type="button" class="er-gap-btn" id="er-cellsize-fixed">TamaÒo fijo</button>
+                </div>
+              </div>
               <div class="er-block hidden" id="er-spread-block" hidden aria-hidden="true">
                 <div class="er-sec">Ancho en Live Studio</div>
-                <p class="er-hint">Estira a los lados sin agrandar los cuadros. En Live Studio: Browser Source <b>1920√ó1080</b> (o 1080√ó1920 vertical), sin recortar, y pulsa Actualizar.</p>
+                <p class="er-hint">Estira a los lados sin agrandar los cuadros. En Live Studio: Browser Source <b>1920◊1080</b> (o 1080◊1920 vertical), sin recortar, y pulsa Actualizar.</p>
                 <div class="er-gap-btns">
                   <button type="button" class="er-gap-btn is-on" id="er-spread-off">Compacto</button>
                   <button type="button" class="er-gap-btn" id="er-spread-on">Estirar lados</button>
@@ -1080,27 +1100,27 @@
                 <div class="er-sec">Herramientas</div>
                 <div class="ied-tool-stack er-tool-stack">
                   <button type="button" class="ied-tool ied-tool-primary" id="er-add-gift">
-                    <span class="ied-tool-ico" aria-hidden="true">‚óÜ</span>
-                    <span class="ied-tool-copy"><strong>A√±adir regalo</strong><em>Cat√°logo TikTok</em></span>
+                    <span class="ied-tool-ico" aria-hidden="true">?</span>
+                    <span class="ied-tool-copy"><strong>AÒadir regalo</strong><em>Cat·logo TikTok</em></span>
                   </button>
                   <button type="button" class="ied-tool" id="er-add-text">
                     <span class="ied-tool-ico" aria-hidden="true">T</span>
-                    <span class="ied-tool-copy"><strong>A√±adir texto</strong><em>Fuentes y estilos</em></span>
+                    <span class="ied-tool-copy"><strong>AÒadir texto</strong><em>Fuentes y estilos</em></span>
                   </button>
                   <button type="button" class="ied-tool" id="er-add-image">
-                    <span class="ied-tool-ico" aria-hidden="true">‚ñ£</span>
+                    <span class="ied-tool-ico" aria-hidden="true">?</span>
                     <span class="ied-tool-copy"><strong>Imagen / GIF</strong><em>Desde tu PC</em></span>
                   </button>
                   <button type="button" class="ied-tool" id="er-dl-png">
-                    <span class="ied-tool-ico" aria-hidden="true">‚Üì</span>
+                    <span class="ied-tool-ico" aria-hidden="true">?</span>
                     <span class="ied-tool-copy"><strong>Packs PNG</strong><em>Iconos sueltos</em></span>
                   </button>
                   <button type="button" class="ied-tool" id="er-export-montage">
-                    <span class="ied-tool-ico" aria-hidden="true">‚§ì</span>
+                    <span class="ied-tool-ico" aria-hidden="true">?</span>
                     <span class="ied-tool-copy"><strong>Exportar montage</strong><em>PNG del grid actual</em></span>
                   </button>
                   <button type="button" class="ied-tool" id="er-export-montage-gif">
-                    <span class="ied-tool-ico" aria-hidden="true">üéû</span>
+                    <span class="ied-tool-ico" aria-hidden="true">??</span>
                     <span class="ied-tool-copy"><strong>Exportar GIF</strong><em>Montage con movimiento</em></span>
                   </button>
                 </div>
@@ -1116,9 +1136,9 @@
                 </label>
                 <label class="er-check" id="er-text-motion-wrap">
                   <input type="checkbox" id="er-text-motion">
-                  <span>Tambi√©n aplicar movimiento al texto</span>
+                  <span>TambiÈn aplicar movimiento al texto</span>
                 </label>
-                <p class="er-hint">Se aplica a im√°genes y regalos. Los fondos no se mueven. El texto solo si marcas la casilla.</p>
+                <p class="er-hint">Se aplica a im·genes y regalos (tambiÈn con movimiento libre). Los fondos no se mueven. El texto solo si marcas la casilla.</p>
                 <input type="color" id="er-text-color-input" value="#ffffff" hidden>
               </div>
             </aside>
@@ -1128,30 +1148,30 @@
                 <span class="er-grid-meta" id="er-grid-meta">4 cuadros</span>
                 <div class="er-canvas-bar-tools">
                   <div class="er-edit-tools">
-                    <button type="button" class="er-mini-btn" id="er-undo" title="Deshacer (Ctrl+Z)">‚Ü∂ Deshacer</button>
+                    <button type="button" class="er-mini-btn" id="er-undo" title="Deshacer (Ctrl+Z)">? Deshacer</button>
                     <button type="button" class="er-mini-btn er-apply-free-btn" id="er-apply-free" title="Aplicar movimiento libre del cuadro" disabled hidden>Aplicar</button>
                     <button type="button" class="er-mini-btn er-clear-free-btn" id="er-clear-free" title="Quitar movimiento libre y dejar el cuadro normal" disabled hidden>Quitar libre</button>
-                    <button type="button" class="er-mini-btn" id="er-redo" title="Rehacer (Ctrl+Y)">‚Ü∑ Rehacer</button>
-                    <button type="button" class="er-mini-btn" id="er-dup-slot" title="Duplicar cuadro seleccionado">‚ßâ Duplicar</button>
+                    <button type="button" class="er-mini-btn" id="er-redo" title="Rehacer (Ctrl+Y)">? Rehacer</button>
+                    <button type="button" class="er-mini-btn" id="er-dup-slot" title="Duplicar cuadro seleccionado">? Duplicar</button>
                   </div>
                   <div class="er-align-tools" id="er-align-tools">
                     <span class="er-align-label">Texto</span>
                     <button type="button" class="er-mini-btn" data-er-align="center" title="Centrar texto">Centro</button>
                     <button type="button" class="er-mini-btn" data-er-align="top" title="Arriba centro">Arriba</button>
-                    <button type="button" class="er-mini-btn" data-er-align="br" title="Esquina abajo derecha">‚Üò</button>
-                    <button type="button" class="er-mini-btn" data-er-align="bl" title="Esquina abajo izquierda">‚Üô</button>
-                    <button type="button" class="er-mini-btn" data-er-align="tr" title="Esquina arriba derecha">‚Üó</button>
+                    <button type="button" class="er-mini-btn" data-er-align="br" title="Esquina abajo derecha">?</button>
+                    <button type="button" class="er-mini-btn" data-er-align="bl" title="Esquina abajo izquierda">?</button>
+                    <button type="button" class="er-mini-btn" data-er-align="tr" title="Esquina arriba derecha">?</button>
                   </div>
-                  <p class="er-hint er-shortcuts-hint">Atajos: <b>1‚Äì9</b> ¬∑ <b>Del</b> ¬∑ <b>G</b> ¬∑ <b>T</b> ¬∑ <b>Ctrl+Z/Y</b></p>
-                  <div class="er-img-scale" title="Tama√±o de las im√°genes dentro del cuadro (no afecta movimiento libre)">
+                  <p class="er-hint er-shortcuts-hint">Atajos: <b>1ñ9</b> ∑ <b>Del</b> ∑ <b>G</b> ∑ <b>T</b> ∑ <b>Ctrl+Z/Y</b></p>
+                  <div class="er-img-scale" title="TamaÒo de las im·genes dentro del cuadro (no afecta movimiento libre)">
                     <span class="er-align-label">Imagen</span>
-                    <input type="range" id="er-img-scale" class="er-img-scale-range" min="40" max="160" step="5" value="100" aria-label="Tama√±o de imagen">
+                    <input type="range" id="er-img-scale" class="er-img-scale-range" min="40" max="160" step="5" value="100" aria-label="TamaÒo de imagen">
                     <span class="er-zoom-label" id="er-img-scale-label">100%</span>
                   </div>
-                  <div class="er-zoom-btns" title="Tama√±o del montage en el panel y en Live Studio / OBS">
-                    <button type="button" class="er-mini-btn" id="er-zoom-out" title="M√°s chico (tambi√©n en Live Studio)">‚àí</button>
+                  <div class="er-zoom-btns" title="TamaÒo del montage en el panel y en Live Studio / OBS">
+                    <button type="button" class="er-mini-btn" id="er-zoom-out" title="M·s chico (tambiÈn en Live Studio)">-</button>
                     <button type="button" class="er-mini-btn" id="er-zoom-fit" title="100% en Live Studio">Ajustar</button>
-                    <button type="button" class="er-mini-btn" id="er-zoom-in" title="M√°s grande (tambi√©n en Live Studio)">+</button>
+                    <button type="button" class="er-mini-btn" id="er-zoom-in" title="M·s grande (tambiÈn en Live Studio)">+</button>
                     <span class="er-zoom-label" id="er-zoom-label">100%</span>
                   </div>
                 </div>
@@ -1162,7 +1182,7 @@
                 </div>
                 <div class="er-pick-copy">
                   <strong>Elige un cuadro</strong>
-                  <span>Toca d√≥nde quieres poner la imagen (queda centrada).</span>
+                  <span>Toca dÛnde quieres poner la imagen (queda centrada).</span>
                 </div>
                 <button type="button" class="btn ghost" id="er-pick-cancel">Cancelar</button>
               </div>
@@ -1179,9 +1199,9 @@
                   <p class="er-hint">Se aplica igual en todos. Elige un estilo, sube el tuyo o deja transparente (flotando).</p>
                   <div class="er-fondo-dd" id="er-fondo-dd">
                     <button type="button" class="er-fondo-dd-btn" id="er-fondo-dd-btn" aria-haspopup="listbox" aria-expanded="false">
-                      <span class="er-fondo-dd-label" id="er-fondo-dd-label">‚Äî</span>
+                      <span class="er-fondo-dd-label" id="er-fondo-dd-label">ó</span>
                       <span class="er-fondo-dd-thumb" id="er-fondo-dd-thumb" aria-hidden="true"></span>
-                      <span class="er-fondo-dd-caret" aria-hidden="true">‚ñæ</span>
+                      <span class="er-fondo-dd-caret" aria-hidden="true">?</span>
                     </button>
                     <div class="er-fondo-dd-menu hidden" id="er-fondo-dd-menu" role="listbox"></div>
                   </div>
@@ -1190,12 +1210,12 @@
 
                   <div class="er-frame-block">
                     <div class="er-sec">Marco de cuadros</div>
-                    <p class="er-hint">Borde en todos los cuadros. Tambi√©n se ve en Live Studio / OBS.</p>
+                    <p class="er-hint">Borde en todos los cuadros. TambiÈn se ve en Live Studio / OBS.</p>
                     <div class="er-fondo-dd er-frame-dd" id="er-frame-dd">
                       <button type="button" class="er-fondo-dd-btn" id="er-frame-dd-btn" aria-haspopup="listbox" aria-expanded="false">
-                        <span class="er-fondo-dd-label" id="er-frame-dd-label">‚Äî</span>
+                        <span class="er-fondo-dd-label" id="er-frame-dd-label">ó</span>
                         <span class="er-frame-dd-swatch" id="er-frame-dd-swatch" aria-hidden="true"></span>
-                        <span class="er-fondo-dd-caret" aria-hidden="true">‚ñæ</span>
+                        <span class="er-fondo-dd-caret" aria-hidden="true">?</span>
                       </button>
                       <div class="er-fondo-dd-menu hidden" id="er-frame-dd-menu" role="listbox"></div>
                     </div>
@@ -2704,7 +2724,7 @@
         <div id="lgfConfigModal" class="modal hidden">
           <div class="modal-box">
             <div class="modal-head">
-              <h2>Configurar ‚Äî Ultimo regalo</h2>
+              <h2>Configurar ó Ultimo regalo</h2>
               <button class="modal-close" id="lgfcfg-close">X</button>
             </div>
             <div class="modal-body">
@@ -4174,23 +4194,23 @@
         <div id="cgmConfigModal" class="modal hidden">
           <div class="modal-box" style="max-width:460px">
             <div class="modal-head">
-              <h2>üí¨ Configurar ‚Äî Chat Gamer</h2>
-              <button class="modal-close" id="cgmcfg-close">‚úï</button>
+              <h2>?? Configurar ó Chat Gamer</h2>
+              <button class="modal-close" id="cgmcfg-close">?</button>
             </div>
             <div class="modal-body">
-              <label class="ml">DISE√ëO</label>
+              <label class="ml">DISE—O</label>
               <select id="cgmcfg-design">
-                <option value="neon">1 ‚Äî Neon Pulse (cian / magenta)</option>
-                <option value="tactical">2 ‚Äî Tactical (verde esports)</option>
-                <option value="void">3 ‚Äî Void Gold (oscuro / dorado)</option>
+                <option value="neon">1 ó Neon Pulse (cian / magenta)</option>
+                <option value="tactical">2 ó Tactical (verde esports)</option>
+                <option value="void">3 ó Void Gold (oscuro / dorado)</option>
               </select>
                             <div class="gvscfg-grid2" style="margin-top:10px">
-                <div><label class="ml">M√ÅX. MENSAJES (3-16)</label><input type="number" id="cgmcfg-max" min="3" max="16" value="8"></div>
-                <div><label class="ml">TAMA√ëO TEXTO (11-28)</label><input type="number" id="cgmcfg-fontsize" min="11" max="28" value="15"></div>
+                <div><label class="ml">M¡X. MENSAJES (3-16)</label><input type="number" id="cgmcfg-max" min="3" max="16" value="8"></div>
+                <div><label class="ml">TAMA—O TEXTO (11-28)</label><input type="number" id="cgmcfg-fontsize" min="11" max="28" value="15"></div>
                 <div><label class="ml">ESCALA (60-140)</label><input type="number" id="cgmcfg-scale" min="60" max="140" value="100"></div>
                 <div><label class="ml">AUTO-OCULTAR (0=no, ms)</label><input type="number" id="cgmcfg-fade" min="0" max="120000" step="500" value="0"></div>
               </div>
-              <p class="hint" style="margin-top:8px">Solo burbujas de mensaje (sin marco ni t√≠tulo). Fondo semitransparente. Colores: mod / sub / VIP.</p>
+              <p class="hint" style="margin-top:8px">Solo burbujas de mensaje (sin marco ni tÌtulo). Fondo semitransparente. Colores: mod / sub / VIP.</p>
             </div>
             <div class="modal-foot"><button class="btn primary" id="cgmcfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
@@ -5626,7 +5646,7 @@
                 <code class="ov-url" data-path="/ultimoregalo.html">/ultimoregalo.html</code>
                 <button class="ovpro-copy ov-copy">Copiar enlace</button>
               </div>
-              <div class="ovpro-prevlabel">VISTA PREVIA ¬∑ PULSA TESTEAR</div>
+              <div class="ovpro-prevlabel">VISTA PREVIA ∑ PULSA TESTEAR</div>
               <div class="ovpro-preview">
                 <iframe id="lgf-preview" data-src="/ultimoregalo.html?embed=1" title="Vista previa ultimo regalo"></iframe>
               </div>
@@ -5978,22 +5998,22 @@
               <div class="ovpro-card">
                 <div class="ovpro-top">
                   <div class="ovpro-actions">
-                    <button class="ovpro-btn" id="cgm-reset">‚Ü∫ Reset</button>
-                    <button class="ovpro-btn primary" id="cgm-test">‚ñ∂ Testear</button>
-                    <button class="ovpro-btn" id="cgm-config">‚öô Configurar</button>
+                    <button class="ovpro-btn" id="cgm-reset">? Reset</button>
+                    <button class="ovpro-btn primary" id="cgm-test">? Testear</button>
+                    <button class="ovpro-btn" id="cgm-config">? Configurar</button>
                   </div>
                   <div class="ovpro-status">
                     <div class="ovpro-conn" id="cgm-conn"><span class="cdot"></span> CONECTADO</div>
-                    <span class="ovpro-new" title="Chat del live con 3 dise√±os gamer">Nuevo</span>
+                    <span class="ovpro-new" title="Chat del live con 3 diseÒos gamer">Nuevo</span>
                   </div>
                 </div>
-                <h3 class="ovpro-title">üí¨ Chat Gamer</h3>
-                <p class="ovpro-desc">Chat de TikTok en vivo: nombre + mensaje, aparecen de poco en poco. Tres dise√±os profesionales (Neon, Tactical, Void Gold). Ideal en el lateral del live.</p>
+                <h3 class="ovpro-title">?? Chat Gamer</h3>
+                <p class="ovpro-desc">Chat de TikTok en vivo: nombre + mensaje, aparecen de poco en poco. Tres diseÒos profesionales (Neon, Tactical, Void Gold). Ideal en el lateral del live.</p>
                 <div class="ovpro-urlrow">
                   <code class="ov-url" data-path="/chat-gamer.html">/chat-gamer.html</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>
                 </div>
-                <div class="ovpro-prevlabel">VISTA PREVIA ¬∑ PULSA TESTEAR</div>
+                <div class="ovpro-prevlabel">VISTA PREVIA ∑ PULSA TESTEAR</div>
                 <div class="ovpro-preview">
                   <iframe id="cgm-preview" data-src="/chat-gamer.html?embed=1&v=4" title="Vista previa Chat Gamer"></iframe>
                 </div>
@@ -6858,6 +6878,7 @@
                 <button class="ovpro-btn" id="so-reset">? Reset</button>
                 <button class="ovpro-btn primary" id="so-test">? Testear</button>
                 <button class="ovpro-btn" id="so-start">? Iniciar</button>
+                <button class="ovpro-btn" id="so-spin" title="Elimina ya sin esperar el temporizador">Giro manual</button>
                 <button class="ovpro-btn" id="so-lock">?? Lock entradas</button>
                 <button class="ovpro-btn" id="so-unlock">?? Unlock</button>
                 <button class="ovpro-btn" id="so-config">? Configurar</button>
@@ -6868,12 +6889,12 @@
             <p class="ovpro-desc">Suma monedas de todos los regalos, convierte en vidas seg?n el costo de entrada, elimina al azar con temporizador y permite victoria instant?nea (Insta-Claim). Las donaciones durante el giro quedan en cola.</p>
 
             <div class="ovpro-urlrow">
-              <code class="ov-url" data-path="/sorteos.html?v=so41">/sorteos.html?v=so41</code>
+              <code class="ov-url" data-path="/sorteos.html?v=so45">/sorteos.html?v=so45</code>
               <button class="ovpro-copy ov-copy">Copiar enlace</button>
             </div>
             <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
             <div class="ovpro-preview">
-              <iframe id="so-preview" data-src="/sorteos.html?embed=1&v=so41" title="Vista previa sorteos overlay"></iframe>
+              <iframe id="so-preview" data-src="/sorteos.html?embed=1&v=so45" title="Vista previa sorteos overlay"></iframe>
             </div>
           </div>
         </section>
@@ -6989,6 +7010,35 @@
           </div>
         </section>
 
+        <!-- ===================== EFECTOS PANTALLA (App PC) ===================== -->
+        <section class="view" id="view-ov-screenfx">
+          <h1 class="view-title">Efectos pantalla</h1>
+          <p class="view-sub">Cuando llega un <b>regalo</b> que configures, la <b>pantalla principal</b> de tu PC muestra un efecto (negro, rayos, DVDÖ). Solo funciona en la <b>App PC</b> (.exe).</p>
+
+          <div class="ovpro-card">
+            <div class="ovpro-top">
+              <div class="ovpro-actions">
+                <button class="ovpro-btn" id="sfx-add">+ Agregar efecto</button>
+                <button class="ovpro-btn" id="sfx-stop">Parar</button>
+              </div>
+              <div class="ovpro-conn" id="sfx-conn"><span class="cdot"></span> APP PC</div>
+            </div>
+            <h3 class="ovpro-title">Regalo ? efecto a pantalla completa</h3>
+            <p class="ovpro-desc" id="sfx-desc">Elige el <b>disparador</b> (regalo, likes, follow, etc.), el efecto, los segundos y opcionalmente un <b>audio propio</b>. Solo App PC (.exe).</p>
+            <label class="er-check" style="margin:10px 0 8px;display:inline-flex;gap:8px;align-items:center;">
+              <input type="checkbox" id="sfx-enabled" checked>
+              <span>Activar efectos de pantalla</span>
+            </label>
+            <label class="er-check" style="margin:0 0 14px;display:inline-flex;gap:8px;align-items:center;" title="Si est· marcado, puedes jugar/usar la PC mientras se ve el efecto. Si no, el efecto bloquea el ratÛn.">
+              <input type="checkbox" id="sfx-allow-interact" checked>
+              <span>Permitir usar la PC mientras corre el efecto</span>
+            </label>
+            <div id="sfx-pc-warn" class="hint" hidden style="margin-bottom:12px;color:#fbbf24;">Abre Livecoins en la App PC (.exe) para ver los efectos en tu monitor.</div>
+            <input type="file" id="sfx-soundfile" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac" hidden>
+            <div id="sfx-rules" class="sfx-rules" aria-label="Reglas de efectos"></div>
+          </div>
+        </section>
+
         <!-- ===================== USUARIO Y PUNTOS ===================== -->
         <section class="view" id="view-points">
           <h1 class="view-title">?? Usuario y Puntos</h1>
@@ -7019,13 +7069,13 @@
                 </div>
                 <button class="btn ghost danger" id="pts-reset">Restablecer puntos</button>
               </div>
-              <div class="pts-tf-import" id="pts-tf-import">
-                <p class="tts-sub pts-tf-hint">Aqu√≠ solo se importan <b>puntos</b> (User ID o login). Alertas/videos/acciones: ve a <b>Copia de seguridad</b> e importa tu <code>.tfc</code>.</p>
+              <div class="pts-tf-import hidden" id="pts-tf-import" hidden aria-hidden="true">
+                <p class="tts-sub pts-tf-hint">AquÌ solo se importan <b>puntos</b> (User ID o login). Alertas/videos/acciones: ve a <b>Copia de seguridad</b> e importa tu <code>.tfc</code>.</p>
                 <div class="pts-tf-row">
-                  <input type="text" id="pts-tf-channel" class="pts-search" placeholder="User ID de TikFinity (n√∫mero)" autocomplete="off">
-                  <button type="button" class="btn primary" id="pts-tf-login-btn" title="Abre TikFinity, inicia sesi√≥n e importa">Iniciar sesi√≥n TikFinity</button>
+                  <input type="text" id="pts-tf-channel" class="pts-search" placeholder="User ID de TikFinity (n˙mero)" autocomplete="off">
+                  <button type="button" class="btn primary" id="pts-tf-login-btn" title="Abre TikFinity, inicia sesiÛn e importa">Iniciar sesiÛn TikFinity</button>
                   <button type="button" class="btn primary" id="pts-tf-import-btn">Importar con este ID</button>
-                  <button type="button" class="btn ghost" id="pts-tf-file-btn">Desde archivo‚Ä¶</button>
+                  <button type="button" class="btn ghost" id="pts-tf-file-btn">Desde archivoÖ</button>
                   <input type="file" id="pts-tf-file" accept=".json,.tfc,application/json,text/plain" hidden>
                 </div>
                 <label class="switch-row plain pts-tf-replace"><input type="checkbox" id="pts-tf-replace"> <span>Reemplazar lista actual (si no, fusiona tomando el mayor)</span></label>
@@ -7786,7 +7836,7 @@
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="smb3-open-catalog">? Crear Acci?n</button>
-                <button type="button" class="mc-img-btn" id="smb3-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">üñºÔ∏è Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="smb3-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">??? Generar overlay</button>
                 <button type="button" class="mc-create-btn" id="smb3-toggle-all">? Encender / Apagar todas</button>
               </div>
             </div>
@@ -8097,7 +8147,7 @@
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="l4d-open-catalog">? Crear Acci?n</button>
-                <button type="button" class="mc-img-btn" id="l4d-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">üñºÔ∏è Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="l4d-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">??? Generar overlay</button>
                 <button type="button" class="mc-create-btn" id="l4d-toggle-all">? Encender / Apagar todas</button>
               </div>
             </div>
@@ -8456,7 +8506,7 @@
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="ctr-open-catalog">? Crear Acci?n</button>
                 <button type="button" class="mc-create-btn" id="ctr-load-presets" title="14 webhooks oficiales con regalos y cantidades">?? Cargar preset oficial</button>
-                <button type="button" class="mc-img-btn" id="ctr-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">üñºÔ∏è Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="ctr-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">??? Generar overlay</button>
                 <button type="button" class="mc-create-btn" id="ctr-toggle-all">? Encender / Apagar todas</button>
               </div>
             </div>
@@ -8605,7 +8655,7 @@
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones (12)</h3>
               <div class="mc-sub-btns">
-                <button type="button" class="mc-img-btn" id="rbx3-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">üñºÔ∏è Generar overlay</button>
+                <button type="button" class="mc-img-btn" id="rbx3-gen-overlay" title="Abre tus acciones en Editor Pro (cuadros + regalos) y guarda plantilla">??? Generar overlay</button>
                 <button type="button" class="mc-create-btn" id="rbx3-toggle-all">? Encender / Apagar todas</button>
               </div>
             </div>
@@ -9698,7 +9748,7 @@
     </div>
   </div>
 
-  <script src="/js/settings-transfer.js?v=expick1"></script>
+  <script src="/js/settings-transfer.js?v=tfcstick7"></script>
   <script src="/js/gift-catalog.js"></script>
   <!-- Cat?logos de juegos: se cargan al abrir cada pesta?a (ahorro de RAM al arrancar). -->
   <!-- Advertencia de riesgo al activar el TTS (a nivel de body: fixed real, sin scroll) -->
@@ -9771,8 +9821,8 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=chatgamer2"></script>
-  <script src="/js/editor-rapido.js?v=er76"></script>
+  <script src="/js/dashboard.js?v=tfcstick15"></script>
+  <script src="/js/editor-rapido.js?v=er80"></script>
   <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedpng1"></script>
 </body>

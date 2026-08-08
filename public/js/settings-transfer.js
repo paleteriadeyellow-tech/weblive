@@ -61,6 +61,7 @@
         { key: 'winsCounterMinecraft', label: 'Contador de victorias (Minecraft)' },
         { key: 'winsCounterMario', label: 'Contador de victorias (Mario Bros)' },
         { key: 'topKills', label: 'Top kills (manual)' },
+        { key: 'screenFx', label: 'Efectos pantalla (App PC)' },
       ],
     },
     {
@@ -177,45 +178,54 @@
 
   /* ---- Legacy TikFinity v1 ---- */
   function importLegacyAlerta(a, i) {
-    const isAny = a.trigger === 'any_gift';
-    const gift = isAny ? { giftId: '', giftName: '' } : parseGiftRef(a.nombreRegalo);
-    return {
+    const trig = String(a.trigger || 'gift').trim() || 'gift';
+    const isAny = trig === 'any_gift' || trig === 'gift-any';
+    const isEmote = trig === 'emote';
+    const gift = (isAny || isEmote) ? { giftId: '', giftName: '' } : parseGiftRef(a.nombreRegalo || a.giftName);
+    const out = {
       id: uid('sa_'),
       name: String(a.nombre || `Alerta ${i + 1}`).trim(),
       enabled: a.enabled !== false,
-      trigger: 'gift',
-      giftName: gift.giftName,
-      giftId: gift.giftId,
-      minDiamonds: 0,
-      rangeMin: isAny ? 0 : 0,
-      rangeMax: isAny ? 0 : 0,
-      likeMin: 0,
-      likeGoal: 0,
-      emoteId: '',
-      emoteImage: '',
-      sound: String(a.audioUrl || '').trim(),
-      soundName: String(a.audioName || 'audio').trim(),
-      image: '',
-      volume: normVolume(a.volumen),
+      trigger: isAny ? 'gift' : (trig === 'gift-any' ? 'gift' : trig),
+      giftName: isEmote ? '' : (gift.giftName || String(a.giftName || '').trim()),
+      giftId: isEmote ? '' : String(a.giftId || gift.giftId || '').trim(),
+      minDiamonds: Math.max(0, Number(a.minDiamonds) || 0),
+      rangeMin: isAny ? 0 : Math.max(0, Number(a.rangeMin) || 0),
+      rangeMax: isAny ? 0 : Math.max(0, Number(a.rangeMax) || 0),
+      likeMin: Math.max(0, Number(a.likeMin) || 0),
+      likeGoal: Math.max(0, Number(a.likeGoal) || 0),
+      emoteId: isEmote ? String(a.emoteId || '').trim() : '',
+      emoteImage: isEmote ? String(a.emoteImage || a.emoteImageUrl || '').trim() : '',
+      sound: String(a.audioUrl || a.sound || '').trim(),
+      soundName: String(a.audioName || a.soundName || 'audio').trim(),
+      image: String(a.image || a.imageUrl || '').trim(),
+      volume: normVolume(a.volumen != null ? a.volumen : a.volume),
     };
+    if (isAny) {
+      out.giftName = '';
+      out.giftId = '';
+    }
+    return out;
   }
 
   function importLegacyVideo(v, i) {
-    const gift = parseGiftRef(v.nombreRegalo);
+    const trig = String(v.trigger || 'gift').trim() || 'gift';
+    const isEmote = trig === 'emote';
+    const gift = isEmote ? { giftId: '', giftName: '' } : parseGiftRef(v.nombreRegalo);
     return {
       id: uid('v_'),
       name: String(v.nombreLista || `Video ${i + 1}`).trim(),
       enabled: v.enabled !== false,
-      trigger: 'gift',
-      giftName: gift.giftName,
-      giftId: gift.giftId,
-      minDiamonds: 0,
+      trigger: trig,
+      giftName: isEmote ? '' : gift.giftName,
+      giftId: isEmote ? '' : String(v.giftId || gift.giftId || '').trim(),
+      minDiamonds: Math.max(0, Number(v.minDiamonds) || 0),
       rangeMin: 0,
       rangeMax: 0,
-      likeMin: 0,
-      likeGoal: 0,
-      emoteId: '',
-      emoteImage: '',
+      likeMin: Math.max(0, Number(v.likeMin) || 0),
+      likeGoal: Math.max(0, Number(v.likeGoal) || 0),
+      emoteId: isEmote ? String(v.emoteId || '').trim() : '',
+      emoteImage: isEmote ? String(v.emoteImage || v.emoteImageUrl || '').trim() : '',
       command: '',
       url: String(v.videoUrl || '').trim(),
       fileName: String(v.videoName || 'video').trim(),
@@ -225,30 +235,138 @@
   }
 
   function importLegacyAction(a, i) {
-    const gift = parseGiftRef(a.nombreRegalo);
-    let keys = String(a.tecla || '').trim();
+    const trig = String(a.trigger || a.event || 'gift').trim() || 'gift';
+    const isEmote = trig === 'emote';
+    const isAny = trig === 'any_gift' || trig === 'gift-any';
+    const gift = (isAny || isEmote) ? { giftId: '', giftName: '' } : parseGiftRef(a.nombreRegalo || a.giftName);
+    let keys = String(a.tecla || a.keys || '').trim();
     if (keys.length === 1) keys = keys.toUpperCase();
-    return {
+    const whUrl = String(a.webhookUrl || a._webhookUrl || a.webhookCmd?.url || '').trim();
+    let event = 'gift-any';
+    if (isEmote) event = 'emote';
+    else if (isAny) event = 'gift-any';
+    else if (trig === 'gift' || trig === 'like' || trig === 'follow' || trig === 'share'
+      || trig === 'subscribe' || trig === 'superFan' || trig === 'superFanJoin'
+      || trig === 'likeGlobal' || trig === 'chatCommand') {
+      event = trig === 'gift'
+        ? ((gift.giftName || String(a.giftId || gift.giftId || '').trim()) ? 'gift' : 'gift-any')
+        : trig;
+    }
+    const out = {
       id: uid('act_'),
-      name: String(a.nombre || `Acción ${i + 1}`).trim(),
+      name: String(a.nombre || a.name || `Acción ${i + 1}`).replace(/\s*\[WH\]\s*$/i, '').trim(),
       enabled: a.enabled !== false,
-      event: 'gift',
-      giftName: gift.giftName,
-      giftId: gift.giftId,
+      event,
+      giftName: isEmote || isAny ? '' : (gift.giftName || String(a.giftName || '').trim()),
+      giftId: isEmote || isAny ? '' : String(a.giftId || gift.giftId || '').trim(),
       giftImage: '',
-      minDiamonds: 0,
-      rangeMin: 0,
-      rangeMax: 0,
-      likeMin: 1,
-      likeGoal: 100,
-      emoteId: '',
+      minDiamonds: Math.max(0, Number(a.minDiamonds) || 0),
+      rangeMin: Math.max(0, Number(a.rangeMin) || 0),
+      rangeMax: Math.max(0, Number(a.rangeMax) || 0),
+      likeMin: Math.max(1, Number(a.likeMin) || 1),
+      likeGoal: Math.max(0, Number(a.likeGoal) || 100),
+      emoteId: isEmote ? String(a.emoteId || '').trim() : '',
+      emoteImage: isEmote ? String(a.emoteImage || a.emoteImageUrl || '').trim() : '',
       keys,
       gameCompat: false,
-      image: '',
-      sound: '',
-      soundName: '',
-      soundVolume: 1,
+      image: String(a.image || a.imageUrl || '').trim(),
+      sound: String(a.sound || a.audioUrl || '').trim(),
+      soundName: String(a.soundName || '').trim(),
+      soundVolume: a.soundVolume != null ? Number(a.soundVolume) : 1,
+      webhookCmd: whUrl ? {
+        on: true,
+        method: String(a.webhookCmd?.method || a.webhookMethod || 'GET').toUpperCase() || 'GET',
+        url: whUrl,
+        body: String(a.webhookCmd?.body || a.webhookBody || ''),
+        staggerOn: !!a.webhookCmd?.staggerOn,
+        staggerMs: Math.max(50, Math.min(10000, parseInt(a.webhookCmd?.staggerMs, 10) || 300)),
+      } : {
+        on: false, method: 'GET', url: '', body: '', staggerOn: false, staggerMs: 300,
+      },
+      obsCmd: (() => {
+        if (a.obsCmd && typeof a.obsCmd === 'object' && (a.obsCmd.on || a.obsCmd.scene || a.obsCmd.source)) {
+          return {
+            on: a.obsCmd.on !== false,
+            type: a.obsCmd.type || (a.obsCmd.source ? 'showSource' : 'scene'),
+            scene: String(a.obsCmd.scene || '').trim(),
+            source: String(a.obsCmd.source || '').trim(),
+          };
+        }
+        const scene = String(a.obsSceneId || a.obsScene || '').trim();
+        const source = String(a.obsSourceId || a.obsSource || '').trim();
+        if (!scene && !source) return { on: false, type: 'scene', scene: '', source: '' };
+        if (source) return { on: true, type: 'showSource', scene, source };
+        return { on: true, type: 'scene', scene, source: '' };
+      })(),
+      sbCmd: (() => {
+        if (a.sbCmd && typeof a.sbCmd === 'object' && (a.sbCmd.on || a.sbCmd.action)) {
+          return {
+            on: a.sbCmd.on !== false,
+            action: String(a.sbCmd.action || '').trim(),
+            staggerOn: !!a.sbCmd.staggerOn,
+            staggerMs: Math.max(50, Math.min(10000, parseInt(a.sbCmd.staggerMs, 10) || 300)),
+          };
+        }
+        const action = String(a.streamerbotActionId || a.streamerBotActionId || a.sbAction || '').trim();
+        if (!action) return { on: false, action: '', staggerOn: false, staggerMs: 300 };
+        return { on: true, action, staggerOn: false, staggerMs: 300 };
+      })(),
     };
+    return out;
+  }
+
+  /** Stubs viejos de import TikFinity MC → no deben ir a Acciones del directo. */
+  function isLegacyMcStub(a) {
+    if (!a || typeof a !== 'object') return false;
+    if (a._mcCmd || a.mcCmd || a.cmd || (Array.isArray(a.cmds) && a.cmds.length)) return true;
+    const name = String(a.nombre || a.name || '');
+    if (/\[MC\]\s*$/i.test(name)) return true;
+    if (a.tecla == null && a.keys == null && /minecraft| co?mando\s*mc/i.test(name)) return true;
+    return false;
+  }
+
+  function importLegacyMcAction(a, i) {
+    if (!a || typeof a !== 'object') return null;
+    const cmd = String(a.cmd || (Array.isArray(a.cmds) ? a.cmds[0] : '') || a.mcCmd || '').trim();
+    if (!cmd && !(Array.isArray(a.cmds) && a.cmds.length)) return null;
+    const trig = String(a.trigger || 'gift').trim() || 'gift';
+    const gift = parseGiftRef(a.giftName || a.nombreRegalo);
+    const out = {
+      uid: String(a.uid || '').trim() || uid('mca_'),
+      catId: String(a.catId || '').trim(),
+      name: String(a.name || a.nombre || `Minecraft ${i + 1}`).trim().slice(0, 80) || `Minecraft ${i + 1}`,
+      desc: String(a.desc || 'Importado de TikFinity').trim().slice(0, 120),
+      trigger: trig,
+      giftId: String(a.giftId || gift.giftId || '').trim(),
+      giftName: String(a.giftName || gift.giftName || '').trim(),
+      giftImage: String(a.giftImage || '').trim(),
+      enabled: a.enabled !== false,
+      count: Math.max(1, Math.min(100, parseInt(a.count, 10) || 1)),
+      comboInstant: a.comboInstant !== false,
+      likeMin: Math.max(0, Number(a.likeMin) || 0),
+      text: String(a.text || '').trim(),
+      rangeMin: Math.max(0, Number(a.rangeMin) || 0),
+      rangeMax: Math.max(0, Number(a.rangeMax) || 0),
+      image: String(a.image || '').trim(),
+      sound: String(a.sound || a.audioUrl || '').trim(),
+      soundName: String(a.soundName || '').trim(),
+      audioOn: !!(a.audioOn || a.sound || a.audioUrl),
+      soundVolume: a.soundVolume != null ? Number(a.soundVolume) : 100,
+      custom: a.custom === true || !a.catId,
+      game: 'minecraft',
+    };
+    if (Array.isArray(a.cmds) && a.cmds.length) {
+      out.cmds = a.cmds.map((c) => (typeof c === 'string' ? c : (c && c.cmd) || '')).filter(Boolean);
+      out.cmdsExtra = !!a.cmdsExtra;
+      out.custom = true;
+      out.cmd = out.cmds[0] || cmd;
+    } else if (cmd) {
+      // TikFinity / legado: un solo `cmd` → también `cmds[]` (el editor solo lee cmds).
+      out.cmd = cmd;
+      out.cmds = [cmd];
+      out.custom = true;
+    }
+    return out;
   }
 
   function importLegacyTts(fields, extra) {
@@ -442,13 +560,32 @@
     const interacciones = Array.isArray(data.interacciones) ? data.interacciones
       : (Array.isArray(data.actions) ? data.actions : null);
     if (opts.includeActions && interacciones && interacciones.length) {
-      patch.actions = interacciones.map((a, i) => {
-        if (a && (a.keys != null || a.event != null) && a.tecla == null && a.nombreRegalo == null) {
-          return { ...cloneVal(a), id: a.id || uid('act_') };
+      // Excluir stubs de Minecraft (van a mcActions, no a Acciones del directo).
+      const onlyDirecto = interacciones.filter((a) => !isLegacyMcStub(a));
+      if (onlyDirecto.length) {
+        patch.actions = onlyDirecto.map((a, i) => {
+          if (a && (a.keys != null || a.event != null) && a.tecla == null && a.nombreRegalo == null) {
+            return { ...cloneVal(a), id: a.id || uid('act_') };
+          }
+          return importLegacyAction(a, i);
+        });
+        counts.actions = patch.actions.length;
+      }
+    }
+
+    const mcSrc = Array.isArray(data.minecraft) ? data.minecraft
+      : (Array.isArray(data.mcActions) ? data.mcActions : null);
+    if (mcSrc && mcSrc.length) {
+      const mapped = mcSrc.map((a, i) => {
+        if (a && (a.cmd != null || Array.isArray(a.cmds)) && a.uid) {
+          return { ...cloneVal(a), uid: a.uid || uid('mca_'), game: a.game || 'minecraft' };
         }
-        return importLegacyAction(a, i);
-      });
-      counts.actions = patch.actions.length;
+        return importLegacyMcAction(a, i);
+      }).filter(Boolean);
+      if (mapped.length) {
+        patch.mcActions = mapped;
+        counts.mcActions = mapped.length;
+      }
     }
 
     const tts = importLegacyTts(data.fields, data.ttsChatExtra);
@@ -588,15 +725,21 @@
 
   function applyPatch(current, patch, mode) {
     const out = { ...current };
-    const listKeys = ['soundAlerts', 'videos', 'battleAlerts', 'actions'];
+    const listKeys = ['soundAlerts', 'videos', 'battleAlerts', 'actions', 'mcActions'];
     for (const [k, v] of Object.entries(patch)) {
       if (v === undefined) continue;
       if (listKeys.includes(k) && Array.isArray(v)) {
         if (mode === 'replace') {
-          out[k] = v.map((item) => ({ ...item, id: item.id || uid(k === 'soundAlerts' ? 'sa_' : k === 'videos' ? 'v_' : k === 'actions' ? 'act_' : 'ba_') }));
+          out[k] = v.map((item) => {
+            if (k === 'mcActions') return { ...item, uid: item.uid || uid('mca_') };
+            return { ...item, id: item.id || uid(k === 'soundAlerts' ? 'sa_' : k === 'videos' ? 'v_' : k === 'actions' ? 'act_' : 'ba_') };
+          });
         } else {
           const existing = Array.isArray(out[k]) ? out[k] : [];
-          const imported = v.map((item) => ({ ...item, id: uid(k === 'soundAlerts' ? 'sa_' : k === 'videos' ? 'v_' : k === 'actions' ? 'act_' : 'ba_') }));
+          const imported = v.map((item) => {
+            if (k === 'mcActions') return { ...item, uid: uid('mca_') };
+            return { ...item, id: uid(k === 'soundAlerts' ? 'sa_' : k === 'videos' ? 'v_' : k === 'actions' ? 'act_' : 'ba_') };
+          });
           out[k] = [...existing, ...imported];
         }
       } else if (v && typeof v === 'object' && !Array.isArray(v)) {
@@ -614,6 +757,7 @@
     if (counts.soundAlerts) parts.push(`${counts.soundAlerts} alerta(s) sonora(s)`);
     if (counts.videos) parts.push(`${counts.videos} video(s)`);
     if (counts.actions) parts.push(`${counts.actions} acción(es)`);
+    if (counts.mcActions) parts.push(`${counts.mcActions} Minecraft`);
     if (counts.battleAlerts) parts.push(`${counts.battleAlerts} batalla(s)`);
     if (counts.tts) parts.push('TTS');
     if (counts.timer) parts.push('temporizador');

@@ -290,6 +290,45 @@
     let popSegIdx = -1;
     let winnerIdx = -1;
     const avatarCache = {};
+    const isPreview = params.get('preview') === '1';
+    const lsKey = 'lc_flowmeter_' + (params.get('room') || 'default');
+    let persistTimer = null;
+    function schedulePersist() {
+      if (isEmbed || isPreview || simMode) return;
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(savePersistState, 220);
+    }
+    function savePersistState() {
+      if (isEmbed || isPreview || simMode) return;
+      try {
+        localStorage.setItem(lsKey, JSON.stringify({
+          v: 1,
+          scores: scores.slice(),
+          wins: wins.slice(),
+          roundLeft: roundLeft,
+          roundActive: !!roundActive,
+          roundEnded: !!roundEnded,
+          winnerIdx: winnerIdx,
+        }));
+      } catch {}
+    }
+    function clearPersistState() {
+      try { localStorage.removeItem(lsKey); } catch {}
+    }
+    function restorePersistState() {
+      if (isEmbed || isPreview) return;
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        if (Array.isArray(d.scores)) scores = d.scores.map((n) => Math.max(0, Number(n) || 0));
+        if (Array.isArray(d.wins)) wins = d.wins.map((n) => Math.max(0, Number(n) || 0));
+        roundLeft = Math.max(0, Number(d.roundLeft) || 0);
+        roundActive = !!d.roundActive;
+        roundEnded = !!d.roundEnded;
+        winnerIdx = Number.isFinite(Number(d.winnerIdx)) ? Number(d.winnerIdx) : -1;
+      } catch {}
+    }
 
     const SIM_DONOR_POOL = [
       { uniqueId: 'fan_cleo', nickname: 'Cleo', photo: 'https://api.dicebear.com/7.x/thumbs/svg?seed=cleo&backgroundColor=ff4b91' },
@@ -537,6 +576,7 @@
         countdown.hidden = true;
         countdownLabel.hidden = true;
       }
+      schedulePersist();
     }
 
     function beginTimedRound() {
@@ -791,6 +831,7 @@
       roundEnded = false;
       document.getElementById('flw-winner').hidden = true;
       ensureScoreLen();
+      clearPersistState();
       render();
     }
 
@@ -809,6 +850,7 @@
       ensureScoreLen();
       if (isTimedMode()) beginTimedRound();
       else render();
+      schedulePersist();
     }
 
     function clearTestTimers() {
@@ -949,6 +991,9 @@
     }
 
     applyConfig(defaultCfg());
+    restorePersistState();
+    ensureScoreLen();
+    render();
     connectWS();
   })();
   </script>

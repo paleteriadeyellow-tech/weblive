@@ -51,6 +51,20 @@
       padding: 2px;
       align-content: center;
     }
+    .er-grid.is-fixed-cells {
+      max-width: none;
+      max-height: none;
+      width: max-content;
+      height: max-content;
+      grid-template-columns: repeat(var(--er-cols, 4), var(--er-cell-w, 200px));
+      align-content: start;
+    }
+    .er-grid.is-fixed-cells .er-cell {
+      width: var(--er-cell-w, 200px);
+      max-width: var(--er-cell-w, 200px);
+      justify-self: stretch;
+      align-self: start;
+    }
     .er-grid.is-spread {
       width: 100%;
       height: 100%;
@@ -61,11 +75,29 @@
       align-content: space-evenly;
       align-items: center;
     }
-    .er-grid.is-spread .er-cell {
+    .er-grid.is-spread:not(.is-fixed-cells) .er-cell {
       width: min(100%, var(--er-cell-w, 160px));
       max-width: min(100%, var(--er-cell-w, 160px));
       justify-self: center;
       align-self: center;
+    }
+    .er-grid.is-spread.is-fixed-cells {
+      width: max-content;
+      height: max-content;
+      max-width: none;
+      max-height: none;
+      grid-template-columns: repeat(var(--er-cols, 4), var(--er-cell-w, 200px));
+      justify-items: stretch;
+      align-content: start;
+      align-items: start;
+    }
+    .er-stage.is-fixed-cells {
+      width: max-content;
+      height: max-content;
+      max-width: none;
+      max-height: none;
+      min-width: 100%;
+      min-height: 100%;
     }
     .er-grid.is-tight { gap: 0; }
     .er-grid.is-tight.is-spread {
@@ -313,6 +345,33 @@
       25% { transform: translateX(-4%) rotate(-3deg); transform-origin: right bottom; }
       75% { transform: translateX(4%) rotate(3deg); transform-origin: right bottom; }
     }
+    /* Layout libre: conservar --er-item-scale dentro de la animación */
+    .er-cell-fg.is-free.ied-motion-float { animation: er-fg-free-float 2.6s ease-in-out infinite; }
+    .er-cell-fg.is-free.ied-motion-bounce { animation: er-fg-free-bounce 1.1s ease-in-out infinite; }
+    .er-cell-fg.is-free.ied-motion-pulse { animation: er-fg-free-pulse 1.4s ease-in-out infinite; }
+    .er-cell-fg.is-free.ied-motion-shake { animation: er-fg-free-shake 0.55s linear infinite; }
+    .er-cell-gift.is-free.ied-motion-float { animation: er-fg-free-float 2.6s ease-in-out infinite; }
+    .er-cell-gift.is-free.ied-motion-bounce { animation: er-fg-free-bounce 1.1s ease-in-out infinite; }
+    .er-cell-gift.is-free.ied-motion-pulse { animation: er-fg-free-pulse 1.4s ease-in-out infinite; }
+    .er-cell-gift.is-free.ied-motion-shake { animation: er-fg-free-shake 0.55s linear infinite; }
+    @keyframes er-fg-free-float {
+      0%, 100% { transform: translate(-50%, -50%) scale(var(--er-item-scale, 1)); }
+      50% { transform: translate(-50%, calc(-50% - 8%)) scale(var(--er-item-scale, 1)); }
+    }
+    @keyframes er-fg-free-bounce {
+      0%, 100% { transform: translate(-50%, -50%) scale(var(--er-item-scale, 1)); }
+      40% { transform: translate(-50%, calc(-50% - 12%)) scale(var(--er-item-scale, 1)); }
+      60% { transform: translate(-50%, calc(-50% - 5%)) scale(var(--er-item-scale, 1)); }
+    }
+    @keyframes er-fg-free-pulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(var(--er-item-scale, 1)); }
+      50% { transform: translate(-50%, -50%) scale(calc(var(--er-item-scale, 1) * 1.08)); }
+    }
+    @keyframes er-fg-free-shake {
+      0%, 100% { transform: translate(-50%, -50%) scale(var(--er-item-scale, 1)) rotate(0); }
+      25% { transform: translate(calc(-50% - 3%), -50%) scale(var(--er-item-scale, 1)) rotate(-2deg); }
+      75% { transform: translate(calc(-50% + 3%), -50%) scale(var(--er-item-scale, 1)) rotate(2deg); }
+    }
     .er-empty {
       color: rgba(255,255,255,.7);
       font-size: 14px;
@@ -428,7 +487,7 @@
       if (!Number.isFinite(n)) return 1;
       return Math.round(Math.max(0.5, Math.min(2, n)) * 100) / 100;
     })();
-    return [payload.count, payload.gap, !!payload.spreadH, payload.gridN || 0, zoom, payload.imgScale || 1, payload.frameMode || 'off', payload.frameColor || '', payload.fondo, payload.fondoCustomSrc || '', payload.motion, payload.textMotion, ov, gf, tx, ovSrc, gfSrc, (payload.freeLayout || payload.freeMove || []).map((v) => v ? 1 : 0).join(''), (payload.overlays || []).map((o) => `${o?.x || ''},${o?.y || ''},${o?.scale || ''},${o?.z || ''}`).join('|'), (payload.gifts || []).map((o) => `${o?.x || ''},${o?.y || ''},${o?.scale || ''},${o?.z || ''}`).join('|')].join('::');
+    return [payload.count, payload.gap, !!payload.spreadH, !!payload.fixedCellSize, payload.gridN || 0, zoom, payload.imgScale || 1, payload.frameMode || 'off', payload.frameColor || '', payload.fondo, payload.fondoCustomSrc || '', payload.motion, payload.textMotion, ov, gf, tx, ovSrc, gfSrc, (payload.freeLayout || payload.freeMove || []).map((v) => v ? 1 : 0).join(''), (payload.overlays || []).map((o) => `${o?.x || ''},${o?.y || ''},${o?.scale || ''},${o?.z || ''}`).join('|'), (payload.gifts || []).map((o) => `${o?.x || ''},${o?.y || ''},${o?.scale || ''},${o?.z || ''}`).join('|')].join('::');
   }
 
   function cellWidthForSpread(cols, rows, zoom) {
@@ -445,6 +504,11 @@
     return Math.max(48, Math.min(Math.round(preferred * z), maxW, maxFromH));
   }
 
+  const FIXED_CELL_W = 200;
+  function cellWidthFixed() {
+    return FIXED_CELL_W;
+  }
+
   function render(payload) {
     if (!payload || typeof payload !== 'object') {
       if (!hasRendered) {
@@ -457,6 +521,7 @@
     const lay = layoutFor(count, gridN);
     const gap = payload.gap !== false;
     const spreadH = !!payload.spreadH;
+    const fixedCellSize = !!payload.fixedCellSize;
     const zoomN = Number(payload.zoom);
     const zoom = Number.isFinite(zoomN)
       ? Math.round(Math.max(0.5, Math.min(2, zoomN)) * 100) / 100
@@ -489,7 +554,7 @@
       const ov = overlays[i];
       const gf = gifts[i];
       const free = !!(freeLayout[i] || freeMove[i]);
-      const cellMot = free ? '' : mot;
+      const cellMot = mot;
       const rawTx = texts[i];
       const txList = Array.isArray(rawTx) ? rawTx.filter(Boolean) : (rawTx ? [rawTx] : []);
       const ox = Math.min(92, Math.max(8, Number(ov?.x) || 50));
@@ -512,7 +577,7 @@
       const gift = gf?.src
         ? `<img class="er-cell-gift${cellMot}${free ? ' is-free' : ''}" src="${escapeAttr(gf.src)}" alt=""${free ? ` style="left:${gx}%;top:${gy}%;--er-item-scale:${gScale};z-index:${gZ}"` : ''}>`
         : '';
-      const txMot = (textMotion && motion !== 'off' && !free) ? mot : '';
+      const txMot = (textMotion && motion !== 'off') ? mot : '';
       const textParts = txList.map((tx) => {
         const txStyle = clampTextStyle(tx.style);
         const txColor = clampTextColor(tx.color);
@@ -549,7 +614,8 @@
       `--er-frame-color:${frameColor}`,
       `--er-fg-scale:${imgScale}`,
     ];
-    if (spreadH) frameStyle.push(`--er-cell-w:${cellWidthForSpread(lay.cols, lay.rows, zoom)}px`);
+    if (fixedCellSize) frameStyle.push(`--er-cell-w:${cellWidthFixed()}px`);
+    else if (spreadH) frameStyle.push(`--er-cell-w:${cellWidthForSpread(lay.cols, lay.rows, zoom)}px`);
     if (framePreset.kind === 'anim') {
       frameStyle.push(`--er-frame-grad:${framePreset.gradient}`);
       frameStyle.push(`--er-frame-anim-dur:${framePreset.dur || '4s'}`);
@@ -557,8 +623,9 @@
     const gridCls = [
       gap ? '' : ' is-tight',
       spreadH ? ' is-spread' : '',
+      fixedCellSize ? ' is-fixed-cells' : '',
     ].join('');
-    root.innerHTML = `<div class="er-stage${spreadH ? ' is-spread' : ''}" style="--er-live-zoom:${zoom}"><div class="er-grid${gridCls}" style="${frameStyle.join(';')}">${cells.join('')}</div></div>`;
+    root.innerHTML = `<div class="er-stage${spreadH ? ' is-spread' : ''}${fixedCellSize ? ' is-fixed-cells' : ''}" style="--er-live-zoom:${zoom}"><div class="er-grid${gridCls}" style="${frameStyle.join(';')}">${cells.join('')}</div></div>`;
     hasRendered = true;
     lastPayload = payload;
   }

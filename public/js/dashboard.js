@@ -211,6 +211,7 @@ function normalizeRelayMedia(s) {
   for (const b of (s.battleAlerts || [])) if (b.url) b.url = fix(b.url);
   for (const a of (s.actions || [])) if (a.sound) a.sound = fix(a.sound);
   for (const a of (s.mcActions || [])) if (a.sound) a.sound = fix(a.sound);
+  for (const r of (s.screenFx?.rules || [])) if (r && r.sound) r.sound = fix(r.sound);
   for (const key of ['bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
     for (const a of (s[key] || [])) if (a && a.sound) a.sound = fix(a.sound);
   }
@@ -233,6 +234,7 @@ function stripSettingsMediaForSave(s) {
   for (const b of (s.battleAlerts || [])) if (b.url) b.url = rel(b.url);
   for (const a of (s.actions || [])) if (a.sound) a.sound = rel(a.sound);
   for (const a of (s.mcActions || [])) if (a.sound) a.sound = rel(a.sound);
+  for (const r of (s.screenFx?.rules || [])) if (r && r.sound) r.sound = rel(r.sound);
   for (const key of ['bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'mcshooterActions', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions']) {
     for (const a of (s[key] || [])) if (a && a.sound) a.sound = rel(a.sound);
   }
@@ -481,7 +483,7 @@ const TAB_CAP = {
   alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas',
   'ov-streams': 'tab_overlays', 'ov-gifts': 'tab_overlays', 'ov-metas': 'tab_overlays',
   'ov-rankings': 'tab_overlays', 'ov-diseno': 'tab_overlays', 'ov-batalla': 'tab_overlays', 'ov-contador': 'tab_overlays',
-  'ov-sorteos': 'tab_overlays', 'ov-topkills': 'tab_overlays',
+  'ov-sorteos': 'tab_overlays', 'ov-topkills': 'tab_overlays', 'ov-screenfx': 'tab_overlays',
   tts: 'tab_tts', timer: 'tab_timer',
   'editor-rapido': 'tab_editor_rapido',
 };
@@ -697,7 +699,7 @@ const CAP_LABELS = {
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
   ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_ultimoregalo: 'Último regalo', ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
-  ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
+  ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_screenfx: 'Efectos pantalla', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_topmultirank: 'Top rotatorio (likes / coins / chat / puntos)',
   ov_pointslookup: 'Consulta de puntos (!puntos)',
   ov_toplikes: 'Top likes',
@@ -705,7 +707,7 @@ const CAP_LABELS = {
   ov_topdiamanteslista: 'Ranking diamantes (lista)', ov_contadorseguidores: 'Contador de seguidores',
   ov_contadorseguidoresmc: 'Contador de seguidores (Minecraft)',
   ov_alertaregalo: 'Alerta de regalo',
-  ov_alertalikes: 'Alerta de likes', ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
+  ov_alertalikes: 'Alerta de likes',   ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   ov_fuegos: 'Fuegos artificiales',
   ov_chatgamer: 'Chat Gamer',
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
@@ -722,7 +724,7 @@ const PLAN_FEATURE_ORDER = [
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
-  'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
+  'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
@@ -1498,20 +1500,21 @@ function askTikfinityPointsImport({ reason = '', needPassword = false, title = '
   return new Promise((resolve) => {
     const back = document.createElement('div');
     back.className = 'modal confirm-modal';
-    const canLogin = !!(window.desktopAPI && window.desktopAPI.openTikfinityImport);
     const savedId = (() => { try { return localStorage.getItem('lc_tikfinity_channel_id') || ''; } catch { return ''; } })();
     back.innerHTML = `
       <div class="confirm-box" style="max-width:480px;text-align:left">
         <div class="confirm-ico">📥</div>
         <h3>${title}</h3>
         <p style="margin:0 0 10px;opacity:.9;font-size:13px;line-height:1.45">
-          ${reason || 'Usa tu User ID de TikFinity (Setup → Account).'}
+          ${reason || 'Usa tu User ID de TikFinity (Setup → Tu cuenta).'}
         </p>
-        ${canLogin ? `
-          <button type="button" class="btn primary tf-login-btn" style="width:100%;margin:0 0 12px">
-            Iniciar sesión en TikFinity (detectar ID)
-          </button>
-        ` : ''}
+        <div style="margin:0 0 12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,180,80,.45);background:rgba(255,160,40,.12);font-size:12.5px;line-height:1.45;color:#ffe6c2">
+          <b style="color:#ffb84d">Importante — ¿Dónde está el User ID?</b><br>
+          1. Abre <b>TikFinity</b><br>
+          2. Ve a <b>Setup</b><br>
+          3. Baja hasta <b>Tu cuenta / Your account</b><br>
+          4. Copia el <b>User-ID</b> (número) y pégalo abajo
+        </div>
         <label style="display:block;font-size:12px;margin:0 0 4px;opacity:.8">Channel / User ID</label>
         <input type="text" class="tf-ch-input" placeholder="Ej. 590698" autocomplete="off" value="${String(savedId).replace(/"/g, '')}"
           style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#0c1322;color:#fff;font-size:15px;margin-bottom:10px">
@@ -1558,38 +1561,184 @@ function askTikfinityPointsImport({ reason = '', needPassword = false, title = '
         replace: !!back.querySelector('.tf-ch-replace')?.checked,
       });
     };
-    const loginBtn = back.querySelector('.tf-login-btn');
-    if (loginBtn) {
-      loginBtn.onclick = async () => {
-        loginBtn.disabled = true;
-        loginBtn.textContent = 'Esperando login en TikFinity…';
-        try {
-          const r = await window.desktopAPI.openTikfinityImport();
-          if (r && r.ok && r.channelId) {
-            if (input) input.value = r.channelId;
-            try { localStorage.setItem('lc_tikfinity_channel_id', String(r.channelId)); } catch {}
-            close({
-              channelId: String(r.channelId),
-              password: String(back.querySelector('.tf-pass-input')?.value || ''),
-              replace: !!back.querySelector('.tf-ch-replace')?.checked,
-              settings: r.settings || null,
-              settingsScore: r.settingsScore || 0,
-            });
-            return;
-          }
-          if (r && r.cancelled) toast('Login cancelado. Puedes pegar el User ID a mano.', 'warn');
-          else toast((r && r.error) || 'No se detectó la cuenta. Pega el User ID a mano (Setup → Account).', 'warn');
-        } catch (e) {
-          toast(String(e.message || e), 'warn');
-        }
-        loginBtn.disabled = false;
-        loginBtn.textContent = 'Iniciar sesión en TikFinity (ID + alertas si hay)';
-      };
-    }
     back.addEventListener('click', (e) => { if (e.target === back) close(null); });
     document.addEventListener('keydown', onKey);
     setTimeout(() => input?.focus(), 40);
   });
+}
+
+let tikfinityDecryptWaiters = [];
+function onTikfinityDecryptResult(p) {
+  const waiters = tikfinityDecryptWaiters.splice(0);
+  waiters.forEach((w) => {
+    clearTimeout(w.timer);
+    w.resolve(p || { ok: false, error: 'sin respuesta' });
+  });
+}
+function requestTikfinityDecrypt({ ciphertext, channelId, password, username }, timeoutMs) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      tikfinityDecryptWaiters = tikfinityDecryptWaiters.filter((w) => w.timer !== timer);
+      resolve({ ok: false, error: 'Tiempo agotado al descifrar el .tfc' });
+    }, timeoutMs || 20000);
+    tikfinityDecryptWaiters.push({ resolve, timer });
+    send({ action: 'decryptTikfinityTfc', ciphertext, channelId, password, username });
+  });
+}
+
+let tikfinityCloudSettingsWaiters = [];
+function onTikfinityCloudSettingsResult(p) {
+  if (p && p.pending) {
+    try {
+      if (typeof window.setPtsTfStatus === 'function') window.setPtsTfStatus(p.text || 'Descargando…');
+    } catch {}
+    return;
+  }
+  const waiters = tikfinityCloudSettingsWaiters.splice(0);
+  waiters.forEach((w) => {
+    clearTimeout(w.timer);
+    w.resolve(p || { ok: false, error: 'sin respuesta' });
+  });
+}
+function requestTikfinityCloudSettings({ channelId, events }, timeoutMs) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      tikfinityCloudSettingsWaiters = tikfinityCloudSettingsWaiters.filter((w) => w.timer !== timer);
+      resolve({ ok: false, error: 'Tiempo agotado al descargar acciones de TikFinity' });
+    }, timeoutMs || 60000);
+    tikfinityCloudSettingsWaiters.push({ resolve, timer });
+    send({ action: 'importTikfinityCloudSettings', channelId, events });
+  });
+}
+
+/** Descarga Actions de TikFinity (sonidos/videos/teclas) con el User ID y las aplica. */
+async function importTikfinityCloudSettingsFlow(channelId, { replace = true, events = null } = {}) {
+  const id = String(channelId || '').trim();
+  if (!/^\d+$/.test(id)) {
+    toast('User ID inválido.', 'warn');
+    return false;
+  }
+  const mode = replace ? 'replace' : 'merge';
+  if (replace) toast('Descargando acciones/alertas de TikFinity…', 'ok');
+  const res = await requestTikfinityCloudSettings({ channelId: id, events });
+  if (!res || !res.ok || !res.data) {
+    if (replace) toast(res?.error || 'No se pudieron descargar las acciones', 'warn');
+    return false;
+  }
+  // En merge: no duplicar por misma URL de audio/video.
+  if (mode === 'merge' && settings) {
+    const haveSound = new Set((settings.soundAlerts || []).map((a) => String(a.sound || '').trim()).filter(Boolean));
+    const haveVid = new Set((settings.videos || []).map((v) => String(v.url || '').trim()).filter(Boolean));
+    if (Array.isArray(res.data.alertas)) {
+      res.data.alertas = res.data.alertas.filter((a) => {
+        const u = String(a.audioUrl || a.sound || '').trim();
+        return u && !haveSound.has(u);
+      });
+    }
+    if (Array.isArray(res.data.videos)) {
+      res.data.videos = res.data.videos.filter((v) => {
+        const u = String(v.videoUrl || v.url || '').trim();
+        return u && !haveVid.has(u);
+      });
+    }
+  }
+  const n =
+    (res.data.alertas?.length || 0) + (res.data.videos?.length || 0) + (res.data.interacciones?.length || 0);
+  if (!n) return false;
+  const applied = applyTikfinitySettingsBundle(res.data, mode);
+  if (applied.ok && applied.summary) {
+    toast((replace ? 'Desde nube TikFinity: ' : 'Extra nube TikFinity: ') + applied.summary, 'ok');
+    return true;
+  }
+  if (replace) toast(applied.error || 'Sin alertas/videos convertibles', 'warn');
+  return false;
+}
+
+function applyTikfinitySettingsBundle(raw, mode) {
+  if (!raw || typeof raw !== 'object' || !window.SettingsTransfer) {
+    return { ok: false, error: 'Sin datos de ajustes' };
+  }
+  let result;
+  try {
+    // Reusa el parser (legacy / livecoins / puntos).
+    result = window.SettingsTransfer.parseFile(JSON.stringify(raw));
+  } catch (e) {
+    try {
+      result = window.SettingsTransfer.convertLegacy(raw, { includeActions: true });
+    } catch (e2) {
+      const keys = Object.keys(raw).slice(0, 12).join(', ');
+      return { ok: false, error: (e2.message || e.message || String(e)) + (keys ? ` [claves: ${keys}]` : '') };
+    }
+  }
+  if (result.multi && Array.isArray(result.profiles)) {
+    return { ok: false, error: 'Este dump trae varios perfiles; impórtalo desde Transferencia de datos.' };
+  }
+  if (result.format === 'points-users') {
+    return { ok: true, pointsOnly: true, result };
+  }
+  const patch = result.patch || {};
+  const counts = result.counts || {};
+  const hasLists = (counts.soundAlerts || 0) + (counts.videos || 0) + (counts.actions || 0) + (counts.mcActions || 0) + (counts.tts || 0) + (counts.timer || 0);
+  if (!hasLists && !Object.keys(patch).length) {
+    const keys = Object.keys(raw).slice(0, 16).join(', ');
+    return { ok: false, error: `El archivo se abrió pero no trae alertas/videos/acciones reconocibles.${keys ? ' Claves: ' + keys : ''}` };
+  }
+  const merged = window.SettingsTransfer.applyPatch(settings || {}, patch, mode);
+  settings = merged;
+  // Quitar de Acciones del directo los stubs viejos de Minecraft ([MC] sin teclas).
+  try {
+    if (Array.isArray(settings.actions) && settings.actions.length) {
+      const before = settings.actions.length;
+      settings.actions = settings.actions.filter((a) => {
+        if (!a) return false;
+        const name = String(a.name || '');
+        const keys = String(a.keys || '').trim();
+        if (/\[MC\]\s*$/i.test(name) && !keys) return false;
+        if (!keys && !a.webhookCmd?.on && !a.obsCmd?.on && !a.sbCmd?.on && /\[MC\]/i.test(name)) return false;
+        return true;
+      });
+      if (settings.actions.length !== before && counts.mcActions) {
+        /* cleaned leftovers from older imports */
+      }
+    }
+  } catch {}
+  saveSettings();
+  applySettingsToUI();
+  applyLimitUI();
+  try { seedEmoteCatalogFromImport(collectEmotesFromLivecoinsSettings(settings)); } catch {}
+  return { ok: true, result, summary: window.SettingsTransfer.summarize(counts) };
+}
+
+async function applyTikfinityLoginResult(r, { replace = true, importPoints = true } = {}) {
+  if (!r || !r.ok || !r.channelId) return false;
+  try { localStorage.setItem('lc_tikfinity_channel_id', String(r.channelId)); } catch {}
+  try {
+    const ch = $('pts-tf-channel');
+    if (ch) ch.value = r.channelId;
+  } catch {}
+  const mode = replace ? 'replace' : 'merge';
+  let appliedSettings = false;
+  if (r.settings) {
+    const applied = applyTikfinitySettingsBundle(r.settings, mode);
+    if (applied.ok && applied.summary) {
+      toast('Ajustes desde sesión TikFinity: ' + applied.summary, 'ok');
+      appliedSettings = true;
+    } else if (applied.error) {
+      toast('Sesión OK, pero sin alertas en caché: ' + applied.error, 'warn');
+    }
+  } else {
+    // Sin ajustes en caché del navegador: traer Actions desde la API pública.
+    try {
+      await importTikfinityCloudSettingsFlow(r.channelId, { replace });
+      appliedSettings = true;
+    } catch {
+      toast('Cuenta detectada. No había alertas en la sesión. Prueba Copia de seguridad → .tfc o “Importar con este ID” + nube.', 'warn');
+    }
+  }
+  if (importPoints) {
+    send({ action: 'importTikfinityPoints', channelId: String(r.channelId), mode });
+  }
+  return appliedSettings;
 }
 
 async function runTikfinityPointsImportFlow(opts) {
@@ -1615,87 +1764,7 @@ async function runTikfinityPointsImportFlow(opts) {
   return true;
 }
 
-let tikfinityDecryptWaiters = [];
-function onTikfinityDecryptResult(p) {
-  const waiters = tikfinityDecryptWaiters.splice(0);
-  waiters.forEach((w) => {
-    clearTimeout(w.timer);
-    w.resolve(p || { ok: false, error: 'sin respuesta' });
-  });
-}
-function requestTikfinityDecrypt({ ciphertext, channelId, password, username }, timeoutMs) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      tikfinityDecryptWaiters = tikfinityDecryptWaiters.filter((w) => w.timer !== timer);
-      resolve({ ok: false, error: 'Tiempo agotado al descifrar el .tfc' });
-    }, timeoutMs || 20000);
-    tikfinityDecryptWaiters.push({ resolve, timer });
-    send({ action: 'decryptTikfinityTfc', ciphertext, channelId, password, username });
-  });
-}
-
-function applyTikfinitySettingsBundle(raw, mode) {
-  if (!raw || typeof raw !== 'object' || !window.SettingsTransfer) {
-    return { ok: false, error: 'Sin datos de ajustes' };
-  }
-  let result;
-  try {
-    result = window.SettingsTransfer.parseFile(JSON.stringify(raw));
-  } catch (e) {
-    try {
-      result = window.SettingsTransfer.convertLegacy(raw, { includeActions: true });
-    } catch (e2) {
-      const keys = Object.keys(raw).slice(0, 12).join(', ');
-      return { ok: false, error: (e2.message || e.message || String(e)) + (keys ? ` [claves: ${keys}]` : '') };
-    }
-  }
-  if (result.multi && Array.isArray(result.profiles)) {
-    return { ok: false, error: 'Este dump trae varios perfiles; impórtalo desde Transferencia de datos.' };
-  }
-  if (result.format === 'points-users') {
-    return { ok: true, pointsOnly: true, result };
-  }
-  const patch = result.patch || {};
-  const counts = result.counts || {};
-  const hasLists = (counts.soundAlerts || 0) + (counts.videos || 0) + (counts.actions || 0) + (counts.tts || 0) + (counts.timer || 0);
-  if (!hasLists && !Object.keys(patch).length) {
-    const keys = Object.keys(raw).slice(0, 16).join(', ');
-    return { ok: false, error: `El archivo se abrió pero no trae alertas/videos/acciones reconocibles.${keys ? ' Claves: ' + keys : ''}` };
-  }
-  const merged = window.SettingsTransfer.applyPatch(settings || {}, patch, mode);
-  settings = merged;
-  saveSettings();
-  applySettingsToUI();
-  applyLimitUI();
-  return { ok: true, result, summary: window.SettingsTransfer.summarize(counts) };
-}
-
-async function applyTikfinityLoginResult(r, { replace = true, importPoints = true } = {}) {
-  if (!r || !r.ok || !r.channelId) return false;
-  try { localStorage.setItem('lc_tikfinity_channel_id', String(r.channelId)); } catch {}
-  try {
-    const ch = $('pts-tf-channel');
-    if (ch) ch.value = r.channelId;
-  } catch {}
-  const mode = replace ? 'replace' : 'merge';
-  let appliedSettings = false;
-  if (r.settings) {
-    const applied = applyTikfinitySettingsBundle(r.settings, mode);
-    if (applied.ok && applied.summary) {
-      toast('Ajustes desde sesión TikFinity: ' + applied.summary, 'ok');
-      appliedSettings = true;
-    } else if (applied.error) {
-      toast('Sesión OK, pero sin alertas en caché: ' + applied.error, 'warn');
-    }
-  } else {
-    toast('Cuenta detectada. No había alertas en la sesión (solo ID). Importa el .tfc o abre Sound Alerts en TikFinity y reintenta login.', 'warn');
-  }
-  if (importPoints) {
-    send({ action: 'importTikfinityPoints', channelId: String(r.channelId), mode });
-  }
-  return appliedSettings;
-}
-
+/** .tfc cifrado → descifrar con User ID → alertas/acciones/TTS + puntos. */
 async function runTikfinityTfcFullImport(ciphertext, opts = {}) {
   const ans = await askTikfinityPointsImport({
     title: 'Importar .tfc de TikFinity',
@@ -1719,18 +1788,19 @@ async function runTikfinityTfcFullImport(ciphertext, opts = {}) {
         toast('Ajustes desde sesión TikFinity: ' + fromSession.summary, 'ok');
       }
     }
-    const onlyPts = await askConfirm({
-      title: '¿Importar solo puntos?',
-      message: 'No pudimos abrir el .tfc (alertas/acciones). ¿Quieres importar al menos los puntos con este User ID? (Para alertas: exporta de nuevo el .tfc o usa Copia de seguridad.)',
-      confirmText: 'Solo puntos',
-      cancelText: 'Cancelar',
+    const choice = await askConfirm({
+      title: 'El .tfc no se pudo abrir',
+      message: 'TikFinity cifra el .tfc con una clave que no es solo el User ID.\n\n• Nube + puntos: descarga sonidos/videos/acciones de tu cuenta e importa puntos.\n• Solo puntos: solo la lista de puntos.',
+      confirmText: 'Nube + puntos',
+      cancelText: 'Solo puntos',
       danger: false,
       icon: '📥',
     });
-    if (onlyPts) {
-      send({ action: 'importTikfinityPoints', channelId: ans.channelId, mode });
-      toast('Importando solo puntos…', 'ok');
+    if (choice) {
+      await importTikfinityCloudSettingsFlow(ans.channelId, { replace: ans.replace });
     }
+    send({ action: 'importTikfinityPoints', channelId: ans.channelId, mode });
+    toast(choice ? 'Importando nube + puntos…' : 'Importando solo puntos…', 'ok');
     return false;
   }
   const applied = applyTikfinitySettingsBundle(dec.data, mode);
@@ -1744,17 +1814,34 @@ async function runTikfinityTfcFullImport(ciphertext, opts = {}) {
     }
   } else if (applied.summary) {
     toast('Ajustes TikFinity: ' + applied.summary, 'ok');
+  } else if (dec.counts) {
+    toast(`Ajustes TikFinity: ${dec.counts.alertas || 0} sonidos, ${dec.counts.videos || 0} videos, ${dec.counts.interacciones || 0} acciones`, 'ok');
   }
   if (Array.isArray(applied.result?.pointsUsers) && applied.result.pointsUsers.length) {
     send({ action: 'importPointsBulk', users: applied.result.pointsUsers, mode });
   }
-  send({ action: 'importTikfinityPoints', channelId: ans.channelId, mode });
+  // Sembrar selector "Elegir sticker" con IDs del .tfc (imágenes cuando el live las vea).
   try {
-    const nav = document.querySelector('[data-view="points"]');
+    const fromDec = Array.isArray(dec.emotes) ? dec.emotes : [];
+    const fromSettings = collectEmotesFromLivecoinsSettings(settings);
+    seedEmoteCatalogFromImport([...fromDec, ...fromSettings]);
+  } catch {}
+  const channelForCloud = String(dec.sourceChannelId || ans.channelId || '').trim();
+  // Complementar con Actions de la nube (pueden tener más audios que el .tfc del perfil).
+  if (/^\d+$/.test(channelForCloud)) {
+    try {
+      await importTikfinityCloudSettingsFlow(channelForCloud, { replace: false });
+    } catch {}
+    send({ action: 'importTikfinityPoints', channelId: channelForCloud, mode });
+  } else {
+    send({ action: 'importTikfinityPoints', channelId: ans.channelId, mode });
+  }
+  try {
+    const nav = document.querySelector('[data-view="alertas"]') || document.querySelector('[data-view="points"]');
     if (nav) nav.click();
   } catch {}
   if (typeof window.setPtsTfStatus === 'function') {
-    window.setPtsTfStatus('Importando puntos + ajustes desde TikFinity…');
+    window.setPtsTfStatus('Importados ajustes del .tfc (+ nube si había más).');
   }
   return true;
 }
@@ -1775,6 +1862,8 @@ function handle(type, p) {
     case 'chat': addChat(p); void ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
     case 'botReply': handleBotReply(p); break;
     case 'gift': addGift(p); ttsOnGift(p); relayRepoOnGift(p); relayL4dOnGift(p); relayUnturnedOnGift(p); relayGtavKothOnGift(p); relayGtavChaosOnGift(p); relayGtavChiliadOnGift(p); relayMslugOnGift(p); relayCtrOnGift(p); relaySmwOnGift(p); break;
+    case 'screenFx': if (typeof onScreenFxEvent === 'function') onScreenFxEvent(p); break;
+    case 'screenFxStop': if (typeof stopScreenFxLocal === 'function') stopScreenFxLocal(); break;
     case 'like': ttsOnLike(p); relayRepoOnLike(p); relayL4dOnLike(p); relayUnturnedOnLike(p); relayGtavKothOnLike(p); relayGtavChaosOnLike(p); relayGtavChiliadOnLike(p); relayMslugOnLike(p); relayCtrOnLike(p); relaySmwOnLike(p); break;
     case 'member': addEvent(`🙋 ${p.nickname} entró`, ''); break;
     case 'follow': addEvent(`➕ ${p.nickname} te siguió`, 'ok'); ttsOnFollow(p); relayGtavKothOnFollow(p); relayGtavChaosOnFollow(p); relayGtavChiliadOnFollow(p); break;
@@ -1809,6 +1898,7 @@ function handle(type, p) {
     case 'pointsTx': onPointsTx(p); break;
     case 'pointsImportResult': onPointsImportResult(p); break;
     case 'tikfinityDecryptResult': onTikfinityDecryptResult(p); break;
+    case 'tikfinityCloudSettingsResult': onTikfinityCloudSettingsResult(p); break;
     case 'spotifyHistory': if (typeof renderSpotifyHistory === 'function') renderSpotifyHistory(p.history || []); break;
     case 'spotifyQueue': break;
     case 'spotifyNowPlaying': break;
@@ -4288,8 +4378,6 @@ function saveSettings() {
   }, 200);
 }
 
-
-
 function scheduleErSyncFromLinkedGame() {
   try {
     let key = '';
@@ -4307,8 +4395,6 @@ function scheduleErSyncFromLinkedGame() {
 // Al abrir la app, cada lista de acciones de juego arranca apagada una sola vez.
 // El flag de sesión evita volver a apagarla cuando llega un eco de settings o
 // después de que el usuario la enciende manualmente.
-
-
 function bootGameActionsOffOnce(flag, getList, renderFn) {
   if (typeof renderFn !== 'function') return;
   if (!window[flag]) {
@@ -4412,6 +4498,7 @@ function onSettings(s) {
   applyingSettings = true;
   applySettingsToUI();
   applyingSettings = false;
+  try { if (typeof window.refreshScreenFxUi === 'function') window.refreshScreenFxUi(); } catch {}
   try {
     const livePhoto = String(settings?.tiktokPhoto || '').trim();
     if (livePhoto) {
@@ -4485,6 +4572,7 @@ function applySettingsToUI() {
   if (typeof applySpotifyUI === 'function') applySpotifyUI();
   if (typeof applyWebhookUI === 'function') applyWebhookUI();
   if (typeof renderAcciones === 'function') renderAcciones();
+  if (typeof renderMyMcActions === 'function') renderMyMcActions();
 }
 
 /* ====================== Videos (pantallas múltiples) ====================== */
@@ -4862,8 +4950,6 @@ function saveSettingsKeysPatch(...keys) {
     }
   }, 200);
 }
-
-
 function saveVideosBattlePatch(kind) {
   saveSettingsKeysPatch(kind);
   syncDesktopWebhookSettings();
@@ -6260,6 +6346,8 @@ async function openEmoteModal(target = 'vid') {
   $('emoteModal').classList.remove('hidden');
   const grid = $('emote-grid');
   grid.innerHTML = '<div class="empty">Cargando…</div>';
+  // Si ya hay stickers en alertas/videos importados, súbelos al catálogo antes de pintar.
+  try { seedEmoteCatalogFromImport(collectEmotesFromLivecoinsSettings(settings)); } catch {}
   const cached = emoteCatalog.slice();
   try {
     // En modo relay la conexión TikTok vive en Render: pedir catálogo a la nube.
@@ -6267,7 +6355,7 @@ async function openEmoteModal(target = 'vid') {
     const res = await fetch(apiUrl);
     const data = await res.json();
     const fresh = data.results || [];
-    emoteCatalog = fresh.length ? fresh : cached;
+    seedEmoteCatalogFromImport([...(fresh || []), ...cached]);
   } catch {
     emoteCatalog = cached;
   }
@@ -6279,15 +6367,21 @@ function renderEmoteGrid() {
   const grid = $('emote-grid');
   if (!grid) return;
   if (!emoteCatalog.length) {
-    grid.innerHTML = '<div class="empty">Aún no aparecen stickers.<br>Cuando alguien use un sticker en tu live aparecerá aquí.</div>';
+    grid.innerHTML = '<div class="empty">Aún no aparecen stickers.<br>Importa un .tfc de TikFinity o espera a que alguien use un sticker en tu live.</div>';
     return;
   }
   const curId = $(emoteTarget + '-emoteid').value;
-  grid.innerHTML = emoteCatalog.map((e) => `
-    <div class="gift-cell ${String(e.id) === curId ? 'sel' : ''}" data-id="${esc(e.id)}" title="#${esc(e.id)}">
-      <img src="${esc(e.image)}" loading="lazy" onerror="this.style.visibility='hidden'">
-      <div class="g-name">#${esc(String(e.id).slice(-6))}</div>
-    </div>`).join('');
+  grid.innerHTML = emoteCatalog.map((e) => {
+    const label = esc(e.name || (`#${String(e.id).slice(-6)}`));
+    const thumb = e.image
+      ? `<img src="${esc(e.image)}" loading="lazy" onerror="this.outerHTML='<div class=\\'emote-ph\\'>🙂</div>'">`
+      : `<div class="emote-ph">🙂</div>`;
+    return `
+    <div class="gift-cell ${String(e.id) === curId ? 'sel' : ''}" data-id="${esc(e.id)}" title="${esc(e.name || '')} #${esc(e.id)}">
+      ${thumb}
+      <div class="g-name">${label}</div>
+    </div>`;
+  }).join('');
   grid.querySelectorAll('.gift-cell').forEach((cell) => {
     cell.onclick = () => {
       $(emoteTarget + '-emoteid').value = cell.dataset.id;
@@ -6295,6 +6389,58 @@ function renderEmoteGrid() {
       closeEmoteModal();
     };
   });
+}
+
+/** Stickers con trigger emote ya guardados en settings. */
+function collectEmotesFromLivecoinsSettings(s) {
+  const map = new Map();
+  const add = (id, image, name) => {
+    const eid = String(id || '').trim();
+    if (!eid) return;
+    const prev = map.get(eid) || { id: eid, image: '', name: '' };
+    map.set(eid, {
+      id: eid,
+      image: prev.image || String(image || '').trim(),
+      name: prev.name || String(name || '').trim(),
+    });
+  };
+  for (const a of s?.soundAlerts || []) {
+    if (a?.trigger === 'emote' && a.emoteId) add(a.emoteId, a.emoteImage, a.name);
+  }
+  for (const v of s?.videos || []) {
+    if (v?.trigger === 'emote' && v.emoteId) add(v.emoteId, v.emoteImage, v.name);
+  }
+  for (const a of s?.actions || []) {
+    if (a?.trigger === 'emote' && a.emoteId) add(a.emoteId, a.emoteImage, a.name);
+  }
+  return [...map.values()];
+}
+
+/** Une stickers al catálogo local y pide al servidor persistirlos. */
+function seedEmoteCatalogFromImport(list) {
+  if (!Array.isArray(list) || !list.length) return 0;
+  const map = new Map(emoteCatalog.map((e) => [String(e.id), { ...e }]));
+  let added = 0;
+  for (const e of list) {
+    const id = String(e?.id || e?.emoteId || '').trim();
+    if (!id) continue;
+    const img = String(e.image || e.emoteImage || '').trim();
+    const name = String(e.name || e.nombre || '').trim();
+    const prev = map.get(id);
+    if (!prev) {
+      map.set(id, { id, image: img, name });
+      added += 1;
+    } else {
+      map.set(id, {
+        id,
+        image: prev.image || img,
+        name: prev.name || name,
+      });
+    }
+  }
+  emoteCatalog = [...map.values()];
+  try { send({ action: 'importEmotes', emotes: emoteCatalog }); } catch {}
+  return added;
 }
 
 // Contenido del botón "Elegir regalo": muestra el icono real del regalo (no el emoji)
@@ -9288,6 +9434,11 @@ function refreshGiftCounterCardUI() {
     send({ action: 'sorteos', sorteosAction: 'start', forceInitial: true });
     try { toast('Sorteos · Iniciar', 'ok'); } catch {}
   };
+  if ($('so-spin')) $('so-spin').onclick = () => {
+    toPrev({ type: 'action', action: 'spin' });
+    send({ action: 'sorteos', sorteosAction: 'spin' });
+    try { toast('Sorteos · Giro manual', 'ok'); } catch {}
+  };
   if ($('so-lock')) $('so-lock').onclick = () => {
     toPrev({ type: 'action', action: 'lock' });
     send({ action: 'sorteos', sorteosAction: 'lock' });
@@ -10135,6 +10286,297 @@ function refreshTopKills() {
   } catch (err) {
     console.error('Top Kills setup:', err);
   }
+})();
+
+/* ---- Efectos pantalla (App PC): regalo → negro / rayos / DVD ---- */
+const SFX_EFFECTS = [
+  { id: 'black', label: 'Pantalla negra' },
+  { id: 'lightning', label: 'Rayos' },
+  { id: 'dvd', label: 'DVD rebotando' },
+  { id: 'glitch', label: 'Glitch' },
+  { id: 'matrix', label: 'Matrix' },
+  { id: 'static', label: 'Estática TV' },
+  { id: 'flash', label: 'Flash / strobe' },
+];
+
+function defaultScreenFxCfg() {
+  try {
+    return structuredClone(window.DEFAULT_SETTINGS?.screenFx || { enabled: true, rules: [] });
+  } catch {
+    return { enabled: true, rules: [] };
+  }
+}
+
+function ensureScreenFxCfg() {
+  if (!settings) return defaultScreenFxCfg();
+  if (!settings.screenFx || typeof settings.screenFx !== 'object') settings.screenFx = defaultScreenFxCfg();
+  if (!Array.isArray(settings.screenFx.rules)) settings.screenFx.rules = [];
+  if (settings.screenFx.enabled == null) settings.screenFx.enabled = true;
+  if (settings.screenFx.allowInteract == null) settings.screenFx.allowInteract = true;
+  const allowed = new Set(SFX_EFFECTS.map((e) => e.id));
+  for (const r of settings.screenFx.rules) {
+    if (!r) continue;
+    if (!r.uid) r.uid = r.id || ('sfx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    if (!r.id) r.id = r.uid;
+    if (!r.trigger) r.trigger = 'gift';
+    if (r.effect && !allowed.has(String(r.effect))) r.effect = 'lightning';
+  }
+  return settings.screenFx;
+}
+
+function saveScreenFxPatch() {
+  ensureScreenFxCfg();
+  saveSettingsKeysPatch('screenFx');
+}
+
+function runScreenFxLocal(payload) {
+  if (!IS_DESKTOP || !window.desktopAPI?.showScreenFx) {
+    try { toast('Efectos pantalla solo en App PC (.exe)', 'warn'); } catch {}
+    return;
+  }
+  const effect = String(payload?.effect || 'black').toLowerCase();
+  let durationSec = Number(payload?.durationSec);
+  if (!Number.isFinite(durationSec) || durationSec < 1) durationSec = 10;
+  let sound = String(payload?.sound || '').trim();
+  if (sound) sound = mediaUrl(sound);
+  let soundVol = Number(payload?.soundVol);
+  if (!Number.isFinite(soundVol)) soundVol = 80;
+  const cfg = ensureScreenFxCfg();
+  const allowInteract = payload?.allowInteract != null
+    ? payload.allowInteract !== false
+    : cfg.allowInteract !== false;
+  const opts = { effect, durationSec, sound, soundVol, allowInteract };
+  const tryShow = () => window.desktopAPI.showScreenFx(opts);
+  Promise.resolve()
+    .then(() => tryShow())
+    .then((r) => {
+      if (r && r.ok === false) throw new Error(r.error || 'fail');
+      return r;
+    })
+    .catch(() => new Promise((res) => setTimeout(res, 280)).then(() => tryShow()))
+    .catch(() => {
+      try { toast('No se pudo abrir el efecto — reintenta', 'warn'); } catch {}
+    });
+}
+
+function stopScreenFxLocal() {
+  if (IS_DESKTOP && window.desktopAPI?.closeScreenFx) {
+    window.desktopAPI.closeScreenFx().catch(() => {});
+  }
+  send({ action: 'stopScreenFx' });
+}
+
+function onScreenFxEvent(p) {
+  runScreenFxLocal(p || {});
+}
+
+(function setupScreenFx() {
+  const host = $('sfx-rules');
+  if (!host) return;
+
+  function uid() {
+    return 'sfx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function soundLabel(r) {
+    if (!r?.sound) return 'Audio';
+    try {
+      const u = String(r.sound);
+      const name = u.split('/').pop() || 'audio';
+      return decodeURIComponent(name).slice(0, 22);
+    } catch {
+      return 'Audio';
+    }
+  }
+
+  function renderRules() {
+    const cfg = ensureScreenFxCfg();
+    if ($('sfx-enabled')) $('sfx-enabled').checked = cfg.enabled !== false;
+    if ($('sfx-allow-interact')) $('sfx-allow-interact').checked = cfg.allowInteract !== false;
+    const warn = $('sfx-pc-warn');
+    if (warn) warn.hidden = !!IS_DESKTOP;
+    const conn = $('sfx-conn');
+    if (conn) conn.innerHTML = IS_DESKTOP
+      ? '<span class="cdot"></span> APP PC'
+      : '<span class="cdot" style="background:#fbbf24"></span> SOLO .EXE';
+    const rules = cfg.rules || [];
+    if (!rules.length) {
+      host.innerHTML = '<div class="empty" style="padding:18px;opacity:.75">Sin efectos. Pulsa <b>Agregar efecto</b>.</div>';
+      return;
+    }
+    host.innerHTML = rules.map((r, idx) => {
+      const effectOpts = SFX_EFFECTS.map((e) =>
+        `<option value="${e.id}" ${r.effect === e.id ? 'selected' : ''}>${e.label}</option>`
+      ).join('');
+      if (!r.uid) r.uid = r.id || ('sfx' + idx);
+      const trigBtn = mcTrigCardBtnHtml(r);
+      const hasSound = !!r.sound;
+      const vol = Math.max(0, Math.min(100, Number(r.soundVol) || 80));
+      return `<div class="sfx-row" data-idx="${idx}" data-uid="${esc(r.uid)}">
+        <label class="toggle sfx-tog" title="Activar regla">
+          <input type="checkbox" class="sfx-on" ${r.on !== false ? 'checked' : ''}>
+          <span class="track"></span>
+        </label>
+        ${trigBtn}
+        <select class="sfx-effect">${effectOpts}</select>
+        <label class="sfx-sec">Seg <input type="number" class="sfx-dur" min="1" max="120" value="${Math.max(1, Math.min(120, Number(r.durationSec) || 10))}"></label>
+        <div class="sfx-audio">
+          <button type="button" class="ovpro-btn sfx-sound-btn" title="Subir audio propio">${hasSound ? '🔊' : '🎵'} ${esc(soundLabel(r))}</button>
+          ${hasSound ? '<button type="button" class="ovpro-btn sfx-sound-clear" title="Quitar audio">✕</button>' : ''}
+          <label class="sfx-vol" title="Volumen">Vol <input type="range" class="sfx-vol-range" min="0" max="100" value="${vol}"></label>
+        </div>
+        <button type="button" class="ovpro-btn sfx-test" title="Probar">▶</button>
+        <button type="button" class="ovpro-btn sfx-del" title="Quitar">✕</button>
+      </div>`;
+    }).join('');
+  }
+  window.refreshScreenFxUi = renderRules;
+
+  function patchRule(idx, patch) {
+    const cfg = ensureScreenFxCfg();
+    if (!cfg.rules[idx]) return;
+    Object.assign(cfg.rules[idx], patch);
+    saveScreenFxPatch();
+    renderRules();
+  }
+
+  async function uploadSoundForRule(idx, file) {
+    if (!file) return;
+    try {
+      toast('Subiendo audio…', 'ok');
+      const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
+      const data = await res.json();
+      if (!data.url) throw new Error(data.error || 'error');
+      patchRule(idx, { sound: data.url, soundName: file.name });
+      try { toast('Audio listo', 'ok'); } catch {}
+    } catch (err) {
+      try { toast('No se pudo subir el audio', 'warn'); } catch {}
+    }
+  }
+
+  host.addEventListener('click', (e) => {
+    const row = e.target.closest?.('.sfx-row');
+    if (!row) return;
+    const idx = Number(row.dataset.idx);
+    const cfg = ensureScreenFxCfg();
+    const r = cfg.rules[idx];
+    if (!r) return;
+    if (e.target.closest?.('.mc-trig-icon-btn') || e.target.closest?.('.sfx-gift-btn')) {
+      if (!r.uid) {
+        r.uid = 'sfx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        r.id = r.uid;
+        saveScreenFxPatch();
+      }
+      openMcTrigPop(r.uid, 'screenFx');
+      return;
+    }
+    if (e.target.closest?.('.sfx-sound-btn')) {
+      const inp = $('sfx-soundfile');
+      if (!inp) return;
+      inp.value = '';
+      inp.onchange = async () => {
+        const f = inp.files && inp.files[0];
+        inp.onchange = null;
+        await uploadSoundForRule(idx, f);
+      };
+      inp.click();
+      return;
+    }
+    if (e.target.closest?.('.sfx-sound-clear')) {
+      patchRule(idx, { sound: '', soundName: '' });
+      return;
+    }
+    if (e.target.closest?.('.sfx-test')) {
+      const payload = {
+        effect: r.effect || 'black',
+        durationSec: Math.max(1, Math.min(120, Number(r.durationSec) || 10)),
+        giftId: r.giftId || '',
+        giftName: r.giftName || '',
+        sound: r.sound || '',
+        soundVol: Math.max(0, Math.min(100, Number(r.soundVol) || 80)),
+        allowInteract: ensureScreenFxCfg().allowInteract !== false,
+      };
+      runScreenFxLocal(payload);
+      if (!IS_DESKTOP) send({ action: 'testScreenFx', ...payload });
+      try { toast('Efecto pantalla · prueba', 'ok'); } catch {}
+      return;
+    }
+    if (e.target.closest?.('.sfx-del')) {
+      cfg.rules.splice(idx, 1);
+      saveScreenFxPatch();
+      renderRules();
+    }
+  });
+
+  host.addEventListener('change', (e) => {
+    const row = e.target.closest?.('.sfx-row');
+    if (!row) return;
+    const idx = Number(row.dataset.idx);
+    const cfg = ensureScreenFxCfg();
+    const r = cfg.rules[idx];
+    if (!r) return;
+    if (e.target.classList.contains('sfx-on')) {
+      r.on = !!e.target.checked;
+      saveScreenFxPatch();
+      return;
+    }
+    if (e.target.classList.contains('sfx-effect')) {
+      r.effect = e.target.value || 'black';
+      saveScreenFxPatch();
+      return;
+    }
+    if (e.target.classList.contains('sfx-dur')) {
+      r.durationSec = Math.max(1, Math.min(120, parseInt(e.target.value, 10) || 10));
+      saveScreenFxPatch();
+      return;
+    }
+    if (e.target.classList.contains('sfx-vol-range')) {
+      r.soundVol = Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 80));
+      saveScreenFxPatch();
+    }
+  });
+
+  $('sfx-enabled')?.addEventListener('change', () => {
+    const cfg = ensureScreenFxCfg();
+    cfg.enabled = !!$('sfx-enabled').checked;
+    saveScreenFxPatch();
+  });
+  $('sfx-allow-interact')?.addEventListener('change', () => {
+    const cfg = ensureScreenFxCfg();
+    cfg.allowInteract = !!$('sfx-allow-interact').checked;
+    saveScreenFxPatch();
+  });
+  $('sfx-add')?.addEventListener('click', () => {
+    const cfg = ensureScreenFxCfg();
+    if (cfg.rules.length >= 30) {
+      try { toast('Máximo 30 efectos', 'warn'); } catch {}
+      return;
+    }
+    cfg.rules.push({
+      id: uid(),
+      uid: '',
+      on: true,
+      trigger: 'gift',
+      giftId: '',
+      giftName: '',
+      giftImage: '',
+      effect: 'black',
+      durationSec: 10,
+      sound: '',
+      soundName: '',
+      soundVol: 80,
+    });
+    const last = cfg.rules[cfg.rules.length - 1];
+    last.uid = last.id;
+    saveScreenFxPatch();
+    renderRules();
+  });
+  $('sfx-stop')?.addEventListener('click', () => {
+    stopScreenFxLocal();
+    try { toast('Efecto pantalla detenido', 'ok'); } catch {}
+  });
+
+  renderRules();
 })();
 
 function applyWinsHotkeyByCombo(combo) {
@@ -12611,13 +13053,14 @@ function renderPointsTx() {
     const replace = !!$('pts-tf-replace')?.checked;
     if (replace) {
       const ok = await askConfirm({
-        title: 'Reemplazar puntos',
-        message: 'Se borrará tu lista actual de puntos y se cargará la de TikFinity. ¿Continuar?',
-        confirmText: 'Reemplazar e importar',
+        title: 'Reemplazar datos',
+        message: 'Se reemplazarán puntos y se fusionarán/reemplazarán alertas-videos según la casilla. ¿Continuar?',
+        confirmText: 'Importar',
       });
       if (!ok) return;
     }
-    setPtsTfStatus('Descargando desde TikFinity…');
+    setPtsTfStatus('Descargando puntos + acciones desde TikFinity…');
+    await importTikfinityCloudSettingsFlow(channelId, { replace });
     send({ action: 'importTikfinityPoints', channelId, mode: replace ? 'replace' : 'merge' });
   };
 
@@ -12636,12 +13079,9 @@ function renderPointsTx() {
           if (r && r.ok && r.channelId) {
             const replace = !!$('pts-tf-replace')?.checked;
             setPtsTfStatus(r.settings
-              ? 'Cuenta + ajustes detectados. Aplicando e importando puntos…'
-              : 'Cuenta detectada (sin alertas en sesión). Importando puntos… Para alertas usa el .tfc en Copia de seguridad.');
+              ? 'Cuenta + ajustes detectados. Aplicando e importando…'
+              : 'Cuenta detectada. Descargando acciones de la nube + puntos…');
             await applyTikfinityLoginResult(r, { replace, importPoints: true });
-            if (!r.settings) {
-              toast('Solo puntos: el ID/login no trae alertas. Importa el .tfc en Copia de seguridad.', 'warn');
-            }
           } else if (r && r.cancelled) {
             setPtsTfStatus('Login cancelado.', 'err');
           } else {
@@ -12705,10 +13145,8 @@ function renderPointsTx() {
       } catch (e) {
         const msg = String(e.message || e);
         if (/cifrado|U2FsdGVk|Channel ID/i.test(msg)) {
-          setPtsTfStatus('El .tfc está cifrado. Usa el Channel ID abajo o el botón Importar.', 'err');
-          runTikfinityPointsImportFlow({
-            reason: 'Ese .tfc está cifrado. Los puntos se importan con tu cuenta TikFinity (Channel ID).',
-          });
+          setPtsTfStatus('El .tfc está cifrado. Vuelve a elegirlo para descifrarlo con tu User ID.', 'err');
+          toast('Vuelve a elegir el .tfc para importar alertas + puntos.', 'warn');
           return;
         }
         setPtsTfStatus('Error: ' + msg, 'err');
@@ -14420,10 +14858,9 @@ function setupSettingsTransfer() {
     } catch (e) {
       const msg = String(e.message || e);
       if (/cifrado|U2FsdGVk|Channel ID/i.test(msg)) {
-        setStatus('El .tfc está cifrado. Usa tu Channel ID de TikFinity para importar los puntos.', 'err');
-        runTikfinityPointsImportFlow({
-          reason: 'Ese .tfc está cifrado por TikFinity y no se puede abrir aquí.',
-        });
+        setStatus('El .tfc está cifrado. Probaremos descifrarlo con tu User ID.', 'err');
+        // file already consumed; user must re-pick — ask them
+        toast('Vuelve a elegir el .tfc: ahora pediremos tu User ID para descifrar alertas y más.', 'warn');
         return;
       }
       setStatus('Error: ' + msg, 'err');
@@ -15753,9 +16190,17 @@ function closeMcTrigPop() {
   _mcTrigPop = null;
 }
 
+function resolveTrigList(settingsKey) {
+  if (settingsKey === 'screenFx') {
+    try { ensureScreenFxCfg(); } catch {}
+    return settings?.screenFx?.rules;
+  }
+  return settings?.[settingsKey];
+}
+
 function openMcTrigPop(uid, settingsKey = 'mcActions') {
-  const list = settings?.[settingsKey];
-  const a = Array.isArray(list) ? list.find((x) => x.uid === uid) : null;
+  const list = resolveTrigList(settingsKey);
+  const a = Array.isArray(list) ? list.find((x) => x.uid === uid || x.id === uid) : null;
   if (!a) return;
   _mcTrigPop = {
     uid,
@@ -15867,8 +16312,9 @@ function renderMcTrigPop() {
 function saveMcTrigPop() {
   if (!_mcTrigPop || !settings) return;
   const key = _mcTrigPop.settingsKey || 'mcActions';
-  if (!Array.isArray(settings[key])) return;
-  const a = settings[key].find((x) => x.uid === _mcTrigPop.uid);
+  const list = resolveTrigList(key);
+  if (!Array.isArray(list)) return;
+  const a = list.find((x) => x.uid === _mcTrigPop.uid || x.id === _mcTrigPop.uid);
   if (!a) { closeMcTrigPop(); return; }
   const d = _mcTrigPop;
   const likeNEl = document.getElementById('mc-trig-pop-liken');
@@ -15902,6 +16348,14 @@ function saveMcTrigPop() {
   if (d.trigger === 'chatUser' || d.trigger === 'chatCommand') a.text = d.text || '';
   if (d.trigger === 'follow' || d.trigger === 'share') a.eventDelay = d.eventDelay;
   else delete a.eventDelay;
+
+  if (key === 'screenFx') {
+    saveScreenFxPatch();
+    closeMcTrigPop();
+    try { window.refreshScreenFxUi?.(); } catch {}
+    return;
+  }
+
   saveSettings();
   closeMcTrigPop();
   notifyEditorRapidoActionsChanged(key);
@@ -15919,7 +16373,6 @@ function saveMcTrigPop() {
 const GAME_ACTION_SETTINGS_KEYS = ['marioActions', 'smb3Actions', 'smwActions', 'mari0Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'ctrActions', 'mslugActions', 'gdashActions'];
 let lastGameActionEditAt = 0;
 const GAME_ACTION_EDIT_ECHO_MS = 3000;
-
 
 function ensureGameActionTimingFields(a) {
   if (!a || typeof a !== 'object') return;
@@ -16071,7 +16524,6 @@ function saveGameActionConfigModal() {
   toast && toast('Configuración guardada.', 'ok');
 }
 
-
 function openGameActionConfigModal(a, cardOpts, ctx) {
   ensureGameActionCfgModal();
   const overlay = document.getElementById('game-act-cfg-overlay');
@@ -16201,7 +16653,6 @@ function duplicateGameActionBelow(settingsKey, uid, render) {
   if (typeof render === 'function') render();
   toast && toast('Acción duplicada.', 'ok');
 }
-
 
 function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
   const settingsKey = opts.settingsKey;
@@ -16384,8 +16835,6 @@ function setGameActionTrigger(settingsKey, uid, value, renderFn) {
   notifyEditorRapidoActionsChanged(settingsKey);
   if (renderFn) renderFn();
 }
-
-
 function bindGameTriggerSelects(wrap, selClass, settingsKey, renderFn) {
   wrap.querySelectorAll('.' + selClass).forEach((s) => {
     const handler = () => {
@@ -16412,8 +16861,6 @@ function removeGameActions(settingsKey, keepFn, renderFn) {
   notifyEditorRapidoActionsChanged(settingsKey);
   if (renderFn) renderFn();
 }
-
-
 function applyGameActionGift(settingsKey, uid, g, renderFn) {
   const act = (settings?.[settingsKey] || []).find((x) => x && x.uid === uid);
   if (!act || !g) return;
@@ -16425,8 +16872,6 @@ function applyGameActionGift(settingsKey, uid, g, renderFn) {
   notifyEditorRapidoActionsChanged(settingsKey);
   if (renderFn) renderFn();
 }
-
-
 function bindGameActionGiftButtons(wrap, btnClass, settingsKey, renderFn) {
   wrap.querySelectorAll('.' + btnClass).forEach((b) => {
     b.onclick = () => {
@@ -16739,10 +17184,10 @@ function renderMcFamilyActions(game) {
         <button type="button" class="mc-audio-add" data-uid="${esc(a.uid)}" title="Elegir audio">Agregar<br>audio</button>
       </div>`;
     const cmdCount = a.custom
-      ? (Array.isArray(a.cmds) ? a.cmds.filter((c) => (typeof c === 'string' ? c : c?.cmd || c?.text || '').trim()).length : 0)
+      ? (Array.isArray(a.cmds) ? a.cmds.filter((c) => (typeof c === 'string' ? c : c?.cmd || c?.text || '').trim()).length : (a.cmd ? 1 : 0))
       : (a.cmd ? 1 : 0);
     const cmdPreview = a.custom
-      ? String((Array.isArray(a.cmds) && a.cmds[0] && (typeof a.cmds[0] === 'string' ? a.cmds[0] : (a.cmds[0].cmd || a.cmds[0].text || ''))) || '')
+      ? String((Array.isArray(a.cmds) && a.cmds[0] && (typeof a.cmds[0] === 'string' ? a.cmds[0] : (a.cmds[0].cmd || a.cmds[0].text || ''))) || a.cmd || '')
       : String(a.cmd || '');
     const rep = Math.max(1, parseInt(a.repeat, 10) || 1);
     const delayEach = Math.max(0, parseInt(a.delayEach, 10) || 0);
@@ -16885,9 +17330,11 @@ function normalizeMccEntries(raw, action) {
   const defs = {
     radius: action?.radius ?? (Math.max(0, parseInt(document.getElementById('mcc-radius')?.value, 10) || 3)),
   };
-  if (!Array.isArray(raw) || !raw.length) return extra ? [mccDefaultEntry()] : [''];
-  if (!extra) return raw.map((e) => (typeof e === 'string' ? e : (e?.cmd || e?.text || '')));
-  return raw.map((e) => {
+  let list = Array.isArray(raw) ? raw.slice() : [];
+  if (!list.length && action?.cmd) list = [action.cmd];
+  if (!list.length) return extra ? [mccDefaultEntry()] : [''];
+  if (!extra) return list.map((e) => (typeof e === 'string' ? e : (e?.cmd || e?.text || '')));
+  return list.map((e) => {
     const o = (e && typeof e === 'object') ? e : { cmd: String(e || '') };
     return {
       cmd: o.cmd || o.text || '',
@@ -17169,7 +17616,32 @@ function bindMcActionCardCommon(wrap, find, render) {
 }
 
 function renderMyMcActions() {
+  repairMcImportedCmds(settings?.mcActions);
   renderMcFamilyActions('minecraft');
+}
+
+/** TikFinity import antiguo: tenía `cmd` pero no `cmds[]` (el editor salía vacío). */
+function repairMcImportedCmds(list) {
+  if (!Array.isArray(list) || !list.length) return false;
+  let changed = false;
+  for (const a of list) {
+    if (!a) continue;
+    const hasCmds = Array.isArray(a.cmds) && a.cmds.some((c) => String(typeof c === 'string' ? c : (c?.cmd || c?.text || '')).trim());
+    const cmd = String(a.cmd || '').trim();
+    if (!hasCmds && cmd) {
+      a.cmds = [cmd];
+      a.custom = true;
+      changed = true;
+    } else if (hasCmds && !cmd) {
+      const first = a.cmds.find((c) => String(typeof c === 'string' ? c : (c?.cmd || '')).trim());
+      a.cmd = typeof first === 'string' ? first : String(first?.cmd || '');
+      changed = true;
+    }
+  }
+  if (changed) {
+    try { saveSettings(); } catch {}
+  }
+  return changed;
 }
 
 function ensureMcAudioUpload() {
@@ -17233,7 +17705,7 @@ async function openGeneratedImageInEditor(dataUrl, fileName) {
   }
 }
 
-/** Overlay con capas separadas (acción / regalo / xN) editables en el Editor. */
+/** Overlay con capas → ahora va al Editor Pro (1 cuadro por acción). */
 async function openOverlayLayersInEditor(payload) {
   if (payload && Array.isArray(payload.erRows) && payload.erRows.length) {
     return openGameActionsInEditorRapido(payload.erRows, { name: payload.name });
@@ -17411,7 +17883,6 @@ const EDITOR_OVERLAY_CLOUD_SRC = 'data:image/svg+xml,' + encodeURIComponent(
   + '</svg>'
 );
 
-
 function overlayImgProxy(u) {
   if (!u) return '';
   try {
@@ -17451,7 +17922,6 @@ async function generateMcMenuImage(srcList, iconDir, fileName, iconUrlFor) {
     settingsKey,
   });
 }
-
 
 /* ================= Acciones de Bedrock (Cubo TNT · comandos /bedrock) =================
    Misma mecánica que Minecraft (tarjetas con disparador + Probar), pero con los
@@ -18792,7 +19262,6 @@ function ensureRobloxSlots() {
   return settings.robloxActions;
 }
 
-
 function setupRobloxActionsUI() {
   const toggleAll = document.getElementById('rbx-toggle-all');
   if (toggleAll && !toggleAll._wired) {
@@ -20096,7 +20565,6 @@ async function generateGameActionsOverlayImage({ ensureList, iconUrlFor, downloa
     settingsKey,
   });
 }
-
 
 async function generateMarioOverlayImage() {
   return generateGameActionsOverlayImage({
@@ -23195,7 +23663,7 @@ async function generateRepoOverlayImage() {
   await openGameActionsInEditorRapido(rows, { name: 'repo-overlay', settingsKey: 'repoActions' });
 }
 
-
+// ===================== LEFT 4 DEAD 2 =====================
 function askL4dModifyConfirm() {
   return new Promise((resolve) => {
     const back = document.createElement('div');
@@ -25081,12 +25549,12 @@ function setupGtavKothInstallUI() {
           body: JSON.stringify({ dir }),
         });
         const r = await runGameModInstallWithProgress('gtavkoth', () => installGtavKothModApi(dir), {
-          installing: 'Instalando mod GTA V KOTH v1.2 (rampa + NPC)…',
+          installing: 'Instalando mod GTA V KOTH v1.2 (ScriptHook + SHVDN + rampa)…',
           done: 'Mod v1.2 instalado',
           fail: 'No se pudo instalar el mod',
         });
         if (r.ok) {
-          toast && toast('Mod Livecoins v1.2 instalado (KOTH + HTTP :6721).', 'ok');
+          toast && toast('Mod Livecoins v1.2 instalado. Solo abre GTA en Historia (ya sin NativeTrainer).', 'ok');
           if (r.gameDir && document.getElementById('gtavkoth-game-dir')) {
             document.getElementById('gtavkoth-game-dir').value = r.gameDir;
           }
@@ -27054,7 +27522,6 @@ function renderGdashActions() {
 }
 
 
-// Capas editables: menú de regalos PvZ (acción + regalo + cantidad).
 // Capas editables: menú de regalos PvZ → Editor Pro.
 async function generatePvzMenuImage(orientation) {
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
@@ -27084,8 +27551,6 @@ async function generatePvzMenuImage(orientation) {
 }
 
 // Capas editables: menú de regalos Roblox → Editor Pro.
-
-
 async function generateRobloxMenuImage(orientation) {
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
   const all = ensureRobloxSlots();
@@ -27114,7 +27579,6 @@ async function generateRobloxMenuImage(orientation) {
 
 // Descarga el archivo del servidor (botón sobre la imagen).
 let gameDlProgressOff = null;
-
 
 function fmtDlBytes(b) {
   if (!b) return '0 B';
@@ -28933,8 +29397,8 @@ function renderGtavChaosStatus(payload) {
   const httpWebhook = !!(h.http_webhook || st.http_webhook);
   const gameRunning = !!(h.game_running || st.game_running);
   if (gtavChaosBridgeWanted) {
-    syncBridgeConnectBtn('gtavchaos-bridge', (webhookLive || httpOk) && gameRunning);
-    if (!((webhookLive || httpOk) && gameRunning)) gtavChaosBridgeWanted = false;
+    syncBridgeConnectBtn('gtavchaos-bridge', !!(webhookLive || httpOk));
+    if (!(webhookLive || httpOk)) gtavChaosBridgeWanted = false;
   } else {
     syncBridgeConnectBtn('gtavchaos-bridge', false);
   }
@@ -29002,24 +29466,32 @@ function setupGtavChaosBridgeBtn() {
       isConnected: async () => {
         const cur = await gtavChaosBridgeHealthApi();
         const h = cur?.health || cur?.status || cur || {};
-        return !!((h.webhook_live || h.http_ok) && h.game_running);
+        return !!(h.webhook_live || h.http_ok);
       },
       connect: async () => {
         lastEnsure = await ensureGtavChaosBridgeApi();
-        return !!(lastEnsure?.ok || lastEnsure?.connected || lastEnsure?.httpWebhook?.ok);
+        if (lastEnsure?.connected || lastEnsure?.health?.webhook_live) return true;
+        // Espera extra en UI por si el ensure devolvió antes de que SHVDN abriera el puerto.
+        const t0 = Date.now();
+        while (Date.now() - t0 < 8000) {
+          await new Promise((r) => setTimeout(r, 400));
+          const cur = await gtavChaosBridgeHealthApi();
+          const h = cur?.health || cur || {};
+          if (h.webhook_live || h.http_ok) {
+            lastEnsure = { ...lastEnsure, connected: true, hint: null };
+            return true;
+          }
+        }
+        return !!lastEnsure?.connected;
       },
     });
     gtavChaosBridgeWanted = !!ok;
-    if (ok) {
-      if (lastEnsure?.connected) {
-        toast && toast('GTA V Chaos listo (HTTP :6722).', 'ok');
-      } else if (lastEnsure?.httpWebhook?.ok || lastEnsure?.httpWebhook?.already) {
-        toast && toast(lastEnsure?.hint || 'Webhook HTTP instalado. Abre GTA en Historia.', 'ok');
-      } else {
-        toast && toast(lastEnsure?.hint || 'Conectar listo. Abre GTA en Historia.', 'ok');
-      }
+    if (ok && (lastEnsure?.connected || lastEnsure?.health?.webhook_live)) {
+      toast && toast('GTA V Chaos listo (HTTP :6722).', 'ok');
+    } else if (lastEnsure?.install?.ok || lastEnsure?.ok) {
+      toast && toast(lastEnsure?.hint || 'Plugin Chaos listo. Abre GTA en Historia y vuelve a Conectar.', 'warn');
     } else {
-      toast && toast(lastEnsure?.hint || lastEnsure?.error || 'No se pudo conectar el hub GTA V.', 'warn');
+      toast && toast(lastEnsure?.hint || lastEnsure?.error || 'No se pudo conectar Chaos (:6722).', 'warn');
     }
     refreshGtavChaosStatus();
   };
@@ -29272,7 +29744,15 @@ function addGtavChaosFromCatalog(thing) {
 
 async function testGtavChaosAction(a) {
   if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
-  // Directo a :6722 — sin health previo ni espera artificial.
+  const health = await gtavChaosBridgeHealthApi();
+  const h = health?.health || health?.status || health || {};
+  if (!(h.webhook_live || h.http_ok || h.port_open)) {
+    toast && toast(
+      h.hint || 'Chaos :6722 no está vivo. Conectar debe quedar en verde (HTTP on), no solo un momento.',
+      'warn',
+    );
+    return;
+  }
   const times = Math.max(1, Math.min(GTAVCHAOS_SPAWN_MAX, parseInt(a.count, 10) || 1));
   const r = await execGameLocal({
     tipo: 'GTAVCHAOS_SPAWN',
@@ -29281,7 +29761,7 @@ async function testGtavChaosAction(a) {
     times,
   });
   if (r && r.ok !== false) toast && toast('Enviado al juego.', 'ok');
-  else toast && toast(r?.hint || r?.error || 'No llegó al mod (Conectar + GTA en Historia).', 'warn');
+  else toast && toast(r?.hint || r?.error || 'No llegó al mod (Conectar en verde + GTA Historia).', 'warn');
 }
 
 function renderGtavChaosActions() {
@@ -29669,8 +30149,8 @@ function renderGtavChiliadStatus(payload) {
   const httpWebhook = !!(h.http_webhook || st.http_webhook);
   const gameRunning = !!(h.game_running || st.game_running);
   if (gtavChiliadBridgeWanted) {
-    syncBridgeConnectBtn('gtavchiliad-bridge', (webhookLive || httpOk) && gameRunning);
-    if (!((webhookLive || httpOk) && gameRunning)) gtavChiliadBridgeWanted = false;
+    syncBridgeConnectBtn('gtavchiliad-bridge', !!(webhookLive || httpOk));
+    if (!(webhookLive || httpOk)) gtavChiliadBridgeWanted = false;
   } else {
     syncBridgeConnectBtn('gtavchiliad-bridge', false);
   }
@@ -29738,24 +30218,31 @@ function setupGtavChiliadBridgeBtn() {
       isConnected: async () => {
         const cur = await gtavChiliadBridgeHealthApi();
         const h = cur?.health || cur?.status || cur || {};
-        return !!((h.webhook_live || h.http_ok) && h.game_running);
+        return !!(h.webhook_live || h.http_ok);
       },
       connect: async () => {
         lastEnsure = await ensureGtavChiliadBridgeApi();
-        return !!(lastEnsure?.ok || lastEnsure?.connected || lastEnsure?.httpWebhook?.ok);
+        if (lastEnsure?.connected || lastEnsure?.health?.webhook_live) return true;
+        const t0 = Date.now();
+        while (Date.now() - t0 < 8000) {
+          await new Promise((r) => setTimeout(r, 400));
+          const cur = await gtavChiliadBridgeHealthApi();
+          const h = cur?.health || cur || {};
+          if (h.webhook_live || h.http_ok) {
+            lastEnsure = { ...lastEnsure, connected: true, hint: null };
+            return true;
+          }
+        }
+        return !!lastEnsure?.connected;
       },
     });
     gtavChiliadBridgeWanted = !!ok;
-    if (ok) {
-      if (lastEnsure?.connected) {
-        toast && toast('GTA V Chiliad listo (HTTP :6723).', 'ok');
-      } else if (lastEnsure?.httpWebhook?.ok || lastEnsure?.httpWebhook?.already) {
-        toast && toast(lastEnsure?.hint || 'Webhook HTTP instalado. Abre GTA en Historia.', 'ok');
-      } else {
-        toast && toast(lastEnsure?.hint || 'Conectar listo. Abre GTA en Historia.', 'ok');
-      }
+    if (ok && (lastEnsure?.connected || lastEnsure?.health?.webhook_live)) {
+      toast && toast('GTA V Chiliad listo (HTTP :6723).', 'ok');
+    } else if (lastEnsure?.install?.ok || lastEnsure?.ok) {
+      toast && toast(lastEnsure?.hint || 'Plugin Chiliad listo. Abre GTA en Historia y vuelve a Conectar.', 'warn');
     } else {
-      toast && toast(lastEnsure?.hint || lastEnsure?.error || 'No se pudo conectar el hub GTA V.', 'warn');
+      toast && toast(lastEnsure?.hint || lastEnsure?.error || 'No se pudo conectar Chiliad (:6723).', 'warn');
     }
     refreshGtavChiliadStatus();
   };
@@ -30008,7 +30495,15 @@ function addGtavChiliadFromCatalog(thing) {
 
 async function testGtavChiliadAction(a) {
   if (!a?.thing || !IS_DESKTOP) { toast && toast('Solo en la app .exe', 'warn'); return; }
-  // Directo a :6723 — sin health previo ni espera artificial.
+  const health = await gtavChiliadBridgeHealthApi();
+  const h = health?.health || health?.status || health || {};
+  if (!(h.webhook_live || h.http_ok || h.port_open)) {
+    toast && toast(
+      h.hint || 'Chiliad :6723 no está vivo. Conectar debe quedar en verde (HTTP on), no solo un momento.',
+      'warn',
+    );
+    return;
+  }
   const times = Math.max(1, Math.min(GTAVCHILIAD_SPAWN_MAX, parseInt(a.count, 10) || 1));
   const r = await execGameLocal({
     tipo: 'GTAVCHILIAD_SPAWN',
@@ -30017,7 +30512,7 @@ async function testGtavChiliadAction(a) {
     times,
   });
   if (r && r.ok !== false) toast && toast('Enviado al juego.', 'ok');
-  else toast && toast(r?.hint || r?.error || 'No llegó al mod (Conectar + GTA en Historia).', 'warn');
+  else toast && toast(r?.hint || r?.error || 'No llegó al mod (Conectar en verde + GTA Historia).', 'warn');
 }
 
 function renderGtavChiliadActions() {

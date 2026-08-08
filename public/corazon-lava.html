@@ -213,15 +213,40 @@
     const metaCurEl = document.getElementById('meta-cur');
     const metaGoalEl = document.getElementById('meta-goal');
     const metaValueEl = document.getElementById('meta-value');
-    const lsKey = 'lc_corazonlava_meta_' + (params.get('room') || 'default');
+    const lsKey = 'lc_corazonlava_' + (params.get('room') || 'default');
     let metaCfg = { label: 'Meta', goal: 50, mode: 'gifts' }; // mode: gifts | coins
     let metaCurrent = 0;
+    const PERSIST_MAX = 400;
+    let persistTimer = null;
+    let restoringGifts = false;
 
     function fmtMeta(n) {
       return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('es-ES');
     }
-    function persistMeta() {
-      try { localStorage.setItem(lsKey, String(metaCurrent)); } catch {}
+    function schedulePersist() {
+      if (isEmbed || isPreview || restoringGifts) return;
+      clearTimeout(persistTimer);
+      persistTimer = setTimeout(savePersistState, 220);
+    }
+    function savePersistState() {
+      if (isEmbed || isPreview) return;
+      try {
+        const g = gifts.slice(-PERSIST_MAX).map((x) => ({
+          u: String((x.img && (x.img.currentSrc || x.img.src)) || x.src || FALLBACK_IMG),
+          d: Math.max(0, Math.round(Number(x.diamonds) || 0)),
+          s: Math.max(14, Math.round(Number(x.sizePx) || 28)),
+        }));
+        localStorage.setItem(lsKey, JSON.stringify({ v: 2, t: metaCurrent, g }));
+      } catch {
+        try {
+          const g = gifts.slice(-120).map((x) => ({
+            u: String((x.img && (x.img.currentSrc || x.img.src)) || x.src || FALLBACK_IMG),
+            d: Math.max(0, Math.round(Number(x.diamonds) || 0)),
+            s: Math.max(14, Math.round(Number(x.sizePx) || 28)),
+          }));
+          localStorage.setItem(lsKey, JSON.stringify({ v: 2, t: metaCurrent, g }));
+        } catch { /* quota */ }
+      }
     }
     function renderMeta(bump) {
       if (metaLabelEl) metaLabelEl.textContent = String(metaCfg.label || 'Meta').trim() || 'Meta';
@@ -234,10 +259,10 @@
         metaValueEl.classList.add('bump');
       }
     }
-    function setMeta(n, bump) {
+    function setMeta(n, bump, skipPersist) {
       metaCurrent = Math.max(0, Math.round(Number(n) || 0));
       renderMeta(bump);
-      persistMeta();
+      if (!skipPersist) schedulePersist();
     }
     function addMetaProgress(giftCount, diamonds, opts) {
       const g = Math.max(0, Math.round(Number(giftCount) || 0));
@@ -257,16 +282,14 @@
       if (cfg.metaMode === 'coins' || cfg.metaMode === 'gifts') metaCfg.mode = cfg.metaMode;
       renderMeta(false);
     }
-    function loadPersistedMeta() {
-      try {
-        const raw = localStorage.getItem(lsKey);
-        if (raw != null) setMeta(parseInt(raw, 10) || 0, false);
-        else renderMeta(false);
-      } catch { renderMeta(false); }
+    function clearPersistState() {
+      try { localStorage.removeItem(lsKey); } catch {}
+      // Compat: clave antigua solo-meta
+      try { localStorage.removeItem('lc_corazonlava_meta_' + (params.get('room') || 'default')); } catch {}
     }
     function resetMeta() {
-      setMeta(0, false);
-      try { localStorage.removeItem(lsKey); } catch {}
+      setMeta(0, false, true);
+      clearPersistState();
     }
 
     // ---- Filtro: solo 1 regalo cae / cuenta / test ----
@@ -434,11 +457,12 @@
       return Math.round(Math.max(14, Math.min(maxPx, base)));
     }
 
-    function removeGiftAt(i) {
+    function removeGiftAt(i, skipPersist) {
       const g = gifts[i]; if (!g) return;
       try { World.remove(world, g.body); } catch {}
       if (g.img && g.img.parentNode) g.img.parentNode.removeChild(g.img);
       gifts.splice(i, 1);
+      if (!skipPersist && !restoringGifts) schedulePersist();
     }
     function pruneJar() {
       for (let i = gifts.length - 1; i >= 0; i--) {
@@ -487,9 +511,18 @@
       img.style.transform = 'translate3d(' + (x - r).toFixed(1) + 'px,' + (y - r).toFixed(1) + 'px,0) rotate(' + (opts.angle || 0).toFixed(3) + 'rad)';
       giftsLayer.appendChild(img);
       World.add(world, body);
-      gifts.push({ body, img, sizePx, awakeSynced: false });
-      // Avanza la meta conforme cae cada regalo.
-      addMetaProgress(1, diamonds || 0, { silent: !!(opts && opts.silentMeta) });
+      gifts.push({
+        body, img, sizePx,
+        diamonds: Math.max(0, Number(diamonds) || 0),
+        src,
+        awakeSynced: false,
+      });
+      // Restauración: la meta ya viene de localStorage; no sumar otra vez.
+      if (!opts.restore) {
+        addMetaProgress(1, diamonds || 0, { silent: !!(opts && opts.silentMeta) });
+      } else if (!opts.skipPersist) {
+        schedulePersist();
+      }
     }
     function spawnMany(src, count, gap, diamonds) {
       const n = Math.max(0, parseInt(count, 10) || 0);
@@ -499,7 +532,56 @@
         setTimeout(() => addGiftBody(src, giftSizeForFill(diamonds || 0), diamonds || 0, {}), idx * gap);
       })(i);
     }
-    function clearJar() { for (let i = gifts.length - 1; i >= 0; i--) removeGiftAt(i); }
+    function clearJar(skipPersist) {
+      for (let i = gifts.length - 1; i >= 0; i--) removeGiftAt(i, true);
+      if (!skipPersist) schedulePersist();
+    }
+    /** Recupera meta + imágenes tras reload / apagón (OBS). */
+    function restorePersistedGifts() {
+      if (isEmbed || isPreview) { renderMeta(false); return; }
+      let data = null;
+      let raw = null;
+      try {
+        raw = localStorage.getItem(lsKey);
+        if (raw == null || raw === '') {
+          // Compat clave antigua solo-meta
+          const old = localStorage.getItem('lc_corazonlava_meta_' + (params.get('room') || 'default'));
+          if (old != null) {
+            setMeta(parseInt(old, 10) || 0, false, true);
+            savePersistState();
+          } else renderMeta(false);
+          return;
+        }
+        const trimmed = String(raw).trim();
+        if (trimmed.charAt(0) === '{') data = JSON.parse(trimmed);
+        else {
+          setMeta(parseInt(trimmed, 10) || 0, false, true);
+          savePersistState();
+          return;
+        }
+      } catch { renderMeta(false); return; }
+      const t = Math.max(0, Math.round(Number(data.t) || 0));
+      const list = Array.isArray(data.g) ? data.g.slice(-PERSIST_MAX) : [];
+      setMeta(t, false, true);
+      if (!list.length) return;
+      restoringGifts = true;
+      let i = 0;
+      (function batch() {
+        const end = Math.min(i + 28, list.length);
+        for (; i < end; i++) {
+          const it = list[i] || {};
+          const d = Math.max(0, Number(it.d) || 0);
+          const src = it.u || FALLBACK_IMG;
+          const sizePx = Math.max(14, Number(it.s) || giftSizeForFill(d));
+          const r = Math.max(6, (sizePx / 2) * 0.80);
+          const x = rnd(SLOT_CX - SLOT_HW + r + 8, SLOT_CX + SLOT_HW - r - 8);
+          const y = rnd(artY(38) + r, artY(72) - r);
+          addGiftBody(src, sizePx, d, { restore: true, settled: true, x, y, angle: rnd(-0.35, 0.35) });
+        }
+        if (i < list.length) setTimeout(batch, 0);
+        else { restoringGifts = false; schedulePersist(); }
+      })();
+    }
 
     // ---- Catálogo de regalos (id -> imagen) ----
     const giftImgById = new Map();
@@ -621,7 +703,7 @@
         else if (type === 'panic') clearJar();
         else if (type === 'corazonLavaTest') { if (!isEmbed) runFill((payload && payload.count) || 36, payload); }
         else if (type === 'corazonLavaDropOne') { if (!isEmbed) dropOneGift(payload); }
-        else if (type === 'corazonLavaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(); resetMeta(); } }
+        else if (type === 'corazonLavaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); resetMeta(); } }
         else if (type === 'settings') {
           if (payload && payload.corazonLava) {
             if (!params.get('jc')) applyJarTint(payload.corazonLava.tint);
@@ -643,11 +725,11 @@
     connectWS();
     applyGiftToastStyle(giftToastStyle);
     if (isEmbed) renderMeta(false);
-    else loadPersistedMeta();
+    else restorePersistedGifts();
 
     function runFill(total, payload) {
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
-      clearJar(); resetMeta();
+      clearJar(true); resetMeta();
       if (payload) applyFilterGiftSettings(payload);
       const src = filteredGiftSrc(payload);
       const d = Math.max(1, Number((payload && payload.diamonds) || filterGift.diamonds) || 15);
@@ -678,7 +760,7 @@
       if (!d || d.kind !== 'corazonLava') return;
       if (d.type === 'test') runFill(d.count || 36, d);
       else if (d.type === 'dropOne') dropOneGift(d);
-      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(); resetMeta(); }
+      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(true); resetMeta(); }
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
         if (d.sizes !== undefined) setSizeTable(d.sizes);

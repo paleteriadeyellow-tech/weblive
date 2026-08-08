@@ -540,6 +540,13 @@ export const DEFAULT_SETTINGS = {
     ],
     players: [],
   },
+  // Efectos a pantalla completa (solo App PC): disparador (regalo/likes/follow/…) → efecto.
+  screenFx: {
+    enabled: true,
+    // true = clicks pasan al juego/PC; false = el efecto bloquea el ratón
+    allowInteract: true,
+    rules: [],
+  },
   // Spotify Song Requests (solo .exe · admin / albertoyt). Comandos del chat: !play/!skip/!revoke.
   spotify: {
     clientId: '',

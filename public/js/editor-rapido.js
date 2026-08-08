@@ -126,16 +126,21 @@
 
   function clampGridN(n) {
     const v = Math.round(Number(n));
-    if (!Number.isFinite(v) || v < 2) return 0;
-    const maxN = Math.floor(Math.sqrt(MAX_COUNT));
-    return Math.min(maxN, v);
+    // 0 = Automática. ≥1 = columnas fijas (presets NxN o personalizado CxF).
+    if (!Number.isFinite(v) || v < 1) return 0;
+    return Math.min(MAX_COUNT, v);
+  }
+
+  function isSquareGridPreset() {
+    const g = clampGridN(state.gridN);
+    return !!(g >= 2 && g <= 8 && state.count === g * g);
   }
 
   function layoutFor(count, gridN) {
     const fixed = clampGridN(gridN);
     const n = Math.max(MIN_COUNT, Math.min(MAX_COUNT, Number(count) || MIN_COUNT));
     if (fixed) {
-      // Columnas fijas (ej. 8); filas según cuántos cuadros hay (8×8 lleno = 64, o 5 filas si hay 33).
+      // Columnas fijas; filas según cuántos cuadros hay (8×4 = 32, 5×5 = 25, etc.).
       return { cols: fixed, rows: Math.max(1, Math.ceil(n / fixed)) };
     }
     if (n <= 6) return { cols: n, rows: 1 };
@@ -610,6 +615,7 @@
       count: clampCount(raw?.count || 4),
       gap: raw?.gap !== false,
       spreadH: !!raw?.spreadH,
+      fixedCellSize: !!raw?.fixedCellSize,
       gridN: clampGridN(raw?.gridN || 0),
       zoom: clampZoom(raw?.zoom ?? 1),
       imgScale: clampImgScale(raw?.imgScale ?? 1),
@@ -1012,6 +1018,7 @@
     renderCountControls();
     renderGapToggle();
     renderSpreadToggle();
+    renderCellSizeToggle();
     renderMotionControl();
     renderFrameControls();
     renderPickBar();
@@ -2090,6 +2097,7 @@
       count: s.count,
       gap: s.gap !== false,
       spreadH: !!s.spreadH,
+      fixedCellSize: !!s.fixedCellSize,
       gridN: clampGridN(s.gridN),
       zoom: clampZoom(s.zoom),
       imgScale: clampImgScale(s.imgScale),
@@ -2355,6 +2363,7 @@
       renderCountControls();
       renderGapToggle();
       renderSpreadToggle();
+      renderCellSizeToggle();
       renderMotionControl();
       renderFrameControls();
       renderPickBar();
@@ -2775,10 +2784,7 @@
     if (label) {
       const lay = layoutFor(state.count, state.gridN);
       if (fixed) {
-        const full = state.count >= fixed * fixed;
-        label.textContent = full
-          ? `${fixed}×${fixed} · ${state.count} cuadros`
-          : `${lay.rows} filas × ${fixed} cols · ${state.count} cuadros`;
+        label.textContent = `${lay.cols}×${lay.rows} · ${state.count} cuadros`;
       } else {
         label.textContent = lay.rows === 1
           ? `${state.count} en una fila`
@@ -2793,13 +2799,29 @@
     const autoBtn = document.getElementById('er-grid-auto');
     const fixedBtn = document.getElementById('er-grid-fixed');
     const nWrap = document.getElementById('er-grid-n-btns');
+    const customWrap = document.getElementById('er-grid-custom');
+    const customBtn = document.getElementById('er-grid-custom-btn');
+    const colsInp = document.getElementById('er-grid-cols');
+    const rowsInp = document.getElementById('er-grid-rows');
+    const square = isSquareGridPreset();
     if (autoBtn) autoBtn.classList.toggle('is-on', !fixed);
     if (fixedBtn) fixedBtn.classList.toggle('is-on', !!fixed);
     if (nWrap) nWrap.classList.toggle('hidden', !fixed);
     document.querySelectorAll('#er-grid-n-btns [data-er-grid-n]').forEach((btn) => {
       const n = Number(btn.dataset.erGridN);
-      btn.classList.toggle('is-on', fixed === n);
+      btn.classList.toggle('is-on', square && fixed === n);
     });
+    if (customBtn) customBtn.classList.toggle('is-on', !!fixed && !square);
+    if (customWrap) {
+      const showCustom = !!fixed && (!square || customWrap.dataset.open === '1');
+      customWrap.classList.toggle('hidden', !showCustom);
+      customWrap.hidden = !showCustom;
+    }
+    if (fixed && colsInp && rowsInp) {
+      const lay = layoutFor(state.count, state.gridN);
+      if (document.activeElement !== colsInp) colsInp.value = String(lay.cols);
+      if (document.activeElement !== rowsInp) rowsInp.value = String(lay.rows);
+    }
   }
 
   function setGridAuto() {
@@ -2827,7 +2849,9 @@
       setGridAuto();
       return;
     }
-    // Solo cambia la vista: no borra overlays/gifts/textos fuera de N×N.
+    // Preset cuadrado N×N
+    const customWrap = document.getElementById('er-grid-custom');
+    if (customWrap) customWrap.dataset.open = '';
     state.gridN = fixed;
     state.count = clampCount(fixed * fixed);
     if (moveFrom && moveFrom.slot >= state.count) cancelPick();
@@ -2839,9 +2863,61 @@
     const hidden = countHiddenContentSlots();
     toastMsg(
       hidden
-        ? `${fixed} cols · ${hidden} cuadro${hidden === 1 ? '' : 's'} quedan guardados fuera`
-        : `n° Filas · ${fixed} columnas`
+        ? `${fixed}×${fixed} · ${hidden} cuadro${hidden === 1 ? '' : 's'} quedan guardados fuera`
+        : `n° Filas · ${fixed}×${fixed}`
     );
+  }
+
+  function setGridCustom(cols, rows) {
+    let c = Math.round(Number(cols));
+    let r = Math.round(Number(rows));
+    if (!Number.isFinite(c) || c < 1) c = 1;
+    if (!Number.isFinite(r) || r < 1) r = 1;
+    c = Math.min(MAX_COUNT, c);
+    r = Math.min(MAX_COUNT, r);
+    let clipped = false;
+    if (c * r > MAX_COUNT) {
+      r = Math.max(1, Math.floor(MAX_COUNT / c));
+      clipped = true;
+    }
+    const customWrap = document.getElementById('er-grid-custom');
+    if (customWrap) customWrap.dataset.open = '1';
+    state.gridN = c;
+    state.count = clampCount(c * r);
+    if (moveFrom && moveFrom.slot >= state.count) cancelPick();
+    if (selectedSlot != null && selectedSlot >= state.count) selectedSlot = null;
+    if (selectedText != null && selectedText.slot >= state.count) selectedText = null;
+    saveState(state);
+    renderCountControls();
+    renderGrid();
+    const hidden = countHiddenContentSlots();
+    toastMsg(
+      clipped
+        ? `Personalizado · ${c}×${r} (máx. ${MAX_COUNT} cuadros)`
+        : (hidden
+          ? `${c}×${r} · ${hidden} cuadro${hidden === 1 ? '' : 's'} quedan guardados fuera`
+          : `n° Filas · ${c}×${r}`)
+    );
+  }
+
+  function openGridCustomPanel() {
+    const customWrap = document.getElementById('er-grid-custom');
+    if (customWrap) {
+      customWrap.dataset.open = '1';
+      customWrap.classList.remove('hidden');
+      customWrap.hidden = false;
+    }
+    if (!clampGridN(state.gridN)) {
+      // Entrar a modo fijo con valores del panel (o 8×4 por defecto)
+      const colsInp = document.getElementById('er-grid-cols');
+      const rowsInp = document.getElementById('er-grid-rows');
+      const c = Number(colsInp?.value) || 8;
+      const r = Number(rowsInp?.value) || 4;
+      setGridCustom(c, r);
+      return;
+    }
+    renderGridModeControls();
+    document.getElementById('er-grid-cols')?.focus();
   }
 
   function setGridFixedMode() {
@@ -3002,6 +3078,19 @@
     if (off) off.classList.toggle('is-on', !state.spreadH);
   }
 
+  function renderCellSizeToggle() {
+    const fit = document.getElementById('er-cellsize-fit');
+    const fixed = document.getElementById('er-cellsize-fixed');
+    if (fit) fit.classList.toggle('is-on', !state.fixedCellSize);
+    if (fixed) fixed.classList.toggle('is-on', !!state.fixedCellSize);
+  }
+
+  /** Ancho fijo de celda (no se achica al poner más columnas). */
+  const FIXED_CELL_W = 200;
+  function cellWidthFixed() {
+    return FIXED_CELL_W;
+  }
+
   function cellWidthForSpread(cols, zoom, bakeZoom) {
     const c = Math.max(1, Number(cols) || 1);
     const base = Math.min(200, Math.max(72, Math.floor(720 / c)));
@@ -3014,6 +3103,16 @@
     saveState(state);
     renderSpreadToggle();
     renderGrid();
+  }
+
+  function setFixedCellSize(on) {
+    state.fixedCellSize = !!on;
+    saveState(state);
+    renderCellSizeToggle();
+    renderGrid();
+    toastMsg(on
+      ? 'Tamaño fijo · los cuadros no se achican (scroll / zoom si no caben)'
+      : 'Cuadros se adaptan al ancho del panel');
   }
 
   function renderPickBar() {
@@ -3243,7 +3342,14 @@
     grid.dataset.count = String(state.count);
     grid.classList.toggle('is-tight', !state.gap);
     grid.classList.toggle('is-spread', !!state.spreadH);
-    if (state.spreadH) {
+    grid.classList.toggle('is-fixed-cells', !!state.fixedCellSize);
+    const viewport = document.getElementById('er-canvas-viewport');
+    const zoomWrap = document.getElementById('er-canvas-zoom');
+    if (viewport) viewport.classList.toggle('is-fixed-cells', !!state.fixedCellSize);
+    if (zoomWrap) zoomWrap.classList.toggle('is-fixed-cells', !!state.fixedCellSize);
+    if (state.fixedCellSize) {
+      grid.style.setProperty('--er-cell-w', cellWidthFixed() + 'px');
+    } else if (state.spreadH) {
       grid.style.setProperty('--er-cell-w', cellWidthForSpread(lay.cols, state.zoom, false) + 'px');
     } else {
       grid.style.removeProperty('--er-cell-w');
@@ -3260,7 +3366,7 @@
       const txList = textsAt(i);
       const free = isFreeMove(i);
       const custom = usesCustomLayout(i);
-      const mot = custom ? '' : motionClass(state.motion);
+      const mot = motionClass(state.motion);
       const ox = clampPct(ov?.x, 50);
       const oy = clampPct(ov?.y, 50);
       const gx = clampPct(gf?.x, 82);
@@ -3274,7 +3380,7 @@
       let fg = '';
       if (ov?.src) {
         if (custom) {
-          fg = `<div class="er-free-item er-free-overlay${free ? ' is-free-edit' : ''}${oSel ? ' is-item-selected' : ''}" data-free-kind="overlay" data-slot="${i}" style="left:${ox}%;top:${oy}%;--er-item-scale:${oScale};z-index:${oZ}" title="${free ? 'Clic = seleccionar · arrastra · asa / rueda = tamaño' : 'Layout libre'}">
+          fg = `<div class="er-free-item er-free-overlay${free ? ' is-free-edit' : ''}${oSel ? ' is-item-selected' : ''}${mot}" data-free-kind="overlay" data-slot="${i}" style="left:${ox}%;top:${oy}%;--er-item-scale:${oScale};z-index:${oZ}" title="${free ? 'Clic = seleccionar · arrastra · asa / rueda = tamaño' : 'Layout libre'}">
             <img class="er-cell-fg is-free" src="${ov.src}" alt="" draggable="false">
             ${free ? '<span class="er-free-handle" data-free-resize="overlay" data-slot="' + i + '" title="Redimensionar"></span>' : ''}
           </div>`;
@@ -3285,7 +3391,7 @@
       let gift = '';
       if (gf?.src) {
         if (custom) {
-          gift = `<div class="er-free-item er-free-gift${free ? ' is-free-edit' : ''}${gSel ? ' is-item-selected' : ''}" data-free-kind="gift" data-slot="${i}" style="left:${gx}%;top:${gy}%;--er-item-scale:${gScale};z-index:${gZ}" title="${free ? escapeHtml(gf.name || 'Regalo') + ' · clic = seleccionar · arrastra · asa / rueda = tamaño' : escapeHtml(gf.name || 'Regalo')}">
+          gift = `<div class="er-free-item er-free-gift${free ? ' is-free-edit' : ''}${gSel ? ' is-item-selected' : ''}${mot}" data-free-kind="gift" data-slot="${i}" style="left:${gx}%;top:${gy}%;--er-item-scale:${gScale};z-index:${gZ}" title="${free ? escapeHtml(gf.name || 'Regalo') + ' · clic = seleccionar · arrastra · asa / rueda = tamaño' : escapeHtml(gf.name || 'Regalo')}">
             <img class="er-cell-gift is-free" src="${gf.src}" alt="" draggable="false">
             ${free ? '<span class="er-free-handle" data-free-resize="gift" data-slot="' + i + '" title="Redimensionar"></span>' : ''}
           </div>`;
@@ -3304,7 +3410,7 @@
           : (custom
             ? 'Layout libre aplicado · clic derecho → Editar / capas'
             : 'Arrastra para reordenar · clic derecho para opciones'));
-      const txMot = (!custom && state.textMotion && state.motion !== 'off') ? motionClass(state.motion) : '';
+      const txMot = (state.textMotion && state.motion !== 'off') ? motionClass(state.motion) : '';
       const textByTi = txList.map((tx, ti) => {
         const txStyle = clampTextStyle(tx.style);
         const txColor = clampTextColor(tx.color);
@@ -3339,10 +3445,10 @@
       const texts = state.texts.slice(0, state.count).reduce((n, cell) => n + normalizeTextList(cell).length, 0);
       const bits = [`${state.count} cuadros`, fondoLabel(state), gapTxt];
       if (state.spreadH) bits.push('estirado');
+      if (state.fixedCellSize) bits.push('tamaño fijo');
       if (clampGridN(state.gridN)) {
-        const g = clampGridN(state.gridN);
         const lay = layoutFor(state.count, state.gridN);
-        bits.push(state.count >= g * g ? (g + '×' + g) : (lay.cols + ' cols'));
+        bits.push(lay.cols + '×' + lay.rows);
       }
       if (imgs) bits.push(`${imgs} img`);
       if (gifts) bits.push(`${gifts} regalo${gifts === 1 ? '' : 's'}`);
@@ -3702,6 +3808,8 @@
     });
     document.getElementById('er-gap-on')?.addEventListener('click', () => setGap(true));
     document.getElementById('er-gap-off')?.addEventListener('click', () => setGap(false));
+    document.getElementById('er-cellsize-fit')?.addEventListener('click', () => setFixedCellSize(false));
+    document.getElementById('er-cellsize-fixed')?.addEventListener('click', () => setFixedCellSize(true));
     document.getElementById('er-spread-on')?.addEventListener('click', () => setSpreadH(true));
     document.getElementById('er-spread-off')?.addEventListener('click', () => setSpreadH(false));
     document.getElementById('er-grid-auto')?.addEventListener('click', () => setGridAuto());
@@ -3710,6 +3818,19 @@
     document.querySelectorAll('#er-grid-n-btns [data-er-grid-n]').forEach((btn) => {
       btn.addEventListener('click', () => setGridN(btn.dataset.erGridN));
     });
+    document.getElementById('er-grid-custom-btn')?.addEventListener('click', () => openGridCustomPanel());
+    document.getElementById('er-grid-custom-apply')?.addEventListener('click', () => {
+      const c = document.getElementById('er-grid-cols')?.value;
+      const r = document.getElementById('er-grid-rows')?.value;
+      setGridCustom(c, r);
+    });
+    const applyCustomOnEnter = (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      document.getElementById('er-grid-custom-apply')?.click();
+    };
+    document.getElementById('er-grid-cols')?.addEventListener('keydown', applyCustomOnEnter);
+    document.getElementById('er-grid-rows')?.addEventListener('keydown', applyCustomOnEnter);
     document.getElementById('er-motion')?.addEventListener('change', (e) => {
       setMotion(e.target.value);
     });
@@ -4568,6 +4689,7 @@
     const prevFrameMode = state.frameMode;
     const prevFrameColor = state.frameColor;
     const prevSpreadH = state.spreadH;
+    const prevFixedCellSize = state.fixedCellSize;
     const prevGridN = clampGridN(state.gridN);
     const prevCount = state.count;
     const prevFilasSnap = normalizeFilasSnap(state.filasSnap)
@@ -4625,6 +4747,7 @@
         gridN,
         gap: prevGap !== false,
         spreadH: !!prevSpreadH,
+        fixedCellSize: !!prevFixedCellSize,
         zoom: prevZoom,
         imgScale: prevImgScale,
         frameMode: prevFrameMode,
@@ -4691,6 +4814,7 @@
       renderCountControls();
       renderGapToggle();
       renderSpreadToggle();
+      renderCellSizeToggle();
       renderMotionControl();
       renderFrameControls();
       renderPickBar();
@@ -4766,6 +4890,7 @@
     renderCountControls();
     renderGapToggle();
     renderSpreadToggle();
+    renderCellSizeToggle();
     renderMotionControl();
     renderFrameControls();
     renderPickBar();

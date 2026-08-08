@@ -15,6 +15,7 @@ import { ensureMarioBridge, ensureMari0Bridge } from './mario-bridge.js';
 import { likeTriggerFires } from './like-trigger.js';
 import { buildGdashEffectUrl, fireGdashEffectRequest } from './gdash-effect.js';
 import { runWebhookExec } from './smbx-tiktok-webhook.js';
+import { decryptAndMapTfc, mapTikfinityActionsToMc, tikfinityObsCmdFromAction, tikfinitySbCmdFromAction } from './tikfinity-tfc.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -646,7 +647,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const eid = String(e?.id || '').trim();
       if (!eid) continue;
       const img = emoteImageUrl(e.image) || String(e.image || '').trim();
-      emoteCatalog.set(eid, { id: eid, image: img });
+      const name = String(e.name || e.nombre || '').trim().slice(0, 64);
+      emoteCatalog.set(eid, { id: eid, image: img, name });
     }
   }
   loadEmotesCatalog();
@@ -662,14 +664,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!Array.isArray(list) || !list.length) return false;
     let changed = false;
     for (const e of list) {
-      const eid = String(e?.id || '').trim();
+      const eid = String(e?.id || e?.emoteId || '').trim();
       if (!eid) continue;
-      const url = emoteImageUrl(e.image);
+      const url = emoteImageUrl(e.image) || emoteImageUrl(e.emoteImage) || String(e.image || e.emoteImage || '').trim();
+      const name = String(e.name || e.nombre || '').trim().slice(0, 64);
       const prev = emoteCatalog.get(eid);
-      if (!prev || (!prev.image && url)) {
-        emoteCatalog.set(eid, { id: eid, image: url || prev?.image || '' });
+      if (!prev) {
+        emoteCatalog.set(eid, { id: eid, image: url || '', name: name || '' });
+        changed = true;
+        continue;
+      }
+      let next = prev;
+      if (url && !prev.image) {
+        next = { ...next, image: url };
         changed = true;
       }
+      if (name && !prev.name) {
+        next = { ...next, name };
+        changed = true;
+      }
+      if (next !== prev) emoteCatalog.set(eid, next);
     }
     if (changed) {
       scheduleSaveEmotesCatalog();
@@ -960,7 +974,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'flowMeter', 'giftSeq', 'giftShowcase',
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'giftGoals', 'giftCounter', 'topStreak',
-    'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills',
+    'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills', 'screenFx',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
@@ -3586,13 +3600,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     state.username = username;
     state.connecting = true;
-    if (!opts.auto) {
-      // Conectar manual: el usuario pide empezar limpio.
-      resetSessionState();
-      liveSession = { roomId: null, username: null, active: false, startedAt: null };
-      saveLiveSession();
-    }
-    // Auto-conexión: no resetear aquí; se evalúa al conectar según roomId guardado.
+    // No resetear aquí: tras conectar se decide por roomId (mismo live = conservar overlays;
+    // live nuevo / primera conexión = reset). Evita borrar todo al reconectar por un fallo.
     pushState();
     if (!opts.auto) broadcast('log', { level: 'info', text: `Conectando a @${username}...` });
 
@@ -3615,34 +3624,30 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         state.connecting = false;
         const newRoomId = connState?.roomId ?? null;
         state.roomId = newRoomId;
-        if (auto) {
-          const mode = applyAutoLiveConnected(newRoomId, username);
-          seedStatsFromRoomInfo();
-          resetRankSnap();
-          startRankStreamerTimer();
-          startLiveBadgeTimer();
-          pushState();
-          syncLiveUptimeOnConnect();
-          if (mode === 'reconnect') {
-            broadcast('log', { level: 'ok', text: `Reconectado al live (sala ${newRoomId ?? ''}) — overlays conservados` });
-          } else {
-            broadcast('log', { level: 'ok', text: `Conectado automáticamente a la sala ${newRoomId ?? ''}` });
-          }
+        const mode = applyAutoLiveConnected(newRoomId, username);
+        seedStatsFromRoomInfo();
+        resetRankSnap();
+        startRankStreamerTimer();
+        startLiveBadgeTimer();
+        pushState();
+        syncLiveUptimeOnConnect();
+        if (mode === 'reconnect') {
+          broadcast('log', {
+            level: 'ok',
+            text: auto
+              ? `Reconectado al live (sala ${newRoomId ?? ''}) — overlays conservados`
+              : `Reconectado a @${username} (sala ${newRoomId ?? ''}) — overlays conservados`,
+          });
         } else {
-          liveSession = { roomId: newRoomId, username, active: true, startedAt: Date.now() };
-          saveLiveSession();
-          state.startedAt = liveSession.startedAt;
-          liveBadgeSent = false;
-          seedStatsFromRoomInfo();
-          resetRankSnap();
-          startRankStreamerTimer();
-          startLiveBadgeTimer();
-          pushState();
-          syncLiveUptimeOnConnect();
           broadcastAllRankStates();
           if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
           if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
-          broadcast('log', { level: 'ok', text: `Conectado a la sala ${newRoomId ?? ''}` });
+          broadcast('log', {
+            level: 'ok',
+            text: auto
+              ? `Conectado automáticamente a la sala ${newRoomId ?? ''}`
+              : `Conectado a la sala ${newRoomId ?? ''}`,
+          });
         }
         fetchRoomCommunityGifts(conn);
         // Evita leer/TTS de todo el backlog de chat al conectar tarde.
@@ -3849,6 +3854,109 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       broadcast('fanBallDrop', { photo: user.photo || '', nickname: user.nickname || '', count });
       broadcast('log', { level: 'ok', text: `🏀 Pelotas: ${count} de ${user.nickname || uid} (${kind === 'coins' ? 'monedas' : 'likes'} +${amount}, cada ${every})` });
     }
+  }
+
+  /** Efectos a pantalla completa (App PC): disparadores tipo Acciones/MC. */
+  function fireScreenFxRule(r, label) {
+    if (!r || r.on === false) return;
+    const allowedSet = new Set([
+      'black', 'lightning', 'dvd', 'snow', 'confetti', 'glitch',
+      'matrix', 'static', 'flash', 'hearts', 'bubbles',
+    ]);
+    const effectRaw = String(r.effect || 'black').toLowerCase();
+    const allowed = allowedSet.has(effectRaw) ? effectRaw : 'black';
+    let durationSec = Number(r.durationSec);
+    if (!Number.isFinite(durationSec) || durationSec < 1) durationSec = 10;
+    durationSec = Math.max(1, Math.min(120, Math.round(durationSec)));
+    let soundVol = Number(r.soundVol);
+    if (!Number.isFinite(soundVol)) soundVol = 80;
+    soundVol = Math.max(0, Math.min(100, Math.round(soundVol)));
+    const cfg = settings.screenFx || {};
+    broadcast('screenFx', {
+      effect: allowed,
+      durationSec,
+      giftId: String(r.giftId || '').trim(),
+      giftName: r.giftName || label || '',
+      sound: String(r.sound || '').trim(),
+      soundVol,
+      allowInteract: cfg.allowInteract !== false,
+    });
+    broadcast('log', {
+      level: 'ok',
+      text: `🖥️ Efecto pantalla · ${allowed} ${durationSec}s (${label || r.giftName || r.trigger || 'ok'})`,
+    });
+  }
+
+  function processScreenFxTriggers(eventType, info = {}, user = null) {
+    const cfg = settings.screenFx;
+    if (!cfg || cfg.enabled === false) return;
+    const rules = Array.isArray(cfg.rules) ? cfg.rules : [];
+    if (!rules.length) return;
+    for (const r of rules) {
+      if (!r || r.on === false) continue;
+      const trig = r.trigger || 'gift';
+      if (eventType === 'gift') {
+        if (trig !== 'gift' && trig !== 'gift-any' && trig !== 'gift-diamonds') continue;
+        // Regalo específico sin elegir = no dispara (usa «Cualquier regalo»).
+        if (trig === 'gift') {
+          const wantId = String(r.giftId || '').trim();
+          const wantName = String(r.giftName || '').trim();
+          if (!wantId && !wantName) continue;
+        }
+        if (!gameGiftTriggerMatches(r, info)) continue;
+      } else if (eventType === 'like') {
+        if (trig !== 'like') continue;
+        const likeFires = gameLikeTriggerFires(r, info, user, 'sfx');
+        if (likeFires <= 0) continue;
+        for (let lf = 0; lf < likeFires; lf++) {
+          fireScreenFxRule(r, `likes ×${info.likeCount || 1}`);
+        }
+        continue;
+      } else if (eventType === 'chat') {
+        if (trig === 'chatCommand') {
+          if (!matchesCommand(r.text, info.comment)) continue;
+        } else if (trig === 'chatUser') {
+          const want = String(r.text || '').replace(/^@/, '').trim().toLowerCase();
+          if (!want) continue;
+          const uname = String(info.username || '').toLowerCase();
+          const nname = String(info.nickname || '').toLowerCase();
+          if (want !== uname && want !== nname) continue;
+        } else {
+          continue;
+        }
+      } else if (trig !== eventType) {
+        continue;
+      }
+      if (!allowFollowSharePerUser(r, eventType, user, 'sfx')) continue;
+      const label = eventType === 'gift'
+        ? (info.giftName || r.giftName || info.giftId || 'regalo')
+        : (trig || eventType);
+      fireScreenFxRule(r, label);
+    }
+  }
+
+  function processScreenFxLikeGlobal(total, prevTotal) {
+    const cfg = settings.screenFx;
+    if (!cfg || cfg.enabled === false) return;
+    const rules = Array.isArray(cfg.rules) ? cfg.rules : [];
+    for (const r of rules) {
+      if (!r || r.on === false || (r.trigger || '') !== 'likeGlobal') continue;
+      const goal = Math.max(1, r.likeN || 100);
+      if (Math.floor(total / goal) > Math.floor(prevTotal / goal)) {
+        fireScreenFxRule(r, `${total} likes globales`);
+      }
+    }
+  }
+
+  /** @deprecated usar processScreenFxTriggers('gift', …) */
+  function processScreenFx(giftId, giftName) {
+    processScreenFxTriggers('gift', {
+      giftId,
+      giftName,
+      totalDiamonds: 0,
+      diamonds: 0,
+      repeatCount: 1,
+    }, null);
   }
 
   function triggerSoundAlerts(eventType, info = {}, user = null, times = 1) {
@@ -6346,7 +6454,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function triggerLikeGlobal(total) {
     if (!total || total <= lastTotalLikes) { lastTotalLikes = total || lastTotalLikes; return; }
+    const prevTotal = lastTotalLikes;
     triggerActionsLikeGlobal(total);
+    processScreenFxLikeGlobal(total, prevTotal);
     const firedLikeVid = new Set();
     forEachTriggerProfile((cfg, isGeneral) => {
       for (const a of (cfg.mcActions || [])) {
@@ -6640,6 +6750,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     triggerSoundAlerts('levelUp', info);
     triggerActions('levelUp', info, user);
     triggerMinecraftActions('levelUp', info, user);
+    processScreenFxTriggers('levelUp', info, user);
     playLevelVideo(lvl);
   }
 
@@ -8249,25 +8360,34 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           trigger: link.type === 'any_gift' ? 'any_gift' : 'gift',
         });
       }
-      if (a.keystrokes) {
-        interacciones.push({
-          nombre: name,
-          tecla: String(a.keystrokes).slice(0, 120),
-          enabled,
-          nombreRegalo: giftRef,
-        });
-      } else if (a.mcCmd || a.webhookUrl) {
-        interacciones.push({
-          nombre: name + (a.mcCmd ? ' [MC]' : ' [WH]'),
-          tecla: '',
-          enabled,
-          nombreRegalo: giftRef,
-          _mcCmd: a.mcCmd || '',
-          _webhookUrl: a.webhookUrl || '',
-        });
+      if (a.mcCmd) {
+        /* Minecraft → más abajo */
+      } else {
+        const whUrl = String(a.webhookUrl || '').trim();
+        const keys = a.keystrokes ? String(a.keystrokes).slice(0, 120) : '';
+        const obsCmd = tikfinityObsCmdFromAction(a);
+        const sbCmd = tikfinitySbCmdFromAction(a);
+        const hasMedia = !!(a.videoUrl || a.audioUrl);
+        const wantObs = !!(obsCmd && (!hasMedia || keys || whUrl || sbCmd));
+        if (keys || whUrl || sbCmd || wantObs) {
+          const type = String(link.type || 'gift').toLowerCase();
+          const isAny = type === 'any_gift' || type === 'gift-any' || (!giftRef && !link.giftId);
+          interacciones.push({
+            nombre: name,
+            tecla: keys,
+            enabled,
+            nombreRegalo: isAny ? '' : giftRef,
+            trigger: isAny ? 'gift-any' : (type || 'gift'),
+            giftId: isAny ? '' : (link.giftId || ''),
+            webhookUrl: whUrl,
+            obsCmd: wantObs ? obsCmd : undefined,
+            sbCmd: sbCmd || undefined,
+          });
+        }
       }
     }
-    return { alertas, videos, interacciones };
+    const minecraft = mapTikfinityActionsToMc(actions, events);
+    return { alertas, videos, interacciones, minecraft };
   }
 
   /** Descifra export .tfc de TikFinity (CryptoJS AES / OpenSSL Salted__). */
@@ -8345,25 +8465,40 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function decryptTikfinityTfc(ciphertext, opts = {}) {
-    const keys = buildTikfinityPassphrases(opts);
-    let lastErr = null;
-    for (const key of keys) {
-      try {
-        const plain = decryptCryptoJsOpenSsl(ciphertext, key);
-        const trimmed = String(plain || '').trim();
-        if (!trimmed) continue;
-        const data = JSON.parse(trimmed);
-        if (!data || typeof data !== 'object') continue;
-        return { data, passphraseUsed: key === opts.password ? '(password)' : (key === String(opts.channelId) ? 'channelId' : 'key') };
-      } catch (e) {
-        lastErr = e;
+    try {
+      const mapped = decryptAndMapTfc(ciphertext);
+      if (mapped?.data) {
+        return {
+          data: mapped.data,
+          passphraseUsed: 'tikfinity-tfc',
+          encVersion: mapped.encVersion,
+          sourceChannelId: mapped.sourceChannelId,
+          counts: mapped.counts,
+          emotes: mapped.emotes || [],
+        };
       }
+    } catch (e) {
+      const keys = buildTikfinityPassphrases(opts);
+      let lastErr = e;
+      for (const key of keys) {
+        try {
+          const plain = decryptCryptoJsOpenSsl(ciphertext, key);
+          const trimmed = String(plain || '').trim();
+          if (!trimmed) continue;
+          const data = JSON.parse(trimmed);
+          if (!data || typeof data !== 'object') continue;
+          return { data, passphraseUsed: key === opts.password ? '(password)' : (key === String(opts.channelId) ? 'channelId' : 'key') };
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw new Error(
+        lastErr?.message?.includes('Salted')
+          ? lastErr.message
+          : (lastErr?.message || 'No se pudo descifrar el .tfc.')
+      );
     }
-    throw new Error(
-      lastErr?.message?.includes('Salted')
-        ? lastErr.message
-        : 'No se pudo descifrar el .tfc con tu User ID. Prueba la contraseña de exportación (si TikFinity te la pidió) o exporta de nuevo.'
-    );
+    throw new Error('El .tfc se abrió pero no trae alertas/acciones.');
   }
 
   function replyTikfinityDecrypt(ws, payload) {
@@ -8464,6 +8599,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       tryPointsLookupCommand(comment, chatUser);
       handleSpotifyCommands(comment, chatUser, chatUserRoles(data));
       triggerMinecraftActions('chat', chatInfo, chatUser);
+      processScreenFxTriggers('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
       // ID estable del hablante (uniqueId o userId numérico).
       const uidRaw = chatUser.uniqueId || data.user?.uniqueId || data.user?.userId || data.userId || '';
@@ -8486,6 +8622,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         triggerSoundAlerts('firstMessage', firstMsgInfo);
         triggerMinecraftActions('firstMessage', firstMsgInfo, chatUser);
         triggerActions('firstMessage', firstMsgInfo, chatUser);
+        processScreenFxTriggers('firstMessage', firstMsgInfo, chatUser);
       }
       // Hint de entrada: solo la primera vez en el live (si TikTok no manda MEMBER).
       if (uid && !chatSeenUsers.has(uid)) {
@@ -8627,6 +8764,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         applyWinsGiftHooks(giftId, repeatCount);
         processFanBalls('coins', user, total);
         trackSessionGift(user, giftName, repeatCount, diamondsEach, image);
+        processScreenFxTriggers('gift', giftInfo, user);
       }
 
       triggerGiftGameActions(user, giftId, repeatCount, !!data.repeatEnd, giftType, giftInfo);
@@ -8658,6 +8796,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       // anti-spam de sonidos (su propósito original).
       triggerVideos('like', likeInfo, likeUser);
       triggerActions('like', likeInfo, likeUser);
+      processScreenFxTriggers('like', likeInfo, likeUser);
       if (Date.now() - lastLikeSound > 3000) {
         lastLikeSound = Date.now();
         triggerSoundAlerts('like', likeInfo, likeUser);
@@ -8715,6 +8854,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         triggerSoundAlerts('follow', {}, user);
         triggerActions('follow', {}, user);
         triggerMinecraftActions('follow', {}, user);
+      processScreenFxTriggers('follow', {}, user);
         if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
@@ -8726,6 +8866,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         triggerSoundAlerts('share', {}, user);
         triggerActions('share', {}, user);
         triggerMinecraftActions('share', {}, user);
+      processScreenFxTriggers('share', {}, user);
         if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('share', Math.max(1, parseInt(c.pointsShare, 10) || 1));
@@ -8743,6 +8884,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerSoundAlerts('follow', {}, user);
       triggerActions('follow', {}, user);
       triggerMinecraftActions('follow', {}, user);
+      processScreenFxTriggers('follow', {}, user);
       if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
       const c = settings.hypeBar || {};
       trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
@@ -8758,6 +8900,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerSoundAlerts('share', {}, user);
       triggerActions('share', {}, user);
       triggerMinecraftActions('share', {}, user);
+      processScreenFxTriggers('share', {}, user);
       if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
       // Hype: igual que la rama share de SOCIAL (si este canal gana el dedupe, que no se pierda).
       const c = settings.hypeBar || {};
@@ -8787,6 +8930,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerVideos('subscribe', info);
       triggerActions('subscribe', info, user);
       triggerMinecraftActions('subscribe', info, user);
+      processScreenFxTriggers('subscribe', info, user);
       addTimerSeconds(settings.timer?.subscribe || 0);
       const subBonus = Math.round(Number(settings.points?.subBonus) || 0);
       if (user.uniqueId && subBonus > 0) {
@@ -8829,6 +8973,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerVideos(eventType, info);
       triggerActions(eventType, info, user);
       triggerMinecraftActions(eventType, info, user);
+      processScreenFxTriggers(eventType, info, user);
       // Pelota / puntos solo al volverse Super Fan (no al entrar).
       if (!isJoin) {
         broadcast('goldenBall', { photo: user.photo || '', nickname: user.nickname || '', count: 1 });
@@ -9176,6 +9321,31 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         break;
       }
+      case 'importEmotes': {
+        try {
+          const list = Array.isArray(data.emotes) ? data.emotes : [];
+          const before = emoteCatalog.size;
+          const changed = mergeEmotes(list);
+          const added = Math.max(0, emoteCatalog.size - before);
+          if (changed) {
+            broadcast('log', { level: 'info', text: `🎭 Stickers en catálogo: ${emoteCatalog.size}${added ? ` (+${added})` : ''}.` });
+          }
+          try {
+            ws.send(JSON.stringify({
+              type: 'importEmotesResult',
+              payload: { ok: true, added, total: emoteCatalog.size },
+            }));
+          } catch {}
+        } catch (e) {
+          try {
+            ws.send(JSON.stringify({
+              type: 'importEmotesResult',
+              payload: { ok: false, error: e.message || String(e) },
+            }));
+          } catch {}
+        }
+        break;
+      }
       case 'importTikfinityPoints': {
         const channelId = String(data.channelId || '').trim();
         const mode = data.mode === 'replace' ? 'replace' : 'merge';
@@ -9212,8 +9382,38 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             password: data.password,
             username: data.username,
           });
-          replyTikfinityDecrypt(ws, { ok: true, data: result.data, hint: result.passphraseUsed });
-          broadcast('log', { level: 'info', text: '📥 .tfc de TikFinity descifrado correctamente.' });
+          try {
+            const emotes = Array.isArray(result.emotes) ? result.emotes : [];
+            if (emotes.length) mergeEmotes(emotes);
+            else {
+              const fromLists = [];
+              for (const a of result.data?.alertas || []) {
+                if (a?.trigger === 'emote' && a.emoteId) {
+                  fromLists.push({ id: a.emoteId, image: a.emoteImage || '', name: a.nombre || '' });
+                }
+              }
+              for (const v of result.data?.videos || []) {
+                if (v?.trigger === 'emote' && v.emoteId) {
+                  fromLists.push({ id: v.emoteId, image: v.emoteImage || '', name: v.nombreLista || '' });
+                }
+              }
+              if (fromLists.length) mergeEmotes(fromLists);
+            }
+          } catch {}
+          replyTikfinityDecrypt(ws, {
+            ok: true,
+            data: result.data,
+            hint: result.passphraseUsed,
+            sourceChannelId: result.sourceChannelId || null,
+            counts: result.counts || null,
+            encVersion: result.encVersion || null,
+            emotes: result.emotes || [],
+          });
+          const c = result.counts || {};
+          broadcast('log', {
+            level: 'info',
+            text: `📥 .tfc TikFinity: ${c.alertas || 0} sonido(s), ${c.videos || 0} video(s), ${c.interacciones || 0} acción(es), ${c.minecraft || 0} Minecraft, ${c.emotes || 0} sticker(s).`,
+          });
         } catch (e) {
           replyTikfinityDecrypt(ws, { ok: false, error: e.message || String(e) });
         }
@@ -9235,12 +9435,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
               alertas: legacy.alertas.length,
               videos: legacy.videos.length,
               interacciones: legacy.interacciones.length,
+              minecraft: Array.isArray(legacy.minecraft) ? legacy.minecraft.length : 0,
               actionsFetched: actions.length,
             };
             replyTikfinityCloudSettings(ws, { ok: true, data: legacy, counts });
             broadcast('log', {
               level: 'info',
-              text: `📥 TikFinity nube: ${counts.alertas} sonido(s), ${counts.videos} video(s), ${counts.interacciones} acción(es).`,
+              text: `📥 TikFinity nube: ${counts.alertas} sonido(s), ${counts.videos} video(s), ${counts.interacciones} acción(es), ${counts.minecraft} Minecraft.`,
             });
           } catch (e) {
             replyTikfinityCloudSettings(ws, { ok: false, error: e.message || String(e) });
@@ -9747,7 +9948,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('hypeTest', {});
         break;
       case 'resetHype':
+        sessionOv.hype = { score: 0, target: Math.max(1, parseInt(settings.hypeBar?.meta, 10) || 100), coinTotal: 0 };
+        saveSessionOverlays();
         broadcast('hypeReset', {});
+        broadcast('sessionOverlays', serializeSessionOverlaysPayload());
         break;
       case 'testAlertaGift':
         broadcast('alertaGiftTest', {});
@@ -9820,6 +10024,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'testSorteos':
         broadcast('sorteosTest', {});
+        break;
+      case 'testScreenFx':
+        broadcast('screenFx', {
+          effect: data.effect || 'black',
+          durationSec: Math.max(1, Math.min(120, Number(data.durationSec) || 5)),
+          giftId: data.giftId || '',
+          giftName: data.giftName || 'Test',
+          sound: String(data.sound || '').trim(),
+          soundVol: Math.max(0, Math.min(100, Number(data.soundVol) || 80)),
+          allowInteract: data.allowInteract !== false,
+        });
+        break;
+      case 'stopScreenFx':
+        broadcast('screenFxStop', {});
         break;
       case 'timerControl': {
         const op = data.op;
