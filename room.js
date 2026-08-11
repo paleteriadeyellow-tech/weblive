@@ -914,7 +914,33 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function markLiveSessionEnded() {
     liveSession.active = false;
     liveSession.roomId = null;
+    liveSession.endedAt = Date.now();
     saveLiveSession();
+  }
+  /** STREAM_END a veces es espurio: no borrar jarrón/marranito al instante. */
+  let streamEndResetTimer = null;
+  const STREAM_END_RESET_GRACE_MS = 90000;
+  function cancelPendingStreamEndReset() {
+    if (streamEndResetTimer) {
+      clearTimeout(streamEndResetTimer);
+      streamEndResetTimer = null;
+    }
+  }
+  function scheduleStreamEndOverlayReset() {
+    cancelPendingStreamEndReset();
+    liveSession.active = false;
+    liveSession.endedAt = Date.now();
+    /* Conservar roomId/username durante la gracia → reconexión = mismo live, sin wipe */
+    saveLiveSession();
+    streamEndResetTimer = setTimeout(() => {
+      streamEndResetTimer = null;
+      if (state.connected || liveSession.active) return;
+      markLiveSessionEnded();
+      resetSessionOverlays();
+      try {
+        broadcast('log', { level: 'info', text: 'Overlays de sesión reiniciados (live terminado).' });
+      } catch {}
+    }, STREAM_END_RESET_GRACE_MS);
   }
   function resetSessionState() {
     lastTotalLikes = 0;
@@ -924,18 +950,33 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   // Auto-conexión / reinicio Render: resetea solo si es un live distinto (otro roomId).
   function applyAutoLiveConnected(newRoomId, username) {
+    cancelPendingStreamEndReset();
     if (isSameLiveSession(newRoomId, username)) {
       liveSession.username = username;
       liveSession.active = true;
+      liveSession.endedAt = null;
+      saveLiveSession();
+      state.startedAt = liveSession.startedAt || Date.now();
+      return 'reconnect';
+    }
+    /* Mismo user poco después de STREAM_END (roomId nuevo o aún guardado): no wipe */
+    const endedAt = Number(liveSession.endedAt) || 0;
+    const recentEnd = endedAt > 0 && (Date.now() - endedAt) < (STREAM_END_RESET_GRACE_MS + 30000);
+    if (recentEnd && liveUserMatch(liveSession.username, username)) {
+      liveSession.roomId = newRoomId;
+      liveSession.username = username;
+      liveSession.active = true;
+      liveSession.endedAt = null;
       saveLiveSession();
       state.startedAt = liveSession.startedAt || Date.now();
       return 'reconnect';
     }
     const prevRoomId = liveSession.roomId;
     const isNewLive = !!(newRoomId && prevRoomId && String(newRoomId) !== String(prevRoomId));
-    const isFirstLive = !prevRoomId;
+    /* Solo “primer live” real: sin roomId y sin sesión reciente del mismo user */
+    const isFirstLive = !prevRoomId && !recentEnd;
     if (isNewLive || isFirstLive) resetSessionState();
-    liveSession = { roomId: newRoomId, username, active: true, startedAt: Date.now() };
+    liveSession = { roomId: newRoomId, username, active: true, startedAt: Date.now(), endedAt: null };
     saveLiveSession();
     state.startedAt = liveSession.startedAt;
     liveBadgeSent = false;
@@ -9104,10 +9145,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       syncLiveUptimeOnDisconnect();
       stopLiveBadgeTimer();
       if (wasLive) notifyLiveSessionEnd();
-      markLiveSessionEnded();
       pushState();
       broadcast('log', { level: 'info', text: 'El live terminó.' });
-      resetSessionOverlays(); // al finalizar el live, limpia overlays (menos los semanales)
+      /* No wipe inmediato: STREAM_END falso + reconnect borraba jarrón/marranito en OBS */
+      scheduleStreamEndOverlayReset();
     });
   }
 

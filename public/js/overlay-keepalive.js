@@ -9,6 +9,7 @@
  * 4) Vuelta a la escena / pageshow / online → re-chequeo.
  * 5) Reinicio de Render (502): registra SW para que el próximo fallo
  *    sirva caché/recuperación en vez de quedarse en Bad Gateway.
+ * 6) Sondeo WS periódico en vivo (por si CEF se queda mudo a media transmisión).
  *
  * Así no hace falta borrar y volver a pegar el link en Live Studio.
  */
@@ -23,6 +24,7 @@
   const BOOT_WINDOW_MS = 60000;
   const MAX_BOOT_RELOADS = 5;
   const WS_FAIL_BEFORE_RELOAD = 2;
+  const PERIODIC_WS_PROBE_MS = 45000;
 
   let downSince = 0;
   let lastReloadAt = 0;
@@ -30,6 +32,7 @@
   let bootReloads = 0;
   let wsFailStreak = 0;
   let forceWsProbe = true; // primer tick + al volver a la escena
+  let lastPeriodicProbeAt = 0;
   const bootAt = Date.now();
 
   // Overlays en OBS/Live Studio no cargan el panel: registrar SW aquí
@@ -131,14 +134,23 @@
       }
       downSince = 0;
 
-      // Arranque en frío / CEF negro: HTTP OK pero WS no abre.
-      // Solo en ventana de boot o cuando la escena vuelve a verse (no en cada tick).
+      const now = Date.now();
+      const visible = !document.hidden && document.visibilityState !== 'hidden';
+      if (visible && now - lastPeriodicProbeAt >= PERIODIC_WS_PROBE_MS) {
+        lastPeriodicProbeAt = now;
+        forceWsProbe = true;
+      }
+
+      // Arranque en frío / CEF negro / WS mudo a media transmisión.
       const needWsCheck = forceWsProbe || inBootWindow();
       forceWsProbe = false;
-      if (needWsCheck && bootReloads < MAX_BOOT_RELOADS) {
+      const allowBootLimited = bootReloads < MAX_BOOT_RELOADS;
+      const allowPeriodic = !inBootWindow(); // fuera del boot no hay tope duro
+      if (needWsCheck && (allowBootLimited || allowPeriodic)) {
         const wsOk = await probeWs(2600);
         if (wsOk) {
           wsFailStreak = 0;
+          bootReloads = 0;
           try { sessionStorage.removeItem('lc_ov_boot_reloads'); } catch { /* ignore */ }
         } else {
           wsFailStreak += 1;
@@ -147,7 +159,6 @@
             maybeReload(inBootWindow() ? 'boot-recover' : 'ws-stuck');
             return;
           }
-          // Reintentar en el próximo tick temprano del boot
           if (inBootWindow()) forceWsProbe = true;
         }
       }

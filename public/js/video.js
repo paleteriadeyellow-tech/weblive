@@ -335,9 +335,83 @@ function playOnStage(lane, m, done) {
   el.style.maxHeight = size + 'vh';
   host.appendChild(el);
 
+  /* Overlay Studio (iframe cross-origin): avisar tamaño real del media */
+  const pingBounds = () => { try { reportOverlayStudioBounds(); } catch {} };
+  if (isImg) {
+    if (el.complete) pingBounds();
+    else el.addEventListener('load', pingBounds, { once: true });
+  } else {
+    el.addEventListener('loadedmetadata', pingBounds, { once: true });
+    el.addEventListener('loadeddata', pingBounds, { once: true });
+    el.addEventListener('playing', pingBounds, { once: true });
+  }
+  requestAnimationFrame(pingBounds);
+  setTimeout(pingBounds, 120);
+  setTimeout(pingBounds, 400);
+
   // Imágenes ya tienen su timer; videos/imagen sin avance → absoluto
   if (isImg) addTimer(lane, () => { if (alive()) finish(); }, ABSOLUTE_MAX_MS);
 }
+
+function reportOverlayStudioBounds() {
+  try {
+    if (!window.parent || window.parent === window) return;
+    const vw = Math.max(1, document.documentElement.clientWidth || window.innerWidth || 1);
+    const vh = Math.max(1, document.documentElement.clientHeight || window.innerHeight || 1);
+    const el = document.querySelector('#stage .media, #stageGeneral .media');
+    if (!el) {
+      window.parent.postMessage({
+        type: 'livecoins-video-bounds',
+        screen,
+        vw,
+        vh,
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+        empty: true,
+      }, '*');
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    let x = r.left;
+    let y = r.top;
+    let w = r.width;
+    let h = r.height;
+    const nw = Number(el.videoWidth || el.naturalWidth || 0) || 0;
+    const nh = Number(el.videoHeight || el.naturalHeight || 0) || 0;
+    if (nw > 0 && nh > 0 && (w < 8 || h < 8 || Math.abs((w / h) - (nw / nh)) > 0.08)) {
+      const maxW = vw * 0.9;
+      const maxH = vh * 0.9;
+      const s = Math.min(maxW / nw, maxH / nh);
+      w = nw * s;
+      h = nh * s;
+      x = (vw - w) / 2;
+      y = (vh - h) / 2;
+    }
+    window.parent.postMessage({
+      type: 'livecoins-video-bounds',
+      screen,
+      vw,
+      vh,
+      x: Math.max(0, x),
+      y: Math.max(0, y),
+      w: Math.max(0, w),
+      h: Math.max(0, h),
+      nw,
+      nh,
+      empty: false,
+    }, '*');
+  } catch {}
+}
+
+window.addEventListener('message', (ev) => {
+  try {
+    const data = ev && ev.data;
+    if (!data || data.type !== 'livecoins-video-bounds-request') return;
+    reportOverlayStudioBounds();
+  } catch {}
+});
 
 function stopStageEl(host) {
   if (!host) return;
