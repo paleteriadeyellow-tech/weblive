@@ -6798,9 +6798,10 @@
               </div>
 
               <div class="tmr-main-btns">
-                <button class="btn primary" id="tmr-start">? Iniciar</button>
-                <button class="btn ghost" id="tmr-pause">? Pausar</button>
-                <button class="btn ghost" id="tmr-reset">? Reiniciar</button>
+                <button class="btn primary" id="tmr-start" title="Pone el tiempo de Fijar y arranca">▶ Iniciar</button>
+                <button class="btn ghost" id="tmr-pause">⏸ Pausar</button>
+                <button class="btn ghost" id="tmr-resume" title="Continúa desde donde quedó">▶ Despausar</button>
+                <button class="btn ghost" id="tmr-reset" title="Pone el contador en 0">↺ Reiniciar</button>
               </div>
 
               <div class="tmr-quick">
@@ -6836,32 +6837,49 @@
                 <input type="number" id="tmr-subscribe" min="0" step="1" />
               </div>
               <div class="field">
+                <label>Segundos por super fan 🌟</label>
+                <input type="number" id="tmr-superfan" min="0" step="1" />
+                <p class="hint">Solo al <b>volverse</b> super fan (no al entrar al live si ya lo era).</p>
+              </div>
+              <div class="field">
                 <label>Segundos por comentario ??</label>
                 <input type="number" id="tmr-chat" min="0" step="1" />
+              </div>
+              <div class="field tmr-penalty-block">
+                <label>Regalo que resta tiempo ⏳</label>
+                <p class="hint">Ese regalo <b>no suma</b> por monedas: en su lugar <b>resta</b> los segundos que indiques (por unidad / combo).</p>
+                <div class="tmr-penalty-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
+                  <button type="button" class="btn ghost gift-pick-btn tmr-penalty-pick" id="tmr-penalty-pick" title="Elegir regalo">🎁 Elegir regalo…</button>
+                  <button type="button" class="btn ghost" id="tmr-penalty-clear" title="Quitar">✕</button>
+                  <input type="hidden" id="tmr-penalty-giftid" value="">
+                  <input type="hidden" id="tmr-penalty-giftname" value="">
+                </div>
+                <label style="margin-top:10px;display:block">Segundos que resta (por unidad)</label>
+                <input type="number" id="tmr-penalty-secs" min="0" step="1" value="30" />
               </div>
             </div>
 
             <!-- Opciones -->
             <div class="settings-card timer-opts">
-              <div class="tts-head"><h3>Opciones</h3><span class="tts-sub">Inicio, tope y final</span></div>
-              <div class="field">
-                <label>Tiempo inicial (minutos)</label>
-                <input type="number" id="tmr-default" min="0" step="1" />
-                <p class="hint">Es el tiempo al que vuelve el temporizador al pulsar <b>Reiniciar</b>. El tiempo actual se guarda solo y se recupera si reinicias la app o Render.</p>
+              <div class="tts-head"><h3>Opciones</h3><span class="tts-sub">Tope y final</span></div>
+              <!-- Tiempo inicial oculto: Iniciar usa Fijar; Reiniciar va a 0 -->
+              <div class="field" hidden aria-hidden="true">
+                <input type="hidden" id="tmr-default" value="0" />
               </div>
-              <label class="switch-row plain"><input type="checkbox" id="tmr-maxon"> <span>Limitar tiempo m?ximo</span></label>
+              <label class="switch-row plain"><input type="checkbox" id="tmr-maxon"> <span>Limitar tiempo máximo</span></label>
               <div class="field">
-                <label>Tope m?ximo (minutos)</label>
+                <label>Tope máximo (minutos)</label>
                 <input type="number" id="tmr-maxcap" min="0" step="1" />
               </div>
               <div class="field">
                 <label>Al llegar a 00:00</label>
                 <select id="tmr-onfinish">
                   <option value="pause">Detenerse en 00:00</option>
-                  <option value="reset">Reiniciar al tiempo inicial</option>
+                  <option value="reset">Quedar en 00:00</option>
                   <option value="beep">Sonar un pitido</option>
                 </select>
               </div>
+              <p class="hint">El tiempo se guarda solo y solo se borra con <b>Reiniciar</b> (va a 0). <b>Iniciar</b> usa min/seg de Fijar; <b>Despausar</b> continúa sin cambiarlo.</p>
             </div>
           </div>
         </section>
@@ -9820,7 +9838,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=tfcstick16"></script>
+  <script src="/js/dashboard.js?v=tmrctrl3"></script>
   <script src="/js/editor-rapido.js?v=er80"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedpng1"></script>

@@ -3249,6 +3249,8 @@ input:focus, select:focus { border-color: var(--cyan); }
 }
 .gift-pick-btn { width: 100%; text-align: left; }
 .gift-pick-ic { width: 22px; height: 22px; object-fit: contain; vertical-align: middle; margin-right: 4px; }
+#tmr-penalty-pick .gift-pick-ic { width: 36px; height: 36px; margin: 0; }
+#tmr-penalty-pick .gift-pick-ic { width: 36px; height: 36px; margin: 0; }
 
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid var(--line); cursor: move; user-select: none; -webkit-user-select: none; }
 .modal-head button,

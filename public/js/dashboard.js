@@ -4268,20 +4268,47 @@ function renderTimerState(p) {
 function tmrSend(op, extra) { send({ action: 'timerControl', op, ...(extra || {}) }); }
 
 (function setupTimerControls() {
+  const tmrReadFijarSec = () => {
+    const min = Number($('tmr-min')?.value) || 0;
+    const sec = Number($('tmr-sec')?.value) || 0;
+    return Math.max(0, Math.floor(min * 60 + sec));
+  };
   const setBtn = $('tmr-setbtn');
   if (setBtn) setBtn.onclick = () => {
-    const min = Number($('tmr-min').value) || 0;
-    const sec = Number($('tmr-sec').value) || 0;
-    tmrSend('set', { totalSeconds: min * 60 + sec });
+    tmrSend('set', { totalSeconds: tmrReadFijarSec() });
   };
+  // Iniciar = SIEMPRE poner el tiempo de Fijar y arrancar (no reanudar el anterior).
   if ($('tmr-start')) $('tmr-start').onclick = () => {
-    const min = Number($('tmr-min').value) || 0;
-    const sec = Number($('tmr-sec').value) || 0;
-    const total = min * 60 + sec;
-    tmrSend('start', total > 0 ? { totalSeconds: total } : {});
+    const total = tmrReadFijarSec();
+    if (total <= 0) {
+      try { toast('Pon minutos/segundos en Fijar para iniciar', 'err'); } catch {}
+      return;
+    }
+    // set + start: fuerza el valor aunque el server ignore un campo
+    tmrSend('set', { totalSeconds: total });
+    tmrSend('start', { totalSeconds: total });
   };
   if ($('tmr-pause')) $('tmr-pause').onclick = () => tmrSend('pause');
-  if ($('tmr-reset')) $('tmr-reset').onclick = () => tmrSend('reset');
+  // Despausar = continuar SIN tocar el tiempo.
+  // Usamos op "start" sin totalSeconds (compatible con .exe/Render viejos).
+  if ($('tmr-resume')) $('tmr-resume').onclick = () => {
+    if (tmrRemaining <= 0) {
+      try { toast('No hay tiempo para despausar (está en 0)', 'err'); } catch {}
+      return;
+    }
+    tmrSend('start');
+  };
+  // Reiniciar → 0. En servers viejos "reset" vuelve al tiempo inicial;
+  // pause + set(0) al final fuerza 0 en todos.
+  if ($('tmr-reset')) $('tmr-reset').onclick = () => {
+    tmrStopLocal();
+    tmrRemaining = 0;
+    tmrRunning = false;
+    tmrPaint();
+    tmrSend('pause');
+    tmrSend('reset');
+    tmrSend('set', { totalSeconds: 0 });
+  };
   document.querySelectorAll('.tmr-quick .chip').forEach((b) => {
     b.onclick = () => tmrSend('add', { delta: Number(b.dataset.add) || 0 });
   });
@@ -4301,18 +4328,71 @@ function tmrSend(op, extra) { send({ action: 'timerControl', op, ...(extra || {}
   bindNum('tmr-follow', 'follow');
   bindNum('tmr-share', 'share');
   bindNum('tmr-subscribe', 'subscribe');
+  bindNum('tmr-superfan', 'superFan');
   bindNum('tmr-chat', 'chat');
+  bindNum('tmr-penalty-secs', 'penaltySecs');
 
-  // Tiempo inicial y tope se muestran en minutos pero se guardan en segundos.
-  // Al escribir el tiempo inicial se refleja al instante en el temporizador
-  // (sin pulsar Reiniciar), siempre que NO esté corriendo para no cortar una cuenta activa.
-  if ($('tmr-default')) $('tmr-default').addEventListener('input', () => {
-    if (!settings.timer) settings.timer = {};
-    const secs = Math.max(0, Math.round((Number($('tmr-default').value) || 0) * 60));
-    settings.timer.defaultInitialSec = secs;
-    saveSettings();
-    if (!tmrRunning) tmrSend('set', { totalSeconds: secs });
-  });
+  function refreshTimerPenaltyLabel() {
+    const t = settings.timer || {};
+    const btn = $('tmr-penalty-pick');
+    const idEl = $('tmr-penalty-giftid');
+    const nameEl = $('tmr-penalty-giftname');
+    if (idEl) idEl.value = t.penaltyGiftId ? String(t.penaltyGiftId) : '';
+    if (nameEl) nameEl.value = t.penaltyGiftName ? String(t.penaltyGiftName) : '';
+    if (!btn) return;
+    const id = t.penaltyGiftId ? String(t.penaltyGiftId) : '';
+    const name = t.penaltyGiftName ? String(t.penaltyGiftName) : '';
+    if (!id && !name) {
+      btn.innerHTML = '🎁 Elegir regalo…';
+      btn.title = 'Elegir regalo';
+      return;
+    }
+    let img = t.penaltyGiftImage ? String(t.penaltyGiftImage) : '';
+    try {
+      if (!img && id && typeof giftCatalogById !== 'undefined') {
+        img = giftCatalogById.get(id)?.image || '';
+      }
+      if (!img && name && typeof giftCatalog !== 'undefined') {
+        img = giftCatalog.find((x) => String(x.name || '').toLowerCase() === name.toLowerCase())?.image || '';
+      }
+    } catch {}
+    const tip = name || ('#' + id);
+    if (img) {
+      btn.innerHTML = `<img class="gift-pick-ic" src="${esc(img)}" alt="" onerror="this.outerHTML='🎁'">`;
+    } else {
+      btn.innerHTML = '🎁';
+    }
+    btn.title = tip;
+  }
+
+  if ($('tmr-penalty-pick')) {
+    $('tmr-penalty-pick').onclick = () => {
+      try {
+        openGiftModalCb((g) => {
+          if (!settings.timer) settings.timer = {};
+          settings.timer.penaltyGiftId = String(g.id || '');
+          settings.timer.penaltyGiftName = String(g.name || '');
+          settings.timer.penaltyGiftImage = String(g.image || '');
+          refreshTimerPenaltyLabel();
+          saveSettings();
+        });
+      } catch (err) {
+        try { toast('No se pudo abrir el catálogo de regalos', 'err'); } catch {}
+      }
+    };
+  }
+  if ($('tmr-penalty-clear')) {
+    $('tmr-penalty-clear').onclick = () => {
+      if (!settings.timer) settings.timer = {};
+      settings.timer.penaltyGiftId = '';
+      settings.timer.penaltyGiftName = '';
+      settings.timer.penaltyGiftImage = '';
+      refreshTimerPenaltyLabel();
+      saveSettings();
+    };
+  }
+
+  // Tope / al llegar a 00:00. El tiempo vivo NO se toca desde aquí (solo Reiniciar → 0).
   if ($('tmr-maxcap')) $('tmr-maxcap').addEventListener('change', () => {
     if (!settings.timer) settings.timer = {};
     settings.timer.maxCapSec = Math.max(0, Math.round((Number($('tmr-maxcap').value) || 0) * 60));
@@ -4338,11 +4418,38 @@ function applyTimerSettingsUI() {
   setVal('tmr-follow', t.follow ?? 10);
   setVal('tmr-share', t.share ?? 15);
   setVal('tmr-subscribe', t.subscribe ?? 60);
+  setVal('tmr-superfan', t.superFan ?? 60);
   setVal('tmr-chat', t.chat ?? 0);
-  setVal('tmr-default', Math.round((t.defaultInitialSec ?? 300) / 60));
+  setVal('tmr-penalty-secs', t.penaltySecs ?? 30);
   setVal('tmr-maxcap', Math.round((t.maxCapSec ?? 18000) / 60));
   if ($('tmr-maxon')) $('tmr-maxon').checked = !!t.maxEnabled;
-  if ($('tmr-onfinish')) $('tmr-onfinish').value = t.actionOnFinish || 'pause';
+  if ($('tmr-onfinish')) {
+    const act = t.actionOnFinish || 'pause';
+    $('tmr-onfinish').value = act === 'reset' ? 'pause' : act;
+  }
+  if ($('tmr-penalty-giftid')) $('tmr-penalty-giftid').value = t.penaltyGiftId ? String(t.penaltyGiftId) : '';
+  if ($('tmr-penalty-giftname')) $('tmr-penalty-giftname').value = t.penaltyGiftName ? String(t.penaltyGiftName) : '';
+  try {
+    const pickBtn = $('tmr-penalty-pick');
+    if (pickBtn) {
+      const id = t.penaltyGiftId ? String(t.penaltyGiftId) : '';
+      const name = t.penaltyGiftName ? String(t.penaltyGiftName) : '';
+      if (!id && !name) {
+        pickBtn.innerHTML = '🎁 Elegir regalo…';
+        pickBtn.title = 'Elegir regalo';
+      } else {
+        let img = t.penaltyGiftImage ? String(t.penaltyGiftImage) : '';
+        try {
+          if (!img && id && giftCatalogById) img = giftCatalogById.get(id)?.image || '';
+        } catch {}
+        const tip = name || ('#' + id);
+        pickBtn.innerHTML = img
+          ? `<img class="gift-pick-ic" src="${esc(img)}" alt="" onerror="this.outerHTML='🎁'">`
+          : '🎁';
+        pickBtn.title = tip;
+      }
+    }
+  } catch {}
 }
 
 /* ====================== Ajustes (sync con servidor) ====================== */
@@ -6343,9 +6450,14 @@ function updateEmotePickBtn(target) {
 
 async function openEmoteModal(target = 'vid') {
   emoteTarget = target;
-  $('emoteModal').classList.remove('hidden');
+  const modal = $('emoteModal');
+  if (!modal) return;
+  try {
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+  } catch {}
+  modal.classList.remove('hidden');
   const grid = $('emote-grid');
-  grid.innerHTML = '<div class="empty">Cargando…</div>';
+  if (grid) grid.innerHTML = '<div class="empty">Cargando…</div>';
   // Si ya hay stickers en alertas/videos importados, súbelos al catálogo antes de pintar.
   try { seedEmoteCatalogFromImport(collectEmotesFromLivecoinsSettings(settings)); } catch {}
   const cached = emoteCatalog.slice();
@@ -6560,11 +6672,18 @@ async function openGiftModal(target = 'sa', cb = null) {
   giftPickCallback = cb;
   giftTarget = target;
   giftModalTab = 'all';
+  const modal = $('giftModal');
+  if (!modal) return;
+  /* El HTML vive dentro de una .view; si esa pestaña no está activa (display:none),
+     el modal no se ve. Sacarlo a body al abrir. */
+  try {
+    if (modal.parentElement !== document.body) document.body.appendChild(modal);
+  } catch {}
   if ($('gift-tabs')) {
     $('gift-tabs').querySelectorAll('.gift-tab').forEach((el) => el.classList.toggle('active', el.dataset.tab === 'all'));
   }
-  $('giftModal').classList.remove('hidden');
-  $('gift-q').value = '';
+  modal.classList.remove('hidden');
+  if ($('gift-q')) $('gift-q').value = '';
   // Mostrar al instante si el catálogo ya está en memoria (preload / apertura previa).
   if (giftCatalog.length) {
     if (communityGiftCatalog.length && !giftCommunityMerged) {
@@ -6574,7 +6693,7 @@ async function openGiftModal(target = 'sa', cb = null) {
     }
     renderGiftGrid('');
   } else {
-    $('gift-grid').innerHTML = '<div class="empty">Cargando regalos…</div>';
+    if ($('gift-grid')) $('gift-grid').innerHTML = '<div class="empty">Cargando regalos…</div>';
   }
 
   // Actualiza en segundo plano; no vuelve a pedir comunidad si ya se cargó hace poco.

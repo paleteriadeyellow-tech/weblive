@@ -4511,3 +4511,11 @@ process.on('SIGINT', () => {
   try { streamerRankings.flush(); } catch {}
   process.exit(0);
 });
+process.on('SIGTERM', () => {
+  try { process.emit('SIGINT'); } catch {
+    for (const room of rooms.values()) {
+      try { room.shutdown(); } catch {}
+    }
+    process.exit(0);
+  }
+});

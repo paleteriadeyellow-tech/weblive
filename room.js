@@ -1404,6 +1404,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       return true;
     }
     const local = profiles[key];
+    // Temporizador: el estado vivo (savedRemaining) gana por savedAt más reciente.
+    // Sin esto, la nube con 78h pisaba un Reiniciar/Fijar local recién hecho.
+    if (key === 'timer') {
+      const merged = normalizeSharedValue(key, mergePreferFilledShared(local, incoming));
+      const lAt = Number(local && local.savedAt) || 0;
+      const rAt = Number(incoming && incoming.savedAt) || 0;
+      const src = (local && lAt >= rAt) ? local : incoming;
+      if (src && typeof src === 'object') {
+        if (src.savedRemaining != null) merged.savedRemaining = src.savedRemaining;
+        if (src.savedRunning != null) merged.savedRunning = src.savedRunning;
+        if (src.savedAt != null) merged.savedAt = src.savedAt;
+      }
+      profiles[key] = merged;
+      return true;
+    }
     // Unión: campos de ambos; si uno viene vacío y el otro tiene valor, se conserva el valor.
     profiles[key] = normalizeSharedValue(key, mergePreferFilledShared(local, incoming));
     return true;
@@ -1531,7 +1546,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function saveSettings() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
+    saveTimer = setTimeout(() => { saveSettingsNow(); }, 300);
+  }
+  /** Flush inmediato a disco (Reiniciar/Fijar/cierre de app). */
+  function saveSettingsNow() {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    try {
       normalizeSettingsMediaUrls(settings);
       persistSharedFromSettings();
       const snap = cloneSettings(settings);
@@ -1544,7 +1565,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       // Mantenemos settings.json como espejo del perfil activo (compatibilidad y
       // sincronización con el servidor remoto, que lee el perfil activo).
       writeJsonAtomic(SETTINGS_FILE, settings);
-    }, 300);
+    } catch {}
   }
 
   /* ------------------------------- Perfiles ------------------------------- */
@@ -1776,9 +1797,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastAllRankStates();
     broadcast('settings', settings);
     broadcastProfiles();
-    restoreTimerFromSettings();
-    clampTimer();
-    broadcastTimer();
+    // Sync silencioso (nube): NO restaurar el contador desde disco/nube — pisaría
+    // un Reiniciar/Fijar en vivo. El temporizador en memoria manda mientras la room vive.
+    if (silent) {
+      try {
+        if (!settings.timer || typeof settings.timer !== 'object') settings.timer = {};
+        settings.timer.savedRemaining = Math.max(0, Math.round(timer.remaining));
+        settings.timer.savedRunning = !!timer.running;
+        settings.timer.savedAt = Date.now();
+        persistSharedFromSettings();
+      } catch {}
+    } else {
+      restoreTimerFromSettings();
+      clampTimer();
+      broadcastTimer(true);
+    }
     if (!silent && typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
     return true;
   }
@@ -2415,18 +2448,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // sincronizado aunque un overlay se reconecte o el navegador esté en segundo plano.
   // El tiempo restante se persiste en settings.timer.saved* para sobrevivir reinicios
   // de la app / redeploys en Render.
-  function persistTimerState() {
+  function persistTimerState(immediate) {
     if (!settings.timer || typeof settings.timer !== 'object') settings.timer = {};
     settings.timer.savedRemaining = Math.max(0, Math.round(timer.remaining));
     settings.timer.savedRunning = !!timer.running;
     settings.timer.savedAt = Date.now();
-    saveSettings();
+    if (immediate) saveSettingsNow();
+    else saveSettings();
   }
   function restoreTimerFromSettings() {
     const t = settings.timer || {};
     const raw = t.savedRemaining;
+    // Sin guardado previo: 0 (no “tiempo inicial”). Solo Reiniciar borra el contador.
     if (raw == null || !Number.isFinite(Number(raw))) {
-      timer.remaining = Math.max(0, Math.floor(Number(t.defaultInitialSec) || 0));
+      timer.remaining = 0;
       timer.running = false;
       return;
     }
@@ -2457,9 +2492,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function serializeTimer() {
     return { remaining: Math.max(0, Math.round(timer.remaining)), running: !!timer.running };
   }
-  function broadcastTimer() {
+  function broadcastTimer(immediate) {
     broadcast('timer', serializeTimer());
-    persistTimerState();
+    persistTimerState(!!immediate);
   }
   function stopTimerInterval() {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
@@ -2469,44 +2504,56 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!d || !Number.isFinite(d)) return;
     timer.remaining += d;
     clampTimer();
-    broadcastTimer();
+    broadcastTimer(true);
   }
   function timerReachZero() {
     stopTimerInterval();
     timer.running = false;
+    timer.remaining = 0;
     const act = String(settings.timer?.actionOnFinish || 'pause');
-    if (act === 'reset') {
-      timer.remaining = Math.max(0, Math.floor(settings.timer?.defaultInitialSec || 0));
-      clampTimer();
-    } else if (act === 'beep') {
+    // 'reset' ya no restaura “tiempo inicial”: el contador se queda en 0.
+    if (act === 'beep') {
       broadcast('timerBeep', {});
     }
-    broadcastTimer();
+    broadcastTimer(true);
   }
   function startTimer(seconds) {
-    if (seconds != null) { timer.remaining = Math.max(0, Math.floor(Number(seconds))); clampTimer(); }
-    if (timer.remaining <= 0) { timer.running = false; broadcastTimer(); return; }
+    // Solo cambia el tiempo si viene un número válido (Iniciar/Fijar).
+    // Sin argumento (Despausar) → continúa con el remaining actual.
+    if (seconds != null && seconds !== '') {
+      const n = Math.floor(Number(seconds));
+      if (Number.isFinite(n)) {
+        timer.remaining = Math.max(0, n);
+        clampTimer();
+      }
+    }
+    if (timer.remaining <= 0) { timer.running = false; broadcastTimer(true); return; }
     stopTimerInterval();
     timer.running = true;
-    broadcastTimer();
+    broadcastTimer(true);
     timerInterval = setInterval(() => {
       timer.remaining -= 1;
       if (timer.remaining <= 0) { timer.remaining = 0; timerReachZero(); return; }
-      broadcastTimer();
+      broadcastTimer(false);
     }, 1000);
   }
-  function pauseTimer() { stopTimerInterval(); timer.running = false; broadcastTimer(); }
+  /** Reanuda sin cambiar el tiempo restante (Despausar). */
+  function resumeTimer() {
+    if (timer.running) return;
+    if (timer.remaining <= 0) { broadcastTimer(true); return; }
+    startTimer(); // sin segundos = no toca remaining
+  }
+  function pauseTimer() { stopTimerInterval(); timer.running = false; broadcastTimer(true); }
   function setTimer(seconds) {
     if (seconds != null) timer.remaining = Math.max(0, Math.floor(Number(seconds)));
     clampTimer();
-    broadcastTimer();
+    broadcastTimer(true);
   }
   function resetTimer() {
     stopTimerInterval();
     timer.running = false;
-    timer.remaining = Math.max(0, Math.floor(settings.timer?.defaultInitialSec || 0));
-    clampTimer();
-    broadcastTimer();
+    timer.remaining = 0;
+    broadcastTimer(true);
   }
 
   /* ------------------------ Tiempo en live (overlay) ------------------------ */
@@ -8777,7 +8824,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         addPkHostGiftPoints(total);
 
-        addTimerSeconds(total * (settings.timer?.giftMult || 0));
+        /* Temporizador: regalo especial RESTA (ignora monedas); el resto suma giftMult */
+        const tCfg = settings.timer || {};
+        const penId = String(tCfg.penaltyGiftId || '').trim();
+        const penName = String(tCfg.penaltyGiftName || '').trim().toLowerCase();
+        const isPenalty = !!(penId || penName) && (
+          (penId && String(giftId) === penId)
+          || (penName && String(giftName || '').trim().toLowerCase() === penName)
+        );
+        if (isPenalty) {
+          const units = Math.max(1, Number(repeatCount) || 1);
+          const sub = Math.max(0, Number(tCfg.penaltySecs) || 0) * units;
+          if (sub > 0) addTimerSeconds(-sub);
+        } else {
+          addTimerSeconds(total * (tCfg.giftMult || 0));
+        }
 
         broadcast('log', { level: 'info', text: `🎁 Regalo: ${giftName} (id ${giftId}) ×${repeatCount} · 💎${diamondsEach}` });
 
@@ -9015,13 +9076,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerActions(eventType, info, user);
       triggerMinecraftActions(eventType, info, user);
       processScreenFxTriggers(eventType, info, user);
-      // Pelota / puntos solo al volverse Super Fan (no al entrar).
+      // Pelota / puntos / temporizador solo al volverse Super Fan (no al entrar).
       if (!isJoin) {
         broadcast('goldenBall', { photo: user.photo || '', nickname: user.nickname || '', count: 1 });
         const bonus = Math.round(Number(settings.points?.superFanBonus) || 0);
         if (user.uniqueId && bonus > 0) {
           addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: bonus, counted: true, description: 'Super fan', manual: false });
         }
+        addTimerSeconds(settings.timer?.superFan || 0);
       }
     }
     conn.on(WebcastEvent.SUPER_FAN, (data) => handleSuperFan(data));
@@ -10084,6 +10146,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const op = data.op;
         if (op === 'set') setTimer(data.totalSeconds);
         else if (op === 'start') startTimer(data.totalSeconds);
+        else if (op === 'resume') resumeTimer();
         else if (op === 'pause') pauseTimer();
         else if (op === 'reset') resetTimer();
         else if (op === 'add') addTimerSeconds(data.delta);
@@ -10147,6 +10210,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (screensPulseTimer) { clearInterval(screensPulseTimer); screensPulseTimer = null; }
     clearTimeout(screensBroadcastTimer);
     stopTimerInterval();
+    // Guardar el contador YA (sin debounce) antes de matar el proceso.
+    try {
+      if (!settings.timer || typeof settings.timer !== 'object') settings.timer = {};
+      settings.timer.savedRemaining = Math.max(0, Math.round(timer.remaining));
+      settings.timer.savedRunning = false; // al cerrar no reanudar solo
+      settings.timer.savedAt = Date.now();
+      saveSettingsNow();
+    } catch {}
     clearTimeout(weeklySaveTimer);
     clearTimeout(statsTimer);
     // Flush perfiles YA: saveSettings() va con debounce 300ms y settings es un clone

@@ -84,7 +84,8 @@ export const DEFAULT_SETTINGS = {
   // Temporizador (cuenta regresiva que suma tiempo con la interacción del live).
   //  - giftMult: segundos por cada moneda/diamante de regalo
   //  - like:     segundos por cada 100 likes
-  //  - follow/share/subscribe/chat: segundos por cada evento
+  //  - follow/share/subscribe/superFan/chat: segundos por cada evento
+  //  - penaltyGiftId + penaltySecs: regalo concreto que RESTA tiempo (ignora giftMult)
   //  - defaultInitialSec: tiempo inicial (al reiniciar o conectar)
   //  - maxEnabled/maxCapSec: tope máximo opcional
   //  - actionOnFinish: qué hacer al llegar a 0 -> 'pause' | 'reset' | 'beep'
@@ -94,7 +95,12 @@ export const DEFAULT_SETTINGS = {
     follow: 10,
     share: 15,
     subscribe: 60,
+    superFan: 60,
     chat: 0,
+    penaltyGiftId: '',
+    penaltyGiftName: '',
+    penaltyGiftImage: '',
+    penaltySecs: 30,
     defaultInitialSec: 300,
     maxEnabled: false,
     maxCapSec: 18000,
