@@ -3505,18 +3505,40 @@ app.get('/api/community-gifts', (req, res) => {
   res.json({ results: getRoomForUser(user).getCommunityGifts() });
 });
 
-// Proxy de imágenes externas (CDN de regalos TikTok) para servirlas desde el mismo
-// origen. Lo usa el generador de "imagen de regalos" (canvas) para poder exportar el
-// PNG sin que el lienzo quede "tainted" por CORS.
+// Proxy de imágenes externas (CDN TikTok / regalos) para servirlas desde el mismo
+// origen. Lo usa el generador de "imagen de regalos" (canvas) y avatares del panel.
 app.get('/api/img-proxy', async (req, res) => {
   try {
-    const url = String(req.query.url || '');
+    let url = String(req.query.url || '').trim();
+    if (url.startsWith('//')) url = 'https:' + url;
     if (!/^https?:\/\//i.test(url)) return res.status(400).end('bad url');
-    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.tiktok.com/' } });
+    const r = await fetch(url, {
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        'Referer': 'https://www.tiktok.com/',
+      },
+    });
     if (!r.ok) return res.status(502).end('upstream error');
-    const ct = r.headers.get('content-type') || 'image/png';
-    if (!/^image\//i.test(ct)) return res.status(415).end('not an image');
     const buf = Buffer.from(await r.arrayBuffer());
+    if (!buf.length) return res.status(502).end('empty');
+    let ct = String(r.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    const sniff = (() => {
+      if (buf[0] === 0xFF && buf[1] === 0xD8) return 'image/jpeg';
+      if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return 'image/png';
+      if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return 'image/gif';
+      if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
+        && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50) return 'image/webp';
+      return '';
+    })();
+    // TikTok CDN a menudo responde application/octet-stream aunque sea imagen.
+    if (!/^image\//i.test(ct)) {
+      if (!sniff) return res.status(415).end('not an image');
+      ct = sniff;
+    } else if (sniff) {
+      ct = sniff;
+    }
     res.set('Content-Type', ct);
     res.set('Cache-Control', 'public, max-age=86400');
     res.set('Access-Control-Allow-Origin', '*');

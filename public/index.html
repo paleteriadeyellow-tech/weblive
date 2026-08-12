@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=dock141" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=ptsui3" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
@@ -6771,102 +6771,140 @@
 
         <!-- ===================== TEMPORIZADOR ===================== -->
         <section class="view" id="view-timer">
-          <h1 class="view-title">?? Temporizador</h1>
-          <p class="view-sub">Cuenta regresiva que suma tiempo con la interacci?n del live. Añade el overlay en OBS y contr?lalo desde aqué.</p>
+          <header class="tmr-page-head">
+            <div class="tmr-page-head-text">
+              <h1 class="view-title">⏱️ Temporizador</h1>
+              <p class="view-sub">Cuenta regresiva que suma tiempo con la interacción del live. Añade el overlay en OBS y contrólalo desde aquí.</p>
+            </div>
+          </header>
 
           <!-- Overlay para OBS (barra compacta) -->
           <div class="tmr-overlay-bar overlay-item">
-            <span class="tmr-ov-label">?? Overlay OBS</span>
-            <code class="ov-url" data-path="/timer.html">/timer.html</code>
+            <div class="tmr-ov-left">
+              <span class="tmr-ov-ico" aria-hidden="true">◈</span>
+              <span class="tmr-ov-label">Overlay OBS</span>
+              <code class="ov-url" data-path="/timer.html">/timer.html</code>
+            </div>
             <div class="ov-actions">
               <button class="mini ov-copy">copiar</button>
-              <a class="mini" target="_blank" rel="noopener">abrir</a>
             </div>
           </div>
 
           <div class="timer-grid">
             <!-- Control en vivo -->
             <div class="settings-card timer-control">
-              <div class="tmr-display" id="tmr-display">00:00</div>
-              <div class="tmr-state" id="tmr-state">En pausa</div>
+              <div class="tmr-control-top">
+                <span class="tmr-kicker">Control en vivo</span>
+                <div class="tmr-skin-bar">
+                  <button type="button" class="tmr-skin-arrow" id="tmr-skin-prev" title="Diseño anterior" aria-label="Diseño anterior">‹</button>
+                  <div class="tmr-skin-meta">
+                    <b id="tmr-skin-name">Clásico</b>
+                    <span id="tmr-skin-idx">1 / 5</span>
+                  </div>
+                  <button type="button" class="tmr-skin-arrow" id="tmr-skin-next" title="Diseño siguiente" aria-label="Diseño siguiente">›</button>
+                </div>
+                <div class="tmr-display-wrap tmr-skin-preview-wrap">
+                  <iframe id="tmr-ov-preview" class="tmr-ov-preview" data-src="/timer.html?embed=1" title="Vista previa del temporizador"></iframe>
+                  <div class="tmr-readout">
+                    <div class="tmr-display" id="tmr-display">00:00</div>
+                    <div class="tmr-state" id="tmr-state">En pausa</div>
+                  </div>
+                </div>
+              </div>
 
-              <div class="tmr-set">
-                <input type="number" id="tmr-min" min="0" placeholder="min" />
-                <span>:</span>
-                <input type="number" id="tmr-sec" min="0" max="59" placeholder="seg" />
-                <button class="btn ghost" id="tmr-setbtn">Fijar</button>
+              <div class="tmr-panel">
+                <div class="tmr-panel-label">Fijar tiempo</div>
+                <div class="tmr-set">
+                  <div class="tmr-set-fields">
+                    <label class="tmr-set-unit"><span>min</span><input type="number" id="tmr-min" min="0" placeholder="0" /></label>
+                    <span class="tmr-set-sep">:</span>
+                    <label class="tmr-set-unit"><span>seg</span><input type="number" id="tmr-sec" min="0" max="59" placeholder="0" /></label>
+                  </div>
+                  <button class="btn ghost tmr-set-btn" id="tmr-setbtn">Fijar</button>
+                </div>
               </div>
 
               <div class="tmr-main-btns">
-                <button class="btn primary" id="tmr-start" title="Pone el tiempo de Fijar y arranca">▶ Iniciar</button>
-                <button class="btn ghost" id="tmr-pause">⏸ Pausar</button>
-                <button class="btn ghost" id="tmr-resume" title="Continúa desde donde quedó">▶ Despausar</button>
-                <button class="btn ghost" id="tmr-reset" title="Pone el contador en 0">↺ Reiniciar</button>
+                <button class="btn primary tmr-btn-start" id="tmr-start" title="Pone el tiempo de Fijar y arranca">▶ Iniciar</button>
+                <button class="btn ghost tmr-btn-pause" id="tmr-pause">⏸ Pausar</button>
+                <button class="btn ghost tmr-btn-resume" id="tmr-resume" title="Continúa desde donde quedó">▶ Despausar</button>
+                <button class="btn ghost tmr-btn-reset" id="tmr-ctrl-reset" title="Pone el contador en 0">↺ Reiniciar</button>
               </div>
 
-              <div class="tmr-quick">
-                <button class="chip" data-add="30">+30s</button>
-                <button class="chip" data-add="60">+1m</button>
-                <button class="chip" data-add="300">+5m</button>
-                <button class="chip" data-add="600">+10m</button>
-                <button class="chip neg" data-add="-60">?1m</button>
+              <div class="tmr-quick-wrap">
+                <div class="tmr-panel-label">Ajuste rápido</div>
+                <div class="tmr-quick">
+                  <button class="chip" data-add="30">+30s</button>
+                  <button class="chip" data-add="60">+1m</button>
+                  <button class="chip" data-add="300">+5m</button>
+                  <button class="chip" data-add="600">+10m</button>
+                  <button class="chip neg" data-add="-60">−1m</button>
+                </div>
               </div>
             </div>
 
             <!-- Reglas de tiempo -->
             <div class="settings-card timer-rules">
-              <div class="tts-head"><h3>Tiempo por interacci?n</h3><span class="tts-sub">Cu?nto suma cada evento</span></div>
-              <div class="field">
-                <label>Segundos por cada moneda de regalo ??</label>
-                <input type="number" id="tmr-giftmult" min="0" step="0.1" />
+              <div class="tts-head tmr-card-head">
+                <h3>Tiempo por interacción</h3>
+                <span class="tts-sub">Cuánto suma cada evento</span>
               </div>
-              <div class="field">
-                <label>Segundos por cada 100 likes ??</label>
-                <input type="number" id="tmr-like" min="0" step="0.1" />
-              </div>
-              <div class="field">
-                <label>Segundos por nuevo seguidor ?</label>
-                <input type="number" id="tmr-follow" min="0" step="1" />
-              </div>
-              <div class="field">
-                <label>Segundos por compartir ??</label>
-                <input type="number" id="tmr-share" min="0" step="1" />
-              </div>
-              <div class="field">
-                <label>Segundos por suscripci?n ?</label>
-                <input type="number" id="tmr-subscribe" min="0" step="1" />
-              </div>
-              <div class="field">
-                <label>Segundos por super fan 🌟</label>
-                <input type="number" id="tmr-superfan" min="0" step="1" />
-                <p class="hint">Solo al <b>volverse</b> super fan (no al entrar al live si ya lo era).</p>
-              </div>
-              <div class="field">
-                <label>Segundos por comentario ??</label>
-                <input type="number" id="tmr-chat" min="0" step="1" />
+              <div class="tmr-fields-grid">
+                <div class="field">
+                  <label>Segundos por cada moneda de regalo 🎁</label>
+                  <input type="number" id="tmr-giftmult" min="0" step="0.1" />
+                </div>
+                <div class="field">
+                  <label>Segundos por cada 100 likes ❤️</label>
+                  <input type="number" id="tmr-like" min="0" step="0.1" />
+                </div>
+                <div class="field">
+                  <label>Segundos por nuevo seguidor ➕</label>
+                  <input type="number" id="tmr-follow" min="0" step="1" />
+                </div>
+                <div class="field">
+                  <label>Segundos por compartir 🔁</label>
+                  <input type="number" id="tmr-share" min="0" step="1" />
+                </div>
+                <div class="field">
+                  <label>Segundos por suscripción ⭐</label>
+                  <input type="number" id="tmr-subscribe" min="0" step="1" />
+                </div>
+                <div class="field">
+                  <label>Segundos por comentario 💬</label>
+                  <input type="number" id="tmr-chat" min="0" step="1" />
+                </div>
+                <div class="field tmr-field-wide">
+                  <label>Segundos por super fan 🌟</label>
+                  <input type="number" id="tmr-superfan" min="0" step="1" />
+                  <p class="hint">Solo al <b>volverse</b> super fan (no al entrar al live si ya lo era).</p>
+                </div>
               </div>
               <div class="field tmr-penalty-block">
                 <label>Regalo que resta tiempo ⏳</label>
                 <p class="hint">Ese regalo <b>no suma</b> por monedas: en su lugar <b>resta</b> los segundos que indiques (por unidad / combo).</p>
-                <div class="tmr-penalty-row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
+                <div class="tmr-penalty-row">
                   <button type="button" class="btn ghost gift-pick-btn tmr-penalty-pick" id="tmr-penalty-pick" title="Elegir regalo">🎁 Elegir regalo…</button>
                   <button type="button" class="btn ghost" id="tmr-penalty-clear" title="Quitar">✕</button>
                   <input type="hidden" id="tmr-penalty-giftid" value="">
                   <input type="hidden" id="tmr-penalty-giftname" value="">
                 </div>
-                <label style="margin-top:10px;display:block">Segundos que resta (por unidad)</label>
+                <label class="tmr-penalty-secs-label">Segundos que resta (por unidad)</label>
                 <input type="number" id="tmr-penalty-secs" min="0" step="1" value="30" />
               </div>
             </div>
 
             <!-- Opciones -->
             <div class="settings-card timer-opts">
-              <div class="tts-head"><h3>Opciones</h3><span class="tts-sub">Tope y final</span></div>
+              <div class="tts-head tmr-card-head">
+                <h3>Opciones</h3>
+                <span class="tts-sub">Tope y final</span>
+              </div>
               <!-- Tiempo inicial oculto: Iniciar usa Fijar; Reiniciar va a 0 -->
               <div class="field" hidden aria-hidden="true">
                 <input type="hidden" id="tmr-default" value="0" />
               </div>
-              <label class="switch-row plain"><input type="checkbox" id="tmr-maxon"> <span>Limitar tiempo máximo</span></label>
+              <label class="switch-row plain tmr-switch"><input type="checkbox" id="tmr-maxon"> <span>Limitar tiempo máximo</span></label>
               <div class="field">
                 <label>Tope máximo (minutos)</label>
                 <input type="number" id="tmr-maxcap" min="0" step="1" />
@@ -6879,7 +6917,7 @@
                   <option value="beep">Sonar un pitido</option>
                 </select>
               </div>
-              <p class="hint">El tiempo se guarda solo y solo se borra con <b>Reiniciar</b> (va a 0). <b>Iniciar</b> usa min/seg de Fijar; <b>Despausar</b> continúa sin cambiarlo.</p>
+              <p class="hint tmr-opts-hint">El tiempo se guarda solo y solo se borra con <b>Reiniciar</b> (va a 0). <b>Iniciar</b> usa min/seg de Fijar; <b>Despausar</b> continúa sin cambiarlo.</p>
             </div>
           </div>
         </section>
@@ -7058,8 +7096,11 @@
 
         <!-- ===================== USUARIO Y PUNTOS ===================== -->
         <section class="view" id="view-points">
-          <h1 class="view-title">?? Usuario y Puntos</h1>
-          <p class="view-sub">Puntos acumulados por cada usuario seg?n lo que han donado en tus lives. Busca un usuario (ej. <code>@pepito</code>) para ver sus puntos. Se actualiza en vivo y se guarda aunque cierres el panel.</p>
+          <header class="pts-page-head">
+            <p class="pts-kicker">Livecoins</p>
+            <h1 class="view-title">Usuario y Puntos</h1>
+            <p class="view-sub">Puntos acumulados por cada usuario según lo que han donado en tus lives. Busca un usuario (ej. <code>@pepito</code>) para ver sus puntos. Se actualiza en vivo y se guarda aunque cierres el panel.</p>
+          </header>
 
           <div class="ptabs">
             <button class="ptab active" data-ptab="users">Usuario y Puntos</button>
@@ -7069,20 +7110,22 @@
           <!-- Sub-vista: tabla de usuarios -->
           <div class="pview active" id="pview-users">
             <div class="settings-card">
-              <div class="pts-head"><span id="pts-count" class="tts-sub">?</span></div>
+              <div class="pts-head"><span id="pts-count" class="tts-sub">—</span></div>
               <div class="pts-controls">
-                <input type="search" id="pts-search" class="pts-search" placeholder="Buscar usuario? (ej. @pepito)">
-                <div class="pts-percoin">
-                  <label class="ml">Puntos por moneda</label>
-                  <input type="number" id="pts-percoin" min="0" step="0.1" value="1">
-                </div>
-                <div class="pts-percoin">
-                  <label class="ml">Bono super fan</label>
-                  <input type="number" id="pts-superfan" min="0" step="1" value="500">
-                </div>
-                <div class="pts-percoin">
-                  <label class="ml">Bono suscripci?n</label>
-                  <input type="number" id="pts-subbonus" min="0" step="1" value="100">
+                <input type="search" id="pts-search" class="pts-search" placeholder="Buscar usuario… (ej. @pepito)">
+                <div class="pts-bonuses">
+                  <div class="pts-percoin">
+                    <label class="ml">Puntos por moneda</label>
+                    <input type="number" id="pts-percoin" min="0" step="0.1" value="1">
+                  </div>
+                  <div class="pts-percoin">
+                    <label class="ml">Bono super fan</label>
+                    <input type="number" id="pts-superfan" min="0" step="1" value="500">
+                  </div>
+                  <div class="pts-percoin">
+                    <label class="ml">Bono suscripción</label>
+                    <input type="number" id="pts-subbonus" min="0" step="1" value="100">
+                  </div>
                 </div>
                 <button class="btn ghost danger" id="pts-reset">Restablecer puntos</button>
               </div>
@@ -7101,7 +7144,7 @@
 
               <div class="pts-body">
                 <div class="pts-main">
-                  <div class="admin-table-wrap">
+                  <div class="admin-table-wrap pts-table-wrap" id="pts-table-wrap">
                     <table class="admin-table pts-table">
                       <thead>
                         <tr>
@@ -7118,6 +7161,7 @@
                         <tr><td colspan="7" class="admin-empty">A?n no hay usuarios con puntos. Cuando alguien done en tu live, aparecer? aqué.</td></tr>
                       </tbody>
                     </table>
+                    <div class="pts-more" id="pts-more" hidden>Baja para cargar más…</div>
                   </div>
                 </div>
 
@@ -9838,7 +9882,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=tmrctrl3"></script>
+  <script src="/js/dashboard.js?v=ptsui3"></script>
   <script src="/js/editor-rapido.js?v=er80"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedpng1"></script>

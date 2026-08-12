@@ -1926,6 +1926,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     settings = deepMerge(settings, obj);
     if (settings.topKills && 'clearPlayers' in settings.topKills) delete settings.topKills.clearPlayers;
+    // El contador en vivo manda: un save del panel no debe pisar savedRemaining con un 0 viejo.
+    if (obj && obj.timer && typeof obj.timer === 'object') {
+      if (!settings.timer || typeof settings.timer !== 'object') settings.timer = {};
+      settings.timer.savedRemaining = Math.max(0, Math.round(timer.remaining));
+      settings.timer.savedRunning = !!timer.running;
+      settings.timer.savedAt = Date.now();
+    }
     if (obj.top1fire && obj.top1fire.resetPeriod != null
       && normalizeResetPeriod(obj.top1fire.resetPeriod) !== prevTop1FirePeriod) onTop1FireSettingsChange();
     if (obj.habibiTop && obj.habibiTop.resetPeriod != null
@@ -2465,22 +2472,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       timer.running = false;
       return;
     }
-    let rem = Math.max(0, Math.floor(Number(raw)));
-    const wasRunning = !!t.savedRunning;
-    const savedAt = Number(t.savedAt) || 0;
-    if (wasRunning && savedAt > 0) {
-      const elapsed = Math.floor((Date.now() - savedAt) / 1000);
-      if (elapsed > 0) rem = Math.max(0, rem - elapsed);
-    }
-    timer.remaining = rem;
+    // Al cerrar la app el tiempo se CONGELA (no resta el tiempo offline ni auto-arranca).
+    timer.remaining = Math.max(0, Math.floor(Number(raw)));
     if (t.maxEnabled && Number(t.maxCapSec) > 0) {
       timer.remaining = Math.min(timer.remaining, Number(t.maxCapSec));
     }
     timer.running = false;
-    if (wasRunning && timer.remaining > 0) {
-      // Reanuda tras cargar la room (mismo tick de evento).
-      setTimeout(() => { try { startTimer(); } catch {} }, 0);
-    }
   }
   function clampTimer() {
     if (timer.remaining < 0) timer.remaining = 0;
@@ -2547,6 +2544,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function setTimer(seconds) {
     if (seconds != null) timer.remaining = Math.max(0, Math.floor(Number(seconds)));
     clampTimer();
+    // Fijar/Reiniciar a 0 debe detener la cuenta si estaba en marcha.
+    if (timer.remaining <= 0) {
+      stopTimerInterval();
+      timer.running = false;
+      timer.remaining = 0;
+    }
     broadcastTimer(true);
   }
   function resetTimer() {

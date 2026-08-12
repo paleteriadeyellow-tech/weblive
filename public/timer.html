@@ -5,14 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Temporizador · Livecoins</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap');
-    :root { --cy: #00e5ff; --mg: #ff2bd6; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Orbitron:wght@700;800&family=Rajdhani:wght@700;800&family=Share+Tech+Mono&display=swap');
+    :root {
+      --cy: #25f4ee;
+      --mg: #ff2bd6;
+      --pink: #fe2c55;
+    }
     * { box-sizing: border-box; }
     html, body {
       margin: 0; height: 100%; overflow: hidden; background: transparent;
       font-family: 'Inter', system-ui, sans-serif;
     }
     body { display: flex; align-items: center; justify-content: center; }
+    /* Vista previa en el panel: damero suave para ver el marco */
+    body.embed {
+      background:
+        linear-gradient(135deg, rgba(12, 16, 28, .92), rgba(18, 22, 36, .96)),
+        repeating-conic-gradient(from 0deg, #161c2c 0% 25%, #101624 0% 50%) 50% / 18px 18px;
+    }
+    body.embed .timer {
+      transform: scale(0.92);
+      transform-origin: center center;
+      max-width: 100%;
+    }
 
     .timer {
       position: relative;
@@ -21,29 +36,35 @@
       border-radius: 18px;
       background: linear-gradient(160deg, rgba(18,24,38,.94), rgba(10,14,22,.94));
       box-shadow: 0 14px 40px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.05);
+      /* Sin transición de tamaño: al cambiar skin no “salta” */
+      transition: box-shadow .2s, background .2s, filter .2s;
     }
-    /* Borde con degradado de la marca */
     .timer::before {
-      content: ''; position: absolute; inset: 0; border-radius: 18px; padding: 2px;
+      content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
       background: linear-gradient(120deg, var(--cy), var(--mg));
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor; mask-composite: exclude;
       pointer-events: none;
-      transition: filter .2s, opacity .2s;
+      transition: filter .2s, opacity .2s, background .25s;
       opacity: .85;
     }
     body.running .timer::before {
       animation: glow 1.6s ease-in-out infinite;
     }
     @keyframes glow {
-      0%, 100% { filter: drop-shadow(0 0 4px rgba(0,229,255,.5)); opacity: .9; }
+      0%, 100% { filter: drop-shadow(0 0 4px rgba(37,244,238,.5)); opacity: .9; }
       50%      { filter: drop-shadow(0 0 14px rgba(255,43,214,.7)); opacity: 1; }
+    }
+    @keyframes pulseSoft {
+      0%, 100% { transform: scale(1); opacity: .9; }
+      50% { transform: scale(1.03); opacity: 1; }
     }
 
     .clock {
       width: 42px; height: 42px; flex: 0 0 auto;
       color: var(--cy);
-      filter: drop-shadow(0 0 6px rgba(0,229,255,.5));
+      filter: drop-shadow(0 0 6px rgba(37,244,238,.5));
+      transition: color .2s, filter .2s, opacity .2s;
     }
     body.running .clock { color: var(--mg); filter: drop-shadow(0 0 8px rgba(255,43,214,.6)); }
 
@@ -52,14 +73,119 @@
       font-variant-numeric: tabular-nums;
       background: linear-gradient(180deg, #ffffff, #cfe9ff);
       -webkit-background-clip: text; background-clip: text; color: transparent;
-      text-shadow: 0 2px 18px rgba(0,229,255,.18);
+      text-shadow: 0 2px 18px rgba(37,244,238,.18);
     }
     .time.zero { background: linear-gradient(180deg, #ffd0e6, #ff7ac3); -webkit-background-clip: text; background-clip: text; }
+
+    /* —— 1 Clásico (default) —— */
+    body[data-skin="classic"] .timer { /* base */ }
+
+    /* —— 2 Neón —— */
+    body[data-skin="neon"] .timer {
+      background: rgba(4, 8, 18, .88);
+      border-radius: 22px;
+      box-shadow: 0 0 0 1px rgba(37,244,238,.2), 0 0 28px rgba(37,244,238,.18), 0 16px 40px rgba(0,0,0,.5);
+    }
+    body[data-skin="neon"] .timer::before {
+      background: linear-gradient(120deg, #25f4ee, #7c5cff, #ff2bd6);
+      opacity: 1;
+    }
+    body[data-skin="neon"] .time {
+      background: linear-gradient(90deg, #25f4ee, #ff2bd6);
+      -webkit-background-clip: text; background-clip: text;
+      filter: drop-shadow(0 0 12px rgba(37,244,238,.45));
+      letter-spacing: 6px;
+    }
+    body[data-skin="neon"] .clock { color: #25f4ee; }
+
+    /* —— 3 Minimal —— */
+    body[data-skin="minimal"] .timer {
+      gap: 0; padding: 10px 22px;
+      background: rgba(8, 10, 16, .55);
+      border-radius: 12px;
+      box-shadow: none;
+    }
+    body[data-skin="minimal"] .timer::before {
+      padding: 1px;
+      background: linear-gradient(90deg, rgba(255,255,255,.35), rgba(37,244,238,.55));
+      opacity: .7;
+      animation: none !important;
+    }
+    body[data-skin="minimal"] .clock { display: none; }
+    body[data-skin="minimal"] .time {
+      font-family: 'Rajdhani', 'Inter', sans-serif;
+      font-size: 64px; letter-spacing: 2px; font-weight: 800;
+      background: none; color: #f2f5fb;
+      -webkit-text-fill-color: #f2f5fb;
+      text-shadow: none; filter: none;
+    }
+    body[data-skin="minimal"] .time.zero { color: #ff8fb0; -webkit-text-fill-color: #ff8fb0; }
+    body[data-skin="minimal"].running .timer {
+      background: rgba(8, 10, 16, .7);
+    }
+
+    /* —— 4 Arcade —— */
+    body[data-skin="arcade"] .timer {
+      gap: 14px; padding: 14px 28px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #1a1030, #0d0818);
+      box-shadow: 0 0 0 2px #ff2bd6, 0 0 0 4px #25f4ee, 0 12px 32px rgba(0,0,0,.55);
+    }
+    body[data-skin="arcade"] .timer::before { display: none; }
+    body[data-skin="arcade"] .clock {
+      color: #ffcf5c;
+      filter: drop-shadow(0 0 6px rgba(255,207,92,.55));
+    }
+    body[data-skin="arcade"] .time {
+      font-family: 'Orbitron', 'Inter', sans-serif;
+      font-size: 52px; letter-spacing: 3px;
+      background: linear-gradient(180deg, #ffe56a, #ff2bd6);
+      -webkit-background-clip: text; background-clip: text;
+      filter: drop-shadow(0 0 8px rgba(255,43,214,.35));
+    }
+    body[data-skin="arcade"].running .timer {
+      animation: pulseSoft 1.4s ease-in-out infinite;
+    }
+
+    /* —— 5 Glass —— */
+    body[data-skin="glass"] .timer {
+      gap: 16px; padding: 18px 36px;
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.04));
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 18px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.25);
+    }
+    body[data-skin="glass"] .timer::before {
+      padding: 1.5px;
+      background: linear-gradient(135deg, rgba(255,255,255,.65), rgba(37,244,238,.45), rgba(255,43,214,.4));
+      opacity: .9;
+      animation: none !important;
+    }
+    body[data-skin="glass"] .clock {
+      color: #fff;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,.25));
+      opacity: .9;
+    }
+    body[data-skin="glass"] .time {
+      font-family: 'Share Tech Mono', 'Inter', monospace;
+      font-size: 60px; letter-spacing: 3px;
+      background: linear-gradient(180deg, #ffffff, #d7e7ff);
+      -webkit-background-clip: text; background-clip: text;
+      filter: drop-shadow(0 2px 10px rgba(0,0,0,.2));
+    }
+    body[data-skin="glass"].running .clock { color: var(--cy); }
+
+    @media (max-width: 520px) {
+      .time { font-size: 48px; }
+      body[data-skin="arcade"] .time { font-size: 40px; }
+      body[data-skin="glass"] .time { font-size: 44px; }
+      .timer { padding: 12px 22px; gap: 12px; }
+    }
   </style>
 </head>
-<body>
+<body data-skin="classic">
   <div class="timer">
-    <svg class="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <svg class="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <circle cx="12" cy="13" r="8" />
       <path d="M12 9v4l2.5 2" />
       <path d="M9 2h6" />
@@ -69,9 +195,40 @@
   </div>
 
   <script>
+    const SKINS = ['classic', 'neon', 'minimal', 'arcade', 'glass'];
     const $ = (id) => document.getElementById(id);
     let ws, reconnectTimer;
     let remaining = 0, running = false, localTick = null;
+
+    (function initEmbed() {
+      try {
+        const q = new URLSearchParams(location.search);
+        if (q.get('embed') === '1') document.body.classList.add('embed');
+        const skinQ = String(q.get('skin') || '').toLowerCase();
+        if (SKINS.includes(skinQ)) document.body.dataset.skin = skinQ;
+      } catch {}
+    })();
+
+    function applySkin(skin) {
+      const s = String(skin || 'classic').toLowerCase();
+      document.body.dataset.skin = SKINS.includes(s) ? s : 'classic';
+    }
+
+    window.addEventListener('message', (ev) => {
+      try {
+        if (ev.origin && ev.origin !== location.origin) return;
+      } catch {}
+      const d = ev.data;
+      if (!d || d.type !== 'livecoinsTimerSkin') return;
+      applySkin(d.skin);
+      // Mantener el tiempo del panel (no volver a 00:00 al cambiar diseño).
+      if (typeof d.remaining === 'number' && Number.isFinite(d.remaining)) {
+        remaining = Math.max(0, Math.floor(d.remaining));
+        running = !!d.running;
+        render();
+        startLocal();
+      }
+    });
 
     function fmt(sec) {
       const t = Math.max(0, Math.floor(sec));
@@ -90,11 +247,16 @@
       document.body.classList.toggle('running', running);
     }
     function stopLocal() { if (localTick) { clearInterval(localTick); localTick = null; } }
-    // Tick local solo para suavizar entre mensajes del servidor (el servidor es la verdad).
     function startLocal() {
       stopLocal();
       if (!running) return;
-      localTick = setInterval(() => { if (remaining > 0) { remaining -= 1; render(); } }, 1000);
+      localTick = setInterval(() => {
+        if (remaining > 0) {
+          remaining -= 1;
+          if (remaining <= 0) { remaining = 0; running = false; stopLocal(); }
+          render();
+        }
+      }, 1000);
     }
     function applyTimer(p) {
       if (typeof p.remaining === 'number') remaining = p.remaining;
@@ -120,6 +282,9 @@
         let m; try { m = JSON.parse(ev.data); } catch { return; }
         if (m.type === 'timer') applyTimer(m.payload || {});
         else if (m.type === 'timerBeep') beep();
+        else if (m.type === 'settings' && m.payload && m.payload.timer) {
+          applySkin(m.payload.timer.skin);
+        }
       };
     }
     connect();

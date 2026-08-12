@@ -105,6 +105,7 @@ export const DEFAULT_SETTINGS = {
     maxEnabled: false,
     maxCapSec: 18000,
     actionOnFinish: 'pause',
+    skin: 'classic',
     // Estado vivo (sobrevive reinicios de app / Render)
     savedRemaining: null,
     savedRunning: false,

@@ -2263,7 +2263,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
         try { initEditorRapidoView(); } catch (e) { console.error('Editor Pro:', e); }
       }
     }
-    if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable(); }
+    if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable({ resetPage: true }); }
     if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); applySpotifyLock(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
     if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
     if (btn.dataset.view === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
@@ -4234,6 +4234,8 @@ if ($('opt-combo-once')) $('opt-combo-once').addEventListener('change', () => {
 
 /* ====================== Temporizador ====================== */
 let tmrRemaining = 0, tmrRunning = false, tmrLocalTick = null;
+/** Tras Reiniciar, ignorar broadcasts con remaining>0 (el pause previo puede llegar tarde). */
+let tmrHoldZeroUntil = 0;
 
 function tmrFmt(sec) {
   const t = Math.max(0, Math.floor(sec));
@@ -4256,11 +4258,27 @@ function tmrStopLocal() { if (tmrLocalTick) { clearInterval(tmrLocalTick); tmrLo
 function tmrStartLocal() {
   tmrStopLocal();
   if (!tmrRunning) return;
-  tmrLocalTick = setInterval(() => { if (tmrRemaining > 0) { tmrRemaining -= 1; tmrPaint(); } }, 1000);
+  tmrLocalTick = setInterval(() => {
+    if (tmrRemaining > 0) {
+      tmrRemaining -= 1;
+      if (tmrRemaining <= 0) {
+        tmrRemaining = 0;
+        tmrRunning = false;
+        tmrStopLocal();
+      }
+      tmrPaint();
+    }
+  }, 1000);
 }
 function renderTimerState(p) {
   if (!p) return;
-  if (typeof p.remaining === 'number') tmrRemaining = p.remaining;
+  if (Date.now() < tmrHoldZeroUntil && typeof p.remaining === 'number' && p.remaining > 0) {
+    return; // stale tras Reiniciar
+  }
+  if (typeof p.remaining === 'number') {
+    tmrRemaining = p.remaining;
+    if (p.remaining === 0) tmrHoldZeroUntil = 0;
+  }
   tmrRunning = !!p.running;
   tmrPaint();
   tmrStartLocal();
@@ -4269,9 +4287,9 @@ function tmrSend(op, extra) { send({ action: 'timerControl', op, ...(extra || {}
 
 (function setupTimerControls() {
   const tmrReadFijarSec = () => {
-    const min = Number($('tmr-min')?.value) || 0;
-    const sec = Number($('tmr-sec')?.value) || 0;
-    return Math.max(0, Math.floor(min * 60 + sec));
+    const min = Math.max(0, Math.floor(Number($('tmr-min')?.value) || 0));
+    const sec = Math.max(0, Math.min(59, Math.floor(Number($('tmr-sec')?.value) || 0)));
+    return min * 60 + sec;
   };
   const setBtn = $('tmr-setbtn');
   if (setBtn) setBtn.onclick = () => {
@@ -4284,34 +4302,112 @@ function tmrSend(op, extra) { send({ action: 'timerControl', op, ...(extra || {}
       try { toast('Pon minutos/segundos en Fijar para iniciar', 'err'); } catch {}
       return;
     }
-    // set + start: fuerza el valor aunque el server ignore un campo
+    tmrHoldZeroUntil = 0;
     tmrSend('set', { totalSeconds: total });
     tmrSend('start', { totalSeconds: total });
   };
   if ($('tmr-pause')) $('tmr-pause').onclick = () => tmrSend('pause');
-  // Despausar = continuar SIN tocar el tiempo.
-  // Usamos op "start" sin totalSeconds (compatible con .exe/Render viejos).
+  // Despausar = continuar SIN tocar el tiempo (start sin totalSeconds).
   if ($('tmr-resume')) $('tmr-resume').onclick = () => {
+    if (tmrRunning) return;
     if (tmrRemaining <= 0) {
       try { toast('No hay tiempo para despausar (está en 0)', 'err'); } catch {}
       return;
     }
     tmrSend('start');
   };
-  // Reiniciar → 0. En servers viejos "reset" vuelve al tiempo inicial;
-  // pause + set(0) al final fuerza 0 en todos.
-  if ($('tmr-reset')) $('tmr-reset').onclick = () => {
+  // Reiniciar → 0. Id propio (tmr-ctrl-reset): "tmr-reset" es del overlay Top rotatorio.
+  if ($('tmr-ctrl-reset')) $('tmr-ctrl-reset').onclick = () => {
     tmrStopLocal();
     tmrRemaining = 0;
     tmrRunning = false;
     tmrPaint();
+    tmrHoldZeroUntil = Date.now() + 1500;
+    // set(0) primero (autoritativo); pause después. Evita que un pause con tiempo viejo pise el 0.
+    tmrSend('set', { totalSeconds: 0 });
     tmrSend('pause');
     tmrSend('reset');
-    tmrSend('set', { totalSeconds: 0 });
   };
-  document.querySelectorAll('.tmr-quick .chip').forEach((b) => {
-    b.onclick = () => tmrSend('add', { delta: Number(b.dataset.add) || 0 });
+  document.querySelectorAll('#view-timer .tmr-quick .chip').forEach((b) => {
+    b.onclick = () => {
+      tmrHoldZeroUntil = 0;
+      tmrSend('add', { delta: Number(b.dataset.add) || 0 });
+    };
   });
+
+  const TMR_SKINS = [
+    { id: 'classic', name: 'Clásico' },
+    { id: 'neon', name: 'Neón' },
+    { id: 'minimal', name: 'Minimal' },
+    { id: 'arcade', name: 'Arcade' },
+    { id: 'glass', name: 'Glass' },
+  ];
+  function tmrSkinIndex(id) {
+    const i = TMR_SKINS.findIndex((s) => s.id === id);
+    return i >= 0 ? i : 0;
+  }
+  function tmrRefreshSkinPreview(skinId, opts) {
+    const skin = TMR_SKINS[tmrSkinIndex(skinId)] || TMR_SKINS[0];
+    if ($('tmr-skin-name')) $('tmr-skin-name').textContent = skin.name;
+    if ($('tmr-skin-idx')) $('tmr-skin-idx').textContent = `${tmrSkinIndex(skin.id) + 1} / ${TMR_SKINS.length}`;
+    const fr = $('tmr-ov-preview');
+    if (!fr) return;
+    const qs = new URLSearchParams(location.search);
+    qs.set('embed', '1');
+    qs.set('skin', skin.id);
+    const path = `/timer.html?${qs.toString()}`;
+    fr.dataset.src = path;
+    const forceReload = !!(opts && opts.reload);
+    const cur = String(fr.getAttribute('src') || '');
+    const needsLoad = forceReload || !cur || cur === 'about:blank';
+    const pushState = () => {
+      try {
+        fr.contentWindow.postMessage({
+          type: 'livecoinsTimerSkin',
+          skin: skin.id,
+          remaining: tmrRemaining,
+          running: tmrRunning,
+        }, location.origin);
+      } catch {
+        try {
+          fr.contentWindow.postMessage({
+            type: 'livecoinsTimerSkin',
+            skin: skin.id,
+            remaining: tmrRemaining,
+            running: tmrRunning,
+          }, '*');
+        } catch {}
+      }
+    };
+    if (needsLoad) {
+      fr.dataset.embedReady = '0';
+      fr.addEventListener('load', () => {
+        fr.dataset.embedReady = '1';
+        pushState();
+      }, { once: true });
+      try { fr.src = path; } catch {}
+      return;
+    }
+    // Sin recargar: cambia skin y reenvía el tiempo actual (evita flash a 00:00).
+    pushState();
+  }
+  function tmrSetSkin(skinId) {
+    if (!settings.timer) settings.timer = {};
+    const skin = TMR_SKINS[tmrSkinIndex(skinId)].id;
+    settings.timer.skin = skin;
+    tmrRefreshSkinPreview(skin);
+    // Solo el skin: no reenviar todo timer (savedRemaining viejo del cliente puede ir a 0).
+    send({ action: 'saveSettings', settings: { timer: { skin } }, ...profileSaveMeta() });
+  }
+  function tmrStepSkin(dir) {
+    const cur = tmrSkinIndex(settings.timer?.skin || 'classic');
+    const next = (cur + dir + TMR_SKINS.length) % TMR_SKINS.length;
+    tmrSetSkin(TMR_SKINS[next].id);
+  }
+  if ($('tmr-skin-prev')) $('tmr-skin-prev').onclick = () => tmrStepSkin(-1);
+  if ($('tmr-skin-next')) $('tmr-skin-next').onclick = () => tmrStepSkin(1);
+  try { tmrRefreshSkinPreview(settings.timer?.skin || 'classic'); } catch {}
+  window.__tmrRefreshSkinPreview = tmrRefreshSkinPreview;
 
   // Ajustes (reglas + opciones): se guardan al cambiar.
   const bindNum = (id, key) => {
@@ -4427,6 +4523,11 @@ function applyTimerSettingsUI() {
     const act = t.actionOnFinish || 'pause';
     $('tmr-onfinish').value = act === 'reset' ? 'pause' : act;
   }
+  try {
+    if (typeof window.__tmrRefreshSkinPreview === 'function') {
+      window.__tmrRefreshSkinPreview(t.skin || 'classic');
+    }
+  } catch {}
   if ($('tmr-penalty-giftid')) $('tmr-penalty-giftid').value = t.penaltyGiftId ? String(t.penaltyGiftId) : '';
   if ($('tmr-penalty-giftname')) $('tmr-penalty-giftname').value = t.penaltyGiftName ? String(t.penaltyGiftName) : '';
   try {
@@ -12990,6 +13091,8 @@ function openTtsWarnModal(onAccept) {
 
 /* ====================== Usuario y Puntos ====================== */
 const ptsState = { users: new Map(), tx: [], count: 0, max: 2500 };
+const PTS_PAGE_SIZE = 20;
+const ptsUi = { list: [], shown: 0, q: '', loadingMore: false };
 let ptsRenderTimer = null;
 
 function applyPointsSettingsUI() {
@@ -13011,12 +13114,55 @@ function fmtPts(n) {
   return v.toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
+/** Reintentos de avatar en tabla de puntos (proxy → directo → sin query firmada). */
+function ptsNormalizePhotoUrl(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (s.startsWith('//')) return 'https:' + s;
+  return s;
+}
+function ptsAvatarFallback(img) {
+  try {
+    if (!img) return;
+    const raw = ptsNormalizePhotoUrl(img.getAttribute('data-raw') || '');
+    const ini = String(img.getAttribute('data-ini') || '?').slice(0, 1) || '?';
+    const step = Number(img.getAttribute('data-try') || 0);
+    if (step === 0 && raw) {
+      img.setAttribute('data-try', '1');
+      img.referrerPolicy = 'no-referrer';
+      img.src = raw;
+      return;
+    }
+    if (step === 1 && raw) {
+      img.setAttribute('data-try', '2');
+      try {
+        const u = new URL(raw);
+        u.search = '';
+        img.src = '/api/img-proxy?url=' + encodeURIComponent(u.toString());
+        return;
+      } catch { /* fall through */ }
+    }
+    const ph = document.createElement('div');
+    ph.className = 'pu-ph';
+    ph.textContent = ini;
+    img.replaceWith(ph);
+  } catch {
+    try {
+      const ph = document.createElement('div');
+      ph.className = 'pu-ph';
+      ph.textContent = '?';
+      img.replaceWith(ph);
+    } catch {}
+  }
+}
+window.ptsAvatarFallback = ptsAvatarFallback;
+
 function onPointsList(p) {
   ptsState.users = new Map((p.users || []).map((u) => [u.uniqueId, u]));
   ptsState.tx = p.tx || [];
   ptsState.count = p.count || ptsState.users.size;
   ptsState.max = p.max || 2500;
-  renderPointsTable();
+  renderPointsTable({ resetPage: true });
   renderPointsTx();
 }
 function onPointsUpdate(p) {
@@ -13034,28 +13180,19 @@ function onPointsTx(p) {
 }
 function schedulePointsRender() {
   if (ptsRenderTimer) return;
-  ptsRenderTimer = setTimeout(() => { ptsRenderTimer = null; renderPointsTable(); }, 400);
+  ptsRenderTimer = setTimeout(() => { ptsRenderTimer = null; renderPointsTable({ resetPage: false }); }, 400);
 }
 
-function renderPointsTable() {
-  const tbody = $('pts-tbody');
-  if (!tbody) return;
-  const countEl = $('pts-count');
-  if (countEl) countEl.textContent = `Tienes ${fmtPts(ptsState.count)} de un máximo de ${fmtPts(ptsState.max)} usuarios en tu base de datos.`;
-
-  const q = ($('pts-search')?.value || '').trim().toLowerCase().replace(/^@/, '');
-  let list = [...ptsState.users.values()].sort((a, b) => b.total - a.total);
-  if (q) list = list.filter((u) => (u.uniqueId || '').toLowerCase().includes(q) || (u.nickname || '').toLowerCase().includes(q));
-  list = list.slice(0, 300); // no pintamos más de 300 filas por rendimiento
-
-  if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="admin-empty">${q ? 'Ningún usuario coincide con la búsqueda.' : 'Aún no hay usuarios con puntos. Cuando alguien done en tu live, aparecerá aquí.'}</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = list.map((u) => {
-    const img = u.photo ? `<img src="${esc(u.photo)}" onerror="this.style.visibility='hidden'">` : '<img>';
-    return `<tr>
-      <td><div class="pu">${img}<div><div class="pu-name">${esc(u.nickname || u.uniqueId)}</div><div class="pu-id">@${esc(u.uniqueId)}</div></div></div></td>
+function ptsRowHtml(u) {
+  const name = u.nickname || u.uniqueId || '?';
+  const ini = String(initial(name) || '?').replace(/['\\]/g, '') || '?';
+  const raw = ptsNormalizePhotoUrl(u.photo || '');
+  const photoUrl = panelLiveImgUrl(raw);
+  const img = photoUrl
+    ? `<img class="pu-av" src="${esc(photoUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-raw="${esc(raw)}" data-ini="${esc(ini)}" data-try="0" onerror="ptsAvatarFallback(this)">`
+    : `<div class="pu-ph">${esc(ini)}</div>`;
+  return `<tr>
+      <td><div class="pu">${img}<div><div class="pu-name">${esc(name)}</div><div class="pu-id">@${esc(u.uniqueId)}</div></div></div></td>
       <td><span class="pts-lvl">${u.level}</span></td>
       <td class="pts-total">${fmtPts(u.total)}</td>
       <td>${fmtPts(u.levelPoints)}</td>
@@ -13063,9 +13200,12 @@ function renderPointsTable() {
       <td>${fmtPointsDate(u.lastAt)}</td>
       <td><button class="btn tiny prem-remove pts-del" data-id="${esc(u.uniqueId)}" title="Quitar de la lista">✕</button></td>
     </tr>`;
-  }).join('');
+}
 
-  tbody.querySelectorAll('.pts-del').forEach((b) => {
+function bindPtsDeleteButtons(root) {
+  (root || $('pts-tbody'))?.querySelectorAll('.pts-del').forEach((b) => {
+    if (b.dataset.bound === '1') return;
+    b.dataset.bound = '1';
     b.onclick = async () => {
       const id = b.dataset.id;
       if (await askConfirm({ title: 'Borrar puntos', message: `Se borrarán todos los puntos de @${id}.`, confirmText: 'Borrar' })) {
@@ -13073,6 +13213,73 @@ function renderPointsTable() {
       }
     };
   });
+}
+
+function updatePtsMoreHint() {
+  const more = $('pts-more');
+  if (!more) return;
+  const left = ptsUi.list.length - ptsUi.shown;
+  if (left <= 0) {
+    more.hidden = true;
+    more.textContent = '';
+    more.onclick = null;
+    return;
+  }
+  more.hidden = false;
+  more.textContent = `Mostrando ${fmtPts(ptsUi.shown)} de ${fmtPts(ptsUi.list.length)} · baja o pulsa para cargar ${Math.min(PTS_PAGE_SIZE, left)} más`;
+  more.onclick = () => loadMorePointsRows();
+}
+
+function loadMorePointsRows() {
+  if (ptsUi.loadingMore) return;
+  if (ptsUi.shown >= ptsUi.list.length) return;
+  const tbody = $('pts-tbody');
+  if (!tbody) return;
+  ptsUi.loadingMore = true;
+  try {
+    const next = ptsUi.list.slice(ptsUi.shown, ptsUi.shown + PTS_PAGE_SIZE);
+    if (!next.length) return;
+    const start = ptsUi.shown;
+    ptsUi.shown += next.length;
+    tbody.insertAdjacentHTML('beforeend', next.map(ptsRowHtml).join(''));
+    const rows = tbody.querySelectorAll('tr');
+    for (let i = start; i < rows.length; i++) bindPtsDeleteButtons(rows[i]);
+    updatePtsMoreHint();
+  } finally {
+    ptsUi.loadingMore = false;
+  }
+}
+
+function renderPointsTable(opts = {}) {
+  const resetPage = opts.resetPage === true;
+  const tbody = $('pts-tbody');
+  if (!tbody) return;
+  const countEl = $('pts-count');
+  if (countEl) countEl.textContent = `Tienes ${fmtPts(ptsState.count)} de un máximo de ${fmtPts(ptsState.max)} usuarios en tu base de datos.`;
+
+  const q = ($('pts-search')?.value || '').trim().toLowerCase().replace(/^@/, '');
+  const qChanged = q !== ptsUi.q;
+  ptsUi.q = q;
+  let list = [...ptsState.users.values()].sort((a, b) => b.total - a.total);
+  if (q) list = list.filter((u) => (u.uniqueId || '').toLowerCase().includes(q) || (u.nickname || '').toLowerCase().includes(q));
+  list = list.slice(0, 300); // tope duro de candidatos
+  ptsUi.list = list;
+
+  if (resetPage || qChanged || !ptsUi.shown) {
+    ptsUi.shown = Math.min(PTS_PAGE_SIZE, list.length);
+  } else {
+    ptsUi.shown = Math.min(Math.max(ptsUi.shown, PTS_PAGE_SIZE), list.length);
+  }
+
+  if (!list.length) {
+    ptsUi.shown = 0;
+    tbody.innerHTML = `<tr><td colspan="7" class="admin-empty">${q ? 'Ningún usuario coincide con la búsqueda.' : 'Aún no hay usuarios con puntos. Cuando alguien done en tu live, aparecerá aquí.'}</td></tr>`;
+    updatePtsMoreHint();
+    return;
+  }
+  tbody.innerHTML = list.slice(0, ptsUi.shown).map(ptsRowHtml).join('');
+  bindPtsDeleteButtons(tbody);
+  updatePtsMoreHint();
 }
 
 function renderPointsTx() {
@@ -13109,7 +13316,17 @@ function renderPointsTx() {
   });
 
   const search = $('pts-search');
-  if (search) search.addEventListener('input', () => renderPointsTable());
+  if (search) search.addEventListener('input', () => renderPointsTable({ resetPage: true }));
+
+  const ptsWrap = $('pts-table-wrap') || document.querySelector('#pview-users .pts-table-wrap');
+  if (ptsWrap && !ptsWrap.dataset.ptsScroll) {
+    ptsWrap.dataset.ptsScroll = '1';
+    ptsWrap.addEventListener('scroll', () => {
+      if (ptsWrap.scrollTop + ptsWrap.clientHeight >= ptsWrap.scrollHeight - 120) {
+        loadMorePointsRows();
+      }
+    }, { passive: true });
+  }
 
   const perCoin = $('pts-percoin');
   if (perCoin) perCoin.addEventListener('change', () => {
