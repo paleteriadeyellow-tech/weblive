@@ -300,9 +300,13 @@ function connectWS() {
     if (ws !== sock) return;
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
-    const { type, payload } = msg;
+    const { type, payload, touchedKeys } = msg;
     if (type === 'pong') return;
     if (type === 'accountPending') { location.href = '/'; return; }
+    if (type === 'settings') {
+      onSettings(payload, Array.isArray(touchedKeys) ? touchedKeys : null);
+      return;
+    }
     handle(type, payload);
   };
 }
@@ -2251,6 +2255,9 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     // Cerrar flyout tras activar vista; solo bloquear reabrir el menú del que salió el click
     closeNavFlyouts({ suppressEl: btn.closest('.nav-flyout') });
     onOverlayNavShown(btn.dataset.view);
+    if (btn.dataset.view === 'juegos' || String(btn.dataset.view || '').startsWith('juego-')) {
+      try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
+    }
     if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); loadAdminBadges(); }
     if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
     if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
@@ -3874,15 +3881,26 @@ function renderState(s) {
     username: s.username,
     live: !!s.connected,
   });
-  renderLeaderboard(s.topGifters || []);
+  // Leaderboard solo si Inicio/panel está visible (evita innerHTML en otras pestañas)
+  const panelView = document.getElementById('view-panel');
+  if (!panelView || panelView.classList.contains('active')) {
+    renderLeaderboard(s.topGifters || []);
+  }
   try { updateHomeWelcome(s); } catch {}
 }
 
+let lastLeaderboardSig = '';
 function renderLeaderboard(list) {
   const el = $('leaderboard');
   const countEl = document.getElementById('lb-count');
-  if (countEl) countEl.textContent = String(list.length || 0);
-  if (!list.length) {
+  const rows = Array.isArray(list) ? list : [];
+  if (countEl) countEl.textContent = String(rows.length || 0);
+  const sig = rows.length
+    ? rows.map((g) => `${g.uniqueId || g.nickname || ''}:${g.diamonds || 0}`).join('|')
+    : '';
+  if (sig === lastLeaderboardSig && el && el.children.length) return;
+  lastLeaderboardSig = sig;
+  if (!rows.length) {
     el.innerHTML = `<div class="feed-empty" data-empty="leaderboard">
       <span class="feed-empty-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0V4z"/></svg></span>
       <div class="feed-empty-tt">Ranking vacío</div>
@@ -3890,7 +3908,7 @@ function renderLeaderboard(list) {
     </div>`;
     return;
   }
-  el.innerHTML = list.map((g, i) => {
+  el.innerHTML = rows.map((g, i) => {
     const topCls = i === 0 ? ' is-top1' : i === 1 ? ' is-top2' : i === 2 ? ' is-top3' : '';
     return `<div class="lb-row${topCls}"><div class="rank">${i + 1}</div>${avatar(g)}
       <div class="nm">${esc(g.nickname)}</div><div class="dm">${fmt(g.diamonds)} 💎</div></div>`;
@@ -3938,21 +3956,32 @@ function updateFeedCount(feedId) {
   const id = feedCountId(feedId);
   const el = id ? document.getElementById(id) : null;
   if (!feed || !el) return;
-  el.textContent = String(feed.querySelectorAll('.row').length);
+  let n = 0;
+  for (let i = 0; i < feed.children.length; i++) {
+    if (feed.children[i].classList && feed.children[i].classList.contains('row')) n++;
+  }
+  el.textContent = String(n);
 }
 
 /** Quita las filas más antiguas cuando el feed supera MAX_ROWS (una sola pasada). */
 function trimFeedRows(feed) {
   if (!feed) return;
-  const rows = feed.querySelectorAll('.row');
-  const excess = rows.length - MAX_ROWS;
+  // children es más barato que querySelectorAll('.row') en cada mensaje
+  let rowCount = 0;
+  for (let i = 0; i < feed.children.length; i++) {
+    if (feed.children[i].classList && feed.children[i].classList.contains('row')) rowCount++;
+  }
+  let excess = rowCount - MAX_ROWS;
   if (excess <= 0) return;
-  for (let i = 0; i < excess; i++) {
-    const row = rows[i];
-    if (!row) break;
+  let i = 0;
+  while (excess > 0 && i < feed.children.length) {
+    const row = feed.children[i];
+    if (!row.classList || !row.classList.contains('row')) { i++; continue; }
     const k = row.dataset && row.dataset.giftKey;
     if (k) activeGiftFeedRows.delete(k);
     row.remove();
+    excess--;
+    // no incrementar i: el siguiente hijo ocupa el mismo índice
   }
 }
 
@@ -4557,6 +4586,12 @@ function applyTimerSettingsUI() {
 let saveDebounce = null;
 let settingsKeysSaveDebounce = null;
 const settingsKeysSavePending = new Set();
+let settingsKeysSkipErSync = false;
+/** Evita que un save (toggle Activa / boot apagar acciones) reconstruya Editor Pro. */
+let erSyncSuppressedUntil = 0;
+function suppressEditorRapidoSync(ms = 1500) {
+  erSyncSuppressedUntil = Math.max(erSyncSuppressedUntil, Date.now() + Math.max(0, ms));
+}
 /** Cancela guardados pendientes para que un perfil no contamine otro al cambiar. */
 function cancelPendingProfileSaves() {
   clearTimeout(saveDebounce);
@@ -4564,6 +4599,7 @@ function cancelPendingProfileSaves() {
   clearTimeout(settingsKeysSaveDebounce);
   settingsKeysSaveDebounce = null;
   settingsKeysSavePending.clear();
+  settingsKeysSkipErSync = false;
 }
 function profileSaveMeta() {
   const editingGeneral = !!(profilesState && profilesState.editingGeneral);
@@ -4577,6 +4613,7 @@ function profileSaveMeta() {
 }
 function saveSettings() {
   if (applyingSettings) return;
+  try { window.__lcPendingTouchedKeys = null; } catch {}
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => {
     stripSettingsMediaForSave(settings);
@@ -4588,6 +4625,7 @@ function saveSettings() {
 
 function scheduleErSyncFromLinkedGame() {
   try {
+    if (Date.now() < erSyncSuppressedUntil) return;
     let key = '';
     if (typeof window.getEditorRapidoLinkedSettingsKey === 'function') {
       key = window.getEditorRapidoLinkedSettingsKey() || '';
@@ -4614,8 +4652,11 @@ function bootGameActionsOffOnce(flag, getList, renderFn) {
       action.enabled = false;
       changed = true;
     }
-    // Las llamadas consecutivas se consolidan por el debounce de saveSettings.
-    if (changed) saveSettings();
+    // Las llamadas consecutivas se consolidan; flush ya: UI OFF no debe spawnear en el live.
+    if (changed) {
+      suppressEditorRapidoSync(2500);
+      flushSaveSettings();
+    }
   }
   renderFn();
 }
@@ -4679,7 +4720,16 @@ function mcCmdReady(a) {
   return !!(a && a.enabled !== false && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)));
 }
 
-function onSettings(s) {
+function onSettings(s, touchedKeys) {
+  if (!touchedKeys || !touchedKeys.length) {
+    try {
+      if (Array.isArray(window.__lcPendingTouchedKeys) && window.__lcPendingTouchedKeys.length
+        && Date.now() - (window.__lcPendingTouchedAt || 0) < 2000) {
+        touchedKeys = window.__lcPendingTouchedKeys;
+      }
+    } catch {}
+  }
+  try { window.__lcPendingTouchedKeys = null; } catch {}
   settings = preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s)));
   if (migrateAccionesSpawnWebhooks(settings.actions)) saveSettings();
   normalizeRelayMedia(settings);
@@ -4703,84 +4753,190 @@ function onSettings(s) {
     if (settings.topMultiRank.showComments == null) settings.topMultiRank.showComments = true;
     if (settings.topMultiRank.showPoints == null) settings.topMultiRank.showPoints = true;
   }
-  applyingSettings = true;
-  applySettingsToUI();
-  applyingSettings = false;
-  try { if (typeof window.refreshScreenFxUi === 'function') window.refreshScreenFxUi(); } catch {}
-  try {
-    const livePhoto = String(settings?.tiktokPhoto || '').trim();
-    if (livePhoto) {
-      updateDockUserAvatar({
-        photo: livePhoto,
-        nickname: settings.tiktokUser || '',
-        username: window.MY_USER,
-      });
-    }
-  } catch {}
-  if (typeof onMusicSettingsLoaded === 'function') onMusicSettingsLoaded();
-  applyLimitUI();
-  renderPlanView();
-  // Al abrir el panel, las acciones de juego arrancan apagadas (una sola vez por sesión).
-  bootGameActionsOffOnce('_rbxResetDone', ensureRobloxSlots, renderRobloxActions);
-  bootGameActionsOffOnce('_rbx3ResetDone', ensureRoblox3Slots, renderRoblox3Actions);
-  bootGameActionsOffOnce('_marioResetDone', ensureMarioActions, renderMarioActions);
-  bootGameActionsOffOnce('_pvzResetDone', ensurePvzActions, renderPvzActions);
-  bootGameActionsOffOnce('_smb3ResetDone', ensureSmb3Actions, renderSmb3Actions);
-  bootGameActionsOffOnce('_mari0ResetDone', ensureMari0Actions, renderMari0Actions);
-  bootGameActionsOffOnce('_pvzHybridResetDone', ensurePvzHybridActions, renderPvzHybridActions);
-  bootGameActionsOffOnce('_repoResetDone', ensureRepoActions, renderRepoActions);
-  bootGameActionsOffOnce('_l4dResetDone', ensureL4dActions, renderL4dActions);
-  bootGameActionsOffOnce('_unturnedResetDone', ensureUnturnedActions, renderUnturnedActions);
-  bootGameActionsOffOnce('_gtavkothResetDone', ensureGtavKothActions, renderGtavKothActions);
-  bootGameActionsOffOnce('_gtavchaosResetDone', ensureGtavChaosActions, renderGtavChaosActions);
-  bootGameActionsOffOnce('_gtavchiliadResetDone', ensureGtavChiliadActions, renderGtavChiliadActions);
-
-  bootGameActionsOffOnce('_ctrResetDone', ensureCtrActions, renderCtrActions);
-  bootGameActionsOffOnce('_mslugResetDone', ensureMslugActions, renderMslugActions);
-  bootGameActionsOffOnce('_smwResetDone', ensureSmwActions, renderSmwActions);
-  bootGameActionsOffOnce('_gdashResetDone', ensureGdashActions, renderGdashActions);
-  bootGameActionsOffOnce('_mcResetDone', () => settings?.mcActions || [], renderMyMcActions);
-  bootGameActionsOffOnce('_mcshooterResetDone', () => settings?.mcshooterActions || [], renderMyMcShooterActions);
-  applyMcShooterColiseoUI();
-  bootGameActionsOffOnce('_bedrockResetDone', () => settings?.bedrockActions || [], renderMyBedrockActions);
-  bootGameActionsOffOnce('_mcparkourResetDone', () => settings?.parkourActions || [], renderMyParkourActions);
-  bootGameActionsOffOnce('_mckothResetDone', () => settings?.kothActions || [], renderMyKothActions);
-  bootGameActionsOffOnce('_mcfarmResetDone', () => settings?.farmActions || [], renderMyFarmActions);
-  bootGameActionsOffOnce('_sandboxResetDone', () => settings?.sandboxActions || [], renderMySandboxActions);
+  scheduleSettingsUiApply(touchedKeys);
 }
 
-function applySettingsToUI() {
-  applyTtsUI(settings.tts || {});
+/** Coalesce ecos de settings: varios patches seguidos → un solo repaint. */
+let settingsUiCoalesceTimer = null;
+let settingsUiPendingFull = false;
+let settingsUiPendingKeys = null; // Set | null (null + !full = still empty)
 
-  if (!settings.playback) settings.playback = { playQueue: true, comboOnce: false };
-  if ($('opt-queue')) $('opt-queue').checked = settings.playback.playQueue !== false;
-  if ($('opt-combo-once')) $('opt-combo-once').checked = !!settings.playback.comboOnce;
+function scheduleSettingsUiApply(touchedKeys) {
+  const keys = Array.isArray(touchedKeys) && touchedKeys.length ? touchedKeys : null;
+  if (!keys) {
+    settingsUiPendingFull = true;
+    settingsUiPendingKeys = null;
+  } else if (!settingsUiPendingFull) {
+    if (!settingsUiPendingKeys) settingsUiPendingKeys = new Set();
+    for (const k of keys) settingsUiPendingKeys.add(k);
+  }
+  clearTimeout(settingsUiCoalesceTimer);
+  settingsUiCoalesceTimer = setTimeout(flushSettingsUiApply, 80);
+}
 
-  applyTimerSettingsUI();
+function flushSettingsUiApply() {
+  settingsUiCoalesceTimer = null;
+  const full = settingsUiPendingFull || !settingsUiPendingKeys || !settingsUiPendingKeys.size;
+  const touched = full ? null : [...settingsUiPendingKeys];
+  settingsUiPendingFull = false;
+  settingsUiPendingKeys = null;
 
-  syncVidMasterUI();
-  syncBaMasterUI();
-  ensureScreens();
-  renderBattleAlerts();
-  applyJarronUI();
-  if (typeof refreshGiftCounterCardUI === 'function') refreshGiftCounterCardUI();
-  if (typeof pushGiftVsPreview === 'function') setTimeout(() => pushGiftVsPreview(), 300);
-  if (typeof pushFlowMeterPreview === 'function') setTimeout(() => pushFlowMeterPreview(), 300);
-  if (typeof pushGiftSeqPreview === 'function') setTimeout(() => pushGiftSeqPreview(), 300);
-  if (typeof pushGiftShowcasePreview === 'function') setTimeout(() => pushGiftShowcasePreview(), 300);
-  if (typeof pushStyleOverlayPreviews === 'function') setTimeout(() => pushStyleOverlayPreviews(), 300);
-  if (typeof refreshWinsCounters === 'function') setTimeout(() => refreshWinsCounters(), 300);
-  if (typeof refreshTopKills === 'function') setTimeout(() => refreshTopKills(), 300);
-  if (typeof window.pushHypePreview === 'function') setTimeout(() => window.pushHypePreview(), 300);
-  renderScreens();
-  renderVideos();
-  applyLevelVideosUI();
-  renderSoundAlerts();
-  if (typeof applyPointsSettingsUI === 'function') applyPointsSettingsUI();
-  if (typeof applySpotifyUI === 'function') applySpotifyUI();
-  if (typeof applyWebhookUI === 'function') applyWebhookUI();
-  if (typeof renderAcciones === 'function') renderAcciones();
-  if (typeof renderMyMcActions === 'function') renderMyMcActions();
+  applyingSettings = true;
+  try {
+    applySettingsToUI(touched);
+  } finally {
+    applyingSettings = false;
+  }
+
+  try { if (typeof window.refreshScreenFxUi === 'function' && (!touched || touched.includes('screenFx'))) window.refreshScreenFxUi(); } catch {}
+  try {
+    if (!touched || touched.includes('tiktokPhoto') || touched.includes('tiktokUser')) {
+      const livePhoto = String(settings?.tiktokPhoto || '').trim();
+      if (livePhoto) {
+        updateDockUserAvatar({
+          photo: livePhoto,
+          nickname: settings.tiktokUser || '',
+          username: window.MY_USER,
+        });
+      }
+    }
+  } catch {}
+
+  if (full || (touched && (touched.includes('spotify') || touched.includes('music')))) {
+    if (typeof onMusicSettingsLoaded === 'function') onMusicSettingsLoaded();
+  }
+  if (full) {
+    applyLimitUI();
+    renderPlanView();
+    // Al abrir el panel, las acciones de juego arrancan apagadas (una sola vez por sesión).
+    bootGameActionsOffOnce('_rbxResetDone', ensureRobloxSlots, renderRobloxActions);
+    bootGameActionsOffOnce('_rbx3ResetDone', ensureRoblox3Slots, renderRoblox3Actions);
+    bootGameActionsOffOnce('_marioResetDone', ensureMarioActions, renderMarioActions);
+    bootGameActionsOffOnce('_pvzResetDone', ensurePvzActions, renderPvzActions);
+    bootGameActionsOffOnce('_smb3ResetDone', ensureSmb3Actions, renderSmb3Actions);
+    bootGameActionsOffOnce('_mari0ResetDone', ensureMari0Actions, renderMari0Actions);
+    bootGameActionsOffOnce('_pvzHybridResetDone', ensurePvzHybridActions, renderPvzHybridActions);
+    bootGameActionsOffOnce('_repoResetDone', ensureRepoActions, renderRepoActions);
+    bootGameActionsOffOnce('_l4dResetDone', ensureL4dActions, renderL4dActions);
+    bootGameActionsOffOnce('_unturnedResetDone', ensureUnturnedActions, renderUnturnedActions);
+    bootGameActionsOffOnce('_gtavkothResetDone', ensureGtavKothActions, renderGtavKothActions);
+    bootGameActionsOffOnce('_gtavchaosResetDone', ensureGtavChaosActions, renderGtavChaosActions);
+    bootGameActionsOffOnce('_gtavchiliadResetDone', ensureGtavChiliadActions, renderGtavChiliadActions);
+    bootGameActionsOffOnce('_ctrResetDone', ensureCtrActions, renderCtrActions);
+    bootGameActionsOffOnce('_mslugResetDone', ensureMslugActions, renderMslugActions);
+    bootGameActionsOffOnce('_smwResetDone', ensureSmwActions, renderSmwActions);
+    bootGameActionsOffOnce('_gdashResetDone', ensureGdashActions, renderGdashActions);
+    bootGameActionsOffOnce('_mcResetDone', () => settings?.mcActions || [], renderMyMcActions);
+    bootGameActionsOffOnce('_mcshooterResetDone', () => settings?.mcshooterActions || [], renderMyMcShooterActions);
+    applyMcShooterColiseoUI();
+    bootGameActionsOffOnce('_bedrockResetDone', () => settings?.bedrockActions || [], renderMyBedrockActions);
+    bootGameActionsOffOnce('_mcparkourResetDone', () => settings?.parkourActions || [], renderMyParkourActions);
+    bootGameActionsOffOnce('_mckothResetDone', () => settings?.kothActions || [], renderMyKothActions);
+    bootGameActionsOffOnce('_mcfarmResetDone', () => settings?.farmActions || [], renderMyFarmActions);
+    bootGameActionsOffOnce('_sandboxResetDone', () => settings?.sandboxActions || [], renderMySandboxActions);
+  } else if (touched) {
+    refreshGameActionsUiForKeys(touched);
+  }
+}
+
+const GAME_ACTION_UI_BY_KEY = {
+  robloxActions: () => { try { ensureRobloxSlots?.(); renderRobloxActions?.(); } catch {} },
+  roblox3Actions: () => { try { ensureRoblox3Slots?.(); renderRoblox3Actions?.(); } catch {} },
+  marioActions: () => { try { ensureMarioActions?.(); renderMarioActions?.(); } catch {} },
+  pvzActions: () => { try { ensurePvzActions?.(); renderPvzActions?.(); } catch {} },
+  smb3Actions: () => { try { ensureSmb3Actions?.(); renderSmb3Actions?.(); } catch {} },
+  mari0Actions: () => { try { ensureMari0Actions?.(); renderMari0Actions?.(); } catch {} },
+  pvzHybridActions: () => { try { ensurePvzHybridActions?.(); renderPvzHybridActions?.(); } catch {} },
+  repoActions: () => { try { ensureRepoActions?.(); renderRepoActions?.(); } catch {} },
+  l4dActions: () => { try { ensureL4dActions?.(); renderL4dActions?.(); } catch {} },
+  unturnedActions: () => { try { ensureUnturnedActions?.(); renderUnturnedActions?.(); } catch {} },
+  gtavKothActions: () => { try { ensureGtavKothActions?.(); renderGtavKothActions?.(); } catch {} },
+  gtavChaosActions: () => { try { ensureGtavChaosActions?.(); renderGtavChaosActions?.(); } catch {} },
+  gtavChiliadActions: () => { try { ensureGtavChiliadActions?.(); renderGtavChiliadActions?.(); } catch {} },
+  ctrActions: () => { try { ensureCtrActions?.(); renderCtrActions?.(); } catch {} },
+  mslugActions: () => { try { ensureMslugActions?.(); renderMslugActions?.(); } catch {} },
+  smwActions: () => { try { ensureSmwActions?.(); renderSmwActions?.(); } catch {} },
+  gdashActions: () => { try { ensureGdashActions?.(); renderGdashActions?.(); } catch {} },
+  mcActions: () => { try { renderMyMcActions?.(); } catch {} },
+  mcshooterActions: () => { try { renderMyMcShooterActions?.(); applyMcShooterColiseoUI?.(); } catch {} },
+  bedrockActions: () => { try { renderMyBedrockActions?.(); } catch {} },
+  parkourActions: () => { try { renderMyParkourActions?.(); } catch {} },
+  kothActions: () => { try { renderMyKothActions?.(); } catch {} },
+  farmActions: () => { try { renderMyFarmActions?.(); } catch {} },
+  sandboxActions: () => { try { renderMySandboxActions?.(); } catch {} },
+};
+
+function refreshGameActionsUiForKeys(touched) {
+  const seen = new Set();
+  for (const k of touched) {
+    const fn = GAME_ACTION_UI_BY_KEY[k];
+    if (!fn || seen.has(k)) continue;
+    seen.add(k);
+    fn();
+  }
+}
+
+function applySettingsToUI(touchedKeys) {
+  const all = !touchedKeys || !touchedKeys.length;
+  const has = (k) => all || touchedKeys.includes(k);
+  const hasAny = (...ks) => all || ks.some((k) => touchedKeys.includes(k));
+
+  if (has('tts')) applyTtsUI(settings.tts || {});
+
+  if (has('playback')) {
+    if (!settings.playback) settings.playback = { playQueue: true, comboOnce: false };
+    if ($('opt-queue')) $('opt-queue').checked = settings.playback.playQueue !== false;
+    if ($('opt-combo-once')) $('opt-combo-once').checked = !!settings.playback.comboOnce;
+  }
+
+  if (hasAny('timer', 'liveTimer')) applyTimerSettingsUI();
+
+  if (hasAny('videos', 'videosEnabled', 'screens')) {
+    syncVidMasterUI();
+    ensureScreens();
+    renderScreens();
+    renderVideos();
+    applyLevelVideosUI();
+  } else if (has('levelVideos')) {
+    applyLevelVideosUI();
+  }
+
+  if (hasAny('battleAlerts', 'battleAlertsEnabled')) {
+    syncBaMasterUI();
+    renderBattleAlerts();
+  }
+
+  if (has('jarron')) applyJarronUI();
+  if (has('giftCounter') && typeof refreshGiftCounterCardUI === 'function') refreshGiftCounterCardUI();
+  if (has('sorteosOverlay') && typeof window.__soSyncSlowBtn === 'function') window.__soSyncSlowBtn();
+
+  if (all || hasAny(
+    'giftVs', 'flowMeter', 'giftSeq', 'giftShowcase', 'coinMatch', 'sorteosOverlay',
+    'habibiTop', 'topGift', 'lastGift', 'topStreak', 'top1fire', 'hypeBar',
+    'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList',
+    'topAltRank', 'topAltRankNeon', 'topMultiRank', 'pointsLookup', 'liveTimer',
+  )) {
+    if (typeof pushGiftVsPreview === 'function' && (all || has('giftVs'))) setTimeout(() => pushGiftVsPreview(), 300);
+    if (typeof pushFlowMeterPreview === 'function' && (all || has('flowMeter'))) setTimeout(() => pushFlowMeterPreview(), 300);
+    if (typeof pushGiftSeqPreview === 'function' && (all || has('giftSeq'))) setTimeout(() => pushGiftSeqPreview(), 300);
+    if (typeof pushGiftShowcasePreview === 'function' && (all || has('giftShowcase'))) setTimeout(() => pushGiftShowcasePreview(), 300);
+    if (typeof pushStyleOverlayPreviews === 'function') setTimeout(() => pushStyleOverlayPreviews(), 300);
+    if (typeof window.pushHypePreview === 'function' && (all || has('hypeBar'))) setTimeout(() => window.pushHypePreview(), 300);
+  }
+
+  if (hasAny('winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario')) {
+    if (typeof refreshWinsCounters === 'function') setTimeout(() => refreshWinsCounters(), 300);
+  }
+  if (has('topKills') && typeof refreshTopKills === 'function') setTimeout(() => refreshTopKills(), 300);
+
+  if (has('soundAlerts')) renderSoundAlerts();
+  if (has('points') || has('pointsSettings') || has('pointsLookup')) {
+    if (typeof applyPointsSettingsUI === 'function') applyPointsSettingsUI();
+  }
+  if (has('spotify') && typeof applySpotifyUI === 'function') applySpotifyUI();
+  if (has('webhook') && typeof applyWebhookUI === 'function') applyWebhookUI();
+  if (has('actions') && typeof renderAcciones === 'function') renderAcciones();
+  if (has('mcActions') && typeof renderMyMcActions === 'function') renderMyMcActions();
 }
 
 /* ====================== Videos (pantallas múltiples) ====================== */
@@ -4874,7 +5030,7 @@ function renderScreens() {
     };
     card.querySelector('.test').onclick = () => send({ action: 'testScreen', screen: id });
     const range = card.querySelector('input');
-    range.oninput = () => { s.size = +range.value; card.querySelector('.screen-size b').textContent = s.size + '%'; saveSettings(); };
+    range.oninput = () => { s.size = +range.value; card.querySelector('.screen-size b').textContent = s.size + '%'; saveSettingsKeysPatch('screens'); };
   });
 }
 
@@ -5127,16 +5283,32 @@ function bindSaCardLongPressReorder(container, onReorder) {
 }
 
 /* Guardar SOLO las claves pedidas (no todo settings).
-   Evita que encender/apagar reenvíe rankings y vacíe likes/gifts. */
-function saveSettingsKeysPatch(...keys) {
+   Evita que encender/apagar reenvíe rankings y vacíe likes/gifts.
+   Último arg opcional: { skipErSync: true, flush: true } — no toca Editor Pro (toggle Activa). */
+function saveSettingsKeysPatch(...keysAndOpts) {
   if (applyingSettings) return;
+  let opts = {};
+  const keys = [];
+  for (const k of keysAndOpts) {
+    if (k && typeof k === 'object' && !Array.isArray(k) && ('skipErSync' in k || 'erSync' in k || 'flush' in k)) {
+      opts = k;
+    } else if (typeof k === 'string' && k) {
+      keys.push(k);
+    }
+  }
   for (const k of keys) {
-    if (k) settingsKeysSavePending.add(k);
+    settingsKeysSavePending.add(k);
+  }
+  if (opts.skipErSync) {
+    settingsKeysSkipErSync = true;
+    suppressEditorRapidoSync(1500);
   }
   clearTimeout(settingsKeysSaveDebounce);
-  settingsKeysSaveDebounce = setTimeout(() => {
+  const runPatch = () => {
     settingsKeysSaveDebounce = null;
     if (!settings || !settingsKeysSavePending.size) return;
+    const skipEr = settingsKeysSkipErSync;
+    settingsKeysSkipErSync = false;
     const patch = {};
     const touched = [...settingsKeysSavePending];
     for (const k of settingsKeysSavePending) {
@@ -5152,11 +5324,36 @@ function saveSettingsKeysPatch(...keys) {
     }
     settingsKeysSavePending.clear();
     if (!Object.keys(patch).length) return;
+    try {
+      window.__lcPendingTouchedKeys = touched.slice();
+      window.__lcPendingTouchedAt = Date.now();
+    } catch {}
     send({ action: 'saveSettings', settings: patch, ...profileSaveMeta() });
-    for (const k of touched) {
-      if (ER_SYNCABLE_ACTION_KEYS.includes(k)) notifyEditorRapidoActionsChanged(k);
+    if (!skipEr) {
+      for (const k of touched) {
+        if (ER_SYNCABLE_ACTION_KEYS.includes(k)) notifyEditorRapidoActionsChanged(k);
+      }
     }
-  }, 200);
+  };
+  if (opts.flush) {
+    runPatch();
+    return;
+  }
+  settingsKeysSaveDebounce = setTimeout(runPatch, 200);
+}
+/** Envía ya el patch de claves pendientes (Activa OFF no debe esperar 200ms). */
+function flushSaveSettingsKeysPatch() {
+  if (applyingSettings || !settings || !settingsKeysSavePending.size) {
+    clearTimeout(settingsKeysSaveDebounce);
+    settingsKeysSaveDebounce = null;
+    return;
+  }
+  clearTimeout(settingsKeysSaveDebounce);
+  settingsKeysSaveDebounce = null;
+  saveSettingsKeysPatch(...[...settingsKeysSavePending], {
+    skipErSync: settingsKeysSkipErSync,
+    flush: true,
+  });
 }
 function saveVideosBattlePatch(kind) {
   saveSettingsKeysPatch(kind);
@@ -6238,7 +6435,7 @@ function renderSoundAlerts() {
     };
     card.querySelector('.sa-sel').onchange = (e) => { e.target.checked ? selected.add(id) : selected.delete(id); updateSelCount(); };
     const vr = card.querySelector('.sa-volrange');
-    vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; a.volume = +vr.value; saveSettings(); };
+    vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; a.volume = +vr.value; saveSettingsKeysPatch('soundAlerts'); };
     card.querySelector('.sa-edit').onclick = () => openSaModal(a);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -9167,7 +9364,13 @@ const STYLE_OVERLAYS = [
         if (maxp) maxp.value = '0';
       } catch {}
     },
-    onSave: (cfg) => { cfg.maxPlayers = 0; },
+    onSave: (cfg) => {
+      cfg.maxPlayers = 0;
+      // Conservar vouches persistidos (no están parte del form del modal)
+      const prev = Math.max(0, parseInt(settings?.sorteosOverlay?.vouchCount, 10) || 0);
+      if (cfg.vouchCount == null) cfg.vouchCount = prev;
+      try { if (typeof window.__soSyncSlowBtn === 'function') window.__soSyncSlowBtn(); } catch {}
+    },
   }),
   setupStyleOverlay({
     kind: 'topaltneon', settingsKey: 'topAltRankNeon', previewId: 'taln-preview',
@@ -9602,6 +9805,17 @@ function refreshGiftCounterCardUI() {
     const cfg = settings?.sorteosOverlay || {};
     toPrev({ type: 'config', config: cfg });
   };
+  function syncSorteosSlowBtn() {
+    const btn = $('so-slow');
+    if (!btn) return;
+    const on = !!(settings?.sorteosOverlay?.slowCountdown);
+    btn.classList.toggle('primary', on);
+    btn.classList.toggle('is-on', on);
+    btn.textContent = on ? '🐢 Tiempo lento ON' : '🐢 Tiempo lento OFF';
+    btn.title = on
+      ? 'Cuenta regresiva lenta activa · pulsa para apagar'
+      : 'Cuenta regresiva lenta apagada · pulsa para activar';
+  }
   window.refreshSorteosGiftBtn = function refreshSorteosGiftBtn() {
     const btn = $('socfg-giftpick');
     if (!btn) return;
@@ -9669,6 +9883,17 @@ function refreshGiftCounterCardUI() {
     send({ action: 'sorteos', sorteosAction: 'unlock' });
     try { toast('Sorteos · Unlock', 'ok'); } catch {}
   };
+  if ($('so-slow')) $('so-slow').onclick = () => {
+    if (!settings.sorteosOverlay) settings.sorteosOverlay = {};
+    const next = !settings.sorteosOverlay.slowCountdown;
+    settings.sorteosOverlay.slowCountdown = next;
+    if ($('socfg-slow')) $('socfg-slow').checked = next;
+    saveSettingsKeysPatch('sorteosOverlay');
+    toPrev({ type: 'action', action: next ? 'slowOn' : 'slowOff' });
+    send({ action: 'sorteos', sorteosAction: next ? 'slowOn' : 'slowOff' });
+    syncSorteosSlowBtn();
+    try { toast(next ? 'Sorteos · Tiempo lento ON' : 'Sorteos · Tiempo lento OFF', 'ok'); } catch {}
+  };
   if ($('so-reset')) $('so-reset').onclick = () => {
     toPrev({ type: 'reset' });
     send({ action: 'sorteos', sorteosAction: 'reset' });
@@ -9677,13 +9902,28 @@ function refreshGiftCounterCardUI() {
   // Cuando el iframe avisa que cargó, reenviar config (evita preview gigante con scale por defecto)
   window.addEventListener('message', (ev) => {
     const d = ev?.data;
-    if (!d || d.kind !== 'sorteos' || d.type !== 'ready') return;
-    pushCfg();
+    if (!d || d.kind !== 'sorteos') return;
+    if (d.type === 'ready') {
+      pushCfg();
+      syncSorteosSlowBtn();
+      return;
+    }
+    if (d.type === 'vouch' && Number.isFinite(Number(d.count))) {
+      if (!settings.sorteosOverlay) settings.sorteosOverlay = {};
+      const n = Math.max(0, parseInt(d.count, 10) || 0);
+      const cur = Math.max(0, parseInt(settings.sorteosOverlay.vouchCount, 10) || 0);
+      if (n !== cur) {
+        settings.sorteosOverlay.vouchCount = Math.max(cur, n);
+        saveSettingsKeysPatch('sorteosOverlay');
+      }
+    }
   });
   const soFr = soFrame();
   if (soFr) {
-    soFr.addEventListener('load', () => { pushCfg(); setTimeout(pushCfg, 200); });
+    soFr.addEventListener('load', () => { pushCfg(); syncSorteosSlowBtn(); setTimeout(pushCfg, 200); });
   }
+  syncSorteosSlowBtn();
+  window.__soSyncSlowBtn = syncSorteosSlowBtn;
 })();
 
 function pushStyleOverlayPreviews() {
@@ -12866,7 +13106,7 @@ function openTtsWarnModal(onAccept) {
 
 (function setupTtsControls() {
   if (TTS_HAS) speechSynthesis.onvoiceschanged = loadVoices;
-  const save = () => { saveSettings(); updateTtsSummary(); };
+  const save = () => { saveSettingsKeysPatch('tts'); updateTtsSummary(); };
   const bindChk = (id, key) => { const el = $(id); if (el) el.addEventListener('change', () => { settings.tts[key] = el.checked; save(); }); };
   const bindTxt = (id, key) => { const el = $(id); if (el) el.addEventListener('input', () => { settings.tts[key] = el.value; save(); }); };
   const bindNum = (id, key) => { const el = $(id); if (el) el.addEventListener('change', () => { settings.tts[key] = +el.value || 0; save(); }); };
@@ -15933,7 +16173,11 @@ async function showViewById(viewId) {
     if (typeof pulseDockNav === 'function') pulseDockNav(navBtn);
   }
   if (gameMatch) {
+    try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
     try { await ensureGameUi(gameMatch[1]); } catch (e) { console.warn('ensureGameUi', gameMatch[1], e); }
+  }
+  if (viewId === 'view-juegos' || (typeof navSlug === 'string' && navSlug.indexOf('juego') === 0)) {
+    try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
   }
   if (viewId === 'view-juego-pvzhybrid' && typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
   if (viewId === 'view-juego-repo') {
@@ -16093,7 +16337,7 @@ async function ensureGameUi(gameKey) {
         setupGtavChaosActionsUI();
         break;
       case 'gtavchiliad':
-        await loadGameCatalogScript('/js/gtavchiliad-spawn-catalog.js');
+        await loadGameCatalogScript('/js/gtavchiliad-spawn-catalog.js?v=chiliad5');
         bindGtavChiliadCatalogFromWindow();
         setupGtavChiliadGameDirUI();
         setupGtavChiliadInstallUI();
@@ -16218,8 +16462,11 @@ function wireGameToggleAllButton(buttonId, getList, renderFn, settingsKey) {
     if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
     const anyOff = list.some((a) => a.enabled === false);
     list.forEach((a) => { a.enabled = anyOff; });
-    if (settingsKey) saveSettingsKeysPatch(settingsKey);
-    else saveSettings();
+    lastGameActionEditAt = Date.now();
+    // Solo enabled: no sync Editor Pro (rompe montaje / Live Studio).
+    if (settingsKey) {
+      saveSettingsKeysPatch(settingsKey, { skipErSync: true, flush: true });
+    } else flushSaveSettings();
     renderFn();
     toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
   };
@@ -17001,8 +17248,10 @@ function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
       const a = find(id);
       if (!a) return;
       a.enabled = c.checked;
-      if (settingsKey) saveSettingsKeysPatch(settingsKey);
-      else saveSettings();
+      lastGameActionEditAt = Date.now();
+      // Solo Activa ON/OFF: no reconstruir Editor Pro.
+      if (settingsKey) saveSettingsKeysPatch(settingsKey, { skipErSync: true, flush: true });
+      else flushSaveSettings();
       render();
     };
   });
@@ -17581,7 +17830,8 @@ function renderMcFamilyActions(game) {
   wrap.querySelectorAll('.mc-act-en').forEach((c) => c.onchange = () => {
     const a = find(c.dataset.uid); if (!a) return;
     a.enabled = c.checked;
-    saveSettingsKeysPatch(key); rerender();
+    lastGameActionEditAt = Date.now();
+    saveSettingsKeysPatch(key, { skipErSync: true, flush: true }); rerender();
   });
   wrap.querySelectorAll('.mc-qty-n').forEach((inp) => inp.onchange = () => {
     const a = find(inp.dataset.uid); if (!a) return;
@@ -18201,10 +18451,12 @@ function buildEditorRapidoRowsForSettingsKey(settingsKey) {
 
 let _erGameSyncTimer = null;
 function notifyEditorRapidoActionsChanged(settingsKey) {
+  if (Date.now() < erSyncSuppressedUntil) return;
   const key = String(settingsKey || '').trim();
   if (!key || !Array.isArray(settings?.[key])) return;
   clearTimeout(_erGameSyncTimer);
   _erGameSyncTimer = setTimeout(() => {
+    if (Date.now() < erSyncSuppressedUntil) return;
     if (typeof window.syncEditorRapidoFromGameActions !== 'function') return;
     const rows = buildEditorRapidoRowsForSettingsKey(key);
     window.syncEditorRapidoFromGameActions(key, rows).catch(() => {});
@@ -19457,7 +19709,7 @@ function setupMcShooterActionsUI() {
       if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('mcshooterActions'); renderMyMcShooterActions();
+      saveSettingsKeysPatch('mcshooterActions', { skipErSync: true, flush: true }); renderMyMcShooterActions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
@@ -19466,7 +19718,7 @@ function setupMcShooterActionsUI() {
     const el = document.getElementById(id);
     if (!el || el._coliseoWired) return;
     el._coliseoWired = true;
-    const saveCol = () => { syncMcShooterColiseoFromDom(); saveSettings(); };
+    const saveCol = () => { syncMcShooterColiseoFromDom(); saveSettingsKeysPatch('mcshooterActions'); };
     const isCoord = id === 'mcshooter-coliseo-x' || id === 'mcshooter-coliseo-y' || id === 'mcshooter-coliseo-z';
     if (el.type === 'checkbox') el.onchange = saveCol;
     else if (isCoord) {
@@ -19606,7 +19858,7 @@ function setupRobloxActionsUI() {
       const list = ensureRobloxSlots();
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; }); // si alguna está apagada → encender todas; si no → apagar todas
-      saveSettingsKeysPatch('robloxActions'); renderRobloxActions();
+      saveSettingsKeysPatch('robloxActions', { skipErSync: true, flush: true }); renderRobloxActions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
@@ -19691,10 +19943,10 @@ function renderRobloxActions() {
     renderRobloxActions();
   });
   bindGameActionConfigPopovers(wrap, (slot) => list[parseInt(slot, 10)], renderRobloxActions, { useSlot: true });
-  wrap.querySelectorAll('.rbx-like-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
-  wrap.querySelectorAll('.rbx-range-min').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMin = Math.max(0, parseInt(inp.value, 10) || 0); saveSettings(); });
-  wrap.querySelectorAll('.rbx-range-max').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMax = Math.max(0, parseInt(inp.value, 10) || 0); saveSettings(); });
-  wrap.querySelectorAll('.rbx-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.rbx-like-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettingsKeysPatch('robloxActions'); });
+  wrap.querySelectorAll('.rbx-range-min').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMin = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('robloxActions'); });
+  wrap.querySelectorAll('.rbx-range-max').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMax = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('robloxActions'); });
+  wrap.querySelectorAll('.rbx-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettingsKeysPatch('robloxActions'); });
   wrap.querySelectorAll('.rbx-gift').forEach((b) => b.onclick = () => {
     const a = at(b); if (!a) return;
     openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); notifyEditorRapidoActionsChanged('robloxActions'); renderRobloxActions(); });
@@ -19751,7 +20003,7 @@ function setupRoblox3ActionsUI() {
       const list = ensureRoblox3Slots();
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('roblox3Actions'); renderRoblox3Actions();
+      saveSettingsKeysPatch('roblox3Actions', { skipErSync: true, flush: true }); renderRoblox3Actions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
@@ -19869,10 +20121,10 @@ function renderRoblox3Actions() {
     renderRoblox3Actions();
   });
   bindGameActionConfigPopovers(wrap, (slot) => list[parseInt(slot, 10)], renderRoblox3Actions, { useSlot: true });
-  wrap.querySelectorAll('.rbx3-like-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettings(); });
-  wrap.querySelectorAll('.rbx3-range-min').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMin = Math.max(0, parseInt(inp.value, 10) || 0); saveSettings(); });
-  wrap.querySelectorAll('.rbx3-range-max').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMax = Math.max(0, parseInt(inp.value, 10) || 0); saveSettings(); });
-  wrap.querySelectorAll('.rbx3-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettings(); });
+  wrap.querySelectorAll('.rbx3-like-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.likeN = Math.max(1, parseInt(inp.value, 10) || 1); saveSettingsKeysPatch('roblox3Actions'); });
+  wrap.querySelectorAll('.rbx3-range-min').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMin = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('roblox3Actions'); });
+  wrap.querySelectorAll('.rbx3-range-max').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMax = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('roblox3Actions'); });
+  wrap.querySelectorAll('.rbx3-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettingsKeysPatch('roblox3Actions'); });
   wrap.querySelectorAll('.rbx3-gift').forEach((b) => b.onclick = () => {
     const a = at(b); if (!a) return;
     openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); notifyEditorRapidoActionsChanged('roblox3Actions'); renderRoblox3Actions(); });
@@ -20196,7 +20448,7 @@ function setupMarioActionsUI() {
       if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('marioActions'); renderMarioActions();
+      saveSettingsKeysPatch('marioActions', { skipErSync: true, flush: true }); renderMarioActions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
@@ -20858,7 +21110,7 @@ function renderMarioActions() {
     inp.oninput = apply;
     inp.onchange = apply;
   });
-  wrap.querySelectorAll('.mario-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
+  wrap.querySelectorAll('.mario-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettingsKeysPatch('marioActions'); });
   bindGameSurvivalCardExtras(wrap, find, renderMarioActions, {
     settingsKey: 'marioActions',
     testClass: 'mario-test',
@@ -21319,7 +21571,7 @@ function setupSmb3ActionsUI() {
       if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('smb3Actions'); renderSmb3Actions();
+      saveSettingsKeysPatch('smb3Actions', { skipErSync: true, flush: true }); renderSmb3Actions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
@@ -21502,7 +21754,7 @@ function renderSmb3Actions() {
       w.querySelectorAll('.mc-act-cfg-seconds').forEach((inp) => inp.onchange = () => savePatch(inp, { seconds: Math.max(1, Math.min(60, parseInt(inp.value, 10) || 5)) }));
     },
   });
-  wrap.querySelectorAll('.smb3-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
+  wrap.querySelectorAll('.smb3-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettingsKeysPatch('smb3Actions'); });
   bindGameSurvivalCardExtras(wrap, find, renderSmb3Actions, {
     settingsKey: 'smb3Actions',
     testClass: 'smb3-test',
@@ -21909,7 +22161,7 @@ function renderMari0Actions() {
       w.querySelectorAll('.mc-act-cfg-factor').forEach((inp) => inp.onchange = () => savePatch(inp, { factor: Math.max(0, Math.min(10, parseInt(inp.value, 10) || 0)) }));
     },
   });
-  wrap.querySelectorAll('.mari0-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettings(); });
+  wrap.querySelectorAll('.mari0-combo-instant-en').forEach((c) => c.onchange = () => { const a = find(c.dataset.uid); if (!a) return; a.comboInstant = c.checked; saveSettingsKeysPatch('mari0Actions'); });
   bindGameSurvivalCardExtras(wrap, find, renderMari0Actions, {
     settingsKey: 'mari0Actions',
     testClass: 'mari0-test',
@@ -22100,7 +22352,7 @@ function setupPvzActionsUI() {
       if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('pvzActions'); renderPvzActions();
+      saveSettingsKeysPatch('pvzActions', { skipErSync: true, flush: true }); renderPvzActions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
   }
@@ -22571,7 +22823,7 @@ function setupPvzHybridActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('pvzHybridActions'); renderPvzHybridActions();
+      saveSettingsKeysPatch('pvzHybridActions', { skipErSync: true, flush: true }); renderPvzHybridActions();
     };
   }
   renderPvzHybridCatalog(search ? search.value : '');
@@ -23804,7 +24056,7 @@ function setupRepoActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('repoActions'); renderRepoActions();
+      saveSettingsKeysPatch('repoActions', { skipErSync: true, flush: true }); renderRepoActions();
     };
   }
   const genOverlayBtn = document.getElementById('repo-gen-overlay');
@@ -24606,7 +24858,7 @@ function setupL4dActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('l4dActions');
+      saveSettingsKeysPatch('l4dActions', { skipErSync: true, flush: true });
       renderL4dActions();
     };
   }
@@ -25278,7 +25530,7 @@ function setupUnturnedActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('unturnedActions');
+      saveSettingsKeysPatch('unturnedActions', { skipErSync: true, flush: true });
       renderUnturnedActions();
     };
   }
@@ -25773,7 +26025,7 @@ async function installGtavKothModApi(dir) {
   const r = await fetch('/api/desktop/gtavkoth-install-mod', {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dir }),
+    body: JSON.stringify({ dir, forceDownload: true }),
   });
   return r.json();
 }
@@ -26115,7 +26367,7 @@ function setupGtavKothActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('gtavKothActions');
+      saveSettingsKeysPatch('gtavKothActions', { skipErSync: true, flush: true });
       renderGtavKothActions();
     };
   }
@@ -26508,7 +26760,7 @@ function setupCtrActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('ctrActions');
+      saveSettingsKeysPatch('ctrActions', { skipErSync: true, flush: true });
       renderCtrActions();
     };
   }
@@ -26925,7 +27177,7 @@ function setupSmwActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('smwActions');
+      saveSettingsKeysPatch('smwActions', { skipErSync: true, flush: true });
       renderSmwActions();
     };
   }
@@ -27440,7 +27692,7 @@ function setupMslugActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('mslugActions'); renderMslugActions();
+      saveSettingsKeysPatch('mslugActions', { skipErSync: true, flush: true }); renderMslugActions();
     };
   }
   const addOverlay = document.getElementById('mslug-add-overlay');
@@ -27752,7 +28004,7 @@ function setupGdashActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('gdashActions'); renderGdashActions();
+      saveSettingsKeysPatch('gdashActions', { skipErSync: true, flush: true }); renderGdashActions();
     };
   }
   const genOverlayBtn = document.getElementById('gdash-gen-overlay');
@@ -29314,89 +29566,156 @@ function setupPanelLives() {
     try { revealJuegosTab(); setupJuegosUI(); } catch (e) { console.error('Juegos tab:', e); }
 })();
 
-/** Packs de iconos de acciones de juegos para la pestaña Editor */
-window.getEditorGamePacks = function getEditorGamePacks() {
-  const byId = (list, dir) => (list || []).map((c) => ({
+/** Packs de iconos de acciones de juegos para la pestaña Editor.
+ *  Lista = barata (solo cover + count). Items se arman al elegir un juego. */
+let _editorGamePacksAllCache = null;
+const _editorGamePackByIdCache = new Map();
+
+function _editorPackById(list, dir) {
+  return (list || []).map((c) => ({
     name: c.name || c.nombre || c.label || c.id,
     src: `${dir}${c.id}.png`,
   })).filter((x) => x.name && x.src);
+}
 
-  const packs = [
-    { id: 'minecraft', name: 'Minecraft', cover: '/img/minecraft-card.jpg', items: byId(typeof MC_CATALOG !== 'undefined' ? MC_CATALOG : [], '/img/minecraft/') },
-    { id: 'mcparkour', name: 'Minecraft Parkour', cover: '/img/mcparkour-card.jpg', items: byId(typeof PARKOUR_CATALOG !== 'undefined' ? PARKOUR_CATALOG : [], '/img/parkour/') },
-    { id: 'mckoth', name: 'Minecraft KOTH', cover: '/img/mckoth-card.jpg', items: byId(typeof KOTH_CATALOG !== 'undefined' ? KOTH_CATALOG : [], '/img/koth/') },
-    { id: 'mcfarm', name: 'Minecraft Farm', cover: '/img/mcfarm-card.jpg', items: byId(typeof FARM_CATALOG !== 'undefined' ? FARM_CATALOG : [], '/img/farm/') },
-    {
-      id: 'mcshooter', name: 'Minecraft Shooters', cover: '/img/mcshooter-card.png',
-      items: (typeof MCSHOOTER_CATALOG !== 'undefined' ? MCSHOOTER_CATALOG : []).map((c) => ({
-        name: c.name,
-        src: c.img ? `/img/minecraft/${c.img}.png` : `/img/mcshooter/${c.id}.png`,
-      })),
-    },
-    { id: 'bedrock', name: 'Bedrock · Cubo TNT', cover: '/img/bedrock-card.jpg', items: byId(typeof BEDROCK_CATALOG !== 'undefined' ? BEDROCK_CATALOG : [], '/img/bedrock/') },
-    { id: 'sandbox', name: 'Sandbox', cover: '/img/sandbox-card.jpg', items: byId(typeof SANDBOX_CATALOG !== 'undefined' ? SANDBOX_CATALOG : [], '/img/sandbox/') },
-    {
-      id: 'mariobros', name: 'Mario Bros', cover: '/img/mariobros-card.jpg',
-      items: (typeof MARIO_CATALOG !== 'undefined' ? MARIO_CATALOG : []).map((c) => ({
-        name: c.nombre || c.name || c.id,
-        src: typeof marioCatalogIconUrl === 'function' ? marioCatalogIconUrl(c) : '',
-      })).filter((x) => x.src),
-    },
-    {
-      id: 'mari0', name: 'Mari0', cover: '/img/mari0-card.png',
-      items: (typeof MARI0_CATALOG !== 'undefined' ? MARI0_CATALOG : []).map((c) => ({
-        name: c.nombre || c.name || c.id,
-        src: typeof mari0CatalogIconUrl === 'function' ? mari0CatalogIconUrl(c) : `/img/mari0/${c.id}.png`,
-      })).filter((x) => x.src),
-    },
-    {
-      id: 'smw', name: 'Super Mario World', cover: '/img/smw-card.jpg',
-      items: (typeof SMW_CATALOG !== 'undefined' ? SMW_CATALOG : []).map((c) => ({
-        name: c.nombre || c.name || c.id,
-        src: typeof smwCatalogIconUrl === 'function' ? smwCatalogIconUrl(c) : `/img/smw/${c.id}.png`,
-      })).filter((x) => x.src),
-    },
-    { id: 'plantasvszombies', name: 'Plants vs Zombies', cover: '/img/plantasvszombies-card.jpg', items: byId(typeof PVZ_CATALOG !== 'undefined' ? PVZ_CATALOG : [], '/img/pvz/') },
-    { id: 'pvzhybrid', name: 'PvZ Hybrid', cover: '/img/pvzhybrid-card.jpg', items: byId(typeof PVZHYBRID_CATALOG !== 'undefined' ? PVZHYBRID_CATALOG : [], '/img/pvzhybrid-thumbs/') },
-    {
-      id: 'repo', name: 'R.E.P.O.', cover: '/img/repo-card.jpg',
-      items: (typeof REPO_CATALOG !== 'undefined' ? REPO_CATALOG : []).map((c) => ({
-        name: c.nombre || c.name || c.id,
-        src: `/img/repo/${c.img || c.id}.png`,
-      })),
-    },
-    {
-      id: 'l4d', name: 'Left 4 Dead 2', cover: '/img/l4d2-card.png',
-      items: (typeof L4D_CATALOG !== 'undefined' ? L4D_CATALOG : []).map((c) => ({
-        name: c.nombre || c.name || c.id,
-        src: l4dThumbUrls(c).primary || l4dThumbUrls(c).fallback,
-      })),
-    },
-    {
-      id: 'unturned', name: 'Unturned', cover: '/img/unturned-card.png',
-      items: (typeof UNTURNED_CATALOG !== 'undefined' ? UNTURNED_CATALOG : []).map((c) => ({
-        name: c.nombre || c.name || c.id,
-        src: typeof unturnedCatalogIconUrl === 'function' ? unturnedCatalogIconUrl(c) : `/img/unturned/${c.id}.png`,
-      })).filter((x) => x.src),
-    },
-    {
-      id: 'crashctr', name: 'Crash Team Racing', cover: '/img/ctr-card.jpg',
-      items: (typeof CTR_CATALOG !== 'undefined' ? CTR_CATALOG : []).map((c) => ({
-        name: c.nombre || c.name || c.id,
-        src: `/img/ctr/${c.id}.webp`,
-        srcFallback: `/img/ctr/${c.id}.png`,
-      })),
-    },
-    {
-      id: 'metalslug', name: 'Metal Slug', cover: '/img/metalslug.png',
-      items: (typeof MSLUG_CATALOG !== 'undefined' ? MSLUG_CATALOG : []).map((c) => {
-        const urls = mslugThumbUrls(c);
-        return { name: c.nombre || c.name || c.id, src: urls.primary || urls.fallback, srcFallback: urls.fallback };
-      }).filter((x) => x.src),
-    },
-    { id: 'geometrydash', name: 'Geometry Dash', cover: '/img/gdash/gdash-card.jpg', items: byId(typeof GDASH_CATALOG !== 'undefined' ? GDASH_CATALOG : [], '/img/gdash/') },
+function _buildEditorGamePack(id) {
+  switch (id) {
+    case 'minecraft':
+      return { id, name: 'Minecraft', cover: '/img/minecraft-card.jpg', items: _editorPackById(typeof MC_CATALOG !== 'undefined' ? MC_CATALOG : [], '/img/minecraft/') };
+    case 'mcparkour':
+      return { id, name: 'Minecraft Parkour', cover: '/img/mcparkour-card.jpg', items: _editorPackById(typeof PARKOUR_CATALOG !== 'undefined' ? PARKOUR_CATALOG : [], '/img/parkour/') };
+    case 'mckoth':
+      return { id, name: 'Minecraft KOTH', cover: '/img/mckoth-card.jpg', items: _editorPackById(typeof KOTH_CATALOG !== 'undefined' ? KOTH_CATALOG : [], '/img/koth/') };
+    case 'mcfarm':
+      return { id, name: 'Minecraft Farm', cover: '/img/mcfarm-card.jpg', items: _editorPackById(typeof FARM_CATALOG !== 'undefined' ? FARM_CATALOG : [], '/img/farm/') };
+    case 'mcshooter':
+      return {
+        id, name: 'Minecraft Shooters', cover: '/img/mcshooter-card.png',
+        items: (typeof MCSHOOTER_CATALOG !== 'undefined' ? MCSHOOTER_CATALOG : []).map((c) => ({
+          name: c.name,
+          src: c.img ? `/img/minecraft/${c.img}.png` : `/img/mcshooter/${c.id}.png`,
+        })),
+      };
+    case 'bedrock':
+      return { id, name: 'Bedrock · Cubo TNT', cover: '/img/bedrock-card.jpg', items: _editorPackById(typeof BEDROCK_CATALOG !== 'undefined' ? BEDROCK_CATALOG : [], '/img/bedrock/') };
+    case 'sandbox':
+      return { id, name: 'Sandbox', cover: '/img/sandbox-card.jpg', items: _editorPackById(typeof SANDBOX_CATALOG !== 'undefined' ? SANDBOX_CATALOG : [], '/img/sandbox/') };
+    case 'mariobros':
+      return {
+        id, name: 'Mario Bros', cover: '/img/mariobros-card.jpg',
+        items: (typeof MARIO_CATALOG !== 'undefined' ? MARIO_CATALOG : []).map((c) => ({
+          name: c.nombre || c.name || c.id,
+          src: typeof marioCatalogIconUrl === 'function' ? marioCatalogIconUrl(c) : '',
+        })).filter((x) => x.src),
+      };
+    case 'mari0':
+      return {
+        id, name: 'Mari0', cover: '/img/mari0-card.png',
+        items: (typeof MARI0_CATALOG !== 'undefined' ? MARI0_CATALOG : []).map((c) => ({
+          name: c.nombre || c.name || c.id,
+          src: typeof mari0CatalogIconUrl === 'function' ? mari0CatalogIconUrl(c) : `/img/mari0/${c.id}.png`,
+        })).filter((x) => x.src),
+      };
+    case 'smw':
+      return {
+        id, name: 'Super Mario World', cover: '/img/smw-card.jpg',
+        items: (typeof SMW_CATALOG !== 'undefined' ? SMW_CATALOG : []).map((c) => ({
+          name: c.nombre || c.name || c.id,
+          src: typeof smwCatalogIconUrl === 'function' ? smwCatalogIconUrl(c) : `/img/smw/${c.id}.png`,
+        })).filter((x) => x.src),
+      };
+    case 'plantasvszombies':
+      return { id, name: 'Plants vs Zombies', cover: '/img/plantasvszombies-card.jpg', items: _editorPackById(typeof PVZ_CATALOG !== 'undefined' ? PVZ_CATALOG : [], '/img/pvz/') };
+    case 'pvzhybrid':
+      return { id, name: 'PvZ Hybrid', cover: '/img/pvzhybrid-card.jpg', items: _editorPackById(typeof PVZHYBRID_CATALOG !== 'undefined' ? PVZHYBRID_CATALOG : [], '/img/pvzhybrid-thumbs/') };
+    case 'repo':
+      return {
+        id, name: 'R.E.P.O.', cover: '/img/repo-card.jpg',
+        items: (typeof REPO_CATALOG !== 'undefined' ? REPO_CATALOG : []).map((c) => ({
+          name: c.nombre || c.name || c.id,
+          src: `/img/repo/${c.img || c.id}.png`,
+        })),
+      };
+    case 'l4d':
+      return {
+        id, name: 'Left 4 Dead 2', cover: '/img/l4d2-card.png',
+        items: (typeof L4D_CATALOG !== 'undefined' ? L4D_CATALOG : []).map((c) => ({
+          name: c.nombre || c.name || c.id,
+          src: l4dThumbUrls(c).primary || l4dThumbUrls(c).fallback,
+        })),
+      };
+    case 'unturned':
+      return {
+        id, name: 'Unturned', cover: '/img/unturned-card.png',
+        items: (typeof UNTURNED_CATALOG !== 'undefined' ? UNTURNED_CATALOG : []).map((c) => ({
+          name: c.nombre || c.name || c.id,
+          src: typeof unturnedCatalogIconUrl === 'function' ? unturnedCatalogIconUrl(c) : `/img/unturned/${c.id}.png`,
+        })).filter((x) => x.src),
+      };
+    case 'crashctr':
+      return {
+        id, name: 'Crash Team Racing', cover: '/img/ctr-card.jpg',
+        items: (typeof CTR_CATALOG !== 'undefined' ? CTR_CATALOG : []).map((c) => ({
+          name: c.nombre || c.name || c.id,
+          src: `/img/ctr/${c.id}.webp`,
+          srcFallback: `/img/ctr/${c.id}.png`,
+        })),
+      };
+    case 'metalslug':
+      return {
+        id, name: 'Metal Slug', cover: '/img/metalslug.png',
+        items: (typeof MSLUG_CATALOG !== 'undefined' ? MSLUG_CATALOG : []).map((c) => {
+          const urls = mslugThumbUrls(c);
+          return { name: c.nombre || c.name || c.id, src: urls.primary || urls.fallback, srcFallback: urls.fallback };
+        }).filter((x) => x.src),
+      };
+    case 'geometrydash':
+      return { id, name: 'Geometry Dash', cover: '/img/gdash/gdash-card.jpg', items: _editorPackById(typeof GDASH_CATALOG !== 'undefined' ? GDASH_CATALOG : [], '/img/gdash/') };
+    default:
+      return null;
+  }
+}
+
+/** Solo filas del modal (sin armar arrays de iconos). */
+window.getEditorGamePackList = function getEditorGamePackList() {
+  const rows = [
+    { id: 'minecraft', name: 'Minecraft', cover: '/img/minecraft-card.jpg', count: (typeof MC_CATALOG !== 'undefined' && MC_CATALOG) ? MC_CATALOG.length : 0 },
+    { id: 'mcparkour', name: 'Minecraft Parkour', cover: '/img/mcparkour-card.jpg', count: (typeof PARKOUR_CATALOG !== 'undefined' && PARKOUR_CATALOG) ? PARKOUR_CATALOG.length : 0 },
+    { id: 'mckoth', name: 'Minecraft KOTH', cover: '/img/mckoth-card.jpg', count: (typeof KOTH_CATALOG !== 'undefined' && KOTH_CATALOG) ? KOTH_CATALOG.length : 0 },
+    { id: 'mcfarm', name: 'Minecraft Farm', cover: '/img/mcfarm-card.jpg', count: (typeof FARM_CATALOG !== 'undefined' && FARM_CATALOG) ? FARM_CATALOG.length : 0 },
+    { id: 'mcshooter', name: 'Minecraft Shooters', cover: '/img/mcshooter-card.png', count: (typeof MCSHOOTER_CATALOG !== 'undefined' && MCSHOOTER_CATALOG) ? MCSHOOTER_CATALOG.length : 0 },
+    { id: 'bedrock', name: 'Bedrock · Cubo TNT', cover: '/img/bedrock-card.jpg', count: (typeof BEDROCK_CATALOG !== 'undefined' && BEDROCK_CATALOG) ? BEDROCK_CATALOG.length : 0 },
+    { id: 'sandbox', name: 'Sandbox', cover: '/img/sandbox-card.jpg', count: (typeof SANDBOX_CATALOG !== 'undefined' && SANDBOX_CATALOG) ? SANDBOX_CATALOG.length : 0 },
+    { id: 'mariobros', name: 'Mario Bros', cover: '/img/mariobros-card.jpg', count: (typeof MARIO_CATALOG !== 'undefined' && MARIO_CATALOG) ? MARIO_CATALOG.length : 0 },
+    { id: 'mari0', name: 'Mari0', cover: '/img/mari0-card.png', count: (typeof MARI0_CATALOG !== 'undefined' && MARI0_CATALOG) ? MARI0_CATALOG.length : 0 },
+    { id: 'smw', name: 'Super Mario World', cover: '/img/smw-card.jpg', count: (typeof SMW_CATALOG !== 'undefined' && SMW_CATALOG) ? SMW_CATALOG.length : 0 },
+    { id: 'plantasvszombies', name: 'Plants vs Zombies', cover: '/img/plantasvszombies-card.jpg', count: (typeof PVZ_CATALOG !== 'undefined' && PVZ_CATALOG) ? PVZ_CATALOG.length : 0 },
+    { id: 'pvzhybrid', name: 'PvZ Hybrid', cover: '/img/pvzhybrid-card.jpg', count: (typeof PVZHYBRID_CATALOG !== 'undefined' && PVZHYBRID_CATALOG) ? PVZHYBRID_CATALOG.length : 0 },
+    { id: 'repo', name: 'R.E.P.O.', cover: '/img/repo-card.jpg', count: (typeof REPO_CATALOG !== 'undefined' && REPO_CATALOG) ? REPO_CATALOG.length : 0 },
+    { id: 'l4d', name: 'Left 4 Dead 2', cover: '/img/l4d2-card.png', count: (typeof L4D_CATALOG !== 'undefined' && L4D_CATALOG) ? L4D_CATALOG.length : 0 },
+    { id: 'unturned', name: 'Unturned', cover: '/img/unturned-card.png', count: (typeof UNTURNED_CATALOG !== 'undefined' && UNTURNED_CATALOG) ? UNTURNED_CATALOG.length : 0 },
+    { id: 'crashctr', name: 'Crash Team Racing', cover: '/img/ctr-card.jpg', count: (typeof CTR_CATALOG !== 'undefined' && CTR_CATALOG) ? CTR_CATALOG.length : 0 },
+    { id: 'metalslug', name: 'Metal Slug', cover: '/img/metalslug.png', count: (typeof MSLUG_CATALOG !== 'undefined' && MSLUG_CATALOG) ? MSLUG_CATALOG.length : 0 },
+    { id: 'geometrydash', name: 'Geometry Dash', cover: '/img/gdash/gdash-card.jpg', count: (typeof GDASH_CATALOG !== 'undefined' && GDASH_CATALOG) ? GDASH_CATALOG.length : 0 },
   ];
-  return packs.filter((p) => Array.isArray(p.items) && p.items.length > 0);
+  return rows.filter((p) => p.count > 0);
+};
+
+window.getEditorGamePackById = function getEditorGamePackById(id) {
+  const key = String(id || '');
+  if (!key) return null;
+  if (_editorGamePackByIdCache.has(key)) return _editorGamePackByIdCache.get(key);
+  const pack = _buildEditorGamePack(key);
+  if (!pack || !Array.isArray(pack.items) || !pack.items.length) return null;
+  _editorGamePackByIdCache.set(key, pack);
+  return pack;
+};
+
+window.getEditorGamePacks = function getEditorGamePacks() {
+  if (_editorGamePacksAllCache) return _editorGamePacksAllCache;
+  const packs = window.getEditorGamePackList().map((row) => window.getEditorGamePackById(row.id)).filter(Boolean);
+  _editorGamePacksAllCache = packs;
+  return packs;
 };
 
 
@@ -29843,7 +30162,7 @@ async function installGtavChaosModApi(dir) {
   const r = await fetch('/api/desktop/gtavkoth-install-mod', {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dir }),
+    body: JSON.stringify({ dir, forceDownload: true }),
   });
   return r.json();
 }
@@ -30141,7 +30460,7 @@ function setupGtavChaosActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('gtavChaosActions');
+      saveSettingsKeysPatch('gtavChaosActions', { skipErSync: true, flush: true });
       renderGtavChaosActions();
     };
   }
@@ -30594,7 +30913,7 @@ async function installGtavChiliadModApi(dir) {
   const r = await fetch('/api/desktop/gtavkoth-install-mod', {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ dir }),
+    body: JSON.stringify({ dir, forceDownload: true }),
   });
   return r.json();
 }
@@ -30892,7 +31211,7 @@ function setupGtavChiliadActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
-      saveSettingsKeysPatch('gtavChiliadActions');
+      saveSettingsKeysPatch('gtavChiliadActions', { skipErSync: true, flush: true });
       renderGtavChiliadActions();
     };
   }

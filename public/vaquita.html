@@ -722,6 +722,7 @@
       return arr.length ? arr[Math.floor(Math.random() * arr.length)] : FALLBACK_IMG;
     }
     function dropOneGift(payload) {
+
       const p = payload || {};
       let src = '';
       if (p.image) {
@@ -781,6 +782,7 @@
     else restorePersistedGifts();
 
     function runFill(total) {
+
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
       clearJar(true); setDiamonds(0, false, true); clearPersistState();
       showGiftToast({

@@ -835,6 +835,7 @@
       return arr.length ? arr[Math.floor(Math.random() * arr.length)] : FALLBACK_IMG;
     }
     function dropOneGift(payload) {
+
       const p = payload || {};
       let src = '';
       if (p.image) {
@@ -855,6 +856,7 @@
       addGiftBody(src, giftSizeForFill(d), d, {});
     }
     function runFill(total) {
+
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
       clearJar(); setDiamonds(0);
       // Demo del toast al pulsar Testear

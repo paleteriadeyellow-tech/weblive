@@ -671,6 +671,7 @@
       return arr.length ? arr[Math.floor(Math.random() * arr.length)] : FALLBACK_IMG;
     }
     function dropOneGift(payload) {
+
       const p = payload || {};
       // Solo el regalo filtrado (o el mismo id/nombre) puede caer.
       if ((p.giftId || p.giftName) && !giftMatchesFilter(p)) return;
@@ -728,6 +729,7 @@
     else restorePersistedGifts();
 
     function runFill(total, payload) {
+
       if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
       clearJar(true); resetMeta();
       if (payload) applyFilterGiftSettings(payload);

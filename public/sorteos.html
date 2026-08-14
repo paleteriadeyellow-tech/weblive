@@ -447,7 +447,7 @@
     }
     .so-elim .so-elim-foot {
       margin: 4px 0 0; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-      font-size: clamp(11px, 2.2vmin, 14px); color: rgba(148, 163, 184, .9);
+      font-size: clamp(11px, 2.2vmin, 14px); color: #fb7185;
     }
   </style>
 </head>
@@ -552,6 +552,7 @@
       lockMode: false,
       lockEntryMin: 30,
       vouchKeywords: 'vouch,gracias,confiable',
+      vouchCount: 0,
       overlayScale: 100,
       statsPos: 'bottom', // bottom | top
       showGift: true,
@@ -600,29 +601,69 @@
     let elimCardTimer = null;
     let elimCardGen = 0;
     let elimCardResolve = null;
+    let ws = null;
+    let rt = null;
 
     const $ = (id) => document.getElementById(id);
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || lo));
+    /** Clave estable (sin room): el room cambia y antes reiniciaba los vouches. */
     function vouchStorageKey() {
-      try {
-        const room = new URLSearchParams(location.search).get('room') || 'default';
-        return 'lc_sorteos_vouches_' + String(room);
-      } catch {
-        return 'lc_sorteos_vouches';
-      }
+      return 'lc_sorteos_vouches';
     }
     function loadVouchCount() {
       try {
-        const n = parseInt(localStorage.getItem(vouchStorageKey()), 10);
-        return Number.isFinite(n) && n >= 0 ? n : 0;
+        let n = parseInt(localStorage.getItem(vouchStorageKey()), 10);
+        if (!(Number.isFinite(n) && n >= 0)) n = 0;
+        // Migrar valores viejos por room (lc_sorteos_vouches_*)
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || !k.startsWith('lc_sorteos_vouches_')) continue;
+            const v = parseInt(localStorage.getItem(k), 10);
+            if (Number.isFinite(v) && v > n) n = v;
+          }
+        } catch { /* ignore */ }
+        return n;
       } catch {
         return 0;
       }
     }
+    let vouchPersistTimer = null;
+    let vouchSuppressEchoUntil = 0;
+    function persistVouchToSettings() {
+      if (!ws || ws.readyState !== 1) return;
+      try {
+        vouchSuppressEchoUntil = Date.now() + 1200;
+        ws.send(JSON.stringify({
+          action: 'saveSettings',
+          settings: { sorteosOverlay: { vouchCount: Math.max(0, vouchCount | 0) } },
+        }));
+      } catch { /* ignore */ }
+    }
     function saveVouchCount() {
-      try { localStorage.setItem(vouchStorageKey(), String(Math.max(0, vouchCount | 0))); } catch { /* ignore */ }
+      const n = Math.max(0, vouchCount | 0);
+      try { localStorage.setItem(vouchStorageKey(), String(n)); } catch { /* ignore */ }
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ kind: 'sorteos', type: 'vouch', count: n }, '*');
+        }
+      } catch { /* ignore */ }
+      clearTimeout(vouchPersistTimer);
+      vouchPersistTimer = setTimeout(persistVouchToSettings, 120);
     }
     vouchCount = loadVouchCount();
+    function syncVouchFromCfg(next) {
+      if (!next || next.vouchCount == null || next.vouchCount === '') return;
+      if (Date.now() < vouchSuppressEchoUntil) return;
+      const remote = Math.max(0, parseInt(next.vouchCount, 10) || 0);
+      // Conservar el mayor: evita que un preview/settings vacío pise OBS
+      if (remote > vouchCount) {
+        vouchCount = remote;
+        try { localStorage.setItem(vouchStorageKey(), String(vouchCount)); } catch { /* ignore */ }
+      } else if (vouchCount > remote) {
+        saveVouchCount();
+      }
+    }
     function esc(s) {
       return String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1129,6 +1170,21 @@
       return { gained, newSlotIds };
     }
 
+    /**
+     * Progreso Insta = monedas AÚN EN JUEGO del jugador (vidas vivas + bank).
+     * Acumulativo entre regalos del mismo momento, pero al eliminar una vida
+     * su stake deja de contar (no lifetime donated).
+     */
+    function playerInstaProgress(p) {
+      if (!p) return 0;
+      let n = Math.max(0, Number(p.bank) || 0);
+      for (const s of lifeSlots) {
+        if (s.id !== p.id) continue;
+        n += Math.max(1, Number(s.stake) || cfg.entryCost || 1);
+      }
+      return n;
+    }
+
     function checkInstaClaim(p) {
       if (!p || phase === 'winner') return false;
       // En demo Testear no cerrar por Insta (evita pisar la config real)
@@ -1137,7 +1193,7 @@
       if (!(p.alive && p.lives > 0)) return false;
       const need = Math.max(0, Number(cfg.instaClaim) || 0);
       if (need <= 0) return false;
-      if (p.donated >= need) {
+      if (playerInstaProgress(p) >= need) {
         declareWinner(p, true);
         return true;
       }
@@ -1594,6 +1650,7 @@
 
     function applyCfg(next) {
       cfg = Object.assign({}, cfg, next || {});
+      syncVouchFromCfg(next || {});
       cfg.entryCost = clamp(cfg.entryCost, 1, 1000000);
       cfg.elimIntervalSec = clamp(cfg.elimIntervalSec, 1, 600);
       cfg.elimCardSec = clamp(cfg.elimCardSec == null ? 3 : cfg.elimCardSec, 1, 30);
@@ -1757,12 +1814,25 @@
       testTimers.push(setTimeout(addBatch, 200));
     }
 
+    function setSlowCountdown(on) {
+      cfg.slowCountdown = !!on;
+      syncHud();
+      if (phase === 'initial' || phase === 'elim' || phase === 'entry') {
+        // Reprogramar el próximo tick con la nueva velocidad
+        if (timerHandle) scheduleTick(currentTickMs());
+      }
+      showToast(cfg.slowCountdown ? '🐢 Tiempo lento ON' : '⏱ Tiempo lento OFF');
+    }
+
     function handleAction(action, payload) {
       switch (String(action || '')) {
         case 'reset': resetAll(); break;
         case 'lock': setLocked(true); break;
         case 'unlock': setLocked(false); break;
         case 'toggleLock': setLocked(!entriesLocked); break;
+        case 'slowOn': setSlowCountdown(true); break;
+        case 'slowOff': setSlowCountdown(false); break;
+        case 'toggleSlow': setSlowCountdown(!cfg.slowCountdown); break;
         case 'start':
           startManual();
           break;
@@ -1782,11 +1852,14 @@
       }
     }
 
-    let ws, rt;
     function connectWS() {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
-      ws.onopen = () => clearTimeout(rt);
+      ws.onopen = () => {
+        clearTimeout(rt);
+        // Re-subir vouches locales al servidor por si el room/settings venían en 0
+        try { if (vouchCount > 0) persistVouchToSettings(); } catch { /* ignore */ }
+      };
       ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
       ws.onmessage = (ev) => {
         let m; try { m = JSON.parse(ev.data); } catch { return; }

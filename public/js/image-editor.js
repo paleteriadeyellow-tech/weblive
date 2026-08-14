@@ -1655,6 +1655,12 @@
   window.openPngDlModal = openPngDlModal;
 
   let activeGamePack = null;
+  /** Si está definido, elegir icono llama esto en vez de addImageLayer (p. ej. Editor Pro). */
+  let gamesPickHandler = null;
+  let gamesModalsWired = false;
+  let gamesListSearchTimer = null;
+  let gamesIconsSearchTimer = null;
+  let gamesIconsRenderToken = 0;
 
   function showModal(id, on) {
     const modal = $(id);
@@ -1663,7 +1669,53 @@
     modal.setAttribute('aria-hidden', on ? 'false' : 'true');
   }
 
-  function openGamesModal() {
+  /** Los modales viven en #view-image-editor (display:none fuera de esa pestaña).
+   *  Editor Pro los reutiliza: hay que subirlos a body o no se ven. */
+  function ensureGamesModalsOnBody() {
+    for (const id of ['iedGamesModal', 'iedGameIconsModal']) {
+      const modal = $(id);
+      if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+      }
+    }
+  }
+
+  /** Solo botones del modal Juegos (sin cablear todo el Image Editor). */
+  function wireGamesModals() {
+    if (gamesModalsWired) return;
+    gamesModalsWired = true;
+    $('ied-games-close')?.addEventListener('click', () => closeGamesModal());
+    $('ied-icons-close')?.addEventListener('click', () => closeGameIconsModal());
+    $('ied-games-back')?.addEventListener('click', () => backToGamesModal());
+    $('iedGamesModal')?.addEventListener('click', (e) => {
+      if (e.target?.id === 'iedGamesModal') closeGamesModal();
+    });
+    $('iedGameIconsModal')?.addEventListener('click', (e) => {
+      if (e.target?.id === 'iedGameIconsModal') closeGameIconsModal();
+    });
+    $('ied-games-q')?.addEventListener('input', () => {
+      clearTimeout(gamesListSearchTimer);
+      gamesListSearchTimer = setTimeout(() => renderGamesList(), 120);
+    });
+    $('ied-icons-q')?.addEventListener('input', () => {
+      clearTimeout(gamesIconsSearchTimer);
+      gamesIconsSearchTimer = setTimeout(() => renderGameIcons(), 120);
+    });
+  }
+
+  function syncGamesPickSubtitle() {
+    const sub = document.querySelector('#iedGameIconsModal .vidlib-sub');
+    if (!sub) return;
+    sub.textContent = gamesPickHandler
+      ? 'Clic en un icono para añadirlo al montage'
+      : 'Clic en un icono para añadirlo al lienzo';
+  }
+
+  function openGamesModal(opts) {
+    wireGamesModals();
+    gamesPickHandler = (opts && typeof opts.onPick === 'function') ? opts.onPick : null;
+    ensureGamesModalsOnBody();
+    syncGamesPickSubtitle();
     showModal('iedGameIconsModal', false);
     activeGamePack = null;
     const q = $('ied-games-q');
@@ -1671,14 +1723,23 @@
     renderGamesList();
     showModal('iedGamesModal', true);
   }
+  window.openEditorGamesPicker = function openEditorGamesPicker(onPick) {
+    openGamesModal({ onPick: typeof onPick === 'function' ? onPick : null });
+  };
 
   function closeGamesModal() {
     showModal('iedGamesModal', false);
+    gamesPickHandler = null;
   }
 
-  function openGameIconsModal(pack) {
+  function openGameIconsModal(packOrId) {
+    const id = typeof packOrId === 'string' ? packOrId : packOrId?.id;
+    const pack = (typeof getEditorGamePackById === 'function' && id)
+      ? getEditorGamePackById(id)
+      : (packOrId && Array.isArray(packOrId.items) ? packOrId : null);
     activeGamePack = pack || null;
     if (!activeGamePack) return;
+    ensureGamesModalsOnBody();
     const title = $('ied-icons-title');
     if (title) title.textContent = activeGamePack.name;
     const q = $('ied-icons-q');
@@ -1689,11 +1750,15 @@
   }
 
   function closeGameIconsModal() {
+    gamesIconsRenderToken += 1;
     showModal('iedGameIconsModal', false);
     activeGamePack = null;
+    gamesPickHandler = null;
   }
 
   function backToGamesModal() {
+    gamesIconsRenderToken += 1;
+    ensureGamesModalsOnBody();
     showModal('iedGameIconsModal', false);
     activeGamePack = null;
     showModal('iedGamesModal', true);
@@ -1703,7 +1768,11 @@
   function renderGamesList() {
     const list = $('ied-games-list');
     if (!list) return;
-    const packs = typeof getEditorGamePacks === 'function' ? getEditorGamePacks() : [];
+    const packs = typeof getEditorGamePackList === 'function'
+      ? getEditorGamePackList()
+      : (typeof getEditorGamePacks === 'function' ? getEditorGamePacks().map((p) => ({
+        id: p.id, name: p.name, cover: p.cover, count: (p.items || []).length,
+      })) : []);
     const f = String($('ied-games-q')?.value || '').trim().toLowerCase();
     const filtered = f
       ? packs.filter((p) => p.name.toLowerCase().includes(f))
@@ -1714,16 +1783,47 @@
     }
     list.innerHTML = filtered.map((p) => `
       <button type="button" class="ied-game-row" data-id="${escapeAttr(p.id)}">
-        <img src="${escapeAttr(p.cover || '')}" alt="" onerror="this.style.visibility='hidden'">
+        <img src="${escapeAttr(p.cover || '')}" alt="" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">
         <span>${escapeHtml(p.name)}</span>
-        <em class="ied-game-count">${p.items.length}</em>
+        <em class="ied-game-count">${Number(p.count) || (p.items && p.items.length) || 0}</em>
       </button>
     `).join('');
     list.querySelectorAll('.ied-game-row').forEach((btn) => {
       btn.onclick = () => {
-        const pack = packs.find((x) => x.id === btn.dataset.id);
-        if (!pack) return;
-        openGameIconsModal(pack);
+        openGameIconsModal(btn.dataset.id);
+      };
+    });
+  }
+
+  function gameIconButtonHtml(it, i) {
+    return `
+      <button type="button" class="ied-game-ic" data-i="${i}" title="${escapeAttr(it.name)}">
+        <img src="${escapeAttr(it.src)}" alt="" loading="lazy" decoding="async"
+          data-fallback="${escapeAttr(it.srcFallback || '')}"
+          onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;return;} this.parentElement.style.opacity='.35'">
+        <span>${escapeHtml(it.name)}</span>
+      </button>`;
+  }
+
+  function bindGameIconClicks(icons, items) {
+    icons.querySelectorAll('.ied-game-ic').forEach((btn) => {
+      if (btn._iedBound) return;
+      btn._iedBound = true;
+      btn.onclick = () => {
+        const it = items[Number(btn.dataset.i)];
+        if (!it) return;
+        const img = btn.querySelector('img');
+        const src = (img && (img.currentSrc || img.getAttribute('src'))) || it.src;
+        const pick = gamesPickHandler;
+        gamesPickHandler = null;
+        closeGameIconsModal();
+        showModal('iedGamesModal', false);
+        if (typeof pick === 'function') {
+          try { pick(src, it.name); } catch { /* ignore */ }
+          return;
+        }
+        addImageLayer(src, it.name);
+        if (typeof toast === 'function') toast(`Añadido: ${it.name}`, 'ok');
       };
     });
   }
@@ -1735,30 +1835,28 @@
     const items = f
       ? activeGamePack.items.filter((it) => String(it.name || '').toLowerCase().includes(f))
       : activeGamePack.items;
+    const token = ++gamesIconsRenderToken;
     if (!items.length) {
       icons.innerHTML = '<p class="ied-muted" style="grid-column:1/-1">Sin resultados</p>';
       return;
     }
-    icons.innerHTML = items.map((it, i) => `
-      <button type="button" class="ied-game-ic" data-i="${i}" title="${escapeAttr(it.name)}">
-        <img src="${escapeAttr(it.src)}" alt="" loading="lazy"
-          data-fallback="${escapeAttr(it.srcFallback || '')}"
-          onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback;return;} this.parentElement.style.opacity='.35'">
-        <span>${escapeHtml(it.name)}</span>
-      </button>
-    `).join('');
-    icons.querySelectorAll('.ied-game-ic').forEach((btn) => {
-      btn.onclick = () => {
-        const it = items[Number(btn.dataset.i)];
-        if (!it) return;
-        const img = btn.querySelector('img');
-        const src = (img && (img.currentSrc || img.getAttribute('src'))) || it.src;
-        addImageLayer(src, it.name);
-        closeGameIconsModal();
-        showModal('iedGamesModal', false);
-        if (typeof toast === 'function') toast(`Añadido: ${it.name}`, 'ok');
-      };
-    });
+    // Primera tanda ya; el resto en frames para no congelar el panel.
+    const CHUNK = 36;
+    icons.innerHTML = items.slice(0, CHUNK).map((it, i) => gameIconButtonHtml(it, i)).join('');
+    bindGameIconClicks(icons, items);
+    if (items.length <= CHUNK) return;
+    let offset = CHUNK;
+    const appendMore = () => {
+      if (token !== gamesIconsRenderToken || !icons.isConnected) return;
+      const slice = items.slice(offset, offset + CHUNK);
+      if (!slice.length) return;
+      const start = offset;
+      icons.insertAdjacentHTML('beforeend', slice.map((it, j) => gameIconButtonHtml(it, start + j)).join(''));
+      bindGameIconClicks(icons, items);
+      offset += CHUNK;
+      if (offset < items.length) requestAnimationFrame(appendMore);
+    };
+    requestAnimationFrame(appendMore);
   }
 
   function addTextLayer() {
@@ -3727,17 +3825,7 @@
     $('ied-add-badge')?.addEventListener('click', () => addBadgeLayer());
     $('ied-add-sticker')?.addEventListener('click', () => openStickersModal());
     $('ied-dl-png')?.addEventListener('click', () => openPngDlModal());
-    $('ied-games-close')?.addEventListener('click', () => closeGamesModal());
-    $('ied-icons-close')?.addEventListener('click', () => closeGameIconsModal());
-    $('ied-games-back')?.addEventListener('click', () => backToGamesModal());
-    $('iedGamesModal')?.addEventListener('click', (e) => {
-      if (e.target?.id === 'iedGamesModal') closeGamesModal();
-    });
-    $('iedGameIconsModal')?.addEventListener('click', (e) => {
-      if (e.target?.id === 'iedGameIconsModal') closeGameIconsModal();
-    });
-    $('ied-games-q')?.addEventListener('input', () => renderGamesList());
-    $('ied-icons-q')?.addEventListener('input', () => renderGameIcons());
+    wireGamesModals();
 
     $('ied-size')?.addEventListener('change', () => { applyStageSize(); pushSnapshot(); });
     $('ied-bg-mode')?.addEventListener('change', () => {

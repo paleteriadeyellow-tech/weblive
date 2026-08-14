@@ -6,9 +6,11 @@
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
   <link rel="stylesheet" href="/css/dashboard.css?v=ptsui3" />
-<link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
+  <link id="lc-extra-fonts" rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Titan+One&display=swap">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Titan+One&display=swap" rel="stylesheet"></noscript>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>??</text></svg>" />
 </head>
 <body>
@@ -1110,6 +1112,10 @@
                   <button type="button" class="ied-tool" id="er-add-image">
                     <span class="ied-tool-ico" aria-hidden="true">▣</span>
                     <span class="ied-tool-copy"><strong>Imagen / GIF</strong><em>Desde tu PC</em></span>
+                  </button>
+                  <button type="button" class="ied-tool" id="er-add-games">
+                    <span class="ied-tool-ico" aria-hidden="true">◍</span>
+                    <span class="ied-tool-copy"><strong>Juegos</strong><em>Iconos de acciones</em></span>
                   </button>
                   <button type="button" class="ied-tool" id="er-dl-png">
                     <span class="ied-tool-ico" aria-hidden="true">↓</span>
@@ -3633,10 +3639,10 @@
                 <label class="switch-row plain"><input type="checkbox" id="socfg-showvouches" checked> <span>Mostrar cuadro <b>Vouches</b></span></label>
                 <label class="switch-row plain"><input type="checkbox" id="socfg-showinsta" checked> <span>Mostrar cuadro <b>Insta-Claim</b></span></label>
                 <label class="switch-row plain"><input type="checkbox" id="socfg-lockmode"> <span><b>Modo Lock</b> — tiempo para entrar; al acabar se bloquea y empiezan eliminaciones</span></label>
-                <label class="switch-row plain"><input type="checkbox" id="socfg-slow" checked> <span>Cuenta regresiva lenta al final</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="socfg-slow" checked> <span>Cuenta regresiva lenta al final (también con el botón <b>Tiempo lento</b> del panel)</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="socfg-autostart" checked> <span>Arrancar solo al llegar al mínimo de jugadores</span></label>
               </div>
-              <p class="hint">Las monedas son el valor TikTok (diamantes × cantidad) de <b>cualquier</b> regalo. Con <b>Modo Lock</b> la gente entra durante X minutos; luego nadie más entra y arranca la eliminación.</p>
+              <p class="hint">Las monedas son el valor TikTok (diamantes × cantidad) de <b>cualquier</b> regalo. <b>Insta-Claim</b> suma solo monedas <b>aún en juego</b> (vidas vivas + bank); al eliminar una vida esos puntos dejan de contar. Con <b>Modo Lock</b> la gente entra durante X minutos; luego nadie más entra y arranca la eliminación.</p>
             </div>
             <div class="modal-foot"><button class="btn primary" id="socfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
@@ -6936,6 +6942,7 @@
                 <button class="ovpro-btn" id="so-spin" title="Elimina ya sin esperar el temporizador">Giro manual</button>
                 <button class="ovpro-btn" id="so-lock">?? Lock entradas</button>
                 <button class="ovpro-btn" id="so-unlock">?? Unlock</button>
+                <button class="ovpro-btn" id="so-slow" title="Activa / desactiva la cuenta regresiva lenta al final">Tiempo lento</button>
                 <button class="ovpro-btn" id="so-config">? Configurar</button>
               </div>
               <div class="ovpro-conn" id="so-conn"><span class="cdot"></span> CONECTADO</div>
@@ -6944,12 +6951,12 @@
             <p class="ovpro-desc">Suma monedas de todos los regalos, convierte en vidas seg?n el costo de entrada, elimina al azar con temporizador y permite victoria instant?nea (Insta-Claim). Las donaciones durante el giro quedan en cola.</p>
 
             <div class="ovpro-urlrow">
-              <code class="ov-url" data-path="/sorteos.html?v=so45">/sorteos.html?v=so45</code>
+              <code class="ov-url" data-path="/sorteos.html?v=so46">/sorteos.html?v=so46</code>
               <button class="ovpro-copy ov-copy">Copiar enlace</button>
             </div>
             <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
             <div class="ovpro-preview">
-              <iframe id="so-preview" data-src="/sorteos.html?embed=1&v=so45" title="Vista previa sorteos overlay"></iframe>
+              <iframe id="so-preview" data-src="/sorteos.html?embed=1&v=so46" title="Vista previa sorteos overlay"></iframe>
             </div>
           </div>
         </section>
@@ -9882,9 +9889,9 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=ptsui3"></script>
-  <script src="/js/editor-rapido.js?v=er80"></script>
+  <script src="/js/dashboard.js?v=perf3"></script>
+  <script src="/js/editor-rapido.js?v=er84"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
-  <script src="/js/image-editor.js?v=iedpng1"></script>
+  <script src="/js/image-editor.js?v=iedgames4"></script>
 </body>
 </html>

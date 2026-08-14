@@ -163,7 +163,7 @@
     });
 
     applyConfig({});
-    if (isEmbed) requestAnimationFrame(() => requestAnimationFrame(idleDemo));
+    if (isEmbed) idleDemo();
     connect();
   })();
   </script>

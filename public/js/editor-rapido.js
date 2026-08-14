@@ -2250,11 +2250,14 @@
 
   function startLiveHeartbeat() {
     if (liveHeartbeatTimer) return;
-    // Siempre republicar: el Browser Source de Live Studio sobrevive a reinicios
-    // y debe volver a recibir el estado sin abrir la pestaña ni recargar el URL.
+    // Solo mientras Editor Pro está a la vista: OBS sigue recibiendo publishLive
+    // al editar; el heartbeat evita que Live Studio se quede seco si no hay cambios.
     liveHeartbeatTimer = setInterval(() => {
+      const view = document.getElementById('view-editor-rapido');
+      if (!view || !view.classList.contains('active')) return;
+      if (document.hidden) return;
       publishLive(state).catch(() => {});
-    }, 2000);
+    }, 4000);
   }
 
   function normalizeTplList(raw) {
@@ -3578,6 +3581,7 @@
       arr[i] = { src: pending.src, name: pending.name };
     }
     const wasGift = pending.kind === 'gift';
+    const placed = arr[i];
     pending = null;
     saveState(state);
     renderPickBar();
@@ -3585,6 +3589,19 @@
     toastMsg(wasGift
       ? `Icono en el cuadro ${i + 1} (esquina)`
       : `Imagen puesta en el cuadro ${i + 1}`);
+    // Subir data: al disco ya (si no, un sync posterior o localStorage lleno las borra;
+    // los iconos default del juego son rutas cortas y por eso "no se borran").
+    if (placed?.src && String(placed.src).startsWith('data:')) {
+      replaceDataSrc(placed).then((next) => {
+        if (!next?.src || next.src === placed.src) return;
+        if (arr[i] !== placed && arr[i]?.src !== placed.src) return;
+        arr[i] = next;
+        saveState(state);
+        renderGrid();
+        schedulePublishLive();
+      }).catch(() => {});
+    }
+    return;
   }
 
   function editTextAt(slotIndex, textIdx) {
@@ -3920,6 +3937,16 @@
     });
     document.getElementById('er-add-image')?.addEventListener('click', () => {
       document.getElementById('er-image-file')?.click();
+    });
+    document.getElementById('er-add-games')?.addEventListener('click', () => {
+      if (typeof window.openEditorGamesPicker !== 'function') {
+        toastMsg('No se pudo abrir Juegos. Recarga el panel.');
+        return;
+      }
+      window.openEditorGamesPicker((src, name) => {
+        startPickFromSrc('image', src, name || 'acción')
+          .catch(() => toastMsg('No se pudo abrir el icono'));
+      });
     });
     document.getElementById('er-add-text')?.addEventListener('click', () => {
       startPick('text');
@@ -4603,15 +4630,14 @@
       if (uid && prevByUid[uid]?.freeMove) freeMove[i] = true;
       if (uid && prevByUid[uid]?.freeLayout) freeLayout[i] = true;
       const actionSrc = proxiedSrc(r.actionSrc || r.overlaySrc || '');
-      if (actionSrc) {
+      const prevO = uid ? prevByUid[uid]?.overlay : null;
+      if (prevO?.src) {
+        // Conservar arte del Editor Pro (no pisar con icono de catálogo / nube).
+        overlays[i] = cloneItem(prevO);
+        const nm = String(r.actionName || prevO.name || '');
+        if (nm) overlays[i].name = nm;
+      } else if (actionSrc) {
         overlays[i] = { src: actionSrc, name: String(r.actionName || '') };
-        const prevO = uid ? prevByUid[uid]?.overlay : null;
-        if (prevO && Number.isFinite(Number(prevO.x))) {
-          overlays[i].x = clampPct(prevO.x);
-          overlays[i].y = clampPct(prevO.y, 50);
-        }
-        if (prevO && Number.isFinite(Number(prevO.scale))) overlays[i].scale = clampItemScale(prevO.scale);
-        if (prevO && Number.isFinite(Number(prevO.z))) overlays[i].z = Math.max(1, Math.min(50, Math.round(Number(prevO.z))));
       }
 
       const cornerKey = String(r.cornerType || '').toLowerCase();
@@ -4775,17 +4801,14 @@
         const uid = uidArr?.[i];
         if (!uid || !byUid.has(uid)) return;
         const row = byUid.get(uid);
-        const actionSrc = proxiedSrc(row.actionSrc || row.overlaySrc || '');
-        if (actionSrc) {
-          const name = String(row.actionName || '');
-          const prev = state.overlays[i];
-          if (!prev?.src || prev.src !== actionSrc || (name && prev.name !== name)) {
-            state.overlays[i] = { src: actionSrc, name: name || prev?.name || '' };
-            changed = true;
-          }
-        }
+        // Solo actualizar regalos/esquinas/qty — no reemplazar el icono/arte del cuadro.
+        // (Encender/apagar o sync de catálogo no debe destruir el montaje del Editor Pro.)
+        const beforeGift = state.gifts[i] ? JSON.stringify(state.gifts[i]) : '';
+        const beforeTexts = JSON.stringify(textsAt(i));
         applyCornerPatchToSlot(i, row);
-        changed = true;
+        const afterGift = state.gifts[i] ? JSON.stringify(state.gifts[i]) : '';
+        const afterTexts = JSON.stringify(textsAt(i));
+        if (beforeGift !== afterGift || beforeTexts !== afterTexts) changed = true;
       };
       for (let i = 0; i < state.count; i++) {
         patchSlot(i, state.gameSync.uids);
@@ -4797,9 +4820,16 @@
           const uid = snap.uids[i];
           if (!uid || !byUid.has(uid)) continue;
           const row = byUid.get(uid);
-          const actionSrc = proxiedSrc(row.actionSrc || row.overlaySrc || '');
-          if (actionSrc) {
-            snap.overlays[i] = { src: actionSrc, name: String(row.actionName || snap.overlays[i]?.name || '') };
+          // Nunca pisar arte custom del snap con el icono de catálogo.
+          const prevSrc = String(snap.overlays[i]?.src || '');
+          if (!prevSrc) {
+            const actionSrc = proxiedSrc(row.actionSrc || row.overlaySrc || '');
+            if (actionSrc) {
+              snap.overlays[i] = { src: actionSrc, name: String(row.actionName || '') };
+            }
+          } else {
+            const nm = String(row.actionName || snap.overlays[i]?.name || '');
+            if (nm && snap.overlays[i]) snap.overlays[i].name = nm;
           }
         }
         state.filasSnap = normalizeFilasSnap(snap);

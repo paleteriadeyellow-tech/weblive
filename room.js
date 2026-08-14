@@ -1275,7 +1275,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return n;
   }
   const PROFILE_ACTION_KEYS = ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'robloxActions', 'roblox3Actions'];
-  /** Huella estable para detectar acciones duplicadas al mezclar PC + nube. */
+  /** Huella estable para detectar acciones duplicadas al mezclar PC + nube.
+   *  NO incluye `enabled`: si no, apagar en PC + copia encendida en nube = 2 filas
+   *  y el live sigue spawneando con la copia ON aunque la UI muestre Activa OFF. */
   function actionDedupeKey(a) {
     if (!a || typeof a !== 'object') return String(a);
     try {
@@ -1292,27 +1294,74 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         String(a.count || a.times || a.quantity || mario?.quantity || ''),
         String(a.url || a.webhook || a.file || a.src || a.sound || a.video || ''),
         String(a.holdDurationMs || a.holdSec || ''),
-        String(a.enabled === false ? '0' : '1'),
       ].join('|');
     } catch {
       try { return JSON.stringify(a); } catch { return String(Math.random()); }
     }
   }
-  /** Une dos listas de acciones: local + remoto, sin duplicados. */
+  /** Une dos listas de acciones: local + remoto, sin duplicados.
+   *  Si la misma acción aparece apagada en un lado, gana apagada (no spawnear). */
   function mergeActionArraysUnion(localArr, remoteArr) {
     const out = [];
-    const seen = new Set();
+    const indexByKey = new Map();
     const add = (item) => {
       if (!item || typeof item !== 'object') return;
       const key = actionDedupeKey(item);
-      if (seen.has(key)) return;
-      seen.add(key);
+      if (indexByKey.has(key)) {
+        const i = indexByKey.get(key);
+        if (item.enabled === false) out[i].enabled = false;
+        return;
+      }
+      indexByKey.set(key, out.length);
       try { out.push(cloneSettings(item)); } catch { out.push({ ...item }); }
     };
     if (Array.isArray(localArr)) for (const a of localArr) add(a);
     if (Array.isArray(remoteArr)) for (const a of remoteArr) add(a);
     return out;
   }
+  /** Compacta duplicados ya guardados (misma huella / mismo uid) prefiriendo Activa OFF. */
+  function dedupeActionArrayPreferOff(arr) {
+    if (!Array.isArray(arr) || arr.length < 2) return arr;
+    const out = [];
+    const indexByKey = new Map();
+    const indexByUid = new Map();
+    for (const item of arr) {
+      if (!item || typeof item !== 'object') continue;
+      const uid = String(item.uid || item.id || '').trim();
+      if (uid && indexByUid.has(uid)) {
+        const i = indexByUid.get(uid);
+        if (item.enabled === false) out[i].enabled = false;
+        continue;
+      }
+      const key = actionDedupeKey(item);
+      if (indexByKey.has(key)) {
+        const i = indexByKey.get(key);
+        if (item.enabled === false) out[i].enabled = false;
+        continue;
+      }
+      const idx = out.length;
+      indexByKey.set(key, idx);
+      if (uid) indexByUid.set(uid, idx);
+      try { out.push(cloneSettings(item)); } catch { out.push({ ...item }); }
+    }
+    return out;
+  }
+  function dedupeProfileGameActions(slot) {
+    if (!slot || typeof slot !== 'object') return slot;
+    for (const k of PROFILE_ACTION_KEYS) {
+      if (!Array.isArray(slot[k]) || slot[k].length < 2) continue;
+      slot[k] = dedupeActionArrayPreferOff(slot[k]);
+    }
+    return slot;
+  }
+  // Una vez al arrancar: compactar duplicados ON+OFF ya guardados (sync PC/nube).
+  (function sanitizeGameActionDupesOnBoot() {
+    for (const s of (profiles.slots || [])) {
+      if (s) dedupeProfileGameActions(s);
+    }
+    if (profiles.general) dedupeProfileGameActions(profiles.general);
+    dedupeProfileGameActions(settings);
+  })();
   /**
    * Mezcla dos ranuras de perfil: une acciones de ambos lados (sin repetir)
    * y en el resto de campos conserva valores reales (no pisa con vacíos).
@@ -2003,7 +2052,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     enforceLimits();
     saveSettings();
-    broadcast('settings', settings);
+    {
+      const patchKeys = obj && typeof obj === 'object' ? Object.keys(obj) : [];
+      const isPatch = !!fromUser && patchKeys.length > 0 && patchKeys.length <= 48;
+      broadcast('settings', settings, isPatch ? { touchedKeys: patchKeys } : undefined);
+    }
     if (obj.followerCounter || obj.followerCounterMc) {
       try { broadcastFollowerCounter(); } catch { /* foc aún no listo en boot */ }
     }
@@ -2018,8 +2071,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   /* ------------------------------- Broadcast ------------------------------ */
-  function broadcast(type, payload) {
-    const msg = JSON.stringify({ type, payload });
+  function broadcast(type, payload, extra) {
+    const msg = JSON.stringify(
+      extra && typeof extra === 'object'
+        ? { type, payload, ...extra }
+        : { type, payload },
+    );
     for (const client of clients) {
       if (client.readyState === 1) client.send(msg);
     }
@@ -8020,7 +8077,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       p.end = end;
       p.users.clear();
       saveRankOverlays();
-      broadcastRankState(rankId);
+      broadcastRankState(rankId, true);
     }
   }
   function onRankPeriodChange(rankId) {
@@ -8039,7 +8096,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       rankPersist[rankId].users.clear();
       saveRankOverlays();
     }
-    broadcastRankState(rankId);
+    broadcastRankState(rankId, true);
   }
   function getRankUsers(rankId) {
     if (getRankPeriod(rankId) === 'live') return rankSession[rankId];
@@ -8084,18 +8141,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       now: Date.now(),
     };
   }
-  function broadcastRankState(rankId) {
-    broadcast('rankState', serializeRankState(rankId));
+  const rankBroadcastPending = new Set();
+  let rankBroadcastTimer = null;
+  function broadcastRankState(rankId, immediate) {
+    if (immediate) {
+      rankBroadcastPending.delete(rankId);
+      broadcast('rankState', serializeRankState(rankId));
+      return;
+    }
+    rankBroadcastPending.add(rankId);
+    if (rankBroadcastTimer) return;
+    rankBroadcastTimer = setTimeout(() => {
+      rankBroadcastTimer = null;
+      const ids = [...rankBroadcastPending];
+      rankBroadcastPending.clear();
+      for (const id of ids) broadcast('rankState', serializeRankState(id));
+    }, 250);
   }
   function broadcastAllRankStates() {
-    for (const rankId of RANK_IDS) broadcastRankState(rankId);
+    for (const rankId of RANK_IDS) broadcastRankState(rankId, true);
   }
   function resetRankSession(rankId) {
     if (!RANK_IDS.includes(rankId) || getRankPeriod(rankId) !== 'live') return;
     rankSession[rankId].clear();
     saveRankOverlays();
     broadcast('rankReset', { rank: rankId });
-    broadcastRankState(rankId);
+    broadcastRankState(rankId, true);
   }
   function resetRankAll(rankId) {
     if (!RANK_IDS.includes(rankId)) return;
@@ -8105,7 +8176,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     saveRankOverlays();
     broadcast('rankReset', { rank: rankId });
-    broadcastRankState(rankId);
+    broadcastRankState(rankId, true);
   }
 
   /* ------------------------- Usuario y Puntos ------------------------- */

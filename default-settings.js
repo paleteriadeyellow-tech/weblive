@@ -767,6 +767,7 @@ export const DEFAULT_SETTINGS = {
     lockMode: false,
     lockEntryMin: 30,
     vouchKeywords: 'vouch,gracias,confiable',
+    vouchCount: 0,
     overlayScale: 100,
     maxPlayers: 0,
     autoStart: true,
