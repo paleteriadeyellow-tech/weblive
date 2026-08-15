@@ -1237,18 +1237,25 @@
         </section>
 
         <section class="view" id="view-alertas">
-          <h1 class="view-title">ðŸ”” Sonidos</h1>
+          <h1 class="view-title">Sonidos</h1>
           <p class="view-sub">Crea alertas sonoras que se reproducen en el overlay cuando llega un regalo.</p>
 
           <div class="sa-toolbar">
-            <button class="btn primary" id="sa-create"><span>âœš</span> Crear alerta sonora</button>
-            <button class="btn ghost" id="sa-toggle-all">â» Encender / Apagar todas</button>
-            <button class="btn ghost" id="sa-delsel">ðŸ—‘ Eliminar alertas (<span id="sa-selcount">0</span>)</button>
-            <button class="btn danger" id="sa-panic">â›” PÃ¡nico</button>
+            <button class="btn primary" id="sa-create"><span>✚</span> Crear alerta sonora</button>
+            <button class="btn ghost" id="sa-toggle-all">⏻ Encender / Apagar todas</button>
+            <button class="btn ghost" id="sa-delsel">🗑 Eliminar alertas (<span id="sa-selcount">0</span>)</button>
+            <button class="btn danger" id="sa-panic">⛔ Pánico</button>
+            <div class="acc-toolbar-end">
+              <input type="search" id="sa-search" class="acc-search" placeholder="Buscar sonido o regalo…" autocomplete="off">
+              <div class="acc-view-toggle" role="group" aria-label="Vista de sonidos">
+                <button type="button" class="acc-view-btn is-active" data-map-view-for="lc_sa_view" data-map-view="map">Mapa</button>
+                <button type="button" class="acc-view-btn" data-map-view-for="lc_sa_view" data-map-view="list">Lista</button>
+              </div>
+            </div>
           </div>
 
           <div id="playbackOpts">
-            <div class="pbo-title">âš™ï¸ Opciones de reproducciÃ³n</div>
+            <div class="pbo-title">⚙️ Opciones de reproducción</div>
             <label class="pbo-row">
               <input type="checkbox" id="opt-queue" checked>
               <span class="pbo-text"><b>Cola (no cortar)</b><small>Reproduce las alertas, sonidos y videos uno tras otro: espera a que termine el actual antes de lanzar el siguiente, sin pisarse.</small></span>
