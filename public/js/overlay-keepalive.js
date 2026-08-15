@@ -14,6 +14,11 @@
  * Así no hace falta borrar y volver a pegar el link en Live Studio.
  */
 (function () {
+  // Preview del panel (?embed=1): no ping, no WS extra, no Service Worker.
+  // Eso competía con el dashboard (mismo origen) y dejaba la app menos fluida.
+  try {
+    if (new URLSearchParams(location.search).get('embed') === '1') return;
+  } catch {}
   if (window.__lcOverlayKeepalive) return;
   window.__lcOverlayKeepalive = true;
 
@@ -35,11 +40,17 @@
   let lastPeriodicProbeAt = 0;
   const bootAt = Date.now();
 
-  // Overlays en OBS/Live Studio no cargan el panel: registrar SW aquí
-  // para sobrevivir reinicios de Render (502) con caché/reintento.
+  // SW solo en la web (Render). En localhost/.exe controlaba el panel, cacheaba
+  // dashboard.js viejo y llenaba Roaming con cientos de miles de archivos.
   try {
+    const host = String(location.hostname || '');
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+      if (isLocal) {
+        navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).catch(() => {});
+      } else {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+      }
     }
   } catch { /* ignore */ }
 

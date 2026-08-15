@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Barra de meta (Hype)</title>
+  <script>
+  (function () {
+    try {
+      var p = new URLSearchParams(location.search);
+      if (p.get('embed') === '1' && p.get('skin') && p.get('skin') !== 'default') {
+        document.documentElement.classList.add('await-skin');
+      }
+    } catch (e) {}
+  })();
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Cinzel:wght@700;900&family=Exo+2:wght@600;700;800&family=Fredoka:wght@600;700&family=Inter:wght@600;700;800&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800&family=Orbitron:wght@700;800&family=Oswald:wght@600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Poppins:wght@700;800&family=Press+Start+2P&family=Rubik:wght@700;800&family=Share+Tech+Mono&family=Titan+One&display=swap');
 
@@ -333,7 +343,29 @@
     html.hb-styled body.skin-meta14 .m14-hub::before,
     html.hb-styled body.skin-meta14 .m14-hub::after { background: var(--hb-accent) !important; box-shadow: 0 0 6px var(--hb-accent) !important; }
 
-    html.embed body { display: flex; align-items: center; justify-content: flex-start; }
+    html.embed body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+      width: 100%;
+    }
+    html.embed .wrap {
+      width: min(100%, 900px);
+      max-width: 100%;
+      margin: 0 auto;
+      transform-origin: center center;
+    }
+    /* Evita flash del diseño clásico al cargar otro skin en la preview */
+    html.await-skin .wrap,
+    html.embed:not(.skin-ready) .wrap {
+      opacity: 0;
+      pointer-events: none;
+    }
+    html.skin-ready .wrap {
+      opacity: 1;
+      pointer-events: auto;
+    }
   </style>
 </head>
 <body>
@@ -430,10 +462,12 @@
       } else if (activeSkin === 'meta3') {
         document.body.classList.add('skin-meta3'); window.__hbSkinMeta3 = true; window.__hbCompactGoal = true;
         w.innerHTML = '<div class="meta3-goal-container goal-container"><div id="bar" class="progress-bar is-empty" aria-hidden="true"><div class="bar-plasma"><div class="bar-shine"></div></div><div class="bar-spark"></div></div><div class="meta3-goal-text" id="meta3-goal-text"></div></div>';
-      } else if (activeSkin === 'meta2') {
+        } else if (activeSkin === 'meta2') {
         document.body.classList.add('skin-meta2'); window.__hbSkinMeta2 = true;
         w.innerHTML = '<div class="meta2-box"><div class="meta2-card goal-card-slim"><div class="info-group"><span class="title-icon gift-icon" id="title-icon" aria-hidden="true">🎁</span><span class="goal-title" id="title"></span></div><div class="progress-wrapper"><div class="bar-bg" id="bar-bg"><div class="bar-track" aria-hidden="true"></div><div id="bar" class="is-empty"><div class="bar-plasma"><div class="bar-shine"></div></div><div class="bar-spark"></div></div><div class="bar-test-light" id="bar-test-light" aria-hidden="true"></div><div class="progress-text" id="meta2-progress-label"><span class="meta2-abs-line" id="meta2-abs-line"><span id="meta-current">0</span><span class="meta2-sep"> / </span><span id="meta-goal">0</span><span class="meta2-pts"> pts</span></span></div></div></div></div></div>';
       }
+      document.documentElement.classList.remove('await-skin');
+      document.documentElement.classList.add('skin-ready');
     })();
 
     let score = 0;

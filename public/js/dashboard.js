@@ -458,7 +458,7 @@ const OVERLAY_CAP = {
   '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
-  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/corazon-lava.html': 'ov_giftheart', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/batalla-vs.html': 'ov_batallavs', '/batalla-meta.html': 'ov_batallameta', '/batalla-mvp.html': 'ov_batallamvp', '/batalla-top3.html': 'ov_batallatop3', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
+  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/corazon-lava.html': 'ov_giftheart', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/batalla-vs.html': 'ov_batallavs', '/batalla-meta.html': 'ov_batallameta', '/batalla-mvp.html': 'ov_batallamvp', '/batalla-top3.html': 'ov_batallatop3', '/batalla-giftball.html': 'ov_batallagiftball', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/contador-wins-minecraft.html': 'ov_winscounterminecraft',
   '/contador-wins-mario.html': 'ov_winscountermario',
@@ -701,7 +701,7 @@ const CAP_LABELS = {
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
-  ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
+  ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_ultimoregalo: 'Último regalo', ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_screenfx: 'Efectos pantalla', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_topmultirank: 'Top rotatorio (likes / coins / chat / puntos)',
@@ -727,9 +727,9 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_editor_rapido',
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
-  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
+  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
 function renderPlanView() {
@@ -2078,12 +2078,34 @@ function triggerAlertPanic() {
 
 /* ====================== Lazy embed previews (overlays) ====================== */
 /** Evita cargar ~40 iframes embed al abrir el panel; se hidratan al entrar a la pestaña
- *  y se DESCARGAN al salir (Matter.js + imágenes dejan de comer RAM). */
+ *  y se DESCARGAN al salir (Matter.js + imágenes dejan de comer RAM).
+ *  Perf: 1 iframe a la vez + gap mayor + rootMargin corto = entrar a Overlays más fluido. */
 const embedLoadQueue = [];
 let embedLoadBusy = false;
+const EMBED_LOAD_GAP_MS = 160;
+const EMBED_HYDRATE_DELAY_MS = 120;
+const EMBED_IO_ROOT_MARGIN = '48px 0px';
+const EMBED_UNLOAD_IDLE_MS = 1600;
 
 function embedWantSrc(fr) {
   return (fr && (fr.dataset.src || fr.getAttribute('data-src'))) || '';
+}
+
+/** Previews que no deben auto-descargarse (Matter.js / tinte-arcoíris parpadean al rehidratar). */
+function embedKeepAlive(fr) {
+  if (!fr) return false;
+  const id = String(fr.id || '');
+  if (id.startsWith('tk-preview')) return true;
+  if (fr.classList?.contains('tk-preview') || fr.closest?.('.tk-preview')) return true;
+  if (/^(jar|vaq|mar|perr|ghl|pel)-preview$/.test(id)) return true;
+  return false;
+}
+
+/** Previews pesados: no hidratar al scrollear; solo al pulsar Test. */
+function embedSkipAutoHydrate(fr) {
+  if (!fr) return false;
+  if (fr.dataset.embedManual === '1') return true;
+  return String(fr.id || '') === 'bgb-preview';
 }
 
 function unloadEmbed(fr) {
@@ -2157,10 +2179,17 @@ function pumpEmbedLoadQueue() {
   if (embedLoadBusy) return;
   const fr = embedLoadQueue.shift();
   if (!fr) return;
+  // Si ya no está en una vista activa, no cargar (evita trabajo al cambiar de pestaña rápido).
+  const hostView = fr.closest?.('section.view');
+  if (hostView && !hostView.classList.contains('active')) {
+    delete fr.dataset.embedQueued;
+    setTimeout(pumpEmbedLoadQueue, 0);
+    return;
+  }
   embedLoadBusy = true;
   ensureEmbedLoaded(fr).finally(() => {
     embedLoadBusy = false;
-    setTimeout(pumpEmbedLoadQueue, 60);
+    setTimeout(pumpEmbedLoadQueue, EMBED_LOAD_GAP_MS);
   });
 }
 
@@ -2176,7 +2205,9 @@ function hydrateViewEmbeds(view) {
   const frames = view.querySelectorAll('iframe[data-src]');
   if (!frames.length) return;
   if (typeof IntersectionObserver !== 'function') {
-    frames.forEach((fr) => queueEmbedLoad(fr));
+    // Fallback: solo el primero visible-ish; el resto al hacer Testear (ensureEmbedLoaded).
+    const list = Array.from(frames);
+    list.filter((fr) => !embedSkipAutoHydrate(fr)).slice(0, 1).forEach((fr) => queueEmbedLoad(fr));
     return;
   }
   if (!view._embedObs) {
@@ -2186,28 +2217,26 @@ function hydrateViewEmbeds(view) {
         if (e.isIntersecting) {
           clearTimeout(fr._embedUnloadTimer);
           fr._embedUnloadTimer = null;
-          queueEmbedLoad(fr);
+          if (!embedSkipAutoHydrate(fr)) queueEmbedLoad(fr);
           continue;
         }
         // Fuera de pantalla: liberar Matter/imágenes tras un momento (evita thrash al scrollear).
-        // Top kills: NUNCA descargar — al rehidratar parpadeaba «Sin jugadores» ↔ lista.
-        if (fr.classList?.contains('tk-preview') || fr.closest?.('.tk-preview') || String(fr.id || '').startsWith('tk-preview-')) {
-          continue;
-        }
+        // Excepciones: top kills + botes (jarrón/vaquita/…) — al rehidratar parpadeaba tinte/arcoíris y escala.
+        if (embedKeepAlive(fr)) continue;
         if (!(fr.dataset.embedReady === '1' || (fr.getAttribute('src') && fr.getAttribute('src') !== 'about:blank'))) continue;
         clearTimeout(fr._embedUnloadTimer);
         fr._embedUnloadTimer = setTimeout(() => {
           fr._embedUnloadTimer = null;
           if (!fr.isConnected || !view.classList.contains('active')) return;
           const r = fr.getBoundingClientRect();
-          const margin = 200;
+          const margin = 120;
           if (r.bottom < -margin || r.top > window.innerHeight + margin) {
             unloadEmbed(fr);
             try { view._embedObs.observe(fr); } catch {}
           }
-        }, 2800);
+        }, EMBED_UNLOAD_IDLE_MS);
       }
-    }, { root: null, rootMargin: '160px 0px', threshold: 0.01 });
+    }, { root: null, rootMargin: EMBED_IO_ROOT_MARGIN, threshold: 0.02 });
   }
   frames.forEach((fr) => {
     try { view._embedObs.observe(fr); } catch {}
@@ -2220,9 +2249,9 @@ function onOverlayNavShown(viewSlugOrId) {
     : `view-${viewSlugOrId}`;
   releaseOverlayEmbedsForNav(id);
   if (!String(id).startsWith('view-ov-')) return;
-  // Dejar pintar la UI antes de encolar iframes pesados (fuegos, alertas, etc.).
+  // Pintar UI primero; luego hidratar embeds (1 a la vez).
   requestAnimationFrame(() => {
-    setTimeout(() => hydrateViewEmbeds(document.getElementById(id)), 0);
+    setTimeout(() => hydrateViewEmbeds(document.getElementById(id)), EMBED_HYDRATE_DELAY_MS);
   });
 }
 
@@ -2248,35 +2277,43 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
     btn.classList.add('active');
-    pulseDockNav(btn);
     const view = document.getElementById(`view-${btn.dataset.view}`);
     if (!view) { console.error('Vista no encontrada:', btn.dataset.view); return; }
     view.classList.add('active');
-    // Cerrar flyout tras activar vista; solo bloquear reabrir el menú del que salió el click
-    closeNavFlyouts({ suppressEl: btn.closest('.nav-flyout') });
-    onOverlayNavShown(btn.dataset.view);
-    if (btn.dataset.view === 'juegos' || String(btn.dataset.view || '').startsWith('juego-')) {
-      try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
-    }
-    if (btn.dataset.view === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); loadAdminBadges(); }
-    if (btn.dataset.view === 'planes') { renderPlanView(); loadPlanComparison(true); }
-    if (btn.dataset.view === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
-    if (btn.dataset.view === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
-    if (btn.dataset.view === 'editor-rapido') {
-      try { applyEditorRapidoLock(); } catch {}
-      if (typeof editorRapidoUnlocked === 'function' && !editorRapidoUnlocked()) {
-        toast('Editor Pro es Solo Premium (VIP / Founder) ⭐', 'warn');
-      } else {
-        try { initEditorRapidoView(); } catch (e) { console.error('Editor Pro:', e); }
-      }
-    }
-    if (btn.dataset.view === 'points') { send({ action: 'getPoints' }); renderPointsTable({ resetPage: true }); }
-    if (btn.dataset.view === 'spotify') { try { setupSpotifyUI(); applySpotifyLock(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
-    if (btn.dataset.view === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
-    if (btn.dataset.view === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
-    if (btn.dataset.view === 'acciones') {
-      try { setupAccionesUI(); if (typeof renderAcciones === 'function') renderAcciones(); } catch (e) { console.error('Acciones UI:', e); }
-    }
+    // Pintar la pestaña ya; el resto (pulse / init pesado) en el siguiente frame.
+    const viewName = btn.dataset.view;
+    const flyoutEl = btn.closest('.nav-flyout');
+    requestAnimationFrame(() => {
+      try { pulseDockNav(btn); } catch {}
+      closeNavFlyouts({ suppressEl: flyoutEl });
+      onOverlayNavShown(viewName);
+      const runHeavy = () => {
+        if (viewName === 'juegos' || String(viewName || '').startsWith('juego-')) {
+          try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
+        }
+        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); loadAdminBadges(); }
+        if (viewName === 'planes') { renderPlanView(); loadPlanComparison(true); }
+        if (viewName === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
+        if (viewName === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
+        if (viewName === 'editor-rapido') {
+          try { applyEditorRapidoLock(); } catch {}
+          if (typeof editorRapidoUnlocked === 'function' && !editorRapidoUnlocked()) {
+            toast('Editor Pro es Solo Premium (VIP / Founder) ⭐', 'warn');
+          } else {
+            try { initEditorRapidoView(); } catch (e) { console.error('Editor Pro:', e); }
+          }
+        }
+        if (viewName === 'points') { send({ action: 'getPoints' }); renderPointsTable({ resetPage: true }); }
+        if (viewName === 'spotify') { try { setupSpotifyUI(); applySpotifyLock(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
+        if (viewName === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
+        if (viewName === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
+        if (viewName === 'acciones') {
+          try { setupAccionesUI(); if (typeof renderAcciones === 'function') renderAcciones(); } catch (e) { console.error('Acciones UI:', e); }
+        }
+      };
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(runHeavy, { timeout: 120 });
+      else setTimeout(runHeavy, 0);
+    });
   };
 });
 
@@ -5064,9 +5101,66 @@ function refreshVidStreamdeckUrl() {
 
 function renderVideos() {
   const el = $('videoCards');
+  if (!el) return;
+  wireMapViewControls('lc_vid_view', renderVideos, 'vid-search');
+  const mode = getMapViewMode('lc_vid_view');
+  applyMapGridClass(el, mode);
   const list = settings.videos || [];
-  if (!list.length) { el.innerHTML = '<div class="empty">No hay videos. Pulsa “Añadir video”.</div>'; return; }
-  el.innerHTML = list.map((v) => `
+  if (!list.length) {
+    el.innerHTML = lcEmptyGuideHTML({
+      title: 'Aún no tienes videos',
+      steps: ['Conecta TikTok', 'Elige regalo', 'Probar en pantalla'],
+      hint: 'Pulsa <b>Añadir video</b> para crear el primero.',
+      className: 'empty',
+    });
+    syncVidMasterUI();
+    return;
+  }
+  const q = String($('vid-search')?.value || '').trim().toLowerCase();
+  const filtered = list.filter((v) => entityMatchesSearch(v, q));
+  if (!filtered.length) { el.innerHTML = '<div class="empty">Ningún video coincide con la búsqueda.</div>'; syncVidMasterUI(); return; }
+
+  el.innerHTML = filtered.map((v) => {
+    if (mode === 'map') {
+      const trig = giftTriggerVisualFromItem(v, '🎬');
+      const giftFace = trig.img
+        ? `<img class="acc-map-gift-img" src="${esc(trig.img)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=\\'acc-map-gift-emoji\\'>🎬</span>'">`
+        : `<span class="acc-map-gift-emoji">${trig.emoji || '🎬'}</span>`;
+      return `
+      <div class="sa-card acc-map-card ${v.enabled !== false ? 'on' : ''}" data-id="${esc(v.id)}">
+        <div class="acc-map-top">
+          <span></span>
+          <label class="toggle">
+            <input type="checkbox" class="v-toggle" ${v.enabled !== false ? 'checked' : ''}>
+            <span class="track"></span>
+            <span class="state">${v.enabled !== false ? 'ON' : 'OFF'}</span>
+          </label>
+        </div>
+        <div class="acc-map-trigger">
+          <div class="acc-map-gift">${giftFace}</div>
+          <div class="acc-map-trig-label" title="${esc(trig.label)}">${esc(trig.label)}</div>
+        </div>
+        <div class="acc-map-arrow" aria-hidden="true">↓</div>
+        <div class="acc-map-body">
+          <div class="sa-name">${esc(v.name || 'Video')}</div>
+          <div class="sa-file">📺 P${v.screen || 1}</div>
+          <div class="sa-vol vid-card-vol acc-map-vol">
+            <span>Vol</span>
+            <input type="range" class="v-volrange" min="0" max="100" value="${v.volume ?? 100}">
+            <span class="pct">${v.volume ?? 100}%</span>
+          </div>
+        </div>
+        <div class="sa-card-btns acc-card-icons vid-card-btns acc-map-btns">
+          <button type="button" class="acc-icon-btn sa-edit" title="Editar">${CARD_ICON.gear}</button>
+          ${v.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
+          <button type="button" class="acc-icon-btn sa-play" title="Probar en pantalla">${CARD_ICON.play}</button>
+          <button type="button" class="acc-icon-btn sa-stop" title="Detener video">${CARD_ICON.stop}</button>
+          <button type="button" class="acc-icon-btn acc-dup sa-dup" title="Duplicar">${CARD_ICON.dup}</button>
+          <button type="button" class="acc-icon-btn sa-del" title="Borrar">${CARD_ICON.trash}</button>
+        </div>
+      </div>`;
+    }
+    return `
     <div class="sa-card vid-card ${v.enabled !== false ? 'on' : ''}" data-id="${v.id}">
       <div class="vid-card-left">
         <label class="toggle">
@@ -5090,13 +5184,16 @@ function renderVideos() {
         ${v.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
         <button type="button" class="acc-icon-btn sa-play" title="Probar en pantalla">${CARD_ICON.play}</button>
         <button type="button" class="acc-icon-btn sa-stop" title="Detener video">${CARD_ICON.stop}</button>
+        <button type="button" class="acc-icon-btn acc-dup sa-dup" title="Duplicar">${CARD_ICON.dup}</button>
         <button type="button" class="acc-icon-btn sa-del" title="Borrar">${CARD_ICON.trash}</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   el.querySelectorAll('.sa-card').forEach((card) => {
     const id = card.dataset.id;
-    const v = list.find((x) => x.id === id);
+    const v = list.find((x) => String(x.id) === String(id));
+    if (!v) return;
     card.querySelector('.v-toggle').onchange = (e) => {
       v.enabled = e.target.checked;
       saveVideosBattlePatch('videos');
@@ -5104,7 +5201,7 @@ function renderVideos() {
       renderVideos();
     };
     const vr = card.querySelector('.v-volrange');
-    vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; v.volume = +vr.value; saveVideosBattlePatch('videos'); };
+    if (vr) vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; v.volume = +vr.value; saveVideosBattlePatch('videos'); };
     card.querySelector('.sa-edit').onclick = () => openVidModal(v);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -5118,20 +5215,36 @@ function renderVideos() {
     }
     card.querySelector('.sa-play').onclick = () => send({ action: 'testVideo', video: { id: v.id, name: v.name, url: v.url, screen: v.screen || 1, volume: v.volume ?? 100 } });
     card.querySelector('.sa-stop').onclick = () => send({ action: 'stopVideo', screen: v.screen || 1 });
+    const dup = card.querySelector('.sa-dup');
+    if (dup) {
+      dup.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!ensureCanAdd('videos', 'videos', 'videos')) return;
+        duplicateSettingsItem('videos', id, {
+          idPrefix: 'vid',
+          render: renderVideos,
+          save: () => saveVideosBattlePatch('videos'),
+          toastMsg: 'Video duplicado.',
+        });
+      };
+    }
     card.querySelector('.sa-del').onclick = async () => {
       const ok = await askConfirm({ title: 'Borrar video', message: `Se eliminará la alerta de video «${esc(v.name || 'video')}».` });
       if (!ok) return;
-      settings.videos = settings.videos.filter((x) => x.id !== id);
+      settings.videos = settings.videos.filter((x) => String(x.id) !== String(id));
       flushSaveSettings();
       await syncDesktopWebhookSettings();
       renderVideos();
       renderScreens();
     };
   });
-  bindSaCardLongPressReorder(el, (ids) => {
-    if (!applySettingsListOrder('videos', ids)) return;
-    saveVideosBattlePatch('videos');
-  });
+  if (!q) {
+    bindSaCardLongPressReorder(el, (ids) => {
+      if (!applySettingsListOrder('videos', ids)) return;
+      saveVideosBattlePatch('videos');
+    });
+  }
   syncVidMasterUI();
 }
 
@@ -5192,6 +5305,191 @@ function applySettingsListOrder(listKey, ids) {
   if (same) return false;
   settings[listKey] = next;
   return true;
+}
+
+function newLocalEntityId(prefix) {
+  return String(prefix || 'item') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+/** Duplica un ítem de lista (acciones/sonidos/videos/batallas) sin reemplazar el original. */
+function duplicateSettingsItem(listKey, id, opts = {}) {
+  const list = settings?.[listKey];
+  if (!Array.isArray(list) || id == null || id === '') return null;
+  const idx = list.findIndex((x) => x && String(x.id) === String(id));
+  if (idx < 0) return null;
+  const src = list[idx];
+  let copy;
+  try {
+    copy = JSON.parse(JSON.stringify(src));
+  } catch {
+    return null;
+  }
+  copy.id = newLocalEntityId(opts.idPrefix || String(listKey || 'item').replace(/[^a-z]/gi, '').slice(0, 6) || 'item');
+  if (opts.rename !== false && copy.name) {
+    copy.name = String(copy.name).replace(/\s*\(copia\)\s*$/i, '') + ' (copia)';
+  }
+  list.splice(idx + 1, 0, copy);
+  if (typeof opts.save === 'function') opts.save(copy);
+  else saveSettingsKeysPatch(listKey);
+  if (typeof opts.render === 'function') opts.render();
+  if (opts.toast !== false) toast && toast(opts.toastMsg || 'Duplicado.', 'ok');
+  return copy;
+}
+
+function getMapViewMode(storageKey) {
+  try {
+    return localStorage.getItem(storageKey) === 'list' ? 'list' : 'map';
+  } catch {
+    return 'map';
+  }
+}
+function setMapViewMode(storageKey, mode) {
+  const next = mode === 'list' ? 'list' : 'map';
+  try { localStorage.setItem(storageKey, next); } catch {}
+  syncMapViewToggleUI(storageKey);
+}
+function syncMapViewToggleUI(storageKey) {
+  const mode = getMapViewMode(storageKey);
+  document.querySelectorAll(`[data-map-view-for="${storageKey}"]`).forEach((btn) => {
+    btn.classList.toggle('is-active', btn.getAttribute('data-map-view') === mode);
+  });
+  return mode;
+}
+function wireMapViewControls(storageKey, renderFn, searchId) {
+  document.querySelectorAll(`[data-map-view-for="${storageKey}"]`).forEach((btn) => {
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setMapViewMode(storageKey, btn.getAttribute('data-map-view') || 'map');
+      if (typeof renderFn === 'function') renderFn();
+    };
+  });
+  const search = searchId ? $(searchId) : null;
+  if (search && !search._mapSearchWired) {
+    search._mapSearchWired = true;
+    let t = 0;
+    search.addEventListener('input', () => {
+      clearTimeout(t);
+      t = setTimeout(() => { if (typeof renderFn === 'function') renderFn(); }, 120);
+    });
+  }
+  syncMapViewToggleUI(storageKey);
+}
+function applyMapGridClass(grid, mode) {
+  if (!grid) return;
+  grid.classList.toggle('is-map', mode === 'map');
+  grid.classList.toggle('is-list', mode === 'list');
+}
+
+const LC_GAME_VIEW_KEY = 'lc_game_view';
+
+function ensureGameViewToggleNear(wrap) {
+  if (!wrap || !wrap.classList?.contains('mc-my-actions')) return;
+  let head = wrap.previousElementSibling;
+  // some layouts wrap title/buttons; walk up one if needed
+  if (!head || !head.classList.contains('mc-sub-head')) {
+    head = wrap.parentElement?.querySelector?.(':scope > .mc-sub-head');
+  }
+  if (!head || !head.classList.contains('mc-sub-head')) return;
+  if (head.querySelector(`[data-map-view-for="${LC_GAME_VIEW_KEY}"]`)) return;
+  let btns = head.querySelector('.mc-sub-btns');
+  if (!btns) {
+    btns = document.createElement('div');
+    btns.className = 'mc-sub-btns';
+    head.appendChild(btns);
+  }
+  const tog = document.createElement('div');
+  tog.className = 'acc-view-toggle mc-game-view-toggle';
+  tog.setAttribute('role', 'group');
+  tog.setAttribute('aria-label', 'Vista de acciones');
+  tog.innerHTML = `
+    <button type="button" class="acc-view-btn" data-map-view-for="${LC_GAME_VIEW_KEY}" data-map-view="map" title="Mapa visual">Mapa</button>
+    <button type="button" class="acc-view-btn" data-map-view-for="${LC_GAME_VIEW_KEY}" data-map-view="list" title="Lista">Lista</button>`;
+  btns.appendChild(tog);
+}
+
+function refreshAllGameActionsViewMode() {
+  const mode = syncMapViewToggleUI(LC_GAME_VIEW_KEY);
+  document.querySelectorAll('.mc-my-actions').forEach((el) => applyMapGridClass(el, mode));
+}
+
+function prepareGameActionsView(wrap) {
+  if (!wrap) return getMapViewMode(LC_GAME_VIEW_KEY);
+  ensureGameViewToggleNear(wrap);
+  // Una sola delegación global (evita que solo el 1.er juego quede cableado).
+  if (!prepareGameActionsView._delegated) {
+    prepareGameActionsView._delegated = true;
+    document.addEventListener('click', (e) => {
+      const btn = e.target?.closest?.(`[data-map-view-for="${LC_GAME_VIEW_KEY}"]`);
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setMapViewMode(LC_GAME_VIEW_KEY, btn.getAttribute('data-map-view') || 'map');
+      refreshAllGameActionsViewMode();
+    }, true);
+  } else {
+    syncMapViewToggleUI(LC_GAME_VIEW_KEY);
+  }
+  applyMapGridClass(wrap, getMapViewMode(LC_GAME_VIEW_KEY));
+  return getMapViewMode(LC_GAME_VIEW_KEY);
+}
+
+function prepareAllGameActionsViews() {
+  document.querySelectorAll('.mc-my-actions').forEach((el) => prepareGameActionsView(el));
+}
+function entityMatchesSearch(obj, q, extraKeys = []) {
+  if (!q) return true;
+  const keys = ['name', 'giftName', 'giftId', 'soundName', 'trigger', 'event', 'keys', 'command', ...extraKeys];
+  const hay = keys.map((k) => String(obj?.[k] || '')).join(' ').toLowerCase();
+  return hay.includes(q);
+}
+
+/** Empty state con guía en 1 línea (Conecta → Probar → …). Solo UI. */
+function lcEmptyGuideHTML(opts = {}) {
+  const title = opts.title || 'Aún no hay nada aquí';
+  const steps = Array.isArray(opts.steps) ? opts.steps.filter(Boolean) : [];
+  const hint = opts.hint || '';
+  const extraClass = opts.className || 'empty';
+  const stepsHtml = steps.length
+    ? `<p class="lc-empty-steps">${steps.map((s, i) => (
+        (i ? '<span class="lc-empty-sep" aria-hidden="true">→</span>' : '') +
+        `<span class="lc-empty-step">${esc(String(s))}</span>`
+      )).join('')}</p>`
+    : '';
+  const hintHtml = hint ? `<p class="lc-empty-hint">${hint}</p>` : '';
+  return `<div class="lc-empty ${extraClass}">
+    <div class="lc-empty-tt">${title}</div>
+    ${stepsHtml}
+    ${hintHtml}
+  </div>`;
+}
+function giftTriggerVisualFromItem(item, fallbackEmoji = '🎁') {
+  if (!item) return { img: '', emoji: fallbackEmoji, label: 'Evento' };
+  if (item.image) return { img: item.image, emoji: fallbackEmoji, label: item.name || 'Custom' };
+  const giftId = item.giftId;
+  const giftName = item.giftName;
+  if (giftId || giftName) {
+    const g = giftId
+      ? giftCatalogById.get(String(giftId))
+      : giftCatalog.find((x) => x.name.toLowerCase() === String(giftName).toLowerCase());
+    return {
+      img: g?.image || item.giftImage || '',
+      emoji: '🎁',
+      label: giftName || g?.name || 'Regalo',
+    };
+  }
+  const trig = item.trigger || item.event || '';
+  if (trig === 'emote' || item.emoteId) {
+    const img = item.emoteImage || emoteImgById(item.emoteId);
+    return { img: img || '', emoji: '😀', label: item.emoteId || 'Sticker' };
+  }
+  const emoji = (typeof EVENT_EMOJI !== 'undefined' && EVENT_EMOJI[trig]) || fallbackEmoji;
+  let label = trig;
+  try {
+    if (typeof triggerLabel === 'function') label = triggerLabel(item);
+    else if (typeof baTriggerLabel === 'function' && String(trig).startsWith('battle')) label = baTriggerLabel(item);
+  } catch {}
+  return { img: '', emoji, label: label || 'Evento' };
 }
 
 function bindSaCardLongPressReorder(container, onReorder) {
@@ -5290,7 +5588,7 @@ function saveSettingsKeysPatch(...keysAndOpts) {
   let opts = {};
   const keys = [];
   for (const k of keysAndOpts) {
-    if (k && typeof k === 'object' && !Array.isArray(k) && ('skipErSync' in k || 'erSync' in k || 'flush' in k)) {
+    if (k && typeof k === 'object' && !Array.isArray(k) && ('skipErSync' in k || 'erSync' in k)) {
       opts = k;
     } else if (typeof k === 'string' && k) {
       keys.push(k);
@@ -6163,12 +6461,74 @@ function refreshBaStreamdeckUrl() {
 function renderBattleAlerts() {
   const el = $('battleCards');
   if (!el) return;
+  wireMapViewControls('lc_ba_view', renderBattleAlerts, 'ba-search');
+  const mode = getMapViewMode('lc_ba_view');
+  applyMapGridClass(el, mode);
   const list = settings.battleAlerts || [];
-  if (!list.length) { el.innerHTML = '<div class="empty">No hay animaciones. Pulsa “Añadir animación”.</div>'; return; }
-  el.innerHTML = list.map((b) => {
-    const trig = esc(baTriggerLabel(b));
+  if (!list.length) {
+    el.innerHTML = lcEmptyGuideHTML({
+      title: 'Aún no tienes animaciones de batalla',
+      steps: ['Conecta TikTok', 'Elige trigger PK', 'Probar en pantalla'],
+      hint: 'Pulsa <b>Añadir animación</b> para crear la primera.',
+      className: 'empty',
+    });
+    syncBaMasterUI();
+    return;
+  }
+  const q = String($('ba-search')?.value || '').trim().toLowerCase();
+  const filtered = list.filter((b) => entityMatchesSearch(b, q));
+  if (!filtered.length) { el.innerHTML = '<div class="empty">Ninguna animación coincide con la búsqueda.</div>'; syncBaMasterUI(); return; }
+
+  el.innerHTML = filtered.map((b) => {
+    const trigLbl = esc(baTriggerLabel(b));
     const showCombo = (b.trigger === 'battleGift' || b.trigger === 'battleGiftAny' || (!b.trigger && (b.giftName || b.giftId)));
     const combo = showCombo && (b.minCount || 1) > 1 ? ` ×${b.minCount}+` : '';
+    if (mode === 'map') {
+      const trig = giftTriggerVisualFromItem({
+        ...b,
+        trigger: (b.trigger === 'battleGift' || (!b.trigger && (b.giftName || b.giftId))) ? 'gift' : (b.trigger || 'gift'),
+      }, '🥊');
+      if (!(b.giftId || b.giftName)) {
+        trig.emoji = '🥊';
+        trig.label = baTriggerLabel(b);
+      }
+      const giftFace = trig.img
+        ? `<img class="acc-map-gift-img" src="${esc(trig.img)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=\\'acc-map-gift-emoji\\'>🥊</span>'">`
+        : `<span class="acc-map-gift-emoji">${trig.emoji || '🥊'}</span>`;
+      return `
+      <div class="sa-card acc-map-card ${b.enabled !== false ? 'on' : ''}" data-id="${esc(b.id)}">
+        <div class="acc-map-top">
+          <span></span>
+          <label class="toggle">
+            <input type="checkbox" class="b-toggle" ${b.enabled !== false ? 'checked' : ''}>
+            <span class="track"></span>
+            <span class="state">${b.enabled !== false ? 'ON' : 'OFF'}</span>
+          </label>
+        </div>
+        <div class="acc-map-trigger">
+          <div class="acc-map-gift">${giftFace}</div>
+          <div class="acc-map-trig-label" title="${trigLbl}${combo}">${trigLbl}${combo}</div>
+        </div>
+        <div class="acc-map-arrow" aria-hidden="true">↓</div>
+        <div class="acc-map-body">
+          <div class="sa-name">${esc(b.name || 'Animación')}</div>
+          <div class="sa-file">📺 P${b.screen || 1}</div>
+          <div class="sa-vol vid-card-vol acc-map-vol">
+            <span>Vol</span>
+            <input type="range" class="b-volrange" min="0" max="100" value="${b.volume ?? 100}">
+            <span class="pct">${b.volume ?? 100}%</span>
+          </div>
+        </div>
+        <div class="sa-card-btns acc-card-icons vid-card-btns acc-map-btns">
+          <button type="button" class="acc-icon-btn sa-edit" title="Editar">${CARD_ICON.gear}</button>
+          ${b.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
+          <button type="button" class="acc-icon-btn sa-play" title="Probar en pantalla">${CARD_ICON.play}</button>
+          <button type="button" class="acc-icon-btn sa-stop" title="Detener video">${CARD_ICON.stop}</button>
+          <button type="button" class="acc-icon-btn acc-dup sa-dup" title="Duplicar">${CARD_ICON.dup}</button>
+          <button type="button" class="acc-icon-btn sa-del" title="Borrar">${CARD_ICON.trash}</button>
+        </div>
+      </div>`;
+    }
     return `
     <div class="sa-card vid-card ${b.enabled !== false ? 'on' : ''}" data-id="${b.id}">
       <div class="vid-card-left">
@@ -6177,11 +6537,11 @@ function renderBattleAlerts() {
           <span class="track"></span>
           <span class="state">${b.enabled !== false ? 'ON' : 'OFF'}</span>
         </label>
-        <span class="sa-corner" title="${trig}${combo}">🥊</span>
+        <span class="sa-corner" title="${trigLbl}${combo}">🥊</span>
       </div>
       <div class="vid-card-body sa-info">
         <div class="sa-name">${esc(b.name || 'Animación')}</div>
-        <div class="sa-file">${trig}${combo} · 📺 P${b.screen || 1}</div>
+        <div class="sa-file">${trigLbl}${combo} · 📺 P${b.screen || 1}</div>
         <div class="sa-vol vid-card-vol">
           <span>Volumen</span>
           <input type="range" class="b-volrange" min="0" max="100" value="${b.volume ?? 100}">
@@ -6193,6 +6553,7 @@ function renderBattleAlerts() {
         ${b.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
         <button type="button" class="acc-icon-btn sa-play" title="Probar en pantalla">${CARD_ICON.play}</button>
         <button type="button" class="acc-icon-btn sa-stop" title="Detener video">${CARD_ICON.stop}</button>
+        <button type="button" class="acc-icon-btn acc-dup sa-dup" title="Duplicar">${CARD_ICON.dup}</button>
         <button type="button" class="acc-icon-btn sa-del" title="Borrar">${CARD_ICON.trash}</button>
       </div>
     </div>`;
@@ -6200,7 +6561,8 @@ function renderBattleAlerts() {
 
   el.querySelectorAll('.sa-card').forEach((card) => {
     const id = card.dataset.id;
-    const b = list.find((x) => x.id === id);
+    const b = list.find((x) => String(x.id) === String(id));
+    if (!b) return;
     card.querySelector('.b-toggle').onchange = (e) => {
       b.enabled = e.target.checked;
       saveVideosBattlePatch('battleAlerts');
@@ -6208,7 +6570,7 @@ function renderBattleAlerts() {
       renderBattleAlerts();
     };
     const vr = card.querySelector('.b-volrange');
-    vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; b.volume = +vr.value; saveVideosBattlePatch('battleAlerts'); };
+    if (vr) vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; b.volume = +vr.value; saveVideosBattlePatch('battleAlerts'); };
     card.querySelector('.sa-edit').onclick = () => openBaModal(b);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -6222,19 +6584,35 @@ function renderBattleAlerts() {
     }
     card.querySelector('.sa-play').onclick = () => send({ action: 'testVideo', video: { id: b.id, name: b.name, url: b.url, screen: b.screen || 1, volume: b.volume ?? 100 } });
     card.querySelector('.sa-stop').onclick = () => send({ action: 'stopVideo', screen: b.screen || 1 });
+    const dup = card.querySelector('.sa-dup');
+    if (dup) {
+      dup.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!ensureCanAdd('battleAlerts', 'battleAlerts', 'animaciones de batalla')) return;
+        duplicateSettingsItem('battleAlerts', id, {
+          idPrefix: 'ba',
+          render: renderBattleAlerts,
+          save: () => saveVideosBattlePatch('battleAlerts'),
+          toastMsg: 'Animación duplicada.',
+        });
+      };
+    }
     card.querySelector('.sa-del').onclick = async () => {
       const ok = await askConfirm({ title: 'Borrar animación', message: `Se eliminará la animación de batalla «${esc(b.name || 'animación')}».` });
       if (!ok) return;
-      settings.battleAlerts = settings.battleAlerts.filter((x) => x.id !== id);
+      settings.battleAlerts = settings.battleAlerts.filter((x) => String(x.id) !== String(id));
       flushSaveSettings();
       await syncDesktopWebhookSettings();
       renderBattleAlerts();
     };
   });
-  bindSaCardLongPressReorder(el, (ids) => {
-    if (!applySettingsListOrder('battleAlerts', ids)) return;
-    saveVideosBattlePatch('battleAlerts');
-  });
+  if (!q) {
+    bindSaCardLongPressReorder(el, (ids) => {
+      if (!applySettingsListOrder('battleAlerts', ids)) return;
+      saveVideosBattlePatch('battleAlerts');
+    });
+  }
   syncBaMasterUI();
 }
 
@@ -6384,16 +6762,71 @@ let previewAudio = null;
 
 function renderSoundAlerts() {
   const el = $('saList');
+  if (!el) return;
+  wireMapViewControls('lc_sa_view', renderSoundAlerts, 'sa-search');
+  const mode = getMapViewMode('lc_sa_view');
+  applyMapGridClass(el, mode);
   const list = settings.soundAlerts || [];
-  // limpia selección de los que ya no existen
   for (const id of [...selected]) if (!list.find((a) => a.id === id)) selected.delete(id);
   updateSelCount();
 
   if (!list.length) {
-    el.innerHTML = '<div class="empty">No hay alertas sonoras. Pulsa “Crear alerta sonora”.</div>';
+    el.innerHTML = lcEmptyGuideHTML({
+      title: 'Aún no tienes alertas sonoras',
+      steps: ['Conecta TikTok', 'Elige regalo', 'Probar sonido'],
+      hint: 'Pulsa <b>Crear alerta sonora</b> para empezar.',
+      className: 'empty',
+    });
     return;
   }
-  el.innerHTML = list.map((a) => `
+  const q = String($('sa-search')?.value || '').trim().toLowerCase();
+  const filtered = list.filter((a) => entityMatchesSearch(a, q, ['soundName']));
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty">Ninguna alerta coincide con la búsqueda.</div>';
+    return;
+  }
+
+  el.innerHTML = filtered.map((a) => {
+    if (mode === 'map') {
+      const trig = giftTriggerVisualFromItem(a, '🔔');
+      const giftFace = trig.img
+        ? `<img class="acc-map-gift-img" src="${esc(trig.img)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=\\'acc-map-gift-emoji\\'>🔔</span>'">`
+        : `<span class="acc-map-gift-emoji">${trig.emoji || '🔔'}</span>`;
+      return `
+      <div class="sa-card acc-map-card ${a.enabled ? 'on' : ''}" data-id="${esc(a.id)}">
+        <div class="acc-map-top">
+          <input type="checkbox" class="sa-sel" ${selected.has(a.id) ? 'checked' : ''} title="Seleccionar">
+          <label class="toggle">
+            <input type="checkbox" class="sa-toggle" ${a.enabled ? 'checked' : ''}>
+            <span class="track"></span>
+            <span class="state">${a.enabled ? 'ON' : 'OFF'}</span>
+          </label>
+        </div>
+        <div class="acc-map-trigger">
+          <div class="acc-map-gift">${giftFace}</div>
+          <div class="acc-map-trig-label" title="${esc(trig.label)}">${esc(trig.label)}</div>
+        </div>
+        <div class="acc-map-arrow" aria-hidden="true">↓</div>
+        <div class="acc-map-body">
+          <div class="sa-name">${esc(a.name || 'Alerta')}</div>
+          <div class="sa-file">${a.soundName ? esc(a.soundName) : 'Sin audio'}</div>
+          <div class="sa-vol vid-card-vol acc-map-vol">
+            <span>Vol</span>
+            <input type="range" class="sa-volrange" min="0" max="100" value="${a.volume ?? 100}">
+            <span class="pct">${a.volume ?? 100}%</span>
+          </div>
+        </div>
+        <div class="sa-card-btns acc-card-icons vid-card-btns acc-map-btns">
+          <button type="button" class="acc-icon-btn sa-edit" title="Editar">${CARD_ICON.gear}</button>
+          ${a.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
+          <button type="button" class="acc-icon-btn sa-play" title="Escuchar aquí">${CARD_ICON.play}</button>
+          <button type="button" class="acc-icon-btn sa-stop" title="Detener sonido">${CARD_ICON.stop}</button>
+          <button type="button" class="acc-icon-btn acc-dup sa-dup" title="Duplicar">${CARD_ICON.dup}</button>
+          <button type="button" class="acc-icon-btn sa-del" title="Borrar">${CARD_ICON.trash}</button>
+        </div>
+      </div>`;
+    }
+    return `
     <div class="sa-card vid-card ${a.enabled ? 'on' : ''}" data-id="${a.id}">
       <div class="vid-card-left">
         <label class="toggle">
@@ -6417,25 +6850,29 @@ function renderSoundAlerts() {
         ${a.trigger === 'streamdeck' ? `<button type="button" class="acc-icon-btn sa-wh" title="Copiar webhook Stream Deck">🔗</button>` : ''}
         <button type="button" class="acc-icon-btn sa-play" title="Escuchar aquí">${CARD_ICON.play}</button>
         <button type="button" class="acc-icon-btn sa-stop" title="Detener sonido">${CARD_ICON.stop}</button>
+        <button type="button" class="acc-icon-btn acc-dup sa-dup" title="Duplicar">${CARD_ICON.dup}</button>
         <div class="vid-card-sel-wrap">
           <button type="button" class="acc-icon-btn sa-del" title="Borrar">${CARD_ICON.trash}</button>
           <input type="checkbox" class="sa-sel" ${selected.has(a.id) ? 'checked' : ''} title="Seleccionar">
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   el.querySelectorAll('.sa-card').forEach((card) => {
     const id = card.dataset.id;
-    const a = list.find((x) => x.id === id);
+    const a = list.find((x) => String(x.id) === String(id));
+    if (!a) return;
     card.querySelector('.sa-toggle').onchange = (e) => {
       a.enabled = e.target.checked;
       saveSettingsKeysPatch('soundAlerts');
       syncDesktopWebhookSettings();
       renderSoundAlerts();
     };
-    card.querySelector('.sa-sel').onchange = (e) => { e.target.checked ? selected.add(id) : selected.delete(id); updateSelCount(); };
+    const sel = card.querySelector('.sa-sel');
+    if (sel) sel.onchange = (e) => { e.target.checked ? selected.add(id) : selected.delete(id); updateSelCount(); };
     const vr = card.querySelector('.sa-volrange');
-    vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; a.volume = +vr.value; saveSettingsKeysPatch('soundAlerts'); };
+    if (vr) vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; a.volume = +vr.value; saveSettingsKeysPatch('soundAlerts'); };
     card.querySelector('.sa-edit').onclick = () => openSaModal(a);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -6451,23 +6888,38 @@ function renderSoundAlerts() {
     card.querySelector('.sa-stop').onclick = () => {
       try { previewAudio?.pause(); } catch {}
       stopPanelSounds();
-      // Solo sonidos: 'panic' cortaba también videos, TTS y la cola de Minecraft.
       send({ action: 'stopSounds' });
     };
+    const dup = card.querySelector('.sa-dup');
+    if (dup) {
+      dup.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!ensureCanAdd('soundAlerts', 'soundAlerts', 'alertas sonoras')) return;
+        duplicateSettingsItem('soundAlerts', id, {
+          idPrefix: 'sa',
+          render: renderSoundAlerts,
+          save: () => { saveSettingsKeysPatch('soundAlerts'); syncDesktopWebhookSettings(); },
+          toastMsg: 'Alerta duplicada.',
+        });
+      };
+    }
     card.querySelector('.sa-del').onclick = async () => {
       const ok = await askConfirm({ title: 'Borrar alerta sonora', message: `Se eliminará la alerta «${esc(a.name || 'alerta')}».` });
       if (!ok) return;
-      settings.soundAlerts = settings.soundAlerts.filter((x) => x.id !== id);
+      settings.soundAlerts = settings.soundAlerts.filter((x) => String(x.id) !== String(id));
       flushSaveSettings();
       await syncDesktopWebhookSettings();
       renderSoundAlerts();
     };
   });
-  bindSaCardLongPressReorder(el, (ids) => {
-    if (!applySettingsListOrder('soundAlerts', ids)) return;
-    saveSettingsKeysPatch('soundAlerts');
-    syncDesktopWebhookSettings();
-  });
+  if (!q) {
+    bindSaCardLongPressReorder(el, (ids) => {
+      if (!applySettingsListOrder('soundAlerts', ids)) return;
+      saveSettingsKeysPatch('soundAlerts');
+      syncDesktopWebhookSettings();
+    });
+  }
 }
 
 function updateSelCount() { $('sa-selcount').textContent = selected.size; }
@@ -6692,6 +7144,59 @@ const EVENT_EMOJI = {
   subscribe: '⭐', superFan: '🌟', superFanJoin: '🌟', levelUp: '⬆️', emote: '😀', gift: '🎁',
   chatCommand: '💬', firstMessage: '🙋', streamdeck: '🎛️',
 };
+const TRIG_ICON = {
+  'gift-any': '/img/trig/diamonds.png?v=2',
+  gift: '/img/trig/gift.png?v=2',
+  'gift-name': '/img/trig/gift.png?v=2',
+  'gift-diamonds': '/img/trig/diamonds.png?v=2',
+  like: '/img/trig/like.png?v=2',
+  likeGlobal: '/img/trig/like-global.png?v=2',
+  share: '/img/trig/share.png?v=2',
+  subscribe: '/img/trig/subscribe.png?v=2',
+  superFan: '/img/trig/superfan.png?v=2',
+  superFanJoin: '/img/trig/superfan-join.png?v=2',
+  follow: '/img/trig/follow.png?v=2',
+  levelUp: '/img/trig/levelup.png?v=2',
+  emote: '/img/trig/emote.png?v=2',
+  chatCommand: '/img/trig/chat.png?v=2',
+  chatUser: '/img/trig/chat.png?v=2',
+  firstMessage: '/img/trig/firstmsg.png?v=2',
+  streamdeck: '/img/trig/streamdeck.png?v=2',
+};
+function trigIconChip(key) {
+  const src = TRIG_ICON[key];
+  if (!src) return null;
+  return `<span class="acc-chip-ico"><img class="acc-chip-trig" src="${src}" alt=""></span>`;
+}
+function trigIconImg(key, cls = 'sa-ic-img') {
+  const src = TRIG_ICON[key];
+  if (!src) return '';
+  return `<img class="${cls}" src="${src}" alt="" loading="lazy" decoding="async">`;
+}
+/** Icono HTML para disparadores de juegos (MC / Mario / SFX…). gift-any = regalo, no diamantes. */
+function gameTrigIconHtml(key, cls = 'mc-trig-img') {
+  let src = TRIG_ICON[key];
+  if (key === 'gift-any') src = '/img/trig/gift.png?v=2';
+  if (!src) return `<span class="mc-trig-emoji">⚡</span>`;
+  return `<img class="${cls}" src="${src}" alt="" loading="lazy" decoding="async">`;
+}
+/** Precarga iconos de disparadores en idle para que modales abran al instante. */
+(function prefetchTrigIcons() {
+  const run = () => {
+    try {
+      const seen = new Set();
+      Object.values(TRIG_ICON).forEach((src) => {
+        if (!src || seen.has(src)) return;
+        seen.add(src);
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = src;
+      });
+    } catch {}
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 2000 });
+  else setTimeout(run, 800);
+})();
 
 // Busca la imagen de un sticker/emote por su id en el catálogo cargado.
 function emoteImgById(id) {
@@ -6716,6 +7221,8 @@ function alertIconHTML(a) {
     const img = a.emoteImage || emoteImgById(a.emoteId);
     if (img) return `<img class="sa-ic-img" src="${esc(img)}" loading="lazy" decoding="async">`;
   }
+  const trigImg = trigIconImg(trig === 'gift' && (a.rangeMin || a.rangeMax) ? 'gift-any' : trig, 'sa-ic-img');
+  if (trigImg) return trigImg;
   return `<span class="sa-ic-emoji">${EVENT_EMOJI[trig] || '🔔'}</span>`;
 }
 
@@ -6728,6 +7235,8 @@ function alertIconSmall(a) {
   else if (trig === 'gift' && a.giftName) img = giftCatalog.find((x) => x.name.toLowerCase() === a.giftName.toLowerCase())?.image || '';
   else if (trig === 'emote') img = a.emoteImage || emoteImgById(a.emoteId);
   if (img) return `<img class="sa-ic-mini" src="${esc(img)}" loading="lazy" decoding="async">`;
+  const trigImg = trigIconImg(trig === 'gift' && (a.rangeMin || a.rangeMax) ? 'gift-any' : trig, 'sa-ic-mini');
+  if (trigImg) return trigImg;
   return `<span class="sa-ic-mini-emoji">${EVENT_EMOJI[trig] || '🔔'}</span>`;
 }
 
@@ -6994,7 +7503,8 @@ async function openGiftModal(target = 'sa', cb = null) {
     if ($('gift-grid')) $('gift-grid').innerHTML = '<div class="empty">Cargando regalos…</div>';
   }
 
-  // Actualiza en segundo plano; no vuelve a pedir comunidad si ya se cargó hace poco.
+  // Actualiza en segundo plano; no bloquea el click del selector.
+  void (async () => {
   try {
     const communityUrl = (relayActive() || desktopRelayOn()) ? '/api/desktop/community-gifts' : '/api/community-gifts';
     const needsGifts = !giftCatalog.length;
@@ -7035,6 +7545,7 @@ async function openGiftModal(target = 'sa', cb = null) {
       $('gift-grid').innerHTML = '<div class="empty">No se pudo cargar el catálogo (¿hay internet?)</div>';
     }
   }
+  })();
 }
 
 function renderGiftGrid(filter) {
@@ -7303,6 +7814,19 @@ function renderPotSimGiftBtn(key) {
     const test = $(cfg.btnTest), reset = $(cfg.btnReset), config = $(cfg.btnConfig);
     if (!test) continue;
     const toPreview = (msg) => $(cfg.previewId)?.contentWindow?.postMessage({ kind: key, ...msg }, '*');
+    const pushTintLook = () => {
+      const tint = String(settings?.[key]?.tint ?? '').trim();
+      toPreview({ type: 'config', tint: tint || '', tintRainbow: !!settings?.[key]?.tintRainbow });
+    };
+    const fr = $(cfg.previewId);
+    if (fr && !fr.dataset.potTintLoadHook) {
+      fr.dataset.potTintLoadHook = '1';
+      fr.addEventListener('load', () => {
+        if (!fr.getAttribute('src') || fr.getAttribute('src') === 'about:blank') return;
+        // Reaplicar tinte/arcoíris tras (re)carga del iframe
+        setTimeout(pushTintLook, 40);
+      });
+    }
     test.onclick = () => {
       if (key === 'corazonLava') {
         const c = settings?.corazonLava || {};
@@ -7322,11 +7846,17 @@ function renderPotSimGiftBtn(key) {
         send({ action: cfg.testAction, count: 36, ...payload });
         return;
       }
-      toPreview({ type: 'test', count: 200 });
+      toPreview({ type: 'test', count: 40 });
       toPreview({ type: 'topDemo' });
-      send({ action: cfg.testAction, count: 200 });
+      // OBS/live: menos que 200 para no tumbar la PC; la preview del panel ya va en 40
+      send({ action: cfg.testAction, count: 80 });
     };
-    reset.onclick = () => { toPreview({ type: 'reset' }); send({ action: cfg.resetAction }); };
+    reset.onclick = () => {
+      toPreview({ type: 'reset' });
+      send({ action: cfg.resetAction });
+      // Reset no debe tocar el look: reafirma tinte/arcoíris por si el iframe parpadeó
+      setTimeout(pushTintLook, 30);
+    };
     if (config) config.onclick = () => openPotConfig(key);
 
     const dropPayload = () => {
@@ -7436,7 +7966,8 @@ function openPotConfig(target) {
     tintEl.value = /^#/.test(tint) ? tint : POT_TINT_PICKER_PLACEHOLDER;
     tintEl.dataset.cleared = tint ? '' : '1';
   }
-  cfgToPreview({ type: 'config', tint: tint || '' });
+  if ($('jarcfg-tintrainbow')) $('jarcfg-tintrainbow').checked = !!data.tintRainbow;
+  cfgToPreview({ type: 'config', tint: tint || '', tintRainbow: !!data.tintRainbow });
   cfgSizesDraft = (data.sizes && data.sizes.length)
     ? data.sizes.map((r) => ({ t: Number(r.t) || 0, sz: Number(r.sz) || 32 }))
     : DEFAULT_JAR_SIZES.map((r) => ({ ...r }));
@@ -7537,12 +8068,19 @@ $('jarcfg-add') && ($('jarcfg-add').onclick = () => {
 });
 $('jarcfg-tintclear') && ($('jarcfg-tintclear').onclick = () => {
   $('jarcfg-tint').value = POT_TINT_PICKER_PLACEHOLDER;
-  cfgToPreview({ type: 'config', tint: '' });
+  cfgToPreview({ type: 'config', tint: '', tintRainbow: !!$('jarcfg-tintrainbow')?.checked });
   $('jarcfg-tint').dataset.cleared = '1';
 });
 if ($('jarcfg-tint')) $('jarcfg-tint').oninput = () => {
   $('jarcfg-tint').dataset.cleared = '';
-  cfgToPreview({ type: 'config', tint: $('jarcfg-tint').value });
+  cfgToPreview({ type: 'config', tint: $('jarcfg-tint').value, tintRainbow: !!$('jarcfg-tintrainbow')?.checked });
+};
+if ($('jarcfg-tintrainbow')) $('jarcfg-tintrainbow').onchange = () => {
+  cfgToPreview({
+    type: 'config',
+    tintRainbow: !!$('jarcfg-tintrainbow').checked,
+    tint: $('jarcfg-tint')?.dataset.cleared === '1' ? '' : ($('jarcfg-tint')?.value || ''),
+  });
 };
 $('jarcfg-save') && ($('jarcfg-save').onclick = () => {
   if (!settings[cfgTarget]) settings[cfgTarget] = {};
@@ -7551,6 +8089,7 @@ $('jarcfg-save') && ($('jarcfg-save').onclick = () => {
   let tintVal = cleared ? '' : String(tintEl?.value || '').trim();
   if (tintVal.toLowerCase() === POT_TINT_PICKER_PLACEHOLDER && cleared) tintVal = '';
   settings[cfgTarget].tint = tintVal;
+  settings[cfgTarget].tintRainbow = !!$('jarcfg-tintrainbow')?.checked;
   settings[cfgTarget].sizes = [...cfgSizesDraft].sort((a, b) => b.t - a.t);
   if (cfgTarget === 'corazonLava') {
     settings[cfgTarget].metaLabel = String($('jarcfg-meta-label')?.value || 'Meta').trim() || 'Meta';
@@ -7661,13 +8200,19 @@ function applyJarronUI() {
   if (normalizeAlcanciaTintDefaults()) {
     try { saveSettings(); } catch {}
   }
-  // Empuja tint vacío/correcto a las 4 vistas previas (sin tocar otros ajustes).
+  // Empuja tint / arcoíris a las vistas previas (sin tocar otros ajustes).
   for (const [key, cfg] of Object.entries(POT_OVERLAYS)) {
     const tint = String(settings?.[key]?.tint ?? '').trim();
-    $(cfg.previewId)?.contentWindow?.postMessage({ kind: key, type: 'config', tint: tint || '' }, '*');
+    $(cfg.previewId)?.contentWindow?.postMessage({
+      kind: key,
+      type: 'config',
+      tint: tint || '',
+      tintRainbow: !!settings?.[key]?.tintRainbow,
+    }, '*');
   }
   const t = $('jarcfg-tint');
   const data = settings?.[cfgTarget];
+  if ($('jarcfg-tintrainbow') && data) $('jarcfg-tintrainbow').checked = !!data.tintRainbow;
   if (!t) return;
   const tint = String(data?.tint ?? '').trim();
   t.value = /^#/.test(tint) ? tint : POT_TINT_PICKER_PLACEHOLDER;
@@ -9744,6 +10289,247 @@ const STYLE_OVERLAYS = [
   }),
 ];
 
+
+/* Pelota de regalos (Batalla Overlay · 1080×1920) */
+(function setupBatallaGiftBall() {
+  if (!$('bgb-config') && !$('bgb-drop1')) return;
+  const frame = () => $('bgb-preview');
+  let bgbSizesDraft = [];
+  let bgbSimGift = null;
+  let bgbPushTimer = 0;
+
+  const previewReady = () => {
+    const fr = frame();
+    return !!(fr && fr.dataset.embedReady === '1' && fr.getAttribute('src') && fr.getAttribute('src') !== 'about:blank');
+  };
+  const postPreview = (msg) => {
+    const fr = frame();
+    if (!fr || !previewReady()) return false;
+    try { fr.contentWindow?.postMessage({ kind: 'batallaGiftBall', ...msg }, '*'); } catch {}
+    return true;
+  };
+  const toPreview = (msg) => {
+    if (postPreview(msg)) return;
+    if (msg.type === 'config' || msg.type === 'pause' || msg.type === 'resume') return;
+    const fr = frame();
+    if (!fr) return;
+    ensureEmbedLoaded(fr).then((f) => {
+      try { f?.contentWindow?.postMessage({ kind: 'batallaGiftBall', ...msg }, '*'); } catch {}
+    });
+  };
+  const ensure = () => {
+    if (!settings.batallaGiftBall) settings.batallaGiftBall = {};
+    return settings.batallaGiftBall;
+  };
+  const normalizeSizes = (raw) => {
+    const list = Array.isArray(raw) && raw.length ? raw : DEFAULT_JAR_SIZES;
+    return list
+      .map((r) => ({ t: Math.max(0, Number(r?.t) || 0), sz: Math.max(8, Math.min(200, Number(r?.sz) || 32)) }))
+      .sort((a, b) => b.t - a.t);
+  };
+  const readDropMode = () => ($('bgbcfg-mode')?.dataset.mode === 'gift') ? 'gift' : 'ball';
+  const setDropModeUI = (mode) => {
+    const wrap = $('bgbcfg-mode');
+    if (!wrap) return;
+    const m = mode === 'gift' ? 'gift' : 'ball';
+    wrap.dataset.mode = m;
+    wrap.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.mode === m);
+    });
+  };
+  const readResetPeriod = () => ($('bgbcfg-period')?.dataset.period === 'live') ? 'live' : 'battle';
+  const setResetPeriodUI = (period) => {
+    const wrap = $('bgbcfg-period');
+    if (!wrap) return;
+    const p = period === 'live' ? 'live' : 'battle';
+    wrap.dataset.period = p;
+    wrap.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.period === p);
+    });
+  };
+  const readForm = () => {
+    const sizes = normalizeSizes(bgbSizesDraft);
+    return {
+      dropMode: readDropMode(),
+      resetPeriod: readResetPeriod(),
+      sizes,
+      ballSize: sizes[0]?.sz || 56,
+      maxBalls: 280,
+    };
+  };
+  const pushPreview = (immediate) => {
+    const sendCfg = () => postPreview({ type: 'config', config: { ...ensure(), ...readForm() } });
+    if (immediate) {
+      if (bgbPushTimer) { clearTimeout(bgbPushTimer); bgbPushTimer = 0; }
+      sendCfg();
+      return;
+    }
+    if (bgbPushTimer) clearTimeout(bgbPushTimer);
+    bgbPushTimer = setTimeout(() => { bgbPushTimer = 0; sendCfg(); }, 120);
+  };
+
+  const renderBgbRows = () => {
+    const sorted = normalizeSizes(bgbSizesDraft);
+    bgbSizesDraft = sorted;
+    const wrap = $('bgbcfg-rows');
+    if (!wrap) return;
+    wrap.innerHTML = sorted.map((r, i) => {
+      const next = sorted[i - 1];
+      const range = next ? `${r.t} a ${next.t - 1} monedas` : `≥ ${r.t} monedas`;
+      return `
+      <div class="jarcfg-row" data-i="${i}">
+        <button type="button" class="jarcfg-del" title="Quitar">✕</button>
+        <div class="jarcfg-row-head">UMBRAL ${i + 1} <span class="rng">— ${range} · ${r.sz} px</span></div>
+        <div class="jarcfg-row-grid">
+          <div>
+            <label>Si el regalo ≥ (monedas / diamantes)</label>
+            <input type="number" min="0" class="jc-t" value="${r.t}">
+          </div>
+          <div>
+            <label>Tamaño del icono (px)</label>
+            <input type="number" min="8" max="200" class="jc-sz" value="${r.sz}">
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.jarcfg-row').forEach((row) => {
+      const i = Number(row.dataset.i);
+      row.querySelector('.jc-t').onchange = (e) => {
+        bgbSizesDraft[i].t = Math.max(0, parseInt(e.target.value, 10) || 0);
+        renderBgbRows();
+      };
+      row.querySelector('.jc-sz').onchange = (e) => {
+        bgbSizesDraft[i].sz = Math.max(8, Math.min(200, parseInt(e.target.value, 10) || 32));
+        renderBgbRows();
+      };
+      row.querySelector('.jarcfg-del').onclick = () => {
+        bgbSizesDraft.splice(i, 1);
+        if (!bgbSizesDraft.length) bgbSizesDraft = normalizeSizes(DEFAULT_JAR_SIZES);
+        renderBgbRows();
+      };
+    });
+  };
+
+  const renderSimBtn = () => {
+    const btn = $('bgb-simgift');
+    if (!btn) return;
+    if (!bgbSimGift) {
+      btn.innerHTML = 'Selecciona…';
+      btn.title = 'Elegir regalo para soltar de uno en uno';
+      return;
+    }
+    const g = bgbSimGift;
+    const img = g.image ? `<img src="${String(g.image).replace(/"/g, '&quot;')}" alt="" referrerpolicy="no-referrer">` : '🎁';
+    const name = String(g.name || 'Regalo').replace(/</g, '&lt;');
+    btn.innerHTML = `${img}<span class="ovpro-simgift-name">${name}</span>`;
+    btn.title = `${g.name || 'Regalo'} · ${g.diamonds || 0} coins · ID ${g.id || ''}`;
+  };
+
+  const dropPayload = () => {
+    const g = bgbSimGift;
+    const modalOpen = !$('bgbConfigModal')?.classList.contains('hidden');
+    return {
+      image: g?.image || '',
+      diamonds: Math.max(0, Number(g?.diamonds) || 1),
+      giftId: g?.id != null ? String(g.id) : '',
+      giftName: g?.name || '',
+      dropMode: modalOpen ? readDropMode() : (ensure().dropMode === 'gift' ? 'gift' : 'ball'),
+    };
+  };
+
+  $('bgb-reset') && ($('bgb-reset').onclick = () => {
+    toPreview({ type: 'reset' });
+    send({ action: 'resetBatallaGiftBall' });
+  });
+
+  if ($('bgb-simgift')) {
+    // Abrir catálogo al tiro (sin tocar el iframe de preview).
+    $('bgb-simgift').onclick = () => {
+      openGiftModalCb((g) => {
+        bgbSimGift = {
+          id: g.id,
+          name: g.name,
+          image: g.image || '',
+          diamonds: Number(g.diamonds) || Number(g.diamond_count) || 1,
+        };
+        renderSimBtn();
+      });
+    };
+    renderSimBtn();
+  }
+  if ($('bgb-drop1')) {
+    $('bgb-drop1').onclick = () => {
+      const payload = dropPayload();
+      toPreview({ type: 'dropOne', ...payload });
+      send({ action: 'dropBatallaGiftBall', ...payload });
+    };
+  }
+
+  const openCfg = () => {
+    const c = ensure();
+    setDropModeUI(c.dropMode === 'gift' ? 'gift' : 'ball');
+    setResetPeriodUI(c.resetPeriod === 'live' ? 'live' : 'battle');
+    bgbSizesDraft = normalizeSizes(c.sizes);
+    renderBgbRows();
+    $('bgbConfigModal')?.classList.remove('hidden');
+    postPreview({ type: 'pause' });
+  };
+  const closeCfg = () => {
+    $('bgbConfigModal')?.classList.add('hidden');
+    postPreview({ type: 'resume' });
+  };
+  if ($('bgb-config')) $('bgb-config').onclick = openCfg;
+  if ($('bgbcfg-close')) $('bgbcfg-close').onclick = closeCfg;
+  if ($('bgbConfigModal')) $('bgbConfigModal').addEventListener('click', (e) => {
+    if (e.target.id === 'bgbConfigModal') closeCfg();
+  });
+  if ($('bgbcfg-mode')) {
+    $('bgbcfg-mode').onclick = (e) => {
+      const btn = e.target.closest('.bgbcfg-modebtn');
+      if (!btn) return;
+      setDropModeUI(btn.dataset.mode);
+    };
+  }
+  if ($('bgbcfg-period')) {
+    $('bgbcfg-period').onclick = (e) => {
+      const btn = e.target.closest('.bgbcfg-modebtn');
+      if (!btn) return;
+      setResetPeriodUI(btn.dataset.period);
+    };
+  }
+  if ($('bgbcfg-add')) {
+    $('bgbcfg-add').onclick = () => {
+      const min = bgbSizesDraft.length ? Math.min(...bgbSizesDraft.map((r) => r.t)) : 0;
+      bgbSizesDraft.push({ t: Math.max(0, min + 100), sz: 48 });
+      renderBgbRows();
+    };
+  }
+  if ($('bgbcfg-test')) $('bgbcfg-test').onclick = () => {
+    const cfg = readForm();
+    const gift = randomGiftSample();
+    if (previewReady()) {
+      postPreview({ type: 'resume' });
+      postPreview({ type: 'config', config: cfg });
+      postPreview({ type: 'test', gift });
+      return;
+    }
+    const fr = frame();
+    if (!fr) return;
+    ensureEmbedLoaded(fr).then((f) => {
+      try {
+        f?.contentWindow?.postMessage({ kind: 'batallaGiftBall', type: 'config', config: cfg }, '*');
+        f?.contentWindow?.postMessage({ kind: 'batallaGiftBall', type: 'test', gift }, '*');
+      } catch {}
+    });
+  };
+  if ($('bgbcfg-save')) $('bgbcfg-save').onclick = () => {
+    settings.batallaGiftBall = { ...ensure(), ...readForm() };
+    saveSettings();
+    pushPreview(true);
+    closeCfg();
+  };
+})();
+
 try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__patchBatallaVsStylePreview(); } catch {}
 
 // Contador de meta: regalo / meta / valor viven en el modal Configurar.
@@ -11105,25 +11891,92 @@ if (window.desktopAPI?.onWinsHotkey) {
   };
   const TYPES = { meta: 'int', scale: 'int', pointsLike: 'int', pointsFollow: 'int', pointsShare: 'int', pointsGift: 'int', pointsMember: 'int' };
   const build = () => readForm(MAP, TYPES);
+  const HYPE_SKINS = [
+    { id: 'default', name: 'Clásico' },
+    { id: 'meta2', name: 'Meta 2' },
+    { id: 'meta3', name: 'Meta 3' },
+    { id: 'meta4', name: 'Meta 4' },
+    { id: 'meta5', name: 'Meta 5' },
+    { id: 'meta6', name: 'Meta 6' },
+    { id: 'meta7', name: 'Meta 7' },
+    { id: 'meta8', name: 'Meta 8' },
+    { id: 'meta9', name: 'Meta 9' },
+    { id: 'meta10', name: 'Meta 10' },
+    { id: 'meta11', name: 'Meta 11' },
+    { id: 'meta12', name: 'Meta 12' },
+    { id: 'meta13', name: 'Meta 13' },
+    { id: 'meta14', name: 'Meta 14' },
+  ];
+  const hypSkinIndex = (id) => {
+    const i = HYPE_SKINS.findIndex((s) => s.id === id);
+    return i < 0 ? 0 : i;
+  };
+  const modalOpen = () => {
+    const m = $('hypConfigModal');
+    return !!(m && !m.classList.contains('hidden'));
+  };
+  const activeCfg = () => {
+    if (modalOpen()) return { ...(settings?.hypeBar || {}), ...build() };
+    return { ...(settings?.hypeBar || {}) };
+  };
+
+  function refreshSkinChrome(skinId) {
+    const skin = HYPE_SKINS[hypSkinIndex(skinId)] || HYPE_SKINS[0];
+    if ($('hyp-skin-name')) $('hyp-skin-name').textContent = skin.name;
+    if ($('hyp-skin-idx')) $('hyp-skin-idx').textContent = `${hypSkinIndex(skin.id) + 1} / ${HYPE_SKINS.length}`;
+    if ($('hypcfg-skin')) $('hypcfg-skin').value = skin.id;
+  }
+
+  let hypSkinSaveTimer = null;
+  let hypSkinSwapUntil = 0;
+  let hypSkinToken = 0;
 
   function applySkin(skin) {
     const f = frame();
-    const skinQ = skin && skin !== 'default' ? '&skin=' + skin : '';
+    const skinId = skin || 'default';
+    const skinQ = skinId !== 'default' ? '&skin=' + skinId : '';
     const want = '/meta.html?embed=1' + skinQ;
-    if (f && f.getAttribute('src') !== want) {
-      f.dataset.src = want;
-      f.dataset.embedReady = '';
-      f.onload = () => {
-        f.dataset.embedReady = '1';
-        toPrev({ type: 'config', config: build() });
-      };
-      f.src = want;
-    }
-    const path = '/meta.html' + (skin && skin !== 'default' ? '?skin=' + skin : '');
+    refreshSkinChrome(skinId);
+    const path = '/meta.html' + (skinId !== 'default' ? '?skin=' + skinId : '');
     const code = document.querySelector('#hyp-card .ov-url');
     if (code) { code.dataset.path = path; code.textContent = roomUrl(path); }
+
+    if (!f) return;
+    const cur = f.getAttribute('src') || '';
+    if (cur === want) {
+      toPrev({ type: 'config', config: { ...activeCfg(), skin: skinId } });
+      return;
+    }
+
+    // Cambio de diseño: oculta el iframe viejo y no empujes config al documento anterior
+    hypSkinToken += 1;
+    const token = hypSkinToken;
+    hypSkinSwapUntil = Date.now() + 900;
+    f.classList.add('is-skin-swap');
+    f.dataset.src = want;
+    f.dataset.embedReady = '';
+    f.onload = () => {
+      if (token !== hypSkinToken) return;
+      f.dataset.embedReady = '1';
+      f.classList.remove('is-skin-swap');
+      toPrev({ type: 'config', config: { ...activeCfg(), skin: skinId } });
+    };
+    f.src = want;
   }
-  function pushPreview(cfg) { toPrev({ type: 'config', config: cfg || settings?.hypeBar || {} }); }
+  function pushPreview(cfg) { toPrev({ type: 'config', config: cfg || activeCfg() }); }
+
+  function stepSkin(dir) {
+    if (!settings.hypeBar) settings.hypeBar = {};
+    const cur = hypSkinIndex(settings.hypeBar.skin || 'default');
+    const next = HYPE_SKINS[(cur + dir + HYPE_SKINS.length) % HYPE_SKINS.length];
+    settings.hypeBar.skin = next.id;
+    if (modalOpen() && $('hypcfg-skin')) $('hypcfg-skin').value = next.id;
+    applySkin(next.id);
+    clearTimeout(hypSkinSaveTimer);
+    hypSkinSaveTimer = setTimeout(() => {
+      try { saveSettingsKeysPatch('hypeBar'); } catch { try { saveSettings(); } catch {} }
+    }, 280);
+  }
 
   if ($('hyp-test')) $('hyp-test').onclick = async () => {
     await ensureEmbedLoaded(frame());
@@ -11157,7 +12010,19 @@ if (window.desktopAPI?.onWinsHotkey) {
   });
   if ($('hypcfg-save')) $('hypcfg-save').onclick = () => { settings.hypeBar = build(); saveSettings(); applySkin(settings.hypeBar.skin); pushPreview(settings.hypeBar); close(); };
 
-  window.pushHypePreview = () => { applySkin((settings?.hypeBar || {}).skin || 'default'); pushPreview(); };
+  if ($('hyp-skin-prev')) $('hyp-skin-prev').onclick = () => stepSkin(-1);
+  if ($('hyp-skin-next')) $('hyp-skin-next').onclick = () => stepSkin(1);
+
+  window.pushHypePreview = () => {
+    const skin = (settings?.hypeBar || {}).skin || 'default';
+    // Durante el cambio con flechas, no re-disparar reload/config (evita parpadeo de otro diseño)
+    if (Date.now() < hypSkinSwapUntil) {
+      refreshSkinChrome(skin);
+      return;
+    }
+    applySkin(skin);
+  };
+  try { refreshSkinChrome((settings?.hypeBar || {}).skin || 'default'); } catch {}
 })();
 
 /* ====================== Chat TTS ====================== */
@@ -11898,7 +12763,7 @@ function ttsConfigForUser(userId) {
 
 function ttsSpeakTextForUser(text, userId) {
   try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
-  const phrase = String(text || '').trim();
+  const phrase = ttsReadableText(String(text || '')).trim();
   if (!phrase) return;
   const cfg = ttsConfigForUser(userId);
   const now = Date.now();
@@ -12022,10 +12887,44 @@ const EMOJI_SPEAK = {
 };
 const EMOJI_SPEAK_ENTRIES = Object.entries(EMOJI_SPEAK);
 
+const TTS_HOMOGLYPHS = {
+  'А':'A','а':'a','В':'B','Е':'E','е':'e','К':'K','к':'k','М':'M','м':'m',
+  'Н':'H','н':'h','О':'O','о':'o','Р':'P','р':'p','С':'C','с':'c','Т':'T','т':'t',
+  'Х':'X','х':'x','У':'Y','у':'y','І':'I','і':'i','Ї':'Yi','ї':'yi','Ј':'J','ј':'j',
+  'Ѕ':'S','ѕ':'s','Ғ':'F','ғ':'f','Ԁ':'D','ԁ':'d','Ԍ':'G','ԍ':'g',
+  'Α':'A','Β':'B','Ε':'E','Ζ':'Z','Η':'H','Ι':'I','Κ':'K','Μ':'M','Ν':'N',
+  'Ο':'O','Ρ':'P','Τ':'T','Υ':'Y','Χ':'X','α':'a','β':'b','ε':'e','ι':'i',
+  'κ':'k','ν':'v','ο':'o','ρ':'p','τ':'t','υ':'y','χ':'x',
+};
+
+/**
+ * Convierte tipografías fancy (bold/math Unicode, fullwidth, circled, etc.) a
+ * texto latino legible por TTS. Sin esto, muchos motores saltan o balbucean el nick.
+ */
+function ttsReadableText(text) {
+  let s = String(text || '');
+  if (!s) return s;
+  try { s = s.normalize('NFKC'); } catch { /* ignore */ }
+  // 🅰–🆉 (negative squared) no tienen fold NFKC → A–Z
+  s = s.replace(/[\u{1F170}-\u{1F189}]/gu, (ch) => {
+    const cp = ch.codePointAt(0);
+    return String.fromCharCode(0x41 + (cp - 0x1F170));
+  });
+  // 🄐–🄩 parenthesized Latin capital (si quedó algo tras NFKC)
+  s = s.replace(/[\u{1F110}-\u{1F129}]/gu, (ch) => {
+    const cp = ch.codePointAt(0);
+    return String.fromCharCode(0x41 + (cp - 0x1F110));
+  });
+  s = s.replace(/[\u0400-\u04FF\u0500-\u052F\u0370-\u03FF]/g, (ch) => TTS_HOMOGLYPHS[ch] || ch);
+  s = s.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF\u00AD]/g, '');
+  s = s.replace(/[\u00A0\u2000-\u200A\u202F\u205F]/g, ' ');
+  return s;
+}
+
 // Convierte los emojis de un texto (p. ej. el nombre del usuario) a palabras para
 // que el TTS los lea en voz alta; los emojis que no estén en el diccionario se quitan.
 function speakEmojis(text) {
-  let s = stripSilentEmojis(text);
+  let s = stripSilentEmojis(ttsReadableText(text));
   if (!s) return s;
   for (const [emo, word] of EMOJI_SPEAK_ENTRIES) {
     if (s.includes(emo)) s = s.split(emo).join(` ${word} `);
@@ -12193,7 +13092,7 @@ function ttsSyncElevenlabsFromDom() {
 function ttsSpeakText(text, opts = {}) {
   try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
   const t = settings?.tts || {};
-  const phrase = String(text || '').trim();
+  const phrase = ttsReadableText(String(text || '')).trim();
   if (!phrase) return;
   const force = !!(opts && opts.force);
   const now = Date.now();
@@ -12995,7 +13894,7 @@ async function ttsSpeak(p, force = false) {
   let body = ttsTriggerMatch(p.comment);
   if (body == null) return;
   if (ttsIsReplyToOtherUser(p, p.comment)) return;
-  body = ttsModerate(body);
+  body = ttsModerate(ttsReadableText(body));
   if (!body) return;
   if (body.length < (t.minLen || 0)) return;
   if (t.maxLen && body.length > t.maxLen) body = body.slice(0, t.maxLen);
@@ -13014,8 +13913,9 @@ async function ttsSpeak(p, force = false) {
   let prefix = '';
   if (t.readName) {
     // Con emojis: los convierte a palabras (Ej.: "🔥" → "fuego"). Sin emojis: los quita.
+    // Tipografías fancy (𝐛𝐨𝐥𝐝, 🅵🆄🅻, etc.) → ASCII vía ttsReadableText / speakEmojis.
     let name = t.nameEmojis === false
-      ? String(p.nickname || '').replace(EMOJI_RE, '').replace(/\s+/g, ' ').trim()
+      ? ttsReadableText(String(p.nickname || '')).replace(EMOJI_RE, '').replace(/\s+/g, ' ').trim()
       : speakEmojis(p.nickname);
     if (!name) name = 'Alguien';
     prefix = `${name} dice: `;
@@ -13026,18 +13926,19 @@ async function ttsSpeak(p, force = false) {
 /* Eventos */
 function ttsOnFollow(p) {
   const t = settings?.tts; if (!t || !t.enabled || !t.readFollow) return;
-  const msg = (t.followMsg || 'Hola {user}, gracias por seguirme').replace(/\{user\}/gi, p.nickname || 'amigo');
+  const user = speakEmojis(p.nickname) || 'amigo';
+  const msg = (t.followMsg || 'Hola {user}, gracias por seguirme').replace(/\{user\}/gi, user);
   ttsSpeakText(msg);
 }
 function ttsOnShare(p) {
   const t = settings?.tts; if (!t || !t.enabled || !t.readShare) return;
-  ttsSpeakText(`${p.nickname || 'Alguien'} compartió el live`);
+  ttsSpeakText(`${speakEmojis(p.nickname) || 'Alguien'} compartió el live`);
 }
 function ttsOnLike(p) {
   const t = settings?.tts; if (!t || !t.enabled || !t.readTaptap) return;
   const n = +p.count || 0;
   if (n < (+t.taptapMin || 100)) return;
-  ttsSpeakText(`${p.nickname || 'Alguien'} envió ${n} Tap Tap`);
+  ttsSpeakText(`${speakEmojis(p.nickname) || 'Alguien'} envió ${n} Tap Tap`);
 }
 function ttsOnGift(p) {
   const t = settings?.tts; if (!t) return;
@@ -13049,7 +13950,7 @@ function ttsOnGift(p) {
   if (t.enabled && t.readGifts && !p.streak) {
     const name = p.giftName || 'un regalo';
     const qty = +p.repeatCount || 1;
-    ttsSpeakText(`${p.nickname || 'Alguien'} envió ${name}${qty > 1 ? ' x' + qty : ''}`);
+    ttsSpeakText(`${speakEmojis(p.nickname) || 'Alguien'} envió ${name}${qty > 1 ? ' x' + qty : ''}`);
   }
 }
 
@@ -13866,18 +14767,18 @@ function scheduleActionTest(a) {
 }
 
 const ACC_EVENT_META = {
-  'gift-any': { ico: '💎', label: 'Cantidad diamantes' },
-  gift: { ico: '🎁', label: 'Regalo específico' },
-  like: { ico: '❤️', label: 'Likes (por usuario)' },
-  likeGlobal: { ico: '❤️', label: 'Likes globales' },
-  share: { ico: '🔁', label: 'Compartida' },
-  subscribe: { ico: '⭐', label: 'Nuevo suscriptor' },
-  superFan: { ico: '🌟', label: 'Super fan' },
-  superFanJoin: { ico: '🌟', label: 'Super fan entró' },
-  follow: { ico: '➕', label: 'Nuevo seguidor' },
-  levelUp: { ico: '⬆️', label: 'Subió de nivel' },
-  emote: { ico: '😀', label: 'Sticker / emote' },
-  chatCommand: { ico: '💬', label: 'Comando de chat' },
+  'gift-any': { ico: trigIconChip('gift-any') || '💎', label: 'Cantidad diamantes' },
+  gift: { ico: trigIconChip('gift') || '🎁', label: 'Regalo específico' },
+  like: { ico: trigIconChip('like') || '❤️', label: 'Likes (por usuario)' },
+  likeGlobal: { ico: trigIconChip('likeGlobal') || '❤️', label: 'Likes globales' },
+  share: { ico: trigIconChip('share') || '🔁', label: 'Compartida' },
+  subscribe: { ico: trigIconChip('subscribe') || '⭐', label: 'Nuevo suscriptor' },
+  superFan: { ico: trigIconChip('superFan') || '🌟', label: 'Super fan' },
+  superFanJoin: { ico: trigIconChip('superFanJoin') || '🌟', label: 'Super fan entró' },
+  follow: { ico: trigIconChip('follow') || '➕', label: 'Nuevo seguidor' },
+  levelUp: { ico: trigIconChip('levelUp') || '⬆️', label: 'Subió de nivel' },
+  emote: { ico: trigIconChip('emote') || '😀', label: 'Sticker / emote' },
+  chatCommand: { ico: trigIconChip('chatCommand') || '💬', label: 'Comando de chat' },
 };
 const ACC_OBS_LABELS = {
   scene: 'Escena',
@@ -13911,16 +14812,16 @@ function accEventChipHTML(a) {
     return accChipHTML(ico, esc(a.giftName || g?.name || 'Regalo'), 'ev');
   }
   if (ev === 'gift-any' && (a.rangeMin || a.rangeMax)) {
-    return accChipHTML('💎', esc(`${a.rangeMin || 0}${a.rangeMax ? ` – ${a.rangeMax}` : '+'}`), 'ev');
+    return accChipHTML(trigIconChip('gift-any') || '💎', esc(`${a.rangeMin || 0}${a.rangeMax ? ` – ${a.rangeMax}` : '+'}`), 'ev');
   }
-  if (ev === 'like' && a.likeMin > 1) return accChipHTML('❤️', esc(`Desde ${a.likeMin} likes`), 'ev');
-  if (ev === 'likeGlobal' && a.likeGoal) return accChipHTML('❤️', esc(`Cada ${a.likeGoal} likes`), 'ev');
+  if (ev === 'like' && a.likeMin > 1) return accChipHTML(trigIconChip('like') || '❤️', esc(`Desde ${a.likeMin} likes`), 'ev');
+  if (ev === 'likeGlobal' && a.likeGoal) return accChipHTML(trigIconChip('likeGlobal') || '❤️', esc(`Cada ${a.likeGoal} likes`), 'ev');
   if (ev === 'emote' && a.emoteId) {
     const delay = Number(a.eventDelay) > 0 ? ` · ${a.eventDelay}s` : '';
-    return accChipHTML('😀', esc(a.emoteId) + delay, 'ev');
+    return accChipHTML(trigIconChip('emote') || '😀', esc(a.emoteId) + delay, 'ev');
   }
-  if (ev === 'chatCommand' && a.command) return accChipHTML('💬', esc(a.command), 'ev');
-  if (ev === 'levelUp' && a.level) return accChipHTML('⬆️', esc(`Nivel ${a.level}`), 'ev');
+  if (ev === 'chatCommand' && a.command) return accChipHTML(trigIconChip('chatCommand') || '💬', esc(a.command), 'ev');
+  if (ev === 'levelUp' && a.level) return accChipHTML(trigIconChip('levelUp') || '⬆️', esc(`Nivel ${a.level}`), 'ev');
   const meta = ACC_EVENT_META[ev] || { ico: '⚡', label: ev };
   return accChipHTML(meta.ico, esc(meta.label), 'ev');
 }
@@ -14008,18 +14909,78 @@ function accThumbHTML(a) {
   return `<div class="acc-thumb">${ACC_THUMB_EMOJI[ev] || '⚡'}</div>`;
 }
 
-function renderAcciones() {
-  const grid = $('acc-grid');
-  if (!grid) return;
-  const list = (settings && settings.actions) || [];
-  for (const id of [...accSelected]) if (!list.find((a) => a.id === id)) accSelected.delete(id);
-  updateAccSelCount();
-
-  if (!list.length) {
-    grid.innerHTML = '<div class="acc-empty" id="acc-empty">Aún no tienes acciones. Pulsa <b>Crear nueva acción</b> para empezar.</div>';
-    return;
+function getAccViewMode() {
+  return getMapViewMode('lc_acc_view');
+}
+function setAccViewMode(mode) {
+  setMapViewMode('lc_acc_view', mode);
+  syncAccViewToggleUI();
+  renderAcciones();
+}
+function syncAccViewToggleUI() {
+  const mode = getAccViewMode();
+  applyMapGridClass($('acc-grid'), mode);
+  document.querySelectorAll('[data-map-view-for="lc_acc_view"]').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.getAttribute('data-map-view') === mode);
+  });
+  // compat botones viejos
+  document.querySelectorAll('.acc-view-btn[data-acc-view]').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.getAttribute('data-acc-view') === mode);
+  });
+}
+function getAccSearchQuery() {
+  return String($('acc-search')?.value || '').trim().toLowerCase();
+}
+function accMatchesSearch(a, q) {
+  return entityMatchesSearch(a, q, ['webhookCmd', 'sbCmd']);
+}
+function accTriggerVisual(a) {
+  const base = giftTriggerVisualFromItem(a, '⚡');
+  if (a?.event && !(a.giftId || a.giftName || a.image)) {
+    const meta = (typeof ACC_EVENT_META !== 'undefined' && ACC_EVENT_META[a.event]) || null;
+    if (meta) {
+      base.emoji = meta.ico || base.emoji;
+      base.label = meta.label || base.label;
+    }
   }
-  grid.innerHTML = list.map((a) => `
+  return base;
+}
+function accMapCardHTML(a) {
+  const on = a.enabled !== false;
+  const trig = accTriggerVisual(a);
+  const giftFace = trig.img
+    ? `<img class="acc-map-gift-img" src="${esc(trig.img)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=\\'acc-map-gift-emoji\\'>🎁</span>'">`
+    : `<span class="acc-map-gift-emoji">${trig.emoji || '⚡'}</span>`;
+  return `
+    <div class="sa-card acc-card acc-map-card ${on ? 'on' : ''}" data-id="${esc(a.id)}">
+      <div class="acc-map-top">
+        <input type="checkbox" class="sa-sel" ${accSelected.has(a.id) ? 'checked' : ''} title="Seleccionar">
+        <label class="toggle">
+          <input type="checkbox" class="acc-toggle" ${on ? 'checked' : ''}>
+          <span class="track"></span>
+          <span class="state">${on ? 'ON' : 'OFF'}</span>
+        </label>
+      </div>
+      <div class="acc-map-trigger">
+        <div class="acc-map-gift">${giftFace}</div>
+        <div class="acc-map-trig-label" title="${esc(trig.label)}">${esc(trig.label)}</div>
+      </div>
+      <div class="acc-map-arrow" aria-hidden="true">↓</div>
+      <div class="acc-map-body">
+        <div class="acc-name sa-name">${esc(a.name || 'Acción')}</div>
+        <div class="acc-meta acc-map-outs">${accOutputChipsHTML(a)}</div>
+      </div>
+      <div class="sa-card-btns acc-card-btns acc-card-icons vid-card-btns acc-map-btns">
+        <button type="button" class="acc-icon-btn acc-edit sa-edit" title="Editar">${CARD_ICON.gear}</button>
+        <button type="button" class="acc-icon-btn acc-try acc-try-delay" title="Probar (espera 2 s)">${CARD_ICON.play}</button>
+        <button type="button" class="acc-icon-btn acc-try-now acc-try-instant" title="Probar ya (sin espera)">${CARD_ICON.play}</button>
+        <button type="button" class="acc-icon-btn acc-dup" title="Duplicar acción">${CARD_ICON.dup}</button>
+        <button type="button" class="acc-icon-btn acc-del-one" title="Eliminar acción">${CARD_ICON.trash}</button>
+      </div>
+    </div>`;
+}
+function accListCardHTML(a) {
+  return `
     <div class="sa-card vid-card acc-card ${a.enabled !== false ? 'on' : ''}" data-id="${a.id}">
       <div class="vid-card-left">
         <label class="toggle">
@@ -14046,7 +15007,34 @@ function renderAcciones() {
         <button type="button" class="acc-icon-btn acc-dup" title="Duplicar acción">${CARD_ICON.dup}</button>
         <button type="button" class="acc-icon-btn acc-del-one" title="Eliminar acción">${CARD_ICON.trash}</button>
       </div>
-    </div>`).join('');
+    </div>`;
+}
+
+function renderAcciones() {
+  const grid = $('acc-grid');
+  if (!grid) return;
+  const list = (settings && settings.actions) || [];
+  for (const id of [...accSelected]) if (!list.find((a) => a.id === id)) accSelected.delete(id);
+  updateAccSelCount();
+  syncAccViewToggleUI();
+
+  if (!list.length) {
+    grid.innerHTML = lcEmptyGuideHTML({
+      title: 'Aún no tienes acciones',
+      steps: ['Conecta TikTok', 'Crear acción', 'Probar tecla'],
+      hint: 'Pulsa <b>Crear nueva acción</b> para empezar.',
+      className: 'acc-empty empty',
+    });
+    return;
+  }
+  const q = getAccSearchQuery();
+  const filtered = list.filter((a) => accMatchesSearch(a, q));
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="acc-empty" id="acc-empty">Ninguna acción coincide con la búsqueda.</div>';
+    return;
+  }
+  const mode = getAccViewMode();
+  grid.innerHTML = filtered.map((a) => (mode === 'map' ? accMapCardHTML(a) : accListCardHTML(a))).join('');
 
   grid.querySelectorAll('.acc-card').forEach((card) => {
     const id = card.dataset.id;
@@ -14062,12 +15050,19 @@ function renderAcciones() {
     card.querySelector('.acc-edit').onclick = () => openAccModal(a);
     card.querySelector('.acc-try').onclick = () => scheduleActionTest(a);
     card.querySelector('.acc-try-now').onclick = () => runActionTestInstant(a);
-    card.querySelector('.acc-dup').onclick = () => {
-      const copy = JSON.parse(JSON.stringify(a));
-      copy.id = 'act' + Date.now();
-      settings.actions.unshift(copy);
-      saveSettings();
-      renderAcciones();
+    card.querySelector('.acc-dup').onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!ensureCanAdd('actions', 'actions', 'acciones')) return;
+      duplicateSettingsItem('actions', id, {
+        idPrefix: 'act',
+        render: renderAcciones,
+        save: () => {
+          saveSettingsKeysPatch('actions');
+          syncDesktopWebhookSettings();
+        },
+        toastMsg: 'Acción duplicada.',
+      });
     };
     card.querySelector('.acc-del-one').onclick = async () => {
       const ok = await askConfirm({ title: 'Eliminar acción', message: `¿Eliminar "${a.name || 'Acción'}"?` });
@@ -14078,11 +15073,13 @@ function renderAcciones() {
       renderAcciones();
     };
   });
-  bindSaCardLongPressReorder(grid, (ids) => {
-    if (!applySettingsListOrder('actions', ids)) return;
-    saveSettingsKeysPatch('actions');
-    syncDesktopWebhookSettings();
-  });
+  if (!q) {
+    bindSaCardLongPressReorder(grid, (ids) => {
+      if (!applySettingsListOrder('actions', ids)) return;
+      saveSettingsKeysPatch('actions');
+      syncDesktopWebhookSettings();
+    });
+  }
 }
 
 function updateAccSelCount() {
@@ -14173,6 +15170,15 @@ function setupAccionesUI() {
     openAccModal(null);
   })) return;
   window._accionesWired = true;
+  wireMapViewControls('lc_acc_view', renderAcciones, 'acc-search');
+  document.querySelectorAll('.acc-view-btn[data-acc-view]').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setAccViewMode(btn.getAttribute('data-acc-view') || 'map');
+    };
+  });
+  syncAccViewToggleUI();
   accBind('acc-del', async () => {
     if (!accSelected.size) return;
     const ok = await askConfirm({ title: 'Eliminar acciones', message: `Se eliminarán ${accSelected.size} acción(es).` });
@@ -16226,6 +17232,10 @@ async function showViewById(viewId) {
     if (typeof renderGdashActions === 'function') renderGdashActions();
   }
 
+  if (viewId === 'view-juegos' || (typeof navSlug === 'string' && navSlug.indexOf('juego') === 0)) {
+    try { prepareAllGameActionsViews(); } catch {}
+  }
+
   onOverlayNavShown(viewId);
 }
 
@@ -16337,7 +17347,7 @@ async function ensureGameUi(gameKey) {
         setupGtavChaosActionsUI();
         break;
       case 'gtavchiliad':
-        await loadGameCatalogScript('/js/gtavchiliad-spawn-catalog.js?v=chiliad5');
+        await loadGameCatalogScript('/js/gtavchiliad-spawn-catalog.js?v=chiliad7');
         bindGtavChiliadCatalogFromWindow();
         setupGtavChiliadGameDirUI();
         setupGtavChiliadInstallUI();
@@ -16715,12 +17725,12 @@ function mcTrigLabel(trigger) {
 function mcTrigCardBtnHtml(a) {
   const trig = a.trigger || 'gift';
   const ev = MC_TRIG_ICON[trig] || { ic: '⚡', label: trig };
-  let visual = `<span class="mc-trig-emoji">${ev.ic}</span>`;
+  let visual = gameTrigIconHtml(trig, 'mc-trig-img');
   let sub = esc(mcTrigLabel(trig));
   if (trig === 'gift') {
     visual = a.giftImage
-      ? `<img class="mc-trig-gift-img" src="${esc(a.giftImage)}" alt="" onerror="this.outerHTML='<span class=\\'mc-trig-emoji\\'>🎁</span>'">`
-      : `<span class="mc-trig-emoji">🎁</span>`;
+      ? `<img class="mc-trig-gift-img" src="${esc(a.giftImage)}" alt="" onerror="this.outerHTML='<img class=\\'mc-trig-img\\' src=\\'/img/trig/gift.png?v=2\\' alt=\\'\\'>'">`
+      : gameTrigIconHtml('gift');
     sub = a.giftName ? esc(a.giftName) : 'Elegir regalo';
   } else if (trig === 'gift-diamonds') {
     const lo = Number(a.rangeMin) || 0;
@@ -16735,6 +17745,8 @@ function mcTrigCardBtnHtml(a) {
     sub = delay > 0 ? `${esc(mcTrigLabel(trig))} · ${delay}s` : esc(mcTrigLabel(trig));
   } else if ((trig === 'chatUser' || trig === 'chatCommand') && a.text) {
     sub = esc(a.text);
+  } else if (!MC_TRIG_ICON[trig]) {
+    visual = `<span class="mc-trig-emoji">${ev.ic}</span>`;
   }
   return `<button type="button" class="mc-trig-icon-btn" data-uid="${esc(a.uid)}" title="Elegir disparador">
     ${visual}
@@ -16810,7 +17822,7 @@ function renderMcTrigPop() {
   const detail = document.getElementById('mc-trig-pop-detail');
   if (!grid || !detail) return;
   grid.innerHTML = MC_TRIGGERS.map((t) => {
-    const ic = (MC_TRIG_ICON[t.v] || { ic: '⚡' }).ic;
+    const ic = gameTrigIconHtml(t.v, 'mc-trig-pop-img');
     const on = d.trigger === t.v ? ' is-on' : '';
     return `<button type="button" class="mc-trig-pop-item${on}" data-v="${esc(t.v)}">
       <span class="mc-trig-pop-ic">${ic}</span>
@@ -16830,7 +17842,7 @@ function renderMcTrigPop() {
   if (d.trigger === 'gift') {
     const ic = d.giftImage
       ? `<img class="mc-gift-ic" src="${esc(d.giftImage)}" alt="">`
-      : '<span class="mc-trig-emoji">🎁</span>';
+      : gameTrigIconHtml('gift');
     detailHtml = `
       <button type="button" class="mc-gift-btn" id="mc-trig-pop-gift">
         ${ic}<span class="mc-gift-name">${d.giftName ? esc(d.giftName) : 'Elegir regalo'}</span>
@@ -17016,21 +18028,24 @@ function closeGameActionConfigModal() {
 function gameActionConfigBodyHtml(a, opts = {}) {
   ensureGameActionTimingFields(a);
   const timingMode = opts.timingMode ?? 'count';
-  const countMax = opts.countMax ?? 999;
+  const countMax = opts.countMax;
   const countMin = opts.countMin ?? 1;
   const countLabel = opts.countLabel || 'Cantidad';
   const countVal = opts.countValue != null ? opts.countValue : (a.count ?? 1);
+  const maxAttr = Number.isFinite(Number(countMax)) ? ` max="${countMax}"` : '';
   const countRow = opts.hideCount ? '' : `
     <label class="mc-act-cfg-field">
       <span class="mc-act-cfg-lbl">${countLabel}</span>
-      <input type="number" min="${countMin}" max="${countMax}" class="mc-act-cfg-count" value="${esc(String(countVal))}">
+      <input type="number" min="${countMin}"${maxAttr} class="mc-act-cfg-count" value="${esc(String(countVal))}">
     </label>`;
   const extra = opts.extraConfigHtml || '';
   const repeatRow = timingMode === 'repeat'
     ? `<label class="mcc-time-field"><span class="mcc-time-lbl">Repetición</span><input type="number" class="mc-act-cfg-repeat" min="1" value="${Math.max(1, parseInt(a.repeat, 10) || 1)}"></label>`
     : '';
   const timingHint = timingMode === 'count'
-    ? `<p class="mc-act-cfg-hint">El retraso y el intervalo controlan el tiempo entre cada unidad de la cantidad.</p>`
+    ? (String(countLabel || '').toLowerCase().includes('metro')
+      ? `<p class="mc-act-cfg-hint">Este número son <b>metros</b> hacia arriba (sin límite). Ejemplo: 50, 200, 1000…</p>`
+      : `<p class="mc-act-cfg-hint">El retraso y el intervalo controlan el tiempo entre cada unidad de la cantidad.</p>`)
     : '';
   return `
     <div class="mc-act-cfg-head">
@@ -17067,9 +18082,10 @@ function collectGameActionConfigFromModal(modal, cardOpts = {}) {
   if (en) patch.enabled = en.checked;
   const countInp = modal.querySelector('.mc-act-cfg-count');
   if (countInp) {
-    const max = cardOpts.countMax ?? 999;
     const min = cardOpts.countMin ?? 1;
-    patch.count = Math.max(min, Math.min(max, parseInt(countInp.value, 10) || min));
+    let n = Math.max(min, parseInt(countInp.value, 10) || min);
+    if (Number.isFinite(Number(cardOpts.countMax))) n = Math.min(cardOpts.countMax, n);
+    patch.count = n;
   }
   const rep = modal.querySelector('.mc-act-cfg-repeat');
   if (rep && (cardOpts.timingMode ?? 'count') === 'repeat') patch.repeat = Math.max(1, parseInt(rep.value, 10) || 1);
@@ -17112,9 +18128,18 @@ function openGameActionConfigModal(a, cardOpts, ctx) {
   const overlay = document.getElementById('game-act-cfg-overlay');
   const body = document.getElementById('game-act-cfg-body');
   if (!overlay || !body) return;
-  body.innerHTML = gameActionConfigBodyHtml(a, cardOpts);
+  let opts = { ...(cardOpts || {}) };
+  // Chiliad «Lanzar hacia arriba»: siempre Metros (aunque el mapa de opts falle).
+  if (typeof isChiliadLaunchUp === 'function' && isChiliadLaunchUp(a?.thing)) {
+    opts.countMin = 1;
+    opts.countLabel = 'Metros (sin límite)';
+    delete opts.countMax;
+  }
+  body.innerHTML = gameActionConfigBodyHtml(a, opts);
   body.querySelector('.mc-act-cfg-close').onclick = () => closeGameActionConfigModal();
   _gameActCfgModalCtx = ctx;
+  // Guardar con las mismas opts (sin tope 50 en metros).
+  if (_gameActCfgModalCtx) _gameActCfgModalCtx.cardOpts = opts;
   document.body.classList.add('mc-act-cfg-open');
   overlay.classList.remove('hidden');
 }
@@ -17203,7 +18228,21 @@ function gameSurvivalStyleCardHtml(a, opts = {}) {
 
 const GAME_ACTION_RENDERERS = {};
 function registerGameActionRenderer(settingsKey, fn) {
-  if (settingsKey && typeof fn === 'function') GAME_ACTION_RENDERERS[settingsKey] = fn;
+  if (!settingsKey || typeof fn !== 'function') return;
+  const prev = GAME_ACTION_RENDERERS[settingsKey];
+  if (prev && prev._lcOrig === fn) return;
+  if (fn._lcGameViewWrapped) {
+    GAME_ACTION_RENDERERS[settingsKey] = fn;
+    return;
+  }
+  const wrapped = function lcGameRenderWrapped() {
+    const out = fn.apply(this, arguments);
+    try { queueMicrotask(() => prepareAllGameActionsViews()); } catch { try { prepareAllGameActionsViews(); } catch {} }
+    return out;
+  };
+  wrapped._lcGameViewWrapped = true;
+  wrapped._lcOrig = fn;
+  GAME_ACTION_RENDERERS[settingsKey] = wrapped;
 }
 
 function findAnyGameAction(uid) {
@@ -17238,6 +18277,7 @@ function duplicateGameActionBelow(settingsKey, uid, render) {
 }
 
 function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
+  try { prepareGameActionsView(wrap); } catch {}
   const settingsKey = opts.settingsKey;
   wrap.querySelectorAll('.mc-trig-icon-btn').forEach((b) => {
     b.onclick = () => openMcTrigPop(b.dataset.uid, settingsKey);
@@ -17249,9 +18289,11 @@ function bindGameSurvivalCardExtras(wrap, find, render, opts = {}) {
       if (!a) return;
       a.enabled = c.checked;
       lastGameActionEditAt = Date.now();
-      // Solo Activa ON/OFF: no reconstruir Editor Pro.
-      if (settingsKey) saveSettingsKeysPatch(settingsKey, { skipErSync: true, flush: true });
-      else flushSaveSettings();
+      // Solo Activa ON/OFF: no reconstruir Editor Pro. Flush al apagar → el live no spawnea.
+      if (settingsKey) {
+        saveSettingsKeysPatch(settingsKey, { skipErSync: true, flush: !c.checked });
+      } else if (!c.checked) flushSaveSettings();
+      else saveSettings();
       render();
     };
   });
@@ -17362,7 +18404,9 @@ function gameActionGiftUi(a, giftClass) {
   const t = a.trigger || 'gift';
   const uid = esc(a.uid);
   if (t === 'gift') {
-    const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+    const ic = a.giftImage
+      ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='<img class=\\'mc-trig-img\\' src=\\'/img/trig/gift.png?v=2\\' alt=\\'\\'>'">`
+      : gameTrigIconHtml('gift');
     return `<button type="button" class="mc-gift-btn ${giftClass}" data-uid="${uid}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
   }
   const ev = MC_TRIG_ICON[t] || { ic: '⚡', label: t };
@@ -17372,7 +18416,7 @@ function gameActionGiftUi(a, giftClass) {
     const hi = Number(a.rangeMax) || 0;
     lbl = hi > 0 ? `Cantidad diamantes (${lo} - ${hi})` : (lo > 0 ? `Cantidad diamantes (≥${lo})` : 'Cantidad diamantes');
   }
-  return `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+  return `<div class="mc-ev-badge"><span class="mc-ev-ic">${gameTrigIconHtml(t, 'mc-ev-img')}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
 }
 function gameActionExtraRow(a, likeClass, textClass) {
   const uid = esc(a.uid);
@@ -17750,6 +18794,7 @@ function renderMcFamilyActions(game) {
   const list = (settings && Array.isArray(settings[key])) ? settings[key] : [];
   if (!list.length) {
     wrap.innerHTML = '<div class="mc-empty">Aún no agregaste acciones. Elige una del catálogo de abajo.</div>';
+    prepareGameActionsView(wrap);
     return;
   }
   wrap.innerHTML = list.map((a) => {
@@ -17831,7 +18876,7 @@ function renderMcFamilyActions(game) {
     const a = find(c.dataset.uid); if (!a) return;
     a.enabled = c.checked;
     lastGameActionEditAt = Date.now();
-    saveSettingsKeysPatch(key, { skipErSync: true, flush: true }); rerender();
+    saveSettingsKeysPatch(key, { skipErSync: true, flush: !c.checked }); rerender();
   });
   wrap.querySelectorAll('.mc-qty-n').forEach((inp) => inp.onchange = () => {
     const a = find(inp.dataset.uid); if (!a) return;
@@ -17851,6 +18896,7 @@ function renderMcFamilyActions(game) {
   wrap.querySelectorAll('.mc-act-test').forEach((b) => b.onclick = () => sendTestMcAction(b.dataset.uid));
   bindMcFamilyAudio(wrap, find, rerender);
   bindMcActionCardCommon(wrap, find, rerender);
+  prepareGameActionsView(wrap);
 }
 
 let mccEditingUid = null;
@@ -19709,6 +20755,7 @@ function setupMcShooterActionsUI() {
       if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('mcshooterActions', { skipErSync: true, flush: true }); renderMyMcShooterActions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
@@ -19891,12 +20938,14 @@ function renderRobloxActions() {
     const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
     let giftBtn = '';
     if ((a.trigger || 'gift') === 'gift') {
-      const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+      const ic = a.giftImage
+        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='<img class=\\'mc-trig-img\\' src=\\'/img/trig/gift.png?v=2\\' alt=\\'\\'>'">`
+        : gameTrigIconHtml('gift');
       giftBtn = `<button type="button" class="mc-gift-btn rbx-gift" data-slot="${i}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
     } else {
       const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
       const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${gameTrigIconHtml(a.trigger, 'mc-ev-img')}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
     }
     let likeRow = '';
     if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
@@ -19952,6 +21001,7 @@ function renderRobloxActions() {
     openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); notifyEditorRapidoActionsChanged('robloxActions'); renderRobloxActions(); });
   });
   wrap.querySelectorAll('.rbx-test').forEach((b) => b.onclick = () => { const a = at(b); if (a) testRobloxAction(a); });
+  prepareGameActionsView(wrap);
 }
 
 /* ================= Acciones de Roblox 3 (simulación de teclas) ================= */
@@ -20003,6 +21053,7 @@ function setupRoblox3ActionsUI() {
       const list = ensureRoblox3Slots();
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('roblox3Actions', { skipErSync: true, flush: true }); renderRoblox3Actions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
@@ -20065,12 +21116,14 @@ function renderRoblox3Actions() {
     const opts = MC_TRIGGERS.map((t) => `<option value="${t.v}" ${a.trigger === t.v ? 'selected' : ''}>${t.label}</option>`).join('');
     let giftBtn = '';
     if ((a.trigger || 'gift') === 'gift') {
-      const ic = a.giftImage ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='🎁'">` : '🎁';
+      const ic = a.giftImage
+        ? `<img class="mc-gift-ic" src="${esc(a.giftImage)}" onerror="this.outerHTML='<img class=\\'mc-trig-img\\' src=\\'/img/trig/gift.png?v=2\\' alt=\\'\\'>'">`
+        : gameTrigIconHtml('gift');
       giftBtn = `<button type="button" class="mc-gift-btn rbx3-gift" data-slot="${i}">${ic}<span class="mc-gift-name">${a.giftName ? esc(a.giftName) : 'Elegir regalo'}</span></button>`;
     } else {
       const ev = MC_TRIG_ICON[a.trigger] || { ic: '⚡', label: a.trigger };
       const lbl = (MC_TRIGGERS.find((t) => t.v === a.trigger) || {}).label || ev.label;
-      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${ev.ic}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
+      giftBtn = `<div class="mc-ev-badge"><span class="mc-ev-ic">${gameTrigIconHtml(a.trigger, 'mc-ev-img')}</span><span class="mc-gift-name">${esc(lbl)}</span></div>`;
     }
     let likeRow = '';
     if (a.trigger === 'like' || a.trigger === 'likeGlobal') {
@@ -20134,6 +21187,7 @@ function renderRoblox3Actions() {
     const a = at(b); if (!a) return;
     captureHotkey(b, (combo) => { a.keys = combo; saveSettings(); renderRoblox3Actions(); });
   });
+  prepareGameActionsView(wrap);
 }
 
 /* ================= Acciones de Mario Bros (SMBX2 + bridge :8765) ================= */
@@ -20448,6 +21502,7 @@ function setupMarioActionsUI() {
       if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('marioActions', { skipErSync: true, flush: true }); renderMarioActions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
@@ -21571,6 +22626,7 @@ function setupSmb3ActionsUI() {
       if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('smb3Actions', { skipErSync: true, flush: true }); renderSmb3Actions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
@@ -22352,6 +23408,7 @@ function setupPvzActionsUI() {
       if (!list.length) { toast && toast('Primero agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('pvzActions', { skipErSync: true, flush: true }); renderPvzActions();
       toast && toast(anyOff ? 'Todas las acciones encendidas.' : 'Todas las acciones apagadas.', 'ok');
     };
@@ -22823,6 +23880,7 @@ function setupPvzHybridActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('pvzHybridActions', { skipErSync: true, flush: true }); renderPvzHybridActions();
     };
   }
@@ -24056,6 +25114,7 @@ function setupRepoActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('repoActions', { skipErSync: true, flush: true }); renderRepoActions();
     };
   }
@@ -24858,6 +25917,7 @@ function setupL4dActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('l4dActions', { skipErSync: true, flush: true });
       renderL4dActions();
     };
@@ -25530,6 +26590,7 @@ function setupUnturnedActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('unturnedActions', { skipErSync: true, flush: true });
       renderUnturnedActions();
     };
@@ -26367,6 +27428,7 @@ function setupGtavKothActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('gtavKothActions', { skipErSync: true, flush: true });
       renderGtavKothActions();
     };
@@ -26760,6 +27822,7 @@ function setupCtrActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('ctrActions', { skipErSync: true, flush: true });
       renderCtrActions();
     };
@@ -27177,6 +28240,7 @@ function setupSmwActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('smwActions', { skipErSync: true, flush: true });
       renderSmwActions();
     };
@@ -27692,6 +28756,7 @@ function setupMslugActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('mslugActions', { skipErSync: true, flush: true }); renderMslugActions();
     };
   }
@@ -28004,6 +29069,7 @@ function setupGdashActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('gdashActions', { skipErSync: true, flush: true }); renderGdashActions();
     };
   }
@@ -30460,6 +31526,7 @@ function setupGtavChaosActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('gtavChaosActions', { skipErSync: true, flush: true });
       renderGtavChaosActions();
     };
@@ -30492,7 +31559,7 @@ const GTAVCHILIAD_SECTION_DESC = {
   attackers: 'NPCs hostiles que aparecen y persiguen al jugador.',
   weapons: 'Armas y munición para el jugador.',
   player: 'Ayudas, castigos y poderes que afectan al jugador.',
-  vehiclefx: 'Modifica el vehículo actual y el tráfico cercano.',
+  vehiclefx: 'Afecta al vehículo en el que vas (salvo «Todos bajan» / entrar al más cercano).',
   world: 'Clima, hora, tráfico y desastres en el mundo.',
   teleports: 'Envía al jugador a ubicaciones especiales.',
 };
@@ -30517,7 +31584,38 @@ function bindGtavChiliadCatalogFromWindow() {
 }
 
 function gtavChiliadCatalogEntry(thing) {
-  return GTAVCHILIAD_CATALOG.find((x) => x.id === thing);
+  const want = String(thing || '');
+  const exact = GTAVCHILIAD_CATALOG.find((x) => x.id === want);
+  if (exact) return exact;
+  // teleport_up:80 → misma ficha que teleport_up
+  const base = chiliadThingKind(want);
+  if (!base) return undefined;
+  return GTAVCHILIAD_CATALOG.find((x) => chiliadThingKind(x.id) === base);
+}
+
+function chiliadThingKind(thing) {
+  const raw = String(thing || '').trim().toLowerCase();
+  const id = raw.startsWith('chiliad:') ? raw.slice(8) : raw;
+  return (id.split(':')[0] || '').trim();
+}
+
+function isChiliadLaunchUp(thing) {
+  const k = chiliadThingKind(thing);
+  if (k === 'teleport_up' || k === 'launch_player') return true;
+  const s = String(thing || '').toLowerCase();
+  return s.includes('teleport_up') || s.includes('launch_player');
+}
+
+function chiliadLaunchUpThing(meters) {
+  const m = Math.max(1, Math.floor(Number(meters) || 50));
+  return `chiliad:teleport_up:${m}`;
+}
+
+function chiliadActionCfgOpts(a) {
+  if (isChiliadLaunchUp(a?.thing)) {
+    return { countMin: 1, countLabel: 'Metros (sin límite)' };
+  }
+  return { countMax: GTAVCHILIAD_SPAWN_MAX };
 }
 
 /** Modelo de vehículo (si aplica) — fotos remotas, sin peso en el .exe. */
@@ -30600,10 +31698,16 @@ function ensureGtavChiliadActions() {
   settings.gtavChiliadActions = migrateGameActions(settings.gtavChiliadActions, 'gtavchiliad');
   for (const a of settings.gtavChiliadActions) {
     const c = gtavChiliadCatalogEntry(a.thing);
-    if (!c) continue;
-    if (!a.label) a.label = c.nombre;
-    if (!a.desc) a.desc = c.desc;
-    if (!a.section) a.section = c.section;
+    if (c) {
+      if (!a.label) a.label = c.nombre;
+      if (!a.desc) a.desc = c.desc;
+      if (!a.section) a.section = c.section;
+    }
+    if (isChiliadLaunchUp(a.thing) && a._launchUpMeters !== true) {
+      const n = parseInt(a.count, 10);
+      if (!Number.isFinite(n) || n <= 1) a.count = 50;
+      a._launchUpMeters = true;
+    }
   }
   return settings.gtavChiliadActions;
 }
@@ -30629,7 +31733,9 @@ function readGtavChiliadActionCount(a) {
   const card = wrap && uid ? wrap.querySelector(`.mc-act-card[data-uid="${uid}"]`) : null;
   const inp = card?.querySelector('.gtavchiliad-count') || card?.querySelector('.l4d-count') || card?.querySelector('.mc-count');
   const n = parseInt(inp?.value, 10);
-  if (Number.isFinite(n) && n > 0) return Math.min(GTAVCHILIAD_SPAWN_MAX, n);
+  if (Number.isFinite(n) && n > 0) {
+    return isChiliadLaunchUp(a?.thing) ? n : Math.min(GTAVCHILIAD_SPAWN_MAX, n);
+  }
   return gtavChiliadPerUnit(a);
 }
 
@@ -30658,10 +31764,17 @@ function scheduleRelayGtavChiliad(eventType, info, user) {
 }
 
 async function execRelayGtavChiliadSpawn(thing, label, name, times, params = {}, meta = {}) {
-  const capped = Math.min(GTAVCHILIAD_SPAWN_MAX, Math.max(1, Number(times) || 1));
+  let thingOut = String(thing || '');
+  let capped = Math.max(1, Number(times) || 1);
+  if (isChiliadLaunchUp(thingOut)) {
+    thingOut = chiliadLaunchUpThing(capped);
+    capped = 1;
+  } else {
+    capped = Math.min(GTAVCHILIAD_SPAWN_MAX, capped);
+  }
   const r = await execGameLocal({
     tipo: 'GTAVCHILIAD_SPAWN',
-    thing: String(thing || ''),
+    thing: thingOut,
     name: String(name || ''),
     times: capped,
     params,
@@ -30710,7 +31823,8 @@ async function execRelayGtavChiliadActions(eventType, info = {}, user = null) {
       if (trig !== 'like') continue;
       const likeFires = relayGtavChiliadLikeFires(a, info, user);
       if (likeFires <= 0) continue;
-      const totalQty = Math.min(GTAVCHILIAD_SPAWN_MAX, perUnit * likeFires);
+      const rawQty = Math.max(1, perUnit * likeFires);
+      const totalQty = isChiliadLaunchUp(a.thing) ? rawQty : Math.min(GTAVCHILIAD_SPAWN_MAX, rawQty);
       await execRelayGtavChiliadSpawn(a.thing, a.label || a.thing, name, totalQty, {}, {
         eventType: 'like',
         reason: `${Math.max(1, Number(info.likeCount) || 1)} like(s)`,
@@ -30720,7 +31834,8 @@ async function execRelayGtavChiliadActions(eventType, info = {}, user = null) {
       if (trig !== eventType) continue;
       units = 1;
     } else continue;
-    const times = Math.min(GTAVCHILIAD_SPAWN_MAX, perUnit * units);
+    const rawTimes = Math.max(1, perUnit * units);
+    const times = isChiliadLaunchUp(a.thing) ? rawTimes : Math.min(GTAVCHILIAD_SPAWN_MAX, rawTimes);
     const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
     await execRelayGtavChiliadSpawn(a.thing, a.label || a.thing, name, times, {}, {
       eventType,
@@ -30772,10 +31887,11 @@ function relayGtavChiliadOnShare(p) {
 }
 
 function localGtavChiliadTimesForExec(exec) {
+  const want = String(exec?.thing || '').trim();
+  if (isChiliadLaunchUp(want)) return 1;
   const fromExec = Math.min(GTAVCHILIAD_SPAWN_MAX, Math.max(1, Number(exec?.times) || 1));
   // Relay/Probar ya mandan el total en times → respetarlo.
   if (fromExec > 1) return fromExec;
-  const want = String(exec?.thing || '').trim();
   if (!want) return fromExec;
   for (const a of ensureGtavChiliadActions()) {
     if (!a?.thing || a.enabled === false || a.thing !== want) continue;
@@ -31083,10 +32199,11 @@ function setupGtavChiliadStatusPoll() {
 
 function gtavChiliadCardHtml(a) {
   const c = gtavChiliadCatalogEntry(a.thing);
+  const meters = isChiliadLaunchUp(a.thing) ? Math.max(1, parseInt(a.count, 10) || 50) : 0;
   return gameSurvivalStyleCardHtml(a, {
     thumbHtml: gtavChiliadCatalogIconHtml(c || { emoji: '🏔️' }),
-    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}</div>`,
-    cfgOpts: { countMax: GTAVCHILIAD_SPAWN_MAX },
+    nameHtml: `<div class="mc-act-name">${esc(a.label || a.thing)}${meters ? ` · ${meters} m` : ''}</div>`,
+    cfgOpts: chiliadActionCfgOpts(a),
     testClass: 'gtavchiliad-test',
     delClass: 'gtavchiliad-del',
   });
@@ -31135,7 +32252,7 @@ function addGtavChiliadFromCatalog(thing) {
     giftId: '',
     giftName: '',
     giftImage: '',
-    count: 1,
+    count: isChiliadLaunchUp(c.id) ? 50 : 1,
     text: '',
     enabled: true,
   };
@@ -31159,12 +32276,12 @@ async function testGtavChiliadAction(a) {
     );
     return;
   }
-  const times = Math.max(1, Math.min(GTAVCHILIAD_SPAWN_MAX, parseInt(a.count, 10) || 1));
+  const meters = isChiliadLaunchUp(a.thing) ? Math.max(1, parseInt(a.count, 10) || 50) : 0;
   const r = await execGameLocal({
     tipo: 'GTAVCHILIAD_SPAWN',
-    thing: a.thing,
+    thing: meters ? chiliadLaunchUpThing(meters) : a.thing,
     name: 'Prueba',
-    times,
+    times: meters ? 1 : Math.max(1, Math.min(GTAVCHILIAD_SPAWN_MAX, parseInt(a.count, 10) || 1)),
   });
   if (r && r.ok !== false) toast && toast('Enviado al juego.', 'ok');
   else toast && toast(r?.hint || r?.error || 'No llegó al mod (Conectar en verde + GTA Historia).', 'warn');
@@ -31211,6 +32328,7 @@ function setupGtavChiliadActionsUI() {
       if (!list.length) { toast && toast('Agrega acciones del catálogo.', 'warn'); return; }
       const anyOff = list.some((a) => a.enabled === false);
       list.forEach((a) => { a.enabled = anyOff; });
+      lastGameActionEditAt = Date.now();
       saveSettingsKeysPatch('gtavChiliadActions', { skipErSync: true, flush: true });
       renderGtavChiliadActions();
     };

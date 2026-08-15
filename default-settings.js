@@ -125,6 +125,7 @@ export const DEFAULT_SETTINGS = {
   // Overlay del perrito (mismos controles que el jarrón; se desborda al llenarse)
   perrito: {
     tint: '',
+    tintRainbow: false,
     topBarEnabled: true,
     topBarLimit: 3,
     topBarColor: '#161820',
@@ -143,6 +144,7 @@ export const DEFAULT_SETTINGS = {
   // Overlay del jarrón de regalos
   jarron: {
     tint: '', // color del cristal (vacío = transparente/normal)
+    tintRainbow: false, // arcoíris animado en el cristal
     topBarEnabled: true, // barra rotativa TOP DONATOR encima del contador
     topBarLimit: 3, // hasta qué top mostrar (1–10)
     topBarColor: '#161820',
@@ -162,6 +164,7 @@ export const DEFAULT_SETTINGS = {
   // Overlay de la vaquita (mismos controles que el jarrón)
   vaquita: {
     tint: '',
+    tintRainbow: false,
     topBarEnabled: true,
     topBarLimit: 3,
     topBarColor: '#161820',
@@ -180,6 +183,7 @@ export const DEFAULT_SETTINGS = {
   // Overlay del marranito (mismos controles que el jarrón)
   marranito: {
     tint: '',
+    tintRainbow: false,
     topBarEnabled: true,
     topBarLimit: 3,
     topBarColor: '#161820',
@@ -198,6 +202,7 @@ export const DEFAULT_SETTINGS = {
   // Overlay Corazón lava (alcancía: regalos caen dentro del corazón)
   corazonLava: {
     tint: '',
+    tintRainbow: false,
     metaLabel: 'Meta',
     metaGoal: 50,
     metaMode: 'gifts', // gifts = cuenta regalos | coins = cuenta monedas/diamantes
@@ -352,6 +357,20 @@ export const DEFAULT_SETTINGS = {
     ptsColor: '#ffe566',
     emptyColor: '#b8b8c2',
     titleSize: 28,
+  },
+  batallaGiftBall: {
+    enabled: true,
+    dropMode: 'ball', // 'ball' = esfera cristal | 'gift' = solo regalo
+    resetPeriod: 'battle', // 'battle' = vaciar al empezar cada PK | 'live' = vaciar al conectar TikTok
+    ballSize: 120, // fallback si no hay tabla
+    maxBalls: 28,
+    sizes: [
+      { t: 5000, sz: 88 },
+      { t: 1000, sz: 70 },
+      { t: 100, sz: 56 },
+      { t: 30, sz: 40 },
+      { t: 0, sz: 32 },
+    ],
   },
   // Overlay Medidor de Flow (barra de progreso por participante / regalo)
   flowMeter: {

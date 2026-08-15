@@ -153,6 +153,15 @@
     .so-cell.is-dead { filter: grayscale(1) brightness(.45); opacity: .55; }
     .so-cell.is-dead::after { content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: clamp(10px, 5%, 22px); background: rgba(80,0,0,.35); }
     .so-cell.life-flash { animation: soLifeFlash .55s ease; }
+    .so-cell .so-lives {
+      position: absolute; right: 3px; bottom: 3px; z-index: 3;
+      min-width: 1.15em; height: 1.15em; padding: 0 4px;
+      display: none; align-items: center; justify-content: center;
+      border-radius: 999px; font-weight: 800; font-size: clamp(9px, 2.4vmin, 13px);
+      line-height: 1; color: #0b1220; background: #f5c542;
+      box-shadow: 0 1px 4px rgba(0,0,0,.45); pointer-events: none;
+    }
+    .so-cell .so-lives.on { display: inline-flex; }
     @keyframes soJoin { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     @keyframes soLifeFlash { 0%,100% { box-shadow: none; } 40% { box-shadow: 0 0 18px rgba(34,197,94,.75); border-color: #22c55e; } }
 
@@ -518,7 +527,7 @@
           <span class="lbl">⬇️ Mínimo</span>
           <b id="so-entry">30</b>
         </div>
-        <div class="so-stat so-players" data-stat="players" title="Entradas activas"><span class="lbl">👥 Players</span><b id="so-players">0</b></div>
+        <div class="so-stat so-players" data-stat="players" title="Jugadores vivos (personas)"><span class="lbl">👥 Players</span><b id="so-players">0</b></div>
         <div class="so-stat so-coins" data-stat="coins" title="Monedas en juego"><span class="lbl">🪙 Coins</span><b id="so-coins">0</b></div>
         <div class="so-stat so-vouches" data-stat="vouches" title="Vouches"><span class="lbl">⭐ Vouches</span><b id="so-vouches">0</b></div>
         <div class="so-stat so-insta" data-stat="insta" title="Insta-Claim">
@@ -807,7 +816,7 @@
         }
       }
     }
-    /** Una silla = una vida = un cuadrado (orden = posiciones al azar al entrar). */
+    /** Una silla = una vida (ruleta / probabilidad). No se dibuja 1:1 en la tabla. */
     function lifeSeats() {
       // Mantener meta al día (nombre/foto) sin reordenar
       return lifeSlots
@@ -823,6 +832,24 @@
           }
           return { id: s.id, seat: i, slotId: s.slotId, name: s.name, pic: s.pic };
         });
+    }
+    /** Tabla = 1 cuadrado por persona viva (orden = primera aparición en cupos). */
+    function playerGridSeats() {
+      const seen = new Set();
+      const out = [];
+      for (const s of lifeSeats()) {
+        if (seen.has(s.id)) continue;
+        seen.add(s.id);
+        const p = players[s.id];
+        if (!p || !p.alive || !(p.lives > 0)) continue;
+        out.push({
+          id: p.id,
+          name: p.name,
+          pic: p.pic || s.pic || '',
+          lives: Math.max(1, Number(p.lives) || 1),
+        });
+      }
+      return out;
     }
     function fmtTime(sec) {
       const s = Math.max(0, Math.ceil(sec));
@@ -868,7 +895,7 @@
         }
       }
       syncWaitGift();
-      if ($('so-players')) $('so-players').textContent = String(lifeSeats().length);
+      if ($('so-players')) $('so-players').textContent = String(aliveList().length);
       if ($('so-coins')) $('so-coins').textContent = Number(coinsInPlay).toLocaleString('es-ES');
       if ($('so-vouches')) $('so-vouches').textContent = String(vouchCount);
 
@@ -1035,8 +1062,6 @@
       cell.className = 'so-cell';
       cell.style.borderRadius = radius + 'px';
       cell.dataset.id = s.id;
-      cell.dataset.seat = String(s.slotId || s.seat || '');
-      cell.dataset.slot = String(s.slotId || '');
       cell.title = s.name || '';
       const letter = String((s.name || '?').slice(0, 1)).toUpperCase();
       const ph = document.createElement('div');
@@ -1055,12 +1080,34 @@
         if (img.complete && img.naturalWidth) img.classList.add('is-ready');
         cell.appendChild(img);
       }
+      const livesEl = document.createElement('span');
+      livesEl.className = 'so-lives';
+      livesEl.setAttribute('aria-hidden', 'true');
+      cell.appendChild(livesEl);
+      syncCellLives(cell, s.lives);
       return cell;
+    }
+    function syncCellLives(cell, lives) {
+      if (!cell) return;
+      const n = Math.max(0, Number(lives) || 0);
+      cell.dataset.lives = String(n);
+      const badge = cell.querySelector('.so-lives');
+      if (!badge) return;
+      if (n > 1) {
+        badge.textContent = String(n);
+        badge.classList.add('on');
+      } else {
+        badge.textContent = '';
+        badge.classList.remove('on');
+      }
+      const name = cell.title || '';
+      if (name && n > 1) cell.title = name.replace(/\s·\s\d+\svidas?$/i, '') + ' · ' + n + ' vidas';
+      else if (name) cell.title = name.replace(/\s·\s\d+\svidas?$/i, '');
     }
     function renderGrid() {
       const grid = $('so-grid');
       if (!grid) return;
-      const seats = lifeSeats();
+      const seats = playerGridSeats();
       if (!seats.length) {
         grid.className = 'so-grid is-empty-state';
         grid.style.gridTemplateColumns = '';
@@ -1075,23 +1122,23 @@
         grid.innerHTML = '';
       }
 
-      const bySlot = new Map();
-      grid.querySelectorAll('.so-cell[data-slot]').forEach((el) => {
-        const sid = el.getAttribute('data-slot');
-        if (sid) bySlot.set(sid, el);
+      const byId = new Map();
+      grid.querySelectorAll('.so-cell[data-id]').forEach((el) => {
+        const id = el.getAttribute('data-id');
+        if (id) byId.set(id, el);
       });
 
-      const want = new Set(seats.map((s) => s.slotId).filter(Boolean));
-      bySlot.forEach((el, sid) => {
-        if (!want.has(sid)) {
+      const want = new Set(seats.map((s) => s.id).filter(Boolean));
+      byId.forEach((el, id) => {
+        if (!want.has(id)) {
           try { el.remove(); } catch {}
-          bySlot.delete(sid);
+          byId.delete(id);
         }
       });
 
       const radius = applyGridLayout(grid, seats.length);
       seats.forEach((s) => {
-        let cell = s.slotId ? bySlot.get(s.slotId) : null;
+        let cell = s.id ? byId.get(s.id) : null;
         if (!cell) {
           cell = makeCellEl(s, radius);
           grid.appendChild(cell);
@@ -1099,6 +1146,7 @@
           cell.style.borderRadius = radius + 'px';
           cell.title = s.name || '';
           cell.dataset.id = s.id;
+          syncCellLives(cell, s.lives);
           grid.appendChild(cell);
         }
       });
@@ -1234,14 +1282,12 @@
       const gained = grant.gained;
       renderGrid();
       if (gained) {
-        const fresh = (grant.newSlotIds || [])
-          .map((sid) => document.querySelector('.so-cell[data-slot="' + cssAttr(sid) + '"]'))
-          .filter(Boolean);
-        fresh.forEach((cell, idx) => {
+        const cell = document.querySelector('.so-cell[data-id="' + cssAttr(p.id) + '"]');
+        if (cell) {
           cell.classList.add('life-flash');
-          if (!wasAlive && idx === 0) cell.classList.add('is-new');
+          if (!wasAlive) cell.classList.add('is-new');
           setTimeout(() => cell.classList.remove('life-flash', 'is-new'), 800);
-        });
+        }
       }
       if (checkInstaClaim(p)) return;
       maybeStartTimers();
@@ -1433,9 +1479,7 @@
         if (i >= steps) {
           list.forEach((c) => c.classList.remove('is-spin'));
           const finalCell = document.querySelector(
-            '.so-cell[data-slot="' + cssAttr(victim.slotId) + '"]'
-          ) || document.querySelector(
-            '.so-cell[data-id="' + cssAttr(victim.id) + '"][data-seat="' + cssAttr(victim.seat) + '"]'
+            '.so-cell[data-id="' + cssAttr(victim.id) + '"]'
           ) || list[Math.floor(Math.random() * list.length)];
           if (finalCell) finalCell.classList.add('is-hit');
           setTimeout(() => finishSpin(victim, myGen), hitPause);

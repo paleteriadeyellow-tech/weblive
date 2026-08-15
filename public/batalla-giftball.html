@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Pelota de regalos</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: transparent !important;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage-fit {
+      position: relative;
+      width: calc(1080px * var(--fit, 1));
+      height: calc(1920px * var(--fit, 1));
+      overflow: hidden;
+      background: transparent !important;
+      flex: 0 0 auto;
+    }
+    .stage {
+      position: absolute;
+      left: 0; top: 0;
+      width: 1080px; height: 1920px;
+      overflow: hidden;
+      background: transparent !important;
+      pointer-events: none;
+      transform: scale(var(--fit, 1));
+      transform-origin: 0 0;
+    }
+    .balls-layer {
+      position: absolute; inset: 0;
+      overflow: hidden;
+      z-index: 2;
+    }
+    .glass-flash {
+      position: absolute;
+      left: 6%; right: 6%; top: 10%; height: 42%;
+      z-index: 6;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(circle at var(--hx, 50%) var(--hy, 45%), rgba(255,255,255,.4), transparent 50%);
+    }
+    .glass-flash.on { animation: hit-flash .22s ease-out; }
+    @keyframes hit-flash {
+      0% { opacity: .55; }
+      100% { opacity: 0; }
+    }
+
+    .throw-ball, .ball {
+      position: absolute;
+      left: 0; top: 0;
+      width: var(--ball, 120px);
+      height: var(--ball, 120px);
+      border-radius: 50%;
+      pointer-events: none;
+      background: transparent;
+      overflow: visible;
+      transform: translate3d(-9999px, -9999px, 0);
+      backface-visibility: hidden;
+      contain: layout style;
+    }
+    .throw-ball {
+      margin-left: calc(var(--ball, 120px) / -2);
+      margin-top: calc(var(--ball, 120px) / -2);
+      z-index: 8;
+    }
+    .ball { z-index: 2; }
+    .throw-ball .gift, .ball .gift {
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 42%; height: 42%;
+      transform: translate(-50%, -52%);
+      object-fit: contain;
+      z-index: 1;
+      display: block;
+      pointer-events: none;
+    }
+    .throw-ball .sphere, .ball .sphere {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      object-fit: contain;
+      z-index: 2;
+    }
+    .throw-ball.is-bare, .ball.is-bare { border-radius: 0; }
+    .throw-ball.is-bare .sphere, .ball.is-bare .sphere { display: none !important; }
+    .throw-ball.is-bare .gift, .ball.is-bare .gift {
+      width: 88%; height: 88%;
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage-fit" id="stage-fit">
+    <div class="stage" id="stage" aria-hidden="true">
+      <div class="balls-layer" id="balls-layer"></div>
+      <div class="glass-flash" id="glass-flash"></div>
+      <div id="throw-layer"></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    if (isEmbed) document.documentElement.classList.add('embed');
+
+    const STAGE_W = 1080;
+    const STAGE_H = 1920;
+    const HARD_CAP = isEmbed ? 12 : 24;
+    const THROW_MS = 320;
+    const G = 0.0028;
+    const FLOOR = STAGE_H - 8;
+    const REST = 0.42;
+    const FRICTION = 0.985;
+
+    const GLASS = {
+      left: STAGE_W * 0.06,
+      top: STAGE_H * 0.10,
+      w: STAGE_W * 0.88,
+      h: STAGE_H * 0.42,
+    };
+
+    const FALLBACK_ROSE =
+      'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp';
+    const SPHERE_SRC = '/overlays/gift-sphere.png?v=2';
+
+    try {
+      const pre = new Image();
+      pre.decoding = 'async';
+      pre.src = SPHERE_SRC;
+    } catch {}
+
+    let cfg = { ballSize: 120, maxBalls: HARD_CAP, dropMode: 'ball', resetPeriod: 'battle' };
+    let sizeTable = null;
+    const layer = document.getElementById('balls-layer');
+    const throwLayer = document.getElementById('throw-layer');
+    const glassFlash = document.getElementById('glass-flash');
+    const balls = [];
+    let spawnSeq = 0;
+    let throwing = false;
+    let paused = false;
+    let pkLive = false;
+    let armed = false;
+    let gen = 0;
+    let raf = 0;
+    let lastTs = 0;
+    const throwQ = [];
+    const THROW_Q_MAX = 6;
+    const spriteCache = new Map();
+    const SPRITE_CACHE_MAX = 28;
+
+    function clamp(n, lo, hi, d) {
+      const x = Number(n);
+      return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d;
+    }
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    function isBareMode() { return cfg.dropMode === 'gift'; }
+    function giftDrawSize(sizePx, bare) {
+      return Math.max(8, Math.round(sizePx * (bare ? 0.88 : 0.42)));
+    }
+
+    function applySizes(raw) {
+      if (!Array.isArray(raw)) { sizeTable = null; return; }
+      const out = raw
+        .map((r) => ({ t: Number(r && r.t), sz: Number(r && r.sz) }))
+        .filter((r) => Number.isFinite(r.t) && Number.isFinite(r.sz) && r.sz > 0)
+        .sort((a, b) => b.t - a.t);
+      sizeTable = out.length ? out : null;
+    }
+    function sizeFromTable(d) {
+      if (!sizeTable) return null;
+      for (const row of sizeTable) {
+        if (d >= row.t) {
+          const jitter = row.sz * 0.06;
+          return Math.max(8, Math.min(200, row.sz + rnd(-jitter, jitter)));
+        }
+      }
+      return sizeTable[sizeTable.length - 1].sz;
+    }
+    function sizeForDiamonds(d, opts) {
+      opts = opts || {};
+      if (opts.sizePx != null) return Math.round(clamp(opts.sizePx, 8, 200, cfg.ballSize || 56));
+      const tbl = sizeFromTable(Number(d) || 0);
+      if (tbl != null) return Math.round(tbl);
+      return Math.round(clamp(cfg.ballSize, 8, 200, 56));
+    }
+
+    function fitStage() {
+      const vw = Math.max(1, window.innerWidth || STAGE_W);
+      const vh = Math.max(1, window.innerHeight || STAGE_H);
+      document.documentElement.style.setProperty('--fit', String(Math.min(vw / STAGE_W, vh / STAGE_H) || 1));
+    }
+    fitStage();
+    window.addEventListener('resize', fitStage);
+
+    function applyCfg(next) {
+      if (!next || typeof next !== 'object') return;
+      if (next.ballSize != null) cfg.ballSize = clamp(next.ballSize, 8, 200, 56);
+      if (next.maxBalls != null) cfg.maxBalls = clamp(next.maxBalls, 8, HARD_CAP, HARD_CAP);
+      if (next.dropMode != null) {
+        const m = String(next.dropMode || 'ball').toLowerCase();
+        cfg.dropMode = (m === 'gift' || m === 'bare' || m === 'solo') ? 'gift' : 'ball';
+      }
+      if (next.resetPeriod != null) {
+        const p = String(next.resetPeriod || 'battle').toLowerCase();
+        cfg.resetPeriod = (p === 'live') ? 'live' : 'battle';
+      }
+      if (next.sizes != null) applySizes(next.sizes);
+    }
+
+    function giftSrc(payload) {
+      const g = payload || {};
+      return String(g.image || g.giftImage || g.url || '').trim() || FALLBACK_ROSE;
+    }
+
+    function cachePut(key, canvas) {
+      if (spriteCache.has(key)) spriteCache.delete(key);
+      spriteCache.set(key, canvas);
+      while (spriteCache.size > SPRITE_CACHE_MAX) {
+        const k = spriteCache.keys().next().value;
+        spriteCache.delete(k);
+      }
+    }
+    function cloneSprite(srcCanvas) {
+      const c = document.createElement('canvas');
+      c.className = 'gift';
+      c.width = srcCanvas.width;
+      c.height = srcCanvas.height;
+      try { c.getContext('2d').drawImage(srcCanvas, 0, 0); } catch {}
+      return c;
+    }
+    function rasterToCanvas(img, destPx) {
+      const c = document.createElement('canvas');
+      c.width = destPx;
+      c.height = destPx;
+      const ctx = c.getContext('2d', { alpha: true });
+      const iw = img.naturalWidth || img.width || destPx;
+      const ih = img.naturalHeight || img.height || destPx;
+      const s = Math.min(destPx / iw, destPx / ih);
+      const dw = iw * s, dh = ih * s;
+      ctx.drawImage(img, (destPx - dw) / 2, (destPx - dh) / 2, dw, dh);
+      return c;
+    }
+    function loadGiftCanvas(src, destPx) {
+      const key = destPx + '|' + src;
+      const hit = spriteCache.get(key);
+      if (hit) return Promise.resolve(cloneSprite(hit));
+      return new Promise((resolve) => {
+        let done = false;
+        const finish = (node) => {
+          if (done) return;
+          done = true;
+          resolve(node);
+        };
+        const img = new Image();
+        img.referrerPolicy = 'no-referrer';
+        img.decoding = 'async';
+        const fallbackImg = () => {
+          const el = document.createElement('img');
+          el.className = 'gift';
+          el.alt = '';
+          el.referrerPolicy = 'no-referrer';
+          el.decoding = 'async';
+          el.src = src || FALLBACK_ROSE;
+          finish(el);
+        };
+        img.onload = () => {
+          try {
+            const baked = rasterToCanvas(img, destPx);
+            cachePut(key, baked);
+            finish(cloneSprite(baked));
+          } catch {
+            fallbackImg();
+          }
+        };
+        img.onerror = fallbackImg;
+        img.src = src;
+      });
+    }
+    function mountGift(el, src, sizePx, bare) {
+      const token = (el._giftTok = (el._giftTok || 0) + 1);
+      loadGiftCanvas(src, giftDrawSize(sizePx, bare)).then((node) => {
+        if (el._giftTok !== token) return;
+        const old = el.querySelector('.gift');
+        if (old) old.remove();
+        el.insertBefore(node, el.firstChild);
+      });
+    }
+    function appendSphere(el) {
+      const sphere = document.createElement('img');
+      sphere.className = 'sphere';
+      sphere.alt = '';
+      sphere.decoding = 'async';
+      sphere.src = SPHERE_SRC;
+      el.appendChild(sphere);
+    }
+
+    function paint(b) {
+      const half = b.r;
+      const x = (b.x - half).toFixed(1);
+      const y = (b.y - half).toFixed(1);
+      if (b.bare) {
+        b.el.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
+      } else {
+        b.el.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0) rotate(' + b.ang.toFixed(2) + 'rad)';
+      }
+    }
+
+    function setPaused(v) {
+      paused = !!v;
+      if (paused) {
+        if (raf) { cancelAnimationFrame(raf); raf = 0; }
+        lastTs = 0;
+      } else {
+        startLoop();
+      }
+    }
+
+    function startLoop() {
+      if (raf || paused || document.hidden) return;
+      lastTs = 0;
+      const step = (ts) => {
+        if (paused || document.hidden) { raf = 0; lastTs = 0; return; }
+        if (!lastTs) lastTs = ts;
+        let dt = ts - lastTs;
+        lastTs = ts;
+        if (dt > 24) dt = 24;
+        simulate(dt);
+        let moving = 0;
+        for (let i = 0; i < balls.length; i++) {
+          if (!balls[i].sleep) {
+            moving++;
+            paint(balls[i]);
+          }
+        }
+        if (moving || throwing || throwQ.length) {
+          raf = requestAnimationFrame(step);
+        } else {
+          raf = 0;
+          lastTs = 0;
+        }
+      };
+      raf = requestAnimationFrame(step);
+    }
+
+    function simulate(dt) {
+      const n = balls.length;
+      const bare = isBareMode();
+      for (let i = 0; i < n; i++) {
+        const b = balls[i];
+        if (b.sleep) continue;
+        b.vy += G * dt;
+        b.vx *= Math.pow(FRICTION, dt / 16);
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (!bare && !b.bare) b.ang += b.spin * dt * 0.06;
+
+        if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx) * REST; b.spin *= -0.5; }
+        if (b.x > STAGE_W - b.r) { b.x = STAGE_W - b.r; b.vx = -Math.abs(b.vx) * REST; b.spin *= -0.5; }
+
+        if (b.y + b.r > FLOOR) {
+          b.y = FLOOR - b.r;
+          if (Math.abs(b.vy) < 0.35) {
+            b.vy = 0;
+            b.vx *= 0.9;
+            if (Math.abs(b.vx) < 0.08 && Math.abs(b.spin) < 0.02) {
+              b.vx = 0; b.spin = 0; b.sleep = true;
+              paint(b);
+              continue;
+            }
+          } else {
+            b.vy = -Math.abs(b.vy) * REST;
+            b.vx *= 0.92;
+            b.spin *= 0.7;
+          }
+        }
+      }
+
+      if (n > 1) {
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            const a = balls[i], b = balls[j];
+            if (a.sleep && b.sleep) continue;
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const dist2 = dx * dx + dy * dy;
+            const min = a.r + b.r;
+            if (dist2 >= min * min) continue;
+            const dist = Math.sqrt(dist2) || 0.001;
+            const overlap = (min - dist) * 0.5;
+            const nx = dx / dist, ny = dy / dist;
+            a.x -= nx * overlap; a.y -= ny * overlap;
+            b.x += nx * overlap; b.y += ny * overlap;
+            a.sleep = false; b.sleep = false;
+            const dvx = b.vx - a.vx, dvy = b.vy - a.vy;
+            const vn = dvx * nx + dvy * ny;
+            if (vn < 0) {
+              const impulse = vn * 0.5;
+              a.vx += impulse * nx; a.vy += impulse * ny;
+              b.vx -= impulse * nx; b.vy -= impulse * ny;
+            }
+          }
+        }
+      }
+    }
+
+    function removeBallAt(i) {
+      const b = balls[i];
+      if (!b) return;
+      try { b.el.remove(); } catch {}
+      balls.splice(i, 1);
+    }
+
+    function prune() {
+      const cap = Math.min(HARD_CAP, cfg.maxBalls || HARD_CAP);
+      while (balls.length > cap) removeBallAt(0);
+    }
+
+    function impactPoint() {
+      return {
+        x: GLASS.left + GLASS.w * rnd(0.32, 0.68),
+        y: GLASS.top + GLASS.h * rnd(0.36, 0.58),
+      };
+    }
+
+    function playGlassHit(hit) {
+      const hx = ((hit.x - GLASS.left) / GLASS.w) * 100;
+      const hy = ((hit.y - GLASS.top) / GLASS.h) * 100;
+      glassFlash.style.setProperty('--hx', hx.toFixed(0) + '%');
+      glassFlash.style.setProperty('--hy', hy.toFixed(0) + '%');
+      glassFlash.classList.remove('on');
+      requestAnimationFrame(() => glassFlash.classList.add('on'));
+    }
+
+    function makeBallEl(sizePx, src, bare) {
+      const el = document.createElement('div');
+      el.className = 'ball' + (bare ? ' is-bare' : '');
+      el.style.setProperty('--ball', sizePx + 'px');
+      el.style.zIndex = String(20 + (++spawnSeq % 80));
+      mountGift(el, src, sizePx, bare);
+      if (!bare) appendSphere(el);
+      return el;
+    }
+
+    function addFallBall(payload, hit, opts) {
+      opts = opts || {};
+      prune();
+      if (balls.length >= Math.min(HARD_CAP, cfg.maxBalls || HARD_CAP)) removeBallAt(0);
+
+      const sizePx = sizeForDiamonds(payload && payload.diamonds, opts);
+      const r = sizePx * 0.48;
+      const bare = opts.bare != null ? !!opts.bare : isBareMode();
+      const el = makeBallEl(sizePx, giftSrc(payload), bare);
+      layer.appendChild(el);
+
+      const b = {
+        el, r, sizePx, bare,
+        x: Math.max(r + 8, Math.min(STAGE_W - r - 8, hit.x + rnd(-10, 10))),
+        y: Math.max(r + 8, Math.min(STAGE_H * 0.55, hit.y)),
+        vx: rnd(-0.35, 0.35),
+        vy: rnd(0.55, 1.05),
+        ang: bare ? 0 : rnd(-0.4, 0.4),
+        spin: bare ? 0 : rnd(-0.04, 0.04),
+        sleep: false,
+      };
+      balls.push(b);
+      paint(b);
+      startLoop();
+    }
+
+    function throwAtGlassOnce(payload, opts) {
+      opts = opts || {};
+      const myGen = gen;
+      throwing = true;
+      startLoop();
+      const sizePx = sizeForDiamonds(payload && payload.diamonds, opts);
+      const hit = impactPoint();
+      const startX = STAGE_W / 2 + rnd(-60, 60);
+      const startY = STAGE_H * 0.58 + rnd(-24, 24);
+      const bare = opts.bare != null ? !!opts.bare : isBareMode();
+      const src = giftSrc(payload);
+
+      const el = document.createElement('div');
+      el.className = 'throw-ball' + (bare ? ' is-bare' : '');
+      el.style.setProperty('--ball', sizePx + 'px');
+      mountGift(el, src, sizePx, bare);
+      if (!bare) appendSphere(el);
+      throwLayer.appendChild(el);
+
+      const anim = el.animate(
+        [
+          { transform: 'translate3d(' + startX + 'px,' + startY + 'px,0) scale(0.22)', opacity: 0.85 },
+          { transform: 'translate3d(' + hit.x + 'px,' + hit.y + 'px,0) scale(1.06)', opacity: 1 },
+        ],
+        { duration: THROW_MS, easing: 'cubic-bezier(0.55, 0.05, 0.92, 0.32)', fill: 'forwards' }
+      );
+
+      return anim.finished.then(() => {
+        try { el.remove(); } catch {}
+        throwing = false;
+        if (myGen !== gen) return;
+        playGlassHit(hit);
+        addFallBall(payload, hit, { force: true, sizePx, bare });
+      }).catch(() => {
+        try { el.remove(); } catch {}
+        throwing = false;
+      });
+    }
+
+    function pumpThrowQueue() {
+      if (paused || throwing) return;
+      if (!throwQ.length) return;
+      const job = throwQ.shift();
+      throwAtGlassOnce(job.payload, job.opts).finally(() => {
+        if (gen === job.gen) pumpThrowQueue();
+      });
+    }
+
+    function enqueueThrow(payload, opts) {
+      const src = giftSrc(payload);
+      const sizePx = sizeForDiamonds(payload && payload.diamonds, opts);
+      const bare = (opts && opts.bare != null) ? !!opts.bare : isBareMode();
+      loadGiftCanvas(src, giftDrawSize(sizePx, bare));
+      if (throwQ.length >= THROW_Q_MAX) throwQ.shift();
+      throwQ.push({ payload, opts: opts || {}, gen });
+      pumpThrowQueue();
+    }
+
+    function dropGift(payload) { enqueueThrow(payload, {}); }
+
+    function dropOne(payload) {
+      const p = payload || {};
+      if (p.dropMode != null) applyCfg({ dropMode: p.dropMode });
+      enqueueThrow({
+        giftName: p.giftName || p.name || 'Rose',
+        image: p.image || p.giftImage || FALLBACK_ROSE,
+        diamonds: Number(p.diamonds) || 1,
+        giftId: p.giftId || '',
+      }, { force: true });
+    }
+
+    function clearAll() {
+      gen++;
+      throwQ.length = 0;
+      throwing = false;
+      try { throwLayer.innerHTML = ''; } catch {}
+      glassFlash.classList.remove('on');
+      for (let i = balls.length - 1; i >= 0; i--) removeBallAt(i);
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      lastTs = 0;
+    }
+
+    function applyPk(p) {
+      const next = !!(p && p.live);
+      if (next && !pkLive) armed = true;
+      else if (!next && pkLive) armed = false;
+      pkLive = next;
+    }
+
+    function onGift(p) {
+      if (!armed) return;
+      if (!p || p.streak) return;
+      const diamonds = Math.max(0, Number(p.diamonds != null ? p.diamonds : p.diamondCount) || 0);
+      dropGift(Object.assign({}, p, { diamonds }));
+    }
+
+    function runTest(gift) {
+      const g = gift || {};
+      enqueueThrow({
+        giftName: g.name || g.giftName || 'Rose',
+        image: g.image || g.giftImage || FALLBACK_ROSE,
+        diamonds: Number(g.diamonds) || 1,
+      }, { force: true });
+    }
+
+    let ws, rt;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'gift') {
+          if (!isEmbed) onGift(m.payload);
+        } else if (m.type === 'settings') {
+          if (m.payload && m.payload.batallaGiftBall) applyCfg(m.payload.batallaGiftBall);
+        } else if (m.type === 'pkBattle') {
+          if (!isEmbed) applyPk(m.payload || {});
+        } else if (m.type === 'pkBattleReset') {
+          if (!isEmbed) {
+            pkLive = false;
+            armed = false;
+          }
+        } else if (m.type === 'batallaGiftBallTest') {
+          if (!isEmbed) runTest(m.payload && m.payload.gift);
+        } else if (m.type === 'batallaGiftBallDropOne') {
+          if (!isEmbed) dropOne(m.payload || {});
+        } else if (m.type === 'batallaGiftBallReset') {
+          if (!isEmbed) clearAll();
+        }
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'batallaGiftBall') return;
+      if (d.type === 'config') {
+        if (d.config) applyCfg(d.config);
+        if (d.sizes) applySizes(d.sizes);
+      } else if (d.type === 'pause') setPaused(true);
+      else if (d.type === 'resume') setPaused(false);
+      else if (d.type === 'test') { setPaused(false); runTest(d.gift); }
+      else if (d.type === 'dropOne') { setPaused(false); dropOne(d); }
+      else if (d.type === 'reset') clearAll();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (raf) { cancelAnimationFrame(raf); raf = 0; }
+        lastTs = 0;
+      } else if (!paused) {
+        startLoop();
+      }
+    });
+
+    // Preview del panel: sin WS (los regalos del live irían al mismo hilo que el dashboard).
+    if (!isEmbed) connectWS();
+  })();
+  </script>
+  <script src="/js/overlay-keepalive.js?v=nokp1"></script>
+</body>
+</html>

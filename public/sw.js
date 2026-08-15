@@ -9,7 +9,7 @@
  *    de recuperación que reintenta sola (Live Studio no se queda en 502).
  *  - API y WebSocket: NUNCA se cachean (siempre red).
  */
-const VERSION = 'lc-v17';
+const VERSION = 'lc-v18';
 const MEDIA_CACHE = `media-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 
@@ -174,6 +174,8 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/ws')) return;
 
   if (isMedia(url)) {
+    // No duplicar videos grandes en Cache Storage (llenaba el disco).
+    if (/\.(mp4|webm|mov|mkv)$/i.test(url.pathname)) return;
     e.respondWith(cacheFirst(req, MEDIA_CACHE));
     return;
   }

@@ -50,6 +50,16 @@
       -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
       -webkit-mask-position: center bottom; mask-position: center bottom;
     }
+    /* Arcoíris: hue-rotate (estable; evita thrash de layout) */
+    html.jar-rainbow .jar-tint {
+      background: #ff2bd6 !important;
+      opacity: 1 !important;
+      mix-blend-mode: color;
+      animation: jarRainbowHue 2.8s linear infinite;
+    }
+    @keyframes jarRainbowHue {
+      to { filter: hue-rotate(360deg); }
+    }
 
     /* HUD debajo del perrito */
     .hud-stack {
@@ -200,10 +210,14 @@
     const isPreview = params.get('preview') === '1';
     const isEmbed = params.get('embed') === '1'; // vista previa dentro del panel (fija)
 
-    // ---- Tinte (color del perrito) ----
+    // ---- Tinte (color / arcoíris) ----
+    let jarTintColor = '';
+    let jarRainbowOn = false;
     function applyJarTint(color) {
       const root = document.documentElement;
       const c = String(color || '').trim();
+      jarTintColor = c;
+      if (jarRainbowOn) return;
       if (!c || /^#?fff(fff)?$/i.test(c) || c === 'none' || c === 'transparent') {
         root.style.removeProperty('--jar-tint');
         root.style.removeProperty('--jar-tint-opacity');
@@ -212,15 +226,41 @@
       root.style.setProperty('--jar-tint', c.charAt(0) === '#' ? c : '#' + c);
       root.style.setProperty('--jar-tint-opacity', '1');
     }
+    function applyJarRainbow(on) {
+      const next = !!on;
+      const root = document.documentElement;
+      jarRainbowOn = next;
+      if (next) {
+        root.classList.add('jar-rainbow');
+        root.style.setProperty('--jar-tint-opacity', '1');
+      } else {
+        root.classList.remove('jar-rainbow');
+        applyJarTint(jarTintColor);
+      }
+    }
+    function rootSafeRainbow() {
+      if (!jarRainbowOn) return;
+      document.documentElement.classList.add('jar-rainbow');
+      document.documentElement.style.setProperty('--jar-tint-opacity', '1');
+    }
     applyJarTint(params.get('jc'));
+    if (params.get('jr') === '1') applyJarRainbow(true);
 
     // Escala para que el perrito se vea completo (sin recortes).
     (function fit() {
+      let lastK = -1;
+      let resizeTimer = null;
       function apply() {
         const k = Math.min((innerWidth || 540) / 540, (innerHeight || 785) / 785) || 1;
-        document.documentElement.style.setProperty('--tf-fit', k);
+        if (Math.abs(k - lastK) < 0.01) return;
+        lastK = k;
+        document.documentElement.style.setProperty('--tf-fit', String(k));
       }
-      apply(); addEventListener('resize', apply);
+      apply();
+      addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(apply, 60);
+      });
     })();
 
     // El PNG del perrito es de cristal: su interior es TRANSPARENTE y solo el
@@ -521,6 +561,8 @@
 
     const engine = Engine.create();
     engine.gravity.y = 0.8; engine.enableSleeping = true;
+    engine.positionIterations = isEmbed ? 6 : 10;
+    engine.velocityIterations = isEmbed ? 4 : 8;
     const world = engine.world;
 
     // Límites de seguridad muy lejanos (por si algún regalo se escapa); la
@@ -852,10 +894,11 @@
         else if (type === 'panic') clearJar();
         else if (type === 'perritoTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
         else if (type === 'perritoDropOne') { if (!isEmbed) dropOneGift(payload); }
-        else if (type === 'perritoReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); setDiamonds(0, false, true); clearPersistState(); } }
+        else if (type === 'perritoReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); setDiamonds(0, false, true); clearPersistState(); rootSafeRainbow(); } }
         else if (type === 'settings') {
           if (payload && payload.perrito) {
             if (!params.get('jc')) applyJarTint(payload.perrito.tint);
+            if (payload.perrito.tintRainbow !== undefined) applyJarRainbow(!!payload.perrito.tintRainbow);
             if (payload.perrito.sizes) setSizeTable(payload.perrito.sizes);
             applyTopBarSettings(payload.perrito);
             applyGiftToastSettings(payload.perrito);
@@ -886,23 +929,29 @@
         image: sampleImg(),
         photo: isEmbed ? TD_PREVIEW_PIC : TD_DEFAULT_PIC,
       });
-      let i = 0; const max = total || 200;
+      let i = 0;
+      // Vista previa del panel: pocos cuerpos. OBS puede pedir más, pero con tope sano.
+      let max = Math.max(1, Number(total) || 200);
+      if (isEmbed) max = Math.min(max, 40);
+      else max = Math.min(max, 120);
+      const gapMs = isEmbed ? 70 : 55;
       (function tick() {
         if (i >= max) return;
         const roll = Math.random();
         const d = roll > 0.975 ? 8000 : roll > 0.9 ? 2200 : roll > 0.68 ? 180 : 1;
         addGiftBody(sampleImg(), giftSizeForFill(d), d, {});
-        i++; fillTimer = setTimeout(tick, 55);
+        i++; fillTimer = setTimeout(tick, gapMs);
       })();
     }
     window.addEventListener('message', (e) => {
       const d = e.data;
       if (!d || d.kind !== 'perrito') return;
-      if (d.type === 'test') runFill(d.count || 200);
+      if (d.type === 'test') runFill(d.count || (isEmbed ? 40 : 80));
       else if (d.type === 'dropOne') dropOneGift(d);
-      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(true); setDiamonds(0, false, true); clearPersistState(); }
+      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(true); setDiamonds(0, false, true); clearPersistState(); rootSafeRainbow(); }
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
+        if (d.tintRainbow !== undefined) applyJarRainbow(!!d.tintRainbow);
         if (d.sizes !== undefined) setSizeTable(d.sizes);
         if (d.topBarEnabled !== undefined || d.topBarLimit !== undefined || d.topBarColor !== undefined || d.topBarOpacity !== undefined) {
           applyTopBarSettings({

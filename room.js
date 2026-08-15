@@ -3063,6 +3063,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('giftSeqReset', {});
     broadcast('pkBattleReset', {});
     resetPkBattleAll();
+    broadcast('batallaGiftBallReset', {});
     // Mejor regalo / último regalo / mejor racha (solo si periodo = live)
     if (getGiftOverlayPeriod('topGift') === 'live') broadcast('topGiftReset', {});
     if (getGiftOverlayPeriod('lastGift') === 'live') broadcast('lastGiftReset', {});
@@ -3311,6 +3312,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     pkBattle.demo = false;
     pkBattle.showEnd = false;
     broadcastPkBattle(true);
+    if (!midJoin && String(settings?.batallaGiftBall?.resetPeriod || 'battle').toLowerCase() === 'battle') {
+      broadcast('batallaGiftBallReset', {});
+    }
   }
   function pkPickArmyTop(userArmy) {
     const top = pkPickArmyTopN(userArmy, 1);
@@ -9974,6 +9978,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetBatallaTop3':
         broadcast('batallaTop3Reset', {});
+        break;
+      case 'testBatallaGiftBall':
+        broadcast('batallaGiftBallTest', { gift: data.gift || null });
+        break;
+      case 'dropBatallaGiftBall':
+        broadcast('batallaGiftBallDropOne', {
+          image: data.image || '',
+          diamonds: Number(data.diamonds) || 1,
+          giftId: data.giftId || '',
+          giftName: data.giftName || '',
+        });
+        break;
+      case 'resetBatallaGiftBall':
+        broadcast('batallaGiftBallReset', {});
         break;
       case 'startBatallaVs':
       case 'stopBatallaVs':

@@ -56,6 +56,16 @@
       -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
       -webkit-mask-position: center center; mask-position: center center;
     }
+    /* Arcoíris: hue-rotate (estable; evita thrash de layout) */
+    html.jar-rainbow .jar-tint {
+      background: #ff2bd6 !important;
+      opacity: 1 !important;
+      mix-blend-mode: color;
+      animation: jarRainbowHue 2.8s linear infinite;
+    }
+    @keyframes jarRainbowHue {
+      to { filter: hue-rotate(360deg); }
+    }
 
     /* HUD Meta (solo Corazón lava) */
     .meta-hud {
@@ -164,10 +174,14 @@
     const isPreview = params.get('preview') === '1';
     const isEmbed = params.get('embed') === '1'; // vista previa dentro del panel (fija)
 
-    // ---- Tinte (color del corazonlava) ----
+    // ---- Tinte (color / arcoíris) ----
+    let jarTintColor = '';
+    let jarRainbowOn = false;
     function applyJarTint(color) {
       const root = document.documentElement;
       const c = String(color || '').trim();
+      jarTintColor = c;
+      if (jarRainbowOn) return;
       if (!c || /^#?fff(fff)?$/i.test(c) || c === 'none' || c === 'transparent') {
         root.style.removeProperty('--jar-tint');
         root.style.removeProperty('--jar-tint-opacity');
@@ -176,19 +190,44 @@
       root.style.setProperty('--jar-tint', c.charAt(0) === '#' ? c : '#' + c);
       root.style.setProperty('--jar-tint-opacity', '1');
     }
+    function applyJarRainbow(on) {
+      const next = !!on;
+      const root = document.documentElement;
+      jarRainbowOn = next;
+      if (next) {
+        root.classList.add('jar-rainbow');
+        root.style.setProperty('--jar-tint-opacity', '1');
+      } else {
+        root.classList.remove('jar-rainbow');
+        applyJarTint(jarTintColor);
+      }
+    }
+    function rootSafeRainbow() {
+      if (!jarRainbowOn) return;
+      document.documentElement.classList.add('jar-rainbow');
+      document.documentElement.style.setProperty('--jar-tint-opacity', '1');
+    }
     applyJarTint(params.get('jc'));
+    if (params.get('jr') === '1') applyJarRainbow(true);
 
     // Escala para que el corazonlava se vea completo (sin recortes).
     // No usar tamaño de diseño como fallback: si el iframe aún mide 0,
     // eso dejaba scale=1 y el preview salía gigante un frame.
     (function fit() {
       const SW = 720, SH = 620;
+      let lastK = -1;
+      let resizeTimer = null;
       function apply() {
         const w = window.innerWidth;
         const h = window.innerHeight;
         if (!(w > 0 && h > 0)) return false;
-        const k = Math.min(w / SW, h / SH);
-        document.documentElement.style.setProperty('--tf-fit', String(Math.max(0.05, k)));
+        const k = Math.max(0.05, Math.min(w / SW, h / SH));
+        if (Math.abs(k - lastK) < 0.01) {
+          document.documentElement.classList.add('tf-ready');
+          return true;
+        }
+        lastK = k;
+        document.documentElement.style.setProperty('--tf-fit', String(k));
         document.documentElement.classList.add('tf-ready');
         return true;
       }
@@ -197,9 +236,13 @@
       };
       tryFit();
       requestAnimationFrame(() => { apply(); requestAnimationFrame(apply); });
-      addEventListener('resize', apply);
+      const schedule = () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(apply, 60);
+      };
+      addEventListener('resize', schedule);
       if (typeof ResizeObserver !== 'undefined') {
-        try { new ResizeObserver(() => apply()).observe(document.documentElement); } catch {}
+        try { new ResizeObserver(schedule).observe(document.documentElement); } catch {}
       }
     })();
 
@@ -704,10 +747,11 @@
         else if (type === 'panic') clearJar();
         else if (type === 'corazonLavaTest') { if (!isEmbed) runFill((payload && payload.count) || 36, payload); }
         else if (type === 'corazonLavaDropOne') { if (!isEmbed) dropOneGift(payload); }
-        else if (type === 'corazonLavaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); resetMeta(); } }
+        else if (type === 'corazonLavaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); resetMeta(); rootSafeRainbow(); } }
         else if (type === 'settings') {
           if (payload && payload.corazonLava) {
             if (!params.get('jc')) applyJarTint(payload.corazonLava.tint);
+            if (payload.corazonLava.tintRainbow !== undefined) applyJarRainbow(!!payload.corazonLava.tintRainbow);
             if (payload.corazonLava.sizes) setSizeTable(payload.corazonLava.sizes);
             applyMetaSettings(payload.corazonLava);
             applyFilterGiftSettings(payload.corazonLava);
@@ -762,9 +806,10 @@
       if (!d || d.kind !== 'corazonLava') return;
       if (d.type === 'test') runFill(d.count || 36, d);
       else if (d.type === 'dropOne') dropOneGift(d);
-      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(true); resetMeta(); }
+      else if (d.type === 'reset') { if (fillTimer) clearTimeout(fillTimer); clearJar(true); resetMeta(); rootSafeRainbow(); }
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
+        if (d.tintRainbow !== undefined) applyJarRainbow(!!d.tintRainbow);
         if (d.sizes !== undefined) setSizeTable(d.sizes);
         if (d.metaLabel !== undefined || d.metaGoal !== undefined || d.metaMode !== undefined) {
           applyMetaSettings({

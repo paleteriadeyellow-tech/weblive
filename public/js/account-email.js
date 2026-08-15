@@ -50,12 +50,32 @@
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
       }
+      #emailVerifyPrompt .email-prompt-never {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 14px;
+        font-size: 13px;
+        color: rgba(232, 236, 245, 0.78);
+        cursor: pointer;
+        user-select: none;
+      }
+      #emailVerifyPrompt .email-prompt-never input {
+        width: 16px;
+        height: 16px;
+        accent-color: #fe2c55;
+        cursor: pointer;
+      }
     `;
     document.head.appendChild(style);
   }
 
   function dismissKey() {
     return `livecoins_email_prompt_later_${window.MY_USER || 'default'}`;
+  }
+
+  function neverKey() {
+    return `livecoins_email_prompt_never_${window.MY_USER || 'default'}`;
   }
 
   function wasDismissedLater() {
@@ -68,6 +88,19 @@
 
   function clearDismissedLater() {
     try { sessionStorage.removeItem(dismissKey()); } catch {}
+  }
+
+  function wasNeverShow() {
+    try { return localStorage.getItem(neverKey()) === '1'; } catch { return false; }
+  }
+
+  function markNeverShow() {
+    try { localStorage.setItem(neverKey(), '1'); } catch {}
+    markDismissedLater();
+  }
+
+  function clearNeverShow() {
+    try { localStorage.removeItem(neverKey()); } catch {}
   }
 
   function ensureModal() {
@@ -119,7 +152,11 @@
           <p class="hint" style="margin-top:0;line-height:1.5">
             Para poder recuperar tu contraseña si la olvidas, verifica un correo en tu cuenta.
           </p>
-          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+          <label class="email-prompt-never">
+            <input type="checkbox" id="email-prompt-never">
+            <span>No volver a mostrar este aviso</span>
+          </label>
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
             <button type="button" class="btn primary" id="email-prompt-verify" style="flex:1;min-width:140px">Verificar</button>
             <button type="button" class="btn ghost" id="email-prompt-later" style="flex:1;min-width:140px">Después</button>
           </div>
@@ -131,7 +168,9 @@
       open();
     };
     $('email-prompt-later').onclick = () => {
-      markDismissedLater();
+      const never = !!$('email-prompt-never')?.checked;
+      if (never) markNeverShow();
+      else markDismissedLater();
       hidePrompt();
     };
   }
