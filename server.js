@@ -3165,6 +3165,47 @@ function readWebInstall() {
   try { return JSON.parse(fs.readFileSync(WEB_INSTALL_FILE, 'utf8')); }
   catch { return { url: '', updatedAt: 0 }; }
 }
+
+const MAINT_FILE = path.join(DATA_DIR, 'maintenance.json');
+function readMaintenance() {
+  try {
+    const j = JSON.parse(fs.readFileSync(MAINT_FILE, 'utf8'));
+    if (j && typeof j === 'object') {
+      return { enabled: !!j.enabled, message: String(j.message || '') };
+    }
+  } catch {}
+  // Render sin config: panel web cerrado (el .exe no usa estas páginas).
+  if (IS_RENDER) {
+    return {
+      enabled: true,
+      message: 'Livecoins ahora es app de PC. Descarga el .exe e inicia sesión ahí.',
+    };
+  }
+  return { enabled: false, message: '' };
+}
+function writeMaintenance({ enabled, message }) {
+  const data = {
+    enabled: !!enabled,
+    message: String(message || ''),
+    updatedAt: Date.now(),
+  };
+  const tmp = MAINT_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, MAINT_FILE);
+  return data;
+}
+/** Cierra panel/overlays en el navegador. El .exe (API + localhost) no se toca. */
+function webPanelClosed() {
+  if (IS_DESKTOP) return false;
+  if (AUTH_REMOTE) return false;
+  if (process.env.WEB_PANEL === '1') return false;
+  if (process.env.WEB_PANEL === '0') return true;
+  return !!readMaintenance().enabled;
+}
+function isAdminRequest(req) {
+  const user = userFromRequest(req);
+  return !!(user && user.isAdmin);
+}
 app.get('/api/app-version', (_req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.json(readAppVersion());
@@ -3248,20 +3289,23 @@ app.post('/api/admin/web-install', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true, ...data });
 });
 
-/* ----------- Modo mantenimiento (web en Render) — espejo del remoto ----------- */
-app.get('/api/maintenance', async (_req, res) => {
+/* ----------- Modo mantenimiento (cierra panel WEB; el .exe sigue) ----------- */
+app.get('/api/maintenance', (_req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  if (AUTH_REMOTE) {
-    try {
-      const r = await fetch(`${AUTH_REMOTE}/api/maintenance?_=${Date.now()}`);
-      if (r.ok) return res.json(await r.json());
-    } catch {}
-  }
-  res.json({ enabled: false, message: '' });
+  const m = readMaintenance();
+  res.json({
+    enabled: webPanelClosed(),
+    message: m.message || '',
+    desktopOk: true,
+  });
 });
-app.post('/api/admin/maintenance', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/maintenance', 'POST')) return;
-  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
+app.post('/api/admin/maintenance', express.json(), requireAdmin, (req, res) => {
+  const body = req.body || {};
+  const data = writeMaintenance({
+    enabled: !!body.enabled,
+    message: body.message,
+  });
+  res.json({ ok: true, ...data });
 });
 
 /* ----------- Anuncios del panel — espejo del remoto ----------- */
@@ -3332,6 +3376,9 @@ function sendHtmlFile(res, filePath, status = 200) {
     res.status(status).type('html').send(injectGuard(html));
   });
 }
+function sendUsaPc(res, status = 200) {
+  sendHtmlFile(res, path.join(PUBLIC_DIR, 'usa-pc.html'), status);
+}
 
 /* ----------------------------- Panel protegido ----------------------------- */
 // El panel (index.html) requiere sesión iniciada y cuenta ACTIVADA por el admin.
@@ -3339,6 +3386,7 @@ app.get(['/', '/index.html'], (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.redirect('/login.html');
   if (!isUserActive(user)) return sendHtmlFile(res, path.join(PUBLIC_DIR, 'pending.html'));
+  if (webPanelClosed() && !user.isAdmin) return sendUsaPc(res);
   sendHtmlFile(res, path.join(PUBLIC_DIR, 'index.html'));
 });
 
@@ -3346,18 +3394,23 @@ app.get(['/', '/index.html'], (req, res) => {
 // son únicos, así que se pueden cachear sin problema y al ACTUALIZAR la página el
 // navegador los reutiliza al instante en vez de descargarlos otra vez.
 const heavyCache = { maxAge: '30d', immutable: true };
-app.use('/uploads', express.static(UPLOADS_DIR, heavyCache));
-app.use('/audios', express.static(AUDIOS_DIR, heavyCache));
-// Videos de AI: caché larga en el navegador para que al recargar el panel no se
-// vuelvan a descargar (antes esto era lo que hacía lenta la carga).
-app.use('/video', express.static(VIDEOS_DIR, heavyCache));
-app.use('/niveles', express.static(NIVELES_VIDEOS_DIR, heavyCache)); // alias legacy → public/video/niveles
+function blockHeavyIfWebClosed(req, res, next) {
+  if (!webPanelClosed() || isAdminRequest(req)) return next();
+  return res.status(404).end();
+}
+app.use('/uploads', blockHeavyIfWebClosed, express.static(UPLOADS_DIR, heavyCache));
+app.use('/audios', blockHeavyIfWebClosed, express.static(AUDIOS_DIR, heavyCache));
+app.use('/video', blockHeavyIfWebClosed, express.static(VIDEOS_DIR, heavyCache));
+app.use('/niveles', blockHeavyIfWebClosed, express.static(NIVELES_VIDEOS_DIR, heavyCache));
 
 // Cualquier otra página HTML (login, overlays, pending…) se sirve con el script
 // de protección inyectado. Debe ir ANTES del estático general.
 app.use((req, res, next) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   if (!req.path.endsWith('.html')) return next();
+  const base = path.basename(req.path).toLowerCase();
+  if (base === 'login.html' || base === 'usa-pc.html') return next();
+  if (webPanelClosed() && !isAdminRequest(req)) return sendUsaPc(res);
   const rel = decodeURIComponent(req.path).replace(/^\/+/, '');
   const filePath = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!filePath.startsWith(PUBLIC_DIR)) return next(); // evita salir de /public
@@ -4539,6 +4592,15 @@ wss.on('connection', (ws, req) => {
       try { ws.send(JSON.stringify({ type: 'accountPending' })); } catch {}
       try { ws.close(4003, 'pending'); } catch {}
       return;
+    }
+
+    if (webPanelClosed() && !user.isAdmin) {
+      const role = String(url.searchParams.get('role') || '');
+      const fromExe = role === 'relay' || role === 'local';
+      if (!fromExe) {
+        try { ws.close(4003, 'use-desktop'); } catch {}
+        return;
+      }
     }
 
     const room = getRoomForUser(user);
