@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=giftball17" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=giftball36" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -1564,29 +1564,50 @@
         <!-- Modal: Biblioteca de Videos (cuadr?cula con vista previa) -->
         <div id="videoLibModal" class="modal hidden create-modal lib-modal">
           <div class="modal-box create-modal-shell lib-modal-shell vidlib-box">
-            <div class="modal-head create-modal-head">
-              <div class="create-modal-head-text">
-                <p class="create-modal-kicker">Biblioteca</p>
-                <h2>ðŸŽ¬ Videos AI</h2>
-                <span class="vidlib-sub acc-modal-lead">Selecciona un video de la carpeta (vista previa vertical)</span>
+            <div class="modal-head create-modal-head vidlib-head">
+              <div class="vidlib-head-left">
+                <span class="vidlib-head-ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><rect x="3" y="5" width="18" height="14" rx="3" stroke="#fff" stroke-width="1.8"/><path d="M10 9.2v5.6L15.2 12 10 9.2z" fill="#fff"/></svg>
+                </span>
+                <div class="create-modal-head-text">
+                  <h2 id="vidlib-title">Animación – Multimedia</h2>
+                  <span class="vidlib-sub acc-modal-lead">Selecciona una animación de la biblioteca</span>
+                </div>
               </div>
-              <div class="lib-modal-head-actions">
-                <button class="modal-close" id="vid-librefresh" title="Recargar">â†»</button>
-                <button class="modal-close" id="vidlib-close" aria-label="Cerrar">âœ•</button>
-              </div>
+              <button class="modal-close" id="vidlib-close" aria-label="Cerrar">✕</button>
             </div>
             <div class="modal-body create-modal-body">
-              <input type="text" id="vid-libq" class="gift-search vidlib-search" placeholder="Buscar por nombreâ€¦">
+              <div class="vidlib-toolbar">
+                <button type="button" class="vidlib-back" id="vidlib-back">← Volver</button>
+                <input type="text" id="vid-libq" class="gift-search vidlib-search" placeholder="Buscar animación por nombre...">
+                <button type="button" class="vidlib-ico-btn" id="vid-librefresh" title="Recargar">↻</button>
+              </div>
+              <div class="vidlib-catrow">
+                <div class="vidlib-cathead">
+                  <span class="vidlib-catlabel">Categoría</span>
+                  <span class="vidlib-count" id="vidlib-count"></span>
+                </div>
+                <input type="hidden" id="vidlib-cat" value="quiereme">
+                <div class="vidlib-cats" id="vidlib-cats" role="tablist" aria-label="Categoría">
+                  <button type="button" class="vidlib-chip is-on" data-cat="quiereme"><span class="vidlib-chip-emo">💕</span><span class="vidlib-chip-txt">Quiéreme</span></button>
+                  <button type="button" class="vidlib-chip" data-cat="taptap"><span class="vidlib-chip-emo">👆</span><span class="vidlib-chip-txt">Tap tap</span></button>
+                  <button type="button" class="vidlib-chip" data-cat="cofre"><span class="vidlib-chip-emo">🎁</span><span class="vidlib-chip-txt">Cofre</span></button>
+                  <button type="button" class="vidlib-chip" data-cat="x2"><span class="vidlib-chip-emo">✌️</span><span class="vidlib-chip-txt">x2</span></button>
+                  <button type="button" class="vidlib-chip" data-cat="x3"><span class="vidlib-chip-emo">🔥</span><span class="vidlib-chip-txt">x3</span></button>
+                  <button type="button" class="vidlib-chip" data-cat="snipe"><span class="vidlib-chip-emo">🎯</span><span class="vidlib-chip-txt">Snipe</span></button>
+                  <button type="button" class="vidlib-chip" data-cat="guante"><span class="vidlib-chip-emo">🥊</span><span class="vidlib-chip-txt">Guante</span></button>
+                  <button type="button" class="vidlib-chip" data-cat="varios"><span class="vidlib-chip-emo">✨</span><span class="vidlib-chip-txt">Varios</span></button>
+                </div>
+              </div>
               <div id="vid-libgrid" class="vid-grid"></div>
             </div>
-            <div class="modal-foot create-modal-foot">
-              <span class="credit">Videos de la carpeta <code>public/video</code>.</span>
-              <div class="acc-foot-right">
-                <button class="btn primary" id="vidlib-download-ai" style="display:none">â¬‡ Descargar Videos AI</button>
-                <button class="btn primary" id="vidlib-update-ai" style="display:none">â†» Actualizar</button>
-                <button class="btn" id="vidlib-openniveles" style="display:none">ðŸ“ Abrir carpeta</button>
-                <button class="btn ghost" id="vidlib-cancel">Cancelar</button>
-              </div>
+            <div class="modal-foot create-modal-foot vidlib-foot">
+              <span class="credit" hidden></span>
+              <button class="btn primary" id="vidlib-download-ai" style="display:none">⬇ Descargar Videos AI</button>
+              <button class="btn primary" id="vidlib-update-ai" style="display:none">↻ Actualizar</button>
+              <button class="btn" id="vidlib-openniveles" style="display:none">📁 Abrir carpeta</button>
+              <button class="btn ghost vidlib-cancel" id="vidlib-cancel">Cancelar</button>
+              <button type="button" class="btn vidlib-use" id="vidlib-use" disabled>✓ Usar esta animación</button>
             </div>
           </div>
         </div>
@@ -7027,12 +7048,12 @@
             <p class="ovpro-desc">Suma monedas de todos los regalos, convierte en vidas seg?n el costo de entrada, elimina al azar con temporizador y permite victoria instant?nea (Insta-Claim). Las donaciones durante el giro quedan en cola.</p>
 
             <div class="ovpro-urlrow">
-              <code class="ov-url" data-path="/sorteos.html?v=so46">/sorteos.html?v=so46</code>
+              <code class="ov-url" data-path="/sorteos.html?v=so48">/sorteos.html?v=so48</code>
               <button class="ovpro-copy ov-copy">Copiar enlace</button>
             </div>
             <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
             <div class="ovpro-preview">
-              <iframe id="so-preview" data-src="/sorteos.html?embed=1&v=so46" title="Vista previa sorteos overlay"></iframe>
+              <iframe id="so-preview" data-src="/sorteos.html?embed=1&v=so48" title="Vista previa sorteos overlay"></iframe>
             </div>
           </div>
         </section>
@@ -9965,7 +9986,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=giftball17"></script>
+  <script src="/js/dashboard.js?v=giftball37"></script>
   <script src="/js/editor-rapido.js?v=er84"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

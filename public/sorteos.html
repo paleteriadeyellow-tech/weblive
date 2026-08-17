@@ -162,6 +162,33 @@
       box-shadow: 0 1px 4px rgba(0,0,0,.45); pointer-events: none;
     }
     .so-cell .so-lives.on { display: inline-flex; }
+    .so-cell .so-nick {
+      display: none;
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+      padding: 3px 4px 4px;
+      font-weight: 800; font-size: clamp(8px, 2.2vmin, 13px); line-height: 1.15;
+      text-align: center; color: #fff;
+      text-shadow: 0 1px 3px #000, 0 0 8px #000;
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,.82) 38%);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      pointer-events: none;
+    }
+    .so-grid.show-nicks .so-cell .so-nick { display: block; }
+    .so-grid.show-nicks .so-cell:not(:has(img.is-ready)) .so-nick { display: none; }
+    .so-grid.show-nicks .so-cell .ph {
+      font-size: clamp(11px, 3vmin, 18px);
+      padding: 6px 5px 8px;
+      text-align: center; line-height: 1.2;
+      word-break: break-word; overflow: hidden;
+    }
+    .so-grid.show-nicks.so-few .so-cell .ph {
+      font-size: clamp(14px, 4.5vmin, 24px);
+      padding: 10px 8px;
+    }
+    .so-grid.show-nicks.so-few .so-cell .so-nick {
+      font-size: clamp(11px, 3vmin, 16px);
+      padding: 6px 6px 7px;
+    }
     @keyframes soJoin { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     @keyframes soLifeFlash { 0%,100% { box-shadow: none; } 40% { box-shadow: 0 0 18px rgba(34,197,94,.75); border-color: #22c55e; } }
 
@@ -584,7 +611,7 @@
     let cfg = Object.assign({}, DEFAULT_CFG);
     /** @type {Record<string, {id:string,name:string,pic:string,lives:number,bank:number,spent:number,donated:number,stakes:number[],alive:boolean,lastChat:string,lastVouch:string}>} */
     let players = {};
-    /** Cada vida = un cuadrado. Se inserta al azar en la rejilla (no agrupa por usuario). */
+    /** Cada vida = un cuadrado. Cada entrada se coloca al azar (sin bloques del mismo user). */
     let lifeSlots = [];
     let slotSeq = 0;
     /** Progreso local de rachas: para pintar al instante aunque falte repeatDelta. */
@@ -777,18 +804,73 @@
     function aliveList() {
       return Object.values(players).filter((p) => p.alive && p.lives > 0);
     }
-    function pushLifeSlot(p, cost) {
-      const slot = {
+    function makeLifeSlot(p, cost) {
+      return {
         slotId: 's' + (++slotSeq),
         id: p.id,
         name: p.name,
         pic: p.pic || '',
         stake: Math.max(1, Number(cost) || cfg.entryCost || 1),
       };
-      // Insertar al azar entre las sillas existentes para que un combo del mismo
-      // usuario no quede todo junto (ni “reagrupado” visualmente).
-      if (lifeSlots.length === 0) lifeSlots.push(slot);
-      else lifeSlots.splice(Math.floor(Math.random() * (lifeSlots.length + 1)), 0, slot);
+    }
+    function gridColsFor(n) {
+      return Math.min(20, Math.max(1, Math.ceil(Math.sqrt(Math.max(1, n)))));
+    }
+    function gridNeighbors(i, n, cols) {
+      const r = Math.floor(i / cols);
+      const c = i % cols;
+      const out = [];
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+          const rr = r + dr;
+          const cc = c + dc;
+          if (rr < 0 || cc < 0 || cc >= cols) continue;
+          const j = rr * cols + cc;
+          if (j >= 0 && j < n) out.push(j);
+        }
+      }
+      return out;
+    }
+    /** Índice al azar que no queda pegado (en el grid 2D) a fotos de esa persona. */
+    function skipInsertIndex(playerId) {
+      const n = lifeSlots.length;
+      const after = n + 1;
+      const cols = gridColsFor(after);
+      const cand = [];
+      const weak = [];
+      for (let pos = 0; pos <= n; pos++) {
+        let clash = 0;
+        const neigh = gridNeighbors(pos, after, cols);
+        for (let k = 0; k < neigh.length; k++) {
+          const j = neigh[k];
+          if (j === pos) continue;
+          const pre = j > pos ? j - 1 : j;
+          if (lifeSlots[pre] && lifeSlots[pre].id === playerId) clash++;
+        }
+        if (!clash) cand.push(pos);
+        else if (clash === 1) weak.push(pos);
+      }
+      const pool = cand.length ? cand : (weak.length ? weak : null);
+      if (!pool) return Math.floor(Math.random() * (n + 1));
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    /**
+     * 1 foto = 1 vida. Cada vida se inserta sola en un hueco al azar
+     * (combo o regalos seguidos ya no forman un bloque).
+     */
+    function insertLifeBurst(p, costs) {
+      const burst = [];
+      for (let i = 0; i < (costs || []).length; i++) {
+        const slot = makeLifeSlot(p, costs[i]);
+        if (!lifeSlots.length) lifeSlots.push(slot);
+        else lifeSlots.splice(skipInsertIndex(p.id), 0, slot);
+        burst.push(slot);
+      }
+      return burst;
+    }
+    function pushLifeSlot(p, cost) {
+      const [slot] = insertLifeBurst(p, [cost]);
       return slot;
     }
     function removeLifeSlot(slotId, playerId) {
@@ -806,17 +888,19 @@
         s.pic = p.pic || '';
       });
     }
-    /** Reconstruye slots (demos / embed). Mezcla al azar para no agrupar por usuario. */
+    /** Reconstruye slots (demos / embed). Cada vida se esparce al azar. */
     function rebuildLifeSlotsFromPlayers() {
       lifeSlots = [];
       for (const p of Object.values(players)) {
         if (!p || !p.alive || !(p.lives > 0)) continue;
+        const costs = [];
         for (let i = 0; i < p.lives; i++) {
-          pushLifeSlot(p, (p.stakes && p.stakes[i]) || cfg.entryCost);
+          costs.push((p.stakes && p.stakes[i]) || cfg.entryCost);
         }
+        insertLifeBurst(p, costs);
       }
     }
-    /** Una silla = una vida (ruleta / probabilidad). No se dibuja 1:1 en la tabla. */
+    /** Una silla = una vida (ruleta y tabla: 1 foto por vida). */
     function lifeSeats() {
       // Mantener meta al día (nombre/foto) sin reordenar
       return lifeSlots
@@ -833,24 +917,7 @@
           return { id: s.id, seat: i, slotId: s.slotId, name: s.name, pic: s.pic };
         });
     }
-    /** Tabla = 1 cuadrado por persona viva (orden = primera aparición en cupos). */
-    function playerGridSeats() {
-      const seen = new Set();
-      const out = [];
-      for (const s of lifeSeats()) {
-        if (seen.has(s.id)) continue;
-        seen.add(s.id);
-        const p = players[s.id];
-        if (!p || !p.alive || !(p.lives > 0)) continue;
-        out.push({
-          id: p.id,
-          name: p.name,
-          pic: p.pic || s.pic || '',
-          lives: Math.max(1, Number(p.lives) || 1),
-        });
-      }
-      return out;
-    }
+    /** Tabla = 1 cuadrado por vida (misma foto repetida si tiene varias). */
     function fmtTime(sec) {
       const s = Math.max(0, Math.ceil(sec));
       const m = Math.floor(s / 60);
@@ -1042,7 +1109,7 @@
       );
     }
     function gridLayoutFor(n) {
-      const cols = Math.min(20, Math.max(1, Math.ceil(Math.sqrt(n))));
+      const cols = gridColsFor(n);
       const rows = Math.max(1, Math.ceil(n / cols));
       const gap = cols <= 2 ? 8 : cols <= 4 ? 5 : cols <= 8 ? 3 : cols <= 12 ? 2 : 1;
       const radius = n <= 1 ? 12 : cols <= 4 ? 8 : cols <= 10 ? 4 : 2;
@@ -1057,16 +1124,39 @@
       grid.querySelectorAll('.so-cell').forEach((c) => { c.style.borderRadius = radius + 'px'; });
       return radius;
     }
-    function makeCellEl(s, radius) {
+    function shouldShowNicks(seats) {
+      const n = seats.length;
+      let uniq = 0;
+      const seen = Object.create(null);
+      for (let i = 0; i < seats.length; i++) {
+        const id = seats[i].id;
+        if (seen[id]) continue;
+        seen[id] = 1;
+        uniq++;
+      }
+      return n <= 16 || (uniq <= 6 && n <= 24);
+    }
+    function paintCellLabels(cell, s, showNick) {
+      cell.title = s.name || '';
+      const raw = String(s.name || '?').trim() || '?';
+      const ph = cell.querySelector('.ph');
+      if (ph) ph.textContent = showNick ? raw : raw.slice(0, 1).toUpperCase();
+      let nick = cell.querySelector('.so-nick');
+      if (!nick) {
+        nick = document.createElement('span');
+        nick.className = 'so-nick';
+        cell.appendChild(nick);
+      }
+      nick.textContent = raw;
+    }
+    function makeCellEl(s, radius, showNick) {
       const cell = document.createElement('div');
       cell.className = 'so-cell';
       cell.style.borderRadius = radius + 'px';
       cell.dataset.id = s.id;
-      cell.title = s.name || '';
-      const letter = String((s.name || '?').slice(0, 1)).toUpperCase();
+      if (s.slotId) cell.dataset.slot = s.slotId;
       const ph = document.createElement('div');
       ph.className = 'ph';
-      ph.textContent = letter;
       cell.appendChild(ph);
       if (s.pic) {
         const img = document.createElement('img');
@@ -1080,34 +1170,13 @@
         if (img.complete && img.naturalWidth) img.classList.add('is-ready');
         cell.appendChild(img);
       }
-      const livesEl = document.createElement('span');
-      livesEl.className = 'so-lives';
-      livesEl.setAttribute('aria-hidden', 'true');
-      cell.appendChild(livesEl);
-      syncCellLives(cell, s.lives);
+      paintCellLabels(cell, s, showNick);
       return cell;
-    }
-    function syncCellLives(cell, lives) {
-      if (!cell) return;
-      const n = Math.max(0, Number(lives) || 0);
-      cell.dataset.lives = String(n);
-      const badge = cell.querySelector('.so-lives');
-      if (!badge) return;
-      if (n > 1) {
-        badge.textContent = String(n);
-        badge.classList.add('on');
-      } else {
-        badge.textContent = '';
-        badge.classList.remove('on');
-      }
-      const name = cell.title || '';
-      if (name && n > 1) cell.title = name.replace(/\s·\s\d+\svidas?$/i, '') + ' · ' + n + ' vidas';
-      else if (name) cell.title = name.replace(/\s·\s\d+\svidas?$/i, '');
     }
     function renderGrid() {
       const grid = $('so-grid');
       if (!grid) return;
-      const seats = playerGridSeats();
+      const seats = lifeSeats();
       if (!seats.length) {
         grid.className = 'so-grid is-empty-state';
         grid.style.gridTemplateColumns = '';
@@ -1122,31 +1191,34 @@
         grid.innerHTML = '';
       }
 
-      const byId = new Map();
-      grid.querySelectorAll('.so-cell[data-id]').forEach((el) => {
-        const id = el.getAttribute('data-id');
-        if (id) byId.set(id, el);
+      const bySlot = new Map();
+      grid.querySelectorAll('.so-cell[data-slot]').forEach((el) => {
+        const id = el.getAttribute('data-slot');
+        if (id) bySlot.set(id, el);
       });
 
-      const want = new Set(seats.map((s) => s.id).filter(Boolean));
-      byId.forEach((el, id) => {
+      const want = new Set(seats.map((s) => s.slotId).filter(Boolean));
+      bySlot.forEach((el, id) => {
         if (!want.has(id)) {
           try { el.remove(); } catch {}
-          byId.delete(id);
+          bySlot.delete(id);
         }
       });
 
       const radius = applyGridLayout(grid, seats.length);
+      const showNick = shouldShowNicks(seats);
+      grid.classList.toggle('show-nicks', showNick);
+      grid.classList.toggle('so-few', showNick && seats.length <= 6);
       seats.forEach((s) => {
-        let cell = s.id ? byId.get(s.id) : null;
+        let cell = s.slotId ? bySlot.get(s.slotId) : null;
         if (!cell) {
-          cell = makeCellEl(s, radius);
+          cell = makeCellEl(s, radius, showNick);
           grid.appendChild(cell);
         } else {
           cell.style.borderRadius = radius + 'px';
-          cell.title = s.name || '';
           cell.dataset.id = s.id;
-          syncCellLives(cell, s.lives);
+          cell.dataset.slot = s.slotId;
+          paintCellLabels(cell, s, showNick);
           grid.appendChild(cell);
         }
       });
@@ -1195,7 +1267,7 @@
     function grantLivesFromBank(p, isNewJoin) {
       const cost = Math.max(1, clamp(cfg.entryCost, 1, 1000000));
       let gained = 0;
-      const newSlotIds = [];
+      const costs = [];
       while (p.bank >= cost) {
         // LOCKED ENTRIES: nadie suma más vidas (ni nuevos ni quien ya está)
         if (entriesLocked) break;
@@ -1204,8 +1276,7 @@
         p.spent += cost;
         p.stakes.push(cost);
         coinsInPlay += cost;
-        const slot = pushLifeSlot(p, cost);
-        newSlotIds.push(slot.slotId);
+        costs.push(cost);
         gained += 1;
         if (!p.alive) {
           p.alive = true;
@@ -1215,7 +1286,8 @@
           }
         }
       }
-      return { gained, newSlotIds };
+      const slots = insertLifeBurst(p, costs);
+      return { gained, newSlotIds: slots.map((s) => s.slotId) };
     }
 
     /**
@@ -1282,8 +1354,9 @@
       const gained = grant.gained;
       renderGrid();
       if (gained) {
-        const cell = document.querySelector('.so-cell[data-id="' + cssAttr(p.id) + '"]');
-        if (cell) {
+        for (const sid of grant.newSlotIds || []) {
+          const cell = document.querySelector('.so-cell[data-slot="' + cssAttr(sid) + '"]');
+          if (!cell) continue;
           cell.classList.add('life-flash');
           if (!wasAlive) cell.classList.add('is-new');
           setTimeout(() => cell.classList.remove('life-flash', 'is-new'), 800);
@@ -1479,7 +1552,7 @@
         if (i >= steps) {
           list.forEach((c) => c.classList.remove('is-spin'));
           const finalCell = document.querySelector(
-            '.so-cell[data-id="' + cssAttr(victim.id) + '"]'
+            '.so-cell[data-slot="' + cssAttr(victim.slotId) + '"]'
           ) || list[Math.floor(Math.random() * list.length)];
           if (finalCell) finalCell.classList.add('is-hit');
           setTimeout(() => finishSpin(victim, myGen), hitPause);

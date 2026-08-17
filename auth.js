@@ -201,6 +201,26 @@ export function setUserPlan(id, plan, days) {
   saveUsers();
   return true;
 }
+/** Suma N días de Premium (si ya tiene días, se alargan). Founder/admin no se tocan. */
+export function grantPremiumDays(id, days) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return { ok: false, error: 'cuenta no encontrada' };
+  if (u.isAdmin || u.plan === 'founder') {
+    return { ok: true, skipped: true, plan: u.isAdmin ? 'admin' : 'founder', premiumUntil: u.premiumUntil || 0 };
+  }
+  const n = Math.max(1, Math.round(Number(days) || 30));
+  const addMs = n * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const currentUntil = Number(u.premiumUntil) || 0;
+  if (u.plan === 'premium' && currentUntil === 0) {
+    return { ok: true, skipped: true, plan: 'premium', premiumUntil: 0, forever: true };
+  }
+  const base = (u.plan === 'premium' && currentUntil > now) ? currentUntil : now;
+  u.plan = 'premium';
+  u.premiumUntil = base + addMs;
+  saveUsers();
+  return { ok: true, plan: 'premium', premiumUntil: u.premiumUntil, days: n };
+}
 /** true salvo que el admin haya desactivado los juegos a ese usuario (admin siempre sí). */
 export function isUserGamesEnabled(user) {
   if (!user) return true;

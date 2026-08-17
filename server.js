@@ -20,7 +20,7 @@ import {
   registerUser, verifyLogin, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled,
+  getUserPlan, setUserPlan, grantPremiumDays, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled,
   getUserBadgesPayload, recordBadgeLive, markBadgeDirectory, markBadgeDesktop, markBadgeGame, markBadgeDailyTop1, setUserManualBadge,
   deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
   setUserPassword, destroySessionsForUser,
@@ -39,6 +39,7 @@ import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
 } from './plans.js';
 import * as spotify from './spotify.js';
+import { mountPaypalRoutes } from './paypal.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1429,6 +1430,17 @@ app.get('/api/me', async (req, res) => {
       ? remoteMe.mailConfigured
       : mailStatus().configured,
   });
+});
+
+mountPaypalRoutes(app, {
+  userFromRequest,
+  grantPremiumDays,
+  AUTH_REMOTE,
+  getRemoteCookie: (id) => remoteCookies.get(id),
+  onGranted: (userId) => {
+    const room = rooms.get(userId);
+    if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
+  },
 });
 
 function clientRateKey(req) {
@@ -3460,6 +3472,111 @@ app.get('/api/local-videos-niveles', (_req, res) => {
   }
   results.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   res.json({ results });
+});
+
+const VIDEO_PREVIEW_DIR = path.join(VIDEOS_DIR, '.libpreview');
+try { fs.mkdirSync(VIDEO_PREVIEW_DIR, { recursive: true }); } catch {}
+const libPreviewJobs = new Map();
+
+function runLibPreviewFfmpeg(args, outPath) {
+  return new Promise((resolve) => {
+    if (!ffmpegPath) return resolve(null);
+    let done = false;
+    const finish = (ok) => { if (done) return; done = true; resolve(ok ? outPath : null); };
+    let proc;
+    try { proc = spawn(ffmpegPath, args, { windowsHide: true }); }
+    catch { return finish(false); }
+    const t = setTimeout(() => { try { proc.kill('SIGKILL'); } catch {} }, 25000);
+    proc.on('error', () => { clearTimeout(t); finish(false); });
+    proc.on('close', (code) => {
+      clearTimeout(t);
+      if (code === 0 && fs.existsSync(outPath)) finish(true);
+      else { fs.unlink(outPath, () => {}); finish(false); }
+    });
+  });
+}
+
+function resolveLibVideoPath(srcUrl) {
+  let u = String(srcUrl || '').split('?')[0];
+  try { u = decodeURIComponent(u); } catch {}
+  u = u.replace(/\\/g, '/');
+  if (!u.startsWith('/')) return null;
+  const rel = u.replace(/^\/+/, '');
+  let base = '';
+  let rest = '';
+  if (rel.startsWith('video/batalla/')) {
+    base = BATALLA_VIDEOS_DIR;
+    rest = rel.slice('video/batalla/'.length);
+  } else if (rel.startsWith('video/')) {
+    base = VIDEOS_DIR;
+    rest = rel.slice('video/'.length);
+  } else if (rel.startsWith('niveles/')) {
+    base = NIVELES_VIDEOS_DIR;
+    rest = rel.slice('niveles/'.length);
+  } else if (rel.startsWith('uploads/')) {
+    base = UPLOADS_DIR;
+    rest = rel.slice('uploads/'.length);
+  } else return null;
+  if (!rest || rest.includes('..') || rest.includes('/') || rest.includes('\\')) return null;
+  const full = path.resolve(base, rest);
+  const root = path.resolve(base);
+  if (full !== root && !full.startsWith(root + path.sep)) return null;
+  return full;
+}
+
+function libPreviewKey(srcPath, st, kind) {
+  return crypto.createHash('sha1').update(srcPath + '|' + st.mtimeMs + '|' + st.size + '|v4vp9|' + kind).digest('hex').slice(0, 20);
+}
+
+function makeLibPreviewFile(srcPath, kind) {
+  let st;
+  try { st = fs.statSync(srcPath); } catch { return Promise.resolve(null); }
+  const ext = kind === 'poster' ? '.png' : '.webm';
+  const outPath = path.join(VIDEO_PREVIEW_DIR, libPreviewKey(srcPath, st, kind) + ext);
+  try {
+    if (fs.existsSync(outPath) && fs.statSync(outPath).size > 80) return Promise.resolve(outPath);
+  } catch {}
+  if (libPreviewJobs.has(outPath)) return libPreviewJobs.get(outPath);
+  const job = (async () => {
+    const scale = 'scale=240:-2:flags=fast_bilinear';
+    const vfPoster = scale + ',format=rgba';
+    const vfVideo = scale + ',fps=20,format=yuva420p';
+    const decoders = [['-c:v', 'libvpx-vp9'], ['-c:v', 'libvpx'], []];
+    const tries = [];
+    for (const dec of decoders) {
+      if (kind === 'poster') {
+        tries.push(['-y', ...dec, '-i', srcPath, '-ss', '1', '-an', '-vf', vfPoster, '-frames:v', '1', '-pix_fmt', 'rgba', '-c:v', 'png', outPath]);
+        tries.push(['-y', ...dec, '-i', srcPath, '-an', '-vf', vfPoster, '-frames:v', '1', '-pix_fmt', 'rgba', '-c:v', 'png', outPath]);
+      } else {
+        tries.push(['-y', ...dec, '-i', srcPath, '-an', '-vf', vfVideo, '-c:v', 'libvpx', '-pix_fmt', 'yuva420p',
+          '-auto-alt-ref', '0', '-deadline', 'realtime', '-cpu-used', '8', '-crf', '32', '-b:v', '350k', outPath]);
+        tries.push(['-y', ...dec, '-i', srcPath, '-an', '-vf', vfVideo, '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p',
+          '-auto-alt-ref', '0', '-deadline', 'realtime', '-cpu-used', '8', '-row-mt', '1', '-crf', '34', '-b:v', '0', outPath]);
+      }
+    }
+    for (const args of tries) {
+      const ok = await runLibPreviewFfmpeg(args, outPath);
+      if (ok) return ok;
+    }
+    return null;
+  })().finally(() => libPreviewJobs.delete(outPath));
+  libPreviewJobs.set(outPath, job);
+  return job;
+}
+
+app.get('/api/video-lib-preview', async (req, res) => {
+  const srcPath = resolveLibVideoPath(req.query.src);
+  if (!srcPath || !fs.existsSync(srcPath)) return res.status(404).end();
+  const ext = path.extname(srcPath).toLowerCase();
+  if (['.gif', '.png', '.jpg', '.jpeg', '.webp'].includes(ext)) return res.sendFile(srcPath);
+  const kind = String(req.query.poster || '') === '1' ? 'poster' : 'video';
+  try {
+    const preview = await makeLibPreviewFile(srcPath, kind);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.sendFile(preview || srcPath);
+  } catch {
+    return res.sendFile(srcPath);
+  }
 });
 
 app.get('/api/sounds', async (req, res) => {

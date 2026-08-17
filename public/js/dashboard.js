@@ -814,6 +814,7 @@ async function loadPlanComparison(force) {
     const r = await fetch('/api/plans');
     if (r.ok) planCompareData = await r.json();
   } catch {}
+  await loadPaypalPremiumStatus();
   planCompareLoading = false;
   renderPlanCompare();
 }
@@ -905,13 +906,21 @@ function renderPlanPricing() {
 
   const freeCurrent = mine === 'free';
   const premCurrent = mine === 'premium';
+  const premUntil = Number(window.MY_PREMIUM_UNTIL || 0);
+  const premForever = premCurrent && !(premUntil > 0) && !window.IS_ADMIN;
+  const canBuy = !window.IS_ADMIN && window.CAPS.plan !== 'founder' && !premForever;
+  const pp = window.PAYPAL_PREMIUM || { enabled: false, amount: '17.00', currency: 'USD', days: 30 };
+  const priceLabel = `$${pp.amount || '17'} ${pp.currency || 'USD'}`;
+  const daysLabel = `${pp.days || 30} días`;
 
   const freeBtn = freeCurrent
     ? '<button class="pp-btn current" disabled>Tu plan actual</button>'
     : '<button class="pp-btn ghost" disabled>Incluido</button>';
-  const premBtn = premCurrent
+  const premBtn = !canBuy
     ? '<button class="pp-btn current" disabled>Tu plan actual</button>'
-    : '<button class="pp-btn buy" id="pp-buy">Comprar Premium ⭐</button>';
+    : premCurrent
+      ? `<button class="pp-btn buy" id="pp-buy">${pp.enabled ? 'Renovar 1 mes · PayPal' : 'Renovar Premium ⭐'}</button>`
+      : `<button class="pp-btn buy" id="pp-buy">${pp.enabled ? 'Pagar con PayPal · 1 mes' : 'Comprar Premium ⭐'}</button>`;
 
   wrap.innerHTML = `
     <div class="pp-card free ${freeCurrent ? 'is-mine' : ''}">
@@ -928,21 +937,85 @@ function renderPlanPricing() {
       <span class="pp-tag gold">⭐ RECOMENDADO</span>
       <div class="pp-head">
         <div class="pp-name">⭐ Plan Premium</div>
-        <div class="pp-price">$17 USD<small>/ mes · todo desbloqueado</small></div>
+        <div class="pp-price">${priceLabel}<small>/ ${daysLabel} · todo desbloqueado</small></div>
       </div>
       <p class="pp-tagline">Sin límites y con todos los overlays y funciones.</p>
       <ul class="pp-list">${buildList('premium')}</ul>
       ${premBtn}
-      ${IS_DESKTOP ? '<p class="pp-note">Una vez que te activen el plan, cierra sesión e inicia de nuevo.</p>' : ''}
+      ${IS_DESKTOP ? '<p class="pp-note">Tras pagar, recarga el panel (o cierra sesión y entra de nuevo).</p>' : ''}
     </div>
   `;
 
   const buyBtn = document.getElementById('pp-buy');
-  if (buyBtn) buyBtn.onclick = () => {
-    const msg = `Hola, quiero comprar el Plan Premium ($17 USD/mes) de Livecoins. Mi usuario es: ${window.MY_USER || ''}`;
-    const url = 'https://wa.me/522202079074?text=' + encodeURIComponent(msg);
-    window.open(url, '_blank', 'noopener');
-  };
+  if (buyBtn) buyBtn.onclick = () => startPremiumPurchase();
+}
+
+function openPremiumWhatsApp() {
+  const msg = `Hola, quiero comprar el Plan Premium ($17 USD/mes) de Livecoins. Mi usuario es: ${window.MY_USER || ''}`;
+  const url = 'https://wa.me/522202079074?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank', 'noopener');
+}
+
+async function loadPaypalPremiumStatus() {
+  try {
+    const r = await fetch('/api/paypal/status', { credentials: 'same-origin', cache: 'no-store' });
+    const d = await r.json().catch(() => ({}));
+    window.PAYPAL_PREMIUM = {
+      enabled: !!(d && d.enabled),
+      amount: d && d.amount ? d.amount : '17.00',
+      currency: d && d.currency ? d.currency : 'USD',
+      days: d && d.days ? d.days : 30,
+    };
+  } catch {
+    window.PAYPAL_PREMIUM = { enabled: false, amount: '17.00', currency: 'USD', days: 30 };
+  }
+}
+
+async function watchPremiumActivation(untilBefore) {
+  const before = Number(untilBefore) || 0;
+  for (let i = 0; i < 40; i++) {
+    await new Promise((ok) => setTimeout(ok, 4000));
+    try {
+      const r = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' });
+      if (!r.ok) continue;
+      const me = await r.json();
+      const until = Number(me.premiumUntil) || 0;
+      if (me.plan === 'premium' && until > before) {
+        toast('Premium activado ⭐ Recargando…');
+        setTimeout(() => location.reload(), 700);
+        return;
+      }
+    } catch {}
+  }
+}
+
+async function startPremiumPurchase() {
+  const untilBefore = Number(window.MY_PREMIUM_UNTIL || 0);
+  try {
+    const r = await fetch('/api/paypal/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: '{}',
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.approveUrl) {
+      window.open(d.approveUrl, '_blank', 'noopener');
+      toast('Se abrió PayPal. Al pagar, Premium se activa 1 mes.');
+      watchPremiumActivation(untilBefore);
+      return;
+    }
+    if (r.status === 401) {
+      toast('Inicia sesión para pagar Premium.');
+      return;
+    }
+    if (d && d.whatsapp) {
+      openPremiumWhatsApp();
+      return;
+    }
+    if (d && d.error) toast(d.error);
+  } catch {}
+  openPremiumWhatsApp();
 }
 
 // Texto que se muestra en lugar de la URL cuando el overlay no está en el plan.
@@ -3183,9 +3256,7 @@ async function loadAdminBadges() {
 })();
 
 const planUpgradeBtn = document.getElementById('plan-upgrade');
-if (planUpgradeBtn) planUpgradeBtn.onclick = () => {
-  toast('Contacta con el administrador para activar tu plan Premium ⭐');
-};
+if (planUpgradeBtn) planUpgradeBtn.onclick = () => startPremiumPurchase();
 
 /* -------- Editor de planes (límites y características por plan) -------- */
 let plansCatalog = null;
@@ -5984,6 +6055,7 @@ let localVideos = [];
 let videoPackAiBusy = false;
 
 let libTarget = 'vid'; // 'vid' | 'ba' — a qué modal vuelve el video elegido de la librería
+let vidLibPicked = null;
 $('vid-libbtn').onclick = () => {
   if (isVideosAiLocked()) {
     toast('Videos AI es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
@@ -5994,6 +6066,8 @@ $('vid-libbtn').onclick = () => {
 };
 $('vidlib-close').onclick = closeVideoLib;
 $('vidlib-cancel').onclick = closeVideoLib;
+if ($('vidlib-back')) $('vidlib-back').onclick = closeVideoLib;
+if ($('vidlib-use')) $('vidlib-use').onclick = () => vidLibUsePicked();
 $('videoLibModal').addEventListener('click', (e) => { if (e.target.id === 'videoLibModal') closeVideoLib(); });
 $('vid-librefresh').onclick = () => loadLocalVideos();
 if ($('vidlib-openniveles')) {
@@ -6008,6 +6082,17 @@ if ($('vidlib-update-ai')) {
   $('vidlib-update-ai').onclick = () => { void downloadVideoPackAi({ mode: 'update', fromButton: true }); };
 }
 $('vid-libq').addEventListener('input', () => renderLocalVideos($('vid-libq').value.trim()));
+if ($('vidlib-cats')) {
+  $('vidlib-cats').addEventListener('click', (e) => {
+    const btn = e.target.closest('.vidlib-chip');
+    if (!btn || !btn.dataset.cat) return;
+    const cat = btn.dataset.cat;
+    const hid = $('vidlib-cat');
+    if (hid) hid.value = cat;
+    $('vidlib-cats').querySelectorAll('.vidlib-chip').forEach((b) => b.classList.toggle('is-on', b === btn));
+    renderLocalVideos($('vid-libq').value.trim());
+  });
+}
 
 // ¿La biblioteca debe mostrar la carpeta «niveles»? Solo en Videos y cuando el
 // evento elegido es "Subió de nivel de miembro".
@@ -6103,24 +6188,24 @@ async function refreshVideoPackAiUi() {
   return videoPackAiUi;
 }
 
-async function downloadVideoPackAi({ mode = 'install', fromButton = false } = {}) {
+async function downloadVideoPackAi({ mode = 'install', fromButton = false, silent = false } = {}) {
   if (!canUseVideoPackAi() || videoPackAiBusy) return false;
   const kind = currentVideoPackKind();
   const label = kind === 'batalla' ? 'Batallas AI' : 'Videos AI';
   const isUpdate = mode === 'update';
   const myGen = videoPackPromptGen;
 
-  // Por si acaban de instalar por otro camino (botón vacío, etc.)
+  // Por si acaban de instalar por otro camino (botón vacío, auto al abrir la app, etc.)
   try {
     const st0 = await videoPackStatusCall(kind);
-    if (!isUpdate && st0 && st0.installed) {
-      videoPackAiUi = { installed: true, needsUpdate: !!st0.needsUpdate, kind };
+    if (!isUpdate && st0 && st0.installed && !st0.needsUpdate) {
+      videoPackAiUi = { installed: true, needsUpdate: false, kind };
       applyVideoPackAiButtons();
       return true;
     }
   } catch {}
 
-  if (!fromButton && !isUpdate) {
+  if (!silent && !fromButton && !isUpdate) {
     const ok = await askConfirm({
       icon: kind === 'batalla' ? '⚔️' : '🎬',
       title: 'Descargar ' + label,
@@ -6144,7 +6229,7 @@ async function downloadVideoPackAi({ mode = 'install', fromButton = false } = {}
       }
     } catch {}
   }
-  if (isUpdate && fromButton) {
+  if (!silent && isUpdate && fromButton) {
     const ok = await askConfirm({
       icon: '↻',
       title: 'Actualizar ' + label,
@@ -6228,15 +6313,13 @@ async function maybePromptVideoPackAi() {
     applyVideoPackAiButtons();
     return;
   }
-  // Si la grilla ya tiene clips, no volver a pedir descarga
-  if (localVideos && localVideos.length > 0) {
-    await refreshVideoPackAiUi();
-    return;
-  }
+  // Si la grilla ya tiene clips, igual hay que actualizar el pack si cambió versión/URL.
   const st = await refreshVideoPackAiUi();
   if (myGen !== videoPackPromptGen) return;
   if (!st.installed) {
-    await downloadVideoPackAi({ mode: 'install', fromButton: false });
+    await downloadVideoPackAi({ mode: 'install', silent: true });
+  } else if (st.needsUpdate) {
+    await downloadVideoPackAi({ mode: 'update', silent: true });
   }
 }
 
@@ -6249,11 +6332,7 @@ function openVideoLib() {
   const niveles = libIsNiveles();
   const folder = libTarget === 'ba' ? 'public/video/batalla' : (niveles ? 'public/video/niveles' : 'public/video');
   const sub = document.querySelector('#videoLibModal .vidlib-sub');
-  if (sub) sub.textContent = libTarget === 'ba'
-    ? 'Selecciona un video de la carpeta de batallas (vista previa vertical)'
-    : niveles
-      ? 'Selecciona el video del nivel (carpeta niveles)'
-      : 'Selecciona un video de la carpeta (vista previa vertical)';
+  if (sub) sub.textContent = 'Selecciona una animación de la biblioteca';
   const credit = document.querySelector('#videoLibModal .modal-foot .credit');
   if (credit) {
     // Pack AI: sin texto de pie (no anunciar peso del instalador).
@@ -6265,15 +6344,21 @@ function openVideoLib() {
       credit.innerHTML = 'Videos de la carpeta <code>' + folder + '</code>.';
     }
   }
-  const titleEl = document.querySelector('#videoLibModal .create-modal-head h2');
+  const titleEl = $('vidlib-title') || document.querySelector('#videoLibModal .create-modal-head h2');
   if (titleEl) {
-    titleEl.textContent = libTarget === 'ba' ? '⚔️ Batallas AI' : '🎬 Videos AI';
+    const actionName = libTarget === 'ba'
+      ? (($('ba-name') && $('ba-name').value) || '').trim()
+      : (($('vid-name') && $('vid-name').value) || '').trim();
+    const base = libTarget === 'ba' ? 'Animación – Batallas' : 'Animación – Multimedia';
+    titleEl.textContent = actionName ? (base + ' (' + actionName + ')') : base;
   }
   const openBtn = $('vidlib-openniveles');
   if (openBtn) openBtn.style.display = (niveles && window.desktopAPI && window.desktopAPI.openNivelesFolder) ? '' : 'none';
   dismissVideoPackConfirms();
   videoPackPromptGen += 1;
   applyVideoPackAiButtons();
+  const behind = libTarget === 'ba' ? $('baModal') : $('vidModal');
+  if (behind) behind.classList.add('vidlib-behind');
   $('videoLibModal').classList.remove('hidden');
   const gen = videoPackPromptGen;
   loadLocalVideos().then(() => {
@@ -6286,11 +6371,185 @@ function closeVideoLib() {
   videoPackPromptGen += 1;
   dismissVideoPackConfirms();
   $('videoLibModal').classList.add('hidden');
-  // Libera los videos de la biblioteca para no seguir consumiendo CPU/memoria.
-  if (window._vidLibIO) { try { window._vidLibIO.disconnect(); } catch {} window._vidLibIO = null; }
-  document.querySelectorAll('#vid-libgrid video').forEach((v) => {
-    try { v.pause(); v.removeAttribute('src'); v.load(); } catch {}
+  document.querySelectorAll('.vidlib-behind').forEach((el) => el.classList.remove('vidlib-behind'));
+  window._vidLibHover = null;
+  window._vidLibPlaying = null;
+  vidLibPicked = null;
+  vidLibWarmGen += 1;
+  const use = $('vidlib-use');
+  if (use) use.disabled = true;
+  vidLibStopShared();
+}
+
+function vidLibMuteLoop(v, className) {
+  v.className = className;
+  v.muted = true;
+  v.defaultMuted = true;
+  v.loop = true;
+  v.playsInline = true;
+  v.setAttribute('muted', '');
+  v.setAttribute('playsinline', '');
+  v.preload = 'auto';
+  v.playbackRate = 1;
+  v.defaultPlaybackRate = 1;
+  try { v.disablePictureInPicture = true; } catch {}
+  try { v.disableRemotePlayback = true; } catch {}
+  v.addEventListener('playing', () => { v.playbackRate = 1; });
+  v.addEventListener('ratechange', () => { if (v.playbackRate !== 1) v.playbackRate = 1; });
+  return v;
+}
+
+function vidLibDetachVideo(v) {
+  if (!v) return;
+  try { v.pause(); } catch {}
+  try { delete v.dataset.playUrl; v.removeAttribute('src'); v.load(); } catch {}
+}
+
+function vidLibPauseHover() {
+  if (window._vidLibPlaying) window._vidLibPlaying.classList.remove('is-playing');
+  const v = window._vidLibPlayer;
+  if (v) try { v.pause(); } catch {}
+  const c = window._vidLibCanvas;
+  if (c && window._vidLibCtx) {
+    try { window._vidLibCtx.clearRect(0, 0, c.width, c.height); } catch {}
+  }
+  if (c && c.parentNode) c.parentNode.removeChild(c);
+}
+
+function vidLibStopShared() {
+  vidLibPauseHover();
+  vidLibDetachVideo(window._vidLibPlayer);
+}
+
+function vidLibEnsureStage() {
+  if (!window._vidLibPlayer) {
+    const v = vidLibMuteLoop(document.createElement('video'), 'vid-lib-player');
+    v.width = 240;
+    v.height = 426;
+    document.body.appendChild(v);
+    window._vidLibPlayer = v;
+  }
+  if (!window._vidLibCanvas) {
+    const c = document.createElement('canvas');
+    c.className = 'vid-lib-canvas';
+    c.width = 240;
+    c.height = 426;
+    window._vidLibCanvas = c;
+    window._vidLibCtx = c.getContext('2d', { alpha: true });
+  }
+  if (!window._vidLibRaf) {
+    const loop = () => {
+      window._vidLibRaf = requestAnimationFrame(loop);
+      const v = window._vidLibPlayer;
+      const c = window._vidLibCanvas;
+      const ctx = window._vidLibCtx;
+      if (!v || !c || !ctx || v.paused || v.readyState < 2) return;
+      ctx.clearRect(0, 0, c.width, c.height);
+      try { ctx.drawImage(v, 0, 0, c.width, c.height); } catch {}
+    };
+    loop();
+  }
+  return { v: window._vidLibPlayer, c: window._vidLibCanvas };
+}
+
+function vidLibIsVideoCell(cell) {
+  const u = cell && cell.dataset.url;
+  return !!(u && !/\.(gif|png|jpe?g|webp)(\?|$)/i.test(u));
+}
+
+function vidLibPreviewSrc(url) {
+  return url || '';
+}
+
+function vidLibPosterSrc(url) {
+  if (!url || /\.(gif|png|jpe?g|webp)(\?|$)/i.test(url)) return url;
+  return '/api/video-lib-preview?v=4&poster=1&src=' + encodeURIComponent(url);
+}
+
+let vidLibWarmGen = 0;
+function vidLibWarmPreviews() {
+  vidLibWarmGen++;
+}
+
+function vidLibSetPicked(cell) {
+  vidLibPicked = cell ? { url: cell.dataset.url, name: cell.dataset.name } : null;
+  document.querySelectorAll('#vid-libgrid .vid-cell').forEach((c) => c.classList.toggle('is-on', c === cell));
+  const use = $('vidlib-use');
+  if (use) use.disabled = !vidLibPicked;
+}
+
+function vidLibUsePicked() {
+  if (!vidLibPicked) return;
+  const chosen = vidLibPicked;
+  if (libTarget === 'ba') {
+    baPending = chosen;
+    if ($('ba-fname')) $('ba-fname').textContent = chosen.name;
+  } else {
+    vidPending = chosen;
+    if ($('vid-fname')) $('vid-fname').textContent = chosen.name;
+  }
+  closeVideoLib();
+}
+
+function vidLibSyncPlay(box) {
+  if (!box) return;
+  const hovered = window._vidLibHover && box.contains(window._vidLibHover) ? window._vidLibHover : null;
+  if (!hovered) {
+    vidLibPauseHover();
+    window._vidLibPlaying = null;
+    return;
+  }
+  const host = hovered.querySelector('.vid-prev-media') || hovered.querySelector('.vid-prev');
+  if (!host) return;
+  if (!vidLibIsVideoCell(hovered)) {
+    vidLibPauseHover();
+    window._vidLibPlaying = hovered;
+    hovered.classList.add('is-playing');
+    return;
+  }
+  const url = hovered.dataset.preview || vidLibPreviewSrc(hovered.dataset.url);
+  const { v: player, c: canvas } = vidLibEnsureStage();
+  if (
+    window._vidLibPlaying === hovered
+    && canvas.parentNode === host
+    && player.dataset.playUrl === url
+    && !player.paused
+  ) return;
+
+  if (window._vidLibPlaying && window._vidLibPlaying !== hovered) {
+    window._vidLibPlaying.classList.remove('is-playing');
+  }
+  if (canvas.parentNode !== host) host.appendChild(canvas);
+  if (player.dataset.playUrl !== url) {
+    player.dataset.playUrl = url;
+    player.src = url;
+  }
+  player.muted = true;
+  player.playbackRate = 1;
+  hovered.classList.add('is-playing');
+  window._vidLibPlaying = hovered;
+  if (player.paused) {
+    try { if (player.currentTime > 0.05) player.currentTime = 0; } catch {}
+    player.play().catch(() => {});
+  }
+}
+
+function bindVidLibGrid(box) {
+  window._vidLibHover = null;
+  window._vidLibPlaying = null;
+  vidLibSetPicked(null);
+  vidLibStopShared();
+
+  box.querySelectorAll('.vid-cell').forEach((cell) => {
+    cell.addEventListener('mouseenter', () => { window._vidLibHover = cell; vidLibSyncPlay(box); });
+    cell.addEventListener('mouseleave', () => {
+      if (window._vidLibHover === cell) window._vidLibHover = null;
+      vidLibSyncPlay(box);
+    });
+    cell.onclick = () => vidLibSetPicked(cell);
+    cell.ondblclick = () => { vidLibSetPicked(cell); vidLibUsePicked(); };
   });
+  vidLibWarmPreviews(box);
 }
 
 const isImageFile = (u) => /\.(gif|png|jpe?g|webp)(\?|$)/i.test(u || '');
@@ -6312,71 +6571,62 @@ async function loadLocalVideos() {
   }
 }
 
+const VIDLIB_CATS = ['quiereme', 'taptap', 'cofre', 'x2', 'x3', 'snipe', 'guante', 'varios'];
+const VIDLIB_NAMED_CATS = VIDLIB_CATS.filter((c) => c !== 'varios');
+
+function vidLibNameInCat(name, cat) {
+  const n = String(name || '').toLowerCase().replace(/[_-]+/g, ' ');
+  const c = String(cat || 'quiereme').toLowerCase();
+  if (c === 'varios') return !VIDLIB_NAMED_CATS.some((k) => vidLibNameInCat(name, k));
+  if (c === 'taptap') return /tap\s*tap|taptap/.test(n);
+  if (c === 'x2') return /(^|[^a-z0-9])x\s*2([^a-z0-9]|$)/.test(n);
+  if (c === 'x3') return /(^|[^a-z0-9])x\s*3([^a-z0-9]|$)/.test(n);
+  return n.includes(c);
+}
+
+function vidLibActiveCat() {
+  const sel = $('vidlib-cat');
+  const v = sel && sel.value ? String(sel.value).toLowerCase() : 'quiereme';
+  return VIDLIB_CATS.includes(v) ? v : 'quiereme';
+}
+
 function renderLocalVideos(filter) {
   const box = $('vid-libgrid');
+  const cat = vidLibActiveCat();
   const f = (filter || '').toLowerCase();
-  const list = f ? localVideos.filter((v) => v.name.toLowerCase().includes(f)) : localVideos;
+  let list = localVideos.filter((v) => vidLibNameInCat(v.name, cat));
+  if (f) list = list.filter((v) => v.name.toLowerCase().includes(f));
+  const countEl = $('vidlib-count');
+  if (countEl) countEl.textContent = list.length + (list.length === 1 ? ' animación' : ' animaciones');
   if (!list.length) {
     const folder = libTarget === 'ba' ? 'video/batalla' : (libIsNiveles() ? 'video/niveles' : 'video');
     const needPack = (libTarget === 'vid' || libTarget === 'ba') && !libIsNiveles() && canUseVideoPackAi() && !localVideos.length && !videoPackAiUi.installed;
     applyVideoPackAiButtons();
     const packLabel = libTarget === 'ba' ? 'Batallas AI' : 'Videos AI';
     box.innerHTML = localVideos.length
-      ? '<div class="empty">Ningún video coincide</div>'
+      ? (f ? '<div class="empty">Ningún video coincide</div>' : `<div class="empty">No hay videos en «${cat}»</div>`)
       : needPack
         ? `<div class="empty">Aún no tienes ${packLabel} descargados.<br>
             <button type="button" class="btn primary" id="vidlib-dl-empty">⬇ Descargar pack</button></div>`
         : `<div class="empty">No hay videos en la carpeta «${folder}».<br>Copia tus .mp4 ahí y pulsa ↻</div>`;
     const emptyBtn = $('vidlib-dl-empty');
     if (emptyBtn) emptyBtn.onclick = () => { void downloadVideoPackAi({ mode: 'install', fromButton: true }); };
+    vidLibSetPicked(null);
     return;
   }
   applyVideoPackAiButtons();
   const niceName = (n) => n.replace(/\.[^.]+$/, '');
-  // Importante: NO ponemos autoplay ni preload="auto" en todos. Si la carpeta tiene
-  // muchos videos, descargar y decodificar todos a la vez traba el navegador. En su
-  // lugar, cargamos solo metadata y reproducimos únicamente los que están a la vista.
   box.innerHTML = list.map((v) => {
     const media = isImageFile(v.url)
       ? `<img src="${esc(v.url)}" loading="lazy" decoding="async">`
-      : `<video data-src="${esc(v.url)}" muted loop playsinline preload="none"></video>`;
+      : `<img class="vid-lib-poster" src="${esc(vidLibPosterSrc(v.url))}" loading="lazy" decoding="async" alt="">`;
     return `
-    <div class="vid-cell" data-url="${esc(v.url)}" data-name="${esc(v.name)}" title="${esc(v.name)}">
-      <div class="vid-prev">${media}</div>
+    <div class="vid-cell" data-url="${esc(v.url)}" data-name="${esc(v.name)}" title="${esc(niceName(v.name))}">
+      <div class="vid-prev"><div class="vid-prev-media">${media}</div></div>
       <div class="vid-cell-name">${esc(niceName(v.name))}</div>
     </div>`;
   }).join('');
-
-  // Reproductor perezoso: solo se cargan/reproducen los videos visibles dentro del
-  // modal; al salir de la vista se pausan para liberar memoria y CPU.
-  if (window._vidLibIO) { try { window._vidLibIO.disconnect(); } catch {} }
-  const io = new IntersectionObserver((entries) => {
-    for (const en of entries) {
-      const vid = en.target;
-      if (en.isIntersecting) {
-        if (!vid.src && vid.dataset.src) vid.src = vid.dataset.src;
-        vid.play().catch(() => {});
-      } else {
-        try { vid.pause(); } catch {}
-      }
-    }
-  }, { root: box, rootMargin: '120px', threshold: 0.1 });
-  window._vidLibIO = io;
-  box.querySelectorAll('video').forEach((vid) => io.observe(vid));
-
-  box.querySelectorAll('.vid-cell').forEach((cell) => {
-    cell.onclick = () => {
-      const chosen = { url: cell.dataset.url, name: cell.dataset.name };
-      if (libTarget === 'ba') {
-        baPending = chosen;
-        $('ba-fname').textContent = cell.dataset.name;
-      } else {
-        vidPending = chosen;
-        $('vid-fname').textContent = cell.dataset.name;
-      }
-      closeVideoLib();
-    };
-  });
+  bindVidLibGrid(box);
 }
 
 $('vid-save').onclick = async () => {
@@ -15802,8 +16052,10 @@ function startKbManualCapture() {
 
 function setupKeyboardModal() {
   if (!$('kbModal') || !$('kb-keyboard')) return;
-  renderKeyboard();
-  renderKbCharpad();
+  if (window._kbModalWired) return;
+  window._kbModalWired = true;
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(() => ensureKbDom(), { timeout: 900 });
+  else setTimeout(ensureKbDom, 0);
   accBind('kb-close', () => { stopKbManualCapture(); $('kbModal').classList.add('hidden'); });
   accBind('kb-discard', () => { stopKbManualCapture(); $('kbModal').classList.add('hidden'); });
   accBind('kb-manual', startKbManualCapture);
@@ -15904,6 +16156,11 @@ function setupKeyboardModal() {
   if (khs) khs.addEventListener('input', syncKbHoldUI);
 }
 
+function ensureKbDom() {
+  renderKeyboard();
+  renderKbCharpad();
+}
+
 function toggleKbTextMode(show) {
   const row = $('kb-textrow');
   const crows = $('kb-charsrow');
@@ -15911,7 +16168,10 @@ function toggleKbTextMode(show) {
   if (crows) crows.hidden = !show;
   if (show) {
     const ti = $('kb-textinput');
-    if (ti) { ti.value = kbText || ''; setTimeout(() => ti.focus(), 0); }
+    if (ti) {
+      ti.value = kbText || '';
+      requestAnimationFrame(() => ti.focus());
+    }
   } else {
     $('kb-chars')?.classList.remove('active');
   }
@@ -15994,11 +16254,14 @@ function kbCombo() {
 }
 
 function refreshKeyboardUI() {
-  document.querySelectorAll('#kb-keyboard .kb-key').forEach((b) => {
+  const keys = document.querySelectorAll('#kb-keyboard .kb-key');
+  for (let i = 0; i < keys.length; i++) {
+    const b = keys[i];
     const code = b.dataset.code;
-    b.classList.toggle('active', b.dataset.mod === '1' && kbMods.includes(code));
-    b.classList.toggle('sel', b.dataset.mod !== '1' && code === kbMain);
-  });
+    const isMod = b.dataset.mod === '1';
+    b.classList.toggle('active', isMod && kbMods.includes(code));
+    b.classList.toggle('sel', !isMod && code === kbMain);
+  }
   document.querySelectorAll('#kbModal .kb-action').forEach((b) => {
     b.classList.toggle('sel', b.dataset.code === kbMain || (b.dataset.kind === 'text' && kbMain === 'TEXT'));
   });
@@ -16015,6 +16278,7 @@ function refreshKeyboardUI() {
 
 function openKeyboardModal() {
   stopKbManualCapture();
+  ensureKbDom();
   // Prefill desde la combinación actual del campo acc-keys.
   kbMods = []; kbMain = ''; kbMainLabel = ''; kbText = ''; kbTextEnter = false;
   const cur = ($('acc-keys').value || '').trim();
@@ -16036,15 +16300,17 @@ function openKeyboardModal() {
       if (m) { kbMain = m; kbMainLabel = m; }
     }
   }
-  $('kb-gamecompat').checked = !!accPendingGameCompat;
+  if ($('kb-gamecompat')) $('kb-gamecompat').checked = !!accPendingGameCompat;
   if ($('kb-text-enter')) $('kb-text-enter').checked = kbTextEnter;
   if ($('kb-hold-on')) $('kb-hold-on').checked = accPendingKeyHoldSec > 0;
   if ($('kb-hold-sec')) $('kb-hold-sec').value = accPendingKeyHoldSec > 0 ? accPendingKeyHoldSec : 1;
-  toggleKbTextMode(kbMain === 'TEXT');
-  if (kbMain === 'TEXT') $('kb-chars')?.classList.add('active');
-  else $('kb-chars')?.classList.remove('active');
-  refreshKeyboardUI();
   $('kbModal').classList.remove('hidden');
+  requestAnimationFrame(() => {
+    toggleKbTextMode(kbMain === 'TEXT');
+    if (kbMain === 'TEXT') $('kb-chars')?.classList.add('active');
+    else $('kb-chars')?.classList.remove('active');
+    refreshKeyboardUI();
+  });
 }
 
 async function uploadAccImage(file) {
@@ -18582,36 +18848,7 @@ async function importMcPresets(file) {
   toast && toast(`Importadas ${clean.length} acciones (${mode === 'replace' ? 'reemplazo' : 'añadidas'}).`, 'ok');
 }
 
-function setupMcActionsUI() {
-  const search = document.getElementById('mc-cat-search');
-  if (search && !search._wired) {
-    search._wired = true;
-    search.oninput = () => renderMcCatalog(search.value);
-  }
-  const createBtn = document.getElementById('mc-create-cmd');
-  if (createBtn && !createBtn._wired) {
-    createBtn._wired = true;
-    createBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } openMcCmdModal(null); };
-  }
-  const genImgBtn = document.getElementById('mc-gen-img');
-  if (genImgBtn && !genImgBtn._wired) {
-    genImgBtn._wired = true;
-    genImgBtn.onclick = () => generateMcMenuImage();
-  }
-  const expBtn = document.getElementById('mc-export-preset');
-  if (expBtn && !expBtn._wired) { expBtn._wired = true; expBtn.onclick = exportMcPresets; }
-  const impBtn = document.getElementById('mc-import-preset');
-  const impFile = document.getElementById('mc-import-file');
-  if (impBtn && impFile && !impBtn._wired) {
-    impBtn._wired = true;
-    impBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } impFile.click(); };
-    impFile.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      e.target.value = '';
-      if (file) await importMcPresets(file);
-    });
-  }
-  wireGameToggleAllButton('mc-toggle-all', () => (settings && Array.isArray(settings.mcActions)) ? settings.mcActions : [], renderMyMcActions, 'mcActions');
+function wireMcCmdModalOnce() {
   const mAdd = document.getElementById('mcc-add');
   if (mAdd && !mAdd._wired) {
     mAdd._wired = true;
@@ -18679,6 +18916,39 @@ function setupMcActionsUI() {
       } catch { document.getElementById('mcc-status').textContent = '⚠️ No se pudo subir la imagen.'; }
     });
   }
+}
+
+function setupMcActionsUI() {
+  const search = document.getElementById('mc-cat-search');
+  if (search && !search._wired) {
+    search._wired = true;
+    search.oninput = () => renderMcCatalog(search.value);
+  }
+  const createBtn = document.getElementById('mc-create-cmd');
+  if (createBtn && !createBtn._wired) {
+    createBtn._wired = true;
+    createBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } openMcCmdModal(null); };
+  }
+  const genImgBtn = document.getElementById('mc-gen-img');
+  if (genImgBtn && !genImgBtn._wired) {
+    genImgBtn._wired = true;
+    genImgBtn.onclick = () => generateMcMenuImage();
+  }
+  const expBtn = document.getElementById('mc-export-preset');
+  if (expBtn && !expBtn._wired) { expBtn._wired = true; expBtn.onclick = exportMcPresets; }
+  const impBtn = document.getElementById('mc-import-preset');
+  const impFile = document.getElementById('mc-import-file');
+  if (impBtn && impFile && !impBtn._wired) {
+    impBtn._wired = true;
+    impBtn.onclick = () => { if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; } impFile.click(); };
+    impFile.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (file) await importMcPresets(file);
+    });
+  }
+  wireGameToggleAllButton('mc-toggle-all', () => (settings && Array.isArray(settings.mcActions)) ? settings.mcActions : [], renderMyMcActions, 'mcActions');
+  wireMcCmdModalOnce();
   renderMcCatalog(search ? search.value : '');
   renderMyMcActions();
 }
@@ -18916,6 +19186,7 @@ function closeMccVarsPop() {
   if (o) { o.classList.add('hidden'); o.setAttribute('aria-hidden', 'true'); }
 }
 function openMcCmdModal(a, game) {
+  wireMcCmdModalOnce();
   closeMccVarsPop();
   closeMccGalleryPicker();
   mccGame = game || (a && a.game) || 'minecraft';
