@@ -19,29 +19,21 @@
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
     p { margin: 0 0 10px; color: var(--mut); font-size: 15px; line-height: 1.55; }
-    #msg { color: #fde68a; font-weight: 600; min-height: 1.3em; }
     a.dl {
       display: none; margin-top: 22px; padding: 13px 24px; border-radius: 12px;
       color: #04121a; font-weight: 800; text-decoration: none;
       background: linear-gradient(90deg, var(--cy), var(--mg));
     }
     a.dl.show { display: inline-block; }
-    .admin { margin-top: 28px; font-size: 13px; }
-    .admin a { color: var(--cy); }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Livecoins es app de PC</h1>
-    <p>El panel en el navegador está cerrado. Entra con el <b>.exe</b> en tu computadora (juegos, overlays locales y sin gastar la nube).</p>
-    <p id="msg"></p>
+    <h1>Servidor web cerrado</h1>
+    <p>Si quieres continuar usando Livecoins, descarga la versión de PC.</p>
     <a class="dl" id="dl" href="#">Descargar Livecoins PC</a>
-    <p class="admin"><a href="/login.html">Acceso administrador</a></p>
   </div>
   <script>
-    fetch('/api/maintenance').then((r) => r.json()).then((d) => {
-      if (d && d.message) document.getElementById('msg').textContent = d.message;
-    }).catch(() => {});
     fetch('/api/web-install').then((r) => r.json()).then((d) => {
       const a = document.getElementById('dl');
       if (d && d.url) { a.href = d.url; a.classList.add('show'); }

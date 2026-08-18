@@ -22,7 +22,17 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const SESSION_COOKIE = 'hokey_sid';
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 días
-const ADMIN_USERNAME = 'jesus'; // este usuario es el administrador
+const ADMIN_USERNAME = 'jesus'; // admin histórico
+function isReservedAdminUsername(name) {
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return false;
+  if (n === ADMIN_USERNAME) return true;
+  const extra = String(process.env.ADMIN_USERNAME || process.env.ADMIN_USERNAMES || '')
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return extra.includes(n);
+}
 /** Semilla inicial (solo si el flag aún no existe); el admin puede quitar el acceso después. */
 const SPOTIFY_SEED_USERS = ['albertoyt', 'alee367', 'albertoreyesyt'];
 
@@ -34,7 +44,7 @@ let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
 (function normalizeUsers() {
   let changed = false;
   for (const u of users) {
-    if (u.username === ADMIN_USERNAME) {
+    if (isReservedAdminUsername(u.username)) {
       if (!u.isAdmin) { u.isAdmin = true; changed = true; }
       if (u.active !== true) { u.active = true; changed = true; }
     }
@@ -536,7 +546,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
       roomKey: crypto.randomBytes(9).toString('base64url'),
       createdAt: Date.now(),
       lastLogin: Date.now(),
-      isAdmin: !!isAdmin || uname === ADMIN_USERNAME,
+      isAdmin: !!isAdmin || isReservedAdminUsername(uname),
       active: active !== false,
       activatedByDefault: true,
       plan: normalizeStoredPlan(plan),
@@ -550,7 +560,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
     // refresca credenciales (por si cambió la clave en la web) y datos de plan/estado
     user.salt = salt;
     user.hash = hash;
-    user.isAdmin = !!isAdmin || uname === ADMIN_USERNAME;
+    user.isAdmin = !!isAdmin || isReservedAdminUsername(uname);
     user.active = active !== false;
     user.plan = normalizeStoredPlan(plan);
     if (user.gamesEnabled === undefined) user.gamesEnabled = true;
@@ -681,7 +691,7 @@ export function registerUser(username, password, opts = {}) {
     if (isEmailTaken(mail)) return { error: 'Ese correo ya está vinculado a otra cuenta.' };
   }
   const { salt, hash } = hashPassword(password);
-  const isAdmin = uname === ADMIN_USERNAME;
+  const isAdmin = isReservedAdminUsername(uname);
   const user = {
     id: crypto.randomUUID(),
     username: uname,
@@ -735,7 +745,7 @@ export function findOrCreateGoogleUser({ email, name } = {}) {
     return { user };
   }
   const uname = uniqueUsernameFromEmail(mail);
-  const isAdmin = uname === ADMIN_USERNAME;
+  const isAdmin = isReservedAdminUsername(uname);
   // Contraseña aleatoria e inservible: estas cuentas solo entran con Google.
   const { salt, hash } = hashPassword(crypto.randomBytes(24).toString('hex'));
   user = {
@@ -779,7 +789,7 @@ export function upsertMirrorGoogleUser({ username, googleEmail, plan, isAdmin, a
       roomKey: crypto.randomBytes(9).toString('base64url'),
       createdAt: Date.now(),
       lastLogin: Date.now(),
-      isAdmin: !!isAdmin || uname === ADMIN_USERNAME,
+      isAdmin: !!isAdmin || isReservedAdminUsername(uname),
       active: active !== false,
       activatedByDefault: true,
       plan: normalizeStoredPlan(plan),
@@ -791,7 +801,7 @@ export function upsertMirrorGoogleUser({ username, googleEmail, plan, isAdmin, a
     users.push(user);
   } else {
     if (mail) user.googleEmail = mail;
-    user.isAdmin = !!isAdmin || uname === ADMIN_USERNAME;
+    user.isAdmin = !!isAdmin || isReservedAdminUsername(uname);
     user.active = active !== false;
     user.plan = normalizeStoredPlan(plan);
     user.premiumUntil = 0;

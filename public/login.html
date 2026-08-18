@@ -273,10 +273,22 @@
       } catch {}
     })();
 
+    async function webPanelIsClosed() {
+      try {
+        const r = await fetch('/api/maintenance');
+        const d = await r.json();
+        return !!d.enabled;
+      } catch { return false; }
+    }
+
     (async function checkExistingSession() {
       try {
         const r = await fetch('/api/me');
-        if (r.ok) location.href = '/';
+        if (!r.ok) return;
+        const me = await r.json().catch(() => ({}));
+        const closed = await webPanelIsClosed();
+        if (closed && !me.isAdmin) return;
+        location.href = '/';
       } catch {}
     })();
 
@@ -312,6 +324,17 @@
           msg.textContent = data.error || 'No se pudo completar.';
           $('submit').disabled = false;
           return;
+        }
+        const closed = await webPanelIsClosed();
+        if (closed) {
+          const meR = await fetch('/api/me');
+          const me = meR.ok ? await meR.json().catch(() => ({})) : {};
+          if (!me.isAdmin) {
+            msg.className = 'msg err';
+            msg.textContent = 'El panel web está cerrado. Entra con la cuenta administrador.';
+            $('submit').disabled = false;
+            return;
+          }
         }
         msg.className = 'msg ok';
         msg.textContent = '¡Listo! Entrando…';
