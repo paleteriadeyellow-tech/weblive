@@ -953,7 +953,35 @@ function renderPlanPricing() {
 function openPremiumWhatsApp() {
   const msg = `Hola, quiero comprar el Plan Premium ($17 USD/mes) de Livecoins. Mi usuario es: ${window.MY_USER || ''}`;
   const url = 'https://wa.me/522202079074?text=' + encodeURIComponent(msg);
-  window.open(url, '_blank', 'noopener');
+  if (typeof openExternalLink === 'function') openExternalLink(url);
+  else window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function showPaypalFallbackLink(url) {
+  const btn = document.getElementById('pp-buy');
+  if (!btn || !url) return;
+  let hint = document.getElementById('pp-open-hint');
+  if (!hint) {
+    hint = document.createElement('p');
+    hint.id = 'pp-open-hint';
+    hint.className = 'pp-note';
+    btn.insertAdjacentElement('afterend', hint);
+  }
+  const safe = String(url).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  hint.innerHTML = `Si no se abrió, <a href="${safe}" target="_blank" rel="noopener noreferrer">pulsa aquí para pagar en PayPal</a>.`;
+}
+
+function openPaypalCheckout(url) {
+  if (!url) return;
+  if (typeof openExternalLink === 'function') {
+    openExternalLink(url);
+    return;
+  }
+  if (window.desktopAPI?.openExternal) {
+    window.desktopAPI.openExternal(url);
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 async function loadPaypalPremiumStatus() {
@@ -989,7 +1017,12 @@ async function watchPremiumActivation(untilBefore) {
   }
 }
 
+let premiumPurchaseBusy = false;
 async function startPremiumPurchase() {
+  if (premiumPurchaseBusy) return;
+  premiumPurchaseBusy = true;
+  const btn = document.getElementById('pp-buy');
+  if (btn) btn.disabled = true;
   const untilBefore = Number(window.MY_PREMIUM_UNTIL || 0);
   try {
     const r = await fetch('/api/paypal/create-order', {
@@ -1000,8 +1033,9 @@ async function startPremiumPurchase() {
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok && d.approveUrl) {
-      window.open(d.approveUrl, '_blank', 'noopener');
-      toast('Se abrió PayPal. Al pagar, Premium se activa 1 mes.');
+      openPaypalCheckout(d.approveUrl);
+      showPaypalFallbackLink(d.approveUrl);
+      toast('Abriendo PayPal en tu navegador. Al pagar, Premium se activa 1 mes.');
       watchPremiumActivation(untilBefore);
       return;
     }
@@ -1014,8 +1048,13 @@ async function startPremiumPurchase() {
       return;
     }
     if (d && d.error) toast(d.error);
-  } catch {}
-  openPremiumWhatsApp();
+    else openPremiumWhatsApp();
+  } catch {
+    openPremiumWhatsApp();
+  } finally {
+    premiumPurchaseBusy = false;
+    if (btn) btn.disabled = false;
+  }
 }
 
 // Texto que se muestra en lugar de la URL cuando el overlay no está en el plan.

@@ -734,40 +734,87 @@ function mergePanelLivesLists(...lists) {
   return out;
 }
 
+/** Avisos de live desde el .exe (JSON chico). No son rooms de TikTok en Render. */
+const desktopLiveReports = new Map();
+const DESKTOP_LIVE_TTL_MS = 90 * 1000;
+function pruneDesktopLiveReports() {
+  const now = Date.now();
+  for (const [id, rec] of desktopLiveReports) {
+    if (!rec || (now - Number(rec.at || 0)) > DESKTOP_LIVE_TTL_MS) desktopLiveReports.delete(id);
+  }
+}
+function buildPanelLiveItem(userId, st) {
+  if (!st?.live || !st?.account) return null;
+  if (!isActivePanelLiveEntry(st)) return null;
+  const u = getUserById(userId) || getUserByUsername(st.account) || null;
+  const tiktok = String(st.account).replace(/^@+/, '');
+  if (!tiktok) return null;
+  const plan = getUserPlan(u);
+  if (u?.id) {
+    try { markBadgeDirectory(u.id); } catch { /* ignore */ }
+  }
+  const badgePayload = u ? getUserBadgesPayload(u) : null;
+  return {
+    panelUser: u?.username || st.account || '',
+    tiktok,
+    nickname: st.nickname || tiktok,
+    photo: st.photo || '',
+    viewers: Number(st.viewers) || 0,
+    liveSince: st.liveSince || null,
+    live: true,
+    plan,
+    url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
+    badges: badgePayload?.cardBadges || [],
+    allBadges: (badgePayload?.badges || []).map((b) => ({
+      id: b.id,
+      name: b.name,
+      short: b.short,
+      img: b.img || `/img/badges/${b.id}.png`,
+      earned: !!b.earned,
+    })),
+  };
+}
+function applyDesktopLiveReport(user, body) {
+  const live = !!body?.live;
+  const account = String(body?.account || body?.tiktok || '').replace(/^@+/, '').trim();
+  if (!live || !account) {
+    desktopLiveReports.delete(user.id);
+    return { ok: true, live: false };
+  }
+  desktopLiveReports.set(user.id, {
+    at: Date.now(),
+    account,
+    nickname: String(body?.nickname || account).slice(0, 80),
+    photo: String(body?.photo || '').slice(0, 500),
+    viewers: Math.max(0, Number(body?.viewers) || 0),
+    liveSince: Number(body?.liveSince) || Date.now(),
+  });
+  return { ok: true, live: true };
+}
+
 function listPanelLives() {
+  pruneDesktopLiveReports();
   const out = [];
+  const seenTiktok = new Set();
+  const add = (item) => {
+    if (!item) return;
+    const key = String(item.tiktok || '').toLowerCase();
+    if (!key || seenTiktok.has(key)) return;
+    seenTiktok.add(key);
+    out.push(item);
+  };
   for (const [userId, room] of rooms) {
-    const st = room.getStatus();
-    if (!st?.live || !st?.account) continue;
-    if (!isActivePanelLiveEntry(st)) continue;
-    const u = getUserById(userId) || getUserByUsername(room.account) || null;
-    const tiktok = String(st.account).replace(/^@+/, '');
-    if (!tiktok) continue;
-    // Plan efectivo (admin=premium; respeta caducidad). No usar solo u.plan crudo.
-    const plan = getUserPlan(u);
-    if (u?.id) {
-      try { markBadgeDirectory(u.id); } catch { /* ignore */ }
-    }
-    const badgePayload = u ? getUserBadgesPayload(u) : null;
-    out.push({
-      panelUser: u?.username || room.account || '',
-      tiktok,
-      nickname: st.nickname || tiktok,
-      photo: st.photo || '',
-      viewers: Number(st.viewers) || 0,
-      liveSince: st.liveSince || null,
+    add(buildPanelLiveItem(userId, room.getStatus()));
+  }
+  for (const [userId, rec] of desktopLiveReports) {
+    add(buildPanelLiveItem(userId, {
       live: true,
-      plan,
-      url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
-      badges: badgePayload?.cardBadges || [],
-      allBadges: (badgePayload?.badges || []).map((b) => ({
-        id: b.id,
-        name: b.name,
-        short: b.short,
-        img: b.img || `/img/badges/${b.id}.png`,
-        earned: !!b.earned,
-      })),
-    });
+      account: rec.account,
+      nickname: rec.nickname,
+      photo: rec.photo,
+      viewers: rec.viewers,
+      liveSince: rec.liveSince,
+    }));
   }
   out.sort((a, b) => b.viewers - a.viewers || a.tiktok.localeCompare(b.tiktok));
   return out;
@@ -1564,6 +1611,27 @@ app.post('/api/account/password/reset', express.json(), async (req, res) => {
   );
   if (r.error) return res.status(400).json({ error: r.error });
   res.json({ ok: true, message: r.message });
+});
+
+app.post('/api/panel-lives/report', express.json({ limit: '8kb' }), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  if (AUTH_REMOTE) {
+    const cookie = remoteCookies.get(user.id);
+    if (!cookie) return res.status(503).json({ error: 'Sin sesión con la nube.' });
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/panel-lives/report`, {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      const data = await r.json().catch(() => ({}));
+      return res.status(r.status).json(data);
+    } catch {
+      return res.status(503).json({ error: 'Sin conexión con la nube.' });
+    }
+  }
+  res.json(applyDesktopLiveReport(user, req.body || {}));
 });
 
 app.get('/api/panel-lives', async (req, res) => {
@@ -3096,6 +3164,55 @@ if (AUTH_REMOTE) {
     }
     syncAllCloudRoomKeysFromRemote().catch(() => {});
   }, 30 * 1000).unref?.();
+
+  const lastCloudLive = new Set();
+  async function pushLocalLivesToCloud() {
+    const seen = new Set();
+    for (const [userId, room] of rooms) {
+      const cookie = remoteCookies.get(userId);
+      if (!cookie) continue;
+      const st = room.getStatus() || {};
+      const live = !!(st.live && st.account);
+      if (!live && !lastCloudLive.has(userId)) continue;
+      seen.add(userId);
+      try {
+        const r = await fetch(`${AUTH_REMOTE}/api/panel-lives/report`, {
+          method: 'POST',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            live,
+            account: st.account || '',
+            nickname: st.nickname || '',
+            photo: String(st.photo || '').slice(0, 500),
+            viewers: Number(st.viewers) || 0,
+            liveSince: st.liveSince || 0,
+          }),
+        });
+        if (r.ok) {
+          if (live) lastCloudLive.add(userId);
+          else lastCloudLive.delete(userId);
+        } else if (r.status === 401 || r.status === 403) {
+          remoteCookies.delete(userId); saveRemoteCookies();
+          lastCloudLive.delete(userId);
+        }
+      } catch { /* sin nube */ }
+    }
+    for (const userId of [...lastCloudLive]) {
+      if (seen.has(userId)) continue;
+      const cookie = remoteCookies.get(userId);
+      if (!cookie) { lastCloudLive.delete(userId); continue; }
+      try {
+        await fetch(`${AUTH_REMOTE}/api/panel-lives/report`, {
+          method: 'POST',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ live: false }),
+        });
+      } catch { /* ignore */ }
+      lastCloudLive.delete(userId);
+    }
+  }
+  pushLocalLivesToCloud().catch(() => {});
+  setInterval(() => { pushLocalLivesToCloud().catch(() => {}); }, 20 * 1000).unref?.();
 }
 
 // Configuración de planes: catálogo de capacidades + límites/features por plan.
