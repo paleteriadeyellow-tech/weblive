@@ -1301,7 +1301,12 @@ async function remoteRegister(username, password, email, code) {
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) return { error: data.error || 'No se pudo crear la cuenta.' };
-    return { ok: true, email: data.email || email || null, emailVerified: !!data.emailVerified };
+    let cookie = getSetCookies(r.headers).map((c) => c.split(';')[0]).join('; ');
+    if (!cookie) {
+      const login = await remoteLogin(username, password);
+      if (login.ok && login.cookie) cookie = login.cookie;
+    }
+    return { ok: true, email: data.email || email || null, emailVerified: !!data.emailVerified, cookie };
   } catch {
     return { network: true };
   }
@@ -1321,6 +1326,7 @@ app.post('/api/register', express.json(), async (req, res) => {
     if (rr.email) {
       try { setUserVerifiedEmail(user.id, rr.email); } catch {}
     }
+    if (rr.cookie) { remoteCookies.set(user.id, rr.cookie); saveRemoteCookies(); }
     const token = createSession(user.id);
     if (IS_DESKTOP) saveDesktopLastLogin(user.id);
     res.setHeader('Set-Cookie', sessionCookie(token));

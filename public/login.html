@@ -144,6 +144,15 @@
     const tabs = document.querySelectorAll('.tab');
     const msg = $('msg');
 
+    async function isDesktopApp() {
+      try {
+        if (window.desktopAPI && window.desktopAPI.isDesktop) return true;
+        const r = await fetch('/api/desktop-build', { cache: 'no-store' });
+        const d = await r.json().catch(() => ({}));
+        return !!d.pc;
+      } catch { return false; }
+    }
+
     function setMode(m) {
       mode = m;
       tabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === m));
@@ -258,11 +267,15 @@
     };
 
     (async function loadMaintenanceBanner() {
+      const desktop = await isDesktopApp();
+      const note = document.getElementById('pc-note');
+      if (desktop && note) note.style.display = 'none';
+      if (desktop) return;
       try {
         const r = await fetch('/api/maintenance');
         if (!r.ok) return;
         const d = await r.json();
-        if (!d.enabled) return;
+        if (!d.enabled || d.desktopOk) return;
         const box = document.getElementById('maint-banner');
         const m = document.getElementById('maint-banner-msg');
         if (m && d.message) m.textContent = d.message;
@@ -274,9 +287,11 @@
     })();
 
     async function webPanelIsClosed() {
+      if (await isDesktopApp()) return false;
       try {
         const r = await fetch('/api/maintenance');
         const d = await r.json();
+        if (d && d.desktopOk) return false;
         return !!d.enabled;
       } catch { return false; }
     }

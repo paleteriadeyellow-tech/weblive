@@ -3325,7 +3325,7 @@ async function loadMaintenanceAdmin() {
     const r = await fetch('/api/maintenance');
     if (!r.ok) return;
     const d = await r.json();
-    en.checked = !!d.enabled;
+    en.checked = !!(d.webClosed ?? d.enabled);
     const msg = document.getElementById('maint-message');
     if (msg) msg.value = d.message || '';
   } catch {}
