@@ -79,6 +79,55 @@ let ws;
 let reconnectTimer;
 let settings = null;       // copia local de los ajustes del servidor
 let applyingSettings = false; // evita loops al rellenar los controles
+let lastMediaVolEditAt = 0;
+const MEDIA_VOL_ECHO_MS = 2500;
+
+function lcVolume01(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 1;
+  const lin = n > 1 ? Math.min(1, n / 100) : Math.min(1, n);
+  return lin * lin;
+}
+function applyMediaVolume(el, raw) {
+  if (!el) return;
+  const v = lcVolume01(raw);
+  const set = () => {
+    try { el.volume = v; el.muted = v <= 0; } catch { /* ignore */ }
+  };
+  set();
+  el.addEventListener('loadedmetadata', set);
+  el.addEventListener('canplay', set);
+  el.addEventListener('playing', set);
+}
+function bindCardVolumeSlider(vr, card, onSet) {
+  if (!vr) return;
+  const apply = () => {
+    const n = Math.max(0, Math.min(100, +vr.value || 0));
+    const pct = card.querySelector('.pct');
+    if (pct) pct.textContent = n + '%';
+    onSet(n);
+    lastMediaVolEditAt = Date.now();
+    try { if (previewAudio && !previewAudio.paused) applyMediaVolume(previewAudio, n); } catch { /* ignore */ }
+  };
+  vr.addEventListener('input', apply);
+  vr.addEventListener('change', apply);
+}
+function preserveLocalMediaVolumeOnSettingsEcho(incoming) {
+  if (!incoming || !settings || Date.now() - lastMediaVolEditAt > MEDIA_VOL_ECHO_MS) return incoming;
+  const out = { ...incoming };
+  for (const key of ['soundAlerts', 'videos', 'battleAlerts']) {
+    const local = settings[key];
+    const remote = incoming[key];
+    if (!Array.isArray(local) || !Array.isArray(remote)) continue;
+    const volById = new Map(local.map((a) => [String(a?.id), a?.volume]));
+    out[key] = remote.map((a) => {
+      if (!a) return a;
+      const v = volById.get(String(a.id));
+      return v == null ? a : { ...a, volume: v };
+    });
+  }
+  return out;
+}
 
 /* ====================== WebSocket ====================== */
 let localWs, localReconnectTimer;
@@ -458,7 +507,7 @@ const OVERLAY_CAP = {
   '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
-  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/corazon-lava.html': 'ov_giftheart', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/batalla-vs.html': 'ov_batallavs', '/batalla-meta.html': 'ov_batallameta', '/batalla-mvp.html': 'ov_batallamvp', '/batalla-top3.html': 'ov_batallatop3', '/batalla-giftball.html': 'ov_batallagiftball', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
+  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/corazon-lava.html': 'ov_giftheart', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/batalla-vs.html': 'ov_batallavs', '/batalla-meta.html': 'ov_batallameta', '/batalla-mvp.html': 'ov_batallamvp', '/batalla-top3.html': 'ov_batallatop3', '/batalla-giftball.html': 'ov_batallagiftball', '/batalla-coinbar.html': 'ov_batallacoinbar', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/contador-wins-minecraft.html': 'ov_winscounterminecraft',
   '/contador-wins-mario.html': 'ov_winscountermario',
@@ -701,7 +750,7 @@ const CAP_LABELS = {
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
-  ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
+  ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_batallacoinbar: 'Contador de monedas', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_ultimoregalo: 'Último regalo', ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_screenfx: 'Efectos pantalla', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_topmultirank: 'Top rotatorio (likes / coins / chat / puntos)',
@@ -727,9 +776,9 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_editor_rapido',
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
-  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
+  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_batallacoinbar', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
 ];
 
 function renderPlanView() {
@@ -1227,19 +1276,35 @@ function toast(msg, kind) {
 // Modo relay (.exe): el chat de TikTok llega desde la nube. Spotify, en cambio, corre
 // LOCAL (tokens + cola en esta PC). Por eso reenviamos los comandos de Spotify del chat
 // al servidor local para que los procese y actualice la cola/overlay locales.
+const knownChatMods = new Set();
+function chatModKeys(p) {
+  return [
+    String(p?.uniqueId || '').trim().toLowerCase().replace(/^@/, ''),
+    String(p?.nickname || '').trim().toLowerCase().replace(/^@/, ''),
+  ].filter(Boolean);
+}
+function noteChatMod(p) {
+  if (!p || !(p.isMod || p.isModerator)) return;
+  for (const k of chatModKeys(p)) knownChatMods.add(k);
+}
+function chatUserLooksMod(p) {
+  if (p?.isMod || p?.isModerator) return true;
+  return chatModKeys(p).some((k) => knownChatMods.has(k));
+}
 function maybeForwardSpotifyChat(p) {
   try {
     if (!relayActive()) return;
     const comment = String(p?.comment || '').trim();
     if (!/^!(play|skip|revoke)\b/i.test(comment)) return;
     if (!p?.uniqueId) return;
+    noteChatMod(p);
     fetch('/api/desktop/spotify-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         comment,
         user: { uniqueId: p.uniqueId, nickname: p.nickname || p.uniqueId, photo: p.photo || '' },
-        roles: { isMod: !!p.isMod, isSub: !!p.isSub, memberLevel: Number(p.memberLevel) || 0 },
+        roles: { isMod: chatUserLooksMod(p), isSub: !!p.isSub, memberLevel: Number(p.memberLevel) || 0 },
       }),
     }).catch(() => {});
   } catch {}
@@ -1260,7 +1325,7 @@ function maybeForwardMusicChat(p) {
         comment,
         user: { uniqueId: p.uniqueId, nickname: p.nickname || p.uniqueId, photo: p.photo || '' },
         roles: {
-          isMod: !!p.isMod, isSub: !!p.isSub, isFollower: !!p.isFollower,
+          isMod: chatUserLooksMod(p), isSub: !!p.isSub, isFollower: !!p.isFollower,
           memberLevel: Number(p.memberLevel) || 0,
         },
       }),
@@ -1356,6 +1421,12 @@ function refreshAccMediaScreenUrl() {
     st.textContent = on ? '● Fuente conectada' : '○ Pega el link en Live Studio y recarga la fuente';
     st.className = 'levelvid-url-status ' + (on ? 'on' : 'off');
   }
+  refreshAccAnimOverlayUrl();
+}
+function refreshAccAnimOverlayUrl() {
+  const url = isOverlayUrlLocked($('acc-anim-ov-url') || $('acc-alert-ov-url')) ? OV_URL_MASK : roomUrl('/overlay.html');
+  if ($('acc-anim-ov-url')) $('acc-anim-ov-url').textContent = url;
+  if ($('acc-alert-ov-url')) $('acc-alert-ov-url').textContent = url;
 }
 
 // Refresca el texto y enlaces de todas las URLs de overlay ya pintadas.
@@ -1975,7 +2046,7 @@ function handle(type, p) {
       if (!relayActive()) onScreens(p);
       refreshLevelVideoScreenLink();
       break;
-    case 'chat': addChat(p); void ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
+    case 'chat': addChat(p); noteChatMod(p); void ttsSpeak(p); maybeForwardSpotifyChat(p); maybeForwardMusicChat(p); break;
     case 'botReply': handleBotReply(p); break;
     case 'gift': addGift(p); ttsOnGift(p); relayRepoOnGift(p); relayL4dOnGift(p); relayUnturnedOnGift(p); relayGtavKothOnGift(p); relayGtavChaosOnGift(p); relayGtavChiliadOnGift(p); relayMslugOnGift(p); relayCtrOnGift(p); relaySmwOnGift(p); break;
     case 'screenFx': if (typeof onScreenFxEvent === 'function') onScreenFxEvent(p); break;
@@ -2036,6 +2107,7 @@ function handle(type, p) {
       } catch { /* ignore */ }
       break;
     case 'keyAction': onKeyAction(p); break;
+    case 'actionTts': onActionTts(p); break;
     case 'localExec': onLocalExec(p); break;
     case 'playLevelVideo':
       if (IS_DESKTOP) testLevelVideoLocal(Number(p?.level) || 1, { quiet: true });
@@ -2112,8 +2184,9 @@ function reportSoundEnded(id) {
   } catch {}
 }
 function startPanelSound(s, done) {
-  const audio = new Audio(mediaUrl(s.sound));
-  audio.volume = (s.volume ?? 100) / 100;
+  const audio = new Audio();
+  applyMediaVolume(audio, s.volume ?? 100);
+  audio.src = mediaUrl(s.sound);
   if (s.id != null) audio.dataset.soundId = String(s.id);
   panelSounds.add(audio);
   let finished = false;
@@ -4877,7 +4950,7 @@ function onSettings(s, touchedKeys) {
     } catch {}
   }
   try { window.__lcPendingTouchedKeys = null; } catch {}
-  settings = preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s)));
+  settings = preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s))));
   if (migrateAccionesSpawnWebhooks(settings.actions)) saveSettings();
   normalizeRelayMedia(settings);
   ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'topStreak'].forEach((k) => {
@@ -5054,6 +5127,9 @@ function applySettingsToUI(touchedKeys) {
   }
 
   if (has('jarron')) applyJarronUI();
+  if (has('batallaCoinBar') && typeof window.__syncBatallaCoinBar === 'function') {
+    setTimeout(() => { try { window.__syncBatallaCoinBar(); } catch {} }, 50);
+  }
   if (has('giftCounter') && typeof refreshGiftCounterCardUI === 'function') refreshGiftCounterCardUI();
   if (has('sorteosOverlay') && typeof window.__soSyncSlowBtn === 'function') window.__soSyncSlowBtn();
 
@@ -5099,7 +5175,59 @@ const screenSeenAt = new Map();
 /** Tras redeploy/reinicio el Browser Source tarda en reaparecer; no marcar "Sin fuente" al instante. */
 const SCREEN_PRESENCE_GRACE_MS = 60000;
 let vidEditingId = null;
-let vidPending = null; // { url, name }
+let vidPending = null; // { url, name } — primer clip (compat)
+let vidPendingClips = []; // [{ url, name }, ...]
+
+function videoClipPool(v) {
+  const items = [];
+  const seen = new Set();
+  const add = (url, name) => {
+    const u = String(url || '').trim();
+    if (!u || seen.has(u)) return;
+    seen.add(u);
+    items.push({ url: u, name: String(name || 'video') });
+  };
+  if (Array.isArray(v?.clips)) {
+    for (const c of v.clips) add(c?.url, c?.name || c?.fileName);
+  }
+  add(v?.url, v?.fileName);
+  return items;
+}
+function addVidClip(clip) {
+  if (!clip?.url) return false;
+  if (vidPendingClips.some((c) => c.url === clip.url)) return false;
+  vidPendingClips.push({ url: clip.url, name: clip.name || 'video' });
+  renderVidClipList();
+  return true;
+}
+function renderVidClipList() {
+  const list = $('vid-cliplist');
+  const fname = $('vid-fname');
+  vidPending = vidPendingClips[0] || null;
+  if (fname) {
+    fname.textContent = !vidPendingClips.length
+      ? 'Ningún archivo'
+      : (vidPendingClips.length === 1
+        ? (vidPendingClips[0].name || 'video')
+        : `${vidPendingClips.length} videos · cada disparo uno al azar`);
+  }
+  if (!list) return;
+  if (!vidPendingClips.length) { list.innerHTML = ''; return; }
+  list.innerHTML = vidPendingClips.map((c, i) => `
+    <div class="vid-clipchip" title="${esc(c.name)}">
+      <span class="vid-clipchip-n">${i + 1}</span>
+      <span class="vid-clipchip-name">${esc(c.name || 'video')}</span>
+      <button type="button" class="vid-clipchip-x" data-i="${i}" title="Quitar">✕</button>
+    </div>`).join('');
+  list.querySelectorAll('.vid-clipchip-x').forEach((btn) => {
+    btn.onclick = () => {
+      const i = +btn.dataset.i;
+      if (!Number.isFinite(i)) return;
+      vidPendingClips.splice(i, 1);
+      renderVidClipList();
+    };
+  });
+}
 
 function screenCopyUrl(screenId) {
   return IS_DESKTOP ? videoScreenUrl(screenId) : roomUrl(`/video.html?screen=${screenId}`);
@@ -5253,7 +5381,7 @@ function renderVideos() {
         <div class="acc-map-arrow" aria-hidden="true">↓</div>
         <div class="acc-map-body">
           <div class="sa-name">${esc(v.name || 'Video')}</div>
-          <div class="sa-file">📺 P${v.screen || 1}</div>
+          <div class="sa-file">📺 P${v.screen || 1}${videoClipPool(v).length > 1 ? ` · 🎲 ${videoClipPool(v).length}` : ''}</div>
           <div class="sa-vol vid-card-vol acc-map-vol">
             <span>Vol</span>
             <input type="range" class="v-volrange" min="0" max="100" value="${v.volume ?? 100}">
@@ -5282,7 +5410,7 @@ function renderVideos() {
       </div>
       <div class="vid-card-body sa-info">
         <div class="sa-name">${esc(v.name || 'Video')}</div>
-        <div class="sa-file">${esc(triggerLabelV(v))} · 📺 P${v.screen || 1}</div>
+        <div class="sa-file">${esc(triggerLabelV(v))} · 📺 P${v.screen || 1}${videoClipPool(v).length > 1 ? ` · 🎲 ${videoClipPool(v).length} al azar` : ''}</div>
         <div class="sa-vol vid-card-vol">
           <span>Volumen</span>
           <input type="range" class="v-volrange" min="0" max="100" value="${v.volume ?? 100}">
@@ -5311,7 +5439,7 @@ function renderVideos() {
       renderVideos();
     };
     const vr = card.querySelector('.v-volrange');
-    if (vr) vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; v.volume = +vr.value; saveVideosBattlePatch('videos'); };
+    if (vr) bindCardVolumeSlider(vr, card, (n) => { v.volume = n; saveVideosBattlePatch('videos'); });
     card.querySelector('.sa-edit').onclick = () => openVidModal(v);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -5323,7 +5451,7 @@ function renderVideos() {
         else fallbackCopy(text, done);
       };
     }
-    card.querySelector('.sa-play').onclick = () => send({ action: 'testVideo', video: { id: v.id, name: v.name, url: v.url, screen: v.screen || 1, volume: v.volume ?? 100 } });
+    card.querySelector('.sa-play').onclick = () => send({ action: 'testVideo', video: { id: v.id, name: v.name, url: v.url, clips: v.clips || [], screen: v.screen || 1, volume: v.volume ?? 100 } });
     card.querySelector('.sa-stop').onclick = () => send({ action: 'stopVideo', screen: v.screen || 1 });
     const dup = card.querySelector('.sa-dup');
     if (dup) {
@@ -5968,7 +6096,8 @@ function setVidEventUI(value) {
 
 function openVidModal(v = null) {
   vidEditingId = v?.id || null;
-  vidPending = v?.url ? { url: v.url, name: v.fileName } : null;
+  vidPendingClips = v ? videoClipPool(v) : [];
+  vidPending = vidPendingClips[0] || null;
   $('vid-modal-title').textContent = v ? 'Configurar alerta de video' : 'Configurar alerta de video';
   $('vid-name').value = v?.name || '';
   let ev = 'gift-any';
@@ -5999,6 +6128,7 @@ function openVidModal(v = null) {
   $('vid-vol').value = v?.volume ?? 100;
   fillScreenSelect($('vid-screen'), v?.screen || 1);
   $('vid-fname').textContent = v?.fileName || 'Ningún archivo';
+  renderVidClipList();
   $('vid-status').textContent = ev === 'streamdeck'
     ? 'Guarda el video y copia el webhook para Stream Deck.'
     : '';
@@ -6078,14 +6208,19 @@ function uploadErrLabel(err) {
 
 $('vid-upbtn').onclick = () => $('vid-file').click();
 $('vid-file').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const files = [...(e.target.files || [])];
+  if (!files.length) return;
   const label = $('vid-fname');
-  try {
-    const data = await uploadMediaWithProgress(file, (msg) => { label.textContent = msg; });
-    vidPending = { url: data.url, name: file.name };
-    label.textContent = file.name;
-  } catch (err) { label.textContent = uploadErrLabel(err); }
+  let ok = 0;
+  for (const file of files) {
+    try {
+      const data = await uploadMediaWithProgress(file, (msg) => { if (label) label.textContent = msg; });
+      if (addVidClip({ url: data.url, name: file.name })) ok += 1;
+    } catch (err) {
+      if (label) label.textContent = uploadErrLabel(err);
+    }
+  }
+  if (ok) renderVidClipList();
   e.target.value = '';
 });
 
@@ -6095,6 +6230,7 @@ let videoPackAiBusy = false;
 
 let libTarget = 'vid'; // 'vid' | 'ba' — a qué modal vuelve el video elegido de la librería
 let vidLibPicked = null;
+let vidLibPickedList = [];
 $('vid-libbtn').onclick = () => {
   if (isVideosAiLocked()) {
     toast('Videos AI es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
@@ -6371,7 +6507,13 @@ function openVideoLib() {
   const niveles = libIsNiveles();
   const folder = libTarget === 'ba' ? 'public/video/batalla' : (niveles ? 'public/video/niveles' : 'public/video');
   const sub = document.querySelector('#videoLibModal .vidlib-sub');
-  if (sub) sub.textContent = 'Selecciona una animación de la biblioteca';
+  if (sub) {
+    sub.textContent = libTarget === 'vid'
+      ? 'Clic para marcar varias. Luego pulsa Usar.'
+      : 'Selecciona una animación de la biblioteca';
+  }
+  const rndWarn = $('vidlib-rnd-warn');
+  if (rndWarn) rndWarn.hidden = libTarget !== 'vid';
   const credit = document.querySelector('#videoLibModal .modal-foot .credit');
   if (credit) {
     // Pack AI: sin texto de pie (no anunciar peso del instalador).
@@ -6388,7 +6530,7 @@ function openVideoLib() {
     const actionName = libTarget === 'ba'
       ? (($('ba-name') && $('ba-name').value) || '').trim()
       : (($('vid-name') && $('vid-name').value) || '').trim();
-    const base = libTarget === 'ba' ? 'Animación – Batallas' : 'Animación – Multimedia';
+    const base = libTarget === 'ba' ? 'Animación – Batallas' : (libTarget === 'accAnim' ? 'Animación – Acción' : 'Animación – Multimedia');
     titleEl.textContent = actionName ? (base + ' (' + actionName + ')') : base;
   }
   const openBtn = $('vidlib-openniveles');
@@ -6396,7 +6538,7 @@ function openVideoLib() {
   dismissVideoPackConfirms();
   videoPackPromptGen += 1;
   applyVideoPackAiButtons();
-  const behind = libTarget === 'ba' ? $('baModal') : $('vidModal');
+  const behind = libTarget === 'ba' ? $('baModal') : (libTarget === 'accAnim' ? $('accModal') : $('vidModal'));
   if (behind) behind.classList.add('vidlib-behind');
   $('videoLibModal').classList.remove('hidden');
   const gen = videoPackPromptGen;
@@ -6510,24 +6652,69 @@ function vidLibWarmPreviews() {
   vidLibWarmGen++;
 }
 
+function vidLibSyncUseBtn() {
+  const use = $('vidlib-use');
+  if (!use) return;
+  if (libTarget === 'vid') {
+    const n = vidLibPickedList.length;
+    use.disabled = n < 1;
+    use.textContent = n > 1 ? `✓ Usar ${n} animaciones` : '✓ Usar esta animación';
+    return;
+  }
+  use.disabled = !vidLibPicked;
+  use.textContent = '✓ Usar esta animación';
+}
+
 function vidLibSetPicked(cell) {
+  if (libTarget === 'vid') {
+    if (!cell) {
+      vidLibPickedList = [];
+      document.querySelectorAll('#vid-libgrid .vid-cell').forEach((c) => c.classList.remove('is-on'));
+      vidLibSyncUseBtn();
+      return;
+    }
+    const item = { url: cell.dataset.url, name: cell.dataset.name };
+    const i = vidLibPickedList.findIndex((x) => x.url === item.url);
+    if (i >= 0) vidLibPickedList.splice(i, 1);
+    else vidLibPickedList.push(item);
+    document.querySelectorAll('#vid-libgrid .vid-cell').forEach((c) => {
+      c.classList.toggle('is-on', vidLibPickedList.some((x) => x.url === c.dataset.url));
+    });
+    vidLibSyncUseBtn();
+    return;
+  }
   vidLibPicked = cell ? { url: cell.dataset.url, name: cell.dataset.name } : null;
   document.querySelectorAll('#vid-libgrid .vid-cell').forEach((c) => c.classList.toggle('is-on', c === cell));
-  const use = $('vidlib-use');
-  if (use) use.disabled = !vidLibPicked;
+  vidLibSyncUseBtn();
 }
 
 function vidLibUsePicked() {
-  if (!vidLibPicked) return;
-  const chosen = vidLibPicked;
   if (libTarget === 'ba') {
-    baPending = chosen;
-    if ($('ba-fname')) $('ba-fname').textContent = chosen.name;
-  } else {
-    vidPending = chosen;
-    if ($('vid-fname')) $('vid-fname').textContent = chosen.name;
+    if (!vidLibPicked) return;
+    baPending = vidLibPicked;
+    if ($('ba-fname')) $('ba-fname').textContent = vidLibPicked.name;
+    closeVideoLib();
+    return;
+  }
+  if (libTarget === 'accAnim') {
+    if (!vidLibPicked) return;
+    accPendingAnim = vidLibPicked;
+    if ($('acc-anim-filelbl')) $('acc-anim-filelbl').textContent = vidLibPicked.name;
+    if ($('acc-anim-on')) $('acc-anim-on').checked = true;
+    closeVideoLib();
+    return;
+  }
+  const batch = vidLibPickedList.length
+    ? vidLibPickedList.slice()
+    : (vidLibPicked ? [vidLibPicked] : []);
+  if (!batch.length) return;
+  let added = 0;
+  for (const c of batch) {
+    if (addVidClip(c)) added += 1;
   }
   closeVideoLib();
+  if (added > 1) toast && toast(`${added} videos. Cada vez que disparen saldrá uno al azar.`, 'ok');
+  else if (!added) toast && toast('Esos videos ya estaban en la lista.', 'warn');
 }
 
 function vidLibSyncPlay(box) {
@@ -6671,7 +6858,7 @@ function renderLocalVideos(filter) {
 $('vid-save').onclick = async () => {
   const name = $('vid-name').value.trim();
   if (!name) { $('vid-status').textContent = '⚠️ Escribe un nombre.'; return; }
-  if (!vidPending?.url) { $('vid-status').textContent = '⚠️ Elige o sube un video.'; return; }
+  if (!vidPendingClips.length) { $('vid-status').textContent = '⚠️ Elige o sube al menos un video.'; return; }
   const ev = $('vid-event').value;
   const id = ensureVidEditId();
   const data = {
@@ -6693,8 +6880,9 @@ $('vid-save').onclick = async () => {
       ? ($('vid-use-joindelay')?.checked ? Math.max(1, parseInt($('vid-joindelay').value, 10) || 30) : 0)
       : (ev === 'userJoin' ? Math.max(0, parseInt($('vid-joindelay').value, 10) || 0) : 0),
     level: 0,
-    url: vidPending.url,
-    fileName: vidPending.name || 'video',
+    url: vidPendingClips[0].url,
+    fileName: vidPendingClips[0].name || 'video',
+    clips: vidPendingClips.length > 1 ? vidPendingClips.map((c) => ({ url: c.url, name: c.name || 'video' })) : [],
     volume: +$('vid-vol').value,
     screen: clampScreenId(+$('vid-screen').value || 1),
   };
@@ -6859,7 +7047,7 @@ function renderBattleAlerts() {
       renderBattleAlerts();
     };
     const vr = card.querySelector('.b-volrange');
-    if (vr) vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; b.volume = +vr.value; saveVideosBattlePatch('battleAlerts'); };
+    if (vr) bindCardVolumeSlider(vr, card, (n) => { b.volume = n; saveVideosBattlePatch('battleAlerts'); });
     card.querySelector('.sa-edit').onclick = () => openBaModal(b);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -7161,7 +7349,7 @@ function renderSoundAlerts() {
     const sel = card.querySelector('.sa-sel');
     if (sel) sel.onchange = (e) => { e.target.checked ? selected.add(id) : selected.delete(id); updateSelCount(); };
     const vr = card.querySelector('.sa-volrange');
-    if (vr) vr.oninput = () => { card.querySelector('.pct').textContent = vr.value + '%'; a.volume = +vr.value; saveSettingsKeysPatch('soundAlerts'); };
+    if (vr) bindCardVolumeSlider(vr, card, (n) => { a.volume = n; saveSettingsKeysPatch('soundAlerts'); });
     card.querySelector('.sa-edit').onclick = () => openSaModal(a);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -7214,6 +7402,7 @@ function renderSoundAlerts() {
 function updateSelCount() { $('sa-selcount').textContent = selected.size; }
 
 const EVENT_LABELS = {
+  'gift-all': '🎁 Cualquier regalo',
   gift: '💎 Cantidad diamantes',
   like: '❤️ Likes (por usuario)',
   likeGlobal: '❤️ Likes globales',
@@ -7231,6 +7420,7 @@ const EVENT_LABELS = {
 };
 function triggerLabel(a) {
   const trig = a.trigger || 'gift';
+  if (trig === 'gift-all') return '🎁 Cualquier regalo';
   if (trig === 'gift') {
     if (a.giftName) return `🎁 ${esc(a.giftName)}`;
     if (a.rangeMin || a.rangeMax) return `💎 ${a.rangeMin || 0}${a.rangeMax ? ' – ' + a.rangeMax : '+'}`;
@@ -7255,8 +7445,9 @@ function triggerLabel(a) {
 function playPreview(a) {
   if (!a.sound) return;
   try { previewAudio?.pause(); } catch {}
-  previewAudio = new Audio(a.sound);
-  previewAudio.volume = (a.volume ?? 100) / 100;
+  previewAudio = new Audio();
+  applyMediaVolume(previewAudio, a.volume ?? 100);
+  previewAudio.src = a.sound;
   previewAudio.play().catch(() => {});
 }
 
@@ -7279,6 +7470,10 @@ function setEventUI(value) {
   $('sa-likeuserextra').hidden = value !== 'like';
   $('sa-likeextra').hidden = value !== 'likeGlobal';
   $('sa-emoteextra').hidden = value !== 'emote';
+  const saCmd = $('sa-cmdextra');
+  if (saCmd) saCmd.hidden = value !== 'chatCommand';
+  const saUser = $('sa-userextra');
+  if (saUser) saUser.hidden = value !== 'chatCommand';
   const showDelay = value === 'follow' || value === 'share' || value === 'emote';
   $('sa-eventdelayextra').hidden = !showDelay;
   const delayLbl = $('sa-eventdelay-label');
@@ -7318,6 +7513,8 @@ function openSaModal(alert = null) {
   $('sa-likegoal').value = alert?.likeGoal || 100;
   $('sa-emoteid').value = alert?.emoteId || '';
   updateEmotePickBtn('sa');
+  if ($('sa-command')) $('sa-command').value = alert?.command || '';
+  if ($('sa-user')) $('sa-user').value = alert?.user || '';
   $('sa-eventdelay').value = alert?.eventDelay ?? 30;
   $('sa-vol').value = alert?.volume ?? 100;
   $('sa-soundname').textContent = alert?.soundName || 'Ningún archivo…';
@@ -7431,9 +7628,11 @@ function refreshGiftCards() {
 const EVENT_EMOJI = {
   like: '❤️', likeGlobal: '❤️', follow: '➕', share: '🔁',
   subscribe: '⭐', superFan: '🌟', superFanJoin: '🌟', levelUp: '⬆️', emote: '😀', gift: '🎁',
+  'gift-all': '🎁',
   chatCommand: '💬', firstMessage: '🙋', streamdeck: '🎛️',
 };
 const TRIG_ICON = {
+  'gift-all': '/img/trig/gift.png?v=2',
   'gift-any': '/img/trig/diamonds.png?v=2',
   gift: '/img/trig/gift.png?v=2',
   'gift-name': '/img/trig/gift.png?v=2',
@@ -7990,6 +8189,8 @@ $('sa-save').onclick = async () => {
     likeGoal: ev === 'likeGlobal' ? Math.max(1, +$('sa-likegoal').value || 100) : 0,
     emoteId: ev === 'emote' ? $('sa-emoteid').value.trim() : '',
     emoteImage: ev === 'emote' ? emoteImgById($('sa-emoteid').value.trim()) : '',
+    command: ev === 'chatCommand' ? ($('sa-command')?.value || '').trim() : '',
+    user: ev === 'chatCommand' ? ($('sa-user')?.value || '').trim().replace(/^@/, '') : '',
     eventDelay: (ev === 'follow' || ev === 'share' || ev === 'emote') ? Math.max(0, parseInt($('sa-eventdelay').value, 10) || 0) : 0,
     sound: pendingSound.url,
     soundName: pendingSound.name || 'audio',
@@ -7997,6 +8198,7 @@ $('sa-save').onclick = async () => {
     volume: +$('sa-vol').value,
     enabled: $('sa-active').checked,
   };
+  if (ev === 'chatCommand' && !data.command) { $('sa-status').textContent = '⚠️ Escribe el comando (ej. !video).'; return; }
   if (!settings.soundAlerts) settings.soundAlerts = [];
   const existing = settings.soundAlerts.find((x) => x.id === id);
   if (existing) Object.assign(existing, data);
@@ -10599,6 +10801,7 @@ const STYLE_OVERLAYS = [
   };
   const toPreview = (msg) => {
     if (postPreview(msg)) return;
+    // Config/pause no cargan el iframe (trababa el modal y el selector).
     if (msg.type === 'config' || msg.type === 'pause' || msg.type === 'resume') return;
     const fr = frame();
     if (!fr) return;
@@ -10749,8 +10952,14 @@ const STYLE_OVERLAYS = [
   if ($('bgb-drop1')) {
     $('bgb-drop1').onclick = () => {
       const payload = dropPayload();
-      toPreview({ type: 'dropOne', ...payload });
-      send({ action: 'dropBatallaGiftBall', ...payload });
+      const fr = frame();
+      const sendDrop = (f) => {
+        try {
+          f?.contentWindow?.postMessage({ kind: 'batallaGiftBall', type: 'dropOne', ...payload }, '*');
+        } catch {}
+      };
+      if (fr) ensureEmbedLoaded(fr).then(sendDrop);
+      try { send({ action: 'dropBatallaGiftBall', ...payload }); } catch {}
     };
   }
 
@@ -10817,6 +11026,336 @@ const STYLE_OVERLAYS = [
     pushPreview(true);
     closeCfg();
   };
+})();
+
+(function setupBatallaCoinBar() {
+  const DEFAULT_GOALS = [
+    { t: 500, label: '' },
+    { t: 2000, label: '' },
+    { t: 10000, label: '' },
+    { t: 30000, label: '' },
+    { t: 60000, label: '' },
+  ];
+  const BCB_SKINS = [
+    { id: 'classic', name: 'Clásico', thumb: '' },
+    { id: 'crystal', name: 'Cristal', thumb: '/overlays/coinbar/crystal.png?v=2' },
+    { id: 'pirate', name: 'Pirata', thumb: '/overlays/coinbar/pirate.png?v=1' },
+    { id: 'ice', name: 'Hielo', thumb: '/overlays/coinbar/ice.png?v=1' },
+    { id: 'galaxy', name: 'Galaxia', thumb: '/overlays/coinbar/galaxy.png?v=1' },
+    { id: 'crown', name: 'Corona', thumb: '/overlays/coinbar/crown.png?v=1' },
+    { id: 'magma', name: 'Magma', thumb: '/overlays/coinbar/magma.png?v=1' },
+    { id: 'neon', name: 'Tech', thumb: '/overlays/coinbar/neon.png?v=1' },
+    { id: 'cyber', name: 'Violeta', thumb: '/overlays/coinbar/cyber.png?v=1' },
+    { id: 'dragon', name: 'Dragón', thumb: '/overlays/coinbar/dragon.png?v=1' },
+  ];
+  let draft = DEFAULT_GOALS.slice();
+  const frame = () => $('bcb-preview');
+  const modal = () => $('bcbConfigModal');
+  const ensure = () => {
+    if (!settings || typeof settings !== 'object') return { goals: DEFAULT_GOALS.slice(), skin: 'classic', fillColor: '#22c55e', fillRainbow: true, labelDir: 'h', orient: 'v', frameColor: '#38bdf8', frameTint: false, resetPeriod: 'battle' };
+    if (!settings.batallaCoinBar) settings.batallaCoinBar = {};
+    return settings.batallaCoinBar;
+  };
+  const skinIndex = (id) => {
+    const i = BCB_SKINS.findIndex((s) => s.id === id);
+    return i < 0 ? 0 : i;
+  };
+  const skinOf = (id) => BCB_SKINS[skinIndex(id)] || BCB_SKINS[0];
+  const normGoals = (raw) => {
+    const list = Array.isArray(raw) && raw.length ? raw : DEFAULT_GOALS;
+    return list
+      .map((g) => ({ t: Math.max(1, Math.round(Number(g?.t) || 0)), label: String(g?.label || '').trim() }))
+      .filter((g) => g.t > 0)
+      .sort((a, b) => a.t - b.t);
+  };
+  const BCB_PERIODS = ['battle', 'live', 'week', 'month'];
+  const readPeriod = () => {
+    const p = $('bcbcfg-period')?.dataset.period;
+    return BCB_PERIODS.includes(p) ? p : 'battle';
+  };
+  const setPeriodUI = (period) => {
+    const wrap = $('bcbcfg-period');
+    if (!wrap) return;
+    const p = BCB_PERIODS.includes(period) ? period : 'battle';
+    wrap.dataset.period = p;
+    wrap.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.period === p);
+    });
+  };
+  const readSource = () => ($('bcbcfg-source')?.dataset.source === 'live') ? 'live' : 'battle';
+  const setSourceUI = (src) => {
+    const wrap = $('bcbcfg-source');
+    if (!wrap) return;
+    const s = src === 'live' ? 'live' : 'battle';
+    wrap.dataset.source = s;
+    wrap.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.source === s);
+    });
+  };
+  const setLabelDirUI = (dir) => {
+    const wrap = $('bcbcfg-labeldir');
+    if (!wrap) return;
+    const d = dir === 'v' ? 'v' : 'h';
+    wrap.dataset.dir = d;
+    wrap.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.dir === d);
+    });
+  };
+  const setOrientUI = (orient) => {
+    const wrap = $('bcbcfg-orient');
+    if (!wrap) return;
+    const o = orient === 'h' ? 'h' : 'v';
+    wrap.dataset.orient = o;
+    wrap.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.orient === o);
+    });
+  };
+  const syncPreviewShape = () => {
+    const horiz = (ensure().orient || 'v') === 'h';
+    frame()?.closest('.ovpro-preview--coinbar')?.classList.toggle('is-horiz', horiz);
+    const res = horiz ? '1080x480 (horizontal)' : '480x1080 (vertical)';
+    const warn = $('bcb-res-warn');
+    if (warn) warn.innerHTML = `Resolucion en TikTok Studio / OBS: <b>${res}</b>.`;
+    const hint = $('bcbcfg-res-hint');
+    if (hint) hint.innerHTML = `Resolucion recomendada: <b>${horiz ? '1080 x 480' : '480 x 1080'}</b> (${horiz ? 'horizontal' : 'vertical'}, fondo transparente).`;
+  };
+  const readSkinUI = () => {
+    const on = $('bcbcfg-skins')?.querySelector('.bcb-skinbtn.is-active');
+    const id = on?.dataset.skin;
+    return BCB_SKINS.some((s) => s.id === id) ? id : (ensure().skin || 'classic');
+  };
+  const setSkinUI = (id) => {
+    const skin = skinOf(id);
+    $('bcbcfg-skins')?.querySelectorAll('.bcb-skinbtn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.skin === skin.id);
+    });
+    if ($('bcb-skin-name')) $('bcb-skin-name').textContent = skin.name;
+    if ($('bcb-skin-idx')) $('bcb-skin-idx').textContent = `${skinIndex(skin.id) + 1} / ${BCB_SKINS.length}`;
+  };
+  const readForm = () => ({
+    source: readSource(),
+    resetPeriod: readPeriod(),
+    scale: Math.max(40, Math.min(140, parseInt($('bcbcfg-scale')?.value, 10) || 100)),
+    goals: normGoals(draft),
+    skin: readSkinUI(),
+    fillColor: $('bcbcfg-color')?.value || '#22c55e',
+    fillRainbow: !!$('bcbcfg-rainbow')?.checked,
+    labelDir: ($('bcbcfg-labeldir')?.dataset.dir === 'v') ? 'v' : 'h',
+    orient: ($('bcbcfg-orient')?.dataset.orient === 'h') ? 'h' : 'v',
+    frameColor: $('bcbcfg-frame')?.value || '#38bdf8',
+    frameTint: !$('bcbcfg-frame-orig')?.checked,
+  });
+  const previewReady = () => {
+    const fr = frame();
+    return !!(fr && fr.dataset.embedReady === '1' && fr.getAttribute('src') && fr.getAttribute('src') !== 'about:blank');
+  };
+  const postPreview = (msg) => {
+    const fr = frame();
+    if (!fr) return;
+    const send = (f) => { try { f?.contentWindow?.postMessage({ kind: 'batallaCoinBar', ...msg }, '*'); } catch {} };
+    if (previewReady()) { send(fr); return; }
+    if (msg.type === 'config') return;
+    ensureEmbedLoaded(fr).then(send);
+  };
+  const pushLook = (partial) => {
+    if (!settings || typeof settings !== 'object') return;
+    const next = { ...ensure(), ...partial };
+    settings.batallaCoinBar = next;
+    postPreview({ type: 'config', config: next });
+  };
+  const renderSkinBtns = () => {
+    const wrap = $('bcbcfg-skins');
+    if (!wrap || wrap.dataset.ready === '1') return;
+    wrap.innerHTML = BCB_SKINS.map((s) => `
+      <button type="button" class="bcb-skinbtn" data-skin="${s.id}" title="${s.name}">
+        ${s.thumb ? `<img src="${s.thumb}" alt="" loading="lazy" decoding="async" width="42" height="86">` : `<span class="bcb-classic-ico"></span>`}
+        <span>${s.name}</span>
+      </button>
+    `).join('');
+    wrap.dataset.ready = '1';
+    wrap.addEventListener('click', (e) => {
+      const btn = e.target.closest('.bcb-skinbtn');
+      if (!btn) return;
+      setSkinUI(btn.dataset.skin);
+      pushLook({ skin: btn.dataset.skin });
+      try { saveSettings(); } catch {}
+    });
+  };
+  const renderRows = () => {
+    draft = normGoals(draft);
+    const wrap = $('bcbcfg-rows');
+    if (!wrap) return;
+    wrap.innerHTML = draft.map((g, i) => `
+      <div class="jarcfg-row" data-i="${i}">
+        <input type="text" class="bcbcfg-lab" placeholder="Reto (opcional)" value="${String(g.label || '').replace(/"/g, '&quot;')}">
+        <input type="number" class="bcbcfg-t" min="1" value="${g.t}" title="Monedas">
+        <button type="button" class="btn ghost bcbcfg-del" title="Quitar">✕</button>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('.jarcfg-row').forEach((row) => {
+      const i = Number(row.dataset.i);
+      row.querySelector('.bcbcfg-lab')?.addEventListener('input', (e) => { if (draft[i]) draft[i].label = e.target.value; });
+      row.querySelector('.bcbcfg-t')?.addEventListener('input', (e) => { if (draft[i]) draft[i].t = Math.max(1, parseInt(e.target.value, 10) || 1); });
+      row.querySelector('.bcbcfg-del')?.addEventListener('click', () => {
+        if (draft.length <= 1) return;
+        draft.splice(i, 1);
+        renderRows();
+      });
+    });
+  };
+  const syncRainbowUI = () => {
+    $('bcbcfg-color')?.closest('.bcb-liqrow')?.classList.toggle('is-rainbow', !!$('bcbcfg-rainbow')?.checked);
+  };
+  const syncFrameUI = () => {
+    $('bcbcfg-frame')?.closest('.bcb-liqrow')?.classList.toggle('is-original', !!$('bcbcfg-frame-orig')?.checked);
+  };
+  const openCfg = () => {
+    modal()?.classList.remove('hidden');
+    const fill = () => {
+      try {
+        const c = { source: 'battle', resetPeriod: 'battle', scale: 100, skin: 'classic', fillColor: '#22c55e', fillRainbow: true, labelDir: 'h', orient: 'v', frameColor: '#38bdf8', frameTint: false, ...ensure() };
+        draft = normGoals(c.goals);
+        setSourceUI(c.source);
+        setPeriodUI(c.resetPeriod);
+        setLabelDirUI(c.labelDir);
+        setOrientUI(c.orient);
+        renderSkinBtns();
+        setSkinUI(c.skin);
+        if ($('bcbcfg-color')) $('bcbcfg-color').value = c.fillColor || '#22c55e';
+        if ($('bcbcfg-rainbow')) $('bcbcfg-rainbow').checked = c.fillRainbow !== false;
+        if ($('bcbcfg-frame')) $('bcbcfg-frame').value = c.frameColor || '#38bdf8';
+        if ($('bcbcfg-frame-orig')) $('bcbcfg-frame-orig').checked = !c.frameTint;
+        syncRainbowUI();
+        syncFrameUI();
+        if ($('bcbcfg-scale')) {
+          $('bcbcfg-scale').value = String(c.scale || 100);
+          if ($('bcbcfg-scale-lbl')) $('bcbcfg-scale-lbl').textContent = (c.scale || 100) + '%';
+        }
+        renderRows();
+      } catch {}
+    };
+    requestAnimationFrame(fill);
+  };
+  const closeCfg = () => modal()?.classList.add('hidden');
+  const saveCfg = () => {
+    settings.batallaCoinBar = { ...ensure(), ...readForm() };
+    saveSettings();
+    postPreview({ type: 'config', config: settings.batallaCoinBar });
+    setSkinUI(settings.batallaCoinBar.skin);
+    syncPreviewShape();
+    closeCfg();
+    toast('Contador de monedas guardado.', 'ok');
+  };
+  const fireTest = () => {
+    const last = Number(ensure()?.goals?.slice?.(-1)?.[0]?.t) || 60000;
+    const fr = frame();
+    const sendTest = (f) => {
+      try { f?.contentWindow?.postMessage({ kind: 'batallaCoinBar', type: 'test', coins: last }, '*'); } catch {}
+    };
+    if (fr) ensureEmbedLoaded(fr).then(sendTest);
+    try { send({ action: 'testBatallaCoinBar', coins: last }); } catch {}
+  };
+  const fireReset = () => {
+    postPreview({ type: 'reset' });
+    try { send({ action: 'resetBatallaCoinBar' }); } catch {}
+  };
+  const stepSkin = (dir) => {
+    const cur = skinIndex(ensure().skin || 'classic');
+    const next = BCB_SKINS[(cur + dir + BCB_SKINS.length) % BCB_SKINS.length];
+    setSkinUI(next.id);
+    pushLook({ skin: next.id });
+    try { saveSettings(); } catch {}
+  };
+
+  try {
+    setSkinUI(settings?.batallaCoinBar?.skin || 'classic');
+    syncPreviewShape();
+  } catch {}
+  window.__syncBatallaCoinBar = () => {
+    try {
+      const c = ensure();
+      setSkinUI(c.skin || 'classic');
+      setOrientUI(c.orient);
+      syncPreviewShape();
+      if (previewReady() && c && (c.orient || c.skin || c.goals)) postPreview({ type: 'config', config: c });
+    } catch {}
+  };
+  $('bcb-config')?.addEventListener('click', openCfg);
+  $('bcbcfg-close')?.addEventListener('click', closeCfg);
+  $('bcbcfg-save')?.addEventListener('click', saveCfg);
+  $('bcbcfg-test')?.addEventListener('click', fireTest);
+  $('bcb-test')?.addEventListener('click', fireTest);
+  $('bcb-reset')?.addEventListener('click', fireReset);
+  $('bcb-skin-prev')?.addEventListener('click', () => stepSkin(-1));
+  $('bcb-skin-next')?.addEventListener('click', () => stepSkin(1));
+  $('bcbcfg-add')?.addEventListener('click', () => {
+    const last = draft[draft.length - 1]?.t || 1000;
+    draft.push({ t: last * 2, label: '' });
+    renderRows();
+  });
+  $('bcbcfg-source')?.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+    btn.addEventListener('click', () => setSourceUI(btn.dataset.source));
+  });
+  $('bcbcfg-period')?.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setPeriodUI(btn.dataset.period);
+      pushLook({ resetPeriod: readPeriod() });
+      try { saveSettings(); } catch {}
+    });
+  });
+  $('bcbcfg-labeldir')?.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setLabelDirUI(btn.dataset.dir);
+      pushLook({ labelDir: btn.dataset.dir === 'v' ? 'v' : 'h' });
+      try { saveSettings(); } catch {}
+    });
+  });
+  $('bcbcfg-orient')?.querySelectorAll('.bgbcfg-modebtn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setOrientUI(btn.dataset.orient);
+      pushLook({ orient: btn.dataset.orient === 'h' ? 'h' : 'v' });
+      syncPreviewShape();
+      try { saveSettings(); } catch {}
+    });
+  });
+  $('bcbcfg-scale')?.addEventListener('input', () => {
+    if ($('bcbcfg-scale-lbl')) $('bcbcfg-scale-lbl').textContent = ($('bcbcfg-scale').value || 100) + '%';
+  });
+  $('bcbcfg-rainbow')?.addEventListener('change', () => {
+    syncRainbowUI();
+    pushLook({ fillRainbow: !!$('bcbcfg-rainbow').checked });
+    try { saveSettings(); } catch {}
+  });
+  $('bcbcfg-frame-orig')?.addEventListener('change', () => {
+    syncFrameUI();
+    pushLook({ frameTint: !$('bcbcfg-frame-orig').checked, frameColor: $('bcbcfg-frame')?.value || '#38bdf8' });
+    try { saveSettings(); } catch {}
+  });
+  $('bcbcfg-frame')?.addEventListener('input', () => {
+    if ($('bcbcfg-frame-orig')) $('bcbcfg-frame-orig').checked = false;
+    syncFrameUI();
+    postPreview({ type: 'config', config: { ...ensure(), frameColor: $('bcbcfg-frame').value, frameTint: true } });
+  });
+  $('bcbcfg-frame')?.addEventListener('change', () => {
+    if ($('bcbcfg-frame-orig')) $('bcbcfg-frame-orig').checked = false;
+    syncFrameUI();
+    pushLook({ frameColor: $('bcbcfg-frame').value, frameTint: true });
+    try { saveSettings(); } catch {}
+  });
+  $('bcbcfg-color')?.addEventListener('input', () => {
+    if ($('bcbcfg-rainbow')?.checked) return;
+    postPreview({ type: 'config', config: { ...ensure(), fillColor: $('bcbcfg-color').value, fillRainbow: false } });
+  });
+  $('bcbcfg-color')?.addEventListener('change', () => {
+    if ($('bcbcfg-rainbow')?.checked) return;
+    pushLook({ fillColor: $('bcbcfg-color').value, fillRainbow: false });
+    try { saveSettings(); } catch {}
+  });
+  frame()?.addEventListener('load', () => {
+    try { syncPreviewShape(); } catch {}
+    const c = settings?.batallaCoinBar;
+    if (c) postPreview({ type: 'config', config: c });
+  });
 })();
 
 try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__patchBatallaVsStylePreview(); } catch {}
@@ -14997,21 +15536,24 @@ function actionTestHasPayload(a) {
     || (a && a.obsCmd && a.obsCmd.on)
     || (a && a.sbCmd && a.sbCmd.on && a.sbCmd.action);
   const hasMedia = !!(a?.mediaShow?.on && a?.mediaShow?.url);
+  const hasTts = !!(a?.ttsCmd?.on && String(a.ttsCmd.text || '').trim());
+  const hasAlert = !!(a?.alertText?.on && String(a.alertText.text || '').trim());
+  const hasAnim = !!(a?.animShow?.on && a?.animShow?.url) || !!(a?.gifShow?.on && a?.gifShow?.url);
   const keys = a?.keys ? String(a.keys).trim() : '';
   const isEmptyText = /^Texto:\s*(\{Enter\})?$/i.test(keys);
-  return { hasOutput, hasMedia, keys, isEmptyText };
+  return { hasOutput, hasMedia, hasTts, hasAlert, hasAnim, keys, isEmptyText };
 }
 function actionTestCanRun(a) {
-  const { hasOutput, hasMedia, keys, isEmptyText } = actionTestHasPayload(a);
-  if (!a || ((!keys || isEmptyText) && !hasOutput && !hasMedia)) {
-    toast('Elige una tecla, un medio, escribe un texto o activa una salida primero.', 'warn');
+  const { hasOutput, hasMedia, hasTts, hasAlert, hasAnim, keys, isEmptyText } = actionTestHasPayload(a);
+  if (!a || ((!keys || isEmptyText) && !hasOutput && !hasMedia && !hasTts && !hasAlert && !hasAnim)) {
+    toast('Elige una tecla, un medio, un texto TTS, una alerta, una animación o activa una salida primero.', 'warn');
     return false;
   }
   return true;
 }
 function runActionTestNow(a, { burst = false } = {}) {
   if (!actionTestCanRun(a)) return false;
-  const { hasOutput, hasMedia, keys } = actionTestHasPayload(a);
+  const { hasOutput, hasMedia, hasTts, hasAlert, hasAnim, keys } = actionTestHasPayload(a);
   const times = (a.keyRepeatOn && a.keys) ? Math.max(1, parseInt(a.keyRepeat, 10) || 1) : 1;
   if (keys && IS_DESKTOP && window.desktopAPI?.pressKeys) {
     window.desktopAPI.pressKeys(keys, keyPressOpts({ ...a, times }, { burst }));
@@ -15040,9 +15582,12 @@ function runActionTestNow(a, { burst = false } = {}) {
       },
     });
   }
+  if (hasTts) speakActionTts(a.ttsCmd, accTtsFillSample(a.ttsCmd.text), { force: true });
+  if (hasAlert) sendAccAlertTest(a);
+  if (hasAnim) sendAccAnimTests(a);
   if (!burst) {
     const holdNote = Number(a.keyHoldSec) > 0 ? ` (${a.keyHoldSec}s)` : '';
-    addEvent(`⚡ Prueba: ${esc(a.name || keys || 'acción')}${keys ? ' → ' + esc(keys) + holdNote + (times > 1 ? ` ×${times}` : '') : ''}${hasMedia ? ' 🎬' : ''}`, 'ok');
+    addEvent(`⚡ Prueba: ${esc(a.name || keys || 'acción')}${keys ? ' → ' + esc(keys) + holdNote + (times > 1 ? ` ×${times}` : '') : ''}${hasMedia ? ' 🎬' : ''}${hasTts ? ' 🗣️' : ''}${hasAlert ? ' ⚡' : ''}`, 'ok');
   }
   return true;
 }
@@ -15056,6 +15601,7 @@ function scheduleActionTest(a) {
 }
 
 const ACC_EVENT_META = {
+  'gift-all': { ico: trigIconChip('gift-all') || '🎁', label: 'Cualquier regalo' },
   'gift-any': { ico: trigIconChip('gift-any') || '💎', label: 'Cantidad diamantes' },
   gift: { ico: trigIconChip('gift') || '🎁', label: 'Regalo específico' },
   like: { ico: trigIconChip('like') || '❤️', label: 'Likes (por usuario)' },
@@ -15160,13 +15706,25 @@ function accOutputChipsHTML(a) {
     out.push(accChipHTML('🍄', esc(`#${a.marioSpawn.npcId}${qty}`), 'mario'));
   }
   if (a.sound) out.push(accChipHTML('🔊', esc(accShortText(a.soundName || 'Audio', 20)), 'sound'));
+  if (a.ttsCmd?.on && String(a.ttsCmd.text || '').trim()) {
+    out.push(accChipHTML('🗣️', esc(accShortText(a.ttsCmd.text, 22)), 'tts'));
+  }
+  if (a.alertText?.on && String(a.alertText.text || '').trim()) {
+    out.push(accChipHTML('⚡', esc(accShortText(a.alertText.text, 22)), 'alert'));
+  }
+  if (a.animShow?.on && a.animShow?.url) {
+    out.push(accChipHTML('✨', esc(accShortText(a.animShow.name || 'Animación', 20)), 'anim'));
+  }
+  if (a.gifShow?.on && a.gifShow?.url) {
+    out.push(accChipHTML('🖼️', esc(accShortText(a.gifShow.name || 'GIF', 20)), 'gif'));
+  }
   if (!out.length) out.push(accChipHTML('⌨️', 'Sin salida', 'empty'));
   return out.join('');
 }
 // Miniatura de la tarjeta: imagen subida si la hay; si no, el icono del regalo (para
 // eventos de regalo) o un emoji acorde al evento (likes, seguidor, super fan…).
 const ACC_THUMB_EMOJI = {
-  'gift-any': '🎁', gift: '🎁', like: '❤️', likeGlobal: '❤️',
+  'gift-all': '🎁', 'gift-any': '🎁', gift: '🎁', like: '❤️', likeGlobal: '❤️',
   share: '🔁', subscribe: '⭐', superFan: '🌟', superFanJoin: '🌟', follow: '➕', levelUp: '⬆️', emote: '😀',
   chatCommand: '💬',
 };
@@ -15382,6 +15940,7 @@ function accBind(id, fn, ev = 'onclick') {
   const el = $(id);
   if (!el) return false;
   if (ev === 'onchange') el.onchange = fn;
+  else if (ev === 'oninput') el.oninput = fn;
   else el.onclick = fn;
   return true;
 }
@@ -15547,12 +16106,76 @@ function setupAccionesUI() {
     $('acc-media-box').hidden = !$('acc-media-on').checked;
     refreshAccMediaScreenUrl();
   });
+  accBind('acc-tts-on', () => {
+    $('acc-tts-box').hidden = !$('acc-tts-on').checked;
+    if ($('acc-tts-on').checked) fillAccTtsVoices();
+  });
+  accBind('acc-alert-on', () => {
+    const on = !!$('acc-alert-on')?.checked;
+    if ($('acc-alert-box')) $('acc-alert-box').hidden = !on;
+    if (on) {
+      refreshAccAnimOverlayUrl();
+      syncAccAlertVoiceBox();
+    }
+  });
+  accBind('acc-alert-tts', syncAccAlertVoiceBox);
+  accBind('acc-alert-rate', syncAccAlertRate, 'oninput');
+  accBind('acc-alert-voice', () => {
+    if ($('acc-alert-voice')) $('acc-alert-voice').dataset.want = $('acc-alert-voice').value;
+  }, 'onchange');
+  accBind('acc-alert-test', () => {
+    const cmd = readAccAlertText();
+    if (!cmd.text) { toast('Escribe el texto de la alerta.', 'warn'); return; }
+    sendAccAlertTest({ alertText: { ...cmd, on: true } });
+  });
+  accBind('acc-alert-copy-url', () => {
+    refreshAccAnimOverlayUrl();
+    const url = $('acc-alert-ov-url')?.textContent?.trim() || '';
+    if (!url) return;
+    navigator.clipboard?.writeText(url);
+    toast('Link copiado — pégalo en Live Studio u OBS', 'ok');
+  });
+  accBind('acc-gif-on', () => {
+    const on = !!$('acc-gif-on')?.checked;
+    if ($('acc-gif-box')) $('acc-gif-box').hidden = !on;
+    if (on) {
+      refreshAccAnimOverlayUrl();
+      if (!accPendingGif) $('acc-gif-file')?.click();
+    }
+  });
+  accBind('acc-tts-rate', syncAccTtsSliders, 'oninput');
+  accBind('acc-tts-pitch', syncAccTtsSliders, 'oninput');
+  accBind('acc-tts-test', () => {
+    const cmd = readAccTtsCmd();
+    if (!cmd.text) { toast('Escribe el texto que debe leer la voz.', 'warn'); return; }
+    speakActionTts({ ...cmd, on: true }, accTtsFillSample(cmd.text), { force: true });
+  });
+  setupAccTtsTextMenu();
+  setupAccAlertTextMenu();
+  accBind('acc-anim-pick', openAccAnimLib);
+  accBind('acc-gif-pick', () => $('acc-gif-file')?.click());
+  const gifFile = $('acc-gif-file');
+  if (gifFile && !gifFile.dataset.wired) {
+    gifFile.dataset.wired = '1';
+    gifFile.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (file) await uploadAccGifFile(file);
+    });
+  }
   accBind('acc-media-screen', refreshAccMediaScreenUrl, 'onchange');
   accBind('acc-media-copy-url', () => {
     const url = $('acc-media-ls-url')?.textContent?.trim() || '';
     if (!url) return;
     navigator.clipboard?.writeText(url);
     toast('Link copiado — pégalo en Live Studio', 'ok');
+  });
+  accBind('acc-anim-copy-url', () => {
+    refreshAccAnimOverlayUrl();
+    const url = $('acc-anim-ov-url')?.textContent?.trim() || '';
+    if (!url) return;
+    navigator.clipboard?.writeText(url);
+    toast('Link copiado — pégalo en Live Studio u OBS', 'ok');
   });
   accBind('acc-media-upbtn', () => $('acc-media-file')?.click());
   setupAccMediaDrop();
@@ -15565,6 +16188,8 @@ function setupAccionesUI() {
 let accPendingGiftImage = '';
 let accPendingSound = null;   // { url, name }
 let accPendingMedia = null;   // { url, name }
+let accPendingAnim = null;    // { url, name }
+let accPendingGif = null;     // { url, name }
 
 function readAccTestAction() {
   return {
@@ -15582,6 +16207,10 @@ function readAccTestAction() {
     obsCmd: readAccObsCmd(),
     sbCmd: readAccSbCmd(),
     mediaShow: readAccMediaShow(),
+    ttsCmd: readAccTtsCmd(),
+    alertText: readAccAlertText(),
+    animShow: readAccAnimShow(),
+    gifShow: readAccGifShow(),
   };
 }
 function readAccMediaShow() {
@@ -15596,6 +16225,92 @@ function readAccMediaShow() {
     screen: Math.max(1, Math.min(SCREEN_COUNT, parseInt($('acc-media-screen')?.value, 10) || 1)),
     originalDuration: $('acc-media-orig')?.checked !== false,
   };
+}
+function readAccAnimShow() {
+  const on = !!$('acc-anim-on')?.checked;
+  return { on, url: accPendingAnim?.url || '', name: accPendingAnim?.name || '' };
+}
+function readAccGifShow() {
+  const on = !!$('acc-gif-on')?.checked;
+  return { on, url: accPendingGif?.url || '', name: accPendingGif?.name || '' };
+}
+function readAccAlertText() {
+  return {
+    on: !!$('acc-alert-on')?.checked,
+    text: String($('acc-alert-text')?.value || '').trim(),
+    playTTS: !!$('acc-alert-tts')?.checked,
+    voice: String($('acc-alert-voice')?.value || $('acc-alert-voice')?.dataset.want || 'es-MX-DaliaNeural'),
+    rate: accTtsSliderToFactor($('acc-alert-rate')?.value),
+  };
+}
+function syncAccAlertRate() {
+  const rate = accTtsSliderToFactor($('acc-alert-rate')?.value);
+  if ($('acc-alert-rateval')) $('acc-alert-rateval').textContent = rate.toFixed(2) + '×';
+}
+function syncAccAlertVoiceBox() {
+  const on = !!$('acc-alert-tts')?.checked;
+  if ($('acc-alert-voicebox')) $('acc-alert-voicebox').hidden = !on;
+  if (on) {
+    fillAccTtsVoices($('acc-alert-voice')?.value, 'acc-alert-voice');
+    syncAccAlertRate();
+  }
+}
+function applyAccAlertText(cmd) {
+  const c = cmd && typeof cmd === 'object' ? cmd : {};
+  if ($('acc-alert-on')) $('acc-alert-on').checked = !!c.on;
+  if ($('acc-alert-box')) $('acc-alert-box').hidden = !c.on;
+  if ($('acc-alert-text')) $('acc-alert-text').value = c.text || '';
+  if ($('acc-alert-tts')) $('acc-alert-tts').checked = !!c.playTTS;
+  if ($('acc-alert-rate')) $('acc-alert-rate').value = accTtsFactorToSlider(c.rate);
+  if ($('acc-alert-voice')) $('acc-alert-voice').dataset.want = c.voice || 'es-MX-DaliaNeural';
+  if ($('acc-alert-voicebox')) $('acc-alert-voicebox').hidden = !c.playTTS;
+  syncAccAlertRate();
+}
+function sendAccAlertTest(a) {
+  const cmd = a?.alertText;
+  if (!cmd?.on || !String(cmd.text || '').trim()) return;
+  send({
+    action: 'testActionAlert',
+    text: accTtsFillSample(cmd.text),
+    playTTS: !!cmd.playTTS,
+    voice: String(cmd.voice || ''),
+    rate: Number(cmd.rate) || 1,
+    nickname: 'Prueba',
+  });
+}
+function applyAccAnimFields(a) {
+  const an = (a && a.animShow) || {};
+  const gf = (a && a.gifShow) || {};
+  accPendingAnim = an.url ? { url: an.url, name: an.name || 'animación' } : null;
+  accPendingGif = gf.url ? { url: gf.url, name: gf.name || 'imagen' } : null;
+  if ($('acc-anim-on')) $('acc-anim-on').checked = !!an.on;
+  if ($('acc-gif-on')) $('acc-gif-on').checked = !!gf.on;
+  if ($('acc-gif-box')) $('acc-gif-box').hidden = !gf.on;
+  if ($('acc-gif-filelbl')) $('acc-gif-filelbl').textContent = accPendingGif ? accPendingGif.name : 'Ninguna imagen…';
+}
+function sendAccAnimTests(a) {
+  if (a?.animShow?.on && a.animShow.url) {
+    send({ action: 'testActionAnim', url: a.animShow.url, name: a.animShow.name || '', kind: 'video', nickname: 'Prueba' });
+  }
+  if (a?.gifShow?.on && a.gifShow.url) {
+    send({ action: 'testActionAnim', url: a.gifShow.url, name: a.gifShow.name || '', kind: 'image', nickname: 'Prueba' });
+  }
+}
+function openAccAnimLib() {
+  libTarget = 'accAnim';
+  openVideoLib();
+}
+async function uploadAccGifFile(file) {
+  if (!file) return;
+  const label = $('acc-gif-filelbl');
+  try {
+    const data = await uploadMediaWithProgress(file, (msg) => { if (label) label.textContent = msg; });
+    accPendingGif = { url: data.url, name: file.name };
+    if (label) label.textContent = file.name;
+    if ($('acc-gif-on')) $('acc-gif-on').checked = true;
+  } catch (err) {
+    if (label) label.textContent = uploadErrLabel(err);
+  }
 }
 
 async function uploadAccMediaFile(file) {
@@ -15649,7 +16364,7 @@ function applyAccEventExtras() {
   if ($('acc-eventdelayextra')) $('acc-eventdelayextra').hidden = ev !== 'emote';
   if ($('acc-cmdextra')) $('acc-cmdextra').hidden = ev !== 'chatCommand';
   if ($('acc-userextra')) $('acc-userextra').hidden = ev !== 'chatCommand';
-  if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift' && ev !== 'gift-any';
+  if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift' && ev !== 'gift-any' && ev !== 'gift-all';
   syncAccTrigGrid();
 }
 
@@ -15728,6 +16443,197 @@ function readAccSbCmd() {
   };
 }
 
+function accTtsSliderToFactor(v) {
+  return Math.max(0.5, Math.min(2, (parseInt(v, 10) || 100) / 100));
+}
+function accTtsFactorToSlider(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 100;
+  return Math.max(50, Math.min(200, Math.round(n * 100)));
+}
+function syncAccTtsSliders() {
+  const rate = accTtsSliderToFactor($('acc-tts-rate')?.value);
+  const pitch = accTtsSliderToFactor($('acc-tts-pitch')?.value);
+  if ($('acc-tts-rateval')) $('acc-tts-rateval').textContent = rate.toFixed(2) + '×';
+  if ($('acc-tts-pitchval')) $('acc-tts-pitchval').textContent = pitch.toFixed(2);
+}
+function readAccTtsCmd() {
+  const on = !!$('acc-tts-on')?.checked;
+  const text = String($('acc-tts-text')?.value || '').trim();
+  return {
+    on,
+    text,
+    voice: String($('acc-tts-voice')?.value || ''),
+    rate: accTtsSliderToFactor($('acc-tts-rate')?.value),
+    pitch: accTtsSliderToFactor($('acc-tts-pitch')?.value),
+    random: !!$('acc-tts-random')?.checked,
+  };
+}
+function setupAccTtsTextMenu() {
+  const input = $('acc-tts-text');
+  const menu = $('acc-tts-menu');
+  const wrap = $('acc-tts-combo');
+  if (!input || !menu || !wrap || wrap.dataset.wired) return;
+  wrap.dataset.wired = '1';
+  const open = () => { menu.hidden = false; };
+  const close = () => { menu.hidden = true; };
+  input.addEventListener('focus', open);
+  input.addEventListener('click', open);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
+  menu.addEventListener('mousedown', (e) => e.preventDefault());
+  menu.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-tts-ex]');
+    if (!btn) return;
+    input.value = btn.getAttribute('data-tts-ex') || '';
+    close();
+    input.focus();
+    const end = input.value.length;
+    try { input.setSelectionRange(end, end); } catch { /* ignore */ }
+  });
+  document.addEventListener('mousedown', (e) => {
+    if (!wrap.contains(e.target)) close();
+  });
+}
+function setupAccAlertTextMenu() {
+  const input = $('acc-alert-text');
+  const menu = $('acc-alert-menu');
+  const wrap = $('acc-alert-combo');
+  if (!input || !menu || !wrap || wrap.dataset.wired) return;
+  wrap.dataset.wired = '1';
+  const open = () => { menu.hidden = false; };
+  const close = () => { menu.hidden = true; };
+  input.addEventListener('focus', open);
+  input.addEventListener('click', open);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+  });
+  menu.addEventListener('mousedown', (e) => e.preventDefault());
+  menu.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-alert-ex]');
+    if (!btn) return;
+    input.value = btn.getAttribute('data-alert-ex') || '';
+    close();
+    input.focus();
+    const end = input.value.length;
+    try { input.setSelectionRange(end, end); } catch { /* ignore */ }
+  });
+  document.addEventListener('mousedown', (e) => {
+    if (!wrap.contains(e.target)) close();
+  });
+}
+function fillAccTtsVoices(selected, selectId) {
+  const sel = $(selectId || 'acc-tts-voice');
+  if (!sel) return;
+  const want = selected || sel.dataset.want || sel.value || 'es-MX-DaliaNeural';
+  if (sel.dataset.html !== '1') {
+    const fem = (typeof TTS_EDGE_VOICES !== 'undefined' ? TTS_EDGE_VOICES : []).filter((v) => v.gender === 'f');
+    const mal = (typeof TTS_EDGE_VOICES !== 'undefined' ? TTS_EDGE_VOICES : []).filter((v) => v.gender === 'm');
+    const region = (loc) => (typeof TTS_EDGE_REGIONS !== 'undefined' && TTS_EDGE_REGIONS[loc]) || loc;
+    let html = '<optgroup label="Voz femenina">';
+    for (const v of fem) html += `<option value="${esc(v.id)}">${esc(v.name)} (${esc(region(v.locale))})</option>`;
+    html += '</optgroup><optgroup label="Voz masculina">';
+    for (const v of mal) html += `<option value="${esc(v.id)}">${esc(v.name)} (${esc(region(v.locale))})</option>`;
+    html += '</optgroup>';
+    sel.innerHTML = html;
+    sel.dataset.html = '1';
+  }
+  if (want && [...sel.options].some((o) => o.value === want)) sel.value = want;
+  else if ([...sel.options].some((o) => o.value === 'es-MX-DaliaNeural')) sel.value = 'es-MX-DaliaNeural';
+}
+function applyAccTtsCmd(cmd) {
+  const c = cmd && typeof cmd === 'object' ? cmd : {};
+  if ($('acc-tts-on')) $('acc-tts-on').checked = !!c.on;
+  if ($('acc-tts-box')) $('acc-tts-box').hidden = !c.on;
+  if ($('acc-tts-text')) $('acc-tts-text').value = c.text || '';
+  if ($('acc-tts-rate')) $('acc-tts-rate').value = accTtsFactorToSlider(c.rate);
+  if ($('acc-tts-pitch')) $('acc-tts-pitch').value = accTtsFactorToSlider(c.pitch);
+  if ($('acc-tts-random')) $('acc-tts-random').checked = !!c.random;
+  if ($('acc-tts-voice')) $('acc-tts-voice').dataset.want = c.voice || '';
+  syncAccTtsSliders();
+}
+function accTtsFillSample(tpl) {
+  const vars = {
+    username: 'Carlos',
+    giftname: 'rosas',
+    repeatcount: '5',
+    coins: '5',
+    likecount: '10',
+    totallikecount: '1000',
+    comment: 'hola',
+    submonth: '3',
+  };
+  return String(tpl || '').replace(/\{(\w+)\}/gi, (m, k) => {
+    const v = vars[String(k).toLowerCase()];
+    return v != null ? String(v) : m;
+  });
+}
+let accTtsAudio = null;
+function accTtsPickVoice(cmd) {
+  let voice = String(cmd?.voice || '');
+  if (cmd?.random) {
+    const sel = $('acc-tts-voice');
+    const opts = sel ? [...sel.options].map((o) => o.value).filter(Boolean) : [];
+    const pool = opts.length
+      ? opts
+      : (typeof TTS_EDGE_VOICES !== 'undefined' ? TTS_EDGE_VOICES.map((v) => v.id) : []);
+    if (pool.length) voice = pool[Math.floor(Math.random() * pool.length)];
+  }
+  return voice;
+}
+async function speakActionTts(cmd, text, opts = {}) {
+  const phrase = (typeof ttsReadableText === 'function'
+    ? ttsReadableText(String(text || ''))
+    : String(text || '')).trim();
+  if (!phrase) return;
+  const rate = Math.max(0.5, Math.min(2, Number(cmd?.rate) || 1));
+  const pitch = Math.max(0.5, Math.min(2, Number(cmd?.pitch) || 1));
+  const voice = accTtsPickVoice(cmd);
+  try { if (accTtsAudio) { accTtsAudio.pause(); accTtsAudio.src = ''; } } catch { /* ignore */ }
+  if (typeof isEdgeTtsVoiceId === 'function' && isEdgeTtsVoiceId(voice)) {
+    try {
+      const r = await fetch('/api/tts/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ text: phrase, voice, translate: false }),
+      });
+      const j = await r.json().catch(() => null);
+      if (j && j.ok && j.audio) {
+        const audio = new Audio('data:' + (j.mime || 'audio/mpeg') + ';base64,' + j.audio);
+        audio.volume = 1;
+        if (Math.abs(rate - 1) > 0.02) audio.playbackRate = rate;
+        accTtsAudio = audio;
+        await audio.play().catch(() => {});
+        return;
+      }
+    } catch { /* fallback sistema */ }
+  }
+  if (!('speechSynthesis' in window)) {
+    if (opts.force) toast('Este equipo no puede leer el texto.', 'warn');
+    return;
+  }
+  try {
+    const u = new SpeechSynthesisUtterance(phrase);
+    u.rate = rate;
+    u.pitch = pitch;
+    const hit = (typeof ttsVoices !== 'undefined' ? ttsVoices : []).find((v) => v.name === voice);
+    if (hit) u.voice = hit;
+    speechSynthesis.speak(u);
+  } catch { /* ignore */ }
+}
+function onActionTts(p) {
+  if (!p || !String(p.text || '').trim()) return;
+  speakActionTts({
+    on: true,
+    voice: p.voice,
+    rate: p.rate,
+    pitch: p.pitch,
+    random: !!p.random,
+  }, p.text);
+}
+
 function openAccModal(a) {
   accEditingId = a ? a.id : null;
   accPendingImage = a && a.image ? { url: a.image, name: 'imagen' } : null;
@@ -15737,7 +16643,6 @@ function openAccModal(a) {
   $('acc-modal-title').textContent = a ? 'Editar acción' : 'Nueva acción';
   $('acc-name').value = a ? (a.name || '') : '';
   $('acc-event').value = a ? (a.event || 'gift-any') : 'gift-any';
-  syncAccTrigGrid();
   $('acc-rangemin').value = a ? (a.rangeMin || 0) : 0;
   $('acc-rangemax').value = a ? (a.rangeMax || 0) : 0;
   $('acc-giftid').value = a ? (a.giftId || '') : '';
@@ -15745,7 +16650,9 @@ function openAccModal(a) {
   $('acc-mindia').value = a ? (a.minDiamonds || 0) : 0;
   $('acc-likemin').value = a ? (a.likeMin || 1) : 1;
   $('acc-likegoal').value = a ? (a.likeGoal || 100) : 100;
-  $('acc-emoteid').value = a ? (a.emoteId || '') : '';
+  if ($('acc-emoteid')) $('acc-emoteid').value = a ? (a.emoteId || '') : '';
+  if ($('acc-command')) $('acc-command').value = a ? (a.command || '') : '';
+  if ($('acc-user')) $('acc-user').value = a ? (a.user || '') : '';
   if ($('acc-eventdelay')) $('acc-eventdelay').value = a?.eventDelay ?? 30;
   if ($('acc-comboinstant')) {
     // Nuevas acciones: ON. gift-any antiguas se guardaban siempre en false (bug): tratar false como ON al abrir.
@@ -15813,11 +16720,22 @@ function openAccModal(a) {
     fillScreenSelect($('acc-media-screen'), ms.screen);
   }
   if ($('acc-media-fname')) $('acc-media-fname').textContent = accPendingMedia ? accPendingMedia.name : 'Ningún archivo…';
-  refreshAccMediaScreenUrl();
+  applyAccTtsCmd(a && a.ttsCmd);
+  applyAccAlertText(a && a.alertText);
+  applyAccAnimFields(a);
   applyObsCmdExtras();
   $('acc-status').textContent = '';
   applyAccEventExtras();
-  $('accModal').classList.remove('hidden');
+  const modal = $('accModal');
+  if (modal) modal.classList.remove('hidden');
+  const later = () => {
+    refreshAccMediaScreenUrl();
+    refreshAccAnimOverlayUrl();
+    if ($('acc-tts-on')?.checked) fillAccTtsVoices($('acc-tts-voice')?.dataset.want || '', 'acc-tts-voice');
+    if ($('acc-alert-tts')?.checked) fillAccTtsVoices($('acc-alert-voice')?.dataset.want || '', 'acc-alert-voice');
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(later, { timeout: 80 });
+  else requestAnimationFrame(later);
 }
 
 function closeAccModal() {
@@ -15830,10 +16748,33 @@ function saveAccModal() {
   const obsCmd = readAccObsCmd();
   const sbCmd = readAccSbCmd();
   const mediaShow = readAccMediaShow();
+  const ttsCmd = readAccTtsCmd();
+  const alertText = readAccAlertText();
+  const animShow = readAccAnimShow();
+  const gifShow = readAccGifShow();
   const hasOutput = (webhookCmd.on && webhookCmd.url) || obsCmd.on || (sbCmd.on && sbCmd.action);
   const hasMedia = mediaShow.on && mediaShow.url;
-  if (!keys && !hasOutput && !hasMedia) {
-    $('acc-status').textContent = 'Elige una tecla/clic, sube un medio o activa una salida (WebHook, OBS o Streamer.bot).';
+  const hasTts = !!(ttsCmd.on && ttsCmd.text);
+  const hasAlert = !!(alertText.on && alertText.text);
+  const hasAnim = !!(animShow.on && animShow.url) || !!(gifShow.on && gifShow.url);
+  if (ttsCmd.on && !ttsCmd.text) {
+    $('acc-status').textContent = 'Escribe el texto que debe leer la voz.';
+    return;
+  }
+  if (alertText.on && !alertText.text) {
+    $('acc-status').textContent = 'Escribe el texto de la alerta.';
+    return;
+  }
+  if (animShow.on && !animShow.url) {
+    $('acc-status').textContent = 'Elige una animación.';
+    return;
+  }
+  if (gifShow.on && !gifShow.url) {
+    $('acc-status').textContent = 'Elige una imagen o GIF.';
+    return;
+  }
+  if (!keys && !hasOutput && !hasMedia && !hasTts && !hasAlert && !hasAnim) {
+    $('acc-status').textContent = 'Elige una tecla/clic, un texto TTS, una alerta, una animación, un medio o activa una salida (WebHook, OBS o Streamer.bot).';
     return;
   }
   if (mediaShow.on && !mediaShow.url) {
@@ -15851,6 +16792,10 @@ function saveAccModal() {
       if (prev?.marioSpawn?.npcId != null) marioSpawn = prev.marioSpawn;
     }
   }
+  if ($('acc-event').value === 'chatCommand' && !($('acc-command')?.value || '').trim()) {
+    $('acc-status').textContent = 'Escribe el comando (ej. !video).';
+    return;
+  }
   const data = {
     name: $('acc-name').value.trim() || 'Acción',
     event: $('acc-event').value,
@@ -15863,8 +16808,10 @@ function saveAccModal() {
     likeMin: +$('acc-likemin').value || 1,
     likeGoal: +$('acc-likegoal').value || 100,
     emoteId: $('acc-emoteid').value || '',
+    command: $('acc-event').value === 'chatCommand' ? ($('acc-command')?.value || '').trim() : '',
+    user: $('acc-event').value === 'chatCommand' ? ($('acc-user')?.value || '').trim().replace(/^@/, '') : '',
     eventDelay: $('acc-event').value === 'emote' ? Math.max(0, parseInt($('acc-eventdelay')?.value, 10) || 0) : 0,
-    comboInstant: ($('acc-event').value === 'gift' || $('acc-event').value === 'gift-any') && !!$('acc-comboinstant')?.checked,
+    comboInstant: ($('acc-event').value === 'gift' || $('acc-event').value === 'gift-any' || $('acc-event').value === 'gift-all') && !!$('acc-comboinstant')?.checked,
     keys,
     keyRepeatOn: $('acc-keys-on').checked && $('acc-keyrepeat-on')?.checked,
     keyRepeat: Math.max(1, Math.min(50, parseInt($('acc-keyrepeat')?.value, 10) || 1)),
@@ -15880,6 +16827,10 @@ function saveAccModal() {
     marioSpawn,
     webhookCmd, obsCmd, sbCmd,
     mediaShow: hasMedia ? mediaShow : { on: false, url: '', name: '', size: 100, volume: 100, screen: 1, originalDuration: true },
+    ttsCmd: hasTts ? ttsCmd : { on: false, text: ttsCmd.text || '', voice: ttsCmd.voice || '', rate: ttsCmd.rate || 1, pitch: ttsCmd.pitch || 1, random: !!ttsCmd.random },
+    alertText: hasAlert ? alertText : { on: false, text: alertText.text || '', playTTS: !!alertText.playTTS, voice: alertText.voice || '', rate: alertText.rate || 1 },
+    animShow: hasAnim && animShow.on && animShow.url ? animShow : { on: false, url: animShow.url || '', name: animShow.name || '' },
+    gifShow: gifShow.on && gifShow.url ? gifShow : { on: false, url: gifShow.url || '', name: gifShow.name || '' },
   };
   if (!settings.actions) settings.actions = [];
   const id = ensureAccEditId();
@@ -17350,6 +18301,12 @@ function setupSpotifyUI() {
   const spPermIn = document.getElementById('sp-perm-user-in');
   const spPermOn = document.getElementById('sp-perm-users-on');
   if (spPermOn) spPermOn.addEventListener('change', () => { syncSpotifyPermUsersUI(); autoSave(); });
+  const skipOwn = document.getElementById('sp-skip-own-only');
+  const skipStrict = document.getElementById('sp-skip-own-only-strict');
+  if (skipOwn && skipStrict) {
+    skipOwn.addEventListener('change', () => { if (skipOwn.checked) skipStrict.checked = false; });
+    skipStrict.addEventListener('change', () => { if (skipStrict.checked) skipOwn.checked = false; });
+  }
   if (spPermAdd) spPermAdd.onclick = addSpotifyPermUser;
   if (spPermIn) spPermIn.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); addSpotifyPermUser(); }
@@ -17998,7 +18955,7 @@ const MC_TRIGGERS = [
   { v: 'superFanJoin', label: 'Super fan entró' },
   { v: 'levelUp', label: 'Subió de nivel de miembro' },
   { v: 'chatUser', label: 'Mensaje de un usuario' },
-  { v: 'chatCommand', label: 'Comando de chat' },
+  { v: 'chatCommand', label: 'Comando de chat (!video)' },
   { v: 'firstMessage', label: 'Primer mensaje en el chat' },
 ];
 // Icono por tipo de evento (para mostrarlo en la tarjeta agregada).
@@ -18027,6 +18984,19 @@ function mcTrigLabel(trigger) {
     || trigger;
 }
 
+function mcTrigDelayValue(trigger, stored) {
+  if (stored != null && stored !== '') return Math.max(0, Number(stored) || 0);
+  return (trigger === 'follow' || trigger === 'share') ? 30 : 0;
+}
+
+function mcTrigPopDelayHtml(d) {
+  const delay = mcTrigDelayValue(d.trigger, d.eventDelay);
+  return `<label class="mc-like-row">Segundos de espera por usuario
+    <input type="number" min="0" id="mc-trig-pop-delay" value="${esc(String(delay))}" placeholder="0">
+    <span class="mc-trig-pop-hint" style="text-transform:none;letter-spacing:0;font-weight:600;margin-top:4px">El mismo usuario no puede volver a activar hasta que pase este tiempo (0 = sin límite).</span>
+  </label>`;
+}
+
 function mcTrigCardBtnHtml(a) {
   const trig = a.trigger || 'gift';
   const ev = MC_TRIG_ICON[trig] || { ic: '⚡', label: trig };
@@ -18053,6 +19023,8 @@ function mcTrigCardBtnHtml(a) {
   } else if (!MC_TRIG_ICON[trig]) {
     visual = `<span class="mc-trig-emoji">${ev.ic}</span>`;
   }
+  const delayShow = mcTrigDelayValue(trig, a.eventDelay);
+  if (delayShow > 0 && trig !== 'follow' && trig !== 'share') sub += ` · ${delayShow}s`;
   return `<button type="button" class="mc-trig-icon-btn" data-uid="${esc(a.uid)}" title="Elegir disparador">
     ${visual}
     <span class="mc-trig-icon-sub">${sub}</span>
@@ -18113,7 +19085,7 @@ function openMcTrigPop(uid, settingsKey = 'mcActions') {
     rangeMax: a.rangeMax != null ? a.rangeMax : 0,
     likeN: a.likeN != null ? a.likeN : (a.trigger === 'likeGlobal' ? 100 : 1),
     text: a.text || '',
-    eventDelay: a.eventDelay != null ? a.eventDelay : 30,
+    eventDelay: mcTrigDelayValue(a.trigger || 'gift', a.eventDelay),
   };
   const el = ensureMcTrigPop();
   renderMcTrigPop();
@@ -18175,14 +19147,11 @@ function renderMcTrigPop() {
     detailHtml = `<label class="mc-like-row">${txt}
       <input type="text" id="mc-trig-pop-text" value="${esc(d.text || '')}" placeholder="${ph}"></label>`;
   } else if (d.trigger === 'follow' || d.trigger === 'share') {
-    const delay = d.eventDelay != null ? d.eventDelay : 30;
-    detailHtml = `<label class="mc-like-row">Segundos de espera por usuario
-      <input type="number" min="0" id="mc-trig-pop-delay" value="${esc(String(delay))}" placeholder="30">
-      <span class="mc-trig-pop-hint" style="text-transform:none;letter-spacing:0;font-weight:600;margin-top:4px">El mismo usuario no puede volver a activar hasta que pase este tiempo (0 = sin límite). Evita spam de unfollow/follow o compartir varias veces.</span>
-    </label>`;
+    detailHtml = '';
   } else {
     detailHtml = `<p class="mc-trig-pop-hint">${esc(mcTrigLabel(d.trigger))}</p>`;
   }
+  detailHtml += mcTrigPopDelayHtml(d);
   detail.innerHTML = detailHtml;
 
   const giftBtn = document.getElementById('mc-trig-pop-gift');
@@ -18246,8 +19215,7 @@ function saveMcTrigPop() {
   }
   if (d.trigger === 'like' || d.trigger === 'likeGlobal') a.likeN = d.likeN;
   if (d.trigger === 'chatUser' || d.trigger === 'chatCommand') a.text = d.text || '';
-  if (d.trigger === 'follow' || d.trigger === 'share') a.eventDelay = d.eventDelay;
-  else delete a.eventDelay;
+  a.eventDelay = Math.max(0, parseInt(d.eventDelay, 10) || 0);
 
   if (key === 'screenFx') {
     saveScreenFxPatch();
@@ -21275,6 +22243,8 @@ function renderRobloxActions() {
       const ph = a.trigger === 'chatUser' ? 'usuario123' : '!salta';
       likeRow = `<label class="mc-like-row">${txt}<input type="text" class="rbx-text-n" data-slot="${i}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
     }
+    const delayVal = mcTrigDelayValue(a.trigger || 'gift', a.eventDelay);
+    const delayRow = `<label class="mc-like-row">Espera por usuario (s)<input type="number" min="0" class="rbx-eventdelay" data-slot="${i}" value="${esc(String(delayVal))}" title="0 = sin límite"></label>`;
     return `
     <div class="mc-act-card ${a.enabled === false ? 'mc-off' : ''}" data-slot="${i}">
       <div class="mc-act-top">
@@ -21285,6 +22255,7 @@ function renderRobloxActions() {
         <select class="rbx-trig-sel" data-slot="${i}">${opts}</select>
         ${giftBtn}
         ${likeRow}
+        ${delayRow}
       </div>
       ${gameActionCardFooter(a, 'rbx-test', { slot: i })}
     </div>`;
@@ -21306,6 +22277,7 @@ function renderRobloxActions() {
   wrap.querySelectorAll('.rbx-range-min').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMin = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('robloxActions'); });
   wrap.querySelectorAll('.rbx-range-max').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMax = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('robloxActions'); });
   wrap.querySelectorAll('.rbx-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettingsKeysPatch('robloxActions'); });
+  wrap.querySelectorAll('.rbx-eventdelay').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.eventDelay = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('robloxActions'); });
   wrap.querySelectorAll('.rbx-gift').forEach((b) => b.onclick = () => {
     const a = at(b); if (!a) return;
     openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); notifyEditorRapidoActionsChanged('robloxActions'); renderRobloxActions(); });
@@ -21453,6 +22425,8 @@ function renderRoblox3Actions() {
       const ph = a.trigger === 'chatUser' ? 'usuario123' : '!salta';
       likeRow = `<label class="mc-like-row">${txt}<input type="text" class="rbx3-text-n" data-slot="${i}" value="${esc(a.text || '')}" placeholder="${ph}"></label>`;
     }
+    const delayVal = mcTrigDelayValue(a.trigger || 'gift', a.eventDelay);
+    const delayRow = `<label class="mc-like-row">Espera por usuario (s)<input type="number" min="0" class="rbx3-eventdelay" data-slot="${i}" value="${esc(String(delayVal))}" title="0 = sin límite"></label>`;
     const editable = !!(RBX3_PRESETS[i] && RBX3_PRESETS[i].editable);
     const keyEl = editable
       ? `<button type="button" class="rbx-keycap rbx3-keyset" data-slot="${i}" title="Pulsa para elegir la tecla">${a.keys ? esc(a.keys) : '⌨️ Elegir tecla'}</button>`
@@ -21467,6 +22441,7 @@ function renderRoblox3Actions() {
         <select class="rbx3-trig-sel" data-slot="${i}">${opts}</select>
         ${giftBtn}
         ${likeRow}
+        ${delayRow}
       </div>
       ${gameActionCardFooter(a, 'rbx3-test', { slot: i })}
     </div>`;
@@ -21488,6 +22463,7 @@ function renderRoblox3Actions() {
   wrap.querySelectorAll('.rbx3-range-min').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMin = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('roblox3Actions'); });
   wrap.querySelectorAll('.rbx3-range-max').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.rangeMax = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('roblox3Actions'); });
   wrap.querySelectorAll('.rbx3-text-n').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.text = inp.value.trim(); saveSettingsKeysPatch('roblox3Actions'); });
+  wrap.querySelectorAll('.rbx3-eventdelay').forEach((inp) => inp.onchange = () => { const a = at(inp); if (!a) return; a.eventDelay = Math.max(0, parseInt(inp.value, 10) || 0); saveSettingsKeysPatch('roblox3Actions'); });
   wrap.querySelectorAll('.rbx3-gift').forEach((b) => b.onclick = () => {
     const a = at(b); if (!a) return;
     openGiftModalCb((g) => { a.giftId = String(g.id); a.giftName = g.name; a.giftImage = g.image || ''; saveSettings(); notifyEditorRapidoActionsChanged('roblox3Actions'); renderRoblox3Actions(); });

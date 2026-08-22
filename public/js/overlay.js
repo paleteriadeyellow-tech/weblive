@@ -5,6 +5,25 @@ const MAX_ALERTS = 5;
 let ws, reconnectTimer;
 let settings = { alerts: { gift: true, follow: true, share: true, like: false, member: false, minDiamonds: 1, duration: 5 } };
 
+/** 0–100 (alertas/videos) o 0–1 (acciones). Curva al cuadrado para que bajar el slider se note. */
+function lcVolume01(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 1;
+  const lin = n > 1 ? Math.min(1, n / 100) : Math.min(1, n);
+  return lin * lin;
+}
+function applyMediaVolume(el, raw) {
+  if (!el) return;
+  const v = lcVolume01(raw);
+  const set = () => {
+    try { el.volume = v; el.muted = v <= 0; } catch { /* ignore */ }
+  };
+  set();
+  el.addEventListener('loadedmetadata', set);
+  el.addEventListener('canplay', set);
+  el.addEventListener('playing', set);
+}
+
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
@@ -14,6 +33,8 @@ function connectWS() {
     const { type, payload } = JSON.parse(ev.data);
     if (type === 'settings') { settings = payload; return; }
     if (type === 'media') { if (!payload.screenTest) enqueue({ kind: 'video', payload }); return; }
+    if (type === 'actionAnim') { enqueue({ kind: 'actionAnim', payload }); return; }
+    if (type === 'actionAlert') { enqueue({ kind: 'actionAlert', payload }); return; }
     if (type === 'stopMedia') { stopMediaForScreen(payload?.screen); return; }
     if (type === 'sound') { enqueue({ kind: 'sound', payload }); return; }
     if (type === 'stopSound') {
@@ -74,7 +95,9 @@ function queueOn() { return settings?.playback?.playQueue !== false; }
 function enqueue(item) {
   if (!queueOn()) {
     // Modo sin cola: comportamiento directo (puede solaparse / cortar como antes)
-    if (item.kind === 'video') playVideoNow(item.payload, null);
+    if (item.kind === 'actionAnim') playActionAnimNow(item.payload, null);
+    else if (item.kind === 'actionAlert') playActionAlertNow(item.payload, null);
+    else if (item.kind === 'video') playVideoNow(item.payload, null);
     else playSoundNow(item.payload, null);
     return;
   }
@@ -97,7 +120,9 @@ function pump() {
     pump();
   };
   currentDone = done;
-  if (item.kind === 'video') playVideoNow(item.payload, done);
+  if (item.kind === 'actionAnim') playActionAnimNow(item.payload, done);
+  else if (item.kind === 'actionAlert') playActionAlertNow(item.payload, done);
+  else if (item.kind === 'video') playVideoNow(item.payload, done);
   else playSoundNow(item.payload, done);
 }
 
@@ -107,6 +132,7 @@ function clearQueue() {
   currentItem = null;
   currentDone = null;
   if (activeDoneTimer) { clearTimeout(activeDoneTimer); activeDoneTimer = null; }
+  cancelOverlaySpeech();
 }
 
 /* Stop de sonidos: quita los sonidos de la cola y corta el que suena; los videos siguen. */
@@ -139,6 +165,181 @@ function stopMediaForScreen(scr) {
   }
 }
 
+function playActionAnimNow(media, done) {
+  if (!media?.url) { done?.(); return; }
+  videoLayer.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'action-anim';
+  const url = media.url;
+  const isImg = media.kind === 'image' || /\.(gif|png|jpe?g|webp)(\?|$)/i.test(url);
+  let el;
+  const finish = () => {
+    try { wrap.remove(); } catch {}
+    done?.();
+  };
+  if (isImg) {
+    el = document.createElement('img');
+    el.src = url;
+    el.onload = () => { activeDoneTimer = setTimeout(finish, 6000); };
+    el.onerror = finish;
+  } else {
+    el = document.createElement('video');
+    el.src = url;
+    el.autoplay = true;
+    el.playsInline = true;
+    applyMediaVolume(el, media.volume);
+    el.onended = finish;
+    el.onerror = finish;
+    activeDoneTimer = setTimeout(finish, 30000);
+    el.onloadedmetadata = () => {
+      applyMediaVolume(el, media.volume);
+      const d = Number(el.duration);
+      if (Number.isFinite(d) && d > 0) {
+        clearTimeout(activeDoneTimer);
+        activeDoneTimer = setTimeout(finish, d * 1000 + 400);
+      }
+    };
+  }
+  el.className = 'media';
+  wrap.appendChild(el);
+  const nick = String(media.nickname || '').trim();
+  if (nick) {
+    const tag = document.createElement('div');
+    tag.className = 'action-anim-tag';
+    tag.textContent = nick;
+    wrap.appendChild(tag);
+  }
+  videoLayer.appendChild(wrap);
+}
+
+let overlayTtsAudio = null;
+
+function cancelOverlaySpeech() {
+  try { window.speechSynthesis?.cancel(); } catch { /* ignore */ }
+  try {
+    if (overlayTtsAudio) {
+      overlayTtsAudio.onended = null;
+      overlayTtsAudio.onerror = null;
+      overlayTtsAudio.pause();
+      overlayTtsAudio.src = '';
+      overlayTtsAudio = null;
+    }
+  } catch { /* ignore */ }
+}
+
+function pickSpanishVoice() {
+  const list = (typeof speechSynthesis !== 'undefined' && speechSynthesis.getVoices()) || [];
+  return list.find((v) => /es[-_]MX/i.test(v.lang))
+    || list.find((v) => /es[-_]ES/i.test(v.lang))
+    || list.find((v) => /^es/i.test(v.lang))
+    || null;
+}
+
+function pickOverlayVoice(want) {
+  const list = (typeof speechSynthesis !== 'undefined' && speechSynthesis.getVoices()) || [];
+  const name = String(want || '');
+  if (name) {
+    const hit = list.find((v) => v.name === name || v.voiceURI === name);
+    if (hit) return hit;
+  }
+  return pickSpanishVoice();
+}
+
+function speakOverlayTts(text, done, opts = {}) {
+  if (!String(text || '').trim()) { done?.(); return; }
+  const rate = Math.max(0.5, Math.min(2, Number(opts.rate) || 1));
+  let once = false;
+  const end = () => { if (once) return; once = true; done?.(); };
+
+  const playData = (b64, mime) => {
+    cancelOverlaySpeech();
+    const audio = new Audio('data:' + (mime || 'audio/mpeg') + ';base64,' + b64);
+    if (Math.abs(rate - 1) > 0.02) audio.playbackRate = rate;
+    overlayTtsAudio = audio;
+    audio.onended = end;
+    audio.onerror = end;
+    audio.play().catch(end);
+  };
+
+  if (opts.audio) { playData(opts.audio, opts.mime); return; }
+
+  const playSys = () => {
+    if (typeof speechSynthesis === 'undefined') { end(); return; }
+    const start = () => {
+      cancelOverlaySpeech();
+      const u = new SpeechSynthesisUtterance(String(text));
+      u.lang = 'es-MX';
+      u.rate = rate;
+      u.pitch = 1;
+      const voice = pickOverlayVoice(opts.voice);
+      if (voice) {
+        u.voice = voice;
+        u.lang = voice.lang || 'es-MX';
+      }
+      u.onend = end;
+      u.onerror = end;
+      try { speechSynthesis.speak(u); } catch { end(); }
+    };
+    const voices = speechSynthesis.getVoices();
+    if (voices && voices.length) { start(); return; }
+    const t = setTimeout(start, 280);
+    try {
+      speechSynthesis.addEventListener('voiceschanged', () => { clearTimeout(t); start(); }, { once: true });
+    } catch { start(); }
+  };
+  playSys();
+}
+
+function playActionAlertNow(p, done) {
+  const text = String(p?.text || '').trim();
+  if (!text) { done?.(); return; }
+  videoLayer.innerHTML = '';
+  cancelOverlaySpeech();
+  const wrap = document.createElement('div');
+  wrap.className = 'action-alert';
+  const nick = String(p.nickname || '').trim();
+  const photo = String(p.photo || '').trim();
+  const av = photo
+    ? `<img class="action-alert-av" src="${esc(photo)}" alt="">`
+    : `<div class="action-alert-ph" aria-hidden="true"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="40" fill="#d0d4dc"/><circle cx="40" cy="30" r="14" fill="#8b93a3"/><path d="M14 70c4-16 14-24 26-24s22 8 26 24" fill="#8b93a3"/></svg></div>`;
+  const who = nick
+    ? `<div class="action-alert-who">${[...nick].map((ch, i) => (
+      ch === ' '
+        ? '<span class="action-alert-sp"> </span>'
+        : `<span class="action-alert-ch" style="--i:${i}">${esc(ch)}</span>`
+    )).join('')}</div>`
+    : '';
+  wrap.innerHTML = `
+    <div class="action-alert-card">
+      ${av}
+      ${who}
+      <div class="action-alert-text">${esc(text)}</div>
+    </div>`;
+  videoLayer.appendChild(wrap);
+  let finished = false;
+  const FADE_MS = 1100;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    cancelOverlaySpeech();
+    try { wrap.remove(); } catch { /* ignore */ }
+    done?.();
+  };
+  const startFade = () => {
+    wrap.classList.add('is-out');
+    activeDoneTimer = setTimeout(finish, FADE_MS);
+  };
+  const holdUntil = Date.now() + 6000;
+  const wrapUp = () => {
+    if (activeDoneTimer) { clearTimeout(activeDoneTimer); activeDoneTimer = null; }
+    const wait = Math.max(400, holdUntil - Date.now());
+    activeDoneTimer = setTimeout(startFade, wait);
+  };
+  activeDoneTimer = setTimeout(finish, 20000);
+  if (p.playTTS) speakOverlayTts(text, wrapUp, { voice: p.voice, rate: p.rate, audio: p.audio, mime: p.mime });
+  else wrapUp();
+}
+
 function playVideoNow(media, done) {
   if (!media?.url) { done?.(); return; }
   videoLayer.innerHTML = '';
@@ -155,13 +356,15 @@ function playVideoNow(media, done) {
     el = document.createElement('video');
     el.src = url;
     el.autoplay = true;
-    el.muted = false;
+    el.playsInline = true;
+    applyMediaVolume(el, media.volume);
     const finish = () => { try { el.remove(); } catch {} done?.(); };
     el.onended = finish;
     el.onerror = finish;
     activeDoneTimer = setTimeout(finish, 30000); // límite de seguridad
     // Con la duración real: los videos de >30 s ya no se cortan a la mitad.
     el.onloadedmetadata = () => {
+      applyMediaVolume(el, media.volume);
       const d = Number(el.duration);
       if (Number.isFinite(d) && d > 0) {
         clearTimeout(activeDoneTimer);
@@ -174,6 +377,7 @@ function playVideoNow(media, done) {
 }
 
 function stopVideoLayer() {
+  cancelOverlaySpeech();
   videoLayer.querySelectorAll('video').forEach((vid) => {
     try { vid.pause(); vid.muted = true; vid.removeAttribute('src'); vid.load(); } catch {}
   });
@@ -185,8 +389,9 @@ const playingSounds = new Set();
 
 function playSoundNow(s, done) {
   if (!s?.sound) { done?.(); return; }
-  const audio = new Audio(s.sound);
-  audio.volume = (s.volume ?? 100) / 100;
+  const audio = new Audio();
+  applyMediaVolume(audio, s.volume);
+  audio.src = s.sound;
   playingSounds.add(audio);
   let finished = false;
   const finish = () => { if (finished) return; finished = true; playingSounds.delete(audio); done?.(); };

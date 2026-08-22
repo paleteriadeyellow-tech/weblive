@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=giftball36" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=cbskin4" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -1283,6 +1283,7 @@
 
           <h1 class="view-title">ðŸŽ¬ Videos</h1>
           <p class="view-sub">Dispara un video cuando llega un regalo o evento del live. Es independiente de tus alertas sonoras.</p>
+          <p class="vid-rnd-warn" role="note"><b>Varios videos en una alerta:</b> al crear o editar puedes marcar más de un clip. Cada vez que manden el mismo regalo (ej. Quiéreme) sale <b>uno al azar</b>, distinto del anterior.</p>
 
           <div class="settings-card screens-card">
             <div class="screens-head">
@@ -1387,6 +1388,7 @@
                 <div class="box acc-box-trigger">
                   <div class="box-head">ðŸŽµ <b>Evento del directo</b> <span class="opt">(misma lÃ³gica que antes: regalos, likes, seguidoresâ€¦)</span></div>
                   <select id="sa-event" class="acc-event-native" tabindex="-1" aria-hidden="true">
+                    <option value="gift-all">Cualquier regalo</option>
                     <option value="gift-any">Cantidad diamantes (99 - 200)</option>
                     <option value="gift-name">Regalo especÃ­fico (lista)</option>
                     <option value="like">Likes (por usuario)</option>
@@ -1398,9 +1400,14 @@
                     <option value="follow">Nuevo seguidor</option>
                     <option value="levelUp">SubiÃ³ de nivel de miembro</option>
                     <option value="emote">Sticker / emote (ID)</option>
+                    <option value="chatCommand">Comando de chat (!video)</option>
                     <option value="streamdeck">ðŸŽ›ï¸ Stream Deck (webhook manual)</option>
                   </select>
                   <div class="acc-trig-grid" id="sa-trig-grid" role="listbox" aria-label="Evento del directo">
+                    <button type="button" class="acc-trig-item" data-v="gift-all" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-lbl">Cualquier regalo</span>
+                    </button>
                     <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
                       <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/diamonds.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
@@ -1445,6 +1452,10 @@
                       <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/emote.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Sticker / emote (ID)</span>
                     </button>
+                    <button type="button" class="acc-trig-item" data-v="chatCommand" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/chat.png?v=2" alt=""></span>
+                      <span class="acc-trig-lbl">Comando de chat (!video)</span>
+                    </button>
                     <button type="button" class="acc-trig-item" data-v="streamdeck" role="option" aria-selected="false">
                       <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/streamdeck.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Stream Deck (webhook manual)</span>
@@ -1478,6 +1489,12 @@
                   <div id="sa-emoteextra" class="gift-extra one" hidden>
                     <button type="button" class="btn ghost gift-pick-btn" id="sa-emotepick">ðŸ™‚ Elegir stickerâ€¦</button>
                     <input type="hidden" id="sa-emoteid">
+                  </div>
+                  <div id="sa-cmdextra" class="gift-extra one" hidden>
+                    <input type="text" id="sa-command" placeholder="Comando exacto (ej. !video)">
+                  </div>
+                  <div id="sa-userextra" class="gift-extra one" hidden>
+                    <input type="text" id="sa-user" placeholder="Solo este usuario (sin @) — opcional">
                   </div>
                   <div id="sa-eventdelayextra" class="gift-extra one" hidden>
                     <label class="ml" for="sa-eventdelay" id="sa-eventdelay-label">SEGUNDOS DE ESPERA por usuario (0 = sin lÃ­mite)</label>
@@ -1571,12 +1588,13 @@
                 </span>
                 <div class="create-modal-head-text">
                   <h2 id="vidlib-title">Animación – Multimedia</h2>
-                  <span class="vidlib-sub acc-modal-lead">Selecciona una animación de la biblioteca</span>
+                  <span class="vidlib-sub acc-modal-lead">Selecciona una o varias animaciones</span>
                 </div>
               </div>
               <button class="modal-close" id="vidlib-close" aria-label="Cerrar">✕</button>
             </div>
             <div class="modal-body create-modal-body">
+              <p class="vid-rnd-warn vid-rnd-warn--lib" id="vidlib-rnd-warn" role="note">Puedes seleccionar varios videos al mismo tiempo y se reproducirán de forma aleatoria.</p>
               <div class="vidlib-toolbar">
                 <button type="button" class="vidlib-back" id="vidlib-back">← Volver</button>
                 <input type="text" id="vid-libq" class="gift-search vidlib-search" placeholder="Buscar animación por nombre...">
@@ -1893,6 +1911,7 @@
                 <div class="box acc-box-trigger">
                   <div class="box-head">ðŸŽ® <b>Evento del directo</b> <span class="opt">quÃ© dispara la acciÃ³n</span></div>
                   <select id="acc-event" class="acc-event-native" tabindex="-1" aria-hidden="true">
+                    <option value="gift-all">Cualquier regalo</option>
                     <option value="gift-any">Cantidad diamantes (99 - 200)</option>
                     <option value="gift">Regalo especÃ­fico (lista)</option>
                     <option value="like">Likes (por usuario)</option>
@@ -1907,6 +1926,10 @@
                     <option value="chatCommand">Comando de chat (!video)</option>
                   </select>
                   <div class="acc-trig-grid" id="acc-trig-grid" role="listbox" aria-label="Evento del directo">
+                    <button type="button" class="acc-trig-item" data-v="gift-all" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-lbl">Cualquier regalo</span>
+                    </button>
                     <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
                       <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/diamonds.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
@@ -2130,12 +2153,94 @@
                     </div>
                     <div class="chosen"><span id="acc-media-fname" class="fname">NingÃºn archivoâ€¦</span></div>
                   </div>
+
+                  <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-tts-on"> <span class="acc-switch-ico" aria-hidden="true">🗣️</span> <span class="acc-switch-copy"><strong>Leer texto (TTS)</strong><small>Voz en tu PC</small></span></label>
+                  <div class="box acc-box-outlet" id="acc-tts-box" hidden>
+                    <div class="acc-tts-combo" id="acc-tts-combo">
+                      <input type="text" id="acc-tts-text" placeholder="Clic para ver ejemplos… o escribe el tuyo" autocomplete="off">
+                      <div class="acc-tts-menu" id="acc-tts-menu" hidden>
+                        <button type="button" data-tts-ex="¡Gracias {username} por enviar {repeatcount} {giftname}!">¡Gracias {username} por enviar {repeatcount} {giftname}!</button>
+                        <button type="button" data-tts-ex="¡Gracias {username} por tus {coins} diamantes!">¡Gracias {username} por tus {coins} diamantes!</button>
+                        <button type="button" data-tts-ex="¡Gracias {username} por tus {likecount} likes!">¡Gracias {username} por tus {likecount} likes!</button>
+                        <button type="button" data-tts-ex="{username} dijo: {comment}">{username} dijo: {comment}</button>
+                        <button type="button" data-tts-ex="¡Bienvenido {username}!">¡Bienvenido {username}!</button>
+                        <button type="button" data-tts-ex="¡Gracias {username} por seguirme!">¡Gracias {username} por seguirme!</button>
+                        <button type="button" data-tts-ex="¡Gracias {username} por tus {submonth} meses!">¡Gracias {username} por tus {submonth} meses!</button>
+                        <button type="button" data-tts-ex="¡Gracias {username} por compartir el live!">¡Gracias {username} por compartir el live!</button>
+                      </div>
+                    </div>
+                    <p class="hint acc-tts-vars">Marcadores: <code>{username}</code> <code>{giftname}</code> <code>{repeatcount}</code> <code>{coins}</code> <code>{likecount}</code> <code>{totallikecount}</code> <code>{comment}</code> <code>{submonth}</code></p>
+                    <label class="ml" for="acc-tts-voice">Voz</label>
+                    <select id="acc-tts-voice"></select>
+                    <label class="ml" for="acc-tts-rate">Velocidad</label>
+                    <div class="acc-tts-slide">
+                      <input type="range" id="acc-tts-rate" min="50" max="200" value="100">
+                      <span id="acc-tts-rateval">1.00×</span>
+                    </div>
+                    <label class="ml" for="acc-tts-pitch">Tono</label>
+                    <div class="acc-tts-slide">
+                      <input type="range" id="acc-tts-pitch" min="50" max="200" value="100">
+                      <span id="acc-tts-pitchval">1.00</span>
+                    </div>
+                    <div class="acc-tts-foot">
+                      <label class="switch-row plain"><input type="checkbox" id="acc-tts-random"> <span>Voz aleatoria</span></label>
+                      <button type="button" class="btn ghost sm" id="acc-tts-test">▶ Test</button>
+                    </div>
+                  </div>
+
+                  <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-alert-on"> <span class="acc-switch-ico" aria-hidden="true">⚡</span> <span class="acc-switch-copy"><strong>Mostrar alerta (usuario + texto)</strong><small>Overlay Alertas</small></span></label>
+                  <div class="box acc-box-outlet" id="acc-alert-box" hidden>
+                    <div class="acc-tts-combo" id="acc-alert-combo">
+                      <input type="text" id="acc-alert-text" placeholder="Clic para ver ejemplos… o escribe el tuyo" autocomplete="off">
+                      <div class="acc-tts-menu" id="acc-alert-menu" hidden>
+                        <button type="button" data-alert-ex="¡Gracias {username} por enviar {repeatcount} {giftname}!">¡Gracias {username} por enviar {repeatcount} {giftname}!</button>
+                        <button type="button" data-alert-ex="¡Gracias {username} por tus {coins} diamantes!">¡Gracias {username} por tus {coins} diamantes!</button>
+                        <button type="button" data-alert-ex="¡Gracias {username} por tus {likecount} likes!">¡Gracias {username} por tus {likecount} likes!</button>
+                        <button type="button" data-alert-ex="{username} dijo: {comment}">{username} dijo: {comment}</button>
+                        <button type="button" data-alert-ex="¡Bienvenido {username}!">¡Bienvenido {username}!</button>
+                        <button type="button" data-alert-ex="¡Gracias {username} por seguirme!">¡Gracias {username} por seguirme!</button>
+                        <button type="button" data-alert-ex="¡Gracias {username} por tus {submonth} meses!">¡Gracias {username} por tus {submonth} meses!</button>
+                        <button type="button" data-alert-ex="¡Gracias {username} por compartir el live!">¡Gracias {username} por compartir el live!</button>
+                      </div>
+                    </div>
+                    <p class="hint acc-tts-vars">Marcadores: <code>{username}</code> <code>{giftname}</code> <code>{repeatcount}</code> <code>{coins}</code> <code>{likecount}</code> <code>{totallikecount}</code> <code>{comment}</code> <code>{submonth}</code></p>
+                    <div class="acc-tts-foot">
+                      <label class="switch-row plain"><input type="checkbox" id="acc-alert-tts"> <span>Leer en el overlay</span></label>
+                      <button type="button" class="btn ghost sm" id="acc-alert-test">▶ Test</button>
+                    </div>
+                    <div id="acc-alert-voicebox" hidden>
+                      <label class="ml" for="acc-alert-voice">Voz</label>
+                      <select id="acc-alert-voice"></select>
+                      <label class="ml" for="acc-alert-rate">Velocidad</label>
+                      <div class="acc-tts-slide">
+                        <input type="range" id="acc-alert-rate" min="50" max="200" value="100">
+                        <span id="acc-alert-rateval">1.00×</span>
+                      </div>
+                    </div>
+                    <p class="hint" style="margin-top:8px">Pega este enlace como <b>Fuente → Navegador</b> en Live Studio u OBS:</p>
+                    <div class="acc-media-urlrow">
+                      <code id="acc-alert-ov-url" class="acc-media-ls-url ov-url" data-path="/overlay.html"></code>
+                      <button type="button" class="btn ghost sm" id="acc-alert-copy-url">Copiar</button>
+                    </div>
+                  </div>
+
+                  <label class="switch-row plain acc-switch-row"><input type="checkbox" id="acc-gif-on"> <span class="acc-switch-ico" aria-hidden="true">🖼️</span> <span class="acc-switch-copy"><strong>Mostrar imagen / GIF</strong><small>Overlay Alertas</small></span></label>
+                  <div class="box acc-box-outlet" id="acc-gif-box" hidden>
+                    <button type="button" class="btn ghost" id="acc-gif-pick">Elegir archivo</button>
+                    <div class="chosen"><span id="acc-gif-filelbl" class="fname">Ninguna imagen…</span></div>
+                    <p class="hint" style="margin-top:8px">Pega este enlace como <b>Fuente → Navegador</b> en Live Studio u OBS:</p>
+                    <div class="acc-media-urlrow">
+                      <code id="acc-anim-ov-url" class="acc-media-ls-url ov-url" data-path="/overlay.html"></code>
+                      <button type="button" class="btn ghost sm" id="acc-anim-copy-url">Copiar</button>
+                    </div>
+                    <input type="file" id="acc-gif-file" accept="image/gif,image/png,image/jpeg,image/webp,.gif,.png,.jpg,.jpeg,.webp" hidden>
+                  </div>
                 </div>
               </section>
 
               <section class="acc-sec">
                 <div class="acc-sec-label"><span>3</span> Extra</div>
-                <div class="box acc-box-extra">
+                <div class="box acc-box-extra" hidden>
                   <div class="box-title">Imagen (opcional)</div>
                   <div class="box-sub">Una imagen o GIF para identificar la acciÃ³n en la lista.</div>
                   <button type="button" class="audio-opt" id="acc-imgbtn">
@@ -3360,6 +3465,71 @@
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="bt3cfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Contador de monedas -->
+        <div id="bcbConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>Configurar — Contador de monedas</h2>
+              <button class="modal-close" id="bcbcfg-close">X</button>
+            </div>
+            <div class="modal-body">
+              <p class="hint" id="bcbcfg-res-hint">Resolucion recomendada: <b>480 x 1080</b> (vertical, fondo transparente).</p>
+              <label class="ml">POSICION</label>
+              <div class="bgbcfg-modes" id="bcbcfg-orient" data-orient="v" role="group" aria-label="Posicion del overlay">
+                <button type="button" class="bgbcfg-modebtn is-active" data-orient="v">Vertical (480x1080)</button>
+                <button type="button" class="bgbcfg-modebtn" data-orient="h">Horizontal (1080x480)</button>
+              </div>
+              <p class="credit" style="margin-top:6px">Vertical = barra de pie. Horizontal = barra tumbada, se llena de izquierda a derecha. Cambia tambien el tamano en OBS.</p>
+              <label class="ml">DISENO / SKIN</label>
+              <div class="bcb-skins" id="bcbcfg-skins"></div>
+              <label class="ml">COLOR DEL MARCO / SKIN</label>
+              <div class="bcb-liqrow" id="bcbcfg-framerow">
+                <input type="color" id="bcbcfg-frame" value="#38bdf8" title="Color del marco">
+                <label class="switch-row plain"><input type="checkbox" id="bcbcfg-frame-orig" checked> <span>Color original de la skin</span></label>
+              </div>
+              <p class="credit">Si apagas "original", el marco y la skin se tinen del color que elijas. El liquido se cambia aparte.</p>
+              <label class="ml">COLOR DEL LIQUIDO</label>
+              <div class="bcb-liqrow">
+                <input type="color" id="bcbcfg-color" value="#22c55e" title="Color del liquido">
+                <label class="switch-row plain"><input type="checkbox" id="bcbcfg-rainbow" checked> <span>Arcoiris con movimiento</span></label>
+              </div>
+              <p class="credit">El arcoiris anima el agua. Si lo apagas, usa el color que elijas.</p>
+              <label class="ml">QUE CUENTA</label>
+              <div class="bgbcfg-modes" id="bcbcfg-source" data-source="battle" role="group" aria-label="Que cuenta">
+                <button type="button" class="bgbcfg-modebtn is-active" data-source="battle">Monedas de la batalla (PK)</button>
+                <button type="button" class="bgbcfg-modebtn" data-source="live">Monedas del live (diamantes)</button>
+              </div>
+              <p class="credit" style="margin-top:6px">PK = el marcador de TU ejercito. Live = diamantes de regalos. El acumulado se guarda hasta el periodo de abajo.</p>
+              <label class="ml">CUANDO SE REINICIA</label>
+              <div class="bgbcfg-modes" id="bcbcfg-period" data-period="battle" role="group" aria-label="Cuando se reinicia">
+                <button type="button" class="bgbcfg-modebtn is-active" data-period="battle">Cada batalla nueva</button>
+                <button type="button" class="bgbcfg-modebtn" data-period="live">Por live (al conectar TikTok)</button>
+                <button type="button" class="bgbcfg-modebtn" data-period="week">Cada semana (lunes 00:00)</button>
+                <button type="button" class="bgbcfg-modebtn" data-period="month">Cada mes</button>
+              </div>
+              <p class="credit" style="margin-top:6px">No se borra al recargar OBS ni al cambiar de live, salvo que elijas "por live" o se cumpla la semana/mes. Reset manual si lo pone a 0.</p>
+              <div class="jarcfg-rowshead" style="margin-top:18px">
+                <label class="ml">METAS / RETOS</label>
+                <button type="button" class="btn ghost" id="bcbcfg-add">+ Agregar meta</button>
+              </div>
+              <p class="credit">Cada fila es un peldano de la barra (de abajo hacia arriba). Izquierda = texto del reto (opcional). Derecha = monedas.</p>
+              <div id="bcbcfg-rows" class="jarcfg-rows"></div>
+              <label class="ml" style="margin-top:16px">TEXTO DEL RETO</label>
+              <div class="bgbcfg-modes" id="bcbcfg-labeldir" data-dir="h" role="group" aria-label="Orientacion del texto">
+                <button type="button" class="bgbcfg-modebtn is-active" data-dir="h">Horizontal</button>
+                <button type="button" class="bgbcfg-modebtn" data-dir="v">Vertical (letras una debajo de otra)</button>
+              </div>
+              <p class="credit" style="margin-top:6px">Horizontal = el reto en una sola linea, al lado de cada meta (si es largo, se ve largo). Vertical = letras una debajo de otra.</p>
+              <label class="ml" style="margin-top:16px">TAMANO <b id="bcbcfg-scale-lbl">100%</b></label>
+              <input type="range" id="bcbcfg-scale" min="40" max="140" value="100" step="5" style="width:100%">
+            </div>
+            <div class="modal-foot">
+              <button class="btn ghost" id="bcbcfg-test">Probar</button>
+              <button class="btn primary" id="bcbcfg-save">Guardar para OBS / Live Studio</button>
+            </div>
           </div>
         </div>
 
@@ -4698,7 +4868,7 @@
               <div class="create-modal-head-text">
                 <p class="create-modal-kicker">Alertas de video</p>
                 <h2 id="vid-modal-title">Configurar alerta de video</h2>
-                <p class="acc-modal-lead">Elige un disparador y el video a mostrar.</p>
+                <p class="acc-modal-lead">Elige un disparador y uno o varios videos. Si hay varios, cada disparo muestra uno al azar.</p>
               </div>
               <button class="modal-close" id="vid-cancel" aria-label="Cerrar">âœ•</button>
             </div>
@@ -4716,6 +4886,7 @@
                 <div class="box acc-box-trigger">
                   <div class="box-head">Â» <b>Evento TikTok</b> <span class="opt">(regalos, likes, seguidoresâ€¦)</span></div>
                   <select id="vid-event" class="acc-event-native" tabindex="-1" aria-hidden="true">
+                    <option value="gift-all">Cualquier regalo</option>
                     <option value="gift-any">Cantidad diamantes (99 - 200)</option>
                     <option value="gift-name">Regalo especÃ­fico (lista)</option>
                     <option value="like">Likes (por usuario)</option>
@@ -4733,6 +4904,10 @@
                     <option value="streamdeck">ðŸŽ›ï¸ Stream Deck (webhook manual)</option>
                   </select>
                   <div class="acc-trig-grid" id="vid-trig-grid" role="listbox" aria-label="Evento TikTok">
+                    <button type="button" class="acc-trig-item" data-v="gift-all" role="option" aria-selected="false">
+                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-lbl">Cualquier regalo</span>
+                    </button>
                     <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
                       <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/diamonds.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
@@ -4841,22 +5016,24 @@
               <section class="acc-sec">
                 <div class="acc-sec-label"><span>2</span> Video</div>
                 <div class="box">
-                  <div class="box-title">Archivo de video</div>
-                  <div class="box-sub">Reutiliza un video ya subido o sube uno nuevo desde tu PC (MP4, WebM, GIFâ€¦). Se guarda al pulsar Â«ListoÂ».</div>
+                  <div class="box-title">Archivos de video</div>
+                  <p class="vid-rnd-warn vid-rnd-warn--modal" role="note">Puedes elegir <b>varios</b>. Cada disparo (ej. un Quiéreme) muestra <b>uno al azar</b>.</p>
+                  <div class="box-sub">Reutiliza videos de la biblioteca o súbelos desde tu PC. Se guarda al pulsar «Listo».</div>
 
                   <button type="button" class="audio-opt" id="vid-libbtn">
                     <span class="ao-ico cyan" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#041018" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 4v16M17 4v16M2 12h20M2 8h5M2 16h5M17 8h5M17 16h5"/></svg></span>
-                    <span class="ao-text"><b>Videos AI</b><small>Reutiliza un video ya subido</small></span>
-                    <span class="ao-arrow">â†’</span>
+                    <span class="ao-text"><b>Videos AI</b><small>Marca varios y pulsa Usar</small></span>
+                    <span class="ao-arrow">→</span>
                   </button>
                   <button type="button" class="audio-opt" id="vid-upbtn">
                     <span class="ao-ico blue" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span>
-                    <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, MOV, WebP, GIFâ€¦</small></span>
-                    <span class="ao-arrow">â†’</span>
+                    <span class="ao-text"><b>Subir archivo desde el PC</b><small>MP4, WebM, MOV, WebP, GIF… (puedes elegir varios)</small></span>
+                    <span class="ao-arrow">→</span>
                   </button>
-                  <input type="file" id="vid-file" accept="video/*,image/*" hidden>
+                  <input type="file" id="vid-file" accept="video/*,image/*" multiple hidden>
 
-                  <div class="chosen"><span id="vid-fname" class="fname">NingÃºn archivo</span></div>
+                  <div id="vid-cliplist" class="vid-cliplist"></div>
+                  <div class="chosen"><span id="vid-fname" class="fname">Ningún archivo</span></div>
 
                   <label class="ml">VOLUMEN</label>
                   <input type="range" id="vid-vol" min="0" max="100" step="1" value="100">
@@ -6388,6 +6565,39 @@
                 </div>
               </div>
 
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="bcb-reset">Reset</button>
+                    <button class="ovpro-btn primary" id="bcb-test">Testear</button>
+                    <button class="ovpro-btn" id="bcb-config">Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="bcb-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new" title="Sube con las monedas de tu ejercito en el PK">Auto</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">Contador de monedas</h3>
+                <p class="ovpro-desc">Barra de metas/retos. Tu eliges cuantas poner (500, 2K, 10K...) y si va <b>vertical</b> o <b>horizontal</b>. Numeros a un lado, texto del reto al otro. Cambia el diseno con las flechas; el color del liquido va en Configurar.</p>
+                <p class="ovpro-res-warn" id="bcb-res-warn" role="note">Resolucion en TikTok Studio / OBS: <b>480x1080</b> (vertical).</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/batalla-coinbar.html">/batalla-coinbar.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="tmr-skin-bar" style="margin:8px 0 10px">
+                  <button type="button" class="tmr-skin-arrow" id="bcb-skin-prev" title="Diseno anterior" aria-label="Diseno anterior">‹</button>
+                  <div class="tmr-skin-meta">
+                    <b id="bcb-skin-name">Clasico</b>
+                    <span id="bcb-skin-idx">1 / 2</span>
+                  </div>
+                  <button type="button" class="tmr-skin-arrow" id="bcb-skin-next" title="Diseno siguiente" aria-label="Diseno siguiente">›</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview ovpro-preview--coinbar">
+                  <iframe id="bcb-preview" data-src="/batalla-coinbar.html?embed=1&v=cb18" title="Vista previa Contador de monedas"></iframe>
+                </div>
+              </div>
+
           </div>
         </section>
 
@@ -7048,7 +7258,7 @@
             <p class="ovpro-desc">Suma monedas de todos los regalos, convierte en vidas seg?n el costo de entrada, elimina al azar con temporizador y permite victoria instant?nea (Insta-Claim). Las donaciones durante el giro quedan en cola.</p>
 
             <div class="ovpro-urlrow">
-              <code class="ov-url" data-path="/sorteos.html?v=so48">/sorteos.html?v=so48</code>
+              <code class="ov-url" data-path="/sorteos.html?v=so49">/sorteos.html?v=so49</code>
               <button class="ovpro-copy ov-copy">Copiar enlace</button>
             </div>
             <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
@@ -7459,8 +7669,9 @@
                 <div class="sp-row"><label>Costo de <code>!play</code></label><input type="number" id="sp-play-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
                 <label class="switch-row plain"><input type="checkbox" id="sp-skip-on" checked> <span><code>!skip</code> habilitado</span></label>
                 <div class="sp-row"><label>Costo de <code>!skip</code></label><input type="number" id="sp-skip-cost" min="0" value="0"><span class="sp-unit">Points</span></div>
-                <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only"> <span>Solo saltar canciones propias <small>(no las de otros ni las del streamer; los mods s? pueden saltar cualquiera)</small></span></label>
-                <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only-strict"> <span>Solo saltar canciones propias <small>(tambi?n los mods: nadie salta las de otros ni las del streamer)</small></span></label>
+                <p class="hint sp-skip-hint">Sin marcar ninguna: <code>!skip</code> salta cualquier canción (también la tuya de Spotify).</p>
+                <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only"> <span>Si marcas esta: nadie salta tu música de Spotify. El chat solo salta lo que pidió él. Los mods sí pueden saltar las de otros del chat.</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sp-skip-own-only-strict"> <span>Si marcas esta: nadie salta tu música de Spotify ni las de otros. Los mods tampoco.</span></label>
                 <label class="switch-row plain"><input type="checkbox" id="sp-explicit" checked> <span>Permitir contenido expl?cito</span></label>
                 <div class="sp-row"><label>Longitud m?xima de la cola (total)</label><input type="number" id="sp-queue-total" min="1" value="2"><span class="sp-unit">Tracks</span></div>
                 <div class="sp-row"><label>Longitud m?xima de la cola (por usuario)</label><input type="number" id="sp-queue-user" min="1" value="2"><span class="sp-unit">Tracks</span></div>
@@ -7476,7 +7687,7 @@
                 <div class="sp-row"><label>Comandos disponibles para</label>
                   <div class="sp-perms">
                     <label><input type="checkbox" id="sp-perm-all"> <span>Todos los usuarios</span></label>
-                    <label><input type="checkbox" id="sp-perm-subs" checked> <span>Super Fans / Subs</span></label>
+                    <label><input type="checkbox" id="sp-perm-subs" checked> <span>Super Fans y suscriptores</span></label>
                     <label><input type="checkbox" id="sp-perm-mods" checked> <span>Mods</span></label>
                   </div>
                 </div>
@@ -9986,7 +10197,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=giftball38"></script>
+  <script src="/js/dashboard.js?v=cb-period1"></script>
   <script src="/js/editor-rapido.js?v=er84"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

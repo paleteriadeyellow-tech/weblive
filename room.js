@@ -16,6 +16,7 @@ import { likeTriggerFires } from './like-trigger.js';
 import { buildGdashEffectUrl, fireGdashEffectRequest } from './gdash-effect.js';
 import { runWebhookExec } from './smbx-tiktok-webhook.js';
 import { decryptAndMapTfc, mapTikfinityActionsToMc, tikfinityObsCmdFromAction, tikfinitySbCmdFromAction } from './tikfinity-tfc.js';
+import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -196,24 +197,56 @@ function gifterLevelFromUser(u) {
   }
   return Math.max(0, ...levels);
 }
+function tikTokFlag(v) {
+  return v === true || v === 1 || v === '1' || v === 'true';
+}
+function userIsTikTokMod(data) {
+  const u = data?.user || data || {};
+  const ui = data?.userIdentity || u?.userIdentity || u?.user_identity || {};
+  const attr = u?.userAttr || u?.user_attr || data?.userAttr || {};
+  if (tikTokFlag(ui.isModeratorOfAnchor) || tikTokFlag(ui.is_moderator_of_anchor)) return true;
+  if (tikTokFlag(u.isModerator) || tikTokFlag(u.is_moderator) || tikTokFlag(data?.isModerator)) return true;
+  // En TikTok los mods llegan como admin del live.
+  if (tikTokFlag(attr.isAdmin) || tikTokFlag(attr.is_admin)
+    || tikTokFlag(attr.isSuperAdmin) || tikTokFlag(attr.is_super_admin)) return true;
+  const badges = flattenBadges([].concat(u.badges || [], u.userBadges || [], u.newUserBadges || [], u.badgeImageList || [], data?.badges || []));
+  return badges.some((b) => {
+    if (badgeScene(b) === 1) return true; // ADMIN / moderator
+    const typ = String(b?.type || b?.displayType || b?.badgeDisplayType || '').toLowerCase();
+    const url = String(b?.url || b?.image?.url?.[0] || b?.image?.url_list?.[0] || b?.image?.uri || '').toLowerCase();
+    return typ.includes('moderator') || url.includes('moderator') || url.includes('badge_mod');
+  });
+}
 function chatUserRoles(data) {
   // Formato moderno: data.user. Legacy (connector antiguo): campos aplanados en data.
   const u = data?.user || data || {};
-  const ui = data?.userIdentity || {};
+  const ui = data?.userIdentity || u?.userIdentity || {};
+  const sub = u?.subscribeInfo || data?.subscribeInfo || {};
   const badges = flattenBadges([].concat(u.badges || [], u.userBadges || [], u.newUserBadges || [], u.badgeImageList || []));
   const scene = badgeScene;
   const badgeUrl = (b) => String(b?.url || b?.image?.url?.[0] || b?.image?.uri || '').toLowerCase();
   const badgeType = (b) => String(b?.type || b?.displayType || '').toLowerCase();
 
-  const isMod = !!(
-    ui.isModeratorOfAnchor ||
-    badges.some((b) => scene(b) === 1 || badgeType(b).includes('moderator'))
-  );
+  const isMod = userIsTikTokMod(data);
+  // Suscriptor de pago (LIVE Subscription) + Super Fan / club de fans (el checkbox de Spotify es "Super Fans / Subs").
   const isSub = !!(
-    ui.isSubscriberOfAnchor ||
+    tikTokFlag(ui.isSubscriberOfAnchor) ||
+    tikTokFlag(u.isSubscribe) ||
+    tikTokFlag(u.isSubscriber) ||
+    tikTokFlag(u.isSubscriberOfAnchor) ||
+    tikTokFlag(sub.isSubscribe) ||
+    tikTokFlag(sub.isSubscribedToAnchor) ||
+    tikTokFlag(sub.qualification) ||
+    tikTokFlag(data?.msgFilter?.isSubscribedToAnchor) ||
     numMemberLevel(u?.fansClub?.data?.level) > 0 ||
     numMemberLevel(u?.fansClubInfo?.fansLevel) > 0 ||
-    badges.some((b) => scene(b) === 4 || scene(b) === 7 || badgeUrl(b).includes('/sub_'))
+    badges.some((b) => {
+      const sc = scene(b);
+      if (sc === 4 || sc === 7) return true; // SUBSCRIBER / NEW_SUBSCRIBER
+      const url = badgeUrl(b);
+      const typ = badgeType(b);
+      return url.includes('/sub_') || url.includes('subscri') || typ.includes('subscri') || typ.includes('sub_');
+    })
   );
   const followStatus = Number(u?.followInfo?.followStatus ?? u?.followStatus ?? 0);
   const isFollower = !!(ui.isFollowerOfAnchor || ui.isMutualFollowingWithAnchor || followStatus >= 1);
@@ -252,6 +285,23 @@ function currentMonthRange(now = Date.now()) {
   const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0).getTime();
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 1, 0, 0, 0, 0).getTime();
   return [start, end];
+}
+function stillInSavedWindow(saved, period, now = Date.now()) {
+  if (!saved || !period || saved.period !== period) return false;
+  const start = Number(saved.start) || 0;
+  const end = Number(saved.end) || 0;
+  if (end > start && now >= start && now < end) return true;
+  const [s] = period === 'month' ? currentMonthRange(now) : currentWeekRange(now);
+  return start === s;
+}
+function calendarBagFromRankRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const cal = row.calendar;
+  if (cal && (cal.period === 'week' || cal.period === 'month')) return cal;
+  if (row.period === 'week' || row.period === 'month') {
+    return { period: row.period, start: row.start, end: row.end, users: row.users || [] };
+  }
+  return null;
 }
 // Multiplicador PK (x2/x3 / guante): lee SOLO MatchInfo tipado del GiftMessage.
 // No escanear el regalo entero: nombres/URLs con «glove» daban falsos positivos.
@@ -445,6 +495,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const TOP1FIRE_FILE = path.join(dataDir, 'top1fire.json');
   const HABIBI_TOP_FILE = path.join(dataDir, 'habibi-top.json');
   const GIFTGOALS_FILE = path.join(dataDir, 'gift-goals.json');
+  const COINBAR_FILE = path.join(dataDir, 'batalla-coinbar.json');
   const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
   const FOC_METRICS_FILE = path.join(dataDir, 'foc-metrics.json');
   const RANK_IDS = ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist', 'topcomments'];
@@ -511,6 +562,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const giftGoalsMeta = { period: 'live', start: 0, end: 0 };
   let giftGoalsSaveTimer = null;
   let lastGiftGoalsPeriod = null;
+  const coinBarBags = {
+    battle: { coins: 0 },
+    live: { coins: 0 },
+    week: { coins: 0, start: 0, end: 0, period: 'week' },
+    month: { coins: 0, start: 0, end: 0, period: 'month' },
+  };
+  let coinBarSaveTimer = null;
+  let lastCoinBarHostScore = 0;
   const timer = { remaining: 0, running: false };
   let timerInterval = null;
   const weekly = { start: 0, end: 0, donors: new Map() };
@@ -526,6 +585,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const rankSession = Object.fromEntries(RANK_IDS.map((id) => [id, new Map()]));
   const rankPersist = Object.fromEntries(RANK_IDS.map((id) => [id, { period: 'live', start: 0, end: 0, users: new Map() }]));
   let rankSaveTimer = null;
+  let periodCloudTimer = null;
+  function schedulePeriodPersistCloud() {
+    if (typeof onUserSave !== 'function') return;
+    clearTimeout(periodCloudTimer);
+    periodCloudTimer = setTimeout(() => {
+      try { onUserSave(settings); } catch {}
+    }, 8000);
+  }
   const lastRankPeriods = {};
   const followerCounter = { count: 0, nickname: '', uniqueId: '', photo: '', userId: '', ready: false };
 
@@ -583,6 +650,41 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let relayLocalOrigin = '';         // http://127.0.0.1:PUERTO (modo relay .exe)
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
+  /** uniqueId/nickname de suscriptores y Super Fans vistos en este live (el chat a veces no trae el flag). */
+  const knownLiveSubscribers = new Set();
+  const knownLiveMods = new Set();
+  function liveSubKeys(uniqueId, nickname) {
+    return [
+      normTikTokUser(uniqueId), String(uniqueId || '').trim().toLowerCase(),
+      normTikTokUser(nickname), String(nickname || '').trim().toLowerCase(),
+    ].filter(Boolean);
+  }
+  function rememberLiveSub(uniqueId, nickname) {
+    for (const k of liveSubKeys(uniqueId, nickname)) knownLiveSubscribers.add(k);
+  }
+  function isKnownLiveSub(uniqueId, nickname) {
+    return liveSubKeys(uniqueId, nickname).some((k) => knownLiveSubscribers.has(k));
+  }
+  function rememberLiveMod(uniqueId, nickname) {
+    for (const k of liveSubKeys(uniqueId, nickname)) knownLiveMods.add(k);
+  }
+  function isKnownLiveMod(uniqueId, nickname) {
+    return liveSubKeys(uniqueId, nickname).some((k) => knownLiveMods.has(k));
+  }
+  function isLiveModUser(user, roles) {
+    if (roles?.isMod || roles?.isModerator) {
+      rememberLiveMod(user?.uniqueId, user?.nickname);
+      return true;
+    }
+    return isKnownLiveMod(user?.uniqueId, user?.nickname);
+  }
+  function noteLiveRolesFromEvent(data, user) {
+    const roles = chatUserRoles(data);
+    const u = user || baseUser(data?.user || data);
+    if (roles.isMod) rememberLiveMod(u.uniqueId, u.nickname);
+    if (roles.isSub) rememberLiveSub(u.uniqueId, u.nickname);
+    return roles;
+  }
   /** Último chat por usuario (ms) — para detectar “salió y volvió” en primer mensaje. */
   const chatLastAt = new Map();
   const recentChatKeys = new Set();
@@ -849,11 +951,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   const gameFollowShareCooldown = new Map(); // follow/share de acciones de juego / teclas por usuario
 
-  /** Anti-spam: mismo usuario no puede reactivar follow/share/emote hasta eventDelay segundos (default 30; 0 = sin límite). */
+  /** Anti-spam: mismo usuario no reactiva hasta eventDelay segundos.
+   *  follow/share/emote: si no hay valor, 30 s (como antes). Otros: solo si eligieron delay (> 0). */
   function allowFollowSharePerUser(a, eventType, user, bucket) {
-    if (eventType !== 'follow' && eventType !== 'share' && eventType !== 'emote') return true;
     if (!a) return true;
-    const delaySec = (a.eventDelay == null) ? 30 : Math.max(0, Number(a.eventDelay) || 0);
+    const isLegacy = eventType === 'follow' || eventType === 'share' || eventType === 'emote';
+    const delaySec = isLegacy
+      ? ((a.eventDelay == null) ? 30 : Math.max(0, Number(a.eventDelay) || 0))
+      : Math.max(0, Number(a.eventDelay) || 0);
     if (delaySec <= 0) return true;
     const now = Date.now();
     const userKey = normTikTokUser(user?.uniqueId) || normTikTokUser(user?.nickname) || '_unknown';
@@ -875,6 +980,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const spotifyCooldown = new Map(); // uniqueId -> ts
   let spotifyNowPlaying = null;      // { name, artists, image, uri, progressMs, durationMs, playing, requestedBy, serverTs }
   let lastSpotifyUri = '';
+  let spotifySkipPending = false;
   let spotifyPollTimer = null;
 
 
@@ -1011,7 +1117,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'webhook', // RCON / OBS / Streamer.bot / ServerTap (conexión global)
     // Overlays (Streams / Gifts / Metas / Rankings / Diseño / Batalla / Contador)
     'perrito', 'jarron', 'vaquita', 'marranito', 'corazonLava', 'pelotas',
-    'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3',
+    'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3', 'batallaGiftBall', 'batallaCoinBar',
     'flowMeter', 'giftSeq', 'giftShowcase',
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'giftGoals', 'giftCounter', 'topStreak',
@@ -1251,6 +1357,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   loadTop1Fire();
   loadHabibiTop();
   loadGiftGoalsPersist();
+  loadCoinBarPersist();
   loadRankOverlays();
   loadGiftOverlayPeriods();
   loadSessionOverlays();
@@ -1700,6 +1807,37 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     saveProfilesNow();
     broadcastProfiles();
   }
+  function snapshotPeriodPersist() {
+    return {
+      ranks: readJsonSafe(RANKS_FILE).data || null,
+      giftGoals: readJsonSafe(GIFTGOALS_FILE).data || null,
+      coinBar: readJsonSafe(COINBAR_FILE).data || null,
+      giftOverlays: readJsonSafe(GIFT_OVERLAY_PERIOD_FILE).data || null,
+      weekly: readJsonSafe(WEEKLY_FILE).data || null,
+    };
+  }
+  function periodBlobScore(data) {
+    if (!data || typeof data !== 'object') return 0;
+    try { return JSON.stringify(data).length; } catch { return 0; }
+  }
+  function applyPeriodPersist(incoming, mergeKeepRicher) {
+    if (!incoming || typeof incoming !== 'object') return;
+    const pairs = [
+      [RANKS_FILE, incoming.ranks],
+      [GIFTGOALS_FILE, incoming.giftGoals],
+      [COINBAR_FILE, incoming.coinBar],
+      [GIFT_OVERLAY_PERIOD_FILE, incoming.giftOverlays],
+      [WEEKLY_FILE, incoming.weekly],
+    ];
+    for (const [file, rem] of pairs) {
+      if (!rem || typeof rem !== 'object') continue;
+      const remScore = periodBlobScore(rem);
+      if (remScore < 8) continue;
+      const loc = readJsonSafe(file).data;
+      if (mergeKeepRicher && loc && periodBlobScore(loc) >= remScore) continue;
+      writeJsonAtomic(file, rem);
+    }
+  }
   // Devuelve TODOS los perfiles (con sus ajustes completos) para exportar. El perfil
   // activo usa los ajustes en memoria (por si hay cambios sin guardar todavía).
   function getProfilesFull() {
@@ -1727,6 +1865,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       // Compat export: spotify también en raíz (clientes viejos / transfer)
       spotify: shared.spotify,
       shared,
+      periodPersist: snapshotPeriodPersist(),
     };
   }
   // Importa una lista de perfiles { name, settings } en las ranuras 0..N-1. En modo
@@ -1840,10 +1979,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastTop1Fire();
     loadHabibiTop();
     broadcastHabibiTop();
+    applyPeriodPersist(data.periodPersist, mergeKeepRicher);
     loadGiftGoalsPersist();
     broadcastGiftGoals();
+    loadCoinBarPersist();
+    broadcastCoinBarState();
     loadRankOverlays();
     broadcastAllRankStates();
+    loadWeekly();
+    broadcastWeeklyTop();
     broadcast('settings', settings);
     broadcastProfiles();
     // Sync silencioso (nube): NO restaurar el contador desde disco/nube — pisaría
@@ -1921,6 +2065,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prevTop1FirePeriod = getTop1FirePeriod();
     const prevHabibiTopPeriod = getHabibiTopPeriod();
     const prevGiftGoalsPeriod = getGiftGoalsPeriod();
+    const prevCoinBarPeriod = getCoinBarPeriod();
     const prevGiftOverlayPeriods = {};
     for (const k of GIFT_OVERLAY_KEYS) prevGiftOverlayPeriods[k] = getGiftOverlayPeriod(k);
     const prevRankPeriods = {};
@@ -1988,6 +2133,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       && normalizeResetPeriod(obj.habibiTop.resetPeriod) !== prevHabibiTopPeriod) onHabibiTopSettingsChange();
     if (obj.giftGoals && obj.giftGoals.resetPeriod != null
       && normalizeResetPeriod(obj.giftGoals.resetPeriod) !== prevGiftGoalsPeriod) onGiftGoalsPeriodChange();
+    if (obj.batallaCoinBar && obj.batallaCoinBar.resetPeriod != null
+      && getCoinBarPeriod() !== prevCoinBarPeriod) onCoinBarPeriodChange();
+    if (obj.batallaCoinBar && obj.batallaCoinBar.source != null) {
+      lastCoinBarHostScore = Math.max(0, Math.round(pkBattle.pointsHost) || 0);
+    }
     for (const k of GIFT_OVERLAY_KEYS) {
       if (obj[k] && obj[k].resetPeriod != null
         && normalizeResetPeriod(obj[k].resetPeriod) !== prevGiftOverlayPeriods[k]) {
@@ -2180,7 +2330,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
     const raw = readJsonSafe(GIFTGOALS_FILE).data;
-    if (raw && raw.period === period && raw.start === start) {
+    if (raw && stillInSavedWindow(raw, period)) {
       giftGoalsMeta.period = period;
       giftGoalsMeta.start = start;
       giftGoalsMeta.end = end;
@@ -2228,6 +2378,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         completers: giftGoalsState.completers,
         donors: giftGoalsState.donors,
       });
+      schedulePeriodPersistCloud();
     }, 400);
   }
   function ensureGiftGoalsPeriod() {
@@ -2235,6 +2386,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (period === 'live') return;
     const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
     if (period !== giftGoalsMeta.period || start !== giftGoalsMeta.start) {
+      if (giftGoalsMeta.period === period && stillInSavedWindow(giftGoalsMeta, period)) {
+        giftGoalsMeta.start = start;
+        giftGoalsMeta.end = end;
+        saveGiftGoalsPersist();
+        return;
+      }
       giftGoalsMeta.period = period;
       giftGoalsMeta.start = start;
       giftGoalsMeta.end = end;
@@ -2251,6 +2408,129 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     loadGiftGoalsPersist();
     broadcast('giftGoalsReset', {});
     broadcastGiftGoals();
+  }
+  function getCoinBarPeriod() {
+    const p = String(settings?.batallaCoinBar?.resetPeriod || 'battle').toLowerCase();
+    return (p === 'live' || p === 'week' || p === 'month' || p === 'battle') ? p : 'battle';
+  }
+  function getCoinBarSource() {
+    return String(settings?.batallaCoinBar?.source || 'battle').toLowerCase() === 'live' ? 'live' : 'battle';
+  }
+  function serializeCoinBarState() {
+    const bag = coinBarBags[getCoinBarPeriod()] || coinBarBags.battle;
+    return { coins: Math.max(0, Math.round(Number(bag.coins) || 0)), period: getCoinBarPeriod() };
+  }
+  function broadcastCoinBarState() {
+    broadcast('batallaCoinBarState', serializeCoinBarState());
+  }
+  function saveCoinBarPersistNow() {
+    writeJsonAtomic(COINBAR_FILE, {
+      battle: { coins: Math.max(0, Math.round(Number(coinBarBags.battle.coins) || 0)) },
+      live: { coins: Math.max(0, Math.round(Number(coinBarBags.live.coins) || 0)) },
+      week: {
+        period: 'week',
+        start: Number(coinBarBags.week.start) || 0,
+        end: Number(coinBarBags.week.end) || 0,
+        coins: Math.max(0, Math.round(Number(coinBarBags.week.coins) || 0)),
+      },
+      month: {
+        period: 'month',
+        start: Number(coinBarBags.month.start) || 0,
+        end: Number(coinBarBags.month.end) || 0,
+        coins: Math.max(0, Math.round(Number(coinBarBags.month.coins) || 0)),
+      },
+    });
+    const p = getCoinBarPeriod();
+    if (p === 'week' || p === 'month') {
+      try { schedulePeriodPersistCloud(); } catch {}
+    }
+  }
+  function saveCoinBarPersist() {
+    clearTimeout(coinBarSaveTimer);
+    coinBarSaveTimer = setTimeout(() => {
+      try { saveCoinBarPersistNow(); } catch {}
+    }, 250);
+  }
+  function applyCoinBarBag(dest, raw) {
+    if (!dest || !raw || typeof raw !== 'object') return;
+    dest.coins = Math.max(0, Math.round(Number(raw.coins) || 0));
+    if ('start' in dest) dest.start = Number(raw.start) || 0;
+    if ('end' in dest) dest.end = Number(raw.end) || 0;
+  }
+  function loadCoinBarPersist() {
+    const raw = readJsonSafe(COINBAR_FILE).data;
+    if (raw && typeof raw === 'object') {
+      if (raw.battle || raw.live || raw.week || raw.month) {
+        applyCoinBarBag(coinBarBags.battle, raw.battle);
+        applyCoinBarBag(coinBarBags.live, raw.live);
+        applyCoinBarBag(coinBarBags.week, raw.week);
+        applyCoinBarBag(coinBarBags.month, raw.month);
+      } else if (raw.period === 'week' || raw.period === 'month') {
+        applyCoinBarBag(coinBarBags[raw.period], raw);
+      } else {
+        applyCoinBarBag(coinBarBags.battle, raw);
+      }
+    }
+    ensureCoinBarWindow('week');
+    ensureCoinBarWindow('month');
+  }
+  function ensureCoinBarWindow(period) {
+    if (period !== 'week' && period !== 'month') return;
+    const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+    const bag = coinBarBags[period];
+    if (stillInSavedWindow({ period, start: bag.start, end: bag.end }, period)) {
+      bag.start = start;
+      bag.end = end;
+      bag.period = period;
+      return;
+    }
+    if (!(Number(bag.start) || 0) && !(Number(bag.end) || 0)) {
+      bag.start = start;
+      bag.end = end;
+      bag.period = period;
+      return;
+    }
+    bag.coins = 0;
+    bag.start = start;
+    bag.end = end;
+    bag.period = period;
+    saveCoinBarPersist();
+    if (getCoinBarPeriod() === period) broadcastCoinBarState();
+  }
+  function resetCoinBarBag(period) {
+    const p = (period === 'live' || period === 'week' || period === 'month' || period === 'battle')
+      ? period
+      : getCoinBarPeriod();
+    if (p === 'week' || p === 'month') {
+      const [start, end] = p === 'month' ? currentMonthRange() : currentWeekRange();
+      coinBarBags[p].start = start;
+      coinBarBags[p].end = end;
+      coinBarBags[p].period = p;
+    }
+    coinBarBags[p].coins = 0;
+    saveCoinBarPersist();
+    broadcastCoinBarState();
+  }
+  function addCoinBarCoins(n) {
+    const add = Math.max(0, Math.round(Number(n) || 0));
+    if (!add) return;
+    const p = getCoinBarPeriod();
+    ensureCoinBarWindow(p);
+    coinBarBags[p].coins = Math.max(0, Math.round(Number(coinBarBags[p].coins) || 0) + add);
+    saveCoinBarPersist();
+    broadcastCoinBarState();
+  }
+  function noteCoinBarHostScore(n) {
+    const next = Math.max(0, Math.round(Number(n) || 0));
+    const prev = lastCoinBarHostScore;
+    lastCoinBarHostScore = next;
+    if (getCoinBarSource() !== 'battle') return;
+    if (next > prev) addCoinBarCoins(next - prev);
+  }
+  function onCoinBarPeriodChange() {
+    ensureCoinBarWindow(getCoinBarPeriod());
+    lastCoinBarHostScore = Math.max(0, Math.round(pkBattle.pointsHost) || 0);
+    broadcastCoinBarState();
   }
   function topDonorForGiftGoal(itemId) {
     const map = giftGoalsState.donors[itemId];
@@ -2434,13 +2714,44 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     return body;
   }
+  function videoClipPool(v) {
+    const items = [];
+    const seen = new Set();
+    const add = (url, name) => {
+      const u = String(url || '').trim();
+      if (!u || seen.has(u)) return;
+      seen.add(u);
+      items.push({ url: u, name: String(name || 'video') });
+    };
+    if (Array.isArray(v?.clips)) {
+      for (const c of v.clips) add(c?.url, c?.name || c?.fileName);
+    }
+    add(v?.url, v?.fileName);
+    return items;
+  }
+  const lastRandomVidClip = new Map();
+  function pickRandomVideo(v) {
+    if (!v) return v;
+    const pool = videoClipPool(v);
+    if (!pool.length) return v;
+    let choices = pool;
+    if (pool.length > 1) {
+      const last = lastRandomVidClip.get(String(v.id || ''));
+      const rest = pool.filter((c) => c.url !== last);
+      if (rest.length) choices = rest;
+    }
+    const clip = choices[Math.floor(Math.random() * choices.length)];
+    if (v.id != null) lastRandomVidClip.set(String(v.id), clip.url);
+    return { ...v, url: clip.url, fileName: clip.name };
+  }
   function emitProfileMedia(cfg, v, scr, isGeneral) {
+    const picked = pickRandomVideo(v) || v;
     emitMedia({
-      id: v.id,
-      name: v.name,
-      url: v.url,
+      id: picked.id,
+      name: picked.name,
+      url: picked.url,
       screen: scr,
-      volume: v.volume ?? 100,
+      volume: picked.volume ?? 100,
       size: screenSizeForCfg(cfg, scr),
       general: !!isGeneral,
       playQueue: cfg.playback?.playQueue !== false,
@@ -2482,12 +2793,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (p.image) p.image = rewriteRelayMediaUrl(p.image);
     broadcast('sound', p);
   }
+  function soundVolumeToPct(v) {
+    if (v == null || v === '') return 100;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return 100;
+    if (n <= 1) return Math.round(n * 100);
+    return Math.max(0, Math.min(100, Math.round(n)));
+  }
   playGameActionSoundImpl = (a, times = 1) => {
     if (!a || !a.sound || a.audioOn === false) return;
     // Minecraft family: runMcAction → playMcActionSound.
     if (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)) return;
     const n = Math.max(1, Math.min(Number(times) || 1, 50));
-    const vol = a.soundVolume != null ? a.soundVolume : 100;
+    const vol = soundVolumeToPct(a.soundVolume != null ? a.soundVolume : 100);
     for (let i = 0; i < n; i++) {
       emitSound({
         id: a.uid || a.id || '',
@@ -2885,7 +3203,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
       const bag = raw[key];
-      if (bag && bag.period === period && bag.start === start) {
+      if (bag && stillInSavedWindow(bag, period)) {
         giftOverlayPeriod[key] = {
           period,
           start,
@@ -2900,9 +3218,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function saveGiftOverlayPeriodsNow() {
     clearTimeout(giftOverlayPeriodSaveTimer);
     giftOverlayPeriodSaveTimer = null;
+    const prev = readJsonSafe(GIFT_OVERLAY_PERIOD_FILE).data || {};
     const data = {};
     for (const key of GIFT_OVERLAY_KEYS) {
-      if (getGiftOverlayPeriod(key) === 'live') continue;
+      if (getGiftOverlayPeriod(key) === 'live') {
+        const prevBag = prev[key];
+        if (prevBag && (prevBag.period === 'week' || prevBag.period === 'month') && stillInSavedWindow(prevBag, prevBag.period)) data[key] = prevBag;
+        continue;
+      }
       const bag = giftOverlayPeriod[key] || {};
       data[key] = {
         period: bag.period,
@@ -2912,6 +3235,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       };
     }
     writeJsonAtomic(GIFT_OVERLAY_PERIOD_FILE, data);
+    schedulePeriodPersistCloud();
   }
   function saveGiftOverlayPeriods() {
     clearTimeout(giftOverlayPeriodSaveTimer);
@@ -2922,6 +3246,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (period === 'live') return;
     const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
     const bag = giftOverlayPeriod[key] || (giftOverlayPeriod[key] = { period: 'live', start: 0, end: 0, record: null });
+    if (bag.period === period && stillInSavedWindow({ period: bag.period, start: bag.start, end: bag.end }, period)) {
+      if (bag.start !== start) { bag.start = start; bag.end = end; saveGiftOverlayPeriods(); }
+      return;
+    }
     if (bag.period !== period || bag.start !== start) {
       bag.period = period;
       bag.start = start;
@@ -2964,7 +3292,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
       const raw = readJsonSafe(GIFT_OVERLAY_PERIOD_FILE).data || {};
       const bag = raw[key];
-      if (bag && bag.period === period && bag.start === start) {
+      if (bag && stillInSavedWindow(bag, period)) {
         giftOverlayPeriod[key] = {
           period,
           start,
@@ -3064,6 +3392,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('pkBattleReset', {});
     resetPkBattleAll();
     broadcast('batallaGiftBallReset', {});
+    if (getCoinBarPeriod() === 'live') resetCoinBarBag('live');
+    else broadcastCoinBarState();
+    lastCoinBarHostScore = 0;
     // Mejor regalo / último regalo / mejor racha (solo si periodo = live)
     if (getGiftOverlayPeriod('topGift') === 'live') broadcast('topGiftReset', {});
     if (getGiftOverlayPeriod('lastGift') === 'live') broadcast('lastGiftReset', {});
@@ -3315,6 +3646,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!midJoin && String(settings?.batallaGiftBall?.resetPeriod || 'battle').toLowerCase() === 'battle') {
       broadcast('batallaGiftBallReset', {});
     }
+    if (!midJoin) {
+      lastCoinBarHostScore = 0;
+      if (getCoinBarPeriod() === 'battle') resetCoinBarBag('battle');
+    } else {
+      lastCoinBarHostScore = Math.max(0, Math.round(pkBattle.pointsHost) || 0);
+    }
   }
   function pkPickArmyTop(userArmy) {
     const top = pkPickArmyTopN(userArmy, 1);
@@ -3530,7 +3867,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     // parpadeo «EMPATE 0 vs 0» / «Faltan X» en el overlay Meta.
     if (pkBattle.live && n < cur) return false;
     if (side === 'host') {
-      if (pkBattle.pointsHost !== n) { pkBattle.pointsHost = n; return true; }
+      if (pkBattle.pointsHost !== n) {
+        pkBattle.pointsHost = n;
+        noteCoinBarHostScore(n);
+        return true;
+      }
     } else if (pkBattle.pointsRival !== n) {
       pkBattle.pointsRival = n;
       return true;
@@ -4111,6 +4452,25 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }, null);
   }
 
+  /** Sonidos/videos: gift = nombre o rango de diamantes; gift-all = cualquier regalo. */
+  function mediaGiftTriggerOk(a, info) {
+    const trig = a?.trigger || 'gift';
+    if (trig === 'gift-all') return true;
+    if (trig !== 'gift') return false;
+    const wantName = (a.giftName || '').trim().toLowerCase();
+    if (wantName || a.giftId) {
+      const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
+      const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
+      if (!idMatch && !nameMatch) return false;
+      if ((a.minDiamonds || 0) > (info.diamonds || 0)) return false;
+      return true;
+    }
+    const total = info.totalDiamonds || 0;
+    if ((a.rangeMin || 0) > total) return false;
+    if ((a.rangeMax || 0) > 0 && total > a.rangeMax) return false;
+    return true;
+  }
+
   function triggerSoundAlerts(eventType, info = {}, user = null, times = 1) {
     // Igual que videos/batallas: la misma alerta en perfil activo + Perfil General
     // debe sonar UNA vez, no dos.
@@ -4122,20 +4482,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const dedupeKey = String(a.id || a.sound);
         if (fired.has(dedupeKey)) continue;
         const trig = a.trigger || 'gift';
-        if (trig !== eventType) continue;
         if (eventType === 'gift') {
-          const wantName = (a.giftName || '').trim().toLowerCase();
-          if (wantName || a.giftId) {
-            const idMatch = a.giftId && String(a.giftId) === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            if ((a.minDiamonds || 0) > (info.diamonds || 0)) continue;
-          } else {
-            const total = info.totalDiamonds || 0;
-            if ((a.rangeMin || 0) > total) continue;
-            if ((a.rangeMax || 0) > 0 && total > a.rangeMax) continue;
-          }
-        }
+          if (trig !== 'gift' && trig !== 'gift-all') continue;
+          if (!mediaGiftTriggerOk(a, info)) continue;
+        } else if (trig !== eventType) continue;
         if (eventType === 'emote') {
           const wantId = (a.emoteId || '').trim();
           if (wantId && wantId !== String(info.emoteId || '')) continue;
@@ -4156,6 +4506,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         if (eventType === 'chatCommand') {
           if (!matchesCommand(a.command, info.comment)) continue;
+          const want = String(a.user || '').replace(/^@/, '').trim();
+          if (want) {
+            if (!tiktokUserMatches(want, info.username, info.nickname)) continue;
+          }
         }
         if (eventType === 'follow' || eventType === 'share' || eventType === 'emote') {
           if (!allowFollowSharePerUser(a, eventType, user, `sa_${isGeneral ? 'g' : 'a'}`)) continue;
@@ -4179,7 +4533,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       || (a.marioSpawn && a.marioSpawn.npcId != null)
       || (a.webhookCmd && a.webhookCmd.on && a.webhookCmd.url)
       || (a.obsCmd && a.obsCmd.on)
-      || (a.sbCmd && a.sbCmd.on && a.sbCmd.action)));
+      || (a.sbCmd && a.sbCmd.on && a.sbCmd.action)
+      || (a.ttsCmd && a.ttsCmd.on && String(a.ttsCmd.text || '').trim())
+      || (a.animShow && a.animShow.on && a.animShow.url)
+      || (a.gifShow && a.gifShow.on && a.gifShow.url)
+      || (a.alertText && a.alertText.on && String(a.alertText.text || '').trim())));
   }
 
   function triggerActions(eventType, info = {}, user = null) {
@@ -4198,6 +4556,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
             if (!idMatch && !nameMatch) continue;
             if ((a.minDiamonds || 0) > (info.diamonds || 0)) continue;
+            if (!gameComboStreakAllows(a, info)) continue;
+            fireAction(a, Math.max(1, Number(info.repeatCount) || 1), cfg, { info, user });
+            continue;
+          } else if (ev === 'gift-all') {
             if (!gameComboStreakAllows(a, info)) continue;
             fireAction(a, Math.max(1, Number(info.repeatCount) || 1), cfg, { info, user });
             continue;
@@ -4432,7 +4794,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const v = hit.item;
     const isBattle = hit.isBattle;
     if (v.enabled === false) return { ok: false, error: 'disabled' };
-    if (!v.url) return { ok: false, error: 'no_url' };
+    if (!videoClipPool(v).length) return { ok: false, error: 'no_url' };
+    const playV = pickRandomVideo(v) || v;
 
     const vid = String(v.id);
     if (webhookActive.has(vid)) {
@@ -4464,7 +4827,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     emitMedia({
       id: v.id,
       name: v.name || '',
-      url: v.url,
+      url: playV.url,
       screen: scr,
       volume: v.volume ?? 100,
       size: v.size ?? screenSize(scr),
@@ -4534,6 +4897,83 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     } else if (a.obsCmd?.on || (a.sbCmd?.on && a.sbCmd?.action)) {
       runActionOutputs({ obsCmd: a.obsCmd, sbCmd: a.sbCmd }, s, ctx);
     }
+    fireActionTts(a, ctx, t);
+    fireActionAnim(a, ctx);
+    fireActionAlert(a, ctx, t);
+  }
+
+  function actionTextVars(info = {}, user = null, times = 1) {
+    const vars = buildActionWebhookVars(info, user, times);
+    vars.totallikecount = String(info.totalLikeCount ?? info.totallikecount ?? state.stats?.likes ?? '');
+    vars.submonth = String(info.subMonth ?? info.subMonths ?? info.months ?? info.month ?? '');
+    if (!vars.likecount) vars.likecount = String(info.likeCount ?? '');
+    return vars;
+  }
+
+  function fireActionTts(a, context, times) {
+    const cmd = a && a.ttsCmd;
+    if (!cmd || !cmd.on) return;
+    const tpl = String(cmd.text || '').trim();
+    if (!tpl) return;
+    const info = (context && context.info) || {};
+    const text = substituteActionTemplate(tpl, actionTextVars(info, context && context.user, times), false);
+    if (!String(text || '').trim()) return;
+    broadcast('actionTts', {
+      text,
+      voice: String(cmd.voice || ''),
+      rate: Number(cmd.rate) || 1,
+      pitch: Number(cmd.pitch) || 1,
+      random: !!cmd.random,
+    });
+  }
+
+  function fireActionAnim(a, context) {
+    const user = (context && context.user) || {};
+    const info = (context && context.info) || {};
+    const nickname = String(user.nickname || info.nickname || '').trim();
+    const photo = String(user.photo || info.photo || '').trim();
+    const emitOne = (bag, kind) => {
+      if (!bag || !bag.on || !String(bag.url || '').trim()) return;
+      broadcast('actionAnim', {
+        url: String(bag.url),
+        name: String(bag.name || ''),
+        kind,
+        nickname,
+        photo,
+      });
+    };
+    emitOne(a && a.animShow, 'video');
+    emitOne(a && a.gifShow, 'image');
+  }
+
+  function fireActionAlert(a, context, times) {
+    const cmd = a && a.alertText;
+    if (!cmd || !cmd.on) return;
+    const tpl = String(cmd.text || '').trim();
+    if (!tpl) return;
+    const info = (context && context.info) || {};
+    const user = (context && context.user) || {};
+    const text = substituteActionTemplate(tpl, actionTextVars(info, user, times), false);
+    if (!String(text || '').trim()) return;
+    emitActionAlert({
+      text,
+      playTTS: !!cmd.playTTS,
+      voice: String(cmd.voice || ''),
+      rate: Number(cmd.rate) || 1,
+      nickname: String(user.nickname || info.nickname || '').trim(),
+      photo: String(user.photo || info.photo || '').trim(),
+    });
+  }
+
+  function emitActionAlert(payload) {
+    const send = (extra) => broadcast('actionAlert', extra ? { ...payload, ...extra } : payload);
+    if (!payload.playTTS) { send(); return; }
+    const voice = String(payload.voice || '').trim();
+    const text = String(payload.text || '').trim();
+    if (!text || !isEdgeTtsVoice(voice)) { send(); return; }
+    ttsSynthEdge(text, voice, 7000)
+      .then((audio) => send(audio ? { audio, mime: 'audio/mpeg' } : null))
+      .catch(() => send());
   }
 
   // Ejecuta las salidas de integración de una acción (si están activadas) usando los
@@ -4890,7 +5330,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         name: a.name || a.soundName || 'Minecraft',
         sound: a.sound,
         image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
-        volume: a.soundVolume != null ? a.soundVolume : 100,
+        volume: soundVolumeToPct(a.soundVolume != null ? a.soundVolume : 100),
       });
     }
   }
@@ -6773,7 +7213,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       if (cfg.videosEnabled !== false) {
         for (const v of cfg.videos) {
-          if (!v.url || v.enabled === false || (v.trigger || '') !== 'likeGlobal') continue;
+          if (!videoClipPool(v).length || v.enabled === false || (v.trigger || '') !== 'likeGlobal') continue;
           const goal = Math.max(1, v.likeGoal || 100);
           if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
             const scr = clampMediaScreen(v.screen);
@@ -6795,22 +7235,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     forEachTriggerProfile((cfg, isGeneral) => {
       if (cfg.videosEnabled === false) return;
       for (const v of cfg.videos) {
-        if (!v.url || v.enabled === false) continue;
+        if (!videoClipPool(v).length || v.enabled === false) continue;
         const trig = v.trigger || 'gift';
-        if (trig !== eventType) continue;
         if (eventType === 'gift') {
-          const wantName = (v.giftName || '').trim().toLowerCase();
-          if (wantName || v.giftId) {
-            const idMatch = v.giftId && String(v.giftId) === String(info.giftId || '');
-            const nameMatch = wantName && wantName === (info.giftName || '').toLowerCase();
-            if (!idMatch && !nameMatch) continue;
-            if ((v.minDiamonds || 0) > (info.diamonds || 0)) continue;
-          } else {
-            const total = info.totalDiamonds || 0;
-            if ((v.rangeMin || 0) > total) continue;
-            if ((v.rangeMax || 0) > 0 && total > v.rangeMax) continue;
-          }
-        }
+          if (trig !== 'gift' && trig !== 'gift-all') continue;
+          if (!mediaGiftTriggerOk(v, info)) continue;
+        } else if (trig !== eventType) continue;
         if (eventType === 'emote') {
           const wantId = (v.emoteId || '').trim();
           if (wantId && wantId !== String(info.emoteId || '')) continue;
@@ -7118,11 +7548,35 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('spotifyNowPlaying', { track: spotifyNowPlaying });
   }
 
-  async function pollSpotifyPlayback() {
-    if (!clients.size || !spotify.isConnected(id)) return;
+  function sameSpotifyUri(a, b) {
+    return String(a || '').trim() === String(b || '').trim();
+  }
+
+  function claimNextQueuedIfPlaying(state) {
+    const q0 = spotifyQueue[0];
+    if (!q0 || !sameSpotifyUri(q0.uri, state?.uri)) return { requestedBy: '', requestedUniqueId: '' };
+    const requestedBy = q0.nickname || '';
+    const requestedUniqueId = q0.uniqueId || '';
+    spotifyQueue.shift();
+    pushSpotifyQueue();
+    spotifyHistory.unshift({
+      at: Date.now(),
+      user: requestedBy,
+      track: `${state.name} — ${state.artists}`,
+      status: 'Reproduciendo',
+    });
+    if (spotifyHistory.length > 50) spotifyHistory.length = 50;
+    pushSpotifyHistory();
+    return { requestedBy, requestedUniqueId };
+  }
+
+  async function pollSpotifyPlayback(opts = {}) {
+    if (!opts.force && !clients.size) return;
+    if (!spotify.isConnected(id)) return;
     let state;
     try { state = await spotify.getPlaybackState(id); } catch { return; }
     if (!state?.uri) {
+      spotifySkipPending = false;
       if (spotifyNowPlaying) {
         spotifyNowPlaying = null;
         lastSpotifyUri = '';
@@ -7133,25 +7587,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     let requestedBy = spotifyNowPlaying?.requestedBy || '';
     let requestedUniqueId = spotifyNowPlaying?.requestedUniqueId || '';
-    if (state.uri !== lastSpotifyUri) {
-      requestedBy = '';
-      requestedUniqueId = '';
-      const idx = spotifyQueue.findIndex((q) => q.uri === state.uri);
-      if (idx !== -1) {
-        requestedBy = spotifyQueue[idx].nickname || '';
-        requestedUniqueId = spotifyQueue[idx].uniqueId || '';
-        spotifyQueue.splice(idx, 1);
-        pushSpotifyQueue();
-        spotifyHistory.unshift({
-          at: Date.now(),
-          user: requestedBy,
-          track: `${state.name} — ${state.artists}`,
-          status: 'Reproduciendo',
-        });
-        if (spotifyHistory.length > 50) spotifyHistory.length = 50;
-        pushSpotifyHistory();
-      }
+    if (!sameSpotifyUri(state.uri, lastSpotifyUri)) {
+      // Canción nueva: es del chat solo si es la siguiente de !play. Si no, es del streamer.
+      const claimed = claimNextQueuedIfPlaying(state);
+      requestedBy = claimed.requestedBy;
+      requestedUniqueId = claimed.requestedUniqueId;
+      spotifySkipPending = false;
       lastSpotifyUri = state.uri;
+    } else if (!requestedUniqueId) {
+      // Ya sonaba y es la siguiente de la cola (p. ej. acababa de entrar). Marcarla del chat.
+      const claimed = claimNextQueuedIfPlaying(state);
+      if (claimed.requestedUniqueId) {
+        requestedBy = claimed.requestedBy;
+        requestedUniqueId = claimed.requestedUniqueId;
+      }
     }
 
     spotifyNowPlaying = {
@@ -7183,8 +7632,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function spotifyUserAllowed(cfg, user, roles) {
     if (!cfg) return false;
     if (cfg.permAll) return true;
-    if (cfg.permMods && roles?.isMod) return true;
-    if (cfg.permSubs && roles?.isSub) return true;
+    if (cfg.permMods && isLiveModUser(user, roles)) return true;
+    if (cfg.permSubs && (roles?.isSub || isKnownLiveSub(user?.uniqueId, user?.nickname))) return true;
     if (!cfg.permUsersOn) return false;
     const list = Array.isArray(cfg.permUsers) ? cfg.permUsers : [];
     if (!list.length) return false;
@@ -7278,18 +7727,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     if (kind === 'skip') {
       if (cfg.skipOn === false) return;
-      // Opción: solo saltar canción propia (no las de otros ni las del streamer).
-      // skipOwnOnlyStrict: también aplica a mods. skipOwnOnly: los mods sí pueden saltar cualquiera.
-      const enforceOwnSkip = !!cfg.skipOwnOnlyStrict || (!!cfg.skipOwnOnly && !roles?.isMod);
-      if (enforceOwnSkip) {
-        const owner = normTikTokUser(spotifyNowPlaying?.requestedUniqueId);
-        const me = normTikTokUser(user.uniqueId);
+      // Preguntar a Spotify qué suena AHORA (el overlay puede ir 3s atrasado).
+      // Si no, tras un cambio en la app se saltaba la música del streamer.
+      try { await pollSpotifyPlayback({ force: true }); } catch {}
+      const isMod = isLiveModUser(user, roles);
+      const owner = normTikTokUser(spotifyNowPlaying?.requestedUniqueId);
+      const me = normTikTokUser(user.uniqueId);
+      if (cfg.skipOwnOnly || cfg.skipOwnOnlyStrict) {
         if (!owner) {
-          reply(`${user.nickname}: no puedes saltar las pistas del streamer.`, false);
+          reply(`${user.nickname}: esa pista la puso el streamer en Spotify. No se puede saltar.`, false);
           return;
         }
-        if (owner !== me) {
-          reply(`${user.nickname}: solo puedes saltar tu propia canción.`, false);
+        const onlyOwn = !!cfg.skipOwnOnlyStrict || !isMod;
+        if (onlyOwn && owner !== me) {
+          reply(`${user.nickname}: solo puedes saltar la canción que pediste tú con !play.`, false);
           return;
         }
       }
@@ -7297,8 +7748,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       let ok = false;
       try { ok = await spotify.skipNext(id); } catch {}
       if (!ok) { reply('No pude saltar la pista.', false); return; }
-      // La pista actual ya salió de la cola al empezar a sonar; no hacer shift aquí.
-      pollSpotifyPlayback().catch(() => {});
+      spotifySkipPending = true;
+      pollSpotifyPlayback({ force: true }).catch(() => {});
       addHistory('—', 'Saltada');
       reply(`${user.nickname} saltó la pista.`);
       return;
@@ -7641,7 +8092,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const [start, end] = currentWeekRange();
     const r = readJsonSafe(WEEKLY_FILE);
     const raw = r.data;
-    if (raw && raw.start === start) {
+    if (raw && stillInSavedWindow({ period: 'week', start: raw.start, end: raw.end }, 'week')) {
       weekly.start = start; weekly.end = end;
       weekly.donors = new Map((raw.donors || []).map((u) => [u.uniqueId, u]));
       return;
@@ -7653,10 +8104,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     weeklySaveTimer = setTimeout(() => {
       const data = { start: weekly.start, end: weekly.end, donors: [...weekly.donors.values()] };
       writeJsonAtomic(WEEKLY_FILE, data);
+      schedulePeriodPersistCloud();
     }, 400);
   }
   function ensureWeek() {
     const [start, end] = currentWeekRange();
+    try {
+      ensureCoinBarWindow('week');
+      ensureCoinBarWindow('month');
+    } catch {}
+    if (weekly.start !== start && stillInSavedWindow({ period: 'week', start: weekly.start, end: weekly.end }, 'week')) {
+      weekly.start = start; weekly.end = end;
+      saveWeekly();
+      return;
+    }
     if (start !== weekly.start) {
       weekly.start = start; weekly.end = end; weekly.donors.clear();
       saveWeekly();
@@ -8036,11 +8497,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         continue;
       }
       const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
-      if (saved && saved.period === period && saved.start === start) {
+      const cal = calendarBagFromRankRow(saved);
+      if (cal && stillInSavedWindow(cal, period)) {
         rankPersist[rankId].period = period;
         rankPersist[rankId].start = start;
         rankPersist[rankId].end = end;
-        rankPersist[rankId].users = new Map((saved.users || []).map((u) => [u.uniqueId, u]));
+        rankPersist[rankId].users = new Map((cal.users || []).filter((u) => u?.uniqueId).map((u) => [u.uniqueId, u]));
       } else {
         rankPersist[rankId].period = period;
         rankPersist[rankId].start = start;
@@ -8052,9 +8514,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function saveRankOverlays() {
     clearTimeout(rankSaveTimer);
     rankSaveTimer = setTimeout(() => {
+      const prev = readJsonSafe(RANKS_FILE).data || {};
       const data = {};
       for (const rankId of RANK_IDS) {
         const period = getRankPeriod(rankId);
+        const prevRow = prev[rankId] || {};
+        let calendar = calendarBagFromRankRow(prevRow);
         if (period === 'live') {
           data[rankId] = {
             period: 'live',
@@ -8062,12 +8527,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             username: liveSession.username || null,
             users: [...rankSession[rankId].values()],
           };
-          continue;
+          if (calendar && stillInSavedWindow(calendar, calendar.period)) data[rankId].calendar = calendar;
+        } else {
+          const p = rankPersist[rankId];
+          calendar = {
+            period: p.period,
+            start: p.start,
+            end: p.end,
+            users: [...p.users.values()],
+          };
+          data[rankId] = { ...calendar, calendar };
         }
-        const p = rankPersist[rankId];
-        data[rankId] = { period: p.period, start: p.start, end: p.end, users: [...p.users.values()] };
       }
       writeJsonAtomic(RANKS_FILE, data);
+      schedulePeriodPersistCloud();
     }, 400);
   }
   function ensureRankPeriod(rankId) {
@@ -8075,6 +8548,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (period === 'live') return;
     const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
     const p = rankPersist[rankId];
+    if (p.period === period && stillInSavedWindow({ period: p.period, start: p.start, end: p.end }, period)) {
+      if (p.start !== start) { p.start = start; p.end = end; saveRankOverlays(); }
+      return;
+    }
     if (p.period !== period || p.start !== start) {
       p.period = period;
       p.start = start;
@@ -8089,15 +8566,21 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const period = getRankPeriod(rankId);
     lastRankPeriods[rankId] = period;
     if (period === 'live') {
-      rankPersist[rankId].users.clear();
       const saved = (readJsonSafe(RANKS_FILE).data || {})[rankId];
       restoreLiveRankSession(rankId, saved);
+      saveRankOverlays();
     } else {
       const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
+      const saved = (readJsonSafe(RANKS_FILE).data || {})[rankId];
+      const cal = calendarBagFromRankRow(saved);
       rankPersist[rankId].period = period;
       rankPersist[rankId].start = start;
       rankPersist[rankId].end = end;
-      rankPersist[rankId].users.clear();
+      if (cal && stillInSavedWindow(cal, period)) {
+        rankPersist[rankId].users = new Map((cal.users || []).filter((u) => u?.uniqueId).map((u) => [u.uniqueId, u]));
+      } else {
+        rankPersist[rankId].users = new Map();
+      }
       saveRankOverlays();
     }
     broadcastRankState(rankId, true);
@@ -8741,6 +9224,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       addRankComments(chatUser, 1);
       const atUser = data.atUser ? baseUser(data.atUser) : null;
       const roles = chatUserRoles(data);
+      if (isKnownLiveSub(chatUser.uniqueId, chatUser.nickname)) roles.isSub = true;
+      if (isKnownLiveMod(chatUser.uniqueId, chatUser.nickname)) roles.isMod = true;
+      if (roles.isSub) rememberLiveSub(chatUser.uniqueId, chatUser.nickname);
+      if (roles.isMod) rememberLiveMod(chatUser.uniqueId, chatUser.nickname);
       const ptsDonor = donorLevelForUid(chatUser.uniqueId);
       const donorLevel = roles.gifterLevel > 0 ? roles.gifterLevel : ptsDonor;
       const donorSource = roles.gifterLevel > 0 ? 'tiktok' : (ptsDonor > 0 ? 'points' : '');
@@ -8763,7 +9250,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerActions('chatCommand', chatInfo, chatUser);
       handleChatCommands(comment, chatUser);
       tryPointsLookupCommand(comment, chatUser);
-      handleSpotifyCommands(comment, chatUser, chatUserRoles(data));
+      handleSpotifyCommands(comment, chatUser, roles);
       triggerMinecraftActions('chat', chatInfo, chatUser);
       processScreenFxTriggers('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
@@ -8829,6 +9316,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
       } catch {}
       const user = baseUser(data.user);
+      try { noteLiveRolesFromEvent(data, user); } catch {}
       const giftType = data.giftDetails?.giftType;
       const giftId = data.giftId ?? data.giftDetails?.id ?? '';
       const cat = giftsById.get(String(giftId));
@@ -8873,6 +9361,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const total = diamondsEach * repeatCount;
         state.stats.gifts++;
         state.stats.diamonds += total;
+        if (getCoinBarSource() === 'live' && total > 0) addCoinBarCoins(total);
         bumpFocMetrics('diamonds', total);
 
         if (user.uniqueId) {
@@ -8993,6 +9482,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         state.stats.peakViewers = Math.max(Number(state.stats.peakViewers) || 0, data.memberCount);
       }
       const member = baseUser(data.user);
+      try { noteLiveRolesFromEvent(data, member); } catch {}
       broadcast('member', member);
       // Registrar nivel al entrar (baseline para detectar subidas después).
       checkMemberLevelUp(data);
@@ -9102,6 +9592,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (now - (recentSubs.get(uid) || 0) < 4000) return; // evita doble disparo (subscribe + subNotify)
       recentSubs.set(uid, now);
       if (recentSubs.size > 500) recentSubs.clear();
+      rememberLiveSub(user.uniqueId, user.nickname);
       const monthsTxt = months > 0 ? ` · ${months} ${months === 1 ? 'mes' : 'meses'}` : '';
       broadcast('log', { level: 'ok', text: `⭐ Suscriptor: ${user.nickname}${monthsTxt}${level ? ` · nivel ${level}` : ''}` });
       const info = { ...user, months, level };
@@ -9145,6 +9636,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (now - (recentSuperFans.get(dedupeKey) || 0) < 5000) return;
       recentSuperFans.set(dedupeKey, now);
       if (recentSuperFans.size > 500) recentSuperFans.clear();
+      rememberLiveSub(user.uniqueId, user.nickname);
       const label = isJoin ? 'Super fan entró' : 'Super fan';
       broadcast('log', { level: 'ok', text: `🌟 ${label}: ${user.nickname}${level ? ` · nivel ${level}` : ''}` });
       const info = { ...user, level, isJoin };
@@ -9470,6 +9962,31 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         );
         break;
       }
+      case 'testActionAnim': {
+        const url = String(data.url || '').trim();
+        if (!url) break;
+        broadcast('actionAnim', {
+          url,
+          name: String(data.name || ''),
+          kind: data.kind === 'image' ? 'image' : 'video',
+          nickname: String(data.nickname || 'Prueba'),
+          photo: String(data.photo || ''),
+        });
+        break;
+      }
+      case 'testActionAlert': {
+        const text = String(data.text || '').trim();
+        if (!text) break;
+        emitActionAlert({
+          text,
+          playTTS: !!data.playTTS,
+          voice: String(data.voice || ''),
+          rate: Number(data.rate) || 1,
+          nickname: String(data.nickname || 'Prueba'),
+          photo: String(data.photo || ''),
+        });
+        break;
+      }
       case 'getPoints':
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() })); } catch {}
         break;
@@ -9643,12 +10160,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'testVideo':
         if (data.video) {
-          const scr = Number(data.video.screen) || 1;
+          const picked = pickRandomVideo(data.video) || data.video;
+          const scr = Number(picked.screen) || 1;
           emitMedia({
-            ...data.video,
+            ...picked,
             screen: scr,
-            size: data.video.size ?? screenSize(scr),
-            maxDurationSec: data.video.originalDuration === false ? 5 : (data.video.maxDurationSec || 0),
+            size: picked.size ?? screenSize(scr),
+            maxDurationSec: picked.originalDuration === false ? 5 : (picked.maxDurationSec || 0),
             test: true,
           });
         }
@@ -9993,6 +10511,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetBatallaGiftBall':
         broadcast('batallaGiftBallReset', {});
         break;
+      case 'testBatallaCoinBar':
+        broadcast('batallaCoinBarTest', { coins: Math.max(0, Number(data.coins) || 12500) });
+        break;
+      case 'resetBatallaCoinBar':
+        resetCoinBarBag(getCoinBarPeriod());
+        broadcast('batallaCoinBarReset', {});
+        break;
       case 'startBatallaVs':
       case 'stopBatallaVs':
         // El marcador es automático con el PK de TikTok; estos botones ya no hacen falta.
@@ -10271,6 +10796,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'liveUptime', payload: serializeLiveUptime() }));
     ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));
     ws.send(JSON.stringify({ type: 'giftGoals', payload: serializeGiftGoals() }));
+    ws.send(JSON.stringify({ type: 'batallaCoinBarState', payload: serializeCoinBarState() }));
     ws.send(JSON.stringify({ type: 'sessionOverlays', payload: serializeSessionOverlaysPayload() }));
     ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
@@ -10321,6 +10847,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       saveProfilesNow();
     } catch {}
     try { writeJsonAtomic(SETTINGS_FILE, settings); } catch {}
+    try {
+      clearTimeout(coinBarSaveTimer);
+      saveCoinBarPersistNow();
+    } catch {}
     try {
       const data = { start: weekly.start, end: weekly.end, donors: [...weekly.donors.values()] };
       writeJsonAtomic(WEEKLY_FILE, data);
@@ -10386,7 +10916,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     importProfiles,
     // Modo relay (.exe): el chat lo recibe la nube; el panel reenvía aquí los comandos
     // de Spotify para procesarlos LOCALMENTE (tokens y cola viven en esta PC).
-    handleSpotifyChat: (comment, user, roles) => handleSpotifyCommands(comment, user, roles),
+    handleSpotifyChat: (comment, user, roles) => {
+      if (roles?.isMod) rememberLiveMod(user?.uniqueId, user?.nickname);
+      if (roles?.isSub) rememberLiveSub(user?.uniqueId, user?.nickname);
+      return handleSpotifyCommands(comment, user, roles);
+    },
     get clientCount() { return clients.size; },
     pushBadges: (payload) => {
       try { broadcast('badges', payload || {}); } catch { /* ignore */ }

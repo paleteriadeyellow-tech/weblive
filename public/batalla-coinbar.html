@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Contador de monedas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Luckiest+Guy&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; overflow: hidden;
+      background: transparent !important;
+      font-family: 'Rubik', system-ui, sans-serif;
+    }
+    html.stage, html.stage body { width: 480px; height: 1080px; }
+    html.embed, html.embed body {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.05) 25%, transparent 25%) 0 0 / 18px 18px,
+        radial-gradient(80% 60% at 50% 20%, #243044 0%, #101820 70%) !important;
+    }
+    .stage {
+      width: 480px; height: 1080px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-end;
+      padding: 28px 12px 22px;
+      transform: scale(var(--fit, 1));
+      transform-origin: center bottom;
+    }
+    html.embed .stage { transform-origin: center center; }
+
+    .wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) var(--tube-w, 72px) minmax(0, 0.8fr);
+      column-gap: 8px;
+      align-items: stretch;
+      overflow: visible;
+    }
+    .col {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: visible;
+    }
+    .tick {
+      position: absolute;
+      left: 0; right: 0;
+      transform: translateY(50%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .col-left .tick {
+      left: auto;
+      right: 0;
+      width: max-content;
+      max-width: none;
+      justify-content: flex-end;
+      text-align: right;
+      transform-origin: right center;
+    }
+    .col-left.is-vert .lab {
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      letter-spacing: .28em;
+      max-width: none;
+      line-height: 1.15;
+      font-size: 16px;
+      white-space: nowrap;
+    }
+    .col-left.is-vert .tick {
+      align-items: flex-end;
+    }
+    .col-right .tick { justify-content: flex-start; text-align: left; transform-origin: left center; }
+    .lab {
+      font-weight: 900;
+      font-size: 18px;
+      line-height: 1.1;
+      color: #fff;
+      text-shadow: 0 2px 0 #000, 0 0 10px rgba(0,0,0,.55);
+      max-width: none;
+      white-space: nowrap;
+      word-break: keep-all;
+      overflow: visible;
+      display: inline-block;
+    }
+    .num {
+      font-family: 'Luckiest Guy', 'Rubik', sans-serif;
+      font-size: 26px;
+      letter-spacing: .02em;
+      color: #fff;
+      text-shadow: 0 3px 0 #000, 0 0 12px rgba(0,0,0,.5);
+      white-space: nowrap;
+      display: inline-block;
+      transform-origin: center;
+      transition: color .25s, text-shadow .25s, transform .25s;
+    }
+    .tick.is-done .num {
+      color: var(--tick-on, #7dffb0);
+      transform: scale(1.18);
+      text-shadow:
+        0 3px 0 #000,
+        0 0 10px #fff,
+        0 0 18px var(--tick-on, #7dffb0),
+        0 0 28px var(--tick-on, #7dffb0);
+    }
+    .tick.is-done .lab {
+      color: var(--tick-on-lab, #b6ffd4);
+      text-shadow: 0 2px 0 #000, 0 0 14px var(--tick-on, #7dffb0);
+    }
+    .tick.pop {
+      z-index: 8;
+      animation: tickPop 1.1s cubic-bezier(.15, 1.35, .3, 1);
+    }
+    .tick.pop .num {
+      animation: tickGlow 1.1s ease-out;
+    }
+    @keyframes tickPop {
+      0% { transform: translateY(50%) scale(1); filter: brightness(1); }
+      28% { transform: translateY(50%) scale(1.72); filter: brightness(1.85); }
+      100% { transform: translateY(50%) scale(1); filter: brightness(1); }
+    }
+    @keyframes tickGlow {
+      0% { transform: scale(1); }
+      28% {
+        transform: scale(1.45);
+        text-shadow:
+          0 0 6px #fff,
+          0 0 18px #fff,
+          0 0 32px var(--tick-on, #ffe566),
+          0 0 48px var(--tick-on, #7dffb0);
+      }
+      100% { transform: scale(1.18); }
+    }
+    .marks i.pop {
+      animation: markFlash .9s ease-out;
+    }
+    @keyframes markFlash {
+      0% { opacity: .4; filter: brightness(1); transform: translateY(50%) scaleX(.4); }
+      35% { opacity: 1; filter: brightness(2.2); transform: translateY(50%) scaleX(1.15); }
+      100% { opacity: 1; filter: brightness(1); transform: translateY(50%) scaleX(1); }
+    }
+
+    .tube {
+      position: relative;
+      width: var(--tube-w, 72px);
+      height: 100%;
+      border-radius: 22px;
+      background: rgba(0,0,0,.38);
+      box-shadow:
+        inset 0 0 0 3px var(--frame, rgba(255,255,255,.22)),
+        0 8px 24px rgba(0,0,0,.35);
+      overflow: hidden;
+    }
+    .tube.has-skin {
+      background: transparent;
+      box-shadow: none;
+      overflow: visible;
+      border-radius: 0;
+    }
+    .tube-track {
+      position: absolute;
+      left: var(--well-l, 6px);
+      top: var(--well-t, 6px);
+      right: var(--well-r, 6px);
+      bottom: var(--well-b, 6px);
+      border-radius: 16px;
+      background: rgba(255,255,255,.08);
+      overflow: hidden;
+    }
+    .tube.has-skin .tube-track {
+      border-radius: 999px;
+      background: rgba(0,0,0,.42);
+    }
+    .tube-skin {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: fill;
+      z-index: 6;
+      pointer-events: none;
+      display: none;
+    }
+    .tube.has-skin .tube-skin.single { display: block; }
+    .tube-skin-stack {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      display: none;
+      flex-direction: column;
+    }
+    .tube.has-skin.has-slices .tube-skin-stack { display: flex; }
+    .tube.has-skin.has-slices .tube-skin.single { display: none; }
+    .skin-cap {
+      flex: none;
+      width: 100%;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 100% 100%;
+    }
+    .skin-top { height: var(--skin-top-h, 80px); }
+    .skin-bot { height: var(--skin-bot-h, 80px); }
+    .skin-mid {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 0;
+      background-repeat: repeat-y;
+      background-position: center top;
+      background-size: 100% auto;
+    }
+    .tube.has-skin .marks i {
+      height: 3px;
+      background: linear-gradient(90deg, transparent 4%, var(--mark, #f0abfc) 18%, #fff 50%, var(--mark, #f0abfc) 82%, transparent 96%);
+      box-shadow: 0 0 6px var(--mark, #c026d3), 0 0 12px var(--mark, #a855f7);
+    }
+    .marks {
+      position: absolute; inset: 0;
+      z-index: 3;
+      pointer-events: none;
+    }
+    .marks i {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: rgba(255,255,255,.35);
+      transform: translateY(50%);
+    }
+    .fill {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      height: 0%;
+      border-radius: 0 0 16px 16px;
+      overflow: hidden;
+      background: var(--liq, linear-gradient(180deg, #6ee7a8, #22c55e 42%, #15803d));
+      transition: height .45s cubic-bezier(.2,.8,.2,1);
+      z-index: 1;
+    }
+    .fill.is-full { border-radius: 16px; }
+    .tube.has-skin .fill,
+    .tube.has-skin .fill.is-full,
+    .tube.has-skin .done,
+    .tube.has-skin .done.is-full { border-radius: 0; }
+    .fill.is-rainbow {
+      background: linear-gradient(180deg, #ff4fd8, #22d3ee, #ffe566, #a855f7, #ff4fd8);
+      background-size: 100% 280%;
+      animation: rainbow 3.6s linear infinite;
+    }
+    .fill .wave-a {
+      top: -16px;
+      background: rgba(255,255,255,.42);
+      animation: waterSlosh 3.2s ease-in-out infinite;
+    }
+    .fill .wave-b {
+      top: -22px;
+      background: rgba(255,255,255,.22);
+      animation: waterSlosh 4.4s ease-in-out infinite reverse;
+    }
+    @keyframes rainbow {
+      to { background-position: 0 100%; }
+    }
+    .done {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      height: 0%;
+      overflow: hidden;
+      z-index: 2;
+      transition: height .45s cubic-bezier(.2,.8,.2,1);
+      border-radius: 0 0 16px 16px;
+      background: var(--liq-done, linear-gradient(180deg, rgba(190,255,220,.35) 0%, transparent 18%), linear-gradient(180deg, #6ee7a8 0%, #22c55e 42%, #15803d 100%));
+    }
+    .done.is-full { border-radius: 16px; }
+    .done.is-rainbow {
+      background:
+        linear-gradient(180deg, rgba(0,0,0,.16), rgba(0,0,0,.32)),
+        linear-gradient(180deg, #ff4fd8, #22d3ee, #ffe566, #a855f7, #ff4fd8);
+      background-size: auto, 100% 280%;
+      animation: rainbow 3.6s linear infinite;
+    }
+    /* Agua en vaso: superficie que se mecen + brillo interior */
+    .wave {
+      position: absolute;
+      left: -70%;
+      width: 240%;
+      height: 36px;
+      border-radius: 42% 38% 48% 40%;
+      pointer-events: none;
+    }
+    .done .wave-a {
+      top: -16px;
+      background: rgba(255,255,255,.38);
+      animation: waterSlosh 3.2s ease-in-out infinite;
+    }
+    .done .wave-b {
+      top: -22px;
+      background: rgba(180, 255, 220, .28);
+      animation: waterSlosh 4.4s ease-in-out infinite reverse;
+    }
+    .done .caustic {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(18px 10px at 30% 22%, rgba(255,255,255,.28), transparent 70%),
+        radial-gradient(22px 12px at 70% 40%, rgba(255,255,255,.18), transparent 70%),
+        radial-gradient(16px 8px at 45% 68%, rgba(255,255,255,.14), transparent 70%);
+      background-size: 120% 80%;
+      animation: waterCaustic 5.5s ease-in-out infinite;
+      mix-blend-mode: screen;
+      opacity: .85;
+    }
+    @keyframes waterSlosh {
+      0%, 100% { transform: translateX(-10%) rotate(-7deg); }
+      50% { transform: translateX(10%) rotate(7deg); }
+    }
+    @keyframes waterCaustic {
+      0%, 100% { background-position: 0% 10%, 80% 30%, 40% 70%; }
+      50% { background-position: 70% 25%, 10% 55%, 60% 85%; }
+    }
+    .arrow {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      z-index: 4;
+      width: 0; height: 0;
+      margin-left: -11px;
+      border-left: 11px solid transparent;
+      border-right: 11px solid transparent;
+      border-top: 16px solid #fff;
+      filter: drop-shadow(0 2px 0 #000);
+      transition: bottom .45s cubic-bezier(.2,.8,.2,1);
+      pointer-events: none;
+    }
+
+    .bottom {
+      flex: 0 0 auto;
+      position: relative;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) var(--tube-w, 72px) minmax(0, 0.8fr);
+      column-gap: 8px;
+      width: 100%;
+      margin-top: 8px;
+      min-height: 78px;
+    }
+    .bottom-inner {
+      grid-column: 2;
+      justify-self: center;
+      text-align: center;
+      width: max-content;
+    }
+    .bottom .now {
+      font-family: 'Luckiest Guy', 'Rubik', sans-serif;
+      font-size: 42px;
+      color: #fff;
+      text-shadow: 0 4px 0 #000, 0 0 16px rgba(0,0,0,.45);
+      line-height: 1;
+    }
+    .bottom .hint {
+      margin-top: 4px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      color: rgba(255,255,255,.72);
+      text-transform: uppercase;
+      text-shadow: 0 1px 0 #000;
+    }
+
+    /* ===== Horizontal overlay (1080×480) ===== */
+    html.horiz.stage, html.horiz.stage body { width: 1080px; height: 480px; }
+    html.horiz .stage {
+      display: flex;
+      width: 1080px; height: 480px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 44px;
+      gap: 28px;
+      transform-origin: left center;
+    }
+    html.embed.horiz .stage { transform-origin: center center; }
+    html.horiz .bottom {
+      order: -1;
+      display: block;
+      margin: 0;
+      min-width: 108px;
+      min-height: 0;
+      flex: none;
+      text-align: center;
+      width: auto;
+      grid-template-columns: none;
+    }
+    html.horiz .bottom-inner {
+      grid-column: auto;
+      justify-self: auto;
+      width: auto;
+    }
+    html.horiz .bottom .now { font-size: 30px; }
+    html.horiz .bottom .hint { margin-top: 6px; letter-spacing: .18em; font-size: 11px; }
+    html.horiz .wrap {
+      flex: 1;
+      min-width: 0;
+      height: auto;
+      grid-column: auto;
+      grid-row: auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 56px var(--tube-w, 72px) 44px;
+      gap: 22px;
+      align-content: center;
+      overflow: visible;
+    }
+    html.horiz .tube {
+      width: 100%;
+      height: var(--tube-w, 72px);
+    }
+    html.horiz .tube.has-skin.has-slices .tube-skin-stack {
+      inset: auto;
+      width: var(--tube-w, 72px);
+      height: var(--bar-len, 100%);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) rotate(-90deg);
+      flex-direction: column;
+    }
+    html.horiz .tick {
+      left: 0; right: auto; top: auto; bottom: auto;
+      transform: translateX(-50%);
+      justify-content: center;
+      text-align: center;
+      width: max-content;
+      max-width: none;
+    }
+    html.horiz .col-left .tick {
+      left: 0;
+      right: auto;
+      top: auto; bottom: 0;
+      align-items: flex-end;
+      transform-origin: center bottom;
+    }
+    html.horiz .col-right .tick {
+      top: 0; bottom: auto;
+      align-items: flex-start;
+      transform-origin: center top;
+    }
+    html.horiz .lab {
+      writing-mode: horizontal-tb;
+      text-orientation: mixed;
+      letter-spacing: .04em;
+      font-size: 16px;
+      line-height: 1.15;
+      white-space: nowrap;
+      max-width: none;
+      overflow: visible;
+      text-overflow: clip;
+      text-transform: none;
+    }
+    html.horiz.lab-vert .wrap {
+      grid-template-rows: 112px var(--tube-w, 72px) 44px;
+    }
+    html.horiz .col-left.is-vert .lab {
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      letter-spacing: .26em;
+      font-size: 15px;
+      line-height: 1.12;
+      white-space: nowrap;
+    }
+    html.horiz .num {
+      font-size: 16px;
+      letter-spacing: .04em;
+    }
+    html.horiz .marks i {
+      left: 0; right: auto; top: 0; bottom: 0;
+      width: 2px; height: auto;
+      transform: translateX(-50%);
+    }
+    html.horiz .tube.has-skin .marks i {
+      width: 3px; height: auto;
+      background: linear-gradient(180deg, transparent 4%, var(--mark, #f0abfc) 18%, #fff 50%, var(--mark, #f0abfc) 82%, transparent 96%);
+    }
+    html.horiz .fill,
+    html.horiz .done {
+      top: 0; bottom: 0; left: 0; right: auto;
+      width: 0%;
+      height: 100%;
+      border-radius: 16px 0 0 16px;
+      transition: width .45s cubic-bezier(.2,.8,.2,1);
+    }
+    html.horiz .fill.is-full,
+    html.horiz .done.is-full { border-radius: 16px; }
+    html.horiz .fill.is-rainbow {
+      background: linear-gradient(90deg, #ff4fd8, #22d3ee, #ffe566, #a855f7, #ff4fd8);
+      background-size: 280% 100%;
+      animation: rainbowH 3.6s linear infinite;
+    }
+    html.horiz .done.is-rainbow {
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.16), rgba(0,0,0,.32)),
+        linear-gradient(90deg, #ff4fd8, #22d3ee, #ffe566, #a855f7, #ff4fd8);
+      background-size: auto, 280% 100%;
+      animation: rainbowH 3.6s linear infinite;
+    }
+    @keyframes rainbowH { to { background-position: 100% 0; } }
+    html.horiz .wave {
+      left: auto;
+      right: -18px;
+      top: -70%;
+      width: 36px;
+      height: 240%;
+      animation-name: waterSloshH;
+    }
+    html.horiz .fill .wave-a, html.horiz .done .wave-a { top: -70%; }
+    html.horiz .fill .wave-b, html.horiz .done .wave-b { top: -78%; }
+    @keyframes waterSloshH {
+      0%, 100% { transform: translateY(-10%) rotate(-7deg); }
+      50% { transform: translateY(10%) rotate(7deg); }
+    }
+    html.horiz .arrow {
+      left: 0;
+      top: 50%;
+      bottom: auto;
+      margin-left: 0;
+      margin-top: -11px;
+      border-left: 16px solid #fff;
+      border-right: 0;
+      border-top: 11px solid transparent;
+      border-bottom: 11px solid transparent;
+      transform: translateX(-50%);
+      transition: left .45s cubic-bezier(.2,.8,.2,1);
+    }
+    html.horiz .tick.pop { animation: tickPopH 1.1s cubic-bezier(.15, 1.35, .3, 1); }
+    @keyframes tickPopH {
+      0% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+      28% { transform: translateX(-50%) scale(1.72); filter: brightness(1.85); }
+      100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
+    }
+    html.horiz .marks i.pop { animation: markFlashH .9s ease-out; }
+    @keyframes markFlashH {
+      0% { opacity: .4; filter: brightness(1); transform: translateX(-50%) scaleY(.4); }
+      35% { opacity: 1; filter: brightness(2.2); transform: translateX(-50%) scaleY(1.15); }
+      100% { opacity: 1; filter: brightness(1); transform: translateX(-50%) scaleY(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="wrap">
+      <div class="col col-left" id="colLeft"></div>
+      <div class="tube" id="tube">
+        <div class="tube-track" id="track">
+          <div class="fill is-rainbow" id="fill">
+            <span class="wave wave-a"></span>
+            <span class="wave wave-b"></span>
+          </div>
+          <div class="done is-rainbow" id="done">
+            <span class="wave wave-a"></span>
+            <span class="wave wave-b"></span>
+            <span class="caustic"></span>
+          </div>
+          <div class="marks" id="marks"></div>
+          <div class="arrow" id="arrow"></div>
+        </div>
+        <img class="tube-skin single" id="skinImg" alt="">
+        <div class="tube-skin-stack" id="skinStack">
+          <div class="skin-cap skin-top" id="skinTop"></div>
+          <div class="skin-mid" id="skinMid"></div>
+          <div class="skin-cap skin-bot" id="skinBot"></div>
+        </div>
+      </div>
+      <div class="col col-right" id="colRight"></div>
+    </div>
+    <div class="bottom" id="bottom">
+      <div class="bottom-inner">
+        <div class="now" id="now">0</div>
+        <div class="hint">monedas</div>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    if (isEmbed) document.documentElement.classList.add('embed');
+    else document.documentElement.classList.add('stage');
+
+    const DEFAULT_GOALS = [
+      { t: 500, label: '' },
+      { t: 2000, label: '' },
+      { t: 10000, label: '' },
+      { t: 30000, label: '' },
+      { t: 60000, label: '' },
+    ];
+    const SKINS = {
+      classic: { name: 'Clásico', src: '', well: null, hideMarks: false, hideArrow: false, tubeW: 72 },
+      crystal: {
+        name: 'Cristal',
+        src: '/overlays/coinbar/crystal.png?v=2',
+        slices: {
+          top: '/overlays/coinbar/crystal-top.png?v=2',
+          mid: '/overlays/coinbar/crystal-mid.png?v=2',
+          bot: '/overlays/coinbar/crystal-bot.png?v=2',
+          srcW: 190, topH: 200, botH: 160,
+        },
+        well: { l: '21.05%', r: '23.16%', tSrc: 86, bSrc: 49 },
+        hideMarks: false, hideArrow: true, tubeW: 160, mark: '#e879f9',
+      },
+      pirate: {
+        name: 'Pirata',
+        src: '/overlays/coinbar/pirate.png?v=1',
+        slices: { top: '/overlays/coinbar/pirate-top.png?v=1', mid: '/overlays/coinbar/pirate-mid.png?v=1', bot: '/overlays/coinbar/pirate-bot.png?v=1', srcW: 363, topH: 163, botH: 176 },
+        well: { l: '40.8%', r: '38.8%', tSrc: 68, bSrc: 164 },
+        hideMarks: false, hideArrow: true, tubeW: 220, mark: '#38bdf8',
+      },
+      ice: {
+        name: 'Hielo',
+        src: '/overlays/coinbar/ice.png?v=1',
+        slices: { top: '/overlays/coinbar/ice-top.png?v=1', mid: '/overlays/coinbar/ice-mid.png?v=1', bot: '/overlays/coinbar/ice-bot.png?v=1', srcW: 262, topH: 163, botH: 156 },
+        well: { l: '38.9%', r: '38.2%', tSrc: 138, bSrc: 144 },
+        hideMarks: false, hideArrow: true, tubeW: 200, mark: '#22d3ee',
+      },
+      galaxy: {
+        name: 'Galaxia',
+        src: '/overlays/coinbar/galaxy.png?v=1',
+        slices: { top: '/overlays/coinbar/galaxy-top.png?v=1', mid: '/overlays/coinbar/galaxy-mid.png?v=1', bot: '/overlays/coinbar/galaxy-bot.png?v=1', srcW: 271, topH: 163, botH: 161 },
+        well: { l: '37.6%', r: '36.9%', tSrc: 101, bSrc: 149 },
+        hideMarks: false, hideArrow: true, tubeW: 210, mark: '#c084fc',
+      },
+      crown: {
+        name: 'Corona',
+        src: '/overlays/coinbar/crown.png?v=1',
+        slices: { top: '/overlays/coinbar/crown-top.png?v=1', mid: '/overlays/coinbar/crown-mid.png?v=1', bot: '/overlays/coinbar/crown-bot.png?v=1', srcW: 204, topH: 162, botH: 142 },
+        well: { l: '31.9%', r: '32.8%', tSrc: 109, bSrc: 40 },
+        hideMarks: false, hideArrow: true, tubeW: 168, mark: '#fbbf24',
+      },
+      magma: {
+        name: 'Magma',
+        src: '/overlays/coinbar/magma.png?v=1',
+        slices: { top: '/overlays/coinbar/magma-top.png?v=1', mid: '/overlays/coinbar/magma-mid.png?v=1', bot: '/overlays/coinbar/magma-bot.png?v=1', srcW: 210, topH: 163, botH: 143 },
+        well: { l: '34.8%', r: '31.9%', tSrc: 87, bSrc: 62 },
+        hideMarks: false, hideArrow: true, tubeW: 168, mark: '#fb923c',
+      },
+      neon: {
+        name: 'Tech',
+        src: '/overlays/coinbar/neon.png?v=1',
+        slices: { top: '/overlays/coinbar/neon-top.png?v=1', mid: '/overlays/coinbar/neon-mid.png?v=1', bot: '/overlays/coinbar/neon-bot.png?v=1', srcW: 178, topH: 163, botH: 143 },
+        well: { l: '34.8%', r: '33.1%', tSrc: 92, bSrc: 120 },
+        hideMarks: false, hideArrow: true, tubeW: 148, mark: '#38bdf8',
+      },
+      cyber: {
+        name: 'Violeta',
+        src: '/overlays/coinbar/cyber.png?v=1',
+        slices: { top: '/overlays/coinbar/cyber-top.png?v=1', mid: '/overlays/coinbar/cyber-mid.png?v=1', bot: '/overlays/coinbar/cyber-bot.png?v=1', srcW: 142, topH: 80, botH: 80 },
+        well: { l: '28.2%', r: '27.5%', tSrc: 40, bSrc: 40 },
+        hideMarks: false, hideArrow: true, tubeW: 140, mark: '#e879f9',
+      },
+      dragon: {
+        name: 'Dragón',
+        src: '/overlays/coinbar/dragon.png?v=1',
+        slices: { top: '/overlays/coinbar/dragon-top.png?v=1', mid: '/overlays/coinbar/dragon-mid.png?v=1', bot: '/overlays/coinbar/dragon-bot.png?v=1', srcW: 322, topH: 163, botH: 169 },
+        well: { l: '38.8%', r: '41.9%', tSrc: 139, bSrc: 157 },
+        hideMarks: false, hideArrow: true, tubeW: 220, mark: '#4ade80',
+      },
+    };
+    let cfg = {
+      source: 'battle',
+      scale: 100,
+      skin: 'classic',
+      fillColor: '#22c55e',
+      fillRainbow: true,
+      labelDir: 'h',
+      orient: 'v',
+      frameColor: '#38bdf8',
+      frameTint: false,
+      goals: DEFAULT_GOALS.slice(),
+    };
+    let coinsBattle = 0;
+    let coinsLive = 0;
+    let coinsAcc = 0;
+    let haveAcc = false;
+    let resetAt = 0;
+    let testCoins = null;
+    let testAnim = 0;
+    let livePk = false;
+    let popped = new Set();
+    let allowPop = false;
+
+    const el = {
+      wrap: document.querySelector('.wrap'),
+      tube: document.getElementById('tube'),
+      track: document.getElementById('track'),
+      skin: document.getElementById('skinImg'),
+      skinStack: document.getElementById('skinStack'),
+      skinTop: document.getElementById('skinTop'),
+      skinMid: document.getElementById('skinMid'),
+      skinBot: document.getElementById('skinBot'),
+      left: document.getElementById('colLeft'),
+      right: document.getElementById('colRight'),
+      fill: document.getElementById('fill'),
+      done: document.getElementById('done'),
+      marks: document.getElementById('marks'),
+      arrow: document.getElementById('arrow'),
+      now: document.getElementById('now'),
+      stage: document.getElementById('stage'),
+    };
+
+    function hexOk(h) { return /^#?[0-9a-fA-F]{6}$/.test(String(h || '')); }
+    function normHex(h) {
+      h = String(h || '#22c55e');
+      if (h[0] !== '#') h = '#' + h;
+      return hexOk(h) ? h.toLowerCase() : '#22c55e';
+    }
+    function mixHex(a, b, p) {
+      const n = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+      const [r1, g1, b1] = n(normHex(a));
+      const [r2, g2, b2] = n(normHex(b));
+      const m = (x, y) => Math.round(x + (y - x) * p);
+      return '#' + [m(r1, r2), m(g1, g2), m(b1, b2)].map((v) => v.toString(16).padStart(2, '0')).join('');
+    }
+    function skinOf() {
+      return SKINS[cfg.skin] || SKINS.classic;
+    }
+    function isHoriz() { return cfg.orient === 'h'; }
+    function displayTubeW() {
+      const w = skinOf().tubeW || 72;
+      return isHoriz() ? Math.max(58, Math.round(w * 0.52)) : w;
+    }
+    function wellBox() {
+      const skin = skinOf();
+      const tubeLen = isHoriz() ? (el.tube?.clientWidth || 860) : (el.tube?.clientHeight || 860);
+      if (!skin.well) {
+        const pad = 6;
+        return { t: pad, b: pad, h: Math.max(1, tubeLen - pad * 2), tubeH: tubeLen };
+      }
+      const srcW = (skin.slices && skin.slices.srcW) || 190;
+      const k = displayTubeW() / srcW;
+      const t = (skin.well.tSrc != null ? skin.well.tSrc : 86) * k;
+      const b = (skin.well.bSrc != null ? skin.well.bSrc : 49) * k;
+      return { t, b, h: Math.max(1, tubeLen - t - b), tubeH: tubeLen };
+    }
+    function applyOrient() {
+      const h = isHoriz();
+      document.documentElement.classList.toggle('horiz', h);
+      document.documentElement.classList.toggle('lab-vert', cfg.labelDir === 'v');
+      el.stage?.classList.toggle('is-horiz', h);
+    }
+    function applyLook() {
+      if (!el.tube || !el.track || !el.fill || !el.done) return;
+      applyOrient();
+      const skin = skinOf();
+      const rainbow = cfg.fillRainbow !== false;
+      const horiz = isHoriz();
+      const tw = displayTubeW();
+      el.stage?.style.setProperty('--tube-w', tw + 'px');
+      el.wrap?.style.setProperty('--tube-w', tw + 'px');
+      const hasSkin = !!(skin.src || skin.slices);
+      el.tube.classList.toggle('has-skin', hasSkin);
+      el.tube.classList.toggle('has-slices', !!(hasSkin && skin.slices));
+      el.tube.style.setProperty('--mark', skin.mark || '#f0abfc');
+      if (horiz) el.tube.style.setProperty('--bar-len', (el.tube.clientWidth || 900) + 'px');
+      if (hasSkin && skin.slices) {
+        const k = tw / skin.slices.srcW;
+        el.tube.style.setProperty('--skin-top-h', (skin.slices.topH * k) + 'px');
+        el.tube.style.setProperty('--skin-bot-h', (skin.slices.botH * k) + 'px');
+        if (el.skinTop) el.skinTop.style.backgroundImage = 'url("' + skin.slices.top + '")';
+        if (el.skinMid) el.skinMid.style.backgroundImage = 'url("' + skin.slices.mid + '")';
+        if (el.skinBot) el.skinBot.style.backgroundImage = 'url("' + skin.slices.bot + '")';
+        const tPx = (skin.well.tSrc != null ? skin.well.tSrc : 86) * k;
+        const bPx = (skin.well.bSrc != null ? skin.well.bSrc : 49) * k;
+        if (horiz) {
+          el.track.style.top = skin.well.l;
+          el.track.style.bottom = skin.well.r;
+          el.track.style.left = bPx + 'px';
+          el.track.style.right = tPx + 'px';
+        } else {
+          el.track.style.left = skin.well.l;
+          el.track.style.right = skin.well.r;
+          el.track.style.top = tPx + 'px';
+          el.track.style.bottom = bPx + 'px';
+        }
+      } else if (hasSkin && skin.src) {
+        if (el.skin && el.skin.getAttribute('src') !== skin.src) el.skin.src = skin.src;
+        if (horiz) {
+          el.track.style.top = skin.well.l;
+          el.track.style.bottom = skin.well.r;
+          el.track.style.left = skin.well.b || '5%';
+          el.track.style.right = skin.well.t || '8%';
+        } else {
+          el.track.style.left = skin.well.l;
+          el.track.style.top = skin.well.t || '8%';
+          el.track.style.right = skin.well.r;
+          el.track.style.bottom = skin.well.b || '5%';
+        }
+      } else {
+        if (el.skin) el.skin.removeAttribute('src');
+        el.track.style.left = '6px';
+        el.track.style.top = '6px';
+        el.track.style.right = '6px';
+        el.track.style.bottom = '6px';
+      }
+      if (el.marks) el.marks.style.display = skin.hideMarks ? 'none' : '';
+      if (el.arrow) el.arrow.style.display = skin.hideArrow ? 'none' : '';
+      el.fill.classList.toggle('is-rainbow', rainbow);
+      el.done.classList.toggle('is-rainbow', rainbow);
+      const c = normHex(cfg.fillColor);
+      const axis = horiz ? 90 : 180;
+      if (rainbow) {
+        el.fill.style.background = '';
+        el.done.style.background = '';
+        el.stage?.style.setProperty('--tick-on', '#7dffb0');
+        el.stage?.style.setProperty('--tick-on-lab', '#b6ffd4');
+      } else {
+        const hi = mixHex(c, '#ffffff', 0.38);
+        const lo = mixHex(c, '#000000', 0.38);
+        const midC = mixHex(c, '#000000', 0.12);
+        el.fill.style.background = `linear-gradient(${axis}deg, ${hi}, ${c} 45%, ${lo})`;
+        el.done.style.background = `linear-gradient(${axis}deg, rgba(255,255,255,.32) 0%, transparent 18%), linear-gradient(${axis}deg, ${hi} 0%, ${midC} 45%, ${lo} 100%)`;
+        el.stage?.style.setProperty('--tick-on', hi);
+        el.stage?.style.setProperty('--tick-on-lab', mixHex(c, '#ffffff', 0.55));
+      }
+      applyFrameTint();
+    }
+
+    function hexToHsl(hex) {
+      const h = normHex(hex).slice(1);
+      const r = parseInt(h.slice(0, 2), 16) / 255;
+      const g = parseInt(h.slice(2, 4), 16) / 255;
+      const b = parseInt(h.slice(4, 6), 16) / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let hue = 0, sat = 0, lig = (max + min) / 2;
+      if (max !== min) {
+        const d = max - min;
+        sat = lig > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) hue = (g - b) / d + (g < b ? 6 : 0);
+        else if (max === g) hue = (b - r) / d + 2;
+        else hue = (r - g) / d + 4;
+        hue *= 60;
+      }
+      return { h: hue, s: sat, l: lig };
+    }
+    function applyFrameTint() {
+      const on = !!cfg.frameTint;
+      const c = normHex(cfg.frameColor || '#38bdf8');
+      const hsl = hexToHsl(c);
+      const filter = on
+        ? `sepia(1) saturate(${(2.4 + hsl.s * 6).toFixed(2)}) hue-rotate(${Math.round(hsl.h - 38)}deg) brightness(${(0.52 + hsl.l * 0.95).toFixed(2)})`
+        : '';
+      if (el.skinStack) el.skinStack.style.filter = filter;
+      if (el.skin) el.skin.style.filter = filter;
+      if (el.tube) {
+        if (on) {
+          el.tube.style.setProperty('--frame', c);
+          el.tube.style.setProperty('--mark', c);
+        } else {
+          el.tube.style.removeProperty('--frame');
+          const skin = skinOf();
+          el.tube.style.setProperty('--mark', skin.mark || '#f0abfc');
+        }
+      }
+    }
+
+    function goals() {
+      const list = Array.isArray(cfg.goals) ? cfg.goals : DEFAULT_GOALS;
+      return list
+        .map((g) => ({ t: Math.max(1, Math.round(Number(g?.t) || 0)), label: String(g?.label || '').trim() }))
+        .filter((g) => g.t > 0)
+        .sort((a, b) => a.t - b.t);
+    }
+    function fmt(n) {
+      n = Math.max(0, Math.round(Number(n) || 0));
+      if (n >= 1000000) return (n / 1000000).toFixed(n % 1000000 ? 1 : 0).replace(/\.0$/, '') + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(n % 1000 ? 1 : 0).replace(/\.0$/, '') + 'K';
+      return String(n);
+    }
+    function coins() {
+      if (testCoins != null) return testCoins;
+      if (haveAcc) return Math.max(0, coinsAcc);
+      return Math.max(0, rawCoins() - resetAt);
+    }
+    function rawCoins() {
+      return cfg.source === 'live' ? coinsLive : coinsBattle;
+    }
+    function fillRatio(val, list) {
+      if (!list.length) return 0;
+      const n = list.length;
+      if (val <= 0) return 0;
+      if (val >= list[n - 1].t) return 1;
+      let prev = 0;
+      for (let i = 0; i < n; i++) {
+        const t = list[i].t;
+        if (val <= t) {
+          const span = Math.max(1, t - prev);
+          return (i / n) + ((val - prev) / span) * (1 / n);
+        }
+        prev = t;
+      }
+      return 1;
+    }
+    function doneRatio(val, list) {
+      if (!list.length) return 0;
+      let completed = 0;
+      for (const g of list) {
+        if (val >= g.t) completed++;
+        else break;
+      }
+      return completed / list.length;
+    }
+
+    function tickPct(i, n, wb) {
+      const alongPx = wb.b + wb.h * ((i + 1) / n);
+      return (alongPx / wb.tubeH) * 100;
+    }
+    function layout() {
+      const list = goals();
+      const n = Math.max(1, list.length);
+      const horiz = isHoriz();
+      applyOrient();
+      el.left.classList.toggle('is-vert', cfg.labelDir === 'v');
+      if (horiz) el.tube.style.setProperty('--bar-len', (el.tube.clientWidth || 900) + 'px');
+      const wb = wellBox();
+      const fs = horiz
+        ? (n >= 8 ? 14 : n >= 6 ? 16 : 18)
+        : (n >= 10 ? 15 : n >= 7 ? 18 : n >= 6 ? 22 : 26);
+      el.left.innerHTML = '';
+      el.right.innerHTML = '';
+      el.marks.innerHTML = '';
+      list.forEach((g, i) => {
+        const pct = tickPct(i, n, wb);
+        const left = document.createElement('div');
+        left.className = 'tick';
+        left.dataset.t = String(g.t);
+        if (horiz) left.style.left = pct + '%';
+        else left.style.bottom = pct + '%';
+        if (g.label) left.innerHTML = `<span class="lab">${esc(g.label)}</span>`;
+        el.left.appendChild(left);
+        const right = document.createElement('div');
+        right.className = 'tick';
+        right.dataset.t = String(g.t);
+        if (horiz) right.style.left = pct + '%';
+        else right.style.bottom = pct + '%';
+        right.innerHTML = `<span class="num" style="font-size:${fs}px">${fmt(g.t)}</span>`;
+        el.right.appendChild(right);
+        const mark = document.createElement('i');
+        if (horiz) mark.style.left = ((i + 1) / n * 100) + '%';
+        else mark.style.bottom = ((i + 1) / n * 100) + '%';
+        el.marks.appendChild(mark);
+      });
+      allowPop = false;
+      render();
+      allowPop = true;
+    }
+    function popTick(node) {
+      if (!node) return;
+      node.classList.remove('pop');
+      void node.offsetWidth;
+      node.classList.add('pop');
+    }
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+    function render() {
+      const list = goals();
+      const val = coins();
+      const fr = fillRatio(val, list);
+      const dr = doneRatio(val, list);
+      const horiz = isHoriz();
+      const frPct = (fr * 100).toFixed(2) + '%';
+      const drPct = (dr * 100).toFixed(2) + '%';
+      if (horiz) {
+        el.fill.style.width = frPct;
+        el.fill.style.height = '100%';
+        el.done.style.width = drPct;
+        el.done.style.height = '100%';
+        el.arrow.style.left = frPct;
+        el.arrow.style.bottom = '';
+      } else {
+        el.fill.style.height = frPct;
+        el.fill.style.width = '';
+        el.done.style.height = drPct;
+        el.done.style.width = '';
+        el.arrow.style.bottom = frPct;
+        el.arrow.style.left = '';
+      }
+      el.fill.classList.toggle('is-full', fr >= 0.999);
+      el.done.classList.toggle('is-full', dr >= 0.999);
+      el.now.textContent = fmt(val);
+      el.left.querySelectorAll('.tick').forEach((node) => {
+        const t = Number(node.dataset.t);
+        if (t) node.classList.toggle('is-done', val >= t);
+      });
+      const ticksR = el.right.querySelectorAll('.tick');
+      list.forEach((g, i) => {
+        const on = val >= g.t;
+        const right = ticksR[i];
+        right?.classList.toggle('is-done', on);
+        if (on && allowPop && !popped.has(g.t)) {
+          popped.add(g.t);
+          popTick(el.left.querySelector(`.tick[data-t="${g.t}"]`));
+          popTick(right);
+          const mark = el.marks?.querySelectorAll('i')[i];
+          if (mark) {
+            mark.classList.remove('pop');
+            void mark.offsetWidth;
+            mark.classList.add('pop');
+          }
+        }
+        if (!on) popped.delete(g.t);
+      });
+      const sc = Math.max(40, Math.min(140, Number(cfg.scale) || 100)) / 100;
+      const sw = horiz ? 1080 : 480;
+      const sh = horiz ? 480 : 1080;
+      if (isEmbed) {
+        const box = el.stage.parentElement;
+        const fit = Math.min((box.clientWidth || sw) / sw, (box.clientHeight || sh) / sh);
+        el.stage.style.setProperty('--fit', String(fit * sc));
+      } else {
+        el.stage.style.setProperty('--fit', String(sc));
+      }
+    }
+
+    function applyCfg(next) {
+      if (!next || typeof next !== 'object') return;
+      if (next.source === 'live' || next.source === 'battle') cfg.source = next.source;
+      if (next.scale != null) cfg.scale = next.scale;
+      if (next.skin && SKINS[next.skin]) cfg.skin = next.skin;
+      if (next.fillColor) cfg.fillColor = normHex(next.fillColor);
+      if (next.fillRainbow != null) cfg.fillRainbow = !!next.fillRainbow;
+      if (next.labelDir === 'v' || next.labelDir === 'h') cfg.labelDir = next.labelDir;
+      if (next.orient === 'v' || next.orient === 'h') cfg.orient = next.orient;
+      if (next.frameColor) cfg.frameColor = normHex(next.frameColor);
+      if (next.frameTint != null) cfg.frameTint = !!next.frameTint;
+      if (Array.isArray(next.goals)) cfg.goals = next.goals;
+      applyLook();
+      layout();
+      if (isHoriz()) requestAnimationFrame(() => { applyLook(); layout(); });
+    }
+
+    function setFillTransitions(on) {
+      const v = on ? '' : 'none';
+      el.fill.style.transition = v;
+      el.done.style.transition = v;
+      el.arrow.style.transition = v;
+    }
+    function stopTestAnim() {
+      if (testAnim) cancelAnimationFrame(testAnim);
+      testAnim = 0;
+      setFillTransitions(true);
+    }
+    function runTestFill(target) {
+      stopTestAnim();
+      popped.clear();
+      const list = goals();
+      const to = Math.max(1, list[list.length - 1]?.t || Math.round(Number(target) || 12500));
+      testCoins = 0;
+      setFillTransitions(false);
+      render();
+      const dur = Math.max(7000, list.length * 2200);
+      const t0 = performance.now();
+      function step(now) {
+        const p = Math.min(1, (now - t0) / dur);
+        testCoins = Math.round(to * p);
+        render();
+        if (p < 1) testAnim = requestAnimationFrame(step);
+        else {
+          testAnim = 0;
+          testCoins = to;
+          setFillTransitions(true);
+          render();
+        }
+      }
+      testAnim = requestAnimationFrame(step);
+    }
+
+    window.addEventListener('resize', layout);
+    if (isEmbed && typeof ResizeObserver !== 'undefined' && el.stage?.parentElement) {
+      new ResizeObserver(() => layout()).observe(el.stage.parentElement);
+    }
+
+    let ws, reconnectTimer;
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(reconnectTimer);
+      ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let msg; try { msg = JSON.parse(ev.data); } catch { return; }
+        const { type, payload } = msg;
+        if (type === 'settings' && payload?.batallaCoinBar) applyCfg(payload.batallaCoinBar);
+        else if (type === 'batallaCoinBarState') {
+          haveAcc = true;
+          coinsAcc = Math.max(0, Math.round(Number(payload?.coins) || 0));
+          if (testCoins == null) render();
+        } else if (type === 'pkBattle') {
+          livePk = !!payload?.live;
+          coinsBattle = Math.max(0, Math.round(Number(payload?.pointsHost) || 0));
+          if (cfg.source === 'battle' && !livePk && testCoins == null) {
+            /* fuera de PK se queda el último valor hasta reset */
+          }
+          if (!haveAcc) render();
+        } else if (type === 'pkBattleReset') {
+          coinsBattle = 0;
+          if (!haveAcc) {
+            stopTestAnim();
+            popped.clear();
+            testCoins = null;
+            resetAt = 0;
+            render();
+          }
+        } else if (type === 'batallaCoinBarReset') {
+          stopTestAnim();
+          popped.clear();
+          testCoins = null;
+          haveAcc = true;
+          coinsAcc = 0;
+          resetAt = rawCoins();
+          render();
+        } else if (type === 'batallaCoinBarTest') {
+          runTestFill(payload?.coins);
+        } else if (type === 'state' && payload?.stats) {
+          coinsLive = Math.max(0, Math.round(Number(payload.stats.diamonds) || 0));
+          if (!haveAcc) render();
+        }
+      };
+    }
+    connectWS();
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'batallaCoinBar') return;
+      if (d.type === 'config' && d.config) applyCfg(d.config);
+      else if (d.type === 'test') {
+        runTestFill(d.coins);
+      } else if (d.type === 'reset') {
+        stopTestAnim();
+        popped.clear();
+        testCoins = null;
+        haveAcc = true;
+        coinsAcc = 0;
+        resetAt = rawCoins();
+        coinsBattle = 0;
+        render();
+      }
+    });
+
+    applyLook();
+    layout();
+  })();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

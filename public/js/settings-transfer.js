@@ -45,6 +45,7 @@
         { key: 'batallaMvp', label: 'MVP de la batalla (PK)' },
         { key: 'batallaTop3', label: 'Top 3 de tu ejército (PK)' },
         { key: 'batallaGiftBall', label: 'Pelota de regalos' },
+        { key: 'batallaCoinBar', label: 'Contador de monedas (metas)' },
         { key: 'giftSeq', label: 'Secuencia de regalos' },
         { key: 'giftShowcase', label: 'Showcase de regalos' },
         { key: 'flowMeter', label: 'Medidor de flow / regalos' },

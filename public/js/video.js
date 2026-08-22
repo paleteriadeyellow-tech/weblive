@@ -14,6 +14,25 @@ const ABSOLUTE_MAX_MS = 180000;
 /** Segundos sin avance de tiempo → cortar */
 const STALL_LIMIT = 12;
 
+/** 0–100 o 0–1. Curva al cuadrado para que el slider se note. */
+function lcVolume01(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 1;
+  const lin = n > 1 ? Math.min(1, n / 100) : Math.min(1, n);
+  return lin * lin;
+}
+function applyMediaVolume(el, raw) {
+  if (!el) return;
+  const v = lcVolume01(raw);
+  const set = () => {
+    try { el.volume = v; el.muted = v <= 0; } catch { /* ignore */ }
+  };
+  set();
+  el.addEventListener('loadedmetadata', set);
+  el.addEventListener('canplay', set);
+  el.addEventListener('playing', set);
+}
+
 function sendHello(sock) {
   try {
     sock.send(JSON.stringify({ action: 'hello', role: 'videoScreen', screen }));
@@ -261,7 +280,7 @@ function playOnStage(lane, m, done) {
     el.playsInline = true;
     el.preload = 'auto';
     el.setAttribute('playsinline', '');
-    el.volume = (m.volume ?? 100) / 100;
+    applyMediaVolume(el, m.volume);
 
     let errorRetries = 0;
     let lastTime = -1;
@@ -300,6 +319,7 @@ function playOnStage(lane, m, done) {
         el.load();
         el.addEventListener('loadedmetadata', () => {
           if (!alive()) return;
+          applyMediaVolume(el, m.volume);
           try { if (resumeAt > 0 && resumeAt < (el.duration || Infinity)) el.currentTime = resumeAt; } catch {}
           safePlay();
         }, { once: true });

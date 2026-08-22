@@ -59,7 +59,7 @@ export const DEFAULT_SETTINGS = {
     superFanBonus: 500, // puntos extra al volverse super fan
     subBonus: 100,      // puntos extra por suscripción
   },
-  // videos: [{ id, name, url, fileName, trigger, giftName, minDiamonds, volume, enabled, screen }]
+  // videos: [{ id, name, url, fileName, clips:[{url,name}], trigger, giftName, minDiamonds, volume, enabled, screen }]
   videos: [],
   videosEnabled: true, // interruptor maestro "TODAS"
   // pantallas (Browser Sources separados): tamaño por pantalla
@@ -371,6 +371,25 @@ export const DEFAULT_SETTINGS = {
       { t: 30, sz: 40 },
       { t: 0, sz: 32 },
     ],
+  },
+  batallaCoinBar: {
+    source: 'battle',
+    resetPeriod: 'battle',
+    scale: 100,
+    goals: [
+      { t: 500, label: '' },
+      { t: 2000, label: '' },
+      { t: 10000, label: '' },
+      { t: 30000, label: '' },
+      { t: 60000, label: '' },
+    ],
+    skin: 'classic',
+    fillColor: '#22c55e',
+    fillRainbow: true,
+    labelDir: 'h',
+    orient: 'v',
+    frameColor: '#38bdf8',
+    frameTint: false,
   },
   // Overlay Medidor de Flow (barra de progreso por participante / regalo)
   flowMeter: {
