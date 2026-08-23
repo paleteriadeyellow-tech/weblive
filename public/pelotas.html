@@ -16,9 +16,41 @@
     .jar { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 100%; height: 100%; pointer-events: none; }
     /* Piso y aro trasero del frasco: van DETRÁS de las pelotas para dar profundidad */
     .jar-back { position: absolute; inset: 0; z-index: 1; pointer-events: none; isolation: isolate; }
-    .jar-back img { position: absolute; left: 50%; transform: translate(-50%, -50%); height: auto; pointer-events: none; }
+    .jar-back img.jar-classic { position: absolute; left: 50%; transform: translate(-50%, -50%); height: auto; pointer-events: none; }
     .jar-back .jb-rim { top: 246px; width: 266px; }
     .jar-back .jb-floor { top: 616px; width: 300px; }
+    .jar-themed-img {
+      display: none;
+      position: absolute !important; inset: 0 !important;
+      transform: none !important; width: 100%; height: 100%;
+      object-fit: contain; object-position: center bottom; pointer-events: none;
+    }
+    html.jar-themed .jar-classic { display: none !important; }
+    html.jar-themed .jar-themed-img {
+      display: block;
+      inset: auto !important;
+      top: 180px !important;
+      left: 0 !important;
+      width: 540px !important;
+      height: 605px !important;
+      object-fit: fill;
+    }
+    html.jar-themed .jar-tint {
+      -webkit-mask-image: var(--jar-skin-url); mask-image: var(--jar-skin-url);
+      inset: auto; top: 180px; left: 0; width: 540px; height: 605px;
+      -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+      -webkit-mask-position: 0 0; mask-position: 0 0;
+    }
+    html.jar-themed .jar-back .tint-themed {
+      display: block;
+      left: 0; top: 180px; width: 540px; height: 605px;
+      transform: none;
+      -webkit-mask-image: var(--jar-skin-back-url); mask-image: var(--jar-skin-back-url);
+      -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+      -webkit-mask-position: 0 0; mask-position: 0 0;
+    }
+    .jar-back .tint-themed { display: none; }
     /* Tinte del aro y el piso: cambian de color junto con el frasco */
     .jar-back .tint {
       position: absolute; left: 50%; transform: translate(-50%, -50%); pointer-events: none;
@@ -58,16 +90,19 @@
   <div class="stage" id="stage">
     <div class="jar">
       <div class="jar-back" aria-hidden="true">
-        <img class="jb-floor" src="/jarron/jar-bottom.png" alt="" draggable="false" />
-        <img class="jb-rim" src="/jarron/jar-top-bg-2.png" alt="" draggable="false" />
-        <div class="tint tint-floor"></div>
-        <div class="tint tint-rim"></div>
+        <img class="jb-floor jar-classic" src="/jarron/jar-bottom.png" alt="" draggable="false" />
+        <img class="jb-rim jar-classic" src="/jarron/jar-top-bg-2.png" alt="" draggable="false" />
+        <div class="tint tint-floor jar-classic"></div>
+        <div class="tint tint-rim jar-classic"></div>
+        <img class="jar-themed-img" id="jar-skin-back" alt="" draggable="false" />
+        <div class="tint tint-themed" id="jar-tint-back" aria-hidden="true"></div>
       </div>
       <div class="jar-interior" id="bowl">
         <div class="gifts-layer" id="gifts-layer"></div>
       </div>
       <div class="jar-glass-rim" aria-hidden="true">
-        <img src="/jarron/jar-top.png" alt="" draggable="false" />
+        <img class="jar-classic" src="/jarron/jar-top.png" alt="" draggable="false" />
+        <img class="jar-themed-img" id="jar-skin-front" alt="" draggable="false" />
         <div class="jar-tint" id="jar-tint"></div>
       </div>
     </div>
@@ -93,6 +128,42 @@
       root.style.setProperty('--jar-tint-opacity', '1');
     }
     applyJarTint(params.get('jc'));
+
+    const JAR_SKIN_SRC = {
+      crown: { back: '/jarron/skin-crown.png?v=13', front: '/jarron/skin-crown-front.png?v=13' },
+      heart: { back: '/jarron/skin-heart.png?v=13', front: '/jarron/skin-heart-front.png?v=13' },
+      cosmos: { back: '/jarron/skin-cosmos.png?v=13', front: '/jarron/skin-cosmos-front.png?v=13' },
+      lava: { back: '/jarron/skin-lava.png?v=13', front: '/jarron/skin-lava-front.png?v=13' },
+      cyber: { back: '/jarron/skin-cyber.png?v=13', front: '/jarron/skin-cyber-front.png?v=13' },
+      ice: { back: '/jarron/skin-ice.png?v=13', front: '/jarron/skin-ice-front.png?v=13' },
+      ocean: { back: '/jarron/skin-ocean.png?v=13', front: '/jarron/skin-ocean-front.png?v=13' },
+      crystal: { back: '/jarron/skin-crystal.png?v=13', front: '/jarron/skin-crystal-front.png?v=13' },
+      royal: { back: '/jarron/skin-royal.png?v=13', front: '/jarron/skin-royal-front.png?v=13' },
+      forest: { back: '/jarron/skin-forest.png?v=13', front: '/jarron/skin-forest-front.png?v=13' },
+    };
+    function applyJarSkin(id) {
+      const next = String(id || '').trim();
+      if (applyJarSkin._cur === next) return;
+      applyJarSkin._cur = next;
+      const pack = JAR_SKIN_SRC[next];
+      const root = document.documentElement;
+      const back = document.getElementById('jar-skin-back');
+      const front = document.getElementById('jar-skin-front');
+      if (!pack) {
+        root.classList.remove('jar-themed');
+        root.style.removeProperty('--jar-skin-url');
+        root.style.removeProperty('--jar-skin-back-url');
+        if (back) { back.removeAttribute('src'); back.alt = ''; }
+        if (front) { front.removeAttribute('src'); front.alt = ''; }
+        return;
+      }
+      root.style.setProperty('--jar-skin-url', 'url("' + pack.front + '")');
+      root.style.setProperty('--jar-skin-back-url', 'url("' + pack.back + '")');
+      root.classList.add('jar-themed');
+      if (back) back.src = pack.back;
+      if (front) front.src = pack.front;
+    }
+    if (params.get('skin')) applyJarSkin(params.get('skin'));
 
     // Ajusta el escenario para que el frasco se vea completo (sin recortes).
     (function fit() {
@@ -438,6 +509,7 @@
           if (payload && payload.pelotas) {
             if (!params.get('jc')) applyJarTint(payload.pelotas.tint);
             if (payload.pelotas.ballSize != null) setBallSize(payload.pelotas.ballSize);
+            if (payload.pelotas.skin !== undefined) applyJarSkin(payload.pelotas.skin);
           }
         }
       };
@@ -472,6 +544,7 @@
       else if (d.type === 'config') {
         if (d.tint !== undefined) applyJarTint(d.tint);
         if (d.ballSize !== undefined) setBallSize(d.ballSize);
+        if (d.skin !== undefined) applyJarSkin(d.skin);
       }
     });
 

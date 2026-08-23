@@ -91,6 +91,21 @@
     .battle-duel--sequential .battle-duel__row.bat-seq-visible,
     .battle-duel--sequential .battle-duel__vs-spacer.bat-seq-visible { opacity: 1; transform: translateY(0); }
     .battle-placeholder { color: var(--bat-ph); font-weight: 800; font-size: 14px; text-align: center; padding: 24px 12px; text-shadow: 0 0 12px var(--bat-ph-glow); }
+    .battle-duel__row.has-skin {
+      background-color: rgba(8, 12, 18, calc(var(--bat-a) * .5));
+      border-color: transparent;
+      box-shadow: none;
+      overflow: visible;
+    }
+    .battle-duel__row.has-skin-top1 { padding-top: 20px; padding-bottom: 16px; min-height: 78px; }
+    .row-skin {
+      position: absolute; inset: -12px;
+      width: calc(100% + 24px); height: calc(100% + 24px);
+      object-fit: fill; pointer-events: none; z-index: 2;
+    }
+    .battle-duel__row.has-skin-top1 .row-skin { inset: -30px -12px -16px; width: calc(100% + 24px); height: calc(100% + 46px); }
+    .battle-duel__row.has-skin .battle-duel__icons,
+    .battle-duel__row.has-skin .info { position: relative; z-index: 3; }
 </style>
 </head>
 <body>
@@ -104,7 +119,67 @@
 (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
-    let cfg = { limit: 2, nameRainbow: true, placeholder: 'Esperando combatientes...', valueColor: '#fecaca', likesIcon: '❤️', bgOpacity: 45, vsStyle: 2, vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter', cardBg: '#16262e', cardBorder: '#94a3b8' };
+    let cfg = { limit: 2, nameRainbow: true, placeholder: 'Esperando combatientes...', valueColor: '#fecaca', likesIcon: '❤️', bgOpacity: 45, vsStyle: 2, vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter', cardBg: '#16262e', cardBorder: '#94a3b8', skin: 'classic', top1Skin: 'auto' };
+    const ROW_SKINS = {
+      crimson: '/overlays/batalla/skin-crimson.png?v=1',
+      gold: '/overlays/batalla/skin-gold.png?v=1',
+      cyber: '/overlays/batalla/skin-cyber.png?v=1',
+      neon: '/overlays/batalla/skin-neon.png?v=1',
+    };
+    const TOP1_SKINS = {
+      royal: '/overlays/batalla/skin-royal.png?v=1',
+      frost: '/overlays/batalla/skin-frost.png?v=1',
+      majesty: '/overlays/batalla/skin-majesty.png?v=1',
+      regal: '/overlays/batalla/skin-regal.png?v=1',
+      empire: '/overlays/batalla/skin-empire.png?v=1',
+      sapphire: '/overlays/batalla/skin-sapphire.png?v=1',
+    };
+    function skinForRank(rank) {
+      if (rank === 1) {
+        const t = String(cfg.top1Skin || 'auto');
+        if (TOP1_SKINS[t]) return { src: TOP1_SKINS[t], top1: true };
+      }
+      const s = String(cfg.skin || 'classic');
+      if (ROW_SKINS[s]) return { src: ROW_SKINS[s], top1: false };
+      return null;
+    }
+    Object.values(ROW_SKINS).concat(Object.values(TOP1_SKINS)).forEach((src) => { const im = new Image(); im.src = src; });
+    let skinHoldUntil = 0;
+    function applyRowSkins() {
+      document.querySelectorAll('.battle-duel__row').forEach((row, i) => {
+        const sk = skinForRank(i + 1);
+        row.classList.toggle('has-skin', !!sk);
+        row.classList.toggle('has-skin-top1', !!(sk && sk.top1));
+        let img = row.querySelector('.row-skin');
+        if (!sk) { if (img) img.remove(); return; }
+        if (!img) {
+          img = document.createElement('img');
+          img.className = 'row-skin';
+          img.alt = '';
+          img.draggable = false;
+          row.insertBefore(img, row.firstChild);
+        }
+        if (img.getAttribute('src') !== sk.src) img.src = sk.src;
+      });
+    }
+    function mergeCfg(partial, fromLocal) {
+      const bag = partial && typeof partial === 'object' ? partial : {};
+      const keys = Object.keys(bag);
+      const onlySkin = keys.length > 0 && keys.every((k) => k === 'skin' || k === 'top1Skin');
+      if (fromLocal) skinHoldUntil = Date.now() + 2800;
+      if (!fromLocal && Date.now() < skinHoldUntil) {
+        const keepS = cfg.skin, keepT = cfg.top1Skin;
+        Object.assign(cfg, bag);
+        cfg.skin = keepS;
+        cfg.top1Skin = keepT;
+        if (onlySkin) applyRowSkins();
+        else { applyStyle(); render(); }
+        return;
+      }
+      Object.assign(cfg, bag);
+      if (onlySkin) applyRowSkins();
+      else { applyStyle(); render(); }
+    }
     const FONTS = {
       pressstart: "'Press Start 2P', monospace",
       exo2: "'Exo 2', system-ui, sans-serif",
@@ -194,7 +269,11 @@
         const vsImg = (i === 0 && showVs)
           ? '<img class="' + vsImgClass() + '" src="' + vsImgSrc() + '" alt="VS">'
           : '';
-        parts.push('<div class="battle-duel__row ' + cardClass(i) + '" id="card-' + safeId(u.id) + '">' +
+        const sk = skinForRank(i + 1);
+        const skinCls = sk ? (' has-skin' + (sk.top1 ? ' has-skin-top1' : '')) : '';
+        const skinImg = sk ? '<img class="row-skin" src="' + sk.src + '" alt="" draggable="false">' : '';
+        parts.push('<div class="battle-duel__row ' + cardClass(i) + skinCls + '" id="card-' + safeId(u.id) + '">' +
+          skinImg +
           '<div class="battle-duel__icons">' + rankBadge(i + 1) +
           '<div class="avatar-wrap"><img src="' + esc(u.pic) + '" class="avatar" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'"></div></div>' +
           '<div class="info"><div class="' + nameClass() + '">' + esc(u.name) + '</div>' +
@@ -232,7 +311,7 @@
       ws.onmessage = (ev) => {
         let m; try { m = JSON.parse(ev.data); } catch { return; }
         if (m.type === 'like') { if (!isEmbed) onLike(m.payload); }
-        else if (m.type === 'settings') { if (m.payload && m.payload.batallaLikes) { cfg = Object.assign(cfg, m.payload.batallaLikes); applyStyle(); render(); } }
+        else if (m.type === 'settings') { if (m.payload && m.payload.batallaLikes) mergeCfg(m.payload.batallaLikes, false); }
         else if (m.type === 'batallaLikesTest') { if (!isEmbed) { ranking = {}; demo(); render({ seq: true }); } }
         else if (m.type === 'batallaLikesReset') { if (!isEmbed) { ranking = {}; render(); } }
         else if (m.type === 'sessionOverlays') {
@@ -242,7 +321,7 @@
     }
     window.addEventListener('message', (e) => {
       const d = e.data; if (!d || d.kind !== 'batlikes') return;
-      if (d.type === 'config') { cfg = Object.assign(cfg, d.config); applyStyle(); render(); }
+      if (d.type === 'config') { mergeCfg(d.config || {}, true); }
       else if (d.type === 'test') { ranking = {}; demo(); render({ seq: true }); }
       else if (d.type === 'reset') { ranking = {}; if (isEmbed) demo(); render(); }
     });

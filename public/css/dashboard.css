@@ -3776,6 +3776,25 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   font-size: 12px; font-weight: 700; letter-spacing: .04em;
   color: rgba(255,255,255,.55); text-transform: none;
 }
+.ovpro-simrow input[type="text"] {
+  min-width: 110px; flex: 1 1 120px; max-width: 220px;
+  background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.12);
+  color: #fff; border-radius: 8px; padding: 7px 10px; font-size: 13px;
+}
+.habi-pic {
+  width: 28px; height: 28px; border-radius: 50%; object-fit: cover;
+  border: 1px solid rgba(255,255,255,.2); flex: 0 0 auto;
+}
+.habi-manual-status {
+  width: 100%; font-size: 11px; color: rgba(255,255,255,.5);
+}
+.habi-manual-box {
+  margin-top: 16px; padding: 12px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.2);
+}
+.habi-manual-hint {
+  margin: 6px 0 10px; font-size: 12px; opacity: .7; line-height: 1.4;
+}
 .ovpro-simgift {
   display: inline-flex; align-items: center; gap: 8px;
   max-width: min(280px, 55vw); min-width: 140px;

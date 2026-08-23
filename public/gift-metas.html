@@ -12,22 +12,14 @@
     * { box-sizing: border-box; }
     html, body {
       margin: 0; overflow: hidden; background: transparent !important;
+      width: 100%; height: 100%;
       font-family: var(--ggm-font, 'Montserrat', system-ui, sans-serif);
-    }
-    /* Canvas fijo OBS / Live Studio — Browser Source 1080×1920 */
-    html.stage-1080x1920, html.stage-1080x1920 body {
-      width: 1080px;
-      height: 1920px;
     }
     .stage {
       position: relative;
-      width: 1080px;
-      height: 1920px;
-      overflow: hidden;
-    }
-    html.embed .stage {
       width: 100%;
       height: 100%;
+      overflow: hidden;
     }
     html.embed, html.embed body { width: 100%; height: 100%; }
     html.embed body {
@@ -42,12 +34,12 @@
       transform: scale(calc(var(--fit, 1) * var(--ggm-scale, 1)));
       transform-origin: center center;
     }
-    html.stage-1080x1920 .root {
+    html:not(.embed) .root {
       transform: scale(var(--ggm-scale, 1));
       transform-origin: top left;
       position: absolute;
-      top: var(--stage-y, 24px);
-      left: var(--stage-x, 24px);
+      top: var(--stage-y, 16px);
+      left: var(--stage-x, 16px);
     }
 
     .root {
@@ -61,11 +53,10 @@
       --b2: #e879f9;
       --b3: #a855f7;
       --banda-n: 4;
+      --ggm-text: 1;
       --item-w: 156px;
-      --item-h: calc(var(--icon) + 100px);
+      --item-h: calc(var(--icon) + 100px * var(--ggm-text, 1));
       padding: 14px;
-      transform: scale(var(--ggm-scale));
-      transform-origin: top left;
     }
     html.embed .root {
       position: relative;
@@ -91,8 +82,10 @@
     }
     .root[data-layout="banda"] {
       /* width la pone applyStyle en px según --banda-n */
-      max-width: 96vw;
       overflow: hidden;
+    }
+    html.embed .root[data-layout="banda"] {
+      max-width: 96vw;
       mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
       -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
     }
@@ -112,8 +105,10 @@
 
     /* Banda vertical — altura exacta la pone JS (visible × alto tarjeta) */
     .root[data-layout="banda-vertical"] {
-      max-width: 96vw;
       overflow: hidden;
+    }
+    html.embed .root[data-layout="banda-vertical"] {
+      max-width: 96vw;
       mask-image: linear-gradient(180deg, transparent, #000 4%, #000 96%, transparent);
       -webkit-mask-image: linear-gradient(180deg, transparent, #000 4%, #000 96%, transparent);
     }
@@ -141,7 +136,7 @@
       justify-content: flex-start;
       gap: 8px;
       width: 168px;
-      min-height: calc(var(--icon) + 92px);
+      min-height: calc(var(--icon) + 92px * var(--ggm-text, 1));
       height: auto;
       padding: 12px 12px 18px;
       border-radius: 20px;
@@ -150,8 +145,6 @@
       box-shadow:
         0 10px 28px rgba(0, 0, 0, 0.32),
         inset 0 1px 0 rgba(255, 255, 255, 0.14);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
       transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
       overflow: visible;
     }
@@ -218,7 +211,7 @@
       width: 100%;
       text-align: center;
       font-weight: 900;
-      font-size: 22px;
+      font-size: calc(22px * var(--ggm-text, 1));
       letter-spacing: .04em;
       color: var(--count);
       text-shadow: 0 2px 6px rgba(0,0,0,.75);
@@ -287,7 +280,7 @@
       width: 100%;
       text-align: center;
       font-weight: 800;
-      font-size: 11px;
+      font-size: calc(11px * var(--ggm-text, 1));
       letter-spacing: .08em;
       text-transform: uppercase;
       color: var(--label);
@@ -401,7 +394,7 @@
     .done-name {
       margin: 0;
       font-weight: 900;
-      font-size: 11px;
+      font-size: calc(11px * var(--ggm-text, 1));
       letter-spacing: .06em;
       text-transform: uppercase;
       color: #fff8e7;
@@ -417,7 +410,7 @@
     .done-gift-label {
       margin: 0;
       font-weight: 800;
-      font-size: 11px;
+      font-size: calc(11px * var(--ggm-text, 1));
       letter-spacing: .1em;
       text-transform: uppercase;
       color: #ffe9a8;
@@ -449,9 +442,7 @@
 (function () {
   const params = new URLSearchParams(location.search);
   const isEmbed = params.get('embed') === '1';
-  const STAGE_W = 1080;
-  const STAGE_H = 1920;
-  if (!isEmbed) document.documentElement.classList.add('stage-1080x1920');
+  if (!isEmbed) document.documentElement.classList.add('stage-obs');
   const FONTS = {
     montserrat: "'Montserrat', system-ui, sans-serif",
     poppins: "'Poppins', system-ui, sans-serif",
@@ -469,6 +460,7 @@
     layout: 'banda',
     scale: 67,
     iconSize: 78,
+    textSize: 100,
     gap: 18,
     font: 'luckiest',
     labelColor: '#ffffff',
@@ -508,8 +500,9 @@
     const n = bandaVisibleN();
     const gap = Math.max(8, Math.min(40, Number(cfg.gap) || 22));
     const icon = Math.max(48, Math.min(140, Number(cfg.iconSize) || 92));
+    const textMul = Math.max(0.7, Math.min(2, (Number(cfg.textSize) || 100) / 100));
     const itemW = 156;
-    const itemH = icon + 120; // icono + barra + etiqueta + paddings
+    const itemH = icon + 80 + Math.round(40 * textMul); // icono + barra + etiqueta + paddings
     const pad = 28;
 
     if (layout === 'banda') {
@@ -544,22 +537,23 @@
     if (isEmbed) return;
     const root = $('root');
     if (!root) return;
+    const STAGE_W = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1080);
+    const STAGE_H = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1080);
     const userScale = Math.max(0.6, Math.min(1.4, (Number(cfg.scale) || 100) / 100));
     // Medir a escala 1
     root.style.setProperty('--ggm-scale', '1');
     root.style.setProperty('--stage-x', '0px');
     root.style.setProperty('--stage-y', '0px');
-    const pad = 32;
-    const rw = Math.max(1, root.scrollWidth || root.offsetWidth);
-    const rh = Math.max(1, root.scrollHeight || root.offsetHeight);
+    const pad = 16;
+    const rw = Math.max(1, root.offsetWidth || root.scrollWidth);
+    const rh = Math.max(1, root.offsetHeight || root.scrollHeight);
     const fit = Math.min((STAGE_W - pad * 2) / rw, (STAGE_H - pad * 2) / rh, 1);
     const s = fit * userScale;
     root.style.setProperty('--ggm-scale', String(s));
     const scaledW = rw * s;
-    const scaledH = rh * s;
-    // Centrar en el canvas 1080×1920
+    // Arriba y centrado: Live Studio 1920×1080 / 720p ve las tarjetas (antes quedaban a media altura de 1920px).
     const x = Math.max(pad, Math.round((STAGE_W - scaledW) / 2));
-    const y = Math.max(pad, Math.round((STAGE_H - scaledH) / 2));
+    const y = pad;
     root.style.setProperty('--stage-x', x + 'px');
     root.style.setProperty('--stage-y', y + 'px');
   }
@@ -570,6 +564,8 @@
     const userScale = Math.max(0.6, Math.min(1.4, (Number(cfg.scale) || 100) / 100));
     root.style.setProperty('--ggm-scale', String(userScale));
     root.style.setProperty('--icon', Math.max(48, Math.min(140, Number(cfg.iconSize) || 92)) + 'px');
+    const textMul = Math.max(0.7, Math.min(2, (Number(cfg.textSize) || 100) / 100));
+    root.style.setProperty('--ggm-text', String(textMul));
     root.style.setProperty('--gap', Math.max(8, Math.min(40, Number(cfg.gap) || 22)) + 'px');
     root.style.setProperty('--label', cfg.labelColor || '#ffffff');
     root.style.setProperty('--count', cfg.countColor || '#ffffff');
@@ -642,6 +638,7 @@
     const items = Array.isArray(cfg.items) ? cfg.items.filter((x) => x && (x.giftId || x.giftName || x.id)) : [];
     if (!items.length) {
       list.innerHTML = '<div class="empty">Añade regalos en Configurar</div>';
+      requestAnimationFrame(() => fitStageCanvas());
       return;
     }
     let html = items.map((it) => renderItemHtml(
@@ -851,6 +848,7 @@
     render();
   } else {
     render();
+    window.addEventListener('resize', () => fitStageCanvas());
   }
   connectWS();
 })();

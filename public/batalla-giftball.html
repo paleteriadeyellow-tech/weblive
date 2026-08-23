@@ -149,7 +149,6 @@
     let throwing = false;
     let paused = false;
     let pkLive = false;
-    let armed = false;
     let gen = 0;
     let raf = 0;
     let lastTs = 0;
@@ -326,10 +325,10 @@
     }
 
     function startLoop() {
-      if (raf || paused || document.hidden) return;
+      if (raf || paused) return;
       lastTs = 0;
       const step = (ts) => {
-        if (paused || document.hidden) { raf = 0; lastTs = 0; return; }
+        if (paused) { raf = 0; lastTs = 0; return; }
         if (!lastTs) lastTs = ts;
         let dt = ts - lastTs;
         lastTs = ts;
@@ -495,24 +494,48 @@
       if (!bare) appendSphere(el);
       throwLayer.appendChild(el);
 
-      const anim = el.animate(
-        [
-          { transform: 'translate3d(' + startX + 'px,' + startY + 'px,0) scale(0.22)', opacity: 0.85 },
-          { transform: 'translate3d(' + hit.x + 'px,' + hit.y + 'px,0) scale(1.06)', opacity: 1 },
-        ],
-        { duration: THROW_MS, easing: 'cubic-bezier(0.55, 0.05, 0.92, 0.32)', fill: 'forwards' }
-      );
-
-      return anim.finished.then(() => {
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
         try { el.remove(); } catch {}
         throwing = false;
         if (myGen !== gen) return;
         playGlassHit(hit);
         addFallBall(payload, hit, { force: true, sizePx, bare });
-      }).catch(() => {
-        try { el.remove(); } catch {}
-        throwing = false;
-      });
+      };
+
+      const from = 'translate3d(' + startX + 'px,' + startY + 'px,0) scale(0.22)';
+      const to = 'translate3d(' + hit.x + 'px,' + hit.y + 'px,0) scale(1.06)';
+      el.style.transform = from;
+      el.style.opacity = '0.85';
+
+      // Live Studio usa CEF viejo: animate()/finished a veces no resuelve y la pelota nunca aparece.
+      if (typeof el.animate !== 'function') {
+        el.style.transform = to;
+        el.style.opacity = '1';
+        setTimeout(settle, 40);
+        return Promise.resolve();
+      }
+      try {
+        const anim = el.animate(
+          [
+            { transform: from, opacity: 0.85 },
+            { transform: to, opacity: 1 },
+          ],
+          { duration: THROW_MS, easing: 'cubic-bezier(0.55, 0.05, 0.92, 0.32)', fill: 'forwards' }
+        );
+        const finished = (anim && anim.finished)
+          ? anim.finished.catch(() => {})
+          : new Promise((res) => setTimeout(res, THROW_MS));
+        const watchdog = new Promise((res) => setTimeout(res, THROW_MS + 120));
+        return Promise.race([finished, watchdog]).then(settle, settle);
+      } catch {
+        el.style.transform = to;
+        el.style.opacity = '1';
+        setTimeout(settle, 40);
+        return Promise.resolve();
+      }
     }
 
     function pumpThrowQueue() {
@@ -559,15 +582,14 @@
     }
 
     function applyPk(p) {
-      const next = !!(p && p.live);
-      if (next && !pkLive) armed = true;
-      else if (!next && pkLive) armed = false;
-      pkLive = next;
+      pkLive = !!(p && p.live);
     }
 
     function onGift(p) {
-      if (!armed) return;
-      if (!p || p.streak) return;
+      if (!p) return;
+      // TikTok manda la racha (rosas) con streak=true y al final repeatEnd.
+      // Si solo escuchamos el cierre y Live Studio no lo manda, no cae nada.
+      // Un extra al cerrar la racha es aceptable; HARD_CAP recorta.
       const diamonds = Math.max(0, Number(p.diamonds != null ? p.diamonds : p.diamondCount) || 0);
       dropGift(Object.assign({}, p, { diamonds }));
     }
@@ -596,10 +618,7 @@
         } else if (m.type === 'pkBattle') {
           if (!isEmbed) applyPk(m.payload || {});
         } else if (m.type === 'pkBattleReset') {
-          if (!isEmbed) {
-            pkLive = false;
-            armed = false;
-          }
+          if (!isEmbed) pkLive = false;
         } else if (m.type === 'batallaGiftBallTest') {
           if (!isEmbed) runTest(m.payload && m.payload.gift);
         } else if (m.type === 'batallaGiftBallDropOne') {
@@ -624,12 +643,7 @@
     });
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        if (raf) { cancelAnimationFrame(raf); raf = 0; }
-        lastTs = 0;
-      } else if (!paused) {
-        startLoop();
-      }
+      if (!document.hidden && !paused) startLoop();
     });
 
     // Preview del panel: sin WS (los regalos del live irían al mismo hilo que el dashboard).

@@ -2118,6 +2118,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         obj.topKills = { ...obj.topKills, players: curPlayers };
       }
     }
+    if (obj.habibiTop && typeof obj.habibiTop === 'object'
+      && obj.habibiTop.manual === undefined && settings.habibiTop && settings.habibiTop.manual) {
+      obj.habibiTop = { ...obj.habibiTop, manual: settings.habibiTop.manual };
+    }
     settings = deepMerge(settings, obj);
     if (settings.topKills && 'clearPlayers' in settings.topKills) delete settings.topKills.clearPlayers;
     // El contador en vivo manda: un save del panel no debe pisar savedRemaining con un 0 viejo.
@@ -2131,6 +2135,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       && normalizeResetPeriod(obj.top1fire.resetPeriod) !== prevTop1FirePeriod) onTop1FireSettingsChange();
     if (obj.habibiTop && obj.habibiTop.resetPeriod != null
       && normalizeResetPeriod(obj.habibiTop.resetPeriod) !== prevHabibiTopPeriod) onHabibiTopSettingsChange();
+    if (obj.habibiTop && seedHabibiManual()) {
+      persistHabibiTop();
+      try { broadcastHabibiTop(); } catch {}
+    }
     if (obj.giftGoals && obj.giftGoals.resetPeriod != null
       && normalizeResetPeriod(obj.giftGoals.resetPeriod) !== prevGiftGoalsPeriod) onGiftGoalsPeriodChange();
     if (obj.batallaCoinBar && obj.batallaCoinBar.resetPeriod != null
@@ -8340,6 +8348,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     lastHabibiTopPeriod = period;
     if (period === 'live') {
       habibiTopSession.clear();
+      seedHabibiManual();
       return;
     }
     const [start, end] = period === 'month' ? currentMonthRange() : currentWeekRange();
@@ -8351,6 +8360,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       habibiTop.end = end;
       habibiTop.donors = new Map((raw.donors || []).map((u) => [u.uniqueId, restoreHabibiDonor(u)]));
       reconcileHabibiTopFromSnapshot();
+      seedHabibiManual();
       return;
     }
     habibiTop.period = period;
@@ -8358,6 +8368,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     habibiTop.end = end;
     habibiTop.donors = new Map();
     habibiTopSnapshot = null;
+    seedHabibiManual();
   }
   function saveHabibiTop() {
     if (getHabibiTopPeriod() === 'live') return;
@@ -8383,6 +8394,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       habibiTop.end = end;
       habibiTop.donors.clear();
       habibiTopSnapshot = null;
+      seedHabibiManual();
       saveHabibiTop();
       broadcastHabibiTop();
     }
@@ -8396,28 +8408,109 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     loadHabibiTop();
     broadcastHabibiTop();
   }
+  function habibiDonorStore() {
+    if (getHabibiTopPeriod() === 'live') return habibiTopSession;
+    ensureHabibiTopPeriod();
+    return habibiTop.donors;
+  }
+  function findHabibiDonorKey(uniqueId) {
+    const needle = String(uniqueId || '').replace(/^@+/, '').trim();
+    if (!needle) return '';
+    const map = habibiDonorStore();
+    if (map.has(needle)) return needle;
+    const want = typeof normTikTokUser === 'function' ? normTikTokUser(needle) : needle.toLowerCase();
+    if (!want) return needle;
+    for (const k of map.keys()) {
+      const have = typeof normTikTokUser === 'function' ? normTikTokUser(k) : String(k).toLowerCase();
+      if (have && have === want) return k;
+    }
+    return needle;
+  }
+  function persistHabibiTop() {
+    if (getHabibiTopPeriod() === 'live') saveSessionOverlays();
+    else saveHabibiTop();
+  }
   function addHabibiTopDonation(user, coins) {
     if (!user?.uniqueId || !(coins > 0)) return;
-    const period = getHabibiTopPeriod();
+    const uniqueId = findHabibiDonorKey(user.uniqueId);
     const incomingPhoto = habibiDonorPhoto(user);
-    if (period === 'live') {
-      const u = habibiTopSession.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: '', coins: 0 };
-      u.coins += coins;
-      u.nickname = user.nickname || u.nickname;
-      if (incomingPhoto) u.photo = incomingPhoto;
-      habibiTopSession.set(user.uniqueId, u);
-      broadcastHabibiTop();
-      saveSessionOverlays();
-      return;
-    }
-    ensureHabibiTopPeriod();
-    const u = habibiTop.donors.get(user.uniqueId) || { uniqueId: user.uniqueId, nickname: user.nickname, photo: '', coins: 0 };
+    const map = habibiDonorStore();
+    const u = map.get(uniqueId) || { uniqueId, nickname: user.nickname, photo: '', coins: 0 };
     u.coins += coins;
     u.nickname = user.nickname || u.nickname;
     if (incomingPhoto) u.photo = incomingPhoto;
-    habibiTop.donors.set(user.uniqueId, u);
+    map.set(uniqueId, u);
     broadcastHabibiTop();
-    saveHabibiTop();
+    persistHabibiTop();
+  }
+  function readHabibiManual() {
+    const m = settings.habibiTop && settings.habibiTop.manual;
+    if (!m || typeof m !== 'object') return null;
+    const uniqueId = String(m.uniqueId || '').replace(/^@+/, '').trim();
+    if (!uniqueId) return null;
+    return {
+      uniqueId,
+      nickname: m.nickname || uniqueId,
+      photo: String(m.photo || m.profilePictureUrl || '').trim(),
+      coins: Math.max(0, Math.floor(Number(m.coins) || 0)),
+    };
+  }
+  function writeHabibiManual(entry) {
+    if (!settings.habibiTop || typeof settings.habibiTop !== 'object') settings.habibiTop = {};
+    if (!entry?.uniqueId) {
+      if (settings.habibiTop.manual == null) return;
+      delete settings.habibiTop.manual;
+      saveSettingsNow();
+      return;
+    }
+    settings.habibiTop.manual = {
+      uniqueId: entry.uniqueId,
+      nickname: entry.nickname || entry.uniqueId,
+      photo: habibiDonorPhoto(entry) || '',
+      coins: Math.max(0, Math.floor(Number(entry.coins) || 0)),
+    };
+    saveSettingsNow();
+  }
+  function seedHabibiManual() {
+    const seed = readHabibiManual();
+    if (!seed) return false;
+    const map = habibiDonorStore();
+    const key = findHabibiDonorKey(seed.uniqueId);
+    const prev = map.get(key);
+    const prevCoins = Number(prev?.coins) || 0;
+    if (prev && prevCoins >= seed.coins) {
+      if (!habibiDonorPhoto(prev) && seed.photo) {
+        prev.photo = seed.photo;
+        map.set(key, prev);
+      }
+      return true;
+    }
+    map.set(key, {
+      uniqueId: key,
+      nickname: seed.nickname || prev?.nickname || key,
+      photo: seed.photo || prev?.photo || '',
+      coins: Math.max(seed.coins, prevCoins),
+    });
+    return true;
+  }
+  function setHabibiTopManual(user, coins) {
+    const uniqueId = findHabibiDonorKey(user?.uniqueId);
+    if (!uniqueId) return false;
+    const coinsN = Math.max(0, Math.floor(Number(coins) || 0));
+    const incomingPhoto = habibiDonorPhoto(user);
+    const map = habibiDonorStore();
+    const prev = map.get(uniqueId) || {};
+    const entry = {
+      uniqueId,
+      nickname: user.nickname || prev.nickname || uniqueId,
+      photo: incomingPhoto || prev.photo || '',
+      coins: coinsN,
+    };
+    map.set(uniqueId, entry);
+    writeHabibiManual(entry);
+    broadcastHabibiTop();
+    persistHabibiTop();
+    return true;
   }
   function serializeHabibiTop() {
     const period = getHabibiTopPeriod();
@@ -8448,13 +8541,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (getHabibiTopPeriod() !== 'live') return;
     habibiTopSession.clear();
     habibiTopSnapshot = null;
-    broadcast('habibiTopReset', {});
+    const seeded = seedHabibiManual();
+    if (!seeded) broadcast('habibiTopReset', {});
     broadcastHabibiTop();
+    persistHabibiTop();
   }
   function resetHabibiTopAll() {
     habibiTopSession.clear();
     habibiTop.donors.clear();
     habibiTopSnapshot = null;
+    writeHabibiManual(null);
     if (getHabibiTopPeriod() !== 'live') saveHabibiTop();
     else saveSessionOverlays();
     broadcast('habibiTopReset', {});
@@ -10572,6 +10668,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetTopHabibi':
         resetHabibiTopAll();
         break;
+      case 'setHabibiTopManual': {
+        const uniqueId = String(data.uniqueId || data.username || '').replace(/^@+/, '').trim();
+        const photo = data.photo || data.avatar || data.profilePictureUrl || '';
+        setHabibiTopManual({
+          uniqueId,
+          nickname: data.nickname || uniqueId,
+          photo,
+          profilePictureUrl: photo,
+        }, data.coins);
+        break;
+      }
       case 'testWins':
         broadcast('winsTest', {});
         break;

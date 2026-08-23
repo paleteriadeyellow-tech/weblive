@@ -9,6 +9,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Luckiest+Guy&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
+    :root {
+      --bcb-text: 1;
+      --bcb-num: 1;
+      --bcb-num-base: 26px;
+    }
     html, body {
       margin: 0; overflow: hidden;
       background: transparent !important;
@@ -76,7 +81,7 @@
       letter-spacing: .28em;
       max-width: none;
       line-height: 1.15;
-      font-size: 16px;
+      font-size: calc(16px * var(--bcb-text, 1));
       white-space: nowrap;
     }
     .col-left.is-vert .tick {
@@ -85,7 +90,7 @@
     .col-right .tick { justify-content: flex-start; text-align: left; transform-origin: left center; }
     .lab {
       font-weight: 900;
-      font-size: 18px;
+      font-size: calc(18px * var(--bcb-text, 1));
       line-height: 1.1;
       color: #fff;
       text-shadow: 0 2px 0 #000, 0 0 10px rgba(0,0,0,.55);
@@ -97,7 +102,7 @@
     }
     .num {
       font-family: 'Luckiest Guy', 'Rubik', sans-serif;
-      font-size: 26px;
+      font-size: calc(var(--bcb-num-base, 26px) * var(--bcb-num, 1));
       letter-spacing: .02em;
       color: #fff;
       text-shadow: 0 3px 0 #000, 0 0 12px rgba(0,0,0,.5);
@@ -358,14 +363,14 @@
     }
     .bottom .now {
       font-family: 'Luckiest Guy', 'Rubik', sans-serif;
-      font-size: 42px;
+      font-size: calc(42px * var(--bcb-num, 1));
       color: #fff;
       text-shadow: 0 4px 0 #000, 0 0 16px rgba(0,0,0,.45);
       line-height: 1;
     }
     .bottom .hint {
       margin-top: 4px;
-      font-size: 13px;
+      font-size: calc(13px * var(--bcb-text, 1));
       font-weight: 800;
       letter-spacing: .12em;
       color: rgba(255,255,255,.72);
@@ -402,8 +407,8 @@
       justify-self: auto;
       width: auto;
     }
-    html.horiz .bottom .now { font-size: 30px; }
-    html.horiz .bottom .hint { margin-top: 6px; letter-spacing: .18em; font-size: 11px; }
+    html.horiz .bottom .now { font-size: calc(30px * var(--bcb-num, 1)); }
+    html.horiz .bottom .hint { margin-top: 6px; letter-spacing: .18em; font-size: calc(11px * var(--bcb-text, 1)); }
     html.horiz .wrap {
       flex: 1;
       min-width: 0;
@@ -454,7 +459,7 @@
       writing-mode: horizontal-tb;
       text-orientation: mixed;
       letter-spacing: .04em;
-      font-size: 16px;
+      font-size: calc(16px * var(--bcb-text, 1));
       line-height: 1.15;
       white-space: nowrap;
       max-width: none;
@@ -469,12 +474,12 @@
       writing-mode: vertical-rl;
       text-orientation: upright;
       letter-spacing: .26em;
-      font-size: 15px;
+      font-size: calc(15px * var(--bcb-text, 1));
       line-height: 1.12;
       white-space: nowrap;
     }
     html.horiz .num {
-      font-size: 16px;
+      font-size: calc(var(--bcb-num-base, 16px) * var(--bcb-num, 1));
       letter-spacing: .04em;
     }
     html.horiz .marks i {
@@ -672,6 +677,8 @@
     let cfg = {
       source: 'battle',
       scale: 100,
+      textSize: 100,
+      numSize: 100,
       skin: 'classic',
       fillColor: '#22c55e',
       fillRainbow: true,
@@ -826,6 +833,34 @@
         el.stage?.style.setProperty('--tick-on-lab', mixHex(c, '#ffffff', 0.55));
       }
       applyFrameTint();
+      applyTypeScale();
+    }
+
+    function applyTypeScale() {
+      const t = Math.max(0.7, Math.min(2, (Number(cfg.textSize) || 100) / 100));
+      const n = Math.max(0.7, Math.min(2, (Number(cfg.numSize) || 100) / 100));
+      const horiz = isHoriz();
+      const put = (node) => {
+        if (!node || !node.style) return;
+        node.style.setProperty('--bcb-text', String(t));
+        node.style.setProperty('--bcb-num', String(n));
+      };
+      put(document.documentElement);
+      put(document.body);
+      put(el.stage);
+      const nowPx = (horiz ? 30 : 42) * n;
+      const hintPx = (horiz ? 11 : 13) * t;
+      if (el.now) el.now.style.setProperty('font-size', nowPx + 'px', 'important');
+      const hint = el.now && el.now.parentElement ? el.now.parentElement.querySelector('.hint') : document.querySelector('.hint');
+      if (hint) hint.style.setProperty('font-size', hintPx + 'px', 'important');
+      const numBase = parseFloat(String(document.documentElement.style.getPropertyValue('--bcb-num-base') || '').replace('px', '')) || (horiz ? 16 : 26);
+      document.querySelectorAll('.num').forEach((node) => {
+        node.style.setProperty('font-size', Math.round(numBase * n) + 'px', 'important');
+      });
+      const labBase = horiz ? 16 : 18;
+      document.querySelectorAll('.lab').forEach((node) => {
+        node.style.setProperty('font-size', Math.round(labBase * t) + 'px', 'important');
+      });
     }
 
     function hexToHsl(hex) {
@@ -928,6 +963,12 @@
       const fs = horiz
         ? (n >= 8 ? 14 : n >= 6 ? 16 : 18)
         : (n >= 10 ? 15 : n >= 7 ? 18 : n >= 6 ? 22 : 26);
+      const numMul = Math.max(0.7, Math.min(2, (Number(cfg.numSize) || 100) / 100));
+      const textMul = Math.max(0.7, Math.min(2, (Number(cfg.textSize) || 100) / 100));
+      const basePx = fs + 'px';
+      document.documentElement.style.setProperty('--bcb-num-base', basePx);
+      if (document.body) document.body.style.setProperty('--bcb-num-base', basePx);
+      if (el.stage) el.stage.style.setProperty('--bcb-num-base', basePx);
       el.left.innerHTML = '';
       el.right.innerHTML = '';
       el.marks.innerHTML = '';
@@ -938,14 +979,17 @@
         left.dataset.t = String(g.t);
         if (horiz) left.style.left = pct + '%';
         else left.style.bottom = pct + '%';
-        if (g.label) left.innerHTML = `<span class="lab">${esc(g.label)}</span>`;
+        if (g.label) {
+          const labFs = Math.round((horiz ? 16 : 18) * textMul);
+          left.innerHTML = `<span class="lab" style="font-size:${labFs}px">${esc(g.label)}</span>`;
+        }
         el.left.appendChild(left);
         const right = document.createElement('div');
         right.className = 'tick';
         right.dataset.t = String(g.t);
         if (horiz) right.style.left = pct + '%';
         else right.style.bottom = pct + '%';
-        right.innerHTML = `<span class="num" style="font-size:${fs}px">${fmt(g.t)}</span>`;
+        right.innerHTML = `<span class="num" style="font-size:${Math.round(fs * numMul)}px">${fmt(g.t)}</span>`;
         el.right.appendChild(right);
         const mark = document.createElement('i');
         if (horiz) mark.style.left = ((i + 1) / n * 100) + '%';
@@ -955,6 +999,7 @@
       allowPop = false;
       render();
       allowPop = true;
+      applyTypeScale();
     }
     function popTick(node) {
       if (!node) return;
@@ -1029,6 +1074,8 @@
       if (!next || typeof next !== 'object') return;
       if (next.source === 'live' || next.source === 'battle') cfg.source = next.source;
       if (next.scale != null) cfg.scale = next.scale;
+      if (next.textSize != null) cfg.textSize = Math.max(70, Math.min(200, Number(next.textSize) || 100));
+      if (next.numSize != null) cfg.numSize = Math.max(70, Math.min(200, Number(next.numSize) || 100));
       if (next.skin && SKINS[next.skin]) cfg.skin = next.skin;
       if (next.fillColor) cfg.fillColor = normHex(next.fillColor);
       if (next.fillRainbow != null) cfg.fillRainbow = !!next.fillRainbow;

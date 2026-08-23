@@ -131,8 +131,9 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 
 .avatar {
   width: 100%; height: 100%;
+  min-width: 100%; min-height: 100%;
   border-radius: 50%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center center;
   display: block;
   background: #120818;
@@ -212,13 +213,13 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 
 <script>
 (function () {
-  const OV_BUILD = '12';
+  const OV_BUILD = '19';
   const FW_PAD = 70;
   const params = new URLSearchParams(location.search);
   const TOP_CACHE_KEY = 'habibitop_v1_' + (params.get('room') || 'local');
   const isEmbed = params.get('embed') === '1';
   const DEFAULT_PIC = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
-  const PREVIEW_PIC = '/jarron/lv.png';
+  const PREVIEW_PIC = '/habibis/preview-avatar.png?v=18';
   const FONTS = {
     luckiest: "'Luckiest Guy', 'Arial Black', Impact, sans-serif",
     bangers: "'Bangers', 'Arial Black', Impact, sans-serif",
@@ -237,9 +238,11 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   };
 
   const DESIGNS = {
-    '1': { src: '/habibis/top9.png', layout: { top: 0.415, left: 0.5, size: 0.56 } },
-    '2': { src: '/habibis/design2.png', layout: { top: 0.415, left: 0.5, size: 0.54 } },
-    '3': { src: '/habibis/design3.png', layout: { top: 0.415, left: 0.5, size: 0.54 } },
+    '1': { src: '/habibis/top9.png', layout: { top: 0.438, left: 0.501, size: 0.62 } },
+    '2': { src: '/habibis/design2.png', layout: { top: 0.511, left: 0.499, size: 0.82 } },
+    '3': { src: '/habibis/design3.png', layout: { top: 0.470, left: 0.500, size: 0.76 } },
+    '4': { src: '/habibis/design4.png', layout: { top: 0.439, left: 0.498, size: 0.72 } },
+    '5': { src: '/habibis/design5.png', layout: { top: 0.537, left: 0.499, size: 0.74 } },
   };
 
   function resolveDesign(id) {
@@ -318,12 +321,74 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
     return /^[0-9a-fA-F]{6}$/.test(s) ? ('#' + s.toLowerCase()) : def;
   }
 
+  function alphaAt(data, w, x, y) {
+    if (x < 0 || y < 0 || x >= w || y >= data.length / (w * 4)) return 0;
+    return data[(y * w + x) * 4 + 3];
+  }
+
+  function detectHoleLayout(img) {
+    try {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      if (!w || !h) return null;
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, w, h).data;
+      let bestSpan = 0, bestY = Math.round(h * 0.45), x1 = 0, x2 = 0;
+      const yStart = Math.floor(h * 0.18);
+      const yEnd = Math.floor(h * 0.78);
+      for (let y = yStart; y < yEnd; y += 2) {
+        let x = 0;
+        while (x < w) {
+          if (alphaAt(data, w, x, y) < 18) {
+            const a = x;
+            while (x < w && alphaAt(data, w, x, y) < 18) x++;
+            if (a > 8 && x < w - 8) {
+              const span = x - a;
+              if (span > bestSpan) { bestSpan = span; bestY = y; x1 = a; x2 = x - 1; }
+            }
+          } else x++;
+        }
+      }
+      if (bestSpan < w * 0.28) return null;
+      const cx = (x1 + x2) / 2;
+      const cy = bestY;
+      const diameter = bestSpan * 1.04;
+      const ref = Math.min(w, h);
+      return {
+        top: cy / h,
+        left: cx / w,
+        size: Math.max(0.45, Math.min(0.92, diameter / ref)),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function layoutForFrame(frame) {
+    const design = resolveDesign(cfg.design);
+    if (design._hole && design._holeSrc === design.src) return design._hole;
+    const detected = detectHoleLayout(frame);
+    const fb = design.layout;
+    const lay = {
+      top: (detected && detected.top) || fb.top,
+      left: (detected && detected.left) || fb.left,
+      size: Math.max(fb.size || 0, (detected && detected.size) || 0),
+    };
+    design._hole = lay;
+    design._holeSrc = design.src;
+    return lay;
+  }
+
   function applyFrameLayout() {
-    const lay = resolveDesign(cfg.design).layout;
     const frame = $('frame');
     const hole = document.querySelector('.avatar-hole');
     const wrap = document.querySelector('.frame-wrap');
     if (!frame || !hole || !wrap || !frame.naturalWidth) return;
+    const lay = layoutForFrame(frame);
 
     const boxW = wrap.clientWidth;
     const boxH = wrap.clientHeight;
@@ -660,6 +725,16 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
       cfg = Object.assign(cfg, d.config);
       applyStyle(); render();
     } else if (d.type === 'test') runTest();
+    else if (d.type === 'showTop') {
+      previewMode = false;
+      const t = d.top ? { ...d.top } : null;
+      if (t) {
+        const photo = String(t.profilePictureUrl || t.profilePictureUrl || t.photo || '').trim();
+        t.profilePictureUrl = photo;
+        t.photo = photo;
+      }
+      applyPayload({ top: t });
+    }
     else if (d.type === 'fireworks') launchFireworksShow('big');
     else if (d.type === 'reset') { previewMode = false; isEmbed ? runTest() : resetTop(); }
   });

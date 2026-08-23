@@ -1343,7 +1343,7 @@ function roomUrl(path) {
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
-  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=12';
+  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=19';
   return url;
 }
 
@@ -5127,6 +5127,8 @@ function applySettingsToUI(touchedKeys) {
   }
 
   if (has('jarron')) applyJarronUI();
+  if (hasAny('batallaGifts', 'batallaLikes')) try { window.__syncBatallaSkins?.(); } catch {}
+  if (has('habibiTop')) try { window.__syncHabibiDesign?.(); } catch {}
   if (has('batallaCoinBar') && typeof window.__syncBatallaCoinBar === 'function') {
     setTimeout(() => { try { window.__syncBatallaCoinBar(); } catch {} }, 50);
   }
@@ -8307,7 +8309,9 @@ function renderPotSimGiftBtn(key) {
     const toPreview = (msg) => $(cfg.previewId)?.contentWindow?.postMessage({ kind: key, ...msg }, '*');
     const pushTintLook = () => {
       const tint = String(settings?.[key]?.tint ?? '').trim();
-      toPreview({ type: 'config', tint: tint || '', tintRainbow: !!settings?.[key]?.tintRainbow });
+      const msg = { type: 'config', tint: tint || '', tintRainbow: !!settings?.[key]?.tintRainbow };
+      if (key === 'jarron') msg.skin = settings?.[key]?.skin || 'classic';
+      toPreview(msg);
     };
     const fr = $(cfg.previewId);
     if (fr && !fr.dataset.potTintLoadHook) {
@@ -8399,6 +8403,87 @@ function renderPotSimGiftBtn(key) {
   }
 })();
 
+(function setupJarronSkins() {
+  const JAR_SKINS = [
+    { id: 'classic', name: 'Clásico' },
+    { id: 'crown', name: 'Corona' },
+    { id: 'heart', name: 'Corazón' },
+    { id: 'cosmos', name: 'Cosmos' },
+    { id: 'lava', name: 'Lava' },
+    { id: 'cyber', name: 'Cyber' },
+    { id: 'ice', name: 'Hielo' },
+    { id: 'ocean', name: 'Océano' },
+    { id: 'crystal', name: 'Cristal' },
+    { id: 'royal', name: 'Royal' },
+    { id: 'forest', name: 'Bosque' },
+  ];
+  const idxOf = (id) => {
+    const i = JAR_SKINS.findIndex((s) => s.id === id);
+    return i < 0 ? 0 : i;
+  };
+  let localId = 'classic';
+  let swapUntil = 0;
+  let saveTimer = null;
+  const syncUi = (id) => {
+    const skin = JAR_SKINS[idxOf(id)];
+    if ($('jar-skin-name')) $('jar-skin-name').textContent = skin.name;
+    if ($('jar-skin-idx')) $('jar-skin-idx').textContent = `${idxOf(skin.id) + 1} / ${JAR_SKINS.length}`;
+  };
+  const pushPreviewSkin = (skin) => {
+    try { $('jar-preview')?.contentWindow?.postMessage({ kind: 'jarron', type: 'config', skin }, '*'); } catch {}
+  };
+  const apply = (id, persist) => {
+    const skin = JAR_SKINS[idxOf(id)].id;
+    localId = skin;
+    swapUntil = Date.now() + 1600;
+    if (settings) {
+      if (!settings.jarron) settings.jarron = {};
+      settings.jarron.skin = skin;
+    }
+    syncUi(skin);
+    pushPreviewSkin(skin);
+    if (!persist) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      const run = () => {
+        try {
+          if (typeof saveSettingsKeysPatch === 'function') saveSettingsKeysPatch('jarron');
+          else saveSettings();
+        } catch {}
+      };
+      if (typeof applyingSettings !== 'undefined' && applyingSettings) setTimeout(run, 80);
+      else run();
+    }, 280);
+  };
+  if (!$('jar-skin-prev') && !$('jar-skin-next')) return;
+  $('jar-skin-prev') && ($('jar-skin-prev').onclick = () => {
+    apply(JAR_SKINS[(idxOf(localId) - 1 + JAR_SKINS.length) % JAR_SKINS.length].id, true);
+  });
+  $('jar-skin-next') && ($('jar-skin-next').onclick = () => {
+    apply(JAR_SKINS[(idxOf(localId) + 1) % JAR_SKINS.length].id, true);
+  });
+  try {
+    localId = settings?.jarron?.skin || 'classic';
+    syncUi(localId);
+  } catch {}
+  window.__syncJarronSkin = () => {
+    try {
+      if (Date.now() < swapUntil) {
+        if (settings) {
+          if (!settings.jarron) settings.jarron = {};
+          settings.jarron.skin = localId;
+        }
+        syncUi(localId);
+        pushPreviewSkin(localId);
+        return;
+      }
+      localId = settings?.jarron?.skin || 'classic';
+      syncUi(localId);
+    } catch {}
+  };
+})();
+
 /* ---- Modal de configuración (compartido por jarrón y vaquita) ---- */
 let cfgTarget = 'jarron';
 let cfgSizesDraft = [];
@@ -8458,7 +8543,12 @@ function openPotConfig(target) {
     tintEl.dataset.cleared = tint ? '' : '1';
   }
   if ($('jarcfg-tintrainbow')) $('jarcfg-tintrainbow').checked = !!data.tintRainbow;
-  cfgToPreview({ type: 'config', tint: tint || '', tintRainbow: !!data.tintRainbow });
+  cfgToPreview({
+    type: 'config',
+    tint: tint || '',
+    tintRainbow: !!data.tintRainbow,
+    ...(target === 'jarron' ? { skin: data.skin || 'classic' } : {}),
+  });
   cfgSizesDraft = (data.sizes && data.sizes.length)
     ? data.sizes.map((r) => ({ t: Number(r.t) || 0, sz: Number(r.sz) || 32 }))
     : DEFAULT_JAR_SIZES.map((r) => ({ ...r }));
@@ -8691,6 +8781,8 @@ function applyJarronUI() {
   if (normalizeAlcanciaTintDefaults()) {
     try { saveSettings(); } catch {}
   }
+  try { window.__syncJarronSkin?.(); } catch {}
+  try { window.__syncPelotasSkin?.(); } catch {}
   // Empuja tint / arcoíris a las vistas previas (sin tocar otros ajustes).
   for (const [key, cfg] of Object.entries(POT_OVERLAYS)) {
     const tint = String(settings?.[key]?.tint ?? '').trim();
@@ -8699,6 +8791,7 @@ function applyJarronUI() {
       type: 'config',
       tint: tint || '',
       tintRainbow: !!settings?.[key]?.tintRainbow,
+      ...(key === 'jarron' ? { skin: settings?.[key]?.skin || 'classic' } : {}),
     }, '*');
   }
   const t = $('jarcfg-tint');
@@ -8717,15 +8810,20 @@ function applyJarronUI() {
 
   function currentCfg() {
     return {
+      ...(settings.pelotas || {}),
       tint: $('pelcfg-tint').dataset.cleared === '1' ? '' : $('pelcfg-tint').value,
       ballSize: Math.max(20, Math.min(160, parseInt($('pelcfg-size').value, 10) || 64)),
       coinsEnabled: $('pelcfg-coins-on').checked,
       coinsEvery: Math.max(1, parseInt($('pelcfg-coins-every').value, 10) || 100),
       likesEnabled: $('pelcfg-likes-on').checked,
       likesEvery: Math.max(1, parseInt($('pelcfg-likes-every').value, 10) || 100),
+      skin: settings?.pelotas?.skin || 'classic',
     };
   }
-  function pushPreview() { const c = currentCfg(); toPreview({ type: 'config', tint: c.tint, ballSize: c.ballSize }); }
+  function pushPreview() {
+    const c = currentCfg();
+    toPreview({ type: 'config', tint: c.tint, ballSize: c.ballSize, skin: c.skin });
+  }
   function openPelConfig() {
     if (!settings.pelotas) settings.pelotas = {};
     const c = settings.pelotas;
@@ -8746,10 +8844,96 @@ function applyJarronUI() {
   $('pel-config').onclick = openPelConfig;
   $('pelcfg-close').onclick = closePelConfig;
   $('pelConfigModal').addEventListener('click', (e) => { if (e.target.id === 'pelConfigModal') closePelConfig(); });
-  $('pelcfg-tintclear').onclick = () => { $('pelcfg-tint').value = '#7cc8ff'; $('pelcfg-tint').dataset.cleared = '1'; toPreview({ type: 'config', tint: '' }); };
+  $('pelcfg-tintclear').onclick = () => {
+    $('pelcfg-tint').value = '#7cc8ff';
+    $('pelcfg-tint').dataset.cleared = '1';
+    toPreview({ type: 'config', tint: '', skin: settings?.pelotas?.skin || 'classic' });
+  };
   $('pelcfg-tint').oninput = () => { $('pelcfg-tint').dataset.cleared = ''; pushPreview(); };
   $('pelcfg-size').oninput = pushPreview;
   $('pelcfg-save').onclick = () => { settings.pelotas = currentCfg(); saveSettings(); closePelConfig(); };
+})();
+
+(function setupPelotasSkins() {
+  const JAR_SKINS = [
+    { id: 'classic', name: 'Clásico' },
+    { id: 'crown', name: 'Corona' },
+    { id: 'heart', name: 'Corazón' },
+    { id: 'cosmos', name: 'Cosmos' },
+    { id: 'lava', name: 'Lava' },
+    { id: 'cyber', name: 'Cyber' },
+    { id: 'ice', name: 'Hielo' },
+    { id: 'ocean', name: 'Océano' },
+    { id: 'crystal', name: 'Cristal' },
+    { id: 'royal', name: 'Royal' },
+    { id: 'forest', name: 'Bosque' },
+  ];
+  const idxOf = (id) => {
+    const i = JAR_SKINS.findIndex((s) => s.id === id);
+    return i < 0 ? 0 : i;
+  };
+  let localId = 'classic';
+  let swapUntil = 0;
+  let saveTimer = null;
+  const syncUi = (id) => {
+    const skin = JAR_SKINS[idxOf(id)];
+    if ($('pel-skin-name')) $('pel-skin-name').textContent = skin.name;
+    if ($('pel-skin-idx')) $('pel-skin-idx').textContent = `${idxOf(skin.id) + 1} / ${JAR_SKINS.length}`;
+  };
+  const pushPreviewSkin = (skin) => {
+    try { $('pel-preview')?.contentWindow?.postMessage({ kind: 'pelotas', type: 'config', skin }, '*'); } catch {}
+  };
+  const apply = (id, persist) => {
+    const skin = JAR_SKINS[idxOf(id)].id;
+    localId = skin;
+    swapUntil = Date.now() + 1600;
+    if (settings) {
+      if (!settings.pelotas) settings.pelotas = {};
+      settings.pelotas.skin = skin;
+    }
+    syncUi(skin);
+    pushPreviewSkin(skin);
+    if (!persist) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      const run = () => {
+        try {
+          if (typeof saveSettingsKeysPatch === 'function') saveSettingsKeysPatch('pelotas');
+          else saveSettings();
+        } catch {}
+      };
+      if (typeof applyingSettings !== 'undefined' && applyingSettings) setTimeout(run, 80);
+      else run();
+    }, 280);
+  };
+  if (!$('pel-skin-prev') && !$('pel-skin-next')) return;
+  $('pel-skin-prev') && ($('pel-skin-prev').onclick = () => {
+    apply(JAR_SKINS[(idxOf(localId) - 1 + JAR_SKINS.length) % JAR_SKINS.length].id, true);
+  });
+  $('pel-skin-next') && ($('pel-skin-next').onclick = () => {
+    apply(JAR_SKINS[(idxOf(localId) + 1) % JAR_SKINS.length].id, true);
+  });
+  try {
+    localId = settings?.pelotas?.skin || 'classic';
+    syncUi(localId);
+  } catch {}
+  $('pel-preview')?.addEventListener('load', () => pushPreviewSkin(localId));
+  window.__syncPelotasSkin = () => {
+    try {
+      if (Date.now() < swapUntil) {
+        if (settings) {
+          if (!settings.pelotas) settings.pelotas = {};
+          settings.pelotas.skin = localId;
+        }
+        syncUi(localId);
+        pushPreviewSkin(localId);
+        return;
+      }
+      localId = settings?.pelotas?.skin || 'classic';
+      syncUi(localId);
+    } catch {}
+  };
 })();
 
 /* ---- Modal: Configurar Top donador ---- */
@@ -9728,7 +9912,7 @@ function emptyGgmItem() {
 }
 function defaultGiftGoalsCfg() {
   return {
-    layout: 'banda', scale: 67, iconSize: 78, gap: 18, font: 'luckiest',
+    layout: 'banda', scale: 67, iconSize: 78, textSize: 100, gap: 18, font: 'luckiest',
     labelColor: '#ffffff', countColor: '#ffffff',
     barTrack: 'rgba(255,255,255,0.14)',
     bar1: '#22d3ee', bar2: '#e879f9', bar3: '#a855f7',
@@ -9740,6 +9924,7 @@ function currentGgmCfg() {
     layout: $('ggmcfg-layout')?.value || 'banda',
     scale: Math.max(60, Math.min(140, parseInt($('ggmcfg-scale')?.value, 10) || 67)),
     iconSize: Math.max(48, Math.min(140, parseInt($('ggmcfg-iconsize')?.value, 10) || 78)),
+    textSize: Math.max(70, Math.min(200, parseInt($('ggmcfg-textsize')?.value, 10) || 100)),
     gap: Math.max(8, Math.min(40, parseInt($('ggmcfg-gap')?.value, 10) || 18)),
     font: $('ggmcfg-font')?.value || 'luckiest',
     labelColor: $('ggmcfg-label')?.value || '#ffffff',
@@ -9785,6 +9970,11 @@ function openGgmConfig() {
     if ($('ggm-scale-live')) $('ggm-scale-live').textContent = (c.scale != null ? c.scale : 67) + '%';
   }
   if ($('ggmcfg-iconsize')) $('ggmcfg-iconsize').value = c.iconSize || 78;
+  if ($('ggmcfg-textsize')) {
+    const ts = c.textSize != null ? c.textSize : 100;
+    $('ggmcfg-textsize').value = ts;
+    if ($('ggmcfg-textsize-lbl')) $('ggmcfg-textsize-lbl').textContent = ts + '%';
+  }
   if ($('ggmcfg-gap')) $('ggmcfg-gap').value = c.gap || 18;
   if ($('ggmcfg-font')) $('ggmcfg-font').value = CFG_FONTS.some(([v]) => v === c.font) ? c.font : 'luckiest';
   if ($('ggmcfg-banda')) $('ggmcfg-banda').value = c.bandaSec || 22;
@@ -9866,7 +10056,7 @@ function renderGgmRows() {
   pushGiftGoalsPreview(currentGgmCfg());
 }
 
-['ggmcfg-layout', 'ggmcfg-period', 'ggmcfg-scale', 'ggmcfg-iconsize', 'ggmcfg-gap', 'ggmcfg-font', 'ggmcfg-banda',
+['ggmcfg-layout', 'ggmcfg-period', 'ggmcfg-scale', 'ggmcfg-iconsize', 'ggmcfg-textsize', 'ggmcfg-gap', 'ggmcfg-font', 'ggmcfg-banda',
   'ggmcfg-bandavisible', 'ggmcfg-opacity', 'ggmcfg-label', 'ggmcfg-count', 'ggmcfg-bar1', 'ggmcfg-bar2', 'ggmcfg-bar3', 'ggmcfg-showdone'].forEach((id) => {
   const el = $(id);
   if (!el) return;
@@ -9882,6 +10072,9 @@ function renderGgmRows() {
       if ($('ggmcfg-scale-lbl')) $('ggmcfg-scale-lbl').textContent = v + '%';
       if ($('ggm-scale-range')) $('ggm-scale-range').value = v;
       if ($('ggm-scale-live')) $('ggm-scale-live').textContent = v + '%';
+    }
+    if (id === 'ggmcfg-textsize' && $('ggmcfg-textsize-lbl')) {
+      $('ggmcfg-textsize-lbl').textContent = (parseInt(el.value, 10) || 100) + '%';
     }
     pushGiftGoalsPreview(currentGgmCfg());
   };
@@ -10780,6 +10973,135 @@ const STYLE_OVERLAYS = [
   }),
 ];
 
+/* Skins de marco para Batalla de regalos / likes */
+(function setupBatallaSkins() {
+  const ROW_SKINS = [
+    { id: 'classic', name: 'Clásico' },
+    { id: 'crimson', name: 'Carmesí' },
+    { id: 'gold', name: 'Oro' },
+    { id: 'cyber', name: 'Cian' },
+    { id: 'neon', name: 'Neón' },
+  ];
+  const TOP1_SKINS = [
+    { id: 'auto', name: 'Top 1 · Igual' },
+    { id: 'royal', name: 'Top 1 · Royal' },
+    { id: 'frost', name: 'Top 1 · Hielo' },
+    { id: 'majesty', name: 'Top 1 · Majestad' },
+    { id: 'regal', name: 'Top 1 · Regio' },
+    { id: 'empire', name: 'Top 1 · Imperio' },
+    { id: 'sapphire', name: 'Top 1 · Zafiro' },
+  ];
+  const idxOf = (list, id) => {
+    const i = list.findIndex((s) => s.id === id);
+    return i < 0 ? 0 : i;
+  };
+  function wire(opts) {
+    const { settingsKey, kind, previewId, skinPrev, skinNext, skinName, skinIdx, topPrev, topNext, topName, topIdx } = opts;
+    let rowId = 'classic';
+    let topId = 'auto';
+    let holdUntil = 0;
+    let dirty = false;
+    let saveTimer = null;
+    const preview = () => {
+      try {
+        $(previewId)?.contentWindow?.postMessage({ kind, type: 'config', config: { skin: rowId, top1Skin: topId } }, '*');
+      } catch {}
+    };
+    const syncUi = () => {
+      const row = ROW_SKINS[idxOf(ROW_SKINS, rowId)];
+      const top = TOP1_SKINS[idxOf(TOP1_SKINS, topId)];
+      if ($(skinName)) $(skinName).textContent = row.name;
+      if ($(skinIdx)) $(skinIdx).textContent = `${idxOf(ROW_SKINS, row.id) + 1} / ${ROW_SKINS.length}`;
+      if ($(topName)) $(topName).textContent = top.name;
+      if ($(topIdx)) $(topIdx).textContent = `${idxOf(TOP1_SKINS, top.id) + 1} / ${TOP1_SKINS.length}`;
+    };
+    const writeLocal = () => {
+      if (!settings) return;
+      if (!settings[settingsKey] || typeof settings[settingsKey] !== 'object') settings[settingsKey] = {};
+      settings[settingsKey].skin = rowId;
+      settings[settingsKey].top1Skin = topId;
+    };
+    const flushSave = () => {
+      if (typeof applyingSettings !== 'undefined' && applyingSettings) {
+        saveTimer = setTimeout(flushSave, 80);
+        return;
+      }
+      saveTimer = null;
+      try { saveSettingsKeysPatch(settingsKey); } catch { try { saveSettings(); } catch {} }
+    };
+    const persist = () => {
+      dirty = true;
+      holdUntil = Date.now() + 4000;
+      writeLocal();
+      syncUi();
+      preview();
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(flushSave, 50);
+    };
+    const applyRow = (id, save) => {
+      rowId = ROW_SKINS[idxOf(ROW_SKINS, id)].id;
+      if (save) persist(); else { writeLocal(); syncUi(); preview(); }
+    };
+    const applyTop = (id, save) => {
+      topId = TOP1_SKINS[idxOf(TOP1_SKINS, id)].id;
+      if (save) persist(); else { writeLocal(); syncUi(); preview(); }
+    };
+    const bindStep = (id, fn) => {
+      const el = $(id);
+      if (!el) return;
+      let last = 0;
+      const go = (e) => {
+        e.preventDefault();
+        const now = Date.now();
+        if (now - last < 90) return;
+        last = now;
+        fn();
+      };
+      el.onpointerdown = go;
+      el.onclick = go;
+    };
+    bindStep(skinPrev, () => applyRow(ROW_SKINS[(idxOf(ROW_SKINS, rowId) - 1 + ROW_SKINS.length) % ROW_SKINS.length].id, true));
+    bindStep(skinNext, () => applyRow(ROW_SKINS[(idxOf(ROW_SKINS, rowId) + 1) % ROW_SKINS.length].id, true));
+    bindStep(topPrev, () => applyTop(TOP1_SKINS[(idxOf(TOP1_SKINS, topId) - 1 + TOP1_SKINS.length) % TOP1_SKINS.length].id, true));
+    bindStep(topNext, () => applyTop(TOP1_SKINS[(idxOf(TOP1_SKINS, topId) + 1) % TOP1_SKINS.length].id, true));
+    const syncFromSettings = () => {
+      try {
+        const incomingS = settings?.[settingsKey]?.skin || 'classic';
+        const incomingT = settings?.[settingsKey]?.top1Skin || 'auto';
+        if (dirty && Date.now() < holdUntil) {
+          writeLocal();
+          syncUi();
+          preview();
+          if (incomingS === rowId && incomingT === topId) dirty = false;
+          return;
+        }
+        dirty = false;
+        rowId = incomingS;
+        topId = incomingT;
+        if (!ROW_SKINS.some((s) => s.id === rowId)) rowId = 'classic';
+        if (!TOP1_SKINS.some((s) => s.id === topId)) topId = 'auto';
+        syncUi();
+      } catch {}
+    };
+    try {
+      rowId = settings?.[settingsKey]?.skin || 'classic';
+      topId = settings?.[settingsKey]?.top1Skin || 'auto';
+      syncUi();
+    } catch {}
+    return syncFromSettings;
+  }
+  const syncGifts = wire({
+    settingsKey: 'batallaGifts', kind: 'batgifts', previewId: 'bgf-preview',
+    skinPrev: 'bgf-skin-prev', skinNext: 'bgf-skin-next', skinName: 'bgf-skin-name', skinIdx: 'bgf-skin-idx',
+    topPrev: 'bgf-top1-prev', topNext: 'bgf-top1-next', topName: 'bgf-top1-name', topIdx: 'bgf-top1-idx',
+  });
+  const syncLikes = wire({
+    settingsKey: 'batallaLikes', kind: 'batlikes', previewId: 'bli-preview',
+    skinPrev: 'bli-skin-prev', skinNext: 'bli-skin-next', skinName: 'bli-skin-name', skinIdx: 'bli-skin-idx',
+    topPrev: 'bli-top1-prev', topNext: 'bli-top1-next', topName: 'bli-top1-name', topIdx: 'bli-top1-idx',
+  });
+  window.__syncBatallaSkins = () => { try { syncGifts(); } catch {} try { syncLikes(); } catch {} };
+})();
 
 /* Pelota de regalos (Batalla Overlay · 1080×1920) */
 (function setupBatallaGiftBall() {
@@ -11052,7 +11374,7 @@ const STYLE_OVERLAYS = [
   const frame = () => $('bcb-preview');
   const modal = () => $('bcbConfigModal');
   const ensure = () => {
-    if (!settings || typeof settings !== 'object') return { goals: DEFAULT_GOALS.slice(), skin: 'classic', fillColor: '#22c55e', fillRainbow: true, labelDir: 'h', orient: 'v', frameColor: '#38bdf8', frameTint: false, resetPeriod: 'battle' };
+    if (!settings || typeof settings !== 'object') return { goals: DEFAULT_GOALS.slice(), skin: 'classic', fillColor: '#22c55e', fillRainbow: true, labelDir: 'h', orient: 'v', frameColor: '#38bdf8', frameTint: false, resetPeriod: 'battle', textSize: 100, numSize: 100 };
     if (!settings.batallaCoinBar) settings.batallaCoinBar = {};
     return settings.batallaCoinBar;
   };
@@ -11136,6 +11458,8 @@ const STYLE_OVERLAYS = [
     source: readSource(),
     resetPeriod: readPeriod(),
     scale: Math.max(40, Math.min(140, parseInt($('bcbcfg-scale')?.value, 10) || 100)),
+    textSize: Math.max(70, Math.min(200, parseInt($('bcbcfg-textsize')?.value, 10) || 100)),
+    numSize: Math.max(70, Math.min(200, parseInt($('bcbcfg-numsize')?.value, 10) || 100)),
     goals: normGoals(draft),
     skin: readSkinUI(),
     fillColor: $('bcbcfg-color')?.value || '#22c55e',
@@ -11213,7 +11537,7 @@ const STYLE_OVERLAYS = [
     modal()?.classList.remove('hidden');
     const fill = () => {
       try {
-        const c = { source: 'battle', resetPeriod: 'battle', scale: 100, skin: 'classic', fillColor: '#22c55e', fillRainbow: true, labelDir: 'h', orient: 'v', frameColor: '#38bdf8', frameTint: false, ...ensure() };
+        const c = { source: 'battle', resetPeriod: 'battle', scale: 100, textSize: 100, numSize: 100, skin: 'classic', fillColor: '#22c55e', fillRainbow: true, labelDir: 'h', orient: 'v', frameColor: '#38bdf8', frameTint: false, ...ensure() };
         draft = normGoals(c.goals);
         setSourceUI(c.source);
         setPeriodUI(c.resetPeriod);
@@ -11230,6 +11554,16 @@ const STYLE_OVERLAYS = [
         if ($('bcbcfg-scale')) {
           $('bcbcfg-scale').value = String(c.scale || 100);
           if ($('bcbcfg-scale-lbl')) $('bcbcfg-scale-lbl').textContent = (c.scale || 100) + '%';
+        }
+        const ts = c.textSize != null ? c.textSize : 100;
+        const ns = c.numSize != null ? c.numSize : 100;
+        if ($('bcbcfg-textsize')) {
+          $('bcbcfg-textsize').value = String(ts);
+          if ($('bcbcfg-textsize-lbl')) $('bcbcfg-textsize-lbl').textContent = ts + '%';
+        }
+        if ($('bcbcfg-numsize')) {
+          $('bcbcfg-numsize').value = String(ns);
+          if ($('bcbcfg-numsize-lbl')) $('bcbcfg-numsize-lbl').textContent = ns + '%';
         }
         renderRows();
       } catch {}
@@ -11321,6 +11655,16 @@ const STYLE_OVERLAYS = [
   $('bcbcfg-scale')?.addEventListener('input', () => {
     if ($('bcbcfg-scale-lbl')) $('bcbcfg-scale-lbl').textContent = ($('bcbcfg-scale').value || 100) + '%';
   });
+  const bindBcbSizeSlider = (id, lbl, key) => {
+    $(id)?.addEventListener('input', () => {
+      const v = Math.max(70, Math.min(200, parseInt($(id).value, 10) || 100));
+      if ($(lbl)) $(lbl).textContent = v + '%';
+      pushLook({ [key]: v });
+    });
+    $(id)?.addEventListener('change', () => { try { saveSettings(); } catch {} });
+  };
+  bindBcbSizeSlider('bcbcfg-textsize', 'bcbcfg-textsize-lbl', 'textSize');
+  bindBcbSizeSlider('bcbcfg-numsize', 'bcbcfg-numsize-lbl', 'numSize');
   $('bcbcfg-rainbow')?.addEventListener('change', () => {
     syncRainbowUI();
     pushLook({ fillRainbow: !!$('bcbcfg-rainbow').checked });
@@ -11359,6 +11703,207 @@ const STYLE_OVERLAYS = [
 })();
 
 try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__patchBatallaVsStylePreview(); } catch {}
+
+(function setupHabibiManualAdd() {
+  function parseUser(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    const m = s.match(/tiktok\.com\/@([^/?#]+)/i);
+    if (m) return decodeURIComponent(m[1]).replace(/^@+/, '').trim();
+    return s.replace(/^@+/, '').split(/[/?#]/)[0].trim();
+  }
+  function parseDiamonds(raw) {
+    let s = String(raw || '').trim().toLowerCase().replace(/\s/g, '');
+    if (!s) return 0;
+    const m = s.match(/^([\d.,]+)(k|m)?$/);
+    if (!m) return Math.max(0, parseInt(s.replace(/[^\d]/g, ''), 10) || 0);
+    if (m[2]) {
+      let n = parseFloat(m[1].replace(',', '.'));
+      if (!Number.isFinite(n)) return 0;
+      if (m[2] === 'k') n *= 1000;
+      if (m[2] === 'm') n *= 1e6;
+      return Math.max(0, Math.round(n));
+    }
+    return Math.max(0, parseInt(m[1].replace(/[.,]/g, ''), 10) || 0);
+  }
+  function setStatus(el, text) { if (el) el.textContent = text || ''; }
+  function setPic(el, url) {
+    if (!el) return;
+    if (url) { el.src = url; el.hidden = false; }
+    else { el.removeAttribute('src'); el.hidden = true; }
+  }
+  function pushPreview(top) {
+    const fr = $('habi-preview');
+    const sendMsg = () => {
+      try {
+        fr?.contentWindow?.postMessage({
+          kind: 'habibitop',
+          type: 'showTop',
+          top: {
+            uniqueId: top.uniqueId,
+            nickname: top.nickname,
+            profilePictureUrl: top.photo || '',
+            profilePictureUrl: top.photo || '',
+            photo: top.photo || '',
+            coins: top.coins,
+          },
+        }, '*');
+      } catch {}
+    };
+    if (typeof ensureEmbedLoaded === 'function') {
+      ensureEmbedLoaded(fr).then(sendMsg).catch(sendMsg);
+    } else sendMsg();
+  }
+  async function lookup(user) {
+    try {
+      const r = await fetch('/api/tiktok-profile?' + new URLSearchParams({ url: user }));
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) return { error: data.error || 'No se encontró el perfil' };
+      return data;
+    } catch {
+      return { error: 'No se pudo buscar el perfil' };
+    }
+  }
+  function bindForm(ids) {
+    const userEl = $(ids.user);
+    const coinsEl = $(ids.coins);
+    const applyBtn = $(ids.apply);
+    const picEl = $(ids.pic);
+    const statusEl = $(ids.status);
+    if (!userEl || !applyBtn) return;
+    let last = null;
+    async function resolveProfile() {
+      const uniqueId = parseUser(userEl.value);
+      if (!uniqueId) { last = null; setPic(picEl, ''); return null; }
+      setStatus(statusEl, 'Buscando foto…');
+      applyBtn.disabled = true;
+      const prof = await lookup(uniqueId);
+      applyBtn.disabled = false;
+      if (prof?.error) {
+        last = { username: uniqueId, nickname: uniqueId, avatar: '' };
+        setPic(picEl, '');
+        setStatus(statusEl, 'Sin foto. Se pondrá el @ igual.');
+        return last;
+      }
+      last = prof;
+      setPic(picEl, prof.avatar || '');
+      setStatus(statusEl, '@' + (prof.username || uniqueId));
+      return last;
+    }
+    userEl.addEventListener('change', () => { resolveProfile(); });
+    async function apply() {
+      const uniqueId = parseUser(userEl.value);
+      if (!uniqueId) { toast('Pon un @ de TikTok', 'warn'); return; }
+      const coins = parseDiamonds(coinsEl?.value);
+      const prof = last && String(last.username || '').toLowerCase() === uniqueId.toLowerCase()
+        ? last
+        : await resolveProfile();
+      const nickname = prof?.nickname || uniqueId;
+      const photo = prof?.avatar || '';
+      const uid = prof?.username || uniqueId;
+      send({
+        action: 'setHabibiTopManual',
+        uniqueId: uid,
+        nickname,
+        photo,
+        coins,
+      });
+      pushPreview({ uniqueId: uid, nickname, photo, coins });
+      toast('Habibi: @' + uid + ' · ' + coins.toLocaleString('es-ES') + ' diamantes');
+      setStatus(statusEl, 'En overlay. Si alguien manda más, lo reemplaza.');
+    }
+    applyBtn.onclick = apply;
+    userEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+    coinsEl?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+  }
+  bindForm({ user: 'habi-user', coins: 'habi-coins', apply: 'habi-apply', pic: 'habi-pic', status: 'habi-status' });
+  bindForm({ user: 'habicfg-user', coins: 'habicfg-coins', apply: 'habicfg-apply', pic: 'habicfg-pic', status: 'habicfg-status' });
+})();
+
+(function setupHabibiDesigns() {
+  const DESIGNS = [
+    { id: '1', name: 'Gatito héroe' },
+    { id: '2', name: 'Corona real' },
+    { id: '3', name: 'Gato místico' },
+    { id: '4', name: 'Gato celestial' },
+    { id: '5', name: 'Lobo eléctrico' },
+  ];
+  const idxOf = (id) => {
+    const i = DESIGNS.findIndex((d) => d.id === String(id));
+    return i < 0 ? 0 : i;
+  };
+  let localId = '1';
+  let holdUntil = 0;
+  let saveTimer = 0;
+  const syncUi = (id) => {
+    const d = DESIGNS[idxOf(id)];
+    if ($('habi-design-name')) $('habi-design-name').textContent = d.name;
+    if ($('habi-design-idx')) $('habi-design-idx').textContent = `${idxOf(d.id) + 1} / ${DESIGNS.length}`;
+    if ($('habicfg-design') && $('habicfg-design').value !== d.id) $('habicfg-design').value = d.id;
+  };
+  const pushPreview = () => {
+    const cfg = { ...(settings?.habibiTop || {}), design: localId };
+    const fr = $('habi-preview');
+    const sendMsg = () => {
+      try { fr?.contentWindow?.postMessage({ kind: 'habibitop', type: 'config', config: cfg }, '*'); } catch {}
+    };
+    if (typeof ensureEmbedLoaded === 'function') {
+      ensureEmbedLoaded(fr).then(sendMsg).catch(sendMsg);
+    } else sendMsg();
+  };
+  const apply = (id, persist) => {
+    const d = DESIGNS[idxOf(id)];
+    localId = d.id;
+    holdUntil = Date.now() + 2500;
+    if (!settings.habibiTop) settings.habibiTop = {};
+    settings.habibiTop.design = localId;
+    syncUi(localId);
+    pushPreview();
+    if (!persist) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = 0;
+      const run = () => {
+        try {
+          if (typeof saveSettingsKeysPatch === 'function') saveSettingsKeysPatch('habibiTop');
+          else if (typeof saveSettings === 'function') saveSettings();
+        } catch {}
+      };
+      if (typeof applyingSettings !== 'undefined' && applyingSettings) setTimeout(run, 80);
+      else run();
+    }, 180);
+  };
+  if ($('habi-design-prev')) $('habi-design-prev').onclick = () => {
+    apply(DESIGNS[(idxOf(localId) - 1 + DESIGNS.length) % DESIGNS.length].id, true);
+  };
+  if ($('habi-design-next')) $('habi-design-next').onclick = () => {
+    apply(DESIGNS[(idxOf(localId) + 1) % DESIGNS.length].id, true);
+  };
+  if ($('habicfg-design')) {
+    $('habicfg-design').addEventListener('change', () => apply($('habicfg-design').value, true));
+  }
+  try {
+    localId = String(settings?.habibiTop?.design || '1');
+    if (!DESIGNS.some((d) => d.id === localId)) localId = '1';
+    syncUi(localId);
+  } catch {}
+  window.__syncHabibiDesign = () => {
+    try {
+      if (Date.now() < holdUntil) {
+        if (settings) {
+          if (!settings.habibiTop) settings.habibiTop = {};
+          settings.habibiTop.design = localId;
+        }
+        syncUi(localId);
+        pushPreview();
+        return;
+      }
+      localId = String(settings?.habibiTop?.design || '1');
+      if (!DESIGNS.some((d) => d.id === localId)) localId = '1';
+      syncUi(localId);
+    } catch {}
+  };
+})();
 
 // Contador de meta: regalo / meta / valor viven en el modal Configurar.
 (function setupGiftCounterCard() {
@@ -11541,6 +12086,7 @@ function refreshGiftCounterCardUI() {
 })();
 
 function pushStyleOverlayPreviews() {
+  try { window.__syncBatallaSkins?.(); } catch {}
   STYLE_OVERLAYS.forEach((o) => { if (o._push) o._push(); });
 }
 initModalDrag();

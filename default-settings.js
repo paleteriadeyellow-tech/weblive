@@ -145,6 +145,7 @@ export const DEFAULT_SETTINGS = {
   jarron: {
     tint: '', // color del cristal (vacío = transparente/normal)
     tintRainbow: false, // arcoíris animado en el cristal
+    skin: 'classic', // classic | crown | heart | cosmos | lava | cyber | ice | ocean | crystal | royal | forest
     topBarEnabled: true, // barra rotativa TOP DONATOR encima del contador
     topBarLimit: 3, // hasta qué top mostrar (1–10)
     topBarColor: '#161820',
@@ -226,6 +227,7 @@ export const DEFAULT_SETTINGS = {
   // alcanzar cierta cantidad de monedas y/o likes (acumulado por usuario).
   pelotas: {
     tint: '',
+    skin: 'classic',
     ballSize: 64,
     coinsEnabled: true,
     coinsEvery: 100,
@@ -376,6 +378,8 @@ export const DEFAULT_SETTINGS = {
     source: 'battle',
     resetPeriod: 'battle',
     scale: 100,
+    textSize: 100,
+    numSize: 100,
     goals: [
       { t: 500, label: '' },
       { t: 2000, label: '' },
@@ -662,6 +666,7 @@ export const DEFAULT_SETTINGS = {
     layout: 'banda',
     scale: 67,
     iconSize: 78,
+    textSize: 100,
     gap: 18,
     font: 'luckiest',
     labelColor: '#ffffff',
@@ -772,6 +777,7 @@ export const DEFAULT_SETTINGS = {
     valueColor: '#fde68a', coinColor: '#ffd700', bgOpacity: 45, vsStyle: 2,
     vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter',
     cardBg: '#16262e', cardBorder: '#94a3b8',
+    skin: 'classic', top1Skin: 'auto',
   },
   // Overlay Batalla de likes (ranking por likes)
   batallaLikes: {
@@ -779,6 +785,7 @@ export const DEFAULT_SETTINGS = {
     valueColor: '#fecaca', likesIcon: '❤️', bgOpacity: 45, vsStyle: 2,
     vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter',
     cardBg: '#16262e', cardBorder: '#94a3b8',
+    skin: 'classic', top1Skin: 'auto',
   },
   // Overlay Coin Match (partido cronometrado con podio)
   coinMatch: {
