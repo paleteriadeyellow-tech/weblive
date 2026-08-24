@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overlay — YouTube Song Requests</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
+    html.embed, html.embed body { width: 100%; height: 100%; box-sizing: border-box; }
+    html.embed body { display: flex; align-items: flex-end; justify-content: flex-start; padding: 10px 12px; }
+    .yt-wrap { width: 420px; max-width: 100%; }
+    html.embed .yt-wrap { width: 100%; max-width: none; }
+    .yt-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(20,8,8,.88), rgba(8,8,12,.9));
+      border: 1px solid rgba(255,60,60,.35);
+      box-shadow: 0 10px 28px rgba(0,0,0,.35);
+      color: #fff;
+    }
+    .yt-art { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; background: #2a0c0c; flex: none; }
+    .yt-meta { min-width: 0; flex: 1; }
+    .yt-kicker { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #ff6b6b; font-weight: 800; }
+    .yt-title { font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .yt-sub { font-size: 12px; color: #c9c9d4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .yt-progress { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: #c9c9d4; font-variant-numeric: tabular-nums; }
+    .yt-bar { flex: 1; height: 6px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+    .yt-bar i { display: block; height: 100%; width: 0; background: #ff3b3b; border-radius: 99px; }
+    .yt-idle { opacity: .55; }
+    audio { display: none; }
+  </style>
+</head>
+<body>
+  <div class="yt-wrap">
+    <div class="yt-card" id="yt-card">
+      <img class="yt-art" id="yt-art" alt="" />
+      <div class="yt-meta">
+        <div class="yt-kicker">YouTube · ahora suena</div>
+        <div class="yt-title" id="yt-title">Esperando canción…</div>
+        <div class="yt-sub" id="yt-sub">Pide con !yt nombre de la canción</div>
+        <div class="yt-progress">
+          <span id="yt-t0">0:00</span>
+          <div class="yt-bar"><i id="yt-bar-fill"></i></div>
+          <span id="yt-t1">0:00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <audio id="player" autoplay></audio>
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const isEmbed = params.get('embed') === '1';
+      if (isEmbed) document.documentElement.classList.add('embed');
+      const player = document.getElementById('player');
+      const titleEl = document.getElementById('yt-title');
+      const subEl = document.getElementById('yt-sub');
+      const artEl = document.getElementById('yt-art');
+      const card = document.getElementById('yt-card');
+      let currentId = '';
+      let durationSec = 0;
+      let streamFails = 0;
+      let ws, rt;
+
+      function fmtTime(s) {
+        s = Math.max(0, Math.floor(Number(s) || 0));
+        return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      }
+
+      function paintProgress() {
+        const fill = document.getElementById('yt-bar-fill');
+        const t0 = document.getElementById('yt-t0');
+        const t1 = document.getElementById('yt-t1');
+        const durA = Number.isFinite(player.duration) && player.duration > 0 ? player.duration : 0;
+        const dur = durA || durationSec || 0;
+        const cur = Number.isFinite(player.currentTime) ? player.currentTime : 0;
+        if (t0) t0.textContent = fmtTime(cur);
+        if (t1) t1.textContent = fmtTime(dur);
+        if (fill) fill.style.width = (dur > 0 ? Math.min(100, (cur / dur) * 100) : 0) + '%';
+      }
+
+      function streamUrl(id) {
+        return '/api/youtube/stream?videoId=' + encodeURIComponent(id) + location.search.replace(/^\?/, '&');
+      }
+
+      function paint(track) {
+        if (!track || !track.videoId) {
+          currentId = '';
+          titleEl.textContent = isEmbed ? 'Never Gonna Give You Up' : 'Esperando canción…';
+          subEl.textContent = isEmbed ? 'Rick Astley · demo' : 'Pide con !yt nombre de la canción';
+          artEl.removeAttribute('src');
+          card.classList.toggle('yt-idle', !isEmbed);
+          if (!isEmbed) { try { player.pause(); player.removeAttribute('src'); } catch {} }
+          return;
+        }
+        card.classList.remove('yt-idle');
+        titleEl.textContent = track.title || 'Canción';
+        subEl.textContent = [track.author, track.requestedBy ? 'pedida por ' + track.requestedBy : ''].filter(Boolean).join(' · ');
+        if (track.thumb) artEl.src = track.thumb;
+        durationSec = Number(track.durationSec) || 0;
+        if (track.videoId === currentId) return;
+        currentId = track.videoId;
+        if (isEmbed) return;
+        streamFails = 0;
+        player.src = streamUrl(track.videoId);
+        const play = player.play();
+        if (play && play.catch) play.catch(() => {});
+        paintProgress();
+      }
+
+      function sendEnded() {
+        if (!ws || ws.readyState !== 1 || !currentId) return;
+        try { ws.send(JSON.stringify({ action: 'youtubeEnded', videoId: currentId })); } catch {}
+      }
+      player.addEventListener('ended', sendEnded);
+      player.addEventListener('timeupdate', paintProgress);
+      player.addEventListener('loadedmetadata', paintProgress);
+      player.addEventListener('error', () => {
+        if (isEmbed || !currentId) return;
+        streamFails += 1;
+        if (streamFails < 2) {
+          setTimeout(() => { try { player.play()?.catch(() => {}); } catch {} }, 400);
+          return;
+        }
+        setTimeout(sendEnded, 400);
+      });
+      player.addEventListener('playing', () => { streamFails = 0; });
+
+      function connect() {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+        ws.onopen = () => clearTimeout(rt);
+        ws.onclose = () => { rt = setTimeout(connect, 1500); };
+        ws.onmessage = (ev) => {
+          let m; try { m = JSON.parse(ev.data); } catch { return; }
+          if (m.type === 'youtubeState') paint(m.payload && m.payload.now);
+        };
+      }
+      if (isEmbed) paint({ videoId: 'demo', title: 'Never Gonna Give You Up', author: 'Rick Astley', requestedBy: 'Demo' });
+      connect();
+    })();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>
