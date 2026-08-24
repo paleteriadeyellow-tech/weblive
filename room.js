@@ -494,6 +494,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const WEEKLY_FILE = path.join(dataDir, 'weekly.json');
   const TOP1FIRE_FILE = path.join(dataDir, 'top1fire.json');
   const HABIBI_TOP_FILE = path.join(dataDir, 'habibi-top.json');
+  const HABIBI_MANUAL_FILE = path.join(dataDir, 'habibi-manual.json');
   const GIFTGOALS_FILE = path.join(dataDir, 'gift-goals.json');
   const COINBAR_FILE = path.join(dataDir, 'batalla-coinbar.json');
   const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
@@ -3039,6 +3040,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     top1fireSession.clear();
     habibiTopSession.clear();
     if (getHabibiTopPeriod() === 'live') habibiTopSnapshot = null;
+    seedHabibiManual();
     fanCoinAcc.clear();
     fanLikeAcc.clear();
     gameLikeAcc.clear();
@@ -3052,7 +3054,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function loadSessionOverlays() {
     const raw = readJsonSafe(SESSION_OVERLAYS_FILE).data;
-    if (!canRestoreSessionOverlays(raw)) return;
+    if (!canRestoreSessionOverlays(raw)) {
+      seedHabibiManual();
+      return;
+    }
     giftCounter.count = Math.max(0, Number(raw.giftCounter?.count) || 0);
     if (getGiftGoalsPeriod() === 'live') {
       clearGiftGoalsState();
@@ -3115,6 +3120,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     sessionOv.batallaGifts = (raw.batallaGifts && typeof raw.batallaGifts === 'object') ? raw.batallaGifts : {};
     sessionOv.batallaLikes = (raw.batallaLikes && typeof raw.batallaLikes === 'object') ? raw.batallaLikes : {};
     sessionOv.hype = raw.hype || { score: 0, target: 100, coinTotal: 0 };
+    seedHabibiManual();
   }
   function serializeSessionOverlaysPayload() {
     return {
@@ -8444,7 +8450,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     persistHabibiTop();
   }
   function readHabibiManual() {
-    const m = settings.habibiTop && settings.habibiTop.manual;
+    const fromSettings = parseHabibiManualRecord(settings.habibiTop && settings.habibiTop.manual);
+    if (fromSettings) return fromSettings;
+    return parseHabibiManualRecord(readJsonSafe(HABIBI_MANUAL_FILE).data);
+  }
+  function parseHabibiManualRecord(m) {
     if (!m || typeof m !== 'object') return null;
     const uniqueId = String(m.uniqueId || '').replace(/^@+/, '').trim();
     if (!uniqueId) return null;
@@ -8458,22 +8468,29 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function writeHabibiManual(entry) {
     if (!settings.habibiTop || typeof settings.habibiTop !== 'object') settings.habibiTop = {};
     if (!entry?.uniqueId) {
+      try { fs.unlinkSync(HABIBI_MANUAL_FILE); } catch {}
       if (settings.habibiTop.manual == null) return;
       delete settings.habibiTop.manual;
       saveSettingsNow();
+      if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
       return;
     }
-    settings.habibiTop.manual = {
+    const rec = {
       uniqueId: entry.uniqueId,
       nickname: entry.nickname || entry.uniqueId,
       photo: habibiDonorPhoto(entry) || '',
       coins: Math.max(0, Math.floor(Number(entry.coins) || 0)),
     };
+    settings.habibiTop.manual = rec;
+    try { writeJsonAtomic(HABIBI_MANUAL_FILE, rec); } catch {}
     saveSettingsNow();
+    if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
   }
   function seedHabibiManual() {
     const seed = readHabibiManual();
     if (!seed) return false;
+    if (!settings.habibiTop || typeof settings.habibiTop !== 'object') settings.habibiTop = {};
+    if (!settings.habibiTop.manual) settings.habibiTop.manual = seed;
     const map = habibiDonorStore();
     const key = findHabibiDonorKey(seed.uniqueId);
     const prev = map.get(key);

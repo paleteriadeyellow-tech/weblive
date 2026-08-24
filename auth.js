@@ -64,6 +64,7 @@ let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
     // antiguas que quedaron pendientes; después el admin puede desactivar y persiste.
     if (!u.activatedByDefault) { u.active = true; u.activatedByDefault = true; changed = true; }
   }
+  if (assignMissingAccountNos()) changed = true;
   if (changed) saveUsers();
 })();
 
@@ -94,6 +95,34 @@ function saveSessions() {
   } catch (e) {
     try { console.error('[auth] No se pudo guardar sessions.json:', e && e.message); } catch {}
   }
+}
+
+/** Número de cuenta: #1 = la primera creada. No se reutiliza al borrar. */
+function nextAccountNo() {
+  let max = 0;
+  for (const u of users) {
+    const n = Number(u?.n) || 0;
+    if (n > max) max = n;
+  }
+  return max + 1;
+}
+function assignMissingAccountNos() {
+  const missing = users.filter((u) => !(Number(u?.n) > 0));
+  if (!missing.length) return false;
+  missing.sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0)
+    || String(a.username || '').localeCompare(String(b.username || '')));
+  const taken = new Set(users.map((u) => Number(u?.n) || 0).filter((n) => n > 0));
+  let next = 1;
+  for (const u of missing) {
+    while (taken.has(next)) next += 1;
+    u.n = next;
+    taken.add(next);
+    next += 1;
+  }
+  return true;
+}
+export function getAccountNo(user) {
+  return Number(user?.n) || 0;
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
@@ -145,6 +174,7 @@ export function listUsersDetailed() {
     badgeStats: { ...emptyBadgeStats(), ...(u.badgeStats || {}) },
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
+    n: Number(u.n) || 0,
   }));
 }
 export function isUserActive(user) {
@@ -554,6 +584,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
       gamesEnabled: true,
       spotifyEnabled: false,
       mirror: true,
+      n: nextAccountNo(),
     };
     users.push(user);
   } else {
@@ -707,6 +738,7 @@ export function registerUser(username, password, opts = {}) {
     premiumUntil: 0,
     gamesEnabled: true,
       spotifyEnabled: false,
+    n: nextAccountNo(),
   };
   if (mail) {
     user.email = mail;
@@ -765,6 +797,7 @@ export function findOrCreateGoogleUser({ email, name } = {}) {
     premiumUntil: 0,
     gamesEnabled: true,
       spotifyEnabled: false,
+    n: nextAccountNo(),
   };
   users.push(user);
   saveUsers();
@@ -797,6 +830,7 @@ export function upsertMirrorGoogleUser({ username, googleEmail, plan, isAdmin, a
       gamesEnabled: true,
       spotifyEnabled: false,
       mirror: true,
+      n: nextAccountNo(),
     };
     users.push(user);
   } else {

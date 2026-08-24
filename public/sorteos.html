@@ -616,6 +616,8 @@
     let slotSeq = 0;
     /** Progreso local de rachas: para pintar al instante aunque falte repeatDelta. */
     const streakProg = new Map();
+    /** Evita aplicar 2 veces el mismo paquete TikTok (cierre de racha / WS duplicado). */
+    const recentGiftApply = new Map();
     let phase = 'waiting'; // waiting | entry | initial | elim | spinning | winner
     let entriesLocked = false;
     let coinsInPlay = 0;
@@ -1227,22 +1229,62 @@
       if (fitFn) fitFn();
     }
 
+    function pruneGiftApplyMap(now) {
+      if (recentGiftApply.size <= 80) return;
+      for (const [k, t] of recentGiftApply) {
+        if (now - t > 3000) recentGiftApply.delete(k);
+      }
+    }
+
+    /** true = ya se aplicó este regalo (no sumar otra vez). */
+    function giftAlreadyApplied(d) {
+      const uid = String(d.uniqueId || d.nickname || '');
+      const gid = String(d.giftId || d.giftName || '');
+      const rep = Math.max(0, Number(d.repeatCount) || 0);
+      const now = Date.now();
+      const exact = 'e:' + uid + '|' + gid + '|' + rep + '|' + (d.repeatEnd ? 1 : 0) + '|' + (d.streak ? 1 : 0) + '|' + (Number(d.repeatDelta) || 0);
+      const prevExact = recentGiftApply.get(exact);
+      if (prevExact && now - prevExact < 800) return true;
+      recentGiftApply.set(exact, now);
+      // Regalo sin racha: TikTok a veces manda el mismo envío 2 veces (o tick + repeatEnd).
+      if (!d.streakGift && !d.streak) {
+        const lump = 'n:' + uid + '|' + gid + '|' + rep;
+        const prevLump = recentGiftApply.get(lump);
+        if (prevLump && now - prevLump < 1200) return true;
+        recentGiftApply.set(lump, now);
+      }
+      pruneGiftApplyMap(now);
+      return false;
+    }
+
     function unitsFromGift(d) {
       const key = String(d.uniqueId || d.nickname || '') + ':' + String(d.giftId || '');
       const rep = Math.max(0, Number(d.repeatCount) || 0);
-      const streaky = !!(d.streakGift || d.streak);
+      const hadProg = streakProg.has(key);
+      // Si ya veníamos contando esta racha, el cierre cuenta aunque TikTok no mande streakGift.
+      const streaky = !!(d.streakGift || d.streak || hadProg);
 
       if (streaky) {
         const prev = streakProg.get(key) || 0;
-        let delta = Number(d.repeatDelta);
-        if (!Number.isFinite(delta) || delta < 0) delta = 0;
-        if (delta <= 0) delta = Math.max(0, rep - prev);
+        let delta;
+        if (prev > 0) {
+          // Ya sumamos los ticks: no volver a aplicar el total (30 → 60).
+          delta = Math.max(0, rep - prev);
+        } else {
+          delta = Number(d.repeatDelta);
+          if (!Number.isFinite(delta) || delta < 0) delta = 0;
+          if (delta <= 0) delta = Math.max(0, rep - prev);
+          if (delta <= 0 && !d.repeatEnd) delta = Math.max(1, Number(d.repeatCount) || 1);
+        }
         if (delta > 0) streakProg.set(key, Math.max(prev + delta, rep));
-        if (d.repeatEnd || d.streak === false) streakProg.delete(key);
+        if (d.repeatEnd || (hadProg && !d.streak)) streakProg.delete(key);
         return delta;
       }
 
+      const rd = Number(d.repeatDelta);
+      if (Number.isFinite(rd) && rd <= 0) return 0;
       streakProg.delete(key);
+      if (Number.isFinite(rd) && rd > 0) return rd;
       return Math.max(1, Number(d.repeatCount) || 1);
     }
 
@@ -1323,6 +1365,7 @@
     function applyDonation(d) {
       if (phase === 'winner') return;
       if (!d) return;
+      if (giftAlreadyApplied(d)) return;
 
       const diamondsEach = Number(d.diamonds) || 0;
       if (diamondsEach <= 0) return;
@@ -1673,6 +1716,7 @@
       lifeSlots = [];
       slotSeq = 0;
       streakProg.clear();
+      recentGiftApply.clear();
       phase = 'waiting';
       entriesLocked = false;
       coinsInPlay = 0;

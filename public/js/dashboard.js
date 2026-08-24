@@ -1343,7 +1343,7 @@ function roomUrl(path) {
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
   let url = base + p;
   if (k) url += (p.includes('?') ? '&' : '?') + 'room=' + encodeURIComponent(k);
-  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=19';
+  if (/\/habibi-top\.html/.test(p)) url += (url.includes('?') ? '&' : '?') + 'v=20';
   return url;
 }
 
@@ -3572,6 +3572,14 @@ function toggleAnnPop(open) {
   };
   openDiscord(document.getElementById('btnDiscordJoin'));
   openDiscord(document.getElementById('homeDiscordJoin'));
+  document.querySelectorAll('#homeAgencySf, #homeAgencyTree').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      const url = el.getAttribute('href');
+      if (!url) return;
+      e.preventDefault();
+      openExternalLink(url);
+    });
+  });
 
   const widgetsModal = document.getElementById('homeWidgetsModal');
   const winsWidgetsModal = document.getElementById('homeWinsWidgetsModal');
@@ -3596,6 +3604,19 @@ function toggleAnnPop(open) {
     winsWidgetsModal.setAttribute('aria-hidden', 'true');
   };
   document.getElementById('homeWidgetsOpen')?.addEventListener('click', openWidgetsModal);
+  document.getElementById('homeTikfinityImport')?.addEventListener('click', () => {
+    const jump = () => {
+      const el = document.getElementById('panel-transfer');
+      if (!el) return;
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+    };
+    const go = (typeof showViewById === 'function')
+      ? showViewById('view-configuracion')
+      : null;
+    Promise.resolve(go).finally(() => {
+      requestAnimationFrame(() => setTimeout(jump, 80));
+    });
+  });
   document.getElementById('homeWidgetsClose')?.addEventListener('click', closeWidgetsModal);
   widgetsModal?.addEventListener('click', (e) => {
     if (e.target === widgetsModal) closeWidgetsModal();
@@ -5128,7 +5149,10 @@ function applySettingsToUI(touchedKeys) {
 
   if (has('jarron')) applyJarronUI();
   if (hasAny('batallaGifts', 'batallaLikes')) try { window.__syncBatallaSkins?.(); } catch {}
-  if (has('habibiTop')) try { window.__syncHabibiDesign?.(); } catch {}
+  if (has('habibiTop')) {
+    try { window.__syncHabibiDesign?.(); } catch {}
+    try { window.__syncHabibiManualForm?.(); } catch {}
+  }
   if (has('batallaCoinBar') && typeof window.__syncBatallaCoinBar === 'function') {
     setTimeout(() => { try { window.__syncBatallaCoinBar(); } catch {} }, 50);
   }
@@ -10397,6 +10421,7 @@ const STYLE_OVERLAYS = [
     btnTest: 'habi-test', btnReset: 'habi-reset', btnConfig: 'habi-config',
     modalId: 'habiConfigModal', closeId: 'habicfg-close', saveId: 'habicfg-save',
     testAction: 'testTopHabibi', resetAction: 'resetTopHabibi',
+    onReset: () => { try { window.__clearHabibiManualForm?.(); } catch {} },
     map: { 'habicfg-period': 'resetPeriod', 'habicfg-title': 'headerTitle', 'habicfg-design': 'design', 'habicfg-coinlabel': 'coinLabel',
       'habicfg-font': 'font', 'habicfg-rainbow': 'rainbowMode', 'habicfg-titlesize': 'titleSize', 'habicfg-scale': 'scale',
       'habicfg-tc1': 'tc1', 'habicfg-tc2': 'tc2', 'habicfg-tc3': 'tc3',
@@ -11742,9 +11767,8 @@ try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__pa
           top: {
             uniqueId: top.uniqueId,
             nickname: top.nickname,
-            profilePictureUrl: top.photo || '',
-            profilePictureUrl: top.photo || '',
-            photo: top.photo || '',
+            profilePictureUrl: top.photo || top.profilePictureUrl || '',
+            photo: top.photo || top.profilePictureUrl || '',
             coins: top.coins,
           },
         }, '*');
@@ -11816,8 +11840,53 @@ try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__pa
     userEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
     coinsEl?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
   }
-  bindForm({ user: 'habi-user', coins: 'habi-coins', apply: 'habi-apply', pic: 'habi-pic', status: 'habi-status' });
-  bindForm({ user: 'habicfg-user', coins: 'habicfg-coins', apply: 'habicfg-apply', pic: 'habicfg-pic', status: 'habicfg-status' });
+  const FORM_IDS = [
+    { user: 'habi-user', coins: 'habi-coins', apply: 'habi-apply', pic: 'habi-pic', status: 'habi-status' },
+    { user: 'habicfg-user', coins: 'habicfg-coins', apply: 'habicfg-apply', pic: 'habicfg-pic', status: 'habicfg-status' },
+  ];
+  FORM_IDS.forEach(bindForm);
+  function fillFields(ids, rec) {
+    const userEl = $(ids.user);
+    const coinsEl = $(ids.coins);
+    if (!userEl) return;
+    if (!rec?.uniqueId) {
+      userEl.value = '';
+      if (coinsEl) coinsEl.value = '';
+      setPic($(ids.pic), '');
+      setStatus($(ids.status), '');
+      return;
+    }
+    userEl.value = '@' + rec.uniqueId;
+    if (coinsEl) coinsEl.value = rec.coins || 0;
+    setPic($(ids.pic), rec.photo || '');
+    setStatus($(ids.status), 'Guardado. Si alguien manda más, lo reemplaza.');
+  }
+  function currentManual() {
+    const m = settings?.habibiTop?.manual;
+    const uniqueId = String(m?.uniqueId || '').replace(/^@+/, '').trim();
+    if (!uniqueId) return null;
+    return {
+      uniqueId,
+      nickname: m.nickname || uniqueId,
+      photo: String(m.photo || m.profilePictureUrl || '').trim(),
+      coins: Math.max(0, Math.floor(Number(m.coins) || 0)),
+    };
+  }
+  function syncFromSettings() {
+    const rec = currentManual();
+    FORM_IDS.forEach((ids) => fillFields(ids, rec));
+    const fr = $('habi-preview');
+    if (rec && fr && (fr.getAttribute('src') || fr.dataset.embedReady === '1')) pushPreview(rec);
+  }
+  window.__syncHabibiManualForm = syncFromSettings;
+  window.__clearHabibiManualForm = () => {
+    FORM_IDS.forEach((ids) => fillFields(ids, null));
+  };
+  $('habi-preview')?.addEventListener('load', () => {
+    const rec = currentManual();
+    if (rec) pushPreview(rec);
+  });
+  try { syncFromSettings(); } catch {}
 })();
 
 (function setupHabibiDesigns() {
@@ -31973,25 +32042,45 @@ function isPanelLivePremium(plan) {
 
 function panelLiveTierLabel(plan) {
   const p = String(plan || 'free').toLowerCase();
-  if (p === 'founder') return 'Founder';
+  if (p === 'founder') return 'FOUNDERS';
   if (isPanelLivePremium(p)) return 'VIP';
-  return 'Free';
+  return 'FREE';
+}
+
+function panelLiveAccountNo(l, tiktok) {
+  const direct = Number(l?.n || l?.accountNo || l?.no) || 0;
+  if (direct > 0) return String(direct);
+  const map = window.__panelLiveNoMap;
+  if (!map || !map.size) return '';
+  const byUser = map.get(String(l?.panelUser || '').trim().toLowerCase());
+  const byTt = map.get(String(tiktok || l?.tiktok || l?.account || '').replace(/^@+/, '').trim().toLowerCase());
+  const n = Number(byUser || byTt) || 0;
+  return n > 0 ? String(n) : '';
 }
 
 /** Mapa username/tiktok → plan, rellenado desde admin (y usable al pintar lives). */
 function rememberPanelLivePlansFromUsers(users) {
   const map = window.__panelLivePlanMap || new Map();
+  const noMap = window.__panelLiveNoMap || new Map();
   for (const u of users || []) {
     let plan = 'free';
     if (u?.isAdmin || u?.plan === 'admin') plan = 'premium';
     else if (u?.plan === 'founder') plan = 'founder';
     else if (u?.plan === 'premium') plan = 'premium';
     const name = String(u?.username || '').trim().toLowerCase();
-    if (name) map.set(name, plan);
     const acc = String(u?.account || '').replace(/^@+/, '').trim().toLowerCase();
-    if (acc) map.set(acc, plan);
+    const n = Number(u?.n) || 0;
+    if (name) {
+      map.set(name, plan);
+      if (n > 0) noMap.set(name, n);
+    }
+    if (acc) {
+      map.set(acc, plan);
+      if (n > 0) noMap.set(acc, n);
+    }
   }
   window.__panelLivePlanMap = map;
+  window.__panelLiveNoMap = noMap;
   return map;
 }
 
@@ -32101,77 +32190,27 @@ function renderPanelLives(lives) {
     const tierClass = isFounder
       ? 'panel-live-card--founder'
       : (premium ? 'panel-live-card--vip' : 'panel-live-card--free');
-    const tierLabel = panelLiveTierLabel(l.plan);
+    const handle = esc(tiktok || l.panelUser || 'live');
     const av = photo
       ? `<img class="panel-live-av" src="${esc(photo)}" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" data-fallback="${fallback}">`
       : `<span class="panel-live-av panel-live-av-ph">${fallback}</span>`;
-    const cardBadges = Array.isArray(l.badges) ? l.badges : [];
-    const earnedIds = new Set(cardBadges.map((b) => b.id).filter(Boolean));
-    const PANEL_BADGE_FALLBACK = [
-      { id: 'first_live', name: 'Primera live' },
-      { id: 'lives_10', name: 'En marcha' },
-      { id: 'lives_50', name: 'Constante' },
-      { id: 'lives_100', name: 'Veterano' },
-      { id: 'lives_500', name: 'Leyenda' },
-      { id: 'streak_3', name: 'Racha 3' },
-      { id: 'streak_7', name: 'Racha 7' },
-      { id: 'on_map', name: 'En el mapa' },
-      { id: 'popular', name: 'Popular' },
-      { id: 'daily_top', name: 'Foco de la noche' },
-      { id: 'vip', name: 'VIP' },
-      { id: 'desktop', name: 'App PC' },
-      { id: 'gamer', name: 'Gamer' },
-      { id: 'partner', name: 'Partner' },
-      { id: 'beta', name: 'Beta' },
-      { id: 'staff', name: 'Staff' },
-    ];
-    const allBadges = Array.isArray(l.allBadges) && l.allBadges.length
-      ? l.allBadges
-      : PANEL_BADGE_FALLBACK.map((b) => ({
-          ...b,
-          img: badgeArtUrl(b.id),
-          earned: earnedIds.has(b.id),
-        }));
-    const badgeIcons = cardBadges.map((b) => {
-      const src = badgeArtUrl(b.id) || b.img || '';
-      const label = esc(b.name || b.short || '');
-      if (src) {
-        return `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="${label}" title="${label}" width="18" height="18" loading="lazy" decoding="async">`;
-      }
-      return `<span class="panel-live-mini-badge" title="${label}">${esc(b.icon || '🏅')}</span>`;
-    }).join('');
-    const popIcons = allBadges.map((b) => {
-      const src = badgeArtUrl(b.id) || b.img || '';
-      const label = esc(b.name || b.short || '');
-      const earned = !!b.earned;
-      const img = src
-        ? `<img class="panel-live-mini-badge-img" src="${esc(src)}" alt="${label}" width="26" height="26" loading="lazy" decoding="async">`
-        : `<span class="panel-live-mini-badge">${esc(b.icon || '🏅')}</span>`;
-      return `<span class="panel-live-pop-item${earned ? ' is-earned' : ' is-locked'}" title="${label}${earned ? '' : ' (pendiente)'}">${img}<span class="panel-live-pop-name">${label}</span></span>`;
-    }).join('');
-    const hasAny = cardBadges.length || allBadges.length;
-    const badgesHtml = hasAny
-      ? `<span class="panel-live-badges" aria-label="Insignias" data-has-catalog="1">
-          <span class="panel-live-badges-row">${badgeIcons}</span>
-          <button type="button" class="panel-live-badges-more-btn" aria-expanded="false" aria-label="Ver todas las insignias" title="Ver todas">›</button>
-          <span class="panel-live-badges-pop" hidden role="dialog" aria-label="Todas las insignias">${popIcons}</span>
-        </span>`
-      : '<span class="panel-live-badges panel-live-badges--empty" aria-hidden="true"></span>';
-    return `<a class="panel-live-card ${tierClass}" href="${url}" data-live-url="${url}" target="_blank" rel="noopener noreferrer" title="Ver live de @${esc(tiktok)}">
-      ${av}
+    const sid = panelLiveAccountNo(l, tiktok);
+    const tierLabel = panelLiveTierLabel(l.plan);
+    return `<a class="panel-live-card ${tierClass}" href="${url}" data-live-url="${url}" target="_blank" rel="noopener noreferrer" title="Ver live de @${handle}">
+      <span class="panel-live-tier">${tierLabel}</span>
+      <span class="panel-live-av-wrap">${av}</span>
       <span class="panel-live-main">
-        <span class="panel-live-headrow">
-          <span class="panel-live-id">
-            <span class="panel-live-name">${name}</span>
-            <span class="panel-live-user">@${esc(tiktok)}</span>
-          </span>
-          <span class="panel-live-status">
-            <span class="panel-live-tier">${tierLabel}</span>
-            <span class="panel-live-badge">EN LIVE</span>
-          </span>
+        <span class="panel-live-user">@${handle}</span>
+        <span class="panel-live-meta">
+          <span class="panel-live-live">LIVE</span>
+          <span class="panel-live-viewers"><span class="panel-live-viewers-ic" aria-hidden="true"></span>${viewers}</span>
         </span>
-        ${badgesHtml}
-        <span class="panel-live-viewers"><span class="panel-live-viewers-ic" aria-hidden="true"></span>${viewers}</span>
+      </span>
+      <span class="panel-live-side">
+        <span class="panel-live-go" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 16V8M12 19V5M17 14V10"/></svg>
+        </span>
+        ${sid ? `<span class="panel-live-sid">#${sid}</span>` : ''}
       </span>
     </a>`;
   }).join('');
@@ -32184,7 +32223,6 @@ function renderPanelLives(lives) {
       el.replaceWith(ph);
     };
   });
-  setupPanelLiveBadgeTrays(track);
 }
 
 /** Cierra y limpia TODOS los popovers (incluye huérfanos en body). */

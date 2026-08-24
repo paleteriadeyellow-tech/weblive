@@ -213,7 +213,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
 
 <script>
 (function () {
-  const OV_BUILD = '19';
+  const OV_BUILD = '20';
   const FW_PAD = 70;
   const params = new URLSearchParams(location.search);
   const TOP_CACHE_KEY = 'habibitop_v1_' + (params.get('room') || 'local');
@@ -493,6 +493,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   }
 
   function applyPayload(payload) {
+    if (previewMode && payload && payload.top) previewMode = false;
     if (previewMode) return;
     const cached = loadTopCache();
     const periodStart = payload && payload.periodStart != null ? payload.periodStart : null;
@@ -713,7 +714,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
         if (!isEmbed) runTest();
         else launchFireworksShow('big');
       } else if (m.type === 'habibiTopReset') {
-        if (!isEmbed) resetTop();
+        resetTop();
       }
     };
   }
@@ -736,7 +737,7 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
       applyPayload({ top: t });
     }
     else if (d.type === 'fireworks') launchFireworksShow('big');
-    else if (d.type === 'reset') { previewMode = false; isEmbed ? runTest() : resetTop(); }
+    else if (d.type === 'reset') { previewMode = false; resetTop(); }
   });
 
   if (isEmbed) {
@@ -763,11 +764,9 @@ html.embed .stage { transform: scale(calc(var(--ol-scale, 1) * var(--fit, 1))); 
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => { applyStyle(); render(); });
   }
-  if (!isEmbed) {
-    const cached = loadTopCache();
-    if (cached) { topData = cached; render(); }
-  }
-  if (isEmbed) runTest(); else if (!topData) render();
+  const cached = loadTopCache();
+  if (cached) { topData = cached; }
+  render();
   connectWS();
 })();
 </script>

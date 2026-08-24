@@ -763,6 +763,7 @@ function buildPanelLiveItem(userId, st) {
     liveSince: st.liveSince || null,
     live: true,
     plan,
+    n: Number(u?.n) || 0,
     url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
     badges: badgePayload?.cardBadges || [],
     allBadges: (badgePayload?.badges || []).map((b) => ({
