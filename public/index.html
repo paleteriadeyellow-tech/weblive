@@ -1603,7 +1603,7 @@
                 <p class="acc-modal-lead">Elige un audio de tu carpeta o escÃºchalo antes de usarlo.</p>
               </div>
               <div class="lib-modal-head-actions">
-                <button type="button" class="modal-close" id="sa-lib-frompc" title="Elegir desde el PC" hidden>ðŸ“</button>
+                <button type="button" class="modal-close" id="sa-lib-frompc" title="Elegir desde el PC">📁</button>
                 <button class="modal-close" id="lib-close" aria-label="Cerrar">âœ•</button>
               </div>
             </div>
@@ -2305,6 +2305,12 @@
                     <span class="ao-text"><b>Elegir sonido</b><small>De la carpeta Â«audiosÂ»</small></span>
                     <span class="ao-arrow">â†’</span>
                   </button>
+                  <button type="button" class="audio-opt" id="acc-soundpc">
+                    <span class="ao-ico cyan" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#041018" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span>
+                    <span class="ao-text"><b>Subir desde el PC</b><small>MP3, WAV, OGG, AAC…</small></span>
+                    <span class="ao-arrow">â†’</span>
+                  </button>
+                  <input type="file" id="acc-soundfile" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" hidden>
                   <div class="chosen">
                     <span id="acc-soundname" class="fname">NingÃºn audioâ€¦</span>
                     <button type="button" class="btn ghost sm" id="acc-soundclear">Quitar</button>
@@ -8096,47 +8102,47 @@
           <div class="juegos-grid">
             <button type="button" class="juego-card" data-game="mcservidor" aria-label="Servidor Minecraft">
               <picture>
-                <img src="/img/mcservidor-card.png" alt="Servidor Minecraft" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/mcservidor-card.png" alt="Servidor Minecraft" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
               <span class="juego-version">Servidor local</span>
             </button>
             <button type="button" class="juego-card" data-game="minecraft" aria-label="Minecraft">
               <picture>
                 <source srcset="/img/minecraft-card.webp" type="image/webp">
-                <img src="/img/minecraft-card.jpg" alt="Minecraft" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/minecraft-card.jpg" alt="Minecraft" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="mcparkour" aria-label="Minecraft Parkour">
               <picture>
                 <source srcset="/img/mcparkour-card.webp" type="image/webp">
-                <img src="/img/mcparkour-card.jpg" alt="Minecraft Parkour" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/mcparkour-card.jpg" alt="Minecraft Parkour" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="mckoth" aria-label="Minecraft KOTH">
               <picture>
                 <source srcset="/img/mckoth-card.webp" type="image/webp">
-                <img src="/img/mckoth-card.jpg" alt="Minecraft KOTH" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/mckoth-card.jpg" alt="Minecraft KOTH" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="mcfarm" aria-label="Minecraft Farm">
               <picture>
                 <source srcset="/img/mcfarm-card.webp" type="image/webp">
-                <img src="/img/mcfarm-card.jpg" alt="Minecraft Farm" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/mcfarm-card.jpg" alt="Minecraft Farm" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="mcshooter" aria-label="Minecraft Shooters">
-              <img src="/img/mcshooter-card.png" alt="Minecraft Shooters" class="juego-card-img" width="600" height="840" loading="lazy">
+              <img src="/img/mcshooter-card.png" alt="Minecraft Shooters" class="juego-card-img" width="600" height="840" decoding="async">
             </button>
             <button type="button" class="juego-card" data-game="bedrock" aria-label="Bedrock ? Cubo TNT">
               <picture>
                 <source srcset="/img/bedrock-card.webp" type="image/webp">
-                <img src="/img/bedrock-card.jpg" alt="Bedrock" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/bedrock-card.jpg" alt="Bedrock" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="sandbox" aria-label="Sandbox">
               <picture>
                 <source srcset="/img/sandbox-card.webp" type="image/webp">
-                <img src="/img/sandbox-card.jpg" alt="Sandbox" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/sandbox-card.jpg" alt="Sandbox" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="roblox" aria-label="Roblox">
@@ -8148,7 +8154,7 @@
             <button type="button" class="juego-card" data-game="mariobros" aria-label="Mario Bros">
               <picture>
                 <source srcset="/img/mariobros-card.webp" type="image/webp">
-                <img src="/img/mariobros-card.jpg" alt="Mario Bros" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/mariobros-card.jpg" alt="Mario Bros" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="smb3" aria-label="Super Mario Bros. 3">
@@ -8156,7 +8162,7 @@
             </button>
             <button type="button" class="juego-card" data-game="smw" aria-label="Super Mario World">
               <picture>
-                <img src="/img/smw-card.jpg" alt="Super Mario World" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/smw-card.jpg" alt="Super Mario World" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="mari0" aria-label="Mari0">
@@ -8166,19 +8172,19 @@
             <button type="button" class="juego-card" data-game="plantasvszombies" aria-label="Plants vs Zombies">
               <picture>
                 <source srcset="/img/plantasvszombies-card.webp" type="image/webp">
-                <img src="/img/plantasvszombies-card.jpg" alt="Plants vs Zombies" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/plantasvszombies-card.jpg" alt="Plants vs Zombies" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="pvzhybrid" aria-label="PvZ Hybrid">
               <picture>
                 <source srcset="/img/pvzhybrid-card.webp" type="image/webp">
-                <img src="/img/pvzhybrid-card.jpg" alt="PvZ Hybrid" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/pvzhybrid-card.jpg" alt="PvZ Hybrid" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="repo" aria-label="R.E.P.O.">
               <picture>
                 <source srcset="/img/repo-card.webp" type="image/webp">
-                <img src="/img/repo-card.jpg" alt="R.E.P.O." class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/repo-card.jpg" alt="R.E.P.O." class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="l4d" aria-label="Left 4 Dead">
@@ -8199,7 +8205,7 @@
             <button type="button" class="juego-card" data-game="crashctr" aria-label="Crash Team Racing">
               <picture>
                 <source srcset="/img/ctr-card.webp" type="image/webp">
-                <img src="/img/ctr-card.jpg" alt="Crash Team Racing" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/ctr-card.jpg" alt="Crash Team Racing" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
             <button type="button" class="juego-card" data-game="metalslug" aria-label="Metal Slug by Livecoins">
@@ -8209,7 +8215,7 @@
             <button type="button" class="juego-card" data-game="geometrydash" aria-label="Geometry Dash">
               <picture>
                 <source srcset="/img/gdash/gdash-card.webp" type="image/webp">
-                <img src="/img/gdash/gdash-card.jpg" alt="Geometry Dash" class="juego-card-img" width="600" height="840" loading="lazy">
+                <img src="/img/gdash/gdash-card.jpg" alt="Geometry Dash" class="juego-card-img" width="600" height="840" decoding="async">
               </picture>
             </button>
           </div>
@@ -10361,7 +10367,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=mclock3"></script>
+  <script src="/js/dashboard.js?v=mclock5"></script>
   <script src="/js/editor-rapido.js?v=er84"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

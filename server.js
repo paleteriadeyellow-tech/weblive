@@ -3662,7 +3662,14 @@ app.use((req, res, next) => {
   });
 });
 
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: false,
+  setHeaders(res, filePath) {
+    if (/\.(png|jpe?g|webp|gif|svg|ico|woff2?)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+    }
+  },
+}));
 
 /* ------------------------------- APIs compartidas ------------------------------- */
 app.get('/api/local-sounds', (_req, res) => {

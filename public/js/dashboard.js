@@ -2559,7 +2559,9 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
       closeNavFlyouts({ suppressEl: flyoutEl });
       onOverlayNavShown(viewName);
       const runHeavy = () => {
-        if (viewName === 'juegos' || String(viewName || '').startsWith('juego-')) {
+        if (viewName === 'juegos') {
+          try { preloadJuegosCatalogImages(); } catch {}
+        } else if (String(viewName || '').startsWith('juego-')) {
           try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
         }
         if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); loadAdminBadges(); }
@@ -8401,10 +8403,66 @@ let soundPickTarget = 'alert';
 let mcSoundPickUid = null;
 let mcAudioUploadUid = null;
 
+function applyPickedSound(url, name) {
+  if (soundPickTarget === 'action') {
+    accPendingSound = { url, name };
+    const el = $('acc-soundname'); if (el) el.textContent = name;
+    const vr = $('acc-volrow'); if (vr) vr.hidden = false;
+  } else if (soundPickTarget === 'mc' && mcSoundPickUid) {
+    const hit = findAnyGameAction(mcSoundPickUid) || findMcFamilyAction(mcSoundPickUid);
+    if (hit?.action) {
+      hit.action.sound = url;
+      hit.action.soundName = name;
+      hit.action.audioOn = true;
+      if (hit.action.soundVolume == null) hit.action.soundVolume = 100;
+      flushSaveSettings();
+      if (typeof hit.render === 'function') hit.render();
+    }
+  } else {
+    pendingSound = { url, name };
+    const el = $('sa-soundname'); if (el) el.textContent = name;
+  }
+}
+
+async function uploadSoundFromPc(file) {
+  if (!file) throw new Error('sin archivo');
+  const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
+  const data = await res.json().catch(() => ({}));
+  if (!data.url) throw new Error(data.error || 'error');
+  return { url: data.url, name: file.name };
+}
+
+function ensureLibPcPicker() {
+  let inp = $('sa-lib-pcfile');
+  if (!inp) {
+    inp = document.createElement('input');
+    inp.type = 'file';
+    inp.id = 'sa-lib-pcfile';
+    inp.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac';
+    inp.hidden = true;
+    inp.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      try {
+        toast && toast('Subiendo audio…');
+        const picked = await uploadSoundFromPc(file);
+        applyPickedSound(picked.url, picked.name);
+        closeSoundLib();
+        toast && toast('Audio listo.', 'ok');
+      } catch {
+        toast && toast('No se pudo subir el audio.', 'error');
+      }
+    });
+    document.body.appendChild(inp);
+  }
+  return inp;
+}
+
 function openSoundLib() {
   $('soundLibModal').classList.remove('hidden');
   const pcBtn = $('sa-lib-frompc');
-  if (pcBtn) pcBtn.hidden = soundPickTarget !== 'mc';
+  if (pcBtn) pcBtn.hidden = false;
   loadLocalSounds();
 }
 function closeSoundLib() {
@@ -8414,11 +8472,7 @@ function closeSoundLib() {
 $('sa-libbtn').onclick = () => { soundPickTarget = 'alert'; openSoundLib(); };
 $('lib-close').onclick = closeSoundLib;
 if ($('sa-lib-frompc')) {
-  $('sa-lib-frompc').onclick = () => {
-    if (soundPickTarget !== 'mc' || !mcSoundPickUid) return;
-    mcAudioUploadUid = mcSoundPickUid;
-    ensureMcAudioUpload().click();
-  };
+  $('sa-lib-frompc').onclick = () => ensureLibPcPicker().click();
 }
 $('soundLibModal').addEventListener('click', (e) => { if (e.target.id === 'soundLibModal') closeSoundLib(); });
 $('sa-librefresh').onclick = () => loadLocalSounds();
@@ -8460,24 +8514,7 @@ function renderLocalSounds(filter) {
     libAudio = new Audio(b.dataset.url); libAudio.play().catch(() => {});
   });
   box.querySelectorAll('.lr-pick').forEach((b) => b.onclick = () => {
-    if (soundPickTarget === 'action') {
-      accPendingSound = { url: b.dataset.url, name: b.dataset.name };
-      const el = $('acc-soundname'); if (el) el.textContent = b.dataset.name;
-      const vr = $('acc-volrow'); if (vr) vr.hidden = false;
-    } else if (soundPickTarget === 'mc' && mcSoundPickUid) {
-      const hit = findAnyGameAction(mcSoundPickUid) || findMcFamilyAction(mcSoundPickUid);
-      if (hit?.action) {
-        hit.action.sound = b.dataset.url;
-        hit.action.soundName = b.dataset.name;
-        hit.action.audioOn = true;
-        if (hit.action.soundVolume == null) hit.action.soundVolume = 100;
-        flushSaveSettings();
-        if (typeof hit.render === 'function') hit.render();
-      }
-    } else {
-      pendingSound = { url: b.dataset.url, name: b.dataset.name };
-      $('sa-soundname').textContent = b.dataset.name;
-    }
+    applyPickedSound(b.dataset.url, b.dataset.name);
     closeSoundLib();
   });
 }
@@ -17188,6 +17225,31 @@ function setupAccionesUI() {
     if (on && !accPendingSound) { soundPickTarget = 'action'; openSoundLib(); }
   });
   accBind('acc-soundpick', () => { soundPickTarget = 'action'; openSoundLib(); });
+  accBind('acc-soundpc', () => {
+    soundPickTarget = 'action';
+    const inp = $('acc-soundfile');
+    if (inp) inp.click();
+  });
+  const accSoundFile = $('acc-soundfile');
+  if (accSoundFile && !accSoundFile._wired) {
+    accSoundFile._wired = true;
+    accSoundFile.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      const nameEl = $('acc-soundname');
+      if (nameEl) nameEl.textContent = 'Subiendo…';
+      try {
+        soundPickTarget = 'action';
+        const picked = await uploadSoundFromPc(file);
+        applyPickedSound(picked.url, picked.name);
+        toast && toast('Audio listo.', 'ok');
+      } catch {
+        if (nameEl) nameEl.textContent = 'No se pudo subir';
+        toast && toast('No se pudo subir el audio.', 'error');
+      }
+    });
+  }
   accBind('acc-soundclear', () => {
     accPendingSound = null;
     $('acc-soundname').textContent = 'Ningún audio…';
@@ -19560,8 +19622,8 @@ async function showViewById(viewId) {
     try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
     try { await ensureGameUi(gameMatch[1]); } catch (e) { console.warn('ensureGameUi', gameMatch[1], e); }
   }
-  if (viewId === 'view-juegos' || (typeof navSlug === 'string' && navSlug.indexOf('juego') === 0)) {
-    try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
+  if (viewId === 'view-juegos') {
+    try { preloadJuegosCatalogImages(); } catch {}
   }
   if (viewId === 'view-juego-pvzhybrid' && typeof renderPvzHybridActions === 'function') renderPvzHybridActions();
   if (viewId === 'view-juego-repo') {
@@ -19793,7 +19855,35 @@ async function ensureGameUi(gameKey) {
   }
 }
 // Conecta las tarjetas de juego: al pulsar abren su pestaña; el botón "Volver" regresa.
+// Portadas del catálogo Juegos: se piden en idle (la pestaña está display:none).
+function preloadJuegosCatalogImages() {
+  const root = document.getElementById('view-juegos');
+  if (!root) return;
+  const urls = new Set();
+  root.querySelectorAll('img.juego-card-img').forEach((img) => {
+    img.loading = 'eager';
+    img.decoding = 'async';
+    const src = img.getAttribute('src');
+    if (src) urls.add(src);
+  });
+  root.querySelectorAll('#view-juegos source[srcset], .juego-card source[srcset]').forEach((s) => {
+    const u = String(s.getAttribute('srcset') || '').split(',')[0].trim().split(/\s+/)[0];
+    if (u) urls.add(u);
+  });
+  urls.forEach((u) => {
+    const im = new Image();
+    im.decoding = 'async';
+    im.src = u;
+  });
+}
+
 function setupJuegosUI() {
+  preloadJuegosCatalogImages();
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => preloadJuegosCatalogImages(), { timeout: 1200 });
+  } else {
+    setTimeout(preloadJuegosCatalogImages, 400);
+  }
   document.querySelectorAll('#view-juegos .juego-card').forEach((card) => {
     card.onclick = () => {
       if (isGameComingSoon(card.dataset.game)) {
