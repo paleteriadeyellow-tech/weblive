@@ -13,6 +13,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
+import { ensureViewerAvatar, sendCachedAvatar } from './tt-avatar-cache.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
 import { createStreamerRankings } from './streamer-rankings.js';
@@ -1732,6 +1733,42 @@ function extractTikTokUserAvatar(user) {
     || String(user.profilePictureUrl || user.profile_picture_url || '').trim();
 }
 
+let tkAvatarActive = 0;
+const tkAvatarWait = [];
+async function fetchTikTokAvatarByUsername(username) {
+  const unique = parseTikTokUsernameInput(username);
+  if (!unique) return '';
+  await new Promise((resolve) => {
+    const run = () => { tkAvatarActive++; resolve(); };
+    if (tkAvatarActive < 2) run();
+    else tkAvatarWait.push(run);
+  });
+  try {
+    const conn = new TikTokLiveConnection(unique, { fetchRoomInfoOnConnect: false });
+    let user = {};
+    let avatar = '';
+    try {
+      const info = await conn.webClient.fetchRoomInfoFromApiLive({ uniqueId: unique });
+      user = info?.data?.user || info?.user || {};
+      avatar = extractTikTokUserAvatar(user);
+    } catch { /* fallback HTML */ }
+    if (!avatar) {
+      try {
+        const info = await conn.webClient.fetchRoomInfoFromHtml({ uniqueId: unique });
+        user = info?.user || info?.liveRoomUserInfo?.user || user;
+        avatar = extractTikTokUserAvatar(user);
+      } catch { /* ignore */ }
+    }
+    return String(avatar || '').trim();
+  } catch {
+    return '';
+  } finally {
+    tkAvatarActive--;
+    const next = tkAvatarWait.shift();
+    if (next) next();
+  }
+}
+
 app.get('/api/tiktok-profile', async (req, res) => {
   const username = parseTikTokUsernameInput(req.query.url || req.query.user || '');
   if (!username) return res.status(400).json({ error: 'Usuario TikTok inválido' });
@@ -1770,6 +1807,24 @@ app.get('/api/tiktok-profile', async (req, res) => {
   } catch (e) {
     res.status(502).json({ error: e?.message || 'No se pudo obtener el perfil' });
   }
+});
+
+app.get('/api/user-avatar', async (req, res) => {
+  const username = parseTikTokUsernameInput(req.query.user || req.query.url || '');
+  if (!username) return res.status(400).end('bad user');
+  const authUser = userFromRequest(req);
+  if (!authUser) return res.status(401).end('no auth');
+  const room = getRoomForUser(authUser);
+  const hint = String(room?.getViewerPhoto?.(username) || '').trim();
+  try {
+    const cached = await ensureViewerAvatar(room.dataDir, username, {
+      hintUrl: hint,
+      refresh: String(req.query.refresh || '') === '1',
+      lookupTikTok: fetchTikTokAvatarByUsername,
+    });
+    if (cached && sendCachedAvatar(res, cached)) return;
+  } catch { /* fall through */ }
+  res.status(404).end('no avatar');
 });
 
 app.post('/api/my-settings', express.json({ limit: '8mb' }), (req, res) => {

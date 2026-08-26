@@ -16176,22 +16176,19 @@ function ptsAvatarFallback(img) {
   try {
     if (!img) return;
     const raw = ptsNormalizePhotoUrl(img.getAttribute('data-raw') || '');
+    const uid = String(img.getAttribute('data-uid') || '').replace(/^@/, '');
     const ini = String(img.getAttribute('data-ini') || '?').slice(0, 1) || '?';
     const step = Number(img.getAttribute('data-try') || 0);
-    if (step === 0 && raw) {
+    if (step === 0 && uid) {
       img.setAttribute('data-try', '1');
-      img.referrerPolicy = 'no-referrer';
-      img.src = raw;
+      img.src = '/api/user-avatar?user=' + encodeURIComponent(uid) + '&refresh=1';
       return;
     }
     if (step === 1 && raw) {
       img.setAttribute('data-try', '2');
-      try {
-        const u = new URL(raw);
-        u.search = '';
-        img.src = '/api/img-proxy?url=' + encodeURIComponent(u.toString());
-        return;
-      } catch { /* fall through */ }
+      img.referrerPolicy = 'no-referrer';
+      img.src = panelLiveImgUrl(raw);
+      return;
     }
     const ph = document.createElement('div');
     ph.className = 'pu-ph';
@@ -16238,9 +16235,12 @@ function ptsRowHtml(u) {
   const name = u.nickname || u.uniqueId || '?';
   const ini = String(initial(name) || '?').replace(/['\\]/g, '') || '?';
   const raw = ptsNormalizePhotoUrl(u.photo || '');
-  const photoUrl = panelLiveImgUrl(raw);
-  const img = photoUrl
-    ? `<img class="pu-av" src="${esc(photoUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-raw="${esc(raw)}" data-ini="${esc(ini)}" data-try="0" onerror="ptsAvatarFallback(this)">`
+  const uid = String(u.uniqueId || '').replace(/^@/, '');
+  const photoUrl = uid
+    ? '/api/user-avatar?user=' + encodeURIComponent(uid)
+    : panelLiveImgUrl(raw);
+  const img = (photoUrl || raw)
+    ? `<img class="pu-av" src="${esc(photoUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-uid="${esc(uid)}" data-raw="${esc(raw)}" data-ini="${esc(ini)}" data-try="0" onerror="ptsAvatarFallback(this)">`
     : `<div class="pu-ph">${esc(ini)}</div>`;
   return `<tr>
       <td><div class="pu">${img}<div><div class="pu-name">${esc(name)}</div><div class="pu-id">@${esc(u.uniqueId)}</div></div></div></td>

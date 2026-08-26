@@ -18,6 +18,7 @@ import { runWebhookExec } from './smbx-tiktok-webhook.js';
 import { decryptAndMapTfc, mapTikfinityActionsToMc, tikfinityObsCmdFromAction, tikfinitySbCmdFromAction } from './tikfinity-tfc.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { gameKeyFromExecTipo } from './badges.js';
+import { persistViewerAvatar } from './tt-avatar-cache.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -26,6 +27,10 @@ function getPhoto(user) {
     user.profilePictureUrl ||
     user.profilePicture?.url?.[0] ||
     user.profilePicture?.urls?.[0] ||
+    user.avatarLarger?.url?.[0] ||
+    user.avatarLarger?.urlList?.[0] ||
+    user.avatarMedium?.url?.[0] ||
+    user.avatarMedium?.urlList?.[0] ||
     user.avatarThumb?.url?.[0] ||
     user.avatarThumb?.urlList?.[0] ||
     user.userDetails?.profilePictureUrls?.[0] ||
@@ -8966,7 +8971,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     u.total = Math.max(0, u.total + amount);
     if (counted) u.levelPoints = Math.max(0, u.levelPoints + amount);
     if (nickname) u.nickname = nickname;
-    if (photo) u.photo = photo;
+    if (photo) {
+      u.photo = photo;
+      persistViewerAvatar(dataDir, key, photo).catch(() => {});
+    }
     u.lastAt = now;
     points.set(key, u);
     enforcePointsCap();
@@ -9019,6 +9027,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (mode === 'merge' && prev && prev.total >= total && prev.levelPoints >= levelPoints) {
         if (nickname && nickname !== prev.nickname) prev.nickname = nickname;
         if (photo && !prev.photo) prev.photo = photo;
+        if (photo) persistViewerAvatar(dataDir, key, photo).catch(() => {});
         continue;
       }
       if (prev) updated++;
@@ -9032,6 +9041,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         firstAt: prev ? Math.min(prev.firstAt || firstAt, firstAt) : firstAt,
         lastAt: Math.max(prev ? (prev.lastAt || 0) : 0, lastAt),
       });
+      const savedPhoto = photo || (prev && prev.photo) || '';
+      if (savedPhoto) persistViewerAvatar(dataDir, key, savedPhoto).catch(() => {});
     }
     enforcePointsCap();
     savePoints();
@@ -11059,7 +11070,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   return {
-    id, account, roomKey,
+    id, account, roomKey, dataDir,
+    getViewerPhoto: (uniqueId) => {
+      const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
+      if (!key) return '';
+      return String(points.get(key)?.photo || '');
+    },
     addClient, removeClient, handleMessage,
     getEmotes, mergeEmotes, getCommunityGifts, mergeCommunityGifts, shutdown, getStatus, kickAll, broadcastCaps,
     listActions, executeWebhookAction, executeWebhookSound, listVideos, executeWebhookVideo,

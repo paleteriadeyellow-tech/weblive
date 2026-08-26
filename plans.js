@@ -144,13 +144,9 @@ function allLimitKeys() {
 
 const BIG = 9999; // "ilimitado" práctico
 
-// Pack gratis de juegos. Lo demás es Premium salvo que el admin lo active a mano DESPUÉS de esta versión.
-const FREE_GAMES_PACK = 1;
-const FREE_GAMES = new Set([
-  'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter',
-  'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3',
-  'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
-]);
+// Pack gratis de juegos: vacío = todos los juegos son Premium salvo que el admin los active en Planes.
+const FREE_GAMES_PACK = 2;
+const FREE_GAMES = new Set([]);
 
 // Configuración por defecto: Premium todo desbloqueado; Gratis con lo básico.
 function defaultConfig() {
