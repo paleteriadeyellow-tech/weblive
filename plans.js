@@ -62,6 +62,7 @@ export const CAPABILITIES = {
     { key: 'ov_batallameta', label: 'Meta de la ronda (PK)', path: '/batalla-meta.html' },
     { key: 'ov_batallamvp', label: 'MVP de la batalla (PK)', path: '/batalla-mvp.html' },
     { key: 'ov_batallatop3', label: 'Top 3 de tu ejército (PK)', path: '/batalla-top3.html' },
+    { key: 'ov_batallagiftball', label: 'Pelota de regalos', path: '/batalla-giftball.html' },
     { key: 'ov_batallacoinbar', label: 'Contador de monedas (PK)', path: '/batalla-coinbar.html' },
     { key: 'ov_flowmeter', label: 'Medidor de Flow', path: '/medidor-flow.html' },
     { key: 'ov_giftseq', label: 'Gift Sequence', path: '/giftseq.html' },
@@ -98,6 +99,13 @@ export const CAPABILITIES = {
     { key: 'ov_alertalikes', label: 'Alerta de likes', path: '/alerta-likes.html' },
     { key: 'ov_alertaseguidor', label: 'Alerta de nuevo seguidor', path: '/alerta-seguidor.html' },
     { key: 'ov_timer', label: 'Temporizador (overlay)', path: '/timer.html' },
+    { key: 'ov_top1', label: 'Top 1 Donador (MVP)', path: '/top1.html' },
+    { key: 'ov_spotify', label: 'Spotify (lista)', path: '/spotify-overlay.html' },
+    { key: 'ov_spotifyplayer', label: 'Spotify (reproductor)', path: '/spotify-player-overlay.html' },
+    { key: 'ov_youtube', label: 'YouTube Song Requests (overlay)', path: '/youtube-overlay.html' },
+    { key: 'ov_editorrapido', label: 'Editor Pro (overlay)', path: '/editor-rapido-overlay.html' },
+    { key: 'ov_screenfx', label: 'Efectos pantalla (.exe)', path: '/screen-fx.html' },
+    { key: 'ov_video', label: 'Videos (pantalla OBS)', path: '/video.html' },
   ],
   // Minijuegos (pestaña "Juegos" del .exe). Se pueden bloquear como los overlays.
   games: [
@@ -164,6 +172,10 @@ function defaultConfig() {
   freeFeatures.tab_spotify = false;
   freeFeatures.tab_youtube = false;
   freeFeatures.tab_editor_rapido = false;
+  freeFeatures.ov_spotify = false;
+  freeFeatures.ov_spotifyplayer = false;
+  freeFeatures.ov_youtube = false;
+  freeFeatures.ov_editorrapido = false;
   // Juegos: cerrados en gratis salvo el pack básico. Cualquier juego nuevo = Premium.
   for (const g of CAPABILITIES.games) {
     freeFeatures[g.key] = FREE_GAMES.has(g.key);
@@ -246,7 +258,13 @@ export function savePlanConfig(raw) {
 export function effectiveCaps(planName) {
   const plan = planName === 'premium' ? 'premium' : 'free';
   const c = config[plan] || defaultConfig()[plan];
-  return { plan, limits: { ...c.limits }, features: { ...c.features } };
+  const features = { ...c.features };
+  if (plan === 'free') {
+    for (const g of CAPABILITIES.games) {
+      features[g.key] = features[g.key] === true;
+    }
+  }
+  return { plan, limits: { ...c.limits }, features };
 }
 
 // Capacidades "todo abierto" (para el admin).

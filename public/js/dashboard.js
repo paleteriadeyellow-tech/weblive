@@ -507,13 +507,20 @@ const OVERLAY_CAP = {
   '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
-  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/corazon-lava.html': 'ov_giftheart', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/batalla-vs.html': 'ov_batallavs', '/batalla-meta.html': 'ov_batallameta', '/batalla-mvp.html': 'ov_batallamvp', '/batalla-top3.html': 'ov_batallatop3', '/batalla-giftball.html': 'ov_batallagiftball', '/batalla-coinbar.html': 'ov_batallacoinbar', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
+  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/corazon-lava.html': 'ov_giftheart', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/batalla-vs.html': 'ov_batallavs', '/batalla-meta.html': 'ov_batallameta', '/batalla-mvp.html': 'ov_batallamvp', '/batalla-top3.html': 'ov_batallatop3',   '/batalla-giftball.html': 'ov_batallagiftball', '/batalla-coinbar.html': 'ov_batallacoinbar', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/contador-wins-minecraft.html': 'ov_winscounterminecraft',
   '/contador-wins-mario.html': 'ov_winscountermario',
   '/mejorregalo.html': 'ov_mejorregalo', '/ultimoregalo.html': 'ov_ultimoregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
   '/coinmatch.html': 'ov_coinmatch', '/sorteos.html': 'ov_sorteos', '/top-kills.html': 'ov_topkills', '/meta.html': 'ov_meta',
+  '/top1.html': 'ov_top1',
+  '/video.html': 'ov_video',
+  '/spotify-overlay.html': 'ov_spotify',
+  '/spotify-player-overlay.html': 'ov_spotifyplayer',
+  '/youtube-overlay.html': 'ov_youtube',
+  '/editor-rapido-overlay.html': 'ov_editorrapido',
+  '/screen-fx.html': 'ov_screenfx',
   '/topalt-rank-neon.html': 'ov_topaltrankneon',
   '/topalt-rank.html': 'ov_topaltrank',
   '/topmulti-rank.html': 'ov_topmultirank',
@@ -615,9 +622,13 @@ function capLimit(key) {
 }
 function capFeature(key) {
   const f = window.CAPS?.features;
-  if (!f) return !String(key || '').startsWith('game_');
+  const k = String(key || '');
+  if (k.startsWith('game_')) {
+    if (!f) return false;
+    return f[k] === true;
+  }
+  if (!f) return true;
   if (Object.prototype.hasOwnProperty.call(f, key)) return f[key] !== false;
-  if (String(key || '').startsWith('game_')) return false;
   return true;
 }
 
@@ -725,7 +736,7 @@ function applyCaps() {
   try { syncNavSections(); } catch {}
   // Overlays individuales: si no están en el plan, NO se ocultan; se muestran con
   // un bloqueo "Solo Premium" por encima (la tarjeta sigue visible pero no usable).
-  document.querySelectorAll('.ov-url[data-path]').forEach((code) => {
+  document.querySelectorAll('.ov-url[data-path], .er-ov-url[data-path]').forEach((code) => {
     const base = String(code.dataset.path).split('?')[0];
     const cap = OVERLAY_CAP[base];
     if (!cap) return;
@@ -801,6 +812,12 @@ const CAP_LABELS = {
   ov_fuegos: 'Fuegos artificiales',
   ov_chatgamer: 'Chat Gamer',
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
+  ov_top1: 'Top 1 Donador (MVP)',
+  ov_spotify: 'Spotify (lista)', ov_spotifyplayer: 'Spotify (reproductor)',
+  ov_youtube: 'YouTube Song Requests (overlay)',
+  ov_editorrapido: 'Editor Pro (overlay)',
+  ov_screenfx: 'Efectos pantalla',
+  ov_video: 'Videos (pantalla OBS)',
   // juegos
   game_minecraft: 'Juego: Minecraft', game_mcservidor: 'Juego: Servidor Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_mcshooter: 'Juego: Minecraft Shooters', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
@@ -816,6 +833,7 @@ const PLAN_FEATURE_ORDER = [
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_batallacoinbar', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
+  'ov_top1', 'ov_spotify', 'ov_spotifyplayer', 'ov_youtube', 'ov_editorrapido', 'ov_screenfx', 'ov_video',
 ];
 
 function renderPlanView() {
@@ -4015,9 +4033,9 @@ function renderPlansEditor() {
       <input type="number" min="0" max="9999" data-limit="${c.key}" value="${Number(plan.limits[c.key] ?? 0)}">
     </div>`).join('');
 
-  const groupHtml = (title, items) => `
+  const groupHtml = (title, items, opts = {}) => `
     <div class="plan-group">
-      <h4>${title}</h4>
+      <h4>${title}${opts.allNone ? ` <span class="plan-group-actions"><button type="button" class="btn tiny" data-plan-feats="all">Todos</button><button type="button" class="btn tiny" data-plan-feats="none">Ninguno</button></span>` : ''}</h4>
       <div class="plan-feats">
         ${items.map((c) => `
           <label class="plan-feat">
@@ -4033,10 +4051,18 @@ function renderPlansEditor() {
       <div class="plan-limits">${limitsHtml}</div>
     </div>
     ${groupHtml('Pestañas del panel', plansCatalog.tabs)}
-    ${plansCatalog.games && plansCatalog.games.length ? groupHtml('Juegos', plansCatalog.games) : ''}
-    ${groupHtml('Overlays', plansCatalog.overlays)}
+    ${plansCatalog.games && plansCatalog.games.length ? groupHtml('Juegos', plansCatalog.games, { allNone: true }) : ''}
+    ${groupHtml('Overlays', plansCatalog.overlays, { allNone: true })}
     ${groupHtml('Extras', plansCatalog.extras)}
   `;
+  editor.querySelectorAll('[data-plan-feats]').forEach((btn) => {
+    btn.onclick = () => {
+      const group = btn.closest('.plan-group');
+      if (!group) return;
+      const on = btn.dataset.planFeats === 'all';
+      group.querySelectorAll('input[data-feat]').forEach((inp) => { inp.checked = on; });
+    };
+  });
 }
 
 // Recoge los valores del editor hacia plansConfig[plansActiveTab].

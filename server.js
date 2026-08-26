@@ -471,6 +471,10 @@ function saveLocalCapsFromBody(body) {
     const feats = body && body[plan] && body[plan].features;
     if (!feats) continue;
     for (const k of LOCAL_ONLY_KEYS) {
+      if (String(k).startsWith('game_')) {
+        delete localCaps[plan][k];
+        continue;
+      }
       if (feats[k] !== undefined) localCaps[plan][k] = !!feats[k];
     }
   }
@@ -533,9 +537,9 @@ function capsForUser(user) {
   } else {
     const allowed = getUserAllowedGames(user);
     if (Array.isArray(allowed)) {
-      // Allowlist del admin = fuente de verdad por juego (puede conceder aunque el plan lo tenga off).
+      // Allowlist solo recorta: no puede abrir un juego que el plan tenga en off.
       for (const k of Object.keys(caps.features || {})) {
-        if (k.startsWith('game_')) caps.features[k] = allowed.includes(k);
+        if (k.startsWith('game_')) caps.features[k] = caps.features[k] === true && allowed.includes(k);
       }
     }
   }
@@ -571,11 +575,11 @@ function applyPlansMirror(raw) {
 }
 
 // Al arrancar (o cuando un admin inicia sesión), trae la config de planes desde Render.
+let lastPlansSyncAt = 0;
 async function syncPlansFromRemote() {
   if (!AUTH_REMOTE) return;
+  if (Date.now() - lastPlansSyncAt < 8000) return;
   for (const u of listUsers()) {
-    const full = getUserById(u.id);
-    if (!full?.isAdmin) continue;
     const cookie = remoteCookies.get(u.id);
     if (!cookie) continue;
     try {
@@ -583,7 +587,8 @@ async function syncPlansFromRemote() {
       if (!r.ok) continue;
       const data = await r.json();
       if (data.config) {
-        savePlanConfig(data.config);
+        applyPlansMirror(data.config);
+        lastPlansSyncAt = Date.now();
         console.log('  Planes sincronizados desde Render.');
       }
       return;
@@ -1371,8 +1376,8 @@ app.post('/api/login', express.json(), async (req, res) => {
       if (remote.cookie) { remoteCookies.set(user.id, remote.cookie); saveRemoteCookies(); }
       if (remote.roomKey) updateMirrorCloudRoomKey(user.id, remote.roomKey);
       pullRemoteSettings(user).catch(() => {});
+      syncPlansFromRemote().catch(() => {});
       if (remote.isAdmin) {
-        syncPlansFromRemote().catch(() => {});
         syncAllCloudRoomKeysFromRemote().catch(() => {});
       }
       const token = createSession(user.id);
@@ -1460,6 +1465,7 @@ app.get('/api/me', async (req, res) => {
     if (!(remoteMe && remoteMe.roomKey) && !(getUserById(user.id) || user).cloudRoomKey) {
       await ensureCloudRoomKeyCached(user);
     }
+    await syncPlansFromRemote().catch(() => {});
   }
   const caps = capsForUser(getUserById(user.id) || user);
   const fullUser = getUserById(user.id) || user;
