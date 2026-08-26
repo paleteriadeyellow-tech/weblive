@@ -542,6 +542,41 @@ const TAB_CAP = {
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
 const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
+
+function gameCapFromExecTipo(tipo, hintUrl) {
+  const t = String(tipo || '').toUpperCase();
+  const u = String(hintUrl || '').toLowerCase();
+  if (t.startsWith('PVZ_HYBRID') || t.includes('PVZ_HYBRID')) return 'game_pvzhybrid';
+  if (t.startsWith('PVZ_')) return 'game_plantasvszombies';
+  if (t.startsWith('MARIO_') || t.includes('SMBX')) return 'game_mariobros';
+  if (t.startsWith('SMB3_')) return 'game_smb3';
+  if (t.startsWith('SMW_')) return 'game_smw';
+  if (t.startsWith('MARI0_')) return 'game_mari0';
+  if (t.startsWith('REPO_')) return 'game_repo';
+  if (t.startsWith('L4D_')) return 'game_l4d';
+  if (t.startsWith('UNTURNED_')) return 'game_unturned';
+  if (t.startsWith('GTAVCHAOS') || t.startsWith('GTAV_CHAOS')) return 'game_gtavchaos';
+  if (t.startsWith('GTAVCHILIAD') || t.startsWith('GTAV_CHILIAD')) return 'game_gtavchiliad';
+  if (t.startsWith('GTAV') || t.startsWith('GTAVKOTH')) return 'game_gtavkoth';
+  if (t.startsWith('CTR_') || t.startsWith('CRASH')) return 'game_crashctr';
+  if (t.startsWith('MSLUG_') || t.startsWith('METALSLUG')) return 'game_metalslug';
+  if (t.startsWith('GD_') || t.startsWith('GEOMETRY') || t.startsWith('GDASH')) return 'game_geometrydash';
+  if (t.startsWith('ROBLOX3')) return 'game_roblox3';
+  if (t.startsWith('ROBLOX')) return 'game_roblox';
+  if (t.startsWith('BEDROCK') || t.startsWith('CUBO')) return 'game_bedrock';
+  if (t.startsWith('SANDBOX')) return 'game_sandbox';
+  if (t === 'WEBHOOK' || u) {
+    if (u.includes(':7757') || (u.includes('pvz') && u.includes('hybrid'))) return 'game_pvzhybrid';
+    if (u.includes(':7756') || u.includes('pvz')) return 'game_plantasvszombies';
+    if (u.includes(':5722') || u.includes('mari0')) return 'game_mari0';
+    if (u.includes(':5720') || u.includes('smbx')) return 'game_mariobros';
+    if (u.includes(':7760') || u.includes('mslug')) return 'game_metalslug';
+    if (u.includes(':5721') || u.includes('gdash') || u.includes('geometry')) return 'game_geometrydash';
+    if (u.includes('l4d')) return 'game_l4d';
+    if (u.includes('repo')) return 'game_repo';
+  }
+  return '';
+}
 // Minijuegos visibles pero aún no disponibles (solo el admin puede entrar).
 const GAME_COMING_SOON = {};
 
@@ -580,8 +615,10 @@ function capLimit(key) {
 }
 function capFeature(key) {
   const f = window.CAPS?.features;
-  if (!f) return true;            // sin info -> permitir (admin / aún cargando)
-  return f[key] !== false;
+  if (!f) return !String(key || '').startsWith('game_');
+  if (Object.prototype.hasOwnProperty.call(f, key)) return f[key] !== false;
+  if (String(key || '').startsWith('game_')) return false;
+  return true;
 }
 
 /** Editor Pro: solo VIP (premium) / Founder / admin. */
@@ -1159,7 +1196,8 @@ function isGameLocked(gameId) {
   if (window.IS_ADMIN) return false;
   if (isGameComingSoon(gameId)) return true;
   const cap = GAME_CAP[gameId];
-  return cap ? !capFeature(cap) : false;
+  if (!cap) return true;
+  return !capFeature(cap);
 }
 
 function clearGameCardLocks(card) {
@@ -1177,7 +1215,7 @@ function updateGameCardLock(card) {
     return;
   }
   const cap = GAME_CAP[gameId];
-  if (cap) setGameLock(card, !capFeature(cap));
+  setGameLock(card, !cap || !capFeature(cap));
 }
 
 // Pone el aviso "Próximamente" en gris (nadie entra salvo admin).
@@ -1607,6 +1645,36 @@ function mountUserChip() {
   }
   applyPcInstallButton();
   if (IS_DESKTOP) applyInstalledAppVersionBadge();
+  setupDesktopAutostartToggle();
+}
+
+async function setupDesktopAutostartToggle() {
+  const row = document.getElementById('dock-autostart-row');
+  const box = document.getElementById('lc-autostart');
+  if (!row || !box) return;
+  if (!IS_DESKTOP || !window.desktopAPI?.getAutoStart || !window.desktopAPI?.setAutoStart) {
+    row.hidden = true;
+    return;
+  }
+  row.hidden = false;
+  try {
+    const r = await window.desktopAPI.getAutoStart();
+    box.checked = !!(r && r.enabled);
+  } catch {}
+  if (box.dataset.wired) return;
+  box.dataset.wired = '1';
+  row.addEventListener('click', (e) => e.stopPropagation());
+  box.onchange = async () => {
+    try {
+      const r = await window.desktopAPI.setAutoStart(!!box.checked);
+      box.checked = !!(r && r.ok ? r.enabled : box.checked);
+      if (typeof toast === 'function') {
+        toast(box.checked ? 'El panel se abrirá al encender. Live Studio no pierde los overlays.' : 'El panel ya no se abre solo. Los overlays siguen listos para Live Studio.', 'ok');
+      }
+    } catch {
+      if (typeof toast === 'function') toast('No se pudo cambiar el inicio automático', 'warn');
+    }
+  };
 }
 
 let pcInstallUrl = '';
@@ -5153,6 +5221,9 @@ function applySettingsToUI(touchedKeys) {
     try { window.__syncHabibiDesign?.(); } catch {}
     try { window.__syncHabibiManualForm?.(); } catch {}
   }
+  if (has('top1fire')) {
+    try { window.__syncTop1FireDesign?.(); } catch {}
+  }
   if (has('batallaCoinBar') && typeof window.__syncBatallaCoinBar === 'function') {
     setTimeout(() => { try { window.__syncBatallaCoinBar(); } catch {} }, 50);
   }
@@ -5575,6 +5646,25 @@ function newLocalEntityId(prefix) {
   return String(prefix || 'item') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 }
 
+/** Nombre único al duplicar: "gta (copia)", "gta (copia 2)", … Sin esto el sync PC/nube
+ *  compacta dos filas con la misma huella (mismo nombre + mismo trigger) y parece que
+ *  no deja duplicar más de una vez. */
+function uniqueCopyName(list, baseName) {
+  const raw = String(baseName || '').trim() || 'Acción';
+  const stem = raw.replace(/\s*\(copia(?:\s+\d+)?\)\s*$/i, '').trim() || raw;
+  const used = new Set(
+    (Array.isArray(list) ? list : []).map((x) => String(x?.name || x?.label || '').trim().toLowerCase())
+  );
+  let n = 1;
+  let name = stem + ' (copia)';
+  while (used.has(name.toLowerCase())) {
+    n += 1;
+    name = stem + ' (copia ' + n + ')';
+    if (n > 9999) break;
+  }
+  return name;
+}
+
 /** Duplica un ítem de lista (acciones/sonidos/videos/batallas) sin reemplazar el original. */
 function duplicateSettingsItem(listKey, id, opts = {}) {
   const list = settings?.[listKey];
@@ -5589,8 +5679,9 @@ function duplicateSettingsItem(listKey, id, opts = {}) {
     return null;
   }
   copy.id = newLocalEntityId(opts.idPrefix || String(listKey || 'item').replace(/[^a-z]/gi, '').slice(0, 6) || 'item');
-  if (opts.rename !== false && copy.name) {
-    copy.name = String(copy.name).replace(/\s*\(copia\)\s*$/i, '') + ' (copia)';
+  if (opts.rename !== false) {
+    if (copy.name) copy.name = uniqueCopyName(list, copy.name);
+    else if (copy.label) copy.label = uniqueCopyName(list, copy.label);
   }
   list.splice(idx + 1, 0, copy);
   if (typeof opts.save === 'function') opts.save(copy);
@@ -5756,14 +5847,49 @@ function giftTriggerVisualFromItem(item, fallbackEmoji = '🎁') {
   return { img: '', emoji, label: label || 'Evento' };
 }
 
+/** Reordenar tarjetas .sa-card dejando pulsado (acciones, alertas, videos, batallas). */
+function saScrollParent(el) {
+  let p = el && el.parentElement;
+  while (p && p !== document.body) {
+    const s = getComputedStyle(p);
+    if (/(auto|scroll|overlay)/.test(s.overflowY) && p.scrollHeight > p.clientHeight + 12) return p;
+    p = p.parentElement;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
+function saFlipMove(firstRects) {
+  if (!firstRects || !firstRects.size) return;
+  firstRects.forEach((prev, el) => {
+    if (!el || !el.isConnected || !prev) return;
+    const now = el.getBoundingClientRect();
+    const dx = prev.left - now.left;
+    const dy = prev.top - now.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    void el.offsetWidth;
+    el.style.transition = 'transform 180ms cubic-bezier(.22,.7,.28,1)';
+    el.style.transform = '';
+    const clear = (ev) => {
+      if (ev && ev.propertyName && ev.propertyName !== 'transform') return;
+      el.style.transition = '';
+      el.style.transform = '';
+      el.removeEventListener('transitionend', clear);
+    };
+    el.addEventListener('transitionend', clear);
+    setTimeout(clear, 240);
+  });
+}
+
 function bindSaCardLongPressReorder(container, onReorder) {
   if (!container || typeof onReorder !== 'function') return;
   container._saOnReorder = onReorder;
   if (container.dataset.saReorder === '1') return;
   container.dataset.saReorder = '1';
 
-  const HOLD_MS = 420;
-  const CANCEL_PX = 12;
+  const HOLD_MS = 380;
+  const CANCEL_PX = 14;
   const INTERACTIVE = 'button, input, select, textarea, a, label, .toggle, .sa-card-btns, .acc-card-icons, .vid-card-btns, .sa-vol, .vid-card-vol';
 
   container.addEventListener('pointerdown', (e) => {
@@ -5778,51 +5904,161 @@ function bindSaCardLongPressReorder(container, onReorder) {
     let timer = null;
     let dragging = false;
     let moved = false;
+    let ph = null;
+    let raf = 0;
+    let px = startX;
+    let py = startY;
+    let grabW = 0;
+    let grabH = 0;
+    let originLeft = 0;
+    let originTop = 0;
+    let lastSlot = null;
+
+    const ghostTransform = () => {
+      const x = originLeft + (px - startX);
+      const y = originTop + (py - startY);
+      card.style.transform = `translate3d(${x}px, ${y}px, 0) scale(1.035) rotate(0.35deg)`;
+    };
+
+    const nextPhRef = () => {
+      const others = [...container.querySelectorAll('.sa-card')].filter((c) => c !== card);
+      const grid = container.classList.contains('is-map')
+        || String(getComputedStyle(container).display || '').includes('grid');
+      if (!others.length) return card;
+      if (!grid) {
+        for (const item of others) {
+          const r = item.getBoundingClientRect();
+          if (py < r.top + r.height / 2 - 6) return item;
+        }
+        return card;
+      }
+      let best = others[0];
+      let bestD = Infinity;
+      for (const item of others) {
+        const r = item.getBoundingClientRect();
+        const d = Math.hypot(px - (r.left + r.width / 2), py - (r.top + r.height / 2));
+        if (d < bestD) { bestD = d; best = item; }
+      }
+      const r = best.getBoundingClientRect();
+      const before = py < r.top + r.height / 2
+        || (Math.abs(py - (r.top + r.height / 2)) <= r.height / 2 && px < r.left + r.width / 2);
+      if (before) return best;
+      let nxt = best.nextSibling;
+      while (nxt && (nxt === ph || nxt === card)) nxt = nxt.nextSibling;
+      return nxt || card;
+    };
+
+    const placePlaceholder = () => {
+      if (!ph || !ph.isConnected) return;
+      const ref = nextPhRef();
+      if (ref === ph || ph.nextSibling === ref) return;
+      if (lastSlot === ref) return;
+      lastSlot = ref;
+      const first = new Map();
+      for (const el of container.children) {
+        if (el === card) continue;
+        first.set(el, el.getBoundingClientRect());
+      }
+      try { container.insertBefore(ph, ref); } catch { return; }
+      moved = true;
+      saFlipMove(first);
+    };
+
+    const autoScroll = () => {
+      const scroller = saScrollParent(container);
+      if (!scroller) return false;
+      const r = scroller.getBoundingClientRect ? scroller.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+      const edge = 72;
+      let dy = 0;
+      if (py < r.top + edge) dy = -Math.max(8, (edge - (py - r.top)) * 0.42);
+      else if (py > r.bottom - edge) dy = Math.max(8, (edge - (r.bottom - py)) * 0.42);
+      if (!dy) return false;
+      if (scroller === document.scrollingElement || scroller === document.documentElement || scroller === document.body) {
+        window.scrollBy(0, dy);
+      } else {
+        scroller.scrollTop += dy;
+      }
+      return true;
+    };
+
+    const tick = () => {
+      raf = 0;
+      if (!dragging) return;
+      ghostTransform();
+      const scrolling = autoScroll();
+      placePlaceholder();
+      if (scrolling) raf = requestAnimationFrame(tick);
+    };
 
     const finish = () => {
       if (timer) { clearTimeout(timer); timer = null; }
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
-      if (dragging) {
-        try { card.releasePointerCapture?.(pointerId); } catch {}
-        card.classList.remove('sa-dragging');
-        container.classList.remove('sa-reordering');
-        if (moved) {
-          const ids = [...container.querySelectorAll('.sa-card')].map((c) => c.dataset.id).filter(Boolean);
-          try { container._saOnReorder?.(ids); } catch {}
-          const swallow = (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            card.removeEventListener('click', swallow, true);
-          };
-          card.addEventListener('click', swallow, true);
-          setTimeout(() => card.removeEventListener('click', swallow, true), 400);
-        }
+      card.classList.remove('sa-hold-ready');
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      if (!dragging) return;
+      try { card.releasePointerCapture?.(pointerId); } catch {}
+      const ghost = card.getBoundingClientRect();
+      if (ph && ph.parentNode) {
+        try { container.insertBefore(card, ph); } catch {}
+        try { ph.remove(); } catch {}
+      }
+      ph = null;
+      card.classList.remove('sa-dragging');
+      container.classList.remove('sa-reordering');
+      card.style.position = '';
+      card.style.left = '';
+      card.style.top = '';
+      card.style.width = '';
+      card.style.height = '';
+      card.style.zIndex = '';
+      card.style.pointerEvents = '';
+      card.style.willChange = '';
+      card.style.boxShadow = '';
+      card.style.transition = 'none';
+      const dest = card.getBoundingClientRect();
+      const dx = ghost.left - dest.left;
+      const dy = ghost.top - dest.top;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        card.style.transform = `translate(${dx}px, ${dy}px)`;
+        void card.offsetWidth;
+        card.style.transition = 'transform 180ms cubic-bezier(.22,.7,.28,1)';
+        card.style.transform = '';
+        setTimeout(() => { card.style.transition = ''; card.style.transform = ''; }, 220);
+      } else {
+        card.style.transform = '';
+        card.style.transition = '';
+      }
+      if (moved) {
+        const ids = [...container.querySelectorAll('.sa-card')].map((c) => c.dataset.id).filter(Boolean);
+        try { container._saOnReorder?.(ids); } catch {}
+        const swallow = (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          card.removeEventListener('click', swallow, true);
+        };
+        card.addEventListener('click', swallow, true);
+        setTimeout(() => card.removeEventListener('click', swallow, true), 400);
       }
     };
 
     const onMove = (ev) => {
       if (ev.pointerId !== pointerId) return;
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
+      px = ev.clientX;
+      py = ev.clientY;
+      const dx = px - startX;
+      const dy = py - startY;
       if (!dragging) {
         if (Math.hypot(dx, dy) > CANCEL_PX && timer) {
           clearTimeout(timer);
           timer = null;
+          card.classList.remove('sa-hold-ready');
         }
         return;
       }
       ev.preventDefault();
-      const under = document.elementFromPoint(ev.clientX, ev.clientY);
-      const over = under?.closest?.('.sa-card');
-      if (!over || over === card || !container.contains(over)) return;
-      const rect = over.getBoundingClientRect();
-      const before = ev.clientY < rect.top + rect.height / 2;
-      const ref = before ? over : over.nextSibling;
-      if (ref === card || (before && card.nextSibling === over) || (!before && over.nextSibling === card)) return;
-      container.insertBefore(card, ref);
-      moved = true;
+      if (!raf) raf = requestAnimationFrame(tick);
     };
 
     const onUp = (ev) => {
@@ -5833,11 +6069,35 @@ function bindSaCardLongPressReorder(container, onReorder) {
     timer = setTimeout(() => {
       timer = null;
       dragging = true;
+      const rect = card.getBoundingClientRect();
+      grabW = rect.width;
+      grabH = rect.height;
+      originLeft = rect.left;
+      originTop = rect.top;
+      ph = document.createElement('div');
+      ph.className = 'sa-drag-placeholder';
+      ph.style.height = grabH + 'px';
+      ph.style.minHeight = grabH + 'px';
+      if (container.classList.contains('is-map')) ph.style.width = grabW + 'px';
+      card.after(ph);
+      container.appendChild(card);
+      card.classList.remove('sa-hold-ready');
       card.classList.add('sa-dragging');
       container.classList.add('sa-reordering');
+      card.style.position = 'fixed';
+      card.style.left = '0';
+      card.style.top = '0';
+      card.style.width = grabW + 'px';
+      card.style.zIndex = '10050';
+      card.style.pointerEvents = 'none';
+      card.style.willChange = 'transform';
+      card.style.transition = 'box-shadow .16s ease';
+      ghostTransform();
       try { card.setPointerCapture(pointerId); } catch {}
+      if (!raf) raf = requestAnimationFrame(tick);
     }, HOLD_MS);
 
+    card.classList.add('sa-hold-ready');
     window.addEventListener('pointermove', onMove, { passive: false });
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
@@ -8440,6 +8700,13 @@ function renderPotSimGiftBtn(key) {
     { id: 'crystal', name: 'Cristal' },
     { id: 'royal', name: 'Royal' },
     { id: 'forest', name: 'Bosque' },
+    { id: 'minecraft', name: 'Minecraft' },
+    { id: 'padrinos', name: 'Padrinos' },
+    { id: 'sao', name: 'SAO' },
+    { id: 'onepiece', name: 'One Piece' },
+    { id: 'godofwar', name: 'God of War' },
+    { id: 'dbz', name: 'Dragon Ball' },
+    { id: 'sololeveling', name: 'Solo Leveling' },
   ];
   const idxOf = (id) => {
     const i = JAR_SKINS.findIndex((s) => s.id === id);
@@ -8489,6 +8756,7 @@ function renderPotSimGiftBtn(key) {
   });
   try {
     localId = settings?.jarron?.skin || 'classic';
+    if (!JAR_SKINS.some((s) => s.id === localId)) localId = 'classic';
     syncUi(localId);
   } catch {}
   window.__syncJarronSkin = () => {
@@ -8891,6 +9159,13 @@ function applyJarronUI() {
     { id: 'crystal', name: 'Cristal' },
     { id: 'royal', name: 'Royal' },
     { id: 'forest', name: 'Bosque' },
+    { id: 'minecraft', name: 'Minecraft' },
+    { id: 'padrinos', name: 'Padrinos' },
+    { id: 'sao', name: 'SAO' },
+    { id: 'onepiece', name: 'One Piece' },
+    { id: 'godofwar', name: 'God of War' },
+    { id: 'dbz', name: 'Dragon Ball' },
+    { id: 'sololeveling', name: 'Solo Leveling' },
   ];
   const idxOf = (id) => {
     const i = JAR_SKINS.findIndex((s) => s.id === id);
@@ -8940,6 +9215,7 @@ function applyJarronUI() {
   });
   try {
     localId = settings?.pelotas?.skin || 'classic';
+    if (!JAR_SKINS.some((s) => s.id === localId)) localId = 'classic';
     syncUi(localId);
   } catch {}
   $('pel-preview')?.addEventListener('load', () => pushPreviewSkin(localId));
@@ -10475,8 +10751,20 @@ const STYLE_OVERLAYS = [
     btnTest: 'top1fire-test', btnReset: 'top1fire-reset', btnConfig: 'top1fire-config',
     modalId: 'top1fireConfigModal', closeId: 'top1fcfg-close', saveId: 'top1fcfg-save',
     testAction: 'testTop1Fire', resetAction: 'resetTop1Fire',
-    map: { 'top1fcfg-period': 'resetPeriod', 'top1fcfg-coinlabel': 'coinLabel', 'top1fcfg-font': 'font',
-      'top1fcfg-showfx': 'showFx' },
+    map: {
+      'top1fcfg-period': 'resetPeriod', 'top1fcfg-design': 'design', 'top1fcfg-coinlabel': 'coinLabel', 'top1fcfg-font': 'font',
+      'top1fcfg-showfx': 'showFx',
+      'top1fcfg-namescale': 'nameScale', 'top1fcfg-valuescale': 'valueScale',
+      'top1fcfg-ng1': 'ng1', 'top1fcfg-ng2': 'ng2', 'top1fcfg-ng3': 'ng3',
+      'top1fcfg-valuecolor': 'valueColor', 'top1fcfg-valuestroke': 'valueStroke', 'top1fcfg-coincolor': 'coinColor',
+    },
+    types: { nameScale: 'int', valueScale: 'int' },
+    onFormSync: () => {
+      const ns = $('top1fcfg-namescale'); const nsl = $('top1fcfg-namescale-lbl');
+      if (ns && nsl) nsl.textContent = Math.max(50, Math.min(220, parseInt(ns.value, 10) || 100)) + '%';
+      const vs = $('top1fcfg-valuescale'); const vsl = $('top1fcfg-valuescale-lbl');
+      if (vs && vsl) vsl.textContent = Math.max(50, Math.min(220, parseInt(vs.value, 10) || 100)) + '%';
+    },
   }),
   setupStyleOverlay({
     kind: 'gcounter', settingsKey: 'giftCounter', previewId: 'gct-preview',
@@ -11974,6 +12262,95 @@ try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__pa
   };
 })();
 
+(function setupTop1FireDesigns() {
+  const DESIGNS = [
+    { id: '1', name: 'Clásico' },
+    { id: '2', name: 'Street púrpura' },
+    { id: '3', name: 'Dragón dorado' },
+    { id: '4', name: 'Encapuchado' },
+    { id: '5', name: 'Leones reales' },
+    { id: '6', name: 'Alas doradas' },
+    { id: '7', name: 'Dragón lava' },
+    { id: '8', name: 'Espadas gamer' },
+    { id: '9', name: 'Lobos azul' },
+  ];
+  const idxOf = (id) => {
+    const i = DESIGNS.findIndex((d) => d.id === String(id));
+    return i < 0 ? 0 : i;
+  };
+  let localId = '1';
+  let holdUntil = 0;
+  let saveTimer = 0;
+  const syncUi = (id) => {
+    const d = DESIGNS[idxOf(id)];
+    if ($('top1f-design-name')) $('top1f-design-name').textContent = d.name;
+    if ($('top1f-design-idx')) $('top1f-design-idx').textContent = `${idxOf(d.id) + 1} / ${DESIGNS.length}`;
+    if ($('top1fcfg-design') && $('top1fcfg-design').value !== d.id) $('top1fcfg-design').value = d.id;
+  };
+  const pushPreview = () => {
+    const cfg = { ...(settings?.top1fire || {}), design: localId };
+    const fr = $('top1fire-preview');
+    const sendMsg = () => {
+      try { fr?.contentWindow?.postMessage({ kind: 'top1fire', type: 'config', config: cfg }, '*'); } catch {}
+    };
+    if (typeof ensureEmbedLoaded === 'function') {
+      ensureEmbedLoaded(fr).then(sendMsg).catch(sendMsg);
+    } else sendMsg();
+  };
+  const apply = (id, persist) => {
+    const d = DESIGNS[idxOf(id)];
+    localId = d.id;
+    holdUntil = Date.now() + 2500;
+    if (!settings.top1fire) settings.top1fire = {};
+    settings.top1fire.design = localId;
+    syncUi(localId);
+    pushPreview();
+    if (!persist) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = 0;
+      const run = () => {
+        try {
+          if (typeof saveSettingsKeysPatch === 'function') saveSettingsKeysPatch('top1fire');
+          else if (typeof saveSettings === 'function') saveSettings();
+        } catch {}
+      };
+      if (typeof applyingSettings !== 'undefined' && applyingSettings) setTimeout(run, 80);
+      else run();
+    }, 180);
+  };
+  if ($('top1f-design-prev')) $('top1f-design-prev').onclick = () => {
+    apply(DESIGNS[(idxOf(localId) - 1 + DESIGNS.length) % DESIGNS.length].id, true);
+  };
+  if ($('top1f-design-next')) $('top1f-design-next').onclick = () => {
+    apply(DESIGNS[(idxOf(localId) + 1) % DESIGNS.length].id, true);
+  };
+  if ($('top1fcfg-design')) {
+    $('top1fcfg-design').addEventListener('change', () => apply($('top1fcfg-design').value, true));
+  }
+  try {
+    localId = String(settings?.top1fire?.design || '1');
+    if (!DESIGNS.some((d) => d.id === localId)) localId = '1';
+    syncUi(localId);
+  } catch {}
+  window.__syncTop1FireDesign = () => {
+    try {
+      if (Date.now() < holdUntil) {
+        if (settings) {
+          if (!settings.top1fire) settings.top1fire = {};
+          settings.top1fire.design = localId;
+        }
+        syncUi(localId);
+        pushPreview();
+        return;
+      }
+      localId = String(settings?.top1fire?.design || '1');
+      if (!DESIGNS.some((d) => d.id === localId)) localId = '1';
+      syncUi(localId);
+    } catch {}
+  };
+})();
+
 // Contador de meta: regalo / meta / valor viven en el modal Configurar.
 (function setupGiftCounterCard() {
   const prev = () => $('gct-preview')?.contentWindow;
@@ -12184,6 +12561,39 @@ function ensureHotkeys(key) {
   return hk;
 }
 
+const HK_EXTRA_MAX = 40;
+function ensureHotkeyExtras(key) {
+  if (!settings) return [];
+  if (!settings[key]) settings[key] = {};
+  if (!Array.isArray(settings[key].hotkeyExtras)) settings[key].hotkeyExtras = [];
+  return settings[key].hotkeyExtras;
+}
+function newWinsHotkeyExtra() {
+  return {
+    id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    on: true, key: '', amount: 10, sign: 1, giftId: '', giftName: '', image: '',
+  };
+}
+function eachWinsHotkeyBinding(key, fn) {
+  const hk = settings?.[key]?.hotkeys;
+  if (hk) {
+    HK_ACTIONS.forEach((a) => {
+      const d = hk[a.id];
+      if (!d) return;
+      const amt = a.amount ? Math.max(1, parseInt(d.amount, 10) || 1) : 1;
+      fn({ on: !!d.on, key: d.key, delta: a.sign * amt, giftId: d.giftId });
+    });
+  }
+  const extras = settings?.[key]?.hotkeyExtras;
+  if (!Array.isArray(extras)) return;
+  extras.forEach((d) => {
+    if (!d || typeof d !== 'object') return;
+    const sign = Number(d.sign) < 0 ? -1 : 1;
+    const amt = Math.max(1, parseInt(d.amount, 10) || 1);
+    fn({ on: !!d.on, key: d.key, delta: sign * amt, giftId: d.giftId });
+  });
+}
+
 function formatCombo(e) {
   const parts = [];
   if (e.ctrlKey) parts.push('Ctrl');
@@ -12259,6 +12669,21 @@ function buildWinsHotkeys(o) {
   const cont = $(o.hotkeysId); if (!cont) return;
   cont.innerHTML = '';
   o._hkRenderers = [];
+  const bindGift = (giftBtn, read) => {
+    const renderGift = () => {
+      const d = read();
+      if (d.giftId) {
+        giftBtn.innerHTML = `<img src="${esc(d.image || '')}" class="wc-hk-giftimg" onerror="this.style.display='none'"> ${esc(d.giftName || 'Regalo')} <span class="wc-hk-x">×</span>`;
+        giftBtn.classList.add('has-gift');
+      } else { giftBtn.textContent = '🎁 Asignar regalo'; giftBtn.classList.remove('has-gift'); }
+    };
+    giftBtn.onclick = (e) => {
+      const d = read();
+      if (d.giftId && e.target.classList.contains('wc-hk-x')) { d.giftId = ''; d.giftName = ''; d.image = ''; renderGift(); saveWinsCounterPatch(o.key); return; }
+      openGiftModal('wins', (g) => { d.giftId = String(g.id); d.giftName = g.name; d.image = g.image || ''; renderGift(); saveWinsCounterPatch(o.key); });
+    };
+    return renderGift;
+  };
   HK_ACTIONS.forEach((a) => {
     const row = document.createElement('div');
     row.className = 'wc-hk';
@@ -12275,26 +12700,75 @@ function buildWinsHotkeys(o) {
     const amountEl = row.querySelector('.wc-hk-amount');
     const giftBtn = row.querySelector('.wc-hk-giftbtn');
     const read = () => ensureHotkeys(o.key)[a.id];
-    const renderGift = () => {
-      const d = read();
-      if (d.giftId) {
-        giftBtn.innerHTML = `<img src="${esc(d.image || '')}" class="wc-hk-giftimg" onerror="this.style.display='none'"> ${esc(d.giftName || 'Regalo')} <span class="wc-hk-x">×</span>`;
-        giftBtn.classList.add('has-gift');
-      } else { giftBtn.textContent = '🎁 Asignar regalo'; giftBtn.classList.remove('has-gift'); }
-    };
+    const renderGift = bindGift(giftBtn, read);
     const renderKey = () => { keyBtn.textContent = read().key || '—'; };
     const renderAll = () => { const d = read(); onEl.checked = !!d.on; if (amountEl) amountEl.value = d.amount || 5; renderKey(); renderGift(); };
     o._hkRenderers.push(renderAll);
     onEl.onchange = () => { read().on = onEl.checked; saveWinsCounterPatch(o.key); if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop(); };
     if (amountEl) amountEl.onchange = () => { read().amount = Math.max(1, parseInt(amountEl.value, 10) || 1); saveWinsCounterPatch(o.key); };
     keyBtn.onclick = () => captureHotkey(keyBtn, (combo) => { read().key = combo; renderKey(); saveWinsCounterPatch(o.key); if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop(); });
-    giftBtn.onclick = (e) => {
-      const d = read();
-      if (d.giftId && e.target.classList.contains('wc-hk-x')) { d.giftId = ''; d.giftName = ''; d.image = ''; renderGift(); saveWinsCounterPatch(o.key); return; }
-      openGiftModal('wins', (g) => { d.giftId = String(g.id); d.giftName = g.name; d.image = g.image || ''; renderGift(); saveWinsCounterPatch(o.key); });
+    renderAll();
+  });
+  ensureHotkeyExtras(o.key).forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'wc-hk wc-hk-extra';
+    row.innerHTML = `
+      <div class="wc-hk-main">
+        <label class="wc-hk-check"><input type="checkbox" class="wc-hk-on"><span>ATAJO</span></label>
+        <div class="wc-hk-keys">
+          <select class="wc-hk-sign" title="Sumar o restar">
+            <option value="1">SUMAR</option>
+            <option value="-1">RESTAR</option>
+          </select>
+          <input type="number" class="wc-hk-amount" min="1" max="999" value="10" title="Cantidad">
+          <button type="button" class="btn ghost wc-hk-key">—</button>
+          <button type="button" class="btn ghost danger wc-hk-del" title="Quitar">×</button>
+        </div>
+      </div>
+      <div class="wc-hk-gift"><button type="button" class="btn ghost wc-hk-giftbtn">🎁 Asignar regalo</button></div>`;
+    cont.appendChild(row);
+    const onEl = row.querySelector('.wc-hk-on');
+    const signEl = row.querySelector('.wc-hk-sign');
+    const amountEl = row.querySelector('.wc-hk-amount');
+    const keyBtn = row.querySelector('.wc-hk-key');
+    const giftBtn = row.querySelector('.wc-hk-giftbtn');
+    const read = () => ensureHotkeyExtras(o.key)[idx];
+    const renderGift = bindGift(giftBtn, read);
+    const renderKey = () => { const d = read(); if (d) keyBtn.textContent = d.key || '—'; };
+    const renderAll = () => {
+      const d = read(); if (!d) return;
+      onEl.checked = !!d.on;
+      signEl.value = Number(d.sign) < 0 ? '-1' : '1';
+      amountEl.value = d.amount || 10;
+      renderKey(); renderGift();
+    };
+    o._hkRenderers.push(renderAll);
+    onEl.onchange = () => { const d = read(); if (!d) return; d.on = onEl.checked; saveWinsCounterPatch(o.key); if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop(); };
+    signEl.onchange = () => { const d = read(); if (!d) return; d.sign = signEl.value === '-1' ? -1 : 1; saveWinsCounterPatch(o.key); if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop(); };
+    amountEl.onchange = () => { const d = read(); if (!d) return; d.amount = Math.max(1, parseInt(amountEl.value, 10) || 1); saveWinsCounterPatch(o.key); if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop(); };
+    keyBtn.onclick = () => captureHotkey(keyBtn, (combo) => { const d = read(); if (!d) return; d.key = combo; renderKey(); saveWinsCounterPatch(o.key); if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop(); });
+    row.querySelector('.wc-hk-del').onclick = () => {
+      const list = ensureHotkeyExtras(o.key);
+      const i = list.findIndex((x) => x && x.id === item.id);
+      if (i >= 0) list.splice(i, 1);
+      saveWinsCounterPatch(o.key);
+      if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop();
+      buildWinsHotkeys(o);
     };
     renderAll();
   });
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'btn ghost wc-hk-add';
+  addBtn.textContent = '+ Agregar atajo';
+  addBtn.onclick = () => {
+    const list = ensureHotkeyExtras(o.key);
+    if (list.length >= HK_EXTRA_MAX) return;
+    list.push(newWinsHotkeyExtra());
+    saveWinsCounterPatch(o.key);
+    buildWinsHotkeys(o);
+  };
+  cont.appendChild(addBtn);
 }
 
 function setupWinsCounter(o) {
@@ -12337,7 +12811,7 @@ function setupWinsCounter(o) {
   if ($(o.btnConfig)) $(o.btnConfig).onclick = () => {
     fillForm(o.map, settings?.[o.key] || {});
     syncFontSizeVal();
-    if (o._hkRenderers) o._hkRenderers.forEach((fn) => fn());
+    buildWinsHotkeys(o);
     pushPrev();
     $(o.modalId).classList.remove('hidden');
   };
@@ -13272,13 +13746,10 @@ function applyWinsHotkeyByCombo(combo) {
   if (!combo) return false;
   let acted = false;
   WINS_COUNTERS.forEach((o) => {
-    const hk = settings?.[o.key]?.hotkeys; if (!hk) return;
-    HK_ACTIONS.forEach((a) => {
-      const d = hk[a.id];
-      if (!d || !d.on || !d.key) return;
-      if (d.key.toLowerCase() !== combo.toLowerCase()) return;
-      const amt = a.amount ? Math.max(1, parseInt(d.amount, 10) || 1) : 1;
-      o._adjust(a.sign * amt);
+    eachWinsHotkeyBinding(o.key, (b) => {
+      if (!b.on || !b.key) return;
+      if (String(b.key).toLowerCase() !== combo.toLowerCase()) return;
+      o._adjust(b.delta);
       acted = true;
     });
   });
@@ -13295,13 +13766,9 @@ function syncWinsHotkeysToDesktop() {
   if (!IS_DESKTOP || !window.desktopAPI?.syncWinsHotkeys) return;
   const bindings = [];
   WINS_COUNTERS.forEach((o) => {
-    const hk = settings?.[o.key]?.hotkeys;
-    if (!hk) return;
-    HK_ACTIONS.forEach((a) => {
-      const d = hk[a.id];
-      if (!d || !d.on || !d.key) return;
-      const amt = a.amount ? Math.max(1, parseInt(d.amount, 10) || 1) : 1;
-      bindings.push({ counterKey: o.key, key: d.key, delta: a.sign * amt });
+    eachWinsHotkeyBinding(o.key, (b) => {
+      if (!b.on || !b.key) return;
+      bindings.push({ counterKey: o.key, key: b.key, delta: b.delta });
     });
   });
   window.desktopAPI.syncWinsHotkeys(bindings).catch(() => {});
@@ -17988,6 +18455,10 @@ function withLocalMcConn(exec) {
 
 function onLocalExec(exec) {
   if (!exec || !exec.tipo) return;
+  if (!window.IS_ADMIN) {
+    const cap = gameCapFromExecTipo(exec.tipo, exec.url);
+    if (cap && !capFeature(cap)) return;
+  }
   if (/^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_|REPO_|L4D_|CTR_|UNTURNED_|SMW_|GTAVCHILIAD_|GTAVCHAOS_|GTAVKOTH_)/.test(exec.tipo)) {
     if (exec.tipo === 'REPO_SPAWN') {
       (async () => {
@@ -19043,6 +19514,10 @@ async function showViewById(viewId) {
   const gameMatch = viewId.match(/^view-juego-(.+)$/);
   if (gameMatch && isGameComingSoon(gameMatch[1])) {
     toast('Este juego estará disponible próximamente.', 'warn');
+    return;
+  }
+  if (gameMatch && isGameLocked(gameMatch[1])) {
+    toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
     return;
   }
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
@@ -20156,6 +20631,8 @@ function duplicateGameActionBelow(settingsKey, uid, render) {
   const copy = JSON.parse(JSON.stringify(src));
   const prefix = String(src.uid || 'act').split('_')[0] || 'act';
   copy.uid = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  if (copy.name) copy.name = uniqueCopyName(list, copy.name);
+  else if (copy.label) copy.label = uniqueCopyName(list, copy.label);
   list.splice(idx + 1, 0, copy);
   lastGameActionEditAt = Date.now();
   saveSettingsKeysPatch(settingsKey);
@@ -23584,6 +24061,13 @@ async function execGameLocal(exec) {
   if (!IS_DESKTOP || !exec) return false;
   const gameTipo = /^(MARIO_|MARI0_|SMB3_|PVZ_HYBRID_|PVZ_|MSLUG_|REPO_|L4D_|CTR_|UNTURNED_|SMW_|GTAVCHILIAD_|GTAVCHAOS_|GTAVKOTH_)/.test(exec.tipo || '');
   const webhookTipo = exec.tipo === 'WEBHOOK';
+  if (!window.IS_ADMIN) {
+    const cap = gameCapFromExecTipo(exec.tipo, exec.url);
+    if ((cap && !capFeature(cap)) || (gameTipo && !cap)) {
+      toast && toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+      return { ok: false, error: 'plan' };
+    }
+  }
   const okResult = (r) => r && r.ok !== false;
   const noteGamerBadge = () => {
     try {

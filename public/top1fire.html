@@ -27,6 +27,8 @@ html.embed .stage { transform: scale(var(--fit, 1)); transform-origin: center ce
     --ng3: #ff4500;
     --vc: #ffe8d6;
     --vs: rgba(42, 10, 0, 0.9);
+    --name-scale: 1;
+    --value-scale: 1;
     --tf-font-stack: 'Inter', system-ui, sans-serif;
     --tf-name-font-stack: 'Cinzel', 'Inter', serif;
 }
@@ -39,21 +41,22 @@ html.embed .stage { transform: scale(var(--fit, 1)); transform-origin: center ce
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 12px 20px 20px;
+    padding: 8px 20px 16px;
 }
 
 .top-wrap {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 320px;
+    width: 380px;
 }
 
-/* Marco dorado MVP: foto DETRÁS del PNG, en el hueco del círculo */
+/* Marco MVP: foto DETRÁS del PNG, en el hueco del círculo */
 .frame-hero {
     position: relative;
-    width: 300px;
-    height: 300px;
+    width: 380px;
+    height: 380px;
+    overflow: visible;
     filter: drop-shadow(0 10px 22px rgba(0,0,0,.45)) drop-shadow(0 0 18px rgba(255, 180, 40, 0.35));
     animation: frame-float 3.2s ease-in-out infinite;
     will-change: transform;
@@ -71,11 +74,10 @@ body.no-fx .frame-hero {
 
 .avatar-hole {
     position: absolute;
-    left: 49.85%;
-    top: 50.68%;
-    width: 38.48%;
-    height: 35.45%;
-    transform: translate(-50%, -50%);
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
     border-radius: 50%;
     overflow: hidden;
     z-index: 1;
@@ -99,7 +101,7 @@ body.no-fx .frame-hero {
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: fill;
+    object-fit: contain;
     display: block;
     z-index: 2;
     pointer-events: none;
@@ -107,13 +109,13 @@ body.no-fx .frame-hero {
 }
 
 .nombre {
-    margin-top: 6px;
+    margin-top: 4px;
     font-family: var(--tf-name-font-stack, 'Cinzel', 'Inter', serif);
     font-weight: 900;
-    font-size: 17px;
+    font-size: calc(17px * var(--name-scale, 1));
     letter-spacing: 0.04em;
     text-align: center;
-    max-width: 280px;
+    max-width: 360px;
     line-height: 1.2;
     background: linear-gradient(180deg, var(--ng1) 0%, var(--ng2) 45%, var(--ng3) 100%);
     -webkit-background-clip: text;
@@ -124,11 +126,11 @@ body.no-fx .frame-hero {
 }
 
 .monedas {
-    margin-top: 6px;
+    margin-top: 4px;
     color: var(--vc);
     font-family: var(--tf-font-stack, 'Inter', system-ui, sans-serif);
     font-weight: 800;
-    font-size: 15px;
+    font-size: calc(15px * var(--value-scale, 1));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -138,8 +140,8 @@ body.no-fx .frame-hero {
 }
 
 .moneda {
-    width: 20px;
-    height: 20px;
+    width: calc(20px * var(--value-scale, 1));
+    height: calc(20px * var(--value-scale, 1));
     flex-shrink: 0;
 }
 </style>
@@ -152,7 +154,7 @@ body.no-fx .frame-hero {
             <div class="avatar-hole">
                 <img id="avatar" class="avatar" alt="">
             </div>
-            <img class="frame-img" src="/overlays/marco-top1fire.png" alt="" draggable="false">
+            <img class="frame-img" id="frame" src="/overlays/marco-top1fire.png?v=t1f1" alt="" draggable="false">
         </div>
 
         <div class="nombre" id="nombre">Esperando...</div>
@@ -167,26 +169,164 @@ body.no-fx .frame-hero {
   const DEFAULT_PIC = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
   const PREVIEW_PIC = 'https://randomuser.me/api/portraits/men/32.jpg';
   const FONTS = { luckiest: "'Luckiest Guy', system-ui, sans-serif", bangers: "'Bangers', system-ui, sans-serif", lilita: "'Lilita One', system-ui, sans-serif", titan: "'Titan One', system-ui, sans-serif", fredoka: "'Fredoka', system-ui, sans-serif", bungee: "'Bungee', system-ui, sans-serif", rubik: "'Rubik', system-ui, sans-serif", oswald: "'Oswald', system-ui, sans-serif", bebas: "'Bebas Neue', Impact, sans-serif", montserrat: "'Montserrat', system-ui, sans-serif", poppins: "'Poppins', system-ui, sans-serif", orbitron: "'Orbitron', system-ui, sans-serif", inter: "'Inter', system-ui, sans-serif", system: "system-ui, sans-serif" };
-  const COIN = '#ffd700';
+  const DESIGNS = {
+    '1': { src: '/overlays/marco-top1fire.png?v=t1f1', layout: { top: 0.5068, left: 0.4985, size: 0.3848 } },
+    '2': { src: '/overlays/top1fire/design2.png?v=t1f1', layout: { top: 0.45, left: 0.50, size: 0.42 } },
+    '3': { src: '/overlays/top1fire/design3.png?v=t1f1', layout: { top: 0.45, left: 0.50, size: 0.42 } },
+    '4': { src: '/overlays/top1fire/design4.png?v=t1f1', layout: { top: 0.45, left: 0.50, size: 0.42 } },
+    '5': { src: '/overlays/top1fire/design5.png?v=t1f1', layout: { top: 0.44, left: 0.50, size: 0.40 } },
+    '6': { src: '/overlays/top1fire/design6.png?v=t1f1', layout: { top: 0.45, left: 0.50, size: 0.42 } },
+    '7': { src: '/overlays/top1fire/design7.png?v=t1f1', layout: { top: 0.45, left: 0.50, size: 0.42 } },
+    '8': { src: '/overlays/top1fire/design8.png?v=t1f1', layout: { top: 0.45, left: 0.50, size: 0.42 } },
+    '9': { src: '/overlays/top1fire/design9.png?v=t1f1', layout: { top: 0.45, left: 0.50, size: 0.42 } },
+  };
+
+  function resolveDesign(id) {
+    const key = String(id == null ? '1' : id);
+    return DESIGNS[key] || DESIGNS['1'];
+  }
 
   let cfg = {
-    coinLabel: '', font: 'inter', showFx: true, resetPeriod: 'live',
+    coinLabel: '', font: 'inter', showFx: true, resetPeriod: 'live', design: '1',
+    nameScale: 100, valueScale: 100,
+    ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
+    valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
   };
   let topData = null;
   let previewMode = false;
 
   const $ = (id) => document.getElementById(id);
 
+  function alphaAt(data, w, x, y) {
+    if (x < 0 || y < 0 || x >= w || y >= data.length / (w * 4)) return 0;
+    return data[(y * w + x) * 4 + 3];
+  }
+
+  function detectHoleLayout(img) {
+    try {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      if (!w || !h) return null;
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, w, h).data;
+      let bestSpan = 0, bestY = Math.round(h * 0.45), x1 = 0, x2 = 0;
+      const yStart = Math.floor(h * 0.18);
+      const yEnd = Math.floor(h * 0.78);
+      for (let y = yStart; y < yEnd; y += 2) {
+        let x = 0;
+        while (x < w) {
+          if (alphaAt(data, w, x, y) < 18) {
+            const a = x;
+            while (x < w && alphaAt(data, w, x, y) < 18) x++;
+            if (a > 8 && x < w - 8) {
+              const span = x - a;
+              if (span > bestSpan) { bestSpan = span; bestY = y; x1 = a; x2 = x - 1; }
+            }
+          } else x++;
+        }
+      }
+      if (bestSpan < w * 0.22) return null;
+      const cx = (x1 + x2) / 2;
+      const cy = bestY;
+      const diameter = bestSpan * 1.02;
+      const ref = Math.min(w, h);
+      return {
+        top: cy / h,
+        left: cx / w,
+        size: Math.max(0.28, Math.min(0.72, diameter / ref)),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function layoutForFrame(frame) {
+    const design = resolveDesign(cfg.design);
+    if (design._hole && design._holeSrc === design.src) return design._hole;
+    const detected = detectHoleLayout(frame);
+    const fb = design.layout;
+    const lay = {
+      top: (detected && detected.top) || fb.top,
+      left: (detected && detected.left) || fb.left,
+      size: (detected && detected.size) || fb.size,
+    };
+    design._hole = lay;
+    design._holeSrc = design.src;
+    return lay;
+  }
+
+  function applyFrameLayout() {
+    const frame = $('frame');
+    const hole = document.querySelector('.avatar-hole');
+    const wrap = document.querySelector('.frame-hero');
+    if (!frame || !hole || !wrap || !frame.naturalWidth) return;
+    const lay = layoutForFrame(frame);
+
+    const boxW = wrap.clientWidth;
+    const boxH = wrap.clientHeight;
+    const imgW = frame.naturalWidth;
+    const imgH = frame.naturalHeight;
+    const scale = Math.min(boxW / imgW, boxH / imgH);
+    const dispW = imgW * scale;
+    const dispH = imgH * scale;
+    const offX = (boxW - dispW) / 2;
+    const offY = (boxH - dispH) / 2;
+    const cx = offX + lay.left * dispW;
+    const cy = offY + lay.top * dispH;
+    const size = lay.size * Math.min(dispW, dispH);
+
+    hole.style.width = size + 'px';
+    hole.style.height = size + 'px';
+    hole.style.left = (cx - size / 2) + 'px';
+    hole.style.top = (cy - size / 2) + 'px';
+  }
+
+  function hex(v, def) {
+    if (v == null) return def;
+    let s = String(v).trim().replace(/^#/, '');
+    if (/^[0-9a-fA-F]{3}$/.test(s)) s = s.split('').map((c) => c + c).join('');
+    return /^[0-9a-fA-F]{6}$/.test(s) ? ('#' + s.toLowerCase()) : def;
+  }
+
+  function clampPct(v, min, max, fallback) {
+    const n = parseInt(v, 10);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
+  }
+
   function applyStyle() {
+    const root = document.documentElement;
     const stack = FONTS[cfg.font] || FONTS.inter;
-    document.documentElement.style.setProperty('--tf-font-stack', stack);
-    document.documentElement.style.setProperty('--tf-name-font-stack', stack);
+    root.style.setProperty('--tf-font-stack', stack);
+    root.style.setProperty('--tf-name-font-stack', stack);
+    root.style.setProperty('--ng1', hex(cfg.ng1, '#fff8f0'));
+    root.style.setProperty('--ng2', hex(cfg.ng2, '#ffb347'));
+    root.style.setProperty('--ng3', hex(cfg.ng3, '#ff4500'));
+    root.style.setProperty('--vc', hex(cfg.valueColor, '#ffe8d6'));
+    root.style.setProperty('--vs', hex(cfg.valueStroke, '#2a0a00'));
+    root.style.setProperty('--name-scale', String(clampPct(cfg.nameScale, 50, 220, 100) / 100));
+    root.style.setProperty('--value-scale', String(clampPct(cfg.valueScale, 50, 220, 100) / 100));
     document.body.classList.toggle('no-fx', cfg.showFx === false);
+
+    const design = resolveDesign(cfg.design);
+    const fr = $('frame');
+    if (fr) {
+      const nextSrc = design.src;
+      const applyLayout = () => applyFrameLayout();
+      fr.onload = applyLayout;
+      if (fr.getAttribute('src') !== nextSrc) fr.src = nextSrc;
+      else if (fr.complete) applyLayout();
+    }
   }
 
   function coinSvg() {
+    const c = hex(cfg.coinColor, '#ffd700');
     return '<svg class="moneda" viewBox="0 0 24 24" aria-hidden="true">' +
-      '<circle cx="12" cy="12" r="11" fill="' + COIN + '"/>' +
+      '<circle cx="12" cy="12" r="11" fill="' + c + '"/>' +
       '<circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/>' +
       '</svg>';
   }
@@ -263,10 +403,14 @@ body.no-fx .frame-hero {
 
   if (isEmbed) {
     document.documentElement.classList.add('embed');
-    const fit = () => document.documentElement.style.setProperty('--fit', Math.min(window.innerWidth / 850, window.innerHeight / 520));
+    const fit = () => {
+      document.documentElement.style.setProperty('--fit', Math.min(window.innerWidth / 850, window.innerHeight / 520));
+      applyFrameLayout();
+    };
     fit();
     window.addEventListener('resize', fit);
   }
+  window.addEventListener('resize', applyFrameLayout);
 
   applyStyle();
   if (isEmbed) runTest(); else render();

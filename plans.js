@@ -33,6 +33,7 @@ export const CAPABILITIES = {
     { key: 'tab_timer', label: 'Pestaña Temporizador' },
     { key: 'tab_webhook', label: 'Pestaña Webhook y Configuración (.exe)' },
     { key: 'tab_spotify', label: 'Spotify Client ID / conexión (.exe)' },
+    { key: 'tab_youtube', label: 'Pestaña YouTube Song Requests (.exe)' },
     { key: 'tab_editor_rapido', label: 'Pestaña Editor Pro (VIP / Founder)' },
   ],
   // Overlays individuales (se ocultan en la lista si no están permitidos).
@@ -143,6 +144,14 @@ function allLimitKeys() {
 
 const BIG = 9999; // "ilimitado" práctico
 
+// Pack gratis de juegos. Lo demás es Premium salvo que el admin lo active a mano DESPUÉS de esta versión.
+const FREE_GAMES_PACK = 1;
+const FREE_GAMES = new Set([
+  'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter',
+  'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3',
+  'game_mariobros', 'game_smb3', 'game_mari0', 'game_plantasvszombies',
+]);
+
 // Configuración por defecto: Premium todo desbloqueado; Gratis con lo básico.
 function defaultConfig() {
   const features = {};
@@ -157,18 +166,12 @@ function defaultConfig() {
   freeFeatures.tts_tiktok = false;
   freeFeatures.videos_ai = false;
   freeFeatures.tab_spotify = false;
+  freeFeatures.tab_youtube = false;
   freeFeatures.tab_editor_rapido = false;
-  freeFeatures.game_pvzhybrid = false;
-  freeFeatures.game_repo = false;
-  freeFeatures.game_l4d = false;
-  freeFeatures.game_gtavkoth = false;
-  freeFeatures.game_gtavchaos = false;
-  freeFeatures.game_gtavchiliad = false;
-  freeFeatures.game_unturned = false;
-  freeFeatures.game_crashctr = false;
-  freeFeatures.game_smw = false;
-  freeFeatures.game_metalslug = false;
-  freeFeatures.game_geometrydash = false;
+  // Juegos: cerrados en gratis salvo el pack básico. Cualquier juego nuevo = Premium.
+  for (const g of CAPABILITIES.games) {
+    freeFeatures[g.key] = FREE_GAMES.has(g.key);
+  }
 
   return {
     free: {
@@ -187,9 +190,12 @@ let config = loadConfig();
 function loadConfig() {
   try {
     const raw = JSON.parse(fs.readFileSync(PLANS_FILE, 'utf8'));
-    return normalizeConfig(raw);
+    const cfg = normalizeConfig(raw);
+    if ((Number(raw?.meta?.freeGamesPack) || 0) < FREE_GAMES_PACK) saveConfigToDisk(cfg);
+    return cfg;
   } catch {
     const def = defaultConfig();
+    def.meta = { freeGamesPack: FREE_GAMES_PACK };
     saveConfigToDisk(def);
     return def;
   }
@@ -209,6 +215,14 @@ function normalizeConfig(raw) {
       out[plan].features[k] = src.features?.[k] !== undefined ? !!src.features[k] : def[plan].features[k];
     }
   }
+  const pack = Number(raw?.meta?.freeGamesPack) || 0;
+  // plans.json viejo tenía casi todos los juegos en true para gratis (default leak).
+  if (pack < FREE_GAMES_PACK) {
+    for (const g of CAPABILITIES.games) {
+      out.free.features[g.key] = FREE_GAMES.has(g.key);
+    }
+  }
+  out.meta = { freeGamesPack: Math.max(pack, FREE_GAMES_PACK) };
   return out;
 }
 

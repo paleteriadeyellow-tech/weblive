@@ -617,10 +617,13 @@ export const DEFAULT_SETTINGS = {
     showHeader: true, showCrown: true, showFx: true,
   },
   top1fire: {
+    design: '1',
     coinLabel: '',
     font: 'inter',
     showFx: true,
     resetPeriod: 'live',
+    nameScale: 100,
+    valueScale: 100,
     ng1: '#fff8f0', ng2: '#ffb347', ng3: '#ff4500',
     valueColor: '#ffe8d6', valueStroke: '#2a0a00', coinColor: '#ffd700',
   },

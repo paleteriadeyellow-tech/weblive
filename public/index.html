@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=habiman9" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=sareord1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -47,6 +47,10 @@
             <span class="dock-user-plan-label" id="dock-user-plan-label">Plan ?</span>
             <button type="button" class="dock-user-item dock-user-item--plan" id="dock-plan-upgrade" role="menuitem" hidden>Mejorar plan</button>
           </div>
+          <label class="dock-autostart" id="dock-autostart-row" hidden title="Los overlays se mantienen solos al encender. Marca esto si también quieres ver el panel.">
+            <input type="checkbox" id="lc-autostart">
+            <span>Abrir el panel al encender el PC</span>
+          </label>
           <button type="button" class="dock-user-item" id="email-acc-btn" role="menuitem" hidden>Verificar email</button>
           <button type="button" class="dock-user-item dock-user-item--out" id="logout-btn" role="menuitem">Cerrar sesi?n</button>
         </div>
@@ -1329,7 +1333,7 @@
                 <div class="box-title">Links de reproducciÃ³n para OBS / TikTok Studio</div>
                 <p class="screens-sub">Usa cada link como <b>Browser Source</b> separado y asigna cada video a la pantalla que quieras. El enlace <b>no cambia</b> al reiniciar o actualizar Render (lleva tu <code>room</code> fija).</p>
               </div>
-              <p class="screens-warn" role="note">Si sale Â«Sin fuenteÂ» tras un reinicio: en OBS/Live Studio â†’ Actualizar la fuente. No hace falta volver a pegar el URL salvo que Copiar link muestre uno distinto.</p>
+              <p class="screens-warn" role="note">Si Live Studio abre antes que Livecoins, el .exe deja un portero en el puerto para no perder el URL. Si sale «Sin fuente»: Actualizar la fuente. No hace falta volver a pegar el link salvo que Copiar link muestre uno distinto.</p>
             </div>
             <div id="screenList" class="screen-grid"></div>
           </div>
@@ -3068,10 +3072,34 @@
                 <option value="week">1 semana (lunes a domingo)</option>
                 <option value="month">1 mes (calendario)</option>
               </select>
+              <label class="ml">DISEÑO DEL MARCO</label>
+              <select id="top1fcfg-design">
+                <option value="1" selected>Diseño 1 — Clásico</option>
+                <option value="2">Diseño 2 — Street púrpura</option>
+                <option value="3">Diseño 3 — Dragón dorado</option>
+                <option value="4">Diseño 4 — Encapuchado</option>
+                <option value="5">Diseño 5 — Leones reales</option>
+                <option value="6">Diseño 6 — Alas doradas</option>
+                <option value="7">Diseño 7 — Dragón lava</option>
+                <option value="8">Diseño 8 — Espadas gamer</option>
+                <option value="9">Diseño 9 — Lobos azul</option>
+              </select>
               <label class="ml">ETIQUETA DE MONEDA</label>
               <input type="text" id="top1fcfg-coinlabel" placeholder="(vacÃ­o)">
               <label class="ml">FUENTE <span class="opt">â€” nombre y monedas</span></label>
               <select id="top1fcfg-font" class="cfg-font"></select>
+              <label class="ml">TAMAÑO NOMBRE <span id="top1fcfg-namescale-lbl">100%</span></label>
+              <input type="range" id="top1fcfg-namescale" min="50" max="220" step="1" value="100" style="width:100%">
+              <label class="ml">TAMAÑO NÚMEROS <span id="top1fcfg-valuescale-lbl">100%</span></label>
+              <input type="range" id="top1fcfg-valuescale" min="50" max="220" step="1" value="100" style="width:100%">
+              <div class="cfg-colors">
+                <div><label class="ml">NOMBRE 1</label><input type="color" id="top1fcfg-ng1" value="#fff8f0"></div>
+                <div><label class="ml">NOMBRE 2</label><input type="color" id="top1fcfg-ng2" value="#ffb347"></div>
+                <div><label class="ml">NOMBRE 3</label><input type="color" id="top1fcfg-ng3" value="#ff4500"></div>
+                <div><label class="ml">NÚMEROS</label><input type="color" id="top1fcfg-valuecolor" value="#ffe8d6"></div>
+                <div><label class="ml">BORDE NÚMEROS</label><input type="color" id="top1fcfg-valuestroke" value="#2a0a00"></div>
+                <div><label class="ml">MONEDA</label><input type="color" id="top1fcfg-coincolor" value="#ffd700"></div>
+              </div>
               <label class="switch-row plain"><input type="checkbox" id="top1fcfg-showfx" checked> <span>Efectos (flotaciÃ³n y brillo del marco)</span></label>
             </div>
             <div class="modal-foot"><button class="btn primary" id="top1fcfg-save">Guardar para OBS / Live Studio</button></div>
@@ -5658,9 +5686,17 @@
                 <code class="ov-url" data-path="/top1fire.html">/top1fire.html</code>
                 <button class="ovpro-copy ov-copy">Copiar enlace</button>
               </div>
+              <div class="tmr-skin-bar" id="top1f-design-bar" style="margin:8px 0 10px">
+                <button type="button" class="tmr-skin-arrow" id="top1f-design-prev" title="Diseño anterior" aria-label="Diseño anterior">‹</button>
+                <div class="tmr-skin-meta">
+                  <b id="top1f-design-name">Clásico</b>
+                  <span id="top1f-design-idx">1 / 9</span>
+                </div>
+                <button type="button" class="tmr-skin-arrow" id="top1f-design-next" title="Diseño siguiente" aria-label="Diseño siguiente">›</button>
+              </div>
               <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="top1fire-preview" data-src="/top1fire.html?embed=1" title="Vista previa top 1 donador fuego"></iframe>
+                <iframe id="top1fire-preview" data-src="/top1fire.html?embed=1&v=t1f2" title="Vista previa top 1 donador fuego"></iframe>
               </div>
             </div>
 
@@ -5756,14 +5792,14 @@
                 <button type="button" class="tmr-skin-arrow" id="jar-skin-prev" title="Diseño anterior" aria-label="Diseño anterior">‹</button>
                 <div class="tmr-skin-meta">
                   <b id="jar-skin-name">Clásico</b>
-                  <span id="jar-skin-idx">1 / 11</span>
+                  <span id="jar-skin-idx">1 / 19</span>
                 </div>
                 <button type="button" class="tmr-skin-arrow" id="jar-skin-next" title="Diseño siguiente" aria-label="Diseño siguiente">›</button>
               </div>
 
               <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="jar-preview" data-src="/jarron.html?embed=1&v=jarskin21" title="Vista previa jarr?n"></iframe>
+                <iframe id="jar-preview" data-src="/jarron.html?embed=1&v=jarskin27" title="Vista previa jarr?n"></iframe>
               </div>
             </div>
 
@@ -5855,14 +5891,14 @@
                 <button type="button" class="tmr-skin-arrow" id="pel-skin-prev" title="Diseño anterior" aria-label="Diseño anterior">‹</button>
                 <div class="tmr-skin-meta">
                   <b id="pel-skin-name">Clásico</b>
-                  <span id="pel-skin-idx">1 / 11</span>
+                  <span id="pel-skin-idx">1 / 18</span>
                 </div>
                 <button type="button" class="tmr-skin-arrow" id="pel-skin-next" title="Diseño siguiente" aria-label="Diseño siguiente">›</button>
               </div>
 
               <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="pel-preview" data-src="/pelotas.html?embed=1&v=pelskin4" title="Vista previa pelotas de fans"></iframe>
+                <iframe id="pel-preview" data-src="/pelotas.html?embed=1&v=pelskin5" title="Vista previa pelotas de fans"></iframe>
               </div>
             </div>
 
@@ -10325,7 +10361,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=habides7"></script>
+  <script src="/js/dashboard.js?v=gameplan2"></script>
   <script src="/js/editor-rapido.js?v=er84"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

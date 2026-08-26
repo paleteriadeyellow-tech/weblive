@@ -17,6 +17,7 @@ import { buildGdashEffectUrl, fireGdashEffectRequest } from './gdash-effect.js';
 import { runWebhookExec } from './smbx-tiktok-webhook.js';
 import { decryptAndMapTfc, mapTikfinityActionsToMc, tikfinityObsCmdFromAction, tikfinitySbCmdFromAction } from './tikfinity-tfc.js';
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
+import { gameKeyFromExecTipo } from './badges.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -2260,9 +2261,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (typeof onGameExec !== 'function' || !exec?.tipo) return;
     try { onGameExec(exec.tipo); } catch { /* ignore */ }
   }
+  function gameExecAllowed(exec) {
+    if (!exec?.tipo) return true;
+    let key = '';
+    try { key = gameKeyFromExecTipo(exec.tipo, exec.url); } catch { key = ''; }
+    if (!key) {
+      const t = String(exec.tipo || '').toUpperCase();
+      if (/^(MARIO_|MARI0_|SMB3_|SMW_|PVZ_|MSLUG_|REPO_|L4D_|CTR_|UNTURNED_|GTAV|ROBLOX|BEDROCK|CUBO|SANDBOX|GD_|GEOMETRY|GDASH)/.test(t)) return false;
+      return true;
+    }
+    const caps = currentCaps();
+    if (!caps) return false;
+    if (caps.plan === 'admin') return true;
+    const f = caps.features;
+    if (!f) return false;
+    return f[key] === true;
+  }
   function emitLocalExec(exec) {
-    if (!IS_CLOUD_ROOM || !exec || !exec.tipo) return false;
-    if (!hasLocalRelayClient()) return false;
+    if (!exec || !exec.tipo) return false;
+    // Truthy 'blocked' para que `if (emitLocalExec()) return` no caiga al spawn local.
+    if (!gameExecAllowed(exec)) return 'blocked';
+    if (!IS_CLOUD_ROOM || !hasLocalRelayClient()) return false;
     broadcastToLocal('localExec', exec);
     noteGameExec(exec);
     return true;
@@ -2277,6 +2296,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function dispatchLocalGameExec(exec) {
     if (!exec || !exec.tipo) return Promise.resolve({ ok: false, error: 'sin_tipo' });
+    if (!gameExecAllowed(exec)) return Promise.resolve({ ok: false, error: 'plan' });
     if (emitLocalExec(exec)) return Promise.resolve({ ok: true, relayed: true });
     noteGameExec(exec);
     return runGameExec(exec);
@@ -2654,6 +2674,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (!d || !d.giftId || String(d.giftId).trim() !== wantId) continue;
         const amount = a.fixed != null ? a.fixed : Math.max(1, parseInt(d.amount, 10) || 1);
         wins += a.sign * amount * reps;
+        touched = true;
+      }
+      const extras = Array.isArray(c.hotkeyExtras) ? c.hotkeyExtras : [];
+      for (const d of extras) {
+        if (!d || !d.giftId || String(d.giftId).trim() !== wantId) continue;
+        const sign = Number(d.sign) < 0 ? -1 : 1;
+        const amount = Math.max(1, parseInt(d.amount, 10) || 1);
+        wins += sign * amount * reps;
         touched = true;
       }
       if (touched) {
@@ -5000,7 +5028,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const t = Math.max(1, Number(times) || 1);
     const mario = resolveMarioSpawnFromWebhook(webhookCmd, context, t);
     if (mario) {
-      if (emitLocalExec({ tipo: 'MARIO_SPAWN', thing: mario.npcId, name: mario.name, times: mario.times })) {
+      const marioSent = emitLocalExec({ tipo: 'MARIO_SPAWN', thing: mario.npcId, name: mario.name, times: mario.times });
+      if (marioSent === 'blocked') return;
+      if (marioSent) {
         broadcast('log', {
           level: 'ok',
           text: `🍄 Mario → tu PC: npc ${mario.npcId} · ${mario.name || 'espectador'}${mario.times > 1 ? ` ×${mario.times}` : ''}`,
@@ -5031,7 +5061,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       whCmd = { ...whCmd, url: applyWebhookQuantityToUrl(whCmd.url, t) };
     }
     const method = (whCmd.method || 'GET').toUpperCase();
-    if (emitLocalExec({ tipo: 'WEBHOOK', method, url: whCmd.url, body: whCmd.body || '' })) {
+    const whSent = emitLocalExec({ tipo: 'WEBHOOK', method, url: whCmd.url, body: whCmd.body || '' });
+    if (whSent === 'blocked') return;
+    if (whSent) {
       broadcast('log', { level: 'ok', text: `🪝 WebHook → tu PC (${method} ${whCmd.url})` });
     } else {
       // Misma ruta que Probar (.exe / game-exec): nunca fetch a ciegas.
@@ -6141,7 +6173,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (meta.eventType) exec.eventType = meta.eventType;
       const label = meta.label || thing;
       const why = meta.reason ? ` (${meta.reason})` : '';
-      if (emitLocalExec(exec)) {
+      const kothSent = emitLocalExec(exec);
+      if (kothSent === 'blocked') return;
+      if (kothSent) {
         broadcast('log', { level: 'ok', text: `🚗 GTA V KOTH: "${label}" ×${unitCount} → tu PC${why}` });
         return;
       }
@@ -6234,7 +6268,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (meta.eventType) exec.eventType = meta.eventType;
       const label = meta.label || thing;
       const why = meta.reason ? ` (${meta.reason})` : '';
-      if (emitLocalExec(exec)) {
+      const chaosSent = emitLocalExec(exec);
+      if (chaosSent === 'blocked') return;
+      if (chaosSent) {
         broadcast('log', { level: 'ok', text: `🌀 GTA V Chaos: "${label}" ×${unitCount} → tu PC${why}` });
         return;
       }
@@ -6325,7 +6361,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (meta.eventType) exec.eventType = meta.eventType;
       const label = meta.label || thing;
       const why = meta.reason ? ` (${meta.reason})` : '';
-      if (emitLocalExec(exec)) {
+      const chiliadSent = emitLocalExec(exec);
+      if (chiliadSent === 'blocked') return;
+      if (chiliadSent) {
         broadcast('log', { level: 'ok', text: `⛰️ GTA V Chiliad: "${label}" ×${unitCount} → tu PC${why}` });
         return;
       }

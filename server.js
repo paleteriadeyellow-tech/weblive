@@ -496,8 +496,14 @@ function injectLocalCaps(data) {
       if (!data.config[plan]) data.config[plan] = { limits: {}, features: {} };
       if (!data.config[plan].features) data.config[plan].features = {};
       for (const k of LOCAL_ONLY_KEYS) {
+        const cloud = data.config[plan].features[k];
         const local = localCaps[plan] && localCaps[plan][k];
-        data.config[plan].features[k] = local !== undefined ? local : (data.config[plan].features[k] !== false);
+        if (String(k).startsWith('game_')) {
+          if (cloud !== undefined) data.config[plan].features[k] = !!cloud;
+          else data.config[plan].features[k] = plan === 'premium';
+          continue;
+        }
+        data.config[plan].features[k] = local !== undefined ? local : (cloud !== false);
       }
     }
   }
@@ -538,10 +544,14 @@ function capsForUser(user) {
 
 // Sobrescribe las features locales (.exe) según el plan del usuario.
 function applyLocalCaps(caps, planName) {
+  if (!caps.features) caps.features = {};
   for (const k of LOCAL_ONLY_KEYS) {
+    if (String(k).startsWith('game_')) {
+      if (caps.features[k] === undefined) caps.features[k] = planName === 'premium';
+      continue;
+    }
     let v = localCaps[planName] && localCaps[planName][k];
-    // Spotify: si aún no está en local-caps.json, Premium on / Gratis off.
-    if (v === undefined && k === 'tab_spotify') v = planName === 'premium';
+    if (v === undefined && (k === 'tab_spotify' || k === 'tab_youtube')) v = planName === 'premium';
     if (v !== undefined) caps.features[k] = v;
   }
   return caps;
