@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Top combo baile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; }
+    html.embed, html.embed body { width: 100%; height: 100%; }
+    html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.embed .root { transform: scale(var(--fit, 1)); transform-origin: center center; }
+    .root { width: 320px; display: flex; flex-direction: column; gap: 6px; }
+    .title { font-size: 12px; font-weight: 900; letter-spacing: .14em; color: #f5c542; text-shadow: 0 1px 2px rgba(0,0,0,.7); padding: 0 4px; }
+    .row {
+      display: grid; grid-template-columns: 34px 36px 1fr auto; align-items: center; gap: 8px;
+      padding: 6px 10px; min-height: 48px; border-radius: 14px;
+      background: rgba(0,0,0,.72);
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+    .row.is-up { animation: bump .35s ease; }
+    @keyframes bump { 0% { transform: translateY(8px); } 100% { transform: translateY(0); } }
+    .medal { font-size: 15px; font-weight: 900; text-align: center; color: #f5c542; text-shadow: 0 1px 2px #000; }
+    .row:nth-child(1) .medal { color: #ffd76a; }
+    .row:nth-child(2) .medal { color: #d1d5db; }
+    .row:nth-child(3) .medal { color: #d97706; }
+    .av { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #111; border: 2px solid rgba(255,255,255,.2); }
+    .name { font-size: 13px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; min-width: 0; }
+    .name.is-marq span { display: inline-block; padding-left: 100%; animation: marq 7s linear infinite; }
+    @keyframes marq { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+    .combo { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.05; }
+    .combo b { font-size: 16px; font-weight: 900; color: #ffe566; font-variant-numeric: tabular-nums; }
+    .combo span { font-size: 9px; font-weight: 800; letter-spacing: .08em; color: rgba(255,255,255,.65); }
+  </style>
+</head>
+<body>
+  <div class="root" id="root">
+    <div class="title" id="title">TOP COMBOS</div>
+    <div id="list"></div>
+  </div>
+  <script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  const FALLBACK_AV = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'><circle cx='40' cy='40' r='40' fill='%23222'/><circle cx='40' cy='30' r='14' fill='%23666'/><ellipse cx='40' cy='68' rx='22' ry='16' fill='%23666'/></svg>";
+  const MEDALS = ['👑 1', '2', '3'];
+  const DEMO = [
+    { name: 'VIN Gonzalez', combo: 78, photo: '' },
+    { name: 'venusgirl', combo: 26, photo: '' },
+    { name: 'Yamileth', combo: 10, photo: '' },
+  ];
+  let cfg = { title: 'TOP COMBOS' };
+  const best = new Map();
+  let battleLive = false;
+  let sawRonda = false;
+
+  function applyCfg(incoming) {
+    if (!incoming || typeof incoming !== 'object') return;
+    cfg = Object.assign(cfg, incoming);
+    document.getElementById('title').textContent = cfg.title || 'TOP COMBOS';
+  }
+  function top3() {
+    return [...best.values()].sort((a, b) => b.combo - a.combo).slice(0, 3);
+  }
+  function render(rows) {
+    const list = document.getElementById('list');
+    const items = (rows && rows.length) ? rows : top3();
+    while (items.length < 3 && isEmbed) { /* demo already 3 */ break; }
+    document.getElementById('title').textContent = cfg.title || 'TOP COMBOS';
+    const prevOrder = [...list.querySelectorAll('[data-uid]')].map((n) => n.dataset.uid);
+    list.innerHTML = items.map((u, i) => {
+      const photo = String(u.photo || '').trim() || FALLBACK_AV;
+      const name = String(u.name || 'Usuario').replace(/^@+/, '');
+      const long = name.length > 12;
+      const uid = String(u.uid || u.name || i);
+      const up = prevOrder.length && prevOrder[i] !== uid && prevOrder.indexOf(uid) > i;
+      return '<div class="row' + (up ? ' is-up' : '') + '" data-uid="' + uid.replace(/"/g, '') + '">'
+        + '<div class="medal">' + (MEDALS[i] || (i + 1)) + '</div>'
+        + '<img class="av" src="' + photo.replace(/"/g, '') + '" alt="" onerror="this.src=\'' + FALLBACK_AV + '\'">'
+        + '<div class="name' + (long ? ' is-marq' : '') + '"><span>' + name.replace(/[<>]/g, '') + '</span></div>'
+        + '<div class="combo"><b>' + Math.round(u.combo || 0) + '</b><span>COMBOS</span></div>'
+        + '</div>';
+    }).join('');
+  }
+  function combosFromGift(d) {
+    const each = Number(d.diamonds || d.diamondCount || 0) || 0;
+    return Math.floor(each / 100);
+  }
+  function considerGift(d) {
+    if (!d) return;
+    if (sawRonda && !battleLive) return;
+    let add = combosFromGift(d);
+    if (d.streak) add *= Math.max(0, Number(d.repeatDelta) || 0);
+    else if (!d.streakGift) add *= Math.max(1, Number(d.repeatCount) || 1);
+    else add = 0;
+    if (add <= 0) return;
+    const uid = d.uniqueId || d.nickname || d.name;
+    if (!uid) return;
+    const name = d.nickname || d.name || uid;
+    const photo = d.photo || d.profilePictureUrl || '';
+    const prev = best.get(uid) || { uid, name, photo: '', combo: 0 };
+    prev.combo += add;
+    prev.name = name;
+    prev.uid = uid;
+    if (photo) prev.photo = photo;
+    best.set(uid, prev);
+    render();
+  }
+  function resetAll() { best.clear(); render([]); }
+  function runTest() {
+    DEMO.forEach((u, i) => best.set('demo' + i, { uid: 'demo' + i, ...u }));
+    render();
+  }
+
+  let ws, rt;
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings' && m.payload && m.payload.baileCombo) applyCfg(m.payload.baileCombo);
+      else if (m.type === 'baileRondaState' || m.type === 'baileRondaStart') {
+        sawRonda = true;
+        battleLive = !!(m.payload && m.payload.phase === 'live');
+      } else if (m.type === 'baileRondaReset') {
+        battleLive = false;
+      } else if (m.type === 'gift') { if (!isEmbed) considerGift(m.payload); }
+      else if (m.type === 'baileComboTest') { if (!isEmbed) runTest(); }
+      else if (m.type === 'baileComboReset') { if (!isEmbed) resetAll(); }
+    };
+  }
+  window.addEventListener('message', (e) => {
+    const d = e.data; if (!d || d.kind !== 'bailecombo') return;
+    if (d.type === 'config') applyCfg(d.config);
+    else if (d.type === 'test') runTest();
+    else if (d.type === 'reset') { isEmbed ? runTest() : resetAll(); }
+  });
+  if (isEmbed) {
+    document.documentElement.classList.add('embed');
+    const fit = () => document.documentElement.style.setProperty('--fit', String(Math.min(window.innerWidth / 320, window.innerHeight / 220)));
+    fit(); window.addEventListener('resize', fit);
+    runTest();
+  } else render([]);
+  connectWS();
+})();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Ronda baile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; }
+    html.embed, html.embed body { width: 100%; height: 100%; }
+    html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.embed .root { transform: scale(var(--fit, 1)); transform-origin: center center; }
+    .root {
+      --accent: #f5c542;
+      --hud-h: 96px;
+      position: relative;
+      width: 520px; min-height: 178px;
+    }
+    .stage { position: relative; width: 100%; }
+    .hud {
+      position: relative;
+      width: 100%;
+      padding-top: 38px;
+      min-height: calc(38px + var(--hud-h));
+    }
+    .hud.is-shake { animation: shake .22s ease; }
+    .hud.is-boom { animation: boom .38s ease; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20% { transform: translateX(-6px) rotate(-.4deg); }
+      50% { transform: translateX(6px) rotate(.4deg); }
+      80% { transform: translateX(-3px); }
+    }
+    @keyframes boom {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.045); }
+      100% { transform: scale(1); }
+    }
+    .av-wrap {
+      position: absolute; left: 0; top: 38px; z-index: 4;
+      width: var(--hud-h); height: var(--hud-h);
+    }
+    .av-stack { position: relative; width: 100%; height: 100%; z-index: 1; isolation: isolate; }
+    .av {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block;
+      background: #1a1a1a;
+      border: 3px solid var(--accent, #f5c542);
+      box-shadow: 0 0 0 2px rgba(255,255,255,.35), 0 0 14px rgba(245,197,66,.7), 0 8px 16px rgba(0,0,0,.5);
+      transition: opacity .7s cubic-bezier(.22,.78,.18,1), transform .7s cubic-bezier(.22,.78,.18,1), filter .7s ease;
+    }
+    .av.is-back {
+      opacity: 0;
+      transform: scale(1.04);
+      filter: blur(2px);
+    }
+    .av.is-front {
+      opacity: 1;
+      transform: scale(1);
+      filter: blur(0);
+    }
+    .av.is-front { z-index: 2; }
+    .av.is-back { z-index: 1; }
+    .av.is-enter {
+      z-index: 2;
+      opacity: 0;
+      transform: scale(.9);
+      filter: blur(3px);
+    }
+    .is-live .av { border-color: #ff4d6d; box-shadow: 0 0 0 2px rgba(255,255,255,.25), 0 0 14px rgba(255,77,109,.55); }
+    .av-ring {
+      position: absolute; inset: -5px; border-radius: 50%; z-index: 2;
+      border: 2px solid var(--accent, #f5c542); opacity: 0; pointer-events: none;
+      box-shadow: 0 0 16px rgba(245,197,66,.7);
+    }
+    .is-live .av-ring { opacity: 1; animation: ringpulse 1.4s ease-in-out infinite; }
+    .is-mvp .av-ring { opacity: 1; }
+    @keyframes ringpulse {
+      0%,100% { transform: scale(1); opacity: .85; }
+      50% { transform: scale(1.05); opacity: 1; }
+    }
+    .crown {
+      display: block; position: absolute; top: -22px; left: 50%; z-index: 8;
+      font-size: 26px; filter: drop-shadow(0 2px 4px #000);
+      opacity: 0; pointer-events: none;
+      transform: translateX(-50%) translateY(-10px) scale(.7);
+      transition: opacity .55s cubic-bezier(.22,.78,.18,1) .12s, transform .55s cubic-bezier(.16,.84,.18,1) .12s;
+    }
+    .is-mvp .crown {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0) scale(1);
+    }
+    .mvp-tag {
+      display: block; position: absolute; left: 50%; bottom: 18px; z-index: 6; transform: translateX(-50%);
+      font-size: 11px; font-weight: 900; letter-spacing: .14em; color: #f5c542;
+      text-shadow: 0 1px 2px #000, 0 0 8px rgba(245,197,66,.8);
+      opacity: 0; pointer-events: none;
+      transition: opacity .5s ease .18s;
+    }
+    .is-mvp .mvp-tag { opacity: 1; }
+    .scorechip {
+      position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%);
+      z-index: 10;
+      min-width: 36px; padding: 2px 8px;
+      background: #000; border-radius: 8px; border: 1px solid rgba(245,197,66,.45);
+      color: #ffe566; font-size: 12px; font-weight: 900; text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,.45);
+    }
+    .plusfx {
+      position: absolute; left: 112px; top: 8px; z-index: 8; pointer-events: none;
+      font-size: 20px; font-weight: 900; color: #86efac;
+      text-shadow: 0 2px 0 #000, 0 0 10px rgba(134,239,172,.5);
+      animation: plusup .9s ease forwards;
+    }
+    @keyframes plusup {
+      0% { opacity: 1; transform: translateY(8px) scale(.9); }
+      100% { opacity: 0; transform: translateY(-42px) scale(1.15); }
+    }
+    .topline {
+      position: absolute; left: 86px; top: 4px; z-index: 5;
+      display: flex; align-items: flex-end; gap: 8px; max-width: 420px;
+    }
+    .nametab {
+      position: static; max-width: 180px;
+      padding: 4px 12px 5px;
+      background: #000;
+      border-radius: 10px;
+      color: #fff; font-size: 13px; font-weight: 800; letter-spacing: .05em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      line-height: 1.15;
+      box-shadow: 0 6px 14px rgba(0,0,0,.4);
+    }
+    .nametab-h { font-size: 12px; }
+    .donors { display: flex; align-items: flex-end; gap: 6px; }
+    .donor { position: relative; width: 28px; height: 28px; flex: 0 0 28px; }
+    .donor img {
+      width: 28px; height: 28px; border-radius: 50%; object-fit: cover; display: block;
+      background: #222; border: 1.5px solid rgba(255,255,255,.55);
+    }
+    .donor b {
+      position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
+      font-size: 8px; font-weight: 900; color: #fff; background: #000;
+      padding: 0 3px; border-radius: 4px; white-space: nowrap;
+    }
+    .donor b.is-x { color: #ffe566; }
+    .rect {
+      position: relative;
+      margin: 0 0 0 48px;
+      width: 430px;
+      height: var(--hud-h);
+      min-height: var(--hud-h);
+      padding: 0;
+      background: #000;
+      border-radius: 28px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.5);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .rect-body {
+      position: relative; flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 8px 22px 26px 58px;
+    }
+    .delta {
+      position: absolute; left: 58px; top: 50%; transform: translateY(-50%);
+      font-size: 16px; font-weight: 900; color: #4ade80;
+      text-shadow: 0 1px 2px #000;
+      opacity: 0; pointer-events: none;
+    }
+    .delta.is-on { opacity: 1; }
+    .phase {
+      font-size: 32px; font-weight: 900; color: #fff; letter-spacing: .04em; line-height: 1;
+      text-transform: uppercase; text-align: center; width: 100%;
+    }
+    .phase.is-timer {
+      font-size: 42px; letter-spacing: .02em; color: transparent;
+      background: linear-gradient(180deg, #ffe566 0%, #f5c542 42%, #b8860b 100%);
+      -webkit-background-clip: text; background-clip: text;
+    }
+    .phase.is-low { color: #ff3b4e; background: none; -webkit-text-fill-color: #ff3b4e; }
+    .phase.is-urgent { animation: heartbeat .45s ease-in-out infinite; color: #ff3b4e; background: none; -webkit-text-fill-color: #ff3b4e; }
+    .phase.is-gold {
+      font-size: 30px; letter-spacing: .06em;
+      background: linear-gradient(180deg, #ffe566, #d4a017);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .phase.is-call {
+      position: relative;
+      font-size: 42px; letter-spacing: .1em;
+      background: linear-gradient(180deg, #fff4a8 0%, #ffe566 28%, #f5c542 62%, #c9a227 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 0 10px rgba(255,229,102,.55));
+      animation: callpop .32s ease;
+    }
+    .phase.is-call.is-long { font-size: 26px; letter-spacing: .06em; }
+    .phase.is-call::before {
+      content: ''; position: absolute; left: 50%; top: 50%;
+      width: 140px; height: 36px; transform: translate(-50%, -50%);
+      background: radial-gradient(ellipse, rgba(255,229,102,.4), transparent 72%);
+      pointer-events: none; z-index: -1;
+    }
+    @keyframes callpop {
+      0% { transform: scale(.72); opacity: .4; filter: drop-shadow(0 0 0 rgba(255,229,102,0)); }
+      70% { transform: scale(1.08); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .phase.is-cyan { color: #5eead4; font-size: 36px; }
+    .phase.is-ok { color: #ffe566; font-size: 34px; background: none; }
+    .phase.is-fail { color: #ff6b8a; font-size: 22px; background: none; }
+    .phase.is-sum { color: #fff; font-size: 28px; letter-spacing: .08em; }
+    .phase small { display: block; font-size: 11px; letter-spacing: .16em; margin-top: 4px; font-weight: 800; color: #fff; -webkit-text-fill-color: #fff; background: none; }
+    @keyframes heartbeat {
+      0%,100% { transform: scale(1); }
+      40% { transform: scale(1.22); filter: drop-shadow(0 0 10px #ff3b4e); }
+    }
+    .meta {
+      position: absolute; right: 16px; bottom: 22px;
+      font-size: 12px; font-weight: 800; color: #fff; letter-spacing: .02em;
+      z-index: 2;
+    }
+    .meta.is-gold { color: #f5c542; }
+    .barwrap {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 18px;
+      background: rgba(255,255,255,.1);
+      overflow: hidden;
+    }
+    .bar {
+      position: relative;
+      height: 100%; width: 0;
+      background: linear-gradient(90deg, #ffd24a 0%, #ffe566 38%, #f5c542 100%);
+      box-shadow: 2px 0 12px rgba(245,197,66,.38);
+      transition: width .72s cubic-bezier(.16, .84, .18, 1);
+      will-change: width;
+    }
+    .bar::after {
+      content: '';
+      position: absolute; right: 0; top: 0; bottom: 0;
+      width: 28px;
+      background: linear-gradient(90deg, transparent, rgba(255,248,200,.55) 55%, rgba(255,255,255,.12));
+      pointer-events: none;
+    }
+    .barwrap.is-goal {
+      background: linear-gradient(90deg, #f472b6, #e9d5ff, #7dd3fc);
+      box-shadow: 0 0 16px rgba(244,114,182,.5), 0 0 22px rgba(125,211,252,.35);
+    }
+    .barwrap.is-goal::before {
+      content: '';
+      position: absolute; top: 0; bottom: 0; left: 0;
+      width: 42%;
+      z-index: 1;
+      pointer-events: none;
+      background: linear-gradient(105deg,
+        transparent 0%,
+        rgba(255,255,255,.0) 28%,
+        rgba(255,255,255,.55) 46%,
+        rgba(255,255,255,.95) 50%,
+        rgba(255,255,255,.55) 54%,
+        rgba(255,255,255,0) 72%,
+        transparent 100%);
+      animation: barshine 2.1s ease-in-out infinite;
+    }
+    .barwrap.is-goal .bar {
+      width: 100% !important; background: transparent; box-shadow: none;
+      transition: width .9s cubic-bezier(.16, .84, .18, 1);
+    }
+    .barwrap.is-goal .bar::after { display: none; }
+    @keyframes barshine {
+      0% { transform: translateX(-140%); opacity: .35; }
+      18% { opacity: 1; }
+      100% { transform: translateX(320%); opacity: .25; }
+    }
+    .barwrap span {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 11px; font-weight: 900; color: #fff;
+      text-shadow: 0 1px 2px #000; z-index: 2;
+    }
+    .footbar { display: none !important; }
+    .banner {
+      display: flex; justify-content: center;
+      margin: 0 0 0 48px; width: 430px;
+      background: transparent; box-shadow: none; padding: 0;
+      opacity: 0; transform: translateY(8px) scale(.94);
+      max-height: 0; overflow: hidden;
+      pointer-events: none;
+      transition: opacity .42s cubic-bezier(.22,.78,.18,1), transform .42s cubic-bezier(.22,.78,.18,1), max-height .42s ease, margin .42s ease;
+    }
+    .banner.is-on {
+      opacity: 1; transform: translateY(0) scale(1);
+      max-height: 52px; margin-top: 16px;
+    }
+    .banner-pill {
+      display: flex; align-items: stretch; position: relative;
+      overflow: hidden; background: #c81e3a; color: #fff;
+      border-radius: 999px; box-shadow: 0 3px 10px rgba(200,30,58,.35);
+      font-weight: 800; line-height: 1;
+      transition: border-radius .35s ease, background .35s ease, box-shadow .35s ease;
+    }
+    .banner-pill.is-pop { animation: banpop .45s cubic-bezier(.16,.84,.18,1); }
+    @keyframes banpop {
+      0% { transform: scale(.9); filter: brightness(.85); }
+      62% { transform: scale(1.045); filter: brightness(1.12); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+    #bantxt, #bantime { transition: opacity .22s ease; }
+    .banner.is-msg .banner-pill { padding: 4px 12px; font-size: 10px; }
+    .banner.is-chip .banner-pill { font-size: 11px; }
+    .banner.is-boost .banner-pill {
+      border-radius: 5px; font-size: 13px; background: #e31b3c;
+      box-shadow: 0 2px 8px rgba(0,0,0,.28);
+    }
+    .banner.is-boost .ban-left { padding: 7px 12px 7px 11px; gap: 0; font-weight: 700; }
+    .banner.is-boost .ban-grid { display: none; }
+    .banner.is-boost .ban-time {
+      display: flex; align-items: center; justify-content: center;
+      background: #7a1022; padding: 7px 10px; min-width: 44px;
+      font-size: 13px; font-weight: 800; letter-spacing: .02em;
+    }
+    .banner.is-summary .banner-pill {
+      border-radius: 5px; padding: 7px 14px; font-size: 13px;
+      background: #c81e3a; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,0,0,.28);
+    }
+    .banner.is-summary .ban-left { padding: 0; }
+    .banner.is-summary .ban-grid { display: none; }
+    .banner .fill {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+      background: rgba(0,0,0,.22); pointer-events: none;
+    }
+    .ban-left {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 9px;
+    }
+    .banner.is-msg .ban-left { padding: 0; }
+    .ban-grid {
+      display: none; grid-template-columns: 1fr 1fr; gap: 1.5px;
+      width: 9px; height: 9px; flex: 0 0 9px;
+    }
+    .banner.is-chip .ban-grid { display: grid; }
+    .ban-grid i { display: block; background: rgba(255,255,255,.38); border-radius: 1px; }
+    .ban-grid i.on { background: #fff; }
+    .ban-time {
+      display: none; position: relative; z-index: 1;
+      background: #8b1428; padding: 3px 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    .banner.has-time .ban-time { display: flex; align-items: center; }
+    .banner i { font-style: normal; color: #ffe566; }
+    .combo {
+      display: none; position: absolute; inset: 0; z-index: 9;
+      align-items: center; justify-content: center; pointer-events: none;
+    }
+    .combo.is-on { display: flex; }
+    .combo b {
+      font-size: 72px; font-weight: 900; color: #fff; letter-spacing: .04em;
+      text-shadow: 0 4px 0 #000, 0 0 22px #f5c542;
+      animation: combopop .16s ease;
+    }
+    .combo i { font-style: normal; display: block; font-size: 18px; letter-spacing: .2em; color: #f5c542; text-align: center; }
+    @keyframes combopop { from { transform: scale(.55); } to { transform: scale(1); } }
+    .fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .spark {
+      position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #ffe566;
+      animation: spark .7s ease-out forwards;
+    }
+    @keyframes spark { to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.2); } }
+  </style>
+</head>
+<body>
+  <div class="root" id="root">
+    <div class="stage">
+      <div class="hud" id="hud">
+        <div class="topline">
+          <div class="nametab" id="hostwrap"><span class="nametab-n">TU LIVE</span> <span class="nametab-h">❤️</span></div>
+          <div class="donors" id="donors"></div>
+        </div>
+        <div class="av-wrap">
+          <div class="crown">👑</div>
+          <div class="av-ring"></div>
+          <div class="av-stack">
+            <img class="av is-front" id="av" alt="">
+            <img class="av is-back" id="av2" alt="">
+          </div>
+          <div class="mvp-tag">MVP</div>
+          <div class="scorechip" id="badge">1</div>
+        </div>
+        <div class="rect" id="rect">
+          <div class="rect-body">
+            <div class="delta" id="delta">+1</div>
+            <div class="phase" id="phase">PREPÁRATE</div>
+            <div class="meta" id="meta">100</div>
+            <div class="combo" id="combo"><div><i>COMBO</i><b id="combn">1</b></div></div>
+          </div>
+          <div class="barwrap" id="barwrap"><div class="bar" id="bar"></div><span id="foottxt"></span></div>
+        </div>
+      </div>
+      <div id="plusbox"></div>
+    </div>
+    <div class="banner" id="banner">
+      <div class="banner-pill">
+        <div class="fill" id="banfill"></div>
+        <span class="ban-left"><span class="ban-grid" id="bangrid"></span><span id="bantxt"></span></span>
+        <span class="ban-time" id="bantime"></span>
+      </div>
+    </div>
+  </div>
+  <script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  const FALLBACK_AV = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><circle cx="40" cy="40" r="40" fill="#222"/><circle cx="40" cy="30" r="14" fill="#666"/><ellipse cx="40" cy="68" rx="22" ry="16" fill="#666"/></svg>');
+  const DEMO_MVP_PHOTO = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><circle cx="40" cy="40" r="40" fill="#6d28d9"/><circle cx="40" cy="28" r="14" fill="#fde68a"/><ellipse cx="40" cy="68" rx="22" ry="16" fill="#fde68a"/></svg>');
+  let cfg = { durationSec: 90, prepSec: 5, recapSec: 2, meta: 100, multiplier: 2, multiplierSec: 40, multiplierDelaySec: 0, likesPerPoint: 25, hostName: '', hostPhoto: '', accent: '#f5c542' };
+  let hostName = 'TU LIVE';
+  let hostPhoto = '';
+  let snap = { phase: 'idle', remain: 0, points: 0, taps: 0, meta: 100, reached: false, multiplier: 3, multLeft: 0, hostName: '', hostPhoto: '' };
+  let demoTimer = 0;
+  let demoRaf = 0;
+  function stopDemo() {
+    clearInterval(demoTimer);
+    demoTimer = 0;
+    if (demoRaf) cancelAnimationFrame(demoRaf);
+    demoRaf = 0;
+    if (avSwapTimer) { clearTimeout(avSwapTimer); avSwapTimer = 0; }
+    if (mvpTimer) { clearTimeout(mvpTimer); mvpTimer = 0; }
+    mvpRevealAt = 0;
+  }
+  let donors = new Map();
+  let lastPts = 0;
+  let comboQ = Promise.resolve();
+  let ac = null;
+  let mvpShown = false;
+  let lastCallWord = '';
+  let lastBanKey = '';
+  let mvpRevealAt = 0;
+  let mvpTimer = 0;
+  const MVP_DELAY_MS = 1600;
+
+  const $ = (id) => document.getElementById(id);
+  function fmt(n) {
+    return Math.round(Math.max(0, Number(n) || 0)).toLocaleString('de-DE');
+  }
+  function needLine(points, meta) {
+    return fmt(meta);
+  }
+  function setHostName(name) {
+    const el = $('hostwrap');
+    if (!el) return;
+    const n = String(name || 'TU LIVE').replace(/^@+/, '').trim() || 'TU LIVE';
+    el.replaceChildren();
+    const nm = document.createElement('span');
+    nm.className = 'nametab-n';
+    nm.textContent = n.toUpperCase();
+    const ht = document.createElement('span');
+    ht.className = 'nametab-h';
+    ht.textContent = ' ❤️';
+    el.append(nm, ht);
+  }
+  let boostDemo = 0;
+  function runBoost(mult, sec) {
+    const s = Math.max(1, Number(sec) || 10);
+    const m = Number(mult) === 3 ? 3 : 2;
+    snap.boostMult = m;
+    snap.boostLeft = s;
+    snap.boostSec = s;
+    clearInterval(boostDemo);
+    const t0 = Date.now();
+    boostDemo = setInterval(() => {
+      const left = s - (Date.now() - t0) / 1000;
+      snap.boostLeft = Math.max(0, left);
+      if (left <= 0) {
+        clearInterval(boostDemo);
+        snap.boostMult = 1;
+        snap.boostLeft = 0;
+      }
+      render();
+    }, 100);
+    render();
+  }
+  function clock(sec) {
+    const s = Math.max(0, Math.ceil(Number(sec) || 0));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return m + ':' + String(r).padStart(2, '0');
+  }
+  const CALL_WORDS = ['PREPÁRATE', 'READY', 'SET', 'GO'];
+  function prepCallWord(s) {
+    const total = Math.max(4, Number(s && s.prepSec) || Number(cfg.prepSec) || 4);
+    const left = Math.max(0, Number(s && s.remain) || 0);
+    const elapsed = Math.max(0, total - left);
+    const idx = Math.min(CALL_WORDS.length - 1, Math.floor((elapsed / total) * CALL_WORDS.length));
+    return CALL_WORDS[idx] || CALL_WORDS[0];
+  }
+  function beep(freq, dur, type) {
+    if (isEmbed) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type || 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.07, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(); o.stop(ac.currentTime + dur);
+    } catch {}
+  }
+  function giftCoins(d) {
+    const each = Number(d.diamonds || d.diamondCount || 0) || 0;
+    if (d.streak) return each * Math.max(0, Number(d.repeatDelta) || 0);
+    if (d.streakGift) return 0;
+    return each * Math.max(1, Number(d.repeatCount) || 1);
+  }
+  function uidOf(d) { return d && (d.uniqueId || d.nickname || d.name || ''); }
+  function sparks() {
+    const fx = document.createElement('div');
+    fx.className = 'fx';
+    $('hud').appendChild(fx);
+    for (let i = 0; i < 10; i++) {
+      const s = document.createElement('div');
+      s.className = 'spark';
+      s.style.left = (40 + Math.random() * 40) + 'px';
+      s.style.top = (20 + Math.random() * 50) + 'px';
+      s.style.setProperty('--dx', (Math.random() * 80 - 40) + 'px');
+      s.style.setProperty('--dy', (-20 - Math.random() * 50) + 'px');
+      fx.appendChild(s);
+    }
+    setTimeout(() => fx.remove(), 800);
+  }
+  function floatPlus(n) {
+    if (n <= 0) return;
+    const el = document.createElement('div');
+    el.className = 'plusfx';
+    el.textContent = '+' + fmt(n);
+    $('plusbox').appendChild(el);
+    setTimeout(() => el.remove(), 950);
+  }
+  function shake(hard) {
+    const hud = $('hud');
+    hud.classList.remove('is-shake', 'is-boom');
+    void hud.offsetWidth;
+    hud.classList.add(hard ? 'is-boom' : 'is-shake');
+  }
+  function playCombo(n) {
+    const steps = Math.max(1, Math.min(20, n | 0));
+    comboQ = comboQ.then(async () => {
+      const box = $('combo');
+      box.classList.add('is-on');
+      for (let i = 1; i <= steps; i++) {
+        const nEl = $('combn');
+        nEl.textContent = String(i);
+        nEl.style.animation = 'none';
+        void nEl.offsetWidth;
+        nEl.style.animation = '';
+        beep(160 + i * 18, 0.09, 'square');
+        shake(true);
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      await new Promise((r) => setTimeout(r, 180));
+      box.classList.remove('is-on');
+    });
+  }
+  function addDonor(d, pts) {
+    const uid = uidOf(d);
+    if (!uid || pts <= 0) return;
+    const prev = donors.get(uid) || { name: '', photo: '', pts: 0 };
+    prev.pts += pts;
+    prev.name = d.nickname || d.name || uid;
+    if (d.photo || d.profilePictureUrl) prev.photo = d.photo || d.profilePictureUrl;
+    const rc = Math.max(Number(d.repeatCount) || 0, Number(d.comboCount) || 0);
+    if (rc > 1) prev.mult = rc;
+    donors.set(uid, prev);
+  }
+  function topDonors() {
+    return [...donors.values()].sort((a, b) => b.pts - a.pts).slice(0, 5);
+  }
+  function renderDonors() {
+    const box = $('donors');
+    if (!box) return;
+    const rows = topDonors().slice(0, 4);
+    box.innerHTML = rows.map((u) => {
+      const src = String(u.photo || '').trim() || FALLBACK_AV;
+      const tag = u.mult ? ('x' + u.mult) : ('+' + fmt(u.pts));
+      const cls = u.mult ? ' is-x' : '';
+      return '<div class="donor"><img src="' + src.replace(/"/g, '') + '" alt=""><b class="' + cls.trim() + '">' + tag + '</b></div>';
+    }).join('');
+  }
+  function applyBar(points, meta) {
+    const bar = $('bar');
+    const wrap = $('barwrap');
+    if (!bar || !wrap) return;
+    const p = Math.max(0, Number(points) || 0);
+    const m = Math.max(1, Number(meta) || 100);
+    const st = snap.phase || '';
+    const show = st === 'live' || /^recap_/.test(st) || st === 'result' || st === 'validate' || st === 'taps';
+    wrap.style.display = show ? 'block' : 'none';
+    const goal = p >= m || (st === 'result' && !!snap.reached);
+    wrap.classList.toggle('is-goal', goal);
+    const pct = goal ? 100 : Math.min(100, (p / m) * 100);
+    const prev = parseFloat(bar.style.width);
+    const dropping = Number.isFinite(prev) && pct < prev - 1.5;
+    if (dropping || !show) {
+      bar.style.transition = 'none';
+      bar.style.width = pct + '%';
+      void bar.offsetWidth;
+      bar.style.transition = '';
+    } else {
+      bar.style.width = pct + '%';
+    }
+  }
+  let avSwapTimer = 0;
+  function applyHost(photo, name, mvp) {
+    const hud = $('hud');
+    setHostName(name);
+    const img = $('av');
+    const img2 = $('av2');
+    const url = String(photo || '').trim();
+    const next = url || FALLBACK_AV;
+    const current = img.dataset.src || '';
+    const fail = () => { img.src = FALLBACK_AV; if (img2) img2.src = FALLBACK_AV; };
+    img.onerror = fail;
+    if (img2) img2.onerror = fail;
+    if (current === next || !img2) {
+      if (!current) {
+        img.dataset.src = next;
+        img.src = next;
+      }
+      hud.classList.toggle('is-mvp', !!mvp);
+      return;
+    }
+    if (avSwapTimer) return;
+    img2.src = next;
+    img2.classList.remove('is-back', 'is-front');
+    img2.classList.add('is-enter');
+    void img2.offsetWidth;
+    img.classList.remove('is-front');
+    img.classList.add('is-back');
+    img2.classList.remove('is-enter');
+    img2.classList.add('is-front');
+    avSwapTimer = setTimeout(() => {
+      img.src = next;
+      img.dataset.src = next;
+      img.classList.remove('is-back');
+      img.classList.add('is-front');
+      img2.classList.remove('is-front');
+      img2.classList.add('is-back');
+      avSwapTimer = 0;
+      hud.classList.toggle('is-mvp', !!mvp);
+    }, 720);
+    setTimeout(() => hud.classList.toggle('is-mvp', !!mvp), 220);
+  }
+  function render() {
+    const phaseEl = $('phase');
+    const metaEl = $('meta');
+    const banner = $('banner');
+    const hud = $('hud');
+    const st = snap.phase || 'idle';
+    const meta = Math.max(1, Number(snap.meta || cfg.meta) || 100);
+    const points = Math.max(0, Number(snap.points) || 0);
+    const taps = Math.max(0, Number(snap.taps) || 0);
+    const likePts = Math.max(0, Number(snap.likePts) || Math.floor(taps / Math.max(2, Number(snap.likesPerPoint || cfg.likesPerPoint) || 25)));
+    const remain = Number(snap.remain) || 0;
+    const giftPts = Math.max(0, Number(snap.giftPts) || 0);
+    hud.classList.toggle('is-live', st === 'live' || st === 'prep');
+    hud.classList.toggle('is-recap', /recap_|validate|taps/.test(st));
+    hud.classList.toggle('is-win', st === 'result' && !!snap.reached);
+    const accent = snap.color || cfg.accent || '#f5c542';
+    document.getElementById('root').style.setProperty('--accent', accent);
+    phaseEl.className = 'phase';
+    metaEl.hidden = false;
+    metaEl.className = 'meta';
+    metaEl.textContent = '';
+    const deltaEl = $('delta');
+    if (deltaEl) {
+      const dlt = Number(snap.delta) || 0;
+      deltaEl.classList.toggle('is-on', st === 'live' && dlt > 0);
+      deltaEl.textContent = dlt > 0 ? ('+' + fmt(dlt)) : '';
+    }
+    const badge = $('badge');
+    const people = Array.isArray(snap.people) ? snap.people : [];
+    let rank = 1;
+    if (people.length && snap.activeId) {
+      const sorted = people.slice().filter((p) => p && !p.out).sort((a, b) => (Number(b.pts) || 0) - (Number(a.pts) || 0));
+      const idx = sorted.findIndex((p) => p.id === snap.activeId);
+      if (idx >= 0) rank = idx + 1;
+    }
+    if (badge) badge.textContent = (st === 'result' || /recap_|validate|taps/.test(st)) ? fmt(points) : String(rank);
+
+    if (st === 'prep') {
+      mvpShown = false;
+      const word = prepCallWord(snap);
+      phaseEl.textContent = word;
+      phaseEl.classList.add('is-call');
+      if (word === 'PREPÁRATE') phaseEl.classList.add('is-long');
+      if (lastCallWord !== word) {
+        lastCallWord = word;
+        phaseEl.style.animation = 'none';
+        void phaseEl.offsetWidth;
+        phaseEl.style.animation = '';
+      }
+      metaEl.textContent = needLine(points, meta);
+    } else if (st === 'idle') {
+      mvpShown = false;
+      lastCallWord = '';
+      phaseEl.textContent = 'PREPÁRATE';
+      metaEl.textContent = needLine(points, meta);
+    } else if (st === 'live') {
+      lastCallWord = '';
+      phaseEl.textContent = clock(remain);
+      phaseEl.classList.add('is-timer');
+      if (remain <= 10 && remain > 0) phaseEl.classList.add('is-urgent');
+      else if (remain <= 15) phaseEl.classList.add('is-low');
+      metaEl.textContent = needLine(points, meta);
+    } else if (st === 'recap_valid') {
+      phaseEl.textContent = 'VALIDANDO...';
+      phaseEl.classList.add('is-gold');
+      metaEl.textContent = giftPts ? ('+' + fmt(giftPts)) : '';
+      metaEl.classList.add('is-gold');
+    } else if (st === 'recap_likes' || st === 'validate') {
+      phaseEl.innerHTML = fmt(taps) + '<small>TAP TAPS</small>';
+      phaseEl.classList.add('is-timer');
+      metaEl.textContent = '';
+    } else if (st === 'recap_likepts' || st === 'taps') {
+      phaseEl.innerHTML = '+' + fmt(likePts) + '<small>PUNTOS</small>';
+      phaseEl.classList.add('is-cyan');
+      metaEl.textContent = '';
+    } else if (st === 'recap_total') {
+      phaseEl.textContent = 'CONFIRMADO';
+      phaseEl.classList.add('is-gold');
+      metaEl.textContent = '+' + fmt(Math.max(0, points - (Number(snap.startPts) || 0) || likePts + giftPts));
+      metaEl.classList.add('is-gold');
+    } else if (st === 'result') {
+      if (snap.reached) {
+        phaseEl.textContent = '¡WIN!';
+        phaseEl.classList.add('is-gold');
+        metaEl.textContent = '+' + fmt(Math.max(0, points));
+        metaEl.classList.add('is-gold');
+      } else {
+        phaseEl.textContent = 'NO ALCANZÓ';
+        phaseEl.classList.add('is-fail');
+        metaEl.textContent = needLine(points, meta);
+      }
+    } else {
+      phaseEl.textContent = 'PREPÁRATE';
+      metaEl.textContent = needLine(points, meta);
+    }
+
+    const foot = $('foottxt');
+    if (foot) foot.textContent = (st === 'result' && snap.reached) ? fmt(points) : '';
+
+    const boostLeft = Number(snap.boostLeft) || 0;
+    const boostMult = Math.max(1, Number(snap.boostMult) || 1);
+    const boostSec = Math.max(1, Number(snap.boostSec) || 10);
+    const bono = Number(snap.multiplier || cfg.multiplier) >= 3 ? 3 : 2;
+    const seatsNeed = Math.max(2, Number(snap.seatsNeed) || (bono >= 3 ? 4 : 3));
+    const seats = Math.max(0, Number(snap.seats) || 0);
+    const leftSeats = Math.max(0, seatsNeed - seats);
+    function paintGrid(filled, need) {
+      const g = $('bangrid');
+      if (!g) return;
+      const n = need >= 3 ? Math.min(8, need) : 4;
+      g.replaceChildren();
+      for (let i = 0; i < n; i++) {
+        const d = document.createElement('i');
+        if (i < filled) d.classList.add('on');
+        g.appendChild(d);
+      }
+    }
+    function hideBanner() {
+      banner.classList.remove('is-on');
+      lastBanKey = '';
+    }
+    function showBanner(mode, text, timeTxt, filled, asHtml) {
+      banner.classList.add('is-on');
+      banner.classList.toggle('is-msg', mode === 'msg');
+      banner.classList.toggle('is-chip', mode === 'chip');
+      banner.classList.toggle('is-boost', mode === 'boost');
+      banner.classList.toggle('is-summary', mode === 'summary');
+      banner.classList.toggle('has-time', !!timeTxt);
+      const key = mode === 'chip'
+        ? mode + '|' + text
+        : mode + '|' + String(text).replace(/\d+/g, '#').replace(/segundo(s)?/gi, 'seg');
+      if (key !== lastBanKey) {
+        lastBanKey = key;
+        const pill = banner.querySelector('.banner-pill');
+        if (pill) {
+          pill.classList.remove('is-pop');
+          void pill.offsetWidth;
+          pill.classList.add('is-pop');
+        }
+      }
+      if (asHtml) $('bantxt').innerHTML = text;
+      else if (mode === 'boost') $('bantxt').innerHTML = text;
+      else if (mode === 'chip' && String(text).charAt(0) === 'x') $('bantxt').innerHTML = '<i>' + text + '</i>';
+      else $('bantxt').textContent = text;
+      $('bantime').textContent = timeTxt || '';
+      paintGrid(filled || 0, seatsNeed);
+    }
+    const armLeft = Number(snap.armLeft) || 0;
+    const sumLeft = Number(snap.boostSummaryLeft) || 0;
+    const sumPts = Math.max(0, Number(snap.boostSummaryPts) || 0);
+    if (st === 'live' && boostLeft > 0 && boostMult > 1) {
+      showBanner('boost', '<i>x' + boostMult + '</i> en Regalos y Tap Tap', Math.ceil(boostLeft) + ' s', 0, true);
+      $('banfill').style.width = '0%';
+    } else if (st === 'live' && armLeft > 0) {
+      const n = Math.max(1, Math.ceil(armLeft));
+      const word = n === 1 ? ' segundo' : ' segundos';
+      showBanner('msg', n + word + ' para activar <i>x' + bono + '</i>', '', seatsNeed, true);
+      $('banfill').style.width = '0%';
+    } else if (st === 'live' && sumLeft > 0) {
+      showBanner('summary', 'Total: +' + fmt(sumPts) + ' puntos de ronda', '', 0);
+      $('banfill').style.width = '0%';
+    } else if (st === 'live' && seats > 0 && leftSeats > 0) {
+      showBanner('chip', seats + '/' + seatsNeed, '', seats);
+      $('banfill').style.width = '0%';
+    } else if (st === 'live' && leftSeats <= 0) {
+      hideBanner();
+    } else if (st === 'live' || st === 'prep' || st === 'idle') {
+      showBanner('msg', 'Asientos a llenar: ' + seatsNeed, '', 0);
+      $('banfill').style.width = '0%';
+    } else {
+      hideBanner();
+    }
+
+    applyBar(points, meta);
+    renderDonors();
+
+    const win = st === 'result' && !!snap.reached;
+    const localTop = topDonors()[0];
+    const snapMvp = snap.mvp && (snap.mvp.photo || snap.mvp.name) ? snap.mvp : null;
+    const mvpUser = snapMvp || (localTop && localTop.pts > 0
+      ? { name: localTop.name, photo: localTop.photo, pts: localTop.pts }
+      : null);
+    if (win && mvpUser) {
+      if (!mvpRevealAt) mvpRevealAt = Date.now();
+      if (!mvpTimer) {
+        const wait = Math.max(40, MVP_DELAY_MS - (Date.now() - mvpRevealAt));
+        mvpTimer = setTimeout(() => { mvpTimer = 0; render(); }, wait);
+      }
+    } else {
+      mvpRevealAt = 0;
+      if (mvpTimer) { clearTimeout(mvpTimer); mvpTimer = 0; }
+    }
+    const showMvp = !!(win && mvpUser && (Date.now() - mvpRevealAt >= MVP_DELAY_MS));
+    if (showMvp && !mvpShown) { mvpShown = true; sparks(); }
+    if (!win) mvpShown = false;
+
+    let photo = snap.hostPhoto || cfg.hostPhoto || hostPhoto;
+    let name = String(snap.hostName || cfg.hostName || hostName || 'TU LIVE').replace(/^@+/, '') || 'TU LIVE';
+    if (showMvp) {
+      if (mvpUser.photo) photo = mvpUser.photo;
+      if (mvpUser.name) name = String(mvpUser.name).replace(/^@+/, '') || name;
+    }
+    applyHost(photo, name, showMvp);
+  }
+  function applyCfg(incoming) {
+    if (!incoming || typeof incoming !== 'object') return;
+    cfg = Object.assign(cfg, incoming);
+    if (incoming.color) cfg.accent = incoming.color;
+    const list = Array.isArray(incoming.people) ? incoming.people : [];
+    if (list.length) {
+      const active = list.find((p) => p && p.id === incoming.activeId) || list.find((p) => p && !p.out) || list[0];
+      if (active) {
+        cfg.hostName = active.name || active.user || cfg.hostName;
+        cfg.hostPhoto = active.photo || cfg.hostPhoto;
+        cfg.accent = active.color || cfg.accent;
+      }
+    }
+    if (cfg.hostName) hostName = String(cfg.hostName).replace(/^@+/, '') || hostName;
+    if (cfg.hostPhoto) hostPhoto = cfg.hostPhoto;
+    snap.hostName = hostName;
+    snap.hostPhoto = hostPhoto;
+    if (cfg.accent) snap.color = cfg.accent;
+    const m = Number(cfg.multiplier) >= 3 ? 3 : 2;
+    snap.multiplier = m;
+    snap.seatsNeed = m >= 3 ? 4 : 3;
+    if (!snap.phase || snap.phase === 'idle' || snap.phase === 'prep') snap.meta = cfg.meta;
+    render();
+  }
+  function applySnap(incoming) {
+    if (!incoming || typeof incoming !== 'object') return;
+    if (demoRaf) return;
+    const prev = snap.phase;
+    snap = Object.assign({}, snap, incoming);
+    if (snap.phase === 'prep' && prev !== 'prep') {
+      donors = new Map();
+      lastPts = 0;
+      mvpShown = false;
+      mvpRevealAt = 0;
+    }
+    if (snap.phase === 'live' && prev !== 'live') beep(740, 0.08);
+    if (snap.phase === 'result' && prev !== 'result') {
+      beep(snap.reached ? 880 : 220, 0.25);
+      if (snap.reached) sparks();
+    }
+    render();
+  }
+  function onGift(d) {
+    if (isEmbed) return;
+    if (snap.phase !== 'live') return;
+    const coins = giftCoins(d);
+    if (coins <= 0) return;
+    const mult = (Number(snap.multLeft) > 0) ? Math.max(1, Number(snap.multiplier) || 1) : 1;
+    const pts = coins * mult;
+    addDonor(d, pts);
+    floatPlus(pts);
+    lastPts = Number(snap.points) || lastPts;
+    const each = Number(d.diamonds || d.diamondCount || 0) || 0;
+    const combos = Math.floor(each / 100);
+    if (combos >= 1) {
+      playCombo(combos);
+    } else {
+      shake(false);
+      beep(880, 0.07);
+    }
+    renderDonors();
+  }
+  function onLike(d) {
+    if (isEmbed || snap.phase !== 'live') return;
+    addDonor(d, 0.01);
+    renderDonors();
+  }
+  function runDemo() {
+    stopDemo();
+    donors = new Map();
+    [
+      { uniqueId: 'a', nickname: 'Julie', pts: 49, mult: 2, photo: DEMO_MVP_PHOTO },
+      { uniqueId: 'b', nickname: 'Erika', pts: 27, mult: 13, photo: '' },
+      { uniqueId: 'c', nickname: 'Susi', pts: 18, photo: '' },
+      { uniqueId: 'd', nickname: 'Tati', pts: 15, photo: '' },
+    ].forEach((u) => donors.set(u.uniqueId, u));
+    const meta = Math.max(1, Number(cfg.meta) || 100);
+    const bono = Number(cfg.multiplier) >= 3 ? 3 : 2;
+    const seatsNeed = bono >= 3 ? 4 : 3;
+    const rawDelay = Number(cfg.boostDelaySec);
+    const armUse = Number.isFinite(rawDelay) ? Math.min(3, Math.max(0, rawDelay)) : 3;
+    snap = {
+      phase: 'prep', remain: 4, prepSec: 4, points: 27, taps: 0, likePts: 0, giftPts: 0,
+      meta, reached: false, multiplier: bono, multLeft: 0, boostMult: 1, boostLeft: 0, boostSec: 10,
+      hostName, hostPhoto, seats: 0, seatsNeed, delta: 0, startPts: 0, armLeft: 0,
+    };
+    mvpShown = false;
+    lastCallWord = '';
+    const keys = [];
+    const push = (at, rec) => { keys.push(Object.assign({ at, seatsNeed, multiplier: bono, meta, prepSec: 4 }, rec)); };
+    let t = 0;
+    push(t, { phase: 'prep', remain: 4, points: 27, seats: 0, delta: 0, boostLeft: 0, armLeft: 0, boostMult: 1 });
+    t += 4;
+    push(t, { phase: 'prep', remain: 0.02, points: 27, seats: 0, delta: 0, boostLeft: 0, armLeft: 0, boostMult: 1 });
+    push(t, { phase: 'live', remain: 82, points: 27, seats: 0, delta: 0, boostLeft: 0, armLeft: 0, boostMult: 1 });
+    let remain = 82;
+    let pts = 27;
+    for (let s = 1; s <= seatsNeed; s++) {
+      t += 1.15;
+      remain -= 3.2;
+      pts += 8 + s * 3;
+      push(t, { phase: 'live', remain, points: pts, seats: s, delta: s === seatsNeed ? 2 : 1, boostLeft: 0, armLeft: 0, boostMult: 1 });
+    }
+    if (armUse > 0) {
+      push(t, { phase: 'live', remain, points: pts, seats: seatsNeed, delta: 0, boostLeft: 0, armLeft: armUse, boostMult: 1 });
+      t += armUse;
+      remain -= armUse;
+      push(t, { phase: 'live', remain, points: pts, seats: seatsNeed, delta: 0, boostLeft: 0, armLeft: 0, boostMult: 1 });
+    }
+    const boostSec = 8;
+    push(t, { phase: 'live', remain, points: pts, seats: seatsNeed, delta: 2, boostLeft: boostSec, boostMult: bono, boostSec, armLeft: 0, boostSummaryLeft: 0, boostSummaryPts: 0 });
+    t += 4.2;
+    remain -= 12;
+    pts = Math.max(pts, meta + 8);
+    push(t, { phase: 'live', remain: Math.max(8, remain), points: pts, seats: seatsNeed, delta: 1, boostLeft: 0.05, boostMult: bono, boostSec, armLeft: 0, boostSummaryLeft: 0, boostSummaryPts: 0 });
+    t += 0.05;
+    const roundGain = 1659;
+    push(t, { phase: 'live', remain: Math.max(6, remain - 1), points: pts, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0, boostSummaryLeft: 3.2, boostSummaryPts: roundGain });
+    t += 3.2;
+    push(t, { phase: 'live', remain: Math.max(4, remain - 3), points: pts, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0, boostSummaryLeft: 0, boostSummaryPts: roundGain });
+    t += 0.2;
+    push(t, { phase: 'recap_valid', remain: 1.6, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0 });
+    t += 1.6;
+    push(t, { phase: 'recap_valid', remain: 0, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0 });
+    push(t, { phase: 'recap_likes', remain: 1.6, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0 });
+    t += 1.6;
+    push(t, { phase: 'recap_likes', remain: 0, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0 });
+    push(t, { phase: 'recap_likepts', remain: 1.6, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0 });
+    t += 1.6;
+    push(t, { phase: 'recap_likepts', remain: 0, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0 });
+    push(t, { phase: 'recap_total', remain: 1.6, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, startPts: 100, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0 });
+    t += 1.6;
+    push(t, { phase: 'recap_total', remain: 0, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, startPts: 100, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0 });
+    push(t, { phase: 'result', remain: 0, points: 1881, taps: 1248, likePts: 130, giftPts: 1550, startPts: 100, reached: true, seats: seatsNeed, delta: 0, boostLeft: 0, boostMult: 1, armLeft: 0, mvp: { name: 'Julie', photo: DEMO_MVP_PHOTO, pts: 49 } });
+    const endAt = t + 3.6;
+    const lerp = (a, b, u) => a + (b - a) * u;
+    const t0 = performance.now();
+    let lastPhase = '';
+    let lastSeats = -1;
+    const loop = (now) => {
+      const elapsed = (now - t0) / 1000;
+      if (elapsed >= endAt) {
+        snap.phase = 'result';
+        snap.reached = true;
+        snap.remain = 0;
+        snap.boostLeft = 0;
+        snap.armLeft = 0;
+        mvpShown = true;
+        render();
+        demoRaf = 0;
+        return;
+      }
+      let i = 0;
+      while (i < keys.length - 1 && keys[i + 1].at <= elapsed) i += 1;
+      const a = keys[i];
+      const b = keys[i + 1] || a;
+      const span = Math.max(0.0001, b.at - a.at);
+      const u = b === a ? 1 : Math.min(1, Math.max(0, (elapsed - a.at) / span));
+      const same = a.phase === b.phase;
+      const num = (k) => {
+        const av = Number(a[k]);
+        const bv = Number(b[k]);
+        if (!Number.isFinite(av)) return Number.isFinite(bv) ? bv : 0;
+        if (!same || !Number.isFinite(bv)) return av;
+        return lerp(av, bv, u);
+      };
+      if (a.phase !== lastPhase) {
+        if (a.phase === 'live') beep(740, 0.08);
+        if (a.phase === 'result' && a.reached) { sparks(); beep(880, 0.25); }
+        lastPhase = a.phase;
+      }
+      if (a.seats !== lastSeats) {
+        if (lastSeats >= 0 && a.seats > lastSeats) {
+          floatPlus(a.delta || 1);
+          shake(false);
+          beep(880, 0.07);
+        }
+        lastSeats = a.seats;
+      }
+      Object.assign(snap, {
+        phase: a.phase,
+        remain: num('remain'),
+        points: Math.round(num('points')),
+        seats: a.seats,
+        seatsNeed,
+        multiplier: bono,
+        meta,
+        delta: (elapsed - a.at) < 0.7 ? (Number(a.delta) || 0) : 0,
+        boostLeft: num('boostLeft'),
+        boostMult: Number(a.boostMult) || 1,
+        boostSec: Number(a.boostSec) || 10,
+        armLeft: num('armLeft'),
+        prepSec: Number(a.prepSec) || Number(b.prepSec) || 4,
+        boostSummaryLeft: num('boostSummaryLeft'),
+        boostSummaryPts: Number(a.boostSummaryPts) || Number(b.boostSummaryPts) || 0,
+        taps: Number(a.taps) || 0,
+        likePts: Number(a.likePts) || 0,
+        giftPts: Number(a.giftPts) || 0,
+        startPts: Number(a.startPts) || 0,
+        reached: !!a.reached,
+        mvp: a.mvp || b.mvp || null,
+        hostName, hostPhoto,
+      });
+      render();
+      demoRaf = requestAnimationFrame(loop);
+    };
+    render();
+    demoRaf = requestAnimationFrame(loop);
+  }
+
+  let ws, rt;
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings' && m.payload) {
+        if (m.payload.baileRonda) applyCfg(m.payload.baileRonda);
+        if (m.payload.tiktokUser) hostName = String(m.payload.tiktokUser).replace(/^@+/, '');
+        if (m.payload.tiktokPhoto) hostPhoto = String(m.payload.tiktokPhoto || '');
+        render();
+      } else if (m.type === 'baileRondaState' || m.type === 'baileRondaStart') {
+        if (!isEmbed) applySnap(m.payload);
+      } else if (m.type === 'baileRondaReset') {
+        if (!isEmbed) {
+          donors = new Map(); mvpShown = false;
+          snap = { phase: 'idle', remain: 0, points: 0, taps: 0, meta: cfg.meta, reached: false, multiplier: cfg.multiplier, multLeft: 0, hostName, hostPhoto };
+          render();
+        }
+      } else if (m.type === 'baileRondaTest') {
+        if (!isEmbed) runDemo();
+      } else if (m.type === 'gift') {
+        onGift(m.payload);
+      } else if (m.type === 'like') {
+        onLike(m.payload);
+      }
+    };
+  }
+  window.addEventListener('message', (e) => {
+    const d = e.data; if (!d || d.kind !== 'baileronda') return;
+    if (d.type === 'config') applyCfg(d.config);
+    else if (d.type === 'snap') applySnap(d.snap);
+    else if (d.type === 'boost') runBoost(d.mult, d.sec);
+    else if (d.type === 'test') runDemo();
+    else if (d.type === 'start') {
+      stopDemo();
+      donors = new Map();
+      mvpShown = false;
+    }
+    else if (d.type === 'reset') {
+      stopDemo();
+      donors = new Map(); mvpShown = false;
+      snap = { phase: 'idle', remain: 0, points: 0, taps: 0, meta: cfg.meta, reached: false, multiplier: cfg.multiplier, multLeft: 0, hostName, hostPhoto };
+      render();
+    }
+  });
+  if (isEmbed) {
+    document.documentElement.classList.add('embed');
+    const fit = () => document.documentElement.style.setProperty('--fit', String(Math.min(window.innerWidth / 520, window.innerHeight / 245)));
+    fit(); window.addEventListener('resize', fit);
+  }
+  render();
+  connectWS();
+})();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

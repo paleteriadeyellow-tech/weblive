@@ -507,7 +507,7 @@ const OVERLAY_CAP = {
   '/perrito.html': 'ov_perrito',
   '/jarron.html': 'ov_jarron', '/vaquita.html': 'ov_vaquita', '/marranito.html': 'ov_marranito',
   '/pelotas.html': 'ov_pelotas',
-  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/corazon-lava.html': 'ov_giftheart', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/batalla-vs.html': 'ov_batallavs', '/batalla-meta.html': 'ov_batallameta', '/batalla-mvp.html': 'ov_batallamvp', '/batalla-top3.html': 'ov_batallatop3',   '/batalla-giftball.html': 'ov_batallagiftball', '/batalla-coinbar.html': 'ov_batallacoinbar', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
+  '/habibi-top.html': 'ov_habibitop', '/topdonor.html': 'ov_topdonor', '/gcounter.html': 'ov_gcounter', '/corazon-lava.html': 'ov_giftheart', '/gift-metas.html': 'ov_giftgoals', '/giftvs.html': 'ov_giftvs', '/batalla-vs.html': 'ov_batallavs', '/batalla-meta.html': 'ov_batallameta', '/batalla-mvp.html': 'ov_batallamvp', '/batalla-top3.html': 'ov_batallatop3',   '/batalla-giftball.html': 'ov_batallagiftball', '/batalla-coinbar.html': 'ov_batallacoinbar', '/baile-ronda.html': 'ov_baileronda', '/baile-combo.html': 'ov_bailecombo', '/baile-rank.html': 'ov_bailerank', '/medidor-flow.html': 'ov_flowmeter', '/giftseq.html': 'ov_giftseq', '/gift-banda.html': 'ov_giftshowcase',
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/contador-wins-minecraft.html': 'ov_winscounterminecraft',
   '/contador-wins-mario.html': 'ov_winscountermario',
@@ -542,7 +542,7 @@ const OVERLAY_CAP = {
 const TAB_CAP = {
   alertas: 'tab_alertas', videos: 'tab_videos', batallas: 'tab_batallas',
   'ov-streams': 'tab_overlays', 'ov-gifts': 'tab_overlays', 'ov-metas': 'tab_overlays',
-  'ov-rankings': 'tab_overlays', 'ov-diseno': 'tab_overlays', 'ov-batalla': 'tab_overlays', 'ov-contador': 'tab_overlays',
+  'ov-rankings': 'tab_overlays', 'ov-diseno': 'tab_overlays', 'ov-batalla': 'tab_overlays', 'ov-baile': 'tab_overlays', 'ov-contador': 'tab_overlays',
   'ov-sorteos': 'tab_overlays', 'ov-topkills': 'tab_overlays', 'ov-screenfx': 'tab_overlays',
   tts: 'tab_tts', timer: 'tab_timer',
   'editor-rapido': 'tab_editor_rapido',
@@ -798,7 +798,7 @@ const CAP_LABELS = {
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
-  ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_batallacoinbar: 'Contador de monedas', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
+  ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_baileronda: 'Overlay baile — Ronda', ov_bailecombo: 'Overlay baile — Top combo', ov_bailerank: 'Overlay baile — Ranking OUT', ov_batallacoinbar: 'Contador de monedas', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_ultimoregalo: 'Último regalo', ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_screenfx: 'Efectos pantalla', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_topmultirank: 'Top rotatorio (likes / coins / chat / puntos)',
@@ -830,9 +830,9 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_editor_rapido',
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
-  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_batallacoinbar', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
+  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
   'ov_top1', 'ov_spotify', 'ov_spotifyplayer', 'ov_youtube', 'ov_editorrapido', 'ov_screenfx', 'ov_video',
 ];
 
@@ -2218,6 +2218,10 @@ function handle(type, p) {
     case 'localReady': break; // canal relay listo (no requiere acción en la UI)
     case 'profiles': onProfiles(p); break;
     case 'profilesFull': onProfilesFull(p); break;
+    case 'baileRondaState':
+    case 'baileRondaStart':
+      try { window.__onBaileSnap?.(p); } catch {}
+      break;
     case 'emoteCatalog':
       emoteCatalog = p.results || [];
       if (!$('emoteModal').classList.contains('hidden')) renderEmoteGrid();
@@ -5057,6 +5061,32 @@ function mcCmdReady(a) {
   return !!(a && a.enabled !== false && (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)));
 }
 
+function preserveLocalBailePeopleOnSettingsEcho(incoming) {
+  try {
+    if (!incoming || !settings) return incoming;
+    let local = settings.baileRonda?.people;
+    let localActive = settings.baileRonda?.activeId || '';
+    if (!Array.isArray(local) || !local.length) {
+      try {
+        const raw = JSON.parse(localStorage.getItem('lc_baile_people_v1') || 'null');
+        if (raw && Array.isArray(raw.people) && raw.people.length) {
+          local = raw.people.slice(0, 80);
+          localActive = raw.activeId || local[0]?.id || '';
+        }
+      } catch {}
+    }
+    if (!Array.isArray(local) || !local.length) return incoming;
+    const remotePeople = incoming.baileRonda?.people;
+    if (Array.isArray(remotePeople) && remotePeople.length) return incoming;
+    const out = { ...incoming };
+    out.baileRonda = { ...(incoming.baileRonda || {}), ...(settings.baileRonda || {}), people: local.slice(), activeId: localActive };
+    return out;
+  } catch (err) {
+    console.error('[baile] preserve settings', err);
+    return incoming;
+  }
+}
+
 function onSettings(s, touchedKeys) {
   if (!touchedKeys || !touchedKeys.length) {
     try {
@@ -5067,7 +5097,7 @@ function onSettings(s, touchedKeys) {
     } catch {}
   }
   try { window.__lcPendingTouchedKeys = null; } catch {}
-  settings = preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s))));
+  settings = preserveLocalBailePeopleOnSettingsEcho(preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s)))));
   if (migrateAccionesSpawnWebhooks(settings.actions)) saveSettings();
   normalizeRelayMedia(settings);
   ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'topStreak'].forEach((k) => {
@@ -5248,6 +5278,10 @@ function applySettingsToUI(touchedKeys) {
   if (has('habibiTop')) {
     try { window.__syncHabibiDesign?.(); } catch {}
     try { window.__syncHabibiManualForm?.(); } catch {}
+  }
+  if (has('baileRonda')) {
+    try { window.__syncBailePeople?.(); } catch {}
+    try { window.__syncBaileRondaCard?.(); } catch {}
   }
   if (has('top1fire')) {
     try { window.__syncTop1FireDesign?.(); } catch {}
@@ -10930,6 +10964,21 @@ const STYLE_OVERLAYS = [
     types: { durationSec: 'int', topN: 'int', startDelaySec: 'int', revealSec: 'int', slowRevealFromSec: 'int', slowRevealSec: 'int', minBid: 'int', maxParticipants: 'int' },
   }),
   setupStyleOverlay({
+    kind: 'bailecombo', settingsKey: 'baileCombo', previewId: 'bco-preview',
+    btnTest: 'bco-test', btnReset: 'bco-reset', btnConfig: 'bco-config',
+    modalId: 'bcoConfigModal', closeId: 'bcocfg-close', saveId: 'bcocfg-save',
+    testAction: 'testBaileCombo', resetAction: 'resetBaileCombo',
+    map: { 'bcocfg-title': 'title' },
+  }),
+  setupStyleOverlay({
+    kind: 'bailerank', settingsKey: 'baileRank', previewId: 'brk-preview',
+    btnTest: 'brk-test', btnReset: 'brk-reset', btnConfig: 'brk-config',
+    modalId: 'brkConfigModal', closeId: 'brkcfg-close', saveId: 'brkcfg-save',
+    testAction: 'testBaileRank', resetAction: 'resetBaileRank',
+    map: { 'brkcfg-title': 'title', 'brkcfg-rows': 'rows', 'brkcfg-safe': 'safeSlots' },
+    types: { rows: 'int', safeSlots: 'int' },
+  }),
+  setupStyleOverlay({
     kind: 'sorteos', settingsKey: 'sorteosOverlay', previewId: 'so-preview',
     btnTest: 'so-test', btnReset: '', btnConfig: 'so-config',
     modalId: 'soConfigModal', closeId: 'socfg-close', saveId: 'socfg-save',
@@ -11479,6 +11528,356 @@ const STYLE_OVERLAYS = [
   window.__syncBatallaSkins = () => { try { syncGifts(); } catch {} try { syncLikes(); } catch {} };
 })();
 
+/* Overlay baile — HUD de ronda */
+try { (function setupBaileRonda() {
+  if (!$('brd-config') && !$('brd-start')) return;
+  const frame = () => $('brd-preview');
+  const toPreview = (msg) => {
+    ensureEmbedLoaded(frame()).then((fr) => {
+      try { fr?.contentWindow?.postMessage({ kind: 'baileronda', ...msg }, '*'); } catch {}
+    });
+  };
+  const map = {
+    'brdcfg-dur': 'durationSec', 'brdcfg-prep': 'prepSec', 'brdcfg-val': 'validateSec',
+    'brdcfg-meta': 'meta', 'brdcfg-likepts': 'likesPerPoint', 'brdcfg-boostsec': 'boostSec',
+    'brdcfg-boostdelay': 'boostDelaySec', 'brdcfg-host': 'hostName',
+  };
+  const types = { durationSec: 'int', prepSec: 'int', validateSec: 'int', meta: 'int', likesPerPoint: 'int', boostSec: 'int', boostDelaySec: 'int' };
+  const buildCfg = () => readForm(map, types);
+  const pushPreview = () => toPreview({ type: 'config', config: { ...(settings?.baileRonda || {}), ...buildCfg() } });
+  const syncBono = () => {
+    const m = Number((settings?.baileRonda || {}).multiplier) >= 3 ? 3 : 2;
+    $('brd-bono-x2')?.classList.toggle('primary', m !== 3);
+    $('brd-bono-x3')?.classList.toggle('primary', m === 3);
+  };
+  const setBono = (mult) => {
+    if (!settings) return;
+    if (!settings.baileRonda) settings.baileRonda = {};
+    const m = Number(mult) >= 3 ? 3 : 2;
+    settings.baileRonda.multiplier = m;
+    settings.baileRonda.seatsNeed = m >= 3 ? 4 : 3;
+    syncBono();
+    saveSettings();
+    pushPreview();
+  };
+  const syncDur = () => {
+    const el = $('brd-dur');
+    if (el) {
+      const v = Math.max(5, Number((settings?.baileRonda || {}).durationSec) || 90);
+      if (document.activeElement !== el) el.value = v;
+    }
+    const delayEl = $('brd-boostdelay');
+    if (delayEl) {
+      const d = Math.max(0, Math.min(30, Number((settings?.baileRonda || {}).boostDelaySec)));
+      const n = Number.isFinite(d) ? d : 3;
+      if (document.activeElement !== delayEl) delayEl.value = n;
+    }
+    syncBono();
+  };
+  window.__syncBaileRondaCard = syncDur;
+  if ($('brd-dur')) {
+    $('brd-dur').onchange = () => {
+      const v = Math.max(5, Math.min(600, parseInt($('brd-dur').value, 10) || 90));
+      $('brd-dur').value = v;
+      if (!settings) return;
+      if (!settings.baileRonda) settings.baileRonda = {};
+      settings.baileRonda.durationSec = v;
+      if ($('brdcfg-dur')) $('brdcfg-dur').value = String(v);
+      saveSettings();
+      pushPreview();
+    };
+  }
+  if ($('brd-boostdelay')) {
+    $('brd-boostdelay').onchange = () => {
+      const v = Math.max(0, Math.min(30, parseInt($('brd-boostdelay').value, 10)));
+      const n = Number.isFinite(v) ? v : 3;
+      $('brd-boostdelay').value = n;
+      if (!settings) return;
+      if (!settings.baileRonda) settings.baileRonda = {};
+      settings.baileRonda.boostDelaySec = n;
+      if ($('brdcfg-boostdelay')) $('brdcfg-boostdelay').value = String(n);
+      saveSettings();
+      pushPreview();
+    };
+  }
+  syncDur();
+  if ($('brd-bono-x2')) $('brd-bono-x2').onclick = () => setBono(2);
+  if ($('brd-bono-x3')) $('brd-bono-x3').onclick = () => setBono(3);
+  if ($('brd-test')) $('brd-test').onclick = () => {
+    toPreview({ type: 'test' });
+    send({ action: 'testBaileRonda' });
+  };
+  if ($('brd-start')) $('brd-start').onclick = () => {
+    toPreview({ type: 'start' });
+    send({ action: 'startBaileRonda' });
+  };
+  if ($('brd-reset')) $('brd-reset').onclick = () => {
+    toPreview({ type: 'reset' });
+    send({ action: 'resetBaileRonda' });
+  };
+  if ($('brd-config')) $('brd-config').onclick = () => {
+    fillForm(map, settings?.baileRonda || {});
+    $('brdConfigModal')?.classList.remove('hidden');
+    pushPreview();
+  };
+  const close = () => $('brdConfigModal')?.classList.add('hidden');
+  if ($('brdcfg-close')) $('brdcfg-close').onclick = close;
+  if ($('brdConfigModal')) $('brdConfigModal').addEventListener('click', (e) => { if (e.target.id === 'brdConfigModal') close(); });
+  Object.keys(map).forEach((id) => {
+    const el = $(id);
+    if (el) {
+      el.oninput = pushPreview;
+      el.onchange = pushPreview;
+    }
+  });
+  if ($('brdcfg-save')) $('brdcfg-save').onclick = () => {
+    if (!settings) return;
+    settings.baileRonda = { ...(settings.baileRonda || {}), ...buildCfg() };
+    saveSettings();
+    pushPreview();
+    close();
+  };
+})(); } catch (err) { console.error('[baile] ronda setup', err); }
+
+/* Overlay baile — lista de concursantes (solo ronda + ranking) */
+try { (function setupBailePeople() {
+  if (!$('baile-add') && !$('baile-people')) return;
+  const COLORS = ['#f5c542', '#fb7185', '#38bdf8', '#34d399', '#c084fc', '#fb923c'];
+  const PEOPLE_LS = 'lc_baile_people_v1';
+  const FALLBACK_AV = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><circle cx="40" cy="40" r="40" fill="#222"/><circle cx="40" cy="30" r="14" fill="#666"/><ellipse cx="40" cy="68" rx="22" ry="16" fill="#666"/></svg>');
+  const evEl = (e) => {
+    const t = e && e.target;
+    if (!t) return null;
+    if (typeof t.closest === 'function') return t;
+    return t.parentElement || null;
+  };
+  function parseUser(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    const m = s.match(/tiktok\.com\/@([^/?#]+)/i);
+    if (m) return decodeURIComponent(m[1]).replace(/^@+/, '').trim();
+    return s.replace(/^@+/, '').split(/[/?#]/)[0].trim();
+  }
+  function ensure() {
+    if (!settings) return { people: [], activeId: '' };
+    if (!settings.baileRonda || typeof settings.baileRonda !== 'object') settings.baileRonda = {};
+    if (!Array.isArray(settings.baileRonda.people)) settings.baileRonda.people = [];
+    return settings.baileRonda;
+  }
+  function persistPeople() {
+    try {
+      const cfg = settings?.baileRonda || {};
+      localStorage.setItem(PEOPLE_LS, JSON.stringify({
+        people: Array.isArray(cfg.people) ? cfg.people : [],
+        activeId: cfg.activeId || '',
+      }));
+    } catch {}
+  }
+  function restorePeopleIfEmpty() {
+    const cfg = ensure();
+    if (cfg.people.length) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(PEOPLE_LS) || 'null');
+      if (!raw || !Array.isArray(raw.people) || !raw.people.length) return;
+      cfg.people = raw.people;
+      cfg.activeId = raw.activeId || cfg.people[0]?.id || '';
+    } catch {}
+  }
+  function saveBaile() {
+    persistPeople();
+    const go = () => { try { saveSettings(); } catch {} };
+    if (typeof applyingSettings !== 'undefined' && applyingSettings) setTimeout(go, 150);
+    else go();
+  }
+  function pushOverlays() {
+    const cfg = settings?.baileRonda || {};
+    try { $('brd-preview')?.contentWindow?.postMessage({ kind: 'baileronda', type: 'config', config: cfg }, '*'); } catch {}
+    const rankMsg = { kind: 'bailerank', type: 'people', people: cfg.people || [], activeId: cfg.activeId || '' };
+    const fr = $('brk-preview');
+    if (typeof ensureEmbedLoaded === 'function' && fr) {
+      ensureEmbedLoaded(fr).then((f) => {
+        try { f?.contentWindow?.postMessage(rankMsg, '*'); } catch {}
+      });
+    } else {
+      try { fr?.contentWindow?.postMessage(rankMsg, '*'); } catch {}
+    }
+  }
+  function render() {
+    const box = $('baile-people');
+    if (!box) return;
+    try {
+      const cfg = ensure();
+      const people = cfg.people || [];
+      const activeId = cfg.activeId || '';
+      persistPeople();
+      if (!people.length) {
+        box.innerHTML = '<p class="ovpro-desc" style="margin:8px 0 0">Aún no hay concursantes. El ranking usará regalos del live hasta que agregues gente.</p>';
+        pushOverlays();
+        return;
+      }
+      box.innerHTML = people.map((p) => {
+        const on = p.id === activeId;
+        const color = p.color || '#f5c542';
+        const pts = Math.max(0, Number(p.pts) || 0);
+        const photo = String(p.photo || '').trim() || FALLBACK_AV;
+        return '<div class="baile-prow' + (on ? ' is-on' : '') + (p.out ? ' is-out' : '') + '" data-id="' + esc(p.id) + '" style="--pcolor:' + color + '">'
+          + '<img src="' + esc(photo) + '" alt="" data-fallback="1">'
+          + '<div><div class="nm">' + esc(p.name || p.user || '') + '</div>'
+          + '<div class="un">@' + esc(p.user || '') + ' · ' + pts.toLocaleString('es-ES') + ' pts' + (p.out ? ' · FUERA' : '') + '</div></div>'
+          + '<div class="ops">'
+          + '<button type="button" class="ovpro-btn' + (on ? ' primary' : '') + '" data-op="active">' + (on ? 'En turno' : 'Turno') + '</button>'
+          + '<button type="button" class="ovpro-btn" data-op="out">' + (p.out ? 'Volver' : 'Fuera') + '</button>'
+          + '<button type="button" class="ovpro-btn" data-op="remove">✕</button>'
+          + '</div></div>';
+      }).join('');
+      box.querySelectorAll('img[data-fallback]').forEach((img) => {
+        img.addEventListener('error', () => { img.src = FALLBACK_AV; }, { once: true });
+      });
+      pushOverlays();
+    } catch (err) {
+      console.error('[baile] render', err);
+    }
+  }
+  window.__syncBailePeople = () => { try { restorePeopleIfEmpty(); render(); } catch (err) { console.error('[baile] sync', err); } };
+  let lastPeopleSig = '';
+  window.__onBaileSnap = (snap) => {
+    if (!snap || !settings) return;
+    const cfg = ensure();
+    if (Array.isArray(snap.people) && snap.people.length) {
+      cfg.people = snap.people;
+    }
+    if (snap.activeId != null && (cfg.people || []).some((p) => p && p.id === snap.activeId)) {
+      cfg.activeId = snap.activeId;
+    } else if (snap.activeId && !cfg.people.length) {
+      cfg.activeId = snap.activeId;
+    }
+    persistPeople();
+    const sig = JSON.stringify({ people: cfg.people, activeId: cfg.activeId });
+    if (sig !== lastPeopleSig) {
+      lastPeopleSig = sig;
+      render();
+    }
+    try { $('brd-preview')?.contentWindow?.postMessage({ kind: 'baileronda', type: 'snap', snap }, '*'); } catch {}
+  };
+  function onPeopleClick(e) {
+    const el = evEl(e);
+    if (!el) return;
+    const btn = el.closest('[data-op]');
+    const row = el.closest('.baile-prow');
+    if (!btn || !row) return;
+    const id = row.dataset.id;
+    const op = btn.dataset.op;
+    const cfg = ensure();
+    const p = (cfg.people || []).find((x) => x && x.id === id);
+    if (op === 'active') {
+      cfg.activeId = id;
+      send({ action: 'bailePeopleOp', op: 'active', id });
+    } else if (op === 'x2' || op === 'x3') {
+      cfg.activeId = id;
+      const mult = op === 'x3' ? 3 : 2;
+      const sec = Math.max(1, Number(cfg.boostSec) || 10);
+      send({ action: 'bailePeopleOp', op: 'boost', id, mult, sec });
+      try { $('brd-preview')?.contentWindow?.postMessage({ kind: 'baileronda', type: 'boost', mult, sec }, '*'); } catch {}
+    } else if (op === 'out') {
+      const next = !(p && p.out);
+      if (p) p.out = next;
+      send({ action: 'bailePeopleOp', op: 'out', id, out: next });
+    } else if (op === 'plus' || op === 'minus') {
+      const delta = op === 'plus' ? 10 : -10;
+      if (p) p.pts = Math.max(0, (Number(p.pts) || 0) + delta);
+      send({ action: 'bailePeopleOp', op: 'delta', id, delta });
+    } else if (op === 'remove') {
+      cfg.people = cfg.people.filter((x) => x && x.id !== id);
+      if (cfg.activeId === id) cfg.activeId = cfg.people[0]?.id || '';
+      send({ action: 'bailePeopleOp', op: 'remove', id });
+    } else return;
+    saveBaile();
+    render();
+  }
+  async function lookupPhoto(person) {
+    const st = $('baile-add-st');
+    if (st) st.textContent = 'Buscando foto…';
+    try {
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const t = ctrl ? setTimeout(() => ctrl.abort(), 4000) : 0;
+      const r = await fetch('/api/tiktok-profile?' + new URLSearchParams({ url: person.user }), ctrl ? { signal: ctrl.signal } : undefined);
+      if (t) clearTimeout(t);
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'sin foto');
+      const cfg = ensure();
+      const p = cfg.people.find((x) => x && x.id === person.id);
+      if (!p) return;
+      if (data.username) p.user = String(data.username).replace(/^@+/, '');
+      if (data.nickname) p.name = data.nickname;
+      if (data.avatar) p.photo = data.avatar;
+      send({ action: 'bailePeopleOp', op: 'patch', id: p.id, user: p.user, name: p.name, photo: p.photo });
+      saveBaile();
+      render();
+    } catch {}
+    if (st && st.textContent === 'Buscando foto…') st.textContent = '';
+  }
+  function addPerson() {
+    try {
+      if (!settings) { toast('Espera a que cargue el panel', 'warn'); return; }
+      const input = $('baile-user');
+      const uniqueId = parseUser(input?.value);
+      if (!uniqueId) { toast('Pon un @ de TikTok', 'warn'); return; }
+      const cfg = ensure();
+      if (cfg.people.some((p) => String(p.user || '').toLowerCase() === uniqueId.toLowerCase())) {
+        toast('Esa persona ya está en la lista', 'warn');
+        return;
+      }
+      const person = {
+        id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        user: uniqueId,
+        name: uniqueId,
+        photo: '',
+        color: COLORS[cfg.people.length % COLORS.length],
+        pts: 0,
+        out: false,
+      };
+      cfg.people.push(person);
+      if (!cfg.activeId) cfg.activeId = person.id;
+      if (input) input.value = '';
+      persistPeople();
+      render();
+      send({ action: 'bailePeopleOp', op: 'add', person });
+      saveBaile();
+      toast('Agregada: @' + uniqueId);
+      lookupPhoto(person);
+    } catch (err) {
+      console.error('[baile] add', err);
+      toast('No se pudo agregar', 'error');
+    }
+  }
+  const root = $('view-ov-baile');
+  if (root) {
+    root.addEventListener('click', (e) => {
+      const el = evEl(e);
+      if (!el) return;
+      if (el.closest('#baile-add')) { e.preventDefault(); addPerson(); return; }
+      if (el.closest('#baile-reset-scores')) {
+        const cfg = ensure();
+        (cfg.people || []).forEach((p) => { p.pts = 0; p.out = false; });
+        send({ action: 'bailePeopleOp', op: 'resetScores' });
+        saveBaile();
+        render();
+        return;
+      }
+      if (el.closest('#baile-people')) onPeopleClick(e);
+    });
+    root.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || e.target?.id !== 'baile-user') return;
+      e.preventDefault();
+      addPerson();
+    });
+  }
+  if (settings) {
+    restorePeopleIfEmpty();
+    render();
+  }
+})(); } catch (err) { console.error('[baile] setup', err); }
+
 /* Pelota de regalos (Batalla Overlay · 1080×1920) */
 (function setupBatallaGiftBall() {
   if (!$('bgb-config') && !$('bgb-drop1')) return;
@@ -11508,7 +11907,10 @@ const STYLE_OVERLAYS = [
     });
   };
   const ensure = () => {
-    if (!settings.batallaGiftBall) settings.batallaGiftBall = {};
+    if (!settings?.batallaGiftBall) {
+      if (settings) settings.batallaGiftBall = {};
+      else return {};
+    }
     return settings.batallaGiftBall;
   };
   const normalizeSizes = (raw) => {
@@ -12418,7 +12820,7 @@ try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__pa
 (function setupGiftCounterCard() {
   const prev = () => $('gct-preview')?.contentWindow;
   const toPrev = () => prev()?.postMessage({ kind: 'gcounter', type: 'config', config: settings?.giftCounter || {} }, '*');
-  const ensure = () => { if (!settings.giftCounter) settings.giftCounter = {}; return settings.giftCounter; };
+  const ensure = () => { if (!settings) return {}; if (!settings.giftCounter) settings.giftCounter = {}; return settings.giftCounter; };
 
   if ($('gct-giftpick')) $('gct-giftpick').onclick = () => openGiftModal('sa', (g) => {
     const c = ensure();

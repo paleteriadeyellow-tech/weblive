@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=mclock1" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=baile20" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -119,6 +119,7 @@
               <button class="nav-item" data-view="ov-rankings" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-rankings.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Rankings Likes / Diamantes</span></button>
               <button class="nav-item" data-view="ov-diseno" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-diseno.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Dise?o Overlay</span></button>
               <button class="nav-item" data-view="ov-batalla" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-batalla.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Batalla Overlay</span></button>
+              <button class="nav-item" data-view="ov-baile" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-rankings.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Overlay baile</span></button>
               <button class="nav-item" data-view="ov-contador" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-contador.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Contador</span></button>
               <button class="nav-item" data-view="timer" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-timer.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Temporizador</span></button>
               <button class="nav-item" data-view="ov-sorteos" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-gifts.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Sorteos overlay</span></button>
@@ -3725,6 +3726,81 @@
           </div>
         </div>
 
+        <div id="brdConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>Configurar — Ronda baile</h2>
+              <button class="modal-close" id="brdcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div><label class="ml">DURACIÓN RONDA (s)</label><input type="number" id="brdcfg-dur" min="10" max="600" value="90"></div>
+                <div><label class="ml">PREPÁRATE (s)</label><input type="number" id="brdcfg-prep" min="0" max="30" value="5"></div>
+                <div><label class="ml">VALIDANDO (s)</label><input type="number" id="brdcfg-val" min="1" max="20" value="5"></div>
+                <div><label class="ml">META MÍNIMA (pts)</label><input type="number" id="brdcfg-meta" min="1" value="100"></div>
+                <div><label class="ml">LIKES POR 1 PUNTO</label><input type="number" id="brdcfg-likepts" min="1" max="200" value="25"></div>
+                <div><label class="ml">DURACIÓN x2/x3 (s)</label><input type="number" id="brdcfg-boostsec" min="1" max="60" value="10"></div>
+                <div><label class="ml">ESPERA PARA ACTIVAR (s)</label><input type="number" id="brdcfg-boostdelay" min="0" max="30" value="3"></div>
+              </div>
+              <p class="ovpro-desc" style="margin:8px 0 12px">El bono (x2 o x3) se elige en la tarjeta de Ronda. <b>x2 = 3 asientos</b>, <b>x3 = 4</b>. Cada persona llena un solo asiento con 1 moneda o 25 likes. Al llenarse, espera los segundos que pongas y luego se activa el bono.</p>
+              <label class="ml">NOMBRE EN EL HUD (vacío = cuenta TikTok)</label>
+              <input type="text" id="brdcfg-host" placeholder="Alma">
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="brdcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <div id="bcoConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>Configurar — Top combo</h2>
+              <button class="modal-close" id="bcocfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="bcocfg-title" placeholder="TOP COMBO">
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="bcocfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <div id="brkConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>Configurar — Ranking OUT</h2>
+              <button class="modal-close" id="brkcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="brkcfg-title" placeholder="RANKING">
+              <div class="gvscfg-grid2">
+                <div>
+                  <label class="ml">FILAS</label>
+                  <select id="brkcfg-rows">
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5" selected>5</option>
+                    <option value="6">6</option>
+                    <option value="8">8</option>
+                    <option value="10">10</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="ml">PUESTOS A SALVO (el resto OUT)</label>
+                  <select id="brkcfg-safe">
+                    <option value="1">Top 1</option>
+                    <option value="2" selected>Top 2</option>
+                    <option value="3">Top 3</option>
+                    <option value="4">Top 4</option>
+                    <option value="5">Top 5</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="brkcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Batalla de regalos -->
         <div id="bgfConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -6765,6 +6841,115 @@
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                 <div class="ovpro-preview ovpro-preview--coinbar">
                   <iframe id="bcb-preview" data-src="/batalla-coinbar.html?embed=1&v=cb21" title="Vista previa Contador de monedas"></iframe>
+                </div>
+              </div>
+
+          </div>
+        </section>
+
+        <!-- ===== VISTA: OVERLAY BAILE ===== -->
+        <section class="view" id="view-ov-baile">
+          <h1 class="view-title">Overlay baile</h1>
+          <p class="view-sub">Tres overlays para lives de baile. Añade cada URL como fuente <b>Navegador</b> en OBS / Live Studio. Fondo transparente.</p>
+          <div class="ovpro-grid">
+
+              <div class="ovpro-card ovpro-card--wide">
+                <h3 class="ovpro-title">Participantes</h3>
+                <p class="ovpro-desc">Concursantes de la competencia. Pulsa <b>Turno</b> en quien baila: los regalos del live se suman solo a esa persona hasta que cambies.</p>
+                <div class="baile-addrow">
+                  <input type="text" id="baile-user" placeholder="@usuario TikTok o enlace">
+                  <button type="button" class="ovpro-btn primary" id="baile-add">Agregar</button>
+                  <button type="button" class="ovpro-btn" id="baile-reset-scores">Reiniciar puntos</button>
+                  <span class="baile-add-st" id="baile-add-st"></span>
+                </div>
+                <div id="baile-people"></div>
+              </div>
+
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="brd-reset">↺ Reset</button>
+                    <button class="ovpro-btn" id="brd-test">▶ Test</button>
+                    <button class="ovpro-btn primary" id="brd-start">▶ Iniciar ronda</button>
+                    <button class="ovpro-btn" id="brd-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="brd-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new">Ronda</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">Ronda baile</h3>
+                <p class="ovpro-desc">HUD de la concursante en turno. Elige si esta batalla es <b>x2</b> (3 asientos) o <b>x3</b> (4). Cada viewer llena un asiento con 1 moneda o 25 likes.</p>
+                <div class="baile-durrow">
+                  <label for="brd-dur">Tiempo por participante</label>
+                  <input type="number" id="brd-dur" min="5" max="600" value="90">
+                  <span>seg</span>
+                </div>
+                <div class="baile-durrow baile-bonorow">
+                  <span>Bono de esta batalla</span>
+                  <button type="button" class="ovpro-btn primary" id="brd-bono-x2">x2 · 3 asientos</button>
+                  <button type="button" class="ovpro-btn" id="brd-bono-x3">x3 · 4 asientos</button>
+                </div>
+                <div class="baile-durrow">
+                  <label for="brd-boostdelay">Espera para activar</label>
+                  <input type="number" id="brd-boostdelay" min="0" max="30" value="3">
+                  <span>seg</span>
+                </div>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/baile-ronda.html">/baile-ronda.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA</div>
+                <div class="ovpro-preview ovpro-preview--baile-ronda">
+                  <iframe id="brd-preview" data-src="/baile-ronda.html?embed=1&amp;v=baile34" title="Vista previa ronda baile"></iframe>
+                </div>
+              </div>
+
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="bco-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="bco-test">▶ Test</button>
+                    <button class="ovpro-btn" id="bco-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="bco-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new">Combo</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">Top combo</h3>
+                <p class="ovpro-desc">Top 3 del live por <b>racha de regalos</b> (combo). Tamaño recomendado <b>320×220</b>.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/baile-combo.html">/baile-combo.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TEST</div>
+                <div class="ovpro-preview ovpro-preview--baile-combo">
+                  <iframe id="bco-preview" data-src="/baile-combo.html?embed=1&amp;v=baile8" title="Vista previa top combo baile"></iframe>
+                </div>
+              </div>
+
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="brk-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="brk-test">▶ Test</button>
+                    <button class="ovpro-btn" id="brk-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="brk-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new">OUT</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">Ranking OUT</h3>
+                <p class="ovpro-desc">Puntos por <b>regalos del turno</b>. Quien no llega a la meta queda <b>OUT</b>. Tamaño recomendado <b>340×360</b>.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/baile-rank.html">/baile-rank.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TEST</div>
+                <div class="ovpro-preview ovpro-preview--baile-rank">
+                  <iframe id="brk-preview" data-src="/baile-rank.html?embed=1&amp;v=baile21" title="Vista previa ranking baile"></iframe>
                 </div>
               </div>
 
@@ -10367,7 +10552,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=mclock5"></script>
+  <script src="/js/dashboard.js?v=baile23"></script>
   <script src="/js/editor-rapido.js?v=er84"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

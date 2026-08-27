@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Ranking baile</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; }
+    html.embed, html.embed body { width: 100%; height: 100%; }
+    html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.embed .root { transform: scale(var(--fit, 1)); transform-origin: center center; }
+    .root { width: 340px; display: flex; flex-direction: column; gap: 14px; }
+    .title { font-size: 12px; font-weight: 900; letter-spacing: .12em; color: #f5c542; text-shadow: 0 1px 2px rgba(0,0,0,.7); padding: 0 4px; }
+    #list { display: flex; flex-direction: column; gap: 14px; }
+    .row {
+      position: relative;
+      display: grid; grid-template-columns: 52px 40px 1fr auto; align-items: center; gap: 8px;
+      padding: 7px 10px; min-height: 52px; border-radius: 14px;
+      background: rgba(18,18,20,.7);
+      opacity: .62; filter: grayscale(.42) brightness(.95);
+      will-change: transform;
+      transition: box-shadow .25s ease, background .25s ease, opacity .25s ease, filter .25s ease;
+    }
+    .row .tag { color: #9aa0a8; }
+    .row .name { color: #9aa0a8; }
+    .row .pts { color: #8b9198; }
+    .row .av { filter: grayscale(.55) brightness(.8); border-color: rgba(255,255,255,.14); }
+    .row.is-gold {
+      opacity: 1; filter: none;
+      box-shadow: 0 0 0 2px #f5c542, 0 0 16px rgba(245,197,66,.38);
+      background: rgba(40,30,8,.9);
+    }
+    .row.is-out {
+      opacity: .58; filter: grayscale(1) brightness(.72);
+      background: rgba(16,16,18,.78);
+      box-shadow: none;
+    }
+    .row.is-shake { animation: rshake .28s ease; }
+    @keyframes rshake {
+      0%,100% { transform: translateX(0); }
+      30% { transform: translateX(-4px); }
+      60% { transform: translateX(4px); }
+    }
+    .tag {
+      font-size: 15px; font-weight: 900; letter-spacing: .04em; text-align: center;
+      font-style: italic;
+    }
+    .row.is-gold .tag { color: #f5c542; font-style: italic; }
+    .row.is-out .tag { color: #6a6e74; font-size: 11px; font-style: normal; letter-spacing: .06em; }
+    .av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #111; border: 2px solid rgba(255,255,255,.22); }
+    .row.is-gold .av { filter: none; border-color: #f5c542; }
+    .row.is-out .av { filter: grayscale(1) brightness(.4); border-color: rgba(255,255,255,.08); }
+    .name {
+      font-size: 14px; font-weight: 800; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
+    .row.is-gold .name { color: #ffd76a; }
+    .row.is-out .name { color: #6a6e74; }
+    .pts { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .row.is-gold .pts { color: #f5c542; }
+    .row.is-out .pts { color: #5c6066; }
+    .plus {
+      position: absolute; right: 8px; top: -8px; font-size: 12px; font-weight: 900; color: #ffe566;
+      text-shadow: 0 1px 2px #000; animation: pup .8s ease forwards; pointer-events: none;
+    }
+    @keyframes pup { from { opacity: 1; transform: translateY(4px); } to { opacity: 0; transform: translateY(-14px); } }
+  </style>
+</head>
+<body>
+  <div class="root" id="root">
+    <div class="title" id="title">RANKING</div>
+    <div id="list"></div>
+  </div>
+  <script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  const FALLBACK_AV = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><circle cx="40" cy="40" r="40" fill="#222"/><circle cx="40" cy="30" r="14" fill="#666"/><ellipse cx="40" cy="68" rx="22" ry="16" fill="#666"/></svg>');
+  const DEMO = [
+    { name: 'Ammy', pts: 54350, photo: '' },
+    { name: 'Alma', pts: 12651, photo: '' },
+    { name: 'Abby', pts: 7523, photo: '' },
+    { name: 'Bianca', pts: 4969, photo: '' },
+    { name: 'Alexa', pts: 966, photo: '' },
+  ];
+  let cfg = { title: 'RANKING', rows: 5, safeSlots: 2 };
+  const bag = new Map();
+  let people = [];
+  let activeUid = '';
+  let activeId = '';
+  let roundWin = false;
+  let demoRaf = 0;
+  let peopleBackup = null;
+  const lastFlash = new Map();
+  const lastPts = new Map();
+
+  function fmt(n) { return Math.round(Math.max(0, Number(n) || 0)).toLocaleString('de-DE'); }
+  function usePeople() { return Array.isArray(people) && people.length > 0; }
+  function applyPeople(src) {
+    if (!src) return;
+    if (demoRaf) return;
+    if (Array.isArray(src.people)) people = src.people.slice();
+    if (src.activeId != null) activeId = String(src.activeId || '');
+    if (src.phase === 'result') roundWin = !!src.reached;
+    else if (src.phase === 'prep' || src.phase === 'idle') roundWin = false;
+    render();
+  }
+  function applyCfg(incoming) {
+    if (!incoming || typeof incoming !== 'object') return;
+    cfg = Object.assign(cfg, incoming);
+    document.getElementById('title').textContent = cfg.title || 'RANKING';
+    render();
+  }
+  function diamondsFromGift(d) {
+    const each = Number(d.diamonds || d.diamondCount || 0) || 0;
+    if (d.streak) return each * Math.max(0, Number(d.repeatDelta) || 0);
+    if (d.streakGift) return 0;
+    return each * Math.max(1, Number(d.repeatCount) || 1);
+  }
+  function ranked() {
+    const rows = Math.max(2, Math.min(10, Number(cfg.rows) || 5));
+    if (usePeople()) {
+      return people.slice().map((p, idx) => ({ p, idx })).sort((a, b) => {
+        if (!!a.p.out !== !!b.p.out) return a.p.out ? 1 : -1;
+        const pa = Math.max(0, Number(a.p.pts) || 0);
+        const pb = Math.max(0, Number(b.p.pts) || 0);
+        if (pb !== pa) return pb - pa;
+        return a.idx - b.idx;
+      }).slice(0, rows).map(({ p }) => ({
+        uid: p.id,
+        name: p.name || p.user,
+        photo: p.photo || '',
+        pts: Math.max(0, Number(p.pts) || 0),
+        out: !!p.out,
+        color: p.color || '',
+      }));
+    }
+    return [...bag.values()].sort((a, b) => b.pts - a.pts).slice(0, rows);
+  }
+  function rowHtml(u, i) {
+    const contest = usePeople();
+    const safe = Math.max(1, Math.min(10, Number(cfg.safeSlots) || 2));
+    const out = contest ? !!u.out : i >= safe;
+    const photo = String(u.photo || '').trim() || FALLBACK_AV;
+    const name = String(u.name || u.user || 'Usuario').replace(/^@+/, '');
+    const uid = String(u.uid || u.name || i);
+    const turn = !out && (contest ? uid === activeId : uid === activeUid);
+    const gold = turn;
+    const flash = lastFlash.get(uid);
+    const color = String(u.color || '').trim();
+    const cls = 'row'
+      + (gold ? ' is-gold' : '')
+      + (out ? ' is-out' : '')
+      + (flash ? ' is-shake' : '');
+    const tag = out ? 'OUT' : (gold ? (roundWin ? 'WIN' : 'TURNO') : String(i + 1));
+    const plus = flash ? '<div class="plus">+' + fmt(flash) + '</div>' : '';
+    return '<div class="' + cls + '" data-uid="' + uid.replace(/"/g, '') + '"' + (color ? ' style="--pcolor:' + color.replace(/"/g, '') + '"' : '') + '>'
+      + '<div class="tag">' + tag + '</div>'
+      + '<img class="av" alt="">'
+      + '<div class="name">' + name.replace(/[<>]/g, '') + '</div>'
+      + '<div class="pts">' + fmt(u.pts) + '</div>'
+      + plus
+      + '</div>';
+  }
+  function paintRow(el, u, i) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = rowHtml(u, i);
+    const next = wrap.firstElementChild;
+    el.className = next.className;
+    if (next.getAttribute('style')) el.setAttribute('style', next.getAttribute('style'));
+    else el.removeAttribute('style');
+    el.innerHTML = next.innerHTML;
+    const img = el.querySelector('.av');
+    const photo = String(u.photo || '').trim() || FALLBACK_AV;
+    if (img) {
+      img.src = photo;
+      img.onerror = () => { img.src = FALLBACK_AV; };
+    }
+  }
+  function render() {
+    const list = document.getElementById('list');
+    const items = ranked();
+    document.getElementById('title').textContent = cfg.title || 'RANKING';
+    const prevRects = new Map();
+    [...list.children].forEach((n) => {
+      if (n.dataset.uid) prevRects.set(n.dataset.uid, n.getBoundingClientRect());
+    });
+    const keep = new Set();
+    items.forEach((u, i) => {
+      const uid = String(u.uid || u.name || i);
+      keep.add(uid);
+      let el = list.querySelector('[data-uid="' + uid.replace(/"/g, '') + '"]');
+      if (!el) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = rowHtml(u, i);
+        el = wrap.firstElementChild;
+        list.appendChild(el);
+        const img = el.querySelector('.av');
+        const photo = String(u.photo || '').trim() || FALLBACK_AV;
+        if (img) {
+          img.src = photo;
+          img.onerror = () => { img.src = FALLBACK_AV; };
+        }
+      } else {
+        const prevPts = lastPts.get(uid);
+        if (!demoRaf && prevPts != null && u.pts > prevPts && !lastFlash.has(uid)) {
+          lastFlash.set(uid, u.pts - prevPts);
+          setTimeout(() => { lastFlash.delete(uid); render(); }, 700);
+        }
+        paintRow(el, u, i);
+      }
+      lastPts.set(uid, u.pts);
+      list.appendChild(el);
+    });
+    [...list.children].forEach((n) => {
+      if (!keep.has(n.dataset.uid)) n.remove();
+    });
+    items.forEach((u, i) => {
+      const uid = String(u.uid || u.name || i);
+      const el = list.querySelector('[data-uid="' + uid.replace(/"/g, '') + '"]');
+      const prev = prevRects.get(uid);
+      if (!el || !prev) return;
+      const next = el.getBoundingClientRect();
+      const dy = prev.top - next.top;
+      if (Math.abs(dy) < 2) return;
+      try {
+        el.animate(
+          [{ transform: 'translateY(' + dy + 'px)' }, { transform: 'translateY(0)' }],
+          { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' }
+        );
+      } catch {}
+    });
+  }
+  function considerGift(d) {
+    if (usePeople()) return;
+    if (!d) return;
+    const add = diamondsFromGift(d);
+    if (add <= 0) return;
+    const uid = d.uniqueId || d.nickname || d.name;
+    if (!uid) return;
+    const prev = bag.get(uid) || { uid, name: d.nickname || d.name || uid, photo: '', pts: 0 };
+    prev.pts += add;
+    prev.uid = uid;
+    prev.name = d.nickname || d.name || prev.name;
+    if (d.photo || d.profilePictureUrl) prev.photo = d.photo || d.profilePictureUrl;
+    bag.set(uid, prev);
+    activeUid = uid;
+    lastFlash.set(uid, add);
+    setTimeout(() => { lastFlash.delete(uid); render(); }, 700);
+    render();
+  }
+  function stopDemo() {
+    if (demoRaf) cancelAnimationFrame(demoRaf);
+    demoRaf = 0;
+  }
+  function resetAll() {
+    stopDemo();
+    bag.clear();
+    activeUid = '';
+    roundWin = false;
+    lastFlash.clear();
+    lastPts.clear();
+    if (peopleBackup) {
+      people = peopleBackup.map((p) => Object.assign({}, p));
+      peopleBackup = null;
+    }
+    render();
+  }
+  function runTest() {
+    stopDemo();
+    const src = (Array.isArray(people) && people.length)
+      ? people.map((p) => ({
+        id: p.id, name: p.name || p.user, user: p.user || p.name, photo: p.photo || '',
+        color: p.color || '#f5c542', pts: 0, out: false,
+      }))
+      : DEMO.map((u, i) => ({
+        id: 'demo' + i, name: u.name, user: u.name, photo: u.photo || '',
+        color: '#f5c542', pts: 0, out: false,
+      }));
+    if (Array.isArray(people) && people.length) peopleBackup = people.map((p) => Object.assign({}, p));
+    people = src.map((p) => Object.assign({}, p));
+    activeId = people[0] ? String(people[0].id) : '';
+    activeUid = '';
+    roundWin = false;
+    lastFlash.clear();
+    lastPts.clear();
+    const n = people.length;
+    const keys = [];
+    const push = (at, rec) => keys.push(Object.assign({ at }, rec));
+    const pts = people.map(() => 0);
+    const outs = people.map(() => false);
+    let t = 0;
+    push(t, { pts: pts.slice(), outs: outs.slice(), win: false, flash: -1, add: 0 });
+    const hits = n === 1
+      ? [{ i: 0, add: 40, wait: 0.7 }, { i: 0, add: 80, wait: 0.85 }]
+      : [
+        { i: Math.min(1, n - 1), add: 36, wait: 0.65 },
+        { i: 0, add: 22, wait: 0.7 },
+        { i: Math.min(n > 2 ? 2 : 0, n - 1), add: 95, wait: 0.85 },
+        { i: 0, add: 70, wait: 0.8 },
+        { i: Math.min(1, n - 1), add: 48, wait: 0.75 },
+        { i: 0, add: 40, wait: 0.7 },
+      ];
+    hits.forEach((h) => {
+      t += h.wait;
+      pts[h.i] += h.add;
+      push(t, { pts: pts.slice(), outs: outs.slice(), win: false, flash: h.i, add: h.add });
+    });
+    t += 0.85;
+    if (n > 1) outs[n - 1] = true;
+    push(t, { pts: pts.slice(), outs: outs.slice(), win: false, flash: -1, add: 0 });
+    t += 1.05;
+    push(t, { pts: pts.slice(), outs: outs.slice(), win: true, flash: -1, add: 0 });
+    const endAt = t + 2.2;
+    const t0 = performance.now();
+    const lerp = (a, b, u) => a + (b - a) * u;
+    const loop = (now) => {
+      const elapsed = (now - t0) / 1000;
+      if (elapsed >= endAt) {
+        demoRaf = 0;
+        roundWin = true;
+        render();
+        return;
+      }
+      let i = 0;
+      while (i < keys.length - 1 && keys[i + 1].at <= elapsed) i += 1;
+      const a = keys[i];
+      const b = keys[i + 1] || a;
+      const span = Math.max(0.0001, b.at - a.at);
+      const u = b === a ? 1 : Math.min(1, Math.max(0, (elapsed - a.at) / span));
+      people.forEach((p, idx) => {
+        const av = Number(a.pts[idx]) || 0;
+        const bv = Number(b.pts[idx]) || 0;
+        p.pts = Math.round(lerp(av, bv, u));
+        p.out = !!a.outs[idx];
+        if (elapsed >= a.at && b.at - a.at > 0 && elapsed < a.at + 0.55 && a.flash === idx && a.add) {
+          lastFlash.set(String(p.id), a.add);
+        } else if (lastFlash.get(String(p.id)) && elapsed >= a.at + 0.7) {
+          lastFlash.delete(String(p.id));
+        }
+      });
+      roundWin = !!(a.win || (b.win && u > 0.5));
+      render();
+      demoRaf = requestAnimationFrame(loop);
+    };
+    render();
+    demoRaf = requestAnimationFrame(loop);
+  }
+
+  let ws, rt;
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings' && m.payload) {
+        if (m.payload.baileRank) applyCfg(m.payload.baileRank);
+        if (m.payload.baileRonda) applyPeople(m.payload.baileRonda);
+      }
+      else if (m.type === 'gift') { if (!isEmbed && !usePeople()) considerGift(m.payload); }
+      else if (m.type === 'baileRondaState' || m.type === 'baileRondaStart') {
+        applyPeople(m.payload);
+      } else if (m.type === 'baileRondaReset') { roundWin = false; render(); }
+      else if (m.type === 'baileRankTest') { if (!isEmbed) runTest(); }
+      else if (m.type === 'baileRankReset') { if (!isEmbed) resetAll(); }
+    };
+  }
+  window.addEventListener('message', (e) => {
+    const d = e.data; if (!d || d.kind !== 'bailerank') return;
+    if (d.type === 'config') applyCfg(d.config);
+    else if (d.type === 'people') applyPeople(d);
+    else if (d.type === 'test') runTest();
+    else if (d.type === 'reset') resetAll();
+  });
+  if (isEmbed) {
+    document.documentElement.classList.add('embed');
+    const fit = () => document.documentElement.style.setProperty('--fit', String(Math.min(window.innerWidth / 340, window.innerHeight / 360)));
+    fit(); window.addEventListener('resize', fit);
+  }
+  render();
+  connectWS();
+})();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

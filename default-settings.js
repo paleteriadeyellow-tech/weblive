@@ -774,6 +774,16 @@ export const DEFAULT_SETTINGS = {
     titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
     resetPeriod: 'live',
   },
+  // Overlay baile (ronda / top combo / ranking OUT)
+  baileRonda: {
+    durationSec: 90, prepSec: 5, validateSec: 5, recapSec: 2, meta: 100,
+    multiplier: 2, multiplierSec: 0, multiplierDelaySec: 0, likesPerPoint: 25, likePts: 25, boostSec: 10, boostDelaySec: 3, seatsNeed: 3,
+    hostName: '', hostPhoto: '',
+    people: [],
+    activeId: '',
+  },
+  baileCombo: { title: 'TOP COMBO' },
+  baileRank: { title: 'RANKING', rows: 5, safeSlots: 2 },
   // Overlay Batalla de regalos (ranking por monedas)
   batallaGifts: {
     limit: 2, nameRainbow: true, placeholder: 'Esperando regalos...',

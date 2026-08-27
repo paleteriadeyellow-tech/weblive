@@ -1128,6 +1128,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'flowMeter', 'giftSeq', 'giftShowcase',
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'giftGoals', 'giftCounter', 'topStreak',
+    'baileRonda', 'baileCombo', 'baileRank',
     'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills', 'screenFx',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
@@ -2128,6 +2129,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (obj.habibiTop && typeof obj.habibiTop === 'object'
       && obj.habibiTop.manual === undefined && settings.habibiTop && settings.habibiTop.manual) {
       obj.habibiTop = { ...obj.habibiTop, manual: settings.habibiTop.manual };
+    }
+    if (obj.baileRonda && typeof obj.baileRonda === 'object') {
+      const incomingPeople = obj.baileRonda.people;
+      const curPeople = settings.baileRonda?.people;
+      if (Array.isArray(incomingPeople) && incomingPeople.length === 0
+        && Array.isArray(curPeople) && curPeople.length > 0) {
+        obj.baileRonda = { ...obj.baileRonda, people: curPeople, activeId: obj.baileRonda.activeId || settings.baileRonda.activeId || '' };
+      }
     }
     settings = deepMerge(settings, obj);
     if (settings.topKills && 'clearPlayers' in settings.topKills) delete settings.topKills.clearPlayers;
@@ -3422,6 +3431,441 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     trackSessionHypeEvent('like', n * pts);
     saveSessionOverlays();
   }
+
+  /* Overlay baile: HUD de ronda (PREPÁRATE → timer → VALIDANDO → TAP TAPS → resultado) */
+  let baileRound = null;
+  let baileTickTimer = null;
+  let baileBoost = null;
+  function baileRoundCfg() {
+    const d = DEFAULT_SETTINGS.baileRonda || {};
+    return { ...d, ...(settings.baileRonda || {}) };
+  }
+  function baileEnsure() {
+    if (!settings.baileRonda || typeof settings.baileRonda !== 'object') {
+      settings.baileRonda = { ...(DEFAULT_SETTINGS.baileRonda || {}) };
+    }
+    if (!Array.isArray(settings.baileRonda.people)) settings.baileRonda.people = [];
+    return settings.baileRonda;
+  }
+  function bailePeopleList() { return baileEnsure().people; }
+  function bailePersonById(id) {
+    if (!id) return null;
+    return bailePeopleList().find((p) => p && p.id === id) || null;
+  }
+  function baileActivePerson() {
+    const list = bailePeopleList();
+    if (!list.length) return null;
+    return bailePersonById(baileEnsure().activeId) || list.find((p) => !p.out) || list[0];
+  }
+  function baileLikesPerPoint() {
+    const n = Number(baileRoundCfg().likesPerPoint ?? baileRoundCfg().likePts);
+    if (Number.isFinite(n) && n >= 2) return Math.max(2, Math.min(200, n));
+    return 25;
+  }
+  function baileChosenMult() {
+    return Number(baileRoundCfg().multiplier) >= 3 ? 3 : 2;
+  }
+  function baileSeatsNeed() {
+    if (baileRound && Number(baileRound.seatsNeed) >= 2) {
+      return Math.max(2, Math.min(8, Number(baileRound.seatsNeed)));
+    }
+    return baileChosenMult() >= 3 ? 4 : 3;
+  }
+  function baileSeatUid(user) {
+    if (!user) return '';
+    return String(user.uniqueId || user.userId || user.nickname || user.name || '').trim();
+  }
+  function baileRoundGain() {
+    if (!baileRound) return 0;
+    const likes = baileRound.likePts != null
+      ? (Number(baileRound.likePts) || 0)
+      : Math.floor((Number(baileRound.taps) || 0) / baileLikesPerPoint());
+    return (Number(baileRound.giftPts) || 0) + likes;
+  }
+  function baileAddDonor(user, pts) {
+    if (!baileRound || !user || !(pts > 0)) return;
+    const uid = baileSeatUid(user);
+    if (!uid) return;
+    if (!baileRound.donors) baileRound.donors = {};
+    const prev = baileRound.donors[uid] || { uid, name: '', photo: '', pts: 0 };
+    prev.pts += pts;
+    prev.name = String(user.nickname || user.name || prev.name || uid);
+    const photo = getPhoto(user) || user.photo || user.avatar || '';
+    if (photo) prev.photo = String(photo);
+    baileRound.donors[uid] = prev;
+  }
+  function baileTopDonor() {
+    const map = baileRound && baileRound.donors;
+    if (!map) return null;
+    let best = null;
+    for (const u of Object.values(map)) {
+      if (!u) continue;
+      if (!best || (Number(u.pts) || 0) > (Number(best.pts) || 0)) best = u;
+    }
+    return best && (Number(best.pts) || 0) > 0
+      ? { name: best.name || '', photo: best.photo || '', pts: Number(best.pts) || 0 }
+      : null;
+  }
+  function baileTrySeat(uid) {
+    if (!baileRound || !uid) return;
+    if (!baileRound.seats) baileRound.seats = {};
+    if (baileRound.seats[uid]) return;
+    baileRound.seats[uid] = true;
+    baileMaybeAutoBoost();
+  }
+  function baileBoostDelaySec() {
+    const n = Number(baileRoundCfg().boostDelaySec);
+    if (Number.isFinite(n) && n >= 0) return Math.max(0, Math.min(30, n));
+    return 3;
+  }
+  function baileArmLeft(now) {
+    if (!baileRound || !baileRound.boostArmUntil) return 0;
+    return Math.max(0, (baileRound.boostArmUntil - (now || Date.now())) / 1000);
+  }
+  function baileStartBoost(auto) {
+    if (!baileRound) return;
+    const mult = Number(baileRound.multiplier) >= 3 ? 3 : 2;
+    const sec = Math.max(1, Number(baileRoundCfg().boostSec) || 10);
+    baileRound.boostArmUntil = 0;
+    if (baileRound) baileRound.boostSummaryUntil = 0;
+    baileBoost = { mult, until: Date.now() + sec * 1000, personId: baileRound.personId || '', sec, auto: !!auto, startGain: baileRoundGain() };
+  }
+  function baileFinishBoost(now) {
+    if (!baileBoost) return;
+    const ts = now || Date.now();
+    if (baileBoostLeft(ts) > 0) return;
+    if (baileRound) {
+      baileRound.boostSummaryPts = Math.max(0, baileRoundGain() - (Number(baileBoost.startGain) || 0));
+      baileRound.boostSummaryUntil = ts + 3500;
+    }
+    baileBoost = null;
+  }
+  function baileTickArm(now) {
+    const ts = now || Date.now();
+    if (!baileRound || !baileRound.boostArmUntil) return;
+    if (baileBoostLeft(ts) > 0) { baileRound.boostArmUntil = 0; return; }
+    if (computeBailePhase(ts).phase !== 'live') { baileRound.boostArmUntil = 0; return; }
+    if (baileArmLeft(ts) > 0) return;
+    baileStartBoost(true);
+  }
+  function baileMaybeAutoBoost() {
+    if (!baileRound) return;
+    if (baileBoostLeft() > 0) return;
+    if (baileRound.boostArmUntil) return;
+    const need = baileSeatsNeed();
+    const filled = Object.keys(baileRound.seats || {}).length;
+    if (filled < need) return;
+    const delay = baileBoostDelaySec();
+    if (delay <= 0) { baileStartBoost(true); return; }
+    baileRound.boostArmUntil = Date.now() + delay * 1000;
+    baileRound.boostArmSec = delay;
+  }
+  function baileCatchup(person) {
+    const pts = Math.max(0, Number(person?.pts) || 0);
+    const minMeta = Math.max(1, Number(baileRoundCfg().meta) || 100);
+    const alive = bailePeopleList().filter((p) => p && !p.out);
+    const ranked = alive.map((p, idx) => ({ p, idx })).sort((a, b) => {
+      const pa = Math.max(0, Number(a.p.pts) || 0);
+      const pb = Math.max(0, Number(b.p.pts) || 0);
+      if (pb !== pa) return pb - pa;
+      return a.idx - b.idx;
+    });
+    if (!person) return { meta: minMeta, need: minMeta, isTop: false };
+    const myPos = ranked.findIndex((x) => x.p && x.p.id === person.id);
+    const above = myPos > 0 ? ranked[myPos - 1].p : null;
+    if (!above) {
+      const need = Math.max(0, minMeta - pts);
+      return { meta: minMeta, need, isTop: need <= 0 };
+    }
+    const abovePts = Math.max(0, Number(above.pts) || 0);
+    const meta = Math.max(minMeta, abovePts);
+    const need = Math.max(0, meta - pts);
+    return { meta, need, isTop: need <= 0 };
+  }
+  function baileMetaFor(person) {
+    return baileCatchup(person).meta;
+  }
+  function bailePeoplePublic() {
+    return bailePeopleList().map((p) => ({
+      id: p.id,
+      user: p.user || '',
+      name: p.name || p.user || '',
+      photo: p.photo || '',
+      color: p.color || '#f5c542',
+      pts: Math.max(0, Number(p.pts) || 0),
+      out: !!p.out,
+    }));
+  }
+  function baileSyncActivePts() {
+    if (!baileRound || !baileRound.personId) return;
+    const p = bailePersonById(baileRound.personId);
+    if (p) p.pts = Math.max(0, (Number(baileRound.startPts) || 0) + baileRoundGain());
+  }
+  function baileHost() {
+    const active = baileActivePerson();
+    if (active) {
+      return {
+        name: String(active.name || active.user || '').replace(/^@+/, '') || 'TU LIVE',
+        photo: String(active.photo || ''),
+        color: active.color || '#f5c542',
+      };
+    }
+    const c = baileRoundCfg();
+    return {
+      name: String(c.hostName || settings.tiktokUser || 'TU LIVE').replace(/^@+/, '') || 'TU LIVE',
+      photo: String(c.hostPhoto || settings.tiktokPhoto || ''),
+      color: '#f5c542',
+    };
+  }
+  function bailePrepSec() {
+    const n = Number(baileRoundCfg().prepSec);
+    if (Number.isFinite(n) && n > 0) return Math.max(4, Math.min(30, n));
+    return 4;
+  }
+  function computeBailePhase(now) {
+    if (!baileRound) return { phase: 'idle', remain: 0, multLeft: 0 };
+    const c = baileRoundCfg();
+    const prep = Math.max(4, Number(baileRound.prepSec) || bailePrepSec());
+    const dur = Math.max(5, Number(c.durationSec) || 90);
+    const recap = Math.max(1.2, Number(c.recapSec) || 2);
+    const e = Math.max(0, ((now || Date.now()) - baileRound.t0) / 1000);
+    if (e < prep) return { phase: 'prep', remain: prep - e, multLeft: 0 };
+    const intoLive = e - prep;
+    if (intoLive < dur) {
+      return { phase: 'live', remain: dur - intoLive, multLeft: 0 };
+    }
+    const after = intoLive - dur;
+    if (after < recap) return { phase: 'recap_valid', remain: recap - after, multLeft: 0 };
+    if (after < recap * 2) return { phase: 'recap_likes', remain: recap * 2 - after, multLeft: 0 };
+    if (after < recap * 3) return { phase: 'recap_likepts', remain: recap * 3 - after, multLeft: 0 };
+    if (after < recap * 4) return { phase: 'recap_total', remain: recap * 4 - after, multLeft: 0 };
+    return { phase: 'result', remain: 0, multLeft: 0 };
+  }
+  function baileBoostLeft(now) {
+    if (!baileBoost) return 0;
+    return Math.max(0, (baileBoost.until - (now || Date.now())) / 1000);
+  }
+  function baileMultNow(now) {
+    const ts = now || Date.now();
+    let m = 1;
+    if (baileBoostLeft(ts) > 0) m = Math.max(m, Number(baileBoost.mult) || 1);
+    return m;
+  }
+  function snapshotBaile(now) {
+    const ts = now || Date.now();
+    baileFinishBoost(ts);
+    baileTickArm(ts);
+    if (baileRound && !baileRound.settled && computeBailePhase(ts).phase === 'result') {
+      baileRound.settled = true;
+      baileSyncActivePts();
+      const p = bailePersonById(baileRound.personId);
+      const total = (Number(baileRound.startPts) || 0) + baileRoundGain();
+      const meta = Number(baileRound.meta) || baileMetaFor(p);
+      if (p && total < meta) p.out = true;
+      saveSettings();
+    }
+    const c = baileRoundCfg();
+    const host = baileHost();
+    const st = computeBailePhase(ts);
+    const active = baileActivePerson();
+    const likePts = baileRound
+      ? (baileRound.likePts != null ? (Number(baileRound.likePts) || 0) : Math.floor((Number(baileRound.taps) || 0) / baileLikesPerPoint()))
+      : 0;
+    const giftPts = baileRound ? (Number(baileRound.giftPts) || 0) : 0;
+    let points = baileRound ? baileRoundGain() : 0;
+    let meta = Math.max(1, Number(c.meta) || 100);
+    let need = Math.max(0, meta - points);
+    let isTop = points >= meta;
+    if (active && baileRound && baileRound.personId === active.id) {
+      points = (Number(baileRound.startPts) || 0) + baileRoundGain();
+      const frozen = Number(baileRound.meta);
+      meta = Number.isFinite(frozen) && frozen > 0 ? frozen : baileCatchup({ ...active, pts: points }).meta;
+      need = Math.max(0, meta - points);
+      isTop = points >= meta;
+    } else if (active) {
+      points = Number(active.pts) || 0;
+      const cap = baileCatchup({ ...active, pts: points });
+      meta = cap.meta;
+      need = cap.need;
+      isTop = cap.isTop;
+    }
+    const boostLeft = baileBoostLeft(ts);
+    baileFinishBoost(ts);
+    const seatCount = Object.keys(baileRound?.seats || {}).length;
+    const deltaFresh = baileRound && (ts - (baileRound.deltaAt || 0) < 1400);
+    return {
+      ...st,
+      t0: baileRound?.t0 || 0,
+      gen: baileRound?.gen || 0,
+      points,
+      giftPts,
+      likePts,
+      taps: baileRound ? baileRound.taps : 0,
+      likesPerPoint: baileLikesPerPoint(),
+      startPts: baileRound ? (Number(baileRound.startPts) || 0) : 0,
+      delta: deltaFresh ? (Number(baileRound.lastDelta) || 0) : 0,
+      meta,
+      need,
+      isTop,
+      reached: points >= meta,
+      hostName: host.name,
+      hostPhoto: host.photo,
+      color: host.color || '#f5c542',
+      activeId: active?.id || '',
+      people: bailePeoplePublic(),
+      seats: seatCount,
+      seatsNeed: baileSeatsNeed(),
+      multiplier: baileRound?.multiplier >= 3 ? 3 : baileChosenMult(),
+      boostMult: boostLeft > 0 ? (baileBoost.mult || 2) : 1,
+      boostLeft,
+      boostSec: baileBoost?.sec || Math.max(1, Number(c.boostSec) || 10),
+      armLeft: baileArmLeft(ts),
+      armSec: baileRound?.boostArmSec || 0,
+      boostSummaryPts: baileRound ? (Number(baileRound.boostSummaryPts) || 0) : 0,
+      boostSummaryLeft: baileRound ? Math.max(0, ((baileRound.boostSummaryUntil || 0) - ts) / 1000) : 0,
+      prepSec: baileRound ? (Number(baileRound.prepSec) || bailePrepSec()) : bailePrepSec(),
+      mvp: baileTopDonor(),
+    };
+  }
+  function stopBaileTick() {
+    if (baileTickTimer) { clearInterval(baileTickTimer); baileTickTimer = null; }
+  }
+  function startBaileTick() {
+    stopBaileTick();
+    baileTickTimer = setInterval(() => {
+      if (baileBoostLeft() <= 0) baileFinishBoost();
+      baileTickArm();
+      if (!baileRound && !baileBoost) { stopBaileTick(); broadcast('baileRondaState', snapshotBaile()); return; }
+      broadcast('baileRondaState', snapshotBaile());
+    }, 200);
+  }
+  function startBaileRonda() {
+    const active = baileActivePerson();
+    if (active) baileEnsure().activeId = active.id;
+    const startPts = active ? (Number(active.pts) || 0) : 0;
+    const cap = active ? baileCatchup(active) : { meta: Math.max(1, Number(baileRoundCfg().meta) || 100) };
+    const metaFrozen = cap.meta;
+    const mult = baileChosenMult();
+    baileRound = {
+      t0: Date.now(), gen: Date.now(), taps: 0, giftPts: 0, likePts: 0,
+      startPts, personId: active?.id || '', meta: metaFrozen, settled: false,
+      seats: {}, likeByUser: {}, donors: {},
+      multiplier: mult, seatsNeed: mult >= 3 ? 4 : 3,
+      prepSec: bailePrepSec(),
+    };
+    startBaileTick();
+    broadcast('baileRondaStart', snapshotBaile());
+  }
+  function resetBaileRonda() {
+    baileRound = null;
+    baileBoost = null;
+    stopBaileTick();
+    broadcast('baileRondaReset', snapshotBaile());
+  }
+  function feedBaileLike(count, user) {
+    if (!baileRound) return;
+    const now = Date.now();
+    if (computeBailePhase(now).phase !== 'live') return;
+    const n = Math.max(0, Number(count) || 0);
+    if (!n) return;
+    const likeBefore = Math.floor((Number(baileRound.taps) || 0) / baileLikesPerPoint());
+    baileRound.taps += n;
+    const likeAfter = Math.floor((Number(baileRound.taps) || 0) / baileLikesPerPoint());
+    if (likeAfter > likeBefore) {
+      const gained = (likeAfter - likeBefore) * baileMultNow(now);
+      baileRound.likePts = (Number(baileRound.likePts) || 0) + gained;
+      baileRound.lastDelta = gained;
+      baileRound.deltaAt = now;
+      baileAddDonor(user, gained);
+    }
+    const uid = baileSeatUid(user);
+    if (uid) {
+      if (!baileRound.likeByUser) baileRound.likeByUser = {};
+      baileRound.likeByUser[uid] = (Number(baileRound.likeByUser[uid]) || 0) + n;
+      if (baileRound.likeByUser[uid] >= baileLikesPerPoint()) baileTrySeat(uid);
+    }
+    baileSyncActivePts();
+  }
+  function baileTurnPerson() {
+    const id = baileEnsure().activeId;
+    if (!id) return null;
+    return bailePersonById(id);
+  }
+  function feedBaileGift(total, user) {
+    const n = Math.max(0, Number(total) || 0);
+    if (!n) return;
+    const now = Date.now();
+    const inLive = !!(baileRound && computeBailePhase(now).phase === 'live');
+    const uid = baileSeatUid(user);
+    if (inLive) {
+      const gained = n * baileMultNow(now);
+      baileRound.giftPts = (Number(baileRound.giftPts) || 0) + gained;
+      baileRound.lastDelta = gained;
+      baileRound.deltaAt = now;
+      baileAddDonor(user, gained);
+      if (uid) baileTrySeat(uid);
+      baileSyncActivePts();
+      return;
+    }
+    const active = baileTurnPerson();
+    if (!active) return;
+    active.pts = Math.max(0, (Number(active.pts) || 0) + n * baileMultNow(now));
+    saveSettings();
+    broadcast('baileRondaState', snapshotBaile());
+  }
+  function bailePeopleOp(data) {
+    const cfg = baileEnsure();
+    const op = data?.op;
+    if (op === 'active' && data.id) cfg.activeId = data.id;
+    else if (op === 'add') {
+      const raw = data.person || data;
+      const user = String(raw.user || raw.username || '').replace(/^@+/, '').trim();
+      if (!user) return;
+      if (cfg.people.some((p) => String(p.user || '').toLowerCase() === user.toLowerCase())) return;
+      const person = {
+        id: String(raw.id || ('p' + Date.now().toString(36))),
+        user,
+        name: String(raw.name || raw.nickname || user),
+        photo: String(raw.photo || raw.avatar || ''),
+        color: raw.color || '#f5c542',
+        pts: Math.max(0, Number(raw.pts) || 0),
+        out: !!raw.out,
+      };
+      cfg.people.push(person);
+      if (!cfg.activeId) cfg.activeId = person.id;
+    } else if (op === 'patch') {
+      const p = bailePersonById(data.id);
+      if (!p) return;
+      if (data.user) p.user = String(data.user).replace(/^@+/, '');
+      if (data.name) p.name = String(data.name);
+      if (data.photo != null) p.photo = String(data.photo || '');
+    } else if (op === 'out') {
+      const p = bailePersonById(data.id);
+      if (p) p.out = !!data.out;
+    } else if (op === 'delta') {
+      const p = bailePersonById(data.id);
+      if (p) p.pts = Math.max(0, (Number(p.pts) || 0) + (Number(data.delta) || 0));
+    } else if (op === 'remove') {
+      cfg.people = cfg.people.filter((p) => p && p.id !== data.id);
+      if (cfg.activeId === data.id) cfg.activeId = cfg.people[0]?.id || '';
+    } else if (op === 'resetScores') {
+      cfg.people.forEach((p) => { p.pts = 0; p.out = false; });
+    } else if (op === 'boost') {
+      const id = data.id || cfg.activeId;
+      if (id) cfg.activeId = id;
+      const sec = Math.max(1, Number(data.sec || baileRoundCfg().boostSec) || 10);
+      const mult = Number(data.mult) === 3 ? 3 : 2;
+      if (baileRound) {
+        baileRound.boostArmUntil = 0;
+        baileRound.boostSummaryUntil = 0;
+      }
+      baileBoost = { mult, until: Date.now() + sec * 1000, personId: id || '', sec, startGain: baileRound ? baileRoundGain() : 0 };
+      startBaileTick();
+    } else return;
+    saveSettings();
+    broadcast('baileRondaState', snapshotBaile());
+  }
+
   function resetSessionOverlays() {
     clearSessionOverlayState();
     try { fs.unlinkSync(SESSION_OVERLAYS_FILE); } catch {}
@@ -3439,6 +3883,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('pkBattleReset', {});
     resetPkBattleAll();
     broadcast('batallaGiftBallReset', {});
+    resetBaileRonda();
+    broadcast('baileComboReset', {});
+    broadcast('baileRankReset', {});
     if (getCoinBarPeriod() === 'live') resetCoinBarBag('live');
     else broadcastCoinBarState();
     lastCoinBarHostScore = 0;
@@ -9595,6 +10042,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         applyWinsGiftHooks(giftId, repeatCount);
         processFanBalls('coins', user, total);
         trackSessionGift(user, giftName, repeatCount, diamondsEach, image);
+        feedBaileGift(total, user);
         processScreenFxTriggers('gift', giftInfo, user);
       }
 
@@ -9614,6 +10062,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       processFanBalls('likes', baseUser(data.user), data.likeCount || 0);
       addRankLikes(baseUser(data.user), data.likeCount || 0);
       trackSessionLike(baseUser(data.user), data.likeCount || 0);
+      feedBaileLike(data.likeCount || 0, baseUser(data.user));
       bumpFocMetrics('likes', data.likeCount || 0);
       broadcast('like', { ...baseUser(data.user), count: data.likeCount || 0, total: state.stats.likes });
       addPkHostLikePoints(data.likeCount || 0);
@@ -10795,6 +11244,30 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('topStreakReset', {});
         broadcast('sessionOverlays', serializeSessionOverlaysPayload());
         break;
+      case 'startBaileRonda':
+        startBaileRonda();
+        break;
+      case 'bailePeopleOp':
+        bailePeopleOp(data);
+        break;
+      case 'resetBaileRonda':
+        resetBaileRonda();
+        break;
+      case 'testBaileRonda':
+        broadcast('baileRondaTest', {});
+        break;
+      case 'testBaileCombo':
+        broadcast('baileComboTest', {});
+        break;
+      case 'resetBaileCombo':
+        broadcast('baileComboReset', {});
+        break;
+      case 'testBaileRank':
+        broadcast('baileRankTest', {});
+        break;
+      case 'resetBaileRank':
+        broadcast('baileRankReset', {});
+        break;
       case 'testBatallaGifts':
         broadcast('batallaGiftsTest', {});
         break;
@@ -10971,6 +11444,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     ws.send(JSON.stringify({ type: 'giftGoals', payload: serializeGiftGoals() }));
     ws.send(JSON.stringify({ type: 'batallaCoinBarState', payload: serializeCoinBarState() }));
     ws.send(JSON.stringify({ type: 'sessionOverlays', payload: serializeSessionOverlaysPayload() }));
+    ws.send(JSON.stringify({ type: 'baileRondaState', payload: snapshotBaile() }));
     ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));
     ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
     ws.send(JSON.stringify({ type: 'communityGiftCatalog', payload: { results: [...communityGiftCatalog.values()] } }));

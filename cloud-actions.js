@@ -1,6 +1,7 @@
 // Motor de acciones para modo nube: evalúa eventos en el servidor y delega la
 // ejecución local (teclas, RCON, OBS…) al cliente PC vía WebSocket.
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
+import { executeMcRconPlan } from './mc-panic.js';
 
 export function createActionBridge({ getSettings, forEachTriggerSettings, broadcast, broadcastToLocal, isCloud }) {
   const cloud = isCloud !== false;
@@ -313,41 +314,23 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
 
     if (a.random) entries = [entries[Math.floor(Math.random() * entries.length)]];
 
-    const buildJobs = (list) => {
-      const jobs = [];
-      for (const e of list) {
-        const delayBefore = Math.max(0, Number(e.delayBefore) || 0);
-        const rep = Math.max(1, Number(e.repeat) || 1);
-        const delayEach = Math.max(0, Number(e.delayEach) || 0);
-        const cmd = substituteMcCmd(e.cmd, vars, e.radius);
-        for (let r = 0; r < rep; r++) {
-          jobs.push({ atMs: delayBefore + r * delayEach, cmd });
-        }
-      }
-      return jobs.length > 600 ? jobs.slice(0, 600) : jobs;
-    };
-
-    let totalSent = 0;
+    const steps = entries.map((e) => ({
+      cmd: substituteMcCmd(e.cmd, vars, e.radius),
+      repeat: e.repeat,
+      delayEach: e.delayEach,
+      delayBefore: e.delayBefore,
+    }));
     try {
-      if (delayGroup) await wait(delayGroup);
-      for (let t = 0; t < times; t++) {
-        const jobs = buildJobs(entries);
-        if (!jobs.length) continue;
-        const chainStart = Date.now();
-        const outcomes = await Promise.all(jobs.map(async (job) => {
-          const gap = job.atMs - (Date.now() - chainStart);
-          if (gap > 0) await wait(gap);
-          return sendCmds([job.cmd]);
-        }));
-        for (const res of outcomes) {
-          totalSent++;
-          if (!res.ok) {
-            log('err', `🟩 Minecraft "${a.name}" falló: ${res.error || 'Error'}`);
-            return;
-          }
-        }
+      const r = await executeMcRconPlan(
+        { steps, times, delayGroup, random: false },
+        (cmd) => sendCmds([cmd]),
+      );
+      if (r.cancelled) {
+        if (r.sent > 0) log('info', `⛔ Minecraft: ${a.name} cancelado (${r.sent} enviados)`);
+        return;
       }
-      log('ok', `🟩 Minecraft: ${a.name} OK (${totalSent})`);
+      if (r.ok) log('ok', `🟩 Minecraft: ${a.name} OK (${r.sent})`);
+      else log('err', `🟩 Minecraft "${a.name}" falló: ${r.error || 'Error'}`);
     } catch (e) {
       log('err', `🟩 Minecraft "${a.name}" falló: ${e.message}`);
     }
