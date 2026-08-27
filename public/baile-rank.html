@@ -14,33 +14,37 @@
     html.embed, html.embed body { width: 100%; height: 100%; }
     html.embed body { display: flex; align-items: center; justify-content: center; }
     html.embed .root { transform: scale(var(--fit, 1)); transform-origin: center center; }
-    .root { width: 340px; display: flex; flex-direction: column; gap: 14px; }
+    .root { width: 340px; display: flex; flex-direction: column; gap: 16px; }
     .title { font-size: 12px; font-weight: 900; letter-spacing: .12em; color: #f5c542; text-shadow: 0 1px 2px rgba(0,0,0,.7); padding: 0 4px; }
-    #list { display: flex; flex-direction: column; gap: 14px; }
+    #list { display: flex; flex-direction: column; gap: 16px; isolation: isolate; }
     .row {
       position: relative;
-      display: grid; grid-template-columns: 52px 40px 1fr auto; align-items: center; gap: 8px;
-      padding: 7px 10px; min-height: 52px; border-radius: 14px;
-      background: rgba(18,18,20,.7);
-      opacity: .62; filter: grayscale(.42) brightness(.95);
-      will-change: transform;
-      transition: box-shadow .25s ease, background .25s ease, opacity .25s ease, filter .25s ease;
-    }
-    .row .tag { color: #9aa0a8; }
-    .row .name { color: #9aa0a8; }
-    .row .pts { color: #8b9198; }
-    .row .av { filter: grayscale(.55) brightness(.8); border-color: rgba(255,255,255,.14); }
-    .row.is-gold {
+      border-radius: 14px;
+      background: rgba(8,8,12,.88);
       opacity: 1; filter: none;
+      will-change: transform;
+      z-index: 1;
+      transition: box-shadow .25s ease, background .25s ease, opacity .22s ease;
+    }
+    .row .body {
+      display: grid; grid-template-columns: 52px 40px 1fr auto; align-items: center; gap: 8px;
+      padding: 7px 10px; min-height: 52px;
+    }
+    .row .tag { color: #d8dce2; }
+    .row .name { color: #eceff3; }
+    .row .pts { color: #d5d9df; }
+    .row .av { border-color: rgba(255,255,255,.28); }
+    .row.is-gold {
+      z-index: 3;
       box-shadow: 0 0 0 2px #f5c542, 0 0 16px rgba(245,197,66,.38);
-      background: rgba(40,30,8,.9);
+      background: rgba(40,30,8,.94);
     }
     .row.is-out {
-      opacity: .58; filter: grayscale(1) brightness(.72);
-      background: rgba(16,16,18,.78);
+      opacity: .78;
+      background: rgba(10,10,12,.82);
       box-shadow: none;
     }
-    .row.is-shake { animation: rshake .28s ease; }
+    .row.is-shake .body { animation: rshake .28s ease; }
     @keyframes rshake {
       0%,100% { transform: translateX(0); }
       30% { transform: translateX(-4px); }
@@ -51,19 +55,19 @@
       font-style: italic;
     }
     .row.is-gold .tag { color: #f5c542; font-style: italic; }
-    .row.is-out .tag { color: #6a6e74; font-size: 11px; font-style: normal; letter-spacing: .06em; }
+    .row.is-out .tag { color: #8a8e94; font-size: 11px; font-style: normal; letter-spacing: .06em; }
     .av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #111; border: 2px solid rgba(255,255,255,.22); }
-    .row.is-gold .av { filter: none; border-color: #f5c542; }
-    .row.is-out .av { filter: grayscale(1) brightness(.4); border-color: rgba(255,255,255,.08); }
+    .row.is-gold .av { border-color: #f5c542; }
+    .row.is-out .av { filter: grayscale(.9) brightness(.7); border-color: rgba(255,255,255,.12); }
     .name {
       font-size: 14px; font-weight: 800; white-space: nowrap;
       overflow: hidden; text-overflow: ellipsis; min-width: 0;
     }
     .row.is-gold .name { color: #ffd76a; }
-    .row.is-out .name { color: #6a6e74; }
+    .row.is-out .name { color: #8a8e94; }
     .pts { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
     .row.is-gold .pts { color: #f5c542; }
-    .row.is-out .pts { color: #5c6066; }
+    .row.is-out .pts { color: #7a7e84; }
     .plus {
       position: absolute; right: 8px; top: -8px; font-size: 12px; font-weight: 900; color: #ffe566;
       text-shadow: 0 1px 2px #000; animation: pup .8s ease forwards; pointer-events: none;
@@ -98,6 +102,7 @@
   let peopleBackup = null;
   const lastFlash = new Map();
   const lastPts = new Map();
+  const lastRank = new Map();
 
   function fmt(n) { return Math.round(Math.max(0, Number(n) || 0)).toLocaleString('de-DE'); }
   function usePeople() { return Array.isArray(people) && people.length > 0; }
@@ -160,81 +165,124 @@
     const tag = out ? 'OUT' : (gold ? (roundWin ? 'WIN' : 'TURNO') : String(i + 1));
     const plus = flash ? '<div class="plus">+' + fmt(flash) + '</div>' : '';
     return '<div class="' + cls + '" data-uid="' + uid.replace(/"/g, '') + '"' + (color ? ' style="--pcolor:' + color.replace(/"/g, '') + '"' : '') + '>'
+      + '<div class="body">'
       + '<div class="tag">' + tag + '</div>'
       + '<img class="av" alt="">'
       + '<div class="name">' + name.replace(/[<>]/g, '') + '</div>'
       + '<div class="pts">' + fmt(u.pts) + '</div>'
       + plus
-      + '</div>';
+      + '</div></div>';
+  }
+  function uidSel(uid) {
+    return String(uid).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
   function paintRow(el, u, i) {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = rowHtml(u, i);
-    const next = wrap.firstElementChild;
-    el.className = next.className;
-    if (next.getAttribute('style')) el.setAttribute('style', next.getAttribute('style'));
-    else el.removeAttribute('style');
-    el.innerHTML = next.innerHTML;
+    const contest = usePeople();
+    const safe = Math.max(1, Math.min(10, Number(cfg.safeSlots) || 2));
+    const out = contest ? !!u.out : i >= safe;
+    const uid = String(u.uid || u.name || i);
+    const turn = !out && (contest ? uid === activeId : uid === activeUid);
+    const gold = turn;
+    const flash = lastFlash.get(uid);
+    const name = String(u.name || u.user || 'Usuario').replace(/^@+/, '');
+    el.classList.toggle('is-gold', !!gold);
+    el.classList.toggle('is-out', !!out);
+    el.classList.toggle('is-shake', !!flash);
+    const color = String(u.color || '').trim();
+    if (color) el.style.setProperty('--pcolor', color);
+    const tag = out ? 'OUT' : (gold ? (roundWin ? 'WIN' : 'TURNO') : String(i + 1));
+    const tagEl = el.querySelector('.tag');
+    if (tagEl && tagEl.textContent !== tag) tagEl.textContent = tag;
+    const nameEl = el.querySelector('.name');
+    if (nameEl) {
+      const safeName = name.replace(/[<>]/g, '');
+      if (nameEl.textContent !== safeName) nameEl.textContent = safeName;
+    }
+    const ptsEl = el.querySelector('.pts');
+    const ptsTxt = fmt(u.pts);
+    if (ptsEl && ptsEl.textContent !== ptsTxt) ptsEl.textContent = ptsTxt;
+    const body = el.querySelector('.body') || el;
+    let plus = body.querySelector('.plus');
+    if (flash) {
+      const plusTxt = '+' + fmt(flash);
+      if (!plus) {
+        plus = document.createElement('div');
+        plus.className = 'plus';
+        body.appendChild(plus);
+      }
+      if (plus.textContent !== plusTxt) plus.textContent = plusTxt;
+    } else if (plus) plus.remove();
     const img = el.querySelector('.av');
     const photo = String(u.photo || '').trim() || FALLBACK_AV;
-    if (img) {
+    if (img && img.getAttribute('src') !== photo) {
       img.src = photo;
       img.onerror = () => { img.src = FALLBACK_AV; };
     }
+  }
+  function slideRow(el, fromIdx, toIdx, step) {
+    const dy = (fromIdx - toIdx) * step;
+    if (Math.abs(dy) < 2) return;
+    try {
+      el.getAnimations().filter((a) => a.effect && a.effect.target === el).forEach((a) => a.cancel());
+      el.style.zIndex = fromIdx > toIdx ? '6' : '2';
+      const anim = el.animate(
+        [{ transform: 'translateY(' + dy + 'px)' }, { transform: 'translateY(0)' }],
+        { duration: 280, easing: 'cubic-bezier(.2,.85,.25,1)' }
+      );
+      const clear = () => {
+        if (el.classList.contains('is-gold')) el.style.zIndex = '3';
+        else el.style.removeProperty('z-index');
+      };
+      anim.finished.then(clear).catch(clear);
+    } catch {}
   }
   function render() {
     const list = document.getElementById('list');
     const items = ranked();
     document.getElementById('title').textContent = cfg.title || 'RANKING';
-    const prevRects = new Map();
-    [...list.children].forEach((n) => {
-      if (n.dataset.uid) prevRects.set(n.dataset.uid, n.getBoundingClientRect());
-    });
     const keep = new Set();
+    const moves = [];
     items.forEach((u, i) => {
       const uid = String(u.uid || u.name || i);
       keep.add(uid);
-      let el = list.querySelector('[data-uid="' + uid.replace(/"/g, '') + '"]');
+      let el = list.querySelector('[data-uid="' + uidSel(uid) + '"]');
       if (!el) {
         const wrap = document.createElement('div');
         wrap.innerHTML = rowHtml(u, i);
         el = wrap.firstElementChild;
-        list.appendChild(el);
         const img = el.querySelector('.av');
         const photo = String(u.photo || '').trim() || FALLBACK_AV;
         if (img) {
           img.src = photo;
           img.onerror = () => { img.src = FALLBACK_AV; };
         }
+        lastRank.set(uid, i);
       } else {
         const prevPts = lastPts.get(uid);
         if (!demoRaf && prevPts != null && u.pts > prevPts && !lastFlash.has(uid)) {
           lastFlash.set(uid, u.pts - prevPts);
           setTimeout(() => { lastFlash.delete(uid); render(); }, 700);
         }
+        const fromIdx = lastRank.has(uid) ? lastRank.get(uid) : i;
+        if (fromIdx !== i) moves.push({ el, fromIdx, toIdx: i });
         paintRow(el, u, i);
       }
       lastPts.set(uid, u.pts);
-      list.appendChild(el);
+      lastRank.set(uid, i);
+      if (list.children[i] !== el) list.insertBefore(el, list.children[i] || null);
     });
     [...list.children].forEach((n) => {
-      if (!keep.has(n.dataset.uid)) n.remove();
+      if (!keep.has(n.dataset.uid)) {
+        lastRank.delete(n.dataset.uid);
+        n.remove();
+      }
     });
-    items.forEach((u, i) => {
-      const uid = String(u.uid || u.name || i);
-      const el = list.querySelector('[data-uid="' + uid.replace(/"/g, '') + '"]');
-      const prev = prevRects.get(uid);
-      if (!el || !prev) return;
-      const next = el.getBoundingClientRect();
-      const dy = prev.top - next.top;
-      if (Math.abs(dy) < 2) return;
-      try {
-        el.animate(
-          [{ transform: 'translateY(' + dy + 'px)' }, { transform: 'translateY(0)' }],
-          { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' }
-        );
-      } catch {}
-    });
+    if (moves.length) {
+      const sample = moves[0].el;
+      const gap = parseFloat(getComputedStyle(list).gap) || 16;
+      const step = (sample.offsetHeight || 52) + gap;
+      moves.forEach((m) => slideRow(m.el, m.fromIdx, m.toIdx, step));
+    }
   }
   function considerGift(d) {
     if (usePeople()) return;
@@ -265,6 +313,7 @@
     roundWin = false;
     lastFlash.clear();
     lastPts.clear();
+    lastRank.clear();
     if (peopleBackup) {
       people = peopleBackup.map((p) => Object.assign({}, p));
       peopleBackup = null;
@@ -289,6 +338,7 @@
     roundWin = false;
     lastFlash.clear();
     lastPts.clear();
+    lastRank.clear();
     const n = people.length;
     const keys = [];
     const push = (at, rec) => keys.push(Object.assign({ at }, rec));
