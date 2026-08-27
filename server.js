@@ -4807,7 +4807,10 @@ wss.on('connection', (ws, req) => {
 
     const room = getRoomForUser(user);
     // role=relay|local desde el .exe (modo relay); sin esto emitLocalExec (WEBHOOK, etc.) no llega a la PC.
-    room.addClient(ws, url.searchParams.get('role'));
+    room.addClient(ws, url.searchParams.get('role'), {
+      ov: url.searchParams.get('ov'),
+      referer: req.headers.referer || req.headers.referrer || '',
+    });
 
     // Heartbeat a nivel de protocolo: el navegador responde a los ping automáticamente,
     // incluso con la pestaña minimizada o en segundo plano (no depende de JS ni de timers

@@ -131,6 +131,7 @@ function clearQueue() {
   queueBusy = false;
   currentItem = null;
   currentDone = null;
+  clearMediaTimers();
   if (activeDoneTimer) { clearTimeout(activeDoneTimer); activeDoneTimer = null; }
   cancelOverlaySpeech();
 }
@@ -167,6 +168,7 @@ function stopMediaForScreen(scr) {
 
 function playActionAnimNow(media, done) {
   if (!media?.url) { done?.(); return; }
+  clearMediaTimers();
   videoLayer.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'action-anim';
@@ -184,21 +186,7 @@ function playActionAnimNow(media, done) {
     el.onerror = finish;
   } else {
     el = document.createElement('video');
-    el.src = url;
-    el.autoplay = true;
-    el.playsInline = true;
-    applyMediaVolume(el, media.volume);
-    el.onended = finish;
-    el.onerror = finish;
-    activeDoneTimer = setTimeout(finish, 30000);
-    el.onloadedmetadata = () => {
-      applyMediaVolume(el, media.volume);
-      const d = Number(el.duration);
-      if (Number.isFinite(d) && d > 0) {
-        clearTimeout(activeDoneTimer);
-        activeDoneTimer = setTimeout(finish, d * 1000 + 400);
-      }
-    };
+    bindLocalVideo(el, media, finish);
   }
   el.className = 'media';
   wrap.appendChild(el);
@@ -340,8 +328,111 @@ function playActionAlertNow(p, done) {
   else wrapUp();
 }
 
+const ABSOLUTE_MAX_MS = 180000;
+const STALL_LIMIT = 12;
+let mediaTimers = new Set();
+function addMediaTimer(fn, ms) {
+  const id = setTimeout(() => {
+    mediaTimers.delete(id);
+    try { fn(); } catch { /* ignore */ }
+  }, ms);
+  mediaTimers.add(id);
+  return id;
+}
+function clearMediaTimers() {
+  mediaTimers.forEach((id) => clearTimeout(id));
+  mediaTimers.clear();
+}
+
+function bindLocalVideo(el, media, finish) {
+  const url = media.url;
+  el.src = url;
+  el.autoplay = true;
+  el.playsInline = true;
+  el.preload = 'auto';
+  el.setAttribute('playsinline', '');
+  applyMediaVolume(el, media.volume);
+
+  let errorRetries = 0;
+  let lastTime = -1;
+  let stalledSecs = 0;
+  let finished = false;
+  const alive = () => !finished && el.isConnected && !el.dataset.stopped;
+  const done = () => {
+    if (finished) return;
+    finished = true;
+    clearMediaTimers();
+    finish?.();
+  };
+  const safePlay = () => {
+    if (!alive()) return;
+    try {
+      const p = el.play && el.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {
+          if (!alive()) return;
+          try { el.muted = true; } catch { /* ignore */ }
+          try { el.play && el.play().catch(() => {}); } catch { /* ignore */ }
+        });
+      }
+    } catch { /* ignore */ }
+  };
+
+  el.onended = () => { if (alive()) done(); };
+  el.onpause = () => {
+    if (!alive() || el.ended) return;
+    const nearEnd = el.duration && el.currentTime >= el.duration - 0.4;
+    if (!nearEnd) safePlay();
+    if (nearEnd) addMediaTimer(() => { if (alive() && !el.ended) done(); }, 1500);
+  };
+  el.onerror = () => {
+    if (!alive()) return;
+    if (errorRetries >= 3) { done(); return; }
+    errorRetries += 1;
+    const resumeAt = el.currentTime || 0;
+    try {
+      el.load();
+      el.addEventListener('loadedmetadata', () => {
+        if (!alive()) return;
+        applyMediaVolume(el, media.volume);
+        try {
+          if (resumeAt > 0 && resumeAt < (el.duration || Infinity)) el.currentTime = resumeAt;
+        } catch { /* ignore */ }
+        safePlay();
+      }, { once: true });
+    } catch { done(); }
+  };
+  el.onloadedmetadata = () => {
+    if (!alive()) return;
+    applyMediaVolume(el, media.volume);
+    const d = Number(el.duration);
+    if (Number.isFinite(d) && d > 0) {
+      addMediaTimer(() => { if (alive()) done(); }, d * 1000 + 2000);
+    }
+  };
+  const watch = () => {
+    if (!alive()) return;
+    const t = el.currentTime || 0;
+    if (t > lastTime + 0.05) {
+      lastTime = t;
+      stalledSecs = 0;
+    } else {
+      stalledSecs += 1;
+      const nearEnd = el.duration && el.currentTime >= el.duration - 0.4;
+      if (el.paused && !el.ended && !nearEnd) safePlay();
+      if (nearEnd && stalledSecs >= 2) { done(); return; }
+    }
+    if (stalledSecs >= STALL_LIMIT) { done(); return; }
+    addMediaTimer(watch, 1000);
+  };
+  addMediaTimer(watch, 1000);
+  addMediaTimer(() => { if (alive()) done(); }, ABSOLUTE_MAX_MS);
+  safePlay();
+}
+
 function playVideoNow(media, done) {
   if (!media?.url) { done?.(); return; }
+  clearMediaTimers();
   videoLayer.innerHTML = '';
   const url = media.url;
   const isImg = /\.(gif|png|jpe?g|webp)(\?|$)/i.test(url);
@@ -349,28 +440,13 @@ function playVideoNow(media, done) {
   if (isImg) {
     el = document.createElement('img');
     el.src = url;
-    const finish = () => { el.remove(); done?.(); };
-    el.onload = () => { activeDoneTimer = setTimeout(finish, 6000); };
+    const finish = () => { try { el.remove(); } catch {} done?.(); };
+    el.onload = () => { addMediaTimer(finish, 6000); };
     el.onerror = finish;
   } else {
     el = document.createElement('video');
-    el.src = url;
-    el.autoplay = true;
-    el.playsInline = true;
-    applyMediaVolume(el, media.volume);
     const finish = () => { try { el.remove(); } catch {} done?.(); };
-    el.onended = finish;
-    el.onerror = finish;
-    activeDoneTimer = setTimeout(finish, 30000); // límite de seguridad
-    // Con la duración real: los videos de >30 s ya no se cortan a la mitad.
-    el.onloadedmetadata = () => {
-      applyMediaVolume(el, media.volume);
-      const d = Number(el.duration);
-      if (Number.isFinite(d) && d > 0) {
-        clearTimeout(activeDoneTimer);
-        activeDoneTimer = setTimeout(finish, d * 1000 + 2000);
-      }
-    };
+    bindLocalVideo(el, media, finish);
   }
   el.className = 'media';
   videoLayer.appendChild(el);
@@ -378,8 +454,9 @@ function playVideoNow(media, done) {
 
 function stopVideoLayer() {
   cancelOverlaySpeech();
+  clearMediaTimers();
   videoLayer.querySelectorAll('video').forEach((vid) => {
-    try { vid.pause(); vid.muted = true; vid.removeAttribute('src'); vid.load(); } catch {}
+    try { vid.dataset.stopped = '1'; vid.pause(); vid.muted = true; vid.removeAttribute('src'); vid.load(); } catch {}
   });
   videoLayer.innerHTML = '';
 }

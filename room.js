@@ -19,6 +19,7 @@ import { decryptAndMapTfc, mapTikfinityActionsToMc, tikfinityObsCmdFromAction, t
 import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { gameKeyFromExecTipo } from './badges.js';
 import { persistViewerAvatar } from './tt-avatar-cache.js';
+import { overlayAcceptsType, resolveOverlayChannel } from './overlay-channels.js';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -654,6 +655,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const clients = new Set();         // todos los WS de esta room (panel + overlays)
   const IS_CLOUD_ROOM = !!process.env.RENDER;
   const clientRoles = new WeakMap(); // ws -> 'panel' | 'relay' | 'local'
+  const clientOverlayCh = new WeakMap(); // ws -> canal overlay o ausente (= recibe todo)
   let relayLocalOrigin = '';         // http://127.0.0.1:PUERTO (modo relay .exe)
   const videoScreens = new Map();    // ws -> número de pantalla
   const chatSeenUsers = new Set();
@@ -2245,6 +2247,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   /* ------------------------------- Broadcast ------------------------------ */
+  function setOverlayChannel(ws, ch) {
+    const role = clientRoles.get(ws) || 'panel';
+    if (role === 'relay' || role === 'local') return;
+    const n = String(ch || '').trim().toLowerCase();
+    if (n) clientOverlayCh.set(ws, n);
+  }
+  function clientAcceptsType(ws, type) {
+    const role = clientRoles.get(ws) || 'panel';
+    if (role === 'relay' || role === 'local') return true;
+    return overlayAcceptsType(clientOverlayCh.get(ws) || '', type);
+  }
   function broadcast(type, payload, extra) {
     const msg = JSON.stringify(
       extra && typeof extra === 'object'
@@ -2252,7 +2265,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         : { type, payload },
     );
     for (const client of clients) {
-      if (client.readyState === 1) client.send(msg);
+      if (client.readyState !== 1) continue;
+      if (!clientAcceptsType(client, type)) continue;
+      try { client.send(msg); } catch {}
     }
   }
   function broadcastToLocal(type, payload) {
@@ -10762,7 +10777,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (data.role === 'videoScreen') {
           const scr = Math.max(1, Math.min(10, parseInt(data.screen, 10) || 1));
           videoScreens.set(ws, scr);
+          setOverlayChannel(ws, 'video');
           broadcastScreens(true);
+        }
+        if (data.role === 'overlay' || data.ov || data.ch || data.path) {
+          const ch = resolveOverlayChannel({
+            role: data.role,
+            ov: data.ov || data.ch,
+            path: data.path,
+          });
+          if (ch) setOverlayChannel(ws, ch);
         }
         break;
       case 'mediaEnded':
@@ -11422,38 +11446,53 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   /* ------------------------ Gestión de clientes WS ------------------------ */
-  function addClient(ws, role = 'panel') {
+  function addClient(ws, role = 'panel', meta = {}) {
     clientRoles.set(ws, role === 'relay' || role === 'local' ? role : 'panel');
     clients.add(ws);
     lastSeen = Date.now();
-    ws.send(JSON.stringify({ type: 'state', payload: serializeState() }));
-    ws.send(JSON.stringify({ type: 'settings', payload: settings }));
-    ws.send(JSON.stringify({ type: 'battle', payload: serializeBattle() }));
-    ws.send(JSON.stringify({ type: 'pkBattle', payload: serializePkBattle() }));
-    ws.send(JSON.stringify({ type: 'screens', payload: { connected: [...new Set(videoScreens.values())] } }));
-    ws.send(JSON.stringify({ type: 'weeklyTop', payload: serializeWeeklyTop() }));
-    ws.send(JSON.stringify({ type: 'top1fire', payload: serializeTop1Fire() }));
-    ws.send(JSON.stringify({ type: 'habibiTop', payload: serializeHabibiTop() }));
-    for (const rankId of RANK_IDS) {
-      ws.send(JSON.stringify({ type: 'rankState', payload: serializeRankState(rankId) }));
+    if (role !== 'relay' && role !== 'local') {
+      const ch = resolveOverlayChannel({
+        role,
+        ov: meta && meta.ov,
+        referer: meta && meta.referer,
+      });
+      if (ch) setOverlayChannel(ws, ch);
     }
-    ws.send(JSON.stringify({ type: 'pointsList', payload: serializePoints() }));
-    ws.send(JSON.stringify({ type: 'timer', payload: serializeTimer() }));
-    ws.send(JSON.stringify({ type: 'liveUptime', payload: serializeLiveUptime() }));
-    ws.send(JSON.stringify({ type: 'giftCounter', payload: serializeGiftCounter() }));
-    ws.send(JSON.stringify({ type: 'giftGoals', payload: serializeGiftGoals() }));
-    ws.send(JSON.stringify({ type: 'batallaCoinBarState', payload: serializeCoinBarState() }));
-    ws.send(JSON.stringify({ type: 'sessionOverlays', payload: serializeSessionOverlaysPayload() }));
-    ws.send(JSON.stringify({ type: 'baileRondaState', payload: snapshotBaile() }));
-    ws.send(JSON.stringify({ type: 'followerCounter', payload: serializeFollowerCounter() }));
-    ws.send(JSON.stringify({ type: 'emoteCatalog', payload: { results: [...emoteCatalog.values()] } }));
-    ws.send(JSON.stringify({ type: 'communityGiftCatalog', payload: { results: [...communityGiftCatalog.values()] } }));
-    try { ws.send(JSON.stringify({ type: 'profiles', payload: profilesInfo() })); } catch (e) { console.error('[profiles]', e); }
-    ws.send(JSON.stringify({ type: 'spotifyQueue', payload: { queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image, durationMs: q.durationMs || 0 })) } }));
-    ws.send(JSON.stringify({ type: 'spotifyHistory', payload: { history: spotifyHistory } }));
-    ws.send(JSON.stringify({ type: 'spotifyNowPlaying', payload: { track: spotifyNowPlaying } }));
+    const send = (type, payload) => {
+      if (ws.readyState !== 1) return;
+      if (!clientAcceptsType(ws, type)) return;
+      try { ws.send(JSON.stringify({ type, payload })); } catch (e) {
+        if (type === 'profiles') console.error('[profiles]', e);
+      }
+    };
+    send('state', serializeState());
+    send('settings', settings);
+    send('battle', serializeBattle());
+    send('pkBattle', serializePkBattle());
+    send('screens', { connected: [...new Set(videoScreens.values())] });
+    send('weeklyTop', serializeWeeklyTop());
+    send('top1fire', serializeTop1Fire());
+    send('habibiTop', serializeHabibiTop());
+    for (const rankId of RANK_IDS) {
+      send('rankState', serializeRankState(rankId));
+    }
+    send('pointsList', serializePoints());
+    send('timer', serializeTimer());
+    send('liveUptime', serializeLiveUptime());
+    send('giftCounter', serializeGiftCounter());
+    send('giftGoals', serializeGiftGoals());
+    send('batallaCoinBarState', serializeCoinBarState());
+    send('sessionOverlays', serializeSessionOverlaysPayload());
+    send('baileRondaState', snapshotBaile());
+    send('followerCounter', serializeFollowerCounter());
+    send('emoteCatalog', { results: [...emoteCatalog.values()] });
+    send('communityGiftCatalog', { results: [...communityGiftCatalog.values()] });
+    try { send('profiles', profilesInfo()); } catch (e) { console.error('[profiles]', e); }
+    send('spotifyQueue', { queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image, durationMs: q.durationMs || 0 })) });
+    send('spotifyHistory', { history: spotifyHistory });
+    send('spotifyNowPlaying', { track: spotifyNowPlaying });
     const caps = currentCaps();
-    if (caps) ws.send(JSON.stringify({ type: 'caps', payload: caps }));
+    if (caps) send('caps', caps);
   }
   function removeClient(ws) {
     clients.delete(ws);
