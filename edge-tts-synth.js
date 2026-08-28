@@ -77,9 +77,13 @@ export const EDGE_SPANISH_VOICES = [
 ];
 
 export const EDGE_VOICES = new Set(EDGE_SPANISH_VOICES.map((v) => v.id));
+/** Respaldo si el API de TikTok/Disney no responde (no se listan en el panel). */
+export const EDGE_EN_FALLBACK = { f: 'en-US-JennyNeural', m: 'en-US-GuyNeural' };
+const EDGE_FALLBACK_VOICES = new Set([EDGE_EN_FALLBACK.f, EDGE_EN_FALLBACK.m]);
 
 export function isEdgeTtsVoice(voice) {
-  return EDGE_VOICES.has(String(voice || '').trim());
+  const v = String(voice || '').trim();
+  return EDGE_VOICES.has(v) || EDGE_FALLBACK_VOICES.has(v);
 }
 
 /** Devuelve audio mp3 en base64, o '' si falla. */

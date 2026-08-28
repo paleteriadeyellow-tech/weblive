@@ -843,7 +843,7 @@ const CAP_LABELS = {
   ov_alertalikes: 'Alerta de likes',   ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   ov_fuegos: 'Fuegos artificiales',
   ov_chatgamer: 'Chat Gamer',
-  ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top 3 puntos',
+  ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top puntos',
   ov_top1: 'Top 1 Donador (MVP)',
   ov_spotify: 'Spotify (lista)', ov_spotifyplayer: 'Spotify (reproductor)',
   ov_youtube: 'YouTube Song Requests (overlay)',
@@ -10874,6 +10874,45 @@ function initModalDrag() {
   document.querySelectorAll('.modal').forEach(enableModalDrag);
 }
 
+function clampTopPointsRows(n) {
+  const v = parseInt(n, 10);
+  return Number.isFinite(v) ? Math.min(10, Math.max(1, v)) : 3;
+}
+function syncTopPointsRowsUi(n) {
+  n = clampTopPointsRows(n);
+  const sel = $('tp3-rows');
+  const inp = $('tp3cfg-rows');
+  if (sel && sel.value !== String(n)) sel.value = String(n);
+  if (inp && String(inp.value) !== String(n)) inp.value = String(n);
+  const title = $('tp3-card-title');
+  if (title) title.textContent = '⭐ Top ' + n + ' puntos';
+  const desc = $('tp3-card-desc');
+  if (desc) {
+    desc.textContent = 'Muestra en OBS el top ' + n + ' de usuarios con más puntos. Elige hasta 10. Se actualiza en vivo con arcoíris, brillos y medallas.';
+  }
+  const head = $('tp3cfg-head');
+  if (head) head.textContent = '⭐ Configurar — Top ' + n + ' puntos';
+}
+function wireTopPointsRowsSelect() {
+  const sel = $('tp3-rows');
+  if (!sel || sel._wired) return;
+  sel._wired = true;
+  const apply = () => {
+    if (!settings) return;
+    const n = clampTopPointsRows(sel.value);
+    if (!settings.topPointsRank) settings.topPointsRank = {};
+    settings.topPointsRank.rows = n;
+    syncTopPointsRowsUi(n);
+    if (typeof saveSettings === 'function') saveSettings();
+    try {
+      const ov = STYLE_OVERLAYS && STYLE_OVERLAYS.find((x) => x.kind === 'toppoints');
+      if (ov && ov._push) ov._push();
+    } catch {}
+  };
+  sel.onchange = apply;
+  sel.oninput = apply;
+}
+
 function setupStyleOverlay(o) {
   const frame = () => $(o.previewId);
   const toPreview = (msg) => {
@@ -11336,11 +11375,16 @@ const STYLE_OVERLAYS = [
     btnTest: 'tp3-test', btnReset: '', btnConfig: 'tp3-config',
     modalId: 'tp3ConfigModal', closeId: 'tp3cfg-close', saveId: 'tp3cfg-save',
     testAction: 'getPoints',
-    map: { 'tp3cfg-title': 'title', 'tp3cfg-scale': 'scale', 'tp3cfg-accent': 'accent', 'tp3cfg-rowbg': 'rowBg', 'tp3cfg-font': 'font',
+    map: { 'tp3cfg-title': 'title', 'tp3cfg-rows': 'rows', 'tp3cfg-scale': 'scale', 'tp3cfg-accent': 'accent', 'tp3cfg-rowbg': 'rowBg', 'tp3cfg-font': 'font',
       'tp3cfg-showtitle': 'showTitle', 'tp3cfg-transparent': 'transparent',
       'tp3cfg-rainbow': 'nameRainbow', 'tp3cfg-titlerainbow': 'titleRainbow', 'tp3cfg-glitter': 'glitter',
       'tp3cfg-lines': 'lines', 'tp3cfg-shadows': 'shadows' },
-    types: { scale: 'int' },
+    types: { rows: 'int', scale: 'int' },
+    onFormSync: () => { try { wireTopPointsRowsSelect(); } catch {} },
+    onSave: (cfg) => {
+      cfg.rows = clampTopPointsRows(cfg.rows);
+      syncTopPointsRowsUi(cfg.rows);
+    },
   }),
   setupStyleOverlay({
     kind: 'followercounter', settingsKey: 'followerCounter', previewId: 'foc-preview',
@@ -12193,7 +12237,7 @@ try { (function setupBailePeople() {
       resetPeriod: readResetPeriod(),
       sizes,
       ballSize: sizes[0]?.sz || 56,
-      maxBalls: 280,
+      maxBalls: 2000,
     };
   };
   const pushPreview = (immediate) => {
@@ -13245,6 +13289,7 @@ function refreshGiftCounterCardUI() {
 
 function pushStyleOverlayPreviews() {
   try { window.__syncBatallaSkins?.(); } catch {}
+  try { wireTopPointsRowsSelect(); syncTopPointsRowsUi(settings?.topPointsRank?.rows); } catch {}
   STYLE_OVERLAYS.forEach((o) => { if (o._push) o._push(); });
 }
 initModalDrag();
@@ -14836,7 +14881,7 @@ function applyTtsUI(t) {
   syncTtsNameEmojisUI();
   val('tts-tiktok-voice', t.tiktokVoice || '');
   // Casilla «Leer en español»: marcada = NO traducir a inglés (tiktokTranslateEs false).
-  set('tts-tiktok-translate', t.tiktokTranslateEs === false);
+  set('tts-tiktok-translate', t.tiktokTranslateEs !== true);
   // ElevenLabs (opcional; no rompe TTS si está vacío/apagado)
   const el = (t.elevenlabs && typeof t.elevenlabs === 'object') ? t.elevenlabs : {};
   set('tts-el-enabled', !!el.enabled);
@@ -15015,7 +15060,7 @@ function getDisneyVoiceCatalog() {
   const out = [];
   sel.querySelectorAll('optgroup').forEach((og) => {
     const label = String(og.label || '').toLowerCase();
-    if (!label.includes('disney')) return;
+    if (!label.includes('disney') && !label.includes('personaje')) return;
     og.querySelectorAll('option[value]').forEach((opt) => {
       const id = String(opt.value || '').trim();
       if (id) out.push({ id, label: (opt.textContent || id).trim() });
@@ -15088,11 +15133,15 @@ function syncTtsUvDisneyTranslateUI() {
   if (hint) hint.style.display = disney ? '' : 'none';
 }
 
-function ttsFindUserVoice(userId) {
-  const key = ttsUvNormId(userId);
-  if (!key) return null;
+function ttsFindUserVoice(userId, nickname) {
+  const ids = [userId, nickname].map(ttsUvNormId).filter(Boolean);
+  if (!ids.length) return null;
   const list = settings?.tts?.userVoices || [];
-  return list.find((x) => ttsUvNormId(x.userId) === key) || null;
+  return list.find((x) => {
+    const a = ttsUvNormId(x.userId);
+    const b = ttsUvNormId(x.nickname);
+    return ids.includes(a) || (b && ids.includes(b));
+  }) || null;
 }
 
 function refreshTtsUvUserSelect() {
@@ -15346,9 +15395,9 @@ function addTtsUserVoice() {
   refreshTtsUvUserSelect();
 }
 
-function ttsConfigForUser(userId) {
+function ttsConfigForUser(userId, nickname) {
   const base = settings?.tts || {};
-  const uv = ttsFindUserVoice(userId);
+  const uv = ttsFindUserVoice(userId, nickname);
   if (!uv) return base;
   if (uv.engine === 'elevenlabs') {
     const elBase = base.elevenlabs || {};
@@ -15383,16 +15432,16 @@ function ttsConfigForUser(userId) {
   };
 }
 
-function ttsSpeakTextForUser(text, userId) {
+function ttsSpeakTextForUser(text, userId, nickname) {
   try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
   const phrase = ttsReadableText(String(text || '')).trim();
   if (!phrase) return;
-  const cfg = ttsConfigForUser(userId);
+  const cfg = ttsConfigForUser(userId, nickname);
   const now = Date.now();
   if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
-  const uv = ttsFindUserVoice(userId);
+  const uv = ttsFindUserVoice(userId, nickname);
   if (uv?.engine === 'elevenlabs') {
     if (ttsElevenLabsReady(cfg)) { ttsSpeakElevenLabs(phrase, cfg); return; }
     toast('ElevenLabs: falta API key guardada para esa voz de usuario.', 'warn');
@@ -15401,12 +15450,8 @@ function ttsSpeakTextForUser(text, userId) {
   }
   // Sin override: si EL global está listo, usarlo.
   if (!uv && ttsElevenLabsReady(cfg)) { ttsSpeakElevenLabs(phrase, cfg); return; }
-  if (cfg.tiktokVoice) { ttsSpeakTikTok(phrase, cfg); return; }
-  if (isEdgeTtsVoiceId(cfg.voice) || isTtsLangEdgeSpanish(cfg.lang)) {
-    const edgeVoice = isEdgeTtsVoiceId(cfg.voice) ? cfg.voice : defaultEdgeVoiceIdForLocale(cfg.lang);
-    ttsSpeakTikTok(phrase, { ...cfg, tiktokVoice: edgeVoice, tiktokTranslateEs: false });
-    return;
-  }
+  const sv = ttsServerVoiceFromSettings(cfg);
+  if (sv) { ttsSpeakTikTok(phrase, sv); return; }
   ttsSpeakSystem(phrase, cfg);
 }
 
@@ -15723,14 +15768,9 @@ function ttsSpeakText(text, opts = {}) {
   ttsLastPhraseAt = now;
   // ElevenLabs (API del creador): solo si está activado y completo; si no, flujo normal.
   if (ttsElevenLabsReady(t)) { ttsSpeakElevenLabs(phrase, t); return; }
-  // Edge español (idioma/voz del bloque Idioma + Voz, por país)
-  if (isEdgeTtsVoiceId(t.voice) || isTtsLangEdgeSpanish(t.lang)) {
-    const edgeVoice = isEdgeTtsVoiceId(t.voice) ? t.voice : defaultEdgeVoiceIdForLocale(t.lang);
-    ttsSpeakTikTok(phrase, { ...t, tiktokVoice: edgeVoice, tiktokTranslateEs: false });
-    return;
-  }
-  // Si hay una voz TikTok elegida, la síntesis va por el servidor (voces Disney, etc.).
-  if (t.tiktokVoice) { ttsSpeakTikTok(phrase, t); return; }
+  // Disney/TikTok del dropdown gana sobre idioma Edge (si no, Probar voz / regalos usaban Edge).
+  const sv = ttsServerVoiceFromSettings(t);
+  if (sv) { ttsSpeakTikTok(phrase, sv); return; }
   ttsSpeakSystem(phrase, t);
 }
 
@@ -16039,14 +16079,30 @@ let ttsTkAbort = null;
 let ttsTkPrefetch = null;
 let ttsTkPrefetchItem = null; // a qué mensaje pertenece el prefetch (evita leer audio de otro texto)
 let ttsTkBusySince = 0;
-const TTS_TK_FETCH_MS = 7000; // Edge/TikTok
+const TTS_TK_FETCH_MS = 16000; // TikTok + posible respaldo Edge
 const TTS_EL_FETCH_MS = 14000; // ElevenLabs suele tardar más
+
+function ttsWantSpeakEs(t) {
+  return !t || t.tiktokTranslateEs !== true;
+}
+
+/** Voz de servidor: dropdown TikTok/Disney primero; si está vacío, Edge por idioma. */
+function ttsServerVoiceFromSettings(t) {
+  const tk = String(t?.tiktokVoice || '').trim();
+  if (tk) return { ...t, tiktokVoice: tk };
+  if (isEdgeTtsVoiceId(t?.voice) || isTtsLangEdgeSpanish(t?.lang)) {
+    const edgeVoice = isEdgeTtsVoiceId(t.voice) ? t.voice : defaultEdgeVoiceIdForLocale(t.lang);
+    return { ...t, tiktokVoice: edgeVoice, tiktokTranslateEs: false };
+  }
+  return null;
+}
 
 function ttsSpeakTikTok(phrase, t) {
   ttsTkQueue.push({
     text: phrase,
     voice: t.tiktokVoice,
     translate: t.tiktokTranslateEs !== false,
+    speakEs: ttsWantSpeakEs(t),
     volume: t.volume ?? 1,
     at: Date.now(),
   });
@@ -16360,7 +16416,7 @@ async function ttsTkFetchSpeak(item, signal) {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
     signal,
-    body: JSON.stringify({ text: item.text, voice: item.voice, translate: item.translate }),
+    body: JSON.stringify({ text: item.text, voice: item.voice, translate: item.translate, speakEs: !!item.speakEs }),
   });
   if (!r.ok) return null;
   const j = await r.json().catch(() => null);
@@ -16381,22 +16437,13 @@ function ttsFallbackAfterElFail(item, errMsg) {
   const vol = item?.volume ?? t.volume ?? 1;
   const phrase = String(item?.text || '').trim();
   if (!phrase) return;
-  if (isEdgeTtsVoiceId(t.voice) || isTtsLangEdgeSpanish(t.lang)) {
-    const edgeVoice = isEdgeTtsVoiceId(t.voice) ? t.voice : defaultEdgeVoiceIdForLocale(t.lang);
+  const sv = ttsServerVoiceFromSettings(t);
+  if (sv) {
     ttsTkQueue.unshift({
       text: phrase,
-      voice: edgeVoice,
-      translate: false,
-      volume: vol,
-      at: Date.now(),
-    });
-    return;
-  }
-  if (t.tiktokVoice) {
-    ttsTkQueue.unshift({
-      text: phrase,
-      voice: t.tiktokVoice,
-      translate: t.tiktokTranslateEs !== false,
+      voice: sv.tiktokVoice,
+      translate: sv.tiktokTranslateEs !== false,
+      speakEs: ttsWantSpeakEs(sv),
       volume: vol,
       at: Date.now(),
     });
@@ -16542,7 +16589,7 @@ async function ttsSpeak(p, force = false) {
     if (!name) name = 'Alguien';
     prefix = `${name} dice: `;
   }
-  ttsSpeakTextForUser(prefix + body, p.uniqueId || p.nickname);
+  ttsSpeakTextForUser(prefix + body, p.uniqueId || p.nickname, p.nickname);
 }
 
 /* Eventos */

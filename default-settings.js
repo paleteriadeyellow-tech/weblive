@@ -365,7 +365,7 @@ export const DEFAULT_SETTINGS = {
     dropMode: 'ball', // 'ball' = esfera cristal | 'gift' = solo regalo
     resetPeriod: 'battle', // 'battle' = vaciar al empezar cada PK | 'live' = vaciar al conectar TikTok
     ballSize: 120, // fallback si no hay tabla
-    maxBalls: 28,
+    maxBalls: 2000,
     sizes: [
       { t: 5000, sz: 88 },
       { t: 1000, sz: 70 },

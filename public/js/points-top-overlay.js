@@ -33,6 +33,13 @@
     ['EverHdezHdez', 'https://randomuser.me/api/portraits/men/32.jpg', 6516, 43],
     ['MariaFan', 'https://randomuser.me/api/portraits/women/44.jpg', 6120, 42],
     ['LuisPro', 'https://randomuser.me/api/portraits/men/78.jpg', 3363, 31],
+    ['Niki', 'https://randomuser.me/api/portraits/women/68.jpg', 2042, 28],
+    ['Falcon D Mady', 'https://randomuser.me/api/portraits/men/12.jpg', 628, 22],
+    ['TheGhost', 'https://randomuser.me/api/portraits/men/51.jpg', 507, 20],
+    ['SofiLive', 'https://randomuser.me/api/portraits/women/21.jpg', 412, 18],
+    ['KarimTT', 'https://randomuser.me/api/portraits/men/64.jpg', 301, 15],
+    ['LunaVIP', 'https://randomuser.me/api/portraits/women/33.jpg', 188, 12],
+    ['PabloX', 'https://randomuser.me/api/portraits/men/22.jpg', 95, 8],
   ];
   const SPARKLE_COUNT = 8;
   const loadedFonts = new Set(['inter', 'system']);
@@ -78,7 +85,7 @@
     if (isEmbed) document.documentElement.dataset.embed = '1';
 
     function clamp(v, lo, hi, def) { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; }
-    function maxRows() { return clamp(cfg.rows, 1, 5, 3); }
+    function maxRows() { return clamp(cfg.rows, 1, 10, 3); }
 
     function setPaused(on) {
       root.dataset.paused = on ? '1' : '0';
@@ -280,7 +287,7 @@
     function runTest() {
       if (animTimer) { clearInterval(animTimer); animTimer = null; }
       users.clear();
-      for (let i = 0; i < Math.min(3, maxRows()); i++) {
+      for (let i = 0; i < Math.min(DEMO.length, maxRows()); i++) {
         const d = DEMO[i];
         users.set('demo_' + i, {
           id: 'demo_' + i,
@@ -318,7 +325,10 @@
     window.addEventListener('message', (e) => {
       const d = e.data; if (!d || d.kind !== opt.kind) return;
       if (d.type === 'config') { cfg = Object.assign(cfg, d.config); applyStyle(); render(); }
-      else if (d.type === 'test') runTest();
+      else if (d.type === 'test') {
+        if (d.config) { cfg = Object.assign(cfg, d.config); applyStyle(); }
+        runTest();
+      }
       else if (d.type === 'reset') { if (isEmbed) runTest(); else render(); }
     });
 

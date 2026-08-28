@@ -8884,6 +8884,32 @@ pre.wh-url { margin: 9px 0 0; }
   background: linear-gradient(90deg, var(--pts-cyan), var(--pts-mg));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
+.pts-topn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(8, 12, 22, .55);
+  border: 1px solid rgba(37, 244, 238, .18);
+}
+.pts-topn-row label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, .78);
+}
+.pts-topn-row select {
+  min-width: 118px;
+  background: rgba(8, 12, 22, .92);
+  color: #fff;
+  border: 1px solid rgba(37, 244, 238, .35);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
 .pts-overlay-preview {
   width: 100%; height: auto !important; aspect-ratio: 920 / 400; min-height: 220px; max-height: 280px;
   border-radius: 12px; overflow: hidden; display: flex; align-items: flex-start; justify-content: center;

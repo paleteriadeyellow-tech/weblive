@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=spperm13" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=tp10" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -4380,13 +4380,14 @@
         <div id="tp3ConfigModal" class="modal hidden">
           <div class="modal-box">
             <div class="modal-head">
-              <h2>? Configurar ? Top 3 puntos</h2>
+              <h2 id="tp3cfg-head">⭐ Configurar — Top 3 puntos</h2>
               <button class="modal-close" id="tp3cfg-close">âœ•</button>
             </div>
             <div class="modal-body">
               <label class="ml">T?TULO</label>
               <input type="text" id="tp3cfg-title" maxlength="40" value="Top Puntos">
               <div class="gvscfg-grid2">
+                <div><label class="ml">FILAS (1-10)</label><input type="number" id="tp3cfg-rows" min="1" max="10" value="3"></div>
                 <div><label class="ml">ESCALA (60-140%)</label><input type="number" id="tp3cfg-scale" min="60" max="140" value="100"></div>
                 <div><label class="ml">COLOR PUNTOS</label><input type="color" id="tp3cfg-accent" value="#ffd54f"></div>
                 <div><label class="ml">FONDO FILA</label><input type="color" id="tp3cfg-rowbg" value="#0c1c26"></div>
@@ -6811,7 +6812,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TEST</div>
                 <div class="ovpro-preview ovpro-preview--giftball">
-                  <iframe id="bgb-preview" data-embed-manual="1" data-src="/batalla-giftball.html?embed=1&v=giftball18" title="Vista previa Pelota de regalos"></iframe>
+                  <iframe id="bgb-preview" data-embed-manual="1" data-src="/batalla-giftball.html?embed=1&v=giftball20" title="Vista previa Pelota de regalos"></iframe>
                 </div>
               </div>
 
@@ -7235,7 +7236,7 @@
                   </optgroup>
                 </select>
                 <label class="switch-row plain" style="margin-top:8px;"><input type="checkbox" id="tts-tiktok-translate" checked> <span>Leer en <strong>espa?ol</strong></span></label>
-                <p class="hint">Marcada = deja el chat en espa?ol. Desm?rcarla = traduce al ingl?s para voces Disney / personajes (solo existen en ingl?s). Si eliges una voz aquÃ©, sustituye a la voz del sistema.</p>
+                <p class="hint">Marcada = traduce el chat al español (voces Edge / TikTok en español). Las Disney / personajes solo hablan inglés: el español se traduce a inglés para que suenen. Si eliges una voz aquí, sustituye a la voz del sistema.</p>
               </div>
 
               <!-- ElevenLabs: voz clonada con API del creador -->
@@ -7863,15 +7864,30 @@
                     </div>
                     <div class="ovpro-conn" id="tp3-conn"><span class="cdot"></span> CONECTADO</div>
                   </div>
-                  <h3 class="ovpro-title">? Top 3 puntos</h3>
-                  <p class="ovpro-desc">Muestra en OBS los 3 usuarios con mÃ¡s puntos. Se actualiza en vivo con arco?ris, brillos y medallas.</p>
+                  <h3 class="ovpro-title" id="tp3-card-title">⭐ Top 3 puntos</h3>
+                  <p class="ovpro-desc" id="tp3-card-desc">Muestra en OBS el top 3 de usuarios con más puntos. Elige hasta 10. Se actualiza en vivo con arcoíris, brillos y medallas.</p>
+                  <div class="pts-topn-row">
+                    <label for="tp3-rows">Cuántos mostrar</label>
+                    <select id="tp3-rows">
+                      <option value="1">Top 1</option>
+                      <option value="2">Top 2</option>
+                      <option value="3" selected>Top 3</option>
+                      <option value="4">Top 4</option>
+                      <option value="5">Top 5</option>
+                      <option value="6">Top 6</option>
+                      <option value="7">Top 7</option>
+                      <option value="8">Top 8</option>
+                      <option value="9">Top 9</option>
+                      <option value="10">Top 10</option>
+                    </select>
+                  </div>
                   <div class="ovpro-urlrow">
                     <code class="ov-url" data-path="/toppoints.html">/toppoints.html</code>
                     <button class="ovpro-copy ov-copy">Copiar enlace</button>
                   </div>
-                  <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
+                  <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                   <div class="ovpro-preview pts-overlay-preview">
-                    <iframe id="tp3-preview" data-src="/toppoints.html?embed=1" title="Vista previa top 3 puntos"></iframe>
+                    <iframe id="tp3-preview" data-src="/toppoints.html?embed=1&amp;v=tp10" title="Vista previa top puntos"></iframe>
                   </div>
                 </div>
               </div>
@@ -7944,7 +7960,7 @@
             <details class="settings-card sp-card sp-setup sp-span-all">
               <summary class="tts-head sp-setup-sum">
                 <div class="sp-setup-sum-text">
-                  <h3>Tu propia app de Spotify</h3>
+                  <h3>Consigue tu client id</h3>
                   <span class="tts-sub">Recomendado ? Development Mode limita a 5 usuarios</span>
                 </div>
                 <span class="sp-setup-more">Abre aquí primero</span>
@@ -10659,7 +10675,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=spperm12"></script>
+  <script src="/js/dashboard.js?v=ttsfix3"></script>
   <script src="/js/editor-rapido.js?v=er84"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

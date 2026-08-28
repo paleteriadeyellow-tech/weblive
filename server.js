@@ -14,7 +14,7 @@ import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import { ensureViewerAvatar, sendCachedAvatar } from './tt-avatar-cache.js';
-import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
+import { isEdgeTtsVoice, ttsSynthEdge, EDGE_EN_FALLBACK } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
 import { createStreamerRankings } from './streamer-rankings.js';
 import {
@@ -4247,6 +4247,35 @@ async function ttsTranslateMyMemory(text, source, target) {
   }
 }
 
+function ttsLooksSpanish(text) {
+  const s = String(text || '');
+  if (/[áéíóúñ¿¡ü]/i.test(s)) return true;
+  return /\b(hola|gracias|qué|que|por|para|una|unos|unas|los|las|como|pero|muy|este|esta|bueno|bien|también|ahora|sí|favor|amigo|canción)\b/i.test(s);
+}
+function ttsLooksEnglish(text) {
+  const s = String(text || '');
+  if (ttsLooksSpanish(s)) return false;
+  return /\b(the|and|you|this|that|have|hello|thanks|please|what|with|from|just|like|love|good|night|morning)\b/i.test(s);
+}
+async function ttsTranslateCached(text, source, target) {
+  const src = String(text || '').trim();
+  if (!src) return '';
+  const key = source + '|' + target + '|' + src.toLowerCase();
+  const hit = ttsTranslateCacheGet(key);
+  if (hit) return hit;
+  const out = await ttsWithTimeout(ttsTranslateMyMemory(src, source, target), 2800).catch(() => '');
+  if (out && out.toLowerCase() !== src.toLowerCase()) ttsTranslateCacheSet(key, out);
+  return out || '';
+}
+function ttsEdgeFallbackVoice(tiktokVoice) {
+  const v = String(tiktokVoice || '').toLowerCase();
+  if (v.startsWith('es_') || v.startsWith('es-')) {
+    return /female|f6|f08/.test(v) ? 'es-MX-DaliaNeural' : 'es-MX-JorgeNeural';
+  }
+  const female = /female|leota|betty|grandma|richgirl|makeup|samc|emotional|pansino|stitch|_001|_002/.test(v);
+  return female ? EDGE_EN_FALLBACK.f : EDGE_EN_FALLBACK.m;
+}
+
 app.post('/api/tts/translate', express.json(), async (req, res) => {
   const text = String((req.body && req.body.text) || '').trim();
   const sourceLang = String((req.body && req.body.source) || 'es').trim().toLowerCase().slice(0, 5) || 'es';
@@ -4300,7 +4329,7 @@ async function ttsSynthTikTok(text, voice) {
   const body = JSON.stringify({ text, voice });
   const headers = { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' };
   const tryProxy = async (url, pick) => {
-    const to = ttsFetchTimeout(7000);
+    const to = ttsFetchTimeout(3500);
     try {
       const r = await fetch(url, { method: 'POST', headers, body, signal: to.signal });
       if (!r.ok) return '';
@@ -4313,14 +4342,19 @@ async function ttsSynthTikTok(text, voice) {
     }
   };
   const tasks = [
+    tryProxy('https://tiktok-tts.weilbyte.dev/api/generation', (j) => (j && j.data && !j.error ? String(j.data) : '')),
     tryProxy('https://tiktok-tts.weilnet.workers.dev/api/generation', (j) => (j && j.data && !j.error ? String(j.data) : '')),
     tryProxy('https://gesserit.co/api/tts', (j) => (j && (j.base64 || j.data) ? String(j.base64 || j.data) : '')),
   ];
-  const results = await Promise.allSettled(tasks);
-  for (const r of results) {
-    if (r.status === 'fulfilled' && r.value) return r.value;
+  try {
+    return await Promise.any(tasks.map(async (p) => {
+      const v = await p;
+      if (!v) throw new Error('empty');
+      return v;
+    }));
+  } catch {
+    return '';
   }
-  return '';
 }
 
 app.post('/api/tts/speak', express.json(), async (req, res) => {
@@ -4328,7 +4362,7 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
   if (!user) return res.status(401).json({ ok: false, error: 'no_auth' });
   let text = String((req.body && req.body.text) || '').trim();
   const voice = String((req.body && req.body.voice) || '').trim();
-  const translate = (req.body && req.body.translate) !== false;
+  const speakEs = req.body && req.body.speakEs === true;
   if (!text) return res.status(400).json({ ok: false, error: 'missing_text' });
   const isEdge = isEdgeTtsVoice(voice);
   if (!isEdge && !TIKTOK_VOICES.has(voice)) return res.status(400).json({ ok: false, error: 'bad_voice' });
@@ -4340,18 +4374,17 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
 
   let translated = false;
   let original = text;
-  // Traduce ES→EN solo para voces TikTok en inglés y si el texto parece español.
-  if (!isEdge && translate && voice.startsWith('en_') && /[áéíóúñ¿¡üA-Za-z]/.test(text)) {
-    try {
-      const key = 'es|en|' + text.toLowerCase();
-      let en = ttsTranslateCacheGet(key);
-      if (!en) {
-        en = await ttsWithTimeout(ttsTranslateMyMemory(text, 'es', 'en'), 2800).catch(() => '');
-        if (en) ttsTranslateCacheSet(key, en);
-      }
+  const isEnVoice = !isEdge && /^en[_-]/i.test(voice);
+  const isEsVoice = isEdge || /^es[_-]/i.test(voice);
+  try {
+    if (isEnVoice && ttsLooksSpanish(text)) {
+      const en = await ttsTranslateCached(text, 'es', 'en');
       if (en) { text = en; translated = true; }
-    } catch { /* si falla o tarda, hablamos el original */ }
-  }
+    } else if (speakEs && isEsVoice && ttsLooksEnglish(text)) {
+      const es = await ttsTranslateCached(text, 'en', 'es');
+      if (es) { text = es; translated = true; }
+    }
+  } catch { /* si falla, hablamos el original */ }
 
   const audioKey = voice + '|' + text.toLowerCase();
   const cachedAudio = ttsAudioCacheGet(audioKey);
@@ -4360,12 +4393,18 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
   }
 
   try {
-    const audio = isEdge
+    let usedFallback = false;
+    let audio = isEdge
       ? await ttsWithTimeout(ttsSynthEdge(text, voice, 7000), 7500).catch(() => '')
-      : await ttsWithTimeout(ttsSynthTikTok(text, voice), 9000).catch(() => '');
+      : await ttsWithTimeout(ttsSynthTikTok(text, voice), 4500).catch(() => '');
+    if (!audio && !isEdge) {
+      const fb = ttsEdgeFallbackVoice(voice);
+      audio = await ttsWithTimeout(ttsSynthEdge(text, fb, 7000), 7500).catch(() => '');
+      usedFallback = !!audio;
+    }
     if (!audio) return res.status(502).json({ ok: false, error: 'synth_failed' });
     ttsAudioCacheSet(audioKey, audio);
-    res.json({ ok: true, audio, mime: 'audio/mpeg', text, original, translated });
+    res.json({ ok: true, audio, mime: 'audio/mpeg', text, original, translated, fallback: usedFallback ? 'edge' : undefined });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }

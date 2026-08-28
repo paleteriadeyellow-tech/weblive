@@ -88,8 +88,9 @@
       position: absolute;
       inset: 0;
       width: 100%; height: 100%;
-      object-fit: contain;
+      background: url('/overlays/gift-sphere.png?v=2') center / contain no-repeat;
       z-index: 2;
+      pointer-events: none;
     }
     .throw-ball.is-bare, .ball.is-bare { border-radius: 0; }
     .throw-ball.is-bare .sphere, .ball.is-bare .sphere { display: none !important; }
@@ -116,12 +117,14 @@
 
     const STAGE_W = 1080;
     const STAGE_H = 1920;
-    const HARD_CAP = isEmbed ? 12 : 24;
+    // Capacidad para llenar 1080×1920 incluso con regalos chicos (~32px).
+    const HARD_CAP = 2200;
     const THROW_MS = 320;
-    const G = 0.0028;
-    const FLOOR = STAGE_H - 8;
-    const REST = 0.42;
-    const FRICTION = 0.985;
+    const G = 0.0032;
+    const FLOOR = STAGE_H - 6;
+    const CEILING = 6;
+    const REST = 0.26;
+    const FRICTION = 0.978;
 
     const GLASS = {
       left: STAGE_W * 0.06,
@@ -154,7 +157,7 @@
     let raf = 0;
     let lastTs = 0;
     const throwQ = [];
-    const THROW_Q_MAX = 6;
+    const THROW_Q_MAX = 100;
     const spriteCache = new Map();
     const SPRITE_CACHE_MAX = 28;
 
@@ -205,7 +208,7 @@
     function applyCfg(next) {
       if (!next || typeof next !== 'object') return;
       if (next.ballSize != null) cfg.ballSize = clamp(next.ballSize, 8, 200, 56);
-      if (next.maxBalls != null) cfg.maxBalls = clamp(next.maxBalls, 8, HARD_CAP, HARD_CAP);
+      if (next.maxBalls != null) cfg.maxBalls = HARD_CAP;
       if (next.dropMode != null) {
         const m = String(next.dropMode || 'ball').toLowerCase();
         cfg.dropMode = (m === 'gift' || m === 'bare' || m === 'solo') ? 'gift' : 'ball';
@@ -296,11 +299,8 @@
       });
     }
     function appendSphere(el) {
-      const sphere = document.createElement('img');
+      const sphere = document.createElement('div');
       sphere.className = 'sphere';
-      sphere.alt = '';
-      sphere.decoding = 'async';
-      sphere.src = SPHERE_SRC;
       el.appendChild(sphere);
     }
 
@@ -366,46 +366,88 @@
 
         if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx) * REST; b.spin *= -0.5; }
         if (b.x > STAGE_W - b.r) { b.x = STAGE_W - b.r; b.vx = -Math.abs(b.vx) * REST; b.spin *= -0.5; }
+        if (b.y < CEILING + b.r) {
+          b.y = CEILING + b.r;
+          if (b.vy < 0) b.vy = Math.abs(b.vy) * REST;
+        }
 
         if (b.y + b.r > FLOOR) {
           b.y = FLOOR - b.r;
-          if (Math.abs(b.vy) < 0.35) {
+          if (Math.abs(b.vy) < 0.28) {
             b.vy = 0;
-            b.vx *= 0.9;
-            if (Math.abs(b.vx) < 0.08 && Math.abs(b.spin) < 0.02) {
+            b.vx *= 0.88;
+            if (Math.abs(b.vx) < 0.07 && Math.abs(b.spin) < 0.02) {
               b.vx = 0; b.spin = 0; b.sleep = true;
               paint(b);
               continue;
             }
           } else {
             b.vy = -Math.abs(b.vy) * REST;
-            b.vx *= 0.92;
-            b.spin *= 0.7;
+            b.vx *= 0.9;
+            b.spin *= 0.65;
           }
         }
       }
 
-      if (n > 1) {
-        for (let i = 0; i < n; i++) {
-          for (let j = i + 1; j < n; j++) {
-            const a = balls[i], b = balls[j];
-            if (a.sleep && b.sleep) continue;
-            const dx = b.x - a.x, dy = b.y - a.y;
-            const dist2 = dx * dx + dy * dy;
-            const min = a.r + b.r;
-            if (dist2 >= min * min) continue;
-            const dist = Math.sqrt(dist2) || 0.001;
-            const overlap = (min - dist) * 0.5;
-            const nx = dx / dist, ny = dy / dist;
-            a.x -= nx * overlap; a.y -= ny * overlap;
-            b.x += nx * overlap; b.y += ny * overlap;
-            a.sleep = false; b.sleep = false;
-            const dvx = b.vx - a.vx, dvy = b.vy - a.vy;
-            const vn = dvx * nx + dvy * ny;
-            if (vn < 0) {
-              const impulse = vn * 0.5;
-              a.vx += impulse * nx; a.vy += impulse * ny;
-              b.vx -= impulse * nx; b.vy -= impulse * ny;
+      collideGrid();
+      collideGrid();
+    }
+
+    function resolvePair(a, b) {
+      if (a.sleep && b.sleep) return;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist2 = dx * dx + dy * dy;
+      const min = a.r + b.r;
+      if (dist2 >= min * min || dist2 < 1e-8) return;
+      const dist = Math.sqrt(dist2);
+      const overlap = (min - dist) * 0.52;
+      const nx = dx / dist, ny = dy / dist;
+      a.x -= nx * overlap; a.y -= ny * overlap;
+      b.x += nx * overlap; b.y += ny * overlap;
+      if (a.y < CEILING + a.r) a.y = CEILING + a.r;
+      if (b.y < CEILING + b.r) b.y = CEILING + b.r;
+      if (a.y + a.r > FLOOR) a.y = FLOOR - a.r;
+      if (b.y + b.r > FLOOR) b.y = FLOOR - b.r;
+      a.sleep = false; b.sleep = false;
+      const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+      if (vn < 0) {
+        const impulse = vn * 0.46;
+        a.vx += impulse * nx; a.vy += impulse * ny;
+        b.vx -= impulse * nx; b.vy -= impulse * ny;
+      }
+    }
+
+    function collideGrid() {
+      const n = balls.length;
+      if (n < 2) return;
+      let cell = 48;
+      for (let i = 0; i < n; i++) {
+        const d = balls[i].r * 2.15;
+        if (d > cell) cell = d;
+      }
+      const cols = Math.ceil(STAGE_W / cell) + 1;
+      const buckets = [];
+      for (let i = 0; i < n; i++) {
+        const b = balls[i];
+        const cx = Math.max(0, Math.min(cols - 1, (b.x / cell) | 0));
+        const cy = Math.max(0, (b.y / cell) | 0);
+        const id = cy * cols + cx;
+        let list = buckets[id];
+        if (!list) buckets[id] = list = [];
+        list.push(i);
+        b._cx = cx; b._cy = cy; b._cols = cols;
+      }
+      for (let i = 0; i < n; i++) {
+        const a = balls[i];
+        const cx = a._cx, cy = a._cy, ncols = a._cols;
+        for (let oy = -1; oy <= 1; oy++) {
+          for (let ox = -1; ox <= 1; ox++) {
+            const list = buckets[(cy + oy) * ncols + (cx + ox)];
+            if (!list) continue;
+            for (let k = 0; k < list.length; k++) {
+              const j = list[k];
+              if (j <= i) continue;
+              resolvePair(a, balls[j]);
             }
           }
         }
@@ -419,15 +461,41 @@
       balls.splice(i, 1);
     }
 
+    function minGiftSize() {
+      let m = cfg.ballSize || 56;
+      if (sizeTable && sizeTable.length) {
+        m = sizeTable[0].sz;
+        for (let i = 1; i < sizeTable.length; i++) {
+          if (sizeTable[i].sz < m) m = sizeTable[i].sz;
+        }
+      }
+      return Math.max(18, Math.min(200, m));
+    }
+
+    function ballCap() {
+      const d = minGiftSize() * 0.92;
+      const fit = Math.floor((STAGE_W / d) * (STAGE_H / d) * 0.90);
+      return Math.min(HARD_CAP, Math.max(400, fit));
+    }
+
     function prune() {
-      const cap = Math.min(HARD_CAP, cfg.maxBalls || HARD_CAP);
+      const cap = ballCap();
       while (balls.length > cap) removeBallAt(0);
+    }
+
+    function pileSurfaceY(r) {
+      let top = FLOOR;
+      for (let i = 0; i < balls.length; i++) {
+        const t = balls[i].y - balls[i].r;
+        if (t < top) top = t;
+      }
+      return Math.max(CEILING + r + 4, Math.min(STAGE_H * 0.62, top - 4));
     }
 
     function impactPoint() {
       return {
-        x: GLASS.left + GLASS.w * rnd(0.32, 0.68),
-        y: GLASS.top + GLASS.h * rnd(0.36, 0.58),
+        x: GLASS.left + GLASS.w * rnd(0.10, 0.90),
+        y: GLASS.top + GLASS.h * rnd(0.28, 0.62),
       };
     }
 
@@ -452,8 +520,7 @@
 
     function addFallBall(payload, hit, opts) {
       opts = opts || {};
-      prune();
-      if (balls.length >= Math.min(HARD_CAP, cfg.maxBalls || HARD_CAP)) removeBallAt(0);
+      if (balls.length >= ballCap()) return;
 
       const sizePx = sizeForDiamonds(payload && payload.diamonds, opts);
       const r = sizePx * 0.48;
@@ -461,12 +528,17 @@
       const el = makeBallEl(sizePx, giftSrc(payload), bare);
       layer.appendChild(el);
 
+      let x = (hit && hit.x != null) ? hit.x + rnd(-90, 90) : rnd(r + 16, STAGE_W - r - 16);
+      x = Math.max(r + 8, Math.min(STAGE_W - r - 8, x));
+      let y = (hit && hit.y != null) ? hit.y : STAGE_H * 0.28;
+      if (balls.length > 6) y = Math.min(y, pileSurfaceY(r));
+      y = Math.max(CEILING + r + 4, Math.min(STAGE_H * 0.58, y));
+
       const b = {
         el, r, sizePx, bare,
-        x: Math.max(r + 8, Math.min(STAGE_W - r - 8, hit.x + rnd(-10, 10))),
-        y: Math.max(r + 8, Math.min(STAGE_H * 0.55, hit.y)),
-        vx: rnd(-0.35, 0.35),
-        vy: rnd(0.55, 1.05),
+        x, y,
+        vx: rnd(-0.45, 0.45),
+        vy: rnd(0.45, 0.95),
         ang: bare ? 0 : rnd(-0.4, 0.4),
         spin: bare ? 0 : rnd(-0.04, 0.04),
         sleep: false,
@@ -479,13 +551,18 @@
     function throwAtGlassOnce(payload, opts) {
       opts = opts || {};
       const myGen = gen;
+      const sizePx = sizeForDiamonds(payload && payload.diamonds, opts);
+      const bare = opts.bare != null ? !!opts.bare : isBareMode();
+      const hit = impactPoint();
+      // Cola larga o montón grande: caer al tiro (si no, 320ms×N nunca llena la pantalla).
+      if (throwQ.length >= 4 || balls.length >= 60) {
+        addFallBall(payload, hit, { force: true, sizePx, bare });
+        return Promise.resolve();
+      }
       throwing = true;
       startLoop();
-      const sizePx = sizeForDiamonds(payload && payload.diamonds, opts);
-      const hit = impactPoint();
       const startX = STAGE_W / 2 + rnd(-60, 60);
       const startY = STAGE_H * 0.58 + rnd(-24, 24);
-      const bare = opts.bare != null ? !!opts.bare : isBareMode();
       const src = giftSrc(payload);
 
       const el = document.createElement('div');
