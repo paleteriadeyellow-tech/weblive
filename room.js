@@ -4629,6 +4629,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     liveDeviceId = d;
     persistLiveDeviceId(d);
   }
+  function adoptConnectDeviceId(raw) {
+    const d = String(raw || '').trim();
+    if (d.length < 8 || d.length > 80) return;
+    // Nube/relay: no pisar id del live activo si entra otro panel/PC.
+    if (liveLockHeld && state.connected && liveDeviceId && d !== liveDeviceId) return;
+    rememberLiveDeviceId(d, { force: true });
+  }
+  function probeConnectDeviceId(raw) {
+    const d = String(raw || '').trim();
+    if (d.length >= 8 && d.length <= 80) return d;
+    return currentLiveDeviceId();
+  }
   function currentLiveDeviceId() {
     if (liveDeviceId) return liveDeviceId;
     liveDeviceId = 'room-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
@@ -4683,8 +4695,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function connectTo(username, opts = {}) {
     if (RELAY) return; // en modo relay la conexión a TikTok la hace la nube, no esta PC
     if (!username) return;
-    if (opts.deviceId) rememberLiveDeviceId(opts.deviceId, { force: true });
-    if (state.connecting || (state.connected && state.username === username)) return;
+    const probeId = probeConnectDeviceId(opts.deviceId);
+    if (opts.deviceId) adoptConnectDeviceId(opts.deviceId);
+    if (state.connecting) return;
     if (Date.now() < liveLockBlockedUntil) {
       if (!opts.auto) denyLiveLock();
       return;
@@ -4713,18 +4726,31 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       tryConnect(connection, username, 1, !!opts.auto);
     };
 
-    // Manual: comprobar lock antes de tocar TikTok (relay/nube comparte una room).
-    if (!opts.auto && typeof onHeartbeatLiveLock === 'function' && typeof onClaimLiveLock === 'function') {
-      Promise.resolve(onHeartbeatLiveLock({ deviceId: currentLiveDeviceId() })).then((r) => {
-        if (r && r.ok === false && r.code === 'live_in_use') {
-          denyLiveLock(r.message);
-          return;
-        }
-        startTikTok();
-      }).catch(() => startTikTok());
+    const runAfterLockProbe = (fn) => {
+      if (!opts.auto && typeof onHeartbeatLiveLock === 'function' && typeof onClaimLiveLock === 'function') {
+        Promise.resolve(onHeartbeatLiveLock({ deviceId: probeId })).then((r) => {
+          if (r && r.ok === false && r.code === 'live_in_use') {
+            denyLiveLock(r.message);
+            return;
+          }
+          fn();
+        }).catch(() => fn());
+        return;
+      }
+      fn();
+    };
+
+    // Ya en live: otra PC/dispositivo manual → modal (no silencio ni pisar deviceId).
+    if (state.connected && state.username === username) {
+      if (opts.auto) return;
+      if (probeId !== liveDeviceId) {
+        runAfterLockProbe(() => {});
+        return;
+      }
       return;
     }
-    startTikTok();
+
+    runAfterLockProbe(() => startTikTok());
   }
 
   function tryConnect(conn, username, attempt, auto) {
@@ -10721,12 +10747,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pong' })); } catch {}
         break;
       case 'connect':
-        if (data.deviceId) rememberLiveDeviceId(data.deviceId, { force: true });
+        if (data.deviceId) adoptConnectDeviceId(data.deviceId);
         if (RELAY) {
           if (typeof onRelayAction === 'function' && data.username) {
             onRelayAction('connect', {
               username: String(data.username).trim().replace(/^@/, ''),
-              deviceId: currentLiveDeviceId(),
+              deviceId: probeConnectDeviceId(data.deviceId),
             });
           }
           break;
