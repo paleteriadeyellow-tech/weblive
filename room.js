@@ -3600,11 +3600,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function baileMetaFor(person) {
     return baileCatchup(person).meta;
   }
+  function baileShowName(p) {
+    return String((p && (p.alias || p.name || p.user)) || '').trim();
+  }
   function bailePeoplePublic() {
     return bailePeopleList().map((p) => ({
       id: p.id,
       user: p.user || '',
-      name: p.name || p.user || '',
+      alias: String(p.alias || ''),
+      name: baileShowName(p) || p.user || '',
       photo: p.photo || '',
       color: p.color || '#f5c542',
       pts: Math.max(0, Number(p.pts) || 0),
@@ -3620,7 +3624,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const active = baileActivePerson();
     if (active) {
       return {
-        name: String(active.name || active.user || '').replace(/^@+/, '') || 'TU LIVE',
+        name: baileShowName(active).replace(/^@+/, '') || 'TU LIVE',
         photo: String(active.photo || ''),
         color: active.color || '#f5c542',
       };
@@ -3841,6 +3845,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         id: String(raw.id || ('p' + Date.now().toString(36))),
         user,
         name: String(raw.name || raw.nickname || user),
+        alias: String(raw.alias || '').trim(),
         photo: String(raw.photo || raw.avatar || ''),
         color: raw.color || '#f5c542',
         pts: Math.max(0, Number(raw.pts) || 0),
@@ -3853,6 +3858,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (!p) return;
       if (data.user) p.user = String(data.user).replace(/^@+/, '');
       if (data.name) p.name = String(data.name);
+      if (data.alias != null) p.alias = String(data.alias).trim();
       if (data.photo != null) p.photo = String(data.photo || '');
     } else if (op === 'out') {
       const p = bailePersonById(data.id);

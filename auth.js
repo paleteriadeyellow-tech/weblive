@@ -60,6 +60,10 @@ let sessions = new Map(Object.entries(load(SESSIONS_FILE, {})));
       u.spotifyEnabled = !!u.isAdmin || SPOTIFY_SEED_USERS.includes(uname);
       changed = true;
     }
+    if (u.baileOverlayEnabled === undefined) {
+      u.baileOverlayEnabled = !!u.isAdmin;
+      changed = true;
+    }
     // Migración: ya no se requiere activación. Activamos UNA sola vez a las cuentas
     // antiguas que quedaron pendientes; después el admin puede desactivar y persiste.
     if (!u.activatedByDefault) { u.active = true; u.activatedByDefault = true; changed = true; }
@@ -170,6 +174,7 @@ export function listUsersDetailed() {
     gamesEnabled: u.isAdmin ? true : u.gamesEnabled !== false,
     allowedGames: u.isAdmin ? null : (Array.isArray(u.allowedGames) ? normalizeAllowedGames(u.allowedGames) : null),
     spotifyEnabled: u.isAdmin ? true : !!u.spotifyEnabled,
+    baileOverlayEnabled: u.isAdmin ? true : !!u.baileOverlayEnabled,
     manualBadges: Array.isArray(u.manualBadges) ? u.manualBadges.slice() : [],
     badgeStats: { ...emptyBadgeStats(), ...(u.badgeStats || {}) },
     createdAt: u.createdAt || 0,
@@ -347,6 +352,20 @@ export function setUserSpotifyEnabled(id, enabled) {
   if (!u) return false;
   if (u.isAdmin) { u.spotifyEnabled = true; saveUsers(); return true; }
   u.spotifyEnabled = !!enabled;
+  saveUsers();
+  return true;
+}
+/** Acceso a Overlay baile (admin siempre; resto según lista del admin). */
+export function isUserBaileOverlayEnabled(user) {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  return !!user.baileOverlayEnabled;
+}
+export function setUserBaileOverlayEnabled(id, enabled) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  if (u.isAdmin) { u.baileOverlayEnabled = true; saveUsers(); return true; }
+  u.baileOverlayEnabled = !!enabled;
   saveUsers();
   return true;
 }
@@ -583,6 +602,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
       premiumUntil: 0,
       gamesEnabled: true,
       spotifyEnabled: false,
+      baileOverlayEnabled: false,
       mirror: true,
       n: nextAccountNo(),
     };
@@ -605,7 +625,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
 // Actualiza SOLO el plan/estado de un usuario espejo (sin tocar la contraseña).
 // Se usa en el .exe para refrescar el plan que el admin cambió en Render, sin
 // necesidad de que el usuario vuelva a iniciar sesión. Devuelve true si cambió algo.
-export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled, allowedGames, spotifyEnabled, manualBadges, badgeStats } = {}) {
+export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled, allowedGames, spotifyEnabled, baileOverlayEnabled, manualBadges, badgeStats } = {}) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
   let changed = false;
@@ -637,6 +657,11 @@ export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, game
     const next = u.isAdmin ? true : !!spotifyEnabled;
     const prevOn = !!u.spotifyEnabled;
     if (prevOn !== next) { u.spotifyEnabled = next; changed = true; }
+  }
+  if (baileOverlayEnabled !== undefined) {
+    const next = u.isAdmin ? true : !!baileOverlayEnabled;
+    const prevOn = !!u.baileOverlayEnabled;
+    if (prevOn !== next) { u.baileOverlayEnabled = next; changed = true; }
   }
   if (manualBadges !== undefined) {
     const next = Array.isArray(manualBadges) ? manualBadges.map(String).filter(Boolean) : [];
@@ -738,6 +763,7 @@ export function registerUser(username, password, opts = {}) {
     premiumUntil: 0,
     gamesEnabled: true,
       spotifyEnabled: false,
+      baileOverlayEnabled: false,
     n: nextAccountNo(),
   };
   if (mail) {
@@ -797,6 +823,7 @@ export function findOrCreateGoogleUser({ email, name } = {}) {
     premiumUntil: 0,
     gamesEnabled: true,
       spotifyEnabled: false,
+      baileOverlayEnabled: false,
     n: nextAccountNo(),
   };
   users.push(user);
@@ -829,6 +856,7 @@ export function upsertMirrorGoogleUser({ username, googleEmail, plan, isAdmin, a
       premiumUntil: 0,
       gamesEnabled: true,
       spotifyEnabled: false,
+      baileOverlayEnabled: false,
       mirror: true,
       n: nextAccountNo(),
     };

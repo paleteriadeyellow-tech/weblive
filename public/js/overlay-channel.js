@@ -6,6 +6,7 @@
   if (window.__lcOvCh) return;
   window.__lcOvCh = true;
   try {
+    if (new URLSearchParams(location.search).get('embed') === '1') return;
     var path = String(location.pathname || '').split('/').pop() || '';
     if (!/\.html$/i.test(path)) return;
     if (/^(index|login|admin)\.html$/i.test(path)) return;

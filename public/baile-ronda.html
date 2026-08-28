@@ -6,9 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Ronda baile</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap" rel="stylesheet">
+  <script>
+  if (!/[?&]embed=1(?:&|$)/.test(location.search)) {
+    document.write('<link rel="preconnect" href="https://fonts.googleapis.com">');
+    document.write('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
+    document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap" rel="stylesheet">');
+  }
+  </script>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: 'Inter', system-ui, sans-serif; }
@@ -866,7 +870,7 @@
     if (list.length) {
       const active = list.find((p) => p && p.id === incoming.activeId) || list.find((p) => p && !p.out) || list[0];
       if (active) {
-        cfg.hostName = active.name || active.user || cfg.hostName;
+        cfg.hostName = active.alias || active.name || active.user || cfg.hostName;
         cfg.hostPhoto = active.photo || cfg.hostPhoto;
         cfg.accent = active.color || cfg.accent;
       }
@@ -1122,7 +1126,7 @@
     fit(); window.addEventListener('resize', fit);
   }
   render();
-  connectWS();
+  if (!isEmbed) connectWS();
 })();
   </script>
   <script src="/js/overlay-keepalive.js"></script>

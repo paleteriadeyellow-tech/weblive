@@ -462,6 +462,7 @@ async function loadMe() {
     window.MY_PLAN = d.plan || 'free';
     window.MY_PREMIUM_UNTIL = Number(d.premiumUntil) || 0;
     if (typeof d.spotifyEnabled === 'boolean') window.SPOTIFY_ACCESS = d.spotifyEnabled;
+    if (typeof d.baileOverlayEnabled === 'boolean') window.BAILE_OVERLAY_ACCESS = d.baileOverlayEnabled;
     try { if (typeof window.refreshEmailAccountUi === 'function') window.refreshEmailAccountUi(d); } catch {}
     try { if (typeof refreshDockPlanUi === 'function') refreshDockPlanUi(d); } catch {}
     if (d.caps) setCaps(d.caps);
@@ -596,6 +597,7 @@ function setCaps(c) {
     limits: c.limits || {},
     features: c.features || {},
     spotify: typeof c.spotify === 'boolean' ? c.spotify : !!window.CAPS?.spotify,
+    baileOverlay: typeof c.baileOverlay === 'boolean' ? c.baileOverlay : !!window.CAPS?.baileOverlay,
   };
   if (plan && plan !== 'free') {
     const cur = String(window.MY_PLAN || '').toLowerCase();
@@ -605,6 +607,8 @@ function setCaps(c) {
     }
   }
   if (typeof c.spotify === 'boolean') window.SPOTIFY_ACCESS = c.spotify;
+  if (typeof c.baileOverlay === 'boolean') window.BAILE_OVERLAY_ACCESS = c.baileOverlay;
+  else if (typeof c.features?.tab_ov_baile === 'boolean') window.BAILE_OVERLAY_ACCESS = c.features.tab_ov_baile;
   applyCaps();
   try { revealWebhookTab(); } catch {}
   try { revealConfigTab(); } catch {}
@@ -677,13 +681,16 @@ function navItemVisible(btn) {
 // Aplica las capacidades a la interfaz: oculta pestañas/overlays bloqueados,
 // muestra avisos de límite y desactiva botones de "crear" si se llegó al tope.
 /** Candado en ítem del dock (pestaña visible pero bloqueada por plan). */
-function setNavItemPlanLock(btn, locked) {
+function setNavItemPlanLock(btn, locked, title) {
   if (!btn) return;
   btn.classList.toggle('nav-item-plan-locked', !!locked);
   let badge = btn.querySelector('.nav-plan-lock');
   if (!locked) {
     badge?.remove();
-    if (btn.getAttribute('title') === 'Solo Premium — VIP / Founder') btn.removeAttribute('title');
+    if (btn.dataset.planLock) {
+      btn.removeAttribute('title');
+      delete btn.dataset.planLock;
+    }
     return;
   }
   if (!badge) {
@@ -693,7 +700,8 @@ function setNavItemPlanLock(btn, locked) {
     badge.textContent = '🔒';
     btn.appendChild(badge);
   }
-  btn.title = 'Solo Premium — VIP / Founder';
+  btn.title = title || 'Solo Premium — VIP / Founder';
+  btn.dataset.planLock = '1';
 }
 
 /** Editor Pro: visible para free, con candado en menú + overlay en la vista. */
@@ -717,10 +725,30 @@ function applyEditorRapidoLock() {
 }
 window.applyEditorRapidoLock = applyEditorRapidoLock;
 
+function baileOverlayUnlocked() {
+  if (window.IS_ADMIN) return true;
+  if (window.BAILE_OVERLAY_ACCESS === true) return true;
+  if (window.CAPS?.baileOverlay === true) return true;
+  return !!(window.CAPS?.features && window.CAPS.features.tab_ov_baile === true);
+}
+window.baileOverlayUnlocked = baileOverlayUnlocked;
+function applyBaileOverlayLock() {
+  const locked = typeof baileOverlayUnlocked === 'function' ? !baileOverlayUnlocked() : true;
+  const view = document.getElementById('view-ov-baile');
+  const lock = document.getElementById('baile-access-lock');
+  const nav = document.getElementById('navOvBaile')
+    || document.querySelector('.nav-item[data-view="ov-baile"]');
+  if (view) view.classList.toggle('is-baile-locked', locked);
+  if (lock) lock.hidden = !locked;
+  setNavItemPlanLock(nav, locked, 'Acceso restringido — Overlay baile');
+}
+window.applyBaileOverlayLock = applyBaileOverlayLock;
+
 function applyCaps() {
   try { syncHomeHeroPlan(); } catch {}
   try { updateVideosAiLocks(); } catch {}
   try { applyEditorRapidoLock(); } catch {}
+  try { applyBaileOverlayLock(); } catch {}
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
@@ -729,6 +757,10 @@ function applyCaps() {
     // Editor Pro: no ocultar; se muestra con candadito (VIP / Founder).
     if (btn.dataset.view === 'editor-rapido') {
       btn.style.display = '';
+      return;
+    }
+    if (btn.dataset.view === 'ov-baile') {
+      btn.style.display = capFeature('tab_overlays') ? '' : 'none';
       return;
     }
     btn.style.display = capFeature(cap) ? '' : 'none';
@@ -2479,6 +2511,10 @@ function hydrateViewEmbeds(view) {
   if (!view) return;
   const frames = view.querySelectorAll('iframe[data-src]');
   if (!frames.length) return;
+  if (view.id === 'view-ov-baile') {
+    if (typeof baileOverlayUnlocked === 'function' && !baileOverlayUnlocked()) return;
+    frames.forEach((fr) => { if (!embedSkipAutoHydrate(fr)) ensureEmbedLoaded(fr); });
+  }
   if (typeof IntersectionObserver !== 'function') {
     // Fallback: solo el primero visible-ish; el resto al hacer Testear (ensureEmbedLoaded).
     const list = Array.from(frames);
@@ -2525,9 +2561,10 @@ function onOverlayNavShown(viewSlugOrId) {
   releaseOverlayEmbedsForNav(id);
   if (!String(id).startsWith('view-ov-')) return;
   // Pintar UI primero; luego hidratar embeds (1 a la vez).
-  requestAnimationFrame(() => {
-    setTimeout(() => hydrateViewEmbeds(document.getElementById(id)), EMBED_HYDRATE_DELAY_MS);
-  });
+    const delay = id === 'view-ov-baile' ? 0 : EMBED_HYDRATE_DELAY_MS;
+    requestAnimationFrame(() => {
+      setTimeout(() => hydrateViewEmbeds(document.getElementById(id)), delay);
+    });
 }
 
 /* ====================== Navegación lateral ====================== */
@@ -2568,7 +2605,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
         } else if (String(viewName || '').startsWith('juego-')) {
           try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
         }
-        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminGames(); loadAdminBadges(); }
+        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminBaileOverlay(); loadAdminGames(); loadAdminBadges(); }
         if (viewName === 'planes') { renderPlanView(); loadPlanComparison(true); }
         if (viewName === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
         if (viewName === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
@@ -2578,6 +2615,12 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
             toast('Editor Pro es Solo Premium (VIP / Founder) ⭐', 'warn');
           } else {
             try { initEditorRapidoView(); } catch (e) { console.error('Editor Pro:', e); }
+          }
+        }
+        if (viewName === 'ov-baile') {
+          try { applyBaileOverlayLock(); } catch {}
+          if (typeof baileOverlayUnlocked === 'function' && !baileOverlayUnlocked()) {
+            toast('Overlay baile es solo para cuentas autorizadas 🔒', 'warn');
           }
         }
         if (viewName === 'points') { send({ action: 'getPoints' }); renderPointsTable({ resetPage: true }); }
@@ -3115,6 +3158,136 @@ async function loadAdminSpotify() {
     };
   }
   if (refresh) refresh.onclick = () => loadAdminSpotify();
+})();
+
+/* -------- Admin: Overlay baile por usuario -------- */
+let adminBaileUsersCache = [];
+
+async function setUserBaileOverlayReq(id, enabled) {
+  const r = await fetch('/api/admin/userbaile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, enabled: !!enabled }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'No se pudo actualizar Overlay baile');
+  return data;
+}
+
+function userHasBaileOverlayAccess(u) {
+  return !!(u && (u.isAdmin || u.baileOverlayEnabled === true));
+}
+
+function patchAdminBaileCache(id, enabled) {
+  const u = adminBaileUsersCache.find((x) => String(x.id) === String(id));
+  if (u && !u.isAdmin) u.baileOverlayEnabled = !!enabled;
+}
+
+function renderAdminBaileFromCache() {
+  const tbody = document.getElementById('admin-baile-tbody');
+  const sel = document.getElementById('admin-baile-user');
+  const status = document.getElementById('admin-baile-status');
+  if (!tbody) return;
+  const withAccess = adminBaileUsersCache.filter(userHasBaileOverlayAccess);
+  const without = adminBaileUsersCache.filter((u) => !userHasBaileOverlayAccess(u));
+
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Elegir usuario…</option>' + without
+      .slice()
+      .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+      .map((u) => `<option value="${esc(u.id)}">${esc(u.username)}</option>`)
+      .join('');
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  }
+
+  if (!withAccess.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Nadie tiene acceso todavía.</td></tr>';
+  } else {
+    tbody.innerHTML = withAccess
+      .slice()
+      .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+      .map((u) => {
+        const tag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
+        const st = u.online
+          ? '<span class="badge on dot">En línea</span>'
+          : '<span class="tts-sub">—</span>';
+        const action = u.isAdmin
+          ? '<span class="tts-sub">Siempre</span>'
+          : `<button type="button" class="btn tiny admin-baile-revoke" data-id="${esc(u.id)}">Quitar acceso</button>`;
+        return `<tr>
+          <td><span class="u-name">${esc(u.username)}</span>${tag}</td>
+          <td>${st}</td>
+          <td>${action}</td>
+        </tr>`;
+      }).join('');
+    tbody.querySelectorAll('.admin-baile-revoke').forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        try {
+          const data = await setUserBaileOverlayReq(id, false);
+          if (data.baileOverlayEnabled === true) {
+            throw new Error('El servidor no quitó el acceso.');
+          }
+          patchAdminBaileCache(id, false);
+          renderAdminBaileFromCache();
+          toast('Acceso a Overlay baile quitado.', 'ok');
+          await loadAdminBaileOverlay();
+        } catch (e) {
+          toast(e.message || 'Error', 'warn');
+          btn.disabled = false;
+        }
+      };
+    });
+  }
+  if (status) status.textContent = `${withAccess.length} con acceso · ${without.length} sin acceso`;
+}
+
+async function loadAdminBaileOverlay() {
+  const tbody = document.getElementById('admin-baile-tbody');
+  if (!tbody) return;
+  try {
+    const r = await fetch('/api/admin/users');
+    if (!r.ok) {
+      tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Sin acceso.</td></tr>';
+      return;
+    }
+    const { users } = await r.json();
+    adminBaileUsersCache = Array.isArray(users) ? users : [];
+    renderAdminBaileFromCache();
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Error al cargar.</td></tr>';
+  }
+}
+
+(function setupAdminBaileOverlayUI() {
+  const grant = document.getElementById('admin-baile-grant');
+  const refresh = document.getElementById('admin-baile-refresh');
+  const sel = document.getElementById('admin-baile-user');
+  if (grant) {
+    grant.onclick = async () => {
+      const id = sel?.value || '';
+      if (!id) { toast('Elige un usuario.', 'warn'); return; }
+      grant.disabled = true;
+      try {
+        await setUserBaileOverlayReq(id, true);
+        patchAdminBaileCache(id, true);
+        if (!adminBaileUsersCache.some((u) => String(u.id) === String(id))) {
+          await loadAdminBaileOverlay();
+        } else {
+          renderAdminBaileFromCache();
+          loadAdminBaileOverlay();
+        }
+        toast('Overlay baile desbloqueado. Si está en línea, le aparece ya.', 'ok');
+      } catch (e) {
+        toast(e.message || 'Error', 'warn');
+      } finally {
+        grant.disabled = false;
+      }
+    };
+  }
+  if (refresh) refresh.onclick = () => loadAdminBaileOverlay();
 })();
 
 /* -------- Admin: juegos por usuario -------- */
@@ -10975,8 +11148,8 @@ const STYLE_OVERLAYS = [
     btnTest: 'brk-test', btnReset: 'brk-reset', btnConfig: 'brk-config',
     modalId: 'brkConfigModal', closeId: 'brkcfg-close', saveId: 'brkcfg-save',
     testAction: 'testBaileRank', resetAction: 'resetBaileRank',
-    map: { 'brkcfg-title': 'title', 'brkcfg-rows': 'rows', 'brkcfg-safe': 'safeSlots' },
-    types: { rows: 'int', safeSlots: 'int' },
+    map: { 'brkcfg-title': 'title', 'brkcfg-rows': 'rows', 'brkcfg-safe': 'safeSlots', 'brkcfg-gap': 'rowGap' },
+    types: { rows: 'int', safeSlots: 'int', rowGap: 'int' },
   }),
   setupStyleOverlay({
     kind: 'sorteos', settingsKey: 'sorteosOverlay', previewId: 'so-preview',
@@ -11702,28 +11875,61 @@ try { (function setupBailePeople() {
       try { fr?.contentWindow?.postMessage(rankMsg, '*'); } catch {}
     }
   }
+  function flushAliasDrafts() {
+    const ae = document.activeElement;
+    if (!ae || !ae.classList || !ae.classList.contains('baile-alias-in')) return;
+    const box = $('baile-people');
+    const cfg = settings?.baileRonda;
+    if (!box || !cfg || !Array.isArray(cfg.people)) return;
+    const row = ae.closest('.baile-prow');
+    const p = cfg.people.find((x) => x && x.id === row?.dataset.id);
+    if (p) p.alias = String(ae.value || '').trim();
+  }
+  function saveAlias(id, raw) {
+    const cfg = ensure();
+    const p = (cfg.people || []).find((x) => x && x.id === id);
+    if (!p) return;
+    const alias = String(raw || '').trim();
+    if (String(p.alias || '') === alias) return;
+    p.alias = alias;
+    send({ action: 'bailePeopleOp', op: 'patch', id, alias });
+    saveBaile();
+    pushOverlays();
+  }
   function render() {
     const box = $('baile-people');
     if (!box) return;
     try {
+      flushAliasDrafts();
       const cfg = ensure();
       const people = cfg.people || [];
       const activeId = cfg.activeId || '';
       persistPeople();
       if (!people.length) {
-        box.innerHTML = '<p class="ovpro-desc" style="margin:8px 0 0">Aún no hay concursantes. El ranking usará regalos del live hasta que agregues gente.</p>';
+        box.innerHTML = '<p class="baile-people-empty">Aún no hay concursantes. El ranking usará regalos del live hasta que agregues gente.</p>';
         pushOverlays();
         return;
       }
+      const focusId = document.activeElement?.classList?.contains('baile-alias-in')
+        ? document.activeElement.closest('.baile-prow')?.dataset.id
+        : '';
+      const focusPos = focusId && document.activeElement
+        ? document.activeElement.selectionStart
+        : null;
       box.innerHTML = people.map((p) => {
         const on = p.id === activeId;
         const color = p.color || '#f5c542';
         const pts = Math.max(0, Number(p.pts) || 0);
         const photo = String(p.photo || '').trim() || FALLBACK_AV;
+        const alias = String(p.alias || '');
+        const ph = String(p.name || p.user || 'Alias');
         return '<div class="baile-prow' + (on ? ' is-on' : '') + (p.out ? ' is-out' : '') + '" data-id="' + esc(p.id) + '" style="--pcolor:' + color + '">'
-          + '<img src="' + esc(photo) + '" alt="" data-fallback="1">'
-          + '<div><div class="nm">' + esc(p.name || p.user || '') + '</div>'
-          + '<div class="un">@' + esc(p.user || '') + ' · ' + pts.toLocaleString('es-ES') + ' pts' + (p.out ? ' · FUERA' : '') + '</div></div>'
+          + '<div class="baile-av"><img src="' + esc(photo) + '" alt="" data-fallback="1"></div>'
+          + '<div class="baile-meta"><input class="baile-alias-in" type="text" maxlength="32" value="' + esc(alias) + '" placeholder="' + esc(ph) + '" autocomplete="off">'
+          + '<div class="un"><span class="baile-handle">@' + esc(p.user || '') + '</span>'
+          + '<span class="baile-pts">' + pts.toLocaleString('es-ES') + ' pts</span>'
+          + (p.out ? '<span class="baile-outtag">FUERA</span>' : '')
+          + '</div></div>'
           + '<div class="ops">'
           + '<button type="button" class="ovpro-btn' + (on ? ' primary' : '') + '" data-op="active">' + (on ? 'En turno' : 'Turno') + '</button>'
           + '<button type="button" class="ovpro-btn" data-op="out">' + (p.out ? 'Volver' : 'Fuera') + '</button>'
@@ -11733,6 +11939,24 @@ try { (function setupBailePeople() {
       box.querySelectorAll('img[data-fallback]').forEach((img) => {
         img.addEventListener('error', () => { img.src = FALLBACK_AV; }, { once: true });
       });
+      box.querySelectorAll('.baile-alias-in').forEach((inp) => {
+        inp.addEventListener('change', () => saveAlias(inp.closest('.baile-prow')?.dataset.id, inp.value));
+        inp.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          inp.blur();
+        });
+      });
+      if (focusId) {
+        const safeId = String(focusId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        const inp = box.querySelector('.baile-prow[data-id="' + safeId + '"] .baile-alias-in');
+        if (inp) {
+          inp.focus();
+          if (focusPos != null) {
+            try { inp.setSelectionRange(focusPos, focusPos); } catch {}
+          }
+        }
+      }
       pushOverlays();
     } catch (err) {
       console.error('[baile] render', err);
@@ -11810,7 +12034,7 @@ try { (function setupBailePeople() {
       if (data.username) p.user = String(data.username).replace(/^@+/, '');
       if (data.nickname) p.name = data.nickname;
       if (data.avatar) p.photo = data.avatar;
-      send({ action: 'bailePeopleOp', op: 'patch', id: p.id, user: p.user, name: p.name, photo: p.photo });
+      send({ action: 'bailePeopleOp', op: 'patch', id: p.id, user: p.user, name: p.name, photo: p.photo, alias: p.alias || '' });
       saveBaile();
       render();
     } catch {}
@@ -11820,6 +12044,7 @@ try { (function setupBailePeople() {
     try {
       if (!settings) { toast('Espera a que cargue el panel', 'warn'); return; }
       const input = $('baile-user');
+      const aliasEl = $('baile-alias');
       const uniqueId = parseUser(input?.value);
       if (!uniqueId) { toast('Pon un @ de TikTok', 'warn'); return; }
       const cfg = ensure();
@@ -11827,10 +12052,12 @@ try { (function setupBailePeople() {
         toast('Esa persona ya está en la lista', 'warn');
         return;
       }
+      const alias = String(aliasEl?.value || '').trim();
       const person = {
         id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
         user: uniqueId,
         name: uniqueId,
+        alias,
         photo: '',
         color: COLORS[cfg.people.length % COLORS.length],
         pts: 0,
@@ -11839,6 +12066,7 @@ try { (function setupBailePeople() {
       cfg.people.push(person);
       if (!cfg.activeId) cfg.activeId = person.id;
       if (input) input.value = '';
+      if (aliasEl) aliasEl.value = '';
       persistPeople();
       render();
       send({ action: 'bailePeopleOp', op: 'add', person });
@@ -11867,7 +12095,8 @@ try { (function setupBailePeople() {
       if (el.closest('#baile-people')) onPeopleClick(e);
     });
     root.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' || e.target?.id !== 'baile-user') return;
+      if (e.key !== 'Enter') return;
+      if (e.target?.id !== 'baile-user' && e.target?.id !== 'baile-alias') return;
       e.preventDefault();
       addPerson();
     });

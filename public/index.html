@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=baile20" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=baile23" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -119,7 +119,7 @@
               <button class="nav-item" data-view="ov-rankings" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-rankings.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Rankings Likes / Diamantes</span></button>
               <button class="nav-item" data-view="ov-diseno" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-diseno.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Dise?o Overlay</span></button>
               <button class="nav-item" data-view="ov-batalla" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-batalla.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Batalla Overlay</span></button>
-              <button class="nav-item" data-view="ov-baile" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-rankings.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Overlay baile</span></button>
+              <button class="nav-item" data-view="ov-baile" id="navOvBaile" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-rankings.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Overlay baile</span></button>
               <button class="nav-item" data-view="ov-contador" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-contador.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Contador</span></button>
               <button class="nav-item" data-view="timer" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-timer.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Temporizador</span></button>
               <button class="nav-item" data-view="ov-sorteos" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-ov-gifts.png?v=nav11" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Sorteos overlay</span></button>
@@ -3796,6 +3796,10 @@
                   </select>
                 </div>
               </div>
+              <div>
+                <label class="ml">ESPACIO ENTRE FILAS (px)</label>
+                <input type="number" id="brkcfg-gap" min="0" max="48" value="16">
+              </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="brkcfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
@@ -6849,18 +6853,34 @@
 
         <!-- ===== VISTA: OVERLAY BAILE ===== -->
         <section class="view" id="view-ov-baile">
+          <div class="baile-access-lock" id="baile-access-lock" hidden>
+            <div class="ov-lock-box">
+              <div class="ov-lock-ico">🔒</div>
+              <div class="ov-lock-title">Acceso restringido</div>
+              <div class="ov-lock-sub">Overlay baile es solo para cuentas autorizadas. Pídele acceso al admin.</div>
+            </div>
+          </div>
           <h1 class="view-title">Overlay baile</h1>
           <p class="view-sub">Tres overlays para lives de baile. Añade cada URL como fuente <b>Navegador</b> en OBS / Live Studio. Fondo transparente.</p>
           <div class="ovpro-grid">
 
-              <div class="ovpro-card ovpro-card--wide">
+              <div class="ovpro-card ovpro-card--wide ovpro-card--baile-people">
                 <h3 class="ovpro-title">Participantes</h3>
-                <p class="ovpro-desc">Concursantes de la competencia. Pulsa <b>Turno</b> en quien baila: los regalos del live se suman solo a esa persona hasta que cambies.</p>
+                <p class="ovpro-desc">El <b>@</b> trae la foto de TikTok. El <b>alias</b> es el nombre en los overlays. <b>Turno</b> suma los regalos a esa persona.</p>
                 <div class="baile-addrow">
-                  <input type="text" id="baile-user" placeholder="@usuario TikTok o enlace">
-                  <button type="button" class="ovpro-btn primary" id="baile-add">Agregar</button>
-                  <button type="button" class="ovpro-btn" id="baile-reset-scores">Reiniciar puntos</button>
-                  <span class="baile-add-st" id="baile-add-st"></span>
+                  <label class="baile-field">
+                    <span>TikTok</span>
+                    <input type="text" id="baile-user" placeholder="@usuario o enlace" autocomplete="off">
+                  </label>
+                  <label class="baile-field baile-field--alias">
+                    <span>Alias en overlay</span>
+                    <input type="text" id="baile-alias" placeholder="opcional" maxlength="32" autocomplete="off">
+                  </label>
+                  <div class="baile-add-actions">
+                    <button type="button" class="ovpro-btn primary" id="baile-add">Agregar</button>
+                    <button type="button" class="ovpro-btn" id="baile-reset-scores">Reiniciar puntos</button>
+                    <span class="baile-add-st" id="baile-add-st"></span>
+                  </div>
                 </div>
                 <div id="baile-people"></div>
               </div>
@@ -6901,7 +6921,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA</div>
                 <div class="ovpro-preview ovpro-preview--baile-ronda">
-                  <iframe id="brd-preview" data-src="/baile-ronda.html?embed=1&amp;v=baile34" title="Vista previa ronda baile"></iframe>
+                  <iframe id="brd-preview" data-src="/baile-ronda.html?embed=1&amp;v=baile36" title="Vista previa ronda baile"></iframe>
                 </div>
               </div>
 
@@ -6925,7 +6945,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TEST</div>
                 <div class="ovpro-preview ovpro-preview--baile-combo">
-                  <iframe id="bco-preview" data-src="/baile-combo.html?embed=1&amp;v=baile8" title="Vista previa top combo baile"></iframe>
+                  <iframe id="bco-preview" data-src="/baile-combo.html?embed=1&amp;v=baile12" title="Vista previa top combo baile"></iframe>
                 </div>
               </div>
 
@@ -6942,14 +6962,14 @@
                   </div>
                 </div>
                 <h3 class="ovpro-title">Ranking OUT</h3>
-                <p class="ovpro-desc">Puntos por <b>regalos del turno</b>. Quien no llega a la meta queda <b>OUT</b>. Tamaño recomendado <b>340×360</b>.</p>
+                <p class="ovpro-desc">Puntos por <b>regalos del turno</b>. Quien no llega a la meta queda <b>OUT</b>. Tamaño recomendado <b>300×400</b>.</p>
                 <div class="ovpro-urlrow">
                   <code class="ov-url" data-path="/baile-rank.html">/baile-rank.html</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TEST</div>
                 <div class="ovpro-preview ovpro-preview--baile-rank">
-                  <iframe id="brk-preview" data-src="/baile-rank.html?embed=1&amp;v=baile22" title="Vista previa ranking baile"></iframe>
+                  <iframe id="brk-preview" data-src="/baile-rank.html?embed=1&amp;v=baile30" title="Vista previa ranking baile"></iframe>
                 </div>
               </div>
 
@@ -10246,6 +10266,7 @@
             <button type="button" class="subtab" data-sub="admin-ann" hidden>Anuncios</button>
             <button type="button" class="subtab" data-sub="admin-maint" hidden>Mantenimiento</button>
             <button type="button" class="subtab" data-sub="admin-spotify">Spotify</button>
+            <button type="button" class="subtab" data-sub="admin-baile">Overlay baile</button>
             <button type="button" class="subtab" data-sub="admin-games">Juegos</button>
             <button type="button" class="subtab" data-sub="admin-badges">Insignias</button>
             <button type="button" class="subtab" data-sub="admin-app">App (.exe)</button>
@@ -10369,6 +10390,37 @@
                   </thead>
                   <tbody id="admin-spotify-tbody">
                     <tr><td colspan="3" class="admin-empty">Cargando?</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="subview" id="sub-admin-baile">
+            <div class="settings-card plans-card">
+              <div class="tts-head">
+                <h3>Acceso a Overlay baile</h3>
+                <span class="tts-sub">Quién puede usar la pestaña Overlay baile. No es por plan Premium: solo las cuentas que elijas. El cambio llega al instante si está en línea.</span>
+              </div>
+              <div class="admin-spotify-add">
+                <select id="admin-baile-user">
+                  <option value="">Elegir usuario…</option>
+                </select>
+                <button type="button" class="btn primary" id="admin-baile-grant">Dar acceso</button>
+                <button type="button" class="btn ghost" id="admin-baile-refresh">Actualizar</button>
+              </div>
+              <p id="admin-baile-status" class="tts-sub"></p>
+              <div class="admin-table-wrap" style="margin-top:12px">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Estado</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-baile-tbody">
+                    <tr><td colspan="3" class="admin-empty">Cargando…</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -10552,7 +10604,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=baile23"></script>
+  <script src="/js/dashboard.js?v=baile28"></script>
   <script src="/js/editor-rapido.js?v=er84"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

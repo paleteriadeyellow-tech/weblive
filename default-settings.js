@@ -783,7 +783,7 @@ export const DEFAULT_SETTINGS = {
     activeId: '',
   },
   baileCombo: { title: 'TOP COMBO' },
-  baileRank: { title: 'RANKING', rows: 5, safeSlots: 2 },
+  baileRank: { title: 'RANKING', rows: 5, safeSlots: 2, rowGap: 16 },
   // Overlay Batalla de regalos (ranking por monedas)
   batallaGifts: {
     limit: 2, nameRainbow: true, placeholder: 'Esperando regalos...',
