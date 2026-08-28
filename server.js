@@ -758,13 +758,34 @@ function mergePanelLivesLists(...lists) {
 }
 
 /** Avisos de live desde el .exe (JSON chico). No son rooms de TikTok en Render. */
+const PANEL_LIVES_FILE = path.join(DATA_DIR, 'panel-lives-reports.json');
 const desktopLiveReports = new Map();
-const DESKTOP_LIVE_TTL_MS = 90 * 1000;
+const DESKTOP_LIVE_TTL_MS = 10 * 60 * 1000;
+try {
+  const raw = JSON.parse(fs.readFileSync(PANEL_LIVES_FILE, 'utf8'));
+  if (raw && typeof raw === 'object') {
+    for (const [id, rec] of Object.entries(raw)) {
+      if (rec && rec.account) desktopLiveReports.set(id, rec);
+    }
+  }
+} catch { /* sin archivo */ }
+let panelLivesSaveTimer = null;
+function persistDesktopLiveReports() {
+  clearTimeout(panelLivesSaveTimer);
+  panelLivesSaveTimer = setTimeout(() => {
+    try { fs.writeFile(PANEL_LIVES_FILE, JSON.stringify(Object.fromEntries(desktopLiveReports)), () => {}); } catch {}
+  }, 250);
+}
 function pruneDesktopLiveReports() {
   const now = Date.now();
+  let changed = false;
   for (const [id, rec] of desktopLiveReports) {
-    if (!rec || (now - Number(rec.at || 0)) > DESKTOP_LIVE_TTL_MS) desktopLiveReports.delete(id);
+    if (!rec || (now - Number(rec.at || 0)) > DESKTOP_LIVE_TTL_MS) {
+      desktopLiveReports.delete(id);
+      changed = true;
+    }
   }
+  if (changed) persistDesktopLiveReports();
 }
 function buildPanelLiveItem(userId, st) {
   if (!st?.live || !st?.account) return null;
@@ -802,7 +823,7 @@ function applyDesktopLiveReport(user, body) {
   const live = !!body?.live;
   const account = String(body?.account || body?.tiktok || '').replace(/^@+/, '').trim();
   if (!live || !account) {
-    desktopLiveReports.delete(user.id);
+    if (desktopLiveReports.delete(user.id)) persistDesktopLiveReports();
     return { ok: true, live: false };
   }
   desktopLiveReports.set(user.id, {
@@ -813,6 +834,7 @@ function applyDesktopLiveReport(user, body) {
     viewers: Math.max(0, Number(body?.viewers) || 0),
     liveSince: Number(body?.liveSince) || Date.now(),
   });
+  persistDesktopLiveReports();
   return { ok: true, live: true };
 }
 
@@ -1664,6 +1686,28 @@ app.post('/api/panel-lives/report', express.json({ limit: '8kb' }), async (req, 
       return res.status(503).json({ error: 'Sin conexión con la nube.' });
     }
   }
+  res.json(applyDesktopLiveReport(user, req.body || {}));
+});
+
+app.post('/api/panel-lives/report-key', express.json({ limit: '8kb' }), async (req, res) => {
+  const key = String(req.body?.roomKey || '').trim();
+  if (!key) return res.status(400).json({ error: 'falta roomKey' });
+  if (AUTH_REMOTE) {
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/panel-lives/report-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      const data = await r.json().catch(() => ({}));
+      return res.status(r.status).json(data);
+    } catch {
+      return res.status(503).json({ error: 'Sin conexión con la nube.' });
+    }
+  }
+  const user = getUserByRoomKey(key);
+  if (!user) return res.status(401).json({ error: 'bad key' });
+  if (!isUserActive(user)) return res.status(403).json({ error: 'pending' });
   res.json(applyDesktopLiveReport(user, req.body || {}));
 });
 

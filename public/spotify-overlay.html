@@ -20,11 +20,15 @@
         }
         html.embed body {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: flex-start;
-            padding: 10px 12px;
+            padding: 16px 18px;
             overflow: hidden;
         }
+        .sp-skin { display: none; }
+        body.skin-list #skin-list { display: block; width: 100%; max-width: 100%; }
+        body.skin-player #skin-player { display: flex; }
+
         .sp-wrap {
             width: 420px;
             max-width: 100%;
@@ -69,9 +73,7 @@
             flex: none;
             display: block;
         }
-        .sp-art.is-empty {
-            visibility: hidden;
-        }
+        .sp-art.is-empty { visibility: hidden; }
         .sp-art.is-demo {
             visibility: visible;
             background:
@@ -104,23 +106,383 @@
             font-variant-numeric: tabular-nums;
             text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
         }
+
+        html.embed body.skin-player { padding: 12px; }
+        html.embed .sp-player {
+          width: min(100%, 480px);
+          height: auto;
+          min-height: 140px;
+          aspect-ratio: 520 / 168;
+        }
+        html.embed .sp-cover-wrap {
+          width: auto;
+          height: auto;
+          aspect-ratio: 1;
+          align-self: stretch;
+        }
+        .sp-player {
+          --bg: #121212;
+          --fg: #ffffff;
+          --muted: #a7a7a7;
+          --track: #404040;
+          width: 520px;
+          max-width: 100%;
+          height: 168px;
+          box-sizing: border-box;
+          background: var(--bg);
+          border-radius: 10px;
+          align-items: stretch;
+          gap: 0;
+          overflow: hidden;
+          box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+          font-family: Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+          opacity: 0;
+          transform: translateY(6px);
+          transition: opacity .25s ease, transform .25s ease;
+        }
+        .sp-player.is-on { opacity: 1; transform: none; }
+        .sp-cover-wrap {
+          position: relative;
+          width: 168px;
+          height: 168px;
+          flex: none;
+          background: #000;
+        }
+        .sp-cover {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          background:
+            radial-gradient(circle at 30% 25%, rgba(255,255,255,.18), transparent 42%),
+            linear-gradient(145deg, #1db954, #121212 70%);
+        }
+        .sp-cover-title {
+          position: absolute;
+          left: 10px;
+          right: 10px;
+          bottom: 10px;
+          color: #fff;
+          font-weight: 800;
+          font-size: 15px;
+          line-height: 1.15;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          text-shadow: 0 2px 8px rgba(0,0,0,.85);
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          pointer-events: none;
+        }
+        .sp-pbody {
+          flex: 1;
+          min-width: 0;
+          padding: 16px 18px 14px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          box-sizing: border-box;
+        }
+        .sp-info { min-width: 0; }
+        .sp-name {
+          color: var(--fg);
+          font-weight: 700;
+          font-size: 20px;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sp-artist {
+          margin-top: 4px;
+          color: var(--muted);
+          font-weight: 500;
+          font-size: 14px;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sp-progress-block { margin-top: 10px; }
+        .sp-bar {
+          position: relative;
+          height: 4px;
+          border-radius: 999px;
+          background: var(--track);
+          overflow: visible;
+        }
+        .sp-bar-fill {
+          height: 100%;
+          width: 0%;
+          border-radius: inherit;
+          background: #fff;
+        }
+        .sp-bar-thumb {
+          position: absolute;
+          top: 50%;
+          left: 0%;
+          width: 10px;
+          height: 10px;
+          margin-left: -5px;
+          margin-top: -5px;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 0 0 1px rgba(0,0,0,.2);
+        }
+        .sp-times {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 6px;
+          color: var(--muted);
+          font-size: 11px;
+          font-variant-numeric: tabular-nums;
+          letter-spacing: .02em;
+        }
+        .sp-controls {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 22px;
+          margin-top: 8px;
+          color: #fff;
+        }
+        .sp-controls svg {
+          display: block;
+          width: 18px;
+          height: 18px;
+          fill: currentColor;
+        }
+        .sp-play {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 1.5px solid rgba(255,255,255,.92);
+          display: grid;
+          place-items: center;
+          box-sizing: border-box;
+        }
+        .sp-play svg { width: 16px; height: 16px; }
+        .sp-empty {
+          display: none;
+          color: rgba(255,255,255,.7);
+          font-size: 14px;
+          padding: 18px;
+        }
+        .sp-player.is-empty .sp-empty { display: block; }
+        .sp-player.is-empty .sp-cover-wrap,
+        .sp-player.is-empty .sp-pbody { display: none; }
+
+        body.skin-nowlist #skin-nowlist { display: block; width: 100%; max-width: 100%; }
+        body.skin-studio #skin-studio { display: block; width: 100%; max-width: 100%; }
+
+        .sn-wrap { width: 420px; max-width: 100%; }
+        html.embed .sn-wrap { width: 100%; max-width: none; }
+        .sn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .sn-row { display: flex; align-items: center; min-width: 0; width: 100%; box-sizing: border-box; }
+        .sn-row--now {
+          gap: 12px; padding: 10px 12px; border-radius: 12px;
+          background: linear-gradient(135deg, rgba(8,28,16,.88), rgba(8,8,12,.9));
+          border: 1px solid rgba(29,185,84,.5);
+          box-shadow: 0 10px 28px rgba(0,0,0,.35); color: #fff;
+        }
+        .sn-row--now.is-idle { opacity: .55; }
+        .sn-row--queue {
+          gap: 10px; padding: 6px 10px; border-radius: 10px;
+          background: rgba(10, 10, 14, .22);
+          border: 1px solid rgba(255,255,255,.08);
+        }
+        .sn-art { border-radius: 8px; object-fit: cover; flex: none; display: block; background: #0d2818; }
+        .sn-row--now .sn-art { width: 64px; height: 64px; }
+        .sn-row--queue .sn-art { width: 36px; height: 36px; border-radius: 6px; }
+        html.embed .sn-row--now .sn-art { width: 56px; height: 56px; }
+        html.embed .sn-row--queue .sn-art { width: 32px; height: 32px; }
+        .sn-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        .sn-row--now .sn-meta { gap: 3px; }
+        .sn-row--queue .sn-meta { gap: 1px; }
+        .sn-kicker { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #1ed760; font-weight: 800; }
+        .sn-title { color: #fff; font-weight: 800; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sn-row--now .sn-title { font-size: 16px; }
+        .sn-row--queue .sn-title { font-size: 12px; font-weight: 700; }
+        .sn-time { font-weight: 400; line-height: 1.2; font-variant-numeric: tabular-nums; }
+        .sn-row--now .sn-time { font-size: 12px; color: #c9c9d4; }
+        .sn-row--queue .sn-time { font-size: 10px; color: rgba(201,201,212,.8); }
+        #sn-queue:empty { display: none; }
+        .sn-art.is-demo, .ss-cover.is-demo, .ss-qitem img.is-demo {
+          background:
+            radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), transparent 45%),
+            linear-gradient(135deg, #1db954 0%, #191414 100%);
+        }
+
+        .ss {
+          width: 400px; max-width: 100%;
+          display: flex; flex-direction: column; gap: 8px;
+          font-family: Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; color: #fff;
+        }
+        html.embed .ss { width: 100%; }
+        .ss-card, .ss-queue {
+          background: rgba(10, 12, 16, .72);
+          border: 1px solid rgba(255,255,255,.08);
+          border-radius: 18px;
+          box-shadow: 0 12px 32px rgba(0,0,0,.4);
+          backdrop-filter: blur(22px);
+          -webkit-backdrop-filter: blur(22px);
+        }
+        .ss-now { display: flex; align-items: stretch; gap: 12px; padding: 10px; }
+        .ss-cover {
+          width: 92px; height: 92px; flex: none; border-radius: 14px; object-fit: cover; display: block;
+          background: linear-gradient(145deg, #0d2818, #121214);
+          box-shadow: 0 6px 16px rgba(0,0,0,.35);
+        }
+        html.embed .ss-cover { width: 80px; height: 80px; }
+        .ss-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 2px 4px 0 0; }
+        .ss-kicker { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: rgba(255,255,255,.92); }
+        .ss-logo, .ss-qico {
+          width: 16px; height: 16px; flex: none; color: #1db954;
+          display: grid; place-items: center;
+        }
+        .ss-logo svg, .ss-qico svg { width: 16px; height: 16px; display: block; }
+        .ss-title { font-size: 18px; font-weight: 800; line-height: 1.15; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        html.embed .ss-title { font-size: 16px; }
+        .ss-artist { font-size: 13px; font-weight: 500; color: rgba(255,255,255,.88); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ss-bar { height: 5px; border-radius: 99px; background: rgba(255,255,255,.16); overflow: hidden; margin-top: 8px; }
+        .ss-bar i { display: block; height: 100%; width: 0; background: #1db954; border-radius: inherit; }
+        .ss-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 12px; }
+        .ss-time { color: rgba(255,255,255,.88); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .ss-req { color: rgba(255,255,255,.72); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; text-align: right; }
+        .ss-req b { font-weight: 700; color: #fff; }
+        .ss-now.is-idle { opacity: .7; }
+        .ss-queue { padding: 10px 12px 6px; }
+        .ss-queue[hidden] { display: none; }
+        .ss-qhead { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; margin: 0 2px 4px; }
+        .ss-qlist { list-style: none; margin: 0; padding: 0; }
+        .ss-qitem { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-top: 1px solid rgba(255,255,255,.08); }
+        .ss-qitem img { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; flex: none; background: #0d2818; }
+        .ss-qmeta { min-width: 0; flex: 1; }
+        .ss-qtitle { font-size: 14px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ss-qartist { font-size: 12px; color: rgba(255,255,255,.62); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ss-qby { font-size: 11px; margin-top: 2px; color: #7CFF4A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ss-qdur { flex: none; font-size: 12px; color: rgba(255,255,255,.78); font-variant-numeric: tabular-nums; }
     </style>
 </head>
-<body>
-    <div class="sp-wrap">
+<body class="skin-list">
+    <div class="sp-skin" id="skin-list">
+      <div class="sp-wrap">
         <ul class="sp-list" id="sp-list"></ul>
+      </div>
+    </div>
+    <div class="sp-player sp-skin is-empty" id="skin-player" aria-live="polite">
+      <div class="sp-cover-wrap">
+        <img class="sp-cover" id="sp-cover" alt="">
+        <div class="sp-cover-title" id="sp-cover-title"></div>
+      </div>
+      <div class="sp-pbody">
+        <div class="sp-info">
+          <div class="sp-name" id="sp-name">—</div>
+          <div class="sp-artist" id="sp-artist">—</div>
+        </div>
+        <div>
+          <div class="sp-progress-block">
+            <div class="sp-bar" id="sp-bar">
+              <div class="sp-bar-fill" id="sp-fill"></div>
+              <div class="sp-bar-thumb" id="sp-thumb"></div>
+            </div>
+            <div class="sp-times">
+              <span id="sp-cur">0:00</span>
+              <span id="sp-dur">0:00</span>
+            </div>
+          </div>
+          <div class="sp-controls" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2.2v12H6V6zm3.2 6 8.8 6.2V5.8L9.2 12z"/></svg>
+            <div class="sp-play" id="sp-playbtn">
+              <svg id="sp-icon-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7V5zm6.5 0H17v14h-3.5V5z"/></svg>
+              <svg id="sp-icon-play" viewBox="0 0 24 24" style="display:none"><path d="M8 5.2v13.6L19 12 8 5.2z"/></svg>
+            </div>
+            <svg viewBox="0 0 24 24"><path d="M15.8 6H18v12h-2.2V6zM6 5.8v12.4L14.8 12 6 5.8z"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="sp-empty">Sin reproducción</div>
+    </div>
+    <div class="sp-skin" id="skin-nowlist">
+      <div class="sn-wrap">
+        <ul class="sn-list">
+          <li class="sn-row sn-row--now" id="sn-now">
+            <img class="sn-art" id="sn-art" alt="" />
+            <div class="sn-meta">
+              <div class="sn-kicker">Ahora suena</div>
+              <div class="sn-title" id="sn-title">Esperando canción…</div>
+              <div class="sn-time" id="sn-time">0:00 / 0:00</div>
+            </div>
+          </li>
+        </ul>
+        <ul class="sn-list" id="sn-queue" style="margin-top:8px"></ul>
+      </div>
+    </div>
+    <div class="sp-skin" id="skin-studio">
+      <div class="ss">
+        <div class="ss-card ss-now" id="ss-now">
+          <img class="ss-cover" id="ss-cover" alt="" />
+          <div class="ss-body">
+            <div class="ss-kicker">
+              <span class="ss-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></span>
+              <span id="ss-kicker">Reproduciendo</span>
+            </div>
+            <div class="ss-title" id="ss-title">Esperando canción…</div>
+            <div class="ss-artist" id="ss-artist">Pide con !play nombre de la canción</div>
+            <div class="ss-bar"><i id="ss-fill"></i></div>
+            <div class="ss-foot">
+              <span class="ss-time" id="ss-time">0:00 / 0:00</span>
+              <span class="ss-req" id="ss-req"></span>
+            </div>
+          </div>
+        </div>
+        <div class="ss-queue" id="ss-qwrap">
+          <div class="ss-qhead">
+            <span class="ss-qico" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></span>
+            Cola
+          </div>
+          <ul class="ss-qlist" id="ss-queue"></ul>
+        </div>
+      </div>
     </div>
 
     <script>
     (function () {
         const list = document.getElementById('sp-list');
-        const isEmbed = /(?:^|[?&])embed=1(?:&|$)/.test(location.search);
+        const player = document.getElementById('skin-player');
+        const params = new URLSearchParams(location.search);
+        const isEmbed = params.get('embed') === '1';
         if (isEmbed) document.documentElement.classList.add('embed');
+
+        const el = {
+          cover: document.getElementById('sp-cover'),
+          coverTitle: document.getElementById('sp-cover-title'),
+          name: document.getElementById('sp-name'),
+          artist: document.getElementById('sp-artist'),
+          fill: document.getElementById('sp-fill'),
+          thumb: document.getElementById('sp-thumb'),
+          cur: document.getElementById('sp-cur'),
+          dur: document.getElementById('sp-dur'),
+          iconPause: document.getElementById('sp-icon-pause'),
+          iconPlay: document.getElementById('sp-icon-play'),
+        };
 
         let now = null;
         let queue = [];
         let anim = null;
         let demoMode = false;
+
+        function normSkin(s) {
+          s = String(s || 'list').toLowerCase();
+          return (s === 'player' || s === 'nowlist' || s === 'studio') ? s : 'list';
+        }
+        function setSkin(s) {
+          const skin = normSkin(s);
+          document.body.classList.remove('skin-list', 'skin-player', 'skin-nowlist', 'skin-studio');
+          document.body.classList.add('skin-' + skin);
+        }
+        setSkin(params.get('skin'));
 
         const esc = (s) => String(s == null ? '' : s)
             .replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -129,17 +491,11 @@
             const m = Math.floor(s / 60);
             return `${m}:${String(s % 60).padStart(2, '0')}`;
         };
-
-        function stopAnim() {
-            if (anim) { clearInterval(anim); anim = null; }
-        }
-
-        function startAnim() {
-            stopAnim();
-            if (now && now.playing) {
-                anim = setInterval(paint, 250);
-            }
-        }
+        const fmtP = (ms) => {
+            const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+            const m = Math.floor(s / 60);
+            return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+        };
 
         function progressNow() {
             if (!now) return 0;
@@ -147,12 +503,10 @@
             const elapsed = Date.now() - (now.serverTs || Date.now());
             return Math.min(now.durationMs || 0, (now.progressMs || 0) + elapsed);
         }
-
         function remainingNow() {
             if (!now) return 0;
             return Math.max(0, (now.durationMs || 0) - progressNow());
         }
-
         function artUrl(url) {
             const raw = String(url || '').trim();
             if (!raw) return '';
@@ -178,7 +532,7 @@
                 </li>`;
         }
 
-        function buildRows() {
+        function paintList() {
             const rows = [];
             if (now && now.name) {
                 const p = progressNow();
@@ -204,12 +558,141 @@
                 });
                 startIn += Math.max(0, Number(q.durationMs) || 0);
             }
-            return rows;
+            list.innerHTML = rows.length ? rows.map(rowHtml).join('') : '';
+        }
+
+        function paintPlayer() {
+            if (!now || !now.name) {
+                player.classList.add('is-empty');
+                player.classList.remove('is-on');
+                return;
+            }
+            player.classList.remove('is-empty');
+            player.classList.add('is-on');
+            el.name.textContent = now.name || '—';
+            el.artist.textContent = now.artists || '—';
+            el.coverTitle.textContent = String(now.name || '').toUpperCase();
+            const src = artUrl(now.image);
+            if (src) {
+                el.cover.src = src;
+                el.cover.onerror = () => { el.cover.removeAttribute('src'); };
+            } else {
+                el.cover.removeAttribute('src');
+            }
+            const playing = !!now.playing;
+            el.iconPause.style.display = playing ? '' : 'none';
+            el.iconPlay.style.display = playing ? 'none' : '';
+            const dur = Math.max(1, now.durationMs || 1);
+            const p = progressNow();
+            const pct = Math.max(0, Math.min(100, (p / dur) * 100));
+            el.fill.style.width = pct + '%';
+            el.thumb.style.left = pct + '%';
+            el.cur.textContent = fmtP(p);
+            el.dur.textContent = fmtP(dur);
+        }
+
+        function whoOf(item) {
+            return String((item && (item.requestedBy || item.nickname)) || '').trim();
+        }
+        function setArt(imgEl, item) {
+            if (!imgEl) return;
+            const src = artUrl(item && item.image);
+            imgEl.classList.remove('is-demo', 'is-empty');
+            if (src) {
+                imgEl.src = src;
+                imgEl.onerror = () => { imgEl.classList.add('is-demo'); imgEl.removeAttribute('src'); };
+            } else {
+                imgEl.removeAttribute('src');
+                if (item && item.demoArt) imgEl.classList.add('is-demo');
+            }
+        }
+
+        function paintNowlist() {
+            const snNow = document.getElementById('sn-now');
+            const snArt = document.getElementById('sn-art');
+            const snTitle = document.getElementById('sn-title');
+            const snTime = document.getElementById('sn-time');
+            const snQueue = document.getElementById('sn-queue');
+            const idle = !(now && now.name);
+            if (snNow) snNow.classList.toggle('is-idle', idle && !demoMode);
+            if (snTitle) {
+                snTitle.textContent = idle
+                    ? (demoMode ? 'Never Gonna Give You Up - Rick Astley' : 'Esperando canción…')
+                    : ([now.name, now.artists].filter(Boolean).join(' - ') || now.name);
+            }
+            if (snTime) {
+                if (idle && !demoMode) snTime.textContent = '0:00 / 0:00';
+                else snTime.textContent = `${fmt(progressNow())} / ${fmt(now && now.durationMs)}`;
+            }
+            setArt(snArt, idle && !demoMode ? null : now);
+            if (snQueue) {
+                let startIn = remainingNow();
+                snQueue.innerHTML = queue.map((q) => {
+                    const src = artUrl(q.image);
+                    const demoCls = !src && q.demoArt ? ' is-demo' : '';
+                    const title = [q.name, q.artists].filter(Boolean).join(' - ') || 'Canción';
+                    const row = `<li class="sn-row sn-row--queue"><img class="sn-art${demoCls}"${src ? ` src="${esc(src)}"` : ''} alt="" referrerpolicy="no-referrer" onerror="this.classList.add('is-demo'); this.removeAttribute('src');"><div class="sn-meta"><div class="sn-title">${esc(title)}</div><div class="sn-time">En ${esc(fmt(startIn))}</div></div></li>`;
+                    startIn += Math.max(0, Number(q.durationMs) || 0);
+                    return row;
+                }).join('');
+            }
+        }
+
+        function paintStudio() {
+            const ssNow = document.getElementById('ss-now');
+            const ssCover = document.getElementById('ss-cover');
+            const ssTitle = document.getElementById('ss-title');
+            const ssArtist = document.getElementById('ss-artist');
+            const ssKick = document.getElementById('ss-kicker');
+            const ssFill = document.getElementById('ss-fill');
+            const ssTime = document.getElementById('ss-time');
+            const ssReq = document.getElementById('ss-req');
+            const ssQueue = document.getElementById('ss-queue');
+            const ssWrap = document.getElementById('ss-qwrap');
+            const idle = !(now && now.name);
+            if (ssNow) ssNow.classList.toggle('is-idle', idle && !demoMode);
+            if (ssKick) ssKick.textContent = idle && !demoMode ? 'Spotify' : 'Reproduciendo';
+            if (ssTitle) ssTitle.textContent = idle ? (demoMode && now ? now.name : 'Esperando canción…') : (now.name || 'Canción');
+            if (ssArtist) {
+                ssArtist.textContent = idle
+                    ? (demoMode && now ? (now.artists || '') : 'Pide con !play nombre de la canción')
+                    : (now.artists || '');
+            }
+            const dur = Math.max(0, (now && now.durationMs) || 0);
+            const p = progressNow();
+            const pct = dur > 0 ? Math.min(100, (p / dur) * 100) : 0;
+            if (ssFill) ssFill.style.width = pct + '%';
+            if (ssTime) ssTime.textContent = `${fmt(p)} / ${fmt(dur)}`;
+            if (ssReq) {
+                const who = !idle || demoMode ? whoOf(now) : '';
+                ssReq.innerHTML = who ? 'Solicitada por <b>' + esc(who) + '</b>' : '';
+            }
+            setArt(ssCover, idle && !demoMode ? null : now);
+            if (ssQueue) {
+                const items = queue.slice(0, isEmbed ? 4 : 6);
+                ssQueue.innerHTML = items.map((q) => {
+                    const src = artUrl(q.image);
+                    const demoCls = !src && q.demoArt ? ' is-demo' : '';
+                    const by = whoOf(q) ? `<div class="ss-qby">Pedida por ${esc(whoOf(q))}</div>` : '';
+                    return `<li class="ss-qitem"><img class="${demoCls.trim()}"${src ? ` src="${esc(src)}"` : ''} alt="" referrerpolicy="no-referrer" onerror="this.classList.add('is-demo'); this.removeAttribute('src');"><div class="ss-qmeta"><div class="ss-qtitle">${esc(q.name || 'Canción')}</div><div class="ss-qartist">${esc(q.artists || '')}</div>${by}</div><span class="ss-qdur">${esc(fmt(q.durationMs))}</span></li>`;
+                }).join('');
+            }
+            if (ssWrap) ssWrap.hidden = !(queue.length || (isEmbed && demoMode));
         }
 
         function paint() {
-            const rows = buildRows();
-            list.innerHTML = rows.length ? rows.map(rowHtml).join('') : '';
+            paintList();
+            paintPlayer();
+            paintNowlist();
+            paintStudio();
+        }
+
+        function stopAnim() {
+            if (anim) { clearInterval(anim); anim = null; }
+        }
+        function startAnim() {
+            stopAnim();
+            if (now && now.playing) anim = setInterval(paint, 250);
         }
 
         function renderNow(t) {
@@ -217,7 +700,6 @@
             paint();
             startAnim();
         }
-
         function renderQueue(q) {
             queue = Array.isArray(q) ? q.map((x) => ({ ...x })) : [];
             paint();
@@ -227,31 +709,26 @@
         function showDemoPreview() {
             demoMode = true;
             renderNow({
-                name: 'Blinding Lights',
-                artists: 'The Weeknd',
+                name: 'Never Gonna Give You Up',
+                artists: 'Rick Astley',
                 image: '',
                 demoArt: true,
-                durationMs: 3 * 60 * 1000 + 20 * 1000,
-                progressMs: 72 * 1000,
+                requestedBy: 'Demo',
+                durationMs: 3 * 60 * 1000 + 33 * 1000,
+                progressMs: 75 * 1000,
                 playing: true,
                 serverTs: Date.now(),
             });
             renderQueue([
-                {
-                    name: 'Save Your Tears',
-                    artists: 'The Weeknd',
-                    image: '',
-                    demoArt: true,
-                    durationMs: 3 * 60 * 1000 + 35 * 1000,
-                },
-                {
-                    name: 'Starboy',
-                    artists: 'The Weeknd, Daft Punk',
-                    image: '',
-                    demoArt: true,
-                    durationMs: 3 * 60 * 1000 + 50 * 1000,
-                },
+                { name: 'Africa', artists: 'Toto', image: '', demoArt: true, nickname: 'viewer', durationMs: 4 * 60 * 1000 + 55 * 1000 },
+                { name: 'Take On Me', artists: 'a-ha', image: '', demoArt: true, nickname: 'mods', durationMs: 3 * 60 * 1000 + 45 * 1000 },
+                { name: 'Billie Jean', artists: 'Michael Jackson', image: '', demoArt: true, nickname: 'panel', durationMs: 4 * 60 * 1000 + 54 * 1000 },
             ]);
+        }
+
+        function applyStyle(raw) {
+            if (raw == null || raw === '') return;
+            setSkin(raw);
         }
 
         let ws, rt;
@@ -262,10 +739,13 @@
             ws.onclose = () => { rt = setTimeout(connect, 1500); };
             ws.onmessage = (ev) => {
                 let m; try { m = JSON.parse(ev.data); } catch { return; }
+                if (m.type === 'settings' && m.payload && m.payload.spotify) {
+                    applyStyle(m.payload.spotify.overlayStyle);
+                }
                 if (m.type === 'spotifyNowPlaying') {
+                    if (m.payload && m.payload.overlayStyle) applyStyle(m.payload.overlayStyle);
                     const t = m.payload?.track || null;
                     if (t && t.name) demoMode = false;
-                    // En embed: si aún no hay pista real, mantener la demo
                     if (!t && isEmbed && demoMode) return;
                     renderNow(t);
                 } else if (m.type === 'spotifyQueue') {
@@ -276,6 +756,11 @@
                 }
             };
         }
+
+        window.addEventListener('message', (e) => {
+            const d = e.data;
+            if (d && d.kind === 'spotifyOverlay' && d.overlayStyle) applyStyle(d.overlayStyle);
+        });
 
         if (isEmbed) showDemoPreview();
         connect();

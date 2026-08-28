@@ -8,7 +8,16 @@
   <style>
     html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
     html.embed, html.embed body { width: 100%; height: 100%; box-sizing: border-box; }
-    html.embed body { display: flex; align-items: flex-end; justify-content: flex-start; padding: 10px 12px; }
+    html.embed body { display: flex; align-items: flex-start; justify-content: flex-start; padding: 16px 18px; }
+    html.embed .ys { transform: none; width: 100%; }
+    .skin { display: none; }
+    body.skin-card #skin-card,
+    body.skin-list #skin-list,
+    body.skin-player #skin-player,
+    body.skin-studio #skin-studio { display: block; width: 100%; max-width: 100%; }
+    audio { display: none; }
+
+    /* —— Tarjeta + 3 próximas —— */
     .yt-wrap { width: 420px; max-width: 100%; }
     html.embed .yt-wrap { width: 100%; max-width: none; }
     .yt-card {
@@ -28,26 +37,385 @@
     .yt-bar { flex: 1; height: 6px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
     .yt-bar i { display: block; height: 100%; width: 0; background: #ff3b3b; border-radius: 99px; }
     .yt-idle { opacity: .55; }
-    audio { display: none; }
+    .yt-next { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .yt-next:empty { display: none; }
+    .yt-next li {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 10px; border-radius: 10px;
+      background: rgba(12,8,10,.72);
+      border: 1px solid rgba(255,60,60,.18);
+      color: #fff;
+    }
+    .yt-next img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; background: #2a0c0c; flex: none; }
+    .yt-next b { display: block; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .yt-next span { display: block; font-size: 10px; color: #c9c9d4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .yt-next em { font-style: normal; font-size: 10px; color: #ff6b6b; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; flex: none; }
+
+    /* —— Lista: filas (ahora destacado + cola chica), colores de la tarjeta —— */
+    .yt-list-wrap { width: 420px; max-width: 100%; }
+    html.embed .yt-list-wrap { width: 100%; max-width: none; }
+    .yt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    html.embed .yt-list { gap: 6px; }
+    .yt-row { display: flex; align-items: center; min-width: 0; width: 100%; box-sizing: border-box; }
+    .yt-row--now {
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(20,8,8,.88), rgba(8,8,12,.9));
+      border: 1px solid rgba(255,60,60,.45);
+      box-shadow: 0 10px 28px rgba(0,0,0,.35);
+      color: #fff;
+    }
+    .yt-row--now.is-idle { opacity: .55; }
+    .yt-row--queue {
+      gap: 10px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(10, 10, 14, .22);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .yt-row-art {
+      border-radius: 8px; object-fit: cover; flex: none; display: block;
+      background: #2a0c0c;
+    }
+    .yt-row--now .yt-row-art { width: 64px; height: 64px; }
+    .yt-row--queue .yt-row-art { width: 36px; height: 36px; border-radius: 6px; }
+    html.embed .yt-row--now .yt-row-art { width: 56px; height: 56px; }
+    html.embed .yt-row--queue .yt-row-art { width: 32px; height: 32px; }
+    .yt-row-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .yt-row--now .yt-row-meta { gap: 3px; }
+    .yt-row--queue .yt-row-meta { gap: 1px; }
+    .yt-row-kicker {
+      font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+      color: #ff6b6b; font-weight: 800;
+    }
+    .yt-row-title {
+      color: #fff; font-weight: 800; line-height: 1.25;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .yt-row--now .yt-row-title { font-size: 16px; }
+    .yt-row--queue .yt-row-title { font-size: 12px; font-weight: 700; }
+    html.embed .yt-row--now .yt-row-title { font-size: 14px; }
+    html.embed .yt-row--queue .yt-row-title { font-size: 12px; }
+    .yt-row-time {
+      font-weight: 400; line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+    }
+    .yt-row--now .yt-row-time { font-size: 12px; color: #c9c9d4; }
+    .yt-row--queue .yt-row-time { font-size: 10px; color: rgba(201,201,212,.8); }
+    html.embed .yt-row--now .yt-row-time { font-size: 11px; }
+    #yl-queue:empty { display: none; }
+
+    /* —— Reproductor (moderno, paleta YouTube) —— */
+    .yp {
+      --fg: #fff;
+      --muted: rgba(220, 220, 228, .72);
+      --track: rgba(255,255,255,.14);
+      --accent: #ff2d2d;
+      position: relative;
+      width: 540px;
+      max-width: 100%;
+      min-height: 152px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px 12px 12px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(28,12,16,.78), rgba(10,10,14,.72));
+      border: 1px solid rgba(255, 70, 70, .38);
+      box-shadow:
+        0 16px 40px rgba(0,0,0,.42),
+        0 0 0 1px rgba(255,255,255,.05) inset,
+        0 0 32px rgba(255,45,45,.14);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+    }
+    html.embed .yp { width: min(100%, 520px); height: auto; min-height: 148px; aspect-ratio: auto; }
+    .yp-bg {
+      position: absolute;
+      inset: -30%;
+      background-size: cover;
+      background-position: center;
+      filter: blur(36px) saturate(1.35);
+      opacity: .32;
+      pointer-events: none;
+      transform: scale(1.08);
+    }
+    .yp-cover-wrap {
+      position: relative;
+      width: 128px;
+      height: 128px;
+      flex: none;
+      border-radius: 16px;
+      overflow: hidden;
+      z-index: 1;
+      box-shadow: 0 10px 24px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.1);
+    }
+    html.embed .yp-cover-wrap { width: 112px; height: 112px; aspect-ratio: 1; align-self: center; }
+    .yp-cover {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.16), transparent 42%),
+        linear-gradient(145deg, #ff3b3b, #1a0a0c 70%);
+    }
+    .yp-cover-badge {
+      position: absolute; left: 8px; bottom: 8px;
+      width: 26px; height: 18px; border-radius: 6px; background: #ff2d2d;
+      display: grid; place-items: center; pointer-events: none;
+      box-shadow: 0 4px 10px rgba(255,45,45,.45);
+    }
+    .yp-cover-badge svg { width: 11px; height: 11px; fill: #fff; margin-left: 1px; }
+    .yp-body {
+      position: relative; z-index: 1;
+      flex: 1; min-width: 0;
+      padding: 2px 2px 2px 0;
+      display: flex; flex-direction: column; justify-content: space-between;
+      gap: 10px; box-sizing: border-box;
+    }
+    .yp-kicker {
+      font-size: 10px; font-weight: 800; letter-spacing: .14em;
+      text-transform: uppercase; color: #ff6b6b; margin-bottom: 4px;
+    }
+    .yp-name {
+      color: var(--fg); font-weight: 800; font-size: 18px; line-height: 1.2;
+      letter-spacing: -.02em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .yp-artist {
+      margin-top: 3px; color: var(--muted); font-weight: 500; font-size: 13px; line-height: 1.2;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .yp-bar { position: relative; height: 5px; border-radius: 999px; background: var(--track); overflow: visible; margin-top: 2px; }
+    .yp-bar-fill {
+      height: 100%; width: 0%; border-radius: inherit;
+      background: linear-gradient(90deg, #ff5a5a, #ff1f1f);
+      box-shadow: 0 0 10px rgba(255,45,45,.45);
+    }
+    .yp-bar-thumb {
+      position: absolute; top: 50%; left: 0%; width: 12px; height: 12px;
+      margin-left: -6px; margin-top: -6px; border-radius: 50%; background: #fff;
+      box-shadow: 0 0 0 3px rgba(255,45,45,.28), 0 2px 6px rgba(0,0,0,.35);
+    }
+    .yp-times {
+      display: flex; justify-content: space-between; margin-top: 7px;
+      color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .02em;
+    }
+    .yp-controls {
+      display: flex; align-items: center; justify-content: center;
+      gap: 18px; margin-top: 4px; color: rgba(255,255,255,.78);
+    }
+    .yp-controls svg { display: block; width: 16px; height: 16px; fill: currentColor; opacity: .82; }
+    .yp-play {
+      width: 38px; height: 38px; border-radius: 50%; border: 0;
+      background: #ff2d2d; color: #fff;
+      display: grid; place-items: center; box-sizing: border-box;
+      box-shadow: 0 8px 18px rgba(255,45,45,.38);
+    }
+    .yp-play svg { width: 15px; height: 15px; fill: #fff; opacity: 1; }
+
+    /* —— Ahora + cola (foto estudio) —— */
+    .ys {
+      width: 400px; max-width: 100%;
+      display: flex; flex-direction: column; gap: 8px;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+      color: #fff;
+    }
+    .ys-card, .ys-queue {
+      background: rgba(10, 12, 16, .72);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 18px;
+      box-shadow: 0 12px 32px rgba(0,0,0,.4);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+    }
+    .ys-now {
+      display: flex; align-items: stretch; gap: 12px;
+      padding: 10px;
+    }
+    .ys-cover {
+      width: 92px; height: 92px; flex: none;
+      border-radius: 14px; object-fit: cover; display: block;
+      background: linear-gradient(145deg, #2a1216, #121214);
+      box-shadow: 0 6px 16px rgba(0,0,0,.35);
+    }
+    html.embed .ys-cover { width: 80px; height: 80px; }
+    .ys-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 2px 4px 0 0; }
+    .ys-kicker {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; color: rgba(255,255,255,.92);
+    }
+    .ys-yt {
+      width: 16px; height: 12px; border-radius: 4px; background: #ff0000;
+      display: grid; place-items: center; flex: none;
+    }
+    .ys-yt svg { width: 7px; height: 7px; fill: #fff; margin-left: 1px; display: block; }
+    .ys-title {
+      font-size: 18px; font-weight: 800; line-height: 1.15; letter-spacing: -.02em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    html.embed .ys-title { font-size: 16px; }
+    .ys-artist {
+      font-size: 13px; font-weight: 500; color: rgba(255,255,255,.88);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ys-bar {
+      height: 5px; border-radius: 99px; background: rgba(255,255,255,.16);
+      overflow: hidden; margin-top: 8px;
+    }
+    .ys-bar i { display: block; height: 100%; width: 0; background: #ff2a2a; border-radius: inherit; }
+    .ys-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      margin-top: 6px; font-size: 12px;
+    }
+    .ys-time { color: rgba(255,255,255,.88); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .ys-req {
+      color: rgba(255,255,255,.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      min-width: 0; text-align: right;
+    }
+    .ys-req b { font-weight: 600; color: rgba(255,255,255,.7); }
+    .ys-now.is-idle { opacity: .7; }
+    .ys-queue { padding: 10px 12px 6px; }
+    .ys-queue[hidden] { display: none; }
+    .ys-qhead {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 800; margin: 0 2px 4px;
+    }
+    .ys-qico {
+      width: 16px; height: 16px; border-radius: 4px; background: #ff2a2a;
+      display: grid; place-items: center; flex: none;
+    }
+    .ys-qico svg { width: 8px; height: 8px; fill: #fff; margin-left: 1px; display: block; }
+    .ys-qlist { list-style: none; margin: 0; padding: 0; }
+    .ys-qitem {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 2px;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .ys-qitem img {
+      width: 36px; height: 36px; border-radius: 8px; object-fit: cover; flex: none;
+      background: #1a1214;
+    }
+    .ys-qmeta { min-width: 0; flex: 1; }
+    .ys-qtitle {
+      font-size: 14px; font-weight: 700; line-height: 1.2;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ys-qartist {
+      font-size: 12px; color: rgba(255,255,255,.62); margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ys-qby {
+      font-size: 11px; margin-top: 2px; color: #7CFF4A;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ys-qdur {
+      flex: none; font-size: 12px; color: rgba(255,255,255,.78);
+      font-variant-numeric: tabular-nums;
+    }
   </style>
 </head>
-<body>
-  <div class="yt-wrap">
-    <div class="yt-card" id="yt-card">
-      <img class="yt-art" id="yt-art" alt="" />
-      <div class="yt-meta">
-        <div class="yt-kicker">YouTube · ahora suena</div>
-        <div class="yt-title" id="yt-title">Esperando canción…</div>
-        <div class="yt-sub" id="yt-sub">Pide con !yt nombre de la canción</div>
-        <div class="yt-progress">
-          <span id="yt-t0">0:00</span>
-          <div class="yt-bar"><i id="yt-bar-fill"></i></div>
-          <span id="yt-t1">0:00</span>
+<body class="skin-card">
+  <div class="skin" id="skin-card">
+    <div class="yt-wrap">
+      <div class="yt-card" id="yt-card">
+        <img class="yt-art" id="yt-art" alt="" />
+        <div class="yt-meta">
+          <div class="yt-kicker">YouTube · ahora suena</div>
+          <div class="yt-title" id="yt-title">Esperando canción…</div>
+          <div class="yt-sub" id="yt-sub">Pide con !yt nombre de la canción</div>
+          <div class="yt-progress">
+            <span id="yt-t0">0:00</span>
+            <div class="yt-bar"><i id="yt-bar-fill"></i></div>
+            <span id="yt-t1">0:00</span>
+          </div>
+        </div>
+      </div>
+      <ul class="yt-next" id="yt-next"></ul>
+    </div>
+  </div>
+
+  <div class="skin" id="skin-list">
+    <div class="yt-list-wrap">
+      <ul class="yt-list">
+        <li class="yt-row yt-row--now" id="yl-now">
+          <img class="yt-row-art" id="yl-art" alt="" />
+          <div class="yt-row-meta">
+            <div class="yt-row-kicker">Ahora suena</div>
+            <div class="yt-row-title" id="yl-title">Esperando canción…</div>
+            <div class="yt-row-time" id="yl-time">0:00 / 0:00</div>
+          </div>
+        </li>
+      </ul>
+      <ul class="yt-list" id="yl-queue" style="margin-top:8px"></ul>
+    </div>
+  </div>
+
+  <div class="skin" id="skin-player">
+    <div class="yp" id="yt-player">
+      <div class="yp-bg" id="yp-bg" aria-hidden="true"></div>
+      <div class="yp-cover-wrap">
+        <img class="yp-cover" id="yp-cover" alt="" />
+        <div class="yp-cover-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M8 5.2v13.6L19 12 8 5.2z"/></svg>
+        </div>
+      </div>
+      <div class="yp-body">
+        <div>
+          <div class="yp-kicker">YouTube · ahora suena</div>
+          <div class="yp-name" id="yp-name">Esperando canción…</div>
+          <div class="yp-artist" id="yp-artist">Pide con !yt nombre de la canción</div>
+        </div>
+        <div>
+          <div class="yp-bar">
+            <div class="yp-bar-fill" id="yp-fill"></div>
+            <div class="yp-bar-thumb" id="yp-thumb"></div>
+          </div>
+          <div class="yp-times"><span id="yp-t0">0:00</span><span id="yp-t1">0:00</span></div>
+          <div class="yp-controls" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2.2v12H6V6zm3.2 6 8.8 6.2V5.8L9.2 12z"/></svg>
+            <div class="yp-play">
+              <svg id="yp-icon-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7V5zm6.5 0H17v14h-3.5V5z"/></svg>
+              <svg id="yp-icon-play" viewBox="0 0 24 24" style="display:none"><path d="M8 5.2v13.6L19 12 8 5.2z"/></svg>
+            </div>
+            <svg viewBox="0 0 24 24"><path d="M15.8 6H18v12h-2.2V6zM6 5.8v12.4L14.8 12 6 5.8z"/></svg>
+          </div>
         </div>
       </div>
     </div>
   </div>
-  <audio id="player" autoplay></audio>
+
+  <div class="skin" id="skin-studio">
+    <div class="ys">
+      <div class="ys-card ys-now" id="ys-now">
+        <img class="ys-cover" id="ys-cover" alt="" />
+        <div class="ys-body">
+          <div class="ys-kicker">
+            <span class="ys-yt" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.2v13.6L19 12 8 5.2z"/></svg></span>
+            <span id="ys-kicker">Reproduciendo</span>
+          </div>
+          <div class="ys-title" id="ys-title">Esperando canción…</div>
+          <div class="ys-artist" id="ys-artist">Pide con !yt nombre de la canción</div>
+          <div class="ys-bar"><i id="ys-fill"></i></div>
+          <div class="ys-foot">
+            <span class="ys-time" id="ys-time">0:00 / 0:00</span>
+            <span class="ys-req" id="ys-req"></span>
+          </div>
+        </div>
+      </div>
+      <div class="ys-queue" id="ys-qwrap">
+        <div class="ys-qhead">
+          <span class="ys-qico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.2v13.6L19 12 8 5.2z"/></svg></span>
+          Cola
+        </div>
+        <ul class="ys-qlist" id="ys-queue"></ul>
+      </div>
+    </div>
+  </div>
+
+  <audio id="player" autoplay playsinline></audio>
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
@@ -58,74 +426,331 @@
       const subEl = document.getElementById('yt-sub');
       const artEl = document.getElementById('yt-art');
       const card = document.getElementById('yt-card');
+      const nextEl = document.getElementById('yt-next');
+      const ylTitle = document.getElementById('yl-title');
+      const ylArt = document.getElementById('yl-art');
+      const ylNow = document.getElementById('yl-now');
+      const ylQueue = document.getElementById('yl-queue');
       let currentId = '';
       let durationSec = 0;
+      let startedAt = 0;
       let streamFails = 0;
-      let ws, rt;
+      let endedSent = false;
+      let lastProgSent = 0;
+      let pausedByPanel = false;
+      let lastQueue = [];
+      let lastTrack = null;
+      let demoMode = false;
+      let ws, rt, playTimer;
 
+      const DEMO_NOW = { videoId: 'demo', title: 'Never Gonna Give You Up', author: 'Rick Astley', requestedBy: 'Demo', durationSec: 213, startedAt: Date.now() - 72000 };
+      const DEMO_Q = [
+        { videoId: 'd1', title: 'Africa', author: 'Toto', durationSec: 295, requestedBy: 'viewer' },
+        { videoId: 'd2', title: 'Take On Me', author: 'a-ha', durationSec: 225, requestedBy: 'mods' },
+        { videoId: 'd3', title: 'Billie Jean', author: 'Michael Jackson', durationSec: 294, requestedBy: 'panel' },
+        { videoId: 'd4', title: 'Por Tu Maldito Amor', author: 'Vicente Fernández', durationSec: 238, requestedBy: 'fans' },
+        { videoId: 'd5', title: 'Baraja de Oro', author: 'Chalino Sánchez', durationSec: 209, requestedBy: 'live' },
+      ];
+
+      function normSkin(s) {
+        s = String(s || 'card').toLowerCase();
+        return (s === 'player' || s === 'list' || s === 'studio') ? s : 'card';
+      }
+      function setSkin(s) {
+        const skin = normSkin(s);
+        document.body.classList.remove('skin-card', 'skin-list', 'skin-player', 'skin-studio');
+        document.body.classList.add('skin-' + skin);
+      }
+      setSkin(params.get('skin'));
+
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      }
       function fmtTime(s) {
         s = Math.max(0, Math.floor(Number(s) || 0));
         return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      }
+      function nowSec() {
+        if (!isEmbed && !player.paused && Number.isFinite(player.currentTime) && player.currentTime > 0.15) {
+          return player.currentTime;
+        }
+        if (startedAt) return (Date.now() - startedAt) / 1000;
+        return Number.isFinite(player.currentTime) ? player.currentTime : 0;
+      }
+      function durNow() {
+        const durA = Number.isFinite(player.duration) && player.duration > 0 ? player.duration : 0;
+        return durA || durationSec || 0;
+      }
+      function curNow() {
+        const dur = durNow();
+        let cur = currentId ? nowSec() : 0;
+        if (dur > 0) cur = Math.min(cur, dur);
+        return cur;
       }
 
       function paintProgress() {
         const fill = document.getElementById('yt-bar-fill');
         const t0 = document.getElementById('yt-t0');
         const t1 = document.getElementById('yt-t1');
-        const durA = Number.isFinite(player.duration) && player.duration > 0 ? player.duration : 0;
-        const dur = durA || durationSec || 0;
-        const cur = Number.isFinite(player.currentTime) ? player.currentTime : 0;
+        const dur = durNow();
+        const cur = curNow();
         if (t0) t0.textContent = fmtTime(cur);
         if (t1) t1.textContent = fmtTime(dur);
         if (fill) fill.style.width = (dur > 0 ? Math.min(100, (cur / dur) * 100) : 0) + '%';
+        const ylTime = document.getElementById('yl-time');
+        if (ylTime) ylTime.textContent = fmtTime(cur) + ' / ' + fmtTime(dur);
+        const pct = dur > 0 ? Math.min(100, (cur / dur) * 100) : 0;
+        const ypFill = document.getElementById('yp-fill');
+        const ypThumb = document.getElementById('yp-thumb');
+        const ypT0 = document.getElementById('yp-t0');
+        const ypT1 = document.getElementById('yp-t1');
+        if (ypFill) ypFill.style.width = pct + '%';
+        if (ypThumb) ypThumb.style.left = pct + '%';
+        if (ypT0) ypT0.textContent = fmtTime(cur);
+        if (ypT1) ypT1.textContent = fmtTime(dur);
+        const ysFill = document.getElementById('ys-fill');
+        const ysTime = document.getElementById('ys-time');
+        if (ysFill) ysFill.style.width = pct + '%';
+        if (ysTime) ysTime.textContent = fmtTime(cur) + ' / ' + fmtTime(dur);
+        const paused = pausedByPanel || (!isEmbed && player.paused);
+        const icoPause = document.getElementById('yp-icon-pause');
+        const icoPlay = document.getElementById('yp-icon-play');
+        if (icoPause) icoPause.style.display = paused ? 'none' : '';
+        if (icoPlay) icoPlay.style.display = paused ? '' : 'none';
+        if (!isEmbed && currentId && !player.paused && Number.isFinite(player.currentTime) && player.currentTime > 0.2
+          && ws && ws.readyState === 1 && Date.now() - lastProgSent > 400) {
+          lastProgSent = Date.now();
+          try {
+            ws.send(JSON.stringify({
+              action: 'youtubeProgress',
+              videoId: currentId,
+              currentTime: player.currentTime,
+              duration: (Number.isFinite(player.duration) && player.duration > 0 ? player.duration : durationSec) || 0,
+              source: 'overlay',
+            }));
+          } catch {}
+        }
+      }
+
+      function queueHtml(items) {
+        return items.map((t, i) => {
+          const img = t.thumb
+            ? `<img src="${esc(t.thumb)}" alt="" referrerpolicy="no-referrer" />`
+            : `<img alt="" style="background:linear-gradient(135deg,#ff3b3b,#191414)" />`;
+          const sub = [t.author, t.requestedBy ? 'pedida por ' + t.requestedBy : ''].filter(Boolean).join(' · ');
+          return `<li>${img}<div style="min-width:0;flex:1"><b>${esc(t.title || 'Canción')}</b><span>${esc(sub)}</span></div><em>${i === 0 ? 'Siguiente' : fmtTime(t.durationSec)}</em></li>`;
+        }).join('');
+      }
+
+      function paintQueue(queue) {
+        lastQueue = Array.isArray(queue) ? queue.slice() : [];
+        if (nextEl) nextEl.innerHTML = queueHtml(lastQueue.slice(0, 3));
+        if (ylQueue) {
+          const items = lastQueue.slice(0, 8);
+          let startIn = Math.max(0, durNow() - curNow());
+          ylQueue.innerHTML = items.map((t) => {
+            const src = t.thumb ? ` src="${esc(t.thumb)}"` : '';
+            const title = [t.title || 'Canción', t.author].filter(Boolean).join(' - ');
+            const row = `<li class="yt-row yt-row--queue"><img class="yt-row-art"${src} alt="" referrerpolicy="no-referrer" /><div class="yt-row-meta"><div class="yt-row-title">${esc(title)}</div><div class="yt-row-time">En ${esc(fmtTime(startIn))}</div></div></li>`;
+            startIn += Math.max(0, Number(t.durationSec) || 0);
+            return row;
+          }).join('');
+        }
+        const ysQueue = document.getElementById('ys-queue');
+        const ysWrap = document.getElementById('ys-qwrap');
+        if (ysQueue) {
+          const items = lastQueue.slice(0, isEmbed ? 4 : 6);
+          ysQueue.innerHTML = items.map((t) => {
+            const src = t.thumb ? ` src="${esc(t.thumb)}"` : '';
+            const by = t.requestedBy ? `<div class="ys-qby">Pedida por ${esc(t.requestedBy)}</div>` : '';
+            return `<li class="ys-qitem"><img${src} alt="" referrerpolicy="no-referrer" /><div class="ys-qmeta"><div class="ys-qtitle">${esc(t.title || 'Canción')}</div><div class="ys-qartist">${esc(t.author || '')}</div>${by}</div><span class="ys-qdur">${esc(fmtTime(t.durationSec))}</span></li>`;
+          }).join('');
+        }
+        if (ysWrap) ysWrap.hidden = !(lastQueue.length || (isEmbed && demoMode));
+      }
+
+      function paintPlayer(track) {
+        const name = document.getElementById('yp-name');
+        const artist = document.getElementById('yp-artist');
+        const cover = document.getElementById('yp-cover');
+        const idle = !track || !track.videoId || track.videoId === 'demo';
+        if (name) name.textContent = idle && !isEmbed ? 'Esperando canción…' : (track && track.title) || 'Canción';
+        if (artist) {
+          artist.textContent = idle && !isEmbed
+            ? 'Pide con !yt nombre de la canción'
+            : ([track && track.author, track && track.requestedBy ? 'pedida por ' + track.requestedBy : ''].filter(Boolean).join(' · ') || 'YouTube');
+        }
+        if (cover) {
+          if (track && track.thumb) cover.src = track.thumb;
+          else cover.removeAttribute('src');
+        }
+        const bg = document.getElementById('yp-bg');
+        if (bg) {
+          const url = track && track.thumb ? String(track.thumb).replace(/\\/g, '\\\\').replace(/"/g, '\\"') : '';
+          bg.style.backgroundImage = url ? 'url("' + url + '")' : '';
+        }
+        if (isEmbed && idle && demoMode) {
+          if (name) name.textContent = DEMO_NOW.title;
+          if (artist) artist.textContent = DEMO_NOW.author + ' · demo';
+        }
       }
 
       function streamUrl(id) {
-        return '/api/youtube/stream?videoId=' + encodeURIComponent(id) + location.search.replace(/^\?/, '&');
+        return '/api/youtube/stream?videoId=' + encodeURIComponent(id);
+      }
+
+      function tryPlay() {
+        if (isEmbed || !currentId || endedSent || pausedByPanel) return;
+        if (!player.paused && !player.ended) return;
+        if (player.ended) return;
+        if (!player.getAttribute('src')) player.src = streamUrl(currentId);
+        player.muted = false;
+        player.volume = Number.isFinite(player.volume) ? player.volume : 1;
+        const p = player.play();
+        if (p && p.catch) p.catch(() => {});
+      }
+
+      function applyState(payload) {
+        if (payload && payload.overlayStyle) setSkin(payload.overlayStyle);
+        if (payload && payload.volume != null) {
+          const v = Math.max(0, Math.min(100, Number(payload.volume) || 0)) / 100;
+          player.volume = v;
+        }
+        pausedByPanel = !!(payload && payload.paused);
+        const now = payload && payload.now;
+        const queue = payload && payload.queue;
+        if (isEmbed && demoMode) {
+          if (now && now.videoId) demoMode = false;
+          else {
+            paintQueue(Array.isArray(queue) && queue.length ? queue : lastQueue);
+            paintProgress();
+            if (isEmbed || !currentId) return;
+          }
+        }
+        paint(now);
+        paintQueue(queue);
+        if (isEmbed || !currentId) return;
+        if (pausedByPanel) { try { player.pause(); } catch {} }
+        else tryPlay();
+      }
+
+      function fillNowCard(track, idle) {
+        const title = idle
+          ? (isEmbed ? 'Never Gonna Give You Up' : 'Esperando canción…')
+          : (track && track.title) || 'Canción';
+        const sub = idle
+          ? (isEmbed ? 'Rick Astley · demo' : 'Pide con !yt nombre de la canción')
+          : [track && track.author, track && track.requestedBy ? 'pedida por ' + track.requestedBy : ''].filter(Boolean).join(' · ');
+        titleEl.textContent = title;
+        subEl.textContent = sub;
+        if (ylTitle) {
+          ylTitle.textContent = idle
+            ? title
+            : ([track && track.title, track && track.author].filter(Boolean).join(' - ') || title);
+        }
+        if (idle) {
+          artEl.removeAttribute('src');
+          if (ylArt) ylArt.removeAttribute('src');
+        } else if (track && track.thumb) {
+          artEl.src = track.thumb;
+          if (ylArt) ylArt.src = track.thumb;
+        }
+        card.classList.toggle('yt-idle', idle && !isEmbed);
+        if (ylNow) ylNow.classList.toggle('is-idle', idle && !isEmbed);
+        const ysTitle = document.getElementById('ys-title');
+        const ysArtist = document.getElementById('ys-artist');
+        const ysCover = document.getElementById('ys-cover');
+        const ysReq = document.getElementById('ys-req');
+        const ysNow = document.getElementById('ys-now');
+        const ysKick = document.getElementById('ys-kicker');
+        if (ysTitle) ysTitle.textContent = title;
+        if (ysArtist) {
+          ysArtist.textContent = idle
+            ? (isEmbed ? 'Rick Astley' : 'Pide con !yt nombre de la canción')
+            : ((track && track.author) || '');
+        }
+        if (ysKick) ysKick.textContent = idle && !isEmbed ? 'YouTube' : 'Reproduciendo';
+        if (ysReq) {
+          const who = track && track.requestedBy && (isEmbed || !idle) ? String(track.requestedBy) : '';
+          ysReq.innerHTML = who ? 'Solicitada por <b>' + esc(who) + '</b>' : '';
+        }
+        if (ysCover) {
+          if (idle) ysCover.removeAttribute('src');
+          else if (track && track.thumb) ysCover.src = track.thumb;
+        }
+        if (ysNow) ysNow.classList.toggle('is-idle', idle && !isEmbed);
       }
 
       function paint(track) {
-        if (!track || !track.videoId) {
-          currentId = '';
-          titleEl.textContent = isEmbed ? 'Never Gonna Give You Up' : 'Esperando canción…';
-          subEl.textContent = isEmbed ? 'Rick Astley · demo' : 'Pide con !yt nombre de la canción';
-          artEl.removeAttribute('src');
-          card.classList.toggle('yt-idle', !isEmbed);
-          if (!isEmbed) { try { player.pause(); player.removeAttribute('src'); } catch {} }
+        lastTrack = track && track.videoId ? track : null;
+        paintPlayer(track);
+        if (!track || !track.videoId || track.videoId === 'demo') {
+          endedSent = false;
+          if (isEmbed && demoMode && track && track.videoId === 'demo') {
+            currentId = 'demo';
+            durationSec = Number(track.durationSec) || 213;
+            startedAt = Number(track.startedAt) || startedAt || Date.now();
+          } else {
+            currentId = '';
+            durationSec = 0;
+            startedAt = 0;
+          }
+          fillNowCard(track, true);
+          if (!isEmbed) { try { player.pause(); player.removeAttribute('src'); player.load(); } catch {} }
+          paintProgress();
           return;
         }
-        card.classList.remove('yt-idle');
-        titleEl.textContent = track.title || 'Canción';
-        subEl.textContent = [track.author, track.requestedBy ? 'pedida por ' + track.requestedBy : ''].filter(Boolean).join(' · ');
-        if (track.thumb) artEl.src = track.thumb;
-        durationSec = Number(track.durationSec) || 0;
-        if (track.videoId === currentId) return;
+        fillNowCard(track, false);
+        durationSec = Number(track.durationSec) || durationSec || 0;
+        startedAt = Number(track.startedAt) || startedAt || Date.now();
+        if (track.videoId === currentId) {
+          paintProgress();
+          return;
+        }
         currentId = track.videoId;
-        if (isEmbed) return;
+        endedSent = false;
         streamFails = 0;
-        player.src = streamUrl(track.videoId);
-        const play = player.play();
-        if (play && play.catch) play.catch(() => {});
+        if (!isEmbed) {
+          try { player.pause(); } catch {}
+          player.src = streamUrl(track.videoId);
+          tryPlay();
+        }
         paintProgress();
       }
 
       function sendEnded() {
-        if (!ws || ws.readyState !== 1 || !currentId) return;
+        if (endedSent || !currentId) return;
+        endedSent = true;
+        if (!ws || ws.readyState !== 1) return;
         try { ws.send(JSON.stringify({ action: 'youtubeEnded', videoId: currentId })); } catch {}
       }
       player.addEventListener('ended', sendEnded);
       player.addEventListener('timeupdate', paintProgress);
-      player.addEventListener('loadedmetadata', paintProgress);
+      player.addEventListener('loadedmetadata', () => {
+        paintProgress();
+        if (isEmbed || !startedAt) return;
+        const elapsed = (Date.now() - startedAt) / 1000;
+        if (elapsed > 1.5 && Number.isFinite(player.duration) && elapsed < player.duration - 0.5) {
+          try { player.currentTime = elapsed; } catch {}
+        }
+      });
       player.addEventListener('error', () => {
         if (isEmbed || !currentId) return;
         streamFails += 1;
-        if (streamFails < 2) {
-          setTimeout(() => { try { player.play()?.catch(() => {}); } catch {} }, 400);
+        if (streamFails < 3) {
+          setTimeout(() => {
+            try {
+              player.src = streamUrl(currentId) + '&r=' + Date.now();
+              tryPlay();
+            } catch {}
+          }, 600);
           return;
         }
         setTimeout(sendEnded, 400);
       });
-      player.addEventListener('playing', () => { streamFails = 0; });
+      player.addEventListener('playing', () => { streamFails = 0; player.muted = false; });
+      setInterval(paintProgress, 250);
+      if (!isEmbed) playTimer = setInterval(tryPlay, 1500);
 
       function connect() {
         const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -134,11 +759,45 @@
         ws.onclose = () => { rt = setTimeout(connect, 1500); };
         ws.onmessage = (ev) => {
           let m; try { m = JSON.parse(ev.data); } catch { return; }
-          if (m.type === 'youtubeState') paint(m.payload && m.payload.now);
+          if (m.type === 'youtubeState') applyState(m.payload);
+          if (m.type === 'settings' && m.payload && m.payload.youtube) {
+            setSkin(m.payload.youtube.overlayStyle);
+          }
+          if (m.type === 'youtubeSeek') {
+            const p = m.payload || {};
+            if (p.videoId && p.videoId === currentId) {
+              const t = Math.max(0, Number(p.currentTime) || 0);
+              startedAt = Date.now() - t * 1000;
+              if (!isEmbed) {
+                try { player.currentTime = t; } catch {}
+              }
+              paintProgress();
+            }
+          }
+          if (m.type === 'youtubeProgress' && isEmbed) {
+            const p = m.payload || {};
+            if (p.videoId && p.videoId === currentId) {
+              startedAt = Date.now() - Math.max(0, Number(p.currentTime) || 0) * 1000;
+              if (Number(p.duration) > 0) durationSec = Number(p.duration);
+              paintProgress();
+            }
+          }
         };
       }
-      if (isEmbed) paint({ videoId: 'demo', title: 'Never Gonna Give You Up', author: 'Rick Astley', requestedBy: 'Demo' });
+      if (isEmbed) {
+        demoMode = true;
+        lastTrack = DEMO_NOW;
+        currentId = 'demo';
+        durationSec = DEMO_NOW.durationSec;
+        startedAt = DEMO_NOW.startedAt;
+        paint(DEMO_NOW);
+        paintQueue(DEMO_Q);
+      }
       connect();
+      window.addEventListener('message', (ev) => {
+        const d = ev.data;
+        if (d && d.kind === 'youtubeOverlay' && d.overlayStyle) setSkin(d.overlayStyle);
+      });
     })();
   </script>
   <script src="/js/overlay-keepalive.js"></script>

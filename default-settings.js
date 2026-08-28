@@ -599,12 +599,15 @@ export const DEFAULT_SETTINGS = {
   // Spotify Song Requests (solo .exe · admin / albertoyt). Comandos del chat: !play/!skip/!revoke.
   spotify: {
     clientId: '',
-    playOn: true, playCost: 0, skipOn: true, skipCost: 0,
+    playOn: true, playCost: 0, skipOn: true, skipCost: 0, revokeOn: true,
     skipRequested: true, skipOwnOnly: false, skipOwnOnlyStrict: false, explicit: true, queueTotal: 2, queueUser: 2,
     overlayPermanent: true, permAll: false, permSubs: true, permMods: true,
+    permFollowers: false, permSuperfans: true, permTeam: false, teamMin: 1,
+    permGifters: false, gifterMin: 1,
     permUsersOn: false,
     // IDs de TikTok (@) que pueden usar !play / !skip / !revoke aunque no sean mod ni sub.
     permUsers: [],
+    overlayStyle: 'list',
   },
   // Overlay Top 1 Donador (MVP de la sesión: quien más monedas regala)
   top1: {

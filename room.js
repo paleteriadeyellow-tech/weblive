@@ -989,8 +989,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const spotifyCooldown = new Map(); // uniqueId -> ts
   let spotifyNowPlaying = null;      // { name, artists, image, uri, progressMs, durationMs, playing, requestedBy, serverTs }
   let lastSpotifyUri = '';
+  let lastSpotifyProgressMs = 0;
+  let lastSpotifyRevokeSkip = null;  // { uniqueId, name, artists, at } — skip automático de una revocada
   let spotifySkipPending = false;
   let spotifyPollTimer = null;
+  let spotifyRevoked = [];           // { uri, uniqueId, at, queuedAt, name } — Spotify no deja borrar de su cola; se salta al sonar
 
 
   let connection = null;
@@ -8069,12 +8072,45 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function pushSpotifyHistory() {
     broadcast('spotifyHistory', { history: spotifyHistory });
   }
+  function spotifyOverlayStyleNow() {
+    const st = String((settings.spotify && settings.spotify.overlayStyle) || 'list').toLowerCase();
+    return (st === 'player' || st === 'nowlist' || st === 'studio') ? st : 'list';
+  }
   function pushSpotifyNowPlaying() {
-    broadcast('spotifyNowPlaying', { track: spotifyNowPlaying });
+    broadcast('spotifyNowPlaying', {
+      track: spotifyNowPlaying,
+      overlayStyle: spotifyOverlayStyleNow(),
+    });
   }
 
   function sameSpotifyUri(a, b) {
     return String(a || '').trim() === String(b || '').trim();
+  }
+  function spotifyTrackOwnedBy(item, user) {
+    if (!item || !user) return false;
+    return tiktokUserMatches(item.uniqueId || item.requestedUniqueId, user.uniqueId, user.nickname)
+      || tiktokUserMatches(item.nickname || item.requestedBy, user.uniqueId, user.nickname);
+  }
+  function rememberSpotifyRevoke(uri, uniqueId, queuedAt, name, artists) {
+    const u = String(uri || '').trim();
+    if (!u) return;
+    const now = Date.now();
+    spotifyRevoked = spotifyRevoked.filter((r) => now - (r.at || 0) < 30 * 60 * 1000);
+    spotifyRevoked.push({
+      uri: u,
+      uniqueId: uniqueId || '',
+      at: now,
+      queuedAt: Number(queuedAt) || now,
+      name: name || '',
+      artists: artists || '',
+    });
+    if (spotifyRevoked.length > 40) spotifyRevoked = spotifyRevoked.slice(-40);
+  }
+  function consumeSpotifyRevoke(uri) {
+    const i = spotifyRevoked.findIndex((r) => sameSpotifyUri(r.uri, uri));
+    if (i === -1) return false;
+    spotifyRevoked.splice(i, 1);
+    return true;
   }
 
   function claimNextQueuedIfPlaying(state) {
@@ -8102,6 +8138,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     try { state = await spotify.getPlaybackState(id); } catch { return; }
     if (!state?.uri) {
       spotifySkipPending = false;
+      lastSpotifyProgressMs = 0;
       if (spotifyNowPlaying) {
         spotifyNowPlaying = null;
         lastSpotifyUri = '';
@@ -8112,13 +8149,53 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     let requestedBy = spotifyNowPlaying?.requestedBy || '';
     let requestedUniqueId = spotifyNowPlaying?.requestedUniqueId || '';
-    if (!sameSpotifyUri(state.uri, lastSpotifyUri)) {
-      // Canción nueva: es del chat solo si es la siguiente de !play. Si no, es del streamer.
-      const claimed = claimNextQueuedIfPlaying(state);
-      requestedBy = claimed.requestedBy;
-      requestedUniqueId = claimed.requestedUniqueId;
-      spotifySkipPending = false;
-      lastSpotifyUri = state.uri;
+    const progressMs = Number(state.progressMs) || 0;
+    const sameUri = sameSpotifyUri(state.uri, lastSpotifyUri);
+    const q0peek = spotifyQueue[0];
+    // Misma URI otra vez (A y B pidieron la misma): el progreso vuelve a 0 = pista nueva.
+    const restarted = sameUri
+      && lastSpotifyProgressMs > 8000
+      && progressMs < 2500
+      && (spotifyRevoked.some((r) => sameSpotifyUri(r.uri, state.uri))
+        || !!(q0peek && sameSpotifyUri(q0peek.uri, state.uri)));
+    lastSpotifyProgressMs = progressMs;
+    const afterSkip = sameUri && spotifySkipPending && progressMs < 4000;
+    if (!sameUri || restarted || afterSkip) {
+      const rev = spotifyRevoked.find((r) => sameSpotifyUri(r.uri, state.uri));
+      const q0 = spotifyQueue[0];
+      const otherOwnsThisPlay = !!(rev && q0 && sameSpotifyUri(q0.uri, state.uri)
+        && Number(q0.at || 0) > 0 && Number(q0.at) < Number(rev.queuedAt || rev.at || 0));
+      if (rev && !otherOwnsThisPlay) {
+        let skipped = false;
+        try { skipped = await spotify.skipNext(id); } catch {}
+        if (skipped) {
+          consumeSpotifyRevoke(state.uri);
+          lastSpotifyRevokeSkip = {
+            uniqueId: rev.uniqueId || '',
+            name: rev.name || state.name || '',
+            artists: rev.artists || state.artists || '',
+            at: Date.now(),
+          };
+          lastSpotifyUri = state.uri;
+          lastSpotifyProgressMs = 0;
+          spotifySkipPending = true;
+          if (spotifyNowPlaying) {
+            spotifyNowPlaying = null;
+            pushSpotifyNowPlaying();
+          }
+          return;
+        }
+        // Skip falló: no borrar el revoke ni reclamar la cola; reintentar en el próximo poll.
+        requestedBy = '';
+        requestedUniqueId = '';
+      } else {
+        // Canción nueva: es del chat solo si es la siguiente de !play. Si no, es del streamer.
+        const claimed = claimNextQueuedIfPlaying(state);
+        requestedBy = claimed.requestedBy;
+        requestedUniqueId = claimed.requestedUniqueId;
+        spotifySkipPending = false;
+        lastSpotifyUri = state.uri;
+      }
     } else if (!requestedUniqueId) {
       // Ya sonaba y es la siguiente de la cola (p. ej. acababa de entrar). Marcarla del chat.
       const claimed = claimNextQueuedIfPlaying(state);
@@ -8159,6 +8236,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (cfg.permAll) return true;
     if (cfg.permMods && isLiveModUser(user, roles)) return true;
     if (cfg.permSubs && (roles?.isSub || isKnownLiveSub(user?.uniqueId, user?.nickname))) return true;
+    const superfansOn = Object.prototype.hasOwnProperty.call(cfg, 'permSuperfans') ? !!cfg.permSuperfans : !!cfg.permSubs;
+    if (superfansOn && roles?.isSuperFan) return true;
+    if (cfg.permFollowers && roles?.isFollower) return true;
+    if (cfg.permTeam && roles?.isTeam && (Number(roles.memberLevel) || 0) >= Math.max(1, Number(cfg.teamMin) || 1)) return true;
+    if (cfg.permGifters && (Number(roles.gifterLevel) || 0) >= Math.max(1, Number(cfg.gifterMin) || 1)) return true;
     if (!cfg.permUsersOn) return false;
     const list = Array.isArray(cfg.permUsers) ? cfg.permUsers : [];
     if (!list.length) return false;
@@ -8174,10 +8256,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const text = String(comment || '').trim();
     const lower = text.toLowerCase();
     let kind = null, arg = '';
-    if (lower === '!skip') kind = 'skip';
-    else if (lower === '!revoke') kind = 'revoke';
-    else if (lower.startsWith('!play')) { kind = 'play'; arg = text.slice(5).trim(); }
+    if (lower === '!skip' || lower.startsWith('!skip ')) kind = 'skip';
+    else if (lower === '!revoke' || lower.startsWith('!revoke ')) kind = 'revoke';
+    else if (lower === '!play' || lower.startsWith('!play ')) { kind = 'play'; arg = text.slice(5).trim(); }
     if (!kind) return;
+    if (kind === 'play' && cfg.playOn === false) return;
+    if (kind === 'skip' && cfg.skipOn === false) return;
+    if (kind === 'revoke' && cfg.revokeOn === false) return;
 
     // Permisos: todos / mods / super fans-subs / usuarios @ específicos.
     const allowed = spotifyUserAllowed(cfg, user, roles);
@@ -8222,7 +8307,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (cfg.playOn === false) return;
       if (!arg) { reply('Uso: !play Canción - Artista', false); return; }
       const total = spotifyQueue.length;
-      const userCount = spotifyQueue.filter((q) => q.uniqueId === user.uniqueId).length;
+      const userCount = spotifyQueue.filter((q) => spotifyTrackOwnedBy(q, user)).length;
       if (total >= Math.max(1, cfg.queueTotal)) { reply('La cola está llena, intenta más tarde.', false); return; }
       if (userCount >= Math.max(1, cfg.queueUser)) { reply(`${user.nickname}: ya tienes el máximo en cola.`, false); return; }
       let track = null;
@@ -8256,15 +8341,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       // Si no, tras un cambio en la app se saltaba la música del streamer.
       try { await pollSpotifyPlayback({ force: true }); } catch {}
       const isMod = isLiveModUser(user, roles);
-      const owner = normTikTokUser(spotifyNowPlaying?.requestedUniqueId);
-      const me = normTikTokUser(user.uniqueId);
       if (cfg.skipOwnOnly || cfg.skipOwnOnlyStrict) {
-        if (!owner) {
+        const owned = spotifyNowPlaying && spotifyTrackOwnedBy({
+          uniqueId: spotifyNowPlaying.requestedUniqueId,
+          nickname: spotifyNowPlaying.requestedBy,
+        }, user);
+        if (!spotifyNowPlaying?.requestedUniqueId && !spotifyNowPlaying?.requestedBy) {
           reply(`${user.nickname}: esa pista la puso el streamer en Spotify. No se puede saltar.`, false);
           return;
         }
         const onlyOwn = !!cfg.skipOwnOnlyStrict || !isMod;
-        if (onlyOwn && owner !== me) {
+        if (onlyOwn && !owned) {
           reply(`${user.nickname}: solo puedes saltar la canción que pediste tú con !play.`, false);
           return;
         }
@@ -8281,14 +8368,48 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
 
     if (kind === 'revoke') {
-      // Spotify no permite quitar de su cola; revocamos de nuestra lista/overlay.
-      const rev = [...spotifyQueue].reverse().findIndex((q) => q.uniqueId === user.uniqueId);
-      if (rev === -1) { reply(`${user.nickname}: no tienes canciones para revocar.`, false); return; }
-      const realIdx = spotifyQueue.length - 1 - rev;
-      const removed = spotifyQueue.splice(realIdx, 1)[0];
-      pushSpotifyQueue();
-      addHistory(`${removed.name} — ${removed.artists}`, 'Revocada');
-      reply(`${user.nickname} revocó: ${removed.name}`);
+      if (cfg.revokeOn === false) return;
+      let idx = -1;
+      for (let i = spotifyQueue.length - 1; i >= 0; i--) {
+        if (spotifyTrackOwnedBy(spotifyQueue[i], user)) { idx = i; break; }
+      }
+      if (idx !== -1) {
+        const removed = spotifyQueue.splice(idx, 1)[0];
+        rememberSpotifyRevoke(removed.uri, removed.uniqueId, removed.at, removed.name, removed.artists);
+        pushSpotifyQueue();
+        addHistory(`${removed.name} — ${removed.artists}`, 'Revocada');
+        reply(`${user.nickname} revocó: ${removed.name}`);
+        return;
+      }
+      const ownedNow = () => !!(spotifyNowPlaying && spotifyTrackOwnedBy({
+        uniqueId: spotifyNowPlaying.requestedUniqueId,
+        nickname: spotifyNowPlaying.requestedBy,
+      }, user));
+      if (!ownedNow()) {
+        try { await pollSpotifyPlayback({ force: true }); } catch {}
+      }
+      if (ownedNow()) {
+        const name = spotifyNowPlaying.name;
+        const artists = spotifyNowPlaying.artists;
+        let ok = false;
+        try { ok = await spotify.skipNext(id); } catch {}
+        if (!ok) { reply('No pude quitar la pista.', false); return; }
+        spotifySkipPending = true;
+        pollSpotifyPlayback({ force: true }).catch(() => {});
+        addHistory(`${name} — ${artists}`, 'Revocada');
+        reply(`${user.nickname} revocó: ${name}`);
+        return;
+      }
+      if (lastSpotifyRevokeSkip && (Date.now() - lastSpotifyRevokeSkip.at) < 4000
+          && tiktokUserMatches(lastSpotifyRevokeSkip.uniqueId, user.uniqueId, user.nickname)) {
+        const name = lastSpotifyRevokeSkip.name || 'tu canción';
+        const artists = lastSpotifyRevokeSkip.artists || '';
+        lastSpotifyRevokeSkip = null;
+        addHistory(`${name}${artists ? ' — ' + artists : ''}`, 'Revocada');
+        reply(`${user.nickname} revocó: ${name}`);
+        return;
+      }
+      reply(`${user.nickname}: no tienes canciones para revocar.`, false);
       return;
     }
   }
@@ -11496,7 +11617,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     try { send('profiles', profilesInfo()); } catch (e) { console.error('[profiles]', e); }
     send('spotifyQueue', { queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image, durationMs: q.durationMs || 0 })) });
     send('spotifyHistory', { history: spotifyHistory });
-    send('spotifyNowPlaying', { track: spotifyNowPlaying });
+    send('spotifyNowPlaying', { track: spotifyNowPlaying, overlayStyle: spotifyOverlayStyleNow() });
     const caps = currentCaps();
     if (caps) send('caps', caps);
   }

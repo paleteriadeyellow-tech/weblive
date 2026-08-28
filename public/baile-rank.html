@@ -141,6 +141,23 @@
   const lastFlash = new Map();
   const lastPts = new Map();
   const lastRank = new Map();
+  const EMBED_SNAP = 'lc_brk_embed_v1';
+  function saveEmbedSnap() {
+    if (!isEmbed) return;
+    try {
+      sessionStorage.setItem(EMBED_SNAP, JSON.stringify({ people, activeId, cfg }));
+    } catch {}
+  }
+  function loadEmbedSnap() {
+    if (!isEmbed) return;
+    try {
+      const raw = JSON.parse(sessionStorage.getItem(EMBED_SNAP) || 'null');
+      if (!raw || typeof raw !== 'object') return;
+      if (Array.isArray(raw.people)) people = raw.people;
+      if (raw.activeId != null) activeId = String(raw.activeId || '');
+      if (raw.cfg && typeof raw.cfg === 'object') cfg = Object.assign(cfg, raw.cfg);
+    } catch {}
+  }
 
   function fmt(n) { return Math.round(Math.max(0, Number(n) || 0)).toLocaleString('de-DE'); }
   function usePeople() { return Array.isArray(people) && people.length > 0; }
@@ -151,6 +168,7 @@
     if (src.activeId != null) activeId = String(src.activeId || '');
     if (src.phase === 'result') roundWin = !!src.reached;
     else if (src.phase === 'prep' || src.phase === 'idle') roundWin = false;
+    saveEmbedSnap();
     render();
   }
   function applyCfg(incoming) {
@@ -163,6 +181,7 @@
     const list = document.getElementById('list');
     if (root) root.style.setProperty('--row-gap', gap);
     if (list) list.style.setProperty('--row-gap', gap);
+    saveEmbedSnap();
     render();
   }
   function diamondsFromGift(d) {
@@ -481,6 +500,7 @@
     document.documentElement.classList.add('embed');
     const fit = () => document.documentElement.style.setProperty('--fit', String(Math.min(window.innerWidth / 292, window.innerHeight / 400)));
     fit(); window.addEventListener('resize', fit);
+    loadEmbedSnap();
   }
   render();
   if (!isEmbed) connectWS();

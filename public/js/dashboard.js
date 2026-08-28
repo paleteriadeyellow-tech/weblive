@@ -740,7 +740,7 @@ function applyBaileOverlayLock() {
     || document.querySelector('.nav-item[data-view="ov-baile"]');
   if (view) view.classList.toggle('is-baile-locked', locked);
   if (lock) lock.hidden = !locked;
-  setNavItemPlanLock(nav, locked, 'Acceso restringido — Overlay baile');
+  setNavItemPlanLock(nav, locked, 'Acceso restringido — Agencia de baile');
 }
 window.applyBaileOverlayLock = applyBaileOverlayLock;
 
@@ -2405,6 +2405,7 @@ function embedKeepAlive(fr) {
   if (id.startsWith('tk-preview')) return true;
   if (fr.classList?.contains('tk-preview') || fr.closest?.('.tk-preview')) return true;
   if (/^(jar|vaq|mar|perr|ghl|pel)-preview$/.test(id)) return true;
+  if (/^(brk|brd|bco)-preview$/.test(id)) return true;
   return false;
 }
 
@@ -2435,7 +2436,10 @@ function unloadViewEmbeds(view) {
     try { view._embedObs.disconnect(); } catch {}
     view._embedObs = null;
   }
-  view.querySelectorAll('iframe[data-src]').forEach(unloadEmbed);
+  view.querySelectorAll('iframe[data-src]').forEach((fr) => {
+    if (embedKeepAlive(fr)) return;
+    unloadEmbed(fr);
+  });
 }
 
 /** Libera previews de overlays que ya no están la vista activa. */
@@ -2513,7 +2517,10 @@ function hydrateViewEmbeds(view) {
   if (!frames.length) return;
   if (view.id === 'view-ov-baile') {
     if (typeof baileOverlayUnlocked === 'function' && !baileOverlayUnlocked()) return;
-    frames.forEach((fr) => { if (!embedSkipAutoHydrate(fr)) ensureEmbedLoaded(fr); });
+    const list = Array.from(frames).filter((fr) => !embedSkipAutoHydrate(fr));
+    Promise.all(list.map((fr) => ensureEmbedLoaded(fr))).then(() => {
+      try { window.__syncBailePeople?.(); } catch {}
+    });
   }
   if (typeof IntersectionObserver !== 'function') {
     // Fallback: solo el primero visible-ish; el resto al hacer Testear (ensureEmbedLoaded).
@@ -2620,7 +2627,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
         if (viewName === 'ov-baile') {
           try { applyBaileOverlayLock(); } catch {}
           if (typeof baileOverlayUnlocked === 'function' && !baileOverlayUnlocked()) {
-            toast('Overlay baile es solo para cuentas autorizadas 🔒', 'warn');
+            toast('Agencia de baile es solo para cuentas autorizadas 🔒', 'warn');
           }
         }
         if (viewName === 'points') { send({ action: 'getPoints' }); renderPointsTable({ resetPage: true }); }
@@ -3170,7 +3177,7 @@ async function setUserBaileOverlayReq(id, enabled) {
     body: JSON.stringify({ id, enabled: !!enabled }),
   });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || 'No se pudo actualizar Overlay baile');
+  if (!r.ok) throw new Error(data.error || 'No se pudo actualizar Agencia de baile');
   return data;
 }
 
@@ -3232,7 +3239,7 @@ function renderAdminBaileFromCache() {
           }
           patchAdminBaileCache(id, false);
           renderAdminBaileFromCache();
-          toast('Acceso a Overlay baile quitado.', 'ok');
+          toast('Acceso a Agencia de baile quitado.', 'ok');
           await loadAdminBaileOverlay();
         } catch (e) {
           toast(e.message || 'Error', 'warn');
@@ -3279,7 +3286,7 @@ async function loadAdminBaileOverlay() {
           renderAdminBaileFromCache();
           loadAdminBaileOverlay();
         }
-        toast('Overlay baile desbloqueado. Si está en línea, le aparece ya.', 'ok');
+        toast('Agencia de baile desbloqueada. Si está en línea, le aparece ya.', 'ok');
       } catch (e) {
         toast(e.message || 'Error', 'warn');
       } finally {
@@ -5270,7 +5277,7 @@ function onSettings(s, touchedKeys) {
     } catch {}
   }
   try { window.__lcPendingTouchedKeys = null; } catch {}
-  settings = preserveLocalBailePeopleOnSettingsEcho(preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s)))));
+    settings = preserveLocalSpotifyOnSettingsEcho(preserveLocalBailePeopleOnSettingsEcho(preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s))))));
   if (migrateAccionesSpawnWebhooks(settings.actions)) saveSettings();
   normalizeRelayMedia(settings);
   ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'topStreak'].forEach((k) => {
@@ -11864,15 +11871,19 @@ try { (function setupBailePeople() {
   }
   function pushOverlays() {
     const cfg = settings?.baileRonda || {};
+    const rankCfg = settings?.baileRank || {};
     try { $('brd-preview')?.contentWindow?.postMessage({ kind: 'baileronda', type: 'config', config: cfg }, '*'); } catch {}
+    const rankCfgMsg = { kind: 'bailerank', type: 'config', config: rankCfg };
     const rankMsg = { kind: 'bailerank', type: 'people', people: cfg.people || [], activeId: cfg.activeId || '' };
+    const sendRank = (f) => {
+      try { f?.contentWindow?.postMessage(rankCfgMsg, '*'); } catch {}
+      try { f?.contentWindow?.postMessage(rankMsg, '*'); } catch {}
+    };
     const fr = $('brk-preview');
     if (typeof ensureEmbedLoaded === 'function' && fr) {
-      ensureEmbedLoaded(fr).then((f) => {
-        try { f?.contentWindow?.postMessage(rankMsg, '*'); } catch {}
-      });
+      ensureEmbedLoaded(fr).then(sendRank);
     } else {
-      try { fr?.contentWindow?.postMessage(rankMsg, '*'); } catch {}
+      sendRank(fr);
     }
   }
   function flushAliasDrafts() {
@@ -12099,6 +12110,13 @@ try { (function setupBailePeople() {
       if (e.target?.id !== 'baile-user' && e.target?.id !== 'baile-alias') return;
       e.preventDefault();
       addPerson();
+    });
+  }
+  const rankFr = $('brk-preview');
+  if (rankFr && !rankFr._bailePeopleWired) {
+    rankFr._bailePeopleWired = true;
+    rankFr.addEventListener('load', () => {
+      try { pushOverlays(); } catch {}
     });
   }
   if (settings) {
@@ -19815,21 +19833,68 @@ function setupProfiles() {
 const SPOTIFY_ALLOWED_USERS = ['albertoyt', 'alee367', 'albertoreyesyt']; // semilla legacy (fallback)
 const SPOTIFY_DEFAULTS = {
   clientId: '',
-  playOn: true, playCost: 0, skipOn: true, skipCost: 0,
+  playOn: true, playCost: 0, skipOn: true, skipCost: 0, revokeOn: true,
   skipRequested: true, skipOwnOnly: false, skipOwnOnlyStrict: false, explicit: true, queueTotal: 2, queueUser: 2,
   overlayPermanent: true, permAll: false, permSubs: true, permMods: true,
+  permFollowers: false, permSuperfans: true, permTeam: false, teamMin: 1,
+  permGifters: false, gifterMin: 1,
   permUsersOn: false,
   permUsers: [],
+  overlayStyle: 'list',
 };
 const SPOTIFY_MAP = {
   'sp-client-id': 'clientId',
   'sp-play-on': 'playOn', 'sp-play-cost': 'playCost', 'sp-skip-on': 'skipOn',
-  'sp-skip-cost': 'skipCost', 'sp-skip-own-only': 'skipOwnOnly', 'sp-skip-own-only-strict': 'skipOwnOnlyStrict', 'sp-explicit': 'explicit',
+  'sp-skip-cost': 'skipCost', 'sp-revoke-on': 'revokeOn', 'sp-skip-own-only': 'skipOwnOnly', 'sp-skip-own-only-strict': 'skipOwnOnlyStrict', 'sp-explicit': 'explicit',
   'sp-queue-total': 'queueTotal', 'sp-queue-user': 'queueUser', 'sp-overlay-perm': 'overlayPermanent',
-  'sp-perm-all': 'permAll', 'sp-perm-subs': 'permSubs', 'sp-perm-mods': 'permMods',
+  'sp-perm-all': 'permAll', 'sp-perm-followers': 'permFollowers', 'sp-perm-subs': 'permSubs',
+  'sp-perm-superfans': 'permSuperfans', 'sp-perm-mods': 'permMods',
+  'sp-perm-team': 'permTeam', 'sp-team-min': 'teamMin',
+  'sp-perm-gifters': 'permGifters', 'sp-gifter-min': 'gifterMin',
   'sp-perm-users-on': 'permUsersOn',
 };
-const SPOTIFY_INT_KEYS = ['playCost', 'skipCost', 'queueTotal', 'queueUser'];
+const SPOTIFY_INT_KEYS = ['playCost', 'skipCost', 'queueTotal', 'queueUser', 'teamMin', 'gifterMin'];
+
+function spNormOverlayStyle(s) {
+  s = String(s || 'list').toLowerCase();
+  return (s === 'player' || s === 'nowlist' || s === 'studio') ? s : 'list';
+}
+
+function paintSpOverlayStyle() {
+  const style = spNormOverlayStyle(settings?.spotify?.overlayStyle);
+  document.querySelectorAll('#sp-ov-skins .ytr-skin').forEach((btn) => {
+    const on = btn.getAttribute('data-sp-skin') === style;
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const box = document.getElementById('sp-ov-preview-box');
+  if (box) {
+    box.classList.remove('is-player', 'is-list', 'is-nowlist', 'is-studio');
+    box.classList.add('is-' + style);
+  }
+  const path = '/spotify-overlay.html';
+  const urlEl = document.getElementById('sp-ov-url');
+  if (urlEl) {
+    urlEl.dataset.path = path;
+    try { urlEl.value = typeof roomUrl === 'function' ? roomUrl(path) : path; } catch { urlEl.value = path; }
+  }
+  const iframe = document.getElementById('sp-overlay-preview');
+  if (iframe) iframe.dataset.src = path + '?embed=1&v=spov3';
+}
+
+function setSpotifyOverlayStyle(style) {
+  if (!settings) return;
+  if (!settings.spotify) settings.spotify = { ...SPOTIFY_DEFAULTS };
+  settings.spotify.overlayStyle = spNormOverlayStyle(style);
+  paintSpOverlayStyle();
+  const iframe = document.getElementById('sp-overlay-preview');
+  if (iframe && iframe.contentWindow) {
+    try {
+      iframe.contentWindow.postMessage({ kind: 'spotifyOverlay', overlayStyle: settings.spotify.overlayStyle }, '*');
+    } catch {}
+  }
+  saveSpotifySettings();
+}
 
 function spotifyTabVisible() {
   return !!IS_DESKTOP;
@@ -19868,15 +19933,33 @@ function revealSpotifyTab() {
   try { syncNavSections(); } catch {}
 }
 
+let spFormLockUntil = 0;
+function lockSpotifyForm() { spFormLockUntil = Date.now() + 1600; }
+
+function preserveLocalSpotifyOnSettingsEcho(incoming) {
+  try {
+    if (Date.now() >= spFormLockUntil) return incoming;
+    if (!incoming || !settings?.spotify) return incoming;
+    return { ...incoming, spotify: { ...(incoming.spotify || {}), ...settings.spotify } };
+  } catch {
+    return incoming;
+  }
+}
+
 // Vuelca settings.spotify -> formulario.
 function applySpotifyUI() {
   if (!settings) return;
+  if (Date.now() < spFormLockUntil) return;
   const cfg = { ...SPOTIFY_DEFAULTS, ...(settings.spotify || {}) };
   if (!Array.isArray(cfg.permUsers)) cfg.permUsers = [];
   // Si hay usuarios en la lista y el flag nunca se guardó, activar el filtro
   // (evita lista visible pero casilla apagada → “no funciona”).
   if (cfg.permUsers.length && settings.spotify && !Object.prototype.hasOwnProperty.call(settings.spotify, 'permUsersOn')) {
     cfg.permUsersOn = true;
+  }
+  // Antes Superfans iba junto con Suscriptores. Si no hay flag, no les quites el acceso.
+  if (settings.spotify && !Object.prototype.hasOwnProperty.call(settings.spotify, 'permSuperfans')) {
+    cfg.permSuperfans = !!cfg.permSubs;
   }
   settings.spotify = { ...cfg };
   for (const [id, key] of Object.entries(SPOTIFY_MAP)) {
@@ -19887,6 +19970,7 @@ function applySpotifyUI() {
   }
   renderSpotifyPermUsers();
   syncSpotifyPermUsersUI();
+  paintSpOverlayStyle();
 }
 // Lee el formulario -> settings.spotify y guarda.
 function saveSpotifySettings() {
@@ -19896,11 +19980,13 @@ function saveSpotifySettings() {
     const el = document.getElementById(id);
     if (!el) continue;
     if (el.type === 'checkbox') cfg[key] = el.checked;
+    else if (key === 'queueUser' || key === 'teamMin' || key === 'gifterMin') cfg[key] = Math.max(1, parseInt(el.value, 10) || 1);
     else if (SPOTIFY_INT_KEYS.includes(key)) cfg[key] = Math.max(0, parseInt(el.value, 10) || 0);
     else if (key === 'clientId') cfg[key] = String(el.value || '').trim();
     else cfg[key] = el.value;
   }
   if (!Array.isArray(cfg.permUsers)) cfg.permUsers = [];
+  cfg.overlayStyle = spNormOverlayStyle(cfg.overlayStyle);
   settings.spotify = cfg;
   saveSettings();
 }
@@ -19910,30 +19996,25 @@ function spNormUserId(id) {
 }
 
 function syncSpotifyPermUsersUI() {
-  const on = !!document.getElementById('sp-perm-users-on')?.checked;
-  const wrap = document.querySelector('.sp-perm-users');
-  if (wrap) wrap.classList.toggle('is-disabled', !on);
-  // Input y Añadir siempre activos: al añadir se enciende la casilla sola.
-  const inp = document.getElementById('sp-perm-user-in');
-  const btn = document.getElementById('sp-perm-user-add');
-  if (inp) inp.disabled = false;
-  if (btn) btn.disabled = false;
+  /* La lista se usa igual que en YouTube: siempre visible; la casilla decide si aplica. */
 }
 
 function renderSpotifyPermUsers() {
   const box = document.getElementById('sp-perm-user-list');
   if (!box) return;
   const list = settings?.spotify?.permUsers || [];
+  const cap = document.getElementById('sp-users-cap');
+  if (cap) cap.textContent = list.length + '/200';
   if (!list.length) {
-    box.innerHTML = '<div class="sp-perm-users-empty">Ningún usuario añadido</div>';
+    box.innerHTML = '<div class="ytr-qempty">No hay usuarios permitidos agregados.</div>';
     return;
   }
   box.innerHTML = list.map((uid) => `
-    <span class="sp-perm-user-chip" data-id="${esc(uid)}">@${esc(uid)}<button type="button" data-act="del" title="Quitar">✕</button></span>
+    <span class="ytr-chip" data-id="${esc(uid)}">@${esc(uid)}<button type="button" data-act="del" title="Quitar">✕</button></span>
   `).join('');
   box.querySelectorAll('[data-act="del"]').forEach((btn) => {
     btn.onclick = () => {
-      const chip = btn.closest('.sp-perm-user-chip');
+      const chip = btn.closest('.ytr-chip');
       const id = chip?.dataset?.id;
       if (!id || !settings.spotify) return;
       settings.spotify.permUsers = (settings.spotify.permUsers || []).filter((x) => spNormUserId(x) !== spNormUserId(id));
@@ -19956,6 +20037,10 @@ function addSpotifyPermUser() {
   const key = spNormUserId(raw);
   if (settings.spotify.permUsers.some((x) => spNormUserId(x) === key)) {
     toast && toast('Ese usuario ya está en la lista', 'warn');
+    return;
+  }
+  if (settings.spotify.permUsers.length >= 200) {
+    toast && toast('Máximo 200 usuarios permitidos', 'warn');
     return;
   }
   // Al añadir alguien, activar el filtro automáticamente.
@@ -20002,17 +20087,44 @@ async function refreshSpotifyStatus() {
 }
 
 function renderSpotifyHistory(history) {
-  const body = document.getElementById('sp-history');
-  if (!body) return;
+  const box = document.getElementById('sp-history');
+  if (!box) return;
   if (!Array.isArray(history) || !history.length) {
-    body.innerHTML = '<tr><td colspan="4" class="sp-nodata">Sin datos todavía</td></tr>';
+    box.innerHTML = `<div class="sp-hist-empty">
+      <span class="sp-hist-empty-ico" aria-hidden="true"></span>
+      <b>Sin solicitudes todavía</b>
+      <span>Cuando alguien pida con !play, las canciones aparecerán aquí</span>
+    </div>`;
     return;
   }
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  body.innerHTML = history.map((h) => {
+  const today = new Date();
+  box.innerHTML = history.map((h) => {
     const d = new Date(h.at || Date.now());
     const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return `<tr><td>${time}</td><td>${esc(h.user)}</td><td>${esc(h.track)}</td><td>${esc(h.status)}</td></tr>`;
+    const sameDay = d.toDateString() === today.toDateString();
+    const when = sameDay ? time : d.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' · ' + time;
+    const raw = String(h.track || '—');
+    const parts = raw.split(/\s+[—–-]\s+/);
+    const title = (parts[0] || raw).trim() || 'Canción';
+    const artist = parts.slice(1).join(' — ').trim();
+    const user = String(h.user || '').trim();
+    const initial = (user.replace(/^@/, '')[0] || '?').toUpperCase();
+    const st = String(h.status || '').trim();
+    const stLow = st.toLowerCase();
+    let stClass = 'is-queued';
+    if (stLow.includes('reproduc')) stClass = 'is-play';
+    else if (stLow.includes('salta')) stClass = 'is-skip';
+    else if (stLow.includes('revoc')) stClass = 'is-rev';
+    return `<article class="sp-hist-row ${stClass}">
+      <div class="sp-hist-when">${esc(when)}</div>
+      <div class="sp-hist-av" aria-hidden="true">${esc(initial)}</div>
+      <div class="sp-hist-meta">
+        <div class="sp-hist-title">${esc(title)}</div>
+        <div class="sp-hist-sub">${artist ? esc(artist) : ''}${artist && user ? ' · ' : ''}${user ? 'pedida por <b>' + esc(user) + '</b>' : ''}</div>
+      </div>
+      <span class="sp-hist-st">${esc(st || '—')}</span>
+    </article>`;
   }).join('');
 }
 
@@ -20094,23 +20206,30 @@ function setupSpotifyUI() {
     const msg = document.getElementById('sp-save-msg');
     if (msg) { msg.textContent = '✓ Guardado'; clearTimeout(flashSaved._t); flashSaved._t = setTimeout(() => { msg.textContent = ''; }, 1500); }
   };
-  // Guardado automático: cada campo guarda al modificarse.
-  let spSaveTimer = null;
-  const autoSave = () => { clearTimeout(spSaveTimer); spSaveTimer = setTimeout(() => { saveSpotifySettings(); flashSaved(); }, 300); };
+  const autoSave = () => {
+    lockSpotifyForm();
+    saveSpotifySettings();
+    flashSaved();
+  };
   for (const id of Object.keys(SPOTIFY_MAP)) {
+    if (id === 'sp-skip-own-only' || id === 'sp-skip-own-only-strict') continue;
     const el = document.getElementById(id);
     if (!el) continue;
     el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', autoSave);
   }
   const spPermAdd = document.getElementById('sp-perm-user-add');
   const spPermIn = document.getElementById('sp-perm-user-in');
-  const spPermOn = document.getElementById('sp-perm-users-on');
-  if (spPermOn) spPermOn.addEventListener('change', () => { syncSpotifyPermUsersUI(); autoSave(); });
   const skipOwn = document.getElementById('sp-skip-own-only');
   const skipStrict = document.getElementById('sp-skip-own-only-strict');
   if (skipOwn && skipStrict) {
-    skipOwn.addEventListener('change', () => { if (skipOwn.checked) skipStrict.checked = false; });
-    skipStrict.addEventListener('change', () => { if (skipStrict.checked) skipOwn.checked = false; });
+    skipOwn.addEventListener('change', () => {
+      if (skipOwn.checked) skipStrict.checked = false;
+      autoSave();
+    });
+    skipStrict.addEventListener('change', () => {
+      if (skipStrict.checked) skipOwn.checked = false;
+      autoSave();
+    });
   }
   if (spPermAdd) spPermAdd.onclick = addSpotifyPermUser;
   if (spPermIn) spPermIn.addEventListener('keydown', (e) => {
@@ -20158,22 +20277,55 @@ function setupSpotifyUI() {
     }
     refreshSpotifyStatus();
   };
-  // Botones "Copiar enlace" de las superposiciones (no están en .ovpro-card, así que
-  // no los cablea setupPotCards: los conectamos aquí).
-  document.querySelectorAll('#view-spotify .ovpro-urlrow').forEach((row) => {
-    const code = row.querySelector('.ov-url');
-    const btn = row.querySelector('.ovpro-copy, .ov-copy');
-    if (code && code.dataset.path) code.textContent = roomUrl(code.dataset.path);
-    if (btn && code) btn.onclick = () => {
-      const url = roomUrl(code.dataset.path);
-      const done = () => { btn.textContent = '¡Copiado!'; setTimeout(() => { btn.textContent = 'Copiar enlace'; }, 1200); };
-      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
-      else fallbackCopy(url, done);
+  // Overlay OBS: 1 URL + Personalizar (lista / reproductor). Los HTML de OBS no cambian.
+  const spOvUrl = document.getElementById('sp-ov-url');
+  const spOvCopy = document.getElementById('sp-ov-copy');
+  if (spOvCopy && spOvUrl) {
+    spOvCopy.onclick = () => {
+      const val = spOvUrl.value || (typeof roomUrl === 'function' ? roomUrl(spOvUrl.dataset.path) : spOvUrl.dataset.path);
+      const done = () => {
+        const html = spOvCopy.innerHTML;
+        spOvCopy.innerHTML = html.replace(/Copiar|¡Copiado!/g, '¡Copiado!');
+        setTimeout(() => { spOvCopy.innerHTML = html; }, 1200);
+      };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(val).then(done).catch(() => fallbackCopy(val, done));
+      else fallbackCopy(val, done);
     };
-  });
+  }
+  const spOvCustom = document.getElementById('sp-ov-customize');
+  const spOvCustomBox = document.getElementById('sp-ov-custom');
+  if (spOvCustom && spOvCustomBox) {
+    spOvCustom.onclick = () => {
+      spOvCustomBox.hidden = !spOvCustomBox.hidden;
+      if (!spOvCustomBox.hidden) {
+        paintSpOverlayStyle();
+        try { hydrateViewEmbeds(document.getElementById('view-spotify')); } catch {}
+        const iframe = document.getElementById('sp-overlay-preview');
+        const ping = () => {
+          try {
+            iframe.contentWindow.postMessage({
+              kind: 'spotifyOverlay',
+              overlayStyle: spNormOverlayStyle(settings?.spotify?.overlayStyle),
+            }, '*');
+          } catch {}
+        };
+        if (iframe) {
+          iframe.addEventListener('load', ping, { once: true });
+          ping();
+        }
+      }
+    };
+  }
+  const spOvSkins = document.getElementById('sp-ov-skins');
+  if (spOvSkins && !spOvSkins._spBound) {
+    spOvSkins._spBound = true;
+    spOvSkins.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-sp-skin]');
+      if (!btn || !spOvSkins.contains(btn)) return;
+      setSpotifyOverlayStyle(btn.getAttribute('data-sp-skin'));
+    });
+  }
   applySpotifyUI();
-  try { ensureEmbedLoaded('sp-overlay-preview'); } catch { /* ignore */ }
-  try { ensureEmbedLoaded('sp-player-preview'); } catch { /* ignore */ }
   try { hydrateViewEmbeds(document.getElementById('view-spotify')); } catch { /* ignore */ }
   refreshSpotifyStatus();
 }
