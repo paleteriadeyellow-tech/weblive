@@ -434,7 +434,7 @@
   function layoutFor(count, gridN) {
     const fixed = Math.round(Number(gridN));
     const n = Math.max(1, Math.min(64, Number(count) || 1));
-    if (Number.isFinite(fixed) && fixed >= 2 && fixed <= 8) {
+    if (Number.isFinite(fixed) && fixed >= 1 && fixed <= 64) {
       return { cols: fixed, rows: Math.max(1, Math.ceil(n / fixed)) };
     }
     if (n <= 6) return { cols: n, rows: 1 };
@@ -443,10 +443,10 @@
     return { cols, rows };
   }
   function fondoSrc(payload) {
-    if (!payload) return FONDOS['fondo-1'];
+    if (!payload) return '';
     if (payload.fondo === 'transparent') return '';
     if (payload.fondo === 'custom') return String(payload.fondoCustomSrc || '');
-    return FONDOS[payload.fondo] || FONDOS['fondo-1'];
+    return FONDOS[payload.fondo] || '';
   }
   const FRAME_PRESETS = {
     off: { kind: 'off' },
@@ -649,7 +649,6 @@
   async function poll() {
     const urls = [
       `/api/editor-rapido/live?room=${encodeURIComponent(room)}&_=${Date.now()}`,
-      `/api/editor-rapido/live?room=local&_=${Date.now()}`,
     ];
     let ok = false;
     for (const url of urls) {
@@ -692,6 +691,7 @@
     bc.onmessage = (ev) => {
       const msg = ev.data;
       if (!msg || msg.type !== 'er-live') return;
+      if (msg.room && room !== 'local' && String(msg.room) !== String(room)) return;
       applyLive({ payload: msg.payload, updatedAt: msg.updatedAt });
     };
   } catch {}

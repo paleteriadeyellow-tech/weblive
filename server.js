@@ -13,6 +13,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
+import { createLiveLockStore } from './live-lock.js';
 import { ensureViewerAvatar, sendCachedAvatar } from './tt-avatar-cache.js';
 import { isEdgeTtsVoice, ttsSynthEdge, EDGE_EN_FALLBACK } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
@@ -82,6 +83,7 @@ const {
 // En local, si no existe la variable, se usa la carpeta "data" del proyecto.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
+const liveLock = createLiveLockStore(path.join(DATA_DIR, 'live-locks.json'));
 const streamerRankings = createStreamerRankings(DATA_DIR);
 const IS_DESKTOP = process.env.DESKTOP === '1';
 
@@ -641,6 +643,41 @@ async function relayCommunityGiftsFromRemote(userId) {
   return data.results || [];
 }
 
+async function runLiveLock(userId, action, payload = {}) {
+  const act = String(action || '');
+  const body = {
+    deviceId: payload?.deviceId || '',
+    username: payload?.username || '',
+  };
+  if (AUTH_REMOTE) {
+    const cookie = remoteCookies.get(userId);
+    const key = (getUserById(userId) || {}).cloudRoomKey || '';
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      let url = `${AUTH_REMOTE}/api/live-lock/${act}`;
+      const sendBody = { ...body };
+      if (cookie) headers.Cookie = cookie;
+      else if (key) {
+        url = `${AUTH_REMOTE}/api/live-lock/${act}-key`;
+        sendBody.roomKey = key;
+      } else {
+        return { ok: true, skipped: true };
+      }
+      const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(sendBody) });
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 409 || data.code === 'live_in_use') return { ok: false, code: 'live_in_use', message: data.message || liveLock.message };
+      if (!r.ok) return { ok: true, skipped: true };
+      return data && typeof data === 'object' ? data : { ok: true };
+    } catch {
+      return { ok: true, skipped: true };
+    }
+  }
+  if (act === 'claim') return liveLock.claim(userId, body.deviceId, body.username);
+  if (act === 'heartbeat') return liveLock.heartbeat(userId, body.deviceId);
+  if (act === 'release') return liveLock.release(userId, body.deviceId);
+  return { ok: true };
+}
+
 function getRoomForUser(user) {
   let room = rooms.get(user.id);
   if (!room) {
@@ -688,6 +725,9 @@ function getRoomForUser(user) {
           }
         } catch { /* ignore */ }
       },
+      onClaimLiveLock: (p) => runLiveLock(user.id, 'claim', p),
+      onHeartbeatLiveLock: (p) => runLiveLock(user.id, 'heartbeat', p),
+      onReleaseLiveLock: (p) => runLiveLock(user.id, 'release', p),
       onGameExec: (tipo) => {
         try {
           if (markBadgeGame(user.id, tipo)) {
@@ -1711,6 +1751,53 @@ app.post('/api/panel-lives/report-key', express.json({ limit: '8kb' }), async (r
   res.json(applyDesktopLiveReport(user, req.body || {}));
 });
 
+function liveLockHttpResult(res, r) {
+  if (r && r.ok === false && r.code === 'live_in_use') return res.status(409).json(r);
+  if (r && r.ok === false && r.code === 'bad_device') return res.status(400).json(r);
+  return res.json(r || { ok: true });
+}
+async function handleLiveLockAuthed(req, res, action) {
+  if (AUTH_REMOTE) {
+    const user = userFromRequest(req);
+    if (!user) return res.status(401).json({ error: 'no auth' });
+    const r = await runLiveLock(user.id, action, req.body || {});
+    return liveLockHttpResult(res, r);
+  }
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  if (!isUserActive(user)) return res.status(403).json({ error: 'pending' });
+  const r = await runLiveLock(user.id, action, req.body || {});
+  return liveLockHttpResult(res, r);
+}
+async function handleLiveLockByKey(req, res, action) {
+  const key = String(req.body?.roomKey || '').trim();
+  if (!key) return res.status(400).json({ error: 'falta roomKey' });
+  if (AUTH_REMOTE) {
+    try {
+      const r = await fetch(`${AUTH_REMOTE}/api/live-lock/${action}-key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      });
+      const data = await r.json().catch(() => ({}));
+      return res.status(r.status).json(data);
+    } catch {
+      return res.status(503).json({ error: 'Sin conexión con la nube.' });
+    }
+  }
+  const user = getUserByRoomKey(key);
+  if (!user) return res.status(401).json({ error: 'bad key' });
+  if (!isUserActive(user)) return res.status(403).json({ error: 'pending' });
+  const r = await runLiveLock(user.id, action, req.body || {});
+  return liveLockHttpResult(res, r);
+}
+app.post('/api/live-lock/claim', express.json({ limit: '8kb' }), (req, res) => handleLiveLockAuthed(req, res, 'claim'));
+app.post('/api/live-lock/heartbeat', express.json({ limit: '8kb' }), (req, res) => handleLiveLockAuthed(req, res, 'heartbeat'));
+app.post('/api/live-lock/release', express.json({ limit: '8kb' }), (req, res) => handleLiveLockAuthed(req, res, 'release'));
+app.post('/api/live-lock/claim-key', express.json({ limit: '8kb' }), (req, res) => handleLiveLockByKey(req, res, 'claim'));
+app.post('/api/live-lock/heartbeat-key', express.json({ limit: '8kb' }), (req, res) => handleLiveLockByKey(req, res, 'heartbeat'));
+app.post('/api/live-lock/release-key', express.json({ limit: '8kb' }), (req, res) => handleLiveLockByKey(req, res, 'release'));
+
 app.get('/api/panel-lives', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
@@ -2054,17 +2141,6 @@ function erReadLive(room) {
       return raw;
     }
   } catch {}
-  if (room !== 'local') {
-    const localMem = editorRapidoLiveByRoom.get('local');
-    if (localMem?.payload) return localMem;
-    try {
-      const raw = JSON.parse(fs.readFileSync(erLiveFile('local'), 'utf8'));
-      if (raw?.payload) {
-        editorRapidoLiveByRoom.set('local', raw);
-        return raw;
-      }
-    } catch {}
-  }
   return null;
 }
 
@@ -2322,7 +2398,10 @@ app.post('/api/desktop/connect-live', express.json(), async (req, res) => {
   const username = String(req.body?.username || '').trim().replace(/^@/, '');
   if (!username) return res.status(400).json({ error: 'falta usuario' });
   try {
-    const data = await relayRoomActionToRemote(user.id, 'connect', { username });
+    const data = await relayRoomActionToRemote(user.id, 'connect', {
+      username,
+      deviceId: String(req.body?.deviceId || ''),
+    });
     res.json(data);
   } catch (e) {
     res.status(502).json({ error: e.message || 'sin conexión con la nube' });
@@ -2338,6 +2417,26 @@ app.post('/api/desktop/disconnect-live', express.json(), async (req, res) => {
   } catch (e) {
     res.status(502).json({ error: e.message || 'sin conexión con la nube' });
   }
+});
+app.post('/api/room/connect', express.json(), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const username = String(req.body?.username || '').trim().replace(/^@/, '');
+  if (!username) return res.status(400).json({ error: 'falta usuario' });
+  const room = getRoomForUser(user);
+  room.handleMessage(null, {
+    action: 'connect',
+    username,
+    deviceId: String(req.body?.deviceId || ''),
+  });
+  res.json({ ok: true });
+});
+app.post('/api/room/disconnect', express.json(), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  const room = getRoomForUser(user);
+  room.handleMessage(null, { action: 'disconnect' });
+  res.json({ ok: true });
 });
 // Prueba / reproducción local de videos por nivel (public/video/niveles). Siempre usa el
 // servidor de esta PC, no el WebSocket a la nube (los .webm están en disco local).
@@ -4276,6 +4375,13 @@ function ttsEdgeFallbackVoice(tiktokVoice) {
   return female ? EDGE_EN_FALLBACK.f : EDGE_EN_FALLBACK.m;
 }
 
+/** Respaldo Edge ES si TikTok/Disney no responde y hay que leer en español. */
+function ttsSpanishEdgeForEnVoice(tiktokVoice) {
+  const v = String(tiktokVoice || '').toLowerCase();
+  const female = /female|leota|betty|grandma|richgirl|makeup|samc|emotional|pansino/.test(v);
+  return female ? 'es-MX-DaliaNeural' : 'es-MX-JorgeNeural';
+}
+
 app.post('/api/tts/translate', express.json(), async (req, res) => {
   const text = String((req.body && req.body.text) || '').trim();
   const sourceLang = String((req.body && req.body.source) || 'es').trim().toLowerCase().slice(0, 5) || 'es';
@@ -4377,10 +4483,16 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
   const isEnVoice = !isEdge && /^en[_-]/i.test(voice);
   const isEsVoice = isEdge || /^es[_-]/i.test(voice);
   try {
-    if (isEnVoice && ttsLooksSpanish(text)) {
+    if (speakEs) {
+      // «Leer en español»: el personaje (Stitch, etc.) se queda; solo el texto va a español.
+      if (!ttsLooksSpanish(text)) {
+        const es = await ttsTranslateCached(text, 'en', 'es');
+        if (es) { text = es; translated = true; }
+      }
+    } else if (isEnVoice && ttsLooksSpanish(text)) {
       const en = await ttsTranslateCached(text, 'es', 'en');
       if (en) { text = en; translated = true; }
-    } else if (speakEs && isEsVoice && ttsLooksEnglish(text)) {
+    } else if (isEsVoice && ttsLooksEnglish(text)) {
       const es = await ttsTranslateCached(text, 'en', 'es');
       if (es) { text = es; translated = true; }
     }
@@ -4398,7 +4510,7 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
       ? await ttsWithTimeout(ttsSynthEdge(text, voice, 7000), 7500).catch(() => '')
       : await ttsWithTimeout(ttsSynthTikTok(text, voice), 4500).catch(() => '');
     if (!audio && !isEdge) {
-      const fb = ttsEdgeFallbackVoice(voice);
+      const fb = speakEs ? ttsSpanishEdgeForEnVoice(voice) : ttsEdgeFallbackVoice(voice);
       audio = await ttsWithTimeout(ttsSynthEdge(text, fb, 7000), 7500).catch(() => '');
       usedFallback = !!audio;
     }

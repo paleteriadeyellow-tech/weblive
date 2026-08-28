@@ -204,7 +204,7 @@ function buildKeepAliveWorker() {
       if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
         connectWS();
       } else if (ws.readyState === WebSocket.OPEN) {
-        try { ws.send('{"action":"ping"}'); } catch {}
+        try { ws.send(JSON.stringify({ action: 'ping', deviceId: liveDeviceId() })); } catch {}
       }
       if (relayActive()) {
         if (!localWs || localWs.readyState === WebSocket.CLOSED || localWs.readyState === WebSocket.CLOSING) {
@@ -749,12 +749,17 @@ function applyCaps() {
   try { updateVideosAiLocks(); } catch {}
   try { applyEditorRapidoLock(); } catch {}
   try { applyBaileOverlayLock(); } catch {}
+  document.querySelectorAll('.nav-item[data-view="batallas"]').forEach((btn) => { btn.style.display = 'none'; });
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
     const cap = TAB_CAP[btn.dataset.view];
     if (!cap) return;
     // Editor Pro: no ocultar; se muestra con candadito (VIP / Founder).
+    if (btn.dataset.view === 'batallas') {
+      btn.style.display = 'none';
+      return;
+    }
     if (btn.dataset.view === 'editor-rapido') {
       btn.style.display = '';
       return;
@@ -2154,6 +2159,7 @@ async function runTikfinityTfcFullImport(ciphertext, opts = {}) {
 function handle(type, p) {
   if (type === 'ttsClaimResult') { onTtsClaimResult(p); return; }
   if (type === 'ttsClaimed') { onTtsClaimed(p); return; }
+  if (type === 'liveLockDenied') { showLiveLockDenied(p?.message); return; }
   switch (type) {
     case 'state': renderState(p); break;
     case 'followerCounter':
@@ -3844,6 +3850,7 @@ function toggleAnnPop(open) {
   };
   openDiscord(document.getElementById('btnDiscordJoin'));
   openDiscord(document.getElementById('homeDiscordJoin'));
+  openDiscord(document.getElementById('homePromoDiscord'));
   document.querySelectorAll('#homeAgencySf, #homeAgencyTree').forEach((el) => {
     el.addEventListener('click', (e) => {
       const url = el.getAttribute('href');
@@ -4610,14 +4617,43 @@ function desktopRelayOn() {
   return IS_DESKTOP && !!(window.desktopAPI && window.desktopAPI.relayMode);
 }
 
+function liveDeviceId() {
+  try {
+    let id = localStorage.getItem('lc_live_device');
+    if (id && String(id).length >= 12) return String(id);
+    const buf = new Uint8Array(16);
+    crypto.getRandomValues(buf);
+    id = Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem('lc_live_device', id);
+    return id;
+  } catch {
+    return '';
+  }
+}
+
+function showLiveLockDenied(message) {
+  const text = String(message || 'Esta cuenta ya está en live en otro dispositivo. Cierra el live o pulsa Desconectar ahí para poder conectar aquí.');
+  try { toast(text, 'warn'); } catch {}
+  if (typeof askConfirm === 'function') {
+    askConfirm({
+      title: 'Cuenta en uso en otra PC',
+      message: text,
+      confirmText: 'Entendido',
+      cancelText: 'Cerrar',
+      icon: '🔒',
+      danger: false,
+    }).catch(() => {});
+  }
+}
+
 async function relayConnectHttp(username) {
   const r = await fetch('/api/desktop/connect-live', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username }),
+    body: JSON.stringify({ username, deviceId: liveDeviceId() }),
   });
   const d = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(d.error || 'No se pudo conectar');
+  if (!r.ok) throw new Error(d.message || d.error || 'No se pudo conectar');
   return d;
 }
 
@@ -4701,21 +4737,23 @@ async function doConnect() {
         await relayConnectHttp(u);
         toast('Conectando a @' + u + '…', 'ok');
       } catch (e) {
-        toast(e.message || 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.', 'warn');
+        const msg = e.message || '';
+        if (/otro dispositivo|en live/i.test(msg)) showLiveLockDenied(msg);
+        else toast(msg || 'Sin sesión con la nube. Cierra sesión y vuelve a entrar.', 'warn');
         resetConnectBtn();
       }
       return;
     }
 
     if (ws?.readyState === 1) {
-      send({ action: 'connect', username: u });
+      send({ action: 'connect', username: u, deviceId: liveDeviceId() });
       return;
     }
 
     connectWS();
     const ok = await waitForWsOpen(relay ? 12000 : 8000);
     if (ok) {
-      send({ action: 'connect', username: u });
+      send({ action: 'connect', username: u, deviceId: liveDeviceId() });
       return;
     }
     if (relay) {
@@ -4729,7 +4767,9 @@ async function doConnect() {
         toast('Conectando a @' + u + '…', 'ok');
         return;
       } catch (e) {
-        toast(e.message || 'Render no responde. Espera 1 min y vuelve a intentar.', 'warn');
+        const msg = e.message || '';
+        if (/otro dispositivo|en live/i.test(msg)) showLiveLockDenied(msg);
+        else toast(msg || 'Render no responde. Espera 1 min y vuelve a intentar.', 'warn');
         resetConnectBtn();
         return;
       }
@@ -5454,6 +5494,7 @@ function applySettingsToUI(touchedKeys) {
   }
 
   if (has('jarron')) applyJarronUI();
+  if (has('topDonor')) try { window.__syncTopDonorSkin?.(); } catch {}
   if (hasAny('batallaGifts', 'batallaLikes')) try { window.__syncBatallaSkins?.(); } catch {}
   if (has('habibiTop')) {
     try { window.__syncHabibiDesign?.(); } catch {}
@@ -8964,6 +9005,88 @@ function renderPotSimGiftBtn(key) {
   }
 })();
 
+(function setupTopDonorSkins() {
+  const TOP_SKINS = [
+    { id: 'classic', name: 'Neón' },
+    { id: 'gold', name: 'Oro' },
+    { id: 'cyber', name: 'Cyber' },
+    { id: 'royal', name: 'Royal' },
+    { id: 'glass', name: 'Cristal' },
+    { id: 'podium', name: 'Podio' },
+  ];
+  const idxOf = (id) => {
+    const i = TOP_SKINS.findIndex((s) => s.id === id);
+    return i < 0 ? 0 : i;
+  };
+  let localId = 'classic';
+  let swapUntil = 0;
+  let saveTimer = null;
+  const syncUi = (id) => {
+    const skin = TOP_SKINS[idxOf(id)];
+    if ($('top-skin-name')) $('top-skin-name').textContent = skin.name;
+    if ($('top-skin-idx')) $('top-skin-idx').textContent = `${idxOf(skin.id) + 1} / ${TOP_SKINS.length}`;
+  };
+  const pushPreviewSkin = (skin) => {
+    const cfg = { ...(settings?.topDonor || {}), skin };
+    ensureEmbedLoaded('top-preview').then((fr) => {
+      try { fr?.contentWindow?.postMessage({ kind: 'topdonor', type: 'config', config: cfg }, '*'); } catch {}
+    });
+  };
+  const apply = (id, persist) => {
+    const skin = TOP_SKINS[idxOf(id)].id;
+    localId = skin;
+    swapUntil = Date.now() + 1600;
+    if (settings) {
+      if (!settings.topDonor) settings.topDonor = {};
+      settings.topDonor.skin = skin;
+    }
+    syncUi(skin);
+    pushPreviewSkin(skin);
+    if (!persist) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      const run = () => {
+        try {
+          if (typeof saveSettingsKeysPatch === 'function') saveSettingsKeysPatch('topDonor');
+          else saveSettings();
+        } catch {}
+      };
+      if (typeof applyingSettings !== 'undefined' && applyingSettings) setTimeout(run, 80);
+      else run();
+    }, 280);
+  };
+  if (!$('top-skin-prev') && !$('top-skin-next')) return;
+  $('top-skin-prev') && ($('top-skin-prev').onclick = () => {
+    apply(TOP_SKINS[(idxOf(localId) - 1 + TOP_SKINS.length) % TOP_SKINS.length].id, true);
+  });
+  $('top-skin-next') && ($('top-skin-next').onclick = () => {
+    apply(TOP_SKINS[(idxOf(localId) + 1) % TOP_SKINS.length].id, true);
+  });
+  try {
+    localId = settings?.topDonor?.skin || 'classic';
+    if (!TOP_SKINS.some((s) => s.id === localId)) localId = 'classic';
+    syncUi(localId);
+  } catch {}
+  $('top-preview')?.addEventListener('load', () => pushPreviewSkin(localId));
+  window.__syncTopDonorSkin = () => {
+    try {
+      if (Date.now() < swapUntil) {
+        if (settings) {
+          if (!settings.topDonor) settings.topDonor = {};
+          settings.topDonor.skin = localId;
+        }
+        syncUi(localId);
+        pushPreviewSkin(localId);
+        return;
+      }
+      localId = settings?.topDonor?.skin || 'classic';
+      if (!TOP_SKINS.some((s) => s.id === localId)) localId = 'classic';
+      syncUi(localId);
+    } catch {}
+  };
+})();
+
 (function setupJarronSkins() {
   const JAR_SKINS = [
     { id: 'classic', name: 'Clásico' },
@@ -9527,6 +9650,7 @@ function currentTopCfg() {
     scale: Number($('topcfg-scale').value) || 100,
     showCountdown: $('topcfg-countdown').checked,
     showRunners: $('topcfg-runners').checked,
+    skin: settings?.topDonor?.skin || 'classic',
   };
 }
 function pushTopPreview() { topToPreview({ type: 'config', config: currentTopCfg() }); }
@@ -9557,7 +9681,7 @@ $('topcfg-resetweek').onclick = async () => {
   if (ok) send({ action: 'resetWeeklyTop' });
 };
 $('topcfg-save').onclick = () => {
-  settings.topDonor = currentTopCfg();
+  settings.topDonor = { ...(settings.topDonor || {}), ...currentTopCfg() };
   saveSettings();
   closeTopConfig();
 };
@@ -11187,7 +11311,8 @@ const STYLE_OVERLAYS = [
     btnTest: 'bco-test', btnReset: 'bco-reset', btnConfig: 'bco-config',
     modalId: 'bcoConfigModal', closeId: 'bcocfg-close', saveId: 'bcocfg-save',
     testAction: 'testBaileCombo', resetAction: 'resetBaileCombo',
-    map: { 'bcocfg-title': 'title' },
+    map: { 'bcocfg-title': 'title', 'bcocfg-gap': 'rowGap', 'bcocfg-coins': 'coinsPerCombo' },
+    types: { rowGap: 'int', coinsPerCombo: 'int' },
   }),
   setupStyleOverlay({
     kind: 'bailerank', settingsKey: 'baileRank', previewId: 'brk-preview',
@@ -15442,14 +15567,6 @@ function ttsSpeakTextForUser(text, userId, nickname) {
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
   const uv = ttsFindUserVoice(userId, nickname);
-  if (uv?.engine === 'elevenlabs') {
-    if (ttsElevenLabsReady(cfg)) { ttsSpeakElevenLabs(phrase, cfg); return; }
-    toast('ElevenLabs: falta API key guardada para esa voz de usuario.', 'warn');
-    ttsSpeakSystem(phrase, settings?.tts || {});
-    return;
-  }
-  // Sin override: si EL global está listo, usarlo.
-  if (!uv && ttsElevenLabsReady(cfg)) { ttsSpeakElevenLabs(phrase, cfg); return; }
   const sv = ttsServerVoiceFromSettings(cfg);
   if (sv) { ttsSpeakTikTok(phrase, sv); return; }
   ttsSpeakSystem(phrase, cfg);
@@ -15766,8 +15883,6 @@ function ttsSpeakText(text, opts = {}) {
   if (!force && phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
-  // ElevenLabs (API del creador): solo si está activado y completo; si no, flujo normal.
-  if (ttsElevenLabsReady(t)) { ttsSpeakElevenLabs(phrase, t); return; }
   // Disney/TikTok del dropdown gana sobre idioma Edge (si no, Probar voz / regalos usaban Edge).
   const sv = ttsServerVoiceFromSettings(t);
   if (sv) { ttsSpeakTikTok(phrase, sv); return; }
@@ -16133,8 +16248,7 @@ function ttsEnsureElevenlabs() {
 let ttsElVoicesCache = [];
 
 function ttsElevenLabsReady(t) {
-  const el = t?.elevenlabs;
-  return !!(el && el.enabled && String(el.apiKey || '').trim() && String(el.voiceId || '').trim());
+  return false;
 }
 
 function ttsSpeakElevenLabs(phrase, t) {
@@ -16884,15 +16998,7 @@ function openTtsWarnModal(onAccept) {
 
   const test = $('tts-test');
   if (test) test.onclick = () => {
-    const el = ttsSyncElevenlabsFromDom();
     try { saveSettings(); } catch { /* ignore */ }
-    if (el.enabled && !ttsElevenLabsReady({ elevenlabs: el })) {
-      toast('ElevenLabs está ON pero falta API key o voz. Pulsa ? o Cargar voces.', 'warn');
-      return;
-    }
-    if (ttsElevenLabsReady(settings.tts)) {
-      toast('Probando voz ElevenLabs…', 'ok');
-    }
     ttsSpeakText('Hola, así se escucha el chat por voz', { force: true });
   };
   const stop = $('tts-stop');

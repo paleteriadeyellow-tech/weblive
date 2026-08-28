@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=tp10" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=promo1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -99,7 +99,7 @@
               <button class="nav-item" data-view="acciones" id="navAcciones" style="display:none" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-acciones.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Acciones</span></button>
               <button class="nav-item" data-view="alertas" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-sonidos.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Sonidos</span></button>
               <button class="nav-item" data-view="videos" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-videos.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Videos</span></button>
-              <button class="nav-item" data-view="batallas" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-batallas.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Batallas</span></button>
+              <button class="nav-item" data-view="batallas" id="navBatallas" style="display:none" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-batallas.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Batallas</span></button>
             </div>
           </div>
         </div>
@@ -201,7 +201,7 @@
             </div>
             <button id="btnConnect" class="btn primary">Conectar</button>
             <button id="btnDisconnect" class="btn ghost" hidden>Desconectar</button>
-            <button type="button" class="btn discord-join-btn" id="btnDiscordJoin" data-url="https://discord.gg/YbQPCZ9wuz" title="?nete al Discord de Livecoins" hidden aria-hidden="true">
+            <button type="button" class="btn discord-join-btn" id="btnDiscordJoin" data-url="https://discord.gg/EdZCWK7Gxz" title="?nete al Discord de Livecoins" hidden aria-hidden="true">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
               <span>?nete al Discord</span>
             </button>
@@ -259,7 +259,7 @@
               <div class="home-split-main">
                 <div class="home-community-grid">
                   <div class="home-comm-stack">
-                    <button type="button" class="home-comm-card home-comm-discord" id="homeDiscordJoin" data-url="https://discord.gg/YbQPCZ9wuz">
+                    <button type="button" class="home-comm-card home-comm-discord" id="homeDiscordJoin" data-url="https://discord.gg/EdZCWK7Gxz">
                       <span class="home-comm-card-ico" aria-hidden="true">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
                       </span>
@@ -326,19 +326,10 @@
                 </div>
               </div>
 
-              <aside class="home-promo-silla" id="homePromoSilla" aria-roledescription="carrusel" aria-label="Promos Livecoins">
-                <div class="home-promo-track">
-                  <div class="home-promo-slide is-active" data-slide="0">
-                    <img src="/img/home-sorteo-silla.png?v=2" alt="Livecoins ? Sorteo de silla gamer cada mes" width="340" height="512" decoding="async">
-                  </div>
-                  <div class="home-promo-slide" data-slide="1">
-                    <img src="/img/home-promo-slide-2.png?v=2" alt="Livecoins Premium" width="340" height="512" decoding="async">
-                  </div>
-                </div>
-                <div class="home-promo-dots" id="homePromoDots" role="tablist" aria-label="Elegir promo">
-                  <button type="button" class="home-promo-dot is-active" data-dot="0" aria-label="Promo 1" aria-selected="true"></button>
-                  <button type="button" class="home-promo-dot" data-dot="1" aria-label="Promo 2" aria-selected="false"></button>
-                </div>
+              <aside class="home-promo-silla" id="homePromoSilla" aria-label="Únete al Discord de Livecoins">
+                <button type="button" class="home-promo-fixed" id="homePromoDiscord" data-url="https://discord.gg/EdZCWK7Gxz" title="Únete al Discord de Livecoins">
+                  <img src="/img/home-promo-discord.png?v=1" alt="No olvides unirte a Discord para cualquier duda o sugerencia" width="340" height="512" decoding="async">
+                </button>
               </aside>
             </div>
 
@@ -1081,7 +1072,7 @@
             <aside class="er-side">
               <div class="er-block">
                 <div class="er-sec">Cuadros</div>
-                <p class="er-hint">Suma o resta: al poner mÃ¡s, se hacen mÃ¡s chicos solos (1â€“36).</p>
+                <p class="er-hint">Suma o resta: al poner mÃ¡s, se hacen mÃ¡s chicos solos (1–64).</p>
                 <div class="er-count-stepper">
                   <button type="button" class="er-count-step" id="er-count-minus" aria-label="Menos cuadros">âˆ’</button>
                   <input type="number" class="er-count-input" id="er-count-input" min="1" max="64" value="4" inputmode="numeric">
@@ -3759,6 +3750,17 @@
             <div class="modal-body">
               <label class="ml">TÍTULO</label>
               <input type="text" id="bcocfg-title" placeholder="TOP COMBO">
+              <div class="gvscfg-grid2">
+                <div>
+                  <label class="ml">ESPACIO ENTRE BARRAS (px)</label>
+                  <input type="number" id="bcocfg-gap" min="0" max="48" value="12">
+                </div>
+                <div>
+                  <label class="ml">MONEDAS POR 1 COMBO</label>
+                  <input type="number" id="bcocfg-coins" min="1" max="10000" value="100">
+                </div>
+              </div>
+              <p class="ovpro-desc" style="margin:8px 0 0">Ejemplo: 100 = un combo cada 100 monedas. 1 = un combo por cada moneda.</p>
             </div>
             <div class="modal-foot"><button class="btn primary" id="bcocfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
@@ -6007,10 +6009,18 @@
                 <code class="ov-url" data-path="/topdonor.html">/topdonor.html</code>
                 <button class="ovpro-copy ov-copy">Copiar enlace</button>
               </div>
+              <div class="tmr-skin-bar" id="top-skin-bar" style="margin:8px 0 10px">
+                <button type="button" class="tmr-skin-arrow" id="top-skin-prev" title="Diseño anterior" aria-label="Diseño anterior">‹</button>
+                <div class="tmr-skin-meta">
+                  <b id="top-skin-name">Neón</b>
+                  <span id="top-skin-idx">1 / 6</span>
+                </div>
+                <button type="button" class="tmr-skin-arrow" id="top-skin-next" title="Diseño siguiente" aria-label="Diseño siguiente">›</button>
+              </div>
 
-              <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="top-preview" data-src="/topdonor.html?embed=1" title="Vista previa top donador"></iframe>
+                <iframe id="top-preview" data-src="/topdonor.html?embed=1&v=topskin1" title="Vista previa top donador"></iframe>
               </div>
             </div>
 
@@ -6939,14 +6949,14 @@
                   </div>
                 </div>
                 <h3 class="ovpro-title">Top combo</h3>
-                <p class="ovpro-desc">Top 3 del live por <b>racha de regalos</b> (combo). Tamaño recomendado <b>320×220</b>.</p>
+                <p class="ovpro-desc">Top 3 del live por <b>racha de regalos</b> (combo). Tamaño recomendado <b>270×240</b>.</p>
                 <div class="ovpro-urlrow">
                   <code class="ov-url" data-path="/baile-combo.html">/baile-combo.html</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TEST</div>
                 <div class="ovpro-preview ovpro-preview--baile-combo">
-                  <iframe id="bco-preview" data-src="/baile-combo.html?embed=1&amp;v=baile12" title="Vista previa top combo baile"></iframe>
+                  <iframe id="bco-preview" data-src="/baile-combo.html?embed=1&amp;v=baile18" title="Vista previa top combo baile"></iframe>
                 </div>
               </div>
 
@@ -7236,40 +7246,7 @@
                   </optgroup>
                 </select>
                 <label class="switch-row plain" style="margin-top:8px;"><input type="checkbox" id="tts-tiktok-translate" checked> <span>Leer en <strong>espa?ol</strong></span></label>
-                <p class="hint">Marcada = traduce el chat al español (voces Edge / TikTok en español). Las Disney / personajes solo hablan inglés: el español se traduce a inglés para que suenen. Si eliges una voz aquí, sustituye a la voz del sistema.</p>
-              </div>
-
-              <!-- ElevenLabs: voz clonada con API del creador -->
-              <div class="field tts-el-block" id="tts-elevenlabs-wrap">
-                <div class="tts-el-head">
-                  <label>Mi voz ? ElevenLabs <span style="font-weight:600;color:#94a3b8;">(t? pagas tu API)</span></label>
-                  <button type="button" class="tts-help-btn" id="tts-el-help" title="?C?mo configurar ElevenLabs?" aria-label="Ayuda ElevenLabs">?</button>
-                </div>
-                <label class="switch-row plain"><input type="checkbox" id="tts-el-enabled"> <span>Usar mi voz de ElevenLabs para leer el chat</span></label>
-                <p class="hint">Si lo activas (con API key + voz), tiene prioridad sobre TikTok / Edge / sistema. Si lo apagas, el Chat TTS sigue igual que antes.</p>
-                <div class="field">
-                  <label>API key de ElevenLabs</label>
-                  <div class="tts-el-key-row">
-                    <input type="password" id="tts-el-apikey" placeholder="xi-?" autocomplete="off" spellcheck="false">
-                    <button type="button" class="btn ghost" id="tts-el-load-voices">Cargar voces</button>
-                  </div>
-                </div>
-                <div class="field">
-                  <label>Voz</label>
-                  <select id="tts-el-voice">
-                    <option value="">? Carga tus voces o clona una abajo ?</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label>Clonar voz nueva (sube 10?30 s de audio limpio)</label>
-                  <div class="tts-el-clone-row">
-                    <input type="text" id="tts-el-clone-name" placeholder="Nombre de la voz (ej. Mi voz)" maxlength="60">
-                    <input type="file" id="tts-el-clone-file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm">
-                    <button type="button" class="btn ghost" id="tts-el-clone-btn">Clonar</button>
-                  </div>
-                  <p class="hint">Necesitas plan <b>Starter</b> o superior en ElevenLabs para Instant Voice Cloning. Usa solo tu voz o con permiso.</p>
-                </div>
-                <p class="tts-sub" id="tts-el-status"></p>
+                <p class="hint">Marcada = el chat se lee en español con la voz que elijas (Stitch y Disney conservan el personaje). Desmarcada = Disney traduce a inglés. Si eliges una voz aquí, sustituye a la voz del sistema.</p>
               </div>
 
               <div class="field">
@@ -7411,7 +7388,6 @@
                     <option value="disney">Disney / Personajes</option>
                     <option value="edge">Microsoft Edge (espa?ol ? por pa?s)</option>
                     <option value="system">Sistema (navegador)</option>
-                    <option value="elevenlabs">ElevenLabs (mi API)</option>
                   </select>
                 </div>
                 <div class="field">
@@ -10630,53 +10606,9 @@
     </div>
   </div>
 
-  <div class="modal hidden" id="ttsElHelpModal" aria-hidden="true">
-    <div class="modal-box wide tts-el-help-box">
-      <div class="modal-head">
-        <h2>CÃ³mo usar tu voz con ElevenLabs</h2>
-        <button type="button" class="modal-close" id="tts-el-help-close" aria-label="Cerrar">Ã—</button>
-      </div>
-      <div class="modal-body tts-el-help-body">
-        <p class="hint" style="margin-top:0">Livecoins <b>no cobra</b> ni paga ElevenLabs: usas <b>tu</b> cuenta y <b>tu</b> API key. El Chat TTS normal (Edge / TikTok / sistema) sigue funcionando si desactivas esta opciÃ³n.</p>
-        <ol class="tts-el-steps">
-          <li>
-            <b>Crea una cuenta</b> en
-            <a href="https://elevenlabs.io/app/sign-up" target="_blank" rel="noopener">elevenlabs.io</a>
-            e inicia sesiÃ³n.
-          </li>
-          <li>
-            <b>Contrata un plan de pago</b> (mÃ­nimo <b>Starter</b>, ~5â€“6 USD/mes). El plan Free casi no alcanza para un live y el clonado de voz requiere plan de pago.
-            Planes: <a href="https://elevenlabs.io/pricing" target="_blank" rel="noopener">elevenlabs.io/pricing</a>
-          </li>
-          <li>
-            Entra a <b>Profile â†’ API Keys</b> (o
-            <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">Ajustes â†’ API Keys</a>)
-            y pulsa <b>Create API Key</b>. Copia la key (empieza por <code>xi-</code> o similar).
-          </li>
-          <li>
-            En Livecoins â†’ <b>Chat TTS</b> â†’ secciÃ³n <b>Mi voz Â· ElevenLabs</b>:
-            pega la API key y pulsa <b>Cargar voces</b> para ver las voces de tu cuenta.
-          </li>
-          <li>
-            <b>OpciÃ³n A â€” Clonar tu voz:</b> pon un nombre, sube un audio limpio de <b>10â€“30 segundos</b> (solo tÃº hablando, sin mÃºsica) y pulsa <b>Clonar</b>.
-            <br><b>OpciÃ³n B:</b> elige una voz que ya tengas en ElevenLabs en el desplegable.
-          </li>
-          <li>
-            Activa <b>Â«Usar mi voz de ElevenLabsâ€¦Â»</b>. Con Chat TTS activado, el chat se leerÃ¡ con esa voz.
-            Si se te acaban los crÃ©ditos o la key falla, desactiva el interruptor y volverÃ¡s a Edge/TikTok/sistema.
-          </li>
-        </ol>
-        <p class="hint">Privacidad: la key se guarda en <b>tus</b> ajustes de Livecoins. No compartas la key ni clones voces de otras personas sin permiso.</p>
-      </div>
-      <div class="modal-foot">
-        <button type="button" class="btn primary" id="tts-el-help-ok">Entendido</button>
-      </div>
-    </div>
-  </div>
-
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=ttsfix3"></script>
-  <script src="/js/editor-rapido.js?v=er84"></script>
+  <script src="/js/dashboard.js?v=livelock1"></script>
+  <script src="/js/editor-rapido.js?v=er86"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>
 </body>

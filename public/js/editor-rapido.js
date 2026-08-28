@@ -244,6 +244,11 @@
   function emptyFreeMove() {
     return Array.from({ length: MAX_COUNT }, () => false);
   }
+  function isExternalMediaSrc(src) {
+    const s = String(src || '');
+    if (!s) return false;
+    return s.startsWith('data:') || s.startsWith('blob:') || s.includes('/api/editor-rapido/media/');
+  }
 
   function clampItemScale(n) {
     const v = Number(n);
@@ -968,10 +973,8 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(st));
     } catch {
-      try {
-        const slim = { ...st, overlays: emptySlots(), gifts: emptySlots(), texts: emptyTextSlots() };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
-      } catch {}
+      // Quota: no borrar imágenes que siguen en el montaje. Subir a disco y reintentar.
+      schedulePersistMediaAndSave();
     }
     if (!opts?.skipHistory) pushHistory();
     markEdited();
@@ -986,6 +989,8 @@
   try { activeTplId = String(localStorage.getItem(TPL_ACTIVE_KEY) || ''); } catch {}
   let livePublishTimer = null;
   let liveHeartbeatTimer = null;
+  let persistMediaSaveTimer = null;
+  let lastErLiveWarnAt = 0;
   let liveChannel = null;
   try { liveChannel = new BroadcastChannel(LIVE_BC); } catch {}
   /** @type {Array<{id:string,name:string,protected:boolean,savedAt:number,data:any}>|null} */
@@ -2136,6 +2141,91 @@
     return String(j.url);
   }
 
+  async function persistSrcIfNeeded(src) {
+    const s = String(src || '');
+    if (!s) return '';
+    if (!s.startsWith('data:')) return s;
+    try {
+      return await uploadErMedia(s);
+    } catch (e) {
+      console.warn('Editor Pro: no se pudo subir imagen', e);
+      warnErLive('No se pudo guardar la imagen en disco. Sigue en el montaje; pulsa Guardar otra vez.');
+      return s;
+    }
+  }
+
+  function schedulePersistMediaAndSave() {
+    if (persistMediaSaveTimer) return;
+    persistMediaSaveTimer = setTimeout(() => {
+      persistMediaSaveTimer = null;
+      ensureMediaForLive(state).then(() => {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      }).catch(() => {});
+    }, 80);
+  }
+
+  function mergeKeptMedia(from, to) {
+    if (!from || !to) return to;
+    const fill = (fromArr, toArr) => {
+      if (!Array.isArray(fromArr) || !Array.isArray(toArr)) return;
+      for (let i = 0; i < MAX_COUNT; i++) {
+        if (fromArr[i]?.src && !toArr[i]?.src) toArr[i] = cloneItem(fromArr[i]);
+      }
+    };
+    fill(from.overlays, to.overlays);
+    fill(from.gifts, to.gifts);
+    if (from.fondoCustomSrc && !to.fondoCustomSrc) {
+      to.fondoCustomSrc = from.fondoCustomSrc;
+      if (from.fondo === 'custom') to.fondo = 'custom';
+    }
+    if (from.filasSnap && to.filasSnap) {
+      fill(from.filasSnap.overlays, to.filasSnap.overlays);
+      fill(from.filasSnap.gifts, to.filasSnap.gifts);
+    }
+    return to;
+  }
+
+  function fillEmptyMediaFrom(srcSt) {
+    if (!srcSt) return false;
+    const before = JSON.stringify({
+      o: (state.overlays || []).map((x) => x?.src || ''),
+      g: (state.gifts || []).map((x) => x?.src || ''),
+      f: state.fondoCustomSrc || '',
+    });
+    mergeKeptMedia(srcSt, state);
+    const after = JSON.stringify({
+      o: (state.overlays || []).map((x) => x?.src || ''),
+      g: (state.gifts || []).map((x) => x?.src || ''),
+      f: state.fondoCustomSrc || '',
+    });
+    return before !== after;
+  }
+
+  async function restoreKeptMediaFromDisk() {
+    let changed = false;
+    const id = activeTemplateId();
+    if (id) {
+      try {
+        await ensureTemplatesLoaded();
+        const tpl = getTemplatesSync().find((t) => t.id === id);
+        if (tpl?.data) changed = fillEmptyMediaFrom(normalizeState(tpl.data)) || changed;
+      } catch {}
+    }
+    try {
+      const room = liveRoomKey();
+      const r = await fetch(`/api/editor-rapido/live?room=${encodeURIComponent(room)}`, { cache: 'no-store' });
+      const j = await r.json().catch(() => null);
+      const payload = j?.live?.payload;
+      if (payload) changed = fillEmptyMediaFrom(normalizeState(payload)) || changed;
+    } catch {}
+    if (!changed) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {
+      schedulePersistMediaAndSave();
+    }
+    renderGrid();
+    schedulePublishLive();
+  }
+
   async function replaceDataSrc(item) {
     if (!item || typeof item !== 'object') return item;
     const src = String(item.src || '');
@@ -2145,6 +2235,7 @@
       return { ...item, src: url };
     } catch (e) {
       console.warn('Editor Pro: no se pudo subir media', e);
+      warnErLive('No se pudo subir una imagen al overlay. Pulsa Guardar otra vez.');
       return item;
     }
   }
@@ -2163,6 +2254,7 @@
           changed = true;
         } catch (e) {
           console.warn('Editor Pro: no se pudo subir fondo custom', e);
+          warnErLive('No se pudo subir el fondo al overlay. Pulsa Guardar otra vez.');
         }
       }
     }
@@ -2183,6 +2275,26 @@
           s.gifts[i] = next;
           if (state.gifts[i]) state.gifts[i] = next;
           changed = true;
+        }
+      }
+    }
+    if (s.filasSnap) {
+      if (Array.isArray(s.filasSnap.overlays)) {
+        for (let i = 0; i < s.filasSnap.overlays.length; i++) {
+          const next = await replaceDataSrc(s.filasSnap.overlays[i]);
+          if (next !== s.filasSnap.overlays[i]) {
+            s.filasSnap.overlays[i] = next;
+            changed = true;
+          }
+        }
+      }
+      if (Array.isArray(s.filasSnap.gifts)) {
+        for (let i = 0; i < s.filasSnap.gifts.length; i++) {
+          const next = await replaceDataSrc(s.filasSnap.gifts[i]);
+          if (next !== s.filasSnap.gifts[i]) {
+            s.filasSnap.gifts[i] = next;
+            changed = true;
+          }
         }
       }
     }
@@ -2223,6 +2335,13 @@
     return changed;
   }
 
+  function warnErLive(msg) {
+    const now = Date.now();
+    if (now - lastErLiveWarnAt < 8000) return;
+    lastErLiveWarnAt = now;
+    toastMsg(msg || 'No se pudo actualizar el overlay en OBS.');
+  }
+
   async function publishLive(st) {
     const ready = await ensureMediaForLive(st || state);
     const payload = snapshotState(ready);
@@ -2238,23 +2357,25 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room, payload }),
       });
-      if (!r.ok) return;
+      if (!r.ok) {
+        warnErLive('No se pudo actualizar el overlay (OBS). Revisa que el .exe esté abierto.');
+        return;
+      }
       const j = await r.json().catch(() => null);
       const cleaned = j?.live?.payload;
       if (!cleaned || typeof cleaned !== 'object') return;
       if (applyCleanedMediaFromPayload(cleaned)) {
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
       }
-    } catch {}
+    } catch {
+      warnErLive('No se pudo actualizar el overlay (OBS). Revisa que el .exe esté abierto.');
+    }
   }
 
   function startLiveHeartbeat() {
     if (liveHeartbeatTimer) return;
-    // Solo mientras Editor Pro está a la vista: OBS sigue recibiendo publishLive
-    // al editar; el heartbeat evita que Live Studio se quede seco si no hay cambios.
+    // Mientras el panel esté abierto (aunque cambies de pestaña): OBS no se queda seco.
     liveHeartbeatTimer = setInterval(() => {
-      const view = document.getElementById('view-editor-rapido');
-      if (!view || !view.classList.contains('active')) return;
       if (document.hidden) return;
       publishLive(state).catch(() => {});
     }, 4000);
@@ -3513,6 +3634,10 @@
       toastMsg('No se pudo abrir la imagen');
       return;
     }
+    if (String(out).startsWith('data:')) {
+      toastMsg('Guardando imagen…');
+      out = await persistSrcIfNeeded(out);
+    }
     startPick(kind, out, name);
   }
 
@@ -3788,12 +3913,16 @@
     toastMsg('Copiado');
   }
 
-  function pasteKind(kind, slotIndex) {
+  async function pasteKind(kind, slotIndex) {
     const clip = kind === 'gift' ? clipboardGift : clipboardImage;
     if (!clip?.src) return;
     const i = Number(slotIndex);
     if (!Number.isFinite(i) || i < 0 || i >= state.count) return;
-    arrFor(kind)[i] = cloneItem(clip);
+    const item = cloneItem(clip);
+    if (item?.src && String(item.src).startsWith('data:')) {
+      item.src = await persistSrcIfNeeded(item.src);
+    }
+    arrFor(kind)[i] = item;
     saveState(state);
     renderGrid();
     toastMsg(`Pegado en el cuadro ${i + 1}`);
@@ -3966,8 +4095,10 @@
       e.target.value = '';
       if (!file) return;
       try {
-        const src = await readFileAsDataUrl(file);
-        if (!src) throw new Error('vacío');
+        const dataUrl = await readFileAsDataUrl(file);
+        if (!dataUrl) throw new Error('vacío');
+        toastMsg('Guardando imagen…');
+        const src = await persistSrcIfNeeded(dataUrl);
         startPick('image', src, file.name || 'imagen');
       } catch {
         toastMsg('No se pudo abrir la imagen');
@@ -4507,6 +4638,11 @@
   function applyCornerPatchToSlot(slot, patch) {
     const i = Number(slot);
     if (!Number.isFinite(i) || i < 0 || i >= MAX_COUNT) return;
+    const cur = state.gifts[i];
+    if (isExternalMediaSrc(cur?.src)) {
+      if (patch?.qty != null) upsertQtyTextAt(i, patch.qty);
+      return;
+    }
     const cornerKey = String(patch?.cornerType || '').toLowerCase();
     if (CORNER_PRESETS[cornerKey]) {
       state.gifts[i] = cloneItem(CORNER_PRESETS[cornerKey]);
@@ -4594,6 +4730,7 @@
     }
     const loaded = loadState();
     if (loaded?.gameSync?.settingsKey === key) {
+      mergeKeptMedia(state, loaded);
       state = loaded;
       return true;
     }
@@ -4641,7 +4778,10 @@
       }
 
       const cornerKey = String(r.cornerType || '').toLowerCase();
-      if (CORNER_PRESETS[cornerKey]) {
+      const prevG = uid ? prevByUid[uid]?.gift : null;
+      if (isExternalMediaSrc(prevG?.src)) {
+        gifts[i] = cloneItem(prevG);
+      } else if (CORNER_PRESETS[cornerKey]) {
         gifts[i] = cloneItem(CORNER_PRESETS[cornerKey]);
       } else {
         const giftSrc = proxiedSrc(r.giftSrc || '');
@@ -4649,7 +4789,6 @@
           gifts[i] = { src: giftSrc, name: String(r.giftName || 'Regalo'), type: 'gift' };
         }
       }
-      const prevG = uid ? prevByUid[uid]?.gift : null;
       if (gifts[i] && prevG && Number.isFinite(Number(prevG.x))) {
         gifts[i].x = clampPct(prevG.x, 82);
         gifts[i].y = clampPct(prevG.y, 82);
@@ -4933,7 +5072,11 @@
     updateUndoRedoBtns();
     publishLive(state).catch(() => {});
     startLiveHeartbeat();
-    ensureTemplatesLoaded().then(() => { renderTplSelect(); updateTplActiveLine(); }).catch(() => {});
+    ensureTemplatesLoaded().then(() => {
+      renderTplSelect();
+      updateTplActiveLine();
+      restoreKeptMediaFromDisk().catch(() => {});
+    }).catch(() => {});
     clearInterval(updateTplActiveLine._t);
     updateTplActiveLine._t = setInterval(updateTplActiveLine, 5000);
   };

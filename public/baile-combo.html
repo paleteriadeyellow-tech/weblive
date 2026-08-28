@@ -19,27 +19,66 @@
     html.embed, html.embed body { width: 100%; height: 100%; }
     html.embed body { display: flex; align-items: center; justify-content: center; }
     html.embed .root { transform: scale(var(--fit, 1)); transform-origin: center center; }
-    .root { width: 320px; display: flex; flex-direction: column; gap: 6px; }
+    .root { width: 268px; display: flex; flex-direction: column; gap: 8px; }
     .title { font-size: 12px; font-weight: 900; letter-spacing: .14em; color: #f5c542; text-shadow: 0 1px 2px rgba(0,0,0,.7); padding: 0 4px; }
+    #list { display: flex; flex-direction: column; gap: var(--row-gap, 12px); }
     .row {
-      display: grid; grid-template-columns: 34px 36px 1fr auto; align-items: center; gap: 8px;
-      padding: 6px 10px; min-height: 48px; border-radius: 14px;
-      background: rgba(0,0,0,.72);
-      transition: transform .25s ease, box-shadow .25s ease;
+      position: relative;
+      display: grid; grid-template-columns: 30px 32px 1fr auto; align-items: center; gap: 6px;
+      padding: 6px 8px; min-height: 46px; border-radius: 14px;
+      background: rgba(0,0,0,.78);
     }
-    .row.is-up { animation: bump .35s ease; }
-    @keyframes bump { 0% { transform: translateY(8px); } 100% { transform: translateY(0); } }
+    .row.is-top {
+      z-index: 3;
+      min-height: 56px;
+      padding: 8px 10px;
+      grid-template-columns: 34px 38px 1fr auto;
+      background: linear-gradient(90deg, rgba(92,64,10,.97), rgba(28,20,4,.94) 55%, rgba(50,36,8,.96));
+      animation: topGlow 1.8s ease-in-out infinite;
+    }
+    .row.is-top::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: linear-gradient(105deg, transparent 28%, rgba(255,230,120,.3) 50%, transparent 72%);
+      background-size: 240% 100%;
+      animation: topShine 2.2s ease-in-out infinite;
+      z-index: 1;
+    }
+    .row.is-top > * { position: relative; z-index: 2; }
+    @keyframes topGlow {
+      0%, 100% { box-shadow: 0 0 0 2px #f5c542, 0 0 14px rgba(245,197,66,.4); }
+      50% { box-shadow: 0 0 0 2px #ffe566, 0 0 22px rgba(255,214,80,.62); }
+    }
+    @keyframes topShine {
+      0% { background-position: 130% 0; }
+      100% { background-position: -30% 0; }
+    }
+    .combo.is-bump { animation: bumpNum .35s ease; }
+    @keyframes bumpNum { 0% { transform: scale(1.28); } 100% { transform: scale(1); } }
+    .plus {
+      position: absolute; right: 8px; top: -9px; z-index: 4;
+      font-size: 11px; font-weight: 900; color: #ffe566; text-shadow: 0 1px 3px #000;
+      animation: plusPop .7s ease forwards; pointer-events: none;
+    }
+    @keyframes plusPop { 0% { opacity: 0; transform: translateY(4px); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
     .medal { font-size: 15px; font-weight: 900; text-align: center; color: #f5c542; text-shadow: 0 1px 2px #000; }
     .row:nth-child(1) .medal { color: #ffd76a; }
     .row:nth-child(2) .medal { color: #d1d5db; }
     .row:nth-child(3) .medal { color: #d97706; }
-    .av { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #111; border: 2px solid rgba(255,255,255,.2); }
+    .av { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: #111; border: 2px solid rgba(255,255,255,.2); }
+    .row.is-top .av { width: 38px; height: 38px; border-color: #f5c542; box-shadow: 0 0 0 1px rgba(245,197,66,.35); }
     .name { font-size: 13px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; min-width: 0; }
+    .row.is-top .name { color: #ffe566; font-size: 14px; }
     .name.is-marq span { display: inline-block; padding-left: 100%; animation: marq 7s linear infinite; }
     @keyframes marq { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
     .combo { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.05; }
-    .combo b { font-size: 16px; font-weight: 900; color: #ffe566; font-variant-numeric: tabular-nums; }
-    .combo span { font-size: 9px; font-weight: 800; letter-spacing: .08em; color: rgba(255,255,255,.65); }
+    .combo b { font-size: 16px; font-weight: 900; color: #e8d98a; font-variant-numeric: tabular-nums; }
+    .row.is-top .combo b { font-size: 20px; color: #ffe566; text-shadow: 0 0 10px rgba(245,197,66,.45); }
+    .combo span { font-size: 9px; font-weight: 800; letter-spacing: .08em; color: rgba(255,255,255,.55); }
+    .row.is-top .combo span { color: #f5c542; }
   </style>
 </head>
 <body>
@@ -52,50 +91,160 @@
   const params = new URLSearchParams(location.search);
   const isEmbed = params.get('embed') === '1';
   const FALLBACK_AV = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'><circle cx='40' cy='40' r='40' fill='%23222'/><circle cx='40' cy='30' r='14' fill='%23666'/><ellipse cx='40' cy='68' rx='22' ry='16' fill='%23666'/></svg>";
-  const MEDALS = ['👑 1', '2', '3'];
+  const MEDALS = ['1', '2', '3'];
   const DEMO = [
     { name: 'VIN Gonzalez', combo: 78, photo: '' },
     { name: 'venusgirl', combo: 26, photo: '' },
     { name: 'Yamileth', combo: 10, photo: '' },
   ];
-  let cfg = { title: 'TOP COMBOS' };
+  let cfg = { title: 'TOP COMBOS', rowGap: 12, coinsPerCombo: 100 };
   const best = new Map();
+  const lastRank = new Map();
+  const lastCombo = new Map();
+  const lastFlash = new Map();
   let battleLive = false;
   let sawRonda = false;
+  let demoRaf = 0;
+  let liveBackup = null;
 
+  function coinsNeed() {
+    const n = Number(cfg.coinsPerCombo);
+    return Number.isFinite(n) && n >= 1 ? Math.max(1, Math.min(10000, Math.round(n))) : 100;
+  }
+  function applyGap() {
+    const gapN = Number(cfg.rowGap);
+    const gap = (Number.isFinite(gapN) ? Math.max(0, Math.min(48, gapN)) : 12) + 'px';
+    const list = document.getElementById('list');
+    if (list) list.style.setProperty('--row-gap', gap);
+  }
   function applyCfg(incoming) {
     if (!incoming || typeof incoming !== 'object') return;
     cfg = Object.assign(cfg, incoming);
     document.getElementById('title').textContent = cfg.title || 'TOP COMBOS';
+    applyGap();
+    render();
+  }
+  function uidSel(uid) {
+    return String(uid).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
   function top3() {
-    return [...best.values()].sort((a, b) => b.combo - a.combo).slice(0, 3);
+    return [...best.values()].sort((a, b) => b.combo - a.combo || String(a.uid).localeCompare(String(b.uid))).slice(0, 3);
   }
-  function render(rows) {
+  function paintRow(el, u, i) {
+    el.classList.toggle('is-top', i === 0);
+    const medal = el.querySelector('.medal');
+    if (medal) medal.textContent = MEDALS[i] || String(i + 1);
+    const nameEl = el.querySelector('.name');
+    const name = String(u.name || 'Usuario').replace(/^@+/, '');
+    if (nameEl) {
+      nameEl.classList.toggle('is-marq', name.length > 12);
+      const span = nameEl.querySelector('span') || nameEl;
+      span.textContent = name;
+    }
+    const num = el.querySelector('.combo b');
+    if (num) num.textContent = String(Math.round(u.combo || 0));
+    const img = el.querySelector('.av');
+    const photo = String(u.photo || '').trim() || FALLBACK_AV;
+    if (img && img.getAttribute('src') !== photo) {
+      img.src = photo;
+      img.onerror = () => { img.src = FALLBACK_AV; };
+    }
+    const uid = String(u.uid || u.name || i);
+    let plus = el.querySelector('.plus');
+    const flash = lastFlash.get(uid);
+    if (flash) {
+      if (!plus) {
+        plus = document.createElement('div');
+        plus.className = 'plus';
+        el.appendChild(plus);
+      }
+      plus.textContent = '+' + flash;
+    } else if (plus) plus.remove();
+  }
+  function makeRow(u, i) {
+    const wrap = document.createElement('div');
+    const name = String(u.name || 'Usuario').replace(/^@+/, '');
+    const uid = String(u.uid || u.name || i);
+    const photo = String(u.photo || '').trim() || FALLBACK_AV;
+    wrap.innerHTML = '<div class="row' + (i === 0 ? ' is-top' : '') + '" data-uid="' + uid.replace(/"/g, '') + '">'
+      + '<div class="medal">' + (MEDALS[i] || (i + 1)) + '</div>'
+      + '<img class="av" alt="">'
+      + '<div class="name' + (name.length > 12 ? ' is-marq' : '') + '"><span>' + name.replace(/[<>]/g, '') + '</span></div>'
+      + '<div class="combo"><b>' + Math.round(u.combo || 0) + '</b><span>COMBOS</span></div>'
+      + '</div>';
+    const el = wrap.firstElementChild;
+    const img = el.querySelector('.av');
+    if (img) {
+      img.src = photo;
+      img.onerror = () => { img.src = FALLBACK_AV; };
+    }
+    return el;
+  }
+  function slideRow(el, fromIdx, toIdx, step) {
+    const dy = (fromIdx - toIdx) * step;
+    if (Math.abs(dy) < 2) return;
+    try {
+      el.getAnimations().filter((a) => a.effect && a.effect.target === el).forEach((a) => a.cancel());
+      el.style.zIndex = fromIdx > toIdx ? '6' : '2';
+      const anim = el.animate(
+        [{ transform: 'translateY(' + dy + 'px)' }, { transform: 'translateY(0)' }],
+        { duration: 280, easing: 'cubic-bezier(.2,.85,.25,1)' }
+      );
+      const clear = () => el.style.removeProperty('z-index');
+      anim.finished.then(clear).catch(clear);
+    } catch {}
+  }
+  function bumpCombo(el) {
+    const box = el.querySelector('.combo');
+    if (!box) return;
+    box.classList.remove('is-bump');
+    void box.offsetWidth;
+    box.classList.add('is-bump');
+  }
+  function render() {
     const list = document.getElementById('list');
-    const items = (rows && rows.length) ? rows : top3();
-    while (items.length < 3 && isEmbed) { /* demo already 3 */ break; }
+    const items = top3();
     document.getElementById('title').textContent = cfg.title || 'TOP COMBOS';
-    const prevOrder = [...list.querySelectorAll('[data-uid]')].map((n) => n.dataset.uid);
-    list.innerHTML = items.map((u, i) => {
-      const photo = String(u.photo || '').trim() || FALLBACK_AV;
-      const name = String(u.name || 'Usuario').replace(/^@+/, '');
-      const long = name.length > 12;
+    const keep = new Set();
+    const moves = [];
+    items.forEach((u, i) => {
       const uid = String(u.uid || u.name || i);
-      const up = prevOrder.length && prevOrder[i] !== uid && prevOrder.indexOf(uid) > i;
-      return '<div class="row' + (up ? ' is-up' : '') + '" data-uid="' + uid.replace(/"/g, '') + '">'
-        + '<div class="medal">' + (MEDALS[i] || (i + 1)) + '</div>'
-        + '<img class="av" src="' + photo.replace(/"/g, '') + '" alt="" onerror="this.src=\'' + FALLBACK_AV + '\'">'
-        + '<div class="name' + (long ? ' is-marq' : '') + '"><span>' + name.replace(/[<>]/g, '') + '</span></div>'
-        + '<div class="combo"><b>' + Math.round(u.combo || 0) + '</b><span>COMBOS</span></div>'
-        + '</div>';
-    }).join('');
+      keep.add(uid);
+      let el = list.querySelector('[data-uid="' + uidSel(uid) + '"]');
+      if (!el) {
+        el = makeRow(u, i);
+        lastRank.set(uid, i);
+      } else {
+        const prev = lastCombo.get(uid);
+        if (prev != null && u.combo > prev) bumpCombo(el);
+        const fromIdx = lastRank.has(uid) ? lastRank.get(uid) : i;
+        if (fromIdx !== i) moves.push({ el, fromIdx, toIdx: i });
+        paintRow(el, u, i);
+      }
+      lastCombo.set(uid, u.combo);
+      lastRank.set(uid, i);
+      if (list.children[i] !== el) list.insertBefore(el, list.children[i] || null);
+    });
+    [...list.children].forEach((n) => {
+      if (!keep.has(n.dataset.uid)) {
+        lastRank.delete(n.dataset.uid);
+        lastCombo.delete(n.dataset.uid);
+        n.remove();
+      }
+    });
+    if (moves.length) {
+      const sample = moves[0].el;
+      const gap = parseFloat(getComputedStyle(list).gap) || 12;
+      const step = (sample.offsetHeight || 46) + gap;
+      moves.forEach((m) => slideRow(m.el, m.fromIdx, m.toIdx, step));
+    }
   }
   function combosFromGift(d) {
     const each = Number(d.diamonds || d.diamondCount || 0) || 0;
-    return Math.floor(each / 100);
+    return Math.floor(each / coinsNeed());
   }
   function considerGift(d) {
+    if (demoRaf) return;
     if (!d) return;
     if (sawRonda && !battleLive) return;
     let add = combosFromGift(d);
@@ -113,12 +262,101 @@
     prev.uid = uid;
     if (photo) prev.photo = photo;
     best.set(uid, prev);
+    lastFlash.set(uid, add);
+    setTimeout(() => { lastFlash.delete(uid); render(); }, 700);
     render();
   }
-  function resetAll() { best.clear(); render([]); }
-  function runTest() {
-    DEMO.forEach((u, i) => best.set('demo' + i, { uid: 'demo' + i, ...u }));
+  function stopDemo() {
+    if (demoRaf) cancelAnimationFrame(demoRaf);
+    demoRaf = 0;
+  }
+  function showStaticDemo() {
+    stopDemo();
+    best.clear();
+    lastRank.clear();
+    lastCombo.clear();
+    lastFlash.clear();
+    DEMO.forEach((u, i) => best.set('demo' + i, { uid: 'demo' + i, name: u.name, photo: u.photo || '', combo: u.combo }));
     render();
+  }
+  function resetAll() {
+    stopDemo();
+    lastFlash.clear();
+    lastRank.clear();
+    lastCombo.clear();
+    if (liveBackup) {
+      best.clear();
+      liveBackup.forEach((v, k) => best.set(k, Object.assign({}, v)));
+      liveBackup = null;
+      render();
+      return;
+    }
+    if (isEmbed) { showStaticDemo(); return; }
+    best.clear();
+    render();
+  }
+  function runTest() {
+    stopDemo();
+    if (!liveBackup) {
+      liveBackup = new Map();
+      best.forEach((v, k) => liveBackup.set(k, Object.assign({}, v)));
+    }
+    best.clear();
+    lastRank.clear();
+    lastCombo.clear();
+    lastFlash.clear();
+    const actors = DEMO.map((u, i) => ({ uid: 'demo' + i, name: u.name, photo: u.photo || '', combo: 0 }));
+    actors.forEach((a) => best.set(a.uid, a));
+    render();
+    const combos = [0, 0, 0];
+    const keys = [];
+    let t = 0.15;
+    const push = () => keys.push({ at: t, combos: combos.slice() });
+    push();
+    const hits = [
+      { i: 2, add: 10, wait: 0.55 },
+      { i: 1, add: 14, wait: 0.7 },
+      { i: 0, add: 12, wait: 0.7 },
+      { i: 1, add: 12, wait: 0.75 },
+      { i: 0, add: 66, wait: 0.9 },
+    ];
+    hits.forEach((h) => {
+      t += h.wait;
+      combos[h.i] += h.add;
+      keys.push({ at: t, combos: combos.slice(), flash: h.i, add: h.add });
+    });
+    const endAt = t + 1.4;
+    const t0 = performance.now();
+    const lerp = (a, b, u) => a + (b - a) * u;
+    const loop = (now) => {
+      const elapsed = (now - t0) / 1000;
+      if (elapsed >= endAt) {
+        demoRaf = 0;
+        actors.forEach((a, i) => { a.combo = DEMO[i].combo; });
+        lastFlash.clear();
+        render();
+        return;
+      }
+      let i = 0;
+      while (i < keys.length - 1 && keys[i + 1].at <= elapsed) i += 1;
+      const a = keys[i];
+      const b = keys[i + 1] || a;
+      const span = Math.max(0.0001, b.at - a.at);
+      const u = b === a ? 1 : Math.min(1, Math.max(0, (elapsed - a.at) / span));
+      actors.forEach((p, idx) => {
+        const av = Number(a.combos[idx]) || 0;
+        const bv = Number((b.combos && b.combos[idx]) ?? av) || 0;
+        p.combo = Math.round(lerp(av, bv, u));
+        if (elapsed >= a.at && elapsed < a.at + 0.55 && a.flash === idx && a.add) {
+          lastFlash.set(p.uid, a.add);
+        } else if (lastFlash.get(p.uid) === a.add && a.flash === idx && elapsed >= a.at + 0.55) {
+          lastFlash.delete(p.uid);
+        }
+      });
+      render();
+      demoRaf = requestAnimationFrame(loop);
+    };
+    demoRaf = requestAnimationFrame(loop);
   }
 
   let ws, rt;
@@ -144,14 +382,15 @@
     const d = e.data; if (!d || d.kind !== 'bailecombo') return;
     if (d.type === 'config') applyCfg(d.config);
     else if (d.type === 'test') runTest();
-    else if (d.type === 'reset') { isEmbed ? runTest() : resetAll(); }
+    else if (d.type === 'reset') resetAll();
   });
   if (isEmbed) {
     document.documentElement.classList.add('embed');
-    const fit = () => document.documentElement.style.setProperty('--fit', String(Math.min(window.innerWidth / 320, window.innerHeight / 220)));
+    const fit = () => document.documentElement.style.setProperty('--fit', String(Math.min(window.innerWidth / 268, window.innerHeight / 240)));
     fit(); window.addEventListener('resize', fit);
-    runTest();
-  } else render([]);
+    applyGap();
+    showStaticDemo();
+  } else { applyGap(); render(); }
   if (!isEmbed) connectWS();
 })();
   </script>

@@ -90,11 +90,141 @@
 
     .pop { animation: pop .5s cubic-bezier(.2,.9,.3,1.4); }
     @keyframes pop { 0% { transform: scale(.86); opacity: .3; } 100% { transform: scale(1); opacity: 1; } }
+
+    /* —— Oro: campeonato —— */
+    .card[data-skin="gold"] {
+      border-radius: 8px;
+      background:
+        radial-gradient(80% 60% at 50% 0%, rgba(255, 214, 90, .18), transparent 55%),
+        linear-gradient(165deg, rgba(28, 20, 8, .72), rgba(10, 8, 4, .78));
+    }
+    .card[data-skin="gold"]::before {
+      border-radius: 8px;
+      background: linear-gradient(115deg, #ffe08a, #c48a12, #ffe08a);
+      animation: none;
+    }
+    .card[data-skin="gold"]::after { opacity: .18; }
+    .card[data-skin="gold"] .hdr {
+      letter-spacing: .2em;
+      background: linear-gradient(90deg, #fff3c4, #ffd24a, #fff3c4);
+      -webkit-background-clip: text; background-clip: text;
+      filter: drop-shadow(0 0 10px rgba(255, 210, 74, .4));
+    }
+    .card[data-skin="gold"] .avatar-ring {
+      background: conic-gradient(from 0deg, #ffe08a, #a36b00, #ffe08a);
+      filter: drop-shadow(0 0 14px rgba(255, 210, 74, .55));
+    }
+    .card[data-skin="gold"] .score {
+      background: linear-gradient(135deg, rgba(255, 210, 74, .2), rgba(163, 107, 0, .22));
+    }
+    .card[data-skin="gold"] .cd-time {
+      background: linear-gradient(90deg, #ffe08a, #ffb300);
+      -webkit-background-clip: text; background-clip: text;
+    }
+
+    /* —— Cyber: HUD angular —— */
+    .card[data-skin="cyber"] {
+      border-radius: 4px;
+      clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+      background: linear-gradient(180deg, rgba(0, 40, 32, .55), rgba(2, 8, 14, .7));
+    }
+    .card[data-skin="cyber"]::before {
+      border-radius: 0;
+      background: linear-gradient(90deg, #00ff9c, #00e5ff, #00ff9c);
+    }
+    .card[data-skin="cyber"] .hdr {
+      font-size: 18px;
+      letter-spacing: .22em;
+      background: linear-gradient(90deg, #00ff9c, #7df9ff);
+      -webkit-background-clip: text; background-clip: text;
+      filter: drop-shadow(0 0 8px rgba(0, 255, 156, .4));
+    }
+    .card[data-skin="cyber"] .avatar-wrap { width: 118px; height: 118px; }
+    .card[data-skin="cyber"] .avatar-ring,
+    .card[data-skin="cyber"] .avatar-hole,
+    .card[data-skin="cyber"] .avatar { border-radius: 10px; }
+    .card[data-skin="cyber"] .rank-badge {
+      border-radius: 2px;
+      background: #00ff9c;
+      color: #04140e;
+    }
+    .card[data-skin="cyber"] .info .name { font-size: 30px; text-shadow: 0 0 16px rgba(0, 255, 156, .35); }
+    .card[data-skin="cyber"] .score { border-radius: 4px; background: rgba(0, 255, 156, .1); }
+    .card[data-skin="cyber"] .runner { border-radius: 4px; }
+
+    /* —— Royal: violeta / corona —— */
+    .card[data-skin="royal"] {
+      border-radius: 28px;
+      background:
+        radial-gradient(90% 80% at 50% 0%, rgba(168, 85, 247, .22), transparent 50%),
+        linear-gradient(165deg, rgba(28, 10, 48, .7), rgba(10, 6, 22, .78));
+    }
+    .card[data-skin="royal"]::before {
+      border-radius: 28px;
+      background: linear-gradient(115deg, #e9d5ff, #a855f7, #f0abfc, #e9d5ff);
+    }
+    .card[data-skin="royal"] .hdr {
+      background: linear-gradient(90deg, #f5d0fe, #c084fc, #f5d0fe);
+      -webkit-background-clip: text; background-clip: text;
+    }
+    .card[data-skin="royal"] .avatar-ring {
+      background: conic-gradient(from 0deg, #f0abfc, #7c3aed, #f0abfc);
+      filter: drop-shadow(0 0 16px rgba(168, 85, 247, .55));
+    }
+    .card[data-skin="royal"] .rank-badge {
+      background: linear-gradient(135deg, #f0abfc, #a855f7);
+      color: #fff;
+    }
+    .card[data-skin="royal"] .score {
+      background: linear-gradient(135deg, rgba(240, 171, 252, .18), rgba(124, 58, 237, .2));
+    }
+
+    /* —— Cristal: vidrio mínimo —— */
+    .card[data-skin="glass"] {
+      border-radius: 26px;
+      background: rgba(255, 255, 255, .08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .22);
+    }
+    .card[data-skin="glass"]::before {
+      background: linear-gradient(120deg, rgba(255,255,255,.7), rgba(255,255,255,.12), rgba(255,255,255,.55));
+      animation: none;
+    }
+    .card[data-skin="glass"]::after { display: none; }
+    .card[data-skin="glass"] .hdr {
+      background: none; -webkit-text-fill-color: #fff;
+      filter: none; letter-spacing: .08em; font-size: 16px; opacity: .92;
+    }
+    .card[data-skin="glass"] .avatar-ring { animation: none; filter: none; background: rgba(255,255,255,.35); inset: -3px; }
+    .card[data-skin="glass"] .info .name { font-size: 28px; text-shadow: none; }
+    .card[data-skin="glass"] .score { background: rgba(255,255,255,.1); border-radius: 999px; }
+    .card[data-skin="glass"] .runner { background: rgba(255,255,255,.08); border-radius: 999px; }
+    .card[data-skin="glass"] .countdown { border-top-color: rgba(255,255,255,.14); }
+    .card[data-skin="glass"] .cd-time {
+      background: none; -webkit-text-fill-color: #fff; font-size: 16px;
+    }
+
+    /* —— Podio: #1 centrado, 2 y 3 abajo —— */
+    .card[data-skin="podium"] { padding: 20px 22px 18px; width: min(520px, 94vw); }
+    .card[data-skin="podium"] .hero {
+      flex-direction: column; text-align: center; gap: 12px;
+    }
+    .card[data-skin="podium"] .info { width: 100%; }
+    .card[data-skin="podium"] .info .name { font-size: 28px; }
+    .card[data-skin="podium"] .score { justify-content: center; }
+    .card[data-skin="podium"] .runners { margin-top: 14px; align-items: stretch; }
+    .card[data-skin="podium"] .runner {
+      flex-direction: column; text-align: center; padding: 12px 8px 10px; gap: 6px;
+    }
+    .card[data-skin="podium"] .runner .r-av { width: 44px; height: 44px; }
+    .card[data-skin="podium"] .runner .r-rank { font-size: 18px; }
+    .card[data-skin="podium"] .runner .r-meta { align-items: center; }
   </style>
 </head>
 <body>
   <div class="scene">
-    <div class="card" id="card" data-empty="1">
+    <div class="card" id="card" data-empty="1" data-skin="classic">
       <div class="hdr">
         <span class="spark">◆</span>
         <span id="hdr-title">TOP DONADOR SEMANAL</span>
@@ -162,9 +292,11 @@
     const elCdTime = document.getElementById('cd-time');
     const elHero = document.getElementById('hero');
 
+    const TOP_SKINS = ['classic', 'gold', 'cyber', 'royal', 'glass', 'podium'];
     let coinLabel = 'diamantes';
     let showCountdown = true;
     let showRunners = true;
+    let currentSkin = 'classic';
 
     function hexColor(v, def) {
       if (v == null) return def;
@@ -174,8 +306,15 @@
       return def;
     }
 
+    function applySkin(id) {
+      const skin = TOP_SKINS.includes(String(id || '').toLowerCase()) ? String(id).toLowerCase() : 'classic';
+      currentSkin = skin;
+      elCard.dataset.skin = skin;
+    }
+
     function applyConfig(cfg) {
       cfg = cfg || {};
+      if (cfg.skin) applySkin(cfg.skin);
       root.style.setProperty('--c1', hexColor(cfg.c1, '#00e5ff'));
       root.style.setProperty('--c2', hexColor(cfg.c2, '#ff2bd6'));
       root.style.setProperty('--name-color', hexColor(cfg.nameColor, '#ffffff'));
@@ -337,12 +476,13 @@
     });
 
     // Config inicial por URL (opcional)
-    if (params.get('c1') || params.get('ttl')) {
+    if (params.get('c1') || params.get('ttl') || params.get('skin')) {
       applyConfig({
         c1: params.get('c1'), c2: params.get('c2'), nameColor: params.get('nc'),
         title: (params.get('ttl') || '').replace(/\+/g, ' '),
         coinLabel: (params.get('cl') || '').replace(/\+/g, ' '),
         scale: params.get('ol_scale'),
+        skin: params.get('skin'),
       });
     }
 

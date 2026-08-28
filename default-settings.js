@@ -18,8 +18,8 @@ export const DEFAULT_SETTINGS = {
     minLen: 1, maxLen: 150,
     // Voces TikTok (Disney / personajes). Si tiktokVoice tiene valor, se usa esa voz
     // (síntesis en el servidor) en vez de la voz del sistema. tiktokTranslateEs=true
-    // traduce el texto al inglés para voces Disney. La casilla UI «Leer en español»
-    // está marcada cuando tiktokTranslateEs es false.
+    // traduce a inglés. Casilla «Leer en español» marcada = tiktokTranslateEs false
+    // → speakEs: mismo personaje, texto en español.
     tiktokVoice: '', tiktokTranslateEs: false,
     // ElevenLabs (API key del creador). Si enabled + apiKey + voiceId, tiene prioridad
     // sobre TikTok/Edge/sistema. Livecoins no paga la API: usa la key del streamer.
@@ -244,6 +244,7 @@ export const DEFAULT_SETTINGS = {
     showCountdown: true,
     showRunners: true,
     scale: 100,
+    skin: 'classic',
   },
   // Overlay Gift VS (versus de regalos por bandos)
   giftVs: {
@@ -785,7 +786,7 @@ export const DEFAULT_SETTINGS = {
     people: [],
     activeId: '',
   },
-  baileCombo: { title: 'TOP COMBO' },
+  baileCombo: { title: 'TOP COMBO', rowGap: 12, coinsPerCombo: 100 },
   baileRank: { title: 'RANKING', rows: 5, safeSlots: 2, rowGap: 16 },
   // Overlay Batalla de regalos (ranking por monedas)
   batallaGifts: {

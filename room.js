@@ -494,7 +494,7 @@ function normalizeProfilesMediaUrls(p) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank, onLiveSessionEnd, onGameExec }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank, onLiveSessionEnd, onGameExec, onClaimLiveLock, onHeartbeatLiveLock, onReleaseLiveLock }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
@@ -3784,10 +3784,24 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     stopBaileTick();
     broadcast('baileRondaReset', snapshotBaile());
   }
+  function baileLiveScoring() {
+    return !!(baileRound && computeBailePhase().phase === 'live');
+  }
+  function baileRetargetLiveRound(id) {
+    if (!baileRound || !id || baileRound.personId === id) return;
+    baileSyncActivePts();
+    const next = bailePersonById(id);
+    baileRound.personId = id;
+    baileRound.startPts = next ? (Number(next.pts) || 0) : 0;
+    baileRound.giftPts = 0;
+    baileRound.likePts = 0;
+    baileRound.taps = 0;
+    baileRound.likeByUser = {};
+    baileRound.lastDelta = 0;
+  }
   function feedBaileLike(count, user) {
-    if (!baileRound) return;
+    if (!baileLiveScoring()) return;
     const now = Date.now();
-    if (computeBailePhase(now).phase !== 'live') return;
     const n = Math.max(0, Number(count) || 0);
     if (!n) return;
     const likeBefore = Math.floor((Number(baileRound.taps) || 0) / baileLikesPerPoint());
@@ -3808,37 +3822,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     baileSyncActivePts();
   }
-  function baileTurnPerson() {
-    const id = baileEnsure().activeId;
-    if (!id) return null;
-    return bailePersonById(id);
-  }
   function feedBaileGift(total, user) {
+    if (!baileLiveScoring()) return;
     const n = Math.max(0, Number(total) || 0);
     if (!n) return;
     const now = Date.now();
-    const inLive = !!(baileRound && computeBailePhase(now).phase === 'live');
     const uid = baileSeatUid(user);
-    if (inLive) {
-      const gained = n * baileMultNow(now);
-      baileRound.giftPts = (Number(baileRound.giftPts) || 0) + gained;
-      baileRound.lastDelta = gained;
-      baileRound.deltaAt = now;
-      baileAddDonor(user, gained);
-      if (uid) baileTrySeat(uid);
-      baileSyncActivePts();
-      return;
-    }
-    const active = baileTurnPerson();
-    if (!active) return;
-    active.pts = Math.max(0, (Number(active.pts) || 0) + n * baileMultNow(now));
-    saveSettings();
-    broadcast('baileRondaState', snapshotBaile());
+    const gained = n * baileMultNow(now);
+    baileRound.giftPts = (Number(baileRound.giftPts) || 0) + gained;
+    baileRound.lastDelta = gained;
+    baileRound.deltaAt = now;
+    baileAddDonor(user, gained);
+    if (uid) baileTrySeat(uid);
+    baileSyncActivePts();
   }
   function bailePeopleOp(data) {
     const cfg = baileEnsure();
     const op = data?.op;
-    if (op === 'active' && data.id) cfg.activeId = data.id;
+    if (op === 'active' && data.id) {
+      baileRetargetLiveRound(data.id);
+      cfg.activeId = data.id;
+    }
     else if (op === 'add') {
       const raw = data.person || data;
       const user = String(raw.user || raw.username || '').replace(/^@+/, '').trim();
@@ -4600,30 +4604,107 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     saveSettings();
   }
 
+  let liveDeviceId = '';
+  let liveLockBlockedUntil = 0;
+  let liveLockBeatTimer = null;
+  const LIVE_LOCK_MSG = 'Esta cuenta ya está en live en otro dispositivo. Cierra el live o pulsa Desconectar ahí para poder conectar aquí.';
+  function rememberLiveDeviceId(raw) {
+    const d = String(raw || '').trim();
+    if (d.length >= 8 && d.length <= 80) liveDeviceId = d;
+  }
+  function currentLiveDeviceId() {
+    if (liveDeviceId) return liveDeviceId;
+    liveDeviceId = 'room-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    return liveDeviceId;
+  }
+  function denyLiveLock(msg) {
+    liveLockBlockedUntil = Date.now() + 25000;
+    state.connecting = false;
+    pushState();
+    const text = String(msg || LIVE_LOCK_MSG);
+    broadcast('liveLockDenied', { message: text });
+    broadcast('log', { level: 'error', text });
+  }
+  function stopLiveLockBeat() {
+    if (liveLockBeatTimer) { clearInterval(liveLockBeatTimer); liveLockBeatTimer = null; }
+  }
+  function startLiveLockBeat() {
+    stopLiveLockBeat();
+    if (typeof onHeartbeatLiveLock !== 'function') return;
+    liveLockBeatTimer = setInterval(() => {
+      if (!state.connected && !state.connecting) return;
+      Promise.resolve(onHeartbeatLiveLock({ deviceId: currentLiveDeviceId() })).then((r) => {
+        if (r && r.ok === false && r.code === 'live_in_use') {
+          disconnect();
+          pushState();
+          denyLiveLock(r.message);
+          return;
+        }
+        if (r && r.ok === false && r.code === 'no_lock' && typeof onClaimLiveLock === 'function') {
+          Promise.resolve(onClaimLiveLock({ deviceId: currentLiveDeviceId(), username: state.username })).then((c) => {
+            if (c && c.ok === false && c.code === 'live_in_use') {
+              disconnect();
+              pushState();
+              denyLiveLock(c.message);
+            }
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }, 20000);
+    liveLockBeatTimer.unref?.();
+  }
+  function releaseLiveLock() {
+    stopLiveLockBeat();
+    if (typeof onReleaseLiveLock !== 'function') return;
+    Promise.resolve(onReleaseLiveLock({ deviceId: liveDeviceId || currentLiveDeviceId() })).catch(() => {});
+  }
+
   function connectTo(username, opts = {}) {
     if (RELAY) return; // en modo relay la conexión a TikTok la hace la nube, no esta PC
     if (!username) return;
+    if (opts.deviceId) rememberLiveDeviceId(opts.deviceId);
     if (state.connecting || (state.connected && state.username === username)) return;
+    if (Date.now() < liveLockBlockedUntil) {
+      if (!opts.auto) denyLiveLock();
+      return;
+    }
 
-    disconnect();
+    const startTikTok = () => {
+      if (state.connected && state.username === username) return;
+      disconnect({ keepLiveLock: true });
 
-    rememberTikTokUser(username, !opts.auto);
+      rememberTikTokUser(username, !opts.auto);
 
-    state.username = username;
+      state.username = username;
+      state.connecting = true;
+      // No resetear aquí: tras conectar se decide por roomId (mismo live = conservar overlays;
+      // live nuevo / primera conexión = reset). Evita borrar todo al reconectar por un fallo.
+      pushState();
+      if (!opts.auto) broadcast('log', { level: 'info', text: `Conectando a @${username}...` });
+
+      connection = new TikTokLiveConnection(username, {
+        processInitialData: false,
+        fetchRoomInfoOnConnect: true,
+        requestPollingIntervalMs: 2000,
+      });
+
+      bindEvents(connection);
+      tryConnect(connection, username, 1, !!opts.auto);
+    };
+
+    if (typeof onClaimLiveLock !== 'function') {
+      startTikTok();
+      return;
+    }
     state.connecting = true;
-    // No resetear aquí: tras conectar se decide por roomId (mismo live = conservar overlays;
-    // live nuevo / primera conexión = reset). Evita borrar todo al reconectar por un fallo.
     pushState();
-    if (!opts.auto) broadcast('log', { level: 'info', text: `Conectando a @${username}...` });
-
-    connection = new TikTokLiveConnection(username, {
-      processInitialData: false,
-      fetchRoomInfoOnConnect: true,
-      requestPollingIntervalMs: 2000,
-    });
-
-    bindEvents(connection);
-    tryConnect(connection, username, 1, !!opts.auto);
+    Promise.resolve(onClaimLiveLock({ deviceId: currentLiveDeviceId(), username })).then((r) => {
+      if (r && r.ok === false && r.code === 'live_in_use') {
+        denyLiveLock(r.message);
+        return;
+      }
+      startTikTok();
+    }).catch(() => startTikTok());
   }
 
   function tryConnect(conn, username, attempt, auto) {
@@ -4640,6 +4721,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         resetRankSnap();
         startRankStreamerTimer();
         startLiveBadgeTimer();
+        startLiveLockBeat();
         pushState();
         syncLiveUptimeOnConnect();
         if (mode === 'reconnect') {
@@ -4689,6 +4771,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             broadcast('log', { level: 'info', text: `Esperando a que @${username} inicie el live para conectar automáticamente…` });
           }
         } else {
+          releaseLiveLock();
           broadcast('log', {
             level: 'error',
             text: `No se pudo conectar tras ${MAX_CONNECT_ATTEMPTS} intentos: ${msg}. Verifica que @${username} esté EN VIVO y vuelve a intentar en un minuto.`,
@@ -4743,7 +4826,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     setTimeout(maybeCreditLiveBadge, 2500);
   }
 
-  function disconnect() {
+  function disconnect(opts = {}) {
     const wasLive = !!state.connected || !!state.startedAt;
     if (state.connected) flushStreamerRank();
     stopRankStreamerTimer();
@@ -4760,6 +4843,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     state.roomId = null;
     syncLiveUptimeOnDisconnect();
     if (wasLive) notifyLiveSessionEnd();
+    if (!opts.keepLiveLock) releaseLiveLock();
   }
 
   // Desconexión MANUAL (botón "Desconectar"): además de cortar, apaga la auto-conexión
@@ -10578,17 +10662,22 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       case 'ping':
         // Keepalive desde el navegador: respondemos al instante para confirmar vida.
+        if (data.deviceId) rememberLiveDeviceId(data.deviceId);
         if (ws) ws.isAlive = true;
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pong' })); } catch {}
         break;
       case 'connect':
+        if (data.deviceId) rememberLiveDeviceId(data.deviceId);
         if (RELAY) {
           if (typeof onRelayAction === 'function' && data.username) {
-            onRelayAction('connect', { username: String(data.username).trim().replace(/^@/, '') });
+            onRelayAction('connect', {
+              username: String(data.username).trim().replace(/^@/, ''),
+              deviceId: currentLiveDeviceId(),
+            });
           }
           break;
         }
-        if (data.username) connectTo(String(data.username).trim().replace(/^@/, ''));
+        if (data.username) connectTo(String(data.username).trim().replace(/^@/, ''), { deviceId: data.deviceId });
         break;
       case 'disconnect':
         if (RELAY) {
