@@ -4605,23 +4605,42 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   let liveDeviceId = '';
+  let liveLockHeld = false;
   let liveLockBlockedUntil = 0;
   let liveLockBeatTimer = null;
+  const liveDeviceIdFile = path.join(dataDir, '.live-device-id');
   const LIVE_LOCK_MSG = 'Esta cuenta ya está en live en otro dispositivo. Cierra el live o pulsa Desconectar ahí para poder conectar aquí.';
-  function rememberLiveDeviceId(raw) {
+  function loadPersistedLiveDeviceId() {
+    try {
+      const d = String(fs.readFileSync(liveDeviceIdFile, 'utf8')).trim();
+      if (d.length >= 8 && d.length <= 80) return d;
+    } catch { /* sin archivo */ }
+    return '';
+  }
+  function persistLiveDeviceId(id) {
+    try { fs.writeFileSync(liveDeviceIdFile, id, 'utf8'); } catch { /* ignore */ }
+  }
+  liveDeviceId = loadPersistedLiveDeviceId();
+  function rememberLiveDeviceId(raw, opts = {}) {
     const d = String(raw || '').trim();
-    if (d.length >= 8 && d.length <= 80) liveDeviceId = d;
+    if (d.length < 8 || d.length > 80) return;
+    if (!opts.force && liveDeviceId) return; // ping: first wins; connect: force por PC
+    if (liveDeviceId === d) return;
+    liveDeviceId = d;
+    persistLiveDeviceId(d);
   }
   function currentLiveDeviceId() {
     if (liveDeviceId) return liveDeviceId;
     liveDeviceId = 'room-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    persistLiveDeviceId(liveDeviceId);
     return liveDeviceId;
   }
-  function denyLiveLock(msg) {
+  function denyLiveLock(msg, opts = {}) {
     liveLockBlockedUntil = Date.now() + 25000;
     state.connecting = false;
     pushState();
     const text = String(msg || LIVE_LOCK_MSG);
+    if (opts.silent) return;
     broadcast('liveLockDenied', { message: text });
     broadcast('log', { level: 'error', text });
   }
@@ -4632,7 +4651,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     stopLiveLockBeat();
     if (typeof onHeartbeatLiveLock !== 'function') return;
     liveLockBeatTimer = setInterval(() => {
-      if (!state.connected && !state.connecting) return;
+      if (!liveLockHeld) return;
+      if (!state.connected && !state.connecting && !autoConnectOn()) return;
       Promise.resolve(onHeartbeatLiveLock({ deviceId: currentLiveDeviceId() })).then((r) => {
         if (r && r.ok === false && r.code === 'live_in_use') {
           disconnect();
@@ -4654,6 +4674,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     liveLockBeatTimer.unref?.();
   }
   function releaseLiveLock() {
+    liveLockHeld = false;
     stopLiveLockBeat();
     if (typeof onReleaseLiveLock !== 'function') return;
     Promise.resolve(onReleaseLiveLock({ deviceId: liveDeviceId || currentLiveDeviceId() })).catch(() => {});
@@ -4662,7 +4683,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function connectTo(username, opts = {}) {
     if (RELAY) return; // en modo relay la conexión a TikTok la hace la nube, no esta PC
     if (!username) return;
-    if (opts.deviceId) rememberLiveDeviceId(opts.deviceId);
+    if (opts.deviceId) rememberLiveDeviceId(opts.deviceId, { force: true });
     if (state.connecting || (state.connected && state.username === username)) return;
     if (Date.now() < liveLockBlockedUntil) {
       if (!opts.auto) denyLiveLock();
@@ -4692,19 +4713,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       tryConnect(connection, username, 1, !!opts.auto);
     };
 
-    if (typeof onClaimLiveLock !== 'function') {
-      startTikTok();
+    // Manual: comprobar lock antes de tocar TikTok (relay/nube comparte una room).
+    if (!opts.auto && typeof onHeartbeatLiveLock === 'function' && typeof onClaimLiveLock === 'function') {
+      Promise.resolve(onHeartbeatLiveLock({ deviceId: currentLiveDeviceId() })).then((r) => {
+        if (r && r.ok === false && r.code === 'live_in_use') {
+          denyLiveLock(r.message);
+          return;
+        }
+        startTikTok();
+      }).catch(() => startTikTok());
       return;
     }
-    state.connecting = true;
-    pushState();
-    Promise.resolve(onClaimLiveLock({ deviceId: currentLiveDeviceId(), username })).then((r) => {
-      if (r && r.ok === false && r.code === 'live_in_use') {
-        denyLiveLock(r.message);
-        return;
-      }
-      startTikTok();
-    }).catch(() => startTikTok());
+    startTikTok();
   }
 
   function tryConnect(conn, username, attempt, auto) {
@@ -4712,39 +4732,71 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     conn
       .connect()
       .then((connState) => {
-        state.connected = true;
-        state.connecting = false;
+        if (conn !== connection) return;
         const newRoomId = connState?.roomId ?? null;
-        state.roomId = newRoomId;
-        const mode = applyAutoLiveConnected(newRoomId, username);
-        seedStatsFromRoomInfo();
-        resetRankSnap();
-        startRankStreamerTimer();
-        startLiveBadgeTimer();
-        startLiveLockBeat();
-        pushState();
-        syncLiveUptimeOnConnect();
-        if (mode === 'reconnect') {
-          broadcast('log', {
-            level: 'ok',
-            text: auto
-              ? `Reconectado al live (sala ${newRoomId ?? ''}) — overlays conservados`
-              : `Reconectado a @${username} (sala ${newRoomId ?? ''}) — overlays conservados`,
-          });
-        } else {
-          broadcastAllRankStates();
-          if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
-          if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
-          broadcast('log', {
-            level: 'ok',
-            text: auto
-              ? `Conectado automáticamente a la sala ${newRoomId ?? ''}`
-              : `Conectado a la sala ${newRoomId ?? ''}`,
-          });
+        const finishConnect = () => {
+          state.connected = true;
+          state.connecting = false;
+          state.roomId = newRoomId;
+          const mode = applyAutoLiveConnected(newRoomId, username);
+          seedStatsFromRoomInfo();
+          resetRankSnap();
+          startRankStreamerTimer();
+          startLiveBadgeTimer();
+          startLiveLockBeat();
+          pushState();
+          syncLiveUptimeOnConnect();
+          if (mode === 'reconnect') {
+            broadcast('log', {
+              level: 'ok',
+              text: auto
+                ? `Reconectado al live (sala ${newRoomId ?? ''}) — overlays conservados`
+                : `Reconectado a @${username} (sala ${newRoomId ?? ''}) — overlays conservados`,
+            });
+          } else {
+            broadcastAllRankStates();
+            if (getTop1FirePeriod() !== 'live') broadcastTop1Fire();
+            if (getHabibiTopPeriod() !== 'live') broadcastHabibiTop();
+            broadcast('log', {
+              level: 'ok',
+              text: auto
+                ? `Conectado automáticamente a la sala ${newRoomId ?? ''}`
+                : `Conectado a la sala ${newRoomId ?? ''}`,
+            });
+          }
+          fetchRoomCommunityGifts(conn);
+          beginChatCatchup();
+        };
+        const abortConnect = (msg, { silent = false } = {}) => {
+          try { conn.disconnect(); } catch { /* ignore */ }
+          if (connection === conn) connection = null;
+          state.connecting = false;
+          state.connected = false;
+          pushState();
+          if (msg) denyLiveLock(msg, { silent });
+        };
+        if (typeof onClaimLiveLock !== 'function') {
+          finishConnect();
+          return;
         }
-        fetchRoomCommunityGifts(conn);
-        // Evita leer/TTS de todo el backlog de chat al conectar tarde.
-        beginChatCatchup();
+        Promise.resolve(onClaimLiveLock({ deviceId: currentLiveDeviceId(), username })).then((r) => {
+          if (conn !== connection) return;
+          if (r && r.ok === false && r.code === 'live_in_use') {
+            abortConnect(r.message, { silent: auto });
+            return;
+          }
+          if (r && r.ok === false && r.code === 'bad_device') {
+            abortConnect(null);
+            if (!auto) broadcast('log', { level: 'error', text: r.message || 'Falta identificador de dispositivo.' });
+            return;
+          }
+          liveLockHeld = true;
+          finishConnect();
+        }).catch(() => {
+          if (conn !== connection) return;
+          liveLockHeld = true;
+          finishConnect();
+        });
       })
       .catch((err) => {
         if (conn !== connection) return;
@@ -4763,6 +4815,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         state.connected = false;
         pushState();
         if (auto) {
+          releaseLiveLock();
           // Auto-conexión: seguramente aún no estás en vivo. Esperamos en silencio; el bucle
           // lo volverá a intentar y avisamos como mucho cada pocos minutos para no llenar el log.
           const now = Date.now();
@@ -10614,6 +10667,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       syncLiveUptimeOnDisconnect();
       stopLiveBadgeTimer();
       if (wasLive) notifyLiveSessionEnd();
+      if (!autoConnectOn()) releaseLiveLock();
       pushState();
       broadcast('log', { level: 'info', text: 'El live terminó.' });
       /* No wipe inmediato: STREAM_END falso + reconnect borraba jarrón/marranito en OBS */
@@ -10667,7 +10721,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pong' })); } catch {}
         break;
       case 'connect':
-        if (data.deviceId) rememberLiveDeviceId(data.deviceId);
+        if (data.deviceId) rememberLiveDeviceId(data.deviceId, { force: true });
         if (RELAY) {
           if (typeof onRelayAction === 'function' && data.username) {
             onRelayAction('connect', {
