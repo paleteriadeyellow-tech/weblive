@@ -13591,27 +13591,53 @@ function refreshGiftCounterCardUI() {
     if (!rows) return;
     const list = Array.isArray(payload?.players) ? payload.players : [];
     const alive = list.filter((p) => p && p.alive && (p.lives > 0));
+    alive.sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0) || String(a.id).localeCompare(String(b.id)));
     const totalLives = Number.isFinite(Number(payload?.totalLives))
       ? Math.max(0, parseInt(payload.totalLives, 10) || 0)
       : alive.reduce((n, p) => n + (p.lives || 0), 0);
     if ($('sov-total-lives')) $('sov-total-lives').textContent = totalLives + ' vidas';
     if ($('sov-total-players')) $('sov-total-players').textContent = alive.length + ' personas';
     if (empty) empty.classList.toggle('is-hidden', alive.length > 0);
-    rows.innerHTML = alive.map((p) => {
+    const existing = new Map();
+    rows.querySelectorAll('.sov-prow').forEach((el) => {
+      if (el?.dataset?.id) existing.set(el.dataset.id, el);
+    });
+    alive.forEach((p, i) => {
       const name = esc(p.name || p.id || '?');
       const pic = esc(p.pic || '');
-      const id = esc(p.id || '');
+      const id = String(p.id || '');
       const lives = Math.max(0, parseInt(p.lives, 10) || 0);
-      const av = pic
-        ? '<img class="sov-prow-av" src="' + pic + '" alt="" referrerpolicy="no-referrer" />'
-        : '<div class="sov-prow-av-ph">' + esc(String(p.name || '?').slice(0, 1).toUpperCase()) + '</div>';
-      return '<div class="sov-prow" data-id="' + id + '">' + av
-        + '<div class="sov-prow-name" title="@' + id + '">' + name + '</div>'
-        + '<div class="sov-prow-lives">' + lives + '</div>'
-        + '<button type="button" class="sov-prow-pm plus" data-op="add" title="+1 vida">+</button>'
-        + '<button type="button" class="sov-prow-pm minus" data-op="rem" title="−1 vida">−</button>'
-        + '</div>';
-    }).join('');
+      let el = existing.get(id);
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'sov-prow';
+        el.dataset.id = id;
+        el.innerHTML = '<div class="sov-prow-av-wrap"></div>'
+          + '<div class="sov-prow-name"></div>'
+          + '<div class="sov-prow-lives"></div>'
+          + '<button type="button" class="sov-prow-pm plus" data-op="add" title="+1 vida">+</button>'
+          + '<button type="button" class="sov-prow-pm minus" data-op="rem" title="−1 vida">−</button>';
+        existing.set(id, el);
+      } else {
+        existing.delete(id);
+      }
+      const avWrap = el.querySelector('.sov-prow-av-wrap');
+      if (avWrap) {
+        avWrap.innerHTML = pic
+          ? '<img class="sov-prow-av" src="' + pic + '" alt="" referrerpolicy="no-referrer" />'
+          : '<div class="sov-prow-av-ph">' + esc(String(p.name || '?').slice(0, 1).toUpperCase()) + '</div>';
+      }
+      const nameEl = el.querySelector('.sov-prow-name');
+      if (nameEl) {
+        nameEl.textContent = p.name || p.id || '?';
+        nameEl.title = '@' + id;
+      }
+      const livesEl = el.querySelector('.sov-prow-lives');
+      if (livesEl) livesEl.textContent = String(lives);
+      const cur = rows.children[i];
+      if (cur !== el) rows.insertBefore(el, cur || null);
+    });
+    existing.forEach((el) => el.remove());
   }
   window.renderSorteosVidasPeople = renderSorteosVidasPeople;
   function sovLifeOp(op, playerId, count) {
@@ -13758,7 +13784,8 @@ function refreshGiftCounterCardUI() {
     const d = ev?.data;
     if (!d || d.kind !== 'sorteosVidas') return;
     if (d.type === 'ready') { pushCfg(); syncSorteosVidasSlowBtn(); return; }
-    if (d.type === 'players') { renderSorteosVidasPeople(d); return; }
+    // Lista de participantes: solo overlay en vivo (WS). La preview embed ya no empuja players.
+    if (d.type === 'players') return;
     if (d.type === 'vouch' && Number.isFinite(Number(d.count))) {
       if (!settings.sorteosVidasOverlay) settings.sorteosVidasOverlay = {};
       const n = Math.max(0, parseInt(d.count, 10) || 0);

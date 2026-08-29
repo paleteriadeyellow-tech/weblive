@@ -719,6 +719,8 @@
     let ws = null;
     let rt = null;
     let playersPushTimer = null;
+    /** Orden estable en panel (no reordenar al sumar vidas). */
+    let playerSeq = 0;
 
     const $ = (id) => document.getElementById(id);
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || lo));
@@ -974,8 +976,9 @@
           lives: Math.max(0, Number(p.lives) || 0),
           alive: !!p.alive && p.lives > 0,
           bank: Math.max(0, Number(p.bank) || 0),
+          seq: Number(p.seq) || 0,
         }))
-        .sort((a, b) => b.lives - a.lives || String(a.name).localeCompare(String(b.name)));
+        .sort((a, b) => (a.seq - b.seq) || String(a.id).localeCompare(String(b.id)));
     }
     function pushPlayersToPanel() {
       clearTimeout(playersPushTimer);
@@ -983,7 +986,8 @@
         const list = playerSummary();
         const totalLives = lifeSeats().length;
         try {
-          if (window.parent && window.parent !== window) {
+          // La preview (embed) no alimenta la lista del panel; solo el overlay en vivo vía WS.
+          if (!isEmbed && window.parent && window.parent !== window) {
             window.parent.postMessage({ kind: 'sorteosVidas', type: 'players', players: list, totalLives }, '*');
           }
         } catch { /* ignore */ }
@@ -1487,23 +1491,30 @@
       }
     }
 
-    /** true = ya se aplicó este regalo (no sumar otra vez). */
-    function giftAlreadyApplied(d) {
+    function giftDedupeKey(d) {
+      const groupId = String(d.groupId || '').trim();
+      if (groupId && groupId !== '0') {
+        const rep = Math.max(0, Number(d.repeatCount) || 0);
+        return 'g:' + groupId + '|' + rep + '|' + (d.repeatEnd ? 1 : 0)
+          + '|' + (d.streak ? 1 : 0) + '|' + (Number(d.repeatDelta) || 0);
+      }
+      const msgId = String(d.msgId || '').trim();
+      if (msgId && msgId !== '0') return 'm:' + msgId;
       const uid = String(d.uniqueId || d.nickname || '');
       const gid = String(d.giftId || d.giftName || '');
       const rep = Math.max(0, Number(d.repeatCount) || 0);
+      return 'e:' + uid + '|' + gid + '|' + rep + '|' + (d.repeatEnd ? 1 : 0)
+        + '|' + (d.streak ? 1 : 0) + '|' + (Number(d.repeatDelta) || 0);
+    }
+
+    /** true = ya se aplicó este regalo (no sumar otra vez). */
+    function giftAlreadyApplied(d) {
+      const key = giftDedupeKey(d);
       const now = Date.now();
-      const exact = 'e:' + uid + '|' + gid + '|' + rep + '|' + (d.repeatEnd ? 1 : 0) + '|' + (d.streak ? 1 : 0) + '|' + (Number(d.repeatDelta) || 0);
-      const prevExact = recentGiftApply.get(exact);
-      if (prevExact && now - prevExact < 800) return true;
-      recentGiftApply.set(exact, now);
-      // Regalo sin racha: TikTok a veces manda el mismo envío 2 veces (o tick + repeatEnd).
-      if (!d.streakGift && !d.streak) {
-        const lump = 'n:' + uid + '|' + gid + '|' + rep;
-        const prevLump = recentGiftApply.get(lump);
-        if (prevLump && now - prevLump < 1200) return true;
-        recentGiftApply.set(lump, now);
-      }
+      const prev = recentGiftApply.get(key);
+      const win = (d.streakGift || d.streak) ? 900 : 500;
+      if (prev && now - prev < win) return true;
+      recentGiftApply.set(key, now);
       pruneGiftApplyMap(now);
       return false;
     }
@@ -1526,14 +1537,16 @@
           if (!Number.isFinite(delta) || delta < 0) delta = 0;
           if (delta <= 0) delta = Math.max(0, rep - prev);
           if (delta <= 0 && !d.repeatEnd) delta = Math.max(1, Number(d.repeatCount) || 1);
+          // Live Studio a veces solo manda repeatEnd sin ticks intermedios.
+          if (delta <= 0 && d.repeatEnd && rep > prev) delta = rep - prev;
         }
+        if (d.repeatEnd && rep > prev) delta = Math.max(delta, rep - prev);
         if (delta > 0) streakProg.set(key, Math.max(prev + delta, rep));
         if (d.repeatEnd || (hadProg && !d.streak)) streakProg.delete(key);
         return delta;
       }
 
       const rd = Number(d.repeatDelta);
-      if (Number.isFinite(rd) && rd <= 0) return 0;
       streakProg.delete(key);
       if (Number.isFinite(rd) && rd > 0) return rd;
       return Math.max(1, Number(d.repeatCount) || 1);
@@ -1586,6 +1599,7 @@
           pic: d.photo || '',
           lives: 0, bank: 0, spent: 0, donated: 0, stakes: [],
           alive: false, lastChat: '', lastVouch: '',
+          seq: ++playerSeq,
         };
         players[handle] = p;
       } else {
@@ -1788,6 +1802,38 @@
       scheduleTick(currentTickMs());
     }
 
+    function isDemoPlayer(p) {
+      if (!p) return false;
+      const id = String(p.id || '');
+      if (/^demo\d+$/i.test(id)) return true;
+      const name = String(p.name || '');
+      if (/^Demo\d+$/i.test(name)) return true;
+      return false;
+    }
+    function recalcCoinsInPlay() {
+      let total = 0;
+      for (const p of Object.values(players)) {
+        if (!p) continue;
+        total += (p.stakes || []).reduce((n, v) => n + (Number(v) || 0), 0);
+      }
+      coinsInPlay = total;
+    }
+    function purgeDemoPlayers() {
+      let changed = false;
+      for (const id of Object.keys(players)) {
+        if (isDemoPlayer(players[id])) {
+          delete players[id];
+          changed = true;
+        }
+      }
+      if (!changed) return false;
+      rebuildLifeSlotsFromPlayers();
+      recalcCoinsInPlay();
+      renderGrid();
+      pushPlayersToPanel();
+      return true;
+    }
+
     /** Botón Iniciar: arranca ya (sin exigir mínimo de jugadores). */
     function startManual() {
       demoRapid = false;
@@ -1796,6 +1842,7 @@
       clearTimer();
       cancelPendingSpin();
       restoreDemoCfgBackup();
+      purgeDemoPlayers();
       const win = $('so-winner');
       if (win) win.classList.remove('on');
       // Si ya está en marcha, reinicia la fase de apertura
@@ -2184,6 +2231,7 @@
       players = {};
       lifeSlots = [];
       slotSeq = 0;
+      playerSeq = 0;
       streakProg.clear();
       recentGiftApply.clear();
       phase = 'waiting';
@@ -2426,6 +2474,7 @@
             alive: true,
             lastChat: '',
             lastVouch: '',
+            seq: ++playerSeq,
           };
           pushLifeSlot(players[id], cost);
           coinsInPlay += cost;
@@ -2500,6 +2549,7 @@
         clearTimeout(rt);
         // Re-subir vouches locales al servidor por si el room/settings venían en 0
         try { if (vouchCount > 0) persistVouchToSettings(); } catch { /* ignore */ }
+        if (!isEmbed) pushPlayersToPanel();
       };
       ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
       ws.onmessage = (ev) => {
@@ -2563,15 +2613,6 @@
       setTimeout(scheduleFit, 50);
       setTimeout(scheduleFit, 250);
       setTimeout(scheduleFit, 600);
-      // Demo: 3 vidas = 3 cuadrados de la misma foto (nunca un solo cuadro con ×3)
-      players = {
-        a: { id: 'a', name: 'Demo1', pic: 'https://randomuser.me/api/portraits/men/32.jpg', lives: 3, bank: 0, spent: 90, donated: 90, stakes: [30, 30, 30], alive: true, lastChat: '', lastVouch: '' },
-        b: { id: 'b', name: 'Demo2', pic: 'https://randomuser.me/api/portraits/women/44.jpg', lives: 1, bank: 0, spent: 30, donated: 30, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
-        c: { id: 'c', name: 'Demo3', pic: 'https://randomuser.me/api/portraits/men/45.jpg', lives: 1, bank: 5, spent: 30, donated: 35, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
-        d: { id: 'd', name: 'Demo4', pic: 'https://randomuser.me/api/portraits/women/68.jpg', lives: 1, bank: 0, spent: 30, donated: 30, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
-      };
-      coinsInPlay = 180;
-      rebuildLifeSlotsFromPlayers();
     }
     applyCfg(cfg);
     renderGrid();

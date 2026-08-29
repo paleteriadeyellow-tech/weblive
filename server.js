@@ -43,6 +43,7 @@ import {
 import * as spotify from './spotify.js';
 import { mountPaypalRoutes } from './paypal.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
+import { bootstrapUserMedia, registerUserUpload, userUploadKind, migrateUserMediaDir } from './scripts/user-media-guard.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -1213,38 +1214,29 @@ function desktopLegacyUserDataSubdirs(sub) {
 }
 
 function migrateFilesToPersistentDir(dest, legacyDirs, label) {
-  const destResolved = path.resolve(dest);
-  let copied = 0;
-  for (const legacyRaw of legacyDirs) {
-    const legacy = path.resolve(legacyRaw);
-    if (legacy === destResolved || !fs.existsSync(legacy)) continue;
-    let entries;
-    try { entries = fs.readdirSync(legacy, { withFileTypes: true }); } catch { continue; }
-    for (const ent of entries) {
-      if (!ent.isFile()) continue;
-      const from = path.join(legacy, ent.name);
-      const to = path.join(destResolved, ent.name);
-      try {
-        if (!fs.existsSync(to)) {
-          fs.copyFileSync(from, to);
-          copied++;
-        }
-      } catch {}
-    }
-  }
-  if (copied) console.log(`  [migrate] ${copied} archivo(s) de ${label} → ${destResolved}`);
+  migrateUserMediaDir(dest, legacyDirs, label);
 }
 
 function migrateDesktopMediaToPersistentDirs() {
-  migrateFilesToPersistentDir(UPLOADS_DIR, [
-    path.join(__dirname, 'public', 'uploads'),
-    path.join(DATA_DIR, 'uploads'),
-    ...desktopLegacyUserDataSubdirs('uploads'),
-  ], 'uploads');
-  migrateFilesToPersistentDir(AUDIOS_DIR, [
-    path.join(__dirname, 'public', 'audios'),
-    ...desktopLegacyUserDataSubdirs('audios'),
-  ], 'audios');
+  const legacyData = String(process.env.LEGACY_DATA_DIR || '').trim();
+  bootstrapUserMedia({
+    uploadsDir: UPLOADS_DIR,
+    audiosDir: AUDIOS_DIR,
+    dataDir: DATA_DIR,
+    isDesktop: IS_DESKTOP,
+    legacyUploads: [
+      path.join(__dirname, 'public', 'uploads'),
+      path.join(DATA_DIR, 'uploads'),
+      legacyData ? path.join(legacyData, 'uploads') : '',
+      ...desktopLegacyUserDataSubdirs('uploads'),
+    ].filter(Boolean),
+    legacyAudios: [
+      path.join(__dirname, 'public', 'audios'),
+      path.join(DATA_DIR, 'audios'),
+      legacyData ? path.join(legacyData, 'audios') : '',
+      ...desktopLegacyUserDataSubdirs('audios'),
+    ].filter(Boolean),
+  });
   migrateFilesToPersistentDir(VIDEOS_DIR, [
     PROJECT_VIDEOS_DIR,
     ...desktopLegacyUserDataSubdirs('video'),
@@ -4260,6 +4252,13 @@ app.post('/api/upload', (req, res) => {
     if (cloudCookie) {
       /* no-op: archivos locales + Browser Source en 127.0.0.1 */
     }
+    registerUserUpload(DATA_DIR, {
+      url: '/uploads/' + finalName,
+      name: finalName,
+      kind: userUploadKind(finalName),
+      dir: 'uploads',
+      bytes,
+    });
     res.json({ url: '/uploads/' + finalName, converted: finalPath !== dest, cloud: false });
   });
   req.pipe(out);

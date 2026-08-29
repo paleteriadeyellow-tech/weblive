@@ -10786,10 +10786,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
       triggerGiftGameActions(user, giftId, repeatCount, !!data.repeatEnd, giftType, giftInfo);
 
+      const giftGroupId = String(data.groupId ?? data.giftDetails?.groupId ?? '').trim();
+      const giftMsgId = String(data.common?.msgId ?? data.msgId ?? '').trim();
+
       broadcast('gift', {
         ...user, giftName, giftId, repeatCount, repeatDelta,
         diamonds: diamondsEach, image, streak: isStreak,
         repeatEnd: !!data.repeatEnd, streakGift: streakGiftType,
+        groupId: giftGroupId, msgId: giftMsgId,
       });
       checkMemberLevelUp(data);
     });
