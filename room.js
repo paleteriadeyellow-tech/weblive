@@ -8,6 +8,7 @@ import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
 import { DEFAULT_SETTINGS, deepMerge, ensureGiftSeqDefaults, ensureGiftVsDefaults, ensureGiftShowcaseDefaults, ensureFlowMeterDefaults } from './default-settings.js';
 import * as spotify from './spotify.js';
+import * as youtubeSr from './youtube-sr.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
 import { bumpMcPanic, mcRunToken, mcWait, executeMcRconQueue, executeMcRconPlan, fireGameActionTimed, fireGameActionCountTimed } from './mc-panic.js';
 import { marioSpawn, marioEffect, mari0Spawn, mari0Effect, smb3Spawn, smb3Effect, pvzSpawn, pvzSun, pvzCmd, pvzHybridSpawn, pvzHybridSun, pvzHybridCmd, repoSpawn, l4dSpawn, gtavKothSpawn, gtavChaosSpawn, gtavChiliadSpawn, unturnedSpawn, ctrSpawn, mslugSpawn, smwSpawn, runGameExec, resolveRepoSpawnKey } from './game-local.js';
@@ -76,12 +77,23 @@ function getGiftImage(data) {
   );
 }
 function baseUser(user) {
-  const uid = user?.uniqueId || (user?.userId != null && String(user.userId) !== '0' ? String(user.userId) : '') || '';
+  const userId = tiktokNumericUserId(user);
+  const handle = String(user?.uniqueId || '').trim().replace(/^@/, '');
+  const uid = handle || userId || '';
   return {
     uniqueId: uid,
-    nickname: user?.nickname || user?.uniqueId || uid || 'Anónimo',
+    userId,
+    nickname: user?.nickname || handle || uid || 'Anónimo',
     photo: getPhoto(user),
   };
+}
+function tiktokNumericUserId(user) {
+  const id = user?.userId ?? user?.user_id ?? user?.id;
+  if (id == null || String(id) === '0') return '';
+  return String(id).trim();
+}
+function normPointsHandle(raw) {
+  return String(raw || '').trim().replace(/^@/, '').toLowerCase();
 }
 function normTikTokUser(s) {
   return String(s || '')
@@ -245,14 +257,26 @@ function chatUserRoles(data) {
     tikTokFlag(sub.isSubscribedToAnchor) ||
     tikTokFlag(sub.qualification) ||
     tikTokFlag(data?.msgFilter?.isSubscribedToAnchor) ||
-    numMemberLevel(u?.fansClub?.data?.level) > 0 ||
-    numMemberLevel(u?.fansClubInfo?.fansLevel) > 0 ||
     badges.some((b) => {
       const sc = scene(b);
       if (sc === 4 || sc === 7) return true; // SUBSCRIBER / NEW_SUBSCRIBER
       const url = badgeUrl(b);
       const typ = badgeType(b);
       return url.includes('/sub_') || url.includes('subscri') || typ.includes('subscri') || typ.includes('sub_');
+    })
+  );
+  const isSuperFan = !!(
+    tikTokFlag(ui.isSuperFan) ||
+    tikTokFlag(u.isSuperFan) ||
+    tikTokFlag(u.superFan) ||
+    tikTokFlag(u.isSuperFanOfAnchor) ||
+    numMemberLevel(u?.fansClub?.data?.level) > 0 ||
+    numMemberLevel(u?.fansClubInfo?.fansLevel) > 0 ||
+    badges.some((b) => {
+      const typ = badgeType(b);
+      const url = badgeUrl(b);
+      return typ.includes('superfan') || typ.includes('super_fan') || typ.includes('fansclub') || typ.includes('fanclub')
+        || url.includes('superfan') || url.includes('super_fan') || url.includes('fans_club') || url.includes('fanclub');
     })
   );
   const followStatus = Number(u?.followInfo?.followStatus ?? u?.followStatus ?? 0);
@@ -262,7 +286,7 @@ function chatUserRoles(data) {
   const isTeam = !!(levelFromBadge(teamBadge) > 0 || memberLevel > 0);
   const gifterLevel = gifterLevelFromUser(u);
 
-  return { isMod, isSub, isFollower, isTeam, memberLevel, gifterLevel };
+  return { isMod, isSub, isSuperFan, isFollower, isTeam, memberLevel, gifterLevel };
 }
 function matchesCommand(command, comment) {
   const cmd = String(command || '').trim().toLowerCase();
@@ -293,6 +317,7 @@ function currentMonthRange(now = Date.now()) {
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 1, 0, 0, 0, 0).getTime();
   return [start, end];
 }
+/** Semana/mes: no vaciar si el guardado sigue vigente (hora del PC / sync). */
 function stillInSavedWindow(saved, period, now = Date.now()) {
   if (!saved || !period || saved.period !== period) return false;
   const start = Number(saved.start) || 0;
@@ -494,7 +519,7 @@ function normalizeProfilesMediaUrls(p) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank, onLiveSessionEnd, onGameExec, onClaimLiveLock, onHeartbeatLiveLock, onReleaseLiveLock }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank, onLiveSessionEnd, onLiveStatus, onGameExec, onClaimLiveLock, onHeartbeatLiveLock, onReleaseLiveLock }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
@@ -648,7 +673,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     rankStreamerTimer = null;
   }
   // Usuario y Puntos: balance acumulado (de por vida) por usuario + historial de transacciones.
-  const points = new Map();          // uniqueId -> { uniqueId, nickname, photo, total, levelPoints, firstAt, lastAt }
+  const points = new Map();          // u:userId | h:handle -> { uniqueId, userId, nickname, photo, total, levelPoints, firstAt, lastAt }
   let pointsTx = [];                 // transacciones recientes (las más nuevas primero), acotadas
   const POINTS_MAX_USERS = 2500;
   const POINTS_MAX_TX = 500;
@@ -662,6 +687,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   /** uniqueId/nickname de suscriptores y Super Fans vistos en este live (el chat a veces no trae el flag). */
   const knownLiveSubscribers = new Set();
   const knownLiveMods = new Set();
+  const knownLiveSuperFans = new Set();
   function liveSubKeys(uniqueId, nickname) {
     return [
       normTikTokUser(uniqueId), String(uniqueId || '').trim().toLowerCase(),
@@ -673,6 +699,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function isKnownLiveSub(uniqueId, nickname) {
     return liveSubKeys(uniqueId, nickname).some((k) => knownLiveSubscribers.has(k));
+  }
+  function rememberLiveSuperFan(uniqueId, nickname) {
+    for (const k of liveSubKeys(uniqueId, nickname)) knownLiveSuperFans.add(k);
+  }
+  function isKnownLiveSuperFan(uniqueId, nickname) {
+    return liveSubKeys(uniqueId, nickname).some((k) => knownLiveSuperFans.has(k));
   }
   function rememberLiveMod(uniqueId, nickname) {
     for (const k of liveSubKeys(uniqueId, nickname)) knownLiveMods.add(k);
@@ -692,6 +724,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const u = user || baseUser(data?.user || data);
     if (roles.isMod) rememberLiveMod(u.uniqueId, u.nickname);
     if (roles.isSub) rememberLiveSub(u.uniqueId, u.nickname);
+    if (roles.isSuperFan) rememberLiveSuperFan(u.uniqueId, u.nickname);
     return roles;
   }
   /** Último chat por usuario (ms) — para detectar “salió y volvió” en primer mensaje. */
@@ -1123,6 +1156,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
    *  no cambian al cambiar de perfil. */
   const PROFILE_SHARED_KEYS = [
     'spotify',
+    'youtube',
     'tts',
     'timer',
     'points',
@@ -1134,7 +1168,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'giftGoals', 'giftCounter', 'topStreak',
     'baileRonda', 'baileCombo', 'baileRank',
-    'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills', 'screenFx',
+    'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'sorteosVidasOverlay', 'topKills', 'screenFx',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
@@ -2079,6 +2113,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const prevHabibiTopPeriod = getHabibiTopPeriod();
     const prevGiftGoalsPeriod = getGiftGoalsPeriod();
     const prevCoinBarPeriod = getCoinBarPeriod();
+    const prevYtOverlayStyle = String((settings.youtube && settings.youtube.overlayStyle) || 'card').toLowerCase();
+    const prevSpOverlayStyle = String((settings.spotify && settings.spotify.overlayStyle) || 'list').toLowerCase();
     const prevGiftOverlayPeriods = {};
     for (const k of GIFT_OVERLAY_KEYS) prevGiftOverlayPeriods[k] = getGiftOverlayPeriod(k);
     const prevRankPeriods = {};
@@ -2144,6 +2180,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
     }
     settings = deepMerge(settings, obj);
+    dedupeProfileGameActions(settings);
     if (settings.topKills && 'clearPlayers' in settings.topKills) delete settings.topKills.clearPlayers;
     // El contador en vivo manda: un save del panel no debe pisar savedRemaining con un 0 viejo.
     if (obj && obj.timer && typeof obj.timer === 'object') {
@@ -2231,6 +2268,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     enforceLimits();
     saveSettings();
+    // Patch del panel: avisar keys tocadas para no reconstruir toda la UI en el cliente.
+    // Save completo (muchas keys) → eco full sin touchedKeys.
     {
       const patchKeys = obj && typeof obj === 'object' ? Object.keys(obj) : [];
       const isPatch = !!fromUser && patchKeys.length > 0 && patchKeys.length <= 48;
@@ -2238,6 +2277,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     if (obj.followerCounter || obj.followerCounterMc) {
       try { broadcastFollowerCounter(); } catch { /* foc aún no listo en boot */ }
+    }
+    if (obj.youtube) {
+      try {
+        const next = ytCfg().overlayStyle;
+        const prev = (prevYtOverlayStyle === 'player' || prevYtOverlayStyle === 'list' || prevYtOverlayStyle === 'studio') ? prevYtOverlayStyle : 'card';
+        if (next !== prev) pushYoutubeState();
+      } catch { /* youtube-sr aún no listo en boot */ }
+    }
+    if (obj.spotify) {
+      try {
+        const next = spotifyOverlayStyleNow();
+        const prev = (prevSpOverlayStyle === 'player' || prevSpOverlayStyle === 'nowlist' || prevSpOverlayStyle === 'studio') ? prevSpOverlayStyle : 'list';
+        if (next !== prev) pushSpotifyNowPlaying();
+      } catch { /* spotify aún no listo en boot */ }
     }
     clampTimer();
     broadcastTimer();
@@ -4792,6 +4845,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           }
           fetchRoomCommunityGifts(conn);
           beginChatCatchup();
+          notifyLiveDirectory();
         };
         const abortConnect = (msg, { silent = false } = {}) => {
           try { conn.disconnect(); } catch { /* ignore */ }
@@ -4892,6 +4946,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return true;
   }
 
+  function notifyLiveDirectory() {
+    if (typeof onLiveStatus !== 'function') return;
+    try { onLiveStatus(getStatus()); } catch { /* ignore */ }
+  }
+
   function maybeCreditLiveBadge() {
     if (!state.connected) return;
     notifyLiveSessionEnd();
@@ -4922,6 +4981,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     state.roomId = null;
     syncLiveUptimeOnDisconnect();
     if (wasLive) notifyLiveSessionEnd();
+    notifyLiveDirectory();
     if (!opts.keepLiveLock) releaseLiveLock();
   }
 
@@ -5943,6 +6003,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   // Recorre settings.mcActions y ejecuta por RCON las que coincidan con el evento.
+  // Perfil activo + Perfil general (forEachTriggerProfile).
   function triggerMinecraftActions(eventType, info = {}, user = null) {
     forEachTriggerProfile((cfg) => triggerMinecraftActionsCfg(eventType, info, user, cfg));
   }
@@ -6987,11 +7048,30 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
   }
 
+  function isChiliadLaunchUp(thing) {
+    const raw = String(thing || '').trim().toLowerCase();
+    const id = raw.startsWith('chiliad:') ? raw.slice(8) : raw;
+    const kind = (id.split(':')[0] || '').trim();
+    return kind === 'teleport_up' || kind === 'launch_player';
+  }
+
+  function chiliadQtyForThing(thing, n) {
+    const v = Math.max(1, Number(n) || 1);
+    return isChiliadLaunchUp(thing) ? v : Math.min(50, v);
+  }
+
   function spawnGtavChiliadThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(50, Math.max(1, Number(times) || 1));
+    let thingOut = String(thing || '');
+    let unitCount = Math.max(1, Number(times) || 1);
+    if (isChiliadLaunchUp(thingOut)) {
+      thingOut = 'chiliad:teleport_up:' + Math.floor(unitCount);
+      unitCount = 1;
+    } else {
+      unitCount = Math.min(50, unitCount);
+    }
     withGameActionCountTiming(actionForTiming, 1, () => {
-      if (!thing) return;
-      const exec = { tipo: 'GTAVCHILIAD_SPAWN', thing: String(thing || ''), name: String(name || ''), times: unitCount };
+      if (!thingOut) return;
+      const exec = { tipo: 'GTAVCHILIAD_SPAWN', thing: thingOut, name: String(name || ''), times: unitCount };
       if (meta.params && typeof meta.params === 'object') exec.params = meta.params;
       if (units != null && Number(units) > 0) exec.units = Math.max(1, Number(units) || 1);
       if (meta.label) exec.label = meta.label;
@@ -7044,7 +7124,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'gtavchiliad');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(50, perUnit * likeFires);
+        const totalQty = chiliadQtyForThing(a.thing, perUnit * likeFires);
         spawnGtavChiliadThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -7064,7 +7144,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(50, perUnit * units);
+      const times = chiliadQtyForThing(a.thing, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnGtavChiliadThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -7851,7 +7931,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
         const goal = Math.max(1, a.likeN || 100);
         if (Math.floor(total / goal) > Math.floor(lastTotalLikes / goal)) {
-          spawnGtavChiliadThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a);
+          spawnGtavChiliadThing(a.thing, '', chiliadQtyForThing(a.thing, parseInt(a.count, 10) || 1), 1, {}, a);
         }
       }
       for (const a of (cfg.unturnedActions || [])) {
@@ -8217,8 +8297,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   /* ---------------------- Spotify Song Requests (solo .exe) ---------------------- */
   function spotifyBalance(uniqueId) {
-    const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
-    return points.get(key)?.total || 0;
+    const found = findPointsEntry('', uniqueId);
+    return found ? found.user.total : 0;
   }
   function pushSpotifyQueue() {
     broadcast('spotifyQueue', {
@@ -8391,7 +8471,237 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function stopSpotifyPoller() {
-    if (spotifyPollTimer) { clearInterval(spotifyPollTimer); spotifyPollTimer = null; }
+    if (spotifyPollTimer) { clearInterval(spotifyPollTimer); spotifyPollTimer = null;     }
+  }
+
+  let youtubePaused = false;
+
+  function ytCfg() {
+    const cfg = { ...(DEFAULT_SETTINGS.youtube || {}), ...(settings.youtube && typeof settings.youtube === 'object' ? settings.youtube : {}) };
+    const skip = String(cfg.cmdSkip || '').trim().toLowerCase();
+    if (skip === '!skip' || skip === '!ytskip') cfg.cmdSkip = '!ytsalta';
+    const rev = String(cfg.cmdRevoke || '').trim().toLowerCase();
+    if (rev === '!revoke' || rev === '!ytrevoke') cfg.cmdRevoke = '!ytquita';
+    const st = String(cfg.overlayStyle || 'card').toLowerCase();
+    cfg.overlayStyle = (st === 'player' || st === 'list' || st === 'studio') ? st : 'card';
+    return cfg;
+  }
+
+  function youtubeStatePayload() {
+    const cfg = ytCfg();
+    return {
+      ...youtubeSr.getState(id),
+      volume: Math.max(0, Math.min(100, Number(cfg.volume) || 80)),
+      paused: !!youtubePaused,
+      overlayStyle: cfg.overlayStyle,
+    };
+  }
+
+  function pushYoutubeState() {
+    try { broadcast('youtubeState', youtubeStatePayload()); } catch {}
+  }
+
+  function ytNormCmd(raw) {
+    let c = String(raw || '').trim().toLowerCase();
+    if (!c) return '';
+    if (!c.startsWith('!')) c = '!' + c.replace(/^!+/, '');
+    return c.replace(/\s+/g, '');
+  }
+
+  function ytMatchCmd(comment, cmd) {
+    const token = ytNormCmd(cmd);
+    if (!token || token === '!play' || token === '!skip' || token === '!revoke') return null;
+    const text = String(comment || '').replace(/[\u200B-\u200D\uFEFF\u2060]/g, '').trim();
+    const lower = text.toLowerCase().replace(/[.,!?…]+$/g, '');
+    if (lower === token) return { arg: '', token };
+    if (lower.startsWith(token + ' ') || lower.startsWith(token + '\t')) {
+      return { arg: text.slice(token.length).trim(), token };
+    }
+    return null;
+  }
+
+  function ytOwnedNow(now, uid, nick) {
+    if (!now) return false;
+    const id = String(now.requestedUniqueId || '').trim().toLowerCase().replace(/^@/, '');
+    if (id && id !== 'panel') {
+      return tiktokUserMatches(now.requestedUniqueId, uid, nick)
+        || id === String(uid || '').toLowerCase().replace(/^@/, '');
+    }
+    const by = String(now.requestedBy || '').trim().toLowerCase();
+    if (!by || by === 'panel') return false;
+    return tiktokUserMatches(now.requestedBy, uid, nick);
+  }
+
+  function youtubeInAllowList(cfg, user) {
+    const lists = []
+      .concat(Array.isArray(cfg.permUsersTiktok) ? cfg.permUsersTiktok : [])
+      .concat(Array.isArray(cfg.permUsers) ? cfg.permUsers : []);
+    if (!lists.length) return false;
+    return lists.some((want) => tiktokUserMatches(want, user?.uniqueId || '', user?.nickname || ''));
+  }
+
+  function youtubeUserAllowed(cfg, user, roles) {
+    if (!cfg) return false;
+    if (cfg.permAll) return true;
+    if (cfg.permMods && isLiveModUser(user, roles)) return true;
+    if (cfg.permSubs && (roles?.isSub || isKnownLiveSub(user?.uniqueId, user?.nickname))) return true;
+    if (cfg.permSuperfans && (roles?.isSuperFan || isKnownLiveSuperFan(user?.uniqueId, user?.nickname))) return true;
+    if (cfg.permFollowers && roles?.isFollower) return true;
+    if (cfg.permTeam && roles?.isTeam && (Number(roles.memberLevel) || 0) >= Math.max(1, Number(cfg.teamMin) || 1)) return true;
+    if (cfg.permGifters && (Number(roles.gifterLevel) || 0) >= Math.max(1, Number(cfg.gifterMin) || 1)) return true;
+    if (!cfg.permUsersOn) return false;
+    const lists = []
+      .concat(Array.isArray(cfg.permUsersTiktok) ? cfg.permUsersTiktok : [])
+      .concat(Array.isArray(cfg.permUsers) ? cfg.permUsers : []);
+    if (!lists.length) return false;
+    const username = user?.uniqueId || '';
+    const nickname = user?.nickname || '';
+    return lists.some((want) => tiktokUserMatches(want, username, nickname));
+  }
+
+  function youtubePlanOk() {
+    try {
+      const caps = currentCaps();
+      if (!caps) return false;
+      if (caps.plan === 'admin') return true;
+      if (caps.features && caps.features.tab_youtube === true) return true;
+      const plan = String(caps.plan || '').toLowerCase();
+      return plan === 'premium' || plan === 'founder';
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleYoutubeCommands(comment, user, roles) {
+    if (!youtubePlanOk()) return;
+    const cfg = ytCfg();
+    const candidates = [
+      cfg.cmdSkipOn !== false ? ['skip', cfg.cmdSkip || '!ytsalta'] : null,
+      cfg.cmdRevokeOn !== false ? ['revoke', cfg.cmdRevoke || '!ytquita'] : null,
+      cfg.cmdVolUpOn !== false ? ['volup', cfg.cmdVolUp || '!ytvolup'] : null,
+      cfg.cmdVolDownOn !== false ? ['voldown', cfg.cmdVolDown || '!ytvoldown'] : null,
+      cfg.cmdVolOn !== false ? ['vol', cfg.cmdVol || '!ytvol'] : null,
+      cfg.cmdPlayOn !== false ? ['play', cfg.cmdPlay || '!yt'] : null,
+    ].filter(Boolean);
+    const seen = new Set();
+    const uniq = [];
+    for (const row of candidates.sort((a, b) => ytNormCmd(b[1]).length - ytNormCmd(a[1]).length)) {
+      const tok = ytNormCmd(row[1]);
+      if (!tok || seen.has(tok)) continue;
+      seen.add(tok);
+      uniq.push(row);
+    }
+    let kind = null, hit = null;
+    for (const [k, cmd] of uniq) {
+      const m = ytMatchCmd(comment, cmd);
+      if (m) { kind = k; hit = m; break; }
+    }
+    if (!kind) return;
+    const playHit = kind === 'play' ? hit : null;
+    const skipHit = kind === 'skip' ? hit : null;
+    const revHit = kind === 'revoke' ? hit : null;
+    const volUpHit = kind === 'volup' ? hit : null;
+    const volDownHit = kind === 'voldown' ? hit : null;
+    const volSetHit = kind === 'vol' ? hit : null;
+
+    const allowed = youtubeUserAllowed(cfg, user, roles);
+    const isMod = isLiveModUser(user, roles);
+    const nick = user?.nickname || user?.uniqueId || 'chat';
+    const uid = user?.uniqueId || '';
+    const isHost = tiktokUserMatches(settings.tiktokUser, uid, nick);
+    const reply = (txt, ok = true) => broadcast('log', { level: ok ? 'ok' : 'warn', text: 'YouTube: ' + txt });
+
+    if (playHit) {
+      if (!allowed) return;
+      if (!playHit.arg) {
+        reply('Uso: ' + ytNormCmd(cfg.cmdPlay || '!yt') + ' nombre de la canción', false);
+        return;
+      }
+      const maxUser = Math.max(1, Number(cfg.queueUser) || 3);
+      if (youtubeSr.pendingByUser(id, uid) >= maxUser) {
+        reply(nick + ': ya tienes el máximo en cola.', false);
+        return;
+      }
+      try {
+        const r = await youtubeSr.addByQuery(id, playHit.arg, nick, {
+          requestedUniqueId: uid,
+          autoplay: cfg.playFirst !== false,
+        });
+        if (!r.ok) { reply(r.error || 'No se pudo añadir', false); return; }
+        if (r.started) youtubePaused = false;
+        reply((r.started ? '▶ ' : 'En cola: ') + r.track.title);
+        pushYoutubeState();
+      } catch (e) {
+        reply(String(e.message || e), false);
+      }
+      return;
+    }
+
+    if (skipHit) {
+      if (cfg.cmdSkipOn === false) return;
+      const st = youtubeSr.getState(id);
+      const now = st.now;
+      if (!now) { reply('No hay canción sonando.', false); return; }
+      const isOwner = ytOwnedNow(now, uid, nick);
+      const skipWho = String(cfg.skipWho || 'mods');
+      let canGlobal = isMod || isHost;
+      if (cfg.skipOthers) {
+        if (skipWho === 'all' && allowed) canGlobal = true;
+        if (skipWho === 'allowed' && youtubeInAllowList(cfg, user)) canGlobal = true;
+      }
+      if (!isOwner && !canGlobal) {
+        reply(nick + ': solo puedes saltar la canción que pediste tú.', false);
+        return;
+      }
+      youtubePaused = false;
+      youtubeSr.skip(id);
+      reply('Saltada: ' + (now.title || 'canción'));
+      pushYoutubeState();
+      return;
+    }
+
+    if (revHit) {
+      if (cfg.cmdRevokeOn === false) return;
+      const r = youtubeSr.revokeByUser(id, uid, nick);
+      if (r.skippedNow) youtubePaused = false;
+      if (!r.ok) { reply(r.error || 'Nada que retirar', false); return; }
+      reply('Retirada: ' + (r.track?.title || 'canción'));
+      pushYoutubeState();
+      return;
+    }
+
+    if (volUpHit || volDownHit || volSetHit) {
+      if (!allowed && !isMod && !isHost) return;
+      const cur = Math.max(0, Math.min(100, Number(cfg.volume) || 80));
+      const stepDef = Math.max(1, Math.min(50, Number(cfg.volStep) || 10));
+      const parseN = (raw) => {
+        const n = parseInt(String(raw || '').replace('%', '').trim(), 10);
+        return Number.isFinite(n) ? n : NaN;
+      };
+      let next = cur;
+      if (volSetHit) {
+        const n = parseN(volSetHit.arg);
+        if (!Number.isFinite(n)) {
+          reply('Uso: ' + ytNormCmd(cfg.cmdVol || '!ytvol') + ' 0-100', false);
+          return;
+        }
+        next = n;
+      } else if (volUpHit) {
+        const n = parseN(volUpHit.arg);
+        next = cur + (Number.isFinite(n) && n > 0 ? n : stepDef);
+      } else {
+        const n = parseN(volDownHit.arg);
+        next = cur - (Number.isFinite(n) && n > 0 ? n : stepDef);
+      }
+      next = Math.max(0, Math.min(100, Math.round(next)));
+      if (!settings.youtube || typeof settings.youtube !== 'object') {
+        settings.youtube = { ...(DEFAULT_SETTINGS.youtube || {}) };
+      }
+      settings.youtube.volume = next;
+      saveSettings();
+      pushYoutubeState();
+      reply(nick + ': volumen ' + next + '%');
+    }
   }
 
   function spotifyUserAllowed(cfg, user, roles) {
@@ -8399,8 +8709,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (cfg.permAll) return true;
     if (cfg.permMods && isLiveModUser(user, roles)) return true;
     if (cfg.permSubs && (roles?.isSub || isKnownLiveSub(user?.uniqueId, user?.nickname))) return true;
+    // Antes Superfans iba junto con Suscriptores. Si el flag no existe, no les quites el acceso.
     const superfansOn = Object.prototype.hasOwnProperty.call(cfg, 'permSuperfans') ? !!cfg.permSuperfans : !!cfg.permSubs;
-    if (superfansOn && roles?.isSuperFan) return true;
+    if (superfansOn && (roles?.isSuperFan || isKnownLiveSuperFan(user?.uniqueId, user?.nickname))) return true;
     if (cfg.permFollowers && roles?.isFollower) return true;
     if (cfg.permTeam && roles?.isTeam && (Number(roles.memberLevel) || 0) >= Math.max(1, Number(cfg.teamMin) || 1)) return true;
     if (cfg.permGifters && (Number(roles.gifterLevel) || 0) >= Math.max(1, Number(cfg.gifterMin) || 1)) return true;
@@ -8462,7 +8773,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         return true;
       }
       if (spotifyBalance(user.uniqueId) < cost) { reply(`${user.nickname}: necesitas ${cost} puntos.`, false); return false; }
-      addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: -cost, counted: false, description: desc });
+      addUserPoints({ uniqueId: user.uniqueId, userId: user.userId, nickname: user.nickname, photo: user.photo, amount: -cost, counted: false, description: desc });
       return true;
     };
 
@@ -9244,11 +9555,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastHabibiTop();
     persistHabibiTop();
   }
-  function readHabibiManual() {
-    const fromSettings = parseHabibiManualRecord(settings.habibiTop && settings.habibiTop.manual);
-    if (fromSettings) return fromSettings;
-    return parseHabibiManualRecord(readJsonSafe(HABIBI_MANUAL_FILE).data);
-  }
   function parseHabibiManualRecord(m) {
     if (!m || typeof m !== 'object') return null;
     const uniqueId = String(m.uniqueId || '').replace(/^@+/, '').trim();
@@ -9259,6 +9565,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       photo: String(m.photo || m.profilePictureUrl || '').trim(),
       coins: Math.max(0, Math.floor(Number(m.coins) || 0)),
     };
+  }
+  function readHabibiManual() {
+    const fromSettings = parseHabibiManualRecord(settings.habibiTop && settings.habibiTop.manual);
+    if (fromSettings) return fromSettings;
+    return parseHabibiManualRecord(readJsonSafe(HABIBI_MANUAL_FILE).data);
   }
   function writeHabibiManual(entry) {
     if (!settings.habibiTop || typeof settings.habibiTop !== 'object') settings.habibiTop = {};
@@ -9587,29 +9898,85 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return Math.round((POINTS_LEVEL_STEP * L * (L - 1)) / 2);
   }
   function donorLevelForUid(uid) {
-    const key = String(uid || '').trim().replace(/^@/, '').toLowerCase();
-    if (!key) return 0;
-    const u = points.get(key);
-    if (!u) return 0;
-    return levelForPoints(u.levelPoints);
+    const found = findPointsEntry('', uid);
+    if (!found) return 0;
+    return levelForPoints(found.user.levelPoints);
+  }
+
+  function pointsStorageKey(userId, uniqueId) {
+    const uid = tiktokNumericUserId({ userId });
+    if (uid) return 'u:' + uid;
+    const h = normPointsHandle(uniqueId);
+    return h ? 'h:' + h : '';
+  }
+  function findPointsEntry(userId, uniqueId) {
+    const uid = tiktokNumericUserId({ userId });
+    const handle = normPointsHandle(uniqueId);
+    if (uid) {
+      const k = 'u:' + uid;
+      if (points.has(k)) return { key: k, user: points.get(k) };
+    }
+    if (handle) {
+      const hk = 'h:' + handle;
+      if (points.has(hk)) return { key: hk, user: points.get(hk) };
+      if (points.has(handle)) return { key: handle, user: points.get(handle) };
+    }
+    if (uid) {
+      for (const [k, v] of points) {
+        if (String(v.userId || '') === uid) return { key: k, user: v };
+      }
+    }
+    if (handle) {
+      for (const [k, v] of points) {
+        if (normPointsHandle(v.uniqueId) === handle) return { key: k, user: v };
+      }
+    }
+    return null;
+  }
+  function mergePointsRecords(into, from) {
+    into.total = Math.max(0, (into.total || 0) + (from.total || 0));
+    into.levelPoints = Math.max(0, (into.levelPoints || 0) + (from.levelPoints || 0));
+    into.firstAt = Math.min(into.firstAt || Date.now(), from.firstAt || Date.now());
+    into.lastAt = Math.max(into.lastAt || 0, from.lastAt || 0);
+    if (!into.photo && from.photo) into.photo = from.photo;
+    if (!into.userId && from.userId) into.userId = from.userId;
+    if (!into.nickname && from.nickname) into.nickname = from.nickname;
   }
 
   let pointsSaveTimer = null;
   function loadPoints() {
     const r = readJsonSafe(POINTS_FILE);
     const raw = r.data;
+    points.clear();
     if (raw && Array.isArray(raw.users)) {
       for (const u of raw.users) {
         if (!u || !u.uniqueId) continue;
-        points.set(u.uniqueId, {
-          uniqueId: u.uniqueId,
-          nickname: u.nickname || u.uniqueId,
+        const handle = normPointsHandle(u.uniqueId);
+        const uid = tiktokNumericUserId({ userId: u.userId });
+        const rec = {
+          uniqueId: handle || String(u.uniqueId).trim(),
+          userId: uid,
+          nickname: u.nickname || handle || u.uniqueId,
           photo: u.photo || '',
           total: Math.max(0, Number(u.total) || 0),
           levelPoints: Math.max(0, Number(u.levelPoints != null ? u.levelPoints : u.total) || 0),
           firstAt: Number(u.firstAt) || Date.now(),
           lastAt: Number(u.lastAt) || Date.now(),
-        });
+        };
+        const key = pointsStorageKey(uid, handle);
+        if (!key) continue;
+        const prev = points.get(key);
+        if (prev) {
+          prev.total = Math.max(prev.total, rec.total);
+          prev.levelPoints = Math.max(prev.levelPoints, rec.levelPoints);
+          prev.firstAt = Math.min(prev.firstAt, rec.firstAt);
+          prev.lastAt = Math.max(prev.lastAt, rec.lastAt);
+          if (!prev.photo && rec.photo) prev.photo = rec.photo;
+          if (!prev.userId && rec.userId) prev.userId = rec.userId;
+          if (rec.nickname) prev.nickname = rec.nickname;
+        } else {
+          points.set(key, rec);
+        }
       }
     }
     if (raw && Array.isArray(raw.tx)) pointsTx = raw.tx.slice(0, POINTS_MAX_TX);
@@ -9625,7 +9992,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function serializePointUser(u) {
     const level = levelForPoints(u.levelPoints);
     return {
-      uniqueId: u.uniqueId, nickname: u.nickname, photo: u.photo,
+      uniqueId: u.uniqueId, userId: u.userId || '', nickname: u.nickname, photo: u.photo,
       total: u.total, levelPoints: u.levelPoints, level,
       levelBase: pointsToReachLevel(level), nextLevel: pointsToReachLevel(level + 1),
       firstAt: u.firstAt, lastAt: u.lastAt,
@@ -9643,18 +10010,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   const pointsLookupCooldown = new Map();
   function buildPointsLookupPayload(user) {
-    const key = String(user?.uniqueId || '').trim().replace(/^@/, '').toLowerCase();
+    const handle = normPointsHandle(user?.uniqueId);
+    const found = findPointsEntry(user?.userId, handle);
     const sorted = [...points.values()].sort((a, b) => b.total - a.total);
-    let stored = null;
+    let stored = found ? found.user : null;
     let rank = 0;
-    if (key) {
-      stored = points.get(key) || null;
-      if (!stored) {
-        for (const v of points.values()) {
-          if (String(v.uniqueId || '').toLowerCase() === key) { stored = v; break; }
-        }
-      }
-      rank = sorted.findIndex((x) => String(x.uniqueId || '').toLowerCase() === key) + 1;
+    if (stored) {
+      rank = sorted.findIndex((x) => x === stored) + 1;
+    } else if (handle) {
+      rank = sorted.length + 1;
     }
     if (stored) {
       const ser = serializePointUser(stored);
@@ -9668,8 +10032,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       };
     }
     return {
-      uniqueId: key || user?.uniqueId || '',
-      nickname: user?.nickname || key || 'Usuario',
+      uniqueId: handle || user?.uniqueId || '',
+      nickname: user?.nickname || handle || 'Usuario',
       photo: user?.photo || '',
       total: 0,
       level: 1,
@@ -9715,22 +10079,51 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   // Añade (o resta) puntos a un usuario. counted=true => también cuentan para el nivel.
-  function addUserPoints({ uniqueId, nickname, photo, amount, counted = true, description = '', manual = false }) {
-    const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
-    if (!key || !Number.isFinite(amount) || amount === 0) return null;
+  function addUserPoints({ uniqueId, userId, nickname, photo, amount, counted = true, description = '', manual = false }) {
+    const handle = normPointsHandle(uniqueId);
+    const uid = tiktokNumericUserId({ userId });
+    if ((!handle && !uid) || !Number.isFinite(amount) || amount === 0) return null;
     const now = Date.now();
-    const u = points.get(key) || { uniqueId: key, nickname: nickname || key, photo: photo || '', total: 0, levelPoints: 0, firstAt: now, lastAt: now };
+    const found = findPointsEntry(uid, handle);
+    let key;
+    let u;
+    if (found) {
+      key = found.key;
+      u = found.user;
+    } else {
+      key = pointsStorageKey(uid, handle);
+      if (!key) return null;
+      u = {
+        uniqueId: handle || uid,
+        userId: uid,
+        nickname: nickname || handle || uid,
+        photo: photo || '',
+        total: 0,
+        levelPoints: 0,
+        firstAt: now,
+        lastAt: now,
+      };
+    }
+    if (uid) u.userId = uid;
+    if (handle) u.uniqueId = handle;
+    if (nickname) u.nickname = nickname;
     u.total = Math.max(0, u.total + amount);
     if (counted) u.levelPoints = Math.max(0, u.levelPoints + amount);
-    if (nickname) u.nickname = nickname;
     if (photo) {
       u.photo = photo;
-      persistViewerAvatar(dataDir, key, photo).catch(() => {});
+      persistViewerAvatar(dataDir, u.uniqueId || uid || handle, photo).catch(() => {});
     }
     u.lastAt = now;
+    const idealKey = pointsStorageKey(u.userId, u.uniqueId);
+    if (idealKey && key !== idealKey) {
+      const other = points.get(idealKey);
+      if (other && other !== u) mergePointsRecords(u, other);
+      points.delete(key);
+      key = idealKey;
+    }
     points.set(key, u);
     enforcePointsCap();
-    logPointsTx({ uniqueId: key, nickname: u.nickname, points: amount, description, counted, manual });
+    logPointsTx({ uniqueId: u.uniqueId, nickname: u.nickname, points: amount, description, counted, manual });
     savePoints();
     pushPointUser(u);
     return u;
@@ -9743,8 +10136,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('pointsList', serializePoints());
   }
   function resetOnePoints(uniqueId) {
-    const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
-    if (points.delete(key)) { savePoints(); broadcast('pointsList', serializePoints()); }
+    const found = findPointsEntry('', uniqueId);
+    if (found && points.delete(found.key)) { savePoints(); broadcast('pointsList', serializePoints()); }
   }
 
   function normalizeImportedPhoto(url) {
@@ -9767,32 +10160,40 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const now = Date.now();
     for (const raw of arr) {
       if (!raw || typeof raw !== 'object') continue;
-      const key = String(raw.uniqueId || raw.username || '').trim().replace(/^@/, '').toLowerCase();
+      const key = normPointsHandle(raw.uniqueId || raw.username);
       if (!key) continue;
+      const uid = tiktokNumericUserId({ userId: raw.userId ?? raw.user_id ?? raw.id });
       const total = Math.max(0, Math.round(Number(raw.total != null ? raw.total : raw.totalRewardAmount != null ? raw.totalRewardAmount : raw.totalAmount) || 0));
       const levelPoints = Math.max(0, Math.round(Number(raw.levelPoints != null ? raw.levelPoints : total) || 0));
       const nickname = String(raw.nickname || key).slice(0, 64);
       const photo = normalizeImportedPhoto(raw.photo || raw.thumbnailUrl || '');
       const firstAt = Number(raw.firstAt) || Date.parse(raw.createdAt) || now;
       const lastAt = Number(raw.lastAt) || Date.parse(raw.lastUpsertAt || raw.updatedAt) || now;
-      const prev = points.get(key);
+      const storageKey = pointsStorageKey(uid, key);
+      if (!storageKey) continue;
+      const prevEntry = findPointsEntry(uid, key);
+      const prev = prevEntry ? prevEntry.user : null;
       if (mode === 'merge' && prev && prev.total >= total && prev.levelPoints >= levelPoints) {
         if (nickname && nickname !== prev.nickname) prev.nickname = nickname;
         if (photo && !prev.photo) prev.photo = photo;
+        if (uid && !prev.userId) prev.userId = uid;
         if (photo) persistViewerAvatar(dataDir, key, photo).catch(() => {});
         continue;
       }
       if (prev) updated++;
       else imported++;
-      points.set(key, {
+      const rec = {
         uniqueId: key,
+        userId: uid || (prev && prev.userId) || '',
         nickname: nickname || (prev && prev.nickname) || key,
         photo: photo || (prev && prev.photo) || '',
         total,
         levelPoints,
         firstAt: prev ? Math.min(prev.firstAt || firstAt, firstAt) : firstAt,
         lastAt: Math.max(prev ? (prev.lastAt || 0) : 0, lastAt),
-      });
+      };
+      if (prevEntry && prevEntry.key !== storageKey) points.delete(prevEntry.key);
+      points.set(storageKey, rec);
       const savedPhoto = photo || (prev && prev.photo) || '';
       if (savedPhoto) persistViewerAvatar(dataDir, key, savedPhoto).catch(() => {});
     }
@@ -9819,11 +10220,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (!u) continue;
         const uniqueId = String(u.username || u.uniqueId || '').trim().replace(/^@/, '').toLowerCase();
         if (!uniqueId) continue;
+        const userId = tiktokNumericUserId({ userId: u.userId ?? u.user_id ?? u.id });
         const total = Math.max(0, Math.round(Number(
           u.totalRewardAmount != null ? u.totalRewardAmount : u.totalAmount
         ) || 0));
         out.push({
           uniqueId,
+          userId: tiktokNumericUserId({ userId: u.userId ?? u.user_id ?? u.id }),
           nickname: String(u.nickname || uniqueId).slice(0, 64),
           photo: normalizeImportedPhoto(u.thumbnailUrl || u.thumbnailUrlV2 || ''),
           total,
@@ -9851,6 +10254,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     } catch {}
   }
 
+  /** Acciones / alertas / videos públicos de TikFinity (mismo estilo que channeluser). */
   async function fetchTikfinityActions(channelId) {
     const id = String(channelId || '').trim();
     if (!/^\d+$/.test(id)) throw new Error('Channel ID inválido (debe ser el número de Setup → Tu cuenta).');
@@ -9878,6 +10282,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return out;
   }
 
+  /**
+   * Convierte Actions de TikFinity al formato legacy que ya sabe importar SettingsTransfer
+   * (alertas / videos / interacciones). Los regalos disparadores no vienen en esta API pública;
+   * quedan vacíos para que el usuario los asigne, o se rellenan si `events` trae el vínculo.
+   */
   function mapTikfinityActionsToLegacy(actions, events) {
     const byId = new Map();
     if (Array.isArray(events)) {
@@ -9949,6 +10358,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
       }
     }
+    // Minecraft → Juegos (no Acciones del directo)
     const minecraft = mapTikfinityActionsToMc(actions, events);
     return { alertas, videos, interacciones, minecraft };
   }
@@ -10017,6 +10427,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       add(String(username).toLowerCase());
       add(String(username).replace(/^@/, ''));
     }
+    // Claves fijas habituales en apps que reutilizan CryptoJS (probar al final).
     add('tikfinity');
     add('TikFinity');
     add('zerody');
@@ -10028,8 +10439,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function decryptTikfinityTfc(ciphertext, opts = {}) {
+    // Esquema real de TikFinity (mismo que TikControl): clave fija + capas internas.
     try {
       const mapped = decryptAndMapTfc(ciphertext);
+      if (mapped?.data && (
+        (mapped.data.alertas && mapped.data.alertas.length)
+        || (mapped.data.videos && mapped.data.videos.length)
+        || (mapped.data.interacciones && mapped.data.interacciones.length)
+        || mapped.counts?.actionsRaw
+        || mapped.counts?.soundsRaw
+      )) {
+        return {
+          data: mapped.data,
+          passphraseUsed: 'tikfinity-tfc',
+          encVersion: mapped.encVersion,
+          sourceChannelId: mapped.sourceChannelId,
+          counts: mapped.counts,
+          emotes: mapped.emotes || [],
+        };
+      }
+      // Archivo vacío de listas pero JSON válido
       if (mapped?.data) {
         return {
           data: mapped.data,
@@ -10041,6 +10470,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         };
       }
     } catch (e) {
+      // Fallback legacy (passphrases) por si hay exports viejos distintos
       const keys = buildTikfinityPassphrases(opts);
       let lastErr = e;
       for (const key of keys) {
@@ -10058,7 +10488,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       throw new Error(
         lastErr?.message?.includes('Salted')
           ? lastErr.message
-          : (lastErr?.message || 'No se pudo descifrar el .tfc.')
+          : (lastErr?.message || 'No se pudo descifrar el .tfc. Prueba de nuevo o usa Importar con User ID (nube).')
       );
     }
     throw new Error('El .tfc se abrió pero no trae alertas/acciones.');
@@ -10139,8 +10569,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const atUser = data.atUser ? baseUser(data.atUser) : null;
       const roles = chatUserRoles(data);
       if (isKnownLiveSub(chatUser.uniqueId, chatUser.nickname)) roles.isSub = true;
+      if (isKnownLiveSuperFan(chatUser.uniqueId, chatUser.nickname)) roles.isSuperFan = true;
       if (isKnownLiveMod(chatUser.uniqueId, chatUser.nickname)) roles.isMod = true;
       if (roles.isSub) rememberLiveSub(chatUser.uniqueId, chatUser.nickname);
+      if (roles.isSuperFan) rememberLiveSuperFan(chatUser.uniqueId, chatUser.nickname);
       if (roles.isMod) rememberLiveMod(chatUser.uniqueId, chatUser.nickname);
       const ptsDonor = donorLevelForUid(chatUser.uniqueId);
       const donorLevel = roles.gifterLevel > 0 ? roles.gifterLevel : ptsDonor;
@@ -10165,6 +10597,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       handleChatCommands(comment, chatUser);
       tryPointsLookupCommand(comment, chatUser);
       handleSpotifyCommands(comment, chatUser, roles);
+      Promise.resolve(handleYoutubeCommands(comment, chatUser, roles)).catch(() => {});
       triggerMinecraftActions('chat', chatInfo, chatUser);
       processScreenFxTriggers('chat', chatInfo, chatUser);
       if (settings.timer?.chat) addTimerSeconds(settings.timer.chat);
@@ -10293,7 +10726,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (user.uniqueId && total > 0) {
           const perCoin = Number(settings.points?.perCoin);
           const award = Math.round(total * (Number.isFinite(perCoin) && perCoin > 0 ? perCoin : 1));
-          if (award > 0) addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: award, counted: true, description: `Regalo: ${giftName}`, manual: false });
+          if (award > 0) addUserPoints({ uniqueId: user.uniqueId, userId: user.userId, nickname: user.nickname, photo: user.photo, amount: award, counted: true, description: `Regalo: ${giftName}`, manual: false });
         }
         pushState();
         flushStreamerRank();
@@ -10440,7 +10873,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         triggerSoundAlerts('follow', {}, user);
         triggerActions('follow', {}, user);
         triggerMinecraftActions('follow', {}, user);
-      processScreenFxTriggers('follow', {}, user);
+        processScreenFxTriggers('follow', {}, user);
         if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
@@ -10452,7 +10885,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         triggerSoundAlerts('share', {}, user);
         triggerActions('share', {}, user);
         triggerMinecraftActions('share', {}, user);
-      processScreenFxTriggers('share', {}, user);
+        processScreenFxTriggers('share', {}, user);
         if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('share', Math.max(1, parseInt(c.pointsShare, 10) || 1));
@@ -10521,7 +10954,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       addTimerSeconds(settings.timer?.subscribe || 0);
       const subBonus = Math.round(Number(settings.points?.subBonus) || 0);
       if (user.uniqueId && subBonus > 0) {
-        addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: subBonus, counted: true, description: months > 0 ? `Suscripción (${months} m)` : 'Suscripción', manual: false });
+        addUserPoints({ uniqueId: user.uniqueId, userId: user.userId, nickname: user.nickname, photo: user.photo, amount: subBonus, counted: true, description: months > 0 ? `Suscripción (${months} m)` : 'Suscripción', manual: false });
       }
     }
     conn.on('subscribe', handleSubscribe);
@@ -10552,7 +10985,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (now - (recentSuperFans.get(dedupeKey) || 0) < 5000) return;
       recentSuperFans.set(dedupeKey, now);
       if (recentSuperFans.size > 500) recentSuperFans.clear();
-      rememberLiveSub(user.uniqueId, user.nickname);
+      rememberLiveSuperFan(user.uniqueId, user.nickname);
       const label = isJoin ? 'Super fan entró' : 'Super fan';
       broadcast('log', { level: 'ok', text: `🌟 ${label}: ${user.nickname}${level ? ` · nivel ${level}` : ''}` });
       const info = { ...user, level, isJoin };
@@ -10567,7 +11000,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('goldenBall', { photo: user.photo || '', nickname: user.nickname || '', count: 1 });
         const bonus = Math.round(Number(settings.points?.superFanBonus) || 0);
         if (user.uniqueId && bonus > 0) {
-          addUserPoints({ uniqueId: user.uniqueId, nickname: user.nickname, photo: user.photo, amount: bonus, counted: true, description: 'Super fan', manual: false });
+          addUserPoints({ uniqueId: user.uniqueId, userId: user.userId, nickname: user.nickname, photo: user.photo, amount: bonus, counted: true, description: 'Super fan', manual: false });
         }
         addTimerSeconds(settings.timer?.superFan || 0);
       }
@@ -10746,6 +11179,52 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (ws) ws.isAlive = true;
         try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'pong' })); } catch {}
         break;
+      case 'youtubeEnded':
+        youtubePaused = false;
+        youtubeSr.ended(id, data.videoId);
+        pushYoutubeState();
+        break;
+      case 'youtubeProgress': {
+        const videoId = String(data.videoId || '').trim();
+        if (!videoId) break;
+        const payload = {
+          videoId,
+          currentTime: Math.max(0, Number(data.currentTime) || 0),
+          duration: Math.max(0, Number(data.duration) || 0),
+          source: String(data.source || 'overlay').slice(0, 16),
+        };
+        try { broadcast('youtubeProgress', payload); } catch {}
+        break;
+      }
+      case 'youtubeSkip':
+        if (!youtubePlanOk()) break;
+        youtubePaused = false;
+        youtubeSr.skip(id);
+        pushYoutubeState();
+        break;
+      case 'youtubeControl': {
+        if (!youtubePlanOk()) break;
+        const kind = String(data.type || data.kind || '').toLowerCase();
+        if (kind === 'pause') youtubePaused = true;
+        if (kind === 'play' || kind === 'resume') youtubePaused = false;
+        if (data.volume != null) {
+          const vol = Math.max(0, Math.min(100, Number(data.volume) || 0));
+          if (!settings.youtube || typeof settings.youtube !== 'object') settings.youtube = { ...(DEFAULT_SETTINGS.youtube || {}) };
+          settings.youtube.volume = vol;
+        }
+        if (kind === 'seek') {
+          const st = youtubeSr.seekNow(id, data.currentTime);
+          const now = st && st.now;
+          try {
+            broadcast('youtubeSeek', {
+              videoId: now?.videoId || String(data.videoId || ''),
+              currentTime: Math.max(0, Number(data.currentTime) || 0),
+            });
+          } catch {}
+        }
+        pushYoutubeState();
+        break;
+      }
       case 'connect':
         if (data.deviceId) adoptConnectDeviceId(data.deviceId);
         if (RELAY) {
@@ -10930,17 +11409,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetUserPoints':
         if (data.user) resetOnePoints(data.user);
         break;
-      case 'importPointsBulk': {
-        try {
-          const mode = data.mode === 'replace' ? 'replace' : 'merge';
-          const result = importPointsUsers(data.users || [], mode);
-          replyPointsImport(ws, { ...result, source: 'file' });
-          broadcast('log', { level: 'info', text: `📥 Puntos importados: ${result.imported + result.updated} usuario(s) (total ${result.total}).` });
-        } catch (e) {
-          replyPointsImport(ws, { ok: false, error: e.message || String(e) });
-        }
-        break;
-      }
       case 'importEmotes': {
         try {
           const list = Array.isArray(data.emotes) ? data.emotes : [];
@@ -10963,6 +11431,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
               payload: { ok: false, error: e.message || String(e) },
             }));
           } catch {}
+        }
+        break;
+      }
+      case 'importPointsBulk': {
+        try {
+          const mode = data.mode === 'replace' ? 'replace' : 'merge';
+          const result = importPointsUsers(data.users || [], mode);
+          replyPointsImport(ws, { ...result, source: 'file' });
+          broadcast('log', { level: 'info', text: `📥 Puntos importados: ${result.imported + result.updated} usuario(s) (total ${result.total}).` });
+        } catch (e) {
+          replyPointsImport(ws, { ok: false, error: e.message || String(e) });
         }
         break;
       }
@@ -11002,6 +11481,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             password: data.password,
             username: data.username,
           });
+          // Sembrar catálogo de stickers desde el .tfc (aunque no haya imagen aún).
           try {
             const emotes = Array.isArray(result.emotes) ? result.emotes : [];
             if (emotes.length) mergeEmotes(emotes);
@@ -11708,8 +12188,31 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           forceInitial: !!data.forceInitial,
         });
         break;
+      case 'sorteosVidas':
+        broadcast('sorteosVidasControl', {
+          action: data.sorteosVidasAction,
+          forceInitial: !!data.forceInitial,
+          targetLives: data.targetLives,
+          perRound: data.perRound,
+          playerId: data.playerId,
+          count: data.count,
+          uniqueId: data.uniqueId,
+          nickname: data.nickname,
+          photo: data.photo,
+          userId: data.userId,
+        });
+        break;
+      case 'sorteosVidasPlayers':
+        broadcast('sorteosVidasPlayers', {
+          players: data.players || [],
+          totalLives: data.totalLives,
+        });
+        break;
       case 'testSorteos':
         broadcast('sorteosTest', {});
+        break;
+      case 'testSorteosVidas':
+        broadcast('sorteosVidasTest', {});
         break;
       case 'testScreenFx':
         broadcast('screenFx', {
@@ -11787,6 +12290,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     send('spotifyQueue', { queue: spotifyQueue.map((q) => ({ uniqueId: q.uniqueId, nickname: q.nickname, name: q.name, artists: q.artists, image: q.image, durationMs: q.durationMs || 0 })) });
     send('spotifyHistory', { history: spotifyHistory });
     send('spotifyNowPlaying', { track: spotifyNowPlaying, overlayStyle: spotifyOverlayStyleNow() });
+    try { send('youtubeState', youtubeStatePayload()); } catch {}
     const caps = currentCaps();
     if (caps) send('caps', caps);
   }
@@ -11881,9 +12385,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   return {
     id, account, roomKey, dataDir,
     getViewerPhoto: (uniqueId) => {
-      const key = String(uniqueId || '').trim().replace(/^@/, '').toLowerCase();
-      if (!key) return '';
-      return String(points.get(key)?.photo || '');
+      const found = findPointsEntry('', uniqueId);
+      return found ? String(found.user.photo || '') : '';
     },
     addClient, removeClient, handleMessage,
     getEmotes, mergeEmotes, getCommunityGifts, mergeCommunityGifts, shutdown, getStatus, kickAll, broadcastCaps,
@@ -11906,8 +12409,51 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     handleSpotifyChat: (comment, user, roles) => {
       if (roles?.isMod) rememberLiveMod(user?.uniqueId, user?.nickname);
       if (roles?.isSub) rememberLiveSub(user?.uniqueId, user?.nickname);
+      if (roles?.isSuperFan) rememberLiveSuperFan(user?.uniqueId, user?.nickname);
       return handleSpotifyCommands(comment, user, roles);
     },
+    handleYoutubeChat: (comment, user, roles) => {
+      if (roles?.isMod) rememberLiveMod(user?.uniqueId, user?.nickname);
+      if (roles?.isSub) rememberLiveSub(user?.uniqueId, user?.nickname);
+      if (roles?.isSuperFan) rememberLiveSuperFan(user?.uniqueId, user?.nickname);
+      return handleYoutubeCommands(comment, user, roles);
+    },
+    pushYoutubeState,
+    youtubeAdd: async (payload) => {
+      if (!youtubePlanOk()) return { ok: false, error: 'YouTube es Solo Premium / Founder.' };
+      const cfg = ytCfg();
+      const requestedBy = String(payload?.requestedBy || 'panel').slice(0, 40);
+      const extra = {
+        requestedUniqueId: payload?.requestedUniqueId || 'panel',
+        autoplay: true,
+      };
+      let r;
+      if (payload?.videoId) {
+        r = youtubeSr.addTrack(id, { ...payload, requestedBy, ...extra });
+      } else {
+        r = await youtubeSr.addByQuery(id, payload?.q || payload?.query, requestedBy, extra);
+      }
+      if (r?.ok && !r.started && !youtubeSr.getState(id).now) {
+        youtubeSr.play(id);
+        r = { ...r, started: true };
+      }
+      if (r?.started) youtubePaused = false;
+      pushYoutubeState();
+      return r;
+    },
+    youtubeSkip: () => {
+      if (!youtubePlanOk()) return { ok: false, error: 'YouTube es Solo Premium / Founder.' };
+      youtubePaused = false; const st = youtubeSr.skip(id); pushYoutubeState(); return st;
+    },
+    youtubePlay: () => {
+      if (!youtubePlanOk()) return { ok: false, error: 'YouTube es Solo Premium / Founder.' };
+      youtubePaused = false; const st = youtubeSr.play(id); pushYoutubeState(); return st;
+    },
+    youtubeClear: () => {
+      if (!youtubePlanOk()) return { ok: false, error: 'YouTube es Solo Premium / Founder.' };
+      youtubePaused = false; const st = youtubeSr.clearQueue(id); pushYoutubeState(); return st;
+    },
+    youtubeState: () => youtubeStatePayload(),
     get clientCount() { return clients.size; },
     pushBadges: (payload) => {
       try { broadcast('badges', payload || {}); } catch { /* ignore */ }

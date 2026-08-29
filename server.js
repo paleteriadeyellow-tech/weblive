@@ -1949,6 +1949,7 @@ app.get('/api/tiktok-profile', async (req, res) => {
       nickname: nickname || unique,
       profileUrl: `https://www.tiktok.com/@${unique}`,
       avatar,
+      userId: String(user.id || user.userId || user.user_id || '').trim(),
     });
   } catch (e) {
     res.status(502).json({ error: e?.message || 'No se pudo obtener el perfil' });

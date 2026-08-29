@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script src="/js/overlay-channel.js?v=ovch1"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="referrer" content="no-referrer" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <title>Sorteos Overlay · Livecoins</title>
+  <title>Sorteos Vidas · Livecoins</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,500;9..40,600;9..40,700;9..40,800&family=JetBrains+Mono:wght@700;800&display=swap');
     * { box-sizing: border-box; }
@@ -152,6 +153,13 @@
     .so-cell.is-hit { border-color: #ef4444; box-shadow: 0 0 18px rgba(239,68,68,.65); }
     .so-cell.is-dead { filter: grayscale(1) brightness(.45); opacity: .55; }
     .so-cell.is-dead::after { content: '🚫'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: clamp(10px, 5%, 22px); background: rgba(80,0,0,.35); }
+    .so-cell.is-pending-dead {
+      filter: grayscale(1) brightness(.5); opacity: .62;
+      transition: filter .18s ease, opacity .18s ease;
+    }
+    .so-cell.is-pending-dead::after {
+      content: ''; position: absolute; inset: 0; background: rgba(40, 40, 48, .55); pointer-events: none;
+    }
     .so-cell.life-flash { animation: soLifeFlash .55s ease; }
     .so-cell .so-lives {
       position: absolute; right: 3px; bottom: 3px; z-index: 3;
@@ -456,6 +464,69 @@
       font-size: clamp(22px, 5.5vmin, 36px); color: #ff3b3b;
       text-shadow: 0 0 18px rgba(239, 68, 68, .65);
     }
+    .so-elim .so-elim-more {
+      margin: -2px 0 0;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-size: clamp(10px, 2.2vmin, 13px);
+      color: #fda4af;
+    }
+    .so-elim .so-elim-strip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 94%;
+      min-height: clamp(30px, 7vmin, 42px);
+      margin: 2px 0 6px;
+    }
+    .so-elim .so-elim-strip-inner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .so-elim .so-elim-mini,
+    .so-elim .so-elim-mini-ph {
+      width: clamp(28px, 6.5vmin, 40px);
+      height: clamp(28px, 6.5vmin, 40px);
+      border-radius: 50%;
+      border: 2px solid #ef4444;
+      box-shadow: 0 0 10px rgba(239, 68, 68, .35);
+      background: #1a1a22;
+      flex-shrink: 0;
+    }
+    .so-elim .so-elim-mini {
+      object-fit: cover;
+      display: block;
+      margin-left: -11px;
+    }
+    .so-elim .so-elim-mini:first-child,
+    .so-elim .so-elim-mini-ph:first-child { margin-left: 0; }
+    .so-elim .so-elim-mini-ph {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      margin-left: -11px;
+      font-weight: 800;
+      font-size: clamp(11px, 2.6vmin, 14px);
+      color: #fda4af;
+    }
+    .so-elim .so-elim-strip-more {
+      margin-left: -8px;
+      min-width: clamp(28px, 6.5vmin, 40px);
+      height: clamp(28px, 6.5vmin, 40px);
+      padding: 0 4px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(24, 8, 12, .96);
+      border: 2px solid #ef4444;
+      font-weight: 800;
+      font-size: clamp(9px, 2vmin, 11px);
+      color: #fb7185;
+      box-shadow: 0 0 10px rgba(239, 68, 68, .28);
+    }
     .so-elim .so-elim-av {
       width: clamp(88px, 22vmin, 140px); height: clamp(88px, 22vmin, 140px);
       border-radius: 50%; object-fit: cover; display: block;
@@ -512,6 +583,10 @@
           </div>
           <div class="so-elim" id="so-elim" aria-hidden="true">
             <h2 class="so-elim-title">ELIMINATED</h2>
+            <p class="so-elim-more" id="so-elim-more" hidden>+0 MORE ELIMINATED</p>
+            <div class="so-elim-strip" id="so-elim-strip" hidden aria-hidden="true">
+              <div class="so-elim-strip-inner" id="so-elim-strip-inner"></div>
+            </div>
             <img class="so-elim-av" id="so-elim-av" alt="" referrerpolicy="no-referrer" />
             <div class="so-elim-av-ph" id="so-elim-av-ph">?</div>
             <p class="so-elim-name" id="so-elim-name">—</p>
@@ -587,6 +662,8 @@
       autoStart: true,
       lockMode: false,
       lockEntryMin: 30,
+      bulkElimTarget: 50,
+      bulkElimPerRound: 10,
       vouchKeywords: 'vouch,gracias,confiable',
       vouchCount: 0,
       overlayScale: 100,
@@ -641,12 +718,13 @@
     let elimCardResolve = null;
     let ws = null;
     let rt = null;
+    let playersPushTimer = null;
 
     const $ = (id) => document.getElementById(id);
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || lo));
     /** Clave estable (sin room): el room cambia y antes reiniciaba los vouches. */
     function vouchStorageKey() {
-      return 'lc_sorteos_vouches';
+      return 'lc_sorteos_vidas_vouches';
     }
     function loadVouchCount() {
       try {
@@ -674,7 +752,7 @@
         vouchSuppressEchoUntil = Date.now() + 1200;
         ws.send(JSON.stringify({
           action: 'saveSettings',
-          settings: { sorteosOverlay: { vouchCount: Math.max(0, vouchCount | 0) } },
+          settings: { sorteosVidasOverlay: { vouchCount: Math.max(0, vouchCount | 0) } },
         }));
       } catch { /* ignore */ }
     }
@@ -683,7 +761,7 @@
       try { localStorage.setItem(vouchStorageKey(), String(n)); } catch { /* ignore */ }
       try {
         if (window.parent && window.parent !== window) {
-          window.parent.postMessage({ kind: 'sorteos', type: 'vouch', count: n }, '*');
+          window.parent.postMessage({ kind: 'sorteosVidas', type: 'vouch', count: n }, '*');
         }
       } catch { /* ignore */ }
       clearTimeout(vouchPersistTimer);
@@ -722,6 +800,15 @@
         el.classList.remove('on');
         el.setAttribute('aria-hidden', 'true');
       }
+      const more = $('so-elim-more');
+      if (more) more.hidden = true;
+      const strip = $('so-elim-strip');
+      if (strip) {
+        strip.hidden = true;
+        strip.setAttribute('aria-hidden', 'true');
+        const inner = $('so-elim-strip-inner');
+        if (inner) inner.innerHTML = '';
+      }
       // No dejar finishSpin colgado si Reset/Stop corta la tarjeta
       if (elimCardResolve) {
         const r = elimCardResolve;
@@ -742,6 +829,56 @@
       const txt = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
       return txt + '% chance';
     }
+    function renderElimStrip(stripPlayers, bulkOthers) {
+      const wrap = $('so-elim-strip');
+      const inner = $('so-elim-strip-inner');
+      if (!wrap || !inner) return;
+      inner.innerHTML = '';
+      const list = Array.isArray(stripPlayers) ? stripPlayers : [];
+      const others = Math.max(0, Number(bulkOthers) || 0);
+      if (others <= 0 || !list.length) {
+        wrap.hidden = true;
+        wrap.setAttribute('aria-hidden', 'true');
+        return;
+      }
+      const maxShow = 10;
+      const shown = list.slice(0, maxShow);
+      shown.forEach((pl) => {
+        const name = String(pl?.name || pl?.id || '?');
+        const pic = String(pl?.pic || '').trim();
+        if (pic) {
+          const img = document.createElement('img');
+          img.className = 'so-elim-mini';
+          img.alt = '';
+          img.referrerPolicy = 'no-referrer';
+          img.src = pic;
+          img.onerror = function () {
+            this.onerror = null;
+            const ph = document.createElement('div');
+            ph.className = 'so-elim-mini-ph';
+            ph.style.display = 'flex';
+            ph.textContent = name.slice(0, 1).toUpperCase();
+            this.replaceWith(ph);
+          };
+          inner.appendChild(img);
+        } else {
+          const ph = document.createElement('div');
+          ph.className = 'so-elim-mini-ph';
+          ph.style.display = 'flex';
+          ph.textContent = name.slice(0, 1).toUpperCase();
+          inner.appendChild(ph);
+        }
+      });
+      const overflow = Math.max(0, others - shown.length);
+      if (overflow > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'so-elim-strip-more';
+        badge.textContent = '+' + overflow;
+        inner.appendChild(badge);
+      }
+      wrap.hidden = false;
+      wrap.setAttribute('aria-hidden', 'false');
+    }
     function showElimCard(info) {
       return new Promise((resolve) => {
         const el = $('so-elim');
@@ -757,6 +894,27 @@
         const name = $('so-elim-name');
         const chance = $('so-elim-chance');
         const foot = $('so-elim-foot');
+        const more = $('so-elim-more');
+        const bulkCount = Math.max(0, Number(info?.bulkCount) || 0);
+        const bulkOthers = bulkCount > 1 ? bulkCount - 1 : 0;
+        if (more) {
+          if (bulkOthers > 0) {
+            more.hidden = false;
+            more.textContent = '+' + bulkOthers + ' MORE ELIMINATED';
+          } else {
+            more.hidden = true;
+          }
+        }
+        if (bulkOthers > 0) renderElimStrip(info.stripPlayers, bulkOthers);
+        else {
+          const strip = $('so-elim-strip');
+          if (strip) {
+            strip.hidden = true;
+            strip.setAttribute('aria-hidden', 'true');
+            const inner = $('so-elim-strip-inner');
+            if (inner) inner.innerHTML = '';
+          }
+        }
         if (name) name.textContent = info.name || 'Jugador';
         if (chance) chance.textContent = fmtChancePct(info.pct);
         if (foot) foot.textContent = info.continues ? 'ROUND CONTINUES...' : 'FINAL HIT...';
@@ -805,6 +963,97 @@
     }
     function aliveList() {
       return Object.values(players).filter((p) => p.alive && p.lives > 0);
+    }
+    function playerSummary() {
+      return Object.values(players)
+        .filter((p) => p && ((p.lives > 0) || (p.bank > 0) || p.alive))
+        .map((p) => ({
+          id: p.id,
+          name: p.name || p.id,
+          pic: p.pic || '',
+          lives: Math.max(0, Number(p.lives) || 0),
+          alive: !!p.alive && p.lives > 0,
+          bank: Math.max(0, Number(p.bank) || 0),
+        }))
+        .sort((a, b) => b.lives - a.lives || String(a.name).localeCompare(String(b.name)));
+    }
+    function pushPlayersToPanel() {
+      clearTimeout(playersPushTimer);
+      playersPushTimer = setTimeout(() => {
+        const list = playerSummary();
+        const totalLives = lifeSeats().length;
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ kind: 'sorteosVidas', type: 'players', players: list, totalLives }, '*');
+          }
+        } catch { /* ignore */ }
+        try {
+          if (ws && ws.readyState === 1) {
+            ws.send(JSON.stringify({ action: 'sorteosVidasPlayers', players: list, totalLives }));
+          }
+        } catch { /* ignore */ }
+      }, 80);
+    }
+    function manualGrantLife(d, count) {
+      const dd = Object.assign({}, d || {});
+      if (!dd.uniqueId && dd.playerId) dd.uniqueId = dd.playerId;
+      if (!dd.uniqueId && dd.id) dd.uniqueId = dd.id;
+      const n = Math.max(1, Number(count) || 1);
+      const p = ensurePlayer(dd);
+      if (!p) return false;
+      const cost = Math.max(1, clamp(cfg.entryCost, 1, 1000000));
+      const wasAlive = p.alive && p.lives > 0;
+      const costs = [];
+      for (let i = 0; i < n; i++) {
+        p.lives += 1;
+        p.spent += cost;
+        p.donated += cost;
+        p.stakes.push(cost);
+        coinsInPlay += cost;
+        costs.push(cost);
+        if (!p.alive) {
+          p.alive = true;
+          if (!wasAlive && i === 0) showToast('Vida manual · ' + (p.name || p.id));
+        }
+      }
+      const slots = insertLifeBurst(p, costs);
+      renderGrid();
+      for (const sid of slots.map((s) => s.slotId)) {
+        const cell = document.querySelector('.so-cell[data-slot="' + cssAttr(sid) + '"]');
+        if (!cell) continue;
+        cell.classList.add('life-flash');
+        if (!wasAlive) cell.classList.add('is-new');
+        setTimeout(() => cell.classList.remove('life-flash', 'is-new'), 800);
+      }
+      if (checkInstaClaim(p)) return true;
+      maybeStartTimers();
+      pushPlayersToPanel();
+      return true;
+    }
+    function manualRemoveLife(playerId, count) {
+      const id = String(playerId || '').trim();
+      let p = players[id] || findPlayerEntry({ uniqueId: id, id });
+      if (!p) return false;
+      const n = Math.max(1, Number(count) || 1);
+      let removed = 0;
+      for (let i = 0; i < n && p.lives > 0; i++) {
+        const slot = lifeSlots.find((s) => s.id === p.id);
+        if (!slot) break;
+        const stake = removeLifeSlot(slot.slotId, id);
+        p.lives -= 1;
+        removed += 1;
+        const si = p.stakes.indexOf(stake);
+        if (si >= 0) p.stakes.splice(si, 1);
+        else p.stakes.shift();
+        coinsInPlay = Math.max(0, coinsInPlay - stake);
+        if (p.lives <= 0) p.alive = false;
+      }
+      if (!removed) return false;
+      renderGrid();
+      pushPlayersToPanel();
+      if (tryDeclareSoleWinner()) return true;
+      syncHud();
+      return true;
     }
     function makeLifeSlot(p, cost) {
       return {
@@ -1186,6 +1435,7 @@
         grid.innerHTML = emptyWaitHtml();
         syncHud();
         if (fitFn) fitFn();
+        pushPlayersToPanel();
         return;
       }
 
@@ -1227,6 +1477,7 @@
 
       syncHud();
       if (fitFn) fitFn();
+      pushPlayersToPanel();
     }
 
     function pruneGiftApplyMap(now) {
@@ -1288,21 +1539,63 @@
       return Math.max(1, Number(d.repeatCount) || 1);
     }
 
+    function tiktokNumericUserId(d) {
+      const id = d?.userId ?? d?.user_id ?? d?.id;
+      if (id == null || String(id) === '0') return '';
+      return String(id).trim();
+    }
+    function findPlayerEntry(d) {
+      const uid = tiktokNumericUserId(d || {});
+      if (uid) {
+        for (const p of Object.values(players)) {
+          if (p && String(p.userId || '') === uid) return p;
+        }
+      }
+      const handle = String(d?.uniqueId || d?.nickname || d?.id || '').trim();
+      if (!handle) return null;
+      if (players[handle]) return players[handle];
+      const low = handle.toLowerCase();
+      for (const p of Object.values(players)) {
+        if (!p) continue;
+        if (String(p.id || '').toLowerCase() === low) return p;
+      }
+      return null;
+    }
+    function adoptPlayerHandle(p, handle) {
+      const next = String(handle || '').trim();
+      if (!p || !next || p.id === next) return;
+      const oldId = p.id;
+      p.id = next;
+      lifeSlots.forEach((s) => { if (s.id === oldId) s.id = next; });
+      if (players[oldId] === p) {
+        delete players[oldId];
+        players[next] = p;
+      }
+    }
+
     function ensurePlayer(d) {
-      const id = String(d.uniqueId || d.nickname || '').trim();
-      if (!id) return null;
-      if (!players[id]) {
+      const handle = String(d.uniqueId || d.nickname || '').trim();
+      let p = findPlayerEntry(d);
+      if (!p) {
+        if (!handle) return null;
         if (cfg.maxPlayers > 0 && Object.keys(players).length >= cfg.maxPlayers) return null;
-        players[id] = {
-          id, name: d.nickname || id, pic: d.photo || '',
+        p = {
+          id: handle,
+          userId: tiktokNumericUserId(d) || '',
+          name: d.nickname || handle,
+          pic: d.photo || '',
           lives: 0, bank: 0, spent: 0, donated: 0, stakes: [],
           alive: false, lastChat: '', lastVouch: '',
         };
+        players[handle] = p;
+      } else {
+        const uid = tiktokNumericUserId(d);
+        if (uid) p.userId = uid;
+        if (handle) adoptPlayerHandle(p, handle);
       }
-      const p = players[id];
       if (d.nickname) p.name = d.nickname;
       if (d.photo) p.pic = d.photo;
-      if (d.nickname || d.photo) syncSlotsMetaForPlayer(p);
+      if (d.nickname || d.photo || handle) syncSlotsMetaForPlayer(p);
       return p;
     }
 
@@ -1407,6 +1700,7 @@
       }
       if (checkInstaClaim(p)) return;
       maybeStartTimers();
+      pushPlayersToPanel();
     }
 
     function enqueueOrApply(d) {
@@ -1545,11 +1839,19 @@
     function soleRemainingPlayer(seats) {
       const list = seats || lifeSeats();
       if (!list.length) return null;
-      const id = list[0].id;
+      const pid = list[0].id;
+      const p0 = players[pid] || findPlayerEntry({ uniqueId: pid, id: pid });
+      const uid = String(p0?.userId || '').trim();
       for (let i = 1; i < list.length; i++) {
-        if (list[i].id !== id) return null;
+        const sid = list[i].id;
+        if (sid === pid) continue;
+        if (uid) {
+          const pi = players[sid] || findPlayerEntry({ uniqueId: sid, id: sid });
+          if (pi && String(pi.userId || '') === uid) continue;
+        }
+        return null;
       }
-      return players[id] || null;
+      return p0 || null;
     }
     function tryDeclareSoleWinner() {
       const w = soleRemainingPlayer();
@@ -1651,6 +1953,173 @@
       timerLeft = clamp(cfg.elimIntervalSec, 1, 600);
       syncHud();
       scheduleTick(currentTickMs());
+      pushPlayersToPanel();
+    }
+
+    /** Una ronda rápida: elimina hasta bulkElimPerRound vidas (sin bajar del objetivo). */
+    function spinBulkManual(targetLives, perRound) {
+      if (spinning || phase === 'spinning') {
+        showToast('Giro en curso…');
+        return;
+      }
+      if (phase === 'winner') {
+        showToast('Ya hay ganador · Reset para otro');
+        return;
+      }
+      const seats = lifeSeats();
+      const target = clamp(
+        targetLives == null ? cfg.bulkElimTarget : targetLives,
+        1,
+        100000
+      );
+      const roundN = clamp(
+        perRound == null ? cfg.bulkElimPerRound : perRound,
+        1,
+        100000
+      );
+      const toElim = Math.min(roundN, Math.max(0, seats.length - target));
+      if (toElim <= 0) {
+        showToast('Quedan ' + seats.length + ' vidas · objetivo ' + target);
+        return;
+      }
+      if (seats.length <= 1) {
+        if (!tryDeclareSoleWinner()) showToast('Faltan jugadores para girar');
+        return;
+      }
+      demoRapid = false;
+      testTimers.forEach((t) => clearTimeout(t));
+      testTimers = [];
+      clearTimer();
+      if (phase === 'waiting' || phase === 'entry' || phase === 'initial') {
+        usedInitial = true;
+        if (cfg.lockMode) entriesLocked = true;
+      }
+      showToast('Eliminación rápida · −' + toElim + ' (objetivo ' + target + ')');
+      beginBulkSpin(target, toElim);
+    }
+
+    function beginBulkSpin(targetLives, count) {
+      const target = clamp(targetLives, 1, 100000);
+      const seats = lifeSeats();
+      const toElim = Math.min(
+        Math.max(1, Number(count) || 1),
+        Math.max(0, seats.length - target)
+      );
+      if (toElim <= 0 || seats.length <= 1) return;
+      const pool = seats.slice();
+      const victims = [];
+      for (let i = 0; i < toElim && pool.length; i++) {
+        const idx = Math.floor(Math.random() * pool.length);
+        victims.push(pool.splice(idx, 1)[0]);
+      }
+      spinning = true;
+      phase = 'spinning';
+      syncHud();
+      const myGen = ++spinGen;
+      runBulkAnim(victims, myGen);
+    }
+
+    function runBulkAnim(victims, gen) {
+      const steps = Math.min(48, Math.max(16, victims.length * 2));
+      const markers = Math.min(7, Math.max(3, Math.ceil(victims.length / 10)));
+      let vi = 0;
+      let i = 0;
+      const liveCells = () => [...document.querySelectorAll('.so-cell:not(.is-pending-dead):not(.is-dead)')];
+      const markNext = () => {
+        if (vi >= victims.length) return;
+        const v = victims[vi++];
+        const cell = document.querySelector('.so-cell[data-slot="' + cssAttr(v.slotId) + '"]');
+        if (cell) {
+          cell.classList.remove('is-spin', 'is-hit');
+          cell.classList.add('is-pending-dead');
+        }
+      };
+      const markEvery = Math.max(1, Math.floor(steps / Math.max(1, victims.length)));
+      const tick = () => {
+        if (gen !== spinGen) return;
+        const list = liveCells();
+        list.forEach((c) => c.classList.remove('is-spin'));
+        if (!list.length && vi >= victims.length) {
+          setTimeout(() => finishBulkSpin(victims, gen), 350);
+          return;
+        }
+        const n = Math.min(markers, list.length);
+        const picked = new Set();
+        let guard = 0;
+        while (picked.size < n && guard++ < 24) {
+          picked.add(list[Math.floor(Math.random() * list.length)]);
+        }
+        picked.forEach((c) => c.classList.add('is-spin'));
+        if (i > 0 && i % markEvery === 0) markNext();
+        i += 1;
+        if (i >= steps) {
+          while (vi < victims.length) markNext();
+          setTimeout(() => finishBulkSpin(victims, gen), 420);
+          return;
+        }
+        setTimeout(tick, Math.max(35, animStepMs() * 0.65));
+      };
+      tick();
+    }
+
+    async function finishBulkSpin(victims, gen) {
+      if (gen != null && gen !== spinGen) return;
+      spinning = false;
+      const totalBefore = lifeSeats().length;
+      const byPlayer = new Map();
+      for (const v of victims) {
+        const p = players[v.id];
+        if (!p) continue;
+        const stake = removeLifeSlot(v.slotId, p.id);
+        p.lives -= 1;
+        const si = p.stakes.indexOf(stake);
+        if (si >= 0) p.stakes.splice(si, 1);
+        else p.stakes.shift();
+        coinsInPlay = Math.max(0, coinsInPlay - stake);
+        if (p.lives <= 0) p.alive = false;
+        if (!byPlayer.has(p.id)) byPlayer.set(p.id, { p, count: 0 });
+        byPlayer.get(p.id).count += 1;
+      }
+      clearSpinClasses();
+      document.querySelectorAll('.so-cell.is-pending-dead').forEach((c) => c.classList.remove('is-pending-dead'));
+      renderGrid();
+      const elimList = [...byPlayer.values()].sort((a, b) => b.count - a.count);
+      if (elimList.length) {
+        if (gen != null && gen !== spinGen) return;
+        const featured = elimList[0];
+        const bulkCount = victims.length;
+        const stripPlayers = elimList.slice(1).map((rec) => ({
+          id: rec.p.id,
+          name: rec.p.name,
+          pic: rec.p.pic,
+        }));
+        const pct = totalBefore > 0 ? (featured.count / totalBefore) * 100 : 0;
+        const after = lifeSeats();
+        const willContinue = after.length > 1 && !soleRemainingPlayer(after);
+        await showElimCard({
+          name: featured.p.name + (featured.count > 1 ? ' (×' + featured.count + ')' : ''),
+          pic: featured.p.pic,
+          pct,
+          continues: willContinue,
+          bulkCount,
+          stripPlayers,
+        });
+      }
+      if (gen != null && gen !== spinGen) return;
+      flushQueue();
+      pushPlayersToPanel();
+      if (phase === 'winner') return;
+      if (tryDeclareSoleWinner()) return;
+      const seats = lifeSeats();
+      if (seats.length <= 1) {
+        if (seats.length === 1 && players[seats[0].id]) declareWinner(players[seats[0].id], false);
+        else { phase = 'waiting'; entriesLocked = false; syncHud(); }
+        return;
+      }
+      phase = 'elim';
+      timerLeft = clamp(cfg.elimIntervalSec, 1, 600);
+      syncHud();
+      scheduleTick(currentTickMs());
     }
 
     /** Snapshot de config mutada por Testear (se restaura en Reset). */
@@ -1735,6 +2204,7 @@
       if (pop) pop.classList.remove('on');
       renderGrid();
       syncHud();
+      pushPlayersToPanel();
       showToast('Reiniciado · pulsa Iniciar o espera el mínimo');
     }
 
@@ -1822,6 +2292,8 @@
       cfg.instaClaim = clamp(cfg.instaClaim, 0, 100000000);
       cfg.maxPlayers = 0; // sin límite (campo oculto en config)
       cfg.lockEntryMin = clamp(cfg.lockEntryMin == null ? 30 : cfg.lockEntryMin, 1, 180);
+      cfg.bulkElimTarget = clamp(cfg.bulkElimTarget == null ? 50 : cfg.bulkElimTarget, 1, 100000);
+      cfg.bulkElimPerRound = clamp(cfg.bulkElimPerRound == null ? 10 : cfg.bulkElimPerRound, 1, 100000);
       cfg.lockMode = !!cfg.lockMode;
       cfg.autoStart = cfg.autoStart !== false;
       cfg.vouchKeywords = String(cfg.vouchKeywords || 'vouch,gracias,confiable').trim() || 'vouch,gracias,confiable';
@@ -1999,6 +2471,15 @@
         case 'spin':
           spinManual();
           break;
+        case 'bulkSpin':
+          spinBulkManual(payload && payload.targetLives, payload && payload.perRound);
+          break;
+        case 'addLife':
+          manualGrantLife(payload || {}, payload && payload.count);
+          break;
+        case 'removeLife':
+          manualRemoveLife(payload && (payload.playerId || payload.id), payload && payload.count);
+          break;
         case 'stop':
           clearTimer();
           cancelPendingSpin();
@@ -2026,10 +2507,10 @@
         if (m.type === 'gift') { if (!isEmbed) enqueueOrApply(m.payload); }
         else if (m.type === 'chat') { if (!isEmbed) onChat(m.payload); }
         else if (m.type === 'settings') {
-          if (m.payload && m.payload.sorteosOverlay) applyCfg(m.payload.sorteosOverlay);
-        } else if (m.type === 'sorteosControl') {
+          if (m.payload && m.payload.sorteosVidasOverlay) applyCfg(m.payload.sorteosVidasOverlay);
+        } else if (m.type === 'sorteosVidasControl') {
           if (!isEmbed) handleAction(m.payload?.action, m.payload);
-        } else if (m.type === 'sorteosTest') {
+        } else if (m.type === 'sorteosVidasTest') {
           if (!isEmbed) runTest();
         }
       };
@@ -2037,7 +2518,7 @@
 
     window.addEventListener('message', (e) => {
       const d = e.data;
-      if (!d || d.kind !== 'sorteos') return;
+      if (!d || d.kind !== 'sorteosVidas') return;
       if (d.type === 'config') applyCfg(d.config);
       else if (d.type === 'test') {
         if (d.config) applyCfg(d.config);
@@ -2078,7 +2559,7 @@
         // No observar root: el scale no cambia layout, y evita refits de más
       } catch { /* older webviews */ }
       // Pedir config al panel (a veces el postMessage inicial se pierde)
-      try { window.parent.postMessage({ kind: 'sorteos', type: 'ready' }, '*'); } catch {}
+      try { window.parent.postMessage({ kind: 'sorteosVidas', type: 'ready' }, '*'); } catch {}
       setTimeout(scheduleFit, 50);
       setTimeout(scheduleFit, 250);
       setTimeout(scheduleFit, 600);

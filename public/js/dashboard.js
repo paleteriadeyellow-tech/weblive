@@ -353,7 +353,7 @@ function connectWS() {
     if (type === 'pong') return;
     if (type === 'accountPending') { location.href = '/'; return; }
     if (type === 'settings') {
-      onSettings(payload, Array.isArray(touchedKeys) ? touchedKeys : null);
+      try { onSettings(payload, Array.isArray(touchedKeys) ? touchedKeys : null); } catch (err) { console.error('[settings] ws', err); }
       return;
     }
     handle(type, payload);
@@ -547,6 +547,7 @@ const TAB_CAP = {
   'ov-sorteos': 'tab_overlays', 'ov-topkills': 'tab_overlays', 'ov-screenfx': 'tab_overlays',
   tts: 'tab_tts', timer: 'tab_timer',
   'editor-rapido': 'tab_editor_rapido',
+  youtube: 'tab_youtube',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
 const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
@@ -614,6 +615,7 @@ function setCaps(c) {
   try { revealConfigTab(); } catch {}
   try { revealJuegosTab(); } catch {}
   try { revealSpotifyTab(); } catch {}
+  try { revealYoutubeTab(); } catch {}
   if (typeof spotifyTabVisible === 'function' && spotifyTabVisible() && typeof setupSpotifyUI === 'function') {
     try { setupSpotifyUI(); } catch {}
   }
@@ -749,13 +751,14 @@ function applyCaps() {
   try { updateVideosAiLocks(); } catch {}
   try { applyEditorRapidoLock(); } catch {}
   try { applyBaileOverlayLock(); } catch {}
+  try { applyYoutubeLock(); } catch {}
   document.querySelectorAll('.nav-item[data-view="batallas"]').forEach((btn) => { btn.style.display = 'none'; });
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
     const cap = TAB_CAP[btn.dataset.view];
     if (!cap) return;
-    // Editor Pro: no ocultar; se muestra con candadito (VIP / Founder).
+    // Editor Pro / YouTube: no ocultar; se muestran con candadito (VIP / Founder).
     if (btn.dataset.view === 'batallas') {
       btn.style.display = 'none';
       return;
@@ -766,6 +769,10 @@ function applyCaps() {
     }
     if (btn.dataset.view === 'ov-baile') {
       btn.style.display = capFeature('tab_overlays') ? '' : 'none';
+      return;
+    }
+    if (btn.dataset.view === 'youtube') {
+      btn.style.display = (typeof youtubeTabVisible === 'function' && youtubeTabVisible()) ? '' : 'none';
       return;
     }
     btn.style.display = capFeature(cap) ? '' : 'none';
@@ -829,6 +836,7 @@ const CAP_LABELS = {
   tab_overlays: 'Overlays', tab_tts: 'Chat TTS (voz)', tab_timer: 'Temporizador',
   tab_webhook: 'Webhook y Configuración',
   tab_spotify: 'Spotify (Client ID)',
+  tab_youtube: 'YouTube Song Requests',
   tab_editor_rapido: 'Editor Pro',
   // overlays
   ov_joinlive: 'Join al live', ov_joinlivemc: 'Join al live (Minecraft)', ov_joinlivedbz: 'Join al live (Dragon Ball Z)', ov_joinlivemario: 'Join al live (Mario Bros)',
@@ -864,7 +872,7 @@ const CAP_LABELS = {
   videos_ai: 'Videos AI',
 };
 const PLAN_FEATURE_ORDER = [
-  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_editor_rapido',
+  'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_youtube', 'tab_editor_rapido',
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
@@ -1366,9 +1374,8 @@ function toast(msg, kind) {
   setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, 3200);
 }
 
-// Modo relay (.exe): el chat de TikTok llega desde la nube. Spotify, en cambio, corre
-// LOCAL (tokens + cola en esta PC). Por eso reenviamos los comandos de Spotify del chat
-// al servidor local para que los procese y actualice la cola/overlay locales.
+// Modo relay (.exe): el chat de TikTok llega desde la nube. Spotify y YouTube corren
+// LOCAL (cola/audio en esta PC). Reenviamos !play/!skip/!revoke y los !yt* al servidor local.
 const knownChatMods = new Set();
 function chatModKeys(p) {
   return [
@@ -1384,11 +1391,34 @@ function chatUserLooksMod(p) {
   if (p?.isMod || p?.isModerator) return true;
   return chatModKeys(p).some((k) => knownChatMods.has(k));
 }
+function ytChatShouldForward(comment) {
+  const lower = String(comment || '').trim().toLowerCase().replace(/[\u200B-\u200D\uFEFF\u2060]/g, '');
+  if (!lower) return false;
+  if (/^!yt/i.test(lower)) return true;
+  const keys = [
+    ['cmdPlay', 'yt-cmd-play', '!yt'],
+    ['cmdSkip', 'yt-cmd-skip', '!ytsalta'],
+    ['cmdRevoke', 'yt-cmd-revoke', '!ytquita'],
+    ['cmdVolUp', 'yt-cmd-volup', '!ytvolup'],
+    ['cmdVolDown', 'yt-cmd-voldown', '!ytvoldown'],
+    ['cmdVol', 'yt-cmd-vol', '!ytvol'],
+  ];
+  const yt = (typeof settings !== 'undefined' && settings && settings.youtube) || {};
+  for (const [key, id, fb] of keys) {
+    let t = String(document.getElementById(id)?.value || yt[key] || fb).trim().toLowerCase().replace(/\s+/g, '');
+    if (!t) continue;
+    if (!t.startsWith('!')) t = '!' + t.replace(/^!+/, '');
+    if (t.length < 2) continue;
+    if (lower === t || lower.startsWith(t + ' ') || lower.startsWith(t + '\t')) return true;
+  }
+  return false;
+}
 function maybeForwardSpotifyChat(p) {
   try {
     if (!relayActive()) return;
     const comment = String(p?.comment || '').trim();
-    if (!/^!(play|skip|revoke)\b/i.test(comment)) return;
+    const spotifyHit = /^(?:!(?:play|skip|revoke)(?:\s|$))/i.test(comment);
+    if (!spotifyHit && !ytChatShouldForward(comment)) return;
     if (!p?.uniqueId) return;
     noteChatMod(p);
     fetch('/api/desktop/spotify-chat', {
@@ -1397,7 +1427,15 @@ function maybeForwardSpotifyChat(p) {
       body: JSON.stringify({
         comment,
         user: { uniqueId: p.uniqueId, nickname: p.nickname || p.uniqueId, photo: p.photo || '' },
-        roles: { isMod: chatUserLooksMod(p), isSub: !!p.isSub, memberLevel: Number(p.memberLevel) || 0 },
+        roles: {
+          isMod: chatUserLooksMod(p),
+          isSub: !!p.isSub,
+          isSuperFan: !!p.isSuperFan,
+          isFollower: !!p.isFollower,
+          isTeam: !!p.isTeam,
+          memberLevel: Number(p.memberLevel) || 0,
+          gifterLevel: Number(p.gifterLevel) || Number(p.donorLevel) || 0,
+        },
       }),
     }).catch(() => {});
   } catch {}
@@ -1430,7 +1468,7 @@ function maybeForwardMusicChat(p) {
 // SIEMPRE al servidor local (127.0.0.1) — archivos en userData/uploads.
 function roomUrl(path) {
   const p = String(path || '');
-  const isLocalOnly = /^\/spotify-/.test(p) || /^\/editor-rapido-overlay/.test(p) || (relayActive() && /^\/video\.html/.test(p));
+  const isLocalOnly = /^\/spotify-/.test(p) || /^\/youtube-overlay/.test(p) || /^\/editor-rapido-overlay/.test(p) || (relayActive() && /^\/video\.html/.test(p));
   const useCloud = relayActive() && !isLocalOnly;
   const base = useCloud ? String(window.desktopAPI.cloudBase).replace(/\/+$/, '') : location.origin;
   const k = useCloud ? (window.CLOUD_ROOM_KEY || '') : window.ROOM_KEY;
@@ -2206,6 +2244,7 @@ function handle(type, p) {
     case 'timerBeep': break;
     case 'pointsList': onPointsList(p); break;
     case 'pointsUpdate': onPointsUpdate(p); break;
+    case 'sorteosVidasPlayers': if (typeof window.renderSorteosVidasPeople === 'function') window.renderSorteosVidasPeople(p); break;
     case 'pointsTx': onPointsTx(p); break;
     case 'pointsImportResult': onPointsImportResult(p); break;
     case 'tikfinityDecryptResult': onTikfinityDecryptResult(p); break;
@@ -2214,6 +2253,9 @@ function handle(type, p) {
     case 'spotifyQueue': break;
     case 'spotifyNowPlaying': break;
     case 'spotifyCommand': break;
+    case 'youtubeState': if (typeof paintYoutubeState === 'function') paintYoutubeState(p); break;
+    case 'youtubeProgress': if (typeof onYoutubeProgress === 'function') onYoutubeProgress(p); break;
+    case 'youtubeSeek': if (typeof onYoutubeSeek === 'function') onYoutubeSeek(p); break;
     case 'musicState': if (typeof handleMusicWs === 'function') handleMusicWs('musicState', p); break;
     case 'queueUpdated': if (typeof handleMusicWs === 'function') handleMusicWs('queueUpdated', p); break;
     case 'currentSongUpdated': if (typeof handleMusicWs === 'function') handleMusicWs('currentSongUpdated', p); break;
@@ -2638,6 +2680,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
         }
         if (viewName === 'points') { send({ action: 'getPoints' }); renderPointsTable({ resetPage: true }); }
         if (viewName === 'spotify') { try { setupSpotifyUI(); applySpotifyLock(); refreshSpotifyStatus(); } catch (e) { console.error('Spotify UI:', e); } }
+        if (viewName === 'youtube') { try { setupYoutubeUI(); } catch (e) { console.error('YouTube UI:', e); } }
         if (viewName === 'webhook') { try { setupWebhookUI(); } catch (e) { console.error('Webhook UI:', e); } }
         if (viewName === 'configuracion') { try { setupWebhookUI(); applyWebhookUI(); } catch (e) { console.error('Configuración UI:', e); } }
         if (viewName === 'acciones') {
@@ -5317,7 +5360,14 @@ function onSettings(s, touchedKeys) {
     } catch {}
   }
   try { window.__lcPendingTouchedKeys = null; } catch {}
+  try {
     settings = preserveLocalSpotifyOnSettingsEcho(preserveLocalBailePeopleOnSettingsEcho(preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s))))));
+  } catch (err) {
+    console.error('[settings] preserve', err);
+    settings = s;
+  }
+  if (!settings || typeof settings !== 'object') return;
+  try {
   if (migrateAccionesSpawnWebhooks(settings.actions)) saveSettings();
   normalizeRelayMedia(settings);
   ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'topStreak'].forEach((k) => {
@@ -5341,6 +5391,9 @@ function onSettings(s, touchedKeys) {
     if (settings.topMultiRank.showPoints == null) settings.topMultiRank.showPoints = true;
   }
   scheduleSettingsUiApply(touchedKeys);
+  } catch (err) {
+    console.error('[settings] apply', err);
+  }
 }
 
 /** Coalesce ecos de settings: varios patches seguidos → un solo repaint. */
@@ -5371,6 +5424,8 @@ function flushSettingsUiApply() {
   applyingSettings = true;
   try {
     applySettingsToUI(touched);
+  } catch (err) {
+    console.error('[settings] ui', err);
   } finally {
     applyingSettings = false;
   }
@@ -5512,9 +5567,10 @@ function applySettingsToUI(touchedKeys) {
   }
   if (has('giftCounter') && typeof refreshGiftCounterCardUI === 'function') refreshGiftCounterCardUI();
   if (has('sorteosOverlay') && typeof window.__soSyncSlowBtn === 'function') window.__soSyncSlowBtn();
+  if (has('sorteosVidasOverlay') && typeof window.__sovSyncSlowBtn === 'function') window.__sovSyncSlowBtn();
 
   if (all || hasAny(
-    'giftVs', 'flowMeter', 'giftSeq', 'giftShowcase', 'coinMatch', 'sorteosOverlay',
+    'giftVs', 'flowMeter', 'giftSeq', 'giftShowcase', 'coinMatch', 'sorteosOverlay', 'sorteosVidasOverlay',
     'habibiTop', 'topGift', 'lastGift', 'topStreak', 'top1fire', 'hypeBar',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList',
     'topAltRank', 'topAltRankNeon', 'topMultiRank', 'pointsLookup', 'liveTimer',
@@ -5537,6 +5593,7 @@ function applySettingsToUI(touchedKeys) {
     if (typeof applyPointsSettingsUI === 'function') applyPointsSettingsUI();
   }
   if (has('spotify') && typeof applySpotifyUI === 'function') applySpotifyUI();
+  if (has('youtube') && typeof applyYoutubeUI === 'function') applyYoutubeUI();
   if (has('webhook') && typeof applyWebhookUI === 'function') applyWebhookUI();
   if (has('actions') && typeof renderAcciones === 'function') renderAcciones();
   if (has('mcActions') && typeof renderMyMcActions === 'function') renderMyMcActions();
@@ -6734,12 +6791,16 @@ if ($('vid-streamdeck-copy')) {
   };
 }
 
-// Tras subir, el servidor puede convertir (MOV, MP4 HEVC/H.265, etc.).
+// Tras subir, el .exe deja el archivo original (no convierte a MP4).
+// Solo MOV con transparencia puede pasar a WebM para que OBS lo vea con alpha.
 function uploadNeedsVideoConvert(file) {
   if (!file) return false;
   if (/^image\//i.test(file.type) || /^audio\//i.test(file.type)) return false;
   const name = file.name || '';
   if (/\.(gif|png|jpe?g|webp|apng|bmp|svg|mp3|wav|aac|m4a|oga)(\?|$)/i.test(name)) return false;
+  if (window.desktopAPI) {
+    return /\.(mov|avi|wmv|flv|hevc|ts|mts)(\?|$)/i.test(name);
+  }
   return /^video\//i.test(file.type) || /\.(mp4|webm|m4v|mov|avi|mkv|wmv|flv|hevc|ts|mts|3gp|mpeg|mpg|ogv|ogg)(\?|$)/i.test(name);
 }
 // Sube un archivo mostrando progreso; si hace falta conversión, avisa al terminar la subida.
@@ -11371,6 +11432,55 @@ const STYLE_OVERLAYS = [
     },
   }),
   setupStyleOverlay({
+    kind: 'sorteosVidas', settingsKey: 'sorteosVidasOverlay', previewId: 'sov-preview',
+    btnTest: 'sov-test', btnReset: '', btnConfig: 'sov-config',
+    modalId: 'sovConfigModal', closeId: 'sovcfg-close', saveId: 'sovcfg-save',
+    testAction: 'testSorteosVidas', resetAction: '',
+    map: {
+      'sovcfg-entry': 'entryCost', 'sovcfg-giftimg': 'entryGiftImage',
+      'sovcfg-giftid': 'entryGiftId', 'sovcfg-giftname': 'entryGiftName',
+      'sovcfg-elim': 'elimIntervalSec',
+      'sovcfg-bulk': 'bulkElimTarget',
+      'sovcfg-bulk-per': 'bulkElimPerRound',
+      'sovcfg-elimcard': 'elimCardSec',
+      'sovcfg-anim': 'animSpeed', 'sovcfg-minp': 'minPlayers', 'sovcfg-initial': 'initialTimerSec',
+      'sovcfg-insta': 'instaClaim', 'sovcfg-maxp': 'maxPlayers',
+      'sovcfg-slowfrom': 'slowFromSec', 'sovcfg-slowsec': 'slowSec',
+      'sovcfg-lockmin': 'lockEntryMin',
+      'sovcfg-vouchkeys': 'vouchKeywords',
+      'sovcfg-scale': 'overlayScale',
+      'sovcfg-statspos': 'statsPos',
+      'sovcfg-frame': 'frameColor', 'sovcfg-framebg': 'frameBg', 'sovcfg-boxbg': 'boxBg',
+      'sovcfg-cgift': 'giftColor', 'sovcfg-cmin': 'minColor', 'sovcfg-cplayers': 'playersColor',
+      'sovcfg-ccoins': 'coinsColor', 'sovcfg-cvouches': 'vouchesColor', 'sovcfg-cinsta': 'instaColor',
+      'sovcfg-showgift': 'showGift', 'sovcfg-showmin': 'showMin', 'sovcfg-showplayers': 'showPlayers',
+      'sovcfg-showcoins': 'showCoins', 'sovcfg-showvouches': 'showVouches', 'sovcfg-showinsta': 'showInsta',
+      'sovcfg-lockmode': 'lockMode', 'sovcfg-slow': 'slowCountdown', 'sovcfg-autostart': 'autoStart',
+    },
+    types: {
+      entryCost: 'int', elimIntervalSec: 'int', elimCardSec: 'int', bulkElimTarget: 'int', bulkElimPerRound: 'int', minPlayers: 'int', initialTimerSec: 'int',
+      instaClaim: 'int', maxPlayers: 'int', slowFromSec: 'int', slowSec: 'int', lockEntryMin: 'int',
+      overlayScale: 'int',
+    },
+    onFormSync: () => {
+      try {
+        refreshSorteosVidasGiftBtn();
+        const sc = $('sovcfg-scale');
+        const lbl = $('sovcfg-scale-lbl');
+        if (sc && lbl) lbl.textContent = (parseInt(sc.value, 10) || 100) + '%';
+        const maxp = $('sovcfg-maxp');
+        if (maxp) maxp.value = '0';
+      } catch {}
+    },
+    onSave: (cfg) => {
+      cfg.maxPlayers = 0;
+      const prev = Math.max(0, parseInt(settings?.sorteosVidasOverlay?.vouchCount, 10) || 0);
+      if (cfg.vouchCount == null) cfg.vouchCount = prev;
+      try { if (typeof window.__sovSyncSlowBtn === 'function') window.__sovSyncSlowBtn(); } catch {}
+      try { if (typeof window.__sovSyncBulkTarget === 'function') window.__sovSyncBulkTarget(); } catch {}
+    },
+  }),
+  setupStyleOverlay({
     kind: 'topaltneon', settingsKey: 'topAltRankNeon', previewId: 'taln-preview',
     btnTest: 'taln-test', btnReset: 'taln-reset', btnConfig: 'taln-config',
     modalId: 'talnConfigModal', closeId: 'talnfg-close', saveId: 'talnfg-save',
@@ -12629,11 +12739,11 @@ try { (function setupBailePeople() {
   const syncPreviewShape = () => {
     const horiz = (ensure().orient || 'v') === 'h';
     frame()?.closest('.ovpro-preview--coinbar')?.classList.toggle('is-horiz', horiz);
-    const res = horiz ? '1080x480 (horizontal)' : '480x1080 (vertical)';
+    const res = horiz ? '1080×480 (horizontal)' : '480×1080 (vertical)';
     const warn = $('bcb-res-warn');
-    if (warn) warn.innerHTML = `Resolucion en TikTok Studio / OBS: <b>${res}</b>.`;
+    if (warn) warn.innerHTML = `⚠ Resolución en TikTok Studio / OBS: <b>${res}</b>.`;
     const hint = $('bcbcfg-res-hint');
-    if (hint) hint.innerHTML = `Resolucion recomendada: <b>${horiz ? '1080 x 480' : '480 x 1080'}</b> (${horiz ? 'horizontal' : 'vertical'}, fondo transparente).`;
+    if (hint) hint.innerHTML = `Resolución recomendada: <b>${horiz ? '1080 × 480' : '480 × 1080'}</b> (${horiz ? 'horizontal' : 'vertical'}, fondo transparente).`;
   };
   const readSkinUI = () => {
     const on = $('bcbcfg-skins')?.querySelector('.bcb-skinbtn.is-active');
@@ -12672,7 +12782,6 @@ try { (function setupBailePeople() {
     if (!fr) return;
     const send = (f) => { try { f?.contentWindow?.postMessage({ kind: 'batallaCoinBar', ...msg }, '*'); } catch {} };
     if (previewReady()) { send(fr); return; }
-    if (msg.type === 'config') return;
     ensureEmbedLoaded(fr).then(send);
   };
   const pushLook = (partial) => {
@@ -12729,6 +12838,19 @@ try { (function setupBailePeople() {
   };
   const openCfg = () => {
     modal()?.classList.remove('hidden');
+    const fr = frame();
+    if (fr) {
+      const want = '/batalla-coinbar.html?embed=1&v=cb21';
+      const cur = String(fr.getAttribute('src') || '');
+      fr.setAttribute('data-src', want);
+      if (!cur.includes('v=cb21')) {
+        fr.dataset.embedReady = '';
+        try { fr.removeAttribute('src'); } catch {}
+        ensureEmbedLoaded(fr).then(() => {
+          postPreview({ type: 'config', config: { ...ensure() } });
+        });
+      }
+    }
     const fill = () => {
       try {
         const c = { source: 'battle', resetPeriod: 'battle', scale: 100, textSize: 100, numSize: 100, skin: 'classic', fillColor: '#22c55e', fillRainbow: true, labelDir: 'h', orient: 'v', frameColor: '#38bdf8', frameTint: false, ...ensure() };
@@ -12849,11 +12971,19 @@ try { (function setupBailePeople() {
   $('bcbcfg-scale')?.addEventListener('input', () => {
     if ($('bcbcfg-scale-lbl')) $('bcbcfg-scale-lbl').textContent = ($('bcbcfg-scale').value || 100) + '%';
   });
+  let bcbSizeSaveT = 0;
   const bindBcbSizeSlider = (id, lbl, key) => {
     $(id)?.addEventListener('input', () => {
       const v = Math.max(70, Math.min(200, parseInt($(id).value, 10) || 100));
       if ($(lbl)) $(lbl).textContent = v + '%';
       pushLook({ [key]: v });
+      clearTimeout(bcbSizeSaveT);
+      bcbSizeSaveT = setTimeout(() => {
+        try {
+          if (typeof saveSettingsKeysPatch === 'function') saveSettingsKeysPatch('batallaCoinBar');
+          else saveSettings();
+        } catch {}
+      }, 180);
     });
     $(id)?.addEventListener('change', () => { try { saveSettings(); } catch {} });
   };
@@ -13208,7 +13338,7 @@ try { if (typeof window.__patchBatallaVsStylePreview === 'function') window.__pa
   };
   if ($('top1fcfg-design')) {
     $('top1fcfg-design').addEventListener('change', () => apply($('top1fcfg-design').value, true));
-  }
+  };
   try {
     localId = String(settings?.top1fire?.design || '1');
     if (!DESIGNS.some((d) => d.id === localId)) localId = '1';
@@ -13410,6 +13540,241 @@ function refreshGiftCounterCardUI() {
   }
   syncSorteosSlowBtn();
   window.__soSyncSlowBtn = syncSorteosSlowBtn;
+})();
+
+(function setupSorteosVidasControls() {
+  const sovFrame = () => $('sov-preview');
+  const toPrev = async (msg) => {
+    const fr = await ensureEmbedLoaded(sovFrame());
+    try { fr?.contentWindow?.postMessage({ kind: 'sorteosVidas', ...msg }, '*'); } catch {}
+  };
+  const sendSov = (sorteosVidasAction, extra) => {
+    send({ action: 'sorteosVidas', sorteosVidasAction, ...(extra || {}) });
+  };
+  const pushCfg = () => {
+    const cfg = settings?.sorteosVidasOverlay || {};
+    toPrev({ type: 'config', config: cfg });
+    syncSorteosVidasBulkTargetUi();
+  };
+  function syncSorteosVidasBulkTargetUi() {
+    const target = Math.max(1, parseInt(settings?.sorteosVidasOverlay?.bulkElimTarget, 10) || 50);
+    const per = Math.max(1, parseInt(settings?.sorteosVidasOverlay?.bulkElimPerRound, 10) || 10);
+    const inpT = $('sov-bulk-target');
+    const inpP = $('sov-bulk-per');
+    if (inpT && document.activeElement !== inpT) inpT.value = String(target);
+    if (inpP && document.activeElement !== inpP) inpP.value = String(per);
+    const cfgInp = $('sovcfg-bulk');
+    const cfgPer = $('sovcfg-bulk-per');
+    if (cfgInp && document.activeElement !== cfgInp) cfgInp.value = String(target);
+    if (cfgPer && document.activeElement !== cfgPer) cfgPer.value = String(per);
+  }
+  function parseSovUser(raw) {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    const m = s.match(/tiktok\.com\/@([^/?#]+)/i);
+    if (m) return decodeURIComponent(m[1]).replace(/^@+/, '').trim();
+    return s.replace(/^@+/, '').split(/[/?#]/)[0].trim();
+  }
+  async function lookupSovProfile(user) {
+    try {
+      const r = await fetch('/api/tiktok-profile?' + new URLSearchParams({ url: user }));
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) return { username: user, nickname: user, avatar: '', error: data.error };
+      return data;
+    } catch {
+      return { username: user, nickname: user, avatar: '', error: 'No se pudo buscar' };
+    }
+  }
+  function renderSorteosVidasPeople(payload) {
+    const rows = $('sov-people-rows');
+    const empty = $('sov-people-empty');
+    if (!rows) return;
+    const list = Array.isArray(payload?.players) ? payload.players : [];
+    const alive = list.filter((p) => p && p.alive && (p.lives > 0));
+    const totalLives = Number.isFinite(Number(payload?.totalLives))
+      ? Math.max(0, parseInt(payload.totalLives, 10) || 0)
+      : alive.reduce((n, p) => n + (p.lives || 0), 0);
+    if ($('sov-total-lives')) $('sov-total-lives').textContent = totalLives + ' vidas';
+    if ($('sov-total-players')) $('sov-total-players').textContent = alive.length + ' personas';
+    if (empty) empty.classList.toggle('is-hidden', alive.length > 0);
+    rows.innerHTML = alive.map((p) => {
+      const name = esc(p.name || p.id || '?');
+      const pic = esc(p.pic || '');
+      const id = esc(p.id || '');
+      const lives = Math.max(0, parseInt(p.lives, 10) || 0);
+      const av = pic
+        ? '<img class="sov-prow-av" src="' + pic + '" alt="" referrerpolicy="no-referrer" />'
+        : '<div class="sov-prow-av-ph">' + esc(String(p.name || '?').slice(0, 1).toUpperCase()) + '</div>';
+      return '<div class="sov-prow" data-id="' + id + '">' + av
+        + '<div class="sov-prow-name" title="@' + id + '">' + name + '</div>'
+        + '<div class="sov-prow-lives">' + lives + '</div>'
+        + '<button type="button" class="sov-prow-pm plus" data-op="add" title="+1 vida">+</button>'
+        + '<button type="button" class="sov-prow-pm minus" data-op="rem" title="−1 vida">−</button>'
+        + '</div>';
+    }).join('');
+  }
+  window.renderSorteosVidasPeople = renderSorteosVidasPeople;
+  function sovLifeOp(op, playerId, count) {
+    const payload = { playerId, count: count || 1 };
+    if (op === 'add') {
+      payload.uniqueId = playerId;
+      toPrev({ type: 'action', action: 'addLife', ...payload });
+      sendSov('addLife', payload);
+      return;
+    }
+    toPrev({ type: 'action', action: 'removeLife', ...payload });
+    sendSov('removeLife', payload);
+  }
+  function syncSorteosVidasSlowBtn() {
+    const btn = $('sov-slow');
+    if (!btn) return;
+    const on = !!(settings?.sorteosVidasOverlay?.slowCountdown);
+    btn.classList.toggle('primary', on);
+    btn.classList.toggle('is-on', on);
+    btn.textContent = on ? '🐢 Tiempo lento ON' : '🐢 Tiempo lento OFF';
+  }
+  window.refreshSorteosVidasGiftBtn = function refreshSorteosVidasGiftBtn() {
+    const btn = $('sovcfg-giftpick');
+    if (!btn) return;
+    const name = ($('sovcfg-giftname')?.value || '').trim();
+    const img = ($('sovcfg-giftimg')?.value || '').trim();
+    const cost = Math.max(1, parseInt($('sovcfg-entry')?.value, 10) || 1);
+    if (name || img) {
+      btn.classList.add('picked');
+      btn.innerHTML = (img ? `<img src="${esc(img)}" alt="">` : '') +
+        `<span>${esc(name || 'Regalo')} · ${cost} 🪙</span>`;
+    } else {
+      btn.classList.remove('picked');
+      btn.textContent = '＋ Elegir regalo';
+    }
+  };
+  if ($('sovcfg-giftpick')) $('sovcfg-giftpick').onclick = () => openGiftModalCb((g) => {
+    const diamonds = Math.max(1, Number(g.diamonds) || Number(g.diamond_count) || 1);
+    if ($('sovcfg-entry')) $('sovcfg-entry').value = String(diamonds);
+    if ($('sovcfg-giftimg')) $('sovcfg-giftimg').value = g.image || '';
+    if ($('sovcfg-giftid')) $('sovcfg-giftid').value = String(g.id || '');
+    if ($('sovcfg-giftname')) $('sovcfg-giftname').value = g.name || '';
+    refreshSorteosVidasGiftBtn();
+    toPrev({ type: 'config', config: {
+      ...(settings?.sorteosVidasOverlay || {}),
+      entryCost: diamonds,
+      entryGiftImage: g.image || '',
+      entryGiftId: String(g.id || ''),
+      entryGiftName: g.name || '',
+    } });
+  });
+  if ($('sovcfg-giftclear')) $('sovcfg-giftclear').onclick = () => {
+    ['sovcfg-giftimg', 'sovcfg-giftid', 'sovcfg-giftname'].forEach((id) => { const el = $(id); if (el) el.value = ''; });
+    refreshSorteosVidasGiftBtn();
+    toPrev({ type: 'config', config: {
+      ...(settings?.sorteosVidasOverlay || {}),
+      entryGiftImage: '', entryGiftId: '', entryGiftName: '',
+      entryCost: Math.max(1, parseInt($('sovcfg-entry')?.value, 10) || 30),
+    } });
+  };
+  if ($('sovcfg-entry')) $('sovcfg-entry').addEventListener('input', () => refreshSorteosVidasGiftBtn());
+  if ($('sov-start')) $('sov-start').onclick = () => {
+    toPrev({ type: 'action', action: 'start', forceInitial: true });
+    sendSov('start', { forceInitial: true });
+    try { toast('Sorteos vidas · Iniciar', 'ok'); } catch {}
+  };
+  if ($('sov-spin')) $('sov-spin').onclick = () => {
+    toPrev({ type: 'action', action: 'spin' });
+    sendSov('spin');
+    try { toast('Sorteos vidas · Giro manual', 'ok'); } catch {}
+  };
+  if ($('sov-bulk')) $('sov-bulk').onclick = () => {
+    const target = Math.max(1, parseInt($('sov-bulk-target')?.value, 10) || settings?.sorteosVidasOverlay?.bulkElimTarget || 50);
+    const perRound = Math.max(1, parseInt($('sov-bulk-per')?.value, 10) || settings?.sorteosVidasOverlay?.bulkElimPerRound || 10);
+    toPrev({ type: 'action', action: 'bulkSpin', targetLives: target, perRound });
+    sendSov('bulkSpin', { targetLives: target, perRound });
+    try { toast('Sorteos vidas · −' + perRound + ' por ronda (objetivo ' + target + ')', 'ok'); } catch {}
+  };
+  const saveSovBulkField = (field, elId, cfgId) => {
+    const n = Math.max(1, parseInt($(elId)?.value, 10) || (field === 'bulkElimPerRound' ? 10 : 50));
+    if (!settings.sorteosVidasOverlay) settings.sorteosVidasOverlay = {};
+    settings.sorteosVidasOverlay[field] = n;
+    saveSettingsKeysPatch('sorteosVidasOverlay');
+    const cfgEl = $(cfgId);
+    if (cfgEl) cfgEl.value = String(n);
+    syncSorteosVidasBulkTargetUi();
+  };
+  if ($('sov-bulk-target')) $('sov-bulk-target').addEventListener('change', () => saveSovBulkField('bulkElimTarget', 'sov-bulk-target', 'sovcfg-bulk'));
+  if ($('sov-bulk-per')) $('sov-bulk-per').addEventListener('change', () => saveSovBulkField('bulkElimPerRound', 'sov-bulk-per', 'sovcfg-bulk-per'));
+  if ($('sov-add-btn')) $('sov-add-btn').onclick = async () => {
+    const uniqueId = parseSovUser($('sov-add-user')?.value);
+    const st = $('sov-add-status');
+    if (!uniqueId) { toast('Pon un @ de TikTok', 'warn'); return; }
+    if (st) st.textContent = 'Buscando @' + uniqueId + '…';
+    const prof = await lookupSovProfile(uniqueId);
+    const uid = String(prof.username || uniqueId).replace(/^@+/, '');
+    const payload = {
+      uniqueId: uid,
+      nickname: prof.nickname || uid,
+      photo: prof.avatar || '',
+      userId: String(prof.userId || '').trim(),
+      count: 1,
+    };
+    toPrev({ type: 'action', action: 'addLife', ...payload });
+    sendSov('addLife', payload);
+    if (st) st.textContent = prof.error ? ('Agregada sin foto · @' + uid) : ('+1 vida · @' + uid);
+    toast('+1 vida · @' + uid, 'ok');
+    if ($('sov-add-user')) $('sov-add-user').value = '';
+  };
+  const host = $('sov-people-rows');
+  if (host) {
+    host.addEventListener('click', (e) => {
+      const btn = e.target?.closest?.('.sov-prow-pm');
+      if (!btn) return;
+      const id = btn.closest('.sov-prow')?.dataset?.id;
+      if (!id) return;
+      sovLifeOp(btn.dataset.op === 'add' ? 'add' : 'rem', id, 1);
+    });
+  }
+  if ($('sov-add-user')) {
+    $('sov-add-user').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); $('sov-add-btn')?.click(); }
+    });
+  }
+  if ($('sov-lock')) $('sov-lock').onclick = () => { toPrev({ type: 'action', action: 'lock' }); sendSov('lock'); };
+  if ($('sov-unlock')) $('sov-unlock').onclick = () => { toPrev({ type: 'action', action: 'unlock' }); sendSov('unlock'); };
+  if ($('sov-slow')) $('sov-slow').onclick = () => {
+    if (!settings.sorteosVidasOverlay) settings.sorteosVidasOverlay = {};
+    const next = !settings.sorteosVidasOverlay.slowCountdown;
+    settings.sorteosVidasOverlay.slowCountdown = next;
+    if ($('sovcfg-slow')) $('sovcfg-slow').checked = next;
+    saveSettingsKeysPatch('sorteosVidasOverlay');
+    toPrev({ type: 'action', action: next ? 'slowOn' : 'slowOff' });
+    sendSov(next ? 'slowOn' : 'slowOff');
+    syncSorteosVidasSlowBtn();
+  };
+  if ($('sov-reset')) $('sov-reset').onclick = () => {
+    toPrev({ type: 'reset' });
+    sendSov('reset');
+    renderSorteosVidasPeople({ players: [], totalLives: 0 });
+    try { toast('Sorteos vidas · Reset', 'ok'); } catch {}
+  };
+  window.addEventListener('message', (ev) => {
+    const d = ev?.data;
+    if (!d || d.kind !== 'sorteosVidas') return;
+    if (d.type === 'ready') { pushCfg(); syncSorteosVidasSlowBtn(); return; }
+    if (d.type === 'players') { renderSorteosVidasPeople(d); return; }
+    if (d.type === 'vouch' && Number.isFinite(Number(d.count))) {
+      if (!settings.sorteosVidasOverlay) settings.sorteosVidasOverlay = {};
+      const n = Math.max(0, parseInt(d.count, 10) || 0);
+      const cur = Math.max(0, parseInt(settings.sorteosVidasOverlay.vouchCount, 10) || 0);
+      if (n !== cur) {
+        settings.sorteosVidasOverlay.vouchCount = Math.max(cur, n);
+        saveSettingsKeysPatch('sorteosVidasOverlay');
+      }
+    }
+  });
+  const fr = sovFrame();
+  if (fr) fr.addEventListener('load', () => { pushCfg(); syncSorteosVidasSlowBtn(); setTimeout(pushCfg, 200); });
+  syncSorteosVidasSlowBtn();
+  syncSorteosVidasBulkTargetUi();
+  window.__sovSyncSlowBtn = syncSorteosVidasSlowBtn;
+  window.__sovSyncBulkTarget = syncSorteosVidasBulkTargetUi;
 })();
 
 function pushStyleOverlayPreviews() {
@@ -15005,14 +15370,16 @@ function applyTtsUI(t) {
   set('tts-name-emojis', t.nameEmojis !== false);
   syncTtsNameEmojisUI();
   val('tts-tiktok-voice', t.tiktokVoice || '');
-  // Casilla «Leer en español»: marcada = NO traducir a inglés (tiktokTranslateEs false).
+  // Casilla «Leer en español»: marcada salvo que se haya desactivado a propósito.
   set('tts-tiktok-translate', t.tiktokTranslateEs !== true);
-  // ElevenLabs (opcional; no rompe TTS si está vacío/apagado)
-  const el = (t.elevenlabs && typeof t.elevenlabs === 'object') ? t.elevenlabs : {};
-  set('tts-el-enabled', !!el.enabled);
-  val('tts-el-apikey', el.apiKey || '');
-  // No pisar la lista cargada: reusar caché (si hay) y solo marcar la seleccionada.
-  ttsElFillVoiceSelect(ttsElVoicesCache.length ? ttsElVoicesCache : null, el.voiceId || '');
+  // ElevenLabs retirado del panel: no usarlo aunque quede en ajustes viejos.
+  if (t.elevenlabs && typeof t.elevenlabs === 'object') t.elevenlabs.enabled = false;
+  const piper = (t.piper && typeof t.piper === 'object') ? t.piper : {};
+  set('tts-piper-enabled', !!piper.enabled);
+  val('tts-piper-voice', piper.voiceId || 'es_ES-davefx-medium');
+  set('tts-piper-translate', piper.translate !== false);
+  try { ttsPiperProbe(); } catch { /* ignore */ }
+  try { syncTtsPiperTranslateUI(); } catch { /* ignore */ }
   val('tts-rate', t.rate ?? 1.2); const rv = $('tts-rate-val'); if (rv) rv.textContent = (+(t.rate ?? 1.2)).toFixed(1);
   val('tts-pitch', t.pitch ?? 1); const pv = $('tts-pitch-val'); if (pv) pv.textContent = (+(t.pitch ?? 1)).toFixed(1);
   val('tts-vol', t.volume ?? 1); const vv = $('tts-vol-val'); if (vv) vv.textContent = Math.round((t.volume ?? 1) * 100);
@@ -15156,6 +15523,32 @@ const TTS_UV_LANGS = {
   })),
 };
 
+const TTS_PIPER_VOICES = [
+  { id: 'es_ES-davefx-medium', label: 'Davefx · medium', group: 'Español · España', locale: 'es-ES' },
+  { id: 'es_ES-sharvard-medium', label: 'Sharvard · medium', group: 'Español · España', locale: 'es-ES' },
+  { id: 'es_MX-ald-medium', label: 'Ald · medium', group: 'Español · México', locale: 'es-MX' },
+];
+
+function ttsPiperFillSelect(sel, voices, selectedId) {
+  if (!sel || !Array.isArray(voices) || !voices.length) return;
+  const cur = selectedId || sel.value || voices[0].id;
+  const groups = [];
+  const map = new Map();
+  for (const v of voices) {
+    const g = v.group || 'Otras';
+    if (!map.has(g)) { map.set(g, []); groups.push(g); }
+    map.get(g).push(v);
+  }
+  sel.innerHTML = groups.map((g) => {
+    const opts = map.get(g).map((v) => {
+      const mark = v.ready ? ' ✓' : '';
+      return `<option value="${esc(v.id)}" ${v.id === cur ? 'selected' : ''}>${esc(v.label)}${mark}</option>`;
+    }).join('');
+    return `<optgroup label="${esc(g)}">${opts}</optgroup>`;
+  }).join('');
+  if (voices.some((v) => v.id === cur)) sel.value = cur;
+}
+
 function ttsTrackChatUser(p) {
   const uid = String(p?.uniqueId || '').trim();
   if (!uid) return;
@@ -15219,6 +15612,10 @@ function ttsVoiceLabel(engine, voice, lang) {
       .find((x) => String(x.id) === String(voice));
     return hit ? hit.name : voice;
   }
+  if (engine === 'piper') {
+    const hit = TTS_PIPER_VOICES.find((x) => x.id === voice);
+    return hit ? hit.label : voice;
+  }
   if (engine === 'edge') {
     const hit = getEdgeVoiceCatalog().find((x) => x.id === voice);
     return hit ? hit.label : voice;
@@ -15236,6 +15633,7 @@ function ttsEngineLabel(engine) {
   if (engine === 'disney') return 'Disney';
   if (engine === 'edge') return 'Edge (español)';
   if (engine === 'elevenlabs') return 'ElevenLabs';
+  if (engine === 'piper') return 'Piper (gratis)';
   return engine === 'tiktok' ? 'TikTok (Server)' : 'Sistema';
 }
 
@@ -15291,6 +15689,11 @@ function fillTtsUvLangOptions() {
   if (engine === 'elevenlabs') {
     sel.innerHTML = '<option value="multi">Multilingüe (ElevenLabs)</option>';
     sel.value = 'multi';
+    return;
+  }
+  if (engine === 'piper') {
+    sel.innerHTML = '<option value="es">Español</option>';
+    sel.value = 'es';
     return;
   }
   if (engine === 'disney') {
@@ -15356,6 +15759,13 @@ function fillTtsUvVoiceOptions() {
       return `<option value="${esc(id)}" ${id === cur ? 'selected' : ''}>${esc(label)}</option>`;
     }).join('');
     if (!list.some((v) => String(v.id) === cur) && list[0]) sel.value = list[0].id;
+    return;
+  }
+
+  if (engine === 'piper') {
+    const list = TTS_PIPER_VOICES.length ? TTS_PIPER_VOICES : [];
+    const cur = sel.value;
+    ttsPiperFillSelect(sel, list, cur);
     return;
   }
 
@@ -15462,10 +15872,13 @@ function addTtsUserVoice() {
     return;
   }
   if (engine === 'elevenlabs') {
-    const key = String(settings?.tts?.elevenlabs?.apiKey || '').trim()
-      || String($('tts-el-apikey')?.value || '').trim();
-    if (!key) {
-      toast('Configura tu API key en Mi voz · ElevenLabs antes de asignar.', 'warn');
+    toast('ElevenLabs ya no está en Chat TTS. Elige otra voz.', 'warn');
+    return;
+  }
+
+  if (engine === 'piper') {
+    if (!IS_DESKTOP) {
+      toast('Piper solo está en la app de escritorio (.exe).', 'warn');
       return;
     }
   }
@@ -15482,10 +15895,13 @@ function addTtsUserVoice() {
 
   const lang = engine === 'disney' ? 'en'
     : engine === 'elevenlabs' ? 'multi'
+    : engine === 'piper' ? 'es'
     : String(langEl.value || 'es');
   const disneyTranslateEl = $('tts-uv-disney-translate');
   const translate = engine === 'disney'
     ? !!(disneyTranslateEl ? disneyTranslateEl.checked : true)
+    : engine === 'piper'
+      ? ttsEnsurePiper().translate !== false
     : (engine === 'tiktok' && ttsVoiceLangFromId(voice) === 'en');
 
   if (!settings.tts) settings.tts = {};
@@ -15523,20 +15939,17 @@ function addTtsUserVoice() {
 function ttsConfigForUser(userId, nickname) {
   const base = settings?.tts || {};
   const uv = ttsFindUserVoice(userId, nickname);
-  if (!uv) return base;
-  if (uv.engine === 'elevenlabs') {
-    const elBase = base.elevenlabs || {};
+  if (!uv || uv.engine === 'elevenlabs') return base;
+  if (uv.engine === 'piper') {
     return {
       ...base,
       tiktokVoice: '',
       voice: '',
-      elevenlabs: {
-        ...elBase,
+      elevenlabs: { ...(base.elevenlabs || {}), enabled: false },
+      piper: {
         enabled: true,
-        voiceId: uv.voice,
-        voiceName: uv.voiceLabel || elBase.voiceName || uv.voice,
-        apiKey: elBase.apiKey || '',
-        modelId: elBase.modelId || 'eleven_multilingual_v2',
+        voiceId: uv.voice || 'es_ES-davefx-medium',
+        translate: uv.translate !== false,
       },
     };
   }
@@ -15559,6 +15972,8 @@ function ttsConfigForUser(userId, nickname) {
 
 function ttsSpeakTextForUser(text, userId, nickname) {
   try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
+  try { ttsSyncPiperFromDom(); } catch { /* ignore */ }
+  try { ttsSyncSlidersFromDom(); } catch { /* ignore */ }
   const phrase = ttsReadableText(String(text || '')).trim();
   if (!phrase) return;
   const cfg = ttsConfigForUser(userId, nickname);
@@ -15566,7 +15981,17 @@ function ttsSpeakTextForUser(text, userId, nickname) {
   if (phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
-  const uv = ttsFindUserVoice(userId, nickname);
+  const uvRaw = ttsFindUserVoice(userId, nickname);
+  const uv = (uvRaw && uvRaw.engine !== 'elevenlabs') ? uvRaw : null;
+  if (uv?.engine === 'piper') {
+    if (ttsPiperReady(cfg)) { ttsSpeakPiper(phrase, cfg); return; }
+    toast('Piper no está listo en este panel (solo .exe).', 'warn');
+    ttsSpeakSystem(phrase, settings?.tts || {});
+    return;
+  }
+  // Sin override: Disney del dropdown gana; si no, Piper; si no, Edge/sistema.
+  const tkChosen = String(cfg.tiktokVoice || '').trim();
+  if (!uv && !tkChosen && ttsPiperReady(cfg)) { ttsSpeakPiper(phrase, cfg); return; }
   const sv = ttsServerVoiceFromSettings(cfg);
   if (sv) { ttsSpeakTikTok(phrase, sv); return; }
   ttsSpeakSystem(phrase, cfg);
@@ -15603,8 +16028,8 @@ function updateTtsSummary() {
   }
   const trig = { all: 'cualquier comentario', dot: 'comentarios que empiezan con punto', slash: 'comentarios que empiezan con /', command: `comentarios con "${t.command || '!tts'}"` }[t.trigger || 'all'];
   const money = t.charge ? `Cobra ${t.cost} monedas por mensaje.` : 'El uso es gratuito.';
-  const elVoice = ttsElevenLabsReady(t)
-    ? ` Voz: ElevenLabs (${t.elevenlabs.voiceName || t.elevenlabs.voiceId}).`
+  const elVoice = ttsPiperReady(t)
+    ? ` Voz: Piper (${ttsVoiceLabel('piper', t.piper?.voiceId || '')}).`
     : '';
   const requireLvl = !!(t.requireMinLevel ?? (Number(t.minMemberLevel || 0) > 0));
   const minLvl = Number(t.minMemberLevel || 0);
@@ -15671,6 +16096,7 @@ const EMOJI_SPEAK = {
 };
 const EMOJI_SPEAK_ENTRIES = Object.entries(EMOJI_SPEAK);
 
+/** Homoglifos típicos en nicks con "fuente" de TikTok (cirílico/griego → latino). */
 const TTS_HOMOGLYPHS = {
   'А':'A','а':'a','В':'B','Е':'E','е':'e','К':'K','к':'k','М':'M','м':'m',
   'Н':'H','н':'h','О':'O','о':'o','Р':'P','р':'p','С':'C','с':'c','Т':'T','т':'t',
@@ -15873,8 +16299,34 @@ function ttsSyncElevenlabsFromDom() {
   return el;
 }
 
+function ttsSyncSlidersFromDom() {
+  if (!settings.tts) settings.tts = {};
+  const rate = $('tts-rate');
+  const pitch = $('tts-pitch');
+  const vol = $('tts-vol');
+  if (rate) {
+    const n = Number(rate.value);
+    if (Number.isFinite(n)) settings.tts.rate = n;
+  }
+  if (pitch) {
+    const n = Number(pitch.value);
+    if (Number.isFinite(n)) settings.tts.pitch = n;
+  }
+  if (vol) {
+    const n = Number(vol.value);
+    if (Number.isFinite(n)) settings.tts.volume = n;
+  }
+  return {
+    rate: settings.tts.rate ?? 1.2,
+    pitch: settings.tts.pitch ?? 1,
+    volume: settings.tts.volume ?? 1,
+  };
+}
+
 function ttsSpeakText(text, opts = {}) {
   try { ttsSyncElevenlabsFromDom(); } catch { /* ignore */ }
+  try { ttsSyncPiperFromDom(); } catch { /* ignore */ }
+  try { ttsSyncSlidersFromDom(); } catch { /* ignore */ }
   const t = settings?.tts || {};
   const phrase = ttsReadableText(String(text || '')).trim();
   if (!phrase) return;
@@ -15883,7 +16335,9 @@ function ttsSpeakText(text, opts = {}) {
   if (!force && phrase === ttsLastPhrase && now - ttsLastPhraseAt < 8000) return;
   ttsLastPhrase = phrase;
   ttsLastPhraseAt = now;
-  // Disney/TikTok del dropdown gana sobre idioma Edge (si no, Probar voz / regalos usaban Edge).
+  // Dropdown Disney/TikTok gana sobre Piper (si no, Stitch nunca se oía con Piper activo).
+  const tkChosen = String(t.tiktokVoice || '').trim();
+  if (!tkChosen && ttsPiperReady(t)) { ttsSpeakPiper(phrase, t); return; }
   const sv = ttsServerVoiceFromSettings(t);
   if (sv) { ttsSpeakTikTok(phrase, sv); return; }
   ttsSpeakSystem(phrase, t);
@@ -16196,6 +16650,7 @@ let ttsTkPrefetchItem = null; // a qué mensaje pertenece el prefetch (evita lee
 let ttsTkBusySince = 0;
 const TTS_TK_FETCH_MS = 16000; // TikTok + posible respaldo Edge
 const TTS_EL_FETCH_MS = 14000; // ElevenLabs suele tardar más
+const TTS_PIPER_FETCH_MS = 120000; // primera descarga del motor + voz
 
 function ttsWantSpeakEs(t) {
   return !t || t.tiktokTranslateEs !== true;
@@ -16213,12 +16668,13 @@ function ttsServerVoiceFromSettings(t) {
 }
 
 function ttsSpeakTikTok(phrase, t) {
+  const sliders = (() => { try { return ttsSyncSlidersFromDom(); } catch { return {}; } })();
   ttsTkQueue.push({
     text: phrase,
     voice: t.tiktokVoice,
     translate: t.tiktokTranslateEs !== false,
     speakEs: ttsWantSpeakEs(t),
-    volume: t.volume ?? 1,
+    volume: sliders.volume ?? t.volume ?? 1,
     at: Date.now(),
   });
   ttsPruneQueue(ttsTkQueue);
@@ -16249,6 +16705,171 @@ let ttsElVoicesCache = [];
 
 function ttsElevenLabsReady(t) {
   return false;
+}
+
+function ttsEnsurePiper() {
+  if (!settings.tts) settings.tts = {};
+  if (!settings.tts.piper || typeof settings.tts.piper !== 'object') {
+    settings.tts.piper = { enabled: false, voiceId: 'es_ES-davefx-medium', translate: true };
+  }
+  if (settings.tts.piper.translate == null) settings.tts.piper.translate = true;
+  return settings.tts.piper;
+}
+
+function ttsSyncPiperFromDom() {
+  const p = ttsEnsurePiper();
+  const en = $('tts-piper-enabled');
+  const voice = $('tts-piper-voice');
+  const tr = $('tts-piper-translate');
+  if (en) p.enabled = !!en.checked;
+  if (voice && voice.value) p.voiceId = voice.value.trim();
+  if (tr) p.translate = !!tr.checked;
+  return p;
+}
+
+function ttsPiperVoiceLang(voiceId) {
+  const v = TTS_PIPER_VOICES.find((x) => x.id === voiceId);
+  const raw = String(v?.family || v?.locale || voiceId || 'es').toLowerCase();
+  return raw.split(/[-_]/)[0] || 'es';
+}
+
+function syncTtsPiperTranslateUI() {
+  const wrap = $('tts-piper-translate-wrap');
+  const hint = $('tts-piper-translate-hint');
+  if (wrap) wrap.style.display = '';
+  if (hint) hint.style.display = '';
+}
+
+let ttsPiperAvailable = detectDesktopPanel();
+let ttsPiperPollTimer = null;
+let ttsPiperLastFailToastAt = 0;
+
+function ttsPiperReady(t) {
+  if (!ttsPiperAvailable) return false;
+  const p = t?.piper;
+  return !!(p && p.enabled && String(p.voiceId || '').trim());
+}
+
+function ttsSpeakPiper(phrase, t) {
+  const p = t?.piper || ttsEnsurePiper();
+  const voiceId = String(p.voiceId || 'es_ES-davefx-medium').trim();
+  if (!voiceId) return;
+  const sliders = ttsSyncSlidersFromDom();
+  ttsTkQueue.push({
+    engine: 'piper',
+    text: phrase,
+    voice: voiceId,
+    rate: sliders.rate,
+    pitch: sliders.pitch,
+    volume: sliders.volume,
+    translate: p.translate !== false,
+    at: Date.now(),
+  });
+  ttsPruneQueue(ttsTkQueue);
+  ttsTkTryRecoverStuck();
+  if (!ttsTkBusy && ttsTkQueue.length >= 1 && !ttsTkPrefetch) {
+    ttsTkStartPrefetch(ttsTkQueue[0]);
+  }
+  ttsTkPump();
+}
+
+function ttsPiperSetStatus(msg, kind) {
+  const el = $('tts-piper-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color = kind === 'err' ? '#f87171' : (kind === 'ok' ? '#4ade80' : '');
+}
+
+function ttsPiperApplyStatus(j) {
+  if (!j) return;
+  const voices = Array.isArray(j.voices) ? j.voices : [];
+  if (voices.length) {
+    TTS_PIPER_VOICES.length = 0;
+    voices.forEach((v) => TTS_PIPER_VOICES.push({
+      id: v.id,
+      label: v.label,
+      group: v.group || '',
+      locale: v.locale,
+      family: v.family || '',
+      ready: !!v.ready,
+    }));
+  }
+  ttsPiperFillSelect($('tts-piper-voice'), TTS_PIPER_VOICES, ttsEnsurePiper().voiceId);
+  try { syncTtsPiperTranslateUI(); } catch { /* ignore */ }
+  try {
+    if ($('tts-uv-engine')?.value === 'piper') fillTtsUvVoiceOptions();
+  } catch { /* ignore */ }
+  if (j.installing) {
+    ttsPiperSetStatus(j.message || 'Descargando…');
+    return;
+  }
+  const curId = $('tts-piper-voice')?.value || ttsEnsurePiper().voiceId;
+  const hit = TTS_PIPER_VOICES.find((v) => v.id === curId);
+  const n = TTS_PIPER_VOICES.length;
+  const readyN = TTS_PIPER_VOICES.filter((v) => v.ready).length;
+  if (j.piper && hit?.ready) {
+    ttsPiperSetStatus(`Esta voz está lista. ${n} voces en el catálogo · ${readyN} descargada(s) en este PC.`, 'ok');
+  } else if (j.piper) {
+    ttsPiperSetStatus(`Motor listo. Elige una voz y pulsa «Descargar esta voz» (${n} disponibles).`);
+  } else {
+    ttsPiperSetStatus(j.message || `Hay ${n} voces. Solo se descarga la que elijas (no van en el instalador).`);
+  }
+}
+
+async function ttsPiperProbe() {
+  const wrap = $('tts-piper-wrap');
+  const opt = $('tts-uv-engine')?.querySelector('option[value="piper"]');
+  const show = (on) => {
+    ttsPiperAvailable = !!on;
+    if (wrap) wrap.style.display = on ? '' : 'none';
+    if (opt) { opt.hidden = !on; opt.disabled = !on; }
+  };
+  if (!IS_DESKTOP) { show(false); return false; }
+  try {
+    const r = await fetch('/api/tts/piper/status', { credentials: 'same-origin' });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j || j.error === 'solo_escritorio') { show(false); return false; }
+    show(true);
+    ttsPiperApplyStatus(j);
+    return true;
+  } catch {
+    show(false);
+    return false;
+  }
+}
+
+function ttsPiperStopPoll() {
+  if (ttsPiperPollTimer) { clearInterval(ttsPiperPollTimer); ttsPiperPollTimer = null; }
+}
+
+async function ttsPiperInstall(voiceId) {
+  if (!ttsPiperAvailable) return;
+  const id = String(voiceId || ttsEnsurePiper().voiceId || TTS_PIPER_VOICES[0].id).trim();
+  ttsPiperSetStatus('Descargando motor y voz… puede tardar 1–2 min.');
+  ttsPiperStopPoll();
+  ttsPiperPollTimer = setInterval(() => { ttsPiperProbe(); }, 2000);
+  try {
+    const r = await fetch('/api/tts/piper/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ voiceId: id }),
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j?.ok) {
+      ttsPiperSetStatus('Error: ' + (j?.error || r.status), 'err');
+      toast('No se pudo descargar Piper: ' + (j?.error || r.status), 'err');
+      return;
+    }
+    ttsPiperApplyStatus(j);
+    toast('Voz lista: ' + (j.voices?.find?.((v) => v.id === id)?.label || id), 'ok');
+  } catch (e) {
+    ttsPiperSetStatus('Error de red al descargar.', 'err');
+    toast(String(e.message || e), 'err');
+  } finally {
+    ttsPiperStopPoll();
+    try { await ttsPiperProbe(); } catch { /* ignore */ }
+  }
 }
 
 function ttsSpeakElevenLabs(phrase, t) {
@@ -16525,6 +17146,24 @@ async function ttsTkFetchSpeak(item, signal) {
     if (j && j.ok && j.audio) return j;
     return { ok: false, error: (j && j.error) || (`http_${r.status}`), engine: 'elevenlabs' };
   }
+  if (item && item.engine === 'piper') {
+    const r = await fetch('/api/tts/piper/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      signal,
+      body: JSON.stringify({
+        text: item.text,
+        voiceId: item.voice,
+        rate: item.rate,
+        pitch: item.pitch,
+        translate: item.translate !== false,
+      }),
+    });
+    const j = await r.json().catch(() => null);
+    if (j && j.ok && j.audio) return j;
+    return { ok: false, error: (j && j.error) || (`http_${r.status}`), engine: 'piper' };
+  }
   const r = await fetch('/api/tts/speak', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -16566,10 +17205,43 @@ function ttsFallbackAfterElFail(item, errMsg) {
   ttsSpeakSystem(phrase, t);
 }
 
+function ttsFallbackAfterPiperFail(item, errMsg) {
+  const now = Date.now();
+  if (now - ttsPiperLastFailToastAt > 12000) {
+    ttsPiperLastFailToastAt = now;
+    const hint = String(errMsg || 'error').slice(0, 120);
+    toast(`Piper no habló (${hint}). Usando voz de respaldo.`, 'warn');
+    try { ttsPiperSetStatus('Error speak: ' + hint, 'err'); } catch { /* ignore */ }
+  }
+  const t = settings?.tts || {};
+  const vol = item?.volume ?? t.volume ?? 1;
+  const phrase = String(item?.text || '').trim();
+  if (!phrase) return;
+  const sv = ttsServerVoiceFromSettings(t);
+  if (sv) {
+    ttsTkQueue.unshift({
+      text: phrase,
+      voice: sv.tiktokVoice,
+      translate: sv.tiktokTranslateEs !== false,
+      speakEs: ttsWantSpeakEs(sv),
+      volume: vol,
+      at: Date.now(),
+    });
+    return;
+  }
+  ttsSpeakSystem(phrase, t);
+}
+
+function ttsFetchWaitMs(item) {
+  if (item?.engine === 'piper') return TTS_PIPER_FETCH_MS;
+  if (item?.engine === 'elevenlabs') return TTS_EL_FETCH_MS;
+  return TTS_TK_FETCH_MS;
+}
+
 function ttsTkStartPrefetch(item) {
   if (!item || ttsTkPrefetch) return;
   const ac = new AbortController();
-  const waitMs = item.engine === 'elevenlabs' ? TTS_EL_FETCH_MS : TTS_TK_FETCH_MS;
+  const waitMs = ttsFetchWaitMs(item);
   const timer = setTimeout(() => { try { ac.abort(); } catch {} }, waitMs);
   ttsTkPrefetchItem = item;
   ttsTkPrefetch = ttsTkFetchSpeak(item, ac.signal)
@@ -16597,7 +17269,7 @@ async function ttsTkPump() {
     if (!j) {
       if (ttsTkAbort) { try { ttsTkAbort.abort(); } catch {} }
       ttsTkAbort = new AbortController();
-      const waitMs = item.engine === 'elevenlabs' ? TTS_EL_FETCH_MS : TTS_TK_FETCH_MS;
+      const waitMs = ttsFetchWaitMs(item);
       const timer = setTimeout(() => { try { ttsTkAbort.abort(); } catch {} }, waitMs);
       try {
         j = await ttsTkFetchSpeak(item, ttsTkAbort.signal);
@@ -16611,6 +17283,10 @@ async function ttsTkPump() {
     }
     if (item.engine === 'elevenlabs') {
       ttsFallbackAfterElFail(item, j && j.error);
+      continue;
+    }
+    if (item.engine === 'piper') {
+      ttsFallbackAfterPiperFail(item, j && j.error);
       continue;
     }
     // Fallback inmediato a voz del sistema (no esperar otro ciclo largo).
@@ -16637,20 +17313,21 @@ function ttsPlayBase64(b64, mime, volume) {
       resolve();
     };
     try {
+      const vol = Math.max(0, Math.min(1, Number(volume)));
       audio = new Audio('data:' + mime + ';base64,' + b64);
-      audio.volume = Math.max(0, Math.min(1, Number(volume) ?? 1));
+      audio.volume = Number.isFinite(vol) ? vol : 1;
       ttsTkAudio = audio;
       audio.onended = done;
       audio.onerror = done;
-      // Tope duro: si onended no llega (bug/throttling), no dejes la cola congelada.
-      hardCap = setTimeout(done, 20000);
+      hardCap = setTimeout(done, 45000);
       audio.play().catch(done);
       audio.onloadedmetadata = () => {
         try {
+          audio.volume = Number.isFinite(vol) ? vol : 1;
           const d = Number(audio.duration);
           if (Number.isFinite(d) && d > 0) {
             if (hardCap) { clearTimeout(hardCap); hardCap = null; }
-            metaCap = setTimeout(done, Math.min(20000, d * 1000 + 1500));
+            metaCap = setTimeout(done, Math.min(45000, d * 1000 + 1500));
           }
         } catch {}
       };
@@ -16878,6 +17555,41 @@ function openTtsWarnModal(onAccept) {
     try { flushSaveSettings(); } catch { save(); }
     try { updateTtsSummary(); } catch { /* ignore */ }
   });
+  const piperEn = $('tts-piper-enabled');
+  if (piperEn) piperEn.addEventListener('change', () => {
+    const p = ttsEnsurePiper();
+    p.enabled = piperEn.checked;
+    const voiceEl = $('tts-piper-voice');
+    if (voiceEl && voiceEl.value) p.voiceId = voiceEl.value.trim();
+    try { flushSaveSettings(); } catch { save(); }
+    try { updateTtsSummary(); } catch { /* ignore */ }
+    if (p.enabled) {
+      toast('Piper ON: si es la primera vez, espera la descarga.', 'ok');
+      ttsPiperInstall(p.voiceId);
+    }
+  });
+  const piperVoice = $('tts-piper-voice');
+  if (piperVoice) piperVoice.addEventListener('change', () => {
+    const p = ttsEnsurePiper();
+    p.voiceId = piperVoice.value.trim();
+    try { flushSaveSettings(); } catch { save(); }
+    try { updateTtsSummary(); } catch { /* ignore */ }
+    try { syncTtsPiperTranslateUI(); } catch { /* ignore */ }
+    const hit = TTS_PIPER_VOICES.find((v) => v.id === p.voiceId);
+    if (p.enabled && hit && !hit.ready) ttsPiperInstall(p.voiceId);
+  });
+  const piperDl = $('tts-piper-download');
+  if (piperDl) piperDl.addEventListener('click', () => {
+    const p = ttsSyncPiperFromDom();
+    ttsPiperInstall(p.voiceId);
+  });
+  const piperTr = $('tts-piper-translate');
+  if (piperTr) piperTr.addEventListener('change', () => {
+    ttsEnsurePiper().translate = !!piperTr.checked;
+    try { flushSaveSettings(); } catch { save(); }
+  });
+  try { syncTtsPiperTranslateUI(); } catch { /* ignore */ }
+
   const elLoad = $('tts-el-load-voices');
   if (elLoad) elLoad.addEventListener('click', () => { ttsElLoadVoices(); });
   const elClone = $('tts-el-clone-btn');
@@ -16893,10 +17605,13 @@ function openTtsWarnModal(onAccept) {
 
   const rate = $('tts-rate');
   if (rate) rate.addEventListener('input', () => { $('tts-rate-val').textContent = (+rate.value).toFixed(1); settings.tts.rate = +rate.value; save(); });
+  if (rate) rate.addEventListener('change', () => { settings.tts.rate = +rate.value; save(); });
   const pitch = $('tts-pitch');
   if (pitch) pitch.addEventListener('input', () => { $('tts-pitch-val').textContent = (+pitch.value).toFixed(1); settings.tts.pitch = +pitch.value; save(); });
+  if (pitch) pitch.addEventListener('change', () => { settings.tts.pitch = +pitch.value; save(); });
   const vol = $('tts-vol');
   if (vol) vol.addEventListener('input', () => { $('tts-vol-val').textContent = Math.round(vol.value * 100); settings.tts.volume = +vol.value; save(); });
+  if (vol) vol.addEventListener('change', () => { settings.tts.volume = +vol.value; save(); });
 
   // permitidos — "Todos" excluye roles específicos; al marcar un rol se desactiva "Todos"
   const allAll = $('tts-allow-all');
@@ -16995,10 +17710,15 @@ function openTtsWarnModal(onAccept) {
   syncTtsUvDisneyTranslateUI();
   renderTtsUserVoices();
   refreshTtsUvUserSelect();
+  try { ttsPiperProbe(); } catch { /* ignore */ }
 
   const test = $('tts-test');
   if (test) test.onclick = () => {
+    try { ttsSyncPiperFromDom(); } catch { /* ignore */ }
     try { saveSettings(); } catch { /* ignore */ }
+    if (ttsPiperReady(settings.tts)) {
+      toast('Probando Piper… si es la primera vez, espera la descarga.', 'ok');
+    }
     ttsSpeakText('Hola, así se escucha el chat por voz', { force: true });
   };
   const stop = $('tts-stop');
@@ -17080,7 +17800,15 @@ function onPointsList(p) {
 }
 function onPointsUpdate(p) {
   if (!p || !p.user) return;
-  ptsState.users.set(p.user.uniqueId, p.user);
+  const u = p.user;
+  if (u.userId) {
+    for (const [k, v] of ptsState.users) {
+      if (k !== u.uniqueId && String(v.userId || '') === String(u.userId)) {
+        ptsState.users.delete(k);
+      }
+    }
+  }
+  ptsState.users.set(u.uniqueId, u);
   ptsState.count = p.count || ptsState.users.size;
   schedulePointsRender();
 }
@@ -20086,6 +20814,710 @@ function revealSpotifyTab() {
   try { syncNavSections(); } catch {}
 }
 
+function youtubeTabVisible() {
+  return !!IS_DESKTOP;
+}
+/** Solo Premium / Founder / admin (feature tab_youtube). */
+function youtubeUnlocked() {
+  if (!IS_DESKTOP) return false;
+  if (window.IS_ADMIN) return true;
+  const feat = window.CAPS?.features?.tab_youtube;
+  if (feat === true) return true;
+  if (feat === false) return false;
+  const plan = String(window.CAPS?.plan || window.MY_PLAN || '').toLowerCase();
+  return plan === 'premium' || plan === 'admin' || plan === 'founder';
+}
+function applyYoutubeLock() {
+  const locked = IS_DESKTOP && !youtubeUnlocked();
+  const view = document.getElementById('view-youtube');
+  const lock = document.getElementById('yt-premium-lock');
+  const nav = document.getElementById('navYoutube')
+    || document.querySelector('.nav-item[data-view="youtube"]');
+  if (view) view.classList.toggle('is-yt-locked', locked);
+  if (lock) lock.hidden = !locked;
+  setNavItemPlanLock(nav, locked && youtubeTabVisible());
+  const up = document.getElementById('yt-premium-upgrade');
+  if (up && !up._ytPlanWired) {
+    up._ytPlanWired = true;
+    up.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.querySelector('.nav-item[data-view="planes"]')?.click();
+    });
+  }
+}
+function revealYoutubeTab() {
+  const nav = document.getElementById('navYoutube');
+  if (nav) nav.style.display = youtubeTabVisible() ? '' : 'none';
+  applyYoutubeLock();
+  try { syncNavSections(); } catch {}
+}
+
+const YT_DEFAULTS = {
+  volume: 80,
+  platTiktok: true, platKick: false, platYoutube: false,
+  cmdPlayOn: true, cmdPlay: '!yt',
+  cmdSkipOn: true, cmdSkip: '!ytsalta',
+  cmdRevokeOn: true, cmdRevoke: '!ytquita',
+  cmdVolUpOn: true, cmdVolUp: '!ytvolup',
+  cmdVolDownOn: true, cmdVolDown: '!ytvoldown',
+  cmdVolOn: true, cmdVol: '!ytvol',
+  volStep: 10,
+  permAll: true, permFollowers: false, permSubs: false, permSuperfans: false, permMods: false,
+  permTeam: false, teamMin: 1, permGifters: false, gifterMin: 1, permUsersOn: false,
+  permUsersTiktok: [],
+  queueUser: 3, playFirst: true,   skipOthers: false, skipWho: 'mods',
+  overlayStyle: 'card',
+};
+const YT_MAP = {
+  'yt-cmd-play-on': 'cmdPlayOn', 'yt-cmd-play': 'cmdPlay',
+  'yt-cmd-skip-on': 'cmdSkipOn', 'yt-cmd-skip': 'cmdSkip',
+  'yt-cmd-revoke-on': 'cmdRevokeOn', 'yt-cmd-revoke': 'cmdRevoke',
+  'yt-cmd-volup-on': 'cmdVolUpOn', 'yt-cmd-volup': 'cmdVolUp',
+  'yt-cmd-voldown-on': 'cmdVolDownOn', 'yt-cmd-voldown': 'cmdVolDown',
+  'yt-cmd-vol-on': 'cmdVolOn', 'yt-cmd-vol': 'cmdVol',
+  'yt-perm-all': 'permAll', 'yt-perm-followers': 'permFollowers', 'yt-perm-subs': 'permSubs',
+  'yt-perm-superfans': 'permSuperfans',
+  'yt-perm-mods': 'permMods', 'yt-perm-team': 'permTeam', 'yt-team-min': 'teamMin',
+  'yt-perm-gifters': 'permGifters', 'yt-gifter-min': 'gifterMin', 'yt-perm-users-on': 'permUsersOn',
+  'yt-queue-user': 'queueUser', 'yt-play-first': 'playFirst', 'yt-skip-others': 'skipOthers', 'yt-skip-who': 'skipWho',
+};
+const YT_INT_KEYS = ['teamMin', 'gifterMin', 'queueUser'];
+const YT_CMD_KEYS = ['cmdPlay', 'cmdSkip', 'cmdRevoke', 'cmdVolUp', 'cmdVolDown', 'cmdVol'];
+const YT_CMD_FALLBACK = {
+  cmdPlay: '!yt', cmdSkip: '!ytsalta', cmdRevoke: '!ytquita',
+  cmdVolUp: '!ytvolup', cmdVolDown: '!ytvoldown', cmdVol: '!ytvol',
+};
+
+let ytPicked = null;
+let ytWired = false;
+let ytNowId = '';
+let ytDurationSec = 0;
+let ytStartedAt = 0;
+let ytRemoteTime = 0;
+let ytRemoteAt = 0;
+let ytListening = false;
+let ytProgTimer = 0;
+let ytPaused = false;
+let ytSeeking = false;
+let ytVolDragging = false;
+let ytVolEditAt = 0;
+let ytVolSendTimer = 0;
+
+function ytNormTypedCmd(raw, fallback, key) {
+  let c = String(raw || '').trim().toLowerCase().replace(/[\u200B-\u200D\uFEFF\u2060]/g, '').replace(/\s+/g, '');
+  const fb = fallback || YT_CMD_FALLBACK[key] || '!yt';
+  if (!c) return fb;
+  if (!c.startsWith('!')) c = '!' + c.replace(/^!+/, '');
+  if (c.length < 2) return fb;
+  if (c === '!play' || c === '!skip' || c === '!revoke') return fb;
+  if (key === 'cmdSkip' && c === '!ytskip') return '!ytsalta';
+  if (key === 'cmdRevoke' && c === '!ytrevoke') return '!ytquita';
+  return c;
+}
+
+function ytNormOverlayStyle(s) {
+  s = String(s || 'card').toLowerCase();
+  return (s === 'player' || s === 'list' || s === 'studio') ? s : 'card';
+}
+
+function ytCfgNow() {
+  const cfg = { ...YT_DEFAULTS, ...(settings && settings.youtube && typeof settings.youtube === 'object' ? settings.youtube : {}) };
+  const skip = String(cfg.cmdSkip || '').trim().toLowerCase();
+  if (skip === '!skip' || skip === '!ytskip') cfg.cmdSkip = '!ytsalta';
+  const rev = String(cfg.cmdRevoke || '').trim().toLowerCase();
+  if (rev === '!revoke' || rev === '!ytrevoke') cfg.cmdRevoke = '!ytquita';
+  cfg.overlayStyle = ytNormOverlayStyle(cfg.overlayStyle);
+  return cfg;
+}
+
+function fmtYtTime(s) {
+  s = Math.max(0, Math.floor(Number(s) || 0));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function ytSetPlayIcon(paused) {
+  const playI = document.querySelector('#yt-play .ytr-ico-play');
+  const pauseI = document.querySelector('#yt-play .ytr-ico-pause');
+  if (playI) playI.hidden = !paused;
+  if (pauseI) pauseI.hidden = !!paused;
+}
+
+function youtubeNowSec() {
+  const audio = document.getElementById('yt-audio');
+  if (audio && !audio.paused && Number.isFinite(audio.currentTime) && audio.src) {
+    return audio.currentTime;
+  }
+  if (ytRemoteAt) return ytRemoteTime + ((Date.now() - ytRemoteAt) / 1000);
+  if (ytStartedAt && !ytPaused) return (Date.now() - ytStartedAt) / 1000;
+  return Number.isFinite(audio && audio.currentTime) ? audio.currentTime : 0;
+}
+
+function paintYoutubeProgress() {
+  if (ytSeeking) return;
+  const fill = document.getElementById('yt-bar-fill');
+  const t0 = document.getElementById('yt-t0');
+  const t1 = document.getElementById('yt-t1');
+  const audio = document.getElementById('yt-audio');
+  const durA = audio && Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+  const dur = durA || ytDurationSec || 0;
+  let cur = youtubeNowSec();
+  if (dur > 0) cur = Math.min(cur, dur);
+  if (t0) t0.textContent = fmtYtTime(cur);
+  if (t1) t1.textContent = fmtYtTime(dur);
+  if (fill) fill.style.width = (dur > 0 ? Math.min(100, (cur / dur) * 100) : 0) + '%';
+  ytSetPlayIcon(!audio || audio.paused || !audio.src);
+}
+
+function ytDurationNow() {
+  const audio = document.getElementById('yt-audio');
+  const durA = audio && Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+  return durA || ytDurationSec || 0;
+}
+
+function previewYoutubeSeek(sec) {
+  const dur = ytDurationNow();
+  const t = dur > 0 ? Math.max(0, Math.min(sec, dur)) : Math.max(0, sec);
+  const fill = document.getElementById('yt-bar-fill');
+  const t0 = document.getElementById('yt-t0');
+  if (t0) t0.textContent = fmtYtTime(t);
+  if (fill && dur > 0) fill.style.width = Math.min(100, (t / dur) * 100) + '%';
+  return t;
+}
+
+function commitYoutubeSeek(sec) {
+  const audio = document.getElementById('yt-audio');
+  const dur = ytDurationNow();
+  const t = dur > 0 ? Math.max(0, Math.min(Number(sec) || 0, Math.max(0, dur - 0.05))) : Math.max(0, Number(sec) || 0);
+  ytStartedAt = Date.now() - t * 1000;
+  ytRemoteTime = t;
+  ytRemoteAt = Date.now();
+  if (audio && audio.src) {
+    try { audio.currentTime = t; } catch {}
+  }
+  if (ytNowId) send({ action: 'youtubeControl', type: 'seek', videoId: ytNowId, currentTime: t });
+  paintYoutubeProgress();
+}
+
+function onYoutubeSeek(p) {
+  if (!p || p.videoId !== ytNowId || ytSeeking) return;
+  const audio = document.getElementById('yt-audio');
+  const t = Math.max(0, Number(p.currentTime) || 0);
+  ytStartedAt = Date.now() - t * 1000;
+  ytRemoteTime = t;
+  ytRemoteAt = Date.now();
+  if (audio && audio.src && Math.abs((audio.currentTime || 0) - t) > 0.35) {
+    try { audio.currentTime = t; } catch {}
+  }
+  paintYoutubeProgress();
+}
+
+function onYoutubeProgress(p) {
+  if (!p || p.videoId !== ytNowId) return;
+  const audio = document.getElementById('yt-audio');
+  if (audio && !audio.paused && audio.src) return;
+  ytRemoteTime = Math.max(0, Number(p.currentTime) || 0);
+  ytRemoteAt = Date.now();
+  if (Number(p.duration) > 0) ytDurationSec = Number(p.duration);
+  paintYoutubeProgress();
+}
+
+function ytVolEchoing() {
+  return ytVolDragging || (Date.now() - ytVolEditAt < 1500);
+}
+
+function applyYtVolume(vol, opts) {
+  const v = Math.max(0, Math.min(100, Number(vol) || 0));
+  const fromSlider = !!(opts && opts.fromSlider);
+  if (!fromSlider && ytVolEchoing()) return;
+  const audio = document.getElementById('yt-audio');
+  if (audio) audio.volume = v / 100;
+  const slider = document.getElementById('yt-vol');
+  if (slider && !fromSlider && Number(slider.value) !== v) slider.value = String(v);
+}
+
+function syncYoutubeAudio(now) {
+  const audio = document.getElementById('yt-audio');
+  if (!audio) return;
+  if (!now || !now.videoId) {
+    ytNowId = '';
+    ytDurationSec = 0;
+    ytStartedAt = 0;
+    ytRemoteTime = 0;
+    ytRemoteAt = 0;
+    ytListening = false;
+    try { audio.pause(); audio.removeAttribute('src'); audio.load(); } catch {}
+    paintYoutubeProgress();
+    return;
+  }
+  ytDurationSec = Number(now.durationSec) || ytDurationSec || 0;
+  ytStartedAt = Number(now.startedAt) || ytStartedAt || Date.now();
+  if (now.videoId === ytNowId && audio.getAttribute('src')) {
+    if (ytPaused) { try { audio.pause(); } catch {} }
+    else if (audio.paused) {
+      const p = audio.play();
+      if (p && p.catch) p.catch(() => {});
+    }
+    paintYoutubeProgress();
+    return;
+  }
+  ytNowId = now.videoId;
+  ytRemoteTime = 0;
+  ytRemoteAt = 0;
+  ytListening = true;
+  applyYtVolume(ytCfgNow().volume, ytVolEchoing() ? { fromSlider: true } : undefined);
+  audio.src = '/api/youtube/stream?videoId=' + encodeURIComponent(now.videoId) + '&t=' + Date.now();
+  if (ytPaused) return;
+  const play = audio.play();
+  if (play && play.catch) play.catch(() => {});
+}
+
+function paintYoutubePlayer(now, paused) {
+  const title = document.getElementById('yt-title');
+  const sub = document.getElementById('yt-sub');
+  const kicker = document.getElementById('yt-kicker');
+  const art = document.getElementById('yt-art');
+  const ph = document.getElementById('yt-art-ph');
+  ytPaused = !!paused;
+  if (!now || !now.videoId) {
+    if (title) title.textContent = 'No hay canciones seleccionadas';
+    if (sub) sub.textContent = 'Añade una canción para comenzar';
+    if (kicker) kicker.textContent = 'Reproduciendo';
+    if (art) { art.removeAttribute('src'); art.hidden = true; }
+    if (ph) ph.hidden = false;
+    return;
+  }
+  if (title) title.textContent = now.title || 'Canción';
+  if (sub) sub.textContent = [now.author, now.requestedBy ? 'pedida por ' + now.requestedBy : ''].filter(Boolean).join(' · ') || 'Añade una canción para comenzar';
+  if (kicker) kicker.textContent = paused ? 'Pausado' : 'Reproduciendo';
+  if (art && now.thumb) { art.src = now.thumb; art.hidden = false; if (ph) ph.hidden = true; }
+  else { if (art) art.hidden = true; if (ph) ph.hidden = false; }
+}
+
+function paintYoutubeState(st) {
+  const qEl = document.getElementById('yt-queue');
+  if (!qEl) return;
+  const now = st && st.now;
+  if (st && st.volume != null) applyYtVolume(st.volume);
+  paintYoutubePlayer(now, !!(st && st.paused));
+  syncYoutubeAudio(now);
+  const queue = (st && Array.isArray(st.queue)) ? st.queue : [];
+  const count = document.getElementById('yt-qcount');
+  if (count) count.textContent = queue.length + (queue.length === 1 ? ' canción' : ' canciones');
+  if (!queue.length) {
+    qEl.innerHTML = '<div class="ytr-qempty">La cola está vacía</div>';
+    return;
+  }
+  qEl.innerHTML = queue.map((t) => (
+    '<div class="ytr-qitem">'
+    + (t.thumb ? '<img src="' + esc(t.thumb) + '" alt="">' : '<img alt="">')
+    + '<div><b>' + esc(t.title || 'Canción') + '</b><span>'
+    + esc(t.author || '') + (t.requestedBy ? ' · ' + esc(t.requestedBy) : '')
+    + '</span></div></div>'
+  )).join('');
+}
+
+function paintYoutubeHits(hits) {
+  const box = document.getElementById('yt-results');
+  if (!box) return;
+  if (!hits || !hits.length) {
+    box.innerHTML = '<p class="ytr-hint">Sin resultados</p>';
+    return;
+  }
+  box.innerHTML = hits.map((h) => (
+    '<button type="button" class="yt-hit" data-id="' + esc(h.videoId) + '">'
+    + (h.thumb ? '<img src="' + esc(h.thumb) + '" alt="">' : '<img alt="">')
+    + '<div><b>' + esc(h.title || '') + '</b><span>' + esc(h.author || '') + (h.duration ? ' · ' + esc(h.duration) : '') + '</span></div>'
+    + '</button>'
+  )).join('');
+  box.querySelectorAll('.yt-hit').forEach((btn) => {
+    btn.onclick = async () => {
+      const id = btn.getAttribute('data-id');
+      ytPicked = hits.find((x) => x.videoId === id) || null;
+      if (!ytPicked) return;
+      const status = document.getElementById('yt-status');
+      const setStatus = (t) => { if (status) status.textContent = t || ''; };
+      setStatus('Añadiendo…');
+      try {
+        const d = await ytApi('/api/youtube/add', {
+          videoId: ytPicked.videoId, title: ytPicked.title, author: ytPicked.author,
+          thumb: ytPicked.thumb, duration: ytPicked.duration, durationSec: ytPicked.durationSec,
+          requestedBy: 'panel', requestedUniqueId: 'panel',
+        });
+        paintYoutubeState(d);
+        setStatus(d.started || (d.now && d.now.videoId === ytPicked.videoId) ? 'Sonando ahora' : 'Añadida a la cola');
+      } catch (e) {
+        setStatus(e.message || 'No se pudo añadir');
+      }
+    };
+  });
+}
+
+async function ytApi(path, body) {
+  const opts = { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) {
+    opts.method = 'POST';
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+  return d;
+}
+
+async function ytRefreshState() {
+  try {
+    const d = await ytApi('/api/youtube/state');
+    paintYoutubeState(d);
+  } catch { /* ignore */ }
+}
+
+function ytNormUser(id) {
+  return String(id || '').trim().replace(/^@/, '');
+}
+
+function renderYoutubePermUsers() {
+  const cfg = ytCfgNow();
+  const box = document.getElementById('yt-list-tiktok');
+  const list = Array.isArray(cfg.permUsersTiktok) ? cfg.permUsersTiktok : [];
+  const cap = document.getElementById('yt-users-cap');
+  if (cap) cap.textContent = list.length + '/200';
+  if (!box) return;
+  if (!list.length) {
+    box.innerHTML = '<div class="ytr-qempty">No hay usuarios permitidos agregados.</div>';
+    return;
+  }
+  box.innerHTML = list.map((uid) => (
+    '<span class="ytr-chip" data-plat="tiktok" data-id="' + esc(uid) + '">@' + esc(uid)
+    + '<button type="button" data-act="del" title="Quitar">✕</button></span>'
+  )).join('');
+  box.querySelectorAll('[data-act="del"]').forEach((btn) => {
+    btn.onclick = () => {
+      const chip = btn.closest('.ytr-chip');
+      const id = chip?.dataset?.id;
+      if (!id || !settings.youtube) return;
+      settings.youtube.permUsersTiktok = (settings.youtube.permUsersTiktok || []).filter((x) => ytNormUser(x).toLowerCase() !== ytNormUser(id).toLowerCase());
+      saveYoutubeSettings();
+      renderYoutubePermUsers();
+    };
+  });
+}
+
+function addYoutubePermUser() {
+  const inp = document.getElementById('yt-user-tt');
+  if (!inp) return;
+  const raw = ytNormUser(inp.value);
+  if (!raw) return;
+  const cfg = ytCfgNow();
+  const list = Array.isArray(cfg.permUsersTiktok) ? cfg.permUsersTiktok.slice() : [];
+  if (list.some((x) => ytNormUser(x).toLowerCase() === raw.toLowerCase())) { inp.value = ''; return; }
+  if (list.length >= 200) return;
+  list.push(raw);
+  if (!settings.youtube || typeof settings.youtube !== 'object') settings.youtube = { ...YT_DEFAULTS };
+  settings.youtube.permUsersTiktok = list;
+  settings.youtube.permUsersOn = true;
+  const on = document.getElementById('yt-perm-users-on');
+  if (on) on.checked = true;
+  inp.value = '';
+  saveYoutubeSettings();
+  renderYoutubePermUsers();
+}
+
+function applyYoutubeUI() {
+  if (!settings) return;
+  const cfg = ytCfgNow();
+  if (!Array.isArray(cfg.permUsersTiktok)) cfg.permUsersTiktok = [];
+  const editing = document.activeElement;
+  const editingYt = !!(editing && editing.id && Object.prototype.hasOwnProperty.call(YT_MAP, editing.id));
+  if (!editingYt) settings.youtube = { ...cfg };
+  for (const [id, key] of Object.entries(YT_MAP)) {
+    const el = document.getElementById(id);
+    if (!el || el === editing) continue;
+    if (el.type === 'checkbox') el.checked = !!cfg[key];
+    else el.value = cfg[key] == null ? '' : cfg[key];
+  }
+  const vol = document.getElementById('yt-vol');
+  if (vol !== editing && !ytVolEchoing()) applyYtVolume(cfg.volume);
+  renderYoutubePermUsers();
+  paintYtOverlayStyle();
+}
+
+function paintYtOverlayStyle() {
+  const style = ytNormOverlayStyle(ytCfgNow().overlayStyle);
+  document.querySelectorAll('#yt-skins .ytr-skin').forEach((btn) => {
+    const on = btn.getAttribute('data-yt-skin') === style;
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const box = document.getElementById('yt-preview-box');
+  if (box) {
+    box.classList.remove('is-player', 'is-list', 'is-card', 'is-studio');
+    box.classList.add('is-' + style);
+  }
+  const iframe = document.getElementById('yt-overlay-preview');
+  if (iframe) iframe.dataset.src = '/youtube-overlay.html?embed=1&v=yt16&skin=' + style;
+}
+
+function setYoutubeOverlayStyle(style) {
+  if (!settings) return;
+  const cfg = ytCfgNow();
+  cfg.overlayStyle = ytNormOverlayStyle(style);
+  settings.youtube = cfg;
+  paintYtOverlayStyle();
+  saveYoutubeSettings();
+  const iframe = document.getElementById('yt-overlay-preview');
+  if (iframe && iframe.contentWindow) {
+    try {
+      iframe.contentWindow.postMessage({ kind: 'youtubeOverlay', overlayStyle: cfg.overlayStyle }, '*');
+    } catch {}
+  }
+}
+
+function saveYoutubeSettings() {
+  if (!settings) return;
+  const cfg = ytCfgNow();
+  const editing = document.activeElement;
+  for (const [id, key] of Object.entries(YT_MAP)) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.type === 'checkbox') cfg[key] = el.checked;
+    else if (YT_INT_KEYS.includes(key)) cfg[key] = Math.max(1, parseInt(el.value, 10) || 1);
+    else if (YT_CMD_KEYS.includes(key)) {
+      const raw = String(el.value || '');
+      if (el === editing) cfg[key] = raw;
+      else cfg[key] = ytNormTypedCmd(raw, YT_CMD_FALLBACK[key], key);
+    } else cfg[key] = String(el.value || '').trim();
+  }
+  cfg.platTiktok = true;
+  cfg.platKick = false;
+  cfg.platYoutube = false;
+  cfg.permUsersKick = [];
+  cfg.permUsersYoutube = [];
+  settings.youtube = cfg;
+  saveSettings();
+}
+
+function setupYoutubeUI() {
+  if (ytWired) {
+    applyYoutubeUI();
+    ytRefreshState();
+    return;
+  }
+  ytWired = true;
+  applyYoutubeUI();
+  const url = document.getElementById('yt-url');
+  if (url && url.dataset.path) url.value = roomUrl(url.dataset.path);
+  const copy = document.getElementById('yt-copy');
+    if (copy && url) copy.onclick = () => {
+      const val = url.value || roomUrl(url.dataset.path);
+      const done = () => {
+        const html = copy.innerHTML;
+        copy.innerHTML = html.replace(/Copiar|¡Copiado!/g, '¡Copiado!');
+        setTimeout(() => { copy.innerHTML = html; }, 1200);
+      };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(val).then(done).catch(() => fallbackCopy(val, done));
+      else fallbackCopy(val, done);
+    };
+  const custom = document.getElementById('yt-customize');
+  const customBox = document.getElementById('yt-custom');
+  if (custom && customBox) custom.onclick = () => {
+    customBox.hidden = !customBox.hidden;
+    if (!customBox.hidden) {
+      paintYtOverlayStyle();
+      try { hydrateViewEmbeds(document.getElementById('view-youtube')); } catch {}
+    }
+  };
+  const skins = document.getElementById('yt-skins');
+  if (skins && !skins._ytBound) {
+    skins._ytBound = true;
+    skins.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-yt-skin]');
+      if (!btn || !skins.contains(btn)) return;
+      setYoutubeOverlayStyle(btn.getAttribute('data-yt-skin'));
+    });
+  }
+  const status = document.getElementById('yt-status');
+  const setStatus = (t) => { if (status) status.textContent = t || ''; };
+  const q = document.getElementById('yt-query');
+  const artist = document.getElementById('yt-artist');
+  const searchBtn = document.getElementById('yt-search');
+  const doSearch = async () => {
+    const song = String(q && q.value || '').trim();
+    const who = String(artist && artist.value || '').trim();
+    const query = [song, who].filter(Boolean).join(' ');
+    if (query.length < 2) { setStatus('Escribe al menos 2 letras'); return; }
+    setStatus('Buscando…');
+    try {
+      const d = await ytApi('/api/youtube/search', { q: query });
+      paintYoutubeHits(d.results || []);
+      setStatus((d.results || []).length ? 'Pulsa un resultado para añadirlo' : 'Sin resultados');
+    } catch (e) {
+      setStatus(e.message || 'Error al buscar');
+    }
+  };
+  if (searchBtn) searchBtn.onclick = doSearch;
+  if (q) q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+  if (artist) artist.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+  const audio = document.getElementById('yt-audio');
+  if (audio && !audio._ytBound) {
+    audio._ytBound = true;
+    audio.addEventListener('timeupdate', paintYoutubeProgress);
+    audio.addEventListener('loadedmetadata', paintYoutubeProgress);
+    audio.addEventListener('play', () => { ytPaused = false; paintYoutubeProgress(); });
+    audio.addEventListener('pause', () => paintYoutubeProgress());
+    audio.addEventListener('ended', () => {
+      if (ytNowId) send({ action: 'youtubeEnded', videoId: ytNowId });
+    });
+    audio.addEventListener('error', () => {
+      const src = audio.currentSrc || audio.src;
+      fetch(src, { cache: 'no-store' }).then(async (r) => {
+        const t = (await r.text().catch(() => '')).slice(0, 180);
+        setStatus((!r.ok && t) ? t : (audio.error && audio.error.message) || 'No se pudo reproducir el audio.');
+      }).catch(() => setStatus((audio.error && audio.error.message) || 'No se pudo reproducir el audio.'));
+    });
+  }
+  if (!ytProgTimer) ytProgTimer = setInterval(paintYoutubeProgress, 250);
+  const playBtn = document.getElementById('yt-play');
+  if (playBtn) playBtn.onclick = async () => {
+    const a = document.getElementById('yt-audio');
+    if (!ytNowId) {
+      try { paintYoutubeState(await ytApi('/api/youtube/play', {})); } catch (e) { setStatus(e.message || 'Error'); }
+      return;
+    }
+    if (!a) return;
+    if (a.paused) {
+      ytPaused = false;
+      a.play().catch(() => {});
+      send({ action: 'youtubeControl', type: 'play' });
+    } else {
+      ytPaused = true;
+      a.pause();
+      send({ action: 'youtubeControl', type: 'pause' });
+    }
+    paintYoutubeProgress();
+  };
+  const vol = document.getElementById('yt-vol');
+  if (vol && !vol._ytVolBound) {
+    vol._ytVolBound = true;
+    const readYtVol = () => Math.max(0, Math.min(100, Number(vol.value) || 0));
+    const applyLocalYtVol = () => {
+      const v = readYtVol();
+      ytVolEditAt = Date.now();
+      applyYtVolume(v, { fromSlider: true });
+      if (!settings.youtube || typeof settings.youtube !== 'object') settings.youtube = { ...YT_DEFAULTS };
+      settings.youtube.volume = v;
+      return v;
+    };
+    const sendYtVol = () => {
+      send({ action: 'youtubeControl', type: 'volume', volume: readYtVol() });
+    };
+    const endYtVolDrag = () => {
+      if (!ytVolDragging) return;
+      ytVolDragging = false;
+      clearTimeout(ytVolSendTimer);
+      ytVolSendTimer = 0;
+      applyLocalYtVol();
+      sendYtVol();
+      saveYoutubeSettings();
+    };
+    vol.addEventListener('pointerdown', () => { ytVolDragging = true; });
+    vol.addEventListener('input', () => {
+      ytVolDragging = true;
+      applyLocalYtVol();
+      if (ytVolSendTimer) return;
+      ytVolSendTimer = setTimeout(() => {
+        ytVolSendTimer = 0;
+        sendYtVol();
+      }, 80);
+    });
+    vol.addEventListener('change', endYtVolDrag);
+    vol.addEventListener('pointerup', endYtVolDrag);
+    vol.addEventListener('pointercancel', endYtVolDrag);
+  }
+  const bar = document.getElementById('yt-bar');
+  if (bar && !bar._ytSeek) {
+    bar._ytSeek = true;
+    const posFromEvent = (ev) => {
+      const r = bar.getBoundingClientRect();
+      const dur = ytDurationNow();
+      if (!(dur > 0) || r.width < 2) return 0;
+      const x = (ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX) - r.left;
+      return Math.max(0, Math.min(1, x / r.width)) * dur;
+    };
+    const onMove = (ev) => {
+      if (!ytSeeking) return;
+      ev.preventDefault();
+      previewYoutubeSeek(posFromEvent(ev));
+    };
+    const onUp = (ev) => {
+      if (!ytSeeking) return;
+      ytSeeking = false;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      commitYoutubeSeek(posFromEvent(ev));
+    };
+    bar.addEventListener('pointerdown', (ev) => {
+      if (ytDurationNow() <= 0) return;
+      ev.preventDefault();
+      ytSeeking = true;
+      try { bar.setPointerCapture(ev.pointerId); } catch {}
+      previewYoutubeSeek(posFromEvent(ev));
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    });
+  }
+  const skip = document.getElementById('yt-skip');
+  if (skip) skip.onclick = async () => {
+    try { paintYoutubeState(await ytApi('/api/youtube/skip', {})); setStatus('Saltada'); }
+    catch (e) { setStatus(e.message || 'Error'); }
+  };
+  const clear = document.getElementById('yt-clear');
+  if (clear) clear.onclick = async () => {
+    try { paintYoutubeState(await ytApi('/api/youtube/clear', {})); setStatus('Cola vacía'); }
+    catch (e) { setStatus(e.message || 'Error'); }
+  };
+  document.querySelectorAll('[data-yt-add]').forEach((btn) => {
+    btn.onclick = () => addYoutubePermUser();
+  });
+  const ytUserIn = document.getElementById('yt-user-tt');
+  if (ytUserIn) ytUserIn.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    addYoutubePermUser();
+  });
+  for (const id of Object.keys(YT_MAP)) {
+    const el = document.getElementById(id);
+    if (!el || el._ytBound) continue;
+    el._ytBound = true;
+    const key = YT_MAP[id];
+    const isCmd = YT_CMD_KEYS.includes(key);
+    el.addEventListener('change', () => {
+      if (isCmd) el.value = ytNormTypedCmd(el.value, YT_CMD_FALLBACK[key], key);
+      saveYoutubeSettings();
+    });
+    if (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'number')) {
+      el.addEventListener('input', () => {
+        clearTimeout(el._ytT);
+        el._ytT = setTimeout(saveYoutubeSettings, 700);
+      });
+    }
+    if (isCmd) {
+      el.addEventListener('blur', () => {
+        clearTimeout(el._ytT);
+        el.value = ytNormTypedCmd(el.value, YT_CMD_FALLBACK[key], key);
+        saveYoutubeSettings();
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        el.blur();
+      });
+    }
+  }
+  ytRefreshState();
+}
+
 let spFormLockUntil = 0;
 function lockSpotifyForm() { spFormLockUntil = Date.now() + 1600; }
 
@@ -20531,6 +21963,8 @@ function revealConfigTab() {
 function revealJuegosTab() {
   const nav = document.getElementById('navJuegos');
   if (nav) nav.style.display = IS_DESKTOP ? '' : 'none';
+  const acc = document.getElementById('navAcciones');
+  if (acc && IS_DESKTOP) acc.style.display = '';
   try { syncNavSections(); } catch {}
 }
 // Cambia a una vista por su id completo (sin pasar por los botones del menú).
@@ -20790,8 +22224,8 @@ async function ensureGameUi(gameKey) {
     throw e;
   }
 }
-// Conecta las tarjetas de juego: al pulsar abren su pestaña; el botón "Volver" regresa.
 // Portadas del catálogo Juegos: se piden en idle (la pestaña está display:none).
+// Así al entrar ya están en caché de Chromium y al reabrir el .exe salen al instante.
 function preloadJuegosCatalogImages() {
   const root = document.getElementById('view-juegos');
   if (!root) return;
@@ -20813,6 +22247,7 @@ function preloadJuegosCatalogImages() {
   });
 }
 
+// Conecta las tarjetas de juego: al pulsar abren su pestaña; el botón "Volver" regresa.
 function setupJuegosUI() {
   preloadJuegosCatalogImages();
   if ('requestIdleCallback' in window) {
@@ -20928,6 +22363,12 @@ function buildCatalogSections(list, opts = {}) {
 function renderGameCatalogFold(opts) {
   const grid = typeof opts.grid === 'string' ? document.getElementById(opts.grid) : opts.grid;
   if (!grid) return;
+  bindGameCatalogFoldClicks();
+  grid._catOnPick = typeof opts.onPick === 'function' ? opts.onPick : null;
+  grid._catCloseModalId = opts.closeModalId || '';
+  grid._catSearchId = opts.searchId || '';
+  grid._catRerender = typeof opts.rerender === 'function' ? opts.rerender : null;
+  grid._catStateKey = opts.stateKey || '';
   const f = (opts.filter || '').trim().toLowerCase();
   const searching = !!f;
   const openSecs = gameCatOpenSet(opts.stateKey);
@@ -20951,23 +22392,39 @@ function renderGameCatalogFold(opts) {
         </div>
       </div>`;
   }).join('');
-  grid.querySelectorAll('.repo-cat-fold-head').forEach((btn) => {
-    btn.onclick = () => {
-      const sec = btn.closest('.repo-cat-fold')?.dataset.sec;
-      if (!sec) return;
-      if (openSecs.has(sec)) openSecs.delete(sec);
-      else openSecs.add(sec);
-      const searchEl = opts.searchId ? document.getElementById(opts.searchId) : null;
-      opts.rerender(searchEl ? searchEl.value : '');
-    };
-  });
-  grid.querySelectorAll('.repo-cat-list-item').forEach((btn) => {
-    btn.onclick = (e) => {
+}
+
+function bindGameCatalogFoldClicks() {
+  if (bindGameCatalogFoldClicks._on) return;
+  bindGameCatalogFoldClicks._on = true;
+  document.addEventListener('click', (e) => {
+    const item = e.target?.closest?.('.repo-cat-list-item');
+    if (item) {
+      const grid = item.closest('.game-catalog-wrap');
+      if (!grid || typeof grid._catOnPick !== 'function') return;
+      e.preventDefault();
       e.stopPropagation();
-      if (opts.onPick) opts.onPick(btn.dataset.id);
-      if (opts.closeModalId) closeGameCatalogModal(opts.closeModalId);
-    };
-  });
+      const id = item.getAttribute('data-id') || item.dataset.id || '';
+      try { grid._catOnPick(id); }
+      catch (err) {
+        console.warn('catalog onPick', err);
+        toast && toast('No se pudo agregar la acción.', 'warn');
+      }
+      if (grid._catCloseModalId) closeGameCatalogModal(grid._catCloseModalId);
+      return;
+    }
+    const head = e.target?.closest?.('.repo-cat-fold-head');
+    if (!head) return;
+    const grid = head.closest('.game-catalog-wrap');
+    const fold = head.closest('.repo-cat-fold');
+    const sec = fold?.dataset?.sec;
+    if (!grid || !sec) return;
+    const openSecs = gameCatOpenSet(grid._catStateKey);
+    if (openSecs.has(sec)) openSecs.delete(sec);
+    else openSecs.add(sec);
+    const searchEl = grid._catSearchId ? document.getElementById(grid._catSearchId) : null;
+    if (typeof grid._catRerender === 'function') grid._catRerender(searchEl ? searchEl.value : '');
+  }, true);
 }
 
 function closeGameCatalogModal(modalId) {
@@ -21999,6 +23456,8 @@ async function importMcPresets(file) {
   toast && toast(`Importadas ${clean.length} acciones (${mode === 'replace' ? 'reemplazo' : 'añadidas'}).`, 'ok');
 }
 
+// La ventana #mcCmdModal es única y la usan todos los Minecraft.
+// Antes solo Survival cableaba Añadir/Guardar/Cerrar → en los otros modos se trababa.
 function wireMcCmdModalOnce() {
   const mAdd = document.getElementById('mcc-add');
   if (mAdd && !mAdd._wired) {
@@ -25121,6 +26580,7 @@ async function execGameLocal(exec) {
     }
   }
   const okResult = (r) => r && r.ok !== false;
+  let lastFail = { ok: false };
   const noteGamerBadge = () => {
     try {
       fetch('/api/badges/game', {
@@ -25143,14 +26603,18 @@ async function execGameLocal(exec) {
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok && okResult(d)) return d;
-    return null;
+    if (d && typeof d === 'object' && (d.error || d.ok === false)) {
+      return { ok: false, error: d.error || `http_${r.status}` };
+    }
+    return { ok: false, error: r.status === 401 ? 'no auth' : `http_${r.status || 'game-exec'}` };
   };
   // SMW: el TCP :23884 vive en el proceso del server embebido. IPC a Electron main
   // intenta otro bind y fallaba ~5 s (PowerShell). HTTP directo = instantáneo.
   if (exec.tipo === 'SMW_SPAWN' || String(exec.tipo || '').startsWith('SMW_')) {
     try {
       const d = await postGameExecHttp();
-      if (d) { noteGamerBadge(); return d; }
+      if (okResult(d)) { noteGamerBadge(); return d; }
+      if (d) lastFail = d;
     } catch { /* fallback IPC */ }
   }
   if (exec.tipo === 'MSLUG_SPAWN') {
@@ -25183,19 +26647,22 @@ async function execGameLocal(exec) {
     try {
       const r = await window.desktopAPI.localExec(exec);
       if (okResult(r)) { noteGamerBadge(); return r; }
+      if (r && typeof r === 'object') lastFail = r;
     } catch { /* fallback HTTP */ }
   }
   try {
     const d = await postGameExecHttp();
-    if (d) { noteGamerBadge(); return d; }
+    if (okResult(d)) { noteGamerBadge(); return d; }
+    if (d) lastFail = d;
   } catch { /* fallback IPC */ }
   if (!gameTipo && !webhookTipo && window.desktopAPI?.localExec) {
     try {
       const r = await window.desktopAPI.localExec(exec);
       if (okResult(r)) { noteGamerBadge(); return r; }
+      if (r && typeof r === 'object') lastFail = r;
     } catch {}
   }
-  return { ok: false };
+  return lastFail;
 }
 
 function bridgeHealthMatchesMode(h, mode) {
@@ -34028,6 +35495,10 @@ function setupPanelLives() {
     refreshLevelVideoScreenLink();
     try { loadAnnouncements(); } catch (e) { console.error('Anuncios:', e); }
     try { revealSpotifyTab(); } catch (e) { console.error('Spotify tab:', e); }
+    try { revealYoutubeTab(); } catch (e) { console.error('YouTube tab:', e); }
+    if (typeof youtubeTabVisible === 'function' && youtubeTabVisible() && typeof setupYoutubeUI === 'function') {
+      try { setupYoutubeUI(); } catch (e) { console.error('YouTube UI:', e); }
+    }
     if (spotifyTabVisible()) {
       try { setupSpotifyUI(); } catch (e) { console.error('Spotify UI:', e); }
       if (spotifyUnlocked() && new URLSearchParams(location.search).get('spotify') === 'connected') openSpotifyViewAfterConnect();

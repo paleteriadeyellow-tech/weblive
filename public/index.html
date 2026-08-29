@@ -4004,6 +4004,7 @@
                   <input type="hidden" id="socfg-giftname" value="">
                 </div>
                 <div><label class="ml">ELIMINACIÃ“N CADA (seg)</label><input type="number" id="socfg-elim" min="1" max="600" value="5"></div>
+                <div><label class="ml">ELIM. RÃPIDA â€” OBJETIVO (vidas)</label><input type="number" id="socfg-bulk" min="1" max="100000" value="50" title="CuÃ¡ntas vidas deben quedar tras Eliminar rÃ¡pido"></div>
                 <div><label class="ml">TARJETA ELIMINADO (seg)</label><input type="number" id="socfg-elimcard" min="1" max="30" value="3" title="CuÃ¡nto dura la pantalla ELIMINATED antes de seguir"></div>
                 <div>
                   <label class="ml">VELOCIDAD ANIMACIÃ“N</label>
@@ -4061,6 +4062,61 @@
               <p class="hint">Las monedas son el valor TikTok (diamantes Ã— cantidad) de <b>cualquier</b> regalo. <b>Insta-Claim</b> suma solo monedas <b>aÃºn en juego</b> (vidas vivas + bank); al eliminar una vida esos puntos dejan de contar. Con <b>Modo Lock</b> la gente entra durante X minutos; luego nadie mÃ¡s entra y arranca la eliminaciÃ³n.</p>
             </div>
             <div class="modal-foot"><button class="btn primary" id="socfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Sorteos vidas overlay -->
+        <div id="sovConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>⚡ Configurar — Sorteos · vidas + eliminación rápida</h2>
+              <button class="modal-close" id="sovcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div style="grid-column:1/-1">
+                  <label class="ml">REGALO DE REFERENCIA (costo + imagen)</label>
+                  <div class="gct-giftrow" style="gap:8px;flex-wrap:wrap;align-items:center">
+                    <button type="button" class="gvs-giftbtn" id="sovcfg-giftpick">＋ Elegir regalo</button>
+                    <button type="button" class="btn ghost" id="sovcfg-giftclear" title="Quitar imagen; el costo se mantiene">Quitar imagen</button>
+                  </div>
+                  <input type="hidden" id="sovcfg-entry" value="30">
+                  <input type="hidden" id="sovcfg-giftimg" value="">
+                  <input type="hidden" id="sovcfg-giftid" value="">
+                  <input type="hidden" id="sovcfg-giftname" value="">
+                </div>
+                <div><label class="ml">ELIMINACIÓN CADA (seg)</label><input type="number" id="sovcfg-elim" min="1" max="600" value="5"></div>
+                <div><label class="ml">ELIM. RÁPIDA — POR RONDA</label><input type="number" id="sovcfg-bulk-per" min="1" max="100000" value="10"></div>
+                <div><label class="ml">ELIM. RÁPIDA — OBJETIVO (vidas)</label><input type="number" id="sovcfg-bulk" min="1" max="100000" value="50"></div>
+                <div><label class="ml">TARJETA ELIMINADO (seg)</label><input type="number" id="sovcfg-elimcard" min="1" max="30" value="3"></div>
+                <div><label class="ml">MÍN. JUGADORES</label><input type="number" id="sovcfg-minp" min="1" max="100" value="3"></div>
+                <div><label class="ml">TIEMPO INICIAL (seg)</label><input type="number" id="sovcfg-initial" min="1" max="3600" value="120"></div>
+                <div><label class="ml">INSTA-CLAIM (monedas)</label><input type="number" id="sovcfg-insta" min="0" max="100000000" value="3000"></div>
+                <input type="hidden" id="sovcfg-maxp" value="0">
+                <div><label class="ml">LENTO DESDE (seg)</label><input type="number" id="sovcfg-slowfrom" min="1" max="30" value="3"></div>
+                <div><label class="ml">DURACIÓN SEG. LENTO (1–5)</label><input type="number" id="sovcfg-slowsec" min="1" max="5" value="2"></div>
+                <div><label class="ml">MODO LOCK — ENTRADA (min)</label><input type="number" id="sovcfg-lockmin" min="1" max="180" value="30"></div>
+                <div style="grid-column:1/-1">
+                  <label class="ml">TAMAÑO OVERLAY <b id="sovcfg-scale-lbl">100%</b></label>
+                  <input type="range" id="sovcfg-scale" min="0" max="140" value="100" step="5">
+                </div>
+                <div><label class="ml">POSICIÓN DE CUADROS</label>
+                  <select id="sovcfg-statspos"><option value="bottom">Abajo</option><option value="top">Arriba</option></select>
+                </div>
+              </div>
+              <div class="cfg-checks">
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-showgift" checked> <span>Mostrar cuadro <b>Gift</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-showmin" checked> <span>Mostrar cuadro <b>Mínimo</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-showplayers" checked> <span>Mostrar cuadro <b>Players</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-showcoins" checked> <span>Mostrar cuadro <b>Coins</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-showvouches" checked> <span>Mostrar cuadro <b>Vouches</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-showinsta" checked> <span>Mostrar cuadro <b>Insta-Claim</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-lockmode"> <span><b>Modo Lock</b></span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-slow" checked> <span>Tiempo lento</span></label>
+                <label class="switch-row plain"><input type="checkbox" id="sovcfg-autostart" checked> <span>Auto-iniciar al mínimo</span></label>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="sovcfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
         </div>
 
@@ -7616,6 +7672,63 @@
             <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
             <div class="ovpro-preview">
               <iframe id="so-preview" data-src="/sorteos.html?embed=1&v=so50" title="Vista previa sorteos overlay"></iframe>
+            </div>
+          </div>
+
+          <div class="ovpro-card sov-card">
+            <div class="ovpro-top">
+              <div class="ovpro-actions">
+                <button class="ovpro-btn" id="sov-reset">? Reset</button>
+                <button class="ovpro-btn primary" id="sov-test">? Testear</button>
+                <button class="ovpro-btn" id="sov-start">? Iniciar</button>
+                <button class="ovpro-btn" id="sov-spin" title="Elimina 1 vida sin esperar el temporizador">Giro manual</button>
+                <button class="ovpro-btn primary" id="sov-bulk" title="Elimina N vidas por ronda hasta el objetivo">Eliminar rapido</button>
+                <button class="ovpro-btn" id="sov-lock">?? Lock entradas</button>
+                <button class="ovpro-btn" id="sov-unlock">?? Unlock</button>
+                <button class="ovpro-btn" id="sov-slow" title="Activa / desactiva la cuenta regresiva lenta al final">Tiempo lento</button>
+                <button class="ovpro-btn" id="sov-config">? Configurar</button>
+              </div>
+              <div class="ovpro-conn" id="sov-conn"><span class="cdot"></span> NUEVO</div>
+            </div>
+            <h3 class="ovpro-title">?? Sorteos · Gestion vidas + eliminacion rapida</h3>
+            <p class="ovpro-desc">Overlay aparte con lista interna de vidas (+/- manual), agregar @ real de TikTok y <b>eliminacion rapida</b>. Usa esta URL en OBS si quieres este modo.</p>
+
+            <div class="sov-layout">
+              <div class="sov-main-col">
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/sorteos-vidas.html?v=sov2">/sorteos-vidas.html?v=sov2</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
+                <div class="ovpro-preview sov-preview">
+                  <iframe id="sov-preview" data-src="/sorteos-vidas.html?embed=1&v=sov1" title="Vista previa sorteos vidas"></iframe>
+                </div>
+              </div>
+
+              <div class="sov-manage-card">
+                <h4 class="sov-manage-title">Participantes · vidas</h4>
+                <p class="sov-manage-sub">Solo tu ves esta lista. Suma o quita vidas; al agregar usa el <b>@ real</b> de TikTok.</p>
+                <div class="sov-add-row">
+                  <input type="text" id="sov-add-user" class="sov-add-user" placeholder="@usuario TikTok" autocomplete="off" />
+                  <button type="button" class="ovpro-btn primary" id="sov-add-btn" title="Agregar 1 vida vinculada al @">+ Vida</button>
+                </div>
+                <p class="sov-add-status" id="sov-add-status"></p>
+                <div class="sov-bulk-row">
+                  <label class="sov-bulk-lbl" for="sov-bulk-per">Eliminar por ronda</label>
+                  <input type="number" id="sov-bulk-per" class="sov-bulk-target" min="1" max="100000" value="10" />
+                  <span class="sov-bulk-unit">vidas</span>
+                  <span class="sov-bulk-sep" aria-hidden="true">·</span>
+                  <label class="sov-bulk-lbl" for="sov-bulk-target">Eliminar hasta quedar</label>
+                  <input type="number" id="sov-bulk-target" class="sov-bulk-target" min="1" max="100000" value="50" />
+                  <span class="sov-bulk-unit">vidas</span>
+                </div>
+                <div class="sov-people-head">
+                  <span id="sov-total-lives">0 vidas</span>
+                  <span id="sov-total-players">0 personas</span>
+                </div>
+                <div class="sov-people-rows" id="sov-people-rows" aria-label="Lista participantes sorteos vidas"></div>
+                <p class="sov-people-empty" id="sov-people-empty">Sin participantes · Testear o agrega un @</p>
+              </div>
             </div>
           </div>
         </section>

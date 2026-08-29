@@ -42,6 +42,7 @@ export const OVERLAY_CHANNELS = {
   'batalla-meta': setOf(S, 'pkBattle', 'pkBattleEnd', 'pkBattleReset', 'batallaMetaReset', 'batallaMetaTest'),
   'batalla-vs': setOf(S, STATE, 'pkBattle', 'pkBattleReset', 'pkBattleTest'),
   sorteos: setOf(S, GIFT, 'chat', 'sorteosControl', 'sorteosTest'),
+  'sorteos-vidas': setOf(S, GIFT, 'chat', 'sorteosVidasControl', 'sorteosVidasTest'),
   'youtube-overlay': setOf(S, 'youtubeState', 'youtubeSeek', 'youtubeProgress'),
   'gift-metas': setOf(S, 'giftGoals', 'giftGoalsTest', 'giftGoalsReset'),
   jarron: setOf(S, STATE, GIFT, 'jarronTest', 'jarronDropOne', 'jarronReset'),
