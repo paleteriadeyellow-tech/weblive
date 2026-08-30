@@ -80,7 +80,89 @@ let reconnectTimer;
 let settings = null;       // copia local de los ajustes del servidor
 let applyingSettings = false; // evita loops al rellenar los controles
 let lastMediaVolEditAt = 0;
-const MEDIA_VOL_ECHO_MS = 2500;
+const MEDIA_VOL_ECHO_MS = 4000;
+const mediaVolPending = new Map();
+const cardVolDragActive = new Set();
+const mediaListRenderDeferred = { soundAlerts: false, videos: false, battleAlerts: false };
+
+function mediaVolPendingKey(listKey, id) {
+  return `${listKey}:${String(id || '')}`;
+}
+function noteMediaVolEdit(listKey, id, volume) {
+  if (!listKey || id == null || id === '') return;
+  mediaVolPending.set(mediaVolPendingKey(listKey, id), { volume, at: Date.now() });
+  lastMediaVolEditAt = Date.now();
+}
+function flushDeferredMediaListRenders() {
+  if (cardVolDragActive.size) return;
+  if (mediaListRenderDeferred.soundAlerts) {
+    mediaListRenderDeferred.soundAlerts = false;
+    try { refreshSoundAlertsFromSettings(); } catch { /* ignore */ }
+  }
+  if (mediaListRenderDeferred.videos) {
+    mediaListRenderDeferred.videos = false;
+    try { refreshVideosFromSettings(); } catch { /* ignore */ }
+  }
+  if (mediaListRenderDeferred.battleAlerts) {
+    mediaListRenderDeferred.battleAlerts = false;
+    try { refreshBattleAlertsFromSettings(); } catch { /* ignore */ }
+  }
+}
+function saveMediaVolumePatch(listKey) {
+  saveSettingsKeysPatch(listKey, { flush: true });
+}
+function syncMediaCardVolumesInPlace(container, list, opts = {}) {
+  if (!container || !Array.isArray(list)) return false;
+  const cardSel = opts.cardSel || '.sa-card';
+  const volSel = opts.volSel || '.sa-volrange';
+  const cards = [...container.querySelectorAll(cardSel)];
+  if (!cards.length || cards.length !== list.length) return false;
+  const ids = new Set(list.map((a) => String(a?.id)));
+  if (cards.some((c) => !ids.has(String(c.dataset.id || '')))) return false;
+  cards.forEach((card) => {
+    const id = String(card.dataset.id || '');
+    if (cardVolDragActive.has(id)) return;
+    const item = list.find((x) => String(x.id) === id);
+    if (!item) return;
+    const v = Math.max(0, Math.min(100, Number(item.volume ?? 100)));
+    const vr = card.querySelector(volSel);
+    const pct = card.querySelector('.pct');
+    if (vr) vr.value = String(v);
+    if (pct) pct.textContent = `${v}%`;
+    if (opts.syncEnabled) {
+      const tog = card.querySelector(opts.toggleSel || '.sa-toggle');
+      if (tog) tog.checked = item.enabled !== false;
+      const st = card.querySelector('.toggle .state');
+      if (st) st.textContent = item.enabled !== false ? 'ON' : 'OFF';
+      card.classList.toggle('on', item.enabled !== false);
+    }
+  });
+  return true;
+}
+function refreshSoundAlertsFromSettings() {
+  if (cardVolDragActive.size) { mediaListRenderDeferred.soundAlerts = true; return; }
+  const el = $('saList');
+  if (!el) return;
+  const list = settings.soundAlerts || [];
+  if (!list.length || !el.querySelector('.sa-card')) { renderSoundAlerts(); return; }
+  if (!syncMediaCardVolumesInPlace(el, list, { syncEnabled: true })) renderSoundAlerts();
+}
+function refreshVideosFromSettings() {
+  if (cardVolDragActive.size) { mediaListRenderDeferred.videos = true; return; }
+  const el = $('videoCards');
+  if (!el) return;
+  const list = settings.videos || [];
+  if (!list.length || !el.querySelector('.vid-card')) { renderVideos(); return; }
+  if (!syncMediaCardVolumesInPlace(el, list, { cardSel: '.vid-card', volSel: '.v-volrange', toggleSel: '.v-toggle', syncEnabled: true })) renderVideos();
+}
+function refreshBattleAlertsFromSettings() {
+  if (cardVolDragActive.size) { mediaListRenderDeferred.battleAlerts = true; return; }
+  const el = $('battleCards');
+  if (!el) return;
+  const list = settings.battleAlerts || [];
+  if (!list.length || !el.querySelector('.vid-card')) { renderBattleAlerts(); return; }
+  if (!syncMediaCardVolumesInPlace(el, list, { cardSel: '.vid-card', volSel: '.b-volrange', toggleSel: '.b-toggle', syncEnabled: true })) renderBattleAlerts();
+}
 
 function lcVolume01(raw) {
   const n = Number(raw);
@@ -99,32 +181,94 @@ function applyMediaVolume(el, raw) {
   el.addEventListener('canplay', set);
   el.addEventListener('playing', set);
 }
-function bindCardVolumeSlider(vr, card, onSet) {
-  if (!vr) return;
-  const apply = () => {
-    const n = Math.max(0, Math.min(100, +vr.value || 0));
+function bindCardVolumeSlider(vr, card, listKey, onVolume, onSave) {
+  if (!vr || vr.dataset.volBound === '1') return;
+  vr.dataset.volBound = '1';
+  const itemId = String(card.dataset?.id || '');
+  const dragId = itemId || `vol-${Math.random().toString(36).slice(2)}`;
+  let committed = false;
+  let winUpHandler = null;
+  const readN = () => Math.max(0, Math.min(100, +vr.value || 0));
+  const syncPct = (n) => {
     const pct = card.querySelector('.pct');
-    if (pct) pct.textContent = n + '%';
-    onSet(n);
-    lastMediaVolEditAt = Date.now();
+    if (pct) pct.textContent = `${n}%`;
+  };
+  const applyLocal = () => {
+    const n = readN();
+    syncPct(n);
+    onVolume(n);
+    noteMediaVolEdit(listKey, itemId, n);
     try { if (previewAudio && !previewAudio.paused) applyMediaVolume(previewAudio, n); } catch { /* ignore */ }
   };
-  vr.addEventListener('input', apply);
-  vr.addEventListener('change', apply);
+  const commitSave = () => {
+    if (committed) return;
+    committed = true;
+    const n = readN();
+    syncPct(n);
+    onVolume(n);
+    noteMediaVolEdit(listKey, itemId, n);
+    onSave?.();
+  };
+  const clearWinUp = () => {
+    if (!winUpHandler) return;
+    window.removeEventListener('pointerup', winUpHandler, true);
+    winUpHandler = null;
+  };
+  const finishDrag = (save) => {
+    if (!cardVolDragActive.has(dragId)) return;
+    cardVolDragActive.delete(dragId);
+    clearWinUp();
+    if (save && !committed) commitSave();
+    flushDeferredMediaListRenders();
+  };
+  vr.addEventListener('pointerdown', (e) => {
+    cardVolDragActive.add(dragId);
+    committed = false;
+    clearWinUp();
+    try { vr.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    winUpHandler = () => finishDrag(true);
+    window.addEventListener('pointerup', winUpHandler, true);
+  });
+  vr.addEventListener('lostpointercapture', () => finishDrag(true));
+  vr.addEventListener('input', applyLocal);
+  vr.addEventListener('change', () => {
+    if (cardVolDragActive.has(dragId)) finishDrag(true);
+    else commitSave();
+  });
 }
 function preserveLocalMediaVolumeOnSettingsEcho(incoming) {
-  if (!incoming || !settings || Date.now() - lastMediaVolEditAt > MEDIA_VOL_ECHO_MS) return incoming;
+  if (!incoming || !settings) return incoming;
   const out = { ...incoming };
+  const now = Date.now();
   for (const key of ['soundAlerts', 'videos', 'battleAlerts']) {
-    const local = settings[key];
     const remote = incoming[key];
-    if (!Array.isArray(local) || !Array.isArray(remote)) continue;
-    const volById = new Map(local.map((a) => [String(a?.id), a?.volume]));
+    if (!Array.isArray(remote)) continue;
     out[key] = remote.map((a) => {
-      if (!a) return a;
-      const v = volById.get(String(a.id));
-      return v == null ? a : { ...a, volume: v };
+      if (!a?.id) return a;
+      const pend = mediaVolPending.get(mediaVolPendingKey(key, a.id));
+      if (pend && now - pend.at < MEDIA_VOL_ECHO_MS) return { ...a, volume: pend.volume };
+      return a;
     });
+  }
+  if (now - lastMediaVolEditAt < MEDIA_VOL_ECHO_MS) {
+    for (const key of ['soundAlerts', 'videos', 'battleAlerts']) {
+      const local = settings[key];
+      const remote = out[key];
+      if (!Array.isArray(local) || !Array.isArray(remote)) continue;
+      const volById = new Map(local.map((a) => [String(a?.id), a?.volume]));
+      out[key] = remote.map((a) => {
+        if (!a) return a;
+        const v = volById.get(String(a.id));
+        return v == null ? a : { ...a, volume: v };
+      });
+    }
+    if (incoming.levelVideos && settings.levelVideos) {
+      const pendLv = mediaVolPending.get(mediaVolPendingKey('levelVideos', 'levelvid'));
+      const vol = pendLv && now - pendLv.at < MEDIA_VOL_ECHO_MS
+        ? pendLv.volume
+        : settings.levelVideos.volume;
+      if (vol != null) out.levelVideos = { ...incoming.levelVideos, volume: vol };
+    }
   }
   return out;
 }
@@ -5537,7 +5681,8 @@ function applySettingsToUI(touchedKeys) {
     syncVidMasterUI();
     ensureScreens();
     renderScreens();
-    renderVideos();
+    if (has('screens')) renderVideos();
+    else refreshVideosFromSettings();
     applyLevelVideosUI();
   } else if (has('levelVideos')) {
     applyLevelVideosUI();
@@ -5545,7 +5690,7 @@ function applySettingsToUI(touchedKeys) {
 
   if (hasAny('battleAlerts', 'battleAlertsEnabled')) {
     syncBaMasterUI();
-    renderBattleAlerts();
+    refreshBattleAlertsFromSettings();
   }
 
   if (has('jarron')) applyJarronUI();
@@ -5588,7 +5733,7 @@ function applySettingsToUI(touchedKeys) {
   }
   if (has('topKills') && typeof refreshTopKills === 'function') setTimeout(() => refreshTopKills(), 300);
 
-  if (has('soundAlerts')) renderSoundAlerts();
+  if (has('soundAlerts')) refreshSoundAlertsFromSettings();
   if (has('points') || has('pointsSettings') || has('pointsLookup')) {
     if (typeof applyPointsSettingsUI === 'function') applyPointsSettingsUI();
   }
@@ -5775,6 +5920,7 @@ function refreshVidStreamdeckUrl() {
 }
 
 function renderVideos() {
+  if (cardVolDragActive.size) { mediaListRenderDeferred.videos = true; return; }
   const el = $('videoCards');
   if (!el) return;
   wireMapViewControls('lc_vid_view', renderVideos, 'vid-search');
@@ -5876,7 +6022,7 @@ function renderVideos() {
       renderVideos();
     };
     const vr = card.querySelector('.v-volrange');
-    if (vr) bindCardVolumeSlider(vr, card, (n) => { v.volume = n; saveVideosBattlePatch('videos'); });
+    if (vr) bindCardVolumeSlider(vr, card, 'videos', (n) => { v.volume = n; }, () => saveMediaVolumePatch('videos'));
     card.querySelector('.sa-edit').onclick = () => openVidModal(v);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -6554,6 +6700,8 @@ function syncLevelVideosFromUI() {
   if (en) settings.levelVideos.enabled = !!en.checked;
   const sel = $('levelvid-screen');
   if (sel) settings.levelVideos.screen = clampScreenId(sel.value);
+  const vol = $('levelvid-vol');
+  if (vol) settings.levelVideos.volume = Math.max(0, Math.min(100, +vol.value || 0));
   return settings.levelVideos;
 }
 
@@ -6569,7 +6717,7 @@ async function testLevelVideoLocal(level, { quiet = false, screen } = {}) {
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.ok) {
       if (d.error === 'no_file') {
-        toast && toast(`No hay nivel${n}.webm en public/video/niveles`, 'warn');
+        toast && toast(`No hay nivel${n}.webm en ${d.folder || 'la carpeta niveles'}`, 'warn');
       } else if (d.error === 'disabled') {
         toast && toast('Activa «Subió de nivel de miembro» (ON) para probar.', 'warn');
       } else if (r.status === 401) {
@@ -6641,6 +6789,13 @@ function applyLevelVideosUI() {
   const st = en.closest('.levelvid-toggle')?.querySelector('.state');
   if (st) st.textContent = en.checked ? 'ON' : 'OFF';
   fillScreenSelect($('levelvid-screen'), cfg.screen);
+  const vol = $('levelvid-vol');
+  const volPct = $('levelvid-vol-pct');
+  if (vol && !cardVolDragActive.has('levelvid')) {
+    const v = Math.max(0, Math.min(100, Number(cfg.volume ?? 100)));
+    vol.value = String(v);
+    if (volPct) volPct.textContent = `${v}%`;
+  }
   refreshLevelVideoScreenLink();
 }
 if ($('levelvid-copy-url')) {
@@ -6673,6 +6828,18 @@ if ($('levelvid-screen')) {
 if ($('levelvid-test')) {
   $('levelvid-test').addEventListener('click', () => { runLevelVideoTest(); });
 }
+(function setupLevelVidVolume() {
+  const vol = $('levelvid-vol');
+  if (!vol) return;
+  const card = {
+    dataset: { id: 'levelvid' },
+    querySelector(sel) { return sel === '.pct' ? $('levelvid-vol-pct') : null; },
+  };
+  bindCardVolumeSlider(vol, card, 'levelVideos', (n) => {
+    if (!settings.levelVideos) settings.levelVideos = { enabled: true, screen: 1, volume: 100 };
+    settings.levelVideos.volume = n;
+  }, () => saveMediaVolumePatch('levelVideos'));
+})();
 
 /* ----- Modal video ----- */
 function syncVidFirstMessageDelayUI(eventType = $('vid-event')?.value) {
@@ -6759,9 +6926,16 @@ function openVidModal(v = null) {
     ? 'Guarda el video y copia el webhook para Stream Deck.'
     : '';
   closeVideoLib();
-  $('vidModal').classList.remove('hidden');
+  const modal = $('vidModal');
+  modal.classList.remove('hidden');
+  modal.classList.remove('is-open');
+  requestAnimationFrame(() => { modal.classList.add('is-open'); });
 }
-function closeVidModal() { $('vidModal').classList.add('hidden'); }
+function closeVidModal() {
+  const modal = $('vidModal');
+  if (modal) modal.classList.remove('is-open');
+  modal?.classList.add('hidden');
+}
 
 if ($('vid-use-joindelay')) {
   $('vid-use-joindelay').addEventListener('change', () => {
@@ -7277,9 +7451,30 @@ function vidLibPosterSrc(url) {
   return '/api/video-lib-preview?v=4&poster=1&src=' + encodeURIComponent(url);
 }
 
+function vidLibPosterFallback(el) {
+  if (!el || el.dataset.fallbackDone === '1') return;
+  el.dataset.fallbackDone = '1';
+  const url = el.dataset.fallback || '';
+  if (!url) return;
+  const vid = vidLibMuteLoop(document.createElement('video'), 'vid-lib-poster');
+  vid.src = url;
+  vid.preload = 'metadata';
+  vid.loop = false;
+  try { el.replaceWith(vid); } catch {}
+}
+window.vidLibPosterFallback = vidLibPosterFallback;
+
 let vidLibWarmGen = 0;
-function vidLibWarmPreviews() {
-  vidLibWarmGen++;
+function vidLibWarmPreviews(box) {
+  vidLibWarmGen += 1;
+  if (!box) return;
+  [...box.querySelectorAll('img.vid-lib-poster')].slice(0, 10).forEach((img, i) => {
+    setTimeout(() => {
+      if (!img.isConnected || img.complete) return;
+      const pre = new Image();
+      pre.src = img.src;
+    }, i * 90);
+  });
 }
 
 function vidLibSyncUseBtn() {
@@ -7363,7 +7558,7 @@ function vidLibSyncPlay(box) {
     hovered.classList.add('is-playing');
     return;
   }
-  const url = hovered.dataset.preview || vidLibPreviewSrc(hovered.dataset.url);
+  const url = hovered.dataset.url || '';
   const { v: player, c: canvas } = vidLibEnsureStage();
   if (
     window._vidLibPlaying === hovered
@@ -7475,7 +7670,7 @@ function renderLocalVideos(filter) {
   box.innerHTML = list.map((v) => {
     const media = isImageFile(v.url)
       ? `<img src="${esc(v.url)}" loading="lazy" decoding="async">`
-      : `<img class="vid-lib-poster" src="${esc(vidLibPosterSrc(v.url))}" loading="lazy" decoding="async" alt="">`;
+      : `<img class="vid-lib-poster" src="${esc(vidLibPosterSrc(v.url))}" data-fallback="${esc(v.url)}" loading="lazy" decoding="async" alt="" onerror="vidLibPosterFallback(this)">`;
     return `
     <div class="vid-cell" data-url="${esc(v.url)}" data-name="${esc(v.name)}" title="${esc(niceName(v.name))}">
       <div class="vid-prev"><div class="vid-prev-media">${media}</div></div>
@@ -7566,6 +7761,7 @@ function refreshBaStreamdeckUrl() {
 }
 
 function renderBattleAlerts() {
+  if (cardVolDragActive.size) { mediaListRenderDeferred.battleAlerts = true; return; }
   const el = $('battleCards');
   if (!el) return;
   wireMapViewControls('lc_ba_view', renderBattleAlerts, 'ba-search');
@@ -7677,7 +7873,7 @@ function renderBattleAlerts() {
       renderBattleAlerts();
     };
     const vr = card.querySelector('.b-volrange');
-    if (vr) bindCardVolumeSlider(vr, card, (n) => { b.volume = n; saveVideosBattlePatch('battleAlerts'); });
+    if (vr) bindCardVolumeSlider(vr, card, 'battleAlerts', (n) => { b.volume = n; }, () => saveMediaVolumePatch('battleAlerts'));
     card.querySelector('.sa-edit').onclick = () => openBaModal(b);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -7868,6 +8064,7 @@ let pendingSound = null; // { url, name }
 let previewAudio = null;
 
 function renderSoundAlerts() {
+  if (cardVolDragActive.size) { mediaListRenderDeferred.soundAlerts = true; return; }
   const el = $('saList');
   if (!el) return;
   wireMapViewControls('lc_sa_view', renderSoundAlerts, 'sa-search');
@@ -7979,7 +8176,7 @@ function renderSoundAlerts() {
     const sel = card.querySelector('.sa-sel');
     if (sel) sel.onchange = (e) => { e.target.checked ? selected.add(id) : selected.delete(id); updateSelCount(); };
     const vr = card.querySelector('.sa-volrange');
-    if (vr) bindCardVolumeSlider(vr, card, (n) => { a.volume = n; saveSettingsKeysPatch('soundAlerts'); });
+    if (vr) bindCardVolumeSlider(vr, card, 'soundAlerts', (n) => { a.volume = n; }, () => saveMediaVolumePatch('soundAlerts'));
     card.querySelector('.sa-edit').onclick = () => openSaModal(a);
     const whBtn = card.querySelector('.sa-wh');
     if (whBtn) {
@@ -13585,71 +13782,214 @@ function refreshGiftCounterCardUI() {
       return { username: user, nickname: user, avatar: '', error: 'No se pudo buscar' };
     }
   }
+  let sovPeopleLocal = [];
+  function sovPersonKey(p) {
+    if (!p) return '';
+    const uid = String(p.userId || '').trim();
+    if (uid && uid !== '0') return 'uid:' + uid;
+    const id = String(p.id || '').trim().toLowerCase();
+    if (id) return 'id:' + id;
+    return '';
+  }
+  function findSovPersonLocal(ref) {
+    const key = sovPersonKey(ref);
+    if (!key) return null;
+    return sovPeopleLocal.find((x) => sovPersonKey(x) === key) || null;
+  }
+  function mergeSovPeopleFromRemote(payload) {
+    const remote = Array.isArray(payload?.players) ? payload.players : [];
+    const isSnapshot = !!(payload && (
+      Number.isFinite(Number(payload.totalLives))
+      || (payload.hud && typeof payload.hud === 'object')
+    ));
+    if (isSnapshot) {
+      sovPeopleLocal = remote
+        .filter((p) => p && p.id && Math.max(0, Number(p.lives) || 0) > 0)
+        .map((p) => ({
+          id: String(p.id),
+          userId: String(p.userId || '').trim(),
+          name: p.name || p.id,
+          pic: p.pic || '',
+          lives: Math.max(0, Number(p.lives) || 0),
+          seq: Number(p.seq) || 0,
+          alive: true,
+        }));
+      return sovPeopleLocal;
+    }
+    if (!remote.length) {
+      sovPeopleLocal = [];
+      return sovPeopleLocal;
+    }
+    const map = new Map();
+    for (const p of sovPeopleLocal) {
+      const k = sovPersonKey(p);
+      if (k) map.set(k, { ...p });
+    }
+    for (const p of remote) {
+      const k = sovPersonKey(p);
+      if (!k) continue;
+      const prev = map.get(k);
+      const lives = Math.max(0, Number(p.lives) || 0);
+      if (prev) {
+        map.set(k, {
+          ...prev,
+          ...p,
+          id: p.id || prev.id,
+          userId: p.userId || prev.userId,
+          name: p.name || prev.name,
+          pic: p.pic || prev.pic,
+          lives,
+          alive: lives > 0,
+          seq: Number.isFinite(Number(p.seq)) && Number(p.seq) > 0
+            ? Math.min(Number(prev.seq) || Number(p.seq), Number(p.seq))
+            : (prev.seq || p.seq),
+        });
+      } else if (lives > 0) {
+        map.set(k, { ...p, lives, alive: true });
+      }
+    }
+    sovPeopleLocal = Array.from(map.values()).filter((p) => Math.max(0, Number(p.lives) || 0) > 0);
+    return sovPeopleLocal;
+  }
+  function patchSovPerson(id, patch, deltaLives) {
+    const pid = String(id || '').trim();
+    let p = findSovPersonLocal({ id: pid, userId: patch?.userId });
+    if (!p && pid) p = sovPeopleLocal.find((x) => String(x.id || '').toLowerCase() === pid.toLowerCase());
+    if (!p) {
+      if (!pid) return null;
+      p = {
+        id: pid,
+        userId: String(patch?.userId || '').trim(),
+        name: patch?.name || pid,
+        pic: patch?.pic || '',
+        lives: 0,
+        seq: Date.now(),
+        alive: true,
+      };
+      sovPeopleLocal.push(p);
+    }
+    if (patch?.name) p.name = patch.name;
+    if (patch?.pic) p.pic = patch.pic;
+    if (patch?.userId) p.userId = String(patch.userId).trim();
+    if (Number.isFinite(Number(deltaLives))) {
+      p.lives = Math.max(0, (Number(p.lives) || 0) + Number(deltaLives));
+    } else if (Number.isFinite(Number(patch?.lives))) {
+      p.lives = Math.max(0, Number(patch.lives));
+    }
+    p.alive = p.lives > 0;
+    return p;
+  }
+  function buildSovRow(p) {
+    const pic = esc(p.pic || '');
+    const id = String(p.id || '');
+    const lives = Math.max(0, parseInt(p.lives, 10) || 0);
+    const el = document.createElement('div');
+    el.className = 'sov-prow';
+    el.dataset.id = id;
+    el.dataset.lives = String(lives);
+    el.innerHTML = '<div class="sov-prow-av-wrap"></div>'
+      + '<div class="sov-prow-name"></div>'
+      + '<div class="sov-prow-lives"></div>'
+      + '<button type="button" class="sov-prow-pm plus" data-op="add" title="+1 vida">+</button>'
+      + '<button type="button" class="sov-prow-pm minus" data-op="rem" title="−1 vida">−</button>'
+      + '<button type="button" class="sov-prow-pm out" data-op="out" title="Quitar todas las vidas">✕</button>';
+    const avWrap = el.querySelector('.sov-prow-av-wrap');
+    if (avWrap) {
+      avWrap.innerHTML = pic
+        ? '<img class="sov-prow-av" src="' + pic + '" alt="" referrerpolicy="no-referrer" />'
+        : '<div class="sov-prow-av-ph">' + esc(String(p.name || '?').slice(0, 1).toUpperCase()) + '</div>';
+    }
+    const nameEl = el.querySelector('.sov-prow-name');
+    if (nameEl) {
+      nameEl.textContent = p.name || p.id || '?';
+      nameEl.title = '@' + id;
+    }
+    const livesEl = el.querySelector('.sov-prow-lives');
+    if (livesEl) livesEl.textContent = String(lives);
+    return el;
+  }
+  function updateSovRow(el, p) {
+    if (!el || !p) return;
+    const lives = Math.max(0, parseInt(p.lives, 10) || 0);
+    el.dataset.lives = String(lives);
+    const livesEl = el.querySelector('.sov-prow-lives');
+    if (livesEl) livesEl.textContent = String(lives);
+    const name = p.name || p.id || '?';
+    const nameEl = el.querySelector('.sov-prow-name');
+    if (nameEl) {
+      nameEl.textContent = name;
+      nameEl.title = '@' + (p.id || '');
+    }
+    const pic = String(p.pic || '').trim();
+    const avWrap = el.querySelector('.sov-prow-av-wrap');
+    if (avWrap) {
+      const cur = avWrap.querySelector('img')?.getAttribute('src') || '';
+      if (pic && cur !== pic) {
+        avWrap.innerHTML = '<img class="sov-prow-av" src="' + esc(pic) + '" alt="" referrerpolicy="no-referrer" />';
+      } else if (!pic && !avWrap.querySelector('.sov-prow-av-ph')) {
+        avWrap.innerHTML = '<div class="sov-prow-av-ph">' + esc(String(name).slice(0, 1).toUpperCase()) + '</div>';
+      }
+    }
+  }
+  function syncSovPreviewMirror(payload) {
+    if (!payload) return;
+    toPrev({
+      type: 'mirror',
+      players: payload.players || [],
+      totalLives: payload.totalLives,
+      hud: payload.hud || null,
+    });
+  }
   function renderSorteosVidasPeople(payload) {
     const rows = $('sov-people-rows');
     const empty = $('sov-people-empty');
     if (!rows) return;
-    const list = Array.isArray(payload?.players) ? payload.players : [];
-    const alive = list.filter((p) => p && p.alive && (p.lives > 0));
-    alive.sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0) || String(a.id).localeCompare(String(b.id)));
+    mergeSovPeopleFromRemote(payload || {});
+    sovPeopleLocal = sovPeopleLocal.filter((p) => Math.max(0, parseInt(p.lives, 10) || 0) > 0);
+    const visible = sovPeopleLocal.slice();
+    visible.sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0) || String(a.id).localeCompare(String(b.id)));
     const totalLives = Number.isFinite(Number(payload?.totalLives))
       ? Math.max(0, parseInt(payload.totalLives, 10) || 0)
-      : alive.reduce((n, p) => n + (p.lives || 0), 0);
+      : visible.reduce((n, p) => n + (Math.max(0, parseInt(p.lives, 10) || 0)), 0);
     if ($('sov-total-lives')) $('sov-total-lives').textContent = totalLives + ' vidas';
-    if ($('sov-total-players')) $('sov-total-players').textContent = alive.length + ' personas';
-    if (empty) empty.classList.toggle('is-hidden', alive.length > 0);
-    const existing = new Map();
-    rows.querySelectorAll('.sov-prow').forEach((el) => {
-      if (el?.dataset?.id) existing.set(el.dataset.id, el);
-    });
-    alive.forEach((p, i) => {
-      const name = esc(p.name || p.id || '?');
-      const pic = esc(p.pic || '');
+    if ($('sov-total-players')) $('sov-total-players').textContent = visible.length + ' personas';
+    if (empty) empty.classList.toggle('is-hidden', visible.length > 0);
+    const existing = new Map([...rows.querySelectorAll('.sov-prow')].map((el) => [String(el.dataset.id || ''), el]));
+    visible.forEach((p, i) => {
       const id = String(p.id || '');
-      const lives = Math.max(0, parseInt(p.lives, 10) || 0);
       let el = existing.get(id);
-      if (!el) {
-        el = document.createElement('div');
-        el.className = 'sov-prow';
-        el.dataset.id = id;
-        el.innerHTML = '<div class="sov-prow-av-wrap"></div>'
-          + '<div class="sov-prow-name"></div>'
-          + '<div class="sov-prow-lives"></div>'
-          + '<button type="button" class="sov-prow-pm plus" data-op="add" title="+1 vida">+</button>'
-          + '<button type="button" class="sov-prow-pm minus" data-op="rem" title="−1 vida">−</button>';
-        existing.set(id, el);
-      } else {
+      if (el) {
+        updateSovRow(el, p);
         existing.delete(id);
+      } else {
+        el = buildSovRow(p);
       }
-      const avWrap = el.querySelector('.sov-prow-av-wrap');
-      if (avWrap) {
-        avWrap.innerHTML = pic
-          ? '<img class="sov-prow-av" src="' + pic + '" alt="" referrerpolicy="no-referrer" />'
-          : '<div class="sov-prow-av-ph">' + esc(String(p.name || '?').slice(0, 1).toUpperCase()) + '</div>';
-      }
-      const nameEl = el.querySelector('.sov-prow-name');
-      if (nameEl) {
-        nameEl.textContent = p.name || p.id || '?';
-        nameEl.title = '@' + id;
-      }
-      const livesEl = el.querySelector('.sov-prow-lives');
-      if (livesEl) livesEl.textContent = String(lives);
-      const cur = rows.children[i];
-      if (cur !== el) rows.insertBefore(el, cur || null);
+      if (rows.children[i] !== el) rows.insertBefore(el, rows.children[i] || null);
     });
-    existing.forEach((el) => el.remove());
+    existing.forEach((el) => { try { el.remove(); } catch { /* ignore */ } });
+    syncSovPreviewMirror(Object.assign({}, payload || {}, { players: visible, totalLives }));
   }
   window.renderSorteosVidasPeople = renderSorteosVidasPeople;
   function sovLifeOp(op, playerId, count) {
     const payload = { playerId, count: count || 1 };
+    const cur = findSovPersonLocal({ id: playerId }) || sovPeopleLocal.find((p) => String(p.id) === String(playerId));
+    const canonId = cur?.id || playerId;
+    payload.playerId = canonId;
     if (op === 'add') {
-      payload.uniqueId = playerId;
+      payload.uniqueId = canonId;
+      if (cur?.userId) payload.userId = cur.userId;
+      patchSovPerson(canonId, { name: cur?.name || canonId, pic: cur?.pic || '', userId: cur?.userId || '' }, payload.count);
+      renderSorteosVidasPeople({ players: sovPeopleLocal });
       toPrev({ type: 'action', action: 'addLife', ...payload });
       sendSov('addLife', payload);
       return;
     }
-    toPrev({ type: 'action', action: 'removeLife', ...payload });
-    sendSov('removeLife', payload);
+    const n = Math.min(payload.count, Number(cur?.lives) || payload.count);
+    patchSovPerson(canonId, { userId: cur?.userId || '' }, -n);
+    sovPeopleLocal = sovPeopleLocal.filter((p) => (Number(p.lives) || 0) > 0);
+    renderSorteosVidasPeople({ players: sovPeopleLocal });
+    toPrev({ type: 'action', action: 'removeLife', ...payload, count: n });
+    sendSov('removeLife', { ...payload, count: n });
   }
   function syncSorteosVidasSlowBtn() {
     const btn = $('sov-slow');
@@ -13730,6 +14070,7 @@ function refreshGiftCounterCardUI() {
   if ($('sov-add-btn')) $('sov-add-btn').onclick = async () => {
     const uniqueId = parseSovUser($('sov-add-user')?.value);
     const st = $('sov-add-status');
+    const count = Math.max(1, Math.min(999, parseInt($('sov-add-count')?.value, 10) || 1));
     if (!uniqueId) { toast('Pon un @ de TikTok', 'warn'); return; }
     if (st) st.textContent = 'Buscando @' + uniqueId + '…';
     const prof = await lookupSovProfile(uniqueId);
@@ -13739,12 +14080,14 @@ function refreshGiftCounterCardUI() {
       nickname: prof.nickname || uid,
       photo: prof.avatar || '',
       userId: String(prof.userId || '').trim(),
-      count: 1,
+      count,
     };
     toPrev({ type: 'action', action: 'addLife', ...payload });
     sendSov('addLife', payload);
-    if (st) st.textContent = prof.error ? ('Agregada sin foto · @' + uid) : ('+1 vida · @' + uid);
-    toast('+1 vida · @' + uid, 'ok');
+    patchSovPerson(uid, { name: prof.nickname || uid, pic: prof.avatar || '', userId: payload.userId }, count);
+    renderSorteosVidasPeople({ players: sovPeopleLocal });
+    if (st) st.textContent = prof.error ? ('Agregadas sin foto · @' + uid) : ('+' + count + ' vidas · @' + uid);
+    toast('+' + count + ' vidas · @' + uid, 'ok');
     if ($('sov-add-user')) $('sov-add-user').value = '';
   };
   const host = $('sov-people-rows');
@@ -13752,9 +14095,16 @@ function refreshGiftCounterCardUI() {
     host.addEventListener('click', (e) => {
       const btn = e.target?.closest?.('.sov-prow-pm');
       if (!btn) return;
-      const id = btn.closest('.sov-prow')?.dataset?.id;
+      const row = btn.closest('.sov-prow');
+      const id = row?.dataset?.id;
       if (!id) return;
-      sovLifeOp(btn.dataset.op === 'add' ? 'add' : 'rem', id, 1);
+      const op = btn.dataset.op;
+      if (op === 'out') {
+        const n = Math.max(1, parseInt(row.dataset.lives, 10) || 1);
+        sovLifeOp('rem', id, n);
+        return;
+      }
+      sovLifeOp(op === 'add' ? 'add' : 'rem', id, 1);
     });
   }
   if ($('sov-add-user')) {
@@ -13777,6 +14127,7 @@ function refreshGiftCounterCardUI() {
   if ($('sov-reset')) $('sov-reset').onclick = () => {
     toPrev({ type: 'reset' });
     sendSov('reset');
+    sovPeopleLocal = [];
     renderSorteosVidasPeople({ players: [], totalLives: 0 });
     try { toast('Sorteos vidas · Reset', 'ok'); } catch {}
   };
@@ -19125,12 +19476,18 @@ function bindTrigSelectGrid(gridId, selectId) {
     const sel = $(selectId);
     if (!sel) return;
     const next = btn.dataset.v;
-    if (!next || sel.value === next) {
-      syncTrigSelectGrid(gridId, selectId);
+    if (!next) return;
+    if (sel.value !== next) {
+      grid.querySelectorAll('.acc-trig-item').forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      sel.value = next;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
       return;
     }
-    sel.value = next;
-    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    syncTrigSelectGrid(gridId, selectId);
   });
 }
 

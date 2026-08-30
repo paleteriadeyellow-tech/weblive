@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=agencies1" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=sov7" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -1359,6 +1359,11 @@
                 <button type="button" class="btn ghost mini levelvid-btn" id="levelvid-copy-url">Copiar link</button>
                 <span class="levelvid-copy-tip">Copia y pega el URL de la pantalla que elegiste</span>
                 <span id="levelvid-screen-status" class="levelvid-url-status off"></span>
+                <label class="levelvid-vol">
+                  <span>Volumen</span>
+                  <input type="range" id="levelvid-vol" min="0" max="100" step="1" value="100">
+                  <span class="pct" id="levelvid-vol-pct">100%</span>
+                </label>
                 <div class="levelvid-test-group">
                   <label class="levelvid-test-lvl">
                     <span>Nivel prueba</span>
@@ -1439,59 +1444,59 @@
                   </select>
                   <div class="acc-trig-grid" id="sa-trig-grid" role="listbox" aria-label="Evento del directo">
                     <button type="button" class="acc-trig-item" data-v="gift-all" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/gift.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cualquier regalo</span>
                     </button>
                     <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/diamonds.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/diamonds.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="gift-name" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/gift.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Regalo especÃ­fico (lista)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="like" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/like.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/like.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Likes (por usuario)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="likeGlobal" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/like-global.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/like-global.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Likes globales</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="share" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/share.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/share.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Compartida</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="subscribe" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/subscribe.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/subscribe.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Nuevo suscriptor</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="superFan" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/superfan.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/superfan.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Super fan</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="superFanJoin" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/superfan-join.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/superfan-join.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Super fan entrÃ³</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="follow" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/follow.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/follow.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Nuevo seguidor</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="levelUp" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/levelup.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/levelup.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">SubiÃ³ de nivel de miembro</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="emote" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/emote.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/emote.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Sticker / emote (ID)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="chatCommand" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/chat.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/chat.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Comando de chat (!video)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="streamdeck" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/streamdeck.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/streamdeck.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Stream Deck (webhook manual)</span>
                     </button>
                   </div>
@@ -1961,55 +1966,55 @@
                   </select>
                   <div class="acc-trig-grid" id="acc-trig-grid" role="listbox" aria-label="Evento del directo">
                     <button type="button" class="acc-trig-item" data-v="gift-all" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/gift.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cualquier regalo</span>
                     </button>
                     <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/diamonds.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/diamonds.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="gift" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/gift.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Regalo especÃ­fico (lista)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="like" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/like.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/like.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Likes (por usuario)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="likeGlobal" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/like-global.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/like-global.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Likes globales</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="share" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/share.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/share.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Compartida</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="subscribe" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/subscribe.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/subscribe.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Nuevo suscriptor</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="superFan" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/superfan.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/superfan.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Super fan</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="superFanJoin" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/superfan-join.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/superfan-join.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Super fan entrÃ³</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="follow" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/follow.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/follow.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Nuevo seguidor</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="levelUp" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/levelup.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/levelup.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">SubiÃ³ de nivel de miembro</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="emote" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/emote.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/emote.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Sticker / emote (ID)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="chatCommand" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/chat.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/chat.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Comando de chat (!video)</span>
                     </button>
                   </div>
@@ -5142,59 +5147,59 @@
                   </select>
                   <div class="acc-trig-grid" id="vid-trig-grid" role="listbox" aria-label="Evento TikTok">
                     <button type="button" class="acc-trig-item" data-v="gift-all" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/gift.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cualquier regalo</span>
                     </button>
                     <button type="button" class="acc-trig-item is-on" data-v="gift-any" role="option" aria-selected="true">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/diamonds.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/diamonds.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Cantidad diamantes (99 - 200)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="gift-name" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/gift.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/gift.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Regalo especÃ­fico (lista)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="like" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/like.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/like.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Likes (por usuario)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="likeGlobal" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/like-global.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/like-global.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Likes globales</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="share" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/share.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/share.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Compartida</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="subscribe" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/subscribe.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/subscribe.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Nuevo suscriptor</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="superFan" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/superfan.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/superfan.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Super fan</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="superFanJoin" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/superfan-join.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/superfan-join.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Super fan entrÃ³</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="follow" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/follow.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/follow.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Nuevo seguidor</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="emote" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/emote.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/emote.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Sticker / emote (ID)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="chatCommand" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/chat.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/chat.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Comando de chat (!video)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="firstMessage" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/firstmsg.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/firstmsg.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Primer mensaje en el chat (usuario)</span>
                     </button>
                     <button type="button" class="acc-trig-item" data-v="streamdeck" role="option" aria-selected="false">
-                      <span class="acc-trig-ic" aria-hidden="true"><img src="/img/trig/streamdeck.png?v=2" alt=""></span>
+                      <span class="acc-trig-ic" aria-hidden="true"><img loading="lazy" decoding="async" src="/img/trig/streamdeck.png?v=2" alt=""></span>
                       <span class="acc-trig-lbl">Stream Deck (webhook manual)</span>
                     </button>
                   </div>
@@ -7696,12 +7701,12 @@
             <div class="sov-layout">
               <div class="sov-main-col">
                 <div class="ovpro-urlrow">
-                  <code class="ov-url" data-path="/sorteos-vidas.html?v=sov5">/sorteos-vidas.html?v=sov5</code>
+                  <code class="ov-url" data-path="/sorteos-vidas.html?v=sov6">/sorteos-vidas.html?v=sov6</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
                 <div class="ovpro-preview sov-preview">
-                  <iframe id="sov-preview" data-src="/sorteos-vidas.html?embed=1&v=sov5" title="Vista previa sorteos vidas"></iframe>
+                  <iframe id="sov-preview" data-src="/sorteos-vidas.html?embed=1&v=sov6" title="Vista previa sorteos vidas"></iframe>
                 </div>
               </div>
 
@@ -7710,9 +7715,16 @@
                 <p class="sov-manage-sub">Solo tu ves esta lista. Suma o quita vidas; al agregar usa el <b>@ real</b> de TikTok.</p>
                 <div class="sov-add-row">
                   <input type="text" id="sov-add-user" class="sov-add-user" placeholder="@usuario TikTok" autocomplete="off" />
-                  <button type="button" class="ovpro-btn primary" id="sov-add-btn" title="Agregar 1 vida vinculada al @">+ Vida</button>
+                  <input type="number" id="sov-add-count" class="sov-add-count" min="1" max="999" value="1" title="Vidas a sumar" aria-label="Cantidad de vidas" />
+                  <button type="button" class="ovpro-btn primary" id="sov-add-btn" title="Agregar vidas vinculadas al @">+ Vidas</button>
                 </div>
                 <p class="sov-add-status" id="sov-add-status"></p>
+                <div class="sov-people-head">
+                  <span id="sov-total-lives">0 vidas</span>
+                  <span id="sov-total-players">0 personas</span>
+                </div>
+                <div class="sov-people-rows" id="sov-people-rows" aria-label="Lista participantes sorteos vidas"></div>
+                <p class="sov-people-empty" id="sov-people-empty">Sin participantes · Testear o agrega un @</p>
                 <div class="sov-bulk-row">
                   <label class="sov-bulk-lbl" for="sov-bulk-per">Eliminar por ronda</label>
                   <input type="number" id="sov-bulk-per" class="sov-bulk-target" min="1" max="100000" value="10" />
@@ -7722,12 +7734,6 @@
                   <input type="number" id="sov-bulk-target" class="sov-bulk-target" min="1" max="100000" value="50" />
                   <span class="sov-bulk-unit">vidas</span>
                 </div>
-                <div class="sov-people-head">
-                  <span id="sov-total-lives">0 vidas</span>
-                  <span id="sov-total-players">0 personas</span>
-                </div>
-                <div class="sov-people-rows" id="sov-people-rows" aria-label="Lista participantes sorteos vidas"></div>
-                <p class="sov-people-empty" id="sov-people-empty">Sin participantes · Testear o agrega un @</p>
               </div>
             </div>
           </div>
@@ -10720,7 +10726,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
-  <script src="/js/dashboard.js?v=livelock1"></script>
+  <script src="/js/dashboard.js?v=sov8"></script>
   <script src="/js/editor-rapido.js?v=er86"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

@@ -3956,7 +3956,7 @@ function makeLibPreviewFile(srcPath, kind) {
   const job = (async () => {
     const scale = 'scale=240:-2:flags=fast_bilinear';
     const vfPoster = scale + ',format=rgba';
-    const vfVideo = scale + ',fps=20,format=yuva420p';
+    const vfVideo = scale + ',fps=24,format=yuva420p';
     const decoders = [['-c:v', 'libvpx-vp9'], ['-c:v', 'libvpx'], []];
     const tries = [];
     for (const dec of decoders) {
@@ -3964,9 +3964,9 @@ function makeLibPreviewFile(srcPath, kind) {
         tries.push(['-y', ...dec, '-i', srcPath, '-ss', '1', '-an', '-vf', vfPoster, '-frames:v', '1', '-pix_fmt', 'rgba', '-c:v', 'png', outPath]);
         tries.push(['-y', ...dec, '-i', srcPath, '-an', '-vf', vfPoster, '-frames:v', '1', '-pix_fmt', 'rgba', '-c:v', 'png', outPath]);
       } else {
-        tries.push(['-y', ...dec, '-i', srcPath, '-an', '-vf', vfVideo, '-c:v', 'libvpx', '-pix_fmt', 'yuva420p',
-          '-auto-alt-ref', '0', '-deadline', 'realtime', '-cpu-used', '8', '-crf', '32', '-b:v', '350k', outPath]);
-        tries.push(['-y', ...dec, '-i', srcPath, '-an', '-vf', vfVideo, '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p',
+        tries.push(['-y', ...dec, '-i', srcPath, '-an', '-vf', vfVideo, '-r', '24', '-c:v', 'libvpx', '-pix_fmt', 'yuva420p',
+          '-auto-alt-ref', '0', '-deadline', 'realtime', '-cpu-used', '8', '-crf', '30', '-b:v', '450k', outPath]);
+        tries.push(['-y', ...dec, '-i', srcPath, '-an', '-vf', vfVideo, '-r', '24', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p',
           '-auto-alt-ref', '0', '-deadline', 'realtime', '-cpu-used', '8', '-row-mt', '1', '-crf', '34', '-b:v', '0', outPath]);
       }
     }
@@ -4347,24 +4347,44 @@ async function ttsTranslateMyMemory(text, source, target) {
 }
 
 function ttsLooksSpanish(text) {
-  const s = String(text || '');
+  const s = String(text || '').trim();
+  if (!s) return false;
   if (/[áéíóúñ¿¡ü]/i.test(s)) return true;
-  return /\b(hola|gracias|qué|que|por|para|una|unos|unas|los|las|como|pero|muy|este|esta|bueno|bien|también|ahora|sí|favor|amigo|canción)\b/i.test(s);
+  return /\b(hola|ola|gracias|qué|que|por|para|una|unos|unas|los|las|como|pero|muy|este|esta|bueno|buenos|buenas|dias|días|noches|bien|también|tambien|ahora|sí|si|favor|amigo|canción|cancion|jaja|jajaja|xd|ok|vale|genial|bro|wey|gente|saludos|noche|dia|calor|invierno|verano|pepino|conejo|zombie|ni|una|mas|más|eso|esa|son|estoy|estas|dice|dijo|bot|live|stream)\b/i.test(s);
 }
 function ttsLooksEnglish(text) {
-  const s = String(text || '');
-  if (ttsLooksSpanish(s)) return false;
-  return /\b(the|and|you|this|that|have|hello|thanks|please|what|with|from|just|like|love|good|night|morning)\b/i.test(s);
+  const s = String(text || '').trim();
+  if (!s || ttsLooksSpanish(s)) return false;
+  const words = s.split(/\s+/).filter((w) => /[a-z]/i.test(w));
+  if (words.length < 2) return false;
+  if (/^(good\s+(morning|night|bye)|thank\s+you|how\s+are\s+you|see\s+you|i\s+love\s+you)/i.test(s)) return true;
+  if (/\b(the|and|you|this|that|have|hello|thanks|please|what|with|from|just|like|love|good|because|don't|respond|why)\b/i.test(s)) {
+    const enHits = words.filter((w) => /^[a-z'-]+$/i.test(w) && !ttsLooksSpanish(w)).length;
+    return enHits >= Math.ceil(words.length * 0.75);
+  }
+  return false;
+}
+function ttsTranslationSanity(original, translated) {
+  const o = String(original || '').trim();
+  const t = String(translated || '').trim();
+  if (!t || t.toLowerCase() === o.toLowerCase()) return false;
+  if (/^MYMEMORY WARNING/i.test(t) || /QUERY LENGTH LIMIT/i.test(t)) return false;
+  if (o.length <= 12 && t.length > o.length * 2.5) return false;
+  if (o.length <= 4 && t.split(/\s+/).length > 2) return false;
+  return true;
 }
 async function ttsTranslateCached(text, source, target) {
   const src = String(text || '').trim();
   if (!src) return '';
-  const key = source + '|' + target + '|' + src.toLowerCase();
+  const key = 'v2|' + source + '|' + target + '|' + src.toLowerCase();
   const hit = ttsTranslateCacheGet(key);
-  if (hit) return hit;
+  if (hit && ttsTranslationSanity(src, hit)) return hit;
   const out = await ttsWithTimeout(ttsTranslateMyMemory(src, source, target), 2800).catch(() => '');
-  if (out && out.toLowerCase() !== src.toLowerCase()) ttsTranslateCacheSet(key, out);
-  return out || '';
+  if (ttsTranslationSanity(src, out)) {
+    ttsTranslateCacheSet(key, out);
+    return out;
+  }
+  return '';
 }
 function ttsEdgeFallbackVoice(tiktokVoice) {
   const v = String(tiktokVoice || '').toLowerCase();
@@ -4481,20 +4501,12 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
   let translated = false;
   let original = text;
   const isEnVoice = !isEdge && /^en[_-]/i.test(voice);
-  const isEsVoice = isEdge || /^es[_-]/i.test(voice);
   try {
     if (speakEs) {
-      // «Leer en español»: el personaje (Stitch, etc.) se queda; solo el texto va a español.
-      if (!ttsLooksSpanish(text)) {
-        const es = await ttsTranslateCached(text, 'en', 'es');
-        if (es) { text = es; translated = true; }
-      }
+      // «Leer en español»: leer el comentario tal cual (sin traducir ES→ES ni alucinar con MyMemory).
     } else if (isEnVoice && ttsLooksSpanish(text)) {
       const en = await ttsTranslateCached(text, 'es', 'en');
       if (en) { text = en; translated = true; }
-    } else if (isEsVoice && ttsLooksEnglish(text)) {
-      const es = await ttsTranslateCached(text, 'en', 'es');
-      if (es) { text = es; translated = true; }
     }
   } catch { /* si falla, hablamos el original */ }
 

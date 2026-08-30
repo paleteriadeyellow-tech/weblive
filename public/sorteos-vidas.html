@@ -13,9 +13,16 @@
     html, body {
       margin: 0; width: 100%; height: 100%; overflow: hidden;
       background: transparent !important;
-      font-family: 'DM Sans', system-ui, sans-serif; color: #fff;
+      font-family: 'DM Sans', 'Segoe UI', system-ui, sans-serif; color: #fff;
+      -webkit-font-smoothing: subpixel-antialiased;
+      text-rendering: geometricPrecision;
     }
     html.embed, html.embed body { display: flex; align-items: center; justify-content: center; }
+    html.live, html.live body { display: flex; align-items: center; justify-content: center; }
+    html.live .so-panel {
+      width: 720px;
+      max-width: 720px;
+    }
     .so-root {
       width: fit-content; max-width: 96vw;
       padding: 0; background: transparent; border: 0; box-shadow: none;
@@ -115,6 +122,12 @@
       display: flex; align-items: stretch; justify-content: stretch;
       box-shadow: 0 0 0 1px color-mix(in srgb, var(--so-frame) 40%, transparent), 0 0 30px color-mix(in srgb, var(--so-frame) 48%, transparent), 0 18px 44px rgba(0,0,0,.45), inset 0 0 42px color-mix(in srgb, var(--so-frame) 14%, transparent);
       backdrop-filter: blur(12px);
+    }
+    /* backdrop-filter emborrona texto WAITING en Live Studio / OBS */
+    .so-grid-wrap:has(.so-wait),
+    .so-grid-wrap.is-waiting {
+      backdrop-filter: none;
+      background: linear-gradient(145deg, color-mix(in srgb, var(--so-frame) 32%, #0c081c), #0a0c14 62%);
     }
     .so-grid { flex: 1; width: 100%; height: 100%; min-height: 0; display: grid; gap: 4px; }
     .so-grid.is-empty-state { display: flex; align-items: center; justify-content: center; }
@@ -229,7 +242,7 @@
     .so-stat::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; background: linear-gradient(90deg, transparent, var(--so-accent, #fff), transparent); opacity: .95; pointer-events: none; }
     .so-stat .lbl {
       display: inline-flex; align-items: center; justify-content: center; gap: 3px;
-      color: rgba(255,255,255,.88); font-size: clamp(11px, 2.2vmin, 14px); font-weight: 800;
+      color: rgba(255,255,255,.92); font-size: clamp(12px, 2.2vmin, 15px); font-weight: 800;
       letter-spacing: .04em; text-transform: uppercase; line-height: 1.1;
       width: 100%; text-shadow: 0 1px 6px rgba(0,0,0,.55);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -410,16 +423,18 @@
       50% { transform: translateY(-8px); }
     }
     .so-wait-title {
-      margin: 0; font-weight: 900; letter-spacing: .18em; text-transform: uppercase;
-      font-size: clamp(22px, 5.5vmin, 36px);
+      margin: 0; font-weight: 900; letter-spacing: .14em; text-transform: uppercase;
+      font-size: clamp(26px, 5.5vmin, 36px);
       color: #c4b5fd;
-      text-shadow: 0 0 22px rgba(167, 139, 250, .45);
+      text-shadow: 0 1px 0 rgba(0,0,0,.85), 0 0 18px rgba(167, 139, 250, .35);
     }
     .so-wait-sub {
       margin: 0; max-width: 90%;
-      font-weight: 600; font-size: clamp(13px, 2.8vmin, 17px);
-      color: rgba(241, 245, 249, .92);
+      font-weight: 700; font-size: clamp(16px, 3vmin, 20px);
+      line-height: 1.35;
+      color: rgba(248, 250, 252, .96);
       letter-spacing: .01em;
+      text-shadow: 0 1px 0 rgba(0,0,0,.9);
     }
     .so-vouch-pop {
       position: absolute; left: 50%; top: 42%; transform: translate(-50%, -40%) scale(.7);
@@ -968,35 +983,104 @@
     }
     function playerSummary() {
       return Object.values(players)
-        .filter((p) => p && ((p.lives > 0) || (p.bank > 0) || p.alive))
+        .filter((p) => p && Math.max(0, Number(p.lives) || 0) > 0)
         .map((p) => ({
           id: p.id,
+          userId: p.userId || '',
           name: p.name || p.id,
           pic: p.pic || '',
           lives: Math.max(0, Number(p.lives) || 0),
-          alive: !!p.alive && p.lives > 0,
+          alive: true,
           bank: Math.max(0, Number(p.bank) || 0),
           seq: Number(p.seq) || 0,
         }))
         .sort((a, b) => (a.seq - b.seq) || String(a.id).localeCompare(String(b.id)));
+    }
+    function pruneDeadPlayers() {
+      for (const id of Object.keys(players)) {
+        const p = players[id];
+        if (!p || Math.max(0, Number(p.lives) || 0) <= 0) delete players[id];
+      }
+    }
+    function ensureLifeSlotSync() {
+      const expected = Object.values(players).reduce((n, p) => {
+        if (!p || Math.max(0, Number(p.lives) || 0) <= 0) return n;
+        return n + Math.max(0, Number(p.lives) || 0);
+      }, 0);
+      if (lifeSlots.length !== expected) rebuildLifeSlotsFromPlayers();
     }
     function pushPlayersToPanel() {
       clearTimeout(playersPushTimer);
       playersPushTimer = setTimeout(() => {
         const list = playerSummary();
         const totalLives = lifeSeats().length;
+        const hud = {
+          phase,
+          timerLeft,
+          coinsInPlay,
+          entriesLocked,
+          vouchCount,
+        };
         try {
           // La preview (embed) no alimenta la lista del panel; solo el overlay en vivo vía WS.
           if (!isEmbed && window.parent && window.parent !== window) {
-            window.parent.postMessage({ kind: 'sorteosVidas', type: 'players', players: list, totalLives }, '*');
+            window.parent.postMessage({ kind: 'sorteosVidas', type: 'players', players: list, totalLives, hud }, '*');
           }
         } catch { /* ignore */ }
         try {
           if (ws && ws.readyState === 1) {
-            ws.send(JSON.stringify({ action: 'sorteosVidasPlayers', players: list, totalLives }));
+            ws.send(JSON.stringify({ action: 'sorteosVidasPlayers', players: list, totalLives, hud }));
           }
         } catch { /* ignore */ }
-      }, 80);
+      }, 150);
+    }
+    /** Preview del panel: refleja la ronda real del overlay OBS (solo embed). */
+    function applyMirrorSnapshot(snap) {
+      if (!isEmbed || !snap) return;
+      demoRaf = null;
+      const list = Array.isArray(snap.players) ? snap.players : [];
+      players = {};
+      lifeSlots = [];
+      slotSeq = 0;
+      playerSeq = 0;
+      const cost = Math.max(1, clamp(cfg.entryCost, 1, 1000000));
+      let maxSeq = 0;
+      list.forEach((row) => {
+        if (!row || !row.id) return;
+        const lives = Math.max(0, Number(row.lives) || 0);
+        if (lives <= 0) return;
+        const seq = Number(row.seq) || ++playerSeq;
+        maxSeq = Math.max(maxSeq, seq);
+        players[row.id] = {
+          id: row.id,
+          userId: row.userId || '',
+          name: row.name || row.id,
+          pic: row.pic || '',
+          lives,
+          bank: Math.max(0, Number(row.bank) || 0),
+          spent: lives * cost,
+          donated: lives * cost,
+          stakes: [],
+          alive: true,
+          lastChat: '',
+          lastVouch: '',
+          seq,
+        };
+        for (let i = 0; i < lives; i++) {
+          pushLifeSlot(players[row.id], cost);
+          players[row.id].stakes.push(cost);
+        }
+      });
+      playerSeq = maxSeq;
+      const hud = snap.hud && typeof snap.hud === 'object' ? snap.hud : {};
+      if (Number.isFinite(Number(hud.coinsInPlay))) coinsInPlay = Math.max(0, Number(hud.coinsInPlay));
+      else coinsInPlay = lifeSlots.reduce((n, s) => n + Math.max(1, Number(s.stake) || cost), 0);
+      if (typeof hud.phase === 'string') phase = hud.phase;
+      if (Number.isFinite(Number(hud.timerLeft))) timerLeft = Math.max(0, Number(hud.timerLeft));
+      if (typeof hud.entriesLocked === 'boolean') entriesLocked = hud.entriesLocked;
+      if (Number.isFinite(Number(hud.vouchCount))) vouchCount = Math.max(0, Number(hud.vouchCount));
+      renderGrid();
+      syncHud();
     }
     function manualGrantLife(d, count) {
       const dd = Object.assign({}, d || {});
@@ -1042,17 +1126,25 @@
       let removed = 0;
       for (let i = 0; i < n && p.lives > 0; i++) {
         const slot = lifeSlots.find((s) => s.id === p.id);
-        if (!slot) break;
-        const stake = removeLifeSlot(slot.slotId, id);
-        p.lives -= 1;
-        removed += 1;
-        const si = p.stakes.indexOf(stake);
-        if (si >= 0) p.stakes.splice(si, 1);
-        else p.stakes.shift();
-        coinsInPlay = Math.max(0, coinsInPlay - stake);
+        if (slot) {
+          const stake = removeLifeSlot(slot.slotId, id);
+          p.lives -= 1;
+          removed += 1;
+          const si = p.stakes.indexOf(stake);
+          if (si >= 0) p.stakes.splice(si, 1);
+          else p.stakes.shift();
+          coinsInPlay = Math.max(0, coinsInPlay - stake);
+        } else {
+          p.lives -= 1;
+          removed += 1;
+          if (p.stakes.length) p.stakes.shift();
+          coinsInPlay = Math.max(0, coinsInPlay - Math.max(1, Number(cfg.entryCost) || 1));
+        }
         if (p.lives <= 0) p.alive = false;
       }
       if (!removed) return false;
+      pruneDeadPlayers();
+      ensureLifeSlotSync();
       renderGrid();
       pushPlayersToPanel();
       if (tryDeclareSoleWinner()) return true;
@@ -1465,18 +1557,17 @@
       const showNick = shouldShowNicks(seats);
       grid.classList.toggle('show-nicks', showNick);
       grid.classList.toggle('so-few', showNick && seats.length <= 6);
-      seats.forEach((s) => {
+      seats.forEach((s, i) => {
         let cell = s.slotId ? bySlot.get(s.slotId) : null;
         if (!cell) {
           cell = makeCellEl(s, radius, showNick);
-          grid.appendChild(cell);
         } else {
           cell.style.borderRadius = radius + 'px';
           cell.dataset.id = s.id;
           cell.dataset.slot = s.slotId;
           paintCellLabels(cell, s, showNick);
-          grid.appendChild(cell);
         }
+        if (grid.children[i] !== cell) grid.insertBefore(cell, grid.children[i] || null);
       });
 
       syncHud();
@@ -1970,6 +2061,8 @@
         else p.stakes.shift();
         coinsInPlay = Math.max(0, coinsInPlay - stake);
         if (p.lives <= 0) p.alive = false;
+        pruneDeadPlayers();
+        ensureLifeSlotSync();
         clearSpinClasses();
         renderGrid();
         const after = lifeSeats();
@@ -2127,6 +2220,8 @@
         if (!byPlayer.has(p.id)) byPlayer.set(p.id, { p, count: 0 });
         byPlayer.get(p.id).count += 1;
       }
+      pruneDeadPlayers();
+      ensureLifeSlotSync();
       clearSpinClasses();
       document.querySelectorAll('.so-cell.is-pending-dead').forEach((c) => c.classList.remove('is-pending-dead'));
       renderGrid();
@@ -2368,6 +2463,10 @@
       applyRootScale();
     }
 
+    function snapScale(n) {
+      return Math.round(Math.max(0, Number(n) || 0) * 100) / 100;
+    }
+
     function applyRootScale() {
       const root = $('so-root');
       if (!root) return;
@@ -2377,7 +2476,7 @@
         return;
       }
       root.style.transformOrigin = 'top center';
-      root.style.transform = 'scale(' + user + ')';
+      root.style.transform = 'scale(' + snapScale(user) + ')';
       root.style.opacity = user <= 0 ? '0' : '';
     }
 
@@ -2575,45 +2674,47 @@
         runTest();
       }
       else if (d.type === 'reset') resetAll();
+      else if (d.type === 'mirror') applyMirrorSnapshot(d);
       else if (d.type === 'action') handleAction(d.action, d);
     });
 
     if (isEmbed) {
       document.documentElement.classList.add('embed');
-      const root = $('so-root');
-      let fitRaf = 0;
-      fitFn = () => {
-        if (!root) return;
-        const user = clamp(cfg.overlayScale == null ? 100 : cfg.overlayScale, 0, 140) / 100;
-        // Medir tamaño natural (sin scale). No tocar opacity: evita parpadeo en preview.
-        root.style.transform = 'none';
-        void root.offsetWidth;
-        const rw = Math.max(root.offsetWidth, 1);
-        const rh = Math.max(root.offsetHeight, 1);
-        const iw = Math.max(window.innerWidth, 1);
-        const ih = Math.max(window.innerHeight, 1);
-        const fit = Math.min(iw / (rw + 24), ih / (rh + 24), 1);
-        const scale = Math.max(0, fit * user);
-        root.style.transformOrigin = 'center center';
-        root.style.transform = 'scale(' + scale + ')';
-        root.style.opacity = user <= 0 ? '0' : '1';
-      };
-      const scheduleFit = () => {
-        cancelAnimationFrame(fitRaf);
-        fitRaf = requestAnimationFrame(() => { fitFn(); });
-      };
-      window.addEventListener('resize', scheduleFit);
-      try {
-        const ro = new ResizeObserver(scheduleFit);
-        ro.observe(document.documentElement);
-        // No observar root: el scale no cambia layout, y evita refits de más
-      } catch { /* older webviews */ }
-      // Pedir config al panel (a veces el postMessage inicial se pierde)
-      try { window.parent.postMessage({ kind: 'sorteosVidas', type: 'ready' }, '*'); } catch {}
-      setTimeout(scheduleFit, 50);
-      setTimeout(scheduleFit, 250);
-      setTimeout(scheduleFit, 600);
+    } else {
+      document.documentElement.classList.add('live');
     }
+    const root = $('so-root');
+    let fitRaf = 0;
+    fitFn = () => {
+      if (!root) return;
+      const user = clamp(cfg.overlayScale == null ? 100 : cfg.overlayScale, 0, 140) / 100;
+      root.style.transform = 'none';
+      void root.offsetWidth;
+      const rw = Math.max(root.offsetWidth, 1);
+      const rh = Math.max(root.offsetHeight, 1);
+      const iw = Math.max(window.innerWidth, 1);
+      const ih = Math.max(window.innerHeight, 1);
+      const fit = Math.min(iw / (rw + 24), ih / (rh + 24), 1);
+      const scale = snapScale(Math.max(0, fit * user));
+      root.style.transformOrigin = 'center center';
+      root.style.transform = scale === 1 ? 'none' : 'scale(' + scale + ')';
+      root.style.opacity = user <= 0 ? '0' : '1';
+    };
+    const scheduleFit = () => {
+      cancelAnimationFrame(fitRaf);
+      fitRaf = requestAnimationFrame(() => { fitFn(); });
+    };
+    window.addEventListener('resize', scheduleFit);
+    try {
+      const ro = new ResizeObserver(scheduleFit);
+      ro.observe(document.documentElement);
+    } catch { /* older webviews */ }
+
+    if (isEmbed) {
+      try { window.parent.postMessage({ kind: 'sorteosVidas', type: 'ready' }, '*'); } catch {}
+    }
+    setTimeout(scheduleFit, 50);
+    setTimeout(scheduleFit, 250);
     applyCfg(cfg);
     renderGrid();
     connectWS();

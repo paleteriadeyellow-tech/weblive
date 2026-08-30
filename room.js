@@ -8153,7 +8153,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const n = Math.max(1, Number(level) || 1);
     const url = getLevelVideo(n);
     if (!url) {
-      broadcast('log', { level: 'warn', text: `⚠️ No hay video para nivel ${n} (nivel${n}.webm en public/video/niveles).` });
+      broadcast('log', { level: 'warn', text: `⚠️ No hay video para nivel ${n} (nivel${n}.webm en carpeta niveles).` });
       return;
     }
     const scr = Math.max(1, Math.min(10, Number(screenOverride) || Number(cfg.screen) || 1));
@@ -12210,6 +12210,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('sorteosVidasPlayers', {
           players: data.players || [],
           totalLives: data.totalLives,
+          hud: data.hud || null,
         });
         break;
       case 'testSorteos':
