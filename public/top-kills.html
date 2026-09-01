@@ -752,6 +752,32 @@
     if (tpl === '{username}' && mode === 'nickname') tpl = '{nickname}';
     return fillTemplate(tpl, p);
   }
+  function playerHandle(p) {
+    return String(p?.username || p?.uniqueId || '').replace(/^@/, '').trim();
+  }
+  function avatarSrc(p) {
+    const h = playerHandle(p);
+    if (!h) return String(p?.avatar || '');
+    const av = String(p?.avatar || '');
+    if (av.startsWith('/api/tt-avatar') || av.startsWith('/uploads/')) return av;
+    return `/api/tt-avatar?user=${encodeURIComponent(h)}`;
+  }
+  function avatarInner(p) {
+    const h = playerHandle(p);
+    const src = avatarSrc(p);
+    if (!src) return '<div class="av-ph" aria-hidden="true"></div>';
+    const retry = h
+      ? ` onerror="this.onerror=null;this.src='/api/tt-avatar?user=${encodeURIComponent(h)}&refresh=1'"`
+      : '';
+    return `<img class="av" src="${esc(src)}" alt="" referrerpolicy="no-referrer"${retry}>`;
+  }
+  function normalizePlayerAvatars(players) {
+    (players || []).forEach((p) => {
+      if (!p || typeof p !== 'object') return;
+      const h = playerHandle(p);
+      if (h) p.avatar = avatarSrc(p);
+    });
+  }
   function mergeConfig(c) {
     if (!c || typeof c !== 'object') return;
     if (c.title != null) state.title = String(c.title).trim().slice(0, 48) || 'TOP KILLS';
@@ -770,6 +796,7 @@
       const clear = !!c.clearPlayers;
       if (clear || c.players.length > 0 || !state.players.length) {
         state.players = c.players;
+        normalizePlayerAvatars(state.players);
       }
       // Si viene [] sin clearPlayers y ya hay jugadores, conservar (evita flash vacío)
     }
@@ -802,9 +829,7 @@
       const st = rankStyle(i);
       const name = displayName(p);
       const sub = fillTemplate(state.subtitle || 'Lleva {kills} Kills', p);
-      const avInner = p.avatar
-        ? `<img class="av" src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer">`
-        : '<div class="av-ph" aria-hidden="true"></div>';
+      const avInner = avatarInner(p);
       const nameCls = ['name', st.bold ? 'bold' : '', st.italic ? 'italic' : ''].filter(Boolean).join(' ');
 
       if (skin === 'lista') {

@@ -1375,6 +1375,18 @@
             </div>
           </div>
 
+          <div id="playbackOptsVid" class="playback-opts-vid">
+            <div class="pbo-title">⚙️ Cola de videos</div>
+            <label class="pbo-row">
+              <input type="checkbox" id="opt-queue-vid" checked>
+              <span class="pbo-text"><b>Cola (no cortar)</b><small>Si llega otro video mientras uno suena, espera a que termine y luego reproduce el siguiente (uno tras otro).</small></span>
+            </label>
+            <label class="pbo-row">
+              <input type="checkbox" id="opt-combo-once-vid">
+              <span class="pbo-text"><b>Racha = 1</b><small>Si mandan una racha del mismo regalo (ej. 10 rosas), el video suena una sola vez.</small></span>
+            </label>
+          </div>
+
           <div id="videoCards" class="vid-cards-grid"></div>
         </section>
 
@@ -9684,6 +9696,14 @@
 
             <div class="mc-sub-head">
               <h3 class="mc-sub-title">Mis acciones agregadas</h3>
+              <div class="mc-preset-bar">
+                <label class="mc-preset-lbl" for="mc-preset-select">Preset</label>
+                <select id="mc-preset-select" class="mc-preset-select" title="Preset guardado de acciones"></select>
+                <button type="button" class="mc-img-btn mc-preset-new" id="mc-preset-new" title="Crear otro preset vacío">+ Nuevo preset</button>
+                <button type="button" class="mc-img-btn mc-preset-del" id="mc-preset-del" title="Eliminar preset actual">Borrar</button>
+                <button type="button" class="mc-img-btn mc-preset-share" id="mc-preset-share" title="Generar código para compartir este preset">Compartir código</button>
+                <button type="button" class="mc-img-btn mc-preset-import-code" id="mc-preset-import-code" title="Importar preset con código">Importar código</button>
+              </div>
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="mc-open-catalog">? Crear Acci?n</button>
                 <button type="button" class="mc-img-btn" id="mc-export-preset" title="Descarga tus acciones de Minecraft como un archivo de presets">?? Exportar presets</button>

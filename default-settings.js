@@ -70,16 +70,16 @@ export const DEFAULT_SETTINGS = {
   videosEnabled: true, // interruptor maestro "TODAS"
   // pantallas (Browser Sources separados): tamaño por pantalla
   screens: [
-    { id: 1, size: 100 },
-    { id: 2, size: 100 },
-    { id: 3, size: 100 },
-    { id: 4, size: 100 },
-    { id: 5, size: 100 },
-    { id: 6, size: 100 },
-    { id: 7, size: 100 },
-    { id: 8, size: 100 },
-    { id: 9, size: 100 },
-    { id: 10, size: 100 },
+    { id: 1, size: 100, volume: 100 },
+    { id: 2, size: 100, volume: 100 },
+    { id: 3, size: 100, volume: 100 },
+    { id: 4, size: 100, volume: 100 },
+    { id: 5, size: 100, volume: 100 },
+    { id: 6, size: 100, volume: 100 },
+    { id: 7, size: 100, volume: 100 },
+    { id: 8, size: 100, volume: 100 },
+    { id: 9, size: 100, volume: 100 },
+    { id: 10, size: 100, volume: 100 },
   ],
   // alertas sonoras: [{ id, name, giftName, minDiamonds, sound, soundName, image, volume, enabled }]
   soundAlerts: [],
@@ -1089,6 +1089,7 @@ export const DEFAULT_SETTINGS = {
   // Acciones del juego Minecraft (solo .exe): cada una vincula un comando RCON a un
   // regalo o evento del live. { uid, catId, name, desc, cmd, trigger, giftId, giftName, giftImage, enabled }
   mcActions: [],
+  mcPresetBanks: {},
   // Acciones de Minecraft Shooters: mismo RCON que Survival, lista aparte.
   mcshooterActions: [],
   // Coliseo Shooters: comando de chat (!entro) → zombie en coords fijas, cooldown global.
@@ -1146,6 +1147,23 @@ export function deepMerge(target, src) {
     }
   }
   return target;
+}
+
+/** Cola ON por defecto; solo OFF si el usuario la apagó explícitamente (_queueUserOff). */
+export function ensurePlaybackDefaults(s) {
+  if (!s || typeof s !== 'object') return s;
+  if (!s.playback || typeof s.playback !== 'object') {
+    s.playback = { playQueue: true, comboOnce: false };
+    return s;
+  }
+  if (s.playback.comboOnce == null) s.playback.comboOnce = false;
+  if (!s.playback._queueUserOff && s.playback.playQueue !== true) {
+    s.playback.playQueue = true;
+  }
+  if (s.playback.playQueue == null) {
+    s.playback.playQueue = !s.playback._queueUserOff;
+  }
+  return s;
 }
 
 /** True si hay al menos un regalo con nombre o imagen en la secuencia. */

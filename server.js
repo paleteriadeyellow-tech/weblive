@@ -14,7 +14,7 @@ import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import { createLiveLockStore } from './live-lock.js';
-import { ensureViewerAvatar, sendCachedAvatar } from './tt-avatar-cache.js';
+import { ensureViewerAvatar, sendCachedAvatar, findCachedAvatar, persistViewerAvatar } from './tt-avatar-cache.js';
 import { isEdgeTtsVoice, ttsSynthEdge, EDGE_EN_FALLBACK } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
 import { createStreamerRankings } from './streamer-rankings.js';
@@ -44,6 +44,7 @@ import * as spotify from './spotify.js';
 import { mountPaypalRoutes } from './paypal.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
 import { bootstrapUserMedia, registerUserUpload, userUploadKind, migrateUserMediaDir } from './scripts/user-media-guard.mjs';
+import { createMcPresetShare, fetchMcPresetShare } from './mc-preset-share.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -649,6 +650,7 @@ async function runLiveLock(userId, action, payload = {}) {
   const body = {
     deviceId: payload?.deviceId || '',
     username: payload?.username || '',
+    force: !!payload?.force,
   };
   if (AUTH_REMOTE) {
     const cookie = remoteCookies.get(userId);
@@ -675,7 +677,7 @@ async function runLiveLock(userId, action, payload = {}) {
   }
   if (act === 'claim') return liveLock.claim(userId, body.deviceId, body.username);
   if (act === 'heartbeat') return liveLock.heartbeat(userId, body.deviceId);
-  if (act === 'release') return liveLock.release(userId, body.deviceId);
+  if (act === 'release') return liveLock.release(userId, body.deviceId, { force: !!payload?.force });
   return { ok: true };
 }
 
@@ -1721,6 +1723,20 @@ app.post('/api/panel-lives/report', express.json({ limit: '8kb' }), async (req, 
   res.json(applyDesktopLiveReport(user, req.body || {}));
 });
 
+app.post('/api/mc-preset-share', express.json({ limit: '700kb' }), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'Inicia sesión para compartir presets.' });
+  const out = createMcPresetShare(DATA_DIR, req.body, { by: user.username || user.id || '' });
+  if (out.error) return res.status(400).json({ error: out.error });
+  res.json(out);
+});
+
+app.get('/api/mc-preset-share/:code', async (req, res) => {
+  const out = fetchMcPresetShare(DATA_DIR, req.params.code);
+  if (out.error) return res.status(404).json({ error: out.error });
+  res.json(out);
+});
+
 app.post('/api/panel-lives/report-key', express.json({ limit: '8kb' }), async (req, res) => {
   const key = String(req.body?.roomKey || '').trim();
   if (!key) return res.status(400).json({ error: 'falta roomKey' });
@@ -1871,6 +1887,31 @@ function extractTikTokUserAvatar(user) {
     || String(user.profilePictureUrl || user.profile_picture_url || '').trim();
 }
 
+function avatarDataDirForUser(userId) {
+  return userId ? path.join(DATA_DIR, userId) : null;
+}
+
+function avatarDataDirFromRequest(req) {
+  const authUser = userFromRequest(req);
+  if (authUser) return avatarDataDirForUser(authUser.id);
+  const key = String(req.query.room || req.query.roomKey || '').trim();
+  if (key) {
+    const u = getUserByRoomKey(key);
+    if (u) return avatarDataDirForUser(u.id);
+  }
+  if (IS_DESKTOP && rooms.size === 1) {
+    const [uid] = rooms.keys();
+    return avatarDataDirForUser(uid);
+  }
+  return null;
+}
+
+function ttAvatarPublicUrl(username) {
+  const u = String(username || '').replace(/^@/, '').trim();
+  if (!u) return '';
+  return `/api/tt-avatar?user=${encodeURIComponent(u)}`;
+}
+
 let tkAvatarActive = 0;
 const tkAvatarWait = [];
 async function fetchTikTokAvatarByUsername(username) {
@@ -1934,18 +1975,58 @@ app.get('/api/tiktok-profile', async (req, res) => {
       } catch { /* ignore */ }
     }
 
-    if (!avatar) return res.status(404).json({ error: 'No se encontró foto de perfil' });
+    if (!avatar) avatar = await fetchTikTokAvatarByUsername(username);
+
     const unique = String(user.uniqueId || username).replace(/^@/, '');
+    const dataDir = avatarDataDirFromRequest(req);
+
+    if (!avatar && dataDir) {
+      const hit = findCachedAvatar(dataDir, unique);
+      if (hit) {
+        return res.json({
+          username: unique,
+          nickname: nickname || unique,
+          profileUrl: `https://www.tiktok.com/@${unique}`,
+          avatar: ttAvatarPublicUrl(unique),
+          userId: String(user.id || user.userId || user.user_id || '').trim(),
+        });
+      }
+    }
+
+    if (!avatar) return res.status(404).json({ error: 'No se encontró foto de perfil' });
+    if (dataDir) {
+      try { await persistViewerAvatar(dataDir, unique, avatar); } catch { /* ignore */ }
+    }
     res.json({
       username: unique,
       nickname: nickname || unique,
       profileUrl: `https://www.tiktok.com/@${unique}`,
-      avatar,
+      avatar: dataDir ? ttAvatarPublicUrl(unique) : avatar,
       userId: String(user.id || user.userId || user.user_id || '').trim(),
     });
   } catch (e) {
     res.status(502).json({ error: e?.message || 'No se pudo obtener el perfil' });
   }
+});
+
+app.get('/api/tt-avatar', async (req, res) => {
+  const username = parseTikTokUsernameInput(req.query.user || req.query.url || '');
+  if (!username) return res.status(400).end('bad user');
+  const dataDir = avatarDataDirFromRequest(req);
+  if (!dataDir) return res.status(404).end('no avatar');
+  res.set('Access-Control-Allow-Origin', '*');
+  const refresh = String(req.query.refresh || '') === '1';
+  try {
+    let cached = !refresh ? findCachedAvatar(dataDir, username) : null;
+    if (!cached) {
+      cached = await ensureViewerAvatar(dataDir, username, {
+        refresh,
+        lookupTikTok: fetchTikTokAvatarByUsername,
+      });
+    }
+    if (cached && sendCachedAvatar(res, cached)) return;
+  } catch { /* fall through */ }
+  res.status(404).end('no avatar');
 });
 
 app.get('/api/user-avatar', async (req, res) => {
@@ -2405,7 +2486,10 @@ app.post('/api/desktop/disconnect-live', express.json(), async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
   try {
-    const data = await relayRoomActionToRemote(user.id, 'disconnect', {});
+    const data = await relayRoomActionToRemote(user.id, 'disconnect', {
+      deviceId: String(req.body?.deviceId || ''),
+      force: req.body?.force !== false,
+    });
     res.json(data);
   } catch (e) {
     res.status(502).json({ error: e.message || 'sin conexión con la nube' });
@@ -2428,6 +2512,12 @@ app.post('/api/room/disconnect', express.json(), (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
   const room = getRoomForUser(user);
+  if (req.body?.deviceId) {
+    room.handleMessage(null, { action: 'ping', deviceId: String(req.body.deviceId) });
+  }
+  if (req.body?.force !== false) {
+    runLiveLock(user.id, 'release', { deviceId: req.body?.deviceId || '', force: true }).catch(() => {});
+  }
   room.handleMessage(null, { action: 'disconnect' });
   res.json({ ok: true });
 });

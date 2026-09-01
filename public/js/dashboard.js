@@ -1633,11 +1633,15 @@ function ensureScreens() {
   const byId = new Map();
   for (const s of prev) {
     const id = clampScreenId(s?.id);
-    if (!byId.has(id)) byId.set(id, { id, size: Math.max(10, Math.min(100, Number(s?.size) || 100)) });
+    if (!byId.has(id)) byId.set(id, {
+      id,
+      size: Math.max(10, Math.min(100, Number(s?.size) || 100)),
+      volume: Math.max(0, Math.min(100, Number(s?.volume ?? 100))),
+    });
   }
   const next = [];
   for (let i = 1; i <= SCREEN_COUNT; i++) {
-    next.push(byId.get(i) || { id: i, size: 100 });
+    next.push(byId.get(i) || { id: i, size: 100, volume: 100 });
   }
   settings.screens = next;
   return settings.screens;
@@ -2477,7 +2481,7 @@ let panelSoundBusy = false;
 
 function playPanelSound(s) {
   if (!s?.sound) return;
-  const queueOn = settings?.playback?.playQueue !== false;
+  const queueOn = settings?.playback?.playQueue !== false && s.playQueue !== false && !s.webhookToggle;
   if (!queueOn) { startPanelSound(s, null); return; }
   panelSoundQueue.push(s);
   pumpPanelSound();
@@ -4845,7 +4849,11 @@ async function relayConnectHttp(username) {
 }
 
 async function relayDisconnectHttp() {
-  const r = await fetch('/api/desktop/disconnect-live', { method: 'POST' });
+  const r = await fetch('/api/desktop/disconnect-live', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceId: liveDeviceId(), force: true }),
+  });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.error || 'No se pudo desconectar');
   return d;
@@ -4998,16 +5006,53 @@ $('clearChat').onclick = () => {
 };
 
 /* ====================== Opciones de reproducción ====================== */
-if ($('opt-queue')) $('opt-queue').addEventListener('change', () => {
-  if (!settings.playback) settings.playback = {};
-  settings.playback.playQueue = $('opt-queue').checked;
+function syncPlaybackQueueUI() {
+  const on = settings.playback?.playQueue !== false;
+  const combo = !!settings.playback?.comboOnce;
+  if ($('opt-queue')) $('opt-queue').checked = on;
+  if ($('opt-queue-vid')) $('opt-queue-vid').checked = on;
+  if ($('opt-combo-once')) $('opt-combo-once').checked = combo;
+  if ($('opt-combo-once-vid')) $('opt-combo-once-vid').checked = combo;
+}
+function ensurePlaybackDefaultsLocal(s) {
+  if (!s || typeof s !== 'object') return false;
+  let changed = false;
+  if (!s.playback || typeof s.playback !== 'object') {
+    s.playback = { playQueue: true, comboOnce: false };
+    return true;
+  }
+  if (s.playback.comboOnce == null) {
+    s.playback.comboOnce = false;
+    changed = true;
+  }
+  if (!s.playback._queueUserOff && s.playback.playQueue !== true) {
+    s.playback.playQueue = true;
+    changed = true;
+  }
+  if (s.playback.playQueue == null) {
+    s.playback.playQueue = !s.playback._queueUserOff;
+    changed = true;
+  }
+  return changed;
+}
+function setPlaybackQueue(on) {
+  if (!settings.playback) settings.playback = { playQueue: true, comboOnce: false };
+  settings.playback.playQueue = !!on;
+  if (on) delete settings.playback._queueUserOff;
+  else settings.playback._queueUserOff = true;
+  syncPlaybackQueueUI();
   saveSettings();
-});
-if ($('opt-combo-once')) $('opt-combo-once').addEventListener('change', () => {
-  if (!settings.playback) settings.playback = {};
-  settings.playback.comboOnce = $('opt-combo-once').checked;
+}
+function setPlaybackComboOnce(on) {
+  if (!settings.playback) settings.playback = { playQueue: true, comboOnce: false };
+  settings.playback.comboOnce = !!on;
+  syncPlaybackQueueUI();
   saveSettings();
-});
+}
+if ($('opt-queue')) $('opt-queue').addEventListener('change', () => setPlaybackQueue($('opt-queue').checked));
+if ($('opt-queue-vid')) $('opt-queue-vid').addEventListener('change', () => setPlaybackQueue($('opt-queue-vid').checked));
+if ($('opt-combo-once')) $('opt-combo-once').addEventListener('change', () => setPlaybackComboOnce($('opt-combo-once').checked));
+if ($('opt-combo-once-vid')) $('opt-combo-once-vid').addEventListener('change', () => setPlaybackComboOnce($('opt-combo-once-vid').checked));
 
 /* ====================== Temporizador ====================== */
 let tmrRemaining = 0, tmrRunning = false, tmrLocalTick = null;
@@ -5361,6 +5406,7 @@ function profileSaveMeta() {
 }
 function saveSettings() {
   if (applyingSettings) return;
+  try { syncAllMcPresetsFromActions(); } catch {}
   try { window.__lcPendingTouchedKeys = null; } catch {}
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => {
@@ -5505,13 +5551,15 @@ function onSettings(s, touchedKeys) {
   }
   try { window.__lcPendingTouchedKeys = null; } catch {}
   try {
-    settings = preserveLocalSpotifyOnSettingsEcho(preserveLocalBailePeopleOnSettingsEcho(preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s))))));
+    settings = preserveLocalSpotifyOnSettingsEcho(preserveLocalBailePeopleOnSettingsEcho(preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalMcPresetBanksOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s)))))));
   } catch (err) {
     console.error('[settings] preserve', err);
     settings = s;
   }
   if (!settings || typeof settings !== 'object') return;
   try {
+  try { reconcileMcPresetBanks(touchedKeys); } catch (err) { console.error('[mcPreset]', err); }
+  if (ensurePlaybackDefaultsLocal(settings)) saveSettings();
   if (migrateAccionesSpawnWebhooks(settings.actions)) saveSettings();
   normalizeRelayMedia(settings);
   ['toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'topStreak'].forEach((k) => {
@@ -5671,8 +5719,7 @@ function applySettingsToUI(touchedKeys) {
 
   if (has('playback')) {
     if (!settings.playback) settings.playback = { playQueue: true, comboOnce: false };
-    if ($('opt-queue')) $('opt-queue').checked = settings.playback.playQueue !== false;
-    if ($('opt-combo-once')) $('opt-combo-once').checked = !!settings.playback.comboOnce;
+    syncPlaybackQueueUI();
   }
 
   if (hasAny('timer', 'liveTimer')) applyTimerSettingsUI();
@@ -5742,6 +5789,9 @@ function applySettingsToUI(touchedKeys) {
   if (has('webhook') && typeof applyWebhookUI === 'function') applyWebhookUI();
   if (has('actions') && typeof renderAcciones === 'function') renderAcciones();
   if (has('mcActions') && typeof renderMyMcActions === 'function') renderMyMcActions();
+  if (has('mcPresetBanks') || hasAny('mcActions', 'parkourActions', 'kothActions', 'farmActions', 'mcshooterActions', 'bedrockActions', 'sandboxActions')) {
+    try { refreshAllMcPresetBars(); } catch {}
+  }
 }
 
 /* ====================== Videos (pantallas múltiples) ====================== */
@@ -5867,6 +5917,7 @@ function renderScreens() {
         <button type="button" class="test">Probar</button>
       </div>
       <div class="screen-size"><span>Tamaño <b>${s.size}%</b></span><input type="range" min="10" max="100" value="${s.size}" aria-label="Tamaño pantalla ${s.id}"></div>
+      <div class="screen-vol"><span>Volumen <b>${s.volume ?? 100}%</b></span><input type="range" min="0" max="100" value="${s.volume ?? 100}" aria-label="Volumen pantalla ${s.id}"></div>
     </div>`;
   }).join('');
 
@@ -5886,8 +5937,14 @@ function renderScreens() {
       setTimeout(() => (e.target.textContent = 'Copiar link'), 1200);
     };
     card.querySelector('.test').onclick = () => send({ action: 'testScreen', screen: id });
-    const range = card.querySelector('input');
+    const range = card.querySelector('.screen-size input');
     range.oninput = () => { s.size = +range.value; card.querySelector('.screen-size b').textContent = s.size + '%'; saveSettingsKeysPatch('screens'); };
+    const volRange = card.querySelector('.screen-vol input');
+    volRange.oninput = () => {
+      s.volume = +volRange.value;
+      card.querySelector('.screen-vol b').textContent = s.volume + '%';
+      saveSettingsKeysPatch('screens');
+    };
   });
 }
 
@@ -6628,6 +6685,14 @@ function saveSettingsKeysPatch(...keysAndOpts) {
         patch.battleAlertsEnabled = settings.battleAlertsEnabled !== false;
       } else if (Object.prototype.hasOwnProperty.call(settings, k) || settings[k] != null) {
         patch[k] = settings[k];
+      }
+    }
+    const mcKeys = typeof mcPresetActionKeys === 'function' ? mcPresetActionKeys() : [];
+    if (mcKeys.some((k) => touched.includes(k))) {
+      try { syncAllMcPresetsFromActions(); } catch {}
+      if (settings.mcPresetBanks) {
+        patch.mcPresetBanks = settings.mcPresetBanks;
+        if (!touched.includes('mcPresetBanks')) touched.push('mcPresetBanks');
       }
     }
     settingsKeysSavePending.clear();
@@ -14562,12 +14627,41 @@ function ensureTopKillsCfg() {
       return true;
     });
   }
+  tkNormalizePlayerAvatars(c);
   if (!Array.isArray(c.rankStyles) || c.rankStyles.length !== TK_MAX_RANKS) {
     const base = (c.rankStyles || []).slice();
     while (base.length < TK_MAX_RANKS) base.push({ ...(TK_DEFAULT_RANKS[base.length] || TK_DEFAULT_RANK) });
     c.rankStyles = base.slice(0, TK_MAX_RANKS).map((r, i) => ({ ...(TK_DEFAULT_RANKS[i] || TK_DEFAULT_RANK), ...(r || {}) }));
   }
   return c;
+}
+
+function tkPlayerHandle(p) {
+  return String(p?.username || p?.uniqueId || '').replace(/^@/, '').trim();
+}
+
+function tkStableAvatarUrl(p) {
+  const h = tkPlayerHandle(p);
+  if (!h) return String(p?.avatar || '');
+  const av = String(p?.avatar || '');
+  if (av.startsWith('/api/tt-avatar') || av.startsWith('/uploads/')) return av;
+  return `/api/tt-avatar?user=${encodeURIComponent(h)}`;
+}
+
+function tkNormalizePlayerAvatars(cfg) {
+  (cfg?.players || []).forEach((p) => {
+    if (!p || typeof p !== 'object') return;
+    const h = tkPlayerHandle(p);
+    if (h) p.avatar = tkStableAvatarUrl(p);
+  });
+}
+
+function tkAvatarImgHtml(p) {
+  const h = tkPlayerHandle(p);
+  const src = tkStableAvatarUrl(p);
+  if (!src) return '<span class="tk-av-ph" aria-hidden="true"></span>';
+  const retry = h ? ` onerror="this.onerror=null;this.src='/api/tt-avatar?user=${encodeURIComponent(h)}&amp;refresh=1'"` : '';
+  return `<img class="tk-av" src="${esc(src)}" alt="" referrerpolicy="no-referrer"${retry}>`;
 }
 
 function tkNewPlayer(partial) {
@@ -14778,11 +14872,16 @@ function refreshTopKills() {
     const query = handle ? ('@' + handle) : q;
     const prof = await resolveFlwTiktokProfile(query);
     if (prof?.error) {
-      p.avatar = '';
       if (handle) {
         p.username = handle;
         p.uniqueId = handle;
         if (!p.nickname) p.nickname = handle;
+        p.avatar = `/api/tt-avatar?user=${encodeURIComponent(handle)}`;
+      } else {
+        p.avatar = '';
+        p.username = '';
+        p.nickname = '';
+        p.uniqueId = '';
       }
       return;
     }
@@ -14790,7 +14889,7 @@ function refreshTopKills() {
       p.username = prof.username || p.username || handle;
       p.uniqueId = prof.username || p.uniqueId || handle;
       p.nickname = prof.nickname || prof.username || p.nickname || handle;
-      p.avatar = prof.avatar || '';
+      p.avatar = tkStableAvatarUrl({ ...p, avatar: prof.avatar || '' });
     }
   }
 
@@ -14803,6 +14902,13 @@ function refreshTopKills() {
       img.src = avatarUrl;
       img.alt = '';
       img.referrerPolicy = 'no-referrer';
+      const h = String(avatarUrl).match(/[?&]user=([^&]+)/)?.[1];
+      if (h) {
+        img.onerror = () => {
+          img.onerror = null;
+          img.src = `/api/tt-avatar?user=${decodeURIComponent(h)}&refresh=1`;
+        };
+      }
       oldAv.replaceWith(img);
     } else if (!oldAv.classList.contains('tk-av-ph')) {
       const ph = document.createElement('span');
@@ -14848,7 +14954,7 @@ function refreshTopKills() {
       window.renderTopKillsRows();
       return;
     }
-    setRowAvatar(row, p.avatar);
+    setRowAvatar(row, tkStableAvatarUrl(p));
     if (document.activeElement !== nameInp && p.username) {
       nameInp.value = '@' + String(p.username).replace(/^@/, '');
     }
@@ -14868,9 +14974,7 @@ function refreshTopKills() {
       const st = tkRankStyle(cfg, i);
       const nameVal = p ? (p.username ? '@' + String(p.username).replace(/^@/, '') : (p.nickname || '')) : '';
       const kills = p ? (p.kills | 0) : 0;
-      const av = p?.avatar
-        ? `<img class="tk-av" src="${esc(p.avatar)}" alt="" referrerpolicy="no-referrer">`
-        : '<span class="tk-av-ph" aria-hidden="true"></span>';
+      const av = p ? tkAvatarImgHtml(p) : '<span class="tk-av-ph" aria-hidden="true"></span>';
       return `<div class="tk-row" data-rank="${i}" data-id="${esc(p?.id || '')}" style="--tk-row-bg:${esc(st.bg)};--tk-swatch:${esc(st.bg)}">
         <span class="tk-rank">#${i + 1}</span>
         ${av}
@@ -18726,6 +18830,8 @@ function accShowEventChip(a) {
 function accObsChipText(ob) {
   const t = ob?.type || 'scene';
   const lbl = ACC_OBS_LABELS[t] || t;
+  const needsSource = t === 'toggleSource' || t === 'showSource' || t === 'hideSource';
+  if (needsSource && ob?.scene && ob?.source) return `${lbl}: ${ob.scene} → ${ob.source}`;
   const detail = ob?.source || ob?.scene || '';
   return detail ? `${lbl}: ${detail}` : lbl;
 }
@@ -19494,10 +19600,16 @@ function bindTrigSelectGrid(gridId, selectId) {
 // Muestra los campos de escena/fuente según el tipo de comando de OBS elegido.
 function applyObsCmdExtras() {
   const t = $('acc-obs-type') ? $('acc-obs-type').value : 'scene';
-  const needsScene = t === 'scene';
   const needsSource = t === 'toggleSource' || t === 'showSource' || t === 'hideSource';
+  const needsScene = t === 'scene' || needsSource;
   if ($('acc-obs-scenewrap')) $('acc-obs-scenewrap').hidden = !needsScene;
   if ($('acc-obs-sourcewrap')) $('acc-obs-sourcewrap').hidden = !needsSource;
+  const sceneIn = $('acc-obs-scene');
+  if (sceneIn) {
+    sceneIn.placeholder = needsSource
+      ? 'Nombre exacto de la escena (ej. LIVE BATALLAS)'
+      : 'Nombre exacto de la escena';
+  }
 }
 
 function readAccWebhookCmd() {
@@ -19856,6 +19968,21 @@ function saveAccModal() {
   if (gifShow.on && !gifShow.url) {
     $('acc-status').textContent = 'Elige una imagen o GIF.';
     return;
+  }
+  if (obsCmd.on) {
+    const ot = obsCmd.type || 'scene';
+    if (ot === 'scene' && !obsCmd.scene) {
+      $('acc-status').textContent = 'Escribe el nombre exacto de la escena en OBS.';
+      return;
+    }
+    if ((ot === 'toggleSource' || ot === 'showSource' || ot === 'hideSource') && !obsCmd.source) {
+      $('acc-status').textContent = 'Escribe el nombre exacto de la fuente en OBS.';
+      return;
+    }
+    if ((ot === 'toggleSource' || ot === 'showSource' || ot === 'hideSource') && !obsCmd.scene) {
+      $('acc-status').textContent = 'Escribe la escena donde está la fuente (ej. LIVE BATALLAS).';
+      return;
+    }
   }
   if (!keys && !hasOutput && !hasMedia && !hasTts && !hasAlert && !hasAnim) {
     $('acc-status').textContent = 'Elige una tecla/clic, un texto TTS, una alerta, una animación, un medio o activa una salida (WebHook, OBS o Streamer.bot).';
@@ -23739,6 +23866,22 @@ function preserveLocalGameActionsOnSettingsEcho(incoming) {
   }
   return out;
 }
+function mcPresetCloneBanks(banks) {
+  try { return JSON.parse(JSON.stringify(banks)); } catch { return banks; }
+}
+function mcPresetActionKeys() {
+  return Object.values(MC_GAME_MAP || {}).map((g) => g.key);
+}
+function preserveLocalMcPresetBanksOnSettingsEcho(incoming) {
+  if (!incoming || !settings) return incoming;
+  const local = settings.mcPresetBanks;
+  if (!local || typeof local !== 'object' || !Object.keys(local).length) return incoming;
+  const inc = incoming.mcPresetBanks;
+  const incEmpty = !inc || typeof inc !== 'object' || !Object.keys(inc).length;
+  const recentEdit = Date.now() - lastGameActionEditAt <= GAME_ACTION_EDIT_ECHO_MS;
+  if (incEmpty || recentEdit) return { ...incoming, mcPresetBanks: mcPresetCloneBanks(local) };
+  return incoming;
+}
 function removeGameActions(settingsKey, keepFn, renderFn) {
   const list = settings?.[settingsKey];
   if (!Array.isArray(list)) return;
@@ -23943,6 +24086,7 @@ function setupMcActionsUI() {
   }
   wireGameToggleAllButton('mc-toggle-all', () => (settings && Array.isArray(settings.mcActions)) ? settings.mcActions : [], renderMyMcActions, 'mcActions');
   wireMcCmdModalOnce();
+  wireMcPresetBar('minecraft');
   renderMcCatalog(search ? search.value : '');
   renderMyMcActions();
 }
@@ -23974,6 +24118,354 @@ const MC_GAME_MAP = {
   bedrock: { key: 'bedrockActions', wrapId: 'bedrock-my-actions', label: 'Bedrock', render: () => renderMyBedrockActions() },
   sandbox: { key: 'sandboxActions', wrapId: 'sandbox-my-actions', label: 'Sandbox', render: () => renderMySandboxActions() },
 };
+
+function mcPresetUiPrefix(game) {
+  return game === 'minecraft' ? 'mc' : game;
+}
+
+function mcPresetCloneActions(list) {
+  try { return JSON.parse(JSON.stringify(Array.isArray(list) ? list : [])); }
+  catch { return []; }
+}
+
+function newMcPresetId() {
+  return 'mcbnk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function mcPresetHasData(bank) {
+  return !!(bank && Array.isArray(bank.presets) && bank.presets.length);
+}
+
+function ensureMcPresetBank(game) {
+  if (!settings) return null;
+  const meta = MC_GAME_MAP[game];
+  if (!meta) return null;
+  if (!settings.mcPresetBanks || typeof settings.mcPresetBanks !== 'object') settings.mcPresetBanks = {};
+  let bank = settings.mcPresetBanks[game];
+  const actions = Array.isArray(settings[meta.key]) ? settings[meta.key] : [];
+  if (mcPresetHasData(bank)) {
+    if (!bank.activeId || !bank.presets.some((p) => p && p.id === bank.activeId)) bank.activeId = bank.presets[0].id;
+    return bank;
+  }
+  const id = (bank && bank.activeId) || newMcPresetId();
+  bank = { activeId: id, presets: [{ id, name: 'Preset 1', actions: mcPresetCloneActions(actions) }] };
+  settings.mcPresetBanks[game] = bank;
+  return bank;
+}
+
+function syncMcPresetFromActions(game) {
+  const bank = ensureMcPresetBank(game);
+  const meta = MC_GAME_MAP[game];
+  if (!bank || !meta) return;
+  const active = bank.presets.find((p) => p && p.id === bank.activeId);
+  if (!active) return;
+  active.actions = mcPresetCloneActions(settings[meta.key]);
+}
+
+function syncAllMcPresetsFromActions() {
+  if (!settings || !MC_GAME_MAP) return;
+  for (const game of Object.keys(MC_GAME_MAP)) syncMcPresetFromActions(game);
+}
+
+function activateMcPresetRuntime(game) {
+  const bank = settings.mcPresetBanks?.[game];
+  const meta = MC_GAME_MAP[game];
+  if (!meta || !mcPresetHasData(bank)) return;
+  const active = bank.presets.find((p) => p && p.id === bank.activeId) || bank.presets[0];
+  if (!active) return;
+  bank.activeId = active.id;
+  settings[meta.key] = mcPresetCloneActions(active.actions);
+}
+
+function restoreMcActionsFromActivePresetIfNeeded(game) {
+  const meta = MC_GAME_MAP[game];
+  const bank = settings.mcPresetBanks?.[game];
+  if (!meta || !mcPresetHasData(bank)) return;
+  const active = bank.presets.find((p) => p && p.id === bank.activeId) || bank.presets[0];
+  if (!active) return;
+  const live = Array.isArray(settings[meta.key]) ? settings[meta.key] : [];
+  const saved = Array.isArray(active.actions) ? active.actions : [];
+  if (!live.length && saved.length) settings[meta.key] = mcPresetCloneActions(saved);
+}
+
+function refreshMcPresetBar(game) {
+  const prefix = mcPresetUiPrefix(game);
+  const sel = document.getElementById(prefix + '-preset-select');
+  const delBtn = document.getElementById(prefix + '-preset-del');
+  if (!sel) return;
+  const bank = ensureMcPresetBank(game);
+  if (!bank) return;
+  sel.innerHTML = bank.presets.map((p) => `<option value="${esc(p.id)}">${esc(p.name || 'Preset')}</option>`).join('');
+  sel.value = bank.activeId;
+  if (delBtn) delBtn.disabled = bank.presets.length <= 1;
+}
+
+function refreshAllMcPresetBars() {
+  for (const game of Object.keys(MC_GAME_MAP)) refreshMcPresetBar(game);
+}
+
+function loadMcPresetActions(game, presetId) {
+  const bank = ensureMcPresetBank(game);
+  const meta = MC_GAME_MAP[game];
+  if (!bank || !meta || !presetId || presetId === bank.activeId) return false;
+  const preset = bank.presets.find((p) => p && p.id === presetId);
+  if (!preset) return false;
+  syncMcPresetFromActions(game);
+  bank.activeId = presetId;
+  settings[meta.key] = mcPresetCloneActions(preset.actions);
+  meta.render();
+  refreshMcPresetBar(game);
+  saveSettings();
+  return true;
+}
+
+function createMcPreset(game) {
+  const bank = ensureMcPresetBank(game);
+  const meta = MC_GAME_MAP[game];
+  if (!bank || !meta) return;
+  syncMcPresetFromActions(game);
+  const n = bank.presets.length + 1;
+  const id = newMcPresetId();
+  const name = 'Preset ' + n;
+  bank.presets.push({ id, name, actions: [] });
+  bank.activeId = id;
+  settings[meta.key] = [];
+  meta.render();
+  refreshMcPresetBar(game);
+  saveSettings();
+  toast && toast('Creado ' + name + '.', 'ok');
+}
+
+async function deleteMcPreset(game) {
+  const bank = ensureMcPresetBank(game);
+  const meta = MC_GAME_MAP[game];
+  if (!bank || !meta) return;
+  if (bank.presets.length <= 1) {
+    toast && toast('Debe quedar al menos un preset.', 'warn');
+    return;
+  }
+  const idx = bank.presets.findIndex((p) => p && p.id === bank.activeId);
+  const active = idx >= 0 ? bank.presets[idx] : bank.presets[0];
+  const ok = await askConfirm({
+    title: 'Eliminar preset',
+    message: `¿Borrar «${esc(active.name || 'Preset')}»? Sus acciones se perderán.`,
+    confirmText: 'Eliminar',
+  });
+  if (!ok) return;
+  window.__mcPresetUserDeleteConfirm = true;
+  try {
+    bank.presets.splice(idx >= 0 ? idx : 0, 1);
+  } finally {
+    window.__mcPresetUserDeleteConfirm = false;
+  }
+  const next = bank.presets[Math.min(idx >= 0 ? idx : 0, bank.presets.length - 1)];
+  bank.activeId = next.id;
+  settings[meta.key] = mcPresetCloneActions(next.actions);
+  meta.render();
+  refreshMcPresetBar(game);
+  saveSettings();
+  toast && toast('Preset eliminado.', 'ok');
+}
+
+function wireMcPresetBar(game) {
+  const prefix = mcPresetUiPrefix(game);
+  const sel = document.getElementById(prefix + '-preset-select');
+  const newBtn = document.getElementById(prefix + '-preset-new');
+  const delBtn = document.getElementById(prefix + '-preset-del');
+  const shareBtn = document.getElementById(prefix + '-preset-share');
+  const importBtn = document.getElementById(prefix + '-preset-import-code');
+  if (!sel) return;
+  refreshMcPresetBar(game);
+  if (!sel._wired) {
+    sel._wired = true;
+    sel.onchange = () => {
+      const id = sel.value;
+      const bank = ensureMcPresetBank(game);
+      if (!id || !bank || id === bank.activeId) return;
+      loadMcPresetActions(game, id);
+    };
+  }
+  if (newBtn && !newBtn._wired) {
+    newBtn._wired = true;
+    newBtn.onclick = () => {
+      if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+      createMcPreset(game);
+    };
+  }
+  if (delBtn && !delBtn._wired) {
+    delBtn._wired = true;
+    delBtn.onclick = () => deleteMcPreset(game);
+  }
+  if (shareBtn && !shareBtn._wired) {
+    shareBtn._wired = true;
+    shareBtn.onclick = () => shareMcPresetCode(game);
+  }
+  if (importBtn && !importBtn._wired) {
+    importBtn._wired = true;
+    importBtn.onclick = () => importMcPresetFromShareCode(game);
+  }
+}
+
+function mcPresetActiveSharePayload(game) {
+  const bank = ensureMcPresetBank(game);
+  const meta = MC_GAME_MAP[game];
+  if (!bank || !meta) return null;
+  syncMcPresetFromActions(game);
+  const active = bank.presets.find((p) => p && p.id === bank.activeId);
+  const actions = mcPresetCloneActions(settings[meta.key]);
+  if (!actions.length) return null;
+  return {
+    game,
+    presetName: active?.name || 'Preset',
+    actions,
+    label: meta.label,
+  };
+}
+
+function showMcPresetShareCodeModal(data) {
+  const exp = data.expiresAt ? new Date(data.expiresAt).toLocaleDateString() : '30 días';
+  const back = document.createElement('div');
+  back.className = 'modal confirm-modal';
+  back.innerHTML = `
+    <div class="confirm-box" style="max-width:420px">
+      <div class="confirm-ico">🔗</div>
+      <h3>Código de preset</h3>
+      <p>Comparte este código con tu amigo. Válido hasta <b>${esc(exp)}</b>.</p>
+      <div class="mc-preset-code-box" style="font-size:22px;font-weight:800;letter-spacing:.12em;text-align:center;padding:14px 10px;margin:12px 0;border-radius:10px;background:rgba(0,0,0,.35);border:1px dashed rgba(255,255,255,.2)">${esc(data.code)}</div>
+      <p style="font-size:12px;opacity:.75">${esc(data.actionCount || 0)} acciones · ${esc(data.name || 'Preset')}</p>
+      <div class="confirm-btns">
+        <button type="button" class="btn ghost c-close">Cerrar</button>
+        <button type="button" class="btn primary c-copy">Copiar código</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  const close = () => { try { back.remove(); } catch {} };
+  back.querySelector('.c-close').onclick = close;
+  back.querySelector('.c-copy').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(data.code);
+      toast && toast('Código copiado.', 'ok');
+    } catch {
+      toast && toast('Copia manual: ' + data.code, 'ok');
+    }
+  };
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+}
+
+function askMcPresetShareCodeInput() {
+  return new Promise((resolve) => {
+    const back = document.createElement('div');
+    back.className = 'modal confirm-modal';
+    back.innerHTML = `
+      <div class="confirm-box" style="max-width:420px;text-align:left">
+        <div class="confirm-ico">📥</div>
+        <h3>Importar con código</h3>
+        <p>Pega el código que te pasó tu amigo (ej. <b>MC-A7X9K2</b>).</p>
+        <input type="text" class="mc-preset-code-inp" placeholder="MC-XXXXXX" maxlength="16" style="width:100%;margin:10px 0 14px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.25);color:inherit;font-size:16px;letter-spacing:.08em;text-transform:uppercase">
+        <div class="confirm-btns">
+          <button type="button" class="btn ghost c-cancel">Cancelar</button>
+          <button type="button" class="btn primary c-ok">Importar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(back);
+    const inp = back.querySelector('.mc-preset-code-inp');
+    const close = (val) => { try { back.remove(); } catch {} resolve(val); };
+    back.querySelector('.c-cancel').onclick = () => close(null);
+    back.querySelector('.c-ok').onclick = () => close(String(inp.value || '').trim());
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); close(String(inp.value || '').trim()); }
+      if (e.key === 'Escape') close(null);
+    });
+    setTimeout(() => { try { inp.focus(); } catch {} }, 50);
+    back.addEventListener('click', (e) => { if (e.target === back) close(null); });
+  });
+}
+
+async function shareMcPresetCode(game) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const payload = mcPresetActiveSharePayload(game);
+  if (!payload) { toast && toast('No hay acciones en este preset para compartir.', 'warn'); return; }
+  try {
+    const r = await fetch('/api/mc-preset-share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok || !data.code) {
+      toast && toast(data.error || 'No se pudo generar el código.', 'warn');
+      return;
+    }
+    showMcPresetShareCodeModal(data);
+  } catch {
+    toast && toast('Sin conexión. Revisa internet.', 'warn');
+  }
+}
+
+async function importMcPresetFromShareCode(game) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const raw = await askMcPresetShareCodeInput();
+  if (!raw) return;
+  const code = String(raw).trim().toUpperCase().replace(/\s+/g, '');
+  if (!code) return;
+  try {
+    const r = await fetch('/api/mc-preset-share/' + encodeURIComponent(code), { credentials: 'same-origin' });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok || !Array.isArray(data.actions) || !data.actions.length) {
+      toast && toast(data.error || 'Código no encontrado.', 'warn');
+      return;
+    }
+    const meta = MC_GAME_MAP[game];
+    if (!meta) return;
+    if (data.game && data.game !== game) {
+      const src = (MC_GAME_MAP[data.game] || {}).label || data.game;
+      const ok = await askConfirm({
+        title: 'Juego distinto',
+        message: `El código es de <b>${esc(src)}</b>. ¿Importarlo aquí en <b>${esc(meta.label)}</b>?`,
+        confirmText: 'Importar igual',
+        danger: false,
+        icon: '📥',
+      });
+      if (!ok) return;
+    }
+    syncMcPresetFromActions(game);
+    const bank = ensureMcPresetBank(game);
+    const clean = data.actions
+      .filter((a) => a && typeof a === 'object')
+      .map((a, i) => ({ ...a, uid: 'mca_' + Date.now() + '_' + i + '_' + Math.random().toString(36).slice(2, 7) }));
+    const id = newMcPresetId();
+    const name = String(data.name || 'Importado').trim().slice(0, 80) || 'Importado';
+    bank.presets.push({ id, name, actions: mcPresetCloneActions(clean) });
+    bank.activeId = id;
+    settings[meta.key] = mcPresetCloneActions(clean);
+    meta.render();
+    refreshMcPresetBar(game);
+    saveSettings();
+    toast && toast(`Importado «${name}» (${clean.length} acciones).`, 'ok');
+  } catch {
+    toast && toast('Sin conexión. Revisa internet.', 'warn');
+  }
+}
+
+function reconcileMcPresetBanks(touchedKeys) {
+  if (!settings) return;
+  const full = !touchedKeys || !touchedKeys.length;
+  const recentEdit = Date.now() - lastGameActionEditAt <= GAME_ACTION_EDIT_ECHO_MS;
+  let migrated = false;
+  for (const game of Object.keys(MC_GAME_MAP)) {
+    const hadBank = mcPresetHasData(settings.mcPresetBanks?.[game]);
+    ensureMcPresetBank(game);
+    if (!hadBank) {
+      migrated = true;
+      continue;
+    }
+    if (full && !recentEdit) activateMcPresetRuntime(game);
+    else restoreMcActionsFromActivePresetIfNeeded(game);
+  }
+  refreshAllMcPresetBars();
+  if (migrated) saveSettings();
+}
 
 function mcFamilyGameByKey(settingsKey) {
   return Object.entries(MC_GAME_MAP).find(([, g]) => g.key === settingsKey)?.[0] || 'minecraft';
@@ -24954,6 +25446,7 @@ function setupBedrockActionsUI() {
     });
   }
   wireGameToggleAllButton('bedrock-toggle-all', () => (settings && Array.isArray(settings.bedrockActions)) ? settings.bedrockActions : [], renderMyBedrockActions, 'bedrockActions');
+  wireMcPresetBar('bedrock');
   renderBedrockCatalog(search ? search.value : '');
   renderMyBedrockActions();
   renderBedrockConfigs();
@@ -25132,6 +25625,7 @@ function setupMcFarmActionsUI() {
     });
   }
   wireGameToggleAllButton('mcfarm-toggle-all', () => (settings && Array.isArray(settings.farmActions)) ? settings.farmActions : [], renderMyFarmActions, 'farmActions');
+  wireMcPresetBar('mcfarm');
   renderFarmCatalog(search ? search.value : '');
   renderMyFarmActions();
   renderFarmConfigs();
@@ -25304,6 +25798,7 @@ function setupMcParkourActionsUI() {
     });
   }
   wireGameToggleAllButton('mcparkour-toggle-all', () => (settings && Array.isArray(settings.parkourActions)) ? settings.parkourActions : [], renderMyParkourActions, 'parkourActions');
+  wireMcPresetBar('mcparkour');
   renderParkourCatalog(search ? search.value : '');
   renderMyParkourActions();
   renderParkourConfigs();
@@ -25483,6 +25978,7 @@ function setupMcKothActionsUI() {
     });
   }
   wireGameToggleAllButton('mckoth-toggle-all', () => (settings && Array.isArray(settings.kothActions)) ? settings.kothActions : [], renderMyKothActions, 'kothActions');
+  wireMcPresetBar('mckoth');
   renderKothCatalog(search ? search.value : '');
   renderMyKothActions();
   renderKothConfigs();
@@ -25668,6 +26164,7 @@ function setupSandboxActionsUI() {
     });
   }
   wireGameToggleAllButton('sandbox-toggle-all', () => (settings && Array.isArray(settings.sandboxActions)) ? settings.sandboxActions : [], renderMySandboxActions, 'sandboxActions');
+  wireMcPresetBar('sandbox');
   renderSandboxCatalog(search ? search.value : '');
   renderMySandboxActions();
   renderSandboxConfigs();
@@ -26052,6 +26549,7 @@ function setupMcShooterActionsUI() {
     };
   }
   applyMcShooterColiseoUI();
+  wireMcPresetBar('mcshooter');
   renderMcShooterCatalog(search ? search.value : '');
   renderMyMcShooterActions();
 }

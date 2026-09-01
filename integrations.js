@@ -241,13 +241,24 @@ export async function sendServertap(conn = {}, command) {
 // cmd: { type, scene, source }
 export function sendObsCommand(conn, cmd) {
   return new Promise((resolve) => {
-    let done = false; let ws; let authed = false; let pendingToggleId = null;
+    let done = false; let ws; let authed = false; let pendingToggleId = null; let sceneName = String(cmd.scene || '').trim();
     const finish = (r) => { if (done) return; done = true; try { ws.close(); } catch {} resolve(r); };
     try { ws = new WebSocket(`ws://${conn.ip || '127.0.0.1'}:${Number(conn.port) || 4455}`); }
     catch (e) { return resolve({ ok: false, error: e.message }); }
     const to = setTimeout(() => finish({ ok: false, error: 'Tiempo de espera agotado' }), 7000);
     const sendReq = (requestType, requestData) => {
       ws.send(JSON.stringify({ op: 6, d: { requestType, requestId: 'lc-' + Date.now(), requestData: requestData || {} } }));
+    };
+    const requestSceneItem = () => {
+      if (!String(cmd.source || '').trim()) {
+        clearTimeout(to);
+        return finish({ ok: false, error: 'Falta el nombre de la fuente' });
+      }
+      if (!sceneName) {
+        sendReq('GetCurrentProgramScene');
+        return;
+      }
+      sendReq('GetSceneItemId', { sceneName, sourceName: cmd.source });
     };
     const buildRequest = () => {
       switch (cmd.type) {
@@ -260,7 +271,7 @@ export function sendObsCommand(conn, cmd) {
         case 'hideSource':
         case 'toggleSource':
           // Necesitamos el sceneItemId de la fuente dentro de la escena.
-          sendReq('GetSceneItemId', { sceneName: cmd.scene, sourceName: cmd.source });
+          requestSceneItem();
           break;
         default: sendReq('GetVersion');
       }
@@ -283,21 +294,26 @@ export function sendObsCommand(conn, cmd) {
         const d = msg.d || {};
         const rt = d.requestType;
         const ok = d.requestStatus && d.requestStatus.result;
-        if (rt === 'GetSceneItemId') {
-          if (!ok) { clearTimeout(to); return finish({ ok: false, error: 'No se encontró la fuente en la escena' }); }
+        if (rt === 'GetCurrentProgramScene') {
+          if (!ok) { clearTimeout(to); return finish({ ok: false, error: 'No se pudo leer la escena activa de OBS' }); }
+          sceneName = String(d.responseData?.currentProgramSceneName || '').trim();
+          if (!sceneName) { clearTimeout(to); return finish({ ok: false, error: 'Escribe el nombre de la escena en la acción' }); }
+          sendReq('GetSceneItemId', { sceneName, sourceName: cmd.source });
+        } else if (rt === 'GetSceneItemId') {
+          if (!ok) { clearTimeout(to); return finish({ ok: false, error: sceneName ? `No se encontró "${cmd.source}" en "${sceneName}"` : 'No se encontró la fuente en la escena' }); }
           const itemId = d.responseData.sceneItemId;
           const enabled = cmd.type === 'showSource' ? true : cmd.type === 'hideSource' ? false : undefined;
           if (enabled === undefined) {
             // toggle: consultamos el estado actual y lo invertimos.
-            sendReq('GetSceneItemEnabled', { sceneName: cmd.scene, sceneItemId: itemId });
+            sendReq('GetSceneItemEnabled', { sceneName, sceneItemId: itemId });
             pendingToggleId = itemId;
           } else {
-            sendReq('SetSceneItemEnabled', { sceneName: cmd.scene, sceneItemId: itemId, sceneItemEnabled: enabled });
+            sendReq('SetSceneItemEnabled', { sceneName, sceneItemId: itemId, sceneItemEnabled: enabled });
             clearTimeout(to); finish({ ok: true });
           }
         } else if (rt === 'GetSceneItemEnabled') {
           const cur = d.responseData && d.responseData.sceneItemEnabled;
-          sendReq('SetSceneItemEnabled', { sceneName: cmd.scene, sceneItemId: pendingToggleId, sceneItemEnabled: !cur });
+          sendReq('SetSceneItemEnabled', { sceneName, sceneItemId: pendingToggleId, sceneItemEnabled: !cur });
           clearTimeout(to); finish({ ok: true });
         } else {
           clearTimeout(to);

@@ -6,7 +6,7 @@ import './euler-config.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
-import { DEFAULT_SETTINGS, deepMerge, ensureGiftSeqDefaults, ensureGiftVsDefaults, ensureGiftShowcaseDefaults, ensureFlowMeterDefaults } from './default-settings.js';
+import { DEFAULT_SETTINGS, deepMerge, ensureGiftSeqDefaults, ensureGiftVsDefaults, ensureGiftShowcaseDefaults, ensureFlowMeterDefaults, ensurePlaybackDefaults } from './default-settings.js';
 import * as spotify from './spotify.js';
 import * as youtubeSr from './youtube-sr.js';
 import { sendObsCommand, triggerStreamerbot, sendRcon, sendServertap } from './integrations.js';
@@ -120,7 +120,45 @@ function numMemberLevel(v) {
   return Number.isFinite(n) && n > 0 && n <= 50 ? n : 0;
 }
 function badgeScene(b) {
-  return Number(b?.badgeSceneType ?? b?.badgeScene ?? b?.sceneType ?? 0);
+  const raw = b?.badgeSceneType ?? b?.badgeScene ?? b?.sceneType ?? 0;
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw;
+  const s = String(raw || '').toLowerCase();
+  if (!s) return 0;
+  if (s.includes('new_subscriber') || s.includes('newsubscriber')) return 7;
+  if (s.includes('subscriber') || s.includes('subscribe')) return 4;
+  if (s.includes('admin') || s.includes('moderator')) return 1;
+  if (s.includes('rank')) return 6;
+  if (s.includes('friend')) return 3;
+  if (s.includes('fanclub') || s.includes('fans_club') || s.includes('team')) return 10;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+function userIsSubscribed(data) {
+  const u = data?.user || data || {};
+  const ui = data?.userIdentity || u?.userIdentity || u?.user_identity || {};
+  const sub = u?.subscribeInfo || data?.subscribeInfo || {};
+  const badges = flattenBadges([].concat(u.badges || [], u.userBadges || [], u.newUserBadges || [], u.badgeImageList || [], data?.badges || []));
+  const badgeUrl = (b) => String(b?.url || b?.image?.url?.[0] || b?.image?.uri || '').toLowerCase();
+  const badgeType = (b) => String(b?.type || b?.displayType || '').toLowerCase();
+  const subBadge = !!(sub?.badge?.originImg || sub?.badge?.previewImg);
+  return !!(
+    tikTokFlag(ui.isSubscriberOfAnchor) ||
+    tikTokFlag(data?.isSubscriberOfAnchor) ||
+    tikTokFlag(u.isSubscribe) ||
+    tikTokFlag(u.isSubscriber) ||
+    tikTokFlag(u.isSubscriberOfAnchor) ||
+    tikTokFlag(sub.isSubscribe) ||
+    tikTokFlag(sub.isSubscribedToAnchor) ||
+    (subBadge && tikTokFlag(sub.isSubscribedToAnchor)) ||
+    tikTokFlag(data?.msgFilter?.isSubscribedToAnchor) ||
+    badges.some((b) => {
+      const sc = badgeScene(b);
+      if (sc === 4 || sc === 7) return true;
+      const url = badgeUrl(b);
+      const typ = badgeType(b);
+      return url.includes('/sub_') || url.includes('subscri') || typ.includes('subscri') || typ.includes('sub_');
+    })
+  );
 }
 function levelFromBadge(b) {
   if (!b) return 0;
@@ -247,37 +285,23 @@ function chatUserRoles(data) {
   const badgeType = (b) => String(b?.type || b?.displayType || '').toLowerCase();
 
   const isMod = userIsTikTokMod(data);
-  // Suscriptor de pago (LIVE Subscription) + Super Fan / club de fans (el checkbox de Spotify es "Super Fans / Subs").
-  const isSub = !!(
-    tikTokFlag(ui.isSubscriberOfAnchor) ||
-    tikTokFlag(u.isSubscribe) ||
-    tikTokFlag(u.isSubscriber) ||
-    tikTokFlag(u.isSubscriberOfAnchor) ||
-    tikTokFlag(sub.isSubscribe) ||
-    tikTokFlag(sub.isSubscribedToAnchor) ||
-    tikTokFlag(sub.qualification) ||
-    tikTokFlag(data?.msgFilter?.isSubscribedToAnchor) ||
-    badges.some((b) => {
-      const sc = scene(b);
-      if (sc === 4 || sc === 7) return true; // SUBSCRIBER / NEW_SUBSCRIBER
-      const url = badgeUrl(b);
-      const typ = badgeType(b);
-      return url.includes('/sub_') || url.includes('subscri') || typ.includes('subscri') || typ.includes('sub_');
-    })
-  );
+  // Suscriptor de pago (LIVE Subscription). Distinto de Super Fan / club de fans.
+  const isSub = userIsSubscribed(data);
   const isSuperFan = !!(
-    tikTokFlag(ui.isSuperFan) ||
-    tikTokFlag(u.isSuperFan) ||
-    tikTokFlag(u.superFan) ||
-    tikTokFlag(u.isSuperFanOfAnchor) ||
-    numMemberLevel(u?.fansClub?.data?.level) > 0 ||
-    numMemberLevel(u?.fansClubInfo?.fansLevel) > 0 ||
-    badges.some((b) => {
-      const typ = badgeType(b);
-      const url = badgeUrl(b);
-      return typ.includes('superfan') || typ.includes('super_fan') || typ.includes('fansclub') || typ.includes('fanclub')
-        || url.includes('superfan') || url.includes('super_fan') || url.includes('fans_club') || url.includes('fanclub');
-    })
+    !isSub && (
+      tikTokFlag(ui.isSuperFan) ||
+      tikTokFlag(u.isSuperFan) ||
+      tikTokFlag(u.superFan) ||
+      tikTokFlag(u.isSuperFanOfAnchor) ||
+      numMemberLevel(u?.fansClub?.data?.level) > 0 ||
+      numMemberLevel(u?.fansClubInfo?.fansLevel) > 0 ||
+      badges.some((b) => {
+        const typ = badgeType(b);
+        const url = badgeUrl(b);
+        return typ.includes('superfan') || typ.includes('super_fan') || typ.includes('fansclub') || typ.includes('fanclub')
+          || url.includes('superfan') || url.includes('super_fan') || url.includes('fans_club') || url.includes('fanclub');
+      })
+    )
   );
   const followStatus = Number(u?.followInfo?.followStatus ?? u?.followStatus ?? 0);
   const isFollower = !!(ui.isFollowerOfAnchor || ui.isMutualFollowingWithAnchor || followStatus >= 1);
@@ -1143,7 +1167,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function resolveProfileSettings(slot) {
     if (slot && typeof slot === 'object' && !Array.isArray(slot)) {
-      return ensureFlowMeterDefaults(ensureGiftShowcaseDefaults(ensureGiftVsDefaults(ensureGiftSeqDefaults(deepMerge(structuredClone(DEFAULT_SETTINGS), slot)))));
+      return ensurePlaybackDefaults(ensureFlowMeterDefaults(ensureGiftShowcaseDefaults(ensureGiftVsDefaults(ensureGiftSeqDefaults(deepMerge(structuredClone(DEFAULT_SETTINGS), slot))))));
     }
     return structuredClone(DEFAULT_SETTINGS);
   }
@@ -2179,6 +2203,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         obj.baileRonda = { ...obj.baileRonda, people: curPeople, activeId: obj.baileRonda.activeId || settings.baileRonda.activeId || '' };
       }
     }
+    if (obj.mcPresetBanks !== undefined) {
+      const inc = obj.mcPresetBanks;
+      const cur = settings.mcPresetBanks;
+      const incEmpty = !inc || typeof inc !== 'object' || !Object.keys(inc).length;
+      const curHas = cur && typeof cur === 'object' && Object.keys(cur).some((g) => {
+        const b = cur[g];
+        return b && Array.isArray(b.presets) && b.presets.length > 0;
+      });
+      if (incEmpty && curHas) delete obj.mcPresetBanks;
+    }
     settings = deepMerge(settings, obj);
     dedupeProfileGameActions(settings);
     if (settings.topKills && 'clearPlayers' in settings.topKills) delete settings.topKills.clearPlayers;
@@ -2806,6 +2840,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function screenSizeForCfg(cfg, n) {
     return cfg?.screens?.[(Number(n) || 1) - 1]?.size ?? 100;
   }
+  function volPct(v) {
+    if (v == null || v === '') return 100;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return 100;
+    if (n <= 1) return Math.round(n * 100);
+    return Math.max(0, Math.min(100, Math.round(n)));
+  }
+  function screenVolumeForCfg(cfg, n) {
+    return volPct(cfg?.screens?.[(Number(n) || 1) - 1]?.volume ?? 100);
+  }
+  function mediaVolumeForScreen(scr, vol, cfg = settings, skip = false) {
+    if (skip) return volPct(vol);
+    return Math.round(volPct(vol) * screenVolumeForCfg(cfg, scr) / 100);
+  }
   function clampMediaScreen(n) {
     return Math.max(1, Math.min(10, Number(n) || 1));
   }
@@ -2815,9 +2863,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
    * para no duplicar el clip. Sin video.html: fallback a todos los clientes (overlay).
    * En relay nube→PC: no spamear media al overlay de Render; el video va por playMedia.
    */
-  function broadcastMedia(payload) {
+  function broadcastMedia(payload, cfg = settings) {
     const scr = clampMediaScreen(payload?.screen);
-    const body = { ...payload, screen: scr };
+    const body = {
+      ...payload,
+      screen: scr,
+      volume: mediaVolumeForScreen(scr, payload?.volume, cfg, !!payload?.skipScreenVolume),
+    };
+    delete body.skipScreenVolume;
     // En relay, /uploads locales deben apuntar a la PC (igual que emitSound):
     // OBS corre en la PC, así el overlay de Render también puede cargar el video.
     if (body.url) body.url = rewriteRelayMediaUrl(body.url);
@@ -2877,10 +2930,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       size: screenSizeForCfg(cfg, scr),
       general: !!isGeneral,
       playQueue: cfg.playback?.playQueue !== false,
-    });
+    }, cfg);
   }
-  function emitMedia(payload) {
-    const body = broadcastMedia(payload);
+  function emitMedia(payload, cfg = settings) {
+    const withQueue = {
+      ...payload,
+      playQueue: typeof payload?.playQueue === 'boolean'
+        ? payload.playQueue
+        : (cfg.playback?.playQueue !== false),
+    };
+    const body = broadcastMedia(withQueue, cfg);
     // Si el .exe está en relay, también a local (por si la fuente apunta al host de la PC).
     if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
       broadcastToLocal('playMedia', body);
@@ -4738,11 +4797,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }, 20000);
     liveLockBeatTimer.unref?.();
   }
-  function releaseLiveLock() {
+  function releaseLiveLock(opts = {}) {
     liveLockHeld = false;
     stopLiveLockBeat();
     if (typeof onReleaseLiveLock !== 'function') return;
-    Promise.resolve(onReleaseLiveLock({ deviceId: liveDeviceId || currentLiveDeviceId() })).catch(() => {});
+    Promise.resolve(onReleaseLiveLock({
+      deviceId: liveDeviceId || currentLiveDeviceId(),
+      force: !!opts.force,
+    })).catch(() => {});
   }
 
   function connectTo(username, opts = {}) {
@@ -4758,7 +4820,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
     const startTikTok = () => {
       if (state.connected && state.username === username) return;
-      disconnect({ keepLiveLock: true });
+      const switchingUser = !!(state.username && state.username !== username);
+      if (switchingUser) releaseLiveLock({ force: true });
+      disconnect({ keepLiveLock: !switchingUser });
 
       rememberTikTokUser(username, !opts.auto);
 
@@ -4780,8 +4844,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     };
 
     const runAfterLockProbe = (fn) => {
-      if (!opts.auto && typeof onHeartbeatLiveLock === 'function' && typeof onClaimLiveLock === 'function') {
-        Promise.resolve(onHeartbeatLiveLock({ deviceId: probeId })).then((r) => {
+      if (!opts.auto && typeof onClaimLiveLock === 'function') {
+        Promise.resolve(onClaimLiveLock({ deviceId: probeId, username })).then((r) => {
           if (r && r.ok === false && r.code === 'live_in_use') {
             denyLiveLock(r.message);
             return;
@@ -4982,7 +5046,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     syncLiveUptimeOnDisconnect();
     if (wasLive) notifyLiveSessionEnd();
     notifyLiveDirectory();
-    if (!opts.keepLiveLock) releaseLiveLock();
+    if (!opts.keepLiveLock) releaseLiveLock({ force: !!opts.forceReleaseLock });
   }
 
   // Desconexión MANUAL (botón "Desconectar"): además de cortar, apaga la auto-conexión
@@ -4993,7 +5057,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       saveSettings();
       if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
     }
-    disconnect();
+    releaseLiveLock({ force: true });
+    disconnect({ keepLiveLock: true });
     pushState();
   }
 
@@ -5478,7 +5543,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
 
     broadcast('log', { level: 'ok', text: `🪝 Webhook → sonido "${a.name || a.id}"` });
-    emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume, webhookToggle: true });
+    emitSound({
+      id: a.id,
+      name: a.name,
+      sound: a.sound,
+      image: a.image,
+      volume: a.volume,
+      webhookToggle: true,
+      playQueue: false,
+    });
     noteWebhookActive(sid, { kind: 'sound' });
     return { ok: true, sound: { id: a.id, name: a.name || '' } };
   }
@@ -11608,7 +11681,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           const m = { ...data.media };
           if (m.url) m.url = relativizeMediaUrl(m.url);
           const scr = clampMediaScreen(m.screen);
-          broadcastMedia({ ...m, screen: scr, size: m.size ?? screenSize(scr) });
+          broadcastMedia({ ...m, screen: scr, size: m.size ?? screenSize(scr), skipScreenVolume: true });
         }
         break;
       }

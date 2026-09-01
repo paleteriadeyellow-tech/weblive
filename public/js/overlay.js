@@ -31,7 +31,7 @@ function connectWS() {
   ws.onclose = () => { reconnectTimer = setTimeout(connectWS, 1500); };
   ws.onmessage = (ev) => {
     const { type, payload } = JSON.parse(ev.data);
-    if (type === 'settings') { settings = payload; return; }
+    if (type === 'settings') { settings = payload; warmSoundsFromSettings(payload); return; }
     if (type === 'media') { if (!payload.screenTest) enqueue({ kind: 'video', payload }); return; }
     if (type === 'actionAnim') { enqueue({ kind: 'actionAnim', payload }); return; }
     if (type === 'actionAlert') { enqueue({ kind: 'actionAlert', payload }); return; }
@@ -92,7 +92,41 @@ let currentDone = null;
 
 function queueOn() { return settings?.playback?.playQueue !== false; }
 
+function soundSrc(url) {
+  if (!url) return '';
+  const s = String(url);
+  if (/^https?:\/\//i.test(s) || s.startsWith('data:')) return s;
+  return s.startsWith('/') ? s : `/${s}`;
+}
+
+const soundPreload = new Map();
+function warmSoundPreload(url) {
+  const src = soundSrc(url);
+  if (!src || soundPreload.has(src)) return;
+  const a = new Audio();
+  a.preload = 'auto';
+  a.src = src;
+  soundPreload.set(src, a);
+}
+function warmSoundsFromSettings(s) {
+  for (const a of (s?.soundAlerts || [])) {
+    if (a?.sound) warmSoundPreload(a.sound);
+  }
+}
+function makeSoundAudio(url) {
+  const src = soundSrc(url);
+  warmSoundPreload(src);
+  const audio = new Audio();
+  audio.preload = 'auto';
+  audio.src = src;
+  return audio;
+}
+
 function enqueue(item) {
+  if (item.kind === 'sound' && (item.payload?.playQueue === false || item.payload?.webhookToggle)) {
+    playSoundNow(item.payload, null);
+    return;
+  }
   if (!queueOn()) {
     // Modo sin cola: comportamiento directo (puede solaparse / cortar como antes)
     if (item.kind === 'actionAnim') playActionAnimNow(item.payload, null);
@@ -466,9 +500,8 @@ const playingSounds = new Set();
 
 function playSoundNow(s, done) {
   if (!s?.sound) { done?.(); return; }
-  const audio = new Audio();
+  const audio = makeSoundAudio(s.sound);
   applyMediaVolume(audio, s.volume);
-  audio.src = s.sound;
   playingSounds.add(audio);
   let finished = false;
   const finish = () => { if (finished) return; finished = true; playingSounds.delete(audio); done?.(); };

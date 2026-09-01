@@ -232,6 +232,7 @@ function clearAllQueues() {
 function playOnStage(lane, m, done) {
   const host = lane.stage;
   const token = (lane.token += 1);
+  lane.loading = true;
   clearLaneTimers(lane);
 
   const alive = () => lane.token === token;
@@ -239,6 +240,7 @@ function playOnStage(lane, m, done) {
   const finish = () => {
     if (!alive()) return;
     lane.token += 1; // marca este play como terminado
+    lane.loading = false;
     clearLaneTimers(lane);
     try {
       host.querySelectorAll('video').forEach((vid) => {
@@ -259,7 +261,7 @@ function playOnStage(lane, m, done) {
     done?.();
   };
 
-  if (!host || !m?.url) { done?.(); return; }
+  if (!host || !m?.url) { lane.loading = false; done?.(); return; }
 
   host.innerHTML = '';
   const size = Math.max(10, Math.min(100, m.size ?? 100));
@@ -354,6 +356,7 @@ function playOnStage(lane, m, done) {
   el.style.maxWidth = size + 'vw';
   el.style.maxHeight = size + 'vh';
   host.appendChild(el);
+  lane.loading = false;
 
   /* Overlay Studio (iframe cross-origin): avisar tamaño real del media */
   const pingBounds = () => { try { reportOverlayStudioBounds(); } catch {} };
@@ -460,13 +463,22 @@ function showScreenTest() {
 /** Autosanación: busy sin media en stage = cola colgada (pantalla negra eternamente) */
 setInterval(() => {
   [lanes.active, lanes.general].forEach((lane) => {
-    if (!lane.busy) return;
-    const hasMedia = !!lane.stage?.querySelector('video.media, img.media');
-    if (!hasMedia) {
-      clearLaneTimers(lane);
-      lane.busy = false;
-      pump(lane);
+    if (!lane.busy || lane.loading) {
+      lane._stuckSince = 0;
+      return;
     }
+    const hasMedia = !!lane.stage?.querySelector('video.media, img.media');
+    if (hasMedia) {
+      lane._stuckSince = 0;
+      return;
+    }
+    const now = Date.now();
+    if (!lane._stuckSince) lane._stuckSince = now;
+    if (now - lane._stuckSince < 8000) return;
+    lane._stuckSince = 0;
+    clearLaneTimers(lane);
+    lane.busy = false;
+    pump(lane);
   });
   // WS caído o CONNECTING eterno (CEF / redeploy Render)
   if (wsNeedsReconnect()) connectWS(true);

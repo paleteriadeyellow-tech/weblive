@@ -78,11 +78,13 @@ export function createLiveLockStore(filePath) {
     return { ok: true };
   }
 
-  function release(userId, deviceId) {
+  function release(userId, deviceId, opts = {}) {
     const uid = String(userId || '').trim();
     const dev = String(deviceId || '').trim();
     const cur = locks.get(uid);
-    if (cur && (!dev || cur.deviceId === dev)) {
+    if (!cur) return { ok: true };
+    const force = !!opts.force;
+    if (force || !dev || cur.deviceId === dev) {
       locks.delete(uid);
       persist();
     }
