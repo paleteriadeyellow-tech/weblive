@@ -4762,6 +4762,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function denyLiveLock(msg, opts = {}) {
     liveLockBlockedUntil = Date.now() + 25000;
     state.connecting = false;
+    if (!opts.silent && settings.autoConnect !== false) {
+      settings.autoConnect = false;
+      saveSettings();
+      if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
+    }
     pushState();
     const text = String(msg || LIVE_LOCK_MSG);
     if (opts.silent) return;
@@ -4814,7 +4819,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (opts.deviceId) adoptConnectDeviceId(opts.deviceId);
     if (state.connecting) return;
     if (Date.now() < liveLockBlockedUntil) {
-      if (!opts.auto) denyLiveLock();
+      if (!opts.auto) denyLiveLock(LIVE_LOCK_MSG, { silent: true });
       return;
     }
 
@@ -4857,11 +4862,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       fn();
     };
 
-    // Ya en live: otra PC/dispositivo manual → modal (no silencio ni pisar deviceId).
+    // Ya en live en otra PC: panel compartido — no modal ni intentar robar la conexión.
     if (state.connected && state.username === username) {
       if (opts.auto) return;
       if (probeId !== liveDeviceId) {
-        runAfterLockProbe(() => {});
+        if (!opts.auto) {
+          broadcast('log', {
+            level: 'info',
+            text: 'El live sigue activo en otro dispositivo. Para tomar el control, desconecta allí primero.',
+          });
+        }
         return;
       }
       return;
@@ -5057,7 +5067,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       saveSettings();
       if (typeof onUserSave === 'function') { try { onUserSave(settings); } catch {} }
     }
-    releaseLiveLock({ force: true });
+    releaseLiveLock({ force: !!liveLockHeld });
     disconnect({ keepLiveLock: true });
     pushState();
   }
@@ -8349,6 +8359,258 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // configurado (ej. !idwarzone), el bot responde por voz (TTS) y muestra la respuesta.
   // Cooldown por comando para que una racha de mensajes no spamee la respuesta.
   const commandCooldown = new Map(); // comando -> timestamp último disparo
+
+  function ensureLiveModCfg() {
+    if (!settings.liveMod || typeof settings.liveMod !== 'object') settings.liveMod = structuredClone(DEFAULT_SETTINGS.liveMod || {});
+    const lm = settings.liveMod;
+    if (!Array.isArray(lm.moderators)) lm.moderators = [];
+    if (!lm.commands || typeof lm.commands !== 'object') lm.commands = {};
+    if (!Array.isArray(lm.boostPresets)) lm.boostPresets = structuredClone(DEFAULT_SETTINGS.liveMod?.boostPresets || []);
+    return lm;
+  }
+  function normLiveModUser(s) {
+    return String(s || '').replace(/^@/, '').trim().toLowerCase();
+  }
+  function isConfiguredLiveMod(user) {
+    const lm = ensureLiveModCfg();
+    const list = lm.moderators || [];
+    const uid = normLiveModUser(user?.uniqueId);
+    const nick = normLiveModUser(user?.nickname);
+    return list.some((m) => {
+      const u = normLiveModUser(m?.username || m);
+      return u && (u === uid || u === nick);
+    });
+  }
+  function isLiveModUser(user, roles) {
+    const lm = ensureLiveModCfg();
+    if (lm.enabled === false) return false;
+    if (lm.allowTikTokMods !== false && (roles?.isMod || roles?.isModerator)) return true;
+    return isConfiguredLiveMod(user);
+  }
+  function liveModCmdEnabled(key) {
+    const lm = ensureLiveModCfg();
+    return lm.commands?.[key]?.enabled !== false;
+  }
+  function liveModFeedback(text, user) {
+    const who = user?.nickname || user?.uniqueId || 'Mod';
+    const msg = String(text || '').slice(0, 220);
+    broadcast('botReply', { command: 'livemod', text: msg });
+    broadcast('log', { level: 'ok', text: `🛡️ ${who}: ${msg}` });
+  }
+  function persistSettingsQuick() {
+    try { writeJsonAtomic(SETTINGS_FILE, settings); } catch {}
+    broadcast('settings', settings);
+  }
+  function blockedWordsList() {
+    return String(settings.tts?.blockedWords || '')
+      .split(/[,\n]/)
+      .map((w) => w.trim().toLowerCase())
+      .filter(Boolean);
+  }
+  function setBlockedWordsList(words) {
+    if (!settings.tts || typeof settings.tts !== 'object') settings.tts = {};
+    settings.tts.blockedWords = [...new Set(words.map((w) => String(w).trim().toLowerCase()).filter(Boolean))].join(', ');
+    persistSettingsQuick();
+  }
+  function liveModAddBlockedWord(word) {
+    const w = String(word || '').trim().toLowerCase();
+    if (!w) return false;
+    const words = blockedWordsList();
+    if (words.includes(w)) return false;
+    words.push(w);
+    setBlockedWordsList(words);
+    return true;
+  }
+  function liveModRemoveBlockedWord(word) {
+    const w = String(word || '').trim().toLowerCase();
+    if (!w) return false;
+    const words = blockedWordsList();
+    const next = words.filter((x) => x !== w);
+    if (next.length === words.length) return false;
+    setBlockedWordsList(next);
+    return true;
+  }
+  function resolveLiveModTarget(token) {
+    const raw = String(token || '').replace(/^@/, '').trim();
+    if (!raw) return null;
+    const found = findPointsEntry('', raw);
+    if (found?.user) return found.user;
+    const want = normLiveModUser(raw);
+    for (const u of points.values()) {
+      if (normLiveModUser(u.uniqueId) === want || normLiveModUser(u.nickname) === want) return u;
+    }
+    return { uniqueId: raw, nickname: raw };
+  }
+  function fireLiveModAnim(token) {
+    const t = String(token || '').trim().toLowerCase();
+    if (!t) return false;
+    let fired = false;
+    forEachTriggerProfile((cfg, isGeneral) => {
+      if (fired || cfg.videosEnabled === false) return;
+      for (const v of cfg.videos || []) {
+        if (!v || v.enabled === false || !videoClipPool(v).length) continue;
+        const name = String(v.name || '').trim().toLowerCase();
+        const id = String(v.id || '').trim().toLowerCase();
+        const cmd = String(v.command || '').trim().toLowerCase().replace(/^!/, '');
+        if (t === name || t === id || t === cmd) {
+          emitProfileMedia(cfg, v, clampMediaScreen(v.screen), isGeneral);
+          fired = true;
+          return;
+        }
+      }
+    });
+    if (fired) return true;
+    const rules = Array.isArray(settings.screenFx?.rules) ? settings.screenFx.rules : [];
+    for (const r of rules) {
+      if (!r || r.on === false || (r.trigger || '') !== 'chatCommand') continue;
+      const name = String(r.name || r.label || '').trim().toLowerCase();
+      const cmd = String(r.text || '').trim().toLowerCase().replace(/^!/, '');
+      if (t === name || t === cmd || matchesCommand(r.text, '!' + t)) {
+        fireScreenFxRule(r, t);
+        return true;
+      }
+    }
+    return false;
+  }
+  function fireLiveModSound(token) {
+    const t = String(token || '').trim().toLowerCase();
+    if (!t) return false;
+    let fired = false;
+    forEachTriggerProfile((cfg) => {
+      if (fired) return;
+      for (const a of cfg.soundAlerts || []) {
+        if (!a || a.enabled === false || !a.sound) continue;
+        const name = String(a.name || '').trim().toLowerCase();
+        const id = String(a.id || '').trim().toLowerCase();
+        const cmd = String(a.command || '').trim().toLowerCase().replace(/^!/, '');
+        if (t === name || t === id || t === cmd) {
+          broadcast('log', { level: 'ok', text: `🔊 Mod → "${a.name || a.id}"` });
+          emitSound({ id: a.id, name: a.name, sound: a.sound, image: a.image, volume: a.volume });
+          fired = true;
+        }
+      }
+    });
+    return fired;
+  }
+  function liveModSwitchProfile(arg) {
+    const ref = String(arg || '').trim();
+    if (!ref) return false;
+    let idx = -1;
+    if (/^#?\d+$/.test(ref)) {
+      idx = Math.max(0, parseInt(ref.replace('#', ''), 10) - 1);
+    } else {
+      const want = ref.toLowerCase();
+      idx = (profiles.names || []).findIndex((n) => String(n || '').trim().toLowerCase() === want);
+    }
+    if (!Number.isInteger(idx) || idx < 0 || idx >= PROFILE_COUNT) return false;
+    if (idx >= profileLimit()) return false;
+    switchProfile(idx);
+    return true;
+  }
+  function liveModToggleAction(ref, stateRaw) {
+    const state = String(stateRaw || '').toLowerCase();
+    const on = state === 'on' || state === '1' || state === 'encender' || state === 'activar';
+    const off = state === 'off' || state === '0' || state === 'apagar' || state === 'desactivar';
+    if (!on && !off) return { ok: false, reason: 'estado: on u off' };
+    const key = String(ref || '').trim();
+    if (!key) return { ok: false, reason: 'usa: !evento #1 on|off' };
+    const list = settings.actions || [];
+    let a = null;
+    if (/^#?\d+$/.test(ref)) {
+      const i = Math.max(0, parseInt(ref.replace('#', ''), 10) - 1);
+      a = list[i];
+    } else {
+      const want = ref.toLowerCase();
+      a = list.find((x) => String(x?.name || '').trim().toLowerCase() === want);
+    }
+    if (!a) return { ok: false, reason: 'acción no encontrada' };
+    a.enabled = on;
+    persistSettingsQuick();
+    return { ok: true, name: a.name || ref, enabled: on };
+  }
+  function handleLiveModCommands(comment, user, roles) {
+    const lm = ensureLiveModCfg();
+    if (lm.enabled === false) return false;
+    if (!isLiveModUser(user, roles)) return false;
+    const text = String(comment || '').trim();
+    if (!text.startsWith('!')) return false;
+    const parts = text.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const rest = parts.slice(1);
+
+    if (cmd === '!ttsban' && liveModCmdEnabled('ttsban')) {
+      const word = rest.join(' ').trim();
+      if (!word) { liveModFeedback('Uso: !ttsban palabra', user); return true; }
+      if (liveModAddBlockedWord(word)) liveModFeedback(`Palabra bloqueada en TTS: ${word}`, user);
+      else liveModFeedback(`Ya estaba bloqueada: ${word}`, user);
+      return true;
+    }
+    if (cmd === '!ttsunban' && liveModCmdEnabled('ttsunban')) {
+      const word = rest.join(' ').trim();
+      if (!word) { liveModFeedback('Uso: !ttsunban palabra', user); return true; }
+      if (liveModRemoveBlockedWord(word)) liveModFeedback(`Palabra desbloqueada: ${word}`, user);
+      else liveModFeedback(`No estaba bloqueada: ${word}`, user);
+      return true;
+    }
+    if (cmd === '!anim' && liveModCmdEnabled('anim')) {
+      const token = rest[0];
+      if (!token) { liveModFeedback('Uso: !anim nombreVideo', user); return true; }
+      if (fireLiveModAnim(token)) liveModFeedback(`Video: ${token}`, user);
+      else liveModFeedback(`No encontré video «${token}»`, user);
+      return true;
+    }
+    if (cmd === '!sonido' && liveModCmdEnabled('sonido')) {
+      const token = rest[0];
+      if (!token) { liveModFeedback('Uso: !sonido nombreSonido', user); return true; }
+      if (fireLiveModSound(token)) liveModFeedback(`Sonido: ${token}`, user);
+      else liveModFeedback(`No encontré sonido «${token}»`, user);
+      return true;
+    }
+    if (cmd === '!boost' && liveModCmdEnabled('boost')) {
+      if (rest.length < 2) { liveModFeedback('Uso: !boost cantidad @usuario', user); return true; }
+      const targetTok = rest[rest.length - 1];
+      const presetTok = rest.slice(0, -1).join(' ');
+      let amount = Number(presetTok);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        const preset = (lm.boostPresets || []).find((p) => normLiveModUser(p?.id) === normLiveModUser(presetTok)
+          || normLiveModUser(p?.name) === normLiveModUser(presetTok));
+        amount = preset ? Number(preset.points) || 0 : Number(lm.defaultBoostPoints) || 100;
+      }
+      if (amount <= 0) { liveModFeedback('Cantidad de puntos inválida', user); return true; }
+      const target = resolveLiveModTarget(targetTok);
+      if (!target) { liveModFeedback('Usuario no encontrado', user); return true; }
+      addUserPoints({
+        uniqueId: target.uniqueId, nickname: target.nickname, amount: Math.round(amount),
+        counted: false, description: `Boost mod ${user?.nickname || ''}`, manual: true,
+      });
+      liveModFeedback(`+${Math.round(amount)} pts → ${target.nickname || target.uniqueId}`, user);
+      return true;
+    }
+    if (cmd === '!perfil' && liveModCmdEnabled('perfil')) {
+      const arg = rest.join(' ').trim();
+      if (!arg) { liveModFeedback('Uso: !perfil #1 o !perfil Nombre', user); return true; }
+      if (liveModSwitchProfile(arg)) {
+        const names = profiles.names || [];
+        const i = /^#?\d+$/.test(arg) ? Math.max(0, parseInt(arg.replace('#', ''), 10) - 1) : names.findIndex((n) => String(n).toLowerCase() === arg.toLowerCase());
+        liveModFeedback(`Perfil activo: ${names[i] || arg}`, user);
+      } else liveModFeedback(`Perfil no encontrado: ${arg}`, user);
+      return true;
+    }
+    if (cmd === '!evento' && liveModCmdEnabled('evento')) {
+      if (rest.length < 2) {
+        liveModFeedback('Uso: !evento #1 on|off', user);
+        return true;
+      }
+      const state = rest[rest.length - 1];
+      const ref = rest.slice(0, -1).join(' ');
+      const res = liveModToggleAction(ref, state);
+      if (!res.ok) liveModFeedback(res.reason || 'Acción no encontrada', user);
+      else liveModFeedback(`Acción «${res.name}» ${res.enabled ? 'activada' : 'apagada'}`, user);
+      return true;
+    }
+    return false;
+  }
+
   function handleChatCommands(comment, user) {
     const cmds = settings.tts?.commands;
     if (!Array.isArray(cmds) || !cmds.length) return;
@@ -10667,6 +10929,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerVideos('chatCommand', chatInfo);
       triggerSoundAlerts('chatCommand', chatInfo);
       triggerActions('chatCommand', chatInfo, chatUser);
+      handleLiveModCommands(comment, chatUser, roles);
       handleChatCommands(comment, chatUser);
       tryPointsLookupCommand(comment, chatUser);
       handleSpotifyCommands(comment, chatUser, roles);

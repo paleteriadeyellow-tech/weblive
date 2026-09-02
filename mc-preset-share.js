@@ -56,7 +56,9 @@ function validatePayload(body) {
 }
 
 function fileForCode(dataDir, code) {
-  return path.join(sharesDir(dataDir), code + '.json');
+  const norm = normalizeMcPresetShareCode(code);
+  if (!norm) return '';
+  return path.join(sharesDir(dataDir), norm + '.json');
 }
 
 function writeShareAtomic(file, obj) {
@@ -86,7 +88,7 @@ export function createMcPresetShare(dataDir, body, { by = '', ttlMs = DEFAULT_TT
   for (let attempt = 0; attempt < 12; attempt++) {
     const code = randomCode();
     const file = fileForCode(dataDir, code);
-    if (!fs.existsSync(file)) {
+    if (file && !fs.existsSync(file)) {
       writeShareAtomic(file, record);
       return {
         ok: true,
@@ -105,7 +107,7 @@ export function fetchMcPresetShare(dataDir, code) {
   const norm = normalizeMcPresetShareCode(code);
   if (!norm) return { error: 'Código no válido.' };
   const file = fileForCode(dataDir, norm);
-  if (!fs.existsSync(file)) return { error: 'Código no encontrado o expirado.' };
+  if (!file || !fs.existsSync(file)) return { error: 'Código no encontrado o expirado.' };
   let data;
   try { data = JSON.parse(fs.readFileSync(file, 'utf8')); }
   catch { return { error: 'El código está dañado.' }; }
@@ -114,12 +116,14 @@ export function fetchMcPresetShare(dataDir, code) {
     try { fs.unlinkSync(file); } catch {}
     return { error: 'Este código ya expiró.' };
   }
+  const actions = sanitizeActions(data.actions);
+  if (!actions.length) return { error: 'El código no contiene acciones válidas.' };
   return {
     ok: true,
     code: norm,
     game: data.game,
     name: data.name,
-    actions: sanitizeActions(data.actions),
+    actions,
     sharedAt: data.sharedAt || null,
     expiresAt: data.expiresAt || null,
     by: data.by || '',

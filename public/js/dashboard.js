@@ -1869,20 +1869,7 @@ function mountUserChip() {
   const logout = document.getElementById('logout-btn');
   if (logout && !logout.dataset.wired) {
     logout.dataset.wired = '1';
-    logout.onclick = async () => {
-      setDockUserMenuOpen(false);
-      try {
-        if (typeof send === 'function' && typeof ws !== 'undefined' && ws?.readyState === 1) {
-          send({ action: 'disconnect' });
-        }
-      } catch {}
-      try {
-        if (typeof desktopRelayOn === 'function' && desktopRelayOn()) await relayDisconnectHttp();
-        else if (typeof relayActive === 'function' && relayActive()) await relayDisconnectHttp();
-      } catch {}
-      try { await fetch('/api/logout', { method: 'POST' }); } catch {}
-      location.href = '/login.html';
-    };
+    logout.onclick = () => { performLogout(); };
   }
   applyPcInstallButton();
   if (IS_DESKTOP) applyInstalledAppVersionBadge();
@@ -4822,19 +4809,71 @@ function liveDeviceId() {
   }
 }
 
+function usesSharedCloudLiveRoom() {
+  if (typeof relayActive === 'function' && relayActive()) return true;
+  if (typeof desktopRelayOn === 'function' && desktopRelayOn()) return true;
+  if (!IS_DESKTOP && window.CLOUD_ROOM_KEY) return true;
+  return false;
+}
+
+let liveLockModalOpen = false;
+let liveLockModalLastAt = 0;
+
+async function performLogout() {
+  window.__lcLoggingOut = true;
+  try { setDockUserMenuOpen(false); } catch {}
+  document.querySelectorAll('.modal.confirm-modal').forEach((el) => { try { el.remove(); } catch {} });
+  liveLockModalOpen = false;
+
+  if (!usesSharedCloudLiveRoom()) {
+    try {
+      if (typeof send === 'function' && ws?.readyState === 1) {
+        send({ action: 'disconnect' });
+      }
+    } catch {}
+    try {
+      if (typeof desktopRelayOn === 'function' && desktopRelayOn()) await relayDisconnectHttp();
+      else if (typeof relayActive === 'function' && relayActive()) await relayDisconnectHttp();
+    } catch {}
+  }
+  try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+  location.href = '/login.html';
+}
+
 function showLiveLockDenied(message) {
+  if (window.__lcLoggingOut) return;
+  const now = Date.now();
+  if (liveLockModalOpen) return;
+  if (now - liveLockModalLastAt < 25000) return;
+  liveLockModalLastAt = now;
+  liveLockModalOpen = true;
   const text = String(message || 'Esta cuenta ya está en live en otro dispositivo. Cierra el live o pulsa Desconectar ahí para poder conectar aquí.');
   try { toast(text, 'warn'); } catch {}
-  if (typeof askConfirm === 'function') {
-    askConfirm({
-      title: 'Cuenta en uso en otra PC',
-      message: text,
-      confirmText: 'Entendido',
-      cancelText: 'Cerrar',
-      icon: '🔒',
-      danger: false,
-    }).catch(() => {});
-  }
+
+  const back = document.createElement('div');
+  back.className = 'modal confirm-modal live-lock-modal';
+  back.innerHTML = `
+    <div class="confirm-box">
+      <div class="confirm-ico">🔒</div>
+      <h3>Cuenta en uso en otra PC</h3>
+      <p></p>
+      <div class="confirm-btns" style="flex-wrap:wrap;gap:8px;justify-content:center">
+        <button type="button" class="btn ghost c-logout">Cerrar sesión</button>
+        <button type="button" class="btn ghost c-close">Cerrar</button>
+        <button type="button" class="btn primary c-ok">Entendido</button>
+      </div>
+    </div>`;
+  const p = back.querySelector('p');
+  if (p) p.textContent = text;
+  document.body.appendChild(back);
+  const close = () => {
+    liveLockModalOpen = false;
+    try { back.remove(); } catch {}
+  };
+  back.querySelector('.c-close').onclick = close;
+  back.querySelector('.c-ok').onclick = close;
+  back.querySelector('.c-logout').onclick = () => { close(); performLogout(); };
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
 }
 
 async function relayConnectHttp(username) {
@@ -5406,7 +5445,7 @@ function profileSaveMeta() {
 }
 function saveSettings() {
   if (applyingSettings) return;
-  try { syncAllMcPresetsFromActions(); } catch {}
+  try { syncMcPresetsFromDirty(); } catch {}
   try { window.__lcPendingTouchedKeys = null; } catch {}
   clearTimeout(saveDebounce);
   saveDebounce = setTimeout(() => {
@@ -5541,6 +5580,10 @@ function preserveLocalBailePeopleOnSettingsEcho(incoming) {
 }
 
 function onSettings(s, touchedKeys) {
+  const isFullSettings = !touchedKeys || !touchedKeys.length;
+  if (isFullSettings) {
+    try { resetMcPresetSessionCaches(); } catch {}
+  }
   if (!touchedKeys || !touchedKeys.length) {
     try {
       if (Array.isArray(window.__lcPendingTouchedKeys) && window.__lcPendingTouchedKeys.length
@@ -5716,6 +5759,10 @@ function applySettingsToUI(touchedKeys) {
   const hasAny = (...ks) => all || ks.some((k) => touchedKeys.includes(k));
 
   if (has('tts')) applyTtsUI(settings.tts || {});
+  if (has('liveMod')) applyLiveModUI();
+  if (hasAny('soundAlerts', 'videos', 'screenFx', 'actions')) {
+    try { renderLiveModInfo(); } catch { /* ignore */ }
+  }
 
   if (has('playback')) {
     if (!settings.playback) settings.playback = { playQueue: true, comboOnce: false };
@@ -5789,8 +5836,19 @@ function applySettingsToUI(touchedKeys) {
   if (has('webhook') && typeof applyWebhookUI === 'function') applyWebhookUI();
   if (has('actions') && typeof renderAcciones === 'function') renderAcciones();
   if (has('mcActions') && typeof renderMyMcActions === 'function') renderMyMcActions();
-  if (has('mcPresetBanks') || hasAny('mcActions', 'parkourActions', 'kothActions', 'farmActions', 'mcshooterActions', 'bedrockActions', 'sandboxActions')) {
-    try { refreshAllMcPresetBars(); } catch {}
+  if (has('mcPresetBanks') || hasAny(...gamePresetActionKeys())) {
+    try {
+      if (has('mcPresetBanks')) {
+        for (const game of Object.keys(GAME_PRESET_MAP)) {
+          if (document.getElementById(gamePresetUiPrefix(game) + '-preset-select')) scheduleRefreshMcPresetBar(game);
+        }
+      } else {
+        for (const [game, meta] of Object.entries(GAME_PRESET_MAP)) {
+          if (!has(meta.key)) continue;
+          if (document.getElementById(gamePresetUiPrefix(game) + '-preset-select')) scheduleRefreshMcPresetBar(game);
+        }
+      }
+    } catch {}
   }
 }
 
@@ -6663,6 +6721,8 @@ function saveSettingsKeysPatch(...keysAndOpts) {
   }
   for (const k of keys) {
     settingsKeysSavePending.add(k);
+    const g = mcGameFromSettingsKey(k);
+    if (g) markMcPresetDirty(g);
   }
   if (opts.skipErSync) {
     settingsKeysSkipErSync = true;
@@ -6689,7 +6749,7 @@ function saveSettingsKeysPatch(...keysAndOpts) {
     }
     const mcKeys = typeof mcPresetActionKeys === 'function' ? mcPresetActionKeys() : [];
     if (mcKeys.some((k) => touched.includes(k))) {
-      try { syncAllMcPresetsFromActions(); } catch {}
+      try { syncMcPresetsFromDirty(); } catch {}
       if (settings.mcPresetBanks) {
         patch.mcPresetBanks = settings.mcPresetBanks;
         if (!touched.includes('mcPresetBanks')) touched.push('mcPresetBanks');
@@ -18207,6 +18267,309 @@ function openTtsWarnModal(onAccept) {
   if (stop) stop.onclick = () => { ttsHardStop(); };
 })();
 
+/* ====================== Moderación LIVE ====================== */
+const LIVE_MOD_CMD_DEFS = [
+  { key: 'ttsban', cmd: '!ttsban', desc: 'Bloquea una palabra del TTS', example: '!ttsban insulto' },
+  { key: 'ttsunban', cmd: '!ttsunban', desc: 'Desbloquea una palabra del TTS', example: '!ttsunban insulto' },
+  { key: 'anim', cmd: '!anim', desc: 'Activa un video o efecto en pantalla', example: '!anim miVideo' },
+  { key: 'sonido', cmd: '!sonido', desc: 'Reproduce una alerta sonora', example: '!sonido alerta' },
+  { key: 'boost', cmd: '!boost', desc: 'Da puntos a un usuario del chat', example: '!boost guantes @usuario' },
+  { key: 'perfil', cmd: '!perfil', desc: 'Cambia el perfil activo del panel', example: '!perfil Mi Perfil' },
+  { key: 'evento', cmd: '!evento', desc: 'Activa o desactiva una acción', example: '!evento #1 off' },
+];
+
+function ensureLiveModSettings() {
+  if (!settings.liveMod || typeof settings.liveMod !== 'object') {
+    settings.liveMod = {
+      enabled: true, allowTikTokMods: true, moderators: [], defaultBoostPoints: 100,
+      boostPresets: [
+        { id: 'guantes', name: 'Guantes', points: 500 },
+        { id: 'martillo', name: 'Martillo', points: 300 },
+        { id: 'niebla', name: 'Niebla', points: 200 },
+        { id: 'crono', name: 'Crono', points: 400 },
+      ],
+      commands: {},
+    };
+  }
+  const lm = settings.liveMod;
+  if (!Array.isArray(lm.moderators)) lm.moderators = [];
+  if (!lm.commands || typeof lm.commands !== 'object') lm.commands = {};
+  if (!Array.isArray(lm.boostPresets)) {
+    lm.boostPresets = [
+      { id: 'guantes', name: 'Guantes', points: 500 },
+      { id: 'martillo', name: 'Martillo', points: 300 },
+      { id: 'niebla', name: 'Niebla', points: 200 },
+      { id: 'crono', name: 'Crono', points: 400 },
+    ];
+  }
+  LIVE_MOD_CMD_DEFS.forEach((d) => {
+    if (!lm.commands[d.key]) lm.commands[d.key] = { enabled: true };
+    if (lm.commands[d.key].enabled === undefined) lm.commands[d.key].enabled = true;
+  });
+  return lm;
+}
+
+function applyLiveModUI() {
+  const lm = ensureLiveModSettings();
+  const set = (id, v) => { const el = $(id); if (el) el.checked = !!v; };
+  set('livemod-enabled', lm.enabled !== false);
+  set('livemod-allow-tiktok', lm.allowTikTokMods !== false);
+  renderLiveModMods();
+  renderLiveModCmdTable();
+  renderLiveModInfo();
+}
+
+function renderLiveModMods() {
+  const box = $('livemod-mod-list');
+  if (!box) return;
+  const lm = ensureLiveModSettings();
+  const list = lm.moderators || [];
+  if (!list.length) {
+    box.innerHTML = '<div class="livemod-empty">No hay moderadores configurados. Añade usernames para gestionar permisos y comandos de chat.</div>';
+    return;
+  }
+  box.innerHTML = list.map((m, i) => {
+    const u = String(m?.username || m || '').replace(/^@/, '');
+    return `<div class="livemod-mod-row">
+      <span class="livemod-mod-user">@${esc(u)}</span>
+      <button type="button" class="btn ghost livemod-mod-del" data-i="${i}" title="Quitar">✕</button>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.livemod-mod-del').forEach((btn) => {
+    btn.onclick = () => {
+      const i = +btn.dataset.i;
+      lm.moderators.splice(i, 1);
+      saveSettingsKeysPatch('liveMod');
+      renderLiveModMods();
+    };
+  });
+}
+
+function renderLiveModCmdTable() {
+  const tbody = $('livemod-cmd-tbody');
+  if (!tbody) return;
+  const lm = ensureLiveModSettings();
+  tbody.innerHTML = LIVE_MOD_CMD_DEFS.map((d) => {
+    const on = lm.commands?.[d.key]?.enabled !== false;
+    return `<tr>
+      <td><code class="livemod-cmd-pill">${esc(d.cmd)}</code></td>
+      <td>${esc(d.desc)}</td>
+      <td><code class="livemod-ex-pill">${esc(d.example)}</code></td>
+      <td class="livemod-cmd-on"><label class="switch-row plain compact"><input type="checkbox" data-livemod-cmd="${esc(d.key)}" ${on ? 'checked' : ''}> <span></span></label></td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('[data-livemod-cmd]').forEach((el) => {
+    el.onchange = () => {
+      const key = el.dataset.livemodCmd;
+      if (!lm.commands[key]) lm.commands[key] = {};
+      lm.commands[key].enabled = el.checked;
+      saveSettingsKeysPatch('liveMod');
+    };
+  });
+}
+
+function collectLiveModVideoItems() {
+  const items = [];
+  const seen = new Set();
+  const push = (token, label, aliases, kind) => {
+    const t = String(token || '').trim();
+    if (!t) return;
+    const key = t.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push({
+      token: t,
+      label: String(label || t).trim(),
+      aliases: [...new Set((aliases || []).map((a) => String(a).trim()).filter(Boolean))],
+      kind: kind || 'video',
+    });
+  };
+  (settings.videos || []).forEach((v) => {
+    if (!v || v.enabled === false) return;
+    const label = String(v.name || v.id || '').trim();
+    if (!label) return;
+    const aliases = [];
+    if (v.id && String(v.id) !== label) aliases.push(String(v.id));
+    if (v.command) aliases.push(String(v.command).replace(/^!/, ''));
+    push(label, label, aliases, 'video');
+  });
+  (settings.screenFx?.rules || []).forEach((r) => {
+    if (!r || r.on === false) return;
+    const label = String(r.name || r.label || '').trim() || String(r.text || '').trim().replace(/^!/, '');
+    if (!label) return;
+    const aliases = [];
+    if (r.text) aliases.push(String(r.text).replace(/^!/, ''));
+    push(label, label, aliases, 'fx');
+  });
+  return items.slice(0, 36);
+}
+
+function collectLiveModSoundItems() {
+  const items = [];
+  const seen = new Set();
+  (settings.soundAlerts || []).forEach((a) => {
+    if (!a || a.enabled === false || !a.sound) return;
+    const label = String(a.name || a.id || '').trim();
+    if (!label) return;
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    const aliases = [];
+    if (a.id && String(a.id) !== label) aliases.push(String(a.id));
+    if (a.command) aliases.push(String(a.command).replace(/^!/, ''));
+    items.push({ token: label, label, aliases: [...new Set(aliases)] });
+  });
+  return items.slice(0, 36);
+}
+
+function renderLiveModInfo() {
+  const videosEl = $('livemod-info-videos');
+  const soundsEl = $('livemod-info-sounds');
+  const profs = $('livemod-info-profiles');
+  const events = $('livemod-info-events');
+  const exAnim = $('livemod-ex-anim');
+  const exSonido = $('livemod-ex-sonido');
+
+  const videos = collectLiveModVideoItems();
+  const sounds = collectLiveModSoundItems();
+
+  if (videosEl) {
+    videosEl.innerHTML = videos.length
+      ? videos.map((v) => {
+        const tok = esc(v.token);
+        return `<button type="button" class="livemod-vid-pill" data-cmd="!anim ${tok}" title="Copiar comando">${esc(v.label)}</button>`;
+      }).join('')
+      : '<p class="livemod-empty-inline">No hay videos activos. Créalos en la pestaña Videos.</p>';
+    videosEl.querySelectorAll('.livemod-vid-pill').forEach((btn) => {
+      btn.onclick = () => {
+        const cmd = btn.dataset.cmd || '';
+        navigator.clipboard?.writeText(cmd);
+        toast && toast(`Copiado: ${cmd}`, 'ok');
+      };
+    });
+  }
+  if (exAnim && videos[0]) exAnim.textContent = `!anim ${videos[0].token}`;
+
+  if (soundsEl) {
+    soundsEl.innerHTML = sounds.length
+      ? sounds.map((s) => {
+        const aliasTxt = s.aliases.length ? ` <span class="livemod-snd-alias">(${s.aliases.map(esc).join(', ')})</span>` : '';
+        return `<button type="button" class="livemod-snd-pill" data-cmd="!sonido ${esc(s.token)}" title="Copiar comando"><b>${esc(s.label)}</b>${aliasTxt}</button>`;
+      }).join('')
+      : '<p class="livemod-empty-inline">No hay alertas sonoras activas. Créalas en Alertas sonoras.</p>';
+    soundsEl.querySelectorAll('.livemod-snd-pill').forEach((btn) => {
+      btn.onclick = () => {
+        const cmd = btn.dataset.cmd || '';
+        navigator.clipboard?.writeText(cmd);
+        toast && toast(`Copiado: ${cmd}`, 'ok');
+      };
+    });
+  }
+  if (exSonido && sounds[0]) exSonido.textContent = `!sonido ${sounds[0].token}`;
+
+  if (profs) {
+    const ps = profilesState;
+    if (!ps || !Array.isArray(ps.names)) {
+      profs.innerHTML = '<p class="livemod-empty-inline">Cargando perfiles…</p>';
+    } else {
+      const max = Number(ps.max) || ps.names.length;
+      profs.innerHTML = ps.names.slice(0, max).map((name, i) => {
+        const active = !ps.editingGeneral && ps.active === i;
+        const n = esc(name || `Perfil ${i + 1}`);
+        return `<div class="livemod-profile-row${active ? ' is-active' : ''}"><span class="livemod-profile-id">#${i + 1}</span><span class="livemod-profile-name">${n}</span>${active ? '<span class="livemod-pill-active">activo</span>' : ''}</div>`;
+      }).join('') || '<p class="livemod-empty-inline">Sin perfiles configurados.</p>';
+    }
+  }
+  if (events) {
+    const acts = settings.actions || [];
+    if (!acts.length) {
+      events.innerHTML = '<p class="livemod-empty-inline">No se encontraron acciones. Añádelas en la pestaña Acciones.</p>';
+    } else {
+      events.innerHTML = acts.map((a, i) => {
+        const on = a.enabled !== false;
+        return `<div class="livemod-event-row"><span class="livemod-event-id">#${i + 1}</span><span class="livemod-event-name">${esc(a.name || 'Sin nombre')}</span><span class="livemod-event-state ${on ? 'on' : 'off'}">${on ? 'ON' : 'OFF'}</span></div>`;
+      }).join('');
+    }
+  }
+}
+
+function exportLiveModCommands() {
+  const lm = ensureLiveModSettings();
+  const videos = collectLiveModVideoItems();
+  const sounds = collectLiveModSoundItems();
+  const lines = [
+    'Livecoins — Comandos de moderación LIVE',
+    '',
+    'Moderadores configurados:',
+    ...(lm.moderators || []).map((m) => `  @${String(m?.username || m).replace(/^@/, '')}`),
+    lm.allowTikTokMods !== false ? '  + moderadores nativos de TikTok' : '',
+    '',
+    'Comandos:',
+  ];
+  LIVE_MOD_CMD_DEFS.forEach((d) => {
+    if (lm.commands?.[d.key]?.enabled === false) return;
+    lines.push(`  ${d.cmd} — ${d.desc}`);
+    lines.push(`    Ej: ${d.example}`);
+  });
+  lines.push('', 'Videos (!anim):', ...(videos.length ? videos.map((v) => `  ${v.token}${v.aliases.length ? ` (${v.aliases.join(', ')})` : ''}`) : ['  (ninguno)']));
+  lines.push('', 'Sonidos (!sonido):', ...(sounds.length ? sounds.map((s) => `  ${s.label}${s.aliases.length ? ` (${s.aliases.join(', ')})` : ''}`) : ['  (ninguno)']));
+  const text = lines.filter((l) => l !== '').join('\n');
+  try {
+    navigator.clipboard.writeText(text);
+    toast && toast('Comandos copiados al portapapeles.', 'ok');
+  } catch {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'livecoins-moderacion-comandos.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast && toast('Archivo de comandos descargado.', 'ok');
+  }
+}
+
+function addLiveModModerator() {
+  const inp = $('livemod-mod-input');
+  if (!inp) return;
+  const raw = String(inp.value || '').replace(/^@/, '').trim();
+  if (!raw) { toast && toast('Escribe un username.', 'warn'); return; }
+  const lm = ensureLiveModSettings();
+  const want = raw.toLowerCase();
+  if (lm.moderators.some((m) => String(m?.username || m).replace(/^@/, '').toLowerCase() === want)) {
+    toast && toast('Ese moderador ya está en la lista.', 'warn');
+    return;
+  }
+  lm.moderators.push({ username: raw, addedAt: Date.now() });
+  inp.value = '';
+  saveSettingsKeysPatch('liveMod');
+  renderLiveModMods();
+  toast && toast('Moderador añadido.', 'ok');
+}
+
+(function setupLiveModControls() {
+  const en = $('livemod-enabled');
+  if (en) en.addEventListener('change', () => {
+    ensureLiveModSettings().enabled = en.checked;
+    saveSettingsKeysPatch('liveMod');
+  });
+  const tk = $('livemod-allow-tiktok');
+  if (tk) tk.addEventListener('change', () => {
+    ensureLiveModSettings().allowTikTokMods = tk.checked;
+    saveSettingsKeysPatch('liveMod');
+  });
+  const add = $('livemod-mod-add');
+  if (add) add.onclick = () => addLiveModModerator();
+  const inp = $('livemod-mod-input');
+  if (inp) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addLiveModModerator(); } });
+  const ref = $('livemod-refresh-info');
+  if (ref) ref.onclick = () => { renderLiveModInfo(); toast && toast('Información actualizada.', 'ok'); };
+  const exp = $('livemod-export');
+  if (exp) exp.onclick = () => exportLiveModCommands();
+  const modTab = document.querySelector('#view-tts [data-sub-view="tts-sub-mod"]');
+  if (modTab) modTab.addEventListener('click', () => { setTimeout(() => renderLiveModInfo(), 0); });
+  try { applyLiveModUI(); } catch { /* ignore */ }
+})();
+
 /* ====================== Usuario y Puntos ====================== */
 const ptsState = { users: new Map(), tx: [], count: 0, max: 2500 };
 const PTS_PAGE_SIZE = 20;
@@ -20938,6 +21301,7 @@ function onProfiles(p) {
   }
   renderProfilesList();
   updateProfileEditBadge();
+  try { renderLiveModInfo(); } catch { /* ignore */ }
 }
 
 async function fetchProfilesHttp() {
@@ -21003,9 +21367,11 @@ async function applyProfileSwitchResponse(data) {
   if (!data) return false;
   cancelPendingProfileSaves();
   lastGameActionEditAt = 0;
+  try { resetMcPresetSessionCaches(); } catch {}
   // Perfiles primero: así los saves posteriores llevan el profileActive correcto.
   if (data.profiles) onProfiles(data.profiles);
   if (data.settings) onSettings(data.settings);
+  try { refreshVisibleGamePresetBars(); } catch {}
   cancelPendingProfileSaves();
   syncDesktopWebhookSettings();
   return true;
@@ -21014,6 +21380,7 @@ async function applyProfileSwitchResponse(data) {
 async function switchProfileReq(index) {
   cancelPendingProfileSaves();
   lastGameActionEditAt = 0;
+  try { resetMcPresetSessionCaches(); } catch {}
   try {
     const r = await fetch('/api/profiles/switch', {
       method: 'POST',
@@ -21031,6 +21398,7 @@ async function switchProfileReq(index) {
 async function switchGeneralProfileReq() {
   cancelPendingProfileSaves();
   lastGameActionEditAt = 0;
+  try { resetMcPresetSessionCaches(); } catch {}
   try {
     const r = await fetch('/api/profiles/switch-general', { method: 'POST' });
     if (r.ok) {
@@ -22729,6 +23097,12 @@ async function ensureGameUi(gameKey) {
   _gameUiBoot.set(key, p);
   try {
     await p;
+    const presetGame = GAME_TAB_TO_PRESET[key];
+    if (presetGame) {
+      requestAnimationFrame(() => {
+        try { wireGamePresetBar(presetGame); } catch (err) { console.error('[preset]', presetGame, err); }
+      });
+    }
     _gameUiBoot.set(key, true);
   } catch (e) {
     _gameUiBoot.delete(key);
@@ -23334,6 +23708,8 @@ function saveMcTrigPop() {
     return;
   }
 
+  const presetGame = gamePresetFromSettingsKey(key);
+  if (presetGame) markMcPresetDirty(presetGame);
   saveSettings();
   closeMcTrigPop();
   notifyEditorRapidoActionsChanged(key);
@@ -23869,23 +24245,29 @@ function preserveLocalGameActionsOnSettingsEcho(incoming) {
 function mcPresetCloneBanks(banks) {
   try { return JSON.parse(JSON.stringify(banks)); } catch { return banks; }
 }
-function mcPresetActionKeys() {
-  return Object.values(MC_GAME_MAP || {}).map((g) => g.key);
-}
 function preserveLocalMcPresetBanksOnSettingsEcho(incoming) {
   if (!incoming || !settings) return incoming;
   const local = settings.mcPresetBanks;
-  if (!local || typeof local !== 'object' || !Object.keys(local).length) return incoming;
-  const inc = incoming.mcPresetBanks;
-  const incEmpty = !inc || typeof inc !== 'object' || !Object.keys(inc).length;
   const recentEdit = Date.now() - lastGameActionEditAt <= GAME_ACTION_EDIT_ECHO_MS;
-  if (incEmpty || recentEdit) return { ...incoming, mcPresetBanks: mcPresetCloneBanks(local) };
-  return incoming;
+  const out = { ...incoming };
+  if (local && typeof local === 'object' && Object.keys(local).length) {
+    const inc = incoming.mcPresetBanks;
+    const incEmpty = !inc || typeof inc !== 'object' || !Object.keys(inc).length;
+    if (incEmpty || recentEdit) out.mcPresetBanks = mcPresetCloneBanks(local);
+  }
+  if (recentEdit && typeof GAME_PRESET_MAP === 'object') {
+    for (const g of Object.values(GAME_PRESET_MAP)) {
+      if (g && g.key && Array.isArray(settings[g.key])) out[g.key] = settings[g.key];
+    }
+  }
+  return out;
 }
 function removeGameActions(settingsKey, keepFn, renderFn) {
   const list = settings?.[settingsKey];
   if (!Array.isArray(list)) return;
   settings[settingsKey] = list.filter(keepFn);
+  const presetGame = gamePresetFromSettingsKey(settingsKey);
+  if (presetGame) markMcPresetDirty(presetGame);
   lastGameActionEditAt = Date.now();
   flushSaveSettings();
   notifyEditorRapidoActionsChanged(settingsKey);
@@ -23897,6 +24279,8 @@ function applyGameActionGift(settingsKey, uid, g, renderFn) {
   act.giftId = String(g.id || '');
   act.giftName = String(g.name || '').trim();
   act.giftImage = g.image || '';
+  const presetGame = gamePresetFromSettingsKey(settingsKey);
+  if (presetGame) markMcPresetDirty(presetGame);
   lastGameActionEditAt = Date.now();
   flushSaveSettings();
   notifyEditorRapidoActionsChanged(settingsKey);
@@ -24086,7 +24470,6 @@ function setupMcActionsUI() {
   }
   wireGameToggleAllButton('mc-toggle-all', () => (settings && Array.isArray(settings.mcActions)) ? settings.mcActions : [], renderMyMcActions, 'mcActions');
   wireMcCmdModalOnce();
-  wireMcPresetBar('minecraft');
   renderMcCatalog(search ? search.value : '');
   renderMyMcActions();
 }
@@ -24119,8 +24502,136 @@ const MC_GAME_MAP = {
   sandbox: { key: 'sandboxActions', wrapId: 'sandbox-my-actions', label: 'Sandbox', render: () => renderMySandboxActions() },
 };
 
+const GAME_PRESET_EXTRA = {
+  mario: { key: 'marioActions', wrapId: 'mario-my-actions', label: 'Mario Bros', render: () => renderMarioActions() },
+  smw: { key: 'smwActions', wrapId: 'smw-my-actions', label: 'Super Mario World', render: () => renderSmwActions() },
+  smb3: { key: 'smb3Actions', wrapId: 'smb3-my-actions', label: 'Super Mario Bros. 3', render: () => renderSmb3Actions() },
+  mari0: { key: 'mari0Actions', wrapId: 'mari0-my-actions', label: 'Mari0', render: () => renderMari0Actions() },
+  pvz: { key: 'pvzActions', wrapId: 'pvz-my-actions', label: 'Plants vs Zombies', render: () => renderPvzActions() },
+  pvzhybrid: { key: 'pvzHybridActions', wrapId: 'pvzhybrid-my-actions', label: 'PvZ Hybrid', render: () => renderPvzHybridActions() },
+  repo: { key: 'repoActions', wrapId: 'repo-my-actions', label: 'R.E.P.O.', render: () => renderRepoActions() },
+  l4d: { key: 'l4dActions', wrapId: 'l4d-my-actions', label: 'Left 4 Dead 2', render: () => renderL4dActions() },
+  gtavkoth: { key: 'gtavKothActions', wrapId: 'gtavkoth-my-actions', label: 'GTA V KOTH', render: () => renderGtavKothActions() },
+  gtavchaos: { key: 'gtavChaosActions', wrapId: 'gtavchaos-my-actions', label: 'GTA V Chaos', render: () => renderGtavChaosActions() },
+  gtavchiliad: { key: 'gtavChiliadActions', wrapId: 'gtavchiliad-my-actions', label: 'GTA V Chiliad', render: () => renderGtavChiliadActions() },
+  unturned: { key: 'unturnedActions', wrapId: 'unturned-my-actions', label: 'Unturned', render: () => renderUnturnedActions() },
+  ctr: { key: 'ctrActions', wrapId: 'ctr-my-actions', label: 'Crash Team Racing', render: () => renderCtrActions() },
+  mslug: { key: 'mslugActions', wrapId: 'mslug-my-actions', label: 'Metal Slug', render: () => renderMslugActions() },
+  gdash: { key: 'gdashActions', wrapId: 'gdash-my-actions', label: 'Geometry Dash', render: () => renderGdashActions() },
+  roblox: { key: 'robloxActions', wrapId: 'rbx-actions', label: 'Roblox', render: () => renderRobloxActions() },
+  roblox3: { key: 'roblox3Actions', wrapId: 'rbx3-actions', label: 'Roblox 3', render: () => renderRoblox3Actions() },
+};
+const GAME_PRESET_MAP = { ...MC_GAME_MAP, ...GAME_PRESET_EXTRA };
+
+const GAME_TAB_TO_PRESET = {
+  mariobros: 'mario', smb3: 'smb3', mari0: 'mari0', plantasvszombies: 'pvz', pvzhybrid: 'pvzhybrid',
+  repo: 'repo', l4d: 'l4d', unturned: 'unturned', gtavkoth: 'gtavkoth', gtavchaos: 'gtavchaos',
+  gtavchiliad: 'gtavchiliad', crashctr: 'ctr', smw: 'smw', metalslug: 'mslug', geometrydash: 'gdash',
+  roblox: 'roblox', roblox3: 'roblox3', minecraft: 'minecraft', mcparkour: 'mcparkour', mckoth: 'mckoth',
+  mcfarm: 'mcfarm', mcshooter: 'mcshooter', bedrock: 'bedrock', sandbox: 'sandbox',
+};
+
+function gamePresetActionKeys() {
+  return Object.values(GAME_PRESET_MAP).map((g) => g.key);
+}
+
+function mcPresetActionKeys() {
+  return gamePresetActionKeys();
+}
+
+const mcPresetDirtyGames = new Set();
+const mcPresetReconciledGames = new Set();
+const _mcPresetBarRaf = new Map();
+const _mcPresetRenderRaf = new Map();
+const _gamePresetBarReady = new Set();
+let _mcPresetMigrateTimer = null;
+
+function runWhenIdle(fn, timeoutMs = 600) {
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => { try { fn(); } catch {} }, { timeout: timeoutMs });
+  } else {
+    setTimeout(() => { try { fn(); } catch {} }, 0);
+  }
+}
+
+function resetMcPresetSessionCaches() {
+  mcPresetDirtyGames.clear();
+  mcPresetReconciledGames.clear();
+  _gamePresetBarReady.clear();
+  for (const id of _mcPresetBarRaf.values()) cancelAnimationFrame(id);
+  _mcPresetBarRaf.clear();
+  for (const id of _mcPresetRenderRaf.values()) cancelAnimationFrame(id);
+  _mcPresetRenderRaf.clear();
+  clearTimeout(_mcPresetMigrateTimer);
+  _mcPresetMigrateTimer = null;
+}
+
+function scheduleRefreshMcPresetBar(game) {
+  if (_mcPresetBarRaf.has(game)) return;
+  const id = requestAnimationFrame(() => {
+    _mcPresetBarRaf.delete(game);
+    refreshMcPresetBar(game);
+  });
+  _mcPresetBarRaf.set(game, id);
+}
+
+function scheduleGamePresetRender(game) {
+  if (_mcPresetRenderRaf.has(game)) cancelAnimationFrame(_mcPresetRenderRaf.get(game));
+  const id = requestAnimationFrame(() => {
+    _mcPresetRenderRaf.delete(game);
+    const meta = GAME_PRESET_MAP[game];
+    if (meta) meta.render();
+  });
+  _mcPresetRenderRaf.set(game, id);
+}
+
+function flushMcPresetBankMigration() {
+  clearTimeout(_mcPresetMigrateTimer);
+  _mcPresetMigrateTimer = setTimeout(() => {
+    _mcPresetMigrateTimer = null;
+    try { saveSettingsKeysPatch('mcPresetBanks'); } catch {}
+  }, 450);
+}
+
+function saveGamePresetState(game, opts = {}) {
+  const meta = GAME_PRESET_MAP[game];
+  if (!meta || !settings) return;
+  if (opts.sync !== false) syncMcPresetFromActions(game);
+  saveSettingsKeysPatch(meta.key, 'mcPresetBanks');
+}
+
+function gamePresetFromSettingsKey(key) {
+  for (const [game, g] of Object.entries(GAME_PRESET_MAP)) {
+    if (g.key === key) return game;
+  }
+  return null;
+}
+
+function mcGameFromSettingsKey(key) {
+  return gamePresetFromSettingsKey(key);
+}
+
+function markMcPresetDirty(game) {
+  if (game && GAME_PRESET_MAP[game]) mcPresetDirtyGames.add(game);
+}
+
+function normalizeMcPresetShareCodeClient(raw) {
+  const s = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!s) return '';
+  const body = s.startsWith('MC-') ? s.slice(3) : s;
+  if (!/^[A-Z2-9]{4,12}$/.test(body)) return '';
+  return 'MC-' + body;
+}
+
+function gamePresetUiPrefix(game) {
+  if (game === 'minecraft') return 'mc';
+  if (game === 'roblox') return 'rbx';
+  if (game === 'roblox3') return 'rbx3';
+  return game;
+}
+
 function mcPresetUiPrefix(game) {
-  return game === 'minecraft' ? 'mc' : game;
+  return gamePresetUiPrefix(game);
 }
 
 function mcPresetCloneActions(list) {
@@ -24138,7 +24649,7 @@ function mcPresetHasData(bank) {
 
 function ensureMcPresetBank(game) {
   if (!settings) return null;
-  const meta = MC_GAME_MAP[game];
+  const meta = GAME_PRESET_MAP[game];
   if (!meta) return null;
   if (!settings.mcPresetBanks || typeof settings.mcPresetBanks !== 'object') settings.mcPresetBanks = {};
   let bank = settings.mcPresetBanks[game];
@@ -24153,23 +24664,44 @@ function ensureMcPresetBank(game) {
   return bank;
 }
 
+function normalizeGamePresetLiveActions(game) {
+  if (!settings) return [];
+  if (game === 'roblox') return ensureRobloxSlots();
+  if (game === 'roblox3') return ensureRoblox3Slots();
+  const meta = GAME_PRESET_MAP[game];
+  if (!meta) return [];
+  return Array.isArray(settings[meta.key]) ? settings[meta.key] : [];
+}
+
+function refreshVisibleGamePresetBars() {
+  if (!settings || typeof GAME_PRESET_MAP !== 'object') return;
+  for (const game of Object.keys(GAME_PRESET_MAP)) {
+    if (document.getElementById(gamePresetUiPrefix(game) + '-preset-select')) scheduleRefreshMcPresetBar(game);
+  }
+}
+
 function syncMcPresetFromActions(game) {
   const bank = ensureMcPresetBank(game);
-  const meta = MC_GAME_MAP[game];
+  const meta = GAME_PRESET_MAP[game];
   if (!bank || !meta) return;
   const active = bank.presets.find((p) => p && p.id === bank.activeId);
   if (!active) return;
-  active.actions = mcPresetCloneActions(settings[meta.key]);
+  active.actions = mcPresetCloneActions(normalizeGamePresetLiveActions(game));
+}
+
+function syncMcPresetsFromDirty() {
+  if (!settings || applyingSettings || !mcPresetDirtyGames.size) return;
+  for (const game of mcPresetDirtyGames) syncMcPresetFromActions(game);
+  mcPresetDirtyGames.clear();
 }
 
 function syncAllMcPresetsFromActions() {
-  if (!settings || !MC_GAME_MAP) return;
-  for (const game of Object.keys(MC_GAME_MAP)) syncMcPresetFromActions(game);
+  syncMcPresetsFromDirty();
 }
 
 function activateMcPresetRuntime(game) {
   const bank = settings.mcPresetBanks?.[game];
-  const meta = MC_GAME_MAP[game];
+  const meta = GAME_PRESET_MAP[game];
   if (!meta || !mcPresetHasData(bank)) return;
   const active = bank.presets.find((p) => p && p.id === bank.activeId) || bank.presets[0];
   if (!active) return;
@@ -24178,7 +24710,7 @@ function activateMcPresetRuntime(game) {
 }
 
 function restoreMcActionsFromActivePresetIfNeeded(game) {
-  const meta = MC_GAME_MAP[game];
+  const meta = GAME_PRESET_MAP[game];
   const bank = settings.mcPresetBanks?.[game];
   if (!meta || !mcPresetHasData(bank)) return;
   const active = bank.presets.find((p) => p && p.id === bank.activeId) || bank.presets[0];
@@ -24189,39 +24721,61 @@ function restoreMcActionsFromActivePresetIfNeeded(game) {
 }
 
 function refreshMcPresetBar(game) {
-  const prefix = mcPresetUiPrefix(game);
+  const prefix = gamePresetUiPrefix(game);
   const sel = document.getElementById(prefix + '-preset-select');
   const delBtn = document.getElementById(prefix + '-preset-del');
   if (!sel) return;
-  const bank = ensureMcPresetBank(game);
+  let bank = settings?.mcPresetBanks?.[game];
+  if (!mcPresetHasData(bank)) {
+    ensureMcPresetBank(game);
+    bank = settings?.mcPresetBanks?.[game];
+  }
   if (!bank) return;
+  const sig = bank.activeId + '\n' + bank.presets.map((p) => `${p.id}\t${p.name || 'Preset'}`).join('\n');
+  const disabled = bank.presets.length <= 1;
+  if (delBtn) delBtn.disabled = disabled;
+  if (sel._presetSig === sig) {
+    if (sel.value !== bank.activeId) sel.value = bank.activeId;
+    return;
+  }
+  sel._presetSig = sig;
+  const prev = sel.value;
   sel.innerHTML = bank.presets.map((p) => `<option value="${esc(p.id)}">${esc(p.name || 'Preset')}</option>`).join('');
-  sel.value = bank.activeId;
-  if (delBtn) delBtn.disabled = bank.presets.length <= 1;
+  sel.value = bank.activeId || prev;
 }
 
 function refreshAllMcPresetBars() {
-  for (const game of Object.keys(MC_GAME_MAP)) refreshMcPresetBar(game);
+  for (const game of Object.keys(GAME_PRESET_MAP)) refreshMcPresetBar(game);
 }
 
 function loadMcPresetActions(game, presetId) {
   const bank = ensureMcPresetBank(game);
-  const meta = MC_GAME_MAP[game];
-  if (!bank || !meta || !presetId || presetId === bank.activeId) return false;
+  const meta = GAME_PRESET_MAP[game];
+  const prefix = gamePresetUiPrefix(game);
+  const sel = document.getElementById(prefix + '-preset-select');
+  if (!bank || !meta || !presetId || presetId === bank.activeId || sel?._presetLoading) return false;
   const preset = bank.presets.find((p) => p && p.id === presetId);
   if (!preset) return false;
-  syncMcPresetFromActions(game);
-  bank.activeId = presetId;
-  settings[meta.key] = mcPresetCloneActions(preset.actions);
-  meta.render();
-  refreshMcPresetBar(game);
-  saveSettings();
+  if (sel) sel._presetLoading = true;
+  try {
+    syncMcPresetFromActions(game);
+    bank.activeId = presetId;
+    settings[meta.key] = mcPresetCloneActions(preset.actions);
+    if (game === 'roblox') ensureRobloxSlots();
+    else if (game === 'roblox3') ensureRoblox3Slots();
+    lastGameActionEditAt = Date.now();
+    scheduleRefreshMcPresetBar(game);
+    scheduleGamePresetRender(game);
+    saveGamePresetState(game, { sync: false });
+  } finally {
+    if (sel) sel._presetLoading = false;
+  }
   return true;
 }
 
 function createMcPreset(game) {
   const bank = ensureMcPresetBank(game);
-  const meta = MC_GAME_MAP[game];
+  const meta = GAME_PRESET_MAP[game];
   if (!bank || !meta) return;
   syncMcPresetFromActions(game);
   const n = bank.presets.length + 1;
@@ -24230,15 +24784,15 @@ function createMcPreset(game) {
   bank.presets.push({ id, name, actions: [] });
   bank.activeId = id;
   settings[meta.key] = [];
-  meta.render();
-  refreshMcPresetBar(game);
-  saveSettings();
+  scheduleGamePresetRender(game);
+  scheduleRefreshMcPresetBar(game);
+  saveGamePresetState(game);
   toast && toast('Creado ' + name + '.', 'ok');
 }
 
 async function deleteMcPreset(game) {
   const bank = ensureMcPresetBank(game);
-  const meta = MC_GAME_MAP[game];
+  const meta = GAME_PRESET_MAP[game];
   if (!bank || !meta) return;
   if (bank.presets.length <= 1) {
     toast && toast('Debe quedar al menos un preset.', 'warn');
@@ -24261,29 +24815,120 @@ async function deleteMcPreset(game) {
   const next = bank.presets[Math.min(idx >= 0 ? idx : 0, bank.presets.length - 1)];
   bank.activeId = next.id;
   settings[meta.key] = mcPresetCloneActions(next.actions);
-  meta.render();
-  refreshMcPresetBar(game);
-  saveSettings();
+  scheduleGamePresetRender(game);
+  scheduleRefreshMcPresetBar(game);
+  saveGamePresetState(game, { sync: false });
   toast && toast('Preset eliminado.', 'ok');
 }
 
-function wireMcPresetBar(game) {
+function gamePresetBarInnerHtml(prefix) {
+  return `
+    <label class="mc-preset-lbl" for="${prefix}-preset-select">Preset</label>
+    <select id="${prefix}-preset-select" class="mc-preset-select" title="Cambiar preset"></select>
+    <button type="button" class="mc-img-btn mc-preset-new" id="${prefix}-preset-new" title="Crear otro preset vacío">＋ Nuevo</button>
+    <button type="button" class="mc-img-btn mc-preset-del" id="${prefix}-preset-del" title="Eliminar preset actual">🗑 Borrar</button>
+    <button type="button" class="mc-img-btn mc-preset-share" id="${prefix}-preset-share" title="Generar código para compartir este preset">Generar código</button>
+    <button type="button" class="mc-img-btn mc-preset-import-code" id="${prefix}-preset-import-code" title="Importar preset con código de un amigo">Importar preset</button>`;
+}
+
+function ensureGamePresetBarDom(game) {
+  const meta = GAME_PRESET_MAP[game];
+  if (!meta) return null;
+  const prefix = gamePresetUiPrefix(game);
+  let sel = document.getElementById(prefix + '-preset-select');
+  if (sel) return sel;
+  const wrap = document.getElementById(meta.wrapId);
+  if (!wrap) return null;
+  const subHead = wrap.closest('.mc-actions-wrap')?.querySelector('.mc-sub-head');
+  if (!subHead) return null;
+  if (!subHead.querySelector('.mc-preset-bar')) {
+    const bar = document.createElement('div');
+    bar.className = 'mc-preset-bar';
+    bar.innerHTML = gamePresetBarInnerHtml(prefix);
+    const btns = subHead.querySelector('.mc-sub-btns');
+    if (btns) subHead.insertBefore(bar, btns);
+    else subHead.appendChild(bar);
+  }
+  sel = document.getElementById(prefix + '-preset-select');
+  return sel;
+}
+
+const MC_PRESET_RENAME_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+
+function ensureMcPresetRenameBtn(game, sel) {
+  if (!sel || !sel.parentNode) return null;
   const prefix = mcPresetUiPrefix(game);
+  let wrap = sel.parentElement;
+  if (!wrap.classList.contains('mc-preset-select-wrap')) {
+    wrap = document.createElement('div');
+    wrap.className = 'mc-preset-select-wrap';
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+  }
+  let btn = document.getElementById(prefix + '-preset-rename');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mc-preset-rename';
+    btn.id = prefix + '-preset-rename';
+    btn.title = 'Renombrar preset';
+    btn.setAttribute('aria-label', 'Renombrar preset');
+    btn.innerHTML = MC_PRESET_RENAME_ICON;
+    wrap.appendChild(btn);
+  }
+  return btn;
+}
+
+function reconcileMcPresetBankOnOpen(game) {
+  if (!settings || !GAME_PRESET_MAP[game] || mcPresetReconciledGames.has(game)) return;
+  mcPresetReconciledGames.add(game);
+  if (!settings.mcPresetBanks || typeof settings.mcPresetBanks !== 'object') settings.mcPresetBanks = {};
+  const hadBank = mcPresetHasData(settings.mcPresetBanks[game]);
+  const finish = () => {
+    restoreMcActionsFromActivePresetIfNeeded(game);
+    scheduleRefreshMcPresetBar(game);
+    if (!hadBank) flushMcPresetBankMigration();
+  };
+  if (!hadBank) {
+    runWhenIdle(() => {
+      ensureMcPresetBank(game);
+      finish();
+    });
+    return;
+  }
+  const bank = settings.mcPresetBanks[game];
+  if (!bank.activeId || !bank.presets.some((p) => p && p.id === bank.activeId)) bank.activeId = bank.presets[0].id;
+  finish();
+}
+
+function wireMcPresetBar(game) {
+  if (_gamePresetBarReady.has(game)) {
+    scheduleRefreshMcPresetBar(game);
+    return;
+  }
+  ensureGamePresetBarDom(game);
+  const prefix = gamePresetUiPrefix(game);
   const sel = document.getElementById(prefix + '-preset-select');
   const newBtn = document.getElementById(prefix + '-preset-new');
   const delBtn = document.getElementById(prefix + '-preset-del');
   const shareBtn = document.getElementById(prefix + '-preset-share');
   const importBtn = document.getElementById(prefix + '-preset-import-code');
   if (!sel) return;
-  refreshMcPresetBar(game);
+  reconcileMcPresetBankOnOpen(game);
+  const renameBtn = ensureMcPresetRenameBtn(game, sel);
   if (!sel._wired) {
     sel._wired = true;
+    sel.title = 'Cambiar preset · lápiz para renombrar';
     sel.onchange = () => {
       const id = sel.value;
       const bank = ensureMcPresetBank(game);
       if (!id || !bank || id === bank.activeId) return;
       loadMcPresetActions(game, id);
     };
+  }
+  if (renameBtn && !renameBtn._wired) {
+    renameBtn._wired = true;
+    renameBtn.onclick = () => renameMcPreset(game);
   }
   if (newBtn && !newBtn._wired) {
     newBtn._wired = true;
@@ -24304,21 +24949,25 @@ function wireMcPresetBar(game) {
     importBtn._wired = true;
     importBtn.onclick = () => importMcPresetFromShareCode(game);
   }
+  _gamePresetBarReady.add(game);
+}
+
+function wireGamePresetBar(game) {
+  wireMcPresetBar(game);
 }
 
 function mcPresetActiveSharePayload(game) {
   const bank = ensureMcPresetBank(game);
-  const meta = MC_GAME_MAP[game];
+  const meta = GAME_PRESET_MAP[game];
   if (!bank || !meta) return null;
   syncMcPresetFromActions(game);
   const active = bank.presets.find((p) => p && p.id === bank.activeId);
-  const actions = mcPresetCloneActions(settings[meta.key]);
+  const actions = mcPresetCloneActions(normalizeGamePresetLiveActions(game));
   if (!actions.length) return null;
   return {
     game,
     presetName: active?.name || 'Preset',
     actions,
-    label: meta.label,
   };
 }
 
@@ -24350,6 +24999,50 @@ function showMcPresetShareCodeModal(data) {
     }
   };
   back.addEventListener('click', (e) => { if (e.target === back) close(); });
+}
+
+function askMcPresetRenameInput(current) {
+  return new Promise((resolve) => {
+    const back = document.createElement('div');
+    back.className = 'modal confirm-modal';
+    back.innerHTML = `
+      <div class="confirm-box" style="max-width:420px;text-align:left">
+        <div class="confirm-ico">✏️</div>
+        <h3>Renombrar preset</h3>
+        <p>Nombre del preset actual.</p>
+        <input type="text" class="mc-preset-rename-inp" maxlength="80" style="width:100%;margin:10px 0 14px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.25);color:inherit;font-size:15px">
+        <div class="confirm-btns">
+          <button type="button" class="btn ghost c-cancel">Cancelar</button>
+          <button type="button" class="btn primary c-ok">Guardar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(back);
+    const inp = back.querySelector('.mc-preset-rename-inp');
+    inp.value = String(current || '').slice(0, 80);
+    const close = (val) => { try { back.remove(); } catch {} resolve(val); };
+    back.querySelector('.c-cancel').onclick = () => close(null);
+    back.querySelector('.c-ok').onclick = () => close(String(inp.value || '').trim());
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); close(String(inp.value || '').trim()); }
+      if (e.key === 'Escape') close(null);
+    });
+    setTimeout(() => { try { inp.focus(); inp.select(); } catch {} }, 50);
+    back.addEventListener('click', (e) => { if (e.target === back) close(null); });
+  });
+}
+
+async function renameMcPreset(game) {
+  if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
+  const bank = ensureMcPresetBank(game);
+  if (!bank) return;
+  const active = bank.presets.find((p) => p && p.id === bank.activeId);
+  if (!active) return;
+  const name = await askMcPresetRenameInput(active.name || 'Preset');
+  if (!name) return;
+  active.name = name.slice(0, 80);
+  scheduleRefreshMcPresetBar(game);
+  try { saveSettingsKeysPatch('mcPresetBanks'); } catch {}
+  toast && toast('Nombre actualizado.', 'ok');
 }
 
 function askMcPresetShareCodeInput() {
@@ -24407,8 +25100,8 @@ async function importMcPresetFromShareCode(game) {
   if (!settings) { toast && toast('Espera a que cargue el panel…', 'warn'); return; }
   const raw = await askMcPresetShareCodeInput();
   if (!raw) return;
-  const code = String(raw).trim().toUpperCase().replace(/\s+/g, '');
-  if (!code) return;
+  const code = normalizeMcPresetShareCodeClient(raw);
+  if (!code) { toast && toast('Código no válido. Usa el formato MC-XXXXXX.', 'warn'); return; }
   try {
     const r = await fetch('/api/mc-preset-share/' + encodeURIComponent(code), { credentials: 'same-origin' });
     const data = await r.json().catch(() => ({}));
@@ -24416,10 +25109,10 @@ async function importMcPresetFromShareCode(game) {
       toast && toast(data.error || 'Código no encontrado.', 'warn');
       return;
     }
-    const meta = MC_GAME_MAP[game];
+    const meta = GAME_PRESET_MAP[game];
     if (!meta) return;
     if (data.game && data.game !== game) {
-      const src = (MC_GAME_MAP[data.game] || {}).label || data.game;
+      const src = (GAME_PRESET_MAP[data.game] || {}).label || data.game;
       const ok = await askConfirm({
         title: 'Juego distinto',
         message: `El código es de <b>${esc(src)}</b>. ¿Importarlo aquí en <b>${esc(meta.label)}</b>?`,
@@ -24439,9 +25132,13 @@ async function importMcPresetFromShareCode(game) {
     bank.presets.push({ id, name, actions: mcPresetCloneActions(clean) });
     bank.activeId = id;
     settings[meta.key] = mcPresetCloneActions(clean);
-    meta.render();
-    refreshMcPresetBar(game);
-    saveSettings();
+    if (MC_GAME_MAP[game]) repairMcImportedCmds(settings[meta.key]);
+    if (game === 'roblox') ensureRobloxSlots();
+    else if (game === 'roblox3') ensureRoblox3Slots();
+    lastGameActionEditAt = Date.now();
+    scheduleGamePresetRender(game);
+    scheduleRefreshMcPresetBar(game);
+    saveGamePresetState(game, { sync: false });
     toast && toast(`Importado «${name}» (${clean.length} acciones).`, 'ok');
   } catch {
     toast && toast('Sin conexión. Revisa internet.', 'warn');
@@ -24450,21 +25147,30 @@ async function importMcPresetFromShareCode(game) {
 
 function reconcileMcPresetBanks(touchedKeys) {
   if (!settings) return;
+  if (!settings.mcPresetBanks || typeof settings.mcPresetBanks !== 'object') settings.mcPresetBanks = {};
   const full = !touchedKeys || !touchedKeys.length;
+  if (full) {
+    const recentEdit = Date.now() - lastGameActionEditAt <= GAME_ACTION_EDIT_ECHO_MS;
+    if (!recentEdit) {
+      for (const game of Object.keys(GAME_PRESET_MAP)) {
+        if (!mcPresetHasData(settings.mcPresetBanks[game])) continue;
+        restoreMcActionsFromActivePresetIfNeeded(game);
+      }
+    }
+    return;
+  }
   const recentEdit = Date.now() - lastGameActionEditAt <= GAME_ACTION_EDIT_ECHO_MS;
   let migrated = false;
-  for (const game of Object.keys(MC_GAME_MAP)) {
+  for (const game of Object.keys(GAME_PRESET_MAP)) {
+    const meta = GAME_PRESET_MAP[game];
+    if (!touchedKeys.includes(meta.key) && !touchedKeys.includes('mcPresetBanks')) continue;
     const hadBank = mcPresetHasData(settings.mcPresetBanks?.[game]);
     ensureMcPresetBank(game);
-    if (!hadBank) {
-      migrated = true;
-      continue;
-    }
-    if (full && !recentEdit) activateMcPresetRuntime(game);
-    else restoreMcActionsFromActivePresetIfNeeded(game);
+    if (!hadBank) migrated = true;
+    else if (!recentEdit) restoreMcActionsFromActivePresetIfNeeded(game);
+    if (document.getElementById(gamePresetUiPrefix(game) + '-preset-select')) scheduleRefreshMcPresetBar(game);
   }
-  refreshAllMcPresetBars();
-  if (migrated) saveSettings();
+  if (migrated) flushMcPresetBankMigration();
 }
 
 function mcFamilyGameByKey(settingsKey) {
@@ -24542,7 +25248,7 @@ function bindMcFamilyAudio(wrap, find, rerender) {
 
 function renderMcFamilyActions(game) {
   if (window._mcVolDrag) return;
-  const meta = MC_GAME_MAP[game];
+  const meta = GAME_PRESET_MAP[game];
   if (!meta) return;
   const wrap = document.getElementById(meta.wrapId);
   if (!wrap) return;
@@ -24625,6 +25331,7 @@ function renderMcFamilyActions(game) {
   });
   wrap.querySelectorAll('.mc-act-del').forEach((b) => b.onclick = () => {
     settings[key] = (settings[key] || []).filter((x) => x.uid !== b.dataset.uid);
+    markMcPresetDirty(game);
     saveSettings(); rerender();
   });
   wrap.querySelectorAll('.mc-trig-icon-btn').forEach((b) => b.onclick = () => openMcTrigPop(b.dataset.uid, key));
@@ -24638,6 +25345,7 @@ function renderMcFamilyActions(game) {
     const a = find(inp.dataset.uid); if (!a) return;
     a.count = Math.max(1, Math.min(100, parseInt(inp.value, 10) || 1));
     inp.value = String(a.count);
+    markMcPresetDirty(game);
     saveSettings();
     notifyEditorRapidoActionsChanged(key);
   });
@@ -24945,6 +25653,7 @@ function saveMcCmd() {
       trigger: 'gift', giftId: '', giftName: '', giftImage: '', enabled: true, ...payload,
     });
   }
+  markMcPresetDirty(mccGame);
   saveSettings();
   g.render();
   closeMcCmdModal();
@@ -24978,6 +25687,7 @@ function addMcAction(catId) {
     catId: c.id, name: c.name, desc: c.desc, cmd: c.cmd,
     trigger: 'gift', giftId: '', giftName: '', giftImage: '', enabled: true, count: 1,
   });
+  markMcPresetDirty('minecraft');
   saveSettings();
   renderMyMcActions();
   toast && toast(`Acción "${c.name}" agregada. Elige el regalo o evento.`, 'ok');
@@ -25446,7 +26156,6 @@ function setupBedrockActionsUI() {
     });
   }
   wireGameToggleAllButton('bedrock-toggle-all', () => (settings && Array.isArray(settings.bedrockActions)) ? settings.bedrockActions : [], renderMyBedrockActions, 'bedrockActions');
-  wireMcPresetBar('bedrock');
   renderBedrockCatalog(search ? search.value : '');
   renderMyBedrockActions();
   renderBedrockConfigs();
@@ -25625,7 +26334,6 @@ function setupMcFarmActionsUI() {
     });
   }
   wireGameToggleAllButton('mcfarm-toggle-all', () => (settings && Array.isArray(settings.farmActions)) ? settings.farmActions : [], renderMyFarmActions, 'farmActions');
-  wireMcPresetBar('mcfarm');
   renderFarmCatalog(search ? search.value : '');
   renderMyFarmActions();
   renderFarmConfigs();
@@ -25798,7 +26506,6 @@ function setupMcParkourActionsUI() {
     });
   }
   wireGameToggleAllButton('mcparkour-toggle-all', () => (settings && Array.isArray(settings.parkourActions)) ? settings.parkourActions : [], renderMyParkourActions, 'parkourActions');
-  wireMcPresetBar('mcparkour');
   renderParkourCatalog(search ? search.value : '');
   renderMyParkourActions();
   renderParkourConfigs();
@@ -25978,7 +26685,6 @@ function setupMcKothActionsUI() {
     });
   }
   wireGameToggleAllButton('mckoth-toggle-all', () => (settings && Array.isArray(settings.kothActions)) ? settings.kothActions : [], renderMyKothActions, 'kothActions');
-  wireMcPresetBar('mckoth');
   renderKothCatalog(search ? search.value : '');
   renderMyKothActions();
   renderKothConfigs();
@@ -26164,7 +26870,6 @@ function setupSandboxActionsUI() {
     });
   }
   wireGameToggleAllButton('sandbox-toggle-all', () => (settings && Array.isArray(settings.sandboxActions)) ? settings.sandboxActions : [], renderMySandboxActions, 'sandboxActions');
-  wireMcPresetBar('sandbox');
   renderSandboxCatalog(search ? search.value : '');
   renderMySandboxActions();
   renderSandboxConfigs();
@@ -26549,7 +27254,6 @@ function setupMcShooterActionsUI() {
     };
   }
   applyMcShooterColiseoUI();
-  wireMcPresetBar('mcshooter');
   renderMcShooterCatalog(search ? search.value : '');
   renderMyMcShooterActions();
 }

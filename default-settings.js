@@ -59,6 +59,28 @@ export const DEFAULT_SETTINGS = {
     // Voces personalizadas por usuario del chat: [{ id, userId, nickname, engine, lang, voice, translate }]
     userVoices: [],
   },
+  // Moderación LIVE: moderadores del chat y comandos !ttsban, !anim, !boost, etc.
+  liveMod: {
+    enabled: true,
+    allowTikTokMods: true,
+    moderators: [],
+    defaultBoostPoints: 100,
+    boostPresets: [
+      { id: 'guantes', name: 'Guantes', points: 500 },
+      { id: 'martillo', name: 'Martillo', points: 300 },
+      { id: 'niebla', name: 'Niebla', points: 200 },
+      { id: 'crono', name: 'Crono', points: 400 },
+    ],
+    commands: {
+      ttsban: { enabled: true },
+      ttsunban: { enabled: true },
+      anim: { enabled: true },
+      sonido: { enabled: true },
+      boost: { enabled: true },
+      perfil: { enabled: true },
+      evento: { enabled: true },
+    },
+  },
   // Usuario y Puntos: cuántos puntos otorga cada moneda (diamante) donada.
   points: {
     perCoin: 1,

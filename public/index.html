@@ -7207,6 +7207,12 @@
           <h1 class="view-title">??? Chat TTS (voz)</h1>
           <p class="view-sub">Lee en voz alta el chat y los eventos del live. Se ejecuta en este navegador, d?jalo abierto.</p>
 
+          <div class="subtabs tts-subtabs" role="tablist" aria-label="Secciones Chat TTS">
+            <button type="button" class="subtab active" data-sub-view="tts-sub-main">Configuración TTS</button>
+            <button type="button" class="subtab" data-sub-view="tts-sub-mod">Moderación LIVE</button>
+          </div>
+
+          <div id="tts-sub-main" class="subview active">
           <div class="tts-grid">
             <!-- ConfiguraciÃ³n general -->
             <div class="settings-card tts-card">
@@ -7503,6 +7509,102 @@
             <div class="row-actions">
               <button class="btn ghost" id="tts-stop">Silenciar cola</button>
               <button class="btn primary" id="tts-test">Probar voz</button>
+            </div>
+          </div>
+          </div>
+
+          <div id="tts-sub-mod" class="subview">
+            <div class="livemod-wrap">
+              <div class="settings-card livemod-hero">
+                <div class="livemod-hero-row">
+                  <div class="livemod-hero-text">
+                    <h2 class="livemod-title">🛡️ Panel de Moderación</h2>
+                    <p class="livemod-lead">Convierte el chat del LIVE en una herramienta de control. Configura moderadores, comandos y consulta animaciones, perfiles y acciones disponibles.</p>
+                  </div>
+                  <div class="livemod-hero-actions">
+                    <label class="switch-row plain livemod-master"><input type="checkbox" id="livemod-enabled" checked> <span>Activado</span></label>
+                    <label class="switch-row plain"><input type="checkbox" id="livemod-allow-tiktok" checked> <span>Mods de TikTok</span></label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="livemod-layout">
+                <div class="livemod-main">
+                  <div class="settings-card livemod-card">
+                    <div class="tts-head"><h3>Moderadores</h3><span class="tts-sub">Quién puede usar comandos</span></div>
+                    <div class="livemod-add-row">
+                      <input type="text" id="livemod-mod-input" class="livemod-inp" placeholder="Username del moderador (sin @)…" autocomplete="off" maxlength="80">
+                      <button type="button" class="btn primary" id="livemod-mod-add">＋ Añadir</button>
+                    </div>
+                    <p class="hint">Usa el username de TikTok (el que va con @). También cuentan los moderadores nativos del LIVE si está activado arriba.</p>
+                    <div id="livemod-mod-list" class="livemod-mod-list">
+                      <div class="livemod-empty">No hay moderadores configurados. Añade usernames para gestionar permisos y comandos de chat.</div>
+                    </div>
+                  </div>
+
+                  <div class="settings-card livemod-card">
+                    <div class="tts-head"><h3>Comandos de chat</h3><span class="tts-sub">Solo moderadores autorizados</span></div>
+                    <div class="livemod-table-wrap">
+                      <table class="livemod-cmd-table">
+                        <thead>
+                          <tr>
+                            <th>Comando</th>
+                            <th>Descripción</th>
+                            <th>Ejemplo</th>
+                            <th>Activo</th>
+                          </tr>
+                        </thead>
+                        <tbody id="livemod-cmd-tbody"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <aside class="settings-card livemod-side">
+                  <div class="livemod-side-head">
+                    <h3>Información disponible</h3>
+                    <button type="button" class="btn ghost livemod-refresh" id="livemod-refresh-info" title="Actualizar">↻</button>
+                  </div>
+
+                  <div class="livemod-info-card livemod-info-card--video">
+                    <div class="livemod-info-card-head">
+                      <span class="livemod-info-ico" aria-hidden="true">🎬</span>
+                      <h4>Videos disponibles</h4>
+                    </div>
+                    <div id="livemod-info-videos" class="livemod-media-tags"></div>
+                    <p class="livemod-info-ex">Ejemplo: <code class="livemod-ex-cmd" id="livemod-ex-anim">!anim miVideo</code></p>
+                  </div>
+
+                  <div class="livemod-info-card livemod-info-card--sound">
+                    <div class="livemod-info-card-head">
+                      <span class="livemod-info-ico" aria-hidden="true">🔊</span>
+                      <h4>Sonidos disponibles</h4>
+                    </div>
+                    <div id="livemod-info-sounds" class="livemod-media-list"></div>
+                    <p class="livemod-info-ex">Ejemplo: <code class="livemod-ex-cmd" id="livemod-ex-sonido">!sonido alerta</code></p>
+                  </div>
+
+                  <div class="livemod-info-card livemod-info-card--profiles">
+                    <div class="livemod-info-card-head">
+                      <span class="livemod-info-ico" aria-hidden="true">👤</span>
+                      <h4>Perfiles</h4>
+                    </div>
+                    <div id="livemod-info-profiles" class="livemod-profile-list"></div>
+                    <p class="livemod-info-ex">Ejemplo: <code class="livemod-ex-cmd">!perfil #1</code></p>
+                  </div>
+
+                  <div class="livemod-info-card livemod-info-card--events">
+                    <div class="livemod-info-card-head">
+                      <span class="livemod-info-ico" aria-hidden="true">⚡</span>
+                      <h4>Eventos (acciones)</h4>
+                    </div>
+                    <div id="livemod-info-events" class="livemod-event-list"></div>
+                    <p class="livemod-info-ex">Ejemplo: <code class="livemod-ex-cmd">!evento #1 off</code></p>
+                  </div>
+
+                  <button type="button" class="btn primary livemod-export" id="livemod-export">⬇ Exportar comandos</button>
+                </aside>
+              </div>
             </div>
           </div>
         </section>
@@ -9701,8 +9803,8 @@
                 <select id="mc-preset-select" class="mc-preset-select" title="Preset guardado de acciones"></select>
                 <button type="button" class="mc-img-btn mc-preset-new" id="mc-preset-new" title="Crear otro preset vacío">+ Nuevo preset</button>
                 <button type="button" class="mc-img-btn mc-preset-del" id="mc-preset-del" title="Eliminar preset actual">Borrar</button>
-                <button type="button" class="mc-img-btn mc-preset-share" id="mc-preset-share" title="Generar código para compartir este preset">Compartir código</button>
-                <button type="button" class="mc-img-btn mc-preset-import-code" id="mc-preset-import-code" title="Importar preset con código">Importar código</button>
+                <button type="button" class="mc-img-btn mc-preset-share" id="mc-preset-share" title="Generar código para compartir este preset">Generar código</button>
+                <button type="button" class="mc-img-btn mc-preset-import-code" id="mc-preset-import-code" title="Importar preset con código de un amigo">Importar preset</button>
               </div>
               <div class="mc-sub-btns">
                 <button type="button" class="mc-create-btn" id="mc-open-catalog">? Crear Acci?n</button>
