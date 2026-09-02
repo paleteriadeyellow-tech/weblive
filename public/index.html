@@ -99,6 +99,7 @@
               <button class="nav-item" data-view="acciones" id="navAcciones" style="display:none" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-acciones.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Acciones</span></button>
               <button class="nav-item" data-view="alertas" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-sonidos.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Sonidos</span></button>
               <button class="nav-item" data-view="videos" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-videos.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Videos</span></button>
+              <button class="nav-item" data-view="marcos" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-videos.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Marcos de camara</span></button>
               <button class="nav-item" data-view="batallas" id="navBatallas" style="display:none" role="menuitem"><img class="nav-menu-ico" src="/img/nav/menu-batallas.png?v=nav7" alt="" width="22" height="22" decoding="async" draggable="false" /><span>Batallas</span></button>
             </div>
           </div>
@@ -1388,6 +1389,36 @@
           </div>
 
           <div id="videoCards" class="vid-cards-grid"></div>
+        </section>
+
+        <!-- ===== VISTA: MARCOS DE CÁMARA ===== -->
+        <section class="view" id="view-marcos">
+          <h1 class="view-title">Marcos de camara</h1>
+          <p class="view-sub">Elige un marco para tu webcam en OBS o TikTok Live Studio. Todos usan el mismo enlace; al seleccionar uno aquí se actualiza en vivo en tu fuente.</p>
+          <p class="hint" style="margin-bottom:14px">Los archivos van en <code>public/img/camera-frames/</code> como <b>PNG con el centro transparente</b> (sin fondo negro). Nombres: <code>vip-gold.png</code>, <code>game-on.png</code>, <code>armor-purple.png</code>, <code>cyber-neon.png</code>, <code>dragonball.png</code>, <code>onepiece.png</code>, <code>roblox.png</code>, <code>minecraft.png</code>.</p>
+
+          <div class="settings-card mcf-card-wrap">
+            <div class="ovpro-top" style="margin-bottom:12px">
+              <div class="ovpro-conn" id="mcf-conn"><span class="cdot"></span> CONECTADO</div>
+            </div>
+            <div class="ovpro-urlrow">
+              <code class="ov-url" data-path="/marco-camara.html">/marco-camara.html</code>
+              <button type="button" class="ovpro-copy ov-copy">Copiar enlace</button>
+            </div>
+            <p class="hint" style="margin:10px 0 14px">En Live Studio pon tu <b>cámara debajo</b> de esta fuente y ajusta el tamaño al hueco. Resolución recomendada: <b>1920×1080</b> (horizontal).</p>
+            <div class="mcf-toolbar">
+              <label class="mcf-scale-lbl">
+                <span>Escala</span>
+                <input type="range" id="mcf-scale" min="60" max="140" step="1" value="100">
+                <span id="mcf-scale-val">100%</span>
+              </label>
+            </div>
+            <div class="ovpro-prevlabel">VISTA PREVIA</div>
+            <div class="ovpro-preview mcf-preview-wrap">
+                    <iframe id="mcf-preview" data-src="/marco-camara.html?embed=1&v=mcf4" title="Vista previa marco de camara"></iframe>
+            </div>
+            <div class="mcf-grid" id="mcf-grid" aria-label="Marcos disponibles"></div>
+          </div>
         </section>
 
         <!-- ===== VISTA: BATALLAS ===== -->
@@ -4459,6 +4490,13 @@
               <button class="modal-close" id="tp3cfg-close">âœ•</button>
             </div>
             <div class="modal-body">
+              <label class="ml">DISEÑO</label>
+              <select id="tp3cfg-design">
+                <option value="classic" selected>Clásico — arcoíris y medallas</option>
+                <option value="glass">Cristal — glassmorphism</option>
+                <option value="minimal">Minimal — limpio y profesional</option>
+                <option value="arena">Arena — estilo broadcast</option>
+              </select>
               <label class="ml">T?TULO</label>
               <input type="text" id="tp3cfg-title" maxlength="40" value="Top Puntos">
               <div class="gvscfg-grid2">
@@ -7209,7 +7247,7 @@
 
           <div class="subtabs tts-subtabs" role="tablist" aria-label="Secciones Chat TTS">
             <button type="button" class="subtab active" data-sub-view="tts-sub-main">Configuración TTS</button>
-            <button type="button" class="subtab" data-sub-view="tts-sub-mod">Moderación LIVE</button>
+            <button type="button" class="subtab subtab-livemod-new" data-sub-view="tts-sub-mod">Moderación LIVE <span class="subtab-new-badge">NUEVO</span></button>
           </div>
 
           <div id="tts-sub-main" class="subview active">
@@ -7450,39 +7488,55 @@
               <div class="tts-head"><h3>Voces Personalizadas</h3><span class="tts-sub">Asigna una voz distinta a cada usuario del chat</span></div>
               <p class="hint">Cuando un usuario asignado comente, su mensaje se leer? con la voz que elijas (TikTok, Disney, Edge, sistema o ElevenLabs). El resto del chat usa la voz general de arriba. En Disney puedes activar ?Traducir al ingl?s?. ElevenLabs usa la API key de la secci?n dorada.</p>
 
-              <div class="tts-uv-new">
-                <h4 class="tts-uv-section">Nueva asignaci?n</h4>
-                <div class="field">
-                  <label>Seleccionar usuario conectado</label>
-                  <select id="tts-uv-user-sel"><option value="">? Sin usuarios en el chat ?</option></select>
+              <div class="tts-uv-new" id="tts-uv-form-panel">
+                <div class="tts-uv-edit-banner" id="tts-uv-edit-banner" hidden>
+                  <div class="tts-uv-edit-banner-main">
+                    <span class="tts-uv-edit-badge">Editando voz</span>
+                    <div class="tts-uv-edit-user">
+                      <strong id="tts-uv-edit-nick">—</strong>
+                      <span id="tts-uv-edit-handle">@usuario</span>
+                    </div>
+                  </div>
+                  <button type="button" class="btn ghost tts-uv-cancel-btn" id="tts-uv-cancel-edit">Cancelar</button>
                 </div>
-                <div class="field">
-                  <label>O escribir ID manualmente</label>
-                  <input type="text" id="tts-uv-user-manual" placeholder="Ej: usuario_tiktok_123" autocomplete="off">
+                <h4 class="tts-uv-section" id="tts-uv-form-title">Nueva asignaci?n</h4>
+                <div class="tts-uv-user-fields" id="tts-uv-user-fields">
+                  <div class="field">
+                    <label>Seleccionar usuario conectado</label>
+                    <select id="tts-uv-user-sel"><option value="">? Sin usuarios en el chat ?</option></select>
+                  </div>
+                  <div class="field">
+                    <label>O escribir ID manualmente</label>
+                    <input type="text" id="tts-uv-user-manual" placeholder="Ej: usuario_tiktok_123" autocomplete="off">
+                  </div>
                 </div>
-                <div class="field">
-                  <label>Motor</label>
-                  <select id="tts-uv-engine">
-                    <option value="tiktok">TikTok (Server)</option>
-                    <option value="disney">Disney / Personajes</option>
-                    <option value="edge">Microsoft Edge (espa?ol ? por pa?s)</option>
-                    <option value="system">Sistema (navegador)</option>
-                  </select>
+                <div class="tts-uv-voice-fields">
+                  <div class="field">
+                    <label>Motor</label>
+                    <select id="tts-uv-engine">
+                      <option value="tiktok">TikTok (Server)</option>
+                      <option value="disney">Disney / Personajes</option>
+                      <option value="edge">Microsoft Edge (espa?ol ? por pa?s)</option>
+                      <option value="system">Sistema (navegador)</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Idioma</label>
+                    <select id="tts-uv-lang"></select>
+                  </div>
+                  <div class="field tts-uv-voice-field">
+                    <label>Voz</label>
+                    <select id="tts-uv-voice"></select>
+                  </div>
                 </div>
-                <div class="field">
-                  <label>Idioma</label>
-                  <select id="tts-uv-lang"></select>
-                </div>
-                <div class="field">
-                  <label>Voz</label>
-                  <select id="tts-uv-voice"></select>
-                </div>
-                <label class="switch-row plain" id="tts-uv-disney-translate-wrap" style="display:none;margin:4px 0 10px;">
+                <label class="switch-row plain tts-uv-disney-row" id="tts-uv-disney-translate-wrap" style="display:none">
                   <input type="checkbox" id="tts-uv-disney-translate" checked>
                   <span>Traducir al <strong>ingl?s</strong> (voces Disney)</span>
                 </label>
-                <p class="hint" id="tts-uv-disney-translate-hint" style="display:none;margin-top:-4px;">Si est? marcada, el comentario en espa?ol se traduce y la voz Disney lo dice en ingl?s. Si la desmarcas, intenta leer el espa?ol tal cual.</p>
-                <button class="btn primary" id="tts-uv-add">Asignar +</button>
+                <p class="hint tts-uv-disney-hint" id="tts-uv-disney-translate-hint" style="display:none">Si est? marcada, el comentario en espa?ol se traduce y la voz Disney lo dice en ingl?s. Si la desmarcas, intenta leer el espa?ol tal cual.</p>
+                <div class="tts-uv-form-actions">
+                  <button type="button" class="btn primary" id="tts-uv-add">Asignar +</button>
+                </div>
               </div>
 
               <div class="tts-uv-list-wrap">
@@ -7552,6 +7606,7 @@
                             <th>Descripción</th>
                             <th>Ejemplo</th>
                             <th>Activo</th>
+                            <th class="livemod-th-edit"></th>
                           </tr>
                         </thead>
                         <tbody id="livemod-cmd-tbody"></tbody>
@@ -7602,7 +7657,6 @@
                     <p class="livemod-info-ex">Ejemplo: <code class="livemod-ex-cmd">!evento #1 off</code></p>
                   </div>
 
-                  <button type="button" class="btn primary livemod-export" id="livemod-export">⬇ Exportar comandos</button>
                 </aside>
               </div>
             </div>
@@ -7815,12 +7869,12 @@
             <div class="sov-layout">
               <div class="sov-main-col">
                 <div class="ovpro-urlrow">
-                  <code class="ov-url" data-path="/sorteos-vidas.html?v=sov6">/sorteos-vidas.html?v=sov6</code>
+                  <code class="ov-url" data-path="/sorteos-vidas.html?v=sov7">/sorteos-vidas.html?v=sov7</code>
                   <button class="ovpro-copy ov-copy">Copiar enlace</button>
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
                 <div class="ovpro-preview sov-preview">
-                  <iframe id="sov-preview" data-src="/sorteos-vidas.html?embed=1&v=sov6" title="Vista previa sorteos vidas"></iframe>
+                  <iframe id="sov-preview" data-src="/sorteos-vidas.html?embed=1&v=sov7" title="Vista previa sorteos vidas"></iframe>
                 </div>
               </div>
 
@@ -8074,7 +8128,7 @@
                     <div class="ovpro-conn" id="tp3-conn"><span class="cdot"></span> CONECTADO</div>
                   </div>
                   <h3 class="ovpro-title" id="tp3-card-title">⭐ Top 3 puntos</h3>
-                  <p class="ovpro-desc" id="tp3-card-desc">Muestra en OBS el top 3 de usuarios con más puntos. Elige hasta 10. Se actualiza en vivo con arcoíris, brillos y medallas.</p>
+                  <p class="ovpro-desc" id="tp3-card-desc">Muestra en OBS el top de usuarios con más puntos. Elige cuántos mostrar (hasta 10) y uno de 4 diseños. Se actualiza en vivo.</p>
                   <div class="pts-topn-row">
                     <label for="tp3-rows">Cuántos mostrar</label>
                     <select id="tp3-rows">
@@ -8090,13 +8144,22 @@
                       <option value="10">Top 10</option>
                     </select>
                   </div>
+                  <div class="pts-topn-row">
+                    <label for="tp3-design">Diseño</label>
+                    <select id="tp3-design">
+                      <option value="classic" selected>Clásico — arcoíris</option>
+                      <option value="glass">Cristal — glass</option>
+                      <option value="minimal">Minimal — limpio</option>
+                      <option value="arena">Arena — broadcast</option>
+                    </select>
+                  </div>
                   <div class="ovpro-urlrow">
                     <code class="ov-url" data-path="/toppoints.html">/toppoints.html</code>
                     <button class="ovpro-copy ov-copy">Copiar enlace</button>
                   </div>
                   <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
                   <div class="ovpro-preview pts-overlay-preview">
-                    <iframe id="tp3-preview" data-src="/toppoints.html?embed=1&amp;v=tp10" title="Vista previa top puntos"></iframe>
+                    <iframe id="tp3-preview" data-src="/toppoints.html?embed=1&amp;v=tp11" title="Vista previa top puntos"></iframe>
                   </div>
                 </div>
               </div>
@@ -10848,6 +10911,7 @@
   </div>
 
   <script src="/js/account-email.js?v=dockmail1"></script>
+  <script src="/js/camera-frames.js?v=mcf4"></script>
   <script src="/js/dashboard.js?v=sov8"></script>
   <script src="/js/editor-rapido.js?v=er86"></script>
 <script src="/js/mc-server-installer-ui.js"></script>

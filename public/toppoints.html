@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-design="classic">
 <head>
   <script src="/js/overlay-channel.js?v=ovch1"></script>
 <meta charset="UTF-8">
@@ -119,6 +119,126 @@
     html[data-paused="1"] .name,
     html[data-paused="1"] .spark,
     html[data-paused="1"] .av-wrap::after { animation-play-state: paused !important; }
+
+    /* —— Diseño: Cristal (glass) —— */
+    html[data-design="glass"] .title {
+      font-size: 34px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    html[data-design="glass"][data-titlefx="0"] .title { color: #f8fafc; -webkit-text-fill-color: #f8fafc; }
+    html[data-design="glass"] .list {
+      gap: 10px; border: none; box-shadow: none; background: transparent;
+      border-radius: 0; overflow: visible;
+    }
+    html[data-design="glass"][data-glitter="1"] .list {
+      border: none; background: transparent;
+      box-shadow: none;
+    }
+    html[data-design="glass"] .row {
+      border-radius: 16px; border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06); backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 8px 28px rgba(0,0,0,.28);
+      border-bottom: 1px solid rgba(255,255,255,.14);
+      grid-template-columns: 60px 60px minmax(0, 1fr);
+      padding: 10px 14px;
+    }
+    html[data-design="glass"] .row[data-rank="1"] {
+      background: linear-gradient(135deg, rgba(255,215,0,.14), rgba(255,255,255,.07));
+      border-color: rgba(255,215,0,.32);
+    }
+    html[data-design="glass"] .rank { border-right: none; min-height: auto; }
+    html[data-design="glass"] .medal { font-size: 40px; }
+    html[data-design="glass"] .av-wrap, html[data-design="glass"] .av { width: 60px; height: 60px; }
+    html[data-design="glass"] .name { font-size: 24px; font-weight: 700; }
+    html[data-design="glass"][data-namefx="0"] .name { color: #f1f5f9; -webkit-text-fill-color: #f1f5f9; }
+    html[data-design="glass"] .num { font-size: 22px; font-weight: 800; }
+
+    /* —— Diseño: Minimal —— */
+    html[data-design="minimal"] .title {
+      font-size: 30px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+      text-align: left; margin-bottom: 14px; padding-left: 4px;
+    }
+    html[data-design="minimal"][data-titlefx="0"] .title {
+      color: #fff; -webkit-text-fill-color: #fff; text-shadow: none;
+    }
+    html[data-design="minimal"] .list {
+      border: none; box-shadow: none; border-radius: 0; gap: 0;
+    }
+    html[data-design="minimal"][data-glitter="1"] .list {
+      border: none; background: transparent; box-shadow: none;
+    }
+    html[data-design="minimal"] .row {
+      grid-template-columns: 52px 56px minmax(0, 1fr);
+      padding: 11px 8px; border-radius: 0;
+      background: transparent;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    html[data-design="minimal"] .row:last-child { border-bottom: none; }
+    html[data-design="minimal"] .row[data-rank="1"] { background: rgba(255,215,0,.06); }
+    html[data-design="minimal"] .rank { border-right: none; min-height: auto; justify-content: flex-start; padding-left: 4px; }
+    html[data-design="minimal"] .medal { display: none !important; }
+    html[data-design="minimal"] .rank-num { font-size: 22px; font-weight: 700; color: rgba(255,255,255,.45); }
+    html[data-design="minimal"] .row[data-rank="1"] .rank-num { color: #ffd54f; }
+    html[data-design="minimal"] .row[data-rank="2"] .rank-num { color: #b0bec5; }
+    html[data-design="minimal"] .row[data-rank="3"] .rank-num { color: #ffab73; }
+    html[data-design="minimal"] .row[data-rank="1"] .rank::after { content: '1'; font-size: 22px; font-weight: 700; color: #ffd54f; }
+    html[data-design="minimal"] .row[data-rank="2"] .rank::after { content: '2'; font-size: 22px; font-weight: 700; color: #b0bec5; }
+    html[data-design="minimal"] .row[data-rank="3"] .rank::after { content: '3'; font-size: 22px; font-weight: 700; color: #ffab73; }
+    html[data-design="minimal"] .av-wrap, html[data-design="minimal"] .av { width: 56px; height: 56px; }
+    html[data-design="minimal"] .av { border-width: 2px; box-shadow: none; }
+    html[data-design="minimal"] .name { font-size: 22px; font-weight: 700; letter-spacing: .01em; }
+    html[data-design="minimal"][data-namefx="0"] .name { color: #fff; -webkit-text-fill-color: #fff; text-shadow: none; }
+    html[data-design="minimal"] .num { font-size: 20px; font-weight: 700; }
+    html[data-design="minimal"] .ico { font-size: 16px; opacity: .85; }
+
+    /* —— Diseño: Arena (broadcast) —— */
+    html[data-design="arena"] .title {
+      font-size: 36px; text-align: left; margin-bottom: 14px; padding-bottom: 8px;
+      border-bottom: 3px solid var(--ol-accent, #ffd54f);
+    }
+    html[data-design="arena"][data-titlefx="1"] .title {
+      border-bottom-color: transparent;
+      background-size: 100% 3px;
+      background-repeat: no-repeat;
+      background-position: 0 100%;
+      background-image: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5, #ffbe0b);
+    }
+    html[data-design="arena"] .list {
+      gap: 8px; border: none; box-shadow: none; background: transparent;
+      border-radius: 0; overflow: visible;
+    }
+    html[data-design="arena"][data-glitter="1"] .list {
+      border: none; background: transparent; box-shadow: none;
+    }
+    html[data-design="arena"] .row {
+      grid-template-columns: 54px 58px minmax(0, 1fr);
+      padding: 10px 14px 10px 10px; border-radius: 10px;
+      border-left: 4px solid rgba(255,255,255,.18);
+      background: linear-gradient(90deg, rgba(0,0,0,.45), rgba(14,22,38,.88));
+      border-bottom: none;
+    }
+    html[data-design="arena"] .row[data-rank="1"] {
+      border-left-color: #ffd54f;
+      background: linear-gradient(90deg, rgba(255,215,0,.16), rgba(14,22,38,.92) 36%);
+      box-shadow: 0 0 20px rgba(255,215,0,.12);
+    }
+    html[data-design="arena"] .row[data-rank="2"] { border-left-color: #b0bec5; }
+    html[data-design="arena"] .row[data-rank="3"] { border-left-color: #ffab73; }
+    html[data-design="arena"] .rank { border-right: none; min-height: auto; }
+    html[data-design="arena"] .medal { font-size: 44px; }
+    html[data-design="arena"] .rank-num { font-size: 30px; font-weight: 900; color: rgba(255,255,255,.55); }
+    html[data-design="arena"] .av-wrap, html[data-design="arena"] .av { width: 58px; height: 58px; }
+    html[data-design="arena"] .name-row {
+      flex-direction: row; align-items: center; justify-content: space-between;
+      gap: 12px; width: 100%;
+    }
+    html[data-design="arena"] .name {
+      font-size: 24px; flex: 1 1 auto; min-width: 0;
+    }
+    html[data-design="arena"][data-namefx="0"] .name { color: #fff; -webkit-text-fill-color: #fff; }
+    html[data-design="arena"] .valwrap { flex-shrink: 0; }
+    html[data-design="arena"] .num { font-size: 22px; }
   </style>
 </head>
 <body>
@@ -129,12 +249,13 @@
       <div class="list" id="list"></div>
     </div>
   </div>
-  <script src="/js/points-top-overlay.js?v=tp10"></script>
+  <script src="/js/points-top-overlay.js?v=tp11"></script>
   <script>
     PointsTopOverlay.init({
       kind: 'toppoints',
       settingsKey: 'topPointsRank',
       defaults: {
+        design: 'classic',
         rows: 3, title: 'Top Puntos', accent: '#ffd54f', rowBg: '#0c1c26', scale: 100,
         font: 'inter', transparent: false, nameRainbow: true, titleRainbow: true,
         lines: true, shadows: true, glitter: true, showLevel: false, showTitle: true,

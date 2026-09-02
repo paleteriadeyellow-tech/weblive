@@ -85,6 +85,7 @@
         { key: 'topMultiRank', label: 'Top rotatorio (likes / coins / chat / puntos)' },
         { key: 'pointsLookup', label: 'Consulta de puntos (!puntos)' },
         { key: 'topPointsRank', label: 'Ranking de puntos' },
+        { key: 'cameraFrame', label: 'Marco de camara' },
         { key: 'topcommentsRank', label: 'Ranking de comentarios' },
       ],
     },

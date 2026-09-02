@@ -540,7 +540,7 @@ window.addEventListener('pageshow', () => {
 });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'lgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'lgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn', 'mcf-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -694,7 +694,7 @@ const TAB_CAP = {
   youtube: 'tab_youtube',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
+const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash', clashroyale: 'game_clashroyale' };
 
 function gameCapFromExecTipo(tipo, hintUrl) {
   const t = String(tipo || '').toUpperCase();
@@ -11400,6 +11400,32 @@ function syncTopPointsRowsUi(n) {
   const head = $('tp3cfg-head');
   if (head) head.textContent = '⭐ Configurar — Top ' + n + ' puntos';
 }
+function syncTopPointsDesignUi(design) {
+  const sel = $('tp3-design');
+  const cfgSel = $('tp3cfg-design');
+  const d = ['classic', 'glass', 'minimal', 'arena'].includes(design) ? design : 'classic';
+  if (sel) sel.value = d;
+  if (cfgSel && !cfgSel.matches(':focus')) cfgSel.value = d;
+}
+function wireTopPointsDesignSelect() {
+  const sel = $('tp3-design');
+  if (!sel || sel._wiredDesign) return;
+  sel._wiredDesign = true;
+  const apply = () => {
+    if (!settings) return;
+    const d = ['classic', 'glass', 'minimal', 'arena'].includes(sel.value) ? sel.value : 'classic';
+    if (!settings.topPointsRank) settings.topPointsRank = {};
+    settings.topPointsRank.design = d;
+    syncTopPointsDesignUi(d);
+    if (typeof saveSettings === 'function') saveSettings();
+    try {
+      const ov = STYLE_OVERLAYS && STYLE_OVERLAYS.find((x) => x.kind === 'toppoints');
+      if (ov && ov._push) ov._push();
+    } catch {}
+  };
+  sel.onchange = apply;
+  sel.oninput = apply;
+}
 function wireTopPointsRowsSelect() {
   const sel = $('tp3-rows');
   if (!sel || sel._wired) return;
@@ -11932,15 +11958,17 @@ const STYLE_OVERLAYS = [
     btnTest: 'tp3-test', btnReset: '', btnConfig: 'tp3-config',
     modalId: 'tp3ConfigModal', closeId: 'tp3cfg-close', saveId: 'tp3cfg-save',
     testAction: 'getPoints',
-    map: { 'tp3cfg-title': 'title', 'tp3cfg-rows': 'rows', 'tp3cfg-scale': 'scale', 'tp3cfg-accent': 'accent', 'tp3cfg-rowbg': 'rowBg', 'tp3cfg-font': 'font',
+    map: { 'tp3cfg-design': 'design', 'tp3cfg-title': 'title', 'tp3cfg-rows': 'rows', 'tp3cfg-scale': 'scale', 'tp3cfg-accent': 'accent', 'tp3cfg-rowbg': 'rowBg', 'tp3cfg-font': 'font',
       'tp3cfg-showtitle': 'showTitle', 'tp3cfg-transparent': 'transparent',
       'tp3cfg-rainbow': 'nameRainbow', 'tp3cfg-titlerainbow': 'titleRainbow', 'tp3cfg-glitter': 'glitter',
       'tp3cfg-lines': 'lines', 'tp3cfg-shadows': 'shadows' },
     types: { rows: 'int', scale: 'int' },
-    onFormSync: () => { try { wireTopPointsRowsSelect(); } catch {} },
+    onFormSync: () => { try { wireTopPointsRowsSelect(); wireTopPointsDesignSelect(); } catch {} },
     onSave: (cfg) => {
       cfg.rows = clampTopPointsRows(cfg.rows);
+      cfg.design = ['classic', 'glass', 'minimal', 'arena'].includes(cfg.design) ? cfg.design : 'classic';
       syncTopPointsRowsUi(cfg.rows);
+      syncTopPointsDesignUi(cfg.design);
     },
   }),
   setupStyleOverlay({
@@ -14280,9 +14308,81 @@ function refreshGiftCounterCardUI() {
   window.__sovSyncBulkTarget = syncSorteosVidasBulkTargetUi;
 })();
 
+(function setupCameraFrames() {
+  const FRAMES = (typeof window !== 'undefined' && window.CAMERA_FRAMES) ? window.CAMERA_FRAMES : [];
+  const grid = () => $('mcf-grid');
+  const frame = () => $('mcf-preview');
+  const ensure = () => {
+    if (!settings) return { frame: 'vip-gold', scale: 100 };
+    if (!settings.cameraFrame) settings.cameraFrame = { frame: 'vip-gold', scale: 100 };
+    return settings.cameraFrame;
+  };
+  const frameOf = (id) => (typeof window.cameraFrameById === 'function' ? window.cameraFrameById(id) : FRAMES[0]);
+  const pushPreview = (cfg) => {
+    ensureEmbedLoaded(frame()).then((fr) => {
+      fr?.contentWindow?.postMessage({ kind: 'marcocamara', type: 'config', config: cfg || ensure() }, '*');
+    });
+  };
+  const syncActive = () => {
+    const id = ensure().frame || 'vip-gold';
+    grid()?.querySelectorAll('.mcf-item').forEach((el) => {
+      el.classList.toggle('is-active', el.dataset.frame === id);
+    });
+    const sc = $('mcf-scale');
+    const lab = $('mcf-scale-val');
+    const n = Math.max(60, Math.min(140, parseInt(ensure().scale, 10) || 100));
+    if (sc && sc.value !== String(n)) sc.value = String(n);
+    if (lab) lab.textContent = n + '%';
+  };
+  const selectFrame = (id) => {
+    const f = frameOf(id);
+    ensure().frame = f.id;
+    syncActive();
+    pushPreview(ensure());
+    saveSettingsKeysPatch('cameraFrame', { flush: true });
+  };
+  const renderGrid = () => {
+    const g = grid();
+    if (!g || g._mcfReady) return;
+    g._mcfReady = true;
+    g.innerHTML = FRAMES.map((f) => (
+      '<button type="button" class="mcf-item" data-frame="' + f.id + '" title="' + f.name + '">'
+      + '<img src="' + f.img + '" alt="" loading="lazy" decoding="async">'
+      + '<span>' + f.name + '</span></button>'
+    )).join('');
+    g.addEventListener('click', (e) => {
+      const btn = e.target.closest('.mcf-item');
+      if (!btn) return;
+      selectFrame(btn.dataset.frame);
+    });
+  };
+  $('mcf-scale')?.addEventListener('input', () => {
+    const n = Math.max(60, Math.min(140, parseInt($('mcf-scale')?.value, 10) || 100));
+    ensure().scale = n;
+    if ($('mcf-scale-val')) $('mcf-scale-val').textContent = n + '%';
+    pushPreview(ensure());
+  });
+  $('mcf-scale')?.addEventListener('change', () => {
+    ensure().scale = Math.max(60, Math.min(140, parseInt($('mcf-scale')?.value, 10) || 100));
+    saveSettings();
+    pushPreview(ensure());
+  });
+  const fr = frame();
+  if (fr) fr.addEventListener('load', () => { pushPreview(ensure()); syncActive(); });
+  renderGrid();
+  syncActive();
+  window.__mcfPushPreview = () => { syncActive(); pushPreview(ensure()); };
+})();
+
 function pushStyleOverlayPreviews() {
   try { window.__syncBatallaSkins?.(); } catch {}
-  try { wireTopPointsRowsSelect(); syncTopPointsRowsUi(settings?.topPointsRank?.rows); } catch {}
+  try { window.__mcfPushPreview?.(); } catch {}
+  try {
+    wireTopPointsRowsSelect();
+    wireTopPointsDesignSelect();
+    syncTopPointsRowsUi(settings?.topPointsRank?.rows);
+    syncTopPointsDesignUi(settings?.topPointsRank?.design);
+  } catch {}
   STYLE_OVERLAYS.forEach((o) => { if (o._push) o._push(); });
 }
 initModalDrag();
@@ -16362,15 +16462,28 @@ function renderTtsUserVoices() {
     const langCell = uv.engine === 'disney'
       ? (uv.translate === false ? 'Español (sin traducir)' : 'Inglés (traduce)')
       : ttsUvLangLabel(uv.lang);
+    const editing = ttsUvEditingId && String(uv.id) === String(ttsUvEditingId);
     return `
-    <tr data-id="${esc(uv.id)}">
+    <tr data-id="${esc(uv.id)}" class="${editing ? 'is-editing' : ''}">
       <td><div class="tts-uv-user">${esc(uv.nickname || uv.userId)}<small>@${esc(uv.userId)}</small></div></td>
       <td>${esc(ttsEngineLabel(uv.engine))}</td>
       <td>${esc(langCell)}</td>
       <td>${esc(uv.voiceLabel || ttsVoiceLabel(uv.engine, uv.voice, uv.lang))}</td>
-      <td><button type="button" class="tts-uv-del" data-act="del" title="Quitar asignación">✕</button></td>
+      <td class="tts-uv-actions">
+        <button type="button" class="tts-uv-edit" data-act="edit" title="Editar voz">✎</button>
+        <button type="button" class="tts-uv-del" data-act="del" title="Quitar asignación">✕</button>
+      </td>
     </tr>`;
   }).join('');
+  body.querySelectorAll('[data-act="edit"]').forEach((btn) => {
+    btn.onclick = () => {
+      const row = btn.closest('tr');
+      const id = row?.dataset?.id;
+      if (!id) return;
+      const uv = (settings?.tts?.userVoices || []).find((x) => String(x.id) === String(id));
+      if (uv) loadTtsUserVoiceIntoForm(uv);
+    };
+  });
   body.querySelectorAll('[data-act="del"]').forEach((btn) => {
     btn.onclick = async () => {
       const row = btn.closest('tr');
@@ -16378,12 +16491,72 @@ function renderTtsUserVoices() {
       if (!id) return;
       const ok = await askConfirm({ title: 'Quitar voz', message: '¿Eliminar esta asignación de voz?', confirmText: 'Eliminar' });
       if (!ok) return;
+      if (ttsUvEditingId && String(id) === String(ttsUvEditingId)) clearTtsUvEditMode();
       settings.tts.userVoices = (settings.tts.userVoices || []).filter((x) => String(x.id) !== String(id));
       saveSettings();
       renderTtsUserVoices();
       refreshTtsUvUserSelect();
     };
   });
+}
+
+let ttsUvEditingId = null;
+
+function updateTtsUvFormMode() {
+  const panel = $('tts-uv-form-panel');
+  const btn = $('tts-uv-add');
+  const banner = $('tts-uv-edit-banner');
+  const title = $('tts-uv-form-title');
+  const userFields = $('tts-uv-user-fields');
+  const userSel = $('tts-uv-user-sel');
+  const manual = $('tts-uv-user-manual');
+  const editing = !!ttsUvEditingId;
+  if (panel) panel.classList.toggle('is-editing', editing);
+  if (btn) btn.textContent = editing ? 'Guardar cambios' : 'Asignar +';
+  if (banner) banner.hidden = !editing;
+  if (title) title.hidden = editing;
+  if (userFields) userFields.hidden = editing;
+  if (userSel) userSel.disabled = editing;
+  if (manual) {
+    manual.readOnly = editing;
+    if (!editing) manual.value = '';
+  }
+}
+
+function clearTtsUvEditMode() {
+  ttsUvEditingId = null;
+  const userSel = $('tts-uv-user-sel');
+  if (userSel) userSel.value = '';
+  updateTtsUvFormMode();
+  refreshTtsUvUserSelect();
+  renderTtsUserVoices();
+}
+
+function loadTtsUserVoiceIntoForm(uv) {
+  if (!uv) return;
+  ttsUvEditingId = uv.id;
+  const nickEl = $('tts-uv-edit-nick');
+  const handleEl = $('tts-uv-edit-handle');
+  if (nickEl) nickEl.textContent = uv.nickname || uv.userId || '—';
+  if (handleEl) handleEl.textContent = `@${uv.userId || ''}`;
+  const engineEl = $('tts-uv-engine');
+  const langEl = $('tts-uv-lang');
+  const voiceEl = $('tts-uv-voice');
+  const disneyTranslateEl = $('tts-uv-disney-translate');
+  if (engineEl) engineEl.value = uv.engine === 'system' ? 'system' : (uv.engine || 'tiktok');
+  fillTtsUvLangOptions();
+  if (langEl) {
+    if (uv.engine === 'disney') langEl.value = uv.translate === false ? 'es' : 'en';
+    else if (uv.engine === 'edge') langEl.value = uv.lang || 'es-CO';
+    else langEl.value = uv.lang || 'es';
+  }
+  if (disneyTranslateEl) disneyTranslateEl.checked = uv.translate !== false;
+  syncTtsUvDisneyTranslateUI();
+  fillTtsUvVoiceOptions();
+  if (voiceEl && uv.voice) voiceEl.value = uv.voice;
+  updateTtsUvFormMode();
+  renderTtsUserVoices();
+  $('tts-uv-form-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function addTtsUserVoice() {
@@ -16394,17 +16567,31 @@ function addTtsUserVoice() {
   const voiceEl = $('tts-uv-voice');
   if (!engineEl || !langEl || !voiceEl) return;
 
-  let userId = String(manual?.value || '').trim().replace(/^@/, '');
-  let nickname = userId;
-  if (!userId && userSel?.value) {
-    userId = userSel.value;
-    const u = ttsChatUsers.get(ttsUvNormId(userId));
-    nickname = u?.nickname || userId;
-  }
-  userId = userId.replace(/^@/, '');
-  if (!userId) {
-    toast('Escribe el ID del usuario o elígelo del chat', 'warn');
-    return;
+  let userId = '';
+  let nickname = '';
+  let editingEntry = null;
+  if (ttsUvEditingId) {
+    editingEntry = (settings?.tts?.userVoices || []).find((x) => String(x.id) === String(ttsUvEditingId));
+    if (!editingEntry) {
+      clearTtsUvEditMode();
+      toast('Asignación no encontrada', 'warn');
+      return;
+    }
+    userId = editingEntry.userId;
+    nickname = editingEntry.nickname || userId;
+  } else {
+    userId = String(manual?.value || '').trim().replace(/^@/, '');
+    nickname = userId;
+    if (!userId && userSel?.value) {
+      userId = userSel.value;
+      const u = ttsChatUsers.get(ttsUvNormId(userId));
+      nickname = u?.nickname || userId;
+    }
+    userId = userId.replace(/^@/, '');
+    if (!userId) {
+      toast('Escribe el ID del usuario o elígelo del chat', 'warn');
+      return;
+    }
   }
 
   const engineRaw = engineEl.value;
@@ -16443,14 +16630,14 @@ function addTtsUserVoice() {
   const translate = engine === 'disney'
     ? !!(disneyTranslateEl ? disneyTranslateEl.checked : true)
     : engine === 'piper'
-      ? ttsEnsurePiper().translate !== false
+      ? (editingEntry ? editingEntry.translate !== false : ttsEnsurePiper().translate !== false)
     : (engine === 'tiktok' && ttsVoiceLangFromId(voice) === 'en');
 
   if (!settings.tts) settings.tts = {};
   if (!Array.isArray(settings.tts.userVoices)) settings.tts.userVoices = [];
 
   const key = ttsUvNormId(userId);
-  const existing = settings.tts.userVoices.find((x) => ttsUvNormId(x.userId) === key);
+  const existing = editingEntry || settings.tts.userVoices.find((x) => ttsUvNormId(x.userId) === key);
   const voiceOpt = voiceEl.selectedOptions && voiceEl.selectedOptions[0];
   const entry = {
     id: existing?.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -16463,6 +16650,7 @@ function addTtsUserVoice() {
     translate,
   };
 
+  const wasEdit = !!ttsUvEditingId;
   if (existing) {
     Object.assign(existing, entry);
     toast(`Voz actualizada para @${userId}`, 'ok');
@@ -16471,11 +16659,14 @@ function addTtsUserVoice() {
     toast(`Voz asignada a @${userId}`, 'ok');
   }
 
-  if (manual) manual.value = '';
-  if (userSel) userSel.value = '';
+  if (wasEdit) clearTtsUvEditMode();
+  else {
+    if (manual) manual.value = '';
+    if (userSel) userSel.value = '';
+    refreshTtsUvUserSelect();
+  }
   saveSettings();
   renderTtsUserVoices();
-  refreshTtsUvUserSelect();
 }
 
 function ttsConfigForUser(userId, nickname) {
@@ -18247,6 +18438,8 @@ function openTtsWarnModal(onAccept) {
   if (uvLang) uvLang.addEventListener('change', fillTtsUvVoiceOptions);
   const uvAdd = $('tts-uv-add');
   if (uvAdd) uvAdd.onclick = addTtsUserVoice;
+  const uvCancel = $('tts-uv-cancel-edit');
+  if (uvCancel) uvCancel.onclick = () => clearTtsUvEditMode();
   fillTtsUvLangOptions();
   fillTtsUvVoiceOptions();
   syncTtsUvDisneyTranslateUI();
@@ -18269,44 +18462,117 @@ function openTtsWarnModal(onAccept) {
 
 /* ====================== Moderación LIVE ====================== */
 const LIVE_MOD_CMD_DEFS = [
-  { key: 'ttsban', cmd: '!ttsban', desc: 'Bloquea una palabra del TTS', example: '!ttsban insulto' },
-  { key: 'ttsunban', cmd: '!ttsunban', desc: 'Desbloquea una palabra del TTS', example: '!ttsunban insulto' },
-  { key: 'anim', cmd: '!anim', desc: 'Activa un video o efecto en pantalla', example: '!anim miVideo' },
-  { key: 'sonido', cmd: '!sonido', desc: 'Reproduce una alerta sonora', example: '!sonido alerta' },
-  { key: 'boost', cmd: '!boost', desc: 'Da puntos a un usuario del chat', example: '!boost guantes @usuario' },
-  { key: 'perfil', cmd: '!perfil', desc: 'Cambia el perfil activo del panel', example: '!perfil Mi Perfil' },
-  { key: 'evento', cmd: '!evento', desc: 'Activa o desactiva una acción', example: '!evento #1 off' },
+  { key: 'ttsban', cmd: '!ttsban', desc: 'Bloquea una palabra del TTS', exampleArg: 'insulto' },
+  { key: 'ttsunban', cmd: '!ttsunban', desc: 'Desbloquea una palabra del TTS', exampleArg: 'insulto' },
+  { key: 'anim', cmd: '!anim', desc: 'Activa un video o efecto en pantalla', exampleArg: 'miVideo' },
+  { key: 'sonido', cmd: '!sonido', desc: 'Reproduce una alerta sonora', exampleArg: 'alerta' },
+  { key: 'perfil', cmd: '!perfil', desc: 'Cambia el perfil activo del panel', exampleArg: 'Mi Perfil' },
+  { key: 'evento', cmd: '!evento', desc: 'Activa o desactiva una acción', exampleArg: '#1 off' },
 ];
+
+function liveModCmdDefault(key) {
+  const d = LIVE_MOD_CMD_DEFS.find((x) => x.key === key);
+  return d?.cmd || '!cmd';
+}
+
+function normalizeLiveModCmdInput(raw) {
+  let t = String(raw || '').trim().toLowerCase();
+  if (!t) return '';
+  if (!t.startsWith('!')) t = `!${t}`;
+  return t.replace(/\s+/g, '');
+}
+
+function liveModCmdStored(key, lm) {
+  lm = lm || ensureLiveModSettings();
+  const custom = lm.commands?.[key]?.cmd;
+  if (custom) return normalizeLiveModCmdInput(custom);
+  return normalizeLiveModCmdInput(liveModCmdDefault(key));
+}
+
+function liveModCmdExample(key, lm) {
+  const d = LIVE_MOD_CMD_DEFS.find((x) => x.key === key);
+  const arg = d?.exampleArg ? ` ${d.exampleArg}` : '';
+  return `${liveModCmdStored(key, lm)}${arg}`;
+}
 
 function ensureLiveModSettings() {
   if (!settings.liveMod || typeof settings.liveMod !== 'object') {
     settings.liveMod = {
-      enabled: true, allowTikTokMods: true, moderators: [], defaultBoostPoints: 100,
-      boostPresets: [
-        { id: 'guantes', name: 'Guantes', points: 500 },
-        { id: 'martillo', name: 'Martillo', points: 300 },
-        { id: 'niebla', name: 'Niebla', points: 200 },
-        { id: 'crono', name: 'Crono', points: 400 },
-      ],
+      enabled: true, allowTikTokMods: true, moderators: [],
       commands: {},
     };
   }
   const lm = settings.liveMod;
   if (!Array.isArray(lm.moderators)) lm.moderators = [];
   if (!lm.commands || typeof lm.commands !== 'object') lm.commands = {};
-  if (!Array.isArray(lm.boostPresets)) {
-    lm.boostPresets = [
-      { id: 'guantes', name: 'Guantes', points: 500 },
-      { id: 'martillo', name: 'Martillo', points: 300 },
-      { id: 'niebla', name: 'Niebla', points: 200 },
-      { id: 'crono', name: 'Crono', points: 400 },
-    ];
-  }
   LIVE_MOD_CMD_DEFS.forEach((d) => {
     if (!lm.commands[d.key]) lm.commands[d.key] = { enabled: true };
     if (lm.commands[d.key].enabled === undefined) lm.commands[d.key].enabled = true;
+    if (!lm.commands[d.key].cmd) lm.commands[d.key].cmd = liveModCmdDefault(d.key);
   });
   return lm;
+}
+
+function askLiveModCmdEdit({ title = 'Editar comando', current = '', hint = '' } = {}) {
+  return new Promise((resolve) => {
+    const back = document.createElement('div');
+    back.className = 'modal confirm-modal';
+    back.innerHTML = `
+      <div class="confirm-box" style="max-width:420px;text-align:left">
+        <div class="confirm-ico">✏️</div>
+        <h3>${esc(title)}</h3>
+        ${hint ? `<p style="margin:0 0 12px;font-size:13px;line-height:1.45;opacity:.85">${esc(hint)}</p>` : ''}
+        <label style="display:block;font-size:12px;margin:0 0 6px;opacity:.75">Comando en el chat</label>
+        <input type="text" class="livemod-cmd-edit-inp" maxlength="28" autocomplete="off" placeholder="!micomando"
+          style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:#0c1322;color:#fff;font-size:15px;font-weight:700;margin-bottom:14px">
+        <div class="confirm-btns">
+          <button type="button" class="btn ghost c-cancel">Cancelar</button>
+          <button type="button" class="btn primary c-ok">Guardar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(back);
+    const inp = back.querySelector('.livemod-cmd-edit-inp');
+    if (inp) inp.value = current;
+    let done = false;
+    const close = (val) => {
+      if (done) return;
+      done = true;
+      try { back.remove(); } catch {}
+      resolve(val);
+    };
+    back.querySelector('.c-cancel').onclick = () => close(null);
+    back.querySelector('.c-ok').onclick = () => close(inp?.value || '');
+    back.addEventListener('click', (e) => { if (e.target === back) close(null); });
+    setTimeout(() => { inp?.focus(); inp?.select(); }, 30);
+  });
+}
+
+async function editLiveModCommand(key) {
+  const lm = ensureLiveModSettings();
+  const def = LIVE_MOD_CMD_DEFS.find((d) => d.key === key);
+  if (!def) return;
+  const val = await askLiveModCmdEdit({
+    title: `Editar: ${def.desc}`,
+    current: liveModCmdStored(key, lm),
+    hint: 'Debe empezar con ! y solo letras, números o _. El chat usará exactamente este texto.',
+  });
+  if (val == null) return;
+  const norm = normalizeLiveModCmdInput(val);
+  if (!/^![a-z0-9_]{2,24}$/i.test(norm)) {
+    toast && toast('Usa !nombre (2-24 caracteres, sin espacios).', 'warn');
+    return;
+  }
+  const dup = LIVE_MOD_CMD_DEFS.some((d) => d.key !== key && liveModCmdStored(d.key, lm) === norm);
+  if (dup) {
+    toast && toast('Ese comando ya lo usa otra fila.', 'warn');
+    return;
+  }
+  if (!lm.commands[key]) lm.commands[key] = { enabled: true };
+  lm.commands[key].cmd = norm;
+  saveSettingsKeysPatch('liveMod');
+  renderLiveModCmdTable();
+  renderLiveModInfo();
+  toast && toast(`Comando guardado: ${norm}`, 'ok');
 }
 
 function applyLiveModUI() {
@@ -18351,11 +18617,14 @@ function renderLiveModCmdTable() {
   const lm = ensureLiveModSettings();
   tbody.innerHTML = LIVE_MOD_CMD_DEFS.map((d) => {
     const on = lm.commands?.[d.key]?.enabled !== false;
+    const cmd = liveModCmdStored(d.key, lm);
+    const ex = liveModCmdExample(d.key, lm);
     return `<tr>
-      <td><code class="livemod-cmd-pill">${esc(d.cmd)}</code></td>
+      <td><code class="livemod-cmd-pill">${esc(cmd)}</code></td>
       <td>${esc(d.desc)}</td>
-      <td><code class="livemod-ex-pill">${esc(d.example)}</code></td>
+      <td><code class="livemod-ex-pill">${esc(ex)}</code></td>
       <td class="livemod-cmd-on"><label class="switch-row plain compact"><input type="checkbox" data-livemod-cmd="${esc(d.key)}" ${on ? 'checked' : ''}> <span></span></label></td>
+      <td class="livemod-cmd-actions"><button type="button" class="btn ghost livemod-cmd-edit" data-livemod-edit="${esc(d.key)}" title="Editar comando">✎</button></td>
     </tr>`;
   }).join('');
   tbody.querySelectorAll('[data-livemod-cmd]').forEach((el) => {
@@ -18365,6 +18634,9 @@ function renderLiveModCmdTable() {
       lm.commands[key].enabled = el.checked;
       saveSettingsKeysPatch('liveMod');
     };
+  });
+  tbody.querySelectorAll('[data-livemod-edit]').forEach((btn) => {
+    btn.onclick = () => { editLiveModCommand(btn.dataset.livemodEdit); };
   });
 }
 
@@ -18433,11 +18705,15 @@ function renderLiveModInfo() {
   const videos = collectLiveModVideoItems();
   const sounds = collectLiveModSoundItems();
 
+  const lm = ensureLiveModSettings();
+  const animCmd = liveModCmdStored('anim', lm);
+  const sonidoCmd = liveModCmdStored('sonido', lm);
+
   if (videosEl) {
     videosEl.innerHTML = videos.length
       ? videos.map((v) => {
         const tok = esc(v.token);
-        return `<button type="button" class="livemod-vid-pill" data-cmd="!anim ${tok}" title="Copiar comando">${esc(v.label)}</button>`;
+        return `<button type="button" class="livemod-vid-pill" data-cmd="${esc(animCmd)} ${tok}" title="Copiar comando">${esc(v.label)}</button>`;
       }).join('')
       : '<p class="livemod-empty-inline">No hay videos activos. Créalos en la pestaña Videos.</p>';
     videosEl.querySelectorAll('.livemod-vid-pill').forEach((btn) => {
@@ -18448,13 +18724,13 @@ function renderLiveModInfo() {
       };
     });
   }
-  if (exAnim && videos[0]) exAnim.textContent = `!anim ${videos[0].token}`;
+  if (exAnim && videos[0]) exAnim.textContent = `${animCmd} ${videos[0].token}`;
 
   if (soundsEl) {
     soundsEl.innerHTML = sounds.length
       ? sounds.map((s) => {
         const aliasTxt = s.aliases.length ? ` <span class="livemod-snd-alias">(${s.aliases.map(esc).join(', ')})</span>` : '';
-        return `<button type="button" class="livemod-snd-pill" data-cmd="!sonido ${esc(s.token)}" title="Copiar comando"><b>${esc(s.label)}</b>${aliasTxt}</button>`;
+        return `<button type="button" class="livemod-snd-pill" data-cmd="${esc(sonidoCmd)} ${esc(s.token)}" title="Copiar comando"><b>${esc(s.label)}</b>${aliasTxt}</button>`;
       }).join('')
       : '<p class="livemod-empty-inline">No hay alertas sonoras activas. Créalas en Alertas sonoras.</p>';
     soundsEl.querySelectorAll('.livemod-snd-pill').forEach((btn) => {
@@ -18465,7 +18741,7 @@ function renderLiveModInfo() {
       };
     });
   }
-  if (exSonido && sounds[0]) exSonido.textContent = `!sonido ${sounds[0].token}`;
+  if (exSonido && sounds[0]) exSonido.textContent = `${sonidoCmd} ${sounds[0].token}`;
 
   if (profs) {
     const ps = profilesState;
@@ -18508,11 +18784,12 @@ function exportLiveModCommands() {
   ];
   LIVE_MOD_CMD_DEFS.forEach((d) => {
     if (lm.commands?.[d.key]?.enabled === false) return;
-    lines.push(`  ${d.cmd} — ${d.desc}`);
-    lines.push(`    Ej: ${d.example}`);
+    const cmd = liveModCmdStored(d.key, lm);
+    lines.push(`  ${cmd} — ${d.desc}`);
+    lines.push(`    Ej: ${liveModCmdExample(d.key, lm)}`);
   });
-  lines.push('', 'Videos (!anim):', ...(videos.length ? videos.map((v) => `  ${v.token}${v.aliases.length ? ` (${v.aliases.join(', ')})` : ''}`) : ['  (ninguno)']));
-  lines.push('', 'Sonidos (!sonido):', ...(sounds.length ? sounds.map((s) => `  ${s.label}${s.aliases.length ? ` (${s.aliases.join(', ')})` : ''}`) : ['  (ninguno)']));
+  lines.push('', `Videos (${liveModCmdStored('anim', lm)}):`, ...(videos.length ? videos.map((v) => `  ${v.token}${v.aliases.length ? ` (${v.aliases.join(', ')})` : ''}`) : ['  (ninguno)']));
+  lines.push('', `Sonidos (${liveModCmdStored('sonido', lm)}):`, ...(sounds.length ? sounds.map((s) => `  ${s.label}${s.aliases.length ? ` (${s.aliases.join(', ')})` : ''}`) : ['  (ninguno)']));
   const text = lines.filter((l) => l !== '').join('\n');
   try {
     navigator.clipboard.writeText(text);

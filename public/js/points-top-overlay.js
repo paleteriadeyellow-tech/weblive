@@ -29,6 +29,7 @@
     inter: 'Inter:wght@600;700;800;900',
   };
   const MEDALS = ['👑', '🥈', '🥉'];
+  const DESIGNS = ['classic', 'glass', 'minimal', 'arena'];
   const DEMO = [
     ['EverHdezHdez', 'https://randomuser.me/api/portraits/men/32.jpg', 6516, 43],
     ['MariaFan', 'https://randomuser.me/api/portraits/women/44.jpg', 6120, 42],
@@ -67,7 +68,9 @@
   function init(opt) {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
+    const urlDesign = params.get('design');
     let cfg = Object.assign({}, opt.defaults);
+    if (urlDesign && DESIGNS.includes(urlDesign)) cfg.design = urlDesign;
     const users = new Map();
     let orderKey = '';
     let animTimer = null;
@@ -93,6 +96,9 @@
     }
 
     function applyStyle() {
+      const design = DESIGNS.includes(cfg.design) ? cfg.design : 'classic';
+      cfg.design = design;
+      root.dataset.design = design;
       ensureFont(cfg.font);
       root.style.setProperty('--tf-font-stack', FONTS[cfg.font] || FONTS.inter);
       root.style.setProperty('--ol-accent', cfg.accent || '#ffd54f');

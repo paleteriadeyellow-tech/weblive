@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="/js/overlay-channel.js?v=ovch1"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Marco de cámara</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: transparent !important;
+    }
+    html[data-embed="1"] body {
+      display: flex; align-items: center; justify-content: center;
+      background-color: #1e2430 !important;
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,.07) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,.07) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.07) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.07) 75%) !important;
+      background-size: 18px 18px !important;
+      background-position: 0 0, 0 9px, 9px -9px, -9px 0 !important;
+    }
+    .stage {
+      position: relative;
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .frame-wrap {
+      position: relative;
+      width: min(100%, 1280px);
+      transform: scale(var(--mcf-scale, 1));
+      transform-origin: center center;
+      line-height: 0;
+    }
+    .frame-stack { position: relative; width: 100%; }
+    .frame-img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 100vh;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+      transition: opacity .22s ease;
+    }
+    .frame-img.is-back {
+      position: absolute; inset: 0;
+      opacity: 0; visibility: hidden; pointer-events: none; z-index: 0;
+    }
+    .frame-img.is-front { position: relative; opacity: 1; visibility: visible; z-index: 1; }
+    html[data-embed="1"] .frame-img { max-height: 72vh; }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="frame-wrap" id="wrap">
+      <div class="frame-stack" id="stack">
+        <img class="frame-img is-front" id="frame-a" alt="" draggable="false" />
+        <img class="frame-img is-back" id="frame-b" alt="" draggable="false" />
+      </div>
+    </div>
+  </div>
+  <script src="/js/camera-frames.js?v=mcf4"></script>
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    if (params.get('embed') === '1') document.documentElement.dataset.embed = '1';
+
+    const imgA = document.getElementById('frame-a');
+    const imgB = document.getElementById('frame-b');
+    const wrapEl = document.getElementById('wrap');
+    const frameOf = window.cameraFrameById || ((id) => (window.CAMERA_FRAMES || [])[0]);
+
+    let cfg = { frame: 'vip-gold', scale: 100 };
+    let activeId = '';
+    let frontEl = imgA;
+    let backEl = imgB;
+    let loadGen = 0;
+    let preferLocalUntil = 0;
+    let localFrameId = '';
+
+    function clamp(n, lo, hi, def) {
+      const x = parseInt(n, 10);
+      return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : def;
+    }
+
+    function applyScale() {
+      wrapEl.style.setProperty('--mcf-scale', String(clamp(cfg.scale, 60, 140, 100) / 100));
+    }
+
+    function preload(src) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.onload = () => resolve(src);
+        img.onerror = () => resolve(src);
+        img.src = src;
+      });
+    }
+
+    function preloadAll() {
+      (window.CAMERA_FRAMES || []).forEach((f) => { preload(f.img); });
+    }
+
+    async function showFrame(id) {
+      const f = frameOf(id);
+      cfg.frame = f.id;
+      applyScale();
+      if (f.id === activeId && frontEl.src && frontEl.src.indexOf(f.id) >= 0) return;
+
+      const token = ++loadGen;
+      await preload(f.img);
+      if (token !== loadGen) return;
+
+      const next = backEl;
+      const prev = frontEl;
+      next.src = f.img;
+      next.alt = f.name;
+
+      await new Promise((resolve) => {
+        if (next.complete) { resolve(); return; }
+        next.onload = () => resolve();
+        next.onerror = () => resolve();
+      });
+      if (token !== loadGen) return;
+
+      next.classList.remove('is-back');
+      next.classList.add('is-front');
+      prev.classList.remove('is-front');
+      prev.classList.add('is-back');
+      prev.removeAttribute('src');
+
+      frontEl = next;
+      backEl = prev;
+      activeId = f.id;
+    }
+
+    function onSettings(payload, fromLocal) {
+      if (!payload || typeof payload !== 'object') return;
+      const id = frameOf(payload.frame || cfg.frame).id;
+      cfg = {
+        frame: id,
+        scale: payload.scale != null ? payload.scale : cfg.scale,
+      };
+      if (fromLocal) {
+        localFrameId = id;
+        preferLocalUntil = Date.now() + 2000;
+      }
+      applyScale();
+      showFrame(id);
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type !== 'settings' || !m.payload || !m.payload.cameraFrame) return;
+        const cf = m.payload.cameraFrame;
+        const wsId = frameOf(cf.frame).id;
+        if (Date.now() < preferLocalUntil && wsId !== localFrameId) return;
+        onSettings(cf, false);
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'marcocamara') return;
+      if (d.type === 'config' && d.config) onSettings(d.config, true);
+    });
+
+    preloadAll();
+    connect();
+  })();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

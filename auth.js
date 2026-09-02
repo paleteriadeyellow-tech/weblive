@@ -152,7 +152,7 @@ export const GAME_FEATURE_KEYS = [
   'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter',
   'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw',
   'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned',
-  'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
+  'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash', 'game_clashroyale',
 ];
 
 function normalizeAllowedGames(list) {

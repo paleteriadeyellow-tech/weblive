@@ -137,6 +137,7 @@ export const CAPABILITIES = {
     { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
     { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
     { key: 'game_geometrydash', label: 'Juego: Geometry Dash' },
+    { key: 'game_clashroyale', label: 'Juego: Clash Royale' },
   ],
   // Características sueltas.
   extras: [

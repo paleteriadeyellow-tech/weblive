@@ -195,7 +195,7 @@
       pointer-events: none;
     }
     .so-grid.show-nicks .so-cell .so-nick { display: block; }
-    .so-grid.show-nicks .so-cell:not(:has(img.is-ready)) .so-nick { display: none; }
+    .so-grid.show-nicks .so-cell:not(:has(img.is-ready)) .so-nick { display: block; }
     .so-grid.show-nicks .so-cell .ph {
       font-size: clamp(11px, 3vmin, 18px);
       padding: 6px 5px 8px;
@@ -806,7 +806,9 @@
       return (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(s) : s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     }
     function clearSpinClasses() {
-      document.querySelectorAll('.so-cell').forEach((c) => c.classList.remove('is-spin', 'is-hit'));
+      document.querySelectorAll('.so-cell').forEach((c) => {
+        c.classList.remove('is-spin', 'is-hit', 'is-pending-dead', 'is-dead');
+      });
     }
     function hideElimCard() {
       elimCardGen += 1;
@@ -1007,7 +1009,37 @@
         if (!p || Math.max(0, Number(p.lives) || 0) <= 0) return n;
         return n + Math.max(0, Number(p.lives) || 0);
       }, 0);
+      if (lifeSlots.length === expected) return;
+      repairLifeSlots();
       if (lifeSlots.length !== expected) rebuildLifeSlotsFromPlayers();
+    }
+    /** Repara desfase sin regenerar slotId (evita fantasmas y saltos en el grid). */
+    function repairLifeSlots() {
+      lifeSlots = lifeSlots.filter((s) => {
+        const p = players[s.id];
+        return p && Math.max(0, Number(p.lives) || 0) > 0;
+      });
+      const cost = Math.max(1, clamp(cfg.entryCost, 1, 1000000));
+      for (const p of Object.values(players)) {
+        if (!p || Math.max(0, Number(p.lives) || 0) <= 0) continue;
+        const target = Math.max(0, Number(p.lives) || 0);
+        let have = lifeSlots.filter((s) => s.id === p.id).length;
+        while (have > target) {
+          let idx = -1;
+          for (let i = lifeSlots.length - 1; i >= 0; i--) {
+            if (lifeSlots[i].id === p.id) { idx = i; break; }
+          }
+          if (idx < 0) break;
+          lifeSlots.splice(idx, 1);
+          have--;
+        }
+        while (have < target) {
+          const stake = (p.stakes && p.stakes[have]) || cost;
+          lifeSlots.push(makeLifeSlot(p, stake));
+          have++;
+        }
+        syncSlotsMetaForPlayer(p);
+      }
     }
     function pushPlayersToPanel() {
       clearTimeout(playersPushTimer);
@@ -1126,25 +1158,19 @@
       let removed = 0;
       for (let i = 0; i < n && p.lives > 0; i++) {
         const slot = lifeSlots.find((s) => s.id === p.id);
-        if (slot) {
-          const stake = removeLifeSlot(slot.slotId, id);
-          p.lives -= 1;
-          removed += 1;
-          const si = p.stakes.indexOf(stake);
-          if (si >= 0) p.stakes.splice(si, 1);
-          else p.stakes.shift();
-          coinsInPlay = Math.max(0, coinsInPlay - stake);
-        } else {
-          p.lives -= 1;
-          removed += 1;
-          if (p.stakes.length) p.stakes.shift();
-          coinsInPlay = Math.max(0, coinsInPlay - Math.max(1, Number(cfg.entryCost) || 1));
-        }
+        if (!slot) break;
+        const stake = removeLifeSlot(slot.slotId, p.id);
+        p.lives -= 1;
+        removed += 1;
+        const si = p.stakes.indexOf(stake);
+        if (si >= 0) p.stakes.splice(si, 1);
+        else p.stakes.shift();
+        coinsInPlay = Math.max(0, coinsInPlay - stake);
         if (p.lives <= 0) p.alive = false;
       }
       if (!removed) return false;
       pruneDeadPlayers();
-      ensureLifeSlotSync();
+      repairLifeSlots();
       renderGrid();
       pushPlayersToPanel();
       if (tryDeclareSoleWinner()) return true;
@@ -1496,6 +1522,50 @@
       }
       nick.textContent = raw;
     }
+    function syncCellPhoto(cell, s, showNick) {
+      const pic = String(s.pic || '').trim();
+      const letter = (String(s.name || '?').trim() || '?').slice(0, 1).toUpperCase();
+      let img = cell.querySelector('img');
+      const ph = cell.querySelector('.ph');
+      const showPh = (ch) => {
+        if (ph) {
+          ph.textContent = showNick ? (String(s.name || '?').trim() || '?') : ch;
+          ph.style.display = 'flex';
+        }
+      };
+      if (!pic) {
+        if (img) { try { img.remove(); } catch {} img = null; }
+        showPh(letter);
+        return;
+      }
+      if (!img) {
+        img = document.createElement('img');
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        img.decoding = 'async';
+        img.loading = 'eager';
+        cell.insertBefore(img, ph || null);
+      }
+      const cur = img.getAttribute('src') || '';
+      if (cur !== pic) {
+        img.classList.remove('is-ready');
+        img.onload = function () {
+          this.classList.add('is-ready');
+          if (ph && !showNick) ph.style.display = 'none';
+        };
+        img.onerror = function () {
+          this.classList.remove('is-ready');
+          showPh(letter);
+        };
+        img.src = pic;
+        if (img.complete && img.naturalWidth) {
+          img.classList.add('is-ready');
+          if (ph && !showNick) ph.style.display = 'none';
+        }
+      } else if (img.classList.contains('is-ready') && ph && !showNick) {
+        ph.style.display = 'none';
+      }
+    }
     function makeCellEl(s, radius, showNick) {
       const cell = document.createElement('div');
       cell.className = 'so-cell';
@@ -1505,18 +1575,7 @@
       const ph = document.createElement('div');
       ph.className = 'ph';
       cell.appendChild(ph);
-      if (s.pic) {
-        const img = document.createElement('img');
-        img.alt = '';
-        img.referrerPolicy = 'no-referrer';
-        img.decoding = 'async';
-        img.loading = 'eager';
-        img.onload = function () { this.classList.add('is-ready'); };
-        img.onerror = function () { try { this.remove(); } catch {} };
-        img.src = s.pic;
-        if (img.complete && img.naturalWidth) img.classList.add('is-ready');
-        cell.appendChild(img);
-      }
+      syncCellPhoto(cell, s, showNick);
       paintCellLabels(cell, s, showNick);
       return cell;
     }
@@ -1565,6 +1624,8 @@
           cell.style.borderRadius = radius + 'px';
           cell.dataset.id = s.id;
           cell.dataset.slot = s.slotId;
+          cell.classList.remove('is-spin', 'is-hit', 'is-pending-dead', 'is-dead');
+          syncCellPhoto(cell, s, showNick);
           paintCellLabels(cell, s, showNick);
         }
         if (grid.children[i] !== cell) grid.insertBefore(cell, grid.children[i] || null);

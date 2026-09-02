@@ -150,6 +150,7 @@ function mergeProfilesData(legacy, current) {
     'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
+    'cameraFrame',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos', 'chatGamer',
     'followerCounter', 'followerCounterMc', 'liveTimer',
     'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
@@ -459,6 +460,7 @@ const LOCAL_ONLY_GAMES = [
   { key: 'game_smw', label: 'Juego: Super Mario World' },
   { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
   { key: 'game_geometrydash', label: 'Juego: Geometry Dash' },
+  { key: 'game_clashroyale', label: 'Juego: Clash Royale' },
 ];
 const LOCAL_ONLY_KEYS = [...LOCAL_ONLY_TABS, ...LOCAL_ONLY_GAMES].map((t) => t.key);
 const LOCAL_CAPS_FILE = path.join(DATA_DIR, 'local-caps.json');

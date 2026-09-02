@@ -1195,6 +1195,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'sorteosVidasOverlay', 'topKills', 'screenFx',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
+    'cameraFrame',
     'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
     'followerCounter', 'followerCounterMc', 'liveTimer',
     'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
@@ -8365,8 +8366,39 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const lm = settings.liveMod;
     if (!Array.isArray(lm.moderators)) lm.moderators = [];
     if (!lm.commands || typeof lm.commands !== 'object') lm.commands = {};
-    if (!Array.isArray(lm.boostPresets)) lm.boostPresets = structuredClone(DEFAULT_SETTINGS.liveMod?.boostPresets || []);
+    const defs = {
+      ttsban: '!ttsban', ttsunban: '!ttsunban', anim: '!anim',
+      sonido: '!sonido', perfil: '!perfil', evento: '!evento',
+    };
+    for (const [key, def] of Object.entries(defs)) {
+      if (!lm.commands[key]) lm.commands[key] = { enabled: true };
+      if (lm.commands[key].enabled === undefined) lm.commands[key].enabled = true;
+      if (!lm.commands[key].cmd) lm.commands[key].cmd = def;
+    }
     return lm;
+  }
+  function normLiveModCmd(raw) {
+    let t = String(raw || '').trim().toLowerCase();
+    if (!t) return '';
+    if (!t.startsWith('!')) t = `!${t}`;
+    return t.replace(/\s+/g, '');
+  }
+  function liveModCmdForKey(lm, key) {
+    const custom = lm.commands?.[key]?.cmd;
+    if (custom) return normLiveModCmd(custom);
+    const defs = {
+      ttsban: '!ttsban', ttsunban: '!ttsunban', anim: '!anim',
+      sonido: '!sonido', perfil: '!perfil', evento: '!evento',
+    };
+    return normLiveModCmd(defs[key] || '');
+  }
+  function resolveLiveModCmdKey(lm, cmdRaw) {
+    const cmd = normLiveModCmd(cmdRaw);
+    const keys = ['ttsban', 'ttsunban', 'anim', 'sonido', 'perfil', 'evento'];
+    for (const key of keys) {
+      if (liveModCmdForKey(lm, key) === cmd) return key;
+    }
+    return '';
   }
   function normLiveModUser(s) {
     return String(s || '').replace(/^@/, '').trim().toLowerCase();
@@ -8535,60 +8567,42 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const text = String(comment || '').trim();
     if (!text.startsWith('!')) return false;
     const parts = text.split(/\s+/);
-    const cmd = parts[0].toLowerCase();
+    const cmdKey = resolveLiveModCmdKey(lm, parts[0]);
+    if (!cmdKey || !liveModCmdEnabled(cmdKey)) return false;
     const rest = parts.slice(1);
+    const cmdLabel = liveModCmdForKey(lm, cmdKey);
 
-    if (cmd === '!ttsban' && liveModCmdEnabled('ttsban')) {
+    if (cmdKey === 'ttsban') {
       const word = rest.join(' ').trim();
-      if (!word) { liveModFeedback('Uso: !ttsban palabra', user); return true; }
+      if (!word) { liveModFeedback(`Uso: ${cmdLabel} palabra`, user); return true; }
       if (liveModAddBlockedWord(word)) liveModFeedback(`Palabra bloqueada en TTS: ${word}`, user);
       else liveModFeedback(`Ya estaba bloqueada: ${word}`, user);
       return true;
     }
-    if (cmd === '!ttsunban' && liveModCmdEnabled('ttsunban')) {
+    if (cmdKey === 'ttsunban') {
       const word = rest.join(' ').trim();
-      if (!word) { liveModFeedback('Uso: !ttsunban palabra', user); return true; }
+      if (!word) { liveModFeedback(`Uso: ${cmdLabel} palabra`, user); return true; }
       if (liveModRemoveBlockedWord(word)) liveModFeedback(`Palabra desbloqueada: ${word}`, user);
       else liveModFeedback(`No estaba bloqueada: ${word}`, user);
       return true;
     }
-    if (cmd === '!anim' && liveModCmdEnabled('anim')) {
+    if (cmdKey === 'anim') {
       const token = rest[0];
-      if (!token) { liveModFeedback('Uso: !anim nombreVideo', user); return true; }
+      if (!token) { liveModFeedback(`Uso: ${cmdLabel} nombreVideo`, user); return true; }
       if (fireLiveModAnim(token)) liveModFeedback(`Video: ${token}`, user);
       else liveModFeedback(`No encontré video «${token}»`, user);
       return true;
     }
-    if (cmd === '!sonido' && liveModCmdEnabled('sonido')) {
+    if (cmdKey === 'sonido') {
       const token = rest[0];
-      if (!token) { liveModFeedback('Uso: !sonido nombreSonido', user); return true; }
+      if (!token) { liveModFeedback(`Uso: ${cmdLabel} nombreSonido`, user); return true; }
       if (fireLiveModSound(token)) liveModFeedback(`Sonido: ${token}`, user);
       else liveModFeedback(`No encontré sonido «${token}»`, user);
       return true;
     }
-    if (cmd === '!boost' && liveModCmdEnabled('boost')) {
-      if (rest.length < 2) { liveModFeedback('Uso: !boost cantidad @usuario', user); return true; }
-      const targetTok = rest[rest.length - 1];
-      const presetTok = rest.slice(0, -1).join(' ');
-      let amount = Number(presetTok);
-      if (!Number.isFinite(amount) || amount <= 0) {
-        const preset = (lm.boostPresets || []).find((p) => normLiveModUser(p?.id) === normLiveModUser(presetTok)
-          || normLiveModUser(p?.name) === normLiveModUser(presetTok));
-        amount = preset ? Number(preset.points) || 0 : Number(lm.defaultBoostPoints) || 100;
-      }
-      if (amount <= 0) { liveModFeedback('Cantidad de puntos inválida', user); return true; }
-      const target = resolveLiveModTarget(targetTok);
-      if (!target) { liveModFeedback('Usuario no encontrado', user); return true; }
-      addUserPoints({
-        uniqueId: target.uniqueId, nickname: target.nickname, amount: Math.round(amount),
-        counted: false, description: `Boost mod ${user?.nickname || ''}`, manual: true,
-      });
-      liveModFeedback(`+${Math.round(amount)} pts → ${target.nickname || target.uniqueId}`, user);
-      return true;
-    }
-    if (cmd === '!perfil' && liveModCmdEnabled('perfil')) {
+    if (cmdKey === 'perfil') {
       const arg = rest.join(' ').trim();
-      if (!arg) { liveModFeedback('Uso: !perfil #1 o !perfil Nombre', user); return true; }
+      if (!arg) { liveModFeedback(`Uso: ${cmdLabel} #1 o ${cmdLabel} Nombre`, user); return true; }
       if (liveModSwitchProfile(arg)) {
         const names = profiles.names || [];
         const i = /^#?\d+$/.test(arg) ? Math.max(0, parseInt(arg.replace('#', ''), 10) - 1) : names.findIndex((n) => String(n).toLowerCase() === arg.toLowerCase());
@@ -8596,9 +8610,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else liveModFeedback(`Perfil no encontrado: ${arg}`, user);
       return true;
     }
-    if (cmd === '!evento' && liveModCmdEnabled('evento')) {
+    if (cmdKey === 'evento') {
       if (rest.length < 2) {
-        liveModFeedback('Uso: !evento #1 on|off', user);
+        liveModFeedback(`Uso: ${cmdLabel} #1 on|off`, user);
         return true;
       }
       const state = rest[rest.length - 1];
