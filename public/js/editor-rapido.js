@@ -1,5 +1,5 @@
 /**
- * Editor Pro — rejilla de fondos GIF + iconos centrados + regalos abajo-derecha.
+ * Editor Pro — rejilla de fondos GIF + iconos centrados + regalos (tamaño y posición).
  */
 (function () {
   const FONDOS = [
@@ -615,6 +615,33 @@
     return Math.round(Math.max(0.4, Math.min(1.6, v)) * 100) / 100;
   }
 
+  const GIFT_POS = {
+    tl: { x: 16, y: 16 },
+    top: { x: 50, y: 16 },
+    tr: { x: 84, y: 16 },
+    left: { x: 16, y: 50 },
+    center: { x: 50, y: 50 },
+    right: { x: 84, y: 50 },
+    bl: { x: 16, y: 84 },
+    bottom: { x: 50, y: 84 },
+    br: { x: 84, y: 84 },
+  };
+
+  function clampGiftScale(n) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return 1;
+    return Math.round(Math.max(0.4, Math.min(2, v)) * 100) / 100;
+  }
+
+  function clampGiftPos(p) {
+    const k = String(p || '').toLowerCase();
+    return GIFT_POS[k] ? k : 'br';
+  }
+
+  function giftPosCenter(pos) {
+    return GIFT_POS[clampGiftPos(pos)] || GIFT_POS.br;
+  }
+
   function normalizeState(raw) {
     const st = {
       count: clampCount(raw?.count || 4),
@@ -624,6 +651,8 @@
       gridN: clampGridN(raw?.gridN || 0),
       zoom: clampZoom(raw?.zoom ?? 1),
       imgScale: clampImgScale(raw?.imgScale ?? 1),
+      giftScale: clampGiftScale(raw?.giftScale ?? 1),
+      giftPos: clampGiftPos(raw?.giftPos || 'br'),
       frameMode: clampFrameMode(raw?.frameMode || 'off'),
       frameColor: clampTextColor(raw?.frameColor || '#25f4ee'),
       fondo: 'fondo-1',
@@ -1406,6 +1435,40 @@
     if (!opts?.skipSave) saveState(state);
   }
 
+  function applyGiftUi() {
+    const s = clampGiftScale(state.giftScale);
+    const pos = clampGiftPos(state.giftPos);
+    state.giftScale = s;
+    state.giftPos = pos;
+    const grid = document.getElementById('er-grid');
+    if (grid) {
+      grid.style.setProperty('--er-gift-scale', String(s));
+      grid.dataset.erGiftPos = pos;
+    }
+    const label = document.getElementById('er-gift-scale-label');
+    if (label) label.textContent = Math.round(s * 100) + '%';
+    const range = document.getElementById('er-gift-scale');
+    if (range) {
+      const pct = Math.round(s * 100);
+      if (Number(range.value) !== pct) range.value = String(pct);
+    }
+    document.querySelectorAll('#er-gift-pos-tools [data-er-gift-pos]').forEach((btn) => {
+      btn.classList.toggle('is-on', btn.dataset.erGiftPos === pos);
+    });
+  }
+
+  function setGiftScale(n, opts) {
+    state.giftScale = clampGiftScale(n);
+    applyGiftUi();
+    if (!opts?.skipSave) saveState(state);
+  }
+
+  function setGiftPos(pos, opts) {
+    state.giftPos = clampGiftPos(pos);
+    applyGiftUi();
+    if (!opts?.skipSave) saveState(state);
+  }
+
   function loadImageEl(src, timeoutMs) {
     return new Promise((resolve) => {
       if (!src) return resolve(null);
@@ -1733,9 +1796,11 @@
 
       const gfBmp = erSourceBitmap(assets.gifts[i], tMs);
       if (gfBmp && gfBmp.width && gfBmp.height) {
-        const base = Math.min(cellW, cellH) * 0.32;
-        const s = base * clampItemScale(state.gifts[i]?.scale ?? 1);
         const free = usesCustomLayout(i);
+        const base = Math.min(cellW, cellH) * 0.32;
+        const s = base * (free
+          ? clampItemScale(state.gifts[i]?.scale ?? 1)
+          : clampGiftScale(state.giftScale));
         const m = free ? { dx: 0, dy: 0, scale: 1, rot: 0 } : erMotionOffset(mot, tMs, s, s);
         let gx;
         let gy;
@@ -1743,8 +1808,9 @@
           gx = x + clampPct(state.gifts[i]?.x, 82) / 100 * cellW - s / 2;
           gy = y + clampPct(state.gifts[i]?.y, 82) / 100 * cellH - s / 2;
         } else {
-          gx = x + cellW - s - cellW * 0.04;
-          gy = y + cellH - s - cellH * 0.04;
+          const pos = giftPosCenter(state.giftPos);
+          gx = x + pos.x / 100 * cellW - s / 2;
+          gy = y + pos.y / 100 * cellH - s / 2;
         }
         ctx.save();
         ctx.translate(gx + s / 2 + m.dx, gy + s / 2 + m.dy);
@@ -2106,6 +2172,8 @@
       gridN: clampGridN(s.gridN),
       zoom: clampZoom(s.zoom),
       imgScale: clampImgScale(s.imgScale),
+      giftScale: clampGiftScale(s.giftScale),
+      giftPos: clampGiftPos(s.giftPos),
       frameMode: clampFrameMode(s.frameMode),
       frameColor: clampTextColor(s.frameColor || '#25f4ee'),
       fondo: s.fondo,
@@ -3479,6 +3547,7 @@
       grid.style.removeProperty('--er-cell-w');
     }
     applyImgScaleUi();
+    applyGiftUi();
     grid.classList.toggle('is-picking', isBusy());
     grid.classList.toggle('is-moving', !!moveFrom);
     grid.classList.toggle('is-gift-place', kind === 'gift');
@@ -4014,6 +4083,16 @@
     });
     imgScaleRange?.addEventListener('change', () => {
       setImgScale(Number(imgScaleRange.value) / 100);
+    });
+    const giftScaleRange = document.getElementById('er-gift-scale');
+    giftScaleRange?.addEventListener('input', () => {
+      setGiftScale(Number(giftScaleRange.value) / 100, { skipSave: true });
+    });
+    giftScaleRange?.addEventListener('change', () => {
+      setGiftScale(Number(giftScaleRange.value) / 100);
+    });
+    document.querySelectorAll('#er-gift-pos-tools [data-er-gift-pos]').forEach((btn) => {
+      btn.addEventListener('click', () => setGiftPos(btn.dataset.erGiftPos));
     });
     document.querySelectorAll('[data-er-align]').forEach((btn) => {
       btn.addEventListener('click', () => alignSelectedText(btn.dataset.erAlign));
@@ -4851,6 +4930,8 @@
     const prevTextMotion = state.textMotion;
     const prevZoom = state.zoom;
     const prevImgScale = state.imgScale;
+    const prevGiftScale = state.giftScale;
+    const prevGiftPos = state.giftPos;
     const prevFrameMode = state.frameMode;
     const prevFrameColor = state.frameColor;
     const prevSpreadH = state.spreadH;
@@ -4915,6 +4996,8 @@
         fixedCellSize: !!prevFixedCellSize,
         zoom: prevZoom,
         imgScale: prevImgScale,
+        giftScale: prevGiftScale,
+        giftPos: prevGiftPos,
         frameMode: prevFrameMode,
         frameColor: prevFrameColor,
         fondo: prevFondo || 'transparent',

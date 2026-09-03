@@ -298,6 +298,7 @@ export function gameKeyFromExecTipo(tipo, hintUrl = '') {
   if (t.startsWith('GTAV_CHILIAD') || t.startsWith('GTAVCHILIAD')) return 'game_gtavchiliad';
   if (t.startsWith('GTAV_') || t.startsWith('GTAVKOTH')) return 'game_gtavkoth';
   if (t.startsWith('CTR_') || t.startsWith('CRASH')) return 'game_crashctr';
+  if (t.startsWith('CR_')) return 'game_clashroyale';
   if (t.startsWith('MSLUG_') || t.startsWith('METALSLUG')) return 'game_metalslug';
   if (t.startsWith('GD_') || t.startsWith('GEOMETRY')) return 'game_geometrydash';
   if (t.startsWith('MC_') || t.startsWith('MINECRAFT') || t.startsWith('RCON') || t.startsWith('SERVERTAP')) return 'game_minecraft';

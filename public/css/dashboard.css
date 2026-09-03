@@ -12815,6 +12815,7 @@ pre.wh-url { margin: 9px 0 0; }
 .er-edit-tools,
 .er-align-tools,
 .er-img-scale,
+.er-gift-pos,
 .er-zoom-btns {
   display: flex;
   flex-wrap: wrap;
@@ -12826,6 +12827,29 @@ pre.wh-url { margin: 9px 0 0; }
   gap: 8px;
   padding-right: 10px;
   border-right: 1px solid rgba(255,255,255,.1);
+}
+.er-gift-pos {
+  display: grid;
+  grid-template-columns: repeat(3, 26px);
+  gap: 3px;
+  padding-right: 10px;
+  border-right: 1px solid rgba(255,255,255,.1);
+}
+.er-gift-pos .er-mini-btn {
+  width: 26px;
+  min-width: 26px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+}
+.er-gift-pos .er-mini-btn.is-on {
+  border-color: rgba(37, 244, 238, .55);
+  background: rgba(37, 244, 238, .16);
+  color: #25f4ee;
 }
 .er-img-scale-range {
   -webkit-appearance: none;
@@ -12912,6 +12936,7 @@ pre.wh-url { margin: 9px 0 0; }
 .er-canvas-bar-tools .er-edit-tools,
 .er-canvas-bar-tools .er-align-tools,
 .er-canvas-bar-tools .er-img-scale,
+.er-canvas-bar-tools .er-gift-pos,
 .er-canvas-bar-tools .er-zoom-btns {
   padding: 2px 0;
 }
@@ -13167,15 +13192,73 @@ body.er-item-resizing {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 40%;
-  height: 40%;
-  max-width: 140px;
-  max-height: 140px;
+  width: calc(40% * var(--er-gift-scale, 1));
+  height: calc(40% * var(--er-gift-scale, 1));
+  max-width: calc(140px * var(--er-gift-scale, 1));
+  max-height: calc(140px * var(--er-gift-scale, 1));
   object-fit: contain;
   object-position: right bottom;
   pointer-events: none;
   filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
   z-index: 2;
+  --er-gift-t: translate(0, 0);
+  --er-gift-origin: right bottom;
+  transform: var(--er-gift-t);
+  transform-origin: var(--er-gift-origin);
+}
+.er-grid[data-er-gift-pos="tl"] .er-cell-gift:not(.is-free) {
+  left: 0; right: auto; top: 0; bottom: auto;
+  --er-gift-t: translate(0, 0);
+  --er-gift-origin: left top;
+  object-position: left top;
+}
+.er-grid[data-er-gift-pos="top"] .er-cell-gift:not(.is-free) {
+  left: 50%; right: auto; top: 0; bottom: auto;
+  --er-gift-t: translateX(-50%);
+  --er-gift-origin: top center;
+  object-position: top center;
+}
+.er-grid[data-er-gift-pos="tr"] .er-cell-gift:not(.is-free) {
+  left: auto; right: 0; top: 0; bottom: auto;
+  --er-gift-t: translate(0, 0);
+  --er-gift-origin: right top;
+  object-position: right top;
+}
+.er-grid[data-er-gift-pos="left"] .er-cell-gift:not(.is-free) {
+  left: 0; right: auto; top: 50%; bottom: auto;
+  --er-gift-t: translateY(-50%);
+  --er-gift-origin: left center;
+  object-position: left center;
+}
+.er-grid[data-er-gift-pos="center"] .er-cell-gift:not(.is-free) {
+  left: 50%; right: auto; top: 50%; bottom: auto;
+  --er-gift-t: translate(-50%, -50%);
+  --er-gift-origin: center center;
+  object-position: center;
+}
+.er-grid[data-er-gift-pos="right"] .er-cell-gift:not(.is-free) {
+  left: auto; right: 0; top: 50%; bottom: auto;
+  --er-gift-t: translateY(-50%);
+  --er-gift-origin: right center;
+  object-position: right center;
+}
+.er-grid[data-er-gift-pos="bl"] .er-cell-gift:not(.is-free) {
+  left: 0; right: auto; top: auto; bottom: 0;
+  --er-gift-t: translate(0, 0);
+  --er-gift-origin: left bottom;
+  object-position: left bottom;
+}
+.er-grid[data-er-gift-pos="bottom"] .er-cell-gift:not(.is-free) {
+  left: 50%; right: auto; top: auto; bottom: 0;
+  --er-gift-t: translateX(-50%);
+  --er-gift-origin: bottom center;
+  object-position: bottom center;
+}
+.er-grid[data-er-gift-pos="br"] .er-cell-gift:not(.is-free) {
+  left: auto; right: 0; top: auto; bottom: 0;
+  --er-gift-t: translate(0, 0);
+  --er-gift-origin: right bottom;
+  object-position: right bottom;
 }
 .er-cell-gift.is-free {
   left: 82%;
@@ -13418,22 +13501,22 @@ body.er-text-dragging .er-cell-text {
   75% { transform: translate(calc(-50% + 3%), -50%) rotate(2deg); }
 }
 @keyframes er-gift-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10%); }
+  0%, 100% { transform: var(--er-gift-t, translate(0, 0)) translateY(0); }
+  50% { transform: var(--er-gift-t, translate(0, 0)) translateY(-10%); }
 }
 @keyframes er-gift-bounce {
-  0%, 100% { transform: translateY(0); }
-  40% { transform: translateY(-14%); }
-  60% { transform: translateY(-6%); }
+  0%, 100% { transform: var(--er-gift-t, translate(0, 0)) translateY(0); }
+  40% { transform: var(--er-gift-t, translate(0, 0)) translateY(-14%); }
+  60% { transform: var(--er-gift-t, translate(0, 0)) translateY(-6%); }
 }
 @keyframes er-gift-pulse {
-  0%, 100% { transform: scale(1); transform-origin: right bottom; }
-  50% { transform: scale(1.1); transform-origin: right bottom; }
+  0%, 100% { transform: var(--er-gift-t, translate(0, 0)) scale(1); }
+  50% { transform: var(--er-gift-t, translate(0, 0)) scale(1.1); }
 }
 @keyframes er-gift-shake {
-  0%, 100% { transform: translateX(0) rotate(0); transform-origin: right bottom; }
-  25% { transform: translateX(-4%) rotate(-3deg); transform-origin: right bottom; }
-  75% { transform: translateX(4%) rotate(3deg); transform-origin: right bottom; }
+  0%, 100% { transform: var(--er-gift-t, translate(0, 0)) rotate(0); }
+  25% { transform: var(--er-gift-t, translate(0, 0)) translateX(-4%) rotate(-3deg); }
+  75% { transform: var(--er-gift-t, translate(0, 0)) translateX(4%) rotate(3deg); }
 }
 /* Movimiento (pulso/flotar/…) + layout libre: conservar escala del item */
 .er-free-item.ied-motion-float { animation: er-free-item-float 2.6s ease-in-out infinite; }

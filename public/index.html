@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=sov7" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=sov8" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -1208,6 +1208,22 @@
                     <span class="er-align-label">Imagen</span>
                     <input type="range" id="er-img-scale" class="er-img-scale-range" min="40" max="160" step="5" value="100" aria-label="TamaÃ±o de imagen">
                     <span class="er-zoom-label" id="er-img-scale-label">100%</span>
+                  </div>
+                  <div class="er-img-scale er-gift-scale" title="Tamaño del regalo / like / follow (no afecta movimiento libre)">
+                    <span class="er-align-label">Regalo</span>
+                    <input type="range" id="er-gift-scale" class="er-img-scale-range" min="40" max="200" step="5" value="100" aria-label="Tamaño de regalo">
+                    <span class="er-zoom-label" id="er-gift-scale-label">100%</span>
+                  </div>
+                  <div class="er-gift-pos" id="er-gift-pos-tools" title="Posición del regalo / like (no afecta movimiento libre)">
+                    <button type="button" class="er-mini-btn" data-er-gift-pos="tl" title="Arriba izquierda">↖</button>
+                    <button type="button" class="er-mini-btn" data-er-gift-pos="top" title="Arriba">↑</button>
+                    <button type="button" class="er-mini-btn" data-er-gift-pos="tr" title="Arriba derecha">↗</button>
+                    <button type="button" class="er-mini-btn" data-er-gift-pos="left" title="Izquierda">←</button>
+                    <button type="button" class="er-mini-btn" data-er-gift-pos="center" title="Centro">·</button>
+                    <button type="button" class="er-mini-btn" data-er-gift-pos="right" title="Derecha">→</button>
+                    <button type="button" class="er-mini-btn" data-er-gift-pos="bl" title="Abajo izquierda">↙</button>
+                    <button type="button" class="er-mini-btn" data-er-gift-pos="bottom" title="Abajo">↓</button>
+                    <button type="button" class="er-mini-btn is-on" data-er-gift-pos="br" title="Abajo derecha">↘</button>
                   </div>
                   <div class="er-zoom-btns" title="TamaÃ±o del montage en el panel y en Live Studio / OBS">
                     <button type="button" class="er-mini-btn" id="er-zoom-out" title="MÃ¡s chico (tambiÃ©n en Live Studio)">âˆ’</button>
@@ -10913,7 +10929,7 @@
   <script src="/js/account-email.js?v=dockmail1"></script>
   <script src="/js/camera-frames.js?v=mcf4"></script>
   <script src="/js/dashboard.js?v=sov8"></script>
-  <script src="/js/editor-rapido.js?v=er86"></script>
+  <script src="/js/editor-rapido.js?v=er87"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>
 </body>

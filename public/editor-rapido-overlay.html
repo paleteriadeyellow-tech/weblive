@@ -212,8 +212,8 @@
       position: absolute;
       right: 4%;
       bottom: 4%;
-      max-width: 40%;
-      max-height: 40%;
+      max-width: calc(40% * var(--er-gift-scale, 1));
+      max-height: calc(40% * var(--er-gift-scale, 1));
       width: auto;
       height: auto;
       object-fit: contain;
@@ -221,6 +221,64 @@
       pointer-events: none;
       filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
       z-index: 2;
+      --er-gift-t: translate(0, 0);
+      --er-gift-origin: right bottom;
+      transform: var(--er-gift-t);
+      transform-origin: var(--er-gift-origin);
+    }
+    .er-grid[data-er-gift-pos="tl"] .er-cell-gift:not(.is-free) {
+      left: 4%; right: auto; top: 4%; bottom: auto;
+      --er-gift-t: translate(0, 0);
+      --er-gift-origin: left top;
+      object-position: left top;
+    }
+    .er-grid[data-er-gift-pos="top"] .er-cell-gift:not(.is-free) {
+      left: 50%; right: auto; top: 4%; bottom: auto;
+      --er-gift-t: translateX(-50%);
+      --er-gift-origin: top center;
+      object-position: top center;
+    }
+    .er-grid[data-er-gift-pos="tr"] .er-cell-gift:not(.is-free) {
+      left: auto; right: 4%; top: 4%; bottom: auto;
+      --er-gift-t: translate(0, 0);
+      --er-gift-origin: right top;
+      object-position: right top;
+    }
+    .er-grid[data-er-gift-pos="left"] .er-cell-gift:not(.is-free) {
+      left: 4%; right: auto; top: 50%; bottom: auto;
+      --er-gift-t: translateY(-50%);
+      --er-gift-origin: left center;
+      object-position: left center;
+    }
+    .er-grid[data-er-gift-pos="center"] .er-cell-gift:not(.is-free) {
+      left: 50%; right: auto; top: 50%; bottom: auto;
+      --er-gift-t: translate(-50%, -50%);
+      --er-gift-origin: center center;
+      object-position: center;
+    }
+    .er-grid[data-er-gift-pos="right"] .er-cell-gift:not(.is-free) {
+      left: auto; right: 4%; top: 50%; bottom: auto;
+      --er-gift-t: translateY(-50%);
+      --er-gift-origin: right center;
+      object-position: right center;
+    }
+    .er-grid[data-er-gift-pos="bl"] .er-cell-gift:not(.is-free) {
+      left: 4%; right: auto; top: auto; bottom: 4%;
+      --er-gift-t: translate(0, 0);
+      --er-gift-origin: left bottom;
+      object-position: left bottom;
+    }
+    .er-grid[data-er-gift-pos="bottom"] .er-cell-gift:not(.is-free) {
+      left: 50%; right: auto; top: auto; bottom: 4%;
+      --er-gift-t: translateX(-50%);
+      --er-gift-origin: bottom center;
+      object-position: bottom center;
+    }
+    .er-grid[data-er-gift-pos="br"] .er-cell-gift:not(.is-free) {
+      left: auto; right: 4%; top: auto; bottom: 4%;
+      --er-gift-t: translate(0, 0);
+      --er-gift-origin: right bottom;
+      object-position: right bottom;
     }
     .er-cell-gift.is-free {
       right: auto;
@@ -328,22 +386,22 @@
       75% { transform: translate(calc(-50% + 3%), -50%) rotate(2deg); }
     }
     @keyframes er-gift-float {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10%); }
+      0%, 100% { transform: var(--er-gift-t, translate(0, 0)) translateY(0); }
+      50% { transform: var(--er-gift-t, translate(0, 0)) translateY(-10%); }
     }
     @keyframes er-gift-bounce {
-      0%, 100% { transform: translateY(0); }
-      40% { transform: translateY(-14%); }
-      60% { transform: translateY(-6%); }
+      0%, 100% { transform: var(--er-gift-t, translate(0, 0)) translateY(0); }
+      40% { transform: var(--er-gift-t, translate(0, 0)) translateY(-14%); }
+      60% { transform: var(--er-gift-t, translate(0, 0)) translateY(-6%); }
     }
     @keyframes er-gift-pulse {
-      0%, 100% { transform: scale(1); transform-origin: right bottom; }
-      50% { transform: scale(1.1); transform-origin: right bottom; }
+      0%, 100% { transform: var(--er-gift-t, translate(0, 0)) scale(1); }
+      50% { transform: var(--er-gift-t, translate(0, 0)) scale(1.1); }
     }
     @keyframes er-gift-shake {
-      0%, 100% { transform: translateX(0) rotate(0); transform-origin: right bottom; }
-      25% { transform: translateX(-4%) rotate(-3deg); transform-origin: right bottom; }
-      75% { transform: translateX(4%) rotate(3deg); transform-origin: right bottom; }
+      0%, 100% { transform: var(--er-gift-t, translate(0, 0)) rotate(0); }
+      25% { transform: var(--er-gift-t, translate(0, 0)) translateX(-4%) rotate(-3deg); }
+      75% { transform: var(--er-gift-t, translate(0, 0)) translateX(4%) rotate(3deg); }
     }
     /* Layout libre: conservar --er-item-scale dentro de la animación */
     .er-cell-fg.is-free.ied-motion-float { animation: er-fg-free-float 2.6s ease-in-out infinite; }
@@ -487,7 +545,7 @@
       if (!Number.isFinite(n)) return 1;
       return Math.round(Math.max(0.5, Math.min(2, n)) * 100) / 100;
     })();
-    return [payload.count, payload.gap, !!payload.spreadH, !!payload.fixedCellSize, payload.gridN || 0, zoom, payload.imgScale || 1, payload.frameMode || 'off', payload.frameColor || '', payload.fondo, payload.fondoCustomSrc || '', payload.motion, payload.textMotion, ov, gf, tx, ovSrc, gfSrc, (payload.freeLayout || payload.freeMove || []).map((v) => v ? 1 : 0).join(''), (payload.overlays || []).map((o) => `${o?.x || ''},${o?.y || ''},${o?.scale || ''},${o?.z || ''}`).join('|'), (payload.gifts || []).map((o) => `${o?.x || ''},${o?.y || ''},${o?.scale || ''},${o?.z || ''}`).join('|')].join('::');
+    return [payload.count, payload.gap, !!payload.spreadH, !!payload.fixedCellSize, payload.gridN || 0, zoom, payload.imgScale || 1, payload.giftScale || 1, payload.giftPos || 'br', payload.frameMode || 'off', payload.frameColor || '', payload.fondo, payload.fondoCustomSrc || '', payload.motion, payload.textMotion, ov, gf, tx, ovSrc, gfSrc, (payload.freeLayout || payload.freeMove || []).map((v) => v ? 1 : 0).join(''), (payload.overlays || []).map((o) => `${o?.x || ''},${o?.y || ''},${o?.scale || ''},${o?.z || ''}`).join('|'), (payload.gifts || []).map((o) => `${o?.x || ''},${o?.y || ''},${o?.scale || ''},${o?.z || ''}`).join('|')].join('::');
   }
 
   function cellWidthForSpread(cols, rows, zoom) {
@@ -548,6 +606,12 @@
     const imgScale = Number.isFinite(imgScaleN)
       ? Math.round(Math.max(0.4, Math.min(1.6, imgScaleN)) * 100) / 100
       : 1;
+    const giftScaleN = Number(payload.giftScale);
+    const giftScale = Number.isFinite(giftScaleN)
+      ? Math.round(Math.max(0.4, Math.min(2, giftScaleN)) * 100) / 100
+      : 1;
+    const giftPosRaw = String(payload.giftPos || 'br').toLowerCase();
+    const giftPos = /^(tl|top|tr|left|center|right|bl|bottom|br)$/.test(giftPosRaw) ? giftPosRaw : 'br';
     const mot = motionClass(motion);
     const cells = [];
     for (let i = 0; i < count; i++) {
@@ -613,6 +677,7 @@
       `--er-rows:${lay.rows}`,
       `--er-frame-color:${frameColor}`,
       `--er-fg-scale:${imgScale}`,
+      `--er-gift-scale:${giftScale}`,
     ];
     if (fixedCellSize) frameStyle.push(`--er-cell-w:${cellWidthFixed()}px`);
     else if (spreadH) frameStyle.push(`--er-cell-w:${cellWidthForSpread(lay.cols, lay.rows, zoom)}px`);
@@ -625,7 +690,7 @@
       spreadH ? ' is-spread' : '',
       fixedCellSize ? ' is-fixed-cells' : '',
     ].join('');
-    root.innerHTML = `<div class="er-stage${spreadH ? ' is-spread' : ''}${fixedCellSize ? ' is-fixed-cells' : ''}" style="--er-live-zoom:${zoom}"><div class="er-grid${gridCls}" style="${frameStyle.join(';')}">${cells.join('')}</div></div>`;
+    root.innerHTML = `<div class="er-stage${spreadH ? ' is-spread' : ''}${fixedCellSize ? ' is-fixed-cells' : ''}" style="--er-live-zoom:${zoom}"><div class="er-grid${gridCls}" data-er-gift-pos="${giftPos}" style="${frameStyle.join(';')}">${cells.join('')}</div></div>`;
     hasRendered = true;
     lastPayload = payload;
   }
