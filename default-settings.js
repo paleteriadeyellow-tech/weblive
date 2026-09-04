@@ -574,6 +574,17 @@ export const DEFAULT_SETTINGS = {
       decN: { on: false, key: 'Ctrl+F4', amount: 5, giftId: '', giftName: '', image: '' },
     },
   },
+  // Overlay Contador de victorias PRO (5 diseños en un mismo overlay)
+  winsCounterPro: {
+    design: 'classic', label: 'Win', winsMax: 5, wins: 0, font: 'fredoka', rainbow: false,
+    textColor: '#ffffff', accentColor: '#ffffff', fontSize: 28,
+    hotkeys: {
+      inc1: { on: false, key: 'Alt+F1', amount: 1, giftId: '', giftName: '', image: '' },
+      dec1: { on: false, key: 'Alt+F2', amount: 1, giftId: '', giftName: '', image: '' },
+      incN: { on: false, key: 'Alt+F3', amount: 5, giftId: '', giftName: '', image: '' },
+      decN: { on: false, key: 'Alt+F4', amount: 5, giftId: '', giftName: '', image: '' },
+    },
+  },
   // Overlay Top Kills (manual: nombre → avatar, +/- kills, orden por kills, estilo por puesto)
   topKills: {
     title: 'TOP KILLS',
@@ -1031,6 +1042,22 @@ export const DEFAULT_SETTINGS = {
     fontSize: 15,
     scale: 100,
     fadeMs: 0,
+  },
+  giftRoulette: {
+    enabled: true,
+    giftId: '',
+    giftName: '',
+    giftImage: '',
+    giftQty: 1,
+    durationSec: 4,
+    visualCount: 64,
+    showUser: true,
+    showResult: true,
+    particles: true,
+    spinSound: 'tick',
+    winSound: 'win',
+    gameKey: 'marioActions',
+    prizes: [],
   },
   followerCounter: {
     variation: 'flip', font: 'exo2', fontSize: 50, lineSpacing: 50, letterSpacing: 50,

@@ -540,7 +540,7 @@ window.addEventListener('pageshow', () => {
 });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'lgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'tp3-conn', 'mcf-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'lgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'wcp-conn', 'gr-conn', 'tp3-conn', 'mcf-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -656,6 +656,7 @@ const OVERLAY_CAP = {
   '/contador-wins.html': 'ov_winscounter', '/contador-wins-gamer.html': 'ov_winscountergamer',
   '/contador-wins-minecraft.html': 'ov_winscounterminecraft',
   '/contador-wins-mario.html': 'ov_winscountermario',
+  '/contador-wins-pro.html': 'ov_winscounterpro',
   '/mejorregalo.html': 'ov_mejorregalo', '/ultimoregalo.html': 'ov_ultimoregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
   '/coinmatch.html': 'ov_coinmatch', '/sorteos.html': 'ov_sorteos', '/top-kills.html': 'ov_topkills', '/meta.html': 'ov_meta',
@@ -680,6 +681,7 @@ const OVERLAY_CAP = {
   '/alerta-seguidor.html': 'ov_alertaseguidor', '/timer.html': 'ov_timer',
   '/fuegos.html': 'ov_fuegos',
   '/chat-gamer.html': 'ov_chatgamer',
+  '/ruleta-regalos.html': 'ov_giftroulette',
   '/top1fire.html': 'ov_top1fire',
   '/toppoints.html': 'ov_toppoints',
 };
@@ -986,7 +988,7 @@ const CAP_LABELS = {
   ov_joinlive: 'Join al live', ov_joinlivemc: 'Join al live (Minecraft)', ov_joinlivedbz: 'Join al live (Dragon Ball Z)', ov_joinlivemario: 'Join al live (Mario Bros)',
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
-  ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)',
+  ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)', ov_winscounterpro: 'Contador de victorias PRO (5 diseños)',
   ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_baileronda: 'Overlay baile — Ronda', ov_bailecombo: 'Overlay baile — Top combo', ov_bailerank: 'Overlay baile — Ranking OUT', ov_batallacoinbar: 'Contador de monedas', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_ultimoregalo: 'Último regalo', ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_screenfx: 'Efectos pantalla', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
@@ -1000,6 +1002,7 @@ const CAP_LABELS = {
   ov_alertalikes: 'Alerta de likes',   ov_alertaseguidor: 'Alerta de nuevo seguidor', ov_timer: 'Temporizador (overlay)',
   ov_fuegos: 'Fuegos artificiales',
   ov_chatgamer: 'Chat Gamer',
+  ov_giftroulette: 'Ruleta de regalos',
   ov_top1fire: 'Top 1 Donador Fuego', ov_toppoints: 'Top puntos',
   ov_top1: 'Top 1 Donador (MVP)',
   ov_spotify: 'Spotify (lista)', ov_spotifyplayer: 'Spotify (reproductor)',
@@ -1019,9 +1022,9 @@ const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_youtube', 'tab_editor_rapido',
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
-  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
+  'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_winscounterpro', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
-  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
+  'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_giftroulette', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
   'ov_top1', 'ov_spotify', 'ov_spotifyplayer', 'ov_youtube', 'ov_editorrapido', 'ov_screenfx', 'ov_video',
 ];
 
@@ -4840,40 +4843,14 @@ async function performLogout() {
   location.href = '/login.html';
 }
 
+/* El modal «Cuenta en uso en otra PC» se retiró: salía con falsos positivos y
+   obligaba a cerrar sesión. Se conserva la función porque hay llamadas, pero como
+   mucho deja un aviso suave para no tragarse un error real. */
 function showLiveLockDenied(message) {
   if (window.__lcLoggingOut) return;
-  const now = Date.now();
-  if (liveLockModalOpen) return;
-  if (now - liveLockModalLastAt < 25000) return;
-  liveLockModalLastAt = now;
-  liveLockModalOpen = true;
-  const text = String(message || 'Esta cuenta ya está en live en otro dispositivo. Cierra el live o pulsa Desconectar ahí para poder conectar aquí.');
+  const text = String(message || '').trim();
+  if (!text) return;
   try { toast(text, 'warn'); } catch {}
-
-  const back = document.createElement('div');
-  back.className = 'modal confirm-modal live-lock-modal';
-  back.innerHTML = `
-    <div class="confirm-box">
-      <div class="confirm-ico">🔒</div>
-      <h3>Cuenta en uso en otra PC</h3>
-      <p></p>
-      <div class="confirm-btns" style="flex-wrap:wrap;gap:8px;justify-content:center">
-        <button type="button" class="btn ghost c-logout">Cerrar sesión</button>
-        <button type="button" class="btn ghost c-close">Cerrar</button>
-        <button type="button" class="btn primary c-ok">Entendido</button>
-      </div>
-    </div>`;
-  const p = back.querySelector('p');
-  if (p) p.textContent = text;
-  document.body.appendChild(back);
-  const close = () => {
-    liveLockModalOpen = false;
-    try { back.remove(); } catch {}
-  };
-  back.querySelector('.c-close').onclick = close;
-  back.querySelector('.c-ok').onclick = close;
-  back.querySelector('.c-logout').onclick = () => { close(); performLogout(); };
-  back.addEventListener('click', (e) => { if (e.target === back) close(); });
 }
 
 async function relayConnectHttp(username) {
@@ -5822,7 +5799,7 @@ function applySettingsToUI(touchedKeys) {
     if (typeof window.pushHypePreview === 'function' && (all || has('hypeBar'))) setTimeout(() => window.pushHypePreview(), 300);
   }
 
-  if (hasAny('winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario')) {
+  if (hasAny('winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario', 'winsCounterPro')) {
     if (typeof refreshWinsCounters === 'function') setTimeout(() => refreshWinsCounters(), 300);
   }
   if (has('topKills') && typeof refreshTopKills === 'function') setTimeout(() => refreshTopKills(), 300);
@@ -11528,6 +11505,309 @@ function setupStyleOverlay(o) {
   return o;
 }
 
+const GIFT_ROULETTE_GAMES = [
+  { key: 'marioActions', label: 'Mario Bros' },
+  { key: 'mari0Actions', label: 'Mari0' },
+  { key: 'smb3Actions', label: 'Super Mario Bros. 3' },
+  { key: 'smwActions', label: 'Super Mario World' },
+  { key: 'pvzActions', label: 'Plants vs Zombies' },
+  { key: 'pvzHybridActions', label: 'PvZ Hybrid' },
+  { key: 'repoActions', label: 'R.E.P.O.' },
+  { key: 'l4dActions', label: 'Left 4 Dead 2' },
+  { key: 'unturnedActions', label: 'Unturned' },
+  { key: 'gtavKothActions', label: 'GTA V King of the Hill' },
+  { key: 'gtavChaosActions', label: 'GTA V Mod Chaos' },
+  { key: 'gtavChiliadActions', label: 'GTA V Chiliad' },
+  { key: 'ctrActions', label: 'Crash Team Racing' },
+  { key: 'mslugActions', label: 'Metal Slug' },
+  { key: 'gdashActions', label: 'Geometry Dash' },
+  { key: 'crRoyaleActions', label: 'Clash Royale' },
+  { key: 'robloxActions', label: 'Roblox' },
+  { key: 'roblox3Actions', label: 'Roblox parkour' },
+  { key: 'mcActions', label: 'Minecraft' },
+  { key: 'mcshooterActions', label: 'Minecraft Shooters' },
+  { key: 'bedrockActions', label: 'Bedrock' },
+  { key: 'parkourActions', label: 'Minecraft Parkour' },
+  { key: 'kothActions', label: 'Minecraft KOTH' },
+  { key: 'farmActions', label: 'Minecraft Farm' },
+  { key: 'sandboxActions', label: 'Sandbox' },
+];
+
+function ensureGiftRoulette() {
+  if (!settings || typeof settings !== 'object') {
+    return { enabled: true, prizes: [], gameKey: 'marioActions' };
+  }
+  if (!settings.giftRoulette || typeof settings.giftRoulette !== 'object') {
+    settings.giftRoulette = { enabled: true, prizes: [], gameKey: 'marioActions', durationSec: 4, visualCount: 64, giftQty: 1, showUser: true, showResult: true, particles: true, spinSound: 'tick', winSound: 'win' };
+  }
+  const d = settings.giftRoulette;
+  if (!Array.isArray(d.prizes)) d.prizes = [];
+  if (!d.gameKey) d.gameKey = 'marioActions';
+  if (d.enabledUser == null) {
+    d.enabled = true;
+    d.enabledUser = true;
+  }
+  return d;
+}
+
+function giftRouletteActionName(a) {
+  return String(a?.name || a?.label || a?.thing || a?.catId || 'Acción').trim() || 'Acción';
+}
+
+function syncGiftRoulettePrizesFromGame(gameKey) {
+  const d = ensureGiftRoulette();
+  const key = String(gameKey || d.gameKey || 'marioActions');
+  d.gameKey = key;
+  const actions = (settings[key] || []).filter(Boolean);
+  const prev = new Map((d.prizes || []).map((p) => [String(p.uid || ''), p]));
+  d.prizes = actions.map((a) => {
+    const uid = String(a.uid || '');
+    const old = prev.get(uid) || {};
+    const image = (typeof erIconUrlForSettingsKey === 'function' ? erIconUrlForSettingsKey(key, a) : '') || a.img || '';
+    let prob = Number(old.probability);
+    if (!Number.isFinite(prob) || prob < 0) prob = 10;
+    return {
+      uid,
+      on: old.on !== false,
+      name: giftRouletteActionName(a),
+      image,
+      probability: prob,
+      rarity: ['common', 'rare', 'epic', 'legendary', 'mythic'].includes(old.rarity) ? old.rarity : 'common',
+    };
+  });
+  return d;
+}
+
+function saveGiftRoulettePatch() {
+  const d = ensureGiftRoulette();
+  try { saveSettingsKeysPatch('giftRoulette'); } catch { saveSettings(); }
+  return d;
+}
+
+function fillGiftRouletteGameSelects() {
+  const html = GIFT_ROULETTE_GAMES.map((g) => `<option value="${g.key}">${g.label}</option>`).join('');
+  ['gr-game', 'grcfg-game'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    const cur = el.value;
+    el.innerHTML = html;
+    const d = ensureGiftRoulette();
+    el.value = GIFT_ROULETTE_GAMES.some((g) => g.key === (cur || d.gameKey)) ? (cur || d.gameKey) : d.gameKey;
+  });
+}
+
+function renderGiftRoulettePrizes() {
+  const box = $('grcfg-prizes');
+  if (!box) return;
+  const d = syncGiftRoulettePrizesFromGame(dGame());
+  if (!d.prizes.length) {
+    box.innerHTML = '<p class="gr-empty">Este juego no tiene acciones. Agrégalas en la pestaña Juegos y vuelve aquí.</p>';
+    updateGiftRouletteProbWarn();
+    return;
+  }
+  box.innerHTML = d.prizes.map((p, i) => `
+    <div class="gr-prize" data-i="${i}" data-rarity="${esc(p.rarity || 'common')}">
+      ${p.image ? `<img src="${esc(p.image)}" alt="" onerror="this.style.display='none'">` : '<div class="gr-ph">🎁</div>'}
+      <div class="gr-name" title="${esc(p.name || '')}">${esc(p.name || 'Acción')}</div>
+      <input type="number" class="gr-prob" min="0" max="999" value="${esc(p.probability)}" title="Probabilidad">
+      <select class="gr-rarity">
+        <option value="common"${p.rarity === 'common' ? ' selected' : ''}>Común</option>
+        <option value="rare"${p.rarity === 'rare' ? ' selected' : ''}>Raro</option>
+        <option value="epic"${p.rarity === 'epic' ? ' selected' : ''}>Épico</option>
+        <option value="legendary"${p.rarity === 'legendary' ? ' selected' : ''}>Legendario</option>
+        <option value="mythic"${p.rarity === 'mythic' ? ' selected' : ''}>Mítico</option>
+      </select>
+      <input type="checkbox" class="gr-on" ${p.on !== false ? 'checked' : ''} title="Incluir en la ruleta">
+    </div>`).join('');
+  box.querySelectorAll('.gr-prize').forEach((row) => {
+    const i = Number(row.dataset.i);
+    const p = d.prizes[i];
+    if (!p) return;
+    row.querySelector('.gr-prob').onchange = () => {
+      const n = parseFloat(row.querySelector('.gr-prob').value);
+      p.probability = Number.isFinite(n) && n >= 0 ? n : 0;
+      row.querySelector('.gr-prob').value = p.probability;
+      updateGiftRouletteProbWarn();
+    };
+    row.querySelector('.gr-rarity').onchange = () => {
+      p.rarity = row.querySelector('.gr-rarity').value;
+      row.dataset.rarity = p.rarity;
+    };
+    row.querySelector('.gr-on').onchange = () => { p.on = row.querySelector('.gr-on').checked; updateGiftRouletteProbWarn(); };
+  });
+  updateGiftRouletteProbWarn();
+}
+
+function dGame() {
+  return $('grcfg-game')?.value || $('gr-game')?.value || ensureGiftRoulette().gameKey;
+}
+
+function updateGiftRouletteProbWarn() {
+  const el = $('grcfg-probwarn');
+  if (!el) return;
+  const d = ensureGiftRoulette();
+  const total = (d.prizes || []).filter((p) => p && p.on !== false).reduce((s, p) => s + (Number(p.probability) || 0), 0);
+  if (total <= 0) { el.textContent = '⚠️ Sin pesos activos.'; return; }
+  if (Math.abs(total - 100) > 0.01) el.textContent = `⚠️ La probabilidad total es ${Math.round(total)}%. Se usa peso relativo.`;
+  else el.textContent = 'Probabilidad total: 100%';
+}
+
+function renderGiftRouletteGiftBtn() {
+  const btn = $('grcfg-gift');
+  if (!btn) return;
+  const d = ensureGiftRoulette();
+  if (d.giftId || d.giftName) {
+    btn.innerHTML = `${d.giftImage ? `<img src="${esc(d.giftImage)}" class="wc-hk-giftimg" onerror="this.style.display='none'"> ` : '🎁 '}${esc(d.giftName || ('#' + d.giftId))}`;
+    btn.classList.add('has-gift');
+  } else {
+    btn.textContent = '🎁 Seleccionar regalo';
+    btn.classList.remove('has-gift');
+  }
+}
+
+function pushGiftRoulettePreview(payload) {
+  const fr = $('gr-preview');
+  ensureEmbedLoaded(fr).then((frame) => {
+    frame?.contentWindow?.postMessage({ kind: 'gift_roulette', type: payload ? 'start' : 'config', config: ensureGiftRoulette(), payload }, '*');
+  });
+}
+
+function setupGiftRoulette() {
+  if (!$('gr-preview') && !$('grConfigModal')) return;
+  fillGiftRouletteGameSelects();
+  const syncCard = () => {
+    const d = ensureGiftRoulette();
+    if ($('gr-enabled')) $('gr-enabled').checked = !!d.enabled;
+    if ($('gr-game')) $('gr-game').value = d.gameKey || 'marioActions';
+    if ($('gr-dur')) $('gr-dur').value = String(d.durationSec || 4);
+  };
+  const fillModal = () => {
+    const d = ensureGiftRoulette();
+    fillGiftRouletteGameSelects();
+    if ($('grcfg-enabled')) $('grcfg-enabled').checked = !!d.enabled;
+    if ($('grcfg-game')) $('grcfg-game').value = d.gameKey || 'marioActions';
+    if ($('grcfg-qty')) $('grcfg-qty').value = d.giftQty || 1;
+    if ($('grcfg-dur')) $('grcfg-dur').value = String(d.durationSec || 4);
+    if ($('grcfg-visual')) $('grcfg-visual').value = d.visualCount || 40;
+    if ($('grcfg-spinsound')) $('grcfg-spinsound').value = d.spinSound || 'tick';
+    if ($('grcfg-winsound')) $('grcfg-winsound').value = d.winSound || 'win';
+    if ($('grcfg-user')) $('grcfg-user').checked = d.showUser !== false;
+    if ($('grcfg-result')) $('grcfg-result').checked = d.showResult !== false;
+    if ($('grcfg-particles')) $('grcfg-particles').checked = d.particles !== false;
+    renderGiftRouletteGiftBtn();
+    renderGiftRoulettePrizes();
+  };
+  const runTest = () => {
+    const d = syncGiftRoulettePrizesFromGame(dGame());
+    if (!rouletteActiveLocal(d)) {
+      toast && toast('Agrega acciones a ese juego para girar la ruleta.', 'warn');
+      return;
+    }
+    saveGiftRoulettePatch();
+    pushGiftRoulettePreview();
+    send({
+      action: 'testGiftRoulette',
+      prizes: d.prizes,
+      gameKey: d.gameKey,
+      durationSec: d.durationSec,
+      visualCount: d.visualCount,
+    });
+  };
+  function rouletteActiveLocal(d) {
+    return (d.prizes || []).some((p) => p && p.on !== false && p.uid && (Number(p.probability) || 0) > 0);
+  }
+
+  if ($('gr-enabled')) $('gr-enabled').onchange = () => {
+    const d = ensureGiftRoulette();
+    d.enabled = $('gr-enabled').checked;
+    d.enabledUser = true;
+    if ($('grcfg-enabled')) $('grcfg-enabled').checked = $('gr-enabled').checked;
+    saveGiftRoulettePatch();
+  };
+  if ($('gr-game')) $('gr-game').onchange = () => {
+    syncGiftRoulettePrizesFromGame($('gr-game').value);
+    if ($('grcfg-game')) $('grcfg-game').value = $('gr-game').value;
+    saveGiftRoulettePatch();
+    pushGiftRoulettePreview();
+  };
+  if ($('gr-dur')) $('gr-dur').onchange = () => {
+    ensureGiftRoulette().durationSec = Math.max(2, Math.min(8, parseInt($('gr-dur').value, 10) || 4));
+    if ($('grcfg-dur')) $('grcfg-dur').value = String(ensureGiftRoulette().durationSec);
+    saveGiftRoulettePatch();
+  };
+  if ($('gr-test')) $('gr-test').onclick = runTest;
+  if ($('gr-spin')) $('gr-spin').onclick = runTest;
+  if ($('gr-reset')) $('gr-reset').onclick = () => {
+    send({ action: 'resetGiftRoulette' });
+    $('gr-preview')?.contentWindow?.postMessage({ kind: 'gift_roulette', type: 'reset' }, '*');
+  };
+  if ($('gr-config')) $('gr-config').onclick = () => {
+    fillModal();
+    $('grConfigModal')?.classList.remove('hidden');
+  };
+  if ($('grcfg-close')) $('grcfg-close').onclick = () => $('grConfigModal')?.classList.add('hidden');
+  if ($('grConfigModal')) $('grConfigModal').addEventListener('click', (e) => {
+    if (e.target.id === 'grConfigModal') $('grConfigModal').classList.add('hidden');
+  });
+  if ($('grcfg-game')) $('grcfg-game').onchange = () => {
+    if ($('gr-game')) $('gr-game').value = $('grcfg-game').value;
+    syncGiftRoulettePrizesFromGame($('grcfg-game').value);
+    renderGiftRoulettePrizes();
+  };
+  if ($('grcfg-gift')) $('grcfg-gift').onclick = () => {
+    openGiftModal('wins', (g) => {
+      const d = ensureGiftRoulette();
+      d.giftId = String(g.id || '');
+      d.giftName = g.name || '';
+      d.giftImage = g.image || '';
+      renderGiftRouletteGiftBtn();
+    });
+  };
+  if ($('grcfg-test')) $('grcfg-test').onclick = () => {
+    readGiftRouletteModal();
+    runTest();
+  };
+  if ($('grcfg-save')) $('grcfg-save').onclick = () => {
+    readGiftRouletteModal();
+    saveGiftRoulettePatch();
+    syncCard();
+    pushGiftRoulettePreview();
+    $('grConfigModal')?.classList.add('hidden');
+    toast && toast('Ruleta guardada', 'ok');
+  };
+
+  function readGiftRouletteModal() {
+    const d = ensureGiftRoulette();
+    d.enabled = !!$('grcfg-enabled')?.checked;
+    d.enabledUser = true;
+    d.gameKey = $('grcfg-game')?.value || d.gameKey;
+    d.giftQty = Math.max(1, parseInt($('grcfg-qty')?.value, 10) || 1);
+    d.durationSec = Math.max(2, Math.min(8, parseInt($('grcfg-dur')?.value, 10) || 4));
+    d.visualCount = Math.max(16, Math.min(80, parseInt($('grcfg-visual')?.value, 10) || 40));
+    d.spinSound = $('grcfg-spinsound')?.value || '';
+    d.winSound = $('grcfg-winsound')?.value || '';
+    d.showUser = !!$('grcfg-user')?.checked;
+    d.showResult = !!$('grcfg-result')?.checked;
+    d.particles = !!$('grcfg-particles')?.checked;
+    syncGiftRoulettePrizesFromGame(d.gameKey);
+    // Re-read rows after sync (sync rebuilds from actions but keeps uid weights).
+    $('grcfg-prizes')?.querySelectorAll('.gr-prize').forEach((row) => {
+      const i = Number(row.dataset.i);
+      const p = d.prizes[i];
+      if (!p) return;
+      const n = parseFloat(row.querySelector('.gr-prob')?.value);
+      p.probability = Number.isFinite(n) && n >= 0 ? n : 0;
+      p.rarity = row.querySelector('.gr-rarity')?.value || 'common';
+      p.on = !!row.querySelector('.gr-on')?.checked;
+    });
+  }
+
+  syncCard();
+  fillGiftRouletteGameSelects();
+}
+
+setupGiftRoulette();
+
 const STYLE_OVERLAYS = [
   setupStyleOverlay({
     kind: 'livetimer', settingsKey: 'liveTimer', previewId: 'tlv-preview',
@@ -14384,6 +14664,7 @@ function pushStyleOverlayPreviews() {
     syncTopPointsDesignUi(settings?.topPointsRank?.design);
   } catch {}
   STYLE_OVERLAYS.forEach((o) => { if (o._push) o._push(); });
+  try { fillGiftRouletteGameSelects(); } catch {}
 }
 initModalDrag();
 
@@ -14482,15 +14763,52 @@ const winsSavePendingKeys = new Set();
 let lastWinsEditAt = 0;
 const WINS_EDIT_ECHO_MS = 1200;
 
+const WINS_SETTINGS_KEYS = ['winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario', 'winsCounterPro'];
+
+/* El servidor responde con el bloque completo tras cada guardado. Si ese eco
+   tardaba más que la ventana de gracia (relay lento, varios +/- seguidos), traía
+   el valor anterior y el contador saltaba atrás. Aquí se apunta lo último que se
+   fijó en el panel y no se acepta el eco hasta que coincida. */
+const winsLocalExpect = new Map();
+// Plazo amplio para cualquier ida y vuelta razonable, pero acotado: si un regalo
+// sube el contador justo en medio, el panel se pone al día como mucho aquí.
+const WINS_EXPECT_TTL_MS = 6000;
+
+function rememberLocalWins(key) {
+  const c = settings?.[key];
+  if (!c || typeof c !== 'object') return;
+  winsLocalExpect.set(key, {
+    at: Date.now(),
+    wins: c.wins | 0,
+    winsMax: c.winsMax == null ? null : (c.winsMax | 0),
+    design: c.design == null ? null : String(c.design),
+  });
+}
+
+function winsEchoMatchesLocal(exp, inc) {
+  if (!inc || typeof inc !== 'object') return false;
+  if ((Number(inc.wins) | 0) !== exp.wins) return false;
+  if (exp.winsMax != null && (Number(inc.winsMax) | 0) !== exp.winsMax) return false;
+  if (exp.design != null && String(inc.design ?? '') !== exp.design) return false;
+  return true;
+}
+
 function preserveLocalWinsOnSettingsEcho(incoming) {
   if (!incoming || !settings) return incoming;
-  if (Date.now() - lastWinsEditAt > WINS_EDIT_ECHO_MS && !winsSavePendingKeys.size) return incoming;
+  const fresh = Date.now() - lastWinsEditAt <= WINS_EDIT_ECHO_MS;
+  if (!fresh && !winsSavePendingKeys.size && !winsLocalExpect.size) return incoming;
   const out = { ...incoming };
-  const keys = ['winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario'];
-  for (const k of keys) {
-    if (!winsSavePendingKeys.has(k) && Date.now() - lastWinsEditAt > WINS_EDIT_ECHO_MS) continue;
+  for (const k of WINS_SETTINGS_KEYS) {
     const local = settings[k];
     if (!local || typeof local !== 'object') continue;
+    const exp = winsLocalExpect.get(k);
+    if (exp) {
+      // El servidor ya devolvió lo nuestro, o se agotó el plazo y mandamos por sano.
+      if (winsEchoMatchesLocal(exp, out[k]) || Date.now() - exp.at > WINS_EXPECT_TTL_MS) {
+        winsLocalExpect.delete(k);
+        continue;
+      }
+    } else if (!winsSavePendingKeys.has(k) && !fresh) continue;
     out[k] = { ...(out[k] || {}), ...local, wins: local.wins };
   }
   return out;
@@ -14498,7 +14816,7 @@ function preserveLocalWinsOnSettingsEcho(incoming) {
 
 function saveWinsCounterPatch(key) {
   if (applyingSettings) return;
-  if (key) winsSavePendingKeys.add(key);
+  if (key) { winsSavePendingKeys.add(key); rememberLocalWins(key); }
   lastWinsEditAt = Date.now();
   clearTimeout(winsSaveDebounce);
   winsSaveDebounce = setTimeout(() => {
@@ -14512,7 +14830,7 @@ function saveWinsCounterPatch(key) {
     if (!Object.keys(patch).length) return;
     send({ action: 'saveSettings', settings: patch, ...profileSaveMeta() });
     if (typeof syncWinsHotkeysToDesktop === 'function') syncWinsHotkeysToDesktop();
-  }, 280);
+  }, 420);
 }
 
 function buildWinsHotkeys(o) {
@@ -14630,12 +14948,20 @@ function setupWinsCounter(o) {
   // se topa en 10) y bajar de 0 (restar deja negativos). winsMax es solo el
   // denominador que se muestra (wins/max), no un límite.
   const clampW = (v) => { const x = parseInt(v, 10); return Number.isFinite(x) ? Math.max(-999999, Math.min(999999, x)) : 0; };
-  const syncWinsInputs = (val) => { if ($(o.inputWins)) $(o.inputWins).value = val; if ($(o.inputWinsModal)) $(o.inputWinsModal).value = val; };
+  /* force = el cambio salió de aquí (+/-, Reset, guardar). Sin force viene de un
+     eco del servidor y no se pisa el campo que el usuario está escribiendo. */
+  const setInputVal = (id, val, force) => {
+    const el = $(id);
+    if (!el) return;
+    if (!force && document.activeElement === el) return;
+    el.value = val;
+  };
+  const syncWinsInputs = (val, force) => { setInputVal(o.inputWins, val, force); setInputVal(o.inputWinsModal, val, force); };
   function setWins(v) {
     const c = ensure();
     c.wins = clampW(v);
     lastWinsEditAt = Date.now();
-    syncWinsInputs(c.wins);
+    syncWinsInputs(c.wins, true);
     saveWinsCounterPatch(o.key);
     pushPrev();
   }
@@ -14655,15 +14981,59 @@ function setupWinsCounter(o) {
   bindBump($(o.btnMinus), -1);
   bindBump($(o.btnPlus), 1);
   if ($(o.inputWins)) $(o.inputWins).addEventListener('change', () => setWins($(o.inputWins).value));
+  /* Controles que viven en la tarjeta (no en el modal): diseño y objetivo.
+     Solo existen en los contadores que los declaran; el resto ni se entera. */
+  const syncCardExtras = () => {
+    const c = settings?.[o.key] || {};
+    if ($(o.selDesign)) $(o.selDesign).value = c.design || o.defaultDesign || 'classic';
+    setInputVal(o.inputMax, c.winsMax ?? 5);
+  };
+  if ($(o.selDesign)) $(o.selDesign).addEventListener('change', () => {
+    const c = ensure();
+    c.design = $(o.selDesign).value;
+    if ($(o.modalDesign)) $(o.modalDesign).value = c.design;
+    lastWinsEditAt = Date.now();
+    saveWinsCounterPatch(o.key);
+    pushPrev();
+  });
+  if ($(o.inputMax)) {
+    const readMax = () => {
+      const n = parseInt($(o.inputMax).value, 10);
+      return Number.isFinite(n) ? Math.max(1, Math.min(999999, n)) : null;
+    };
+    // Mientras escribe: la vista previa sigue el número pero no se reescribe el
+    // campo (si no, borrar para poner otro valor se volvía imposible).
+    $(o.inputMax).addEventListener('input', () => {
+      const n = readMax();
+      if (n == null) return;
+      const c = ensure();
+      c.winsMax = n;
+      if ($(o.modalMax)) $(o.modalMax).value = n;
+      lastWinsEditAt = Date.now();
+      saveWinsCounterPatch(o.key);
+      pushPrev();
+    });
+    // Al salir del campo sí se normaliza (vacío o basura vuelve a 5).
+    $(o.inputMax).addEventListener('change', () => {
+      const c = ensure();
+      c.winsMax = readMax() ?? 5;
+      $(o.inputMax).value = c.winsMax;
+      if ($(o.modalMax)) $(o.modalMax).value = c.winsMax;
+      lastWinsEditAt = Date.now();
+      saveWinsCounterPatch(o.key);
+      pushPrev();
+    });
+  }
   if ($(o.btnReset)) $(o.btnReset).onclick = () => { setWins(0); toPrev({ type: 'reset' }); };
   if ($(o.btnTest)) $(o.btnTest).onclick = () => { toPrev({ type: 'test' }); send({ action: o.testAction }); };
   const syncFontSizeVal = () => { if ($(o.fontSizeValId)) $(o.fontSizeValId).textContent = (settings?.[o.key]?.fontSize) ?? 28; };
   if ($(o.btnConfig)) $(o.btnConfig).onclick = () => {
     fillForm(o.map, settings?.[o.key] || {});
     syncFontSizeVal();
-    buildWinsHotkeys(o);
-    pushPrev();
     $(o.modalId).classList.remove('hidden');
+    // Los atajos crean muchos nodos: se arman después de pintar el modal para que
+    // abra al instante en vez de quedarse un momento congelado.
+    requestAnimationFrame(() => { buildWinsHotkeys(o); pushPrev(); });
   };
   const close = () => $(o.modalId).classList.add('hidden');
   if ($(o.closeId)) $(o.closeId).onclick = close;
@@ -14673,7 +15043,7 @@ function setupWinsCounter(o) {
   if ($(o.saveId)) $(o.saveId).onclick = () => {
     settings[o.key] = { ...ensure(), ...readForm(o.map, o.types) };
     const c = ensure(); c.wins = clampW(c.wins);
-    syncWinsInputs(c.wins); syncFontSizeVal();
+    syncWinsInputs(c.wins, true); syncFontSizeVal(); syncCardExtras();
     saveWinsCounterPatch(o.key); pushPrev(); close();
   };
   buildWinsHotkeys(o);
@@ -14688,6 +15058,7 @@ function setupWinsCounter(o) {
     }
     const c = settings?.[o.key] || {};
     syncWinsInputs(c.wins ?? 0);
+    syncCardExtras();
     if ($(o.fontSizeValId)) $(o.fontSizeValId).textContent = c.fontSize ?? 28;
     if (o._hkRenderers) o._hkRenderers.forEach((fn) => fn());
   };
@@ -14696,6 +15067,21 @@ function setupWinsCounter(o) {
 }
 
 const WINS_COUNTERS = [
+  {
+    // Único contador con varios diseños en un mismo overlay: el diseño y el
+    // objetivo se eligen en la tarjeta, no hace falta cambiar la URL de OBS.
+    kind: 'wins_counter_pro', key: 'winsCounterPro', previewId: 'wcp-preview',
+    btnReset: 'wcp-reset', btnTest: 'wcp-test', btnConfig: 'wcp-config',
+    btnMinus: 'wcp-minus', btnPlus: 'wcp-plus', inputWins: 'wcp-wins',
+    selDesign: 'wcp-design', inputMax: 'wcp-max', defaultDesign: 'classic',
+    modalDesign: 'wcpcfg-design', modalMax: 'wcpcfg-max',
+    modalId: 'wcpConfigModal', closeId: 'wcpcfg-close', saveId: 'wcpcfg-save',
+    testAction: 'testWinsPro',
+    hotkeysId: 'wcpcfg-hotkeys', fontSizeValId: 'wcpcfg-fontsize-val', inputWinsModal: 'wcpcfg-wins',
+    map: { 'wcpcfg-design': 'design', 'wcpcfg-label': 'label', 'wcpcfg-font': 'font', 'wcpcfg-wins': 'wins', 'wcpcfg-max': 'winsMax', 'wcpcfg-fontsize': 'fontSize',
+      'wcpcfg-textcolor': 'textColor', 'wcpcfg-accentcolor': 'accentColor', 'wcpcfg-rainbow': 'rainbow' },
+    types: { wins: 'int', winsMax: 'int', fontSize: 'int' },
+  },
   {
     kind: 'wins_counter', key: 'winsCounter', previewId: 'wc-preview',
     btnReset: 'wc-reset', btnTest: 'wc-test', btnConfig: 'wc-config',
@@ -26147,11 +26533,13 @@ function editorRapidoPatchFromAction(a) {
   let giftSrc = '';
   let giftEmoji = '';
   let giftName = 'Regalo';
+  let giftId = '';
   if (cornerType) {
     giftName = (MC_TRIG_ICON[trig] || {}).label || giftName;
   } else if (trig === 'gift' || trig === 'gift-any') {
     giftSrc = overlayImgProxy((a.giftImage && String(a.giftImage).trim()) || giftImageOf(a));
     giftName = a.giftName || 'Regalo';
+    giftId = String(a.giftId || '');
   } else {
     giftEmoji = (MC_TRIG_ICON[trig] || { ic: '⚡' }).ic;
     giftName = (MC_TRIG_ICON[trig] || {}).label || 'Evento';
@@ -26163,6 +26551,7 @@ function editorRapidoPatchFromAction(a) {
     giftSrc,
     giftEmoji,
     giftName,
+    giftId,
     cornerType,
     qty,
   };
@@ -26188,8 +26577,10 @@ function erIconUrlForSettingsKey(key, a) {
           ? `/img/repo/${encodeURIComponent(repoImgSlug(a.thing))}.png`
           : '';
       case 'pvzActions':
-      case 'pvzHybridActions':
         return `/img/pvz/${encodeURIComponent(a.thing || '')}.png`;
+      case 'pvzHybridActions':
+        return (typeof pvzHybridThumbUrls === 'function' && pvzHybridThumbUrls(a.thing)?.primary)
+          || `/img/pvzhybrid-thumbs/${encodeURIComponent(a.thing || '')}.png`;
       case 'gdashActions':
         return a.thing ? `/img/gdash/${a.thing}.png` : '';
       case 'robloxActions':
@@ -26233,6 +26624,7 @@ function buildEditorRapidoRowsForSettingsKey(settingsKey) {
       giftSrc: patch.giftSrc || '',
       giftEmoji: patch.giftEmoji || '',
       giftName: patch.giftName || 'Regalo',
+      giftId: patch.giftId || '',
       cornerType: patch.cornerType || '',
       qty: patch.qty || 1,
     };
@@ -26252,6 +26644,62 @@ function notifyEditorRapidoActionsChanged(settingsKey) {
     window.syncEditorRapidoFromGameActions(key, rows).catch(() => {});
   }, 250);
 }
+
+/** Esquina del Editor Pro -> disparador de la acción. */
+const ER_CORNER_TRIGGER = { like: 'like', follow: 'follow', share: 'share', superfan: 'subscribe' };
+
+function renderGameActionsForSettingsKey(key) {
+  try {
+    for (const g of Object.values(GAME_PRESET_MAP)) {
+      if (g && g.key === key && typeof g.render === 'function') { g.render(); return; }
+    }
+  } catch { /* ignore */ }
+}
+
+/** Editor Pro -> Juegos: el regalo de un cuadro es el disparador de su acción,
+    así que cambiarlo en el Editor debe cambiarlo también en la acción. */
+window.applyEditorRapidoGiftToGameAction = function applyEditorRapidoGiftToGameAction(settingsKey, uid, payload) {
+  const id = String(uid || '').trim();
+  if (!id || !payload) return false;
+  let key = String(settingsKey || '').trim();
+  if (!key || !Array.isArray(settings?.[key]) || !settings[key].some((a) => a && a.uid === id)) {
+    key = findSettingsKeyForActionUid(id);
+  }
+  if (!key || !Array.isArray(settings?.[key])) return false;
+  const a = settings[key].find((x) => x && x.uid === id);
+  if (!a) return false;
+
+  // El Editor no distingue likes globales de likes por usuario: si se pierde el
+  // matiz hay que decirlo, porque cambia a quién responde la acción en directo.
+  const wasLikeGlobal = a.trigger === 'likeGlobal';
+  const type = String(payload.type || 'gift');
+  if (type === 'gift') {
+    const gid = String(payload.giftId || '').trim();
+    if (!gid) return false;
+    const cat = giftCatalogById.get(gid);
+    if (a.trigger === 'gift' && String(a.giftId || '') === gid) return true;
+    a.trigger = 'gift';
+    a.giftId = gid;
+    a.giftName = cat?.name || String(payload.giftName || 'Regalo');
+    a.giftImage = cat?.image || '';
+  } else {
+    const trig = ER_CORNER_TRIGGER[type];
+    if (!trig) return false;
+    // superFan/subscribe comparten icono: si ya es ese evento, no pisar el matiz elegido.
+    if (editorRapidoCornerFromTrigger(a.trigger) === type) return true;
+    a.trigger = trig;
+  }
+
+  if (wasLikeGlobal && a.trigger !== 'likeGlobal') {
+    toast && toast('Esa acción usaba «Likes globales». Ahora usa otro disparador; si lo necesitas, vuelve a elegirlo en Juegos.', 'warn');
+  }
+
+  lastGameActionEditAt = Date.now();
+  suppressEditorRapidoSync(1500);
+  saveSettingsKeysPatch(key);
+  renderGameActionsForSettingsKey(key);
+  return true;
+};
 
 const EDITOR_OVERLAY_CLOUD_SRC = 'data:image/svg+xml,' + encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">'

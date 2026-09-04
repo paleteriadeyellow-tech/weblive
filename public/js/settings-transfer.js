@@ -102,6 +102,7 @@
         { key: 'alertaFollow', label: 'Diseño alerta seguidor' },
         { key: 'fuegos', label: 'Diseño fuegos artificiales' },
         { key: 'chatGamer', label: 'Chat Gamer' },
+        { key: 'giftRoulette', label: 'Ruleta de regalos' },
         { key: 'streamJoin', label: 'Join al live' },
         { key: 'streamJoinMc', label: 'Join al live (Minecraft)' },
         { key: 'streamJoinDbz', label: 'Join al live (Dragon Ball Z)' },

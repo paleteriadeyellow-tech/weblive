@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=sov8" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=sov10" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -363,6 +363,11 @@
                 <h3 id="home-wins-widgets-title">Widget Victorias</h3>
                 <p class="home-widgets-sub">Elige el overlay y se abre un widget con + / âˆ’</p>
                 <div class="home-widgets-list">
+                  <button type="button" class="home-widgets-item" data-wins-widget="winsCounterPro" data-wins-label="Victorias PRO" data-wins-ico="&#127942;">
+                    <span class="home-widgets-ico" aria-hidden="true">&#127942;</span>
+                    <span class="home-widgets-label">Victorias PRO</span>
+                    <span class="home-widgets-plus" aria-hidden="true">+</span>
+                  </button>
                   <button type="button" class="home-widgets-item" data-wins-widget="winsCounter" data-wins-label="Contador de victorias" data-wins-ico="ðŸ†">
                     <span class="home-widgets-ico" aria-hidden="true">ðŸ†</span>
                     <span class="home-widgets-label">Contador de victorias</span>
@@ -3168,6 +3173,110 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Contador de victorias PRO (5 disenos) -->
+        <div id="wcpConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>Configurar - Contador de victorias PRO</h2>
+              <button class="modal-close" id="wcpcfg-close">&#10005;</button>
+            </div>
+            <div class="modal-body">
+              <label class="ml">DISE&#209;O</label>
+              <select id="wcpcfg-design">
+                <option value="classic">Classic - tarjeta con trofeo de fondo</option>
+                <option value="vertical">Vertical - barra oscura con c&#225;psula</option>
+                <option value="transparent">Transparent - sin fondo, solo el marcador</option>
+                <option value="neon">Neon - c&#225;psula violeta con barra de progreso</option>
+                <option value="candy">Candy - c&#225;psula rosa brillante</option>
+              </select>
+              <label class="ml">ETIQUETA</label>
+              <input type="text" id="wcpcfg-label" placeholder="Win">
+              <label class="ml">FUENTE</label>
+              <select id="wcpcfg-font" class="cfg-font"></select>
+              <div class="wc-two">
+                <div><label class="ml">WINS ACTUALES</label><input type="number" id="wcpcfg-wins" min="0" value="0"></div>
+                <div><label class="ml">OBJETIVO (META)</label><input type="number" id="wcpcfg-max" min="1" value="5"></div>
+              </div>
+              <label class="ml">TAMA&#209;O (PX) &#8212; <span class="opt" id="wcpcfg-fontsize-val">28</span></label>
+              <input type="range" id="wcpcfg-fontsize" class="wc-range" min="14" max="80" value="28" oninput="document.getElementById('wcpcfg-fontsize-val').textContent=this.value">
+              <div class="cfg-colors">
+                <div><label class="ml">TEXTO</label><input type="color" id="wcpcfg-textcolor" value="#ffffff"></div>
+                <div><label class="ml">N&#218;MERO</label><input type="color" id="wcpcfg-accentcolor" value="#ffffff"></div>
+              </div>
+              <p class="opt">Los colores y el arco&#237;ris se aplican a los dise&#241;os <b>Classic</b>, <b>Vertical</b> y <b>Transparent</b>. <b>Neon</b> y <b>Candy</b> mantienen su paleta propia.</p>
+              <label class="wc-check"><input type="checkbox" id="wcpcfg-rainbow"><span>Texto color arco&#237;ris</span></label>
+              <label class="ml">ATAJOS DE TECLADO <span class="opt">&#8212; marca la casilla para activar el atajo. Haz clic en la tecla y pulsa la combinaci&#243;n que quieras (ej. F5, Ctrl+1). Adem&#225;s puedes asignar un regalo a cada acci&#243;n: cuando lo env&#237;en en el live, se sumar&#225; o restar&#225; autom&#225;ticamente.</span></label>
+              <div id="wcpcfg-hotkeys" class="wc-hotkeys"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="wcpcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <div id="grConfigModal" class="modal hidden">
+          <div class="modal-box" style="max-width:720px">
+            <div class="modal-head">
+              <h2>Configurar &#8212; Ruleta de regalos</h2>
+              <button class="modal-close" id="grcfg-close">X</button>
+            </div>
+            <div class="modal-body">
+              <label class="wc-check"><input type="checkbox" id="grcfg-enabled" checked><span>Activar ruleta de regalos</span></label>
+              <p class="opt">Desactivada no gira con regalos del live. Probar y Girar siguen funcionando.</p>
+              <label class="ml">JUEGO</label>
+              <select id="grcfg-game"></select>
+              <p class="opt">Se cargan las acciones de ese juego. La ruleta muestra solo la imagen; al caer se ejecuta esa accion.</p>
+              <label class="ml">REGALO ACTIVADOR</label>
+              <div class="gct-giftrow">
+                <button type="button" class="btn ghost" id="grcfg-gift">Seleccionar regalo</button>
+                <input type="number" id="grcfg-qty" min="1" max="999" value="1" title="Cantidad" style="width:72px">
+              </div>
+              <div class="wc-two">
+                <div>
+                  <label class="ml">DURACION DEL GIRO</label>
+                  <select id="grcfg-dur">
+                    <option value="3">3 segundos</option>
+                    <option value="4">4 segundos</option>
+                    <option value="5">5 segundos</option>
+                    <option value="6">6 segundos</option>
+                    <option value="7">7 segundos</option>
+                    <option value="8">8 segundos</option>
+                    <option value="9">9 segundos</option>
+                    <option value="10">10 segundos</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="ml">OBJETOS VISUALES</label>
+                  <input type="number" id="grcfg-visual" min="16" max="80" value="40">
+                </div>
+              </div>
+              <div class="wc-two">
+                <div>
+                  <label class="ml">SONIDO AL GIRAR</label>
+                  <select id="grcfg-spinsound">
+                    <option value="">Silencio</option>
+                    <option value="tick">Tics</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="ml">SONIDO AL GANAR</label>
+                  <select id="grcfg-winsound">
+                    <option value="">Silencio</option>
+                    <option value="win">Fanfarria</option>
+                  </select>
+                </div>
+              </div>
+              <label class="wc-check"><input type="checkbox" id="grcfg-user"><span>Mostrar nombre del usuario</span></label>
+              <label class="wc-check"><input type="checkbox" id="grcfg-result"><span>Mostrar resultado final</span></label>
+              <label class="wc-check"><input type="checkbox" id="grcfg-particles"><span>Activar particulas</span></label>
+              <label class="ml">PREMIOS <span class="opt" id="grcfg-probwarn"></span></label>
+              <div id="grcfg-prizes" class="gr-prizes"></div>
+            </div>
+            <div class="modal-foot">
+              <button class="btn ghost" id="grcfg-test">Probar ruleta</button>
+              <button class="btn primary" id="grcfg-save">Guardar</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Contador de victorias (simple) -->
         <div id="wcConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -4465,6 +4574,51 @@
         </div>
 
         <!-- Modal: Configurar Top likes (bandas) -->
+        <!-- Modal: Configurar Top donators PRO (3 estilos) -->
+        <div id="tdpConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>&#127942; Configurar &mdash; Top donators</h2>
+              <button class="modal-close" id="tdpcfg-close">&#10005;</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div><label class="ml">ESTILO</label>
+                  <select id="tdpcfg-design">
+                    <option value="cute">Cute</option>
+                    <option value="fantasy">Fantasy</option>
+                    <option value="voxel">Voxel</option>
+                  </select>
+                </div>
+                <div><label class="ml">QU&Eacute; CUENTA</label>
+                  <select id="tdpcfg-metric">
+                    <option value="diamonds">Diamantes (regalos)</option>
+                    <option value="likes">Likes</option>
+                  </select>
+                </div>
+              </div>
+              <label class="ml">PERIODO DE RANKING</label>
+              <select id="tdpcfg-period">
+                <option value="live">Por live (se reinicia al conectar)</option>
+                <option value="week">1 semana (lunes a domingo)</option>
+                <option value="month">1 mes (calendario)</option>
+              </select>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">PUESTOS (1-10)</label><input type="number" id="tdpcfg-rows" min="1" max="10" value="5"></div>
+                <div><label class="ml">ESCALA (50-200%)</label><input type="number" id="tdpcfg-scale" min="50" max="200" value="100"></div>
+                <div><label class="ml">T&Iacute;TULO</label><input type="text" id="tdpcfg-title" maxlength="28" value="TOP DONATORS"></div>
+                <div><label class="ml">SUBT&Iacute;TULO</label><input type="text" id="tdpcfg-thanks" maxlength="24" value="THANK YOU"></div>
+                <div><label class="ml">COLOR MONEDA</label><input type="color" id="tdpcfg-accent" value="#ffd23d"></div>
+              </div>
+              <label class="ml">FUENTE</label>
+              <select id="tdpcfg-font" class="cfg-font-auto">
+                <option value="auto">Autom&aacute;tica (la del estilo)</option>
+              </select>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="tdpcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <div id="tlkConfigModal" class="modal hidden">
           <div class="modal-box">
             <div class="modal-head">
@@ -5611,6 +5765,53 @@
         <section class="view" id="view-ov-streams">
           <h1 class="view-title">?? Streams overlays</h1>
           <p class="view-sub">AÃ±ade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
+            <!-- Tarjeta PRO: Ruleta de regalos -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="gr-reset">Reset</button>
+                  <button class="ovpro-btn primary" id="gr-test">Probar</button>
+                  <button class="ovpro-btn" id="gr-spin">Girar</button>
+                  <button class="ovpro-btn" id="gr-config">Configurar</button>
+                </div>
+                <div class="ovpro-status">
+                  <div class="ovpro-conn" id="gr-conn"><span class="cdot"></span> CONECTADO</div>
+                  <span class="ovpro-new">Nuevo</span>
+                </div>
+              </div>
+              <h3 class="ovpro-title">Ruleta de regalos</h3>
+              <p class="ovpro-desc">Elige un <b>juego</b> y un <b>regalo</b>. Al enviarlo en el live, gira una ruleta con las <b>imagenes de tus acciones</b> y ejecuta la que caiga.</p>
+              <div class="gct-controls">
+                <div class="gct-field">
+                  <label>Juego</label>
+                  <select id="gr-game"></select>
+                </div>
+                <div class="gct-field gct-narrow">
+                  <label>Duracion</label>
+                  <select id="gr-dur">
+                    <option value="2">2s</option>
+                    <option value="3">3s</option>
+                    <option value="4" selected>4s</option>
+                    <option value="5">5s</option>
+                    <option value="6">6s</option>
+                    <option value="7">7s</option>
+                    <option value="8">8s</option>
+                    <option value="9">9s</option>
+                    <option value="10">10s</option>
+                  </select>
+                </div>
+              </div>
+              <label class="wc-check" style="margin:8px 0 4px"><input type="checkbox" id="gr-enabled" checked><span>Activar ruleta (regalos del live)</span></label>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/ruleta-regalos.html">/ruleta-regalos.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA</div>
+              <div class="ovpro-preview">
+                <iframe id="gr-preview" data-src="/ruleta-regalos.html?embed=1&amp;v=gr10" title="Vista previa ruleta de regalos"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Join al live (gamer) -->
             <div class="ovpro-card">
               <div class="ovpro-top">
@@ -6446,6 +6647,44 @@
             <div class="ovpro-grid">
 
               <!-- Tarjeta PRO: Top rotatorio (4 m?tricas) -->
+              <!-- Tarjeta PRO: Top donators (3 estilos) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="tdp-reset">&#8634; Reset</button>
+                    <button class="ovpro-btn primary" id="tdp-test">&#9654; Testear</button>
+                    <button class="ovpro-btn" id="tdp-config">&#9881; Configurar</button>
+                  </div>
+                  <div class="ovpro-conn" id="tdp-conn"><span class="cdot"></span> CONECTADO</div>
+                </div>
+                <h3 class="ovpro-title">&#127942; Top donators (3 estilos)</h3>
+                <p class="ovpro-desc">Ranking de los que m&aacute;s aportan con <b>3 estilos</b>: Cute, Fantasy y Voxel. Elige el estilo y cu&aacute;ntos puestos mostrar aqu&iacute; mismo; cambia al instante en OBS sin tocar la URL.</p>
+
+                <div class="gct-controls">
+                  <div class="gct-field">
+                    <label>Estilo</label>
+                    <select id="tdp-design">
+                      <option value="cute">Cute</option>
+                      <option value="fantasy">Fantasy</option>
+                      <option value="voxel">Voxel</option>
+                    </select>
+                  </div>
+                  <div class="gct-field gct-narrow">
+                    <label>Cantidad</label>
+                    <input type="number" id="tdp-rows" min="1" max="10" value="5">
+                  </div>
+                </div>
+
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/top-donators-pro.html">/top-donators-pro.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA &middot; PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="tdp-preview" data-src="/top-donators-pro.html?embed=1&amp;v=tdp1" title="Vista previa top donators PRO"></iframe>
+                </div>
+              </div>
+
               <div class="ovpro-card">
                 <div class="ovpro-top">
                   <div class="ovpro-actions">
@@ -7118,6 +7357,54 @@
         <section class="view" id="view-ov-contador">
           <h1 class="view-title">?? Contador</h1>
           <p class="view-sub">AÃ±ade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
+
+            <!-- Tarjeta PRO: Contador de victorias PRO (5 disenos en un solo overlay) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="wcp-reset">&#8634; Reset</button>
+                  <button class="ovpro-btn primary" id="wcp-test">&#9654; Testear</button>
+                  <button class="ovpro-btn" id="wcp-config">&#9881; Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="wcp-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">Contador de victorias PRO <span class="ovpro-new">NUEVO</span></h3>
+              <p class="ovpro-desc">Un solo overlay con <b>5 dise&#241;os</b>: Classic, Vertical, Transparent, Neon y Candy. Elige el dise&#241;o y el objetivo aqu&#237; mismo; el cambio se ve al instante en OBS sin cambiar la URL.</p>
+
+              <div class="gct-controls">
+                <div class="gct-field">
+                  <label>Dise&#241;o</label>
+                  <select id="wcp-design">
+                    <option value="classic">Classic</option>
+                    <option value="vertical">Vertical</option>
+                    <option value="transparent">Transparent</option>
+                    <option value="neon">Neon</option>
+                    <option value="candy">Candy</option>
+                  </select>
+                </div>
+                <div class="gct-field gct-narrow">
+                  <label>Objetivo</label>
+                  <input type="number" id="wcp-max" min="1" value="5">
+                </div>
+                <div class="gct-field gct-narrow">
+                  <label>Victorias</label>
+                  <div class="gct-giftrow">
+                    <button class="btn ghost" id="wcp-minus">&#8722;</button>
+                    <input type="number" id="wcp-wins" min="0" value="0">
+                    <button class="btn ghost" id="wcp-plus">+</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/contador-wins-pro.html">/contador-wins-pro.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA &#183; PULSA TESTEAR</div>
+              <div class="ovpro-preview">
+                <iframe id="wcp-preview" data-src="/contador-wins-pro.html?embed=1&amp;v=wcp2" title="Vista previa contador de victorias PRO"></iframe>
+              </div>
+            </div>
 
             <!-- Tarjeta PRO: Contador de victorias (Minecraft) -->
             <div class="ovpro-card">
@@ -10928,8 +11215,8 @@
 
   <script src="/js/account-email.js?v=dockmail1"></script>
   <script src="/js/camera-frames.js?v=mcf4"></script>
-  <script src="/js/dashboard.js?v=sov8"></script>
-  <script src="/js/editor-rapido.js?v=er87"></script>
+  <script src="/js/dashboard.js?v=sov16"></script>
+  <script src="/js/editor-rapido.js?v=er92"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>
 </body>

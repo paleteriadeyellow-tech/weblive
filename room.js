@@ -21,6 +21,7 @@ import { isEdgeTtsVoice, ttsSynthEdge } from './edge-tts-synth.js';
 import { gameKeyFromExecTipo } from './badges.js';
 import { persistViewerAvatar } from './tt-avatar-cache.js';
 import { overlayAcceptsType, resolveOverlayChannel } from './overlay-channels.js';
+import crypto from 'node:crypto';
 
 /* ----------------------- Helpers sin estado (compartidos) ----------------------- */
 function getPhoto(user) {
@@ -1189,14 +1190,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'perrito', 'jarron', 'vaquita', 'marranito', 'corazonLava', 'pelotas',
     'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3', 'batallaGiftBall', 'batallaCoinBar',
     'flowMeter', 'giftSeq', 'giftShowcase',
-    'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
+    'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario', 'winsCounterPro',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'giftGoals', 'giftCounter', 'topStreak',
     'baileRonda', 'baileCombo', 'baileRank',
     'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'sorteosVidasOverlay', 'topKills', 'screenFx',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'cameraFrame',
-    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos',
+    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos', 'giftRoulette',
     'followerCounter', 'followerCounterMc', 'liveTimer',
     'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
   ];
@@ -2782,7 +2783,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       { id: 'decN', sign: -1, fixed: null },
     ];
     let changed = false;
-    for (const key of ['winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario']) {
+    for (const key of ['winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario', 'winsCounterPro']) {
       const c = settings[key];
       const hk = c && c.hotkeys;
       if (!c || !hk) continue;
@@ -2811,6 +2812,403 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     if (changed) { saveSettings(); broadcast('settings', settings); }
   }
+  /* ---- Ruleta de regalos: gira las acciones del juego elegido y ejecuta la que caiga. ---- */
+  const ROULETTE_GAME_KEYS = [
+    'marioActions', 'mari0Actions', 'smb3Actions', 'smwActions',
+    'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions',
+    'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions',
+    'ctrActions', 'mslugActions', 'gdashActions', 'crRoyaleActions',
+    'robloxActions', 'roblox3Actions',
+    'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions',
+    'kothActions', 'farmActions', 'sandboxActions',
+  ];
+  let rouletteQueue = [];
+  let rouletteSpinning = false;
+  let rouletteTimer = null;
+  let rouletteUnlockTimer = null;
+  let rouletteGiftAcc = 0;
+  let rouletteGiftAccId = '';
+
+  function rouletteCfg() {
+    return settings.giftRoulette && typeof settings.giftRoulette === 'object' ? settings.giftRoulette : null;
+  }
+
+  function rouletteActivePrizes(cfg) {
+    const list = Array.isArray(cfg?.prizes) ? cfg.prizes : [];
+    return list.filter((p) => p && p.on !== false && p.uid);
+  }
+
+  function rouletteRandInt(n) {
+    const max = Math.max(0, Math.floor(Number(n) || 0));
+    if (max <= 1) return 0;
+    try { return crypto.randomInt(max); } catch { return Math.floor(Math.random() * max); }
+  }
+
+  function rouletteCardOf(src) {
+    return {
+      uid: src?.uid || '',
+      name: src?.name || 'Acción',
+      image: src?.image || '',
+      imageFb: src?.imageFb || '',
+      emoji: src?.emoji || '',
+      rarity: src?.rarity || 'common',
+    };
+  }
+
+  const ROULETTE_CR_SLUGS = {
+    '26:0': 'knight', '26:1': 'archers', '26:2': 'goblins', '26:3': 'giant', '26:4': 'pekka',
+    '26:5': 'minions', '26:6': 'balloon', '26:7': 'witch', '26:8': 'barbarians', '26:9': 'golem',
+    '26:10': 'skeletons', '26:11': 'valkyrie', '26:12': 'skeleton-army', '26:13': 'bomber',
+    '26:14': 'musketeer', '26:15': 'baby-dragon', '26:16': 'prince', '26:17': 'wizard',
+    '26:18': 'mini-pekka', '26:19': 'spear-goblins', '26:20': 'giant-skeleton', '26:21': 'hog-rider',
+    '26:22': 'minion-horde', '26:23': 'ice-wizard', '26:24': 'royal-giant', '26:25': 'guards',
+    '26:26': 'princess', '26:27': 'dark-prince', '26:28': 'three-musketeers', '26:29': 'lava-hound',
+    '26:30': 'ice-spirit', '26:31': 'fire-spirit', '26:32': 'miner', '26:33': 'sparky',
+    '26:34': 'bowler', '26:35': 'lumberjack', '26:36': 'battle-ram', '26:37': 'inferno-dragon',
+    '26:38': 'ice-golem', '26:39': 'mega-minion', '26:40': 'dart-goblin', '26:41': 'goblin-gang',
+    '26:42': 'electro-wizard', '26:43': 'elite-barbarians', '26:45': 'executioner', '26:46': 'bandit',
+    '26:48': 'night-witch', '26:49': 'bats', '26:54': 'cannon-cart', '26:55': 'mega-knight',
+    '26:56': 'skeleton-barrel', '26:57': 'flying-machine',
+  };
+
+  function rouletteCrImage(thing, existing) {
+    const code = String(thing || '').trim();
+    const slug = ROULETTE_CR_SLUGS[code];
+    const remote = slug ? `https://cdn.royaleapi.com/static/img/cards-150/${slug}.png` : '';
+    const staleLocal = existing && String(existing).includes('/img/cr-cards/');
+    if (existing && !staleLocal) return existing;
+    return remote || existing || '';
+  }
+
+  function rouletteRepoImage(thing, existing) {
+    const t = String(thing || '');
+    const stale = existing && (String(existing).includes('%3A') || /\/img\/repo\/(enemy|enemyrandom|item|valuable):/i.test(String(existing)));
+    if (existing && !stale) return existing;
+    if (t.startsWith('enemyrandom:')) return '/img/repo/spawn-enemy-random.png';
+    if (t.startsWith('enemy:')) return '/img/repo/spawn-enemy.png';
+    if (t.startsWith('item:')) return '/img/repo/spawn-item.png';
+    if (t.startsWith('valuable:')) return '/img/repo/spawn-valuable-item.png';
+    if (t.startsWith('effect:')) return `/img/repo/${encodeURIComponent(t.replace(/^effect:/, ''))}.png`;
+    return existing || '';
+  }
+
+  function roulettePvzHybridImage(thing, existing) {
+    const key = String(thing || '').trim();
+    if (!key) return existing || '';
+    const local = `/img/pvzhybrid-thumbs/${encodeURIComponent(key)}.png`;
+    if (existing && !String(existing).includes('/img/pvz/')) return existing;
+    return local;
+  }
+
+  function rouletteActionImage(gameKey, a, existing) {
+    if (gameKey === 'crRoyaleActions') return rouletteCrImage(a?.thing, existing);
+    if (gameKey === 'repoActions') return rouletteRepoImage(a?.thing, existing || a?.img);
+    if (gameKey === 'pvzHybridActions') return roulettePvzHybridImage(a?.thing, existing);
+    return existing || a?.img || a?.image || '';
+  }
+
+  function rouletteAttachActionImages(prizes, gameKey) {
+    const actions = Array.isArray(settings[gameKey]) ? settings[gameKey] : [];
+    const byUid = new Map(actions.filter((a) => a && a.uid).map((a) => [String(a.uid), a]));
+    return prizes.map((p) => {
+      const a = byUid.get(String(p.uid));
+      const image = rouletteActionImage(gameKey, a, p.image);
+      return image && image !== p.image ? Object.assign({}, p, { image }) : (p.image ? p : Object.assign({}, p, { image: image || a?.img || a?.image || '' }));
+    });
+  }
+
+  function rouletteResolvePrizes(cfg, job) {
+    const gameKey = job?.gameKey || cfg?.gameKey || '';
+    const actions = Array.isArray(settings[gameKey]) ? settings[gameKey] : [];
+    const saved = new Map((cfg?.prizes || []).map((p) => [String(p?.uid || ''), p]));
+    const fromJob = new Map((Array.isArray(job?.prizes) ? job.prizes : []).map((p) => [String(p?.uid || ''), p]));
+    const out = [];
+    for (const a of actions) {
+      if (!a?.uid) continue;
+      const src = fromJob.get(String(a.uid)) || saved.get(String(a.uid)) || {};
+      if (src.on === false) continue;
+      const prob = Number(src.probability);
+      out.push({
+        uid: String(a.uid),
+        name: src.name || a.name || a.label || a.thing || 'Acción',
+        image: rouletteActionImage(gameKey, a, src.image),
+        probability: Number.isFinite(prob) && prob > 0 ? prob : 10,
+        rarity: src.rarity || 'common',
+        on: true,
+      });
+    }
+    if (out.length) return rouletteAttachActionImages(out, gameKey);
+    if (Array.isArray(job?.prizes) && job.prizes.length) {
+      return rouletteAttachActionImages(job.prizes.filter((p) => p && p.on !== false && p.uid), gameKey);
+    }
+    return rouletteActivePrizes(cfg);
+  }
+
+  let lastRouletteWinnerUid = '';
+  let rouletteBag = [];
+  let rouletteBagKey = '';
+
+  function rouletteShuffle(list) {
+    const arr = list.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = rouletteRandInt(i + 1);
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
+  function rouletteRefillBag(pool) {
+    rouletteBag = rouletteShuffle(pool);
+    if (lastRouletteWinnerUid && rouletteBag.length > 1 && String(rouletteBag[0].uid) === lastRouletteWinnerUid) {
+      rouletteBag.push(rouletteBag.shift());
+    }
+  }
+
+  function selectRouletteWinner(prizes) {
+    const pool = prizes.filter((p) => p && p.uid && p.on !== false && (Number(p.probability) || 0) > 0);
+    if (!pool.length) return null;
+    const key = pool.map((p) => String(p.uid)).sort().join(',');
+    if (key !== rouletteBagKey || !rouletteBag.length) {
+      rouletteBagKey = key;
+      rouletteRefillBag(pool);
+    }
+    const still = rouletteBag.filter((p) => pool.some((x) => String(x.uid) === String(p.uid)));
+    if (!still.length) {
+      rouletteRefillBag(pool);
+    } else {
+      rouletteBag = still;
+    }
+    const picked = rouletteBag.shift() || pool[rouletteRandInt(pool.length)];
+    lastRouletteWinnerUid = String(picked.uid || '');
+    if (!rouletteBag.length) rouletteRefillBag(pool);
+    return picked;
+  }
+
+  function buildRouletteVisual(prizes, winner, count) {
+    const n = Math.max(48, Math.min(96, parseInt(count, 10) || 64));
+    const cards = (prizes.length ? prizes : [winner]).map(rouletteCardOf);
+    const items = [];
+    let deck = [];
+    while (items.length < n) {
+      if (!deck.length) deck = rouletteShuffle(cards);
+      const next = deck.pop();
+      if (items.length === n - 1 && cards.length > 1 && String(next.uid) === String(winner.uid)) {
+        const swap = deck.find((c) => String(c.uid) !== String(winner.uid));
+        items.push(swap || next);
+        if (swap) deck.push(next);
+      } else {
+        items.push(next);
+      }
+    }
+    const winnerIndex = items.length;
+    items.push(rouletteCardOf(winner));
+    const tail = 6 + rouletteRandInt(4);
+    deck = rouletteShuffle(cards.filter((c) => String(c.uid) !== String(winner.uid)).concat(cards));
+    for (let i = 0; i < tail; i++) {
+      if (!deck.length) deck = rouletteShuffle(cards);
+      items.push(deck.pop() || rouletteCardOf(winner));
+    }
+    return { items, winnerIndex };
+  }
+
+  function fireRouletteGameAction(gameKey, uid, user, info) {
+    if (!ROULETTE_GAME_KEYS.includes(gameKey)) {
+      broadcast('log', { level: 'warn', text: `[ROULETTE] Juego no soportado: ${gameKey}` });
+      return false;
+    }
+    const list = settings[gameKey];
+    if (!Array.isArray(list) || !uid) return false;
+    const winner = list.find((a) => a && String(a.uid) === String(uid));
+    if (!winner) {
+      broadcast('log', { level: 'warn', text: `[ROULETTE] Acción ${uid} no está en ${gameKey}` });
+      return false;
+    }
+    const hidden = [];
+    for (const a of list) {
+      if (!a || a === winner) continue;
+      hidden.push({ a, en: a.enabled });
+      a.enabled = false;
+    }
+    const prevTrig = winner.trigger;
+    winner.trigger = 'gift-any';
+    const fake = {
+      giftId: '',
+      giftName: '',
+      diamonds: 0,
+      totalDiamonds: 0,
+      repeatCount: 1,
+      ...(info || {}),
+    };
+    try {
+      const cfg = settings;
+      switch (gameKey) {
+        case 'marioActions': triggerMarioActions('gift', fake, user, cfg); break;
+        case 'mari0Actions': triggerMari0Actions('gift', fake, user, cfg); break;
+        case 'smb3Actions': triggerSmb3Actions('gift', fake, user, cfg); break;
+        case 'smwActions': triggerSmwActions('gift', fake, user, cfg); break;
+        case 'pvzActions': triggerPvzActions('gift', fake, user, cfg); break;
+        case 'pvzHybridActions': triggerPvzHybridActions('gift', fake, user, cfg); break;
+        case 'repoActions': triggerRepoActions('gift', fake, user, cfg); break;
+        case 'l4dActions': triggerL4dActions('gift', fake, user, cfg); break;
+        case 'unturnedActions': triggerUnturnedActions('gift', fake, user, cfg); break;
+        case 'gtavKothActions': triggerGtavKothActions('gift', fake, user, cfg); break;
+        case 'gtavChaosActions': triggerGtavChaosActions('gift', fake, user, cfg); break;
+        case 'gtavChiliadActions': triggerGtavChiliadActions('gift', fake, user, cfg); break;
+        case 'ctrActions': triggerCtrActions('gift', fake, user, cfg); break;
+        case 'mslugActions': triggerMslugActions('gift', fake, user, cfg); break;
+        case 'gdashActions': triggerGdashActions('gift', fake, user, cfg); break;
+        case 'crRoyaleActions':
+          if (typeof triggerCrRoyaleActions === 'function') triggerCrRoyaleActions('gift', fake, user, cfg);
+          else broadcast('log', { level: 'warn', text: '[ROULETTE] Clash Royale no disponible aquí' });
+          break;
+        case 'robloxActions': triggerRobloxActions('gift', fake, user, cfg); break;
+        case 'roblox3Actions': triggerRoblox3Actions('gift', fake, user, cfg); break;
+        case 'mcActions':
+        case 'mcshooterActions':
+        case 'bedrockActions':
+        case 'parkourActions':
+        case 'kothActions':
+        case 'farmActions':
+        case 'sandboxActions':
+          processMcList(list, 'gift', fake, buildMcVars(fake, user), user);
+          break;
+        default:
+          return false;
+      }
+      return true;
+    } finally {
+      winner.trigger = prevTrig;
+      for (const h of hidden) h.a.enabled = h.en;
+    }
+  }
+
+  function processRouletteQueue() {
+    if (rouletteSpinning) return;
+    if (!rouletteQueue.length) return;
+    const job = rouletteQueue.shift();
+    startRouletteJob(job);
+  }
+
+  function startRouletteJob(job) {
+    const cfg = rouletteCfg() || {};
+    const prizes = rouletteResolvePrizes(cfg, job);
+    if (!prizes.length) {
+      broadcast('log', { level: 'warn', text: '[ROULETTE] Sin premios activos. Elige un juego y revisa las acciones.' });
+      processRouletteQueue();
+      return;
+    }
+    const winner = selectRouletteWinner(prizes);
+    if (!winner) {
+      processRouletteQueue();
+      return;
+    }
+    broadcast('log', { level: 'info', text: `[ROULETTE] Pool: ${prizes.length} acciones · toca ${winner.name}` });
+    const visual = buildRouletteVisual(prizes, winner, job.visualCount || cfg.visualCount);
+    const durationSec = Math.max(2, Math.min(8, parseInt(job.durationSec != null ? job.durationSec : cfg.durationSec, 10) || 4));
+    const duration = durationSec * 1000;
+    const user = job.user || {};
+    const payload = {
+      user: { username: user.nickname || user.uniqueId || job.username || 'Test' },
+      winner: { uid: winner.uid, name: winner.name || 'Acción', image: winner.image || '', rarity: winner.rarity || 'common' },
+      items: visual.items,
+      winnerIndex: visual.winnerIndex,
+      duration,
+      showUser: cfg.showUser !== false,
+      showResult: cfg.showResult !== false,
+      particles: cfg.particles !== false,
+      spinSound: cfg.spinSound || 'tick',
+      winSound: cfg.winSound || 'win',
+    };
+    rouletteSpinning = true;
+    broadcast('log', { level: 'ok', text: `[ROULETTE] Winner selected: ${payload.winner.name}` });
+    broadcast('log', { level: 'info', text: '[ROULETTE] Starting animation' });
+    broadcast('rouletteStart', payload);
+    if (rouletteTimer) clearTimeout(rouletteTimer);
+    if (rouletteUnlockTimer) clearTimeout(rouletteUnlockTimer);
+    const landMs = Math.round(duration * 0.86);
+    rouletteTimer = setTimeout(() => {
+      rouletteTimer = null;
+      try {
+        fireRouletteGameAction(cfg.gameKey || 'marioActions', winner.uid, user, {
+          giftName: job.giftName || '',
+          giftId: job.giftId || '',
+          repeatCount: 1,
+        });
+        broadcast('rouletteResult', { winner: payload.winner, user: payload.user });
+        broadcast('log', { level: 'ok', text: `[ROULETTE] Animation finished · ${payload.winner.name}` });
+      } catch (e) {
+        broadcast('log', { level: 'err', text: `[ROULETTE] Fire falló: ${e && e.message || e}` });
+      }
+    }, landMs);
+    rouletteUnlockTimer = setTimeout(() => {
+      rouletteUnlockTimer = null;
+      rouletteSpinning = false;
+      if (rouletteQueue.length) broadcast('log', { level: 'info', text: '[ROULETTE] Processing next queue item' });
+      processRouletteQueue();
+    }, landMs + 2200);
+  }
+
+  function enqueueRoulette(job) {
+    rouletteQueue.push(job || {});
+    broadcast('log', { level: 'info', text: `[ROULETTE] Added to queue (${rouletteQueue.length})` });
+    processRouletteQueue();
+  }
+
+  function applyGiftRouletteHook(user, giftId, giftName, amount) {
+    const cfg = rouletteCfg();
+    if (!cfg || cfg.enabled === false) return;
+    const wantId = String(cfg.giftId || '').trim();
+    const wantName = String(cfg.giftName || '').trim().toLowerCase();
+    if (!wantId && !wantName) return;
+    const idOk = wantId && String(giftId) === wantId;
+    const nameOk = wantName && String(giftName || '').trim().toLowerCase() === wantName;
+    if (!idOk && !nameOk) return;
+    const n = Math.max(0, Number(amount) || 0);
+    if (!n) return;
+    const accKey = `${wantId || wantName}`;
+    if (rouletteGiftAccId !== accKey) { rouletteGiftAcc = 0; rouletteGiftAccId = accKey; }
+    rouletteGiftAcc += n;
+    const need = Math.max(1, parseInt(cfg.giftQty, 10) || 1);
+    broadcast('log', { level: 'info', text: `[ROULETTE] Gift received: ${giftName || giftId} +${n}` });
+    while (rouletteGiftAcc >= need) {
+      rouletteGiftAcc -= need;
+      enqueueRoulette({
+        user,
+        giftId,
+        giftName,
+        source: 'gift',
+      });
+    }
+  }
+
+  function testGiftRoulette(data) {
+    const cfg = rouletteCfg();
+    if (!cfg) return;
+    enqueueRoulette({
+      user: { nickname: (data && data.username) || 'Test', uniqueId: 'test' },
+      source: 'test',
+      prizes: data && data.prizes,
+      gameKey: data && data.gameKey,
+      durationSec: data && data.durationSec,
+      visualCount: data && data.visualCount,
+    });
+  }
+
+  function resetGiftRoulette() {
+    rouletteQueue = [];
+    rouletteSpinning = false;
+    rouletteGiftAcc = 0;
+    rouletteBag = [];
+    rouletteBagKey = '';
+    lastRouletteWinnerUid = '';
+    if (rouletteTimer) { clearTimeout(rouletteTimer); rouletteTimer = null; }
+    if (rouletteUnlockTimer) { clearTimeout(rouletteUnlockTimer); rouletteUnlockTimer = null; }
+    broadcast('rouletteReset', {});
+    broadcast('log', { level: 'info', text: '[ROULETTE] Reset' });
+  }
+
   // Capacidades del plan (límites + features). El panel las usa para ocultar
   // pestañas/overlays y bloquear el añadir más alertas de las permitidas.
   function currentCaps() {
@@ -4054,6 +4452,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('winsGamerReset', {});
     broadcast('winsMinecraftReset', {});
     broadcast('winsMarioReset', {});
+    broadcast('winsProReset', {});
     // Barra de meta (hype)
     broadcast('hypeReset', {});
     // Coin match (partido cronometrado)
@@ -4723,6 +5122,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let liveLockBeatTimer = null;
   const liveDeviceIdFile = path.join(dataDir, '.live-device-id');
   const LIVE_LOCK_MSG = 'Esta cuenta ya está en live en otro dispositivo. Cierra el live o pulsa Desconectar ahí para poder conectar aquí.';
+  /* Sesión única desactivada: daba falsos positivos y cortaba el live a gente que
+     no estaba en otra PC. Se deja el cableado por si hay que reactivarlo. */
+  const LIVE_LOCK_ENFORCED = false;
   function loadPersistedLiveDeviceId() {
     try {
       const d = String(fs.readFileSync(liveDeviceIdFile, 'utf8')).trim();
@@ -4761,6 +5163,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return liveDeviceId;
   }
   function denyLiveLock(msg, opts = {}) {
+    if (!LIVE_LOCK_ENFORCED) return;
     liveLockBlockedUntil = Date.now() + 25000;
     state.connecting = false;
     if (!opts.silent && settings.autoConnect !== false) {
@@ -4779,12 +5182,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function startLiveLockBeat() {
     stopLiveLockBeat();
+    if (!LIVE_LOCK_ENFORCED) return;
     if (typeof onHeartbeatLiveLock !== 'function') return;
     liveLockBeatTimer = setInterval(() => {
       if (!liveLockHeld) return;
       if (!state.connected && !state.connecting && !autoConnectOn()) return;
       Promise.resolve(onHeartbeatLiveLock({ deviceId: currentLiveDeviceId() })).then((r) => {
-        if (r && r.ok === false && r.code === 'live_in_use') {
+        if (LIVE_LOCK_ENFORCED && r && r.ok === false && r.code === 'live_in_use') {
           disconnect();
           pushState();
           denyLiveLock(r.message);
@@ -4792,7 +5196,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         if (r && r.ok === false && r.code === 'no_lock' && typeof onClaimLiveLock === 'function') {
           Promise.resolve(onClaimLiveLock({ deviceId: currentLiveDeviceId(), username: state.username })).then((c) => {
-            if (c && c.ok === false && c.code === 'live_in_use') {
+            if (LIVE_LOCK_ENFORCED && c && c.ok === false && c.code === 'live_in_use') {
               disconnect();
               pushState();
               denyLiveLock(c.message);
@@ -4819,7 +5223,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const probeId = probeConnectDeviceId(opts.deviceId);
     if (opts.deviceId) adoptConnectDeviceId(opts.deviceId);
     if (state.connecting) return;
-    if (Date.now() < liveLockBlockedUntil) {
+    if (LIVE_LOCK_ENFORCED && Date.now() < liveLockBlockedUntil) {
       if (!opts.auto) denyLiveLock(LIVE_LOCK_MSG, { silent: true });
       return;
     }
@@ -4852,7 +5256,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const runAfterLockProbe = (fn) => {
       if (!opts.auto && typeof onClaimLiveLock === 'function') {
         Promise.resolve(onClaimLiveLock({ deviceId: probeId, username })).then((r) => {
-          if (r && r.ok === false && r.code === 'live_in_use') {
+          if (LIVE_LOCK_ENFORCED && r && r.ok === false && r.code === 'live_in_use') {
             denyLiveLock(r.message);
             return;
           }
@@ -4936,11 +5340,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
         Promise.resolve(onClaimLiveLock({ deviceId: currentLiveDeviceId(), username })).then((r) => {
           if (conn !== connection) return;
-          if (r && r.ok === false && r.code === 'live_in_use') {
+          if (LIVE_LOCK_ENFORCED && r && r.ok === false && r.code === 'live_in_use') {
             abortConnect(r.message, { silent: auto });
             return;
           }
-          if (r && r.ok === false && r.code === 'bad_device') {
+          if (LIVE_LOCK_ENFORCED && r && r.ok === false && r.code === 'bad_device') {
             abortConnect(null);
             if (!auto) broadcast('log', { level: 'error', text: r.message || 'Falta identificador de dispositivo.' });
             return;
@@ -11128,6 +11532,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         countGiftForGoal(giftId, giftName, repeatCount);
         countGiftForGiftGoals(user, giftId, giftName, repeatCount);
         applyWinsGiftHooks(giftId, repeatCount);
+        applyGiftRouletteHook(user, giftId, giftName, repeatCount);
         processFanBalls('coins', user, total);
         trackSessionGift(user, giftName, repeatCount, diamondsEach, image);
         feedBaileGift(total, user);
@@ -12371,6 +12776,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetWinsMario':
         broadcast('winsMarioReset', {});
+        break;
+      case 'testWinsPro':
+        broadcast('winsProTest', {});
+        break;
+      case 'resetWinsPro':
+        broadcast('winsProReset', {});
+        break;
+      case 'testGiftRoulette':
+        testGiftRoulette(data);
+        break;
+      case 'resetGiftRoulette':
+        resetGiftRoulette();
         break;
       case 'testTopKills':
         broadcast('topKillsTest', {});

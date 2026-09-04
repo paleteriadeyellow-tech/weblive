@@ -259,6 +259,19 @@
   function cloneItem(o) {
     if (!o?.src) return null;
     const out = { src: o.src, name: o.name || '', type: o.type || 'gift' };
+    if (o.giftId) out.giftId = String(o.giftId);
+    if (Number.isFinite(Number(o.x))) out.x = clampPct(o.x);
+    if (Number.isFinite(Number(o.y))) out.y = clampPct(o.y);
+    if (Number.isFinite(Number(o.scale))) out.scale = clampItemScale(o.scale);
+    if (Number.isFinite(Number(o.z))) out.z = Math.max(1, Math.min(50, Math.round(Number(o.z))));
+    return out;
+  }
+
+  /** Posición/escala que el usuario puso a mano en un regalo. Se conserva
+      aunque cambie la imagen del regalo al re-sincronizar desde Juegos. */
+  function itemGeometry(o) {
+    const out = {};
+    if (!o) return out;
     if (Number.isFinite(Number(o.x))) out.x = clampPct(o.x);
     if (Number.isFinite(Number(o.y))) out.y = clampPct(o.y);
     if (Number.isFinite(Number(o.scale))) out.scale = clampItemScale(o.scale);
@@ -710,6 +723,7 @@
           }
           const name = o.name || CORNER_PRESETS[type]?.name || (type === 'gift' ? '' : type);
           const item = { src, name, type };
+          if (type === 'gift' && o.giftId) item.giftId = String(o.giftId);
           if (Number.isFinite(Number(o.x))) item.x = clampPct(o.x);
           if (Number.isFinite(Number(o.y))) item.y = clampPct(o.y);
           if (Number.isFinite(Number(o.scale))) item.scale = clampItemScale(o.scale);
@@ -1004,6 +1018,12 @@
     } catch {
       // Quota: no borrar imágenes que siguen en el montaje. Subir a disco y reintentar.
       schedulePersistMediaAndSave();
+      // Hasta que la subida termine el diseño solo existe en memoria: hay que avisar
+      // o el usuario cierra el panel creyendo que quedó guardado.
+      if (Date.now() - lastQuotaWarnAt > 20000) {
+        lastQuotaWarnAt = Date.now();
+        toastMsg('Almacenamiento lleno: subiendo las imágenes al disco. No cierres el panel hasta que termine.');
+      }
     }
     if (!opts?.skipHistory) pushHistory();
     markEdited();
@@ -1020,6 +1040,18 @@
   let liveHeartbeatTimer = null;
   let persistMediaSaveTimer = null;
   let lastErLiveWarnAt = 0;
+  let lastQuotaWarnAt = 0;
+  /* data: que ya fallaron al subir: no reintentar ni avisar en cada heartbeat. */
+  const erMediaFailKeys = new Set();
+  let erMediaFailWarned = false;
+
+  function erMediaKey(src) {
+    const s = String(src || '');
+    if (s.length < 40) return s;
+    return `${s.length}:${s.slice(0, 48)}:${s.slice(-24)}`;
+  }
+  let livePublishInFlight = false;
+  let livePublishAgain = false;
   let liveChannel = null;
   try { liveChannel = new BroadcastChannel(LIVE_BC); } catch {}
   /** @type {Array<{id:string,name:string,protected:boolean,savedAt:number,data:any}>|null} */
@@ -1159,6 +1191,12 @@
     state.gifts[i] = null;
     state.texts[i] = [];
     if (state.gameSync?.uids) state.gameSync.uids[i] = '';
+    // Sin contenido, el modo libre dejaría el cuadro vacío sin poder reordenarse.
+    if (state.freeMove) state.freeMove[i] = false;
+    if (state.freeLayout) state.freeLayout[i] = false;
+    if (selectedFreeItem?.slot === i) selectedFreeItem = null;
+    if (textEditing?.slot === i) textEditing = null;
+    if (selectedText?.slot === i) selectedText = null;
     saveState(state);
     renderGrid();
     toastMsg('Cuadro ' + (i + 1) + ' vaciado');
@@ -1225,6 +1263,8 @@
     state.gridN = keptGrid;
     selectedSlot = null;
     selectedText = null;
+    selectedFreeItem = null;
+    textEditing = null;
     if (moveFrom && moveFrom.slot >= state.count) cancelPick();
     return used.length;
   }
@@ -1258,10 +1298,7 @@
     // Mantener columnas fijas si estaba en Fija N×N
     if (selectedSlot === i) selectedSlot = null;
     else if (selectedSlot != null && selectedSlot > i) selectedSlot -= 1;
-    if (selectedText?.slot === i) selectedText = null;
-    else if (selectedText != null && selectedText.slot > i) {
-      selectedText = { ...selectedText, slot: selectedText.slot - 1 };
-    }
+    remapSelectionAfterRemoval(i);
     if (moveFrom) {
       if (moveFrom.slot === i) cancelPick();
       else if (moveFrom.slot > i) moveFrom = { ...moveFrom, slot: moveFrom.slot - 1 };
@@ -1286,6 +1323,23 @@
       if (slotHasContent(i)) n += 1;
     }
     return n;
+  }
+
+  /** Acciones de Juegos que quedan fuera de la rejilla visible: siguen ligadas
+      pero no se pueden ver ni editar hasta agrandar las filas. */
+  function countHiddenLinkedSlots() {
+    const uids = state.gameSync?.uids;
+    if (!uids) return 0;
+    let n = 0;
+    for (let i = state.count; i < MAX_COUNT; i++) {
+      if (String(uids[i] || '')) n += 1;
+    }
+    return n;
+  }
+
+  function hiddenSlotsNote() {
+    const linked = countHiddenLinkedSlots();
+    return linked ? ` (${linked} con acción ligada)` : '';
   }
 
   function removeEmptySlots() {
@@ -1372,6 +1426,34 @@
       state.gameSync.uids[a] = state.gameSync.uids[b];
       state.gameSync.uids[b] = u;
     }
+    remapSelectionAfterSwap(a, b);
+  }
+
+  /* Las selecciones guardan el índice del cuadro. Si los cuadros se mueven o se
+     borran hay que recolocarlas: si no, Suprimir o redimensionar actúan sobre
+     el contenido de otro cuadro. */
+  function remapSelectionSlots(fn) {
+    const map = (sel) => {
+      if (!sel || sel.slot == null) return sel;
+      const next = fn(Number(sel.slot));
+      return next == null ? null : (next === sel.slot ? sel : { ...sel, slot: next });
+    };
+    selectedText = map(selectedText);
+    selectedFreeItem = map(selectedFreeItem);
+    textEditing = map(textEditing);
+  }
+
+  function remapSelectionAfterSwap(a, b) {
+    remapSelectionSlots((slot) => (slot === a ? b : (slot === b ? a : slot)));
+  }
+
+  function remapSelectionAfterRemoval(i) {
+    remapSelectionSlots((slot) => (slot === i ? null : (slot > i ? slot - 1 : slot)));
+  }
+
+  function clearSelectionOutOfRange() {
+    remapSelectionSlots((slot) => ((slot < 0 || slot >= state.count) ? null : slot));
+    if (selectedSlot != null && (selectedSlot < 0 || selectedSlot >= state.count)) selectedSlot = null;
   }
 
   function alignSelectedText(mode) {
@@ -2122,6 +2204,30 @@
     clearTimeout(tplAutosaveTimer);
   }
 
+  /** Vuelca ya el autoguardado pendiente. Captura el diseño y la plantilla de
+      destino de forma síncrona, porque el que llama va a reemplazarlos enseguida. */
+  function flushPendingTplAutosave() {
+    if (!tplAutosaveTimer) return;
+    clearTimeout(tplAutosaveTimer);
+    tplAutosaveTimer = null;
+    if (tplAutosavePaused > 0) return;
+    const id = activeTemplateId();
+    if (!id) return;
+    const nameEl = document.getElementById('er-tpl-name');
+    const template = {
+      id,
+      name: (String(nameEl?.value || '').trim() || 'Plantilla').slice(0, 80),
+      protected: true,
+      savedAt: Date.now(),
+      data: snapshotState(state),
+    };
+    fetch('/api/editor-rapido/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template }),
+    }).catch(() => {});
+  }
+
   function resumeTplAutosave() {
     tplAutosavePaused = Math.max(0, tplAutosavePaused - 1);
   }
@@ -2216,8 +2322,12 @@
     try {
       return await uploadErMedia(s);
     } catch (e) {
+      erMediaFailKeys.add(erMediaKey(s));
       console.warn('Editor Pro: no se pudo subir imagen', e);
-      warnErLive('No se pudo guardar la imagen en disco. Sigue en el montaje; pulsa Guardar otra vez.');
+      if (!erMediaFailWarned) {
+        erMediaFailWarned = true;
+        warnErLive('No se pudo guardar la imagen en disco. Sigue en el montaje; pulsa Guardar otra vez.');
+      }
       return s;
     }
   }
@@ -2294,41 +2404,57 @@
     schedulePublishLive();
   }
 
-  async function replaceDataSrc(item) {
+  async function replaceDataSrc(item, opts) {
     if (!item || typeof item !== 'object') return item;
     const src = String(item.src || '');
     if (!src.startsWith('data:')) return item;
+    const key = erMediaKey(src);
+    if (erMediaFailKeys.has(key)) return item;
     try {
       const url = await uploadErMedia(src);
+      erMediaFailKeys.delete(key);
       return { ...item, src: url };
     } catch (e) {
+      erMediaFailKeys.add(key);
       console.warn('Editor Pro: no se pudo subir media', e);
-      warnErLive('No se pudo subir una imagen al overlay. Pulsa Guardar otra vez.');
+      if (!opts?.quiet && !erMediaFailWarned) {
+        erMediaFailWarned = true;
+        warnErLive('No se pudo subir una imagen al overlay. Pulsa Guardar otra vez.');
+      }
       return item;
     }
   }
 
   /** Sube data: a /api/editor-rapido/media antes del live (Live Studio no traga payloads enormes). */
-  async function ensureMediaForLive(st) {
+  async function ensureMediaForLive(st, opts) {
     const s = st || state;
+    const quiet = !!opts?.quiet;
     let changed = false;
     if (s.fondo === 'custom') {
       const src = String(s.fondoCustomSrc || '');
       if (src.startsWith('data:')) {
-        try {
-          const url = await uploadErMedia(src);
-          s.fondoCustomSrc = url;
-          if (s === state || st === state) state.fondoCustomSrc = url;
-          changed = true;
-        } catch (e) {
-          console.warn('Editor Pro: no se pudo subir fondo custom', e);
-          warnErLive('No se pudo subir el fondo al overlay. Pulsa Guardar otra vez.');
+        const fkey = erMediaKey(src);
+        if (!erMediaFailKeys.has(fkey)) {
+          try {
+            const url = await uploadErMedia(src);
+            erMediaFailKeys.delete(fkey);
+            s.fondoCustomSrc = url;
+            if (s === state || st === state) state.fondoCustomSrc = url;
+            changed = true;
+          } catch (e) {
+            erMediaFailKeys.add(fkey);
+            console.warn('Editor Pro: no se pudo subir fondo custom', e);
+            if (!quiet && !erMediaFailWarned) {
+              erMediaFailWarned = true;
+              warnErLive('No se pudo subir el fondo al overlay. Pulsa Guardar otra vez.');
+            }
+          }
         }
       }
     }
     if (Array.isArray(s.overlays)) {
       for (let i = 0; i < s.overlays.length; i++) {
-        const next = await replaceDataSrc(s.overlays[i]);
+        const next = await replaceDataSrc(s.overlays[i], opts);
         if (next !== s.overlays[i]) {
           s.overlays[i] = next;
           if (state.overlays[i]) state.overlays[i] = next;
@@ -2338,7 +2464,7 @@
     }
     if (Array.isArray(s.gifts)) {
       for (let i = 0; i < s.gifts.length; i++) {
-        const next = await replaceDataSrc(s.gifts[i]);
+        const next = await replaceDataSrc(s.gifts[i], opts);
         if (next !== s.gifts[i]) {
           s.gifts[i] = next;
           if (state.gifts[i]) state.gifts[i] = next;
@@ -2349,7 +2475,7 @@
     if (s.filasSnap) {
       if (Array.isArray(s.filasSnap.overlays)) {
         for (let i = 0; i < s.filasSnap.overlays.length; i++) {
-          const next = await replaceDataSrc(s.filasSnap.overlays[i]);
+          const next = await replaceDataSrc(s.filasSnap.overlays[i], opts);
           if (next !== s.filasSnap.overlays[i]) {
             s.filasSnap.overlays[i] = next;
             changed = true;
@@ -2358,7 +2484,7 @@
       }
       if (Array.isArray(s.filasSnap.gifts)) {
         for (let i = 0; i < s.filasSnap.gifts.length; i++) {
-          const next = await replaceDataSrc(s.filasSnap.gifts[i]);
+          const next = await replaceDataSrc(s.filasSnap.gifts[i], opts);
           if (next !== s.filasSnap.gifts[i]) {
             s.filasSnap.gifts[i] = next;
             changed = true;
@@ -2410,8 +2536,30 @@
     toastMsg(msg || 'No se pudo actualizar el overlay en OBS.');
   }
 
-  async function publishLive(st) {
-    const ready = await ensureMediaForLive(st || state);
+  async function publishLive(st, opts) {
+    /* Dos publicaciones a la vez pueden llegar desordenadas y dejar en OBS una
+       versión vieja. Se publica de una en una y, si llegó algo nuevo mientras
+       tanto, se reprograma con el diseño actual. */
+    if (livePublishInFlight) {
+      if (!opts?.heartbeat) livePublishAgain = true;
+      return;
+    }
+    livePublishInFlight = true;
+    try {
+      await publishLiveNow(st, opts);
+    } finally {
+      livePublishInFlight = false;
+      if (livePublishAgain) {
+        livePublishAgain = false;
+        schedulePublishLive();
+      }
+    }
+  }
+
+  async function publishLiveNow(st, opts) {
+    const ready = opts?.heartbeat
+      ? (st || state)
+      : await ensureMediaForLive(st || state);
     const payload = snapshotState(ready);
     const room = liveRoomKey();
     try {
@@ -2445,7 +2593,8 @@
     // Mientras el panel esté abierto (aunque cambies de pestaña): OBS no se queda seco.
     liveHeartbeatTimer = setInterval(() => {
       if (document.hidden) return;
-      publishLive(state).catch(() => {});
+      // Solo mantiene vivo el overlay. No reintenta subir data: (eso disparaba el toast en bucle).
+      publishLive(state, { heartbeat: true }).catch(() => {});
     }, 4000);
   }
 
@@ -2550,6 +2699,10 @@
         for (let i = 0; i < MAX_COUNT; i++) state.texts[i] = normalizeTextList(state.texts[i]);
       }
       if (!keepTpl) setActiveTplId('');
+      /* El historial es una pila única. Sin limpiarla, Deshacer salta al diseño de
+         la plantilla anterior y el autoguardado lo escribe dentro de esta. */
+      historyStack = [];
+      historyIndex = -1;
       saveState(state);
       renderLibrary();
       renderCountControls();
@@ -2620,6 +2773,8 @@
   }
 
   async function saveCurrentTemplate() {
+    erMediaFailKeys.clear();
+    erMediaFailWarned = false;
     const nameEl = document.getElementById('er-tpl-name');
     const name = String(nameEl?.value || '').trim() || 'Plantilla';
     await ensureTemplatesLoaded();
@@ -2684,6 +2839,9 @@
 
   async function loadTemplateById(id) {
     if (!id) return;
+    // Antes de tocar la plantilla activa: lo editado en la actual aún puede estar
+    // esperando los 500 ms del autoguardado y se perdería al cambiar.
+    flushPendingTplAutosave();
     pauseTplAutosave();
     try {
       await ensureTemplatesLoaded();
@@ -2748,6 +2906,7 @@
   }
 
   function newBlankWorking() {
+    flushPendingTplAutosave();
     setActiveTplId('');
     const nameEl = document.getElementById('er-tpl-name');
     if (nameEl) nameEl.value = '';
@@ -3055,7 +3214,7 @@
     const hidden = countHiddenContentSlots();
     toastMsg(
       hidden
-        ? `${fixed}×${fixed} · ${hidden} cuadro${hidden === 1 ? '' : 's'} quedan guardados fuera`
+        ? `${fixed}×${fixed} · ${hidden} cuadro${hidden === 1 ? '' : 's'} quedan guardados fuera${hiddenSlotsNote()}`
         : `n° Filas · ${fixed}×${fixed}`
     );
   }
@@ -3087,7 +3246,7 @@
       clipped
         ? `Personalizado · ${c}×${r} (máx. ${MAX_COUNT} cuadros)`
         : (hidden
-          ? `${c}×${r} · ${hidden} cuadro${hidden === 1 ? '' : 's'} quedan guardados fuera`
+          ? `${c}×${r} · ${hidden} cuadro${hidden === 1 ? '' : 's'} quedan guardados fuera${hiddenSlotsNote()}`
           : `n° Filas · ${c}×${r}`)
     );
   }
@@ -3472,6 +3631,32 @@
     state.gifts[i] = cloneItem(item);
     saveState(state);
     renderGrid();
+    syncGiftToGameAction(i);
+  }
+
+  /** El regalo de un cuadro es el disparador de la acción ligada, así que
+      cambiarlo aquí debe cambiarlo también en la acción del juego. */
+  function syncGiftToGameAction(slotIndex) {
+    try {
+      const i = Number(slotIndex);
+      const key = String(state.gameSync?.settingsKey || '').trim();
+      const uid = String(state.gameSync?.uids?.[i] || '').trim();
+      if (!key || !uid) return;
+      const g = state.gifts[i];
+      if (!g || !g.src) return;
+      if (typeof window.applyEditorRapidoGiftToGameAction !== 'function') return;
+      const type = String(g.type || 'gift');
+      if (type === 'gift' && !g.giftId) {
+        toastMsg('Imagen puesta. La acción del juego mantiene su regalo.');
+        return;
+      }
+      const ok = window.applyEditorRapidoGiftToGameAction(key, uid, {
+        type,
+        giftId: g.giftId || '',
+        giftName: g.name || '',
+      });
+      if (ok) toastMsg('Disparador actualizado en la acción del juego');
+    } catch { /* ignore */ }
   }
 
   async function openGiftCatalogThen(onPick) {
@@ -3486,7 +3671,7 @@
           toastMsg('Ese regalo no tiene imagen');
           return;
         }
-        onPick({ src, name: g.name || 'Regalo', type: 'gift' });
+        onPick({ src, name: g.name || 'Regalo', type: 'gift', giftId: String(g?.id ?? '') });
       });
     } catch {
       toastMsg('No se pudo abrir el catálogo');
@@ -3499,7 +3684,7 @@
 
     if (cornerType === 'gift') {
       openGiftCatalogThen((item) => {
-        if (placingNew) startPick('gift', item.src, item.name, 'gift');
+        if (placingNew) startPick('gift', item.src, item.name, 'gift', item.giftId);
         else {
           setCornerOnSlot(slotIndex, item);
           toastMsg(`Regalo en el cuadro ${slotIndex + 1}`);
@@ -3653,6 +3838,7 @@
   function setCount(n) {
     state.gridN = 0;
     state.count = clampCount(n);
+    clearSelectionOutOfRange();
     if (moveFrom && moveFrom.slot >= state.count) cancelPick();
     saveState(state);
     renderCountControls();
@@ -3673,9 +3859,15 @@
     renderGrid();
   }
 
-  function startPick(kind, src, name, cornerType) {
+  function startPick(kind, src, name, cornerType, giftId) {
     moveFrom = null;
-    pending = { kind, src, name: name || '', cornerType: cornerType || (kind === 'gift' ? 'gift' : undefined) };
+    pending = {
+      kind,
+      src,
+      name: name || '',
+      cornerType: cornerType || (kind === 'gift' ? 'gift' : undefined),
+      giftId: String(giftId || ''),
+    };
     hideCtxMenu();
     renderPickBar();
     renderGrid();
@@ -3731,11 +3923,30 @@
         cancelPick();
         return;
       }
+      const uids = state.gameSync?.uids;
+      const linked = !!(uids && (String(uids[from] || '') || String(uids[i] || '')));
+      moveFrom = null;
+      if (linked) {
+        /* Con plantilla ligada a Juegos cada cuadro ES una acción. Mover solo el
+           arte dejaría el cuadro mostrando una acción y mandando sobre otra, así
+           que se mueve el cuadro entero (arte, regalo, textos y enlace). */
+        swapSlots(from, i);
+        saveState(state);
+        renderPickBar();
+        renderGrid();
+        toastMsg(`Cuadro movido al ${i + 1}`);
+        return;
+      }
       const arr = arrFor(kind);
       const tmp = cloneItem(arr[i]);
       arr[i] = cloneItem(arr[from]);
       arr[from] = tmp;
-      moveFrom = null;
+      // La colocación libre vive en el cuadro, no en la imagen: si no se propaga,
+      // lo movido pierde su posición personalizada al llegar al destino.
+      if (isFreeLayout(from) && !isFreeLayout(i)) {
+        if (!state.freeLayout) state.freeLayout = emptyFreeMove();
+        state.freeLayout[i] = true;
+      }
       saveState(state);
       renderPickBar();
       renderGrid();
@@ -3771,6 +3982,7 @@
     const arr = arrFor(pending.kind);
     if (pending.kind === 'gift') {
       arr[i] = { src: pending.src, name: pending.name, type: pending.cornerType || 'gift' };
+      if (pending.giftId) arr[i].giftId = String(pending.giftId);
     } else {
       arr[i] = { src: pending.src, name: pending.name };
     }
@@ -3783,6 +3995,7 @@
     toastMsg(wasGift
       ? `Icono en el cuadro ${i + 1} (esquina)`
       : `Imagen puesta en el cuadro ${i + 1}`);
+    if (wasGift) syncGiftToGameAction(i);
     // Subir data: al disco ya (si no, un sync posterior o localStorage lleno las borra;
     // los iconos default del juego son rutas cortas y por eso "no se borran").
     if (placed?.src && String(placed.src).startsWith('data:')) {
@@ -4723,13 +4936,19 @@
       return;
     }
     const cornerKey = String(patch?.cornerType || '').toLowerCase();
+    /* Si moviste o escalaste el regalo dentro del cuadro, esa colocación es tuya:
+       re-sincronizar desde Juegos no debe devolverlo a la esquina por defecto. */
+    const geom = itemGeometry(cur);
     if (CORNER_PRESETS[cornerKey]) {
-      state.gifts[i] = cloneItem(CORNER_PRESETS[cornerKey]);
+      const next = cloneItem(CORNER_PRESETS[cornerKey]);
+      state.gifts[i] = next ? Object.assign(next, geom) : null;
       upsertGiftEmojiAt(i, '');
     } else {
       const giftSrc = proxiedSrc(patch?.giftSrc || '');
       if (giftSrc) {
-        state.gifts[i] = { src: giftSrc, name: String(patch?.giftName || 'Regalo'), type: 'gift' };
+        const next = { src: giftSrc, name: String(patch?.giftName || 'Regalo'), type: 'gift' };
+        if (patch?.giftId) next.giftId = String(patch.giftId);
+        state.gifts[i] = Object.assign(next, geom);
         upsertGiftEmojiAt(i, '');
       } else {
         state.gifts[i] = null;
@@ -4816,13 +5035,31 @@
     return false;
   }
 
-  function applyImportRowsToSlots(list, n) {
+  /** keepUnmanaged: conservar los cuadros que el panel no manda (huecos y adornos
+      del usuario). Solo al re-sincronizar; en una importación nueva arrastraría
+      restos del montaje anterior. */
+  function applyImportRowsToSlots(list, n, opts) {
+    const keepUnmanaged = !!opts?.keepUnmanaged;
     const overlays = emptySlots();
     const gifts = emptySlots();
     const texts = emptyTextSlots();
     const freeMove = emptyFreeMove();
     const freeLayout = emptyFreeMove();
     const uids = Array.from({ length: MAX_COUNT }, () => '');
+    const prevUidsRaw = state.gameSync?.uids || [];
+
+    /* Cuadro que el panel no gestiona (hueco o adorno del usuario): se copia tal
+       cual estaba. Sin esto, reconstruir la rejilla se lleva por delante lo que
+       el usuario colocó a mano entre las acciones. */
+    const keepPreviousSlot = (i) => {
+      if (state.overlays?.[i]) overlays[i] = cloneItem(state.overlays[i]);
+      if (state.gifts?.[i]) gifts[i] = cloneItem(state.gifts[i]);
+      const kept = textsAt(i).map((t) => cloneText(t)).filter(Boolean);
+      if (kept.length) texts[i] = kept;
+      freeMove[i] = !!(state.freeMove && state.freeMove[i]);
+      freeLayout[i] = !!(state.freeLayout && state.freeLayout[i]);
+    };
+
     const prevByUid = {};
     if (state.gameSync?.uids) {
       // Incluir slots ocultos por n° Filas (índices ≥ count) para no perder textos custom
@@ -4843,6 +5080,11 @@
       const r = list[i] || {};
       const uid = String(r.actionUid || r.uid || '').trim();
       uids[i] = uid;
+      if (!uid) {
+        // Hueco intencionado o adorno: solo se conserva si no era de una acción.
+        if (keepUnmanaged && !String(prevUidsRaw[i] || '')) keepPreviousSlot(i);
+        continue;
+      }
       if (uid && prevByUid[uid]?.freeMove) freeMove[i] = true;
       if (uid && prevByUid[uid]?.freeLayout) freeLayout[i] = true;
       const actionSrc = proxiedSrc(r.actionSrc || r.overlaySrc || '');
@@ -4866,6 +5108,7 @@
         const giftSrc = proxiedSrc(r.giftSrc || '');
         if (giftSrc) {
           gifts[i] = { src: giftSrc, name: String(r.giftName || 'Regalo'), type: 'gift' };
+          if (r.giftId) gifts[i].giftId = String(r.giftId);
         }
       }
       if (gifts[i] && prevG && Number.isFinite(Number(prevG.x))) {
@@ -4909,6 +5152,14 @@
       }
       texts[i] = cellTexts.slice(0, MAX_TEXTS_PER_CELL);
     }
+
+    /* Lo mismo para los cuadros que quedan fuera del rango de acciones. */
+    if (keepUnmanaged) {
+      for (let i = n; i < MAX_COUNT; i++) {
+        if (String(prevUidsRaw[i] || '')) continue;
+        keepPreviousSlot(i);
+      }
+    }
     return { overlays, gifts, texts, uids, freeMove, freeLayout };
   }
 
@@ -4949,24 +5200,57 @@
       .filter(Boolean);
     const nextUids = list.map((r) => String(r.actionUid || r.uid || '').trim());
     const nextUidsCompact = nextUids.filter(Boolean);
-    const structureChanged = prevUidsCompact.length !== nextUidsCompact.length
-      || prevUidsCompact.some((u, i) => u !== nextUidsCompact[i]);
+    /* Solo importa QUÉ acciones hay, no en qué orden las lista el panel: si se
+       comparara el orden, reordenar cuadros en el Editor se leería como cambio de
+       estructura y el siguiente guardado reempaquetaría el montaje del usuario. */
+    const prevUidSet = new Set(prevUidsCompact);
+    const nextUidSet = new Set(nextUidsCompact);
+    const structureChanged = prevUidSet.size !== nextUidSet.size
+      || nextUidsCompact.some((u) => !prevUidSet.has(u))
+      || prevUidsCompact.some((u) => !nextUidSet.has(u));
 
     if (structureChanged) {
+      /* Cada acción se queda en el cuadro donde ya estaba; solo las nuevas buscan
+         hueco. La disposición de la rejilla es del usuario, no del panel. */
+      const slotByUid = new Map();
+      for (let i = 0; i < MAX_COUNT; i++) {
+        const u = String(rawPrevUids[i] || '');
+        if (u && !slotByUid.has(u)) slotByUid.set(u, i);
+      }
+      const placedRows = new Array(MAX_COUNT).fill(null);
+      const freshRows = [];
+      for (const r of list) {
+        const uid = String(r.actionUid || r.uid || '').trim();
+        const slot = uid ? slotByUid.get(uid) : undefined;
+        if (slot != null && slot < MAX_COUNT && placedRows[slot] == null) placedRows[slot] = r;
+        else freshRows.push(r);
+      }
+      // Acción nueva: primer cuadro libre, sin pisar adornos que puso el usuario.
+      let cursor = 0;
+      for (const r of freshRows) {
+        while (cursor < MAX_COUNT
+          && (placedRows[cursor] != null
+            || (!String(rawPrevUids[cursor] || '') && slotHasContent(cursor)))) cursor += 1;
+        if (cursor >= MAX_COUNT) break;
+        placedRows[cursor] = r;
+        cursor += 1;
+      }
+      let lastUsed = -1;
+      for (let i = 0; i < MAX_COUNT; i++) {
+        const keeps = !String(rawPrevUids[i] || '') && slotHasContent(i);
+        if (placedRows[i] != null || keeps) lastUsed = i;
+      }
+      const needed = Math.max(1, lastUsed + 1);
+
       const built = list.length
-        ? applyImportRowsToSlots(list, Math.min(MAX_COUNT, list.length))
+        ? applyImportRowsToSlots(placedRows, Math.min(MAX_COUNT, Math.max(needed, prevCount)), { keepUnmanaged: true })
         : { overlays: emptySlots(), gifts: emptySlots(), texts: emptyTextSlots(), uids: Array.from({ length: MAX_COUNT }, () => ''), freeMove: emptyFreeMove(), freeLayout: emptyFreeMove() };
-      let count = list.length ? Math.min(MAX_COUNT, list.length) : 1;
+      // Conservar el tamaño de la vista; solo crecer si las nuevas no cabían.
+      let count = clampCount(Math.max(prevCount, needed));
       let gridN = prevGridN;
       if (gridN) {
         const full = gridN * gridN;
-        // Rejilla llena N×N (con vacíos): mantener el tamaño de vista.
-        // Si ya habías quitado vacíos: count = acciones.
-        if (prevCount >= full) {
-          count = clampCount(Math.max(full, list.length || 1));
-        } else {
-          count = clampCount(list.length || 1);
-        }
+        if (prevCount >= full) count = clampCount(Math.max(full, needed));
       }
 
       let filasSnap = prevFilasSnap;
@@ -4974,8 +5258,8 @@
         const fg = clampGridN(filasSnap.gridN);
         const fFull = fg * fg;
         const snapCount = (filasSnap.count >= fFull)
-          ? clampCount(Math.max(fFull, list.length || 1))
-          : clampCount(list.length || 1);
+          ? clampCount(Math.max(fFull, needed))
+          : clampCount(Math.max(filasSnap.count || 1, needed));
         filasSnap = {
           gridN: fg,
           count: snapCount,

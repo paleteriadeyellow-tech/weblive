@@ -33,6 +33,7 @@ export const OVERLAY_CHANNELS = {
   'contador-wins-gamer': setOf(S, 'winsGamerTest', 'winsGamerReset'),
   'contador-wins-minecraft': setOf(S, 'winsMinecraftTest', 'winsMinecraftReset'),
   'contador-wins-mario': setOf(S, 'winsMarioTest', 'winsMarioReset'),
+  'contador-wins-pro': setOf(S, 'winsProTest', 'winsProReset'),
   'batalla-giftball': setOf(S, GIFT, 'pkBattle', 'pkBattleReset', 'batallaGiftBallTest', 'batallaGiftBallDropOne', 'batallaGiftBallReset'),
   batallaregalos: setOf(S, GIFT, SESSION, 'batallaGiftsTest', 'batallaGiftsReset'),
   batallalikes: setOf(S, LIKE, SESSION, 'batallaLikesTest', 'batallaLikesReset'),
@@ -80,6 +81,7 @@ export const OVERLAY_CHANNELS = {
   topdonor: setOf(S, 'weeklyTop', 'topDonorTest', 'topDonorTestEnd'),
   giftseq: setOf(S, 'giftSeqTest', 'giftSeqReset'),
   'gift-banda': setOf(S),
+  'ruleta-regalos': setOf(S, 'rouletteStart', 'rouletteReset', 'rouletteResult'),
 };
 
 function normalizeChannel(raw) {

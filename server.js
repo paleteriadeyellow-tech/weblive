@@ -145,13 +145,13 @@ function mergeProfilesData(legacy, current) {
     'perrito', 'jarron', 'vaquita', 'marranito', 'corazonLava', 'pelotas',
     'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3',
     'flowMeter', 'giftSeq', 'giftShowcase',
-    'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario',
+    'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario', 'winsCounterPro',
     'top1', 'top1fire', 'habibiTop', 'topGift', 'giftGoals', 'giftCounter', 'topStreak',
     'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'topKills',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'cameraFrame',
-    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos', 'chatGamer',
+    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos', 'chatGamer', 'giftRoulette',
     'followerCounter', 'followerCounterMc', 'liveTimer',
     'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
   ];
@@ -647,7 +647,12 @@ async function relayCommunityGiftsFromRemote(userId) {
   return data.results || [];
 }
 
+/* Sesión única desactivada: bloqueaba a usuarios que no estaban en otra PC.
+   Se corta aquí, que es por donde pasan claim/heartbeat/release y el 409 de la nube. */
+const LIVE_LOCK_ENFORCED = false;
+
 async function runLiveLock(userId, action, payload = {}) {
+  if (!LIVE_LOCK_ENFORCED) return { ok: true, skipped: true };
   const act = String(action || '');
   const body = {
     deviceId: payload?.deviceId || '',
