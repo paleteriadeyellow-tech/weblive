@@ -10308,6 +10308,34 @@ pre.wh-url { margin: 9px 0 0; }
   animation: ovLockIn .18s ease; }
 .game-soon-overlay .ov-lock-title { color: #d8dee9; }
 .game-soon-overlay .ov-lock-sub { color: #9aa3b8; }
+.juego-card.game-maint-card,
+.juego-card.game-susp-card { cursor: not-allowed; }
+.juego-card.game-maint-card .juego-card-img { filter: grayscale(.35) brightness(.55) sepia(.25); }
+.juego-card.game-susp-card .juego-card-img { filter: grayscale(.2) brightness(.5) saturate(.8); }
+.game-maint-overlay,
+.game-susp-overlay { position: absolute; inset: 0; z-index: 21; border-radius: inherit; cursor: not-allowed;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  backdrop-filter: grayscale(.4) blur(.5px); -webkit-backdrop-filter: grayscale(.4) blur(.5px);
+  animation: ovLockIn .18s ease; }
+.game-maint-overlay { background: rgba(28, 22, 10, .62); border: 1px solid rgba(255, 184, 76, .5);
+  box-shadow: inset 0 0 40px rgba(255, 184, 76, .1); }
+.game-susp-overlay { background: rgba(32, 10, 12, .66); border: 1px solid rgba(255, 92, 92, .5);
+  box-shadow: inset 0 0 40px rgba(255, 80, 80, .1); }
+.game-maint-overlay .ov-lock-title { color: #ffcf5c; }
+.game-susp-overlay .ov-lock-title { color: #ff8b8b; }
+.game-maint-overlay .ov-lock-sub,
+.game-susp-overlay .ov-lock-sub { max-width: 220px; margin: 0 auto; }
+.game-maint-overlay.is-admin-preview,
+.game-susp-overlay.is-admin-preview { pointer-events: none; }
+.admin-game-status-list { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+.admin-gs-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.admin-gs-name { font-weight: 700; color: #eaf1ff; }
+.admin-gs-btns { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+@media (max-width: 720px) {
+  .admin-gs-row { flex-direction: column; align-items: flex-start; }
+  .admin-gs-btns { justify-content: flex-start; }
+}
 
 /* Tarjetas de precios: Gratis y Premium */
 .plan-pricing { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; align-items: stretch; }

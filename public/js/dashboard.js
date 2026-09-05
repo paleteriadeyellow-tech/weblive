@@ -609,6 +609,7 @@ async function loadMe() {
     if (typeof d.baileOverlayEnabled === 'boolean') window.BAILE_OVERLAY_ACCESS = d.baileOverlayEnabled;
     try { if (typeof window.refreshEmailAccountUi === 'function') window.refreshEmailAccountUi(d); } catch {}
     try { if (typeof refreshDockPlanUi === 'function') refreshDockPlanUi(d); } catch {}
+    if (d.gameStatus && typeof d.gameStatus === 'object') applyGameStatusMap(d.gameStatus);
     if (d.caps) setCaps(d.caps);
     try { renderHomeBadges(Array.isArray(d.badges) ? d.badges : []); } catch {}
     if (IS_DESKTOP) {
@@ -638,6 +639,7 @@ async function loadMe() {
     connectWS();
     if (relayActive()) connectLocalWS();
     startCloudSessionPoll();
+    startGameStatusPoll();
   } catch {
     toast('No se pudo cargar la sesión. Recarga o vuelve a iniciar sesión.', 'warn');
   }
@@ -736,6 +738,26 @@ function gameCapFromExecTipo(tipo, hintUrl) {
 const GAME_COMING_SOON = {};
 
 window.CAPS = { plan: 'free', limits: {}, features: {} };
+window.GAME_STATUS = {};
+function applyGameStatusMap(map) {
+  window.GAME_STATUS = map && typeof map === 'object' ? { ...map } : {};
+  try {
+    document.querySelectorAll('#view-juegos .juego-card[data-game]').forEach((card) => {
+      updateGameCardLock(card);
+    });
+  } catch {}
+}
+function getGameRuntimeStatus(gameId) {
+  const st = window.GAME_STATUS?.[gameId];
+  return st === 'maintenance' || st === 'suspended' ? st : '';
+}
+function toastGameLock(gameId) {
+  const st = getGameRuntimeStatus(gameId);
+  if (st === 'maintenance') toast('Este juego está en mantenimiento.', 'warn');
+  else if (st === 'suspended') toast('Este juego está suspendido porque está haciendo que TikTok suspenda los lives.', 'warn');
+  else if (isGameComingSoon(gameId)) toast('Este juego estará disponible próximamente.', 'warn');
+  else toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+}
 function setCaps(c) {
   if (!c) return;
   const plan = c.plan || window.MY_PLAN || window.CAPS?.plan || 'free';
@@ -1403,6 +1425,7 @@ function isGameComingSoon(gameId) {
 }
 
 function isGameLocked(gameId) {
+  if (getGameRuntimeStatus(gameId) && !window.IS_ADMIN) return true;
   if (window.IS_ADMIN) return false;
   if (isGameComingSoon(gameId)) return true;
   const cap = GAME_CAP[gameId];
@@ -1411,14 +1434,47 @@ function isGameLocked(gameId) {
 }
 
 function clearGameCardLocks(card) {
-  card.classList.remove('game-locked-card', 'game-soon-card');
-  card.querySelectorAll('.game-lock-overlay, .game-soon-overlay').forEach((el) => el.remove());
+  card.classList.remove('game-locked-card', 'game-soon-card', 'game-maint-card', 'game-susp-card');
+  card.querySelectorAll('.game-lock-overlay, .game-soon-overlay, .game-maint-overlay, .game-susp-overlay').forEach((el) => el.remove());
+}
+
+function setGameRuntimeLock(card, status, preview) {
+  const maint = status === 'maintenance';
+  card.classList.add(maint ? 'game-maint-card' : 'game-susp-card');
+  const cls = maint ? 'game-maint-overlay' : 'game-susp-overlay';
+  let ov = card.querySelector('.' + cls);
+  if (ov) return;
+  ov = document.createElement('div');
+  ov.className = cls + (preview ? ' is-admin-preview' : '');
+  ov.innerHTML = maint
+    ? `<div class="ov-lock-box">
+    <div class="ov-lock-ico">🛠️</div>
+    <div class="ov-lock-title">Mantenimiento</div>
+    <div class="ov-lock-sub">Este juego está en mantenimiento</div>
+  </div>`
+    : `<div class="ov-lock-box">
+    <div class="ov-lock-ico">⛔</div>
+    <div class="ov-lock-title">Suspendido</div>
+    <div class="ov-lock-sub">Este juego está suspendido actualmente porque está haciendo que suspendan los lives en TikTok</div>
+  </div>`;
+  if (!preview) {
+    ov.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toastGameLock(card.dataset.game);
+    });
+  }
+  card.appendChild(ov);
 }
 
 function updateGameCardLock(card) {
   const gameId = card.dataset.game;
   if (!gameId) return;
   clearGameCardLocks(card);
+  const runtime = getGameRuntimeStatus(gameId);
+  if (runtime) {
+    setGameRuntimeLock(card, runtime, !!window.IS_ADMIN);
+    if (!window.IS_ADMIN) return;
+  }
   if (window.IS_ADMIN) return;
   if (GAME_COMING_SOON[gameId]) {
     setGameComingSoon(card);
@@ -2798,7 +2854,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
         } else if (String(viewName || '').startsWith('juego-')) {
           try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
         }
-        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminBaileOverlay(); loadAdminGames(); loadAdminBadges(); }
+        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminBaileOverlay(); loadAdminGames(); loadAdminGameStatus(); loadAdminBadges(); }
         if (viewName === 'planes') { renderPlanView(); loadPlanComparison(true); }
         if (viewName === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
         if (viewName === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
@@ -3511,6 +3567,7 @@ const ADMIN_GAME_CATALOG = [
   { key: 'game_crashctr', label: 'Crash Team Racing' },
   { key: 'game_metalslug', label: 'Metal Slug' },
   { key: 'game_geometrydash', label: 'Geometry Dash' },
+  { key: 'game_clashroyale', label: 'Clash Royale' },
 ];
 
 let adminGamesUsersCache = [];
@@ -3649,6 +3706,90 @@ async function loadAdminGames() {
   } catch {
     tbody.innerHTML = '<tr><td colspan="3" class="admin-empty">Error al cargar.</td></tr>';
   }
+}
+
+function adminGameIdFromCap(capKey) {
+  for (const [id, k] of Object.entries(GAME_CAP)) {
+    if (k === capKey) return id;
+  }
+  return '';
+}
+
+function renderAdminGameStatus(statuses) {
+  const box = document.getElementById('admin-game-status-list');
+  if (!box) return;
+  const map = statuses && typeof statuses === 'object' ? statuses : {};
+  box.innerHTML = ADMIN_GAME_CATALOG.map((g) => {
+    const id = adminGameIdFromCap(g.key);
+    if (!id) return '';
+    const st = map[id] || 'ok';
+    return `<div class="admin-gs-row" data-game="${esc(id)}">
+      <span class="admin-gs-name">${esc(g.label)}</span>
+      <div class="admin-gs-btns">
+        <button type="button" class="btn tiny${st === 'ok' ? ' primary' : ''}" data-st="ok">Normal</button>
+        <button type="button" class="btn tiny${st === 'maintenance' ? ' primary' : ''}" data-st="maintenance">Mantenimiento</button>
+        <button type="button" class="btn tiny${st === 'suspended' ? ' primary' : ''}" data-st="suspended">Suspendido</button>
+      </div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.admin-gs-row .btn').forEach((btn) => {
+    btn.onclick = async () => {
+      const row = btn.closest('.admin-gs-row');
+      const game = row?.dataset.game;
+      const status = btn.dataset.st;
+      if (!game) return;
+      const msg = document.getElementById('admin-game-status-msg');
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/admin/game-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ game, status }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'No se pudo guardar');
+        applyGameStatusMap(d.statuses || {});
+        renderAdminGameStatus(d.statuses || {});
+        if (msg) msg.textContent = 'Guardado.';
+        toast && toast('Estado del juego actualizado', 'ok');
+      } catch (e) {
+        if (msg) msg.textContent = e.message || 'Error';
+        toast && toast(e.message || 'Error', 'warn');
+      } finally {
+        btn.disabled = false;
+      }
+    };
+  });
+}
+
+async function loadAdminGameStatus() {
+  const box = document.getElementById('admin-game-status-list');
+  if (!box) return;
+  try {
+    const r = await fetch('/api/game-status?_=' + Date.now(), { cache: 'no-store' });
+    const d = r.ok ? await r.json() : {};
+    applyGameStatusMap(d.statuses || {});
+    renderAdminGameStatus(d.statuses || {});
+    const msg = document.getElementById('admin-game-status-msg');
+    if (msg && !r.ok) msg.textContent = 'Sin acceso o servidor sin esta función todavía.';
+  } catch {
+    const msg = document.getElementById('admin-game-status-msg');
+    if (msg) msg.textContent = 'No se pudo cargar el estado de juegos.';
+  }
+}
+
+function startGameStatusPoll() {
+  if (window.__gameStatusPoll) return;
+  const tick = async () => {
+    try {
+      const r = await fetch('/api/game-status?_=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const d = await r.json();
+      applyGameStatusMap(d.statuses || {});
+    } catch {}
+  };
+  window.__gameStatusPoll = setInterval(tick, 45000);
+  tick();
 }
 
 (function setupAdminGamesUI() {
@@ -23517,7 +23658,7 @@ async function showViewById(viewId) {
     return;
   }
   if (gameMatch && isGameLocked(gameMatch[1])) {
-    toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+    toastGameLock(gameMatch[1]);
     return;
   }
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
@@ -23810,7 +23951,7 @@ function setupJuegosUI() {
         return;
       }
       if (isGameLocked(card.dataset.game)) {
-        toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
+        toastGameLock(card.dataset.game);
         return;
       }
       showViewById('view-juego-' + card.dataset.game);
@@ -28885,6 +29026,16 @@ async function execGameLocal(exec) {
   const webhookTipo = exec.tipo === 'WEBHOOK';
   if (!window.IS_ADMIN) {
     const cap = gameCapFromExecTipo(exec.tipo, exec.url);
+    let statusId = '';
+    if (cap) {
+      for (const [id, k] of Object.entries(GAME_CAP)) {
+        if (k === cap) { statusId = id; break; }
+      }
+    }
+    if (statusId && getGameRuntimeStatus(statusId)) {
+      toastGameLock(statusId);
+      return { ok: false, error: 'game_status' };
+    }
     if ((cap && !capFeature(cap)) || (gameTipo && !cap)) {
       toast && toast('Este juego es Solo Premium. Mejora tu plan para usarlo ⭐', 'warn');
       return { ok: false, error: 'plan' };

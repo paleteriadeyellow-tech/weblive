@@ -1563,6 +1563,7 @@ app.get('/api/me', async (req, res) => {
     spotifyEnabled: isUserSpotifyEnabled(fullUser),
     baileOverlayEnabled: isUserBaileOverlayEnabled(fullUser),
     ...badgePayload,
+    gameStatus: readGameStatus(),
     caps: { plan: caps.plan, limits: caps.limits, features: caps.features, spotify: !!caps.spotify, baileOverlay: !!caps.baileOverlay },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
     // Preferir true si la nube O el espejo local ya tienen el correo verificado.
@@ -3759,6 +3760,63 @@ app.post('/api/admin/maintenance', express.json(), requireAdmin, (req, res) => {
     message: body.message,
   });
   res.json({ ok: true, ...data });
+});
+
+const GAME_STATUS_FILE = path.join(DATA_DIR, 'game-status.json');
+const GAME_STATUS_OK = new Set(['maintenance', 'suspended']);
+function readGameStatus() {
+  try {
+    const j = JSON.parse(fs.readFileSync(GAME_STATUS_FILE, 'utf8'));
+    const raw = j && typeof j === 'object' ? (j.statuses && typeof j.statuses === 'object' ? j.statuses : j) : {};
+    const out = {};
+    for (const [k, v] of Object.entries(raw)) {
+      const id = String(k || '').trim();
+      const st = String(v || '').trim();
+      if (id && GAME_STATUS_OK.has(st)) out[id] = st;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+function writeGameStatus(map) {
+  const statuses = {};
+  for (const [k, v] of Object.entries(map || {})) {
+    const id = String(k || '').trim();
+    const st = String(v || '').trim();
+    if (id && GAME_STATUS_OK.has(st)) statuses[id] = st;
+  }
+  const data = { statuses, updatedAt: Date.now() };
+  const tmp = GAME_STATUS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, GAME_STATUS_FILE);
+  return statuses;
+}
+app.get('/api/game-status', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.json({ statuses: readGameStatus() });
+});
+app.post('/api/admin/game-status', express.json(), requireAdmin, (req, res) => {
+  const body = req.body || {};
+  const cur = readGameStatus();
+  if (body.game != null) {
+    const id = String(body.game || '').trim();
+    const st = String(body.status || 'ok').trim();
+    if (id) {
+      if (st === 'ok' || !GAME_STATUS_OK.has(st)) delete cur[id];
+      else cur[id] = st;
+    }
+  }
+  if (body.statuses && typeof body.statuses === 'object') {
+    for (const [k, v] of Object.entries(body.statuses)) {
+      const id = String(k || '').trim();
+      const st = String(v || 'ok').trim();
+      if (!id) continue;
+      if (st === 'ok' || !GAME_STATUS_OK.has(st)) delete cur[id];
+      else cur[id] = st;
+    }
+  }
+  res.json({ ok: true, statuses: writeGameStatus(cur) });
 });
 
 /* ----------- Anuncios del panel — espejo del remoto ----------- */
