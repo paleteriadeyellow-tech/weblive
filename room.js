@@ -611,6 +611,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   };
   let pkBattleBroadcastTimer = null;
   const giftCounter = { count: 0 }; // contador de meta (cuenta de la sesión)
+  const giftPhotoGoal = { count: 0 }; // meta de regalos (diamantes, banner con foto)
   /** Metas de regalos multi-item: counts[id], completers[id], donors[id][uid] */
   const giftGoalsState = {
     counts: Object.create(null),
@@ -1191,7 +1192,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'topDonor', 'giftVs', 'batallaVs', 'batallaMeta', 'batallaMvp', 'batallaTop3', 'batallaGiftBall', 'batallaCoinBar',
     'flowMeter', 'giftSeq', 'giftShowcase',
     'winsCounter', 'winsCounterGamer', 'winsCounterMinecraft', 'winsCounterMario', 'winsCounterPro',
-    'top1', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'giftGoals', 'giftCounter', 'topStreak',
+    'top1', 'top1fire', 'habibiTop', 'topGift', 'lastGift', 'giftGoals', 'giftCounter', 'giftPhotoGoal', 'topStreak',
     'baileRonda', 'baileCombo', 'baileRank',
     'batallaGifts', 'batallaLikes', 'coinMatch', 'sorteosOverlay', 'sorteosVidasOverlay', 'topKills', 'screenFx',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
@@ -2458,6 +2459,40 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcastGiftCounter();
     saveSessionOverlays();
   }
+  function serializeGiftPhotoGoal() {
+    const goal = Math.max(1, Number(settings.giftPhotoGoal?.goal) || 50000);
+    return { count: giftPhotoGoal.count, goal };
+  }
+  function broadcastGiftPhotoGoal() { broadcast('giftPhotoGoal', serializeGiftPhotoGoal()); }
+  function setGiftPhotoGoal(n) {
+    giftPhotoGoal.count = Math.max(0, Math.floor(Number(n) || 0));
+    broadcastGiftPhotoGoal();
+    saveSessionOverlays();
+  }
+  function resetGiftPhotoGoal() { giftPhotoGoal.count = 0; broadcastGiftPhotoGoal(); saveSessionOverlays(); }
+  function countDiamondsForPhotoGoal(diamonds) {
+    trackGiftPhotoGoal('gift', diamonds);
+  }
+  function trackGiftPhotoGoal(kind, amount) {
+    const c = settings.giftPhotoGoal || {};
+    const goalKind = String(c.goalKind || 'gift').toLowerCase();
+    if (goalKind === 'viewers') return;
+    const allow = goalKind === 'hype'
+      ? { like: true, follow: true, gift: true, share: true, member: false }
+      : {
+        like: goalKind === 'likes',
+        follow: goalKind === 'follow',
+        gift: goalKind === 'gift',
+        share: goalKind === 'share',
+        member: goalKind === 'member',
+      };
+    if (!allow[kind]) return;
+    const n = Math.max(0, Math.floor(Number(amount) || 0));
+    if (n <= 0) return;
+    giftPhotoGoal.count += n;
+    broadcastGiftPhotoGoal();
+    saveSessionOverlays();
+  }
 
 
   function getGiftGoalsPeriod() {
@@ -3607,6 +3642,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function clearSessionOverlayState() {
     giftCounter.count = 0;
+    giftPhotoGoal.count = 0;
     if (getGiftGoalsPeriod() === 'live') clearGiftGoalsState();
     top1fireSession.clear();
     habibiTopSession.clear();
@@ -3630,6 +3666,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       return;
     }
     giftCounter.count = Math.max(0, Number(raw.giftCounter?.count) || 0);
+    giftPhotoGoal.count = Math.max(0, Number(raw.giftPhotoGoal?.count) || 0);
     if (getGiftGoalsPeriod() === 'live') {
       clearGiftGoalsState();
       if (raw.giftGoals && typeof raw.giftGoals === 'object') {
@@ -3711,6 +3748,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       roomId: liveSession.roomId || null,
       username: liveSession.username || null,
       giftCounter: { count: giftCounter.count },
+      giftPhotoGoal: { count: giftPhotoGoal.count },
       giftGoals: getGiftGoalsPeriod() === 'live' ? {
         ...serializeGiftGoals(),
         donors: giftGoalsState.donors,
@@ -3958,6 +3996,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const c = settings.hypeBar || {};
     const pts = Math.max(1, parseInt(c.pointsLike, 10) || 1);
     trackSessionHypeEvent('like', n * pts);
+    trackGiftPhotoGoal('like', n);
     saveSessionOverlays();
   }
 
@@ -11530,6 +11569,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         }
 
         countGiftForGoal(giftId, giftName, repeatCount);
+        countDiamondsForPhotoGoal(total);
         countGiftForGiftGoals(user, giftId, giftName, repeatCount);
         applyWinsGiftHooks(giftId, repeatCount);
         applyGiftRouletteHook(user, giftId, giftName, repeatCount);
@@ -11636,6 +11676,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
+        trackGiftPhotoGoal('follow', 1);
       } else if (action.includes('share')) {
         if (!followShareOnce('share', user)) return; // ya lo procesó el canal SHARE
         state.stats.shares++;
@@ -11648,6 +11689,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (timerEventOnce('share', user.uniqueId)) addTimerSeconds(settings.timer?.share || 0);
         const c = settings.hypeBar || {};
         trackSessionHypeEvent('share', Math.max(1, parseInt(c.pointsShare, 10) || 1));
+        trackGiftPhotoGoal('share', 1);
       }
       pushStatsThrottled();
     });
@@ -11666,6 +11708,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (timerEventOnce('follow', user.uniqueId)) addTimerSeconds(settings.timer?.follow || 0);
       const c = settings.hypeBar || {};
       trackSessionHypeEvent('follow', Math.max(1, parseInt(c.pointsFollow, 10) || 1));
+      trackGiftPhotoGoal('follow', 1);
       pushStatsThrottled();
     });
 
@@ -11683,6 +11726,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       // Hype: igual que la rama share de SOCIAL (si este canal gana el dedupe, que no se pierda).
       const c = settings.hypeBar || {};
       trackSessionHypeEvent('share', Math.max(1, parseInt(c.pointsShare, 10) || 1));
+      trackGiftPhotoGoal('share', 1);
       pushStatsThrottled();
     });
 
@@ -11711,6 +11755,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       triggerMinecraftActions('subscribe', info, user);
       processScreenFxTriggers('subscribe', info, user);
       addTimerSeconds(settings.timer?.subscribe || 0);
+      trackGiftPhotoGoal('member', 1);
       const subBonus = Math.round(Number(settings.points?.subBonus) || 0);
       if (user.uniqueId && subBonus > 0) {
         addUserPoints({ uniqueId: user.uniqueId, userId: user.userId, nickname: user.nickname, photo: user.photo, amount: subBonus, counted: true, description: months > 0 ? `Suscripción (${months} m)` : 'Suscripción', manual: false });
@@ -12801,6 +12846,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'setGiftCounter':
         setGiftCounter(data.value);
         break;
+      case 'testGiftPhotoGoal':
+        broadcast('giftPhotoGoalTest', {});
+        break;
+      case 'resetGiftPhotoGoal':
+        resetGiftPhotoGoal();
+        break;
+      case 'setGiftPhotoGoal':
+        setGiftPhotoGoal(data.value);
+        break;
       case 'testGiftGoals':
         broadcast('giftGoalsTest', {});
         break;
@@ -13051,6 +13105,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     send('timer', serializeTimer());
     send('liveUptime', serializeLiveUptime());
     send('giftCounter', serializeGiftCounter());
+    send('giftPhotoGoal', serializeGiftPhotoGoal());
     send('giftGoals', serializeGiftGoals());
     send('batallaCoinBarState', serializeCoinBarState());
     send('sessionOverlays', serializeSessionOverlaysPayload());

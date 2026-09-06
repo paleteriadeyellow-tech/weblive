@@ -540,7 +540,7 @@ window.addEventListener('pageshow', () => {
 });
 
 function setConnBadge(on) {
-  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'lgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'wcp-conn', 'gr-conn', 'tp3-conn', 'mcf-conn'].forEach((id) => {
+  ['jar-conn', 'vaq-conn', 'mar-conn', 'pel-conn', 'top-conn', 'top1-conn', 'top1f-conn', 'habi-conn', 'gvs-conn', 'flw-conn', 'tree-conn', 'gsq-conn', 'gsh-conn', 'ggm-conn', 'gct-conn', 'ghl-conn', 'tgf-conn', 'lgf-conn', 'tst-conn', 'bgf-conn', 'bli-conn', 'cm-conn', 'so-conn', 'taln-conn', 'tal-conn', 'tmr-conn', 'plu-conn', 'tlk-conn', 'tdm-conn', 'tll-conn', 'tdl-conn', 'hyp-conn', 'gpf-conn', 'tlv-conn', 'foc-conn', 'focmc-conn', 'agf-conn', 'alk-conn', 'afl-conn', 'sjn-conn', 'sjnmc-conn', 'sjndbz-conn', 'sjnmr-conn', 'wc-conn', 'wcg-conn', 'wcm-conn', 'wmr-conn', 'wcp-conn', 'gr-conn', 'tp3-conn', 'mcf-conn'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.classList.toggle('off', !on);
@@ -661,7 +661,7 @@ const OVERLAY_CAP = {
   '/contador-wins-pro.html': 'ov_winscounterpro',
   '/mejorregalo.html': 'ov_mejorregalo', '/ultimoregalo.html': 'ov_ultimoregalo', '/mejorracha.html': 'ov_mejorracha',
   '/batallaregalos.html': 'ov_batallaregalos', '/batallalikes.html': 'ov_batallalikes',
-  '/coinmatch.html': 'ov_coinmatch', '/sorteos.html': 'ov_sorteos', '/top-kills.html': 'ov_topkills', '/meta.html': 'ov_meta',
+  '/coinmatch.html': 'ov_coinmatch', '/sorteos.html': 'ov_sorteos', '/top-kills.html': 'ov_topkills', '/meta-regalos-foto.html': 'ov_giftbanner', '/meta.html': 'ov_meta',
   '/top1.html': 'ov_top1',
   '/video.html': 'ov_video',
   '/spotify-overlay.html': 'ov_spotify',
@@ -1013,7 +1013,7 @@ const CAP_LABELS = {
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)', ov_winscounterpro: 'Contador de victorias PRO (5 diseños)',
   ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_baileronda: 'Overlay baile — Ronda', ov_bailecombo: 'Overlay baile — Top combo', ov_bailerank: 'Overlay baile — Ranking OUT', ov_batallacoinbar: 'Contador de monedas', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_ultimoregalo: 'Último regalo', ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
-  ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_screenfx: 'Efectos pantalla', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
+  ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_screenfx: 'Efectos pantalla', ov_giftbanner: 'Meta de regalos (foto)', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_topmultirank: 'Top rotatorio (likes / coins / chat / puntos)',
   ov_pointslookup: 'Consulta de puntos (!puntos)',
   ov_toplikes: 'Top likes',
@@ -1045,7 +1045,7 @@ const PLAN_FEATURE_ORDER = [
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_winscounterpro', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
-  'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
+  'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_giftbanner', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
   'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_fuegos', 'ov_chatgamer', 'ov_giftroulette', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
   'ov_top1', 'ov_spotify', 'ov_spotifyplayer', 'ov_youtube', 'ov_editorrapido', 'ov_screenfx', 'ov_video',
 ];
@@ -5923,12 +5923,13 @@ function applySettingsToUI(touchedKeys) {
     setTimeout(() => { try { window.__syncBatallaCoinBar(); } catch {} }, 50);
   }
   if (has('giftCounter') && typeof refreshGiftCounterCardUI === 'function') refreshGiftCounterCardUI();
+  if (has('giftPhotoGoal') && typeof refreshGiftPhotoGoalUI === 'function') refreshGiftPhotoGoalUI();
   if (has('sorteosOverlay') && typeof window.__soSyncSlowBtn === 'function') window.__soSyncSlowBtn();
   if (has('sorteosVidasOverlay') && typeof window.__sovSyncSlowBtn === 'function') window.__sovSyncSlowBtn();
 
   if (all || hasAny(
     'giftVs', 'flowMeter', 'giftSeq', 'giftShowcase', 'coinMatch', 'sorteosOverlay', 'sorteosVidasOverlay',
-    'habibiTop', 'topGift', 'lastGift', 'topStreak', 'top1fire', 'hypeBar',
+    'habibiTop', 'topGift', 'lastGift', 'topStreak', 'top1fire', 'hypeBar', 'giftPhotoGoal',
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList',
     'topAltRank', 'topAltRankNeon', 'topMultiRank', 'pointsLookup', 'liveTimer',
   )) {
@@ -11571,7 +11572,10 @@ function setupStyleOverlay(o) {
       fr?.contentWindow?.postMessage({ kind: o.kind, ...msg }, '*');
     });
   };
-  const buildCfg = () => readForm(o.map, o.types);
+  const buildCfg = () => {
+    const form = readForm(o.map, o.types);
+    return o.previewMerge ? { ...(settings?.[o.settingsKey] || {}), ...form } : form;
+  };
   const pushPreview = (cfg) => toPreview({ type: 'config', config: cfg || settings?.[o.settingsKey] || {} });
   const syncFormExtras = () => { if (typeof o.onFormSync === 'function') o.onFormSync(); };
 
@@ -11617,11 +11621,17 @@ function setupStyleOverlay(o) {
     if (typeof o.onReset === 'function') o.onReset();
   };
   if ($(o.btnConfig)) $(o.btnConfig).onclick = async () => {
-    await ensureEmbedLoaded(frame());
     fillForm(o.map, settings?.[o.settingsKey] || {});
     syncFormExtras();
-    pushPreview(buildCfg());
-    $(o.modalId).classList.remove('hidden');
+    const modal = $(o.modalId);
+    if (modal) modal.classList.remove('hidden');
+    if (typeof o.onOpen === 'function') o.onOpen();
+    const showPrev = () => pushPreview(buildCfg());
+    if (o.openInstant) ensureEmbedLoaded(frame()).then(showPrev);
+    else {
+      await ensureEmbedLoaded(frame());
+      showPrev();
+    }
   };
   const close = () => $(o.modalId).classList.add('hidden');
   if ($(o.closeId)) $(o.closeId).onclick = close;
@@ -11642,7 +11652,7 @@ function setupStyleOverlay(o) {
     close();
   };
   o._push = () => pushPreview();
-  syncFormExtras();
+  try { syncFormExtras(); } catch {}
   return o;
 }
 
@@ -12063,6 +12073,31 @@ const STYLE_OVERLAYS = [
     onReset: () => {
       if ($('gct-value')) $('gct-value').value = '0';
       try { if (typeof toast === 'function') toast('Contador en 0.', 'ok'); } catch {}
+    },
+  }),
+  setupStyleOverlay({
+    kind: 'giftbanner', settingsKey: 'giftPhotoGoal', previewId: 'gpf-preview',
+    btnTest: 'gpf-test', btnReset: 'gpf-reset', btnConfig: 'gpf-config',
+    modalId: 'gpfConfigModal', closeId: 'gpfcfg-close', saveId: 'gpfcfg-save',
+    testAction: 'testGiftPhotoGoal', resetAction: 'resetGiftPhotoGoal',
+    openInstant: true, previewMerge: true,
+    map: {
+      'gpfcfg-kind': 'goalKind', 'gpfcfg-title': 'title', 'gpfcfg-goal': 'goal',
+      'gpfcfg-titlecolor': 'titleColor', 'gpfcfg-countercolor': 'counterColor',
+      'gpfcfg-barcolor': 'barColor', 'gpfcfg-glow': 'glowColor',
+    },
+    types: { goal: 'int' },
+    onFormSync: () => { if (typeof paintGiftPhotoGoalLive === 'function') paintGiftPhotoGoalLive(); },
+    onOpen: () => { if (typeof paintGiftPhotoGoalLive === 'function') paintGiftPhotoGoalLive(); },
+    onSave: (cfg) => {
+      cfg.goal = Math.max(1, parseInt(cfg.goal, 10) || 50000);
+      if ($('gpfcfg-goal')) $('gpfcfg-goal').value = cfg.goal;
+      if (typeof commitGiftPhotoGoalFromForm === 'function') commitGiftPhotoGoalFromForm(true);
+    },
+    onReset: () => {
+      if ($('gpfcfg-value')) $('gpfcfg-value').value = '0';
+      if (typeof paintGiftPhotoGoalLive === 'function') paintGiftPhotoGoalLive();
+      try { if (typeof toast === 'function') toast('Meta de regalos en 0.', 'ok'); } catch {}
     },
   }),
   setupStyleOverlay({
@@ -14171,6 +14206,174 @@ function refreshGiftCounterCardUI() {
   if ($('gct-goal')) $('gct-goal').value = c.goal ?? 50;
 }
 
+function gpfKindTable() {
+  return {
+    hype: { title: 'META HYPE', icon: '✨', suffix: '✨', goal: 'META (PUNTOS)' },
+    likes: { title: 'META DE LIKES', icon: '❤️', suffix: '❤️', goal: 'META (LIKES)' },
+    follow: { title: 'META DE SEGUIDORES', icon: '👤', suffix: '👤', goal: 'META (SEGUIDORES)' },
+    share: { title: 'META DE COMPARTIDOS', icon: '↪️', suffix: '↪️', goal: 'META (COMPARTIDOS)' },
+    gift: { title: 'META DE REGALOS', icon: '🎁', suffix: '💎', goal: 'META (DIAMANTES)' },
+    member: { title: 'META DE MIEMBROS', icon: '⭐', suffix: '⭐', goal: 'META (MIEMBROS)' },
+    viewers: { title: 'META DE ESPECTADORES', icon: '👁', suffix: '👁', goal: 'META (ESPECTADORES)' },
+  };
+}
+function gpfKindMeta(kind) {
+  const table = gpfKindTable();
+  return table[String(kind || 'gift').toLowerCase()] || table.gift;
+}
+function gpfBareTitle(t) {
+  return String(t || '').replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/u, '').trim().toUpperCase();
+}
+function gpfIsDefaultTitle(t) {
+  const b = gpfBareTitle(t);
+  return !b || Object.values(gpfKindTable()).some((d) => gpfBareTitle(d.title) === b);
+}
+
+function giftPhotoGoalFileLabel(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return 'Ningún archivo seleccionado';
+  try {
+    const name = decodeURIComponent(new URL(raw, location.origin).pathname.split('/').pop() || '');
+    return name || 'Foto cargada';
+  } catch {
+    return 'Foto cargada';
+  }
+}
+
+function refreshGiftPhotoGoalUI() {
+  const c = settings?.giftPhotoGoal || {};
+  const nameEl = $('gpfcfg-photoname');
+  if (nameEl) nameEl.textContent = giftPhotoGoalFileLabel(c.bgUrl);
+  const goalEl = $('gpfcfg-goal');
+  const modalOpen = !$('gpfConfigModal')?.classList.contains('hidden');
+  if (goalEl && document.activeElement !== goalEl && !modalOpen) {
+    goalEl.value = c.goal ?? 50000;
+  }
+  paintGiftPhotoGoalLive();
+}
+
+function giftPhotoGoalFormCfg() {
+  const cur = settings?.giftPhotoGoal || {};
+  const kind = ($('gpfcfg-kind')?.value || cur.goalKind || 'gift').toLowerCase();
+  const meta = gpfKindMeta(kind);
+  const title = ($('gpfcfg-title')?.value || cur.title || meta.title).trim();
+  const goalRaw = parseInt($('gpfcfg-goal')?.value, 10);
+  return {
+    ...cur,
+    goalKind: kind,
+    title: title || meta.title,
+    goal: Number.isFinite(goalRaw) && goalRaw >= 1 ? goalRaw : (cur.goal || 50000),
+    titleColor: $('gpfcfg-titlecolor')?.value || cur.titleColor || '#ffffff',
+    counterColor: $('gpfcfg-countercolor')?.value || cur.counterColor || '#ffffff',
+    barColor: $('gpfcfg-barcolor')?.value || cur.barColor || '#5ad4ff',
+    glowColor: $('gpfcfg-glow')?.value || cur.glowColor || '#5ad4ff',
+    bgUrl: cur.bgUrl || '',
+  };
+}
+
+function paintGiftPhotoGoalLive() {
+  const banner = $('gpf-live-banner');
+  if (!banner) return;
+  const cfg = giftPhotoGoalFormCfg();
+  const count = Math.max(0, parseInt($('gpfcfg-value')?.value, 10) || 0);
+  const goal = Math.max(1, Number(cfg.goal) || 50000);
+  const pct = Math.max(0, Math.min(100, (count / goal) * 100));
+  const meta = gpfKindMeta(cfg.goalKind);
+  const title = String(cfg.title || meta.title).trim();
+  banner.style.setProperty('--title-color', cfg.titleColor || '#ffffff');
+  banner.style.setProperty('--counter-color', cfg.counterColor || '#ffffff');
+  banner.style.setProperty('--bar-color', cfg.barColor || '#5ad4ff');
+  banner.style.setProperty('--glow', cfg.glowColor || '#5ad4ff');
+  const url = String(cfg.bgUrl || '').trim();
+  banner.style.setProperty('--bg-img', url ? 'url("' + url.replace(/"/g, '\\"') + '")' : 'none');
+  const t = $('gpf-live-title');
+  if (t) t.textContent = (/^[🎁✨❤❤️👤↪️⭐🌟👁💎🪙]/.test(title) ? title : (meta.icon + ' ' + title));
+  const fill = $('gpf-live-fill');
+  if (fill) fill.style.width = pct + '%';
+  const n = $('gpf-live-count');
+  if (n) n.textContent = count.toLocaleString('en-US') + ' / ' + goal.toLocaleString('en-US') + ' ' + meta.suffix;
+  const gl = $('gpfcfg-goal-lbl');
+  if (gl) gl.textContent = meta.goal;
+}
+
+function pushGiftPhotoGoalPreview(cfg) {
+  const payload = cfg || settings?.giftPhotoGoal || {};
+  const sendMsg = (fr) => {
+    try { fr?.contentWindow?.postMessage({ kind: 'giftbanner', type: 'config', config: payload }, '*'); } catch {}
+  };
+  const fr = $('gpf-preview');
+  if (typeof ensureEmbedLoaded === 'function' && fr) ensureEmbedLoaded(fr).then(sendMsg);
+  else sendMsg(fr);
+}
+
+function commitGiftPhotoGoalFromForm(persist) {
+  if (!settings) return settings?.giftPhotoGoal;
+  if (!settings.giftPhotoGoal) settings.giftPhotoGoal = {};
+  Object.assign(settings.giftPhotoGoal, giftPhotoGoalFormCfg());
+  paintGiftPhotoGoalLive();
+  pushGiftPhotoGoalPreview(settings.giftPhotoGoal);
+  if (persist !== false) saveSettings();
+  return settings.giftPhotoGoal;
+}
+
+(function setupGiftPhotoGoalCard() {
+  const ensure = () => { if (!settings) return {}; if (!settings.giftPhotoGoal) settings.giftPhotoGoal = {}; return settings.giftPhotoGoal; };
+
+  if ($('gpfcfg-kind')) $('gpfcfg-kind').addEventListener('change', () => {
+    const kind = $('gpfcfg-kind').value;
+    const meta = gpfKindMeta(kind);
+    const titleEl = $('gpfcfg-title');
+    if (titleEl && gpfIsDefaultTitle(titleEl.value)) titleEl.value = meta.title;
+    commitGiftPhotoGoalFromForm(true);
+  });
+  ['gpfcfg-title', 'gpfcfg-goal', 'gpfcfg-titlecolor', 'gpfcfg-countercolor', 'gpfcfg-barcolor', 'gpfcfg-glow', 'gpfcfg-value'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      if (id === 'gpfcfg-value') { paintGiftPhotoGoalLive(); return; }
+      commitGiftPhotoGoalFromForm(true);
+    });
+    el.addEventListener('change', () => {
+      if (id === 'gpfcfg-value') { paintGiftPhotoGoalLive(); return; }
+      commitGiftPhotoGoalFromForm(true);
+    });
+  });
+
+  if ($('gpfcfg-photobtn')) $('gpfcfg-photobtn').onclick = () => $('gpfcfg-photo')?.click();
+  if ($('gpfcfg-photo')) $('gpfcfg-photo').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const nameEl = $('gpfcfg-photoname');
+    if (nameEl) nameEl.textContent = 'Subiendo…';
+    try {
+      const res = await fetch('/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
+      const data = await res.json().catch(() => ({}));
+      if (!data.url) throw new Error(data.error || 'error');
+      const c = ensure();
+      c.bgUrl = data.url;
+      refreshGiftPhotoGoalUI();
+      commitGiftPhotoGoalFromForm(true);
+      try { if (typeof toast === 'function') toast('Foto de fondo subida.', 'ok'); } catch {}
+    } catch {
+      if (nameEl) nameEl.textContent = 'Error al subir';
+      try { if (typeof toast === 'function') toast('No se pudo subir la foto.', 'err'); } catch {}
+    }
+  });
+  if ($('gpfcfg-photoclear')) $('gpfcfg-photoclear').onclick = () => {
+    const c = ensure();
+    c.bgUrl = '';
+    refreshGiftPhotoGoalUI();
+    commitGiftPhotoGoalFromForm(true);
+  };
+  if ($('gpfcfg-set')) $('gpfcfg-set').onclick = () => {
+    const v = Math.max(0, parseInt($('gpfcfg-value').value, 10) || 0);
+    send({ action: 'setGiftPhotoGoal', value: v });
+    paintGiftPhotoGoalLive();
+    try { if (typeof toast === 'function') toast('Meta puesta en ' + v + '.'); } catch {}
+  };
+})();
+
 
 // Coin Match: controles de partido (iniciar/terminar/ganadores) + reset propio
 (function setupCoinMatchControls() {
@@ -14370,6 +14573,9 @@ function refreshGiftCounterCardUI() {
     if (!key) return null;
     return sovPeopleLocal.find((x) => sovPersonKey(x) === key) || null;
   }
+  function sovHasStake(p) {
+    return Math.max(0, Number(p?.lives) || 0) > 0 || Math.max(0, Number(p?.bank) || 0) > 0;
+  }
   function mergeSovPeopleFromRemote(payload) {
     const remote = Array.isArray(payload?.players) ? payload.players : [];
     const isSnapshot = !!(payload && (
@@ -14378,13 +14584,14 @@ function refreshGiftCounterCardUI() {
     ));
     if (isSnapshot) {
       sovPeopleLocal = remote
-        .filter((p) => p && p.id && Math.max(0, Number(p.lives) || 0) > 0)
+        .filter((p) => p && p.id && sovHasStake(p))
         .map((p) => ({
           id: String(p.id),
           userId: String(p.userId || '').trim(),
           name: p.name || p.id,
           pic: p.pic || '',
           lives: Math.max(0, Number(p.lives) || 0),
+          bank: Math.max(0, Number(p.bank) || 0),
           seq: Number(p.seq) || 0,
           alive: true,
         }));
@@ -14404,6 +14611,7 @@ function refreshGiftCounterCardUI() {
       if (!k) continue;
       const prev = map.get(k);
       const lives = Math.max(0, Number(p.lives) || 0);
+      const bank = Math.max(0, Number(p.bank) || 0);
       if (prev) {
         map.set(k, {
           ...prev,
@@ -14413,16 +14621,17 @@ function refreshGiftCounterCardUI() {
           name: p.name || prev.name,
           pic: p.pic || prev.pic,
           lives,
+          bank,
           alive: lives > 0,
           seq: Number.isFinite(Number(p.seq)) && Number(p.seq) > 0
             ? Math.min(Number(prev.seq) || Number(p.seq), Number(p.seq))
             : (prev.seq || p.seq),
         });
-      } else if (lives > 0) {
-        map.set(k, { ...p, lives, alive: true });
+      } else if (sovHasStake({ lives, bank })) {
+        map.set(k, { ...p, lives, bank, alive: lives > 0 });
       }
     }
-    sovPeopleLocal = Array.from(map.values()).filter((p) => Math.max(0, Number(p.lives) || 0) > 0);
+    sovPeopleLocal = Array.from(map.values()).filter((p) => sovHasStake(p));
     return sovPeopleLocal;
   }
   function patchSovPerson(id, patch, deltaLives) {
@@ -14479,15 +14688,20 @@ function refreshGiftCounterCardUI() {
       nameEl.title = '@' + id;
     }
     const livesEl = el.querySelector('.sov-prow-lives');
-    if (livesEl) livesEl.textContent = String(lives);
+    if (livesEl) livesEl.textContent = sovLivesLabel(p);
     return el;
+  }
+  function sovLivesLabel(p) {
+    const lives = Math.max(0, parseInt(p?.lives, 10) || 0);
+    const bank = Math.max(0, parseInt(p?.bank, 10) || 0);
+    return bank > 0 ? (lives + ' · ' + bank + '🪙') : String(lives);
   }
   function updateSovRow(el, p) {
     if (!el || !p) return;
     const lives = Math.max(0, parseInt(p.lives, 10) || 0);
     el.dataset.lives = String(lives);
     const livesEl = el.querySelector('.sov-prow-lives');
-    if (livesEl) livesEl.textContent = String(lives);
+    if (livesEl) livesEl.textContent = sovLivesLabel(p);
     const name = p.name || p.id || '?';
     const nameEl = el.querySelector('.sov-prow-name');
     if (nameEl) {
@@ -14519,7 +14733,7 @@ function refreshGiftCounterCardUI() {
     const empty = $('sov-people-empty');
     if (!rows) return;
     mergeSovPeopleFromRemote(payload || {});
-    sovPeopleLocal = sovPeopleLocal.filter((p) => Math.max(0, parseInt(p.lives, 10) || 0) > 0);
+    sovPeopleLocal = sovPeopleLocal.filter((p) => sovHasStake(p));
     const visible = sovPeopleLocal.slice();
     visible.sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0) || String(a.id).localeCompare(String(b.id)));
     const totalLives = Number.isFinite(Number(payload?.totalLives))
@@ -14560,7 +14774,7 @@ function refreshGiftCounterCardUI() {
     }
     const n = Math.min(payload.count, Number(cur?.lives) || payload.count);
     patchSovPerson(canonId, { userId: cur?.userId || '' }, -n);
-    sovPeopleLocal = sovPeopleLocal.filter((p) => (Number(p.lives) || 0) > 0);
+    sovPeopleLocal = sovPeopleLocal.filter((p) => sovHasStake(p));
     renderSorteosVidasPeople({ players: sovPeopleLocal });
     toPrev({ type: 'action', action: 'removeLife', ...payload, count: n });
     sendSov('removeLife', { ...payload, count: n });

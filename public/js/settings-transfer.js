@@ -53,6 +53,7 @@
         { key: 'topGift', label: 'Mejor regalo' },
         { key: 'lastGift', label: 'Último regalo' },
         { key: 'giftCounter', label: 'Contador de meta' },
+        { key: 'giftPhotoGoal', label: 'Meta de regalos (foto)' },
         { key: 'corazonLava', label: 'Meta Heart Me' },
         { key: 'topStreak', label: 'Mejor racha' },
         { key: 'baileRonda', label: 'Overlay baile — Ronda' },

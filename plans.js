@@ -81,6 +81,7 @@ export const CAPABILITIES = {
     { key: 'ov_sorteos', label: 'Sorteos overlay', path: '/sorteos.html' },
     { key: 'ov_topkills', label: 'Top kills', path: '/top-kills.html' },
     { key: 'ov_top1fire', label: 'Top 1 Donador Fuego', path: '/top1fire.html' },
+    { key: 'ov_giftbanner', label: 'Meta de regalos (foto)', path: '/meta-regalos-foto.html' },
     { key: 'ov_meta', label: 'Barra de meta (Hype)', path: '/meta.html' },
     { key: 'ov_metamc', label: 'Barra de meta (Minecraft)', path: '/meta-minecraft.html' },
     { key: 'ov_metamario', label: 'Barra de meta (Mario Bros)', path: '/meta-mario.html' },

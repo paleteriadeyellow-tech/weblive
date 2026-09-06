@@ -3551,6 +3551,65 @@
           </div>
         </div>
 
+        <!-- Modal: Configurar Meta de regalos (foto) -->
+        <div id="gpfConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>🎁 Configurar — Meta de regalos</h2>
+              <button class="modal-close" id="gpfcfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="hint">OBS / TikTok Studio: <b>780 × 240</b>. Elige qué cuenta la meta y sube una foto de fondo.</p>
+              <label class="ml">TIPO DE META</label>
+              <select id="gpfcfg-kind">
+                <option value="hype">Hype (todo suma)</option>
+                <option value="likes">Likes</option>
+                <option value="follow">Seguidores</option>
+                <option value="share">Compartidos</option>
+                <option value="gift" selected>Monedas (regalos)</option>
+                <option value="member">Suscriptores / miembros</option>
+                <option value="viewers">Espectadores</option>
+              </select>
+              <div class="gpf-live" aria-hidden="true">
+                <div class="gpf-live-banner" id="gpf-live-banner">
+                  <div class="gpf-live-title" id="gpf-live-title">🎁 META DE REGALOS</div>
+                  <div class="gpf-live-bar"><i id="gpf-live-fill"></i></div>
+                  <div class="gpf-live-count" id="gpf-live-count">0 / 50,000 💎</div>
+                </div>
+              </div>
+              <label class="ml">TÍTULO</label>
+              <input type="text" id="gpfcfg-title" placeholder="META DE REGALOS">
+              <div class="gvscfg-grid2" style="margin-bottom:12px">
+                <div>
+                  <label class="ml" id="gpfcfg-goal-lbl">META (DIAMANTES)</label>
+                  <input type="number" id="gpfcfg-goal" min="1" value="50000">
+                </div>
+                <div>
+                  <label class="ml">VALOR ACTUAL</label>
+                  <div class="gct-giftrow" style="gap:8px">
+                    <input type="number" id="gpfcfg-value" min="0" value="0" style="flex:1">
+                    <button type="button" class="btn ghost" id="gpfcfg-set">Set</button>
+                  </div>
+                </div>
+              </div>
+              <label class="ml">FOTO DE FONDO</label>
+              <div class="gct-giftrow" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                <button type="button" class="btn ghost" id="gpfcfg-photobtn">Seleccionar archivo</button>
+                <span class="gct-giftname" id="gpfcfg-photoname">Ningún archivo seleccionado</span>
+                <button type="button" class="btn ghost" id="gpfcfg-photoclear">Quitar foto</button>
+                <input type="file" id="gpfcfg-photo" accept="image/*" hidden>
+              </div>
+              <div class="cfg-colors">
+                <div><label class="ml">COLOR TÍTULO</label><input type="color" id="gpfcfg-titlecolor" value="#ffffff"></div>
+                <div><label class="ml">COLOR CONTADOR</label><input type="color" id="gpfcfg-countercolor" value="#ffffff"></div>
+                <div><label class="ml">COLOR BARRA</label><input type="color" id="gpfcfg-barcolor" value="#5ad4ff"></div>
+                <div><label class="ml">BORDE / GLOW</label><input type="color" id="gpfcfg-glow" value="#5ad4ff"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="gpfcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Batalla VS (estilo visual) -->
         <div id="bvsConfigModal" class="modal hidden">
           <div class="modal-box">
@@ -6617,6 +6676,27 @@
         <section class="view" id="view-ov-metas">
           <h1 class="view-title">?? Metas Overlays</h1>
           <p class="view-sub">AÃ±ade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
+            <!-- Tarjeta PRO: Meta de regalos (foto) -->
+            <div class="ovpro-card" id="gpf-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="gpf-reset">↺ Reset</button>
+                  <button class="ovpro-btn primary" id="gpf-test">▶ Testear</button>
+                  <button class="ovpro-btn" id="gpf-config">⚙ Configurar</button>
+                </div>
+                <div class="ovpro-conn" id="gpf-conn"><span class="cdot"></span> CONECTADO</div>
+              </div>
+              <h3 class="ovpro-title">🎁 Meta de regalos (foto)</h3>
+              <p class="ovpro-desc">Banner con foto de fondo. Suma diamantes de todos los regalos hasta tu meta.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/meta-regalos-foto.html">/meta-regalos-foto.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview ovpro-preview--giftbanner">
+                <iframe id="gpf-preview" data-src="/meta-regalos-foto.html?embed=1" title="Vista previa meta de regalos"></iframe>
+              </div>
+            </div>
             <!-- Tarjeta PRO: Barra de meta (Hype) -->
             <div class="ovpro-card" id="hyp-card">
               <div class="ovpro-top">
@@ -11223,7 +11303,7 @@
 
   <script src="/js/account-email.js?v=dockmail1"></script>
   <script src="/js/camera-frames.js?v=mcf4"></script>
-  <script src="/js/dashboard.js?v=sov16"></script>
+  <script src="/js/dashboard.js?v=sov26"></script>
   <script src="/js/editor-rapido.js?v=er92"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

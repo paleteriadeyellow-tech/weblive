@@ -985,14 +985,17 @@
     }
     function playerSummary() {
       return Object.values(players)
-        .filter((p) => p && Math.max(0, Number(p.lives) || 0) > 0)
+        .filter((p) => {
+          if (!p) return false;
+          return Math.max(0, Number(p.lives) || 0) > 0 || Math.max(0, Number(p.bank) || 0) > 0;
+        })
         .map((p) => ({
           id: p.id,
           userId: p.userId || '',
           name: p.name || p.id,
           pic: p.pic || '',
           lives: Math.max(0, Number(p.lives) || 0),
-          alive: true,
+          alive: Math.max(0, Number(p.lives) || 0) > 0,
           bank: Math.max(0, Number(p.bank) || 0),
           seq: Number(p.seq) || 0,
         }))
@@ -1001,7 +1004,10 @@
     function pruneDeadPlayers() {
       for (const id of Object.keys(players)) {
         const p = players[id];
-        if (!p || Math.max(0, Number(p.lives) || 0) <= 0) delete players[id];
+        if (!p) { delete players[id]; continue; }
+        const lives = Math.max(0, Number(p.lives) || 0);
+        const bank = Math.max(0, Number(p.bank) || 0);
+        if (lives <= 0 && bank <= 0) delete players[id];
       }
     }
     function ensureLifeSlotSync() {
@@ -1080,7 +1086,8 @@
       list.forEach((row) => {
         if (!row || !row.id) return;
         const lives = Math.max(0, Number(row.lives) || 0);
-        if (lives <= 0) return;
+        const bank = Math.max(0, Number(row.bank) || 0);
+        if (lives <= 0 && bank <= 0) return;
         const seq = Number(row.seq) || ++playerSeq;
         maxSeq = Math.max(maxSeq, seq);
         players[row.id] = {
@@ -1089,11 +1096,11 @@
           name: row.name || row.id,
           pic: row.pic || '',
           lives,
-          bank: Math.max(0, Number(row.bank) || 0),
+          bank,
           spent: lives * cost,
           donated: lives * cost,
           stakes: [],
-          alive: true,
+          alive: lives > 0,
           lastChat: '',
           lastVouch: '',
           seq,
@@ -2483,7 +2490,20 @@
       }
     }
 
+    function convertBanksToLives() {
+      let gained = 0;
+      for (const p of Object.values(players)) {
+        if (!p) continue;
+        gained += grantLivesFromBank(p, false).gained;
+      }
+      if (gained) {
+        renderGrid();
+        pushPlayersToPanel();
+      }
+    }
+
     function applyCfg(next) {
+      const prevCost = Math.max(1, Number(cfg.entryCost) || 30);
       cfg = Object.assign({}, cfg, next || {});
       syncVouchFromCfg(next || {});
       cfg.entryCost = clamp(cfg.entryCost, 1, 1000000);
@@ -2522,6 +2542,7 @@
       cfg.instaColor = hex(cfg.instaColor, '#fb7185');
       syncHud();
       applyRootScale();
+      if (Math.max(1, Number(cfg.entryCost) || 30) !== prevCost) convertBanksToLives();
     }
 
     function snapScale(n) {

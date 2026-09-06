@@ -836,6 +836,17 @@ export const DEFAULT_SETTINGS = {
     titleStroke: '#242424', counterStroke: '#3a3320',
     font: 'luckiest',
   },
+  // Overlay Meta de regalos (banner con foto de fondo; cuenta diamantes)
+  giftPhotoGoal: {
+    title: 'META DE REGALOS',
+    goalKind: 'gift',
+    goal: 50000,
+    bgUrl: '',
+    titleColor: '#ffffff',
+    counterColor: '#ffffff',
+    barColor: '#5ad4ff',
+    glowColor: '#5ad4ff',
+  },
   // Overlay Mejor racha (mayor combo)
   topStreak: {
     title: 'MEJOR RACHA',

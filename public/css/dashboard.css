@@ -21838,8 +21838,89 @@ h1.view-title {
   transition: none;
 }
 
+#gpfConfigModal:not(.hidden) {
+  animation: gpf-modal-fade .18s ease;
+}
+#gpfConfigModal:not(.hidden) .modal-box {
+  animation: gpf-modal-in .22s cubic-bezier(.22, 1, .36, 1);
+}
+#gpfConfigModal .modal-box.is-dragging {
+  animation: none;
+}
+@keyframes gpf-modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes gpf-modal-in {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+.gpf-live {
+  margin: 4px 0 14px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #05070c;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.gpf-live-banner {
+  width: 100%;
+  min-height: 118px;
+  border-radius: 18px;
+  border: 2px solid var(--glow, #5ad4ff);
+  box-shadow: 0 0 0 1px var(--glow, #5ad4ff), 0 0 14px var(--glow, #5ad4ff);
+  background-color: #0a1018;
+  background-image: var(--bg-img, none);
+  background-position: center;
+  background-size: cover;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px 10px;
+  --title-color: #fff;
+  --counter-color: #fff;
+  --bar-color: #5ad4ff;
+  --glow: #5ad4ff;
+}
+.gpf-live-title {
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--title-color);
+  text-shadow: 0 2px 8px rgba(0,0,0,.55);
+  text-align: center;
+}
+.gpf-live-bar {
+  width: 88%;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(12,16,22,.62);
+  border: 1px solid rgba(255,255,255,.16);
+  overflow: hidden;
+}
+.gpf-live-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--bar-color);
+  border-radius: inherit;
+}
+.gpf-live-count {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--counter-color);
+  text-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+
+#view-ov-metas .ovpro-preview.ovpro-preview--giftbanner {
+  height: 210px;
+}
+
 @media (max-width: 720px) {
   #view-ov-metas .ovpro-preview { height: 220px; }
+  #view-ov-metas .ovpro-preview.ovpro-preview--giftbanner { height: 170px; }
 }
 
 /* ============================================================
