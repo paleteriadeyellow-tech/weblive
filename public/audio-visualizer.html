@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay — Visualizador de audio</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+    #stage {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: stretch;
+      justify-content: flex-start;
+      padding: 4% 2%;
+      box-sizing: border-box;
+      pointer-events: none;
+      --av-glow: 10px;
+      --av-max-h: 100%;
+    }
+    #stage.is-invert { justify-content: flex-end; }
+    #viz {
+      display: flex;
+      flex-direction: column-reverse;
+      justify-content: flex-start;
+      align-items: stretch;
+      gap: 5px;
+      /* Ancha · el alto lo marcan las filas (sin hueco arriba) */
+      width: 110px;
+      height: auto;
+      max-height: 94%;
+      align-self: center;
+      padding: 10px 9px;
+      box-sizing: border-box;
+      background: #0e0e12;
+      border-radius: 12px;
+      border: 2px solid #6a6a76;
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.5),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+    #stage.is-invert #viz { flex-direction: column; }
+    .av-seg {
+      flex: 0 0 auto;
+      height: var(--av-row-h, 5px);
+      border-radius: 999px; /* cápsula ancha y delgada */
+      background: #3d3d48;
+      opacity: 1;
+      transition: opacity 0.05s linear, box-shadow 0.05s linear, background 0.05s linear;
+    }
+    .av-seg.is-on {
+      opacity: 1;
+      box-shadow:
+        0 0 6px currentColor,
+        0 0 14px color-mix(in srgb, currentColor 45%, transparent);
+    }
+    .av-seg.is-off {
+      background: #3d3d48 !important;
+      box-shadow: none;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage"><div id="viz" aria-hidden="true"></div></div>
+  <script>
+(function () {
+  const stage = document.getElementById('stage');
+  const viz = document.getElementById('viz');
+  const isEmbed = /(?:^|[?&])embed=1(?:&|$)/.test(location.search);
+
+  let cfg = {
+    design: 'vu',
+    segments: 32,
+    maxHeight: 100,
+    smoothing: 0.55,
+    sensitivity: 1.2,
+    gain: 1.4,
+    glow: 70,
+    invert: false,
+  };
+  let rmsTarget = 0;
+  let rmsDisplay = 0;
+  let segEls = [];
+  let lastLevelsAt = 0;
+  let raf = 0;
+  let builtKey = '';
+
+  function clamp(n, a, b) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return a;
+    return Math.max(a, Math.min(b, v));
+  }
+
+  function vuColor(t) {
+    const x = clamp(t, 0, 1);
+    if (x < 0.45) return mixHex('#7CFF4A', '#E8FF3A', x / 0.45);
+    if (x < 0.72) return mixHex('#E8FF3A', '#FF9A1A', (x - 0.45) / 0.27);
+    return mixHex('#FF9A1A', '#FF2A1A', (x - 0.72) / 0.28);
+  }
+
+  function mixHex(a, b, t) {
+    const pa = hexToRgb(a);
+    const pb = hexToRgb(b);
+    return 'rgb(' +
+      Math.round(pa.r + (pb.r - pa.r) * t) + ',' +
+      Math.round(pa.g + (pb.g - pa.g) * t) + ',' +
+      Math.round(pa.b + (pb.b - pa.b) * t) + ')';
+  }
+
+  function hexToRgb(hex) {
+    const h = String(hex || '#fff').replace('#', '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h.padEnd(6, '0').slice(0, 6);
+    return {
+      r: parseInt(full.slice(0, 2), 16) || 0,
+      g: parseInt(full.slice(2, 4), 16) || 0,
+      b: parseInt(full.slice(4, 6), 16) || 0,
+    };
+  }
+
+  function applyCfg(raw) {
+    const r = raw && typeof raw === 'object' ? raw : {};
+    cfg.design = 'vu';
+    cfg.segments = Math.round(clamp(r.segments != null ? r.segments : (r.bars != null ? r.bars : cfg.segments), 16, 56));
+    cfg.maxHeight = clamp(r.maxHeight != null ? r.maxHeight : cfg.maxHeight, 20, 100);
+    cfg.smoothing = clamp(r.smoothing != null ? r.smoothing : cfg.smoothing, 0.05, 0.95);
+    cfg.sensitivity = clamp(r.sensitivity != null ? r.sensitivity : cfg.sensitivity, 0.2, 4);
+    cfg.gain = clamp(r.gain != null ? r.gain : cfg.gain, 0.2, 5);
+    cfg.glow = clamp(r.glow != null ? r.glow : cfg.glow, 0, 100);
+    cfg.invert = !!(r.invert != null ? r.invert : cfg.invert);
+    stage.style.setProperty('--av-glow', (4 + cfg.glow * 0.22) + 'px');
+    /* Escala el alto de filas según %: 100% ≈ 5px por fila */
+    const rowH = Math.max(3, Math.round(3 + cfg.maxHeight * 0.02));
+    stage.style.setProperty('--av-row-h', rowH + 'px');
+    stage.classList.toggle('is-invert', cfg.invert);
+    rebuild();
+  }
+
+  function rebuild() {
+    const key = 'vu|' + cfg.segments;
+    if (key === builtKey && viz.children.length) return;
+    builtKey = key;
+    viz.innerHTML = '';
+    segEls = [];
+    const n = cfg.segments;
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement('div');
+      el.className = 'av-seg is-off';
+      const t = n <= 1 ? 0 : i / (n - 1);
+      el.style.color = vuColor(t);
+      viz.appendChild(el);
+      segEls.push(el);
+    }
+    rmsTarget = 0;
+    rmsDisplay = 0;
+  }
+
+  function pushLevels(payload) {
+    if (!payload) return;
+    lastLevelsAt = Date.now();
+    const sens = cfg.sensitivity * cfg.gain;
+    const rms = Number(payload.rms) || 0;
+    rmsTarget = Math.max(0, Math.min(1, rms * sens));
+  }
+
+  function tick() {
+    raf = requestAnimationFrame(tick);
+    const sm = cfg.smoothing;
+    const silent = Date.now() - lastLevelsAt > 900;
+    const goal = silent ? 0 : rmsTarget;
+    rmsDisplay += (goal - rmsDisplay) * (1 - sm);
+    const lit = rmsDisplay * segEls.length + 0.15;
+    for (let i = 0; i < segEls.length; i++) {
+      const on = i < lit;
+      const el = segEls[i];
+      el.classList.toggle('is-on', on);
+      el.classList.toggle('is-off', !on);
+      el.style.background = on ? el.style.color : '';
+    }
+  }
+
+  let ws, rt;
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connect, 1500); };
+    ws.onmessage = (ev) => {
+      let m;
+      try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings' && m.payload && m.payload.audioVisualizer) {
+        applyCfg(m.payload.audioVisualizer);
+        return;
+      }
+      if (isEmbed) return;
+      if (m.type === 'audioVizLevels' || m.type === 'audioVizTest') {
+        pushLevels(m.payload || {});
+      }
+    };
+  }
+
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.kind !== 'audioviz') return;
+    if (d.type === 'config') applyCfg(d.config || {});
+    if (d.type === 'test' || d.type === 'levels') pushLevels(d);
+  });
+
+  applyCfg({});
+  tick();
+  connect();
+  window.addEventListener('beforeunload', () => {
+    cancelAnimationFrame(raf);
+    clearTimeout(rt);
+    try { ws?.close(); } catch {}
+  });
+})();
+  </script>
+</body>
+</html>

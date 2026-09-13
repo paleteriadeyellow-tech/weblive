@@ -106,6 +106,7 @@ export const CAPABILITIES = {
     { key: 'ov_alertalikes', label: 'Alerta de likes', path: '/alerta-likes.html' },
     { key: 'ov_alertaseguidor', label: 'Alerta de nuevo seguidor', path: '/alerta-seguidor.html' },
     { key: 'ov_timer', label: 'Temporizador (overlay)', path: '/timer.html' },
+    { key: 'ov_audioviz', label: 'Visualizador de audio (juego)', path: '/audio-visualizer.html' },
     { key: 'ov_top1', label: 'Top 1 Donador (MVP)', path: '/top1.html' },
     { key: 'ov_spotify', label: 'Spotify (lista)', path: '/spotify-overlay.html' },
     { key: 'ov_spotifyplayer', label: 'Spotify (reproductor)', path: '/spotify-player-overlay.html' },

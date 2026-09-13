@@ -1557,8 +1557,11 @@
                     <input type="text" id="sa-user" placeholder="Solo este usuario (sin @) — opcional">
                   </div>
                   <div id="sa-eventdelayextra" class="gift-extra one" hidden>
-                    <label class="ml" for="sa-eventdelay" id="sa-eventdelay-label">SEGUNDOS DE ESPERA por usuario (0 = sin lÃ­mite)</label>
-                    <input type="number" id="sa-eventdelay" min="0" value="30" placeholder="Ej. 30 â€” 0 = sin lÃ­mite">
+                    <label class="ml" for="sa-eventdelay" id="sa-eventdelay-label">SEGUNDOS DE ESPERA por usuario (0 = sin límite)</label>
+                    <input type="number" id="sa-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
+                    <label class="ml" for="sa-eventglobaldelay" id="sa-eventglobaldelay-label" style="margin-top:10px">SEGUNDOS DE ESPERA global (anti-spam de todos; 0 = sin límite)</label>
+                    <input type="number" id="sa-eventglobaldelay" min="0" value="0" placeholder="Ej. 10 — 0 = sin límite">
+                    <p class="hint" style="margin-top:4px">Global: nadie puede disparar esta alerta otra vez hasta pasar el tiempo (aunque sea otro usuario).</p>
                   </div>
                 </div>
               </section>
@@ -6718,7 +6721,7 @@
                 </div>
                 <div class="ovpro-prevlabel">VISTA PREVIA &middot; PULSA TESTEAR</div>
                 <div class="ovpro-preview">
-                  <iframe id="tdp-preview" data-src="/top-donators-pro.html?embed=1&amp;v=tdp1" title="Vista previa top donators PRO"></iframe>
+                  <iframe id="tdp-preview" data-src="/top-donators-pro.html?embed=1&amp;v=tdp2" title="Vista previa top donators PRO"></iframe>
                 </div>
               </div>
 

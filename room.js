@@ -1108,25 +1108,42 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   const gameFollowShareCooldown = new Map(); // follow/share de acciones de juego / teclas por usuario
 
-  /** Anti-spam: mismo usuario no reactiva hasta eventDelay segundos.
-   *  follow/share/emote: si no hay valor, 30 s (como antes). Otros: solo si eligieron delay (> 0). */
+  /** Anti-spam: eventGlobalDelay (todos) + eventDelay (por usuario).
+   *  follow/share/emote: si no hay eventDelay, 30 s (como antes). Otros: solo si eligieron delay (> 0). */
   function allowFollowSharePerUser(a, eventType, user, bucket) {
     if (!a) return true;
+    const now = Date.now();
+    const id = a.uid || a.id || a.catId || (a.slot != null ? String(a.slot) : '') || a.thing || a.name || 'x';
+
+    const globalSec = Math.max(0, Number(a.eventGlobalDelay) || 0);
+    if (globalSec > 0) {
+      const gKey = `${bucket}|g|${id}|${eventType}`;
+      const lastG = gameFollowShareCooldown.get(gKey) || 0;
+      if (now - lastG < globalSec * 1000) return false;
+    }
+
     const isLegacy = eventType === 'follow' || eventType === 'share' || eventType === 'emote';
     const delaySec = isLegacy
       ? ((a.eventDelay == null) ? 30 : Math.max(0, Number(a.eventDelay) || 0))
       : Math.max(0, Number(a.eventDelay) || 0);
-    if (delaySec <= 0) return true;
-    const now = Date.now();
-    const userKey = normTikTokUser(user?.uniqueId) || normTikTokUser(user?.nickname) || '_unknown';
-    const id = a.uid || a.id || a.catId || (a.slot != null ? String(a.slot) : '') || a.thing || a.name || 'x';
-    const cdKey = `${bucket}|${id}|${eventType}|${userKey}`;
-    const last = gameFollowShareCooldown.get(cdKey) || 0;
-    if (now - last < delaySec * 1000) return false;
-    gameFollowShareCooldown.set(cdKey, now);
+    if (delaySec <= 0 && globalSec <= 0) return true;
+
+    if (delaySec > 0) {
+      const userKey = normTikTokUser(user?.uniqueId) || normTikTokUser(user?.nickname) || '_unknown';
+      const cdKey = `${bucket}|${id}|${eventType}|${userKey}`;
+      const last = gameFollowShareCooldown.get(cdKey) || 0;
+      if (now - last < delaySec * 1000) return false;
+      gameFollowShareCooldown.set(cdKey, now);
+    }
+
+    if (globalSec > 0) {
+      gameFollowShareCooldown.set(`${bucket}|g|${id}|${eventType}`, now);
+    }
+
     if (gameFollowShareCooldown.size > 800) {
+      const maxSec = Math.max(globalSec, delaySec, 60);
       for (const [k, t] of gameFollowShareCooldown) {
-        if (now - t > Math.max(delaySec, 60) * 1000) gameFollowShareCooldown.delete(k);
+        if (now - t > maxSec * 1000) gameFollowShareCooldown.delete(k);
       }
     }
     return true;
@@ -7172,7 +7189,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   // ---- Acciones de Plants vs Zombies (PvZ Toolkit, HTTP :7756 / WS :3132) ----
   function spawnPvzThing(thing, name, times, actionForTiming) {
-    const units = Math.min(20, Math.max(1, Number(times) || 1));
+    const units = Math.min(100, Math.max(1, Number(times) || 1));
     withGameActionCountTiming(actionForTiming, units, () => {
       if (!thing) return;
       if (emitLocalExec({ tipo: 'PVZ_SPAWN', thing, name: String(name || ''), times: 1 })) return;
@@ -7284,7 +7301,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnRepoThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(50, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     withGameActionCountTiming(actionForTiming, unitCount, () => {
       if (!thing) return;
       const spawnKey = resolveRepoSpawnKey(thing);
@@ -7325,7 +7342,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'repo');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(50, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnRepoThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -7346,7 +7363,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(50, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnRepoThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -7373,7 +7390,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnL4dThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(20, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     withGameActionCountTiming(actionForTiming, unitCount, () => {
       if (!thing) return;
       const exec = { tipo: 'L4D_SPAWN', thing: String(thing || ''), name: String(name || ''), times: 1 };
@@ -7408,7 +7425,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'l4d');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(20, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnL4dThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -7429,7 +7446,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(20, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnL4dThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -7552,7 +7569,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnGtavChaosThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(50, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     withGameActionCountTiming(actionForTiming, 1, () => {
       if (!thing) return;
       const exec = { tipo: 'GTAVCHAOS_SPAWN', thing: String(thing || ''), name: String(name || ''), times: unitCount };
@@ -7608,7 +7625,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'gtavchaos');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(50, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnGtavChaosThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -7628,7 +7645,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(50, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnGtavChaosThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -7653,7 +7670,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function chiliadQtyForThing(thing, n) {
     const v = Math.max(1, Number(n) || 1);
-    return isChiliadLaunchUp(thing) ? v : Math.min(50, v);
+    return isChiliadLaunchUp(thing) ? v : Math.min(100, v);
   }
 
   function spawnGtavChiliadThing(thing, name, times, units, meta = {}, actionForTiming) {
@@ -7663,7 +7680,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       thingOut = 'chiliad:teleport_up:' + Math.floor(unitCount);
       unitCount = 1;
     } else {
-      unitCount = Math.min(50, unitCount);
+      unitCount = Math.min(100, unitCount);
     }
     withGameActionCountTiming(actionForTiming, 1, () => {
       if (!thingOut) return;
@@ -7764,7 +7781,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnUnturnedThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(20, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     withGameActionCountTiming(actionForTiming, unitCount, () => {
       if (!thing) return;
       const exec = { tipo: 'UNTURNED_SPAWN', thing: String(thing || ''), name: String(name || ''), times: 1 };
@@ -7799,7 +7816,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'unturned');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(20, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnUnturnedThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -7820,7 +7837,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(20, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnUnturnedThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -7909,7 +7926,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnFlappyThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(20, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     const delayEach = Math.max(0, parseInt(actionForTiming?.delayEach, 10) || 0);
     withGameActionCountTiming(actionForTiming && { ...actionForTiming, count: 1 }, 1, () => {
       if (!thing) return;
@@ -7945,7 +7962,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'flappy');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(20, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnFlappyThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -7965,7 +7982,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(20, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnFlappyThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -7982,7 +7999,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnPvzFusionThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(20, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     withGameActionCountTiming(actionForTiming && { ...actionForTiming, count: 1 }, 1, () => {
       if (!thing) return;
       const exec = { tipo: 'PVZFUSION_SPAWN', thing: String(thing || ''), name: String(name || ''), times: unitCount };
@@ -8016,7 +8033,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'pvzfusion');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(20, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnPvzFusionThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -8037,7 +8054,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(20, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnPvzFusionThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -8054,7 +8071,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnMk64Thing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(20, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     const delayEach = Math.max(0, parseInt(actionForTiming?.delayEach, 10) || 0);
     withGameActionCountTiming(actionForTiming && { ...actionForTiming, count: 1 }, 1, () => {
       if (!thing) return;
@@ -8090,7 +8107,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'mk64');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(20, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnMk64Thing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -8111,7 +8128,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(20, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnMk64Thing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -8128,7 +8145,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnSmwThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(40, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     withGameActionCountTiming(actionForTiming, unitCount, () => {
       if (!thing) return;
       const exec = { tipo: 'SMW_SPAWN', thing: String(thing || ''), name: String(name || ''), times: 1 };
@@ -8162,7 +8179,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'smw');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(40, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnSmwThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -8182,7 +8199,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(40, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnSmwThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -8199,7 +8216,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnMslugThing(thing, name, times, units, meta = {}, actionForTiming) {
-    const unitCount = Math.min(50, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     withGameActionCountTiming(actionForTiming, unitCount, () => {
       if (!thing) return;
       const exec = { tipo: 'MSLUG_SPAWN', thing: String(thing || ''), name: String(name || ''), times: 1 };
@@ -8233,7 +8250,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'mslug');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(50, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnMslugThing(a.thing, name, totalQty, likeFires, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -8253,7 +8270,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(50, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnMslugThing(a.thing, name, times, units, {
         label: a.label || a.thing,
@@ -8292,7 +8309,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
 
   function spawnGdashEffect(code, name, times, meta = {}, actionForTiming) {
-    const unitCount = Math.min(50, Math.max(1, Number(times) || 1));
+    const unitCount = Math.min(100, Math.max(1, Number(times) || 1));
     const seconds = gdashSecondsFor(actionForTiming);
     withGameActionCountTiming(actionForTiming, unitCount, () => {
       fireGdashEffect(code, name, seconds, meta);
@@ -8324,7 +8341,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         const likeFires = gameLikeTriggerFires(a, info, user, 'gdash');
         if (likeFires <= 0) continue;
         const batch = Math.max(1, Number(info.likeCount) || 1);
-        const totalQty = Math.min(50, perUnit * likeFires);
+        const totalQty = Math.min(100, perUnit * likeFires);
         spawnGdashEffect(a.thing, name, totalQty, {
           label: a.label || a.thing,
           eventType: 'like',
@@ -8346,7 +8363,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       } else if (trig !== eventType) continue;
       if (!allowFollowSharePerUser(a, eventType, user, 'game')) continue;
 
-      const times = Math.min(50, perUnit * units);
+      const times = Math.min(100, perUnit * units);
       const giftLabel = info.giftName ? `Regalo: ${info.giftName}${units > 1 ? ` ×${units}` : ''}` : null;
       spawnGdashEffect(a.thing, name, times, {
         label: a.label || a.thing,
@@ -8406,7 +8423,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           pvzCommand(a.path, a);
         }
       } else {
-        times = Math.min(20, times);
+        times = Math.min(100, times);
         broadcast('log', { level: 'ok', text: `🧟 PvZ: generar "${a.thing}"${times > 1 ? ` ×${times}` : ''}` });
         spawnPvzThing(a.thing, name, times, a);
       }
@@ -8706,11 +8723,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       for (const a of (cfg.repoActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnRepoThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)), 1, { params: repoActionParams(a) }, a));
+        fireN(a, () => spawnRepoThing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, { params: repoActionParams(a) }, a));
       }
       for (const a of (cfg.l4dActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnL4dThing(a.thing, '', Math.min(20, Math.max(1, parseInt(a.count, 10) || 1)), 1, { params: l4dActionParams(a) }, a));
+        fireN(a, () => spawnL4dThing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, { params: l4dActionParams(a) }, a));
       }
       for (const a of (cfg.gtavKothActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
@@ -8718,7 +8735,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       for (const a of (cfg.gtavChaosActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnGtavChaosThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
+        fireN(a, () => spawnGtavChaosThing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
       }
       for (const a of (cfg.gtavChiliadActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
@@ -8726,7 +8743,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       for (const a of (cfg.unturnedActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnUnturnedThing(a.thing, '', Math.min(20, Math.max(1, parseInt(a.count, 10) || 1)), 1, { params: unturnedActionParams(a) }, a));
+        fireN(a, () => spawnUnturnedThing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, { params: unturnedActionParams(a) }, a));
       }
       for (const a of (cfg.ctrActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
@@ -8734,27 +8751,27 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       }
       for (const a of (cfg.flappyActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnFlappyThing(a.thing, '', Math.min(20, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
+        fireN(a, () => spawnFlappyThing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
       }
       for (const a of (cfg.pvzFusionActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnPvzFusionThing(a.thing, '', Math.min(20, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
+        fireN(a, () => spawnPvzFusionThing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
       }
       for (const a of (cfg.mk64Actions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnMk64Thing(a.thing, '', Math.min(20, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
+        fireN(a, () => spawnMk64Thing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
       }
       for (const a of (cfg.smwActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnSmwThing(a.thing, '', Math.min(40, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
+        fireN(a, () => spawnSmwThing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
       }
       for (const a of (cfg.mslugActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnMslugThing(a.thing, '', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
+        fireN(a, () => spawnMslugThing(a.thing, '', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), 1, {}, a));
       }
       for (const a of (cfg.gdashActions || [])) {
         if (!a || a.enabled === false || (a.trigger || '') !== 'likeGlobal' || !a.thing) continue;
-        fireN(a, () => spawnGdashEffect(a.thing, 'Livecoins', Math.min(50, Math.max(1, parseInt(a.count, 10) || 1)), {
+        fireN(a, () => spawnGdashEffect(a.thing, 'Livecoins', Math.min(100, Math.max(1, parseInt(a.count, 10) || 1)), {
           label: a.label || a.thing,
           eventType: 'likeGlobal',
           reason: `${total} likes globales`,
@@ -12309,12 +12326,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
       const giftGroupId = String(data.groupId ?? data.giftDetails?.groupId ?? '').trim();
       const giftMsgId = String(data.common?.msgId ?? data.msgId ?? '').trim();
+      if (!globalThis.__lcGiftApplySeq) globalThis.__lcGiftApplySeq = 0;
+      const applyId = giftMsgId || ('g' + (++globalThis.__lcGiftApplySeq) + '_' + Date.now());
 
       broadcast('gift', {
         ...user, giftName, giftId, repeatCount, repeatDelta,
         diamonds: diamondsEach, image, streak: isStreak,
         repeatEnd: !!data.repeatEnd, streakGift: streakGiftType,
-        groupId: giftGroupId, msgId: giftMsgId,
+        groupId: giftGroupId, msgId: giftMsgId, applyId,
       });
       checkMemberLevelUp(data);
     });
@@ -13720,6 +13739,32 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetFanLevel':
         resetFanLevelEntries();
         break;
+      case 'audioVizLevels': {
+        const binsIn = Array.isArray(data.bins) ? data.bins : [];
+        const bins = [];
+        const n = Math.min(64, binsIn.length);
+        for (let i = 0; i < n; i++) {
+          const v = Number(binsIn[i]);
+          bins.push(Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0);
+        }
+        const rms = Number(data.rms);
+        broadcast('audioVizLevels', {
+          t: Number(data.t) || Date.now(),
+          rms: Number.isFinite(rms) ? Math.max(0, Math.min(1, rms)) : 0,
+          bins,
+        });
+        break;
+      }
+      case 'testAudioViz': {
+        const n = Math.max(8, Math.min(64, Number(settings.audioVisualizer?.bars) || 32));
+        const bins = [];
+        const t = Date.now() / 180;
+        for (let i = 0; i < n; i++) {
+          bins.push(0.25 + 0.75 * Math.abs(Math.sin(t + i * 0.45)));
+        }
+        broadcast('audioVizTest', { t: Date.now(), rms: 0.6, bins });
+        break;
+      }
       case 'testFuegos':
         broadcast('fuegosTest', {});
         break;
@@ -13801,6 +13846,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'sorteosVidasPlayers':
         broadcast('sorteosVidasPlayers', {
           players: data.players || [],
+          slots: data.slots || null,
           totalLives: data.totalLives,
           hud: data.hud || null,
         });

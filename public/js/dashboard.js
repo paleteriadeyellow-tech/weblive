@@ -8589,6 +8589,9 @@ function openSaModal(alert = null) {
   if ($('sa-command')) $('sa-command').value = alert?.command || '';
   if ($('sa-user')) $('sa-user').value = alert?.user || '';
   $('sa-eventdelay').value = alert?.eventDelay ?? 30;
+  if ($('sa-eventglobaldelay')) {
+    $('sa-eventglobaldelay').value = alert?.eventGlobalDelay ?? 0;
+  }
   $('sa-vol').value = alert?.volume ?? 100;
   $('sa-soundname').textContent = alert?.soundName || 'Ningún archivo…';
   $('sa-active').checked = alert ? !!alert.enabled : true;
@@ -9300,6 +9303,9 @@ $('sa-save').onclick = async () => {
     command: ev === 'chatCommand' ? ($('sa-command')?.value || '').trim() : '',
     user: ev === 'chatCommand' ? ($('sa-user')?.value || '').trim().replace(/^@/, '') : '',
     eventDelay: (ev === 'follow' || ev === 'share' || ev === 'emote') ? Math.max(0, parseInt($('sa-eventdelay').value, 10) || 0) : 0,
+    eventGlobalDelay: (ev === 'follow' || ev === 'share' || ev === 'emote' || ev === 'chatCommand')
+      ? Math.max(0, parseInt($('sa-eventglobaldelay')?.value, 10) || 0)
+      : 0,
     sound: pendingSound.url,
     soundName: pendingSound.name || 'audio',
     image: '',

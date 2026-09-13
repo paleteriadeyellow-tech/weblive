@@ -14,7 +14,7 @@ const PRESET_GAMES = new Set([
   'minecraft', 'mcparkour', 'mckoth', 'mcfarm', 'mcshooter', 'bedrock', 'sandbox',
   'mario', 'smw', 'smb3', 'mari0', 'pvz', 'pvzhybrid', 'pvzfusion',
   'repo', 'l4d', 'gtavkoth', 'gtavchaos', 'gtavchiliad', 'unturned',
-  'ctr', 'flappy', 'mk64', 'mslug', 'gdash', 'roblox', 'roblox3',
+  'ctr', 'flappy', 'mk64', 'mslug', 'gdash', 'roblox', 'roblox3', 'acciones',
 ]);
 
 function sharesDir(dataDir) {

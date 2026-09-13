@@ -75,6 +75,7 @@ export const OVERLAY_CHANNELS = {
   'alerta-likes': setOf(S, LIKE, 'alertaLikesTest', 'alertaLikesReset'),
   'alerta-regalo': setOf(S, GIFT, 'alertaGiftTest', 'alertaGiftReset'),
   'fan-level': setOf(S, 'fanLevelState', 'fanLevelUp', 'fanLevelTest', 'fanLevelReset'),
+  'audio-visualizer': setOf(S, 'audioVizLevels', 'audioVizTest'),
   gcounter: setOf(S, 'giftCounter', 'giftCounterTest'),
   mejorregalo: setOf(S, GIFT, SESSION, 'topGiftTest', 'topGiftReset'),
   mejorracha: setOf(S, GIFT, SESSION, 'topStreakTest', 'topStreakReset'),
