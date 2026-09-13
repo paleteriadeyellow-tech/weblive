@@ -1007,6 +1007,7 @@
         if (!p) { delete players[id]; continue; }
         const lives = Math.max(0, Number(p.lives) || 0);
         const bank = Math.max(0, Number(p.bank) || 0);
+        // Conservar monedas sobrantes aunque aún no tenga vida (se canjean después).
         if (lives <= 0 && bank <= 0) delete players[id];
       }
     }

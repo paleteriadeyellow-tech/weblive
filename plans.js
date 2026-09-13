@@ -35,6 +35,7 @@ export const CAPABILITIES = {
     { key: 'tab_spotify', label: 'Spotify Client ID / conexión (.exe)' },
     { key: 'tab_youtube', label: 'Pestaña YouTube Song Requests (.exe)' },
     { key: 'tab_editor_rapido', label: 'Pestaña Editor Pro (VIP / Founder)' },
+    { key: 'tab_editor_overlays', label: 'Pestaña Editor de overlays (VIP / Founder)' },
   ],
   // Overlays individuales (se ocultan en la lista si no están permitidos).
   // El "path" enlaza con el data-path del overlay en el panel.
@@ -138,9 +139,11 @@ export const CAPABILITIES = {
     { key: 'game_gtavchiliad', label: 'Juego: GTA V Chiliad' },
     { key: 'game_unturned', label: 'Juego: Unturned' },
     { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
+    { key: 'game_flappybird', label: 'Juego: Flappy Bird' },
+    { key: 'game_pvzfusion', label: 'Juego: PvZ Fusion' },
+    { key: 'game_mk64', label: 'Juego: Mario Kart 64' },
     { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
     { key: 'game_geometrydash', label: 'Juego: Geometry Dash' },
-    { key: 'game_clashroyale', label: 'Juego: Clash Royale' },
   ],
   // Características sueltas.
   extras: [
@@ -179,6 +182,7 @@ function defaultConfig() {
   freeFeatures.tab_spotify = false;
   freeFeatures.tab_youtube = false;
   freeFeatures.tab_editor_rapido = false;
+  freeFeatures.tab_editor_overlays = false;
   freeFeatures.ov_spotify = false;
   freeFeatures.ov_spotifyplayer = false;
   freeFeatures.ov_youtube = false;

@@ -698,12 +698,13 @@ const TAB_CAP = {
   youtube: 'tab_youtube',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash', clashroyale: 'game_clashroyale' };
+const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', pvzfusion: 'game_pvzfusion', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', flappybird: 'game_flappybird', mk64: 'game_mk64', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
 
 function gameCapFromExecTipo(tipo, hintUrl) {
   const t = String(tipo || '').toUpperCase();
   const u = String(hintUrl || '').toLowerCase();
   if (t.startsWith('PVZ_HYBRID') || t.includes('PVZ_HYBRID')) return 'game_pvzhybrid';
+  if (t.startsWith('PVZFUSION_')) return 'game_pvzfusion';
   if (t.startsWith('PVZ_')) return 'game_plantasvszombies';
   if (t.startsWith('MARIO_') || t.includes('SMBX')) return 'game_mariobros';
   if (t.startsWith('SMB3_')) return 'game_smb3';
@@ -716,6 +717,8 @@ function gameCapFromExecTipo(tipo, hintUrl) {
   if (t.startsWith('GTAVCHILIAD') || t.startsWith('GTAV_CHILIAD')) return 'game_gtavchiliad';
   if (t.startsWith('GTAV') || t.startsWith('GTAVKOTH')) return 'game_gtavkoth';
   if (t.startsWith('CTR_') || t.startsWith('CRASH')) return 'game_crashctr';
+  if (t.startsWith('FLAPPY_')) return 'game_flappybird';
+  if (t.startsWith('MK64_')) return 'game_mk64';
   if (t.startsWith('MSLUG_') || t.startsWith('METALSLUG')) return 'game_metalslug';
   if (t.startsWith('GD_') || t.startsWith('GEOMETRY') || t.startsWith('GDASH')) return 'game_geometrydash';
   if (t.startsWith('ROBLOX3')) return 'game_roblox3';
@@ -724,6 +727,7 @@ function gameCapFromExecTipo(tipo, hintUrl) {
   if (t.startsWith('SANDBOX')) return 'game_sandbox';
   if (t === 'WEBHOOK' || u) {
     if (u.includes(':7757') || (u.includes('pvz') && u.includes('hybrid'))) return 'game_pvzhybrid';
+    if (u.includes(':5003') || u.includes('pvzfusion')) return 'game_pvzfusion';
     if (u.includes(':7756') || u.includes('pvz')) return 'game_plantasvszombies';
     if (u.includes(':5722') || u.includes('mari0')) return 'game_mari0';
     if (u.includes(':5720') || u.includes('smbx')) return 'game_mariobros';
@@ -1035,14 +1039,14 @@ const CAP_LABELS = {
   // juegos
   game_minecraft: 'Juego: Minecraft', game_mcservidor: 'Juego: Servidor Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_mcshooter: 'Juego: Minecraft Shooters', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_unturned: 'Juego: Unturned', game_gtavkoth: 'Juego: GTA V King of the Hill', game_gtavchaos: 'Juego: GTA V Mod Chaos', game_gtavchiliad: 'Juego: GTA V Chiliad', game_crashctr: 'Juego: Crash Team Racing (CTR)', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_pvzfusion: 'Juego: PvZ Fusion', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_unturned: 'Juego: Unturned', game_gtavkoth: 'Juego: GTA V King of the Hill', game_gtavchaos: 'Juego: GTA V Mod Chaos', game_gtavchiliad: 'Juego: GTA V Chiliad', game_crashctr: 'Juego: Crash Team Racing (CTR)', game_flappybird: 'Juego: Flappy Bird', game_mk64: 'Juego: Mario Kart 64', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
   videos_ai: 'Videos AI',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_youtube', 'tab_editor_rapido',
-  'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_metalslug', 'game_geometrydash',
+  'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_pvzfusion', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_flappybird', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_winscounterpro', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_giftbanner', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -3565,9 +3569,11 @@ const ADMIN_GAME_CATALOG = [
   { key: 'game_gtavchaos', label: 'GTA V Chaos' },
   { key: 'game_gtavchiliad', label: 'GTA V Chiliad' },
   { key: 'game_crashctr', label: 'Crash Team Racing' },
+  { key: 'game_flappybird', label: 'Flappy Bird' },
+  { key: 'game_mk64', label: 'Mario Kart 64' },
+  { key: 'game_pvzfusion', label: 'PvZ Fusion' },
   { key: 'game_metalslug', label: 'Metal Slug' },
   { key: 'game_geometrydash', label: 'Geometry Dash' },
-  { key: 'game_clashroyale', label: 'Clash Royale' },
 ];
 
 let adminGamesUsersCache = [];
@@ -4173,14 +4179,6 @@ function toggleAnnPop(open) {
   openDiscord(document.getElementById('btnDiscordJoin'));
   openDiscord(document.getElementById('homeDiscordJoin'));
   openDiscord(document.getElementById('homePromoDiscord'));
-  document.querySelectorAll('#homeAgencySf, #homeAgencyTree').forEach((el) => {
-    el.addEventListener('click', (e) => {
-      const url = el.getAttribute('href');
-      if (!url) return;
-      e.preventDefault();
-      openExternalLink(url);
-    });
-  });
 
   const widgetsModal = document.getElementById('homeWidgetsModal');
   const winsWidgetsModal = document.getElementById('homeWinsWidgetsModal');
@@ -4863,9 +4861,13 @@ function addChat(p) {
 function handleBotReply(p) {
   const text = String(p?.text || '').trim();
   if (!text) return;
-  pushRow('chat', `<div class="ph bot-ava">🤖</div><div><span class="name bot-name">Bot · ${esc(p.command || '')}</span><span class="text">${esc(text)}</span></div>`, 'bot');
+  const isCaracola = p?.kind === 'caracola';
+  const isPasar = p?.kind === 'pasar';
+  const ico = isCaracola ? '🐚' : (isPasar ? '💸' : '🤖');
+  const who = isCaracola ? 'Caracola' : (isPasar ? 'Puntos' : ('Bot · ' + (p.command || '')));
+  pushRow('chat', `<div class="ph bot-ava">${ico}</div><div><span class="name bot-name">${esc(who)}</span><span class="text">${esc(text)}</span></div>`, 'bot');
   // Solo se lee en voz alta si el TTS está activado (respeta el interruptor y su advertencia).
-  if (settings?.tts?.enabled) ttsSpeakText(text);
+  if (settings?.tts?.enabled) ttsSpeakText(text, { force: isCaracola || isPasar });
 }
 function giftImageOf(p) {
   if (p.image) return p.image;
@@ -5712,7 +5714,7 @@ function onSettings(s, touchedKeys) {
   }
   try { window.__lcPendingTouchedKeys = null; } catch {}
   try {
-    settings = preserveLocalSpotifyOnSettingsEcho(preserveLocalBailePeopleOnSettingsEcho(preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalMcPresetBanksOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s)))))));
+    settings = preserveLocalPointsOnSettingsEcho(preserveLocalSpotifyOnSettingsEcho(preserveLocalBailePeopleOnSettingsEcho(preserveLocalMediaVolumeOnSettingsEcho(preserveLocalWinsOnSettingsEcho(preserveLocalTopKillsOnSettingsEcho(preserveLocalMcPresetBanksOnSettingsEcho(preserveLocalGameActionsOnSettingsEcho(s))))))));
   } catch (err) {
     console.error('[settings] preserve', err);
     settings = s;
@@ -11672,7 +11674,6 @@ const GIFT_ROULETTE_GAMES = [
   { key: 'ctrActions', label: 'Crash Team Racing' },
   { key: 'mslugActions', label: 'Metal Slug' },
   { key: 'gdashActions', label: 'Geometry Dash' },
-  { key: 'crRoyaleActions', label: 'Clash Royale' },
   { key: 'robloxActions', label: 'Roblox' },
   { key: 'roblox3Actions', label: 'Roblox parkour' },
   { key: 'mcActions', label: 'Minecraft' },
@@ -16811,10 +16812,94 @@ function applyTtsUI(t) {
   set('tts-read-taptap', t.readTaptap);
   val('tts-taptap-min', t.taptapMin ?? 100);
   set('tts-read-gifts', t.readGifts);
+  applyTtsCaracolaUI();
+  applyTtsPasarUI();
   renderTtsCommands();
   renderTtsUserVoices();
   refreshTtsUvUserSelect();
   updateTtsSummary();
+}
+
+const TTS_CARACOLA_ANSWERS = [
+  'Sí', 'No', 'Tal vez', 'Pregunta otra vez',
+  'Ni lo sueñes', 'Claro que sí', 'Mejor no', 'Más tarde',
+  'Sin duda', 'Es posible', 'No cuentes con ello',
+  'Las señales dicen que sí', 'No puedo decirte ahora',
+  'Concéntrate y pregunta de nuevo', 'Muy dudoso',
+  'Desde luego', 'No lo creo', 'Pregúntame después',
+];
+function ttsNormFunCmd(raw, fallback = '!caracola') {
+  let t = String(raw || '').trim();
+  if (!t) return fallback;
+  if (!/^[!./]/.test(t)) t = '!' + t;
+  return t;
+}
+function ttsEnsureCaracola() {
+  if (!settings) return { enabled: false, command: '!caracola', cooldownSec: 5 };
+  if (!settings.tts) settings.tts = {};
+  if (!settings.tts.caracola || typeof settings.tts.caracola !== 'object') {
+    settings.tts.caracola = { enabled: false, command: '!caracola', cooldownSec: 5 };
+  }
+  return settings.tts.caracola;
+}
+function ttsCommentIsCaracola(comment) {
+  const c = settings?.tts?.caracola;
+  if (!c || !c.enabled) return false;
+  const cmd = ttsNormFunCmd(c.command || '!caracola').toLowerCase();
+  const first = String(comment || '').trim().toLowerCase().split(/\s+/)[0] || '';
+  return first === cmd;
+}
+function syncTtsCaracolaCard() {
+  const card = $('tts-caracola-card');
+  const on = $('tts-caracola-on');
+  if (card) card.classList.toggle('is-on', !!on?.checked);
+}
+function applyTtsCaracolaUI() {
+  const c = ttsEnsureCaracola();
+  const on = $('tts-caracola-on');
+  if (on && on !== document.activeElement) on.checked = !!c.enabled;
+  const cmd = $('tts-caracola-cmd');
+  if (cmd && cmd !== document.activeElement) cmd.value = ttsNormFunCmd(c.command || '!caracola');
+  const cd = $('tts-caracola-cd');
+  if (cd && cd !== document.activeElement) cd.value = Math.max(1, Math.min(60, Number(c.cooldownSec) || 5));
+  syncTtsCaracolaCard();
+}
+function ttsPickCaracolaAnswer() {
+  return TTS_CARACOLA_ANSWERS[Math.floor(Math.random() * TTS_CARACOLA_ANSWERS.length)];
+}
+function ttsEnsurePasar() {
+  if (!settings) return { enabled: false, command: '!pasar', cooldownSec: 8, minAmount: 1, maxAmount: 10000 };
+  if (!settings.tts) settings.tts = {};
+  if (!settings.tts.pasar || typeof settings.tts.pasar !== 'object') {
+    settings.tts.pasar = { enabled: false, command: '!pasar', cooldownSec: 8, minAmount: 1, maxAmount: 10000 };
+  }
+  return settings.tts.pasar;
+}
+function ttsCommentIsPasar(comment) {
+  const c = settings?.tts?.pasar;
+  if (!c || !c.enabled) return false;
+  const cmd = ttsNormFunCmd(c.command || '!pasar', '!pasar').toLowerCase();
+  const first = String(comment || '').trim().toLowerCase().split(/\s+/)[0] || '';
+  return first === cmd;
+}
+function syncTtsPasarCard() {
+  const card = $('tts-pasar-card');
+  const on = $('tts-pasar-on');
+  if (card) card.classList.toggle('is-on', !!on?.checked);
+}
+function applyTtsPasarUI() {
+  const c = ttsEnsurePasar();
+  const on = $('tts-pasar-on');
+  if (on && on !== document.activeElement) on.checked = !!c.enabled;
+  const cmd = $('tts-pasar-cmd');
+  if (cmd && cmd !== document.activeElement) cmd.value = ttsNormFunCmd(c.command || '!pasar', '!pasar');
+  const cd = $('tts-pasar-cd');
+  if (cd && cd !== document.activeElement) cd.value = Math.max(1, Math.min(60, Number(c.cooldownSec) || 8));
+  const mn = $('tts-pasar-min');
+  if (mn && mn !== document.activeElement) mn.value = Math.max(1, Number(c.minAmount) || 1);
+  const mx = $('tts-pasar-max');
+  if (mx && mx !== document.activeElement) mx.value = Math.max(1, Number(c.maxAmount) || 10000);
+  syncTtsPasarCard();
 }
 
 /* ---- Comandos personalizados (respuestas automáticas por voz) ---- */
@@ -18823,6 +18908,7 @@ async function ttsSpeak(p, force = false) {
     return;
   }
   if (!t.enabled) return;
+  if (ttsCommentIsCaracola(p.comment) || ttsCommentIsPasar(p.comment)) return;
   if (!ttsAllowedUser(p)) return;
 
   let body = ttsTriggerMatch(p.comment);
@@ -19152,6 +19238,79 @@ function openTtsWarnModal(onAccept) {
   bindChk('tts-read-taptap', 'readTaptap');
   bindNum('tts-taptap-min', 'taptapMin');
   bindChk('tts-read-gifts', 'readGifts');
+
+  function saveTtsCaracola() {
+    const c = ttsEnsureCaracola();
+    c.enabled = !!$('tts-caracola-on')?.checked;
+    const rawCmd = String($('tts-caracola-cmd')?.value || '').trim();
+    if (rawCmd) c.command = ttsNormFunCmd(rawCmd);
+    const n = Number($('tts-caracola-cd')?.value);
+    if (Number.isFinite(n)) c.cooldownSec = Math.max(1, Math.min(60, Math.round(n)));
+    syncTtsCaracolaCard();
+    save();
+  }
+  $('tts-caracola-on')?.addEventListener('change', saveTtsCaracola);
+  const carCmd = $('tts-caracola-cmd');
+  if (carCmd) {
+    carCmd.addEventListener('change', saveTtsCaracola);
+    carCmd.addEventListener('blur', () => {
+      const v = String(carCmd.value || '').trim();
+      carCmd.value = ttsNormFunCmd(v || settings.tts?.caracola?.command || '!caracola');
+      saveTtsCaracola();
+    });
+  }
+  const carCd = $('tts-caracola-cd');
+  if (carCd) {
+    carCd.addEventListener('change', saveTtsCaracola);
+    carCd.addEventListener('blur', () => {
+      const n = Number(carCd.value);
+      carCd.value = String(Number.isFinite(n) ? Math.max(1, Math.min(60, Math.round(n))) : (settings.tts?.caracola?.cooldownSec || 5));
+      saveTtsCaracola();
+    });
+    carCd.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+  }
+  $('tts-caracola-test')?.addEventListener('click', () => {
+    const phrase = 'La caracola dice: ' + ttsPickCaracolaAnswer();
+    ttsSpeakText(phrase, { force: true });
+    toast(phrase, 'ok');
+  });
+
+  function saveTtsPasar() {
+    const c = ttsEnsurePasar();
+    c.enabled = !!$('tts-pasar-on')?.checked;
+    const rawCmd = String($('tts-pasar-cmd')?.value || '').trim();
+    if (rawCmd) c.command = ttsNormFunCmd(rawCmd, '!pasar');
+    const n = Number($('tts-pasar-cd')?.value);
+    if (Number.isFinite(n)) c.cooldownSec = Math.max(1, Math.min(60, Math.round(n)));
+    const mn = Number($('tts-pasar-min')?.value);
+    const mx = Number($('tts-pasar-max')?.value);
+    if (Number.isFinite(mn)) c.minAmount = Math.max(1, Math.round(mn));
+    if (Number.isFinite(mx)) c.maxAmount = Math.max(c.minAmount || 1, Math.round(mx));
+    syncTtsPasarCard();
+    save();
+  }
+  $('tts-pasar-on')?.addEventListener('change', saveTtsPasar);
+  const passCmd = $('tts-pasar-cmd');
+  if (passCmd) {
+    passCmd.addEventListener('change', saveTtsPasar);
+    passCmd.addEventListener('blur', () => {
+      const v = String(passCmd.value || '').trim();
+      passCmd.value = ttsNormFunCmd(v || settings.tts?.pasar?.command || '!pasar', '!pasar');
+      saveTtsPasar();
+    });
+  }
+  ['tts-pasar-cd', 'tts-pasar-min', 'tts-pasar-max'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('change', saveTtsPasar);
+    el.addEventListener('blur', saveTtsPasar);
+    el.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+  });
+  $('tts-pasar-test')?.addEventListener('click', () => {
+    const phrase = 'Carlos le pasó 100 puntos a Pepito';
+    ttsSpeakText(phrase, { force: true });
+    toast(phrase, 'ok');
+  });
 
   // comandos personalizados
   const cmdAdd = $('tts-cmd-add');
@@ -19594,12 +19753,74 @@ const PTS_PAGE_SIZE = 20;
 const ptsUi = { list: [], shown: 0, q: '', loadingMore: false };
 let ptsRenderTimer = null;
 
+const PTS_EXTRA_NUM_IDS = ['pts-watchsec', 'pts-watchpts', 'pts-dailypts', 'pts-sharepts', 'pts-chatpts', 'pts-chatcd'];
+const PTS_EXTRA_CHK_IDS = ['pts-watchon', 'pts-dailyon', 'pts-shareon', 'pts-chaton'];
+const PTS_EXTRA_KEYS = ['watchOn', 'watchEverySec', 'watchPoints', 'dailyOn', 'dailyPoints', 'shareOn', 'sharePoints', 'chatOn', 'chatPoints', 'chatCooldownSec'];
+let ptsExtraLockUntil = 0;
+let ptsExtraEditAt = 0;
+
+function ptsExtraFieldBusy() {
+  const root = $('pts-extra');
+  const ae = document.activeElement;
+  if (root && ae && root.contains(ae) && (ae.matches('input[type="number"]') || ae.matches('input[type="checkbox"]'))) return true;
+  return Date.now() < ptsExtraLockUntil;
+}
+function preserveLocalPointsOnSettingsEcho(incoming) {
+  try {
+    if (!incoming || !settings) return incoming;
+    const local = settings.points;
+    if (!local || typeof local !== 'object') return incoming;
+    const recent = ptsExtraEditAt && (Date.now() - ptsExtraEditAt < 4000);
+    const pending = !!(typeof settingsKeysSavePending !== 'undefined' && settingsKeysSavePending && settingsKeysSavePending.has('points'));
+    if (!recent && !pending) return incoming;
+    const merged = { ...(incoming.points || {}) };
+    for (const k of PTS_EXTRA_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(local, k)) merged[k] = local[k];
+    }
+    return { ...incoming, points: merged };
+  } catch {
+    return incoming;
+  }
+}
+function syncPtsExtraCards() {
+  document.querySelectorAll('#pts-extra .ptsx-row').forEach((row) => {
+    const on = !!row.querySelector('.ptsx-sw input:checked');
+    row.classList.toggle('is-on', on);
+  });
+}
+function applyPointsExtraUI() {
+  if (ptsExtraFieldBusy()) return;
+  const p = settings?.points || {};
+  const setChk = (id, on) => {
+    const n = $(id);
+    if (!n || n === document.activeElement) return;
+    n.checked = !!on;
+  };
+  const setNum = (id, v) => {
+    const n = $(id);
+    if (!n || n === document.activeElement) return;
+    n.value = v;
+  };
+  setChk('pts-watchon', p.watchOn);
+  setNum('pts-watchsec', p.watchEverySec ?? 60);
+  setNum('pts-watchpts', p.watchPoints ?? 1);
+  setChk('pts-dailyon', p.dailyOn);
+  setNum('pts-dailypts', p.dailyPoints ?? 10);
+  setChk('pts-shareon', p.shareOn);
+  setNum('pts-sharepts', p.sharePoints ?? 5);
+  setChk('pts-chaton', p.chatOn);
+  setNum('pts-chatpts', p.chatPoints ?? 1);
+  setNum('pts-chatcd', p.chatCooldownSec ?? 10);
+  syncPtsExtraCards();
+}
 function applyPointsSettingsUI() {
   const el = $('pts-percoin');
-  if (el && !applyingSettings) return; // no pisar lo que el usuario escribe
-  if (el) el.value = settings?.points?.perCoin ?? 1;
-  const sf = $('pts-superfan'); if (sf) sf.value = settings?.points?.superFanBonus ?? 500;
-  const sb = $('pts-subbonus'); if (sb) sb.value = settings?.points?.subBonus ?? 100;
+  if (!(el && !applyingSettings)) {
+    if (el) el.value = settings?.points?.perCoin ?? 1;
+    const sf = $('pts-superfan'); if (sf) sf.value = settings?.points?.superFanBonus ?? 500;
+    const sb = $('pts-subbonus'); if (sb) sb.value = settings?.points?.subBonus ?? 100;
+  }
+  applyPointsExtraUI();
 }
 
 function fmtPointsDate(ts) {
@@ -19855,6 +20076,76 @@ function renderPointsTx() {
     settings.points.subBonus = Math.max(0, Math.round(Number(subBonus.value) || 0));
     saveSettings();
   });
+
+  function bindPtsExtra() {
+    const readNum = (id, min, max) => {
+      const el = $(id);
+      if (!el) return null;
+      const raw = String(el.value || '').trim();
+      if (raw === '' || raw === '-' || raw === '.' || raw === '-.') return null;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return null;
+      return Math.max(min, Math.min(max, Math.round(n)));
+    };
+    const saveExtra = () => {
+      if (!settings.points) settings.points = {};
+      settings.points.watchOn = !!$('pts-watchon')?.checked;
+      settings.points.dailyOn = !!$('pts-dailyon')?.checked;
+      settings.points.shareOn = !!$('pts-shareon')?.checked;
+      settings.points.chatOn = !!$('pts-chaton')?.checked;
+      const watchSec = readNum('pts-watchsec', 15, 3600);
+      const watchPts = readNum('pts-watchpts', 0, 100000);
+      const dailyPts = readNum('pts-dailypts', 0, 100000);
+      const sharePts = readNum('pts-sharepts', 0, 100000);
+      const chatPts = readNum('pts-chatpts', 0, 100000);
+      const chatCd = readNum('pts-chatcd', 1, 300);
+      if (watchSec != null) settings.points.watchEverySec = watchSec;
+      if (watchPts != null) settings.points.watchPoints = watchPts;
+      if (dailyPts != null) settings.points.dailyPoints = dailyPts;
+      if (sharePts != null) settings.points.sharePoints = sharePts;
+      if (chatPts != null) settings.points.chatPoints = chatPts;
+      if (chatCd != null) settings.points.chatCooldownSec = chatCd;
+      ptsExtraEditAt = Date.now();
+      ptsExtraLockUntil = Date.now() + 2500;
+      syncPtsExtraCards();
+      if (typeof saveSettingsKeysPatch === 'function') saveSettingsKeysPatch('points');
+      else saveSettings();
+    };
+    PTS_EXTRA_CHK_IDS.forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('click', (e) => e.stopPropagation());
+      el.addEventListener('change', saveExtra);
+    });
+    PTS_EXTRA_NUM_IDS.forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('click', (e) => e.stopPropagation());
+      el.addEventListener('mousedown', (e) => e.stopPropagation());
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      });
+      el.addEventListener('wheel', (e) => { e.preventDefault(); }, { passive: false });
+      el.addEventListener('change', saveExtra);
+      el.addEventListener('blur', () => {
+        const map = {
+          'pts-watchsec': [15, 3600, settings.points?.watchEverySec ?? 60],
+          'pts-watchpts': [0, 100000, settings.points?.watchPoints ?? 1],
+          'pts-dailypts': [0, 100000, settings.points?.dailyPoints ?? 10],
+          'pts-sharepts': [0, 100000, settings.points?.sharePoints ?? 5],
+          'pts-chatpts': [0, 100000, settings.points?.chatPoints ?? 1],
+          'pts-chatcd': [1, 300, settings.points?.chatCooldownSec ?? 10],
+        };
+        const spec = map[id];
+        if (!spec) return;
+        const n = readNum(id, spec[0], spec[1]);
+        el.value = String(n == null ? spec[2] : n);
+        saveExtra();
+      });
+    });
+    syncPtsExtraCards();
+  }
+  bindPtsExtra();
 
   const reset = $('pts-reset');
   if (reset) reset.onclick = async () => {
@@ -24610,9 +24901,11 @@ function renderMcTrigPop() {
   }).join('');
   grid.querySelectorAll('.mc-trig-pop-item').forEach((btn) => {
     btn.onclick = () => {
+      const prev = d.trigger;
       d.trigger = btn.dataset.v;
-      if (d.trigger === 'likeGlobal' && (!d.likeN || d.likeN < 1)) d.likeN = 100;
-      if (d.trigger === 'like' && (!d.likeN || d.likeN < 1)) d.likeN = 1;
+      if (d.trigger === 'like' || d.trigger === 'likeGlobal') {
+        d.likeN = applyLikeTriggerSwitch(prev, d.trigger, d.likeN);
+      }
       renderMcTrigPop();
     };
   });
@@ -24642,7 +24935,7 @@ function renderMcTrigPop() {
   } else if (d.trigger === 'like' || d.trigger === 'likeGlobal') {
     const txt = d.trigger === 'likeGlobal' ? 'Cada cuántos likes globales' : 'Mínimo de likes (por tanda)';
     detailHtml = `<label class="mc-like-row">${txt}
-      <input type="number" min="1" id="mc-trig-pop-liken" value="${esc(String(d.likeN != null ? d.likeN : 1))}"></label>`;
+      <input type="number" min="1" id="mc-trig-pop-liken" value="${esc(String(d.likeN != null ? d.likeN : (d.trigger === 'likeGlobal' ? 100 : 1)))}"></label>`;
   } else if (d.trigger === 'chatUser' || d.trigger === 'chatCommand') {
     const txt = d.trigger === 'chatUser' ? 'Nombre de usuario (sin @)' : 'Palabra o comando (ej. !zombie)';
     const ph = d.trigger === 'chatUser' ? 'usuario123' : '!zombie';
@@ -25212,10 +25505,23 @@ function gameActionExtraRow(a, likeClass, textClass) {
   }
   return '';
 }
+function applyLikeTriggerSwitch(prevTrig, nextTrig, currentN) {
+  const n = parseInt(currentN, 10);
+  if (nextTrig === 'likeGlobal') {
+    if (prevTrig !== 'likeGlobal' && (!Number.isFinite(n) || n <= 1)) return 100;
+    return Math.max(1, Number.isFinite(n) && n > 0 ? n : 100);
+  }
+  if (nextTrig === 'like') {
+    if (prevTrig === 'likeGlobal' && n === 100) return 1;
+    return Math.max(1, Number.isFinite(n) && n > 0 ? n : 1);
+  }
+  return currentN;
+}
 function setGameActionTrigger(settingsKey, uid, value, renderFn) {
   if (!settings || !uid || !settingsKey) return;
   const a = (settings[settingsKey] || []).find((x) => x && x.uid === uid);
   if (!a) return;
+  const prevTrig = a.trigger || 'gift';
   a.trigger = value;
   if (value !== 'gift' && value !== 'gift-any' && value !== 'gift-diamonds') {
     a.giftId = '';
@@ -25235,8 +25541,7 @@ function setGameActionTrigger(settingsKey, uid, value, renderFn) {
     delete a.rangeMin;
     delete a.rangeMax;
   }
-  if (value === 'like') a.likeN = Math.max(1, parseInt(a.likeN, 10) || 1);
-  else if (value === 'likeGlobal') a.likeN = Math.max(1, parseInt(a.likeN, 10) || 100);
+  if (value === 'like' || value === 'likeGlobal') a.likeN = applyLikeTriggerSwitch(prevTrig, value, a.likeN);
   else if (value !== 'chatUser' && value !== 'chatCommand') a.text = '';
   lastGameActionEditAt = Date.now();
   flushSaveSettings();
@@ -30402,8 +30707,8 @@ function setupMari0Downloads() {
   const MARI0_DOWNLOAD_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/world/mari0.livecoins.rar';
   const MARI0_ACTIVADOR_URL = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/exe/Mari0.Livecoins.Bridge.Setup.2.0.0.exe';
   const items = [
-    { head: 'Descargar juego', name: 'Mari0', size: 'Juego (RAR)', img: '/img/mari0-card.png', url: MARI0_DOWNLOAD_URL, id: 'mari0-download-game', btn: '⬇ Descargar juego', toast: 'Mari0' },
-    { head: 'Activador', name: 'Mari0 Bridge', size: 'Instalador (.exe)', img: '/img/mari0-card.png', url: MARI0_ACTIVADOR_URL, id: 'mari0-activador', btn: '⬇ Activador', toast: 'activador' },
+    { head: 'Descargar juego', name: 'Mari0', size: 'Juego (RAR)', img: '/img/mari0-card.jpg?v=m2', url: MARI0_DOWNLOAD_URL, id: 'mari0-download-game', btn: '⬇ Descargar juego', toast: 'Mari0' },
+    { head: 'Activador', name: 'Mari0 Bridge', size: 'Instalador (.exe)', img: '/img/mari0-card.jpg?v=m2', url: MARI0_ACTIVADOR_URL, id: 'mari0-activador', btn: '⬇ Activador', toast: 'activador' },
   ];
   const wrap = document.getElementById('mari0-downloads');
   if (!wrap) return;
@@ -31364,18 +31669,18 @@ function setupPvzHybridStatusPoll() {
   }, 2000);
 }
 
-const PVZ_DL_BASE = 'https://github.com/riusaki1995/.exe/releases/download/pvz/';
+const PVZ_DL_BASE = 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/';
 const PVZ_HYBRID_DOWNLOADS = [
   { head: 'Descargar PvZ Tools', name: 'PvZ Tools', file: 'PvZ.Tools.v2.6.1.exe', size: '1.3 MB', icon: '⚙️', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/PvZ.Tools.v2.6.1.exe' },
-  { head: 'Descargar Plantas vs Zombies 1', name: 'PvZ 1', file: 'PVZ.1.ESP-ENG.zip', size: '132.78 MB', img: '/img/plantasvszombies-card.jpg', maintenance: true },
-  { head: 'Descargar Plantas vs Zombies Hybrid v3.6', name: 'PvZ Hybrid v3.6', file: 'PVZ.HYBRID.v3.6.zip', size: '269.61 MB', img: '/img/pvzhybrid-card.jpg', maintenance: true },
-  { head: 'Descargar Plantas vs Zombies Naruto v1.20', name: 'PvZ Naruto v1.20', file: 'PVZ.Naruto.zip', size: '83.47 MB', img: '/img/PvZ_Naruto.png', maintenance: true },
-  { head: 'Descargar Plantas vs Zombies Parasyte v1.0', name: 'PvZ Parasyte v1.0', file: 'PVZ_Parasyte_en.zip', size: '50.8 MB', img: '/img/PvZ_Parasyte.png', maintenance: true },
-  { head: 'Descargar Plantas vs Zombies Cute', name: 'PvZ Cute', file: 'PVZ.CUTE.zip', size: '271.97 MB', img: '/img/PvZ_Cute.png', maintenance: true },
-  { head: 'Descargar Plantas vs Zombies AmongUs', name: 'PvZ AmongUs', file: 'PVZ.AmongUs.zip', size: '230.79 MB', img: '/img/PvZ_AmongUs.png', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies 1', name: 'PvZ 1', file: 'PVZ.1.ESP-ENG.zip', size: '132.78 MB', img: '/img/plantasvszombies-card.jpg', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/PVZ.1.ESP-ENG.zip' },
+  { head: 'Descargar Plantas vs Zombies Hybrid v3.6', name: 'PvZ Hybrid v3.6', file: 'PVZ.HYBRID.v3.6.zip', size: '269.61 MB', img: '/img/pvzhybrid-card.jpg', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/PVZ.HYBRID.v3.6.zip' },
+  { head: 'Descargar Plantas vs Zombies Naruto v1.20', name: 'PvZ Naruto v1.20', file: 'PVZ.Naruto.zip', size: '83.47 MB', img: '/img/PvZ_Naruto.png', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/PVZ.Naruto.zip' },
+  { head: 'Descargar Plantas vs Zombies Parasyte v1.0', name: 'PvZ Parasyte v1.0', file: 'PVZ_Parasyte_en.zip', size: '50.8 MB', img: '/img/PvZ_Parasyte.png', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/PVZ_Parasyte_en.zip' },
+  { head: 'Descargar Plantas vs Zombies Cute', name: 'PvZ Cute', file: 'PVZ.CUTE.zip', size: '271.97 MB', img: '/img/PvZ_Cute.png', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/PVZ.CUTE.zip' },
+  { head: 'Descargar Plantas vs Zombies AmongUs', name: 'PvZ AmongUs', file: 'PVZ.AmongUs.zip', size: '230.79 MB', img: '/img/PvZ_AmongUs.png', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/PVZ.AmongUs.zip' },
   { head: 'Descargar Plantas vs Zombies Fusion v3.7', name: 'PvZ Fusion v3.7', file: 'PvZ.Fusion.-.Interactive.v3.7.-.MelonLoader.zip', size: '695 MB', img: '/img/PvZ_Fusion.png', maintenance: true },
-  { head: 'Descargar Plantas vs Zombies Future', name: 'PvZ Future', file: 'PVZ.Future.zip', size: '630.94 MB', img: '/img/PvZ_Future.png', maintenance: true },
-  { head: 'Descargar Plantas vs Zombies Avengers', name: 'PvZ Avengers', file: 'PVZ.Avengers.zip', size: '266.66 MB', img: '/img/PvZ_Avengers.png', maintenance: true },
+  { head: 'Descargar Plantas vs Zombies Future', name: 'PvZ Future', file: 'PVZ.Future.zip', size: '630.94 MB', img: '/img/PvZ_Future.png', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/PVZ.Future.zip' },
+  { head: 'Descargar Plantas vs Zombies Avengers', name: 'PvZ Avengers', file: 'PVZ.Avengers.zip', size: '266.66 MB', img: '/img/PvZ_Avengers.png', url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/pvz/PVZ.Avengers.zip' },
 ];
 
 function renderPvzHybridDownloads() {
@@ -36813,6 +37118,7 @@ async function generateRobloxMenuImage(orientation) {
 
 // Descarga el archivo del servidor (botón sobre la imagen).
 let gameDlProgressOff = null;
+let gameDlWantMin = false;
 
 function fmtDlBytes(b) {
   if (!b) return '0 B';
@@ -36820,24 +37126,66 @@ function fmtDlBytes(b) {
   return mb >= 1 ? mb.toFixed(1) + ' MB' : (b / 1024).toFixed(0) + ' KB';
 }
 
+function setGameDownloadMinimized(on) {
+  const el = document.getElementById('game-dl-modal');
+  if (!el) return;
+  gameDlWantMin = !!on;
+  el.classList.toggle('is-min', !!on);
+  const minBtn = el.querySelector('#game-dl-min');
+  if (minBtn) minBtn.setAttribute('aria-label', on ? 'Expandir descarga' : 'Minimizar y seguir usando el panel');
+}
+
 function ensureGameDownloadModal() {
   let el = document.getElementById('game-dl-modal');
+  if (el && !el.querySelector('#game-dl-min')) {
+    el.remove();
+    el = null;
+  }
   if (el) return el;
   el = document.createElement('div');
   el.id = 'game-dl-modal';
-  el.className = 'modal game-dl-modal hidden';
+  el.className = 'game-dl-dock hidden';
   el.innerHTML = `
-    <div class="game-dl-box" role="dialog" aria-live="polite" aria-label="Descargando juego">
-      <h3 class="game-dl-title"><span class="game-dl-dot"></span> Descargando juego…</h3>
-      <p class="game-dl-name" id="game-dl-name"></p>
+    <div class="game-dl-box" role="status" aria-live="polite" aria-label="Descarga en curso">
+      <div class="game-dl-head">
+        <div class="game-dl-head-l">
+          <span class="game-dl-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
+          </span>
+          <div>
+            <h3 class="game-dl-title">Descarga en curso</h3>
+            <p class="game-dl-name" id="game-dl-name"></p>
+          </div>
+        </div>
+        <button type="button" class="game-dl-min" id="game-dl-min" title="Minimizar y seguir usando el panel" aria-label="Minimizar y seguir usando el panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+        </button>
+      </div>
       <p class="game-dl-status" id="game-dl-status">Preparando descarga…</p>
       <div class="game-dl-barwrap"><div class="game-dl-bar" id="game-dl-bar"></div></div>
       <div class="game-dl-stats">
         <span id="game-dl-size">—</span>
         <span class="game-dl-pct" id="game-dl-pct">0%</span>
       </div>
-    </div>`;
+    </div>
+    <button type="button" class="game-dl-pill" id="game-dl-pill" title="Mostrar descarga">
+      <span class="game-dl-pill-ring" id="game-dl-pill-ring" style="--p:0">
+        <span class="game-dl-pill-pct" id="game-dl-pill-pct">0%</span>
+      </span>
+      <span class="game-dl-pill-meta">
+        <span class="game-dl-pill-k">Descargando</span>
+        <span class="game-dl-pill-name" id="game-dl-pill-name">archivo</span>
+      </span>
+    </button>`;
   document.body.appendChild(el);
+  el.querySelector('#game-dl-min').onclick = (e) => {
+    e.stopPropagation();
+    setGameDownloadMinimized(true);
+  };
+  el.querySelector('#game-dl-pill').onclick = (e) => {
+    e.stopPropagation();
+    setGameDownloadMinimized(false);
+  };
   return el;
 }
 
@@ -36848,23 +37196,31 @@ function updateGameDownloadProgress(d) {
   const pctEl = modal.querySelector('#game-dl-pct');
   const sizeEl = modal.querySelector('#game-dl-size');
   const statusEl = modal.querySelector('#game-dl-status');
+  const pillPct = modal.querySelector('#game-dl-pill-pct');
+  const pillRing = modal.querySelector('#game-dl-pill-ring');
+  const pillName = modal.querySelector('#game-dl-pill-name');
+  const pillK = modal.querySelector('.game-dl-pill-k');
   if (!bar || !pctEl || !sizeEl || !statusEl) return;
   if (d.error) {
     statusEl.textContent = 'Error: ' + d.error;
     statusEl.classList.add('err');
     bar.classList.remove('indeterminate');
+    setGameDownloadMinimized(false);
+    if (pillK) pillK.textContent = 'Error';
     return;
   }
   statusEl.classList.remove('err');
   if (d.filename) {
     const nameEl = modal.querySelector('#game-dl-name');
     if (nameEl) nameEl.textContent = d.filename;
+    if (pillName) pillName.textContent = d.filename;
   }
   const total = Number(d.total) || 0;
   const done = Number(d.done) || 0;
+  let p = 0;
   if (total > 0) {
     bar.classList.remove('indeterminate');
-    const p = Math.max(0, Math.min(100, d.pct != null ? d.pct : Math.round((done / total) * 100)));
+    p = Math.max(0, Math.min(100, d.pct != null ? d.pct : Math.round((done / total) * 100)));
     bar.style.width = p + '%';
     pctEl.textContent = p + '%';
     sizeEl.textContent = fmtDlBytes(done) + ' / ' + fmtDlBytes(total);
@@ -36873,19 +37229,27 @@ function updateGameDownloadProgress(d) {
     pctEl.textContent = '…';
     sizeEl.textContent = fmtDlBytes(done) + ' descargados';
   }
+  if (pillPct) pillPct.textContent = total > 0 ? (p + '%') : '…';
+  if (pillRing) pillRing.style.setProperty('--p', String(total > 0 ? p : 8));
   if (d.complete) {
     bar.classList.remove('indeterminate');
     bar.style.width = '100%';
     pctEl.textContent = '100%';
-    statusEl.textContent = 'Descarga completa. Abriendo carpeta…';
+    statusEl.textContent = 'Listo. Abriendo carpeta…';
+    if (pillPct) pillPct.textContent = '100%';
+    if (pillRing) pillRing.style.setProperty('--p', '100');
+    if (pillK) pillK.textContent = 'Completado';
+    setGameDownloadMinimized(false);
   } else if (d.started) {
-    statusEl.textContent = 'Descargando… no cierres Livecoins (puede tardar varios minutos).';
+    statusEl.textContent = 'Puedes minimizar y seguir usando el panel.';
+    if (pillK) pillK.textContent = 'Descargando';
   }
 }
 
 function showGameDownloadProgress(filename) {
   const modal = ensureGameDownloadModal();
   modal.classList.remove('hidden');
+  setGameDownloadMinimized(!!gameDlWantMin);
   updateGameDownloadProgress({ filename, done: 0, total: 0, pct: 0, started: true });
   if (gameDlProgressOff) gameDlProgressOff();
   if (window.desktopAPI?.onGameDownloadProgress) {
@@ -36896,7 +37260,10 @@ function showGameDownloadProgress(filename) {
 function hideGameDownloadProgress(delayMs) {
   const close = () => {
     const modal = document.getElementById('game-dl-modal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('is-min');
+    }
     if (gameDlProgressOff) { gameDlProgressOff(); gameDlProgressOff = null; }
   };
   if (delayMs > 0) setTimeout(close, delayMs);
@@ -38229,7 +38596,7 @@ function _buildEditorGamePack(id) {
       };
     case 'mari0':
       return {
-        id, name: 'Mari0', cover: '/img/mari0-card.png',
+        id, name: 'Mari0', cover: '/img/mari0-card.jpg?v=m2',
         items: (typeof MARI0_CATALOG !== 'undefined' ? MARI0_CATALOG : []).map((c) => ({
           name: c.nombre || c.name || c.id,
           src: typeof mari0CatalogIconUrl === 'function' ? mari0CatalogIconUrl(c) : `/img/mari0/${c.id}.png`,
@@ -38306,7 +38673,7 @@ window.getEditorGamePackList = function getEditorGamePackList() {
     { id: 'bedrock', name: 'Bedrock · Cubo TNT', cover: '/img/bedrock-card.jpg', count: (typeof BEDROCK_CATALOG !== 'undefined' && BEDROCK_CATALOG) ? BEDROCK_CATALOG.length : 0 },
     { id: 'sandbox', name: 'Sandbox', cover: '/img/sandbox-card.jpg', count: (typeof SANDBOX_CATALOG !== 'undefined' && SANDBOX_CATALOG) ? SANDBOX_CATALOG.length : 0 },
     { id: 'mariobros', name: 'Mario Bros', cover: '/img/mariobros-card.jpg', count: (typeof MARIO_CATALOG !== 'undefined' && MARIO_CATALOG) ? MARIO_CATALOG.length : 0 },
-    { id: 'mari0', name: 'Mari0', cover: '/img/mari0-card.png', count: (typeof MARI0_CATALOG !== 'undefined' && MARI0_CATALOG) ? MARI0_CATALOG.length : 0 },
+    { id: 'mari0', name: 'Mari0', cover: '/img/mari0-card.jpg?v=m2', count: (typeof MARI0_CATALOG !== 'undefined' && MARI0_CATALOG) ? MARI0_CATALOG.length : 0 },
     { id: 'smw', name: 'Super Mario World', cover: '/img/smw-card.jpg', count: (typeof SMW_CATALOG !== 'undefined' && SMW_CATALOG) ? SMW_CATALOG.length : 0 },
     { id: 'plantasvszombies', name: 'Plants vs Zombies', cover: '/img/plantasvszombies-card.jpg', count: (typeof PVZ_CATALOG !== 'undefined' && PVZ_CATALOG) ? PVZ_CATALOG.length : 0 },
     { id: 'pvzhybrid', name: 'PvZ Hybrid', cover: '/img/pvzhybrid-card.jpg', count: (typeof PVZHYBRID_CATALOG !== 'undefined' && PVZHYBRID_CATALOG) ? PVZHYBRID_CATALOG.length : 0 },

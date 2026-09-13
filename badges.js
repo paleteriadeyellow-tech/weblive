@@ -290,6 +290,7 @@ export function gameKeyFromExecTipo(tipo, hintUrl = '') {
   if (t.startsWith('SMW_')) return 'game_smw';
   if (t.startsWith('MARI0_')) return 'game_mari0';
   if (t.startsWith('PVZ_HYBRID') || t.startsWith('PVZHYBRID') || t.includes('PVZ_HYBRID')) return 'game_pvzhybrid';
+  if (t.startsWith('PVZFUSION_')) return 'game_pvzfusion';
   if (t.startsWith('PVZ_')) return 'game_plantasvszombies';
   if (t.startsWith('REPO_')) return 'game_repo';
   if (t.startsWith('L4D_')) return 'game_l4d';
@@ -298,7 +299,8 @@ export function gameKeyFromExecTipo(tipo, hintUrl = '') {
   if (t.startsWith('GTAV_CHILIAD') || t.startsWith('GTAVCHILIAD')) return 'game_gtavchiliad';
   if (t.startsWith('GTAV_') || t.startsWith('GTAVKOTH')) return 'game_gtavkoth';
   if (t.startsWith('CTR_') || t.startsWith('CRASH')) return 'game_crashctr';
-  if (t.startsWith('CR_')) return 'game_clashroyale';
+  if (t.startsWith('FLAPPY_')) return 'game_flappybird';
+  if (t.startsWith('MK64_')) return 'game_mk64';
   if (t.startsWith('MSLUG_') || t.startsWith('METALSLUG')) return 'game_metalslug';
   if (t.startsWith('GD_') || t.startsWith('GEOMETRY')) return 'game_geometrydash';
   if (t.startsWith('MC_') || t.startsWith('MINECRAFT') || t.startsWith('RCON') || t.startsWith('SERVERTAP')) return 'game_minecraft';
@@ -316,6 +318,7 @@ export function gameKeyFromExecTipo(tipo, hintUrl = '') {
     if (u.includes(':5722') || u.includes('mari0')) return 'game_mari0';
     if (u.includes(':5720') || u.includes('smbx') || u.includes('smb3')) return 'game_mariobros';
     if (u.includes(':7757') || (u.includes('pvz') && u.includes('hybrid'))) return 'game_pvzhybrid';
+    if (u.includes(':5003') || u.includes('pvzfusion') || u.includes('pvz-fusion')) return 'game_pvzfusion';
     if (u.includes(':7756') || u.includes('pvz')) return 'game_plantasvszombies';
     if (u.includes(':7760') || u.includes('mslug') || u.includes('metal')) return 'game_metalslug';
     if (u.includes(':5721') || u.includes('geometry') || u.includes('gdash')) return 'game_geometrydash';

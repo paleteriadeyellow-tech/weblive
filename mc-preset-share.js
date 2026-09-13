@@ -1,4 +1,4 @@
-// Compartir presets de acciones Minecraft con código corto (MC-XXXXXX).
+// Compartir presets de acciones (cualquier juego del panel) con código corto (MC-XXXXXX).
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -9,8 +9,12 @@ const CODE_LEN = 6;
 const DEFAULT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_ACTIONS = 400;
 const MAX_JSON_BYTES = 600 * 1024;
-const MC_GAMES = new Set([
+// Debe coincidir con GAME_PRESET_MAP en public/js/dashboard.js
+const PRESET_GAMES = new Set([
   'minecraft', 'mcparkour', 'mckoth', 'mcfarm', 'mcshooter', 'bedrock', 'sandbox',
+  'mario', 'smw', 'smb3', 'mari0', 'pvz', 'pvzhybrid', 'pvzfusion',
+  'repo', 'l4d', 'gtavkoth', 'gtavchaos', 'gtavchiliad', 'unturned',
+  'ctr', 'flappy', 'mk64', 'mslug', 'gdash', 'roblox', 'roblox3',
 ]);
 
 function sharesDir(dataDir) {
@@ -46,7 +50,7 @@ function sanitizeActions(list) {
 
 function validatePayload(body) {
   const game = String(body?.game || 'minecraft').trim();
-  if (!MC_GAMES.has(game)) return { error: 'Juego no válido.' };
+  if (!PRESET_GAMES.has(game)) return { error: 'Juego no válido.' };
   const actions = sanitizeActions(body?.actions);
   if (!actions.length) return { error: 'El preset no tiene acciones.' };
   const name = String(body?.presetName || body?.name || 'Preset compartido').trim().slice(0, 80) || 'Preset compartido';

@@ -1028,7 +1028,7 @@
       id: 'mario',
       name: 'Mario',
       desc: 'Pack de iconos PNG',
-      cover: '/img/mari0-card.png',
+      cover: '/img/mari0-card.jpg?v=m2',
       url: 'https://github.com/paleteriadeyellow-tech/exe/releases/download/logos/mari0.zip',
       fileName: 'mari0.zip',
     },

@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Sorteo de puntos · Livecoins</title>
+  <link rel="stylesheet" href="/sorteos-pavos.css?v=sop4" />
+</head>
+<body>
+  <div class="so-root" id="so-root">
+    <div class="so-panel" id="so-panel">
+      <div class="so-header">
+        <div class="sop-brand" aria-hidden="true">
+          <span class="sop-brand-ico">🎯</span>
+          <span class="sop-brand-txt">SORTEO DE PUNTOS</span>
+          <span class="sop-brand-ico">🎯</span>
+        </div>
+        <div class="so-timer is-wait" id="so-timer">LISTO</div>
+        <div class="so-modes">
+          <div class="so-badge so-badge-mode" id="so-mode"><span class="ico">⭐</span><span id="so-mode-txt">PRONTO</span><span class="ico">⭐</span></div>
+          <div class="so-badge so-badge-lock" id="so-lock-badge"><span class="ico">🔒</span><span id="so-lock-txt">CERRADO</span><span class="ico">🔒</span></div>
+        </div>
+      </div>
+      <div class="so-stage">
+        <div class="so-toast" id="so-toast">Nuevo jugador</div>
+        <div class="so-grid-wrap" id="so-grid-wrap">
+          <div class="so-grid" id="so-grid">
+            <div class="so-wait" id="so-wait">
+              <div class="so-wait-icon">
+                <img id="so-wait-img" alt="" hidden referrerpolicy="no-referrer" />
+                <span class="so-wait-ph" id="so-wait-ph" aria-hidden="true">🎯</span>
+              </div>
+              <h2 class="so-wait-title">¿ENTRAS?</h2>
+              <p class="so-wait-sub" id="so-wait-sub">Escribe !pavo · 500 pts por vida</p>
+            </div>
+          </div>
+          <div class="so-elim" id="so-elim" aria-hidden="true">
+            <h2 class="so-elim-title">¡FUERA!</h2>
+            <img class="so-elim-av" id="so-elim-av" alt="" referrerpolicy="no-referrer" />
+            <div class="so-elim-av-ph" id="so-elim-av-ph">?</div>
+            <p class="so-elim-name" id="so-elim-name">—</p>
+            <div class="so-elim-chance"><span aria-hidden="true">🎲</span><span id="so-elim-chance">0% chance</span></div>
+            <p class="so-elim-foot" id="so-elim-foot">SIGUE EL SORTEO...</p>
+          </div>
+        </div>
+        <div class="so-winner" id="so-winner">
+          <div class="so-win-card">
+            <h2 class="so-win-title" id="so-win-title">¡GANASTE!</h2>
+            <div class="so-win-av-wrap">
+              <img id="so-win-pic" alt="" referrerpolicy="no-referrer" />
+              <div class="so-win-av-ph" id="so-win-av-ph">?</div>
+            </div>
+            <p class="so-win-name" id="so-win-name">—</p>
+            <div class="so-win-pills">
+              <div class="so-win-pill so-win-pill-coins">
+                <span>monedas en la mesa: <b id="so-win-coins">0</b></span>
+                <span aria-hidden="true">🪙</span>
+              </div>
+              <div class="so-win-pill so-win-pill-chance">
+                <span aria-hidden="true">🎲</span>
+                <span id="so-win-chance">100% chance</span>
+              </div>
+            </div>
+            <div class="vouch" id="so-win-vouch" hidden></div>
+            <p class="so-win-foot">gracias por jugar <b>Livecoins</b> · Sorteo de puntos</p>
+          </div>
+        </div>
+        <div class="so-vouch-pop" id="so-vouch-pop">+1 VOUCH ★</div>
+      </div>
+      <div class="so-stats" id="so-stats">
+        <div class="so-stat so-gift" data-stat="gift" title="Puntos por 1 vida">
+          <span class="lbl">1 vida</span>
+          <span class="so-gift-ph" id="so-gift-ph">⭐</span>
+          <b class="so-gift-cost" id="so-gift-cost">500</b>
+          <span class="so-pts-hint" id="so-pts-hint"></span>
+        </div>
+        <div class="so-stat so-players" data-stat="players" title="Jugadores vivos"><span class="lbl">👥 En mesa</span><b id="so-players">0</b></div>
+        <div class="so-stat so-insta" data-stat="insta" title="Insta-Claim en puntos">
+          <span class="lbl">⚡ Insta</span>
+          <b id="so-insta-val">10000</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+
+    const DEFAULT_CFG = {
+      entryCost: 500,
+      entryGiftImage: '',
+      entryGiftName: '',
+      elimIntervalSec: 5,
+      elimCardSec: 3,
+      animSpeed: 'normal', // fast | normal | slow
+      minPlayers: 3,
+      initialTimerSec: 60,
+      slowCountdown: true,
+      slowFromSec: 3,
+      slowSec: 2,
+      instaClaim: 10000,
+      maxPlayers: 0, // 0 = sin límite
+      autoStart: true,
+      lockMode: false,
+      lockEntryMin: 30,
+      vouchKeywords: 'vouch,gracias,confiable',
+      vouchCount: 0,
+      overlayScale: 100,
+      statsPos: 'bottom', // bottom | top
+      showGift: true,
+      showMin: false,
+      showPlayers: true,
+      showCoins: false,
+      showVouches: false,
+      showInsta: true,
+      frameColor: '#f97316',
+      frameBg: '#2a1408',
+      boxBg: '#1a0e08',
+      giftColor: '#fb923c',
+      minColor: '#fbbf24',
+      playersColor: '#86efac',
+      coinsColor: '#f59e0b',
+      vouchesColor: '#fdba74',
+      instaColor: '#ef4444',
+      pointsOn: true,
+      pointsCommand: '!pavo',
+      pointsCost: 500,
+      pointsMaxLives: 1,
+      pointsCooldownSec: 5,
+    };
+
+    let cfg = Object.assign({}, DEFAULT_CFG);
+    /** @type {Record<string, {id:string,name:string,pic:string,lives:number,bank:number,spent:number,donated:number,stakes:number[],alive:boolean,lastChat:string,lastVouch:string}>} */
+    let players = {};
+    /** Cada vida = un cuadrado. Cada entrada se coloca al azar (sin bloques del mismo user). */
+    let lifeSlots = [];
+    let slotSeq = 0;
+    /** Progreso local de rachas: para pintar al instante aunque falte repeatDelta. */
+    const streakProg = new Map();
+    /** Evita aplicar 2 veces el mismo paquete TikTok (cierre de racha / WS duplicado). */
+    const recentGiftApply = new Map();
+    const recentPointsEntry = new Map();
+    let phase = 'waiting'; // waiting | entry | initial | elim | spinning | winner
+    let entriesLocked = false;
+    let coinsInPlay = 0;
+    let vouchCount = 0;
+    let winnerId = '';
+    let winnerVouched = false;
+    let timerLeft = 0;
+    let timerHandle = null;
+    let usedInitial = false;
+    let giftQueue = [];
+    let pointsEntryQueue = [];
+    let spinning = false;
+    let fitFn = null;
+    let toastTimer = null;
+    let testTimers = [];
+    /** Demo de Testear: llena + cuenta + eliminaciones (rápido con muchos). */
+    let demoRapid = false;
+    /** Cancela animaciones de spin pendientes tras Reset / nuevo spin. */
+    let spinGen = 0;
+    let elimCardTimer = null;
+    let elimCardGen = 0;
+    let elimCardResolve = null;
+    let ws = null;
+    let rt = null;
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v) || lo));
+    /** Clave estable (sin room): el room cambia y antes reiniciaba los vouches. */
+    function vouchStorageKey() {
+      return 'lc_sorteos_pavos_vouches';
+    }
+    function loadVouchCount() {
+      try {
+        let n = parseInt(localStorage.getItem(vouchStorageKey()), 10);
+        if (!(Number.isFinite(n) && n >= 0)) n = 0;
+        // Migrar valores viejos por room (lc_sorteos_pavos_vouches_*)
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || !k.startsWith('lc_sorteos_pavos_vouches_')) continue;
+            const v = parseInt(localStorage.getItem(k), 10);
+            if (Number.isFinite(v) && v > n) n = v;
+          }
+        } catch { /* ignore */ }
+        return n;
+      } catch {
+        return 0;
+      }
+    }
+    let vouchPersistTimer = null;
+    let vouchSuppressEchoUntil = 0;
+    function persistVouchToSettings() {
+      if (!ws || ws.readyState !== 1) return;
+      try {
+        vouchSuppressEchoUntil = Date.now() + 1200;
+        ws.send(JSON.stringify({
+          action: 'saveSettings',
+          settings: { sorteosPavosOverlay: { vouchCount: Math.max(0, vouchCount | 0) } },
+        }));
+      } catch { /* ignore */ }
+    }
+    function saveVouchCount() {
+      const n = Math.max(0, vouchCount | 0);
+      try { localStorage.setItem(vouchStorageKey(), String(n)); } catch { /* ignore */ }
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ kind: 'sorteosPavos', type: 'vouch', count: n }, '*');
+        }
+      } catch { /* ignore */ }
+      clearTimeout(vouchPersistTimer);
+      vouchPersistTimer = setTimeout(persistVouchToSettings, 120);
+    }
+    vouchCount = loadVouchCount();
+    function syncVouchFromCfg(next) {
+      if (!next || next.vouchCount == null || next.vouchCount === '') return;
+      if (Date.now() < vouchSuppressEchoUntil) return;
+      const remote = Math.max(0, parseInt(next.vouchCount, 10) || 0);
+      // Conservar el mayor: evita que un preview/settings vacío pise OBS
+      if (remote > vouchCount) {
+        vouchCount = remote;
+        try { localStorage.setItem(vouchStorageKey(), String(vouchCount)); } catch { /* ignore */ }
+      } else if (vouchCount > remote) {
+        saveVouchCount();
+      }
+    }
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function cssAttr(v) {
+      const s = String(v == null ? '' : v);
+      return (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(s) : s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    }
+    function clearSpinClasses() {
+      document.querySelectorAll('.so-cell').forEach((c) => c.classList.remove('is-spin', 'is-hit'));
+    }
+    function hideElimCard() {
+      elimCardGen += 1;
+      clearTimeout(elimCardTimer);
+      elimCardTimer = null;
+      const el = $('so-elim');
+      if (el) {
+        el.classList.remove('on');
+        el.setAttribute('aria-hidden', 'true');
+      }
+      // No dejar finishSpin colgado si Reset/Stop corta la tarjeta
+      if (elimCardResolve) {
+        const r = elimCardResolve;
+        elimCardResolve = null;
+        r();
+      }
+    }
+    /** Invalida spinners pendientes (Reset / Stop / Iniciar / ganador). */
+    function cancelPendingSpin() {
+      spinGen += 1;
+      spinning = false;
+      clearSpinClasses();
+      hideElimCard();
+    }
+    function fmtChancePct(pct) {
+      const n = Math.max(0, Math.min(100, Number(pct) || 0));
+      const rounded = Math.round(n * 10) / 10;
+      const txt = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+      return txt + '% chance';
+    }
+    function showElimCard(info) {
+      return new Promise((resolve) => {
+        const el = $('so-elim');
+        if (!el) { resolve(); return; }
+        // Si había otra tarjeta pendiente, liberar su await
+        if (elimCardResolve) {
+          const prev = elimCardResolve;
+          elimCardResolve = null;
+          prev();
+        }
+        const av = $('so-elim-av');
+        const ph = $('so-elim-av-ph');
+        const name = $('so-elim-name');
+        const chance = $('so-elim-chance');
+        const foot = $('so-elim-foot');
+        if (name) name.textContent = info.name || 'Jugador';
+        if (chance) chance.textContent = fmtChancePct(info.pct);
+        if (foot) foot.textContent = info.continues ? 'SIGUE EL SORTEO...' : 'ÚLTIMO GIRO...';
+        if (av && ph) {
+          if (info.pic) {
+            ph.style.display = 'none';
+            av.style.display = 'block';
+            av.onerror = function () {
+              this.onerror = null;
+              this.style.display = 'none';
+              this.removeAttribute('src');
+              ph.textContent = String((info.name || '?').slice(0, 1)).toUpperCase();
+              ph.style.display = 'flex';
+            };
+            av.src = info.pic;
+          } else {
+            av.style.display = 'none';
+            av.removeAttribute('src');
+            ph.textContent = String((info.name || '?').slice(0, 1)).toUpperCase();
+            ph.style.display = 'flex';
+          }
+        }
+        el.classList.add('on');
+        el.setAttribute('aria-hidden', 'false');
+        const my = ++elimCardGen;
+        // Duración configurable (TARJETA ELIMINADO); en Testear se acorta un poco
+        const cfgMs = clamp(cfg.elimCardSec == null ? 3 : cfg.elimCardSec, 1, 30) * 1000;
+        const ms = demoRapid ? Math.min(cfgMs, 1100) : cfgMs;
+        clearTimeout(elimCardTimer);
+        elimCardResolve = resolve;
+        elimCardTimer = setTimeout(() => {
+          if (my === elimCardGen) {
+            el.classList.remove('on');
+            el.setAttribute('aria-hidden', 'true');
+          }
+          elimCardTimer = null;
+          elimCardResolve = null;
+          resolve();
+        }, ms);
+      });
+    }
+    function animStepMs() {
+      if (cfg.animSpeed === 'fast') return 55;
+      if (cfg.animSpeed === 'slow') return 220;
+      return 110;
+    }
+    function aliveList() {
+      return Object.values(players).filter((p) => p.alive && p.lives > 0);
+    }
+    function makeLifeSlot(p, cost) {
+      return {
+        slotId: 's' + (++slotSeq),
+        id: p.id,
+        name: p.name,
+        pic: p.pic || '',
+        stake: Math.max(1, Number(cost) || cfg.entryCost || 1),
+      };
+    }
+    function gridColsFor(n) {
+      return Math.min(20, Math.max(1, Math.ceil(Math.sqrt(Math.max(1, n)))));
+    }
+    function gridNeighbors(i, n, cols) {
+      const r = Math.floor(i / cols);
+      const c = i % cols;
+      const out = [];
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+          const rr = r + dr;
+          const cc = c + dc;
+          if (rr < 0 || cc < 0 || cc >= cols) continue;
+          const j = rr * cols + cc;
+          if (j >= 0 && j < n) out.push(j);
+        }
+      }
+      return out;
+    }
+    /** Índice al azar que no queda pegado (en el grid 2D) a fotos de esa persona. */
+    function skipInsertIndex(playerId) {
+      const n = lifeSlots.length;
+      const after = n + 1;
+      const cols = gridColsFor(after);
+      const cand = [];
+      const weak = [];
+      for (let pos = 0; pos <= n; pos++) {
+        let clash = 0;
+        const neigh = gridNeighbors(pos, after, cols);
+        for (let k = 0; k < neigh.length; k++) {
+          const j = neigh[k];
+          if (j === pos) continue;
+          const pre = j > pos ? j - 1 : j;
+          if (lifeSlots[pre] && lifeSlots[pre].id === playerId) clash++;
+        }
+        if (!clash) cand.push(pos);
+        else if (clash === 1) weak.push(pos);
+      }
+      const pool = cand.length ? cand : (weak.length ? weak : null);
+      if (!pool) return Math.floor(Math.random() * (n + 1));
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    /**
+     * 1 foto = 1 vida. Cada vida se inserta sola en un hueco al azar
+     * (combo o regalos seguidos ya no forman un bloque).
+     */
+    function insertLifeBurst(p, costs) {
+      const burst = [];
+      for (let i = 0; i < (costs || []).length; i++) {
+        const slot = makeLifeSlot(p, costs[i]);
+        if (!lifeSlots.length) lifeSlots.push(slot);
+        else lifeSlots.splice(skipInsertIndex(p.id), 0, slot);
+        burst.push(slot);
+      }
+      return burst;
+    }
+    function pushLifeSlot(p, cost) {
+      const [slot] = insertLifeBurst(p, [cost]);
+      return slot;
+    }
+    function removeLifeSlot(slotId, playerId) {
+      let idx = lifeSlots.findIndex((s) => s.slotId === slotId);
+      if (idx < 0 && playerId) idx = lifeSlots.findIndex((s) => s.id === playerId);
+      if (idx < 0) return Math.max(1, Number(cfg.entryCost) || 1);
+      const [slot] = lifeSlots.splice(idx, 1);
+      return Math.max(1, Number(slot.stake) || cfg.entryCost || 1);
+    }
+    function syncSlotsMetaForPlayer(p) {
+      if (!p) return;
+      lifeSlots.forEach((s) => {
+        if (s.id !== p.id) return;
+        s.name = p.name;
+        s.pic = p.pic || '';
+      });
+    }
+    /** Reconstruye slots (demos / embed). Cada vida se esparce al azar. */
+    function rebuildLifeSlotsFromPlayers() {
+      lifeSlots = [];
+      for (const p of Object.values(players)) {
+        if (!p || !p.alive || !(p.lives > 0)) continue;
+        const costs = [];
+        for (let i = 0; i < p.lives; i++) {
+          costs.push((p.stakes && p.stakes[i]) || cfg.entryCost);
+        }
+        insertLifeBurst(p, costs);
+      }
+    }
+    /** Una silla = una vida (ruleta y tabla: 1 foto por vida). */
+    function lifeSeats() {
+      // Mantener meta al día (nombre/foto) sin reordenar
+      return lifeSlots
+        .filter((s) => {
+          const p = players[s.id];
+          return p && p.alive && p.lives > 0;
+        })
+        .map((s, i) => {
+          const p = players[s.id];
+          if (p) {
+            s.name = p.name;
+            s.pic = p.pic || s.pic;
+          }
+          return { id: s.id, seat: i, slotId: s.slotId, name: s.name, pic: s.pic };
+        });
+    }
+    /** Tabla = 1 cuadrado por vida (misma foto repetida si tiene varias). */
+    function fmtTime(sec) {
+      const s = Math.max(0, Math.ceil(sec));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+    }
+
+    function showToast(msg) {
+      const el = $('so-toast');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.add('on');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('on'), 2200);
+    }
+
+    function syncWaitCopy() {
+      const cmd = String(cfg.pointsCommand || '!pavo').trim() || '!pavo';
+      const cost = Number(cfg.pointsCost) || 500;
+      const sub = $('so-wait-sub');
+      if (sub) sub.textContent = 'Escribe ' + cmd + ' · ' + cost + ' pts por vida';
+      const ptsHint = $('so-pts-hint');
+      if (ptsHint) {
+        ptsHint.hidden = false;
+        ptsHint.textContent = cmd + ' · ' + cost + ' pts';
+      }
+    }
+    function syncHud() {
+      const cost = String(Number(cfg.pointsCost) || 500);
+      if ($('so-entry')) $('so-entry').textContent = cost;
+      if ($('so-gift-cost')) $('so-gift-cost').textContent = cost;
+      syncWaitCopy();
+      if ($('so-insta-val')) {
+        const ic = Math.max(0, Number(cfg.instaClaim) || 0);
+        $('so-insta-val').textContent = ic > 0 ? ic.toLocaleString('es-ES') : 'OFF';
+      }
+      const img = $('so-entry-img');
+      const giftPh = $('so-gift-ph');
+      if (img) {
+        img.onerror = function () {
+          this.onerror = null;
+          this.hidden = true;
+          this.removeAttribute('src');
+          if (giftPh) giftPh.hidden = false;
+        };
+        if (cfg.entryGiftImage) {
+          img.hidden = false;
+          img.src = cfg.entryGiftImage;
+          if (giftPh) giftPh.hidden = true;
+        } else {
+          img.hidden = true;
+          img.removeAttribute('src');
+          if (giftPh) giftPh.hidden = false;
+        }
+      }
+      syncWaitGift();
+      if ($('so-players')) $('so-players').textContent = String(aliveList().length);
+      if ($('so-coins')) $('so-coins').textContent = Number(coinsInPlay).toLocaleString('es-ES');
+      if ($('so-vouches')) $('so-vouches').textContent = String(vouchCount);
+
+      const flags = {
+        gift: cfg.showGift !== false,
+        min: false,
+        players: cfg.showPlayers !== false,
+        coins: false,
+        vouches: false,
+        insta: cfg.showInsta !== false,
+      };
+      let cols = 0;
+      document.querySelectorAll('.so-stat[data-stat]').forEach((el) => {
+        const key = el.getAttribute('data-stat');
+        const on = !!flags[key];
+        el.classList.toggle('is-hidden', !on);
+        if (on) cols += 1;
+      });
+      const stats = $('so-stats');
+      if (stats) {
+        stats.style.setProperty('--so-cols', String(Math.max(1, cols || 1)));
+        stats.style.display = cols > 0 ? '' : 'none';
+      }
+      const panel = $('so-panel');
+      if (panel) panel.classList.toggle('stats-top', cfg.statsPos === 'top');
+      applyThemeColors();
+
+      const lockEl = $('so-lock-badge');
+      const lockTxt = $('so-lock-txt');
+      if (lockEl) {
+        const lockPreview = !!cfg.lockMode && phase === 'waiting' && !entriesLocked;
+        const lockActive = !!entriesLocked && phase !== 'winner';
+        lockEl.classList.toggle('on', lockPreview || lockActive);
+        lockEl.classList.toggle('is-preview', lockPreview && !lockActive);
+        if (lockTxt) lockTxt.textContent = lockActive ? 'CERRADO' : 'ABIERTO';
+      }
+
+      const mode = $('so-mode');
+      const modeTxt = $('so-mode-txt');
+      if (mode) {
+        const setModeIco = (emoji) => {
+          mode.querySelectorAll('.ico').forEach((el) => { el.textContent = emoji; });
+        };
+        mode.classList.remove('is-entry', 'is-wait-preview');
+        if (phase === 'entry') {
+          mode.classList.add('on', 'is-entry');
+          if (modeTxt) modeTxt.textContent = 'CERRADO';
+          setModeIco('🔒');
+        } else if (phase === 'elim' || phase === 'spinning') {
+          mode.classList.add('on');
+          if (modeTxt) modeTxt.textContent = 'EN JUEGO';
+          setModeIco('🔥');
+        } else if (phase === 'initial') {
+          mode.classList.add('on');
+          if (modeTxt) modeTxt.textContent = 'PRONTO';
+          setModeIco('⭐');
+        } else if (phase === 'winner') {
+          mode.classList.add('on');
+          if (modeTxt) modeTxt.textContent = '¡GANASTE!';
+          setModeIco('🏆');
+        } else if (phase === 'waiting') {
+          mode.classList.add('on');
+          if (cfg.lockMode) {
+            mode.classList.add('is-entry');
+            if (modeTxt) modeTxt.textContent = 'CERRADO';
+            setModeIco('🔒');
+          } else {
+            mode.classList.add('is-wait-preview');
+            if (modeTxt) modeTxt.textContent = 'PRONTO';
+            setModeIco('⭐');
+          }
+        } else {
+          mode.classList.remove('on');
+        }
+      }
+
+      const t = $('so-timer');
+      if (!t) return;
+      t.classList.remove('is-wait', 'is-spin', 'is-win', 'is-entry', 'urgent');
+      if (phase === 'waiting') { t.textContent = 'LISTO'; t.classList.add('is-wait'); }
+      else if (phase === 'winner') { t.textContent = 'WIN'; t.classList.add('is-win'); }
+      else if (phase === 'spinning') { t.textContent = 'GIRO'; t.classList.add('is-spin'); }
+      else if (phase === 'entry') {
+        t.textContent = fmtTime(timerLeft);
+        t.classList.add('is-entry');
+        const slowFrom = clamp(cfg.slowFromSec, 1, 30);
+        if (cfg.slowCountdown && timerLeft <= slowFrom) t.classList.add('urgent');
+        else if (timerLeft <= 60) t.classList.add('urgent');
+      } else {
+        t.textContent = fmtTime(timerLeft);
+        if ((phase === 'elim' || phase === 'initial') && timerLeft <= (cfg.slowFromSec || 3)) t.classList.add('urgent');
+      }
+    }
+
+    function applyThemeColors() {
+      const wrap = $('so-grid-wrap');
+      const stats = $('so-stats');
+      if (wrap) {
+        wrap.style.setProperty('--so-frame', cfg.frameColor || '#f97316');
+        wrap.style.setProperty('--so-frame-bg', cfg.frameBg || '#2a1408');
+      }
+      if (stats) {
+        stats.style.setProperty('--so-box-bg', cfg.boxBg || '#1a0e08');
+        stats.style.setProperty('--so-gift', cfg.giftColor || '#fb923c');
+        stats.style.setProperty('--so-min', cfg.minColor || '#fbbf24');
+        stats.style.setProperty('--so-players', cfg.playersColor || '#86efac');
+        stats.style.setProperty('--so-coins', cfg.coinsColor || '#f59e0b');
+        stats.style.setProperty('--so-vouches', cfg.vouchesColor || '#fdba74');
+        stats.style.setProperty('--so-insta', cfg.instaColor || '#ef4444');
+      }
+    }
+
+    function syncWaitGift() {
+      const wImg = $('so-wait-img');
+      const wPh = $('so-wait-ph');
+      if (!wImg || !wPh) return;
+      wImg.onerror = function () {
+        this.onerror = null;
+        this.hidden = true;
+        this.removeAttribute('src');
+        wPh.hidden = false;
+      };
+      if (cfg.entryGiftImage) {
+        wImg.hidden = false;
+        wImg.src = cfg.entryGiftImage;
+        wPh.hidden = true;
+      } else {
+        wImg.hidden = true;
+        wImg.removeAttribute('src');
+        wPh.hidden = false;
+      }
+    }
+    function emptyWaitHtml() {
+      return (
+        '<div class="so-wait" id="so-wait">' +
+          '<div class="so-wait-icon">' +
+            '<img id="so-wait-img" alt="" hidden referrerpolicy="no-referrer" />' +
+            '<span class="so-wait-ph" id="so-wait-ph" aria-hidden="true">🎯</span>' +
+          '</div>' +
+          '<h2 class="so-wait-title">¿ENTRAS?</h2>' +
+          '<p class="so-wait-sub" id="so-wait-sub">Escribe !pavo · 500 pts por vida</p>' +
+        '</div>'
+      );
+    }
+    function circlePack(n) {
+      if (n <= 0) return [];
+      if (n === 1) return [{ x: 50, y: 50, s: 58 }];
+      const FIT = 47.2;
+      if (n <= 6) {
+        const s = Math.min(24, 2 * FIT * Math.sin(Math.PI / n) * 0.84);
+        const dist = FIT - s / 2;
+        const out = [];
+        for (let i = 0; i < n; i++) {
+          const ang = -Math.PI / 2 + (i / n) * Math.PI * 2;
+          out.push({ x: 50 + Math.cos(ang) * dist, y: 50 + Math.sin(ang) * dist, s });
+        }
+        return out;
+      }
+      let rings = 0;
+      let cap = 1;
+      while (cap < n) {
+        rings += 1;
+        cap += 6 * rings;
+      }
+      const spacing = FIT / (rings + 0.55);
+      const s = Math.max(3.05, spacing * 0.9);
+      const out = [{ x: 50, y: 50, s }];
+      let left = n - 1;
+      for (let r = 1; r <= rings && left > 0; r++) {
+        const count = Math.min(left, 6 * r);
+        const dist = r * spacing;
+        const rot = (r % 2) * (Math.PI / Math.max(count, 1));
+        for (let i = 0; i < count; i++) {
+          const ang = -Math.PI / 2 + rot + (i / count) * Math.PI * 2;
+          out.push({ x: 50 + Math.cos(ang) * dist, y: 50 + Math.sin(ang) * dist, s });
+        }
+        left -= count;
+      }
+      return out;
+    }
+    function placeCircleCell(cell, pos) {
+      if (!cell || !pos) return;
+      cell.style.left = pos.x + '%';
+      cell.style.top = pos.y + '%';
+      cell.style.width = pos.s + '%';
+      cell.style.height = pos.s + '%';
+      cell.style.borderRadius = '50%';
+    }
+    function applyGridLayout(grid, n) {
+      grid.className = 'so-grid is-circle';
+      grid.style.gridTemplateColumns = '';
+      grid.style.gridTemplateRows = '';
+      grid.style.gap = '';
+      return circlePack(n);
+    }
+    function shouldShowNicks(seats) {
+      const n = seats.length;
+      let uniq = 0;
+      const seen = Object.create(null);
+      for (let i = 0; i < seats.length; i++) {
+        const id = seats[i].id;
+        if (seen[id]) continue;
+        seen[id] = 1;
+        uniq++;
+      }
+      return n <= 16 || (uniq <= 6 && n <= 24);
+    }
+    function paintCellLabels(cell, s, showNick) {
+      cell.title = s.name || '';
+      const raw = String(s.name || '?').trim() || '?';
+      const ph = cell.querySelector('.ph');
+      if (ph) ph.textContent = showNick ? raw : raw.slice(0, 1).toUpperCase();
+      let nick = cell.querySelector('.so-nick');
+      if (!nick) {
+        nick = document.createElement('span');
+        nick.className = 'so-nick';
+        cell.appendChild(nick);
+      }
+      nick.textContent = raw;
+    }
+    function makeCellEl(s, radius, showNick) {
+      const cell = document.createElement('div');
+      cell.className = 'so-cell';
+      cell.style.borderRadius = '50%';
+      cell.dataset.id = s.id;
+      if (s.slotId) cell.dataset.slot = s.slotId;
+      const ph = document.createElement('div');
+      ph.className = 'ph';
+      cell.appendChild(ph);
+      if (s.pic) {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.referrerPolicy = 'no-referrer';
+        img.decoding = 'async';
+        img.loading = 'eager';
+        img.onload = function () { this.classList.add('is-ready'); };
+        img.onerror = function () { try { this.remove(); } catch {} };
+        img.src = s.pic;
+        if (img.complete && img.naturalWidth) img.classList.add('is-ready');
+        cell.appendChild(img);
+      }
+      paintCellLabels(cell, s, showNick);
+      return cell;
+    }
+    function renderGrid() {
+      const grid = $('so-grid');
+      if (!grid) return;
+      const seats = lifeSeats();
+      if (!seats.length) {
+        grid.className = 'so-grid is-empty-state';
+        grid.style.gridTemplateColumns = '';
+        grid.style.gridTemplateRows = '';
+        grid.style.gap = '';
+        grid.innerHTML = emptyWaitHtml();
+        syncHud();
+        if (fitFn) fitFn();
+        return;
+      }
+
+      if (grid.classList.contains('is-empty-state') || grid.querySelector('.so-wait')) {
+        grid.innerHTML = '';
+      }
+
+      const bySlot = new Map();
+      grid.querySelectorAll('.so-cell[data-slot]').forEach((el) => {
+        const id = el.getAttribute('data-slot');
+        if (id) bySlot.set(id, el);
+      });
+
+      const want = new Set(seats.map((s) => s.slotId).filter(Boolean));
+      bySlot.forEach((el, id) => {
+        if (!want.has(id)) {
+          try { el.remove(); } catch {}
+          bySlot.delete(id);
+        }
+      });
+
+      const pack = applyGridLayout(grid, seats.length);
+      const showNick = shouldShowNicks(seats);
+      grid.classList.toggle('show-nicks', showNick);
+      grid.classList.toggle('so-few', showNick && seats.length <= 6);
+      seats.forEach((s, i) => {
+        let cell = s.slotId ? bySlot.get(s.slotId) : null;
+        if (!cell) {
+          cell = makeCellEl(s, '50%', showNick);
+          grid.appendChild(cell);
+        } else {
+          cell.dataset.id = s.id;
+          cell.dataset.slot = s.slotId;
+          paintCellLabels(cell, s, showNick);
+          grid.appendChild(cell);
+        }
+        placeCircleCell(cell, pack[i]);
+      });
+
+      syncHud();
+      if (fitFn) fitFn();
+    }
+
+    function pruneGiftApplyMap(now) {
+      if (recentGiftApply.size <= 80) return;
+      for (const [k, t] of recentGiftApply) {
+        if (now - t > 3000) recentGiftApply.delete(k);
+      }
+    }
+
+    /** true = ya se aplicó este regalo (no sumar otra vez). */
+    function giftAlreadyApplied(d) {
+      const uid = String(d.uniqueId || d.nickname || '');
+      const gid = String(d.giftId || d.giftName || '');
+      const rep = Math.max(0, Number(d.repeatCount) || 0);
+      const now = Date.now();
+      const exact = 'e:' + uid + '|' + gid + '|' + rep + '|' + (d.repeatEnd ? 1 : 0) + '|' + (d.streak ? 1 : 0) + '|' + (Number(d.repeatDelta) || 0);
+      const prevExact = recentGiftApply.get(exact);
+      if (prevExact && now - prevExact < 800) return true;
+      recentGiftApply.set(exact, now);
+      // Regalo sin racha: TikTok a veces manda el mismo envío 2 veces (o tick + repeatEnd).
+      if (!d.streakGift && !d.streak) {
+        const lump = 'n:' + uid + '|' + gid + '|' + rep;
+        const prevLump = recentGiftApply.get(lump);
+        if (prevLump && now - prevLump < 1200) return true;
+        recentGiftApply.set(lump, now);
+      }
+      pruneGiftApplyMap(now);
+      return false;
+    }
+
+    function unitsFromGift(d) {
+      const key = String(d.uniqueId || d.nickname || '') + ':' + String(d.giftId || '');
+      const rep = Math.max(0, Number(d.repeatCount) || 0);
+      const hadProg = streakProg.has(key);
+      // Si ya veníamos contando esta racha, el cierre cuenta aunque TikTok no mande streakGift.
+      const streaky = !!(d.streakGift || d.streak || hadProg);
+
+      if (streaky) {
+        const prev = streakProg.get(key) || 0;
+        let delta;
+        if (prev > 0) {
+          // Ya sumamos los ticks: no volver a aplicar el total (30 → 60).
+          delta = Math.max(0, rep - prev);
+        } else {
+          delta = Number(d.repeatDelta);
+          if (!Number.isFinite(delta) || delta < 0) delta = 0;
+          if (delta <= 0) delta = Math.max(0, rep - prev);
+          if (delta <= 0 && !d.repeatEnd) delta = Math.max(1, Number(d.repeatCount) || 1);
+        }
+        if (delta > 0) streakProg.set(key, Math.max(prev + delta, rep));
+        if (d.repeatEnd || (hadProg && !d.streak)) streakProg.delete(key);
+        return delta;
+      }
+
+      const rd = Number(d.repeatDelta);
+      if (Number.isFinite(rd) && rd <= 0) return 0;
+      streakProg.delete(key);
+      if (Number.isFinite(rd) && rd > 0) return rd;
+      return Math.max(1, Number(d.repeatCount) || 1);
+    }
+
+    function ensurePlayer(d) {
+      const id = String(d.uniqueId || d.nickname || '').trim();
+      if (!id) return null;
+      if (!players[id]) {
+        if (cfg.maxPlayers > 0 && Object.keys(players).length >= cfg.maxPlayers) return null;
+        players[id] = {
+          id, name: d.nickname || id, pic: d.photo || '',
+          lives: 0, bank: 0, spent: 0, donated: 0, stakes: [],
+          alive: false, lastChat: '', lastVouch: '',
+        };
+      }
+      const p = players[id];
+      if (d.nickname) p.name = d.nickname;
+      if (d.photo) p.pic = d.photo;
+      if (d.nickname || d.photo) syncSlotsMetaForPlayer(p);
+      return p;
+    }
+
+    function grantLivesFromBank(p, isNewJoin) {
+      const cost = Math.max(1, clamp(cfg.entryCost, 1, 1000000));
+      let gained = 0;
+      const costs = [];
+      while (p.bank >= cost) {
+        // LOCKED ENTRIES: nadie suma más vidas (ni nuevos ni quien ya está)
+        if (entriesLocked) break;
+        p.bank -= cost;
+        p.lives += 1;
+        p.spent += cost;
+        p.stakes.push(cost);
+        coinsInPlay += cost;
+        costs.push(cost);
+        gained += 1;
+        if (!p.alive) {
+          p.alive = true;
+          if (isNewJoin || gained === 1) {
+            showToast('Nuevo jugador · ' + p.name);
+            isNewJoin = false;
+          }
+        }
+      }
+      const slots = insertLifeBurst(p, costs);
+      return { gained, newSlotIds: slots.map((s) => s.slotId) };
+    }
+
+    /**
+     * Progreso Insta = monedas AÚN EN JUEGO del jugador (vidas vivas + bank).
+     * Acumulativo entre regalos del mismo momento, pero al eliminar una vida
+     * su stake deja de contar (no lifetime donated).
+     */
+    function playerInstaProgress(p) {
+      if (!p) return 0;
+      return Math.max(0, Number(p.spent) || 0);
+    }
+
+    function checkInstaClaim(p) {
+      if (!p || phase === 'winner') return false;
+      // En demo Testear no cerrar por Insta (evita pisar la config real)
+      if (demoRapid) return false;
+      // Solo quien ya está en el sorteo puede ganar por Insta-Claim
+      if (!(p.alive && p.lives > 0)) return false;
+      const need = Math.max(0, Number(cfg.instaClaim) || 0);
+      if (need <= 0) return false;
+      if (playerInstaProgress(p) >= need) {
+        declareWinner(p, true);
+        return true;
+      }
+      return false;
+    }
+
+    function applyDonation(d) {
+      if (phase === 'winner') return;
+      if (!d) return;
+      if (giftAlreadyApplied(d)) return;
+
+      const diamondsEach = Number(d.diamonds) || 0;
+      if (diamondsEach <= 0) return;
+
+      // Cada dona/regalo de racha se aplica al instante (delta local si hace falta)
+      const giftUnits = unitsFromGift(d);
+      if (!(giftUnits > 0)) return;
+
+      const coins = diamondsEach * giftUnits;
+      if (coins <= 0) return;
+      const p = ensurePlayer(d);
+      if (!p) return;
+      if (p.pic) {
+        try {
+          const pre = new Image();
+          pre.referrerPolicy = 'no-referrer';
+          pre.decoding = 'async';
+          pre.src = p.pic;
+        } catch { /* ignore */ }
+      }
+      const wasAlive = p.alive && p.lives > 0;
+      p.donated += coins;
+      p.bank += coins;
+      if (entriesLocked && !wasAlive) {
+        syncHud();
+        return;
+      }
+      const grant = grantLivesFromBank(p, !wasAlive);
+      const gained = grant.gained;
+      renderGrid();
+      if (gained) {
+        for (const sid of grant.newSlotIds || []) {
+          const cell = document.querySelector('.so-cell[data-slot="' + cssAttr(sid) + '"]');
+          if (!cell) continue;
+          cell.classList.add('life-flash');
+          if (!wasAlive) cell.classList.add('is-new');
+          setTimeout(() => cell.classList.remove('life-flash', 'is-new'), 800);
+        }
+      }
+      if (checkInstaClaim(p)) return;
+      maybeStartTimers();
+    }
+
+    function pointsEntryAlreadyApplied(d) {
+      const key = String(d && d.entryId || '');
+      if (!key) return false;
+      const now = Date.now();
+      if (recentPointsEntry.has(key)) return true;
+      recentPointsEntry.set(key, now);
+      if (recentPointsEntry.size > 80) {
+        for (const [k, t] of recentPointsEntry) if (now - t > 30000) recentPointsEntry.delete(k);
+      }
+      return false;
+    }
+
+    function applyPointsEntry(d) {
+      if (phase === 'winner') return;
+      if (!d) return;
+      if (pointsEntryAlreadyApplied(d)) return;
+      const p = ensurePlayer(d);
+      if (!p) return;
+      if (p.pic) {
+        try {
+          const pre = new Image();
+          pre.referrerPolicy = 'no-referrer';
+          pre.decoding = 'async';
+          pre.src = p.pic;
+        } catch { /* ignore */ }
+      }
+      const wasAlive = p.alive && p.lives > 0;
+      if (entriesLocked && !wasAlive) {
+        showToast('Cerrado · ' + (p.name || 'jugador'));
+        return;
+      }
+      if (entriesLocked) return;
+      const cost = Math.max(1, Number(d.pointsSpent) || Number(cfg.pointsCost) || 500);
+      p.lives += 1;
+      p.spent += cost;
+      p.donated += cost;
+      p.stakes.push(cost);
+      coinsInPlay += cost;
+      if (!p.alive) p.alive = true;
+      const slots = insertLifeBurst(p, [cost]);
+      const left = Number(d.pointsLeft);
+      showToast((d.insta ? 'Insta-claim · ' : '+1 vida · ') + p.name + (Number.isFinite(left) ? ' · quedan ' + left + ' pts' : ''));
+      renderGrid();
+      for (const sid of slots.map((s) => s.slotId)) {
+        const cell = document.querySelector('.so-cell[data-slot="' + cssAttr(sid) + '"]');
+        if (!cell) continue;
+        cell.classList.add('life-flash');
+        if (!wasAlive) cell.classList.add('is-new');
+        setTimeout(() => cell.classList.remove('life-flash', 'is-new'), 800);
+      }
+      if (d.insta) {
+        declareWinner(p, true);
+        return;
+      }
+      if (checkInstaClaim(p)) return;
+      maybeStartTimers();
+    }
+
+    function enqueueOrApply(d) {
+      if (spinning || phase === 'spinning') {
+        giftQueue.push(d);
+        return;
+      }
+      applyDonation(d);
+    }
+
+    function enqueueOrApplyPoints(d) {
+      if (spinning || phase === 'spinning') {
+        pointsEntryQueue.push(d);
+        return;
+      }
+      applyPointsEntry(d);
+    }
+
+    function flushQueue() {
+      const q = giftQueue.splice(0, giftQueue.length);
+      for (const d of q) applyDonation(d);
+      const pq = pointsEntryQueue.splice(0, pointsEntryQueue.length);
+      for (const d of pq) applyPointsEntry(d);
+    }
+
+    function clearTimer() {
+      if (timerHandle) { clearTimeout(timerHandle); clearInterval(timerHandle); timerHandle = null; }
+    }
+
+    function scheduleTick(ms) {
+      clearTimer();
+      timerHandle = setTimeout(onTimerTick, ms);
+    }
+
+    function currentTickMs() {
+      // Lento al final: aplica en modo normal (initial/elim) Y en Lock (entry)
+      const slowOn = !!cfg.slowCountdown;
+      const from = clamp(cfg.slowFromSec, 1, 30);
+      const slow = clamp(cfg.slowSec, 1, 5) * 1000;
+      if (slowOn && timerLeft <= from) return slow;
+      return 1000;
+    }
+
+    function beginElimPhase() {
+      if (cfg.lockMode) entriesLocked = true;
+      phase = 'elim';
+      timerLeft = clamp(cfg.elimIntervalSec, 1, 600);
+      syncHud();
+      scheduleTick(currentTickMs());
+    }
+
+    function onTimerTick() {
+      if (phase !== 'initial' && phase !== 'elim' && phase !== 'entry') return;
+      timerLeft -= 1;
+      syncHud();
+      if (timerLeft <= 0) {
+        timerLeft = 0;
+        if (phase === 'entry') {
+          entriesLocked = true;
+          showToast('🔒 Entradas bloqueadas · empiezan eliminaciones');
+          syncHud();
+          beginSpin();
+          return;
+        }
+        beginSpin();
+        return;
+      }
+      scheduleTick(currentTickMs());
+    }
+
+    function maybeStartTimers() {
+      // Arranque automático al llegar al mínimo (no tocar esta lógica)
+      if (!cfg.autoStart) return;
+      if (phase === 'winner' || phase === 'spinning' || phase === 'initial' || phase === 'elim' || phase === 'entry') return;
+      if (aliveList().length < clamp(cfg.minPlayers, 1, 100)) return;
+      beginOpeningPhase();
+    }
+
+    /** Inicio manual (botón Iniciar) o auto: ventana Lock / timer inicial. */
+    function beginOpeningPhase() {
+      usedInitial = true;
+      if (cfg.lockMode) {
+        entriesLocked = false;
+        phase = 'entry';
+        timerLeft = clamp(cfg.lockEntryMin, 1, 180) * 60;
+        if (demoRapid) timerLeft = Math.min(timerLeft, 12);
+        showToast('Modo Lock · ventana de entrada');
+      } else {
+        phase = 'initial';
+        timerLeft = clamp(cfg.initialTimerSec, 1, 3600);
+        if (demoRapid) timerLeft = Math.min(timerLeft, 8);
+        showToast('Cuenta inicial');
+      }
+      syncHud();
+      scheduleTick(currentTickMs());
+    }
+
+    /** Botón Iniciar: arranca ya (sin exigir mínimo de jugadores). */
+    function startManual() {
+      demoRapid = false;
+      testTimers.forEach((t) => clearTimeout(t));
+      testTimers = [];
+      clearTimer();
+      cancelPendingSpin();
+      restoreDemoCfgBackup();
+      const win = $('so-winner');
+      if (win) win.classList.remove('on');
+      // Si ya está en marcha, reinicia la fase de apertura
+      if (phase === 'spinning' || phase === 'initial' || phase === 'elim' || phase === 'entry' || phase === 'winner') {
+        phase = 'waiting';
+      }
+      cfg.autoStart = true;
+      usedInitial = false;
+      beginOpeningPhase();
+    }
+
+    /** Adelanta una eliminación sin esperar el temporizador (rondas fijas p. ej. 20 s). */
+    function spinManual() {
+      if (spinning || phase === 'spinning') {
+        showToast('Giro en curso…');
+        return;
+      }
+      if (phase === 'winner') {
+        showToast('Ya hay ganador · Reset para otro');
+        return;
+      }
+      const seats = lifeSeats();
+      if (seats.length <= 1) {
+        if (!tryDeclareSoleWinner()) showToast('Faltan jugadores para girar');
+        return;
+      }
+      demoRapid = false;
+      testTimers.forEach((t) => clearTimeout(t));
+      testTimers = [];
+      clearTimer();
+      // Si aún no llegó a eliminación, entra directo (y bloquea si Modo Lock)
+      if (phase === 'waiting' || phase === 'entry' || phase === 'initial') {
+        usedInitial = true;
+        if (cfg.lockMode) entriesLocked = true;
+      }
+      showToast('Giro manual');
+      beginSpin();
+    }
+
+    /** Si todos los cupos restantes son de la misma persona → gana (aunque tenga 2+ fotos). */
+    function soleRemainingPlayer(seats) {
+      const list = seats || lifeSeats();
+      if (!list.length) return null;
+      const id = list[0].id;
+      for (let i = 1; i < list.length; i++) {
+        if (list[i].id !== id) return null;
+      }
+      return players[id] || null;
+    }
+    function tryDeclareSoleWinner() {
+      const w = soleRemainingPlayer();
+      if (!w) return false;
+      declareWinner(w, false);
+      return true;
+    }
+
+    function beginSpin() {
+      if (spinning) return;
+      clearTimer();
+      const seats = lifeSeats();
+      if (tryDeclareSoleWinner()) return;
+      if (seats.length <= 1) {
+        if (seats.length === 1 && players[seats[0].id]) declareWinner(players[seats[0].id], false);
+        else { phase = 'waiting'; entriesLocked = false; syncHud(); }
+        return;
+      }
+      spinning = true;
+      phase = 'spinning';
+      syncHud();
+      const myGen = ++spinGen;
+      const steps = cfg.animSpeed === 'fast' ? 14 : cfg.animSpeed === 'slow' ? 28 : 20;
+      const hitPause = 450;
+      const victim = seats[Math.floor(Math.random() * seats.length)];
+      let i = 0;
+      let lastIdx = -1;
+      const cells = () => [...document.querySelectorAll('.so-cell')];
+      const tick = () => {
+        if (myGen !== spinGen) return;
+        const list = cells();
+        list.forEach((c) => c.classList.remove('is-spin', 'is-hit'));
+        if (!list.length) { finishSpin(victim, myGen); return; }
+        // Movimiento aleatorio por la rejilla (no secuencial fila a fila).
+        let idx = Math.floor(Math.random() * list.length);
+        if (list.length > 1) {
+          let guard = 0;
+          while (idx === lastIdx && guard++ < 8) idx = Math.floor(Math.random() * list.length);
+        }
+        lastIdx = idx;
+        list[idx].classList.add('is-spin');
+        i += 1;
+        if (i >= steps) {
+          list.forEach((c) => c.classList.remove('is-spin'));
+          const finalCell = document.querySelector(
+            '.so-cell[data-slot="' + cssAttr(victim.slotId) + '"]'
+          ) || list[Math.floor(Math.random() * list.length)];
+          if (finalCell) finalCell.classList.add('is-hit');
+          setTimeout(() => finishSpin(victim, myGen), hitPause);
+          return;
+        }
+        setTimeout(tick, animStepMs());
+      };
+      tick();
+    }
+
+    async function finishSpin(victim, gen) {
+      if (gen != null && gen !== spinGen) return;
+      spinning = false;
+      const totalBefore = lifeSeats().length;
+      const p = players[victim && victim.id];
+      if (p && p.alive && p.lives > 0) {
+        // % = vidas del jugador / total de entradas en ese momento (ej. 5 de 10 → 50%)
+        const pct = totalBefore > 0 ? (p.lives / totalBefore) * 100 : 0;
+        const stake = removeLifeSlot(victim && victim.slotId, p.id);
+        p.lives -= 1;
+        const si = p.stakes.indexOf(stake);
+        if (si >= 0) p.stakes.splice(si, 1);
+        else p.stakes.shift();
+        coinsInPlay = Math.max(0, coinsInPlay - stake);
+        if (p.lives <= 0) p.alive = false;
+        clearSpinClasses();
+        renderGrid();
+        const after = lifeSeats();
+        // Sigue solo si quedan cupos de 2+ personas distintas
+        const willContinue = after.length > 1 && !soleRemainingPlayer(after);
+        await showElimCard({
+          name: p.name,
+          pic: p.pic,
+          pct,
+          continues: willContinue,
+        });
+        if (gen != null && gen !== spinGen) return;
+      } else {
+        clearSpinClasses();
+        renderGrid();
+      }
+      flushQueue();
+      if (phase === 'winner') return;
+      if (tryDeclareSoleWinner()) return;
+      const seats = lifeSeats();
+      if (seats.length <= 1) {
+        if (seats.length === 1 && players[seats[0].id]) declareWinner(players[seats[0].id], false);
+        else { phase = 'waiting'; entriesLocked = false; syncHud(); }
+        return;
+      }
+      // Siempre el intervalo configurado (no acelerar aunque haya muchos)
+      phase = 'elim';
+      timerLeft = clamp(cfg.elimIntervalSec, 1, 600);
+      syncHud();
+      scheduleTick(currentTickMs());
+    }
+
+    /** Snapshot de config mutada por Testear (se restaura en Reset). */
+    let cfgDemoBackup = null;
+
+    function restoreDemoCfgBackup() {
+      if (!cfgDemoBackup) return;
+      Object.assign(cfg, cfgDemoBackup);
+      cfgDemoBackup = null;
+    }
+
+    function declareWinner(p, insta) {
+      if (!p) return;
+      clearTimer();
+      cancelPendingSpin();
+      demoRapid = false;
+      entriesLocked = false;
+      phase = 'winner';
+      giftQueue = [];
+      winnerId = p.id ? String(p.id) : '';
+      winnerVouched = false;
+      const win = $('so-winner');
+      if (win) win.classList.add('on');
+      const title = $('so-win-title');
+      if (title) {
+        title.textContent = insta ? 'INSTA-CLAIM' : '¡GANASTE!';
+        title.classList.toggle('is-insta', !!insta);
+      }
+      const pic = $('so-win-pic');
+      const ph = $('so-win-av-ph');
+      if (pic) {
+        if (p.pic) {
+          pic.src = p.pic;
+          pic.style.display = '';
+          if (ph) ph.style.display = 'none';
+        } else {
+          pic.removeAttribute('src');
+          pic.style.display = 'none';
+          if (ph) ph.style.display = 'flex';
+        }
+      }
+      if ($('so-win-name')) $('so-win-name').textContent = p.name || 'Ganador';
+      if ($('so-win-coins')) {
+        const spent = Math.max(0, Number(p.donated) || Number(p.spent) || 0);
+        $('so-win-coins').textContent = spent.toLocaleString('en-US');
+      }
+      if ($('so-win-chance')) $('so-win-chance').textContent = '100% chance';
+      const vouchEl = $('so-win-vouch');
+      if (vouchEl) {
+        vouchEl.hidden = true;
+        vouchEl.textContent = '';
+      }
+      syncHud();
+    }
+
+    function resetAll() {
+      clearTimer();
+      testTimers.forEach((t) => clearTimeout(t));
+      testTimers = [];
+      cancelPendingSpin();
+      restoreDemoCfgBackup();
+      players = {};
+      lifeSlots = [];
+      slotSeq = 0;
+      streakProg.clear();
+      recentGiftApply.clear();
+      phase = 'waiting';
+      entriesLocked = false;
+      coinsInPlay = 0;
+      // Vouches se conservan entre sorteos (persistidos en localStorage)
+      winnerId = '';
+      winnerVouched = false;
+      timerLeft = 0;
+      usedInitial = false;
+      giftQueue = [];
+      demoRapid = false;
+      // Mantener autoStart de la config (los regalos pueden volver a arrancar al mínimo)
+      cfg.autoStart = cfg.autoStart !== false;
+      const win = $('so-winner');
+      if (win) win.classList.remove('on');
+      const pop = $('so-vouch-pop');
+      if (pop) pop.classList.remove('on');
+      renderGrid();
+      syncHud();
+      showToast('Reiniciado · pulsa Iniciar o espera el mínimo');
+    }
+
+    function setLocked(on) {
+      const want = !!on;
+      entriesLocked = want;
+      if (want) {
+        // Si estaba en ventana de entrada, cerrar ya y pasar a eliminaciones
+        if (phase === 'entry') {
+          clearTimer();
+          showToast('🔒 Entradas bloqueadas · empiezan eliminaciones');
+          syncHud();
+          const seats = lifeSeats();
+          if (tryDeclareSoleWinner()) return;
+          if (seats.length > 1) beginSpin();
+          else if (seats.length === 1 && players[seats[0].id]) declareWinner(players[seats[0].id], false);
+          else { phase = 'waiting'; syncHud(); }
+          return;
+        }
+        showToast('🔒 Entradas bloqueadas');
+      } else {
+        showToast('🔓 Entradas abiertas');
+      }
+      syncHud();
+    }
+
+    function parseVouchKeywords() {
+      const raw = String(cfg.vouchKeywords || 'vouch,gracias,confiable');
+      return raw.split(/[,;\n]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+    }
+
+    function chatMatchesVouch(text) {
+      const t = String(text || '').toLowerCase();
+      if (!t) return false;
+      const keys = parseVouchKeywords();
+      return keys.some((k) => k && t.includes(k));
+    }
+
+    function playVouchPlusOne() {
+      const pop = $('so-vouch-pop');
+      if (!pop) return;
+      pop.classList.remove('on');
+      void pop.offsetWidth;
+      pop.classList.add('on');
+      clearTimeout(pop._t);
+      pop._t = setTimeout(() => pop.classList.remove('on'), 1400);
+    }
+
+    function onChat(d) {
+      const id = String(d?.uniqueId || d?.nickname || '').trim();
+      if (!id) return;
+      const text = String(d.comment || '').trim();
+      if (!text) return;
+      const p = players[id] || ensurePlayer(d);
+      if (!p) return;
+      p.lastChat = text;
+
+      // Vouch = reseña positiva del GANADOR con palabra clave configurable
+      if (phase === 'winner' && winnerId && id === winnerId && !winnerVouched && chatMatchesVouch(text)) {
+        winnerVouched = true;
+        p.lastVouch = text;
+        vouchCount += 1;
+        saveVouchCount();
+        playVouchPlusOne();
+        const vouchEl = $('so-win-vouch');
+        if (vouchEl) {
+          vouchEl.hidden = false;
+          vouchEl.textContent = '“' + text + '”';
+        }
+        showToast('+1 vouch · ' + (p.name || 'ganador'));
+        syncHud();
+      }
+    }
+
+    function applyCfg(next) {
+      cfg = Object.assign({}, cfg, next || {});
+      syncVouchFromCfg(next || {});
+      cfg.entryCost = clamp(cfg.entryCost, 1, 1000000);
+      cfg.elimIntervalSec = clamp(cfg.elimIntervalSec, 1, 600);
+      cfg.elimCardSec = clamp(cfg.elimCardSec == null ? 3 : cfg.elimCardSec, 1, 30);
+      cfg.minPlayers = clamp(cfg.minPlayers, 1, 100);
+      cfg.initialTimerSec = clamp(cfg.initialTimerSec, 1, 3600);
+      cfg.slowFromSec = clamp(cfg.slowFromSec, 1, 30);
+      cfg.slowSec = clamp(cfg.slowSec, 1, 5);
+      cfg.instaClaim = clamp(cfg.instaClaim, 0, 100000000);
+      cfg.maxPlayers = 0; // sin límite (campo oculto en config)
+      cfg.lockEntryMin = clamp(cfg.lockEntryMin == null ? 30 : cfg.lockEntryMin, 1, 180);
+      cfg.lockMode = !!cfg.lockMode;
+      cfg.autoStart = cfg.autoStart !== false;
+      cfg.vouchKeywords = String(cfg.vouchKeywords || 'vouch,gracias,confiable').trim() || 'vouch,gracias,confiable';
+      cfg.overlayScale = clamp(cfg.overlayScale == null ? 100 : cfg.overlayScale, 0, 140);
+      if (!['fast', 'normal', 'slow'].includes(cfg.animSpeed)) cfg.animSpeed = 'normal';
+      cfg.statsPos = cfg.statsPos === 'top' ? 'top' : 'bottom';
+      cfg.showGift = cfg.showGift !== false;
+      cfg.showMin = false;
+      cfg.showPlayers = cfg.showPlayers !== false;
+      cfg.showCoins = false;
+      cfg.showVouches = false;
+      cfg.showInsta = cfg.showInsta !== false;
+      cfg.pointsOn = true;
+      cfg.entryGiftImage = '';
+      cfg.pointsCommand = String(cfg.pointsCommand || '!pavo').trim() || '!pavo';
+      cfg.pointsCost = clamp(cfg.pointsCost == null ? 500 : cfg.pointsCost, 1, 10000000);
+      cfg.pointsMaxLives = 1;
+      cfg.pointsCooldownSec = clamp(cfg.pointsCooldownSec == null ? 5 : cfg.pointsCooldownSec, 1, 60);
+      cfg.entryCost = cfg.pointsCost;
+      const hex = (v, d) => (/^#[0-9a-fA-F]{6}$/.test(String(v || '')) ? String(v) : d);
+      cfg.frameColor = hex(cfg.frameColor, '#f97316');
+      cfg.frameBg = hex(cfg.frameBg, '#2a1408');
+      cfg.boxBg = hex(cfg.boxBg, '#1a0e08');
+      cfg.giftColor = hex(cfg.giftColor, '#fb923c');
+      cfg.minColor = hex(cfg.minColor, '#fbbf24');
+      cfg.playersColor = hex(cfg.playersColor, '#86efac');
+      cfg.coinsColor = hex(cfg.coinsColor, '#f59e0b');
+      cfg.vouchesColor = hex(cfg.vouchesColor, '#fdba74');
+      cfg.instaColor = hex(cfg.instaColor, '#ef4444');
+      // El clon arrancó con la paleta violeta del clásico; pasar a harvest.
+      if (String(cfg.frameColor).toLowerCase() === '#a78bfa') {
+        cfg.frameColor = '#f97316';
+        if (String(cfg.frameBg).toLowerCase() === '#0c081c') cfg.frameBg = '#2a1408';
+        if (String(cfg.boxBg).toLowerCase() === '#0a0c14') cfg.boxBg = '#1a0e08';
+        if (String(cfg.giftColor).toLowerCase() === '#c084fc') cfg.giftColor = '#fb923c';
+        if (String(cfg.playersColor).toLowerCase() === '#38bdf8') cfg.playersColor = '#86efac';
+        if (String(cfg.vouchesColor).toLowerCase() === '#34d399') cfg.vouchesColor = '#fdba74';
+      }
+      syncHud();
+      applyRootScale();
+    }
+
+    function applyRootScale() {
+      const root = $('so-root');
+      if (!root) return;
+      const user = clamp(cfg.overlayScale, 0, 140) / 100;
+      if (typeof fitFn === 'function' && fitFn) {
+        fitFn();
+        return;
+      }
+      root.style.transformOrigin = 'top center';
+      root.style.transform = 'scale(' + user + ')';
+      root.style.opacity = user <= 0 ? '0' : '';
+    }
+
+    function runTest() {
+      // Respeta Modo Lock de la config (si está activo → demo Lock; si no → modo normal)
+      const wantLock = !!cfg.lockMode;
+      const entryCost = Math.max(1, clamp(cfg.entryCost, 1, 1000000));
+      const elimSec = clamp(cfg.elimIntervalSec, 1, 600);
+      const anim = cfg.animSpeed || 'normal';
+      const slowOn = !!cfg.slowCountdown;
+      const slowFrom = clamp(cfg.slowFromSec, 1, 30);
+      const slowSec = clamp(cfg.slowSec, 1, 5);
+      const giftImg = cfg.entryGiftImage || '';
+
+      // Snapshot de valores reales (antes de mutar). resetAll restaura uno previo si existía.
+      const snap = cfgDemoBackup || {
+        minPlayers: cfg.minPlayers,
+        autoStart: cfg.autoStart !== false,
+        instaClaim: cfg.instaClaim,
+        initialTimerSec: cfg.initialTimerSec,
+        lockEntryMin: cfg.lockEntryMin,
+        maxPlayers: cfg.maxPlayers,
+        lockMode: !!cfg.lockMode,
+      };
+      resetAll();
+      cfgDemoBackup = snap;
+
+      demoRapid = true;
+      cfg.minPlayers = 999;
+      cfg.autoStart = false;
+      cfg.entryCost = entryCost;
+      cfg.entryGiftImage = giftImg;
+      // demoRapid bloquea Insta-Claim; el HUD sigue mostrando el valor real
+      cfg.maxPlayers = 0;
+      cfg.animSpeed = anim;
+      cfg.slowCountdown = slowOn;
+      cfg.slowFromSec = slowFrom;
+      cfg.slowSec = slowSec;
+      cfg.elimIntervalSec = elimSec;
+      cfg.lockMode = wantLock;
+      cfg.lockEntryMin = clamp(cfg.lockEntryMin, 1, 180);
+      applyCfg(cfg);
+
+      const TARGET = 200;
+      let added = 0;
+      const cost = entryCost;
+      const startSorteo = () => {
+        cfg.minPlayers = 3;
+        cfg.autoStart = true;
+        cfg.lockMode = wantLock;
+        usedInitial = false;
+        phase = 'waiting';
+        if (wantLock) {
+          // Demo Lock: ventana corta, luego LOCKED + eliminaciones
+          cfg.lockEntryMin = 1;
+          showToast('¡Modo Lock · ventana de entrada!');
+        } else {
+          cfg.initialTimerSec = Math.min(8, clamp(cfg.initialTimerSec, 1, 3600));
+          showToast('¡Sorteo · cuenta inicial!');
+        }
+        applyCfg(cfg);
+        testTimers.push(setTimeout(() => maybeStartTimers(), 700));
+      };
+      const addBatch = () => {
+        if (added >= TARGET) {
+          showToast(wantLock ? '200 listos · Modo Lock…' : '200 listos · cuenta…');
+          renderGrid();
+          testTimers.push(setTimeout(startSorteo, 1200));
+          return;
+        }
+        const batch =
+          added < 4 ? 1 :
+          added < 9 ? 1 :
+          added < 16 ? 2 :
+          added < 36 ? 3 :
+          added < 64 ? 5 :
+          added < 100 ? 8 :
+          12;
+        const end = Math.min(TARGET, added + batch);
+        while (added < end) {
+          const i = added;
+          const id = 'demo' + i;
+          const gender = i % 2 ? 'women' : 'men';
+          const picN = (i % 99) + 1;
+          players[id] = {
+            id,
+            name: 'User' + (i + 1),
+            pic: 'https://randomuser.me/api/portraits/' + gender + '/' + picN + '.jpg',
+            lives: 1,
+            bank: 0,
+            spent: cost,
+            donated: cost,
+            stakes: [cost],
+            alive: true,
+            lastChat: '',
+            lastVouch: '',
+          };
+          pushLifeSlot(players[id], cost);
+          coinsInPlay += cost;
+          added += 1;
+        }
+        renderGrid();
+        if (added === 4 || added === 9 || added === 16 || added === 25 || added === 49 || added === 100 || added === TARGET) {
+          showToast(added + ' / ' + TARGET);
+        }
+        const delay =
+          added <= 9 ? 300 :
+          added <= 25 ? 140 :
+          added <= 64 ? 80 :
+          added <= 120 ? 45 :
+          30;
+        testTimers.push(setTimeout(addBatch, delay));
+      };
+      showToast(wantLock ? 'Demo Lock · llenando hasta 200…' : 'Demo · llenando hasta 200…');
+      testTimers.push(setTimeout(addBatch, 200));
+    }
+
+    function setSlowCountdown(on) {
+      cfg.slowCountdown = !!on;
+      syncHud();
+      if (phase === 'initial' || phase === 'elim' || phase === 'entry') {
+        // Reprogramar el próximo tick con la nueva velocidad
+        if (timerHandle) scheduleTick(currentTickMs());
+      }
+    }
+
+    function handleAction(action, payload) {
+      switch (String(action || '')) {
+        case 'reset': resetAll(); break;
+        case 'lock': setLocked(true); break;
+        case 'unlock': setLocked(false); break;
+        case 'toggleLock': setLocked(!entriesLocked); break;
+        case 'slowOn': setSlowCountdown(true); break;
+        case 'slowOff': setSlowCountdown(false); break;
+        case 'toggleSlow': setSlowCountdown(!cfg.slowCountdown); break;
+        case 'start':
+          startManual();
+          break;
+        case 'spin':
+          spinManual();
+          break;
+        case 'stop':
+          clearTimer();
+          cancelPendingSpin();
+          demoRapid = false;
+          entriesLocked = false;
+          phase = 'waiting';
+          usedInitial = false;
+          restoreDemoCfgBackup();
+          syncHud();
+          break;
+      }
+    }
+
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => {
+        clearTimeout(rt);
+        // Re-subir vouches locales al servidor por si el room/settings venían en 0
+        try { if (vouchCount > 0) persistVouchToSettings(); } catch { /* ignore */ }
+      };
+      ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'gift') { /* solo puntos: los regalos no entran */ }
+        else if (m.type === 'sorteosPointsEntry') { if (!isEmbed) enqueueOrApplyPoints(m.payload); }
+        else if (m.type === 'chat') { if (!isEmbed) onChat(m.payload); }
+        else if (m.type === 'settings') {
+          if (m.payload && m.payload.sorteosPavosOverlay) applyCfg(m.payload.sorteosPavosOverlay);
+        } else if (m.type === 'sorteosPavosControl') {
+          if (!isEmbed) handleAction(m.payload?.action, m.payload);
+        } else if (m.type === 'sorteosPavosTest') {
+          if (!isEmbed) runTest();
+        }
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data;
+      if (!d || d.kind !== 'sorteosPavos') return;
+      if (d.type === 'config') applyCfg(d.config);
+      else if (d.type === 'test') {
+        if (d.config) applyCfg(d.config);
+        runTest();
+      }
+      else if (d.type === 'reset') resetAll();
+      else if (d.type === 'pointsEntry') applyPointsEntry(d.payload || d);
+      else if (d.type === 'action') handleAction(d.action, d);
+    });
+
+    if (isEmbed) {
+      document.documentElement.classList.add('embed');
+      const root = $('so-root');
+      let fitRaf = 0;
+      fitFn = () => {
+        if (!root) return;
+        const user = clamp(cfg.overlayScale == null ? 100 : cfg.overlayScale, 0, 140) / 100;
+        // Medir tamaño natural (sin scale). No tocar opacity: evita parpadeo en preview.
+        root.style.transform = 'none';
+        void root.offsetWidth;
+        const rw = Math.max(root.offsetWidth, 1);
+        const rh = Math.max(root.offsetHeight, 1);
+        const iw = Math.max(window.innerWidth, 1);
+        const ih = Math.max(window.innerHeight, 1);
+        const fit = Math.min(iw / (rw + 24), ih / (rh + 24), 1);
+        const scale = Math.max(0, fit * user);
+        root.style.transformOrigin = 'center center';
+        root.style.transform = 'scale(' + scale + ')';
+        root.style.opacity = user <= 0 ? '0' : '1';
+      };
+      const scheduleFit = () => {
+        cancelAnimationFrame(fitRaf);
+        fitRaf = requestAnimationFrame(() => { fitFn(); });
+      };
+      window.addEventListener('resize', scheduleFit);
+      try {
+        const ro = new ResizeObserver(scheduleFit);
+        ro.observe(document.documentElement);
+        // No observar root: el scale no cambia layout, y evita refits de más
+      } catch { /* older webviews */ }
+      // Pedir config al panel (a veces el postMessage inicial se pierde)
+      try { window.parent.postMessage({ kind: 'sorteosPavos', type: 'ready' }, '*'); } catch {}
+      setTimeout(scheduleFit, 50);
+      setTimeout(scheduleFit, 250);
+      setTimeout(scheduleFit, 600);
+      // Demo: 3 vidas = 3 cuadrados de la misma foto (nunca un solo cuadro con ×3)
+      players = {
+        a: { id: 'a', name: 'Demo1', pic: 'https://randomuser.me/api/portraits/men/32.jpg', lives: 3, bank: 0, spent: 90, donated: 90, stakes: [30, 30, 30], alive: true, lastChat: '', lastVouch: '' },
+        b: { id: 'b', name: 'Demo2', pic: 'https://randomuser.me/api/portraits/women/44.jpg', lives: 1, bank: 0, spent: 30, donated: 30, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
+        c: { id: 'c', name: 'Demo3', pic: 'https://randomuser.me/api/portraits/men/45.jpg', lives: 1, bank: 5, spent: 30, donated: 35, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
+        d: { id: 'd', name: 'Demo4', pic: 'https://randomuser.me/api/portraits/women/68.jpg', lives: 1, bank: 0, spent: 30, donated: 30, stakes: [30], alive: true, lastChat: '', lastVouch: '' },
+      };
+      coinsInPlay = 180;
+      rebuildLifeSlotsFromPlayers();
+    }
+    applyCfg(cfg);
+    renderGrid();
+    connectWS();
+  })();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

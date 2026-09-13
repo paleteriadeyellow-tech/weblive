@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Nivel de fan</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; font-family: 'Montserrat', system-ui, sans-serif; }
+    #stage {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      pointer-events: none; --fl-scale: 1;
+      --fl-c1: #ff9a3d;
+      --fl-c2: #ff7a1a;
+      --fl-c3: #e85d00;
+      --fl-border: rgba(255, 180, 100, .65);
+      --fl-glow: rgba(255, 122, 26, .35);
+    }
+    #banner {
+      position: relative;
+      display: inline-flex; align-items: center; gap: 8px 10px;
+      width: fit-content;
+      max-width: min(96vw, 920px);
+      min-height: 34px;
+      height: 36px;
+      padding: 3px 6px 3px 8px;
+      border-radius: 999px;
+      color: #fff;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 42%),
+        radial-gradient(circle at 18% 40%, var(--fl-glow), transparent 55%),
+        repeating-linear-gradient(60deg, rgba(255,255,255,.035) 0 1px, transparent 1px 6px),
+        repeating-linear-gradient(-60deg, rgba(255,255,255,.025) 0 1px, transparent 1px 6px),
+        linear-gradient(180deg,
+          color-mix(in srgb, var(--fl-c1) 82%, transparent),
+          color-mix(in srgb, var(--fl-c2) 82%, transparent) 48%,
+          color-mix(in srgb, var(--fl-c3) 82%, transparent));
+      border: 1px solid var(--fl-border);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, .25),
+        0 4px 14px rgba(0,0,0,.3),
+        inset 0 1px 0 rgba(255,255,255,.22),
+        inset 0 -1px 5px rgba(0,0,0,.18);
+      transform: scale(var(--fl-scale));
+      transform-origin: center center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .45s ease, transform .55s cubic-bezier(.22,1,.36,1), visibility 0s linear .45s;
+    }
+    #banner.show {
+      opacity: 1; visibility: visible;
+      transition: opacity .45s ease, transform .55s cubic-bezier(.22,1,.36,1), visibility 0s;
+    }
+    #banner.hide {
+      opacity: 0; visibility: hidden;
+      transition: opacity .4s ease, transform .4s ease, visibility 0s linear .4s;
+    }
+    .fl-up {
+      flex: 0 0 auto;
+      width: 22px; height: 22px;
+      display: grid; place-items: center;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      overflow: visible;
+    }
+    .fl-up img { width: 18px; height: 18px; object-fit: contain; display: block; }
+    .fl-text {
+      flex: 0 1 auto; min-width: 0;
+      font-size: clamp(12px, 1.9vw, 16px);
+      font-weight: 700;
+      letter-spacing: .01em;
+      line-height: 1.15;
+      text-shadow: 0 1px 2px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: min(70vw, 640px);
+    }
+    .fl-text .name { font-weight: 800; }
+    .fl-text .lvl { font-weight: 800; }
+    .fl-heart {
+      flex: 0 0 auto;
+      width: 34px; height: 34px;
+      margin-right: 2px;
+      display: grid; place-items: center;
+      filter: drop-shadow(0 1px 3px rgba(0,0,0,.4));
+    }
+    .fl-heart img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    #banner.empty { display: none; }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div id="banner" class="empty" aria-live="polite">
+      <div class="fl-up" aria-hidden="true">
+        <img id="fl-arrow" src="/img/fanlevel/arrow.png?v=fl2" alt=""
+          onerror="this.onerror=null;this.src='/img/fanlevel/arrow.svg?v=fl2'">
+      </div>
+      <div class="fl-text" id="fl-text">Usuario alcanzó el nivel de miembro 1</div>
+      <div class="fl-heart"><img id="fl-heart" src="/img/fanlevel/heart-1-10.png?v=fl2" alt=""></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const isEmbed = params.get('embed') === '1';
+    const $ = (id) => document.getElementById(id);
+
+    const HEARTS = [
+      { max: 10, src: '/img/fanlevel/heart-1-10.png?v=fl2' },
+      { max: 20, src: '/img/fanlevel/heart-11-20.png?v=fl2' },
+      { max: 30, src: '/img/fanlevel/heart-21-30.png?v=fl2' },
+      { max: 40, src: '/img/fanlevel/heart-31-40.png?v=fl2' },
+      { max: 49, src: '/img/fanlevel/heart-41-49.png?v=fl2' },
+      { max: 50, src: '/img/fanlevel/heart-50.png?v=fl2' },
+    ];
+    const HEART_JPG = {
+      10: '/img/fanlevel/heart-1-10.jpg?v=fl2',
+      20: '/img/fanlevel/heart-11-20.jpg?v=fl2',
+      30: '/img/fanlevel/heart-21-30.jpg?v=fl2',
+      40: '/img/fanlevel/heart-31-40.jpg?v=fl2',
+      49: '/img/fanlevel/heart-41-49.jpg?v=fl2',
+      50: '/img/fanlevel/heart-50.jpg?v=fl2',
+    };
+
+    let cfg = {
+      mode: 'month',
+      rotateSec: 5,
+      gapSec: 0.6,
+      scale: 100,
+      barColor: '#ff7a1a',
+      textTpl: '{name} alcanzó el nivel de miembro {level}',
+    };
+    let entries = [];
+    let idx = 0;
+    let timer = null;
+    let rotating = false;
+    let visible = false;
+
+    const DEMO = [
+      { username: 'fan_a', nickname: 'Usuario', level: 6, photo: '' },
+      { username: 'fan_b', nickname: 'PreviewFan', level: 22, photo: '' },
+    ];
+
+    function heartFor(level) {
+      const n = Math.max(1, Math.min(50, Number(level) || 1));
+      for (const h of HEARTS) if (n <= h.max) return h.src;
+      return HEARTS[HEARTS.length - 1].src;
+    }
+    function bindHeartFallback(img, level) {
+      if (!img) return;
+      img.onerror = function () {
+        const n = Math.max(1, Math.min(50, Number(level) || 1));
+        let key = 50;
+        for (const h of HEARTS) if (n <= h.max) { key = h.max; break; }
+        const jpg = HEART_JPG[key];
+        if (jpg && !String(this.src).includes('.jpg')) {
+          this.onerror = null;
+          this.src = jpg;
+          this.style.mixBlendMode = 'screen';
+        }
+      };
+    }
+    function clampByte(n) { return Math.max(0, Math.min(255, Math.round(n))); }
+    function parseHex(hex) {
+      const s = String(hex || '').trim().replace('#', '');
+      if (!/^[0-9a-fA-F]{6}$/.test(s)) return null;
+      return { r: parseInt(s.slice(0, 2), 16), g: parseInt(s.slice(2, 4), 16), b: parseInt(s.slice(4, 6), 16) };
+    }
+    function toHex(r, g, b) {
+      return '#' + [r, g, b].map((v) => clampByte(v).toString(16).padStart(2, '0')).join('');
+    }
+    function applyBarColor(hex) {
+      const rgb = parseHex(hex) || parseHex('#ff7a1a');
+      cfg.barColor = toHex(rgb.r, rgb.g, rgb.b);
+      const light = toHex(rgb.r + 40, rgb.g + 28, rgb.b + 12);
+      const dark = toHex(rgb.r * 0.72, rgb.g * 0.68, rgb.b * 0.62);
+      const st = document.getElementById('stage')?.style;
+      if (!st) return;
+      st.setProperty('--fl-c1', light);
+      st.setProperty('--fl-c2', cfg.barColor);
+      st.setProperty('--fl-c3', dark);
+      st.setProperty('--fl-border', `rgba(${clampByte(rgb.r + 50)}, ${clampByte(rgb.g + 40)}, ${clampByte(rgb.b + 20)}, .65)`);
+      st.setProperty('--fl-glow', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, .38)`);
+    }
+    function applyConfig(c) {
+      if (!c || typeof c !== 'object') return;
+      if (c.mode === 'forever' || c.mode === 'month') cfg.mode = c.mode;
+      if (c.rotateSec != null) cfg.rotateSec = Math.min(60, Math.max(2, Number(c.rotateSec) || 5));
+      if (c.gapSec != null) cfg.gapSec = Math.min(5, Math.max(0.2, Number(c.gapSec) || 0.6));
+      if (c.scale != null) cfg.scale = Math.min(150, Math.max(50, Number(c.scale) || 100));
+      if (typeof c.textTpl === 'string' && c.textTpl.trim()) cfg.textTpl = c.textTpl.trim();
+      if (c.barColor != null) applyBarColor(c.barColor);
+      else applyBarColor(cfg.barColor);
+      document.documentElement.style.setProperty('--fl-scale', String(cfg.scale / 100));
+      document.getElementById('stage')?.style.setProperty('--fl-scale', String(cfg.scale / 100));
+      if (Array.isArray(c.entries)) setEntries(c.entries, false);
+    }
+    function setEntries(list, restart) {
+      const next = Array.isArray(list) ? list.filter((e) => e && (e.nickname || e.username) && Number(e.level) > 0) : [];
+      next.sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+      entries = next;
+      if (!entries.length) {
+        stopRotate();
+        hideBanner(true);
+        $('banner').classList.add('empty');
+        return;
+      }
+      $('banner').classList.remove('empty');
+      if (restart !== false) {
+        idx = 0;
+        startRotate(true);
+      } else if (!rotating) {
+        startRotate(true);
+      }
+    }
+    function paint(e) {
+      if (!e) return;
+      const name = String(e.nickname || e.username || 'Usuario').trim() || 'Usuario';
+      const level = Math.max(1, Number(e.level) || 1);
+      const raw = String(cfg.textTpl || '{name} alcanzó el nivel de miembro {level}');
+      const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      $('fl-text').innerHTML = esc(raw)
+        .replace(/\{name\}/gi, '<span class="name">' + esc(name) + '</span>')
+        .replace(/\{level\}/gi, '<span class="lvl">' + esc(level) + '</span>');
+      const img = $('fl-heart');
+      const src = heartFor(e.level);
+      img.style.mixBlendMode = '';
+      bindHeartFallback(img, e.level);
+      if (img.getAttribute('src') !== src) img.src = src;
+    }
+    function clearTimer() { if (timer) { clearTimeout(timer); timer = null; } }
+    function stopRotate() { rotating = false; clearTimer(); }
+    function hideBanner(instant) {
+      const b = $('banner');
+      if (!b) return;
+      b.classList.remove('show');
+      if (instant) b.classList.add('hide');
+      else b.classList.add('hide');
+      visible = false;
+    }
+    function showBanner() {
+      const b = $('banner');
+      b.classList.remove('empty', 'hide');
+      void b.offsetWidth;
+      b.classList.add('show');
+      visible = true;
+    }
+    function tick() {
+      clearTimer();
+      if (!entries.length) { stopRotate(); hideBanner(true); return; }
+      rotating = true;
+      if (idx >= entries.length) idx = 0;
+      paint(entries[idx]);
+      showBanner();
+      const hold = Math.max(2000, (Number(cfg.rotateSec) || 5) * 1000);
+      if (entries.length === 1) {
+        timer = setTimeout(() => { tick(); }, hold);
+        return;
+      }
+      timer = setTimeout(() => {
+        hideBanner(false);
+        const gap = Math.max(200, (Number(cfg.gapSec) || 0.6) * 1000);
+        timer = setTimeout(() => {
+          idx = (idx + 1) % Math.max(1, entries.length);
+          tick();
+        }, gap);
+      }, hold);
+    }
+    function startRotate(force) {
+      if (!entries.length) return;
+      if (rotating && !force) return;
+      stopRotate();
+      tick();
+    }
+
+    let testing = false;
+    function finishTest(saved) {
+      testing = false;
+      setEntries(saved, true);
+    }
+    function runTest(demoList) {
+      const list = (Array.isArray(demoList) && demoList.length) ? demoList : DEMO;
+      const saved = entries.slice();
+      stopRotate();
+      testing = true;
+      let i = 0;
+      const hold = Math.max(2000, (Number(cfg.rotateSec) || 5) * 1000);
+      const gap = Math.max(200, (Number(cfg.gapSec) || 0.6) * 1000);
+      function step() {
+        if (!testing) return;
+        if (i >= list.length) {
+          hideBanner(false);
+          timer = setTimeout(() => finishTest(saved), gap);
+          return;
+        }
+        paint(list[i]);
+        showBanner();
+        i += 1;
+        timer = setTimeout(() => {
+          hideBanner(false);
+          timer = setTimeout(step, gap);
+        }, hold);
+      }
+      clearTimer();
+      step();
+    }
+    function resetAll() {
+      testing = false;
+      stopRotate();
+      entries = [];
+      idx = 0;
+      hideBanner(true);
+      $('banner').classList.add('empty');
+    }
+
+    let ws, rt;
+    function connect() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+      ws.onopen = () => clearTimeout(rt);
+      ws.onclose = () => { rt = setTimeout(connect, 1500); };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch { return; }
+        if (m.type === 'settings' && m.payload && m.payload.fanLevelOverlay) {
+          applyConfig(m.payload.fanLevelOverlay);
+          return;
+        }
+        if (isEmbed) return;
+        if (m.type === 'fanLevelState') {
+          const p = m.payload || {};
+          applyConfig(p);
+          if (Array.isArray(p.entries)) setEntries(p.entries, true);
+        } else if (m.type === 'fanLevelUp') {
+          const e = m.payload;
+          if (!e) return;
+          const i = entries.findIndex((x) => x.username === e.username);
+          if (i >= 0) entries[i] = { ...entries[i], ...e };
+          else entries.unshift(e);
+          $('banner').classList.remove('empty');
+          if (!rotating && !testing) startRotate(true);
+        } else if (m.type === 'fanLevelTest') {
+          const p = m.payload || {};
+          if (p.config) applyConfig(p.config);
+          runTest(p.demo);
+        } else if (m.type === 'fanLevelReset') resetAll();
+      };
+    }
+
+    window.addEventListener('message', (e) => {
+      const d = e.data; if (!d || d.kind !== 'fanlevel') return;
+      if (d.type === 'config') {
+        applyConfig(d.config || {});
+        if (Array.isArray(d.config?.entries)) setEntries(d.config.entries, true);
+      } else if (d.type === 'test') runTest();
+      else if (d.type === 'reset') resetAll();
+    });
+
+    applyConfig({});
+    hideBanner(true);
+    $('banner').classList.add('empty');
+    connect();
+  })();
+  </script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

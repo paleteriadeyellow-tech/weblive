@@ -457,10 +457,12 @@ const LOCAL_ONLY_GAMES = [
   { key: 'game_gtavchiliad', label: 'Juego: GTA V Chiliad' },
   { key: 'game_unturned', label: 'Juego: Unturned' },
   { key: 'game_crashctr', label: 'Juego: Crash Team Racing (CTR)' },
+  { key: 'game_flappybird', label: 'Juego: Flappy Bird' },
+  { key: 'game_pvzfusion', label: 'Juego: PvZ Fusion' },
+  { key: 'game_mk64', label: 'Juego: Mario Kart 64' },
   { key: 'game_smw', label: 'Juego: Super Mario World' },
   { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
   { key: 'game_geometrydash', label: 'Juego: Geometry Dash' },
-  { key: 'game_clashroyale', label: 'Juego: Clash Royale' },
 ];
 const LOCAL_ONLY_KEYS = [...LOCAL_ONLY_TABS, ...LOCAL_ONLY_GAMES].map((t) => t.key);
 const LOCAL_CAPS_FILE = path.join(DATA_DIR, 'local-caps.json');
