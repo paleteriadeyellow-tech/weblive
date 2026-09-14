@@ -2067,8 +2067,11 @@
                     <input type="hidden" id="acc-emoteid">
                   </div>
                   <div id="acc-eventdelayextra" class="gift-extra one" hidden>
-                    <label class="ml" for="acc-eventdelay">SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin lÃ­mite)</label>
-                    <input type="number" id="acc-eventdelay" min="0" value="30" placeholder="Ej. 30 â€” 0 = sin lÃ­mite">
+                    <label class="ml" for="acc-eventdelay" id="acc-eventdelay-label">SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin límite)</label>
+                    <input type="number" id="acc-eventdelay" min="0" value="30" placeholder="Ej. 30 — 0 = sin límite">
+                    <label class="ml" for="acc-eventglobaldelay" id="acc-eventglobaldelay-label" style="margin-top:10px">SEGUNDOS DE ESPERA global (anti-spam de todos; 0 = sin límite)</label>
+                    <input type="number" id="acc-eventglobaldelay" min="0" value="0" placeholder="Ej. 10 — 0 = sin límite">
+                    <p class="hint" style="margin-top:4px">Global: nadie puede disparar esta acción otra vez hasta pasar el tiempo (aunque sea otro usuario).</p>
                   </div>
                   <div id="acc-cmdextra" class="gift-extra one" hidden>
                     <input type="text" id="acc-command" placeholder="Comando exacto (ej. !video)">
@@ -11371,7 +11374,7 @@
     </div>
   </div>
 
-  <script src="/js/settings-transfer.js?v=tfcstick7"></script>
+  <script src="/js/settings-transfer.js?v=tfcstick10"></script>
   <script src="/js/gift-catalog.js"></script>
   <!-- Cat?logos de juegos: se cargan al abrir cada pesta?a (ahorro de RAM al arrancar). -->
   <!-- Advertencia de riesgo al activar el TTS (a nivel de body: fixed real, sin scroll) -->
@@ -11401,7 +11404,7 @@
 
   <script src="/js/account-email.js?v=dockmail1"></script>
   <script src="/js/camera-frames.js?v=mcf4"></script>
-  <script src="/js/dashboard.js?v=sov34"></script>
+  <script src="/js/dashboard.js?v=sov36"></script>
   <script src="/js/editor-rapido.js?v=er92"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

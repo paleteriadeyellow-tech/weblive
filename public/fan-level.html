@@ -343,8 +343,10 @@
         } else if (m.type === 'fanLevelUp') {
           const e = m.payload;
           if (!e) return;
-          const i = entries.findIndex((x) => x.username === e.username);
-          if (i >= 0) entries[i] = { ...entries[i], ...e };
+          const norm = (s) => String(s || '').replace(/^@+/, '').trim().toLowerCase();
+          const want = norm(e.username);
+          const i = entries.findIndex((x) => norm(x.username) === want || norm(x.nickname) === want);
+          if (i >= 0) entries[i] = { ...entries[i], ...e, level: Math.max(Number(entries[i].level) || 1, Number(e.level) || 1) };
           else entries.unshift(e);
           $('banner').classList.remove('empty');
           if (!rotating && !testing) startRotate(true);

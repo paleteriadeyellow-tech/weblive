@@ -1555,13 +1555,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function profileSlotContentScore(s) {
     if (!s || typeof s !== 'object') return 0;
     let n = 0;
-    for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'pvzFusionActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'flappyActions', 'mk64Actions', 'robloxActions', 'roblox3Actions']) {
+    for (const k of ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'pvzFusionActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'flappyActions', 'mk64Actions', 'clashActions', 'robloxActions', 'roblox3Actions']) {
       const a = s[k];
       if (Array.isArray(a)) n += a.length * 1000 + JSON.stringify(a).length;
     }
     return n;
   }
-  const PROFILE_ACTION_KEYS = ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'pvzFusionActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'flappyActions', 'mk64Actions', 'robloxActions', 'roblox3Actions'];
+  const PROFILE_ACTION_KEYS = ['actions', 'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions', 'kothActions', 'farmActions', 'sandboxActions', 'soundAlerts', 'videos', 'marioActions', 'mari0Actions', 'smb3Actions', 'pvzActions', 'pvzHybridActions', 'pvzFusionActions', 'repoActions', 'l4dActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions', 'unturnedActions', 'ctrActions', 'mslugActions', 'gdashActions', 'smwActions', 'flappyActions', 'mk64Actions', 'clashActions', 'robloxActions', 'roblox3Actions'];
   /** Huella estable para detectar acciones duplicadas al mezclar PC + nube.
    *  NO incluye `enabled`: si no, apagar en PC + copia encendida en nube = 2 filas
    *  y el live sigue spawneando con la copia ON aunque la UI muestre Activa OFF. */
@@ -2964,7 +2964,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'marioActions', 'mari0Actions', 'smb3Actions', 'smwActions',
     'pvzActions', 'pvzHybridActions', 'repoActions', 'l4dActions',
     'unturnedActions', 'gtavKothActions', 'gtavChaosActions', 'gtavChiliadActions',
-    'ctrActions', 'mslugActions', 'gdashActions', 'flappyActions', 'mk64Actions', 'pvzFusionActions',
+    'ctrActions', 'mslugActions', 'gdashActions', 'flappyActions', 'mk64Actions', 'clashActions', 'pvzFusionActions',
     'robloxActions', 'roblox3Actions',
     'mcActions', 'mcshooterActions', 'bedrockActions', 'parkourActions',
     'kothActions', 'farmActions', 'sandboxActions',
@@ -8922,37 +8922,104 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         level: Number(e.level) || 1,
         at: Number(e.at) || 0,
         monthKey: e.monthKey || '',
+        manual: !!e.manual,
       })),
     };
   }
   function broadcastFanLevelState() {
     broadcast('fanLevelState', serializeFanLevelState());
   }
-  function upsertFanLevelEntry(user, level) {
-    const fl = ensureFanLevelOverlay();
-    const uid = String(user?.uniqueId || user?.username || '').trim();
-    if (!uid) return null;
-    const lvl = Math.max(1, Math.min(50, Number(level) || 1));
-    const monthKey = fanLevelMonthKey();
-    const entry = {
-      username: uid,
-      nickname: String(user?.nickname || uid).trim() || uid,
-      photo: String(user?.photo || '').trim(),
-      level: lvl,
-      at: Date.now(),
-      monthKey,
+  function fanLevelEntryKeys(e) {
+    const keys = [];
+    const push = (v) => {
+      const n = normTikTokUser(v);
+      if (n && !keys.includes(n)) keys.push(n);
     };
-    const i = fl.entries.findIndex((e) => e && e.username === uid);
+    if (!e) return keys;
+    push(e.username);
+    push(e.nickname);
+    if (Array.isArray(e.aliases)) e.aliases.forEach(push);
+    return keys;
+  }
+  function findFanLevelEntryIndex(fl, user) {
+    const want = new Set();
+    const push = (v) => {
+      const n = normTikTokUser(v);
+      if (n) want.add(n);
+    };
+    push(user?.uniqueId);
+    push(user?.username);
+    push(user?.nickname);
+    if (!want.size) return -1;
+    return fl.entries.findIndex((e) => fanLevelEntryKeys(e).some((k) => want.has(k)));
+  }
+  function upsertFanLevelEntry(user, level, opts = {}) {
+    const fl = ensureFanLevelOverlay();
+    const rawUid = String(user?.uniqueId || user?.username || '').trim().replace(/^@+/, '');
+    if (!rawUid) return null;
+    const uidNorm = normTikTokUser(rawUid);
+    if (!uidNorm) return null;
+    const lvlIn = Math.max(1, Math.min(50, Number(level) || 1));
+    const monthKey = fanLevelMonthKey();
+    const nick = String(user?.nickname || rawUid).trim() || rawUid;
+    const photo = String(user?.photo || '').trim();
+    const i = findFanLevelEntryIndex(fl, { uniqueId: rawUid, username: rawUid, nickname: nick });
+    let entry;
     if (i >= 0) {
-      fl.entries[i] = { ...fl.entries[i], ...entry, photo: entry.photo || fl.entries[i].photo || '' };
+      const prev = fl.entries[i];
+      const prevLvl = Math.max(1, Math.min(50, Number(prev.level) || 1));
+      const nextLvl = opts.forceLevel ? lvlIn : Math.max(prevLvl, lvlIn);
+      const aliases = Array.isArray(prev.aliases) ? prev.aliases.slice() : [];
+      for (const a of [rawUid, nick, prev.username, prev.nickname]) {
+        const n = normTikTokUser(a);
+        if (n && !aliases.includes(n)) aliases.push(n);
+      }
+      // Si el live solo trae el @ (sin nombre display), conservar el nickname manual con emojis
+      const nickIsHandle = normTikTokUser(nick) === uidNorm;
+      const nextNick = opts.forceLevel
+        ? (nick || prev.nickname)
+        : (nickIsHandle ? (prev.nickname || nick) : nick);
+      entry = {
+        ...prev,
+        username: rawUid || prev.username,
+        nickname: nextNick || prev.nickname || rawUid,
+        photo: photo || prev.photo || '',
+        level: nextLvl,
+        at: Date.now(),
+        monthKey,
+        aliases,
+        manual: opts.manual ? true : !!prev.manual,
+      };
+      fl.entries[i] = entry;
     } else {
+      entry = {
+        username: rawUid,
+        nickname: nick,
+        photo,
+        level: lvlIn,
+        at: Date.now(),
+        monthKey,
+        aliases: [uidNorm],
+        manual: !!opts.manual,
+      };
       fl.entries.push(entry);
     }
     if (fl.entries.length > 120) fl.entries = fl.entries.slice(-120);
     saveSettings();
-    broadcast('fanLevelUp', fl.entries.find((e) => e.username === uid) || entry);
+    broadcast('fanLevelUp', entry);
     broadcastFanLevelState();
     return entry;
+  }
+  function removeFanLevelEntry(username) {
+    const fl = ensureFanLevelOverlay();
+    const want = normTikTokUser(username);
+    if (!want) return false;
+    const before = fl.entries.length;
+    fl.entries = fl.entries.filter((e) => !fanLevelEntryKeys(e).includes(want));
+    if (fl.entries.length === before) return false;
+    saveSettings();
+    broadcastFanLevelState();
+    return true;
   }
   function resetFanLevelEntries() {
     const fl = ensureFanLevelOverlay();
@@ -13121,6 +13188,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           videoScreens.set(ws, scr);
           setOverlayChannel(ws, 'video');
           broadcastScreens(true);
+          try {
+            if (ws.readyState === 1) {
+              ws.send(JSON.stringify({ type: 'settings', payload: settings }));
+            }
+          } catch { /* ignore */ }
         }
         if (data.role === 'overlay' || data.ov || data.ch || data.path) {
           const ch = resolveOverlayChannel({
@@ -13139,11 +13211,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (data.video) {
           const picked = pickRandomVideo(data.video) || data.video;
           const scr = Number(picked.screen) || 1;
+          // Campos limpios (no ...picked): evita playQueue/webhookToggle accidental del objeto video
           emitMedia({
-            ...picked,
+            id: picked.id,
+            name: picked.name,
+            url: picked.url,
             screen: scr,
+            volume: picked.volume ?? 100,
             size: picked.size ?? screenSize(scr),
             maxDurationSec: picked.originalDuration === false ? 5 : (picked.maxDurationSec || 0),
+            playQueue: settings.playback?.playQueue !== false,
             test: true,
           });
         }
@@ -13739,6 +13816,33 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetFanLevel':
         resetFanLevelEntries();
         break;
+      case 'addFanLevelManual': {
+        const uname = String(data.username || '').trim().replace(/^@+/, '');
+        const nick = String(data.nickname || '').trim() || uname;
+        const photo = String(data.photo || '').trim();
+        const lvl = Math.max(1, Math.min(50, Number(data.level) || 1));
+        if (!uname) {
+          broadcast('log', { level: 'error', text: 'Nivel de fan: indica un @usuario de TikTok' });
+          break;
+        }
+        const entry = upsertFanLevelEntry(
+          { uniqueId: uname, username: uname, nickname: nick, photo },
+          lvl,
+          { forceLevel: true, manual: true },
+        );
+        if (entry) {
+          broadcast('log', { level: 'ok', text: `⬆️ Agregado manual: ${entry.nickname || entry.username} (@${entry.username}) · nivel ${entry.level}` });
+        }
+        break;
+      }
+      case 'removeFanLevelEntry': {
+        const uname = String(data.username || '').trim().replace(/^@+/, '');
+        if (!uname) break;
+        if (removeFanLevelEntry(uname)) {
+          broadcast('log', { level: 'ok', text: `Nivel de fan: quitado @${uname}` });
+        }
+        break;
+      }
       case 'audioVizLevels': {
         const binsIn = Array.isArray(data.bins) ? data.bins : [];
         const bins = [];

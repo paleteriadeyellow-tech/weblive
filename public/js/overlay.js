@@ -1,6 +1,7 @@
 const alertsEl = document.getElementById('alerts');
 const videoLayer = document.getElementById('videoLayer');
 const MAX_ALERTS = 5;
+const studioPreview = new URLSearchParams(location.search).get('ospreview') === '1';
 
 let ws, reconnectTimer;
 let settings = { alerts: { gift: true, follow: true, share: true, like: false, member: false, minDiamonds: 1, duration: 5 } };
@@ -32,7 +33,11 @@ function connectWS() {
   ws.onmessage = (ev) => {
     const { type, payload } = JSON.parse(ev.data);
     if (type === 'settings') { settings = payload; warmSoundsFromSettings(payload); return; }
-    if (type === 'media') { if (!payload.screenTest) enqueue({ kind: 'video', payload }); return; }
+    if (type === 'media') {
+      if (studioPreview) return;
+      if (!payload.screenTest) enqueue({ kind: 'video', payload });
+      return;
+    }
     if (type === 'actionAnim') { enqueue({ kind: 'actionAnim', payload }); return; }
     if (type === 'actionAlert') { enqueue({ kind: 'actionAlert', payload }); return; }
     if (type === 'stopMedia') { stopMediaForScreen(payload?.screen); return; }
@@ -90,7 +95,10 @@ let activeDoneTimer = null;
 let currentItem = null;
 let currentDone = null;
 
-function queueOn() { return settings?.playback?.playQueue !== false; }
+function queueOn() {
+  // Default ON. Solo cortar si el usuario apagó la cola en el panel.
+  return settings?.playback?.playQueue !== false;
+}
 
 function soundSrc(url) {
   if (!url) return '';
@@ -123,20 +131,27 @@ function makeSoundAudio(url) {
 }
 
 function enqueue(item) {
+  // Webhook toggle de sonido: puede solaparse a propósito
   if (item.kind === 'sound' && (item.payload?.playQueue === false || item.payload?.webhookToggle)) {
     playSoundNow(item.payload, null);
     return;
   }
-  if (!queueOn()) {
-    // Modo sin cola: comportamiento directo (puede solaparse / cortar como antes)
-    if (item.kind === 'actionAnim') playActionAnimNow(item.payload, null);
-    else if (item.kind === 'actionAlert') playActionAlertNow(item.payload, null);
-    else if (item.kind === 'video') playVideoNow(item.payload, null);
-    else playSoundNow(item.payload, null);
+  // Ya suena algo + cola ON → encolar, nunca cortar (Play del panel / regalos)
+  if (queueBusy && queueOn() && !(item.payload?.webhookToggle && item.payload?.playQueue === false)) {
+    mediaQueue.push(item);
     return;
   }
-  mediaQueue.push(item);
-  pump();
+  // Cola ON (default): videos/sonidos/animaciones uno tras otro — no cortar.
+  if (queueOn()) {
+    mediaQueue.push(item);
+    pump();
+    return;
+  }
+  // Cola OFF: comportamiento directo (puede solaparse / cortar)
+  if (item.kind === 'actionAnim') playActionAnimNow(item.payload, null);
+  else if (item.kind === 'actionAlert') playActionAlertNow(item.payload, null);
+  else if (item.kind === 'video') playVideoNow(item.payload, null);
+  else playSoundNow(item.payload, null);
 }
 
 function pump() {
@@ -201,6 +216,7 @@ function stopMediaForScreen(scr) {
 }
 
 function playActionAnimNow(media, done) {
+  if (studioPreview) { done?.(); return; }
   if (!media?.url) { done?.(); return; }
   clearMediaTimers();
   videoLayer.innerHTML = '';
@@ -465,6 +481,7 @@ function bindLocalVideo(el, media, finish) {
 }
 
 function playVideoNow(media, done) {
+  if (studioPreview) { done?.(); return; }
   if (!media?.url) { done?.(); return; }
   clearMediaTimers();
   videoLayer.innerHTML = '';

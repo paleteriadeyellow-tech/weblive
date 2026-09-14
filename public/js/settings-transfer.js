@@ -9,6 +9,7 @@
         { key: 'videos', label: 'Videos (lista)' },
         { key: 'battleAlerts', label: 'Animaciones de batalla (lista)' },
         { key: 'actions', label: 'Acciones / teclas', desktopOnly: true },
+        { key: 'mcPresetBanks', label: 'Presets de Acciones y juegos', desktopOnly: true },
         { key: 'videosEnabled', label: 'Interruptor global de videos' },
         { key: 'battleAlertsEnabled', label: 'Interruptor global de batallas' },
         { key: 'playback', label: 'Opciones de reproducción (cola, combo)' },
@@ -20,13 +21,14 @@
       items: [
         { key: 'tts', label: 'Chat TTS' },
         { key: 'timer', label: 'Temporizador' },
-        { key: 'points', label: 'Usuario y puntos' },
+        { key: 'points', label: 'Usuario y puntos (reglas + lista de usuarios)' },
         { key: 'screens', label: 'Pantallas (Browser Sources)' },
         { key: 'alerts', label: 'Alertas del panel (regalo, follow…)' },
         { key: 'battle', label: 'Batalla (equipos y meta)' },
         { key: 'spotify', label: 'Spotify song requests', desktopOnly: true },
         { key: 'webhook', label: 'Webhook / RCON / OBS / ServerTap', desktopOnly: true },
         { key: 'levelVideos', label: 'Videos automáticos por nivel', desktopOnly: true },
+        { key: 'overlayStudio', label: 'Editor de overlays (presets y capas)' },
       ],
     },
     {
@@ -130,6 +132,8 @@
         { key: 'smb3Actions', label: 'Super Mario Bros 3' },
         { key: 'pvzActions', label: 'Plants vs Zombies' },
         { key: 'pvzHybridActions', label: 'Plants vs Zombies Pack (Hybrid)' },
+        { key: 'pvzFusionActions', label: 'PvZ Fusion' },
+        { key: 'mk64Actions', label: 'Mario Kart 64' },
         { key: 'repoActions', label: 'R.E.P.O.' },
         { key: 'l4dActions', label: 'Left 4 Dead 2' },
         { key: 'gtavKothActions', label: 'GTA V King of the Hill' },
@@ -461,6 +465,7 @@
     const roots = [raw, raw.data, raw.payload, raw.shared].filter((x) => x && typeof x === 'object');
     let arr = null;
     for (const r of roots) {
+      if (Array.isArray(r.pointsUsers)) { arr = r.pointsUsers; break; }
       if (Array.isArray(r.channelusers)) { arr = r.channelusers; break; }
       if (Array.isArray(r.channelUsers)) { arr = r.channelUsers; break; }
       if (Array.isArray(r.users) && r.users.some((u) => u && (u.totalAmount != null || u.totalRewardAmount != null || u.total != null || u.uniqueId))) {
@@ -638,6 +643,16 @@
     return attachPointsUsers({ patch, counts, format: 'legacy-v1' }, raw);
   }
 
+  function sanitizePointsRules(points) {
+    if (!points || typeof points !== 'object' || Array.isArray(points)) return points;
+    const out = cloneVal(points);
+    delete out.users;
+    delete out.tx;
+    delete out.count;
+    delete out.max;
+    return out;
+  }
+
   function convertNative(raw) {
     const data = raw.data || raw.settings || raw;
     if (!data || typeof data !== 'object') throw new Error('Archivo Livecoins no reconocido.');
@@ -645,6 +660,7 @@
     for (const k of EXPORT_KEYS) {
       if (data[k] !== undefined) patch[k] = cloneVal(data[k]);
     }
+    if (patch.points) patch.points = sanitizePointsRules(patch.points);
     return attachPointsUsers({ patch, counts: countPatch(patch), format: 'livecoins-v2' }, raw);
   }
 
@@ -663,6 +679,7 @@
       if (!src || typeof src !== 'object' || Array.isArray(src)) return { name: String(p.name || '').slice(0, 40), settings: null };
       const settings = {};
       for (const k of EXPORT_KEYS) if (src[k] !== undefined) settings[k] = cloneVal(src[k]);
+      if (settings.points) settings.points = sanitizePointsRules(settings.points);
       const hasData = Object.keys(settings).length > 0;
       return { name: String(p.name || '').slice(0, 40), settings: hasData ? settings : null };
     });
@@ -716,19 +733,30 @@
     for (const k of keyList) {
       if (settings[k] !== undefined) data[k] = cloneVal(settings[k]);
     }
+    // Lista de usuarios con puntos (no vive en settings.points; va aparte en room).
+    const wantUsers = keyList.includes('points');
+    const users = wantUsers && Array.isArray(opts?.pointsUsers) ? opts.pointsUsers : null;
+    if (users && users.length) {
+      if (!data.points || typeof data.points !== 'object' || Array.isArray(data.points)) {
+        data.points = { ...(settings.points && typeof settings.points === 'object' ? cloneVal(settings.points) : {}) };
+      }
+      data.points.users = cloneVal(users);
+    }
     // No incluir API keys de ElevenLabs en el archivo exportado.
     try {
       if (data.tts && data.tts.elevenlabs && data.tts.elevenlabs.apiKey) {
         data.tts = { ...data.tts, elevenlabs: { ...data.tts.elevenlabs, apiKey: '' } };
       }
     } catch { /* ignore */ }
-    return {
+    const out = {
       version: 2,
       format: 'livecoins',
       savedAt: Date.now(),
       exportedKeys: [...keyList],
       data,
     };
+    if (users && users.length) out.pointsUsers = cloneVal(users);
+    return out;
   }
 
   function applyPatch(current, patch, mode) {

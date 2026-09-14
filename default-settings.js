@@ -1271,6 +1271,7 @@ export const DEFAULT_SETTINGS = {
   ctrActions: [],
   flappyActions: [],
   mk64Actions: [],
+  clashActions: [],
   pvzFusionActions: [],
   smwActions: [],
   mslugActions: [],

@@ -1,17 +1,46 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script src="/js/overlay-channel.js?v=ovch1"></script>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pantalla de video · Livecoins</title>
-  <link rel="stylesheet" href="/css/video.css" />
+  <link rel="stylesheet" href="/css/video.css?v=osf7" />
+  <script>
+    /* Overlay Studio: contain en la caja; oscover=1 llena 1080×1920 */
+    (function () {
+    var q = location.search;
+    var fill = /[?&]osfill=1(?:&|$)/.test(q);
+    var cover = /[?&]oscover=1(?:&|$)/.test(q);
+    if (/[?&]ospreview=1(?:&|$)/.test(q)) document.documentElement.classList.add('os-preview');
+    if (!fill && !cover) return;
+    document.documentElement.classList.add('os-fill');
+    if (cover) document.documentElement.classList.add('os-cover');
+    var s = document.createElement('style');
+    s.textContent = cover ? [
+      'html.os-fill,html.os-fill body{width:100%!important;height:100%!important;margin:0!important;overflow:hidden!important;background:transparent!important}',
+      'html.os-cover #stage,html.os-cover #stageGeneral{display:block!important;position:fixed!important;inset:0!important}',
+      'html.os-cover #stage .media,html.os-cover #stageGeneral .media{',
+      'position:absolute!important;inset:0!important;width:100%!important;height:100%!important;',
+      'max-width:none!important;max-height:none!important;object-fit:cover!important;animation:none!important;',
+      '}'
+    ].join('') : [
+      'html.os-fill,html.os-fill body{width:100%!important;height:100%!important;margin:0!important;overflow:hidden!important;background:transparent!important}',
+      'html.os-fill #stage,html.os-fill #stageGeneral{display:flex!important;align-items:center!important;justify-content:center!important;position:fixed!important;inset:0!important}',
+      'html.os-fill #stage .media,html.os-fill #stageGeneral .media{',
+      'position:static!important;inset:auto!important;width:auto!important;height:auto!important;',
+      'max-width:100%!important;max-height:100%!important;object-fit:contain!important;animation:none!important;',
+      '}'
+    ].join('');
+    document.head.appendChild(s);
+  })();
+  </script>
 </head>
 <body>
   <!-- Browser Source para OBS. Usa la URL con ?screen=1 (o 2,3,4,5). -->
   <div id="stage"></div>
   <div id="stageGeneral"></div>
-  <script src="/js/video.js?v=vol2"></script>
+  <script src="/js/video.js?v=vol9"></script>
   <script src="/js/overlay-keepalive.js"></script>
 </body>
 </html>

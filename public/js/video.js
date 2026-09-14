@@ -2,6 +2,12 @@ const stage = document.getElementById('stage');
 const stageGeneral = document.getElementById('stageGeneral');
 const params = new URLSearchParams(location.search);
 const screen = Math.max(1, Math.min(10, parseInt(params.get('screen'), 10) || 1));
+const studioFill = params.get('osfill') === '1';
+/** Editor del panel: no decodificar ni registrar videoScreen (evita trabar el .exe). */
+const studioPreview = params.get('ospreview') === '1';
+if (studioPreview) {
+  try { document.documentElement.classList.add('os-preview'); } catch {}
+}
 
 let ws, reconnectTimer, keepWorker;
 let settings = {};
@@ -34,6 +40,7 @@ function applyMediaVolume(el, raw) {
 }
 
 function sendHello(sock) {
+  if (studioPreview) return;
   try {
     sock.send(JSON.stringify({ action: 'hello', role: 'videoScreen', screen }));
   } catch {}
@@ -122,6 +129,7 @@ function connectWS(force) {
 }
 
 function ensureConnected() {
+  if (studioPreview) return;
   if (wsNeedsReconnect() || (ws && ws.readyState !== WebSocket.OPEN)) connectWS(true);
 }
 
@@ -135,7 +143,7 @@ window.addEventListener('pageshow', ensureConnected);
 
 /** Si el WS lleva mucho caído pero el HTTP ya responde, recargar (Live Studio CEF). */
 let __vidDownSince = 0;
-setInterval(() => {
+if (!studioPreview) setInterval(() => {
   const dead = wsNeedsReconnect() || !ws || ws.readyState !== WebSocket.OPEN;
   if (dead) {
     if (!__vidDownSince) __vidDownSince = Date.now();
@@ -154,19 +162,27 @@ setInterval(() => {
 }, 4000);
 
 /* Cola de reproducción: con la cola activada cada video espera a que termine el anterior.
-   El Perfil General usa su propia capa/cola para no bloquearse con el perfil activo. */
+   Activo y Perfil General comparten la misma cola visual (antes el general pisaba al activo). */
 const lanes = {
   active: { stage, queue: [], busy: false, timers: new Set(), token: 0 },
   general: { stage: stageGeneral, queue: [], busy: false, timers: new Set(), token: 0 },
 };
 
-function laneFor(m) {
-  return (m && (m.general || m.profileGeneral)) ? lanes.general : lanes.active;
+function laneFor(_m) {
+  // Una sola cola por pantalla: si general usa stage aparte (z-index arriba),
+  // el 2.º video “corta” al 1.º aunque la cola diga que no.
+  return lanes.active;
 }
 
 function queueOn(m) {
-  if (m && typeof m.playQueue === 'boolean') return m.playQueue;
-  return settings?.playback?.playQueue !== false;
+  // Webhook toggle: puede cortar / solapar a propósito
+  if (m && m.webhookToggle && m.playQueue === false) return false;
+  // Payload fuerza cola (emitMedia con cola ON en el panel)
+  if (m && m.playQueue === true) return true;
+  // Usuario apagó la cola en el panel
+  if (settings?.playback?.playQueue === false) return false;
+  // Default ON (si settings aún no llegaron, encolar)
+  return true;
 }
 
 function addTimer(lane, fn, ms) {
@@ -183,15 +199,63 @@ function clearLaneTimers(lane) {
   lane.timers.clear();
 }
 
+function escPreview(s) {
+  return String(s || '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+function playPreviewCard(lane, m) {
+  const host = lane.stage;
+  if (!host) return;
+  const name = escPreview(m?.name || m?.fileName || 'Video');
+  host.innerHTML = `<div class="os-vid-card" role="status"><span class="os-vid-card-dot"></span><div><b>${name}</b><small>Se ve en Live Studio</small></div></div>`;
+}
+
 function enqueue(m) {
   const lane = laneFor(m);
+  if (studioPreview) {
+    // Editor: solo tarjeta, no decodificar. Con cola ON muestra en orden.
+    if (queueOn(m) && lane.busy) {
+      lane.queue.push(m);
+      return;
+    }
+    lane.token += 1;
+    clearLaneTimers(lane);
+    if (!queueOn(m)) {
+      lane.busy = false;
+      lane.queue = [];
+      playPreviewCard(lane, m);
+      return;
+    }
+    const show = (item) => {
+      lane.busy = true;
+      playPreviewCard(lane, item);
+      addTimer(lane, () => {
+        lane.busy = false;
+        const next = lane.queue.shift();
+        if (next) show(next);
+      }, 2500);
+    };
+    show(m);
+    return;
+  }
   // Anti-doble: el mismo clip no se encola dos veces seguidas (relay / perfil general).
-  const dedupeKey = `${m?.id || ''}|${String(m?.url || '')}|${lane === lanes.general ? 'g' : 'a'}`;
+  const dedupeKey = `${m?.id || ''}|${String(m?.url || '')}|a`;
   const now = Date.now();
   if (lane._lastKey === dedupeKey && now - (lane._lastAt || 0) < 400) return;
   lane._lastKey = dedupeKey;
   lane._lastAt = now;
-  if (!queueOn(m)) {
+
+  const useQueue = queueOn(m);
+
+  // Ya suena algo: con cola ON nunca cortar — solo encolar (Play del panel / regalos).
+  if (lane.busy && useQueue) {
+    lane.queue.push(m);
+    return;
+  }
+
+  if (!useQueue) {
     // Sin cola: corta lo actual y reproduce ya (invalidando callbacks viejos)
     lane.token += 1;
     clearLaneTimers(lane);
@@ -262,6 +326,11 @@ function playOnStage(lane, m, done) {
   };
 
   if (!host || !m?.url) { lane.loading = false; done?.(); return; }
+  if (studioPreview) {
+    playPreviewCard(lane, m);
+    lane.loading = false;
+    return;
+  }
 
   host.innerHTML = '';
   const size = Math.max(10, Math.min(100, m.size ?? 100));
@@ -282,7 +351,15 @@ function playOnStage(lane, m, done) {
     el.playsInline = true;
     el.preload = 'auto';
     el.setAttribute('playsinline', '');
-    applyMediaVolume(el, m.volume);
+    if (studioFill) {
+      el.muted = true;
+      el.defaultMuted = true;
+      el.setAttribute('muted', '');
+      el.setAttribute('autoplay', '');
+      try { el.volume = 0; } catch {}
+    } else {
+      applyMediaVolume(el, m.volume);
+    }
 
     let errorRetries = 0;
     let lastTime = -1;
@@ -353,8 +430,10 @@ function playOnStage(lane, m, done) {
   }
 
   el.className = 'media';
-  el.style.maxWidth = size + 'vw';
-  el.style.maxHeight = size + 'vh';
+  if (!studioFill) {
+    el.style.maxWidth = size + 'vw';
+    el.style.maxHeight = size + 'vh';
+  }
   host.appendChild(el);
   lane.loading = false;
 
@@ -366,7 +445,10 @@ function playOnStage(lane, m, done) {
   } else {
     el.addEventListener('loadedmetadata', pingBounds, { once: true });
     el.addEventListener('loadeddata', pingBounds, { once: true });
-    el.addEventListener('playing', pingBounds, { once: true });
+    el.addEventListener('playing', () => {
+      pingBounds();
+      if (studioFill) applyMediaVolume(el, m.volume);
+    }, { once: true });
   }
   requestAnimationFrame(pingBounds);
   setTimeout(pingBounds, 120);
@@ -378,6 +460,7 @@ function playOnStage(lane, m, done) {
 
 function reportOverlayStudioBounds() {
   try {
+    if (studioPreview) return;
     if (!window.parent || window.parent === window) return;
     const vw = Math.max(1, document.documentElement.clientWidth || window.innerWidth || 1);
     const vh = Math.max(1, document.documentElement.clientHeight || window.innerHeight || 1);
@@ -403,6 +486,7 @@ function reportOverlayStudioBounds() {
     let h = r.height;
     const nw = Number(el.videoWidth || el.naturalWidth || 0) || 0;
     const nh = Number(el.videoHeight || el.naturalHeight || 0) || 0;
+    /* Si el layout aún no resolvió bien, usar proporción intrínseca centrada (max 90vw/90vh) */
     if (nw > 0 && nh > 0 && (w < 8 || h < 8 || Math.abs((w / h) - (nw / nh)) > 0.08)) {
       const maxW = vw * 0.9;
       const maxH = vh * 0.9;
@@ -431,8 +515,24 @@ function reportOverlayStudioBounds() {
 window.addEventListener('message', (ev) => {
   try {
     const data = ev && ev.data;
-    if (!data || data.type !== 'livecoins-video-bounds-request') return;
-    reportOverlayStudioBounds();
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'livecoins-video-bounds-request') {
+      reportOverlayStudioBounds();
+      return;
+    }
+    if (data.type === 'livecoins-studio-media') {
+      const payload = data.payload || {};
+      const want = Math.max(1, Math.min(10, Number(payload.screen) || 1));
+      if (want !== screen) return;
+      enqueue(payload);
+      return;
+    }
+    if (data.type === 'livecoins-studio-stop') {
+      const want = Math.max(1, Math.min(10, Number(data.screen || data.payload?.screen) || 1));
+      if (want !== screen) return;
+      clearAllQueues();
+      stopAllStages();
+    }
   } catch {}
 });
 
@@ -461,7 +561,7 @@ function showScreenTest() {
 }
 
 /** Autosanación: busy sin media en stage = cola colgada (pantalla negra eternamente) */
-setInterval(() => {
+if (!studioPreview) setInterval(() => {
   [lanes.active, lanes.general].forEach((lane) => {
     if (!lane.busy || lane.loading) {
       lane._stuckSince = 0;
@@ -474,6 +574,7 @@ setInterval(() => {
     }
     const now = Date.now();
     if (!lane._stuckSince) lane._stuckSince = now;
+    // Esperar: entre un video y el siguiente el stage queda vacío un instante al cargar.
     if (now - lane._stuckSince < 8000) return;
     lane._stuckSince = 0;
     clearLaneTimers(lane);
@@ -484,4 +585,4 @@ setInterval(() => {
   if (wsNeedsReconnect()) connectWS(true);
 }, 3000);
 
-connectWS();
+if (!studioPreview) connectWS();

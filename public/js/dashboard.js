@@ -21223,9 +21223,15 @@ function applyAccEventExtras() {
   $('acc-likeextra').hidden = ev !== 'like';
   $('acc-likeglobalextra').hidden = ev !== 'likeGlobal';
   $('acc-emoteextra').hidden = ev !== 'emote';
-  if ($('acc-eventdelayextra')) $('acc-eventdelayextra').hidden = ev !== 'emote';
+  if ($('acc-eventdelayextra')) $('acc-eventdelayextra').hidden = ev !== 'emote' && ev !== 'chatCommand';
   if ($('acc-cmdextra')) $('acc-cmdextra').hidden = ev !== 'chatCommand';
   if ($('acc-userextra')) $('acc-userextra').hidden = ev !== 'chatCommand';
+  const accDelayLbl = $('acc-eventdelay-label') || document.querySelector('label[for="acc-eventdelay"]');
+  if (accDelayLbl) {
+    accDelayLbl.textContent = ev === 'chatCommand'
+      ? 'SEGUNDOS DE ESPERA por usuario (anti-spam del comando; 0 = sin límite)'
+      : 'SEGUNDOS DE ESPERA por usuario (sticker: el mismo usuario no repite hasta pasar este tiempo; 0 = sin límite)';
+  }
   if ($('acc-combo-row')) $('acc-combo-row').hidden = ev !== 'gift' && ev !== 'gift-any' && ev !== 'gift-all';
   syncAccTrigGrid();
 }
@@ -21528,6 +21534,7 @@ function openAccModal(a) {
   if ($('acc-command')) $('acc-command').value = a ? (a.command || '') : '';
   if ($('acc-user')) $('acc-user').value = a ? (a.user || '') : '';
   if ($('acc-eventdelay')) $('acc-eventdelay').value = a?.eventDelay ?? 30;
+  if ($('acc-eventglobaldelay')) $('acc-eventglobaldelay').value = a?.eventGlobalDelay ?? 0;
   if ($('acc-comboinstant')) {
     // Nuevas acciones: ON. gift-any antiguas se guardaban siempre en false (bug): tratar false como ON al abrir.
     if (!a) $('acc-comboinstant').checked = true;
@@ -21699,7 +21706,10 @@ function saveAccModal() {
     emoteId: $('acc-emoteid').value || '',
     command: $('acc-event').value === 'chatCommand' ? ($('acc-command')?.value || '').trim() : '',
     user: $('acc-event').value === 'chatCommand' ? ($('acc-user')?.value || '').trim().replace(/^@/, '') : '',
-    eventDelay: $('acc-event').value === 'emote' ? Math.max(0, parseInt($('acc-eventdelay')?.value, 10) || 0) : 0,
+    eventDelay: ($('acc-event').value === 'emote' || $('acc-event').value === 'chatCommand') ? Math.max(0, parseInt($('acc-eventdelay')?.value, 10) || 0) : 0,
+    eventGlobalDelay: ($('acc-event').value === 'emote' || $('acc-event').value === 'chatCommand')
+      ? Math.max(0, parseInt($('acc-eventglobaldelay')?.value, 10) || 0)
+      : 0,
     comboInstant: ($('acc-event').value === 'gift' || $('acc-event').value === 'gift-any' || $('acc-event').value === 'gift-all') && !!$('acc-comboinstant')?.checked,
     keys,
     keyRepeatOn: $('acc-keys-on').checked && $('acc-keyrepeat-on')?.checked,
@@ -22469,7 +22479,24 @@ function setupSettingsTransfer() {
     }
     try {
       saveExportKeys(keys);
-      const out = window.SettingsTransfer.exportSettings(settings, { keys });
+      let pointsUsers = null;
+      if (keys.includes('points')) {
+        try {
+          send({ action: 'getPoints' });
+          await new Promise((r) => setTimeout(r, 450));
+        } catch {}
+        pointsUsers = [...(ptsState.users?.values() || [])].map((u) => ({
+          uniqueId: String(u.uniqueId || '').replace(/^@+/, ''),
+          userId: String(u.userId || ''),
+          nickname: String(u.nickname || u.uniqueId || ''),
+          photo: String(u.photo || ''),
+          total: Math.max(0, Math.round(Number(u.total) || 0)),
+          levelPoints: Math.max(0, Math.round(Number(u.levelPoints != null ? u.levelPoints : u.total) || 0)),
+          firstAt: Number(u.firstAt) || 0,
+          lastAt: Number(u.lastAt) || 0,
+        })).filter((u) => u.uniqueId);
+      }
+      const out = window.SettingsTransfer.exportSettings(settings, { keys, pointsUsers });
       if (isDesktop && exportProfilesCb?.checked) {
         try {
           const full = await requestProfilesFull(2500);
@@ -22484,7 +22511,7 @@ function setupSettingsTransfer() {
                   if (v != null) merged[k] = v;
                 }
                 if (full.spotify && !merged.spotify) merged.spotify = full.spotify;
-                data = window.SettingsTransfer.exportSettings(merged, { keys }).data;
+                data = window.SettingsTransfer.exportSettings(merged, { keys, pointsUsers: null }).data;
               }
               return {
                 name: (full.names && full.names[i]) || `Perfil ${i + 1}`,
@@ -22493,12 +22520,22 @@ function setupSettingsTransfer() {
             });
             if (Object.keys(sharedBag).length) out.shared = sharedBag;
             if (full.spotify) out.spotify = full.spotify;
+            if (pointsUsers && pointsUsers.length) {
+              out.pointsUsers = pointsUsers;
+              if (!out.data) out.data = {};
+              if (!out.data.points || typeof out.data.points !== 'object') {
+                out.data.points = { ...(settings.points || {}) };
+              }
+              out.data.points.users = pointsUsers;
+            }
           }
         } catch {}
       }
       downloadBackup(out);
       closeExportModal();
-      setStatus(`Exportación descargada (${keys.length} sección${keys.length === 1 ? '' : 'es'}).`, 'ok');
+      const nUsers = Array.isArray(out.pointsUsers) ? out.pointsUsers.length : (out.data?.points?.users?.length || 0);
+      const extra = nUsers ? ` · ${nUsers} usuario(s) con puntos` : '';
+      setStatus(`Exportación descargada (${keys.length} sección${keys.length === 1 ? '' : 'es'}${extra}).`, 'ok');
       toast('Configuración exportada.', 'ok');
     } catch (e) {
       setStatus('Error al exportar: ' + (e.message || e), 'err');
