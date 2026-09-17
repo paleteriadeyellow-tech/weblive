@@ -748,6 +748,12 @@ body {
   white-space: nowrap;
   transition: color .15s, background .15s, border-color .15s, box-shadow .15s;
 }
+.nav-item[data-view="videos"],
+.nav-item[data-view="marcos"],
+#navVideos,
+#navMarcos {
+  display: none !important;
+}
 .nav-item:hover:not(.active) {
   color: #fff;
   background: rgba(0, 102, 255, .18);

@@ -925,13 +925,15 @@ function applyCaps() {
   try { applyBaileOverlayLock(); } catch {}
   try { applyYoutubeLock(); } catch {}
   document.querySelectorAll('.nav-item[data-view="batallas"]').forEach((btn) => { btn.style.display = 'none'; });
+  document.querySelectorAll('.nav-item[data-view="videos"]').forEach((btn) => { btn.style.display = 'none'; });
+  document.querySelectorAll('.nav-item[data-view="marcos"]').forEach((btn) => { btn.style.display = 'none'; });
   if (window.IS_ADMIN) return; // el admin lo ve todo
   // Pestañas del menú lateral
   document.querySelectorAll('.nav-item[data-view]').forEach((btn) => {
     const cap = TAB_CAP[btn.dataset.view];
     if (!cap) return;
     // Editor Pro / YouTube: no ocultar; se muestran con candadito (VIP / Founder).
-    if (btn.dataset.view === 'batallas') {
+    if (btn.dataset.view === 'batallas' || btn.dataset.view === 'videos' || btn.dataset.view === 'marcos') {
       btn.style.display = 'none';
       return;
     }
@@ -24200,6 +24202,7 @@ function revealJuegosTab() {
 }
 // Cambia a una vista por su id completo (sin pasar por los botones del menú).
 async function showViewById(viewId) {
+  if (viewId === 'view-videos' || viewId === 'view-marcos') viewId = 'view-acciones';
   const gameMatch = viewId.match(/^view-juego-(.+)$/);
   if (gameMatch && isGameComingSoon(gameMatch[1])) {
     toast('Este juego estará disponible próximamente.', 'warn');
