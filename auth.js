@@ -1042,7 +1042,11 @@ export function parseCookies(cookieHeader) {
 // Devuelve el usuario a partir de la cookie de sesión de una petición HTTP / upgrade WS.
 export function userFromRequest(req) {
   const cookies = parseCookies(req.headers?.cookie);
-  return getSessionUser(cookies[SESSION_COOKIE]);
+  const fromCookie = getSessionUser(cookies[SESSION_COOKIE]);
+  if (fromCookie) return fromCookie;
+  const hdr = req.headers?.['x-livecoins-sid'] || req.headers?.['X-Livecoins-Sid'];
+  if (hdr) return getSessionUser(String(hdr).trim());
+  return null;
 }
 
 export function sessionCookie(token) {

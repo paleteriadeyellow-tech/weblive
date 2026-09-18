@@ -1456,7 +1456,7 @@ app.post('/api/login', express.json(), async (req, res) => {
       const token = createSession(user.id);
       if (IS_DESKTOP) saveDesktopLastLogin(user.id);
       res.setHeader('Set-Cookie', sessionCookie(token));
-      return res.json({ ok: true, username: user.username });
+      return res.json({ ok: true, username: user.username, sid: token });
     }
     // Si el remoto rechazó las credenciales, no seguimos. Si fue un fallo de red,
     // permitimos el login local (cuenta ya cacheada de un inicio de sesión anterior).
@@ -1471,7 +1471,7 @@ app.post('/api/login', express.json(), async (req, res) => {
   const token = createSession(user.id);
   if (IS_DESKTOP) saveDesktopLastLogin(user.id);
   res.setHeader('Set-Cookie', sessionCookie(token));
-  res.json({ ok: true, username: user.username });
+  res.json({ ok: true, username: user.username, sid: token });
 });
 
 app.post('/api/logout', (req, res) => {
