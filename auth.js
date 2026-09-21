@@ -177,6 +177,9 @@ export function listUsersDetailed() {
     baileOverlayEnabled: u.isAdmin ? true : !!u.baileOverlayEnabled,
     manualBadges: Array.isArray(u.manualBadges) ? u.manualBadges.slice() : [],
     badgeStats: { ...emptyBadgeStats(), ...(u.badgeStats || {}) },
+    adminNotes: String(u.adminNotes || '').slice(0, 2000),
+    desktopAppVersion: String(u.desktopAppVersion || '').slice(0, 32),
+    desktopAppVersionAt: Number(u.desktopAppVersionAt) || 0,
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
     n: Number(u.n) || 0,
@@ -366,6 +369,31 @@ export function setUserBaileOverlayEnabled(id, enabled) {
   if (!u) return false;
   if (u.isAdmin) { u.baileOverlayEnabled = true; saveUsers(); return true; }
   u.baileOverlayEnabled = !!enabled;
+  saveUsers();
+  return true;
+}
+
+/** Notas internas del admin (no se muestran al usuario). */
+export function setUserAdminNotes(id, notes) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  const next = String(notes || '').slice(0, 2000);
+  if (String(u.adminNotes || '') === next) return true;
+  u.adminNotes = next;
+  saveUsers();
+  return true;
+}
+
+/** Última versión .exe reportada por el cliente (aditivo; no borra otros campos). */
+export function setUserDesktopAppVersion(id, version) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  const v = String(version || '').trim().slice(0, 32);
+  if (!v) return false;
+  // Evita reescribir users.json en cada refresh / live-report si no cambió.
+  if (String(u.desktopAppVersion || '') === v) return true;
+  u.desktopAppVersion = v;
+  u.desktopAppVersionAt = Date.now();
   saveUsers();
   return true;
 }

@@ -611,6 +611,8 @@ async function loadMe() {
     try { if (typeof refreshDockPlanUi === 'function') refreshDockPlanUi(d); } catch {}
     if (d.gameStatus && typeof d.gameStatus === 'object') applyGameStatusMap(d.gameStatus);
     if (d.caps) setCaps(d.caps);
+    try { applyFeatureFlagsUi(d.caps); } catch {}
+    try { reportDesktopClientVersion(); } catch {}
     try { renderHomeBadges(Array.isArray(d.badges) ? d.badges : []); } catch {}
     if (IS_DESKTOP) {
       fetch('/api/badges/desktop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
@@ -2860,7 +2862,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
         } else if (String(viewName || '').startsWith('juego-')) {
           try { if (typeof window.__lcLoadGameProCss === 'function') window.__lcLoadGameProCss(); } catch {}
         }
-        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAnnouncementsAdmin(); loadMaintenanceAdmin(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminBaileOverlay(); loadAdminGames(); loadAdminGameStatus(); loadAdminBadges(); }
+        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminBaileOverlay(); loadAdminGames(); loadAdminGameStatus(); }
         if (viewName === 'planes') { renderPlanView(); loadPlanComparison(true); }
         if (viewName === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
         if (viewName === 'editor') { try { initImageEditorView(); } catch (e) { console.error('Editor:', e); } }
@@ -3042,133 +3044,372 @@ function setAdminCloudWarn(show) {
   }
 }
 
-async function loadAdminUsers() {
+let _adminUsersCache = [];
+let _adminUsersSearch = '';
+
+function adminUsersFiltered() {
+  const q = String(_adminUsersSearch || '').trim().toLowerCase();
+  if (!q) return _adminUsersCache.slice();
+  return _adminUsersCache.filter((u) => {
+    if (!u) return false;
+    const blob = [
+      u.username, u.roomKey, u.account, u.desktopAppVersion, u.adminNotes, u.n, u.plan,
+    ].map((x) => String(x || '').toLowerCase()).join(' ');
+    return blob.includes(q);
+  });
+}
+
+function renderAdminUsersTable() {
   const tbody = document.getElementById('admin-tbody');
   const count = document.getElementById('admin-count');
   if (!tbody) return;
+  const users = adminUsersFiltered();
+  const total = _adminUsersCache.length;
+  if (count) {
+    count.textContent = _adminUsersSearch.trim()
+      ? `${users.length} de ${total}`
+      : `${total} cuenta${total === 1 ? '' : 's'} registrada${total === 1 ? '' : 's'}`;
+  }
+  if (!users.length) {
+    tbody.innerHTML = `<tr><td colspan="10" class="admin-empty">${total ? 'Ningún usuario coincide con la búsqueda.' : 'No hay cuentas.'}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = users.map((u) => {
+    const conn = u.live ? fmtDateTime(u.liveSince) : fmtDateTime(u.lastLogin);
+    const live = u.live
+      ? '<span class="badge live dot">LIVE</span>'
+      : (u.connecting ? '<span class="badge off dot">Conectando…</span>' : '<span class="tts-sub">—</span>');
+    const liveAccount = u.account
+      ? `<span class="admin-acc">@${esc(u.account)}</span>`
+      : '<span class="tts-sub">—</span>';
+    const onlineCell = u.online
+      ? '<span class="badge on dot">En línea</span>'
+      : `<span class="tts-sub">${u.lastSeen ? 'hace ' + timeAgo(u.lastSeen) : '—'}</span>`;
+    const estado = u.active
+      ? '<span class="badge on">Activa</span>'
+      : '<span class="badge off">Pendiente</span>';
+    const adminTag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
+    const plan = u.isAdmin
+      ? (u.plan === 'founder'
+        ? planBadge(u)
+        : '<span class="badge prem">⭐ Premium</span>')
+      : planBadge(u);
+    const gamesOn = u.gamesEnabled !== false;
+    const gamesBadge = gamesOn
+      ? '<span class="badge on" title="Minijuegos activos">🎮 On</span>'
+      : '<span class="badge off" title="Minijuegos desactivados">🎮 Off</span>';
+    const notesMark = String(u.adminNotes || '').trim() ? true : false;
+    const ver = String(u.desktopAppVersion || '').trim();
+    const verCell = ver
+      ? `<span class="admin-key" title="${esc(u.desktopAppVersionAt ? ('Reportada ' + fmtDateTime(u.desktopAppVersionAt)) : '')}">${esc(ver)}</span>`
+      : '<span class="tts-sub">—</span>';
+    const action = `<div class="admin-actions">
+            <div class="admin-act-primary">
+              <button type="button" class="btn tiny admin-ficha" data-id="${u.id}">Ficha</button>
+              ${u.active
+                ? `<button type="button" class="btn tiny deactivate" data-id="${u.id}" data-active="0">Desactivar</button>`
+                : `<button type="button" class="btn tiny activate" data-id="${u.id}" data-active="1">Activar</button>`}
+            </div>
+            <details class="admin-act-more">
+              <summary>Gestionar</summary>
+              <div class="admin-act-panel">
+                <div class="admin-act-group">
+                  <span class="admin-act-label">Plan</span>
+                  <div class="admin-actions-row prem-ctl">
+                    <input type="number" class="prem-days" min="1" max="3650" placeholder="días" data-id="${u.id}" title="Días de Premium">
+                    <button type="button" class="btn tiny prem-give" data-id="${u.id}">Premium</button>
+                    <button type="button" class="btn tiny prem-fixed" data-id="${u.id}">Fijo</button>
+                    <button type="button" class="btn tiny founder-give" data-id="${u.id}" title="Mismos privilegios que Premium; solo etiqueta Founder">Founder</button>
+                    ${(u.plan === 'premium' || u.plan === 'founder') ? `<button type="button" class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
+                  </div>
+                </div>
+                <div class="admin-act-group">
+                  <span class="admin-act-label">Acceso</span>
+                  <div class="admin-actions-row">
+                    <button type="button" class="btn tiny games-toggle" data-id="${u.id}" data-enabled="${gamesOn ? '0' : '1'}">${gamesOn ? 'Juegos off' : 'Juegos on'}</button>
+                    <button type="button" class="btn tiny admin-password" data-id="${u.id}" data-username="${String(u.username || '').replace(/"/g, '&quot;')}" title="La actual está cifrada; genera o define una nueva y la verás una vez">Contraseña</button>
+                    <button type="button" class="btn tiny admin-kick-live" data-id="${u.id}" title="Cortar el live TikTok">Kick live</button>
+                    <button type="button" class="btn tiny admin-force-logout" data-id="${u.id}" title="Cierra sesiones y fuerza re-login">Logout</button>
+                  </div>
+                </div>
+                <div class="admin-act-group admin-act-danger">
+                  <button type="button" class="btn tiny admin-delete" data-id="${u.id}" data-username="${String(u.username || '').replace(/"/g, '&quot;')}">Eliminar cuenta</button>
+                </div>
+              </div>
+            </details>
+          </div>`;
+    return `<tr>
+        <td class="admin-col-user"><span class="u-name">${esc(u.username)}</span>${adminTag}${notesMark ? '<span class="admin-notes-dot" title="Tiene notas internas"></span>' : ''}</td>
+        <td class="admin-col-muted">${conn}</td>
+        <td><span class="admin-key">${esc(u.roomKey || '—')}</span></td>
+        <td>${liveAccount}</td>
+        <td>${live}</td>
+        <td>${onlineCell}</td>
+        <td>${verCell}</td>
+        <td>${estado}</td>
+        <td class="admin-col-plan"><div class="admin-plan-cell">${plan}${gamesBadge}</div></td>
+        <td class="admin-col-actions">${action}</td>
+      </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('button[data-id]').forEach((b) => {
+    if (b.classList.contains('prem-give') || b.classList.contains('prem-fixed') || b.classList.contains('prem-remove') || b.classList.contains('founder-give') || b.classList.contains('admin-delete') || b.classList.contains('games-toggle') || b.classList.contains('admin-password') || b.classList.contains('admin-ficha') || b.classList.contains('admin-kick-live') || b.classList.contains('admin-force-logout')) return;
+    b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const r = await fetch('/api/admin/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: b.dataset.id, active: b.dataset.active === '1' }),
+        });
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          toast(data.error || 'No se pudo cambiar el estado de la cuenta.', 'warn');
+        }
+      } catch { toast('Error de conexión.', 'warn'); }
+      loadAdminUsers();
+    };
+  });
+  tbody.querySelectorAll('.prem-give').forEach((b) => {
+    b.onclick = () => {
+      const inp = tbody.querySelector(`.prem-days[data-id="${b.dataset.id}"]`);
+      const days = Number(inp && inp.value);
+      if (!Number.isFinite(days) || days < 1) { toast('Escribe cuántos días de Premium.', 'warn'); inp?.focus(); return; }
+      setUserPlanReq(b.dataset.id, 'premium', days, `Premium activado por ${days} día${days === 1 ? '' : 's'}.`);
+    };
+  });
+  tbody.querySelectorAll('.prem-fixed').forEach((b) => {
+    b.onclick = () => setUserPlanReq(b.dataset.id, 'premium', 0, 'Premium fijo activado.');
+  });
+  tbody.querySelectorAll('.founder-give').forEach((b) => {
+    b.onclick = () => setUserPlanReq(b.dataset.id, 'founder', 0, 'Plan Founder activado.');
+  });
+  tbody.querySelectorAll('.prem-remove').forEach((b) => {
+    b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Plan retirado. Ahora es Gratis.');
+  });
+  tbody.querySelectorAll('.games-toggle').forEach((b) => {
+    b.onclick = () => setUserGamesReq(b.dataset.id, b.dataset.enabled === '1');
+  });
+  tbody.querySelectorAll('.admin-delete').forEach((b) => {
+    b.onclick = () => deleteUserReq(b.dataset.id, b.dataset.username || '');
+  });
+  tbody.querySelectorAll('.admin-password').forEach((b) => {
+    b.onclick = () => setUserPasswordReq(b.dataset.id, b.dataset.username || '');
+  });
+  tbody.querySelectorAll('.admin-ficha').forEach((b) => {
+    b.onclick = () => openAdminUserFicha(b.dataset.id);
+  });
+  tbody.querySelectorAll('.admin-kick-live').forEach((b) => {
+    b.onclick = () => adminKickLiveReq(b.dataset.id);
+  });
+  tbody.querySelectorAll('.admin-force-logout').forEach((b) => {
+    b.onclick = () => adminForceLogoutReq(b.dataset.id);
+  });
+}
+
+async function loadAdminUsers() {
+  const tbody = document.getElementById('admin-tbody');
+  if (!tbody) return;
   try {
     const r = await fetch('/api/admin/users');
-    if (!r.ok) { tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Sin acceso.</td></tr>'; return; }
+    if (!r.ok) { tbody.innerHTML = '<tr><td colspan="10" class="admin-empty">Sin acceso.</td></tr>'; return; }
     const { users, localOnly } = await r.json();
     setAdminCloudWarn(!!localOnly);
     rememberPanelLivePlansFromUsers(users);
     if (window.__lastPanelLives?.length) {
       try { renderPanelLives(window.__lastPanelLives); } catch { /* ok */ }
     }
-    if (count) count.textContent = `${users.length} cuenta${users.length === 1 ? '' : 's'} registrada${users.length === 1 ? '' : 's'}`;
-    if (!users.length) { tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">No hay cuentas.</td></tr>'; return; }
-    tbody.innerHTML = users.map((u) => {
-      const conn = u.live ? fmtDateTime(u.liveSince) : fmtDateTime(u.lastLogin);
-      // EN LIVE: solo muestra "LIVE" cuando está en directo (o "Conectando…"); si no, nada.
-      const live = u.live
-        ? '<span class="badge live dot">LIVE</span>'
-        : (u.connecting ? '<span class="badge off dot">Conectando…</span>' : '<span class="tts-sub">—</span>');
-      // CUENTA EN LIVE: el @usuario de TikTok al que se conectaron.
-      const liveAccount = u.account
-        ? `<span class="admin-acc">@${u.account}</span>`
-        : '<span class="tts-sub">—</span>';
-      // EN LÍNEA: verde si tiene el panel/overlay abierto ahora; si no, hace cuánto.
-      const onlineCell = u.online
-        ? '<span class="badge on dot">En línea</span>'
-        : `<span class="tts-sub">${u.lastSeen ? 'hace ' + timeAgo(u.lastSeen) : '—'}</span>`;
-      const estado = u.active
-        ? '<span class="badge on">Activa</span>'
-        : '<span class="badge off">Pendiente</span>';
-      const adminTag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
-      const plan = u.isAdmin
-        ? (u.plan === 'founder'
-          ? planBadge(u)
-          : '<span class="badge prem">⭐ Premium</span>')
-        : planBadge(u);
-      const gamesOn = u.gamesEnabled !== false;
-      const gamesBadge = gamesOn
-        ? '<span class="badge on" title="Minijuegos activos">🎮 On</span>'
-        : '<span class="badge off" title="Minijuegos desactivados">🎮 Off</span>';
-      const action = `<div class="admin-actions">
-            <div class="admin-actions-row">
-            ${u.active
-              ? `<button class="btn tiny deactivate" data-id="${u.id}" data-active="0">Desactivar</button>`
-              : `<button class="btn tiny activate" data-id="${u.id}" data-active="1">Activar</button>`}
-            <div class="prem-ctl">
-              <input type="number" class="prem-days" min="1" max="3650" placeholder="días" data-id="${u.id}">
-              <button class="btn tiny prem-give" data-id="${u.id}">Dar Premium</button>
-              <button class="btn tiny prem-fixed" data-id="${u.id}">Fijo</button>
-              <button class="btn tiny founder-give" data-id="${u.id}" title="Mismos privilegios que Premium; solo etiqueta Founder">Founder</button>
-              ${(u.plan === 'premium' || u.plan === 'founder') ? `<button class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
-            </div>
-            </div>
-            <div class="admin-actions-row">
-              <button class="btn tiny games-toggle" data-id="${u.id}" data-enabled="${gamesOn ? '0' : '1'}">${gamesOn ? 'Desactivar juegos' : 'Activar juegos'}</button>
-              <button class="btn tiny admin-password" data-id="${u.id}" data-username="${u.username.replace(/"/g, '&quot;')}" title="La actual está cifrada; genera o define una nueva y la verás una vez">Contraseña</button>
-            </div>
-            <button class="btn tiny admin-delete" data-id="${u.id}" data-username="${u.username.replace(/"/g, '&quot;')}">Eliminar cuenta</button>
-          </div>`;
-      return `<tr>
-        <td><span class="u-name">${u.username}</span>${adminTag}</td>
-        <td>${conn}</td>
-        <td><span class="admin-key">${u.roomKey || '—'}</span></td>
-        <td>${liveAccount}</td>
-        <td>${live}</td>
-        <td>${onlineCell}</td>
-        <td>${estado}</td>
-        <td>${plan} ${gamesBadge}</td>
-        <td>${action}</td>
-      </tr>`;
-    }).join('');
-    tbody.querySelectorAll('button[data-id]').forEach((b) => {
-      if (b.classList.contains('prem-give') || b.classList.contains('prem-fixed') || b.classList.contains('prem-remove') || b.classList.contains('founder-give') || b.classList.contains('admin-delete') || b.classList.contains('games-toggle') || b.classList.contains('admin-password')) return;
-      b.onclick = async () => {
-        b.disabled = true;
-        try {
-          const r = await fetch('/api/admin/activate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: b.dataset.id, active: b.dataset.active === '1' }),
-          });
-          if (!r.ok) {
-            const data = await r.json().catch(() => ({}));
-            toast(data.error || 'No se pudo cambiar el estado de la cuenta.', 'warn');
-          }
-        } catch { toast('Error de conexión.', 'warn'); }
-        loadAdminUsers();
-      };
-    });
-    // Dar Premium por N días
-    tbody.querySelectorAll('.prem-give').forEach((b) => {
-      b.onclick = () => {
-        const inp = tbody.querySelector(`.prem-days[data-id="${b.dataset.id}"]`);
-        const days = Number(inp && inp.value);
-        if (!Number.isFinite(days) || days < 1) { toast('Escribe cuántos días de Premium.', 'warn'); inp?.focus(); return; }
-        setUserPlanReq(b.dataset.id, 'premium', days, `Premium activado por ${days} día${days === 1 ? '' : 's'}.`);
-      };
-    });
-    // Premium fijo (sin caducidad)
-    tbody.querySelectorAll('.prem-fixed').forEach((b) => {
-      b.onclick = () => setUserPlanReq(b.dataset.id, 'premium', 0, 'Premium fijo activado.');
-    });
-    // Founder (solo admin; mismos caps que Premium)
-    tbody.querySelectorAll('.founder-give').forEach((b) => {
-      b.onclick = () => setUserPlanReq(b.dataset.id, 'founder', 0, 'Plan Founder activado.');
-    });
-    // Quitar Premium/Founder (volver a Gratis)
-    tbody.querySelectorAll('.prem-remove').forEach((b) => {
-      b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Plan retirado. Ahora es Gratis.');
-    });
-    tbody.querySelectorAll('.games-toggle').forEach((b) => {
-      b.onclick = () => setUserGamesReq(b.dataset.id, b.dataset.enabled === '1');
-    });
-    tbody.querySelectorAll('.admin-delete').forEach((b) => {
-      b.onclick = () => deleteUserReq(b.dataset.id, b.dataset.username || '');
-    });
-    tbody.querySelectorAll('.admin-password').forEach((b) => {
-      b.onclick = () => setUserPasswordReq(b.dataset.id, b.dataset.username || '');
-    });
+    _adminUsersCache = Array.isArray(users) ? users : [];
+    renderAdminUsersTable();
   } catch {
-    tbody.innerHTML = '<tr><td colspan="9" class="admin-empty">Error al cargar.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="admin-empty">Error al cargar.</td></tr>';
   }
 }
 
-// "hace X" en español a partir de un timestamp.
+(function setupAdminUserSearch() {
+  const inp = document.getElementById('admin-user-search');
+  if (!inp || inp._adminSearchWired) return;
+  inp._adminSearchWired = true;
+  inp.addEventListener('input', () => {
+    _adminUsersSearch = inp.value || '';
+    renderAdminUsersTable();
+  });
+})();
+
+async function adminKickLiveReq(id) {
+  const ok = await askConfirm({
+    title: 'Kick live',
+    message: 'Se cortará el live TikTok de esta cuenta. No borra ajustes ni la cuenta.',
+    confirmText: 'Cortar live',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    const r = await fetch('/api/admin/kick-live', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) toast(d.error || 'No se pudo cortar el live.', 'warn');
+    else toast('Live cortado.', 'ok');
+  } catch { toast('Error de conexión.', 'warn'); }
+  loadAdminUsers();
+}
+
+async function adminForceLogoutReq(id) {
+  const ok = await askConfirm({
+    title: 'Forzar logout',
+    message: 'Se cerrarán todas las sesiones y paneles de esta cuenta. Tendrá que iniciar sesión de nuevo (útil tras Premium o abuso).',
+    confirmText: 'Forzar logout',
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    const r = await fetch('/api/admin/force-logout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) toast(d.error || 'No se pudo forzar logout.', 'warn');
+    else toast('Logout forzado.', 'ok');
+  } catch { toast('Error de conexión.', 'warn'); }
+  loadAdminUsers();
+}
+
+function openAdminUserFicha(id) {
+  const u = _adminUsersCache.find((x) => String(x.id) === String(id));
+  if (!u) { toast('Usuario no encontrado en la lista.', 'warn'); return; }
+  const back = document.createElement('div');
+  back.className = 'modal confirm-modal';
+  const feats = [
+    u.spotifyEnabled ? 'Spotify ON' : 'Spotify OFF',
+    u.baileOverlayEnabled ? 'Baile ON' : 'Baile OFF',
+    u.gamesEnabled === false ? 'Juegos OFF' : 'Juegos ON',
+  ].join(' · ');
+  back.innerHTML = `
+    <div class="confirm-box" style="max-width:520px;text-align:left">
+      <div class="confirm-ico">👤</div>
+      <h3>Ficha · ${esc(u.username)}</h3>
+      <p class="tts-sub" style="margin:0 0 10px">#${esc(u.n || '—')} · room <code>${esc(u.roomKey || '—')}</code></p>
+      <div style="font-size:13px;line-height:1.55;margin-bottom:12px">
+        <div><b>Plan:</b> ${esc(u.plan || 'free')}${u.premiumUntil ? (' · hasta ' + fmtDateTime(u.premiumUntil)) : ''}</div>
+        <div><b>Features:</b> ${esc(feats)}</div>
+        <div><b>Live:</b> ${u.live ? ('LIVE @' + esc(u.account || '')) : '—'}${u.liveSince ? (' · desde ' + fmtDateTime(u.liveSince)) : ''}</div>
+        <div><b>En línea:</b> ${u.online ? 'sí' : (u.lastSeen ? ('hace ' + timeAgo(u.lastSeen)) : 'no')}</div>
+        <div><b>.exe:</b> ${esc(u.desktopAppVersion || '—')}${u.desktopAppVersionAt ? (' · ' + fmtDateTime(u.desktopAppVersionAt)) : ''}</div>
+        <div><b>Último login:</b> ${fmtDateTime(u.lastLogin) || '—'}</div>
+      </div>
+      <div class="field">
+        <label>Notas internas (solo admin)</label>
+        <textarea class="admin-ficha-notes" rows="3" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.25);color:inherit">${esc(u.adminNotes || '')}</textarea>
+      </div>
+      <div class="confirm-btns" style="flex-wrap:wrap;gap:8px">
+        <button type="button" class="btn ghost c-close">Cerrar</button>
+        <button type="button" class="btn ghost c-kick">Kick live</button>
+        <button type="button" class="btn ghost c-logout">Forzar logout</button>
+        <button type="button" class="btn primary c-save">Guardar notas</button>
+      </div>
+    </div>`;
+  document.body.appendChild(back);
+  const close = () => { try { back.remove(); } catch {} };
+  back.querySelector('.c-close').onclick = close;
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+  back.querySelector('.c-kick').onclick = async () => { close(); await adminKickLiveReq(u.id); };
+  back.querySelector('.c-logout').onclick = async () => { close(); await adminForceLogoutReq(u.id); };
+  back.querySelector('.c-save').onclick = async () => {
+    const notes = back.querySelector('.admin-ficha-notes')?.value || '';
+    try {
+      const r = await fetch('/api/admin/user-notes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: u.id, notes }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { toast(d.error || 'No se guardaron las notas.', 'warn'); return; }
+      u.adminNotes = notes;
+      toast('Notas guardadas.', 'ok');
+      renderAdminUsersTable();
+      close();
+    } catch { toast('Error de conexión.', 'warn'); }
+  };
+}
+
+async function loadAdminFeatureFlags() {
+  const box = document.getElementById('admin-flags-list');
+  if (!box) return;
+  try {
+    const r = await fetch('/api/admin/feature-flags');
+    if (!r.ok) { box.innerHTML = '<p class="tts-sub">Sin acceso.</p>'; return; }
+    const d = await r.json();
+    const defs = Array.isArray(d.defs) ? d.defs : [];
+    const flags = d.flags || {};
+    if (!defs.length) { box.innerHTML = '<p class="tts-sub">Sin flags definidos.</p>'; return; }
+    box.innerHTML = defs.map((def) => `
+      <label class="switch-row plain" style="display:flex;align-items:center;gap:10px;margin:6px 0">
+        <input type="checkbox" data-flag="${esc(def.key)}" ${flags[def.key] !== false ? 'checked' : ''}>
+        <span>${esc(def.label || def.key)}</span>
+      </label>`).join('');
+  } catch {
+    box.innerHTML = '<p class="tts-sub">Error al cargar.</p>';
+  }
+}
+
+(function setupAdminFeatureFlags() {
+  const btn = document.getElementById('admin-flags-save');
+  if (!btn || btn._flagsWired) return;
+  btn._flagsWired = true;
+  btn.onclick = async () => {
+    const box = document.getElementById('admin-flags-list');
+    const status = document.getElementById('admin-flags-status');
+    const flags = {};
+    box?.querySelectorAll('input[data-flag]').forEach((inp) => {
+      flags[inp.getAttribute('data-flag')] = !!inp.checked;
+    });
+    btn.disabled = true;
+    if (status) status.textContent = 'Guardando…';
+    try {
+      const r = await fetch('/api/admin/feature-flags', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flags }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (status) status.textContent = r.ok ? 'Flags guardados.' : (d.error || 'No se pudo guardar.');
+      if (r.ok) toast('Feature flags actualizados.', 'ok');
+    } catch {
+      if (status) status.textContent = 'Error de conexión.';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+})();
+
+async function reportDesktopClientVersion() {
+  if (!IS_DESKTOP) return;
+  try {
+    const ver = await resolveInstalledAppVersion();
+    if (!ver) return;
+    await fetch('/api/client-version', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: ver }),
+      credentials: 'same-origin',
+    });
+  } catch {}
+}
+
+function applyFeatureFlagsUi(caps) {
+  const ff = (caps && caps.featureFlags) || {};
+  const panel = document.getElementById('acc-ix-panel');
+  if (!panel) return;
+  // Solo oculta si el admin apagó el flag explícitamente (default = visible).
+  if (ff.accInteractive === false) {
+    panel.hidden = true;
+    panel.setAttribute('data-flag-off', '1');
+  } else if (panel.getAttribute('data-flag-off')) {
+    panel.hidden = false;
+    panel.removeAttribute('data-flag-off');
+  }
+}
+
 function timeAgo(ts) {
   if (!ts) return '—';
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));

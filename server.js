@@ -23,6 +23,7 @@ import {
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
   getUserPlan, setUserPlan, grantPremiumDays, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled,
+  setUserAdminNotes, setUserDesktopAppVersion,
   getUserBadgesPayload, recordBadgeLive, markBadgeDirectory, markBadgeDesktop, markBadgeGame, markBadgeDailyTop1, setUserManualBadge,
   deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
   setUserPassword, destroySessionsForUser,
@@ -559,6 +560,23 @@ function capsForUser(user) {
   caps.baileOverlay = isUserBaileOverlayEnabled(user);
   if (!caps.features) caps.features = {};
   caps.features.tab_ov_baile = !!caps.baileOverlay;
+  try {
+    const ff = readFeatureFlags();
+    caps.featureFlags = ff;
+    if (ff.spotifyTabGlobal === false) {
+      caps.spotify = false;
+      if (caps.features) caps.features.tab_spotify = false;
+    }
+    if (ff.baileAgencyGlobal === false) {
+      caps.baileOverlay = false;
+      if (caps.features) caps.features.tab_ov_baile = false;
+    }
+    if (ff.accInteractive === false && caps.features) {
+      caps.features.acc_interactive = false;
+    }
+  } catch {
+    caps.featureFlags = { accInteractive: true, baileAgencyGlobal: true, spotifyTabGlobal: true };
+  }
   return caps;
 }
 
@@ -874,6 +892,10 @@ function buildPanelLiveItem(userId, st) {
 function applyDesktopLiveReport(user, body) {
   const live = !!body?.live;
   const account = String(body?.account || body?.tiktok || '').replace(/^@+/, '').trim();
+  const ver = String(body?.appVersion || body?.desktopVersion || body?.version || '').trim();
+  if (ver) {
+    try { setUserDesktopAppVersion(user.id, ver); } catch {}
+  }
   if (!live || !account) {
     if (desktopLiveReports.delete(user.id)) persistDesktopLiveReports();
     return { ok: true, live: false };
@@ -3476,6 +3498,82 @@ app.post('/api/admin/set-password', express.json(), requireAdmin, async (req, re
   res.json({ ok: true, username: user.username, password: pwd });
 });
 
+// Notas internas del admin (no visibles para el usuario).
+app.post('/api/admin/user-notes', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/user-notes', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const { id, notes } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  if (!setUserAdminNotes(id, notes)) return res.status(404).json({ error: 'cuenta no encontrada' });
+  res.json({ ok: true, adminNotes: String(getUserById(id)?.adminNotes || '') });
+});
+
+// Cortar el live TikTok de un usuario (no borra cuenta ni ajustes).
+app.post('/api/admin/kick-live', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/kick-live', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  if (!getUserById(id)) return res.status(404).json({ error: 'cuenta no encontrada' });
+  const room = rooms.get(id);
+  if (room) {
+    try { room.handleMessage?.(null, { action: 'disconnect' }); } catch {}
+  }
+  try { applyDesktopLiveReport(getUserById(id), { live: false }); } catch {}
+  res.json({ ok: true });
+});
+
+// Cerrar sesiones + paneles (fuerza re-login; útil tras Premium / abuso).
+app.post('/api/admin/force-logout', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/force-logout', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const user = getUserById(id);
+  if (!user) return res.status(404).json({ error: 'cuenta no encontrada' });
+  if (user.isAdmin) return res.status(403).json({ error: 'no se puede forzar logout del admin' });
+  destroySessionsForUser(id);
+  const room = rooms.get(id);
+  if (room) {
+    try { room.handleMessage?.(null, { action: 'disconnect' }); } catch {}
+    try { room.kickAll?.(); } catch {}
+  }
+  res.json({ ok: true, username: user.username });
+});
+
+app.post('/api/client-version', express.json({ limit: '4kb' }), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  if (AUTH_REMOTE) {
+    try {
+      const cookie = remoteCookies.get(user.id);
+      if (cookie) {
+        const r = await fetch(`${AUTH_REMOTE}/api/client-version`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify(req.body || {}),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok) {
+          const ver = String((req.body || {}).version || '').trim();
+          if (ver) setUserDesktopAppVersion(user.id, ver);
+          return res.json(data.ok ? data : { ok: true });
+        }
+      }
+    } catch {}
+  }
+  const ver = String((req.body || {}).version || (req.body || {}).appVersion || '').trim();
+  if (!ver) return res.status(400).json({ error: 'falta version' });
+  if (!setUserDesktopAppVersion(user.id, ver)) return res.status(404).json({ error: 'cuenta no encontrada' });
+  res.json({ ok: true, version: ver });
+});
+
 // Revisión periódica: baja a 'free' a los Premium temporales que ya caducaron y
 // avisa en vivo al panel del usuario afectado (si está conectado).
 setInterval(() => {
@@ -3821,7 +3919,30 @@ app.post('/api/admin/game-status', express.json(), requireAdmin, (req, res) => {
   res.json({ ok: true, statuses: writeGameStatus(cur) });
 });
 
-/* ----------- Anuncios del panel — espejo del remoto ----------- */
+/* ----------- Anuncios del panel ----------- */
+const ANN_FILE = path.join(DATA_DIR, 'announcements.json');
+function readAnnouncements() {
+  try {
+    const j = JSON.parse(fs.readFileSync(ANN_FILE, 'utf8'));
+    const list = Array.isArray(j) ? j : (Array.isArray(j?.announcements) ? j.announcements : []);
+    return list.filter((a) => a && typeof a === 'object').map((a) => ({
+      id: String(a.id || ''),
+      title: String(a.title || '').slice(0, 120),
+      message: String(a.message || '').slice(0, 2000),
+      createdAt: Number(a.createdAt) || 0,
+    })).filter((a) => a.id);
+  } catch {
+    return [];
+  }
+}
+function writeAnnouncements(list) {
+  const announcements = (Array.isArray(list) ? list : []).slice(0, 100);
+  const tmp = ANN_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify({ announcements, updatedAt: Date.now() }, null, 2));
+  fs.renameSync(tmp, ANN_FILE);
+  return announcements;
+}
+
 async function fetchRemoteAnnouncements(user) {
   if (!AUTH_REMOTE || !user) return null;
   const remoteCookie = remoteCookies.get(user.id);
@@ -3842,7 +3963,6 @@ app.get('/api/announcements', async (req, res) => {
   if (AUTH_REMOTE) {
     const remote = await fetchRemoteAnnouncements(user);
     if (remote) return res.json(remote);
-    // Fallback: misma cookie del navegador (panel web en Render, no .exe).
     try {
       const cookie = req.headers.cookie || '';
       if (cookie) {
@@ -3851,15 +3971,90 @@ app.get('/api/announcements', async (req, res) => {
       }
     } catch {}
   }
-  res.json({ announcements: [] });
+  res.json({ announcements: readAnnouncements() });
 });
 app.post('/api/admin/announcements', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/announcements', 'POST')) return;
-  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/announcements', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const title = String((req.body || {}).title || '').trim().slice(0, 120);
+  const message = String((req.body || {}).message || '').trim().slice(0, 2000);
+  if (!title && !message) return res.status(400).json({ error: 'falta título o mensaje' });
+  const list = readAnnouncements();
+  const item = {
+    id: 'ann_' + Date.now().toString(36) + '_' + crypto.randomBytes(3).toString('hex'),
+    title: title || 'Anuncio',
+    message,
+    createdAt: Date.now(),
+  };
+  list.unshift(item);
+  res.json({ ok: true, announcement: item, announcements: writeAnnouncements(list) });
 });
 app.post('/api/admin/announcements/delete', express.json(), requireAdmin, async (req, res) => {
-  if (AUTH_REMOTE && await proxyAdminToRemote(req, res, '/api/admin/announcements/delete', 'POST')) return;
-  res.status(503).json({ error: 'Sin conexión con el servidor remoto.' });
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/announcements/delete', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const id = String((req.body || {}).id || '');
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const next = readAnnouncements().filter((a) => a.id !== id);
+  res.json({ ok: true, announcements: writeAnnouncements(next) });
+});
+
+/* ----------- Feature flags globales (default ON; off solo si admin apaga) ----------- */
+const FEATURE_FLAGS_FILE = path.join(DATA_DIR, 'feature-flags.json');
+const FEATURE_FLAG_DEFS = [
+  { key: 'accInteractive', label: 'Interactive Acciones', default: true },
+  { key: 'baileAgencyGlobal', label: 'Agencia de baile (global)', default: true },
+  { key: 'spotifyTabGlobal', label: 'Pestaña Spotify (global)', default: true },
+];
+function readFeatureFlags() {
+  let raw = {};
+  try {
+    const j = JSON.parse(fs.readFileSync(FEATURE_FLAGS_FILE, 'utf8'));
+    raw = (j && typeof j === 'object' && j.flags && typeof j.flags === 'object') ? j.flags : (j || {});
+  } catch {}
+  const out = {};
+  for (const d of FEATURE_FLAG_DEFS) {
+    out[d.key] = raw[d.key] === undefined ? d.default : !!raw[d.key];
+  }
+  return out;
+}
+function writeFeatureFlags(partial) {
+  const cur = readFeatureFlags();
+  const src = (partial && typeof partial === 'object') ? partial : {};
+  for (const d of FEATURE_FLAG_DEFS) {
+    if (Object.prototype.hasOwnProperty.call(src, d.key)) cur[d.key] = !!src[d.key];
+  }
+  const data = { flags: cur, updatedAt: Date.now() };
+  const tmp = FEATURE_FLAGS_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, FEATURE_FLAGS_FILE);
+  return cur;
+}
+app.get('/api/feature-flags', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.json({ flags: readFeatureFlags(), defs: FEATURE_FLAG_DEFS });
+});
+app.get('/api/admin/feature-flags', requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/feature-flags')) return;
+    return adminCloudUnavailable(res);
+  }
+  res.json({ flags: readFeatureFlags(), defs: FEATURE_FLAG_DEFS });
+});
+app.post('/api/admin/feature-flags', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/feature-flags', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const flags = writeFeatureFlags((req.body || {}).flags || req.body || {});
+  for (const [id, room] of rooms) {
+    const u = getUserById(id);
+    if (u) try { room.broadcastCaps?.(capsForUser(u)); } catch {}
+  }
+  res.json({ ok: true, flags, defs: FEATURE_FLAG_DEFS });
 });
 
 /* ------------------- Protección básica (disuasión copia) ------------------- */

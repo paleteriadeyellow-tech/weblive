@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Livecoins ? Panel TikTok</title>
   <script>try { if (window.desktopAPI?.isDesktop || window.__LIVECOINS_DESKTOP__ || window.__LIVECOINS_PC_BUILD__) document.documentElement.classList.add('is-desktop'); } catch (e) {}</script>
-  <link rel="stylesheet" href="/css/dashboard.css?v=sov18" />
+  <link rel="stylesheet" href="/css/dashboard.css?v=sov19" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Rubik:wght@700;800;900&display=swap" rel="stylesheet">
@@ -11103,7 +11103,8 @@
             <button type="button" class="subtab" data-sub="admin-spotify">Spotify</button>
             <button type="button" class="subtab" data-sub="admin-baile">Agencia de baile</button>
             <button type="button" class="subtab" data-sub="admin-games">Juegos</button>
-            <button type="button" class="subtab" data-sub="admin-badges">Insignias</button>
+            <button type="button" class="subtab" data-sub="admin-badges" hidden>Insignias</button>
+            <button type="button" class="subtab" data-sub="admin-flags" hidden>Flags</button>
             <button type="button" class="subtab" data-sub="admin-app">App (.exe)</button>
           </div>
 
@@ -11114,26 +11115,28 @@
                 <span class="tts-sub">Todas las cuentas registradas. Activa una cuenta y elige su plan.</span>
               </div>
               <div class="admin-toolbar">
-                <span id="admin-count" class="tts-sub">?</span>
+                <input type="search" id="admin-user-search" class="admin-search" placeholder="Buscar usuario, room o TikTok…" autocomplete="off">
+                <span id="admin-count" class="tts-sub">—</span>
                 <button class="btn ghost" id="admin-refresh">Actualizar</button>
               </div>
               <div class="admin-table-wrap">
-                <table class="admin-table">
+                <table class="admin-table admin-users-table">
                   <thead>
                     <tr>
-                      <th>Usuario</th>
-                      <th>Hora de conexi?n</th>
-                      <th>Clave (room)</th>
-                      <th>Cuenta en live</th>
-                      <th>En live</th>
-                      <th>En l?nea</th>
+                      <th class="admin-col-user">Usuario</th>
+                      <th>Conexion</th>
+                      <th>Room</th>
+                      <th>TikTok</th>
+                      <th>Live</th>
+                      <th>Online</th>
+                      <th>.exe</th>
                       <th>Estado</th>
                       <th>Plan</th>
-                      <th>Acci?n</th>
+                      <th class="admin-col-actions">Accion</th>
                     </tr>
                   </thead>
                   <tbody id="admin-tbody">
-                    <tr><td colspan="9" class="admin-empty">Cargando?</td></tr>
+                    <tr><td colspan="10" class="admin-empty">Cargando?</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -11328,6 +11331,20 @@
             </div>
           </div>
 
+          <div class="subview" id="sub-admin-flags">
+            <div class="settings-card plans-card">
+              <div class="tts-head">
+                <h3>Feature flags globales</h3>
+                <span class="tts-sub">Apagar algo para todos sin redeploy. Por defecto todo esta ON; solo se corta si lo desmarcas.</span>
+              </div>
+              <div id="admin-flags-list" class="admin-games-checks"></div>
+              <div class="plans-actions" style="margin-top:12px">
+                <span id="admin-flags-status" class="tts-sub"></span>
+                <button type="button" class="btn primary" id="admin-flags-save">Guardar flags</button>
+              </div>
+            </div>
+          </div>
+
           <div class="subview" id="sub-admin-app">
             <div class="settings-card plans-card">
               <div class="tts-head">
@@ -11404,7 +11421,7 @@
 
   <script src="/js/account-email.js?v=dockmail1"></script>
   <script src="/js/camera-frames.js?v=mcf4"></script>
-  <script src="/js/dashboard.js?v=sov37"></script>
+  <script src="/js/dashboard.js?v=sov41"></script>
   <script src="/js/editor-rapido.js?v=er92"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

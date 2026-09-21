@@ -48,15 +48,28 @@ function sanitizeActions(list) {
   return out;
 }
 
+function sanitizeActionEvents(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const ev of list) {
+    if (!ev || typeof ev !== 'object') continue;
+    out.push({ ...ev });
+    if (out.length >= MAX_ACTIONS) break;
+  }
+  return out;
+}
+
 function validatePayload(body) {
   const game = String(body?.game || 'minecraft').trim();
   if (!PRESET_GAMES.has(game)) return { error: 'Juego no válido.' };
   const actions = sanitizeActions(body?.actions);
   if (!actions.length) return { error: 'El preset no tiene acciones.' };
+  // Acciones Interactive: eventos van aparte (actionEvents). Otros juegos los ignoran.
+  const actionEvents = game === 'acciones' ? sanitizeActionEvents(body?.actionEvents) : [];
   const name = String(body?.presetName || body?.name || 'Preset compartido').trim().slice(0, 80) || 'Preset compartido';
-  const blob = JSON.stringify({ actions });
+  const blob = JSON.stringify({ actions, actionEvents });
   if (blob.length > MAX_JSON_BYTES) return { error: 'El preset es demasiado grande para compartir.' };
-  return { game, actions, name };
+  return { game, actions, actionEvents, name };
 }
 
 function fileForCode(dataDir, code) {
@@ -85,6 +98,7 @@ export function createMcPresetShare(dataDir, body, { by = '', ttlMs = DEFAULT_TT
     game: v.game,
     name: v.name,
     actions: v.actions,
+    actionEvents: v.actionEvents || [],
     sharedAt: now,
     expiresAt,
     by: String(by || '').slice(0, 64),
@@ -101,6 +115,7 @@ export function createMcPresetShare(dataDir, body, { by = '', ttlMs = DEFAULT_TT
         game: v.game,
         name: v.name,
         actionCount: v.actions.length,
+        eventCount: (v.actionEvents || []).length,
       };
     }
   }
@@ -122,12 +137,16 @@ export function fetchMcPresetShare(dataDir, code) {
   }
   const actions = sanitizeActions(data.actions);
   if (!actions.length) return { error: 'El código no contiene acciones válidas.' };
+  const actionEvents = data.game === 'acciones'
+    ? sanitizeActionEvents(data.actionEvents)
+    : [];
   return {
     ok: true,
     code: norm,
     game: data.game,
     name: data.name,
     actions,
+    actionEvents,
     sharedAt: data.sharedAt || null,
     expiresAt: data.expiresAt || null,
     by: data.by || '',
