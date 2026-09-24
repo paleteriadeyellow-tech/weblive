@@ -4802,17 +4802,70 @@ const TIKTOK_VOICES = new Set([
   'en_male_sing_deep_jingle', 'en_male_m03_classical', 'en_female_f08_twinkle',
 ]);
 
-// Sintetiza voz TikTok probando varios proxys públicos en paralelo. Devuelve base64 (mp3) o ''.
+// Sintetiza voz TikTok (Disney / personajes). Los proxys weilbyte/weilnet/gesserit
+// están caídos; lazypy.ro sí genera el mp3. Devuelve base64 o ''.
+function ttsStripAudioB64(s) {
+  const t = String(s || '').trim();
+  if (!t) return '';
+  return t.replace(/^data:audio\/[^;]+;base64,/i, '');
+}
+async function ttsSynthTikTokLazypy(text, voice) {
+  const to = ttsFetchTimeout(12000);
+  try {
+    const r = await fetch('https://lazypy.ro/tts/request_tts.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Origin: 'https://lazypy.ro',
+        Referer: 'https://lazypy.ro/tts/',
+      },
+      body: new URLSearchParams({ service: 'TikTok', voice: String(voice), text: String(text) }).toString(),
+      signal: to.signal,
+    });
+    if (!r.ok) return '';
+    const j = await r.json().catch(() => null);
+    if (!j || j.success === false) return '';
+    const inline = ttsStripAudioB64(j.audio_base64 || j.base64 || j.data || '');
+    if (inline.length > 80) return inline;
+    let url = String(j.audio_url || j.url || j.audio || '').trim();
+    if (!url) return '';
+    if (url.startsWith('//')) url = 'https:' + url;
+    else if (url.startsWith('/')) url = 'https://lazypy.ro' + url;
+    const to2 = ttsFetchTimeout(10000);
+    try {
+      const a = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Referer: 'https://lazypy.ro/tts/',
+        },
+        signal: to2.signal,
+      });
+      if (!a.ok) return '';
+      const buf = Buffer.from(await a.arrayBuffer());
+      if (!buf.length || buf.length < 200) return '';
+      return buf.toString('base64');
+    } finally {
+      to2.clear();
+    }
+  } catch {
+    return '';
+  } finally {
+    to.clear();
+  }
+}
 async function ttsSynthTikTok(text, voice) {
+  const fromLazy = await ttsSynthTikTokLazypy(text, voice);
+  if (fromLazy) return fromLazy;
   const body = JSON.stringify({ text, voice });
   const headers = { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' };
   const tryProxy = async (url, pick) => {
-    const to = ttsFetchTimeout(3500);
+    const to = ttsFetchTimeout(4000);
     try {
       const r = await fetch(url, { method: 'POST', headers, body, signal: to.signal });
       if (!r.ok) return '';
       const j = await r.json().catch(() => null);
-      return pick(j);
+      return ttsStripAudioB64(pick(j));
     } catch {
       return '';
     } finally {
@@ -4872,7 +4925,7 @@ app.post('/api/tts/speak', express.json(), async (req, res) => {
     let usedFallback = false;
     let audio = isEdge
       ? await ttsWithTimeout(ttsSynthEdge(text, voice, 7000), 7500).catch(() => '')
-      : await ttsWithTimeout(ttsSynthTikTok(text, voice), 4500).catch(() => '');
+      : await ttsWithTimeout(ttsSynthTikTok(text, voice), 16000).catch(() => '');
     if (!audio && !isEdge) {
       const fb = speakEs ? ttsSpanishEdgeForEnVoice(voice) : ttsEdgeFallbackVoice(voice);
       audio = await ttsWithTimeout(ttsSynthEdge(text, fb, 7000), 7500).catch(() => '');
