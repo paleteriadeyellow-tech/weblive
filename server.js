@@ -3750,12 +3750,16 @@ function writeMaintenance({ enabled, message }) {
   fs.renameSync(tmp, MAINT_FILE);
   return data;
 }
-/** Cierra panel/overlays en el navegador. El .exe (API + localhost) no se toca. */
+/** Cierra panel y conexión del navegador. El .exe (relay/local) no se toca. */
 function webPanelClosed() {
   if (IS_DESKTOP) return false;
   if (AUTH_REMOTE) return false;
   if (process.env.WEB_PANEL === '1') return false;
   if (process.env.WEB_PANEL === '0') return true;
+  // En Render el navegador queda cerrado aunque el archivo diga lo contrario.
+  // Así una cuenta normal no entra ni conecta el live (eso es lo que cobra Render).
+  // Solo el admin ve el panel. El .exe sigue por relay.
+  if (IS_RENDER) return true;
   return !!readMaintenance().enabled;
 }
 function isAdminRequest(req) {
@@ -3849,10 +3853,12 @@ app.post('/api/admin/web-install', express.json(), requireAdmin, (req, res) => {
 app.get('/api/maintenance', (_req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   const m = readMaintenance();
+  const closed = webPanelClosed();
   res.json({
-    enabled: webPanelClosed(),
-    message: m.message || '',
-    desktopOk: true,
+    enabled: closed,
+    webClosed: closed,
+    message: m.message || 'Livecoins ahora es app de PC. Descarga el .exe e inicia sesión ahí.',
+    desktopOk: false,
   });
 });
 app.post('/api/admin/maintenance', express.json(), requireAdmin, (req, res) => {

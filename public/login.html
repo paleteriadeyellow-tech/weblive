@@ -96,7 +96,7 @@
 
     <div class="maint-banner hide" id="maint-banner">
       <div class="sign-sm">Mantenimiento</div>
-      <p id="maint-banner-msg">El panel web está en mantenimiento. Solo el administrador puede entrar.</p>
+      <p id="maint-banner-msg">Livecoins ahora es app de PC. Descarga el .exe e inicia sesión ahí. Solo el administrador entra en esta página.</p>
     </div>
 
     <div id="auth-main" class="auth-main">
@@ -368,7 +368,7 @@
           const me = meR.ok ? await meR.json().catch(() => ({})) : {};
           if (!me.isAdmin) {
             msg.className = 'msg err';
-            msg.textContent = 'El panel web está cerrado. Entra con la cuenta administrador.';
+            msg.textContent = 'El panel web está cerrado. Descarga la app de PC para usarlo. Solo el admin entra aquí.';
             $('submit').disabled = false;
             return;
           }
