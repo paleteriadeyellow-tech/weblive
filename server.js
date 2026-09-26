@@ -439,6 +439,8 @@ const LOCAL_ONLY_GAMES = [
   { key: 'game_minecraft', label: 'Juego: Minecraft' },
   { key: 'game_mcservidor', label: 'Juego: Servidor Minecraft' },
   { key: 'game_mcparkour', label: 'Juego: Minecraft Parkour' },
+  { key: 'game_mconeblock', label: 'Juego: Minecraft OneBlock' },
+  { key: 'game_mcsandwall', label: 'Juego: Minecraft SandWall' },
   { key: 'game_mckoth', label: 'Juego: Minecraft KOTH' },
   { key: 'game_mcfarm', label: 'Juego: Minecraft Farm' },
   { key: 'game_mcshooter', label: 'Juego: Minecraft Shooters' },

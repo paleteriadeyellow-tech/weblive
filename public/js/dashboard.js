@@ -1041,7 +1041,7 @@ const CAP_LABELS = {
   ov_screenfx: 'Efectos pantalla',
   ov_video: 'Videos (pantalla OBS)',
   // juegos
-  game_minecraft: 'Juego: Minecraft', game_mcservidor: 'Juego: Servidor Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_mcshooter: 'Juego: Minecraft Shooters', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
+  game_minecraft: 'Juego: Minecraft', game_mcservidor: 'Juego: Servidor Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mconeblock: 'Juego: Minecraft OneBlock', game_mcsandwall: 'Juego: Minecraft SandWall', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_mcshooter: 'Juego: Minecraft Shooters', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour',
   game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_pvzfusion: 'Juego: PvZ Fusion', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_unturned: 'Juego: Unturned', game_gtavkoth: 'Juego: GTA V King of the Hill', game_gtavchaos: 'Juego: GTA V Mod Chaos', game_gtavchiliad: 'Juego: GTA V Chiliad', game_crashctr: 'Juego: Crash Team Racing (CTR)', game_flappybird: 'Juego: Flappy Bird', game_mk64: 'Juego: Mario Kart 64', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
   // extras
@@ -1050,7 +1050,7 @@ const CAP_LABELS = {
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_videos', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_youtube', 'tab_editor_rapido',
-  'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_pvzfusion', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_flappybird', 'game_metalslug', 'game_geometrydash',
+  'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mconeblock', 'game_mcsandwall', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_pvzfusion', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_flappybird', 'game_metalslug', 'game_geometrydash',
   'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_winscounterpro', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_topkills', 'ov_screenfx', 'ov_giftbanner', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista',
@@ -3792,6 +3792,8 @@ const ADMIN_GAME_CATALOG = [
   { key: 'game_minecraft', label: 'Minecraft' },
   { key: 'game_mcservidor', label: 'Servidor Minecraft' },
   { key: 'game_mcparkour', label: 'Minecraft Parkour' },
+  { key: 'game_mconeblock', label: 'Minecraft OneBlock' },
+  { key: 'game_mcsandwall', label: 'Minecraft SandWall' },
   { key: 'game_mckoth', label: 'Minecraft KOTH' },
   { key: 'game_mcfarm', label: 'Minecraft Farm' },
   { key: 'game_mcshooter', label: 'Minecraft Shooters' },

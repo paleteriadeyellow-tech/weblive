@@ -149,7 +149,7 @@ export function listUsers() {
 }
 /** Claves de minijuegos (.exe) que el admin puede activar por usuario. */
 export const GAME_FEATURE_KEYS = [
-  'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mckoth', 'game_mcfarm', 'game_mcshooter',
+  'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mconeblock', 'game_mcsandwall', 'game_mckoth', 'game_mcfarm', 'game_mcshooter',
   'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_mariobros', 'game_smb3', 'game_smw',
   'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_repo', 'game_l4d', 'game_unturned',
   'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_flappybird', 'game_pvzfusion', 'game_mk64', 'game_metalslug', 'game_geometrydash',
