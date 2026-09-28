@@ -3278,50 +3278,6 @@ app.get('/api/plans', async (req, res) => {
   res.json({ catalog: CAPABILITIES, config: getPlanConfig() });
 });
 
-/* ------------------------------- Avisos de firma TikTok ------------------------------- */
-const SIGN_ALERTS_FILE = path.join(DATA_DIR, 'sign-fallback-alerts.json');
-const SIGN_ALERT_WINDOW_MS = 30 * 60 * 1000;
-
-function readSignAlerts() {
-  try {
-    const list = JSON.parse(fs.readFileSync(SIGN_ALERTS_FILE, 'utf8'));
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeSignAlerts(list) {
-  try { fs.writeFileSync(SIGN_ALERTS_FILE, JSON.stringify(list.slice(0, 30))); } catch { /* ignore */ }
-}
-
-function rememberSignAlert({ uniqueId, reason, account }) {
-  const now = Date.now();
-  const list = readSignAlerts();
-  const prev = list.find((a) => a && a.uniqueId === uniqueId && (now - Number(a.at)) < SIGN_ALERT_WINDOW_MS);
-  if (prev) {
-    prev.count = (Number(prev.count) || 1) + 1;
-    prev.reason = reason || prev.reason;
-    if (account) prev.account = account;
-    writeSignAlerts(list);
-    return prev;
-  }
-  const alert = { uniqueId, reason: reason || 'firma local', account: account || '', count: 1, at: now };
-  writeSignAlerts([alert, ...list.filter((a) => a && a.uniqueId !== uniqueId)]);
-  return alert;
-}
-
-app.post('/api/sign-fallback', express.json({ limit: '4kb' }), (req, res) => {
-  const user = userFromRequest(req);
-  if (!user) return res.status(401).json({ error: 'no auth' });
-  const uniqueId = String(req.body?.uniqueId || '').replace(/^@/, '').trim();
-  if (!/^[A-Za-z0-9._]{2,24}$/.test(uniqueId)) return res.status(400).json({ error: 'usuario' });
-  const reason = String(req.body?.reason || 'firma local').replace(/\s+/g, ' ').slice(0, 140);
-  const account = String(req.body?.account || user.username || user.email || '').slice(0, 80);
-  rememberSignAlert({ uniqueId, reason, account });
-  res.json({ ok: true });
-});
-
 /* ------------------------------- Administración ------------------------------- */
 function requireAdmin(req, res, next) {
   const user = userFromRequest(req);
@@ -3329,11 +3285,6 @@ function requireAdmin(req, res, next) {
   req.user = user;
   next();
 }
-
-app.get('/api/admin/sign-alerts', requireAdmin, (req, res) => {
-  const alerts = readSignAlerts().sort((a, b) => Number(b.at) - Number(a.at)).slice(0, 30);
-  res.json({ alerts });
-});
 
 // Lista de todas las cuentas con su estado (live, activación, clave, conexión).
 app.get('/api/admin/users', requireAdmin, async (req, res) => {
