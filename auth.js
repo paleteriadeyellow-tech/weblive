@@ -23,10 +23,11 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 const SESSION_COOKIE = 'hokey_sid';
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 días
 const ADMIN_USERNAME = 'jesus'; // admin histórico
+const EXTRA_ADMIN_USERNAMES = ['albertoreyesyt'];
 function isReservedAdminUsername(name) {
   const n = String(name || '').trim().toLowerCase();
   if (!n) return false;
-  if (n === ADMIN_USERNAME) return true;
+  if (n === ADMIN_USERNAME || EXTRA_ADMIN_USERNAMES.includes(n)) return true;
   const extra = String(process.env.ADMIN_USERNAME || process.env.ADMIN_USERNAMES || '')
     .split(/[,;\s]+/)
     .map((s) => s.trim().toLowerCase())
