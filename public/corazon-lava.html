@@ -745,7 +745,6 @@
         let msg; try { msg = JSON.parse(ev.data); } catch { return; }
         const { type, payload } = msg;
         if (type === 'gift') { if (!isEmbed) onGift(payload); }
-        else if (type === 'panic') clearJar();
         else if (type === 'corazonLavaTest') { if (!isEmbed) runFill((payload && payload.count) || 36, payload); }
         else if (type === 'corazonLavaDropOne') { if (!isEmbed) dropOneGift(payload); }
         else if (type === 'corazonLavaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); resetMeta(); rootSafeRainbow(); } }

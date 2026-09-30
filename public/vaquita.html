@@ -798,7 +798,6 @@
         const { type, payload } = msg;
         if (type === 'gift') { if (!isEmbed) onGift(payload); }
         else if (type === 'state') { if (!isEmbed && payload) onTopGiftersState(payload.topGifters); }
-        else if (type === 'panic') clearJar();
         else if (type === 'vaquitaTest') { if (!isEmbed) runFill((payload && payload.count) || 200); }
         else if (type === 'vaquitaDropOne') { if (!isEmbed) dropOneGift(payload); }
         else if (type === 'vaquitaReset') { if (!isEmbed) { if (fillTimer) clearTimeout(fillTimer); clearJar(true); setDiamonds(0, false, true); clearPersistState(); rootSafeRainbow(); } }
