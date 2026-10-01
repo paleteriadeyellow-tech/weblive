@@ -19,7 +19,7 @@ import { isEdgeTtsVoice, ttsSynthEdge, EDGE_EN_FALLBACK } from './edge-tts-synth
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
 import { createStreamerRankings } from './streamer-rankings.js';
 import {
-  registerUser, verifyLogin, createSession, destroySession,
+  registerUser, verifyLogin, renameUsername, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
   getUserPlan, setUserPlan, grantPremiumDays, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled,
@@ -1723,6 +1723,42 @@ app.post('/api/account/password/forgot', express.json(), async (req, res) => {
   const r = await requestPasswordReset(req.body?.username || req.body?.email || req.body?.identifier, clientRateKey(req));
   if (r.error) return res.status(400).json({ error: r.error });
   res.json({ ok: true, message: r.message });
+});
+
+app.post('/api/account/username', express.json(), async (req, res) => {
+  const sessionUser = userFromRequest(req);
+  if (!sessionUser) return res.status(401).json({ error: 'Inicia sesión de nuevo.' });
+  const password = String(req.body?.password || '');
+  const nextName = req.body?.username;
+  if (password.length < 4) return res.status(400).json({ error: 'Escribe tu contraseña actual para confirmar.' });
+  const preview = renameUsername(sessionUser.id, nextName, { commit: false });
+  if (preview.error) return res.status(400).json({ error: preview.error });
+
+  if (AUTH_REMOTE) {
+    const cookie = remoteCookies.get(sessionUser.id);
+    if (!cookie) return res.status(401).json({ error: 'Cierra sesión y vuelve a entrar para cambiar el usuario.' });
+    let r;
+    try {
+      r = await fetch(`${AUTH_REMOTE}/api/account/username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({ username: nextName, password }),
+      });
+    } catch {
+      return res.status(503).json({ error: 'Sin conexión. No se cambió nada.' });
+    }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(r.status >= 400 ? r.status : 400).json({ error: data.error || 'No se pudo cambiar el usuario.' });
+    const renamed = renameUsername(sessionUser.id, data.username || nextName);
+    if (renamed.error) return res.status(400).json({ error: renamed.error });
+    return res.json({ ok: true, username: renamed.user.username });
+  }
+
+  const check = verifyLogin(sessionUser.username, password);
+  if (check.error) return res.status(400).json({ error: 'La contraseña no coincide.' });
+  const renamed = renameUsername(sessionUser.id, nextName);
+  if (renamed.error) return res.status(400).json({ error: renamed.error });
+  res.json({ ok: true, username: renamed.user.username });
 });
 
 app.post('/api/account/password/reset', express.json(), async (req, res) => {

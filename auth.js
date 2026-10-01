@@ -913,6 +913,25 @@ export function verifyLogin(username, password) {
   return { user };
 }
 
+/** Cambia el nombre de entrada de la misma cuenta. No toca el id ni la carpeta de datos. */
+export function renameUsername(userId, nextName, { commit = true } = {}) {
+  const uname = normalizeUsername(nextName);
+  if (!/^[a-z0-9_.]{3,20}$/.test(uname)) {
+    return { error: 'El usuario debe tener 3-20 caracteres (letras, números, _ o .).' };
+  }
+  const user = users.find((u) => u.id === userId);
+  if (!user) return { error: 'Sesión no válida. Vuelve a entrar.' };
+  if (user.username === uname) return { user, unchanged: true };
+  if (isReservedAdminUsername(uname)) return { error: 'Ese usuario no está disponible.' };
+  if (users.some((u) => u.id !== user.id && u.username === uname)) {
+    return { error: 'Ese usuario ya existe.' };
+  }
+  if (!commit) return { user, username: uname };
+  user.username = uname;
+  saveUsers();
+  return { user };
+}
+
 export function createSession(userId) {
   const token = crypto.randomBytes(24).toString('base64url');
   sessions.set(token, { userId, createdAt: Date.now() });
