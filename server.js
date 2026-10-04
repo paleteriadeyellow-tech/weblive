@@ -1733,6 +1733,7 @@ app.post('/api/account/username', express.json(), async (req, res) => {
   if (password.length < 4) return res.status(400).json({ error: 'Escribe tu contraseña actual para confirmar.' });
   const preview = renameUsername(sessionUser.id, nextName, { commit: false });
   if (preview.error) return res.status(400).json({ error: preview.error });
+  if (preview.unchanged) return res.json({ ok: true, username: sessionUser.username, unchanged: true });
 
   if (AUTH_REMOTE) {
     const cookie = remoteCookies.get(sessionUser.id);
@@ -1745,10 +1746,17 @@ app.post('/api/account/username', express.json(), async (req, res) => {
         body: JSON.stringify({ username: nextName, password }),
       });
     } catch {
-      return res.status(503).json({ error: 'Sin conexión. No se cambió nada.' });
+      return res.status(503).json({ error: 'No hay conexión con el servidor de cuentas. No se cambió nada.' });
     }
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(r.status >= 400 ? r.status : 400).json({ error: data.error || 'No se pudo cambiar el usuario.' });
+    if (!r.ok) {
+      const missing = r.status === 404;
+      return res.status(r.status >= 400 ? r.status : 400).json({
+        error: data.error || (missing
+          ? 'El servidor de cuentas aún no tiene este cambio. No se modificó nada.'
+          : 'No se pudo cambiar el usuario. No se modificó nada.'),
+      });
+    }
     const renamed = renameUsername(sessionUser.id, data.username || nextName);
     if (renamed.error) return res.status(400).json({ error: renamed.error });
     return res.json({ ok: true, username: renamed.user.username });

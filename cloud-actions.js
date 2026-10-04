@@ -535,31 +535,37 @@ export function createActionBridge({ getSettings, forEachTriggerSettings, broadc
 
   function playMcActionSound(a, times = 1) {
     if (!a || !a.audioOn || !a.sound) return;
-    const n = Math.max(1, Math.min(Number(times) || 1, 50));
-    for (let i = 0; i < n; i++) {
-      broadcast('sound', {
-        id: a.uid || a.catId || '',
-        name: a.name || a.soundName || 'Minecraft',
-        sound: a.sound,
-        image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
-        volume: a.soundVolume != null ? a.soundVolume : 100,
-      });
+    const payload = {
+      id: a.uid || a.catId || '',
+      name: a.name || a.soundName || 'Minecraft',
+      sound: a.sound,
+      image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
+      volume: a.soundVolume != null ? a.soundVolume : 100,
+    };
+    if (a.soundRestart) {
+      broadcast('sound', { ...payload, playQueue: false, restart: true });
+      return;
     }
+    const n = Math.max(1, Math.min(Number(times) || 1, 50));
+    for (let i = 0; i < n; i++) broadcast('sound', payload);
   }
 
   function playGameActionSound(a, times = 1) {
     if (!a || !a.sound || a.audioOn === false) return;
     if (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)) return;
-    const n = Math.max(1, Math.min(Number(times) || 1, 50));
-    for (let i = 0; i < n; i++) {
-      broadcast('sound', {
-        id: a.uid || a.id || '',
-        name: a.name || a.label || a.soundName || 'Acción',
-        sound: a.sound,
-        image: a.image || a.giftImage || '',
-        volume: a.soundVolume != null ? a.soundVolume : 100,
-      });
+    const payload = {
+      id: a.uid || a.id || '',
+      name: a.name || a.label || a.soundName || 'Acción',
+      sound: a.sound,
+      image: a.image || a.giftImage || '',
+      volume: a.soundVolume != null ? a.soundVolume : 100,
+    };
+    if (a.soundRestart) {
+      broadcast('sound', { ...payload, playQueue: false, restart: true });
+      return;
     }
+    const n = Math.max(1, Math.min(Number(times) || 1, 50));
+    for (let i = 0; i < n; i++) broadcast('sound', payload);
   }
 
   function fireMarioActionOnce(a, capped, name, cfg) {

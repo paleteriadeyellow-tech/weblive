@@ -645,11 +645,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const COINBAR_FILE = path.join(dataDir, 'batalla-coinbar.json');
   const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
   const FOC_METRICS_FILE = path.join(dataDir, 'foc-metrics.json');
-  const RANK_IDS = ['toplikes', 'topdiam', 'toplikeslist', 'topdiamlist', 'topcomments'];
+  const RANK_IDS = [
+    'toplikes', 'topdiam', 'toplikeslist', 'topdiamlist', 'topcomments',
+    'multilikes', 'multidiam', 'multicomments', 'altlikes', 'altdiam',
+  ];
   const RANK_SETTINGS_KEY = {
     toplikes: 'toplikesRank', topdiam: 'topdiamRank',
     toplikeslist: 'toplikesList', topdiamlist: 'topdiamList',
     topcomments: 'topcommentsRank',
+    multilikes: 'topMultiRank', multidiam: 'topMultiRank', multicomments: 'topMultiRank',
+    altlikes: 'topAltRank', altdiam: 'topAltRank',
+  };
+  const RANK_PERIOD_FIELD = {
+    multilikes: 'resetPeriodLikes', multidiam: 'resetPeriodDiam', multicomments: 'resetPeriodComments',
+    altlikes: 'resetPeriodLikes', altdiam: 'resetPeriodDiam',
   };
   const POINTS_FILE = path.join(dataDir, 'points.json');
   const SESSION_FILE = path.join(dataDir, 'session.json');
@@ -2368,51 +2377,41 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const incoming = obj.topAltRank;
       if (incoming.resetPeriodLikes != null
         && normalizeResetPeriod(incoming.resetPeriodLikes) !== prevAltLikes) {
-        if (!settings.toplikesRank) settings.toplikesRank = {};
-        settings.toplikesRank.resetPeriod = incoming.resetPeriodLikes;
-        onRankPeriodChange('toplikes');
+        onRankPeriodChange('altlikes');
       }
       if (incoming.resetPeriodDiam != null
         && normalizeResetPeriod(incoming.resetPeriodDiam) !== prevAltDiam) {
-        if (!settings.topdiamRank) settings.topdiamRank = {};
-        settings.topdiamRank.resetPeriod = incoming.resetPeriodDiam;
-        onRankPeriodChange('topdiam');
+        onRankPeriodChange('altdiam');
       }
     }
     if (obj.topAltRankNeon) {
       const incoming = obj.topAltRankNeon;
       if (incoming.resetPeriodLikes != null
         && normalizeResetPeriod(incoming.resetPeriodLikes) !== prevNeonLikes) {
-        if (!settings.toplikesRank) settings.toplikesRank = {};
-        settings.toplikesRank.resetPeriod = incoming.resetPeriodLikes;
-        onRankPeriodChange('toplikes');
+        if (!settings.topAltRank) settings.topAltRank = {};
+        settings.topAltRank.resetPeriodLikes = incoming.resetPeriodLikes;
+        onRankPeriodChange('altlikes');
       }
       if (incoming.resetPeriodDiam != null
         && normalizeResetPeriod(incoming.resetPeriodDiam) !== prevNeonDiam) {
-        if (!settings.topdiamRank) settings.topdiamRank = {};
-        settings.topdiamRank.resetPeriod = incoming.resetPeriodDiam;
-        onRankPeriodChange('topdiam');
+        if (!settings.topAltRank) settings.topAltRank = {};
+        settings.topAltRank.resetPeriodDiam = incoming.resetPeriodDiam;
+        onRankPeriodChange('altdiam');
       }
     }
     if (obj.topMultiRank) {
       const incoming = obj.topMultiRank;
       if (incoming.resetPeriodLikes != null
         && normalizeResetPeriod(incoming.resetPeriodLikes) !== prevMultiLikes) {
-        if (!settings.toplikesRank) settings.toplikesRank = {};
-        settings.toplikesRank.resetPeriod = incoming.resetPeriodLikes;
-        onRankPeriodChange('toplikes');
+        onRankPeriodChange('multilikes');
       }
       if (incoming.resetPeriodDiam != null
         && normalizeResetPeriod(incoming.resetPeriodDiam) !== prevMultiDiam) {
-        if (!settings.topdiamRank) settings.topdiamRank = {};
-        settings.topdiamRank.resetPeriod = incoming.resetPeriodDiam;
-        onRankPeriodChange('topdiam');
+        onRankPeriodChange('multidiam');
       }
       if (incoming.resetPeriodComments != null
         && normalizeResetPeriod(incoming.resetPeriodComments) !== prevMultiComments) {
-        if (!settings.topcommentsRank) settings.topcommentsRank = {};
-        settings.topcommentsRank.resetPeriod = incoming.resetPeriodComments;
-        onRankPeriodChange('topcomments');
+        onRankPeriodChange('multicomments');
       }
     }
     enforceLimits();
@@ -3002,6 +3001,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     };
   }
 
+  const ROULETTE_CDN = 'https://livecoins.onrender.com';
+
+  function rouletteSlugEs(name) {
+    return String(name || '').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/ñ/g, 'n')
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+  }
+
+  function rouletteSafeId(v) {
+    return String(v || '').trim();
+  }
+
   function rouletteRepoImage(thing, existing) {
     const t = String(thing || '');
     const stale = existing && (String(existing).includes('%3A') || /\/img\/repo\/(enemy|enemyrandom|item|valuable):/i.test(String(existing)));
@@ -3011,21 +3024,162 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (t.startsWith('item:')) return '/img/repo/spawn-item.png';
     if (t.startsWith('valuable:')) return '/img/repo/spawn-valuable-item.png';
     if (t.startsWith('effect:')) return `/img/repo/${encodeURIComponent(t.replace(/^effect:/, ''))}.png`;
+    if (t) {
+      const slug = t.replace(/^effect:/, '');
+      return `/img/repo/${encodeURIComponent(slug)}.png`;
+    }
     return existing || '';
   }
 
-  function roulettePvzHybridImage(thing, existing) {
+  function roulettePvzHybridImage(thing) {
     const key = String(thing || '').trim();
-    if (!key) return existing || '';
-    const local = `/img/pvzhybrid-thumbs/${encodeURIComponent(key)}.png`;
-    if (existing && !String(existing).includes('/img/pvz/')) return existing;
-    return local;
+    if (!key) return '';
+    return `/img/pvzhybrid-thumbs/${encodeURIComponent(key)}.png`;
   }
 
+  function roulettePvzHybridFb(thing) {
+    const key = String(thing || '').trim();
+    if (!key) return '';
+    return `${ROULETTE_CDN}/img/pvzhybrid-thumbs/${encodeURIComponent(key)}.png`;
+  }
+
+  /** Resuelve la miniatura como en el panel (erIconUrlForSettingsKey). */
   function rouletteActionImage(gameKey, a, existing) {
-    if (gameKey === 'repoActions') return rouletteRepoImage(a?.thing, existing || a?.img);
-    if (gameKey === 'pvzHybridActions') return roulettePvzHybridImage(a?.thing, existing);
-    return existing || a?.img || a?.image || '';
+    const ex = String(existing || a?.img || a?.image || '').trim();
+    if (!a && ex) return ex;
+    const thing = rouletteSafeId(a?.thing || a?.id || a?.catalogId || '');
+    const catId = rouletteSafeId(a?.catId || '');
+    const label = a?.label || a?.nombre || a?.name || '';
+    let resolved = '';
+    switch (gameKey) {
+      case 'marioActions': {
+        const slug = rouletteSlugEs(label) || rouletteSlugEs(thing);
+        if (slug) resolved = `/img/mario-interactivo/${slug}.png`;
+        break;
+      }
+      case 'mari0Actions':
+        if (thing) resolved = `/img/mari0/${thing}.png?v=5`;
+        break;
+      case 'smb3Actions': {
+        const sid = a?.spawnId ?? a?.id ?? thing;
+        const n = Number(String(sid || '').replace(/^spawn_/, ''));
+        if (Number.isFinite(n)) resolved = `/img/smb3-thumbs/${n}.png`;
+        break;
+      }
+      case 'smwActions':
+        if (thing) resolved = `/img/smw/${thing}.png`;
+        break;
+      case 'pvzActions':
+        if (thing) resolved = `/img/pvz/${encodeURIComponent(thing)}.png`;
+        break;
+      case 'pvzHybridActions':
+        resolved = roulettePvzHybridImage(thing);
+        break;
+      case 'repoActions':
+        resolved = rouletteRepoImage(thing, ex);
+        break;
+      case 'l4dActions': {
+        const key = String(a?.img || thing || '').trim().replace(/[^a-z0-9_-]/gi, '');
+        if (key) resolved = `/img/l4d-thumbs/${key}.png`;
+        break;
+      }
+      case 'unturnedActions':
+        if (thing) resolved = `/img/unturned/${thing}.png`;
+        break;
+      case 'gtavKothActions':
+      case 'gtavChaosActions':
+      case 'gtavChiliadActions':
+        // Catálogo GTA: el panel suele dejar image/imageFb ya resueltos.
+        resolved = ex;
+        break;
+      case 'ctrActions':
+        if (thing) resolved = `/img/ctr/${thing}.webp`;
+        break;
+      case 'flappyActions':
+        if (thing) resolved = `/img/flappy/${thing}.png?v=flap1`;
+        break;
+      case 'mk64Actions':
+        if (thing) resolved = `/img/mk64/${thing}.png?v=mk1`;
+        break;
+      case 'stackActions':
+        if (thing) resolved = `/img/stack-tower/${thing}.png?v=st1`;
+        break;
+      case 'pvzgeActions':
+        if (thing) resolved = `/img/pvzge/${thing}.png?v=pz6`;
+        break;
+      case 'pvzFusionActions':
+        if (thing) resolved = `/img/pvzfusion/${String(thing).replace(/:/g, '-')}.png`;
+        break;
+      case 'mslugActions': {
+        const key = String(thing || '').split(',')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+        if (key) resolved = `${ROULETTE_CDN}/img/mslug-thumbs/${encodeURIComponent(key)}.png`;
+        break;
+      }
+      case 'gdashActions':
+        if (thing) resolved = `/img/gdash/${thing}.png`;
+        break;
+      case 'robloxActions':
+        if (a?.id || thing) resolved = `/img/roblox/${a?.id || thing}.png`;
+        break;
+      case 'roblox3Actions':
+        if (a?.id || thing) resolved = `/img/roblox3/${a?.id || thing}.png`;
+        break;
+      case 'robloxtkActions':
+        if (a?.img) resolved = `/img/robloxtk/${a.img}.png`;
+        break;
+      case 'mcActions':
+        if (catId) resolved = `/img/minecraft/${catId}.png`;
+        break;
+      case 'bedrockActions':
+        if (catId) resolved = `/img/bedrock/${catId}.png`;
+        break;
+      case 'farmActions':
+        if (catId) resolved = `/img/farm/${catId}.png`;
+        break;
+      case 'parkourActions':
+        if (catId) resolved = `/img/parkour/${catId}.png`;
+        break;
+      case 'oneblockActions':
+        if (catId) resolved = `/img/oneblock/${catId}.png`;
+        break;
+      case 'sandwallActions':
+        if (catId) resolved = `/img/sandwall/${catId}.png?v=sw6`;
+        break;
+      case 'kothActions':
+        if (catId) resolved = `/img/koth/${catId}.png`;
+        break;
+      case 'sandboxActions':
+        if (catId) resolved = `/img/sandbox/${catId}.png`;
+        break;
+      case 'mcshooterActions':
+        if (catId) resolved = `/img/mcshooter/${catId}.png`;
+        break;
+      default:
+        break;
+    }
+    return resolved || ex || '';
+  }
+
+  function rouletteActionImageFb(gameKey, a, primary) {
+    const thing = rouletteSafeId(a?.thing || a?.id || a?.catalogId || '');
+    if (gameKey === 'pvzHybridActions') return roulettePvzHybridFb(thing);
+    if (gameKey === 'smb3Actions') {
+      const sid = a?.spawnId ?? a?.id ?? thing;
+      const n = Number(String(sid || '').replace(/^spawn_/, ''));
+      if (Number.isFinite(n)) return `${ROULETTE_CDN}/img/smb3-thumbs/${n}.png`;
+    }
+    if (gameKey === 'l4dActions') {
+      const key = String(a?.img || thing || '').trim().replace(/[^a-z0-9_-]/gi, '');
+      if (key) return `${ROULETTE_CDN}/img/l4d-thumbs/${encodeURIComponent(key)}.png`;
+    }
+    if (gameKey === 'mslugActions') {
+      const key = String(thing || '').split(',')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+      if (key) return `/img/mslug-thumbs/${key}.png`;
+    }
+    if (gameKey === 'ctrActions' && thing && String(primary || '').endsWith('.webp')) {
+      return `/img/ctr/${thing}.png`;
+    }
+    return '';
   }
 
   function rouletteAttachActionImages(prizes, gameKey) {
@@ -3034,7 +3188,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return prizes.map((p) => {
       const a = byUid.get(String(p.uid));
       const image = rouletteActionImage(gameKey, a, p.image);
-      return image && image !== p.image ? Object.assign({}, p, { image }) : (p.image ? p : Object.assign({}, p, { image: image || a?.img || a?.image || '' }));
+      const imageFb = rouletteActionImageFb(gameKey, a, image) || p.imageFb || '';
+      const emoji = p.emoji || '';
+      if (image === p.image && imageFb === (p.imageFb || '') && emoji === (p.emoji || '')) return p;
+      return Object.assign({}, p, { image: image || p.image || '', imageFb, emoji });
     });
   }
 
@@ -3049,10 +3206,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const src = fromJob.get(String(a.uid)) || saved.get(String(a.uid)) || {};
       if (src.on === false) continue;
       const prob = Number(src.probability);
+      const image = rouletteActionImage(gameKey, a, src.image);
       out.push({
         uid: String(a.uid),
         name: src.name || a.name || a.label || a.thing || 'Acción',
-        image: rouletteActionImage(gameKey, a, src.image),
+        image,
+        imageFb: rouletteActionImageFb(gameKey, a, image) || src.imageFb || '',
+        emoji: src.emoji || '',
         probability: Number.isFinite(prob) && prob > 0 ? prob : 10,
         rarity: src.rarity || 'common',
         on: true,
@@ -3090,21 +3250,23 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function selectRouletteWinner(prizes) {
     const pool = prizes.filter((p) => p && p.uid && p.on !== false && (Number(p.probability) || 0) > 0);
     if (!pool.length) return null;
-    const key = pool.map((p) => String(p.uid)).sort().join(',');
-    if (key !== rouletteBagKey || !rouletteBag.length) {
-      rouletteBagKey = key;
-      rouletteRefillBag(pool);
+    // Peso relativo real (coincide con el aviso del panel: total ≠ 100% usa peso relativo).
+    const weights = pool.map((p) => Math.max(0, Math.round(Number(p.probability) || 0)));
+    let sum = 0;
+    for (const w of weights) sum += w;
+    if (sum <= 0) {
+      const picked = pool[rouletteRandInt(pool.length)];
+      lastRouletteWinnerUid = String(picked?.uid || '');
+      return picked;
     }
-    const still = rouletteBag.filter((p) => pool.some((x) => String(x.uid) === String(p.uid)));
-    if (!still.length) {
-      rouletteRefillBag(pool);
-    } else {
-      rouletteBag = still;
+    let pick = rouletteRandInt(sum);
+    let chosen = pool[pool.length - 1];
+    for (let i = 0; i < pool.length; i++) {
+      pick -= weights[i];
+      if (pick < 0) { chosen = pool[i]; break; }
     }
-    const picked = rouletteBag.shift() || pool[rouletteRandInt(pool.length)];
-    lastRouletteWinnerUid = String(picked.uid || '');
-    if (!rouletteBag.length) rouletteRefillBag(pool);
-    return picked;
+    lastRouletteWinnerUid = String(chosen.uid || '');
+    return chosen;
   }
 
   function buildRouletteVisual(prizes, winner, count) {
@@ -3226,9 +3388,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     broadcast('log', { level: 'info', text: `[ROULETTE] Pool: ${prizes.length} acciones · toca ${winner.name}` });
     const visual = buildRouletteVisual(prizes, winner, job.visualCount || cfg.visualCount);
-    const durationSec = Math.max(2, Math.min(8, parseInt(job.durationSec != null ? job.durationSec : cfg.durationSec, 10) || 4));
+    const durationSec = Math.max(2, Math.min(10, parseInt(job.durationSec != null ? job.durationSec : cfg.durationSec, 10) || 4));
     const duration = durationSec * 1000;
     const user = job.user || {};
+    const gameKey = job.gameKey || cfg.gameKey || 'marioActions';
     const payload = {
       user: { username: user.nickname || user.uniqueId || job.username || 'Test' },
       winner: { uid: winner.uid, name: winner.name || 'Acción', image: winner.image || '', rarity: winner.rarity || 'common' },
@@ -3251,7 +3414,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     rouletteTimer = setTimeout(() => {
       rouletteTimer = null;
       try {
-        fireRouletteGameAction(cfg.gameKey || 'marioActions', winner.uid, user, {
+        fireRouletteGameAction(gameKey, winner.uid, user, {
           giftName: job.giftName || '',
           giftId: job.giftId || '',
           repeatCount: 1,
@@ -3504,17 +3667,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!a || !a.sound || a.audioOn === false) return;
     // Minecraft family: runMcAction → playMcActionSound.
     if (a.cmd || (Array.isArray(a.cmds) && a.cmds.length)) return;
-    const n = Math.max(1, Math.min(Number(times) || 1, 50));
     const vol = soundVolumeToPct(a.soundVolume != null ? a.soundVolume : 100);
-    for (let i = 0; i < n; i++) {
-      emitSound({
-        id: a.uid || a.id || '',
-        name: a.name || a.label || a.soundName || 'Acción',
-        sound: a.sound,
-        image: a.image || a.giftImage || '',
-        volume: vol,
-      });
+    const payload = {
+      id: a.uid || a.id || '',
+      name: a.name || a.label || a.soundName || 'Acción',
+      sound: a.sound,
+      image: a.image || a.giftImage || '',
+      volume: vol,
+    };
+    if (a.soundRestart) {
+      emitSound({ ...payload, playQueue: false, restart: true });
+      return;
     }
+    const n = Math.max(1, Math.min(Number(times) || 1, 50));
+    for (let i = 0; i < n; i++) emitSound(payload);
   };
   function emitKeyAction(payload) {
     if (IS_CLOUD_ROOM && hasLocalRelayClient()) {
@@ -6682,16 +6848,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function playMcActionSound(a, times = 1) {
     if (!a || !a.audioOn || !a.sound) return;
-    const n = Math.max(1, Math.min(Number(times) || 1, 50));
-    for (let i = 0; i < n; i++) {
-      emitSound({
-        id: a.uid || a.catId || '',
-        name: a.name || a.soundName || 'Minecraft',
-        sound: a.sound,
-        image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
-        volume: soundVolumeToPct(a.soundVolume != null ? a.soundVolume : 100),
-      });
+    const payload = {
+      id: a.uid || a.catId || '',
+      name: a.name || a.soundName || 'Minecraft',
+      sound: a.sound,
+      image: a.image || (a.catId ? `/img/minecraft/${a.catId}.png` : ''),
+      volume: soundVolumeToPct(a.soundVolume != null ? a.soundVolume : 100),
+    };
+    if (a.soundRestart) {
+      emitSound({ ...payload, playQueue: false, restart: true });
+      return;
     }
+    const n = Math.max(1, Math.min(Number(times) || 1, 50));
+    for (let i = 0; i < n; i++) emitSound(payload);
   }
 
 
@@ -11101,7 +11270,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   /* -------------------- Rankings likes / diamantes (overlays) -------------------- */
   function getRankPeriod(rankId) {
-    const p = settings[RANK_SETTINGS_KEY[rankId]]?.resetPeriod;
+    const key = RANK_SETTINGS_KEY[rankId];
+    const field = RANK_PERIOD_FIELD[rankId] || 'resetPeriod';
+    let p = settings[key]?.[field];
+    if ((rankId === 'altlikes' || rankId === 'altdiam') && p == null) {
+      p = settings.topAltRankNeon?.[field];
+    }
     return p === 'week' || p === 'month' ? p : 'live';
   }
   // Restaura rankings de sesión (periodo «live») tras reinicio si es el mismo live.
@@ -11148,6 +11322,24 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         rankPersist[rankId].users = new Map();
       }
     }
+    seedRankViewFromSource();
+  }
+  function seedRankViewFromSource() {
+    const pairs = [
+      ['toplikes', 'multilikes'], ['toplikes', 'altlikes'],
+      ['topdiam', 'multidiam'], ['topdiam', 'altdiam'],
+      ['topcomments', 'multicomments'],
+    ];
+    let changed = false;
+    for (const [src, dst] of pairs) {
+      if (getRankPeriod(src) !== 'live' || getRankPeriod(dst) !== 'live') continue;
+      if (rankSession[dst].size || !rankSession[src].size) continue;
+      for (const [id, u] of rankSession[src]) {
+        rankSession[dst].set(id, { uniqueId: u.uniqueId, nickname: u.nickname, photo: u.photo, val: u.val });
+      }
+      changed = true;
+    }
+    if (changed) saveRankOverlays();
   }
   function saveRankOverlays() {
     clearTimeout(rankSaveTimer);
@@ -11243,15 +11435,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!user?.uniqueId || !(count > 0)) return;
     addRankValue('toplikes', user, count);
     addRankValue('toplikeslist', user, count);
+    addRankValue('multilikes', user, count);
+    addRankValue('altlikes', user, count);
   }
   function addRankDiamonds(user, coins) {
     if (!user?.uniqueId || !(coins > 0)) return;
     addRankValue('topdiam', user, coins);
     addRankValue('topdiamlist', user, coins);
+    addRankValue('multidiam', user, coins);
+    addRankValue('altdiam', user, coins);
   }
   function addRankComments(user, count) {
     if (!user?.uniqueId || !(count > 0)) return;
     addRankValue('topcomments', user, count);
+    addRankValue('multicomments', user, count);
   }
   function serializeRankState(rankId) {
     const period = getRankPeriod(rankId);
@@ -13760,16 +13957,16 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         broadcast('rankAltTest', {});
         break;
       case 'resetRankAlt':
-        resetRankAll('toplikes');
-        resetRankAll('topdiam');
+        resetRankAll('altlikes');
+        resetRankAll('altdiam');
         break;
       case 'testRankMulti':
         broadcast('rankMultiTest', {});
         break;
       case 'resetRankMulti':
-        resetRankAll('toplikes');
-        resetRankAll('topdiam');
-        resetRankAll('topcomments');
+        resetRankAll('multilikes');
+        resetRankAll('multidiam');
+        resetRankAll('multicomments');
         break;
       case 'testPointsLookup':
         broadcast('pointsLookupTest', {});

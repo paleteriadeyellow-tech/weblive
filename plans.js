@@ -69,7 +69,7 @@ export const CAPABILITIES = {
     { key: 'ov_bailecombo', label: 'Overlay baile — Top combo', path: '/baile-combo.html' },
     { key: 'ov_bailerank', label: 'Overlay baile — Ranking OUT', path: '/baile-rank.html' },
     { key: 'ov_batallacoinbar', label: 'Contador de monedas (PK)', path: '/batalla-coinbar.html' },
-    { key: 'ov_flowmeter', label: 'Medidor de Flow', path: '/medidor-flow.html' },
+    { key: 'ov_flowmeter', label: 'Overlay baile — Medidor de Flow', path: '/medidor-flow.html' },
     { key: 'ov_giftseq', label: 'Gift Sequence', path: '/giftseq.html' },
     { key: 'ov_habibitop', label: 'Habibi Top Donador', path: '/habibi-top.html' },
     { key: 'ov_giftshowcase', label: 'Banda de regalos', path: '/gift-banda.html' },

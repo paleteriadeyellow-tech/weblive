@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script src="/js/overlay-channel.js?v=ovch1"></script>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
 <meta charset="UTF-8">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -244,15 +244,15 @@
 </head>
 <body>
   <div class="widget"><div class="list" id="list"></div></div>
-  <script src="/js/ranking-overlay.js"></script>
+  <script src="/js/ranking-overlay.js?v=rk2"></script>
   <script>
     RankingOverlay.initAlt({
       kind: 'topaltneon',
       layout: 'neon',
       settingsKey: 'topAltRankNeon',
       modes: [
-        { rank: 'topdiam', icon: '/img/tiktok-coin.webp', accentKey: 'diamAccent', periodKey: 'resetPeriodDiam' },
-        { rank: 'toplikes', icon: '❤️', accentKey: 'likesAccent', periodKey: 'resetPeriodLikes' },
+        { rank: 'altdiam', icon: '/img/tiktok-coin.webp', accentKey: 'diamAccent', periodKey: 'resetPeriodDiam' },
+        { rank: 'altlikes', icon: '❤️', accentKey: 'likesAccent', periodKey: 'resetPeriodLikes' },
       ],
       defaults: {
         rows: 3, scale: 100, font: 'orbitron',
@@ -263,6 +263,7 @@
       },
     });
   </script>
-  <script src="/js/overlay-keepalive.js"></script>
+  <script src="/js/overlay-idle.js?v=oi1"></script>
+<script src="/js/overlay-keepalive.js"></script>
 </body>
 </html>

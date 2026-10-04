@@ -4315,6 +4315,7 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
 .ovpro-preview.ovpro-preview--baile-ronda { height: 250px; }
 .ovpro-preview.ovpro-preview--baile-combo { height: 260px; }
 .ovpro-preview.ovpro-preview--baile-rank { height: 340px; }
+.ovpro-preview.ovpro-preview--flow { height: 380px; }
 #view-ov-baile .ovpro-card--wide { grid-column: 1 / -1; }
 #view-ov-baile .ovpro-card--baile-people {
   padding: 18px 18px 16px;

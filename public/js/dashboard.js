@@ -1019,7 +1019,7 @@ const CAP_LABELS = {
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
   ov_habibitop: 'Habibi Top Donador', ov_gcounter: 'Contador de meta', ov_giftheart: 'Meta Heart Me', ov_giftgoals: 'Metas de regalos', ov_winscounter: 'Contador de victorias', ov_winscountergamer: 'Contador de victorias (Gamer HUD)', ov_winscounterminecraft: 'Contador de victorias (Minecraft)', ov_winscountermario: 'Contador de victorias (Mario Bros)', ov_winscounterpro: 'Contador de victorias PRO (5 diseños)',
-  ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_baileronda: 'Overlay baile — Ronda', ov_bailecombo: 'Overlay baile — Top combo', ov_bailerank: 'Overlay baile — Ranking OUT', ov_batallacoinbar: 'Contador de monedas', ov_flowmeter: 'Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
+  ov_giftvs: 'Gift VS', ov_batallavs: 'Batalla VS', ov_batallameta: 'Meta de la ronda', ov_batallamvp: 'MVP de la batalla', ov_batallatop3: 'Top 3 ejército', ov_batallagiftball: 'Pelota de regalos', ov_baileronda: 'Overlay baile — Ronda', ov_bailecombo: 'Overlay baile — Top combo', ov_bailerank: 'Overlay baile — Ranking OUT', ov_batallacoinbar: 'Contador de monedas', ov_flowmeter: 'Overlay baile — Medidor de Flow', ov_giftseq: 'Gift Sequence', ov_giftshowcase: 'Banda de regalos', ov_mejorregalo: 'Mejor regalo',
   ov_ultimoregalo: 'Último regalo', ov_mejorracha: 'Mejor racha', ov_batallaregalos: 'Batalla de regalos', ov_batallalikes: 'Batalla de likes',
   ov_coinmatch: 'Coin Match', ov_sorteos: 'Sorteos overlay', ov_topkills: 'Top kills', ov_screenfx: 'Efectos pantalla', ov_giftbanner: 'Meta de regalos (foto)', ov_meta: 'Barra de meta (Hype)', ov_topaltrankneon: 'Top Likes / Diamantes (neón)', ov_topaltrank: 'Top Likes / Diamantes (alternado)',
   ov_topmultirank: 'Top rotatorio (likes / coins / chat / puntos)',
@@ -12134,7 +12134,7 @@ function setupGiftRoulette() {
     pushGiftRoulettePreview();
   };
   if ($('gr-dur')) $('gr-dur').onchange = () => {
-    ensureGiftRoulette().durationSec = Math.max(2, Math.min(8, parseInt($('gr-dur').value, 10) || 4));
+    ensureGiftRoulette().durationSec = Math.max(2, Math.min(10, parseInt($('gr-dur').value, 10) || 4));
     if ($('grcfg-dur')) $('grcfg-dur').value = String(ensureGiftRoulette().durationSec);
     saveGiftRoulettePatch();
   };
@@ -12185,7 +12185,7 @@ function setupGiftRoulette() {
     d.enabledUser = true;
     d.gameKey = $('grcfg-game')?.value || d.gameKey;
     d.giftQty = Math.max(1, parseInt($('grcfg-qty')?.value, 10) || 1);
-    d.durationSec = Math.max(2, Math.min(8, parseInt($('grcfg-dur')?.value, 10) || 4));
+    d.durationSec = Math.max(2, Math.min(10, parseInt($('grcfg-dur')?.value, 10) || 4));
     d.visualCount = Math.max(16, Math.min(80, parseInt($('grcfg-visual')?.value, 10) || 40));
     d.spinSound = $('grcfg-spinsound')?.value || '';
     d.winSound = $('grcfg-winsound')?.value || '';
@@ -12547,12 +12547,6 @@ const STYLE_OVERLAYS = [
       'talnfg-font': 'font', 'talnfg-transparent': 'transparent', 'talnfg-rainbow': 'nameRainbow',
       'talnfg-shadows': 'shadows', 'talnfg-bounce': 'bounce', 'talnfg-mirror': 'mirror' },
     types: { rows: 'int', scale: 'int', intervalSec: 'int' },
-    onSave: (cfg) => {
-      if (!settings.toplikesRank) settings.toplikesRank = {};
-      if (!settings.topdiamRank) settings.topdiamRank = {};
-      if (cfg.resetPeriodLikes != null) settings.toplikesRank.resetPeriod = cfg.resetPeriodLikes;
-      if (cfg.resetPeriodDiam != null) settings.topdiamRank.resetPeriod = cfg.resetPeriodDiam;
-    },
   }),
   setupStyleOverlay({
     kind: 'topalt', settingsKey: 'topAltRank', previewId: 'tal-preview',
@@ -12564,12 +12558,6 @@ const STYLE_OVERLAYS = [
       'talfg-rowbg': 'rowBg', 'talfg-font': 'font', 'talfg-transparent': 'transparent', 'talfg-rainbow': 'nameRainbow',
       'talfg-lines': 'lines', 'talfg-shadows': 'shadows', 'talfg-mirror': 'mirror' },
     types: { rows: 'int', scale: 'int', intervalSec: 'int' },
-    onSave: (cfg) => {
-      if (!settings.toplikesRank) settings.toplikesRank = {};
-      if (!settings.topdiamRank) settings.topdiamRank = {};
-      if (cfg.resetPeriodLikes != null) settings.toplikesRank.resetPeriod = cfg.resetPeriodLikes;
-      if (cfg.resetPeriodDiam != null) settings.topdiamRank.resetPeriod = cfg.resetPeriodDiam;
-    },
   }),
   setupStyleOverlay({
     kind: 'topmulti', settingsKey: 'topMultiRank', previewId: 'tmr-preview',
@@ -12596,14 +12584,6 @@ const STYLE_OVERLAYS = [
       const sc = $('tmrcfg-scale');
       const val = $('tmrcfg-scale-val');
       if (sc && val) val.textContent = sc.value || '100';
-    },
-    onSave: (cfg) => {
-      if (!settings.toplikesRank) settings.toplikesRank = {};
-      if (!settings.topdiamRank) settings.topdiamRank = {};
-      if (!settings.topcommentsRank) settings.topcommentsRank = {};
-      if (cfg.resetPeriodLikes != null) settings.toplikesRank.resetPeriod = cfg.resetPeriodLikes;
-      if (cfg.resetPeriodDiam != null) settings.topdiamRank.resetPeriod = cfg.resetPeriodDiam;
-      if (cfg.resetPeriodComments != null) settings.topcommentsRank.resetPeriod = cfg.resetPeriodComments;
     },
   }),
   setupStyleOverlay({

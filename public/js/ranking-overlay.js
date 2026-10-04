@@ -183,6 +183,13 @@
     }
 
     function tick() {
+      if (document.hidden) {
+        const arr = topArr();
+        arr.forEach((u) => { u.disp = u.val || 0; });
+        if (animTimer) { clearInterval(animTimer); animTimer = null; }
+        render();
+        return;
+      }
       const arr = topArr();
       let moved = false, pending = false;
       arr.forEach((u) => {
@@ -200,7 +207,7 @@
       }
       if (!pending && animTimer) { clearInterval(animTimer); animTimer = null; }
     }
-    function scheduleTick() { if (!animTimer) animTimer = setInterval(tick, 24); tick(); }
+    function scheduleTick() { if (document.hidden) { tick(); return; } if (!animTimer) animTimer = setInterval(tick, 66); tick(); }
 
     function bump(uid, name, pic, delta) {
       if (delta <= 0) return;
@@ -328,8 +335,8 @@
     const isEmbed = params.get('embed') === '1';
     const medalSet = ['👑', '🥈', '🥉'];
     const modes = opt.modes || [
-      { rank: 'topdiam', icon: '🪙', accentKey: 'diamAccent', periodKey: 'resetPeriodDiam' },
-      { rank: 'toplikes', icon: '❤️', accentKey: 'likesAccent', periodKey: 'resetPeriodLikes' },
+      { rank: 'altdiam', icon: '🪙', accentKey: 'diamAccent', periodKey: 'resetPeriodDiam' },
+      { rank: 'altlikes', icon: '❤️', accentKey: 'likesAccent', periodKey: 'resetPeriodLikes' },
     ];
 
     let cfg = Object.assign({}, opt.defaults);
@@ -468,6 +475,13 @@
 
     function tick() {
       const data = curData();
+      if (document.hidden) {
+        const arr = topArr(data);
+        arr.forEach((u) => { u.disp = u.val || 0; });
+        if (animTimer) { clearInterval(animTimer); animTimer = null; }
+        render();
+        return;
+      }
       const arr = topArr(data);
       let moved = false, pending = false;
       arr.forEach((u) => {
@@ -485,7 +499,7 @@
       }
       if (!pending && animTimer) { clearInterval(animTimer); animTimer = null; }
     }
-    function scheduleTick() { if (!animTimer) animTimer = setInterval(tick, 24); tick(); }
+    function scheduleTick() { if (document.hidden) { tick(); return; } if (!animTimer) animTimer = setInterval(tick, 66); tick(); }
 
     function applyRankState(payload) {
       const rank = payload.rank;
@@ -552,8 +566,9 @@
 
     function runTest() {
       if (animTimer) { clearInterval(animTimer); animTimer = null; }
-      stores.topdiam = fillDemo(12000 + Math.floor(Math.random() * 4000));
-      stores.toplikes = fillDemo(15000 + Math.floor(Math.random() * 4000));
+      modes.forEach((m, i) => {
+        stores[m.rank] = fillDemo((i === 0 ? 12000 : 15000) + Math.floor(Math.random() * 4000));
+      });
       modeIdx = 0;
       render({ seq: true });
       scheduleTick();
@@ -634,14 +649,14 @@
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
     const ALL_MODES = [
-      { id: 'likes', store: 'toplikes', showKey: 'showLikes', titleKey: 'titleLikes', icon: '/img/likes-heart.gif', defaultTitle: 'TOP LIKES' },
-      { id: 'coins', store: 'topdiam', showKey: 'showCoins', titleKey: 'titleCoins', icon: '/img/diamonds-coin.gif', defaultTitle: 'TOP COINS' },
-      { id: 'comments', store: 'topcomments', showKey: 'showComments', titleKey: 'titleComments', icon: '💬', defaultTitle: 'TOP CHAT' },
+      { id: 'likes', store: 'multilikes', showKey: 'showLikes', titleKey: 'titleLikes', icon: '/img/likes-heart.gif', defaultTitle: 'TOP LIKES' },
+      { id: 'coins', store: 'multidiam', showKey: 'showCoins', titleKey: 'titleCoins', icon: '/img/diamonds-coin.gif', defaultTitle: 'TOP COINS' },
+      { id: 'comments', store: 'multicomments', showKey: 'showComments', titleKey: 'titleComments', icon: '💬', defaultTitle: 'TOP CHAT' },
       { id: 'points', store: 'points', showKey: 'showPoints', titleKey: 'titlePoints', icon: '⭐', defaultTitle: 'RANKING' },
     ];
 
     let cfg = Object.assign({}, opt.defaults);
-    const stores = { toplikes: {}, topdiam: {}, topcomments: {}, points: {} };
+    const stores = { multilikes: {}, multidiam: {}, multicomments: {}, points: {} };
     let modeIdx = 0;
     let orderKey = '';
     let seqTimers = [];
@@ -790,6 +805,13 @@
 
     function tick() {
       const data = curData();
+      if (document.hidden) {
+        const arr = topArr(data);
+        arr.forEach((u) => { u.disp = u.val || 0; });
+        if (animTimer) { clearInterval(animTimer); animTimer = null; }
+        render();
+        return;
+      }
       const arr = topArr(data);
       let moved = false, pending = false;
       arr.forEach((u) => {
@@ -807,7 +829,7 @@
       }
       if (!pending && animTimer) { clearInterval(animTimer); animTimer = null; }
     }
-    function scheduleTick() { if (!animTimer) animTimer = setInterval(tick, 24); tick(); }
+    function scheduleTick() { if (document.hidden) { tick(); return; } if (!animTimer) animTimer = setInterval(tick, 66); tick(); }
 
     function applyRankState(payload) {
       const rank = payload.rank;
@@ -883,9 +905,9 @@
     }
 
     function resetRank(rank) {
-      if (rank === 'toplikes' || rank === 'topdiam' || rank === 'topcomments') {
-        const periodKey = rank === 'toplikes' ? 'resetPeriodLikes'
-          : (rank === 'topdiam' ? 'resetPeriodDiam' : 'resetPeriodComments');
+      if (rank === 'multilikes' || rank === 'multidiam' || rank === 'multicomments') {
+        const periodKey = rank === 'multilikes' ? 'resetPeriodLikes'
+          : (rank === 'multidiam' ? 'resetPeriodDiam' : 'resetPeriodComments');
         const p = cfg[periodKey];
         if (p === 'week' || p === 'month') return;
         stores[rank] = {};
@@ -921,9 +943,9 @@
 
     function runTest() {
       if (animTimer) { clearInterval(animTimer); animTimer = null; }
-      stores.toplikes = fillDemo(15000 + Math.floor(Math.random() * 4000));
-      stores.topdiam = fillDemo(12000 + Math.floor(Math.random() * 4000));
-      stores.topcomments = fillDemo(80 + Math.floor(Math.random() * 40));
+      stores.multilikes = fillDemo(15000 + Math.floor(Math.random() * 4000));
+      stores.multidiam = fillDemo(12000 + Math.floor(Math.random() * 4000));
+      stores.multicomments = fillDemo(80 + Math.floor(Math.random() * 40));
       stores.points = fillDemo(5000 + Math.floor(Math.random() * 2000));
       modeIdx = 0;
       render({ seq: true });
@@ -933,9 +955,9 @@
 
     function resetAll() {
       if (animTimer) { clearInterval(animTimer); animTimer = null; }
-      stores.toplikes = {};
-      stores.topdiam = {};
-      stores.topcomments = {};
+      stores.multilikes = {};
+      stores.multidiam = {};
+      stores.multicomments = {};
       /* puntos: no borrar el leaderboard del sistema en reset de ranks */
       render();
     }
