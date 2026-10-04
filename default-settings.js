@@ -1,5 +1,9 @@
 // Ajustes por defecto de cada room (usuario). Es la plantilla que se fusiona con
 // lo que cada usuario tenga guardado en su data/<id>/settings.json.
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+export const TTS_CARACOLA_DEFAULT_ANSWERS = require('./public/js/caracola-answers.js');
+
 export const DEFAULT_SETTINGS = {
   alerts: {
     gift: true,
@@ -38,6 +42,11 @@ export const DEFAULT_SETTINGS = {
     },
     // Usuarios permitidos
     allowAll: true, allowFollowers: false, allowSubs: false, allowMods: false, allowTeam: false,
+    allowWhitelist: false, whitelist: [],
+    // Acceso temporal tras enviar un regalo concreto (exclusivo con los demás filtros de quién habla).
+    allowGiftPass: false,
+    giftPass: { giftId: '', giftName: '', giftImage: '', minutes: 5 },
+    useBlacklist: false, blacklist: [],
     // Nivel mínimo de miembro (club de fans) para que se lea el mensaje. 0 = sin requisito.
     // requireMinLevel activa/desactiva este filtro desde el interruptor del panel.
     requireMinLevel: false, minMemberLevel: 0,
@@ -56,8 +65,8 @@ export const DEFAULT_SETTINGS = {
     // Comandos personalizados: cuando alguien escribe el comando (ej. !idwarzone) el
     // bot responde por voz (TTS) y muestra la respuesta. [{ id, command, response, enabled }]
     commands: [],
-    // Caracola mágica (bola 8): !caracola + pregunta → sí / no / tal vez…
-    caracola: { enabled: false, command: '!caracola', cooldownSec: 5 },
+    // Caracola mágica: !caracola + pregunta → frase al azar (editable en el panel).
+    caracola: { enabled: false, command: '!caracola', cooldownSec: 5, answers: TTS_CARACOLA_DEFAULT_ANSWERS.slice() },
     // Pasar puntos: !pasar 100 @usuario → resta al que envía y suma al destino.
     pasar: { enabled: false, command: '!pasar', cooldownSec: 8, minAmount: 1, maxAmount: 10000 },
     // Voces personalizadas por usuario del chat: [{ id, userId, nickname, engine, lang, voice, translate }]
@@ -139,7 +148,7 @@ export const DEFAULT_SETTINGS = {
     maxEnabled: false,
     maxCapSec: 18000,
     actionOnFinish: 'pause',
-    skin: 'classic',
+    skin: 'neon',
     // Estado vivo (sobrevive reinicios de app / Render)
     savedRemaining: null,
     savedRunning: false,
@@ -160,6 +169,7 @@ export const DEFAULT_SETTINGS = {
   perrito: {
     tint: '',
     tintRainbow: false,
+    resetPeriod: 'live',
     topBarEnabled: true,
     topBarLimit: 3,
     topBarColor: '#161820',
@@ -180,6 +190,7 @@ export const DEFAULT_SETTINGS = {
     tint: '', // color del cristal (vacío = transparente/normal)
     tintRainbow: false, // arcoíris animado en el cristal
     skin: 'classic', // classic | crown | heart | cosmos | lava | cyber | ice | ocean | crystal | royal | forest
+    resetPeriod: 'live', // live | week | month — top donador + bote
     topBarEnabled: true, // barra rotativa TOP DONATOR encima del contador
     topBarLimit: 3, // hasta qué top mostrar (1–10)
     topBarColor: '#161820',
@@ -200,6 +211,7 @@ export const DEFAULT_SETTINGS = {
   vaquita: {
     tint: '',
     tintRainbow: false,
+    resetPeriod: 'live',
     topBarEnabled: true,
     topBarLimit: 3,
     topBarColor: '#161820',
@@ -219,6 +231,7 @@ export const DEFAULT_SETTINGS = {
   marranito: {
     tint: '',
     tintRainbow: false,
+    resetPeriod: 'live',
     topBarEnabled: true,
     topBarLimit: 3,
     topBarColor: '#161820',
@@ -234,14 +247,18 @@ export const DEFAULT_SETTINGS = {
       { t: 0, sz: 32 },
     ],
   },
-  // Overlay Corazón lava (alcancía: regalos caen dentro del corazón)
+  // Overlay Meta Heart Me (corazón con agua + meta)
   corazonLava: {
     tint: '',
     tintRainbow: false,
+    waterColor: '#f5266f',
+    borderColor: '#ffd84a',
+    skin: 'heart', // heart | hongo (misma URL /corazon-lava.html)
+    font: 'bangers',
     metaLabel: 'Meta',
     metaGoal: 50,
     metaMode: 'gifts', // gifts = cuenta regalos | coins = cuenta monedas/diamantes
-    // Solo este regalo cae / cuenta / aparece en Testear
+    // Solo este regalo cuenta / aparece en Testear
     filterGiftId: '7934',
     filterGiftName: 'Heart Me',
     filterGiftImage: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/d56945782445b0b8c8658ed44f894c7b~tplv-obj.webp',
@@ -270,15 +287,14 @@ export const DEFAULT_SETTINGS = {
   },
   // Overlay del top donador semanal
   topDonor: {
-    c1: '#00e5ff',
-    c2: '#ff2bd6',
+    c1: '#35e0ff',
+    c2: '#ff4fd8',
     nameColor: '#ffffff',
-    title: 'TOP DONADOR SEMANAL',
+    title: 'EL TIBBER DE LA SEMANA',
     coinLabel: 'diamantes',
     showCountdown: true,
     showRunners: true,
     scale: 100,
-    skin: 'classic',
   },
   // Overlay Gift VS (versus de regalos por bandos)
   giftVs: {
@@ -657,6 +673,14 @@ export const DEFAULT_SETTINGS = {
     permUsers: [],
     overlayStyle: 'list',
   },
+  // LiveCoinSong bridge (opt-in, solo .exe). Si enabled=true y la app responde en
+  // 127.0.0.1:3201, !play/!skip/!revoke/!stop van a LiveCoinSong y NO a Spotify.
+  // Por defecto OFF → Spotify queda exactamente igual que antes.
+  livecoinsong: {
+    enabled: false,
+    host: '127.0.0.1',
+    port: 3201,
+  },
   // YouTube Song Requests (solo .exe). Comandos propios: !yt / !ytsalta / !ytquita
   // (no usar !play/!skip/!revoke: esos son de Spotify). TikTok suele filtrar "skip" y "revoke".
   youtube: {
@@ -693,6 +717,8 @@ export const DEFAULT_SETTINGS = {
     skipOthers: false,
     skipWho: 'mods',
     overlayStyle: 'card',
+    // Listas guardadas (solo metadata; la cola de chat sigue aparte)
+    playlists: [],
   },
   // Overlay Top 1 Donador (MVP de la sesión: quien más monedas regala)
   top1: {
@@ -735,8 +761,8 @@ export const DEFAULT_SETTINGS = {
     titleColor: '#ffffff',
     tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
     nameColor: '#e4e4ee', valueColor: '#e8c4a0',
-    nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
-    coinLabel: 'monedas', font: 'rubik',
+    nameStroke: '#1b2150', valueStroke: '#5e2a00',
+    coinLabel: 'monedas', font: 'lilita',
     titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
     resetPeriod: 'live',
   },
@@ -747,8 +773,8 @@ export const DEFAULT_SETTINGS = {
     titleColor: '#ffffff',
     tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
     nameColor: '#e4e4ee', valueColor: '#e8c4a0',
-    nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
-    coinLabel: 'monedas', font: 'rubik',
+    nameStroke: '#1b2150', valueStroke: '#5e2a00',
+    coinLabel: 'monedas', font: 'lilita',
     titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
     resetPeriod: 'live',
   },
@@ -860,6 +886,13 @@ export const DEFAULT_SETTINGS = {
     counterColor: '#ffffff',
     barColor: '#5ad4ff',
     glowColor: '#5ad4ff',
+    barHeight: 22,
+    barWidth: 88,
+    boxWidth: 100,
+    boxHeight: 100,
+    boxRadius: 28,
+    boxBorder: 2,
+    resetPeriod: 'live',
   },
   // Overlay Mejor racha (mayor combo)
   topStreak: {
@@ -868,8 +901,8 @@ export const DEFAULT_SETTINGS = {
     titleColor: '#ffffff',
     tc1: '#ff00aa', tc2: '#00ddff', tc3: '#ffcc00',
     nameColor: '#e4e4ee', valueColor: '#e8c4a0',
-    nameStroke: '#3d3d4a', valueStroke: '#4a3d2e',
-    font: 'rubik',
+    nameStroke: '#1b2150', valueStroke: '#5e2a00',
+    font: 'lilita',
     titleScale: 100, titleY: 0, bodyScale: 100, bodyY: 0, textLayer: 'front',
     resetPeriod: 'live',
   },
@@ -889,7 +922,7 @@ export const DEFAULT_SETTINGS = {
     valueColor: '#fde68a', coinColor: '#ffd700', bgOpacity: 45, vsStyle: 2,
     vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter',
     cardBg: '#16262e', cardBorder: '#94a3b8',
-    skin: 'classic', top1Skin: 'auto',
+    skin: 'neutro',
   },
   // Overlay Batalla de likes (ranking por likes)
   batallaLikes: {
@@ -897,7 +930,7 @@ export const DEFAULT_SETTINGS = {
     valueColor: '#fecaca', likesIcon: '❤️', bgOpacity: 45, vsStyle: 2,
     vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter',
     cardBg: '#16262e', cardBorder: '#94a3b8',
-    skin: 'classic', top1Skin: 'auto',
+    skin: 'neutro',
   },
   // Overlay Coin Match (partido cronometrado con podio)
   coinMatch: {
@@ -1035,6 +1068,16 @@ export const DEFAULT_SETTINGS = {
   topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false, resetPeriod: 'live' },
   toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, mirror: false, resetPeriod: 'live' },
   topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, mirror: false, resetPeriod: 'live' },
+  toplikesGamer: { rows: 5, scale: 100, resetPeriod: 'live' },
+  topdiamGamer: { rows: 5, scale: 100, resetPeriod: 'live' },
+  // Top donators PRO: un solo overlay con tres estilos (Cute / Fantasy / Voxel).
+  // `metric` decide si el ranking cuenta diamantes o likes; `font: 'auto'` deja
+  // la tipografía propia de cada estilo.
+  topDonatorsPro: {
+    design: 'cute', metric: 'diamonds', rows: 5,
+    title: 'TOP DONATORS', thanks: 'THANK YOU',
+    scale: 100, font: 'auto', accent: '#ffd23d', resetPeriod: 'live',
+  },
   topAltRank: {
     rows: 5, scale: 100, font: 'inter', rowBg: '#0c1c26',
     likesAccent: '#ffffff', diamAccent: '#ffe08a',
@@ -1066,7 +1109,9 @@ export const DEFAULT_SETTINGS = {
   // Consulta de puntos por comando de chat (!puntos)
   pointsLookup: {
     enabled: true, command: '!puntos', durationSec: 6, scale: 100, font: 'inter',
-    showCrown: true, pointsLabel: 'Points',
+    showCrown: true, pointsLabel: 'Points', cooldownSec: 6,
+    ttsOn: false, ttsText: '{username} tiene {points} puntos',
+    ttsVoice: 'es-MX-DaliaNeural', ttsRate: 1,
     rankColor: '#cfd8dc', levelColor: '#7dd3fc', nameColor: '#ffffff',
     pointsColor: '#b0b8c4', ringColor: '#ffd54f',
   },
@@ -1099,6 +1144,13 @@ export const DEFAULT_SETTINGS = {
     durationSec: 5, scale: 100, g1: '#00ffff', g2: '#7c3aed', g3: '#ff00ff', nameColor: '#ffffff', subColor: '#f8fafc',
     showAvatar: true, showShards: true, showRays: true, showDust: true, enterAnim: 'lift',
   },
+  nuevoSeguidorV2: {
+    title: '¡NUEVO SEGUIDOR!',
+    subtitle: '¡Bienvenido/a a la comunidad!',
+    durationSec: 5,
+    scale: 100,
+  },
+  // Overlay barra: subidas de nivel de fan (TikTok). mode month = limpia al cambiar de mes; forever = hasta Reset.
   fanLevelOverlay: {
     mode: 'month',
     rotateSec: 5,
@@ -1108,21 +1160,34 @@ export const DEFAULT_SETTINGS = {
     textTpl: '{name} alcanzó el nivel de miembro {level}',
     entries: [],
   },
-  audioVisualizer: {
-    deviceId: '',
-    deviceLabel: '',
-    deviceKind: 'mic',
-    design: 'vu',
-    bars: 32,
-    segments: 32,
-    maxHeight: 100,
-    smoothing: 0.55,
-    sensitivity: 1.2,
-    gain: 1.4,
-    color: '#25f4ee',
-    glow: 70,
-    invert: false,
-    mode: 'bars',
+  donorLevelOverlay: {
+    mode: 'month',
+    rotateSec: 5,
+    gapSec: 0.6,
+    scale: 100,
+    barColor: '#4169e1',
+    textTpl: '{name} alcanzó el nivel de donador {level}',
+    entries: [],
+  },
+  giftSentOverlay: {
+    mode: 'month',
+    minDiamonds: 0,
+    rotateSec: 5,
+    gapSec: 0.6,
+    scale: 100,
+    barColor: '#ff1a1a',
+    textTpl: '{name} envió {gift}',
+    // false = 1 por persona (mejor monedas). true = cada regalo entra a la rueda aunque sea la misma persona.
+    stackSameUser: false,
+    entries: [],
+  },
+  barsRotate: {
+    rotateSec: 6,
+    gapSec: 0.6,
+    scale: 100,
+    showFan: true,
+    showDonor: true,
+    showGift: true,
   },
   fuegos: {
     minCoins: 1, maxFireworks: 5, soundEnabled: true, soundVolume: 80,
@@ -1137,6 +1202,7 @@ export const DEFAULT_SETTINGS = {
     scale: 100,
     fadeMs: 0,
   },
+  // Ruleta de regalos: elige un juego, gira las acciones de ese juego y ejecuta la que caiga.
   giftRoulette: {
     enabled: true,
     giftId: '',
@@ -1206,6 +1272,11 @@ export const DEFAULT_SETTINGS = {
     tagSize: 0.78, statusSize: 0.55, phraseMode: 'random', phrase: '¡player 1 join!',
     phrases: '¡player 1 join!|entró al nivel|1up en el chat|warp zone|se unió al castillo',
   },
+  // Entrada con rayo — solo nivel de donador TikTok (gifter), no nivel de miembro/fans
+  streamJoinDonor: {
+    minLevel: 20, holdSec: 3, dedupeSec: 60, scale: 100,
+    phrases: '¡HA ENTRADO AL LIVE!|¡LLEGÓ A LA SALA!|¡DONADOR EN EL DIRECTO!|¡HA APARECIDO!',
+  },
   // Acciones (solo en la app .exe): cada acción dispara una tecla del teclado cuando
   // ocurre un evento del live. Lista de objetos:
   // { id, name, enabled, event, giftId, giftName, giftImage, minDiamonds,
@@ -1215,6 +1286,7 @@ export const DEFAULT_SETTINGS = {
   // event: 'gift-any' | 'gift' | 'like' | 'follow' | 'share'
   // keys: combinación ("Ctrl + A"), clic ("LeftClick") o texto ("Texto: hola")
   actions: [],
+  actionEvents: [],
   // Webhook y Configuración (solo en la app .exe). El webhook HTTP (puerto 3199)
   // permite ejecutar acciones desde herramientas externas (OBS, Stream Deck, scripts).
   // La sub-pestaña "Configuración" guarda los datos de conexión a RCON / OBS / Streamer.bot.
@@ -1225,9 +1297,20 @@ export const DEFAULT_SETTINGS = {
     // ServerTap / mod de TikFinity: alternativa a RCON para enviar comandos a Minecraft.
     servertap: { ip: 'localhost', port: 4567, key: 'change_me', playername: '', enabled: false },
   },
+  // Discord (Configuración, global): aviso al empezar el live + resumen al terminar.
+  // Sin webhookUrl no se envía nada. {link} y {user} se reemplazan en liveMessage.
+  discord: {
+    webhookUrl: '',
+    notifyLive: true,
+    liveMessage: '🔴 ¡Estoy en vivo en TikTok! Ven a verme 👉 {link}',
+    mentionEveryone: false,
+    notifySummary: true,
+    showSummary: true,
+  },
   // Acciones del juego Minecraft (solo .exe): cada una vincula un comando RCON a un
   // regalo o evento del live. { uid, catId, name, desc, cmd, trigger, giftId, giftName, giftImage, enabled }
   mcActions: [],
+  // Presets de acciones por juego Minecraft (Survival, Parkour, KOTH, etc.)
   mcPresetBanks: {},
   // Acciones de Minecraft Shooters: mismo RCON que Survival, lista aparte.
   mcshooterActions: [],
@@ -1246,6 +1329,10 @@ export const DEFAULT_SETTINGS = {
   bedrockActions: [],
   // Acciones del juego Minecraft Parkour: comandos /parkour; mismo RCON que Minecraft.
   parkourActions: [],
+  // Acciones del juego Minecraft OneBlock: comandos /oneblock; mismo RCON que Minecraft.
+  oneblockActions: [],
+  // Acciones del juego Minecraft SandWall: comandos /sandwall; mismo RCON que Minecraft.
+  sandwallActions: [],
   // Acciones del juego Minecraft KOTH: comandos /koth; mismo RCON que Minecraft.
   kothActions: [],
   // Acciones del juego Minecraft Farm: comandos /farm; mismo RCON que Minecraft.
@@ -1264,21 +1351,34 @@ export const DEFAULT_SETTINGS = {
   pvzActions: [],
   repoActions: [],
   l4dActions: [],
+  l4dSpawnGapMs: 400,
   unturnedActions: [],
   gtavKothActions: [],
   gtavChaosActions: [],
   gtavChiliadActions: [],
   ctrActions: [],
   flappyActions: [],
+  flappy: { exePath: '' },
   mk64Actions: [],
-  clashActions: [],
+  stackActions: [],
+  crossyActions: [],
+  pvzgeActions: [],
+  mk64: { hawkPath: '', romPath: '' },
   pvzFusionActions: [],
+  pvzfusion: { exePath: '' },
   smwActions: [],
   mslugActions: [],
   gdashActions: [],
   // Videos automáticos por nivel de miembro (public/video/niveles): al subir alguien de
   // nivel se reproduce nivelN.webm. screen = en qué Browser Source aparece.
-  levelVideos: { enabled: true, screen: 1, volume: 100 },
+  levelVideos: { enabled: false, screen: 1, volume: 100 },
+  overlayStudio: {
+    canvasW: 1080,
+    canvasH: 1920,
+    activePreset: 0,
+    presets: [{ id: 'p1', name: 'Preset 1', items: [] }],
+  },
+  editorRapido: null,
 };
 
 export function deepMerge(target, src) {

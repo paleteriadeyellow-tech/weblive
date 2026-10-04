@@ -646,12 +646,13 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   const RANKS_FILE = path.join(dataDir, 'rank-overlays.json');
   const FOC_METRICS_FILE = path.join(dataDir, 'foc-metrics.json');
   const RANK_IDS = [
-    'toplikes', 'topdiam', 'toplikeslist', 'topdiamlist', 'topcomments',
+    'toplikes', 'topdiam', 'toplikeslist', 'topdiamlist', 'toplikesgamer', 'topdiamgamer', 'topcomments',
     'multilikes', 'multidiam', 'multicomments', 'altlikes', 'altdiam',
   ];
   const RANK_SETTINGS_KEY = {
     toplikes: 'toplikesRank', topdiam: 'topdiamRank',
     toplikeslist: 'toplikesList', topdiamlist: 'topdiamList',
+    toplikesgamer: 'toplikesGamer', topdiamgamer: 'topdiamGamer',
     topcomments: 'topcommentsRank',
     multilikes: 'topMultiRank', multidiam: 'topMultiRank', multicomments: 'topMultiRank',
     altlikes: 'topAltRank', altdiam: 'topAltRank',
@@ -1313,7 +1314,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'cameraFrame',
-    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos', 'giftRoulette',
+    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'nuevoSeguidorV2', 'fuegos', 'giftRoulette',
     'followerCounter', 'followerCounterMc', 'liveTimer',
     'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
   ];
@@ -4204,6 +4205,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           coins: diamondsEach,
           nickname: nick,
           image: image || '',
+          photo: user.photo || '',
           uniqueId: uid || '',
         });
       }
@@ -4213,6 +4215,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         coins: Math.max(0, Number(diamondsEach) || 0),
         nickname: nick,
         image: image || '',
+        photo: user.photo || '',
         giftName: giftName || '',
         uniqueId: uid || '',
       });
@@ -4226,6 +4229,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           nickname: nick,
           giftName: giftName || '',
           image: image || '',
+          photo: user.photo || '',
           uniqueId: uid || '',
         });
       }
@@ -4758,6 +4762,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('alertaGiftReset', {});
     broadcast('alertaLikesReset', {});
     broadcast('alertaFollowReset', {});
+    broadcast('nuevoSeguidorV2Reset', {});
     broadcast('fuegosReset', {});
     broadcast('streamJoinReset', {});
     // Temporizador: NO se reinicia aquí (subathon). Solo con el botón Reiniciar
@@ -11435,6 +11440,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!user?.uniqueId || !(count > 0)) return;
     addRankValue('toplikes', user, count);
     addRankValue('toplikeslist', user, count);
+    addRankValue('toplikesgamer', user, count);
     addRankValue('multilikes', user, count);
     addRankValue('altlikes', user, count);
   }
@@ -11442,6 +11448,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!user?.uniqueId || !(coins > 0)) return;
     addRankValue('topdiam', user, coins);
     addRankValue('topdiamlist', user, coins);
+    addRankValue('topdiamgamer', user, coins);
     addRankValue('multidiam', user, coins);
     addRankValue('altdiam', user, coins);
   }
@@ -12645,10 +12652,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         state.stats.peakViewers = Math.max(Number(state.stats.peakViewers) || 0, data.memberCount);
       }
       const member = baseUser(data.user);
-      try { noteLiveRolesFromEvent(data, member); } catch {}
+      let roles = {};
+      try { roles = noteLiveRolesFromEvent(data, member) || {}; } catch { try { roles = chatUserRoles(data); } catch {} }
+      const gifterLevel = Math.max(0, Number(roles.gifterLevel) || 0);
+      const memberLevel = Math.max(0, Number(roles.memberLevel) || 0);
       touchPointsPresence(member);
       tryAwardDailyJoin(member);
-      broadcast('member', member);
+      broadcast('member', {
+        ...member,
+        gifterLevel,
+        donorLevel: gifterLevel,
+        memberLevel,
+        gifterBadge: (() => { try { return gifterBadgeImageUrl(data) || ''; } catch { return ''; } })(),
+      });
       // Registrar nivel al entrar (baseline para detectar subidas después).
       checkMemberLevelUp(data);
       // Video al entrar un usuario específico (el anti-spam por tiempo se aplica en
@@ -13042,15 +13058,19 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           if (!settings.youtube || typeof settings.youtube !== 'object') settings.youtube = { ...(DEFAULT_SETTINGS.youtube || {}) };
           settings.youtube.volume = vol;
         }
-        if (kind === 'seek') {
+        const hasTime = data.currentTime != null && Number.isFinite(Number(data.currentTime));
+        // pause/play con currentTime: realinea startedAt (si no, la barra “sigue” en pausa).
+        if (hasTime && (kind === 'seek' || kind === 'pause' || kind === 'play' || kind === 'resume')) {
           const st = youtubeSr.seekNow(id, data.currentTime);
-          const now = st && st.now;
-          try {
-            broadcast('youtubeSeek', {
-              videoId: now?.videoId || String(data.videoId || ''),
-              currentTime: Math.max(0, Number(data.currentTime) || 0),
-            });
-          } catch {}
+          if (kind === 'seek') {
+            const now = st && st.now;
+            try {
+              broadcast('youtubeSeek', {
+                videoId: now?.videoId || String(data.videoId || ''),
+                currentTime: Math.max(0, Number(data.currentTime) || 0),
+              });
+            } catch {}
+          }
         }
         pushYoutubeState();
         break;
@@ -14001,6 +14021,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       case 'resetAlertaFollow':
         broadcast('alertaFollowReset', {});
         break;
+      case 'testNuevoSeguidorV2':
+        broadcast('nuevoSeguidorV2Test', {});
+        break;
+      case 'resetNuevoSeguidorV2':
+        broadcast('nuevoSeguidorV2Reset', {});
+        break;
       case 'testFanLevel':
         broadcast('fanLevelTest', {
           config: serializeFanLevelState(),
@@ -14038,32 +14064,6 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (removeFanLevelEntry(uname)) {
           broadcast('log', { level: 'ok', text: `Nivel de fan: quitado @${uname}` });
         }
-        break;
-      }
-      case 'audioVizLevels': {
-        const binsIn = Array.isArray(data.bins) ? data.bins : [];
-        const bins = [];
-        const n = Math.min(64, binsIn.length);
-        for (let i = 0; i < n; i++) {
-          const v = Number(binsIn[i]);
-          bins.push(Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0);
-        }
-        const rms = Number(data.rms);
-        broadcast('audioVizLevels', {
-          t: Number(data.t) || Date.now(),
-          rms: Number.isFinite(rms) ? Math.max(0, Math.min(1, rms)) : 0,
-          bins,
-        });
-        break;
-      }
-      case 'testAudioViz': {
-        const n = Math.max(8, Math.min(64, Number(settings.audioVisualizer?.bars) || 32));
-        const bins = [];
-        const t = Date.now() / 180;
-        for (let i = 0; i < n; i++) {
-          bins.push(0.25 + 0.75 * Math.abs(Math.sin(t + i * 0.45)));
-        }
-        broadcast('audioVizTest', { t: Date.now(), rms: 0.6, bins });
         break;
       }
       case 'testFuegos':
@@ -14107,6 +14107,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         break;
       case 'resetStreamJoin':
         broadcast('streamJoinReset', {});
+        break;
+      case 'testStreamJoinDonor':
+        broadcast('streamJoinDonorTest', {});
+        break;
+      case 'resetStreamJoinDonor':
+        broadcast('streamJoinDonorReset', {});
         break;
       case 'coinMatch':
         broadcast('coinMatchControl', { action: data.coinAction, durationSec: data.durationSec });

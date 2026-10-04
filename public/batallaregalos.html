@@ -1,115 +1,216 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script src="/js/overlay-channel.js?v=ovch1"></script>
-<meta charset="UTF-8">
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
+  <meta charset="UTF-8">
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Batalla de regalos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800;900&family=Outfit:wght@500;600;700;800;900&family=Cinzel:wght@700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
     :root {
-      --bat-gap: 4px;
-      --bat-a: 0.45;
-      --bat-font: 'Inter', system-ui, sans-serif;
-      --bat-name: #ffffff;
-      --bat-row-bg: rgba(22,38,46,var(--bat-a));
-      --bat-row-bd: rgba(148,163,184,.55);
-      --bat-row-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
-      --bat-row-shadow-first: inset 0 0 0 1px rgba(0,0,0,.25), inset 6px 0 18px -6px var(--bat-c1-inset1), inset -6px 0 18px -6px var(--bat-c1-inset2);
-      --bat-row-shadow-rest: inset 0 0 0 1px rgba(0,0,0,.3), inset 4px 0 12px -6px rgba(180,140,80,.08);
-      --bat-c1-bg: rgba(36,48,64,var(--bat-a)); --bat-c1-bd: rgba(148,163,184,.5);
-      --bat-c1-inset1: rgba(56,189,248,.08); --bat-c1-inset2: rgba(148,163,184,.06);
-      --bat-c2-bg: rgba(22,26,34,var(--bat-a)); --bat-c2-bd: rgba(100,110,125,.75);
-      --bat-cr-bg: rgba(18,22,30,var(--bat-a)); --bat-cr-bd: rgba(90,100,118,.55);
-      --bat-ng1: #ff006e; --bat-ng2: #3a86ff; --bat-ng3: #ffbe0b;
-      --bat-vc: #fde68a; --bat-vg: rgba(250,204,21,.45);
-      --bat-coin: #ffd700; --bat-coin-glow: rgba(255,215,0,.65);
-      --bat-vs1: #fff5e6; --bat-vs2: #ff6b35; --bat-vs3: #c41e3a;
+      --magenta: #ff2bd6; --violet: #7b2cff; --cyan: #19e6ff; --gold: #f4c64e;
+      --bat-gap: 10px; --bat-rh: 68px; --bat-rh1: 72px;
+      --vs-scale: 1; --vs-x: 0px; --vs-y: 0px;
       --bat-vs-g1: rgba(56,189,248,.55); --bat-vs-g2: rgba(250,204,21,.35);
-      --bat-a1-bd: rgba(186,230,253,.5); --bat-a1-sh: rgba(56,189,248,.22);
-      --bat-a2-bd: rgba(180,195,210,.65); --bat-a2-sh: rgba(180,200,220,.2);
-      --bat-ar-bd: rgba(160,170,185,.45); --bat-ar-sh: rgba(160,170,185,.12);
-      --bat-ph: rgba(226,232,240,.88); --bat-ph-glow: rgba(56,189,248,.3);
     }
-    body { background-color: transparent !important; font-family: var(--bat-font); margin: 0; padding: 6px; overflow: hidden; }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { background: transparent !important; overflow: hidden; }
+    body { font-family: 'Outfit', system-ui, sans-serif; color: #fff; padding: 6px; }
     html.embed, html.embed body { width: 100%; height: 100%; }
     html.embed body { display: flex; align-items: center; justify-content: center; padding: 0; }
     html.embed .battle-root { transform: scale(var(--fit, 1)); transform-origin: center center; }
     .battle-root { display: inline-block; position: relative; }
-    .battle-container { position: relative; width: 404px; padding: 0; overflow: visible; }
+    .battle-container { position: relative; width: 480px; overflow: visible; }
     .battle-duel { display: flex; flex-direction: column; gap: var(--bat-gap); position: relative; overflow: visible; }
-    .battle-duel__row { display: grid; grid-template-columns: 122px 1fr; gap: 12px; align-items: center; min-height: 64px; padding: 8px 12px; border-radius: 12px; position: relative; z-index: 1; background-color: var(--bat-row-bg); border: 1px solid var(--bat-row-bd); box-shadow: var(--bat-row-shadow); overflow: visible; }
-    .battle-duel__icons { display: flex; flex-direction: row; align-items: center; gap: 14px; justify-content: flex-start; }
-    .battle-card--first { background-color: var(--bat-row-bg); border-color: var(--bat-row-bd); box-shadow: var(--bat-row-shadow-first); z-index: 2; }
-    .battle-card--second { background-color: var(--bat-row-bg); border-color: var(--bat-row-bd); }
-    .battle-card--rest { background-color: var(--bat-row-bg); border-color: var(--bat-row-bd); box-shadow: var(--bat-row-shadow-rest); }
-    .bat-rank-badge { width: 50px; height: 50px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 38px; line-height: 1; filter: drop-shadow(0 2px 6px rgba(0,0,0,.55)); }
-    .hexagon { width: 30px; height: 34px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); display: flex; justify-content: center; align-items: center; color: #1a1206; font-weight: 900; font-size: 16px; flex-shrink: 0; background: linear-gradient(160deg, #efebe9 0%, #a1887f 45%, #6d4c41 100%); filter: drop-shadow(0 2px 4px rgba(0,0,0,.5)); }
-    .avatar-wrap { position: relative; width: 52px; height: 52px; flex-shrink: 0; }
-    .avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background-color: #111; border: 2px solid rgba(255,255,255,.2); }
-    .battle-card--first .avatar { border-color: var(--bat-a1-bd); box-shadow: 0 0 10px var(--bat-a1-sh); }
-    .battle-card--second .avatar { border-color: var(--bat-a2-bd); box-shadow: 0 0 10px var(--bat-a2-sh); }
-    .battle-card--rest .avatar { border-color: var(--bat-ar-bd); box-shadow: 0 0 8px var(--bat-ar-sh); }
-    .info { display: flex; flex-direction: column; justify-content: center; gap: 4px; flex-grow: 1; min-width: 0; overflow: hidden; }
-    .battle-nombre--rainbow,
-    .battle-nombre--solid { font-family: var(--bat-font); font-weight: 900; font-size: 16px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .battle-nombre--rainbow { background: linear-gradient(90deg, #ff006e, #8338ec, #3a86ff, #06ffa5, #ffbe0b, #fb5607, #ff006e); background-size: 220% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow-flow 4s linear infinite; filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
-    .battle-nombre--solid { color: var(--bat-name); -webkit-text-fill-color: var(--bat-name); text-shadow: 0 1px 2px rgba(0,0,0,.85); }
-    @keyframes rainbow-flow { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
-    .stat-line { color: var(--bat-vc); font-weight: 900; font-size: 15px; display: flex; align-items: center; gap: 6px; text-shadow: 0 0 12px var(--bat-vg); }
-    .moneda-svg { width: 18px; height: 18px; flex-shrink: 0; filter: drop-shadow(0 0 4px var(--bat-coin-glow)); }
+    .battle-duel[data-t=b] { --bat-gap: 10px; --bat-rh: 64px; --bat-rh1: 96px; }
+    .battle-duel[data-t=c] { --bat-gap: 12px; --bat-rh: 66px; --bat-rh1: 70px; }
+    .battle-duel[data-t=d] { --bat-gap: 8px; --bat-rh: 64px; --bat-rh1: 74px; }
+    .battle-duel__row {
+      position: relative; z-index: 1; height: var(--bat-rh); min-height: var(--bat-rh);
+    }
+    .battle-duel__row[data-rank="1"] { height: var(--bat-rh1); min-height: var(--bat-rh1); z-index: 2; }
+    .battle-duel__row.up .in::after { animation: flash .9s ease-out; }
+    .in {
+      position: relative; height: 100%;
+      display: grid; grid-template-columns: 50px 50px 1fr auto; align-items: center; gap: 14px;
+      padding: 0 18px 8px;
+    }
+    .in::after {
+      content: ""; position: absolute; inset: 0; opacity: 0; pointer-events: none; border-radius: inherit;
+      background: rgba(255,255,255,.4);
+    }
+    @keyframes flash { 0% { opacity: .9; } 100% { opacity: 0; } }
+    .intro .in { animation: enter .7s var(--ease, cubic-bezier(.2,.9,.3,1)) both; animation-delay: calc(var(--i) * .08s); }
+    @keyframes enter { from { opacity: 0; transform: translateX(-70px); } to { opacity: 1; transform: none; } }
+    .rk {
+      position: relative; width: 50px !important; height: 54px !important;
+      background: none !important; box-shadow: none !important; clip-path: none !important; border-radius: 0 !important;
+    }
+    .rk svg { position: absolute; inset: 0; width: 100%; height: 100%; display: none; filter: drop-shadow(0 4px 6px #000a); background: none !important; }
+    .rk .hx { display: block; }
+    [data-rank="1"] .cr, [data-rank="2"] .m2, [data-rank="3"] .m3 { display: block; }
+    [data-rank="1"] .hx, [data-rank="2"] .hx, [data-rank="3"] .hx { display: none; }
+    [data-rank="1"] .cr { filter: drop-shadow(0 0 10px rgba(255,200,60,.9)) drop-shadow(0 4px 5px #000a); }
+    .rk span {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      color: #fff !important; text-shadow: 0 2px 3px #000c; padding-top: 1px; font-weight: 800;
+      background: none !important;
+    }
+    [data-rank="1"] .rk span, [data-rank="2"] .rk span, [data-rank="3"] .rk span { display: none; }
+    .av { width: 50px; height: 50px; border-radius: 50%; overflow: hidden; background: #0b0a1c; flex-shrink: 0; }
+    .av img { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .cn { display: flex; align-items: center; gap: 9px; }
+    .coin { width: 28px; height: 28px; filter: drop-shadow(0 0 7px rgba(255,200,40,.75)) drop-shadow(0 2px 3px #000a); }
+    .bar { position: absolute; left: 146px; right: 18px; bottom: 9px; height: 4px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .bar u { display: block; height: 100%; width: 0; transition: width .9s cubic-bezier(.3,1,.4,1); }
+
+    /* D · NEUTRO (principal) */
+    [data-t=d] { --flash: rgba(255,255,255,.22); }
+    [data-t=d] .in::after { background: var(--flash); }
+    [data-t=d] .nm { font: 600 17px 'Outfit', system-ui, sans-serif; color: #f1f1f1; letter-spacing: .01em; }
+    [data-t=d] .cn b { font: 600 22px 'Outfit', system-ui, sans-serif; color: #fff; font-variant-numeric: tabular-nums; }
+    [data-t=d] .in {
+      border-radius: 12px; background: rgba(255,255,255,.055);
+      border: 1px solid rgba(255,255,255,.13); backdrop-filter: blur(8px);
+    }
+    [data-t=d] [data-rank="1"] .in { background: rgba(255,255,255,.1); border-color: rgba(214,200,160,.5); }
+    [data-t=d] .rk svg, [data-t=d] .coin { filter: saturate(.5) brightness(.96) drop-shadow(0 3px 5px #0009); }
+    [data-t=d] .av { filter: saturate(.5) brightness(.95); box-shadow: 0 0 0 2px #121316, 0 0 0 3px rgba(255,255,255,.3); }
+    [data-t=d] [data-rank="1"] .av { box-shadow: 0 0 0 2px #121316, 0 0 0 3px rgba(214,200,160,.85); }
+    [data-t=d] .bar { height: 3px; border-radius: 2px; background: rgba(255,255,255,.1); }
+    [data-t=d] .bar u { background: linear-gradient(90deg, #6c7787, #d3dae4); }
+    [data-t=d].intro .in { animation-name: enterd; }
+    @keyframes enterd { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+    /* A · NEÓN */
+    [data-t=a] .nm { font: 800 15px 'Unbounded', sans-serif; color: #fff; }
+    [data-t=a] .cn b { font: 600 24px 'Outfit', sans-serif; color: #aef6ff; text-shadow: 0 0 14px #19e6ffaa; }
+    [data-t=a] .in {
+      border-radius: 16px;
+      background: linear-gradient(100deg, rgba(25,230,255,.10), rgba(123,44,255,.16));
+      border: 1px solid rgba(130,150,255,.4); backdrop-filter: blur(6px);
+    }
+    [data-t=a] [data-rank="1"] .in { border-color: var(--magenta); box-shadow: 0 0 28px rgba(255,43,214,.4), inset 0 0 26px rgba(255,43,214,.14); }
+    [data-t=a] [data-rank="2"] .in { border-color: var(--cyan); box-shadow: 0 0 22px rgba(25,230,255,.3); }
+    [data-t=a] .rk span { font: 800 18px 'Unbounded', sans-serif; }
+    [data-t=a] .av { box-shadow: 0 0 0 3px #0a0c24, 0 0 0 5px var(--violet); }
+    [data-t=a] [data-rank="1"] .av { box-shadow: 0 0 0 3px #0a0c24, 0 0 0 5px var(--magenta), 0 0 20px var(--magenta); }
+    [data-t=a] .bar { border-radius: 3px; }
+    [data-t=a] .bar u { background: linear-gradient(90deg, var(--cyan), var(--magenta)); box-shadow: 0 0 10px var(--magenta); }
+
+    /* B · ORO */
+    [data-t=b] { --ease: cubic-bezier(.2,.8,.2,1); }
+    [data-t=b] .nm {
+      font: 700 18px 'Cinzel', serif; letter-spacing: .04em;
+      background: linear-gradient(#fff2c4,#e0ac3a); -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    [data-t=b] .cn { padding: 4px 14px 4px 10px; border-radius: 30px; background: #241a08; box-shadow: 0 0 0 1px #8a6a22; }
+    [data-t=b] .cn b { font: 600 21px 'Outfit', sans-serif; color: #ffe9a6; }
+    [data-t=b] .in {
+      border-radius: 6px; background: linear-gradient(#17120a,#0b0905);
+      box-shadow: inset 0 0 0 1px #2c2210, 0 0 0 1px #7a5d1e, 0 8px 18px #0008;
+    }
+    [data-t=b] [data-rank="1"] .in {
+      background: linear-gradient(120deg,#6d4c0f,#f1c453 40%,#ffeaa0 55%,#b8862b);
+      box-shadow: 0 0 0 2px #fff0b5, 0 0 34px rgba(244,198,78,.55);
+    }
+    [data-t=b] [data-rank="1"] .nm { background: none; -webkit-text-fill-color: #2a1a02; color: #2a1a02; font-size: 22px; }
+    [data-t=b] [data-rank="1"] .cn { background: #2a1a02; box-shadow: 0 0 0 1px #2a1a02; }
+    [data-t=b] .rk span { font: 900 18px 'Cinzel', serif; color: #e8c46a !important; }
+    [data-t=b] .av { box-shadow: 0 0 0 3px #100c05, 0 0 0 5px #c9a13f; filter: saturate(.85); }
+    [data-t=b] .bar { height: 3px; }
+    [data-t=b] .bar u { background: linear-gradient(90deg,#8a6a22,#ffe08a); }
+    [data-t=b] [data-rank="1"] .bar { background: #0003; }
+    [data-t=b] [data-rank="1"] .bar u { background: #2a1a02; }
+
+    /* C · ARCADE */
+    [data-t=c] { --ease: steps(7); }
+    [data-t=c] .nm { font: 400 11px 'Press Start 2P', monospace; color: #ffe14a; text-shadow: 2px 2px 0 #000; }
+    [data-t=c] .cn b { font: 400 14px 'Press Start 2P', monospace; color: #3ef0ff; text-shadow: 2px 2px 0 #000; }
+    [data-t=c] .in { background: #1e0e4c; box-shadow: 0 0 0 3px #ff3e9d, 6px 6px 0 3px #07021a; }
+    [data-t=c] [data-rank="1"] .in { box-shadow: 0 0 0 3px #ffe14a, 6px 6px 0 3px #07021a; background: #2d1070; }
+    [data-t=c] [data-rank="1"] .nm::before { content: "▶ "; animation: blink 1s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    [data-t=c] .rk span { font: 400 16px 'Press Start 2P', monospace; text-shadow: 2px 2px 0 #000; }
+    [data-t=c] .av { border-radius: 0; box-shadow: 0 0 0 3px #07021a, 0 0 0 6px #3ef0ff; }
+    [data-t=c] .bar { height: 8px; background: #07021a; }
+    [data-t=c] .bar u { background: repeating-linear-gradient(90deg, #3ef0ff 0 9px, transparent 9px 12px); }
+    [data-t=c] .battle-container::after {
+      content: ""; position: absolute; inset: -6px; pointer-events: none; z-index: 40;
+      background: repeating-linear-gradient(transparent 0 3px, rgba(0,0,0,.18) 3px 4px);
+    }
+
     .vs-logo-img {
-      position: absolute;
-      left: 18px;
-      bottom: -18px;
-      z-index: 30;
-      width: 108px;
-      height: auto;
-      max-height: none;
-      object-fit: contain;
+      position: absolute; left: 18px; bottom: -18px; z-index: 30;
+      width: 108px; height: auto; max-height: none; object-fit: contain;
       transform: translate(var(--vs-x, 0px), calc(50% + var(--vs-y, 0px))) rotate(-5deg) scale(var(--vs-scale, 1));
       transform-origin: center center;
       filter: drop-shadow(0 0 10px var(--bat-vs-g1)) drop-shadow(0 0 16px var(--bat-vs-g2)) drop-shadow(1px 2px 0 rgba(0,0,0,.4));
-      pointer-events: none;
-      user-select: none;
+      pointer-events: none; user-select: none;
     }
-    .vs-logo-img--s2,
-    .vs-logo-img--s3 {
-      width: 72px;
-      left: 28px;
-      bottom: -12px;
-    }
-    .battle-duel__vs-spacer {
-      height: 32px;
-      flex-shrink: 0;
-      pointer-events: none;
-    }
+    .vs-logo-img--s2, .vs-logo-img--s3 { width: 72px; left: 28px; bottom: -12px; }
+    .battle-duel__vs-spacer { height: 28px; flex-shrink: 0; pointer-events: none; }
     .battle-duel--sequential .battle-duel__row,
     .battle-duel--sequential .battle-duel__vs-spacer { opacity: 0; transform: translateY(10px); transition: opacity .4s ease, transform .4s ease; }
     .battle-duel--sequential .battle-duel__row.bat-seq-visible,
     .battle-duel--sequential .battle-duel__vs-spacer.bat-seq-visible { opacity: 1; transform: translateY(0); }
-    .battle-placeholder { color: var(--bat-ph); font-weight: 800; font-size: 14px; text-align: center; padding: 24px 12px; text-shadow: 0 0 12px var(--bat-ph-glow); }
-    .battle-duel__row.has-skin {
-      background-color: rgba(8, 12, 18, calc(var(--bat-a) * .5));
-      border-color: transparent;
-      box-shadow: none;
-      overflow: visible;
+    .battle-placeholder { color: rgba(226,232,240,.88); font: 700 14px 'Outfit', sans-serif; text-align: center; padding: 24px 12px; }
+    @media (prefers-reduced-motion: reduce) {
+      .bar u { transition-duration: .01s; }
+      .intro .in { animation-duration: .01s; }
     }
-    .battle-duel__row.has-skin-top1 { padding-top: 20px; padding-bottom: 16px; min-height: 78px; }
-    .row-skin {
-      position: absolute; inset: -12px;
-      width: calc(100% + 24px); height: calc(100% + 24px);
-      object-fit: fill; pointer-events: none; z-index: 2;
-    }
-    .battle-duel__row.has-skin-top1 .row-skin { inset: -30px -12px -16px; width: calc(100% + 24px); height: calc(100% + 46px); }
-    .battle-duel__row.has-skin .battle-duel__icons,
-    .battle-duel__row.has-skin .info { position: relative; z-index: 3; }
-</style>
+  </style>
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="gd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff6b0"/><stop offset=".45" stop-color="#ffc41f"/><stop offset="1" stop-color="#b86c00"/></linearGradient>
+    <linearGradient id="gr" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff0a0"/><stop offset=".5" stop-color="#e9a012"/><stop offset="1" stop-color="#8f5200"/></linearGradient>
+    <radialGradient id="gf" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#fffbd0"/><stop offset=".5" stop-color="#ffc81c"/><stop offset="1" stop-color="#c27c00"/></radialGradient>
+    <linearGradient id="cw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3a8"/><stop offset=".55" stop-color="#f2a915"/><stop offset="1" stop-color="#a95f00"/></linearGradient>
+    <radialGradient id="rb" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffb3c4"/><stop offset=".5" stop-color="#e5174b"/><stop offset="1" stop-color="#7a0526"/></radialGradient>
+    <radialGradient id="sp" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#b9d4ff"/><stop offset=".5" stop-color="#2f6bff"/><stop offset="1" stop-color="#0a2a8f"/></radialGradient>
+    <linearGradient id="rbA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a56ff"/><stop offset="1" stop-color="#14238f"/></linearGradient>
+    <linearGradient id="rbB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6f9bff"/><stop offset="1" stop-color="#2744c4"/></linearGradient>
+    <linearGradient id="hxo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6ded0"/><stop offset=".45" stop-color="#a97f6e"/><stop offset="1" stop-color="#4e362b"/></linearGradient>
+    <linearGradient id="hxi" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#7a5848"/><stop offset="1" stop-color="#2d1c16"/></linearGradient>
+    <g id="coin"><circle cx="32" cy="32" r="30" fill="url(#gd)"/><circle cx="32" cy="32" r="28.6" fill="none" stroke="#8a5300" stroke-width="2.2" stroke-dasharray="1.5 1.5" opacity=".55"/>
+    <circle cx="32" cy="32" r="25" fill="url(#gr)"/><circle cx="32" cy="32" r="22.5" fill="url(#gf)"/><circle cx="32" cy="32" r="22.5" fill="none" stroke="#fff7c4" stroke-width="1" opacity=".8"/>
+    <path d="M32 19.5 L35.6 27.6 L44.5 28.4 L37.8 34.2 L39.9 43 L32 38.3 L24.1 43 L26.2 34.2 L19.5 28.4 L28.4 27.6Z" fill="#fff7c0" transform="translate(.9 .9)" opacity=".9"/>
+    <path d="M32 19.5 L35.6 27.6 L44.5 28.4 L37.8 34.2 L39.9 43 L32 38.3 L24.1 43 L26.2 34.2 L19.5 28.4 L28.4 27.6Z" fill="#c07a00"/>
+    <path d="M13 22 A21 21 0 0 1 29 11" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none" opacity=".85"/><circle cx="46" cy="47" r="1.6" fill="#fff" opacity=".7"/></g>
+    <g id="crown"><path d="M7 47 H57 V53 Q32 58 7 53Z" fill="url(#gr)" stroke="#8f5200" stroke-width="1.2"/>
+    <path d="M6 47 L2 14 L18 28 L32 6 L46 28 L62 14 L58 47Z" fill="url(#cw)" stroke="#9a5d06" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M6 47 L2 14 L18 28 L24 36 L19 47Z" fill="#8a4c00" opacity=".25"/><path d="M32 6 L23 35 L32 47 L41 35Z" fill="#fff" opacity=".2"/><path d="M58 47 L62 14 L46 28 L41 36 L45 47Z" fill="#fff" opacity=".12"/>
+    <circle cx="2" cy="12.5" r="4" fill="url(#gf)" stroke="#9a5d06" stroke-width="1"/><circle cx="32" cy="5" r="4.4" fill="url(#gf)" stroke="#9a5d06" stroke-width="1"/><circle cx="62" cy="12.5" r="4" fill="url(#gf)" stroke="#9a5d06" stroke-width="1"/>
+    <path d="M32 30 L39 38 L32 46 L25 38Z" fill="url(#rb)" stroke="#ffe0e8" stroke-width=".9"/><path d="M28 36 L32 32 L33 36Z" fill="#fff" opacity=".6"/>
+    <circle cx="14" cy="42" r="3.4" fill="url(#sp)" stroke="#d6e4ff" stroke-width=".8"/><circle cx="50" cy="42" r="3.4" fill="url(#sp)" stroke="#d6e4ff" stroke-width=".8"/>
+    <path d="M12 12 l1 3 3 1 -3 1 -1 3 -1 -3 -3 -1 3 -1z" fill="#fff" opacity=".9"/></g>
+    <linearGradient id="m2a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#c6cde6"/><stop offset="1" stop-color="#7c86ad"/></linearGradient>
+    <linearGradient id="m2b" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#c6cde6"/><stop offset="1" stop-color="#7c86ad"/></linearGradient>
+    <g id="m2"><path d="M9 0 H21 L29 27 L18 31Z" fill="url(#rbA)"/><path d="M35 0 H23 L15 27 L26 31Z" fill="url(#rbB)"/><path d="M13 0 H17 L24 24 L21 25Z" fill="#fff" opacity=".18"/>
+    <circle cx="22" cy="27" r="3.6" fill="none" stroke="#7c86ad" stroke-width="2"/>
+    <circle cx="22" cy="42" r="17.5" fill="url(#m2a)" stroke="#e8ecff" stroke-width=".8"/><circle cx="22" cy="42" r="14.2" fill="url(#m2b)"/>
+    <circle cx="22" cy="42" r="12" fill="url(#m2a)"/><circle cx="22" cy="42" r="12" fill="none" stroke="#59628c" stroke-width=".8" opacity=".6"/>
+    <text x="22.8" y="48.6" text-anchor="middle" font-family="Outfit,sans-serif" font-weight="900" font-size="19" fill="#fff" opacity=".85">2</text>
+    <text x="22" y="47.8" text-anchor="middle" font-family="Outfit,sans-serif" font-weight="900" font-size="19" fill="#3d4670">2</text>
+    <path d="M10 33 A15 15 0 0 1 24 26" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none" opacity=".85"/></g>
+    <linearGradient id="m3a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffdcb5"/><stop offset=".5" stop-color="#d0833f"/><stop offset="1" stop-color="#7a3d12"/></linearGradient>
+    <linearGradient id="m3b" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffdcb5"/><stop offset=".55" stop-color="#d0833f"/><stop offset="1" stop-color="#7a3d12"/></linearGradient>
+    <g id="m3"><path d="M9 0 H21 L29 27 L18 31Z" fill="url(#rbA)"/><path d="M35 0 H23 L15 27 L26 31Z" fill="url(#rbB)"/><path d="M13 0 H17 L24 24 L21 25Z" fill="#fff" opacity=".18"/>
+    <circle cx="22" cy="27" r="3.6" fill="none" stroke="#7a3d12" stroke-width="2"/>
+    <circle cx="22" cy="42" r="17.5" fill="url(#m3a)" stroke="#ffe6cc" stroke-width=".8"/><circle cx="22" cy="42" r="14.2" fill="url(#m3b)"/>
+    <circle cx="22" cy="42" r="12" fill="url(#m3a)"/><circle cx="22" cy="42" r="12" fill="none" stroke="#6b3410" stroke-width=".8" opacity=".6"/>
+    <text x="22.8" y="48.6" text-anchor="middle" font-family="Outfit,sans-serif" font-weight="900" font-size="19" fill="#fff" opacity=".85">3</text>
+    <text x="22" y="47.8" text-anchor="middle" font-family="Outfit,sans-serif" font-weight="900" font-size="19" fill="#4f2509">3</text>
+    <path d="M10 33 A15 15 0 0 1 24 26" stroke="#fff" stroke-width="2.6" stroke-linecap="round" fill="none" opacity=".85"/></g>
+    <g id="hx"><path d="M25 2 L46 14 L46 40 L25 52 L4 40 L4 14Z" fill="url(#hxo)" stroke="#2d1c16" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M25 8 L41 17.1 L41 36.9 L25 46 L9 36.9 L9 17.1Z" fill="url(#hxi)" stroke="#e7c9ba" stroke-width=".8" opacity=".95"/>
+    <path d="M7 16 L25 4.8 L43 16" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".55"/></g>
+  </defs></svg>
+
   <div class="battle-root">
     <div class="battle-container" id="lista-ranking">
       <div class="battle-placeholder">Esperando regalos...</div>
@@ -118,229 +219,231 @@
 
   <script>
 (function () {
-    const params = new URLSearchParams(location.search);
-    const isEmbed = params.get('embed') === '1';
-    let cfg = { limit: 2, nameRainbow: true, placeholder: 'Esperando regalos...', valueColor: '#fde68a', coinColor: '#ffd700', bgOpacity: 45, vsStyle: 2, vsScale: 40, vsX: -19, vsY: 3, nameColor: '#ffffff', font: 'inter', cardBg: '#16262e', cardBorder: '#94a3b8', skin: 'classic', top1Skin: 'auto' };
-    const ROW_SKINS = {
-      crimson: '/overlays/batalla/skin-crimson.png?v=1',
-      gold: '/overlays/batalla/skin-gold.png?v=1',
-      cyber: '/overlays/batalla/skin-cyber.png?v=1',
-      neon: '/overlays/batalla/skin-neon.png?v=1',
-    };
-    const TOP1_SKINS = {
-      royal: '/overlays/batalla/skin-royal.png?v=1',
-      frost: '/overlays/batalla/skin-frost.png?v=1',
-      majesty: '/overlays/batalla/skin-majesty.png?v=1',
-      regal: '/overlays/batalla/skin-regal.png?v=1',
-      empire: '/overlays/batalla/skin-empire.png?v=1',
-      sapphire: '/overlays/batalla/skin-sapphire.png?v=1',
-    };
-    function skinForRank(rank) {
-      if (rank === 1) {
-        const t = String(cfg.top1Skin || 'auto');
-        if (TOP1_SKINS[t]) return { src: TOP1_SKINS[t], top1: true };
-      }
-      const s = String(cfg.skin || 'classic');
-      if (ROW_SKINS[s]) return { src: ROW_SKINS[s], top1: false };
-      return null;
-    }
-    Object.values(ROW_SKINS).concat(Object.values(TOP1_SKINS)).forEach((src) => { const im = new Image(); im.src = src; });
-    let skinHoldUntil = 0;
-    function applyRowSkins() {
-      document.querySelectorAll('.battle-duel__row').forEach((row, i) => {
-        const sk = skinForRank(i + 1);
-        row.classList.toggle('has-skin', !!sk);
-        row.classList.toggle('has-skin-top1', !!(sk && sk.top1));
-        let img = row.querySelector('.row-skin');
-        if (!sk) { if (img) img.remove(); return; }
-        if (!img) {
-          img = document.createElement('img');
-          img.className = 'row-skin';
-          img.alt = '';
-          img.draggable = false;
-          row.insertBefore(img, row.firstChild);
-        }
-        if (img.getAttribute('src') !== sk.src) img.src = sk.src;
-      });
-    }
-    function mergeCfg(partial, fromLocal) {
-      const bag = partial && typeof partial === 'object' ? partial : {};
-      const keys = Object.keys(bag);
-      const onlySkin = keys.length > 0 && keys.every((k) => k === 'skin' || k === 'top1Skin');
-      if (fromLocal) skinHoldUntil = Date.now() + 2800;
-      if (!fromLocal && Date.now() < skinHoldUntil) {
-        const keepS = cfg.skin, keepT = cfg.top1Skin;
-        Object.assign(cfg, bag);
-        cfg.skin = keepS;
-        cfg.top1Skin = keepT;
-        if (onlySkin) applyRowSkins();
-        else { applyStyle(); render(); }
-        return;
-      }
-      Object.assign(cfg, bag);
-      if (onlySkin) applyRowSkins();
-      else { applyStyle(); render(); }
-    }
-    const FONTS = {
-      pressstart: "'Press Start 2P', monospace",
-      exo2: "'Exo 2', system-ui, sans-serif",
-      luckiest: "'Luckiest Guy', 'Arial Black', Impact, sans-serif",
-      bangers: "'Bangers', 'Arial Black', Impact, sans-serif",
-      lilita: "'Lilita One', system-ui, sans-serif",
-      titan: "'Titan One', system-ui, sans-serif",
-      fredoka: "'Fredoka', system-ui, sans-serif",
-      bungee: "'Bungee', system-ui, sans-serif",
-      rubik: "'Rubik', system-ui, sans-serif",
-      oswald: "'Oswald', system-ui, sans-serif",
-      bebas: "'Bebas Neue', Impact, sans-serif",
-      montserrat: "'Montserrat', system-ui, sans-serif",
-      poppins: "'Poppins', system-ui, sans-serif",
-      orbitron: "'Orbitron', system-ui, sans-serif",
-      inter: "'Inter', system-ui, sans-serif",
-      system: 'system-ui, sans-serif',
-    };
-    function hexRgb(hex, fallback) {
-      const m = String(hex || '').trim().replace('#', '');
-      if (!/^[0-9a-fA-F]{6}$/.test(m)) return fallback;
-      return {
-        r: parseInt(m.slice(0, 2), 16),
-        g: parseInt(m.slice(2, 4), 16),
-        b: parseInt(m.slice(4, 6), 16),
-      };
-    }
-    function vsImgSrc() {
-      const n = Math.max(1, Math.min(3, parseInt(cfg.vsStyle, 10) || 1));
-      return '/img/vs-battle-' + n + '.png';
-    }
-    function vsImgClass() {
-      const n = Math.max(1, Math.min(3, parseInt(cfg.vsStyle, 10) || 1));
-      return 'vs-logo-img' + (n > 1 ? ' vs-logo-img--s' + n : '');
-    }
-    function applyVsPos() {
-      const r = document.documentElement.style;
-      const scale = Math.max(40, Math.min(180, Number(cfg.vsScale) || 100)) / 100;
-      const x = Math.max(-80, Math.min(80, Number(cfg.vsX) || 0));
-      const y = Math.max(-80, Math.min(80, Number(cfg.vsY) || 0));
-      r.setProperty('--vs-scale', String(scale));
-      r.setProperty('--vs-x', x + 'px');
-      r.setProperty('--vs-y', y + 'px');
-    }
-    let ranking = {};
-    let seqTimers = [];
-    let fitFn = null;
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  let cfg = {
+    limit: 2, nameRainbow: true, placeholder: 'Esperando regalos...',
+    valueColor: '#fde68a', coinColor: '#ffd700', bgOpacity: 45,
+    vsStyle: 2, vsScale: 40, vsX: -19, vsY: 3,
+    nameColor: '#ffffff', font: 'inter', cardBg: '#16262e', cardBorder: '#94a3b8',
+    skin: 'neutro',
+  };
+  const THEME_MAP = { neutro: 'd', neon: 'a', oro: 'b', arcade: 'c', gold: 'b', classic: 'd', crimson: 'a', cyber: 'a' };
+  function themeOf() {
+    const s = String(cfg.skin || 'neutro').toLowerCase();
+    return THEME_MAP[s] || 'd';
+  }
+  function normalizeSkin(s) {
+    const k = String(s || 'neutro').toLowerCase();
+    if (k === 'oro' || k === 'gold') return 'oro';
+    if (k === 'arcade') return 'arcade';
+    if (k === 'neon' || k === 'crimson' || k === 'cyber') return 'neon';
+    return 'neutro';
+  }
+  let skinHoldUntil = 0;
+  let heldSkin = '';
+  function applyThemeOnly() {
+    const duel = document.querySelector('.battle-duel');
+    if (duel) duel.setAttribute('data-t', themeOf());
+  }
+  function refreshVsDom() {
+    const img = document.querySelector('.vs-logo-img, .vs-logo-img--s2, .vs-logo-img--s3');
+    if (!img) return;
+    const src = vsImgSrc();
+    const cls = vsImgClass();
+    if (img.getAttribute('src') !== src) img.src = src;
+    if (img.className !== cls) img.className = cls;
+  }
+  function mergeCfg(partial, fromLocal) {
+    const bag = partial && typeof partial === 'object' ? { ...partial } : {};
+    const keys = Object.keys(bag);
+    if (!keys.length) return;
+    if (bag.skin != null) bag.skin = normalizeSkin(bag.skin);
+    const skinOnly = keys.every((k) => k === 'skin' || k === 'top1Skin');
+    const prevSkin = normalizeSkin(cfg.skin);
+    const prevLimit = parseInt(cfg.limit, 10) || 2;
+    const prevVs = [cfg.vsStyle, cfg.vsScale, cfg.vsX, cfg.vsY, cfg.placeholder].join('|');
 
-    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-    function safeId(s) { return String(s == null ? '' : s).replace(/[^a-zA-Z0-9_-]/g, '_'); }
-    function applyStyle() {
-      const r = document.documentElement.style;
-      r.setProperty('--bat-vc', cfg.valueColor || '#fde68a');
-      r.setProperty('--bat-coin', cfg.coinColor || '#ffd700');
-      r.setProperty('--bat-name', cfg.nameColor || '#ffffff');
-      r.setProperty('--bat-font', FONTS[cfg.font] || FONTS.inter);
-      const op = Math.max(10, Math.min(100, Number(cfg.bgOpacity) || 45)) / 100;
-      r.setProperty('--bat-a', String(op));
-      const bg = hexRgb(cfg.cardBg, { r: 22, g: 38, b: 46 });
-      const bd = hexRgb(cfg.cardBorder, { r: 148, g: 163, b: 184 });
-      r.setProperty('--bat-row-bg', 'rgba(' + bg.r + ',' + bg.g + ',' + bg.b + ',var(--bat-a))');
-      r.setProperty('--bat-row-bd', 'rgba(' + bd.r + ',' + bd.g + ',' + bd.b + ',.65)');
-      r.setProperty('--bat-row-shadow', 'inset 0 0 0 1px rgba(0,0,0,.25)');
-      r.setProperty('--bat-row-shadow-first', 'inset 0 0 0 1px rgba(0,0,0,.25), inset 6px 0 18px -6px var(--bat-c1-inset1), inset -6px 0 18px -6px var(--bat-c1-inset2)');
-      r.setProperty('--bat-row-shadow-rest', 'inset 0 0 0 1px rgba(0,0,0,.3), inset 4px 0 12px -6px rgba(180,140,80,.08)');
-      applyVsPos();
-      const ph = document.querySelector('.battle-placeholder');
-      if (ph && !Object.keys(ranking).length) ph.textContent = cfg.placeholder || 'Esperando regalos...';
-    }
-    function coinSvg() { const c = cfg.coinColor || '#ffd700'; return '<svg class="moneda-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="' + c + '"/><circle cx="12" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/></svg>'; }
-    function rankBadge(rank) { const m = { 1: '👑', 2: '🥈', 3: '🥉' }; if (m[rank]) return '<div class="bat-rank-badge">' + m[rank] + '</div>'; return '<div class="hexagon">' + rank + '</div>'; }
-    function cardClass(i) { return i === 0 ? 'battle-card--first' : i === 1 ? 'battle-card--second' : 'battle-card--rest'; }
-    function nameClass() { return cfg.nameRainbow ? 'battle-nombre--rainbow' : 'battle-nombre--solid'; }
-    function clearSeq() { seqTimers.forEach((t) => clearTimeout(t)); seqTimers = []; }
-    function runSeq(cont) { clearSeq(); const wrap = cont.querySelector('.battle-duel--sequential'); if (!wrap) return; wrap.querySelectorAll('.battle-duel__row, .battle-duel__vs-spacer').forEach((el, i) => { seqTimers.push(setTimeout(() => el.classList.add('bat-seq-visible'), i * 420)); }); }
-
-    function render(opts) {
-      opts = opts || {};
-      clearSeq();
-      const maxRows = Math.max(2, Math.min(10, parseInt(cfg.limit, 10) || 2));
-      const arr = Object.entries(ranking).map(([id, d]) => ({ id, ...d })).sort((a, b) => b.monedas - a.monedas).slice(0, maxRows);
-      const cont = document.getElementById('lista-ranking');
-      if (!arr.length) { cont.innerHTML = '<div class="battle-placeholder">' + esc(cfg.placeholder || 'Esperando regalos...') + '</div>'; applyStyle(); return; }
-      const useSeq = !!opts.seq;
-      const showVs = arr.length >= 2;
-      const parts = [];
-      arr.forEach((u, i) => {
-        const vsImg = (i === 0 && showVs)
-          ? '<img class="' + vsImgClass() + '" src="' + vsImgSrc() + '" alt="VS">'
-          : '';
-        const sk = skinForRank(i + 1);
-        const skinCls = sk ? (' has-skin' + (sk.top1 ? ' has-skin-top1' : '')) : '';
-        const skinImg = sk ? '<img class="row-skin" src="' + sk.src + '" alt="" draggable="false">' : '';
-        parts.push('<div class="battle-duel__row ' + cardClass(i) + skinCls + '" id="card-' + safeId(u.id) + '">' +
-          skinImg +
-          '<div class="battle-duel__icons">' + rankBadge(i + 1) +
-          '<div class="avatar-wrap"><img src="' + esc(u.pic) + '" class="avatar" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'"></div></div>' +
-          '<div class="info"><div class="' + nameClass() + '">' + esc(u.name) + '</div>' +
-          '<div class="stat-line">' + coinSvg() + ' ' + u.monedas.toLocaleString('es-ES') + '</div></div>' +
-          vsImg + '</div>');
-        if (i === 0 && showVs) parts.push('<div class="battle-duel__vs-spacer" aria-hidden="true"></div>');
-      });
-      cont.innerHTML = '<div class="battle-duel' + (useSeq ? ' battle-duel--sequential' : '') + '">' + parts.join('') + '</div>';
-      if (useSeq) runSeq(cont);
+    // Cambio de skin desde las flechas: solo tema, sin redibujar
+    if (fromLocal && skinOnly && bag.skin != null) {
+      cfg.skin = bag.skin;
+      heldSkin = bag.skin;
+      skinHoldUntil = Date.now() + 12000;
+      applyThemeOnly();
       if (fitFn) fitFn();
-    }
-    function demo() {
-      const names = ['Jugador 1','Jugador 2','Jugador 3','Jugador 4','Jugador 5','Jugador 6','Jugador 7','Jugador 8','Jugador 9','Jugador 10'];
-      const coins = [120, 95, 80, 70, 60, 50, 40, 30, 20, 10];
-      names.forEach((name, i) => {
-        const id = 'b_' + (i + 1);
-        ranking[id] = { name, monedas: coins[i], pic: isEmbed ? '/jarron/lv.png' : ('https://randomuser.me/api/portraits/' + (i % 2 ? 'women' : 'men') + '/' + (30 + i) + '.jpg') };
-      });
-    }
-    function onGift(data) {
-      if (data && data.streak) return;
-      const coins = (Number(data.diamonds) || 0) * (Number(data.repeatCount) || 1);
-      if (coins <= 0) return;
-      const uid = data.uniqueId || data.nickname; if (!uid) return;
-      if (!ranking[uid]) ranking[uid] = { name: data.nickname || uid, monedas: 0, pic: data.photo || '' };
-      ranking[uid].monedas += coins;
-      if (data.photo) ranking[uid].pic = data.photo;
-      render();
+      return;
     }
 
-    let ws, rt;
-    function connectWS() {
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
-      ws.onopen = () => clearTimeout(rt);
-      ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
-      ws.onmessage = (ev) => {
-        let m; try { m = JSON.parse(ev.data); } catch { return; }
-        if (m.type === 'gift') { if (!isEmbed) onGift(m.payload); }
-        else if (m.type === 'settings') { if (m.payload && m.payload.batallaGifts) mergeCfg(m.payload.batallaGifts, false); }
-        else if (m.type === 'batallaGiftsTest') { if (!isEmbed) { ranking = {}; demo(); render({ seq: true }); } }
-        else if (m.type === 'batallaGiftsReset') { if (!isEmbed) { ranking = {}; render(); } }
-        else if (m.type === 'sessionOverlays') {
-          if (!isEmbed && m.payload && m.payload.batallaGifts) { ranking = m.payload.batallaGifts; render(); }
-        }
-      };
+    // Durante hold: ignorar cualquier skin entrante (local o remoto)
+    if (Date.now() < skinHoldUntil) {
+      delete bag.skin;
+      delete bag.top1Skin;
     }
-    window.addEventListener('message', (e) => {
-      const d = e.data; if (!d || d.kind !== 'batgifts') return;
-      if (d.type === 'config') { mergeCfg(d.config || {}, true); }
-      else if (d.type === 'test') { ranking = {}; demo(); render({ seq: true }); }
-      else if (d.type === 'reset') { ranking = {}; if (isEmbed) demo(); render(); }
-    });
 
-    if (isEmbed) {
-      document.documentElement.classList.add('embed');
-      const root = document.querySelector('.battle-root');
-      fitFn = () => { root.style.transform = 'none'; const s = Math.min(window.innerWidth / (root.offsetWidth + 6), window.innerHeight / (root.offsetHeight + 6), 1); root.style.transform = 'scale(' + s + ')'; };
-      window.addEventListener('resize', fitFn);
-    }
+    Object.assign(cfg, bag);
+    if (Date.now() < skinHoldUntil) cfg.skin = heldSkin || prevSkin;
+    cfg.skin = normalizeSkin(cfg.skin);
+
     applyStyle();
-    if (isEmbed) { demo(); render(); } else render();
-    connectWS();
-  })();
+    const duel = document.querySelector('.battle-duel');
+    const limitNow = parseInt(cfg.limit, 10) || 2;
+    const vsNow = [cfg.vsStyle, cfg.vsScale, cfg.vsX, cfg.vsY, cfg.placeholder].join('|');
+    const needRender = !duel || limitNow !== prevLimit;
+    if (needRender) {
+      render({ soft: true });
+      return;
+    }
+    applyThemeOnly();
+    if (vsNow !== prevVs) refreshVsDom();
+    if (fitFn) fitFn();
+  }
+  function vsImgSrc() {
+    const n = Math.max(1, Math.min(3, parseInt(cfg.vsStyle, 10) || 1));
+    return '/img/vs-battle-' + n + '.png';
+  }
+  function vsImgClass() {
+    const n = Math.max(1, Math.min(3, parseInt(cfg.vsStyle, 10) || 1));
+    return 'vs-logo-img' + (n > 1 ? ' vs-logo-img--s' + n : '');
+  }
+  function applyVsPos() {
+    const r = document.documentElement.style;
+    const scale = Math.max(40, Math.min(180, Number(cfg.vsScale) || 100)) / 100;
+    const x = Math.max(-80, Math.min(80, Number(cfg.vsX) || 0));
+    const y = Math.max(-80, Math.min(80, Number(cfg.vsY) || 0));
+    r.setProperty('--vs-scale', String(scale));
+    r.setProperty('--vs-x', x + 'px');
+    r.setProperty('--vs-y', y + 'px');
+  }
+  let ranking = {};
+  let seqTimers = [];
+  let fitFn = null;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function safeId(s) { return String(s == null ? '' : s).replace(/[^a-zA-Z0-9_-]/g, '_'); }
+  function applyStyle() {
+    applyVsPos();
+    const ph = document.querySelector('.battle-placeholder');
+    if (ph && !Object.keys(ranking).length) ph.textContent = cfg.placeholder || 'Esperando regalos...';
+  }
+  function rankHtml(rank) {
+    return '<div class="rk">' +
+      '<svg class="hx" viewBox="0 0 50 54"><use href="#hx"/></svg>' +
+      '<svg class="cr" viewBox="0 0 64 58"><use href="#crown"/></svg>' +
+      '<svg class="md m2" viewBox="0 0 44 62"><use href="#m2"/></svg>' +
+      '<svg class="md m3" viewBox="0 0 44 62"><use href="#m3"/></svg>' +
+      '<span>' + rank + '</span></div>';
+  }
+  function clearSeq() { seqTimers.forEach((t) => clearTimeout(t)); seqTimers = []; }
+  function runSeq(cont) {
+    clearSeq();
+    const wrap = cont.querySelector('.battle-duel--sequential');
+    if (!wrap) return;
+    wrap.querySelectorAll('.battle-duel__row, .battle-duel__vs-spacer').forEach((el, i) => {
+      seqTimers.push(setTimeout(() => el.classList.add('bat-seq-visible'), i * 420));
+    });
+  }
+
+  function render(opts) {
+    opts = opts || {};
+    clearSeq();
+    const maxRows = Math.max(2, Math.min(10, parseInt(cfg.limit, 10) || 2));
+    const arr = Object.entries(ranking).map(([id, d]) => ({ id, ...d })).sort((a, b) => b.monedas - a.monedas).slice(0, maxRows);
+    const cont = document.getElementById('lista-ranking');
+    if (!arr.length) {
+      cont.innerHTML = '<div class="battle-placeholder">' + esc(cfg.placeholder || 'Esperando regalos...') + '</div>';
+      applyStyle();
+      return;
+    }
+    const useSeq = !!opts.seq;
+    const useIntro = useSeq || !!opts.intro;
+    const showVs = arr.length >= 2;
+    const maxVal = Math.max(...arr.map((u) => u.monedas), 1);
+    const parts = [];
+    arr.forEach((u, i) => {
+      const rank = i + 1;
+      const vsImg = (i === 0 && showVs)
+        ? '<img class="' + vsImgClass() + '" src="' + vsImgSrc() + '" alt="VS">'
+        : '';
+      const pct = Math.max(4, Math.round((u.monedas / maxVal) * 100));
+      parts.push(
+        '<div class="battle-duel__row" data-rank="' + rank + '" id="card-' + safeId(u.id) + '" style="--i:' + i + '">' +
+          '<div class="in">' +
+            rankHtml(rank) +
+            '<div class="av"><img src="' + esc(u.pic) + '" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility=\'hidden\'"></div>' +
+            '<div class="nm">' + esc(u.name) + '</div>' +
+            '<div class="cn"><svg class="coin" viewBox="0 0 64 64"><use href="#coin"/></svg><b>' + u.monedas.toLocaleString('es-ES') + '</b></div>' +
+            '<div class="bar"><u style="width:' + pct + '%"></u></div>' +
+          '</div>' +
+          vsImg +
+        '</div>'
+      );
+      if (i === 0 && showVs) parts.push('<div class="battle-duel__vs-spacer" aria-hidden="true"></div>');
+    });
+    const cls = 'battle-duel' + (useSeq ? ' battle-duel--sequential' : '') + (useIntro ? ' intro' : '');
+    cont.innerHTML = '<div class="' + cls + '" data-t="' + themeOf() + '">' + parts.join('') + '</div>';
+    if (useSeq) runSeq(cont);
+    else if (useIntro) setTimeout(() => cont.querySelector('.battle-duel')?.classList.remove('intro'), 1200);
+    if (fitFn) fitFn();
+  }
+  function demo() {
+    const names = ['Jugador 1','Jugador 2','Jugador 3','Jugador 4','Jugador 5','Jugador 6','Jugador 7','Jugador 8','Jugador 9','Jugador 10'];
+    const coins = [120, 95, 80, 70, 60, 50, 40, 30, 20, 10];
+    names.forEach((name, i) => {
+      const id = 'b_' + (i + 1);
+      ranking[id] = { name, monedas: coins[i], pic: isEmbed ? '/jarron/lv.png' : ('https://randomuser.me/api/portraits/' + (i % 2 ? 'women' : 'men') + '/' + (30 + i) + '.jpg') };
+    });
+  }
+  function onGift(data) {
+    if (data && data.streak) return;
+    const coins = (Number(data.diamonds) || 0) * (Number(data.repeatCount) || 1);
+    if (coins <= 0) return;
+    const uid = data.uniqueId || data.nickname; if (!uid) return;
+    if (!ranking[uid]) ranking[uid] = { name: data.nickname || uid, monedas: 0, pic: data.photo || '' };
+    ranking[uid].monedas += coins;
+    if (data.photo) ranking[uid].pic = data.photo;
+    render({ soft: true });
+  }
+
+  let ws, rt;
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'gift') { if (!isEmbed) onGift(m.payload); }
+      else if (m.type === 'settings') { if (m.payload && m.payload.batallaGifts) mergeCfg(m.payload.batallaGifts, false); }
+      else if (m.type === 'batallaGiftsTest') { if (!isEmbed) { ranking = {}; demo(); render({ seq: true }); } }
+      else if (m.type === 'batallaGiftsReset') { if (!isEmbed) { ranking = {}; render(); } }
+      else if (m.type === 'sessionOverlays') {
+        if (!isEmbed && m.payload && m.payload.batallaGifts) { ranking = m.payload.batallaGifts; render({ soft: true }); }
+      }
+    };
+  }
+  window.addEventListener('message', (e) => {
+    const d = e.data; if (!d || d.kind !== 'batgifts') return;
+    if (d.type === 'config') { mergeCfg(d.config || {}, true); }
+    else if (d.type === 'test') { ranking = {}; demo(); render({ seq: true }); }
+    else if (d.type === 'reset') { ranking = {}; if (isEmbed) demo(); render(isEmbed ? { intro: true } : {}); }
+  });
+
+  if (isEmbed) {
+    document.documentElement.classList.add('embed');
+    const root = document.querySelector('.battle-root');
+    fitFn = () => {
+      root.style.transform = 'none';
+      const s = Math.min(window.innerWidth / (root.offsetWidth + 6), window.innerHeight / (root.offsetHeight + 6), 1);
+      root.style.transform = 'scale(' + s + ')';
+    };
+    window.addEventListener('resize', fitFn);
+  }
+  applyStyle();
+  if (isEmbed) { demo(); render({ intro: true }); } else render();
+  connectWS();
+})();
   </script>
+  <script src="/js/overlay-idle.js?v=oi1"></script>
   <script src="/js/overlay-keepalive.js"></script>
 </body>
 </html>

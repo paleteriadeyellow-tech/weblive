@@ -659,6 +659,8 @@
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
+    const osFit = params.get('osfit') === '1';
+    if (osFit) document.documentElement.setAttribute('data-os-selffit', '1');
 
     const DEFAULT_CFG = {
       entryCost: 30,
@@ -2231,6 +2233,22 @@
       return true;
     }
 
+    function afterSpinEntries() {
+      const seats = lifeSeats();
+      const finalSpin = seats.length <= 1 || !!soleRemainingPlayer(seats);
+      if (finalSpin) entriesLocked = true;
+      flushQueue();
+      if (phase === 'winner') return true;
+      if (tryDeclareSoleWinner()) return true;
+      const now = lifeSeats();
+      if (now.length <= 1) {
+        if (now.length === 1 && players[now[0].id]) declareWinner(players[now[0].id], false);
+        else { phase = 'waiting'; entriesLocked = false; syncHud(); }
+        return true;
+      }
+      return false;
+    }
+
     function beginSpin() {
       if (spinning) return;
       clearTimer();
@@ -2312,15 +2330,7 @@
         clearSpinClasses();
         renderGrid();
       }
-      flushQueue();
-      if (phase === 'winner') return;
-      if (tryDeclareSoleWinner()) return;
-      const seats = lifeSeats();
-      if (seats.length <= 1) {
-        if (seats.length === 1 && players[seats[0].id]) declareWinner(players[seats[0].id], false);
-        else { phase = 'waiting'; entriesLocked = false; syncHud(); }
-        return;
-      }
+      if (afterSpinEntries()) return;
       // Siempre el intervalo configurado (no acelerar aunque haya muchos)
       phase = 'elim';
       timerLeft = clamp(cfg.elimIntervalSec, 1, 600);
@@ -2481,16 +2491,11 @@
         });
       }
       if (gen != null && gen !== spinGen) return;
-      flushQueue();
-      pushPlayersToPanel();
-      if (phase === 'winner') return;
-      if (tryDeclareSoleWinner()) return;
-      const seats = lifeSeats();
-      if (seats.length <= 1) {
-        if (seats.length === 1 && players[seats[0].id]) declareWinner(players[seats[0].id], false);
-        else { phase = 'waiting'; entriesLocked = false; syncHud(); }
+      if (afterSpinEntries()) {
+        pushPlayersToPanel();
         return;
       }
+      pushPlayersToPanel();
       phase = 'elim';
       timerLeft = clamp(cfg.elimIntervalSec, 1, 600);
       syncHud();
@@ -2996,6 +3001,7 @@
     connectWS();
   })();
   </script>
-  <script src="/js/overlay-keepalive.js"></script>
+  <script src="/js/overlay-idle.js?v=oi1"></script>
+<script src="/js/overlay-keepalive.js"></script>
 </body>
 </html>

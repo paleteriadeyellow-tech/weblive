@@ -1,296 +1,374 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script src="/js/overlay-channel.js?v=ovch1"></script>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="referrer" content="no-referrer" />
   <title>Temporizador · Livecoins</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Orbitron:wght@700;800&family=Rajdhani:wght@700;800&family=Share+Tech+Mono&display=swap');
-    :root {
-      --cy: #25f4ee;
-      --mg: #ff2bd6;
-      --pink: #fe2c55;
-    }
-    * { box-sizing: border-box; }
-    html, body {
-      margin: 0; height: 100%; overflow: hidden; background: transparent;
-      font-family: 'Inter', system-ui, sans-serif;
-    }
-    body { display: flex; align-items: center; justify-content: center; }
-    /* Vista previa en el panel: damero suave para ver el marco */
-    body.embed {
-      background:
-        linear-gradient(135deg, rgba(12, 16, 28, .92), rgba(18, 22, 36, .96)),
-        repeating-conic-gradient(from 0deg, #161c2c 0% 25%, #101624 0% 50%) 50% / 18px 18px;
-    }
-    body.embed .timer {
-      transform: scale(0.92);
-      transform-origin: center center;
-      max-width: 100%;
-    }
-
-    .timer {
-      position: relative;
-      display: inline-flex; align-items: center; gap: 18px;
-      padding: 16px 40px;
-      border-radius: 18px;
-      background: linear-gradient(160deg, rgba(18,24,38,.94), rgba(10,14,22,.94));
-      box-shadow: 0 14px 40px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.05);
-      /* Sin transición de tamaño: al cambiar skin no “salta” */
-      transition: box-shadow .2s, background .2s, filter .2s;
-    }
-    .timer::before {
-      content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
-      background: linear-gradient(120deg, var(--cy), var(--mg));
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor; mask-composite: exclude;
-      pointer-events: none;
-      transition: filter .2s, opacity .2s, background .25s;
-      opacity: .85;
-    }
-    body.running .timer::before {
-      animation: glow 1.6s ease-in-out infinite;
-    }
-    @keyframes glow {
-      0%, 100% { filter: drop-shadow(0 0 4px rgba(37,244,238,.5)); opacity: .9; }
-      50%      { filter: drop-shadow(0 0 14px rgba(255,43,214,.7)); opacity: 1; }
-    }
-    @keyframes pulseSoft {
-      0%, 100% { transform: scale(1); opacity: .9; }
-      50% { transform: scale(1.03); opacity: 1; }
-    }
-
-    .clock {
-      width: 42px; height: 42px; flex: 0 0 auto;
-      color: var(--cy);
-      filter: drop-shadow(0 0 6px rgba(37,244,238,.5));
-      transition: color .2s, filter .2s, opacity .2s;
-    }
-    body.running .clock { color: var(--mg); filter: drop-shadow(0 0 8px rgba(255,43,214,.6)); }
-
-    .time {
-      font-size: 68px; font-weight: 900; letter-spacing: 4px; line-height: 1;
-      font-variant-numeric: tabular-nums;
-      background: linear-gradient(180deg, #ffffff, #cfe9ff);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-      text-shadow: 0 2px 18px rgba(37,244,238,.18);
-    }
-    .time.zero { background: linear-gradient(180deg, #ffd0e6, #ff7ac3); -webkit-background-clip: text; background-clip: text; }
-
-    /* —— 1 Clásico (default) —— */
-    body[data-skin="classic"] .timer { /* base */ }
-
-    /* —— 2 Neón —— */
-    body[data-skin="neon"] .timer {
-      background: rgba(4, 8, 18, .88);
-      border-radius: 22px;
-      box-shadow: 0 0 0 1px rgba(37,244,238,.2), 0 0 28px rgba(37,244,238,.18), 0 16px 40px rgba(0,0,0,.5);
-    }
-    body[data-skin="neon"] .timer::before {
-      background: linear-gradient(120deg, #25f4ee, #7c5cff, #ff2bd6);
-      opacity: 1;
-    }
-    body[data-skin="neon"] .time {
-      background: linear-gradient(90deg, #25f4ee, #ff2bd6);
-      -webkit-background-clip: text; background-clip: text;
-      filter: drop-shadow(0 0 12px rgba(37,244,238,.45));
-      letter-spacing: 6px;
-    }
-    body[data-skin="neon"] .clock { color: #25f4ee; }
-
-    /* —— 3 Minimal —— */
-    body[data-skin="minimal"] .timer {
-      gap: 0; padding: 10px 22px;
-      background: rgba(8, 10, 16, .55);
-      border-radius: 12px;
-      box-shadow: none;
-    }
-    body[data-skin="minimal"] .timer::before {
-      padding: 1px;
-      background: linear-gradient(90deg, rgba(255,255,255,.35), rgba(37,244,238,.55));
-      opacity: .7;
-      animation: none !important;
-    }
-    body[data-skin="minimal"] .clock { display: none; }
-    body[data-skin="minimal"] .time {
-      font-family: 'Rajdhani', 'Inter', sans-serif;
-      font-size: 64px; letter-spacing: 2px; font-weight: 800;
-      background: none; color: #f2f5fb;
-      -webkit-text-fill-color: #f2f5fb;
-      text-shadow: none; filter: none;
-    }
-    body[data-skin="minimal"] .time.zero { color: #ff8fb0; -webkit-text-fill-color: #ff8fb0; }
-    body[data-skin="minimal"].running .timer {
-      background: rgba(8, 10, 16, .7);
-    }
-
-    /* —— 4 Arcade —— */
-    body[data-skin="arcade"] .timer {
-      gap: 14px; padding: 14px 28px;
-      border-radius: 8px;
-      background: linear-gradient(180deg, #1a1030, #0d0818);
-      box-shadow: 0 0 0 2px #ff2bd6, 0 0 0 4px #25f4ee, 0 12px 32px rgba(0,0,0,.55);
-    }
-    body[data-skin="arcade"] .timer::before { display: none; }
-    body[data-skin="arcade"] .clock {
-      color: #ffcf5c;
-      filter: drop-shadow(0 0 6px rgba(255,207,92,.55));
-    }
-    body[data-skin="arcade"] .time {
-      font-family: 'Orbitron', 'Inter', sans-serif;
-      font-size: 52px; letter-spacing: 3px;
-      background: linear-gradient(180deg, #ffe56a, #ff2bd6);
-      -webkit-background-clip: text; background-clip: text;
-      filter: drop-shadow(0 0 8px rgba(255,43,214,.35));
-    }
-    body[data-skin="arcade"].running .timer {
-      animation: pulseSoft 1.4s ease-in-out infinite;
-    }
-
-    /* —— 5 Glass —— */
-    body[data-skin="glass"] .timer {
-      gap: 16px; padding: 18px 36px;
-      border-radius: 28px;
-      background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.04));
-      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 18px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.25);
-    }
-    body[data-skin="glass"] .timer::before {
-      padding: 1.5px;
-      background: linear-gradient(135deg, rgba(255,255,255,.65), rgba(37,244,238,.45), rgba(255,43,214,.4));
-      opacity: .9;
-      animation: none !important;
-    }
-    body[data-skin="glass"] .clock {
-      color: #fff;
-      filter: drop-shadow(0 2px 8px rgba(0,0,0,.25));
-      opacity: .9;
-    }
-    body[data-skin="glass"] .time {
-      font-family: 'Share Tech Mono', 'Inter', monospace;
-      font-size: 60px; letter-spacing: 3px;
-      background: linear-gradient(180deg, #ffffff, #d7e7ff);
-      -webkit-background-clip: text; background-clip: text;
-      filter: drop-shadow(0 2px 10px rgba(0,0,0,.2));
-    }
-    body[data-skin="glass"].running .clock { color: var(--cy); }
-
-    @media (max-width: 520px) {
-      .time { font-size: 48px; }
-      body[data-skin="arcade"] .time { font-size: 40px; }
-      body[data-skin="glass"] .time { font-size: 44px; }
-      .timer { padding: 12px 22px; gap: 12px; }
-    }
-  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800;900&family=Outfit:wght@500;600;800;900&family=Sora:wght@600;800&family=Anton&family=Barlow+Condensed:wght@700&family=Press+Start+2P&family=Cinzel:wght@700;900&family=Cormorant+Garamond:ital,wght@1,600&family=Chakra+Petch:wght@600;700&family=Orbitron:wght@800;900&family=Lilita+One&display=swap">
+  <link rel="stylesheet" href="/timer-fx.css?v=tfx5">
+  <link rel="stylesheet" href="/timer-fx-skins.css?v=tfx3">
 </head>
-<body data-skin="classic">
-  <div class="timer">
-    <svg class="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <circle cx="12" cy="13" r="8" />
-      <path d="M12 9v4l2.5 2" />
-      <path d="M9 2h6" />
-      <path d="M18.5 5.5l1.5 -1.5" />
-    </svg>
-    <div class="time" id="t">00:00</div>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9ab8"/><stop offset=".5" stop-color="#ff2b6b"/><stop offset="1" stop-color="#a30a3a"/></linearGradient>
+  <radialGradient id="un" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#c9a8ff"/><stop offset=".5" stop-color="#5b2cff"/><stop offset="1" stop-color="#150a52"/></radialGradient>
+  <linearGradient id="og" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6bf"/><stop offset=".5" stop-color="#ffc83d"/><stop offset="1" stop-color="#e08a00"/></linearGradient>
+  <g id="g-rosa"><path d="M32 60 V38" stroke="#2da44a" stroke-width="4" stroke-linecap="round"/><path d="M32 52 C24 46 19 49 16 54 C25 57 30 56 32 52Z" fill="#43d36a"/><circle cx="32" cy="24" r="16" fill="#e0123f"/><path d="M32 8 C21 11 19 27 32 33 C45 27 43 11 32 8Z" fill="#ff5c85"/><path d="M22 20 C27 31 37 31 42 20" stroke="#8d0a2a" stroke-width="2.5" fill="none"/><ellipse cx="26" cy="15" rx="4" ry="2.4" fill="#fff" opacity=".6"/></g>
+  <g id="g-corazon"><path d="M32 57 C8 40 6 22 17 14 C25 9 31 14 32 19 C33 14 39 9 47 14 C58 22 56 40 32 57Z" fill="url(#hg)" stroke="#7d0a2e" stroke-width="1.5"/><path d="M15 22 C16 17 21 15 25 17" stroke="#fff" stroke-width="3.5" stroke-linecap="round" fill="none" opacity=".75"/></g>
+  <g id="g-dona"><circle cx="32" cy="32" r="26" fill="#e0a05a"/><circle cx="32" cy="30" r="24" fill="#ff7fc0"/><circle cx="32" cy="32" r="8" fill="#0a0c1e"/><g stroke-width="3.5" stroke-linecap="round"><path d="M16 22 l5 -3" stroke="#fff"/><path d="M44 18 l5 3" stroke="#19e6ff"/><path d="M14 38 l5 2" stroke="#ffe14a"/><path d="M47 40 l-5 3" stroke="#fff"/><path d="M30 12 l4 1" stroke="#7b2cff"/><path d="M28 51 l5 -1" stroke="#19e6ff"/></g></g>
+  <g id="g-universo"><circle cx="32" cy="32" r="22" fill="url(#un)"/><ellipse cx="32" cy="32" rx="30" ry="9" fill="none" stroke="#ffd34d" stroke-width="3.5" transform="rotate(-22 32 32)"/><path d="M24 24 l1.6 4 4 1.6-4 1.6-1.6 4-1.6-4-4-1.6 4-1.6z" fill="#fff"/><circle cx="42" cy="38" r="2" fill="#fff"/><circle cx="40" cy="22" r="1.4" fill="#fff"/></g>
+  <g id="g-star"><path d="M32 4 L40 24 L61 25 L45 38 L50 59 L32 47 L14 59 L19 38 L3 25 L24 24Z" fill="#ffd34d" stroke="#b07a10" stroke-width="2" stroke-linejoin="round"/></g>
+  <symbol id="donut-px" viewBox="0 0 14 14" shape-rendering="crispEdges"></symbol>
+</defs></svg>
+
+<div id="alert" class="d-neon">
+  <div class="zone" id="zone"></div>
+  <div class="pillwrap">
+    <div class="pill" id="pill">
+      <div class="icw" id="icw">
+        <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"><circle cx="24" cy="27" r="16"/><path d="M19 5h10M24 5v6M38 12l3-3"/><path id="hand" d="M24 27V16"/></svg>
+      </div>
+      <div class="dg" id="dg" aria-live="off"></div>
+    </div>
   </div>
+  <div id="skin-extra"></div>
+</div>
+<div id="fx"></div>
 
-  <script>
-    const SKINS = ['classic', 'neon', 'minimal', 'arcade', 'glass'];
-    const $ = (id) => document.getElementById(id);
-    let ws, reconnectTimer;
-    let remaining = 0, running = false, localTick = null;
-
-    (function initEmbed() {
-      try {
-        const q = new URLSearchParams(location.search);
-        if (q.get('embed') === '1') document.body.classList.add('embed');
-        const skinQ = String(q.get('skin') || '').toLowerCase();
-        if (SKINS.includes(skinQ)) document.body.dataset.skin = skinQ;
-      } catch {}
-    })();
-
-    function applySkin(skin) {
-      const s = String(skin || 'classic').toLowerCase();
-      document.body.dataset.skin = SKINS.includes(s) ? s : 'classic';
+<!-- OBS / Live Studio: ?clean → fondo transparente. Embed (vista previa) conserva el fondo del CSS. -->
+<script>
+(function () {
+  try {
+    var q = new URLSearchParams(location.search);
+    if (q.get('embed') === '1') return;
+    if (!q.has('clean')) {
+      q.set('clean', '1');
+      history.replaceState(null, '', location.pathname + '?' + q.toString() + location.hash);
     }
+  } catch (e) {}
+})();
+</script>
+<script src="/js/timer-fx.js?v=tfx6"></script>
+<script>
+/* Bridge Livecoins ↔ TimerFX (opción A).
+   - El server ya suma segundos (addTimerSeconds). onChunk NO suma de nuevo.
+   - Al llegar un regalo: setTime(serverRem - secs) + addTime → pending anima los dígitos.
+   - Fuera de animación: setTime sigue al server; pause/resume según running.
+   - Live Studio: el iframe recibe timerAdd por WS propio Y por postMessage del padre → dedupe.
+   - Skins: neon / cristal / magma / pixel / oro / cyber / pop */
+(function () {
+  const FX = window.TimerFX;
+  if (!FX) return;
 
-    window.addEventListener('message', (ev) => {
-      try {
-        if (ev.origin && ev.origin !== location.origin) return;
-      } catch {}
-      const d = ev.data;
-      if (!d || d.type !== 'livecoinsTimerSkin') return;
-      applySkin(d.skin);
-      // Mantener el tiempo del panel (no volver a 00:00 al cambiar diseño).
-      if (typeof d.remaining === 'number' && Number.isFinite(d.remaining)) {
-        remaining = Math.max(0, Math.floor(d.remaining));
-        running = !!d.running;
-        render();
-        startLocal();
+  const SKIN_MAP = {
+    neon: 'd-neon',
+    cristal: 'd-glass',
+    glass: 'd-glass',
+    magma: 'd-magma',
+    pixel: 'd-pixel',
+    arcade: 'd-pixel',
+    oro: 'd-gold',
+    gold: 'd-gold',
+    cyber: 'd-hud',
+    hud: 'd-hud',
+    pop: 'd-pop',
+    classic: 'd-neon',
+    minimal: 'd-glass',
+  };
+  const SKIN_IDS = ['neon', 'cristal', 'magma', 'pixel', 'oro', 'cyber', 'pop'];
+  const ICON_NORMAL = '<svg class="ic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"><circle cx="24" cy="27" r="16"/><path d="M19 5h10M24 5v6M38 12l3-3"/><path id="hand" d="M24 27V16"/></svg>';
+  const ICON_PIXEL = '<svg class="ic" viewBox="0 0 12 12" shape-rendering="crispEdges" fill="currentColor"><rect x="4" y="1" width="4" height="1"/><rect x="3" y="2" width="1" height="1"/><rect x="8" y="2" width="1" height="1"/><rect x="2" y="3" width="1" height="6"/><rect x="9" y="3" width="1" height="6"/><rect x="3" y="9" width="1" height="1"/><rect x="8" y="9" width="1" height="1"/><rect x="4" y="10" width="4" height="1"/><g class="phand" id="hand"><rect x="5.5" y="3" width="1" height="3.5"/></g></svg>';
+
+  (function buildPixelDonut() {
+    const sym = document.getElementById('donut-px');
+    if (!sym) return;
+    const spr = { '3,3': '#fff', '9,3': '#19e6ff', '10,6': '#ffe14a', '4,10': '#fff', '8,10': '#7b2cff', '3,7': '#19e6ff', '7,2': '#ffe14a' };
+    let out = '';
+    for (let y = 0; y < 14; y++) for (let x = 0; x < 14; x++) {
+      const r = Math.hypot(x + 0.5 - 7, y + 0.5 - 7);
+      let c = null;
+      if (r > 6.4 && r <= 7.4) c = '#2a0a3a';
+      else if (r > 2.2 && r <= 6.4) c = r <= 5.0 ? '#ff6fb5' : '#e0a05a';
+      else if (r > 1.3 && r <= 2.2) c = '#2a0a3a';
+      if (spr[x + ',' + y] && r > 2.2 && r <= 5.0) c = spr[x + ',' + y];
+      if (c) out += '<rect x="' + x + '" y="' + y + '" width="1" height="1" fill="' + c + '"/>';
+    }
+    sym.innerHTML = out;
+  })();
+
+  function skinExtraHtml(id) {
+    if (id === 'magma') {
+      return [[58, '-10px', 2.6, 0], [150, '14px', 3.2, 0.8], [236, '-6px', 2.9, 1.5], [330, '12px', 3.4, 0.3], [412, '-14px', 2.7, 2], [500, '8px', 3.1, 1.1], [560, '-8px', 3.5, 2.4]]
+        .map((a) => '<span class="em" style="left:' + a[0] + 'px;--dx:' + a[1] + ';--t:' + a[2] + 's;--d:' + a[3] + 's"></span>').join('');
+    }
+    if (id === 'oro') {
+      return '<svg class="crwn" viewBox="0 0 120 90" aria-hidden="true"><path d="M10 76 L3 22 L36 47 L60 8 L84 47 L117 22 L110 76 Z" fill="url(#og)" stroke="#8a4b00" stroke-width="3" stroke-linejoin="round"/><rect x="9" y="70" width="102" height="14" rx="7" fill="url(#og)" stroke="#8a4b00" stroke-width="3"/><circle cx="60" cy="14" r="6" fill="#ff2a6d" stroke="#8a4b00" stroke-width="2"/><circle cx="34" cy="77" r="3.5" fill="#ff2a6d"/><circle cx="60" cy="77" r="3.5" fill="#38e8ff"/><circle cx="86" cy="77" r="3.5" fill="#ff2a6d"/></svg>'
+        + '<span class="spk" style="left:196px;top:150px;animation-delay:0s"></span>'
+        + '<span class="spk" style="left:440px;top:206px;animation-delay:.9s;width:10px;height:10px"></span>'
+        + '<span class="spk" style="left:420px;top:138px;animation-delay:1.6s"></span>';
+    }
+    if (id === 'cyber') {
+      return ''; // ticks se inyectan en el pill
+    }
+    if (id === 'pop') {
+      return '<span class="fl" style="left:40px;top:200px;font-size:28px;color:#ffe24a;animation-delay:0s">★</span>'
+        + '<span class="fl" style="left:560px;top:160px;font-size:22px;color:#ff6fb5;animation-delay:.7s">♥</span>'
+        + '<span class="fl" style="left:520px;top:220px;font-size:18px;color:#5af0c6;animation-delay:1.3s">✦</span>';
+    }
+    return '';
+  }
+
+  function normalizeSkin(raw) {
+    const s = String(raw || 'neon').toLowerCase().trim();
+    if (SKIN_MAP[s]) {
+      for (let i = 0; i < SKIN_IDS.length; i++) {
+        if (SKIN_MAP[SKIN_IDS[i]] === SKIN_MAP[s] || SKIN_IDS[i] === s) return SKIN_IDS[i];
       }
-    });
+      if (s === 'glass' || s === 'minimal') return 'cristal';
+      if (s === 'arcade') return 'pixel';
+      if (s === 'gold') return 'oro';
+      if (s === 'hud') return 'cyber';
+      if (s === 'classic') return 'neon';
+    }
+    return SKIN_IDS.includes(s) ? s : 'neon';
+  }
 
-    function fmt(sec) {
-      const t = Math.max(0, Math.floor(sec));
-      const h = Math.floor(t / 3600);
-      const m = Math.floor((t % 3600) / 60);
-      const s = t % 60;
-      let str = '';
-      if (h > 0) str += (h < 10 ? '0' : '') + h + ':';
-      str += (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-      return str;
+  let heldSkin = '';
+  let heldSkinUntil = 0;
+  let currentSkinId = '';
+  let wantRunning = false;
+
+  function applyTimerSkin(raw, opts) {
+    const id = normalizeSkin(raw);
+    const force = !!(opts && opts.force);
+    const hold = !!(opts && opts.hold);
+    if (!force && heldSkin && Date.now() < heldSkinUntil && id !== heldSkin) return heldSkin;
+    if (hold) {
+      heldSkin = id;
+      heldSkinUntil = Date.now() + 2500;
     }
-    function render() {
-      const el = $('t');
-      el.textContent = fmt(remaining);
-      el.classList.toggle('zero', remaining <= 0);
-      document.body.classList.toggle('running', running);
-    }
-    function stopLocal() { if (localTick) { clearInterval(localTick); localTick = null; } }
-    function startLocal() {
-      stopLocal();
-      if (!running) return;
-      localTick = setInterval(() => {
-        if (remaining > 0) {
-          remaining -= 1;
-          if (remaining <= 0) { remaining = 0; running = false; stopLocal(); }
-          render();
-        }
-      }, 1000);
-    }
-    function applyTimer(p) {
-      if (typeof p.remaining === 'number') remaining = p.remaining;
-      running = !!p.running;
-      render();
-      startLocal();
-    }
-    function beep() {
+    const cls = SKIN_MAP[id] || 'd-neon';
+    const alertEl = document.getElementById('alert');
+    const icw = document.getElementById('icw');
+    const extra = document.getElementById('skin-extra');
+    if (!alertEl) return id;
+    if (currentSkinId === id && alertEl.classList.contains(cls)) return id;
+    const prev = currentSkinId;
+    currentSkinId = id;
+    alertEl.className = cls;
+    document.body.dataset.skin = id;
+    if (extra) extra.innerHTML = skinExtraHtml(id);
+    if (icw && (prev === 'pixel' || id === 'pixel' || !icw.querySelector('.ic'))) {
+      let handDeg = '';
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.connect(g); g.connect(ctx.destination);
-        o.frequency.value = 880; g.gain.value = 0.08; o.start();
-        setTimeout(() => { o.stop(); ctx.close(); }, 200);
-      } catch (e) {}
+        const h = document.getElementById('hand');
+        if (h && h.style.transform) handDeg = h.style.transform;
+      } catch {}
+      icw.innerHTML = id === 'pixel' ? ICON_PIXEL : ICON_NORMAL;
+      try {
+        const h = document.getElementById('hand');
+        if (h && handDeg) h.style.transform = handDeg;
+      } catch {}
     }
-    function connect() {
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
-      ws.onopen = () => clearTimeout(reconnectTimer);
-      ws.onclose = () => { reconnectTimer = setTimeout(connect, 1500); };
-      ws.onmessage = (ev) => {
-        let m; try { m = JSON.parse(ev.data); } catch { return; }
-        if (m.type === 'timer') applyTimer(m.payload || {});
-        else if (m.type === 'timerBeep') beep();
-        else if (m.type === 'settings' && m.payload && m.payload.timer) {
-          applySkin(m.payload.timer.skin);
+    const pillEl = document.getElementById('pill');
+    if (pillEl) {
+      pillEl.querySelectorAll(':scope > .tk').forEach((n) => n.remove());
+      if (id === 'cyber') pillEl.insertAdjacentHTML('beforeend', '<span class="tk l"></span><span class="tk r"></span>');
+    }
+    return id;
+  }
+  window.__timerApplySkin = applyTimerSkin;
+
+  FX.setTime(0);
+  FX.pause();
+  try {
+    applyTimerSkin(new URLSearchParams(location.search).get('skin') || 'neon', { force: true });
+  } catch {
+    applyTimerSkin('neon', { force: true });
+  }
+
+  let ws, reconnectTimer;
+  let holdSecs = 0;
+  const pendingAdds = [];
+  let syncLockUntil = 0;
+  let chunksLeft = 0;
+  let lastAddKey = '';
+  let lastAddAt = 0;
+  let lastServerRem = 0;
+  let serverSynced = false;
+  let resumeTimer = null;
+
+  function animating() {
+    return chunksLeft > 0 || Date.now() < syncLockUntil || pendingAdds.length > 0;
+  }
+
+  function scheduleResume() {
+    clearTimeout(resumeTimer);
+    // Reanudar en cuanto no haya orbes/cola; el syncLock solo bloquea setTime del server.
+    resumeTimer = setTimeout(() => {
+      if (chunksLeft > 0 || pendingAdds.length > 0) {
+        scheduleResume();
+        return;
+      }
+      applyRunning(wantRunning);
+    }, 200);
+  }
+
+  FX.onChunk = function () {
+    if (chunksLeft > 0) chunksLeft -= 1;
+    if (chunksLeft <= 0) {
+      syncLockUntil = Date.now() + 900;
+      scheduleResume();
+    }
+  };
+
+  function applyRunning(running) {
+    wantRunning = !!running;
+    if (wantRunning) FX.resume();
+    else FX.pause();
+  }
+
+  function packGift(p) {
+    const sec = Math.round(Number(p.seconds) || 0);
+    return {
+      user: p.user || 'Usuario',
+      img: p.img || '',
+      gift: p.gift || (p.reason === 'manual' || p.reason === 'sub' ? (sec < 0 ? 'Penalización' : 'Bonus') : 'Regalo'),
+      giftImg: p.giftImg || '',
+      count: Math.max(1, Number(p.count) || 1),
+      seconds: sec,
+      reason: p.reason || (sec < 0 ? 'sub' : 'add'),
+    };
+  }
+
+  function enqueueVisual(list) {
+    clearTimeout(resumeTimer);
+    FX.pause(); // countdown congelado mientras pending anima (fluido en Live Studio)
+    list.forEach((g) => {
+      if (!g.seconds) return;
+      const mag = Math.abs(g.seconds);
+      chunksLeft += Math.min(6, Math.max(1, Math.ceil(mag / 15)));
+      syncLockUntil = Date.now() + 8000;
+      FX.addTime(g);
+    });
+  }
+
+  function startAdds(list, baseRem) {
+    const hold = list.reduce((a, g) => a + (Number(g.seconds) || 0), 0);
+    if (chunksLeft > 0 || Date.now() < syncLockUntil) {
+      enqueueVisual(list);
+      return;
+    }
+    FX.setTime(Math.max(0, Math.round(Number(baseRem) || 0) - hold));
+    enqueueVisual(list);
+  }
+
+  function flushWithServerRem(serverRemaining) {
+    if (!pendingAdds.length) return false;
+    const list = pendingAdds.splice(0, pendingAdds.length);
+    holdSecs = 0;
+    startAdds(list, serverRemaining);
+    return true;
+  }
+
+  function onTimer(p) {
+    const remN = Math.max(0, Math.round(Number(p.remaining) || 0));
+    const running = !!p.running;
+    lastServerRem = remN;
+    serverSynced = true;
+    wantRunning = running;
+    if (flushWithServerRem(remN)) return;
+    if (animating()) return;
+    applyRunning(running);
+    FX.setTime(remN);
+  }
+
+  function onTimerAdd(p) {
+    const g = packGift(p);
+    if (!g.seconds) return;
+    const key = [g.seconds, g.user, g.gift, g.giftImg, g.count, g.reason].join('\0');
+    const now = Date.now();
+    if (key === lastAddKey && now - lastAddAt < 900) return;
+    lastAddKey = key;
+    lastAddAt = now;
+    holdSecs += g.seconds;
+    pendingAdds.push(g);
+  }
+
+  function demoAdd(d) {
+    const g = packGift({
+      user: d.user || 'Fan Demo',
+      img: d.img || '',
+      gift: d.gift || 'Rosa',
+      giftImg: d.giftImg || '',
+      count: d.count || 1,
+      seconds: Number(d.seconds) || 10,
+      reason: d.reason || 'demo',
+    });
+    if (!g.seconds) return;
+    enqueueVisual([g]);
+  }
+
+  window.addEventListener('message', (ev) => {
+    try { if (ev.origin && ev.origin !== location.origin) return; } catch {}
+    const d = ev.data;
+    if (!d) return;
+    if (d.type === 'livecoinsTimerSkin') {
+      if (d.skin) applyTimerSkin(d.skin, { hold: true });
+      if (typeof d.remaining === 'number' && Number.isFinite(d.remaining)) {
+        wantRunning = !!d.running;
+        // No setTime/resume a mitad de regalo (rompe la animación).
+        if (!animating()) {
+          FX.setTime(Math.max(0, Math.floor(d.remaining)));
+          applyRunning(wantRunning);
         }
-      };
+      }
+      return;
     }
-    connect();
-    render();
-  </script>
-  <script src="/js/overlay-keepalive.js"></script>
+    if (d.type === 'livecoinsTimerDemoAdd' || (d.kind === 'timer' && d.type === 'demoAdd')) {
+      demoAdd(d);
+    }
+  });
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(proto + '://' + location.host + '/ws' + location.search);
+    ws.onopen = () => clearTimeout(reconnectTimer);
+    ws.onclose = () => { reconnectTimer = setTimeout(connect, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'timer') onTimer(m.payload || {});
+      else if (m.type === 'timerAdd') onTimerAdd(m.payload || {});
+      else if (m.type === 'settings' && m.payload && m.payload.timer) {
+        if (m.payload.timer.skin != null) applyTimerSkin(m.payload.timer.skin);
+      } else if (m.type === 'timerBeep') {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.connect(g); g.connect(ctx.destination);
+          o.frequency.value = 880; g.gain.value = 0.08; o.start();
+          setTimeout(() => { o.stop(); ctx.close(); }, 200);
+        } catch {}
+      }
+    };
+  }
+
+  connect();
+
+  try {
+    if (new URLSearchParams(location.search).get('embed') === '1') {
+      setTimeout(() => {
+        if (animating()) return;
+        if (serverSynced && lastServerRem > 0) return;
+        demoAdd({ user: 'NatyLoca', gift: 'Dona', count: 1, seconds: 60 });
+      }, 1100);
+    }
+  } catch {}
+})();
+</script>
+<script src="/js/overlay-idle.js?v=oi1"></script>
+<script src="/js/overlay-keepalive.js"></script>
 </body>
 </html>

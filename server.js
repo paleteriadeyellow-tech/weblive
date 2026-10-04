@@ -152,7 +152,7 @@ function mergeProfilesData(legacy, current) {
     'toplikesRank', 'topdiamRank', 'toplikesList', 'topdiamList', 'topcommentsRank',
     'topAltRank', 'topAltRankNeon', 'topPointsRank', 'topMultiRank', 'pointsLookup',
     'cameraFrame',
-    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'fuegos', 'chatGamer', 'giftRoulette',
+    'hypeBar', 'alertaGift', 'alertaLikes', 'alertaFollow', 'nuevoSeguidorV2', 'fuegos', 'chatGamer', 'giftRoulette',
     'followerCounter', 'followerCounterMc', 'liveTimer',
     'streamJoin', 'streamJoinMc', 'streamJoinDbz', 'streamJoinMario',
   ];

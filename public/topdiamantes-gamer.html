@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Ranking diamantes (gamer)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #05060e; --text: #f2f5ff; --mute: #7c86ad; --cyan: #19f0ff; --mag: #ff2bd6;
+      --vio: #8a5cff; --gold: #ffc83d; --org: #ff7a2b; --heart: #ff3d7f; --cut: 14px; --ol-scale: 1;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { height: 100%; background: transparent !important; overflow: hidden; }
+    body {
+      color: var(--text); font-family: Rajdhani, system-ui, sans-serif;
+      display: grid; place-items: center; padding: 16px;
+    }
+    body.preview-bg {
+      background:
+        linear-gradient(rgba(25, 240, 255, .05) 1px, transparent 1px) 0 0 / 36px 36px,
+        linear-gradient(90deg, rgba(25, 240, 255, .05) 1px, transparent 1px) 0 0 / 36px 36px,
+        radial-gradient(700px 420px at 15% 0%, #1a0f3d 0%, var(--bg) 65%) !important;
+    }
+    .board { width: min(420px, 100%); transform: scale(var(--ol-scale)); transform-origin: top center; }
+    .list { position: relative; margin-top: 8px; }
+    .row {
+      --c1: #2a3262; --c2: #2a3262; position: absolute; left: 0; right: 0;
+      display: grid; grid-template-columns: 66px 60px 1fr auto; align-items: center; gap: 10px;
+      padding: 0 16px 0 10px; transition: transform .7s cubic-bezier(.2, .8, .2, 1), height .7s cubic-bezier(.2, .8, .2, 1);
+    }
+    .row > * { position: relative; z-index: 2; }
+    .row::before, .row::after, .row > .fx {
+      content: ""; position: absolute; inset: 0; z-index: 0;
+      clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+    }
+    .row::before { background: linear-gradient(110deg, var(--c1), var(--c2)); background-size: 200% 100%; }
+    .row::after { inset: 1.5px; background: linear-gradient(110deg, rgba(14, 18, 40, .97), rgba(8, 10, 24, .97)); }
+    .row > .fx { inset: 1.5px; z-index: 1; overflow: hidden; pointer-events: none; background-size: cover; background-position: center; }
+    .row.r1 { --c1: var(--gold); --c2: var(--mag); filter: drop-shadow(0 0 14px rgba(255, 200, 61, .35)); }
+    .row.r1::before { animation: flow 3s linear infinite; }
+    .row.r1::after { background: linear-gradient(110deg, rgba(52, 34, 8, .96), rgba(18, 8, 32, .96)); }
+    .row.r2 { --c1: var(--cyan); --c2: var(--vio); }
+    .row.r3 { --c1: var(--vio); --c2: var(--mag); }
+    @keyframes flow { to { background-position: -200% 0; } }
+    .fx i { position: absolute; bottom: -6px; left: var(--x); width: 3px; height: 3px; border-radius: 50%; opacity: 0; display: none; }
+    .r1 .fx i, .r3 .fx i { display: block; animation: rise var(--d) linear infinite var(--t); }
+    .r1 .fx i { background: #ffd25a; box-shadow: 0 0 6px #ff9a1f; }
+    .r3 .fx i { background: #b99bff; box-shadow: 0 0 5px var(--vio); width: 2px; height: 2px; }
+    @keyframes rise { 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -80px); } }
+    .r1 .fx { background-image: radial-gradient(220px 90px at 12% 100%, rgba(255, 122, 43, .35), transparent 70%); }
+    .r2 .fx::after {
+      content: ""; position: absolute; top: 0; bottom: 0; width: 60px; left: -80px;
+      background: linear-gradient(100deg, transparent, rgba(25, 240, 255, .22), transparent);
+      transform: skewX(-20deg); animation: sweep 2.8s ease-in-out infinite;
+    }
+    @keyframes sweep { 60%, 100% { left: 110%; } }
+    .rank { display: grid; place-items: center; justify-self: center; width: 52px; height: 54px; position: relative; --g: url(#gSteel); --g2: #6f7cc0; --rb: #2a3262; }
+    .rank svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .6)); }
+    .rank b { position: relative; font-family: Orbitron, sans-serif; font-weight: 800; font-size: 15px; color: #e8ecff; }
+    .r1 .rank { width: 66px; height: 68px; --g: url(#gGold); --g2: #fff3b8; --rb: #ff2bd6; animation: glow 2.4s ease-in-out infinite; }
+    .r1 .rank b { font-size: 22px; color: #2a1a02; }
+    .r2 .rank { width: 58px; height: 60px; --g: url(#gSilver); --g2: #fff; --rb: #19a8ff; filter: drop-shadow(0 0 8px rgba(25, 240, 255, .35)); }
+    .r2 .rank b { font-size: 18px; color: #10182c; }
+    .r3 .rank { width: 56px; height: 58px; --g: url(#gBronze); --g2: #ffd9b5; --rb: #8a5cff; filter: drop-shadow(0 0 8px rgba(138, 92, 255, .35)); }
+    .r3 .rank b { font-size: 17px; color: #2a1204; }
+    @keyframes glow { 50% { filter: drop-shadow(0 0 16px rgba(255, 200, 61, .95)); } }
+    .avo { position: relative; justify-self: center; width: 50px; height: 50px; transition: width .7s, height .7s; }
+    .r1 .avo { width: 60px; height: 60px; }
+    .crown { display: none; position: absolute; top: -17px; left: 50%; width: 30px; height: 24px; margin-left: -15px; z-index: 3; filter: drop-shadow(0 0 8px rgba(255, 200, 61, .9)); animation: bob 2s ease-in-out infinite; }
+    .r1 .crown { display: block; }
+    @keyframes bob { 50% { transform: translateY(-3px) rotate(3deg); } }
+    .avw { position: absolute; inset: 0; overflow: hidden; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: #1b2150; }
+    .avw::before { content: ""; position: absolute; inset: -50%; background: conic-gradient(from 0deg, var(--c1), transparent 30%, var(--c2) 55%, transparent 80%, var(--c1)); animation: spin 3.5s linear infinite; }
+    .r4 .avw::before, .r5 .avw::before, .r6 .avw::before, .r7 .avw::before, .r8 .avw::before, .r9 .avw::before, .r10 .avw::before { opacity: .35; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .avi { position: absolute; inset: 3px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: linear-gradient(160deg, #141a42, #070a1c); display: grid; place-items: center; overflow: hidden; }
+    .avi svg { width: 88%; height: 88%; margin-top: 6%; }
+    .avi img { width: 100%; height: 100%; object-fit: cover; }
+    .mid { min-width: 0; }
+    .name { font-weight: 700; font-size: 20px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .r1 .name { font-size: 25px; text-shadow: 0 0 14px rgba(255, 200, 61, .5); }
+    .bar { height: 6px; margin-top: 8px; background: rgba(255, 255, 255, .07); transform: skewX(-20deg); overflow: hidden; }
+    .bar b { display: block; height: 100%; background: linear-gradient(90deg, var(--heart), var(--mag)); transition: width .7s cubic-bezier(.2, .8, .2, 1); -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px); mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px); }
+    .r1 .bar b { background: linear-gradient(90deg, var(--gold), var(--org)); }
+    .r2 .bar b { background: linear-gradient(90deg, var(--cyan), var(--vio)); }
+    .score { display: flex; align-items: center; gap: 6px; font-family: Orbitron, sans-serif; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
+    .r1 .score { font-size: 20px; }
+    .score svg { width: 22px; height: 22px; animation: beat 1.4s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(255, 215, 0, .75)); }
+    @keyframes beat { 12% { transform: scale(1.25); } 24% { transform: scale(1); } }
+    .bump .score span { animation: bump .5s; }
+    @keyframes bump { 40% { transform: scale(1.2); color: var(--cyan); } }
+    .row.seq-hide { opacity: 0; }
+    .row.seq-show { opacity: 1; transition: opacity .38s ease; }
+    @media (prefers-reduced-motion: reduce) {
+      .row, .bar b, .row *, .row::before { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="gGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a0"/><stop offset="1" stop-color="#ff9a1f"/></linearGradient>
+      <linearGradient id="gSilver" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f9ff"/><stop offset="1" stop-color="#8d9fc4"/></linearGradient>
+      <linearGradient id="gBronze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc08a"/><stop offset="1" stop-color="#b05a22"/></linearGradient>
+      <linearGradient id="gSteel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b4682"/><stop offset="1" stop-color="#1a2050"/></linearGradient>
+      <linearGradient id="gHeart" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8aa8"/><stop offset="1" stop-color="#ff1f6b"/></linearGradient>
+      <linearGradient id="gGem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8ffff"/><stop offset=".5" stop-color="#4fe3ff"/><stop offset="1" stop-color="#0c8fd8"/></linearGradient>
+      <symbol id="wingA" viewBox="0 0 60 62"><g style="fill:var(--g);stroke:var(--g2);stroke-width:.9;stroke-linejoin:round"><path d="M22 26 2 8c1 12 8 20 20 24z"/><path d="M22 33 3 21c1 10 8 16 19 18z"/><path d="M23 40 7 34c2 7 7 11 16 10z"/></g></symbol>
+      <symbol id="wingB" viewBox="0 0 60 62"><g style="fill:var(--g);stroke:var(--g2);stroke-width:.9;stroke-linejoin:round"><path d="M22 28 5 13c1 10 8 17 17 20z"/><path d="M22 36 8 28c1 7 6 11 14 12z"/></g></symbol>
+      <symbol id="wingC" viewBox="0 0 60 62"><g style="fill:var(--g);stroke:var(--g2);stroke-width:.9;stroke-linejoin:round"><path d="M22 33 9 22c0 8 5 13 13 14z"/></g></symbol>
+      <symbol id="ribbon" viewBox="0 0 60 62"><g style="fill:var(--rb);stroke:var(--g2);stroke-width:.7;stroke-linejoin:round"><path d="M19 43 14 60l9-4 4 5V47z"/><path d="M41 43l5 17-9-4-4 5V47z"/></g></symbol>
+      <symbol id="medal" viewBox="0 0 60 62"><g style="stroke:var(--g2)"><circle cx="30" cy="31" r="16" style="fill:var(--g)" stroke-width="1.8"/><circle cx="30" cy="31" r="12.5" style="fill:var(--g2);fill-opacity:.28" stroke-width=".9" stroke-dasharray="2 2"/><path d="M30 9l4.5 5.5L30 20l-4.5-5.5z" style="fill:var(--g2)" stroke="none"/></g></symbol>
+      <symbol id="heart" viewBox="0 0 24 24"><path d="M12 21.5s-8-4.8-10-9.7C.5 8 2.7 4.5 6.2 4.5c2.1 0 3.7 1.2 5.8 3.3 2.1-2.1 3.7-3.3 5.8-3.3 3.5 0 5.7 3.5 4.2 7.3-2 4.9-10 9.7-10 9.7z" fill="url(#gHeart)" stroke="#fff" stroke-opacity=".6" stroke-width=".8"/><path d="M6.5 8.5c.8-1.3 2.2-1.6 3-.9" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".8"/></symbol>
+      <symbol id="crown" viewBox="0 0 30 24"><path d="M2 8l7 6 6-11 6 11 7-6-3 14H5z" fill="url(#gGold)" stroke="#fff3b8" stroke-width="1.2" stroke-linejoin="round"/><circle cx="2" cy="8" r="2" fill="#fff3b8"/><circle cx="15" cy="3" r="2" fill="#fff3b8"/><circle cx="28" cy="8" r="2" fill="#fff3b8"/><path d="M8 18h14" stroke="#b86a10" stroke-width="1.5" stroke-linecap="round"/></symbol>
+      <symbol id="pilot" viewBox="0 0 48 48"><path d="M24 5c-9.5 0-16 7.5-16 17v9c0 6.5 4 11 10 13h12c6-2 10-6.5 10-13v-9C40 12.5 33.5 5 24 5z" fill="currentColor"/><path d="M11 22h26v7c0 3.5-2.5 6-6 6H17c-3.5 0-6-2.5-6-6z" fill="#05071a"/><path d="M15 26h9" stroke="#19f0ff" stroke-width="2.2" stroke-linecap="round"/><circle cx="32" cy="26" r="1.8" fill="#ff2bd6"/><rect x="5" y="22" width="4" height="10" rx="2" fill="currentColor"/><rect x="39" y="22" width="4" height="10" rx="2" fill="currentColor"/></symbol>
+    </defs>
+  </svg>
+  <div class="board" role="region" aria-label="Ranking de diamantes">
+    <div class="list" id="list"></div>
+  </div>
+  <script src="/js/ranking-gamer-overlay.js?v=rg3"></script>
+  <script>
+    RankingGamerOverlay.init({
+      kind: 'topdiamgamer',
+      settingsKey: 'topdiamGamer',
+      rank: 'topdiamgamer',
+      metric: 'diamonds',
+      defaults: { rows: 5, scale: 100, resetPeriod: 'live' },
+    });
+  </script>
+  <script src="/js/overlay-idle.js?v=oi1"></script>
+  <script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

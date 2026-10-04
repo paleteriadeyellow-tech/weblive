@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script src="/js/overlay-channel.js?v=ovch1"></script>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Overlay — YouTube Song Requests</title>
@@ -9,6 +9,8 @@
     html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
     html.embed, html.embed body { width: 100%; height: 100%; box-sizing: border-box; }
     html.embed body { display: flex; align-items: flex-start; justify-content: flex-start; padding: 16px 18px; }
+    /* Evita flash del skin default (card) antes de aplicar el diseño elegido. */
+    html.embed body:not(.skin-ready) { visibility: hidden; }
     html.embed .ys { transform: none; width: 100%; }
     .skin { display: none; }
     body.skin-card #skin-card,
@@ -438,6 +440,7 @@
       let endedSent = false;
       let lastProgSent = 0;
       let pausedByPanel = false;
+      let pausedFreezeSec = null;
       let lastQueue = [];
       let lastTrack = null;
       let demoMode = false;
@@ -456,12 +459,26 @@
         s = String(s || 'card').toLowerCase();
         return (s === 'player' || s === 'list' || s === 'studio') ? s : 'card';
       }
+      // Preview del panel: postMessage manda. Un youtubeState/settings con style viejo
+      // no debe revertir el diseño (parpadeo viejo→nuevo).
+      let skinLockedByParent = false;
       function setSkin(s) {
         const skin = normSkin(s);
-        document.body.classList.remove('skin-card', 'skin-list', 'skin-player', 'skin-studio');
-        document.body.classList.add('skin-' + skin);
+        const b = document.body;
+        if (b.classList.contains('skin-' + skin)) {
+          b.classList.add('skin-ready');
+          return;
+        }
+        // Un solo write: evita frame con skin viejo o sin skin.
+        const keep = String(b.className || '')
+          .split(/\s+/)
+          .filter((c) => c && !/^skin-(card|list|player|studio|ready)$/.test(c));
+        b.className = keep.concat(['skin-' + skin, 'skin-ready']).join(' ');
       }
-      setSkin(params.get('skin'));
+      const urlSkin = params.get('skin');
+      if (urlSkin) setSkin(urlSkin);
+      else if (!isEmbed) setSkin('card');
+      // embed sin ?skin=: queda visibility:hidden hasta postMessage del panel
 
       function esc(s) {
         return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -471,9 +488,11 @@
         return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
       }
       function nowSec() {
-        if (!isEmbed && !player.paused && Number.isFinite(player.currentTime) && player.currentTime > 0.15) {
-          return player.currentTime;
+        const paused = pausedByPanel || (!isEmbed && player.paused && !!player.src);
+        if (!isEmbed && Number.isFinite(player.currentTime) && player.src) {
+          return Math.max(0, player.currentTime);
         }
+        if (paused) return pausedFreezeSec != null ? pausedFreezeSec : 0;
         if (startedAt) return (Date.now() - startedAt) / 1000;
         return Number.isFinite(player.currentTime) ? player.currentTime : 0;
       }
@@ -611,12 +630,29 @@
       }
 
       function applyState(payload) {
-        if (payload && payload.overlayStyle) setSkin(payload.overlayStyle);
+        if (payload && payload.overlayStyle && !(isEmbed && skinLockedByParent)) {
+          setSkin(payload.overlayStyle);
+        }
         if (payload && payload.volume != null) {
           const v = Math.max(0, Math.min(100, Number(payload.volume) || 0)) / 100;
           player.volume = v;
         }
-        pausedByPanel = !!(payload && payload.paused);
+        const nextPaused = !!(payload && payload.paused);
+        if (nextPaused && !pausedByPanel) {
+          pausedFreezeSec = curNow();
+          if (Number.isFinite(pausedFreezeSec)) {
+            startedAt = Date.now() - pausedFreezeSec * 1000;
+          }
+        } else if (!nextPaused && pausedByPanel) {
+          const t = pausedFreezeSec != null ? pausedFreezeSec
+            : (!isEmbed && Number.isFinite(player.currentTime) ? player.currentTime : curNow());
+          startedAt = Date.now() - Math.max(0, t || 0) * 1000;
+          pausedFreezeSec = null;
+          if (!isEmbed && Number.isFinite(t)) {
+            try { player.currentTime = t; } catch {}
+          }
+        }
+        pausedByPanel = nextPaused;
         const now = payload && payload.now;
         const queue = payload && payload.queue;
         if (isEmbed && demoMode) {
@@ -761,7 +797,9 @@
           let m; try { m = JSON.parse(ev.data); } catch { return; }
           if (m.type === 'youtubeState') applyState(m.payload);
           if (m.type === 'settings' && m.payload && m.payload.youtube) {
-            setSkin(m.payload.youtube.overlayStyle);
+            if (!(isEmbed && skinLockedByParent)) {
+              setSkin(m.payload.youtube.overlayStyle);
+            }
           }
           if (m.type === 'youtubeSeek') {
             const p = m.payload || {};
@@ -775,6 +813,7 @@
             }
           }
           if (m.type === 'youtubeProgress' && isEmbed) {
+            if (pausedByPanel) return;
             const p = m.payload || {};
             if (p.videoId && p.videoId === currentId) {
               startedAt = Date.now() - Math.max(0, Number(p.currentTime) || 0) * 1000;
@@ -796,10 +835,14 @@
       connect();
       window.addEventListener('message', (ev) => {
         const d = ev.data;
-        if (d && d.kind === 'youtubeOverlay' && d.overlayStyle) setSkin(d.overlayStyle);
+        if (d && d.kind === 'youtubeOverlay' && d.overlayStyle) {
+          if (isEmbed) skinLockedByParent = true;
+          setSkin(d.overlayStyle);
+        }
       });
     })();
   </script>
-  <script src="/js/overlay-keepalive.js"></script>
+  <script src="/js/overlay-idle.js?v=oi1"></script>
+<script src="/js/overlay-keepalive.js"></script>
 </body>
 </html>

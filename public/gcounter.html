@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script src="/js/overlay-channel.js?v=ovch1"></script>
-<meta charset="UTF-8">
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>Overlay — Contador de meta</title>
@@ -10,98 +10,166 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Bebas+Neue&family=Bungee&family=Exo+2:wght@700;800;900&family=Fredoka:wght@600;700&family=Inter:wght@700;800;900&family=Lilita+One&family=Luckiest+Guy&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;800;900&family=Oswald:wght@600;700&family=Poppins:wght@700;800;900&family=Press+Start+2P&family=Rubik:wght@700;800;900&family=Titan+One&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; overflow: hidden; background: transparent !important; font-family: var(--tf-font-stack, 'Luckiest Guy', system-ui, sans-serif); }
-    html.embed, html.embed body { width: 100%; height: 100%; }
-    html.embed body { display: flex; align-items: center; justify-content: center; }
-    html.embed .wrap { transform: scale(var(--fit, 1)); transform-origin: center center; }
-    .wrap {
-      width: 800px; height: 450px; position: relative; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; padding: 12px 24px 16px; background: transparent;
-      --title-color: #ffffff; --title-stroke: #242424; --counter-color: #ebc94d; --counter-stroke: #3a3320;
-      --tc1: #ff00aa; --tc2: #00ddff; --tc3: #ffcc00;
-      --tf-font-stack: 'Luckiest Guy', system-ui, sans-serif;
+    :root{
+      --halo1:rgba(255,64,140,.40);
+      --halo2:rgba(40,220,255,.28);
+      --ring-a:#ff9f43; --ring-b:#ff3d8b; --ring-c:#4f8cff; --ring-d:#19e3c1;
+      --tc1:#ff00aa; --tc2:#00ddff; --tc3:#ffcc00;
+      --title-color:#ffffff; --title-stroke:#2b0d44;
+      --counter-color:#ffc400; --counter-stroke:#5e2a00;
+      --tf-font-stack:'Lilita One',cursive;
     }
-    .img-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; max-height: 240px; min-height: 200px; margin: 4px 0 6px; }
-    .img-wrap::before {
-      content: ''; position: absolute; width: min(320px, 85vw); height: min(320px, 85vw); max-height: 260px;
-      border-radius: 50%; z-index: 0; pointer-events: none;
-      background: radial-gradient(circle at 50% 45%, rgba(255,130,180,.22) 0%, rgba(120,160,255,.12) 38%, rgba(40,200,160,.08) 58%, transparent 72%);
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;background:transparent!important;overflow:hidden}
+    body{display:flex;align-items:center;justify-content:center}
+    canvas#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:20}
+
+    #scaler{width:520px;height:400px;flex:none;transform-origin:center center}
+    .stage{
+      position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      animation:enter 1s cubic-bezier(.2,1.4,.4,1) both;
     }
-    .hero-img {
-      position: relative; z-index: 1; max-width: 280px; max-height: 220px; width: auto; height: auto; object-fit: contain;
-      filter: drop-shadow(0 8px 20px rgba(0,0,0,.45)); animation: gift-float 3.2s ease-in-out infinite;
+    @keyframes enter{from{opacity:0;transform:scale(.55) translateY(40px)}}
+
+    .hero{position:relative;width:190px;height:190px;margin-bottom:6px}
+    .halo{
+      position:absolute;left:50%;top:50%;width:420px;height:420px;margin:-210px 0 0 -210px;border-radius:50%;
+      background:
+        radial-gradient(circle at 38% 40%,var(--halo1),transparent 55%),
+        radial-gradient(circle at 64% 62%,var(--halo2),transparent 55%);
+      filter:blur(10px);animation:breathe 4s ease-in-out infinite;transition:background 1s;
     }
-    @keyframes gift-float {
-      0% { transform: translateY(0) rotate(-1.2deg); }
-      50% { transform: translateY(-12px) rotate(1.2deg); }
-      100% { transform: translateY(0) rotate(-1.2deg); }
+    @keyframes breathe{50%{transform:scale(1.12);opacity:.8}}
+    .rays{
+      position:absolute;left:50%;top:50%;width:460px;height:460px;margin:-230px 0 0 -230px;border-radius:50%;
+      background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.16) 0 6deg,transparent 6deg 18deg);
+      -webkit-mask:radial-gradient(circle,#000 8%,transparent 62%);mask:radial-gradient(circle,#000 8%,transparent 62%);
+      animation:rot 40s linear infinite;
     }
-    .hero-ph { position: relative; z-index: 1; font-size: 150px; filter: drop-shadow(0 8px 20px rgba(0,0,0,.45)); animation: gift-float 3.2s ease-in-out infinite; }
-    .title {
-      font-family: var(--tf-font-stack, 'Luckiest Guy', sans-serif);
-      font-weight: 900; font-size: 50px; letter-spacing: .04em; line-height: 1.15;
-      margin: 0 0 6px; max-width: 96%; text-align: center; text-transform: uppercase;
-      color: var(--title-color);
-      -webkit-text-stroke: 3px var(--title-stroke);
-      paint-order: stroke fill;
-      text-shadow: 0 4px 0 rgba(15,15,22,.5), 0 7px 14px rgba(0,0,0,.5);
-      background: none;
-      -webkit-text-fill-color: var(--title-color);
-      animation: none;
-      filter: none;
+    @keyframes rot{to{transform:rotate(360deg)}}
+
+    .ring{position:absolute;inset:0;transform:rotate(-90deg);overflow:visible}
+    .ring .track{fill:none;stroke:rgba(255,255,255,.10);stroke-width:7}
+    .ring .prog{
+      fill:none;stroke:url(#rg);stroke-width:7;stroke-linecap:round;
+      stroke-dasharray:540.35;stroke-dashoffset:540.35;
+      transition:stroke-dashoffset 1.1s cubic-bezier(.2,.9,.2,1);
+      filter:drop-shadow(0 0 7px rgba(255,80,160,.9));
     }
-    /* Arcoíris con movimiento (usa tc1/tc2/tc3 del config) */
-    .title.title--rainbow {
-      background: linear-gradient(
-        90deg,
-        var(--tc1), var(--tc2), var(--tc3), var(--tc1), var(--tc2), var(--tc3), var(--tc1)
-      );
-      background-size: 280% 100%;
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      -webkit-text-fill-color: transparent;
-      -webkit-text-stroke: 0;
-      text-shadow: none;
-      animation: title-rainbow-move 3.2s linear infinite;
-      filter: drop-shadow(0 3px 0 rgba(0,0,0,.55)) drop-shadow(0 5px 12px rgba(0,0,0,.35));
+    .ring .dots{fill:none;stroke:rgba(255,255,255,.28);stroke-width:2;stroke-dasharray:1 12;stroke-linecap:round;transform-origin:95px 95px;animation:rot 30s linear infinite reverse}
+
+    .icon-box{
+      position:absolute;left:50%;top:50%;width:132px;height:132px;margin:-66px 0 0 -66px;
+      animation:bob 3s ease-in-out infinite;
     }
-    @keyframes title-rainbow-move {
-      0% { background-position: 0% 50%; }
-      100% { background-position: 100% 50%; }
+    @keyframes bob{50%{transform:translateY(-7px) rotate(-3deg)}}
+    .icon{
+      width:100%;height:100%;object-fit:contain;
+      filter:drop-shadow(0 10px 14px rgba(0,0,0,.5)) drop-shadow(0 0 18px rgba(255,80,150,.55));
     }
-    .counter {
-      font-family: var(--tf-font-stack, 'Luckiest Guy', sans-serif);
-      font-weight: 900; font-size: 58px; letter-spacing: .03em;
-      color: var(--counter-color); text-align: center; margin: 0;
-      -webkit-text-stroke: 3px var(--counter-stroke);
-      paint-order: stroke fill;
-      text-shadow: 0 3px 0 rgba(20,15,10,.45), 0 5px 12px rgba(0,0,0,.45);
-      transition: transform .18s ease;
+    .icon-box.pop .icon{animation:pop .65s cubic-bezier(.2,1.7,.4,1)}
+    @keyframes pop{0%{transform:scale(.7) rotate(-16deg)}55%{transform:scale(1.28) rotate(7deg)}100%{transform:none}}
+    .floor{
+      position:absolute;left:50%;bottom:-8px;width:110px;height:16px;margin-left:-55px;border-radius:50%;
+      background:radial-gradient(ellipse,rgba(0,0,0,.5),transparent 70%);animation:floor 3s ease-in-out infinite;
     }
-    .counter.bump { transform: scale(1.18); }
-    .counter.reached { animation: reached-glow 1.4s ease-in-out infinite; }
-    @keyframes reached-glow {
-      0%, 100% { filter: drop-shadow(0 0 6px rgba(255,210,80,.5)); }
-      50% { filter: drop-shadow(0 0 22px rgba(255,210,80,.95)); }
+    @keyframes floor{50%{transform:scale(.8);opacity:.6}}
+
+    .spark{position:absolute;pointer-events:none;animation:twinkle 2.6s ease-in-out infinite;filter:drop-shadow(0 0 6px #fff)}
+    @keyframes twinkle{0%,100%{opacity:0;transform:scale(.2) rotate(0)}50%{opacity:1;transform:scale(1) rotate(90deg)}}
+
+    .t{position:relative;display:inline-block;line-height:1;white-space:nowrap;text-align:center;font-family:var(--tf-font-stack)}
+    .t::before{
+      content:attr(data-text);position:absolute;left:0;top:0;width:100%;
+      color:var(--sc);-webkit-text-stroke:var(--sw) var(--sc);
+      text-shadow:var(--ext);
     }
-    /* Press Start 2P se ve mejor un poco más pequeño */
-    html[data-font="pressstart"] .title { font-size: 34px; letter-spacing: .02em; line-height: 1.35; }
-    html[data-font="pressstart"] .counter { font-size: 40px; line-height: 1.35; }
+    .t>span{
+      position:relative;color:transparent;-webkit-background-clip:text;background-clip:text;
+      background-repeat:no-repeat;
+    }
+    .t>span::selection{background:none}
+
+    .title{
+      font-size:58px;letter-spacing:2px;--sc:var(--title-stroke);--sw:11px;
+      --ext:0 3px 0 color-mix(in srgb,var(--title-stroke) 85%,#fff),0 6px 0 color-mix(in srgb,var(--title-stroke) 92%,#000),0 9px 0 var(--title-stroke),0 14px 18px rgba(0,0,0,.55);
+      filter:drop-shadow(0 0 16px rgba(255,70,150,.55));
+      max-width:96%;text-transform:uppercase;
+    }
+    .title>span{
+      background-image:
+        linear-gradient(105deg,transparent 42%,rgba(255,255,255,.9) 50%,transparent 58%),
+        linear-gradient(180deg,rgba(255,255,255,.35) 0%,transparent 46%),
+        linear-gradient(90deg,var(--tc1) 0%,var(--tc2) 50%,var(--tc3) 100%);
+      background-size:260% 100%,100% 100%,100% 100%;
+      animation:shineT 4.5s ease-in-out infinite;
+    }
+    .title.solid>span{
+      background-image:none;color:var(--title-color);-webkit-text-fill-color:var(--title-color);
+      animation:none;
+    }
+    @keyframes shineT{0%{background-position:0% 0,0 0,0 0}55%,100%{background-position:100% 0,0 0,0 0}}
+
+    .count{
+      margin-top:14px;font-size:104px;letter-spacing:3px;--sc:var(--counter-stroke);--sw:16px;
+      --ext:0 4px 0 color-mix(in srgb,var(--counter-stroke) 80%,#fff),0 8px 0 color-mix(in srgb,var(--counter-stroke) 90%,#000),0 12px 0 var(--counter-stroke),0 18px 22px rgba(0,0,0,.55);
+      filter:drop-shadow(0 0 26px color-mix(in srgb,var(--counter-color) 65%,transparent));
+    }
+    .count>span{
+      background-image:
+        linear-gradient(105deg,transparent 42%,rgba(255,255,255,.95) 50%,transparent 58%),
+        linear-gradient(180deg,#fffbd2 0%,var(--counter-color) 36%,color-mix(in srgb,var(--counter-color) 70%,#ff9500) 51%,var(--counter-color) 100%);
+      background-size:260% 100%,100% 100%;
+      animation:shineC 3.8s ease-in-out infinite 1.2s;
+    }
+    @keyframes shineC{0%{background-position:0% 0,0 0}55%,100%{background-position:100% 0,0 0}}
+    .count.bump{animation:bump .55s cubic-bezier(.2,1.9,.4,1)}
+    @keyframes bump{40%{transform:scale(1.2) rotate(-1.5deg)}}
+
+    .done-pill{
+      position:absolute;left:50%;bottom:6px;transform:translateX(-50%) scale(.6);opacity:0;
+      font-family:'Fredoka',sans-serif;font-weight:600;font-size:15px;letter-spacing:4px;color:#ffe27a;
+      text-shadow:0 0 12px rgba(255,200,60,.9);white-space:nowrap;transition:.5s cubic-bezier(.2,1.6,.4,1);
+    }
+    .stage.done{--halo1:rgba(255,205,60,.55);--halo2:rgba(255,120,40,.35);--ring-a:#fff1a8;--ring-b:#ffd23f;--ring-c:#ffb300;--ring-d:#fff1a8}
+    .stage.done .done-pill{opacity:1;transform:translateX(-50%) scale(1);animation:blink 1.2s ease-in-out infinite .5s}
+    @keyframes blink{50%{opacity:.5}}
+
+    html[data-font="pressstart"] .title{font-size:34px;letter-spacing:.02em}
+    html[data-font="pressstart"] .count{font-size:56px}
   </style>
 </head>
 <body>
-  <div class="wrap" id="root">
-    <div class="img-wrap">
-      <img class="hero-img" id="gift-img" alt="" referrerpolicy="no-referrer" style="display:none">
-      <span class="hero-ph" id="gift-ph">🎯</span>
-    </div>
-    <div class="title title--rainbow" id="el-title">MY CHALLENGE</div>
-    <div class="counter" id="el-counter">0 / 50</div>
-  </div>
+<canvas id="fx"></canvas>
 
-  <script>
+<div id="scaler">
+  <div class="stage" id="stage">
+    <div class="hero" id="hero">
+      <div class="halo"></div>
+      <div class="rays"></div>
+      <svg class="ring" viewBox="0 0 190 190" width="190" height="190">
+        <defs>
+          <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--ring-a)"/>
+            <stop offset=".35" stop-color="var(--ring-b)"/>
+            <stop offset=".7" stop-color="var(--ring-c)"/>
+            <stop offset="1" stop-color="var(--ring-d)"/>
+          </linearGradient>
+        </defs>
+        <circle class="dots" cx="95" cy="95" r="93"/>
+        <circle class="track" cx="95" cy="95" r="86"/>
+        <circle class="prog" id="prog" cx="95" cy="95" r="86"/>
+      </svg>
+      <div class="floor"></div>
+      <div class="icon-box" id="iconBox"><img class="icon" id="icon" alt="" referrerpolicy="no-referrer" src=""></div>
+    </div>
+    <div class="t title" id="titleT" data-text="MY CHALLENGE"><span id="titleS">MY CHALLENGE</span></div>
+    <div class="t count" id="countT" data-text="0 / 50"><span id="countS">0 / 50</span></div>
+    <div class="done-pill">★ ¡RETO COMPLETADO! ★</div>
+  </div>
+</div>
+
+<script>
 (function () {
   const params = new URLSearchParams(location.search);
   const isEmbed = params.get('embed') === '1';
@@ -110,7 +178,7 @@
     exo2: "'Exo 2', system-ui, sans-serif",
     luckiest: "'Luckiest Guy', system-ui, sans-serif",
     bangers: "'Bangers', system-ui, sans-serif",
-    lilita: "'Lilita One', system-ui, sans-serif",
+    lilita: "'Lilita One', cursive",
     titan: "'Titan One', system-ui, sans-serif",
     fredoka: "'Fredoka', system-ui, sans-serif",
     bungee: "'Bungee', system-ui, sans-serif",
@@ -124,6 +192,33 @@
     system: 'system-ui, sans-serif',
   };
 
+  const defaultIcon = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">' +
+    '<defs>' +
+    '<radialGradient id="r1" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="#ff86b0"/><stop offset=".6" stop-color="#ee2a68"/><stop offset="1" stop-color="#b3104a"/></radialGradient>' +
+    '<radialGradient id="w1" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f6c4d6"/></radialGradient>' +
+    '<linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8eefc"/><stop offset="1" stop-color="#8a98bd"/></linearGradient>' +
+    '<linearGradient id="fa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#2f6bff"/></linearGradient>' +
+    '<linearGradient id="fb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f9bff"/><stop offset="1" stop-color="#1d3fd0"/></linearGradient>' +
+    '<linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+    '</defs>' +
+    '<circle cx="68" cy="92" r="58" fill="#7d0b36"/>' +
+    '<circle cx="68" cy="89" r="58" fill="url(#r1)"/>' +
+    '<circle cx="68" cy="89" r="45" fill="url(#w1)"/>' +
+    '<circle cx="68" cy="89" r="33" fill="url(#r1)"/>' +
+    '<circle cx="68" cy="89" r="21" fill="url(#w1)"/>' +
+    '<circle cx="68" cy="89" r="10" fill="url(#r1)"/>' +
+    '<path d="M30 56 A52 52 0 0 1 76 38" stroke="url(#gl)" stroke-width="7" stroke-linecap="round" fill="none"/>' +
+    '<g transform="translate(68 89) rotate(-45)">' +
+    '<rect x="3" y="-3.5" width="74" height="7" rx="3.5" fill="url(#sh)"/>' +
+    '<path d="M60 0 L78 -25 L104 -25 L88 0 Z" fill="url(#fa)"/>' +
+    '<path d="M60 0 L78 25 L104 25 L88 0 Z" fill="url(#fb)"/>' +
+    '<path d="M66 -4 L80 -21 L96 -21" stroke="#d6efff" stroke-width="3" stroke-linecap="round" fill="none" opacity=".8"/>' +
+    '<rect x="84" y="-7" width="20" height="14" rx="6" fill="url(#fb)"/>' +
+    '<rect x="86" y="-5" width="14" height="4" rx="2" fill="#fff" opacity=".45"/>' +
+    '</g></svg>'
+  );
+
   let cfg = {
     title: 'MY CHALLENGE',
     titleRainbow: true,
@@ -132,70 +227,177 @@
     counterColor: '#ebc94d',
     titleStroke: '#242424',
     counterStroke: '#3a3320',
-    font: 'luckiest',
+    font: 'lilita',
     goal: 50,
     image: '',
   };
   let count = 0;
-
+  let shown = 0;
+  let numRaf = 0;
+  const RING_C = 2 * Math.PI * 86;
   const $ = (id) => document.getElementById(id);
 
+  /* sparks */
+  (function () {
+    const hero = $('hero');
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + Math.random() * .6;
+      const r = 88 + Math.random() * 34;
+      const sz = 12 + Math.random() * 16;
+      const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      s.setAttribute('viewBox', '0 0 24 24');
+      s.classList.add('spark');
+      s.style.cssText = `width:${sz}px;height:${sz}px;left:${95 + Math.cos(a) * r - sz / 2}px;top:${95 + Math.sin(a) * r - sz / 2}px;animation-delay:${(Math.random() * 2.6).toFixed(2)}s`;
+      s.innerHTML = '<path d="M12 0 C13 8 16 11 24 12 C16 13 13 16 12 24 C11 16 8 13 0 12 C8 11 11 8 12 0Z" fill="#fff"/>';
+      hero.appendChild(s);
+    }
+  })();
+
+  /* particles */
+  const cv = $('fx');
+  const ctx = cv.getContext('2d');
+  const palette = ['#ff9f43', '#ff3d8b', '#4f8cff', '#19e3c1', '#ffd23f', '#ffffff'];
+  let parts = [];
+  const embers = [];
+  for (let i = 0; i < 34; i++) {
+    embers.push({
+      x: Math.random(), y: Math.random(), r: .8 + Math.random() * 2.2,
+      s: .0006 + Math.random() * .0012, p: Math.random() * 6,
+      c: palette[Math.random() * palette.length | 0],
+    });
+  }
+  function burst(x, y, n, big) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = (big ? 10 : 6) * (.35 + Math.random());
+      parts.push({
+        x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (big ? 5 : 1.5),
+        g: .2, life: 1, d: .011 + Math.random() * .012,
+        r: 3 + Math.random() * (big ? 6 : 4),
+        c: palette[Math.random() * palette.length | 0],
+        rot: Math.random() * 6, vr: (Math.random() - .5) * .45, sq: Math.random() < .5,
+      });
+    }
+  }
+  function celebrate() {
+    let i = 0;
+    const iv = setInterval(() => {
+      burst(Math.random() * innerWidth, innerHeight * .2, 46, true);
+      if (++i > 7) clearInterval(iv);
+    }, 200);
+  }
+  (function loop(t) {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const e of embers) {
+      e.y -= e.s;
+      if (e.y < -.05) { e.y = 1.05; e.x = Math.random(); }
+      const x = (e.x + Math.sin(t / 1400 + e.p) * .015) * cv.width;
+      const y = e.y * cv.height;
+      ctx.globalAlpha = .25 + .35 * Math.sin(t / 600 + e.p) ** 2;
+      ctx.fillStyle = e.c; ctx.shadowColor = e.c; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(x, y, e.r, 0, 7); ctx.fill();
+    }
+    parts = parts.filter((p) => p.life > 0);
+    for (const p of parts) {
+      p.vy += p.g; p.x += p.vx; p.y += p.vy; p.vx *= .992; p.life -= p.d; p.rot += p.vr;
+      ctx.save(); ctx.globalAlpha = Math.max(p.life, 0); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 12;
+      if (p.sq) ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+      else { ctx.beginPath(); ctx.arc(0, 0, p.r / 1.4, 0, 7); ctx.fill(); }
+      ctx.restore();
+    }
+    requestAnimationFrame(loop);
+  })(0);
+
+  function fit() {
+    const s = Math.min(innerWidth / 520, innerHeight / 400);
+    $('scaler').style.transform = `scale(${s})`;
+    cv.width = innerWidth;
+    cv.height = innerHeight;
+  }
+  addEventListener('resize', fit);
+  fit();
+
+  function setCountText(n) {
+    const goal = Math.max(1, Number(cfg.goal) || 50);
+    const t = n.toLocaleString('es-ES') + ' / ' + goal.toLocaleString('es-ES');
+    $('countS').textContent = t;
+    $('countT').dataset.text = t;
+  }
+  function animateNumber(from, to) {
+    cancelAnimationFrame(numRaf);
+    const t0 = performance.now();
+    const dur = 800;
+    (function step(t) {
+      const k = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - k, 3);
+      shown = Math.round(from + (to - from) * e);
+      setCountText(shown);
+      if (k < 1) numRaf = requestAnimationFrame(step);
+    })(t0);
+  }
+  function setRing() {
+    const goal = Math.max(1, Number(cfg.goal) || 50);
+    const pct = Math.min(1, count / goal);
+    $('prog').style.strokeDashoffset = String(RING_C * (1 - pct));
+  }
   function applyStyle() {
-    const root = $('root');
-    const fontKey = FONTS[cfg.font] ? cfg.font : 'luckiest';
-    const stack = FONTS[fontKey];
-    root.style.setProperty('--tf-font-stack', stack);
-    document.documentElement.style.setProperty('--tf-font-stack', stack);
+    const fontKey = FONTS[cfg.font] ? cfg.font : 'lilita';
+    document.documentElement.style.setProperty('--tf-font-stack', FONTS[fontKey]);
     document.documentElement.dataset.font = fontKey;
+    document.documentElement.style.setProperty('--tc1', cfg.tc1 || '#ff00aa');
+    document.documentElement.style.setProperty('--tc2', cfg.tc2 || '#00ddff');
+    document.documentElement.style.setProperty('--tc3', cfg.tc3 || '#ffcc00');
+    document.documentElement.style.setProperty('--title-color', cfg.titleColor || '#ffffff');
+    document.documentElement.style.setProperty('--title-stroke', cfg.titleStroke || '#2b0d44');
+    document.documentElement.style.setProperty('--counter-color', cfg.counterColor || '#ebc94d');
+    document.documentElement.style.setProperty('--counter-stroke', cfg.counterStroke || '#5e2a00');
 
-    root.style.setProperty('--title-color', cfg.titleColor || '#ffffff');
-    root.style.setProperty('--counter-color', cfg.counterColor || '#ebc94d');
-    root.style.setProperty('--title-stroke', cfg.titleStroke || '#242424');
-    root.style.setProperty('--counter-stroke', cfg.counterStroke || '#3a3320');
-    root.style.setProperty('--tc1', cfg.tc1 || '#ff00aa');
-    root.style.setProperty('--tc2', cfg.tc2 || '#00ddff');
-    root.style.setProperty('--tc3', cfg.tc3 || '#ffcc00');
+    const title = cfg.title || 'MY CHALLENGE';
+    $('titleT').dataset.text = title;
+    $('titleS').textContent = title;
+    $('titleT').classList.toggle('solid', !cfg.titleRainbow);
 
-    const t = $('el-title');
-    t.textContent = cfg.title || 'MY CHALLENGE';
-    // ON = arcoíris animado (colores tc1/2/3). OFF = color sólido del título (blanco por defecto).
-    t.classList.toggle('title--rainbow', !!cfg.titleRainbow);
+    const icon = $('icon');
+    const url = String(cfg.image || '').trim();
+    icon.onerror = () => { icon.onerror = null; icon.src = defaultIcon; };
+    icon.src = url || defaultIcon;
+  }
 
-    const img = $('gift-img'), ph = $('gift-ph');
-    const url = (cfg.image || '').trim();
-    if (url) {
-      img.style.display = '';
-      ph.style.display = 'none';
-      img.src = url;
-      img.onerror = () => { img.style.display = 'none'; ph.style.display = ''; };
-    } else {
-      img.style.display = 'none';
-      ph.style.display = '';
+  function render(bump, prevCount) {
+    const goal = Math.max(1, Number(cfg.goal) || 50);
+    const prev = prevCount == null ? count : prevCount;
+    setRing();
+    animateNumber(shown, count);
+    $('stage').classList.toggle('done', count >= goal);
+    if (bump && count > prev) {
+      const c = $('countT');
+      c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
+      const b = $('iconBox');
+      b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+      const r = $('hero').getBoundingClientRect();
+      burst(r.left + r.width / 2, r.top + r.height / 2, 34, false);
+      if (prev < goal && count >= goal) celebrate();
     }
   }
 
-  function render(bump) {
-    const goal = Math.max(1, Number(cfg.goal) || 50);
-    const el = $('el-counter');
-    el.textContent = count.toLocaleString('es-ES') + ' / ' + goal.toLocaleString('es-ES');
-    el.classList.toggle('reached', count >= goal);
-    if (bump) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
-  }
-
   function setCount(n, goal, bump) {
+    const prev = count;
     count = Math.max(0, Number(n) || 0);
     if (goal != null) cfg.goal = goal;
-    render(bump);
+    render(!!bump, prev);
   }
 
   let testTimer;
   function runTest() {
     clearTimeout(testTimer);
-    count = 0; render();
+    count = 0; shown = 0; setCountText(0); setRing();
+    $('stage').classList.remove('done');
     const goal = Math.max(1, Number(cfg.goal) || 50);
     const step = () => {
+      const prev = count;
       count = Math.min(goal, count + Math.max(1, Math.round(goal / 12)));
-      render(true);
+      render(true, prev);
       if (count < goal) testTimer = setTimeout(step, 450);
     };
     testTimer = setTimeout(step, 350);
@@ -210,37 +412,33 @@
     ws.onmessage = (ev) => {
       let m; try { m = JSON.parse(ev.data); } catch { return; }
       if (m.type === 'giftCounter') {
-        // En OBS y en la vista previa del panel: sincronizar el contador real (Reset → 0).
         setCount(m.payload.count, m.payload.goal, true);
-      }
-      else if (m.type === 'settings') {
+      } else if (m.type === 'settings') {
         if (m.payload && m.payload.giftCounter) {
           cfg = Object.assign(cfg, m.payload.giftCounter);
           applyStyle();
-          render();
+          render(false);
         }
-      } else if (m.type === 'giftCounterTest') { if (!isEmbed) runTest(); }
+      } else if (m.type === 'giftCounterTest') {
+        if (!isEmbed) runTest();
+      }
     };
   }
 
   window.addEventListener('message', (e) => {
     const d = e.data; if (!d || d.kind !== 'gcounter') return;
-    if (d.type === 'config') { cfg = Object.assign(cfg, d.config); applyStyle(); render(); }
+    if (d.type === 'config') { cfg = Object.assign(cfg, d.config); applyStyle(); render(false); }
     else if (d.type === 'test') runTest();
-    else if (d.type === 'reset') { count = 0; render(); }
+    else if (d.type === 'reset') { count = 0; shown = 0; setCountText(0); setRing(); $('stage').classList.remove('done'); }
   });
 
-  if (isEmbed) {
-    document.documentElement.classList.add('embed');
-    const fit = () => document.documentElement.style.setProperty('--fit', Math.min(window.innerWidth / 800, window.innerHeight / 450));
-    fit();
-    window.addEventListener('resize', fit);
-  }
   applyStyle();
-  if (isEmbed) runTest(); else render();
+  if (isEmbed) runTest();
+  else { setCountText(0); setRing(); }
   connectWS();
 })();
-  </script>
-  <script src="/js/overlay-keepalive.js"></script>
+</script>
+<script src="/js/overlay-idle.js?v=oi1"></script>
+<script src="/js/overlay-keepalive.js"></script>
 </body>
 </html>

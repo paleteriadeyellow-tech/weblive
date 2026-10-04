@@ -5,10 +5,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { hmacHex, isDesktopCloudLock, sealsEqual } from './entitlement-lock.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PLANS_FILE = path.join(DATA_DIR, 'plans.json');
+const PLANS_SEAL_FILE = path.join(DATA_DIR, 'plans.seal');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -40,6 +42,7 @@ export const CAPABILITIES = {
   // Overlays individuales (se ocultan en la lista si no están permitidos).
   // El "path" enlaza con el data-path del overlay en el panel.
   overlays: [
+    { key: 'ov_joindonorbolt', label: 'Join donador (rayo)', path: '/join-donor-bolt.html' },
     { key: 'ov_joinlive', label: 'Join al live', path: '/join-live.html' },
     { key: 'ov_joinlivemc', label: 'Join al live (Minecraft)', path: '/join-live-minecraft.html' },
     { key: 'ov_joinlivedbz', label: 'Join al live (Dragon Ball Z)', path: '/join-live-dragonball.html' },
@@ -91,6 +94,7 @@ export const CAPABILITIES = {
     { key: 'ov_topaltrank', label: 'Top Likes / Diamantes (alternado)', path: '/topalt-rank.html' },
     { key: 'ov_topmultirank', label: 'Top rotatorio (likes / coins / chat / puntos)', path: '/topmulti-rank.html' },
     { key: 'ov_pointslookup', label: 'Consulta de puntos (!puntos)', path: '/points-lookup.html' },
+    { key: 'ov_topdonatorspro', label: 'Top donators (Cute / Fantasy / Voxel)', path: '/top-donators-pro.html' },
     { key: 'ov_toplikes', label: 'Top likes', path: '/toplikes.html' },
     { key: 'ov_topdiamantes', label: 'Top diamantes', path: '/topdiamantes.html' },
     { key: 'ov_toplikeslista', label: 'Ranking likes (lista)', path: '/toplikes-lista.html' },
@@ -105,8 +109,8 @@ export const CAPABILITIES = {
     { key: 'ov_alertaregalo', label: 'Alerta de regalo', path: '/alerta-regalo.html' },
     { key: 'ov_alertalikes', label: 'Alerta de likes', path: '/alerta-likes.html' },
     { key: 'ov_alertaseguidor', label: 'Alerta de nuevo seguidor', path: '/alerta-seguidor.html' },
+    { key: 'ov_nuevoseguidorv2', label: 'Nuevo seguidor v2', path: '/nuevo-seguidor-v2.html' },
     { key: 'ov_timer', label: 'Temporizador (overlay)', path: '/timer.html' },
-    { key: 'ov_audioviz', label: 'Visualizador de audio (juego)', path: '/audio-visualizer.html' },
     { key: 'ov_top1', label: 'Top 1 Donador (MVP)', path: '/top1.html' },
     { key: 'ov_spotify', label: 'Spotify (lista)', path: '/spotify-overlay.html' },
     { key: 'ov_spotifyplayer', label: 'Spotify (reproductor)', path: '/spotify-player-overlay.html' },
@@ -212,16 +216,46 @@ function defaultConfig() {
 
 let config = loadConfig();
 
+function plansSealPayload(cfg) {
+  return JSON.stringify({
+    free: cfg.free,
+    premium: cfg.premium,
+    meta: cfg.meta || {},
+  });
+}
+
+function writePlansSeal(cfg) {
+  if (!isDesktopCloudLock()) return;
+  try {
+    fs.writeFileSync(PLANS_SEAL_FILE, hmacHex(plansSealPayload(cfg)));
+  } catch {}
+}
+
+function plansSealOk(cfg) {
+  if (!isDesktopCloudLock()) return true;
+  try {
+    const seal = fs.readFileSync(PLANS_SEAL_FILE, 'utf8').trim();
+    return sealsEqual(seal, hmacHex(plansSealPayload(cfg)));
+  } catch {
+    return false;
+  }
+}
+
 function loadConfig() {
   try {
     const raw = JSON.parse(fs.readFileSync(PLANS_FILE, 'utf8'));
     const cfg = normalizeConfig(raw);
+    if (isDesktopCloudLock() && !plansSealOk(cfg)) {
+      console.warn('  [!] plans.json alterado o sin sello — caps restrictivos hasta sync nube.');
+      return defaultConfig();
+    }
     if ((Number(raw?.meta?.freeGamesPack) || 0) < FREE_GAMES_PACK) saveConfigToDisk(cfg);
     return cfg;
   } catch {
     const def = defaultConfig();
     def.meta = { freeGamesPack: FREE_GAMES_PACK };
-    saveConfigToDisk(def);
+    // En .exe+nube no persistimos defaults sin sello de sync (evita “arreglar” a mano).
+    if (!isDesktopCloudLock()) saveConfigToDisk(def);
     return def;
   }
 }
@@ -256,6 +290,7 @@ function saveConfigToDisk(cfg) {
     const tmp = PLANS_FILE + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2));
     fs.renameSync(tmp, PLANS_FILE);
+    writePlansSeal(cfg);
   } catch (e) {
     console.error('  [!] No se pudo guardar plans.json -', e.message);
   }
@@ -264,7 +299,11 @@ function saveConfigToDisk(cfg) {
 export function getPlanConfig() {
   return config;
 }
-export function savePlanConfig(raw) {
+/** opts.trusted = sync desde Render / admin nube. Sin eso, en .exe se ignora. */
+export function savePlanConfig(raw, opts = {}) {
+  if (isDesktopCloudLock() && !opts.trusted) {
+    return config;
+  }
   config = normalizeConfig(raw);
   saveConfigToDisk(config);
   return config;

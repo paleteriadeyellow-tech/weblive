@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <title>Overlay — Entrada donador (rayo)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Outfit:wght@600;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --y: #ffe14a; --v: #6a5cff; --ink: #0d0a2b;
+      box-sizing: border-box;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; color: #fff; font-family: 'Outfit', system-ui, sans-serif; background: transparent !important; }
+    #cv { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
+    #alert { position: absolute; left: 50%; top: 50%; width: 760px; height: 300px; transform: translate(-50%, -50%); }
+    .rig { position: absolute; inset: 0; visibility: hidden; }
+    .play .rig { visibility: visible; }
+    .out .rig { animation: zap .5s ease-in forwards; }
+    @keyframes zap {
+      0% { filter: brightness(1); }
+      20% { filter: brightness(3); transform: translateX(7px); }
+      40% { transform: translateX(-7px); filter: brightness(1.4); }
+      100% { opacity: 0; transform: scale(.88) translateY(-12px); filter: brightness(4) blur(7px); }
+    }
+
+    .ab { position: absolute; left: 320px; top: 20px; width: 120px; height: 120px; }
+    .ab::before {
+      content: ""; position: absolute; inset: -14px; border-radius: 50%; border: 3px dashed var(--y);
+      opacity: 0; filter: drop-shadow(0 0 6px var(--y));
+    }
+    .play .ab::before { animation: ringin .4s ease-out .5s forwards, spin 7s linear .5s infinite; }
+    @keyframes ringin { to { opacity: .95; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .av {
+      position: absolute; inset: 0; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+      font: 400 62px 'Anton', sans-serif; opacity: 0;
+      box-shadow: 0 0 0 4px var(--ink), 0 0 0 8px var(--y), 0 0 42px 10px rgba(106, 92, 255, .85);
+    }
+    .av img { width: 100%; height: 100%; object-fit: cover; }
+    .play .av { animation: avp .55s cubic-bezier(.2, 1.4, .4, 1) .25s forwards; }
+    @keyframes avp {
+      0% { opacity: 0; transform: scale(0); filter: brightness(6); }
+      35% { opacity: 1; transform: scale(1.3); filter: brightness(3); }
+      100% { opacity: 1; transform: none; filter: none; }
+    }
+    .sw {
+      position: absolute; left: 320px; top: 20px; width: 120px; height: 120px; border-radius: 50%;
+      border: 5px solid var(--y); opacity: 0; box-shadow: 0 0 18px var(--y);
+    }
+    .sw.b { border-color: #a99cff; }
+    .play .sw { animation: sw .95s cubic-bezier(.1, .7, .3, 1) .3s; }
+    .play .sw.b { animation-delay: .48s; }
+    @keyframes sw { 0% { opacity: 1; transform: scale(.4); } 100% { opacity: 0; transform: scale(4.2); } }
+
+    .bl {
+      position: absolute; left: 0; right: 0; top: 158px; height: 84px; transform: scaleX(0);
+      clip-path: polygon(2% 0, 100% 0, 98% 100%, 0 100%);
+      background:
+        linear-gradient(var(--y), var(--y)) top / 100% 4px no-repeat,
+        linear-gradient(var(--y), var(--y)) bottom / 100% 4px no-repeat,
+        repeating-linear-gradient(115deg, transparent 0 22px, rgba(255, 255, 255, .05) 22px 26px),
+        linear-gradient(90deg, #120c3d, #2a1f8f 50%, #120c3d);
+    }
+    .play .bl { animation: bl .5s cubic-bezier(.7, 0, .2, 1) .45s forwards; }
+    @keyframes bl { to { transform: scaleX(1); } }
+    .nm {
+      position: absolute; left: 0; right: 0; top: 158px; height: 84px; display: flex; align-items: center; justify-content: center;
+      font: 400 72px/1 'Anton', sans-serif; letter-spacing: .02em; white-space: nowrap;
+      text-shadow: 3px 3px 0 #ffb800, 0 0 26px rgba(106, 92, 255, .95);
+    }
+    .nm i { font-style: normal; display: inline-block; opacity: 0; }
+    .play .nm i { animation: lt .5s cubic-bezier(.2, 1.5, .4, 1) both; animation-delay: calc(.7s + var(--k) * .045s); }
+    @keyframes lt {
+      0% { opacity: 0; transform: translateY(-130px) scale(2.8); filter: blur(10px); }
+      55% { opacity: 1; transform: translateY(7px) scale(.94); filter: none; }
+      100% { opacity: 1; transform: none; }
+    }
+    .lb {
+      position: absolute; left: 50%; top: 252px; margin-left: -200px; width: 400px; text-align: center; padding: 7px 14px;
+      background: var(--y); color: var(--ink); font: 900 18px/1 'Outfit', sans-serif; letter-spacing: .06em;
+      transform: skewX(-12deg); opacity: 0; box-shadow: 0 0 22px rgba(255, 225, 74, .6);
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .lb .lb-prefix, .lb .lb-num { transform: skewX(12deg); white-space: nowrap; }
+    .lb .lb-num { font-size: 22px; font-weight: 900; }
+    .lb img.lb-gem {
+      width: 32px; height: 32px; flex: none; transform: skewX(12deg); object-fit: contain; display: block;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,.4));
+    }
+    .play .lb { animation: lb .38s cubic-bezier(.2, 1.8, .4, 1) 1.4s forwards; }
+    @keyframes lb {
+      from { opacity: 0; transform: skewX(-12deg) scale(2.2) rotate(-8deg); }
+      to { opacity: 1; transform: skewX(-12deg); }
+    }
+
+    html.embed body { background: transparent !important; }
+    @media (prefers-reduced-motion: reduce) {
+      .play .ab::before { animation: ringin .01s forwards; }
+      .sw { display: none; }
+    }
+  </style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="alert"><div class="rig" id="rig">
+  <div class="sw"></div><div class="sw b"></div>
+  <div class="ab" id="ab"><div class="av" id="av"></div></div>
+  <div class="bl"></div>
+  <div class="nm" id="nm"></div>
+  <div class="lb" id="lb">
+    <span class="lb-prefix" id="lb-prefix">DONADOR NIVEL</span>
+    <img class="lb-gem" id="lb-gem" alt="">
+    <span class="lb-num" id="lb-num">20</span>
+  </div>
+</div></div>
+
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const isEmbed = params.get('embed') === '1';
+  if (isEmbed) document.documentElement.classList.add('embed');
+
+  const $ = (id) => document.getElementById(id);
+  const root = $('alert');
+  const rig = $('rig');
+  const cv = $('cv');
+  const cx = cv.getContext('2d');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let cfg = {
+    minLevel: 20,
+    holdSec: 3,
+    dedupeSec: 60,
+    scale: 100,
+    phrases: '¡HA ENTRADO AL LIVE!|¡LLEGÓ A LA SALA!|¡DONADOR EN EL DIRECTO!|¡HA APARECIDO!',
+  };
+
+  let S = 1;
+  let HOLD = 3000;
+  let DEDUPE = 60000;
+  let MIN_LEVEL = 20;
+  let TEXTS = String(cfg.phrases).split('|').map((s) => s.trim()).filter(Boolean);
+
+  function applyConfig(next) {
+    if (!next || typeof next !== 'object') return;
+    cfg = Object.assign({}, cfg, next);
+    MIN_LEVEL = Math.max(1, Math.min(100, Number(cfg.minLevel) || 20));
+    HOLD = Math.max(1500, Math.min(12000, Math.round((Number(cfg.holdSec) || 3) * 1000)));
+    DEDUPE = Math.max(0, Math.min(600, Number(cfg.dedupeSec) || 60) * 1000);
+    TEXTS = String(cfg.phrases || '')
+      .split('|').map((s) => s.trim()).filter(Boolean);
+    if (!TEXTS.length) TEXTS = ['¡HA ENTRADO AL LIVE!'];
+    fit();
+  }
+
+  function fit() {
+    const userScale = Math.max(0.5, Math.min(1.8, (Number(cfg.scale) || 100) / 100));
+    S = Math.min(innerWidth / 800, innerHeight / 330, 2.4) * userScale;
+    root.style.transform = `translate(-50%, -50%) scale(${S})`;
+    cv.width = innerWidth;
+    cv.height = innerHeight;
+  }
+  addEventListener('resize', fit);
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const R = Math.random;
+  const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+  const escChar = (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : c);
+
+  const bolts = [];
+  const sparks = [];
+  const flashes = [];
+  function jag(x0, y0, x1, y1, d, out) {
+    if (Math.hypot(x1 - x0, y1 - y0) < 14) { out.push([x0, y0, x1, y1]); return; }
+    const mx = (x0 + x1) / 2 + (R() - .5) * d;
+    const my = (y0 + y1) / 2 + (R() - .5) * d * .5;
+    jag(x0, y0, mx, my, d / 2, out);
+    jag(mx, my, x1, y1, d / 2, out);
+  }
+  function bolt(x0, y0, x1, y1, w, dur, delay = 0, br = 3) {
+    const segs = [];
+    jag(x0, y0, x1, y1, Math.hypot(x1 - x0, y1 - y0) * .28, segs);
+    for (let b = 0; b < br; b++) {
+      const s = segs[Math.floor(R() * segs.length)];
+      const a = Math.PI / 2 + (R() - .5) * 1.7;
+      const L = (60 + R() * 130) * S;
+      jag(s[2], s[3], s[2] + Math.cos(a) * L, s[3] + Math.sin(a) * L, L * .3, segs);
+    }
+    bolts.push({ segs, born: performance.now() + delay, dur, w });
+  }
+  function burst(x, y, n, ang0, ang1, sp) {
+    for (let i = 0; i < n; i++) {
+      const a = ang0 + R() * (ang1 - ang0);
+      const v = (.4 + R()) * sp * S;
+      sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, m: .45 + R() * .7, c: ['#fff', '#ffe14a', '#a99cff'][i % 3] });
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(.05, (now - last) / 1000);
+    last = now;
+    cx.clearRect(0, 0, cv.width, cv.height);
+    cx.globalCompositeOperation = 'lighter';
+    for (let i = flashes.length - 1; i >= 0; i--) {
+      const f = flashes[i];
+      const u = (now - f.born) / f.dur;
+      if (u < 0) continue;
+      if (u > 1) { flashes.splice(i, 1); continue; }
+      const g = cx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+      g.addColorStop(0, `rgba(255,255,255,${.9 * (1 - u)})`);
+      g.addColorStop(.3, `rgba(255,225,74,${.5 * (1 - u)})`);
+      g.addColorStop(1, 'rgba(106,92,255,0)');
+      cx.fillStyle = g;
+      cx.fillRect(f.x - f.r, f.y - f.r, f.r * 2, f.r * 2);
+    }
+    cx.lineJoin = cx.lineCap = 'round';
+    for (let i = bolts.length - 1; i >= 0; i--) {
+      const b = bolts[i];
+      const u = (now - b.born) / b.dur;
+      if (u < 0) continue;
+      if (u > 1) { bolts.splice(i, 1); continue; }
+      const a = (1 - u) * (.55 + .45 * R());
+      for (const [p, w, c, sh] of [[a * .5, b.w * 4, '#6a5cff', 34], [a, b.w * 1.7, '#ffe14a', 16], [a, b.w * .7, '#ffffff', 0]]) {
+        cx.globalAlpha = p; cx.strokeStyle = c; cx.shadowColor = '#6a5cff'; cx.shadowBlur = sh; cx.lineWidth = w;
+        cx.beginPath();
+        for (const s of b.segs) { cx.moveTo(s[0], s[1]); cx.lineTo(s[2], s[3]); }
+        cx.stroke();
+      }
+      cx.shadowBlur = 0;
+    }
+    cx.globalAlpha = 1;
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i];
+      s.t += dt;
+      if (s.t > s.m) { sparks.splice(i, 1); continue; }
+      s.vy += 700 * S * dt; s.x += s.vx * dt; s.y += s.vy * dt;
+      cx.globalAlpha = 1 - s.t / s.m; cx.strokeStyle = s.c; cx.lineWidth = 2.5 * S;
+      cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(s.x - s.vx * .035, s.y - s.vy * .035); cx.stroke();
+    }
+    cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
+  }
+  requestAnimationFrame(frame);
+
+  let crackle = false;
+  setInterval(() => {
+    if (!crackle) return;
+    const r = $('ab').getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const a = R() * 6.28;
+    const r0 = r.width / 2 + 4 * S;
+    const L = (30 + R() * 55) * S;
+    bolt(x + Math.cos(a) * r0, y + Math.sin(a) * r0, x + Math.cos(a) * (r0 + L), y + Math.sin(a) * (r0 + L), 1.6 * S, 170, 0, 0);
+  }, 130);
+
+  const Q = [];
+  const seen = new Map();
+  let busy = false;
+  let testGen = 0;
+
+  const HEARTS = [
+    { max: 9,  src: '/img/donorlevel/gem-1-9.png?v=dl2',   fb: '/img/donorlevel/gem-1-10.svg?v=dl3' },
+    { max: 19, src: '/img/donorlevel/gem-10-19.png?v=dl2', fb: '/img/donorlevel/gem-11-20.svg?v=dl3' },
+    { max: 29, src: '/img/donorlevel/gem-20-29.png?v=dl2', fb: '/img/donorlevel/gem-21-30.svg?v=dl3' },
+    { max: 39, src: '/img/donorlevel/gem-30-39.png?v=dl2', fb: '/img/donorlevel/gem-31-40.svg?v=dl3' },
+    { max: 49, src: '/img/donorlevel/gem-40-49.png?v=dl2', fb: '/img/donorlevel/gem-41-49.svg?v=dl3' },
+    { max: 50, src: '/img/donorlevel/gem-50.png?v=dl2',    fb: '/img/donorlevel/gem-50.svg?v=dl3' },
+  ];
+  function heartFor(level) {
+    const n = Math.max(1, Math.min(50, Number(level) || 1));
+    for (const h of HEARTS) if (n <= h.max) return h;
+    return HEARTS[HEARTS.length - 1];
+  }
+  function setDonorIcon(level, badgeUrl) {
+    const img = $('lb-gem');
+    if (!img) return;
+    const h = heartFor(level);
+    const remote = String(badgeUrl || '').trim();
+    const fb = h.fb;
+    img.onerror = function () {
+      const cur = String(this.src || '');
+      if (fb && cur.indexOf(fb.split('?')[0]) === -1) {
+        this.src = fb;
+        return;
+      }
+      if (remote && /^https?:\/\//i.test(remote) && cur.indexOf(remote) === -1) {
+        this.src = remote;
+        return;
+      }
+      this.onerror = null;
+      this.style.visibility = 'hidden';
+    };
+    img.style.visibility = 'visible';
+    img.style.display = 'block';
+    img.src = h.src;
+  }
+
+  function gifterLevelOf(j) {
+    return Math.max(0, Number(j?.gifterLevel ?? j?.donorLevel ?? j?.level ?? 0) || 0);
+  }
+
+  function setLabel(j) {
+    const lvl = gifterLevelOf(j);
+    const prefix = $('lb-prefix');
+    const num = $('lb-num');
+    if (lvl > 0) {
+      if (prefix) prefix.textContent = 'DONADOR NIVEL';
+      if (num) { num.style.display = ''; num.textContent = String(lvl); }
+      setDonorIcon(lvl, j.gifterBadge || j.badge || '');
+      return;
+    }
+    const phrase = (j && j.text) ? String(j.text) : (TEXTS[Math.floor(R() * TEXTS.length)] || '¡HA ENTRADO AL LIVE!');
+    if (prefix) prefix.textContent = phrase;
+    if (num) { num.textContent = ''; num.style.display = 'none'; }
+    setDonorIcon(MIN_LEVEL, '');
+  }
+
+  async function show(j, gen) {
+    const user = String(j.user || j.nickname || j.uniqueId || 'Usuario').trim() || 'Usuario';
+    const av = $('av');
+    const name = user.toUpperCase();
+    const img = String(j.img || j.photo || j.profilePictureUrl || '').trim();
+    av.style.background = `linear-gradient(135deg,hsl(${hue(user)} 70% 45%),hsl(${hue(user) + 50} 70% 18%))`;
+    av.innerHTML = img ? `<img src="${img.replace(/"/g, '')}" alt="" referrerpolicy="no-referrer">` : '';
+    if (!img) av.textContent = user[0].toUpperCase();
+    const im = av.querySelector('img');
+    if (im) im.onerror = () => { av.textContent = user[0].toUpperCase(); };
+
+    const nm = $('nm');
+    nm.style.fontSize = Math.max(34, Math.min(72, Math.floor(680 / (name.length * .5)))) + 'px';
+    nm.innerHTML = [...name].map((c, i) => `<i style="--k:${i}">${c === ' ' ? '&nbsp;' : escChar(c)}</i>`).join('');
+    setLabel(j);
+
+    root.classList.remove('play', 'out');
+    void root.offsetWidth;
+    root.classList.add('play');
+
+    const r = $('ab').getBoundingClientRect();
+    const ax = r.left + r.width / 2;
+    const ay = r.top + r.height / 2;
+    setTimeout(() => {
+      if (gen !== testGen) return;
+      const t = performance.now();
+      bolt(ax + (R() - .5) * 160 * S, -30, ax, ay, 4 * S, 260, 0, 4);
+      bolt(ax + (R() - .5) * 200 * S, -30, ax, ay, 4 * S, 230, 95, 3);
+      bolt(ax + (R() - .5) * 100 * S, -30, ax, ay, 7 * S, 420, 190, 6);
+      flashes.push({ x: ax, y: ay, r: 440 * S, born: t + 250, dur: 480 });
+      setTimeout(() => {
+        if (gen !== testGen) return;
+        burst(ax, ay, 46, 0, 6.28, 520);
+        if (!reduce) {
+          rig.animate(
+            [{ transform: 'translate(0,0)' }, { transform: 'translate(-11px,6px)' }, { transform: 'translate(10px,-7px)' }, { transform: 'translate(-7px,-4px)' }, { transform: 'translate(5px,5px)' }, { transform: 'translate(0,0)' }],
+            { duration: 480, easing: 'ease-out' }
+          );
+        }
+      }, 260);
+    }, 100);
+    setTimeout(() => {
+      if (gen !== testGen) return;
+      const b = $('nm').getBoundingClientRect();
+      const y = b.top + b.height / 2;
+      burst(b.left + b.width * .1, y, 24, Math.PI * .6, Math.PI * 1.4, 420);
+      burst(b.right - b.width * .1, y, 24, -Math.PI * .4, Math.PI * .4, 420);
+    }, 1000);
+    setTimeout(() => { if (gen === testGen) crackle = true; }, 700);
+
+    await sleep(1750 + (Q.length ? Math.min(HOLD, 800) : HOLD));
+    if (gen !== testGen) return;
+    crackle = false;
+    root.classList.add('out');
+    await sleep(520);
+    if (gen !== testGen) return;
+    root.classList.remove('play', 'out');
+  }
+
+  async function run() {
+    if (busy) return;
+    busy = true;
+    const gen = testGen;
+    while (Q.length && gen === testGen) await show(Q.shift(), gen);
+    if (gen === testGen) busy = false;
+  }
+
+  function enqueue(j) {
+    if (!j) return;
+    const level = gifterLevelOf(j);
+    if (level < MIN_LEVEL) return;
+    const user = String(j.user || j.nickname || j.uniqueId || '').trim();
+    const k = user.toLowerCase();
+    const now = Date.now();
+    if (k && DEDUPE && now - (seen.get(k) || 0) < DEDUPE) return;
+    if (k) seen.set(k, now);
+    Q.push({
+      user,
+      img: j.img || j.photo || j.profilePictureUrl || '',
+      gifterLevel: level,
+      donorLevel: level,
+      gifterBadge: j.gifterBadge || j.badge || '',
+      text: j.text || '',
+    });
+    run();
+  }
+
+  function runTest() {
+    testGen++;
+    seen.clear();
+    Q.length = 0;
+    busy = false;
+    crackle = false;
+    bolts.length = 0;
+    sparks.length = 0;
+    flashes.length = 0;
+    root.classList.remove('play', 'out');
+    enqueue({
+      user: 'TitanZ',
+      nickname: 'TitanZ',
+      gifterLevel: Math.max(MIN_LEVEL, 25),
+      photo: 'https://api.dicebear.com/7.x/bottts/svg?seed=TitanZ',
+    });
+  }
+
+  function resetAll() {
+    testGen++;
+    seen.clear();
+    Q.length = 0;
+    busy = false;
+    crackle = false;
+    bolts.length = 0;
+    sparks.length = 0;
+    flashes.length = 0;
+    cx.clearRect(0, 0, cv.width, cv.height);
+    root.classList.remove('play', 'out');
+  }
+
+  let ws, rt;
+  function connectWS() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws${location.search}`);
+    ws.onopen = () => clearTimeout(rt);
+    ws.onclose = () => { rt = setTimeout(connectWS, 1500); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.type === 'settings' && m.payload?.streamJoinDonor) {
+        applyConfig(m.payload.streamJoinDonor);
+        return;
+      }
+      if (isEmbed) return;
+      if (m.type === 'member') enqueue(m.payload || {});
+      else if (m.type === 'streamJoinDonorTest') runTest();
+      else if (m.type === 'streamJoinDonorReset') resetAll();
+    };
+  }
+
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || d.kind !== 'streamjoindonor') return;
+    if (d.type === 'config') applyConfig(d.config);
+    else if (d.type === 'test') {
+      if (d.config) applyConfig(d.config);
+      runTest();
+    }
+    else if (d.type === 'reset') resetAll();
+  });
+
+  applyConfig({});
+  fit();
+  connectWS();
+  if (isEmbed) setTimeout(runTest, 350);
+})();
+</script>
+<script src="/js/overlay-idle.js?v=oi1"></script>
+<script src="/js/overlay-keepalive.js"></script>
+</body>
+</html>

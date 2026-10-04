@@ -2442,12 +2442,14 @@
             <div class="modal-body">
               <p class="box-sub">Personaliza el color del jarrÃ³n y define el tamaÃ±o de los regalos segÃºn su precio en monedas/diamantes. Puedes aÃ±adir tantos umbrales como quieras.</p>
 
-              <label class="ml">COLOR DEL JARRÃ“N</label>
-              <div class="jarcfg-colorrow">
-                <input type="color" id="jarcfg-tint" value="#7cc8ff">
-                <button type="button" class="btn ghost" id="jarcfg-tintclear">Quitar tinte</button>
+              <div id="jarcfg-tint-wrap">
+                <label class="ml">COLOR DEL JARRÃ“N</label>
+                <div class="jarcfg-colorrow">
+                  <input type="color" id="jarcfg-tint" value="#7cc8ff">
+                  <button type="button" class="btn ghost" id="jarcfg-tintclear">Quitar tinte</button>
+                </div>
+                <label class="lab-chk" style="margin:-6px 0 16px"><input type="checkbox" id="jarcfg-tintrainbow"> ArcoÃ­ris animado (toda la skin)</label>
               </div>
-              <label class="lab-chk" style="margin:-6px 0 16px"><input type="checkbox" id="jarcfg-tintrainbow"> ArcoÃ­ris animado (toda la skin)</label>
 
               <div id="jarcfg-topbar-wrap">
                 <label class="ml">BARRA TOP DONADORES</label>
@@ -2472,16 +2474,41 @@
                 <input type="number" id="jarcfg-meta-goal" min="1" max="9999999" value="50" style="max-width:140px;margin-top:6px">
                 <label class="ml" style="margin-top:12px">Contar</label>
                 <select id="jarcfg-meta-mode" style="max-width:240px;margin-top:6px">
-                  <option value="gifts">Regalos (cada icono = +1)</option>
+                  <option value="gifts">Regalos (cada uno = +1)</option>
                   <option value="coins">Monedas / diamantes</option>
                 </select>
-                <label class="ml" style="margin-top:16px">REGALO DE LA ALCANCÃA</label>
-                <p class="credit" style="margin-top:4px">Solo este regalo cae dentro, suma a la meta y aparece al Testear. Por defecto: Heart Me.</p>
+                <label class="ml" style="margin-top:12px">DISENO / SKIN</label>
+                <select id="jarcfg-skin" style="max-width:260px;margin-top:6px">
+                  <option value="heart">Corazon</option>
+                  <option value="hongo">Hongo</option>
+                  <option value="panda">Panda</option>
+                  <option value="orbe">Orbe cosmico</option>
+                  <option value="alado">Corazon alado</option>
+                </select>
+                <p class="credit" style="margin-top:4px">Misma URL del overlay; solo cambia el diseno visual.</p>
+                <label class="ml" style="margin-top:12px">FUENTE</label>
+                <select id="jarcfg-font" class="cfg-font" style="max-width:260px;margin-top:6px"></select>
+                <p class="credit" style="margin-top:4px">Titulo y contador (0 / 50) de Meta Heart Me.</p>
+                <label class="ml" style="margin-top:16px">COLORES</label>
+                <p class="credit" style="margin-top:4px">Agua del interior y marco / borde. Se ve al instante en la vista previa.</p>
+                <div class="jarcfg-colorrow" style="margin-top:8px;gap:18px;flex-wrap:wrap">
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px">
+                    Agua
+                    <input type="color" id="jarcfg-water-color" value="#f5266f" title="Color del agua">
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:13px">
+                    Borde
+                    <input type="color" id="jarcfg-border-color" value="#ffd84a" title="Color del borde">
+                  </label>
+                  <button type="button" class="btn ghost" id="jarcfg-heartcolors-reset">Restablecer</button>
+                </div>
+                <label class="ml" style="margin-top:16px">REGALO DE LA META</label>
+                <p class="credit" style="margin-top:4px">Solo este regalo suma a la meta y aparece al Testear. Por defecto: Heart Me.</p>
                 <input type="hidden" id="jarcfg-filter-giftid" value="7934">
                 <input type="hidden" id="jarcfg-filter-giftname" value="Heart Me">
                 <input type="hidden" id="jarcfg-filter-giftimage" value="">
                 <input type="hidden" id="jarcfg-filter-giftdiamonds" value="15">
-                <button type="button" class="btn ghost" id="jarcfg-filter-giftpick" style="margin-top:8px">ðŸŽ Heart Me</button>
+                <button type="button" class="btn ghost" id="jarcfg-filter-giftpick" style="margin-top:8px">Heart Me</button>
               </div>
 
               <div id="jarcfg-gifttoast-wrap">
@@ -2496,13 +2523,14 @@
                 </div>
               </div>
 
-              <div class="jarcfg-rowshead">
-                <label class="ml">FILAS DE TAMAÃ‘O</label>
-                <button type="button" class="btn ghost" id="jarcfg-add">ï¼‹ Agregar umbral</button>
+              <div id="jarcfg-sizes-wrap">
+                <div class="jarcfg-rowshead">
+                  <label class="ml">FILAS DE TAMAÃ‘O</label>
+                  <button type="button" class="btn ghost" id="jarcfg-add">ï¼‹ Agregar umbral</button>
+                </div>
+                <p class="credit">Cada umbral cubre un <b>rango</b>: desde ese valor hasta el siguiente umbral mÃ¡s alto. Ej.: si pones 100 y luego 200, los regalos de 100 a 199 monedas usan el tamaÃ±o del primer umbral; al llegar a 200, ya usa el del siguiente. El umbral mÃ¡s alto cubre todo lo que estÃ© por encima.</p>
+                <div id="jarcfg-rows" class="jarcfg-rows"></div>
               </div>
-              <p class="credit">Cada umbral cubre un <b>rango</b>: desde ese valor hasta el siguiente umbral mÃ¡s alto. Ej.: si pones 100 y luego 200, los regalos de 100 a 199 monedas usan el tamaÃ±o del primer umbral; al llegar a 200, ya usa el del siguiente. El umbral mÃ¡s alto cubre todo lo que estÃ© por encima.</p>
-
-              <div id="jarcfg-rows" class="jarcfg-rows"></div>
             </div>
             <div class="modal-foot">
               <button class="btn primary" id="jarcfg-save">Guardar para OBS / Live Studio</button>
@@ -5164,6 +5192,25 @@
           </div>
         </div>
 
+        <!-- Modal: Nuevo seguidor v2 -->
+        <div id="nsf2ConfigModal" class="modal hidden">
+          <div class="modal-box">
+            <div class="modal-head">
+              <h2>Configurar — Nuevo seguidor v2</h2>
+              <button class="modal-close" id="nsf2cfg-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="gvscfg-grid2">
+                <div><label class="ml">TITULO</label><input type="text" id="nsf2cfg-title" placeholder="¡NUEVO SEGUIDOR!"></div>
+                <div><label class="ml">SUBTITULO</label><input type="text" id="nsf2cfg-sub" placeholder="¡Bienvenido/a a la comunidad!"></div>
+                <div><label class="ml">DURACION (2-120s)</label><input type="number" id="nsf2cfg-dur" min="2" max="120" value="5"></div>
+                <div><label class="ml">ESCALA (50-150%)</label><input type="number" id="nsf2cfg-scale" min="50" max="150" value="100"></div>
+              </div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="nsf2cfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
         <!-- Modal: Configurar Alerta de nuevo seguidor -->
         <div id="aflConfigModal" class="modal hidden">
           <div class="modal-box wide">
@@ -5204,6 +5251,27 @@
               </div>
             </div>
             <div class="modal-foot"><button class="btn primary" id="aflcfg-save">Guardar para OBS / Live Studio</button></div>
+          </div>
+        </div>
+
+        <!-- Modal: Configurar Join donador (rayo) -->
+        <div id="sjdConfigModal" class="modal hidden">
+          <div class="modal-box wide">
+            <div class="modal-head">
+              <h2>Configurar — Join donador (rayo)</h2>
+              <button class="modal-close" id="sjdcfg-close">X</button>
+            </div>
+            <div class="modal-body">
+              <p class="hint" style="margin:0 0 12px">Usa el <b>nivel de donador</b> de TikTok (gifter). El nivel de miembro / club de fans <b>no cuenta</b>.</p>
+              <div class="gvscfg-grid2">
+                <div><label class="ml">NIVEL MINIMO DE DONADOR</label><input type="number" id="sjdcfg-min" min="1" max="100" value="20"></div>
+                <div><label class="ml">DURACION EN PANTALLA (s)</label><input type="number" id="sjdcfg-hold" min="1.5" max="12" step="0.5" value="3"></div>
+                <div><label class="ml">ESCALA (50-180%)</label><input type="number" id="sjdcfg-scale" min="50" max="180" value="100"></div>
+                <div><label class="ml">ANTI-SPAM MISMO USER (s)</label><input type="number" id="sjdcfg-dedupe" min="0" max="600" value="60"></div>
+              </div>
+              <div style="margin-top:10px"><label class="ml">FRASES (separadas por |)</label><input type="text" id="sjdcfg-phrases" placeholder="¡HA ENTRADO AL LIVE!|¡DONADOR EN EL DIRECTO!"></div>
+            </div>
+            <div class="modal-foot"><button class="btn primary" id="sjdcfg-save">Guardar para OBS / Live Studio</button></div>
           </div>
         </div>
 
@@ -5785,8 +5853,34 @@
 
         <!-- ===== VISTA: STREAMS OVERLAYS ===== -->
         <section class="view" id="view-ov-streams">
-          <h1 class="view-title">?? Streams overlays</h1>
-          <p class="view-sub">AÃ±ade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
+          <h1 class="view-title">Streams overlays</h1>
+          <p class="view-sub">Añade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
+
+            <!-- Tarjeta PRO: Join donador (rayo) -->
+            <div class="ovpro-card">
+              <div class="ovpro-top">
+                <div class="ovpro-actions">
+                  <button class="ovpro-btn" id="sjd-reset">Reset</button>
+                  <button class="ovpro-btn primary" id="sjd-test">Testear</button>
+                  <button class="ovpro-btn" id="sjd-config">Configurar</button>
+                </div>
+                <div class="ovpro-status">
+                  <div class="ovpro-conn" id="sjd-conn"><span class="cdot"></span> CONECTADO</div>
+                  <span class="ovpro-new">Nuevo</span>
+                </div>
+              </div>
+              <h3 class="ovpro-title">Join donador (rayo)</h3>
+              <p class="ovpro-desc">Animacion de entrada con rayos cuando alguien entra al live con <b>nivel de donador</b> TikTok (gifter) del <b>20 o mas</b>. No usa el nivel de miembro / club de fans.</p>
+              <div class="ovpro-urlrow">
+                <code class="ov-url" data-path="/join-donor-bolt.html">/join-donor-bolt.html</code>
+                <button class="ovpro-copy ov-copy">Copiar enlace</button>
+              </div>
+              <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+              <div class="ovpro-preview" style="height:360px">
+                <iframe id="sjd-preview" data-src="/join-donor-bolt.html?embed=1&v=jdbolt6" title="Vista previa join donador rayo"></iframe>
+              </div>
+            </div>
+
             <!-- Tarjeta PRO: Ruleta de regalos -->
             <div class="ovpro-card">
               <div class="ovpro-top">
@@ -6014,7 +6108,7 @@
                 <input type="range" id="ggm-scale-range" min="60" max="140" value="67" style="flex:1;accent-color:#22d3ee">
               </div>
               <div class="ovpro-preview">
-                <iframe id="ggm-preview" data-src="/gift-metas.html?embed=1&v=ggmls1" title="Vista previa metas de regalos"></iframe>
+                <iframe id="ggm-preview" data-src="/gift-metas.html?embed=1&v=ggmbelt11" title="Vista previa metas de regalos"></iframe>
               </div>
             </div>
 
@@ -6328,18 +6422,10 @@
                 <code class="ov-url" data-path="/topdonor.html">/topdonor.html</code>
                 <button class="ovpro-copy ov-copy">Copiar enlace</button>
               </div>
-              <div class="tmr-skin-bar" id="top-skin-bar" style="margin:8px 0 10px">
-                <button type="button" class="tmr-skin-arrow" id="top-skin-prev" title="Diseño anterior" aria-label="Diseño anterior">‹</button>
-                <div class="tmr-skin-meta">
-                  <b id="top-skin-name">Neón</b>
-                  <span id="top-skin-idx">1 / 6</span>
-                </div>
-                <button type="button" class="tmr-skin-arrow" id="top-skin-next" title="Diseño siguiente" aria-label="Diseño siguiente">›</button>
-              </div>
 
               <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="top-preview" data-src="/topdonor.html?embed=1&v=topskin1" title="Vista previa top donador"></iframe>
+                <iframe id="top-preview" data-src="/topdonor.html?embed=1&v=topweek2" title="Vista previa top donador"></iframe>
               </div>
             </div>
 
@@ -6420,7 +6506,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="tgf-preview" data-src="/mejorregalo.html?embed=1" title="Vista previa mejor regalo"></iframe>
+                <iframe id="tgf-preview" data-src="/mejorregalo.html?embed=1&v=tgfneo4" title="Vista previa mejor regalo"></iframe>
               </div>
             </div>
 
@@ -6444,7 +6530,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA Â· PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="lgf-preview" data-src="/ultimoregalo.html?embed=1" title="Vista previa ultimo regalo"></iframe>
+                <iframe id="lgf-preview" data-src="/ultimoregalo.html?embed=1&v=lgfneo2" title="Vista previa ultimo regalo"></iframe>
               </div>
             </div>
 
@@ -6469,7 +6555,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="tst-preview" data-src="/mejorracha.html?embed=1" title="Vista previa mejor racha"></iframe>
+                <iframe id="tst-preview" data-src="/mejorracha.html?embed=1&v=tstneo2" title="Vista previa mejor racha"></iframe>
               </div>
             </div>
 
@@ -6492,25 +6578,17 @@
                 <code class="ov-url" data-path="/batallaregalos.html">/batallaregalos.html</code>
                 <button class="ovpro-copy ov-copy">Copiar enlace</button>
               </div>
-              <div class="tmr-skin-bar" id="bgf-skin-bar" style="margin:8px 0 4px">
-                <button type="button" class="tmr-skin-arrow" id="bgf-skin-prev" title="Skin anterior" aria-label="Skin anterior">‹</button>
+              <div class="tmr-skin-bar" id="bgf-skin-bar" style="margin:8px 0 10px">
+                <button type="button" class="tmr-skin-arrow" id="bgf-skin-prev" title="Diseño anterior" aria-label="Diseño anterior">‹</button>
                 <div class="tmr-skin-meta">
-                  <b id="bgf-skin-name">Clásico</b>
-                  <span id="bgf-skin-idx">1 / 5</span>
+                  <b id="bgf-skin-name">Neutro</b>
+                  <span id="bgf-skin-idx">1 / 4</span>
                 </div>
-                <button type="button" class="tmr-skin-arrow" id="bgf-skin-next" title="Skin siguiente" aria-label="Skin siguiente">›</button>
-              </div>
-              <div class="tmr-skin-bar" id="bgf-top1-bar" style="margin:0 0 10px">
-                <button type="button" class="tmr-skin-arrow" id="bgf-top1-prev" title="Skin Top 1 anterior" aria-label="Skin Top 1 anterior">‹</button>
-                <div class="tmr-skin-meta">
-                  <b id="bgf-top1-name">Top 1 · Igual</b>
-                  <span id="bgf-top1-idx">1 / 7</span>
-                </div>
-                <button type="button" class="tmr-skin-arrow" id="bgf-top1-next" title="Skin Top 1 siguiente" aria-label="Skin Top 1 siguiente">›</button>
+                <button type="button" class="tmr-skin-arrow" id="bgf-skin-next" title="Diseño siguiente" aria-label="Diseño siguiente">›</button>
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="bgf-preview" data-src="/batallaregalos.html?embed=1&v=batskin3" title="Vista previa batalla regalos"></iframe>
+                <iframe id="bgf-preview" data-src="/batallaregalos.html?embed=1&amp;v=batneo4" title="Vista previa batalla regalos"></iframe>
               </div>
             </div>
 
@@ -6533,25 +6611,17 @@
                 <code class="ov-url" data-path="/batallalikes.html">/batallalikes.html</code>
                 <button class="ovpro-copy ov-copy">Copiar enlace</button>
               </div>
-              <div class="tmr-skin-bar" id="bli-skin-bar" style="margin:8px 0 4px">
-                <button type="button" class="tmr-skin-arrow" id="bli-skin-prev" title="Skin anterior" aria-label="Skin anterior">‹</button>
+              <div class="tmr-skin-bar" id="bli-skin-bar" style="margin:8px 0 10px">
+                <button type="button" class="tmr-skin-arrow" id="bli-skin-prev" title="Diseño anterior" aria-label="Diseño anterior">‹</button>
                 <div class="tmr-skin-meta">
-                  <b id="bli-skin-name">Clásico</b>
-                  <span id="bli-skin-idx">1 / 5</span>
+                  <b id="bli-skin-name">Neutro</b>
+                  <span id="bli-skin-idx">1 / 4</span>
                 </div>
-                <button type="button" class="tmr-skin-arrow" id="bli-skin-next" title="Skin siguiente" aria-label="Skin siguiente">›</button>
-              </div>
-              <div class="tmr-skin-bar" id="bli-top1-bar" style="margin:0 0 10px">
-                <button type="button" class="tmr-skin-arrow" id="bli-top1-prev" title="Skin Top 1 anterior" aria-label="Skin Top 1 anterior">‹</button>
-                <div class="tmr-skin-meta">
-                  <b id="bli-top1-name">Top 1 · Igual</b>
-                  <span id="bli-top1-idx">1 / 7</span>
-                </div>
-                <button type="button" class="tmr-skin-arrow" id="bli-top1-next" title="Skin Top 1 siguiente" aria-label="Skin Top 1 siguiente">›</button>
+                <button type="button" class="tmr-skin-arrow" id="bli-skin-next" title="Diseño siguiente" aria-label="Diseño siguiente">›</button>
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="bli-preview" data-src="/batallalikes.html?embed=1&v=batskin3" title="Vista previa batalla likes"></iframe>
+                <iframe id="bli-preview" data-src="/batallalikes.html?embed=1&amp;v=batneo4" title="Vista previa batalla likes"></iframe>
               </div>
             </div>
 
@@ -6598,7 +6668,7 @@
               </div>
               <div class="ovpro-prevlabel">VISTA PREVIA ? PULSA TESTEAR</div>
               <div class="ovpro-preview">
-                <iframe id="top1-preview" data-src="/top1.html?embed=1" title="Vista previa top 1 donador"></iframe>
+                <iframe id="top1-preview" data-src="/top1.html?embed=1&amp;v=top1r1" title="Vista previa top 1 donador"></iframe>
               </div>
             </div>
 
@@ -6872,6 +6942,56 @@
                 </div>
               </div>
 
+              <!-- Tarjeta PRO: Ranking likes (gamer) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="tlg-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="tlg-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="tlg-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="tlg-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new">Nuevo</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">❤️ Ranking likes (gamer)</h3>
+                <p class="ovpro-desc">Ranking vertical gamer: medallas, avatar hexagonal y likes.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/toplikes-gamer.html">/toplikes-gamer.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="tlg-preview" data-src="/toplikes-gamer.html?embed=1&amp;v=rg1" title="Vista previa ranking likes gamer"></iframe>
+                </div>
+              </div>
+
+              <!-- Tarjeta PRO: Ranking diamantes (gamer) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="tdg-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="tdg-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="tdg-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="tdg-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new">Nuevo</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">🪙 Ranking diamantes (gamer)</h3>
+                <p class="ovpro-desc">Mismo diseño gamer contando diamantes/monedas.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/topdiamantes-gamer.html">/topdiamantes-gamer.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="tdg-preview" data-src="/topdiamantes-gamer.html?embed=1&amp;v=rg1" title="Vista previa ranking diamantes gamer"></iframe>
+                </div>
+              </div>
+
             </div>
         </section>
 
@@ -6880,6 +7000,31 @@
           <h1 class="view-title">?? Dise?o Overlay</h1>
           <p class="view-sub">AÃ±ade estas URLs como fuente <b>Navegador</b> en OBS. Fondo transparente.</p>
             <div class="ovpro-grid">
+
+              <!-- Tarjeta PRO: Nuevo seguidor v2 (particulas) -->
+              <div class="ovpro-card">
+                <div class="ovpro-top">
+                  <div class="ovpro-actions">
+                    <button class="ovpro-btn" id="nsf2-reset">↺ Reset</button>
+                    <button class="ovpro-btn primary" id="nsf2-test">▶ Testear</button>
+                    <button class="ovpro-btn" id="nsf2-config">⚙ Configurar</button>
+                  </div>
+                  <div class="ovpro-status">
+                    <div class="ovpro-conn" id="nsf2-conn"><span class="cdot"></span> CONECTADO</div>
+                    <span class="ovpro-new" title="Alerta de nuevo seguidor con particulas">Nuevo</span>
+                  </div>
+                </div>
+                <h3 class="ovpro-title">✨ Nuevo seguidor v2</h3>
+                <p class="ovpro-desc">Nombre en particulas neon con monedas cayendo al recibir un nuevo seguidor.</p>
+                <div class="ovpro-urlrow">
+                  <code class="ov-url" data-path="/nuevo-seguidor-v2.html">/nuevo-seguidor-v2.html</code>
+                  <button class="ovpro-copy ov-copy">Copiar enlace</button>
+                </div>
+                <div class="ovpro-prevlabel">VISTA PREVIA · PULSA TESTEAR</div>
+                <div class="ovpro-preview">
+                  <iframe id="nsf2-preview" data-src="/nuevo-seguidor-v2.html?embed=1&v=nsf21" title="Vista previa nuevo seguidor v2"></iframe>
+                </div>
+              </div>
 
               <!-- Tarjeta PRO: Chat Gamer -->
               <div class="ovpro-card">
@@ -11423,7 +11568,7 @@
 
   <script src="/js/account-email.js?v=dockmail1"></script>
   <script src="/js/camera-frames.js?v=mcf4"></script>
-  <script src="/js/dashboard.js?v=sov42"></script>
+  <script src="/js/dashboard.js?v=sov50"></script>
   <script src="/js/editor-rapido.js?v=er92"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>

@@ -103,6 +103,7 @@
         { key: 'alertaGift', label: 'Diseño alerta regalo' },
         { key: 'alertaLikes', label: 'Diseño alerta likes' },
         { key: 'alertaFollow', label: 'Diseño alerta seguidor' },
+        { key: 'nuevoSeguidorV2', label: 'Diseño nuevo seguidor v2' },
         { key: 'fuegos', label: 'Diseño fuegos artificiales' },
         { key: 'chatGamer', label: 'Chat Gamer' },
         { key: 'giftRoulette', label: 'Ruleta de regalos' },
