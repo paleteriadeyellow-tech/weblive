@@ -6357,8 +6357,18 @@ function tmrSend(op, extra) { send({ action: 'timerControl', op, ...(extra || {}
     const i = TMR_SKINS.findIndex((s) => s.id === id);
     return i >= 0 ? i : 0;
   }
+  // Eco WS de un clic anterior llega después del siguiente: el último clic manda unos segundos.
+  let tmrSkinHeld = '';
+  let tmrSkinHeldUntil = 0;
+  let tmrPreviewSkinId = 'neon';
   function tmrRefreshSkinPreview(skinId, opts) {
+    if (tmrSkinHeld && Date.now() < tmrSkinHeldUntil && skinId !== tmrSkinHeld) {
+      skinId = tmrSkinHeld;
+      if (!settings.timer) settings.timer = {};
+      settings.timer.skin = skinId;
+    }
     const skin = TMR_SKINS[tmrSkinIndex(skinId)] || TMR_SKINS[0];
+    tmrPreviewSkinId = skin.id;
     if ($('tmr-skin-name')) $('tmr-skin-name').textContent = skin.name;
     if ($('tmr-skin-idx')) $('tmr-skin-idx').textContent = `${tmrSkinIndex(skin.id) + 1} / ${TMR_SKINS.length}`;
     const fr = $('tmr-ov-preview');
@@ -6374,7 +6384,7 @@ function tmrSend(op, extra) { send({ action: 'timerControl', op, ...(extra || {}
     const pushState = () => {
       const msg = {
         type: 'livecoinsTimerSkin',
-        skin: skin.id,
+        skin: tmrPreviewSkinId,
         hold: true,
         remaining: tmrRemaining,
         running: tmrRunning,
@@ -6401,12 +6411,14 @@ function tmrSend(op, extra) { send({ action: 'timerControl', op, ...(extra || {}
     if (!settings.timer) settings.timer = {};
     const skin = TMR_SKINS[tmrSkinIndex(skinId)].id;
     settings.timer.skin = skin;
+    tmrSkinHeld = skin;
+    tmrSkinHeldUntil = Date.now() + 2500;
     tmrRefreshSkinPreview(skin);
     // Solo el skin: no reenviar todo timer (savedRemaining viejo del cliente puede ir a 0).
     send({ action: 'saveSettings', settings: { timer: { skin } }, ...profileSaveMeta() });
   }
   function tmrStepSkin(dir) {
-    const cur = tmrSkinIndex(settings.timer?.skin || 'neon');
+    const cur = tmrSkinIndex(tmrPreviewSkinId || settings.timer?.skin || 'neon');
     const next = (cur + dir + TMR_SKINS.length) % TMR_SKINS.length;
     tmrSetSkin(TMR_SKINS[next].id);
   }

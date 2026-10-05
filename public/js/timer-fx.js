@@ -11,7 +11,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 /* dígitos */
 function render(){
-  const v=Math.max(0,Math.ceil(rem)),str=String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0');
+  const v=Math.max(0,Math.ceil(rem)),hh=Math.floor(v/3600),mm=Math.floor((v%3600)/60),ss=v%60;
+  const str=(hh?String(hh).padStart(2,'0')+':':'')+String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');
   if(str!==last){
     if(str.length!==last.length){dg.innerHTML='';[...str].forEach((c)=>{const e=document.createElement('span');if(c===':')e.className='co';dg.appendChild(e)})}
     // Sin flip WAAPI mientras pending sube/baja: en Live Studio se trababa al sumar.
