@@ -844,9 +844,52 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     }
     return isKnownLiveMod(user?.uniqueId, user?.nickname);
   }
+  /** Nivel de donador TikTok visto por usuario: el evento MEMBER a menudo llega sin la insignia. */
+  const GIFTER_LEVEL_CACHE_FILE = path.join(dataDir, 'tiktok-gifter-levels.json');
+  const knownGifterLevels = new Map();
+  try {
+    const raw = readJsonSafe(GIFTER_LEVEL_CACHE_FILE).data;
+    if (raw && typeof raw === 'object') {
+      for (const [k, v] of Object.entries(raw)) {
+        const n = Number(v) || 0;
+        if (k && n > 0) knownGifterLevels.set(k, n);
+      }
+    }
+  } catch {}
+  let gifterLevelCacheSaveT = null;
+  function saveGifterLevelCacheSoon() {
+    if (gifterLevelCacheSaveT) return;
+    gifterLevelCacheSaveT = setTimeout(() => {
+      gifterLevelCacheSaveT = null;
+      try {
+        while (knownGifterLevels.size > 20000) knownGifterLevels.delete(knownGifterLevels.keys().next().value);
+        writeJsonAtomic(GIFTER_LEVEL_CACHE_FILE, Object.fromEntries(knownGifterLevels));
+      } catch {}
+    }, 3000);
+  }
+  function gifterLevelKeys(u) {
+    const uid = String(u?.userId || '').trim();
+    const h = normTikTokUser(u?.uniqueId || '');
+    return [uid && uid !== '0' ? 'u:' + uid : '', h ? 'h:' + h : ''].filter(Boolean);
+  }
+  function rememberGifterLevel(u, level) {
+    const n = Math.max(0, Number(level) || 0);
+    if (!n) return;
+    let changed = false;
+    for (const k of gifterLevelKeys(u)) {
+      if (knownGifterLevels.get(k) !== n) { knownGifterLevels.delete(k); knownGifterLevels.set(k, n); changed = true; }
+    }
+    if (changed) saveGifterLevelCacheSoon();
+  }
+  function knownGifterLevelOf(u) {
+    let n = 0;
+    for (const k of gifterLevelKeys(u)) n = Math.max(n, knownGifterLevels.get(k) || 0);
+    return n;
+  }
   function noteLiveRolesFromEvent(data, user) {
     const roles = chatUserRoles(data);
     const u = user || baseUser(data?.user || data);
+    try { rememberGifterLevel(u, roles.gifterLevel); } catch {}
     if (roles.isMod) rememberLiveMod(u.uniqueId, u.nickname);
     if (roles.isSub) rememberLiveSub(u.uniqueId, u.nickname);
     if (roles.isSuperFan) rememberLiveSuperFan(u.uniqueId, u.nickname);
@@ -1555,6 +1598,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   restoreTimerFromSettings();
   // Recuerda el último @usuario de TikTok conectado (queda guardado en los ajustes, así
   // sobrevive a reinicios) para prerellenar el campo y poder auto-conectar al iniciar el live.
+  if (!settings.tiktokUser) {
+    try {
+      const slots = Array.isArray(profiles.slots) ? profiles.slots : [];
+      for (const slot of slots) {
+        const u = slot && String(slot.tiktokUser || '').trim().replace(/^@+/, '');
+        if (u) { settings.tiktokUser = u; break; }
+      }
+      if (!settings.tiktokUser && profiles.general && profiles.general.tiktokUser) {
+        settings.tiktokUser = String(profiles.general.tiktokUser).trim().replace(/^@+/, '');
+      }
+    } catch { /* ignore */ }
+  }
   state.username = settings.tiktokUser || null;
   if (settings.tiktokPhoto) followerCounter.photo = String(settings.tiktokPhoto);
 
@@ -5359,9 +5414,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // Recuerda el último @usuario y se reconecta solo (reintentando cada cierto tiempo)
   // hasta que el creador inicie su live. Se enciende al conectar manualmente y se apaga
   // al pulsar "Desconectar". Así no hace falta darle a "Conectar" cada vez.
-  const AUTO_CONNECT_POLL_MS = 45000;
+  const AUTO_CONNECT_POLL_MS = 15000;
+  const AUTO_CONNECT_HANG_MS = 22000;
   let autoConnectTimer = null;
   let lastAutoWaitLog = 0;
+  let connectingSince = 0;
+  let autoKickTimer = null;
 
   // En modo relay (HOKEY_RELAY=1), la conexión a TikTok y el procesamiento corren en la
   // NUBE. El servidor local NUNCA debe conectarse para no duplicar la conexión (y el
@@ -5372,20 +5430,34 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (RELAY) return false;
     return settings.autoConnect !== false && !!settings.tiktokUser;
   }
+  function abortHungConnect() {
+    if (!state.connecting || !connectingSince) return false;
+    if (Date.now() - connectingSince < AUTO_CONNECT_HANG_MS) return false;
+    try { disconnect(); } catch { state.connecting = false; connectingSince = 0; }
+    return true;
+  }
+  function tryAutoConnectNow() {
+    if (RELAY) return;
+    abortHungConnect();
+    if (autoConnectOn() && !state.connected && !state.connecting) {
+      connectTo(settings.tiktokUser, { auto: true });
+    }
+  }
+  function kickAutoConnectSoon(delayMs = 1500) {
+    if (RELAY || !autoConnectOn()) return;
+    clearTimeout(autoKickTimer);
+    autoKickTimer = setTimeout(() => {
+      autoKickTimer = null;
+      tryAutoConnectNow();
+    }, Math.max(0, Number(delayMs) || 0));
+    autoKickTimer.unref?.();
+  }
   function startAutoConnectLoop() {
     if (autoConnectTimer) return;
-    autoConnectTimer = setInterval(() => {
-      if (autoConnectOn() && !state.connected && !state.connecting) {
-        connectTo(settings.tiktokUser, { auto: true });
-      }
-    }, AUTO_CONNECT_POLL_MS);
+    autoConnectTimer = setInterval(() => { tryAutoConnectNow(); }, AUTO_CONNECT_POLL_MS);
     if (autoConnectTimer.unref) autoConnectTimer.unref();
     // Primer intento rápido al arrancar (por si ya estás en vivo).
-    setTimeout(() => {
-      if (autoConnectOn() && !state.connected && !state.connecting) {
-        connectTo(settings.tiktokUser, { auto: true });
-      }
-    }, 3000);
+    kickAutoConnectSoon(3000);
   }
 
   // Guarda el último usuario (y reactiva el auto si fue una conexión manual).
@@ -5517,7 +5589,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!username) return;
     const probeId = probeConnectDeviceId(opts.deviceId);
     if (opts.deviceId) adoptConnectDeviceId(opts.deviceId);
-    if (state.connecting) return;
+    if (state.connecting) {
+      if (opts.auto) return;
+      try { disconnect(); } catch { state.connecting = false; connectingSince = 0; }
+    }
     if (LIVE_LOCK_ENFORCED && Date.now() < liveLockBlockedUntil) {
       if (!opts.auto) denyLiveLock(LIVE_LOCK_MSG, { silent: true });
       return;
@@ -5533,6 +5608,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
       state.username = username;
       state.connecting = true;
+      connectingSince = Date.now();
       // No resetear aquí: tras conectar se decide por roomId (mismo live = conservar overlays;
       // live nuevo / primera conexión = reset). Evita borrar todo al reconectar por un fallo.
       pushState();
@@ -5582,14 +5658,20 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
   function tryConnect(conn, username, attempt, auto) {
     if (conn !== connection) return;
-    conn
-      .connect()
+    const hangMs = auto ? AUTO_CONNECT_HANG_MS : 35000;
+    let hangTimer = null;
+    const hung = new Promise((_, reject) => {
+      hangTimer = setTimeout(() => reject(new Error('connect-timeout')), hangMs);
+      hangTimer.unref?.();
+    });
+    Promise.race([conn.connect(), hung])
       .then((connState) => {
         if (conn !== connection) return;
         const newRoomId = connState?.roomId ?? null;
         const finishConnect = () => {
           state.connected = true;
           state.connecting = false;
+          connectingSince = 0;
           state.roomId = newRoomId;
           const mode = applyAutoLiveConnected(newRoomId, username);
           seedStatsFromRoomInfo();
@@ -5622,9 +5704,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           notifyLiveDirectory();
         };
         const abortConnect = (msg, { silent = false } = {}) => {
-          try { conn.disconnect(); } catch { /* ignore */ }
           if (connection === conn) connection = null;
+          try { conn.disconnect(); } catch { /* ignore */ }
           state.connecting = false;
+          connectingSince = 0;
           state.connected = false;
           pushState();
           if (msg) denyLiveLock(msg, { silent });
@@ -5656,7 +5739,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         if (conn !== connection) return;
         const msg = err?.message || String(err);
         // En modo manual reintentamos varias veces seguidas (por saturación del servicio).
-        if (!auto && attempt < MAX_CONNECT_ATTEMPTS) {
+        if (!auto && attempt < MAX_CONNECT_ATTEMPTS && msg !== 'connect-timeout') {
           const delay = attempt * 2500;
           broadcast('log', {
             level: 'info',
@@ -5666,7 +5749,10 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           return;
         }
         state.connecting = false;
+        connectingSince = 0;
         state.connected = false;
+        if (connection === conn) connection = null;
+        try { conn.disconnect(); } catch { /* ignore */ }
         pushState();
         if (auto) {
           releaseLiveLock();
@@ -5677,6 +5763,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             lastAutoWaitLog = now;
             broadcast('log', { level: 'info', text: `Esperando a que @${username} inicie el live para conectar automáticamente…` });
           }
+          kickAutoConnectSoon(msg === 'connect-timeout' ? 2500 : AUTO_CONNECT_POLL_MS);
         } else {
           releaseLiveLock();
           broadcast('log', {
@@ -5684,7 +5771,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
             text: `No se pudo conectar tras ${MAX_CONNECT_ATTEMPTS} intentos: ${msg}. Verifica que @${username} esté EN VIVO y vuelve a intentar en un minuto.`,
           });
         }
-      });
+      })
+      .finally(() => { if (hangTimer) clearTimeout(hangTimer); });
   }
 
   let liveBadgeSent = false;
@@ -5746,12 +5834,14 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     clearBattleCountdown();
     clearChatCatchup();
     state.inBattle = false;
-    if (connection) {
-      try { connection.disconnect(); } catch { /* ignore */ }
-      connection = null;
+    const dead = connection;
+    connection = null;
+    if (dead) {
+      try { dead.disconnect(); } catch { /* ignore */ }
     }
     state.connected = false;
     state.connecting = false;
+    connectingSince = 0;
     state.roomId = null;
     syncLiveUptimeOnDisconnect();
     if (wasLive) notifyLiveSessionEnd();
@@ -12375,6 +12465,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (roles.isSub) rememberLiveSub(chatUser.uniqueId, chatUser.nickname);
       if (roles.isSuperFan) rememberLiveSuperFan(chatUser.uniqueId, chatUser.nickname);
       if (roles.isMod) rememberLiveMod(chatUser.uniqueId, chatUser.nickname);
+      try { rememberGifterLevel(chatUser, roles.gifterLevel); } catch {}
       const ptsDonor = donorLevelForUid(chatUser.uniqueId);
       const donorLevel = roles.gifterLevel > 0 ? roles.gifterLevel : ptsDonor;
       const donorSource = roles.gifterLevel > 0 ? 'tiktok' : (ptsDonor > 0 ? 'points' : '');
@@ -12440,17 +12531,26 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   /* --------------------------- Eventos del live --------------------------- */
   function bindEvents(conn) {
     conn.on(ControlEvent.DISCONNECTED, () => {
+      if (conn !== connection) return;
+      const wasLive = !!state.connected;
       state.connected = false;
+      state.connecting = false;
+      connectingSince = 0;
       clearChatCatchup();
       pushState();
-      broadcast('log', { level: 'info', text: 'Desconectado del live.' });
+      if (wasLive) {
+        broadcast('log', { level: 'info', text: 'Desconectado del live.' });
+        kickAutoConnectSoon(2000);
+      }
     });
 
     conn.on(ControlEvent.ERROR, (e) => {
+      if (conn !== connection) return;
       broadcast('log', { level: 'error', text: `Error: ${e?.info || e?.exception?.message || e}` });
     });
 
     conn.on(WebcastEvent.CHAT, (data) => {
+      if (conn !== connection) return;
       const comment = data.comment || '';
       const chatKey = chatEventKey(data, comment);
       if (!consumeChatOnce(chatKey)) return;
@@ -12462,6 +12562,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       processChatEvent(data);
     });
     conn.on(WebcastEvent.GIFT, (data) => {
+      if (conn !== connection) return;
       // Multiplicador x2/x3 / guante crítico en regalos durante la PK (matchInfo).
       try {
         if (data?.matchInfo || state.inBattle) {
@@ -12610,6 +12711,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.LIKE, (data) => {
+      if (conn !== connection) return;
       state.stats.likes = data.totalLikeCount ?? state.stats.likes + (data.likeCount || 0);
       addTimerSeconds(((data.likeCount || 0) / 100) * (settings.timer?.like || 0));
       processFanBalls('likes', baseUser(data.user), data.likeCount || 0);
@@ -12646,6 +12748,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.MEMBER, (data) => {
+      if (conn !== connection) return;
       state.stats.joins++;
       if (data.memberCount) {
         state.stats.viewers = data.memberCount;
@@ -12654,7 +12757,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       const member = baseUser(data.user);
       let roles = {};
       try { roles = noteLiveRolesFromEvent(data, member) || {}; } catch { try { roles = chatUserRoles(data); } catch {} }
-      const gifterLevel = Math.max(0, Number(roles.gifterLevel) || 0);
+      let gifterLevel = Math.max(0, Number(roles.gifterLevel) || 0);
+      if (!gifterLevel) { try { gifterLevel = knownGifterLevelOf(member); } catch {} }
       const memberLevel = Math.max(0, Number(roles.memberLevel) || 0);
       touchPointsPresence(member);
       tryAwardDailyJoin(member);
@@ -12685,6 +12789,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.ROOM_USER, (data) => {
+      if (conn !== connection) return;
       if (typeof data.viewerCount === 'number') {
         state.stats.viewers = data.viewerCount;
         state.stats.peakViewers = Math.max(Number(state.stats.peakViewers) || 0, data.viewerCount);
@@ -12693,6 +12798,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.SOCIAL, (data) => {
+      if (conn !== connection) return;
       const user = baseUser(data.user);
       const action = (data.action || '').toLowerCase();
       const dt = socialDisplayType(data);
@@ -12729,6 +12835,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.FOLLOW, (data) => {
+      if (conn !== connection) return;
       const user = baseUser(data.user);
       bumpFollowerCounter(1, data); // el contador de seguidores solo se suma aquí
       if (!followShareOnce('follow', user)) { pushStatsThrottled(); return; } // ya lo procesó SOCIAL
@@ -12747,6 +12854,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.SHARE, (data) => {
+      if (conn !== connection) return;
       const user = baseUser(data.user);
       if (!followShareOnce('share', user)) { pushStatsThrottled(); return; } // ya lo procesó SOCIAL
       state.stats.shares++;
@@ -12766,6 +12874,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.EMOTE, (data) => {
+      if (conn !== connection) return;
       fireEmoteTriggers(data, baseUser(data.user || data), { allowRootFallback: true });
     });
 
@@ -12962,6 +13071,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.STREAM_END, () => {
+      if (conn !== connection) return;
       clearBattleCountdown();
       state.inBattle = false;
       resetBattleMultiplierState();
@@ -12973,8 +13083,11 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       stopLiveBadgeTimer();
       if (wasLive) notifyLiveSessionEnd();
       if (!autoConnectOn()) releaseLiveLock();
+      state.connecting = false;
+      connectingSince = 0;
       pushState();
       broadcast('log', { level: 'info', text: 'El live terminó.' });
+      kickAutoConnectSoon(4000);
       /* No wipe inmediato: STREAM_END falso + reconnect borraba jarrón/marranito en OBS */
       scheduleStreamEndOverlayReset();
     });
@@ -14265,6 +14378,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     stopRankStreamerTimer();
     disconnect();
     if (autoConnectTimer) { clearInterval(autoConnectTimer); autoConnectTimer = null; }
+    if (autoKickTimer) { clearTimeout(autoKickTimer); autoKickTimer = null; }
     if (screensPulseTimer) { clearInterval(screensPulseTimer); screensPulseTimer = null; }
     clearTimeout(screensBroadcastTimer);
     stopTimerInterval();
@@ -14317,8 +14431,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     return {
       live: !!state.connected,
       connecting: !!state.connecting,
+      autoConnect: autoConnectOn(),
       liveSince: state.startedAt || null,
-      account: state.username || null,
+      account: state.username || settings.tiktokUser || null,
       nickname: followerCounter.nickname || state.username || null,
       photo: followerCounter.photo || '',
       viewers: Number(state.stats?.viewers) || 0,

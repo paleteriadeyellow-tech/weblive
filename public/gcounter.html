@@ -37,14 +37,14 @@
       background:
         radial-gradient(circle at 38% 40%,var(--halo1),transparent 55%),
         radial-gradient(circle at 64% 62%,var(--halo2),transparent 55%);
-      filter:blur(10px);animation:breathe 4s ease-in-out infinite;transition:background 1s;
+      filter:blur(10px);animation:breathe 4s ease-in-out infinite;transition:background 1s;will-change:transform,opacity;
     }
     @keyframes breathe{50%{transform:scale(1.12);opacity:.8}}
     .rays{
       position:absolute;left:50%;top:50%;width:460px;height:460px;margin:-230px 0 0 -230px;border-radius:50%;
       background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.16) 0 6deg,transparent 6deg 18deg);
       -webkit-mask:radial-gradient(circle,#000 8%,transparent 62%);mask:radial-gradient(circle,#000 8%,transparent 62%);
-      animation:rot 40s linear infinite;
+      animation:rot 40s linear infinite;will-change:transform;
     }
     @keyframes rot{to{transform:rotate(360deg)}}
 
@@ -266,6 +266,17 @@
       c: palette[Math.random() * palette.length | 0],
     });
   }
+  // shadowBlur en cada frame es caro: cada brasa se pinta una vez con su brillo y luego solo se copia.
+  for (const e of embers) {
+    const half = Math.ceil(e.r + 14);
+    const sp = document.createElement('canvas');
+    sp.width = sp.height = half * 2;
+    const sx = sp.getContext('2d');
+    sx.fillStyle = e.c; sx.shadowColor = e.c; sx.shadowBlur = 10;
+    sx.beginPath(); sx.arc(half, half, e.r, 0, 7); sx.fill();
+    e.sprite = sp;
+    e.half = half;
+  }
   function burst(x, y, n, big) {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -294,9 +305,9 @@
       const x = (e.x + Math.sin(t / 1400 + e.p) * .015) * cv.width;
       const y = e.y * cv.height;
       ctx.globalAlpha = .25 + .35 * Math.sin(t / 600 + e.p) ** 2;
-      ctx.fillStyle = e.c; ctx.shadowColor = e.c; ctx.shadowBlur = 10;
-      ctx.beginPath(); ctx.arc(x, y, e.r, 0, 7); ctx.fill();
+      ctx.drawImage(e.sprite, x - e.half, y - e.half);
     }
+    ctx.globalAlpha = 1;
     parts = parts.filter((p) => p.life > 0);
     for (const p of parts) {
       p.vy += p.g; p.x += p.vx; p.y += p.vy; p.vx *= .992; p.life -= p.d; p.rot += p.vr;

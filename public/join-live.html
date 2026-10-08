@@ -5,57 +5,277 @@
   <meta charset="UTF-8">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Join al live — Gamer</title>
+  <title>Join al live</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Grotesk:wght@500;700&family=Press+Start+2P&family=Bangers&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --primary-neon: #00ff66;
-      --dark-bg: rgba(6, 6, 10, 0.9);
-      --laser-speed: 2s;
-      --join-dur-ms: 4500;
-      --join-scale: 1;
-      --join-top: 30px;
-      --join-left: 30px;
-      --tag-size: 1.3rem;
-      --status-size: 0.8rem;
-    }
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; width: 560px; height: 140px; background: transparent; overflow: hidden; font-family: 'Space Grotesk', sans-serif; }
-    #stage-root { width: 560px; height: 140px; position: relative; transform: scale(var(--join-scale)); transform-origin: top left; }
-    .gamer-alert {
+    html, body { margin: 0; padding: 0; width: 560px; height: 148px; background: transparent; overflow: hidden; }
+    #stage-root { width: 560px; height: 148px; position: relative; }
+    .skin {
+      position: absolute; left: 0; top: 0; width: 560px; height: 148px; display: none;
+      transform: scale(var(--join-scale, 1)); transform-origin: top left;
+      --join-top: 30px; --join-left: 30px;
+    }
+    .skin.on { display: block; }
+    .skin .alert { pointer-events: none; }
+
+    /* ---------- Gamer ---------- */
+    .sk-gamer {
+      --primary-neon: #00ff66; --join-bg-alpha: 0.9; --laser-speed: 2s; --tag-size: 1.3rem; --status-size: 0.8rem;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    .sk-gamer .alert {
       display: flex; align-items: center; position: absolute; top: var(--join-top); left: var(--join-left);
-      background: var(--dark-bg); padding: 12px 30px 12px 20px; transform: skewX(-15deg) translateX(-150%); opacity: 0;
+      background: rgba(6, 6, 10, var(--join-bg-alpha)); padding: 12px 30px 12px 20px; transform: skewX(-15deg) translateX(-150%); opacity: 0;
       border-left: 5px solid var(--primary-neon);
       box-shadow: -10px 0 25px color-mix(in srgb, var(--primary-neon) 15%, transparent), 0 10px 30px rgba(0,0,0,.7);
-      transition: all .4s cubic-bezier(.19,1,.22,1); overflow: hidden; pointer-events: none;
+      transition: all .4s cubic-bezier(.19,1,.22,1); overflow: hidden;
     }
-    .gamer-alert::before { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary-neon) 40%, transparent), transparent); transform: skewX(15deg); }
-    .gamer-alert.active { transform: skewX(-15deg) translateX(0); opacity: 1; }
-    .gamer-alert.active::before { animation: laserScan var(--laser-speed) ease-in-out infinite; }
-    .avatar-wrapper { transform: skewX(15deg); position: relative; width: 48px; height: 48px; margin-right: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .avatar-hud { position: absolute; width: 100%; height: 100%; border: 2px solid rgba(255,255,255,.1); box-sizing: border-box; }
-    .avatar-hud::after { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; border: 2px solid var(--primary-neon); clip-path: polygon(0 0, 30% 0, 0 30%, 0 0, 100% 100%, 70% 100%, 100% 70%); animation: hudPulse 1.5s infinite alternate; }
-    .avatar { width: 85%; height: 85%; object-fit: cover; background: #111; display: block; }
-    .text-wrapper { transform: skewX(15deg); display: flex; flex-direction: column; min-width: 0; }
-    .gamer-tag { font-family: 'Orbitron', sans-serif; font-size: var(--tag-size); font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; line-height: 1.2; text-shadow: 0 0 10px rgba(255,255,255,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
-    .status-text { font-size: var(--status-size); font-weight: 700; color: var(--primary-neon); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
-    .status-text::before { content: ''; display: inline-block; width: 6px; height: 6px; background-color: var(--primary-neon); border-radius: 50%; box-shadow: 0 0 8px var(--primary-neon); flex-shrink: 0; }
-    @keyframes laserScan { 0% { left: -100%; } 50%, 100% { left: 150%; } }
-    @keyframes hudPulse { 0% { opacity: .5; } 100% { opacity: 1; } }
+    .sk-gamer .alert::before { content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary-neon) 40%, transparent), transparent); transform: skewX(15deg); }
+    .sk-gamer .alert.active { transform: skewX(-15deg) translateX(0); opacity: 1; }
+    .sk-gamer .alert.active::before { animation: gmLaser var(--laser-speed) ease-in-out infinite; }
+    .sk-gamer .avatar-wrapper { transform: skewX(15deg); position: relative; width: 48px; height: 48px; margin-right: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sk-gamer .avatar-hud { position: absolute; width: 100%; height: 100%; border: 2px solid rgba(255,255,255,.1); }
+    .sk-gamer .avatar-hud::after { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; border: 2px solid var(--primary-neon); clip-path: polygon(0 0, 30% 0, 0 30%, 0 0, 100% 100%, 70% 100%, 100% 70%); animation: gmHud 1.5s infinite alternate; }
+    .sk-gamer .avatar { width: 85%; height: 85%; object-fit: cover; background: #111; display: block; }
+    .sk-gamer .text-wrapper { transform: skewX(15deg); display: flex; flex-direction: column; min-width: 0; }
+    .sk-gamer .tag { font-family: 'Orbitron', sans-serif; font-size: var(--tag-size); font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px; line-height: 1.2; text-shadow: 0 0 10px rgba(255,255,255,.2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+    .sk-gamer .status { font-size: var(--status-size); font-weight: 700; color: var(--primary-neon); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+    .sk-gamer .status::before { content: ''; display: inline-block; width: 6px; height: 6px; background-color: var(--primary-neon); border-radius: 50%; box-shadow: 0 0 8px var(--primary-neon); flex-shrink: 0; }
+    @keyframes gmLaser { 0% { left: -100%; } 50%, 100% { left: 150%; } }
+    @keyframes gmHud { 0% { opacity: .5; } 100% { opacity: 1; } }
+
+    /* ---------- Minecraft ---------- */
+    .sk-minecraft {
+      --primary-neon: #55ff55; --join-accent: #ffe14d; --join-bg-alpha: 0.92; --laser-speed: 2.2s; --join-top: 24px;
+      --tag-size: 0.72rem; --status-size: 0.52rem;
+      font-family: 'Press Start 2P', monospace; image-rendering: pixelated;
+    }
+    .sk-minecraft .alert {
+      display: flex; align-items: center; gap: 14px; position: absolute; top: var(--join-top); left: var(--join-left);
+      min-width: 420px; padding: 12px 18px 14px; transform: translateX(-120%); opacity: 0;
+      background: rgba(86, 86, 86, var(--join-bg-alpha)); border: 4px solid #1a1a1a;
+      box-shadow: inset 3px 3px 0 rgba(255,255,255,0.22), inset -3px -3px 0 rgba(0,0,0,0.35), 0 8px 0 rgba(0,0,0,0.45);
+      transition: transform 0.35s steps(6), opacity 0.25s steps(4); overflow: hidden;
+    }
+    .sk-minecraft .alert::before {
+      content: ''; position: absolute; top: -4px; left: -4px; right: -4px; height: 12px;
+      background: repeating-linear-gradient(90deg, #5d9b38 0 8px, #4a7f2c 8px 16px), linear-gradient(180deg, #6dbb45, #4a7f2c);
+      border: 4px solid #1a1a1a; border-bottom: none; box-shadow: inset 0 2px 0 rgba(255,255,255,0.25);
+    }
+    .sk-minecraft .alert::after {
+      content: ''; position: absolute; top: 0; left: -100%; width: 45%; height: 100%;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary-neon) 35%, transparent), transparent);
+      animation: none; pointer-events: none;
+    }
+    .sk-minecraft .alert.active { transform: translateX(0); opacity: 1; }
+    .sk-minecraft .alert.active::after { animation: mcScan var(--laser-speed) ease-in-out infinite; }
+    .sk-minecraft .join-accent {
+      position: absolute; left: 0; top: 8px; bottom: 0; width: 5px;
+      background: var(--primary-neon); border-right: 3px solid #1a1a1a;
+      box-shadow: 0 0 12px color-mix(in srgb, var(--primary-neon) 60%, transparent);
+    }
+    .sk-minecraft .avatar-wrapper { position: relative; width: 52px; height: 52px; margin-left: 8px; flex-shrink: 0; z-index: 1; }
+    .sk-minecraft .avatar-frame {
+      position: absolute; inset: 0; border: 3px solid #1a1a1a; background: #2a2a2a;
+      box-shadow: inset 2px 2px 0 rgba(255,255,255,0.15), 0 0 0 2px var(--join-accent);
+    }
+    .sk-minecraft .avatar { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; background: #111; }
+    .sk-minecraft .text-wrapper { display: flex; flex-direction: column; gap: 6px; min-width: 0; z-index: 1; padding-top: 4px; }
+    .sk-minecraft .tag {
+      font-size: var(--tag-size); font-weight: 700; color: #fff; line-height: 1.5;
+      text-shadow: 2px 2px 0 #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px;
+    }
+    .sk-minecraft .status {
+      font-size: var(--status-size); color: var(--primary-neon); text-transform: uppercase; letter-spacing: 0.04em;
+      text-shadow: 2px 2px 0 #1a1a1a; display: flex; align-items: center; gap: 8px;
+    }
+    .sk-minecraft .status::before {
+      content: ''; width: 10px; height: 10px; background: #e52521; border: 2px solid #1a1a1a;
+      transform: rotate(45deg); box-shadow: 2px 2px 0 #1a1a1a; flex-shrink: 0;
+    }
+    @keyframes mcScan { 0% { left: -100%; } 50%, 100% { left: 150%; } }
+
+    /* ---------- Dragon Ball Z ---------- */
+    .sk-dragonball {
+      --primary-neon: #ff9100; --join-accent: #2196f3; --join-bg-alpha: 0.88; --laser-speed: 1.6s;
+      --tag-size: 1.55rem; --status-size: 0.72rem;
+    }
+    .sk-dragonball .alert {
+      display: flex; align-items: center; gap: 16px; position: absolute; top: var(--join-top); left: var(--join-left);
+      min-width: 430px; padding: 10px 22px 10px 16px; transform: translateX(-130%) scale(0.92); opacity: 0;
+      background: linear-gradient(105deg, rgba(12,8,24,var(--join-bg-alpha)) 0%, rgba(20,12,8,var(--join-bg-alpha)) 100%);
+      border: 2px solid color-mix(in srgb, var(--primary-neon) 70%, #fff);
+      clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+      box-shadow: 0 0 28px color-mix(in srgb, var(--primary-neon) 35%, transparent), 0 0 40px color-mix(in srgb, var(--join-accent) 20%, transparent), inset 0 0 30px rgba(255,145,0,0.08);
+      transition: transform 0.45s cubic-bezier(0.18, 0.9, 0.22, 1), opacity 0.35s ease; overflow: hidden;
+    }
+    .sk-dragonball .alert::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--join-accent) 25%, transparent) 45%, transparent 100%);
+      opacity: 0.5; animation: none;
+    }
+    .sk-dragonball .alert.active { transform: translateX(0) scale(1); opacity: 1; }
+    .sk-dragonball .alert.active::before { animation: kiPulse 1.2s ease-in-out infinite; }
+    .sk-dragonball .alert::after {
+      content: ''; position: absolute; top: 0; left: -80%; width: 40%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+      transform: skewX(-18deg); animation: none;
+    }
+    .sk-dragonball .alert.active::after { animation: kiScan var(--laser-speed) ease-in-out infinite; }
+    .sk-dragonball .join-accent {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      background: linear-gradient(180deg, var(--join-accent), var(--primary-neon));
+      box-shadow: 0 0 16px var(--primary-neon);
+    }
+    .sk-dragonball .avatar-wrapper { position: relative; width: 54px; height: 54px; flex-shrink: 0; z-index: 1; }
+    .sk-dragonball .avatar-frame {
+      position: absolute; inset: -4px; border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--primary-neon), var(--join-accent), #fff, var(--primary-neon));
+      animation: auraSpin 2.5s linear infinite;
+    }
+    .sk-dragonball .avatar-frame::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: #0a0812; }
+    .sk-dragonball .avatar {
+      position: relative; z-index: 2; width: 46px; height: 46px; margin: 4px; border-radius: 50%;
+      object-fit: cover; display: block; background: #111; border: 2px solid rgba(255,255,255,0.2);
+    }
+    .sk-dragonball .text-wrapper { display: flex; flex-direction: column; gap: 2px; min-width: 0; z-index: 1; }
+    .sk-dragonball .tag {
+      font-family: 'Bangers', Impact, sans-serif; font-size: var(--tag-size); font-weight: 400; line-height: 1;
+      color: #fff; letter-spacing: 0.06em; text-transform: uppercase;
+      text-shadow: 0 0 12px var(--primary-neon), 2px 2px 0 #c62800, -1px -1px 0 var(--join-accent);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+    }
+    .sk-dragonball .status {
+      font-family: 'Orbitron', sans-serif; font-size: var(--status-size); font-weight: 700;
+      color: var(--primary-neon); text-transform: uppercase; letter-spacing: 0.14em;
+      display: flex; align-items: center; gap: 8px;
+      text-shadow: 0 0 8px color-mix(in srgb, var(--primary-neon) 70%, transparent);
+    }
+    .sk-dragonball .status::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: var(--join-accent); box-shadow: 0 0 10px var(--join-accent), 0 0 18px var(--primary-neon);
+      animation: kiDot 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes kiScan { 0% { left: -80%; opacity: 0; } 20% { opacity: 1; } 100% { left: 140%; opacity: 0; } }
+    @keyframes kiPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.75; } }
+    @keyframes auraSpin { to { transform: rotate(360deg); } }
+    @keyframes kiDot { from { transform: scale(0.85); opacity: 0.7; } to { transform: scale(1.15); opacity: 1; } }
+
+    /* ---------- Mario Bros ---------- */
+    .sk-mario {
+      --primary-neon: #ffe14d; --join-accent: #e52521; --join-bg-alpha: 0.94; --laser-speed: 2s; --join-top: 28px;
+      --tag-size: 0.78rem; --status-size: 0.55rem;
+      font-family: 'Press Start 2P', monospace; image-rendering: pixelated;
+    }
+    .sk-mario .alert {
+      display: flex; align-items: center; gap: 14px; position: absolute; top: var(--join-top); left: var(--join-left);
+      min-width: 420px; padding: 12px 20px 12px 14px; transform: translateX(-120%) translateY(8px); opacity: 0;
+      background: linear-gradient(180deg, rgba(229,37,37,var(--join-bg-alpha)) 0%, rgba(176,24,24,var(--join-bg-alpha)) 100%);
+      border: 4px solid #1a1a1a; border-radius: 6px;
+      box-shadow: inset 0 4px 0 rgba(255,255,255,0.25), inset 0 -4px 0 rgba(0,0,0,0.25), 0 6px 0 #1a1a1a, 0 10px 24px rgba(0,0,0,0.45);
+      transition: transform 0.42s cubic-bezier(0.34, 1.45, 0.52, 1), opacity 0.25s ease; overflow: hidden;
+    }
+    .sk-mario .alert::before {
+      content: ''; position: absolute; inset: 6px; border: 2px dashed rgba(255,255,255,0.18); border-radius: 3px; pointer-events: none;
+    }
+    .sk-mario .alert::after {
+      content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+      animation: none;
+    }
+    .sk-mario .alert.active { transform: translateX(0) translateY(0); opacity: 1; animation: marioBounce 0.5s ease-out; }
+    .sk-mario .alert.active::after { animation: coinScan var(--laser-speed) ease-in-out infinite; }
+    .sk-mario .join-accent {
+      position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+      width: 28px; height: 28px; border-radius: 50%; border: 3px solid #1a1a1a;
+      background: radial-gradient(circle at 35% 30%, #fff7a8, var(--primary-neon) 45%, #c97800 100%);
+      box-shadow: inset -2px -3px 0 rgba(0,0,0,0.25), 0 0 10px rgba(255,225,77,0.6);
+      animation: coinSpin 1.2s steps(8) infinite;
+    }
+    .sk-mario .avatar-wrapper { position: relative; width: 50px; height: 50px; margin-left: 28px; flex-shrink: 0; z-index: 1; }
+    .sk-mario .avatar-frame {
+      position: absolute; inset: 0; border: 3px solid #1a1a1a; border-radius: 4px;
+      box-shadow: 0 0 0 2px var(--primary-neon), inset 2px 2px 0 rgba(255,255,255,0.2);
+      background: #5c94fc;
+    }
+    .sk-mario .avatar { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 2px; background: #111; image-rendering: pixelated; }
+    .sk-mario .text-wrapper { display: flex; flex-direction: column; gap: 8px; min-width: 0; z-index: 1; }
+    .sk-mario .tag {
+      font-family: 'Bangers', 'Press Start 2P', Impact, sans-serif; font-size: var(--tag-size); font-weight: 400;
+      color: #fff; line-height: 1.3; letter-spacing: 0.04em;
+      text-shadow: 2px 2px 0 #1a1a1a, 0 0 8px rgba(255,225,77,0.4);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px;
+    }
+    .sk-mario .status {
+      font-size: var(--status-size); color: var(--primary-neon); text-transform: uppercase; letter-spacing: 0.06em;
+      text-shadow: 2px 2px 0 #1a1a1a; display: flex; align-items: center; gap: 8px;
+    }
+    .sk-mario .status::before {
+      content: '1UP'; font-size: 0.85em; padding: 2px 4px; background: var(--primary-neon); color: #1a1a1a;
+      border: 2px solid #1a1a1a; line-height: 1; flex-shrink: 0;
+    }
+    @keyframes coinScan { 0% { left: -100%; } 50%, 100% { left: 150%; } }
+    @keyframes coinSpin { to { transform: translateY(-50%) rotate(360deg); } }
+    @keyframes marioBounce { 0% { transform: translateX(0) translateY(0); } 40% { transform: translateX(0) translateY(-6px); } 100% { transform: translateX(0) translateY(0); } }
   </style>
 </head>
 <body>
   <div id="stage-root">
-    <div class="gamer-alert" id="gamerAlert" aria-live="polite">
-      <div class="avatar-wrapper">
-        <div class="avatar-hud"></div>
-        <img class="avatar" src="" alt="" id="userAvatar" referrerpolicy="no-referrer" width="48" height="48">
+    <div class="skin sk-gamer" data-skin="gamer">
+      <div class="alert" aria-live="polite">
+        <div class="avatar-wrapper">
+          <div class="avatar-hud"></div>
+          <img class="avatar" src="" alt="" referrerpolicy="no-referrer" width="48" height="48">
+        </div>
+        <div class="text-wrapper">
+          <span class="tag">—</span>
+          <span class="status">se unió al live</span>
+        </div>
       </div>
-      <div class="text-wrapper">
-        <span class="gamer-tag" id="gamerTag">—</span>
-        <span class="status-text" id="statusText">se unió al live</span>
+    </div>
+
+    <div class="skin sk-minecraft" data-skin="minecraft">
+      <div class="alert" aria-live="polite">
+        <div class="join-accent"></div>
+        <div class="avatar-wrapper">
+          <div class="avatar-frame"></div>
+          <img class="avatar" src="" alt="" referrerpolicy="no-referrer" width="52" height="52">
+        </div>
+        <div class="text-wrapper">
+          <span class="tag">—</span>
+          <span class="status">entró al mundo</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="skin sk-dragonball" data-skin="dragonball">
+      <div class="alert" aria-live="polite">
+        <div class="join-accent"></div>
+        <div class="avatar-wrapper">
+          <div class="avatar-frame"></div>
+          <img class="avatar" src="" alt="" referrerpolicy="no-referrer" width="46" height="46">
+        </div>
+        <div class="text-wrapper">
+          <span class="tag">—</span>
+          <span class="status">entra en combate</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="skin sk-mario" data-skin="mario">
+      <div class="alert" aria-live="polite">
+        <div class="join-accent"></div>
+        <div class="avatar-wrapper">
+          <div class="avatar-frame"></div>
+          <img class="avatar" src="" alt="" referrerpolicy="no-referrer" width="50" height="50">
+        </div>
+        <div class="text-wrapper">
+          <span class="tag">—</span>
+          <span class="status">player joined</span>
+        </div>
       </div>
     </div>
   </div>
@@ -63,91 +283,129 @@
   <script>
   (function () {
     'use strict';
+    var SKINS = {
+      gamer: {
+        kind: 'streamjoin', key: 'streamJoin', previewName: 'Gamer Preview',
+        phrases: ['se unió a la partida', 'entró a la squad', 'ready to rumble', 'spawneó en el chat', 'se unió al live'],
+      },
+      minecraft: {
+        kind: 'streamjoinmc', key: 'streamJoinMc', previewName: 'Steve Preview',
+        phrases: ['entró al mundo', 'spawn en el server', 'se unió al realm', 'minó el chat', 'player joined'],
+      },
+      dragonball: {
+        kind: 'streamjoindbz', key: 'streamJoinDbz', previewName: 'Saiyan Preview',
+        phrases: ['entra en combate', 'power level rising', 'se unió a la batalla', 'ki detectado', 'fighter joined'],
+      },
+      mario: {
+        kind: 'streamjoinmario', key: 'streamJoinMario', previewName: 'Mario Preview',
+        phrases: ['¡player 1 join!', 'entró al nivel', '1up en el chat', 'warp zone', 'se unió al castillo'],
+      },
+    };
+    var KIND_TO_SKIN = {};
+    Object.keys(SKINS).forEach(function (id) {
+      var s = SKINS[id];
+      KIND_TO_SKIN[s.kind] = id;
+      s.el = document.querySelector('.skin[data-skin="' + id + '"]');
+      s.alert = s.el.querySelector('.alert');
+      s.tag = s.el.querySelector('.tag');
+      s.status = s.el.querySelector('.status');
+      s.avatar = s.el.querySelector('.avatar');
+      s.durMs = 4500;
+      s.phraseMode = 'random';
+      s.fixedPhrase = '';
+      s.customPhrases = s.phrases.slice();
+    });
+
     var params = new URLSearchParams(location.search);
     var isEmbed = params.get('embed') === '1';
+    var forcedSkin = SKINS[String(params.get('skin') || '').toLowerCase()] ? String(params.get('skin')).toLowerCase() : '';
     var DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/bottts/svg?seed=Gamer';
     var PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : DEFAULT_AVATAR;
-    var DEFAULT_PHRASES = ['se unió a la partida', 'entró a la squad', 'ready to rumble', 'spawneó en el chat', 'se unió al live'];
 
-    var alertEl = document.getElementById('gamerAlert');
-    var tagEl = document.getElementById('gamerTag');
-    var statusEl = document.getElementById('statusText');
-    var avatarEl = document.getElementById('userAvatar');
-
+    var activeId = '';
+    var skinHoldUntil = 0;
     var joinQueue = [];
     var showing = false;
     var hideTimer = null;
     var pinned = false;
-    var durMs = 4500;
-    var phraseMode = 'random';
-    var fixedPhrase = '';
-    var customPhrases = DEFAULT_PHRASES.slice();
 
     function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
-    function root() { return document.documentElement.style; }
+    function cur() { return SKINS[activeId] || SKINS.gamer; }
 
-    function applyConfig(cfg) {
+    function applyConfig(s, cfg) {
       cfg = cfg || {};
+      var st = s.el.style;
       var ne = String(cfg.neon || '').trim().replace(/^#/, '');
-      if (/^[0-9a-fA-F]{6}$/.test(ne)) root().setProperty('--primary-neon', '#' + ne);
+      if (/^[0-9a-fA-F]{6}$/.test(ne)) st.setProperty('--primary-neon', '#' + ne);
+      var acc = String(cfg.accent || '').trim().replace(/^#/, '');
+      if (/^[0-9a-fA-F]{6}$/.test(acc)) st.setProperty('--join-accent', '#' + acc);
       var dur = parseFloat(cfg.durationSec);
-      if (!isNaN(dur) && dur >= 2 && dur <= 15) { durMs = Math.round(dur * 1000); root().setProperty('--join-dur-ms', String(durMs)); }
+      if (!isNaN(dur) && dur >= 2 && dur <= 15) s.durMs = Math.round(dur * 1000);
       var osz = parseInt(cfg.scale, 10);
-      if (!isNaN(osz) && osz >= 50 && osz <= 200) root().setProperty('--join-scale', String(osz / 100));
+      if (!isNaN(osz) && osz >= 50 && osz <= 200) st.setProperty('--join-scale', String(osz / 100));
       var px = parseInt(cfg.posTop, 10);
-      if (!isNaN(px) && px >= 0 && px <= 400) root().setProperty('--join-top', px + 'px');
+      if (!isNaN(px) && px >= 0 && px <= 400) st.setProperty('--join-top', px + 'px');
       var pl = parseInt(cfg.posLeft, 10);
-      if (!isNaN(pl) && pl >= 0 && pl <= 400) root().setProperty('--join-left', pl + 'px');
+      if (!isNaN(pl) && pl >= 0 && pl <= 400) st.setProperty('--join-left', pl + 'px');
       var ls = parseFloat(cfg.laserSpeed);
-      if (!isNaN(ls) && ls >= 0.5 && ls <= 6) root().setProperty('--laser-speed', ls + 's');
+      if (!isNaN(ls) && ls >= 0.5 && ls <= 6) st.setProperty('--laser-speed', ls + 's');
       var bgop = parseInt(cfg.bgOpacity, 10);
-      if (!isNaN(bgop)) { bgop = clamp(bgop, 40, 100); root().setProperty('--dark-bg', 'rgba(6, 6, 10, ' + (bgop / 100).toFixed(2) + ')'); }
+      if (!isNaN(bgop)) st.setProperty('--join-bg-alpha', String((clamp(bgop, 40, 100) / 100).toFixed(2)));
       var tagsz = parseFloat(cfg.tagSize);
-      if (!isNaN(tagsz) && tagsz >= 0.8 && tagsz <= 2.2) root().setProperty('--tag-size', tagsz + 'rem');
+      if (!isNaN(tagsz) && tagsz >= 0.8 && tagsz <= 2.2) st.setProperty('--tag-size', tagsz + 'rem');
       var sts = parseFloat(cfg.statusSize);
-      if (!isNaN(sts) && sts >= 0.55 && sts <= 1.4) root().setProperty('--status-size', sts + 'rem');
+      if (!isNaN(sts) && sts >= 0.55 && sts <= 1.4) st.setProperty('--status-size', sts + 'rem');
       var pm = String(cfg.phraseMode || '').trim().toLowerCase();
-      if (pm === 'fixed' || pm === 'random') phraseMode = pm;
-      var ph = String(cfg.phrase || '').trim();
-      fixedPhrase = ph;
+      if (pm === 'fixed' || pm === 'random') s.phraseMode = pm;
+      s.fixedPhrase = String(cfg.phrase || '').trim();
       var phl = String(cfg.phrases || '').trim();
-      customPhrases = phl ? phl.split('|').map(function (s) { return s.trim(); }).filter(Boolean) : DEFAULT_PHRASES.slice();
-      if (!customPhrases.length) customPhrases = DEFAULT_PHRASES.slice();
+      s.customPhrases = phl ? phl.split('|').map(function (x) { return x.trim(); }).filter(Boolean) : s.phrases.slice();
+      if (!s.customPhrases.length) s.customPhrases = s.phrases.slice();
     }
 
     function pickAvatar(d) { return (d && (d.photo || d.profilePictureUrl) || '').toString().trim() || PREVIEW_AVATAR; }
     function pickName(d) { return String((d && (d.nickname || d.uniqueId)) || 'viewer').trim() || 'viewer'; }
-    function pickPhrase() { return phraseMode === 'fixed' && fixedPhrase ? fixedPhrase : (customPhrases[Math.floor(Math.random() * customPhrases.length)] || 'se unió al live'); }
-
-    function setContent(d, phrase) {
-      if (tagEl) tagEl.textContent = pickName(d).toUpperCase();
-      if (statusEl) statusEl.textContent = phrase || pickPhrase();
-      if (avatarEl) { avatarEl.onerror = function () { avatarEl.onerror = null; avatarEl.src = PREVIEW_AVATAR; }; avatarEl.src = pickAvatar(d); avatarEl.alt = pickName(d); }
+    function pickPhrase(s) {
+      return s.phraseMode === 'fixed' && s.fixedPhrase
+        ? s.fixedPhrase
+        : (s.customPhrases[Math.floor(Math.random() * s.customPhrases.length)] || 'se unió al live');
     }
-    function sample() { return { uniqueId: 'Gamer_Preview', nickname: 'Gamer Preview', photo: PREVIEW_AVATAR }; }
+    function setContent(d, phrase) {
+      var s = cur();
+      s.tag.textContent = pickName(d).toUpperCase();
+      s.status.textContent = phrase || pickPhrase(s);
+      s.avatar.onerror = function () { s.avatar.onerror = null; s.avatar.src = PREVIEW_AVATAR; };
+      s.avatar.src = pickAvatar(d);
+      s.avatar.alt = pickName(d);
+    }
+    function sample() { return { uniqueId: 'Preview', nickname: cur().previewName, photo: PREVIEW_AVATAR }; }
 
     function showPinned() {
       pinned = true;
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       showing = false;
       setContent(sample());
-      if (alertEl) alertEl.classList.add('active');
+      cur().alert.classList.add('active');
     }
     function hidePinned() { pinned = false; }
-    function hideJoin() { if (pinned) return; if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } if (alertEl) alertEl.classList.remove('active'); }
-
+    function hideJoin() {
+      if (pinned) return;
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      cur().alert.classList.remove('active');
+    }
     function showJoin(d, opts) {
       opts = opts || {};
-      if (!alertEl) return;
       if (pinned && !opts.force) return;
+      var s = cur();
       setContent(d, opts.phrase);
-      if (alertEl) alertEl.classList.remove('active');
-      requestAnimationFrame(function () { alertEl.classList.add('active'); });
+      s.alert.classList.remove('active');
+      requestAnimationFrame(function () { s.alert.classList.add('active'); });
       hideTimer = setTimeout(function () {
-        hideJoin(); showing = false;
+        hideJoin();
+        showing = false;
         if (isEmbed) showPinned();
         setTimeout(pumpQueue, 180);
-      }, durMs);
+      }, s.durMs);
     }
     function pumpQueue() { if (showing || pinned || !joinQueue.length) return; showing = true; showJoin(joinQueue.shift(), { force: true }); }
     function enqueue(d) { if (!d) return; joinQueue.push(d); pumpQueue(); }
@@ -155,14 +413,35 @@
     function runTest() {
       hidePinned();
       joinQueue = [];
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       showing = true;
       showJoin(sample(), { force: true });
     }
     function resetAll() {
-      joinQueue = []; showing = false;
+      joinQueue = [];
+      showing = false;
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-      hidePinned(); if (alertEl) alertEl.classList.remove('active');
+      hidePinned();
+      cur().alert.classList.remove('active');
       if (isEmbed) showPinned();
+    }
+
+    function setSkin(id) {
+      if (forcedSkin) id = forcedSkin;
+      if (!SKINS[id] || id === activeId) return;
+      var prev = SKINS[activeId];
+      if (prev) prev.alert.classList.remove('active');
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      Object.keys(SKINS).forEach(function (k) { SKINS[k].el.classList.toggle('on', k === id); });
+      activeId = id;
+      showing = false;
+      if (isEmbed) showPinned();
+      else setTimeout(pumpQueue, 60);
+    }
+    function wantSkin(id, fromPanel) {
+      if (fromPanel) skinHoldUntil = Date.now() + 2200;
+      else if (Date.now() < skinHoldUntil) return;
+      setSkin(String(id || '').toLowerCase());
     }
 
     var ws, rt;
@@ -173,23 +452,38 @@
       ws.onclose = function () { rt = setTimeout(connect, 1500); };
       ws.onmessage = function (ev) {
         var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
-        if (m.type === 'settings') { if (m.payload && m.payload.streamJoin) applyConfig(m.payload.streamJoin); return; }
+        if (m.type === 'settings') {
+          var p = m.payload || {};
+          Object.keys(SKINS).forEach(function (id) {
+            var s = SKINS[id];
+            if (p[s.key]) applyConfig(s, p[s.key]);
+          });
+          if (p.streamJoin && p.streamJoin.skin) wantSkin(p.streamJoin.skin, false);
+          return;
+        }
         if (isEmbed) return;
         if (m.type === 'member') enqueue(m.payload);
         else if (m.type === 'streamJoinTest') runTest();
         else if (m.type === 'streamJoinReset') resetAll();
       };
     }
+
     window.addEventListener('message', function (e) {
-      var d = e.data; if (!d || d.kind !== 'streamjoin') return;
-      if (d.type === 'config') { applyConfig(d.config); if (isEmbed) { setContent(sample()); if (alertEl) alertEl.classList.add('active'); } }
-      else if (d.type === 'test') runTest();
+      var d = e.data;
+      if (!d) return;
+      var id = KIND_TO_SKIN[d.kind];
+      if (!id) return;
+      if (d.type === 'skin') { wantSkin(d.skin, true); return; }
+      if (d.type === 'config') {
+        applyConfig(SKINS[id], d.config);
+        if (id === 'gamer' && d.config && d.config.skin) wantSkin(d.config.skin, false);
+        if (isEmbed && id === activeId && pinned) setContent(sample());
+      } else if (d.type === 'test') runTest();
       else if (d.type === 'reset') resetAll();
     });
 
     if (isEmbed) document.documentElement.classList.add('tf-embed');
-    applyConfig({});
-    if (isEmbed) requestAnimationFrame(showPinned);
+    setSkin(forcedSkin || 'gamer');
     connect();
   })();
   </script>

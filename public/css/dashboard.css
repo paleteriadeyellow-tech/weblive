@@ -3536,6 +3536,8 @@ input:focus, select:focus { border-color: var(--cyan); }
 }
 .vid-lib-studio { object-fit: cover; z-index: 0; }
 .vid-lib-player, .vid-prev-media img, .vid-lib-poster, .vid-lib-canvas { object-fit: contain; z-index: 1; background: transparent; }
+.vid-lib-still { object-fit: contain; z-index: 1; background: transparent; }
+.vid-cell.is-playing .vid-lib-still { visibility: hidden; }
 .vid-lib-canvas { z-index: 2; }
 .vid-cell.is-playing .vid-lib-poster { visibility: hidden; }
 .vid-lib-player {

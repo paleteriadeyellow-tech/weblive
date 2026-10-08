@@ -140,14 +140,17 @@
   let currentSkinId = '';
   let wantRunning = false;
 
+  const embedPreview = new URLSearchParams(location.search).get('embed') === '1';
+
   function applyTimerSkin(raw, opts) {
     const id = normalizeSkin(raw);
     const force = !!(opts && opts.force);
     const hold = !!(opts && opts.hold);
-    if (!force && heldSkin && Date.now() < heldSkinUntil && id !== heldSkin) return heldSkin;
+    // hold nuevo = clic del panel: siempre aplica. El hold solo frena ecos WS viejos.
+    if (!force && !hold && heldSkin && Date.now() < heldSkinUntil && id !== heldSkin) return heldSkin;
     if (hold) {
       heldSkin = id;
-      heldSkinUntil = Date.now() + 2500;
+      heldSkinUntil = Date.now() + 800;
     }
     const cls = SKIN_MAP[id] || 'd-neon';
     const alertEl = document.getElementById('alert');
@@ -341,7 +344,7 @@
       let m; try { m = JSON.parse(ev.data); } catch { return; }
       if (m.type === 'timer') onTimer(m.payload || {});
       else if (m.type === 'timerAdd') onTimerAdd(m.payload || {});
-      else if (m.type === 'settings' && m.payload && m.payload.timer) {
+      else if (!embedPreview && m.type === 'settings' && m.payload && m.payload.timer) {
         if (m.payload.timer.skin != null) applyTimerSkin(m.payload.timer.skin);
       } else if (m.type === 'timerBeep') {
         try {

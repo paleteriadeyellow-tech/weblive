@@ -88,15 +88,55 @@ canvas{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-o
     });
   }
 
+  /* Moneda pre-dibujada (degradado + halo), cacheada por tono y radio. */
+  const coinCache = new Map();
+  function coinSprite(c) {
+    const r = Math.round(c.r), key = c.h + '|' + r;
+    let s = coinCache.get(key);
+    if (s) return s;
+    const pad = 24, sz = (r + pad) * 2;
+    s = document.createElement('canvas'); s.width = s.height = sz;
+    const o = s.getContext('2d');
+    o.translate(sz / 2, sz / 2);
+    const g = o.createRadialGradient(-r * .3, -r * .3, 2, 0, 0, r);
+    g.addColorStop(0, '#fff'); g.addColorStop(.5, `hsl(${c.h} 100% 65%)`); g.addColorStop(1, '#2a1a7a');
+    o.shadowColor = `hsl(${c.h} 100% 60%)`; o.shadowBlur = 18; o.fillStyle = g;
+    o.beginPath(); o.arc(0, 0, r, 0, 6.283); o.fill(); o.shadowBlur = 0;
+    o.strokeStyle = 'rgba(255,255,255,.7)'; o.lineWidth = 2;
+    o.beginPath(); o.arc(0, 0, r * .7, 0, 6.283); o.stroke();
+    coinCache.set(key, s);
+    return s;
+  }
+
   function coin(c, y, rot, al) {
     const sx = Math.cos(rot);
+    const s = c.spr || (c.spr = coinSprite(c));
     ctx.save(); ctx.globalAlpha = al; ctx.translate(c.x, y); ctx.scale(Math.abs(sx) < .12 ? .12 : sx, 1);
-    const g = ctx.createRadialGradient(-c.r * .3, -c.r * .3, 2, 0, 0, c.r);
-    g.addColorStop(0, '#fff'); g.addColorStop(.5, `hsl(${c.h} 100% 65%)`); g.addColorStop(1, '#2a1a7a');
-    ctx.shadowColor = `hsl(${c.h} 100% 60%)`; ctx.shadowBlur = 18; ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, 0, c.r, 0, 6.283); ctx.fill(); ctx.shadowBlur = 0;
-    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, 0, c.r * .7, 0, 6.283); ctx.stroke(); ctx.restore();
+    ctx.drawImage(s, -s.width / 2, -s.height / 2);
+    ctx.restore();
+  }
+
+  /* Capas del título: magenta y cian con halo, blanco sin halo. */
+  let titleSpr = null, titleKey = '';
+  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => { titleKey = ''; });
+  function titleSprites(txt) {
+    if (titleSpr && titleKey === txt) return titleSpr;
+    const font = "900 74px Unbounded,'Arial Black',sans-serif";
+    const m = document.createElement('canvas').getContext('2d');
+    m.font = font;
+    const pad = 80, w = Math.ceil(m.measureText(txt).width) + pad * 2, h = 74 + pad * 2;
+    const layer = (fill, glow) => {
+      const s = document.createElement('canvas'); s.width = w; s.height = h;
+      const o = s.getContext('2d');
+      o.font = font; o.textAlign = 'center'; o.textBaseline = 'middle';
+      o.translate(w / 2, h / 2); o.transform(1, 0, -.14, 1, 0, 0);
+      if (glow) { o.shadowColor = '#7b2cff'; o.shadowBlur = 36; }
+      o.fillStyle = fill; o.fillText(txt, 0, 0);
+      return s;
+    };
+    titleSpr = { w, h, mag: layer('#ff2bd6', true), cyan: layer('#19e6ff', true), white: layer('#fff', false) };
+    titleKey = txt;
+    return titleSpr;
   }
 
   function title(t) {
@@ -105,18 +145,19 @@ canvas{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-o
     const off = Math.max(3, 26 * (1 - u)), flick = u < .7 && R() < .25;
     if (flick) return;
     const txt = (cfg.title || '¡NUEVO SEGUIDOR!').trim() || '¡NUEVO SEGUIDOR!';
-    ctx.save();
-    ctx.font = "900 74px Unbounded,'Arial Black',sans-serif";
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.translate(W / 2, 300); ctx.transform(1, 0, -.14, 1, 0, 0); ctx.globalAlpha = out;
-    ctx.shadowColor = '#7b2cff'; ctx.shadowBlur = 36;
-    ctx.fillStyle = '#ff2bd6'; ctx.fillText(txt, off, 0);
-    ctx.fillStyle = '#19e6ff'; ctx.fillText(txt, -off, 0);
-    ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; ctx.fillText(txt, 0, 0); ctx.restore();
+    const s = titleSprites(txt), x = W / 2 - s.w / 2, y = 300 - s.h / 2;
+    ctx.globalAlpha = out;
+    ctx.drawImage(s.mag, x + off, y);
+    ctx.drawImage(s.cyan, x - off, y);
+    ctx.drawImage(s.white, x, y);
+    ctx.globalAlpha = 1;
   }
 
+  let rafId = 0;
+  function kick() { if (!rafId) rafId = requestAnimationFrame(frame); }
+
   function frame(now) {
-    requestAnimationFrame(frame);
+    rafId = 0;
     if (!active) return;
     const t = now - t0;
     ctx.clearRect(0, 0, W, H);
@@ -170,6 +211,7 @@ canvas{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-o
       busy = false;
       drain();
     }
+    if (active) kick();
   }
 
   function playOne(user) {
@@ -181,6 +223,7 @@ canvas{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-o
     END = exitT + 1300;
     t0 = performance.now();
     active = true;
+    kick();
   }
 
   function drain() {
@@ -241,7 +284,6 @@ canvas{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-o
   });
 
   applyConfig({});
-  requestAnimationFrame(frame);
   if (isEmbed) {
     (document.fonts ? document.fonts.load("900 100px Unbounded").catch(() => {}) : Promise.resolve())
       .then(() => setTimeout(runTest, 150));

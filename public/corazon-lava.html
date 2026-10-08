@@ -43,6 +43,7 @@
       transition: opacity .28s ease, visibility 0s;
       z-index: 1;
     }
+    .skin-panel.is-idle, .skin-panel.is-idle * { animation-play-state: paused !important; }
     .figure { position: relative; width: 380px; height: 360px; margin: 4px auto 0; display: grid; place-items: center; }
     .heart-stage { position: relative; width: 300px; height: 290px; margin: 0; }
     .halo {
@@ -849,6 +850,19 @@
     }
     let designHoldUntil = 0;
     let designHeld = null;
+    let idleTimer = null;
+    function toggleSkinPanels(next) {
+      document.querySelectorAll('.skin-panel').forEach((el) => {
+        const on = el.getAttribute('data-skin') === next;
+        el.classList.toggle('is-on', on);
+        if (on) el.classList.remove('is-idle');
+      });
+      clearTimeout(idleTimer);
+      // Tras el crossfade (.28s) se pausan las animaciones de las skins ocultas.
+      idleTimer = setTimeout(() => {
+        document.querySelectorAll('.skin-panel:not(.is-on)').forEach((el) => el.classList.add('is-idle'));
+      }, 400);
+    }
     function applyDesign(skin, opts) {
       const next = SKINS[skin] ? skin : 'heart';
       const fromLocal = !!(opts && opts.local);
@@ -860,15 +874,11 @@
         return;
       }
       if (next === design) {
-        document.querySelectorAll('.skin-panel').forEach((el) => {
-          el.classList.toggle('is-on', el.getAttribute('data-skin') === next);
-        });
+        toggleSkinPanels(next);
         return;
       }
       design = next;
-      document.querySelectorAll('.skin-panel').forEach((el) => {
-        el.classList.toggle('is-on', el.getAttribute('data-skin') === next);
-      });
+      toggleSkinPanels(next);
       document.documentElement.setAttribute('data-heart-skin', next);
       // Solo repinta el agua en todas las skins; NO stopWaterAnim (no corta Testear/regalos)
       paintLevel(displayMeta, false);
@@ -1231,6 +1241,20 @@
     applyGiftToastStyle(giftToastStyle);
     applyHeartColors(colors);
     applyHeartFont(fontKey);
+    // Glow por chispa: filtrar el grupo entero recalculaba el blur del área grande en cada frame.
+    document.querySelectorAll('svg g[filter]').forEach((g) => {
+      const kids = Array.from(g.children);
+      if (!kids.length || !kids.every((k) => k.matches('.spark, .tw'))) return;
+      const f = g.getAttribute('filter');
+      const fid = (f.match(/#([^)]+)/) || [])[1];
+      const fe = fid && document.getElementById(fid);
+      if (fe) {
+        fe.setAttribute('x', '-60%'); fe.setAttribute('y', '-60%');
+        fe.setAttribute('width', '220%'); fe.setAttribute('height', '220%');
+      }
+      kids.forEach((k) => k.setAttribute('filter', f));
+      g.removeAttribute('filter');
+    });
     applyDesign(design);
     paintPillGift();
     fetch('/api/gifts').then((r) => r.json()).then((d) => {

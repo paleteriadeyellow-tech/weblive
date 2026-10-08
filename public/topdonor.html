@@ -8,8 +8,6 @@
   <title>Overlay — Top donador semanal</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
-    @property --a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
-    @property --b { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
     :root {
       --gold: #ffd34a; --cyan: #35e0ff; --pink: #ff4fd8; --txt: #eef3ff; --mut: #8a97b5;
       --ol-scale: 1;
@@ -35,19 +33,24 @@
       animation: enter .8s cubic-bezier(.2, 1.2, .3, 1);
     }
     @keyframes enter { from { transform: translateY(24px) scale(calc(var(--ol-scale) * .94)); opacity: 0; } }
-    .card:before {
-      content: ""; position: absolute; inset: 0; border-radius: 28px; padding: 2px; pointer-events: none;
-      background: conic-gradient(from var(--a), var(--gold), var(--cyan), var(--pink), var(--gold));
+    /* Bordes giratorios con transform (compositor) en vez de animar el ángulo del gradiente (repintado cada frame). */
+    .bord {
+      position: absolute; inset: 0; border-radius: 28px; padding: 2px; pointer-events: none; overflow: hidden;
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor; mask-composite: exclude; animation: spinA 9s linear infinite;
+      -webkit-mask-composite: xor; mask-composite: exclude;
     }
-    @keyframes spinA { to { --a: 360deg; } }
+    .bord:before {
+      content: ""; position: absolute; left: 50%; top: 50%; width: 800px; height: 800px; margin: -400px 0 0 -400px;
+      background: conic-gradient(from 0deg, var(--gold), var(--cyan), var(--pink), var(--gold));
+      animation: spinT 9s linear infinite; will-change: transform;
+    }
+    @keyframes spinT { to { transform: rotate(360deg); } }
     .card:after {
       content: ""; position: absolute; top: 0; bottom: 0; width: 90px; left: -140px;
+      transform: translateX(0) skewX(-18deg); animation: sweep 7s ease-in-out infinite; pointer-events: none;
       background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .09), transparent);
-      transform: skewX(-18deg); animation: sweep 7s ease-in-out infinite; pointer-events: none;
     }
-    @keyframes sweep { 0%, 60% { left: -140px; } 100% { left: 720px; } }
+    @keyframes sweep { 0%, 60% { transform: translateX(0) skewX(-18deg); } 100% { transform: translateX(860px) skewX(-18deg); } }
     .grid {
       position: absolute; inset: 0;
       background-image:
@@ -84,10 +87,13 @@
     .avwrap { position: relative; width: 168px; height: 168px; flex: none; }
     .ring {
       position: absolute; inset: 0; border-radius: 50%; padding: 5px; box-sizing: border-box;
-      background: conic-gradient(from var(--b), #fff6c0, var(--gold), #c47a00, var(--gold), #fff6c0);
-      animation: spinB 6s linear infinite; box-shadow: 0 0 26px rgba(255, 211, 74, .45);
+      box-shadow: 0 0 26px rgba(255, 211, 74, .45);
     }
-    @keyframes spinB { to { --b: 360deg; } }
+    .ring:before {
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(from 0deg, #fff6c0, var(--gold), #c47a00, var(--gold), #fff6c0);
+      animation: spinT 6s linear infinite; will-change: transform;
+    }
     .av {
       width: 100%; height: 100%; border-radius: 50%; background: #0c101c; display: grid; place-items: center;
       overflow: hidden; position: relative; box-shadow: inset 0 0 0 4px #0c101c;
@@ -109,9 +115,9 @@
     .badge:after {
       content: ""; position: absolute; top: 0; bottom: 0; width: 20px; left: -30px;
       background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .85), transparent);
-      transform: skewX(-20deg); animation: bsw 3.5s ease-in-out infinite;
+      transform: translateX(0) skewX(-20deg); animation: bsw 3.5s ease-in-out infinite;
     }
-    @keyframes bsw { 0%, 50% { left: -30px; } 100% { left: 90px; } }
+    @keyframes bsw { 0%, 50% { transform: translateX(0) skewX(-20deg); } 100% { transform: translateX(120px) skewX(-20deg); } }
 
     .info { flex: 1; min-width: 0; }
     .name {
@@ -212,6 +218,7 @@
 <body>
   <div class="scene">
     <div class="card" id="card">
+      <div class="bord"></div>
       <div class="grid"></div>
       <div class="dots" id="dots"></div>
       <div class="hdr"><i class="c"></i><span class="t" id="title">EL TIBBER DE LA SEMANA</span><i class="p"></i></div>

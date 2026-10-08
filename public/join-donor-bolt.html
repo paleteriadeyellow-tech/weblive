@@ -98,6 +98,8 @@
       to { opacity: 1; transform: skewX(-12deg); }
     }
 
+    .ab::before, .sw, .av, .bl, .lb { will-change: transform, opacity; }
+    .nm i { will-change: transform, opacity; }
     html.embed body { background: transparent !important; }
     @media (prefers-reduced-motion: reduce) {
       .play .ab::before { animation: ringin .01s forwards; }
@@ -175,6 +177,15 @@
   const bolts = [];
   const sparks = [];
   const flashes = [];
+  /* Halo del rayo: [alpha, ancho × b.w, color] */
+  const BOLT_LAYERS = [
+    [.12, 11, '#6a5cff'],
+    [.22, 6.5, '#6a5cff'],
+    [.5, 4, '#6a5cff'],
+    [.35, 2.8, '#ffe14a'],
+    [1, 1.7, '#ffe14a'],
+    [1, .7, '#ffffff'],
+  ];
   function jag(x0, y0, x1, y1, d, out) {
     if (Math.hypot(x1 - x0, y1 - y0) < 14) { out.push([x0, y0, x1, y1]); return; }
     const mx = (x0 + x1) / 2 + (R() - .5) * d;
@@ -192,6 +203,7 @@
       jag(s[2], s[3], s[2] + Math.cos(a) * L, s[3] + Math.sin(a) * L, L * .3, segs);
     }
     bolts.push({ segs, born: performance.now() + delay, dur, w });
+    kick();
   }
   function burst(x, y, n, ang0, ang1, sp) {
     for (let i = 0; i < n; i++) {
@@ -199,14 +211,32 @@
       const v = (.4 + R()) * sp * S;
       sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, m: .45 + R() * .7, c: ['#fff', '#ffe14a', '#a99cff'][i % 3] });
     }
+    kick();
+  }
+  function flash(f) {
+    flashes.push(f);
+    kick();
   }
 
   let last = performance.now();
+  let rafId = 0;
+  let dirty = false;
+  function kick() {
+    if (rafId) return;
+    last = performance.now();
+    rafId = requestAnimationFrame(frame);
+  }
   function frame(now) {
-    requestAnimationFrame(frame);
     const dt = Math.min(.05, (now - last) / 1000);
     last = now;
-    cx.clearRect(0, 0, cv.width, cv.height);
+    if (dirty) cx.clearRect(0, 0, cv.width, cv.height);
+    if (!bolts.length && !sparks.length && !flashes.length) {
+      dirty = false;
+      rafId = 0;
+      return;
+    }
+    dirty = true;
+    rafId = requestAnimationFrame(frame);
     cx.globalCompositeOperation = 'lighter';
     for (let i = flashes.length - 1; i >= 0; i--) {
       const f = flashes[i];
@@ -227,13 +257,12 @@
       if (u < 0) continue;
       if (u > 1) { bolts.splice(i, 1); continue; }
       const a = (1 - u) * (.55 + .45 * R());
-      for (const [p, w, c, sh] of [[a * .5, b.w * 4, '#6a5cff', 34], [a, b.w * 1.7, '#ffe14a', 16], [a, b.w * .7, '#ffffff', 0]]) {
-        cx.globalAlpha = p; cx.strokeStyle = c; cx.shadowColor = '#6a5cff'; cx.shadowBlur = sh; cx.lineWidth = w;
-        cx.beginPath();
-        for (const s of b.segs) { cx.moveTo(s[0], s[1]); cx.lineTo(s[2], s[3]); }
+      cx.beginPath();
+      for (const s of b.segs) { cx.moveTo(s[0], s[1]); cx.lineTo(s[2], s[3]); }
+      for (const [p, w, c] of BOLT_LAYERS) {
+        cx.globalAlpha = a * p; cx.strokeStyle = c; cx.lineWidth = b.w * w;
         cx.stroke();
       }
-      cx.shadowBlur = 0;
     }
     cx.globalAlpha = 1;
     for (let i = sparks.length - 1; i >= 0; i--) {
@@ -246,7 +275,6 @@
     }
     cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
   }
-  requestAnimationFrame(frame);
 
   let crackle = false;
   setInterval(() => {
@@ -351,7 +379,7 @@
       bolt(ax + (R() - .5) * 160 * S, -30, ax, ay, 4 * S, 260, 0, 4);
       bolt(ax + (R() - .5) * 200 * S, -30, ax, ay, 4 * S, 230, 95, 3);
       bolt(ax + (R() - .5) * 100 * S, -30, ax, ay, 7 * S, 420, 190, 6);
-      flashes.push({ x: ax, y: ay, r: 440 * S, born: t + 250, dur: 480 });
+      flash({ x: ax, y: ay, r: 440 * S, born: t + 250, dur: 480 });
       setTimeout(() => {
         if (gen !== testGen) return;
         burst(ax, ay, 46, 0, 6.28, 520);
@@ -437,6 +465,7 @@
     sparks.length = 0;
     flashes.length = 0;
     cx.clearRect(0, 0, cv.width, cv.height);
+    dirty = false;
     root.classList.remove('play', 'out');
   }
 

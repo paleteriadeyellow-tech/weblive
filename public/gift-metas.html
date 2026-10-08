@@ -50,7 +50,10 @@
     @keyframes hover{50%{transform:translateY(-7px)}}
     @keyframes reveal{from{opacity:0;transform:perspective(900px) rotateY(100deg) scale(.7)}}
     .cut{clip-path:polygon(18px 0,calc(100% - 18px) 0,100% 18px,100% calc(100% - 18px),calc(100% - 18px) 100%,18px 100%,0 calc(100% - 18px),0 18px)}
-    .edge{position:absolute;inset:0;background:conic-gradient(from var(--a),var(--c1),transparent 25%,var(--c2) 50%,transparent 75%,var(--c1));animation:spin 5s linear infinite;opacity:calc(.55 + var(--card-alpha,.4)*.45)}
+    .edge{position:absolute;inset:0;overflow:hidden;opacity:calc(.55 + var(--card-alpha,.4)*.45)}
+    /* Girar con transform (compositor) en vez de animar el ángulo del gradiente (repintado cada frame). */
+    .edge::before{content:"";position:absolute;left:50%;top:50%;width:480px;height:480px;margin:-240px 0 0 -240px;background:conic-gradient(from 0deg,var(--c1),transparent 25%,var(--c2) 50%,transparent 75%,var(--c1));animation:edgeRot 5s linear infinite;will-change:transform}
+    @keyframes edgeRot{to{transform:rotate(360deg)}}
     .face{position:absolute;inset:3px;display:flex;flex-direction:column;align-items:center;padding:16px 14px 14px;overflow:hidden;
       background:radial-gradient(120% 60% at 50% 0%,color-mix(in srgb,var(--c1) 26%,transparent),transparent 70%),linear-gradient(180deg,rgba(18,24,54,calc(.55+var(--card-alpha,.4)*.4)) 0%,rgba(10,14,36,calc(.7+var(--card-alpha,.4)*.25)) 60%,rgba(7,10,24,calc(.85+var(--card-alpha,.4)*.1)) 100%)}
     .face::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;background:repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 4px)}
@@ -110,7 +113,7 @@
     .who.empty{color:var(--c1);animation:beg 1.6s ease-in-out infinite}
 
     .card.done{--c1:#ffd23f;--c2:#ff8a00;filter:drop-shadow(0 0 26px rgba(255,190,40,.75)) drop-shadow(0 18px 20px rgba(0,0,0,.55))}
-    .card.done .edge{animation-duration:2.2s}
+    .card.done .edge::before{animation-duration:2.2s}
     .card.done .face{background:radial-gradient(120% 65% at 50% 0%,rgba(255,200,60,.38),transparent 70%),linear-gradient(180deg,#2c1b08 0%,#180f06 60%,#0d0804 100%)}
     .card.done .rays{position:absolute;left:50%;top:92px;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;z-index:1;
       background:repeating-conic-gradient(from 0deg,rgba(255,215,90,.20) 0 7deg,transparent 7deg 20deg);-webkit-mask:radial-gradient(circle,#000 6%,transparent 58%);mask:radial-gradient(circle,#000 6%,transparent 58%);animation:rot 26s linear infinite}
@@ -437,7 +440,7 @@
         offset -= speedPx() * speedF * dt;
       }
     }
-    layout();
+    if (moving) layout();
     drawFx(t);
     requestAnimationFrame(frame);
   }
@@ -462,6 +465,18 @@
   const embers = [];
   for (let i = 0; i < 28; i++) {
     embers.push({ x: Math.random(), y: Math.random(), r: .8 + Math.random() * 2.2, s: .0005 + Math.random() * .0012, p: Math.random() * 6, c: pal[Math.random() * pal.length | 0] });
+  }
+  // shadowBlur en cada frame es caro: cada brasa se pinta una vez con su brillo y luego solo se copia.
+  for (const e of embers) {
+    const pad = 14;
+    const half = Math.ceil(e.r + pad);
+    const sp = document.createElement('canvas');
+    sp.width = sp.height = half * 2;
+    const sx = sp.getContext('2d');
+    sx.fillStyle = e.c; sx.shadowColor = e.c; sx.shadowBlur = 10;
+    sx.beginPath(); sx.arc(half, half, e.r, 0, 7); sx.fill();
+    e.sprite = sp;
+    e.half = half;
   }
   function burst(x, y, n, big) {
     for (let i = 0; i < n; i++) {
@@ -500,9 +515,9 @@
         e.y -= e.s;
         if (e.y < -.05) { e.y = 1.05; e.x = Math.random(); }
         ctx.globalAlpha = .2 + .35 * Math.sin(t / 600 + e.p) ** 2;
-        ctx.fillStyle = e.c; ctx.shadowColor = e.c; ctx.shadowBlur = 10;
-        ctx.beginPath(); ctx.arc((e.x + Math.sin(t / 1400 + e.p) * .015) * cv.width, e.y * cv.height, e.r, 0, 7); ctx.fill();
+        ctx.drawImage(e.sprite, (e.x + Math.sin(t / 1400 + e.p) * .015) * cv.width - e.half, e.y * cv.height - e.half);
       }
+      ctx.globalAlpha = 1;
     }
     parts = parts.filter((p) => p.life > 0);
     for (const p of parts) {

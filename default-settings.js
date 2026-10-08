@@ -1068,8 +1068,8 @@ export const DEFAULT_SETTINGS = {
   topdiamRank: { rows: 5, accent: '#ffe08a', rowBg: '#0c1c26', scale: 100, font: 'inter', transparent: false, nameRainbow: true, lines: true, shadows: true, mirror: false, resetPeriod: 'live' },
   toplikesList: { rows: 9, accent: '#f4f4f5', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, mirror: false, resetPeriod: 'live' },
   topdiamList: { rows: 9, accent: '#ffe08a', scale: 100, font: 'inter', transparent: true, nameRainbow: true, lines: false, shadows: false, mirror: false, resetPeriod: 'live' },
-  toplikesGamer: { rows: 5, scale: 100, resetPeriod: 'live' },
-  topdiamGamer: { rows: 5, scale: 100, resetPeriod: 'live' },
+  toplikesGamer: { rows: 5, scale: 100, resetPeriod: 'live', compact: false, scoreBelow: false, mirror: false },
+  topdiamGamer: { rows: 5, scale: 100, resetPeriod: 'live', compact: false, scoreBelow: false, mirror: false },
   // Top donators PRO: un solo overlay con tres estilos (Cute / Fantasy / Voxel).
   // `metric` decide si el ranking cuenta diamantes o likes; `font: 'auto'` deja
   // la tipografía propia de cada estilo.

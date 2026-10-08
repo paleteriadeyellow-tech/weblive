@@ -6353,79 +6353,125 @@ function tmrSend(op, extra) { send({ action: 'timerControl', op, ...(extra || {}
     { id: 'cyber', name: 'Cyber HUD' },
     { id: 'pop', name: 'Pop' },
   ];
-  function tmrSkinIndex(id) {
+  const tmrSkinIdxOf = (id) => {
     const i = TMR_SKINS.findIndex((s) => s.id === id);
     return i >= 0 ? i : 0;
-  }
-  // Eco WS de un clic anterior llega después del siguiente: el último clic manda unos segundos.
-  let tmrSkinHeld = '';
-  let tmrSkinHeldUntil = 0;
-  let tmrPreviewSkinId = 'neon';
-  function tmrRefreshSkinPreview(skinId, opts) {
-    if (tmrSkinHeld && Date.now() < tmrSkinHeldUntil && skinId !== tmrSkinHeld) {
-      skinId = tmrSkinHeld;
-      if (!settings.timer) settings.timer = {};
-      settings.timer.skin = skinId;
-    }
-    const skin = TMR_SKINS[tmrSkinIndex(skinId)] || TMR_SKINS[0];
-    tmrPreviewSkinId = skin.id;
+  };
+  let tmrSkinLocalId = 'neon';
+  let tmrSkinSwapUntil = 0;
+  let tmrSkinSaveTimer = null;
+  let tmrSkinPushGen = 0;
+  function tmrSkinSyncUi(id) {
+    const skin = TMR_SKINS[tmrSkinIdxOf(id)];
     if ($('tmr-skin-name')) $('tmr-skin-name').textContent = skin.name;
-    if ($('tmr-skin-idx')) $('tmr-skin-idx').textContent = `${tmrSkinIndex(skin.id) + 1} / ${TMR_SKINS.length}`;
+    if ($('tmr-skin-idx')) $('tmr-skin-idx').textContent = `${tmrSkinIdxOf(skin.id) + 1} / ${TMR_SKINS.length}`;
+  }
+  function tmrSkinPushPreview(id) {
     const fr = $('tmr-ov-preview');
     if (!fr) return;
+    const skin = TMR_SKINS[tmrSkinIdxOf(id)].id;
     const qs = new URLSearchParams(location.search);
     qs.set('embed', '1');
-    qs.set('skin', skin.id);
+    qs.set('skin', skin);
+    qs.set('v', 'tmrskin9');
     const path = `/timer.html?${qs.toString()}`;
     fr.dataset.src = path;
-    const forceReload = !!(opts && opts.reload);
-    const cur = String(fr.getAttribute('src') || '');
-    const needsLoad = forceReload || !cur || cur === 'about:blank';
-    const pushState = () => {
-      const msg = {
-        type: 'livecoinsTimerSkin',
-        skin: tmrPreviewSkinId,
-        hold: true,
-        remaining: tmrRemaining,
-        running: tmrRunning,
-      };
+    const gen = ++tmrSkinPushGen;
+    const msg = {
+      type: 'livecoinsTimerSkin',
+      skin,
+      hold: true,
+      remaining: tmrRemaining,
+      running: tmrRunning,
+    };
+    const push = () => {
+      if (gen !== tmrSkinPushGen) return;
       try {
         fr.contentWindow.postMessage(msg, location.origin);
       } catch {
         try { fr.contentWindow.postMessage(msg, '*'); } catch {}
       }
     };
-    if (needsLoad) {
+    const cur = String(fr.getAttribute('src') || '');
+    if (!cur || cur === 'about:blank') {
       fr.dataset.embedReady = '0';
       fr.addEventListener('load', () => {
+        if (gen !== tmrSkinPushGen) return;
         fr.dataset.embedReady = '1';
-        pushState();
+        push();
       }, { once: true });
       try { fr.src = path; } catch {}
       return;
     }
-    // Sin recargar: cambia skin y reenvía el tiempo actual (evita flash a 00:00).
-    pushState();
+    push();
   }
-  function tmrSetSkin(skinId) {
+  function tmrApplySkin(id, persist) {
+    const skin = TMR_SKINS[tmrSkinIdxOf(id)].id;
+    tmrSkinLocalId = skin;
+    tmrSkinSwapUntil = Date.now() + 1800;
     if (!settings.timer) settings.timer = {};
-    const skin = TMR_SKINS[tmrSkinIndex(skinId)].id;
     settings.timer.skin = skin;
-    tmrSkinHeld = skin;
-    tmrSkinHeldUntil = Date.now() + 2500;
-    tmrRefreshSkinPreview(skin);
-    // Solo el skin: no reenviar todo timer (savedRemaining viejo del cliente puede ir a 0).
-    send({ action: 'saveSettings', settings: { timer: { skin } }, ...profileSaveMeta() });
+    tmrSkinSyncUi(skin);
+    tmrSkinPushPreview(skin);
+    if (!persist) return;
+    clearTimeout(tmrSkinSaveTimer);
+    tmrSkinSaveTimer = setTimeout(() => {
+      tmrSkinSaveTimer = null;
+      const run = () => {
+        try {
+          send({
+            action: 'saveSettings',
+            settings: { timer: { skin: tmrSkinLocalId } },
+            ...profileSaveMeta(),
+          });
+        } catch {}
+      };
+      if (typeof applyingSettings !== 'undefined' && applyingSettings) setTimeout(run, 80);
+      else run();
+    }, 120);
   }
-  function tmrStepSkin(dir) {
-    const cur = tmrSkinIndex(tmrPreviewSkinId || settings.timer?.skin || 'neon');
-    const next = (cur + dir + TMR_SKINS.length) % TMR_SKINS.length;
-    tmrSetSkin(TMR_SKINS[next].id);
+  if ($('tmr-skin-prev')) {
+    $('tmr-skin-prev').onclick = () => {
+      const n = TMR_SKINS.length;
+      tmrApplySkin(TMR_SKINS[(tmrSkinIdxOf(tmrSkinLocalId) - 1 + n) % n].id, true);
+    };
   }
-  if ($('tmr-skin-prev')) $('tmr-skin-prev').onclick = () => tmrStepSkin(-1);
-  if ($('tmr-skin-next')) $('tmr-skin-next').onclick = () => tmrStepSkin(1);
-  try { tmrRefreshSkinPreview(settings.timer?.skin || 'neon'); } catch {}
-  window.__tmrRefreshSkinPreview = tmrRefreshSkinPreview;
+  if ($('tmr-skin-next')) {
+    $('tmr-skin-next').onclick = () => {
+      const n = TMR_SKINS.length;
+      tmrApplySkin(TMR_SKINS[(tmrSkinIdxOf(tmrSkinLocalId) + 1) % n].id, true);
+    };
+  }
+  try {
+    tmrSkinLocalId = settings?.timer?.skin || 'neon';
+    if (!TMR_SKINS.some((s) => s.id === tmrSkinLocalId)) tmrSkinLocalId = 'neon';
+    tmrSkinSyncUi(tmrSkinLocalId);
+    tmrSkinPushPreview(tmrSkinLocalId);
+  } catch {}
+  window.__tmrSkinId = () => tmrSkinLocalId;
+  window.__syncTmrSkin = (id, persist) => {
+    if (id != null) {
+      tmrApplySkin(id, !!persist);
+      return;
+    }
+    try {
+      if (Date.now() < tmrSkinSwapUntil) {
+        if (!settings.timer) settings.timer = {};
+        settings.timer.skin = tmrSkinLocalId;
+        tmrSkinSyncUi(tmrSkinLocalId);
+        tmrSkinPushPreview(tmrSkinLocalId);
+        return;
+      }
+      tmrSkinLocalId = settings?.timer?.skin || tmrSkinLocalId || 'neon';
+      if (!TMR_SKINS.some((s) => s.id === tmrSkinLocalId)) tmrSkinLocalId = 'neon';
+      tmrSkinSyncUi(tmrSkinLocalId);
+      tmrSkinPushPreview(tmrSkinLocalId);
+    } catch {}
+  };
+  // Compat: ecos / applyTimerSettingsUI — nunca pisar el clic local con el id remoto.
+  window.__tmrRefreshSkinPreview = () => {
+    if (typeof window.__syncTmrSkin === 'function') window.__syncTmrSkin(null, false);
+  };
 
   // Ajustes (reglas + opciones): se guardan al cambiar.
   const bindNum = (id, key) => {
@@ -6542,8 +6588,9 @@ function applyTimerSettingsUI() {
     $('tmr-onfinish').value = act === 'reset' ? 'pause' : act;
   }
   try {
-    if (typeof window.__tmrRefreshSkinPreview === 'function') {
-      window.__tmrRefreshSkinPreview(t.skin || 'neon');
+    if (typeof window.__syncTmrSkin === 'function') window.__syncTmrSkin(null, false);
+    else if (typeof window.__tmrRefreshSkinPreview === 'function') {
+      window.__tmrRefreshSkinPreview();
     }
   } catch {}
   if ($('tmr-penalty-giftid')) $('tmr-penalty-giftid').value = t.penaltyGiftId ? String(t.penaltyGiftId) : '';
@@ -9494,6 +9541,43 @@ function vidLibActiveCat() {
   return VIDLIB_CATS.includes(v) ? v : 'quiereme';
 }
 
+function vidLibMountStills(box) {
+  if (!box) return;
+  const vids = [...box.querySelectorAll('video.vid-lib-still')];
+  let i = 0;
+  const pump = () => {
+    if (i >= vids.length || !box.isConnected) return;
+    const v = vids[i++];
+    if (!v || !v.isConnected) { pump(); return; }
+    let stepped = false;
+    const go = () => {
+      if (stepped) return;
+      stepped = true;
+      pump();
+    };
+    v.muted = true;
+    v.defaultMuted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.setAttribute('muted', '');
+    v.setAttribute('playsinline', '');
+    v.addEventListener('loadedmetadata', () => {
+      const d = Number(v.duration) || 0;
+      const t = d > 0.45 ? Math.min(0.5, Math.max(0.12, d * 0.12)) : 0.04;
+      const paint = () => {
+        try { v.pause(); } catch {}
+        go();
+      };
+      v.addEventListener('seeked', paint, { once: true });
+      try { v.currentTime = t; } catch { go(); }
+    }, { once: true });
+    v.addEventListener('error', go, { once: true });
+    setTimeout(go, 2500);
+    v.src = v.dataset.src || '';
+  };
+  pump();
+}
+
 function renderLocalVideos(filter) {
   const box = $('vid-libgrid');
   const cat = vidLibActiveCat();
@@ -9524,13 +9608,14 @@ function renderLocalVideos(filter) {
   box.innerHTML = list.map((v) => {
     const media = isImageFile(v.url)
       ? `<img src="${esc(v.url)}" loading="lazy" decoding="async">`
-      : `<img class="vid-lib-poster" src="${esc(vidLibPosterSrc(v.url))}" data-fallback="${esc(v.url)}" loading="lazy" decoding="async" alt="" onerror="vidLibPosterFallback(this)">`;
+      : `<video class="vid-lib-still" muted playsinline preload="none" data-src="${esc(v.url)}"></video>`;
     return `
     <div class="vid-cell" data-url="${esc(v.url)}" data-name="${esc(v.name)}" title="${esc(niceName(v.name))}">
       <div class="vid-prev"><div class="vid-prev-media">${media}</div></div>
       <div class="vid-cell-name">${esc(niceName(v.name))}</div>
     </div>`;
   }).join('');
+  vidLibMountStills(box);
   bindVidLibGrid(box);
 }
 
@@ -33332,7 +33417,7 @@ function updateHomeWelcome(s) {
   if (sub) sub.textContent = subText;
   if (btn) {
     btn.style.display = (s && s.connected) ? 'none' : '';
-    btn.textContent = (s && s.autoConnect && user && !(s && s.connected)) ? 'Reconectar' : 'Conectar';
+    btn.textContent = (s && s.connecting && !s.connected) ? 'Conectando…' : 'Conectar';
   }
 
   updateHomeHeroAvatar({

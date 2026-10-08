@@ -786,10 +786,15 @@ function reapIdleCloudRooms() {
   for (const [id, room] of [...rooms.entries()]) {
     const st = room.getStatus?.() || {};
     if ((st.clients || 0) > 0) continue;
+    // Live activo o handshake en curso: no echar (antes se cortaba el live a los 5 min).
+    if (st.live || st.connecting) continue;
     const lastSeen = Number(st.lastSeen) || Number(room._createdAt) || 0;
     const idleMs = lastSeen ? (now - lastSeen) : (now - (room._createdAt || now));
-    // Sin clientes: 5 min. Si nunca hubo WS (solo API): 2 min.
-    const limit = lastSeen ? 5 * 60 * 1000 : 2 * 60 * 1000;
+    const waitingLive = !!(st.autoConnect && st.account);
+    // Sin clientes: 5 min. API sin WS: 2 min. Esperando el live: 12 h (reintento auto).
+    const limit = waitingLive
+      ? 12 * 60 * 60 * 1000
+      : (lastSeen ? 5 * 60 * 1000 : 2 * 60 * 1000);
     if (idleMs < limit) continue;
     try { room.shutdown?.(); } catch {}
     rooms.delete(id);

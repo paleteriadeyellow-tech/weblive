@@ -49,6 +49,50 @@
     return s || 'Usuario';
   }
 
+  function setRowPic(img, pic) {
+    if (!img) return;
+    pic = pic || PLACEHOLDER;
+    if (img.dataset.pic === pic) return;
+    img.dataset.pic = pic;
+    img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
+    img.src = pic;
+  }
+
+  /* Reutiliza las filas por uid: solo rehace las que cambian de puesto o de icono,
+     y les pasa el <img> ya cargado para que la foto no parpadee. */
+  function fillRows(listEl, arr, seq, sig, build) {
+    const old = {};
+    if (!seq) {
+      for (let c = listEl.firstElementChild; c; c = c.nextElementSibling) old[c.dataset.uid] = c;
+    }
+    const frag = document.createDocumentFragment();
+    arr.forEach((u, i) => {
+      const rank = i + 1;
+      let el = old[String(u.id)];
+      if (el && (el.dataset.rank !== String(rank) || el.dataset.sig !== sig)) {
+        const fresh = build(u, rank);
+        const oi = el.querySelector('.av');
+        const ni = fresh.querySelector('.av');
+        if (oi && ni && oi.dataset.pic === (u.pic || PLACEHOLDER)) ni.replaceWith(oi);
+        el = fresh;
+      } else if (el) {
+        setRowPic(el.querySelector('.av'), u.pic);
+        const nm = el.querySelector('.name');
+        const safe = cleanName(u.name);
+        if (nm.textContent !== safe) { nm.textContent = safe; nm.title = safe; }
+        const num = el.querySelector('.num');
+        const t = (u.disp || 0).toLocaleString('es-ES');
+        if (num.textContent !== t) num.textContent = t;
+      } else {
+        el = build(u, rank);
+      }
+      el.dataset.sig = sig;
+      frag.appendChild(el);
+    });
+    listEl.textContent = '';
+    listEl.appendChild(frag);
+  }
+
   function fitEmbed(widget) {
     if (!widget) return;
     widget.style.setProperty('--ol-scale', '1');
@@ -145,9 +189,7 @@
         '<div class="av-wrap">' + crownHtml + '<img class="av" alt="" referrerpolicy="no-referrer" src=""></div>' +
         '<div class="meta"><div class="name-row"><span class="name"></span>' +
         '<div class="valwrap"><span class="ico">' + iconMarkup(icon, cfg.accent) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div></div>';
-      const img = div.querySelector('.av');
-      img.src = u.pic || PLACEHOLDER;
-      img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
+      setRowPic(div.querySelector('.av'), u.pic);
       const nm = div.querySelector('.name');
       const safe = cleanName(u.name);
       nm.textContent = safe; nm.title = safe;
@@ -175,8 +217,8 @@
       clearSeq();
       const arr = topArr();
       listEl.classList.toggle('list--seq', !!opts.seq);
-      listEl.innerHTML = '';
-      arr.forEach((u, i) => { ensureDisp(u); listEl.appendChild(buildRow(u, i + 1)); });
+      arr.forEach(ensureDisp);
+      fillRows(listEl, arr, opts.seq, theme + '|' + cfg.accent, buildRow);
       orderKey = rowKey(arr);
       if (opts.seq) runSeqReveal();
       if (isEmbed) fit();
@@ -426,9 +468,7 @@
           '<div class="meta"><div class="name-row"><span class="name"></span>' +
           '<div class="valwrap"><span class="ico">' + iconMarkup(icon, accentColor) + '</span><span class="num">' + (u.disp || 0).toLocaleString('es-ES') + '</span></div></div></div>';
       }
-      const img = div.querySelector('.av');
-      img.src = u.pic || PLACEHOLDER;
-      img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
+      setRowPic(div.querySelector('.av'), u.pic);
       const nm = div.querySelector('.name');
       const safe = cleanName(u.name);
       nm.textContent = safe; nm.title = safe;
@@ -459,8 +499,9 @@
       const data = curData();
       const arr = topArr(data);
       listEl.classList.toggle('list--seq', !!opts.seq);
-      listEl.innerHTML = '';
-      arr.forEach((u, i) => { ensureDisp(u); listEl.appendChild(buildRow(u, i + 1, m.icon, cfg[m.accentKey] || cfg.likesAccent)); });
+      arr.forEach(ensureDisp);
+      const accent = cfg[m.accentKey] || cfg.likesAccent;
+      fillRows(listEl, arr, opts.seq, m.rank + '|' + accent, (u, rank) => buildRow(u, rank, m.icon, accent));
       orderKey = rowKey(arr);
       if (opts.seq) {
         runSeqReveal();
@@ -756,9 +797,7 @@
           '<div class="valwrap"><span class="num fx-text">' + (u.disp || 0).toLocaleString('es-ES') + '</span>' +
           '<span class="ico">' + iconMarkup(icon, cfg.starColor || '#ffd54f') + '</span></div>' +
         '</div>';
-      const img = div.querySelector('.av');
-      img.src = u.pic || PLACEHOLDER;
-      img.onerror = function () { this.onerror = null; this.src = PLACEHOLDER; };
+      setRowPic(div.querySelector('.av'), u.pic);
       const nm = div.querySelector('.name');
       const safe = cleanName(u.name);
       nm.textContent = safe; nm.title = safe;
@@ -789,8 +828,8 @@
       const data = curData();
       const arr = topArr(data);
       listEl.classList.toggle('list--seq', !!opts.seq);
-      listEl.innerHTML = '';
-      arr.forEach((u, i) => { ensureDisp(u); listEl.appendChild(buildRow(u, i + 1, m.icon)); });
+      arr.forEach(ensureDisp);
+      fillRows(listEl, arr, opts.seq, m.id + '|' + cfg.starColor, (u, rank) => buildRow(u, rank, m.icon));
       orderKey = rowKey(arr);
       if (opts.seq) {
         runSeqReveal();

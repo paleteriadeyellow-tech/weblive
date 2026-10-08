@@ -1,143 +1,378 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script src="/js/overlay-channel.js?v=ovch1"></script>
+  <script src="/js/overlay-channel.js?v=ovch7"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>Alerta — Regalo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@1,800;1,900&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,800;0,900;1,800;1,900&display=swap');
-    *, *::before, *::after { box-sizing: border-box; }
-    :root { --ag-g1: #ff4d8d; --ag-g2: #c084fc; --ag-g3: #38bdf8; --ag-name: #ffffff; --ag-sub: #f8fafc; }
-    body { margin: 0; overflow: hidden; background: transparent; font-family: 'Montserrat', system-ui, sans-serif; }
-    #hearts-root { position: fixed; inset: 0; pointer-events: none; z-index: 100; overflow: visible; }
-    .ag-heart { position: fixed; font-size: clamp(24px, 4.5vw, 42px); line-height: 1; pointer-events: none; z-index: 101; transform: translate(-50%, -50%) scale(0); animation: ag-heart-burst 2.1s cubic-bezier(.22,.82,.28,1) forwards; will-change: transform, opacity; }
-    @keyframes ag-heart-burst { 0% { transform: translate(-50%, -50%) scale(.05) rotate(0deg); opacity: 0; } 6% { opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(var(--hr, 0deg)); } 100% { transform: translate(calc(-50% + var(--hx)), calc(-50% + var(--hy))) scale(.55) rotate(var(--hr2, 0deg)); opacity: 0; } }
-    #alert { position: absolute; left: 50%; width: min(92vw, 720px); padding: 28px 32px 32px; pointer-events: none; --al-scale: 1; transform-origin: center bottom; box-sizing: border-box; z-index: 10; overflow: visible; }
-    #alert.al-ent-lift { bottom: -420px; opacity: 0; transform: translateX(-50%) scale(var(--al-scale)); transition: bottom .78s cubic-bezier(.22,1,.36,1), opacity .45s ease, transform .78s cubic-bezier(.22,1,.36,1); }
-    #alert.al-ent-lift.active { bottom: 6vh; opacity: 1; transform: translateX(-50%) scale(var(--al-scale)); }
-    #alert.al-clear, #alert.al-clear.active { opacity: 0 !important; visibility: hidden !important; transition: none !important; }
-    .alert-inner { position: relative; z-index: 2; }
-    .row-main { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
-    .avatar-orbit-root { --ag-orbit-dur: 6.5s; --orbit-r: 76px; position: relative; width: 188px; height: 188px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-    .orbit-ring { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; transform-origin: 50% 50%; will-change: transform; animation: ag-orbit-spin var(--ag-orbit-dur) linear infinite; }
-    @keyframes ag-orbit-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    .orbit-heart { position: absolute; left: 50%; top: 50%; width: 1.35em; height: 1.35em; display: flex; align-items: center; justify-content: center; font-size: clamp(15px, 3vw, 21px); line-height: 1; transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(-1 * var(--orbit-r))); }
-    .orbit-heart-inner { display: block; transform-origin: 50% 55%; animation: ag-orbit-upright var(--ag-orbit-dur) linear infinite; }
-    @keyframes ag-orbit-upright { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
-    .avatar-wrap { flex-shrink: 0; width: 112px; height: 112px; padding: 4px; border-radius: 50%; background: linear-gradient(165deg, var(--ag-g1) 0%, var(--ag-g2) 50%, var(--ag-g3) 100%); transform-origin: center center; position: relative; z-index: 2; }
-    #alert.ag-explode-phase .avatar-wrap { animation: ag-avatar-explode .55s cubic-bezier(.34,1.45,.64,1) both; }
-    @keyframes ag-avatar-explode { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
-    .avatar-inner { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1a0a2e; border: 3px solid rgba(43,0,84,.85); }
-    .avatar-inner img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .headline-block { text-align: center; min-width: 0; max-width: 100%; }
-    .headline { margin: 0; font-size: clamp(22px, 4.8vw, 40px); font-weight: 900; font-style: italic; line-height: 1.05; letter-spacing: -.02em; background: linear-gradient(180deg, var(--ag-g1) 0%, var(--ag-g2) 48%, var(--ag-g3) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 1px 0 rgba(0,0,0,.65)); }
-    .giver-name { margin: 10px auto 0; font-size: clamp(18px, 3.2vw, 26px); font-weight: 800; font-style: italic; color: var(--ag-name); text-shadow: 0 1px 2px rgba(0,0,0,.85); word-break: break-word; max-width: 380px; }
-    .subtext { margin-top: 18px; text-align: center; }
-    .subtext p { margin: 4px 0; font-size: 14px; font-weight: 600; color: var(--ag-sub); text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+    :root {
+      --size: 190px;
+      --pink: #ff4d8d;
+      --violet: #a78bfa;
+      --cyan: #22d3ee;
+      --name: #ffffff;
+      --sub: #ffffff;
+      --s: 1;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; font-family: 'Poppins', sans-serif; }
+
+    .stage { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+    .fit { display: flex; flex-direction: column; align-items: center; transform: scale(var(--s)); transform-origin: center; }
+
+    /* ---------- Avatar ---------- */
+    .avatar {
+      position: relative; width: var(--size); height: var(--size);
+      opacity: 0; transform: scale(.3) translateY(20px);
+      will-change: transform, opacity;
+    }
+    .stage.in .avatar { animation: avatarIn .9s cubic-bezier(.2,1.3,.35,1) forwards; }
+    .stage.out .avatar { animation: avatarOut .55s cubic-bezier(.5,0,.8,.4) forwards; }
+    @keyframes avatarIn { to { opacity: 1; transform: scale(1) translateY(0); } }
+    @keyframes avatarOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(.6) translateY(-10px); } }
+
+    .glow {
+      position: absolute; inset: -40px; border-radius: 50%;
+      background: radial-gradient(circle closest-side, rgba(255,77,141,.55), rgba(167,139,250,.28) 50%, transparent 100%);
+      will-change: transform, opacity;
+      animation: breathe 2.6s ease-in-out infinite;
+    }
+    @keyframes breathe { 0%,100% { transform: scale(.92); opacity: .75; } 50% { transform: scale(1.08); opacity: 1; } }
+
+    .ring-glow {
+      position: absolute; inset: 0; border-radius: 50%;
+      box-shadow: 0 0 10px 1px rgba(255,77,141,.8), inset 0 0 10px 1px rgba(255,77,141,.8);
+    }
+    .ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--pink), var(--violet), var(--cyan), var(--violet), var(--pink));
+      will-change: transform;
+      animation: spin 5s linear infinite;
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+              mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .photo {
+      position: absolute; inset: 11px; border-radius: 50%; overflow: hidden;
+      background: radial-gradient(circle at 30% 25%, #2b1b4d, #0b1020 75%);
+      box-shadow: inset 0 0 22px rgba(0,0,0,.7), 0 8px 30px rgba(0,0,0,.5);
+      display: grid; place-items: center;
+    }
+    .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo::after {
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
+      background: linear-gradient(120deg, transparent 35%, rgba(255,255,255,.28) 50%, transparent 65%);
+      transform: translateX(-120%);
+      animation: shine 3.2s ease-in-out infinite 1s;
+    }
+    @keyframes shine { 0% { transform: translateX(-120%); } 45%,100% { transform: translateX(120%); } }
+
+    .pulse { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(255,120,170,.85); opacity: 0; }
+    .stage.in .pulse { animation: pulse 2.2s cubic-bezier(.1,.6,.3,1) infinite; }
+    .stage.in .pulse.p2 { animation-delay: .7s; }
+    .stage.in .pulse.p3 { animation-delay: 1.4s; }
+    @keyframes pulse { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(2.1); opacity: 0; } }
+
+    /* ---------- Texto ---------- */
+    .text { margin-top: 34px; text-align: center; }
+    .title {
+      font-family: 'Montserrat', sans-serif; font-style: italic; font-weight: 900;
+      font-size: 46px; line-height: 1.05; letter-spacing: -.5px; white-space: nowrap;
+      background: linear-gradient(90deg, var(--pink), var(--violet) 50%, var(--cyan));
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 4px 14px rgba(167,139,250,.45));
+      opacity: 0; transform: translateY(24px);
+    }
+    .user {
+      margin-top: 8px; font-family: 'Montserrat', sans-serif; font-style: italic; font-weight: 800;
+      font-size: 30px; color: var(--name); text-shadow: 0 3px 16px rgba(0,0,0,.7), 0 0 20px rgba(255,77,141,.35);
+      max-width: 620px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 0; transform: translateY(24px);
+    }
+    .gift {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
+      padding: 7px 20px; border-radius: 999px;
+      font-weight: 700; font-size: 19px; color: var(--sub);
+      background: linear-gradient(135deg, rgba(255,77,141,.35), rgba(167,139,250,.35));
+      border: 1px solid rgba(255,255,255,.28);
+      box-shadow: 0 6px 24px rgba(0,0,0,.35), inset 0 0 14px rgba(255,255,255,.08);
+      opacity: 0; transform: translateY(24px) scale(.9);
+    }
+    .gift img { width: 24px; height: 24px; object-fit: contain; display: block; }
+    .stage.in .title { animation: textIn .7s cubic-bezier(.2,1,.3,1) .35s forwards; }
+    .stage.in .user { animation: textIn .7s cubic-bezier(.2,1,.3,1) .5s forwards; }
+    .stage.in .gift { animation: textIn .7s cubic-bezier(.2,1.2,.3,1) .65s forwards; }
+    .stage.out .title, .stage.out .user, .stage.out .gift { animation: textOut .45s ease-in forwards; }
+    @keyframes textIn { to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes textOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-14px); } }
+
+    /* ---------- Partículas ---------- */
+    #fx { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+    .p { position: absolute; left: 0; top: 0; will-change: transform, opacity; }
+    .p svg { display: block; width: 100%; height: 100%; overflow: visible; }
   </style>
 </head>
 <body>
-  <div id="hearts-root" aria-hidden="true"></div>
-  <div id="alert" class="al-ent-lift">
-    <div class="alert-inner">
-      <div class="row-main">
-        <div class="avatar-orbit-root">
-          <div class="orbit-ring" aria-hidden="true">
-            <span class="orbit-heart" style="--a: 0deg"><span class="orbit-heart-inner">❤️</span></span>
-            <span class="orbit-heart" style="--a: 45deg"><span class="orbit-heart-inner">💖</span></span>
-            <span class="orbit-heart" style="--a: 90deg"><span class="orbit-heart-inner">💕</span></span>
-            <span class="orbit-heart" style="--a: 135deg"><span class="orbit-heart-inner">💗</span></span>
-            <span class="orbit-heart" style="--a: 180deg"><span class="orbit-heart-inner">💝</span></span>
-            <span class="orbit-heart" style="--a: 225deg"><span class="orbit-heart-inner">❤️</span></span>
-            <span class="orbit-heart" style="--a: 270deg"><span class="orbit-heart-inner">💖</span></span>
-            <span class="orbit-heart" style="--a: 315deg"><span class="orbit-heart-inner">💕</span></span>
-          </div>
-          <div class="avatar-wrap" id="avatar-wrap-main"><div class="avatar-inner"><img id="u-img" src="" alt=""></div></div>
-        </div>
-        <div class="headline-block">
-          <p class="headline" id="headline-main">Gracias por tu regalo</p>
-          <p id="u-name" class="giver-name"></p>
-        </div>
+  <!-- Halo de las partículas dentro del SVG: se rasteriza una vez por partícula, no por cuadro. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="hgP" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#ff3c82" flood-opacity=".85"/></filter>
+    <filter id="hgW" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="0" stdDeviation="2.4" flood-color="#ffffff" flood-opacity=".9"/></filter>
+  </svg>
+  <div class="stage" id="stage">
+    <div class="fit" id="fit">
+      <div class="avatar" id="avatar">
+        <div class="glow"></div>
+        <div class="pulse"></div><div class="pulse p2"></div><div class="pulse p3"></div>
+        <div class="ring-glow"></div>
+        <div class="ring"></div>
+        <div class="photo"><img id="img" alt="" referrerpolicy="no-referrer"></div>
       </div>
-      <div class="subtext"><p id="gift-detail"></p></div>
+      <div class="text">
+        <div class="title" id="title">Gracias por tu regalo</div>
+        <div class="user" id="user">PreviewFan</div>
+        <div class="gift" id="gift"><span id="giftIcon">🎁</span><span id="giftName">Rosa</span></div>
+      </div>
     </div>
+    <div id="fx"></div>
   </div>
 
   <script>
   (function () {
     const params = new URLSearchParams(location.search);
     const isEmbed = params.get('embed') === '1';
-    const DEFAULT_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
-    const PREVIEW_AVATAR = isEmbed ? '/jarron/lv.png' : DEFAULT_AVATAR;
-    const HEART_ICONS = ['❤️', '💖', '💕', '💗', '💝'];
-
-    let cfg = { headline: 'Gracias por tu regalo', durationSec: 6, scale: 100, g1: '#ff4d8d', g2: '#c084fc', g3: '#38bdf8', nameColor: '#ffffff', subColor: '#f8fafc' };
-    const q = []; let busy = false; let hideT = null, hide2T = null, explodeT = null, idleT = null;
+    const PREVIEW_AVATAR = '/jarron/lv.png';
+    const COLORS = ['#ff2d6f', '#ff5c9a', '#ff7eb3', '#ff4d8d', '#ff8fb8', '#e83e8c'];
+    /* Colores por defecto del diseño anterior → paleta del diseño nuevo. */
+    const OLD_DEF = { g1: '#ff4d8d', g2: '#c084fc', g3: '#38bdf8' };
+    const NEW_DEF = { g1: '#ff4d8d', g2: '#a78bfa', g3: '#22d3ee' };
 
     const $ = (id) => document.getElementById(id);
-    function applyConfig(c) {
-      if (!c || typeof c !== 'object') return;
-      cfg = Object.assign(cfg, c);
-      const r = document.documentElement.style;
-      r.setProperty('--ag-g1', cfg.g1); r.setProperty('--ag-g2', cfg.g2); r.setProperty('--ag-g3', cfg.g3);
-      r.setProperty('--ag-name', cfg.nameColor); r.setProperty('--ag-sub', cfg.subColor);
-      $('headline-main').textContent = cfg.headline || 'Gracias por tu regalo';
-      $('alert').style.setProperty('--al-scale', String(Math.min(150, Math.max(50, Number(cfg.scale) || 100)) / 100));
-    }
-    function clearTimers() { [hideT, hide2T, explodeT].forEach((t) => t && clearTimeout(t)); hideT = hide2T = explodeT = null; }
-    function clearHearts() { const r = $('hearts-root'); if (r) r.innerHTML = ''; }
-    function name(d) { return (d.nickname || '').trim() || (d.uniqueId ? '@' + d.uniqueId : 'Usuario'); }
-    function giftLabel(n, count) { const b = String(n || 'Regalo').replace(/_/g, ' '); const cap = b.charAt(0).toUpperCase() + b.slice(1); const c = Math.max(1, parseInt(count, 10) || 1); return c > 1 ? cap + ' × ' + c : cap; }
+    const stage = $('stage'), fit = $('fit'), avatar = $('avatar'), fx = $('fx'), imgEl = $('img');
 
-    function spawnHearts(total) {
-      const root = $('hearts-root'); if (!root) return; root.innerHTML = '';
-      const av = $('avatar-wrap-main'); let cx = innerWidth / 2, cy = innerHeight / 2;
-      if (av) { const r = av.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; }
-      const n = Math.min(48, Math.max(20, total || 34));
-      for (let i = 0; i < n; i++) {
-        const el = document.createElement('span'); el.className = 'ag-heart'; el.textContent = HEART_ICONS[i % HEART_ICONS.length];
-        const ang = (Math.PI * 2 * i) / n + (Math.random() - .5) * .85, dist = 72 + Math.random() * 168;
-        el.style.setProperty('--hx', Math.cos(ang) * dist + 'px'); el.style.setProperty('--hy', Math.sin(ang) * dist + 'px');
-        el.style.setProperty('--hr', (Math.random() * 24 - 12) + 'deg'); el.style.setProperty('--hr2', (Math.random() * 40 - 20) + 'deg');
-        el.style.left = cx + 'px'; el.style.top = cy + 'px'; el.style.animationDelay = (i * .012 + Math.random() * .04) + 's';
-        root.appendChild(el);
-      }
+    const FALLBACK_IMG = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ff4d8d'/><stop offset='1' stop-color='#a78bfa'/></linearGradient></defs><rect width='100' height='100' fill='#10152b'/><g fill='url(#g)'><rect x='26' y='44' width='48' height='32' rx='4'/><rect x='22' y='34' width='56' height='14' rx='4'/><rect x='46' y='34' width='8' height='42' fill='#fff' opacity='.85'/><path d='M50 34c-8-14-22-10-18-3 3 5 12 3 18 3zm0 0c8-14 22-10 18-3-3 5-12 3-18 3z'/></g></svg>");
+    const HEART = '<svg viewBox="0 0 24 24"><g filter="url(#hgP)"><path fill="currentColor" d="M12 21.2s-7.7-4.7-9.8-9.4C.7 8.3 2.9 4.8 6.3 4.8c2 0 3.6 1.1 5.7 3.3 2.1-2.2 3.7-3.3 5.7-3.3 3.4 0 5.6 3.5 4.1 7-2.1 4.7-9.8 9.4-9.8 9.4z"/><ellipse cx="7.6" cy="8" rx="2.1" ry="1.3" transform="rotate(-35 7.6 8)" fill="#fff" opacity=".55"/></g></svg>';
+    const SPARK = '<svg viewBox="0 0 24 24"><path filter="url(#hgW)" fill="#fff" d="M12 0c1 7 5 11 12 12-7 1-11 5-12 12-1-7-5-11-12-12 7-1 11-5 12-12z"/></svg>';
+
+    let cfg = { headline: 'Gracias por tu regalo', durationSec: 6, scale: 100, g1: OLD_DEF.g1, g2: OLD_DEF.g2, g3: OLD_DEF.g3, nameColor: '#ffffff', subColor: '#ffffff' };
+
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
+    const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2;
+
+    function color(key) {
+      const v = String(cfg[key] || '').toLowerCase();
+      if (!/^#[0-9a-f]{3,8}$/.test(v) || v === OLD_DEF[key]) return NEW_DEF[key];
+      return v;
     }
-    function scheduleExplosion() {
-      const b = $('alert'); if (!b) return; b.classList.remove('ag-explode-phase'); void b.offsetWidth;
-      explodeT = setTimeout(() => { explodeT = null; b.classList.add('ag-explode-phase'); requestAnimationFrame(() => requestAnimationFrame(() => spawnHearts(36))); }, 780);
+    function userScale() { return Math.min(150, Math.max(50, Number(cfg.scale) || 100)) / 100; }
+    function applyConfig(c) {
+      if (c && typeof c === 'object') cfg = Object.assign(cfg, c);
+      const r = document.documentElement.style;
+      r.setProperty('--pink', color('g1')); r.setProperty('--violet', color('g2')); r.setProperty('--cyan', color('g3'));
+      if (cfg.nameColor) r.setProperty('--name', cfg.nameColor);
+      if (cfg.subColor) r.setProperty('--sub', cfg.subColor);
+      $('title').textContent = cfg.headline || 'Gracias por tu regalo';
+      resize();
+    }
+    function resize() {
+      const s = Math.min(1, innerWidth / 680, innerHeight / 480) * userScale();
+      fit.style.setProperty('--s', String(s));
+      measure();
+    }
+    addEventListener('resize', resize);
+
+    /* Centro del avatar cacheado: leerlo en cada cuadro forzaría layout. */
+    let C = { x: innerWidth / 2, y: innerHeight / 2, R: 95 };
+    function measure() {
+      const r = avatar.getBoundingClientRect();
+      const s = Number(fit.style.getPropertyValue('--s')) || 1;
+      C = { x: r.left + r.width / 2, y: r.top + r.height / 2, R: (avatar.offsetWidth / 2) * s };
+    }
+
+    let particles = [];
+    let orbitAlpha = 0, orbitTarget = 0;
+    let rafId = 0;
+    function kick() { if (!rafId) rafId = requestAnimationFrame(frame); }
+
+    function makeEl(kind, size, col) {
+      const d = document.createElement('div');
+      d.className = 'p';
+      d.style.width = d.style.height = size + 'px';
+      d.style.marginLeft = d.style.marginTop = (-size / 2) + 'px';
+      d.style.color = col;
+      d.innerHTML = kind === 'spark' ? SPARK : HEART;
+      d.style.opacity = 0;
+      fx.appendChild(d);
+      return d;
+    }
+
+    function burst(count, delayBase = 0) {
+      const R = C.R;
+      for (let i = 0; i < count; i++) {
+        const isSpark = Math.random() < .22;
+        const size = isSpark ? rand(10, 18) : rand(20, 38);
+        particles.push({
+          type: 'burst',
+          el: makeEl(isSpark ? 'spark' : 'heart', size, COLORS[(Math.random() * COLORS.length) | 0]),
+          t0: performance.now() + delayBase + i * rand(30, 60),
+          dur: rand(2200, 3400),
+          a0: (i / count) * Math.PI * 2 + rand(-.25, .25),
+          spin: rand(1.4, 2.6) * Math.PI,
+          r0: R - 4,
+          r1: R + rand(70, 175),
+          seed: rand(0, 10),
+          sway: rand(10, 24),
+        });
+      }
+      kick();
+    }
+
+    function startOrbit(n = 8) {
+      if (particles.some((p) => p.type === 'orbit')) { orbitTarget = 1; kick(); return; }
+      const R = C.R;
+      for (let i = 0; i < n; i++) {
+        particles.push({
+          type: 'orbit',
+          el: makeEl('heart', rand(18, 28), COLORS[i % COLORS.length]),
+          a0: (i / n) * Math.PI * 2,
+          speed: rand(.55, .75),
+          rad: R + 26 + (i % 2) * 16,
+          seed: rand(0, 10),
+        });
+      }
+      orbitTarget = 1;
+      kick();
+    }
+    function stopOrbit() { orbitTarget = 0; }
+
+    function clearParticles() {
+      particles.forEach((p) => p.el.remove());
+      particles = [];
+      orbitAlpha = 0; orbitTarget = 0;
+    }
+
+    function frame(now) {
+      rafId = 0;
+      const cx = C.x, cy = C.y;
+      orbitAlpha += (orbitTarget - orbitAlpha) * .06;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        if (p.type === 'burst') {
+          const t = (now - p.t0) / p.dur;
+          if (t < 0) continue;
+          if (t >= 1) { p.el.remove(); particles.splice(i, 1); continue; }
+          const e = easeOutQuart(t);
+          const r = p.r0 + (p.r1 - p.r0) * e;
+          const a = p.a0 + p.spin * easeOutCubic(t);
+          const x = cx + Math.cos(a) * r;
+          const y = cy + Math.sin(a) * r - t * 28;
+          const scale = easeOutCubic(clamp(t / .14)) * (1 - .55 * easeInOutSine(clamp((t - .2) / .8)));
+          const op = clamp(t / .08) * (1 - clamp((t - .65) / .35));
+          const rot = Math.sin(t * 5 + p.seed) * p.sway;
+          p.el.style.transform = `translate(${x}px,${y}px) rotate(${rot}deg) scale(${scale})`;
+          p.el.style.opacity = op;
+        } else {
+          if (orbitTarget === 0 && orbitAlpha < .01) { p.el.remove(); particles.splice(i, 1); continue; }
+          const s = now / 1000;
+          const a = p.a0 + s * p.speed;
+          const rad = p.rad + Math.sin(s * 1.6 + p.seed) * 5;
+          const x = cx + Math.cos(a) * rad;
+          const y = cy + Math.sin(a) * rad;
+          const pulse = 1 + Math.sin(s * 3 + p.seed) * .12;
+          p.el.style.transform = `translate(${x}px,${y}px) rotate(${Math.sin(s * 2 + p.seed) * 18}deg) scale(${pulse * orbitAlpha})`;
+          p.el.style.opacity = orbitAlpha;
+        }
+      }
+      if (particles.length) kick();
+    }
+
+    /* ---------- datos ---------- */
+    function name(d) { return (d.nickname || '').trim() || (d.uniqueId ? '@' + d.uniqueId : 'Usuario'); }
+    function giftLabel(n, count) {
+      const b = String(n || 'Regalo').replace(/_/g, ' ');
+      const cap = b.charAt(0).toUpperCase() + b.slice(1);
+      const c = Math.max(1, parseInt(count, 10) || 1);
+      return c > 1 ? cap + ' × ' + c : cap;
     }
     function applyData(d) {
-      const img = $('u-img'); img.onerror = function () { this.onerror = null; this.src = DEFAULT_AVATAR; };
-      img.src = (d.photo || d.profilePictureUrl || '').trim() || DEFAULT_AVATAR; img.alt = name(d);
-      $('u-name').textContent = name(d);
-      $('gift-detail').textContent = giftLabel(d.giftName, d.repeatCount);
+      $('user').textContent = name(d);
+      $('giftName').textContent = giftLabel(d.giftName, d.repeatCount);
+      const icon = $('giftIcon');
+      const gimg = String(d.giftPictureUrl || d.image || d.giftImage || '').trim();
+      if (gimg) {
+        const im = document.createElement('img');
+        im.alt = ''; im.referrerPolicy = 'no-referrer';
+        im.onerror = function () { icon.textContent = '🎁'; };
+        im.src = gimg;
+        icon.textContent = ''; icon.appendChild(im);
+      } else icon.textContent = '🎁';
+      imgEl.onerror = function () { this.onerror = null; this.src = FALLBACK_IMG; };
+      imgEl.src = String(d.photo || d.profilePictureUrl || '').trim() || FALLBACK_IMG;
+      imgEl.alt = name(d);
     }
+
+    /* ---------- cola ---------- */
+    const q = [];
+    let busy = false;
+    let timers = [];
+    let idleT = null;
+    function later(fn, ms) { const t = setTimeout(fn, ms); timers.push(t); return t; }
+    function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+    function enter(d) {
+      applyData(d);
+      stage.classList.remove('out', 'in');
+      void stage.offsetWidth;
+      stage.classList.add('in');
+      measure();
+      later(() => { measure(); burst(16, 250); }, 0);
+      later(() => burst(12, 0), 650);
+      later(() => { measure(); burst(10, 0); }, 1300);
+      later(() => startOrbit(8), 700);
+    }
+
     function show() {
-      if (!q.length) return; if (!isEmbed && busy) return;
-      const d = q.shift(); applyData(d);
-      const b = $('alert'); clearHearts(); b.classList.remove('ag-explode-phase'); b.classList.add('active'); clearTimers(); scheduleExplosion();
-      if (isEmbed) { busy = false; return; }
-      busy = true; const ms = Math.min(120000, Math.max(3000, (Number(cfg.durationSec) || 6) * 1000));
-      hideT = setTimeout(() => { b.classList.remove('active', 'ag-explode-phase'); clearHearts(); hideT = null; hide2T = setTimeout(() => { hide2T = null; busy = false; show(); }, 1150); }, ms);
+      if (busy || !q.length) return;
+      busy = true;
+      enter(q.shift());
+      const ms = Math.min(120000, Math.max(3000, (Number(cfg.durationSec) || 6) * 1000));
+      later(() => {
+        stopOrbit();
+        burst(14, 0);
+        stage.classList.remove('in');
+        stage.classList.add('out');
+        later(() => { stage.classList.remove('out'); busy = false; show(); }, 1150);
+      }, ms);
     }
+
     const DEMO = { uniqueId: 'preview_fan', nickname: 'PreviewFan', photo: PREVIEW_AVATAR, giftName: 'rosa', repeatCount: 1 };
+
+    /* Vista previa del panel: se queda visible y repite la ráfaga. */
     function idleDemo() {
-      applyData(DEMO); const b = $('alert'); if (!b) return; clearTimers(); clearHearts(); busy = false; q.length = 0;
-      b.classList.remove('ag-explode-phase', 'al-clear'); b.classList.add('active'); scheduleExplosion();
+      clearTimers(); clearParticles(); q.length = 0; busy = false;
+      enter(DEMO);
       if (idleT) clearInterval(idleT);
-      idleT = setInterval(() => { if (!b.classList.contains('active') || document.hidden) return; b.classList.remove('ag-explode-phase'); void b.offsetWidth; b.classList.add('ag-explode-phase'); requestAnimationFrame(() => requestAnimationFrame(() => spawnHearts(30))); }, 8200);
+      idleT = setInterval(() => { if (!document.hidden) burst(14, 0); }, 8200);
     }
+
     function runTest() {
-      const b = $('alert'); clearTimers(); clearHearts(); busy = false; q.length = 0;
-      b.classList.remove('active', 'ag-explode-phase'); b.classList.add('al-clear'); void b.offsetWidth;
-      requestAnimationFrame(() => requestAnimationFrame(() => { b.classList.remove('al-clear'); q.push({ ...DEMO }); show(); }));
+      if (isEmbed) { idleDemo(); return; }
+      clearTimers(); clearParticles(); q.length = 0; busy = false;
+      stage.classList.remove('in', 'out');
+      q.push({ ...DEMO });
+      show();
     }
     function resetAll() {
-      clearTimers(); clearHearts(); q.length = 0; busy = false;
-      const b = $('alert'); if (b) b.classList.remove('active', 'ag-explode-phase');
+      clearTimers(); clearParticles(); q.length = 0; busy = false;
+      stage.classList.remove('in', 'out');
       if (isEmbed) idleDemo();
     }
 
@@ -151,7 +386,7 @@
         let m; try { m = JSON.parse(ev.data); } catch { return; }
         if (m.type === 'settings') { if (m.payload && m.payload.alertaGift) applyConfig(m.payload.alertaGift); return; }
         if (isEmbed) return;
-        if (m.type === 'gift') { if (m.payload && m.payload.streak) return; q.push(m.payload); show(); }
+        if (m.type === 'gift') { if (m.payload && m.payload.streak) return; q.push(m.payload || {}); show(); }
         else if (m.type === 'alertaGiftTest') runTest();
         else if (m.type === 'alertaGiftReset') resetAll();
       };
@@ -164,10 +399,12 @@
     });
 
     applyConfig({});
-    if (isEmbed) idleDemo();
+    if (isEmbed) {
+      (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => setTimeout(idleDemo, 120));
+    }
     connect();
   })();
   </script>
-  <script src="/js/overlay-keepalive.js"></script>
+<script src="/js/overlay-keepalive.js"></script>
 </body>
 </html>

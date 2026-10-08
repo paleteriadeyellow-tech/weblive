@@ -42,7 +42,7 @@
     const list = document.getElementById('list');
     const board = document.querySelector('.board');
     const els = new Map();
-    let cfg = Object.assign({ rows: 5, scale: 100, resetPeriod: 'live' }, opt.defaults || {});
+    let cfg = Object.assign({ rows: 5, scale: 100, resetPeriod: 'live', compact: false, scoreBelow: false, mirror: false }, opt.defaults || {});
     let data = {};
     let lastTopId = '';
     let seqTimers = [];
@@ -52,6 +52,20 @@
     function maxRows() {
       const n = parseInt(cfg.rows, 10);
       return Number.isFinite(n) ? Math.min(10, Math.max(3, n)) : 5;
+    }
+    function rowMetrics() {
+      const compact = !!cfg.compact;
+      const below = !!cfg.scoreBelow;
+      if (compact && below) return { h1: 78, h: 62, gap: 6 };
+      if (compact) return { h1: 72, h: 54, gap: 6 };
+      if (below) return { h1: 108, h: 82, gap: 8 };
+      return { h1: H1, h: H, gap: GAP };
+    }
+    function applyLayoutFlags() {
+      const root = document.documentElement;
+      if (cfg.compact) root.dataset.compact = '1'; else delete root.dataset.compact;
+      if (cfg.scoreBelow) root.dataset.scoreBelow = '1'; else delete root.dataset.scoreBelow;
+      if (cfg.mirror) root.dataset.mirror = '1'; else delete root.dataset.mirror;
     }
     function applyScale() {
       if (!board) return;
@@ -93,6 +107,9 @@
       const name = cleanName(u.name);
       const hue = HUES[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % HUES.length];
       const url = String(u.pic || '').trim();
+      const key = url || 'h' + hue;
+      if (avi.dataset.k === key) return;
+      avi.dataset.k = key;
       if (url) {
         avi.innerHTML = '<img alt="" referrerpolicy="no-referrer" src="' + esc(url) + '" onerror="this.onerror=null;this.src=\'' + PLACEHOLDER + '\'">';
       } else {
@@ -108,11 +125,11 @@
       el.className = 'row';
       el.dataset.uid = String(u.id);
       el.innerHTML =
+        '<div class="gl"></div>' +
         '<div class="fx"></div>' +
         '<div class="rank"><svg viewBox="0 0 60 62"></svg><b></b></div>' +
         '<div class="avo"><svg class="crown"><use href="#crown"/></svg><div class="avw"><div class="avi"></div></div></div>' +
-        '<div class="mid"><div class="name"></div><div class="bar"><b></b></div></div>' +
-        '<div class="score">' + scoreIcon() + '<span></span></div>';
+        '<div class="mid"><div class="name"></div><div class="score">' + scoreIcon() + '<span></span></div><div class="bar"><b></b></div></div>';
       const fx = el.querySelector('.fx');
       for (let k = 0; k < 12; k++) {
         const i = document.createElement('i');
@@ -153,6 +170,7 @@
       for (const [id, el] of [...els.entries()]) {
         if (!keep.has(id)) { el.remove(); els.delete(id); }
       }
+      const m = rowMetrics();
       let y = 0;
       arr.forEach((u, i) => {
         ensureDisp(u);
@@ -161,9 +179,11 @@
         if (!el) el = build(u);
         else {
           fillAv(el.querySelector('.avi'), u);
-          el.querySelector('.name').textContent = cleanName(u.name);
+          const nm = cleanName(u.name);
+          const nameEl = el.querySelector('.name');
+          if (nameEl.textContent !== nm) nameEl.textContent = nm;
         }
-        const h = i ? H : H1;
+        const h = i ? m.h : m.h1;
         const bump = el.classList.contains('bump') ? ' bump' : '';
         const seqHide = opts.seq && !el.classList.contains('seq-show') ? ' seq-hide' : '';
         const seqShow = el.classList.contains('seq-show') ? ' seq-show' : '';
@@ -178,9 +198,9 @@
         const shown = opts.seq && u.disp == null ? 0 : (u.disp != null ? u.disp : u.val);
         el.querySelector('.score span').textContent = fmt(shown);
         el.querySelector('.bar b').style.width = Math.max(6, (Number(shown) / Math.max(1, top)) * 100) + '%';
-        y += h + GAP;
+        y += h + m.gap;
       });
-      list.style.height = Math.max(0, y - GAP) + 'px';
+      list.style.height = Math.max(0, y - m.gap) + 'px';
       orderKey = rowKey(arr);
       if (isEmbed) fitEmbed();
     }
@@ -314,6 +334,7 @@
     function applyConfig(c) {
       if (!c) return;
       cfg = Object.assign(cfg, c);
+      applyLayoutFlags();
       applyScale();
       render();
     }
@@ -340,7 +361,7 @@
         }
       };
     }
-    connect();
+    try { connect(); } catch (e) {}
 
     window.addEventListener('message', (e) => {
       const d = e.data;
@@ -350,6 +371,7 @@
       else if (d.type === 'reset') resetAll();
     });
 
+    applyLayoutFlags();
     applyScale();
     if (isEmbed) {
       setTimeout(runTest, 350);

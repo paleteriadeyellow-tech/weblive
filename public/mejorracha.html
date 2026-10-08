@@ -205,7 +205,6 @@
       font-size: calc(54px * var(--title-scale)); letter-spacing: 2px;
       --sc: #2b0d44; --sw: 11px;
       --ext: 0 3px 0 #3d1260, 0 6px 0 #34104f, 0 9px 0 #2b0d44, 0 14px 18px rgba(0,0,0,.55);
-      filter: drop-shadow(0 0 16px rgba(255,70,150,.55));
       animation: floatY 2.4s ease-in-out infinite;
     }
     @keyframes floatY {
@@ -235,7 +234,6 @@
       margin-top: 12px; font-size: calc(74px * var(--body-scale)); letter-spacing: 1px;
       --sc: var(--name-stroke); --sw: 14px;
       --ext: 0 4px 0 color-mix(in srgb, var(--name-stroke) 80%, #2d3677), 0 8px 0 color-mix(in srgb, var(--name-stroke) 70%, #232a5e), 0 12px 0 var(--name-stroke), 0 18px 22px rgba(0,0,0,.55);
-      filter: drop-shadow(0 0 22px rgba(120,150,255,.5));
       max-width: 470px;
       animation: floatBody 2.8s ease-in-out infinite .2s;
     }
@@ -250,7 +248,6 @@
       margin-top: 14px; font-size: calc(50px * var(--body-scale)); letter-spacing: 3px;
       --sc: var(--value-stroke); --sw: 11px;
       --ext: 0 3px 0 color-mix(in srgb, var(--value-stroke) 80%, #7a3a00), 0 6px 0 color-mix(in srgb, var(--value-stroke) 70%, #6a3000), 0 9px 0 var(--value-stroke), 0 14px 18px rgba(0,0,0,.55);
-      filter: drop-shadow(0 0 22px rgba(255,190,40,.6));
       animation: floatBody 2.8s ease-in-out infinite .45s;
     }
     .count > span {
@@ -281,6 +278,12 @@
       animation: floatBody 2.8s ease-in-out infinite .6s;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+    /* El brillo del texto se repinta cada frame: el glow va en la capa de contorno (fija) y el relleno en su propia capa. */
+    .title::before { filter: drop-shadow(0 0 16px rgba(255,70,150,.55)); }
+    .name::before { filter: drop-shadow(0 0 22px rgba(120,150,255,.5)); }
+    .count::before { filter: drop-shadow(0 0 22px rgba(255,190,40,.6)); }
+    .title > span, .name > span, .count > span { will-change: transform; }
+    .aura, .core, .beams, .streak, .rim { will-change: transform, opacity; }
   </style>
 </head>
 <body>

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <script src="/js/overlay-channel.js?v=ovch7"></script>
+  <script src="/js/overlay-channel.js?v=ovch8"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
@@ -24,13 +24,21 @@
         linear-gradient(90deg, rgba(25, 240, 255, .05) 1px, transparent 1px) 0 0 / 36px 36px,
         radial-gradient(700px 420px at 15% 0%, #1a0f3d 0%, var(--bg) 65%) !important;
     }
-    .board { width: min(420px, 100%); transform: scale(var(--ol-scale)); transform-origin: top center; }
+    .board { width: min(420px, 100%); transform: scale(var(--ol-scale), var(--ol-scale)); transform-origin: top center; }
+    html[data-mirror="1"] .board { transform: scale(calc(var(--ol-scale, 1) * -1), var(--ol-scale, 1)); }
+    html[data-mirror="1"] .row > .rank,
+    html[data-mirror="1"] .row > .avo,
+    html[data-mirror="1"] .row > .mid { transform: scaleX(-1); }
+    html[data-compact="1"] .board { width: min(300px, 100%); }
+    html[data-score-below="1"] .board { width: min(310px, 100%); }
+    html[data-compact="1"][data-score-below="1"] .board { width: min(240px, 100%); }
     .list { position: relative; margin-top: 8px; }
     .row {
       --c1: #2a3262; --c2: #2a3262; position: absolute; left: 0; right: 0;
-      display: grid; grid-template-columns: 66px 60px 1fr auto; align-items: center; gap: 10px;
+      display: grid; grid-template-columns: 66px 60px minmax(0, 1fr); align-items: center; gap: 10px;
       padding: 0 16px 0 10px; transition: transform .7s cubic-bezier(.2, .8, .2, 1), height .7s cubic-bezier(.2, .8, .2, 1);
     }
+    html[data-compact="1"] .row { grid-template-columns: 50px 46px minmax(0, 1fr); gap: 6px; padding: 0 10px 0 6px; }
     .row > * { position: relative; z-index: 2; }
     .row::before, .row::after, .row > .fx {
       content: ""; position: absolute; inset: 0; z-index: 0;
@@ -39,7 +47,9 @@
     .row::before { background: linear-gradient(110deg, var(--c1), var(--c2)); background-size: 200% 100%; }
     .row::after { inset: 1.5px; background: linear-gradient(110deg, rgba(14, 18, 40, .97), rgba(8, 10, 24, .97)); }
     .row > .fx { inset: 1.5px; z-index: 1; overflow: hidden; pointer-events: none; background-size: cover; background-position: center; }
-    .row.r1 { --c1: var(--gold); --c2: var(--mag); filter: drop-shadow(0 0 14px rgba(255, 200, 61, .35)); }
+    .row.r1 { --c1: var(--gold); --c2: var(--mag); }
+    .row > .gl { display: none; position: absolute; inset: 0; z-index: -1; pointer-events: none; will-change: transform; }
+    .row.r1 > .gl { display: block; box-shadow: 0 0 14px rgba(255, 200, 61, .35); }
     .row.r1::before { animation: flow 3s linear infinite; }
     .row.r1::after { background: linear-gradient(110deg, rgba(52, 34, 8, .96), rgba(18, 8, 32, .96)); }
     .row.r2 { --c1: var(--cyan); --c2: var(--vio); }
@@ -52,11 +62,11 @@
     @keyframes rise { 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -80px); } }
     .r1 .fx { background-image: radial-gradient(220px 90px at 12% 100%, rgba(255, 122, 43, .35), transparent 70%); }
     .r2 .fx::after {
-      content: ""; position: absolute; top: 0; bottom: 0; width: 60px; left: -80px;
-      background: linear-gradient(100deg, transparent, rgba(25, 240, 255, .22), transparent);
-      transform: skewX(-20deg); animation: sweep 2.8s ease-in-out infinite;
+      content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 100%;
+      background: linear-gradient(100deg, transparent calc(50% - 30px), rgba(25, 240, 255, .22) 50%, transparent calc(50% + 30px));
+      transform: translateX(calc(-50% - 50px)) skewX(-20deg); animation: sweep 2.8s ease-in-out infinite; will-change: transform;
     }
-    @keyframes sweep { 60%, 100% { left: 110%; } }
+    @keyframes sweep { 60%, 100% { transform: translateX(calc(60% + 30px)) skewX(-20deg); } }
     .rank { display: grid; place-items: center; justify-self: center; width: 52px; height: 54px; position: relative; --g: url(#gSteel); --g2: #6f7cc0; --rb: #2a3262; }
     .rank svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .6)); }
     .rank b { position: relative; font-family: Orbitron, sans-serif; font-weight: 800; font-size: 15px; color: #e8ecff; }
@@ -79,14 +89,29 @@
     .avi { position: absolute; inset: 3px; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); background: linear-gradient(160deg, #141a42, #070a1c); display: grid; place-items: center; overflow: hidden; }
     .avi svg { width: 88%; height: 88%; margin-top: 6%; }
     .avi img { width: 100%; height: 100%; object-fit: cover; }
-    .mid { min-width: 0; }
-    .name { font-weight: 700; font-size: 20px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mid {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "name score" "bar score";
+      align-items: center;
+      column-gap: 10px;
+    }
+    html[data-score-below="1"] .mid {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: "name" "score" "bar";
+      justify-items: start;
+      row-gap: 4px;
+    }
+    html[data-compact="1"][data-score-below="1"] .mid { row-gap: 2px; }
+    .name { grid-area: name; font-weight: 700; font-size: 20px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .r1 .name { font-size: 25px; text-shadow: 0 0 14px rgba(255, 200, 61, .5); }
-    .bar { height: 6px; margin-top: 8px; background: rgba(255, 255, 255, .07); transform: skewX(-20deg); overflow: hidden; }
+    .bar { grid-area: bar; height: 6px; margin-top: 8px; background: rgba(255, 255, 255, .07); transform: skewX(-20deg); overflow: hidden; }
+    html[data-score-below="1"] .bar { margin-top: 2px; width: 100%; }
     .bar b { display: block; height: 100%; background: linear-gradient(90deg, var(--heart), var(--mag)); transition: width .7s cubic-bezier(.2, .8, .2, 1); -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px); mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px); }
     .r1 .bar b { background: linear-gradient(90deg, var(--gold), var(--org)); }
     .r2 .bar b { background: linear-gradient(90deg, var(--cyan), var(--vio)); }
-    .score { display: flex; align-items: center; gap: 6px; font-family: Orbitron, sans-serif; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
+    .score { grid-area: score; display: flex; align-items: center; gap: 6px; font-family: Orbitron, sans-serif; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
     .r1 .score { font-size: 20px; }
     .score svg { width: 22px; height: 22px; animation: beat 1.4s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(255, 215, 0, .75)); }
     @keyframes beat { 12% { transform: scale(1.25); } 24% { transform: scale(1); } }
@@ -94,6 +119,23 @@
     @keyframes bump { 40% { transform: scale(1.2); color: var(--cyan); } }
     .row.seq-hide { opacity: 0; }
     .row.seq-show { opacity: 1; transition: opacity .38s ease; }
+    html[data-compact="1"] .rank { width: 40px; height: 42px; }
+    html[data-compact="1"] .r1 .rank { width: 50px; height: 52px; }
+    html[data-compact="1"] .r1 .rank b { font-size: 16px; }
+    html[data-compact="1"] .r2 .rank { width: 44px; height: 46px; }
+    html[data-compact="1"] .r2 .rank b { font-size: 14px; }
+    html[data-compact="1"] .r3 .rank { width: 42px; height: 44px; }
+    html[data-compact="1"] .r3 .rank b { font-size: 14px; }
+    html[data-compact="1"] .avo { width: 38px; height: 38px; }
+    html[data-compact="1"] .r1 .avo { width: 46px; height: 46px; }
+    html[data-compact="1"] .name { font-size: 16px; }
+    html[data-compact="1"] .r1 .name { font-size: 18px; }
+    html[data-compact="1"] .score { font-size: 13px; }
+    html[data-compact="1"] .r1 .score { font-size: 15px; }
+    html[data-compact="1"] .score svg { width: 16px; height: 16px; }
+    html[data-compact="1"] .bar { height: 4px; margin-top: 5px; }
+    html[data-compact="1"][data-score-below="1"] .bar { margin-top: 2px; }
+    html[data-compact="1"] .crown { top: -12px; width: 22px; height: 18px; margin-left: -11px; }
     @media (prefers-reduced-motion: reduce) {
       .row, .bar b, .row *, .row::before { transition: none !important; animation: none !important; }
     }
@@ -121,14 +163,14 @@
   <div class="board" role="region" aria-label="Ranking de diamantes">
     <div class="list" id="list"></div>
   </div>
-  <script src="/js/ranking-gamer-overlay.js?v=rg3"></script>
+  <script src="/js/ranking-gamer-overlay.js?v=rg7"></script>
   <script>
     RankingGamerOverlay.init({
       kind: 'topdiamgamer',
       settingsKey: 'topdiamGamer',
       rank: 'topdiamgamer',
       metric: 'diamonds',
-      defaults: { rows: 5, scale: 100, resetPeriod: 'live' },
+      defaults: { rows: 5, scale: 100, resetPeriod: 'live', compact: false, scoreBelow: false, mirror: false },
     });
   </script>
   <script src="/js/overlay-idle.js?v=oi1"></script>
