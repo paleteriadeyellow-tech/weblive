@@ -946,7 +946,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     chatCatchupActive = false;
     const last = chatCatchupLast;
     chatCatchupLast = null;
-    if (last) processChatEvent(last);
+    if (last && connection) processChatEvent(last);
   }
   const emoteCatalog = new Map();
   const EMOTES_FILE = path.join(dataDir, 'emotes.json');
@@ -12905,8 +12905,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         addUserPoints({ uniqueId: user.uniqueId, userId: user.userId, nickname: user.nickname, photo: user.photo, amount: subBonus, counted: true, description: months > 0 ? `Suscripción (${months} m)` : 'Suscripción', manual: false });
       }
     }
-    conn.on('subscribe', handleSubscribe);
-    conn.on(WebcastEvent.SUB_NOTIFY, handleSubscribe);
+    conn.on('subscribe', (data) => { if (conn !== connection) return; handleSubscribe(data); });
+    conn.on(WebcastEvent.SUB_NOTIFY, (data) => { if (conn !== connection) return; handleSubscribe(data); });
 
     // ===== Super fans =====
     // SUPER_FAN = se hace Super Fan. SUPER_FAN_JOIN / displayType joined = ya era SF y entró al live.
@@ -12960,14 +12960,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         addTimerSeconds(settings.timer?.superFan || 0);
       }
     }
-    conn.on(WebcastEvent.SUPER_FAN, (data) => handleSuperFan(data));
+    conn.on(WebcastEvent.SUPER_FAN, (data) => { if (conn !== connection) return; handleSuperFan(data); });
     if (WebcastEvent.SUPER_FAN_JOIN) {
-      conn.on(WebcastEvent.SUPER_FAN_JOIN, (data) => handleSuperFan(data, 'join'));
+      conn.on(WebcastEvent.SUPER_FAN_JOIN, (data) => { if (conn !== connection) return; handleSuperFan(data, 'join'); });
     }
 
     // ===== Batallas PK de TikTok =====
     // Catch-all: escanea mensajes gift/linkmic/battle por multiplicador x2/x3.
     conn.on(ControlEvent.DECODED_DATA, (type, decoded) => {
+      if (conn !== connection) return;
       try {
         const t = String(type || '');
         if (!/gift|linkmic|battle|itemcard|boost/i.test(t)) return;
@@ -12980,6 +12981,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.LINK_MIC_BATTLE, (data) => {
+      if (conn !== connection) return;
       try {
         const a = data?.action;
         const isOpen = a === 4 || a === 'BATTLE_ACTION_OPEN';
@@ -13046,6 +13048,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     });
 
     conn.on(WebcastEvent.LINK_MIC_ARMIES, (data) => {
+      if (conn !== connection) return;
       try {
         state.inBattle = true;
         syncBattleCountdown(data?.battleSettings);

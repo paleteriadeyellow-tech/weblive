@@ -22436,6 +22436,22 @@ function ttsAcceptPhrase(phrase, userKey, force) {
   ttsLastPhraseAt = now;
   return true;
 }
+
+/** Evita encolar la misma frase 2 veces (1 chat, 2 lecturas: claim lento / 2 motores). */
+const ttsQueuedPhraseAt = new Map();
+function ttsShouldQueuePhrase(phrase) {
+  let p = String(phrase || '').trim().toLowerCase();
+  if (!p) return false;
+  p = p.replace(/^.{1,40}? dice:\s+/i, '');
+  const now = Date.now();
+  const prev = ttsQueuedPhraseAt.get(p);
+  if (prev && now - prev < 1200) return false;
+  ttsQueuedPhraseAt.set(p, now);
+  if (ttsQueuedPhraseAt.size > 80) {
+    for (const [k, t] of ttsQueuedPhraseAt) if (now - t > 10000) ttsQueuedPhraseAt.delete(k);
+  }
+  return true;
+}
 /** Id estable por pestaña: desempate localStorage + preferencia .exe vs navegador/OBS. */
 const TTS_TAB_ID = Math.random().toString(36).slice(2, 11);
 const ttsClaimWaiters = new Map();
@@ -22522,7 +22538,7 @@ async function ttsTryClaimAsync(key) {
       ttsClaimWaiters.delete(key);
       resolve(!!ok);
     };
-    const timer = setTimeout(() => finish(true), 160);
+    const timer = setTimeout(() => finish(true), IS_DESKTOP ? 350 : 400);
     ttsClaimWaiters.set(key, (ok) => {
       clearTimeout(timer);
       finish(ok);
@@ -22620,6 +22636,7 @@ let ttsSysSilentSince = 0; // cuándo se detectó busy sin audio real
 
 function ttsSpeakSystem(phrase, t) {
   if (!TTS_HAS) return;
+  if (!ttsShouldQueuePhrase(phrase)) return;
   ttsSysQueue.push({ phrase: String(phrase || ''), t: { ...(t || {}) }, at: Date.now() });
   ttsPruneQueue(ttsSysQueue);
   // Si el motor quedó “ocupado” en silencio, destraba YA (no esperes el watchdog de 20 s).
@@ -22699,6 +22716,8 @@ function ttsSysPump() {
     ttsSysSilentSince = 0;
     ttsSysPump();
   };
+  let started = false;
+  u.onstart = () => { started = true; };
   u.onend = advance;
   u.onerror = advance;
   // Watchdog corto: si el motor no avanza, no dejes al chat 20 s mudo.
@@ -22713,7 +22732,7 @@ function ttsSysPump() {
   };
   speakNow();
   ttsSysKickTimer = setTimeout(() => {
-    if (advanced) return;
+    if (advanced || started) return;
     if (speechSynthesis.speaking || speechSynthesis.pending) return;
     try { speechSynthesis.cancel(); } catch {}
     ttsWakeEngine();
@@ -22764,6 +22783,7 @@ function ttsServerVoiceFromSettings(t) {
 }
 
 function ttsSpeakTikTok(phrase, t) {
+  if (!ttsShouldQueuePhrase(phrase)) return;
   const sliders = (() => { try { return ttsSyncSlidersFromDom(); } catch { return {}; } })();
   ttsTkQueue.push({
     text: phrase,
@@ -22847,6 +22867,7 @@ function ttsPiperReady(t) {
 }
 
 function ttsSpeakPiper(phrase, t) {
+  if (!ttsShouldQueuePhrase(phrase)) return;
   const p = t?.piper || ttsEnsurePiper();
   const voiceId = String(p.voiceId || 'es_ES-davefx-medium').trim();
   if (!voiceId) return;
@@ -27955,6 +27976,7 @@ async function speakActionTts(cmd, text, opts = {}) {
     ? ttsReadableText(String(text || ''))
     : String(text || '')).trim();
   if (!phrase) return;
+  if (!opts.force && typeof ttsShouldQueuePhrase === 'function' && !ttsShouldQueuePhrase(phrase)) return;
   const rate = Math.max(0.5, Math.min(2, Number(cmd?.rate) || 1));
   const pitch = Math.max(0.5, Math.min(2, Number(cmd?.pitch) || 1));
   const voice = accTtsPickVoice(cmd);
