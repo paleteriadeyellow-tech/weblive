@@ -2112,7 +2112,10 @@ function refreshDockPlanUi(me) {
   if (me && me.premiumUntil != null) window.MY_PREMIUM_UNTIL = until;
   let text = 'Plan Gratis';
   if (window.IS_ADMIN || plan === 'admin') text = 'Admin · acceso total';
-  else if (plan === 'founder') text = '👑 Founder';
+  else if (plan === 'founder') {
+    const days = until > 0 ? Math.max(0, Math.ceil((until - Date.now()) / 86400000)) : 0;
+    text = until > 0 ? `👑 Founder · ${days} día${days === 1 ? '' : 's'}` : '👑 Founder';
+  }
   else if (plan === 'premium') {
     if (until > 0) {
       const days = Math.max(0, Math.ceil((until - Date.now()) / 86400000));
@@ -3727,10 +3730,10 @@ function renderAdminUsersTable() {
                 <div class="admin-act-group">
                   <span class="admin-act-label">Plan</span>
                   <div class="admin-actions-row prem-ctl">
-                    <input type="number" class="prem-days" min="1" max="3650" placeholder="días" data-id="${u.id}" title="Días de Premium">
+                    <input type="number" class="prem-days" min="1" max="3650" placeholder="días" data-id="${u.id}" title="Días de Premium o Founder (vacío en Founder = fijo)">
                     <button type="button" class="btn tiny prem-give" data-id="${u.id}">Premium</button>
                     <button type="button" class="btn tiny prem-fixed" data-id="${u.id}">Fijo</button>
-                    <button type="button" class="btn tiny founder-give" data-id="${u.id}" title="Mismos privilegios que Premium; solo etiqueta Founder">Founder</button>
+                    <button type="button" class="btn tiny founder-give" data-id="${u.id}" title="Mismos privilegios que Premium. Con días escritos: Founder por esos días; vacío: Founder fijo">Founder</button>
                     ${(u.plan === 'premium' || u.plan === 'founder') ? `<button type="button" class="btn tiny prem-remove" data-id="${u.id}">Quitar</button>` : ''}
                   </div>
                 </div>
@@ -3793,7 +3796,15 @@ function renderAdminUsersTable() {
     b.onclick = () => setUserPlanReq(b.dataset.id, 'premium', 0, 'Premium fijo activado.');
   });
   tbody.querySelectorAll('.founder-give').forEach((b) => {
-    b.onclick = () => setUserPlanReq(b.dataset.id, 'founder', 0, 'Plan Founder activado.');
+    b.onclick = () => {
+      // Con días escritos => Founder por N días (como Premium); vacío => Founder fijo.
+      const inp = tbody.querySelector(`.prem-days[data-id="${b.dataset.id}"]`);
+      const raw = String((inp && inp.value) || '').trim();
+      if (!raw) { setUserPlanReq(b.dataset.id, 'founder', 0, 'Plan Founder fijo activado.'); return; }
+      const days = Number(raw);
+      if (!Number.isFinite(days) || days < 1) { toast('Escribe cuántos días de Founder (o déjalo vacío para fijo).', 'warn'); inp?.focus(); return; }
+      setUserPlanReq(b.dataset.id, 'founder', days, `Founder activado por ${days} día${days === 1 ? '' : 's'}.`);
+    };
   });
   tbody.querySelectorAll('.prem-remove').forEach((b) => {
     b.onclick = () => setUserPlanReq(b.dataset.id, 'free', 0, 'Plan retirado. Ahora es Gratis.');
@@ -4036,7 +4047,13 @@ function timeAgo(ts) {
 
 // Insignia de plan para la tabla de admin (con días restantes o "fijo").
 function planBadge(u) {
-  if (u.plan === 'founder') return '<span class="badge prem">👑 Founder</span>';
+  if (u.plan === 'founder') {
+    if (u.premiumUntil && u.premiumUntil > 0) {
+      const days = Math.max(0, Math.ceil((u.premiumUntil - Date.now()) / 86400000));
+      return `<span class="badge prem">👑 Founder · ${days}d</span>`;
+    }
+    return '<span class="badge prem">👑 Founder</span>';
+  }
   if (u.plan !== 'premium') return '<span class="badge off">Gratis</span>';
   if (u.premiumUntil && u.premiumUntil > 0) {
     const days = Math.max(0, Math.ceil((u.premiumUntil - Date.now()) / 86400000));

@@ -1598,6 +1598,7 @@ app.get('/api/me', async (req, res) => {
     baileOverlayEnabled: isUserBaileOverlayEnabled(fullUser),
     ...badgePayload,
     gameStatus: readGameStatus(),
+    gameBadges: readGameBadges(),
     caps: { plan: caps.plan, limits: caps.limits, features: caps.features, spotify: !!caps.spotify, baileOverlay: !!caps.baileOverlay },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
     // Preferir true si la nube O el espejo local ya tienen el correo verificado.
@@ -3633,10 +3634,10 @@ app.post('/api/client-version', express.json({ limit: '4kb' }), async (req, res)
 setInterval(() => {
   for (const u of listUsersDetailed()) {
     const full = getUserById(u.id);
-    if (!full || full.plan !== 'premium') continue;
+    if (!full || (full.plan !== 'premium' && full.plan !== 'founder')) continue;
     const before = full.plan;
     const eff = getUserPlan(full); // muta a 'free' si caducó
-    if (before === 'premium' && eff === 'free') {
+    if (before !== 'free' && eff === 'free') {
       const room = rooms.get(u.id);
       if (room) room.broadcastCaps?.(capsForUser(full));
     }
@@ -3977,6 +3978,57 @@ app.post('/api/admin/game-status', express.json(), requireAdmin, (req, res) => {
     }
   }
   res.json({ ok: true, statuses: writeGameStatus(cur) });
+});
+
+const GAME_BADGES_FILE = path.join(DATA_DIR, 'game-badges.json');
+const GAME_BADGE_COLORS = new Set(['red', 'orange', 'gold', 'green', 'blue', 'purple', 'pink', 'fire']);
+function cleanGameBadge(v) {
+  if (!v || typeof v !== 'object') return null;
+  const text = String(v.text || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  if (!text) return null;
+  const color = GAME_BADGE_COLORS.has(String(v.color || '')) ? String(v.color) : 'red';
+  return { text, color };
+}
+function readGameBadges() {
+  try {
+    const j = JSON.parse(fs.readFileSync(GAME_BADGES_FILE, 'utf8'));
+    const raw = j && typeof j.badges === 'object' ? j.badges : {};
+    const out = {};
+    for (const [k, v] of Object.entries(raw)) {
+      const id = String(k || '').trim();
+      const b = cleanGameBadge(v);
+      if (id && b) out[id] = b;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+function writeGameBadges(map) {
+  const badges = {};
+  for (const [k, v] of Object.entries(map || {})) {
+    const id = String(k || '').trim();
+    const b = cleanGameBadge(v);
+    if (id && b) badges[id] = b;
+  }
+  const tmp = GAME_BADGES_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify({ badges, updatedAt: Date.now() }, null, 2));
+  fs.renameSync(tmp, GAME_BADGES_FILE);
+  return badges;
+}
+app.get('/api/game-badges', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.json({ badges: readGameBadges() });
+});
+app.post('/api/admin/game-badges', express.json(), requireAdmin, (req, res) => {
+  const body = req.body || {};
+  const id = String(body.game || '').trim();
+  if (!id) return res.status(400).json({ error: 'Falta el juego.' });
+  const cur = readGameBadges();
+  const b = cleanGameBadge({ text: body.text, color: body.color });
+  if (b) cur[id] = b;
+  else delete cur[id];
+  res.json({ ok: true, badges: writeGameBadges(cur) });
 });
 
 /* ----------- Anuncios del panel ----------- */

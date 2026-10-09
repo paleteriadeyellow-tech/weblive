@@ -218,29 +218,26 @@ export function getUserPlan(user) {
     if (user.plan === 'founder') return 'founder';
     return 'premium';
   }
-  if (user.plan === 'founder') return 'founder';
-  if (user.plan === 'premium') {
+  // Premium o Founder por días: al caducar pasa a Gratis. premiumUntil = 0 => fijo.
+  if (user.plan === 'premium' || user.plan === 'founder') {
     if (user.premiumUntil && user.premiumUntil > 0 && Date.now() > user.premiumUntil) {
       user.plan = 'free';
       user.premiumUntil = 0;
       saveUsers();
       return 'free';
     }
-    return 'premium';
+    return user.plan;
   }
   return 'free';
 }
 // Cambia el plan. days > 0 => Premium temporal que caduca en N días.
 // days = 0/null => si es premium, queda FIJO (sin caducidad).
-// plan = 'founder' => Founder fijo (solo admin; mismos caps que premium).
+// plan = 'founder' => Founder (mismos caps que premium); con days > 0 caduca igual que Premium.
 export function setUserPlan(id, plan, days) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
-  if (plan === 'founder') {
-    u.plan = 'founder';
-    u.premiumUntil = 0;
-  } else if (plan === 'premium') {
-    u.plan = 'premium';
+  if (plan === 'founder' || plan === 'premium') {
+    u.plan = plan;
     const n = Number(days);
     u.premiumUntil = (Number.isFinite(n) && n > 0) ? Date.now() + n * 24 * 60 * 60 * 1000 : 0;
   } else {
@@ -254,7 +251,8 @@ export function setUserPlan(id, plan, days) {
 export function grantPremiumDays(id, days) {
   const u = users.find((x) => String(x.id) === String(id));
   if (!u) return { ok: false, error: 'cuenta no encontrada' };
-  if (u.isAdmin || u.plan === 'founder') {
+  // Founder fijo no se toca; Founder por días suma los días a su Founder.
+  if (u.isAdmin || (u.plan === 'founder' && !(Number(u.premiumUntil) > 0))) {
     return { ok: true, skipped: true, plan: u.isAdmin ? 'admin' : 'founder', premiumUntil: u.premiumUntil || 0 };
   }
   const n = Math.max(1, Math.round(Number(days) || 30));
@@ -264,11 +262,12 @@ export function grantPremiumDays(id, days) {
   if (u.plan === 'premium' && currentUntil === 0) {
     return { ok: true, skipped: true, plan: 'premium', premiumUntil: 0, forever: true };
   }
-  const base = (u.plan === 'premium' && currentUntil > now) ? currentUntil : now;
-  u.plan = 'premium';
+  const active = (u.plan === 'premium' || u.plan === 'founder') && currentUntil > now;
+  const base = active ? currentUntil : now;
+  u.plan = (u.plan === 'founder' && active) ? 'founder' : 'premium';
   u.premiumUntil = base + addMs;
   saveUsers();
-  return { ok: true, plan: 'premium', premiumUntil: u.premiumUntil, days: n };
+  return { ok: true, plan: u.plan, premiumUntil: u.premiumUntil, days: n };
 }
 /** true salvo que el admin haya desactivado los juegos a ese usuario (admin siempre sí). */
 export function isUserGamesEnabled(user) {
