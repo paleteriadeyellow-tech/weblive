@@ -76,6 +76,10 @@ export const CAPABILITIES = {
     { key: 'ov_giftseq', label: 'Gift Sequence', path: '/giftseq.html' },
     { key: 'ov_habibitop', label: 'Habibi Top Donador', path: '/habibi-top.html' },
     { key: 'ov_giftshowcase', label: 'Banda de regalos', path: '/gift-banda.html' },
+    { key: 'ov_barras', label: 'Barras rotativas', path: '/barras.html' },
+    { key: 'ov_donorlevel', label: 'Nivel de donador', path: '/donor-level.html' },
+    { key: 'ov_fanlevel', label: 'Nivel de fan', path: '/fan-level.html' },
+    { key: 'ov_giftsent', label: 'Regalo enviado', path: '/gift-sent.html' },
     { key: 'ov_mejorregalo', label: 'Mejor regalo', path: '/mejorregalo.html' },
     { key: 'ov_ultimoregalo', label: 'Último regalo', path: '/ultimoregalo.html' },
     { key: 'ov_mejorracha', label: 'Mejor racha', path: '/mejorracha.html' },
@@ -83,6 +87,8 @@ export const CAPABILITIES = {
     { key: 'ov_batallalikes', label: 'Batalla de likes', path: '/batallalikes.html' },
     { key: 'ov_coinmatch', label: 'Coin Match', path: '/coinmatch.html' },
     { key: 'ov_sorteos', label: 'Sorteos overlay', path: '/sorteos.html' },
+    { key: 'ov_sorteospavos', label: 'Sorteo de puntos de usuario (!pavo)', path: '/sorteos-pavos.html' },
+    { key: 'ov_sorteosvidas', label: 'Sorteos · vidas + eliminación rápida', path: '/sorteos-vidas.html' },
     { key: 'ov_topkills', label: 'Top kills', path: '/top-kills.html' },
     { key: 'ov_top1fire', label: 'Top 1 Donador Fuego', path: '/top1fire.html' },
     { key: 'ov_giftbanner', label: 'Meta de regalos (foto)', path: '/meta-regalos-foto.html' },
@@ -99,6 +105,8 @@ export const CAPABILITIES = {
     { key: 'ov_topdiamantes', label: 'Top diamantes', path: '/topdiamantes.html' },
     { key: 'ov_toplikeslista', label: 'Ranking likes (lista)', path: '/toplikes-lista.html' },
     { key: 'ov_topdiamanteslista', label: 'Ranking diamantes (lista)', path: '/topdiamantes-lista.html' },
+    { key: 'ov_toplikesgamer', label: 'Ranking likes (gamer)', path: '/toplikes-gamer.html' },
+    { key: 'ov_topdiamgamer', label: 'Ranking monedas (gamer)', path: '/topdiamantes-gamer.html' },
     { key: 'ov_toppoints', label: 'Top 3 puntos', path: '/toppoints.html' },
     { key: 'ov_contadorseguidores', label: 'Contador de seguidores', path: '/contador-seguidores.html' },
     { key: 'ov_contadorseguidoresmc', label: 'Contador de seguidores (Minecraft)', path: '/contador-seguidores-minecraft.html' },
@@ -118,6 +126,7 @@ export const CAPABILITIES = {
     { key: 'ov_editorrapido', label: 'Editor Pro (overlay)', path: '/editor-rapido-overlay.html' },
     { key: 'ov_screenfx', label: 'Efectos pantalla (.exe)', path: '/screen-fx.html' },
     { key: 'ov_video', label: 'Videos (pantalla OBS)', path: '/video.html' },
+    { key: 'ov_marcocamara', label: 'Marco de cámara', path: '/marco-camara.html' },
   ],
   // Minijuegos (pestaña "Juegos" del .exe). Se pueden bloquear como los overlays.
   games: [
@@ -260,6 +269,10 @@ function loadConfig() {
   }
 }
 
+/* Claves nuevas que antes iban dentro de otra: heredan lo que el admin ya tenía puesto
+   (el sorteo !pavo antes se controlaba con «Sorteos overlay»). */
+const FEATURE_INHERIT = { ov_sorteospavos: 'ov_sorteos' };
+
 // Asegura que el config tenga todas las claves (por si se añaden capacidades nuevas).
 function normalizeConfig(raw) {
   const def = defaultConfig();
@@ -271,7 +284,10 @@ function normalizeConfig(raw) {
       out[plan].limits[k] = Number.isFinite(v) && v >= 0 ? v : def[plan].limits[k];
     }
     for (const k of allFeatureKeys()) {
-      out[plan].features[k] = src.features?.[k] !== undefined ? !!src.features[k] : def[plan].features[k];
+      const parent = FEATURE_INHERIT[k];
+      out[plan].features[k] = src.features?.[k] !== undefined
+        ? !!src.features[k]
+        : (parent && src.features?.[parent] !== undefined ? !!src.features[parent] : def[plan].features[k]);
     }
   }
   const pack = Number(raw?.meta?.freeGamesPack) || 0;
