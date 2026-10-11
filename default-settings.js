@@ -1,8 +1,20 @@
 // Ajustes por defecto de cada room (usuario). Es la plantilla que se fusiona con
 // lo que cada usuario tenga guardado en su data/<id>/settings.json.
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-export const TTS_CARACOLA_DEFAULT_ANSWERS = require('./public/js/caracola-answers.js');
+import fs from 'node:fs';
+/* Respuestas por defecto de la Caracola (mismo archivo que usa el panel). Este proyecto es
+   «type: module», así que se lee y ejecuta como CommonJS a mano (require() no sirve aquí). */
+function loadCaracolaAnswers() {
+  try {
+    const src = fs.readFileSync(new URL('./public/js/caracola-answers.js', import.meta.url), 'utf8');
+    const mod = { exports: {} };
+    // eslint-disable-next-line no-new-func
+    new Function('module', 'globalThis', src)(mod, {});
+    return Array.isArray(mod.exports) ? mod.exports : [];
+  } catch {
+    return [];
+  }
+}
+export const TTS_CARACOLA_DEFAULT_ANSWERS = loadCaracolaAnswers();
 
 export const DEFAULT_SETTINGS = {
   alerts: {
