@@ -161,6 +161,7 @@ export const CAPABILITIES = {
     { key: 'game_stacktower', label: 'Juego: Stack Tower' },
     { key: 'game_crossyroad', label: 'Juego: Crossy Road' },
     { key: 'game_bitearena', label: 'Juego: Bite Arena' },
+    { key: 'game_hillclimb', label: 'Juego: Hill Climb' },
     { key: 'game_bottlebattle', label: 'Juego: Bottle Battle' },
     { key: 'game_pvzge', label: 'Juego: PvZ2 Gardendless' },
     { key: 'game_metalslug', label: 'Juego: Metal Slug by Livecoins' },
