@@ -1,6 +1,17 @@
 // Síntesis TTS vía Microsoft Edge Read Aloud (sin API key).
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 
+// msedge-tts 2.0.7 sigue en speech.platform.bing.com/.../edge/v1 y Microsoft responde 403.
+// Desde ago 2025 la síntesis vive en api.msedgeservices.com (mismo token y Sec-MS-GEC).
+const EDGE_SYNTH_WSS = 'wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1';
+const EDGE_GEC_VERSION = '1-143.0.3650.96';
+MsEdgeTTS.getSynthUrl = async function edgeSynthUrl() {
+  const reqId = MsEdgeTTS.generateUUID();
+  const token = MsEdgeTTS.TRUSTED_CLIENT_TOKEN;
+  const secMsGEC = await MsEdgeTTS.generateSecMsGec(token);
+  return `${EDGE_SYNTH_WSS}?Ocp-Apim-Subscription-Key=${token}&ConnectionId=${reqId}&Sec-MS-GEC=${secMsGEC}&Sec-MS-GEC-Version=${EDGE_GEC_VERSION}`;
+};
+
 /** Locales Edge en español (clasificación por país, como Colombia). */
 export const EDGE_SPANISH_REGIONS = {
   'es-AR': 'Argentina',

@@ -848,7 +848,7 @@ const TAB_CAP = {
   youtube: 'tab_youtube',
 };
 // Mapa minijuego (data-game) -> clave de capacidad (para bloquear "Solo Premium").
-const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mconeblock: 'game_mconeblock', mcsandwall: 'game_mcsandwall', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', robloxtk: 'game_robloxtk', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', pvzfusion: 'game_pvzfusion', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', flappybird: 'game_flappybird', mk64: 'game_mk64', stacktower: 'game_stacktower', crossyroad: 'game_crossyroad', pvzge: 'game_pvzge', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
+const GAME_CAP = { minecraft: 'game_minecraft', mcservidor: 'game_mcservidor', mcparkour: 'game_mcparkour', mconeblock: 'game_mconeblock', mcsandwall: 'game_mcsandwall', mckoth: 'game_mckoth', mcfarm: 'game_mcfarm', mcshooter: 'game_mcshooter', bedrock: 'game_bedrock', sandbox: 'game_sandbox', roblox: 'game_roblox', roblox3: 'game_roblox3', robloxtk: 'game_robloxtk', mariobros: 'game_mariobros', smb3: 'game_smb3', smw: 'game_smw', mari0: 'game_mari0', plantasvszombies: 'game_plantasvszombies', pvzhybrid: 'game_pvzhybrid', pvzfusion: 'game_pvzfusion', repo: 'game_repo', l4d: 'game_l4d', unturned: 'game_unturned', gtavkoth: 'game_gtavkoth', gtavchaos: 'game_gtavchaos', gtavchiliad: 'game_gtavchiliad', crashctr: 'game_crashctr', flappybird: 'game_flappybird', mk64: 'game_mk64', stacktower: 'game_stacktower', crossyroad: 'game_crossyroad', bitearena: 'game_bitearena', bottlebattle: 'game_bottlebattle', pvzge: 'game_pvzge', metalslug: 'game_metalslug', geometrydash: 'game_geometrydash' };
 
 function gameCapFromExecTipo(tipo, hintUrl) {
   const t = String(tipo || '').toUpperCase();
@@ -871,6 +871,8 @@ function gameCapFromExecTipo(tipo, hintUrl) {
   if (t.startsWith('MK64_')) return 'game_mk64';
   if (t.startsWith('STACK_')) return 'game_stacktower';
   if (t.startsWith('CROSSY_')) return 'game_crossyroad';
+  if (t.startsWith('BITE_')) return 'game_bitearena';
+  if (t.startsWith('BOTTLE_')) return 'game_bottlebattle';
   if (t.startsWith('GARDEN_')) return 'game_pvzge';
   if (t.startsWith('MSLUG_') || t.startsWith('METALSLUG')) return 'game_metalslug';
   if (t.startsWith('GD_') || t.startsWith('GEOMETRY') || t.startsWith('GDASH')) return 'game_geometrydash';
@@ -1243,14 +1245,14 @@ const CAP_LABELS = {
   // juegos
   game_minecraft: 'Juego: Minecraft', game_mcservidor: 'Juego: Servidor Minecraft', game_mcparkour: 'Juego: Minecraft Parkour', game_mconeblock: 'Juego: Minecraft OneBlock', game_mcsandwall: 'Juego: Minecraft SandWall', game_mckoth: 'Juego: Minecraft KOTH', game_mcfarm: 'Juego: Minecraft Farm', game_mcshooter: 'Juego: Minecraft Shooters', game_bedrock: 'Juego: Bedrock (Cubo TNT)', game_sandbox: 'Juego: Sandbox',
   game_roblox: 'Juego: Roblox', game_roblox3: 'Juego: Roblox parkour', game_robloxtk: 'Juego: Anime Obby Wars',
-  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_pvzfusion: 'Juego: PvZ Fusion', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_unturned: 'Juego: Unturned', game_gtavkoth: 'Juego: GTA V King of the Hill', game_gtavchaos: 'Juego: GTA V Mod Chaos', game_gtavchiliad: 'Juego: GTA V Chiliad', game_crashctr: 'Juego: Crash Team Racing (CTR)',   game_flappybird: 'Juego: Flappy Bird', game_mk64: 'Juego: Mario Kart 64', game_stacktower: 'Juego: Stack Tower', game_crossyroad: 'Juego: Crossy Road', game_pvzge: 'Juego: PvZ2 Gardendless', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
+  game_mariobros: 'Juego: Mario Bros', game_smb3: 'Juego: Super Mario Bros. 3', game_smw: 'Juego: Super Mario World', game_mari0: 'Juego: Mari0', game_plantasvszombies: 'Juego: Plants vs Zombies', game_pvzhybrid: 'Plants vs Zombies Pack', game_pvzfusion: 'Juego: PvZ Fusion', game_repo: 'Juego: R.E.P.O.', game_l4d: 'Juego: Left 4 Dead 2', game_unturned: 'Juego: Unturned', game_gtavkoth: 'Juego: GTA V King of the Hill', game_gtavchaos: 'Juego: GTA V Mod Chaos', game_gtavchiliad: 'Juego: GTA V Chiliad', game_crashctr: 'Juego: Crash Team Racing (CTR)',   game_flappybird: 'Juego: Flappy Bird', game_mk64: 'Juego: Mario Kart 64', game_stacktower: 'Juego: Stack Tower', game_crossyroad: 'Juego: Crossy Road', game_bitearena: 'Juego: Bite Arena', game_bottlebattle: 'Juego: Bottle Battle', game_pvzge: 'Juego: PvZ2 Gardendless', game_metalslug: 'Juego: Metal Slug', game_geometrydash: 'Juego: Geometry Dash',
   // extras
   tts_tiktok: 'Voces TikTok / Disney',
   videos_ai: 'Videos AI',
 };
 const PLAN_FEATURE_ORDER = [
   'tab_alertas', 'tab_batallas', 'tab_overlays', 'tab_tts', 'tab_timer', 'tab_webhook', 'tab_spotify', 'tab_youtube', 'tab_editor_rapido', 'tab_editor_overlays',
-  'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mconeblock', 'game_mcsandwall', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_robloxtk', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_pvzfusion', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_flappybird', 'game_mk64', 'game_stacktower', 'game_crossyroad', 'game_pvzge', 'game_metalslug', 'game_geometrydash',
+  'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mconeblock', 'game_mcsandwall', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_robloxtk', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_pvzfusion', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_flappybird', 'game_mk64', 'game_stacktower', 'game_crossyroad', 'game_bitearena', 'game_bottlebattle', 'game_pvzge', 'game_metalslug', 'game_geometrydash',
   'ov_joindonorbolt', 'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_winscounterpro', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
   'ov_coinmatch', 'ov_sorteos', 'ov_sorteospavos', 'ov_sorteosvidas', 'ov_barras', 'ov_donorlevel', 'ov_fanlevel', 'ov_giftsent', 'ov_marcocamara', 'ov_topkills', 'ov_screenfx', 'ov_giftbanner', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_topdonatorspro', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista', 'ov_toplikesgamer', 'ov_topdiamgamer',
@@ -4451,6 +4453,8 @@ const ADMIN_GAME_CATALOG = [
   { key: 'game_mk64', label: 'Mario Kart 64' },
   { key: 'game_stacktower', label: 'Stack Tower' },
   { key: 'game_crossyroad', label: 'Crossy Road' },
+  { key: 'game_bitearena', label: 'Bite Arena' },
+  { key: 'game_bottlebattle', label: 'Bottle Battle' },
   { key: 'game_pvzge', label: 'PvZ2 Gardendless' },
   { key: 'game_pvzfusion', label: 'PvZ Fusion' },
   { key: 'game_metalslug', label: 'Metal Slug' },
