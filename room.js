@@ -6,6 +6,7 @@ import './euler-config.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
+import { eulerSignedWebSocketProvider } from './euler-sign.js';
 import { DEFAULT_SETTINGS, deepMerge, ensureGiftSeqDefaults, ensureGiftVsDefaults, ensureGiftShowcaseDefaults, ensureFlowMeterDefaults, ensurePlaybackDefaults } from './default-settings.js';
 import * as spotify from './spotify.js';
 import * as youtubeSr from './youtube-sr.js';
@@ -5686,12 +5687,18 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
 
       if (!opts.auto) broadcast('log', { level: 'info', text: `Conectando a @${username}...` });
 
+      let connRef = null;
       connection = new TikTokLiveConnection(username, {
         processInitialData: false,
-        fetchRoomInfoOnConnect: true,
+        // Si no sabemos la sala, la resuelve Euler al firmar (sin depender de la página de TikTok).
+        fetchRoomInfoOnConnect: !!probe.roomId,
+        connectWithUniqueId: !probe.roomId,
         disableEulerFallbacks: true,
         requestPollingIntervalMs: 2000,
+        // API nueva de Euler: tiktok-live-connector 2.1.x usa la ruta vieja /webcast/fetch, que ya no existe.
+        signedWebSocketProvider: eulerSignedWebSocketProvider(() => connRef, username),
       });
+      connRef = connection;
 
       bindEvents(connection);
       lastEulerConnectAt = Date.now();

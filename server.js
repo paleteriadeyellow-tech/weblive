@@ -3,6 +3,7 @@
 // batalla y overlays totalmente aislados (ver room.js). Aquí solo va lo compartido:
 // catálogo de regalos, archivos estáticos, autenticación y el enrutado de WebSockets.
 import { eulerStartupLine, isEulerConfigured } from './euler-config.js';
+import { eulerSignWebcast } from './euler-sign.js';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -4525,23 +4526,22 @@ app.post('/api/euler/firma', express.json({ limit: '4kb' }), async (req, res) =>
   const uniqueId = roomId ? undefined : (parseTikTokUsernameInput(b.uniqueId || '') || undefined);
   if (!roomId && !uniqueId) return res.status(400).json({ ok: false, error: 'falta_sala' });
   try {
-    const conn = new TikTokLiveConnection(uniqueId || 'livecoins', { fetchRoomInfoOnConnect: false, disableEulerFallbacks: true });
-    const ua = conn.webClient.axiosInstance?.defaults?.headers?.['User-Agent'] || undefined;
-    const cursor = String(b.cursor || '').slice(0, 300) || undefined;
-    const r = await conn.webClient.webSigner.webcast.fetchWebcastURL(
-      'ttlive-node', roomId, uniqueId, cursor, undefined, ua, undefined, true, undefined,
-      b.useMobile ? 'mobile' : 'web',
-      { responseType: 'arraybuffer' },
-    );
-    const h = r.headers || {};
+    // API nueva de Euler (la ruta vieja /webcast/fetch ya no existe).
+    const ua = new TikTokLiveConnection('livecoins', { fetchRoomInfoOnConnect: false }).webClient.axiosInstance?.defaults?.headers?.['User-Agent'];
+    const r = await eulerSignWebcast({
+      roomId, uniqueId,
+      cursor: String(b.cursor || '').slice(0, 300) || undefined,
+      useMobile: !!b.useMobile,
+      userAgent: ua,
+    });
     res.json({
       ok: true,
       status: r.status,
-      data: Buffer.from(r.data || []).toString('base64'),
-      setCookie: h['x-set-tt-cookie'] || '',
-      roomId: h['x-room-id'] || '',
-      requestId: h['x-request-id'] || '',
-      agentId: h['x-agent-id'] || '',
+      data: r.data.toString('base64'),
+      setCookie: r.setCookie,
+      roomId: r.status === 200 ? r.roomId : '',
+      requestId: r.requestId || '',
+      agentId: r.agentId || '',
     });
   } catch (e) {
     res.status(502).json({ ok: false, error: 'firma', message: String(e?.message || e).slice(0, 200) });
