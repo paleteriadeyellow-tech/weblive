@@ -5420,6 +5420,60 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let lastAutoWaitLog = 0;
   let connectingSince = 0;
   let autoKickTimer = null;
+  // Euler cobra cada connect(), no los regalos. No pedirlo si no está en vivo,
+  // y si el socket se cae seguido, espaciar los reintentos.
+  let eulerNextTryAt = 0;
+  let eulerFailStreak = 0;
+  let lastEulerConnectAt = 0;
+
+  function eulerOfflineMsg(msg) {
+    return /isn.t online|not online|offline|user_not_found|status.: ?4/i.test(String(msg || ''));
+  }
+  function scheduleEulerRetry(msg) {
+    if (eulerOfflineMsg(msg)) {
+      eulerFailStreak = 0;
+      eulerNextTryAt = Date.now() + 90000;
+      return 90000;
+    }
+    const livedMs = lastEulerConnectAt ? Date.now() - lastEulerConnectAt : 0;
+    if (livedMs > 120000) {
+      eulerFailStreak = 0;
+      eulerNextTryAt = Date.now() + 8000;
+      return 8000;
+    }
+    eulerFailStreak = Math.min(4, eulerFailStreak + 1);
+    const delay = Math.min(120000, 15000 * (2 ** (eulerFailStreak - 1)));
+    eulerNextTryAt = Date.now() + delay;
+    return delay;
+  }
+  async function probeTikTokLive(username) {
+    const unique = String(username || '').trim().replace(/^@+/, '');
+    if (!unique) return { live: false, roomId: '' };
+    const now = Date.now();
+    const cached = probeTikTokLive._c;
+    if (cached && cached.user === unique && now - cached.at < 40000) return cached;
+    let live = null;
+    let roomId = '';
+    try {
+      const probe = new TikTokLiveConnection(unique, {
+        fetchRoomInfoOnConnect: false,
+        disableEulerFallbacks: true,
+        processInitialData: false,
+      });
+      const info = await Promise.race([
+        probe.webClient.fetchRoomInfoFromApiLive({ uniqueId: unique }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000)),
+      ]);
+      roomId = String(info?.data?.user?.roomId || '');
+      const st = Number(info?.data?.liveRoom?.status ?? info?.data?.user?.status);
+      live = Number.isFinite(st) && st > 0 ? st === 2 : false;
+    } catch (e) {
+      live = eulerOfflineMsg(e?.message) ? false : null;
+    }
+    const out = { user: unique, at: now, live, roomId: live ? roomId : '' };
+    probeTikTokLive._c = out;
+    return out;
+  }
 
   // En modo relay (HOKEY_RELAY=1), la conexión a TikTok y el procesamiento corren en la
   // NUBE. El servidor local NUNCA debe conectarse para no duplicar la conexión (y el
@@ -5439,6 +5493,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   function tryAutoConnectNow() {
     if (RELAY) return;
     abortHungConnect();
+    if (Date.now() < eulerNextTryAt) return;
     if (autoConnectOn() && !state.connected && !state.connecting) {
       connectTo(settings.tiktokUser, { auto: true });
     }
@@ -5598,8 +5653,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       return;
     }
 
-    const startTikTok = () => {
+    const startTikTok = async () => {
       if (state.connected && state.username === username) return;
+      if (opts.auto && Date.now() < eulerNextTryAt) return;
       const switchingUser = !!(state.username && state.username !== username);
       if (switchingUser) releaseLiveLock({ force: true });
       disconnect({ keepLiveLock: !switchingUser });
@@ -5612,16 +5668,34 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       // No resetear aquí: tras conectar se decide por roomId (mismo live = conservar overlays;
       // live nuevo / primera conexión = reset). Evita borrar todo al reconectar por un fallo.
       pushState();
+
+      let probe = { live: null, roomId: '' };
+      try { probe = await probeTikTokLive(username); } catch { probe = { live: null, roomId: '' }; }
+      if (!state.connecting || state.username !== username) return;
+      if (probe.live === false) {
+        state.connecting = false;
+        connectingSince = 0;
+        eulerFailStreak = 0;
+        eulerNextTryAt = Date.now() + 90000;
+        pushState();
+        if (!opts.auto) {
+          broadcast('log', { level: 'info', text: `@${username} no está en vivo. Se reintenta solo cuando empiece, sin gastar la conexión.` });
+        }
+        return;
+      }
+
       if (!opts.auto) broadcast('log', { level: 'info', text: `Conectando a @${username}...` });
 
       connection = new TikTokLiveConnection(username, {
         processInitialData: false,
         fetchRoomInfoOnConnect: true,
+        disableEulerFallbacks: true,
         requestPollingIntervalMs: 2000,
       });
 
       bindEvents(connection);
-      tryConnect(connection, username, 1, !!opts.auto);
+      lastEulerConnectAt = Date.now();
+      tryConnect(connection, username, 1, !!opts.auto, probe.roomId || '');
     };
 
     const runAfterLockProbe = (fn) => {
@@ -5656,7 +5730,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     runAfterLockProbe(() => startTikTok());
   }
 
-  function tryConnect(conn, username, attempt, auto) {
+  function tryConnect(conn, username, attempt, auto, roomId) {
     if (conn !== connection) return;
     const hangMs = auto ? AUTO_CONNECT_HANG_MS : 35000;
     let hangTimer = null;
@@ -5664,7 +5738,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       hangTimer = setTimeout(() => reject(new Error('connect-timeout')), hangMs);
       hangTimer.unref?.();
     });
-    Promise.race([conn.connect(), hung])
+    Promise.race([conn.connect(roomId || undefined), hung])
       .then((connState) => {
         if (conn !== connection) return;
         const newRoomId = connState?.roomId ?? null;
@@ -5673,6 +5747,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
           state.connecting = false;
           connectingSince = 0;
           state.roomId = newRoomId;
+          eulerFailStreak = 0;
+          eulerNextTryAt = 0;
           const mode = applyAutoLiveConnected(newRoomId, username);
           seedStatsFromRoomInfo();
           resetRankSnap();
@@ -5738,14 +5814,15 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       .catch((err) => {
         if (conn !== connection) return;
         const msg = err?.message || String(err);
-        // En modo manual reintentamos varias veces seguidas (por saturación del servicio).
-        if (!auto && attempt < MAX_CONNECT_ATTEMPTS && msg !== 'connect-timeout') {
-          const delay = attempt * 2500;
+        const eulerStop = eulerOfflineMsg(msg) || /rate limit|too many connections|429/i.test(msg);
+        // Un reintento manual como máximo. Cada intento gasta una firma de Euler.
+        if (!auto && attempt < 2 && !eulerStop && msg !== 'connect-timeout') {
+          const delay = 8000;
           broadcast('log', {
             level: 'info',
-            text: `Intento ${attempt} fallido. Reintentando en ${delay / 1000}s... (el servicio gratuito de TikTok a veces está saturado)`,
+            text: `Intento ${attempt} fallido. Reintentando en ${delay / 1000}s...`,
           });
-          setTimeout(() => tryConnect(conn, username, attempt + 1, auto), delay);
+          setTimeout(() => tryConnect(conn, username, attempt + 1, auto, roomId), delay);
           return;
         }
         state.connecting = false;
@@ -5756,19 +5833,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         pushState();
         if (auto) {
           releaseLiveLock();
-          // Auto-conexión: seguramente aún no estás en vivo. Esperamos en silencio; el bucle
-          // lo volverá a intentar y avisamos como mucho cada pocos minutos para no llenar el log.
           const now = Date.now();
           if (now - lastAutoWaitLog > 180000) {
             lastAutoWaitLog = now;
             broadcast('log', { level: 'info', text: `Esperando a que @${username} inicie el live para conectar automáticamente…` });
           }
-          kickAutoConnectSoon(msg === 'connect-timeout' ? 2500 : AUTO_CONNECT_POLL_MS);
+          kickAutoConnectSoon(scheduleEulerRetry(msg));
         } else {
           releaseLiveLock();
           broadcast('log', {
             level: 'error',
-            text: `No se pudo conectar tras ${MAX_CONNECT_ATTEMPTS} intentos: ${msg}. Verifica que @${username} esté EN VIVO y vuelve a intentar en un minuto.`,
+            text: `No se pudo conectar: ${msg}. Verifica que @${username} esté EN VIVO y vuelve a intentar en un minuto.`,
           });
         }
       })
@@ -12540,7 +12615,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       pushState();
       if (wasLive) {
         broadcast('log', { level: 'info', text: 'Desconectado del live.' });
-        kickAutoConnectSoon(2000);
+        kickAutoConnectSoon(scheduleEulerRetry(''));
       }
     });
 
@@ -13090,7 +13165,8 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       connectingSince = 0;
       pushState();
       broadcast('log', { level: 'info', text: 'El live terminó.' });
-      kickAutoConnectSoon(4000);
+      eulerNextTryAt = Date.now() + 60000;
+      kickAutoConnectSoon(60000);
       /* No wipe inmediato: STREAM_END falso + reconnect borraba jarrón/marranito en OBS */
       scheduleStreamEndOverlayReset();
     });

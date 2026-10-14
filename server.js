@@ -2,7 +2,7 @@
 // Cada usuario registrado tiene su propia "room": conexión a TikTok, ajustes, estado,
 // batalla y overlays totalmente aislados (ver room.js). Aquí solo va lo compartido:
 // catálogo de regalos, archivos estáticos, autenticación y el enrutado de WebSockets.
-import { eulerStartupLine } from './euler-config.js';
+import { eulerStartupLine, isEulerConfigured } from './euler-config.js';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -4495,6 +4495,56 @@ app.get('/api/gifts', async (req, res) => {
     const region = normalizeGiftRegion(req.query.region);
     const fallback = giftsCacheByRegion.get(region)?.results || giftsCache || [];
     res.status(502).json({ results: fallback, region, error: 'No se pudo cargar el catálogo de regalos.' });
+  }
+});
+
+// ---- Firma de Euler para el .exe ----
+// La clave de Euler vive SOLO aquí (Render → Environment → EULER_API_KEY). El .exe pide la firma
+// con su sesión de Livecoins; así la clave no viaja dentro del programa y nadie la puede copiar.
+// Tope por cuenta para que nadie gaste la cuota compartida.
+const EULER_SIGN_MAX_HOUR = Number(process.env.EULER_SIGN_MAX_HOUR) || 20;
+const EULER_SIGN_MAX_DAY = Number(process.env.EULER_SIGN_MAX_DAY) || 80;
+const eulerSignHits = new Map(); // userId -> [timestamps]
+app.post('/api/euler/firma', express.json({ limit: '4kb' }), async (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'no_auth', message: 'Inicia sesión en Livecoins.' });
+  if (!isEulerConfigured()) return res.status(503).json({ ok: false, error: 'sin_clave', message: 'El servidor no tiene la clave de Euler.' });
+  const now = Date.now();
+  const hits = (eulerSignHits.get(user.id) || []).filter((t) => now - t < 86400000);
+  if (hits.filter((t) => now - t < 3600000).length >= EULER_SIGN_MAX_HOUR || hits.length >= EULER_SIGN_MAX_DAY) {
+    eulerSignHits.set(user.id, hits);
+    return res.status(429).json({ ok: false, error: 'limite', message: 'Demasiadas conexiones seguidas. Espera un rato y vuelve a pulsar Conectar.' });
+  }
+  hits.push(now);
+  eulerSignHits.set(user.id, hits);
+  if (eulerSignHits.size > 5000) {
+    for (const [k, v] of eulerSignHits) if (!v.some((t) => now - t < 86400000)) eulerSignHits.delete(k);
+  }
+  const b = req.body || {};
+  const roomId = String(b.roomId || '').replace(/\D/g, '') || undefined;
+  const uniqueId = roomId ? undefined : (parseTikTokUsernameInput(b.uniqueId || '') || undefined);
+  if (!roomId && !uniqueId) return res.status(400).json({ ok: false, error: 'falta_sala' });
+  try {
+    const conn = new TikTokLiveConnection(uniqueId || 'livecoins', { fetchRoomInfoOnConnect: false, disableEulerFallbacks: true });
+    const ua = conn.webClient.axiosInstance?.defaults?.headers?.['User-Agent'] || undefined;
+    const cursor = String(b.cursor || '').slice(0, 300) || undefined;
+    const r = await conn.webClient.webSigner.webcast.fetchWebcastURL(
+      'ttlive-node', roomId, uniqueId, cursor, undefined, ua, undefined, true, undefined,
+      b.useMobile ? 'mobile' : 'web',
+      { responseType: 'arraybuffer' },
+    );
+    const h = r.headers || {};
+    res.json({
+      ok: true,
+      status: r.status,
+      data: Buffer.from(r.data || []).toString('base64'),
+      setCookie: h['x-set-tt-cookie'] || '',
+      roomId: h['x-room-id'] || '',
+      requestId: h['x-request-id'] || '',
+      agentId: h['x-agent-id'] || '',
+    });
+  } catch (e) {
+    res.status(502).json({ ok: false, error: 'firma', message: String(e?.message || e).slice(0, 200) });
   }
 });
 
