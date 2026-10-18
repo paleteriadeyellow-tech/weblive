@@ -5482,8 +5482,34 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // En Render (IS_CLOUD_ROOM) HOKEY_RELAY no aplica: aquí SIEMPRE conecta TikTok.
   const RELAY = process.env.HOKEY_RELAY === '1' && !IS_CLOUD_ROOM;
   function autoConnectOn() {
-    if (RELAY) return false;
-    return settings.autoConnect !== false && !!settings.tiktokUser;
+    // Desactivada a propósito: cada intento automático gasta 1 firma de Euler (cuota compartida).
+    // Solo se conecta al pulsar «Conectar»; si el live se cae, hay UN reintento (reconnectOnceAfterDrop).
+    return false;
+  }
+
+  // Si estabas en vivo y se cayó el socket: un solo reintento (y solo si TikTok confirma que sigues en vivo).
+  const RECONNECT_GAP_MS = 3 * 60 * 1000;
+  let lastDropReconnectAt = 0;
+  let dropReconnectTimer = null;
+  function reconnectOnceAfterDrop() {
+    if (RELAY) return;
+    const user = state.username || settings.tiktokUser;
+    if (!user) return;
+    const now = Date.now();
+    if (now - lastDropReconnectAt < RECONNECT_GAP_MS) {
+      broadcast('log', { level: 'warn', text: 'Se perdió la conexión con el live. Pulsa «Conectar» si sigues en vivo.' });
+      return;
+    }
+    lastDropReconnectAt = now;
+    clearTimeout(dropReconnectTimer);
+    dropReconnectTimer = setTimeout(() => {
+      dropReconnectTimer = null;
+      if (state.connected || state.connecting) return;
+      eulerNextTryAt = 0;
+      broadcast('log', { level: 'info', text: 'Se cayó la conexión. Reintentando una vez…' });
+      connectTo(user, { auto: true, reconnect: true });
+    }, 8000);
+    dropReconnectTimer.unref?.();
   }
   function abortHungConnect() {
     if (!state.connecting || !connectingSince) return false;
@@ -5680,8 +5706,17 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         eulerNextTryAt = Date.now() + 90000;
         pushState();
         if (!opts.auto) {
-          broadcast('log', { level: 'info', text: `@${username} no está en vivo. Se reintenta solo cuando empiece, sin gastar la conexión.` });
+          broadcast('log', { level: 'info', text: `TikTok dice que @${username} no está en vivo. Si ya empezaste tu live, pulsa «Conectar» otra vez.` });
         }
+        return;
+      }
+      // Reintento automático: solo si TikTok confirma que el live sigue. Si no se sabe, no se pide firma.
+      if (opts.auto && probe.live !== true) {
+        state.connecting = false;
+        connectingSince = 0;
+        eulerNextTryAt = Date.now() + 90000;
+        pushState();
+        broadcast('log', { level: 'warn', text: `No se pudo reconectar a @${username}. Pulsa «Conectar» cuando sigas en vivo.` });
         return;
       }
 
@@ -5840,12 +5875,9 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
         pushState();
         if (auto) {
           releaseLiveLock();
-          const now = Date.now();
-          if (now - lastAutoWaitLog > 180000) {
-            lastAutoWaitLog = now;
-            broadcast('log', { level: 'info', text: `Esperando a que @${username} inicie el live para conectar automáticamente…` });
-          }
-          kickAutoConnectSoon(scheduleEulerRetry(msg));
+          lastAutoWaitLog = Date.now();
+          scheduleEulerRetry(msg);
+          broadcast('log', { level: 'warn', text: `No se pudo reconectar a @${username}. Pulsa «Conectar» cuando sigas en vivo.` });
         } else {
           releaseLiveLock();
           broadcast('log', {
@@ -12622,7 +12654,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       pushState();
       if (wasLive) {
         broadcast('log', { level: 'info', text: 'Desconectado del live.' });
-        kickAutoConnectSoon(scheduleEulerRetry(''));
+        reconnectOnceAfterDrop();
       }
     });
 
