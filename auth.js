@@ -21,7 +21,12 @@ const DESKTOP_LAST_SESSION_FILE = path.join(DATA_DIR, 'desktop-last-session.json
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const SESSION_COOKIE = 'hokey_sid';
-const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 días
+const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 días sin usarse → caduca
+// Sesión que se renueva sola: cada vez que se usa (máx. 1 vez al día) se mueve `lastSeen`.
+// Así la app de PC, que consulta /api/me seguido, no pierde la sesión de la nube a los 30 días.
+// Tope de seguridad: aunque se use a diario, una sesión no dura más de 180 días.
+const SESSION_MAX_AGE = 180 * 24 * 60 * 60 * 1000;
+const SESSION_RENEW_EVERY = 24 * 60 * 60 * 1000;
 const ADMIN_USERNAME = 'jesus'; // admin histórico
 const EXTRA_ADMIN_USERNAMES = ['albertoreyesyt'];
 function isReservedAdminUsername(name) {
@@ -939,7 +944,22 @@ export function createSession(userId) {
 }
 
 function sessionStillValid(s) {
-  return s && Date.now() - s.createdAt <= SESSION_TTL;
+  if (!s) return false;
+  const now = Date.now();
+  const created = Number(s.createdAt) || 0;
+  const seen = Math.max(created, Number(s.lastSeen) || 0);
+  return now - seen <= SESSION_TTL && now - created <= SESSION_MAX_AGE;
+}
+
+let sessionsSaveTimer = null;
+/** Guarda sessions.json un momento después (varias renovaciones = una sola escritura). */
+function saveSessionsSoon() {
+  if (sessionsSaveTimer) return;
+  sessionsSaveTimer = setTimeout(() => {
+    sessionsSaveTimer = null;
+    saveSessions();
+  }, 5000);
+  sessionsSaveTimer.unref?.();
 }
 
 export function findValidSessionTokenForUser(userId) {
@@ -972,7 +992,9 @@ export function importSessionsFromRecord(record) {
     if (!token || !s?.userId || sessions.has(token)) continue;
     if (!sessionStillValid(s)) continue;
     if (!getUserById(s.userId)) continue;
-    sessions.set(token, { userId: s.userId, createdAt: s.createdAt || Date.now() });
+    const rec = { userId: s.userId, createdAt: s.createdAt || Date.now() };
+    if (Number(s.lastSeen) > 0) rec.lastSeen = Number(s.lastSeen);
+    sessions.set(token, rec);
     added++;
   }
   if (added) saveSessions();
@@ -1066,12 +1088,22 @@ export function getSessionUser(token) {
   if (!token) return null;
   const s = sessions.get(token);
   if (!s) return null;
-  if (Date.now() - s.createdAt > SESSION_TTL) {
+  if (!sessionStillValid(s)) {
     sessions.delete(token);
     saveSessions();
     return null;
   }
-  return getUserById(s.userId);
+  const user = getUserById(s.userId);
+  // Se usó: renovar (como mucho una vez al día por sesión).
+  if (user) {
+    const now = Date.now();
+    const seen = Math.max(Number(s.createdAt) || 0, Number(s.lastSeen) || 0);
+    if (now - seen > SESSION_RENEW_EVERY) {
+      s.lastSeen = now;
+      saveSessionsSoon();
+    }
+  }
+  return user;
 }
 
 export function parseCookies(cookieHeader) {
