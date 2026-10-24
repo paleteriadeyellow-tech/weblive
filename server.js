@@ -23,7 +23,7 @@ import {
   registerUser, verifyLogin, renameUsername, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, grantPremiumDays, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled,
+  getUserPlan, setUserPlan, grantPremiumDays, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled, setUserMaxEnabled, isUserMaxEnabled,
   setUserAdminNotes, setUserDesktopAppVersion,
   getUserBadgesPayload, recordBadgeLive, markBadgeDirectory, markBadgeDesktop, markBadgeGame, markBadgeDailyTop1, setUserManualBadge,
   deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
@@ -545,6 +545,7 @@ function capsForUser(user) {
     const caps = adminCaps();
     caps.spotify = true;
     caps.baileOverlay = true;
+    caps.max = true;
     if (caps.features) caps.features.tab_ov_baile = true;
     return caps;
   }
@@ -567,6 +568,8 @@ function capsForUser(user) {
   }
   caps.spotify = !!(user.isAdmin || caps.features?.tab_spotify);
   caps.baileOverlay = isUserBaileOverlayEnabled(user);
+  // Plan MAX: extra aparte del plan; solo abre los juegos MAX.
+  caps.max = isUserMaxEnabled(user);
   if (!caps.features) caps.features = {};
   caps.features.tab_ov_baile = !!caps.baileOverlay;
   try {
@@ -1140,6 +1143,7 @@ async function pullRemotePlan(user) {
       allowedGames: Object.prototype.hasOwnProperty.call(me, 'allowedGames') ? me.allowedGames : undefined,
       spotifyEnabled: me.spotifyEnabled,
       baileOverlayEnabled: me.baileOverlayEnabled,
+      maxEnabled: me.maxEnabled,
       manualBadges: Array.isArray(me.manualBadges) ? me.manualBadges : undefined,
       badgeStats: me.stats && typeof me.stats === 'object' ? me.stats : undefined,
     });
@@ -1600,10 +1604,11 @@ app.get('/api/me', async (req, res) => {
     allowedGames: fullUser.isAdmin ? null : (Array.isArray(fullUser.allowedGames) ? fullUser.allowedGames : null),
     spotifyEnabled: isUserSpotifyEnabled(fullUser),
     baileOverlayEnabled: isUserBaileOverlayEnabled(fullUser),
+    maxEnabled: isUserMaxEnabled(fullUser),
     ...badgePayload,
     gameStatus: readGameStatus(),
     gameBadges: readGameBadges(),
-    caps: { plan: caps.plan, limits: caps.limits, features: caps.features, spotify: !!caps.spotify, baileOverlay: !!caps.baileOverlay },
+    caps: { plan: caps.plan, limits: caps.limits, features: caps.features, spotify: !!caps.spotify, baileOverlay: !!caps.baileOverlay, max: !!caps.max },
     email: (remoteMe && remoteMe.email) || publicEmailFields(fullUser).email,
     // Preferir true si la nube O el espejo local ya tienen el correo verificado.
     emailVerified: !!(remoteMe && remoteMe.emailVerified)
@@ -3366,6 +3371,7 @@ app.get('/api/admin/users', requireAdmin, async (req, res) => {
       allowedGames: full?.isAdmin ? null : (Array.isArray(full?.allowedGames) ? full.allowedGames : null),
       spotifyEnabled: full ? isUserSpotifyEnabled(full) : false,
       baileOverlayEnabled: full ? isUserBaileOverlayEnabled(full) : false,
+      maxEnabled: full ? isUserMaxEnabled(full) : false,
       live: !!(st && st.live),
       connecting: !!(st && st.connecting),
       liveSince: st ? st.liveSince : null,
@@ -3469,6 +3475,21 @@ app.post('/api/admin/userbaile', express.json(), requireAdmin, async (req, res) 
   const room = rooms.get(id);
   if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
   res.json({ ok: true, baileOverlayEnabled: isUserBaileOverlayEnabled(getUserById(id)) });
+});
+
+// Plan MAX por cuenta (lo activa el admin a mano; no cambia el plan Free/VIP).
+app.post('/api/admin/usermax', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/usermax', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const { id, enabled } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  const ok = setUserMaxEnabled(id, !!enabled);
+  if (!ok) return res.status(404).json({ error: 'cuenta no encontrada' });
+  const room = rooms.get(id);
+  if (room) room.broadcastCaps?.(capsForUser(getUserById(id)));
+  res.json({ ok: true, maxEnabled: isUserMaxEnabled(getUserById(id)) });
 });
 
 // Insignias especiales (Partner / Beta / Staff).

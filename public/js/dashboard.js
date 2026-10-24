@@ -751,6 +751,7 @@ async function loadMe() {
     window.MY_PREMIUM_UNTIL = Number(d.premiumUntil) || 0;
     if (typeof d.spotifyEnabled === 'boolean') window.SPOTIFY_ACCESS = d.spotifyEnabled;
     if (typeof d.baileOverlayEnabled === 'boolean') window.BAILE_OVERLAY_ACCESS = d.baileOverlayEnabled;
+    if (typeof d.maxEnabled === 'boolean') window.MAX_ACCESS = d.maxEnabled;
     try { if (typeof window.refreshEmailAccountUi === 'function') window.refreshEmailAccountUi(d); } catch {}
     try { if (typeof refreshDockPlanUi === 'function') refreshDockPlanUi(d); } catch {}
     if (d.gameStatus && typeof d.gameStatus === 'object') applyGameStatusMap(d.gameStatus);
@@ -928,7 +929,9 @@ function setCaps(c) {
     features: c.features || {},
     spotify: typeof c.spotify === 'boolean' ? c.spotify : !!window.CAPS?.spotify,
     baileOverlay: typeof c.baileOverlay === 'boolean' ? c.baileOverlay : !!window.CAPS?.baileOverlay,
+    max: typeof c.max === 'boolean' ? c.max : !!window.CAPS?.max,
   };
+  if (typeof c.max === 'boolean') window.MAX_ACCESS = c.max;
   if (plan && plan !== 'free') {
     const cur = String(window.MY_PLAN || '').toLowerCase();
     // caps.plan es el bucket (premium/free); no pisar etiqueta Founder
@@ -3465,7 +3468,7 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
         if (viewName === 'juegos') {
           try { preloadJuegosCatalogImages(); } catch {}
         }
-        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminBaileOverlay(); loadAdminGames(); loadAdminGameStatus(); }
+        if (viewName === 'admin') { loadAdminUsers(); loadPlans(); loadAppVersion(); loadPcInstallLink(); loadAdminSpotify(); loadAdminBaileOverlay(); loadAdminMax(); loadAdminGames(); loadAdminGameStatus(); }
         if (viewName === 'planes') { renderPlanView(); loadPlanComparison(true); }
         if (viewName === 'regalos') { try { initGiftCatalogView(); } catch (e) { console.error('Catálogo regalos:', e); } }
         if (viewName === 'editor') {
@@ -3912,6 +3915,7 @@ function openAdminUserFicha(id) {
   const feats = [
     u.spotifyEnabled ? 'Spotify ON' : 'Spotify OFF',
     u.baileOverlayEnabled ? 'Baile ON' : 'Baile OFF',
+    u.maxEnabled ? 'MAX ON' : 'MAX OFF',
     u.gamesEnabled === false ? 'Juegos OFF' : 'Juegos ON',
   ].join(' · ');
   back.innerHTML = `
@@ -4420,6 +4424,129 @@ async function loadAdminBaileOverlay() {
     };
   }
   if (refresh) refresh.onclick = () => loadAdminBaileOverlay();
+})();
+
+/* -------- Admin: Plan MAX por usuario (extra aparte del plan) -------- */
+let adminMaxUsersCache = [];
+
+async function setUserMaxReq(id, enabled) {
+  const r = await fetch('/api/admin/usermax', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, enabled: !!enabled }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'No se pudo actualizar el plan MAX');
+  return data;
+}
+function userHasMaxAccess(u) {
+  return !!(u && (u.isAdmin || u.maxEnabled === true));
+}
+function patchAdminMaxCache(id, enabled) {
+  const u = adminMaxUsersCache.find((x) => String(x.id) === String(id));
+  if (u && !u.isAdmin) u.maxEnabled = !!enabled;
+}
+function adminMaxPlanLabel(u) {
+  const p = String(u?.plan || 'free').toLowerCase();
+  if (u?.isAdmin) return 'Admin';
+  if (p === 'founder') return 'Founder';
+  if (p === 'premium') return 'VIP';
+  return 'Free';
+}
+function renderAdminMaxFromCache() {
+  const tbody = document.getElementById('admin-max-tbody');
+  const sel = document.getElementById('admin-max-user');
+  const status = document.getElementById('admin-max-status');
+  if (!tbody) return;
+  const withAccess = adminMaxUsersCache.filter(userHasMaxAccess);
+  const without = adminMaxUsersCache.filter((u) => !userHasMaxAccess(u));
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Elegir usuario…</option>' + without
+      .slice()
+      .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+      .map((u) => `<option value="${esc(u.id)}">${esc(u.username)} · ${esc(adminMaxPlanLabel(u))}</option>`)
+      .join('');
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  }
+  if (!withAccess.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="admin-empty">Nadie tiene MAX todavía.</td></tr>';
+  } else {
+    tbody.innerHTML = withAccess
+      .slice()
+      .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+      .map((u) => {
+        const tag = u.isAdmin ? '<span class="u-admin">ADMIN</span>' : '';
+        const st = u.online ? '<span class="badge on dot">En línea</span>' : '<span class="tts-sub">—</span>';
+        const action = u.isAdmin
+          ? '<span class="tts-sub">Siempre</span>'
+          : `<button type="button" class="btn tiny admin-max-revoke" data-id="${esc(u.id)}">Quitar MAX</button>`;
+        return `<tr>
+          <td><span class="u-name">${esc(u.username)}</span>${tag}</td>
+          <td>${esc(adminMaxPlanLabel(u))} + MAX</td>
+          <td>${st}</td>
+          <td>${action}</td>
+        </tr>`;
+      }).join('');
+    tbody.querySelectorAll('.admin-max-revoke').forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        try {
+          const data = await setUserMaxReq(id, false);
+          if (data.maxEnabled === true) throw new Error('El servidor no quitó el plan MAX.');
+          patchAdminMaxCache(id, false);
+          renderAdminMaxFromCache();
+          toast('Plan MAX quitado. Conserva su plan normal.', 'ok');
+          await loadAdminMax();
+        } catch (e) {
+          toast(e.message || 'Error', 'warn');
+          btn.disabled = false;
+        }
+      };
+    });
+  }
+  if (status) status.textContent = `${withAccess.length} con MAX · ${without.length} sin MAX`;
+}
+async function loadAdminMax() {
+  const tbody = document.getElementById('admin-max-tbody');
+  if (!tbody) return;
+  try {
+    const r = await fetch('/api/admin/users');
+    if (!r.ok) {
+      tbody.innerHTML = '<tr><td colspan="4" class="admin-empty">Sin acceso.</td></tr>';
+      return;
+    }
+    const { users } = await r.json();
+    adminMaxUsersCache = Array.isArray(users) ? users : [];
+    renderAdminMaxFromCache();
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="4" class="admin-empty">Error al cargar.</td></tr>';
+  }
+}
+(function setupAdminMaxUI() {
+  const grant = document.getElementById('admin-max-grant');
+  const refresh = document.getElementById('admin-max-refresh');
+  const sel = document.getElementById('admin-max-user');
+  if (grant) {
+    grant.onclick = async () => {
+      const id = sel?.value || '';
+      if (!id) { toast('Elige un usuario.', 'warn'); return; }
+      grant.disabled = true;
+      try {
+        await setUserMaxReq(id, true);
+        patchAdminMaxCache(id, true);
+        renderAdminMaxFromCache();
+        loadAdminMax();
+        toast('Plan MAX activado. Si está en línea, le aparecen ya los juegos MAX.', 'ok');
+      } catch (e) {
+        toast(e.message || 'Error', 'warn');
+      } finally {
+        grant.disabled = false;
+      }
+    };
+  }
+  if (refresh) refresh.onclick = () => loadAdminMax();
 })();
 
 /* -------- Admin: juegos por usuario -------- */

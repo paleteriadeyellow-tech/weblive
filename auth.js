@@ -181,6 +181,7 @@ export function listUsersDetailed() {
     allowedGames: u.isAdmin ? null : (Array.isArray(u.allowedGames) ? normalizeAllowedGames(u.allowedGames) : null),
     spotifyEnabled: u.isAdmin ? true : !!u.spotifyEnabled,
     baileOverlayEnabled: u.isAdmin ? true : !!u.baileOverlayEnabled,
+    maxEnabled: u.isAdmin ? true : !!u.maxEnabled,
     manualBadges: Array.isArray(u.manualBadges) ? u.manualBadges.slice() : [],
     badgeStats: { ...emptyBadgeStats(), ...(u.badgeStats || {}) },
     adminNotes: String(u.adminNotes || '').slice(0, 2000),
@@ -374,6 +375,20 @@ export function setUserBaileOverlayEnabled(id, enabled) {
   if (!u) return false;
   if (u.isAdmin) { u.baileOverlayEnabled = true; saveUsers(); return true; }
   u.baileOverlayEnabled = !!enabled;
+  saveUsers();
+  return true;
+}
+/** Plan MAX: extra que el admin activa a mano. Solo abre los juegos MAX (no cambia el plan). */
+export function isUserMaxEnabled(user) {
+  if (!user) return false;
+  if (user.isAdmin) return true;
+  return !!user.maxEnabled;
+}
+export function setUserMaxEnabled(id, enabled) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  if (u.isAdmin) { u.maxEnabled = true; saveUsers(); return true; }
+  u.maxEnabled = !!enabled;
   saveUsers();
   return true;
 }
@@ -658,7 +673,7 @@ export function upsertMirrorUser({ username, password, plan, isAdmin, active }) 
 // Actualiza SOLO el plan/estado de un usuario espejo (sin tocar la contraseña).
 // Se usa en el .exe para refrescar el plan que el admin cambió en Render, sin
 // necesidad de que el usuario vuelva a iniciar sesión. Devuelve true si cambió algo.
-export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled, allowedGames, spotifyEnabled, baileOverlayEnabled, manualBadges, badgeStats } = {}) {
+export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, gamesEnabled, allowedGames, spotifyEnabled, baileOverlayEnabled, maxEnabled, manualBadges, badgeStats } = {}) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
   let changed = false;
@@ -695,6 +710,10 @@ export function updateMirrorPlan(id, { plan, isAdmin, active, premiumUntil, game
     const next = u.isAdmin ? true : !!baileOverlayEnabled;
     const prevOn = !!u.baileOverlayEnabled;
     if (prevOn !== next) { u.baileOverlayEnabled = next; changed = true; }
+  }
+  if (maxEnabled !== undefined) {
+    const next = u.isAdmin ? true : !!maxEnabled;
+    if (!!u.maxEnabled !== next) { u.maxEnabled = next; changed = true; }
   }
   if (manualBadges !== undefined) {
     const next = Array.isArray(manualBadges) ? manualBadges.map(String).filter(Boolean) : [];

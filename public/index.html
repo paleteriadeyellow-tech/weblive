@@ -11248,6 +11248,7 @@
             <button type="button" class="subtab" data-sub="admin-ann" hidden>Anuncios</button>
             <button type="button" class="subtab" data-sub="admin-maint" hidden>Mantenimiento</button>
             <button type="button" class="subtab" data-sub="admin-spotify">Spotify</button>
+            <button type="button" class="subtab" data-sub="admin-max">Plan MAX</button>
             <button type="button" class="subtab" data-sub="admin-baile">Agencia de baile</button>
             <button type="button" class="subtab" data-sub="admin-games">Juegos</button>
             <button type="button" class="subtab" data-sub="admin-badges" hidden>Insignias</button>
@@ -11375,6 +11376,38 @@
                   </thead>
                   <tbody id="admin-spotify-tbody">
                     <tr><td colspan="3" class="admin-empty">Cargando?</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="subview" id="sub-admin-max">
+            <div class="settings-card plans-card">
+              <div class="tts-head">
+                <h3>Plan MAX</h3>
+                <span class="tts-sub">Extra que activas a mano. Solo desbloquea los juegos de la pestaña MAX: no cambia su plan ni le abre nada más. Un Free con MAX tiene lo de Free + juegos MAX; un VIP con MAX, todo lo de VIP + juegos MAX. El cambio llega al instante si está en línea.</span>
+              </div>
+              <div class="admin-spotify-add">
+                <select id="admin-max-user">
+                  <option value="">Elegir usuario…</option>
+                </select>
+                <button type="button" class="btn primary" id="admin-max-grant">Activar MAX</button>
+                <button type="button" class="btn ghost" id="admin-max-refresh">Actualizar</button>
+              </div>
+              <p id="admin-max-status" class="tts-sub"></p>
+              <div class="admin-table-wrap" style="margin-top:12px">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Plan</th>
+                      <th>Estado</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-max-tbody">
+                    <tr><td colspan="4" class="admin-empty">Cargando…</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -11568,7 +11601,7 @@
 
   <script src="/js/account-email.js?v=dockmail1"></script>
   <script src="/js/camera-frames.js?v=mcf4"></script>
-  <script src="/js/dashboard.js?v=sov63"></script>
+  <script src="/js/dashboard.js?v=sov64"></script>
   <script src="/js/editor-rapido.js?v=er92"></script>
 <script src="/js/mc-server-installer-ui.js"></script>
   <script src="/js/image-editor.js?v=iedgames4"></script>
