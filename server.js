@@ -468,6 +468,9 @@ const LOCAL_ONLY_GAMES = [
   { key: 'game_crossyroad', label: 'Juego: Crossy Road' },
   { key: 'game_bitearena', label: 'Juego: Bite Arena' },
   { key: 'game_hillclimb', label: 'Juego: Hill Climb' },
+  { key: 'game_supermarket', label: 'Juego: Supermarket Together' },
+  { key: 'game_peak', label: 'Juego: PEAK' },
+  { key: 'game_overcooked2', label: 'Juego: Overcooked! 2' },
   { key: 'game_bottlebattle', label: 'Juego: Bottle Battle' },
   { key: 'game_pvzge', label: 'Juego: PvZ2 Gardendless' },
   { key: 'game_smw', label: 'Juego: Super Mario World' },
@@ -4518,6 +4521,29 @@ app.get('/api/gifts', async (req, res) => {
     const fallback = giftsCacheByRegion.get(region)?.results || giftsCache || [];
     res.status(502).json({ results: fallback, region, error: 'No se pudo cargar el catálogo de regalos.' });
   }
+});
+
+// ---- Mapas protegidos de Minecraft para el .exe (Parkour Paradise…) ----
+// La clave del mapa vive SOLO aquí (Render → Environment → MCMAP_KEY_<ID>). El .exe la pide con la sesión
+// de la cuenta y recibe también una llave personal (marca la copia con la cuenta que la abrió).
+const MCMAP_IDS = new Set(['parkour-paradise']);
+const mcmapHits = new Map(); // userId -> [timestamps]
+app.get('/api/mcmaps/:id/key', (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'Inicia sesión en Livecoins para jugar este mapa.' });
+  const id = String(req.params.id || '');
+  if (!MCMAP_IDS.has(id)) return res.status(404).json({ ok: false, error: 'mapa_desconocido' });
+  const key = String(process.env['MCMAP_KEY_' + id.toUpperCase().replace(/-/g, '_')] || '').trim();
+  if (!/^[0-9a-f]{64}$/i.test(key)) return res.status(503).json({ ok: false, error: 'mapa_no_configurado' });
+  const now = Date.now();
+  const hits = (mcmapHits.get(user.id) || []).filter((t) => now - t < 3600000);
+  if (hits.length >= 30) return res.status(429).json({ ok: false, error: 'Demasiados intentos. Espera un rato.' });
+  hits.push(now);
+  mcmapHits.set(user.id, hits);
+  const h = crypto.createHmac('sha256', String(process.env.MCMAP_TOKEN_SECRET || key)).update(`${user.id}:${id}`).digest();
+  const token = 100000000 + (h.readUInt32BE(0) % 900000000);
+  console.log(`  [mcmaps] ${id} para ${user.username || user.id} (llave ${token})`);
+  res.json({ ok: true, key, token });
 });
 
 // ---- Firma de Euler para el .exe ----
