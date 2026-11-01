@@ -15,6 +15,7 @@ import { WebSocketServer } from 'ws';
 import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import { createLiveLockStore } from './live-lock.js';
+import { createLiveUsageStore, monthKey } from './live-usage.js';
 import { ensureViewerAvatar, sendCachedAvatar, findCachedAvatar, persistViewerAvatar } from './tt-avatar-cache.js';
 import { isEdgeTtsVoice, ttsSynthEdge, EDGE_EN_FALLBACK } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
@@ -88,6 +89,7 @@ const {
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const liveLock = createLiveLockStore(path.join(DATA_DIR, 'live-locks.json'));
+const liveUsage = createLiveUsageStore(path.join(DATA_DIR, 'live-usage.json'));
 const streamerRankings = createStreamerRankings(DATA_DIR);
 const IS_DESKTOP = process.env.DESKTOP === '1';
 
@@ -771,6 +773,7 @@ function getRoomForUser(user) {
         } catch { /* ignore */ }
       },
       onClaimLiveLock: (p) => runLiveLock(user.id, 'claim', p),
+      onLiveUsagePing: (p) => liveUsage.ping(user.id, { tiktok: p?.username }),
       onHeartbeatLiveLock: (p) => runLiveLock(user.id, 'heartbeat', p),
       onReleaseLiveLock: (p) => runLiveLock(user.id, 'release', p),
       onGameExec: (tipo) => {
@@ -932,12 +935,22 @@ function applyDesktopLiveReport(user, body) {
   return { ok: true, live: true };
 }
 
+// Cuentas que no salen en «En live con Livecoins» (TikTok @ o usuario del panel).
+// Render → Environment → PANEL_LIVES_HIDE=cuenta1,cuenta2 para cambiarlas sin tocar código.
+const PANEL_LIVES_HIDE = new Set(
+  String(process.env.PANEL_LIVES_HIDE ?? 'otroplanoai')
+    .split(',').map((x) => x.trim().replace(/^@+/, '').toLowerCase()).filter(Boolean),
+);
+function panelLiveHidden(item) {
+  return PANEL_LIVES_HIDE.has(String(item?.tiktok || '').toLowerCase())
+    || PANEL_LIVES_HIDE.has(String(item?.panelUser || '').toLowerCase());
+}
 function listPanelLives() {
   pruneDesktopLiveReports();
   const out = [];
   const seenTiktok = new Set();
   const add = (item) => {
-    if (!item) return;
+    if (!item || panelLiveHidden(item)) return;
     const key = String(item.tiktok || '').toLowerCase();
     if (!key || seenTiktok.has(key)) return;
     seenTiktok.add(key);
@@ -1899,6 +1912,27 @@ async function handleLiveLockByKey(req, res, action) {
   return liveLockHttpResult(res, r);
 }
 app.post('/api/live-lock/claim', express.json({ limit: '8kb' }), (req, res) => handleLiveLockAuthed(req, res, 'claim'));
+
+/* Tiempo en live: la app de PC manda un ping por minuto mientras está conectada a su live. */
+app.post('/api/live-usage/ping', express.json({ limit: '4kb' }), (req, res) => {
+  const user = userFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'no auth' });
+  res.json(liveUsage.ping(user.id, { tiktok: req.body?.username }));
+});
+app.post('/api/live-usage/ping-key', express.json({ limit: '4kb' }), (req, res) => {
+  const user = getUserByRoomKey(String(req.body?.roomKey || '').trim());
+  if (!user) return res.status(401).json({ error: 'bad key' });
+  res.json(liveUsage.ping(user.id, { tiktok: req.body?.username }));
+});
+// Admin: quién estuvo más tiempo en live en el mes (?month=AAAA-MM; por defecto el actual).
+app.get('/api/admin/live-usage', requireAdmin, (req, res) => {
+  const mk = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : monthKey();
+  const rows = liveUsage.ranking(mk).map((r) => {
+    const u = getUserById(r.userId);
+    return { ...r, username: u?.username || '', email: u?.email || '', plan: u ? getUserPlan(u) : '' };
+  });
+  res.json({ month: mk, months: liveUsage.months(), rows });
+});
 app.post('/api/live-lock/heartbeat', express.json({ limit: '8kb' }), (req, res) => handleLiveLockAuthed(req, res, 'heartbeat'));
 app.post('/api/live-lock/release', express.json({ limit: '8kb' }), (req, res) => handleLiveLockAuthed(req, res, 'release'));
 app.post('/api/live-lock/claim-key', express.json({ limit: '8kb' }), (req, res) => handleLiveLockByKey(req, res, 'claim'));
@@ -1922,7 +1956,7 @@ app.get('/api/panel-lives', async (req, res) => {
         if (!r.ok) continue;
         const data = await r.json().catch(() => ({}));
         if (!Array.isArray(data.lives)) continue;
-        const merged = mergePanelLivesLists(filterActivePanelLives(data.lives), localLives);
+        const merged = mergePanelLivesLists(filterActivePanelLives(data.lives).filter((l) => !panelLiveHidden(l)), localLives);
         return res.json({ lives: enrichPanelLivesPlans(merged) });
       } catch { /* siguiente intento */ }
     }

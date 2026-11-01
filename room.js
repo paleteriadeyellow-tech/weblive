@@ -634,7 +634,7 @@ function normalizeProfilesMediaUrls(p) {
 }
 
 /* --------------------------------- La room --------------------------------- */
-export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank, onLiveSessionEnd, onLiveStatus, onGameExec, onClaimLiveLock, onHeartbeatLiveLock, onReleaseLiveLock }) {
+export function createRoom({ id, username: account, roomKey, dataDir, giftsById, getCaps, onUserSave, getLevelVideo, onRelayAction, chargeSpotifyRemote, onStreamerRank, onLiveSessionEnd, onLiveStatus, onGameExec, onClaimLiveLock, onHeartbeatLiveLock, onReleaseLiveLock, onLiveUsagePing }) {
   fs.mkdirSync(dataDir, { recursive: true });
   const SETTINGS_FILE = path.join(dataDir, 'settings.json');
   const PROFILES_FILE = path.join(dataDir, 'profiles.json');
@@ -5569,6 +5569,12 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   let liveLockHeld = false;
   let liveLockBlockedUntil = 0;
   let liveLockBeatTimer = null;
+  // Tiempo en live (panel admin «quién usó más Livecoins»): un ping por minuto mientras está conectado.
+  const liveUsageTimer = setInterval(() => {
+    if (!state.connected || typeof onLiveUsagePing !== 'function') return;
+    Promise.resolve(onLiveUsagePing({ username: state.username || '' })).catch(() => {});
+  }, 60000);
+  liveUsageTimer.unref?.();
   const liveDeviceIdFile = path.join(dataDir, '.live-device-id');
   const LIVE_LOCK_MSG = 'Esta cuenta ya está en live en otro dispositivo. Cierra el live o pulsa Desconectar ahí para poder conectar aquí.';
   /* Sesión única desactivada: daba falsos positivos y cortaba el live a gente que

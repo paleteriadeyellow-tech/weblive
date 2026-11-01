@@ -105,6 +105,7 @@ export const CAPABILITIES = {
     { key: 'ov_topdiamantes', label: 'Top diamantes', path: '/topdiamantes.html' },
     { key: 'ov_toplikeslista', label: 'Ranking likes (lista)', path: '/toplikes-lista.html' },
     { key: 'ov_topdiamanteslista', label: 'Ranking diamantes (lista)', path: '/topdiamantes-lista.html' },
+    { key: 'ov_topvivo', label: 'Top en vivo', path: '/top-vivo.html' },
     { key: 'ov_toplikesgamer', label: 'Ranking likes (gamer)', path: '/toplikes-gamer.html' },
     { key: 'ov_topdiamgamer', label: 'Ranking monedas (gamer)', path: '/topdiamantes-gamer.html' },
     { key: 'ov_toppoints', label: 'Top 3 puntos', path: '/toppoints.html' },
