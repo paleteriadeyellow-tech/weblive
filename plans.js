@@ -100,6 +100,7 @@ export const CAPABILITIES = {
     { key: 'ov_topaltrank', label: 'Top Likes / Diamantes (alternado)', path: '/topalt-rank.html' },
     { key: 'ov_topmultirank', label: 'Top rotatorio (likes / coins / chat / puntos)', path: '/topmulti-rank.html' },
     { key: 'ov_pointslookup', label: 'Consulta de puntos (!puntos)', path: '/points-lookup.html' },
+    { key: 'ov_pointslookuppro', label: 'Consulta de puntos PRO', path: '/points-lookup-pro.html' },
     { key: 'ov_topdonatorspro', label: 'Top donators (Cute / Fantasy / Voxel)', path: '/top-donators-pro.html' },
     { key: 'ov_toplikes', label: 'Top likes', path: '/toplikes.html' },
     { key: 'ov_topdiamantes', label: 'Top diamantes', path: '/topdiamantes.html' },

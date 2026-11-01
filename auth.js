@@ -203,16 +203,16 @@ export function setUserActive(id, active) {
   saveUsers();
   return true;
 }
-/** Normaliza plan guardado: free | premium | founder */
+/** Normaliza plan guardado: free | pro | premium | founder */
 export function normalizeStoredPlan(plan) {
   const p = String(plan || '').toLowerCase();
-  if (p === 'premium' || p === 'founder') return p;
+  if (p === 'premium' || p === 'founder' || p === 'pro') return p;
   return 'free';
 }
 /** Plan de pago (mismos límites que Premium). */
 export function isPaidPlanName(plan) {
   const p = String(plan || '').toLowerCase();
-  return p === 'premium' || p === 'founder' || p === 'admin';
+  return p === 'premium' || p === 'founder' || p === 'pro' || p === 'admin';
 }
 // Plan efectivo del usuario ('premium' para el admin). Si el Premium tenía fecha de
 // caducidad y ya pasó, lo baja a 'free' de forma persistente (y devuelve 'free').
@@ -224,8 +224,9 @@ export function getUserPlan(user) {
     if (user.plan === 'founder') return 'founder';
     return 'premium';
   }
-  // Premium o Founder por días: al caducar pasa a Gratis. premiumUntil = 0 => fijo.
-  if (user.plan === 'premium' || user.plan === 'founder') {
+  // Premium, Founder o PRO por días: al caducar pasa a Gratis. premiumUntil = 0 => fijo.
+  // 'pro' = todo lo de Premium menos los juegos interactivos (lo recorta capsForUser).
+  if (user.plan === 'premium' || user.plan === 'founder' || user.plan === 'pro') {
     if (user.premiumUntil && user.premiumUntil > 0 && Date.now() > user.premiumUntil) {
       user.plan = 'free';
       user.premiumUntil = 0;
@@ -242,8 +243,10 @@ export function getUserPlan(user) {
 export function setUserPlan(id, plan, days) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
-  if (plan === 'founder' || plan === 'premium') {
+  if (plan === 'founder' || plan === 'premium' || plan === 'pro') {
     u.plan = plan;
+    // Quien ya fue Founder renueva a precio Founder para siempre (aunque se le pase un mes).
+    if (plan === 'founder' && !u.founderSince) u.founderSince = Date.now();
     const n = Number(days);
     u.premiumUntil = (Number.isFinite(n) && n > 0) ? Date.now() + n * 24 * 60 * 60 * 1000 : 0;
   } else {
@@ -276,6 +279,58 @@ export function grantPremiumDays(id, days) {
   return { ok: true, plan: u.plan, premiumUntil: u.premiumUntil, days: n };
 }
 /** true salvo que el admin haya desactivado los juegos a ese usuario (admin siempre sí). */
+/** ¿Ya fue Founder alguna vez? Entonces su mensualidad Founder es la barata para siempre. */
+export function isFounderMember(id) {
+  const u = users.find((x) => String(x.id) === String(id));
+  return !!(u && (u.founderSince || u.plan === 'founder'));
+}
+/** Suma N días de Founder (pago PayPal: $50 la 1.ª vez, luego la mensualidad Founder).
+    Si tenía VIP/PRO activo, sus días restantes se respetan y el Founder se suma encima. */
+export function grantFounderDays(id, days) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return { ok: false, error: 'cuenta no encontrada' };
+  if (u.isAdmin) return { ok: true, skipped: true, plan: 'admin', premiumUntil: u.premiumUntil || 0 };
+  const now = Date.now();
+  const currentUntil = Number(u.premiumUntil) || 0;
+  if (u.plan === 'founder' && currentUntil === 0) {
+    return { ok: true, skipped: true, plan: 'founder', premiumUntil: 0, forever: true };
+  }
+  // VIP/PRO fijo (sin fecha) que paga Founder: queda Founder fijo, nunca pierde su plan sin fecha.
+  if ((u.plan === 'premium' || u.plan === 'pro') && currentUntil === 0) {
+    u.plan = 'founder';
+    if (!u.founderSince) u.founderSince = now;
+    saveUsers();
+    return { ok: true, plan: 'founder', premiumUntil: 0, forever: true };
+  }
+  const n = Math.max(1, Math.round(Number(days) || 30));
+  const paidActive = (u.plan === 'founder' || u.plan === 'premium' || u.plan === 'pro') && currentUntil > now;
+  const first = !u.founderSince && u.plan !== 'founder';
+  u.plan = 'founder';
+  u.premiumUntil = (paidActive ? currentUntil : now) + n * 24 * 60 * 60 * 1000;
+  if (!u.founderSince) u.founderSince = now;
+  saveUsers();
+  return { ok: true, plan: 'founder', premiumUntil: u.premiumUntil, days: n, first };
+}
+/** Suma N días de PRO (pago PayPal de $12). Si ya tiene VIP/Founder, los días se suman a ese plan
+    (nunca se le baja de plan por comprar el más barato). */
+export function grantProDays(id, days) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return { ok: false, error: 'cuenta no encontrada' };
+  const now = Date.now();
+  const currentUntil = Number(u.premiumUntil) || 0;
+  if (u.isAdmin || u.plan === 'premium' || u.plan === 'founder') {
+    if (u.isAdmin || currentUntil === 0 || currentUntil > now) return grantPremiumDays(id, days);
+  }
+  const n = Math.max(1, Math.round(Number(days) || 30));
+  if (u.plan === 'pro' && currentUntil === 0) {
+    return { ok: true, skipped: true, plan: 'pro', premiumUntil: 0, forever: true };
+  }
+  const active = u.plan === 'pro' && currentUntil > now;
+  u.plan = 'pro';
+  u.premiumUntil = (active ? currentUntil : now) + n * 24 * 60 * 60 * 1000;
+  saveUsers();
+  return { ok: true, plan: 'pro', premiumUntil: u.premiumUntil, days: n };
+}
 export function isUserGamesEnabled(user) {
   if (!user) return true;
   if (user.isAdmin) return true;

@@ -1,4 +1,4 @@
-// PayPal Checkout: Premium 1 mes (pago único, no suscripción).
+// PayPal Checkout: Premium o PRO 1 mes (pago único, no suscripción).
 // El cobro y la activación viven en Render (fuente de cuentas). El .exe reenvía
 // create-order con la cookie de la nube. Sin CLIENT_ID/SECRET queda inactivo.
 import fs from 'node:fs';
@@ -18,6 +18,40 @@ const API = MODE === 'sandbox' ? 'https://api-m.sandbox.paypal.com' : 'https://a
 const CURRENCY = String(process.env.PAYPAL_CURRENCY || 'USD').toUpperCase();
 const AMOUNT = Number(process.env.PAYPAL_PREMIUM_AMOUNT || 17).toFixed(2);
 const DAYS = Math.max(1, Math.round(Number(process.env.PAYPAL_PREMIUM_DAYS || 30) || 30));
+// Plan PRO: todo lo de Premium menos los juegos interactivos.
+const PRO_AMOUNT = Number(process.env.PAYPAL_PRO_AMOUNT || 12).toFixed(2);
+// Founder: $50 el primer mes y luego $12/mes para siempre (quien ya fue Founder).
+const FOUNDER_FIRST = Number(process.env.PAYPAL_FOUNDER_FIRST || 50).toFixed(2);
+const FOUNDER_MONTHLY = Number(process.env.PAYPAL_FOUNDER_MONTHLY || 12).toFixed(2);
+const PLAN_AMOUNT = { premium: AMOUNT, pro: PRO_AMOUNT };
+function planOf(p) {
+  const s = String(p || '').toLowerCase();
+  return s === 'pro' || s === 'founder' ? s : 'premium';
+}
+/** Lo que paga ESTE usuario por el plan (el Founder depende de si ya fue Founder). */
+function amountFor(plan, userId, isFounderMember) {
+  if (plan === 'founder') return isFounderMember && isFounderMember(userId) ? FOUNDER_MONTHLY : FOUNDER_FIRST;
+  return PLAN_AMOUNT[plan];
+}
+// Paquetes: pago único que suma esos días al plan. Al terminar, se renueva al precio normal
+// (VIP $17/mes; Founder $12/mes, porque con el paquete ya cuenta como Founder).
+const PACKS = {
+  'vip-3': { plan: 'premium', days: 90, amount: '45.00', label: 'VIP 3 meses' },
+  'vip-6': { plan: 'premium', days: 180, amount: '85.00', label: 'VIP 6 meses' },
+  'vip-12': { plan: 'premium', days: 365, amount: '160.00', label: 'VIP 1 año' },
+  'founder-6': { plan: 'founder', days: 180, amount: '100.00', label: 'Founder 6 meses' },
+  'founder-12': { plan: 'founder', days: 365, amount: '165.00', label: 'Founder 1 año' },
+};
+// custom_id = «userId» (Premium, pedidos viejos), «userId|pro», «userId|founder» o «userId|pack:vip-3».
+function splitCustomId(raw) {
+  const s = String(raw || '');
+  const i = s.lastIndexOf('|');
+  if (i <= 0) return { userId: s, plan: 'premium', pack: null };
+  const tail = s.slice(i + 1);
+  const packId = tail.startsWith('pack:') ? tail.slice(5) : '';
+  const pack = packId && PACKS[packId] ? { id: packId, ...PACKS[packId] } : null;
+  return { userId: s.slice(0, i), plan: pack ? pack.plan : planOf(tail), pack };
+}
 
 function publicBase() {
   return String(process.env.PAYPAL_PUBLIC_BASE || process.env.RENDER_EXTERNAL_URL || 'https://livecoins.onrender.com')
@@ -28,10 +62,18 @@ export function isConfigured() {
   return !!(CLIENT_ID && CLIENT_SECRET);
 }
 
-export function publicStatus() {
+export function publicStatus(userId, isFounderMember) {
+  const member = !!(userId && isFounderMember && isFounderMember(userId));
   return {
     enabled: isConfigured(),
     amount: AMOUNT,
+    proAmount: PRO_AMOUNT,
+    founderFirst: FOUNDER_FIRST,
+    founderMonthly: FOUNDER_MONTHLY,
+    // precio Founder para quien pregunta: mensualidad si ya fue Founder, si no el primer pago
+    founderAmount: member ? FOUNDER_MONTHLY : FOUNDER_FIRST,
+    founderMember: member,
+    packs: Object.entries(PACKS).map(([id, p]) => ({ id, plan: p.plan, days: p.days, amount: p.amount })),
     currency: CURRENCY,
     days: DAYS,
     mode: MODE,
@@ -89,11 +131,14 @@ function saveLedger(j) {
   fs.writeFileSync(LEDGER_FILE, JSON.stringify(j, null, 2), 'utf8');
 }
 
-function amountOk(value, currency) {
+function amountOk(value, currency, plan = 'premium', userId = '', isFounderMember = null) {
   const got = Number(value);
-  const want = Number(AMOUNT);
-  if (!Number.isFinite(got) || Math.abs(got - want) > 0.05) return false;
-  return String(currency || '').toUpperCase() === CURRENCY;
+  if (String(currency || '').toUpperCase() !== CURRENCY || !Number.isFinite(got)) return false;
+  const p = planOf(plan);
+  const near = (want) => Math.abs(got - Number(want)) <= 0.05;
+  // Founder: el primer pago siempre vale; la mensualidad solo si ya era Founder.
+  if (p === 'founder') return near(FOUNDER_FIRST) || (near(FOUNDER_MONTHLY) && !!(isFounderMember && isFounderMember(userId)));
+  return near(PLAN_AMOUNT[p]);
 }
 
 function resultPage(title, inner) {
@@ -130,10 +175,16 @@ function captureFromOrder(order) {
   };
 }
 
-async function fulfillCapture(info, grantPremiumDays, onGranted) {
+async function fulfillCapture(info, grants, onGranted) {
   if (!info.captureId && !info.orderId) return { ok: false, error: 'pago incompleto' };
   if (info.status && info.status !== 'COMPLETED') return { ok: false, error: 'pago no completado' };
-  if (!amountOk(info.value, info.currency)) return { ok: false, error: 'monto no válido' };
+  const { userId, plan, pack } = splitCustomId(info.userId);
+  info.userId = userId;
+  if (pack) {
+    if (String(info.currency || '').toUpperCase() !== CURRENCY || Math.abs(Number(info.value) - Number(pack.amount)) > 0.05) {
+      return { ok: false, error: 'monto no válido' };
+    }
+  } else if (!amountOk(info.value, info.currency, plan, info.userId, grants.isFounderMember)) return { ok: false, error: 'monto no válido' };
   if (!info.userId) return { ok: false, error: 'pago sin cuenta' };
 
   const ledger = loadLedger();
@@ -142,7 +193,10 @@ async function fulfillCapture(info, grantPremiumDays, onGranted) {
     return { ok: true, already: true, premiumUntil: ledger.captures[key].premiumUntil || 0 };
   }
 
-  const granted = grantPremiumDays(info.userId, DAYS);
+  const grant = plan === 'pro' && grants.grantProDays ? grants.grantProDays
+    : plan === 'founder' && grants.grantFounderDays ? grants.grantFounderDays
+      : grants.grantPremiumDays;
+  const granted = grant(info.userId, pack ? pack.days : DAYS);
   if (!granted || granted.ok === false) {
     return { ok: false, error: (granted && granted.error) || 'no se pudo activar el plan' };
   }
@@ -152,6 +206,8 @@ async function fulfillCapture(info, grantPremiumDays, onGranted) {
     captureId: info.captureId,
     at: new Date().toISOString(),
     premiumUntil: granted.premiumUntil || 0,
+    plan,
+    pack: pack ? pack.id : undefined,
     skipped: !!granted.skipped,
   };
   saveLedger(ledger);
@@ -159,7 +215,16 @@ async function fulfillCapture(info, grantPremiumDays, onGranted) {
   return { ok: true, granted };
 }
 
-export async function createPremiumOrder(userId) {
+export async function createPremiumOrder(userId, planRaw, isFounderMember, packId, method) {
+  const pack = packId && PACKS[packId] ? { id: packId, ...PACKS[packId] } : null;
+  if (packId && !pack) throw new Error('Paquete no válido');
+  // Quien ya es Founder renueva mes a mes a $12: el paquete Founder (que incluye el primer mes de $50) no le conviene.
+  if (pack && pack.plan === 'founder' && isFounderMember && isFounderMember(userId)) {
+    throw new Error('Ya eres Founder: renuevas cada mes a tu precio Founder.');
+  }
+  const plan = pack ? pack.plan : planOf(planRaw);
+  const value = pack ? pack.amount : amountFor(plan, userId, isFounderMember);
+  const planName = pack ? pack.label : plan === 'pro' ? 'PRO' : plan === 'founder' ? 'Founder' : 'Premium';
   if (!isConfigured()) throw new Error('PayPal no configurado');
   const base = publicBase();
   const { ok, status, data } = await paypalFetch('/v2/checkout/orders', {
@@ -167,14 +232,15 @@ export async function createPremiumOrder(userId) {
     body: {
       intent: 'CAPTURE',
       purchase_units: [{
-        custom_id: String(userId),
-        description: `Livecoins Premium ${DAYS} días`,
-        amount: { currency_code: CURRENCY, value: AMOUNT },
+        custom_id: pack ? `${userId}|pack:${pack.id}` : plan === 'premium' ? String(userId) : `${userId}|${plan}`,
+        description: `Livecoins ${planName} ${pack ? pack.days : DAYS} días`,
+        amount: { currency_code: CURRENCY, value },
       }],
       application_context: {
         brand_name: 'Livecoins',
         locale: 'es-MX',
-        landing_page: 'LOGIN',
+        // «card» = abre el formulario de tarjeta (sin cuenta PayPal); si no, la pantalla para entrar a PayPal.
+        landing_page: method === 'card' ? 'GUEST_CHECKOUT' : 'LOGIN',
         user_action: 'PAY_NOW',
         return_url: `${base}/api/paypal/return`,
         cancel_url: `${base}/api/paypal/cancel`,
@@ -187,10 +253,10 @@ export async function createPremiumOrder(userId) {
   }
   const approveUrl = approveUrlFromOrder(data);
   if (!approveUrl) throw new Error('PayPal no devolvió enlace de pago');
-  return { orderId: data.id, approveUrl };
+  return { orderId: data.id, approveUrl, amount: value };
 }
 
-export async function captureAndGrant(orderId, grantPremiumDays, onGranted) {
+export async function captureAndGrant(orderId, grants, onGranted) {
   const captured = await paypalFetch(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, { method: 'POST' });
   let order = captured.data;
   if (!captured.ok) {
@@ -204,7 +270,7 @@ export async function captureAndGrant(orderId, grantPremiumDays, onGranted) {
   }
   const info = captureFromOrder(order);
   if (!info.orderId) info.orderId = String(orderId);
-  return fulfillCapture(info, grantPremiumDays, onGranted);
+  return fulfillCapture(info, grants, onGranted);
 }
 
 async function verifyWebhook(headers, rawBody) {
@@ -227,10 +293,14 @@ async function verifyWebhook(headers, rawBody) {
 export function mountPaypalRoutes(app, {
   userFromRequest,
   grantPremiumDays,
+  grantProDays,
+  grantFounderDays,
+  isFounderMember,
   AUTH_REMOTE,
   getRemoteCookie,
   onGranted,
 } = {}) {
+  const grants = { grantPremiumDays, grantProDays, grantFounderDays, isFounderMember };
   async function proxyToRemote(req, res, pathname, method = 'GET') {
     const base = String(AUTH_REMOTE || '').replace(/\/+$/, '');
     if (!base) return false;
@@ -257,7 +327,8 @@ export function mountPaypalRoutes(app, {
     if (AUTH_REMOTE) {
       if (await proxyToRemote(req, res, '/api/paypal/status')) return;
     }
-    res.json(publicStatus());
+    const me = userFromRequest(req);
+    res.json(publicStatus(me && me.id, isFounderMember));
   });
 
   app.post('/api/paypal/create-order', express.json(), async (req, res) => {
@@ -275,8 +346,11 @@ export function mountPaypalRoutes(app, {
       return res.status(503).json({ error: 'PayPal no está configurado todavía.', whatsapp: true });
     }
     try {
-      const out = await createPremiumOrder(user.id);
-      res.json({ ok: true, ...out, amount: AMOUNT, currency: CURRENCY, days: DAYS });
+      const packId = String((req.body && req.body.pack) || '').trim();
+      const plan = packId && PACKS[packId] ? PACKS[packId].plan : planOf(req.body && req.body.plan);
+      const method = req.body && req.body.method === 'card' ? 'card' : 'paypal';
+      const out = await createPremiumOrder(user.id, plan, isFounderMember, packId, method);
+      res.json({ ok: true, ...out, plan, currency: CURRENCY, days: packId && PACKS[packId] ? PACKS[packId].days : DAYS });
     } catch (e) {
       console.error('[paypal] create-order:', e && e.message);
       res.status(502).json({ error: (e && e.message) || 'No se pudo crear el pago PayPal.' });
@@ -292,13 +366,15 @@ export function mountPaypalRoutes(app, {
       return res.status(503).send(resultPage('PayPal', '<h1>PayPal no configurado</h1><p>Avisa al administrador.</p>'));
     }
     try {
-      const result = await captureAndGrant(token, grantPremiumDays, onGranted);
+      const result = await captureAndGrant(token, grants, onGranted);
       if (!result.ok) {
         return res.status(400).send(resultPage('Pago', `<h1>No se activó</h1><p>${result.error || 'Error al confirmar.'}</p><p><a href="/#planes">Volver a Planes</a></p>`));
       }
-      res.send(resultPage('Premium', `
-        <h1>Premium activado</h1>
-        <p>Tu plan Premium quedó activo <b>${DAYS} días</b>.</p>
+      const gp = result.granted && result.granted.plan;
+      const planName = gp === 'pro' ? 'PRO' : gp === 'founder' ? 'Founder' : 'Premium';
+      res.send(resultPage(planName, `
+        <h1>${planName} activado</h1>
+        <p>Tu plan ${planName} quedó activo hasta el <b>${new Date(result.granted.premiumUntil || Date.now()).toLocaleDateString('es-MX')}</b>.</p>
         <p>Si usas el .exe, vuelve a Livecoins y recarga el panel.</p>
         <p><a href="/#planes">Ir a Planes</a></p>
       `));
@@ -344,10 +420,10 @@ export function mountPaypalRoutes(app, {
           if (!info.value) info.value = fromOrder.value;
           if (!info.currency) info.currency = fromOrder.currency;
         }
-        await fulfillCapture(info, grantPremiumDays, onGranted);
+        await fulfillCapture(info, grants, onGranted);
       } else if (type === 'CHECKOUT.ORDER.APPROVED') {
         const orderId = event.resource && event.resource.id;
-        if (orderId) await captureAndGrant(orderId, grantPremiumDays, onGranted);
+        if (orderId) await captureAndGrant(orderId, grants, onGranted);
       }
       res.json({ ok: true });
     } catch (e) {

@@ -10369,7 +10369,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       if (caps.plan === 'admin') return true;
       if (caps.features && caps.features.tab_youtube === true) return true;
       const plan = String(caps.plan || '').toLowerCase();
-      return plan === 'premium' || plan === 'founder';
+      return plan === 'premium' || plan === 'founder' || plan === 'pro';
     } catch {
       return false;
     }

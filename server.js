@@ -24,7 +24,7 @@ import {
   registerUser, verifyLogin, renameUsername, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, grantPremiumDays, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled, setUserMaxEnabled, isUserMaxEnabled,
+  getUserPlan, setUserPlan, grantPremiumDays, grantProDays, grantFounderDays, isFounderMember, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled, setUserMaxEnabled, isUserMaxEnabled,
   setUserAdminNotes, setUserDesktopAppVersion,
   getUserBadgesPayload, recordBadgeLive, markBadgeDirectory, markBadgeDesktop, markBadgeGame, markBadgeDailyTop1, setUserManualBadge,
   deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
@@ -555,8 +555,15 @@ function capsForUser(user) {
     return caps;
   }
   const raw = getUserPlan(user);
-  const plan = (raw === 'premium' || raw === 'founder') ? 'premium' : 'free';
+  // PRO = mismos permisos que Premium pero sin juegos interactivos.
+  const plan = (raw === 'premium' || raw === 'founder' || raw === 'pro') ? 'premium' : 'free';
   const caps = applyLocalCaps(effectiveCaps(plan), plan);
+  if (raw === 'pro') {
+    caps.plan = 'pro';
+    for (const k of Object.keys(caps.features || {})) {
+      if (k.startsWith('game_')) caps.features[k] = false;
+    }
+  }
   // Override por usuario: off total, o allowlist de juegos concretos.
   if (!isUserGamesEnabled(user)) {
     for (const k of Object.keys(caps.features || {})) {
@@ -1639,6 +1646,9 @@ app.get('/api/me', async (req, res) => {
 mountPaypalRoutes(app, {
   userFromRequest,
   grantPremiumDays,
+  grantProDays,
+  grantFounderDays,
+  isFounderMember,
   AUTH_REMOTE,
   getRemoteCookie: (id) => remoteCookies.get(id),
   onGranted: (userId) => {
@@ -3696,7 +3706,7 @@ app.post('/api/client-version', express.json({ limit: '4kb' }), async (req, res)
 setInterval(() => {
   for (const u of listUsersDetailed()) {
     const full = getUserById(u.id);
-    if (!full || (full.plan !== 'premium' && full.plan !== 'founder')) continue;
+    if (!full || (full.plan !== 'premium' && full.plan !== 'founder' && full.plan !== 'pro')) continue;
     const before = full.plan;
     const eff = getUserPlan(full); // muta a 'free' si caducó
     if (before !== 'free' && eff === 'free') {
