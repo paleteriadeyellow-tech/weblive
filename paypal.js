@@ -240,7 +240,8 @@ export async function createPremiumOrder(userId, planRaw, isFounderMember, packI
         brand_name: 'Livecoins',
         locale: 'es-MX',
         // «card» = abre el formulario de tarjeta (sin cuenta PayPal); si no, la pantalla para entrar a PayPal.
-        landing_page: method === 'card' ? 'GUEST_CHECKOUT' : 'LOGIN',
+        // En application_context PayPal solo acepta LOGIN / BILLING / NO_PREFERENCE (GUEST_CHECKOUT da INVALID_REQUEST).
+        landing_page: method === 'card' ? 'BILLING' : 'LOGIN',
         user_action: 'PAY_NOW',
         return_url: `${base}/api/paypal/return`,
         cancel_url: `${base}/api/paypal/cancel`,
@@ -248,7 +249,10 @@ export async function createPremiumOrder(userId, planRaw, isFounderMember, packI
     },
   });
   if (!ok || !data.id) {
-    const msg = data.message || data.error_description || data.error || `PayPal ${status}`;
+    // PayPal manda el motivo concreto en details[] (campo e «issue»): se agrega para poder diagnosticar.
+    const det = Array.isArray(data.details) ? data.details.map((x) => [x.field, x.issue, x.description].filter(Boolean).join(' ')).join('; ') : '';
+    const msg = (data.message || data.error_description || data.error || `PayPal ${status}`) + (det ? ` (${det})` : '');
+    console.error('[paypal] create-order rechazado:', status, JSON.stringify(data).slice(0, 800));
     throw new Error(msg);
   }
   const approveUrl = approveUrlFromOrder(data);
