@@ -243,6 +243,8 @@ export async function createPremiumOrder(userId, planRaw, isFounderMember, packI
         // En application_context PayPal solo acepta LOGIN / BILLING / NO_PREFERENCE (GUEST_CHECKOUT da INVALID_REQUEST).
         landing_page: method === 'card' ? 'BILLING' : 'LOGIN',
         user_action: 'PAY_NOW',
+        // Producto digital: sin dirección de envío (el formulario de tarjeta pide menos datos).
+        shipping_preference: 'NO_SHIPPING',
         return_url: `${base}/api/paypal/return`,
         cancel_url: `${base}/api/paypal/cancel`,
       },

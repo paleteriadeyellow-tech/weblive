@@ -45,6 +45,7 @@ import {
 } from './plans.js';
 import * as spotify from './spotify.js';
 import { mountPaypalRoutes } from './paypal.js';
+import { mountMercadoPagoRoutes } from './mercadopago.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
 import { bootstrapUserMedia, registerUserUpload, userUploadKind, migrateUserMediaDir } from './scripts/user-media-guard.mjs';
 import { createMcPresetShare, fetchMcPresetShare } from './mc-preset-share.js';
@@ -1644,6 +1645,20 @@ app.get('/api/me', async (req, res) => {
 });
 
 mountPaypalRoutes(app, {
+  userFromRequest,
+  grantPremiumDays,
+  grantProDays,
+  grantFounderDays,
+  isFounderMember,
+  AUTH_REMOTE,
+  getRemoteCookie: (id) => remoteCookies.get(id),
+  onGranted: (userId) => {
+    const room = rooms.get(userId);
+    if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
+  },
+});
+
+mountMercadoPagoRoutes(app, {
   userFromRequest,
   grantPremiumDays,
   grantProDays,
