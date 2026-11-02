@@ -42,13 +42,17 @@ function amountFor(plan, userId, isFounderMember) {
   if (plan === 'founder') return isFounderMember && isFounderMember(userId) ? PRICES.founderMonthly : PRICES.founderFirst;
   return PRICES[plan];
 }
-// external_reference = «userId|pro», «userId|premium», «userId|founder» o «userId|pack:vip-3».
+// external_reference: Mercado Pago solo acepta letras, números, «-» y «_» (máx. 64).
+// Formato «userId_pro», «userId_premium», «userId_founder» o «userId_pk-vip-3» (el id es un UUID, sin «_»).
+function makeRef(userId, plan, pack) {
+  return `${userId}_${pack ? `pk-${pack.id}` : plan}`;
+}
 function splitRef(raw) {
   const s = String(raw || '');
-  const i = s.lastIndexOf('|');
+  const i = s.lastIndexOf('_');
   if (i <= 0) return { userId: '', plan: 'premium', pack: null };
   const tail = s.slice(i + 1);
-  const packId = tail.startsWith('pack:') ? tail.slice(5) : '';
+  const packId = tail.startsWith('pk-') ? tail.slice(3) : '';
   const pack = packId && PACKS[packId] ? { id: packId, ...PACKS[packId] } : null;
   return { userId: s.slice(0, i), plan: pack ? pack.plan : planOf(tail), pack };
 }
@@ -185,7 +189,7 @@ export async function createMpOrder(userId, planRaw, isFounderMember, packId) {
       type: 'online',
       processing_mode: 'manual',
       total_amount: value,
-      external_reference: `${userId}|${pack ? `pack:${pack.id}` : plan}`,
+      external_reference: makeRef(userId, plan, pack),
       description: `Livecoins ${planName}`,
       items: [{ title: `Livecoins ${planName} (${pack ? pack.days : DAYS} días)`, unit_price: value, quantity: 1 }],
       config: { online: { success_url: back, failure_url: back, pending_url: back, auto_return: 'all' } },
@@ -194,8 +198,11 @@ export async function createMpOrder(userId, planRaw, isFounderMember, packId) {
   const url = data && (data.checkout_url || data.init_point || (data.checkout_pro && data.checkout_pro.init_point));
   if (!ok || !data.id || !url) {
     console.error('[mercadopago] create-order rechazado:', status, JSON.stringify(data).slice(0, 800));
-    const det = Array.isArray(data && data.errors) ? data.errors.map((x) => x.message || x.code).filter(Boolean).join('; ') : '';
-    throw new Error((data && (data.message || data.error)) || `Mercado Pago ${status}${det ? ` (${det})` : ''}`);
+    // El motivo concreto viene en errors[] (code, message, details): se muestra para poder diagnosticar.
+    const det = Array.isArray(data && data.errors)
+      ? data.errors.map((x) => [x.code, x.message, Array.isArray(x.details) ? x.details.join(', ') : x.details].filter(Boolean).join(' ')).join('; ')
+      : '';
+    throw new Error(`Mercado Pago ${status}${det ? ` (${det})` : (data && data.message ? ` (${data.message})` : '')}`);
   }
   return { orderId: data.id, approveUrl: url, amount: value };
 }
