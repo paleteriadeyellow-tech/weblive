@@ -122,8 +122,18 @@ function resultPage(title, inner) {
 </style></head><body><div class="box">${inner}</div></body></html>`;
 }
 
+// El regreso del comprador y el webhook pueden llegar a la vez: una sola activación por orden.
+const inflight = new Map();
+export function fulfillOrder(orderId, grants, onGranted) {
+  const id = String(orderId || '').trim();
+  if (inflight.has(id)) return inflight.get(id);
+  const p = fulfillOrderOnce(id, grants, onGranted).finally(() => inflight.delete(id));
+  inflight.set(id, p);
+  return p;
+}
+
 /** Lee la orden en Mercado Pago (con nuestro token: no se puede falsificar) y, si ya está pagada, activa el plan. */
-export async function fulfillOrder(orderId, grants, onGranted) {
+async function fulfillOrderOnce(orderId, grants, onGranted) {
   const id = String(orderId || '').trim();
   if (!id) return { ok: false, error: 'pago incompleto' };
   const got = await mpFetch(`/v1/orders/${encodeURIComponent(id)}`);
@@ -166,7 +176,16 @@ export async function fulfillOrder(orderId, grants, onGranted) {
     skipped: !!granted.skipped,
   };
   saveLedger(ledger);
-  try { onGranted && onGranted(userId, granted); } catch {}
+  // meta: para el recibo por correo.
+  const methodType = String((order.transactions && order.transactions.payments && order.transactions.payments[0]
+    && order.transactions.payments[0].payment_method && order.transactions.payments[0].payment_method.type) || '');
+  try {
+    onGranted && onGranted(userId, granted, {
+      provider: methodType === 'ticket' ? 'Mercado Pago (OXXO)' : 'Mercado Pago', plan, pack: pack ? pack.id : '',
+      days: pack ? pack.days : DAYS, amount: String(paid), currency: CURRENCY, ref: order.id,
+      payerEmail: String((order.payer && order.payer.email) || ''),
+    });
+  } catch {}
   return { ok: true, granted };
 }
 

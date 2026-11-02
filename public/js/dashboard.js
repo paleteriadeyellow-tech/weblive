@@ -998,7 +998,7 @@ function planCountOf(kind) {
 function ensureCanAdd(kind, limitKey, nounPlural) {
   const lim = capLimit(limitKey);
   if (planCountOf(kind) >= lim) {
-    toast(`Tu plan ${window.CAPS.plan === 'premium' ? 'Premium' : 'Gratis'} permite hasta ${lim} ${nounPlural}.`, 'warn');
+    toast(`Tu plan ${(window.CAPS.plan === 'premium' ? 'Premium' : window.CAPS.plan === 'pro' ? 'PRO' : 'Gratis')} permite hasta ${lim} ${nounPlural}.`, 'warn');
     return false;
   }
   return true;
@@ -1267,25 +1267,38 @@ const PLAN_FEATURE_ORDER = [
 function renderPlanView() {
   const hero = document.getElementById('plan-hero');
   if (!hero) return;
-  const isPremium = window.IS_ADMIN || window.CAPS.plan === 'premium';
+  const isPro = !window.IS_ADMIN && (window.CAPS.plan === 'pro' || String(window.MY_PLAN || '').toLowerCase() === 'pro');
+  const isPremium = window.IS_ADMIN || window.CAPS.plan === 'premium' || isPro;
 
   hero.classList.toggle('is-premium', isPremium);
   const badge = document.getElementById('plan-badge');
   if (badge) {
-    badge.textContent = window.IS_ADMIN ? '★ Admin' : (isPremium ? '⭐ Premium' : 'Gratis');
+    const isFounderPlan = String(window.MY_PLAN || '').toLowerCase() === 'founder';
+    badge.textContent = window.IS_ADMIN ? '★ Admin' : (isFounderPlan ? '👑 Founder' : (isPro ? '💎 PRO' : (isPremium ? '⭐ VIP' : 'Gratis')));
     badge.className = 'plan-badge ' + (isPremium ? 'premium' : 'free');
   }
   const u = document.getElementById('plan-hero-user');
   if (u) u.textContent = '@' + (window.MY_USER || 'usuario');
   const name = document.getElementById('plan-hero-name');
-  if (name) name.textContent = window.IS_ADMIN ? 'Administrador' : (isPremium ? 'Plan Premium' : 'Plan Gratis');
+  if (name) name.textContent = window.IS_ADMIN ? 'Administrador' : (String(window.MY_PLAN || '').toLowerCase() === 'founder' ? 'Plan Founder' : (isPro ? 'Plan PRO' : (isPremium ? 'Plan VIP' : 'Plan Gratis')));
   const desc = document.getElementById('plan-hero-desc');
   if (desc) {
     desc.textContent = window.IS_ADMIN
       ? 'Tienes acceso total a todas las funciones y sin límites.'
-      : (isPremium
+      : (isPro
+          ? 'Tienes todo desbloqueado menos los juegos interactivos. Mejora a VIP para jugar con tu live.'
+          : isPremium
           ? '¡Tienes todo desbloqueado! Disfruta de límites ampliados y todas las funciones.'
-          : 'Estás en el plan gratuito. Mejora a Premium para desbloquear más alertas, overlays y funciones.');
+          : 'Estás en el plan gratuito. Mejora a VIP para desbloquear más alertas, overlays y funciones.');
+  }
+  const heroLogo = document.getElementById('plan-hero-logo');
+  if (heroLogo) {
+    const tier = window.IS_ADMIN ? '' : (String(window.MY_PLAN || '').toLowerCase() === 'founder' ? 'founder' : (isPro ? 'pro' : (isPremium ? 'vip' : 'free')));
+    heroLogo.hidden = !tier;
+    if (tier) {
+      const want = '/img/planes/' + tier + '.webp?v=1';
+      if (heroLogo.getAttribute('src') !== want) heroLogo.src = want;
+    }
   }
   const up = document.getElementById('plan-upgrade');
   if (up) up.style.display = (!isPremium && !window.IS_ADMIN) ? '' : 'none';
@@ -1345,7 +1358,7 @@ async function loadPlanComparison(force) {
     const r = await fetch('/api/plans');
     if (r.ok) planCompareData = await r.json();
   } catch {}
-  await loadPaypalPremiumStatus();
+  await Promise.all([loadPaypalPremiumStatus(), loadMpPayStatus()]);
   planCompareLoading = false;
   renderPlanCompare();
 }
@@ -1357,7 +1370,7 @@ function renderPlanCompare() {
   const { catalog, config } = planCompareData;
   const free = config.free || { limits: {}, features: {} };
   const prem = config.premium || { limits: {}, features: {} };
-  const mine = (window.IS_ADMIN || window.CAPS.plan === 'premium') ? 'premium' : 'free';
+  const mine = (window.IS_ADMIN || window.CAPS.plan === 'premium') ? 'premium' : (window.CAPS.plan === 'pro' ? 'pro' : 'free');
 
   // Marca la columna del plan del usuario
   const th = document.querySelectorAll('#plan-compare thead th');
@@ -1444,65 +1457,235 @@ function renderPlanPricing() {
   const premUntil = Number(window.MY_PREMIUM_UNTIL || 0);
   const premForever = premCurrent && !(premUntil > 0) && !window.IS_ADMIN;
   const canBuy = !window.IS_ADMIN && window.CAPS.plan !== 'founder' && !premForever;
-  const pp = window.PAYPAL_PREMIUM || { enabled: false, amount: '17.00', currency: 'USD', days: 30 };
+  const pp = window.PAYPAL_PREMIUM || { enabled: false, amount: '17.00', proAmount: '12.00', currency: 'USD', days: 30 };
   const priceLabel = `$${pp.amount || '17'} ${pp.currency || 'USD'}`;
   const daysLabel = `${pp.days || 30} días`;
 
-  const freeBtn = freeCurrent
-    ? '<button class="pp-btn current" disabled>Tu plan actual</button>'
-    : '<button class="pp-btn ghost" disabled>Incluido</button>';
-  const premBtn = !canBuy
-    ? '<button class="pp-btn current" disabled>Tu plan actual</button>'
-    : premCurrent
-      ? `<button class="pp-btn buy" id="pp-buy">${pp.enabled ? 'Renovar 1 mes · PayPal' : 'Renovar Premium ⭐'}</button>`
-      : `<button class="pp-btn buy" id="pp-buy">${pp.enabled ? 'Pagar con PayPal · 1 mes' : 'Comprar Premium ⭐'}</button>`;
+  const myTier = window.IS_ADMIN ? 'admin'
+    : (String(window.MY_PLAN || '').toLowerCase() === 'founder' || window.CAPS.plan === 'founder') ? 'founder'
+      : premCurrent ? 'premium'
+        : (window.CAPS.plan === 'pro' || String(window.MY_PLAN || '').toLowerCase() === 'pro') ? 'pro' : 'free';
+  // PRO: $12 por PayPal, todo menos juegos. Si ya tiene VIP/Founder, PRO ya va incluido.
+  // Par de botones: PayPal (con cuenta) y Tarjeta. Con Mercado Pago activo, la tarjeta (y OXXO) va por
+  // Mercado Pago en pesos, sin crear cuenta; si no, por el formulario de tarjeta de PayPal.
+  const mp = window.MP_PAY || { enabled: false };
+  const mpAmount = (plan, pack) => {
+    if (pack) return (mp.packs || []).find((x) => x.id === pack)?.amount;
+    return plan === 'pro' ? mp.proAmount : plan === 'founder' ? mp.founderAmount : mp.amount;
+  };
+  const mxn = (v) => '$' + Number(v || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 }) + ' MXN';
+  const payPair = (cls, plan, pack, paypalLabel, id) => `<div class="ipp-pay2">
+      <button type="button" class="ipp-btn ${cls}"${id ? ` id="${id}"` : ''} data-pp-buy="1" data-pp-plan="${plan}" data-pp-pk="${pack || ''}" data-pp-method="paypal">${paypalLabel}</button>
+      ${mp.enabled && mpAmount(plan, pack)
+        ? `<button type="button" class="ipp-btn ipp-btn-card" data-pp-buy="1" data-pp-plan="${plan}" data-pp-pk="${pack || ''}" data-pp-method="mp">💳 Tarjeta u OXXO · ${mxn(mpAmount(plan, pack))}</button>`
+        : `<button type="button" class="ipp-btn ipp-btn-card" data-pp-buy="1" data-pp-plan="${plan}" data-pp-pk="${pack || ''}" data-pp-method="card">💳 Pagar con tarjeta</button>`}
+    </div>`;
+  const proForever = myTier === 'pro' && !(premUntil > 0);
+  const proBtn = (myTier === 'pro' && proForever)
+    ? '<button class="ipp-btn is-current" disabled>✓ Plan actual</button>'
+    : (myTier === 'premium' || myTier === 'founder' || myTier === 'admin')
+      ? '<button class="ipp-btn ghost" disabled>Incluido en tu plan</button>'
+      : pp.enabled
+        ? payPair('pro', 'pro', '', myTier === 'pro' ? 'Renovar con PayPal' : 'Pagar con PayPal', 'pp-buy-pro')
+        : `<button class="ipp-btn pro" id="pp-buy-pro" data-pp-buy="1" data-pp-plan="pro" data-pp-pk="" data-pp-method="paypal">${myTier === 'pro' ? 'Renovar PRO' : 'Comprar PRO'}</button>`;
+  const proUntilTxt = (myTier === 'pro' && premUntil > 0)
+    ? `<p class="ipp-sub-note">Activo hasta ${new Date(premUntil).toLocaleDateString('es')}</p>` : '';
+  const vipBtn = !canBuy
+    ? '<button class="ipp-btn is-current" disabled>✓ Plan actual</button>'
+    : pp.enabled
+      ? payPair('vip', 'premium', '', premCurrent ? 'Renovar con PayPal' : (myTier === 'pro' ? 'Mejorar a VIP · PayPal' : 'Pagar con PayPal'), 'pp-buy')
+      : `<button class="ipp-btn vip" id="pp-buy" data-pp-buy="1" data-pp-plan="premium" data-pp-pk="" data-pp-method="paypal">${premCurrent ? 'Renovar VIP' : (myTier === 'pro' ? 'Mejorar a VIP' : 'Comprar VIP')}</button>`;
+  // Founder por PayPal: $50 la 1.ª vez; quien ya fue Founder paga la mensualidad ($12) para siempre.
+  const fFirst = String(pp.founderFirst || PLAN_PRICES.founderFirst).replace(/\.00$/, '');
+  const fMonthly = String(pp.founderMonthly || PLAN_PRICES.founderMonthly).replace(/\.00$/, '');
+  const founderMember = !!pp.founderMember || myTier === 'founder';
+  const founderForever = myTier === 'founder' && !(premUntil > 0);
+  const founderBtn = (founderForever || myTier === 'admin')
+    ? '<button class="ipp-btn is-current" disabled>✓ Plan actual</button>'
+    : premForever
+      ? '<button class="ipp-btn ghost" disabled>Ya tienes VIP fijo</button>'
+    : pp.enabled
+      ? payPair('founder', 'founder', '', founderMember ? `Renovar $${fMonthly} con PayPal` : `Pagar $${fFirst} con PayPal`, 'pp-buy-founder')
+      : '<button class="ipp-btn founder" data-ipp-discord="founder">Pedir por Discord</button>';
+  const tagMine = '<span class="ipp-ribbon mine">✓ Tu plan actual</span>';
+  const premUntilTxt = (premCurrent && premUntil > 0 && (myTier === 'premium' || myTier === 'founder'))
+    ? `<p class="ipp-sub-note">Activo hasta ${new Date(premUntil).toLocaleDateString('es')}</p>` : '';
+
+  const fixedPlan = premForever || founderForever || myTier === 'admin';
+  const packCard = (pk) => {
+    const save = pk.full - pk.price;
+    // Paquetes por PayPal (se activan solos). Founder ya activo: renueva mes a mes a su precio.
+    const packBtn = fixedPlan
+      ? '<button type="button" class="ipp-btn ghost" disabled>Ya tienes plan fijo</button>'
+      : (pk.tier === 'founder' && founderMember)
+        ? '<button type="button" class="ipp-btn ghost" disabled>Ya eres Founder · renueva a $' + fMonthly + '/mes</button>'
+        : pp.enabled
+          ? payPair(pk.tier, pk.tier === 'founder' ? 'founder' : 'premium', pk.id, 'Pagar con PayPal')
+          : `<button type="button" class="ipp-btn ${pk.tier}" data-ipp-discord="${pk.id}">Pedir por Discord</button>`;
+    return `<div class="ipp-pack ${pk.tier}">
+      <div class="ipp-pack-art">
+        <span class="ipp-pack-plan">${pk.tier === 'founder' ? '👑 Founder' : '⭐ VIP'}</span>
+        <img class="ipp-pack-ico" src="/img/planes/${pk.tier === 'founder' ? 'founder' : 'vip'}.webp?v=1" alt="" aria-hidden="true" decoding="async" loading="lazy">
+        <span class="ipp-pack-len">${pk.label}</span>
+      </div>
+      <div class="ipp-pack-body">
+        <div class="ipp-pack-price">$${pk.price}<s>$${pk.full}</s></div>
+        <div class="ipp-pack-save">${save > 0 ? `Ahorras $${save}` : '&nbsp;'}</div>
+        <p class="ipp-pack-desc">${pk.desc}</p>
+        ${packBtn}
+        <p class="ipp-fine">Pago único. Al terminar, se renueva al precio normal.</p>
+      </div>
+    </div>`;
+  };
 
   wrap.innerHTML = `
-    <div class="pp-card free ${freeCurrent ? 'is-mine' : ''}">
-      ${freeCurrent ? '<span class="pp-tag">TU PLAN</span>' : ''}
-      <div class="pp-head">
-        <div class="pp-name">🆓 Plan Gratis</div>
-        <div class="pp-price">$0<small>/ siempre</small></div>
-      </div>
-      <p class="pp-tagline">Para empezar a transmitir con lo esencial.</p>
-      <ul class="pp-list">${buildList('free')}</ul>
-      ${freeBtn}
+    <div class="ipp-contact">
+      <span class="ipp-contact-txt">¿Quieres mejorar tu plan o tienes problemas con el pago? <b>Contáctanos:</b></span>
+      <button type="button" class="ipp-discord-link" data-ipp-discord="contact">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.3a18.3 18.3 0 0 0-5.5 0L8.7 3a19.7 19.7 0 0 0-4.9 1.4C.6 9.1-.3 13.6.1 18.1A19.9 19.9 0 0 0 6.1 21l1.3-2a13 13 0 0 1-1.9-.9l.4-.3a14.2 14.2 0 0 0 12.1 0l.4.3c-.6.4-1.2.7-1.9.9l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.5-13.6zM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4z"/></svg>
+        Discord
+      </button>
     </div>
-    <div class="pp-card premium ${premCurrent ? 'is-mine' : ''}">
-      <span class="pp-tag gold">⭐ RECOMENDADO</span>
-      <div class="pp-head">
-        <div class="pp-name">⭐ Plan Premium</div>
-        <div class="pp-price">${priceLabel}<small>/ ${daysLabel} · todo desbloqueado</small></div>
-      </div>
-      <p class="pp-tagline">Sin límites y con todos los overlays y funciones.</p>
-      <ul class="pp-list">${buildList('premium')}</ul>
-      ${premBtn}
-      ${IS_DESKTOP ? '<p class="pp-note">Tras pagar, recarga el panel (o cierra sesión y entra de nuevo).</p>' : ''}
-    </div>
-    <div class="pp-card premium agency">
-      <span class="pp-tag gold">AGENCIA</span>
-      <div class="pp-agency-row">
-        <div>
-          <div class="pp-head">
-            <div class="pp-name">🤝 Plan Agency</div>
-            <div class="pp-price">Premium<small>/ durante tu permanencia en la agencia</small></div>
-          </div>
-          <p class="pp-tagline">Uniéndote a la agencia puedes obtener el Plan Premium durante toda tu permanencia. Mismos beneficios que Premium.</p>
+
+    <div class="ipp-tiers">
+      <div class="ipp-tier free ${myTier === 'free' ? 'is-mine' : ''}">
+        ${myTier === 'free' ? tagMine : ''}
+        <div class="ipp-tier-head">
+          <img class="ipp-tier-logo" src="/img/planes/free.webp?v=1" alt="Plan Gratis" width="640" height="544" decoding="async">
+          <div class="ipp-tier-sub">Para empezar a transmitir</div>
+          <div class="ipp-price">$0<span>/ siempre</span></div>
         </div>
-        <div>
-          <button type="button" class="pp-btn buy" id="pp-agency-join">Solicitar unirse</button>
-          <button type="button" class="pp-btn contact" id="pp-agency-wa">Contactar</button>
+        <ul class="ipp-list">${buildList('free')}</ul>
+        <div class="ipp-foot">
+          ${myTier === 'free' ? '<button class="ipp-btn is-current" disabled>✓ Plan actual</button>' : '<button class="ipp-btn ghost" disabled>Incluido</button>'}
         </div>
       </div>
+
+      <div class="ipp-tier pro ${myTier === 'pro' ? 'is-mine' : ''}">
+        ${myTier === 'pro' ? tagMine : '<span class="ipp-ribbon pro">Nuevo</span>'}
+        <div class="ipp-tier-head">
+          <img class="ipp-tier-logo" src="/img/planes/pro.webp?v=1" alt="Plan PRO" width="640" height="470" decoding="async">
+          <div class="ipp-tier-sub">Todo menos los juegos interactivos</div>
+          <div class="ipp-price">$${String(pp.proAmount || '12').replace(/\.00$/, '')}<span>/ ${daysLabel}</span></div>
+          <div class="ipp-price-note">${pp.currency || 'USD'} · pago con PayPal</div>
+        </div>
+        <ul class="ipp-list">${buildList('premium')}${li(false, 'Juegos interactivos')}</ul>
+        <div class="ipp-foot">
+          ${proBtn}
+          ${proUntilTxt}
+          ${IS_DESKTOP && myTier !== 'premium' && myTier !== 'founder' && myTier !== 'admin' ? '<p class="ipp-sub-note">Tras pagar, recarga el panel (o cierra sesión y entra de nuevo).</p>' : ''}
+        </div>
+      </div>
+
+      <div class="ipp-tier vip ${myTier === 'premium' ? 'is-mine' : ''}">
+        ${myTier === 'premium' ? tagMine : '<span class="ipp-ribbon vip">Más popular</span>'}
+        <div class="ipp-tier-head">
+          <img class="ipp-tier-logo" src="/img/planes/vip.webp?v=1" alt="Plan VIP" width="640" height="439" decoding="async">
+          <div class="ipp-tier-sub">Todo desbloqueado, sin límites</div>
+          <div class="ipp-price">$${String(pp.amount || '17').replace(/\.00$/, '')}<span>/ ${daysLabel}</span></div>
+          <div class="ipp-price-note">${pp.currency || 'USD'} · pago con PayPal</div>
+        </div>
+        <ul class="ipp-list">${buildList('premium')}${li(true, 'Juegos interactivos')}</ul>
+        <div class="ipp-foot">
+          ${vipBtn}
+          ${myTier === 'premium' ? premUntilTxt : ''}
+          ${IS_DESKTOP && canBuy ? '<p class="ipp-sub-note">Tras pagar, recarga el panel (o cierra sesión y entra de nuevo).</p>' : ''}
+        </div>
+      </div>
+
+      <div class="ipp-tier founder ${myTier === 'founder' ? 'is-mine' : ''}">
+        ${myTier === 'founder' ? tagMine : '<span class="ipp-ribbon founder">Mejor precio</span>'}
+        <div class="ipp-tier-head">
+          <img class="ipp-tier-logo" src="/img/planes/founder.webp?v=1" alt="Plan Founder" width="640" height="454" decoding="async">
+          <div class="ipp-tier-sub">Para los que apoyan Livecoins</div>
+          <div class="ipp-price">$${founderMember ? fMonthly : fFirst}<span>/ ${founderMember ? 'mes' : 'primer mes'}</span></div>
+          <div class="ipp-price-note">${founderMember
+            ? `Tu precio Founder <b>para siempre</b> · ahorras $${PLAN_PRICES.vipMonthly - Number(fMonthly)} cada mes vs VIP`
+            : `Después <b>$${fMonthly}/mes para siempre</b> · ahorras $${PLAN_PRICES.vipMonthly - Number(fMonthly)} cada mes vs VIP`}</div>
+        </div>
+        <ul class="ipp-list">
+          ${li(true, 'Todo lo de <b>VIP</b>, sin límites')}
+          ${li(true, `Mensualidad de <b>$${fMonthly}</b> para siempre desde el 2.º mes`)}
+          ${li(true, 'Insignia <b>👑 Founder</b> en tu cuenta')}
+          ${li(true, 'Apoyas el desarrollo de la app')}
+        </ul>
+        <div class="ipp-foot">
+          ${founderBtn}
+          ${myTier === 'founder' ? premUntilTxt : (pp.enabled ? '<p class="ipp-sub-note">Pago con PayPal · 30 días por pago.</p>' : '<p class="ipp-sub-note">Se activa contactando por Discord.</p>')}
+        </div>
+      </div>
     </div>
+
+    <div class="ipp-agency">
+      <div class="ipp-agency-txt">
+        <span class="ipp-ribbon agency">Agencia</span>
+        <div class="ipp-tier-name">🤝 Plan Agency</div>
+        <p>Uniéndote a la agencia obtienes <b>VIP</b> durante toda tu permanencia. Mismos beneficios que VIP.</p>
+      </div>
+      <div class="ipp-agency-btns">
+        <button type="button" class="ipp-btn vip" id="pp-agency-join">Solicitar unirse</button>
+        <button type="button" class="ipp-btn ghost" id="pp-agency-wa">Contactar</button>
+      </div>
+    </div>
+
+    <div class="ipp-packs-head">
+      <h2>Paquetes</h2>
+      <p>Paga varios meses de una vez y ahorra. Pago único con PayPal, tarjeta u OXXO: los días se suman a la fecha de fin de tu plan. Cuando se acaban, renuevas al precio normal.</p>
+    </div>
+    <div class="ipp-packs">${PLAN_PACKS.map(packCard).join('')}</div>
+    <p class="ipp-legal">Al pagar aceptas los <a href="#" data-legal="terminos">Términos de servicio</a> y el <a href="#" data-legal="privacidad">Aviso de privacidad</a>.
+      Los pagos no son reembolsables, salvo cobro duplicado o si tu plan no se activó (<a href="#" data-legal="reembolsos">política de reembolsos</a>).
+      No hay cobros automáticos: renuevas solo si quieres.</p>
   `;
 
-  const buyBtn = document.getElementById('pp-buy');
-  if (buyBtn) buyBtn.onclick = () => startPremiumPurchase();
+  // Páginas legales: en la app de PC se abren en el navegador (la página vive en la nube).
+  wrap.querySelectorAll('[data-legal]').forEach((a) => {
+    a.onclick = (e) => {
+      e.preventDefault();
+      const url = `${window.desktopAPI ? 'https://livecoins.onrender.com' : ''}/legal.html#${a.dataset.legal}`;
+      if (typeof openExternalLink === 'function') openExternalLink(url);
+      else window.open(url, '_blank', 'noopener,noreferrer');
+    };
+  });
+  wrap.querySelectorAll('[data-pp-buy]').forEach((b) => {
+    b.onclick = () => startPremiumPurchase(b.dataset.ppPlan || 'premium', b.dataset.ppPk || '', b.dataset.ppMethod || 'paypal', b);
+  });
   const agencyBtn = document.getElementById('pp-agency-join');
   if (agencyBtn) agencyBtn.onclick = () => openAgencyJoinRequest();
   const agencyWa = document.getElementById('pp-agency-wa');
   if (agencyWa) agencyWa.onclick = () => openAgencyWhatsApp();
+  wrap.querySelectorAll('[data-ipp-discord]').forEach((b) => {
+    b.onclick = () => openPlanDiscord(b.dataset.ippDiscord);
+  });
+}
+
+/* Precios y paquetes de la pestaña Planes (solo texto: el cobro de estos se hace por Discord). */
+const PLAN_PRICES = { proMonthly: 12, vipMonthly: 17, founderFirst: 50, founderMonthly: 12 };
+const PLAN_PACKS = [
+  { id: 'vip-3', tier: 'vip', label: '3 meses', price: 45, full: 51, desc: 'VIP durante 3 meses.' },
+  { id: 'vip-6', tier: 'vip', label: '6 meses', price: 85, full: 102, desc: 'VIP durante 6 meses.' },
+  { id: 'vip-12', tier: 'vip', label: '1 año', price: 160, full: 204, desc: 'VIP durante 12 meses.' },
+  // full = $50 del primer mes + $12 por cada mes siguiente.
+  { id: 'founder-6', tier: 'founder', label: '6 meses', price: 100, full: 110, desc: 'Founder: primer mes + 5 meses.' },
+  { id: 'founder-12', tier: 'founder', label: '1 año', price: 165, full: 182, desc: 'Founder: primer mes + 11 meses.' },
+];
+const PLAN_DISCORD_URL = 'https://discord.gg/EdZCWK7Gxz';
+
+/** Abre el Discord y copia un mensaje listo para pegar con lo que quiere comprar. */
+function openPlanDiscord(what) {
+  const pk = PLAN_PACKS.find((p) => p.id === what);
+  const user = window.MY_USER || '';
+  let want = 'mejorar mi plan';
+  if (pk) want = `el paquete ${pk.tier === 'founder' ? 'Founder' : 'VIP'} de ${pk.label} ($${pk.price} USD)`;
+  else if (what === 'founder') want = `el plan Founder ($${PLAN_PRICES.founderFirst} USD el primer mes, luego $${PLAN_PRICES.founderMonthly}/mes para siempre)`;
+  const msg = `Hola, quiero ${want} de Livecoins. Mi usuario es: ${user}`;
+  const done = () => { try { toast('Mensaje copiado. Pégalo en Discord para que te activemos.', 'ok'); } catch {} };
+  try {
+    if (what === 'contact') { /* solo abrir */ }
+    else if (navigator.clipboard?.writeText) navigator.clipboard.writeText(msg).then(done).catch(() => {});
+  } catch {}
+  if (typeof openExternalLink === 'function') openExternalLink(PLAN_DISCORD_URL);
+  else window.open(PLAN_DISCORD_URL, '_blank', 'noopener,noreferrer');
 }
 
 const AGENCY_SCOUT_URL = 'https://www.tiktok.com/tcn/scout_creators?use_spark=1&__live_platform__=webcast&hide_nav_bar=1&web_fit_status_bar=1&agency_scout_source=qr_code_leads&ShareLinkID=7373591056006957829';
@@ -1527,8 +1710,8 @@ function openPremiumWhatsApp() {
   else window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-function showPaypalFallbackLink(url) {
-  const btn = document.getElementById('pp-buy');
+function showPaypalFallbackLink(url, fromBtn) {
+  const btn = (fromBtn && fromBtn.closest('.ipp-pay2')) || fromBtn || document.getElementById('pp-buy');
   if (!btn || !url) return;
   let hint = document.getElementById('pp-open-hint');
   if (!hint) {
@@ -1538,11 +1721,18 @@ function showPaypalFallbackLink(url) {
     btn.insertAdjacentElement('afterend', hint);
   }
   const safe = String(url).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  hint.innerHTML = `Si no se abrió, <a href="${safe}" target="_blank" rel="noopener noreferrer">pulsa aquí para pagar en PayPal</a>.`;
+  hint.innerHTML = `Si no se abrió, <a href="${safe}" target="_blank" rel="noopener noreferrer">pulsa aquí para pagar</a>.`;
 }
 
-function openPaypalCheckout(url) {
+function openPaypalCheckout(url, method) {
   if (!url) return;
+  // Tarjeta en la app de PC: ventana limpia sin su sesión de PayPal (no hace falta incógnito).
+  if (method === 'card' && window.desktopAPI?.openCardCheckout) {
+    window.desktopAPI.openCardCheckout(url).then((r) => {
+      if (!r || r.ok === false) { if (typeof openExternalLink === 'function') openExternalLink(url); else window.open(url, '_blank', 'noopener,noreferrer'); }
+    }).catch(() => {});
+    return;
+  }
   if (typeof openExternalLink === 'function') {
     openExternalLink(url);
     return;
@@ -1561,11 +1751,26 @@ async function loadPaypalPremiumStatus() {
     window.PAYPAL_PREMIUM = {
       enabled: !!(d && d.enabled),
       amount: d && d.amount ? d.amount : '17.00',
+      proAmount: d && d.proAmount ? d.proAmount : '12.00',
+      founderFirst: d && d.founderFirst ? d.founderFirst : '50.00',
+      founderMonthly: d && d.founderMonthly ? d.founderMonthly : '12.00',
+      founderMember: !!(d && d.founderMember),
       currency: d && d.currency ? d.currency : 'USD',
       days: d && d.days ? d.days : 30,
     };
   } catch {
-    window.PAYPAL_PREMIUM = { enabled: false, amount: '17.00', currency: 'USD', days: 30 };
+    window.PAYPAL_PREMIUM = { enabled: false, amount: '17.00', proAmount: '12.00', currency: 'USD', days: 30 };
+  }
+}
+
+/** Mercado Pago (tarjeta sin cuenta y OXXO, en pesos). */
+async function loadMpPayStatus() {
+  try {
+    const r = await fetch('/api/mp/status', { credentials: 'same-origin', cache: 'no-store' });
+    const d = await r.json().catch(() => ({}));
+    window.MP_PAY = r.ok && d && d.enabled ? d : { enabled: false };
+  } catch {
+    window.MP_PAY = { enabled: false };
   }
 }
 
@@ -1578,8 +1783,8 @@ async function watchPremiumActivation(untilBefore) {
       if (!r.ok) continue;
       const me = await r.json();
       const until = Number(me.premiumUntil) || 0;
-      if (me.plan === 'premium' && until > before) {
-        toast('Premium activado ⭐ Recargando…');
+      if ((me.plan === 'premium' || me.plan === 'pro' || me.plan === 'founder') && until > before) {
+        toast(me.plan === 'pro' ? 'PRO activado 💎 Recargando…' : me.plan === 'founder' ? 'Founder activado 👑 Recargando…' : 'Premium activado ⭐ Recargando…');
         setTimeout(() => location.reload(), 700);
         return;
       }
@@ -1588,24 +1793,28 @@ async function watchPremiumActivation(untilBefore) {
 }
 
 let premiumPurchaseBusy = false;
-async function startPremiumPurchase() {
+async function startPremiumPurchase(plan = 'premium', pack = '', method = 'paypal', btnEl = null) {
   if (premiumPurchaseBusy) return;
   premiumPurchaseBusy = true;
-  const btn = document.getElementById('pp-buy');
+  const btn = btnEl || document.getElementById(plan === 'pro' ? 'pp-buy-pro' : plan === 'founder' ? 'pp-buy-founder' : 'pp-buy');
   if (btn) btn.disabled = true;
   const untilBefore = Number(window.MY_PREMIUM_UNTIL || 0);
   try {
-    const r = await fetch('/api/paypal/create-order', {
+    const r = await fetch(method === 'mp' ? '/api/mp/create-order' : '/api/paypal/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: '{}',
+      body: JSON.stringify({ plan: plan === 'pro' || plan === 'founder' ? plan : 'premium', pack: pack || undefined, method: method === 'card' ? 'card' : 'paypal' }),
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok && d.approveUrl) {
-      openPaypalCheckout(d.approveUrl);
-      showPaypalFallbackLink(d.approveUrl);
-      toast('Abriendo PayPal en tu navegador. Al pagar, Premium se activa 1 mes.');
+      openPaypalCheckout(d.approveUrl, method);
+      showPaypalFallbackLink(d.approveUrl, btn);
+      toast(method === 'mp'
+        ? 'Abriendo Mercado Pago. Con tarjeta tu plan se activa al pagar; con OXXO, cuando pagues en la tienda.'
+        : method === 'card'
+        ? 'Abriendo el pago con tarjeta en tu navegador. Al pagar, tu plan se activa solo.'
+        : 'Abriendo PayPal en tu navegador. Al pagar, tu plan se activa solo.');
       watchPremiumActivation(untilBefore);
       return;
     }
@@ -1808,7 +2017,7 @@ function applyLimitUI() {
           if (host && host.nextSibling) host.parentNode.insertBefore(note, host.nextSibling);
           else view.insertBefore(note, view.children[1] || null);
         }
-        note.textContent = `Plan ${window.CAPS.plan === 'premium' ? 'Premium' : 'Gratis'}: ${count}/${lim} ${d.noun}.` +
+        note.textContent = `Plan ${(window.CAPS.plan === 'premium' ? 'Premium' : window.CAPS.plan === 'pro' ? 'PRO' : 'Gratis')}: ${count}/${lim} ${d.noun}.` +
           (reached ? ' Has llegado al límite.' : '');
         note.style.display = '';
       } else if (note) {
@@ -19177,7 +19386,7 @@ function pushStyleOverlayPreviews() {
     syncTopPointsRowsUi(settings?.topPointsRank?.rows);
     syncTopPointsDesignUi(settings?.topPointsRank?.design);
   } catch {}
-  STYLE_OVERLAYS.forEach((o) => { if (o._push) o._push(); });
+  STYLE_OVERLAYS.forEach((o) => { if (o && o._push) o._push(); });
   try { fillGiftRouletteGameSelects(); } catch {}
 }
 initModalDrag();
@@ -33096,7 +33305,7 @@ function loadPanelStylesheet(href) {
   document.head.appendChild(l);
 }
 
-const DASHBOARD_GAMES_SRC = '/js/dashboard-games.js?v=sov402';
+const DASHBOARD_GAMES_SRC = '/js/dashboard-games.js?v=sov464w';
 function loadDashboardGames() {
   return loadGameCatalogScript(DASHBOARD_GAMES_SRC);
 }

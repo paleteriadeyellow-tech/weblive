@@ -16,6 +16,7 @@ import { TikTokLiveConnection } from 'tiktok-live-connector';
 import { createRoom } from './room.js';
 import { createLiveLockStore } from './live-lock.js';
 import { createLiveUsageStore, monthKey } from './live-usage.js';
+import { createErrorStore, createRateLimit } from './error-reports.js';
 import { ensureViewerAvatar, sendCachedAvatar, findCachedAvatar, persistViewerAvatar } from './tt-avatar-cache.js';
 import { isEdgeTtsVoice, ttsSynthEdge, EDGE_EN_FALLBACK } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
@@ -46,6 +47,7 @@ import {
 import * as spotify from './spotify.js';
 import { mountPaypalRoutes } from './paypal.js';
 import { mountMercadoPagoRoutes } from './mercadopago.js';
+import { sendPaymentReceipt, startExpiryReminders } from './billing-mail.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
 import { bootstrapUserMedia, registerUserUpload, userUploadKind, migrateUserMediaDir } from './scripts/user-media-guard.mjs';
 import { createMcPresetShare, fetchMcPresetShare } from './mc-preset-share.js';
@@ -91,6 +93,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const liveLock = createLiveLockStore(path.join(DATA_DIR, 'live-locks.json'));
 const liveUsage = createLiveUsageStore(path.join(DATA_DIR, 'live-usage.json'));
+const errorStore = createErrorStore(path.join(DATA_DIR, 'error-reports.json'));
+const errorRate = createRateLimit(30);
 const streamerRankings = createStreamerRankings(DATA_DIR);
 const IS_DESKTOP = process.env.DESKTOP === '1';
 
@@ -1652,9 +1656,10 @@ mountPaypalRoutes(app, {
   isFounderMember,
   AUTH_REMOTE,
   getRemoteCookie: (id) => remoteCookies.get(id),
-  onGranted: (userId) => {
+  onGranted: (userId, granted, meta) => {
     const room = rooms.get(userId);
     if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
+    sendPaymentReceipt(getUserById(userId), granted, meta).catch(() => {});
   },
 });
 
@@ -1666,11 +1671,15 @@ mountMercadoPagoRoutes(app, {
   isFounderMember,
   AUTH_REMOTE,
   getRemoteCookie: (id) => remoteCookies.get(id),
-  onGranted: (userId) => {
+  onGranted: (userId, granted, meta) => {
     const room = rooms.get(userId);
     if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
+    sendPaymentReceipt(getUserById(userId), granted, meta).catch(() => {});
   },
 });
+
+// Aviso por correo 3 días antes de que venza un plan (solo la nube, que es la que cobra).
+if (!AUTH_REMOTE) startExpiryReminders({ dataDir: DATA_DIR, listUsersDetailed, getUserById, getUserPlan });
 
 function clientRateKey(req) {
   return String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || 'ip').split(',')[0].trim();
@@ -1948,6 +1957,21 @@ app.post('/api/live-usage/ping-key', express.json({ limit: '4kb' }), (req, res) 
   const user = getUserByRoomKey(String(req.body?.roomKey || '').trim());
   if (!user) return res.status(401).json({ error: 'bad key' });
   res.json(liveUsage.ping(user.id, { tiktok: req.body?.username }));
+});
+/* Reporte de errores: llegan del panel web, del panel de la app de PC y del servidor del .exe. */
+app.post('/api/client-errors', express.json({ limit: '24kb' }), (req, res) => {
+  if (!errorRate(clientRateKey(req))) return res.json({ ok: false, limited: true });
+  const body = req.body || {};
+  const user = userFromRequest(req) || (body.roomKey ? getUserByRoomKey(String(body.roomKey).trim()) : null);
+  const list = Array.isArray(body.errors) ? body.errors.slice(0, 10) : [];
+  for (const r of list) errorStore.add({ ...(r || {}), app: body.app, version: r?.version || body.version }, { username: user?.username || '' });
+  res.json({ ok: true });
+});
+app.get('/api/admin/errors', requireAdmin, (req, res) => {
+  res.json({ ok: true, groups: errorStore.list() });
+});
+app.post('/api/admin/errors/clear', requireAdmin, express.json(), (req, res) => {
+  res.json(errorStore.clear(String(req.body?.id || '')));
 });
 // Admin: quién estuvo más tiempo en live en el mes (?month=AAAA-MM; por defecto el actual).
 app.get('/api/admin/live-usage', requireAdmin, (req, res) => {

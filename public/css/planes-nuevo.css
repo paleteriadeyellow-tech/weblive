@@ -1,0 +1,169 @@
+/* =====================================================================
+   PLANES — diseño nuevo (Gratis · VIP · Founder + paquetes).
+   Solo visual. Para volver al diseño anterior, quita el <link id="lc-planes-nuevo">.
+   ===================================================================== */
+/* Usa los colores de colores-nuevos.css (gris + azul). */
+/* ===================== Planes (rediseño: Gratis · VIP · Founder + paquetes) ===================== */
+html body main #view-planes.planes-pro {
+  max-width: 1180px !important;
+  --ipp-free: #9aa3ad; --ipp-vip: #8977d5; --ipp-vip-2: #7c5cff; --ipp-gold: #ffc247; --ipp-gold-2: #ff9a2b;
+}
+html body main #view-planes .plan-pricing { display: block !important; margin: 0 0 22px !important; }
+
+/* Franja de contacto */
+html body main #view-planes .ipp-contact {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 22px; padding: 14px 18px;
+  border-radius: 14px; background: var(--tn-card); border: 1px solid var(--tn-card-line); border-left: 3px solid #9582e2;
+}
+html body main #view-planes .ipp-contact-txt { font-size: 13.5px; color: var(--tn-mut); }
+html body main #view-planes .ipp-contact-txt b { color: var(--tn-txt); }
+html body main #view-planes .ipp-discord-link {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 9px; cursor: pointer;
+  background: rgba(149, 130, 226, .16); border: 1px solid rgba(149, 130, 226, .45); color: #cec5f1; font-weight: 700; font-size: 13.5px;
+}
+html body main #view-planes .ipp-discord-link:hover { background: rgba(149, 130, 226, .28); color: #fff; }
+html body main #view-planes .ipp-discord-link svg { width: 18px; height: 18px; }
+
+/* Tarjetas de plan */
+html body main #view-planes .ipp-tiers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: stretch; padding-top: 14px; }
+html body main #view-planes .ipp-tier.pro { --c: #22d3ee; background: linear-gradient(180deg, rgba(34, 211, 238, .08), #1b1b1f 42%); border-color: rgba(34, 211, 238, .32); border-top-color: var(--c); }
+html body main #view-planes .ipp-ribbon.pro { background: linear-gradient(90deg, #0891b2, #22d3ee); color: #fff; border: 0; }
+html body main #view-planes .ipp-btn.pro { background: linear-gradient(90deg, #0891b2, #22d3ee); box-shadow: 0 8px 22px rgba(34, 211, 238, .25); color: #fff; }
+@media (max-width: 1280px) { html body main #view-planes .ipp-tiers { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+html body main #view-planes .ipp-tier {
+  --c: var(--ipp-free);
+  position: relative; display: flex; flex-direction: column; border-radius: 18px; overflow: visible;
+  background: #1b1b1f; border: 1px solid var(--tn-card-line); border-top: 3px solid var(--c);
+}
+html body main #view-planes .ipp-tier.vip { --c: var(--ipp-vip); background: linear-gradient(180deg, rgba(137, 119, 213, .09), #1b1b1f 42%); border-color: rgba(137, 119, 213, .35); border-top-color: var(--c); }
+html body main #view-planes .ipp-tier.founder { --c: var(--ipp-gold); background: linear-gradient(180deg, rgba(255,194,71,.10), #1b1b1f 42%); border-color: rgba(255,194,71,.35); border-top-color: var(--c); }
+html body main #view-planes .ipp-tier.is-mine { box-shadow: 0 0 0 1px var(--c), 0 14px 40px rgba(0,0,0,.35); }
+html body main #view-planes .ipp-ribbon {
+  position: absolute; top: -13px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  background: #2a2a2f; color: var(--tn-txt); border: 1px solid var(--tn-ctl-line);
+}
+html body main #view-planes .ipp-ribbon.mine { background: #141416; color: var(--c); border-color: var(--c); }
+html body main #view-planes .ipp-ribbon.vip { background: linear-gradient(90deg, var(--ipp-vip), var(--ipp-vip-2)); color: #fff; border: 0; }
+html body main #view-planes .ipp-ribbon.founder { background: linear-gradient(90deg, var(--ipp-gold), var(--ipp-gold-2)); color: #1a1205; border: 0; }
+html body main #view-planes .ipp-ribbon.agency { position: static; transform: none; display: inline-block; margin: 0 0 8px; background: linear-gradient(90deg, var(--ipp-gold), var(--ipp-gold-2)); color: #1a1205; border: 0; }
+
+html body main #view-planes .ipp-tier-head { padding: 24px 22px 18px; border-bottom: 1px solid var(--tn-line-soft); }
+html body main #view-planes .ipp-tier-name { font-size: 22px; font-weight: 900; letter-spacing: .02em; text-transform: uppercase; color: var(--c, var(--tn-txt)); }
+html body main #view-planes .ipp-tier.free .ipp-tier-name { color: var(--tn-txt); }
+html body main #view-planes .ipp-tier-sub { margin: 4px 0 14px; font-size: 13px; color: var(--tn-mut); }
+html body main #view-planes .ipp-price { font-size: 44px; font-weight: 900; line-height: 1; color: var(--tn-txt); letter-spacing: -.02em; }
+html body main #view-planes .ipp-price span { margin-left: 6px; font-size: 13px; font-weight: 600; color: var(--tn-mut); letter-spacing: 0; }
+html body main #view-planes .ipp-price-note { margin-top: 8px; font-size: 12.5px; color: var(--tn-mut); }
+html body main #view-planes .ipp-price-note b { color: var(--c); }
+
+html body main #view-planes .ipp-list { list-style: none; margin: 0; padding: 16px 22px; display: grid; gap: 9px; flex: 1; }
+html body main #view-planes .ipp-list li { display: flex; align-items: flex-start; gap: 9px; font-size: 13.5px; line-height: 1.4; color: var(--tn-txt); }
+html body main #view-planes .ipp-list li.pp-off { color: #6f727a; }
+html body main #view-planes .ipp-list .pp-ck {
+  flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 900;
+  background: color-mix(in srgb, var(--c) 20%, transparent); color: var(--c);
+}
+html body main #view-planes .ipp-tier.free .ipp-list .pp-ck { background: rgba(74,222,128,.15); color: #4ade80; }
+html body main #view-planes .ipp-list li.pp-off .pp-ck { background: rgba(255,90,110,.12); color: #ff7a8a; }
+html body main #view-planes .ipp-list b { color: inherit; }
+
+html body main #view-planes .ipp-foot { padding: 0 22px 22px; }
+html body main #view-planes .ipp-btn {
+  width: 100%; height: 44px; border-radius: 11px; cursor: pointer; font-size: 14px; font-weight: 800; font-family: inherit;
+  border: 1px solid transparent; color: #fff; transition: filter .15s, transform .05s;
+}
+html body main #view-planes .ipp-btn:hover:not(:disabled) { filter: brightness(1.1); }
+html body main #view-planes .ipp-btn:active:not(:disabled) { transform: translateY(1px); }
+html body main #view-planes .ipp-btn:disabled { cursor: default; }
+html body main #view-planes .ipp-btn.vip { background: linear-gradient(90deg, var(--ipp-vip), var(--ipp-vip-2)); box-shadow: 0 8px 22px rgba(137, 119, 213, .28); }
+html body main #view-planes .ipp-btn.founder { background: linear-gradient(90deg, var(--ipp-gold), var(--ipp-gold-2)); color: #1a1205; box-shadow: 0 8px 22px rgba(255,170,50,.22); }
+html body main #view-planes .ipp-btn.ghost { background: transparent; border-color: var(--tn-ctl-line); color: var(--tn-mut); }
+html body main #view-planes .ipp-btn.ghost:not(:disabled) { color: var(--tn-txt); }
+html body main #view-planes .ipp-btn.is-current { background: transparent; border: 1px dashed var(--c, var(--tn-ctl-line)); color: var(--c, var(--tn-txt)); }
+html body main #view-planes .ipp-tier.free .ipp-btn.is-current { --c: #cfd3da; }
+html body main #view-planes .ipp-sub-note { margin: 9px 0 0; font-size: 11.5px; text-align: center; color: var(--tn-mut); }
+html body main #view-planes #pp-open-hint { font-size: 12px; text-align: center; color: var(--tn-mut); }
+
+/* Agencia */
+html body main #view-planes .ipp-agency {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin: 18px 0 0; padding: 20px 22px;
+  border-radius: 16px; background: linear-gradient(120deg, rgba(255,194,71,.08), #1b1b1f 55%); border: 1px solid rgba(255,194,71,.28);
+}
+html body main #view-planes .ipp-agency .ipp-tier-name { color: var(--tn-txt); font-size: 18px; text-transform: none; }
+html body main #view-planes .ipp-agency p { margin: 6px 0 0; font-size: 13px; color: var(--tn-mut); max-width: 560px; }
+html body main #view-planes .ipp-agency p b { color: var(--ipp-gold); }
+html body main #view-planes .ipp-agency-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+html body main #view-planes .ipp-agency-btns .ipp-btn { width: auto; padding: 0 22px; }
+
+/* Paquetes */
+html body main #view-planes .ipp-packs-head { margin: 30px 0 14px; }
+html body main #view-planes .ipp-packs-head h2 { margin: 0; font-size: 22px; font-weight: 900; color: var(--tn-txt); }
+html body main #view-planes .ipp-packs-head p { margin: 4px 0 0; font-size: 13px; color: var(--tn-mut); }
+html body main #view-planes .ipp-packs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { html body main #view-planes .ipp-packs { grid-template-columns: 1fr 1fr; } }
+html body main #view-planes .ipp-pack {
+  --c: var(--ipp-vip); --c2: var(--ipp-vip-2);
+  display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: #1b1b1f; border: 1px solid var(--tn-card-line);
+  transition: transform .15s, border-color .15s;
+}
+html body main #view-planes .ipp-pack.founder { --c: var(--ipp-gold); --c2: var(--ipp-gold-2); }
+html body main #view-planes .ipp-pack:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c) 55%, transparent); }
+html body main #view-planes .ipp-pack-art {
+  position: relative; height: 112px; overflow: hidden;
+  background:
+    radial-gradient(120px 90px at 50% 60%, color-mix(in srgb, var(--c) 55%, transparent), transparent 70%),
+    linear-gradient(135deg, color-mix(in srgb, var(--c) 30%, #111) 0%, #121214 100%);
+  border-bottom: 2px solid var(--c);
+}
+html body main #view-planes .ipp-pack-ico { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); font-size: 54px; filter: drop-shadow(0 8px 18px rgba(0,0,0,.45)); }
+html body main #view-planes .ipp-pack-plan {
+  position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase;
+  background: linear-gradient(90deg, var(--c), var(--c2)); color: #fff;
+}
+html body main #view-planes .ipp-pack.founder .ipp-pack-plan { color: #1a1205; }
+html body main #view-planes .ipp-pack-len {
+  position: absolute; right: 12px; bottom: 10px; padding: 5px 12px; border-radius: 999px; font-size: 14px; font-weight: 900; text-transform: uppercase;
+  background: rgba(0,0,0,.65); color: #fff; border: 1px solid rgba(255,255,255,.25);
+}
+html body main #view-planes .ipp-pack-body { padding: 16px 16px 14px; display: flex; flex-direction: column; flex: 1; }
+html body main #view-planes .ipp-pack-price { font-size: 32px; font-weight: 900; color: var(--tn-txt); line-height: 1; }
+html body main #view-planes .ipp-pack-price s { margin-left: 8px; font-size: 14px; font-weight: 600; color: #7d808a; }
+html body main #view-planes .ipp-pack-save { margin: 6px 0 0; font-size: 12.5px; font-weight: 800; color: var(--c); }
+html body main #view-planes .ipp-pack-desc { margin: 8px 0 14px; font-size: 12.5px; color: var(--tn-mut); flex: 1; }
+html body main #view-planes .ipp-pack .ipp-btn { height: 40px; font-size: 13.5px; box-shadow: none; }
+html body main #view-planes .ipp-fine { margin: 8px 0 0; font-size: 11px; text-align: center; color: #7d808a; }
+
+@media (max-width: 980px) {
+  html body main #view-planes .ipp-tiers { grid-template-columns: 1fr; gap: 26px; }
+}
+
+/* Logos de los planes */
+html body main #view-planes .ipp-tier-head { text-align: center; }
+html body main #view-planes .ipp-tier-logo {
+  display: block; width: auto; height: 118px; max-width: 100%; margin: -4px auto 6px; object-fit: contain;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
+}
+html body main #view-planes .ipp-tier.free .ipp-tier-logo { height: 126px; }
+html body main #view-planes .ipp-pack-ico { width: auto; height: 84px; font-size: 0; }
+html body main #view-planes .plan-hero-logo {
+  position: absolute; right: 28px; top: 50%; transform: translateY(-50%); height: 150px; width: auto; z-index: 1; pointer-events: none;
+  filter: drop-shadow(0 12px 28px rgba(0,0,0,.5));
+}
+html body main #view-planes .plan-hero-logo[hidden] { display: none; }
+html body main #view-planes .plan-hero:has(.plan-hero-logo:not([hidden])) { padding-right: 260px !important; min-height: 190px; }
+html body main #view-planes .plan-hero:has(.plan-hero-logo:not([hidden])) .plan-hero-user { margin-right: 0; }
+@media (max-width: 760px) {
+  html body main #view-planes .plan-hero-logo { position: static; transform: none; display: block; margin: 12px auto 0; height: 110px; }
+  html body main #view-planes .plan-hero:has(.plan-hero-logo:not([hidden])) { padding-right: 24px !important; }
+}
+
+/* Dos formas de pago: PayPal (botón del plan) y tarjeta (blanco, como las tarjetas de débito/crédito). */
+html body main #view-planes .ipp-pay2 { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+html body main #view-planes .ipp-pay2 .ipp-btn { width: 100%; }
+html body main #view-planes .ipp-btn.ipp-btn-card { background: #f8fafc; color: #0f172a; border: 1px solid rgba(255, 255, 255, .6); box-shadow: 0 6px 16px rgba(0, 0, 0, .25); }
+html body main #view-planes .ipp-btn.ipp-btn-card:hover { background: #fff; }
+
+/* Aviso legal bajo los paquetes. */
+html body main #view-planes .ipp-legal { max-width: 760px; margin: 22px auto 6px; text-align: center; font-size: 12.5px; line-height: 1.6; opacity: .72; }
+html body main #view-planes .ipp-legal a { color: #25f4ee; text-decoration: underline; }

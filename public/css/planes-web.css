@@ -1,0 +1,9 @@
+/* Panel web: colores del tema nuevo que usa la página de Planes (en la app de PC vienen de tema-nuevo-colores.css). */
+:root {
+  --tn-card: #242424;
+  --tn-card-line: #3b3b3b;
+  --tn-ctl-line: #484848;
+  --tn-line-soft: #2f2f2f;
+  --tn-mut: #a3a3a3;
+  --tn-txt: #f2f2f2;
+}

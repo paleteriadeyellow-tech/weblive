@@ -172,6 +172,7 @@ function captureFromOrder(order) {
     userId: String((pu && pu.custom_id) || (cap && cap.custom_id) || ''),
     value: cap && cap.amount ? cap.amount.value : (pu && pu.amount ? pu.amount.value : ''),
     currency: cap && cap.amount ? cap.amount.currency_code : (pu && pu.amount ? pu.amount.currency_code : ''),
+    payerEmail: String((order && order.payer && order.payer.email_address) || ''),
   };
 }
 
@@ -211,7 +212,13 @@ async function fulfillCapture(info, grants, onGranted) {
     skipped: !!granted.skipped,
   };
   saveLedger(ledger);
-  try { onGranted && onGranted(info.userId, granted); } catch {}
+  // meta: para el recibo por correo.
+  try {
+    onGranted && onGranted(info.userId, granted, {
+      provider: 'PayPal', plan, pack: pack ? pack.id : '', days: pack ? pack.days : DAYS,
+      amount: info.value, currency: info.currency || CURRENCY, ref: key, payerEmail: info.payerEmail || '',
+    });
+  } catch {}
   return { ok: true, granted };
 }
 
