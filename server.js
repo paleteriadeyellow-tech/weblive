@@ -17,7 +17,6 @@ import { createRoom } from './room.js';
 import { createLiveLockStore } from './live-lock.js';
 import { createLiveUsageStore, monthKey } from './live-usage.js';
 import { createErrorStore, createRateLimit } from './error-reports.js';
-import { askCaracolaAi, caracolaAiGate, CARACOLA_PERSONALITIES, CARACOLA_DAILY_LIMIT } from './caracola-ai.js';
 import { ensureViewerAvatar, sendCachedAvatar, findCachedAvatar, persistViewerAvatar } from './tt-avatar-cache.js';
 import { isEdgeTtsVoice, ttsSynthEdge, EDGE_EN_FALLBACK } from './edge-tts-synth.js';
 import { elevenLabsCloneVoice, elevenLabsListVoices, elevenLabsSpeak } from './elevenlabs-tts.js';
@@ -1959,32 +1958,6 @@ app.post('/api/live-usage/ping-key', express.json({ limit: '4kb' }), (req, res) 
   if (!user) return res.status(401).json({ error: 'bad key' });
   res.json(liveUsage.ping(user.id, { tiktok: req.body?.username }));
 });
-/* Caracola mágica con IA (solo Founder). La app de PC manda la pregunta; la clave de Gemini vive solo aquí. */
-function caracolaAiUser(req) {
-  return userFromRequest(req) || (req.body?.roomKey ? getUserByRoomKey(String(req.body.roomKey).trim()) : null);
-}
-function caracolaAiAllowed(user) {
-  return !!(user && (user.isAdmin || getUserPlan(user) === 'founder'));
-}
-app.post('/api/caracola-ai', express.json({ limit: '4kb' }), async (req, res) => {
-  const user = caracolaAiUser(req);
-  if (!user) return res.status(401).json({ ok: false, error: 'no auth' });
-  if (!caracolaAiAllowed(user)) return res.json({ ok: false, error: 'solo_founder' });
-  const gate = caracolaAiGate(String(user.id));
-  if (!gate.ok) return res.json({ ok: false, error: gate.error, limit: gate.limit });
-  const out = await askCaracolaAi({ question: req.body?.question, personality: req.body?.personality, maxWords: req.body?.maxWords });
-  if (out.ok) gate.spend();
-  res.json({ ...out, left: gate.left() });
-});
-app.get('/api/caracola-ai/info', (req, res) => {
-  const user = userFromRequest(req);
-  res.json({
-    allowed: caracolaAiAllowed(user),
-    dailyLimit: CARACOLA_DAILY_LIMIT,
-    personalities: Object.entries(CARACOLA_PERSONALITIES).map(([id, p]) => ({ id, label: p.label })),
-  });
-});
-
 /* Reporte de errores: llegan del panel web, del panel de la app de PC y del servidor del .exe. */
 app.post('/api/client-errors', express.json({ limit: '24kb' }), (req, res) => {
   if (!errorRate(clientRateKey(req))) return res.json({ ok: false, limited: true });
