@@ -41,14 +41,15 @@ function planOf(p) {
 // Descuento por invitación (referrals.js): % en el primer pago mensual de PRO/VIP. Lo pone mountMercadoPagoRoutes.
 let referralDiscount = () => 0;
 let referralAccepted = () => 0;
+let referralFirstPayment = () => false;
 const withDiscount = (value, pct) => (pct > 0 ? (Number(value) * (100 - pct) / 100).toFixed(2) : value);
 
-/** Días a dar por un pago mensual. Si pagó con descuento de invitado pero ya no le tocaba
+/** Días a dar por un pago mensual. Si pagó con descuento de invitado pero ya había pagado antes
     (otra orden con descuento ya se usó), recibe los días en proporción a lo que pagó. */
 function daysForPaid(userId, plan, paid) {
   if (plan === 'founder') return DAYS;
   const full = Number(PRICES[plan]);
-  if (!(Number(paid) < full - 0.01) || Number(referralDiscount(userId)) > 0) return DAYS;
+  if (!(Number(paid) < full - 0.01) || referralFirstPayment(userId)) return DAYS;
   return Math.max(1, Math.floor(DAYS * Number(paid) / full));
 }
 function amountFor(plan, userId, isFounderMember) {
@@ -268,10 +269,12 @@ export function mountMercadoPagoRoutes(app, {
   onGranted,
   referralDiscountFor,
   referralAcceptedDiscountFor,
+  referralFirstPaymentFor,
 } = {}) {
   const grants = { grantPremiumDays, grantProDays, grantFounderDays, isFounderMember };
   if (referralDiscountFor) referralDiscount = referralDiscountFor;
   if (referralAcceptedDiscountFor) referralAccepted = referralAcceptedDiscountFor;
+  if (referralFirstPaymentFor) referralFirstPayment = referralFirstPaymentFor;
   async function proxyToRemote(req, res, pathname, method = 'GET') {
     const base = String(AUTH_REMOTE || '').replace(/\/+$/, '');
     if (!base) return false;

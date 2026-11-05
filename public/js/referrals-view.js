@@ -63,7 +63,7 @@
           <div class="ref-big">${fmt(d.coins)} <small>Coins</small></div>
           <div class="ref-bar"><i style="width:${d.coins >= goal.cost ? 100 : pct}%"></i></div>
           <p class="ref-sub">${d.coins >= goal.cost
-    ? `Ya puedes canjear <b>${canDays(goal.plan)} día(s)</b> de ${PLAN_NAME[goal.plan]}.`
+    ? (anyRedeem ? `Ya puedes canjear <b>${canDays(goal.plan)} día(s)</b> de ${PLAN_NAME[goal.plan]}.` : 'Tienes Coins suficientes para canjear cuando tu plan tenga fecha.')
     : `Te faltan <b>${fmt(missing)} Coins</b> para ${d.coins || d.pendingCoins ? 'otro' : 'tu primer'} día gratis de ${PLAN_NAME[goal.plan]}.`}</p>
           <div class="ref-row">
             <button type="button" class="btn primary" data-ref="redeem" ${anyRedeem ? '' : 'disabled'}>Canjear por días</button>
@@ -88,7 +88,8 @@
       ${d.canEnterCode || d.referredBy ? `
       <section class="ref-card ref-invited">
         ${d.referredBy
-    ? `<p>Entraste con la invitación de <b>@${esc(d.referredBy)}</b>.${d.myDiscountPct ? ` Tienes <b>${d.myDiscountPct}% de descuento</b> en tu primer pago de PRO o VIP.` : ''}</p>`
+    ? `<p>Entraste con la invitación de <b>@${esc(d.referredBy)}</b>.${d.myDiscountPct ? ` Tienes <b>${d.myDiscountPct}% de descuento</b> en tu primer pago de PRO o VIP.`
+      : d.discountBlocked ? ' <span class="ref-note">Sin descuento: desde tu red ya se usó un código o es la misma red de quien te invitó.</span>' : ''}</p>`
     : `<div><b>¿Te invitó alguien?</b><small>Pon su código antes de tu primer pago y ten ${d.discountPct}% de descuento.</small></div>
            <div class="ref-row"><input type="text" class="ref-input" maxlength="16" placeholder="CÓDIGO" data-ref-input="apply"><button type="button" class="btn primary" data-ref="apply">Aplicar</button></div>`}
       </section>` : ''}
@@ -129,6 +130,17 @@
     catch (e) { data = null; say(e.message, 'warn'); }
     loading = false;
     render();
+  }
+
+  async function refreshPlanOnly() {
+    try {
+      const me = await fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }).then((r) => (r.ok ? r.json() : null));
+      if (!me) return;
+      window.MY_PLAN = me.plan || 'free';
+      window.MY_PREMIUM_UNTIL = Number(me.premiumUntil) || 0;
+      if (typeof window.refreshDockPlanUi === 'function') window.refreshDockPlanUi(me);
+      if (typeof window.renderPlanPricing === 'function') window.renderPlanPricing();
+    } catch {}
   }
 
   function askRedeem() {
@@ -178,8 +190,9 @@
         close();
         render();
         say(`¡Listo! Se sumaron ${days} día(s) de ${PLAN_NAME[plan()]}.`, 'ok');
-        // Que el panel muestre el plan nuevo (cabecera, Planes).
-        try { if (typeof window.loadMe === 'function') window.loadMe(); } catch {}
+        // Solo el plan (los límites nuevos llegan solos por el WebSocket). No usar loadMe():
+        // es el arranque del panel y en pleno live volvería a cargar ajustes y sondeos.
+        refreshPlanOnly();
       } catch (e) {
         btn.disabled = false;
         say(e.message, 'warn');

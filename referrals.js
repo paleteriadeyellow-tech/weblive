@@ -176,10 +176,10 @@ const isPrivateIp = (ip) => !ip || /^(10\.|127\.|0\.|192\.168\.|169\.254\.|172\.
 export function clientIp(req) {
   const h = (req && req.headers) || {};
   let ip = '';
-  for (const k of ['cf-connecting-ip', 'true-client-ip']) {
-    const v = cleanIp(h[k]);
-    if (!isPrivateIp(v)) { ip = v; break; }
-  }
+  // Solo CF-Connecting-IP: Cloudflare (delante de Render) lo pisa siempre con la IP real.
+  // True-Client-IP no se usa porque un cliente lo puede inventar para saltarse el bloqueo por red.
+  const cf = cleanIp(h['cf-connecting-ip']);
+  if (!isPrivateIp(cf)) ip = cf;
   if (!ip) {
     const xff = String(h['x-forwarded-for'] || '').split(',').map(cleanIp).filter(Boolean);
     for (let i = xff.length - 1; i >= 0; i--) if (!isPrivateIp(xff[i])) { ip = xff[i]; break; }
@@ -244,6 +244,13 @@ export function discountFor(userId) {
 export function acceptedDiscountFor(userId) {
   const e = userId && load().users[String(userId)];
   return e && e.referredBy ? DISCOUNT_PCT : 0;
+}
+
+/** ¿Es su primer pago con código de invitación? (para dar los 30 días completos aunque luego
+    haya entrado desde otra red: la orden con descuento se creó cuando sí le tocaba). */
+export function isFirstReferredPayment(userId) {
+  const e = userId && load().users[String(userId)];
+  return !!(e && e.referredBy && !e.firstPaidAt);
 }
 
 /** Une una cuenta con quien la invitó. Solo una vez y solo si esa cuenta/correo nunca ha pagado. */
@@ -355,6 +362,7 @@ function summary(user, deps) {
     discountPct: DISCOUNT_PCT,
     referredBy: e.referredBy ? ((refUser && refUser.username) || 'una cuenta') : '',
     myDiscountPct: discountFor(user.id),
+    discountBlocked: !!(e.referredBy && !e.firstPaidAt && netConflict(user.id)),
     canEnterCode: !e.referredBy && !hasPaidBefore(user.id, user.email),
     redeem: redeemOptions(user, deps.getUserPlan),
     friends,
@@ -362,7 +370,8 @@ function summary(user, deps) {
 }
 
 function publicBase() {
-  return String(process.env.REF_PUBLIC_BASE || process.env.PAYPAL_PUBLIC_BASE || process.env.RENDER_EXTERNAL_URL || 'https://livecoins.onrender.com')
+  // El enlace /i/ vive en este servidor (Render): no usar PAYPAL_PUBLIC_BASE, que puede ser otro dominio.
+  return String(process.env.REF_PUBLIC_BASE || process.env.RENDER_EXTERNAL_URL || 'https://livecoins.onrender.com')
     .replace(/\/+$/, '');
 }
 

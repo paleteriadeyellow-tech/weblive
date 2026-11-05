@@ -1669,6 +1669,7 @@ mountPaypalRoutes(app, {
   getRemoteCookie: (id) => remoteCookies.get(id),
   referralDiscountFor: referrals.discountFor,
   referralAcceptedDiscountFor: referrals.acceptedDiscountFor,
+  referralFirstPaymentFor: referrals.isFirstReferredPayment,
   onGranted: (userId, granted, meta) => {
     try { referrals.recordPaid(userId, meta); } catch {}
     const room = rooms.get(userId);
@@ -1687,6 +1688,7 @@ mountMercadoPagoRoutes(app, {
   getRemoteCookie: (id) => remoteCookies.get(id),
   referralDiscountFor: referrals.discountFor,
   referralAcceptedDiscountFor: referrals.acceptedDiscountFor,
+  referralFirstPaymentFor: referrals.isFirstReferredPayment,
   onGranted: (userId, granted, meta) => {
     try { referrals.recordPaid(userId, meta); } catch {}
     const room = rooms.get(userId);
