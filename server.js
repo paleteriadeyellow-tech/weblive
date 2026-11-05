@@ -1498,6 +1498,10 @@ app.post('/api/register', express.json(), async (req, res) => {
   if (!email || !code) {
     return res.status(400).json({ error: 'Verifica tu correo con el código para crear la cuenta.' });
   }
+  // Código de invitación mal escrito: avisar antes de crear la cuenta (y antes de gastar el código del correo).
+  if (ref && hasRefField && !referrals.codeExists(ref)) {
+    return res.status(400).json({ error: 'Ese código de invitación no existe. Revísalo o deja el campo vacío.' });
+  }
   const vr = consumeRegisterEmailCode(email, code);
   if (vr.error) return res.status(400).json({ error: vr.error });
   const { user, error } = registerUser(username, password, { email: vr.email || email });

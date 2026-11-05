@@ -51,6 +51,9 @@ const SHARED_IP_USERS = num(process.env.REF_SHARED_IP_USERS, 8) || 8;
 const RELAY_IPS = new Set(String(process.env.REF_RELAY_IPS || '').split(',').map((x) => x.trim()).filter(Boolean));
 const IP_SALT = String(process.env.REF_IP_SALT || 'lc-ref');
 const MAX_REDEEM_DAYS = 60;
+// Dos cuentas solo «comparten red» si entraron desde ella con menos de esto de diferencia
+// (las IPs de casa cambian y luego la compañía se las da a otra familia).
+const NET_TTL = 30 * DAY_MS;
 const COOKIE = 'lc_ref';
 const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I
 const CODE_RE = /^[A-Z0-9]{4,16}$/;
@@ -63,7 +66,14 @@ let lookupUser = null;
 function load() {
   if (db) return db;
   let raw = null;
-  try { raw = fs.readFileSync(FILE, 'utf8'); } catch {}
+  try { raw = fs.readFileSync(FILE, 'utf8'); } catch (err) {
+    // Si el archivo existe pero no se pudo leer (bloqueado, permisos…), NO empezar vacío:
+    // el siguiente guardado borraría todos los Coins y códigos. Se reintenta en la próxima llamada.
+    if (err && err.code !== 'ENOENT') {
+      console.error('[referrals] no se pudo leer referrals.json:', err.message);
+      throw new Error('Invita y gana no está disponible en este momento. Intenta en un rato.');
+    }
+  }
   if (raw != null) {
     try {
       const j = JSON.parse(raw);
@@ -214,7 +224,8 @@ export function noteIp(userId, req) {
   const d = load();
   const id = String(userId);
   const row = d.ips[k] || (d.ips[k] = { users: {} });
-  const isNew = !row.users[id];
+  const prev = Number(row.users[id]) || 0;
+  const isNew = !prev;
   row.users[id] = Date.now();
   const ids = Object.keys(row.users);
   if (ids.length > 50) delete row.users[ids.sort((a, b) => row.users[a] - row.users[b])[0]];
@@ -222,7 +233,8 @@ export function noteIp(userId, req) {
   const list = Array.isArray(e.ips) ? e.ips : [];
   const had = list.includes(k);
   if (!had) e.ips = [k, ...list].slice(0, 20);
-  if (isNew || !had) save();
+  // También se guarda una vez al día, para que la fecha de «última vez en esta red» no se pierda al reiniciar.
+  if (isNew || !had || Date.now() - prev > DAY_MS) save();
 }
 const sharedNet = (k) => Object.keys((load().ips[k] || { users: {} }).users).length > SHARED_IP_USERS;
 
@@ -231,36 +243,59 @@ function netConflict(userId, ownerId) {
   const d = load();
   const e = d.users[String(userId)];
   if (!e) return '';
+  // Ya se detectó antes: queda fijo (aunque luego entre desde muchas redes y la vieja salga de su lista).
+  if (e.netBlocked) return e.netBlocked;
   const owner = String(ownerId || e.referredBy || '');
+  let found = '';
   for (const k of e.ips || []) {
-    if (sharedNet(k)) continue;
-    for (const other of Object.keys((d.ips[k] || { users: {} }).users)) {
+    if (found || sharedNet(k)) continue;
+    const row = d.ips[k] || { users: {} };
+    const mine = Number(row.users[String(userId)]) || 0;
+    for (const other of Object.keys(row.users)) {
       if (other === String(userId)) continue;
-      if (other === owner) return 'owner';
+      const seen = Number(row.users[other]) || 0;
+      if (mine && seen && Math.abs(mine - seen) > NET_TTL) continue; // la red cambió de dueño
+      if (other === owner) { found = 'owner'; break; }
       const o = d.users[other];
-      if (o && o.referredBy && (!e.referredAt || (o.referredAt || 0) < e.referredAt)) return 'used';
+      if (o && o.referredBy && (!e.referredAt || (o.referredAt || 0) < e.referredAt)) { found = 'used'; break; }
     }
   }
-  return '';
+  if (found && e.referredBy) { e.netBlocked = found; save(); }
+  return found;
 }
 
 /** % que se le aplica a un pago NUEVO: solo si lo invitaron, nunca ha pagado y no comparte red. */
 export function discountFor(userId) {
-  const e = userId && load().users[String(userId)];
-  return e && e.referredBy && !e.firstPaidAt && !netConflict(userId) ? DISCOUNT_PCT : 0;
+  try {
+    const e = userId && load().users[String(userId)];
+    return e && e.referredBy && !e.firstPaidAt && !netConflict(userId) ? DISCOUNT_PCT : 0;
+  } catch { return 0; } // sin datos: precio normal
 }
 /** % que se acepta al confirmar un pago (una orden con descuento puede llegar tarde). Si ya no
     le tocaba, el proveedor le da los días en proporción a lo que pagó (ver daysForPaid). */
 export function acceptedDiscountFor(userId) {
-  const e = userId && load().users[String(userId)];
-  return e && e.referredBy ? DISCOUNT_PCT : 0;
+  try {
+    const e = userId && load().users[String(userId)];
+    return e && e.referredBy ? DISCOUNT_PCT : 0;
+  } catch { return DISCOUNT_PCT; } // sin datos: no rechazar un pago real hecho con descuento
 }
 
 /** ¿Es su primer pago con código de invitación? (para dar los 30 días completos aunque luego
     haya entrado desde otra red: la orden con descuento se creó cuando sí le tocaba). */
 export function isFirstReferredPayment(userId) {
-  const e = userId && load().users[String(userId)];
-  return !!(e && e.referredBy && !e.firstPaidAt);
+  try {
+    const e = userId && load().users[String(userId)];
+    return !!(e && e.referredBy && !e.firstPaidAt);
+  } catch { return true; } // sin datos: a favor del cliente (días completos)
+}
+
+/** ¿Existe ese código (y su cuenta)? Para avisar en el registro si está mal escrito. */
+export function codeExists(rawCode) {
+  try {
+    const code = normalizeCode(rawCode);
+    const id = code ? load().codes[code] : '';
+    return !!id && (!lookupUser || !!lookupUser(id));
+  } catch { return true; } // sin datos: no bloquear el registro
 }
 
 /** Une una cuenta con quien la invitó. Solo una vez y solo si esa cuenta/correo nunca ha pagado. */
@@ -442,6 +477,12 @@ export function mountReferralRoutes(app, {
   onPlanChanged,
 } = {}) {
   const deps = { getUserById, getUserPlan };
+  const safe = (fn) => async (req, res, next) => {
+    try { await fn(req, res, next); } catch (err) {
+      console.error('[referrals]', req.method, req.path, err && err.message);
+      if (!res.headersSent) res.status(500).json({ error: (err && err.message && err.message.startsWith('Invita y gana')) ? err.message : 'No se pudo completar. Intenta de nuevo.' });
+    }
+  };
   if (getUserById) lookupUser = getUserById;
   const base = String(AUTH_REMOTE || '').replace(/\/+$/, '');
 
@@ -486,7 +527,7 @@ export function mountReferralRoutes(app, {
 
   // Enlace para compartir. Livecoins es app de PC: la página explica cómo descargarla y
   // dónde poner el código al crear la cuenta (el registro web está cerrado).
-  app.get('/i/:code', (req, res) => {
+  app.get('/i/:code', safe((req, res) => {
     const code = normalizeCode(req.params.code);
     if (code) {
       res.setHeader('Set-Cookie', `${COOKIE}=${code}; Path=/; Max-Age=${30 * 24 * 3600}; SameSite=Lax`);
@@ -495,15 +536,15 @@ export function mountReferralRoutes(app, {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     res.send(invitePage(code));
-  });
+  }));
 
-  app.get('/api/referrals/me', async (req, res) => {
+  app.get('/api/referrals/me', safe(async (req, res) => {
     if (base) return proxy(req, res, '/api/referrals/me');
     const user = me(req, res);
     if (user) res.json(summary(user, deps));
-  });
+  }));
 
-  app.post('/api/referrals/apply', express.json(), async (req, res) => {
+  app.post('/api/referrals/apply', express.json(), safe(async (req, res) => {
     if (base) return proxy(req, res, '/api/referrals/apply', 'POST');
     const user = me(req, res);
     if (!user) return;
@@ -511,9 +552,9 @@ export function mountReferralRoutes(app, {
     const r = attachReferrer(user.id, req.body && req.body.code, deps, req);
     if (!r.ok) return res.status(400).json(r);
     res.json({ ...summary(user, deps), applied: true });
-  });
+  }));
 
-  app.post('/api/referrals/code', express.json(), async (req, res) => {
+  app.post('/api/referrals/code', express.json(), safe(async (req, res) => {
     if (base) return proxy(req, res, '/api/referrals/code', 'POST');
     const user = me(req, res);
     if (!user) return;
@@ -533,11 +574,11 @@ export function mountReferralRoutes(app, {
     e.codeChangedAt = Date.now();
     save();
     res.json(summary(user, deps));
-  });
+  }));
 
   // Un canje a la vez por cuenta (dos clics seguidos no cobran ni dan doble).
   const redeeming = new Set();
-  app.post('/api/referrals/redeem', express.json(), async (req, res) => {
+  app.post('/api/referrals/redeem', express.json(), safe(async (req, res) => {
     if (base) return proxy(req, res, '/api/referrals/redeem', 'POST');
     const user = me(req, res);
     if (!user) return;
@@ -569,17 +610,17 @@ export function mountReferralRoutes(app, {
     } finally {
       redeeming.delete(user.id);
     }
-  });
+  }));
 
   // Admin: ver quién invitó a quién y ajustar Coins a mano.
   const admin = requireAdmin || ((req, res) => res.status(403).json({ error: 'Solo admin.' }));
-  app.get('/api/admin/referrals/ip-check', admin, (req, res) => {
+  app.get('/api/admin/referrals/ip-check', admin, safe((req, res) => {
     if (base) return proxy(req, res, '/api/admin/referrals/ip-check');
     const h = req.headers || {};
     res.json({ ok: true, detected: clientIp(req), cf: h['cf-connecting-ip'] || '', trueClient: h['true-client-ip'] || '', xff: h['x-forwarded-for'] || '', socket: (req.socket && req.socket.remoteAddress) || '' });
-  });
+  }));
 
-  app.get('/api/admin/referrals', admin, async (req, res) => {
+  app.get('/api/admin/referrals', admin, safe(async (req, res) => {
     if (base) return proxy(req, res, '/api/admin/referrals');
     const d = load();
     const name = (id) => { const u = getUserById ? getUserById(id) : null; return (u && u.username) || id; };
@@ -596,9 +637,9 @@ export function mountReferralRoutes(app, {
       log: (x.log || []).slice(0, 10),
     })).filter((r) => r.coins || r.pendingCoins || r.referredBy || r.friends);
     res.json({ ok: true, rows });
-  });
+  }));
   // Ajuste manual (p. ej. quitar Coins de un amigo que pidió reembolso). Quita primero de los en espera.
-  app.post('/api/admin/referrals/adjust', express.json(), admin, async (req, res) => {
+  app.post('/api/admin/referrals/adjust', express.json(), admin, safe(async (req, res) => {
     if (base) return proxy(req, res, '/api/admin/referrals/adjust', 'POST');
     const id = String((req.body && req.body.userId) || '');
     const delta = Math.round(Number(req.body && req.body.delta) || 0);
@@ -615,5 +656,5 @@ export function mountReferralRoutes(app, {
     if (rest !== delta) { addLog(e, delta - rest, 'admin-en-espera'); save(); }
     const coins = rest ? addCoins(id, rest, 'admin') : e.coins;
     res.json({ ok: true, coins, pendingCoins: e.pending.reduce((n, p) => n + p.coins, 0) });
-  });
+  }));
 }

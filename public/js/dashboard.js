@@ -1574,7 +1574,7 @@ function renderPlanPricing() {
           <div class="ipp-tier-sub">Todo menos los juegos interactivos</div>
           <div class="ipp-price">${priceHtml(pp.proAmount || '12')}<span>/ ${daysLabel}</span></div>
           <div class="ipp-price-note">${pp.currency || 'USD'} · pago con PayPal</div>
-          ${myTier === 'free' || myTier === 'pro' ? refBadge : ''}
+          ${myTier === 'free' || (myTier === 'pro' && !proForever) ? refBadge : ''}
         </div>
         <ul class="ipp-list">${buildList('premium')}${li(false, 'Juegos interactivos')}</ul>
         <div class="ipp-foot">
