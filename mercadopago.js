@@ -112,15 +112,31 @@ async function mpFetch(pathname, { method = 'GET', body, idempotency } = {}) {
 }
 
 function loadLedger() {
-  try {
-    const j = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
-    if (j && typeof j === 'object' && j.orders) return j;
-  } catch {}
+  let raw = null;
+  try { raw = fs.readFileSync(LEDGER_FILE, 'utf8'); } catch (err) {
+    // Existe pero no se pudo leer: no seguir con uno vacío (daría días dobles y borraría el historial).
+    if (err && err.code !== 'ENOENT') throw new Error('No se pudo leer el registro de pagos. Intenta en un momento.');
+  }
+  if (raw != null) {
+    try {
+      const j = JSON.parse(raw);
+      if (j && typeof j === 'object') {
+        if (!j.orders || typeof j.orders !== 'object') j.orders = {};
+        return j;
+      }
+    } catch {}
+    // Dañado: se aparta una copia (nunca se pierde) y se sigue.
+    try { fs.copyFileSync(LEDGER_FILE, `${LEDGER_FILE}.danado-${Date.now()}`); } catch {}
+    console.error('[mercadopago] mercadopago-payments.json dañado; se guardó una copia aparte');
+  }
   return { orders: {} };
 }
 function saveLedger(j) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(LEDGER_FILE, JSON.stringify(j, null, 2), 'utf8');
+  // Escribir aparte y luego reemplazar: si el servidor se apaga a la mitad, el archivo no queda roto.
+  const tmp = `${LEDGER_FILE}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(j, null, 2), 'utf8');
+  fs.renameSync(tmp, LEDGER_FILE);
 }
 
 function resultPage(title, inner) {
@@ -162,16 +178,18 @@ async function fulfillOrderOnce(orderId, grants, onGranted) {
     return { ok: false, pending: status !== 'failed' && status !== 'canceled' && status !== 'expired', status, error: 'pago no completado' };
   }
   const { userId, plan, pack } = splitRef(order.external_reference);
-  if (!userId) return { ok: false, error: 'pago sin cuenta' };
-  if (String(order.currency || CURRENCY).toUpperCase() !== CURRENCY) return { ok: false, error: 'moneda no válida' };
+  const lost = (why) => console.error(`[mercadopago] PAGO COBRADO SIN ACTIVAR (${why}):`, order.id, order.external_reference, order.total_paid_amount || order.total_amount, order.currency);
+  if (!userId) { lost('sin cuenta'); return { ok: false, error: 'pago sin cuenta' }; }
+  if (String(order.currency || CURRENCY).toUpperCase() !== CURRENCY) { lost('moneda'); return { ok: false, error: 'moneda no válida' }; }
   const paid = Number(order.total_paid_amount || order.total_amount);
   const want = pack ? Number(pack.amount)
     : plan === 'founder' ? Number(PRICES.founderMonthly) // mínimo válido; el primer pago es mayor
       : Number(withDiscount(PRICES[plan], Number(referralAccepted(userId)) || 0));
-  if (!Number.isFinite(paid) || paid + 0.5 < want) return { ok: false, error: 'monto no válido' };
+  if (!Number.isFinite(paid) || paid + 0.5 < want) { lost('monto'); return { ok: false, error: 'monto no válido' }; }
   // Founder a precio de mensualidad solo si ya era Founder.
   if (!pack && plan === 'founder' && paid + 0.5 < Number(PRICES.founderFirst)
     && !(grants.isFounderMember && grants.isFounderMember(userId))) {
+    lost('founder');
     return { ok: false, error: 'monto no válido' };
   }
 
@@ -182,7 +200,7 @@ async function fulfillOrderOnce(orderId, grants, onGranted) {
       : grants.grantPremiumDays;
   const days = pack ? pack.days : daysForPaid(userId, plan, paid);
   const granted = grant(userId, days);
-  if (!granted || granted.ok === false) return { ok: false, error: (granted && granted.error) || 'no se pudo activar el plan' };
+  if (!granted || granted.ok === false) { lost(`plan: ${granted && granted.error}`); return { ok: false, error: (granted && granted.error) || 'no se pudo activar el plan' }; }
   ledger.orders[order.id] = {
     userId,
     at: new Date().toISOString(),
@@ -344,6 +362,13 @@ export function mountMercadoPagoRoutes(app, {
         if (result.pending) {
           return res.send(resultPage('Pago pendiente', `<h1>Pago pendiente</h1>
             <p>Si elegiste <b>OXXO</b>, paga con tu ficha en la tienda. Tu plan se activa solo cuando Mercado Pago confirme el pago (puede tardar unas horas).</p>${back}`));
+        }
+        // Cobrado pero no se pudo activar: nunca decir «no se cobró nada».
+        if (result.error && result.error !== 'pago no completado' && result.error !== 'No se encontró el pago') {
+          const safeId = orderId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+          return res.send(resultPage('Pago recibido', `<h1>Recibimos tu pago</h1>
+            <p>Pero no se pudo activar tu plan automáticamente. Escríbenos con este número y lo activamos a mano:</p>
+            <p><b>${safeId}</b></p>${back}`));
         }
       } catch (e) {
         console.error('[mercadopago] return:', e && e.message);

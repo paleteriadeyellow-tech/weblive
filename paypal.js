@@ -136,15 +136,31 @@ async function paypalFetch(pathname, { method = 'GET', body } = {}) {
 }
 
 function loadLedger() {
-  try {
-    const j = JSON.parse(fs.readFileSync(LEDGER_FILE, 'utf8'));
-    if (j && typeof j === 'object') return j;
-  } catch {}
+  let raw = null;
+  try { raw = fs.readFileSync(LEDGER_FILE, 'utf8'); } catch (err) {
+    // Existe pero no se pudo leer: no seguir con uno vacío (daría días dobles y borraría el historial).
+    if (err && err.code !== 'ENOENT') throw new Error('No se pudo leer el registro de pagos. Intenta en un momento.');
+  }
+  if (raw != null) {
+    try {
+      const j = JSON.parse(raw);
+      if (j && typeof j === 'object') {
+        if (!j.captures || typeof j.captures !== 'object') j.captures = {};
+        return j;
+      }
+    } catch {}
+    // Dañado: se aparta una copia (nunca se pierde) y se sigue.
+    try { fs.copyFileSync(LEDGER_FILE, `${LEDGER_FILE}.danado-${Date.now()}`); } catch {}
+    console.error('[paypal] paypal-payments.json dañado; se guardó una copia aparte');
+  }
   return { captures: {} };
 }
 function saveLedger(j) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(LEDGER_FILE, JSON.stringify(j, null, 2), 'utf8');
+  // Escribir aparte y luego reemplazar: si el servidor se apaga a la mitad, el archivo no queda roto.
+  const tmp = `${LEDGER_FILE}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(j, null, 2), 'utf8');
+  fs.renameSync(tmp, LEDGER_FILE);
 }
 
 function amountOk(value, currency, plan = 'premium', userId = '', isFounderMember = null) {
@@ -158,6 +174,7 @@ function amountOk(value, currency, plan = 'premium', userId = '', isFounderMembe
   return near(PLAN_AMOUNT[p]) || (pct > 0 && near(withDiscount(PLAN_AMOUNT[p], pct)));
 }
 
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function resultPage(title, inner) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -195,15 +212,26 @@ function captureFromOrder(order) {
 
 async function fulfillCapture(info, grants, onGranted) {
   if (!info.captureId && !info.orderId) return { ok: false, error: 'pago incompleto' };
-  if (info.status && info.status !== 'COMPLETED') return { ok: false, error: 'pago no completado' };
+  if (info.status && info.status !== 'COMPLETED') {
+    // PENDING = PayPal lo está revisando: se activa solo cuando llegue el aviso PAYMENT.CAPTURE.COMPLETED.
+    const pending = /^(PENDING|APPROVED|SAVED|CREATED)$/i.test(info.status);
+    if (pending) console.warn('[paypal] pago en revisión, se activará con el aviso de PayPal:', info.orderId, info.captureId);
+    return { ok: false, pending, error: 'pago no completado' };
+  }
   const { userId, plan, pack } = splitCustomId(info.userId);
   info.userId = userId;
   if (pack) {
     if (String(info.currency || '').toUpperCase() !== CURRENCY || Math.abs(Number(info.value) - Number(pack.amount)) > 0.05) {
       return { ok: false, error: 'monto no válido' };
     }
-  } else if (!amountOk(info.value, info.currency, plan, info.userId, grants.isFounderMember)) return { ok: false, error: 'monto no válido' };
-  if (!info.userId) return { ok: false, error: 'pago sin cuenta' };
+  } else if (!amountOk(info.value, info.currency, plan, info.userId, grants.isFounderMember)) {
+    console.error('[paypal] PAGO COBRADO SIN ACTIVAR (monto no válido):', info.orderId, info.captureId, info.userId, info.value, info.currency);
+    return { ok: false, error: 'monto no válido' };
+  }
+  if (!info.userId) {
+    console.error('[paypal] PAGO COBRADO SIN ACTIVAR (sin cuenta):', info.orderId, info.captureId, info.value);
+    return { ok: false, error: 'pago sin cuenta' };
+  }
 
   const ledger = loadLedger();
   const key = info.captureId || info.orderId;
@@ -217,6 +245,7 @@ async function fulfillCapture(info, grants, onGranted) {
   const days = pack ? pack.days : daysForPaid(info.userId, plan, info.value);
   const granted = grant(info.userId, days);
   if (!granted || granted.ok === false) {
+    console.error('[paypal] PAGO COBRADO SIN ACTIVAR (plan):', info.orderId, info.captureId, info.userId, plan, granted && granted.error);
     return { ok: false, error: (granted && granted.error) || 'no se pudo activar el plan' };
   }
   ledger.captures[key] = {
@@ -288,6 +317,25 @@ export async function createPremiumOrder(userId, planRaw, isFounderMember, packI
 }
 
 export async function captureAndGrant(orderId, grants, onGranted) {
+  // Antes de cobrar: revisar que la orden sea válida (cuenta y monto). Así nunca se cobra
+  // una orden que después no activaría el plan. Si ya estaba cobrada, no se cobra otra vez.
+  const pre = await paypalFetch(`/v2/checkout/orders/${encodeURIComponent(orderId)}`);
+  if (pre.ok && pre.data && pre.data.id) {
+    const i = captureFromOrder(pre.data);
+    const { userId, plan, pack } = splitCustomId(i.userId);
+    const amountValid = pack
+      ? String(i.currency || '').toUpperCase() === CURRENCY && Math.abs(Number(i.value) - Number(pack.amount)) <= 0.05
+      : amountOk(i.value, i.currency, plan, userId, grants.isFounderMember);
+    if (!userId || !amountValid) {
+      console.error('[paypal] orden no válida, NO se cobra:', orderId, i.userId, i.value, i.currency);
+      return { ok: false, error: 'Esta orden de pago no es válida. No se te cobró nada; vuelve a Planes e inténtalo otra vez.' };
+    }
+    if (String(pre.data.status || '').toUpperCase() === 'COMPLETED') {
+      const info = captureFromOrder(pre.data);
+      if (!info.orderId) info.orderId = String(orderId);
+      return fulfillCapture(info, grants, onGranted);
+    }
+  }
   const captured = await paypalFetch(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, { method: 'POST' });
   let order = captured.data;
   if (!captured.ok) {
@@ -404,20 +452,49 @@ export function mountPaypalRoutes(app, {
     }
     try {
       const result = await captureAndGrant(token, grants, onGranted);
+      if (!result.ok && result.pending) {
+        return res.send(resultPage('Pago en revisión', `<h1>Pago en revisión</h1>
+          <p>PayPal está revisando tu pago. Tu plan se activa <b>solo</b> en cuanto PayPal lo confirme (normalmente minutos).</p>
+          <p>Si en unas horas no se activa, escríbenos con el correo de tu pago.</p><p><a href="/#planes">Volver a Planes</a></p>`));
+      }
+      const back = '<p><a href="/#planes">Volver a Planes</a></p>';
+      const safeId = token.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
       if (!result.ok) {
-        return res.status(400).send(resultPage('Pago', `<h1>No se activó</h1><p>${result.error || 'Error al confirmar.'}</p><p><a href="/#planes">Volver a Planes</a></p>`));
+        // Revisado ANTES de cobrar: no se cobró.
+        if (/No se te cobró/.test(result.error || '')) {
+          return res.status(400).send(resultPage('Pago', `<h1>No se activó</h1><p>${esc(result.error)}</p>${back}`));
+        }
+        // PayPal rechazó la tarjeta / el pago no se completó.
+        if (result.error === 'pago no completado') {
+          return res.status(400).send(resultPage('Pago', `<h1>No se completó el pago</h1><p>PayPal no aprobó el cobro. Puedes intentarlo otra vez.</p>${back}`));
+        }
+        // Cobrado pero no se pudo activar: nunca decir que no se cobró.
+        return res.status(400).send(resultPage('Pago recibido', `<h1>Recibimos tu pago</h1>
+          <p>Pero no se pudo activar tu plan automáticamente. Escríbenos con este número y lo activamos a mano:</p><p><b>${safeId}</b></p>${back}`));
+      }
+      // Ya estaba activado (el aviso de PayPal llegó primero o recargaron esta página).
+      if (result.already) {
+        const until = result.premiumUntil;
+        return res.send(resultPage('Pago ya registrado', `<h1>Pago ya registrado</h1>
+          <p>Tu plan ya está activo${until ? ` hasta el <b>${new Date(until).toLocaleDateString('es-MX')}</b>` : ''}.</p>
+          <p>Si usas el .exe, vuelve a Livecoins y recarga el panel.</p>${back}`));
       }
       const gp = result.granted && result.granted.plan;
       const planName = gp === 'pro' ? 'PRO' : gp === 'founder' ? 'Founder' : 'Premium';
+      const until = result.granted && result.granted.premiumUntil;
       res.send(resultPage(planName, `
         <h1>${planName} activado</h1>
-        <p>Tu plan ${planName} quedó activo hasta el <b>${new Date(result.granted.premiumUntil || Date.now()).toLocaleDateString('es-MX')}</b>.</p>
+        ${until ? `<p>Tu plan ${planName} quedó activo hasta el <b>${new Date(until).toLocaleDateString('es-MX')}</b>.</p>` : `<p>Tu plan ${planName} quedó activo.</p>`}
         <p>Si usas el .exe, vuelve a Livecoins y recarga el panel.</p>
         <p><a href="/#planes">Ir a Planes</a></p>
       `));
     } catch (e) {
-      console.error('[paypal] return:', e && e.message);
-      res.status(502).send(resultPage('Pago', `<h1>No se pudo confirmar</h1><p>${(e && e.message) || 'Error de PayPal.'}</p><p><a href="/#planes">Volver a Planes</a></p>`));
+      console.error('[paypal] return:', token, e && e.message);
+      const safeId = token.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      res.status(502).send(resultPage('Pago', `<h1>No se pudo confirmar todavía</h1>
+        <p>${esc((e && e.message) || 'Error de PayPal.')}</p>
+        <p>Si PayPal ya te cobró, tu plan se activa solo en unos minutos. Si no se activa, escríbenos con este número: <b>${safeId}</b></p>
+        <p><a href="/#planes">Volver a Planes</a></p>`));
     }
   });
 

@@ -53,3 +53,15 @@
 /* Planes: precio con descuento de invitado */
 html body main #view-planes .ipp-price s.ipp-price-old { margin-left: 8px; font-size: 20px; font-weight: 700; color: var(--tn-mut, #8a8a95); text-decoration: line-through; letter-spacing: 0; }
 html body main #view-planes .ipp-ref-badge { display: inline-block; margin-top: 8px; padding: 4px 10px; border-radius: 99px; background: rgba(74, 222, 128, .13); color: #4ade80; font-size: 12px; font-weight: 800; }
+/* Admin › Referidos */
+#sub-admin-referrals .aref-tag { display: inline-block; padding: 2px 8px; border-radius: 99px; background: rgba(255, 255, 255, .07); font-size: 12px; white-space: nowrap; }
+#sub-admin-referrals .aref-tag.ok { background: rgba(74, 222, 128, .14); color: #4ade80; font-weight: 700; }
+#sub-admin-referrals .aref-tag.bad { background: rgba(255, 122, 138, .14); color: #ff7a8a; font-weight: 700; }
+#sub-admin-referrals .aref-wait { color: #f5c542; font-weight: 700; white-space: nowrap; }
+#sub-admin-referrals .aref-adj { white-space: nowrap; }
+#sub-admin-referrals .aref-adj input { width: 92px; margin-right: 6px; padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .16); background: #1a1a1a; color: #fff; }
+#sub-admin-referrals .aref-log { margin-top: 6px; font-size: 12px; }
+#sub-admin-referrals .aref-log summary { cursor: pointer; color: var(--muted, #9a9ca5); }
+#sub-admin-referrals .aref-log ul { margin: 6px 0 0; padding-left: 16px; max-height: 180px; overflow: auto; }
+#sub-admin-referrals .aref-log b.pos { color: #4ade80; }
+#sub-admin-referrals .aref-log b.neg { color: #ff7a8a; }
