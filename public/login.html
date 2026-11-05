@@ -117,6 +117,8 @@
           <label for="reg-code">Código de verificación</label>
           <input id="reg-code" name="code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
           <p class="hint" style="margin-top:8px;margin-bottom:0">Te enviamos un código al correo. Caduca en 15 minutos.</p>
+          <label for="reg-ref">Código de invitación <small style="opacity:.6;font-weight:400">(opcional)</small></label>
+          <input id="reg-ref" name="ref" type="text" maxlength="16" placeholder="Si un amigo te invitó" autocomplete="off" style="text-transform:uppercase" />
         </div>
         <div class="terms-row" id="terms-row">
           <input type="checkbox" id="terms-ok" />
@@ -345,6 +347,8 @@
         }
         body.email = email;
         body.code = code;
+        const ref = ($('reg-ref') && $('reg-ref').value || '').trim();
+        if (ref) body.ref = ref;
       }
       $('submit').disabled = true;
       msg.className = 'msg';
@@ -382,6 +386,15 @@
         $('submit').disabled = false;
       }
     });
+  
+    (function () {
+      const ref = (new URLSearchParams(location.search).get('ref') || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 16);
+      if (!ref) return;
+      const inp = document.getElementById('reg-ref');
+      if (inp) inp.value = ref.toUpperCase();
+      const tab = document.querySelector('.tab[data-tab="register"]');
+      if (tab && tab.style.display !== 'none') tab.click();
+    })();
   </script>
 </body>
 </html>

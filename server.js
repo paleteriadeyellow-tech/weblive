@@ -47,6 +47,7 @@ import {
 import * as spotify from './spotify.js';
 import { mountPaypalRoutes } from './paypal.js';
 import { mountMercadoPagoRoutes } from './mercadopago.js';
+import * as referrals from './referrals.js';
 import { sendPaymentReceipt, startExpiryReminders } from './billing-mail.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
 import { bootstrapUserMedia, registerUserUpload, userUploadKind, migrateUserMediaDir } from './scripts/user-media-guard.mjs';
@@ -1450,12 +1451,12 @@ async function proxyAdminToRemote(req, res, apiPath, method = 'GET') {
   }
 }
 
-async function remoteRegister(username, password, email, code) {
+async function remoteRegister(username, password, email, code, ref) {
   try {
     const r = await fetch(`${AUTH_REMOTE}/api/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, email, code }),
+      body: JSON.stringify({ username, password, email, code, ref: ref || undefined }),
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) return { error: data.error || 'No se pudo crear la cuenta.' };
@@ -1472,12 +1473,14 @@ async function remoteRegister(username, password, email, code) {
 
 app.post('/api/register', express.json(), async (req, res) => {
   const { username, password, email, code } = req.body || {};
+  // Código de invitación: del formulario o del enlace /i/CÓDIGO (cookie).
+  const ref = referrals.normalizeCode((req.body && req.body.ref) || referrals.refFromRequest(req));
   // En el .exe la cuenta se crea en la web (fuente única); luego se replica en local.
   if (AUTH_REMOTE) {
     if (!email || !code) {
       return res.status(400).json({ error: 'Verifica tu correo con el código para crear la cuenta.' });
     }
-    const rr = await remoteRegister(username, password, email, code);
+    const rr = await remoteRegister(username, password, email, code, ref);
     if (rr.network) return res.status(503).json({ error: 'Sin conexión con el servidor. Revisa tu internet.' });
     if (rr.error) return res.status(400).json({ error: rr.error });
     const user = upsertMirrorUser({ username, password, plan: 'free', isAdmin: false, active: true });
@@ -1497,6 +1500,9 @@ app.post('/api/register', express.json(), async (req, res) => {
   if (vr.error) return res.status(400).json({ error: vr.error });
   const { user, error } = registerUser(username, password, { email: vr.email || email });
   if (error) return res.status(400).json({ error });
+  if (ref) {
+    try { referrals.attachReferrer(user.id, ref, { getUserById }); } catch {}
+  }
   maybeMigrateLegacy(user);
   const token = createSession(user.id);
   if (IS_DESKTOP) saveDesktopLastLogin(user.id);
@@ -1656,7 +1662,10 @@ mountPaypalRoutes(app, {
   isFounderMember,
   AUTH_REMOTE,
   getRemoteCookie: (id) => remoteCookies.get(id),
+  referralDiscountFor: referrals.discountFor,
+  referralAcceptedDiscountFor: referrals.acceptedDiscountFor,
   onGranted: (userId, granted, meta) => {
+    try { referrals.recordPaid(userId, meta); } catch {}
     const room = rooms.get(userId);
     if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
     sendPaymentReceipt(getUserById(userId), granted, meta).catch(() => {});
@@ -1671,10 +1680,31 @@ mountMercadoPagoRoutes(app, {
   isFounderMember,
   AUTH_REMOTE,
   getRemoteCookie: (id) => remoteCookies.get(id),
+  referralDiscountFor: referrals.discountFor,
+  referralAcceptedDiscountFor: referrals.acceptedDiscountFor,
   onGranted: (userId, granted, meta) => {
+    try { referrals.recordPaid(userId, meta); } catch {}
     const room = rooms.get(userId);
     if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
     sendPaymentReceipt(getUserById(userId), granted, meta).catch(() => {});
+  },
+});
+
+// Invita y gana (código, Coins y canje por días).
+referrals.mountReferralRoutes(app, {
+  userFromRequest,
+  getUserById,
+  getUserPlan,
+  grantProDays,
+  grantPremiumDays,
+  requireAdmin: (req, res, next) => requireAdmin(req, res, next),
+  AUTH_REMOTE,
+  getRemoteCookie: (id) => remoteCookies.get(id),
+  // .exe: tras canjear en la nube, traer el plan nuevo al momento.
+  afterRemoteChange: (user) => pullRemotePlan(user),
+  onPlanChanged: (userId) => {
+    const room = rooms.get(userId);
+    if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
   },
 });
 

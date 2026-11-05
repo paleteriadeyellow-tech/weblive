@@ -1,0 +1,50 @@
+/* Vista «Invita y gana» (referrals-view.js) */
+#view-invita { --ref-acc: #9b5cff; --ref-acc2: #b388ff; --ref-card: var(--card, #16161b); --ref-line: var(--line, #2a2a33); --ref-mut: var(--muted, #9a9ca5); }
+#view-invita .ref-body { display: flex; flex-direction: column; gap: 18px; max-width: 1180px; }
+#view-invita .ref-top { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+@media (max-width: 900px) { #view-invita .ref-top { grid-template-columns: 1fr; } }
+#view-invita .ref-card { position: relative; background: var(--ref-card); border: 1px solid var(--ref-line); border-radius: 16px; padding: 20px 22px; }
+#view-invita .ref-coins { border-color: rgba(155, 92, 255, .45); overflow: hidden; }
+#view-invita .ref-coins::after { content: '🪙'; position: absolute; right: 22px; bottom: 6px; font-size: 92px; opacity: .07; pointer-events: none; }
+#view-invita .ref-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+#view-invita .ref-card-head b { display: block; font-size: 16px; }
+#view-invita .ref-card-head small { display: block; color: var(--ref-mut); font-size: 12px; margin-top: 2px; }
+#view-invita .ref-ico { display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 10px; background: rgba(155, 92, 255, .14); font-size: 18px; }
+#view-invita .ref-big { font-size: 46px; font-weight: 800; line-height: 1; }
+#view-invita .ref-big small { font-size: 14px; font-weight: 500; color: var(--ref-mut); }
+#view-invita .ref-bar { height: 7px; max-width: 420px; margin: 14px 0 10px; border-radius: 99px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+#view-invita .ref-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--ref-acc), var(--ref-acc2)); transition: width .4s; }
+#view-invita .ref-sub { margin: 0 0 18px; color: var(--ref-mut); }
+#view-invita .ref-sub b { color: #fff; }
+#view-invita .ref-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+#view-invita .ref-row-2 > .btn { flex: 1; }
+#view-invita .ref-note { font-size: 12px; color: var(--ref-mut); }
+#view-invita .btn.primary { background: var(--ref-acc); border-color: var(--ref-acc); }
+#view-invita .btn.primary:disabled { opacity: .5; cursor: not-allowed; }
+#view-invita .ref-codebox { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 12px; padding: 14px 18px; border: 2px dashed rgba(155, 92, 255, .6); border-radius: 12px; background: rgba(155, 92, 255, .07); color: #fff; font: 800 26px/1 "JetBrains Mono", Consolas, monospace; letter-spacing: .18em; cursor: pointer; }
+#view-invita .ref-codebox span { font-size: 16px; opacity: .7; letter-spacing: 0; }
+#view-invita .ref-codebox:hover { background: rgba(155, 92, 255, .14); }
+#view-invita .ref-link { margin: 12px 0; padding-bottom: 12px; border-bottom: 1px solid var(--ref-line); font-size: 12px; color: var(--ref-mut); word-break: break-all; }
+#view-invita .ref-mini { padding: 6px 10px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .05); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+#view-invita .ref-mini:hover { background: rgba(255, 255, 255, .1); }
+#view-invita .ref-invited { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+#view-invita .ref-invited p { margin: 0; }
+#view-invita .ref-invited small { display: block; color: var(--ref-mut); font-size: 12px; }
+#view-invita .ref-input, .ref-redeem .ref-input { padding: 9px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .16); background: #1a1a1a; color: #fff; font-weight: 700; text-transform: uppercase; outline: none; }
+.ref-redeem { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 14px; text-align: left; }
+.ref-redeem .ref-input { text-transform: none; width: 100%; box-sizing: border-box; }
+.ref-redeem .ref-note { font-size: 12px; opacity: .75; margin: 0; }
+#view-invita .ref-task { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--ref-line); border-radius: 14px; flex-wrap: wrap; }
+#view-invita .ref-task-txt { flex: 1; min-width: 220px; }
+#view-invita .ref-task-txt b { display: block; font-size: 15px; }
+#view-invita .ref-task-txt small { display: block; color: var(--ref-mut); margin: 3px 0 8px; }
+#view-invita .ref-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+#view-invita .ref-chips span { padding: 3px 9px; border-radius: 8px; background: rgba(255, 255, 255, .06); font-size: 12px; }
+#view-invita .ref-chips b, #view-invita .ref-pill { color: #f5c542; }
+#view-invita .ref-pill { padding: 6px 12px; border-radius: 99px; background: rgba(245, 197, 66, .12); font-weight: 800; font-size: 13px; }
+#view-invita .ref-friends { display: flex; flex-direction: column; gap: 8px; }
+#view-invita .ref-friend { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; background: rgba(255, 255, 255, .03); }
+#view-invita .ref-friend small { color: var(--ref-mut); }
+#view-invita .ref-st { margin-left: auto; font-size: 12px; color: var(--ref-mut); }
+#view-invita .ref-st.ok { color: #4ade80; font-weight: 700; }
+#view-invita .ref-empty { padding: 30px 10px; text-align: center; color: var(--ref-mut); }

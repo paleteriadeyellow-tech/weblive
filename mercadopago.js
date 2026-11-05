@@ -38,9 +38,13 @@ function planOf(p) {
   const s = String(p || '').toLowerCase();
   return s === 'pro' || s === 'founder' ? s : 'premium';
 }
+// Descuento por invitación (referrals.js): % en el primer pago mensual de PRO/VIP. Lo pone mountMercadoPagoRoutes.
+let referralDiscount = () => 0;
+let referralAccepted = () => 0;
+const withDiscount = (value, pct) => (pct > 0 ? (Number(value) * (100 - pct) / 100).toFixed(2) : value);
 function amountFor(plan, userId, isFounderMember) {
   if (plan === 'founder') return isFounderMember && isFounderMember(userId) ? PRICES.founderMonthly : PRICES.founderFirst;
-  return PRICES[plan];
+  return withDiscount(PRICES[plan], Number(referralDiscount(userId)) || 0);
 }
 // external_reference: Mercado Pago solo acepta letras, números, «-» y «_» (máx. 64).
 // Formato «userId_pro», «userId_premium», «userId_founder» o «userId_pk-vip-3» (el id es un UUID, sin «_»).
@@ -78,6 +82,8 @@ export function publicStatus(userId, isFounderMember) {
     founderMonthly: PRICES.founderMonthly,
     founderAmount: member ? PRICES.founderMonthly : PRICES.founderFirst,
     founderMember: member,
+    // % de descuento por invitación en su primer pago de PRO/VIP (0 = sin descuento).
+    referralDiscountPct: userId ? Number(referralDiscount(userId)) || 0 : 0,
     packs: Object.entries(PACKS).map(([id, p]) => ({ id, plan: p.plan, days: p.days, amount: p.amount })),
     days: DAYS,
   };
@@ -151,7 +157,7 @@ async function fulfillOrderOnce(orderId, grants, onGranted) {
   const paid = Number(order.total_paid_amount || order.total_amount);
   const want = pack ? Number(pack.amount)
     : plan === 'founder' ? Number(PRICES.founderMonthly) // mínimo válido; el primer pago es mayor
-      : Number(PRICES[plan]);
+      : Number(withDiscount(PRICES[plan], Number(referralAccepted(userId)) || 0));
   if (!Number.isFinite(paid) || paid + 0.5 < want) return { ok: false, error: 'monto no válido' };
   // Founder a precio de mensualidad solo si ya era Founder.
   if (!pack && plan === 'founder' && paid + 0.5 < Number(PRICES.founderFirst)
@@ -250,8 +256,12 @@ export function mountMercadoPagoRoutes(app, {
   AUTH_REMOTE,
   getRemoteCookie,
   onGranted,
+  referralDiscountFor,
+  referralAcceptedDiscountFor,
 } = {}) {
   const grants = { grantPremiumDays, grantProDays, grantFounderDays, isFounderMember };
+  if (referralDiscountFor) referralDiscount = referralDiscountFor;
+  if (referralAcceptedDiscountFor) referralAccepted = referralAcceptedDiscountFor;
   async function proxyToRemote(req, res, pathname, method = 'GET') {
     const base = String(AUTH_REMOTE || '').replace(/\/+$/, '');
     if (!base) return false;

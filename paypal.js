@@ -29,9 +29,13 @@ function planOf(p) {
   return s === 'pro' || s === 'founder' ? s : 'premium';
 }
 /** Lo que paga ESTE usuario por el plan (el Founder depende de si ya fue Founder). */
+// Descuento por invitación (referrals.js): % en el primer pago mensual de PRO/VIP. Lo pone mountPaypalRoutes.
+let referralDiscount = () => 0;
+let referralAccepted = () => 0;
+const withDiscount = (value, pct) => (pct > 0 ? (Number(value) * (100 - pct) / 100).toFixed(2) : value);
 function amountFor(plan, userId, isFounderMember) {
   if (plan === 'founder') return isFounderMember && isFounderMember(userId) ? FOUNDER_MONTHLY : FOUNDER_FIRST;
-  return PLAN_AMOUNT[plan];
+  return withDiscount(PLAN_AMOUNT[plan], Number(referralDiscount(userId)) || 0);
 }
 // Paquetes: pago único que suma esos días al plan. Al terminar, se renueva al precio normal
 // (VIP $17/mes; Founder $12/mes, porque con el paquete ya cuenta como Founder).
@@ -73,6 +77,8 @@ export function publicStatus(userId, isFounderMember) {
     // precio Founder para quien pregunta: mensualidad si ya fue Founder, si no el primer pago
     founderAmount: member ? FOUNDER_MONTHLY : FOUNDER_FIRST,
     founderMember: member,
+    // % de descuento por invitación en su primer pago de PRO/VIP (0 = sin descuento).
+    referralDiscountPct: userId ? Number(referralDiscount(userId)) || 0 : 0,
     packs: Object.entries(PACKS).map(([id, p]) => ({ id, plan: p.plan, days: p.days, amount: p.amount })),
     currency: CURRENCY,
     days: DAYS,
@@ -138,7 +144,8 @@ function amountOk(value, currency, plan = 'premium', userId = '', isFounderMembe
   const near = (want) => Math.abs(got - Number(want)) <= 0.05;
   // Founder: el primer pago siempre vale; la mensualidad solo si ya era Founder.
   if (p === 'founder') return near(FOUNDER_FIRST) || (near(FOUNDER_MONTHLY) && !!(isFounderMember && isFounderMember(userId)));
-  return near(PLAN_AMOUNT[p]);
+  const pct = Number(referralAccepted(userId)) || 0;
+  return near(PLAN_AMOUNT[p]) || (pct > 0 && near(withDiscount(PLAN_AMOUNT[p], pct)));
 }
 
 function resultPage(title, inner) {
@@ -312,8 +319,12 @@ export function mountPaypalRoutes(app, {
   AUTH_REMOTE,
   getRemoteCookie,
   onGranted,
+  referralDiscountFor,
+  referralAcceptedDiscountFor,
 } = {}) {
   const grants = { grantPremiumDays, grantProDays, grantFounderDays, isFounderMember };
+  if (referralDiscountFor) referralDiscount = referralDiscountFor;
+  if (referralAcceptedDiscountFor) referralAccepted = referralAcceptedDiscountFor;
   async function proxyToRemote(req, res, pathname, method = 'GET') {
     const base = String(AUTH_REMOTE || '').replace(/\/+$/, '');
     if (!base) return false;
