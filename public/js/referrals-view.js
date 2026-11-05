@@ -115,7 +115,7 @@
             <b>@${esc(f.username)}</b>
             <small>${f.at ? new Date(f.at).toLocaleDateString('es-MX') : ''}</small>
             ${f.status === 'paid' ? `<span class="ref-st ok">Pagó · +${fmt(f.coins)} Coins</span>`
-    : f.status === 'blocked' ? '<span class="ref-st">Pagó · sin Coins (misma persona)</span>'
+    : f.status === 'blocked' ? '<span class="ref-st" title="Mismo correo o misma red que tú, o desde su red ya se usó otro código.">Pagó · sin Coins (misma persona o red)</span>'
       : f.status === 'pending' ? `<span class="ref-st wait">Pagó · +${fmt(f.coins)} Coins el ${new Date(f.until).toLocaleDateString('es-MX')}</span>`
       : '<span class="ref-st">Registrado · aún no paga</span>'}
           </div>`).join('')}</div>`

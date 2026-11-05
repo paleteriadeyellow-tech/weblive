@@ -195,7 +195,17 @@ export function clientIp(req) {
   }
   return ip;
 }
-const ipKey = (ip) => (ip ? crypto.createHash('sha256').update(`${IP_SALT}|${ip}`).digest('hex').slice(0, 24) : '');
+/** Red de la IP: IPv4 tal cual; IPv6 por su /64 (cada aparato de la casa tiene otra IPv6, y cambia sola). */
+function netOf(ip) {
+  const v = String(ip || '').split('%')[0].toLowerCase();
+  if (!v.includes(':')) return v;
+  const [head, tail = ''] = v.split('::');
+  const a = head ? head.split(':') : [];
+  const b = tail ? tail.split(':') : [];
+  const full = [...a, ...Array(Math.max(0, 8 - a.length - b.length)).fill('0'), ...b];
+  return `${full.slice(0, 4).map((x) => (parseInt(x, 16) || 0).toString(16)).join(':')}::/64`;
+}
+const ipKey = (ip) => (ip ? crypto.createHash('sha256').update(`${IP_SALT}|${netOf(ip)}`).digest('hex').slice(0, 24) : '');
 
 /** Anota desde qué red entra la cuenta (solo un resumen cifrado de la IP, no la IP). */
 export function noteIp(userId, req) {
