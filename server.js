@@ -45,8 +45,8 @@ import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps, isPlanConfigFallback,
 } from './plans.js';
 import * as spotify from './spotify.js';
-import { mountPaypalRoutes } from './paypal.js';
-import { mountMercadoPagoRoutes } from './mercadopago.js';
+import { mountPaypalRoutes, hasFounderPayment as paypalFounderPaid } from './paypal.js';
+import { mountMercadoPagoRoutes, hasFounderPayment as mpFounderPaid } from './mercadopago.js';
 import * as referrals from './referrals.js';
 import { mountGiftCodeRoutes } from './giftcodes.js';
 import { sendPaymentReceipt, startExpiryReminders } from './billing-mail.js';
@@ -1642,7 +1642,8 @@ app.get('/api/me', async (req, res) => {
     cloudSessionOk: hasRemoteCookie,
     isAdmin: !!user.isAdmin,
     active: isUserActive(user),
-    plan: caps.plan,
+    // caps.plan agrupa Founder con Premium (mismos permisos); aquí va el plan que se muestra y se copia al .exe.
+    plan: caps.plan === 'premium' && getUserPlan(fullUser) === 'founder' ? 'founder' : caps.plan,
     premiumUntil: fullUser.premiumUntil || 0,
     gamesEnabled: isUserGamesEnabled(fullUser),
     allowedGames: fullUser.isAdmin ? null : (Array.isArray(fullUser.allowedGames) ? fullUser.allowedGames : null),
@@ -3560,7 +3561,8 @@ app.post('/api/admin/userplan', express.json(), requireAdmin, async (req, res) =
   }
   const { id, plan, days } = req.body || {};
   if (!id) return res.status(400).json({ error: 'falta id' });
-  const ok = setUserPlan(id, plan, days);
+  // Plan puesto a mano: no da la mensualidad de Founder; esa es solo para quien pagó.
+  const ok = setUserPlan(id, plan, days, { manual: true, noMembership: true, paidFounder: paypalFounderPaid(id) || mpFounderPaid(id) });
   if (!ok) return res.status(404).json({ error: 'cuenta no encontrada' });
   // Avisamos al panel del usuario (si está conectado) para que aplique sus nuevos límites.
   const room = rooms.get(id);

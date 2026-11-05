@@ -1496,7 +1496,10 @@ function renderPlanPricing() {
         : `<button class="ipp-btn pro" id="pp-buy-pro" data-pp-buy="1" data-pp-plan="pro" data-pp-pk="" data-pp-method="paypal">${myTier === 'pro' ? 'Renovar PRO' : 'Comprar PRO'}</button>`;
   const proUntilTxt = (myTier === 'pro' && premUntil > 0)
     ? `<p class="ipp-sub-note">Activo hasta ${new Date(premUntil).toLocaleDateString('es')}</p>` : '';
-  const vipBtn = !canBuy
+  // Founder ya incluye VIP y renueva más barato en su propia tarjeta: no se le ofrece pagar VIP.
+  const vipBtn = myTier === 'founder'
+    ? '<button class="ipp-btn ghost" disabled>Incluido en tu plan</button>'
+    : !canBuy
     ? '<button class="ipp-btn is-current" disabled>✓ Plan actual</button>'
     : pp.enabled
       ? payPair('vip', 'premium', '', premCurrent ? 'Renovar con PayPal' : (myTier === 'pro' ? 'Mejorar a VIP · PayPal' : 'Pagar con PayPal'), 'pp-buy')
@@ -1525,6 +1528,8 @@ function renderPlanPricing() {
     // Paquetes por PayPal (se activan solos). Founder ya activo: renueva mes a mes a su precio.
     const packBtn = fixedPlan
       ? '<button type="button" class="ipp-btn ghost" disabled>Ya tienes plan fijo</button>'
+      : (pk.tier === 'vip' && myTier === 'founder')
+        ? '<button type="button" class="ipp-btn ghost" disabled>Incluido en tu plan</button>'
       : (pk.tier === 'founder' && founderMember)
         ? '<button type="button" class="ipp-btn ghost" disabled>Ya eres Founder · renueva a $' + fMonthly + '/mes</button>'
         : pp.enabled

@@ -244,10 +244,14 @@ export function getUserPlan(user) {
 export function setUserPlan(id, plan, days, opts = {}) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
+  // Admin cambia un Founder fijo que nunca pagó Founder: al perderlo no conserva la mensualidad de Founder.
+  if (opts.manual && u.plan === 'founder' && !(Number(u.premiumUntil) > 0) && !u.founderPaidAt && !opts.paidFounder) {
+    u.founderManual = true;
+  }
   if (plan === 'founder' || plan === 'premium' || plan === 'pro') {
     u.plan = plan;
     // Quien ya fue Founder renueva a precio Founder para siempre (aunque se le pase un mes).
-    if (plan === 'founder') markFounder(u, opts, Date.now());
+    if (plan === 'founder') markFounder(u, { ...opts, notPaid: true }, Date.now());
     const n = Number(days);
     u.premiumUntil = (Number.isFinite(n) && n > 0) ? Date.now() + n * 24 * 60 * 60 * 1000 : 0;
   } else {
@@ -313,10 +317,17 @@ function markFounder(u, opts, now) {
   } else {
     if (!u.founderSince) u.founderSince = now;
     delete u.founderByCode;
+    // Solo un pago real (grantFounderDays) marca que pagó; setUserPlan no.
+    if (!(opts && opts.notPaid)) {
+      u.founderPaidAt = now;
+      delete u.founderManual;
+    }
   }
 }
 export function isFounderMember(id) {
   const u = users.find((x) => String(x.id) === String(id));
+  // Founder fijo regalado desde Admin al que se le quitó el plan: no pagó, así que no tiene la mensualidad.
+  if (u && u.founderManual) return false;
   // Founder recibido por código de activación (founderByCode) NO cuenta: la mensualidad Founder
   // de por vida es para quien pagó Founder.
   return !!(u && (u.founderSince || (u.plan === 'founder' && !u.founderByCode)));

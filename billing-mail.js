@@ -90,8 +90,7 @@ export function startExpiryReminders({ dataDir, listUsersDetailed, getUserById, 
       const plan = user ? getUserPlan(user) : '';
       if (!user || !['pro', 'premium', 'founder'].includes(plan)) continue;
       const to = userEmail(user);
-      sent[row.id] = until; changed = true; // aunque no tenga correo: no volver a revisarlo
-      if (!to.includes('@')) continue;
+      if (!to.includes('@')) { sent[row.id] = until; changed = true; continue; } // sin correo: no volver a revisarlo
       const name = planName(plan);
       const days = Math.max(1, Math.ceil((until - now) / DAY));
       const html = layout(`Tu plan ${name} vence pronto`, `
@@ -100,7 +99,8 @@ export function startExpiryReminders({ dataDir, listUsersDetailed, getUserById, 
         <p style="margin:0;font-size:13px;color:#94a3b8">Si renuevas antes de que venza, los días nuevos se suman a los que te quedan.</p>`);
       const text = `Tu plan ${name} vence en ${days} día(s) (${fmtDate(until)}). Renuévalo desde Planes en Livecoins (PayPal, tarjeta u OXXO). Los días se suman a los que te quedan.\nDudas: ${CONTACT}`;
       const r = await sendMail({ to, subject: `Livecoins · Tu plan ${name} vence en ${days} día${days === 1 ? '' : 's'}`, text, html });
-      if (!r.ok) console.warn('[billing-mail] aviso no enviado:', r.error);
+      if (r.ok) { sent[row.id] = until; changed = true; }
+      else console.warn('[billing-mail] aviso no enviado (se reintenta en 6 h):', r.error);
     }
     if (changed) save();
   }

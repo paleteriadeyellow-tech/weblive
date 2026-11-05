@@ -301,6 +301,15 @@ export function gameKeyFromExecTipo(tipo, hintUrl = '') {
   if (t.startsWith('CTR_') || t.startsWith('CRASH')) return 'game_crashctr';
   if (t.startsWith('FLAPPY_')) return 'game_flappybird';
   if (t.startsWith('MK64_')) return 'game_mk64';
+  if (t.startsWith('STACK_')) return 'game_stacktower';
+  if (t.startsWith('CROSSY_')) return 'game_crossyroad';
+  if (t.startsWith('BITE_')) return 'game_bitearena';
+  if (t.startsWith('HILL_')) return 'game_hillclimb';
+  if (t.startsWith('SUPERMARKET_')) return 'game_supermarket';
+  if (t.startsWith('PEAK_')) return 'game_peak';
+  if (t.startsWith('OC2_')) return 'game_overcooked2';
+  if (t.startsWith('BOTTLE_')) return 'game_bottlebattle';
+  if (t.startsWith('GARDEN_')) return 'game_pvzge';
   if (t.startsWith('MSLUG_') || t.startsWith('METALSLUG')) return 'game_metalslug';
   if (t.startsWith('GD_') || t.startsWith('GEOMETRY')) return 'game_geometrydash';
   if (t.startsWith('MC_') || t.startsWith('MINECRAFT') || t.startsWith('RCON') || t.startsWith('SERVERTAP')) return 'game_minecraft';

@@ -155,6 +155,11 @@ function loadLedger() {
   }
   return { captures: {} };
 }
+/** ¿Esta cuenta pagó Founder alguna vez? (registro de pagos) */
+export function hasFounderPayment(userId) {
+  const caps = loadLedger().captures || {};
+  return Object.values(caps).some((e) => e && String(e.userId) === String(userId) && e.plan === 'founder');
+}
 function saveLedger(j) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   // Escribir aparte y luego reemplazar: si el servidor se apaga a la mitad, el archivo no queda roto.
