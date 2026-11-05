@@ -58,6 +58,9 @@ export const CAPABILITIES = {
     { key: 'ov_giftheart', label: 'Meta Heart Me', path: '/corazon-lava.html' },
     { key: 'ov_giftgoals', label: 'Metas de regalos', path: '/gift-metas.html' },
     { key: 'ov_winscounter', label: 'Contador de victorias', path: '/contador-wins.html' },
+    { key: 'ov_contadorvidas', label: 'Contador de vidas', path: '/contador-vidas.html' },
+    { key: 'ov_contadortotems', label: 'Contador de tótems', path: '/contador-totems.html' },
+    { key: 'ov_contadoritems', label: 'Contador de ítems', path: '/contador-items.html' },
     { key: 'ov_winscountergamer', label: 'Contador de victorias (Gamer HUD)', path: '/contador-wins-gamer.html' },
     { key: 'ov_winscounterminecraft', label: 'Contador de victorias (Minecraft)', path: '/contador-wins-minecraft.html' },
     { key: 'ov_winscountermario', label: 'Contador de victorias (Mario Bros)', path: '/contador-wins-mario.html' },
@@ -80,6 +83,7 @@ export const CAPABILITIES = {
     { key: 'ov_donorlevel', label: 'Nivel de donador', path: '/donor-level.html' },
     { key: 'ov_fanlevel', label: 'Nivel de fan', path: '/fan-level.html' },
     { key: 'ov_giftsent', label: 'Regalo enviado', path: '/gift-sent.html' },
+    { key: 'ov_giftfeed', label: 'Combo de regalos', path: '/gift-feed.html' },
     { key: 'ov_mejorregalo', label: 'Mejor regalo', path: '/mejorregalo.html' },
     { key: 'ov_ultimoregalo', label: 'Último regalo', path: '/ultimoregalo.html' },
     { key: 'ov_mejorracha', label: 'Mejor racha', path: '/mejorracha.html' },
@@ -237,7 +241,14 @@ let configIsFallback = false;
 /* Claves nuevas que antes iban dentro de otra: heredan lo que el admin ya tenía puesto
    (el sorteo !pavo antes se controlaba con «Sorteos overlay»). */
 // OJO: debe ir ANTES de loadConfig() (si va después, al arrancar falla y se pierde la config).
-const FEATURE_INHERIT = { ov_sorteospavos: 'ov_sorteos' };
+const FEATURE_INHERIT = {
+  ov_sorteospavos: 'ov_sorteos',
+  // Antes iban dentro de «Regalo enviado» / «Contador de victorias»: heredan lo que ya estaba marcado.
+  ov_giftfeed: 'ov_giftsent',
+  ov_contadorvidas: 'ov_winscounter',
+  ov_contadortotems: 'ov_winscounter',
+  ov_contadoritems: 'ov_winscounter',
+};
 let config = loadConfig();
 
 function plansSealPayload(cfg) {

@@ -240,13 +240,14 @@ export function getUserPlan(user) {
 // Cambia el plan. days > 0 => Premium temporal que caduca en N días.
 // days = 0/null => si es premium, queda FIJO (sin caducidad).
 // plan = 'founder' => Founder (mismos caps que premium); con days > 0 caduca igual que Premium.
-export function setUserPlan(id, plan, days) {
+/** opts.noMembership: no marcar «ya fue Founder» (precio Founder de por vida). Lo usan los códigos de activación. */
+export function setUserPlan(id, plan, days, opts = {}) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
   if (plan === 'founder' || plan === 'premium' || plan === 'pro') {
     u.plan = plan;
     // Quien ya fue Founder renueva a precio Founder para siempre (aunque se le pase un mes).
-    if (plan === 'founder' && !u.founderSince) u.founderSince = Date.now();
+    if (plan === 'founder') markFounder(u, opts, Date.now());
     const n = Number(days);
     u.premiumUntil = (Number.isFinite(n) && n > 0) ? Date.now() + n * 24 * 60 * 60 * 1000 : 0;
   } else {
@@ -305,13 +306,25 @@ export function grantPremiumDays(id, days) {
 }
 /** true salvo que el admin haya desactivado los juegos a ese usuario (admin siempre sí). */
 /** ¿Ya fue Founder alguna vez? Entonces su mensualidad Founder es la barata para siempre. */
+/** Founder pagado (o puesto por el admin) → miembro para siempre. Por código → solo mientras dure. */
+function markFounder(u, opts, now) {
+  if (opts && opts.noMembership) {
+    if (!u.founderSince) u.founderByCode = true;
+  } else {
+    if (!u.founderSince) u.founderSince = now;
+    delete u.founderByCode;
+  }
+}
 export function isFounderMember(id) {
   const u = users.find((x) => String(x.id) === String(id));
-  return !!(u && (u.founderSince || u.plan === 'founder'));
+  // Founder recibido por código de activación (founderByCode) NO cuenta: la mensualidad Founder
+  // de por vida es para quien pagó Founder.
+  return !!(u && (u.founderSince || (u.plan === 'founder' && !u.founderByCode)));
 }
 /** Suma N días de Founder (pago PayPal: $50 la 1.ª vez, luego la mensualidad Founder).
     Si tenía VIP/PRO activo, sus días restantes se respetan y el Founder se suma encima. */
-export function grantFounderDays(id, days) {
+/** opts.noMembership: dar Founder sin marcar «ya fue Founder» (lo usan los códigos de activación). */
+export function grantFounderDays(id, days, opts = {}) {
   const u = users.find((x) => String(x.id) === String(id));
   if (!u) return { ok: false, error: 'cuenta no encontrada' };
   if (u.isAdmin) return { ok: true, skipped: true, plan: 'admin', premiumUntil: u.premiumUntil || 0 };
@@ -323,7 +336,7 @@ export function grantFounderDays(id, days) {
   // VIP/PRO fijo (sin fecha) que paga Founder: queda Founder fijo, nunca pierde su plan sin fecha.
   if ((u.plan === 'premium' || u.plan === 'pro') && currentUntil === 0) {
     u.plan = 'founder';
-    if (!u.founderSince) u.founderSince = now;
+    markFounder(u, opts, now);
     saveUsers();
     return { ok: true, plan: 'founder', premiumUntil: 0, forever: true };
   }
@@ -332,7 +345,7 @@ export function grantFounderDays(id, days) {
   const first = !u.founderSince && u.plan !== 'founder';
   u.plan = 'founder';
   u.premiumUntil = (paidActive ? currentUntil : now) + n * 24 * 60 * 60 * 1000;
-  if (!u.founderSince) u.founderSince = now;
+  markFounder(u, opts, now);
   saveUsers();
   return { ok: true, plan: 'founder', premiumUntil: u.premiumUntil, days: n, first };
 }

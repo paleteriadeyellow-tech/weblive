@@ -1217,7 +1217,7 @@ const CAP_LABELS = {
   // overlays
   ov_joindonorbolt: 'Join donador (rayo)', ov_joinlive: 'Join al live',
   ov_barras: 'Barras rotativas', ov_donorlevel: 'Nivel de donador', ov_fanlevel: 'Nivel de fan',
-  ov_giftsent: 'Regalo enviado', ov_sorteospavos: 'Sorteo de puntos (!pavo)',
+  ov_giftsent: 'Regalo enviado', ov_giftfeed: 'Combo de regalos', ov_contadorvidas: 'Contador de vidas', ov_contadortotems: 'Contador de tótems', ov_contadoritems: 'Contador de ítems', ov_sorteospavos: 'Sorteo de puntos (!pavo)',
   ov_sorteosvidas: 'Sorteos · vidas', ov_marcocamara: 'Marco de cámara', ov_joinlivemc: 'Join al live (Minecraft)', ov_joinlivedbz: 'Join al live (Dragon Ball Z)', ov_joinlivemario: 'Join al live (Mario Bros)',
   ov_alertvideo: 'Alertas + Videos', ov_perrito: 'Perrito', ov_jarron: 'Jarrón',
   ov_vaquita: 'Vaquita', ov_marranito: 'Marranito', ov_pelotas: 'Pelotas de fans', ov_topdonor: 'Top donador semanal',
@@ -1259,7 +1259,7 @@ const PLAN_FEATURE_ORDER = [
   'tts_tiktok', 'videos_ai', 'game_minecraft', 'game_mcservidor', 'game_mcparkour', 'game_mconeblock', 'game_mcsandwall', 'game_mckoth', 'game_mcfarm', 'game_mcshooter', 'game_bedrock', 'game_sandbox', 'game_roblox', 'game_roblox3', 'game_robloxtk', 'game_mariobros', 'game_smb3', 'game_smw', 'game_mari0', 'game_plantasvszombies', 'game_pvzhybrid', 'game_pvzfusion', 'game_repo', 'game_l4d', 'game_unturned', 'game_gtavkoth', 'game_gtavchaos', 'game_gtavchiliad', 'game_crashctr', 'game_flappybird', 'game_mk64', 'game_stacktower', 'game_crossyroad', 'game_bitearena', 'game_hillclimb', 'game_bottlebattle', 'game_pvzge', 'game_metalslug', 'game_geometrydash',
   'ov_joindonorbolt', 'ov_joinlive', 'ov_joinlivemc', 'ov_joinlivedbz', 'ov_joinlivemario', 'ov_alertvideo', 'ov_perrito', 'ov_jarron', 'ov_vaquita', 'ov_marranito', 'ov_pelotas', 'ov_topdonor',
   'ov_habibitop', 'ov_gcounter', 'ov_giftheart', 'ov_giftgoals', 'ov_winscounter', 'ov_winscountergamer', 'ov_winscounterminecraft', 'ov_winscountermario', 'ov_winscounterpro', 'ov_giftvs', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_flowmeter', 'ov_giftseq', 'ov_giftshowcase', 'ov_mejorregalo', 'ov_ultimoregalo', 'ov_mejorracha', 'ov_batallaregalos', 'ov_batallalikes',
-  'ov_coinmatch', 'ov_sorteos', 'ov_sorteospavos', 'ov_sorteosvidas', 'ov_barras', 'ov_donorlevel', 'ov_fanlevel', 'ov_giftsent', 'ov_marcocamara', 'ov_topkills', 'ov_screenfx', 'ov_giftbanner', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_topdonatorspro', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista', 'ov_toplikesgamer', 'ov_topdiamgamer',
+  'ov_coinmatch', 'ov_sorteos', 'ov_sorteospavos', 'ov_sorteosvidas', 'ov_barras', 'ov_donorlevel', 'ov_fanlevel', 'ov_giftsent', 'ov_giftfeed', 'ov_contadorvidas', 'ov_contadortotems', 'ov_contadoritems', 'ov_marcocamara', 'ov_topkills', 'ov_screenfx', 'ov_giftbanner', 'ov_meta', 'ov_topaltrankneon', 'ov_topaltrank', 'ov_topmultirank', 'ov_pointslookup', 'ov_topdonatorspro', 'ov_toplikes', 'ov_topdiamantes', 'ov_toplikeslista', 'ov_topdiamanteslista', 'ov_toplikesgamer', 'ov_topdiamgamer',
   'ov_contadorseguidores', 'ov_contadorseguidoresmc', 'ov_alertaregalo', 'ov_alertalikes', 'ov_alertaseguidor', 'ov_nuevoseguidorv2', 'ov_fuegos', 'ov_chatgamer', 'ov_giftroulette', 'ov_batallavs', 'ov_batallameta', 'ov_batallamvp', 'ov_batallatop3', 'ov_batallagiftball', 'ov_baileronda', 'ov_bailecombo', 'ov_bailerank', 'ov_batallacoinbar', 'ov_timer', 'ov_top1fire', 'ov_toppoints',
   'ov_top1', 'ov_spotify', 'ov_spotifyplayer', 'ov_youtube', 'ov_editorrapido', 'ov_screenfx', 'ov_video',
 ];
@@ -1504,7 +1504,9 @@ function renderPlanPricing() {
   // Founder por PayPal: $50 la 1.ª vez; quien ya fue Founder paga la mensualidad ($12) para siempre.
   const fFirst = String(pp.founderFirst || PLAN_PRICES.founderFirst).replace(/\.00$/, '');
   const fMonthly = String(pp.founderMonthly || PLAN_PRICES.founderMonthly).replace(/\.00$/, '');
-  const founderMember = !!pp.founderMember || myTier === 'founder';
+  // El servidor decide si es miembro Founder (Founder por código de activación no lo es: pagaría el primer mes).
+  // Solo si aún no cargó el estado de pago se usa el plan actual como aproximación.
+  const founderMember = typeof pp.founderMember === 'boolean' ? pp.founderMember : myTier === 'founder';
   const founderForever = myTier === 'founder' && !(premUntil > 0);
   const founderBtn = (founderForever || myTier === 'admin')
     ? '<button class="ipp-btn is-current" disabled>✓ Plan actual</button>'

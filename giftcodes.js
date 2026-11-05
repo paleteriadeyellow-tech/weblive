@@ -26,6 +26,9 @@ const CODE_LEN = 8;
 const PLANS = { pro: 'PRO', premium: 'VIP', founder: 'Founder' };
 const RANK = { free: 0, pro: 1, premium: 2, founder: 3 };
 const MAX_LOG = 3000;
+// Founder por código: da el plan mientras dure, pero NO la mensualidad Founder de por vida
+// (esa es solo para quien pagó Founder). Las funciones de PRO/VIP ignoran este 3.er parámetro.
+const NO_MEMBER = { noMembership: true };
 
 let db = null;
 let corruptCopied = false;
@@ -95,16 +98,16 @@ function codeStatus(c, batch) {
 const planWord = (plan, days) => `${PLANS[plan] || plan} ${days > 0 ? `${days} día${days === 1 ? '' : 's'}` : 'fijo'}`;
 const snap = (u) => ({ plan: String((u && u.plan) || 'free'), premiumUntil: Number(u && u.premiumUntil) || 0 });
 
-/** ¿Esta cuenta tiene pagos reales? (para avisar al admin antes de quitarle días). */
-function hasPayments(userId) {
+/** Cuentas con pagos reales (para avisar al admin antes de quitarle días). Se lee UNA vez por consulta. */
+function payingUserIds() {
+  const ids = new Set();
   for (const { file, key } of PAY_LEDGERS) {
     try {
       const j = JSON.parse(fs.readFileSync(file, 'utf8'));
-      const rows = j && j[key] ? Object.values(j[key]) : [];
-      if (rows.some((r) => r && String(r.userId) === String(userId))) return true;
+      for (const r of (j && j[key] ? Object.values(j[key]) : [])) if (r && r.userId != null) ids.add(String(r.userId));
     } catch {}
   }
-  return false;
+  return ids;
 }
 
 export function mountGiftCodeRoutes(app, {
@@ -161,15 +164,25 @@ export function mountGiftCodeRoutes(app, {
   }
   const planChanged = (userId) => { try { if (onPlanChanged) onPlanChanged(userId); } catch {} };
 
-  // Freno contra adivinar códigos a lo bruto (por cuenta y por red).
-  const tries = new Map();
-  const tooMany = (key, max, windowMs) => {
+  // Freno contra adivinar códigos a lo bruto (por cuenta y por red). Solo cuentan los intentos
+  // FALLIDOS: canjear bien muchos códigos (o muchos clientes en la misma red de celular) no se frena.
+  const FAIL_WINDOW = 60 * 60 * 1000;
+  const fails = new Map();
+  const recentFails = (key) => {
     const now = Date.now();
-    const list = (tries.get(key) || []).filter((t) => now - t < windowMs);
-    list.push(now);
-    tries.set(key, list);
-    if (tries.size > 5000) for (const [k, v] of tries) if (!v.some((t) => now - t < windowMs)) tries.delete(k);
-    return list.length > max;
+    const list = (fails.get(key) || []).filter((t) => now - t < FAIL_WINDOW);
+    if (list.length) fails.set(key, list); else fails.delete(key);
+    return list.length;
+  };
+  const addFail = (...keys) => {
+    const now = Date.now();
+    for (const key of keys) {
+      if (!key) continue;
+      const list = (fails.get(key) || []).filter((t) => now - t < FAIL_WINDOW);
+      list.push(now);
+      fails.set(key, list);
+    }
+    if (fails.size > 5000) for (const [k, v] of fails) if (!v.some((t) => now - t < FAIL_WINDOW)) fails.delete(k);
   };
 
   /* ------------------------------ Canjear (usuario) ------------------------------ */
@@ -178,21 +191,26 @@ export function mountGiftCodeRoutes(app, {
     const user = userFromRequest(req);
     if (!user) return res.status(401).json({ error: 'Inicia sesión.' });
     const ip = clientIp ? clientIp(req) : '';
-    if (tooMany(`u:${user.id}`, 10, 60 * 60 * 1000) || (ip && tooMany(`ip:${ip}`, 30, 60 * 60 * 1000))) {
-      return res.status(429).json({ error: 'Demasiados intentos. Prueba en una hora.' });
+    const uKey = `u:${user.id}`;
+    const ipKey = ip ? `ip:${ip}` : '';
+    if (recentFails(uKey) >= 10 || (ipKey && recentFails(ipKey) >= 30)) {
+      return res.status(429).json({ error: 'Demasiados intentos fallidos. Prueba en una hora.' });
     }
     const key = normalizeGiftCode(req.body && req.body.code);
-    if (!key) return res.status(400).json({ error: 'Escribe el código completo (ejemplo: LC-7KQ4-M9XP).' });
+    if (!key) {
+      addFail(uKey, ipKey);
+      return res.status(400).json({ error: 'Escribe el código completo (ejemplo: LC-7KQ4-M9XP).' });
+    }
 
     // Todo lo que sigue es síncrono: nadie más puede canjear el mismo código en medio.
     const d = load();
     const c = d.codes[key];
     const batch = c ? d.batches[c.batchId] : null;
     const st = codeStatus(c, batch);
-    if (st === 'none' || !batch) return res.status(400).json({ error: 'Ese código no existe. Revísalo.' });
-    if (st === 'used') return res.status(400).json({ error: 'Este código ya fue usado.' });
-    if (st === 'void') return res.status(400).json({ error: 'Este código fue anulado.' });
-    if (st === 'expired') return res.status(400).json({ error: 'Este código ya venció.' });
+    if (st === 'none' || !batch) { addFail(uKey, ipKey); return res.status(400).json({ error: 'Ese código no existe. Revísalo.' }); }
+    if (st === 'used') { addFail(uKey, ipKey); return res.status(400).json({ error: 'Este código ya fue usado.' }); }
+    if (st === 'void') { addFail(uKey, ipKey); return res.status(400).json({ error: 'Este código fue anulado.' }); }
+    if (st === 'expired') { addFail(uKey, ipKey); return res.status(400).json({ error: 'Este código ya venció.' }); }
 
     const full = (getUserById && getUserById(user.id)) || user;
     if (full.isAdmin) return res.status(400).json({ error: 'Las cuentas admin no necesitan códigos.' });
@@ -212,26 +230,48 @@ export function mountGiftCodeRoutes(app, {
     }
 
     const before = snap(full);
-    let granted;
-    if (days > 0) {
-      const fn = plan === 'pro' ? grantProDays : plan === 'founder' ? grantFounderDays : grantPremiumDays;
-      granted = fn ? fn(user.id, days) : { ok: false, error: 'no disponible' };
-      if (!granted || granted.ok === false || granted.skipped) {
-        return res.status(400).json({ error: (granted && granted.error) || 'No se pudo activar con tu plan actual. El código no se gastó.' });
-      }
-    } else {
-      const ok = setUserPlan ? setUserPlan(user.id, plan, 0) : false;
-      if (!ok) return res.status(400).json({ error: 'No se pudo activar. El código no se gastó.' });
-    }
-    const after = snap(getUserById ? getUserById(user.id) : full);
+    // 1) Primero se marca como USADO y se guarda en disco: aunque algo falle después, el código
+    //    jamás queda libre para otra persona (si no se pudo activar el plan, se devuelve abajo).
     c.status = 'used';
     c.usedAt = Date.now();
     c.usedBy = { userId: String(user.id), username: full.username || '', email: full.email || '' };
+    try { save(); } catch (err) {
+      c.status = 'free'; delete c.usedAt; delete c.usedBy;
+      throw err;
+    }
+    const undo = (msg) => {
+      c.status = 'free'; delete c.usedAt; delete c.usedBy;
+      try { save(); } catch {}
+      return res.status(400).json({ error: msg });
+    };
+    // 2) Activar el plan.
+    let granted;
+    try {
+      if (days > 0) {
+        const fn = plan === 'pro' ? grantProDays : plan === 'founder' ? grantFounderDays : grantPremiumDays;
+        granted = fn ? fn(user.id, days, NO_MEMBER) : { ok: false, error: 'no disponible' };
+        if (!granted || granted.ok === false || granted.skipped) {
+          return undo((granted && granted.error) ? `${granted.error}. El código no se gastó.` : 'No se pudo activar con tu plan actual. El código no se gastó.');
+        }
+      } else if (!(setUserPlan && setUserPlan(user.id, plan, 0, NO_MEMBER))) {
+        return undo('No se pudo activar. El código no se gastó.');
+      }
+    } catch (err) {
+      console.error('[giftcodes] error al activar el plan:', err && err.message);
+      return undo('No se pudo activar. El código no se gastó; intenta de nuevo.');
+    }
+    // 3) Registro.
+    const after = snap(getUserById ? getUserById(user.id) : full);
     c.grant = { plan, days, before, after };
     addLog({ by: full.username || String(user.id), action: 'canjear', code: key, batchId: c.batchId, userId: String(user.id), username: full.username || '', detail: planWord(plan, days) });
-    save();
+    try { save(); } catch (err) { console.error('[giftcodes] canje aplicado pero no se guardó el detalle:', key, err && err.message); }
     planChanged(user.id);
-    res.json({ ok: true, plan, days, planName: PLANS[plan], premiumUntil: after.premiumUntil, message: `¡Listo! Se activó ${planWord(plan, days)}.` });
+    // Si ya tenía un plan mejor, los días se sumaron a ESE plan: decirlo tal cual.
+    const gotPlan = String(after.plan || plan);
+    const message = days > 0 && gotPlan !== plan && PLANS[gotPlan]
+      ? `¡Listo! Se sumaron ${days} día${days === 1 ? '' : 's'} a tu plan ${PLANS[gotPlan]}.`
+      : `¡Listo! Se activó ${planWord(plan, days)}.`;
+    res.json({ ok: true, plan, days, planName: PLANS[plan], premiumUntil: after.premiumUntil, message });
   }));
 
   /* --------------------------------- Admin --------------------------------- */
@@ -239,8 +279,8 @@ export function mountGiftCodeRoutes(app, {
   app.get('/api/admin/codes', admin, safe(async (req, res) => {
     if (base) return proxy(req, res, '/api/admin/codes');
     const d = load();
-    const paidCache = new Map();
-    const paid = (id) => { if (!paidCache.has(id)) paidCache.set(id, hasPayments(id)); return paidCache.get(id); };
+    const paying = payingUserIds();
+    const paid = (id) => paying.has(String(id));
     const counts = {};
     const codes = Object.entries(d.codes).map(([key, c]) => {
       const b = d.batches[c.batchId];
@@ -354,7 +394,7 @@ export function mountGiftCodeRoutes(app, {
           return res.status(400).json({ error: 'Su plan es fijo: no necesita días.' });
         } else {
           const fn = plan === 'pro' ? grantProDays : plan === 'founder' ? grantFounderDays : grantPremiumDays;
-          r = fn ? fn(userId, n) : { ok: false };
+          r = fn ? fn(userId, n, NO_MEMBER) : { ok: false };
         }
         detail = `+${n} días`;
       } else {
@@ -363,7 +403,7 @@ export function mountGiftCodeRoutes(app, {
       }
     } else if (action === 'fixed') {
       const target = Object.prototype.hasOwnProperty.call(PLANS, b.plan) ? b.plan : plan;
-      r = { ok: setUserPlan ? setUserPlan(userId, target, 0) : false };
+      r = { ok: setUserPlan ? setUserPlan(userId, target, 0, NO_MEMBER) : false };
       detail = `${PLANS[target]} fijo`;
     } else if (action === 'remove') {
       r = { ok: setUserPlan ? setUserPlan(userId, 'free', 0) : false };
