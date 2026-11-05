@@ -231,6 +231,13 @@ function defaultConfig() {
   };
 }
 
+// true = la config en memoria es la de fábrica porque plans.json no se pudo leer
+// (no se debe mostrar en Admin como si fuera la real ni guardarse encima).
+let configIsFallback = false;
+/* Claves nuevas que antes iban dentro de otra: heredan lo que el admin ya tenía puesto
+   (el sorteo !pavo antes se controlaba con «Sorteos overlay»). */
+// OJO: debe ir ANTES de loadConfig() (si va después, al arrancar falla y se pierde la config).
+const FEATURE_INHERIT = { ov_sorteospavos: 'ov_sorteos' };
 let config = loadConfig();
 
 function plansSealPayload(cfg) {
@@ -258,28 +265,61 @@ function plansSealOk(cfg) {
   }
 }
 
+export function isPlanConfigFallback() {
+  return configIsFallback;
+}
+
 function loadConfig() {
+  configIsFallback = false;
+  let text = null;
+  try { text = fs.readFileSync(PLANS_FILE, 'utf8'); } catch (err) {
+    // Existe pero no se pudo leer (disco ocupado, permisos…): NO reescribirlo con la de fábrica.
+    if (err && err.code !== 'ENOENT') {
+      console.error('  [!] plans.json no se pudo leer:', err.message, '— se usa la config de fábrica sin guardar.');
+      configIsFallback = true;
+      const def = defaultConfig();
+      def.meta = { freeGamesPack: FREE_GAMES_PACK };
+      return def;
+    }
+  }
+  if (text != null) {
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch {}
+    if (!parsed || typeof parsed !== 'object') {
+      // Dañado: se aparta una copia (nunca se pierde) y NO se pisa con la de fábrica.
+      try { fs.copyFileSync(PLANS_FILE, `${PLANS_FILE}.danado-${Date.now()}`); } catch {}
+      console.error('  [!] plans.json dañado; se guardó una copia aparte y se usa la config de fábrica sin guardar.');
+      configIsFallback = true;
+      const def = defaultConfig();
+      def.meta = { freeGamesPack: FREE_GAMES_PACK };
+      return def;
+    }
+  }
   try {
-    const raw = JSON.parse(fs.readFileSync(PLANS_FILE, 'utf8'));
+    const raw = JSON.parse(text);
     const cfg = normalizeConfig(raw);
     if (isDesktopCloudLock() && !plansSealOk(cfg)) {
       console.warn('  [!] plans.json alterado o sin sello — caps restrictivos hasta sync nube.');
+      configIsFallback = true;
       return defaultConfig();
     }
     if ((Number(raw?.meta?.freeGamesPack) || 0) < FREE_GAMES_PACK) saveConfigToDisk(cfg);
     return cfg;
-  } catch {
+  } catch (err) {
     const def = defaultConfig();
     def.meta = { freeGamesPack: FREE_GAMES_PACK };
-    // En .exe+nube no persistimos defaults sin sello de sync (evita “arreglar” a mano).
+    if (text != null) {
+      // Había un plans.json y algo falló al leerlo: se usa la de fábrica SIN guardarla encima.
+      console.error('  [!] Error al cargar plans.json:', err && err.message, '— se usa la config de fábrica sin guardar.');
+      configIsFallback = true;
+      return def;
+    }
+    // Primera vez (no existía). En .exe+nube no persistimos defaults sin sello de sync.
     if (!isDesktopCloudLock()) saveConfigToDisk(def);
     return def;
   }
 }
 
-/* Claves nuevas que antes iban dentro de otra: heredan lo que el admin ya tenía puesto
-   (el sorteo !pavo antes se controlaba con «Sorteos overlay»). */
-const FEATURE_INHERIT = { ov_sorteospavos: 'ov_sorteos' };
 
 // Asegura que el config tenga todas las claves (por si se añaden capacidades nuevas).
 function normalizeConfig(raw) {
@@ -329,6 +369,7 @@ export function savePlanConfig(raw, opts = {}) {
     return config;
   }
   config = normalizeConfig(raw);
+  configIsFallback = false;
   saveConfigToDisk(config);
   return config;
 }

@@ -5211,6 +5211,20 @@ if (planUpgradeBtn) planUpgradeBtn.onclick = () => startPremiumPurchase();
 /* -------- Editor de planes (límites y características por plan) -------- */
 let plansCatalog = null;
 let plansConfig = null;
+// true = lo que se ve NO es la config real de la nube (sin conexión o plans.json ilegible):
+// no se deja guardar, porque guardar pisaría la config real con esta copia.
+let plansReadOnly = false;
+function applyPlansReadOnly() {
+  const btn = document.getElementById('plans-save');
+  const status = document.getElementById('plans-status');
+  if (btn) btn.disabled = plansReadOnly;
+  if (status) {
+    status.textContent = plansReadOnly
+      ? '⚠️ No se pudo leer la configuración real de la nube. No se puede guardar: recarga esta pestaña en unos segundos.'
+      : '';
+    status.style.color = plansReadOnly ? '#f5c542' : '';
+  }
+}
 let plansActiveTab = 'free';
 
 async function loadPlans() {
@@ -5222,7 +5236,9 @@ async function loadPlans() {
     const d = await r.json();
     plansCatalog = d.catalog;
     plansConfig = d.config;
+    plansReadOnly = !!(d.localOnly || d.fallback);
     renderPlansEditor();
+    applyPlansReadOnly();
   } catch {
     editor.innerHTML = '<p class="tts-sub">Error al cargar planes.</p>';
   }
@@ -5979,6 +5995,7 @@ document.querySelectorAll('.plan-tab').forEach((tab) => {
 
 const plansSaveBtn = document.getElementById('plans-save');
 if (plansSaveBtn) plansSaveBtn.onclick = async () => {
+  if (plansReadOnly) { applyPlansReadOnly(); return; }
   collectPlansEditor();
   const status = document.getElementById('plans-status');
   plansSaveBtn.disabled = true;

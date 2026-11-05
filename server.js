@@ -42,7 +42,7 @@ import {
   requestRegisterEmailCode, consumeRegisterEmailCode,
 } from './account-recovery.js';
 import {
-  CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps,
+  CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps, isPlanConfigFallback,
 } from './plans.js';
 import * as spotify from './spotify.js';
 import { mountPaypalRoutes } from './paypal.js';
@@ -3879,7 +3879,14 @@ app.get('/api/admin/plans', requireAdmin, async (req, res) => {
       } catch {}
     }
   }
-  res.json(injectLocalCaps({ catalog: CAPABILITIES, config: getPlanConfig() }));
+  // Copia local (.exe sin conexión con la nube) o config de fábrica (plans.json ilegible):
+  // el editor la muestra en solo lectura para que guardar no pise la config real.
+  res.json(injectLocalCaps({
+    catalog: CAPABILITIES,
+    config: getPlanConfig(),
+    localOnly: !!AUTH_REMOTE,
+    fallback: isPlanConfigFallback(),
+  }));
 });
 app.post('/api/admin/plans', express.json(), requireAdmin, async (req, res) => {
   // Guarda primero las capacidades locales (.exe) que el remoto no conoce.
