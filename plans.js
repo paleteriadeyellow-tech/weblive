@@ -24,6 +24,9 @@ export const CAPABILITIES = {
     { key: 'battleAlerts', label: 'Animaciones de batalla (máx.)' },
     { key: 'actions', label: 'Acciones (máx.)' },
     { key: 'profiles', label: 'Perfiles del panel (máx.)' },
+    // Acciones de algunos juegos (pestaña Juegos). Si el plan baja, solo funcionan las primeras N (no se borran).
+    { key: 'mcActions', label: 'Acciones de Minecraft Survival (máx.)' },
+    { key: 'bedrockActions', label: 'Acciones de Cubo TNT (máx.)' },
   ],
   // Pestañas del panel (se ocultan si no están permitidas).
   tabs: [
@@ -138,6 +141,7 @@ export const CAPABILITIES = {
   games: [
     { key: 'game_minecraft', label: 'Juego: Minecraft' },
     { key: 'game_mcservidor', label: 'Juego: Servidor Minecraft' },
+    { key: 'game_mcparadise', label: 'Juego: Minecraft Parkour Paradise' },
     { key: 'game_mcparkour', label: 'Juego: Minecraft Parkour' },
     { key: 'game_mconeblock', label: 'Juego: Minecraft OneBlock' },
     { key: 'game_mcsandwall', label: 'Juego: Minecraft SandWall' },
@@ -225,7 +229,7 @@ function defaultConfig() {
 
   return {
     free: {
-      limits: { soundAlerts: 5, videos: 3, battleAlerts: 2, actions: 3, profiles: 1 },
+      limits: { soundAlerts: 5, videos: 3, battleAlerts: 2, actions: 3, profiles: 1, mcActions: 7, bedrockActions: 7 },
       features: freeFeatures,
     },
     premium: {
@@ -243,6 +247,8 @@ let configIsFallback = false;
 // OJO: debe ir ANTES de loadConfig() (si va después, al arrancar falla y se pierde la config).
 const FEATURE_INHERIT = {
   ov_sorteospavos: 'ov_sorteos',
+  // Parkour Paradise antes iba con «Servidor Minecraft»: hereda lo que ya estaba marcado.
+  game_mcparadise: 'game_mcservidor',
   // Antes iban dentro de «Regalo enviado» / «Contador de victorias»: heredan lo que ya estaba marcado.
   ov_giftfeed: 'ov_giftsent',
   ov_contadorvidas: 'ov_winscounter',

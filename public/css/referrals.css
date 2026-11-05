@@ -217,3 +217,7 @@ html body main #view-planes .ipp-giftcode-btn:disabled { opacity: .5; cursor: wa
 #sub-admin-codes .gc-log ul { max-height: 280px; overflow: auto; margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
 #sub-admin-codes .gc-log code { font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; }
 @media (max-width: 1000px) { #sub-admin-codes .gc-form { grid-template-columns: 1fr 1fr; } }
+/* Juegos (Minecraft Survival / Cubo TNT): acciones en pausa por límite de plan (no se borran) */
+.mc-act-row.is-plan-paused > .mc-act-col:not(.mc-act-col-actions) { opacity: .45; }
+.mc-act-row.is-plan-paused .acc-plan-paused { opacity: 1; }
+.gm-limit-note { margin: 0 0 10px; }
