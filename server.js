@@ -29,7 +29,7 @@ import {
   setUserAdminNotes, setUserDesktopAppVersion,
   getUserBadgesPayload, recordBadgeLive, markBadgeDirectory, markBadgeDesktop, markBadgeGame, markBadgeDailyTop1, setUserManualBadge,
   deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
-  setUserPassword, destroySessionsForUser,
+  setUserPassword, checkUserPassword, destroySessionsForUser,
   sessionCookie, clearCookie, parseCookies, SESSION_COOKIE,
   remapSessionUserIds, importSessionsFromRecord, pruneInvalidSessions, hasAnyValidSession,
   saveDesktopLastLogin, clearDesktopLastLogin, bootstrapDesktopSessionToken, ensureSessionForUser,
@@ -3704,6 +3704,25 @@ app.post('/api/admin/delete-user', express.json(), requireAdmin, async (req, res
 
 // Restablecer contraseña de un usuario. La actual NO se puede ver (hash scrypt);
 // el admin define una nueva (o se genera) y se devuelve en claro SOLO en esta respuesta.
+// ¿Esta clave es la vigente? Las contraseñas no se pueden leer (van cifradas de un solo sentido), solo comparar.
+// No inicia sesión ni cambia nada. Máximo 20 por minuto por admin.
+const adminCheckHits = new Map();
+app.post('/api/admin/check-password', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/check-password', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const now = Date.now();
+  const hits = (adminCheckHits.get(req.user.id) || []).filter((t) => now - t < 60 * 1000);
+  if (hits.length >= 20) return res.status(429).json({ error: 'Demasiadas comprobaciones. Espera un minuto.' });
+  hits.push(now);
+  adminCheckHits.set(req.user.id, hits);
+  const { id, password } = req.body || {};
+  if (!id || !password) return res.status(400).json({ error: 'falta la clave' });
+  if (!getUserById(id)) return res.status(404).json({ error: 'cuenta no encontrada' });
+  res.json({ ok: true, match: checkUserPassword(id, password) });
+});
+
 app.post('/api/admin/set-password', express.json(), requireAdmin, async (req, res) => {
   if (AUTH_REMOTE) {
     if (await proxyAdminToRemote(req, res, '/api/admin/set-password', 'POST')) return;
@@ -3723,7 +3742,9 @@ app.post('/api/admin/set-password', express.json(), requireAdmin, async (req, re
   }
   if (pwd.length < 4) return res.status(400).json({ error: 'mínimo 4 caracteres' });
   if (pwd.length > 128) return res.status(400).json({ error: 'contraseña demasiado larga' });
-  if (!setUserPassword(id, pwd)) return res.status(500).json({ error: 'no se pudo guardar' });
+  if (!setUserPassword(id, pwd, { source: 'admin', by: req.user?.username || '' })) {
+    return res.status(500).json({ error: 'No se pudo guardar en el servidor: la contraseña NO cambió. Revisa el disco de Render.' });
+  }
   destroySessionsForUser(id);
   const room = rooms.get(id);
   if (room) room.kickAll?.();

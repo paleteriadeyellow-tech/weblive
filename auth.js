@@ -189,6 +189,10 @@ export function listUsersDetailed() {
     desktopAppVersionAt: Number(u.desktopAppVersionAt) || 0,
     createdAt: u.createdAt || 0,
     lastLogin: u.lastLogin || 0,
+    email: String(u.email || ''),
+    emailVerified: !!u.emailVerified,
+    googleEmail: String(u.googleEmail || ''),
+    credentialLog: Array.isArray(u.credentialLog) ? u.credentialLog.slice(-10) : [],
     n: Number(u.n) || 0,
   }));
 }
@@ -707,15 +711,36 @@ export function syncMirrorVerifiedEmail(id, email, emailVerified) {
   return true;
 }
 
-export function setUserPassword(id, password) {
+/** Historial de cambios de acceso (fecha y origen; NUNCA la contraseña). Solo lo ve el admin. */
+function logCredentialChange(u, entry) {
+  const list = Array.isArray(u.credentialLog) ? u.credentialLog : [];
+  list.push({ at: Date.now(), ...entry });
+  u.credentialLog = list.slice(-20);
+}
+/** meta: { source: 'admin' | 'correo', by: usuario admin }. Si no se pudo guardar en disco, no cambia nada y avisa. */
+export function setUserPassword(id, password, meta = {}) {
   const u = users.find((x) => x.id === id);
   if (!u) return false;
   if (String(password || '').length < 4) return false;
+  const before = { salt: u.salt, hash: u.hash, log: u.credentialLog };
   const { salt, hash } = hashPassword(password);
   u.salt = salt;
   u.hash = hash;
-  saveUsers();
+  logCredentialChange(u, { kind: 'password', source: meta.source || 'otro', by: meta.by || '' });
+  if (!saveUsers()) {
+    u.salt = before.salt;
+    u.hash = before.hash;
+    if (before.log === undefined) delete u.credentialLog; else u.credentialLog = before.log;
+    return false;
+  }
   return true;
+}
+/** Solo para Admin: ¿esta clave es la vigente? No inicia sesión ni cambia nada. */
+export function checkUserPassword(id, password) {
+  const u = users.find((x) => x.id === id);
+  if (!u || !u.salt || !u.hash) return false;
+  const { hash } = hashPassword(String(password || ''), u.salt);
+  return safeEqual(hash, u.hash);
 }
 
 export function destroySessionsForUser(userId) {
@@ -1054,6 +1079,7 @@ export function renameUsername(userId, nextName, { commit = true } = {}) {
     return { error: 'Ese usuario ya existe.' };
   }
   if (!commit) return { user, username: uname };
+  logCredentialChange(user, { kind: 'username', source: 'usuario', from: user.username, to: uname });
   user.username = uname;
   saveUsers();
   return { user };

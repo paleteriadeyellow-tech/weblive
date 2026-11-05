@@ -4132,6 +4132,33 @@ async function adminForceLogoutReq(id) {
   loadAdminUsers();
 }
 
+function adminCredentialLogHtml(u) {
+  const list = Array.isArray(u.credentialLog) ? u.credentialLog.slice().reverse() : [];
+  if (!list.length) return 'sin registro';
+  return list.slice(0, 5).map((e) => {
+    const when = fmtDateTime(e.at) || '';
+    if (e.kind === 'username') return '<br>· ' + esc(when) + ': usuario «' + esc(e.from || '') + '» → «' + esc(e.to || '') + '»';
+    const how = e.source === 'admin' ? ('Admin' + (e.by ? ' (' + esc(e.by) + ')' : '')) : e.source === 'correo' ? 'código por correo' : 'otro';
+    return '<br>· ' + esc(when) + ': contraseña, por ' + how;
+  }).join('');
+}
+/** Las contraseñas no se pueden ver (cifrado de un solo sentido); sí se puede comprobar si una es la vigente. */
+async function adminCheckPasswordReq(id, username) {
+  const typed = window.prompt('Escribe la clave para ver si es la vigente de «' + username + '». No inicia sesión ni cambia nada:', '');
+  if (typed === null || !String(typed)) return;
+  try {
+    const r = await fetch('/api/admin/check-password', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, password: String(typed) }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(d.error || 'No se pudo comprobar.', 'warn'); return; }
+    toast(d.match ? '✅ Sí: esa es la clave vigente de «' + username + '».' : '❌ No: esa NO es la clave actual de «' + username + '».', d.match ? 'ok' : 'warn');
+  } catch { toast('Error de conexión.', 'warn'); }
+}
+
 function openAdminUserFicha(id) {
   const u = _adminUsersCache.find((x) => String(x.id) === String(id));
   if (!u) { toast('Usuario no encontrado en la lista.', 'warn'); return; }
@@ -4155,6 +4182,8 @@ function openAdminUserFicha(id) {
         <div><b>En línea:</b> ${u.online ? 'sí' : (u.lastSeen ? ('hace ' + timeAgo(u.lastSeen)) : 'no')}</div>
         <div><b>.exe:</b> ${esc(u.desktopAppVersion || '—')}${u.desktopAppVersionAt ? (' · ' + fmtDateTime(u.desktopAppVersionAt)) : ''}</div>
         <div><b>Último login:</b> ${fmtDateTime(u.lastLogin) || '—'}</div>
+        <div><b>Correo:</b> ${esc(u.email || '—')}${u.email ? (u.emailVerified ? ' (verificado)' : ' (sin verificar)') : ''}${u.googleEmail ? (' · Google: ' + esc(u.googleEmail)) : ''}</div>
+        <div><b>Cambios de acceso:</b> ${adminCredentialLogHtml(u)}</div>
       </div>
       <div class="field">
         <label>Notas internas (solo admin)</label>
@@ -4164,6 +4193,8 @@ function openAdminUserFicha(id) {
         <button type="button" class="btn ghost c-close">Cerrar</button>
         <button type="button" class="btn ghost c-kick">Kick live</button>
         <button type="button" class="btn ghost c-logout">Forzar logout</button>
+        <button type="button" class="btn ghost c-pass">Cambiar contraseña</button>
+        <button type="button" class="btn ghost c-check">Comprobar clave</button>
         <button type="button" class="btn primary c-save">Guardar notas</button>
       </div>
     </div>`;
@@ -4173,6 +4204,8 @@ function openAdminUserFicha(id) {
   back.addEventListener('click', (e) => { if (e.target === back) close(); });
   back.querySelector('.c-kick').onclick = async () => { close(); await adminKickLiveReq(u.id); };
   back.querySelector('.c-logout').onclick = async () => { close(); await adminForceLogoutReq(u.id); };
+  back.querySelector('.c-pass').onclick = async () => { close(); await setUserPasswordReq(u.id, u.username || ''); loadAdminUsers(); };
+  back.querySelector('.c-check').onclick = () => adminCheckPasswordReq(u.id, u.username || '');
   back.querySelector('.c-save').onclick = async () => {
     const notes = back.querySelector('.admin-ficha-notes')?.value || '';
     try {

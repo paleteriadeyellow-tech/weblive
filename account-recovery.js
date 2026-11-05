@@ -244,7 +244,7 @@ export function resetPasswordWithCode(identifier, code, newPassword) {
   if (!user) return { error: 'Código inválido o cuenta no encontrada.' };
   const r = consumeCode('reset', user.id, String(code || '').trim());
   if (r.error) return r;
-  if (!setUserPassword(user.id, newPassword)) {
+  if (!setUserPassword(user.id, newPassword, { source: 'correo' })) {
     return { error: 'No se pudo actualizar la contraseña.' };
   }
   destroySessionsForUser(user.id);
