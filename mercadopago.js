@@ -42,6 +42,15 @@ function planOf(p) {
 let referralDiscount = () => 0;
 let referralAccepted = () => 0;
 const withDiscount = (value, pct) => (pct > 0 ? (Number(value) * (100 - pct) / 100).toFixed(2) : value);
+
+/** Días a dar por un pago mensual. Si pagó con descuento de invitado pero ya no le tocaba
+    (otra orden con descuento ya se usó), recibe los días en proporción a lo que pagó. */
+function daysForPaid(userId, plan, paid) {
+  if (plan === 'founder') return DAYS;
+  const full = Number(PRICES[plan]);
+  if (!(Number(paid) < full - 0.01) || Number(referralDiscount(userId)) > 0) return DAYS;
+  return Math.max(1, Math.floor(DAYS * Number(paid) / full));
+}
 function amountFor(plan, userId, isFounderMember) {
   if (plan === 'founder') return isFounderMember && isFounderMember(userId) ? PRICES.founderMonthly : PRICES.founderFirst;
   return withDiscount(PRICES[plan], Number(referralDiscount(userId)) || 0);
@@ -170,7 +179,8 @@ async function fulfillOrderOnce(orderId, grants, onGranted) {
   const grant = plan === 'pro' && grants.grantProDays ? grants.grantProDays
     : plan === 'founder' && grants.grantFounderDays ? grants.grantFounderDays
       : grants.grantPremiumDays;
-  const granted = grant(userId, pack ? pack.days : DAYS);
+  const days = pack ? pack.days : daysForPaid(userId, plan, paid);
+  const granted = grant(userId, days);
   if (!granted || granted.ok === false) return { ok: false, error: (granted && granted.error) || 'no se pudo activar el plan' };
   ledger.orders[order.id] = {
     userId,
@@ -188,7 +198,7 @@ async function fulfillOrderOnce(orderId, grants, onGranted) {
   try {
     onGranted && onGranted(userId, granted, {
       provider: methodType === 'ticket' ? 'Mercado Pago (OXXO)' : 'Mercado Pago', plan, pack: pack ? pack.id : '',
-      days: pack ? pack.days : DAYS, amount: String(paid), currency: CURRENCY, ref: order.id,
+      days, amount: String(paid), currency: CURRENCY, ref: order.id,
       payerEmail: String((order.payer && order.payer.email) || ''),
     });
   } catch {}

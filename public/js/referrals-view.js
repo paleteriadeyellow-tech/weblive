@@ -31,7 +31,7 @@
   }
 
   function inviteText(d) {
-    return `Únete a Livecoins con mi código ${d.code} y ten ${d.discountPct}% de descuento en tu primer mes: ${d.link}`;
+    return `Descarga Livecoins (app de PC) y al crear tu cuenta pon mi código ${d.code}: tienes ${d.discountPct}% de descuento en tu primer mes. ${d.link}`;
   }
 
   // Siguiente meta: el canje más barato que puede hacer (PRO si se puede, si no VIP).
@@ -64,11 +64,12 @@
           <div class="ref-bar"><i style="width:${d.coins >= goal.cost ? 100 : pct}%"></i></div>
           <p class="ref-sub">${d.coins >= goal.cost
     ? `Ya puedes canjear <b>${canDays(goal.plan)} día(s)</b> de ${PLAN_NAME[goal.plan]}.`
-    : `Te faltan <b>${fmt(missing)} Coins</b> para tu primer día gratis de ${PLAN_NAME[goal.plan]}.`}</p>
+    : `Te faltan <b>${fmt(missing)} Coins</b> para ${d.coins || d.pendingCoins ? 'otro' : 'tu primer'} día gratis de ${PLAN_NAME[goal.plan]}.`}</p>
           <div class="ref-row">
             <button type="button" class="btn primary" data-ref="redeem" ${anyRedeem ? '' : 'disabled'}>Canjear por días</button>
             <span class="ref-note">${d.dayCost.pro} Coins = 1 día PRO · ${d.dayCost.premium} Coins = 1 día VIP</span>
           </div>
+          ${d.pendingCoins ? `<p class="ref-note ref-wait">⏳ <b>${fmt(d.pendingCoins)} Coins en espera</b>: se liberan ${d.holdDays} días después del pago de tu amigo (el próximo el ${new Date(d.nextRelease).toLocaleDateString('es-MX')}).</p>` : ''}
           ${(d.redeem || []).length ? '' : '<p class="ref-note">Tu plan actual no tiene días que sumar; guarda tus Coins para después.</p>'}
         </section>
 
@@ -98,7 +99,7 @@
           <span class="ref-ico">👥</span>
           <div class="ref-task-txt">
             <b>Invita a un amigo</b>
-            <small>Tu amigo ahorra ${d.discountPct}% en su primer mes. Tú ganas Coins cuando paga.</small>
+            <small>Tu amigo ahorra ${d.discountPct}% en su primer mes. Tú ganas Coins cuando paga (se liberan a los ${d.holdDays} días).</small>
             <div class="ref-chips"><span>Si compra PRO <b>+${fmt(d.rewards.pro)}</b></span><span>Si compra VIP <b>+${fmt(d.rewards.premium)}</b></span><span>Si compra Founder <b>+${fmt(d.rewards.founder)}</b></span></div>
           </div>
           <span class="ref-pill">Hasta +${fmt(Math.max(d.rewards.pro, d.rewards.premium, d.rewards.founder))}</span>
@@ -112,7 +113,10 @@
           <div class="ref-friend">
             <b>@${esc(f.username)}</b>
             <small>${f.at ? new Date(f.at).toLocaleDateString('es-MX') : ''}</small>
-            ${f.status === 'paid' ? `<span class="ref-st ok">Pagó · +${fmt(f.coins)} Coins</span>` : '<span class="ref-st">Registrado · aún no paga</span>'}
+            ${f.status === 'paid' ? `<span class="ref-st ok">Pagó · +${fmt(f.coins)} Coins</span>`
+    : f.status === 'blocked' ? '<span class="ref-st">Pagó · sin Coins (misma persona)</span>'
+      : f.status === 'pending' ? `<span class="ref-st wait">Pagó · +${fmt(f.coins)} Coins el ${new Date(f.until).toLocaleDateString('es-MX')}</span>`
+      : '<span class="ref-st">Registrado · aún no paga</span>'}
           </div>`).join('')}</div>`
     : '<div class="ref-empty">Aún no entra nadie con tu código. Compártelo y aquí verás a tus amigos.</div>'}
       </section>`;
@@ -240,6 +244,11 @@
         data = await api('/api/referrals/apply', { code });
         render();
         say(`Código aplicado: tienes ${data.myDiscountPct}% de descuento en tu primer pago.`, 'ok');
+        // Que Planes muestre ya el precio con descuento.
+        try {
+          await Promise.all([window.loadPaypalPremiumStatus?.(), window.loadMpPayStatus?.()]);
+          window.renderPlanPricing?.();
+        } catch {}
       } catch (err) { b.disabled = false; say(err.message, 'warn'); }
     }
   }

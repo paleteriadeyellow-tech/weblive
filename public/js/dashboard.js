@@ -1469,9 +1469,15 @@ function renderPlanPricing() {
   // Par de botones: PayPal (con cuenta) y Tarjeta. Con Mercado Pago activo, la tarjeta (y OXXO) va por
   // Mercado Pago en pesos, sin crear cuenta; si no, por el formulario de tarjeta de PayPal.
   const mp = window.MP_PAY || { enabled: false };
+  // Descuento de invitado (Invita y gana): PRO y VIP mensual, solo en su primer pago.
+  const refPct = Number(pp.referralDiscountPct || mp.referralDiscountPct) || 0;
+  const refPrice = (v) => (refPct > 0 ? (Number(v) * (100 - refPct) / 100).toFixed(2) : v);
+  const usd = (v) => String(v).replace(/\.00$/, '');
+  const priceHtml = (full) => (refPct > 0 ? `$${usd(refPrice(full))}<s class="ipp-price-old">$${usd(full)}</s>` : `$${usd(full)}`);
+  const refBadge = refPct > 0 ? `<div class="ipp-ref-badge">🎟️ −${refPct}% por invitación · tu primer pago</div>` : '';
   const mpAmount = (plan, pack) => {
     if (pack) return (mp.packs || []).find((x) => x.id === pack)?.amount;
-    return plan === 'pro' ? mp.proAmount : plan === 'founder' ? mp.founderAmount : mp.amount;
+    return plan === 'pro' ? refPrice(mp.proAmount) : plan === 'founder' ? mp.founderAmount : refPrice(mp.amount);
   };
   const mxn = (v) => '$' + Number(v || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 }) + ' MXN';
   const payPair = (cls, plan, pack, paypalLabel, id) => `<div class="ipp-pay2">
@@ -1566,8 +1572,9 @@ function renderPlanPricing() {
         <div class="ipp-tier-head">
           <img class="ipp-tier-logo" src="/img/planes/pro.webp?v=1" alt="Plan PRO" width="640" height="470" decoding="async">
           <div class="ipp-tier-sub">Todo menos los juegos interactivos</div>
-          <div class="ipp-price">$${String(pp.proAmount || '12').replace(/\.00$/, '')}<span>/ ${daysLabel}</span></div>
+          <div class="ipp-price">${priceHtml(pp.proAmount || '12')}<span>/ ${daysLabel}</span></div>
           <div class="ipp-price-note">${pp.currency || 'USD'} · pago con PayPal</div>
+          ${myTier === 'free' || myTier === 'pro' ? refBadge : ''}
         </div>
         <ul class="ipp-list">${buildList('premium')}${li(false, 'Juegos interactivos')}</ul>
         <div class="ipp-foot">
@@ -1582,8 +1589,9 @@ function renderPlanPricing() {
         <div class="ipp-tier-head">
           <img class="ipp-tier-logo" src="/img/planes/vip.webp?v=1" alt="Plan VIP" width="640" height="439" decoding="async">
           <div class="ipp-tier-sub">Todo desbloqueado, sin límites</div>
-          <div class="ipp-price">$${String(pp.amount || '17').replace(/\.00$/, '')}<span>/ ${daysLabel}</span></div>
+          <div class="ipp-price">${priceHtml(pp.amount || '17')}<span>/ ${daysLabel}</span></div>
           <div class="ipp-price-note">${pp.currency || 'USD'} · pago con PayPal</div>
+          ${canBuy ? refBadge : ''}
         </div>
         <ul class="ipp-list">${buildList('premium')}${li(true, 'Juegos interactivos')}</ul>
         <div class="ipp-foot">
@@ -1755,6 +1763,7 @@ async function loadPaypalPremiumStatus() {
       founderFirst: d && d.founderFirst ? d.founderFirst : '50.00',
       founderMonthly: d && d.founderMonthly ? d.founderMonthly : '12.00',
       founderMember: !!(d && d.founderMember),
+      referralDiscountPct: Number(d && d.referralDiscountPct) || 0,
       currency: d && d.currency ? d.currency : 'USD',
       days: d && d.days ? d.days : 30,
     };

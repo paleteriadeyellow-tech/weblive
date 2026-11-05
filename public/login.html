@@ -347,8 +347,7 @@
         }
         body.email = email;
         body.code = code;
-        const ref = ($('reg-ref') && $('reg-ref').value || '').trim();
-        if (ref) body.ref = ref;
+        body.ref = ($('reg-ref') && $('reg-ref').value || '').trim();
       }
       $('submit').disabled = true;
       msg.className = 'msg';

@@ -1451,11 +1451,11 @@ async function proxyAdminToRemote(req, res, apiPath, method = 'GET') {
   }
 }
 
-async function remoteRegister(username, password, email, code, ref) {
+async function remoteRegister(username, password, email, code, ref, clientIp) {
   try {
     const r = await fetch(`${AUTH_REMOTE}/api/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(clientIp ? { 'X-LC-Client-IP': clientIp } : {}) },
       body: JSON.stringify({ username, password, email, code, ref: ref || undefined }),
     });
     const data = await r.json().catch(() => ({}));
@@ -1473,14 +1473,16 @@ async function remoteRegister(username, password, email, code, ref) {
 
 app.post('/api/register', express.json(), async (req, res) => {
   const { username, password, email, code } = req.body || {};
-  // Código de invitación: del formulario o del enlace /i/CÓDIGO (cookie).
-  const ref = referrals.normalizeCode((req.body && req.body.ref) || referrals.refFromRequest(req));
+  // Código de invitación: el del formulario (aunque lo hayan borrado); si el cliente no manda el campo,
+  // el del enlace /i/CÓDIGO (cookie).
+  const hasRefField = !!req.body && Object.prototype.hasOwnProperty.call(req.body, 'ref');
+  const ref = referrals.normalizeCode(hasRefField ? req.body.ref : referrals.refFromRequest(req));
   // En el .exe la cuenta se crea en la web (fuente única); luego se replica en local.
   if (AUTH_REMOTE) {
     if (!email || !code) {
       return res.status(400).json({ error: 'Verifica tu correo con el código para crear la cuenta.' });
     }
-    const rr = await remoteRegister(username, password, email, code, ref);
+    const rr = await remoteRegister(username, password, email, code, ref, referrals.clientIp(req));
     if (rr.network) return res.status(503).json({ error: 'Sin conexión con el servidor. Revisa tu internet.' });
     if (rr.error) return res.status(400).json({ error: rr.error });
     const user = upsertMirrorUser({ username, password, plan: 'free', isAdmin: false, active: true });
@@ -1500,8 +1502,9 @@ app.post('/api/register', express.json(), async (req, res) => {
   if (vr.error) return res.status(400).json({ error: vr.error });
   const { user, error } = registerUser(username, password, { email: vr.email || email });
   if (error) return res.status(400).json({ error });
+  try { referrals.noteIp(user.id, req); } catch {}
   if (ref) {
-    try { referrals.attachReferrer(user.id, ref, { getUserById }); } catch {}
+    try { referrals.attachReferrer(user.id, ref, { getUserById }, req); } catch {}
   }
   maybeMigrateLegacy(user);
   const token = createSession(user.id);
@@ -1542,6 +1545,7 @@ app.post('/api/login', express.json(), async (req, res) => {
     return res.status(400).json({ error });
   }
   touchLogin(user.id);
+  if (!AUTH_REMOTE) { try { referrals.noteIp(user.id, req); } catch {} }
   const token = createSession(user.id);
   if (IS_DESKTOP) saveDesktopLastLogin(user.id);
   res.setHeader('Set-Cookie', sessionCookie(token));
@@ -1600,6 +1604,7 @@ app.get('/api/auth/google/desktop-finish', (_req, res) => {
 app.get('/api/me', async (req, res) => {
   const user = userFromRequest(req);
   if (!user) return res.status(401).json({ error: 'no auth' });
+  if (!AUTH_REMOTE) { try { referrals.noteIp(user.id, req); } catch {} }
   // Al abrir el panel, traemos los ajustes guardados en Render (si los hay) para que
   // lo que se guardó en la web aparezca también aquí. No bloquea la respuesta.
   let remoteMe = null;

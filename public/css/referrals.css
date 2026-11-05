@@ -48,3 +48,8 @@
 #view-invita .ref-st { margin-left: auto; font-size: 12px; color: var(--ref-mut); }
 #view-invita .ref-st.ok { color: #4ade80; font-weight: 700; }
 #view-invita .ref-empty { padding: 30px 10px; text-align: center; color: var(--ref-mut); }
+#view-invita .ref-wait { margin: 10px 0 0; color: #f5c542; }
+#view-invita .ref-st.wait { color: #f5c542; font-weight: 700; }
+/* Planes: precio con descuento de invitado */
+html body main #view-planes .ipp-price s.ipp-price-old { margin-left: 8px; font-size: 20px; font-weight: 700; color: var(--tn-mut, #8a8a95); text-decoration: line-through; letter-spacing: 0; }
+html body main #view-planes .ipp-ref-badge { display: inline-block; margin-top: 8px; padding: 4px 10px; border-radius: 99px; background: rgba(74, 222, 128, .13); color: #4ade80; font-size: 12px; font-weight: 800; }
