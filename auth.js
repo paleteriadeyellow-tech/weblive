@@ -256,6 +256,31 @@ export function setUserPlan(id, plan, days) {
   saveUsers();
   return true;
 }
+/** Suma o resta días a un plan CON fecha (códigos de activación desde Admin).
+    Si al restar ya no le quedan días, la cuenta pasa a Gratis. No toca planes fijos ni Gratis. */
+export function shiftUserPlanDays(id, deltaDays) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return { ok: false, error: 'cuenta no encontrada' };
+  const n = Math.round(Number(deltaDays) || 0);
+  if (!n || Math.abs(n) > 3650) return { ok: false, error: 'días no válidos' };
+  const plan = normalizeStoredPlan(u.plan);
+  const until = Number(u.premiumUntil) || 0;
+  if (plan === 'free') return { ok: false, error: 'La cuenta está en Gratis.' };
+  if (until <= 0) return { ok: false, error: 'El plan es fijo (sin fecha): no se le pueden sumar ni restar días.' };
+  const now = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  // Sumar a un plan ya vencido cuenta desde hoy; restar siempre desde su fecha.
+  const next = n > 0 ? Math.max(until, now) + n * DAY : until + n * DAY;
+  if (next <= now) {
+    u.plan = 'free';
+    u.premiumUntil = 0;
+  } else {
+    u.premiumUntil = next;
+  }
+  saveUsers();
+  return { ok: true, plan: u.plan, premiumUntil: u.premiumUntil };
+}
+
 /** Suma N días de Premium (si ya tiene días, se alargan). Founder/admin no se tocan. */
 export function grantPremiumDays(id, days) {
   const u = users.find((x) => String(x.id) === String(id));

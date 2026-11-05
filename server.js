@@ -25,7 +25,7 @@ import {
   registerUser, verifyLogin, renameUsername, createSession, destroySession,
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
-  getUserPlan, setUserPlan, grantPremiumDays, grantProDays, grantFounderDays, isFounderMember, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled, setUserMaxEnabled, isUserMaxEnabled,
+  getUserPlan, setUserPlan, shiftUserPlanDays, grantPremiumDays, grantProDays, grantFounderDays, isFounderMember, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled, setUserMaxEnabled, isUserMaxEnabled,
   setUserAdminNotes, setUserDesktopAppVersion,
   getUserBadgesPayload, recordBadgeLive, markBadgeDirectory, markBadgeDesktop, markBadgeGame, markBadgeDailyTop1, setUserManualBadge,
   deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
@@ -48,6 +48,7 @@ import * as spotify from './spotify.js';
 import { mountPaypalRoutes } from './paypal.js';
 import { mountMercadoPagoRoutes } from './mercadopago.js';
 import * as referrals from './referrals.js';
+import { mountGiftCodeRoutes } from './giftcodes.js';
 import { sendPaymentReceipt, startExpiryReminders } from './billing-mail.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
 import { bootstrapUserMedia, registerUserUpload, userUploadKind, migrateUserMediaDir } from './scripts/user-media-guard.mjs';
@@ -1717,6 +1718,28 @@ referrals.mountReferralRoutes(app, {
     const room = rooms.get(userId);
     if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
   },
+});
+
+// Códigos de activación de 1 solo uso (los genera el admin; los reparten sus trabajadores).
+mountGiftCodeRoutes(app, {
+  userFromRequest,
+  getUserById,
+  getUserPlan,
+  grantProDays,
+  grantPremiumDays,
+  grantFounderDays,
+  setUserPlan,
+  shiftUserPlanDays,
+  requireAdmin: (req, res, next) => requireAdmin(req, res, next),
+  AUTH_REMOTE,
+  getRemoteCookie: (id) => remoteCookies.get(id),
+  // .exe: tras canjear o modificar en la nube, traer el plan nuevo al momento.
+  afterRemoteChange: (user) => pullRemotePlan(user),
+  onPlanChanged: (userId) => {
+    const room = rooms.get(userId);
+    if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
+  },
+  clientIp: referrals.clientIp,
 });
 
 // Aviso por correo 3 días antes de que venza un plan (solo la nube, que es la que cobra).

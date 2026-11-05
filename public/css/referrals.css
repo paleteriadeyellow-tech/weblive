@@ -65,3 +65,155 @@ html body main #view-planes .ipp-ref-badge { display: inline-block; margin-top: 
 #sub-admin-referrals .aref-log ul { margin: 6px 0 0; padding-left: 16px; max-height: 180px; overflow: auto; }
 #sub-admin-referrals .aref-log b.pos { color: #4ade80; }
 #sub-admin-referrals .aref-log b.neg { color: #ff7a8a; }
+/* Acciones en pausa por límite de plan (no se borran) */
+#acc-grid tr.is-plan-paused td:not(.acc-int-check):not(.acc-int-ico) { opacity: .45; }
+#saList tr.is-plan-paused td:not(:first-child) { opacity: .5; }
+#saList tr.is-plan-paused td .acc-plan-paused { opacity: 1; }
+.acc-plan-paused { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: rgba(245, 197, 66, .14); color: #f5c542; font-size: 11px; font-weight: 700; opacity: 1; }
+/* Menú: icono propio de «Invita y gana» (antes salía un cuadro blanco) */
+html body .nav-item[data-view="invita"] { --lc-ico: url("/img/nav-tn/invita.svg?v=1"); }
+/* Botón «Invita y gana» siempre visible arriba a la derecha */
+.ref-topbtn { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(245, 197, 66, .55); background: linear-gradient(135deg, rgba(155, 92, 255, .32), rgba(245, 197, 66, .18)); color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1; white-space: nowrap; cursor: pointer; box-shadow: 0 0 0 0 rgba(245, 197, 66, .0); transition: transform .15s, box-shadow .2s, background .2s; }
+.ref-topbtn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(155, 92, 255, .35); background: linear-gradient(135deg, rgba(155, 92, 255, .48), rgba(245, 197, 66, .28)); }
+.ref-topbtn.is-active { border-color: #f5c542; }
+.ref-topbtn-ico { font-size: 15px; line-height: 1; }
+.ref-topbtn-coins { padding: 3px 8px; border-radius: 99px; background: rgba(0, 0, 0, .35); color: #f5c542; font-size: 12px; font-weight: 800; }
+@media (max-width: 1100px) { .ref-topbtn-txt { display: none; } .ref-topbtn { padding: 0 10px; } }
+/* Planes: aviso para ganar días gratis invitando */
+html body main #view-planes .ipp-ref-promo { display: flex; align-items: center; gap: 12px; width: 100%; margin: 12px 0 4px; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(245, 197, 66, .45); background: linear-gradient(135deg, rgba(155, 92, 255, .16), rgba(245, 197, 66, .08)); color: #e9e9ee; font-family: inherit; font-size: 14px; font-weight: 500; line-height: 1.4; text-align: left; cursor: pointer; box-sizing: border-box; }
+html body main #view-planes .ipp-ref-promo:hover { border-color: #f5c542; background: linear-gradient(135deg, rgba(155, 92, 255, .26), rgba(245, 197, 66, .14)); }
+html body main #view-planes .ipp-ref-promo-ico { font-size: 22px; }
+html body main #view-planes .ipp-ref-promo-txt { flex: 1; }
+html body main #view-planes .ipp-ref-promo-txt b { color: #fff; }
+html body main #view-planes .ipp-ref-promo-go { flex: none; padding: 7px 12px; border-radius: 10px; background: #9b5cff; color: #fff; font-weight: 800; font-size: 13px; }
+@media (max-width: 760px) { html body main #view-planes .ipp-ref-promo { flex-wrap: wrap; } }
+#view-invita .ref-code .ref-mini { margin-top: 14px; } /* sin la URL visible: separar «Cambiar mi código» de los botones */
+
+/* ===================== Invita y gana · diseño propio (rf-*) ===================== */
+#view-invita { --rf-teal: #2dd4bf; --rf-indigo: #6366f1; --rf-gold: #fbbf24; --rf-line: rgba(255, 255, 255, .08); --rf-txt2: #a1a1aa; }
+#view-invita .ref-body { gap: 22px; }
+#view-invita .rf-btn { display: inline-flex; align-items: center; justify-content: center; height: 40px; padding: 0 18px; border-radius: 10px; border: 0; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: filter .15s, transform .15s; }
+#view-invita .rf-btn:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+#view-invita .rf-btn:disabled { opacity: .45; cursor: not-allowed; }
+#view-invita .rf-btn-main { background: linear-gradient(135deg, var(--rf-teal), #22a5c9); color: #06231f; }
+#view-invita .rf-btn-soft { background: rgba(255, 255, 255, .08); color: #fff; border: 1px solid rgba(255, 255, 255, .14); }
+#view-invita .rf-muted { color: var(--rf-txt2); }
+
+/* Cabecera */
+#view-invita .rf-hero { position: relative; display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: center; padding: 30px 32px; border-radius: 22px; overflow: hidden;
+  background: radial-gradient(600px 260px at 0% 0%, rgba(45, 212, 191, .22), transparent 60%), radial-gradient(500px 300px at 100% 100%, rgba(99, 102, 241, .28), transparent 60%), #15161c; border: 1px solid rgba(45, 212, 191, .25); }
+#view-invita .rf-kicker { display: inline-block; padding: 4px 10px; border-radius: 6px; background: rgba(45, 212, 191, .14); color: var(--rf-teal); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+#view-invita .rf-hero h2 { margin: 14px 0 10px; font-size: 30px; line-height: 1.15; font-weight: 800; color: #fff; }
+#view-invita .rf-hero h2 em { font-style: normal; background: linear-gradient(90deg, var(--rf-teal), var(--rf-gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#view-invita .rf-hero p { margin: 0; color: #d4d4d8; font-size: 15px; line-height: 1.5; }
+#view-invita .rf-hero p b { color: #fff; }
+#view-invita .rf-ticket { position: relative; padding: 20px 22px; border-radius: 16px; background: rgba(10, 10, 14, .55); border: 1px solid rgba(255, 255, 255, .1); text-align: center; }
+#view-invita .rf-ticket::before, #view-invita .rf-ticket::after { content: ""; position: absolute; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%; background: #15161c; }
+#view-invita .rf-ticket::before { left: -10px; }
+#view-invita .rf-ticket::after { right: -10px; }
+#view-invita .rf-ticket-lbl { display: block; color: var(--rf-txt2); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+#view-invita .rf-ticket-code { display: block; width: 100%; margin: 10px 0 16px; padding: 10px 0; border: 0; border-top: 1px dashed rgba(255, 255, 255, .18); border-bottom: 1px dashed rgba(255, 255, 255, .18); background: none; color: #fff; font: 800 30px/1 "JetBrains Mono", Consolas, monospace; letter-spacing: .22em; cursor: pointer; }
+#view-invita .rf-ticket-code:hover { color: var(--rf-teal); }
+#view-invita .rf-ticket-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#view-invita .rf-link { margin-top: 12px; border: 0; background: none; color: var(--rf-txt2); font-family: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+#view-invita .rf-link:hover { color: #fff; }
+
+/* Fila de tarjetas */
+#view-invita .rf-stats { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 16px; }
+#view-invita .rf-tile { display: flex; flex-direction: column; gap: 8px; padding: 20px 22px; border-radius: 18px; background: #18181d; border: 1px solid var(--rf-line); }
+#view-invita .rf-wallet { border-color: rgba(45, 212, 191, .3); background: linear-gradient(160deg, rgba(45, 212, 191, .08), transparent 55%), #18181d; }
+#view-invita .rf-wallet .rf-btn { align-self: flex-start; margin-top: 4px; }
+#view-invita .rf-tile-top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+#view-invita .rf-tile-lbl { color: var(--rf-txt2); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+#view-invita .rf-rate { color: var(--rf-txt2); font-size: 12px; }
+#view-invita .rf-num { font-size: 40px; font-weight: 800; line-height: 1; color: #fff; }
+#view-invita .rf-num small { margin-left: 8px; font-size: 14px; font-weight: 600; color: var(--rf-txt2); }
+#view-invita .rf-num.rf-gold { color: var(--rf-gold); }
+#view-invita .rf-meter { height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+#view-invita .rf-meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--rf-teal), var(--rf-gold)); transition: width .4s; }
+#view-invita .rf-hint { margin: 0; color: #c4c4cc; font-size: 13px; line-height: 1.45; }
+#view-invita .rf-hint b { color: #fff; }
+
+/* Cómo funciona */
+#view-invita .rf-steps, #view-invita .rf-friends { padding: 22px 24px; border-radius: 18px; background: #18181d; border: 1px solid var(--rf-line); }
+#view-invita .rf-steps h3, #view-invita .rf-friends h3 { margin: 0 0 16px; font-size: 16px; font-weight: 800; color: #fff; }
+#view-invita .rf-steps ol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 0; padding: 0; list-style: none; }
+#view-invita .rf-steps li { position: relative; display: flex; gap: 12px; align-items: flex-start; }
+#view-invita .rf-steps li:not(:last-child)::after { content: ""; position: absolute; top: 17px; left: 46px; right: -10px; border-top: 2px dashed rgba(45, 212, 191, .25); z-index: 0; }
+#view-invita .rf-step-n { position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--rf-teal), var(--rf-indigo)); color: #fff; font-weight: 800; }
+#view-invita .rf-steps li > div { position: relative; z-index: 1; padding-top: 2px; padding-right: 6px; background: #18181d; }
+#view-invita .rf-steps b { display: block; color: #fff; font-size: 14px; }
+#view-invita .rf-steps small { display: block; margin-top: 3px; color: var(--rf-txt2); font-size: 12.5px; line-height: 1.45; }
+#view-invita .rf-rewards { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+#view-invita .rf-rewards span { padding: 4px 9px; border-radius: 7px; background: rgba(251, 191, 36, .1); border: 1px solid rgba(251, 191, 36, .25); color: #e4e4e7; font-size: 12px; }
+#view-invita .rf-rewards b { color: var(--rf-gold); }
+
+/* Franja ¿Te invitó alguien? */
+#view-invita .rf-strip { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 14px 20px; border-radius: 14px; border: 1px dashed rgba(99, 102, 241, .45); background: rgba(99, 102, 241, .07); }
+#view-invita .rf-strip p { margin: 0; color: #d4d4d8; }
+#view-invita .rf-strip-txt b { display: block; color: #fff; }
+#view-invita .rf-strip-txt small { color: var(--rf-txt2); font-size: 12.5px; }
+#view-invita .rf-strip-form { display: flex; gap: 8px; }
+#view-invita .rf-input { width: 210px; height: 40px; box-sizing: border-box; text-transform: uppercase; }
+
+/* Amigos */
+#view-invita .rf-friends ul { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+#view-invita .rf-friends li { display: flex; align-items: center; gap: 12px; padding: 11px 4px; border-bottom: 1px solid var(--rf-line); }
+#view-invita .rf-friends li:last-child { border-bottom: 0; }
+#view-invita .rf-av { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, rgba(45, 212, 191, .25), rgba(99, 102, 241, .35)); color: #fff; font-weight: 800; }
+#view-invita .rf-fr-txt { flex: 1; min-width: 0; }
+#view-invita .rf-fr-txt b { display: block; color: #fff; }
+#view-invita .rf-fr-txt small { color: var(--rf-txt2); font-size: 12px; }
+#view-invita .rf-tag { flex: none; padding: 4px 10px; border-radius: 99px; background: rgba(255, 255, 255, .07); color: var(--rf-txt2); font-size: 12px; font-weight: 700; }
+#view-invita .rf-tag-ok { background: rgba(45, 212, 191, .15); color: var(--rf-teal); }
+#view-invita .rf-tag-wait { background: rgba(251, 191, 36, .14); color: var(--rf-gold); }
+#view-invita .rf-tag-off { background: rgba(244, 114, 182, .12); color: #f9a8d4; }
+#view-invita .rf-empty { padding: 26px 10px; text-align: center; color: var(--rf-txt2); line-height: 1.6; }
+
+@media (max-width: 1000px) {
+  #view-invita .rf-hero { grid-template-columns: 1fr; padding: 24px; }
+  #view-invita .rf-stats { grid-template-columns: 1fr; }
+  #view-invita .rf-steps ol { grid-template-columns: 1fr; }
+  #view-invita .rf-steps li::after { display: none; }
+}
+
+/* ===================== Códigos de activación ===================== */
+/* Planes: cuadro para canjear */
+html body main #view-planes .ipp-giftcode { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; width: 100%; margin: 10px 0 4px; padding: 12px 16px; border-radius: 14px; border: 1px dashed rgba(45, 212, 191, .45); background: rgba(45, 212, 191, .06); box-sizing: border-box; color: #e4e4e7; font-size: 14px; }
+html body main #view-planes .ipp-giftcode-txt b { color: #fff; }
+html body main #view-planes .ipp-giftcode-form { display: inline-flex; gap: 8px; }
+html body main #view-planes .ipp-giftcode-in { width: 170px; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .18); background: #141418; color: #fff; font-family: "JetBrains Mono", Consolas, monospace; font-size: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; outline: none; box-sizing: border-box; }
+html body main #view-planes .ipp-giftcode-in:focus { border-color: #2dd4bf; }
+html body main #view-planes .ipp-giftcode-btn { height: 38px; padding: 0 16px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #2dd4bf, #22a5c9); color: #06231f; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+html body main #view-planes .ipp-giftcode-btn:disabled { opacity: .5; cursor: wait; }
+
+/* Admin › Códigos */
+#sub-admin-codes .gc-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 14px; align-items: end; margin: 6px 0 12px; }
+#sub-admin-codes .gc-form label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted, #9a9ca5); }
+#sub-admin-codes .gc-form label.gc-wide { grid-column: span 2; }
+#sub-admin-codes .gc-form label.gc-check { flex-direction: row; align-items: center; gap: 8px; padding-bottom: 10px; color: #e4e4e7; }
+#sub-admin-codes .gc-form input[type="text"], #sub-admin-codes .gc-form input[type="number"], #sub-admin-codes .gc-form select,
+#sub-admin-codes .admin-toolbar select { height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .16); background: #1a1a1a; color: #fff; font-family: inherit; box-sizing: border-box; }
+#sub-admin-codes .gc-form input:disabled { opacity: .45; }
+#sub-admin-codes .gc-form #gc-create { height: 36px; }
+#sub-admin-codes .gc-result { margin: 4px 0 10px; padding: 12px; border-radius: 10px; border: 1px solid rgba(45, 212, 191, .35); background: rgba(45, 212, 191, .06); }
+#sub-admin-codes .gc-result-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+#sub-admin-codes .gc-result textarea { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .12); background: #111; color: #fff; font: 600 14px/1.6 "JetBrains Mono", Consolas, monospace; resize: vertical; }
+#sub-admin-codes .gc-h { margin: 18px 0 8px; font-size: 14px; color: #fff; }
+#sub-admin-codes .gc-st { display: inline-block; margin: 1px 0; padding: 2px 8px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+#sub-admin-codes .gc-free { background: rgba(45, 212, 191, .14); color: #2dd4bf; }
+#sub-admin-codes .gc-used { background: rgba(99, 102, 241, .18); color: #a5b4fc; }
+#sub-admin-codes .gc-void { background: rgba(244, 114, 182, .12); color: #f9a8d4; }
+#sub-admin-codes .gc-exp { background: rgba(255, 255, 255, .08); color: #a1a1aa; }
+#sub-admin-codes .gc-code { font: 700 13px/1 "JetBrains Mono", Consolas, monospace; white-space: nowrap; }
+#sub-admin-codes .gc-acts { white-space: nowrap; }
+#sub-admin-codes .gc-acts .btn, #sub-admin-codes .gc-mod .btn { margin: 2px 2px 2px 0; padding: 4px 9px; font-size: 12px; }
+#sub-admin-codes tr.gc-sel td { background: rgba(45, 212, 191, .07); }
+#sub-admin-codes .gc-mod { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+#sub-admin-codes .gc-mod-days { width: 64px; height: 28px; padding: 0 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .16); background: #1a1a1a; color: #fff; }
+#sub-admin-codes .gc-danger { color: #f9a8d4 !important; }
+#sub-admin-codes .gc-log { margin-top: 16px; font-size: 13px; }
+#sub-admin-codes .gc-log summary { cursor: pointer; color: var(--muted, #9a9ca5); }
+#sub-admin-codes .gc-log ul { max-height: 280px; overflow: auto; margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
+#sub-admin-codes .gc-log code { font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; }
+@media (max-width: 1000px) { #sub-admin-codes .gc-form { grid-template-columns: 1fr 1fr; } }

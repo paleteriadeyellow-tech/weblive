@@ -5231,7 +5231,7 @@ async function loadPlans() {
   const editor = document.getElementById('plans-editor');
   if (!editor) return;
   try {
-    const r = await fetch('/api/admin/plans');
+    const r = await fetch('/api/admin/plans', { cache: 'no-store' });
     if (!r.ok) { editor.innerHTML = '<p class="tts-sub">Sin acceso.</p>'; return; }
     const d = await r.json();
     plansCatalog = d.catalog;
@@ -5993,6 +5993,10 @@ document.querySelectorAll('.plan-tab').forEach((tab) => {
   };
 });
 
+// En solo lectura (sin nube), volver a pulsar «Planes y límites» reintenta leer la config real.
+document.querySelector('#view-admin .subtab[data-sub="admin-plans"]')?.addEventListener('click', () => {
+  if (plansReadOnly) loadPlans();
+});
 const plansSaveBtn = document.getElementById('plans-save');
 if (plansSaveBtn) plansSaveBtn.onclick = async () => {
   if (plansReadOnly) { applyPlansReadOnly(); return; }

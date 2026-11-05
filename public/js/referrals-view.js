@@ -40,7 +40,21 @@
     return { plan, cost: d.dayCost[plan] };
   }
 
+  // Botón «Invita y gana» de arriba: muestra los Coins (disponibles + en espera) si tiene.
+  function updateTopBtn() {
+    const el = document.getElementById('refTopCoins');
+    if (!el) return;
+    const total = data ? (Number(data.coins) || 0) + (Number(data.pendingCoins) || 0) : 0;
+    el.hidden = !(total > 0);
+    el.textContent = total > 0 ? `🪙 ${fmt(total)}` : '';
+  }
+  function goInvita() {
+    const nav = document.querySelector('.nav-item[data-view="invita"]');
+    if (nav) nav.click();
+  }
+
   function render() {
+    updateTopBtn();
     const root = document.getElementById(VIEW_ID);
     if (!root) return;
     const body = root.querySelector('.ref-body');
@@ -56,70 +70,84 @@
     const missing = goal.cost - (d.coins % goal.cost);
     const friends = d.friends || [];
 
+    const maxReward = Math.max(d.rewards.pro, d.rewards.premium, d.rewards.founder);
+    const paidN = friends.filter((f) => f.status === 'paid' || f.status === 'pending').length;
+    const initial = (u) => esc(String(u || '?').replace(/^@/, '').charAt(0).toUpperCase() || '?');
+
     body.innerHTML = `
-      <div class="ref-top">
-        <section class="ref-card ref-coins">
-          <div class="ref-card-head"><span class="ref-ico">🪙</span><span>Tus Coins</span></div>
-          <div class="ref-big">${fmt(d.coins)} <small>Coins</small></div>
-          <div class="ref-bar"><i style="width:${d.coins >= goal.cost ? 100 : pct}%"></i></div>
-          <p class="ref-sub">${d.coins >= goal.cost
-    ? (anyRedeem ? `Ya puedes canjear <b>${canDays(goal.plan)} día(s)</b> de ${PLAN_NAME[goal.plan]}.` : 'Tienes Coins suficientes para canjear cuando tu plan tenga fecha.')
-    : `Te faltan <b>${fmt(missing)} Coins</b> para ${d.coins || d.pendingCoins ? 'otro' : 'tu primer'} día gratis de ${PLAN_NAME[goal.plan]}.`}</p>
-          <div class="ref-row">
-            <button type="button" class="btn primary" data-ref="redeem" ${anyRedeem ? '' : 'disabled'}>Canjear por días</button>
-            <span class="ref-note">${d.dayCost.pro} Coins = 1 día PRO · ${d.dayCost.premium} Coins = 1 día VIP</span>
+      <section class="rf-hero">
+        <div class="rf-hero-txt">
+          <span class="rf-kicker">Programa de invitados</span>
+          <h2>Comparte Livecoins y <em>gana días gratis</em></h2>
+          <p>Tu amigo ahorra <b>${d.discountPct}%</b> en su primer mes y tú ganas hasta <b>+${fmt(maxReward)} Coins</b> por cada amigo que pague.</p>
+        </div>
+        <div class="rf-ticket">
+          <span class="rf-ticket-lbl">Tu código</span>
+          <button type="button" class="rf-ticket-code" data-ref="copy-code" title="Copiar código">${esc(d.code)}</button>
+          <div class="rf-ticket-btns">
+            <button type="button" class="rf-btn rf-btn-main" data-ref="copy-invite">Copiar invitación</button>
+            <button type="button" class="rf-btn rf-btn-soft" data-ref="copy-link">Copiar enlace</button>
           </div>
-          ${d.pendingCoins ? `<p class="ref-note ref-wait">⏳ <b>${fmt(d.pendingCoins)} Coins en espera</b>: se liberan ${d.holdDays} días después del pago de tu amigo (el próximo el ${new Date(d.nextRelease).toLocaleDateString('es-MX')}).</p>` : ''}
-          ${(d.redeem || []).length ? '' : '<p class="ref-note">Tu plan actual no tiene días que sumar; guarda tus Coins para después.</p>'}
-        </section>
-
-        <section class="ref-card ref-code">
-          <div class="ref-card-head"><span class="ref-ico">🎟️</span><div><b>Tu código</b><small>Compártelo. Tu amigo ahorra ${d.discountPct}% y tú ganas Coins.</small></div></div>
-          <button type="button" class="ref-codebox" data-ref="copy-code" title="Copiar código">${esc(d.code)} <span>⧉</span></button>
-          <div class="ref-row ref-row-2">
-            <button type="button" class="btn primary" data-ref="copy-invite">Copiar invitación</button>
-            <button type="button" class="btn ghost" data-ref="copy-link">Copiar enlace</button>
-          </div>
-          <div class="ref-link">${esc(d.link)}</div>
-          <button type="button" class="ref-mini" data-ref="edit-code">✏️ Cambiar mi código</button>
-        </section>
-      </div>
-
-      ${d.canEnterCode || d.referredBy ? `
-      <section class="ref-card ref-invited">
-        ${d.referredBy
-    ? `<p>Entraste con la invitación de <b>@${esc(d.referredBy)}</b>.${d.myDiscountPct ? ` Tienes <b>${d.myDiscountPct}% de descuento</b> en tu primer pago de PRO o VIP.`
-      : d.discountBlocked ? ' <span class="ref-note">Sin descuento: desde tu red ya se usó un código o es la misma red de quien te invitó.</span>' : ''}</p>`
-    : `<div><b>¿Te invitó alguien?</b><small>Pon su código antes de tu primer pago y ten ${d.discountPct}% de descuento.</small></div>
-           <div class="ref-row"><input type="text" class="ref-input" maxlength="16" placeholder="CÓDIGO" data-ref-input="apply"><button type="button" class="btn primary" data-ref="apply">Aplicar</button></div>`}
-      </section>` : ''}
-
-      <section class="ref-card">
-        <div class="ref-card-head"><span class="ref-ico">🏆</span><div><b>Cómo ganar Coins</b><small>Cada recompensa suma Coins a tu saldo.</small></div></div>
-        <div class="ref-task">
-          <span class="ref-ico">👥</span>
-          <div class="ref-task-txt">
-            <b>Invita a un amigo</b>
-            <small>Tu amigo ahorra ${d.discountPct}% en su primer mes. Tú ganas Coins cuando paga (se liberan a los ${d.holdDays} días).</small>
-            <div class="ref-chips"><span>Si compra PRO <b>+${fmt(d.rewards.pro)}</b></span><span>Si compra VIP <b>+${fmt(d.rewards.premium)}</b></span><span>Si compra Founder <b>+${fmt(d.rewards.founder)}</b></span></div>
-          </div>
-          <span class="ref-pill">Hasta +${fmt(Math.max(d.rewards.pro, d.rewards.premium, d.rewards.founder))}</span>
-          <button type="button" class="btn primary" data-ref="copy-invite">Copiar invitación</button>
+          <button type="button" class="rf-link" data-ref="edit-code">Cambiar mi código</button>
         </div>
       </section>
 
-      <section class="ref-card">
-        <div class="ref-card-head"><span class="ref-ico">🤝</span><div><b>Tus amigos</b><small>Así va cada amigo que entró con tu código.</small></div></div>
-        ${friends.length ? `<div class="ref-friends">${friends.map((f) => `
-          <div class="ref-friend">
-            <b>@${esc(f.username)}</b>
-            <small>${f.at ? new Date(f.at).toLocaleDateString('es-MX') : ''}</small>
-            ${f.status === 'paid' ? `<span class="ref-st ok">Pagó · +${fmt(f.coins)} Coins</span>`
-    : f.status === 'blocked' ? '<span class="ref-st" title="Mismo correo o misma red que tú, o desde su red ya se usó otro código.">Pagó · sin Coins (misma persona o red)</span>'
-      : f.status === 'pending' ? `<span class="ref-st wait">Pagó · +${fmt(f.coins)} Coins el ${new Date(f.until).toLocaleDateString('es-MX')}</span>`
-      : '<span class="ref-st">Registrado · aún no paga</span>'}
-          </div>`).join('')}</div>`
-    : '<div class="ref-empty">Aún no entra nadie con tu código. Compártelo y aquí verás a tus amigos.</div>'}
+      <div class="rf-stats">
+        <section class="rf-tile rf-wallet">
+          <div class="rf-tile-top"><span class="rf-tile-lbl">Saldo disponible</span><span class="rf-rate">${d.dayCost.pro} = 1 día PRO · ${d.dayCost.premium} = 1 día VIP</span></div>
+          <div class="rf-num">${fmt(d.coins)}<small>Coins</small></div>
+          <div class="rf-meter"><i style="width:${d.coins >= goal.cost ? 100 : pct}%"></i></div>
+          <p class="rf-hint">${d.coins >= goal.cost
+    ? (anyRedeem ? `Ya puedes canjear <b>${canDays(goal.plan)} día(s)</b> de ${PLAN_NAME[goal.plan]}.` : 'Tienes Coins suficientes para canjear cuando tu plan tenga fecha.')
+    : `Te faltan <b>${fmt(missing)} Coins</b> para ${d.coins || d.pendingCoins ? 'otro' : 'tu primer'} día gratis de ${PLAN_NAME[goal.plan]}.`}</p>
+          <button type="button" class="rf-btn rf-btn-main" data-ref="redeem" ${anyRedeem ? '' : 'disabled'}>Canjear por días</button>
+          ${(d.redeem || []).length ? '' : '<p class="rf-hint rf-muted">Tu plan actual no tiene días que sumar; guarda tus Coins para después.</p>'}
+        </section>
+        <section class="rf-tile">
+          <span class="rf-tile-lbl">En espera</span>
+          <div class="rf-num rf-gold">${fmt(d.pendingCoins)}<small>Coins</small></div>
+          <p class="rf-hint">${d.pendingCoins
+    ? `Se liberan ${d.holdDays} días después del pago de tu amigo. Próximo: <b>${new Date(d.nextRelease).toLocaleDateString('es-MX')}</b>.`
+    : `Cuando un amigo pague, sus Coins aparecen aquí y se liberan a los ${d.holdDays} días.`}</p>
+        </section>
+        <section class="rf-tile">
+          <span class="rf-tile-lbl">Amigos</span>
+          <div class="rf-num">${fmt(friends.length)}<small>${friends.length === 1 ? 'invitado' : 'invitados'}</small></div>
+          <p class="rf-hint">${paidN ? `<b>${paidN}</b> ya ${paidN === 1 ? 'pagó' : 'pagaron'} su plan.` : 'Aún ninguno ha pagado su plan.'}</p>
+        </section>
+      </div>
+
+      <section class="rf-steps">
+        <h3>Cómo funciona</h3>
+        <ol>
+          <li><span class="rf-step-n">1</span><div><b>Comparte tu código</b><small>Copia tu invitación y mándala a tus amigos streamers.</small></div></li>
+          <li><span class="rf-step-n">2</span><div><b>Tu amigo se une</b><small>Crea su cuenta con tu código y ahorra ${d.discountPct}% en su primer mes.</small></div></li>
+          <li><span class="rf-step-n">3</span><div><b>Tú ganas Coins</b><small>Cuando paga, recibes Coins (se liberan a los ${d.holdDays} días):</small>
+            <div class="rf-rewards"><span>PRO <b>+${fmt(d.rewards.pro)}</b></span><span>VIP <b>+${fmt(d.rewards.premium)}</b></span><span>Founder <b>+${fmt(d.rewards.founder)}</b></span></div></div></li>
+        </ol>
+      </section>
+
+      ${d.canEnterCode || d.referredBy ? `
+      <section class="rf-strip">
+        ${d.referredBy
+    ? `<p>🎟️ Entraste con la invitación de <b>@${esc(d.referredBy)}</b>.${d.myDiscountPct ? ` Tienes <b>${d.myDiscountPct}% de descuento</b> en tu primer pago de PRO o VIP.`
+      : d.discountBlocked ? ' <span class="rf-muted">Sin descuento: desde tu red ya se usó un código o es la misma red de quien te invitó.</span>' : ''}</p>`
+    : `<div class="rf-strip-txt"><b>¿Te invitó alguien?</b><small>Pon su código antes de tu primer pago y ten ${d.discountPct}% de descuento.</small></div>
+           <div class="rf-strip-form"><input type="text" class="ref-input rf-input" maxlength="16" placeholder="Código de tu amigo" data-ref-input="apply"><button type="button" class="rf-btn rf-btn-main" data-ref="apply">Aplicar</button></div>`}
+      </section>` : ''}
+
+      <section class="rf-friends">
+        <h3>Tus amigos</h3>
+        ${friends.length ? `<ul>${friends.map((f) => `
+          <li>
+            <span class="rf-av">${initial(f.username)}</span>
+            <div class="rf-fr-txt"><b>@${esc(f.username)}</b><small>${f.at ? 'Se unió el ' + new Date(f.at).toLocaleDateString('es-MX') : ''}</small></div>
+            ${f.status === 'paid' ? `<span class="rf-tag rf-tag-ok">+${fmt(f.coins)} Coins</span>`
+    : f.status === 'blocked' ? '<span class="rf-tag rf-tag-off" title="Mismo correo o misma red que tú, o desde su red ya se usó otro código.">Sin Coins · misma persona o red</span>'
+      : f.status === 'pending' ? `<span class="rf-tag rf-tag-wait">+${fmt(f.coins)} el ${new Date(f.until).toLocaleDateString('es-MX')}</span>`
+      : '<span class="rf-tag">Aún no paga</span>'}
+          </li>`).join('')}</ul>`
+    : '<div class="rf-empty">Aún no entra nadie con tu código.<br>Compártelo y aquí verás a tus amigos.</div>'}
       </section>`;
   }
 
@@ -272,9 +300,27 @@
     root.dataset.refInit = '1';
     root.addEventListener('click', onClick);
     // Carga cada vez que se abre la vista.
-    const mo = new MutationObserver(() => { if (root.classList.contains('active') && !loading) load(); });
+    const mo = new MutationObserver(() => {
+      const on = root.classList.contains('active');
+      document.getElementById('refTopBtn')?.classList.toggle('is-active', on);
+      if (on && !loading) load();
+    });
     mo.observe(root, { attributes: true, attributeFilter: ['class'] });
     if (root.classList.contains('active')) load();
+    // Botón de arriba y aviso de Planes → abren Invita y gana.
+    document.getElementById('refTopBtn')?.addEventListener('click', goInvita);
+    document.addEventListener('click', (e) => {
+      if (e.target.closest && e.target.closest('[data-ipp-invita]')) goInvita();
+    });
+    // Coins en el botón: una consulta ligera al abrir el panel (después se actualiza al entrar a la vista).
+    setTimeout(async () => {
+      if (data || loading) return;
+      try {
+        const r = await fetch('/api/referrals/me', { credentials: 'same-origin' });
+        const j = await r.json().catch(() => null);
+        if (r.ok && j && j.ok !== false && !data) { data = j; updateTopBtn(); }
+      } catch {}
+    }, 6000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
