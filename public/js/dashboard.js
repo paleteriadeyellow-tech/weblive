@@ -3895,10 +3895,208 @@ function setAdminCloudWarn(show) {
 let _adminUsersCache = [];
 let _adminUsersSearch = '';
 
+// Subpestañas de usuarios: Todas · General (sin clasificar) · las que cree el admin.
+var _adminGroups = [];
+var _adminGroupsOk = false; // false si el servidor aún no tiene esta función: Admin sigue como siempre
+var _adminGroupsNote = ''; // por qué no se pueden usar ahora (se muestra en vez de ocultarlas sin decir nada)
+var _adminGroupTab = '__all';
+var _adminPlanFilter = '';
+var _adminSelected = new Set(); // cuentas marcadas para mover varias a la vez
+try { _adminGroupTab = localStorage.getItem('lc_admin_group_tab') || '__all'; } catch {}
+function adminGroupOf(u) {
+  const g = String((u && u.adminGroup) || '');
+  return g && _adminGroups.some((x) => x.id === g) ? g : '';
+}
+function adminUserIsPaid(u) {
+  return !!(u && (u.isAdmin || ['premium', 'founder', 'pro'].includes(String(u.plan || '').toLowerCase())));
+}
+async function loadAdminGroups() {
+  try {
+    const r = await fetch('/api/admin/groups');
+    if (!r.ok) {
+      _adminGroupsNote = r.status === 404
+        ? 'Subpestañas: falta subir la versión nueva a Render. Mientras tanto, Admin funciona como siempre.'
+        : (r.status === 503 ? 'Subpestañas: sin sesión con la nube. Cierra sesión y vuelve a entrar con internet.' : '');
+      throw new Error('sin ruta');
+    }
+    const d = await r.json();
+    _adminGroups = Array.isArray(d.groups) ? d.groups : [];
+    _adminGroupsOk = true;
+    _adminGroupsNote = '';
+  } catch {
+    _adminGroupsOk = false;
+    _adminGroups = [];
+  }
+  if (_adminGroupTab !== '__all' && _adminGroupTab !== '__general' && !_adminGroups.some((g) => g.id === _adminGroupTab)) _adminGroupTab = '__all';
+}
+function setAdminGroupTab(tab) {
+  _adminGroupTab = tab;
+  try { localStorage.setItem('lc_admin_group_tab', tab); } catch {}
+  renderAdminUsersTable();
+}
+function renderAdminGroupBar() {
+  const bar = document.getElementById('admin-group-bar');
+  if (!bar) return;
+  if (!_adminGroupsOk) {
+    bar.hidden = !_adminGroupsNote;
+    bar.innerHTML = _adminGroupsNote ? '<span class="tts-sub">' + esc(_adminGroupsNote) + '</span>' : '';
+    return;
+  }
+  bar.hidden = false;
+  const count = (fn) => _adminUsersCache.filter(fn).length;
+  const chip = (id, name, n) => `<button type="button" class="admin-group-chip${_adminGroupTab === id ? ' is-on' : ''}" data-agroup="${esc(id)}">${esc(name)} <span class="admin-group-n">${n}</span></button>`;
+  const custom = _adminGroups.some((g) => g.id === _adminGroupTab);
+  bar.innerHTML = chip('__all', 'Todas', _adminUsersCache.length)
+    + chip('__general', 'General', count((u) => !adminGroupOf(u)))
+    + _adminGroups.map((g) => chip(g.id, g.name, count((u) => adminGroupOf(u) === g.id))).join('')
+    + '<button type="button" class="admin-group-chip is-add" data-agroup-act="new">+ Nueva</button>'
+    + (custom ? '<button type="button" class="btn tiny" data-agroup-act="rename">Renombrar</button><button type="button" class="btn tiny" data-agroup-act="delete">Eliminar</button>' : '')
+    + adminBulkBarHtml()
+    + `<select class="admin-group-plan" title="Filtrar por plan"><option value="">Todos los planes</option><option value="paid"${_adminPlanFilter === 'paid' ? ' selected' : ''}>De pago</option><option value="free"${_adminPlanFilter === 'free' ? ' selected' : ''}>Gratis</option></select>`;
+}
+function adminBulkBarHtml() {
+  const visible = adminUsersFiltered();
+  const marked = visible.filter((u) => _adminSelected.has(String(u.id))).length;
+  const all = visible.length > 0 && marked === visible.length;
+  return `<div class="admin-group-bulk"><label class="admin-group-all"><input type="checkbox" class="admin-user-check-all"${all ? ' checked' : ''}> Marcar las ${visible.length} de esta vista</label>`
+    + (marked ? `<span class="admin-group-marked">${marked} marcada${marked === 1 ? '' : 's'}</span><select class="admin-group-bulk-target"><option value="">General</option>${_adminGroups.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}</select><button type="button" class="btn tiny" data-agroup-act="move">Mover</button><button type="button" class="btn tiny" data-agroup-act="clear">Quitar marcas</button>` : '')
+    + '</div>';
+}
+function adminUserCheckHtml(u) {
+  if (!_adminGroupsOk) return '';
+  return `<input type="checkbox" class="admin-user-check" data-id="${esc(u.id)}" title="Marcar para mover"${_adminSelected.has(String(u.id)) ? ' checked' : ''}> `;
+}
+function adminGroupSelectHtml(u) {
+  if (!_adminGroupsOk) return '';
+  const cur = adminGroupOf(u);
+  return `<select class="admin-group-select" data-id="${esc(u.id)}" title="Mover a otra subpestaña"><option value="">General</option>${_adminGroups.map((g) => `<option value="${esc(g.id)}"${cur === g.id ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}</select>`;
+}
+async function adminGroupsAction(body) {
+  const r = await fetch('/api/admin/groups', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(d.error || 'No se pudo guardar.', 'warn'); return null; }
+  _adminGroups = Array.isArray(d.groups) ? d.groups : _adminGroups;
+  return d;
+}
+function adminAskGroupName(title, value) {
+  if (typeof askText === 'function') return askText({ title, message: 'Nombre de la subpestaña (por ejemplo, el de la agencia):', value: value || '', icon: '🗂️', confirmText: 'Guardar' });
+  return Promise.resolve(window.prompt(title, value || ''));
+}
+(function setupAdminGroups() {
+  if (!document.getElementById('admin-group-style')) {
+    const st = document.createElement('style');
+    st.id = 'admin-group-style';
+    st.textContent = '.admin-group-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px}.admin-group-bar[hidden]{display:none}'
+      + '.admin-group-chip{padding:6px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:transparent;color:var(--txt,#e2e8f0);font-size:12px;font-weight:700;cursor:pointer}'
+      + '.admin-group-chip:hover{border-color:var(--cyan,#25f4ee)}.admin-group-chip.is-on{background:var(--tiktok,#7c5cff);border-color:transparent;color:#fff}.admin-group-chip.is-add{border-style:dashed;color:var(--mut,#8b97b3)}'
+      + '.admin-group-n{opacity:.7;font-weight:600;margin-left:3px}.admin-group-plan,.admin-group-select{padding:5px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:var(--txt,#e2e8f0);font-size:12px}'
+      + '.admin-group-bulk{display:flex;flex-wrap:wrap;align-items:center;gap:8px;order:5;flex:1 1 100%;font-size:12px}.admin-group-all{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--mut,#8b97b3)}.admin-group-marked{font-weight:700;color:var(--cyan,#25f4ee)}.admin-group-bulk .admin-group-bulk-target{width:auto!important;padding:5px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:var(--txt,#e2e8f0);font-size:12px}.admin-group-bulk-target option{background:#16161c;color:#e2e8f0}.admin-user-check{vertical-align:middle;margin-right:4px;cursor:pointer}'
+      + '.admin-group-bar .admin-group-plan{margin-left:auto;width:auto!important;flex:0 0 auto;min-width:140px}.admin-group-select{width:100%;margin-bottom:6px}.admin-group-plan option,.admin-group-select option{background:#16161c;color:#e2e8f0}';
+    document.head.appendChild(st);
+  }
+  document.addEventListener('click', async (e) => {
+    const bar = e.target.closest && e.target.closest('#admin-group-bar');
+    if (!bar) return;
+    const chip = e.target.closest('[data-agroup]');
+    if (chip) { setAdminGroupTab(chip.dataset.agroup); return; }
+    const act = e.target.closest('[data-agroup-act]')?.dataset.agroupAct;
+    if (!act) return;
+    if (act === 'clear') {
+      _adminSelected.clear();
+      renderAdminUsersTable();
+    } else if (act === 'move') {
+      const target = bar.querySelector('.admin-group-bulk-target');
+      // Solo las que se ven: una marca escondida por un filtro no se mueve sin que la veas.
+      const ids = adminUsersFiltered().filter((u) => _adminSelected.has(String(u.id))).map((u) => u.id);
+      if (!ids.length || !target) return;
+      const group = target.value;
+      const label = target.options[target.selectedIndex]?.text || 'General';
+      try {
+        const r = await fetch('/api/admin/user-group', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, group }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { toast(d.error || 'No se pudieron mover.', 'warn'); return; }
+        _adminUsersCache.forEach((u) => { if (ids.includes(u.id)) u.adminGroup = group; });
+        ids.forEach((id) => _adminSelected.delete(String(id)));
+        toast(`${ids.length} cuenta${ids.length === 1 ? '' : 's'} movida${ids.length === 1 ? '' : 's'} a ${label}.`, 'ok');
+        renderAdminUsersTable();
+      } catch { toast('Error de conexión.', 'warn'); }
+    } else if (act === 'new') {
+      const name = await adminAskGroupName('Nueva subpestaña');
+      if (name === null || !String(name).trim()) return;
+      const d = await adminGroupsAction({ action: 'create', name });
+      if (d && d.group) setAdminGroupTab(d.group.id);
+    } else if (act === 'rename') {
+      const g = _adminGroups.find((x) => x.id === _adminGroupTab);
+      if (!g) return;
+      const name = await adminAskGroupName('Renombrar subpestaña', g.name);
+      if (name === null || !String(name).trim()) return;
+      if (await adminGroupsAction({ action: 'rename', id: g.id, name })) renderAdminUsersTable();
+    } else if (act === 'delete') {
+      const g = _adminGroups.find((x) => x.id === _adminGroupTab);
+      if (!g) return;
+      const ok = await askConfirm({ title: 'Eliminar subpestaña', message: `Se elimina «${g.name}». Sus cuentas regresan a General; no se borra ninguna cuenta.`, confirmText: 'Eliminar' });
+      if (!ok) return;
+      const d = await adminGroupsAction({ action: 'delete', id: g.id });
+      if (d) {
+        _adminUsersCache.forEach((u) => { if (u.adminGroup === g.id) u.adminGroup = ''; });
+        setAdminGroupTab('__general');
+      }
+    }
+  });
+  document.addEventListener('change', async (e) => {
+    if (e.target.classList && e.target.classList.contains('admin-user-check')) {
+      const id = String(e.target.dataset.id);
+      if (e.target.checked) _adminSelected.add(id); else _adminSelected.delete(id);
+      renderAdminGroupBar();
+      return;
+    }
+    if (e.target.classList && e.target.classList.contains('admin-user-check-all')) {
+      const on = e.target.checked;
+      adminUsersFiltered().forEach((u) => { if (on) _adminSelected.add(String(u.id)); else _adminSelected.delete(String(u.id)); });
+      renderAdminUsersTable();
+      return;
+    }
+    if (e.target.classList && e.target.classList.contains('admin-group-plan')) {
+      _adminPlanFilter = e.target.value || '';
+      renderAdminUsersTable();
+      return;
+    }
+    if (!(e.target.classList && e.target.classList.contains('admin-group-select'))) return;
+    const sel = e.target;
+    const u = _adminUsersCache.find((x) => String(x.id) === String(sel.dataset.id));
+    if (!u) return;
+    const prev = adminGroupOf(u);
+    sel.disabled = true;
+    try {
+      const r = await fetch('/api/admin/user-group', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: u.id, group: sel.value }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { toast(d.error || 'No se pudo mover la cuenta.', 'warn'); sel.value = prev; return; }
+      u.adminGroup = sel.value;
+      toast(`«${u.username}» movida a ${sel.options[sel.selectedIndex]?.text || 'General'}.`, 'ok');
+      renderAdminUsersTable();
+    } catch {
+      toast('Error de conexión.', 'warn');
+      sel.value = prev;
+    } finally {
+      sel.disabled = false;
+    }
+  });
+})();
+
 function adminUsersFiltered() {
   const q = String(_adminUsersSearch || '').trim().toLowerCase();
-  if (!q) return _adminUsersCache.slice();
-  return _adminUsersCache.filter((u) => {
+  const inTab = _adminUsersCache.filter((u) => {
+    if (!u) return false;
+    if (_adminGroupsOk && _adminGroupTab !== '__all') {
+      const g = adminGroupOf(u);
+      if (_adminGroupTab === '__general' ? g : g !== _adminGroupTab) return false;
+    }
+    if (_adminGroupsOk && _adminPlanFilter === 'paid' && !adminUserIsPaid(u)) return false;
+    if (_adminGroupsOk && _adminPlanFilter === 'free' && adminUserIsPaid(u)) return false;
+    return true;
+  });
+  if (!q) return inTab;
+  return inTab.filter((u) => {
     if (!u) return false;
     const blob = [
       u.username, u.roomKey, u.account, u.desktopAppVersion, u.adminNotes, u.n, u.plan,
@@ -3911,15 +4109,16 @@ function renderAdminUsersTable() {
   const tbody = document.getElementById('admin-tbody');
   const count = document.getElementById('admin-count');
   if (!tbody) return;
+  try { renderAdminGroupBar(); } catch {}
   const users = adminUsersFiltered();
   const total = _adminUsersCache.length;
   if (count) {
-    count.textContent = _adminUsersSearch.trim()
+    count.textContent = (_adminUsersSearch.trim() || users.length !== total)
       ? `${users.length} de ${total}`
       : `${total} cuenta${total === 1 ? '' : 's'} registrada${total === 1 ? '' : 's'}`;
   }
   if (!users.length) {
-    tbody.innerHTML = `<tr><td colspan="10" class="admin-empty">${total ? 'Ningún usuario coincide con la búsqueda.' : 'No hay cuentas.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="admin-empty">${total ? 'Ningún usuario en esta pestaña con esa búsqueda o filtro.' : 'No hay cuentas.'}</td></tr>`;
     return;
   }
   tbody.innerHTML = users.map((u) => {
@@ -3952,6 +4151,7 @@ function renderAdminUsersTable() {
       ? `<span class="admin-key" title="${esc(u.desktopAppVersionAt ? ('Reportada ' + fmtDateTime(u.desktopAppVersionAt)) : '')}">${esc(ver)}</span>`
       : '<span class="tts-sub">—</span>';
     const action = `<div class="admin-actions">
+            ${adminGroupSelectHtml(u)}
             <div class="admin-act-primary">
               <button type="button" class="btn tiny admin-ficha" data-id="${u.id}">Ficha</button>
               ${u.active
@@ -3987,7 +4187,7 @@ function renderAdminUsersTable() {
             </details>
           </div>`;
     return `<tr>
-        <td class="admin-col-user"><span class="u-name">${esc(u.username)}</span>${adminTag}${notesMark ? '<span class="admin-notes-dot" title="Tiene notas internas"></span>' : ''}</td>
+        <td class="admin-col-user">${adminUserCheckHtml(u)}<span class="u-name">${esc(u.username)}</span>${adminTag}${notesMark ? '<span class="admin-notes-dot" title="Tiene notas internas"></span>' : ''}</td>
         <td class="admin-col-muted">${conn}</td>
         <td><span class="admin-key">${esc(u.roomKey || '—')}</span></td>
         <td>${liveAccount}</td>
@@ -4067,6 +4267,7 @@ async function loadAdminUsers() {
   const tbody = document.getElementById('admin-tbody');
   if (!tbody) return;
   try {
+    await loadAdminGroups();
     const r = await fetch('/api/admin/users');
     if (!r.ok) { tbody.innerHTML = '<tr><td colspan="10" class="admin-empty">Sin acceso.</td></tr>'; return; }
     const { users, localOnly } = await r.json();

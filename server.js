@@ -26,7 +26,7 @@ import {
   userFromRequest, getUserByRoomKey, getUserById, getUserByUsername, listUsers, listUsersDetailed,
   isUserActive, setUserActive, touchLogin,
   getUserPlan, setUserPlan, shiftUserPlanDays, grantPremiumDays, grantProDays, grantFounderDays, isFounderMember, setUserGamesEnabled, isUserGamesEnabled, getUserAllowedGames, setUserAllowedGames, setUserGameAllowed, setUserSpotifyEnabled, isUserSpotifyEnabled, setUserBaileOverlayEnabled, isUserBaileOverlayEnabled, setUserMaxEnabled, isUserMaxEnabled,
-  setUserAdminNotes, setUserDesktopAppVersion,
+  setUserAdminNotes, setUserAdminGroup, setUsersAdminGroup, clearAdminGroup, setUserDesktopAppVersion,
   getUserBadgesPayload, recordBadgeLive, markBadgeDirectory, markBadgeDesktop, markBadgeGame, markBadgeDailyTop1, setUserManualBadge,
   deleteUser, upsertMirrorUser, updateMirrorPlan, updateMirrorCloudRoomKey,
   setUserPassword, checkUserPassword, destroySessionsForUser,
@@ -45,6 +45,7 @@ import {
   CAPABILITIES, getPlanConfig, savePlanConfig, effectiveCaps, adminCaps, isPlanConfigFallback,
 } from './plans.js';
 import * as spotify from './spotify.js';
+import { createAdminGroups } from './admin-groups.js';
 import { mountPaypalRoutes, hasFounderPayment as paypalFounderPaid } from './paypal.js';
 import { mountMercadoPagoRoutes, hasFounderPayment as mpFounderPaid } from './mercadopago.js';
 import * as referrals from './referrals.js';
@@ -3752,6 +3753,51 @@ app.post('/api/admin/set-password', express.json(), requireAdmin, async (req, re
 });
 
 // Notas internas del admin (no visibles para el usuario).
+// Subpestañas de Admin → Usuarios (agencias, etc.). Solo clasifican: no cambian plan, permisos ni datos.
+const adminGroups = createAdminGroups(DATA_DIR);
+app.get('/api/admin/groups', requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/groups')) return;
+    return adminCloudUnavailable(res);
+  }
+  res.json({ ok: true, groups: adminGroups.list() });
+});
+app.post('/api/admin/groups', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/groups', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const { action, id, name } = req.body || {};
+  let out;
+  if (action === 'create') out = adminGroups.create(name);
+  else if (action === 'rename') out = adminGroups.rename(String(id || ''), name);
+  else if (action === 'delete') {
+    out = adminGroups.remove(String(id || ''));
+    if (out.ok) out.moved = clearAdminGroup(String(id || ''));
+  } else out = { error: 'acción no válida' };
+  if (out.error) return res.status(400).json({ error: out.error });
+  res.json({ ok: true, ...out, groups: adminGroups.list() });
+});
+app.post('/api/admin/user-group', express.json(), requireAdmin, async (req, res) => {
+  if (AUTH_REMOTE) {
+    if (await proxyAdminToRemote(req, res, '/api/admin/user-group', 'POST')) return;
+    return adminCloudUnavailable(res);
+  }
+  const { id, ids, group } = req.body || {};
+  const g = String(group || '');
+  if (g && !adminGroups.has(g)) return res.status(400).json({ error: 'Esa subpestaña ya no existe.' });
+  if (Array.isArray(ids)) {
+    if (!ids.length || ids.length > 2000) return res.status(400).json({ error: 'Selecciona al menos una cuenta.' });
+    const out = setUsersAdminGroup(ids, g);
+    if (out.error) return res.status(500).json({ error: 'No se pudo guardar en el servidor: no se movió ninguna.' });
+    return res.json({ ok: true, group: g, moved: out.moved });
+  }
+  if (!id) return res.status(400).json({ error: 'falta id' });
+  if (!getUserById(id)) return res.status(404).json({ error: 'cuenta no encontrada' });
+  if (!setUserAdminGroup(id, g)) return res.status(500).json({ error: 'No se pudo guardar en el servidor.' });
+  res.json({ ok: true, group: g });
+});
+
 app.post('/api/admin/user-notes', express.json(), requireAdmin, async (req, res) => {
   if (AUTH_REMOTE) {
     if (await proxyAdminToRemote(req, res, '/api/admin/user-notes', 'POST')) return;

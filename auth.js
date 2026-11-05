@@ -193,6 +193,7 @@ export function listUsersDetailed() {
     emailVerified: !!u.emailVerified,
     googleEmail: String(u.googleEmail || ''),
     credentialLog: Array.isArray(u.credentialLog) ? u.credentialLog.slice(-10) : [],
+    adminGroup: String(u.adminGroup || ''),
     n: Number(u.n) || 0,
   }));
 }
@@ -502,6 +503,46 @@ export function setUserMaxEnabled(id, enabled) {
 }
 
 /** Notas internas del admin (no se muestran al usuario). */
+/** Subpestaña de Admin a la que pertenece la cuenta ('' = General). Solo clasifica: no toca plan ni permisos. */
+export function setUserAdminGroup(id, group) {
+  const u = users.find((x) => String(x.id) === String(id));
+  if (!u) return false;
+  const next = String(group || '').slice(0, 40);
+  if (String(u.adminGroup || '') === next) return true;
+  const prev = u.adminGroup;
+  if (next) u.adminGroup = next; else delete u.adminGroup;
+  if (saveUsers() === false) {
+    if (prev === undefined) delete u.adminGroup; else u.adminGroup = prev;
+    return false;
+  }
+  return true;
+}
+/** Mueve varias cuentas de una vez (un solo guardado). Si no se puede guardar, no cambia ninguna. */
+export function setUsersAdminGroup(ids, group) {
+  const next = String(group || '').slice(0, 40);
+  const wanted = new Set((Array.isArray(ids) ? ids : []).map(String));
+  const undo = [];
+  for (const u of users) {
+    if (!wanted.has(String(u.id)) || String(u.adminGroup || '') === next) continue;
+    undo.push([u, u.adminGroup]);
+    if (next) u.adminGroup = next; else delete u.adminGroup;
+  }
+  if (undo.length && saveUsers() === false) {
+    for (const [u, prev] of undo) { if (prev === undefined) delete u.adminGroup; else u.adminGroup = prev; }
+    return { error: true };
+  }
+  return { moved: undo.length };
+}
+/** Al borrar una subpestaña sus cuentas vuelven a General. */
+export function clearAdminGroup(group) {
+  let n = 0;
+  for (const u of users) {
+    if (u.adminGroup === group) { delete u.adminGroup; n += 1; }
+  }
+  if (n) saveUsers();
+  return n;
+}
+
 export function setUserAdminNotes(id, notes) {
   const u = users.find((x) => String(x.id) === String(id));
   if (!u) return false;
