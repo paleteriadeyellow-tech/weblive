@@ -857,7 +857,10 @@ function mergePanelLivesLists(...lists) {
       const key = String(l?.tiktok || l?.account || '').replace(/^@+/, '').trim().toLowerCase();
       if (!key) continue;
       const prev = map.get(key);
-      if (!prev || (Number(l.viewers) || 0) >= (Number(prev.viewers) || 0)) map.set(key, { ...l, tiktok: key });
+      if (!prev || (Number(l.viewers) || 0) >= (Number(prev.viewers) || 0)) {
+        // La copia local del .exe no conoce las subpestañas: el emoji de la nube se conserva.
+        map.set(key, { ...l, tiktok: key, groupEmoji: l.groupEmoji || prev?.groupEmoji || '' });
+      }
     }
   }
   const out = [...map.values()];
@@ -916,6 +919,8 @@ function buildPanelLiveItem(userId, st) {
     live: true,
     plan,
     n: Number(u?.n) || 0,
+    // Solo el emoji de su subpestaña, nunca el nombre del grupo: este listado también es público.
+    groupEmoji: u?.adminGroup ? adminGroups.emojiOf(u.adminGroup) : '',
     url: `https://www.tiktok.com/@${encodeURIComponent(tiktok)}/live`,
     badges: badgePayload?.cardBadges || [],
     allBadges: (badgePayload?.badges || []).map((b) => ({
@@ -3771,6 +3776,7 @@ app.post('/api/admin/groups', express.json(), requireAdmin, async (req, res) => 
   let out;
   if (action === 'create') out = adminGroups.create(name);
   else if (action === 'rename') out = adminGroups.rename(String(id || ''), name);
+  else if (action === 'emoji') out = adminGroups.setEmoji(String(id || ''), req.body?.emoji);
   else if (action === 'delete') {
     out = adminGroups.remove(String(id || ''));
     if (out.ok) out.moved = clearAdminGroup(String(id || ''));

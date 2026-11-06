@@ -12,6 +12,23 @@ function cleanName(name) {
   return String(name || '').replace(/\s+/g, ' ').trim().slice(0, MAX_NAME);
 }
 
+// Emoji sugerido por el nombre; el admin lo puede cambiar o quitar con el botón «Emoji».
+const NAME_EMOJI = { arbol: '🌳', sf: '🎮', angel: '⭐' };
+function nameKey(name) {
+  return String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+}
+function emojiFor(g) {
+  if (typeof g.emoji === 'string') return g.emoji;
+  return NAME_EMOJI[nameKey(g.name)] || '';
+}
+/** Solo emoji, sin letras, números ni HTML: se muestra en tarjetas que ven otras personas. */
+function cleanEmoji(raw) {
+  const e = String(raw || '').trim();
+  if (!e) return '';
+  if (e.length > 12 || /[\x00-\x7f]/.test(e) || !/\p{Extended_Pictographic}/u.test(e)) return null;
+  return e;
+}
+
 export function createAdminGroups(dataDir) {
   const file = path.join(dataDir, 'admin-groups.json');
   let groups = [];
@@ -39,7 +56,24 @@ export function createAdminGroups(dataDir) {
   }
   const taken = (name, exceptId) => groups.some((g) => g.id !== exceptId && g.name.toLowerCase() === name.toLowerCase());
   return {
-    list: () => groups.map((g) => ({ id: g.id, name: g.name })),
+    list: () => groups.map((g) => ({ id: g.id, name: g.name, emoji: emojiFor(g) })),
+    emojiOf(id) {
+      const g = groups.find((x) => x.id === id);
+      return g ? emojiFor(g) : '';
+    },
+    setEmoji(id, raw) {
+      const g = groups.find((x) => x.id === id);
+      if (!g) return { error: 'Esa subpestaña ya no existe.' };
+      const emoji = cleanEmoji(raw);
+      if (emoji === null) return { error: 'Escribe solo un emoji (o déjalo vacío para quitarlo).' };
+      const prev = g.emoji;
+      g.emoji = emoji;
+      if (!save()) {
+        if (prev === undefined) delete g.emoji; else g.emoji = prev;
+        return { error: 'No se pudo guardar en el servidor.' };
+      }
+      return { group: g };
+    },
     has: (id) => groups.some((g) => g.id === id),
     create(rawName) {
       const name = cleanName(rawName);

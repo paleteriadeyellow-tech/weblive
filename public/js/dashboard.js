@@ -3902,6 +3902,14 @@ var _adminGroupsNote = ''; // por qué no se pueden usar ahora (se muestra en ve
 var _adminGroupTab = '__all';
 var _adminPlanFilter = '';
 var _adminSelected = new Set(); // cuentas marcadas para mover varias a la vez
+// Con cientos de cuentas, dibujar todas las filas tarda ~1 s por cada cambio: se dibujan por tandas.
+var ADMIN_USERS_PAGE = 50;
+var _adminUsersLimit = ADMIN_USERS_PAGE;
+function adminResetUsersPaging() {
+  _adminUsersLimit = ADMIN_USERS_PAGE;
+  const wrap = document.querySelector('#admin-tbody')?.closest('.admin-table-wrap');
+  if (wrap) wrap.scrollTop = 0;
+}
 try { _adminGroupTab = localStorage.getItem('lc_admin_group_tab') || '__all'; } catch {}
 function adminGroupOf(u) {
   const g = String((u && u.adminGroup) || '');
@@ -3931,6 +3939,7 @@ async function loadAdminGroups() {
 }
 function setAdminGroupTab(tab) {
   _adminGroupTab = tab;
+  adminResetUsersPaging();
   try { localStorage.setItem('lc_admin_group_tab', tab); } catch {}
   renderAdminUsersTable();
 }
@@ -3948,9 +3957,9 @@ function renderAdminGroupBar() {
   const custom = _adminGroups.some((g) => g.id === _adminGroupTab);
   bar.innerHTML = chip('__all', 'Todas', _adminUsersCache.length)
     + chip('__general', 'General', count((u) => !adminGroupOf(u)))
-    + _adminGroups.map((g) => chip(g.id, g.name, count((u) => adminGroupOf(u) === g.id))).join('')
+    + _adminGroups.map((g) => chip(g.id, (g.emoji ? g.emoji + ' ' : '') + g.name, count((u) => adminGroupOf(u) === g.id))).join('')
     + '<button type="button" class="admin-group-chip is-add" data-agroup-act="new">+ Nueva</button>'
-    + (custom ? '<button type="button" class="btn tiny" data-agroup-act="rename">Renombrar</button><button type="button" class="btn tiny" data-agroup-act="delete">Eliminar</button>' : '')
+    + (custom ? '<button type="button" class="btn tiny" data-agroup-act="emoji" title="Se muestra junto al número en las tarjetas de lives">Emoji</button><button type="button" class="btn tiny" data-agroup-act="rename">Renombrar</button><button type="button" class="btn tiny" data-agroup-act="delete">Eliminar</button>' : '')
     + adminBulkBarHtml()
     + `<select class="admin-group-plan" title="Filtrar por plan"><option value="">Todos los planes</option><option value="paid"${_adminPlanFilter === 'paid' ? ' selected' : ''}>De pago</option><option value="free"${_adminPlanFilter === 'free' ? ' selected' : ''}>Gratis</option></select>`;
 }
@@ -3994,6 +4003,12 @@ function adminAskGroupName(title, value) {
       + '.admin-group-bar .admin-group-plan{margin-left:auto;width:auto!important;flex:0 0 auto;min-width:140px}.admin-group-select{width:100%;margin-bottom:6px}.admin-group-plan option,.admin-group-select option{background:#16161c;color:#e2e8f0}';
     document.head.appendChild(st);
   }
+  document.addEventListener('click', (e) => {
+    const more = e.target.closest && e.target.closest('[data-admin-more]');
+    if (!more) return;
+    _adminUsersLimit = more.dataset.adminMore === 'all' ? Infinity : _adminUsersLimit + 100;
+    renderAdminUsersTable();
+  });
   document.addEventListener('click', async (e) => {
     const bar = e.target.closest && e.target.closest('#admin-group-bar');
     if (!bar) return;
@@ -4025,6 +4040,17 @@ function adminAskGroupName(title, value) {
       if (name === null || !String(name).trim()) return;
       const d = await adminGroupsAction({ action: 'create', name });
       if (d && d.group) setAdminGroupTab(d.group.id);
+    } else if (act === 'emoji') {
+      const g = _adminGroups.find((x) => x.id === _adminGroupTab);
+      if (!g) return;
+      const typed = typeof askText === 'function'
+        ? await askText({ title: 'Emoji de la subpestaña', message: 'Se muestra junto al número en las tarjetas de lives. Pega un emoji, o déjalo vacío para quitarlo:', value: g.emoji || '', icon: '🗂️', confirmText: 'Guardar' })
+        : window.prompt('Emoji de la subpestaña (vacío para quitarlo):', g.emoji || '');
+      if (typed === null) return;
+      if (await adminGroupsAction({ action: 'emoji', id: g.id, emoji: typed })) {
+        renderAdminUsersTable();
+        try { refreshPanelLives(); } catch {}
+      }
     } else if (act === 'rename') {
       const g = _adminGroups.find((x) => x.id === _adminGroupTab);
       if (!g) return;
@@ -4058,6 +4084,7 @@ function adminAskGroupName(title, value) {
     }
     if (e.target.classList && e.target.classList.contains('admin-group-plan')) {
       _adminPlanFilter = e.target.value || '';
+      adminResetUsersPaging();
       renderAdminUsersTable();
       return;
     }
@@ -4121,7 +4148,11 @@ function renderAdminUsersTable() {
     tbody.innerHTML = `<tr><td colspan="10" class="admin-empty">${total ? 'Ningún usuario en esta pestaña con esa búsqueda o filtro.' : 'No hay cuentas.'}</td></tr>`;
     return;
   }
-  tbody.innerHTML = users.map((u) => {
+  const shownUsers = users.slice(0, _adminUsersLimit);
+  const hiddenUsers = users.length - shownUsers.length;
+  const usersWrap = tbody.closest('.admin-table-wrap');
+  const usersScroll = usersWrap ? usersWrap.scrollTop : 0;
+  tbody.innerHTML = shownUsers.map((u) => {
     const conn = u.live ? fmtDateTime(u.liveSince) : fmtDateTime(u.lastLogin);
     const live = u.live
       ? '<span class="badge live dot">LIVE</span>'
@@ -4198,7 +4229,10 @@ function renderAdminUsersTable() {
         <td class="admin-col-plan"><div class="admin-plan-cell">${plan}${gamesBadge}</div></td>
         <td class="admin-col-actions">${action}</td>
       </tr>`;
-  }).join('');
+  }).join('') + (hiddenUsers > 0
+    ? `<tr class="admin-more-row"><td colspan="10" class="admin-empty"><span class="tts-sub">Mostrando ${shownUsers.length} de ${users.length}. Usa el buscador para encontrar una cuenta al instante.</span> <button type="button" class="btn tiny" data-admin-more="100">Mostrar ${Math.min(100, hiddenUsers)} más</button> <button type="button" class="btn tiny" data-admin-more="all">Mostrar todas</button></td></tr>`
+    : '');
+  if (usersWrap) usersWrap.scrollTop = usersScroll;
 
   tbody.querySelectorAll('button[data-id]').forEach((b) => {
     if (b.classList.contains('prem-give') || b.classList.contains('prem-fixed') || b.classList.contains('prem-remove') || b.classList.contains('founder-give') || b.classList.contains('admin-delete') || b.classList.contains('games-toggle') || b.classList.contains('admin-password') || b.classList.contains('admin-ficha') || b.classList.contains('admin-kick-live') || b.classList.contains('admin-force-logout')) return;
@@ -4289,6 +4323,7 @@ async function loadAdminUsers() {
   inp._adminSearchWired = true;
   inp.addEventListener('input', () => {
     _adminUsersSearch = inp.value || '';
+    adminResetUsersPaging();
     renderAdminUsersTable();
   });
 })();
@@ -34481,7 +34516,7 @@ function renderPanelLives(lives) {
         <span class="panel-live-go" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 16V8M12 19V5M17 14V10"/></svg>
         </span>
-        ${sid ? `<span class="panel-live-sid">#${sid}</span>` : ''}
+        ${(sid || l.groupEmoji) ? `<span class="panel-live-sid">${sid ? `#${sid}` : ''}${l.groupEmoji ? `<span class="panel-live-group" aria-hidden="true"> ${esc(l.groupEmoji)}</span>` : ''}</span>` : ''}
       </span>
     </a>`;
   }).join('');
