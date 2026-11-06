@@ -50,6 +50,7 @@ import { mountPaypalRoutes, hasFounderPayment as paypalFounderPaid } from './pay
 import { mountMercadoPagoRoutes, hasFounderPayment as mpFounderPaid } from './mercadopago.js';
 import * as referrals from './referrals.js';
 import { mountGiftCodeRoutes } from './giftcodes.js';
+import { mountAgencyRoutes } from './agencies.js';
 import { sendPaymentReceipt, startExpiryReminders } from './billing-mail.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
 import { bootstrapUserMedia, registerUserUpload, userUploadKind, migrateUserMediaDir } from './scripts/user-media-guard.mjs';
@@ -1746,6 +1747,16 @@ mountGiftCodeRoutes(app, {
     const room = rooms.get(userId);
     if (room) room.broadcastCaps?.(capsForUser(getUserById(userId)));
   },
+  clientIp: referrals.clientIp,
+});
+
+// Agencias: mapa + directorio de agencias, solicitudes y leads (datos en la nube).
+mountAgencyRoutes(app, {
+  userFromRequest,
+  getUserById,
+  requireAdmin: (req, res, next) => requireAdmin(req, res, next),
+  AUTH_REMOTE,
+  getRemoteCookie: (id) => remoteCookies.get(id),
   clientIp: referrals.clientIp,
 });
 
