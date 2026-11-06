@@ -116,6 +116,8 @@ function cleanAgency(b, prev = {}) {
     videoUrl: url(b.videoUrl),
     logo: img(b.logo),
     banner: img(b.banner),
+    qr: img(b.qr),
+    qrLabel: str(b.qrLabel, 80),
     featured: !!b.featured,
     status: b.status === 'active' ? 'active' : 'hidden',
     joinedAt: Number(prev.joinedAt) || 0,
@@ -137,6 +139,7 @@ function publicFull(a) {
     about: a.about, benefits: a.benefits || [], milestones: a.milestones || [],
     tiktok: a.tiktok, instagram: a.instagram, whatsapp: a.whatsapp, email: a.email, web: a.web,
     joinUrl: a.joinUrl, videoUrl: a.videoUrl,
+    qr: a.qr || '', qrLabel: a.qrLabel || '',
     canJoin: !!(a.joinUrl || a.whatsapp || a.tiktok || a.email || a.web),
   };
 }
