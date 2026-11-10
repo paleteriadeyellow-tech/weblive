@@ -144,8 +144,17 @@ document.querySelectorAll('.pay').forEach((b) => b.onclick = async () => {
   busy = true; refreshPay(); msg('payMsg', 'Preparando tu pago…', 'mut');
   try {
     const r = await api('/api/tienda/order', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid, method: b.dataset.m }) });
-    msg('payMsg', 'Abriendo la página de pago…', 'ok');
-    location.href = r.approveUrl;
+    if (/Electron/i.test(navigator.userAgent)) {
+      // App de PC: el pago se abre en tu navegador; aquí se ve cuando llegan los diamantes.
+      window.open(r.approveUrl, '_blank');
+      msg('payMsg', 'Se abrió el pago en tu navegador. Al terminar, vuelve aquí: tu compra aparece abajo.', 'ok');
+      busy = false; refreshPay(); loadOrders();
+      clearInterval(window.__payPoll); window.__payPoll = setInterval(loadOrders, 10000);
+      setTimeout(() => clearInterval(window.__payPoll), 30 * 60 * 1000);
+    } else {
+      msg('payMsg', 'Abriendo la página de pago…', 'ok');
+      location.href = r.approveUrl;
+    }
   } catch (e) { msg('payMsg', e.message, 'bad'); busy = false; refreshPay(); }
 });
 
@@ -157,7 +166,7 @@ async function loadOrders() {
     $('orders').innerHTML = '<table><tr><th>Fecha</th><th>Paquete</th><th>ID</th><th>Estado</th></tr>' + orders.map((o) => {
       const [txt, cls] = STATUS[o.status] || [o.status, ''];
       const pend = o.status === 'AWAITING_PAYMENT' && o.payPending ? ' (pago en proceso / OXXO)' : '';
-      const payLink = o.status === 'AWAITING_PAYMENT' && o.payUrl && !o.payPending ? ` · <a href="${esc(o.payUrl)}">Pagar</a>` : '';
+      const payLink = o.status === 'AWAITING_PAYMENT' && o.payUrl && !o.payPending ? ` · <a href="${esc(o.payUrl)}" target="_blank" rel="noopener">Pagar</a>` : '';
       return `<tr><td>${new Date(o.createdAt).toLocaleString('es-MX')}</td><td>${esc(o.label)}<br><span class="mut">${mxn(o.price)}</span></td>`
         + `<td>${esc(o.playerId)}${o.nickname ? '<br><span class="mut">' + esc(o.nickname) + '</span>' : ''}</td>`
         + `<td><span class="tag ${cls}">${txt}</span>${pend}${payLink}</td></tr>`;
@@ -179,7 +188,7 @@ $('reload').onclick = loadOrders;
   if (q.get('pago') === 'pendiente') b = 'Tu pago está en proceso. Si pagaste en OXXO, los diamantes se envían cuando se confirme (puede tardar unas horas).';
   else if (q.get('pago') === 'fallido') b = 'El pago no se completó. No se te cobró nada; puedes intentarlo otra vez.';
   else if (q.get('cancelado')) b = 'Cancelaste el pago. No se te cobró nada.';
-  else if (q.get('pedido')) b = '¡Gracias! Recibimos tu pago. Abajo ves el estado de tu entrega.';
+  else if (q.get('pedido')) b = cfg.loggedIn ? '¡Gracias! Recibimos tu pago. Abajo ves el estado de tu entrega.' : '¡Gracias! Recibimos tu pago. Vuelve a Livecoins (pestaña Diamantes Free Fire) para ver tu entrega.';
   if (b) $('banner').innerHTML = `<div class="banner">${esc(b)}</div>`;
   renderPackages(); refreshPay(); loadOrders();
 })();
