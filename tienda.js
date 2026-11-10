@@ -30,6 +30,8 @@ const PENDING_GIVE_UP_MS = 24 * 3600 * 1000;
 const UNPAID_EXPIRE_MS = 3 * 24 * 3600 * 1000;
 const MAX_ORDERS = 20000;
 const FF_ID_RE = /^\d{6,13}$/;
+// Paquetes «contact»: no se compran aquí, se muestran con botón para escribir en Discord.
+const DISCORD_URL = String(process.env.SHOP_DISCORD_URL || 'https://discord.gg/EdZCWK7Gxz').trim();
 
 // Precios iniciales (los del flyer). Los productos del proveedor se asignan en el admin.
 const DEFAULT_PACKAGES = [
@@ -404,7 +406,8 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
       sandbox: recargasApi.isSandbox(),
       currency: CURRENCY,
       methods: { mp: mpConfigured(), paypal: ppConfigured() },
-      packages: c.packages.filter((p) => p.active && p.items && p.items.length)
+      discord: DISCORD_URL,
+      packages: c.packages.filter((p) => p.active && (p.kind === 'contact' || (p.items && p.items.length)))
         .map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind })),
     });
   }));
@@ -412,7 +415,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
   app.post('/api/tienda/check-id', needUser, express.json(), safe(async (req, res) => {
     const pkg = pkgById(String(req.body?.packageId || ''));
     const playerId = String(req.body?.playerId || '').trim();
-    if (!pkg || !pkg.items.length) return res.status(400).json({ error: 'Elige un paquete.' });
+    if (!pkg || pkg.kind === 'contact' || !pkg.items.length) return res.status(400).json({ error: 'Elige un paquete.' });
     if (!FF_ID_RE.test(playerId)) return res.status(400).json({ error: 'El ID de Free Fire son solo números (8 a 12).' });
     if (!isRecargasConfigured()) return res.status(503).json({ error: 'La tienda no está disponible.' });
     const v = await checkPlayer(pkg, playerId);
@@ -427,7 +430,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     const pkg = pkgById(String(req.body?.packageId || ''));
     const playerId = String(req.body?.playerId || '').trim();
     const method = ['mp', 'paypal', 'card'].includes(req.body?.method) ? req.body.method : '';
-    if (!pkg || !pkg.active || !pkg.items.length) return res.status(400).json({ error: 'Ese paquete no está disponible.' });
+    if (!pkg || !pkg.active || pkg.kind === 'contact' || !pkg.items.length) return res.status(400).json({ error: 'Ese paquete no está disponible.' });
     if (!FF_ID_RE.test(playerId)) return res.status(400).json({ error: 'El ID de Free Fire son solo números (8 a 12).' });
     if (!method) return res.status(400).json({ error: 'Elige cómo pagar.' });
     if (method === 'mp' && !mpConfigured()) return res.status(503).json({ error: 'Mercado Pago no está disponible.' });
@@ -549,7 +552,8 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
         const items = (Array.isArray(p.items) ? p.items : []).map((it) => ({
           productId: Math.trunc(Number(it.productId)), qty: Math.max(1, Math.min(20, Math.trunc(Number(it.qty) || 1))),
         })).filter((it) => it.productId > 0).slice(0, 10);
-        packages.push({ id, label, price, kind: p.kind === 'extra' ? 'extra' : 'diamonds', items, active: !!p.active && items.length > 0 });
+        const kind = ['extra', 'contact'].includes(p.kind) ? p.kind : 'diamonds';
+        packages.push({ id, label, price, kind, items, active: !!p.active && (kind === 'contact' || items.length > 0) });
       }
     }
     d.config = { ...d.config, enabled: b.enabled != null ? !!b.enabled : d.config.enabled, fx: b.fx != null ? fx : d.config.fx, packages };

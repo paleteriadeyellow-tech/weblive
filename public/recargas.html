@@ -202,7 +202,7 @@ function shopRows() {
     const gain = c != null && fx ? p.price - c * fx : null;
     return `<tr data-i="${i}"><td><input type="checkbox" data-f="active" ${p.active ? 'checked' : ''} style="flex:none"></td>`
       + `<td><input data-f="label" value="${esc(p.label)}"></td>`
-      + `<td><select data-f="kind"><option value="diamonds"${p.kind !== 'extra' ? ' selected' : ''}>Diamantes</option><option value="extra"${p.kind === 'extra' ? ' selected' : ''}>Pase/Tarjeta</option></select></td>`
+      + `<td><select data-f="kind"><option value="diamonds"${p.kind !== 'extra' && p.kind !== 'contact' ? ' selected' : ''}>Diamantes</option><option value="extra"${p.kind === 'extra' ? ' selected' : ''}>Pase/Tarjeta</option><option value="contact"${p.kind === 'contact' ? ' selected' : ''}>Contactar (Discord)</option></select></td>`
       + `<td><input data-f="price" type="number" step="1" value="${esc(p.price)}" style="max-width:90px"></td>`
       + `<td><input data-f="items" value="${esc(p._items ?? itemsText(p.items))}" placeholder="ID del producto" style="max-width:130px"><div class="mut" style="font-size:12px">${names}</div></td>`
       + `<td>${c != null ? c.toFixed(2) + ' USD<br><span class="mut">' + (fx ? mxn(c * fx) : '') + '</span>' : '<span class="mut">—</span>'}</td>`
