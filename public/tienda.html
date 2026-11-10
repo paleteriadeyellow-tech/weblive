@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diamantes Free Fire · Livecoins</title>
+<style>
+  :root { --bg:#0d0a10; --card:#1a1118; --line:#3a1f2a; --tx:#f4eef2; --mut:#a89aa3; --red:#ff2d4a; --gold:#ffc23d; --ok:#2ecc71; --warn:#ffb020; --bad:#ff5c6c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:radial-gradient(1200px 500px at 50% -200px, #3b0d18, var(--bg)); color:var(--tx); font:15px/1.45 system-ui,Segoe UI,sans-serif; min-height:100vh; }
+  main { max-width:960px; margin:0 auto; padding:16px; }
+  h1 { margin:6px 0 2px; font-size:28px; font-weight:900; letter-spacing:.5px; }
+  h1 span { color:var(--gold); }
+  .sub { color:var(--mut); margin:0 0 16px; }
+  h2 { font-size:16px; margin:0 0 10px; text-transform:uppercase; letter-spacing:1px; color:var(--gold); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  .pk { border:2px solid var(--line); border-radius:12px; padding:12px; cursor:pointer; background:#140d13; text-align:center; transition:.12s; }
+  .pk:hover { border-color:#6b2a3a; }
+  .pk.sel { border-color:var(--red); background:#2a0f19; box-shadow:0 0 0 3px #ff2d4a33; }
+  .pk .d { font-weight:800; font-size:16px; }
+  .pk .p { color:var(--red); font-weight:900; font-size:22px; margin-top:4px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  input { flex:1; min-width:0; font:inherit; padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:#0f0a0e; color:var(--tx); }
+  button { font:inherit; font-weight:700; border:0; border-radius:10px; padding:11px 16px; cursor:pointer; color:#fff; background:#3a2430; }
+  button:disabled { opacity:.45; cursor:default; }
+  .pay { flex:1; min-width:180px; padding:13px; }
+  .mp { background:#00a6ee; } .pp { background:#0070ba; } .cd { background:#444; }
+  .mut { color:var(--mut); } .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+  .msg { min-height:20px; margin-top:8px; }
+  .sum { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:10px 12px; background:#140d13; border-radius:10px; margin:10px 0; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; font-weight:700; background:#3a2430; }
+  .tag.ok { background:#123b25; } .tag.warn { background:#3f2f0b; } .tag.bad { background:#401620; }
+  .banner { padding:10px 12px; border-radius:10px; margin-bottom:14px; background:#3f2f0b; color:#ffe2a0; }
+  a { color:var(--gold); }
+  @media (max-width:520px) { h1 { font-size:22px; } .grid { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Diamantes <span>Free Fire</span></h1>
+  <p class="sub">Rápido, seguro y automático: pagas y los diamantes llegan a tu cuenta.</p>
+  <div id="banner"></div>
+
+  <div class="card">
+    <h2>1. Elige tu paquete</h2>
+    <div class="grid" id="pkDiamonds"></div>
+    <div id="extrasWrap" style="display:none;margin-top:14px">
+      <h2>Pase Booyah y tarjetas</h2>
+      <div class="grid" id="pkExtras"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. Tu ID de Free Fire</h2>
+    <div class="row">
+      <input id="pid" inputmode="numeric" autocomplete="off" placeholder="Ej: 123456789 (lo ves en tu perfil del juego)">
+      <button id="check">Verificar</button>
+    </div>
+    <div class="msg" id="idMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>3. Paga</h2>
+    <div class="sum"><span id="sumPk" class="mut">Sin paquete</span><b id="sumPrice"></b></div>
+    <div class="row">
+      <button class="pay mp" data-m="mp" disabled>Mercado Pago · tarjeta u OXXO</button>
+      <button class="pay pp" data-m="paypal" disabled>PayPal</button>
+      <button class="pay cd" data-m="card" disabled>Tarjeta (vía PayPal)</button>
+    </div>
+    <div class="msg" id="payMsg"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Mis compras</h2><button id="reload">Actualizar</button></div>
+    <div id="orders" style="margin-top:10px" class="mut">—</div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const mxn = (n) => '$' + Number(n).toLocaleString('es-MX', { maximumFractionDigits: 2 });
+let cfg = null, picked = null, verified = '', busy = false;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { credentials: 'same-origin', ...opts, headers: opts.body ? { 'Content-Type': 'application/json' } : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error || 'Error ' + r.status); e.status = r.status; throw e; }
+  return j;
+}
+function msg(el, text, cls = '') { $(el).className = 'msg ' + cls; $(el).textContent = text; }
+
+const STATUS = {
+  AWAITING_PAYMENT: ['Esperando pago', 'warn'], PAID: ['Pagado, enviando…', 'warn'], DELIVERING: ['Enviando diamantes…', 'warn'],
+  DELIVERED: ['Entregado', 'ok'], REVIEW: ['En revisión (te contactamos)', 'bad'], REFUNDED_TO_CUSTOMER: ['Reembolsado', 'bad'],
+  CANCELED: ['Cancelado', 'bad'], EXPIRED: ['Vencido (no se pagó)', 'bad'],
+};
+
+function renderPackages() {
+  const card = (p) => `<div class="pk${picked && picked.id === p.id ? ' sel' : ''}" data-id="${esc(p.id)}">`
+    + `<div class="d">${p.kind === 'diamonds' ? '💎 ' : ''}${esc(p.label)}</div><div class="p">${mxn(p.price)}</div></div>`;
+  const dia = cfg.packages.filter((p) => p.kind !== 'extra');
+  const ext = cfg.packages.filter((p) => p.kind === 'extra');
+  $('pkDiamonds').innerHTML = dia.map(card).join('') || '<span class="mut">No hay paquetes disponibles por ahora.</span>';
+  $('pkExtras').innerHTML = ext.map(card).join('');
+  $('extrasWrap').style.display = ext.length ? '' : 'none';
+}
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest('.pk[data-id]'); if (!el) return;
+  picked = cfg.packages.find((p) => p.id === el.dataset.id) || null;
+  renderPackages(); refreshPay();
+});
+function refreshPay() {
+  $('sumPk').textContent = picked ? picked.label : 'Sin paquete';
+  $('sumPrice').textContent = picked ? mxn(picked.price) + ' MXN' : '';
+  const ready = cfg && cfg.open && cfg.loggedIn && picked && /^\d{6,13}$/.test($('pid').value.trim());
+  document.querySelectorAll('.pay').forEach((b) => {
+    const m = b.dataset.m;
+    const has = m === 'mp' ? cfg?.methods.mp : cfg?.methods.paypal;
+    b.style.display = has ? '' : 'none';
+    b.disabled = !ready || busy;
+  });
+}
+$('pid').addEventListener('input', () => { verified = ''; msg('idMsg', ''); refreshPay(); });
+
+$('check').onclick = async () => {
+  const pid = $('pid').value.trim();
+  if (!picked) return msg('idMsg', 'Primero elige un paquete.', 'warn');
+  if (!/^\d{6,13}$/.test(pid)) return msg('idMsg', 'El ID son solo números (8 a 12).', 'bad');
+  msg('idMsg', 'Verificando…', 'mut');
+  try {
+    const r = await api('/api/tienda/check-id', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid }) });
+    verified = pid;
+    msg('idMsg', r.nickname ? `✔ Cuenta encontrada: ${r.nickname}` : '✔ ID con formato válido.', 'ok');
+  } catch (e) { msg('idMsg', e.message, 'bad'); }
+};
+
+document.querySelectorAll('.pay').forEach((b) => b.onclick = async () => {
+  if (busy || !picked) return;
+  const pid = $('pid').value.trim();
+  if (!confirm(`¿Comprar ${picked.label} por ${mxn(picked.price)} MXN para el ID ${pid}?\n\nRevisa bien el ID: los diamantes se envían a esa cuenta y no se pueden regresar.`)) return;
+  busy = true; refreshPay(); msg('payMsg', 'Preparando tu pago…', 'mut');
+  try {
+    const r = await api('/api/tienda/order', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid, method: b.dataset.m }) });
+    msg('payMsg', 'Abriendo la página de pago…', 'ok');
+    location.href = r.approveUrl;
+  } catch (e) { msg('payMsg', e.message, 'bad'); busy = false; refreshPay(); }
+});
+
+async function loadOrders() {
+  if (!cfg || !cfg.loggedIn) { $('orders').innerHTML = '<span class="mut">Inicia sesión para ver tus compras.</span>'; return; }
+  try {
+    const { orders } = await api('/api/tienda/my-orders');
+    if (!orders.length) { $('orders').innerHTML = '<span class="mut">Aún no tienes compras.</span>'; return; }
+    $('orders').innerHTML = '<table><tr><th>Fecha</th><th>Paquete</th><th>ID</th><th>Estado</th></tr>' + orders.map((o) => {
+      const [txt, cls] = STATUS[o.status] || [o.status, ''];
+      const pend = o.status === 'AWAITING_PAYMENT' && o.payPending ? ' (pago en proceso / OXXO)' : '';
+      const payLink = o.status === 'AWAITING_PAYMENT' && o.payUrl && !o.payPending ? ` · <a href="${esc(o.payUrl)}">Pagar</a>` : '';
+      return `<tr><td>${new Date(o.createdAt).toLocaleString('es-MX')}</td><td>${esc(o.label)}<br><span class="mut">${mxn(o.price)}</span></td>`
+        + `<td>${esc(o.playerId)}${o.nickname ? '<br><span class="mut">' + esc(o.nickname) + '</span>' : ''}</td>`
+        + `<td><span class="tag ${cls}">${txt}</span>${pend}${payLink}</td></tr>`;
+    }).join('') + '</table>';
+    // Mientras haya algo en camino, se actualiza solo.
+    clearTimeout(loadOrders.t);
+    if (orders.some((o) => ['PAID', 'DELIVERING'].includes(o.status) || (o.status === 'AWAITING_PAYMENT' && o.payPending))) loadOrders.t = setTimeout(loadOrders, 8000);
+  } catch (e) { $('orders').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+}
+$('reload').onclick = loadOrders;
+
+(async () => {
+  try { cfg = await api('/api/tienda/config'); } catch (e) { $('banner').innerHTML = `<div class="banner">${esc(e.message)}</div>`; return; }
+  const q = new URLSearchParams(location.search);
+  let b = '';
+  if (!cfg.loggedIn) b = 'Inicia sesión en Livecoins para comprar.';
+  else if (!cfg.open) b = cfg.reason;
+  else if (cfg.sandbox) b = 'Modo prueba (solo admin): el pago es real, pero la entrega es simulada.';
+  if (q.get('pago') === 'pendiente') b = 'Tu pago está en proceso. Si pagaste en OXXO, los diamantes se envían cuando se confirme (puede tardar unas horas).';
+  else if (q.get('pago') === 'fallido') b = 'El pago no se completó. No se te cobró nada; puedes intentarlo otra vez.';
+  else if (q.get('cancelado')) b = 'Cancelaste el pago. No se te cobró nada.';
+  else if (q.get('pedido')) b = '¡Gracias! Recibimos tu pago. Abajo ves el estado de tu entrega.';
+  if (b) $('banner').innerHTML = `<div class="banner">${esc(b)}</div>`;
+  renderPackages(); refreshPay(); loadOrders();
+})();
+</script>
+</body>
+</html>

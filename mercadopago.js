@@ -99,7 +99,12 @@ export function publicStatus(userId, isFounderMember) {
   };
 }
 
-async function mpFetch(pathname, { method = 'GET', body, idempotency } = {}) {
+// Tienda (tienda.js): sus órdenes llevan external_reference «shop-...» y se atienden allá.
+let shopHandler = null;
+export function setMpShopHandler(fn) { shopHandler = typeof fn === 'function' ? fn : null; }
+export function mpCurrency() { return CURRENCY; }
+
+export async function mpFetch(pathname, { method = 'GET', body, idempotency } = {}) {
   const headers = {
     Authorization: `Bearer ${ACCESS_TOKEN}`,
     Accept: 'application/json',
@@ -176,6 +181,9 @@ async function fulfillOrderOnce(orderId, grants, onGranted) {
   const got = await mpFetch(`/v1/orders/${encodeURIComponent(id)}`);
   if (!got.ok || !got.data || !got.data.id) return { ok: false, error: 'No se encontró el pago' };
   const order = got.data;
+  if (String(order.external_reference || '').startsWith('shop-')) {
+    return shopHandler ? shopHandler(order) : { ok: false, error: 'tienda no disponible' };
+  }
   const status = String(order.status || '').toLowerCase();
   const detail = String(order.status_detail || '').toLowerCase();
   // OXXO: la orden queda esperando («action_required»/«pending») hasta que pagan en la tienda.

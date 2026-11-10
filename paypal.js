@@ -120,7 +120,12 @@ async function paypalToken() {
   return tokenCache.access;
 }
 
-async function paypalFetch(pathname, { method = 'GET', body } = {}) {
+// Tienda (tienda.js): sus órdenes llevan custom_id «shop:...» y se atienden allá.
+let shopHandler = null;
+export function setPaypalShopHandler(h) { shopHandler = h && typeof h === 'object' ? h : null; }
+const isShop = (customId) => String(customId || '').startsWith('shop:');
+
+export async function paypalFetch(pathname, { method = 'GET', body } = {}) {
   const token = await paypalToken();
   const r = await fetch(`${API}${pathname}`, {
     method,
@@ -195,13 +200,13 @@ function resultPage(title, inner) {
 </style></head><body><div class="box">${inner}</div></body></html>`;
 }
 
-function approveUrlFromOrder(order) {
+export function approveUrlFromOrder(order) {
   const links = order && Array.isArray(order.links) ? order.links : [];
   const ap = links.find((l) => l && (l.rel === 'approve' || l.rel === 'payer-action'));
   return ap && ap.href ? ap.href : '';
 }
 
-function captureFromOrder(order) {
+export function captureFromOrder(order) {
   const pu = order && Array.isArray(order.purchase_units) ? order.purchase_units[0] : null;
   const cap = pu && pu.payments && Array.isArray(pu.payments.captures) ? pu.payments.captures[0] : null;
   return {
@@ -216,6 +221,7 @@ function captureFromOrder(order) {
 }
 
 async function fulfillCapture(info, grants, onGranted) {
+  if (isShop(info.userId)) return shopHandler ? shopHandler.captured(info) : { ok: false, error: 'tienda no disponible' };
   if (!info.captureId && !info.orderId) return { ok: false, error: 'pago incompleto' };
   if (info.status && info.status !== 'COMPLETED') {
     // PENDING = PayPal lo está revisando: se activa solo cuando llegue el aviso PAYMENT.CAPTURE.COMPLETED.
@@ -327,6 +333,7 @@ export async function captureAndGrant(orderId, grants, onGranted) {
   const pre = await paypalFetch(`/v2/checkout/orders/${encodeURIComponent(orderId)}`);
   if (pre.ok && pre.data && pre.data.id) {
     const i = captureFromOrder(pre.data);
+    if (isShop(i.userId)) return shopHandler ? shopHandler.approved(String(orderId), pre.data) : { ok: false, error: 'tienda no disponible' };
     const { userId, plan, pack } = splitCustomId(i.userId);
     const amountValid = pack
       ? String(i.currency || '').toUpperCase() === CURRENCY && Math.abs(Number(i.value) - Number(pack.amount)) <= 0.05

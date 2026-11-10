@@ -55,6 +55,30 @@
     </div>
   </div>
 
+  <div class="card" id="shop">
+    <div class="row" style="justify-content:space-between">
+      <b style="font-size:16px">Tienda Free Fire (lo que ven los usuarios)</b>
+      <a href="/tienda.html" target="_blank" style="color:#9d93ff">Abrir tienda ↗</a>
+    </div>
+    <div id="shopWarn" class="warn" style="margin:8px 0"></div>
+    <div class="row" style="margin:8px 0">
+      <label><input type="checkbox" id="shopOn" style="flex:none"> Tienda abierta al público</label>
+      <span class="mut">Dólar a</span><input id="shopFx" type="number" step="0.01" style="max-width:90px;flex:none"><span class="mut">pesos (para calcular tu ganancia)</span>
+    </div>
+    <p class="mut" style="margin:6px 0">En «Productos» pon los ID del catálogo de arriba que forman cada paquete, ej. <code>123</code> o <code>123x2, 456</code>. Solo se venden los paquetes activos con productos.</p>
+    <div class="list" style="max-height:none"><table id="shopPk"></table></div>
+    <div class="row" style="margin-top:10px">
+      <button class="sec" id="shopAdd">+ Paquete</button>
+      <button id="shopSave">Guardar tienda</button>
+      <span id="shopMsg"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><b>Ventas de la tienda</b><button class="sec" id="shopReload">Actualizar</button><span id="shopSum" class="mut"></span></div>
+    <div class="list" style="margin-top:10px;max-height:500px"><table id="shopOrders"></table></div>
+  </div>
+
   <div class="card">
     <div class="row"><b>Historial</b><button class="sec" id="hist">Actualizar</button></div>
     <div class="list" style="margin-top:10px"><table id="orders"></table></div>
@@ -156,7 +180,97 @@ $('orders').addEventListener('click', async (ev) => {
 });
 $('hist').onclick = loadOrders;
 
-loadStatus().then(() => { loadCatalog(); loadOrders(); });
+
+/* ------------------------------- Tienda ------------------------------- */
+let shop = null;
+const mxn = (n) => '$' + Number(n).toLocaleString('es-MX', { maximumFractionDigits: 2 });
+function itemsText(items) { return (items || []).map((it) => it.qty > 1 ? `${it.productId}x${it.qty}` : String(it.productId)).join(', '); }
+function parseItems(t) {
+  return String(t || '').split(/[,\s]+/).filter(Boolean).map((x) => { const m = x.match(/^(\d+)(?:x(\d+))?$/i); return m ? { productId: +m[1], qty: +(m[2] || 1) } : null; }).filter(Boolean);
+}
+function costOf(items) {
+  let sum = 0;
+  for (const it of items) { const p = products.find((q) => Number(q.id) === it.productId); const c = p ? Number(p.price ?? p.cost) : NaN; if (!Number.isFinite(c)) return null; sum += c * it.qty; }
+  return items.length ? sum : null;
+}
+function shopRows() {
+  const fx = Number($('shopFx').value) || 0;
+  $('shopPk').innerHTML = '<tr><th>Activo</th><th>Nombre</th><th>Tipo</th><th>Precio MXN</th><th>Productos</th><th>Costo</th><th>Ganancia</th><th></th></tr>' + shop.config.packages.map((p, i) => {
+    const items = parseItems(p._items ?? itemsText(p.items));
+    const c = costOf(items);
+    const names = items.map((it) => { const q = products.find((x) => Number(x.id) === it.productId); return q ? esc(q.name) + (it.qty > 1 ? ' ×' + it.qty : '') : `<span class="bad">#${it.productId} no existe</span>`; }).join('<br>');
+    const gain = c != null && fx ? p.price - c * fx : null;
+    return `<tr data-i="${i}"><td><input type="checkbox" data-f="active" ${p.active ? 'checked' : ''} style="flex:none"></td>`
+      + `<td><input data-f="label" value="${esc(p.label)}"></td>`
+      + `<td><select data-f="kind"><option value="diamonds"${p.kind !== 'extra' ? ' selected' : ''}>Diamantes</option><option value="extra"${p.kind === 'extra' ? ' selected' : ''}>Pase/Tarjeta</option></select></td>`
+      + `<td><input data-f="price" type="number" step="1" value="${esc(p.price)}" style="max-width:90px"></td>`
+      + `<td><input data-f="items" value="${esc(p._items ?? itemsText(p.items))}" placeholder="ID del producto" style="max-width:130px"><div class="mut" style="font-size:12px">${names}</div></td>`
+      + `<td>${c != null ? c.toFixed(2) + ' USD<br><span class="mut">' + (fx ? mxn(c * fx) : '') + '</span>' : '<span class="mut">—</span>'}</td>`
+      + `<td class="${gain == null ? 'mut' : gain > 0 ? 'ok' : 'bad'}">${gain == null ? '—' : mxn(gain)}</td>`
+      + `<td><button class="sec" data-del="${i}">✕</button></td></tr>`;
+  }).join('');
+}
+$('shopPk').addEventListener('input', (ev) => {
+  const tr = ev.target.closest('tr[data-i]'); if (!tr) return;
+  const p = shop.config.packages[+tr.dataset.i]; const f = ev.target.dataset.f;
+  if (f === 'active') p.active = ev.target.checked;
+  else if (f === 'price') p.price = Number(ev.target.value);
+  else if (f === 'items') p._items = ev.target.value;
+  else p[f] = ev.target.value;
+});
+$('shopPk').addEventListener('change', (ev) => { if (ev.target.dataset.f === 'items' || ev.target.dataset.f === 'price') shopRows(); });
+$('shopPk').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-del]'); if (!b) return; if (confirm('¿Quitar este paquete?')) { shop.config.packages.splice(+b.dataset.del, 1); shopRows(); } });
+$('shopFx').addEventListener('change', shopRows);
+$('shopAdd').onclick = () => { shop.config.packages.push({ id: 'ff-' + Date.now().toString(36), label: 'Nuevo paquete', price: 100, kind: 'diamonds', items: [], active: false }); shopRows(); };
+$('shopSave').onclick = async () => {
+  const body = { enabled: $('shopOn').checked, fx: Number($('shopFx').value), packages: shop.config.packages.map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, active: p.active, items: parseItems(p._items ?? itemsText(p.items)) })) };
+  $('shopMsg').className = ''; $('shopMsg').textContent = 'Guardando…';
+  try { await api('/api/admin/tienda/config', { method: 'POST', body: JSON.stringify(body) }); $('shopMsg').className = 'ok'; $('shopMsg').textContent = 'Guardado'; loadShop(); }
+  catch (e) { $('shopMsg').className = 'bad'; $('shopMsg').textContent = e.message; }
+};
+
+const SHOP_ST = { AWAITING_PAYMENT: 'warn', PAID: 'warn', DELIVERING: 'warn', DELIVERED: 'ok', REVIEW: 'bad', REFUNDED_TO_CUSTOMER: 'mut', CANCELED: 'mut', EXPIRED: 'mut' };
+function shopOrdersRender() {
+  const os = shop.orders;
+  const paid = os.filter((o) => o.paidAt && !['REFUNDED_TO_CUSTOMER', 'CANCELED'].includes(o.status));
+  const review = os.filter((o) => o.status === 'REVIEW').length;
+  $('shopSum').innerHTML = `${paid.length} ventas pagadas · ${mxn(paid.reduce((a, o) => a + Number(o.price || 0), 0))}` + (review ? ` · <span class="bad">${review} en revisión</span>` : '');
+  $('shopOrders').innerHTML = '<tr><th>Fecha</th><th>Usuario</th><th>Paquete</th><th>ID FF</th><th>Pago</th><th>Estado</th><th></th></tr>' + os.filter((o) => o.status !== 'CANCELED').map((o) => {
+    const units = (o.units || []).map((u) => `#${u.productId}: ${esc(u.providerStatus || u.state)}${u.providerCode && u.providerCode !== 'OK' ? ' (' + esc(u.providerCode) + ')' : ''}`).join('<br>');
+    const act = (o.status === 'REVIEW' && o.paidAt ? `<button class="sec" data-retry="${o.id}">Reintentar entrega</button> ` : '')
+      + (['REVIEW', 'DELIVERING', 'PAID'].includes(o.status) ? `<button class="sec" data-mark="${o.id}" data-st="REFUNDED_TO_CUSTOMER">Ya le devolví</button> <button class="sec" data-mark="${o.id}" data-st="DELIVERED">Entregado a mano</button>` : '');
+    return `<tr><td>${new Date(o.createdAt).toLocaleString()}</td><td>${esc(o.username)}</td><td>${esc(o.label)}${o.sandbox ? ' <span class="tag">sandbox</span>' : ''}<br><span class="mut">${mxn(o.price)}</span></td>`
+      + `<td>${esc(o.playerId)}<br><span class="mut">${esc(o.nickname)}</span></td>`
+      + `<td>${esc(o.method)}${o.paidAt ? '<br><span class="mut">' + esc(o.paidAmount) + ' ' + esc(o.payCurrency) + '</span>' : ''}<br><span class="mut" style="font-size:11px">${esc(o.payRef || '')}</span></td>`
+      + `<td class="${SHOP_ST[o.status] || ''}">${esc(o.status)}${o.payPending ? ' (pago en proceso)' : ''}<div class="mut" style="font-size:12px">${units}${o.note ? '<br>' + esc(o.note) : ''}</div></td><td>${act}</td></tr>`;
+  }).join('');
+}
+$('shopOrders').addEventListener('click', async (ev) => {
+  const r = ev.target.closest('button[data-retry]'); const m = ev.target.closest('button[data-mark]');
+  if (!r && !m) return;
+  try {
+    if (r) { if (!confirm('¿Reintentar la entrega? Se vuelve a comprar al proveedor lo que falló.')) return; r.disabled = true; await api(`/api/admin/tienda/orders/${r.dataset.retry}/retry`, { method: 'POST' }); }
+    if (m) { const note = prompt('Nota (opcional):', ''); if (note === null) return; await api(`/api/admin/tienda/orders/${m.dataset.mark}/mark`, { method: 'POST', body: JSON.stringify({ status: m.dataset.st, note }) }); }
+  } catch (e) { alert(e.message); }
+  loadShop();
+});
+async function loadShop() {
+  try {
+    shop = await api('/api/admin/tienda');
+    $('shopOn').checked = !!shop.config.enabled;
+    $('shopFx').value = shop.config.fx;
+    const w = [];
+    if (shop.sandbox) w.push('Clave SANDBOX: los usuarios no pueden comprar; tú sí puedes probar, pero el pago con Mercado Pago/PayPal es REAL y la entrega es simulada.');
+    if (!shop.methods.mp) w.push('Mercado Pago no está configurado.');
+    if (!shop.methods.paypal) w.push('PayPal no está configurado.');
+    if (shop.paypalCurrency !== 'MXN') w.push(`PayPal cobra en ${shop.paypalCurrency} (convertido con el tipo de cambio).`);
+    $('shopWarn').textContent = w.join(' ');
+    shopRows(); shopOrdersRender();
+  } catch (e) { $('shopWarn').textContent = e.message; }
+}
+$('shopReload').onclick = loadShop;
+
+loadStatus().then(async () => { await loadCatalog(); loadOrders(); loadShop(); });
 </script>
 </body>
 </html>

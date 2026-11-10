@@ -128,13 +128,16 @@ function applyResult(rec, r) {
 
 // Compra con reintento seguro: si se corta la red, se repite con la MISMA Idempotency-Key
 // (la API responde 409 si la primera ya entró, sin cobrar dos veces).
-async function buy({ productId, playerId, zoneId, quantity, clientName, by }) {
+async function buy({ productId, playerId, zoneId, quantity, clientName, by, shopOrderId, idempotencyKey }) {
   const d = load();
-  const rec = {
-    idempotencyKey: crypto.randomUUID(),
+  // Reintento de una compra ya registrada (misma clave): se reusa el registro, nunca se duplica.
+  const prev = idempotencyKey ? d.orders.find((o) => o.idempotencyKey === idempotencyKey) : null;
+  const rec = prev || {
+    idempotencyKey: idempotencyKey || crypto.randomUUID(),
     createdAt: Date.now(),
     updatedAt: Date.now(),
     by: by || null,
+    shopOrderId: shopOrderId || undefined,
     productId,
     playerId: playerId || '',
     zoneId: zoneId || '',
@@ -142,8 +145,10 @@ async function buy({ productId, playerId, zoneId, quantity, clientName, by }) {
     status: 'SENDING',
     sandbox: isSandboxKey(),
   };
-  d.orders.unshift(rec);
-  if (d.orders.length > MAX_ORDERS) d.orders.length = MAX_ORDERS;
+  if (!prev) {
+    d.orders.unshift(rec);
+    if (d.orders.length > MAX_ORDERS) d.orders.length = MAX_ORDERS;
+  }
   save(); // se guarda ANTES de mandar: si el servidor se cae, la clave no se pierde
 
   const body = { product_id: productId, quantity };
@@ -198,6 +203,18 @@ function errOut(res, r) {
     data: r.body && r.body.data,
   });
 }
+
+/* ------------------------- para la tienda (tienda.js) --------------------------- */
+export const recargasApi = {
+  isSandbox: isSandboxKey,
+  wallet: () => call('GET', '/wallet'),
+  catalog: getCatalog,
+  validate: (body) => call('POST', '/catalog/validate', { body }),
+  buy,
+  refresh: refreshOrder,
+  find: findOrder,
+  isFinal: (status) => FINAL.has(status),
+};
 
 /* ------------------------------------- rutas ------------------------------------- */
 export function mountRecargasRoutes(app, { requireAdmin } = {}) {

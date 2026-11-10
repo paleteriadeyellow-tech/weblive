@@ -52,6 +52,7 @@ import * as referrals from './referrals.js';
 import { mountGiftCodeRoutes } from './giftcodes.js';
 import { mountAgencyRoutes } from './agencies.js';
 import { mountRecargasRoutes } from './recargas.js';
+import { mountTiendaRoutes } from './tienda.js';
 import { sendPaymentReceipt, startExpiryReminders } from './billing-mail.js';
 import { testRcon, testObs, testStreamerbot, testServertap } from './integrations.js';
 import { bootstrapUserMedia, registerUserUpload, userUploadKind, migrateUserMediaDir } from './scripts/user-media-guard.mjs';
@@ -1753,6 +1754,8 @@ mountGiftCodeRoutes(app, {
 
 // Recargas (API de RecargasAmerica): solo admin; la clave vive en RECARGAS_API_KEY de Render.
 mountRecargasRoutes(app, { requireAdmin: (req, res, next) => requireAdmin(req, res, next) });
+// Tienda de diamantes Free Fire (paga con Mercado Pago / PayPal y entrega con la API de recargas).
+mountTiendaRoutes(app, { userFromRequest, requireAdmin: (req, res, next) => requireAdmin(req, res, next) });
 
 // Agencias: mapa + directorio de agencias, solicitudes y leads (datos en la nube).
 mountAgencyRoutes(app, {
