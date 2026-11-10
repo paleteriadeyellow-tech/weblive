@@ -15,6 +15,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { recargasApi, isRecargasConfigured } from './recargas.js';
+import { sendMail, isMailConfigured } from './mail.js';
 import { mpFetch, setMpShopHandler, isConfigured as mpConfigured } from './mercadopago.js';
 import {
   paypalFetch, setPaypalShopHandler, approveUrlFromOrder, captureFromOrder, isConfigured as ppConfigured,
@@ -102,6 +103,97 @@ function packageCost(pkg, cat) {
     sum += c * it.qty;
   }
   return money(sum);
+}
+
+/* ------------------------- saldo, agotados y avisos al admin ------------------------- */
+const DEFAULT_LOW_USD = 200;
+const LOW_ALERT_EVERY_MS = 6 * 3600 * 1000;
+const BLOCKED_ALERT_EVERY_MS = 3600 * 1000;
+let walletCache = { at: 0, balance: null };
+
+async function currentBalance(maxAgeMs = 60 * 1000) {
+  if (walletCache.balance != null && Date.now() - walletCache.at < maxAgeMs) return walletCache.balance;
+  const w = await recargasApi.wallet();
+  const b = Number(w.body?.data?.balance);
+  if (w.status === 200 && Number.isFinite(b)) { walletCache = { at: Date.now(), balance: b }; return b; }
+  return null;
+}
+
+// Qué paquetes no se pueden vender ahora (sin saldo o el proveedor ya no lo tiene).
+async function stockState() {
+  const out = { balance: null, soldOut: new Set(), known: false };
+  try {
+    const [cat, balance] = await Promise.all([catalogMap(), currentBalance()]);
+    if (balance == null) return out;
+    out.balance = balance;
+    out.known = true;
+    for (const p of load().config.packages) {
+      if (p.kind === 'contact' || !p.items?.length) continue;
+      const cost = packageCost(p, cat);
+      if (cost == null || balance < cost) out.soldOut.add(p.id);
+    }
+  } catch {}
+  return out;
+}
+
+function alertCfg() {
+  const c = load().config;
+  return {
+    lowUsd: Number.isFinite(Number(c.lowBalanceUsd)) ? Number(c.lowBalanceUsd) : DEFAULT_LOW_USD,
+    email: String(c.alertEmail || process.env.SHOP_ALERT_EMAIL || '').trim(),
+    webhook: String(c.alertWebhook || process.env.SHOP_ALERT_WEBHOOK || '').trim(),
+  };
+}
+const WEBHOOK_RE = /^https:\/\/(?:(?:ptb|canary)\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+
+// Manda el aviso por Discord (webhook) y por correo. Devuelve por dónde salió.
+async function sendAlert(title, lines) {
+  const { email, webhook } = alertCfg();
+  const text = `${title}\n${lines.join('\n')}`;
+  const sent = [];
+  if (webhook && WEBHOOK_RE.test(webhook)) {
+    try {
+      const r = await fetch(webhook, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'Livecoins Tienda', content: `**${title}**\n${lines.join('\n')}`.slice(0, 1900) }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (r.ok) sent.push('discord'); else console.warn('[tienda] aviso Discord rechazado', r.status);
+    } catch (e) { console.warn('[tienda] aviso Discord:', e && e.message); }
+  }
+  if (email && isMailConfigured()) {
+    try {
+      const r = await sendMail({ to: email, subject: `Livecoins Tienda: ${title}`, text });
+      if (r && r.ok !== false) sent.push('correo'); else console.warn('[tienda] aviso correo:', r && r.error);
+    } catch (e) { console.warn('[tienda] aviso correo:', e && e.message); }
+  }
+  if (!sent.length) console.warn('[tienda] AVISO (sin Discord ni correo configurados):', text);
+  return sent;
+}
+
+async function maybeLowBalanceAlert(balance, { blockedPkg = null } = {}) {
+  if (balance == null) return;
+  const d = load();
+  const a = (d.alerts = d.alerts || {});
+  const now = Date.now();
+  const { lowUsd } = alertCfg();
+  if (blockedPkg) {
+    if (now - (a.blockedAt || 0) < BLOCKED_ALERT_EVERY_MS) return;
+    const sent = await sendAlert('Venta bloqueada por saldo', [
+      `Un cliente quiso comprar **${blockedPkg.label}** y no alcanzó tu saldo.`,
+      `Saldo en RecargasAmerica: **${balance.toFixed(2)} USD**.`,
+      'Recarga tu billetera para volver a vender ese paquete.',
+    ]);
+    if (sent.length) { a.blockedAt = now; save(); } // sin canal configurado no se cuenta como avisado
+    return;
+  }
+  if (balance >= lowUsd) { if (a.lowSince) { a.lowSince = 0; save(); } return; }
+  if (now - (a.lowAt || 0) < LOW_ALERT_EVERY_MS) return;
+  const sent = await sendAlert('Saldo bajo en la tienda', [
+    `Tu saldo en RecargasAmerica es **${balance.toFixed(2)} USD** (aviso cuando baja de ${lowUsd} USD).`,
+    'Recarga pronto: los paquetes que no alcancen saldrán como «Agotado».',
+  ]);
+  if (sent.length) { a.lowAt = now; a.lowSince = a.lowSince || now; save(); }
 }
 
 /* ------------------------------------ entrega ------------------------------------ */
@@ -401,6 +493,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     const u = userFromRequest(req);
     const c = load().config;
     const open = openFor(u);
+    const stock = isRecargasConfigured() ? await stockState() : { soldOut: new Set() };
     res.json({
       open: open.ok, reason: open.ok ? '' : open.error, loggedIn: !!u,
       sandbox: recargasApi.isSandbox(),
@@ -408,7 +501,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
       methods: { mp: mpConfigured(), paypal: ppConfigured() },
       discord: DISCORD_URL,
       packages: c.packages.filter((p) => p.active && (p.kind === 'contact' || (p.items && p.items.length)))
-        .map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind })),
+        .map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, soldOut: stock.soldOut.has(p.id) })),
     });
   }));
 
@@ -444,9 +537,11 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     const w = await recargasApi.wallet();
     const balance = Number(w.body?.data?.balance);
     if (!(w.status === 200 && Number.isFinite(balance))) return res.status(503).json({ error: 'La tienda no responde ahora. Intenta en unos minutos.' });
+    walletCache = { at: Date.now(), balance };
     if (balance < cost) {
       console.warn('[tienda] saldo insuficiente para vender', pkg.id, 'costo', cost, 'saldo', balance);
-      return res.status(503).json({ error: 'Este paquete está agotado por ahora. Intenta más tarde.' });
+      maybeLowBalanceAlert(balance, { blockedPkg: pkg }).catch(() => {});
+      return res.status(409).json({ error: 'Este paquete está agotado. Contacta al admin por Discord para que libere más diamantes.', soldOut: true });
     }
     // 2) ¿Existe el ID?
     const v = await checkPlayer(pkg, playerId);
@@ -530,6 +625,8 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
       sandbox: recargasApi.isSandbox(),
       methods: { mp: mpConfigured(), paypal: ppConfigured() },
       paypalCurrency: PP_CURRENCY,
+      balance: await currentBalance(0).catch(() => null),
+      mailReady: isMailConfigured(),
       orders,
     });
   }));
@@ -556,9 +653,25 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
         packages.push({ id, label, price, kind, items, active: !!p.active && (kind === 'contact' || items.length > 0) });
       }
     }
-    d.config = { ...d.config, enabled: b.enabled != null ? !!b.enabled : d.config.enabled, fx: b.fx != null ? fx : d.config.fx, packages };
+    if (b.lowBalanceUsd != null && !(Number(b.lowBalanceUsd) >= 0 && Number(b.lowBalanceUsd) < 100000)) return res.status(400).json({ error: 'Saldo mínimo no válido.' });
+    const alertEmail = b.alertEmail != null ? String(b.alertEmail).trim().slice(0, 200) : d.config.alertEmail;
+    if (alertEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(alertEmail)) return res.status(400).json({ error: 'Correo para avisos no válido.' });
+    const alertWebhook = b.alertWebhook != null ? String(b.alertWebhook).trim() : d.config.alertWebhook;
+    if (alertWebhook && !WEBHOOK_RE.test(alertWebhook)) return res.status(400).json({ error: 'El webhook de Discord no es válido (debe ser https://discord.com/api/webhooks/...).' });
+    d.config = {
+      ...d.config, enabled: b.enabled != null ? !!b.enabled : d.config.enabled, fx: b.fx != null ? fx : d.config.fx, packages,
+      lowBalanceUsd: b.lowBalanceUsd != null ? Number(b.lowBalanceUsd) : d.config.lowBalanceUsd,
+      alertEmail: alertEmail || '', alertWebhook: alertWebhook || '',
+    };
     save();
     res.json({ ok: true });
+  }));
+
+  app.post('/api/admin/tienda/test-alert', admin, safe(async (_req, res) => {
+    const bal = await currentBalance(0);
+    const sent = await sendAlert('Prueba de aviso', [`Así te llegarán los avisos de la tienda. Saldo actual: **${bal == null ? '¿?' : bal.toFixed(2)} USD**.`]);
+    if (!sent.length) return res.status(400).json({ error: 'No se pudo mandar: pon un webhook de Discord o un correo (y que el servidor tenga RESEND_API_KEY).' });
+    res.json({ ok: true, sent });
   }));
 
   // Reintentar las unidades fallidas (con clave nueva: la anterior ya no entregó nada).
@@ -601,6 +714,15 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
       }
     }
   };
+  let lastBalanceCheck = 0;
+  const balanceTick = async () => {
+    if (!isRecargasConfigured() || Date.now() - lastBalanceCheck < 5 * 60 * 1000) return;
+    lastBalanceCheck = Date.now();
+    const c = load().config;
+    if (!c.enabled || recargasApi.isSandbox()) return; // solo con la tienda abierta y clave real
+    await maybeLowBalanceAlert(await currentBalance(0));
+  };
+  setInterval(() => balanceTick().catch(() => {}), 60 * 1000).unref?.();
   setTimeout(() => tick().catch(() => {}), 15000).unref?.();
   setInterval(() => tick().catch(() => {}), POLL_MS).unref?.();
 }

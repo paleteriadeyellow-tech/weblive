@@ -65,6 +65,14 @@
       <label><input type="checkbox" id="shopOn" style="flex:none"> Tienda abierta al público</label>
       <span class="mut">Dólar a</span><input id="shopFx" type="number" step="0.01" style="max-width:90px;flex:none"><span class="mut">pesos (para calcular tu ganancia)</span>
     </div>
+    <div class="row" style="margin:8px 0;padding:10px;border:1px solid #2c3150;border-radius:10px">
+      <b style="width:100%">Aviso de saldo bajo <span id="shopBal" class="mut" style="font-weight:400"></span></b>
+      <span class="mut">Avisarme cuando baje de</span><input id="shopLow" type="number" min="0" step="10" style="max-width:90px;flex:none"><span class="mut">USD</span>
+      <input id="shopWebhook" placeholder="Webhook de Discord (https://discord.com/api/webhooks/...)" style="min-width:260px">
+      <input id="shopEmail" type="email" placeholder="Correo para avisos" style="max-width:220px">
+      <button class="sec" id="shopTest">Probar aviso</button>
+      <div class="mut" style="width:100%;font-size:12px">Los paquetes que tu saldo no alcance salen como «Agotado» con botón para contactarte por Discord. Si un cliente intenta comprar uno, también te avisa.</div>
+    </div>
     <p class="mut" style="margin:6px 0">En «Productos» pon los ID del catálogo de arriba que forman cada paquete, ej. <code>123</code> o <code>123x2, 456</code>. Solo se venden los paquetes activos con productos.</p>
     <div class="list" style="max-height:none"><table id="shopPk"></table></div>
     <div class="row" style="margin-top:10px">
@@ -223,7 +231,7 @@ $('shopPk').addEventListener('click', (ev) => { const b = ev.target.closest('but
 $('shopFx').addEventListener('change', shopRows);
 $('shopAdd').onclick = () => { shop.config.packages.push({ id: 'ff-' + Date.now().toString(36), label: 'Nuevo paquete', price: 100, kind: 'diamonds', items: [], active: false }); shopRows(); };
 $('shopSave').onclick = async () => {
-  const body = { enabled: $('shopOn').checked, fx: Number($('shopFx').value), packages: shop.config.packages.map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, active: p.active, items: parseItems(p._items ?? itemsText(p.items)) })) };
+  const body = { enabled: $('shopOn').checked, fx: Number($('shopFx').value), lowBalanceUsd: Number($('shopLow').value || 0), alertEmail: $('shopEmail').value.trim(), alertWebhook: $('shopWebhook').value.trim(), packages: shop.config.packages.map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, active: p.active, items: parseItems(p._items ?? itemsText(p.items)) })) };
   $('shopMsg').className = ''; $('shopMsg').textContent = 'Guardando…';
   try { await api('/api/admin/tienda/config', { method: 'POST', body: JSON.stringify(body) }); $('shopMsg').className = 'ok'; $('shopMsg').textContent = 'Guardado'; loadShop(); }
   catch (e) { $('shopMsg').className = 'bad'; $('shopMsg').textContent = e.message; }
@@ -259,6 +267,11 @@ async function loadShop() {
     shop = await api('/api/admin/tienda');
     $('shopOn').checked = !!shop.config.enabled;
     $('shopFx').value = shop.config.fx;
+    $('shopLow').value = shop.config.lowBalanceUsd ?? 200;
+    $('shopEmail').value = shop.config.alertEmail || '';
+    $('shopWebhook').value = shop.config.alertWebhook || '';
+    $('shopBal').textContent = shop.balance != null ? `· saldo actual ${Number(shop.balance).toFixed(2)} USD` : '';
+    if (!shop.mailReady) $('shopEmail').placeholder = 'Correo (falta RESEND_API_KEY en Render)';
     const w = [];
     if (shop.sandbox) w.push('Clave SANDBOX: los usuarios no pueden comprar; tú sí puedes probar, pero el pago con Mercado Pago/PayPal es REAL y la entrega es simulada.');
     if (!shop.methods.mp) w.push('Mercado Pago no está configurado.');
@@ -269,6 +282,11 @@ async function loadShop() {
   } catch (e) { $('shopWarn').textContent = e.message; }
 }
 $('shopReload').onclick = loadShop;
+$('shopTest').onclick = async () => {
+  $('shopMsg').className = ''; $('shopMsg').textContent = 'Mandando aviso de prueba… (guarda antes si cambiaste el webhook o el correo)';
+  try { const r = await api('/api/admin/tienda/test-alert', { method: 'POST' }); $('shopMsg').className = 'ok'; $('shopMsg').textContent = 'Aviso enviado por: ' + r.sent.join(' y '); }
+  catch (e) { $('shopMsg').className = 'bad'; $('shopMsg').textContent = e.message; }
+};
 
 loadStatus().then(async () => { await loadCatalog(); loadOrders(); loadShop(); });
 </script>

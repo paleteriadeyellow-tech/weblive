@@ -3678,7 +3678,8 @@ document.querySelectorAll('.nav-item').forEach((btn) => {
     if (viewName === 'tienda') {
       // La tienda se carga solo al abrir la pestaña (y se recarga para ver el estado de compras).
       const fr = document.getElementById('tiendaFrame');
-      if (fr) { if (!fr.src) fr.src = fr.dataset.src; else try { fr.contentWindow.location.reload(); } catch {} }
+      // Ya cargada: solo se piden los datos nuevos (recargar la página entera parpadeaba).
+      if (fr) { if (!fr.src) fr.src = fr.dataset.src; else try { fr.contentWindow.postMessage({ type: 'tienda-refresh' }, location.origin); } catch {} }
     }
     view.classList.add('active');
     // Pintar la pestaña ya; el resto (pulse / init pesado) en el siguiente frame.

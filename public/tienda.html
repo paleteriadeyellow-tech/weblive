@@ -24,9 +24,11 @@
     --t0:#34313f; --t1:#383250; --t2:#3e325f; --t3:#47336e; --t4:#5a4220; --ray:rgba(163,148,225,.22);
   }
   * { box-sizing:border-box; }
-  html, body { margin:0; background:var(--bg); }
+  html, body { margin:0; background:var(--bg); color-scheme:dark; }
+  main { opacity:0; transition:opacity .18s ease; }
+  html.ready main { opacity:1; }
   body { color:var(--tx); font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  main { max-width:1180px; margin:0 auto; padding:12px 16px 8px; }
+  main { position:relative; max-width:1180px; margin:0 auto; padding:12px 16px 8px; }
   button, input { font:inherit; }
   .mut { color:var(--mut); } .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
 
@@ -75,6 +77,19 @@
   .pk.sel .badge { display:none; }
   .pk.sel::after { content:""; position:absolute; z-index:2; top:7px; right:7px; width:16px; height:16px; border-radius:50%;
     background:var(--acc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat; }
+  .pk.out { cursor:not-allowed; }
+  .pk.out:hover { transform:none; box-shadow:none; border-color:var(--line); }
+  .pk.out .scene, .pk.out .amt, .pk.out .unit { opacity:.35; filter:grayscale(1); }
+  .pk.out .price { background:var(--tile-hi); color:var(--mut); box-shadow:none; text-decoration:line-through; }
+  .pk .so { position:absolute; z-index:2; left:50%; top:30px; transform:translateX(-50%) rotate(-8deg); padding:3px 10px; border-radius:6px;
+    font-size:11.5px; font-weight:900; letter-spacing:1px; text-transform:uppercase; color:#fff; background:var(--bad); box-shadow:0 4px 12px rgba(0,0,0,.4); white-space:nowrap; }
+  .soldbar { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:10px; margin-bottom:12px; font-size:13px;
+    background:color-mix(in srgb, var(--bad) 10%, transparent); border:1px solid color-mix(in srgb, var(--bad) 40%, transparent); }
+  .soldbar .t { flex:1; min-width:0; }
+  .soldbar b { color:var(--tx); }
+  .btn-dc { flex:none; display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:9px; background:#5865f2; color:#fff; font-weight:800; font-size:13px; text-decoration:none; }
+  .btn-dc:hover { background:#4752c4; }
+  .btn-dc svg { width:16px; height:16px; }
   .extras { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
   .ext-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
   .ext { display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:10px; background:var(--tile); border:1px solid var(--line); min-width:0; }
@@ -83,6 +98,11 @@
   .ext .t { flex:1; min-width:0; }
   .ext .n { font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ext .p { font-size:12.5px; color:var(--price); font-weight:800; }
+  .ext { cursor:pointer; transition:border-color .12s; }
+  .ext:hover { border-color:var(--line-hi); }
+  .ext.sel { border-color:#5865f2; box-shadow:inset 0 0 0 1px #5865f2; }
+  .dcnote { margin-top:10px; padding:10px; border-radius:10px; font-size:13px; background:color-mix(in srgb, #5865f2 14%, transparent); border:1px solid color-mix(in srgb, #5865f2 50%, transparent); }
+  .dcnote .btn-dc { margin-top:8px; width:100%; justify-content:center; }
   .ext a { flex:none; display:grid; place-items:center; width:30px; height:30px; border-radius:8px; background:#5865f2; }
   .ext a:hover { background:#4752c4; }
   .ext a svg { width:16px; height:16px; }
@@ -114,9 +134,9 @@
   .fine { font-size:11.5px; color:var(--mut); margin-top:8px; line-height:1.35; }
 
   /* Mis compras (ventana) */
-  .modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
-  .modal.on { display:flex; }
-  .modal .box { width:min(760px,100%); max-height:80vh; overflow:auto; }
+  .modal { position:absolute; z-index:10; top:84px; right:16px; width:min(720px, calc(100% - 32px)); display:none; }
+  .modal.on { display:block; }
+  .modal .box { max-height:420px; overflow:auto; box-shadow:0 14px 40px rgba(0,0,0,.45); border-color:var(--line-hi); }
   table { width:100%; border-collapse:collapse; font-size:13px; }
   th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
   th { color:var(--mut); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.8px; }
@@ -194,6 +214,7 @@
     <button class="btn-ghost" id="openOrders">Mis compras<b id="ordCount" hidden>0</b></button>
   </header>
   <div id="banner"></div>
+  <div id="soldbar"></div>
 
   <div class="layout">
     <section class="box">
@@ -208,7 +229,9 @@
     <aside class="box buy">
       <h2>Tu compra</h2>
       <div class="sel-card" id="selCard"><div class="t"><div class="n mut">Elige un paquete</div><div class="s">Toca uno de la lista</div></div></div>
-      <label class="f" for="pid">ID de Free Fire</label>
+      <div id="dcNote"></div>
+      <div id="payArea">
+      <label class="f" for="pid" style="margin-top:10px">ID de Free Fire</label>
       <div class="idrow"><input id="pid" inputmode="numeric" autocomplete="off" placeholder="Ej: 123456789"><button id="check">Verificar</button></div>
       <div class="hint">En el juego: toca tu foto de perfil; es el número bajo tu nombre.</div>
       <div class="msg" id="idMsg"></div>
@@ -218,28 +241,29 @@
         <button class="pay cd" data-m="card" disabled>Tarjeta de crédito o débito</button>
       </div>
       <div class="msg" id="payMsg"></div>
+      </div>
       <div class="total"><span class="mut">Total</span><b id="sumPrice">—</b></div>
       <div class="fine">Los diamantes se envían al ID que escribas y no se pueden regresar. Revísalo antes de pagar.</div>
     </aside>
   </div>
-</main>
-
 <div class="modal" id="ordersModal">
   <div class="box">
     <h2>Mis compras <span><button class="btn-ghost" id="reload" style="padding:5px 10px">Actualizar</button> <button class="x" id="closeOrders" aria-label="Cerrar">×</button></span></h2>
     <div id="orders" class="mut">—</div>
   </div>
 </div>
+</main>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-const mxn = (n) => '$' + Number(n).toLocaleString('es-MX', { maximumFractionDigits: 2 });
-let cfg = null, picked = null, verified = '', busy = false;
+const mxn = (n) => '$' + Number(n).toLocaleString('es-MX', { maximumFractionDigits: 2 }) + ' MX';
+let cfg = null, picked = null, extPicked = null, verified = '', busy = false;
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', ...opts, headers: opts.body ? { 'Content-Type': 'application/json' } : undefined });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const e = new Error(j.error || 'Error ' + r.status); e.status = r.status; throw e; }
+  if (!r.ok) { const e = new Error(j.error || 'Error ' + r.status); e.status = r.status; e.soldOut = !!j.soldOut; throw e; }
   return j;
 }
 function msg(el, text, cls = '') { $(el).className = 'msg ' + cls; $(el).textContent = text; }
@@ -275,32 +299,60 @@ function renderPackages() {
   const ext = cfg.packages.filter((p) => p.kind !== 'diamonds');
   // «Mejor valor» = más diamantes por peso (calculado, no inventado).
   let best = null, bestRate = 0;
-  for (const p of dia) { const r = diamondsOf(p) / Number(p.price); if (r > bestRate) { bestRate = r; best = p.id; } }
+  for (const p of dia) { if (p.soldOut) continue; const r = diamondsOf(p) / Number(p.price); if (r > bestRate) { bestRate = r; best = p.id; } }
+  if (picked && picked.soldOut) picked = null;
+  const out = dia.filter((p) => p.soldOut).length;
+  $('soldbar').innerHTML = out
+    ? `<div class="soldbar"><div class="t"><b>${out === dia.length ? 'Todos los paquetes están agotados.' : (out === 1 ? 'Hay 1 paquete agotado.' : `Hay ${out} paquetes agotados.`)}</b> Contacta al admin por Discord para que libere más diamantes.</div>`
+      + `<a class="btn-dc" href="${esc(cfg.discord)}" target="_blank" rel="noopener"><svg><use href="#discord"/></svg>Contactar en Discord</a></div>`
+    : '';
   $('pkDiamonds').innerHTML = dia.map((p) => {
     const n = diamondsOf(p);
+    if (p.soldOut) {
+      return `<div class="pk out" title="Agotado: contacta al admin por Discord" aria-disabled="true"><span class="so">Agotado</span>`
+        + scene(n) + `<div class="amt">${n ? n.toLocaleString('es-MX') : esc(p.label)}</div><div class="unit">diamantes</div><div class="price">${mxn(p.price)}</div></div>`;
+    }
     return `<div class="pk${picked && picked.id === p.id ? ' sel' : ''}" data-id="${esc(p.id)}" role="button" tabindex="0">`
       + (p.id === best && dia.length > 2 ? '<span class="badge">Mejor valor</span>' : '')
       + scene(n) + `<div class="amt">${n ? n.toLocaleString('es-MX') : esc(p.label)}</div>`
       + `<div class="unit">diamantes</div><div class="price">${mxn(p.price)}</div></div>`;
   }).join('') || '<span class="mut">No hay paquetes disponibles por ahora.</span>';
-  $('pkExtras').innerHTML = ext.map((p) => `<div class="ext"><div class="eic"><svg viewBox="0 0 40 40"><use href="#${EXT_ICON(p)}"/></svg></div><div class="t"><div class="n" title="${esc(p.label)}">${esc(p.label)}</div><div class="p">${mxn(p.price)}</div></div>`
-    + (p.kind === 'contact' ? `<a href="${esc(cfg.discord)}" target="_blank" rel="noopener" title="Contactar en Discord"><svg><use href="#discord"/></svg></a>` : '') + '</div>').join('');
+  $('pkExtras').innerHTML = ext.map((p) => `<div class="ext${extPicked && extPicked.id === p.id ? ' sel' : ''}" data-ext="${esc(p.id)}" role="button" tabindex="0"><div class="eic"><svg viewBox="0 0 40 40"><use href="#${EXT_ICON(p)}"/></svg></div><div class="t"><div class="n" title="${esc(p.label)}">${esc(p.label)}</div><div class="p">${mxn(p.price)}</div></div>`
+    + `<a href="${esc(cfg.discord)}" target="_blank" rel="noopener" title="Comprar por Discord"><svg><use href="#discord"/></svg></a></div>`).join('');
   $('extrasWrap').hidden = !ext.length;
 }
 function pick(id) {
   picked = cfg.packages.find((p) => p.id === id) || null;
+  extPicked = null;
   renderPackages(); refreshPay();
 }
-document.addEventListener('click', (ev) => { const el = ev.target.closest('.pk[data-id]'); if (el) pick(el.dataset.id); });
-document.addEventListener('keydown', (ev) => { const el = ev.target.closest && ev.target.closest('.pk[data-id]'); if (el && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); pick(el.dataset.id); } });
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest('.pk[data-id]'); if (el) return pick(el.dataset.id);
+  const ex = ev.target.closest('.ext[data-ext]');
+  if (ex && !ev.target.closest('a')) { extPicked = cfg.packages.find((p) => p.id === ex.dataset.ext) || null; picked = null; renderPackages(); refreshPay(); }
+});
+document.addEventListener('keydown', (ev) => { const el = ev.target.closest && ev.target.closest('.pk[data-id], .ext[data-ext]'); if (el && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); el.click(); } });
 
 function refreshPay() {
   const n = picked ? diamondsOf(picked) : 0;
+  if (extPicked) {
+    $('selCard').className = 'sel-card on';
+    $('selCard').style.borderColor = '#5865f2';
+    $('selCard').innerHTML = `<svg viewBox="0 0 40 40" aria-hidden="true"><use href="#${EXT_ICON(extPicked)}"/></svg><div class="t"><div class="n">${esc(extPicked.label)}</div><div class="s">Free Fire · se compra por Discord</div></div><div class="pr">${mxn(extPicked.price)}</div>`;
+    $('dcNote').innerHTML = `<div class="dcnote"><b>Este producto se compra por Discord.</b> Escríbele al admin con tu ID de Free Fire y te dice cómo pagarlo.`
+      + `<a class="btn-dc" href="${esc(cfg.discord)}" target="_blank" rel="noopener"><svg><use href="#discord"/></svg>Comprar por Discord</a></div>`;
+    $('sumPrice').textContent = mxn(extPicked.price);
+    $('payArea').hidden = true; // se compra por Discord: no hace falta ID ni botones de pago
+    return;
+  }
+  $('payArea').hidden = false;
+  $('dcNote').innerHTML = '';
+  $('selCard').style.borderColor = '';
   $('selCard').className = 'sel-card' + (picked ? ' on' : '');
   $('selCard').innerHTML = picked
     ? `<svg viewBox="0 0 100 90" aria-hidden="true"><use href="#gem"/></svg><div class="t"><div class="n">${n ? n.toLocaleString('es-MX') + ' diamantes' : esc(picked.label)}</div><div class="s">Free Fire · recarga directa</div></div><div class="pr">${mxn(picked.price)}</div>`
     : '<div class="t"><div class="n mut">Elige un paquete</div><div class="s">Toca uno de la lista</div></div>';
-  $('sumPrice').textContent = picked ? mxn(picked.price) + ' MXN' : '—';
+  $('sumPrice').textContent = picked ? mxn(picked.price) : '—';
   const ready = cfg && cfg.open && cfg.loggedIn && picked && /^\d{6,13}$/.test($('pid').value.trim());
   document.querySelectorAll('.pay').forEach((b) => {
     const has = b.dataset.m === 'mp' ? cfg?.methods.mp : cfg?.methods.paypal;
@@ -325,7 +377,7 @@ $('check').onclick = async () => {
 document.querySelectorAll('.pay').forEach((b) => b.onclick = async () => {
   if (busy || !picked) return;
   const pid = $('pid').value.trim();
-  if (!confirm(`¿Comprar ${picked.label} por ${mxn(picked.price)} MXN para el ID ${pid}?\n\nRevisa bien el ID: los diamantes se envían a esa cuenta y no se pueden regresar.`)) return;
+  if (!confirm(`¿Comprar ${picked.label} por ${mxn(picked.price)} para el ID ${pid}?\n\nRevisa bien el ID: los diamantes se envían a esa cuenta y no se pueden regresar.`)) return;
   busy = true; refreshPay(); msg('payMsg', 'Preparando tu pago…', 'mut');
   try {
     const r = await api('/api/tienda/order', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid, method: b.dataset.m }) });
@@ -340,7 +392,11 @@ document.querySelectorAll('.pay').forEach((b) => b.onclick = async () => {
       msg('payMsg', 'Abriendo la página de pago…', 'ok');
       location.href = r.approveUrl;
     }
-  } catch (e) { msg('payMsg', e.message, 'bad'); busy = false; refreshPay(); }
+  } catch (e) {
+    msg('payMsg', e.message, 'bad'); busy = false;
+    if (e.soldOut) { try { cfg = await api('/api/tienda/config'); } catch {} renderPackages(); }
+    refreshPay();
+  }
 });
 
 async function loadOrders() {
@@ -364,13 +420,13 @@ async function loadOrders() {
   } catch (e) { $('orders').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
 }
 $('reload').onclick = loadOrders;
-$('openOrders').onclick = () => { $('ordersModal').classList.add('on'); loadOrders(); };
+$('openOrders').onclick = () => { const on = $('ordersModal').classList.toggle('on'); if (on) loadOrders(); };
 $('closeOrders').onclick = () => $('ordersModal').classList.remove('on');
-$('ordersModal').addEventListener('click', (ev) => { if (ev.target === $('ordersModal')) $('ordersModal').classList.remove('on'); });
+document.addEventListener('click', (ev) => { if ($('ordersModal').classList.contains('on') && !ev.target.closest('#ordersModal, #openOrders')) $('ordersModal').classList.remove('on'); });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') $('ordersModal').classList.remove('on'); });
 
 (async () => {
-  try { cfg = await api('/api/tienda/config'); } catch (e) { $('banner').innerHTML = `<div class="banner">${esc(e.message)}</div>`; return; }
+  try { cfg = await api('/api/tienda/config'); } catch (e) { $('banner').innerHTML = `<div class="banner">${esc(e.message)}</div>`; document.documentElement.classList.add('ready'); return; }
   const q = new URLSearchParams(location.search);
   let b = '';
   if (!cfg.loggedIn) b = 'Inicia sesión en Livecoins para comprar.';
@@ -382,8 +438,15 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') $('order
   else if (q.get('pedido')) b = cfg.loggedIn ? '¡Gracias! Recibimos tu pago. En «Mis compras» ves el estado de tu entrega.' : '¡Gracias! Recibimos tu pago. Vuelve a Livecoins (pestaña Diamantes Free Fire) para ver tu entrega.';
   if (b) $('banner').innerHTML = `<div class="banner">${esc(b)}</div>`;
   renderPackages(); refreshPay(); loadOrders();
+  document.documentElement.classList.add('ready');
   if (q.get('pedido') && cfg.loggedIn) $('ordersModal').classList.add('on');
 })();
+// El panel avisa al volver a la pestaña: se actualizan precios, agotados y compras sin recargar.
+window.addEventListener('message', async (ev) => {
+  if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'tienda-refresh' || !cfg) return;
+  try { const keep = picked && picked.id, keepX = extPicked && extPicked.id; cfg = await api('/api/tienda/config'); picked = cfg.packages.find((p) => p.id === keep) || null; extPicked = cfg.packages.find((p) => p.id === keepX) || null; renderPackages(); refreshPay(); } catch {}
+  loadOrders();
+});
 </script>
 </body>
 </html>
