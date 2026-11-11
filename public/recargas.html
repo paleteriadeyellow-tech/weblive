@@ -57,7 +57,7 @@
 
   <div class="card" id="shop">
     <div class="row" style="justify-content:space-between">
-      <b style="font-size:16px">Tienda Free Fire (lo que ven los usuarios)</b>
+      <b style="font-size:16px">Tienda de recargas: Free Fire y Blood Strike (lo que ven los usuarios)</b>
       <a href="/tienda.html" target="_blank" style="color:#9d93ff">Abrir tienda ↗</a>
     </div>
     <div id="shopWarn" class="warn" style="margin:8px 0"></div>
@@ -71,10 +71,16 @@
       <input id="shopWebhook" placeholder="Webhook de Discord (https://discord.com/api/webhooks/...)" style="min-width:260px">
       <input id="shopEmail" type="email" placeholder="Correo para avisos" style="max-width:220px">
       <button class="sec" id="shopTest">Probar aviso</button>
-      <div class="mut" style="width:100%;font-size:12px">Los paquetes que tu saldo no alcance salen como «Agotado» con botón para contactarte por Discord. Si un cliente intenta comprar uno, también te avisa.</div>
+      <div class="mut" style="width:100%;font-size:12px">Si un cliente paga y tu saldo no alcanza, su pedido queda «esperando saldo» y te avisa; en cuanto recargas se entrega solo.</div>
     </div>
     <p class="mut" style="margin:6px 0">En «Productos» pon los ID del catálogo de arriba que forman cada paquete, ej. <code>123</code> o <code>123x2, 456</code>. Solo se venden los paquetes activos con productos.</p>
-    <div class="list" style="max-height:none"><table id="shopPk"></table></div>
+    <div class="row" style="margin:8px 0">
+      <span class="mut">Ver juego:</span><select id="shopGame" style="max-width:240px"></select>
+      <span style="flex:1"></span>
+      <span class="mut">Margen</span><input id="impMarkup" type="number" step="0.05" value="1.4" style="max-width:80px;flex:none">
+      <button class="sec" id="impGames">Importar juegos del catálogo</button>
+    </div>
+    <div class="list" style="max-height:520px"><table id="shopPk"></table></div>
     <div class="row" style="margin-top:10px">
       <button class="sec" id="shopAdd">+ Paquete</button>
       <button id="shopSave">Guardar tienda</button>
@@ -201,14 +207,26 @@ function costOf(items) {
   for (const it of items) { const p = products.find((q) => Number(q.id) === it.productId); const c = p ? Number(p.price ?? p.cost) : NaN; if (!Number.isFinite(c)) return null; sum += c * it.qty; }
   return items.length ? sum : null;
 }
+const GAME_NAMES = () => ({ ff: 'Free Fire', bs: 'Blood Strike', ...Object.fromEntries(Object.entries(shop.config.games || {}).map(([k, g]) => [k, g.name])) });
+function gameSelect() {
+  const names = GAME_NAMES();
+  const cur = $('shopGame').value || 'ff';
+  const count = (g) => shop.config.packages.filter((p) => (p.game || 'ff') === g).length;
+  $('shopGame').innerHTML = '<option value="*">Todos</option>' + Object.entries(names).map(([k, n]) => `<option value="${k}">${esc(n)} (${count(k)})</option>`).join('');
+  $('shopGame').value = names[cur] || cur === '*' ? cur : 'ff';
+}
 function shopRows() {
   const fx = Number($('shopFx').value) || 0;
-  $('shopPk').innerHTML = '<tr><th>Activo</th><th>Nombre</th><th>Tipo</th><th>Precio MXN</th><th>Productos</th><th>Costo</th><th>Ganancia</th><th></th></tr>' + shop.config.packages.map((p, i) => {
+  const names = GAME_NAMES();
+  const only = $('shopGame').value || 'ff';
+  $('shopPk').innerHTML = '<tr><th>Activo</th><th>Juego</th><th>Nombre</th><th>Tipo</th><th>Precio MXN</th><th>Productos</th><th>Costo</th><th>Ganancia</th><th></th></tr>' + shop.config.packages.map((p, i) => {
+    if (only !== '*' && (p.game || 'ff') !== only) return '';
     const items = parseItems(p._items ?? itemsText(p.items));
     const c = costOf(items);
     const names = items.map((it) => { const q = products.find((x) => Number(x.id) === it.productId); return q ? esc(q.name) + (it.qty > 1 ? ' ×' + it.qty : '') : `<span class="bad">#${it.productId} no existe</span>`; }).join('<br>');
     const gain = c != null && fx ? p.price - c * fx : null;
     return `<tr data-i="${i}"><td><input type="checkbox" data-f="active" ${p.active ? 'checked' : ''} style="flex:none"></td>`
+      + `<td><select data-f="game">${Object.entries(names).map(([k, n]) => `<option value="${k}"${(p.game || 'ff') === k ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>${p.fields ? `<div class="mut" style="font-size:11px">pide ${Object.keys(p.fields).map((f) => f === 'zone_id' ? 'zona' : 'servidor').join(' y ')}</div>` : ''}</td>`
       + `<td><input data-f="label" value="${esc(p.label)}"></td>`
       + `<td><select data-f="kind"><option value="diamonds"${p.kind !== 'extra' && p.kind !== 'contact' ? ' selected' : ''}>Diamantes</option><option value="extra"${p.kind === 'extra' ? ' selected' : ''}>Pase/Tarjeta</option><option value="contact"${p.kind === 'contact' ? ' selected' : ''}>Contactar (Discord)</option></select></td>`
       + `<td><input data-f="price" type="number" step="1" value="${esc(p.price)}" style="max-width:90px"></td>`
@@ -229,26 +247,27 @@ $('shopPk').addEventListener('input', (ev) => {
 $('shopPk').addEventListener('change', (ev) => { if (ev.target.dataset.f === 'items' || ev.target.dataset.f === 'price') shopRows(); });
 $('shopPk').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-del]'); if (!b) return; if (confirm('¿Quitar este paquete?')) { shop.config.packages.splice(+b.dataset.del, 1); shopRows(); } });
 $('shopFx').addEventListener('change', shopRows);
-$('shopAdd').onclick = () => { shop.config.packages.push({ id: 'ff-' + Date.now().toString(36), label: 'Nuevo paquete', price: 100, kind: 'diamonds', items: [], active: false }); shopRows(); };
+$('shopAdd').onclick = () => { shop.config.packages.push({ id: 'pk-' + Date.now().toString(36), label: 'Nuevo paquete', price: 100, kind: 'diamonds', game: ($('shopGame').value !== '*' && $('shopGame').value) || 'ff', items: [], active: false }); shopRows(); };
 $('shopSave').onclick = async () => {
-  const body = { enabled: $('shopOn').checked, fx: Number($('shopFx').value), lowBalanceUsd: Number($('shopLow').value || 0), alertEmail: $('shopEmail').value.trim(), alertWebhook: $('shopWebhook').value.trim(), packages: shop.config.packages.map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, active: p.active, items: parseItems(p._items ?? itemsText(p.items)) })) };
+  const body = { enabled: $('shopOn').checked, fx: Number($('shopFx').value), lowBalanceUsd: Number($('shopLow').value || 0), alertEmail: $('shopEmail').value.trim(), alertWebhook: $('shopWebhook').value.trim(), packages: shop.config.packages.map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, active: p.active, items: parseItems(p._items ?? itemsText(p.items)), game: p.game || 'ff' })) };
   $('shopMsg').className = ''; $('shopMsg').textContent = 'Guardando…';
   try { await api('/api/admin/tienda/config', { method: 'POST', body: JSON.stringify(body) }); $('shopMsg').className = 'ok'; $('shopMsg').textContent = 'Guardado'; loadShop(); }
   catch (e) { $('shopMsg').className = 'bad'; $('shopMsg').textContent = e.message; }
 };
 
-const SHOP_ST = { AWAITING_PAYMENT: 'warn', PAID: 'warn', DELIVERING: 'warn', DELIVERED: 'ok', REVIEW: 'bad', REFUNDED_TO_CUSTOMER: 'mut', CANCELED: 'mut', EXPIRED: 'mut' };
+const SHOP_ST = { WAITING_BALANCE: 'warn', AWAITING_PAYMENT: 'warn', PAID: 'warn', DELIVERING: 'warn', DELIVERED: 'ok', REVIEW: 'bad', REFUNDED_TO_CUSTOMER: 'mut', CANCELED: 'mut', EXPIRED: 'mut' };
 function shopOrdersRender() {
   const os = shop.orders;
   const paid = os.filter((o) => o.paidAt && !['REFUNDED_TO_CUSTOMER', 'CANCELED'].includes(o.status));
   const review = os.filter((o) => o.status === 'REVIEW').length;
-  $('shopSum').innerHTML = `${paid.length} ventas pagadas · ${mxn(paid.reduce((a, o) => a + Number(o.price || 0), 0))}` + (review ? ` · <span class="bad">${review} en revisión</span>` : '');
+  const waitBal = os.filter((o) => o.status === 'WAITING_BALANCE').length;
+  $('shopSum').innerHTML = `${paid.length} ventas pagadas · ${mxn(paid.reduce((a, o) => a + Number(o.price || 0), 0))}` + (review ? ` · <span class="bad">${review} en revisión</span>` : '') + (waitBal ? ` · <span class="warn">${waitBal} esperando saldo (recarga y se entregan solos)</span>` : '');
   $('shopOrders').innerHTML = '<tr><th>Fecha</th><th>Usuario</th><th>Paquete</th><th>ID FF</th><th>Pago</th><th>Estado</th><th></th></tr>' + os.filter((o) => o.status !== 'CANCELED').map((o) => {
     const units = (o.units || []).map((u) => `#${u.productId}: ${esc(u.providerStatus || u.state)}${u.providerCode && u.providerCode !== 'OK' ? ' (' + esc(u.providerCode) + ')' : ''}`).join('<br>');
-    const act = (o.status === 'REVIEW' && o.paidAt ? `<button class="sec" data-retry="${o.id}">Reintentar entrega</button> ` : '')
-      + (['REVIEW', 'DELIVERING', 'PAID'].includes(o.status) ? `<button class="sec" data-mark="${o.id}" data-st="REFUNDED_TO_CUSTOMER">Ya le devolví</button> <button class="sec" data-mark="${o.id}" data-st="DELIVERED">Entregado a mano</button>` : '');
-    return `<tr><td>${new Date(o.createdAt).toLocaleString()}</td><td>${esc(o.username)}</td><td>${esc(o.label)}${o.sandbox ? ' <span class="tag">sandbox</span>' : ''}<br><span class="mut">${mxn(o.price)}</span></td>`
-      + `<td>${esc(o.playerId)}<br><span class="mut">${esc(o.nickname)}</span></td>`
+    const act = (['REVIEW', 'WAITING_BALANCE'].includes(o.status) && o.paidAt ? `<button class="sec" data-retry="${o.id}">Reintentar entrega</button> ` : '')
+      + (['REVIEW', 'DELIVERING', 'PAID', 'WAITING_BALANCE'].includes(o.status) ? `<button class="sec" data-mark="${o.id}" data-st="REFUNDED_TO_CUSTOMER">Ya le devolví</button> <button class="sec" data-mark="${o.id}" data-st="DELIVERED">Entregado a mano</button>` : '');
+    return `<tr><td>${new Date(o.createdAt).toLocaleString()}</td><td>${esc(o.username)}</td><td>${o.gameName ? esc(o.gameName) + ' · ' : ''}${esc(o.label)}${o.sandbox ? ' <span class="tag">sandbox</span>' : ''}<br><span class="mut">${mxn(o.price)}</span></td>`
+      + `<td>${esc(o.playerId)}${o.zoneId ? ' (' + esc(o.zoneId) + ')' : ''}${o.serverId ? ' · ' + esc(o.serverId) : ''}<br><span class="mut">${esc(o.nickname)}</span></td>`
       + `<td>${esc(o.method)}${o.paidAt ? '<br><span class="mut">' + esc(o.paidAmount) + ' ' + esc(o.payCurrency) + '</span>' : ''}<br><span class="mut" style="font-size:11px">${esc(o.payRef || '')}</span></td>`
       + `<td class="${SHOP_ST[o.status] || ''}">${esc(o.status)}${o.payPending ? ' (pago en proceso)' : ''}<div class="mut" style="font-size:12px">${units}${o.note ? '<br>' + esc(o.note) : ''}</div></td><td>${act}</td></tr>`;
   }).join('');
@@ -278,10 +297,20 @@ async function loadShop() {
     if (!shop.methods.paypal) w.push('PayPal no está configurado.');
     if (shop.paypalCurrency !== 'MXN') w.push(`PayPal cobra en ${shop.paypalCurrency} (convertido con el tipo de cambio).`);
     $('shopWarn').textContent = w.join(' ');
-    shopRows(); shopOrdersRender();
+    gameSelect(); shopRows(); shopOrdersRender();
   } catch (e) { $('shopWarn').textContent = e.message; }
 }
 $('shopReload').onclick = loadShop;
+$('shopGame').onchange = shopRows;
+$('impGames').onclick = async () => {
+  if (!confirm('Se crean paquetes para todos los juegos del catálogo que se recargan con ID (sin tocar los que ya tienes). Precio = costo × dólar × margen. ¿Continuar?')) return;
+  $('shopMsg').className = ''; $('shopMsg').textContent = 'Importando…';
+  try {
+    const r = await api('/api/admin/tienda/import-games', { method: 'POST', body: JSON.stringify({ markup: Number($('impMarkup').value) || 1.4 }) });
+    $('shopMsg').className = 'ok'; $('shopMsg').textContent = `Listo: ${r.added} paquetes nuevos en ${r.games} juegos. Revisa los precios.`;
+    await loadShop(); $('shopGame').value = '*'; shopRows();
+  } catch (e) { $('shopMsg').className = 'bad'; $('shopMsg').textContent = e.message; }
+};
 $('shopTest').onclick = async () => {
   $('shopMsg').className = ''; $('shopMsg').textContent = 'Mandando aviso de prueba… (guarda antes si cambiaste el webhook o el correo)';
   try { const r = await api('/api/admin/tienda/test-alert', { method: 'POST' }); $('shopMsg').className = 'ok'; $('shopMsg').textContent = 'Aviso enviado por: ' + r.sent.join(' y '); }

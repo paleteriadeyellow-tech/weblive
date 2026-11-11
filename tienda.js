@@ -1,4 +1,4 @@
-// Tienda de diamantes Free Fire. Solo vive en la nube (Render), nunca en el .exe.
+// Tienda de recargas de juegos (Free Fire y Blood Strike). Solo vive en la nube (Render), nunca en el .exe.
 //
 // Flujo: el usuario elige paquete + ID → se verifica el ID y el saldo del proveedor → paga con
 // Mercado Pago o PayPal → al confirmarse el pago se compra en RecargasAmerica y se entrega.
@@ -31,6 +31,32 @@ const PENDING_GIVE_UP_MS = 24 * 3600 * 1000;
 const UNPAID_EXPIRE_MS = 3 * 24 * 3600 * 1000;
 const MAX_ORDERS = 20000;
 const FF_ID_RE = /^\d{6,13}$/;
+// Juegos de la tienda: nombre, moneda y formato del ID del jugador.
+const GAMES = {
+  ff: { name: 'Free Fire', unit: 'diamantes', idRe: FF_ID_RE, idHelp: 'El ID de Free Fire son solo números (8 a 12).' },
+  bs: { name: 'Blood Strike', unit: 'Gold', idRe: /^\d{5,15}$/, idHelp: 'El ID de Blood Strike son solo números.' },
+};
+const GENERIC_ID_RE = /^[^\s]{3,64}$/;
+// Juegos importados del catálogo (config.games): { slug: { name, unit } }.
+function gameInfo(slug) {
+  if (GAMES[slug]) return GAMES[slug];
+  const g = (db && db.config && db.config.games && db.config.games[slug]) || null;
+  if (!g) return null;
+  return { name: g.name, unit: g.unit || '', idRe: GENERIC_ID_RE, idHelp: `Escribe tu ID de ${g.name}.` };
+}
+const gameOf = (pkg) => gameInfo(pkg && pkg.game) || GAMES.ff;
+const FIELD_LABEL = { zone_id: 'Zone ID', server_id: 'Servidor' };
+// Datos extra que pide el producto (zona / servidor) y valida lo que mandó el cliente.
+function extraFields(pkg, body) {
+  const out = {};
+  for (const [f, opts] of Object.entries(pkg.fields || {})) {
+    const v = String(body?.[f === 'zone_id' ? 'zoneId' : 'serverId'] ?? '').trim().slice(0, 40);
+    if (!v) return { error: `Falta ${FIELD_LABEL[f] || f}.` };
+    if (Array.isArray(opts) && opts.length && !opts.includes(v)) return { error: `${FIELD_LABEL[f] || f} no válido.` };
+    out[f] = v;
+  }
+  return { values: out };
+}
 // Paquetes «contact»: no se compran aquí, se muestran con botón para escribir en Discord.
 const DISCORD_URL = String(process.env.SHOP_DISCORD_URL || 'https://discord.gg/EdZCWK7Gxz').trim();
 
@@ -43,7 +69,12 @@ const DEFAULT_PACKAGES = [
   ['ff-25k', '25,000 diamantes', 3250], ['ff-30k', '30,000 diamantes', 3770], ['ff-35k', '35,000 diamantes', 4400],
   ['ff-booyah', 'Pase Booyah premium', 45, 'extra'], ['ff-semanal-basica', 'Tarjeta semanal básica', 8, 'extra'],
   ['ff-semanal', 'Tarjeta semanal', 35, 'extra'], ['ff-mensual', 'Tarjeta mensual', 150, 'extra'],
-].map(([id, label, price, kind]) => ({ id, label, price, kind: kind || 'diamonds', items: [], active: false }));
+].map(([id, label, price, kind]) => ({ id, label, price, kind: kind || 'diamonds', game: 'ff', items: [], active: false }));
+// Blood Strike: productos del proveedor (Gold + bono). Precios sugeridos, se cambian en el admin.
+const BS_PACKAGES = [
+  ['bs-105', '105 Gold', 20, 23], ['bs-320', '320 Gold', 59, 25], ['bs-540', '540 Gold', 95, 26],
+  ['bs-1100', '1,100 Gold', 189, 27], ['bs-2260', '2,260 Gold', 375, 28], ['bs-5800', '5,800 Gold', 940, 29],
+].map(([id, label, price, productId]) => ({ id, label, price, kind: 'diamonds', game: 'bs', items: [{ productId, qty: 1 }], active: true }));
 
 /* ------------------------------------ datos ------------------------------------ */
 let db = null;
@@ -63,6 +94,13 @@ function load() {
     db = j;
   }
   if (!db) db = { config: { enabled: false, fx: 18.5, packages: DEFAULT_PACKAGES }, orders: {} };
+  // Una sola vez: se agregan los paquetes de Blood Strike a la tienda existente.
+  if (!db.config.bsAdded) {
+    const have = new Set(db.config.packages.map((x) => x.id));
+    db.config.packages.push(...BS_PACKAGES.filter((x) => !have.has(x.id)));
+    db.config.bsAdded = true;
+    try { save(); } catch {}
+  }
   return db;
 }
 function save() {
@@ -179,10 +217,9 @@ async function maybeLowBalanceAlert(balance, { blockedPkg = null } = {}) {
   const { lowUsd } = alertCfg();
   if (blockedPkg) {
     if (now - (a.blockedAt || 0) < BLOCKED_ALERT_EVERY_MS) return;
-    const sent = await sendAlert('Venta bloqueada por saldo', [
-      `Un cliente quiso comprar **${blockedPkg.label}** y no alcanzó tu saldo.`,
-      `Saldo en RecargasAmerica: **${balance.toFixed(2)} USD**.`,
-      'Recarga tu billetera para volver a vender ese paquete.',
+    const sent = await sendAlert('Cliente comprando sin saldo suficiente', [
+      `Un cliente está pagando **${blockedPkg.label}** y tu saldo no alcanza (**${balance.toFixed(2)} USD**).`,
+      'Si paga, el pedido queda «pendiente de activar». Recarga tu billetera y se entrega solo.',
     ]);
     if (sent.length) { a.blockedAt = now; save(); } // sin canal configurado no se cuenta como avisado
     return;
@@ -208,16 +245,19 @@ function withLock(id, fn) {
 function unitState(rec) {
   if (!rec) return 'NOT_SENT';
   if (rec.status === 'COMPLETED') return 'DONE';
+  if (rec.status === 'FAILED' && rec.code === 'PURCHASE_FAILED') return 'NO_BALANCE'; // no se cobró nada
   if (rec.status === 'REFUNDED_API_ERROR' || rec.status === 'REFUNDED' || rec.status === 'FAILED') return 'FAILED';
   return 'PENDING'; // SENDING, UNKNOWN, PROCESSING_*, needs_review
 }
 
 function recompute(o) {
-  if (!['PAID', 'DELIVERING', 'REVIEW'].includes(o.status)) return;
+  if (!['PAID', 'DELIVERING', 'REVIEW', 'WAITING_BALANCE'].includes(o.status)) return;
   const states = o.units.map((u) => u.state);
   if (states.every((s) => s === 'DONE')) {
     o.status = 'DELIVERED';
     o.deliveredAt = o.deliveredAt || Date.now();
+  } else if (states.some((s) => s === 'NO_BALANCE')) {
+    o.status = 'WAITING_BALANCE'; // se entrega solo cuando recargues saldo
   } else if (states.some((s) => s === 'FAILED')) {
     o.status = 'REVIEW';
   } else if (states.some((s) => s === 'PENDING')) {
@@ -230,11 +270,14 @@ async function deliver(orderId) {
   return withLock(orderId, async () => {
     const d = load();
     const o = d.orders[orderId];
-    if (!o || !['PAID', 'DELIVERING'].includes(o.status)) return o;
+    if (!o || !['PAID', 'DELIVERING', 'WAITING_BALANCE'].includes(o.status)) return o;
+    const wasWaiting = o.status === 'WAITING_BALANCE';
     o.status = 'DELIVERING';
     save();
     for (const u of o.units) {
       if (u.state === 'DONE' || u.state === 'FAILED') continue;
+      // Falló por falta de saldo (no se cobró): se vuelve a comprar con una clave nueva.
+      if (u.state === 'NO_BALANCE') { (u.oldKeys = u.oldKeys || []).push(u.key); u.key = ''; u.state = 'NOT_SENT'; }
       if (!u.key) { u.key = crypto.randomUUID(); save(); }
       const existing = recargasApi.find(u.key);
       if (existing && existing.orderId && unitState(existing) === 'PENDING') {
@@ -242,7 +285,7 @@ async function deliver(orderId) {
       } else if (!existing || (existing.status === 'SENDING' || existing.status === 'UNKNOWN')) {
         // Nunca enviada, o el servidor se cayó al enviarla: misma clave → la API no cobra doble.
         await recargasApi.buy({
-          productId: u.productId, quantity: 1, playerId: o.playerId,
+          productId: u.productId, quantity: 1, playerId: o.playerId, zoneId: o.zoneId || '', serverId: o.serverId || '',
           idempotencyKey: u.key, shopOrderId: o.id, clientName: o.username || '',
           by: { id: o.userId, username: o.username },
         });
@@ -258,6 +301,16 @@ async function deliver(orderId) {
       if (u.state !== 'DONE') break; // pendiente o fallida: no seguir hasta resolverla
     }
     recompute(o);
+    if (o.status === 'WAITING_BALANCE' && !o.balanceAlerted) {
+      o.balanceAlerted = Date.now();
+      o.waitingSince = o.waitingSince || Date.now();
+      walletCache.at = 0;
+      sendAlert('Pedido pagado esperando saldo', [
+        `**${o.label}** para el ID **${o.playerId}**${o.nickname ? ` (${o.nickname})` : ''} — pagó ${o.paidAmount || o.payAmount} ${o.payCurrency}.`,
+        'Tu saldo en RecargasAmerica no alcanzó. Recarga y se entrega solo (o usa «Reintentar entrega» en el admin).',
+      ]).catch(() => {});
+    }
+    if (o.status === 'DELIVERED' && wasWaiting) o.balanceAlerted = 0;
     if (o.status === 'REVIEW') console.error('[tienda] PEDIDO PAGADO EN REVISIÓN:', o.id, o.label, o.playerId, o.units.map((u) => u.providerCode || u.providerStatus).join(','));
     save();
     return o;
@@ -332,7 +385,7 @@ async function createMpPayment(o, base) {
       total_amount: Number(o.payAmount).toFixed(2),
       external_reference: `shop-${o.id}`,
       description: `Livecoins ${o.label}`,
-      items: [{ title: `Free Fire ${o.label} (ID ${o.playerId})`, unit_price: Number(o.payAmount).toFixed(2), quantity: 1 }],
+      items: [{ title: `${gameInfo(o.game)?.name || 'Free Fire'} ${o.label} (ID ${o.playerId})`, unit_price: Number(o.payAmount).toFixed(2), quantity: 1 }],
       config: { online: { success_url: back, failure_url: back, pending_url: back, auto_return: 'all' } },
     },
   });
@@ -392,7 +445,7 @@ async function createPaypalPayment(o, base, method) {
       intent: 'CAPTURE',
       purchase_units: [{
         custom_id: `shop:${o.id}`,
-        description: `Free Fire ${o.label} (ID ${o.playerId})`.slice(0, 127),
+        description: `${gameInfo(o.game)?.name || 'Free Fire'} ${o.label} (ID ${o.playerId})`.slice(0, 127),
         amount: { currency_code: o.payCurrency, value: Number(o.payAmount).toFixed(2) },
       }],
       application_context: {
@@ -417,7 +470,7 @@ async function createPaypalPayment(o, base, method) {
 /* --------------------------------- vista pública --------------------------------- */
 function publicOrder(o) {
   return {
-    id: o.id, label: o.label, playerId: o.playerId, nickname: o.nickname || '', price: o.price,
+    id: o.id, game: o.game || 'ff', gameName: (gameInfo(o.game) || GAMES.ff).name, zoneId: o.zoneId || '', serverId: o.serverId || '', label: o.label, playerId: o.playerId, nickname: o.nickname || '', price: o.price,
     payAmount: o.payAmount, payCurrency: o.payCurrency, method: o.method,
     status: o.status, payPending: !!o.payPending, createdAt: o.createdAt, paidAt: o.paidAt || 0,
     deliveredAt: o.deliveredAt || 0, payUrl: o.status === 'AWAITING_PAYMENT' ? o.payUrl : '',
@@ -468,23 +521,25 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
   const rateOk = (userId) => {
     const now = Date.now();
     const list = (recent.get(userId) || []).filter((t) => now - t < 3600 * 1000);
-    if (list.length >= 10) return false;
+    if (list.length >= (Number(process.env.SHOP_MAX_ORDERS_HOUR) || 10)) return false;
     list.push(now);
     recent.set(userId, list);
     return true;
   };
 
-  async function checkPlayer(pkg, playerId) {
+  async function checkPlayer(pkg, playerId, extra = {}) {
     const first = pkg.items[0];
-    const r = await recargasApi.validate({ product_id: Number(first.productId), service_user_id: playerId });
+    const vb = { product_id: Number(first.productId), service_user_id: playerId };
+    if (extra.zone_id) vb.zone_id = extra.zone_id;
+    const r = await recargasApi.validate(vb);
     if (r.status === 200 && r.body?.success) {
       const v = r.body.data || {};
-      if (v.supported && v.status === false) return { ok: false, error: v.message || 'Ese ID de Free Fire no existe. Revísalo.' };
+      if (v.supported && v.status === false) return { ok: false, error: v.message || `Ese ID de ${gameOf(pkg).name} no existe. Revísalo.` };
       return { ok: true, nickname: v.supported && v.status ? String(v.account_name || '') : '' };
     }
     const code = r.body?.code;
     if (code === 'INVALID_PLAYER_ID_FORMAT' || code === 'PLAYER_ID_BLOCKED' || r.status === 422) {
-      return { ok: false, error: r.body?.error || r.body?.message || 'Ese ID de Free Fire no es válido.' };
+      return { ok: false, error: r.body?.error || r.body?.message || `Ese ID de ${gameOf(pkg).name} no es válido.` };
     }
     return { ok: true, nickname: '' }; // el proveedor no pudo validar ahora: se sigue sin nombre
   }
@@ -493,7 +548,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     const u = userFromRequest(req);
     const c = load().config;
     const open = openFor(u);
-    const stock = isRecargasConfigured() ? await stockState() : { soldOut: new Set() };
+    const stock = { soldOut: new Set() }; // ya no se bloquea por saldo (ver «pendiente de activar»)
     res.json({
       open: open.ok, reason: open.ok ? '' : open.error, loggedIn: !!u,
       sandbox: recargasApi.isSandbox(),
@@ -501,7 +556,12 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
       methods: { mp: mpConfigured(), paypal: ppConfigured() },
       discord: DISCORD_URL,
       packages: c.packages.filter((p) => p.active && (p.kind === 'contact' || (p.items && p.items.length)))
-        .map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, soldOut: stock.soldOut.has(p.id) })),
+        .map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, game: gameInfo(p.game) ? p.game : 'ff', fields: p.fields || undefined, soldOut: stock.soldOut.has(p.id) })),
+      games: [
+        ...Object.entries(GAMES).map(([slug, g]) => ({ slug, name: g.name, unit: g.unit })),
+        ...Object.entries(c.games || {}).filter(([slug]) => !GAMES[slug]).sort((a, b) => a[1].name.localeCompare(b[1].name))
+          .map(([slug, g]) => ({ slug, name: g.name, unit: g.unit || '' })),
+      ],
     });
   }));
 
@@ -509,9 +569,11 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     const pkg = pkgById(String(req.body?.packageId || ''));
     const playerId = String(req.body?.playerId || '').trim();
     if (!pkg || pkg.kind === 'contact' || !pkg.items.length) return res.status(400).json({ error: 'Elige un paquete.' });
-    if (!FF_ID_RE.test(playerId)) return res.status(400).json({ error: 'El ID de Free Fire son solo números (8 a 12).' });
+    if (!gameOf(pkg).idRe.test(playerId)) return res.status(400).json({ error: gameOf(pkg).idHelp });
     if (!isRecargasConfigured()) return res.status(503).json({ error: 'La tienda no está disponible.' });
-    const v = await checkPlayer(pkg, playerId);
+    const ex = extraFields(pkg, req.body);
+    if (ex.error) return res.status(400).json({ error: ex.error });
+    const v = await checkPlayer(pkg, playerId, ex.values);
     if (!v.ok) return res.status(422).json({ error: v.error });
     res.json({ nickname: v.nickname });
   }));
@@ -524,27 +586,26 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     const playerId = String(req.body?.playerId || '').trim();
     const method = ['mp', 'paypal', 'card'].includes(req.body?.method) ? req.body.method : '';
     if (!pkg || !pkg.active || pkg.kind === 'contact' || !pkg.items.length) return res.status(400).json({ error: 'Ese paquete no está disponible.' });
-    if (!FF_ID_RE.test(playerId)) return res.status(400).json({ error: 'El ID de Free Fire son solo números (8 a 12).' });
+    if (!gameOf(pkg).idRe.test(playerId)) return res.status(400).json({ error: gameOf(pkg).idHelp });
     if (!method) return res.status(400).json({ error: 'Elige cómo pagar.' });
     if (method === 'mp' && !mpConfigured()) return res.status(503).json({ error: 'Mercado Pago no está disponible.' });
     if (method !== 'mp' && !ppConfigured()) return res.status(503).json({ error: 'PayPal no está disponible.' });
+    const ex = extraFields(pkg, req.body);
+    if (ex.error) return res.status(400).json({ error: ex.error });
     if (!rateOk(user.id)) return res.status(429).json({ error: 'Demasiados pedidos seguidos. Espera un rato.' });
 
     // 1) ¿Lo tiene el proveedor y alcanza el saldo? (para nunca cobrar algo que no se puede entregar)
     let cost = null;
     try { cost = packageCost(pkg, await catalogMap()); } catch {}
     if (cost == null) return res.status(503).json({ error: 'Este paquete no está disponible ahora. Intenta más tarde.' });
-    const w = await recargasApi.wallet();
-    const balance = Number(w.body?.data?.balance);
-    if (!(w.status === 200 && Number.isFinite(balance))) return res.status(503).json({ error: 'La tienda no responde ahora. Intenta en unos minutos.' });
-    walletCache = { at: Date.now(), balance };
-    if (balance < cost) {
-      console.warn('[tienda] saldo insuficiente para vender', pkg.id, 'costo', cost, 'saldo', balance);
+    // Se vende aunque no alcance el saldo: el pedido queda «pendiente de activar» y se entrega al recargar.
+    const balance = await currentBalance(0).catch(() => null);
+    if (balance != null && balance < cost) {
+      console.warn('[tienda] venta con saldo insuficiente', pkg.id, 'costo', cost, 'saldo', balance);
       maybeLowBalanceAlert(balance, { blockedPkg: pkg }).catch(() => {});
-      return res.status(409).json({ error: 'Este paquete está agotado. Contacta al admin por Discord para que libere más diamantes.', soldOut: true });
     }
     // 2) ¿Existe el ID?
-    const v = await checkPlayer(pkg, playerId);
+    const v = await checkPlayer(pkg, playerId, ex.values);
     if (!v.ok) return res.status(422).json({ error: v.error });
 
     // 3) Pedido + pago
@@ -556,7 +617,10 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
       userId: user.id,
       username: user.username || '',
       packageId: pkg.id,
+      game: gameInfo(pkg.game) ? pkg.game : 'ff',
       label: pkg.label,
+      zoneId: ex.values.zone_id || '',
+      serverId: ex.values.server_id || '',
       price: Number(pkg.price),
       payCurrency: method === 'mp' ? CURRENCY : PP_CURRENCY,
       payAmount: ppUsd ? Math.ceil((Number(pkg.price) / Number(d.config.fx || 18.5)) * 100) / 100 : Number(pkg.price),
@@ -650,7 +714,10 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
           productId: Math.trunc(Number(it.productId)), qty: Math.max(1, Math.min(20, Math.trunc(Number(it.qty) || 1))),
         })).filter((it) => it.productId > 0).slice(0, 10);
         const kind = ['extra', 'contact'].includes(p.kind) ? p.kind : 'diamonds';
-        packages.push({ id, label, price, kind, items, active: !!p.active && (kind === 'contact' || items.length > 0) });
+        const game = gameInfo(p.game) ? p.game : 'ff';
+        const prev = d.config.packages.find((x) => x.id === id);
+        const fields = prev && prev.fields ? prev.fields : undefined; // zona/servidor vienen del catálogo
+        packages.push({ id, label, price, kind, game, items, fields, active: !!p.active && (kind === 'contact' || items.length > 0) });
       }
     }
     if (b.lowBalanceUsd != null && !(Number(b.lowBalanceUsd) >= 0 && Number(b.lowBalanceUsd) < 100000)) return res.status(400).json({ error: 'Saldo mínimo no válido.' });
@@ -667,6 +734,56 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     res.json({ ok: true });
   }));
 
+  // Crea paquetes para todos los juegos del catálogo que se recargan con el ID del jugador.
+  // No toca los que ya existen (ni Free Fire / Blood Strike). Precio = costo × tipo de cambio × margen.
+  app.post('/api/admin/tienda/import-games', admin, express.json(), safe(async (req, res) => {
+    const markup = Math.max(1.05, Math.min(5, Number(req.body?.markup) || 1.4));
+    const r = await recargasApi.catalog('');
+    if (r.status !== 200 || !Array.isArray(r.body?.data)) return res.status(502).json({ error: 'No se pudo leer el catálogo.' });
+    const d = load();
+    const fx = Number(d.config.fx) || 18.5;
+    const used = new Set(d.config.packages.flatMap((x) => (x.items || []).map((it) => Number(it.productId))));
+    const have = new Set(d.config.packages.map((x) => x.id));
+    d.config.games = d.config.games || {};
+    const SKIP = new Set(['free-fire', 'blood-strike']);
+    const round = (v) => v < 30 ? Math.ceil(v) : v < 200 ? Math.ceil(v / 5) * 5 - 1 : Math.ceil(v / 10) * 10 - 1;
+    let added = 0;
+    const unitsBy = {};
+    for (const prod of r.body.data) {
+      const req = prod.required_fields || [];
+      if (prod.type !== 'recharge' || !req.includes('player_id') || used.has(Number(prod.id))) continue;
+      const cat = (prod.categories || [])[0];
+      const slug = String(cat?.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+      if (!slug || SKIP.has(slug)) continue;
+      const gname = String(cat.name || slug).trim().slice(0, 60);
+      // «Mobile Legends - 172 Diamonds (156 + 16 Bonus)» → «172 Diamonds (156 + 16 Bonus)»
+      let label = String(prod.name || '').trim();
+      const dash = label.indexOf(' - '), dash2 = label.indexOf(' — ');
+      const cut = dash >= 0 ? dash + 3 : dash2 >= 0 ? dash2 + 3 : 0;
+      if (cut) label = label.slice(cut);
+      else if (label.toLowerCase().startsWith(gname.toLowerCase())) label = label.slice(gname.length);
+      label = label.replace(/^[\s:\-–—]+/, '').trim().slice(0, 80) || String(prod.name).slice(0, 80);
+      const cost = productCost(prod);
+      if (cost == null) continue;
+      const fields = {};
+      for (const f of req) if (f !== 'player_id') fields[f] = (prod.field_options && Array.isArray(prod.field_options[f])) ? prod.field_options[f].map(String) : null;
+      const id = `${slug.slice(0, 24)}-${prod.id}`;
+      if (have.has(id)) continue;
+      d.config.packages.push({ id, label, price: round(cost * fx * markup), kind: 'diamonds', game: slug, items: [{ productId: Number(prod.id), qty: 1 }],
+        fields: Object.keys(fields).length ? fields : undefined, active: true });
+      have.add(id); added++;
+      // Moneda del juego: la palabra más común al final de los nombres (Diamonds, UC, Tokens…)
+      const w = (label.replace(/\(.*?\)/g, '').match(/[A-Za-zÁÉÍÓÚáéíóúñ]+(?=\s*$)/) || [])[0];
+      if (w && !/^(bonus|more|extra|global|usd)$/i.test(w)) (unitsBy[slug] = unitsBy[slug] || {})[w] = ((unitsBy[slug] || {})[w] || 0) + 1;
+      if (!d.config.games[slug]) d.config.games[slug] = { name: gname, unit: '' };
+    }
+    for (const [slug, counts] of Object.entries(unitsBy)) {
+      if (d.config.games[slug] && !d.config.games[slug].unit) d.config.games[slug].unit = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    }
+    save();
+    res.json({ ok: true, added, games: Object.keys(d.config.games).length });
+  }));
+
   app.post('/api/admin/tienda/test-alert', admin, safe(async (_req, res) => {
     const bal = await currentBalance(0);
     const sent = await sendAlert('Prueba de aviso', [`Así te llegarán los avisos de la tienda. Saldo actual: **${bal == null ? '¿?' : bal.toFixed(2)} USD**.`]);
@@ -678,7 +795,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
   app.post('/api/admin/tienda/orders/:id/retry', admin, safe(async (req, res) => {
     const d = load();
     const o = d.orders[req.params.id];
-    if (!o || !['REVIEW', 'DELIVERING', 'PAID'].includes(o.status) || !o.paidAt) return res.status(400).json({ error: 'Este pedido no se puede reintentar.' });
+    if (!o || !['REVIEW', 'DELIVERING', 'PAID', 'WAITING_BALANCE'].includes(o.status) || !o.paidAt) return res.status(400).json({ error: 'Este pedido no se puede reintentar.' });
     for (const u of o.units) {
       if (u.state === 'FAILED') { (u.oldKeys = u.oldKeys || []).push(u.key); u.key = ''; u.state = 'NOT_SENT'; u.providerCode = ''; }
     }
@@ -711,6 +828,13 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
       if (o.status === 'AWAITING_PAYMENT' && now - o.createdAt > UNPAID_EXPIRE_MS) { o.status = 'EXPIRED'; save(); continue; }
       if (o.status === 'PAID' || o.status === 'DELIVERING') {
         try { await deliver(o.id); } catch (e) { console.error('[tienda] seguimiento:', o.id, e && e.message); }
+      } else if (o.status === 'WAITING_BALANCE') {
+        try {
+          const [cat, bal] = await Promise.all([catalogMap(), currentBalance()]);
+          const left = o.units.filter((u) => u.state !== 'DONE')
+            .reduce((a, u) => a + (productCost(cat.get(Number(u.productId))) ?? Infinity), 0);
+          if (bal != null && bal >= left) await deliver(o.id);
+        } catch (e) { /* se intenta en el siguiente minuto */ }
       }
     }
   };

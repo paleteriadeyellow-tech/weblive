@@ -128,7 +128,7 @@ function applyResult(rec, r) {
 
 // Compra con reintento seguro: si se corta la red, se repite con la MISMA Idempotency-Key
 // (la API responde 409 si la primera ya entró, sin cobrar dos veces).
-async function buy({ productId, playerId, zoneId, quantity, clientName, by, shopOrderId, idempotencyKey }) {
+async function buy({ productId, playerId, zoneId, serverId, quantity, clientName, by, shopOrderId, idempotencyKey }) {
   const d = load();
   // Reintento de una compra ya registrada (misma clave): se reusa el registro, nunca se duplica.
   const prev = idempotencyKey ? d.orders.find((o) => o.idempotencyKey === idempotencyKey) : null;
@@ -154,6 +154,7 @@ async function buy({ productId, playerId, zoneId, quantity, clientName, by, shop
   const body = { product_id: productId, quantity };
   if (playerId) body.player_id = playerId;
   if (zoneId) body.zone_id = zoneId;
+  if (serverId) body.server_id = serverId;
   if (clientName) body.client_name = clientName;
 
   let r = null;

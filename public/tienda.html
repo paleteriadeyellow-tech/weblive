@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Diamantes Free Fire · Livecoins</title>
+<title>Tienda de recargas · Livecoins</title>
 <script>
   // App de PC (.exe): tema gris + morado como el panel. Web: azul marino + cian/rosa.
   if (/Electron/i.test(navigator.userAgent) || /[?&]tema=exe\b/.test(location.search)) document.documentElement.classList.add('exe');
@@ -50,6 +50,27 @@
   .btn-ghost:hover { border-color:var(--line-hi); }
   .btn-ghost b { display:inline-grid; place-items:center; min-width:18px; height:18px; margin-left:6px; padding:0 5px; border-radius:9px; background:var(--acc); color:var(--acc-ink); font-size:11px; }
 
+  .games { display:flex; gap:8px; margin:-2px 0 12px; }
+  .games[hidden] { display:none; }
+  .gtab { display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:11px; cursor:pointer; font-weight:800; font-size:14px;
+    background:var(--panel); border:1px solid var(--line); color:var(--mut); transition:border-color .12s, color .12s, background .12s; }
+  .gtab svg { width:20px; height:20px; }
+  .gtab:hover { color:var(--tx); border-color:var(--line-hi); }
+  .gtab.on { color:var(--tx); border-color:var(--acc); background:var(--sel); box-shadow:inset 0 0 0 1px var(--acc); }
+  .gtab small { font-weight:600; color:var(--mut); font-size:12px; }
+  .games { flex-wrap:wrap; position:relative; }
+  .gmore { position:absolute; z-index:20; top:46px; left:0; width:min(560px, calc(100vw - 32px)); padding:10px; border-radius:12px;
+    background:var(--panel); border:1px solid var(--line-hi); box-shadow:0 14px 40px rgba(0,0,0,.45); }
+  .gmore[hidden] { display:none; }
+  .gmore input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--tx); outline:none; margin-bottom:8px; }
+  .gmore .gl { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:6px; max-height:300px; overflow:auto; }
+  .gmore button { text-align:left; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--tile); color:var(--tx); font-weight:700; font-size:13px; cursor:pointer; }
+  .gmore button:hover { border-color:var(--acc); }
+  .gmore button small { display:block; font-weight:500; color:var(--mut); font-size:11.5px; }
+  .xf { display:grid; gap:6px; margin-top:8px; }
+  .xf label { font-size:12px; font-weight:700; color:var(--mut); }
+  .xf input, .xf select { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background:var(--bg); color:var(--tx); outline:none; font:inherit; }
+  .pk .amt.sm { font-size:13.5px; line-height:1.2; padding:0 6px; min-height:33px; display:flex; align-items:center; justify-content:center; }
   .banner { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; margin-bottom:12px; font-size:13px;
     background:color-mix(in srgb, var(--warn) 10%, transparent); border:1px solid color-mix(in srgb, var(--warn) 35%, transparent); color:var(--tx); }
   .banner::before { content:""; width:8px; height:8px; border-radius:50%; background:var(--warn); flex:none; }
@@ -178,6 +199,14 @@
       <circle cx="50" cy="46" r="2.2" fill="#4f2a0c"/>
       <rect x="10" y="62" width="80" height="6" rx="3" fill="#000" opacity=".25"/>
     </symbol>
+    <linearGradient id="gCoin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".45" stop-color="#f6c343"/><stop offset="1" stop-color="#b9780f"/></linearGradient>
+    <symbol id="coin" viewBox="0 0 100 90">
+      <ellipse cx="50" cy="49" rx="40" ry="38" fill="#8a5a0a"/>
+      <ellipse cx="50" cy="45" rx="40" ry="38" fill="url(#gCoin)"/>
+      <ellipse cx="50" cy="45" rx="30" ry="28" fill="none" stroke="#a86d0c" stroke-width="3" opacity=".7"/>
+      <text x="50" y="57" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="34" fill="#a86d0c">G</text>
+      <ellipse cx="36" cy="28" rx="12" ry="6" fill="#fff" opacity=".55" transform="rotate(-30 36 28)"/>
+    </symbol>
     <symbol id="spark" viewBox="0 0 10 10"><path d="M5 0 L6 4 L10 5 L6 6 L5 10 L4 6 L0 5 L4 4 Z" fill="#fff"/></symbol>
     <symbol id="ticket" viewBox="0 0 40 40">
       <path d="M4 10 h32 v6 a4 4 0 0 0 0 8 v6 h-32 v-6 a4 4 0 0 0 0-8 z" fill="url(#gGold)"/>
@@ -201,8 +230,8 @@
 <main>
   <header class="top">
     <div class="brand">
-      <svg viewBox="0 0 100 90" aria-hidden="true"><use href="#gem"/></svg>
-      <div><h1>Diamantes Free Fire</h1><p>Recarga directa a tu ID · entrega automática</p></div>
+      <svg viewBox="0 0 100 90" aria-hidden="true"><use id="brandIc" href="#gem"/></svg>
+      <div><h1 id="ttl">Diamantes Free Fire</h1><p>Recarga directa a tu ID · entrega automática</p></div>
     </div>
     <svg class="hero-art" viewBox="0 0 220 170" aria-hidden="true">
       <use href="#gem" x="60" y="10" width="110" height="99"/>
@@ -213,12 +242,13 @@
     <div class="trust"><span><i></i>Entrega en minutos</span><span><i></i>Pago seguro</span><span><i></i>Tarjeta, OXXO o PayPal</span></div>
     <button class="btn-ghost" id="openOrders">Mis compras<b id="ordCount" hidden>0</b></button>
   </header>
+  <div class="games" id="games" hidden></div>
   <div id="banner"></div>
   <div id="soldbar"></div>
 
   <div class="layout">
     <section class="box">
-      <h2>Elige tu paquete</h2>
+      <h2 id="pkTitle">Elige tu paquete</h2>
       <div class="grid" id="pkDiamonds"></div>
       <div class="extras" id="extrasWrap" hidden>
         <h2>Pase Booyah y tarjetas <span style="text-transform:none;letter-spacing:0;font-weight:600">Pedido por Discord</span></h2>
@@ -231,9 +261,10 @@
       <div class="sel-card" id="selCard"><div class="t"><div class="n mut">Elige un paquete</div><div class="s">Toca uno de la lista</div></div></div>
       <div id="dcNote"></div>
       <div id="payArea">
-      <label class="f" for="pid" style="margin-top:10px">ID de Free Fire</label>
+      <label class="f" for="pid" style="margin-top:10px" id="pidLbl">ID de Free Fire</label>
       <div class="idrow"><input id="pid" inputmode="numeric" autocomplete="off" placeholder="Ej: 123456789"><button id="check">Verificar</button></div>
-      <div class="hint">En el juego: toca tu foto de perfil; es el número bajo tu nombre.</div>
+      <div class="xf" id="xf"></div>
+      <div class="hint" id="pidHint">En el juego: toca tu foto de perfil; es el número bajo tu nombre.</div>
       <div class="msg" id="idMsg"></div>
       <div class="pays">
         <button class="pay mp" data-m="mp" disabled>Pagar con Mercado Pago · tarjeta u OXXO</button>
@@ -243,7 +274,7 @@
       <div class="msg" id="payMsg"></div>
       </div>
       <div class="total"><span class="mut">Total</span><b id="sumPrice">—</b></div>
-      <div class="fine">Los diamantes se envían al ID que escribas y no se pueden regresar. Revísalo antes de pagar.</div>
+      <div class="fine" id="fineTxt">Los diamantes se envían al ID que escribas y no se pueden regresar. Revísalo antes de pagar.</div>
     </aside>
   </div>
 <div class="modal" id="ordersModal">
@@ -259,6 +290,63 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const mxn = (n) => '$' + Number(n).toLocaleString('es-MX', { maximumFractionDigits: 2 }) + ' MX';
 let cfg = null, picked = null, extPicked = null, verified = '', busy = false;
+const GAMES = {
+  ff: { name: 'Free Fire', title: 'Diamantes Free Fire', unit: 'diamantes', icon: 'gem', idRe: /^\d{6,13}$/, idErr: 'El ID de Free Fire son solo números (8 a 12).',
+    hint: 'En el juego: toca tu foto de perfil; es el número bajo tu nombre.', extras: 'Pase Booyah y tarjetas' },
+  bs: { name: 'Blood Strike', title: 'Gold de Blood Strike', unit: 'Gold', icon: 'coin', idRe: /^\d{5,15}$/, idErr: 'El ID de Blood Strike son solo números.',
+    hint: 'En el juego: abre tu perfil; tu ID es el número que aparece junto a tu nombre.', extras: 'Otros' },
+};
+const GENERIC_ID = /^[^\s]{3,64}$/;
+// Agrega los juegos que manda el servidor (importados del catálogo).
+function loadGames() {
+  for (const g of cfg.games || []) {
+    if (GAMES[g.slug]) continue;
+    GAMES[g.slug] = { name: g.name, title: `${g.unit || 'Recargas'} de ${g.name}`, unit: g.unit || '', icon: 'gem', idRe: GENERIC_ID,
+      idErr: `Escribe tu ID de ${g.name}.`, hint: 'Tu ID está en tu perfil dentro del juego.', extras: 'Otros', generic: true };
+  }
+}
+let game = 'ff';
+try { const q = new URLSearchParams(location.search).get('juego'); game = GAMES[q] ? q : (GAMES[localStorage.getItem('tienda-juego')] ? localStorage.getItem('tienda-juego') : 'ff'); } catch {}
+const G = () => GAMES[game];
+function setGame(g) {
+  if (!GAMES[g] || g === game) return;
+  game = g; picked = null; extPicked = null;
+  try { localStorage.setItem('tienda-juego', g); } catch {}
+  msg('idMsg', ''); renderPackages(); refreshPay();
+}
+function renderGames() {
+  const has = (cfg.games || []).map((g) => g.slug).filter((g) => GAMES[g] && cfg.packages.some((p) => (p.game || 'ff') === g));
+  if (!has.includes(game) && has.length) game = has[0];
+  $('games').hidden = has.length < 2;
+  // Fijos: Free Fire y Blood Strike; el resto en «Más juegos» (con buscador).
+  const pinned = has.filter((g) => g === 'ff' || g === 'bs' || g === game);
+  const others = has.filter((g) => !pinned.includes(g));
+  const tab = (g) => `<button type="button" class="gtab${g === game ? ' on' : ''}" data-game="${g}"><svg viewBox="0 0 100 90" aria-hidden="true"><use href="#${GAMES[g].icon}"/></svg>${esc(GAMES[g].name)} <small>${esc(GAMES[g].unit)}</small></button>`;
+  $('games').innerHTML = pinned.map(tab).join('')
+    + (others.length ? `<button type="button" class="gtab" id="gMoreBtn">🎮 Más juegos (${others.length}) ▾</button>
+      <div class="gmore" id="gMore" hidden><input id="gSearch" placeholder="Buscar juego…" autocomplete="off"><div class="gl" id="gList">`
+      + others.map((g) => `<button type="button" data-game="${g}" data-name="${esc(GAMES[g].name.toLowerCase())}">${esc(GAMES[g].name)}<small>${esc(GAMES[g].unit || 'Recarga por ID')}</small></button>`).join('')
+      + '</div></div>' : '');
+  $('ttl').textContent = G().title;
+  $('brandIc').setAttribute('href', '#' + G().icon);
+  document.querySelectorAll('.hero-art use').forEach((u) => u.setAttribute('href', '#' + G().icon));
+  $('pidLbl').textContent = `ID de ${G().name}`;
+  $('pidHint').textContent = G().hint;
+  $('fineTxt').textContent = game === 'ff' ? 'Los diamantes se envían al ID que escribas y no se pueden regresar. Revísalo antes de pagar.'
+    : 'La recarga se envía al ID que escribas y no se puede regresar. Revísalo antes de pagar.';
+  document.querySelector('#extrasWrap h2').firstChild.textContent = G().extras + ' ';
+}
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('.gtab[data-game], .gmore button[data-game]');
+  if (t) return setGame(t.dataset.game);
+  if (ev.target.closest('#gMoreBtn')) { const m = $('gMore'); m.hidden = !m.hidden; if (!m.hidden) $('gSearch').focus(); return; }
+  if ($('gMore') && !ev.target.closest('#gMore')) $('gMore').hidden = true;
+});
+document.addEventListener('input', (ev) => {
+  if (ev.target.id !== 'gSearch') return;
+  const q = ev.target.value.trim().toLowerCase();
+  document.querySelectorAll('#gList button').forEach((b) => { b.hidden = q && !b.dataset.name.includes(q); });
+});
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: 'same-origin', ...opts, headers: opts.body ? { 'Content-Type': 'application/json' } : undefined });
@@ -269,8 +357,8 @@ async function api(path, opts = {}) {
 function msg(el, text, cls = '') { $(el).className = 'msg ' + cls; $(el).textContent = text; }
 
 const STATUS = {
-  AWAITING_PAYMENT: ['Esperando pago', 'warn'], PAID: ['Pagado, enviando…', 'warn'], DELIVERING: ['Enviando diamantes…', 'warn'],
-  DELIVERED: ['Entregado', 'ok'], REVIEW: ['En revisión (te contactamos)', 'bad'], REFUNDED_TO_CUSTOMER: ['Reembolsado', 'bad'],
+  AWAITING_PAYMENT: ['Esperando pago', 'warn'], PAID: ['Pagado, enviando…', 'warn'], DELIVERING: ['Enviando…', 'warn'],
+  DELIVERED: ['Entregado', 'ok'], REVIEW: ['En revisión', 'bad'], WAITING_BALANCE: ['Pagado · pendiente de activar', 'warn'], REFUNDED_TO_CUSTOMER: ['Reembolsado', 'bad'],
   CANCELED: ['Cancelado', 'bad'], EXPIRED: ['Vencido (no se pagó)', 'bad'],
 };
 
@@ -289,20 +377,28 @@ const GEM_LAYOUTS = [
   [[0, 40, 40], [60, 40, 40], [16, 14, 46], [46, 8, 48]],
   [[-4, 46, 38], [30, 50, 40], [66, 44, 38], [10, 14, 44], [48, 6, 48]],
 ];
-function scene(n) {
-  const gems = GEM_LAYOUTS[tierOf(n)].map(([x, y, w]) => `<use href="#gem" x="${x}" y="${y}" width="${w}" height="${(w * 0.9).toFixed(1)}"/>`).join('');
+function scene(n, tier) {
+  const t = tier == null ? tierOf(n) : tier;
+  const gems = GEM_LAYOUTS[t].map(([x, y, w]) => `<use href="#${G().icon}" x="${x}" y="${y}" width="${w}" height="${(w * 0.9).toFixed(1)}"/>`).join('');
   return `<div class="scene"><svg class="art" viewBox="0 4 120 92" aria-hidden="true">${gems}</svg></div>`;
 }
 const EXT_ICON = (p) => /booyah|pase/i.test(p.label) ? 'ticket' : /mensual/i.test(p.label) ? 'cal' : 'card';
 function renderPackages() {
-  const dia = cfg.packages.filter((p) => p.kind === 'diamonds');
-  const ext = cfg.packages.filter((p) => p.kind !== 'diamonds');
+  renderGames();
+  const mine = cfg.packages.filter((p) => (p.game || 'ff') === game);
+  const dia = mine.filter((p) => p.kind === 'diamonds');
+  const ext = mine.filter((p) => p.kind !== 'diamonds');
+  // Tamaño del dibujo según el lugar del paquete en su juego (del más chico al más grande).
+  if (G().generic) dia.sort((a, b) => a.price - b.price);
+  const order = dia.map((p) => Number(p.price)).sort((a, b) => a - b);
+  const tierAt = (price) => order.length < 2 ? 0 : Math.round((order.indexOf(Number(price)) / (order.length - 1)) * 4);
+  const amtHtml = (p, n) => G().generic ? `<div class="amt sm">${esc(p.label)}</div>` : `<div class="amt">${n ? n.toLocaleString('es-MX') : esc(p.label)}</div>`;
   // «Mejor valor» = más diamantes por peso (calculado, no inventado).
   let best = null, bestRate = 0;
   for (const p of dia) { if (p.soldOut) continue; const r = diamondsOf(p) / Number(p.price); if (r > bestRate) { bestRate = r; best = p.id; } }
   if (picked && picked.soldOut) picked = null;
   const out = dia.filter((p) => p.soldOut).length;
-  $('soldbar').innerHTML = out
+  if (out) $('soldbar').innerHTML = out
     ? `<div class="soldbar"><div class="t"><b>${out === dia.length ? 'Todos los paquetes están agotados.' : (out === 1 ? 'Hay 1 paquete agotado.' : `Hay ${out} paquetes agotados.`)}</b> Contacta al admin por Discord para que libere más diamantes.</div>`
       + `<a class="btn-dc" href="${esc(cfg.discord)}" target="_blank" rel="noopener"><svg><use href="#discord"/></svg>Contactar en Discord</a></div>`
     : '';
@@ -310,12 +406,12 @@ function renderPackages() {
     const n = diamondsOf(p);
     if (p.soldOut) {
       return `<div class="pk out" title="Agotado: contacta al admin por Discord" aria-disabled="true"><span class="so">Agotado</span>`
-        + scene(n) + `<div class="amt">${n ? n.toLocaleString('es-MX') : esc(p.label)}</div><div class="unit">diamantes</div><div class="price">${mxn(p.price)}</div></div>`;
+        + scene(n, tierAt(p.price)) + amtHtml(p, n) + `<div class="unit">${G().generic ? '' : G().unit}</div><div class="price">${mxn(p.price)}</div></div>`;
     }
     return `<div class="pk${picked && picked.id === p.id ? ' sel' : ''}" data-id="${esc(p.id)}" role="button" tabindex="0">`
       + (p.id === best && dia.length > 2 ? '<span class="badge">Mejor valor</span>' : '')
-      + scene(n) + `<div class="amt">${n ? n.toLocaleString('es-MX') : esc(p.label)}</div>`
-      + `<div class="unit">diamantes</div><div class="price">${mxn(p.price)}</div></div>`;
+      + scene(n, tierAt(p.price)) + amtHtml(p, n)
+      + `<div class="unit">${G().generic ? esc(G().name) : G().unit}</div><div class="price">${mxn(p.price)}</div></div>`;
   }).join('') || '<span class="mut">No hay paquetes disponibles por ahora.</span>';
   $('pkExtras').innerHTML = ext.map((p) => `<div class="ext${extPicked && extPicked.id === p.id ? ' sel' : ''}" data-ext="${esc(p.id)}" role="button" tabindex="0"><div class="eic"><svg viewBox="0 0 40 40"><use href="#${EXT_ICON(p)}"/></svg></div><div class="t"><div class="n" title="${esc(p.label)}">${esc(p.label)}</div><div class="p">${mxn(p.price)}</div></div>`
     + `<a href="${esc(cfg.discord)}" target="_blank" rel="noopener" title="Comprar por Discord"><svg><use href="#discord"/></svg></a></div>`).join('');
@@ -333,13 +429,33 @@ document.addEventListener('click', (ev) => {
 });
 document.addEventListener('keydown', (ev) => { const el = ev.target.closest && ev.target.closest('.pk[data-id], .ext[data-ext]'); if (el && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); el.click(); } });
 
+const XF_LABEL = { zone_id: 'Zone ID', server_id: 'Servidor' };
+function renderXf() {
+  const f = (picked && picked.fields) || {};
+  const keys = Object.keys(f);
+  const prev = { zone_id: $('xf_zone_id')?.value || '', server_id: $('xf_server_id')?.value || '' };
+  $('xf').innerHTML = keys.map((k) => `<div><label for="xf_${k}">${XF_LABEL[k] || k}</label>` + (Array.isArray(f[k]) && f[k].length
+    ? `<select id="xf_${k}"><option value="">Elige…</option>${f[k].map((o) => `<option${prev[k] === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+    : `<input id="xf_${k}" autocomplete="off" value="${esc(prev[k])}" placeholder="${k === 'zone_id' ? 'Ej: 1234 (va entre paréntesis junto a tu ID)' : ''}">`) + '</div>').join('');
+}
+function xfValues() {
+  const f = (picked && picked.fields) || {};
+  const out = {};
+  for (const k of Object.keys(f)) out[k === 'zone_id' ? 'zoneId' : 'serverId'] = ($('xf_' + k)?.value || '').trim();
+  return out;
+}
+const xfReady = () => Object.values(xfValues()).every((v) => v);
+document.addEventListener('input', (ev) => { if (ev.target.id && ev.target.id.startsWith('xf_')) refreshPay(); });
+document.addEventListener('change', (ev) => { if (ev.target.id && ev.target.id.startsWith('xf_')) refreshPay(); });
+let xfFor = null;
 function refreshPay() {
+  if (xfFor !== (picked && picked.id)) { xfFor = picked && picked.id; renderXf(); }
   const n = picked ? diamondsOf(picked) : 0;
   if (extPicked) {
     $('selCard').className = 'sel-card on';
     $('selCard').style.borderColor = '#5865f2';
-    $('selCard').innerHTML = `<svg viewBox="0 0 40 40" aria-hidden="true"><use href="#${EXT_ICON(extPicked)}"/></svg><div class="t"><div class="n">${esc(extPicked.label)}</div><div class="s">Free Fire · se compra por Discord</div></div><div class="pr">${mxn(extPicked.price)}</div>`;
-    $('dcNote').innerHTML = `<div class="dcnote"><b>Este producto se compra por Discord.</b> Escríbele al admin con tu ID de Free Fire y te dice cómo pagarlo.`
+    $('selCard').innerHTML = `<svg viewBox="0 0 40 40" aria-hidden="true"><use href="#${EXT_ICON(extPicked)}"/></svg><div class="t"><div class="n">${esc(extPicked.label)}</div><div class="s">${G().name} · se compra por Discord</div></div><div class="pr">${mxn(extPicked.price)}</div>`;
+    $('dcNote').innerHTML = `<div class="dcnote"><b>Este producto se compra por Discord.</b> Escríbele al admin con tu ID de ${G().name} y te dice cómo pagarlo.`
       + `<a class="btn-dc" href="${esc(cfg.discord)}" target="_blank" rel="noopener"><svg><use href="#discord"/></svg>Comprar por Discord</a></div>`;
     $('sumPrice').textContent = mxn(extPicked.price);
     $('payArea').hidden = true; // se compra por Discord: no hace falta ID ni botones de pago
@@ -350,10 +466,10 @@ function refreshPay() {
   $('selCard').style.borderColor = '';
   $('selCard').className = 'sel-card' + (picked ? ' on' : '');
   $('selCard').innerHTML = picked
-    ? `<svg viewBox="0 0 100 90" aria-hidden="true"><use href="#gem"/></svg><div class="t"><div class="n">${n ? n.toLocaleString('es-MX') + ' diamantes' : esc(picked.label)}</div><div class="s">Free Fire · recarga directa</div></div><div class="pr">${mxn(picked.price)}</div>`
+    ? `<svg viewBox="0 0 100 90" aria-hidden="true"><use href="#${G().icon}"/></svg><div class="t"><div class="n">${n && !G().generic ? n.toLocaleString('es-MX') + ' ' + G().unit : esc(picked.label)}</div><div class="s">${G().name} · recarga directa</div></div><div class="pr">${mxn(picked.price)}</div>`
     : '<div class="t"><div class="n mut">Elige un paquete</div><div class="s">Toca uno de la lista</div></div>';
   $('sumPrice').textContent = picked ? mxn(picked.price) : '—';
-  const ready = cfg && cfg.open && cfg.loggedIn && picked && /^\d{6,13}$/.test($('pid').value.trim());
+  const ready = cfg && cfg.open && cfg.loggedIn && picked && G().idRe.test($('pid').value.trim()) && xfReady();
   document.querySelectorAll('.pay').forEach((b) => {
     const has = b.dataset.m === 'mp' ? cfg?.methods.mp : cfg?.methods.paypal;
     b.style.display = has ? '' : 'none';
@@ -365,10 +481,11 @@ $('pid').addEventListener('input', () => { verified = ''; msg('idMsg', ''); refr
 $('check').onclick = async () => {
   const pid = $('pid').value.trim();
   if (!picked) return msg('idMsg', 'Primero elige un paquete.', 'warn');
-  if (!/^\d{6,13}$/.test(pid)) return msg('idMsg', 'El ID son solo números (8 a 12).', 'bad');
+  if (!G().idRe.test(pid)) return msg('idMsg', G().idErr, 'bad');
+  if (!xfReady()) return msg('idMsg', 'Completa también ' + Object.keys(picked.fields || {}).map((k) => XF_LABEL[k] || k).join(' y ') + '.', 'warn');
   msg('idMsg', 'Verificando…', 'mut');
   try {
-    const r = await api('/api/tienda/check-id', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid }) });
+    const r = await api('/api/tienda/check-id', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid, ...xfValues() }) });
     verified = pid;
     msg('idMsg', r.nickname ? `✔ Cuenta: ${r.nickname}` : '✔ ID con formato válido.', 'ok');
   } catch (e) { msg('idMsg', e.message, 'bad'); }
@@ -377,10 +494,10 @@ $('check').onclick = async () => {
 document.querySelectorAll('.pay').forEach((b) => b.onclick = async () => {
   if (busy || !picked) return;
   const pid = $('pid').value.trim();
-  if (!confirm(`¿Comprar ${picked.label} por ${mxn(picked.price)} para el ID ${pid}?\n\nRevisa bien el ID: los diamantes se envían a esa cuenta y no se pueden regresar.`)) return;
+  if (!confirm(`¿Comprar ${picked.label} por ${mxn(picked.price)} para el ID ${pid}?\n\nRevisa bien el ID: lo que compres se envía a esa cuenta y no se puede regresar.`)) return;
   busy = true; refreshPay(); msg('payMsg', 'Preparando tu pago…', 'mut');
   try {
-    const r = await api('/api/tienda/order', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid, method: b.dataset.m }) });
+    const r = await api('/api/tienda/order', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid, method: b.dataset.m, ...xfValues() }) });
     if (/Electron/i.test(navigator.userAgent)) {
       // App de PC: el pago se abre en tu navegador; aquí se ve cuando llegan los diamantes.
       window.open(r.approveUrl, '_blank');
@@ -403,20 +520,25 @@ async function loadOrders() {
   if (!cfg || !cfg.loggedIn) { $('orders').innerHTML = '<span class="mut">Inicia sesión para ver tus compras.</span>'; return; }
   try {
     const { orders } = await api('/api/tienda/my-orders');
-    const active = orders.filter((o) => ['AWAITING_PAYMENT', 'PAID', 'DELIVERING', 'REVIEW'].includes(o.status)).length;
+    const active = orders.filter((o) => ['AWAITING_PAYMENT', 'PAID', 'DELIVERING', 'REVIEW', 'WAITING_BALANCE'].includes(o.status)).length;
+    // Si alguna compra pagada espera activación, se avisa arriba con el botón de Discord.
+    const waiting = orders.filter((o) => ['WAITING_BALANCE', 'REVIEW'].includes(o.status)).length;
+    $('soldbar').innerHTML = waiting ? `<div class="soldbar"><div class="t"><b>${waiting === 1 ? 'Tienes 1 compra pendiente de activar.' : `Tienes ${waiting} compras pendientes de activar.`}</b> Ya recibimos tu pago: contacta al admin por Discord para que active tu recarga.</div><a class="btn-dc" href="${esc(cfg.discord)}" target="_blank" rel="noopener"><svg><use href="#discord"/></svg>Contactar en Discord</a></div>` : '';
     $('ordCount').hidden = !active; $('ordCount').textContent = active;
     if (!orders.length) { $('orders').innerHTML = '<span class="mut">Aún no tienes compras.</span>'; return; }
     $('orders').innerHTML = '<table><tr><th>Fecha</th><th>Paquete</th><th>ID</th><th>Estado</th></tr>' + orders.map((o) => {
       const [txt, cls] = STATUS[o.status] || [o.status, ''];
       const pend = o.status === 'AWAITING_PAYMENT' && o.payPending ? ' <span class="mut">(pago en proceso / OXXO)</span>' : '';
       const payLink = o.status === 'AWAITING_PAYMENT' && o.payUrl && !o.payPending ? ` · <a href="${esc(o.payUrl)}" target="_blank" rel="noopener">Pagar</a>` : '';
-      return `<tr><td>${new Date(o.createdAt).toLocaleString('es-MX')}</td><td>${esc(o.label)}<br><span class="mut">${mxn(o.price)}</span></td>`
-        + `<td>${esc(o.playerId)}${o.nickname ? '<br><span class="mut">' + esc(o.nickname) + '</span>' : ''}</td>`
-        + `<td><span class="st ${cls}">${txt}</span>${pend}${payLink}</td></tr>`;
+      const dc = ['WAITING_BALANCE', 'REVIEW'].includes(o.status)
+        ? `<div style="margin-top:6px"><span class="mut" style="font-size:12px">Tu pago llegó. Escríbele al admin por Discord y te activa tu recarga.</span><br><a class="btn-dc" style="margin-top:5px" href="${esc(cfg.discord)}" target="_blank" rel="noopener"><svg><use href="#discord"/></svg>Contactar en Discord</a></div>` : '';
+      return `<tr><td>${new Date(o.createdAt).toLocaleString('es-MX')}</td><td>${esc(o.gameName || (GAMES[o.game] || GAMES.ff).name)} · ${esc(o.label)}<br><span class="mut">${mxn(o.price)}</span></td>`
+        + `<td>${esc(o.playerId)}${o.zoneId ? ' (' + esc(o.zoneId) + ')' : ''}${o.serverId ? ' · ' + esc(o.serverId) : ''}${o.nickname ? '<br><span class="mut">' + esc(o.nickname) + '</span>' : ''}</td>`
+        + `<td><span class="st ${cls}">${txt}</span>${pend}${payLink}${dc}</td></tr>`;
     }).join('') + '</table>';
     // Mientras haya algo en camino, se actualiza solo.
     clearTimeout(loadOrders.t);
-    if (orders.some((o) => ['PAID', 'DELIVERING'].includes(o.status) || (o.status === 'AWAITING_PAYMENT' && o.payPending))) loadOrders.t = setTimeout(loadOrders, 8000);
+    if (orders.some((o) => ['PAID', 'DELIVERING', 'WAITING_BALANCE'].includes(o.status) || (o.status === 'AWAITING_PAYMENT' && o.payPending))) loadOrders.t = setTimeout(loadOrders, 8000);
   } catch (e) { $('orders').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
 }
 $('reload').onclick = loadOrders;
@@ -435,8 +557,10 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') $('order
   if (q.get('pago') === 'pendiente') b = 'Tu pago está en proceso. Si pagaste en OXXO, los diamantes se envían cuando se confirme (puede tardar unas horas).';
   else if (q.get('pago') === 'fallido') b = 'El pago no se completó. No se te cobró nada; puedes intentarlo otra vez.';
   else if (q.get('cancelado')) b = 'Cancelaste el pago. No se te cobró nada.';
-  else if (q.get('pedido')) b = cfg.loggedIn ? '¡Gracias! Recibimos tu pago. En «Mis compras» ves el estado de tu entrega.' : '¡Gracias! Recibimos tu pago. Vuelve a Livecoins (pestaña Diamantes Free Fire) para ver tu entrega.';
+  else if (q.get('pedido')) b = cfg.loggedIn ? '¡Gracias! Recibimos tu pago. En «Mis compras» ves el estado de tu entrega.' : '¡Gracias! Recibimos tu pago. Vuelve a Livecoins (pestaña Tienda de recargas) para ver tu entrega.';
   if (b) $('banner').innerHTML = `<div class="banner">${esc(b)}</div>`;
+  loadGames();
+  const qg = q.get('juego'); if (GAMES[qg]) game = qg;
   renderPackages(); refreshPay(); loadOrders();
   document.documentElement.classList.add('ready');
   if (q.get('pedido') && cfg.loggedIn) $('ordersModal').classList.add('on');
@@ -444,7 +568,7 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') $('order
 // El panel avisa al volver a la pestaña: se actualizan precios, agotados y compras sin recargar.
 window.addEventListener('message', async (ev) => {
   if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'tienda-refresh' || !cfg) return;
-  try { const keep = picked && picked.id, keepX = extPicked && extPicked.id; cfg = await api('/api/tienda/config'); picked = cfg.packages.find((p) => p.id === keep) || null; extPicked = cfg.packages.find((p) => p.id === keepX) || null; renderPackages(); refreshPay(); } catch {}
+  try { const keep = picked && picked.id, keepX = extPicked && extPicked.id; cfg = await api('/api/tienda/config'); loadGames(); picked = cfg.packages.find((p) => p.id === keep) || null; extPicked = cfg.packages.find((p) => p.id === keepX) || null; renderPackages(); refreshPay(); } catch {}
   loadOrders();
 });
 </script>

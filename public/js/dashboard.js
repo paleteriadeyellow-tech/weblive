@@ -3646,6 +3646,11 @@ document.getElementById('dockLogo')?.addEventListener('click', (e) => {
   document.querySelector('.nav-item[data-view="panel"]')?.click();
 });
 
+// Portada de Inicio → pestaña de la tienda de diamantes.
+document.getElementById('homeShopPromo')?.addEventListener('click', () => {
+  document.querySelector('.nav-item[data-view="tienda"]')?.click();
+});
+
 document.querySelectorAll('.nav-item').forEach((btn) => {
   btn.onclick = () => {
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.remove('active'));
