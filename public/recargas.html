@@ -292,10 +292,8 @@ async function loadShop() {
     $('shopBal').textContent = shop.balance != null ? `· saldo actual ${Number(shop.balance).toFixed(2)} USD` : '';
     if (!shop.mailReady) $('shopEmail').placeholder = 'Correo (falta RESEND_API_KEY en Render)';
     const w = [];
-    if (shop.sandbox) w.push('Clave SANDBOX: los usuarios no pueden comprar; tú sí puedes probar, pero el pago con Mercado Pago/PayPal es REAL y la entrega es simulada.');
+    if (shop.sandbox) w.push('Clave SANDBOX: los usuarios no pueden comprar; tú sí puedes probar, pero el pago con Mercado Pago es REAL y la entrega es simulada.');
     if (!shop.methods.mp) w.push('Mercado Pago no está configurado.');
-    if (!shop.methods.paypal) w.push('PayPal no está configurado.');
-    if (shop.paypalCurrency !== 'MXN') w.push(`PayPal cobra en ${shop.paypalCurrency} (convertido con el tipo de cambio).`);
     $('shopWarn').textContent = w.join(' ');
     gameSelect(); shopRows(); shopOrdersRender();
   } catch (e) { $('shopWarn').textContent = e.message; }

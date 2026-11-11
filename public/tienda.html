@@ -239,7 +239,7 @@
       <use href="#gem" x="130" y="88" width="70" height="63"/>
     </svg>
     <div class="sp"></div>
-    <div class="trust"><span><i></i>Entrega en minutos</span><span><i></i>Pago seguro</span><span><i></i>Tarjeta, OXXO o PayPal</span></div>
+    <div class="trust"><span><i></i>Entrega en minutos</span><span><i></i>Pago seguro</span><span><i></i>Tarjeta u OXXO</span></div>
     <button class="btn-ghost" id="openOrders">Mis compras<b id="ordCount" hidden>0</b></button>
   </header>
   <div class="games" id="games" hidden></div>
@@ -296,12 +296,76 @@ const GAMES = {
   bs: { name: 'Blood Strike', title: 'Gold de Blood Strike', unit: 'Gold', icon: 'coin', idRe: /^\d{5,15}$/, idErr: 'El ID de Blood Strike son solo números.',
     hint: 'En el juego: abre tu perfil; tu ID es el número que aparece junto a tu nombre.', extras: 'Otros' },
 };
+// Íconos de la moneda de cada juego (dibujos propios, sin logos oficiales).
+// Cada uno se vuelve un <symbol id="ic-<juego>"> con viewBox 0 0 100 90, igual que la gema.
+const ICON_SPECS = {
+  'mobile-legends': ['gem', '#d9f6ff', '#3fb7ff', '#1546b8'],
+  'mobile-legends-usa': ['gem', '#d9f6ff', '#3fb7ff', '#1546b8'],
+  'king-of-avalon': ['gem', '#ffd6d6', '#ff4d5e', '#8e0f23'],
+  'state-of-survival-zombie-war': ['gem', '#fff0d1', '#ff9d2e', '#b4520a'],
+  'last-hunter-k-seoul': ['gem', '#d6fff4', '#2fe0b8', '#0b7a66'],
+  'goddess-of-victory-nikke': ['gem', '#ffe1f3', '#ff6fc0', '#a3176b'],
+  'love-and-deepspace': ['star', '#ffe6f4', '#ff8ccf', '#b02b86'],
+  'identity-v': ['shard', '#efe2ff', '#a46bff', '#4b1d9e'],
+  'crystal-of-atlan': ['opal', '#e9fbff', '#9fe7ff', '#c79bff'],
+  'wuthering-waves': ['moon', '#e8f3ff', '#7ab8ff', '#2b4fb3'],
+  'marvel-rivals': ['hex', '#ffe0e0', '#ff4b5c', '#7a0d18'],
+  'pubg-mobile': ['coin', '#fff3c4', '#f6b73c', '#a8640a', 'UC'],
+  'honor-of-kings': ['coin', '#fff6d6', '#e8c35a', '#8a5a12', 'T'],
+  'age-of-empires-mobile': ['coin', '#fbe3c8', '#cf8a4a', '#6e3b12', 'E'],
+  'crossfire-legends': ['coin', '#ffd9cf', '#ff6a3d', '#8f2309', 'CF'],
+  'delta-force': ['coin', '#dff7e2', '#4cc36a', '#1b6b2e', 'Δ'],
+  'razer-gold': ['coin', '#e8ffd6', '#7be04a', '#2f7a12', '$'],
+  'arena-breakout': ['bill', '#dff5e3', '#4fae6b', '#1d5a30'],
+  'football-master-2': ['ball'],
+};
+function iconSvg(spec, gid) {
+  const [kind, c1, c2, c3, txt] = spec;
+  const grad = c1 ? `<linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset=".5" stop-color="${c2}"/><stop offset="1" stop-color="${c3}"/></linearGradient>` : '';
+  const shine = '<polygon points="30,9 44,9 38,22" fill="#fff" opacity=".7"/>';
+  switch (kind) {
+    case 'gem': return grad + `<polygon points="22,4 78,4 98,30 50,88 2,30" fill="url(#${gid})"/><polygon points="22,4 78,4 66,30 34,30" fill="#fff" opacity=".45"/>`
+      + `<polygon points="2,30 34,30 50,88" fill="#fff" opacity=".18"/><polygon points="98,30 66,30 50,88" fill="#000" opacity=".28"/><polygon points="22,4 34,30 2,30" fill="#fff" opacity=".3"/>${shine}`;
+    case 'coin': return grad + `<ellipse cx="50" cy="49" rx="40" ry="38" fill="${c3}"/><ellipse cx="50" cy="45" rx="40" ry="38" fill="url(#${gid})"/>`
+      + `<ellipse cx="50" cy="45" rx="30" ry="28" fill="none" stroke="${c3}" stroke-width="3" opacity=".6"/>`
+      + `<text x="50" y="${txt && txt.length > 1 ? 55 : 57}" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="${txt && txt.length > 1 ? 26 : 34}" fill="${c3}">${txt || ''}</text>`
+      + `<ellipse cx="36" cy="28" rx="12" ry="6" fill="#fff" opacity=".5" transform="rotate(-30 36 28)"/>`;
+    case 'bill': return grad + `<rect x="6" y="26" width="88" height="48" rx="6" fill="${c3}" transform="rotate(-8 50 50)"/><rect x="6" y="20" width="88" height="48" rx="6" fill="url(#${gid})"/>`
+      + `<rect x="12" y="26" width="76" height="36" rx="4" fill="none" stroke="${c3}" stroke-width="2.5" opacity=".6"/><circle cx="50" cy="44" r="11" fill="${c3}" opacity=".75"/>`
+      + `<text x="50" y="50" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="15" fill="${c1}">B</text>`;
+    case 'ball': return `<circle cx="50" cy="45" r="40" fill="#f4f4f4"/><circle cx="50" cy="45" r="40" fill="none" stroke="#222" stroke-width="3"/>`
+      + `<polygon points="50,30 63,39 58,54 42,54 37,39" fill="#222"/><path d="M50 30 L50 7 M63 39 L84 31 M58 54 L71 73 M42 54 L29 73 M37 39 L16 31" stroke="#222" stroke-width="3"/>`
+      + `<ellipse cx="34" cy="24" rx="10" ry="5" fill="#fff" opacity=".8" transform="rotate(-30 34 24)"/>`;
+    case 'shard': return grad + `<polygon points="50,2 70,30 62,88 38,88 30,30" fill="url(#${gid})"/><polygon points="50,2 70,30 50,40 30,30" fill="#fff" opacity=".4"/>`
+      + `<polygon points="50,40 70,30 62,88" fill="#000" opacity=".25"/><polygon points="18,40 30,48 26,80 14,70" fill="url(#${gid})" opacity=".8"/><polygon points="82,40 70,48 74,80 86,70" fill="url(#${gid})" opacity=".8"/>`;
+    case 'opal': return grad + `<ellipse cx="50" cy="46" rx="38" ry="40" fill="url(#${gid})"/><ellipse cx="42" cy="34" rx="16" ry="10" fill="#fff" opacity=".55" transform="rotate(-25 42 34)"/>`
+      + `<ellipse cx="62" cy="62" rx="14" ry="8" fill="#ffd1f0" opacity=".55" transform="rotate(-25 62 62)"/><ellipse cx="50" cy="46" rx="38" ry="40" fill="none" stroke="#7a5bc7" stroke-width="2" opacity=".5"/>`;
+    case 'moon': return grad + `<path d="M62 6 A40 40 0 1 0 90 66 A32 32 0 1 1 62 6 Z" fill="url(#${gid})"/><path d="M62 6 A40 40 0 0 0 30 30" stroke="#fff" stroke-width="3" fill="none" opacity=".6"/>`
+      + `<polygon points="70,30 74,38 82,40 74,43 70,51 66,43 58,40 66,38" fill="#fff" opacity=".85"/>`;
+    case 'star': return grad + `<polygon points="50,2 61,32 94,34 68,54 77,86 50,68 23,86 32,54 6,34 39,32" fill="url(#${gid})"/>`
+      + `<polygon points="50,2 61,32 50,40 39,32" fill="#fff" opacity=".45"/><polygon points="50,40 77,86 50,68" fill="#000" opacity=".2"/>`;
+    case 'hex': return grad + `<polygon points="50,4 88,25 88,67 50,88 12,67 12,25" fill="url(#${gid})"/><polygon points="50,20 74,33 74,59 50,72 26,59 26,33" fill="none" stroke="#fff" stroke-width="3" opacity=".55"/>`
+      + `<path d="M50 20 V72 M26 33 L74 59 M74 33 L26 59" stroke="#fff" stroke-width="2" opacity=".35"/><polygon points="50,4 88,25 50,38 12,25" fill="#fff" opacity=".25"/>`;
+    default: return '';
+  }
+}
+function installIcons() {
+  const defs = document.querySelector('svg defs');
+  if (!defs || installIcons.done) return;
+  installIcons.done = true;
+  let html = '';
+  for (const [slug, spec] of Object.entries(ICON_SPECS)) html += `<symbol id="ic-${slug}" viewBox="0 0 100 90">${iconSvg(spec, 'g-' + slug)}</symbol>`;
+  defs.insertAdjacentHTML('beforeend', html);
+}
+const iconFor = (slug) => ICON_SPECS[slug] ? 'ic-' + slug : 'gem';
+
 const GENERIC_ID = /^[^\s]{3,64}$/;
 // Agrega los juegos que manda el servidor (importados del catálogo).
 function loadGames() {
+  installIcons();
   for (const g of cfg.games || []) {
     if (GAMES[g.slug]) continue;
-    GAMES[g.slug] = { name: g.name, title: `${g.unit || 'Recargas'} de ${g.name}`, unit: g.unit || '', icon: 'gem', idRe: GENERIC_ID,
+    GAMES[g.slug] = { name: g.name, title: `${g.unit || 'Recargas'} de ${g.name}`, unit: g.unit || '', icon: iconFor(g.slug), idRe: GENERIC_ID,
       idErr: `Escribe tu ID de ${g.name}.`, hint: 'Tu ID está en tu perfil dentro del juego.', extras: 'Otros', generic: true };
   }
 }
@@ -325,7 +389,7 @@ function renderGames() {
   $('games').innerHTML = pinned.map(tab).join('')
     + (others.length ? `<button type="button" class="gtab" id="gMoreBtn">🎮 Más juegos (${others.length}) ▾</button>
       <div class="gmore" id="gMore" hidden><input id="gSearch" placeholder="Buscar juego…" autocomplete="off"><div class="gl" id="gList">`
-      + others.map((g) => `<button type="button" data-game="${g}" data-name="${esc(GAMES[g].name.toLowerCase())}">${esc(GAMES[g].name)}<small>${esc(GAMES[g].unit || 'Recarga por ID')}</small></button>`).join('')
+      + others.map((g) => `<button type="button" data-game="${g}" data-name="${esc(GAMES[g].name.toLowerCase())}"><svg viewBox="0 0 100 90" aria-hidden="true" style="width:26px;height:24px;float:left;margin:2px 8px 0 0"><use href="#${GAMES[g].icon}"/></svg>${esc(GAMES[g].name)}<small>${esc(GAMES[g].unit || 'Recarga por ID')}</small></button>`).join('')
       + '</div></div>' : '');
   $('ttl').textContent = G().title;
   $('brandIc').setAttribute('href', '#' + G().icon);

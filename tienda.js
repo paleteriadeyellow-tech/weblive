@@ -26,6 +26,9 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'tienda.json');
 const CURRENCY = 'MXN';
 const PP_CURRENCY = String(process.env.SHOP_PAYPAL_CURRENCY || 'MXN').toUpperCase();
+// La tienda solo cobra con Mercado Pago (tarjeta u OXXO). PayPal queda solo para planes;
+// sus rutas siguen aquí para terminar pedidos viejos. Para reactivarlo: SHOP_PAYPAL=1 en Render.
+const SHOP_PAYPAL = process.env.SHOP_PAYPAL === '1';
 const POLL_MS = 60 * 1000;
 const PENDING_GIVE_UP_MS = 24 * 3600 * 1000;
 const UNPAID_EXPIRE_MS = 3 * 24 * 3600 * 1000;
@@ -553,7 +556,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
       open: open.ok, reason: open.ok ? '' : open.error, loggedIn: !!u,
       sandbox: recargasApi.isSandbox(),
       currency: CURRENCY,
-      methods: { mp: mpConfigured(), paypal: ppConfigured() },
+      methods: { mp: mpConfigured(), paypal: SHOP_PAYPAL && ppConfigured() },
       discord: DISCORD_URL,
       packages: c.packages.filter((p) => p.active && (p.kind === 'contact' || (p.items && p.items.length)))
         .map((p) => ({ id: p.id, label: p.label, price: p.price, kind: p.kind, game: gameInfo(p.game) ? p.game : 'ff', fields: p.fields || undefined, soldOut: stock.soldOut.has(p.id) })),
@@ -584,7 +587,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     if (!open.ok) return res.status(403).json({ error: open.error });
     const pkg = pkgById(String(req.body?.packageId || ''));
     const playerId = String(req.body?.playerId || '').trim();
-    const method = ['mp', 'paypal', 'card'].includes(req.body?.method) ? req.body.method : '';
+    const method = (SHOP_PAYPAL ? ['mp', 'paypal', 'card'] : ['mp']).includes(req.body?.method) ? req.body.method : '';
     if (!pkg || !pkg.active || pkg.kind === 'contact' || !pkg.items.length) return res.status(400).json({ error: 'Ese paquete no está disponible.' });
     if (!gameOf(pkg).idRe.test(playerId)) return res.status(400).json({ error: gameOf(pkg).idHelp });
     if (!method) return res.status(400).json({ error: 'Elige cómo pagar.' });
@@ -687,7 +690,7 @@ export function mountTiendaRoutes(app, { userFromRequest, requireAdmin } = {}) {
     res.json({
       config: { ...d.config, packages },
       sandbox: recargasApi.isSandbox(),
-      methods: { mp: mpConfigured(), paypal: ppConfigured() },
+      methods: { mp: mpConfigured(), paypal: SHOP_PAYPAL && ppConfigured() },
       paypalCurrency: PP_CURRENCY,
       balance: await currentBalance(0).catch(() => null),
       mailReady: isMailConfigured(),
