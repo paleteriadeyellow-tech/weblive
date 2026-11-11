@@ -1930,28 +1930,45 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (profiles.editMode === 'general') profiles.general = snap;
     else profiles.slots[profiles.active] = snap;
   }
+  // Rendimiento: armar estos ajustes clona TODO y antes se hacía varias veces por cada like/regalo/chat.
+  // Se guardan en caché y se rehacen al cambiar la configuración, el perfil, o cada TRIGGER_CFG_TTL_MS.
+  const TRIGGER_CFG_TTL_MS = 1500;
+  let triggerCfgGen = 0;
+  const triggerCfgCache = { active: null, general: null };
+  function invalidateTriggerCfg() { triggerCfgGen++; }
+  function cachedTriggerCfg(slot, build) {
+    const key = [profiles.editMode, profiles.active, triggerCfgGen].join('|');
+    const c = triggerCfgCache[slot];
+    const now = Date.now();
+    if (c && c.key === key && c.settingsRef === settings && c.generalRef === profiles.general && now - c.at < TRIGGER_CFG_TTL_MS) return c.value;
+    const value = build();
+    triggerCfgCache[slot] = { key, settingsRef: settings, generalRef: profiles.general, at: now, value };
+    return value;
+  }
   function getActiveProfileSettings() {
     // Solo el perfil numerado activo (1, 2, 3…). Nunca otros slots guardados.
-    if (profiles.editMode === 'profile') return attachSharedSettings(resolveProfileSettings(settings));
-    return loadSettings();
+    if (profiles.editMode === 'profile') return cachedTriggerCfg('active', () => attachSharedSettings(resolveProfileSettings(settings)));
+    return cachedTriggerCfg('active', () => loadSettings());
   }
   function getGeneralProfileSettings() {
     // En edición del general, `settings` ya es la copia viva (el guardado en disco puede ir con debounce).
-    if (profiles.editMode === 'general') return attachSharedSettings(resolveProfileSettings(settings));
+    if (profiles.editMode === 'general') return cachedTriggerCfg('general', () => attachSharedSettings(resolveProfileSettings(settings)));
     if (!profiles.general) return null;
-    return attachSharedSettings(resolveProfileSettings(profiles.general));
+    return cachedTriggerCfg('general', () => attachSharedSettings(resolveProfileSettings(profiles.general)));
   }
   function forEachTriggerProfile(run) {
     run(getActiveProfileSettings(), false);
     const g = getGeneralProfileSettings();
     if (g) run(g, true);
   }
-  function saveSettings() {
+  function saveSettings(opts) {
+    if (!(opts && opts.runtime)) invalidateTriggerCfg();
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => { saveSettingsNow(); }, 300);
+    saveTimer = setTimeout(() => { saveSettingsNow({ runtime: true }); }, 300);
   }
   /** Flush inmediato a disco (Reiniciar/Fijar/cierre de app). */
-  function saveSettingsNow() {
+  function saveSettingsNow(opts) {
+    if (!(opts && opts.runtime)) invalidateTriggerCfg();
     clearTimeout(saveTimer);
     saveTimer = null;
     try {
@@ -3753,13 +3770,35 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   // sincronizado aunque un overlay se reconecte o el navegador esté en segundo plano.
   // El tiempo restante se persiste en settings.timer.saved* para sobrevivir reinicios
   // de la app / redeploys en Render.
+  // Rendimiento: guardar el tiempo escribe todos los ajustes. Likes/regalos y el tic de cada segundo
+  // guardan como mucho cada TIMER_SAVE_EVERY_MS; Iniciar/Pausar/Fijar/Reiniciar guardan al instante.
+  const TIMER_SAVE_EVERY_MS = 3000;
+  let timerSaveAt = 0;
+  let timerSaveTimer = null;
+  function saveTimerThrottled() {
+    const wait = TIMER_SAVE_EVERY_MS - (Date.now() - timerSaveAt);
+    if (wait <= 0) {
+      clearTimeout(timerSaveTimer);
+      timerSaveTimer = null;
+      timerSaveAt = Date.now();
+      saveSettingsNow({ runtime: true });
+      return;
+    }
+    if (timerSaveTimer) return;
+    timerSaveTimer = setTimeout(() => {
+      timerSaveTimer = null;
+      timerSaveAt = Date.now();
+      saveSettingsNow({ runtime: true });
+    }, wait);
+    timerSaveTimer.unref?.();
+  }
   function persistTimerState(immediate) {
     if (!settings.timer || typeof settings.timer !== 'object') settings.timer = {};
     settings.timer.savedRemaining = Math.max(0, Math.round(timer.remaining));
     settings.timer.savedRunning = !!timer.running;
     settings.timer.savedAt = Date.now();
-    if (immediate) saveSettingsNow();
-    else saveSettings();
+    if (immediate === 'throttle' || !immediate) { saveTimerThrottled(); return; }
+    saveSettingsNow();
   }
   function restoreTimerFromSettings() {
     const t = settings.timer || {};
@@ -3789,7 +3828,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
   }
   function broadcastTimer(immediate) {
     broadcast('timer', serializeTimer());
-    persistTimerState(!!immediate);
+    persistTimerState(immediate === 'throttle' ? 'throttle' : !!immediate);
   }
   function stopTimerInterval() {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
@@ -3799,7 +3838,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     if (!d || !Number.isFinite(d)) return;
     timer.remaining += d;
     clampTimer();
-    broadcastTimer(true);
+    broadcastTimer('throttle');
   }
   function timerReachZero() {
     stopTimerInterval();
@@ -5562,7 +5601,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     const p = String(photo || '').trim();
     if (!p || settings.tiktokPhoto === p) return;
     settings.tiktokPhoto = p;
-    saveSettings();
+    saveSettings({ runtime: true });
   }
 
   let liveDeviceId = '';
@@ -9389,7 +9428,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
       fl.entries.push(entry);
     }
     if (fl.entries.length > 120) fl.entries = fl.entries.slice(-120);
-    saveSettings();
+    saveSettings({ runtime: true });
     broadcast('fanLevelUp', entry);
     broadcastFanLevelState();
     return entry;
@@ -9682,6 +9721,7 @@ export function createRoom({ id, username: account, roomKey, dataDir, giftsById,
     broadcast('log', { level: 'ok', text: `🛡️ ${who}: ${msg}` });
   }
   function persistSettingsQuick() {
+    invalidateTriggerCfg();
     try { writeJsonAtomic(SETTINGS_FILE, settings); } catch {}
     broadcast('settings', settings);
   }

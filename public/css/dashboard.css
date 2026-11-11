@@ -284,7 +284,8 @@ body {
     0 0 0 2px #3ddc84,
     0 0 8px #3ddc84,
     0 0 16px rgba(61, 220, 132, .85);
-  animation: dockLiveGlow 1.4s ease-in-out infinite;
+  /* Sin parpadeo: animar la sombra repintaba el avatar en cada cuadro durante todo el live
+     (4–5% de CPU del proceso GPU, a 144/165 Hz aún más). El aro verde fijo ya indica «en vivo». */
 }
 @keyframes dockLiveGlow {
   0%, 100% {
@@ -1893,7 +1894,7 @@ img.nav-flyout-ico {
 .tt-live-corner.live .tt-live-corner-dot {
   background: #3ddc84;
   box-shadow: 0 0 8px #3ddc84;
-  animation: ttAccLivePulse 1.4s ease-in-out infinite;
+  /* Fijo (sin latido): una animación infinita obliga a la GPU a dibujar cuadros todo el tiempo (rendimiento en live). */
 }
 @keyframes ttAccLivePulse {
   0%, 100% { transform: scale(1); opacity: 1; }
@@ -4399,7 +4400,7 @@ details.settings-card[open] summary::before { content: 'â–¾ '; }
   color: #140c08;
   background: linear-gradient(90deg, #ffe14d 0%, #ff8a1f 45%, #ff2d55 100%);
   box-shadow: 0 0 0 1px rgba(255, 210, 80, .35), 0 0 14px rgba(255, 100, 40, .4);
-  animation: ovpro-new-pulse 2.4s ease-in-out infinite;
+  animation: ovpro-new-pulse 2.4s ease-in-out 4;
 }
 @keyframes ovpro-new-pulse {
   0%, 100% { transform: scale(1); filter: brightness(1); }
@@ -16521,7 +16522,7 @@ body.er-text-dragging .er-cell-text {
   border-radius: 50%;
   background: #fe2c55;
   box-shadow: 0 0 0 4px rgba(254, 44, 85, .16);
-  animation: panelLivePulse 1.6s ease-in-out infinite;
+  /* Fijo (sin latido): una animación infinita obliga a la GPU a dibujar cuadros todo el tiempo (rendimiento en live). */
 }
 .home-lives-empty strong {
   display: block;
@@ -16894,7 +16895,7 @@ body.er-text-dragging .er-cell-text {
 .panel-lives-dot {
   width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto;
   background: #fe2c55; box-shadow: 0 0 0 3px rgba(254,44,85,.22);
-  animation: panelLivePulse 1.6s ease-in-out infinite;
+  /* Fijo (sin latido): una animación infinita obliga a la GPU a dibujar cuadros todo el tiempo (rendimiento en live). */
 }
 @keyframes panelLivePulse {
   0%, 100% { box-shadow: 0 0 0 3px rgba(254,44,85,.18); opacity: 1; }
@@ -22325,9 +22326,9 @@ body.er-text-dragging .er-cell-text {
   overflow: hidden;
   z-index: 1;
   animation:
-    homeApkGlow 1.8s ease-out infinite,
-    homeSdPulse 1.8s ease-in-out infinite,
-    homeSdFlow 4s linear infinite;
+    homeApkGlow 1.8s ease-out 4,
+    homeSdPulse 1.8s ease-in-out 4,
+    homeSdFlow 4s linear 4;
 }
 .home-apk-promo-btn::after {
   content: '';
@@ -22338,7 +22339,7 @@ body.er-text-dragging .er-cell-text {
   height: 100%;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .6), transparent);
   transform: skewX(-20deg);
-  animation: homeSdShine 2.4s ease-in-out infinite;
+  animation: homeSdShine 2.4s ease-in-out 4;
   pointer-events: none;
 }
 .home-apk-promo-btn .home-sd-promo-btn-ico {
@@ -22409,14 +22410,14 @@ body.er-text-dragging .er-cell-text {
   overflow: hidden;
   z-index: 1;
   animation:
-    homeSdGlow 1.8s ease-out infinite,
-    homeSdPulse 1.8s ease-in-out infinite,
-    homeSdFlow 4s linear infinite;
+    homeSdGlow 1.8s ease-out 4,
+    homeSdPulse 1.8s ease-in-out 4,
+    homeSdFlow 4s linear 4;
 }
 .home-sd-promo-btn-ico {
   flex: none;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4));
-  animation: homeSdBob 1.8s ease-in-out infinite;
+  animation: homeSdBob 1.8s ease-in-out 4;
 }
 .home-sd-promo-btn::after {
   content: '';
@@ -22427,7 +22428,7 @@ body.er-text-dragging .er-cell-text {
   height: 100%;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent);
   transform: skewX(-20deg);
-  animation: homeSdShine 2.4s ease-in-out infinite;
+  animation: homeSdShine 2.4s ease-in-out 4;
   pointer-events: none;
 }
 .home-sd-promo .home-sd-promo-btn:hover {
@@ -25951,7 +25952,7 @@ h1.view-title {
   color: #061018;
   background: linear-gradient(90deg, #25f4ee 0%, #ffe566 55%, #ff6b9d 100%);
   box-shadow: 0 0 14px rgba(37, 244, 238, .55);
-  animation: livemod-badge-pop 1.9s ease-in-out infinite;
+  animation: livemod-badge-pop 1.9s ease-in-out 4;
 }
 @keyframes livemod-subtab-glow {
   0%, 100% {

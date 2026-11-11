@@ -251,7 +251,7 @@
       <h2 id="pkTitle">Elige tu paquete</h2>
       <div class="grid" id="pkDiamonds"></div>
       <div class="extras" id="extrasWrap" hidden>
-        <h2>Pase Booyah y tarjetas <span style="text-transform:none;letter-spacing:0;font-weight:600">Pedido por Discord</span></h2>
+        <h2>Pase Booyah y tarjetas <span id="extDcLbl" style="text-transform:none;letter-spacing:0;font-weight:600">Pedido por Discord</span></h2>
         <div class="ext-grid" id="pkExtras"></div>
       </div>
     </section>
@@ -285,6 +285,7 @@
 </div>
 </main>
 
+<script src="/js/lc-dialog.js?v=1"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -371,7 +372,15 @@ function loadGames() {
 }
 let game = 'ff';
 try { const q = new URLSearchParams(location.search).get('juego'); game = GAMES[q] ? q : (GAMES[localStorage.getItem('tienda-juego')] ? localStorage.getItem('tienda-juego') : 'ff'); } catch {}
-const G = () => GAMES[game];
+const G = () => GAMES[game] || GAMES.ff;
+// La nube puede responder algo incompleto (sin internet, versión vieja): nunca tronar por eso.
+function fixCfg(c) {
+  const o = c && typeof c === 'object' ? c : {};
+  if (!Array.isArray(o.packages)) o.packages = [];
+  if (!Array.isArray(o.games)) o.games = [{ slug: 'ff', name: 'Free Fire', unit: 'diamantes' }, { slug: 'bs', name: 'Blood Strike', unit: 'Gold' }];
+  if (!o.methods || typeof o.methods !== 'object') o.methods = {};
+  return o;
+}
 function setGame(g) {
   if (!GAMES[g] || g === game) return;
   game = g; picked = null; extPicked = null;
@@ -477,8 +486,14 @@ function renderPackages() {
       + scene(n, tierAt(p.price)) + amtHtml(p, n)
       + `<div class="unit">${G().generic ? esc(G().name) : G().unit}</div><div class="price">${mxn(p.price)}</div></div>`;
   }).join('') || '<span class="mut">No hay paquetes disponibles por ahora.</span>';
-  $('pkExtras').innerHTML = ext.map((p) => `<div class="ext${extPicked && extPicked.id === p.id ? ' sel' : ''}" data-ext="${esc(p.id)}" role="button" tabindex="0"><div class="eic"><svg viewBox="0 0 40 40"><use href="#${EXT_ICON(p)}"/></svg></div><div class="t"><div class="n" title="${esc(p.label)}">${esc(p.label)}</div><div class="p">${mxn(p.price)}</div></div>`
-    + `<a href="${esc(cfg.discord)}" target="_blank" rel="noopener" title="Comprar por Discord"><svg><use href="#discord"/></svg></a></div>`).join('');
+  // «contact» = se pide por Discord; «extra» (pases/tarjetas con ID) se compra aquí igual que los diamantes.
+  $('pkExtras').innerHTML = ext.map((p) => {
+    const dc = p.kind === 'contact';
+    const sel = dc ? (extPicked && extPicked.id === p.id) : (picked && picked.id === p.id);
+    return `<div class="ext${sel ? ' sel' : ''}" ${dc ? `data-ext="${esc(p.id)}"` : `data-buy="${esc(p.id)}"`} role="button" tabindex="0"><div class="eic"><svg viewBox="0 0 40 40"><use href="#${EXT_ICON(p)}"/></svg></div><div class="t"><div class="n" title="${esc(p.label)}">${esc(p.label)}</div><div class="p">${mxn(p.price)}</div></div>`
+      + (dc ? `<a href="${esc(cfg.discord)}" target="_blank" rel="noopener" title="Comprar por Discord"><svg><use href="#discord"/></svg></a>` : '') + '</div>';
+  }).join('');
+  $('extDcLbl').hidden = !ext.some((p) => p.kind === 'contact');
   $('extrasWrap').hidden = !ext.length;
 }
 function pick(id) {
@@ -488,10 +503,11 @@ function pick(id) {
 }
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest('.pk[data-id]'); if (el) return pick(el.dataset.id);
+  const eb = ev.target.closest('.ext[data-buy]'); if (eb) return pick(eb.dataset.buy);
   const ex = ev.target.closest('.ext[data-ext]');
   if (ex && !ev.target.closest('a')) { extPicked = cfg.packages.find((p) => p.id === ex.dataset.ext) || null; picked = null; renderPackages(); refreshPay(); }
 });
-document.addEventListener('keydown', (ev) => { const el = ev.target.closest && ev.target.closest('.pk[data-id], .ext[data-ext]'); if (el && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); el.click(); } });
+document.addEventListener('keydown', (ev) => { const el = ev.target.closest && ev.target.closest('.pk[data-id], .ext[data-ext], .ext[data-buy]'); if (el && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); el.click(); } });
 
 const XF_LABEL = { zone_id: 'Zone ID', server_id: 'Servidor' };
 function renderXf() {
@@ -558,8 +574,25 @@ $('check').onclick = async () => {
 document.querySelectorAll('.pay').forEach((b) => b.onclick = async () => {
   if (busy || !picked) return;
   const pid = $('pid').value.trim();
-  if (!confirm(`¿Comprar ${picked.label} por ${mxn(picked.price)} para el ID ${pid}?\n\nRevisa bien el ID: lo que compres se envía a esa cuenta y no se puede regresar.`)) return;
-  busy = true; refreshPay(); msg('payMsg', 'Preparando tu pago…', 'mut');
+  busy = true; refreshPay();
+  // Primero se revisa el ID (y se muestra el nombre de la cuenta) antes de pedir confirmación y abrir el pago.
+  let nick = '';
+  msg('payMsg', 'Verificando el ID…', 'mut');
+  try {
+    const v = await api('/api/tienda/check-id', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid, ...xfValues() }) });
+    nick = (v && v.nickname) || '';
+    verified = pid;
+    msg('idMsg', nick ? `✔ Cuenta: ${nick}` : '✔ ID con formato válido.', 'ok');
+  } catch (e) {
+    msg('idMsg', e.message, 'bad'); msg('payMsg', 'Revisa el ID: no se abrió ningún pago.', 'bad');
+    busy = false; refreshPay(); return;
+  }
+  msg('payMsg', '', 'mut');
+  const ok = await lcConfirm(
+    `ID ${pid}${nick ? ' · Cuenta: ' + nick : ''}\n\nRevisa bien el ID: lo que compres se envía a esa cuenta y no se puede regresar.`,
+    { title: `¿Comprar ${picked.label} por ${mxn(picked.price)}?`, okText: 'Comprar', icon: '💎' });
+  if (!ok) { busy = false; refreshPay(); return; }
+  msg('payMsg', 'Preparando tu pago…', 'mut');
   try {
     const r = await api('/api/tienda/order', { method: 'POST', body: JSON.stringify({ packageId: picked.id, playerId: pid, method: b.dataset.m, ...xfValues() }) });
     if (/Electron/i.test(navigator.userAgent)) {
@@ -575,7 +608,7 @@ document.querySelectorAll('.pay').forEach((b) => b.onclick = async () => {
     }
   } catch (e) {
     msg('payMsg', e.message, 'bad'); busy = false;
-    if (e.soldOut) { try { cfg = await api('/api/tienda/config'); } catch {} renderPackages(); }
+    if (e.soldOut) { try { cfg = fixCfg(await api('/api/tienda/config')); } catch {} renderPackages(); }
     refreshPay();
   }
 });
@@ -612,7 +645,7 @@ document.addEventListener('click', (ev) => { if ($('ordersModal').classList.cont
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') $('ordersModal').classList.remove('on'); });
 
 (async () => {
-  try { cfg = await api('/api/tienda/config'); } catch (e) { $('banner').innerHTML = `<div class="banner">${esc(e.message)}</div>`; document.documentElement.classList.add('ready'); return; }
+  try { cfg = fixCfg(await api('/api/tienda/config')); } catch (e) { $('banner').innerHTML = `<div class="banner">${esc(e.message)}</div>`; document.documentElement.classList.add('ready'); return; }
   const q = new URLSearchParams(location.search);
   let b = '';
   if (!cfg.loggedIn) b = 'Inicia sesión en Livecoins para comprar.';
@@ -632,7 +665,7 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') $('order
 // El panel avisa al volver a la pestaña: se actualizan precios, agotados y compras sin recargar.
 window.addEventListener('message', async (ev) => {
   if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'tienda-refresh' || !cfg) return;
-  try { const keep = picked && picked.id, keepX = extPicked && extPicked.id; cfg = await api('/api/tienda/config'); loadGames(); picked = cfg.packages.find((p) => p.id === keep) || null; extPicked = cfg.packages.find((p) => p.id === keepX) || null; renderPackages(); refreshPay(); } catch {}
+  try { const keep = picked && picked.id, keepX = extPicked && extPicked.id; cfg = fixCfg(await api('/api/tienda/config')); loadGames(); picked = cfg.packages.find((p) => p.id === keep) || null; extPicked = cfg.packages.find((p) => p.id === keepX) || null; renderPackages(); refreshPay(); } catch {}
   loadOrders();
 });
 </script>

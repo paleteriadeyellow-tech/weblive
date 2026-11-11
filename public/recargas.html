@@ -98,6 +98,7 @@
     <div class="list" style="margin-top:10px"><table id="orders"></table></div>
   </div>
 </main>
+<script src="/js/lc-dialog.js?v=1"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -162,7 +163,8 @@ $('validate').onclick = async () => {
 $('buy').onclick = async () => {
   if (!picked || busy) return;
   const f = form();
-  if (!confirm(`¿Comprar "${picked.name}"${f.playerId ? ' para ' + f.playerId : ''}? Se descuenta de tu saldo.`)) return;
+  busy = true;
+  if (!(await lcConfirm('Se descuenta de tu saldo.', { title: `¿Comprar "${picked.name}"${f.playerId ? ' para ' + f.playerId : ''}?`, okText: 'Comprar', icon: '💳' }))) { busy = false; return; }
   busy = true; $('buy').disabled = true; say('Comprando…');
   try {
     const d = await api('/api/admin/recargas/buy', { method: 'POST', body: JSON.stringify(f) });
@@ -189,7 +191,7 @@ async function loadOrders() {
 $('orders').addEventListener('click', async (ev) => {
   const b = ev.target.closest('button[data-o]'); if (!b) return;
   b.disabled = true;
-  try { await api('/api/admin/recargas/orders/' + encodeURIComponent(b.dataset.o)); } catch (e) { alert(e.message); }
+  try { await api('/api/admin/recargas/orders/' + encodeURIComponent(b.dataset.o)); } catch (e) { await lcAlert(e.message, { title: 'No se pudo consultar', icon: '⚠️' }); }
   loadOrders();
 });
 $('hist').onclick = loadOrders;
@@ -245,7 +247,7 @@ $('shopPk').addEventListener('input', (ev) => {
   else p[f] = ev.target.value;
 });
 $('shopPk').addEventListener('change', (ev) => { if (ev.target.dataset.f === 'items' || ev.target.dataset.f === 'price') shopRows(); });
-$('shopPk').addEventListener('click', (ev) => { const b = ev.target.closest('button[data-del]'); if (!b) return; if (confirm('¿Quitar este paquete?')) { shop.config.packages.splice(+b.dataset.del, 1); shopRows(); } });
+$('shopPk').addEventListener('click', async (ev) => { const b = ev.target.closest('button[data-del]'); if (!b) return; if (await lcConfirm('Se quita de la lista (se guarda al pulsar Guardar).', { title: '¿Quitar este paquete?', okText: 'Quitar', icon: '🗑️', danger: true })) { shop.config.packages.splice(+b.dataset.del, 1); shopRows(); } });
 $('shopFx').addEventListener('change', shopRows);
 $('shopAdd').onclick = () => { shop.config.packages.push({ id: 'pk-' + Date.now().toString(36), label: 'Nuevo paquete', price: 100, kind: 'diamonds', game: ($('shopGame').value !== '*' && $('shopGame').value) || 'ff', items: [], active: false }); shopRows(); };
 $('shopSave').onclick = async () => {
@@ -276,9 +278,9 @@ $('shopOrders').addEventListener('click', async (ev) => {
   const r = ev.target.closest('button[data-retry]'); const m = ev.target.closest('button[data-mark]');
   if (!r && !m) return;
   try {
-    if (r) { if (!confirm('¿Reintentar la entrega? Se vuelve a comprar al proveedor lo que falló.')) return; r.disabled = true; await api(`/api/admin/tienda/orders/${r.dataset.retry}/retry`, { method: 'POST' }); }
-    if (m) { const note = prompt('Nota (opcional):', ''); if (note === null) return; await api(`/api/admin/tienda/orders/${m.dataset.mark}/mark`, { method: 'POST', body: JSON.stringify({ status: m.dataset.st, note }) }); }
-  } catch (e) { alert(e.message); }
+    if (r) { if (!(await lcConfirm('Se vuelve a comprar al proveedor lo que falló.', { title: '¿Reintentar la entrega?', okText: 'Reintentar', icon: '🔁' }))) return; r.disabled = true; await api(`/api/admin/tienda/orders/${r.dataset.retry}/retry`, { method: 'POST' }); }
+    if (m) { const note = await lcPrompt('Nota (opcional):', '', { title: 'Marcar pedido', okText: 'Guardar', icon: '📝' }); if (note === null) return; await api(`/api/admin/tienda/orders/${m.dataset.mark}/mark`, { method: 'POST', body: JSON.stringify({ status: m.dataset.st, note }) }); }
+  } catch (e) { await lcAlert(e.message, { title: 'Error', icon: '⚠️' }); }
   loadShop();
 });
 async function loadShop() {
@@ -301,7 +303,7 @@ async function loadShop() {
 $('shopReload').onclick = loadShop;
 $('shopGame').onchange = shopRows;
 $('impGames').onclick = async () => {
-  if (!confirm('Se crean paquetes para todos los juegos del catálogo que se recargan con ID (sin tocar los que ya tienes). Precio = costo × dólar × margen. ¿Continuar?')) return;
+  if (!(await lcConfirm('Se crean paquetes para todos los juegos del catálogo que se recargan con ID (sin tocar los que ya tienes). Precio = costo × dólar × margen.', { title: '¿Importar juegos?', okText: 'Importar', icon: '📦' }))) return;
   $('shopMsg').className = ''; $('shopMsg').textContent = 'Importando…';
   try {
     const r = await api('/api/admin/tienda/import-games', { method: 'POST', body: JSON.stringify({ markup: Number($('impMarkup').value) || 1.4 }) });
